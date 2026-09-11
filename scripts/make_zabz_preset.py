@@ -11,9 +11,16 @@ What changes:
 
 Run from the harness-config repo root:
     python scripts/make_zabz_preset.py
+    python scripts/make_zabz_preset.py --check   # verify, write nothing
+
+GENERATED OUTPUT. `presets/zabz/agent.cordis.yml` is rewritten wholesale from this file.
+NEVER hand-edit that file: a rule that lives only there is deleted the next time anyone
+runs this, which is exactly how persona rules 2b and 2c were lost on 2026-09-11. Put the
+change here and re-run, and use `--check` to catch drift before it costs another one.
 """
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -317,6 +324,14 @@ MCP_ROWS = r"""
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description="Generate presets/zabz from presets/cordis-bg.")
+    ap.add_argument(
+        "--check",
+        action="store_true",
+        help="report whether the committed preset matches this generator; write nothing.",
+    )
+    args = ap.parse_args()
+
     if not SRC.exists():
         print(f"missing source composition: {SRC}", file=sys.stderr)
         return 2
@@ -359,6 +374,32 @@ def main() -> int:
         "  rarely and one at a time, decide the development questions, record decisions,\n"
         "  verify rather than assume, and never report a number without its provenance.\n"
     )
+
+    # `--check` compares bytes, not text -- a line-ending change is drift too -- and writes
+    # nothing. This is what makes a hand edit to the generated file visible, instead of
+    # silently overwritten by the next run.
+    if args.check:
+        expected = {
+            DST: text.encode("utf-8"),
+            DST_DIR / "preset.yml": preset_yml.encode("utf-8"),
+        }
+        drifted = [
+            str(path.relative_to(REPO))
+            for path, want in expected.items()
+            if not path.exists() or path.read_bytes() != want
+        ]
+        if drifted:
+            print("DRIFT: the committed preset does not match this generator:", file=sys.stderr)
+            for name in drifted:
+                print(f"  {name}", file=sys.stderr)
+            print(
+                "Re-run without --check to regenerate -- but move any hand edit into this "
+                "file first, or regeneration deletes it.",
+                file=sys.stderr,
+            )
+            return 1
+        print("zabz: in sync with the generator")
+        return 0
 
     DST_DIR.mkdir(parents=True, exist_ok=True)
     # Write LF explicitly. `.gitattributes` forces `eol=lf` and the live presets under
