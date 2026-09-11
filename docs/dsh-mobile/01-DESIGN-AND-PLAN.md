@@ -251,6 +251,22 @@ for a day; the 50 MB skip that hides large sessions; storing only user messages.
 
 ## Phase 4 — Move the phone's engine to the always-on host
 
+**This was sequenced last for convenience. A live failure has since made it the fix, not an optimisation.**
+See PAIN P23: with the (correct) bridge running on the authority over SSH stdio, a transient Tailscale
+outage turned it into a respawn cycle — every ~30 s a new SSH session and a new `ps_mcp_server.py` process
+**on the company's authoritative host**. Bounded (the client backs off to 30 s and stops after ten failures)
+and self-healing, but load on the company host caused by a client outside it, recurring whenever a
+workstation is on a flaky network.
+
+→ Run the engine **on `secratary`**, where the bridge is a **local stdio child** with no network hop at all.
+The only network element left is the phone's connection to the engine, and if that drops nothing is spawned
+on the host.
+
+**And change the workstation bridge to Streamable HTTP** rather than ssh stdio: `dsh-mcp-client` supports it,
+and its documented behaviour is the discriminator — *"an unreachable HTTP server is retried per call rather
+than respawned by the supervisor"*. An outage then costs failed calls instead of processes. That needs the
+MCP server to serve HTTP (FastMCP supports it) and a small always-on unit beside the API.
+
 The phone should not depend on a laptop being awake. `secratary` already runs Node 20, Python 3.14, the
 secretary API (loopback-fast MCP bridge) — and it is where the archive coordinator lives.
 

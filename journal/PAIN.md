@@ -549,3 +549,47 @@ count. It also compounds: fan-out inside a session that is itself one of twelve 
 **Fix.** Budget subagent breadth per session (the workflow plane already has `maxConcurrentAgents` and
 `maxTotalAgents`; the plain subagent plane has neither), and have the supervisor treat a sudden engine
 tree growth as this symptom. Not built.
+
+---
+
+## P23 — A remote stdio MCP bridge spawns a process on the authority every time the network blinks
+
+**Symptom.** After P22 was fixed by running the secretary bridge **on** `secratary` over SSH stdio, a
+transient Tailscale outage (a few minutes, relay path dead, host up the whole time) turned that bridge into a
+respawn cycle: the Yoga's `ssh.exe` bridge was killed and replaced roughly every 30 seconds, and each cycle
+created an **SSH session and a `ps_mcp_server.py` process on the company's authoritative host**.
+
+**Evidence.** Measured 2026-09-11 18:01–18:04: on the Yoga the `ssh.exe` child of the phone engine had age
+31 s and was replaced repeatedly; on `secratary`, `sshd-session: zabz@notty` ×4 with ages 20–50 s and two
+`ps_mcp_server.py` processes appearing fresh. When the path recovered (`tailscale ping` → pong in 51 ms,
+ssh handshake 1.3 s), the bridge **stabilised immediately** — same pid, age climbing 85 s → 131 s.
+
+**What it is NOT, and this matters because I nearly wrote it down wrongly.** I first attributed an elevated
+load average (5.68) on the authority to this, and that was **false**. The load was a **scheduled snapshot**:
+at `18:00:01` a `tar … -czf personal-secretary-runtime.tgz` with a `gzip` at **81% CPU** was running, and the
+two bridge pythons were at **0.4% CPU each**. Two processes appearing twice a minute cannot produce load 5.7.
+*Rule applied too late:* L51 again — check the claim, not the plumbing. I raised an alarm about my own change
+before looking at `ps` output for what was actually burning CPU.
+
+**Bounded, not runaway** — and this is documented client behaviour, not a defect in the row:
+`dsh-mcp-client` reconnects with delays doubling 500 ms → **30 s ceiling**, keeps the last known tools listed
+during the outage (calls fail rather than disappear), and after **ten consecutive failed attempts** removes
+the tools and stops until the config is reloaded. A server that stays connected resets the counter. So a
+short outage costs ~2 SSH connections and ~2 process spawns per minute, then gives up cleanly.
+
+**Cost.** Small per incident, but it is load on the *authoritative company host caused by a client outside
+it*, invisible to the owner, and it recurs whenever the Yoga is on a flaky network — which is normal for it.
+The deeper cost is architectural: the correct-data fix put a network hop in the critical path of the
+company's own tools.
+
+**Fix, in order.**
+1. **Move the phone's engine onto `secratary`** (Phase 4, already planned) — then the bridge is a **local
+   stdio child** and there is no network hop at all. The only network element left is the phone's connection
+   to the engine, which cannot spawn anything on the host if it drops.
+2. **For workstation sessions, use Streamable HTTP, not ssh stdio.** `dsh-mcp-client` supports a
+   `StreamableHttp` transport, and its documented behaviour is the discriminator: *"an unreachable HTTP server
+   is retried per call rather than respawned by the supervisor."* An outage then costs failed calls, not
+   processes on the server. This needs the MCP server to serve HTTP (FastMCP supports it) and a small
+   always-on unit on the authority — a real but contained piece of work.
+3. Until (1) or (2): know that a network blip from a workstation spawns short-lived processes on the
+   authority. Not dangerous, not silent, but not something to leave in place once the owner depends on it.
