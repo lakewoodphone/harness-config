@@ -391,8 +391,13 @@
 # changes here -- it mines *local* VS Code conversations, and on the server there
 # are none. It is a VS Code-era tool; expect it to return nothing rather than
 # something wrong.
+#
+# WINDOWS ONLY. On the authority itself the bridge must be a LOCAL child -- see the
+# next row. Two rows, two platforms, one serverName; the gates are exclusive so
+# exactly one is ever active.
 - id: mcp-secretary
   name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
   config:
     serverName: secretary
     transport: stdio
@@ -412,6 +417,27 @@
       - 'secretary-ts'
       - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
       - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+
+# LINUX ONLY -- the same 14 tools, run where the data is, as a plain local child.
+#
+# This is the row the always-on engine uses (the one the owner's phone talks to). Because that engine
+# runs *on* the authority, there is no ssh, no network hop, and therefore no way for a network blip to
+# spawn processes on the company host -- which is what PAIN P23 recorded when workstation engines ran
+# the ssh row through a flaky path. It also removes the last dependency on a laptop being awake.
+#
+# Same reasoning as the row above for *why* it runs here; the difference is that here it needs no
+# transport at all.
+- id: mcp-secretary-linux
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'linux'
+  config:
+    serverName: secretary
+    transport: stdio
+    command: /home/zabz/personal-secretary-mvp/.venv/bin/python
+    args:
+      - /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
     toolCallTimeoutMs: 120000
     failOnStartupError: false
 
