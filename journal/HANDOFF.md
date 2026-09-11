@@ -1,3 +1,66 @@
+## 2026-09-11 18:44 · ZABZ-TECH · A regeneration had silently deleted two persona rules, and the plugin layer had no keeper
+
+CHANGED
+- **Restored persona rules 2b and 2c, and moved them INTO the generator** (`981525e`). They are the
+  owner's own words of 2026-09-11 ("i don't review things...", "you don't just flag things for me
+  randomly..."). They existed only in `presets/zabz/agent.cordis.yml`, so the regeneration that added
+  the decision-queue rule (`f2b6453`) deleted them as collateral and nothing noticed. Any rule that
+  lives only in a generated file has that lifetime; these now live in `scripts/make_zabz_preset.py`.
+- **`make_zabz_preset.py --check`** (`48f3885`): compares the committed outputs byte-for-byte and
+  exits 1 on drift, so a hand edit to the generated file is reported rather than silently
+  overwritten. Verified three ways: in sync gives 0; a plain regenerate gives no diff at all; a
+  simulated hand edit is reported as DRIFT with its path and exit 1. The module docstring now states
+  that the preset is generated output and must not be hand-edited.
+- **Line endings:** the writer used Python's default text mode, so every generation produced a
+  whole-file CRLF diff and left `preset.yml` permanently dirty, against the `.gitattributes` rule of
+  `eol=lf`. Both writes now pass `newline`.
+- **`scripts/install-client-plugins.ps1`** - a keeper for the local plugin packages, on D38's
+  reasoning ("a component that can silently disappear needs a keeper, not a procedure"). It installs
+  each package as a **directory junction** to the checkout rather than a copy, so an edit here is
+  live without a reinstall and the two cannot drift.
+- README: the deploy steps now include the package install, and the plugin section names all three
+  packages instead of only `plugin-cost`.
+
+IN FLIGHT
+- The keeper has been run in `-Check` only. `-Apply` changes how the running fleet resolves its
+  plugins and needs a profile reload or engine restart, so it was deliberately not done to a live
+  fleet.
+
+BROKEN (found this session, not yet fixed)
+- **Two engines on one DSH_HOME.** `pid 44040` `dsh web` since 11:29:40 (port 3080) and `pid 22460`
+  `dsh web --port 3099` since 16:52:45 (the `windows.json` primary). `_modes.multi` calls this the
+  configuration that "has been observed writing duplicate sequence numbers into one session log and
+  making the whole history unloadable".
+- **The engine on 3080 has none of the plugin layer** - it predates the 15:30 install. Proven from
+  the live slot registry, with a positive control: `conversation.session.header.actions` has its two
+  expected occupants (`agent-preset`, `job-list`), while `conversation.composer.dock` has only the
+  shipped `stats` - no `new-session-here`, no `new-session-window`. So no `/cost`, no `+`/`+`
+  controls and no 15 s heartbeat patch on that engine.
+- **The keeper's check against the live profile:** `dsh-plugin-cost` COPY, `dsh-plugin-windows` COPY,
+  `dsh-plugin-mobile` MISSING and absent from the bundle list - 3 of 3 need repair. A copy drifts
+  silently; a junction cannot.
+- `multi-window/dshw.ps1` contains **zero** references to `plugin`, so `dshw doctor` reports none of
+  this and the deploy path cannot notice it either.
+- `tool-cordis` stays disabled in `zabz` and `cordis-bg`. The package exposes **no `Config`**, so its
+  process-global Cordis inspect providers cannot be turned off independently of its tools, which
+  makes any two presets containing that row mutually exclusive per process. Which preset should own
+  the creation toolset is the owner's call, recorded here rather than guessed.
+
+NEXT
+- Run `pwsh scripts/install-client-plugins.ps1` and restart the fleet engine, then retire the stray
+  3080 engine so that one DSH_HOME has one writer. Both are engine-lifecycle actions on a live
+  machine, so they are the owner's to time.
+
+EVIDENCE
+- `git log`: `981525e`, `48f3885`; `git show f2b6453 -- presets/zabz/agent.cordis.yml` shows the
+  deletion of 2b/2c inside a commit whose message is only about the owner decision queue.
+- `pwsh scripts/install-client-plugins.ps1 -Check` -> 3 x NEEDS FIX, exit 1.
+- slot read: `conversation.composer.dock` occupants = `[stats]`;
+  `conversation.session.header.actions` occupants = `[agent-preset, job-list]`.
+- `Get-NetTCPConnection` + `Win32_Process`: 3080 -> pid 44040 (started 11:29:40); 3099 -> pid 22460
+  (started 16:52:45).
+- `~/.dsh/multi-window/logs/3099-20260911-154536.err.log`: `cannot resolve profile bundle
+  "dsh-plugin-cost"`.
 # HANDOFF — state of play, newest first
 
 **Rule:** newest entry at the top. Every session that changed anything writes one before ending.

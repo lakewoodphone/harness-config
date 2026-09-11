@@ -118,16 +118,21 @@ them.
 
 ### Deploying the fleet to another machine
 
-Four steps, in this order. Run `dshw doctor` and read what it says.
+In this order. Run `dshw doctor` and read what it says.
 
 ```sh
-git pull                    # in the harness-config checkout on that machine
-python scripts/sync.py      # presets, settings, and the profile patch layer
-dshw doctor                 # names anything missing (node, dsh bin, browser, DSH_HOME)
-dshw up                     # start the engine if it is not listening, open the windows
-dshw autostart on           # bring the windows back at logon
-dshw watchdog on            # restart a dead engine every 5 minutes
+git pull                                  # in the harness-config checkout on that machine
+python scripts/sync.py                    # presets, settings, and the profile patch layer
+pwsh scripts/install-client-plugins.ps1   # the local plugin packages; sync.py does not install these
+dshw doctor                               # names anything missing (node, dsh bin, browser, DSH_HOME)
+dshw up                                   # start the engine if it is not listening, open the windows
+dshw autostart on                         # bring the windows back at logon
+dshw watchdog on                          # restart a dead engine every 5 minutes
 ```
+
+The third step is the one that was missing, and its absence is silent: `sync.py` restores
+presets and settings but installs no packages, so the engine starts and then refuses to
+resolve a bundle its own `package.json` still lists.
 
 The two scheduled tasks can be carried across rather than re-created, which guarantees the second machine
 gets exactly the first one's configuration:
@@ -150,12 +155,35 @@ the fleet's engine first (`dshw stop`), or accept two writers.
 
 ### Plugin packages
 
-A package under `packages/` is installed into a DSH profile by `file:` path, so it is
-version-controlled here and mounted from a checkout rather than hand-edited into
-`node_modules`. `plugin-cost` is the first one; see
-[`packages/plugin-cost/README.md`](packages/plugin-cost/README.md) for what it does, how to
-install it, and how to verify it. `sync.py` does not install packages — installing is a
-profile operation, not a `~/.dsh` copy.
+There are three, all mountable client plugins: `plugin-cost` (the `/cost` command and the
+composer cost pill), `plugin-mobile` (the phone drawer; `scripts/serve-phone.sh` keeps it
+installed), and `plugin-windows` (the `+` and `⧉` controls beside the composer).
+
+`sync.py` does **not** install packages, and the profile's own `package.json` — the bundle
+list the loader mounts — is machine-local and not in git. A package is therefore invisible
+to a machine rebuilt from this repo unless something installs it. That is not hypothetical:
+on 2026-09-11 the fleet engine refused to boot with
+
+```
+Error: dsh: cannot resolve profile bundle "dsh-plugin-cost" from the dsh
+installation or C:\Users\ezabz\.dsh\profiles\web
+```
+
+and `plugin-windows` had to be copied into the profile by hand twice from another session.
+
+The keeper is `scripts/install-client-plugins.ps1`, on the same reasoning as D38 — a
+component that can silently disappear needs a keeper, not a procedure:
+
+```powershell
+pwsh scripts/install-client-plugins.ps1 -Check   # report only; exit 1 if anything is wrong
+pwsh scripts/install-client-plugins.ps1          # install/repair, idempotent
+```
+
+It installs each package as a **directory junction** to this checkout rather than a copy, so
+an edit here is live without a reinstall and the two cannot drift. A junction rather than a
+symlink, because Windows grants symlink creation only to an elevated shell or Developer
+Mode. A bundle-list change needs the profile reloaded — usually a page reload, otherwise an
+engine restart.
 
 Merge rule: **base, then machine delta.** A key in the machine file wins.
 
