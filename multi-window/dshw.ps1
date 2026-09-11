@@ -262,6 +262,14 @@ function Get-Descendants([int]$rootPid) {
 }
 
 function Stop-ServerTree([int]$port, $record, $table = $null) {
+    # A transient task may still exist if a launch failed midway; drop it first so nothing
+    # can resurrect the engine while we are stopping it.
+    $taskName = "DSH Engine (port $port)"
+    $task = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    if ($task) {
+        Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+    }
     # NEVER name a variable $pid or $pids here: PowerShell's $PID is the CURRENT process
     # id and is read-only, so `$pids = @()` throws and the function dies before stopping
     # anything (found 2026-09-11 - it silently broke `dshw restart`).
@@ -297,7 +305,8 @@ function Get-ServerInvocation($slotCfg) {
     $err  = Join-Path $LogDir "$port-$stamp.err.log"
     $cwd  = if ($slotCfg.workspace -and (Test-Path $slotCfg.workspace)) { $slotCfg.workspace } else { (Get-Location).Path }
     return [pscustomobject]@{ node = $node; bin = $bin; port = $port; log = $log; err = $err; cwd = $cwd
-                              latest = (Join-Path $LogDir "$port.log") }
+                              latest = (Join-Path $LogDir "$port.log")
+                              taskName = "DSH Engine (port $port)" }
 }
 
 # Keep a stable <port>.log as the "latest" pointer for `dshw logs`, without ever touching a
@@ -313,23 +322,65 @@ function Update-LatestLog($inv) {
     } catch { }
 }
 
+# Launch one engine through Task Scheduler and return its pid.
+#
+# WHY NOT Start-Process. A child started directly by this script dies with the job object
+# that owns it. Measured 2026-09-11: an engine started by Start-Process from an agent shell
+# ran ~110 s and then vanished the moment the parent command finished, which made every
+# launch look like a timeout with the engine "up" the whole time. A process created by Task
+# Scheduler belongs to no job of ours, so it survives the caller, the shell, and this
+# session. The transient task is removed as soon as the port is bound; the engine stays.
+function Start-EngineDetached($inv, [int]$timeoutSeconds) {
+    $mustUnregister = $false
+    $existing = Get-ScheduledTask -TaskName $inv.taskName -ErrorAction SilentlyContinue
+    if (-not $existing) {
+        $action = New-ScheduledTaskAction -Execute $inv.node `
+            -Argument "`"$($inv.bin)`" web --port $($inv.port) --no-open" `
+            -WorkingDirectory $inv.cwd
+        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+        $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+            -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+        Register-ScheduledTask -TaskName $inv.taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+        $mustUnregister = $true
+    }
+    Start-ScheduledTask -TaskName $inv.taskName
+
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+    $pid_ = $null
+    $url = $null
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 500
+        if (-not $pid_) {
+            $owner = Get-PortOwner $inv.port
+            if ($owner) { $pid_ = $owner.Id }
+        }
+        if (Test-Path $inv.log) {
+            $text = Read-NewLog $inv.log 0
+            if ($text) {
+                $m = [regex]::Match($text, 'dsh web:\s*(\S+)')
+                if ($m.Success) { $url = $m.Groups[1].Value }
+            }
+        }
+        if ($pid_ -and $url) { break }
+    }
+
+    if ($mustUnregister) {
+        # the engine is its own process now; this task only ever existed to create it
+        Unregister-ScheduledTask -TaskName $inv.taskName -Confirm:$false -ErrorAction SilentlyContinue
+    }
+    if (-not $pid_) { throw "engine on port $($inv.port) never bound the port (see $($inv.log))" }
+    if (-not $url) {
+        $tail = if (Test-Path $inv.err) { (Get-Content -LiteralPath $inv.err -Tail 10) -join ' | ' } else { '(no stderr)' }
+        throw "engine on port $($inv.port) bound the port but never printed its URL (see $($inv.log)) :: $tail"
+    }
+    return [pscustomobject]@{ pid = $pid_; url = $url }
+}
+
 function Start-SlotServer($slotCfg) {
     $inv = Get-ServerInvocation $slotCfg
     if (Test-PortInUse $inv.port) { throw "port $($inv.port) already in use" }
-    $p = Start-Process -FilePath $inv.node -ArgumentList @($inv.bin, 'web', '--port', "$($inv.port)", '--no-open') `
-            -WorkingDirectory $inv.cwd -WindowStyle Hidden -PassThru `
-            -RedirectStandardOutput $inv.log -RedirectStandardError $inv.err
-
-    $url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $p $inv.port
-    if (-not $url) {
-        if ($p.HasExited) {
-            $tail = if (Test-Path $inv.err) { (Get-Content -LiteralPath $inv.err -Tail 15) -join "`n" } else { '(no stderr)' }
-            throw "server on port $($inv.port) exited with code $($p.ExitCode). stderr tail:`n$tail"
-        }
-        throw "server on port $($inv.port) did not report a URL within $($Cfg.server.startTimeoutSeconds)s (see $($inv.log))"
-    }
-
-    return [pscustomobject]@{ pid = $p.Id; url = $url; log = $inv.log; err = $inv.err
+    $r = Start-EngineDetached $inv ([int]$Cfg.server.startTimeoutSeconds)
+    return [pscustomobject]@{ pid = $r.pid; url = $r.url; log = $inv.log; err = $inv.err
                               workspace = $inv.cwd; startedAt = (Get-Date).ToString('o') }
 }
 
@@ -544,24 +595,28 @@ function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'no') {
     $failed = @()
     if ($toStart.Count -gt 0) {
         $sw = [Diagnostics.Stopwatch]::StartNew()
-        $results = Start-SlotServerParallel $toStart
-        $sw.Stop()
+        # SEQUENTIAL on purpose. The parallel path (Start-SlotServerParallel) launches one
+        # helper process per engine and waits on readiness files; it was built for the
+        # abandoned "one engine per window" design and it hung twice on 2026-09-11 - the
+        # engine came up and wrote its state, but the launcher never returned, so the
+        # command timed out while the server was fine. With ONE engine per machine there is
+        # nothing to parallelise, so the direct path is both simpler and honest.
         foreach ($slot in $toStart) {
             $port = [int]$slot.port
-            $r = $results["$port"]
-            if (-not $r -or $r.error) {
-                $msg = if ($r -and $r.error) { $r.error } else { 'no result from launcher child' }
-                $failed += "port ${port}: $msg"
-                Write-Host ("  [FAIL] port {0,-5} {1}" -f $port, $msg) -ForegroundColor Red
-                continue
+            try {
+                $r = Start-OneSlotServer $slot
+                Set-SlotRecord $state $port ([pscustomobject]@{
+                    pid = $r.pid; url = $r.url; log = $r.log; workspace = $r.workspace
+                    startedAt = $r.startedAt; label = $slot.label; profile = $slot.profile
+                })
+                Save-State $state
+                Write-Host ("  [up]   port {0,-5} pid {1,-7} {2}" -f $port, $r.pid, $slot.label) -ForegroundColor Green
+            } catch {
+                $failed += "port ${port}: $($_.Exception.Message)"
+                Write-Host ("  [FAIL] port {0,-5} {1}" -f $port, $_.Exception.Message) -ForegroundColor Red
             }
-            Set-SlotRecord $state $port ([pscustomobject]@{
-                pid = $r.pid; url = $r.url; log = $r.log; workspace = $r.workspace
-                startedAt = $r.startedAt; label = $slot.label; profile = $slot.profile
-            })
-            Write-Host ("  [up]   port {0,-5} pid {1,-7} {2}" -f $port, $r.pid, $slot.label) -ForegroundColor Green
         }
-        Save-State $state
+        $sw.Stop()
         Write-Host ("  (started {0} server(s) in {1}s)" -f ($toStart.Count - $failed.Count), [math]::Round($sw.Elapsed.TotalSeconds, 1))
     }
 
@@ -743,14 +798,14 @@ function Invoke-Health {
         (Get-Date -Format o), $missing.Count, (($missing | ForEach-Object { $_.port }) -join ',') |
         Add-Content -LiteralPath $healthLog -Encoding utf8
 
-    $results = Start-SlotServerParallel $missing
+    # Sequential, for the same reason as `up`: one engine per machine, and the parallel
+    # helper process path proved unreliable (it hung while the engine itself came up fine).
     foreach ($slot in $missing) {
         $port = [int]$slot.port
-        $r = $results["$port"]
-        $inv = Get-ServerInvocation $slot
-        Update-LatestLog $inv
-        if (-not $r -or $r.error) {
-            $msg = if ($r -and $r.error) { $r.error } else { 'no result' }
+        try {
+            $r = Start-OneSlotServer $slot
+        } catch {
+            $msg = $_.Exception.Message
             Write-Host ("  [FAIL] port {0,-5} {1}" -f $port, $msg) -ForegroundColor Red
             "[{0}] health: port {1} restart FAILED: {2}" -f (Get-Date -Format o), $port, $msg |
                 Add-Content -LiteralPath $healthLog -Encoding utf8
