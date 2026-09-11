@@ -36,10 +36,11 @@ EVIDENCE    files, commits, or commands that prove the above
   `dsh.profile.bundles` in `~/.dsh/profiles/web/package.json`.
 
 **VERIFIED — measured, not assumed**
-- **The totals reconcile with the harness.** `node lib/validate.mjs --verbose` replays the harness's own
-  `tokenUsage` projection over every session log here: **15/15 logs, our total == the GUI's total, zero
-  differences.** This is the check that matters, because the footer's number and ours are now the same
-  quantity by construction.
+- **The totals reconcile with the harness.** `node lib/validate.mjs --verbose` and
+  `node test/analyze.test.mjs` replay the harness's own `tokenUsage` projection over every
+  session log here: **24/24 logs, our total == the GUI's total, zero differences** (56/56
+  assertions). This is the check that matters, because the footer's number and ours are now
+  the same quantity by construction.
 - **The arithmetic is exact.** Integer micro-dollars, so `sum(turns) === session` exactly (asserted on
   every log); the peak-rate upper bound is never below the actual cost; an unpriced route returns
   `undefined` rather than a neighbour's rate.
@@ -77,6 +78,9 @@ EVIDENCE    files, commits, or commands that prove the above
   is not done.** A log scanner for key-shaped strings is not built.
 - `dsh-cost` carries a **copy** of the rate card next to the authoritative one. `pricing-drift.mjs`
   detects divergence (exit 1) but nothing runs it on a schedule, so this is manual, like `sync.py` (P8).
+- `~/code/dsh-cost` is **not a git repo** — it is local to ZABZ-YOGA, while the plugin that matters is
+  version-controlled here and on the remote. That asymmetry is deliberate for now and is the first thing
+  to fix if the fleet should have this on every machine.
 - Pre-2026-09-10 sessions cannot be repriced from primary sources — that rate card is gone from the
   pricing page. Anything before that is priced with today's card and is an estimate.
 
@@ -87,12 +91,14 @@ sentinel has — a rate card that silently becomes two rate cards is exactly the
 the checker already exists.
 
 **EVIDENCE**
-- projection agreement: `node lib/validate.mjs --cwd C:\Users\ezabz\code --verbose` → 15/15, 0 differ
+- projection agreement: `node dsh-cost/test/analyze.test.mjs` → 24/24 logs, 56/56 checks
 - plugin suite: `node harness-config/packages/plugin-cost/test/verify.mjs` → ALL CHECKS PASSED
 - live model list: `node dsh-cost/lib/probe-models.mjs deepseek` → HTTP 200, 2 ids
-- money: `node dsh-cost/lib/cli.mjs session <log>` → `$1.36` upper `$2.19`; `list` → `$2.20` across 17
+- money: `node dsh-cost/lib/cli.mjs session <log>` → `$1.36` upper `$2.19`; `list` → **`$2.96` grand
+  total across all 24 session logs on this machine**
 - card sources: `packages/plugin-cost/pricing.json` (DeepSeek pricing page, DeepInfra model pages)
 - install state: `~/.dsh/profiles/web/package.json` lists the dependency **and** the bundle
+- commit: `f349b05` pushed to `secretary-ts:/home/zabz/harness-config.git`
 
 ---
 
