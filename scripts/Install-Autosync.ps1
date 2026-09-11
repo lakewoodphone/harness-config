@@ -55,10 +55,35 @@ $every = New-ScheduledTaskTrigger -Once -At (Get-Date).Date.AddMinutes(2) `
 # that reboots is corrected within two minutes of someone logging in rather than at the next quarter hour.
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
   -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
-$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($atLogon, $every) `
-  -Settings $settings -Principal $principal -Force | Out-Null
+# Resolve the interactive user robustly. Over SSH, $env:USERDOMAIN and $env:USERNAME can be missing or
+# unset, and Register-ScheduledTask then fails with "No mapping between account names and security IDs
+# was done" — which is how the desktop install failed the first time. Try every form we can obtain.
+$userCandidates = @()
+try { $userCandidates += [System.Security.Principal.WindowsIdentity]::GetCurrent().Name } catch { }
+if ($env:USERDOMAIN -and $env:USERNAME) { $userCandidates += "$env:USERDOMAIN\$env:USERNAME" }
+if ($env:COMPUTERNAME -and $env:USERNAME) { $userCandidates += "$env:COMPUTERNAME\$env:USERNAME" }
+try { $w = (& whoami 2>$null); if ($w) { $userCandidates += $w.Trim() } } catch { }
+$userCandidates = @($userCandidates | Where-Object { $_ -and $_ -match '\\' } | Select-Object -Unique)
+
+if (-not $userCandidates) { throw 'could not determine the current user account for the scheduled task' }
+
+$registered = $false
+$lastErr = $null
+foreach ($u in $userCandidates) {
+  try {
+    $principal = New-ScheduledTaskPrincipal -UserId $u -LogonType Interactive -RunLevel Limited
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($atLogon, $every) `
+      -Settings $settings -Principal $principal -Force | Out-Null
+    Say ("installed as user {0}" -f $u)
+    $registered = $true
+    break
+  } catch {
+    $lastErr = $_.Exception.Message
+    Say ("  user '{0}' did not resolve: {1}" -f $u, $lastErr)
+  }
+}
+if (-not $registered) { throw "could not register the task for any candidate account. Last error: $lastErr" }
 
 $info = Get-ScheduledTask -TaskName $taskName
 Say ("installed {0}  state={1}  every {2} min + at logon" -f $taskName, $info.State, $IntervalMinutes)
