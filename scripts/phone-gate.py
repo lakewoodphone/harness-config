@@ -218,7 +218,7 @@ def complete_login(engine_port: int, first: bytes, token: str, path: str) -> byt
         if status_of(document) != 200:
             note(f"  signed-in fetch answered {status_of(document)}; relaying the exchange instead")
             return None
-        document = inject_mobile(document)
+        document = with_mobile_layer(document)
         note(f"  -> signed in in flight, returning {len(document)} bytes with {len(cookies)} cookie(s)")
         return inject_headers(document, cookies)
     except OSError as exc:
@@ -254,6 +254,55 @@ def inject_mobile(document: bytes) -> bytes:
     if at < 0:
         return document
     return document[:at] + tag + document[at:]
+
+
+def dechunk(body: bytes) -> bytes:
+    """Unwrap chunked transfer encoding. Returns the input unchanged if it is not chunked."""
+    out = b""
+    rest = body
+    while True:
+        nl = rest.find(b"\r\n")
+        if nl < 0:
+            return body if not out else out
+        size_text = rest[:nl].split(b";")[0].strip()
+        if not size_text or any(c not in b"0123456789abcdefABCDEF" for c in size_text):
+            return body if not out else out
+        size = int(size_text, 16)
+        if size == 0:
+            return out
+        start = nl + 2
+        out += rest[start:start + size]
+        rest = rest[start + size + 2:]
+
+
+def reframe(response: bytes, body: bytes) -> bytes:
+    """Rebuild a response so its framing matches the bytes actually being sent.
+
+    Measured the hard way on 2026-09-11: the engine serves the document chunked, so a
+    stylesheet inserted into it corrupted the chunk sizes and every client got
+    IncompleteRead. Content-Length is recomputed here and chunked framing is dropped,
+    because after this the body is a known, complete byte string.
+    """
+    head, sep, _ = response.partition(b"\r\n\r\n")
+    if not sep:
+        return response
+    lines = [ln for ln in head.split(b"\r\n")
+             if not ln.lower().startswith(b"transfer-encoding:")
+             and not ln.lower().startswith(b"content-length:")]
+    lines.insert(1, b"Content-Length: " + str(len(body)).encode())
+    return b"\r\n".join(lines) + b"\r\n\r\n" + body
+
+
+def with_mobile_layer(response: bytes) -> bytes:
+    """A 200 document, de-chunked, with the phone layer in it, correctly framed."""
+    if status_of(response) != 200:
+        return response
+    head, sep, raw = response.partition(b"\r\n\r\n")
+    if not sep:
+        return response
+    body = dechunk(raw) if b"transfer-encoding: chunked" in head.lower() else raw
+    body = inject_mobile(body)
+    return reframe(response, body)
 
 
 def read_response_head(sock: socket.socket, limit: int = 65536, timeout: float = 20.0) -> bytes:
@@ -422,7 +471,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
                     return
                 note("  -> sign-in did not complete; relaying the engine's answer")
             if status == 200:
-                response = inject_mobile(response)
+                response = with_mobile_layer(response)
             if response:
                 client.sendall(response)
             client.close()
