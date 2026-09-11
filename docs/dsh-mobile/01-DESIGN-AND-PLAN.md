@@ -67,6 +67,17 @@ Folding that record into the CEO kernel's sentinel is the natural next step (Pha
 
 ### 2a. Transport: Tailscale Serve in front of loopback
 
+**Prerequisite — one owner action, verified 2026-09-11.** Serve is a tailnet-level feature and is
+**not enabled on this tailnet**. `tailscale serve --bg 3099` answers:
+
+> `Serve is not enabled on your tailnet. To enable, visit: https://login.tailscale.com/f/serve?node=<nodeid>`
+
+That link is account-scoped, so **only the owner can click it**; no CLI can enable it. Everything else in
+Phase 2a is already proven, so this single click unblocks the phase. Until it is enabled, the same design
+still works through an SSH tunnel for manual testing, but not for a phone. The design was otherwise
+verified end to end with `Host`-header probes and, before that, six authenticated `curl` probes
+(`00-RESEARCH.md` §2).
+
 ```
 iPhone  ──Tailscale──▶  https://<host>.<tailnet>.ts.net   (Tailscale Serve, TLS)
                               │  preserves Host
