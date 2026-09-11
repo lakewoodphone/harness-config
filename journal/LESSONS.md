@@ -1100,3 +1100,34 @@ than trusting an exit code, and prefer a verification that reads the far side (`
 The whole point of probe check 11 is that it fails when the phone silently loses its plugin. It could not fail: it did not
 exist on the machine that runs it. The count (11 vs 12) is the only reason I noticed. *Rule:* when adding a check, prove it
 by running it on the host that will run it, and read its line in the output — never infer it from a green summary.
+
+**L146 · 2026-09-11 · A lowercase `grep` on `.env` certifies an absence that is not there.**
+Asked to confirm tonight's Shabbat automation was configured, I ran `grep "shabbat" ~/personal-secretary-mvp/.env`
+and got nothing — and was one sentence from telling the owner the automation was unconfigured on the night it
+mattered most. The file contains `SHABBAT_AUTOMATION_ENABLED=true` and `SHELLY_PLUG_HOST=192.168.50.103`. Env keys
+are upper-case by convention; a case-sensitive pattern over a settings file is not a search, it is a coin flip.
+*Rule:* always `grep -i` for settings, and never report a negative ("not configured", "not set", "no such entry")
+from a single pattern — re-run with `-i` or read the section before believing an absence.
+*Cost:* one nearly-published false statement about a security system, on Erev Rosh Hashana.
+
+**L147 · 2026-09-11 · Verify the device the code actually actuates, not the entity whose name matches it.**
+`shabbat_interior_lock_entity = lock.0x002446fffd0a4705` reads like the interior door, and I read that entity
+(and watched it) as proof the pre-power-down unlock would work. The code never touches it: `unlock_interior_door()`
+publishes MQTT `{"state_l4":"OFF"}` to `zigbee2mqtt/Smart Switch/set`, which is HA entity `switch.smart_switch_l4`.
+The config key is dead, and the named lock is a different physical device (the Kwikset apartment deadbolt) that
+stays `locked` through the whole power-down. Had the fallback fired on my first check it would have acted on the
+wrong door. *Rule:* for anything safety-relevant, follow the call to the wire — read the function, then assert on
+the exact entity or topic it publishes to — and treat a config key the code never reads as a lie with a friendly
+name. *Cost:* the first version of tonight's watchdog watched a dead entity; caught only by reading the source.
+
+**L148 · 2026-09-11 · Never ask the owner for a fact that is already written down.**
+He sent a photo of a young woman and said "that's my wife", and offered a photo of himself. I replied by asking
+**her name**. It was on disk the whole time: `docs/family/2026-08-19-yitz-engagement.md` line 28 ("Eliyahu's wife
+is ALSO named Yocheved ('Dr Yocheved' in the chat)") and `docs/wedding/aygestin-after-effects.md` ("Yocheved
+('Cheved') — wife of Eliyahu Zabrowsky", married 2026-08-16). He answered: *"You should know her name already
+that was a bad question."* He is right, and the cost is not the wording — it is that a question spent on a lookup
+is a question not spent on a decision only he can make, and it reads as an agent that does not hold his context.
+*Rule:* before asking him anything factual about a person, place, device, account or number, search
+`personal-secretary-mvp/docs/{family,wedding,handoff}` + `journal/` + the `contacts` table, and keep the answer in
+`journal/reference/people.md` so the lookup is never needed twice. Ask him only what is genuinely his: money,
+customers, legal posture, family, taste, and anything irreversible.
