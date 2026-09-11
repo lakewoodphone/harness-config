@@ -349,3 +349,33 @@ Reading the credential store, I failed to resolve a ref and threw ``record <id> 
 easiest place for a secret to escape, because it is written to be read.
 *Rule:* credential-handling code may print lengths and booleans and nothing else; the failure path is
 part of the code that has to be designed, not the afterthought.
+
+---
+
+## On reading other people's systems (Home Assistant, 2026-09-11)
+
+**L45 · Count the artefacts, not the complaints.**
+The first version of the Home Assistant audit declared the camera evidence path "fails on every
+trigger" because the log held 365 snapshot errors. It does not: `/config/www/snapshots` held **3034
+JPEGs**, written continuously — 146 on 08-31, 98 on 09-10, **52 that same day**, including a 319 KB
+control-room still 20 minutes before I wrote the claim. The errors were real; the conclusion was wrong.
+*Mechanism:* a script failing in a retry loop collapses into one loud signature, and the loud signature
+drowns out the quiet successes. The log lists what is *complaining*; the output lists what is *working*.
+*Rule:* for any "is this pipeline working?" question, inventory the artefacts first and read the log
+second, and report both counts together — the pair is the finding, and either alone is a misreading
+waiting to happen.
+*Cost:* I told the owner his security system could not produce evidence at all. Corrected within the
+hour, in the document itself, with the correction left visible rather than the claim quietly edited.
+
+**L46 · A port mismatch reads exactly like a dead machine.**
+`ha-config`'s scripts default to SSH port 22. The Home Assistant host's SSH add-on listens on **2222**,
+and tcp/22 refuses. So `check.ps1`, `deploy.ps1`, `backup.ps1` and the inventory scripts had *never*
+run — not because the host was down but because they knocked on the wrong door — and "connection
+refused" reads as an outage to anyone who takes it at face value. I then made the same mistake in
+reverse: concluding "SSH is closed, so the toolchain is blocked" and writing it into a delivered audit
+before probing a handful of neighbouring ports.
+*Rule:* before declaring a host unreachable, probe the neighbouring ports and read the banner. Four
+`/dev/tcp` checks take ten seconds. This is L37 applied to ports instead of devices.
+*Cost:* a wrong section in a delivered document, and a wrong question to the owner — the question he
+answered with "you are in charge, you make the decisions", which is not the answer a good question
+should have produced.
