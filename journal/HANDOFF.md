@@ -16,31 +16,34 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ## 2026-09-11 · ZABZ-YOGA · Built the conversational CEO and its memory
 
-**CHANGED**
-- Authored the `zabz` preset — the CEO that replaces Copilot. Persona written from the measured
-  analysis of 23,035 owner turns, plus the full toolbelt and the secretary MCP bridge.
-  Mount-validated: `mounted OK: zabz`.
-- Built `ceo-kernel` Phase 1: provenance layer, sourced readers, and a sentinel that detects
-  outcome collapses. Verified against the live authoritative database.
-- Established `harness-config` as the single source of truth for presets and settings, with a git
-  remote on `secratary` and a sync tool. Applied on both workstations; converged.
-- Turned on the background-first shell preset `cordis-bg`, which the desktop had authored and never
-  switched on.
-- Created this journal.
+**VERIFIED STATE (both workstations, checked not assumed)**
+- `zabz` is the default preset on **ZABZ-YOGA and ZABZ-TECH**; second sync run on each is fully clean.
+- Model is **`deepseek-flash`** on both (reverted; see the correction below).
+- `zabz` is **25 rows**: full toolbelt + background-first shell policy + **6 MCP bridges**
+  (secretary, firecrawl, jina, context7, fetch, playwright).
+- Mount validation: **`mounted OK: zabz`**.
+- **The MCP servers genuinely spawn** — proven by process tree, not assumption. DSH pid 11744 had
+  children running `ps_mcp_server.py`, `mcp_launcher.py`, `mcp-fetch-server` and the Playwright MCP.
+- `ceo-kernel` Phase 1 runs on `secratary` and its sentinel found two things manual analysis missed.
 
-**CHANGED, THEN REVERTED — read this before touching model settings**
+**CHANGED, THEN REVERTED — read before touching model settings**
 The default model was briefly switched to `deepseek-v4-pro` on the assumption that "pro" meant more
 capable. **The owner corrected it: 4.1 Flash is better and cheaper.** Verified afterwards: the API
 advertises only `deepseek-flash` and `deepseek-v4-pro`, `deepseek-v4.1-flash` is rejected by name,
-and Flash and Pro returned byte-identical usage on an identical probe. Reverted to `deepseek-flash`
-within the hour. See LESSONS L25–L27 — do not change a cost-bearing default on a hunch.
+and Flash and Pro returned byte-identical usage on an identical probe. Reverted. LESSONS L25–L27:
+do not change a cost-bearing default on a hunch.
+
+**THE ONE THING STILL UNPROVEN**
+The preset default is chosen **at session start**, so `settings.yaml` saying `zabz` does not mean any
+running session uses it. `self_audit` showed the live session on `cordis` because the DSH process
+started one second before the settings were written. **A profile restart is required**, and a real
+session on `zabz` has still never been observed. First check after restarting: `self_audit` should
+report the agent's preset as `zabz`, and the tool catalog should include `mcp__secretary__ps_*`.
 
 **ALSO FOUND — the running process does not hot-reload the preset default**
-`self_audit` reported this session's live agent on preset `cordis`, not `zabz`, because the DSH
-process started at 12:32:28 and `settings.yaml` was written at 12:32:29 — one second later. The
-model namespace *does* re-read per request (a model change applied live), but the **preset** is
-chosen at session start. **`zabz` therefore requires a profile restart**, and it has still never
-been run in a real session.
+The model namespace *does* re-read per request (a model change applied live), but the **preset** is
+fixed at session start. Recorded as PAIN P11: a change can be reported as done while having no
+effect. Rule adopted: no claim about a preset without a live agent reporting that preset.
 
 **IN FLIGHT**
 - `zabz` is installed and defaulted on **both** workstations (Yoga and desktop), each verified with a
