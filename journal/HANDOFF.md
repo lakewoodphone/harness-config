@@ -29,29 +29,26 @@ EVIDENCE    files, commits, or commands that prove the above
 - Created this journal.
 
 **IN FLIGHT**
-- `zabz` is installed on the Yoga only. The desktop has `cordis-bg` but not `zabz` — needs a sync run
-  from the desktop clone (`python C:\Users\ezabz\Code\harness-config\scripts\sync.py`).
-- **`zabz` is now the default preset** on the Yoga (`settings/base.yaml` → `agent-presets.default`),
-  set after `standingKeyFor('zabz')` returned `mounted OK`. A profile restart is required for it to
-  take effect.
+- `zabz` is installed and defaulted on **both** workstations (Yoga and desktop), each verified with a
+  clean second sync run. A **profile restart** is required for the default to take effect.
 - **The one unproven thing: the secretary MCP row's 14 tools have not been observed registering in a
-  live session.** What *is* proven: the preset mounts; the row resolves **enabled** on win32
-  (`disabled: !!js process.platform !== 'win32'` evaluates false); both paths exist; the venv python
-  imports the `mcp` SDK; the `dsh-mcp-client` package is present (0.1.5-rc.2); and an independent
-  handshake against `ps_mcp_server.py` returned all 14 tools. What is *not* proven is that the client
-  completes that handshake at preset mount time and registers them. First session on `zabz` should
-  list its tools — if `mcp__secretary__ps_*` is absent, this is the thread to pull.
+  live session.** What *is* proven: the preset mounts (`mounted OK: zabz`); the row resolves
+  **enabled** on win32 (`disabled: !!js process.platform !== 'win32'` evaluates false); both paths
+  exist; the venv python imports the `mcp` SDK; the `dsh-mcp-client` package is present (0.1.5-rc.2);
+  and an independent handshake against `ps_mcp_server.py` returned all 14 tools. What is *not* proven
+  is that the client completes that handshake at preset mount time and registers them. **First session
+  on `zabz` should list its tools** — if `mcp__secretary__ps_*` is absent, this is the thread to pull.
 - `ceo-kernel` is staged on `secratary` at `/home/zabz/ceo-kernel` and runs, but **not scheduled** —
-  it only runs when invoked.
+  it only runs when invoked. Phase 1 is complete; Phases 2–7 (inbox, ledger, gate, preset tools,
+  daemon, evolution loop) are designed in `ceo-kernel/docs/DESIGN.md` and not built.
 
 **BROKEN / KNOWN**
 - Three divergent `secretary.db` copies; nothing yet prevents writes to a stale replica (PAIN P3).
 - Evolution loop still not closing: 56 unapplied, 30 duplicates, 13 node_modules targets (PAIN P4).
 - `engineering_indexer`: 172 ticks, 0 completions (PAIN P5).
 - 7 critical + 46 urgent messages held undelivered (PAIN P6).
-- The `zabz` preset has **no `QUESTIONS.md`, `DECISIONS.md` or `WINS.md` yet** — the journal README
-  names all six files; only `LESSONS.md`, `HANDOFF.md` and `PAIN.md` exist. A future self will look
-  for the missing three.
+- `harness-config` sync is **manual**. Nothing schedules it, so drift resumes the moment someone
+  forgets to run it. A scheduled pull is a small, high-value fix.
 
 **NEXT**
 Open a session on `zabz` and confirm the tool list — specifically whether `mcp__secretary__ps_*`
