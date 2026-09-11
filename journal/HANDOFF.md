@@ -14,6 +14,47 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ---
 
+## 2026-09-11 19:25 · ZABZ-YOGA · The kernel now watches the machinery I built — and can see it stop
+
+**CHANGED — Phase 5 delivered: three absence-shaped checks in the CEO kernel.**
+The kernel asked whether the *company* was working; it now also asks whether the machinery around it is.
+All three are about silence, because that is how each one fails — a job that stops running looks exactly
+like a job with nothing to say (L11/L12/L30).
+
+| Check | What it asks | Verified on the authority |
+|---|---|---|
+| `config_sync` | has this host's config converged recently, and cleanly? | *"config converged 1s ago at 988b244"* |
+| `session_archive` | are every machine's sessions still arriving? | *"91 session(s) / 30,730 event(s) from 3 machine(s); newest 3m ago"* |
+| `phone_endpoint` | is the endpoint his phone uses actually serving? | *"engine on 3086, published on the tailnet"* |
+
+**The checks were made to fail on purpose before being trusted** — a check that has only ever passed is
+unproven. `config_sync` with its record removed → `[??]` refusal; with the record backdated 2 h →
+`[! ] "has not run in 2.0h (expected every 15m) — this host may be drifting"`; then restored → `[ok]`. That
+was the check catching my own test record in the scheduled run at 19:13:55, which is exactly the behaviour
+wanted. **The scheduled kernel now reports 11 checks**, up from 8, and `latest.json` carries all of them.
+
+**A design detail worth keeping:** `phone_endpoint` only raises when the host actually has phone state
+(`~/.dsh-phone`). On a workstation "no endpoint here" is normal, and reporting it as a fault is the false
+alarm that teaches a reader to ignore the surface (P6). Verified off-authority: it says
+*"not configured here"* rather than crying wolf.
+
+**Also this round:** the kernel's own runner was confirmed end to end (`run.log` → `history.jsonl` →
+`latest.json`), so the new checks are not just runnable by hand but shipped on the 5-minute cron.
+
+**NEXT — and it is now a decision, not work**
+The only item left in the objective is moving the archive's tables from the standalone database into the
+authoritative `secretary.db`. That needs a change on the company's production host, and the host's checkout
+is **55 commits behind with nine uncommitted files, including ~510 lines of someone's live work** (the
+Shabbat/Shelly automation, "owner spec 2026-09-11"). I have not touched it: deploying 55 commits of other
+people's code to the app that runs the business, at night, is not a call to make alone. The owner is being
+asked, with options.
+
+**EVIDENCE**
+- `ck status` on `secratary` (three checks above); `latest.json` = 11 checks; `run.log`/`history.jsonl` lines
+- the fire/stale/restore sequence above; kernel commit `f263cdd` deployed by `git pull` on the authority
+
+---
+
 ## 2026-09-11 19:15 · ZABZ-YOGA · The phone now talks to an engine that never sleeps — and the fleet's credential had forked
 
 **CHANGED — Phase 4 delivered: the harness runs on the always-on host.**
