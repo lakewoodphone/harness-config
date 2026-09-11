@@ -40,6 +40,9 @@ param(
     # (or `dshw new`). `dshw up -WindowsMode yes` is the explicit "start everything" form.
     [ValidateSet('yes', 'no', 'auto')]
     [string]$WindowsMode = 'no',
+    # Launch engines through Task Scheduler so they cannot die with the calling shell. Use
+    # when starting the fleet from an agent/tool session rather than a real terminal.
+    [switch]$Detached,
     [switch]$Json,
     [switch]$Force
 )
@@ -394,8 +397,33 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
 function Start-SlotServer($slotCfg) {
     $inv = Get-ServerInvocation $slotCfg
     if (Test-PortInUse $inv.port) { throw "port $($inv.port) already in use" }
-    $r = Start-EngineDetached $inv ([int]$Cfg.server.startTimeoutSeconds)
-    return [pscustomobject]@{ pid = $r.pid; url = $r.url; log = $inv.log; err = $inv.err
+
+    if ($Detached) {
+        # Task Scheduler creates the engine outside this process's job object, so it cannot
+        # die with the caller. The price is readiness: a task action cannot redirect stdout,
+        # so the strongest signal (this launch's URL line) is unavailable and the bound port
+        # is all there is to go on.
+        $r = Start-EngineDetached $inv ([int]$Cfg.server.startTimeoutSeconds)
+        return [pscustomobject]@{ pid = $r.pid; url = $r.url; log = $inv.log; err = $inv.err
+                                  workspace = $inv.cwd; startedAt = (Get-Date).ToString('o') }
+    }
+
+    # Default: a direct spawn with the engine's own log files, which gives the strongest
+    # readiness signal - a live process AND a bound port AND a URL line from THIS launch.
+    $p = Start-Process -FilePath $inv.node -ArgumentList @($inv.bin, 'web', '--port', "$($inv.port)", '--no-open') `
+            -WorkingDirectory $inv.cwd -WindowStyle Hidden -PassThru `
+            -RedirectStandardOutput $inv.log -RedirectStandardError $inv.err
+
+    $url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $p $inv.port
+    if (-not $url) {
+        if ($p.HasExited) {
+            $tail = if (Test-Path $inv.err) { (Get-Content -LiteralPath $inv.err -Tail 15) -join "`n" } else { '(no stderr)' }
+            throw "server on port $($inv.port) exited with code $($p.ExitCode). stderr tail:`n$tail"
+        }
+        throw "server on port $($inv.port) did not report a URL within $($Cfg.server.startTimeoutSeconds)s (see $($inv.log))"
+    }
+
+    return [pscustomobject]@{ pid = $p.Id; url = $url; log = $inv.log; err = $inv.err
                               workspace = $inv.cwd; startedAt = (Get-Date).ToString('o') }
 }
 
