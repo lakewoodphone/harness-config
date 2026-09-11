@@ -14,6 +14,58 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ---
 
+## 2026-09-12 01:05 UTC · ZABZ-YOGA · The kosher filter's image path was revealing unverified images — found and fixed on the browser lane
+
+**CHANGED**
+- **Two reveal-without-verification defects fixed in the MITM/Chrome lane** (`kosher-filter-ai`, Android):
+  - `MitmWsBridgeServer` stored each **per-image ML verdict in the domain-keyed `DecisionCache`** and returned
+    early on a hit. On an image CDN (`i.imgur.com`, `pbs.twimg.com`, `scontent.cdninstagram.com`, `*.fbcdn.net`)
+    the first SAFE image flipped the **whole host to ALLOW for 5 minutes**, after which every later image was
+    answered `safe` with **no classification at all**; one false DENY blacked out the host and reached the **DNS**
+    router. Now: `ml/ImageVerdictCache`, keyed by SHA-256 of the bytes.
+  - A **cached domain ALLOW no longer reveals an image** (it may come from a page-text verdict: a clean page says
+    nothing about its pictures). Cached DENY still short-circuits. Explicit allow-list/reputation rules still allow.
+  - The bridge no longer writes a domain **DENY** when it cannot judge a picture — that write could black out a
+    whole domain at DNS level for five minutes because one image was oversized.
+- **Second download of every image removed.** The bridge used to open its own connection and re-download each
+  image to classify it. `vpn/split/ProxyImageStore` now holds the body the interceptor has *already* buffered and
+  forwarded (it buffers the whole body before forwarding anyway), keyed by URL, 20s TTL / 96 entries / 32MB /
+  4MB per entry, cleared on filter stop. The bridge waits ≤250ms for it, then falls back to a download. Nothing
+  runs on the relay thread, so the download window does not grow.
+  `data:image/...;base64` sources are now decoded locally — previously they could never be classified at all.
+- **D34-29 (absolute scroll tracking) landed and is tested** — plus a correction: `AccessibilityNodeInfo.getScrollY()`
+  **does not exist** in the public SDK (verified against `android-34/android.jar`); the signal comes from the event
+  record. Full-surface/anchored rects now ignore scroll entirely (they were being translated like content-attached
+  rects, which would slide the cover off the pixels it hides), and `clearAll()` drops the "untrusted scroll" hold so
+  a withdrawn verdict no longer leaves a stuck full-surface cover.
+- `decisions/34-fast-and-accurate-visual-path.md` — **D34-32 … D34-38** added (content-keyed verdicts, domain-ALLOW
+  asymmetry, no domain verdict on failure, proxied-bytes classification, "the cover is recoverable and the
+  placeholder is not", the D34-29 API correction, and the pending-slot sweep bug).
+- New tests: `ContentBlurOverlayScrollTrackingTest` (7), `ImageVerdictCacheTest` (7), `ProxyImageStoreTest` (13).
+
+**IN FLIGHT**
+- The proxy still forwards image bytes unchanged. Byte-level placeholder substitution is **deferred by rule**
+  (D34-36): the placeholder is one-way, so it may only follow a positive DENY, and the cascade's stage costs have to
+  be measured to fit a relay-thread budget first.
+
+**BROKEN**
+- Nothing newly broken. The cascade's own thresholds remain **uncalibrated** — no labelled frames exist, so every
+  attribute threshold is a guess (see `PAIN` P45). That is a real gap, not a bug.
+
+**NEXT**
+- Build the labelling harness so a pilot batch (~200 frames) can be labelled in-house without cash, which is the
+  recommended half of the calibration question put to the owner this turn.
+
+**EVIDENCE**
+- Full Android unit suite: **94 suites, 395 tests, 0 failures** — `.\gradlew.bat :app:testDebugUnitTest` (54s);
+  per-suite XML under `android/app/build/test-results/testDebugUnitTest/`. The three touched packages alone:
+  195 tests, 0 failures.
+- The pending-slot bug was found by `ProxyImageStoreTest.aPendingWaiterSurvivesAnotherImageArriving`, and the fix is
+  guarded by that same test.
+
+---
+
+
 ## 2026-09-11 20:40 UTC · ZABZ-YOGA · The harness can now name home vs office — and the reason it never could was one un-granted phone permission
 
 **CHANGED**

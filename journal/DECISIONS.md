@@ -272,3 +272,47 @@ in a header, one fewer thing that can go stale on a home screen.
 The gate must decide on every request, and it can only do that if every request arrives on its own connection. Serve pools;
 forcing close upstream makes the engine end each response, which forces Serve to reconnect. The websocket upgrade is
 exempt — it carries every streamed reply and must stay open.
+
+**D37 · 2026-09-11 · HA's `zone.home` is the shop; Home Assistant is never allowed to name "home".**
+Measured: `zone.home` = 40.108374,-74.232428 (1001 W Kennedy Blvd), `radius` 100 m, with `person.montrose` — a *worker* —
+GPS-verified 69 m from the centre, and the shop's own `doorbell_cam` and Shelly plug reading `home`. HA therefore answers
+only *at-the-shop / not-at-the-shop*, and its `person.eliyahu_zabrowsky = not_home` is fed by a LAN-MAC tracker that is
+blind off the office Wi-Fi. So presence is resolved by fusing HA's office ground truth with a **network** signal (which
+LAN/WAN the phone is dialable on), and `not_office` is a distinct verdict that is **never** upgraded to `home`.
+*Also decided:* an empty reading is never reported as `away` — iOS suspends Tailscale routinely, so absence of an endpoint
+is `unknown`.
+*Rejected:* adding a home geofence by hardcoding a coordinate. See D38.
+
+**D38 · 2026-09-11 · The home zone is learned from a GPS fix, never typed in.**
+Rather than asking the owner for his address, the resolver records the first real fix that lands while the observer is on
+the home LAN as the home zone (haversine + 150 m). Consequences: the harness never has to ask him where he lives, the zone
+cannot drift from reality the way a hand-entered constant can, and if the permission is never granted the resolver keeps
+answering `not_office` honestly instead of guessing.
+*Depends on:* the owner granting the iOS HA app location permission — currently `Not determined`, which is the root cause
+of the dead `device_tracker.iphone_15_2`.
+
+**D39 · 2026-09-12 · A verdict is cached against the thing it is about, and an unverified allow is a defect, not a bug.**
+Found and fixed in the kosher filter's browser lane: per-image ML verdicts were stored in the **domain**-keyed broker cache
+and returned `safe` early on a hit, so on an image CDN the first SAFE picture flipped the whole host to ALLOW for five
+minutes and every later picture was revealed unclassified. A cached domain ALLOW is no longer sufficient to reveal an
+image, and an unjudgeable picture no longer writes a domain DENY that reached the DNS router.
+*Why it is a decision and not a fix:* it names the standing rule for the whole visual path — **the cache key must be at
+least as specific as the claim**; pixels by content hash, hosts by hostname, pages by URL. Any future cache in this
+product is measured against that sentence.
+
+**D40 · 2026-09-12 · The cover is recoverable; the placeholder is not — so bytes are never replaced on uncertainty.**
+Continuing the same review: the proxy still forwards image bodies unchanged, and the injected CSS blur is what covers
+them until a verdict arrives. Byte-level placeholder substitution is deliberately **deferred**, and the guard-rail is
+recorded so it is not silently re-decided later: a placeholder may follow only a **positive DENY**, never "unknown" or
+"over budget", because the page has already received those bytes and no later verdict can give the real image back.
+*Impact:* the tempting quick win would convert a recoverable cover into an unrecoverable one on every image the cascade
+cannot reach in time, turning a single false positive into a permanently broken page.
+
+**D41 · 2026-09-12 · The kosher filter's calibration question goes to the owner as one money question, with the free path first.**
+The 2026-09-11 re-analysis removed the need to train a model, which changed the funding question that had been sitting open
+as `A-BACK-014` ("fund a modesty model, ~$1,200"). What remains is ground truth: no labelled frames exist, so every
+threshold is unverified (P45). The honest sequence is in-house first — build the harness, label ~200 frames in about an
+hour of a person's time, learn whether the cascade can hold a usable risk level — and only then consider a paid
+1,000-frame round ($4–8k). Asked as a single question with a recommendation; the `A-BACK-014` row is marked superseded
+rather than deleted.
+

@@ -958,3 +958,71 @@ repair locked out all comers for eight seconds — and my own probe failed withi
 reason it lasted a minute. *Rule:* behind a proxy, the socket peer is the proxy, not the person; never key a policy on it.
 *Also worth noting:* the probe caught its author's regression twice in one session, having first caught the bug it was
 written for. That is the entire argument for building it, and it is now the strongest artefact from this work.
+
+**L150 · 2026-09-11 20:40 · One successful measurement of a flaky-by-design signal is not a generalisation.**
+I ran `tailscale ping` from the office **once**, got a direct path (`via 172.59.215.73:45261`), and concluded that an
+office observer could always see which WAN the owner's phone was behind — then reported "he is at home" with
+two-observer confidence. Re-measuring gave `via DERP(nyc)` + `direct connection not established` on **3/3** attempts: from
+a *different* network the phone is usually reachable **only through a relay**, and no endpoint is reported at all. The same
+signal from the *same* LAN was 3/3 reliable. *Rule:* before turning a reading into a claimed capability, repeat it and vary
+the one thing that might matter — here, the observer's network. iOS suspends Tailscale in the background, so this failure
+mode is silent and routine, which is exactly what makes n=1 dangerous on this signal specifically.
+
+**L151 · 2026-09-11 20:40 · `ipaddress.is_private` does not mean "local LAN address".**
+Measured on this repo's own interpreter (CPython 3.12.10): `is_private` is **True** for documentation (`203.0.113.0/24`),
+benchmarking (`198.18.0.0/15`) and reserved (`240.0.0.0/4`) space — none of which any host can dial as a LAN — and
+**False** for CGNAT (`100.64.0.0/10`), which is a real carrier WAN address and also Tailscale's own range. Using it as the
+"same-LAN dialable" test reported an unroutable address as an *unrecognised local network*. A unit test caught it, and my
+first explanation of the bug was itself wrong (I blamed CGNAT; CGNAT is the opposite case) — corrected in the same session
+rather than left in a comment. *Rule:* test RFC1918 membership explicitly (`10/8`, `172.16/12`, `192.168/16`); give CGNAT
+its own guard that answers "unknown, and here is why" instead of a confident "elsewhere". Generally: a stdlib predicate
+that *sounds* like your question is not your question — read its actual table.
+
+**L152 · 2026-09-11 20:40 · A self-satisfying guard will write a confident wrong answer to disk.**
+`presence.py` records the office WAN so it can match the phone's endpoint against it. Its "am I at the office?" test was
+`egress in office_wans` — but the same block had just *added* `egress` to `office_wans`, so the test was true by
+construction on every host. It therefore wrote the **home** WAN (`172.59.215.73`) into `office_wans`, from the Yoga, at
+rest, formatted exactly like learned knowledge. Found by reading the **state file** rather than the code. *Rule:* a guard
+whose inputs are produced by the thing it guards is not a guard. Derive the fact from an independent observation (here the
+host's own interface address, via a connected UDP socket) **and** scrub the invariant on every load, not only on the write
+path — a poisoned cache is worse than a missing one, because the next reader has no reason to doubt it.
+
+**L153 · 2026-09-11 20:45 · A one-packet probe of a sleeping peer manufactures false negatives.**
+`probe_endpoint()` used `tailscale ping --c 1`. From the home LAN it then reported "no endpoint observed" on a cold call, and
+the *very next identical* call succeeded; after that, **8/8** direct endpoints (`192.168.12.249`). An idle iOS peer has to be
+woken, so one packet converts a wake-up cost into a silent empty reading — precisely the failure class (`P2`, `P43`) this
+module exists to eliminate, reproduced inside the tool built to fix it. Changed to `--c 3 --timeout 5s`: **5/5** consecutive
+runs resolve `HOME [high]`, including the first, cold one. *Rule:* when a probe of a phone, radio or sleeping daemon returns
+nothing, re-send before believing it; and when a probe *is* the product, test its first call, not its steady state —
+steady-state-only testing is what hid this, and the two earlier "verified" claims in this same session (L150) were the same
+mistake in a different costume.
+
+**L154 · 2026-09-12 01:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow.**
+`MitmWsBridgeServer` stored the ML verdict for one image in `DecisionCache`, whose key is the **domain**, and returned
+`safe` early on a hit. On any image CDN that means the first SAFE picture flips the whole host to ALLOW for five minutes,
+and every later picture is revealed **without being classified at all**. The mirror failure is just as bad: one false DENY
+blacks out the host, and that DENY feeds the DNS router. *Rule:* when caching a judgement, the key must be the thing the
+judgement is about. Pixels are judged by content hash, hosts by hostname, pages by URL, and none of them may stand in for
+another. Check every cache for this shape — *is the key coarser than the claim?* A cache hit is only safe when the key is
+at least as specific as the thing being asserted.
+
+**L155 · 2026-09-12 01:05 · A record with no content yet is pending, not stale.**
+`ProxyImageStore.await` registers an empty slot for a URL and `put` swept "expired" slots on every store. An empty slot has
+`storedAtMs == 0`, so it looked ancient and was deleted mid-wait: the waiting thread timed out *after the bytes had
+arrived*. In production that would have silently disabled the whole optimisation on exactly the race it exists to win — the
+page announcing an element before its download finishes — while looking like it worked. *Rule:* never age-test a field you
+have not written; give placeholders their own clock. And when a concurrency test fails, extract the state from it
+(`writerRan=true size=1 peek=32` proved the data was there and the *waiter* was broken) rather than re-running and hoping:
+two earlier print-based attempts found nothing because Gradle swallows stdout, and a diagnostic `assertNotNull` message
+found it in one run.
+
+**L156 · 2026-09-12 01:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command.**
+D34-29 was written as "read absolute `scrollX`/`scrollY` **from the scrolled node**". `AccessibilityNodeInfo` has no public
+`getScrollY()` at all — the signal lives on `AccessibilityEvent`/`AccessibilityRecord`. The design survived, but the entry
+would have sent the next reader to an API that does not compile, and the compiler was the only thing that caught it.
+*Rule:* for any Android/DOM/system API you are about to build on, look at the actual artifact before writing the design
+around it (`[System.IO.Compression.ZipFile]` over `platforms/android-34/android.jar`, search the class bytes for the method
+name) — ten seconds, and it separates "I remember this API" from "this API exists". Correct the record by **appending** a
+correction entry, never by editing the old one.
+
+

@@ -239,3 +239,32 @@ authenticated calls come back 200 (`session/list`, `agentPresets/list`, `credent
 login internally, so there is no redirect chain for a broken client to loop on and no bearer token in any URL.
 *Why it matters:* this is the first version of this link that is correct for the client he actually holds, rather than for
 the client I kept testing with.
+
+**W23 · 2026-09-11 · The harness can name "home" for the first time — from the home LAN, with no owner input and no new hardware.**
+The owner's iPhone on the tailnet reports the address it is dialable at, and an RFC1918 endpoint names the network it sits on.
+From the Yoga, on the same LAN as the phone: `pong from iphone-15-pro (100.85.105.93) via 192.168.12.249:41641`,
+**3/3 attempts**, resolving to `HOME [high]`. This is the first signal in the company's history that could distinguish his
+house from his shop, and it required no new device, no new credential and no hardware purchase.
+*Why it matters:* HA's `zone.home` is the shop, so the company's best presence system was structurally incapable of naming
+home; a tailnet endpoint was already sitting there unused.
+
+**W24 · 2026-09-11 · Skipping an unreachable probe by topology cut a reading from 19.3 s to 2.2 s.**
+HA is reachable only from the office LAN (P18), and `homeassistant.local` is an mDNS name, so probing it from the home LAN
+did not fail fast — it **stalled for ~19 seconds** every single time. The resolver now derives which LAN it is standing on
+(connected-UDP-socket trick, no dependency, no packets) and skips the HA probe when it cannot possibly succeed.
+*Measurement:* 19,342 ms → 2,249 ms on the same host and the same verdict.
+*Why it matters:* a slow probe is how a reading gets abandoned by the next caller; the fix cost three lines.
+
+**W25 · 2026-09-12 · A concurrency test found the optimisation was dead on arrival, before it shipped.**
+`ProxyImageStore` exists to stop the classifier re-downloading every image the browser already fetched. Its waiter test
+failed on the first run: `put()` swept "expired" slots on every store, and a waiter's placeholder has no bytes yet
+(`storedAtMs == 0`), so it looked ancient and was deleted mid-wait — the waiter timed out **after the bytes arrived**.
+That is the *normal* case (a page announces an element as soon as `src` is set, before the download completes), so the
+feature would have silently fallen back to a second download on exactly the path it targets, and would have looked like
+it worked.
+*Measurement:* the diagnostic assertion carried the state that proved it — `writerRan=true size=1 peek=32` with
+`await() == null`. Fixed with a distinct pending clock; `ProxyImageStoreTest` is now **13 tests**, including the
+deterministic reproduction of that interleaving. Full Android suite: **395 tests, 0 failures** (94 suites), up from 362.
+*Why it matters:* this is the second entry in this journal of a *test* being worth more than the code it covers (W21).
+A green suite over a feature nobody proved was exercised is how a product ships blind.
+

@@ -684,3 +684,62 @@ provenance rules exist to prevent, applied to myself instead of to a database.
 outside-in check through Serve. The standing rule is the durable part: **an acceptance test for anything the owner touches
 must run through the same proxy, on the same path, with the same dirty state his device has** — and passing from a clean
 terminal client is not evidence.
+
+## P43 — Nothing could name where the owner is, and the entity that should have looked broken looked normal
+**Symptom.** Asked to know when he is home and when he is at the office, the company had a genuinely good *office* presence
+system (BLE triangulation, mmWave occupancy, PIN entry, cameras — all real, fused into `input_boolean.phoenix_user_is_here`)
+and **no way at all to name "home"**. HA's `zone.home` is centred on the **shop**, so HA's most authoritative-sounding
+reading, `person.eliyahu_zabrowsky = not_home`, means only "not at the shop" — and even that is fed by a **LAN-MAC tracker**
+(`device_tracker.00_08_22_c8_b2_fb`, his flip phone) which goes blind the moment he leaves the office Wi-Fi.
+**Evidence.** `sensor.iphone_15_location_permission = 'Not determined'` and `device_tracker.iphone_15_2` with
+`source_type: gps`, `state: unknown` and **no coordinates** — while `sensor.iphone_15_battery_level` and `app_version` read
+fine, i.e. the app was connected and healthy and the tracker was *silently* empty. His other device has the permission
+(`sensor.zabz_waze_location_permission = 'Authorized when in use'`) and reports a real fix.
+**Cost.** Every presence-driven behaviour — quiet hours, notification timing, "is he in the shop" autonomy — has been blind
+to the half of his life that is not the shop, for as long as the app has been installed. Nothing alarmed, because an empty
+tracker raises no error and looks like any other entity.
+**Fix.** (1) The permission (owner action, one tap); `external_url = https://ha.abletelsolutions.com` is already live, so
+the fix reports from anywhere. (2) Treat **absence of a GPS fix as the alarm**, not its value — a `device_tracker` with
+`source_type: gps` and no coordinates is a fault, and this is P2's "nothing watches outcomes" precisely. (3) The home zone
+is **learned** from the first real fix, so the harness never has to ask the owner for his address.
+**Ranking note.** Appended at the tail for consistency with P41/P42, but it belongs high, beside **P2**: it is the same
+failure (a silent empty reading) and it disabled a whole class of behaviour rather than one feature.
+
+## P44 — The live checkout on the authority is diverged, so nothing can be deployed safely
+**Symptom.** `~/personal-secretary-mvp` on `secratary` — the host running `secretary-api.service` — is not a clean
+follow of `origin/master`. Measured 2026-09-11: local HEAD `99738ebe` is **69 commits behind** `origin/master`
+(`fbf73b672`) and **3 commits ahead** (unpushed: `99738ebe`, `603e49ed`, `ca893e4b`), with **15 locally-modified files
+that overlap the incoming changes** — `app/main.py`, `app/services/home_assistant.py`, `app/agent_bus.py`,
+`app/services/agent_worker.py`, `app/services/unified_memory.py`, `scripts/server/backup-data.sh` and more.
+**Evidence.** `git rev-list --count HEAD..origin/master` → 69; `origin/master..HEAD` → 3; `git merge-base --is-ancestor
+HEAD origin/master` → NO; the overlap set from `comm -12`. Found only because I checked *before* pulling rather than after.
+**Cost.** No change can be shipped to the authority without either a merge that may mix another session's uncommitted
+work into the live host, or a reset that would destroy it. So every new capability stalls at "verified from `/tmp`" —
+including the presence resolver, which is verified running on the host from a temp path and is not deployed. This is the
+deployment equivalent of P3's divergent copies, and it silently caps what the whole system can deliver.
+**Fix.** Needs care and a decision, not a script: (1) on `secratary`, get the 3 unpushed commits' intent reconciled —
+either pushed or discarded *by whoever authored them*; (2) stash named by session, never a bare `git checkout .`; (3) then
+`git pull --ff-only` and restart `secretary-api.service` under observation. **Not attempted in this session** because
+`git checkout`/`reset` on that host is exactly the class of action that destroys other people's work, and I cannot tell
+which of those 15 modified files are deliberate in-flight edits.
+
+## P45 — Every threshold in the kosher filter's visual path is a guess, because no labelled frames exist
+**Symptom.** The five modesty attributes (sleeves, hemline, neckline, hair covering, tight fit) and the cascade's
+escalation band are all decided by thresholds chosen from research, not from measurement. There is **no labelled set of
+frames**, so no threshold can be shown to hold a risk level, and the gate has no finite-sample floor to stand on.
+**Evidence.** 2026-09-11 research (`kosher-filter-ai/docs/research/015`, `016`, `017`): raw model softmax is an *invalid*
+gate (ECE up to 0.496; accuracy collapsing 0.99 → 0.22 while stated confidence stays flat at 0.87–0.90), which is what
+makes calibration mandatory rather than optional. Conformal risk control gives a guarantee only against labelled data —
+`1/(n_pos+1)` is the floor, so **under 1% risk needs ≥100 positive examples per attribute** and an α below the floor has
+no power at all. Cost of real labelling, researched: **$4,000–8,000 per 1,000 images** with domestic annotators (L58).
+The company has **zero labelled frames today**.
+**Cost.** The product's central claim — "we catch it and we do not miss it" — is unfalsifiable as built, and the failure
+mode it creates is the expensive one: a confident wrong number shipped to a customer (the class P3 exists to prevent).
+It costs nothing *yet* only because no customer is running it.
+**Fix.** Cheapest honest path first, and it needs no cash: build the labelling harness, then have ~200 real frames
+labelled in-house — about an hour of a person's time, and the shop's own traffic is the distribution that matters, since
+no public dataset matches it. 200 frames with ~40 positives per attribute puts the floor near 2.4%, enough to learn
+whether the cascade can hold a usable risk level at all: evidence before a purchase order. Decide about a paid
+1,000-frame round only after that. Needs **one owner answer** (money) — asked 2026-09-12, see `QUESTIONS.md`.
+
+
