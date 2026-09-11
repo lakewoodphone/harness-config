@@ -139,3 +139,35 @@ was **$0.33**: one turn, one third of the session.
 only a browser session proves that. And the session-level projection has no route, so the pill prices at
 the deployment default and says so, while `/cost` prices each attempt from the log with its real route
 and timestamp.
+**W14 · 2026-09-11 · The Kosher filter's on-device ML verification finally ran — and it found a crash every JVM test had missed.**
+`A-BACK-011` had been "PARTIAL — needs a device or emulator" since 2026-09-06. The blocker cost one
+command: `sdkmanager 'emulator' 'system-images;android-34;google_apis;x86_64'` plus an
+`avdmanager create avd`, on a machine with 110 GB free and WHPX available. With the AVD booted, the
+harness reported **pass=16 warn=0 fail=0**, and the device logcat proved the whole claim:
+`GantManNsfw: Model loaded successfully` and `NudeNet: Model loaded from .../files/models/nudenet_320n.onnx`
+with a real decision, then — with every model file hidden — `ShareIntercept: Blocked uncertain image
+share: No local classifiers available`.
+*What it bought:* three genuine findings that no test on this box could have produced. (1) A
+**main-thread crash**: the first image a user ever shared killed the app, because an `Error` from a
+`compileOnly` GPU dependency escaped `catch (Exception)` through the whole ML stack (L48) — the R8
+`-dontwarn` added to make the *build* pass is what hid it. (2) The verification harness **had never
+once run** (L47). (3) The fail-closed probe could never have observed anything, because nothing ever
+asked the cascade to classify — the section is now driven by a real `ACTION_SEND` share, and `-DriveShare`
+exists for the same reason.
+*Measured:* Android unit suite **362 tests / 0 failures** after the fix (was 360; +2 new), the new
+contract test verified to fail on the pre-fix script, and the probe's restore verified to put all three
+model files back in place.
+*Honest caveats:* an emulator has no GpuDelegate and no NNAPI, so the GPU/NNAPI runtime paths and the
+GPU delegate now being optional are unverified on silicon. The two new Kotlin tests pass with or without
+the fix, so the on-device run — not the unit test — is the evidence.
+
+**W5 · 2026-09-11 · Twelve DSH windows became an operational reality, and the numbers say which design.**
+Built `multi-window/dshw.ps1` + `windows.json`: start/stop/restart/status/new/open/logs/autostart/doctor
+over one engine and N isolated browser windows. *Measurement:* engine up on port 3099 and **8 app windows
+open simultaneously**, each with its own browser profile and its own auth cookie (verified per profile:
+`Cookies`, `Local Storage\leveldb`, `Preferences` present in all 8); status reports `1 engine(s) live,
+8 window(s) open, 196 MB engine RSS, 206 MB whole engine tree`. The cost model that decided the design is
+measured, not estimated: three engines on three ports each held ~1.4 GB of tree (26 descendants), so the
+"one process per window" plan would have needed ~17 GB on a laptop with 7.7 GB free.
+*Why it matters:* the previous answer to "many sessions" was eight sessions sharing one ad-hoc process
+started by hand, which died with its terminal and could not be restored.

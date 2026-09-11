@@ -16,7 +16,9 @@ loudly rather than re-ask quietly.
 | 2026-09-11 | At the office on `ZABZ-TECH`, is it one long session per day or many short ones? | **open** — shapes how continuity should behave |
 | 2026-09-11 | Why did Copilot usage collapse after April 2026 (May −75%, June −78%, July ≈0)? | **open** — never answered; the single most informative unknown about what he actually needs |
 | 2026-09-11 | The company recorded **zero ticks for twelve consecutive days, 2026-07-23 .. 2026-08-03**. Was that a deliberate shutdown, or an outage nobody noticed? | **ANSWERED** — he did not know and asked for an investigation. Done: the host was **up and healthy every day**; the **work loop was dead** for **13d 17h**. Written up and labelled. → `DECISIONS.md` D16, `personal-secretary-mvp/docs/postmortem/2026-07-22-thirteen-day-silence.md` |
-
+| 2026-09-11 | Multi-window: **one engine with 8-12 windows, or one engine per window?** Measured: an engine with its five MCP bridges costs ~1.4 GB, so 12 engines ≈ 17 GB against 7.7 GB free. Recommendation: one engine, many windows (`mode` switch keeps the other option). | **open** — question 1 of `docs/multi-window/QUESTIONS.md` |
+| 2026-09-11 | Multi-window: **restore a window straight to a specific session?** A session is not addressable by URL today, so a restored window needs one click. Recommendation: accept the click now, and commission the client-side plugin that reads a session id from the URL as the next real piece of work. | **open** — question 3 |
+| 2026-09-11 | Multi-window: **where should the windows sit, and what should "new window" be?** Default is a 4x2 grid on the primary display; the machine has three more 2560x1440 panels. Recommendation: keep the grid, add a desktop shortcut + hotkey for `dshw new`. | **open** — questions 2 and 4 |
 **Answered and recorded elsewhere:**
 - 2026-09-11 · Who the CEO is and what it owns → `DECISIONS.md` D1
 - 2026-09-11 · Where the CEO sits relative to the secretary → D2

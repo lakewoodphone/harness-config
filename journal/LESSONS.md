@@ -379,3 +379,58 @@ before probing a handful of neighbouring ports.
 *Cost:* a wrong section in a delivered document, and a wrong question to the owner — the question he
 answered with "you are in charge, you make the decisions", which is not the answer a good question
 should have produced.
+**L47 · A script that has never run against its real target is not a script.**
+`scripts/verify_on_device_ml.ps1` was committed on 2026-09-10 and recorded in that day's handoff as
+verified: "with no device attached it exits 1 with a clear 'No device/emulator attached' message (no
+crash, no false pass)." It printed that message because `Invoke-Adb` declares `-AdbArgs` and all **16**
+call sites passed `-Args` — in a non-advanced PowerShell function an unknown parameter name is silently
+swallowed into `$args` and the declared parameter stays empty, so `adb` ran with **no arguments**,
+printed its help text, and the script matched none of it. Five contract tests, a model-spec drift check
+and a CI job all passed the whole time, because they read the script's *text* and never its behaviour.
+*Rule:* "verified" means an observation from the real target — a device, a server, a live call. An exit
+code is not an observation when the command it wrapped never ran. When the only case a script has ever
+been run in is its failure path, the failure path is the only thing that was tested.
+*Cost:* a day of believing a harness that could not do the one thing it existed for. `LESSONS` L41 is
+this same error one layer down.
+
+**L48 · `catch (Exception)` does not catch `Error`, and that is how a `compileOnly` dependency crashes an app.**
+The GPU delegate in the Kosher filter is `compileOnly`, so it is absent at runtime. Constructing it
+throws `NoClassDefFoundError` — an `Error`, not an `Exception` — so `catch (e: Exception)` around it
+caught nothing, the error escaped the model loader, escaped the cascade, and killed the host activity on
+the main thread the first time a user shared an image. The build had been kept green by adding R8
+`-dontwarn` for exactly that class, which is how the problem stayed invisible: the suppression that made
+it compile removed the signal that it could not run.
+*Rule:* any code path that touches an optional or `compileOnly` dependency catches `Throwable` and
+degrades explicitly (here: fall back to CPU; and a load failure reads as "model unavailable", never as
+a throw into a UI thread). A `-dontwarn` is a decision to run without the class, so it belongs beside a
+runtime guard, not instead of one.
+
+**L49 · A test that passes before and after the fix has no teeth — check it against the broken revision.**
+I wrote `MlCascadeErrorResilienceTest` to lock the crash fix, reverted the fix, re-ran it: still green.
+Robolectric never reproduces the device-only linkage error, so the test locks "a load failure reads as
+unavailable" and *not* the bug it was named for — which I recorded in the code comment and the backlog
+rather than claiming coverage I do not have. The PowerShell regression test in the same session *was*
+checked against the pre-fix file (`git show HEAD:scripts/verify_on_device_ml.ps1`, 32 problems found,
+verdict "test has teeth"), which is why that one can be trusted.
+*Rule:* a new test is unproven until it has been seen to fail. Two cheap ways: revert the fix, or run
+the same assertion against the old revision from git. Also: when the only reproduction needs real
+hardware, say so and let the on-device run be the proof instead of dressing a unit test up as it.
+
+**L50 · Never let a long job stream its progress UI into the conversation.**
+`sdkmanager` writes a ~200-line progress bar. Captured into a background job's output it consumed most of
+a context window and told me nothing a `tail` would not have. Same for any noisy installer or build.
+*Rule:* redirect long-running commands to a log file and read the tail; if the tool has a quiet flag, use
+it. This is PAIN P7 applied pre-emptively instead of after the loss.
+
+**L34 · A log file that the child process owns cannot be cleared by the parent.**
+Symptom: `dshw up` reported "no URL within 180s" while the server was demonstrably up and its log held
+the URL line. Cause: the parent deleted `<port>.log` and then read appends at an offset, but the server
+had inherited the handle from the launching child, recreated the file, and the parent's offset no longer
+described what it was reading. Fix: one log file **per launch** (`<port>-<stamp>.log`), created by the
+parent, never deleted; a stable `<port>.log` is a copy. *Lesson:* when two processes touch one file,
+give each launch its own file rather than negotiating offsets.
+
+**L35 · Readiness needs three conditions, and each one alone has produced a false positive here.**
+A stale log line says "up" for a dead server; a bound port says "up" for a half-built tree; a live pid
+says "up" for a server that never finished booting. `dshw` now requires an alive process **and** a
+listening port **and** a URL line appended since this launch.

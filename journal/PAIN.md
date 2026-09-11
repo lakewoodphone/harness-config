@@ -396,3 +396,63 @@ his time; not rotating leaves a key exposed in a file that is backed up and sync
 **Not yet built.** A scan that looks for key-shaped strings in new session logs and refuses to leave
 them there. The logs are local and compressed, so this is a small job — and it is the difference between
 "we learned the lesson" and "the lesson cannot recur".
+## P21 — The last mile of verification is skipped when its dependency is not installed
+
+**Symptom.** `A-BACK-011` ("verify the ML cascade on a real device") sat PARTIAL for five days with the
+note *"blocked on this node: no emulator package / no system image / no attached device"*. The emulator
+package and an `android-34` system image were a **free, one-command, 15-minute install** on a machine
+with 110 GB free and WHPX already available. Nobody ran it. And when it finally ran, the harness that
+had been waiting for it turned out never to have worked at all.
+
+**Evidence.** `docs/IMPLEMENTATION_BACKLOG.md` A-BACK-011 history; `docs/HANDOFF_2026-09-10.md` §4.3
+("STILL BLOCKED on this node"); LESSONS L47; the first real run on 2026-09-11.
+
+**Cost.** A user-facing crash — the app died on the *first* image classification, from 2026-09-06 until
+2026-09-11 — plus a day of believing a broken harness, plus the 2026-09-10 session's own conclusion that
+"nothing is blocked on the codebase itself" when the verification it had just written had never executed.
+
+**Fix.** Two habits, both cheap:
+1. **Clear free blockers by installing the tool**, and do it in the same session that discovers them —
+   record a blocker only when clearing it costs money, hardware, or the owner's decision. (DECISIONS D20)
+2. **When a blocker clears, re-run the thing that was waiting before trusting it.** A harness that has
+   been waiting for a device has never been exercised; its first run is a test of the harness, not of
+   the product, and it should be expected to fail for its own reasons.
+
+**Not yet built.** Nothing detects the first case — a task marked blocked on an install that is free.
+A standing check that lists "blocked" items whose blocker has no cost attached would do it.
+
+## P14 — Nothing watches the windows, so a dead engine is silent until the owner notices
+
+**Symptom.** The supervisor can start, stop and restart the fleet, and a Task Scheduler task brings it
+back at logon, but **no running process polls the ports**. If the engine dies at 2am, the windows sit
+there showing a reconnect loop and nothing says why. The same class as P2 (nothing watched outcomes),
+one layer down.
+
+**Evidence.** `multi-window/dshw.ps1` has `status` and `doctor` but no loop and no scheduled health task;
+the only automation registered is an At-logon task (verified: "DSH Multi-Window Launcher", task state
+Ready). Observed twice in this session: an engine died and `status` reported "recorded, not listening"
+with nothing to raise it.
+
+**Cost.** Up to a full night of dead windows, discoverable only by looking.
+
+**Fix (not built).** A second scheduled task, every 5 minutes, running `dshw doctor`-shaped health:
+probe each enabled port, restart only the dead index, and append one line per action to a health log —
+never restart a port whose bind succeeded, never fight another supervisor (the port bind is the lock).
+15 minutes of work; the reason it is not done is that it needs the owner's `windows.json` to be final.
+
+## P15 — Window layout is not remembered between launches
+
+**Symptom.** Every window opens where `windows.json` says, not where the owner last dragged it. Geometry
+is passed explicitly at launch (`--window-size`, `--window-position`), so a drag is lost on the next
+`up`. Edge does store app-window placement internally, in an undocumented key, but it is keyed by the app
+URL and is not something to depend on.
+
+**Evidence.** `docs/multi-window/research-windows-multiwindow.md` §Q1 (measured: geometry takes effect
+only because each window has its own profile; `--window-name` is a no-op on Windows).
+
+**Cost.** Small — one drag per window per restart — but it is the kind of papercut that makes a person
+stop using a tool.
+
+**Fix (not built).** At `up`, read each window's current rect via Win32 `GetWindowRect`, match the window
+by its browser profile in the command line, and write position/size back into `windows.json`. Then the
+layout is self-healing and the manifest stays the one source of truth.

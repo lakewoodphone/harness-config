@@ -164,3 +164,39 @@ restarted to mount it. `~/.dsh/profiles/web/package.json` on this machine now li
 bundle; the running session still has the old bundle list, so nothing is mounted until restart. The
 `/cost` command is host-only and needs no approval; the pill is a client half and a first run asks for
 one.
+**D20 · 2026-09-11 · "Verified" means observed on the real target, and a free blocker gets cleared instead of recorded.**
+Two rules adopted together, both from one day on the Kosher filter.
+*First:* a claim of verification requires an observation from the real target — a booted device, a live
+server, an actual call — and **an exit code is not an observation when the command it wrapped did not
+run**. `verify_on_device_ml.ps1` had been recorded as "verified: exits 1 with a clear message" while
+every one of its 16 adb calls was malformed, so `adb` never ran and the "clear message" was adb's help
+text (LESSONS L47). Concretely: no claim that a script works without a run against its real target, and
+when a script has only ever been exercised on its failure path, say exactly that.
+*Second:* when a task's only blocker is a free, scriptable dependency, **install the dependency rather
+than recording the blocker**. A-BACK-011 sat blocked for five days on "no device or emulator"; the
+emulator package and system image were a 15-minute install on a machine with 110 GB free, and clearing
+it immediately produced a crash fix plus the discovery that the waiting harness had never worked.
+*Scope note for this repo:* an emulator is accepted as the device for A-BACK-011 evidence, with the
+limitation (no GpuDelegate, no NNAPI, so the GPU/NNAPI paths are unverified on silicon) recorded in the
+backlog and the handoff rather than left implicit.
+
+**D17 · 2026-09-11 · One DSH engine, many windows — not one process per window.**
+A DSH window is only a browser client; one `dsh web` process already hosts many independent agent
+sessions. An engine costs ~196 MB idle but **~1.4 GB once its five stdio MCP bridges are mounted**, and
+those bridges are declared per process (`agent.cordis.yml`, `transport: stdio`) — measured three engines
+at 26 descendants and ~1.4 GB each. One engine with 8–12 windows costs ~2.7–3.1 GB; 12 engines cost
+~17 GB, which does not fit this laptop (31.6 GB total, 7.7 GB free, a qemu VM holding 5.3 GB).
+`mode: "multi"` in `windows.json` keeps the per-window-engine option for the desktop.
+*See:* `docs/multi-window/ANALYSIS-AND-DECISION.md`, `docs/multi-window/research-resource-cost.md`.
+
+**D18 · 2026-09-11 · Window independence comes from the browser profile, not from a separate port.**
+A session is not addressable by URL (zero `pushState`/`location.hash`/`sessionId` across all 65 client
+bundles; the SPA is served only at `/`), and the chosen session lives in
+`localStorage["dsh.sessions.current"]`, keyed by origin. One `--user-data-dir` per window gives each
+window its own cookie jar and its own last-session record, so windows do not fight over one key — proven
+by reading `dsh.sessions.current` out of the LevelDB of two separate window profiles. Restoring a window
+to a *specific* session still needs a UI change; asked as question 3.
+
+**D19 · 2026-09-11 · No browser extension; act through the DSH launch API.**
+Where the GUI lacks something, the answer is the REST/CLI surface of the DSH launch, not a content script
+in Edge. The harness's own README and factory workflow say so directly.

@@ -14,6 +14,49 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ---
 
+## 2026-09-11 13:45 · ZABZ-YOGA · Closed the Kosher filter's on-device ML verification, and found a crash in it
+
+**CHANGED**
+- `kosher-filter-ai` `A-BACK-011` is **DONE** — verified on a real android-34 runtime for the first
+  time. New `docs/HANDOFF_2026-09-11.md`; backlog A-BACK-011 and its blocker row updated.
+- **Fixed a user-facing crash.** `GantManNsfwClassifier.load` caught only `Exception` around the
+  `compileOnly` GPU delegate, so the `NoClassDefFoundError` escaped the loader, escaped the cascade and
+  killed the host activity on the main thread the first time any image was shared. Now `Throwable` at
+  three levels, and `CascadeOrchestrator.classify` fails closed (`ESCALATE`) instead of throwing.
+- **Fixed the verification harness.** `Invoke-Adb` declares `-AdbArgs`; all 16 call sites passed
+  `-Args`, which a non-advanced PowerShell function swallows into `$args` — so `adb` ran with no
+  arguments and the script always reported "no device attached". Added `-DriveShare` (drives a real
+  image share: nothing else makes the ML tags fire), per-file hiding in the fail-closed probe, and
+  stopped the "fail-closed observed" check matching the benign `GPU delegate unavailable` line.
+- Installed the Android `emulator` package + `system-images;android-34;google_apis;x86_64`, created AVD
+  `lpt-ml-verify`; recipe recorded in `kosher-filter-ai/docs/DEVELOPMENT.md`.
+
+**IN FLIGHT**
+- Committing this to `kosher-filter-ai`. Full server suite was still running when this was written; the
+  Android suite is green.
+
+**BROKEN**
+- Nothing known-broken from this session. Carried over unchanged: three divergent `secretary.db` copies
+  (P3), the evolution loop (P4), `engineering_indexer` (P5), held messages (P6), manual
+  `harness-config` sync.
+
+**NEXT**
+- What is left in the Kosher filter is owner or hardware: modesty-model spend (on HOLD), halacha tiers,
+  seat price points, billing party; a **physical** Android phone (an emulator has no GpuDelegate and no
+  NNAPI, so the GPU/NNAPI paths and the "GPU delegate is optional" fix are unverified on silicon); and
+  macOS + iPhone for all of iOS.
+
+**EVIDENCE**
+- `scripts/verify_on_device_ml.ps1` → **pass=16 warn=0 fail=0** on emulator-5554.
+- Device logcat: `GantManNsfw: Model loaded successfully`, `NudeNet: Model loaded from
+  .../files/models/nudenet_320n.onnx`, and with every model hidden
+  `Blocked uncertain image share: No local classifiers available`.
+- Android unit suite **362 tests / 0 failures**; harness contract tests 8 passed, with the new one
+  verified to fail against the pre-fix script from git.
+- Journal: LESSONS L47–L50, WINS W14, DECISIONS D20, PAIN P21.
+
+---
+
 ## 2026-09-11 13:40 · ZABZ-YOGA · Home Assistant: got into the host, and corrected two of my own wrong claims
 
 **CHANGED**
@@ -433,6 +476,63 @@ findings in `holdings-2026-09-11.md`.
 
 ---
 
+## 2026-09-11 14:00 · ZABZ-YOGA · Twelve DSH windows are now a supervised thing, not a hope
+
+**CHANGED**
+- **`multi-window/dshw.ps1` + `multi-window/windows.json` are in `harness-config`** (commits `f40579e`,
+  `6ceffe5`). Commands: `up`, `down`, `restart`, `status`, `windows`, `new`, `open <slot>`,
+  `stop <slot>`, `logs <slot>`, `autostart on|off`, `doctor`. One engine, many windows.
+- **Verified live, not asserted:** engine on port 3099 (pid 5756 at the time of writing) with **8 Edge
+  app windows open at once**, one browser profile each, all 8 with their own cookie jar and Local Storage
+  (which is what makes each window's session choice its own). `dshw status` reads
+  `1 engine(s) live, 8 window(s) open, 196 MB engine RSS, 206 MB whole engine tree`.
+- **Autostart registered and verified:** scheduled task `DSH Multi-Window Launcher`, At-logon, this user,
+  runs `dshw.ps1 up`. State `Ready`. That is the "close DSH, reopen it, the windows come back" answer.
+- **The official DSH desktop app is not the answer and must not be planned around.** It exists as source
+  only (`apps/desktop`, `"private": true`, no release assets, npm E404, CDN 404) and
+  `src/single-instance.ts` calls `requestSingleInstanceLock()` — **one window per machine by design**.
+- **A DSH session is not addressable by URL.** Zero `pushState`/`location.hash`/`sessionId` in all 65
+  installed client bundles; the SPA is served only at `/`; the chosen session is
+  `localStorage["dsh.sessions.current"]`, keyed by origin, read once at page load. Proven from the
+  LevelDB of two window profiles. Restoring a window to a specific session needs a client-side UI
+  change — open question 3 for the owner.
+- Research is committed under `docs/multi-window/` (analysis, questions, four research reports, brief).
+
+**CORRECTED (this session, before it could spread)**
+The first design put each window on its own engine and port. **Wrong economics.** Each engine eagerly
+starts its own five stdio MCP bridges: measured **~1.4 GB of tree per engine** (26 descendants), so
+8 engines ≈ 11 GB and 12 ≈ 17 GB, against **7.7 GB free** on this laptop. One engine with N windows is
+~2.7–3.1 GB. Also corrected: a *window* is not a session and a session is not an engine; conflating them
+is what made the original plan look cheap.
+
+**IN FLIGHT**
+- The 8 open windows on port 3099 **do not have their intended geometry** (7 of them are at 0,0): the
+  layout is in `windows.json` now, so `dshw restart` fixes it. Latent until then.
+- `dshw new` opened slot 9 as a ninth window during testing; slots 9–12 are still `enabled: false`, which
+  does not stop `new` (deliberate: `new` means "give me another window").
+- **No health watchdog** (PAIN P14): nothing polls the ports, so a dead engine is silent until looked at.
+  The At-logon task only fires at logon.
+- **No layout memory** (PAIN P15): a dragged window returns to `windows.json` coordinates on the next up.
+
+**BROKEN / KNOWN**
+- `dshw down` does not close browser windows — it stops engines. Closing windows stays a human action,
+  deliberately, because the only way to force-close them would be to kill every Edge process with the
+  profile path, which is one bad pattern away from killing the owner's own browser.
+- The engine started by hand on **3080 remains the owner's working GUI** and is untouched by the fleet;
+  `primaryPort` is 3099 so the two cannot fight over a port.
+
+**NEXT**
+Ask the owner question 1 (topology) from `docs/multi-window/QUESTIONS.md`, then restart the fleet on the
+real port and confirm the 4×2 layout.
+
+**EVIDENCE**
+- `multi-window/dshw.ps1`, `multi-window/windows.json` (commits `f40579e`, `6ceffe5`)
+- `docs/multi-window/ANALYSIS-AND-DECISION.md`, `QUESTIONS.md`, `research-*.md` (4 reports)
+- `C:\Users\ezabz\.dsh\multi-window\state.json`, `logs\<port>-<stamp>.log`, `windows.log`
+- `Get-ScheduledTask -TaskName 'DSH Multi-Window Launcher'` → State `Ready`, trigger At-logon
+- Per-profile proof: `...\multi-window\browser\w1..w8\Default\{Cookies,Local Storage\leveldb,Preferences}`
+
+---
 ## 2026-09-11 12:55 · ZABZ-YOGA · The open verification is closed, and the kernel now runs by itself
 
 
