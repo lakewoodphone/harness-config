@@ -369,15 +369,49 @@
 
 # The company. 14 tools: ps_company_status, ps_db_query, ps_memory_search,
 # ps_ceo_chat, ps_action, ps_log_tail, ps_circuit_breakers, and more.
+#
+# RUNS ON THE AUTHORITY HOST, over SSH stdio -- deliberately, and this is the fix
+# for a live defect rather than a preference.
+#
+# As a local command this server reads `ROOT/data/secretary.db`, i.e. whatever copy
+# sits beside the script. On a workstation that is a **replica**: 173 tables and up
+# to a day stale, against the authority's 203 tables and 2.4 GB. On 2026-09-11 the
+# phone path answered "13 ticks today, nothing logged between 08-21 and 09-10" from
+# that replica while the authority said 197 ticks and no gaps -- confidently wrong,
+# with a plausible explanation invented for the artefact (PAIN P22, LESSONS L51).
+#
+# Running it here means one copy, and the real one: same database as the kernel,
+# and the API tools (`ps_ceo_chat`, `ps_action`) hit the authority's own localhost
+# API instead of a workstation's. Verified over SSH: 14 tools, protocol
+# 2025-11-25, `ps_db_query` for today's ticks returns 197.
+#
+# Transport notes: no TTY (`-T`) so nothing but JSON-RPC reaches stdout, BatchMode
+# so it can never sit at a password prompt, and keepalives so a long-lived session
+# does not hang on a dropped network. `ps_open_loops` is the one tool whose meaning
+# changes here -- it mines *local* VS Code conversations, and on the server there
+# are none. It is a VS Code-era tool; expect it to return nothing rather than
+# something wrong.
 - id: mcp-secretary
   name: '@deepseek-ai/dsh-mcp-client'
-  disabled: !!js process.platform !== 'win32'
   config:
     serverName: secretary
     transport: stdio
-    command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+    command: ssh
     args:
-      - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\ps_mcp_server.py'
+      - '-T'
+      - '-o'
+      - 'BatchMode=yes'
+      - '-o'
+      - 'LogLevel=ERROR'
+      - '-o'
+      - 'ConnectTimeout=10'
+      - '-o'
+      - 'ServerAliveInterval=30'
+      - '-o'
+      - 'ServerAliveCountMax=3'
+      - 'secretary-ts'
+      - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
+      - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
     toolCallTimeoutMs: 120000
     failOnStartupError: false
 

@@ -181,6 +181,40 @@ Do 1 and 2. 3 alone is insufficient, because the failure is *confident wrongness
 **Acceptance test:** from the phone, ask for today's tick count and get either the authoritative number or an
 explicit refusal — never a plausible number from a stale file.
 
+### Built and verified, 2026-09-11 17:55
+
+The `mcp-secretary` row in the `zabz` preset now runs the bridge **on the authority**, over SSH stdio, and
+the Windows-only gate is gone (so Linux hosts get it too). Row shape:
+
+```
+command: ssh
+args: -T -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10
+      -o ServerAliveInterval=30 -o ServerAliveCountMax=3
+      secretary-ts /home/zabz/personal-secretary-mvp/.venv/bin/python
+      /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
+```
+
+`-T` so nothing but JSON-RPC reaches stdout, `BatchMode` so it can never sit at a password prompt, and
+keepalives so a long session does not hang on a dropped network.
+
+**Verified in four steps, each against the real thing:**
+
+| Step | Result |
+|---|---|
+| Authority can host it | `ps_mcp_server.py` present; venv `mcp` imports; `.env` present; local API `200`; DB is the 2.4 GB authority |
+| Raw SSH stdio handshake | `initialize` → `serverInfo personal-secretary 1.27.0`, protocol `2025-11-25`, **14 tools**, and `ps_db_query` for today's ticks → **197** |
+| Preset mounts it | a new session on the phone engine spawned `ssh.exe … secretary-ts …ps_mcp_server.py` as its bridge |
+| **Same question, same path** | the phone-path session answered **"197 ticks today (2026-09-11 UTC) — read from `tick_telemetry` on secratary's authoritative DB at 17:56 UTC, newest tick started 17:50 UTC, so the count is current as of ~6 minutes ago."** |
+
+That last line is the whole point: the number is the authority's, the provenance is stated, the freshness is
+stated, and the agent verified the database's clock before answering. Before the change, the same question
+produced *"13 ticks today … telemetry has been down for about three weeks"* — confidently wrong, from a
+173-table replica.
+
+**One tool changes meaning here, recorded rather than glossed:** `ps_open_loops` mines *local* VS Code
+conversations. On the authority there are none, so it returns nothing. It is a VS Code-era tool; expect
+nothing rather than something wrong.
+
 ---
 
 ## Phase 3 — Every DSH session traced into the secretary

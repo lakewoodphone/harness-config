@@ -193,6 +193,24 @@ processes, and that number is real, unlike the one above. The dominant cost is n
 **one `dsh-subprocess-local/runner.js` shell per concurrent command at ~58 MB each**, so the memory
 story on this machine is driven by how many sessions run shells at once, not by MCP.
 
+**AMENDED AGAIN 2026-09-11 17:55 — the sentence above about "once per process" is wrong, and the
+correction matters more than the original error.** Creating a *second* session on the same engine
+(`:3085`) mounted a **second complete set** of bridges: the listing showed 2× `mcp_launcher.py` for
+firecrawl, 2× jina, 2× context7, 2× `mcp-fetch-server`, 2× playwright, and the secretary row twice —
+once as the old local `python ps_mcp_server.py` and once as the new `ssh … ps_mcp_server.py`. So:
+
+> **Bridges are composed per SESSION, not per process.** Two sessions, two sets.
+
+Why the earlier count misled me: the first session's bridge set was the only one *I* had created, and
+the seven other sessions were other people's — their bridges existed, but my filter (exact name plus
+script basename, excluding my own command line) still matched only the set I was looking at. A count
+that confirms what you expect deserves the same suspicion as a count that surprises you (L28).
+*Consequence, and the reason this is a PAIN entry rather than trivia:* the cost model in
+`docs/multi-window/` — which sizes a fleet of 8–12 windows — assumes one bridge set per engine. If it is
+one per session, then 8–12 sessions is **48–72 bridge processes**, and the ~1.4 GB per-engine figure is
+really ~1.4 GB *per active session*. That is the difference between "12 windows fit" and "12 windows do
+not", so the multi-window sizing needs re-measuring before the owner leans on it.
+
 ---
 
 ## P13 — Concurrent sessions share one repo, and `git add -A` sweeps each other's work
@@ -495,3 +513,39 @@ established, is **refused**, not returned. The kernel already refuses this exact
 
 **Acceptance test.** From the phone, ask for today's tick count: the authoritative number, or an explicit
 refusal. Never a plausible number from a stale file.
+
+## P16 — A backgrounded window can grow host memory without bound
+
+**Symptom.** One engine serves every window over a single WebSocket mux. The project reports the downlink
+has per-frame but no byte-level backpressure, so a throttled or backgrounded tab lets `bufferedAmount`
+grow on the **host** side. With 8–12 windows, one forgotten background window can quietly consume the
+engine's heap. Reported upstream with the repository's own discussion as the source
+(`docs/multi-window/research-dsh-perf-config.md` §5).
+
+**Evidence.** Not reproduced here; it is a code property of the installed version and there is nothing to
+configure. It is recorded because it is the most plausible remaining cause of "it got slow overnight" now
+that the browser-side cost is fixed.
+
+**Cost.** An unexplained memory climb, then a stalled or OOM engine, with no obvious trigger.
+
+**Fix (not available as config).** Operational: keep the number of *actively streaming* windows modest,
+and treat engine RSS climbing without a burst as this symptom. What can be done here: the supervisor's
+`status` already prints whole-tree memory per engine, so a rise is visible — what is missing is anything
+that *watches* it (P14).
+
+## P17 — Agent fan-out is capped in depth and uncapped in breadth
+
+**Symptom.** `dsh-subagent` caps `maxDepth` (default 3) and has **no** `maxTotal` / `maxConcurrent`. A single
+session that fans out — a workflow, a wide research sweep — can start unbounded subagents in one engine.
+One reported case: 56 subagents in one `dsh web` process → ~2.2 GB, one core saturated for 20 minutes, and
+the GUI unresponsive until it was killed by hand
+(`docs/multi-window/research-dsh-perf-config.md` §7).
+
+**Evidence.** Upstream discussion, cited in the report; the config surface confirms depth-only limits.
+
+**Cost.** The exact failure the owner cares about — "no slowdowns" — caused by one session, not by window
+count. It also compounds: fan-out inside a session that is itself one of twelve windows.
+
+**Fix.** Budget subagent breadth per session (the workflow plane already has `maxConcurrentAgents` and
+`maxTotalAgents`; the plain subagent plane has neither), and have the supervisor treat a sudden engine
+tree growth as this symptom. Not built.
