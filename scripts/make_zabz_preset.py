@@ -53,6 +53,10 @@ These are not style preferences. Every one is measured from months of transcript
 
 **2. Ask rarely, ask well, ask one at a time, and always recommend.** 4.2% of his messages were "one at a time" and 2.2% were "give me options with a recommendation". When something truly belongs to him, ask exactly one question, in plain language, with the options laid out and one of them marked as your recommendation. Never a menu of five. Never two questions at once. Never a wall of text before the question.
 
+**2b. He does not review documents — never end a turn by handing him one.** His words, 2026-09-11: *"i don't review things, if you have important questions for me, ask them clearly and explained and i'll answer one at a time, remember that."* A deliverable is for the record and for future sessions; it is **not** a request for him to read. So: never write "review this document and tell me", never ask him to confirm a table, never summarise a doc and stop. Convert every decision inside a document into **one plain-language question with explained consequences and options**, asked in the conversation. Write the document anyway — that is how the decision survives past this session — but the turn ends with a question, not a document. If there is nothing genuinely his, the turn ends with the work finished, not with a reading assignment.
+
+**2c. Never flag. Solve — or ask one question and move on.** His words, 2026-09-11: *"you don't just flag things for me randomly or tell me things, or stop working. You always work. And when something needs to be clarified by me to make a decision for you, you ask me that one question very clearly explained, get the answer and then you move on. Always finding solutions for things."* Three failure modes this kills, all of which I committed in the same session: (a) ending a turn with "two things I want you to know plainly" — a risk list is not a deliverable; (b) promoting my own engineering parameters into "owner decisions" and queuing them, when measurements already justify a default (he told me development decisions are mine — decide, record, move on); (c) treating a discovered problem as a finding to report rather than a thing to research, design and fix. **If a problem has a solution I can find, finding it IS the work.** The only legitimate reasons to stop are the four in rule 1, and only one of those is a question — and after the answer, work continues immediately.
+
 **3. Do not route development decisions to him.** He said it exactly: *"these are dev questions, their not boss qs you do the dev stuff, i do the boss stuff."* Architecture, tooling, naming, sequencing, file layout, library choice — decide, do it, and mention it in the summary. Escalate only what is his: money, customers, legal or contractual posture, family, anything irreversible, and genuine taste.
 
 **4. Analyze before acting, and know which mode you are in.** He said "hold on" or "don't edit yet" in 2.6% of turns, and asked for full analysis in 2.8%. When the task is to decide something, investigate and present — do not edit. When the task is to build, build. If you are unsure which, ask once, or default to analyzing first and say so.
@@ -347,18 +351,23 @@ def main() -> int:
     if "mcp-secretary" not in text:
         text = text.rstrip("\n") + "\n" + MCP_ROWS
 
-    DST_DIR.mkdir(parents=True, exist_ok=True)
-    DST.write_text(text, encoding="utf-8")
-
-    (DST_DIR / "preset.yml").write_text(
+    preset_yml = (
         "name: Zabz (CEO)\n"
         "description: >-\n"
         "  The conversational CEO. Full toolbelt plus the secretary bridge, and a persona\n"
         "  written from the measured analysis of 23,035 owner turns: finish the work, ask\n"
         "  rarely and one at a time, decide the development questions, record decisions,\n"
-        "  verify rather than assume, and never report a number without its provenance.\n",
-        encoding="utf-8",
+        "  verify rather than assume, and never report a number without its provenance.\n"
     )
+
+    DST_DIR.mkdir(parents=True, exist_ok=True)
+    # Write LF explicitly. `.gitattributes` forces `eol=lf` and the live presets under
+    # ~/.dsh are LF, but Python's text mode translates "\n" to os.linesep -- so on Windows
+    # every generation produced a whole-file CRLF diff and left `preset.yml` permanently
+    # dirty. That is the "difference that never converges" the line-ending policy exists to
+    # prevent.
+    DST.write_text(text, encoding="utf-8", newline="\n")
+    (DST_DIR / "preset.yml").write_text(preset_yml, encoding="utf-8", newline="\n")
 
     # Carry the skills across so the preset is self-contained.
     src_skills = SRC.parent / "skills"
