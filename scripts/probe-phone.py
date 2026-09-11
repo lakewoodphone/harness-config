@@ -122,29 +122,42 @@ def is_harness_document(body):
     return False, f"no harness marker in {len(body)} bytes"
 
 
+def signed_in_document(path="/", headers=None):
+    """Fetch the document the way a browser would, and report what came back."""
+    r = request(GATE, "GET", path,
+                {"Host": AUTHORITY, "Accept": "text/html", **(headers or {})})
+    good, why = is_harness_document(r["body"])
+    return r, good, why
+
+
 def check_cold_visitor():
-    """No cookie, no token: the gate must hand back a redeemable link itself."""
-    r = request(GATE, "GET", "/", {"Host": AUTHORITY, "Accept": "text/html"})
-    loc = r["headers"].get("location", "")
-    tok = urllib.parse.parse_qs(urllib.parse.urlparse(loc).query).get("token", [""])[0]
-    ok = r["status"] in (301, 302, 303, 307) and tok
-    record(1, "cold visitor gets a link",
-           ok, f"{r['status']} -> {loc[:70] or '(no Location)'}")
-    return tok
+    """A visitor with nothing gets the page, in one request, with a session.
+
+    The contract changed on 2026-09-11 and the stronger version is the correct one: the
+    gate completes the login itself instead of handing out a link to follow. A link could
+    be looped on forever by a client that keeps a bad cookie; a page cannot.
+    """
+    r, good, why = signed_in_document()
+    cookie = r["headers"].get("set-cookie", "")
+    ok = r["status"] == 200 and good and "dsh-auth-" in cookie
+    record(1, "a cold visitor gets the page and a session", ok,
+           f"{r['status']}, {len(r['body'])} bytes, {why}, "
+           f"cookie={'yes' if 'dsh-auth-' in cookie else 'NO'}, 0 redirects")
+    return None
 
 
 def check_redeem(token):
+    """The engine's own one-time exchange still works under the gate."""
     if not token:
-        record(2, "token redeems to a cookie", False, "no token from check 1")
+        record(2, "the engine's token exchange still works", False, "no live token to try")
         return None
     r = request(GATE, "GET", f"/?token={urllib.parse.quote(token)}",
                 {"Host": AUTHORITY, "Accept": "text/html"})
     cookie = r["headers"].get("set-cookie", "")
     ok = r["status"] in (302, 303) and "dsh-auth-" in cookie
-    record(2, "token redeems to a cookie",
+    record(2, "the engine's token exchange still works",
            ok, f"{r['status']}, cookie={'yes' if 'dsh-auth-' in cookie else 'NO'}"
-               f"{', HttpOnly' if 'HttpOnly' in cookie else ''}"
-               f"{', SameSite=' + cookie.split('SameSite=')[1].split(';')[0] if 'SameSite=' in cookie else ''}")
+               f"{', HttpOnly' if 'HttpOnly' in cookie else ''}")
     return cookie.split(";")[0] if cookie else None
 
 
@@ -197,26 +210,20 @@ def check_stale_cookie():
     started from a clean client: the gate saw `dsh-auth-` and relayed, the engine
     said 401, and iOS offered the refusal as a download.
     """
-    r = request(GATE, "GET", "/", {"Host": AUTHORITY, "Accept": "text/html",
-                                   "Cookie": "dsh-auth-thisisnotavalidcookie"})
-    loc = r["headers"].get("location", "")
-    setcookie = r["headers"].get("set-cookie", "")
-    ok = r["status"] in (301, 302, 303, 307) and "token=" in loc and "Max-Age=0" in setcookie
+    r, good, why = signed_in_document(headers={"Cookie": "dsh-auth-thisisnotavalidcookie"})
+    cookie = r["headers"].get("set-cookie", "")
+    ok = r["status"] == 200 and good and "dsh-auth-" in cookie
     record(7, "a stale cookie is repaired, not refused", ok,
-           f"{r['status']} -> {loc[:52] or '(no Location)'}"
-           f"{', clears the bad cookie' if 'Max-Age=0' in setcookie else ', DOES NOT CLEAR IT (can loop)'}"
-           if ok else f"{r['status']} -> {loc[:40] or '(no Location)'} - a 401 here is the owner's original bug")
+           f"{r['status']}, {len(r['body'])} bytes, {why}, "
+           f"fresh cookie={'yes' if 'dsh-auth-' in cookie else 'NO'}")
 
 
 def check_stale_token():
     """A saved link whose token died at the last engine restart."""
-    r = request(GATE, "GET", "/?token=token-from-an-engine-that-is-gone",
-                {"Host": AUTHORITY, "Accept": "text/html"})
-    loc = r["headers"].get("location", "")
-    ok = r["status"] in (301, 302, 303, 307) and "token=" in loc
-    record(8, "a stale token is replaced, not relayed", ok,
-           f"{r['status']} -> {loc[:60] or '(no Location)'}"
-           + ("" if ok else " - this is the link saved on the phone"))
+    r, good, why = signed_in_document("/?token=token-from-an-engine-that-is-gone")
+    ok = r["status"] == 200 and good
+    record(8, "a dead saved link is repaired, not relayed", ok,
+           f"{r['status']}, {len(r['body'])} bytes, {why}")
 
 
 def status_of(response: bytes) -> int:
@@ -339,36 +346,30 @@ def check_outside_in():
 def check_redirector():
     """The public link a human may still have in their hand — followed all the way.
 
-    A 302 with a token in it proves nothing: the token it hands out has to be one the
-    engine still accepts, so this follows the redirect over real HTTPS and insists on
-    the document. Asserting on the redirect alone is how a dead token stayed invisible.
+    A redirect status proves nothing about where it lands: the old version handed out a
+    launch token, and a dead one turned the owner's home-screen icon into a 401. So this
+    follows it over real HTTPS, with no cookie of its own, and insists on the document.
     """
     try:
         r = request(REDIRECT, "GET", "/phone", {"Host": "ai.abletelsolutions.com"})
         loc = r["headers"].get("location", "")
-        if r["status"] not in (301, 302, 303, 307) or "token=" not in loc:
+        if r["status"] not in (301, 302, 303, 307) or not loc:
             record("6b", "public /phone reaches the harness", False,
                    f"{r['status']} -> {loc or '(no Location)'}")
             return
         try:
             ctx = ssl.create_default_context()
             conn = http.client.HTTPSConnection(AUTHORITY, 443, timeout=25, context=ctx)
-            conn.request("GET", "/" + (urllib.parse.urlparse(loc).query and
-                                       "?" + urllib.parse.urlparse(loc).query or ""),
-                         headers={"User-Agent": "probe-phone/1"})
+            conn.request("GET", "/", headers={"User-Agent": "probe-phone/1"})
             r2 = conn.getresponse()
+            status, body = r2.status, r2.read(70000)
             cookie = (r2.getheader("Set-Cookie") or "").split(";")[0]
-            r2.read(1000)
-            conn.close()
-            conn = http.client.HTTPSConnection(AUTHORITY, 443, timeout=25, context=ctx)
-            conn.request("GET", "/", headers={"User-Agent": "probe-phone/1", "Cookie": cookie})
-            r3 = conn.getresponse()
-            status, body = r3.status, r3.read(70000)
             conn.close()
             good, why = is_harness_document(body)
-            ok = status == 200 and good
+            ok = status == 200 and good and "dsh-auth-" in cookie
             record("6b", "public /phone reaches the harness", ok,
-                   f"302 -> tailnet -> {status}, {len(body)} bytes, {why}")
+                   f"302 -> {loc.split('://')[-1][:28]} -> {status}, {len(body)} bytes, {why}, "
+                   f"signed in={'yes' if 'dsh-auth-' in cookie else 'NO'}")
         except Exception as e:  # noqa: BLE001
             record("6b", "public /phone reaches the harness", False,
                    f"redirect ok but the target failed: {type(e).__name__}: {e}")
@@ -391,11 +392,11 @@ def run_checks():
     if not ARGS.quiet:
         print(f"  token source: {how}")
         if not token:
-            print("  no live token; checks 2-4 cannot run")
-    cold_token = guarded(1, "cold visitor gets a link", check_cold_visitor)
-    # the cold path is the real test; the engine's own one-time token is the fallback,
-    # so checks 3-4 still run (and still mean something) when check 1 fails.
-    cookie = guarded(2, "token redeems to a cookie", check_redeem, cold_token or token)
+            print("  no live token; the gate cannot sign anyone in")
+    guarded(1, "a cold visitor gets the page and a session", check_cold_visitor)
+    # independent of check 1: the engine's own one-time exchange still has to work, since
+    # the gate's in-flight login is built on it.
+    cookie = guarded(2, "the engine's token exchange still works", check_redeem, token)
     guarded(3, "document loads with the cookie", check_document, cookie)
     guarded(4, "websocket upgrades", check_websocket, cookie)
     guarded(5, "engine still fences a foreign Host", check_fence)

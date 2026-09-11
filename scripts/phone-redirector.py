@@ -5,20 +5,17 @@ The owner's phone has `https://ai.abletelsolutions.com/phone` on its home screen
 "Secretary Chat" PWA. He asked for that link to open the harness instead, and he should not have to
 learn a new URL or re-add an icon.
 
-So the tunnel routes that one path here, and this returns a 302 to the harness on the tailnet. It reads
-the launch token from the engine's own log **at request time**, so the link keeps working after the
-engine restarts and mints a new one — a static redirect would break the first time the engine bounced.
+So the tunnel routes that one path here, and this returns a 302 to the harness on the tailnet. It used
+to put the launch token in that Location; it does not any more. As of 2026-09-11 the gate in front of the
+engine signs a visitor in on the spot (it exchanges the token internally and returns the page with the
+session cookie), so a bare URL is enough — and a bare URL means the token is never in a link the owner can
+save, a browser can keep in history, or anyone can read out of a Location header.
 
 Why a redirect and not a proxy: the harness refuses to be exposed (its own CLI rejects a public bind
 because it "would expose remote code execution to the network"), and proxying would put that capability
 on the public internet. Redirecting keeps the app reachable only by tailnet devices, which is the whole
 point of Tailscale Serve. A phone that is not on the tailnet gets a clear page saying so instead of a
 browser error.
-
-Note on the token in the Location header: it is a bearer secret, and it is deliberately in the redirect
-so the owner's first tap just works. It is not a public capability — the harness's host fence accepts
-that token only on the tailnet authority, so an internet stranger who reads the header cannot redeem it
-(it would be refused 403 from anywhere else).
 
 usage:  phone-redirector.py [--port 3087] [--host 127.0.0.1]
 """
@@ -78,9 +75,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._page(503, "The harness engine is not running",
                               "Start it with `serve-phone.sh` on secratary, then tap this link again.")
 
-        # 302, not 301: the target carries a token that changes when the engine restarts, so it must
-        # never be cached as permanent.
-        target = f"https://{host}/?token={token}"
+        # 302, not 301: cached as permanent, this link would survive a change of address.
+        # No token: the gate in front of the engine signs the visitor in on arrival.
+        target = f"https://{host}/"
         self.send_response(302)
         self.send_header("Location", target)
         self.send_header("Cache-Control", "no-store")
