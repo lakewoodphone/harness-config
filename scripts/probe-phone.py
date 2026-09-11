@@ -217,6 +217,14 @@ def check_stale_token():
            + ("" if ok else " - this is the link saved on the phone"))
 
 
+def status_of(response: bytes) -> int:
+    """HTTP status from a raw response head, or 0 if it cannot be read."""
+    try:
+        return int(response.split(b" ", 2)[1])
+    except (IndexError, ValueError):
+        return 0
+
+
 def check_pooling():
     """A second request on the same connection must not slip past the gate.
 
