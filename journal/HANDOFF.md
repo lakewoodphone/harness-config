@@ -23,7 +23,17 @@ EVIDENCE    files, commits, or commands that prove the above
   end-to-end three times from the Yoga against the live system via `secratary`; JSON + Markdown land
   in `.runtime/` (git-ignored by design).
 - `docs/AUDIT-2026-09-11-live-systems.md` — the first live-grounded audit since 2026-04-17. Committed
-  as `7be821d`; `ha-config` is now **6 commits ahead of `origin/main`**, still unpushed.
+  as `7be821d`; `ha-config` is now **7 commits ahead of `origin/main`**, still unpushed.
+- `docs/DISPOSAL-PLAN-2026-09-11-dead-generations.md` (`6e89501`) — removal plan for the four piles of
+  dead logic, deliberately *not* the removal: manifest → repo-wide reference grep → backup → batches of
+  ten with exact-count verification → regression assertion using the collector's own finding codes.
+  Key numbers: **42 orphaned Keymaster entities with no config entry and no device**, **390 registry
+  entities with a collision suffix (only 18 live, and 12 of those are legitimate Dahua sub-streams that
+  must not be touched)**, **82 unloaded automations** (`disabled_by=null`, so the question is whether
+  their YAML still exists), **834 entities disabled by their own integration — no registry surgery**.
+- Raw evidence persisted on the always-on host (not just in a session's `/tmp`):
+  `/home/zabz/ceo-kernel-var/ha/truth-20260911T1701Z.json` and
+  `…/disposal-evidence-20260911T1705Z.json`.
 - The collector's first run found a bug in itself and refused correctly (`/api/error_log` is text, not
   JSON) — fixed, re-run, verified. That refusal is why the log section is real instead of empty.
 - Journal IDs collided with a concurrent session's (both wrote P15/P16). Mine are now **P17/P18**,
