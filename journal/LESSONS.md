@@ -570,3 +570,23 @@ on model confidence at all**.
 present or absent, a mask that exists or does not — not on a number the model chooses to say about itself.
 This is the same shape as P3 (believing a stale database) one layer down: the artifact's own claim is not
 evidence about its state.
+
+**L55 · The cheapest technical option can be the one the vendor forbids — read the terms before the price.**
+The cost analysis for server-side screenshot classification ended with a finding bigger than any price: **every
+surveyed vendor's terms restrict this use case regardless of retention settings.** Google and Anthropic on the
+relevant tiers are "not for consumer use"; xAI is 18+; DeepSeek disclaims children's data; **OpenAI retains
+image inputs for manual CSAM review even under Zero Data Retention**; Anthropic mandates 30-day retention even
+for ZDR organisations. A family content filter uploads bath-time and bedroom photos — precisely the distribution
+that trips a CSAM classifier. So the "cloud is cheapest, so the only question is privacy" framing I had written
+was wrong twice over: it was priced too optimistically, and it treated a contractual hazard as a preference.
+*Rule:* for anything touching a customer's private data, the terms of service are an architectural constraint
+with the same force as memory or latency, and they belong in the first feasibility pass — not discovered after
+the design is chosen. Self-hosting stopped being a values choice and became the only defensible one.
+
+**L56 · "Cheapest" ranking is mostly an artifact of input tokenisation, not of the vendor.**
+Gemini 3 lets you choose **280 / 560 / 1,120 / 2,240 tokens for the same image at an identical rate** — a 4x
+swing on one model. OpenAI charges **1,104 tokens at 720p but 2,448 at 1080p**, and **173 with `detail:low`**.
+Image-resolution choices therefore move cost more than switching providers does.
+*Rule:* before comparing vendors, fix the input. Downscale, choose the cheapest sufficient tokenisation, then
+compare — and note that a vision cost table built without stating the image size and tokenisation is not
+comparable to anything else. This is L42's "quote the number" applied to model inputs.
