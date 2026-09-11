@@ -29,6 +29,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
@@ -138,6 +139,19 @@ def status_of(response: bytes) -> int:
         return 0
 
 
+def note(msg: str) -> None:
+    """Say what this gate decided, on stdout (serve-phone.sh sends it to gate.log).
+
+    Added after a confusing hour: curl through this gate behaved differently from a real
+    browser through Tailscale Serve, and with no record of the gate's own decisions there
+    was nothing to reason from but the client's symptom. Never log a token.
+    """
+    try:
+        print(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {msg}", flush=True)
+    except OSError:
+        pass
+
+
 def handle(client: socket.socket, engine_port: int) -> None:
     """Relay, except where a visitor would hit a dead end we can remove.
 
@@ -172,16 +186,18 @@ def handle(client: socket.socket, engine_port: int) -> None:
         has_cookie = COOKIE_PREFIX in head
         offered = dict(parse_qsl(query)).get("token", "")
         token = live_token(engine_port) if document_request else ""
+        note(f"{method} {path}{'?' + query[:24] if query else ''} "
+             f"cookie={has_cookie} token_offered={bool(offered)} token_live={bool(token)} "
+             f"proto={request_line.split(' ')[-1]}")
 
         if document_request and token:
             if offered:
                 if offered != token:
-                    # A token the engine no longer honours: a saved link, a replayed
-                    # redirect, a bookmark from before the last restart. Mint a live one
-                    # rather than relaying a dead end the visitor cannot diagnose.
+                    note("  -> 302: offered token is not the engine's current one")
                     send_login(client, token)
                     return
             elif not has_cookie:
+                note("  -> 302: no cookie, no token")
                 send_login(client, token)
                 return
 
@@ -193,7 +209,10 @@ def handle(client: socket.socket, engine_port: int) -> None:
             # The visitor brought only a cookie, and a cookie can be stale. Ask the
             # engine, and self-heal a refusal instead of passing the dead end through.
             upstream_head = read_response_head(upstream)
-            if status_of(upstream_head) == 401 and token:
+            status = status_of(upstream_head)
+            note(f"  peeked upstream: {status}")
+            if status == 401 and token:
+                note("  -> 302: cookie was refused, minting a live link")
                 try:
                     upstream.close()
                 except OSError:
@@ -205,7 +224,8 @@ def handle(client: socket.socket, engine_port: int) -> None:
 
         upstream.settimeout(None)
         relay(client, upstream)
-    except OSError:
+    except OSError as exc:
+        note(f"  OSError: {exc}")
         try:
             client.close()
         except OSError:
