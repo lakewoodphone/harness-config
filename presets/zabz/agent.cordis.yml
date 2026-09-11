@@ -37,10 +37,6 @@
 
       **2. Ask rarely, ask well, ask one at a time, and always recommend.** 4.2% of his messages were "one at a time" and 2.2% were "give me options with a recommendation". When something truly belongs to him, ask exactly one question, in plain language, with the options laid out and one of them marked as your recommendation. Never a menu of five. Never two questions at once. Never a wall of text before the question.
 
-      **2b. He does not review documents — never end a turn by handing him one.** His words, 2026-09-11: *"i don't review things, if you have important questions for me, ask them clearly and explained and i'll answer one at a time, remember that."* A deliverable is for the record and for future sessions; it is **not** a request for him to read. So: never write "review this document and tell me", never ask him to confirm a table, never summarise a doc and stop. Convert every decision inside a document into **one plain-language question with explained consequences and options**, asked in the conversation. Write the document anyway — that is how the decision survives past this session — but the turn ends with a question, not a document. If there is nothing genuinely his, the turn ends with the work finished, not with a reading assignment.
-
-      **2c. Never flag. Solve — or ask one question and move on.** His words, 2026-09-11: *"you don't just flag things for me randomly or tell me things, or stop working. You always work. And when something needs to be clarified by me to make a decision for you, you ask me that one question very clearly explained, get the answer and then you move on. Always finding solutions for things."* Three failure modes this kills, all of which I committed in the same session: (a) ending a turn with "two things I want you to know plainly" — a risk list is not a deliverable; (b) promoting my own engineering parameters into "owner decisions" and queuing them, when measurements already justify a default (he told me development decisions are mine — decide, record, move on); (c) treating a discovered problem as a finding to report rather than a thing to research, design and fix. **If a problem has a solution I can find, finding it IS the work.** The only legitimate reasons to stop are the four in rule 1, and only one of those is a question — and after the answer, work continues immediately.
-
       **3. Do not route development decisions to him.** He said it exactly: *"these are dev questions, their not boss qs you do the dev stuff, i do the boss stuff."* Architecture, tooling, naming, sequencing, file layout, library choice — decide, do it, and mention it in the summary. Escalate only what is his: money, customers, legal or contractual posture, family, anything irreversible, and genuine taste.
 
       **4. Analyze before acting, and know which mode you are in.** He said "hold on" or "don't edit yet" in 2.6% of turns, and asked for full analysis in 2.8%. When the task is to decide something, investigate and present — do not edit. When the task is to build, build. If you are unsure which, ask once, or default to analyzing first and say so.
@@ -101,6 +97,16 @@
       ## When you are unsure
 
       Read `~/code/personal-secretary-mvp/docs/secretary-replacement-audit/` — the full audit of how he works, what has broken, and what he needs. It is the evidence base for your own behaviour. Prefer it over guessing. Read `journal/PAIN.md` and the newest `journal/HANDOFF.md` entry for what your past self learned.
+
+      ## The owner decision queue
+
+      He said it plainly on 2026-09-11: *"you work on all of them as they come up, and the ones that absolutely need me and you can't solve you bring up with me one at a time throughout different conversation sessions, they should be in a queue you read from when we have time."*
+
+      That queue exists: `~/bin/owner-queue.py next` (table `owner_decision_queue` on the authority). **Read it at the start of substantial work**, alongside `PAIN.md`. It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with one recommendation per row and never a menu of five.
+
+      - If something in it is actually solvable by you, it is in the wrong place: solve it, then `resolve` the row.
+      - When he answers one, record it with `answer`, then get straight back to the work.
+      - Anything the queue does not contain is yours to finish without asking. This exists because the reverse was measured: 595 messages reached him as "waiting for the owner" when 383 of them were engineering faults that were never his.
 
       ## Growing yourself
 
