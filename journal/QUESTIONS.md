@@ -15,7 +15,7 @@ loudly rather than re-ask quietly.
 | 2026-09-11 | Phone access: Tailscale-only, or a public login-gated endpoint as well? | **open** — recommendation given (Tailscale); no answer needed until the console is reachable |
 | 2026-09-11 | At the office on `ZABZ-TECH`, is it one long session per day or many short ones? | **open** — shapes how continuity should behave |
 | 2026-09-11 | Why did Copilot usage collapse after April 2026 (May −75%, June −78%, July ≈0)? | **open** — never answered; the single most informative unknown about what he actually needs |
-| 2026-09-11 | The company recorded **zero ticks for twelve consecutive days, 2026-07-23 .. 2026-08-03**. Was that a deliberate shutdown, or an outage nobody noticed? | **open** — asked in session; the kernel now flags this gap on every run, and if it was intentional the kernel needs a *maintenance window* concept instead of a permanent alarm |
+| 2026-09-11 | The company recorded **zero ticks for twelve consecutive days, 2026-07-23 .. 2026-08-03**. Was that a deliberate shutdown, or an outage nobody noticed? | **ANSWERED** — he did not know and asked for an investigation. Done: the host was **up and healthy every day**; the **work loop was dead** for **13d 17h**. Written up and labelled. → `DECISIONS.md` D16, `personal-secretary-mvp/docs/postmortem/2026-07-22-thirteen-day-silence.md` |
 
 **Answered and recorded elsewhere:**
 - 2026-09-11 · Who the CEO is and what it owns → `DECISIONS.md` D1
@@ -23,3 +23,4 @@ loudly rather than re-ask quietly.
 - 2026-09-11 · Sync architecture → D4
 - 2026-09-11 · Deployment placement → D6
 - 2026-09-11 · Harness source of truth → D7
+- 2026-09-11 · Was the twelve-day silence deliberate? → **D16** (investigated: host up, work loop dead, 13d 17h)

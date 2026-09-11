@@ -72,6 +72,28 @@ false the moment a second agent can write there. Stage the paths you actually ch
 line and it preserves the difference between what you did and what merely happened next to you.
 *Cost of learning it:* an unattributed file in a commit, and the diff no longer explains itself.
 
+**L39 · To date an outage, use append-only evidence. A file that is overwritten has no history.**
+Investigating the 2026-07-22 → 08-04 silence, the first instinct was `find -newermt <window>` to see
+whether the host had been alive. **That test is unusable for the question asked**: every file that is
+continuously rewritten — the cron health file, the heartbeat, the API log truncated on each start —
+carries today's mtime and hides its own past. A host that is *dead* and a host that is *writing to
+files we overwrite* look identical.
+*What actually settled it:* (1) `find` counts **per day** — not "did anything write", but "which days
+had writes at all", which showed every one of the twelve days had activity; (2) `logrotate`'s rotated
+files, whose mtimes are frozen at rotation time, proving cron ran on Jul 23; (3) the database itself,
+whose append-only tables date the last tick and the first one after to the second.
+*Learned:* before asking a question of the filesystem, ask which files *can* answer it. Frozen and
+append-only artefacts (rotated logs, database rows, git objects) record history; live-state files
+record only the present. Reaching for mtime first cost the most time in this investigation.
+
+**L40 · An outage can be invisible in the data that describes work, because absence has no rows.**
+Closely related to L31 and kept separate because it is the *detection* half rather than the *counting*
+half: the 13-day silence was absent from `tick_telemetry` not as a gap but as nothing at all — no rows,
+no error, no interruption to see. `GROUP BY` over existing rows reported a clean series. The company
+was dead for two weeks and every reading of the database was technically correct.
+*Learned:* the question "what should be here and isn't?" cannot be asked of a table. It has to be asked
+of a calendar — and only a check that expects absence will ask it. See L31 and `telemetry_gaps`.
+
 **L31 · A span counted in rows is not a span of time. Count the calendar.**
 The kernel reported "4 collapse windows in **120 days**" and labelled its worst window "**30d**". Both
 were counts of *days that have rows*. The window actually spanned **52 calendar days**, and inside it

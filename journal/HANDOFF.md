@@ -14,6 +14,50 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ---
 
+## 2026-09-11 13:12 · ZABZ-YOGA · The thirteen-day silence, investigated and labelled
+
+**CHANGED**
+- The owner was asked whether the zero-tick window was deliberate. **He did not know and asked for an
+  investigation.** Done, from evidence rather than inference.
+  **The host was up and healthy every single day; the work loop was dead.**
+  - Last tick `2026-07-22T00:21:02Z` → first tick back `2026-08-04T18:06:44Z` = **13 days 17 hours**.
+  - The machine was demonstrably alive throughout: files written on **every** day of the window
+    (1992/17/12/88/40/13/45/34/24/24/3/2 per day), `logrotate` ran 2026-07-23 06:02, hundreds of
+    writes into `~/.local/lib/python3.14/site-packages`, 101 under `/var/lib/dpkg/info`, and git
+    operations on the app repo on Jul 26, Jul 29 and Aug 3.
+  - The database is silent in **every** table, not just `tick_telemetry`: no work sessions, no model
+    usage, no errors, no delegations. Three `activity_log` rows in twelve days. A dead *loop*, not a
+    failing one.
+  - `secretary-api.log` records the mechanism that kept it down: `Stale autopilot thread detected
+    (last_run_at=2026-07-21T06:00:51…) — exiting`, after **six restarts in twelve minutes** on the
+    evening of Jul 21, the last of which logged **"Startup complete (autopilot disabled)"**.
+- Written up as a postmortem: `personal-secretary-mvp/docs/postmortem/2026-07-22-thirteen-day-silence.md`
+  (commit `f25d8d333`), including three things that remain **unknown** rather than glossed.
+- The kernel now **names this gap instead of re-discovering it**: `KNOWN_GAPS` in `ck/sentinel.py`
+  reports *"largest historical gap 12d (2026-07-22 -> 2026-08-04) — known: thirteen-day silence…"*
+  (commit `3778bac`, deployed and verified live on `secratary`). An answered question stops being
+  re-opened every five minutes, which is the failure mode that produced P6's dismissal schemes.
+
+**IN FLIGHT**
+- **The kernel is doing its job unattended**: cron fires every 5 minutes; runs at 16:55, 17:00, 17:05
+  all landed with provenance (`authoritative:true`, 203 tables). Latest: 4 findings need attention.
+- Three postmortem action items are **open and unfixed**: the autopilot's stale-guard **disables instead
+  of re-arming** (`app/autopilot.py`); the cron watchdog asserts process liveness, not outcomes; and the
+  monitor lives on the machine it monitors (PAIN P20 — the heartbeats must go off-host).
+- `latest.json` still prints `age=?` (PAIN P12); `ck trend` still unbuilt; kernel Phases 2–7 unbuilt.
+
+**NEXT**
+Fix the two liveness-shaped holes the postmortem names — the autopilot stale-guard re-arming itself, and
+an off-host heartbeat that alarms on **absence** — because those are the exact conditions that produced
+this outage, and they are still in place today. Then `ck trend` over the accumulating `history.jsonl`.
+
+**EVIDENCE**
+- `ssh secretary-ts`: `find` histogram per day; `logrotate` mtimes; `sqlite3 -readonly` last/first tick
+- `~/secretary-api.log`, `~/secretary-startup.log` (the six restarts and the autopilot refusal)
+- postmortem `f25d8d333`; kernel `3778bac`; `ck status` on `secratary` showing the labelled gap
+
+---
+
 ## 2026-09-11 13:05 · ZABZ-YOGA · Home Assistant: audited live, and the security system is blind
 
 **CHANGED**

@@ -331,3 +331,43 @@ subnet over Tailscale from `secratary` (`--advertise-routes=192.168.50.0/24`) wi
 in the admin console, which makes HA directly reachable from both workstations and removes the hop
 entirely. Needs the owner's Tailscale admin action; not started.
 
+---
+
+## P19 — The audit that this whole role is built on is **untracked** in git
+
+**Symptom.** `personal-secretary-mvp/docs/secretary-replacement-audit/` — the seven documents that are
+the evidence base for the persona, for the kernel's design, and for most of what is in this journal —
+is **untracked**. It exists only in one working tree on one laptop.
+
+**Evidence.** `git status --porcelain` in `personal-secretary-mvp`, 2026-09-11 13:0x, while committing
+the thirteen-day-silence postmortem: `?? docs/secretary-replacement-audit/`.
+
+**Cost.** Nearly every rule in `LESSONS.md` cites these documents by name. Losing a laptop loses the
+evidence for *why* the rules exist, leaving rules nobody can re-derive and therefore nobody can
+correctly revise — the same failure as an unapplied proposal (L16), one level up.
+
+**Fix.** Commit it to the repo it belongs to, or to `harness-config` if it is meant to travel with the
+persona. Deliberately **not done in this session**: other sessions were actively writing in that repo,
+and an audit captured mid-write is worse than one not yet captured. Cheap to do when the tree is quiet.
+
+---
+
+## P20 — The monitor lives on the machine it monitors
+
+**Symptom.** The kernel's sentinel, its schedule and its history all live on `secratary` — the same
+host as the database and the company. If that host dies, the evidence of its death dies with it, and
+nothing else knows to be worried.
+
+**Evidence.** `ceo-kernel/docs/OPERATIONS.md`;
+`personal-secretary-mvp/docs/postmortem/2026-07-22-thirteen-day-silence.md`, action item 6.
+
+**Cost.** Not theoretical: the 2026-07-22 incident shows this system can be silent for two weeks. The
+sentinel catches that class *while it is running* — and the failure being watched for is one that could
+also stop the watcher. A watched-host monitor is a real improvement over nothing (it found the 13-day
+gap) and is still incomplete.
+
+**Fix.** A heartbeat in the other direction: the host emits a timestamp it cannot silently stop
+emitting, and something **off-host** (desktop, Yoga, or the Hetzner VPS) alarms when it *fails to
+arrive*. The check must expect absence and be surprised by it, rather than reading a file the host
+wrote. Not built. Highest-value remaining piece of Phase 1's honesty story.
+

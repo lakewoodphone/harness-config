@@ -101,3 +101,18 @@ the camera failure entirely.
 *Honest caveat:* the tool cannot see add-on versions, the HAOS version, or `/config` contents — it says
 so in `not_verifiable` rather than leaving a blank. It is a complement to the SSH inventory path, not a
 replacement for it.
+
+**W12 · 2026-09-11 (later) · The absence check paid for itself the same day: it found a 13-day outage nobody knew about.**
+`telemetry_gaps` was written because the kernel could not see a day on which nothing ran. Within the
+hour it surfaced a **13-day 17-hour total silence** (last tick `2026-07-22T00:21:02Z`, first tick back
+`2026-08-04T18:06:44Z`) that no monitor, no digest, no postmortem and no human had ever flagged.
+*Measurement:* the investigation then established, from evidence rather than inference, that **the host
+was up and healthy every single day** (files written on all twelve days, `logrotate` ran Jul 23, apt and
+pip activity throughout) while **the work loop was dead** — so every liveness monitor in the system was
+green during the longest outage in its history. Written up in
+`personal-secretary-mvp/docs/postmortem/2026-07-22-thirteen-day-silence.md`.
+*Second measurement:* the fix generalised rather than special-casing. The kernel still reports the gap
+and now attaches its explanation (`KNOWN_GAPS`), so an answered question stops being re-opened every
+five minutes — the failure mode that produced the three competing dismissal schemes of P6.
+*Cost of the discovery:* ~20 minutes of tooling. Cost of not having it: the outage was already three
+weeks old and would have stayed unknown indefinitely.
