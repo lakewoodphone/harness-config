@@ -62,6 +62,9 @@ const STATE_PATH = path.join(DSH_HOME, 'dsh-archive-state.json');
 const MACHINE = (process.env.DSH_ARCHIVE_MACHINE || os.hostname()).toLowerCase();
 const BATCH_SESSIONS = 100;
 const BATCH_BYTES = 4 * 1024 * 1024;
+// A transport must never be able to hang a scheduled job forever (see postBatch).
+const SSH_TIMEOUT_MS = Number(process.env.DSH_ARCHIVE_SSH_TIMEOUT_MS || 240000);
+const transportNotes = {};
 
 // Two transports, same payload:
 //   ssh  (default) — pipe the batch into the importer on the authority. Works today.
@@ -171,18 +174,41 @@ async function postBatch(payload) {
   }
 
   // ssh: the importer reads the batch on stdin and prints one JSON summary line.
-  // Throwing on any non-zero exit or unparseable reply is what stops the cursor
-  // from advancing past rows the server never received.
+  //
+  // Two hard-won details, both measured on ZABZ-TECH on 2026-09-11:
+  //
+  //  1. **A timeout is mandatory.** Node-spawned ssh on that machine returns the remote command's
+  //     output and then never exits — the first real run there hung for 10 minutes producing nothing.
+  //     The same call from the Yoga exits in ~1 s, same ssh binary and version, so it is not the
+  //     config, not the binary, and not the network. Without a bound, a scheduled job stalls forever.
+  //
+  //  2. **A timed-out transport whose reply already parsed is a SUCCESS, not a failure.** The importer
+  //     prints its summary only after `conn.commit()`, so a valid `{"ok":true,…}` on stdout means the
+  //     rows are durable. Treating it as failure would re-send the same megabytes every hour and the
+  //     desktop's sessions would never be archived at all. spawnSync kills the child on timeout, so
+  //     nothing is orphaned; the quirk is noted in the run output rather than hidden.
   const r = spawnSync('ssh', ['-T', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', SSH_HOST, 'python3', IMPORTER], {
     input: body,
     encoding: 'utf8',
     maxBuffer: 128 * 1024 * 1024,
+    timeout: SSH_TIMEOUT_MS,
   });
+
+  const line = String(r.stdout || '').trim().split('\n').filter(Boolean).pop() || '';
+  let parsed = null;
+  try { parsed = JSON.parse(line); } catch { /* reported below */ }
+
+  const timedOut = Boolean(r.error && (r.error.code === 'ETIMEDOUT' || r.signal === 'SIGTERM'));
+  if (timedOut) {
+    if (parsed && parsed.ok) {
+      transportNotes.timedOutButCommitted = (transportNotes.timedOutButCommitted || 0) + 1;
+      return JSON.stringify(parsed);
+    }
+    throw new Error(`ssh timed out after ${SSH_TIMEOUT_MS} ms with no valid importer reply`);
+  }
   if (r.error) throw new Error('ssh spawn failed: ' + r.error.message);
   if (r.status !== 0) throw new Error(`importer exit ${r.status}: ${String(r.stderr || '').slice(0, 300)}`);
-  const line = String(r.stdout || '').trim().split('\n').filter(Boolean).pop() || '';
-  let parsed;
-  try { parsed = JSON.parse(line); } catch { throw new Error('unparseable importer reply: ' + line.slice(0, 200)); }
+  if (!parsed) throw new Error('unparseable importer reply: ' + line.slice(0, 200));
   if (!parsed.ok) throw new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200));
   return JSON.stringify(parsed);
 }
@@ -272,6 +298,9 @@ async function main() {
   console.log(`${DRY ? 'would ship' : 'shipped'}: ${sessionsSent} session(s), ${rowsSent} new row(s), ${Math.round(bytesSent / 1024)} KB`);
   if (skipped) console.log(`unchanged  : ${skipped} session(s) already complete (cursor)`);
   if (torn) console.log(`torn tail  : ${torn} session(s) ended mid-frame — skipped, which is normal`);
+  if (transportNotes.timedOutButCommitted) {
+    console.log(`transport  : ${transportNotes.timedOutButCommitted} batch(es) committed by the importer although ssh did not exit on this machine — see postBatch`);
+  }
   return 0;
 }
 
