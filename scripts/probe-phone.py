@@ -200,10 +200,12 @@ def check_stale_cookie():
     r = request(GATE, "GET", "/", {"Host": AUTHORITY, "Accept": "text/html",
                                    "Cookie": "dsh-auth-thisisnotavalidcookie"})
     loc = r["headers"].get("location", "")
-    ok = r["status"] in (301, 302, 303, 307) and "token=" in loc
+    setcookie = r["headers"].get("set-cookie", "")
+    ok = r["status"] in (301, 302, 303, 307) and "token=" in loc and "Max-Age=0" in setcookie
     record(7, "a stale cookie is repaired, not refused", ok,
-           f"{r['status']} -> {loc[:60] or '(no Location)'}"
-           + ("" if ok else " - a 401 here is the owner's original bug"))
+           f"{r['status']} -> {loc[:52] or '(no Location)'}"
+           f"{', clears the bad cookie' if 'Max-Age=0' in setcookie else ', DOES NOT CLEAR IT (can loop)'}"
+           if ok else f"{r['status']} -> {loc[:40] or '(no Location)'} - a 401 here is the owner's original bug")
 
 
 def check_stale_token():

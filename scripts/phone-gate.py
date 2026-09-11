@@ -23,6 +23,8 @@ usage: phone-gate.py [--listen-port 3086] [--engine-port 3089]
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import re
 import select
 import socket
@@ -110,13 +112,47 @@ def relay(a: socket.socket, b: socket.socket) -> None:
                 pass
 
 
-def send_login(client: socket.socket, token: str) -> None:
-    """302 to a freshly minted link. No body: the browser follows immediately."""
-    client.sendall(
-        b"HTTP/1.1 302 Found\r\n"
-        b"Location: /?token=" + token.encode() + b"\r\n"
-        b"Cache-Control: no-store\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-    )
+def header_value(head: bytes, name: bytes) -> str:
+    for line in head.split(b"\r\n")[1:]:
+        if line.lower().startswith(name + b":"):
+            return line.split(b":", 1)[1].strip().decode("latin-1")
+    return ""
+
+
+def auth_cookie_name(host: str) -> str:
+    """The cookie the engine will look for: dsh-auth-<base64url(sha256(authority))>.
+
+    Verified against a live browser cookie on 2026-09-11 (base64url, no padding, port
+    stripped from the Host). Naming it lets this gate delete a stale one, which is the
+    only way out for a client whose bad cookie shadows the good one it is being given.
+    """
+    authority = host.split(":")[0].strip().lower()
+    if not authority:
+        return ""
+    digest = base64.urlsafe_b64encode(hashlib.sha256(authority.encode()).digest()).decode().rstrip("=")
+    return "dsh-auth-" + digest
+
+
+def send_login(client: socket.socket, token: str, cookie_to_clear: str = "") -> None:
+    """302 to a freshly minted link, and clear any cookie that might shadow it.
+
+    `gate=1` marks the link as already-repaired, so a client that comes back still
+    carrying a broken cookie is shown the engine's answer instead of being redirected
+    again — the second request is never redirected, which is what bounds this to one
+    self-heal per navigation. Measured: without both of these, a client that pins a
+    stale cookie loops until its redirect limit (50 hops for curl -L, forever for a
+    browser that keeps refollowing).
+    """
+    lines = [
+        b"HTTP/1.1 302 Found",
+        b"Location: /?token=" + token.encode() + b"&gate=1",
+        b"Cache-Control: no-store",
+        b"Content-Length: 0",
+        b"Connection: close",
+    ]
+    if cookie_to_clear:
+        lines.insert(3, f"Set-Cookie: {cookie_to_clear}=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict".encode())
+    client.sendall(b"\r\n".join(lines) + b"\r\n\r\n")
     client.close()
 
 
@@ -234,20 +270,24 @@ def handle(client: socket.socket, engine_port: int) -> None:
         document_request = method in ("GET", "HEAD") and path in ("/", "/index.html")
         has_cookie = COOKIE_PREFIX in head
         offered = dict(parse_qsl(query)).get("token", "")
+        repaired = dict(parse_qsl(query)).get("gate", "") == "1"
         token = live_token(engine_port) if document_request else ""
+        # Clear the cookie when handing out a link: if this client's bad cookie
+        # shadows the good one it is about to receive, deleting it is the only exit.
+        clear = auth_cookie_name(header_value(head, b"host")) if document_request else ""
         note(f"{method} {path}{'?' + query[:24] if query else ''} "
              f"cookie={has_cookie} token_offered={bool(offered)} token_live={bool(token)} "
-             f"proto={request_line.split(' ')[-1]}")
+             f"repaired={repaired} proto={request_line.split(' ')[-1]}")
 
         if document_request and token:
             if offered:
                 if offered != token:
                     note("  -> 302: offered token is not the engine's current one")
-                    send_login(client, token)
+                    send_login(client, token, clear)
                     return
             elif not has_cookie:
                 note("  -> 302: no cookie, no token")
-                send_login(client, token)
+                send_login(client, token, clear)
                 return
 
         client.settimeout(None)
@@ -260,14 +300,16 @@ def handle(client: socket.socket, engine_port: int) -> None:
             upstream_head = read_response_head(upstream)
             status = status_of(upstream_head)
             note(f"  peeked upstream: {status}")
-            if status == 401 and token:
-                note("  -> 302: cookie was refused, minting a live link")
+            if status == 401 and token and not repaired:
+                note("  -> 302: cookie was refused, minting a live link and clearing it")
                 try:
                     upstream.close()
                 except OSError:
                     pass
-                send_login(client, token)
+                send_login(client, token, clear)
                 return
+            if status == 401 and repaired:
+                note("  -> relaying the 401: already repaired once, not looping")
             if upstream_head:
                 client.sendall(upstream_head)
 
