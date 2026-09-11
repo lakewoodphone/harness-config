@@ -35,6 +35,8 @@ param(
 
     [string]$ConfigPath = '',
     [int]$Lines = 40,
+    [ValidateSet('yes', 'no', 'auto')]
+    [string]$WindowsMode = 'yes',
     [switch]$Json,
     [switch]$Force
 )
@@ -77,6 +79,14 @@ function Get-SlotRecord($state, $port) {
 
 function Set-SlotRecord($state, $port, $record) {
     $state.slots["$port"] = $record
+}
+
+# Read an optional property without tripping StrictMode (config files legitimately omit keys).
+function Get-Prop($obj, [string]$name) {
+    if ($null -eq $obj) { return $null }
+    $p = $obj.PSObject.Properties[$name]
+    if ($p) { return $p.Value }
+    return $null
 }
 
 # ── node / dsh resolution ───────────────────────────────────────────────────
@@ -124,28 +134,31 @@ function Get-EdgePath {
 # ── topology ────────────────────────────────────────────────────────────────
 # single: one server on primaryPort, every window attaches to it.
 # multi : each slot gets its own server on its own port.
-function Get-Mode { if ($Cfg.mode) { "$($Cfg.mode)" } else { 'single' } }
+function Get-Mode { [string]$(if ($Cfg.mode) { $Cfg.mode } else { 'single' }) }
 
-function Get-PrimaryPort { [int]$Cfg.primaryPort }
+function Get-PrimaryPort { return [int]$Cfg.primaryPort }
 
 function Resolve-SlotPort($slot, [int]$index) {
-    if (Get-Mode -eq 'multi') {
+    if ((Get-Mode) -eq 'multi') {
         $base = 3081
         $mp = $Cfg.PSObject.Properties['_multiPorts']
         if ($mp -and $mp.Value -and $mp.Value.basePort) { $base = [int]$mp.Value.basePort }
-        return $base + $index
+        return [int]($base + $index)
     }
-    return (Get-PrimaryPort)
+    return [int](Get-PrimaryPort)
 }
 
 function Resolve-SlotInfo($slot, [int]$index) {
+    $p = Resolve-SlotPort $slot $index
     return [pscustomobject]@{
         label     = $slot.label
         profile   = $slot.profile
         workspace = $slot.workspace
         enabled   = [bool]$slot.enabled
-        port      = Resolve-SlotPort $slot $index
+        port      = [int]$p
         index     = $index
+        position  = (Get-Prop $slot 'position')
+        size      = (Get-Prop $slot 'size')
     }
 }
 
@@ -161,14 +174,70 @@ function Get-ServerSlot {
     return @($slots | Where-Object { $_.port -eq (Get-PrimaryPort) } | Select-Object -First 1)
 }
 
-# ── port / process helpers ──────────────────────────────────────────────────
-function Test-PortInUse([int]$port) {
-    $conn = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue
-    return [bool]$conn
+# Readiness requires the URL line from THIS launch. A stale log holds the previous run's
+# line, so the file is cleared before start and both the child and the parent read only
+# content written after that point.
+function Get-LogOffset([string]$path) {
+    if (Test-Path $path) { return (Get-Item -LiteralPath $path).Length }
+    return 0
 }
 
-function Get-PortOwner([int]$port) {
-    $conn = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -First 1
+function Read-NewLog([string]$path, [long]$offset) {
+    if (-not (Test-Path $path)) { return '' }
+    try {
+        # FileShare.ReadWrite is required: the server holds the file open for writing.
+        $fs = New-Object System.IO.FileStream($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        try {
+            if ($offset -gt $fs.Length) { $offset = 0 }
+            [void]$fs.Seek($offset, [System.IO.SeekOrigin]::Begin)
+            $buf = New-Object byte[] ($fs.Length - $offset)
+            $read = $fs.Read($buf, 0, $buf.Length)
+            if ($read -le 0) { return '' }
+            return [System.Text.Encoding]::UTF8.GetString($buf, 0, $read)
+        } finally { $fs.Dispose() }
+    } catch { return '' }
+}
+
+# Readiness = the process is alive, the port is listening, and the log shows the URL line.
+# Any one of those alone has produced a false positive at some point in this script's
+# development: a stale log line, a bound port with a half-built tree, a dead child.
+function Wait-ServerReady([string]$log, [long]$offset, [int]$timeoutSeconds, $proc, [int]$port) {
+    $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+    $sawUrl = $null
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 500
+        if ($proc -and $proc.HasExited) { return $null }
+        if (-not $sawUrl) {
+            $text = Read-NewLog $log $offset
+            if ($text) {
+                $m = [regex]::Match($text, 'dsh web:\s*(\S+)')
+                if ($m.Success) { $sawUrl = $m.Groups[1].Value }
+            }
+        }
+        if ($sawUrl -and (Test-PortInUse $port)) { return $sawUrl }
+    }
+    return $null
+}
+
+# ── port / process helpers ──────────────────────────────────────────────────
+# One TCP connection table per call, not per lookup: an unfiltered
+# Get-NetTCPConnection is the single most expensive thing this script does.
+function Get-ListenTable {
+    $age = Get-Variable -Name ListenTableAge -Scope Script -ValueOnly -ErrorAction SilentlyContinue
+    if ($age -and ((Get-Date) - $age).TotalSeconds -lt 5) { return $script:ListenTable }
+    $script:ListenTable = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
+    $script:ListenTableAge = Get-Date
+    return $script:ListenTable
+}
+
+function Test-PortInUse([int]$port, $table = $null) {
+    if (-not $table) { $table = Get-ListenTable }
+    return [bool]($table | Where-Object { $_.LocalPort -eq $port })
+}
+
+function Get-PortOwner([int]$port, $table = $null) {
+    if (-not $table) { $table = Get-ListenTable }
+    $conn = $table | Where-Object { $_.LocalPort -eq $port } | Select-Object -First 1
     if (-not $conn) { return $null }
     try { return Get-Process -Id $conn.OwningProcess -ErrorAction Stop } catch { return $null }
 }
@@ -189,10 +258,10 @@ function Get-Descendants([int]$rootPid) {
     return $out
 }
 
-function Stop-ServerTree([int]$port, $record) {
+function Stop-ServerTree([int]$port, $record, $table = $null) {
     $pids = @()
     if ($record -and $record.pid) { $pids += $record.pid }
-    $owner = Get-PortOwner $port
+    $owner = Get-PortOwner $port $table
     if ($owner) { $pids += $owner.Id }
     $pids = $pids | Select-Object -Unique
     if (-not $pids) { return $false }
@@ -202,7 +271,7 @@ function Stop-ServerTree([int]$port, $record) {
         foreach ($k in ($kids | Sort-Object -Descending)) { Stop-Process -Id $k -Force -ErrorAction SilentlyContinue }
         Stop-Process -Id $p -Force -ErrorAction SilentlyContinue
     }
-    for ($i = 0; $i -lt 20; $i++) {
+    for ($i = 0; $i -lt 24; $i++) {
         Start-Sleep -Milliseconds 250
         if (-not (Test-PortInUse $port)) { break }
     }
@@ -214,41 +283,56 @@ function Get-ServerInvocation($slotCfg) {
     $node = Resolve-NodeExe
     $bin  = Resolve-DshBin
     $port = [int]$slotCfg.port
-    $log  = Join-Path $LogDir "$port.log"
-    $err  = Join-Path $LogDir "$port.err.log"
+    # One log file per launch, named for the launch: a fixed <port>.log cannot be trusted
+    # because the server inherits the handle and recreates it after a delete, which produced
+    # a 180s false "no URL" timeout on 2026-09-11.
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    $log  = Join-Path $LogDir "$port-$stamp.log"
+    $err  = Join-Path $LogDir "$port-$stamp.err.log"
     $cwd  = if ($slotCfg.workspace -and (Test-Path $slotCfg.workspace)) { $slotCfg.workspace } else { (Get-Location).Path }
-    return [pscustomobject]@{ node = $node; bin = $bin; port = $port; log = $log; err = $err; cwd = $cwd }
+    return [pscustomobject]@{ node = $node; bin = $bin; port = $port; log = $log; err = $err; cwd = $cwd
+                              latest = (Join-Path $LogDir "$port.log") }
+}
+
+# Keep a stable <port>.log as the "latest" pointer for `dshw logs`, without ever touching a
+# log a launch is still writing.
+function Update-LatestLog($inv) {
+    try {
+        if (Test-Path $inv.log) { Copy-Item -LiteralPath $inv.log -Destination $inv.latest -Force -ErrorAction SilentlyContinue }
+        # keep only the newest 10 launch logs per port
+        $prefix = "$($inv.port)-"
+        $old = Get-ChildItem $LogDir -Filter "$prefix*" -File -ErrorAction SilentlyContinue |
+               Sort-Object LastWriteTime -Descending | Select-Object -Skip 10
+        foreach ($f in $old) { Remove-Item -LiteralPath $f.FullName -Force -ErrorAction SilentlyContinue }
+    } catch { }
 }
 
 function Start-SlotServer($slotCfg) {
     $inv = Get-ServerInvocation $slotCfg
     if (Test-PortInUse $inv.port) { throw "port $($inv.port) already in use" }
-    foreach ($f in @($inv.log, $inv.err)) { if (Test-Path $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue } }
-
-    "[$(Get-Date -Format o)] dshw: node $($inv.bin) web --port $($inv.port) (cwd $($inv.cwd))" |
-        Add-Content -LiteralPath $inv.log -Encoding utf8
-
     $p = Start-Process -FilePath $inv.node -ArgumentList @($inv.bin, 'web', '--port', "$($inv.port)", '--no-open') `
             -WorkingDirectory $inv.cwd -WindowStyle Hidden -PassThru `
             -RedirectStandardOutput $inv.log -RedirectStandardError $inv.err
 
-    $deadline = (Get-Date).AddSeconds([int]$Cfg.server.startTimeoutSeconds)
-    $url = $null
-    while ((Get-Date) -lt $deadline) {
-        Start-Sleep -Milliseconds 500
+    $url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $p $inv.port
+    if (-not $url) {
         if ($p.HasExited) {
             $tail = if (Test-Path $inv.err) { (Get-Content -LiteralPath $inv.err -Tail 15) -join "`n" } else { '(no stderr)' }
             throw "server on port $($inv.port) exited with code $($p.ExitCode). stderr tail:`n$tail"
         }
-        if (Test-Path $inv.log) {
-            $m = Select-String -LiteralPath $inv.log -Pattern 'dsh web:\s*(\S+)' -ErrorAction SilentlyContinue | Select-Object -Last 1
-            if ($m) { $url = $m.Matches[0].Groups[1].Value; break }
-        }
+        throw "server on port $($inv.port) did not report a URL within $($Cfg.server.startTimeoutSeconds)s (see $($inv.log))"
     }
-    if (-not $url) { throw "server on port $($inv.port) did not report a URL within $($Cfg.server.startTimeoutSeconds)s (see $($inv.log))" }
 
     return [pscustomobject]@{ pid = $p.Id; url = $url; log = $inv.log; err = $inv.err
                               workspace = $inv.cwd; startedAt = (Get-Date).ToString('o') }
+}
+
+# Public entry point: launches exactly one slot's server in this process and waits for it.
+function Start-OneSlotServer($slotCfg) {
+    $inv = Get-ServerInvocation $slotCfg
+    $r = Start-SlotServer $slotCfg
+    Update-LatestLog $inv
+    return $r
 }
 
 # Start several slots at once: each child pwsh launches its own server DETACHED and
@@ -266,12 +350,13 @@ function Start-SlotServerParallel($slots) {
             node = $inv.node; bin = $inv.bin; port = $inv.port; cwd = $inv.cwd
             log = $inv.log; err = $inv.err; ready = $ready
         } | ConvertTo-Json -Compress
+        # The child only launches the server detached and records its pid; it never waits,
+        # never deletes a log, and never touches the parent's own files.
         $child = @'
 $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($env:DSHW_PAYLOAD))
 $p = $json | ConvertFrom-Json
 $out = @{ ok = $false; port = $p.port; pid = $null; error = $null }
 try {
-    foreach ($f in @($p.log, $p.err)) { if (Test-Path $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue } }
     $proc = Start-Process -FilePath $p.node -ArgumentList @($p.bin, 'web', '--port', "$($p.port)", '--no-open') `
         -WorkingDirectory $p.cwd -WindowStyle Hidden -PassThru -RedirectStandardOutput $p.log -RedirectStandardError $p.err
     $out.pid = $proc.Id
@@ -285,32 +370,29 @@ try {
             -Environment @{ DSHW_PAYLOAD = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($payload)) } | Out-Null
     }
 
-    # wait until every slot's log shows its URL line (a port bind alone is not readiness:
-    # the web app prints the URL only after the loader tree has settled)
     $results = @{}
-    $deadline = (Get-Date).AddSeconds([int]$Cfg.server.startTimeoutSeconds + 30)
     foreach ($port in $readies.Keys) {
         $slot = $slots | Where-Object { "$($_.port)" -eq "$port" } | Select-Object -First 1
         $inv  = Get-ServerInvocation $slot
         $r = [pscustomobject]@{ pid = $null; url = $null; log = $inv.log; err = $inv.err
                                 workspace = $inv.cwd; startedAt = (Get-Date).ToString('o'); error = $null }
-        while ((Get-Date) -lt $deadline) {
-            Start-Sleep -Milliseconds 500
-            if (Test-Path $inv.log) {
-                $m = Select-String -LiteralPath $inv.log -Pattern 'dsh web:\s*(\S+)' -ErrorAction SilentlyContinue | Select-Object -Last 1
-                if ($m) { $r.url = $m.Matches[0].Groups[1].Value; break }
-            }
-            if (Test-Path $inv.err) {
-                $content = Get-Content -LiteralPath $inv.err -Raw -ErrorAction SilentlyContinue
-                if ($content -and ($content -match 'EADDRINUSE|Error:')) { $r.error = ($content.Trim() -split "`n" | Select-Object -Last 3) -join ' | '; break }
-            }
-        }
-        if (-not $r.url -and -not $r.error) { $r.error = "no URL within $($Cfg.server.startTimeoutSeconds)s" }
+        $r.url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $null ([int]$port)
+        Update-LatestLog $inv
         # the pid comes from the readiness file the launcher child wrote
         if (Test-Path $readies[$port]) {
-            try { $j = Get-Content -Raw -LiteralPath $readies[$port] | ConvertFrom-Json
-                  if ($j.pid) { $r.pid = $j.pid }
-                  if (-not $r.error -and $j.error) { $r.error = $j.error } } catch { }
+            try {
+                $j = Get-Content -Raw -LiteralPath $readies[$port] | ConvertFrom-Json
+                if ($j.pid) { $r.pid = $j.pid }
+                if (-not $r.url -and $j.error) { $r.error = $j.error }
+            } catch { }
+        }
+        if (-not $r.url) {
+            $errText = Read-NewLog $inv.err 0
+            if ($errText -and ($errText -match 'EADDRINUSE|Error:|error')) {
+                $r.error = ($errText.Trim() -split "`n" | Select-Object -Last 3) -join ' | '
+            } else {
+                $r.error = "no URL within $($Cfg.server.startTimeoutSeconds)s (see $($inv.log))"
+            }
         }
         if (-not $r.pid -and -not $r.error) {
             $owner = Get-PortOwner ([int]$port)
@@ -348,12 +430,19 @@ function Open-SlotWindow($slot, $state) {
         "--disable-sync",
         "--disable-features=Translate,MediaRouter"
     )
-    if ($slot.size) { $winArgs += "--window-size=$($slot.size)" }
-    elseif ($Cfg.browser.windowSize) { $winArgs += "--window-size=$($Cfg.browser.windowSize)" }
-    if ($slot.position) { $winArgs += "--window-position=$($slot.position)" }
-    if ($Cfg.browser.extraArgs) { $winArgs += $Cfg.browser.extraArgs }
+    $slotSize = Get-Prop $slot 'size'
+    $slotPos  = Get-Prop $slot 'position'
+    if ($slotSize) { $winArgs += "--window-size=$slotSize" }
+    elseif (Get-Prop $Cfg.browser 'windowSize') { $winArgs += "--window-size=$(Get-Prop $Cfg.browser 'windowSize')" }
+    if ($slotPos) { $winArgs += "--window-position=$slotPos" }
+    $extra = Get-Prop $Cfg.browser 'extraArgs'
+    if ($extra) { $winArgs += $extra }
 
-    Start-Process -FilePath $exe -ArgumentList $winArgs | Out-Null
+    $proc = Start-Process -FilePath $exe -ArgumentList $winArgs -PassThru -ErrorAction Stop
+    # Record every launch: an Edge app window's own process exits immediately after it
+    # hands off to its browser process, so a silent failure here is otherwise invisible.
+    $line = "[{0}] open slot={1} profile={2} pid={3} args={4}" -f (Get-Date -Format o), $label, $slot.profile, $proc.Id, ($winArgs -join ' ')
+    Add-Content -LiteralPath (Join-Path $StateDir 'windows.log') -Value $line -Encoding utf8
     return $profDir
 }
 
@@ -388,6 +477,11 @@ function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'yes') {
         return
     }
 
+    $failed = @()
+    $listenTable = Get-ListenTable
+    if ($Force) {
+        foreach ($f in @((Join-Path $StateDir 'windows.log'))) { if (Test-Path $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue } }
+    }
     # Which servers must exist?
     if (Get-Mode -eq 'single') {
         $needed = @($slots | Where-Object { $_.enabled -and $_.port -eq (Get-PrimaryPort) } | Select-Object -First 1)
@@ -403,7 +497,15 @@ function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'yes') {
 
     $toStart = @(); $already = 0
     foreach ($slot in $needed) {
-        if (Test-PortInUse ([int]$slot.port) -and -not $Force) { $already++; continue }
+        $liveOwner = Get-PortOwner ([int]$slot.port) $listenTable
+        $rec = Get-SlotRecord $state ([int]$slot.port)
+        if ($liveOwner -and -not $Force) { $already++; continue }
+        if ($liveOwner -and $Force) {
+            # ownership moved on from the pid we recorded (an engine started by hand, or a
+            # previous run): stop it first, or the new one dies on EADDRINUSE
+            Write-Host ("  [take] port {0,-5} was held by pid {1} - stopping it to take the port" -f $slot.port, $liveOwner.Id) -ForegroundColor Yellow
+            [void](Stop-ServerTree ([int]$slot.port) $rec $listenTable)
+        }
         $toStart += $slot
     }
 
@@ -474,10 +576,38 @@ function Invoke-Status {
     if ($Json) { [pscustomobject]@{ mode = (Get-Mode); primaryPort = $primary; slots = $rows } | ConvertTo-Json -Depth 4; return }
     Write-Host ("mode: {0}{1}" -f (Get-Mode), $(if ($primary) { " (engine on port $primary)" } else { '' }))
     $rows | Format-Table -AutoSize slot, enabled, engine, server, windows, mem_mb, profile
-    $live = @($rows | Where-Object { $_.server -like 'pid*' }).Count
+    # count engines once each: every slot in single mode names the same process
+    $engineRows = $rows | Where-Object { $_.server -like 'pid*' }
+    $enginePids = @($engineRows | ForEach-Object { ($_.server -replace '[^0-9]', '') } | Select-Object -Unique)
     $win = ($rows | Measure-Object -Property windows -Sum).Sum
-    $mem = ($rows | Measure-Object -Property mem_mb -Sum).Sum
-    Write-Host ("{0} engine(s) live, {1} window(s) open, {2} MB engine RSS" -f $live, $win, $mem)
+    $mem = 0
+    foreach ($e in $enginePids) { $p = Get-Process -Id ([int]$e) -ErrorAction SilentlyContinue; if ($p) { $mem += [math]::Round($p.WorkingSet64 / 1MB) } }
+    $tree = 0
+    $procTable = Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId -ErrorAction SilentlyContinue
+    foreach ($e in $enginePids) { $tree += Get-TreeMemoryMb ([int]$e) $procTable }
+    Write-Host ("{0} engine(s) live, {1} window(s) open, {2} MB engine RSS, {3} MB whole engine tree" -f $enginePids.Count, $win, $mem, $tree)
+}
+
+# Sum the working set of a process and every descendant: an engine's real cost is its
+# MCP bridges and runners, not the node process itself. Pass a process table in when you
+# call it in a loop — a fresh CIM query per slot is what makes this slow.
+function Get-TreeMemoryMb([int]$root, $all = $null) {
+    if (-not $all) { $all = Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId -ErrorAction SilentlyContinue }
+    $ids = New-Object System.Collections.Generic.List[int]
+    $ids.Add($root)
+    $frontier = @($root)
+    while ($frontier.Count -gt 0) {
+        $next = @()
+        foreach ($f in $frontier) {
+            foreach ($c in $all | Where-Object { $_.ParentProcessId -eq $f }) {
+                if (-not $ids.Contains([int]$c.ProcessId)) { $ids.Add([int]$c.ProcessId); $next += $c.ProcessId }
+            }
+        }
+        $frontier = $next
+    }
+    $sum = 0
+    foreach ($i in $ids) { $p = Get-Process -Id $i -ErrorAction SilentlyContinue; if ($p) { $sum += $p.WorkingSet64 } }
+    return [math]::Round($sum / 1MB)
 }
 
 function Invoke-New {
@@ -562,7 +692,7 @@ function Restart-OneEngine($slot) {
 }
 
 switch ($Command) {
-    'up'     { Invoke-Up }
+    'up'     { Invoke-Up -WindowsMode $WindowsMode }
     'down'   { Invoke-Down }
     'restart' {
         if ($Slot) { Invoke-Down }
