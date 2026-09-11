@@ -315,6 +315,29 @@ def check_mobile_layer():
            + (f", missing: {', '.join(missing)}" if missing else ", all four rules present"))
 
 
+def check_client_plugin():
+    """The behaviour plugin is in the roster the browser is told to load.
+
+    The stylesheet can be served and still leave the phone annoying, because closing the
+    drawer on selection is state and lives in the client plugin. That plugin reaches the
+    browser through the profile's bundle list and a symlink into this checkout, either of
+    which can disappear — an npm operation in the profile, a rebuilt node_modules — without
+    anything else noticing. This is the check that notices.
+    """
+    name = "the mobile client plugin is in the browser roster"
+    r = request(GATE, "GET", "/", {
+        "Host": AUTHORITY,
+        "Accept": "text/html",
+        "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                       "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"),
+    })
+    text = r["body"].decode("utf-8", "replace")
+    ok = r["status"] == 200 and "dsh-plugin-mobile" in text
+    record(11, name, ok,
+           f"{r['status']}, roster entry "
+           + ("present" if ok else "MISSING - the phone keeps the drawer open after a pick"))
+
+
 def check_fence():
     """Ask the ENGINE directly, not the gate.
 
@@ -434,6 +457,7 @@ def run_checks():
     guarded(8, "a stale token is replaced, not relayed", check_stale_token)
     guarded(9, "a reused connection cannot bypass the gate", check_pooling)
     guarded(10, "the phone layer is served and complete", check_mobile_layer)
+    guarded(11, "the mobile client plugin is in the browser roster", check_client_plugin)
     guarded("6b", "public /phone reaches the harness", check_redirector)
     return how
 

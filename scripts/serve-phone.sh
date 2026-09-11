@@ -96,6 +96,26 @@ ensure_redirector() {
   [ -n "$pid" ] && echo "redirector started: pid $pid on 127.0.0.1:$REDIRECT_PORT" || echo "redirector failed to start (see $STATE/redirector.log)"
 }
 
+ensure_client_plugin() {
+  # The phone's drawer behaviour lives in packages/plugin-mobile, and it reaches the browser
+  # through two things that are not in git and can vanish without a trace: a symlink in the
+  # profile's node_modules and the package name in that profile's `dsh.profile.bundles`. An
+  # npm command run inside the profile, or a rebuilt node_modules, silently takes the
+  # behaviour away and the phone is merely annoying again — the hardest kind of regression to
+  # notice. So the same script that keeps the gate and the redirector alive keeps this too:
+  # check, and reinstall only when something is actually missing.
+  local pkg="$REPO_DIR/packages/plugin-mobile"
+  local profile="${DSH_HOME:-$HOME/.dsh}/profiles/web"
+  [ -d "$pkg" ] || return 0
+  [ -d "$profile" ] || return 0
+  if [ -e "$profile/node_modules/dsh-plugin-mobile" ] && grep -q '"dsh-plugin-mobile"' "$profile/package.json" 2>/dev/null; then
+    return 0
+  fi
+  bash "$pkg/install.sh" "$profile" >>"$STATE/plugin-install.log" 2>&1 &&
+    echo "client plugin (re)installed into $profile" ||
+    echo "client plugin install failed (see $STATE/plugin-install.log)"
+}
+
 token() { grep -o 'token=[A-Za-z0-9_-]*' "$LOG" 2>/dev/null | head -1 | cut -d= -f2; }
 
 case "${1:-}" in
@@ -176,6 +196,7 @@ fi
 
 ensure_gate
 ensure_redirector
+ensure_client_plugin
 
 T="$(token)"
 echo ""
