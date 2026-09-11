@@ -43,7 +43,34 @@ EVIDENCE    files, commits, or commands that prove the above
   alert fired only at the cap. Now `threshold_percentage`, validated not clamped. It was **never called
   from anywhere**; now wired into the cap endpoint behind `WAZE_USAGE_NOTIFICATIONS` (**default OFF** —
   the account has never held a notification, and a live cap change must not break on an unproven call).
-- 10 new tests → **56 passing**.
+- 10 new tests → **56 passing**. Then a further 10 → **66 passing** (see the correction below).
+
+**⚠ CORRECTION — I BROKE THIS SUBSYSTEM AN HOUR AFTER FIXING IT, AND CAUGHT IT ONLY BY LUCK**
+My PostgreSQL fix (commit `6f2a5195b`) set the psycopg row factory as
+`raw.cursor(row_factory=dict_row)` — which applies to that **one cursor**, not the connection.
+`_PgConn.execute()` creates a **fresh cursor per query**, so every query returned plain tuples, every
+`row["column"]` raised `tuple indices must be integers or slices, not str` (a message that reads like
+SQLite while being a PostgreSQL row-shape problem), and `r["column_name"]` raised inside the connect path
+itself — so `_connect_db()` silently returned `None` and **every write fell back to SQLite**. My
+"verified to Postgres" claim was true only for the standalone `--snapshot` command I tested, not for the
+HTTP endpoints the company uses.
+**What was actually down:** `/fleet/telnyx/usage`, `/fleet/telnyx/customers`, `/fleet/telnyx/billing`
+— all three 500. Fixed in `3a228f959` (row factory now set on the connection). **All three now HTTP 200,
+verified.** Also corrected a code comment of mine that blamed a missing `customer` column for the
+unpersisted rows — the column is present; the row-shape bug was the cause.
+*The lesson is L52 and it is the important one:* verify through the consumer's entry point (the endpoint),
+not through a CLI or the module, and when an exception names one technology while you are debugging
+another, **print the actual types** — `type(conn).__name__` located this in one command after two wrong
+guesses.
+
+**FINAL VERIFIED STATE** (after commit `3a228f959`, all read back live)
+- `/fleet/telnyx/usage`, `/customers`, `/billing` → **HTTP 200**, real data, DRN↔ICCID mapping intact.
+- Ledger reads back **19 rows**; a row inside the container is `dict {'n': 19}`.
+- `telnyx_usage_freshness.py` → `OK: 14 usage rows, newest 1.6h old (limit 26.0h)`, exit 0.
+- Snapshot still persists: `Persisted Telnyx snapshot to postgres (balance=5.14, 2 per-SIM usage rows,
+  1 ledger row)`.
+- `fleet-health`: 65 devices, 55 healthy, alerts 0, alerts_aged 87, alert_age_days 61.0.
+- Container `healthy`. **66 tests passing.**
 
 **VERIFIED LIVE** (all read back from the running API, not assumed)
 - `POST /waze/device/{serial}/cap` works. `0.2` and `-5` both clamp to the floor; `data_limit_gb` and
@@ -86,9 +113,12 @@ server states the policy — no further owner input is required to build.
 **EVIDENCE**
 - `deploy/waze-mdm/docs/holdings-2026-09-11.md` — verified inventory of the whole WAZE/MDM/DRN/LPT stack
 - `deploy/waze-mdm/docs/kosher-waze-customer-integration-plan.md` — the ANSWER LOG with his three answers
-- Commits `6f2a5195b` (Telnyx data loss), `3ba33b23d` (honest fleet health), `072f636a9` (cap bands)
-- `deploy/waze-mdm/fleet-api/fleet_api.py`, `telnyx_client.py`, `test_waze_customer_portal.py` (56 tests)
-- LESSONS **L34**, PAIN **P15**/**P16**, DECISIONS **D17**/**D18**
+- Commits `6f2a5195b` (Telnyx data loss), `3ba33b23d` (honest fleet health), `072f636a9` (cap bands),
+  **`3a228f959` (row-factory fix — the correction above)**
+- `deploy/waze-mdm/fleet-api/fleet_api.py`, `telnyx_client.py`, `telnyx_billing.py`,
+  `test_waze_customer_portal.py`, `test_telnyx_billing_db.py` (66 tests)
+- LESSONS **L52** (verify through the consumer's entry point) + **L34**; PAIN **P15**, **P16**, **P17**;
+  DECISIONS **D17**, **D18**
 
 ---
 
