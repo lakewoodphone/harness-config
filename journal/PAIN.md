@@ -870,3 +870,24 @@ capture the deployed tree as a commit (done — `deployed-truth-20260911`), brin
 `apscheduler`, and the Shabbat block is mid-holy-day with a live watchdog. Not a datastore migration and not an
 emergency — a scheduled, verified reconciliation.
 
+
+
+## P50 — `work_sessions.status` holds 40 non-status values, and nobody noticed
+
+**Symptom.** The column is read as a status enum — completion rates, the sentinel's `tick_completion` check, and
+the new honest metric all filter on it — yet it contains values that are not statuses at all: `5` (21 rows),
+`2.5` (11), `4.5` (2), `3.67`, `4.43`, `4.56`, `4.81`, `4.9` (1 each), and a single `active` row created
+2026-09-11T22:30:10Z. Several junk rows have `NULL` timestamps, so they predate the current writer.
+
+**Evidence.** `SELECT status, COUNT(*) FROM work_sessions WHERE status NOT IN
+('paused','completed','failed','running','cancelled','expired') GROUP BY 1` on the authority, 2026-09-11.
+
+**Cost.** Small in volume, large in kind: it means *something* writes into this column without going through
+`update_work_session`, which is the same class of defect as the completion lie — an unguarded write to a
+column every metric depends on. A future reader who filters `status='5'` infers nothing and cannot tell whether
+those 40 sessions succeeded. `NULL` timestamps also mean they cannot be aged out.
+
+**Fix (proposed, NOT yet done).** Find the writer rather than patching the rows: grep for every INSERT/UPDATE
+touching `work_sessions.status` outside `app/database.py`, and add a CHECK-constraint or a single writer to make
+the enum real. Do not delete the 40 rows — they are evidence of the defect, and the rule is never destroy data.
+

@@ -1204,3 +1204,32 @@ branch pointer. Rescue the dirty state into a real commit first (`git read-tree`
 `commit-tree` + `update-ref` a new branch leaves the working tree, index and HEAD untouched), push it, and only
 then reason about fast-forwarding.
 
+
+
+**L163 · 2026-09-11 · Measure the size of a lie before you fix it — and beware a metric that counts the
+*failure handler* as success.** The company reported "82.8% of ticks completed today". `work_sessions.status`
+was set to `completed` on four code paths for sessions that had *not* finished, because reaching a step budget,
+a hard ceiling, or a repetition guard was treated as a graceful completion rather than as the failure it is.
+The scale only became visible once measured: 74,610 sessions, 19,685 ever containing `[FORCE-COMPLETED]`,
+6,132 `[AUTO-COMPLETED]`, and only **6,506** ever containing a real `[WORK_DONE]`. In the last 24 hours,
+**182 of 329 "completions" were hollow (55%)**.
+*Rule:* when a system has a "graceful degradation" path, ask what the degradation is *recorded as*. If the
+answer is "success", every downstream metric, alarm and postmortem built on it is worthless — and the more
+sensible the degradation looks in code review, the more damage it does. Fix the recording first; the metrics
+correct themselves.
+*Corollary:* the repository already contained the honest idiom (`_fail_artifact_required_work_session` →
+`failed` / `[COMPLETION BLOCKED]`, 808 rows). The defect was not ignorance of the right pattern; it was one
+pattern applied in one place and not the other three.
+
+**L164 · 2026-09-11 · A structural guard must check *control flow*, not *text presence*.** The AST guard I
+wrote to stop the above returning first matched `update_work_session` by `getattr(node.func, "attr")` — but
+the calls in that file are bare `Name` nodes, so it matched nothing and passed on an empty set. Fixed to
+accept both `Name` and `Attribute`, it then flagged a line I believed was correct. It was right: my rule
+looked for `[WORK_DONE]` *anywhere* in a parent subtree, and the enclosing `for` loop body mentions it, so an
+ungated 100% write "passed". Tightening the rule to accept only the condition of an enclosing `if`/`while`
+(`ast.Compare` inside `cur.test`) both fixed the guard and produced better code — the completion write now
+sits lexically inside `if "[WORK_DONE]" in accumulated_output:`, which a human can verify at a glance.
+*Rules:* (a) a matcher that finds nothing looks exactly like a matcher that passed — assert the match count
+is non-zero; (b) if a test is written to detect a class of bug, seed it with a real instance of that bug and
+watch it fail before trusting it to pass.
+

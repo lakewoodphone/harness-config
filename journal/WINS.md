@@ -323,3 +323,17 @@ section 0 of the digest that already runs every 30 minutes, with a 6-case self-t
 2.5-hour outage and a refusal path that must not read as health. Live run: all three machines shipping. No new
 cron, no second alert surface, no guessing.
 
+
+
+**W28 · 2026-09-11 · The false-success defect was measured, fixed, guarded and surfaced — and the surface the
+owner already reads now shows the truth.**
+Half a day of the company's work was being counted as finished when it had merely run out of budget, and the
+count had never been checked against the evidence. Fix in one pass: one shared close-unfinished helper replacing
+four dishonest writes; an honest completion section in the digest that splits completed sessions by whether
+`[WORK_DONE]` is actually present; and an AST guard that fails if a future edit reintroduces an ungated
+`status="completed"`. Proven, not asserted: 3/3 new tests; the surrounding autopilot suite's single failure
+proven pre-existing by A/B against the unpatched file; the diff shown to be exactly 5 hunks, with the only
+surviving completed-writes being the docstring and the two `[WORK_DONE]`-gated sites. Honest first reading:
+**182 of 329 "completions" in 24 hours were hollow**. The complement of this win is W26's shape — the same
+defect class (`failures recorded as success`, `alarms routed nowhere`) appeared twice in one sitting.
+

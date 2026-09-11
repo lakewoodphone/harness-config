@@ -12,6 +12,69 @@ NEXT        the single most useful next action
 EVIDENCE    files, commits, or commands that prove the above
 ```
 
+## 2026-09-11 18:35 EDT (22:35Z) · ZABZ-TECH · The company was counting unfinished work as success; the number is now honest and the sentinel's findings are finally read
+
+CHANGED
+- **Fixed the defect that made the company's own success metric meaningless.** `app/autopilot.py` wrote
+  `status="completed", progress_pct=100` on **four** paths for sessions that had *not* finished: step budget
+  reached (`[AUTO-COMPLETED: reached N/M steps without [WORK_DONE] signal]`), the in-tick hard ceiling
+  (`[HARD-CEILING: N steps vs M planned]`), and the repetition guard (`[FORCE-COMPLETED: repetitive output
+  detected]`). All four now go through one new helper `_close_unfinished_work_session` → `status="failed"`,
+  `progress_pct=99`, a marker naming the reason (`budget_exhausted` / `step_budget_exhausted` /
+  `stalled_repeating_output` / `hard_ceiling`), `fail_job` with that reason, and a checkpoint so progress is
+  kept. The one remaining completed-write sits inside `if "[WORK_DONE]" in accumulated_output:` so the
+  invariant is legible at the call site. Commit **`53739081`**.
+- **Measured the size of the lie before fixing it** (live reads, 22:30Z): `work_sessions` **74,610** rows;
+  **19,685** ever contained `[FORCE-COMPLETED]`; **6,132** `[AUTO-COMPLETED]`; only **6,506** ever contained a
+  real `[WORK_DONE]`. Last 7 days: **620** force-completed, **581** auto-completed. All time: 26,658
+  "completed", 6,503 with a real completion signal.
+- **The digest now reports it, and reports what the sentinel finds.** `owner-attention-digest.sh` gained two
+  sections: **0a** = the ceo-kernel sentinel's own findings (it had been writing `latest.json` with
+  `exit=1, attention=5` every 5 minutes for hours with **nothing reading it**), and **0b** = an honest
+  completion split. New helper `sentinel-findings.py` refuses to look healthy — missing, unreadable or
+  >20 min stale output prints UNKNOWN/STALE. Commit **`534217c2`**.
+- Largest honest completion reading at 22:31Z, *before* the autopilot fix can take effect: **last 24h
+  completed=329, genuine=147, hollow=182** (55% hollow); last 7d completed=1255, genuine=598, hollow=657.
+- New test `tests/test_work_session_completion_truth.py` (3 tests, all green): two behavioural tests on the
+  helper, plus an **AST guard** that fails if any future `update_work_session(status="completed")` is not gated
+  by a `[WORK_DONE]` test.
+- Pushed to `origin/ops-honest-completion` (`534217c2`): three commits — alarm (`e4f0dc35`), autopilot fix
+  (`53739081`), digest wiring (`534217c2`).
+
+IN FLIGHT
+- **The fix is in the repo and on disk, NOT yet in the running process.** `secretary-api` holds the old
+  `app/autopilot.py` in memory; it takes effect on the next `systemctl restart secretary-api`. Deliberately not
+  restarted tonight (D44: Erev Rosh Hashana, three-day power-down block armed, watchdog sleeping, tonight's OFF
+  already executed). Until then the digest keeps reporting the *old* behaviour, which is the honest thing for
+  it to do.
+- A/B proof that I did not break the surrounding suite: `test_autopilot_event_driven.py::
+  test_work_queue_completes_at_planned_step_budget` fails with `no such table: model_usage` **both** with the
+  original file and the patched one — a pre-existing test-fixture defect, 21 other autopilot tests pass.
+
+BROKEN (found, not yet fixed)
+- **`work_sessions.status` holds 40 junk values** — `5`, `2.5`, `4.5`, `3.67`, `4.43`, `4.56`, `4.81`, `4.9` —
+  and 1 row with `active`, created 22:30:10Z. Something writes non-status values into a status column. Not
+  guessed at; recorded as P50.
+- `tick_completion` remains CRITICAL by the sentinel's own measure: 4 collapse windows in 120 days, worst
+  2026-06-14..2026-08-04 (10,355 ticks, 32% complete). Tonight's fix removes the false positives from that
+  metric; the historical windows still need explaining.
+
+NEXT
+1. Restart `secretary-api` in a calm window so the completion fix is actually live, then re-read the digest to
+   see the honest number move.
+2. P4 — the evolution loop: 56 proposals unapplied, 30 duplicates on one file, last successful application
+   4 July. This is the mechanism of self-improvement and it has never closed.
+3. P6 — get the held messages moving: the digest now *shows* 7 critical + 46 urgent held, but nothing routes
+   them. The Gusto payroll and Telnyx balance alerts in there are money.
+
+EVIDENCE
+- `python3 -m pytest tests/test_work_session_completion_truth.py -q` → **3 passed**.
+- `git show --stat HEAD~2` on secratary → `app/autopilot.py` 139 insertions / 93 deletions across exactly 5
+  hunks (@2106 helper, @2594/@2648/@2800/@2934 the call sites); the only surviving
+  `status="completed"` lines are the docstring and the two `[WORK_DONE]`-gated writes.
+- `bash scripts/server/owner-attention-digest.sh | wc -l` → **134** lines, sections run 0/0a/0b/1…8.
+- `git ls-remote origin refs/heads/ops-honest-completion` → `534217c237fdee1f0c75568fb3a376762906aff0`.
+
 ## 2026-09-11 18:30 EDT (22:30Z) · ZABZ-TECH · Pulled both systems whole; rescued live-but-uncommitted code off secratary, and nothing was watching archive silence
 
 CHANGED
