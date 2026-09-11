@@ -14,6 +14,127 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ---
 
+## 2026-09-11 20:45 · ZABZ-YOGA · The kosher filter's whole visual architecture is now designed and decided
+
+**CHANGED**
+- Five design documents in `kosher-filter-ai/docs/research/`: **015** (do we still need a custom modesty
+  model — no), **016** (every on/off-device option + the decision agenda), **017** (cascade, deny-first,
+  escalation, spot checking), **018** (per-region pixel hiding), **019** (supremely fast AND accurate).
+  Sixteen verbatim evidence reports under `docs/research/responses/0*`.
+- **Two decision documents: `decisions/33` (8 decisions) and `decisions/34` (23 decisions)** — 29 taken as
+  engineering calls, 4 reserved for the owner. `docs/README.md` now indexes 015–019 so the record is navigable.
+- **Verified from the code, which reframed everything:** the proxy classifies **no images at all**. It rewrites
+  HTML only, forwards every image untouched, and the sole web-side hiding is an injected CSS rule blurring
+  *every* image on a non-bypassed host at a global setting. The fast half of "supremely fast and accurate" is
+  already maximal; **the accurate half is missing, not slow — there is no reveal path.**
+- **Owner decisions taken (journal D22, repo `modesty-baseline-owner-decisions` §6):** Level 3 means **hide
+  women**; who counts as a woman = **any female figure including girls**; **every policy is a configurable
+  knob and a Level is only a default bundle**; and **cover on uncertainty, reveal on verification** with
+  **per-region, never whole-picture** hiding.
+- **Four research corrections to my own designs, all recorded rather than quietly edited:** the accessibility
+  tree cannot enumerate un-laid-out content (so discovery moved to the proxy); token pruning is measured to
+  destroy region-localization (−86% to −91%) while VQA barely moves; crop-*only* is worse than crop + whole
+  frame (+8.7 points measured the other way); and `dHash` alone is the wrong cache key (PDQ-256 now).
+
+**IN FLIGHT**
+- **Two research streams still running:** overlay blur performance (sets `decisions/34` D34-07's API
+  thresholds) and early-exit cascade curves with calibrated thresholds. Both are the last unclosed items in the
+  objective, and both are "fold in when they land" rather than "blocked".
+- The two owner questions queued but **not yet asked** (ask one at a time, per his instruction): how long a
+  visible hold may last before it is a defect (recommend 150ms target / 400ms ceiling), and how much battery
+  speculative prefetch may spend (recommend ~2–3%/hour, off below 30%).
+
+**BROKEN**
+- Nothing from this work. Carried over: three divergent `secretary.db` copies (P3), evolution loop (P4),
+  `engineering_indexer` (P5), held messages (P6), manual `harness-config` sync.
+
+**NEXT**
+- Fold the last two streams in, then ask the owner's two questions one at a time. After that the buildable
+  order is: invert the overlay TTL (a live safety hole where a blur expires and releases), build the
+  perceptual-hash verdict cache (≈1 in 5 images is already decided), then the reveal path on the web.
+
+**EVIDENCE**
+- Commits on `kosher-filter-ai` main: `e0fef29` … `d0fae14`. Journal: D22, L57–L60.
+- Owner decisions: `docs/modesty-baseline-owner-decisions-2026-09-09.md` §6.
+- The four corrections: `019` §4, §10.1, §10.2 and `decisions/34` D34-03/19/20/16.
+
+---
+
+## 2026-09-11 20:32 · ZABZ-YOGA · Named callers' voicemails no longer vanish — and the drop was proven, not inferred
+
+**CHANGED — the voicemail drop is fixed, deployed, and the running app is confirmed to have it.**
+
+The defect was stated last round as a diagnosis. This round turned it into evidence and a fix:
+`_DIALPAD_SUBJECT_RE` requires literal `(NNN) NNN-NNNN` digits, so a Dialpad notification reading
+*"…has a new voicemail from **Caller Wireless** - 0:15"* returned `phone_e164 = None` and
+`build_caller_card` returned `None`, discarding the whole notification. Corporate, toll-free and
+some carrier callers present as names — the class we are least able to recognise — so the class
+being thrown away was the worst one to lose.
+
+**Proven both directions, not asserted** (`_scratch/comms-verify/prove_drop.py`, a probe using only
+pre-existing imports so it isolates the bug rather than a missing symbol):
+```
+PRE-FIX  :  card is None : True    -> VERDICT: the voicemail was DROPPED
+FIXED    :  card is None : False   -> card survives, PARTIAL, phone_e164 None,
+                                      phone_display 'Caller Wireless'
+```
+*(My first attempt at this proof was worthless: I ran the new test file against the old code and it
+failed with ImportError, not with the real defect. A test that fails for the wrong reason proves
+nothing. The probe above is the corrected version.)*
+
+**The fix.** `CallerCard.phone_e164` is now `str | None`; a new `parse_voicemail_caller_label()`
+extracts a name when Dialpad sent no number; `build_caller_card` keeps the card, skips the
+phone-keyed DB lookups, marks it **PARTIAL (never BLOCKED — a voicemail exists even when we cannot
+call back)** and records exactly what is missing; `summary()` says "NO PHONE NUMBER in the
+notification". 15 new tests in `tests/test_voicemail_named_caller.py`; **79 email/voicemail tests
+pass**, and **95 pass** across department-tools, phone-tech, action-contract and the new file.
+
+**Deployed and verified in the running process.** The first restart silently did nothing — I killed
+pid `13760`, which did not exist; the real API was `2489011`, running code older than my edit. After
+restarting the correct process (new pid `2504157`, health `ok=true`), a live action call proves the
+new code is loaded, because the reply text changed:
+> *"Fetched 2 session(s) (2 unhandled) — **session metadata only; message bodies are not available
+> from this action** (read dialpad_sms_cache for conversation text)"*
+
+**Also changed, same honesty problem:** `dialpad_pull_sms` is named for messages but returns
+voice-bot **session metadata** — Dialpad's REST API has no SMS-body endpoint, so bodies live in
+`dialpad_sms_cache`, filled by the Playwright crawler. The name stays (four call sites and a test
+depend on it) but the tool description and the returned detail now say what it really returns and
+name the table that has the text. That misnaming is precisely how the SMS gap stayed invisible.
+
+**NOT DONE, and why — this is the honest remainder:**
+- **`gmail_search` retry.** It failed twice with `Connection refused`, then succeeded on an identical
+  call; it has not recurred in 8 subsequent calls, including after an API restart. I could not
+  reproduce it and therefore could not verify a fix. Unverified change is worse than no change, so
+  it is written down rather than guessed at. The `_api` helper already retries 3× over ~1.5s.
+- **Scheduling the Playwright SMS crawl.** Requires a logged-in browser profile on a live business
+  account; refreshing that auth is a risk I should not take unattended. SMS bodies remain
+  fetch-on-demand. Recorded in `PAIN.md` P29.
+- **Committing the three changed files.** They are live in the authority's working tree, which
+  already carries someone else's uncommitted work (Shabbat/Shelly). I did not add to that tangle or
+  `git pull` over it. Backups exist at `~/voicemail_handler.py.HEAD-backup` (pre-fix, 853 lines) and
+  `~/voicemail_handler.py.fixed-copy`. **These should be committed by whoever owns that tree.**
+
+**NEXT**
+1. Get the three files committed (`voicemail_handler.py`, `chat_action_phone_tech.py`,
+   `department_tools.py`) plus `tests/test_voicemail_named_caller.py`.
+2. The 36 pending drafts remain the owner's call — asked, unanswered (`QUESTIONS.md`).
+3. Watch `comms_freshness`: the 30-day lag median (17.5h) should fall over the next few days as the
+   `*/30` harvest replaces the old once-a-day cadence.
+
+**EVIDENCE**
+- `python3 -m pytest tests/test_d014_email_triage.py tests/test_email_intake.py
+  tests/test_voicemail_named_caller.py` → **79 passed** (authority, py3.14)
+- `… tests/test_department_tools.py tests/test_chat_action_phone_tech.py tests/test_action_contract.py`
+  → **95 passed**
+- live `ps_action dialpad_pull_sms` → new wording present, so pid `2504157` runs the new code
+- probe output above; `_scratch/comms-verify/{prove_drop.py,prove_drop_runner.py,prove_regression.py}`
+- **Full-suite note:** a whole-suite run aborts in deepeval's `pytest_sessionfinish` with
+  `OSError: Too many open files`. That is an environment/plugin limit, **not** a test failure —
+  unaffected by this change. Targeted suites are the reliable signal until it is fixed.
+
+---
+
 ## 2026-09-11 20:07 · ZABZ-YOGA · The call harvest now runs by itself — 17.5h → under 30 minutes
 
 **CHANGED — the root cause is fixed and running unattended.**
