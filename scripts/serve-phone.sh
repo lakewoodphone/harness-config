@@ -44,7 +44,15 @@ engine_pid() {
 }
 
 redirector_pid() {
-  pgrep -f "phone-redirector[.]py" 2>/dev/null | head -1
+  # A pidfile, not `pgrep -f`: the pattern matched the command line of whatever shell was running this
+  # script, so a deploy whose command line mentioned the redirector's own filename concluded it was
+  # already running and never started it. Matching a process list is self-matching by construction
+  # (LESSONS L28/L32) — the fix is not a cleverer pattern, it is not asking the question that way.
+  local pidfile="$STATE/redirector.pid"
+  [ -f "$pidfile" ] || return 1
+  local pid; pid="$(cat "$pidfile" 2>/dev/null)"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && { echo "$pid"; return 0; }
+  return 1
 }
 
 ensure_redirector() {
@@ -55,6 +63,7 @@ ensure_redirector() {
   if [ ! -f "$REPO_DIR/scripts/phone-redirector.py" ]; then echo "redirector script missing"; return 1; fi
   setsid nohup python3 "$REPO_DIR/scripts/phone-redirector.py" --port "$REDIRECT_PORT" \
     >>"$STATE/redirector.log" 2>&1 </dev/null &
+  echo $! > "$STATE/redirector.pid"
   sleep 1
   pid="$(redirector_pid)"
   [ -n "$pid" ] && echo "redirector started: pid $pid on 127.0.0.1:$REDIRECT_PORT" || echo "redirector failed to start (see $STATE/redirector.log)"
