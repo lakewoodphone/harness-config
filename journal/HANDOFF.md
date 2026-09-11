@@ -12,6 +12,27 @@ NEXT        the single most useful next action
 EVIDENCE    files, commits, or commands that prove the above
 ```
 
+## 2026-09-11 17:46 EDT · secratary · The owner's wife has a name, and it was on disk — L148, plus a people map
+
+CHANGED     - Wrote `journal/reference/people.md`: owner = Eliyahu Tzvi Zabrowsky; wife = **Yocheved
+              Zabrowsky ("Cheved")**, family-chat name "Dr Yocheved", (848) 224-5096, Windows user `cheve`,
+              married 2026-08-16; plus the family roster and the two-Yocheveds trap. Sources are cited in-file.
+            - Appended **L148** to `LESSONS.md`.
+            - Set a git identity on secratary (`zabz68 <zabzgpt@gmail.com>`) — there was **no** `user.name`
+              or `user.email` at any scope on this host, so any commit here failed with "Author identity
+              unknown". That is why the previous session's journal entries were sitting uncommitted.
+IN FLIGHT   Nothing open from this session.
+BROKEN      - Two `ps_*` MCP surfaces failed against the live API: `ps_memory_search` → HTTP 404, and
+              `ps_action save_memory` → "Failed to record memory via unified memory service". `ps_db_query`
+              works, and uvicorn is up on :8002, so this is an endpoint regression, not an outage. The
+              people map was written to the journal repo instead.
+NEXT        Ask the owner for the photo of himself he offered; file both images as owner/spouse references.
+EVIDENCE    - `harness-config` commits `eeb5748` (L148 + people.md), `d488e9b` (prior session's unfiled
+              entries); push verified far-side in `~/harness-config.git` (`git log --oneline -1 master`).
+            - Name evidence: `docs/family/2026-08-19-yitz-engagement.md` L28/L75;
+              `docs/wedding/aygestin-after-effects.md` L3; `docs/handoff/yocheved-progress/…-hostname-fix.md`
+              L31 (`whoami` → `desktop-fgv6kmh\cheve`).
+
 ## 2026-09-11 17:40 EDT · secratary · Rosh Hashana 5787 is armed — and the "interior door" the automation releases is not the entity its config names
 
 **Trigger.** The owner asked, warmly, *"Do you know that tonight is a very special night for me?"* It is
