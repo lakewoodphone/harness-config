@@ -213,3 +213,19 @@ measured, not estimated: three engines on three ports each held ~1.4 GB of tree 
 "one process per window" plan would have needed ~17 GB on a laptop with 7.7 GB free.
 *Why it matters:* the previous answer to "many sessions" was eight sessions sharing one ad-hoc process
 started by hand, which died with its terminal and could not be restored.
+**W20 · 2026-09-11 · The phone path is proven end to end, by the steps a human actually walks.**
+Before: the owner's phone showed *"dsh web authentication required"* and iOS offered that text as a download.
+After, 7/7 on `scripts/probe-phone.py`: cold visitor gets a token link (302) → the link redeems to a signed
+cookie (303, HttpOnly, SameSite=Strict) → the document loads (200, 27,724 bytes, `<title>DeepSeek Harness</title>`)
+→ **101 Switching Protocols** on `/api/remote.mux` → a foreign Host is still refused (401) → the identical chain
+over real HTTPS through Tailscale Serve → the public `/phone` link 302s into the tailnet. Judged at 393×852 CSS
+px, the harness collapses to an icon rail and stays readable, and a session created *from that viewport* answered
+("phone link works.") and then landed in the authoritative database: 19 verbatim events, preset `zabz`,
+`torn_tail 0`, full-text searchable. Measured, not asserted.
+
+**W21 · 2026-09-11 · One negative test found two defects that every green check had hidden.**
+Stopping the engine on purpose cost about ninety seconds and exposed two faults: the probe died instead of
+reporting its failure, and the kernel then read the stale green file it left behind. Both are fixed, and both
+fixes are covered by the same test run again (broken → `severity=high`, `needs_attention=True`, probe exit 1;
+healthy → 7/7, `severity=info`, probe exit 0). *Why it matters:* it is cheap, repeatable proof that "all checks
+pass" is worth exactly as much as the last time something was broken on purpose.

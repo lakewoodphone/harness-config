@@ -761,3 +761,77 @@ the divergence in one step instead of rewriting the pattern by eye.
 mismatch is almost always invisible whitespace, a hard wrap, or a different dash. Cheap, and it stops a
 five-edit script from silently half-applying (which is what happened: the first three edits landed, the last
 three did not, and only the assertion caught it).
+
+**L114 · A column named `fetched_at` may record when a row was first SEEN, not when you last looked.**
+`dialpad_call_full.fetched_at` is set on INSERT only. The `ON CONFLICT(call_id) DO UPDATE`
+clause refreshes `updated_at` and deliberately leaves `fetched_at` alone. I built call freshness
+on `MAX(fetched_at)` and it silently meant "newest row *first inserted*."
+*Mechanism:* four harvest runs after 19:31 all reported `stored: 236`, yet **no row carried a
+`fetched_at` past 19:31:32**. The job was running perfectly and the metric said it was 10 hours
+stale; had a single call arrived, the same metric would have called a dead job fresh. It was wrong
+in both directions at once.
+*Rule:* before treating a timestamp as a freshness signal, read the write path and ask what the
+column records on **update**, not just on insert. If the table upserts, prefer an explicit
+heartbeat the job writes itself — "the job ran" is a different fact from "the job found something",
+and only the first one is what a staleness check wants.
+*Cost:* nearly shipped an alarm that would have gone green on a dead harvester. Caught by asking
+why `stored: 236` left `MAX(fetched_at)` unmoved — **the disagreement between two of my own
+numbers was again the finding** (L110, L112).
+
+**L115 · A 10-second lock timeout is 30x the transaction time and still 300 seconds of wall clock.**
+The scheduled harvest began failing with `database is locked`. 21 failed writes and a **306s** run —
+because `_get_conn` sets `busy_timeout=10000` (app/database.py), so each contended write burned its
+full 10s before giving up.
+*Mechanism:* the harvester is a batch writer against a database a live FastAPI app is also writing.
+SQLite WAL allows one writer; a batch of 236 upserts commits per row, so it collides constantly.
+*Rule:* a per-row retry budget multiplies. `timeout × rows` is the real exposure, so a "safe-looking"
+10s in a single-request handler becomes 5 minutes in a batch job — which then overlaps its own cron
+interval. Fix at the batch layer (retry the idempotent pass, verify completeness) rather than by
+widening the global timeout of a running application.
+*Cost:* one wasted round trip; the retry wrapper cut it to 4 errors then 0 on the second attempt.
+
+**L116 · `timeout N cmd <<EOF` gives the heredoc to the command's STDIN, so the timeout waits on stdin.**
+The first scheduled-harvest wrapper hung past 150s and sat there with a 600s `timeout` that could
+never fire. The worker never even started useful work — `timeout` was waiting for the heredoc's
+stdin to close.
+*Rule:* never feed a here-doc to a process you intend to bound with `timeout`. Write the worker to a
+real file (`mktemp`) and run `timeout N python file.py`. This also lets the worker write progress
+markers itself, so a later hang still leaves evidence of which stages completed.
+*Cost:* one hung run and a stale lock that blocked two subsequent runs. The `flock` guard behaved
+correctly throughout, which is why the damage was bounded — **the lock was working and told me.**
+
+---
+
+## On verifying a working thing rather than a configured one (phone link, 2026-09-11 20:30 UTC)
+
+**L130 · 2026-09-11 20:30 UTC · A component that is configured and a component that works are different readings.**
+The gate that signs the owner's phone in was running, listening on the right port, and relaying every request
+untouched, because `request_line.partition(" ")` on `"GET / HTTP/1.1"` yields `path = "/ HTTP/1.1"` — so none of
+its conditions could ever match. Every check that existed passed while his phone showed a 401: the socket was
+open, `tailscale serve status` named the port, and the token URL answered 200 — but that 200 was the *engine*,
+never the gate. *Rule:* a component is proven by the behaviour a human experiences, not by its process being
+alive; and the quickest way to find out is to break the thing on purpose and watch the check fail.
+*Cost:* a broken link hours in his hand, and a second "it doesn't work so well" report.
+
+**L131 · 2026-09-11 20:35 UTC · A probe that cannot report its own failure is worse than no probe.**
+Negative test: engine stopped, `request()` raised `RemoteDisconnected`, the probe died before writing its status
+file, and the kernel went on reading the previous green file — up to 20 minutes of confident wrongness while the
+phone was genuinely broken. *What any probe must therefore have:* network helpers that never raise (return a
+status-0 result), every check under a guard that records a crash as that check failing, a status file written on
+every path including failure, and a consumer freshness window of about twice the producer's interval.
+Absence has to read as absent, never as green — L1 in a new costume.
+
+**L132 · 2026-09-11 20:40 UTC · A platform attribute that lives only in the working tree is a local modification.**
+Third occurrence of the same lesson: a host `chmod +x`'d a script (L21), git then refused the pull — *"Your local
+changes to the following files would be overwritten by merge"* — and because the deploy was chained with `&&`,
+the **old** script quietly ran instead: the engine came up on the wrong port and the new gate never started at
+all. It reported success while deploying nothing. *Rule:* exec bits belong in git (`git add --chmod=+x`, or
+`git update-index --chmod=+x`); no host may chmod by hand; and a chained deploy must be structurally unable to
+fall through to the previous version without saying so.
+
+**L133 · 2026-09-11 20:45 UTC · When you know the exact key, do not sort by mtime.**
+The gate picked its token by newest-mtime across `engine-*.log`, while a stale `engine-3086.log` sat beside the
+live one — so the day that file is touched last, the gate hands a visitor a token no engine accepts, silently
+reproducing the exact dead end it exists to prevent. It already knew its engine port from `--engine-port`.
+*Rule:* a heuristic for identity is a future wrong answer; use the exact key, and keep the heuristic only as a
+fallback that the code names as a fallback.

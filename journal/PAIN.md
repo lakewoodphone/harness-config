@@ -616,3 +616,57 @@ cheap guards: a build-time assertion that every name in `dsh.client.inject` is a
 package actually provides, and treating a plugin entry as **non-fatal at boot** — a pending or failed entry
 should surface a notice in that plugin's own surface, not an assertion that blanks the page. The second one
 is an upstream change; record it as such rather than working around it.
+---
+
+## P29 — Every customer channel is harvested by hand, so it all arrives a day late
+
+**Symptom.** Texts and calls reach the database long after they mattered. Median call capture lag
+**17.5 h**; SMS rows observed **8 h** behind; the newest SMS at one point was 17:50 while the clock
+read 19:30. The owner is answering customers from his phone, so the *business* is fine — but every
+system that is supposed to help him is reading yesterday.
+
+**Evidence.** `comms_freshness` on the authority (kernel commits `96406d9`..`97cfe81`):
+`call_capture_lag_hours = 17.5`, `sms_stale_hours = 1.6` (and 8 h earlier the same day).
+`crontab -l` on `secratary` contains **no** Dialpad entry; `standing_work_orders` has none either.
+`dialpad_sms_cache` has 127,632 rows, so the crawler works — nothing calls it.
+
+**Cost.** A live example from the crawl: customer `(848) 480-5115` asked *"Did you order the screen?
+Because otherwise it will for sure not come until the end of the [week]"* — and the owner's own reply
+in the same thread reads *"I still can't get through to my boss"*. The relationship is real and
+current; the tooling sees it eight hours late, if at all.
+
+**Fix — HALF APPLIED 2026-09-11 20:30.** The call half is done: `scripts/dialpad-harvest-cron.sh`
+runs `*/30` on the authority under `flock`, verified by an autonomous run at 20:01:36Z (236 calls,
+0 errors, 93s). Call staleness **10.0h → 21m**. `comms_freshness` enforces it via a heartbeat file
+(`~/.dialpad-harvest.last_run`), because `dialpad_call_full.fetched_at` is INSERT-only and cannot
+report a healthy pass (L114).
+
+**Still open: the SMS half.** `dialpad_sms_cache` message bodies come only from
+`dialpad_webcrawler` (Playwright, logged-in profile). Nothing calls it, and it was NOT scheduled,
+because refreshing a live business account's browser auth unattended is a risk that should be taken
+deliberately rather than by a scheduler. The 30-day lag median will keep showing ~17.5h until the new
+cadence works through; it is reported, not enforced, so it cannot raise a false alarm while converging.
+
+
+## P40 — A broken phone link is detected but routed to nobody
+**Symptom.** `check_phone_endpoint` now fails loudly (HIGH) when the phone path breaks, and `run-sentinel.sh`
+records it — but nothing delivers a finding to a human. The runner is explicit that routing findings is "the
+inbox's job (design §3.3), and Phase 2 is not built yet", and it deliberately never mails, to avoid recreating
+the alert fatigue that buried the 7 held critical messages. So the owner still learns about a broken phone by
+holding the phone — which is exactly how he learned tonight.
+**Evidence.** His two messages tonight ("it doesn't work so well", "how do i use it") were both questions a
+machine already had the answer to, hours before he asked. Kernel: `/home/zabz/ceo-kernel-var/latest.json`,
+`summary.attention = 5`, `phone_endpoint` present and green only after the fix.
+**Cost.** The one channel that matters — him — is the one channel the sensing does not reach.
+**Fix.** Phase 2 inbox: findings to a single digest, deduplicated by check+severity, escalated only when a check
+stays failing across N samples. The honest intermediate is one line in whatever summary he already reads.
+
+## P41 — Only the phone path has behavioural proof; every other endpoint has layer checks
+**Symptom.** `probe-phone.py` asks the questions that matter (does a cold visitor get signed in, does the
+document load, does the websocket upgrade, does real HTTPS work from outside). Everything else in the fleet is
+still judged by proxies: a process is listening, a config file exists, a service is "active". Tonight proved
+that class of check can be green through a total functional failure.
+**Cost.** Unknown, and that is the point — the other endpoints have never been tested the way this one now is.
+**Fix.** Generalise `probe-phone.py` into `probe-endpoint.py` over a small registry (the API on :8002, Home
+Assistant, the Gmail bridge, the public tunnel hosts), each entry declaring its own cold path and expected
+shape, all writing the same status-file contract the kernel already reads.

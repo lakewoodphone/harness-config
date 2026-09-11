@@ -230,3 +230,29 @@ Owner decisions taken in conversation this session, all recorded in `kosher-filt
 3. **Everything is a configurable knob; a Level is a default bundle, never a lock.** His words: *"just because something is the default doesn't mean you can't configure it… Everything is configurable at setup time by the user if they want. And even later, based on their time delays and how they set up, they could change that up. You always have to remember that."* A Level 3 household may switch hiding off; a Level 1 household may switch it on. **Nothing I design may hard-code a policy.** I flagged one inference for correction rather than asserting it: that loosening is gated by the meta-rules/time-delay machinery while tightening is immediate.
 4. **Cover on uncertainty; reveal only on verification** — for the *spatial* problem (per-region pixel hiding) as well as the temporal one. He agreed, with the reasoning that whole-image hiding is unacceptable for home/family photos: **per-region hiding, not whole-picture hiding.**
 *Consequence for everything downstream:* the Level→policy mapping must be a preset over individual knobs, and the policy-adaptive guard model makes a policy a *prompt*, so a household's configuration is data rather than a release.
+
+**D30 · 2026-09-11 · The phone signs itself in; the owner never handles a token URL again.**
+A one-time `?token=` link dies at every engine restart, and a bookmark that dies is a support call in his hand.
+So the entry point is `scripts/phone-gate.py` on 127.0.0.1:3086 — the port Tailscale Serve publishes — and a
+document request to `/` with no harness cookie and no token is answered with a 302 to `/?token=<live>`, read
+from the engine's own log at request time. Everything else (the exchange, assets, the REST API, the WebSocket)
+is relayed byte-for-byte, which is why upgrades survive. The engine now sits behind it on 3089. Superseded
+within the hour: the token is read from `engine-<engine-port>.log`, not by newest mtime (L133).
+
+**D31 · 2026-09-11 · "Does the phone work" has exactly one source of truth: `~/.dsh-phone/probe.json`.**
+`probe-phone.py` walks the human path and writes its verdict atomically every five minutes from cron; the kernel
+reads that verdict rather than re-deriving health from a socket. A missing or stale file is reported as absent
+evidence (medium), never as green. *Rejected:* teaching the kernel the probe's logic (two implementations of one
+truth), and mailing on failure (no inbox exists yet, and mail-per-run is the alert fatigue this system already
+paid for — see P40).
+
+**D32 · 2026-09-11 · A broken public link is medium; a broken tailnet link is high.**
+The phone reaches the harness over the tailnet, so a Cloudflare-path failure is a degraded second route, not a
+phone outage. Severity that cries wolf is severity that gets ignored, and this file already contains the cost of
+that lesson.
+
+**D33 · 2026-09-11 · `ai.abletelsolutions.com/` is left alone.**
+Its root is a Next.js app on :3000 with its own sign-in — a different product, not the harness. The owner's
+reported error was the harness 401, which means the icon he taps already points at the harness, so nothing needs
+moving for him. Re-pointing that root without evidence of what else uses it would be an irreversible-ish change
+to someone else's surface for no gain.
