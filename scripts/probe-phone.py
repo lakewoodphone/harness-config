@@ -214,24 +214,13 @@ def main():
     if not token:
         print("  no live token; checks 2-4 cannot run")
     try:
-        check_cold_visitor()
+        cold_token = check_cold_visitor()
     except Exception as e:  # noqa: BLE001
         record(1, "cold visitor gets a link", False, f"{type(e).__name__}: {e}")
-        token = None
-    check_redeem(token)
-    # re-derive the cookie through the gate exactly as a phone would
-    cookie = None
-    try:
-        r = request(GATE, "GET", "/", {"Host": AUTHORITY, "Accept": "text/html"})
-        loc = r["headers"].get("location", "")
-        path = loc if loc.startswith("/") else urllib.parse.urlparse(loc).path or "/"
-        query = urllib.parse.urlparse(loc).query
-        r2 = request(GATE, "GET", path + ("?" + query if query else ""),
-                     {"Host": AUTHORITY, "Accept": "text/html"})
-        sc = r2["headers"].get("set-cookie", "")
-        cookie = sc.split(";")[0] if sc else None
-    except Exception as e:  # noqa: BLE001
-        print(f"  (cookie re-derivation failed: {e})")
+        cold_token = None
+    # the cold path is the real test; the engine's own one-time token is the fallback,
+    # so checks 3-4 still run (and still mean something) when check 1 fails.
+    cookie = check_redeem(cold_token or token)
     check_document(cookie)
     check_websocket(cookie)
     check_fence()

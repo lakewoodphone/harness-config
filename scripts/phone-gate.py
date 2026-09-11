@@ -30,6 +30,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from urllib.parse import urlsplit
 
 STATE_DIR = Path.home() / ".dsh-phone"
 COOKIE_PREFIX = b"dsh-auth-"
@@ -100,11 +101,20 @@ def handle(client: socket.socket, engine_port: int) -> None:
             return
         head = first.split(b"\r\n\r\n", 1)[0]
         request_line = head.split(b"\r\n", 1)[0].decode("latin-1", "replace")
-        method, _, path = request_line.partition(" ")
+        # Split on whitespace, not on the first space: partition(" ") on
+        # "GET / HTTP/1.1" yields path="/ HTTP/1.1", which matches nothing, and the
+        # gate silently relays everything. It did exactly that until 2026-09-11 - the
+        # 401 the owner saw was the untouched engine, not this gate.
+        parts = request_line.split()
+        method = parts[0] if parts else ""
+        raw_target = parts[1] if len(parts) > 1 else ""
+        split_target = urlsplit(raw_target)      # tolerates absolute-form targets too
+        path = split_target.path or "/"
+        query = split_target.query
         authenticated = COOKIE_PREFIX in head
-        wants_document = path.split("?")[0] in ("/", "/index.html", "")
+        wants_document = path in ("/", "/index.html")
 
-        if method in ("GET", "HEAD") and wants_document and not authenticated and "token=" not in path:
+        if method in ("GET", "HEAD") and wants_document and not authenticated and "token=" not in query:
             token = live_token()
             host = tailnet_name() or "localhost"
             if token:
