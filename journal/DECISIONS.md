@@ -256,3 +256,19 @@ Its root is a Next.js app on :3000 with its own sign-in — a different product,
 reported error was the harness 401, which means the icon he taps already points at the harness, so nothing needs
 moving for him. Re-pointing that root without evidence of what else uses it would be an irreversible-ish change
 to someone else's surface for no gain.
+
+**D34 · 2026-09-11 · The gate completes the login in flight and returns the document. (Supersedes D30.)**
+D30 handed the visitor a 302 to `/?token=<live>`. That cannot be made safe: a client that keeps a cookie the engine refuses
+refollows for ever (measured: 50 hops), and no query marker survives the engine's own 303 back to `/`. So the gate now does
+the login itself — exchange the token, keep the session cookie the engine returns, fetch the document with it, return it with
+`Set-Cookie` injected. Cost: the doc is buffered (27 KB, once per unauthenticated request). Benefit: one client request, one
+200, no loop constructible, and the launch token never appears in a URL, a Location header, or browser history.
+
+**D35 · 2026-09-11 · The public redirector hands out a bare URL.**
+With the gate signing visitors in, the launch token does not need to exist in any link the owner can save. One fewer secret
+in a header, one fewer thing that can go stale on a home screen.
+
+**D36 · 2026-09-11 · One request per connection: `Connection: close` on everything but upgrades.**
+The gate must decide on every request, and it can only do that if every request arrives on its own connection. Serve pools;
+forcing close upstream makes the engine end each response, which forces Serve to reconnect. The websocket upgrade is
+exempt — it carries every streamed reply and must stay open.

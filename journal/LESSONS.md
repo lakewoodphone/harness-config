@@ -882,3 +882,79 @@ deployment path was gone). Then try the documented path. Escalate only what is s
 *Cost:* one round of autonomous time spent asking the owner to resurrect something intentionally dead, plus a
 false "Blocked" goal state that had to be retracted. The retraction is kept in `QUESTIONS.md` rather than
 deleted, because the record of having been confidently wrong is the useful part.
+**L117 · Checking one channel and escalating is not diligence — it is a guess with a citation.**
+I read the SMS history for a customer, saw her ask to be called about payment and no reply after it, and
+escalated to the owner: *"11 days of silence on $780, she's chasing by text and email, call her today."*
+He pushed back — *"did you check the dialpad context... or are you flagging something for me by being
+lazy?"* He was right. There were **11 calls** on that number, and the answers were in them: the order
+shipped Aug 31 (he called her at 6:16pm to say so, hours after her worried email), and payment was
+deliberately deferred to the following Monday with her agreement, in a 51-second call **the day before
+I escalated**.
+*Mechanism:* I stopped at the first source that returned a plausible story. The SMS table supported
+"unanswered customer", so I reported it without asking what the *other* channels said. The resolution
+was in a table I had already queried that same session for other purposes.
+*Rule 1:* before escalating anything about a person, read **every** channel for them — SMS, calls,
+transcripts, email — and reconcile them. A fact from one channel is a hypothesis until the others agree.
+*Rule 2:* the owner asking "did you check X?" is a report that I did not, and the correct response is to
+go and look, not to defend the original reading. My instinct was to re-explain; his question was the
+finding.
+*Rule 3, the one that matters:* when the answer *existed but was not practically readable*, fixing the
+readability is the real work — not escalating and not apologising. Dumping a raw column full of
+`action_item_v2` into a prompt does not count as having checked.
+
+**L118 · When a data source embeds its vendor's internals, the fix is a reader, not a warning.**
+`dialpad_call_full.transcription_text` interleaves real dialogue with Dialpad's own AI analytics *field
+names* — `whole_call_summary`, `action_item_v2`, `ai_csat_reboot_ineligible`, `call_purpose_category`,
+`ner`, `monologuing`. Measured: **5,362 of 5,644 stored transcripts (95%)** carry them, presented
+identically to speech. Every call is also stored twice, once per leg.
+*Mechanism:* the list-calls feed returns whatever the vendor produced, and the harvester stored it
+faithfully. Nothing was "broken" — the data was simply unusable in the form it arrived, and no code
+existed whose job was to make it usable.
+*Rule:* a source that is retrievable but unreadable will be misread, and the misreading will look like
+diligence (L117). Strip the artifacts, keep speaker attribution, collapse the duplicated legs, and
+**report how much was removed** so a reader can see the cleaner worked instead of trusting it.
+*Cost of not having it:* one wrong escalation to the owner, and an unknown number of quiet
+misreadings in the company's own agents, which read the same column.
+
+**L119 · Write the regression test in the direction that protects the real world, then run it before believing it.**
+The transcript cleaner's tests caught **two over-reach bugs in my own code**: `"mm -hmm"` survived as a
+turn, and `"Uh-huh"` slipped through because normalisation turns it into `uh huh` and `huh` was not on
+my filler list. Neither was visible by reading the code; both appeared the moment a test asserted on
+real stored lines.
+*Rule:* for a filter, test **both** directions — the noise must go, and genuine content must survive.
+A cleaner that deletes a sentence someone actually said is worse than the noise it removed. My file
+includes `"Hmm, I'm not sure about that."` and `"I have a question about my bill."` specifically so a
+future tightening cannot quietly start censoring customers.
+
+---
+
+## On the difference between my client and his (phone link, second pass, 2026-09-11 20:35 UTC)
+
+**L134 · 2026-09-11 20:35 UTC · A proxy pools connections; one inspection per connection is not one inspection per request.**
+The gate inspected the first request on a connection and then became a raw byte pipe — and Tailscale Serve, which proxies
+every visitor to it, reuses one connection for request after request. So the returning visitor's request went straight to
+the engine, uninspected, and never even appeared in the gate's decision log. Every curl test opened a fresh connection and
+therefore passed. *Evidence:* the gate log showed one request for a browser navigation that made four. *Rule:* when you sit
+behind a proxy, "once per connection" is a fiction; force `Connection: close` upstream (upgrades excepted) so each request
+arrives on its own socket and gets its own decision. *Cost:* two rounds of telling the owner it was fixed when it was not.
+
+**L135 · 2026-09-11 20:35 UTC · A test client that opens its own connection cannot see a pooling bug.**
+My probe passed 7/7, then 9/9, while his phone still showed the 401. Both my client and the bug were about connections: mine
+were fresh, his were pooled. *Rule:* an acceptance test for anything user-facing must run through the same proxy and the same
+path the user's device uses, and must be dirty the way a real client is dirty — a stale cookie, a dead token, a
+previously-cached response. A clean client through a side door proves nothing about a dirty client through the front door.
+
+**L136 · 2026-09-11 20:40 UTC · Never hand a struggling client a task; finish the task for it.**
+The design was: give the visitor a 302 to `/?token=<live>` and let their browser follow it. Any client that keeps a cookie the
+engine will never accept then loops for ever — measured: 50 hops and a curl abort, and the "already repaired" query marker
+cannot survive the engine's own 303 back to `/`. *Rule:* when the client is in a state it cannot diagnose (stale credential,
+half-broken configuration), do the repair server-side and return the finished result. The gate now performs the whole login
+itself — exchange, cookie, document — and returns the page with the session cookie attached. One request, no redirect chain
+to loop on, and the bearer token never appears in a URL or in browser history.
+
+**L137 · 2026-09-11 20:45 UTC · A limit keyed on the client's IP is worthless behind a proxy.**
+I bounded the loop with an eight-second per-IP cooldown. Behind Serve, *every* visitor arrives from 127.0.0.1, so a single
+repair locked out all comers for eight seconds — and my own probe failed within a minute of the deploy, which is the only
+reason it lasted a minute. *Rule:* behind a proxy, the socket peer is the proxy, not the person; never key a policy on it.
+*Also worth noting:* the probe caught its author's regression twice in one session, having first caught the bug it was
+written for. That is the entire argument for building it, and it is now the strongest artefact from this work.

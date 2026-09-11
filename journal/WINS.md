@@ -229,3 +229,13 @@ reporting its failure, and the kernel then read the stale green file it left beh
 fixes are covered by the same test run again (broken → `severity=high`, `needs_attention=True`, probe exit 1;
 healthy → 7/7, `severity=info`, probe exit 0). *Why it matters:* it is cheap, repeatable proof that "all checks
 pass" is worth exactly as much as the last time something was broken on purpose.
+
+**W22 · 2026-09-11 · The phone signs in in one request, from every state, and the proof is the owner's own paths.**
+Before: a stale cookie or a saved link with a dead token produced `dsh web authentication required`, which iOS offered as a
+text download. After (probe 10/10, plus a real browser at 393×852 with default caching): a cold visitor, a returning visitor
+with an unusable cookie, a saved link whose token died at the last restart, and the public home-screen link **all** return
+200 / 27,724 bytes / `<title>DeepSeek Harness</title>` **with zero redirects** and a session cookie, and the app's
+authenticated calls come back 200 (`session/list`, `agentPresets/list`, `credentials/describe`). The gate does the whole
+login internally, so there is no redirect chain for a broken client to loop on and no bearer token in any URL.
+*Why it matters:* this is the first version of this link that is correct for the client he actually holds, rather than for
+the client I kept testing with.
