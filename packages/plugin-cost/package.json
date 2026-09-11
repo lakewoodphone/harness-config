@@ -1,0 +1,34 @@
+{
+  "name": "dsh-plugin-cost",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Session and per-turn USD cost for DSH: a /cost command and a composer cost pill, priced from a cited rate card.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node test/cost.test.mjs",
+    "verify": "node scripts/build.mjs --check"
+  }
+}

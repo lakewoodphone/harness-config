@@ -293,3 +293,59 @@ company's UTC hosts (a `12:49` entry is the same event as `16:49Z`). An "is this
 made without noticing the offset is wrong by four hours — enough to invent or miss an incident.
 *Rule:* state which clock a timestamp came from before comparing it to anything.
 
+
+---
+
+## On extending a system you did not write
+
+**L39 · Read the extension seam before deciding whether a change is a patch or a plugin.**
+"Add cost to the chat footer" looked like it needed a patched bundled file, because the footer's
+numbers are rendered inside `dsh-client-ui-chat`. Reading the seam showed the opposite: `StatsPills`
+is one cell in the list Slot `conversation.composer.dock`, declared with `replaceRisk: "none"`, so a
+fresh `id` lands beside it and replaces nothing. The same question applied to the per-turn figures
+resolved to `conversation.chat.turnTail` (a chain Slot) and to the fact that the session-level
+`tokenUsage` projection carries **no** provider or model — so a footer price is inherently an
+assumption, while the log is exact.
+*Cost of learning it:* none, because the seam was found first. The cost was one recon pass, paid
+knowingly.
+*Rule:* before editing a shipped artifact, spend the time to find out whether the thing is already a
+plug-in point. A patch to `node_modules` is reverted by the next install, cannot be reviewed, and
+silently becomes a lie about what the system does.
+
+**L40 · A generated file must be generated from the tested file, or the tests are theatre.**
+The plugin's host half is one module — a Cordis plugin is a single module — while the rate card, the
+log reader and the command each deserve to be readable and testable apart. Concatenating them in a
+build script, and running the *sources* through the test suite, keeps "tested" and "shipped" the same
+code. `scripts/build.mjs --check` fails the build when `lib/` drifts from `src/`.
+*Failure this caught immediately:* the flattener's `stripImports` used `^import` without the `m`
+flag, so a multi-line `import { a, b, c } from '...'` left its tail behind and the generated module
+redeclared `PRICING` and `join`. The build "succeeded"; the import failed. A generator that is not
+itself checked produces a file that looks right and does not run.
+
+**L41 · "The bundle is on disk" is not "the loader can use it".**
+Two separate facts had to be established for the browser half, and neither was visible from the file
+existing: the client bundle must be a **plain script** calling
+`window.__ModuleLoader__.load({ id, factory })` — an ES module is loaded and silently contributes
+nothing — and its registration `id` must equal the **package name**. `test/client-smoke.mjs`
+reproduces the loader's contract with a fake `window.__ModuleLoader__` and a stub React, which is what
+turned an unverifiable claim into a check.
+
+**L42 · Quote the number, or the region is unpriced.**
+The DeepSeek pricing card has exactly three line items and no cache-write row. The tempting move is to
+price `cacheWriteTokens` at the miss rate so the column is never blank. That invents a charge the
+provider does not make and can double-count tokens the harness also reports as uncached input.
+Unpriced is a real answer: the surfaces say "unpriced" and the rate card says which routes have no
+published price, rather than filling the gap with a neighbouring model's rate.
+
+**L43 · On a time-of-day rate card, a timestamp is part of the price.**
+`deepseek-official` bills 01:00-04:00 and 06:00-10:00 UTC Mon-Fri at exactly 2x off-peak. One constant
+would be wrong roughly half the time, so the cost of an attempt is a function of the attempt's own
+clock — which meant the durable log, not the projection, had to become the pricing input: the
+projection carries four integers and no time and no route.
+
+**L44 · Never put a secret in an exception message.**
+Reading the credential store, I failed to resolve a ref and threw ``record <id> has no secret`` — where
+`<id>` *was the API key*. It went into the transcript before I noticed. A thrown error is the single
+easiest place for a secret to escape, because it is written to be read.
+*Rule:* credential-handling code may print lengths and booleans and nothing else; the failure path is
+part of the code that has to be designed, not the afterthought.

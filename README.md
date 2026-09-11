@@ -35,6 +35,7 @@ none of them declares which one is true.**
 | Non-secret settings (`settings/base.yaml`) | `.credentials.yaml` — secrets |
 | Machine overrides (`settings/machines/<host>.yaml`) | `.anonymous-user-id` |
 | Sync tooling and docs | `profiles/node_modules/` — installed packages |
+| Local plugin packages (`packages/*`) | |
 
 **Never commit secrets.** Credentials stay in `.credentials.yaml` and are referenced by env var name
 (`apiKeyEnv: DEEPINFRA_API_KEY`), never by value.
@@ -45,6 +46,8 @@ none of them declares which one is true.**
 harness-config/
 ├── presets/                  # canonical agent presets, one dir each
 │   └── cordis-bg/            # background-first shell policy
+├── packages/                 # local DSH plugin packages
+│   └── plugin-cost/          # /cost command + composer cost pill, with a cited rate card
 ├── settings/
 │   ├── base.yaml             # settings identical on every machine
 │   └── machines/
@@ -55,6 +58,15 @@ harness-config/
 └── docs/
     └── DECISIONS.md
 ```
+
+### Plugin packages
+
+A package under `packages/` is installed into a DSH profile by `file:` path, so it is
+version-controlled here and mounted from a checkout rather than hand-edited into
+`node_modules`. `plugin-cost` is the first one; see
+[`packages/plugin-cost/README.md`](packages/plugin-cost/README.md) for what it does, how to
+install it, and how to verify it. `sync.py` does not install packages — installing is a
+profile operation, not a `~/.dsh` copy.
 
 Merge rule: **base, then machine delta.** A key in the machine file wins.
 

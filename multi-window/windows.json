@@ -1,0 +1,47 @@
+{
+  "_comment": "DSH multi-window launcher configuration. ONE server, MANY windows is the default because each server process eagerly starts its own five stdio MCP bridges (~1.4 GB per server measured 2026-09-11). Set mode to 'multi' only when you deliberately want a second isolated engine.",
+  "_modes": {
+    "single": "One DSH server on primaryPort; every window attaches to it. Sessions are independent; the engine is shared.",
+    "multi":  "Each slot runs its own DSH server on its own port. Independent engines, ~1.4 GB each, five MCP bridges each."
+  },
+  "_fields": {
+    "window.label": "Human label, shown in the window title and in status output.",
+    "window.workspace": "Default working directory (the agent's workspace root) opened in that window's sessions.",
+    "window.profile": "Browser profile directory suffix. Must be unique per window: it is what gives each window its own cookie jar and its own 'last session'.",
+    "window.enabled": "false keeps the slot defined but never opens it.",
+    "window.port": "Only used in 'multi' mode: the port that window's own server listens on."
+  },
+  "mode": "single",
+  "primaryPort": 3080,
+  "primaryWorkspace": "C:\\Users\\ezabz\\code",
+  "server": {
+    "logDir": "C:\\Users\\ezabz\\.dsh\\multi-window\\logs",
+    "stateDir": "C:\\Users\\ezabz\\.dsh\\multi-window",
+    "startTimeoutSeconds": 180,
+    "restartDelaySeconds": 5
+  },
+  "browser": {
+    "kind": "edge",
+    "profileRoot": "C:\\Users\\ezabz\\.dsh\\multi-window\\browser",
+    "windowSize": "1600,1000",
+    "extraArgs": []
+  },
+  "windows": [
+    { "label": "1 - main", "workspace": "C:\\Users\\ezabz\\code", "profile": "w1", "enabled": true },
+    { "label": "2", "workspace": "C:\\Users\\ezabz\\code", "profile": "w2", "enabled": true },
+    { "label": "3", "workspace": "C:\\Users\\ezabz\\code", "profile": "w3", "enabled": true },
+    { "label": "4", "workspace": "C:\\Users\\ezabz\\code", "profile": "w4", "enabled": true },
+    { "label": "5", "workspace": "C:\\Users\\ezabz\\code", "profile": "w5", "enabled": true },
+    { "label": "6", "workspace": "C:\\Users\\ezabz\\code", "profile": "w6", "enabled": true },
+    { "label": "7", "workspace": "C:\\Users\\ezabz\\code", "profile": "w7", "enabled": true },
+    { "label": "8", "workspace": "C:\\Users\\ezabz\\code", "profile": "w8", "enabled": true },
+    { "label": "9", "workspace": "C:\\Users\\ezabz\\code", "profile": "w9", "enabled": false },
+    { "label": "10", "workspace": "C:\\Users\\ezabz\\code", "profile": "w10", "enabled": false },
+    { "label": "11", "workspace": "C:\\Users\\ezabz\\code", "profile": "w11", "enabled": false },
+    { "label": "12", "workspace": "C:\\Users\\ezabz\\code", "profile": "w12", "enabled": false }
+  ],
+  "_multiPorts": {
+    "_comment": "Only read in mode 'multi'. Ports are assigned from basePort upward, in window order.",
+    "basePort": 3081
+  }
+}

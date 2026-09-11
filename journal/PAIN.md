@@ -371,3 +371,28 @@ emitting, and something **off-host** (desktop, Yoga, or the Hetzner VPS) alarms 
 arrive*. The check must expect absence and be surprised by it, rather than reading a file the host
 wrote. Not built. Highest-value remaining piece of Phase 1's honesty story.
 
+
+---
+
+## P13 — *I leaked a live API key into the session transcript*
+
+**Symptom.** While writing a reader for `~/.dsh/.credentials.yaml`, my own error path threw
+``record <id> has no secret``, where `<id>` **was the DEEPSEEK_API_KEY value** — the reader had matched
+a `records:` key against the ref's scalar because the regex assumed nested indentation. The secret was
+printed to stderr, and therefore into this session's durable log and into the owner's screen, before I
+noticed and rewrote the module.
+
+**Evidence.** This session's own log, and `harness-config/packages/plugin-cost`'s `L44` in LESSONS.
+The rewritten `dsh-cost/lib/credentials.mjs` now prints only lengths and booleans.
+
+**Cost.** A live provider credential is in a stored transcript. Rotation is the owner's call and costs
+his time; not rotating leaves a key exposed in a file that is backed up and synced.
+
+**Fix — two parts, one mine and one his.**
+1. *Mine, done:* credential-handling code may not put a secret into an exception, a log line, or stdout.
+   The failure path is part of the design, not an afterthought (LESSONS L44).
+2. *His:* rotate `DEEPSEEK_API_KEY`. Nothing detects this class of leak, and the transcript is durable.
+
+**Not yet built.** A scan that looks for key-shaped strings in new session logs and refuses to leave
+them there. The logs are local and compressed, so this is a small job — and it is the difference between
+"we learned the lesson" and "the lesson cannot recur".
