@@ -1471,3 +1471,64 @@ concurrent sessions. **PAIN P15, P16, P17.**
 **NEXT:** the customer + staff portal surfaces. The contract is corrected and settled
 (`deploy/waze-mdm/docs/customer-portal-waze-module.md`); the endpoints are live and verified. Blocked on
 one question: which portal app and repo serves LPT customers in production.
+---
+
+## 2026-09-11 · ZABZ-YOGA · Kosher Waze portal built (customer + staff); staging is a dead target
+
+**CHANGED (all pushed to `phone-and-tech-full` `test`, commit `d80e49d75`)**
+- **Customer "My Waze Device"** at `/customer-portal/device`, in the portal nav. Live usage bar,
+  `cap_message` from the server, and change-allowance / pause / resume. Renders nothing but a short
+  message when the account has no Waze device, so it is safe to link for every customer.
+- **Staff "Waze Fleet"** at `/admin/waze-fleet` (ADMIN + MANAGER). Fleet health, **alert freshness as a
+  first-class figure**, device lookup by DRN, and cap/pause/resume. Deep MDM work (profiles, kiosk,
+  wallpaper, renumber) deliberately stays in the fleet dashboard rather than being half-duplicated.
+- **Backend `WazeDeviceService`** — server-to-server only, bounded timeout, and it **degrades to
+  "not linked"** on 404 / outage / unconfigured so a fleet-api problem can never break a portal page
+  that also shows orders and backups. The bearer token never reaches the browser.
+- Customer procedures are customer-scoped; staff procedures sit behind `adminProcedure` and are
+  **DRN-addressed with no customer input**. Mutations take a device **UUID, never a serial**, and an
+  unowned UUID is rejected before any fleet-api call.
+- `FLEET_API_URL` / `FLEET_API_TOKEN` are **optional**, documented in `.env.example`, `.env.template`,
+  `.env.production.template`, so every environment without Waze devices still boots.
+
+**VERIFIED**
+- Backend + frontend **typecheck clean**. The only remaining errors are **two pre-existing ones on
+  `test`** (`FAQSection.tsx` unused import, `useFaqs.ts` arg count) — proved pre-existing by stashing my
+  changes and re-running: identical failures.
+- **eslint clean** on every new and changed file, after splitting one component that tripped the repo's
+  500-line rule (split into `components/waze/*`, not suppressed).
+- **20/20** new service tests pass. Backend suite: **6107 passed, 24 failed** — all 24 pre-existing
+  (timeouts + one Date-vs-string assertion in `customerPortal.debug-logging`), the latter also proved by
+  stash-and-rerun.
+
+**BROKEN — and it blocks the last step**
+- **STAGING DOES NOT EXIST.** `Deploy to Staging (Test Branch)` has failed on **every** push since at
+  least 2026-09-09 (8/8 consecutive). Root cause: `curl: (22) ... 404` from
+  `https://api.heroku.com/apps/lakewood-phone-backend-test/config-vars` — the Heroku app is gone, so the
+  workflow dies in "Validate Staging Configuration" before deploying anything.
+  **The integration is therefore NOT verified on staging, and I am not claiming it is.**
+- The frontend deploys **manually** via Netlify (`netlify deploy --no-build`), not by the workflow. Even
+  with a healthy backend workflow, a UI change needs that manual step — see
+  `docs/operations/DEPLOY_ARCHITECTURE_REALITY.md`.
+- `FLEET_API_URL` / `FLEET_API_TOKEN` are **not set on the staging app**. Until they are, the panel
+  degrades to "not linked" there by design, so staging would show nothing even once the app exists.
+
+**NEXT**
+Recreate/point staging, set the two secrets, re-run, and verify the panel against the live fleet. Then the
+owner promotes `test` → `main` (his step, by agreement).
+
+**ALSO FIXED THIS SESSION (fleet host)** — commit `b86cdbca8`
+- Staff cap endpoint `POST /fleet/devices/{drn}/telnyx/cap` clamped the SIM to a **0.5 GB floor** while the
+  customer endpoint used **0.05**, and it **stored the unclamped value**: asking for 0.1 stored 0.1 but
+  enforced 0.5, so the database disagreed with the device. Now clamps once and stores exactly what it
+  enforces. Verified live: 0.001 → clamped to 0.05 **and stored** 0.05.
+- Added `GET /fleet/staff/device?serial=|drn=` sharing the customer view contract, because
+  `/fleet/devices/{drn}/telnyx` returns a different shape that would have forced the portal to
+  reimplement the cap-band logic. Verified: 200 by DRN, 200 by serial, 404 unknown, 400 for both/neither.
+
+**EVIDENCE**
+- `phone-and-tech-full` `d80e49d75`; `personal-secretary-mvp` `b86cdbca8`
+- `backend/src/services/waze/waze-device.service.ts` (+ `.test.ts`), `backend/src/trpc/routers/wazeFleet.ts`
+- `frontend/src/features/customer-portal/pages/WazeDevice.tsx`
+- `frontend/src/features/admin/pages/WazeFleetPage.tsx` + `components/waze/*`
+- `gh run view 34638668756 --log-failed` — the 404 that proves staging is gone
