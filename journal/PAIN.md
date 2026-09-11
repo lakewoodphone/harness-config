@@ -712,3 +712,18 @@ but a conflict or a blocked `--ff-only` pull on the *other* session, which stall
 **Fix.** Before touching a shared artefact, read the reflog (L139). Then claim it in one line at the top of `HANDOFF.md` —
 `<path> — held by <session/host> until <time>` — and release it when done. Same failure class as P13 (`git add -A` sweeping
 another session's work); this is its file-level twin and the claim line is the cheap half of a fix.
+
+## P45 — The harness ships a desktop layout and the phone gets it shrunk
+**Symptom.** At 393px the app renders its desktop composition: nine controls below the 44px touch minimum (rail icons
+36x36, Commands and Add-attachment 28x28, Send 34x34, Choose-workspace 162x28), a composer field computed at 13.33px
+(iOS Safari auto-zooms the whole page when it takes focus), zero `safe-area-inset` rules anywhere in the shipped CSS, and
+a sidebar that in flow squeezes the content column from 337px to 113px when opened.
+**Evidence.** Measured on the live app; the fixes and the before/after are in `journal/WINS.md` W23 and
+`docs/dsh-mobile/evidence/phone-mobile-*`.
+**Cost.** The owner's own words: *"since it's a chrome window, it's not optimized for a phone interface."* He is the only
+user of this surface and it was designed for a desktop.
+**Fix, partial.** `assets/mobile.css`, injected by the gate, fixes tap size, the zoom trigger, safe areas and the open
+drawer. What it cannot fix is state: selecting a session in the drawer leaves the drawer open (the app's own behaviour),
+and a phone-first composition wants the rail gone and the drawer to close on navigation. The honest fix is a proper
+client plugin inside the DSH package — blocked only on tooling: the `cordis_*` tools are not in this session's toolset,
+so that work needs a session that has them.

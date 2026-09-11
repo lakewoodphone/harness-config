@@ -272,3 +272,11 @@ in a header, one fewer thing that can go stale on a home screen.
 The gate must decide on every request, and it can only do that if every request arrives on its own connection. Serve pools;
 forcing close upstream makes the engine end each response, which forces Serve to reconnect. The websocket upgrade is
 exempt — it carries every streamed reply and must stay open.
+
+**D37 · 2026-09-11 · Mobile fixes live in a stylesheet the gate injects, not in the harness package.**
+`assets/mobile.css` is served by `scripts/phone-gate.py` into every document request. Rejected alternatives: editing the
+installed `@deepseek-ai/dsh-client-ui-*` packages (npm overwrites them on update, and the change would be invisible in
+git), and forking the client (a rebuild per harness release for a stylesheet). Scoped to `max-width: 768px`, matched on
+CSS-module local-name substrings and ARIA semantics rather than hashes so a client rebuild does not silently disable it,
+and reversible with `PHONE_MOBILE_CSS=0` without a code change. Supersede this with a real client plugin once a session
+has the `cordis_*` tooling: state behaviour (closing the drawer on navigation) is out of a stylesheet's reach.

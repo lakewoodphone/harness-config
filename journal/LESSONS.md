@@ -980,3 +980,28 @@ plus `ls --time-style=full-iso` on the target file, both read as *now minus a fe
 window means a live writer, and the correct move is to write the intent into the journal and let its owner apply it — not to
 race it. *Cost:* the change is deferred by one session, which is cheap; a conflict or a stalled `--ff-only` pull on the other
 session is not (P13, P44).
+
+---
+
+## On changing an interface you do not own (phone UI, 2026-09-11 21:30 UTC)
+
+**L140 · 2026-09-11 · A rule that sizes a box must not size its contents.**
+I wrote `button[aria-label] > * { min-height: 44px; min-width: 44px }` to make icon buttons thumb-sized. The box grew
+as intended; the *glyph inside* grew with it, and every icon on the page — the rail, copy, feedback, the composer
+controls — rendered enormous. *Rule:* when a selector's job is to enlarge a target area, it must stop at the element the
+finger touches. *Cost:* one visibly wrecked screen on the owner's live device, caught by a screenshot, not by a number.
+
+**L141 · 2026-09-11 · A measurement is not a look.**
+My audit said `tooSmall: 0` — every control at least 44px — while the page was rendering as giant icons. Both readings
+were true: the counts were right and the interface was broken. *Rule:* for anything visual, the numbers tell you what to
+fix and the screenshot tells you whether you broke something else. Every layout change ends with an image, not a diff.
+
+**L142 · 2026-09-11 · Do not remove a part of a layout you do not own.**
+Hiding the collapsed rail looked like a free 14% of width. `display: none` on it collapsed the content column to 56px
+and clipped every heading, because the app sizes its own layout around that element. *Rule:* adjust around a product's
+layout, never delete a part of it — the 14% was the product's decision, and its cost is smaller than the coupling.
+
+**L143 · 2026-09-11 · Injecting bytes into a served response means re-framing it.**
+The engine serves its document chunked. Inserting 4.4 KB of CSS corrupted the chunk sizes and every client got
+`IncompleteRead` — the probe failed six checks within a minute. *Rule:* if you modify a response body, you own its
+framing: de-chunk, inject, recompute `Content-Length`, drop `Transfer-Encoding`.
