@@ -677,3 +677,33 @@ entry and the names it is waiting on — that is the fastest path to the cause.
 "cannot overwrite variable PID because it is read-only", so the function died before stopping anything and
 `dshw restart` hung — twice, for seven minutes each, with no output. Rename such a local (`$serverIds`). The
 same trap bit a loop variable earlier in this repo's history.
+
+---
+
+## On calling a working thing broken (Home Assistant, 2026-09-11 evening)
+
+**L110 · A short record is not an absent device — check `created_at` before calling anything missing.**
+I audited Home Assistant by counting state rows per entity and reported that a Shelly plug "returned
+exactly one row and then stopped — either unplugged or off-network." The owner pushed back; he was
+right. The plug was `on`, drawing 27 W, pingable, cloud-connected, uptime 72.5 h, with a live schedule.
+**`recorder` writes a row only when a state changes**, so a device continuously on has exactly one row.
+*Mechanism:* I compared a **new** device's record length to an **old** device's record length and read
+the difference as a fault. Its config entry was created three days earlier; a three-day-old entity is
+*supposed* to have almost no history.
+*The tell I walked past:* the same entity showed **8,655 rows** in one pass and **1 row** in the next.
+Two of my own numbers disagreed by four orders of magnitude and I published the second without asking
+why. **That disagreement was the finding.**
+*Rule:* before an absence finding, read the registry's `created_at` and exclude anything created inside
+the measurement window — its record length says nothing about its health. And when two of your own
+readings of the same thing differ wildly, explain the difference before reporting either number.
+*Cost:* ten of my eleven "effectively absent" entities were this one working device, and the claim sat
+inside a section that also held true findings — which is what makes it expensive, because it audits the
+credibility of everything beside it.
+
+**L111 · "Double-check that" means test my own error first.**
+*"Hold on the Shelly plug better be there… double analyze if it's actually lost, or if you just went
+crazy."* Both branches were on offer; settling it took two queries — ask the device for its own status,
+then ask the registry when it was created. Both were available before the first claim was written.
+*Rule:* a finding that a working device is broken is a claim about the measurement at least as much as
+about the device. Test it against the device first. Pushback is a signal to re-measure, not to
+re-explain the original reasoning more confidently.
