@@ -128,25 +128,28 @@ Read `~/code/personal-secretary-mvp/docs/secretary-replacement-audit/` — the f
 """
 
 MCP_ROWS = r"""
-# ── secretary bridge ────────────────────────────────────────────────────────
+# ── MCP bridges ─────────────────────────────────────────────────────────────
 #
-# Gives the agent the secretary system's live tools as native harness tools
-# (mcp__secretary__ps_*). This is the spine: without it the CEO can talk but
-# cannot see or touch the company it runs.
+# These existed in the owner's VS Code setup (personal-secretary-mvp/.vscode/
+# mcp.json) and their absence here was a real capability regression. Carried over
+# deliberately, not invented.
+#
+# Every row sets failOnStartupError: false so one dead server can never block the
+# preset from mounting. The platform gate keeps Windows-only paths off other
+# hosts.
 #
 # SECURITY NOTES (from the audit, not decoration):
 #   * `ps_action` can send SMS. It is a wide pipe. Never probe with it.
-#   * Tool-level failures come back as `{"error": ...}` text with
-#     `isError: false`, so the client must NOT trust isError to detect failure.
+#   * Tool-level failures arrive as `{"error": ...}` text with `isError: false`,
+#     so a client must NOT trust isError to detect failure.
 #   * Handler results are JSON-encoded strings and need a second parse.
 #   * `ps_health` returns ~90 KB in one result and will poison a context window.
 #     Prefer `ps_company_status` for routine checks.
-#   * Pin nothing blindly: MCP tool definitions can change under a client, and
-#     the spec has no re-approval mechanism. Review `tools/list` after upgrades.
-#
-# Enabled on Windows, where the venv path exists. A row that cannot start would
-# otherwise fail the whole mount, so the platform gate is the safety, not a
-# blanket `disabled`.
+#   * MCP tool definitions can change under a client and the spec has no
+#     re-approval mechanism. Review `tools/list` after upgrades.
+
+# The company. 14 tools: ps_company_status, ps_db_query, ps_memory_search,
+# ps_ceo_chat, ps_action, ps_log_tail, ps_circuit_breakers, and more.
 - id: mcp-secretary
   name: '@deepseek-ai/dsh-mcp-client'
   disabled: !!js process.platform !== 'win32'
@@ -157,6 +160,84 @@ MCP_ROWS = r"""
     args:
       - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\ps_mcp_server.py'
     toolCallTimeoutMs: 120000
+    failOnStartupError: false
+
+# The launcher scripts read API keys from .env at spawn time. VS Code cannot
+# resolve ${env:...} in its mcp.json and neither can this file -- that is exactly
+# why those launchers exist.
+- id: mcp-firecrawl
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: firecrawl
+    transport: stdio
+    command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+    args:
+      - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+      - firecrawl
+    cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+    toolCallTimeoutMs: 180000
+    failOnStartupError: false
+
+- id: mcp-jina
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: jina
+    transport: stdio
+    command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+    args:
+      - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+      - jina
+    cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+
+- id: mcp-context7
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: context7
+    transport: stdio
+    command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+    args:
+      - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+      - context7
+    cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+
+- id: mcp-fetch
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: fetch
+    transport: stdio
+    command: 'npx.cmd'
+    args:
+      - '-y'
+      - mcp-fetch-server
+    toolCallTimeoutMs: 90000
+    failOnStartupError: false
+
+# Deterministic accessibility-tree browser automation. Playwright downloads and
+# browser profiles are the most likely thing to be slow or missing on a fresh
+# machine, hence failOnStartupError false.
+- id: mcp-playwright
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: playwright
+    transport: stdio
+    command: 'npx.cmd'
+    args:
+      - '@playwright/mcp@latest'
+      - '--headless'
+      - '--no-sandbox'
+      - '--output-dir'
+      - 'C:\Users\ezabz\code\personal-secretary-mvp\data\browser\mcp-output'
+    cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+    toolCallTimeoutMs: 180000
     failOnStartupError: false
 """
 

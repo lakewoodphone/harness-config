@@ -142,3 +142,41 @@ normalisation. Remaining: no scheduled sync, so drift resumes the moment someone
 
 **Fix.** Rules recorded in the persona. Monitoring it is the honest test: if it recurs, the rule is
 insufficient and the harness needs to enforce it rather than the prompt.
+
+---
+
+## P10 — Repeated mount-validation spawns duplicate MCP servers
+
+**Symptom.** After several `standingKeyFor` calls, **four** `ps_mcp_server.py` processes were running
+as children of the DSH process, plus **three** `mcp_launcher.py` processes — one per validation call.
+A standing mount persists for the life of the process, so each check adds a live server rather than
+reusing the existing one.
+
+**Evidence.** Process tree on `ZABY-YOGA`, 2026-09-11: DSH pid 11744 had children 57252 / 37548 /
+60428 / 24148 all running `ps_mcp_server.py`, and 30716 / 4184 / 49292 running `mcp_launcher.py`.
+
+**Cost.** Wasted memory and duplicate subprocess trees, each holding its own connection to the
+secretary API. On a machine with six MCP bridges this compounds. It also makes process evidence
+harder to read — "is the bridge up?" returns four answers.
+
+**Fix.** Do not mount-validate repeatedly. Validate once, then rely on it. Longer term: the
+mount-validate path should detect an existing standing generation and reuse it rather than
+re-composing. Needs investigation in the roster service, not a workaround here.
+
+---
+
+## P11 — The preset default is chosen at session start, so changes need a restart
+
+**Symptom.** `self_audit` reported this session running preset `cordis` while `settings.yaml` said
+`zabz`. The DSH process started at **12:32:28** and the settings file was written at **12:32:29**.
+
+**Evidence.** `self_audit` output; `HANDOFF.md` entry for 2026-09-11.
+
+**Cost.** A change can be "made" and reported as done while having no effect at all. The model
+namespace re-reads per request, which makes the difference easy to miss: one setting applied live and
+the other silently did not.
+
+**Fix.** After changing `agent-presets.default`, **restart the profile and verify with `self_audit`
+before claiming anything.** The rule is now: no claim about a preset without a live agent reporting
+that preset.
+
