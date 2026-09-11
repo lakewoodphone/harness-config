@@ -1,0 +1,11 @@
+# The dsh-plugin-mobile bundle patch: mount the browser half.
+#
+# One host row, inert (`lib/index.js` does nothing at runtime). The browser roster is
+# assembled from package manifests, not from this file, so the row exists only so the
+# package is a real loader entry and its client half is part of that roster.
+#
+# The row is an `insert` without an id target, so it adds a loader entry rather than
+# overriding one, and a later patch layer can still disable it by id.
+- insert:
+    - id: plugin-mobile
+      name: dsh-plugin-mobile
