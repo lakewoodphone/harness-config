@@ -152,17 +152,65 @@ def note(msg: str) -> None:
         pass
 
 
+def read_request_head(client: socket.socket, first: bytes) -> bytes:
+    """The complete request head, however many reads it takes."""
+    buf = first
+    client.settimeout(20)
+    while b"\r\n\r\n" not in buf and len(buf) < BUF * 8:
+        chunk = client.recv(BUF)
+        if not chunk:
+            break
+        buf += chunk
+    return buf
+
+
+def force_close(head_bytes: bytes) -> bytes:
+    """Rewrite `Connection:` to close, unless this is a websocket upgrade.
+
+    This is the fix for the bug that actually broke the owner's phone, after two
+    earlier fixes that were real but not the cause. Tailscale Serve pools its
+    connection to this gate: it sends request after request down one socket. The gate
+    inspected the first request and then became a raw pipe, so every later request on
+    that reused socket reached the engine uninspected — a stale cookie or a dead token
+    sailed straight through to the 401 that iOS offers as a text download. Every
+    curl-based test opened a fresh connection and therefore passed, which is exactly
+    why those tests kept lying. Forcing close means one request per connection, so
+    every request is inspected; the upgrade case is left alone because the websocket
+    carries every streamed reply and must survive.
+    """
+    if b"\r\n\r\n" not in head_bytes:
+        return head_bytes
+    head, sep, rest = head_bytes.partition(b"\r\n\r\n")
+    if b"upgrade:" in head.lower():
+        return head_bytes
+    lines = head.split(b"\r\n")
+    out = [lines[0]]
+    replaced = False
+    for line in lines[1:]:
+        if line.lower().startswith(b"connection:"):
+            out.append(b"Connection: close")
+            replaced = True
+        else:
+            out.append(line)
+    if not replaced:
+        out.append(b"Connection: close")
+    return b"\r\n".join(out) + sep + rest
+
+
 def handle(client: socket.socket, engine_port: int) -> None:
     """Relay, except where a visitor would hit a dead end we can remove.
 
-    The first version of this gate only checked whether credentials were *present*:
-    a `dsh-auth-` cookie or a `token=` in the query meant "authenticated, relay it".
-    Both are worthless when they are stale, and stale is the normal state of a link
-    saved on a phone — the engine answers 401 with "reopen the URL printed by dsh
-    web", which iOS offers as a text download. Measured 2026-09-11: a stale cookie
-    and a stale token each produced exactly that, while a clean client passed.
-    So: presence is not validity. Compare the token to the engine's current one, and
-    for a cookie-backed document request, look at what the engine actually answers.
+    Two bugs lived here, both of the same family — trusting a proxy-shaped assumption
+    instead of the thing itself.
+
+    1. The first version checked whether credentials were *present*: a `dsh-auth-`
+       cookie or a `token=` in the query meant "authenticated, relay it". Both are
+       worthless when stale, and stale is the normal state of a link saved on a phone.
+    2. It inspected only the first request on a connection. Serve pools connections,
+       so later requests bypassed every check here.
+
+    So: presence is not validity, and one inspection per connection is not one
+    inspection per request.
     """
     try:
         client.settimeout(20)
@@ -170,6 +218,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
         if not first:
             client.close()
             return
+        first = read_request_head(client, first)
         head = first.split(b"\r\n\r\n", 1)[0]
         request_line = head.split(b"\r\n", 1)[0].decode("latin-1", "replace")
         # Split on whitespace, not on the first space: partition(" ") on
@@ -203,7 +252,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
 
         client.settimeout(None)
         upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
-        upstream.sendall(first)
+        upstream.sendall(force_close(first))
 
         if document_request and not offered and has_cookie:
             # The visitor brought only a cookie, and a cookie can be stale. Ask the

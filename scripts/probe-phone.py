@@ -217,6 +217,58 @@ def check_stale_token():
            + ("" if ok else " - this is the link saved on the phone"))
 
 
+def check_pooling():
+    """A second request on the same connection must not slip past the gate.
+
+    The bug that actually broke the owner's phone: Tailscale Serve pools its upstream
+    connection, and the gate inspected only the first request on a connection, then
+    became a raw pipe. Every later request on that socket went straight to the engine,
+    so a stale cookie or a dead token produced the 401 with no decision logged. Every
+    curl-based check opened a fresh connection and passed. This test reuses one.
+    """
+    name = "a reused connection cannot bypass the gate"
+    try:
+        s = socket.create_connection(GATE, timeout=20)
+        s.sendall(f"GET / HTTP/1.1\r\nHost: {AUTHORITY}\r\n\r\n".encode())
+        s.settimeout(15)
+        first = b""
+        while b"\r\n\r\n" not in first:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            first += chunk
+
+        try:
+            s.sendall(f"GET / HTTP/1.1\r\nHost: {AUTHORITY}\r\n"
+                      f"Cookie: dsh-auth-stale-value\r\n\r\n".encode())
+        except OSError:
+            s.close()
+            record(9, name, True,
+                   "gate closed the connection after one request, so nothing can be pooled")
+            return
+
+        second = b""
+        try:
+            while b"\r\n\r\n" not in second:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                second += chunk
+        except OSError:
+            pass
+        s.close()
+        status = status_of(second)
+        if status == 0:
+            record(9, name, True, "no second response: connection is not reusable")
+        elif status in (301, 302, 303, 307):
+            record(9, name, True, f"second request was inspected and answered {status}")
+        else:
+            record(9, name, False,
+                   f"second request on the reused connection came back {status} - it was relayed uninspected")
+    except Exception as e:  # noqa: BLE001
+        record(9, name, False, f"{type(e).__name__}: {e}")
+
+
 def check_fence():
     """Ask the ENGINE directly, not the gate.
 
@@ -340,6 +392,7 @@ def run_checks():
     guarded(6, "real HTTPS through Tailscale Serve", check_outside_in)
     guarded(7, "a stale cookie is repaired, not refused", check_stale_cookie)
     guarded(8, "a stale token is replaced, not relayed", check_stale_token)
+    guarded(9, "a reused connection cannot bypass the gate", check_pooling)
     guarded("6b", "public /phone reaches the harness", check_redirector)
     return how
 
