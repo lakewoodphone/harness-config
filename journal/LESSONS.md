@@ -472,3 +472,15 @@ kill it. His answer: *"totally your decision you should not have bothered me to 
 is the scarcest resource in this system and that question spent him on nothing. **Rule:** anything I
 created, anything reversible, anything inside the work I was already told to do — decide it. Escalate only
 money, customers, legal posture, family, genuine taste, or the irreversible. Housekeeping is mine.
+**L51 · A tracker row saying "waiting on the owner" is a claim, not evidence — check the decisions log before asking.**
+Two of the four "owner decisions" I was about to put to him had been **answered two days earlier**: the
+modesty halacha baseline (five attributes × three neutrally-named Levels, override inside a hard floor)
+and the billing party (LPT bills the family directly, per device). The backlog and the previous handoff
+both still listed them as open, and I had already copied one of the stale rows into my own handoff —
+inheriting an error by trusting a summary instead of the decision document it summarised. Three rows
+were stale (the third was an SDK path resolved on 2026-09-08).
+*Rule:* before asking the owner anything, resolve every "owner decision" row against the decisions file
+that would have recorded it. A stale row is cheap to write and expensive to act on: it makes me ask a
+question he has already paid attention to once, which is the exact behaviour the persona exists to stop.
+*Cheaper than reading:* strike the row and cite the document, so the next reader sees why it is closed.
+This is L47 one layer up — an artefact's *label* ("verified", "blocked on owner") is not its state.

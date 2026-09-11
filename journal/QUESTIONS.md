@@ -26,3 +26,5 @@ loudly rather than re-ask quietly.
 - 2026-09-11 · Deployment placement → D6
 - 2026-09-11 · Harness source of truth → D7
 - 2026-09-11 · Was the twelve-day silence deliberate? → **D16** (investigated: host up, work loop dead, 13d 17h)
+
+| 2026-09-11 | Modesty model (A-BACK-014): keep it on HOLD, or should I get it *ready* to fund? Recommendation: prepare it for free (labelling spec, attribute rules layer, dataset plan, and a small labelled sample to prove the 5 attributes are learnable), then come back with a fixed price instead of the $850–1,600 band. Context: on 2026-09-09 the spend was refused while the on-device ML pipeline was **unverified** — it has since been verified on a real android-34 runtime (and the pipeline turned out to be *crashing* on first use, now fixed), so the layer the model slots into is now known to work. Options put to him: (1) prepare, don't spend [recommended]; (2) fund now, ~$1,200 over 5–6 weeks; (3) drop the custom model and ship Levels 1–3 on the existing NSFW/pose cascade. | **open** |
