@@ -78,17 +78,33 @@ def live_token():
 
 
 def request(host_port, method, path, headers=None, body=None, family=socket.AF_INET):
-    conn = http.client.HTTPConnection(*host_port, timeout=20)
-    conn.request(method, path, body=body, headers=headers or {})
-    resp = conn.getresponse()
-    payload = resp.read(70000)
-    out = {
-        "status": resp.status,
-        "headers": {k.lower(): v for k, v in resp.getheaders()},
-        "body": payload,
-    }
-    conn.close()
-    return out
+    """Never raise. A dead peer is a result, not an exception.
+
+    Learned from a live outage: the engine was stopped for the negative test, this
+    raised RemoteDisconnected, the probe died before writing its status file, and the
+    kernel went on reading the previous green file as if nothing had happened. A probe
+    that cannot report its own failure is worse than no probe.
+    """
+    conn = None
+    try:
+        conn = http.client.HTTPConnection(*host_port, timeout=20)
+        conn.request(method, path, body=body, headers=headers or {})
+        resp = conn.getresponse()
+        payload = resp.read(70000)
+        return {
+            "status": resp.status,
+            "headers": {k.lower(): v for k, v in resp.getheaders()},
+            "body": payload,
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"status": 0, "headers": {}, "body": b"",
+                "error": f"{type(e).__name__}: {e}"}
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
 
 
 def is_harness_document(body):
@@ -245,27 +261,41 @@ def check_redirector():
                f"{type(e).__name__}: {e}")
 
 
-def main():
-    if not ARGS.quiet:
-        print(f"probing the phone stack for {AUTHORITY}")
+def guarded(n, name, fn, *a, **kw):
+    """Run one check so that its own crash is recorded as that check failing."""
+    try:
+        return fn(*a, **kw)
+    except Exception as e:  # noqa: BLE001
+        record(n, name, False, f"probe raised {type(e).__name__}: {e}")
+        return None
+
+
+def run_checks():
     token, how = live_token()
     if not ARGS.quiet:
         print(f"  token source: {how}")
         if not token:
             print("  no live token; checks 2-4 cannot run")
-    try:
-        cold_token = check_cold_visitor()
-    except Exception as e:  # noqa: BLE001
-        record(1, "cold visitor gets a link", False, f"{type(e).__name__}: {e}")
-        cold_token = None
+    cold_token = guarded(1, "cold visitor gets a link", check_cold_visitor)
     # the cold path is the real test; the engine's own one-time token is the fallback,
     # so checks 3-4 still run (and still mean something) when check 1 fails.
-    cookie = check_redeem(cold_token or token)
-    check_document(cookie)
-    check_websocket(cookie)
-    check_fence()
-    check_outside_in()
-    check_redirector()
+    cookie = guarded(2, "token redeems to a cookie", check_redeem, cold_token or token)
+    guarded(3, "document loads with the cookie", check_document, cookie)
+    guarded(4, "websocket upgrades", check_websocket, cookie)
+    guarded(5, "engine still fences a foreign Host", check_fence)
+    guarded(6, "real HTTPS through Tailscale Serve", check_outside_in)
+    guarded("6b", "public /phone redirects into the tailnet", check_redirector)
+    return how
+
+
+def main():
+    if not ARGS.quiet:
+        print(f"probing the phone stack for {AUTHORITY}")
+    try:
+        how = run_checks()
+    except Exception as e:  # noqa: BLE001 - the status file must still be written
+        how = "unknown"
+        record(0, "probe completed", False, f"probe itself failed: {type(e).__name__}: {e}")
 
     bad = [r for r in results if not r[2]]
     if not ARGS.quiet:
