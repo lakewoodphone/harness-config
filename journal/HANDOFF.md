@@ -26,6 +26,8 @@ EVIDENCE    files, commits, or commands that prove the above
   as `7be821d`; `ha-config` is now **6 commits ahead of `origin/main`**, still unpushed.
 - The collector's first run found a bug in itself and refused correctly (`/api/error_log` is text, not
   JSON) — fixed, re-run, verified. That refusal is why the log section is real instead of empty.
+- Journal IDs collided with a concurrent session's (both wrote P15/P16). Mine are now **P17/P18**,
+  append-only with the collision recorded in P17. See P13 — same cause.
 
 **FOUND** (reads dated 2026-09-11 16:55–17:00 UTC; HA Core 2025.10.3)
 - **CRITICAL — the intrusion system's primary trigger is blind.** `binary_sensor.phoenix_outside_door_contact`,

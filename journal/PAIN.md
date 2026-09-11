@@ -280,7 +280,14 @@ Belongs in `ck/sentinel.py` + `ck/sources.py`; not started.
 
 ---
 
-## P15 — The Home Assistant security system has been blind for a day and nothing told anyone
+## P17 — The Home Assistant security system has been blind for a day and nothing told anyone
+
+> **ID note (same session, later):** first written as "P15". A concurrent session committed its own
+> P15/P16 (WAZE/Telnyx) minutes before, and neither of us could see the other's numbering. Kept
+> append-only: renumbered here, with the collision recorded rather than silently corrected. P13 is the
+> same failure class — two sessions, one tree — and this is its cost in the record itself.
+> **Fix direction, not yet done:** reserve IDs by appending a placeholder line *before* writing the
+> body, or number from the clock (`P-20260911-1305`) instead of a sequence.
 
 **Symptom.** Three Zigbee devices — the outside-door contact, the interior control-room contact and
 the apartment deadbolt's old entity — went `unavailable` at **2026-09-11 01:48 local** and were still
@@ -305,7 +312,7 @@ camera host back. (3) The HA SSH add-on is off, so nothing that needs the host c
 
 ---
 
-## P16 — Home Assistant is on the office LAN and reachable from exactly one machine
+## P18 — Home Assistant is on the office LAN and reachable from exactly one machine
 
 **Symptom.** The Home Assistant host answers only on the office LAN (`192.168.50.34`). From
 `ZABZ-YOGA` — where the owner works at night — nothing reaches it. Tailscale carries the workstations
