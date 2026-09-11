@@ -365,7 +365,7 @@ async function main() {
   if (skipped) console.log(`unchanged  : ${skipped} session(s) already complete (cursor)`);
   if (torn) console.log(`torn tail  : ${torn} session(s) ended mid-frame — skipped, which is normal`);
   if (transportNotes.killedAfterReply) {
-    console.log(`transport  : ${transportNotes.killedAfterReply} batch(es) finished by killing ssh once its reply parsed (this machine's ssh does not exit on its own) — see postBatch`);
+    console.log(`transport  : ${transportNotes.killedAfterReply} batch(es) ended by killing the child once its reply parsed (this host's transport does not always exit on its own) — see postBatch`);
   }
   return 0;
 }

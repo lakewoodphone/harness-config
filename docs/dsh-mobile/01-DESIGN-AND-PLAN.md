@@ -306,6 +306,36 @@ gets no secretary bridge today — the preset needs a per-platform path, which i
 **Acceptance test:** with both workstations shut down, the phone still opens the harness, runs a tool that
 touches the secretary, and the session is archived.
 
+### Built and verified, 2026-09-11 19:10
+
+| Step | Result |
+|---|---|
+| The harness runs there at all | **Node 20 fails silently** — no output, no listen. `commander` needs ≥22.12 and `undici` ≥22.19. Installed a user-owned **Node 22.23.2** at `/home/zabz/node` (no sudo, no system change) |
+| Config discipline on that host | `scripts/autosync.sh` — the Linux twin of `autosync.ps1` — run from cron every 15 min. First run: `settings.yaml` written, both presets applied, `agent-presets.default: zabz` |
+| The bridge is local | the engine's first session spawned `ps_mcp_server.py` as a **direct child of the engine**; **0** bridges parented to a remote ssh session on that host |
+| The endpoint | `serve-phone.sh` → `https://secratary.tail93e6e6.ts.net/` → `127.0.0.1:3086`, verified with `tailscale serve status` |
+| **The answer** | *"**200 ticks today (Sep 11, through 18:54 UTC), read from `/home/zabz/personal-secretary-mvp/data/secretary.db`** — via `ps_db_query` on `tick_telemetry` … and independently confirmed by a read-only `sqlite3` count on that same file"* |
+| The laptop is out of the path | the Yoga's Serve config cleared and its phone engine stopped. One canonical URL, on the always-on host |
+| The phone's own sessions are archived | a new `local` transport (write beside the importer, import in place — no ssh to itself). Archive now covers **three** machines |
+
+**Survival:** `@reboot` + a 10-minute watchdog in cron, both idempotent, plus the shipper every 30 minutes
+with `--transport local`.
+
+**A fleet-wide credential problem found on the way, worth more than the phase itself.** The harness on the
+authority failed every model call with `Authentication Fails`. The cause was not the code: the fleet holds
+**three different `DEEPSEEK_API_KEY` values** — fingerprints `1b6e…` (the harness store that works),
+`f097…` (the Yoga's repo `.env`), `646b…` (the authority's repo `.env`). Tested against the API:
+**the authority's `.env` key returns 401** and the harness-store key returns 200. So a credential had
+quietly forked exactly like the databases of PAIN P3, and the copy on the always-on host is invalid —
+anything there reading `DEEPSEEK_API_KEY` from `.env` is broken and silent about it. The working key was
+installed from the harness's own store, fingerprinted before and after, value never printed.
+
+**Fixed while deploying, all found by running it:** `tailscale serve` needs root on Linux (the first
+version of the script printed a working-looking phone link anyway — it now refuses); a hand `chmod +x` on
+one host became a "local modification" that blocked its `git pull` (the exec bit now lives in git, the same
+class as the CRLF lesson); and the new `local` transport called `spawnSync` after the transport helper had
+moved to async `spawn`.
+
 ---
 
 ## Phase 5 — Make drift and silence visible to the kernel
