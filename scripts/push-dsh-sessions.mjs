@@ -40,7 +40,7 @@
  *   node push-dsh-sessions.mjs --all --dry-run      # ignore the cursor, re-examine everything
  *   node push-dsh-sessions.mjs --verbose
  */
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -175,42 +175,60 @@ async function postBatch(payload) {
 
   // ssh: the importer reads the batch on stdin and prints one JSON summary line.
   //
-  // Two hard-won details, both measured on ZABZ-TECH on 2026-09-11:
+  // **The child is killed as soon as its reply parses, not when it exits.** ssh does not reliably
+  // exit after the remote command completes when a large payload is fed on stdin: the first real run
+  // from ZABZ-TECH hung for 10 minutes having shipped nothing, and on ZABZ-YOGA the same run reported
+  // 5 of its batches as killed-after-reply. So it is a property of the transport under load, not of
+  // one machine — I first recorded it as desktop-specific, and that was wrong.
   //
-  //  1. **A timeout is mandatory.** Node-spawned ssh on that machine returns the remote command's
-  //     output and then never exits — the first real run there hung for 10 minutes producing nothing.
-  //     The same call from the Yoga exits in ~1 s, same ssh binary and version, so it is not the
-  //     config, not the binary, and not the network. Without a bound, a scheduled job stalls forever.
-  //
-  //  2. **A timed-out transport whose reply already parsed is a SUCCESS, not a failure.** The importer
-  //     prints its summary only after `conn.commit()`, so a valid `{"ok":true,…}` on stdout means the
-  //     rows are durable. Treating it as failure would re-send the same megabytes every hour and the
-  //     desktop's sessions would never be archived at all. spawnSync kills the child on timeout, so
-  //     nothing is orphaned; the quirk is noted in the run output rather than hidden.
-  const r = spawnSync('ssh', ['-T', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', SSH_HOST, 'python3', IMPORTER], {
-    input: body,
-    encoding: 'utf8',
-    maxBuffer: 128 * 1024 * 1024,
-    timeout: SSH_TIMEOUT_MS,
+  // The importer prints its summary only after `conn.commit()`, so once that line is readable the rows
+  // are durable. Waiting for exit would cost the full timeout on every batch (8 minutes for two
+  // batches, and worse as sessions accumulate); killing early is what keeps an hourly run at seconds.
+  return await new Promise((resolve, reject) => {
+    const child = spawn('ssh', ['-T', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', SSH_HOST, 'python3', IMPORTER]);
+    let out = '';
+    let err = '';
+    let settled = false;
+    let killedEarly = false;
+
+    const finish = (fn, arg) => { if (!settled) { settled = true; clearTimeout(timer); fn(arg); } };
+
+    const timer = setTimeout(() => {
+      child.kill();
+      finish(reject, new Error(`ssh exceeded ${SSH_TIMEOUT_MS} ms with no valid importer reply`));
+    }, SSH_TIMEOUT_MS);
+
+    const reply = () => {
+      const lines = out.trim().split('\n').filter(Boolean);
+      const last = lines[lines.length - 1] || '';
+      try { return JSON.parse(last); } catch { return null; }
+    };
+
+    child.stdout.on('data', (chunk) => {
+      out += chunk;
+      const parsed = reply();
+      if (parsed) {
+        if (!parsed.ok) { child.kill(); return finish(reject, new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200))); }
+        killedEarly = true;
+        child.kill();
+        transportNotes.killedAfterReply = (transportNotes.killedAfterReply || 0) + 1;
+        finish(resolve, JSON.stringify(parsed));
+      }
+    });
+    child.stderr.on('data', (chunk) => { err += chunk; });
+    child.on('error', (e) => finish(reject, new Error('ssh spawn failed: ' + e.message)));
+
+    child.on('close', (code) => {
+      if (settled) return;
+      const parsed = reply();
+      if (parsed && parsed.ok) return finish(resolve, JSON.stringify(parsed));
+      if (parsed && !parsed.ok) return finish(reject, new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200)));
+      finish(reject, new Error(`importer exit ${code}: ${String(err).slice(0, 300) || 'no reply'}`));
+    });
+
+    child.stdin.end(body);
+    void killedEarly;
   });
-
-  const line = String(r.stdout || '').trim().split('\n').filter(Boolean).pop() || '';
-  let parsed = null;
-  try { parsed = JSON.parse(line); } catch { /* reported below */ }
-
-  const timedOut = Boolean(r.error && (r.error.code === 'ETIMEDOUT' || r.signal === 'SIGTERM'));
-  if (timedOut) {
-    if (parsed && parsed.ok) {
-      transportNotes.timedOutButCommitted = (transportNotes.timedOutButCommitted || 0) + 1;
-      return JSON.stringify(parsed);
-    }
-    throw new Error(`ssh timed out after ${SSH_TIMEOUT_MS} ms with no valid importer reply`);
-  }
-  if (r.error) throw new Error('ssh spawn failed: ' + r.error.message);
-  if (r.status !== 0) throw new Error(`importer exit ${r.status}: ${String(r.stderr || '').slice(0, 300)}`);
-  if (!parsed) throw new Error('unparseable importer reply: ' + line.slice(0, 200));
-  if (!parsed.ok) throw new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200));
-  return JSON.stringify(parsed);
 }
 
 async function main() {
@@ -298,8 +316,8 @@ async function main() {
   console.log(`${DRY ? 'would ship' : 'shipped'}: ${sessionsSent} session(s), ${rowsSent} new row(s), ${Math.round(bytesSent / 1024)} KB`);
   if (skipped) console.log(`unchanged  : ${skipped} session(s) already complete (cursor)`);
   if (torn) console.log(`torn tail  : ${torn} session(s) ended mid-frame — skipped, which is normal`);
-  if (transportNotes.timedOutButCommitted) {
-    console.log(`transport  : ${transportNotes.timedOutButCommitted} batch(es) committed by the importer although ssh did not exit on this machine — see postBatch`);
+  if (transportNotes.killedAfterReply) {
+    console.log(`transport  : ${transportNotes.killedAfterReply} batch(es) finished by killing ssh once its reply parsed (this machine's ssh does not exit on its own) — see postBatch`);
   }
   return 0;
 }
