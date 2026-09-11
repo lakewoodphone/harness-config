@@ -77,13 +77,37 @@ DNS="$(tailnet_name)"
 [ -n "$DNS" ] || { echo "could not determine this node's tailnet name (is tailscale up?)"; exit 2; }
 
 SERVE_OUT="$(tailscale serve --bg "$PORT" 2>&1)"
-echo "$SERVE_OUT" | head -6
+if echo "$SERVE_OUT" | grep -qi 'denied'; then
+  # On Linux the serve config belongs to root unless the tailnet node has an operator set. The first
+  # version of this script printed the phone link regardless, which is a lie of exactly the kind this
+  # fleet keeps paying for: a success message for an action that did not happen.
+  if sudo -n true 2>/dev/null; then
+    SERVE_OUT="$(sudo -n tailscale serve --bg "$PORT" 2>&1)"
+  else
+    echo "$SERVE_OUT"
+    echo ""
+    echo "Serve needs root on this host. Either run:  sudo tailscale set --operator=$USER   (once)"
+    echo "or run this script with sudo. Refusing to print a link that does not work."
+    exit 3
+  fi
+fi
 if echo "$SERVE_OUT" | grep -qi 'not enabled'; then
+  echo "$SERVE_OUT"
   echo ""
   echo "Serve is not enabled on this tailnet. Only the owner can enable it:"
   echo "  https://login.tailscale.com/f/serve"
   exit 3
 fi
+
+# Prove the proxy exists before claiming anything. `serve status` is the effect, not the intent.
+if ! tailscale serve status 2>/dev/null | grep -q "$PORT"; then
+  echo "$SERVE_OUT"
+  echo ""
+  echo "serve did not take effect for port $PORT — refusing to print a phone link. Current status:"
+  tailscale serve status 2>&1 | head -5
+  exit 1
+fi
+echo "serve active: https://$DNS/ -> 127.0.0.1:$PORT"
 
 if [ -z "$(engine_pid)" ]; then
   echo "starting the engine on :$PORT (trusting $DNS)"
