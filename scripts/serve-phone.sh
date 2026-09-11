@@ -165,7 +165,7 @@ fi
 echo "serve active: https://$DNS/ -> 127.0.0.1:$PORT"
 
 if [ -z "$(engine_pid)" ]; then
-  echo "starting the engine on :$PORT (trusting $DNS)"
+  echo "starting the engine on :$ENGINE_PORT (trusting $DNS; the gate publishes :$PORT)"
   rm -f "$LOG" "$ERR"
   # setsid + nohup so it survives this shell; the log carries the one-time token, so treat it as a secret.
   setsid nohup "$NODE" "$BIN" web --port "$ENGINE_PORT" --no-open --trusted-host "$DNS" >"$LOG" 2>>"$ERR" < /dev/null &
