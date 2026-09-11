@@ -351,11 +351,22 @@ function CostPill(props) {
   );
 }
 
-/** The services this browser half needs; the Slot registry is read optionally. */
-const inject = {
-  required: [],
-  optional: ['slots'],
-};
+/**
+ * No declared dependencies — deliberately.
+ *
+ * The browser loader treats EVERY name in the Plugin's own \`inject\` declaration, and
+ * every name in the package's \`dsh.client.inject\` list, as a SERVICE it must resolve
+ * through the client context before the entry may activate. This half needs only the
+ * Slot registry, which it already reads defensively as \`ctx.get('slots')\`, so a
+ * declaration here buys nothing and costs everything: on 2026-09-11 \`optional:
+ * ['slots']\` (and earlier, two package-id entries in \`dsh.client.inject\`) never
+ * resolved, the entry sat pending forever, and every window rendered
+ * "Failed to load plugins" instead of the app.
+ *
+ * Declare a dependency here only when the plugin genuinely cannot function without it,
+ * and then declare a SERVICE name — the shipped client plugins use plain names such as
+ * \`slots\`, \`locale\`, \`connection\`, \`remote\` (see dsh-client-ui-settings-general).
+ */
 
 /**
  * Mount the pill into the composer dock.
@@ -373,7 +384,6 @@ function apply(ctx) {
 }
 
     exports.apply = apply;
-    exports.inject = inject;
     exports.PRICING = PRICING;
     return module.exports;
   },

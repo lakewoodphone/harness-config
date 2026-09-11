@@ -1,0 +1,11 @@
+# The dsh-plugin-windows bundle patch: mount the browser half.
+#
+# One host row so the package is a real loader entry (the browser roster is assembled
+# from package manifests, not from this file). The row does nothing on its own; the
+# behaviour lives in the client half, which registers a + control beside the composer.
+#
+# The row is an `insert` without an id target, so it adds a loader entry rather than
+# overriding one, and a later patch layer can still disable it by id.
+- insert:
+    - id: plugin-windows
+      name: dsh-plugin-windows

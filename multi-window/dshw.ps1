@@ -35,8 +35,11 @@ param(
 
     [string]$ConfigPath = '',
     [int]$Lines = 40,
+    # Default is NO windows. Starting the engine and opening eight windows are separate
+    # intentions: the owner opens windows himself, one at a time, from the `+` in the UI
+    # (or `dshw new`). `dshw up -WindowsMode yes` is the explicit "start everything" form.
     [ValidateSet('yes', 'no', 'auto')]
-    [string]$WindowsMode = 'yes',
+    [string]$WindowsMode = 'no',
     [switch]$Json,
     [switch]$Force
 )
@@ -259,17 +262,20 @@ function Get-Descendants([int]$rootPid) {
 }
 
 function Stop-ServerTree([int]$port, $record, $table = $null) {
-    $pids = @()
-    if ($record -and $record.pid) { $pids += $record.pid }
+    # NEVER name a variable $pid or $pids here: PowerShell's $PID is the CURRENT process
+    # id and is read-only, so `$pids = @()` throws and the function dies before stopping
+    # anything (found 2026-09-11 - it silently broke `dshw restart`).
+    $serverIds = @()
+    if ($record -and $record.pid) { $serverIds += $record.pid }
     $owner = Get-PortOwner $port $table
-    if ($owner) { $pids += $owner.Id }
-    $pids = $pids | Select-Object -Unique
-    if (-not $pids) { return $false }
-    foreach ($p in $pids) {
-        $kids = Get-Descendants $p
+    if ($owner) { $serverIds += $owner.Id }
+    $serverIds = $serverIds | Select-Object -Unique
+    if (-not $serverIds) { return $false }
+    foreach ($serverId in $serverIds) {
+        $kids = Get-Descendants $serverId
         # children first, then the parent
         foreach ($k in ($kids | Sort-Object -Descending)) { Stop-Process -Id $k -Force -ErrorAction SilentlyContinue }
-        Stop-Process -Id $p -Force -ErrorAction SilentlyContinue
+        Stop-Process -Id $serverId -Force -ErrorAction SilentlyContinue
     }
     for ($i = 0; $i -lt 24; $i++) {
         Start-Sleep -Milliseconds 250
@@ -455,14 +461,31 @@ function Open-SlotWindow($slot, $state) {
     return $profDir
 }
 
-function Get-WindowCount($slotCfg) {
+function Get-WindowProcs($table = $null) {
+    # One process table for the whole status call. Querying CIM per slot was slow AND
+    # unstable: 12 separate queries see the process list at 12 different instants, which
+    # produced changing counts for the same window (measured 2026-09-11).
+    if (-not $table) { $table = Get-CimInstance Win32_Process -Property ProcessId, Name, CommandLine -Filter "Name='msedge.exe' OR Name='chrome.exe'" -ErrorAction SilentlyContinue }
+    return $table
+}
+
+function Get-WindowCount($slotCfg, $table = $null) {
     $profDir = Join-Path $Cfg.browser.profileRoot $slotCfg.profile
-    $count = 0
+    # Count distinct app URLs in this profile, not processes: Edge may hold several window
+    # ROOTS on one profile, and child processes inherit the parent's command line.
     try {
-        $count = @(Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" |
-            Where-Object { $_.CommandLine -and $_.CommandLine.Contains($profDir) -and $_.CommandLine.Contains('--app=') }).Count
-    } catch { }
-    return $count
+        $procs = Get-WindowProcs $table
+        $urls = @($procs |
+            Where-Object {
+                $_.CommandLine -and
+                $_.CommandLine.Contains($profDir) -and
+                $_.CommandLine.Contains('--app=') -and
+                -not $_.CommandLine.Contains('--type=')
+            } | ForEach-Object {
+                if ($_.CommandLine -match '--app=(\S+)') { $Matches[1] }
+            } | Select-Object -Unique)
+        return $urls.Count
+    } catch { return 0 }
 }
 
 function Get-SlotCfgByPortOrLabel([string]$selector) {
@@ -475,7 +498,7 @@ function Get-SlotCfgByPortOrLabel([string]$selector) {
 }
 
 # ── commands ────────────────────────────────────────────────────────────────
-function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'yes') {
+function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'no') {
     $state = Get-State
     $slots = Get-Slots
     $enabledWindows = @($slots | Where-Object { $_.enabled })
@@ -544,10 +567,14 @@ function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'yes') {
 
     if ($WindowsMode -in @('yes', 'auto')) {
         $state = Get-State
-        foreach ($slot in $enabledWindows) { [void](Open-SlotWindow $slot $state) }
+        foreach ($slot in $enabledWindows) {
+            try { [void](Open-SlotWindow $slot $state) }
+            catch { Write-Host ("  [WARN] could not open window '{0}': {1}" -f $slot.label, $_.Exception.Message) -ForegroundColor Yellow }
+        }
+        Write-Host ("  (asked the browser to open {0} window(s))" -f $enabledWindows.Count)
     }
-    Write-Host ("up: {0} server(s) started, {1} already listening, {2} failed, {3} window(s) opened" -f `
-        ($toStart.Count - $failed.Count), $already, $failed.Count, $enabledWindows.Count)
+    Write-Host ("up: {0} server(s) started, {1} already listening, {2} failed" -f `
+        ($toStart.Count - $failed.Count), $already, $failed.Count)
     if ($failed.Count) { $failed | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }; exit 1 }
 }
 
@@ -567,6 +594,7 @@ function Invoke-Down {
 function Invoke-Status {
     $state = Get-State
     $primary = if (Get-Mode -eq 'single') { Get-PrimaryPort } else { $null }
+    $procTable = Get-WindowProcs
     $rows = foreach ($slot in (Get-Slots)) {
         $owner = Get-PortOwner $slot.port
         $rec = Get-SlotRecord $state $slot.port
@@ -577,7 +605,7 @@ function Invoke-Status {
             enabled = $slot.enabled
             engine  = $engine
             server  = $server
-            windows = Get-WindowCount $slot
+            windows = Get-WindowCount $slot $procTable
             mem_mb  = if ($owner) { [math]::Round($owner.WorkingSet64 / 1MB) } else { 0 }
             profile = $slot.profile
         }
@@ -622,8 +650,8 @@ function Get-TreeMemoryMb([int]$root, $all = $null) {
 function Invoke-New {
     $state = Get-State
     $slots = Get-Slots
-    $used = @($slots | Where-Object { (Get-WindowCount $_) -gt 0 })
-    $free = @($slots | Where-Object { (Get-WindowCount $_) -eq 0 }) | Select-Object -First 1
+    $procTable = Get-WindowProcs
+    $free = @($slots | Where-Object { (Get-WindowCount $_ $procTable) -eq 0 }) | Select-Object -First 1
     if (-not $free) {
         Write-Host "all $($slots.Count) window slots are already open. Add another row to windows.json." -ForegroundColor Yellow
         exit 1
@@ -668,7 +696,7 @@ function Invoke-Autostart([string]$mode) {
     }
     $ps = (Get-Command pwsh).Source
     $script = Join-Path $PSScriptRoot 'dshw.ps1'
-    $action = New-ScheduledTaskAction -Execute $ps -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" up -ConfigPath `"$ConfigPath`""
+    $action = New-ScheduledTaskAction -Execute $ps -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" up -ConfigPath `"$ConfigPath`" -WindowsMode no"
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
     $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited

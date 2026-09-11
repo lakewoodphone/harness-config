@@ -71,14 +71,36 @@ harness-config/
 Run `dshw` for help. The short version:
 
 ```sh
-dshw up           # start the engine if needed, open every enabled window
-dshw new          # one more window, now
+dshw up           # start the engine if it is not listening. NO windows.
+dshw new          # open ONE more window (a new conversation)
 dshw status       # per-window truth: port, pid, window count, memory
 dshw health       # idempotent: start ONLY what should be listening and is not
 dshw watchdog on  # schedule `dshw health` every 5 minutes
-dshw autostart on # schedule `dshw up` at logon, so the windows come back
+dshw autostart on # schedule "engine at logon", so the app is always reachable
 dshw doctor       # resolve every prerequisite and name what is missing
 ```
+
+**Starting the engine and opening windows are separate intentions.** `dshw up` starts the engine and stops
+there; opening eight windows at logon is not what anyone wants. The owner opens windows one at a time:
+
+- the **`+` control beside the composer** in any DSH window (see `packages/plugin-windows`), or
+- `dshw new` from a shell, or
+- the **DSH Windows** desktop shortcut, which is the same as `dshw up -WindowsMode yes`.
+
+The `+` control needs a Windows URL-protocol registration, once per machine:
+
+```powershell
+$pwsh = (Get-Command pwsh).Source
+$dshw = "$env:USERPROFILE\code\harness-config\multi-window\dshw.ps1"
+New-Item 'HKCU:\Software\Classes\dsh-new\shell\open\command' -Force | Out-Null
+Set-ItemProperty 'HKCU:\Software\Classes\dsh-new\shell\open\command' -Name '(default)' `
+  -Value "`"$pwsh`" -NoProfile -WindowStyle Hidden -File `"$dshw`" new"
+Set-ItemProperty 'HKCU:\Software\Classes\dsh-new' -Name 'URL Protocol' -Value ''
+```
+
+Clicking `+` navigates the page to `dsh-new://open`, which Windows hands to that command. Expect the browser
+to ask once whether to open the app. The button is inert if the protocol is not registered — that is the
+only failure mode, and it cannot break the UI.
 
 `windows.json` is the manifest. **`mode` is `single` and that is the only supported value**: one engine,
 many windows — because a window is only a browser client, because a second writer on one `DSH_HOME` has
