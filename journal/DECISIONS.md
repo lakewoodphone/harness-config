@@ -51,3 +51,21 @@ conversational interface." The CEO and the secretary evolution are long-term; th
 Because every session starts blank, growth is only possible if lessons, handoffs, pain and decisions
 are written down. `journal/` is the organ, not documentation. The persona requires writing for the
 self that wakes up without memory.
+
+**D11 · 2026-09-11 · The kernel is version-controlled the same way the harness is.**
+`ceo-kernel` is a git repo with remote `secretary-ts:/home/zabz/ceo-kernel.git`. `secratary` holds a
+**checkout**. The server copy is never edited in place — that is the same rule as D7 and the same
+failure as L13. Rationale: the kernel is code that runs on the always-on host, so it must be
+deployable, reviewable and revertible from one source, or the server silently becomes a second,
+divergent truth. Runtime output is explicitly excluded: the sentinel writes to
+`/home/zabz/ceo-kernel-var/`, outside the working tree, because observations of a moment are not
+source and a scheduled job must never dirty the repo it lives in.
+
+**D12 · 2026-09-11 · The sentinel runs on cron as the interim Phase 6, and deliberately sends nothing.**
+Every 5 minutes on `secratary`, via a script **in the repo** (`scripts/run-sentinel.sh`) rather than an
+inline crontab command, so the behaviour is versioned instead of living in someone's crontab.
+It records `latest.json` + `history.jsonl` and routes nothing.
+*Why not alert:* the inbox (Phase 2) owns escalation and the interrupt quota (design §3.3). Mailing on
+every run before that exists would recreate the alert fatigue that buried 7 critical and 46 urgent
+messages (PAIN P6) — a monitor that trains its reader to ignore it is worse than a silent one.
+*Superseded when:* Phase 6 lands a systemd daemon; this entry is then **replaced, not duplicated**.

@@ -37,8 +37,14 @@ model id. Nobody was told. 24 August: 597 ticks, 84% failure. Also silent.
 missed finance syncs, sensor checks, inbox triage, and follow-ups.
 
 **Fix.** The `ceo-kernel` sentinel — done and verified. It retrospectively detects both windows and
-refuses to report when it cannot see. Remaining: run it on a schedule from `secratary` so it is not
-dependent on anyone remembering to run it.
+refuses to report when it cannot see.
+
+**DONE 2026-09-11 (later session).** The sentinel now runs *unattended*: `ceo-kernel` is a git repo
+(deployed as a checkout on `secratary`), and cron runs `scripts/run-sentinel.sh` every 5 minutes,
+recording `latest.json` + `history.jsonl` in `/home/zabz/ceo-kernel-var/`. The gap named here — "not
+dependent on anyone remembering to run it" — is closed for Phase 1. What is *not* yet closed: nothing
+routes a finding to a human (that is the inbox, Phase 2), and nothing reads the history as a trend.
+Recording without alerting is deliberate; see `ceo-kernel/docs/OPERATIONS.md`.
 
 ---
 
@@ -145,7 +151,7 @@ insufficient and the harness needs to enforce it rather than the prompt.
 
 ---
 
-## P10 — Repeated mount-validation spawns duplicate MCP servers
+## P10 — ~~Repeated mount-validation spawns duplicate MCP servers~~ **RETRACTED 2026-09-11 — see the correction at the end of this entry. There is no duplication.**
 
 **Symptom.** After several `standingKeyFor` calls, **four** `ps_mcp_server.py` processes were running
 as children of the DSH process, plus **three** `mcp_launcher.py` processes — one per validation call.
@@ -163,6 +169,22 @@ harder to read — "is the bridge up?" returns four answers.
 mount-validate path should detect an existing standing generation and reuse it rather than
 re-composing. Needs investigation in the roster service, not a workaround here.
 
+**CORRECTED 2026-09-11 (later session) — the symptom above is not real. This entry was wrong.**
+The "four `ps_mcp_server.py`" count came from matching process command lines against
+`personal-secretary-mvp` — a **directory** — which matches every script inside it. Counted by exact
+script name on a live session: **exactly one** `ps_mcp_server.py`, plus 3× `mcp_launcher.py`
+(firecrawl, jina, context7), one per bridge. There is no duplication, and the "each check adds a live
+server" mechanism is unsupported.
+What *is* real, and what produced the illusion: **every venv-python launch appears as two processes** —
+a ~4 MB parent (the venv shim) and the real payload child (14 MB launcher, 63 MB `ps_mcp_server.py`).
+Reproduced independently with a `time.sleep(20)` payload containing no process-spawning code, so it is
+a property of the interpreter launch, not of the MCP scripts. A naive process count therefore
+**double-counts every python-based bridge**.
+*Kept as written, not deleted*, because the error is instructive: this is L2 — reading the wrong thing
+confidently — committed inside the very journal created to prevent it. See LESSONS L28.
+Measured as a side note: the whole DSH process tree with six bridges holds **721 MB** across 12
+processes, and that number is real, unlike the one above.
+
 ---
 
 ## P11 — The preset default is chosen at session start, so changes need a restart
@@ -179,4 +201,27 @@ the other silently did not.
 **Fix.** After changing `agent-presets.default`, **restart the profile and verify with `self_audit`
 before claiming anything.** The rule is now: no claim about a preset without a live agent reporting
 that preset.
+
+---
+
+## P12 — Freshness is asserted but not measured, so every reading says `age=?`
+
+**Symptom.** Every provenance line the sentinel prints ends `age=?` — e.g.
+`daily_completion: ok  AUTHORITATIVE  age=?  src=sqlite:…secretary.db@secratary`. The source and the
+authority are established; **the age of the data is not**.
+
+**Evidence.** `ck status` on `secratary`, 2026-09-11T16:50Z, all seven checks. Same in
+`/home/zabz/ceo-kernel-var/latest.json`.
+
+**Cost.** Rule 1 of the kernel is "no trend without freshness" — and the kernel currently reports
+trends (a 30-day collapse window) whose underlying data age it cannot state. It is *honest* about this,
+which is why it is a medium and not a crisis: `?` is better than a fabricated number. But a reading
+that cannot say how old it is cannot distinguish "healthy" from "the pipeline died three days ago",
+which is the exact failure the whole kernel exists to catch (L12, P2).
+
+**Fix.** Give each check a declared freshness basis: the timestamp column that proves it is current
+(`tick_telemetry.created_at`, `activity_log.created_at`, …), pass it as `newest_row`, and let
+`provenance.build()` compute the age. Where no timestamp exists, assert **"age not applicable"**
+explicitly rather than leaving `?`, so an unresolved `?` becomes a bug rather than the normal state.
+Belongs in `ck/sentinel.py` + `ck/sources.py`; not started.
 

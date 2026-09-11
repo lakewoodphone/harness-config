@@ -41,3 +41,45 @@ the fix, every machine reported perpetual phantom diffs that would never converg
 `standingKeyFor('zabz')` → **`mounted OK: zabz`**, alongside 20 rows including the full toolbelt and
 the secretary MCP bridge. *Measurement:* mount-validation is the harness's own real composition check,
 not a shape check.
+
+**W7 · 2026-09-11 (later) · The secretary bridge registers and works in a live session — the last unproven item, now proven.**
+The previous session's open question was whether `mcp__secretary__ps_*` actually appears in a session
+running `zabz`. It does.
+*Measurement:* the harness's own session record reads `"agentPreset":"zabz"`; the live tool catalog
+contains all 14 `mcp__secretary__ps_*` tools; and `ps_company_status` **returned real company data** —
+6 active goals, today's model usage across 8 models. A tool that appears but cannot be called would
+have been the next failure; it was called.
+
+**W8 · 2026-09-11 (later) · The kernel now watches without being asked.**
+The sentinel existed and worked, but only when invoked — which is the exact shape of failure it was
+built to catch (its own PAIN entry left "run it on a schedule" for later).
+*Measurement:* cron on `secratary` runs `scripts/run-sentinel.sh` every 5 minutes; the state
+directory holds `latest.json` (13.8 KB, full provenance) and a `history.jsonl` line recording
+`exit:1, authoritative:true, tables:203, attention:4`, naming the four failing checks. The reading is
+self-describing: source path, host, authority flag and table count travel with the numbers.
+**Observed, not assumed:** `run.log` holds `16:51:24` (run by hand) and **`16:55:02` — the cron
+tick, at a time nobody chose.** That second line is the actual proof; the first one proved nothing
+about the schedule.
+
+**W10 · 2026-09-11 (later) · The kernel learned to see absence — and immediately found a 12-day outage.**
+Every check grouped rows that exist, which made the sentinel structurally blind to a day the company
+never ran. That is the failure mode the whole kernel was built for (L12), sitting inside the kernel.
+Added `check_telemetry_gaps` (calendar days in the trailing window with zero telemetry, silence still
+open = critical) and made every span count calendar days instead of rows.
+*Measurement:* the new check reports *"a tick row exists for every day in the last 30; largest
+historical gap **12d (2026-07-22 -> 2026-08-04)**"* — a **12-day total outage, 2026-07-23..08-03,
+zero tick rows**, that no monitor, no digest and no human had flagged. It was previously invisible
+because the sentinel described it as part of "120 days".
+*Second measurement, for honesty:* off-authority the same code produces **no numbers at all** — on
+ZABZ-YOGA, with only a 173-table replica present, all eight checks refuse with their reason. A refusal
+is the correct output, and it was verified rather than assumed.
+
+**W9 · 2026-09-11 (later) · A false entry in my own record was caught by re-measuring, not by review.**
+PAIN P10 claimed duplicate MCP servers. Nobody reviewed it away — re-measuring did, in one command,
+by counting processes by exact script name instead of by directory.
+*Measurement:* the claimed four `ps_mcp_server.py` processes are **one**; the other three matches were
+different scripts in the same directory. P10 is retracted in place (kept, not deleted, because the
+error is the useful part) and LESSONS L28/L29 record the method.
+*Honest caveat:* the discipline worked on the second look, not the first. The entry was written
+confidently and sat in the file. The lesson is that a surprising count needs a second filter before it
+becomes a finding, not that the correction mechanism is reliable on its own.

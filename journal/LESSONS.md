@@ -28,6 +28,41 @@ The Copilot corpus was reported as 1,938 ticks and a 45-day outage. Both came fr
 The live database had 28,964 ticks and a 6-day outage. Numbers must name their source or they are
 opinions.
 
+**L28 · A filter that matches a directory counts every script inside it. Count the thing you meant.**
+Filtering process command lines for `personal-secretary-mvp` matched **four** python processes and was
+read as "four duplicate `ps_mcp_server.py` bridges" — enough to write a PAIN entry and a design
+conclusion ("mount-validation leaks servers"). Counted by exact script name there was **one**. The
+other three were `mcp_launcher.py` for firecrawl, jina and context7.
+*Compounding trap:* every venv-python launch shows as **two** processes — a ~4 MB shim parent and the
+real child (14–63 MB). Reproduced with a `time.sleep(20)` payload containing no spawn code, so it is
+the interpreter launch, not the script. A naive count double-counts every python bridge.
+*Learned:* this is L2 committed inside the journal written to prevent it. Corollary rule: when a count
+surprises you, change the filter and count again before you conclude anything. See PAIN P10.
+*Cost:* a wrong entry in the file whose whole purpose is to stop problems being rediscovered, and a
+"fix" written for a bug that did not exist.
+
+**L29 · A failed command is evidence about your command, not about the world.**
+`python3 -m ck sentinel` on `secratary` returned "invalid choice: 'sentinel'" and was nearly recorded
+as "the deployed copy is stale". It was not: `sentinel` is not a subcommand in *either* copy — the
+command is `ck status`. The real staleness test is comparing content (hash or byte size) against the
+source of truth.
+*Learned:* a negative result from an invocation you constructed wrongly proves nothing. Before
+concluding that a remote differs from the source, compare the content — do not infer it from an error
+message produced by your own bad guess.
+
+**L31 · A span counted in rows is not a span of time. Count the calendar.**
+The kernel reported "4 collapse windows in **120 days**" and labelled its worst window "**30d**". Both
+were counts of *days that have rows*. The window actually spanned **52 calendar days**, and inside it
+sat a **12-day total outage (2026-07-23..2026-08-03, zero tick rows)** that was reported as though it
+had not happened — because a day with no rows is, to a `GROUP BY`, a day that does not exist.
+*Learned:* any monitor whose source is "rows that exist" is **blind to absence by construction**, and
+that is the dominant failure mode in this system (L12). Two rules follow. First, whenever a check
+states an elapsed span, compute it from dates, never from row counts, and print both numbers when they
+differ ("30d of data over 52d"). Second, absence needs its own check — it cannot be inferred from any
+aggregate of the data that is missing.
+*Cost of learning it:* a real 12-day outage stayed invisible through every reading the kernel
+produced, until the calendar was counted.
+
 ---
 
 ## On people
@@ -80,6 +115,17 @@ instead.
 **L16 · An improvement loop that cannot apply is worse than no loop.**
 56 unapplied proposals, 30 of them identical, looked like progress for two months. If proposals
 cannot land, stop generating them.
+
+**L30 · A monitor that only runs when someone invokes it is not a monitor.**
+The sentinel was built, verified, and recorded as the fix for the six silent days — while running only
+on demand. Its own PAIN entry said "Remaining: run it on a schedule", and that remainder sat there.
+*Learned:* "the fix exists" and "the fix runs" are different states, and only the second one watches
+anything. The test of a monitor is not that it produces correct output; it is that it produces output
+**at a time nobody chose**.
+*Applied:* `ceo-kernel` now runs from cron every 5 minutes on `secratary`, writing a report and a
+history line to `/home/zabz/ceo-kernel-var/`. Corollary, equally important: a scheduled monitor whose
+findings go nowhere is only half-built. Recording without routing is a deliberate staging step, not a
+finished system — PAIN P6 is what happens when a system detects problems and buries them.
 
 ---
 
