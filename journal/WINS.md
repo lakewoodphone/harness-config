@@ -268,3 +268,11 @@ deterministic reproduction of that interleaving. Full Android suite: **395 tests
 *Why it matters:* this is the second entry in this journal of a *test* being worth more than the code it covers (W21).
 A green suite over a feature nobody proved was exercised is how a product ships blind.
 
+**W23 · 2026-09-11 · The phone UI is now usable on a phone, and every claim is measured.**
+`assets/mobile.css`, injected by `scripts/phone-gate.py` into every document request. Before → after, at 393x852 on the
+live app: controls under the 44px touch minimum **9 → 0** (hero state); composer field font **13.33px → 16px**, which
+removes the iOS auto-zoom that fired on every focus; `safe-area-inset` rules **0 → present**, so the composer clears the
+home indicator; the open sidebar **squeezed the content column to 113px → overlays at `position: fixed` with a scrim**;
+the Chat/Trajectory tabs **27x25 → 64x44**; icon glyphs **unchanged** (max 24px, median 15px) after the regression that
+inflated them was caught and fixed. `scripts/probe-phone.py` carries it as check 10 (11/11) so it cannot silently stop
+being served. Desktop is untouched by construction: everything is scoped to `max-width: 768px`.

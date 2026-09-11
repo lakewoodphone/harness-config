@@ -119,6 +119,48 @@ EVIDENCE    files, commits, or commands that prove the above
   226 components, 40.108374/-74.232428. 1068 entities, 50 device_trackers.
 - Live runs: `ZABZ-YOGA` → **`HOME [high]`**; `secratary` → **`NOT_OFFICE [low]`, `ruled_out: office`**.
 - `pytest tests/test_presence.py` → **15 passed**.
+## 2026-09-11 20:37 UTC · secratary · "Are you working on my iPhone?" — yes, live, and he is on it; but the device is an inference, not a reading
+
+**CHANGED**
+- Nothing in the world by *this* session: it was a read — no file changed, no process started. The world moved under it.
+  Another session committed the phone's mobile layer at 20:31:03, 20:31:43 and 20:32:24 (`de0ccf2`, `2e57726`, `509be9b`
+  "mobile: keep the rail, fix the open drawer instead") and this checkout pulled all three within four minutes.
+  **The page he was looking at was being rewritten while he looked at it.**
+
+**WHAT IS PROVEN (state at 20:36 UTC)**
+- He reached the engine **from the phone path**: `~/.dsh-phone/gate.log` — 20:29:32 a cold `GET /` signed in by the gate;
+  20:29:41 the full UI bootstrap (session/list, agentPresets, modelCatalog, skills, commands, plugins/events);
+  **20:29:52 `POST /api/session/prompt`** — the same second the session record was written
+  (`session-8372b842`, `clientTimeZone: America/New_York`).
+- The iPhone is on the tailnet and reaching Serve: `tailscale status` → `iphone-15-pro 100.85.105.93 iOS active`;
+  tailscaled `netstack: connsInFlightByClient[100.85.105.93]` at 20:26:34, 20:26:43, 20:27:23, 20:30:28 (Serve runs in
+  netstack, so those are the iPhone's own connections).
+- Nothing else is phone-shaped: no background jobs; only gate :3086, redirector :3087, engine :3089.
+
+**NOT PROVEN — the point of this entry**
+- **Which device sent that prompt.** Serve rewrites every tailnet visitor to 127.0.0.1; the gate logs no User-Agent; and
+  client identity exists nowhere else to be read — `grep -rln userAgent dsh-engine/packages/*/src apps/web/src` returns
+  nothing, and the session file's `request/header` is the LLM config, not the client. "He is on the iPhone" is timing plus
+  tailnet agreement, which is **inference**. → P43, L138.
+
+**UNEXPLAINED**
+- Two Serve reverse-proxy read errors coincide with probe runs: 20:23:24 `unexpected EOF`, 20:31:09 ×3 `malformed chunked
+  encoding`. Unverified whether `probe-phone.py`'s raw sockets cause them or a real client does. Check before the next probe edit.
+
+**NEXT** (one action, in order)
+1. The gate logs `User-Agent` plus what Serve forwards (`Tailscale-User-Login`, `X-Forwarded-For`) for every request it decides on.
+2. Restart it **only when no socket is established on :3086** — the page holds `/api/remote.mux` open and the client has no
+   reconnect logic, so a restart under him silently kills his page.
+3. Then the next visit is provable, and the probe can drive an iPhone User-Agent through Serve (P43).
+4. **Deliberately not done this turn:** `scripts/phone-gate.py` was rewritten at 20:31:46 by the session above and this
+   checkout pulled three of its commits inside four minutes — editing it now races a live writer (P13, P44).
+
+**EVIDENCE** — gate.log lines above; `journalctl -u tailscaled | grep connsInFlightByClient`; `git -C ~/harness-config log
+--oneline -3`; reflog pulls at 20:31:06, 20:31:46, 20:32:27.
+
+**TIMESTAMP WARNING (provenance).** The entries below dated 20:55 and 21:00 UTC were written by the laptop session while
+this host's clock read 20:29–20:33 UTC. Laptop-labelled journal times run ~25–30 minutes ahead of the authority's clock —
+compare cross-host times with care.
 
 ---
 
@@ -173,6 +215,50 @@ which is not the thing the owner holds.)*
 
 ---
 
+## 2026-09-11 21:30 UTC · ZABZ-YOGA · The phone UI has a mobile layer, and he confirmed the link works
+
+*(he used it: "I just used it and it worked." The verification discipline below is what changed since the last entry.)*
+
+**CHANGED**
+- **`assets/mobile.css` — new.** Injected into every document request by `scripts/phone-gate.py`. Measured at 393x852
+  before writing it: 9 controls under the 44px touch minimum, the composer field at 13.33px (iOS auto-zooms the page on
+  focus), zero safe-area rules, and an open sidebar that squeezed content from 337px to 113px. After: 0 controls under
+  44px, 16px fields, safe-area insets applied, the drawer overlays at `position: fixed`, tabs 64x44. Desktop untouched
+  (everything is inside `max-width: 768px`). Kill switch: `PHONE_MOBILE_CSS=0`.
+- The gate now **buffers documents** so the layer reaches signed-in visitors too, and **re-frames** them: the engine serves
+  the document chunked, and injecting bytes without recomputing `Content-Length` broke every client with `IncompleteRead`
+  until it was de-chunked and re-framed.
+- Probe is **11 checks** (`probe-phone.py`): check 10 asserts the layer arrives still carrying its four key rules.
+- Two of my own mistakes, both caught within minutes and both recorded rather than quietly fixed: hiding the collapsed
+  rail collapsed the content column to 56px (L142), and `button[aria-label] > *` sized every icon glyph to 44px (L140).
+- Journal: L140–L143, P45, W23, D37.
+
+**IN FLIGHT**
+- The mobile layer is a stylesheet, so it cannot touch **state**. Selecting a session in the drawer leaves the drawer open
+  over the conversation — the app's own behaviour. The real fix is a client plugin inside the DSH package, which needs
+  the `cordis_*` tools that this session does not have.
+- Commit `fca9f7c` exists only on this machine: the working tree holds another session's uncommitted journal edits, so
+  the mobile journal entries were written and pushed from a throwaway worktree instead. Do not "clean up" that tree.
+
+**BROKEN**
+- Nothing on the phone path: probe 11/11, kernel green, and he has used it successfully.
+- Known-rough, not broken: the 40px-tall secondary disclosure rows in a conversation (deliberate — 44px on inline rows
+  distorts the transcript), and the 56px rail still occupying 14% of the width (deliberate, see L142).
+
+**NEXT**
+- Give the phone a **default workspace** so a new session never asks: his phone sessions land in `/home/zabz/_scratch`,
+  which is a safe default (not a repo, so a phone-started agent cannot modify company code) — but a first-run session
+  asked him to choose, and that is a tap I have not yet removed.
+- Then: a client plugin for the drawer/navigation behaviour, and `probe-endpoint.py` for the rest of the fleet (P41).
+
+**EVIDENCE**
+- Probe: `python3 scripts/probe-phone.py` on the authority → **11/11**; injected layer 4,934 bytes.
+- Before/after, measured on the live app: `docs/dsh-mobile/evidence/phone-mobile-audit-1.png` (9 small controls, 13.33px
+  field) → `phone-mobile-v3-chat.png` (0 small controls, 16px field, tabs 64x44, glyphs max 24px).
+  Drawer: `phone-mobile-v2-drawer.png` (overlay + scrim at 339px).
+- Commits: `mobile.css` + gate injection, then the framing fix, then the glyph fix (`b2868cb` on the authority).
+
+---
 ## 2026-09-11 20:55 · ZABZ-YOGA · I escalated a customer emergency that did not exist — and fixed the reason I could not see it
 
 **THE ERROR, first, because it is the point.** I told the owner an 11-day-old $780 school order was

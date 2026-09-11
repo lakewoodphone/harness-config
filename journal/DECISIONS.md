@@ -316,3 +316,10 @@ hour of a person's time, learn whether the cascade can hold a usable risk level 
 1,000-frame round ($4–8k). Asked as a single question with a recommendation; the `A-BACK-014` row is marked superseded
 rather than deleted.
 
+**D37 · 2026-09-11 · Mobile fixes live in a stylesheet the gate injects, not in the harness package.**
+`assets/mobile.css` is served by `scripts/phone-gate.py` into every document request. Rejected alternatives: editing the
+installed `@deepseek-ai/dsh-client-ui-*` packages (npm overwrites them on update, and the change would be invisible in
+git), and forking the client (a rebuild per harness release for a stylesheet). Scoped to `max-width: 768px`, matched on
+CSS-module local-name substrings and ARIA semantics rather than hashes so a client rebuild does not silently disable it,
+and reversible with `PHONE_MOBILE_CSS=0` without a code change. Supersede this with a real client plugin once a session
+has the `cordis_*` tooling: state behaviour (closing the drawer on navigation) is out of a stylesheet's reach.
