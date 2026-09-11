@@ -68,7 +68,20 @@ const BATCH_ROWS = Number(process.env.DSH_ARCHIVE_BATCH_ROWS || 300);
 const SSH_TIMEOUT_MS = Number(process.env.DSH_ARCHIVE_SSH_TIMEOUT_MS || 240000);
 // Pause between requests, so a backfill cannot stampede a database the company writes to continuously.
 const PACE_MS = Number(process.env.DSH_ARCHIVE_PACE_MS || 250);
-const RETRY_DELAY_MS = Number(process.env.DSH_ARCHIVE_RETRY_MS || 3000);
+// Retry patience, measured rather than guessed (2026-09-11 21:45): the authority answered
+// `500 {"error":"internal_error"}` for this machine for **two and a half hours** — 20:05, 21:05 and
+// 21:45 runs — while the app's journal held the actual cause, `sqlite3.OperationalError: database is
+// locked` on the ingest's first INSERT. The old policy was 2 attempts 3 s apart, ~63 s of patience;
+// the ingesting connection itself waits 30 s for the lock, so a writer that held it for a minute
+// outlived the whole retry budget and the run aborted. The cursor stayed correct (it only advances on
+// an accepted batch, so nothing was lost), but this machine's archive silently stopped at 19:19.
+// Patience is the fix: back off far enough to outlast a checkpoint or a long transaction.
+const RETRY_DELAYS_MS = (process.env.DSH_ARCHIVE_RETRY_MS
+  ? [Number(process.env.DSH_ARCHIVE_RETRY_MS), Number(process.env.DSH_ARCHIVE_RETRY_MS) * 3,
+     Number(process.env.DSH_ARCHIVE_RETRY_MS) * 9]
+  : [5000, 15000, 45000]);
+// A hung request must not idle an hourly task forever: fetch() has no timeout of its own.
+const POST_TIMEOUT_MS = Number(process.env.DSH_ARCHIVE_POST_TIMEOUT_MS || 120000);
 const transportNotes = {};
 
 // ── transports, one payload ─────────────────────────────────────────────────────────────────────
@@ -244,22 +257,33 @@ async function postBatch(payload) {
 
   if (TRANSPORT === 'http') {
     if (!TOKEN) throw new Error('no token: set DSH_ARCHIVE_TOKEN (or use --dry-run)');
-    // Retry once, after a pause. Not superstition: measured on the authority on 2026-09-11, an
-    // independent writer gets the lock in 0.01 s when the database is calm, so a 500 here is transient
-    // contention, not a permanent refusal -- and a batch that throws is a batch the cursor refuses to
-    // skip, so a single unlucky moment would otherwise abort a whole backfill.
+    // Retry with backoff. Not superstition: the 500s above are transient write-lock contention on the
+    // authority, not a refusal, and a batch that throws is a batch the cursor refuses to skip -- so an
+    // unlucky minute must not be allowed to abort a whole run (or, worse, a whole backfill).
     let lastError = '';
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      const res = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-ps-dsh-session-ingest-token': TOKEN },
-        body,
-      });
-      const text = await res.text();
-      if (res.ok) return text;
-      lastError = `ingest ${res.status}: ${text.slice(0, 300)}`;
-      if (res.status < 500 || attempt === 2) break;
-      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+    for (let attempt = 0; ; attempt++) {
+      let res = null, text = '';
+      try {
+        res = await fetch(ENDPOINT, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-ps-dsh-session-ingest-token': TOKEN },
+          body,
+          signal: AbortSignal.timeout(POST_TIMEOUT_MS),
+        });
+        text = await res.text();
+      } catch (e) {
+        lastError = `ingest transport: ${String(e && e.message || e)}`;
+      }
+      if (res && res.ok) return text;
+      if (res) lastError = `ingest ${res.status}: ${text.slice(0, 300)}`;
+      // 5xx and 429 are the retryable answers; a 4xx is a refusal, and repeating it is noise.
+      const retryable = !res || res.status >= 500 || res.status === 429;
+      if (!retryable || attempt >= RETRY_DELAYS_MS.length) break;
+      const wait = res && res.status === 429
+        ? (Number(res.headers.get('retry-after') || 0) * 1000 || RETRY_DELAYS_MS[attempt])
+        : RETRY_DELAYS_MS[attempt];
+      console.log(`   retry ${attempt + 1}/${RETRY_DELAYS_MS.length} in ${Math.round(wait / 1000)}s — ${lastError.slice(0, 120)}`);
+      await new Promise((r) => setTimeout(r, wait));
     }
     throw new Error(lastError);
   }

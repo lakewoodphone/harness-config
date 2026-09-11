@@ -1142,3 +1142,41 @@ scheduler's boot thread exists in the **new** pid (`/proc/<pid>/task/*/comm`), a
 `curl 192.168.50.103/rpc/Schedule.List` showed 8 jobs with the split, where the old code produced 6 with the merge).
 Then run the idempotent operation a second time and require byte-identical output.
 *Cost if skipped:* a change that looks deployed, a green `systemctl status`, and a device that quietly reverts at 10:00.
+**L158 · 2026-09-11 · A second copy of a thing is not a second reading of it.**
+Asked whether the yoga conversations are readable from ZABZ-TECH, I went looking in
+`/home/zabz/dsh-archive/dsh-archive.db` on secratary: 91 sessions, yoga's newest `updated_at` 19:06Z, the file
+last written 19:10Z — which reads as "yoga's archiving died two and a half hours ago". **False.** The
+authoritative store for DSH sessions is `/home/zabz/personal-secretary-mvp/data/secretary.db`, written by the
+app's own route `POST /api/v1/owner/dsh-sessions/ingest` (transport `http`, the shipper's default since
+2026-09-11 19:16); in *that* store yoga is current to `21:06:32Z` and this machine to `21:47:02Z`. The standalone
+DB is the interim `scp` store, correctly frozen when the HTTP path went live — two stores for one thing, and only
+one of them has a writer.
+*Rule:* before reporting any staleness, name the store and name the process that writes it. A copy nobody writes
+is not evidence of a gap; it is evidence of a migration. Same failure class as the stale-database crisis that
+never existed, and it nearly happened again from a reading that was fresh and correct about the wrong artefact.
+
+**L159 · 2026-09-11 · A 500 from your own API can be a write lock, and the client's retry budget must outlast
+the server's patience.**
+The shipper got `500 {"ok":false,"error":"internal_error"}` from the ingest endpoint at 20:05, 21:05 and 21:45
+tonight. The app's own journal held the cause the whole time: `sqlite3.OperationalError: database is locked` at
+`app/services/dsh_session_ingest.py:200`, on the export row's `INSERT OR REPLACE`. The route sets
+`PRAGMA busy_timeout = 30000`, so **one** attempt can sit for 30 s before failing; the shipper's policy was 2
+attempts 3 s apart — about 63 s of patience — so a writer holding the lock for a minute aborted the whole run.
+Two rules came out of it:
+(a) **arithmetic, not superstition** — the retry budget must be ≥ (server patience + backoff) × attempts, or the
+retries are theatre. It is now 4 attempts at 5/15/45 s with a 120 s per-request timeout: ~3 minutes of tolerance,
+enough to outlast a checkpoint or a long transaction.
+(b) **fit the fix to the measurement.** `error_log` shows ~12 `database is locked` errors in 21 hours app-wide, on
+this route and one node-report endpoint. That justifies patience in the client; it does not justify rebuilding
+the ingest path — and a 2.7 GB production database is the wrong place to be clever late on a Friday night.
+
+**L160 · 2026-09-11 · Fail-closed cursors make a silent outage recoverable — which is not the same as noticing
+it.**
+The shipper advances a session's cursor only after the server *accepts* the batch (its own comment: "advancing a
+cursor before the server holds the rows is how a shipper silently loses data it believes it already sent"), so
+2.5 hours of 500s cost **nothing**: when the endpoint recovered at 21:47, this machine's 244 new rows went up in
+one batch against an intact cursor. Verified directly — a forced failure against a fake 500 endpoint left
+`~/.dsh/dsh-archive-state.json` byte-identical (SHA-256 `F684653F…`).
+But nothing *told* anyone for two and a half hours. A scheduled task reporting `LastTaskResult = 0`, a cursor
+that looks current, and a store that quietly stopped growing is a shape that hides itself.
+*Rule:* fail-closed protects the data; the alarm is a separate mechanism, and this machine still has none.

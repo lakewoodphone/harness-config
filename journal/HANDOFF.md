@@ -12,6 +12,41 @@ NEXT        the single most useful next action
 EVIDENCE    files, commits, or commands that prove the above
 ```
 
+## 2026-09-11 17:52 EDT (21:52Z) · ZABZ-TECH · The yoga conversations are reachable from here, and this machine's archiving had quietly stopped
+
+CHANGED     - Answered "do you have access to the yoga conversations?" by testing all three paths, not by
+              reasoning about them: **SSH** (`ssh zabz-yoga-1` → `zabz-yoga`, key-based over Tailscale; only port
+              22 is open, the DSH engine's ports are not); the **authoritative archive** on secratary
+              (`personal-secretary-mvp/data/secretary.db` — 99 sessions / 31,031 rows; yoga current to
+              21:06:32Z, searchable by FTS: `dsh-archive-import.py --search kosher` returns yoga rows); and the
+              **journal**, which is how yoga's own HANDOFF entries already arrive here.
+            - Fixed the shipper's retry patience, `harness-config/scripts/push-dsh-sessions.mjs`: 4 attempts at
+              5/15/45 s plus a 120 s per-request timeout, where it was 2 attempts 3 s apart with no timeout.
+              Verified against a fake always-500 endpoint: `retry 1/3 in 5s … retry 3/3 in 45s` then exit 1, with
+              `~/.dsh/dsh-archive-state.json` byte-identical afterwards (SHA-256 `F684653F…`).
+            - Found and proved the outage it fixes: this machine's ingest calls were 500ing since ~19:20
+              (`database is locked`), so its sessions were unarchived for 2.5 h. Re-run at 21:47 succeeded —
+              `events_written: 244`, and `dsh_sessions` for `zabz-tech` now reads newest `21:47:02Z`.
+            - Appended L158, L159, L160, P48, W26, D41, D42.
+IN FLIGHT   - P48: **who** holds the write lock on the 2.7 GB `secretary.db` for >30 s is not yet known. Next
+              step is measurement, not speculation: log the wait on every ingest attempt, then correlate lock
+              windows against `journal_size_limit` (the `-wal` sits at exactly 64 MiB — checkpoint starvation)
+              and the six-hourly `secretary-backup.timer`. Fix direction: a WAL-aware backup, or fewer/shorter
+              write transactions — not a datastore migration.
+BROKEN      - Nothing is broken right now. Both machines' archives are current as of 21:47Z. The retired interim
+              store `/home/zabz/dsh-archive/dsh-archive.db` is frozen at 19:10Z **by design** — do not read it as
+              a gap (L158).
+NEXT        - Give the archive an alarm: a scheduled check that compares each machine's newest `dsh_sessions.updated_at`
+              against its local cursor and complains when a machine goes quiet. Fail-closed protects the data
+              (L160); nothing yet notices the silence.
+EVIDENCE    - `ssh zabz-yoga-1 hostname` → `zabz-yoga`; `ps_db_query`: `SELECT source_machine, COUNT(*), MAX(updated_at)
+              FROM dsh_sessions GROUP BY 1` → secratary 8/21:00:01Z, zabz-tech 12/**21:47:02Z**, zabz-yoga
+              80/21:06:32Z.
+            - `journalctl -u secretary-api` 21:44–21:46: `dsh_session_ingest.py:200` `INSERT OR REPLACE INTO
+              dsh_session_exports` → `sqlite3.OperationalError: database is locked`; `--wal` file 67,108,864 B.
+            - `node push-dsh-sessions.mjs --all --verbose` against `DSH_ARCHIVE_ENDPOINT=http://127.0.0.1:8899/ingest`
+              (fake 500): three retries logged, then `error:` and exit 1, cursor hash unchanged.
+
 ## 2026-09-11 17:46 EDT · secratary · The owner's wife has a name, and it was on disk — L148, plus a people map
 
 CHANGED     - Wrote `journal/reference/people.md`: owner = Eliyahu Tzvi Zabrowsky; wife = **Yocheved

@@ -298,3 +298,15 @@ settings showed the executor returning `nothing_due` at 18:43:53 and the action 
 was then exercised idempotently by re-sending the LOCKED payload (HTTP 200, `switch.smart_switch_l4` unchanged at
 `on`) — a real end-to-end test of the exact service the unlock uses, with zero physical effect. 14/14 unit tests
 pass. Nothing was assumed and nothing was left to hope.
+
+**W26 · 2026-09-11 · Three independent paths to the yoga machine were verified by using them, not by assuming
+them.**
+The question was whether the other machine's conversations are reachable from ZABZ-TECH. All three answers were
+exercised in the same hour: (1) `ssh zabz-yoga-1` over Tailscale returns `zabz-yoga` — a live, key-based shell on
+the other laptop (port 22 open; the DSH engine's ports are not exposed); (2) the authoritative archive answers on
+secratary — `secretary.db` holds 99 sessions / 31,031 rows across three machines, with yoga current to
+`21:06:32Z`, searchable by full text (`--search kosher` returned yoga rows with ordinals and snippets); (3) the
+journal itself, which is how yoga's HANDOFF entries already reach this machine through `harness-config` → `git`.
+The useful consequence: a session that happened on yoga can be read, searched and continued from here, and the
+safety net that makes that possible — the hourly shipper — was found to be failing and was repaired in the same
+turn rather than being reported as a risk.

@@ -364,3 +364,22 @@ the interior maglock is re-latched Saturday night rather than left released for 
 both holy) remains a single run, so tonight is unchanged. Supersedes the "left alone, escalated" position in D40 —
 the owner has now answered. `is_power_down_day()` is retained but is **no longer** the block predicate; do not
 rebuild runs from it.
+**D41 · 2026-09-11 · The session-archive fix is patience in the client, not surgery on the production ingest
+path.**
+The DSH shipper's HTTP retry becomes 4 attempts at 5 s / 15 s / 45 s with a 120 s per-request timeout (was 2
+attempts 3 s apart, no timeout). Deliberately *not* done: hand-patching
+`personal-secretary-mvp/app/services/dsh_session_ingest.py` on the authority. Reasons, in order: my local
+`personal-secretary-mvp` checkout does not contain that file at all (HEAD `293b063d`, divergent from the
+authority's `99738ebe`), so the only way to edit it is directly on production; the authority's checkout already
+carries nine uncommitted files including `app/main.py`, and P47/D39 exist precisely to stop that drift growing;
+and the measured incidence (12 `database is locked` errors in 21 hours, on two endpoints) does not justify
+restarting the company's API to change code I cannot test in a checkout. The client fix covers the same failure
+from both machines within the hour, is verified against a fake 500 endpoint, and needs no service restart.
+Revisit when the authority's checkout is reconciled and the file exists on a branch I can test (see P48).
+
+**D42 · 2026-09-11 · Before reporting staleness, name the store and its writer.**
+Recorded as a standing rule rather than a one-off: any reading of "the archive stopped at 19:06" must be preceded
+by naming which database was read and which process writes it. The DSH session archive has two stores and one
+writer — `secretary.db` via the HTTP ingest route is authoritative; `dsh-archive/dsh-archive.db` is the retired
+`scp` interim. A future self that reads the interim store and believes it will report an outage that is not
+happening (L158).
