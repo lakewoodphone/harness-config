@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import os
 import re
 import select
 import socket
@@ -36,6 +37,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
 STATE_DIR = Path.home() / ".dsh-phone"
+MOBILE_CSS = Path(__file__).resolve().parent.parent / "assets" / "mobile.css"
 COOKIE_PREFIX = b"dsh-auth-"
 BUF = 65536
 
@@ -216,11 +218,42 @@ def complete_login(engine_port: int, first: bytes, token: str, path: str) -> byt
         if status_of(document) != 200:
             note(f"  signed-in fetch answered {status_of(document)}; relaying the exchange instead")
             return None
+        document = inject_mobile(document)
         note(f"  -> signed in in flight, returning {len(document)} bytes with {len(cookies)} cookie(s)")
         return inject_headers(document, cookies)
     except OSError as exc:
         note(f"  complete_login failed: {exc}")
         return None
+
+
+def mobile_style_tag() -> bytes:
+    """The phone layer, read once from assets/mobile.css.
+
+    Injected here rather than in the harness package because the package belongs to npm -
+    an update would silently drop the change - and this gate already touches every
+    document request, so it is the one place that can add a stylesheet to a phone without
+    a client rebuild. Kill switch: PHONE_MOBILE_CSS=0.
+    """
+    if os.environ.get("PHONE_MOBILE_CSS", "1") == "0":
+        return b""
+    try:
+        css = MOBILE_CSS.read_bytes()
+    except OSError:
+        return b""
+    if not css.strip():
+        return b""
+    return b'<style id="dsh-phone-mobile" data-layer="phone-gate">' + css + b"</style>"
+
+
+def inject_mobile(document: bytes) -> bytes:
+    """Add the phone layer to a served document, once, before </head>."""
+    tag = mobile_style_tag()
+    if not tag or b'id="dsh-phone-mobile"' in document:
+        return document
+    at = document.lower().find(b"</head>")
+    if at < 0:
+        return document
+    return document[:at] + tag + document[at:]
 
 
 def read_response_head(sock: socket.socket, limit: int = 65536, timeout: float = 20.0) -> bytes:
@@ -369,29 +402,31 @@ def handle(client: socket.socket, engine_port: int) -> None:
         upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
         upstream.sendall(force_close(first))
 
-        if document_request and has_cookie and not offered:
-            # The visitor brought only a cookie, and a cookie can be stale. Ask the engine
-            # first; a refusal becomes a real sign-in rather than a dead end he cannot
-            # diagnose from a phone.
-            upstream_head = read_response_head(upstream)
-            status = status_of(upstream_head)
-            note(f"  peeked upstream: {status}")
+        if document_request and method == "GET":
+            # A document is buffered rather than streamed, for two reasons: a cookie can be
+            # stale and only the engine's answer can say so, and the phone layer has to be
+            # inserted into the HTML. 27 KB, once per page load.
+            response = read_all(upstream)
+            try:
+                upstream.close()
+            except OSError:
+                pass
+            status = status_of(response)
+            note(f"  document upstream answered {status}")
             if status == 401 and token:
-                note("  -> cookie refused: signing in in flight")
-                try:
-                    upstream.close()
-                except OSError:
-                    pass
+                note("  -> refused: signing in in flight")
                 signed_in = complete_login(engine_port, first, token, path)
                 if signed_in is not None:
                     client.sendall(signed_in)
                     client.close()
                     return
-                upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
-                upstream.sendall(force_close(first))
-                upstream_head = read_response_head(upstream)
-            if upstream_head:
-                client.sendall(upstream_head)
+                note("  -> sign-in did not complete; relaying the engine's answer")
+            if status == 200:
+                response = inject_mobile(response)
+            if response:
+                client.sendall(response)
+            client.close()
+            return
 
         upstream.settimeout(None)
         relay(client, upstream)

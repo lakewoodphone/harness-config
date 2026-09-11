@@ -286,6 +286,35 @@ def check_pooling():
         record(9, name, False, f"{type(e).__name__}: {e}")
 
 
+def check_mobile_layer():
+    """The phone layer reaches a phone, and carries the rules that matter.
+
+    The owner's words were "it's a chrome window, it's not optimized for a phone
+    interface". The layer is a stylesheet this gate injects; the checks are that it
+    arrives and that it still contains the two rules that fixed measured defects — the 16px
+    field font that stops iOS auto-zooming the page, and the 44px touch minimum.
+    """
+    name = "the phone layer is served and complete"
+    r = request(GATE, "GET", "/", {
+        "Host": AUTHORITY,
+        "Accept": "text/html",
+        "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                       "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"),
+    })
+    body = r["body"]
+    text = body.decode("utf-8", "replace")
+    has_layer = 'id="dsh-phone-mobile"' in text
+    has_zoom_fix = "font-size: 16px !important" in text
+    has_touch = "min-height: 44px" in text
+    has_safe_area = "safe-area-inset-bottom" in text
+    ok = r["status"] == 200 and has_layer and has_zoom_fix and has_touch and has_safe_area
+    missing = [n for n, v in (("layer", has_layer), ("16px fields", has_zoom_fix),
+                              ("44px targets", has_touch), ("safe area", has_safe_area)) if not v]
+    record(10, name, ok,
+           f"{r['status']}, {len(body)} bytes"
+           + (f", missing: {', '.join(missing)}" if missing else ", all four rules present"))
+
+
 def check_fence():
     """Ask the ENGINE directly, not the gate.
 
@@ -404,6 +433,7 @@ def run_checks():
     guarded(7, "a stale cookie is repaired, not refused", check_stale_cookie)
     guarded(8, "a stale token is replaced, not relayed", check_stale_token)
     guarded(9, "a reused connection cannot bypass the gate", check_pooling)
+    guarded(10, "the phone layer is served and complete", check_mobile_layer)
     guarded("6b", "public /phone reaches the harness", check_redirector)
     return how
 

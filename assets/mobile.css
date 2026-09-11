@@ -1,0 +1,137 @@
+/* mobile.css — the phone layer for the harness UI.
+ *
+ * Injected into the document by scripts/phone-gate.py for every document request, so it
+ * reaches a phone without touching the harness package (which npm would overwrite on the
+ * next update) and without a rebuild of the client.
+ *
+ * Every selector below is evidence-based, measured on 2026-09-11 at 393x852 against the
+ * live app:
+ *   - 9 controls smaller than the 44px touch minimum: the rail icons 36x36, the composer's
+ *     Commands and Add-attachment 28x28, Send 34x34, "Choose workspace" 162x28.
+ *   - the composer input computed to 13.33px font: iOS Safari auto-zooms the whole page
+ *     when a field under 16px takes focus, which is the single most "unoptimised" feeling
+ *     a phone user gets.
+ *   - zero rules in the shipped CSS mention safe-area-inset, so the composer and the rail
+ *     sit under the home indicator.
+ *   - the sidebar is `position: static`; opening it on a 393px screen squeezed the content
+ *     column from 337px to 113px.
+ *
+ * Class names are CSS-module hashes (`wSkVaW_composerSeat`), so they are matched on the
+ * readable local-name substring, which CSS modules preserve across rebuilds. Nothing here
+ * is keyed on a full hash or on an nth-child position.
+ *
+ * Scope: max-width 768px only. Desktop is untouched by construction.
+ * Kill switch: set PHONE_MOBILE_CSS=0 for the gate process and this file is not injected.
+ */
+
+@media (max-width: 768px) {
+  html {
+    /* stop iOS inflating text in landscape */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  @supports (height: 100dvh) {
+    html,
+    body,
+    [class*="frame"] {
+      /* the on-screen keyboard shrinks the visual viewport; dvh tracks it */
+      height: 100dvh;
+    }
+  }
+
+  /* ---- touch targets ---------------------------------------------------- */
+
+  /* Icon-only controls carry an aria-label; that is the stable, semantic hook. */
+  button[aria-label],
+  [role="button"][aria-label],
+  button[aria-label] > * {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Two of the measured offenders are labelled only in text. */
+  [class*="workspace"] [role="button"],
+  [class*="workspaceTrigger"],
+  [class*="composer"] button {
+    min-height: 44px;
+  }
+
+  button,
+  [role="button"],
+  a[href],
+  label {
+    /* kill the double-tap zoom delay and the tap highlight */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ---- no auto-zoom on focus -------------------------------------------- */
+
+  input,
+  textarea,
+  select,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+    line-height: 1.4;
+  }
+
+  /* ---- the notch and the home indicator --------------------------------- */
+
+  [class*="frame"] {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  [class*="sidebarCol"],
+  [class*="sidebar"] {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  [class*="composer"],
+  [class*="composerSeat"],
+  [class*="composerStack"] {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  /* ---- the sidebar becomes a drawer, not a column ----------------------- */
+
+  /* Collapsed, the rail costs 56px of a 393px screen (14%) and every one of its actions
+   * also exists in the header (Open sidebar, New session, Add workspace, Search, Settings). */
+  [class*="sidebarCol"]:has([class*="collapsed"]) {
+    display: none;
+  }
+
+  /* Opened, it overlays instead of squeezing the content column to 113px. The 100vmax
+   * spread shadow is the scrim; no extra element is needed. */
+  [class*="sidebarCol"]:not(:has([class*="collapsed"])) {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(86vw, 340px);
+    z-index: 60;
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+  }
+
+  /* ---- content column --------------------------------------------------- */
+
+  [class*="centerCol"] {
+    /* the rail no longer reserves space; never let a wide child scroll the page sideways */
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* Messages and tool cards get the full width, with a comfortable gutter. */
+  [class*="scrollBody"],
+  [class*="messageList"],
+  [class*="conversation"] {
+    max-width: 100%;
+  }
+}
+
+/* Narrow-but-not-phone (small tablets, split view): keep the rail, still fix the fingers. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  button[aria-label] {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}
