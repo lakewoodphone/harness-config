@@ -129,6 +129,11 @@ last hour" — which must hit the secretary MCP bridge), and see the tool call a
 transcript. Then confirm the session appears in `~/.dsh/sessions` on the engine's host — which is what makes
 it archivable by Phase 3.
 
+**And the answer has to be RIGHT, not merely tool-shaped.** The first end-to-end run through the tailnet
+(2026-09-11) called the bridge three times, answered fluently, and was **wrong** — because the bridge on a
+workstation reads a **local replica** of the database. See Phase 2.5, which is the real gate: "the tool was
+called" is not an acceptance test.
+
 ### 2d. Risks, stated plainly
 
 - **This exposes an RCE-capable agent to anything holding that cookie.** Mitigations: tailnet-only, no public
@@ -137,6 +142,44 @@ it archivable by Phase 3.
 - A tailnet ACL that does not grant tcp/443 makes Serve **time out silently** — the failure looks like a
   dead server. Check the grant first if the URL does not answer.
 - The engine's startup token is in its log; treat that log as a secret.
+
+---
+
+## Phase 2.5 — The bridge must read the authority, not a copy (found by the phone work)
+
+**Found by verifying an answer instead of admiring a successful call.** The first tailnet run created a
+session (`agentPreset: zabz`), mounted all six MCP bridges, called `mcp__secretary__ps_db_query` three times,
+and reported:
+
+> "13 ticks today … nothing logged between 08-21 and 09-10, so 13 is likely an undercount"
+
+The authoritative database says **197 ticks today** and **no gaps**. The replica the bridge actually read says
+**13 today, 93 yesterday, then a jump to 08-21** — the agent's answer, exactly.
+
+**Cause.** `personal-secretary-mvp/scripts/ps_mcp_server.py:65` — `DB_PATH = ROOT / "data" / "secretary.db"`.
+On a workstation that is `…\personal-secretary-mvp\data\secretary.db`: **173 tables**, last written 00:57
+today, against the authority's **203 tables**. This is PAIN P3 — *reading the wrong data and believing it* —
+reappearing at a new layer. The kernel already refuses this exact file as *"structurally old"*. **The bridge
+has no such check**, and the model, finding an artefact, invented a plausible explanation for it ("telemetry
+has been down for about three weeks") rather than doubting its source.
+
+**Why it is urgent:** every workstation session *and* every phone session gets the same wrong answers about
+the company, stated confidently. That is the most expensive failure class in this system's history (L1/L2,
+P3), and the phone makes it reachable from his pocket.
+
+**Fix, in order of preference:**
+
+1. **Run the bridge on the authority.** The preset row becomes a stdio command that runs `ps_mcp_server.py`
+   on `secratary` over SSH, so there is one copy and it is the real one (L13).
+2. **Gate on provenance.** Port the kernel's rule into the bridge: a reading whose source is structurally
+   old, or whose age cannot be established, is **refused** rather than returned.
+3. **Label, never silently.** If a replica must be read, every packet says which file, which host and how
+   old — exactly as `ck` already does.
+
+Do 1 and 2. 3 alone is insufficient, because the failure is *confident wrongness*, not missing metadata.
+
+**Acceptance test:** from the phone, ask for today's tick count and get either the authoritative number or an
+explicit refusal — never a plausible number from a stale file.
 
 ---
 

@@ -456,3 +456,42 @@ stop using a tool.
 **Fix (not built).** At `up`, read each window's current rect via Win32 `GetWindowRect`, match the window
 by its browser profile in the command line, and write position/size back into `windows.json`. Then the
 layout is self-healing and the manifest stays the one source of truth.
+
+---
+
+## P22 — The secretary bridge reads a **stale replica**, and answers confidently about a company it cannot see
+
+*(ID checked at write time. Numbering collides often now that several sessions write this file at once —
+an earlier P13/P14/P15 collision and a duplicate P21 are both in this file. A clock-based scheme would fix
+it; see the multi-window session's note under P17.)*
+
+**Symptom.** The first end-to-end run of the phone path (2026-09-11, through Tailscale) created a session on
+preset `zabz`, mounted all six MCP bridges, called `mcp__secretary__ps_db_query` **three times**, and
+answered:
+
+> "13 ticks today (2026-09-11 …) — but telemetry has gaps: 93 on 09-10, then nothing logged between 08-21
+> and 09-10, so 13 is likely an undercount of what actually ran."
+
+The authoritative database on `secratary` says **197 ticks today** and **no gaps at all**. The replica the
+bridge actually read says **13 today, 93 yesterday, then a jump to 08-21** — the agent's answer, exactly.
+
+**Evidence.** `personal-secretary-mvp/scripts/ps_mcp_server.py:65` → `DB_PATH = ROOT / "data" / "secretary.db"`.
+On ZABZ-YOGA that file is 485 MB / **173 tables** / mtime `2026-09-11 00:57`; the authority is 2.4 GB /
+**203 tables**. Both measured the same hour. Transcript:
+`~/.dsh/sessions/--C-Users-ezabz-code--/session-cf3cf7e8-…/session.v3.jsonl.zstd`.
+
+**Cost.** This is PAIN P3 — *reading the wrong data and believing it* — at a new layer, and it is the failure
+class that already produced one fabricated outage report. Every workstation session, and now every phone
+session, reads it. Worse than a missing answer: the model found a suspicious artefact and **invented an
+explanation for it** ("telemetry has been down for about three weeks") instead of doubting its source. The
+phone puts confident wrongness about the business in the owner's pocket.
+
+**Fix.** (1) Run the bridge **on the authority**: the preset row becomes a stdio command that runs
+`ps_mcp_server.py` on `secratary` over SSH, so there is one copy and it is the real one (L13). (2) Port the
+kernel's provenance rule into the bridge — a reading whose source is structurally old, or whose age cannot be
+established, is **refused**, not returned. The kernel already refuses this exact file as *"only 173 tables
+(< 190); structurally old"*; the bridge performs no such check. Designed in
+`docs/dsh-mobile/01-DESIGN-AND-PLAN.md` Phase 2.5; not built.
+
+**Acceptance test.** From the phone, ask for today's tick count: the authoritative number, or an explicit
+refusal. Never a plausible number from a stale file.

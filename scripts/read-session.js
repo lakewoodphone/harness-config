@@ -93,7 +93,10 @@ function findSession(idOrSub) {
   }
   all.sort((a, b) => b.mtime - a.mtime);
   if (!idOrSub || idOrSub === 'latest') return all[0];
-  const hits = all.filter((s) => s.id.startsWith(idOrSub) || s.id.includes(idOrSub));
+  // Ids are written with a `session-` prefix in most harness output but stored without it,
+  // so normalise the input. Passing the prefixed form used to match nothing at all.
+  const needle = String(idOrSub).replace(/^session-/, '');
+  const hits = all.filter((s) => s.id.startsWith(needle) || s.id.includes(needle));
   if (!hits.length) throw new Error('no session matching ' + idOrSub);
   if (hits.length > 1) console.error(`note: ${hits.length} matches, using the newest: ${hits[0].id}`);
   return hits[0];
