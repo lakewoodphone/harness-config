@@ -44,6 +44,15 @@ EVIDENCE    files, commits, or commands that prove the above
 Nothing duplicated. PK is `(machine, session_id, ordinal)` and an ordinal never moves because the journal
 is append-only.
 
+**AND REQUIREMENT 1 WAS ONLY HALF-WORKING UNTIL THIS ROUND — found by checking it instead of assuming**
+ZABZ-YOGA's autosync had been reporting `dirty` and **applying nothing**, because four files belonging to
+other agent sessions were modified. Committed config changes reached the *repo* and never reached the live
+`~/.dsh` — the exact drift the job exists to remove. Fixed: the apply now runs against a **snapshot of HEAD**
+(`git archive`), not the working tree. Proven in an isolated clone with both a committed and a dirty change
+present — committed marker landed (**1**), dirty marker did not leak (**0**), a dirty settings edit did not
+leak (**0**), and the dirty edit survived in the tree (**1**), `converged: true`. The Yoga now reports
+`clean, converged: true` where it previously reported `dirty`.
+
 **WHAT WAS *NOT* DONE, AND WHY — this is the one deviation from the objective**
 The intended home is in-app: `POST /api/v1/owner/dsh-sessions/ingest` + `app/services/dsh_session_ingest.py`
 + tables in the authoritative `secretary.db`. **Written, committed (`92b82c351`), NOT deployed**, because the
