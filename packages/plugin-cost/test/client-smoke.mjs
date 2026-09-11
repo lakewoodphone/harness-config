@@ -79,7 +79,14 @@ const exports_ = registration.factory((specifier) => {
 console.log('module face');
 check('the factory returns an exports object', typeof exports_ === 'object' && exports_ !== null);
 check('it exports apply', typeof exports_.apply === 'function');
-check('it exports inject', exports_.inject !== undefined);
+// The browser loader resolves every declared dependency as a SERVICE and refuses to
+// activate the entry until each one exists. On 2026-09-11 this entry declared two package
+// ids and then optional:['slots']; none resolved, the entry stayed pending, and the loader
+// blanked the whole web UI with "Failed to load plugins". The ABSENCE of a declaration is
+// therefore a requirement, and this assertion is its regression test.
+check('it declares no dependencies (a wrong name here blanks the UI)',
+  exports_.inject === undefined || Object.keys(exports_.inject).length === 0,
+  JSON.stringify(exports_.inject));
 check('it exposes the rate table for diagnostics', typeof exports_.PRICING === 'object');
 
 // ── drive apply() against a fake Slot registry ────────────────────────────────
