@@ -14,7 +14,13 @@ permission:
   defaultPreset: danger-full-access
 
 agent-presets:
-  # cordis-bg carries the background-first shell policy: long pwsh commands are
-  # started as background jobs instead of dying at the 120s foreground timeout.
-  # Authored on ZABZ-TECH but never switched on there.
-  default: cordis-bg
+  # `zabz` is the conversational CEO: full toolbelt, the secretary bridge, and a
+  # persona written from the measured analysis of 23,035 owner turns. This is the
+  # thing that replaces Copilot chat.
+  #
+  # It derives from `cordis-bg`, which carries the background-first shell policy
+  # (long commands start as background jobs instead of dying at the 120s
+  # foreground timeout). That policy is retained, so both presets are safe.
+  #
+  # Set 2026-09-11 after mount validation returned "mounted OK: zabz".
+  default: zabz

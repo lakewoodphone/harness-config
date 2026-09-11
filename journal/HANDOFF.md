@@ -1,0 +1,58 @@
+# HANDOFF — state of play, newest first
+
+**Rule:** newest entry at the top. Every session that changed anything writes one before ending.
+Format is fixed so a future self can skim it in seconds:
+
+```
+## YYYY-MM-DD HH:MM · <host> · <one-line title>
+CHANGED     what is now different in the world
+IN FLIGHT   what is unfinished, and where the thread is
+BROKEN      what is known-broken right now
+NEXT        the single most useful next action
+EVIDENCE    files, commits, or commands that prove the above
+```
+
+---
+
+## 2026-09-11 · ZABZ-YOGA · Built the conversational CEO and its memory
+
+**CHANGED**
+- Authored the `zabz` preset — the CEO that replaces Copilot. Persona written from the measured
+  analysis of 23,035 owner turns, plus the full toolbelt and the secretary MCP bridge.
+  Mount-validated: `mounted OK: zabz`.
+- Built `ceo-kernel` Phase 1: provenance layer, sourced readers, and a sentinel that detects
+  outcome collapses. Verified against the live authoritative database.
+- Established `harness-config` as the single source of truth for presets and settings, with a git
+  remote on `secratary` and a sync tool. Applied on both workstations; converged.
+- Turned on the background-first shell preset `cordis-bg`, which the desktop had authored and never
+  switched on.
+- Created this journal.
+
+**IN FLIGHT**
+- `zabz` is installed on the Yoga only. The desktop has `cordis-bg` but not `zabz` — needs a sync run
+  from the desktop clone (`python C:\Users\ezabz\Code\harness-config\scripts\sync.py`).
+- `zabz` is **not yet the default preset**. `settings/base.yaml` still sets `cordis-bg`. Deliberate:
+  change it once a real session has confirmed the tool list, because moving the default before
+  verification risks the owner landing in an untested agent.
+- The secretary MCP row is enabled on Windows but has **not been observed registering its 14 tools
+  in a live session**. The mount succeeds; tool registration is unproven. This is the one open
+  verification.
+- `ceo-kernel` is staged on `secratary` at `/home/zabz/ceo-kernel` and runs, but **not scheduled** —
+  it only runs when invoked.
+
+**BROKEN / KNOWN**
+- Three divergent `secretary.db` copies; nothing yet prevents writes to a stale replica (PAIN P3).
+- Evolution loop still not closing: 56 unapplied, 30 duplicates, 13 node_modules targets (PAIN P4).
+- `engineering_indexer`: 172 ticks, 0 completions (PAIN P5).
+- 7 critical + 46 urgent messages held undelivered (PAIN P6).
+
+**NEXT**
+Make the sentinel run on a schedule from `secratary` so it is not dependent on anyone remembering to
+invoke it — that converts the whole thing from a tool into a watch.
+
+**EVIDENCE**
+- `~/code/harness-config/presets/zabz/agent.cordis.yml` (20 rows)
+- `~/code/ceo-kernel/ck/{provenance,sources,sentinel,cli}.py`
+- `~/code/personal-secretary-mvp/docs/secretary-replacement-audit/` (7 documents)
+- Sentinel run on `secratary`: 4 findings, including `engineering_indexer` dead weight and a
+  131-day-old question — both new discoveries
