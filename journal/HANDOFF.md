@@ -2169,3 +2169,58 @@ why the runner needs dummies. Worth decoupling; recorded rather than silently wo
 | Verified through real entry points in a browser | **not done** — needs staging |
 
 **EVIDENCE** — `phone-and-tech-full` `a77ff7f30`; `personal-secretary-mvp` `fdbf9b615`, `a55e374d0`
+---
+
+## 2026-09-11 · ZABZ-YOGA · DEPLOYED TO TEST — the real deploy path was Netlify + Hetzner, not Heroku
+
+**I WAS WRONG, AND THE CORRECTION IS THE POINT.** I had reported staging as "blocked, needs the owner" because
+`deploy-staging.yml` fails with a 404 for Heroku app `lakewood-phone-backend-test`. The repo's own
+authoritative doc — `phone-and-tech-full/docs/operations/DEPLOY_ARCHITECTURE_REALITY.md` —
+says in bold: **"Heroku is DEAD. Any doc/workflow referencing Heroku backends is obsolete."** and
+"`.github/workflows/deploy-staging.yml` etc. target Heroku and are **not the working path**."
+
+The real path, documented and working:
+- **Frontend** → **Netlify** (origin) behind Cloudflare. TEST site `lakewood-phone-test`,
+  id `99e0273a-9f51-42c2-8a98-4485892629ba`. Deploy is **manual**, via a token at
+  `~/.personal-secretary/secure/netlify-auth.txt`, with `--no-build` + `--filter` (both mandatory).
+- **Backend** → **Hetzner `lpt-apps`** (2.28.33.58), SSH alias `lpt-apps`, key `~/.ssh/id_ed25519_hetzner`.
+  Test stack is `/opt/lpt-test` (isolated, own DB `lpt_test`, container `lpt-test-backend`, port 3002,
+  `test-api.lakewoodphoneandtech.com` via Caddy).
+
+I had spent a round asking the owner to recreate a Heroku app that is deliberately retired. **Read the
+authoritative deploy doc before declaring an infrastructure blocker.**
+
+**WHAT I DEPLOYED (all of it myself, test only — production untouched)**
+1. **Backend**: `/opt/lpt-test/src` was at `3f8aa02` (2026-09-10); fast-forwarded to `a77ff7f` (my work).
+   **Preserved a local, uncommitted `backend/Dockerfile.production` fix** ("could never build … FIXED
+   2026-08-31") by stashing it across the merge — it is load-bearing and not in git.
+2. **Wired the fleet credentials onto test.** Neither prod nor test `.env` had `FLEET_API_URL` /
+   `FLEET_API_TOKEN`, and the test env is *generated from prod's*, so I added them to `/opt/lpt-test/.env`
+   directly (backed up first). Without this the panel silently degrades to "not linked" and staging would
+   have proved nothing.
+3. **Built and recreated** `lpt-test-backend` — healthy.
+4. **Frontend**: built with the TEST env from the doc (`VITE_API_URL=https://test-api…`,
+   `VITE_FEATURE_CUSTOMER_PORTAL=true`, …) and deployed to the Netlify TEST site.
+
+**VERIFIED — OBSERVED, NOT ASSUMED**
+- Live bundle hash from `test.lakewoodphoneandtech.com/customer-portal/login` is
+  **`index-Bcqvjq-v.js`, byte-identical by name to my build** — so the deployed frontend is mine.
+- That live bundle contains `My Waze Device` (3), `Waze Fleet` (3), `capBand` (6), `dataStopsAtCap`,
+  `capMessage` (4), `Find My` (2), `Plenty left`, `Nearly used up`, `Data stopped`,
+  `Your data allowance`, `Pausing turns the device off the network…`, `Lost Mode` (6), `run monitor` (2).
+- `/api/trpc/wazeFleet.status` → **HTTP 401** (registered and auth-gated). 404 would mean missing; 401
+  means present. `customerPortal.getMyProfile` also 401, so the mount is right.
+- **From inside the deployed container**: `GET $FLEET_API_URL/waze/device/FFYGNQ8AN72J` → **HTTP 200** with
+  real fleet data (`LPT 2001`, `state: active`, `cap_editable_by: customer`). The credential wiring works.
+- Browser: login page renders, **0 console errors**; `/customer-portal/device` correctly redirects to login
+  (the route guard works).
+
+**THE ONE REMAINING GAP, STATED PLAINLY**
+I have **not** seen the panel render with data in a browser, because that needs an authenticated customer
+whose `Device.serialNumber` exactly equals a live fleet serial. **In `lpt_test`, only 1 device has any
+serial and neither Waze device is linked to any customer** — so the panel cannot appear there without test
+data that does not exist. I did not create customer accounts or insert customer rows for this: that is the
+owner's data model and his call.
+
+**COMMITS / EVIDENCE** — `phone-and-tech-full` `a77ff7f30`; deploy logs `/opt/lpt-test/build-waze.log`;
+env backups `/opt/lpt-test/.env.bak-20260911`, `.env.bak-prepull`
