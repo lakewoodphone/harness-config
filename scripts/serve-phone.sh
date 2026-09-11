@@ -19,16 +19,43 @@
 # usage: serve-phone.sh [--port N] [--status] [--stop] [--print-link]
 set -uo pipefail
 
-PORT="${PHONE_PORT:-3086}"
+PORT="${PHONE_PORT:-3086}"                 # the port Tailscale Serve publishes (the gate)
+ENGINE_PORT="${PHONE_ENGINE_PORT:-3089}"   # the harness itself, behind the gate
 STATE="${PHONE_STATE:-$HOME/.dsh-phone}"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REDIRECT_PORT="${PHONE_REDIRECT_PORT:-3087}"
 NODE="${PHONE_NODE:-/home/zabz/node/bin/node}"
 BIN="${PHONE_BIN:-/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js}"
-LOG="$STATE/engine-$PORT.log"
-ERR="$STATE/engine-$PORT.err"
+LOG="$STATE/engine-$ENGINE_PORT.log"
+ERR="$STATE/engine-$ENGINE_PORT.err"
 
 mkdir -p "$STATE" 2>/dev/null || exit 2
+
+gate_pid() {
+  # pidfile, for the same reason as the redirector below: never ask a process list a question about
+  # yourself.
+  local pidfile="$STATE/gate.pid"
+  [ -f "$pidfile" ] || return 1
+  local pid; pid="$(cat "$pidfile" 2>/dev/null)"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && { echo "$pid"; return 0; }
+  return 1
+}
+
+ensure_gate() {
+  # Sits between Serve and the engine so that ANY URL which reaches this host signs the visitor in.
+  # Without it, a first visit to the bare address returns the harness's plain-text "authentication
+  # required" — which iOS offers to download as a document (measured 2026-09-11).
+  local pid; pid="$(gate_pid)"
+  if [ -n "$pid" ]; then echo "gate already running: pid $pid"; return 0; fi
+  if [ ! -f "$REPO_DIR/scripts/phone-gate.py" ]; then echo "gate script missing"; return 1; fi
+  setsid nohup python3 "$REPO_DIR/scripts/phone-gate.py" \
+    --listen-port "$PORT" --engine-port "$ENGINE_PORT" >>"$STATE/gate.log" 2>&1 </dev/null &
+  echo $! > "$STATE/gate.pid"
+  sleep 1
+  pid="$(gate_pid)"
+  [ -n "$pid" ] && echo "gate started: pid $pid on 127.0.0.1:$PORT -> engine $ENGINE_PORT" \
+    || echo "gate failed to start (see $STATE/gate.log)"
+}
 
 tailnet_name() {
   tailscale status --json 2>/dev/null | python3 -c 'import json,sys
@@ -40,7 +67,7 @@ except Exception:
 }
 
 engine_pid() {
-  pgrep -f "dsh/lib/bin.js web --port $PORT" 2>/dev/null | head -1
+  pgrep -f "dsh/lib/bin.js web --port $ENGINE_PORT" 2>/dev/null | head -1
 }
 
 redirector_pid() {
@@ -141,12 +168,13 @@ if [ -z "$(engine_pid)" ]; then
   echo "starting the engine on :$PORT (trusting $DNS)"
   rm -f "$LOG" "$ERR"
   # setsid + nohup so it survives this shell; the log carries the one-time token, so treat it as a secret.
-  setsid nohup "$NODE" "$BIN" web --port "$PORT" --no-open --trusted-host "$DNS" >"$LOG" 2>>"$ERR" < /dev/null &
+  setsid nohup "$NODE" "$BIN" web --port "$ENGINE_PORT" --no-open --trusted-host "$DNS" >"$LOG" 2>>"$ERR" < /dev/null &
   for _ in $(seq 1 30); do sleep 3; grep -q 'token=' "$LOG" 2>/dev/null && break; done
 else
   echo "engine already running: pid $(engine_pid)"
 fi
 
+ensure_gate
 ensure_redirector
 
 T="$(token)"

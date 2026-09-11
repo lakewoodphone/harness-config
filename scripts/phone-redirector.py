@@ -53,7 +53,7 @@ def tailnet_name() -> str:
 def live_token() -> str:
     """The newest launch token printed by the engine, read fresh on every request."""
     best = ""
-    for log in sorted(STATE_DIR.glob("engine-*.log")):
+    for log in sorted(STATE_DIR.glob("engine-*.log"), key=lambda p: p.stat().st_mtime):
         try:
             text = log.read_text(encoding="utf-8", errors="replace")
         except OSError:
