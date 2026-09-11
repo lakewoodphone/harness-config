@@ -64,7 +64,7 @@ def request(host_port, method, path, headers=None, body=None, family=socket.AF_I
     conn = http.client.HTTPConnection(*host_port, timeout=20)
     conn.request(method, path, body=body, headers=headers or {})
     resp = conn.getresponse()
-    payload = resp.read(4000)
+    payload = resp.read(70000)
     out = {
         "status": resp.status,
         "headers": {k.lower(): v for k, v in resp.getheaders()},
@@ -72,6 +72,21 @@ def request(host_port, method, path, headers=None, body=None, family=socket.AF_I
     }
     conn.close()
     return out
+
+
+def is_harness_document(body):
+    """A real document, not the plain-text refusal iOS offers as a download.
+
+    The served page is ~27 KB with the title and the client bootstrap well past
+    the first read, so match on either marker and explicitly exclude the 401 body.
+    """
+    text = body.decode("utf-8", "replace").lower()
+    if "authentication required" in text:
+        return False, "that is the 401 refusal text"
+    for marker in ("<title>deepseek harness</title>", "__moduleloader__"):
+        if marker in text:
+            return True, marker
+    return False, f"no harness marker in {len(body)} bytes"
 
 
 def check_cold_visitor():
@@ -107,9 +122,10 @@ def check_document(cookie):
     r = request(GATE, "GET", "/", {"Host": AUTHORITY, "Cookie": cookie,
                                    "Accept": "text/html"})
     text = r["body"].decode("utf-8", "replace")
-    ok = r["status"] == 200 and ("harness" in text.lower() or "<div id=" in text)
+    good, why = is_harness_document(r["body"])
+    ok = r["status"] == 200 and good
     record(3, "document loads with the cookie", ok,
-           f"{r['status']}, {len(r['body'])} bytes"
+           f"{r['status']}, {len(r['body'])} bytes, {why}"
            + (f", title={text.split('<title>')[1].split('</title>')[0]!r}"
               if "<title>" in text else ""))
 
@@ -142,12 +158,18 @@ def check_websocket(cookie):
 
 
 def check_fence():
-    """The gate relays to the engine; the engine must still refuse a foreign Host."""
+    """Ask the ENGINE directly, not the gate.
+
+    The gate sits on loopback and Serve rewrites Host, so a spoiled Host reaching
+    the gate is a local process talking to itself - not an attack surface. What
+    still has to hold is that the engine refuses a foreign Host if anything ever
+    reaches it directly.
+    """
     try:
-        r = request(GATE, "GET", "/", {"Host": "evil.example.com"})
+        r = request(("127.0.0.1", 3089), "GET", "/", {"Host": "evil.example.com"})
         ok = r["status"] != 200
         record(5, "engine still fences a foreign Host", ok,
-               f"{r['status']} (a 200 here means the gate punched through the fence)")
+               f"engine answered {r['status']} (a 200 here means the fence is open)")
     except Exception as e:  # noqa: BLE001
         record(5, "engine still fences a foreign Host", True,
                f"connection refused/dropped ({type(e).__name__}) - also acceptable")
@@ -181,13 +203,12 @@ def check_outside_in():
         conn.request("GET", "/", headers={"User-Agent": "probe-phone/1",
                                           "Cookie": cookie.split(";")[0]})
         r3 = conn.getresponse()
-        status, body = r3.status, r3.read(4000).decode("utf-8", "replace")
+        status, body = r3.status, r3.read(70000)
         conn.close()
-        ok = status == 200 and "harness" in body.lower()
+        good, why = is_harness_document(body)
+        ok = status == 200 and good
         record(6, "real HTTPS through Tailscale Serve", ok,
-               f"final {status}, {len(body)} bytes"
-               + (f", title={body.split('<title>')[1].split('</title>')[0]!r}"
-                  if "<title>" in body else ""))
+               f"final {status}, {len(body)} bytes, {why}")
     except Exception as e:  # noqa: BLE001
         record(6, "real HTTPS through Tailscale Serve", False,
                f"{type(e).__name__}: {e} (Serve or the tailnet is down)")
