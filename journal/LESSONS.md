@@ -636,3 +636,27 @@ service list and grepping the log for `invalid config|failed to parse` (0 hits) 
 *Rule:* verify a change by reading the exact thing the change was supposed to create, and by reading the
 negative space around it (no new parse errors, no missing chain members). This is L46/L52 one layer up again:
 the summary is fine, the specific is proof.
+
+**L57 · When two independent agents disagree about a number, fetch the source — do not pick the convenient one.**
+One stream reported the applicability figures (24.7% mean NA-F1, 70.8% given-visible) from a WACVW paper. A second
+stream, searching independently, reported it had found **no published source** for that split and advised treating
+it as an internal benchmark. Both were acting in good faith; one was wrong. I fetched the paper and the exact
+sentence was there: *"All VLMs struggle with applicability detection (mean Tier 2 NA-F1: 24.7%)"* — and the same
+paragraph showed the figure I had been *repeating* was wrong: the best model is GPT-5 at **37.1%**, not "34.1% for
+the best", and the benchmark covers **nine** VLMs, not seven. So the disagreement was productive: it forced a
+primary-source check that confirmed one number and corrected another.
+*Rule:* a second opinion's value is not its conclusion, it is the prompt to look. When sources conflict, the
+resolution is the primary document — and the cost of fetching it is one tool call. Two independent agreements
+would have left the 34.1% error in place indefinitely, in five documents, including one where I had called it
+"the most important number in this document".
+
+**L58 · Price the labour, not the tooling.**
+I estimated the eval-set bake-off at "under $500" because I priced it from model-assisted pre-labelling costs
+($0.0005–0.005/image). Real labelling for these attributes needs annotators from the target community, and the
+researched figures are **$4,000–8,000 for 1,000 images** (~3 weeks, five domestic annotators at $15/h) — an order
+of magnitude more. The cheap version exists (community volunteers, $0 cash) but costs auditability instead, and
+the middle version (teacher-model pre-label + correction, $400–800) carries anchoring bias where humans rubber-stamp
+the model and agreement *inflates* while quality does not.
+*Rule:* when estimating the cost of producing ground truth, price the people who know the subject, not the
+automation that guesses at it. This is also why "the model can label our training data" is the wrong answer for
+fine-grained attributes (DECISIONS D21) — the label is the product.
