@@ -113,3 +113,28 @@ is how a real alarm gets trained away.
 (`app/autopilot.py`); the cron watchdog asserts process liveness, not outcomes; and the monitor still
 lives on the machine it monitors (PAIN P20). Three things were not established and are listed
 individually in the postmortem rather than glossed.
+
+**D17 · 2026-09-11 · A write crossing a storage boundary is verified by reading the row back from the consumer's store.**
+The Waze MDM Telnyx snapshot had been running daily, exiting 0, and logging `Persisted 2 per-SIM usage
+rows` while writing to an orphaned SQLite file — the `fleet_api` it feeds reads PostgreSQL, where both
+`fleet_telnyx_*` tables were at zero rows and always had been. Two mechanisms: a leftover SQLite default in
+`_connect_db()`, and a per-SIM insert naming a `customer` column Postgres never received (its
+`CREATE TABLE IF NOT EXISTS` cannot alter an existing table), with the failure swallowed by a bare
+`log.warning`. *Decided:* `_connect_db()` prefers PostgreSQL when `PG_DSN` is set; a `try/except` around a
+write may not both log-and-continue, so `persist_snapshot()` now returns success/failure, rolls back, and
+the CLI exits 2 rather than printing success; and `telnyx_usage_freshness.py` runs in cron at 05:00 to fail
+loudly if the data goes stale. *Reasoning:* "the job ran" and "the job exited 0" are not evidence, and this
+is LESSONS **L1** and **L2** arriving through a cron job. The stranded history was migrated into Postgres
+(12 usage + 18 ledger rows, 2026-09-06 -> 09-11, proved idempotent). See PAIN **P15**.
+
+**D18 · 2026-09-11 · The Kosher Waze gate is four owner decisions, not twenty-one questions.**
+The integration plan lists Q8-Q28 unanswered and treats all of them as the owner's. They are not: most are
+factual (answerable from the live system) or engineering calls already inside the mandate, and Q2-Q5 are
+already locked in the answer log. *Decided:* collapse the gate to the **four** that are genuinely his —
+(1) billing shape: is `$9/mo - 250MB - 800MB cap - $18/GB` final, and does the portal *collect* money or
+only *show* it; (2) self-serve line: do customers get pause/resume, and is customer-triggered lost mode
+allowed; (3) cap behaviour at the limit — pause, throttle, or throttle-and-upsell; (4) location/compliance:
+is any trip data stored, and what constraint applies before payments. Ask them **one at a time with a
+recommendation**, and answer the remaining seventeen myself from live config. *Reasoning:* he does not do
+dev questions (LESSONS **L7**), and 21 questions in one batch is exactly the shape of request that cost
+this system its workflow before. See `deploy/waze-mdm/docs/holdings-2026-09-11.md` section 5.
