@@ -71,9 +71,10 @@ const transportNotes = {};
 //   http            — POST to the in-app endpoint. Staged but NOT deployed: the
 //                     authority's company checkout is 51 commits behind with
 //                     hand-edited app/main.py, so the endpoint is not live yet.
-const TRANSPORT = opt('--transport', process.env.DSH_ARCHIVE_TRANSPORT || 'ssh').toLowerCase();
+const TRANSPORT = opt('--transport', process.env.DSH_ARCHIVE_TRANSPORT || 'scp').toLowerCase();
 const SSH_HOST = process.env.DSH_ARCHIVE_SSH_HOST || 'secretary-ts';
 const IMPORTER = process.env.DSH_ARCHIVE_IMPORTER || '/home/zabz/harness-config/scripts/dsh-archive-import.py';
+const REMOTE_INCOMING = process.env.DSH_ARCHIVE_INCOMING || '/home/zabz/dsh-archive/incoming';
 const ENDPOINT = process.env.DSH_ARCHIVE_ENDPOINT
   || 'https://api.abletelsolutions.com/api/v1/owner/dsh-sessions/ingest';
 const TOKEN = process.env.DSH_ARCHIVE_TOKEN || '';
@@ -158,6 +159,51 @@ const key = (s) => `${s.project}/${s.session}`;
 
 // ── shipping ────────────────────────────────────────────────────────────────────────────────────
 
+/** Run a command whose reply is small and may be followed by an ssh that never exits.
+ *
+ * The child is killed the moment the requested reply parses, because:
+ *  - ssh does not reliably exit after the remote command completes (seen on both workstations);
+ *  - the importer prints its summary only after `conn.commit()`, so a parsed reply means durable.
+ * Waiting for exit costs the full timeout per call; killing early costs nothing.
+ */
+function runForReply(cmd, cmdArgs, { parse = true, input = undefined, timeoutMs = SSH_TIMEOUT_MS } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, cmdArgs);
+    let out = '';
+    let err = '';
+    let settled = false;
+    const finish = (fn, arg) => { if (!settled) { settled = true; clearTimeout(timer); fn(arg); } };
+    const timer = setTimeout(() => { child.kill(); finish(reject, new Error(`${cmd} exceeded ${timeoutMs} ms`)); }, timeoutMs);
+
+    const lastLine = () => String(out).trim().split('\n').filter(Boolean).pop() || '';
+    const reply = () => { try { return JSON.parse(lastLine()); } catch { return null; } };
+
+    child.stdout.on('data', (chunk) => {
+      out += chunk;
+      if (!parse) return;
+      const parsed = reply();
+      if (parsed) {
+        child.kill();
+        transportNotes.killedAfterReply = (transportNotes.killedAfterReply || 0) + 1;
+        finish(resolve, parsed);
+      }
+    });
+    child.stderr.on('data', (chunk) => { err += chunk; });
+    child.on('error', (e) => finish(reject, new Error(`${cmd} spawn failed: ${e.message}`)));
+    child.on('close', (code) => {
+      if (settled) return;
+      if (parse) {
+        const parsed = reply();
+        if (parsed) return finish(resolve, parsed);
+        return finish(reject, new Error(`${cmd} exit ${code}: ${String(err).slice(0, 300) || lastLine().slice(0, 200) || 'no reply'}`));
+      }
+      if (code === 0) return finish(resolve, out);
+      finish(reject, new Error(`${cmd} exit ${code}: ${String(err).slice(0, 300)}`));
+    });
+    if (input !== undefined) child.stdin.end(input); else child.stdin.end();
+  });
+}
+
 async function postBatch(payload) {
   const body = JSON.stringify(payload);
 
@@ -173,62 +219,39 @@ async function postBatch(payload) {
     return text;
   }
 
-  // ssh: the importer reads the batch on stdin and prints one JSON summary line.
+  // ── scp (default): write the batch to a file, copy it, import from the file ──────────────────
   //
-  // **The child is killed as soon as its reply parses, not when it exits.** ssh does not reliably
-  // exit after the remote command completes when a large payload is fed on stdin: the first real run
-  // from ZABZ-TECH hung for 10 minutes having shipped nothing, and on ZABZ-YOGA the same run reported
-  // 5 of its batches as killed-after-reply. So it is a property of the transport under load, not of
-  // one machine — I first recorded it as desktop-specific, and that was wrong.
-  //
-  // The importer prints its summary only after `conn.commit()`, so once that line is readable the rows
-  // are durable. Waiting for exit would cost the full timeout on every batch (8 minutes for two
-  // batches, and worse as sessions accumulate); killing early is what keeps an hourly run at seconds.
-  return await new Promise((resolve, reject) => {
-    const child = spawn('ssh', ['-T', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', SSH_HOST, 'python3', IMPORTER]);
-    let out = '';
-    let err = '';
-    let settled = false;
-    let killedEarly = false;
+  // Why not stream it over ssh on stdin: on ZABZ-TECH a 4 MB stdin payload into a remote process
+  // **stalls indefinitely** (measured: 300 s timeout, three orphaned shippers piled up, nothing
+  // shipped), while ZABZ-YOGA ships 73 MB the same way. The difference is the transport under load,
+  // not the payload. scp moves the identical 4 MB file from the same machine in **0.3 s** with a
+  // matching checksum, so the file path avoids the failure entirely instead of racing it.
+  if (TRANSPORT === 'scp') {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const local = path.join(os.tmpdir(), `dsh-batch-${MACHINE}-${stamp}-${process.pid}.json`);
+    const remote = `${REMOTE_INCOMING}/${path.basename(local)}`;
+    fs.writeFileSync(local, body);
+    try {
+      await runForReply('scp', ['-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', local, `${SSH_HOST}:${remote}`],
+        { parse: false, timeoutMs: SSH_TIMEOUT_MS });
+      const parsed = await runForReply('ssh',
+        ['-T', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', SSH_HOST, 'python3', IMPORTER, '--file', remote]);
+      if (!parsed.ok) throw new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200));
+      // best-effort cleanup; a leftover batch file is re-importable and harmless (the upsert is idempotent)
+      runForReply('ssh', ['-T', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', SSH_HOST, 'rm', '-f', remote],
+        { parse: false, timeoutMs: 30000 }).catch(() => {});
+      return JSON.stringify(parsed);
+    } finally {
+      try { fs.unlinkSync(local); } catch { /* already gone */ }
+    }
+  }
 
-    const finish = (fn, arg) => { if (!settled) { settled = true; clearTimeout(timer); fn(arg); } };
-
-    const timer = setTimeout(() => {
-      child.kill();
-      finish(reject, new Error(`ssh exceeded ${SSH_TIMEOUT_MS} ms with no valid importer reply`));
-    }, SSH_TIMEOUT_MS);
-
-    const reply = () => {
-      const lines = out.trim().split('\n').filter(Boolean);
-      const last = lines[lines.length - 1] || '';
-      try { return JSON.parse(last); } catch { return null; }
-    };
-
-    child.stdout.on('data', (chunk) => {
-      out += chunk;
-      const parsed = reply();
-      if (parsed) {
-        if (!parsed.ok) { child.kill(); return finish(reject, new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200))); }
-        killedEarly = true;
-        child.kill();
-        transportNotes.killedAfterReply = (transportNotes.killedAfterReply || 0) + 1;
-        finish(resolve, JSON.stringify(parsed));
-      }
-    });
-    child.stderr.on('data', (chunk) => { err += chunk; });
-    child.on('error', (e) => finish(reject, new Error('ssh spawn failed: ' + e.message)));
-
-    child.on('close', (code) => {
-      if (settled) return;
-      const parsed = reply();
-      if (parsed && parsed.ok) return finish(resolve, JSON.stringify(parsed));
-      if (parsed && !parsed.ok) return finish(reject, new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200)));
-      finish(reject, new Error(`importer exit ${code}: ${String(err).slice(0, 300) || 'no reply'}`));
-    });
-
-    child.stdin.end(body);
-    void killedEarly;
-  });
+  // ── ssh (legacy): stream the batch into the importer on stdin ────────────────────────────────
+  // Kept for hosts where scp is unavailable. Equivalent semantics, worse failure mode under load.
+  const parsed = await runForReply('ssh',
+    ['-T', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', SSH_HOST, 'python3', IMPORTER], { input: body });
+  if (!parsed.ok) throw new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200));
+  return JSON.stringify(parsed);
 }
 
 async function main() {

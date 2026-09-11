@@ -319,6 +319,14 @@ def main() -> int:
     ap.add_argument("--stats", action="store_true")
     ap.add_argument("--search", metavar="QUERY")
     ap.add_argument("--limit", type=int, default=20)
+    ap.add_argument(
+        "--file",
+        metavar="PATH",
+        help="read the batch from a file instead of stdin. This is the preferred path: on some "
+             "machines ssh stalls when several megabytes are streamed into a remote process on "
+             "stdin (measured on ZABZ-TECH, 2026-09-11), while scp moves the same payload in "
+             "fractions of a second.",
+    )
     args = ap.parse_args()
 
     if args.stats:
@@ -328,9 +336,18 @@ def main() -> int:
         print(json.dumps(cmd_search(args.db, args.search, args.limit)))
         return 0
 
-    raw = sys.stdin.read()
+    if args.file:
+        try:
+            with open(args.file, "r", encoding="utf-8", errors="replace") as fh:
+                raw = fh.read()
+        except OSError as exc:
+            print(json.dumps({"ok": False, "error": f"cannot read {args.file}: {exc}"}))
+            return 2
+    else:
+        raw = sys.stdin.read()
+
     if not raw.strip():
-        print(json.dumps({"ok": False, "error": "empty stdin"}))
+        print(json.dumps({"ok": False, "error": "empty input"}))
         return 2
     try:
         export = json.loads(raw)
