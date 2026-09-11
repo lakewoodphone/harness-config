@@ -269,6 +269,49 @@ the outer bound. That is the difference between an hourly run taking seconds and
 **Explicitly not repeated from the old pipeline:** the `--days 1` window that silently loses anything missed
 for a day; the 50 MB skip that hides large sessions; storing only user messages.
 
+### Resolved, 2026-09-11 19:40 — the archive is in the authoritative store
+
+The endpoint went live, additively, without deploying the 55 stale commits: the service module was taken
+from `origin/master` and the auth helper + three routes were **appended** to the production `main.py` (one
+insertion point instead of two anchor matches inside someone else's 735 KB file, with the original backed
+up first and `py_compile` as the gate). The owner's answer to the deployment question was *"you are in
+charge, this is your decision"*, so the smallest reversible change was taken, and the 55-commit
+reconciliation stays a separate decision.
+
+| Layer | Verified |
+|---|---|
+| route | `401` without a token, `200` with — on loopback **and** on the public URL |
+| tokens | its own name, `DSH_SESSION_INGEST_TOKEN`, issued on the authority and placed in each machine's `.env` (never in a task argument, where any process could read it — L44) |
+| backfill | all three machines re-shipped: **83 sessions, 19,866 stored rows, all indexed**, and a search for `ticks_today` returns the phone engine's own *"200 ticks today (Sep 11, through 18:54…"* answer |
+| schedule | both Windows tasks unchanged (the default transport is now `http`); the authority's cron runs `--transport http` against **loopback** |
+| kernel | `session_archive` follows the data into `authoritative` and reports *"83 session(s) / 19,866 event(s) from 3 machine(s); newest 72s ago"* |
+
+**Four defects found by running it, none by reading it:**
+
+1. **`database is locked`, four times** (`error_log` 809–812), and `busy_timeout` did **not** fix it. The
+   cause was the *transaction shape*: Python's `sqlite3` opens a deferred transaction on the `SELECT` that
+   checks whether a session changed, and the following `INSERT` has to upgrade a read transaction to a write
+   one — which fails with `SQLITE_BUSY` **immediately** if any other connection committed in between.
+   Waiting cannot make a stale snapshot current. Committing after the read fixes it properly. The diagnosis
+   came from the gap between two measurements: an independent writer got the lock in **0.01 s** when the
+   database was calm, yet the ingest failed under load, so the lock was never held long.
+2. **One 2,384-row, 10 MB session** could not finish inside a single HTTP deadline → the shipper now sends
+   **300 rows per request** (the protocol already carried `start_row`, so nothing new was needed), and the
+   cursor advances only with a session's *last* fragment so an interrupted session is re-sent whole.
+3. **A backfill stampede** — a hundred inserts back to back while the company writes continuously; the WAL
+   sat at exactly its 64 MiB limit, the signature of checkpoint starvation. Now paced at 250 ms, with one
+   retry after a 5xx, because a batch that throws is a batch the cursor refuses to skip.
+4. **An ambiguous statistic of my own**: the per-machine event figure summed each session's *declared* row
+   count (including rows not yet shipped from live sessions) and read 31,251 against 19,866 stored rows. It
+   now counts what is actually stored. Two numbers claiming to count the same thing and disagreeing are
+   worse than one number.
+
+The standalone archive at `/home/zabz/dsh-archive/dsh-archive.db` is left in place as a **frozen copy** of
+what shipped before the endpoint existed. Nothing is deleted.
+
+**Explicitly not repeated from the old pipeline:** the `--days 1` window that silently loses anything missed
+for a day; the 50 MB skip that hides large sessions; storing only user messages.
+
 **Deliberately not done:** routing sessions to Project Hub projects. The Copilot ingest auto-creates a project
 when nothing matches, and DSH sessions are scoped by a raw cwd slug — that would sprinkle junk projects into
 the owner's hub before anyone decided the mapping. `cwd` is stored instead; the link can be added

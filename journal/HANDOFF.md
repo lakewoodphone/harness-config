@@ -14,7 +14,120 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ---
 
-## 2026-09-11 19:25 · ZABZ-YOGA · The kernel now watches the machinery I built — and can see it stop
+## 2026-09-11 19:45 · ZABZ-YOGA · The DSH session archive is in the authoritative database — the objective is closed
+
+**CHANGED — the last item of the owner's three-part ask is delivered.**
+Every DSH conversation, from all three machines, now arrives in `secretary.db` through the company's own
+ingest endpoint. Verified end to end:
+
+| Layer | Evidence |
+|---|---|
+| endpoint live | `401` without a token, `200` with — loopback **and** the public URL |
+| backfill | **83 sessions, 19,866 stored rows, all FTS-indexed**; a search for `ticks_today` returns the phone engine's own *"200 ticks today (Sep 11, through 18:54…"* answer |
+| three machines | `zabz-yoga` 68 sessions/18,472 rows · `zabz-tech` 11/1,268 · `secratary` 4/126 |
+| scheduled | Windows tasks unchanged (the shipper's default transport is now `http`); the authority's cron runs `--transport http` against **loopback** |
+| kernel | `session_archive` now reads the authoritative store: *"83 session(s) / 19,866 event(s) from 3 machine(s); newest 72s ago"* — it followed the data instead of going quiet and then crying wolf |
+
+**Deployed WITHOUT the 55-commit reconciliation**, which was the point of asking. The owner answered *"you
+are in charge, this is your decision"*, so the smallest reversible change was taken: the service module came
+from `origin/master`, and the auth helper + three routes were **appended** to the production `main.py` —
+one insertion point rather than two anchor matches inside someone else's 735 KB file — with the original
+backed up and `py_compile` as the gate. Two restarts, ~15 s each, health verified after both.
+
+**FOUR DEFECTS FOUND BY RUNNING IT — none by reading it, and the first one was misdiagnosed once:**
+
+1. **`database is locked` ×4** (`error_log` 809–812), and **`busy_timeout` did not fix it** — I raised it,
+   redeployed, and it failed again. The real cause is the *transaction shape*: Python's `sqlite3` opens a
+   deferred transaction on the `SELECT` that checks whether a session changed, and the following `INSERT`
+   must **upgrade** a read transaction to a write one, which fails instantly with `SQLITE_BUSY` if another
+   connection committed in between. Waiting cannot refresh a stale snapshot; committing after the read
+   fixes it. *The diagnosis came from the gap between two measurements:* an independent writer got the lock
+   in **0.01 s** when the database was calm, yet the ingest failed under load — so the lock was never held
+   long. **L52 candidate: when a timeout-shaped fix doesn't work, the problem is not timing.**
+2. **One 2,384-row / 10 MB session** could not finish inside a single HTTP deadline → 300 rows per request
+   (the protocol already carried `start_row`), with the cursor advancing only on a session's last fragment.
+3. **A backfill stampede**: a hundred inserts back to back while the company writes continuously. The WAL sat
+   at exactly its 64 MiB limit — the signature of checkpoint starvation. Now paced, with one retry on 5xx.
+4. **A statistic of mine that lied**: the per-machine event figure summed *declared* row counts and read
+   31,251 against 19,866 stored. It now counts what is stored.
+
+**Left in place, deliberately:** the standalone archive at `/home/zabz/dsh-archive/dsh-archive.db` is a
+frozen copy of what shipped before the endpoint existed. Nothing deleted.
+
+**STILL OPEN, and it is now the biggest standing risk in the fleet:** the production checkout is **55+
+commits behind with nine uncommitted files including ~510 lines of live work** (Shabbat/Shelly). Tonight's
+change was additive; that reconciliation is still nobody's job. Also open: `ps_mcp_server.py` opens the
+company database **read-write** (`sqlite3.connect(DB_PATH)`, no `mode=ro`) while every tool it exposes is
+read-only SQL — three such connections were holding it open during this work.
+
+**EVIDENCE**
+- `harness-config/docs/dsh-mobile/01-DESIGN-AND-PLAN.md` Phase 3 "Resolved"; commits `ee2f61e`, `bc7fb6d`,
+  `b6a77e239`, `52d96870a` (company repo); `error_log` rows 809–812; the stats/search output above
+
+---
+
+## 2026-09-11 19:55 · ZABZ-YOGA · Audited all four comms channels; the boss's drafts are 22/22 unanswered
+
+**CHANGED — one new kernel check, `comms_freshness`, live on the authority's scheduled run.**
+It asks the only question an empty queue cannot fake: what is the *newest row timestamp* in each
+channel that carries customers. It immediately reported HIGH, and was right to:
+
+| Signal | Measured on the authority |
+|---|---|
+| email triage | 13m — healthy |
+| Dialpad SMS harvest | 1.6h — healthy, but **nothing is scheduled to crawl it** |
+| **call capture lag (median)** | **17.5h** — half of all calls reach the DB most of a day late |
+| **email drafts pending review** | **36 recent / 60 total, oldest 97d** |
+| voicemail crawl (Playwright) | 2,139h — a metric, deliberately **not** a budget (see below) |
+
+**Three self-corrections made before trusting it, all found by running it, not reading it:**
+1. The voicemail probe reads `dialpad_ui_voicemail_row`, the **manual Playwright crawl that last ran
+   2026-06-14**. As a budget it was a permanent false alarm — and a surface that cries wolf gets
+   ignored (P6). It is now a reported metric only.
+2. "Calls stale 10h" measured age-of-newest-row, which **a quiet night fakes**. Replaced with capture
+   lag: how long after a call ends its row arrives. Cannot be faked by silence.
+3. The lag SQL compared a REAL column to a TEXT `strftime()` result, so it silently matched zero rows
+   and read `None`. Cast explicitly. (This is the *second* time this session a silent-empty query
+   looked like a healthy answer — see L-note below.)
+
+**THE FINDING THAT MATTERS MOST: the email reply loop has never worked.**
+292 drafts have been generated and **3 have ever been sent — none in the last 30 days.** 36 sit in
+`pending_review` right now. Nothing surfaces them to the owner, so every proposed reply has died in
+the queue. Two drafts contain the literal placeholder *"I'll draft a reply matching the owner's
+style."* instead of a reply. Reported to the owner as a boss question, because what to do with a
+97-day-old backlog is his call.
+
+**Verified channel state (all read from `/home/zabz/personal-secretary-mvp/data/secretary.db`):**
+- **Gmail: working.** 4/4 accounts authenticated, `gmail_list`/`gmail_read`/`gmail_search` return live
+  data. `gmail_search` failed twice with `Connection refused` then succeeded on the identical call —
+  flaky, not broken; worth a retry-in-action fix later.
+- **SMS: fresh data, late arrival.** `dialpad_sms_cache` holds 127,632 messages and 37 in the last
+  24h, but records arrive ~8h+ behind. **No harvester is scheduled anywhere** — not in the crontab,
+  not as a work order. This is the single highest-value gap.
+- **Calls/voicemail: working, late.** 12,445 calls, 5,644 with transcripts. Voicemail notification
+  emails *are* intercepted and largely get tasks — but `Caller Wireless` entries return no card and
+  are skipped at `email_actions.py:203`.
+- **Google Voice: dead and unmonitored.** 6,062 consecutive 401s, last OK 2026-07-02. Not raised on,
+  because the number is documented as retiring.
+- **`sms_log` is not a record of outbound texts.** 1 row since Sep 7, while the crawl shows real
+  outbound replies that day. Texts sent from the Dialpad app never enter it, so the `sms_log`-based
+  duplicate guard cannot see them.
+
+**NEXT**
+1. **Ask the owner** what to do with the 36-draft backlog (boss question — it is his voice going out).
+2. Schedule the Dialpad SMS/call harvest — it is the root cause of the 17.5h lag and the 8h SMS lag.
+3. Only after (2): flip the voicemail crawl and SMS budgets from metrics to enforced.
+
+**EVIDENCE**
+- kernel commits `96406d9`, `75fdd32`, `7b63525`, `97cfe81` (pushed to `secretary-ts:/home/zabz/ceo-kernel.git`)
+- `python3 -m ck status --no-colour` on `secratary` → `[! ] comms_freshness` with 8 AUTHORITATIVE refs
+- `email_drafts`: 292 total / 3 sent / 0 sent in 30d; `dialpad_sms_cache`: 37 msgs in 24h
+- verifier: `_scratch/comms-verify/run_on_authority.py`
+- **A refusal that was correct:** the Yoga replica has only 173 tables, so the kernel refused to read
+  it (`< 190 tables; structurally old`). The check reported `unknown`, not health. Provenance held.
+
+---
+
 
 **CHANGED — Phase 5 delivered: three absence-shaped checks in the CEO kernel.**
 The kernel asked whether the *company* was working; it now also asks whether the machinery around it is.
