@@ -856,3 +856,12 @@ one fact from him, ask **one** clear question and then continue working — the 
 point. Encoded as persona rule 2c so it outlives this session. This is the same error as L59 (handing him
 documents) in a different costume: both are me treating the owner as the audience for my work instead of the
 customer of it.
+
+**L105 · `Process.HasExited` on a detached child can block for the child's whole lifetime.**
+`dshw`'s readiness loop sampled `$proc.HasExited` every 500 ms to notice a dead engine. On Windows, against a
+process started detached, that property call blocked instead of returning — so `dshw up` sat there until its
+outer timeout (420 s, then 600 s) while the engine was up, serving, and had written its state. The script
+looked broken and was not. Readiness is now **the log's URL line plus a listening port**; a child that dies
+fails the timeout and the error path prints its stderr, so nothing is lost by not asking the process object.
+Corollary: prefer observable facts a child publishes (a bound port, a log line) over handle-derived state,
+because a handle can be a place where the caller blocks rather than a place where it reads.
