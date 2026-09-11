@@ -89,6 +89,24 @@ def plan_settings(hostname: str, dry: bool) -> str:
     return f"settings.yaml: written ({len(rendered)} bytes)"
 
 
+def _norm(data: bytes) -> bytes:
+    """Normalise line endings for comparison.
+
+    Windows git with core.autocrlf=true rewrites LF to CRLF on checkout, while the
+    live files under ~/.dsh are LF. Byte comparison would then report a difference
+    that never converges and rewrite the preset on every sync. Compare content, not
+    line endings.
+    """
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def _same(a: Path, b: Path) -> bool:
+    try:
+        return _norm(a.read_bytes()) == _norm(b.read_bytes())
+    except OSError:
+        return False
+
+
 def plan_presets(dry: bool) -> list[str]:
     msgs: list[str] = []
     src_root = REPO / "presets"
@@ -105,7 +123,7 @@ def plan_presets(dry: bool) -> list[str]:
             target = dest / rel
             if not target.exists():
                 changed.append(f"+ {rel}")
-            elif not filecmp.cmp(f, target, shallow=False):
+            elif not _same(f, target):
                 changed.append(f"~ {rel}")
         if not changed:
             msgs.append(f"preset {preset.name}: up to date")
@@ -120,7 +138,9 @@ def plan_presets(dry: bool) -> list[str]:
                 if f.is_file():
                     target = dest / f.relative_to(preset)
                     target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(f, target)
+                    # write LF explicitly: the source of truth is LF, and the
+                    # harness reads these files directly.
+                    target.write_bytes(_norm(f.read_bytes()))
             msgs.append(f"preset {preset.name}: applied ({len(changed)} file(s))")
 
     # report unknown local presets rather than deleting them

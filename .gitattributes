@@ -1,0 +1,22 @@
+# Line-ending policy for a fleet that must stay byte-identical.
+#
+# Windows git defaults to core.autocrlf=true, which rewrites LF to CRLF on
+# checkout. The live presets under ~/.dsh are LF, so without this file every
+# machine would show perpetual phantom changes and rewrite the preset on every
+# sync -- a difference that never converges.
+#
+# Force LF everywhere. These files are configuration, not source with
+# platform-specific build expectations.
+
+* text=auto eol=lf
+
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.py    text eol=lf
+*.sh    text eol=lf
+
+# never touch binaries
+*.png binary
+*.jpg binary
+*.zip binary
