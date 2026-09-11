@@ -66,18 +66,44 @@ const BATCH_BYTES = 4 * 1024 * 1024;
 const SSH_TIMEOUT_MS = Number(process.env.DSH_ARCHIVE_SSH_TIMEOUT_MS || 240000);
 const transportNotes = {};
 
-// Two transports, same payload:
-//   ssh  (default) — pipe the batch into the importer on the authority. Works today.
-//   http            — POST to the in-app endpoint. Staged but NOT deployed: the
-//                     authority's company checkout is 51 commits behind with
-//                     hand-edited app/main.py, so the endpoint is not live yet.
-const TRANSPORT = opt('--transport', process.env.DSH_ARCHIVE_TRANSPORT || 'scp').toLowerCase();
+// ── transports, one payload ─────────────────────────────────────────────────────────────────────
+//
+//   http   (default) — POST to the company's own ingest endpoint. This is the intended home: the rows
+//                      land in the authoritative `secretary.db`, written by the app that owns that
+//                      database, so there is no second writer and no separate store to keep in step.
+//                      Live since 2026-09-11 19:16 (the route is additive on the production checkout).
+//   scp              — the interim path: copy the batch to the authority and import it there. Kept as a
+//                      fallback for when the API is down, and it is what fills the standalone archive.
+//   local            — for the archive host itself.
+//   ssh / stdin      — legacy, for hosts without scp.
+const TRANSPORT = opt('--transport', process.env.DSH_ARCHIVE_TRANSPORT || 'http').toLowerCase();
 const SSH_HOST = process.env.DSH_ARCHIVE_SSH_HOST || 'secretary-ts';
 const IMPORTER = process.env.DSH_ARCHIVE_IMPORTER || '/home/zabz/harness-config/scripts/dsh-archive-import.py';
 const REMOTE_INCOMING = process.env.DSH_ARCHIVE_INCOMING || '/home/zabz/dsh-archive/incoming';
 const ENDPOINT = process.env.DSH_ARCHIVE_ENDPOINT
   || 'https://api.abletelsolutions.com/api/v1/owner/dsh-sessions/ingest';
-const TOKEN = process.env.DSH_ARCHIVE_TOKEN || '';
+
+/** The ingest token: environment first, then the repo `.env` the fleet already keeps secrets in.
+ *
+ * Secrets belong in files, not in scheduled-task arguments -- a token on a command line is visible to
+ * every process on the machine, which is the same mistake as putting one in a log line (LESSONS L44).
+ * This mirrors how `push_vscode_chats.py` already finds its own ingest token.
+ */
+function ingestToken() {
+  if (process.env.DSH_ARCHIVE_TOKEN) return process.env.DSH_ARCHIVE_TOKEN.trim();
+  const candidates = [
+    path.join(os.homedir(), 'code', 'personal-secretary-mvp', '.env'),
+    path.join(os.homedir(), 'Code', 'personal-secretary-mvp', '.env'),
+  ];
+  for (const file of candidates) {
+    try {
+      const line = fs.readFileSync(file, 'utf8').split('\n').find((l) => l.startsWith('DSH_SESSION_INGEST_TOKEN='));
+      if (line) return line.slice('DSH_SESSION_INGEST_TOKEN='.length).trim().replace(/^["']|["']$/g, '');
+    } catch { /* try the next */ }
+  }
+  return '';
+}
+const TOKEN = ingestToken();
 
 // ── reading bytes ───────────────────────────────────────────────────────────────────────────────
 
