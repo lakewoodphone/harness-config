@@ -912,6 +912,52 @@ findings in `holdings-2026-09-11.md`.
 
 ---
 
+## 2026-09-11 19:05 · ZABZ-YOGA · The `+` control exists, and the app no longer opens eight windows at you
+
+**CHANGED**
+- **`packages/plugin-windows`** (new): a `+` control beside the composer. Clicking it navigates the page to
+  `dsh-new://open`, which Windows hands to `dshw.ps1 new` — one new window, one new conversation. The host
+  half is deliberately inert, so the engine is never a process-spawning pipe for a page and `dshw new` stays
+  the single implementation of "open another window". Protocol registered in `HKCU\Software\Classes\dsh-new`.
+  Verified present in the payload the engine serves (`plugin rows in the payload: dsh-plugin-windows`).
+- **`dshw up` no longer opens windows.** Starting the engine and opening windows are separate intentions; the
+  default is engine-only. Windows come from `dshw new`, the `+` control, or the desktop shortcut
+  (`-WindowsMode yes`). The logon task was re-registered with `-WindowsMode no`.
+- Restarted the fleet engine with state recorded, and taught `_scratch/start-fleet-engine.ps1` + `verify-boot.ps1`
+  to bring an engine up and read back exactly what it serves.
+
+**ROOT CAUSE of the screen he sent**
+`HARNESS / Failed to load plugins / web boot: 1 entry did not activate / dsh-plugin-cost: pending (waiting for
+services: …)`. The browser loader resolves **every** name in a plugin's `inject` and in the package's
+`dsh.client.inject` as a *service*, and holds the entry at `pending` until each one exists. `plugin-cost`
+declared two package ids and later `optional: ['slots']`; none ever resolved, so the entry never activated and
+the loader **asserted, blanking the entire UI** (shell bundle `assertEntriesActive`). A broken cost pill took
+the whole interface down. Fixed in the package (declares nothing; reads slots with `ctx.get('slots')`,
+rebuilt and verified byte-for-byte). **The cost bundle is unmounted in the local profile for now** — the
+interface had to work before the decoration, and the pill has not been re-verified. L103, P18.
+
+**ALSO FIXED**
+- `Stop-ServerTree` assigned `$pids`; PowerShell's read-only `$PID` is the same name case-insensitively, so the
+  function threw and `dshw restart` **hung for seven minutes with no output** — twice. Renamed. L104.
+- `dshw up`'s summary printed the number of windows it *considered*, not opened.
+
+**BROKEN / KNOWN**
+- The cost pill is unmounted (above). `/cost` is gone until it is re-verified.
+- The stranded engines on 3080 and 3085 still exist beside the fleet on 3099; the eight old fleet windows lost
+  their session when the engine was restarted, so their pages need a reload.
+- `dshw down/stop` must be re-tested now that `$pids` is fixed; the path was never exercised after the rename.
+
+**NEXT**
+Re-verify the cost pill, remount it, then re-test `down`/`stop`, then deploy `plugin-windows` + the protocol
+registration to ZABZ-TECH (pull, copy the package into the profile, `dshw tasks-import`).
+
+**EVIDENCE**
+- commits `d68c380` (button + three fixes), `01debd2` (L103/L104), `513e1ab` (P18)
+- `C:\Users\ezabz\.dsh\profiles\web\package.json` (bundles: base, web-app, plugin-windows)
+- `HKCU:\Software\Classes\dsh-new\shell\open\command`
+- `verify-boot.ps1` output: index 27,879 bytes, `mentions plugin-windows: True`, `mentions plugin-cost: False`
+
+---
 ## 2026-09-11 18:10 · ZABZ-YOGA · The fleet heals itself, and the ninth window is one shortcut away
 
 **CHANGED** (commits `6f3bf38`, `dbc4e01`)
