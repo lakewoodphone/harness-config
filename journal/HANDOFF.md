@@ -1140,3 +1140,62 @@ and one that can act on the company.
 - `~/code/personal-secretary-mvp/docs/secretary-replacement-audit/` (7 documents)
 - Sentinel run on `secratary`: 4 findings, including `engineering_indexer` dead weight and a
   131-day-old question — both new discoveries
+
+---
+
+## ⚠ ID allocation — read before adding an entry (2026-09-11)
+
+(UNCHANGED HEADER — see the lessons file for the allocation rule.)
+
+## 2026-09-11 · Fleet monitoring was dead for 67 days; now it is not
+
+**This is the headline of the session.** Every monitoring signal for the Kosher Waze / LPT fleet was
+blind, and no alert ever fired. Established by direct measurement, not inference:
+
+- `fleet_devices.last_seen` is **NULL for all 65 devices**, always, and **no code path writes it**.
+  Anything reading it concludes every device is stale — which is why an earlier "stale devices" reading
+  was meaningless.
+- `/fleet/sweep` runs from cron **every minute** but selects only `state = 'registered'`. There are
+  **zero** such devices, so it selected nothing and wrote nothing. Forever.
+- `fleet_queue_snapshots` last received a row **2026-07-05**; `fleet_device_health_history` **2026-07-06**.
+- `fleet_alerts` had **no staleness producer at all** — the only insert in the module is an `info` note
+  when Activation Lock is enabled. Hence silence since 2026-07-12.
+- The real liveness source is `enrollments.last_seen_at` (NanoMDM's own check-in), which IS current and
+  simply isn't what `last_seen` reads. **62 of 65 devices have not checked in for over a week; only 3
+  in the last 24h.** That is the state the fleet was actually in while everything reported healthy.
+
+**Built:** `/fleet/monitor/run` (+ `GET /fleet/monitor`), on cron every 30 minutes. Liveness from
+`enrollments.last_seen_at`; 48h warning / 168h critical staleness; cap-proximity alerts at 80%/100%;
+per-(device, category) alert de-duplication; and it **refuses** (`ok:false`) when no device has any
+recorded check-in rather than reporting health from blindness. Verified: 62 alerts persisted, idempotent
+across runs, health history growing again (980 frozen since July → 1175 and current).
+
+**Root cause of four separate-looking 500s, and one silent failure.**
+`fleet_api.py` was written for SQLite, where rows are `sqlite3.Row` and support **both** `row[0]` and
+`row["col"]`. PostgreSQL returns plain tuples, so every name access raised
+`tuple indices must be integers or slices, not str`. Measured: **~73 positional vs ~88 name accesses**,
+so switching to dict rows globally would have broken the other half. `compat_row.py` implements
+`sqlite3.Row` semantics and is wired once in `get_db()`. This fixed `/fleet/telnyx/usage`,
+`/customers`, `/billing` and the monitor.
+*And a schema drift that ate every alert:* the live `fleet_device_health_history` has a **`NOT NULL
+serial`** column the app's `SCHEMA_SQL` never declares. Every history insert failed; because PostgreSQL
+**aborts the whole transaction** on a failed statement (25P02), all 62 subsequent alert inserts failed
+too — while the endpoint returned **200** with `created: 1`. Fixed by dropping the NOT NULL, backfilling,
+declaring it in the schema, and committing **per device** so one bad write cannot strand the rest. The
+monitor now reports `history_errors`/`failed_devices`/`complete`.
+
+**Also fixed:** psycopg parses placeholders from the whole query text, so a literal `%` inside
+`LIKE '%stale%'` is a syntax error. The converter now escapes `%` inside string literals (tracking `''`
+escapes) while leaving real placeholders and bound values alone.
+
+**Commits:** `c74395942` (monitoring + CompatRow), plus earlier `6f2a5195b`, `3ba33b23d`, `072f636a9`,
+`3a228f959`. **103 tests passing** (was 66). Eight endpoints return 200.
+
+**LESSONS LANDED THIS SESSION:** L34 (a job can succeed and write nowhere anyone reads), **L52** (a fix
+verified through one entry point is not verified — test the path the consumer takes), plus an
+ID-allocation rule for the lessons file after finding **seven duplicated lesson numbers** from
+concurrent sessions. **PAIN P15, P16, P17.**
+
+**NEXT:** the customer + staff portal surfaces. The contract is corrected and settled
+(`deploy/waze-mdm/docs/customer-portal-waze-module.md`); the endpoints are live and verified. Blocked on
+one question: which portal app and repo serves LPT customers in production.
