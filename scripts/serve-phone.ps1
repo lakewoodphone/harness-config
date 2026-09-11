@@ -62,7 +62,9 @@ function Get-PhoneEngines {
 # --- -Status ---------------------------------------------------------------------------------
 if ($Status) {
   $engines = @(Get-PhoneEngines)
-  Say ("engine on :{0}  ->  {1}" -f $Port, if ($engines.Count) { "running (pid $($engines[0].ProcessId))" } else { 'NOT running' })
+  # PowerShell will not accept an inline if/else as an argument, so resolve it first.
+  $engineState = if ($engines.Count) { "running (pid $($engines[0].ProcessId))" } else { 'NOT running' }
+  Say ("engine on :{0}  ->  {1}" -f $Port, $engineState)
   $served = (& $ts serve status 2>&1) -join "`n"
   Say $served
   $tok = if (Test-Path $logPath) { (Select-String -Path $logPath -Pattern 'token=([A-Za-z0-9_\-]+)' | Select-Object -Last 1).Matches.Groups[1].Value } else { $null }
