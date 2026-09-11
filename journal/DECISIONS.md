@@ -323,3 +323,12 @@ git), and forking the client (a rebuild per harness release for a stylesheet). S
 CSS-module local-name substrings and ARIA semantics rather than hashes so a client rebuild does not silently disable it,
 and reversible with `PHONE_MOBILE_CSS=0` without a code change. Supersede this with a real client plugin once a session
 has the `cordis_*` tooling: state behaviour (closing the drawer on navigation) is out of a stylesheet's reach.
+
+**D38 · 2026-09-11 · Phone behaviour is split by what it needs: CSS where any browser must get it, a client plugin where state is involved.**
+`assets/mobile.css`, injected by the gate, carries what a stylesheet can express and what must work even in a browser without
+the plugin: touch targets, the 16px field font that stops iOS auto-zoom, safe-area insets, and the open drawer overlaying
+rather than squeezing the content. `packages/plugin-mobile` carries state — closing the drawer once a conversation has been
+picked — because a stylesheet cannot see a selection. Both use the same 768px breakpoint, so there is one definition of
+"narrow" rather than two that drift. The plugin is installed through a symlink plus a bundle-list entry (neither in git) and
+`serve-phone.sh` reinstall checks them, on the same reasoning as the gate: a component that can silently disappear needs a
+keeper, not a procedure.

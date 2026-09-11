@@ -1083,3 +1083,20 @@ mechanism. *Rules:* (1) an entry is identified by its **title**, so cite `P45 (e
 configured `merge=union` in `.gitattributes`, because picking a side on an append-only log silently deletes another
 session's memory — the tempting resolution is the dangerous one. Merged tails can end up slightly out of timestamp
 order; entries carry their timestamps, so order is cosmetic and reordering them is not worth the risk of mangling one.
+
+---
+
+## On deploys that do nothing (phone plugin, 2026-09-11 22:00 UTC)
+
+**L144 · 2026-09-11 · Check the exit code of the command you think you ran.**
+I wrote a commit, then branched on `$LASTEXITCODE` — which was still the *commit's* status, because the push line was simply
+missing from the script. It printed "pushed from local master" and the remote never moved. The next run on the authority
+therefore had neither the new probe check nor the self-healing install, and reported 11/11 while I was reading it as
+confirmation of a 12-check file. *Rule:* after any deploy, compare the two hashes — local HEAD against the remote's — rather
+than trusting an exit code, and prefer a verification that reads the far side (`git log` there, `grep` the deployed file).
+*Cost:* one false "verified" in a report, caught only because a check count did not add up.
+
+**L145 · 2026-09-11 · A monitor that is not deployed is not a monitor.**
+The whole point of probe check 11 is that it fails when the phone silently loses its plugin. It could not fail: it did not
+exist on the machine that runs it. The count (11 vs 12) is the only reason I noticed. *Rule:* when adding a check, prove it
+by running it on the host that will run it, and read its line in the output — never infer it from a green summary.

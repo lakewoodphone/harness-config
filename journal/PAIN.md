@@ -785,3 +785,15 @@ drawer. What it cannot fix is state: selecting a session in the drawer leaves th
 and a phone-first composition wants the rail gone and the drawer to close on navigation. The honest fix is a proper
 client plugin inside the DSH package — blocked only on tooling: the `cordis_*` tools are not in this session's toolset,
 so that work needs a session that has them.
+
+## P46 — The phone still has no default workspace, and the rail costs 14%
+**Symptom.** Two things the mobile layer deliberately did not solve. A conversation started from a fresh phone asks the user
+to choose a workspace before the composer accepts a message (his sessions land in `/home/zabz/_scratch` once chosen, and the
+harness remembers it afterwards). And the 56px rail costs 14% of a 393px screen.
+**Evidence.** Measured at 393x852: rail 56px, content column 337px; the composer's send control stays disabled until a
+workspace is picked. Hiding the rail was tried and reverted — it collapsed the content column to 56px (L142).
+**Cost.** One extra tap on first use, and a permanently narrower transcript.
+**Fix, in order.** (1) A default workspace so a new phone session is immediately usable — the harness stores the remembered
+workspace client-side per profile, so this is a client-plugin job like the drawer was, not a config value. (2) Only then
+revisit the rail: it needs the app's own layout to give the width back, which may mean the plugin asks the sidebar to
+collapse rather than a stylesheet hiding it.

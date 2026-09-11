@@ -276,3 +276,12 @@ home indicator; the open sidebar **squeezed the content column to 113px → over
 the Chat/Trajectory tabs **27x25 → 64x44**; icon glyphs **unchanged** (max 24px, median 15px) after the regression that
 inflated them was caught and fixed. `scripts/probe-phone.py` carries it as check 10 (11/11) so it cannot silently stop
 being served. Desktop is untouched by construction: everything is scoped to `max-width: 768px`.
+
+**W24 · 2026-09-11 · The phone's drawer now closes itself when a conversation is picked, and desktop is untouched.**
+`packages/plugin-mobile` — a client plugin whose only behaviour is that one, because it is the one the stylesheet could not
+reach. Measured at 393x852 on the live app: pick a conversation with the drawer open → **drawer 339px open → 56px closed**,
+conversation visible behind it; before the plugin, the same tap left the drawer covering the screen. A tap on the scrim
+closes it too, as does Escape. At 1440px the sidebar **stays open at 280px** before and after the same tap, so desktop
+regression is excluded by measurement, not by intent — the plugin tests `matchMedia('(max-width: 768px)')` per click.
+`probe-phone.py` check 11 fails if the roster stops carrying it (12/12), and `serve-phone.sh` reinstalls the symlink and the
+bundle-list entry when either is missing, so the behaviour cannot vanish without a red check.
