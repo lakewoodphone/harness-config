@@ -590,3 +590,49 @@ Image-resolution choices therefore move cost more than switching providers does.
 *Rule:* before comparing vendors, fix the input. Downscale, choose the cheapest sufficient tokenisation, then
 compare — and note that a vision cost table built without stating the image size and tokenisation is not
 comparable to anything else. This is L42's "quote the number" applied to model inputs.
+
+---
+
+## On configuration that lies (Home Assistant, 2026-09-11 late)
+
+**L100 · A nested key at the wrong indentation is a silent no-op, and the reload will still say success.**
+Three files in `ha-config` contained YAML that was **valid YAML and structurally wrong**. The worst one:
+`phoenix_alarm_mac_on` and `_off` were indented with a **single space**, which put them at the same level as
+`rest_command:` rather than inside it. Home Assistant parsed the file, found no such commands, and carried on.
+Nothing errored. `rest_command.reload` returned success. A comment in the file said the siren was wired.
+*What was actually true:* `rest_command.phoenix_alarm_mac_on` and `_off` were **absent from the live service
+list** while `script.phoenix_intrusion_reset` called one of them — so the audible alarm had had nothing to call
+since the Alexa announcements were removed, and no one could see it from either side.
+The same session found `configuration.yaml`'s entire `http:` block mis-indented (so a brute-force IP ban added
+2026-09-05 had *never once* been active, while a comment claimed the hardening was in place) and
+`phoenix_security.yaml` failing to parse outright.
+*Rule:* for configuration that gets deployed, **validate the artefact before shipping it** — parse it with the
+target system's own tags registered, then assert the specific things it is supposed to define
+(`rest_command` names, sequence shape), not merely that it parsed. "It parsed" and "the system has it" are
+different claims. And on the reading side: **a green reload is not evidence the configuration loaded** — ask the
+system for the name the config was supposed to create. That question takes one call and would have caught this
+months earlier.
+*Cost:* an alarm the owner believed was audible, and a brute-force ban he believed was on. Both were in git,
+both looked finished, neither existed at runtime.
+
+**L101 · Two generations of one thing is worse than none, and the cheap way to find it is to ask what already exists.**
+Before deploying the repo's `automations/` tree — which the live host does **not** load — the question that
+mattered was not "is this file valid" but "does the live system already define these ids". The repo's
+`access_control.yaml` alone carries 38 automation ids, and the system already runs a Phoenix access-control
+master controller from its packages. Merging blind would have produced two live access-control generations on
+the same doors: precisely the defect pattern already measured here (41 orphaned Keymaster entities, 114
+collision-suffixed entities, `_2` and `_10` twins).
+*Rule:* before adding configuration to a running system, enumerate what the running system already has and diff
+the **names**, not the contents. A duplicate key is not a syntax error — it is a behavioural one, and it is
+silent.
+*How this was avoided:* the check exists (`check_dup_autos.py` logic) and I ran it before copying, which is why
+one directory of the deploy was stopped and the rest was not.
+
+**L102 · When a fix is a one-line structural change, deploy it and observe the specific service — not the summary.**
+`rest_command.reload` was accepted, returned success, and the service list afterwards contained
+`phoenix_alarm_mac_on` and `_off`. That is the observation. By contrast, the earlier restart "verification" —
+`/api/config` answering 200 after a few seconds — proved only that a process answered HTTP. It took reading the
+service list and grepping the log for `invalid config|failed to parse` (0 hits) to know the deploy was clean.
+*Rule:* verify a change by reading the exact thing the change was supposed to create, and by reading the
+negative space around it (no new parse errors, no missing chain members). This is L46/L52 one layer up again:
+the summary is fine, the specific is proof.
