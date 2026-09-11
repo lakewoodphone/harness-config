@@ -228,13 +228,9 @@ async function postBatch(payload) {
     const local = path.join(os.tmpdir(), `dsh-batch-${MACHINE}-${stamp}-${process.pid}.json`);
     fs.writeFileSync(local, body);
     try {
-      const r = spawnSync('python3', [IMPORTER, '--file', local],
-        { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, timeout: SSH_TIMEOUT_MS });
-      const line = String(r.stdout || '').trim().split('\n').filter(Boolean).pop() || '';
-      let parsed = null;
-      try { parsed = JSON.parse(line); } catch { /* reported below */ }
-      if (r.error) throw new Error('local import failed: ' + r.error.message);
-      if (!parsed) throw new Error(`local import exit ${r.status}: ${String(r.stderr || line).slice(0, 300)}`);
+      // same reply-parsing helper as the remote paths: it parses the importer's JSON line and kills the
+      // child, so a slow exit can never stall a scheduled run
+      const parsed = await runForReply('python3', [IMPORTER, '--file', local]);
       if (!parsed.ok) throw new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200));
       return JSON.stringify(parsed);
     } finally {
@@ -286,7 +282,10 @@ async function main() {
   console.log(`sessions: ${found.length} on disk`);
   console.log(`transport: ${DRY ? '(dry run — nothing sent)' : TRANSPORT}`);
   if (!DRY) {
-    console.log(`target   : ${TRANSPORT === 'http' ? ENDPOINT : `${SSH_HOST}:${TRANSPORT === 'scp' ? REMOTE_INCOMING : 'stdin → ' + IMPORTER}`}`);
+    const target = TRANSPORT === 'http' ? ENDPOINT
+      : TRANSPORT === 'local' ? IMPORTER
+      : `${SSH_HOST}:${TRANSPORT === 'scp' ? REMOTE_INCOMING : 'stdin → ' + IMPORTER}`;
+    console.log(`target   : ${target}`);
   }
   console.log('');
 
