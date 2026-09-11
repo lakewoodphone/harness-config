@@ -66,6 +66,9 @@ const BATCH_BYTES = 4 * 1024 * 1024;
 const BATCH_ROWS = Number(process.env.DSH_ARCHIVE_BATCH_ROWS || 300);
 // A transport must never be able to hang a scheduled job forever (see postBatch).
 const SSH_TIMEOUT_MS = Number(process.env.DSH_ARCHIVE_SSH_TIMEOUT_MS || 240000);
+// Pause between requests, so a backfill cannot stampede a database the company writes to continuously.
+const PACE_MS = Number(process.env.DSH_ARCHIVE_PACE_MS || 250);
+const RETRY_DELAY_MS = Number(process.env.DSH_ARCHIVE_RETRY_MS || 3000);
 const transportNotes = {};
 
 // ── transports, one payload ─────────────────────────────────────────────────────────────────────
@@ -241,14 +244,24 @@ async function postBatch(payload) {
 
   if (TRANSPORT === 'http') {
     if (!TOKEN) throw new Error('no token: set DSH_ARCHIVE_TOKEN (or use --dry-run)');
-    const res = await fetch(ENDPOINT, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-ps-dsh-session-ingest-token': TOKEN },
-      body,
-    });
-    const text = await res.text();
-    if (!res.ok) throw new Error(`ingest ${res.status}: ${text.slice(0, 300)}`);
-    return text;
+    // Retry once, after a pause. Not superstition: measured on the authority on 2026-09-11, an
+    // independent writer gets the lock in 0.01 s when the database is calm, so a 500 here is transient
+    // contention, not a permanent refusal -- and a batch that throws is a batch the cursor refuses to
+    // skip, so a single unlucky moment would otherwise abort a whole backfill.
+    let lastError = '';
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const res = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-ps-dsh-session-ingest-token': TOKEN },
+        body,
+      });
+      const text = await res.text();
+      if (res.ok) return text;
+      lastError = `ingest ${res.status}: ${text.slice(0, 300)}`;
+      if (res.status < 500 || attempt === 2) break;
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+    }
+    throw new Error(lastError);
   }
 
   // ── local (for the archive host itself) ──────────────────────────────────────────────────────
@@ -321,7 +334,7 @@ async function main() {
   }
   console.log('');
 
-  let sessionsSent = 0, rowsSent = 0, skipped = 0, torn = 0, bytesSent = 0;
+  let sessionsSent = 0, rowsSent = 0, skipped = 0, torn = 0, bytesSent = 0, totalBatches = 0;
   let batch = { sessions: [] };
   let batchBytes = 0;
   // Cursor updates wait until the batch containing them has been ACCEPTED. Advancing a cursor before
@@ -335,6 +348,14 @@ async function main() {
       const reply = await postBatch(body);
       if (VERBOSE) console.log('   reply:', reply.slice(0, 160));
       for (const u of pendingCursor) state.sessions[u.k] = u.v;
+      totalBatches++;
+      // Pace the requests. The company writes to this database continuously, and a backfill firing a
+      // hundred inserts back-to-back is what pushed it into 'database is locked' -- the WAL was sitting
+      // at its 64 MiB limit, which is the signature of checkpoint starvation. Incremental hourly runs
+      // (a handful of batches) are unaffected; a full backfill no longer stampedes.
+      if (PACE_MS > 0 && batch.sessions.length > 0) {
+        await new Promise((r) => setTimeout(r, PACE_MS));
+      }
     }
     batch = { sessions: [] }; batchBytes = 0; pendingCursor = [];
   };
