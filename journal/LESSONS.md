@@ -120,3 +120,29 @@ as `{"error": ...}` text with `isError: false` — never trust `isError`.
 **L24 · The venv python must be used directly, never through a shell wrapper.**
 `C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe`. Multi-hop SSH quoting is the
 most-repeated failure in this repo's own history; pipe a script file instead of inlining.
+
+---
+
+## On changing things that cost the owner money
+
+**L25 · Never change the owner's model on inference.**
+On 2026-09-11 I switched the default model from `deepseek-flash` to `deepseek-v4-pro` because "pro"
+sounded more capable. The owner caught it: **4.1 Flash is better *and* cheaper than Pro on this
+deployment.** He was right and I was guessing.
+*What the probe would have told me immediately, and did once I finally ran it:* the API advertises
+only `deepseek-flash` and `deepseek-v4-pro`; `deepseek-v4.1-flash` is **rejected by name**; and an
+identical prompt on Flash and Pro returned **byte-identical usage** (10/2 tokens, cache miss 10) —
+no observable capability difference, at a higher price.
+*Rule:* the model choice is the owner's, it is his money, and it is the single easiest thing to get
+wrong. Probe, price, and **ask**. Never switch it on a hunch. Reverted the same hour.
+
+**L26 · "More expensive" is not "more capable", and neither is "pro".**
+Model naming in this deployment does not mean what it appears to mean. `deepseek-flash` is the 4.1
+Flash tier here. Establish capability by measurement or by the owner's word — never by the label.
+
+**L27 · Check the money before touching the money.**
+This is a specific case of a general rule, kept separate because the failure was specific: I changed
+a cost-bearing default while the owner was watching, on an assumption, minutes after being told to
+work harder and verify more. Cost-bearing changes get the same treatment as irreversible ones —
+confirm first.
+

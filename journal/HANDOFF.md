@@ -28,6 +28,20 @@ EVIDENCE    files, commits, or commands that prove the above
   switched on.
 - Created this journal.
 
+**CHANGED, THEN REVERTED — read this before touching model settings**
+The default model was briefly switched to `deepseek-v4-pro` on the assumption that "pro" meant more
+capable. **The owner corrected it: 4.1 Flash is better and cheaper.** Verified afterwards: the API
+advertises only `deepseek-flash` and `deepseek-v4-pro`, `deepseek-v4.1-flash` is rejected by name,
+and Flash and Pro returned byte-identical usage on an identical probe. Reverted to `deepseek-flash`
+within the hour. See LESSONS L25–L27 — do not change a cost-bearing default on a hunch.
+
+**ALSO FOUND — the running process does not hot-reload the preset default**
+`self_audit` reported this session's live agent on preset `cordis`, not `zabz`, because the DSH
+process started at 12:32:28 and `settings.yaml` was written at 12:32:29 — one second later. The
+model namespace *does* re-read per request (a model change applied live), but the **preset** is
+chosen at session start. **`zabz` therefore requires a profile restart**, and it has still never
+been run in a real session.
+
 **IN FLIGHT**
 - `zabz` is installed and defaulted on **both** workstations (Yoga and desktop), each verified with a
   clean second sync run. A **profile restart** is required for the default to take effect.

@@ -13,6 +13,37 @@ ui-conversation:
 permission:
   defaultPreset: danger-full-access
 
+# ---------------------------------------------------------------------------
+# Which model the owner is actually talking to.
+#
+# CORRECTED 2026-09-11 after the owner caught an error here. I had switched this
+# to `deepseek-v4-pro` on the assumption that "pro" meant more capable. That was
+# wrong, and it cost money for no gain.
+#
+# What the API actually says (probed, not assumed):
+#   GET /models          -> deepseek-flash, deepseek-v4-pro
+#   deepseek-v4.1-flash  -> REJECTED: "The supported API model names are
+#                           deepseek-flash, deepseek-v4-pro"
+#   identical prompt on deepseek-flash and deepseek-v4-pro returned byte-identical
+#   usage (10/2 tokens, cache miss 10), i.e. no observable capability difference
+#   on that probe.
+#
+# The owner's own understanding: 4.1 Flash is better AND cheaper than Pro. He
+# knows this deployment; that belief beats my inference. `deepseek-flash` is the
+# 4.1 Flash tier on this route. It is also what the account was already using
+# before I touched it.
+#
+# Namespace and schema: AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE in
+# @deepseek-ai/dsh-agent-default-model. Selection resolves per request, so a
+# change applies without restarting the process.
+#
+# LESSON (see journal/LESSONS.md L25): do not change the owner's model on
+# inference. Probe it, price it, and ask if it is his money.
+# ---------------------------------------------------------------------------
+agent-default-model:
+  provider: deepseek-official
+  model: deepseek-flash
+
 agent-presets:
   # `zabz` is the conversational CEO: full toolbelt, the secretary bridge, and a
   # persona written from the measured analysis of 23,035 owner turns. This is the
@@ -23,4 +54,6 @@ agent-presets:
   # foreground timeout). That policy is retained, so both presets are safe.
   #
   # Set 2026-09-11 after mount validation returned "mounted OK: zabz".
+  # NOTE: this is read when a session starts, so a running process keeps its old
+  # preset until restarted.
   default: zabz
