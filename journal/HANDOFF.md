@@ -14,6 +14,85 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ---
 
+## 2026-09-11 15:10 · ZABZ-YOGA · Every sensor audited; the boss beacon is the fault, not the BLE system
+
+**THE BEACON — answered with evidence, not inference.**
+Owner: *"I haven't seen the boss beacon in a few months, I think I lost it."* He is right, and it is
+**four months**, to the day.
+- The device still exists in Home Assistant: **`BCPro_207463 11AA`**, MAC `dd:88:00:00:11:aa`, iBeacon
+  entry *loaded*, area `control_room`, registered 2025-12-27. All five of its entities are
+  `unavailable` with `restored: true` — restored from the registry, with nothing advertising.
+- **Its presence automations last fired 2026-05-15 17:44 UTC.** `phoenix_boss_is_here_sync_from_ble`
+  has *never* fired. Zero of the last 2471 logbook rows mention it.
+- **The receiving side is proven healthy**, which is what makes the conclusion safe: bluetooth,
+  bermuda, ibeacon, esphome all *loaded*; four BLE scanners up (Pi adapter + three ESPHome hubs);
+  52 BLE devices in the registry; **10 trackers reporting real values right now.** So the mesh hears
+  other devices and not this one → **the beacon is dead, out of battery, or physically lost.**
+- Its tuning and automations are still in place (arrive 15 ft / leave 20 ft, Bermuda wiring), so a
+  replacement only needs its MAC registered with the iBeacon integration.
+- Also dark because of it: `sensor.bcpro_207463_estimated_distance` + 2m/5m filters,
+  `sensor.boss_beacon_distance_fast/_slow`, Bermuda's `_distance/_area/_floor/_distance_to_*_hub`,
+  `device_tracker.bcpro_207463_bermuda_tracker`.
+
+**FLEET BEHAVIOUR — what the owner asked for (always on / always off / flapping).**
+- **ZERO entities whose only recorded value is `off`.** There is no never-firing pile. The system's
+  failure mode is **absence and silence**, not stuck-off.
+- **ONE flapping entity in 1068:** `binary_sensor.control_room_hub_control_room_moving_target` —
+  **525 transitions in 48 h**, one every ~5.5 minutes around the clock, driving the presence
+  snapshot automations. That is the radar chattering, and it is a real defect.
+- **157 security/access-named entities unavailable** (415 total absent), including the whole 31-slot
+  apartment-deadbolt control surface, `script.access_control_operate_strike/_maglock/_open_locks`
+  (the manual buzz-in scripts), and the recent-entry displays.
+- **82 automations unavailable:** four abandoned generations of access control and presence still
+  registered beside the live one (`keymaster_*` 37, presence 15, `access_control_*` 13, `phoenix_v2_*` 3).
+- **17 entities recorded only `on`, and most are scripts that never finish** — read this as
+  *being started repeatedly*, not as running: **`script.snapshot_latest_with_retries` = 15,682 rows,
+  ~1,568 runs/day (one every 55 seconds, all day)**; `script.buzz_in_maglock` and
+  `script.buzz_in_interior_maglock` — the scripts that **open the doors** — ~712 runs each in 10 days
+  with **no activity reporting anywhere**.
+- 11 entities effectively absent, incl. `person.klein` and a Shelly plug that wrote one row and stopped.
+
+**I MEASURED THE WRONG SURFACE, AGAIN — corrected in its own document.**
+My first behaviour audit claimed the recorder keeps ~2 days. **Wrong.** That was the *logbook API*.
+Read directly with SQLite: `states` **1,239,866 rows / 10.45 days**, and **`statistics` 326,810 rows /
+394.5 days across 116 entities** — statistics reach back to **2025-08-13**, which contains the beacon's
+May sighting. Third instance today of the same error (log vs artefacts; port 22 vs 2222; logbook vs
+database). Correction kept visible in
+`ha-config/docs/CORRECTION-2026-09-11-retention-and-behaviour-from-db.md`, not quietly edited.
+Second ceiling found: **only 89 of 1068 entities have more than one state row at all**, because
+recorder writes only on change — so "is it stuck?" is unanswerable for 979 entities until the recorder
+is configured properly.
+
+**NEW INSTRUMENTS (committed, not in /tmp)**
+- `scripts/ha_behaviour.py` + `ha-behaviour.sh` — domain-aware verdicts (a light that is off is off;
+  a security-named `binary_sensor` that is unavailable is a broken sensor).
+- `scripts/harvest_behaviour.py` — reads the recorder DB **read-only on the host that owns it**, so the
+  measurement is reproducible and cannot silently regress to the API.
+- `scripts/run-ha-behaviour.sh` — both stages + a trend line. **Cron installed: daily 04:20**
+  (beside `run-sentinel.sh` every 5 min and `run-ha-truth.sh` every 30 min).
+- Fixed a hops-failure class: `~/bin/run.sh` on `secratary` takes `HOSTPY=1` to run a pushed script
+  with python3 (the old helper always used bash, so a `.py` died on `def main():`).
+
+**NEXT (mine, no owner input needed)**
+1. `script.snapshot_latest_with_retries` at 1,568 runs/day — legitimate watchdog cadence or a failure
+   loop? Its name and 276 log errors say loop.
+2. Give the two `buzz_in_*` door scripts an activity log — they open doors and nothing reports them.
+3. `recorder:` — exclude the noise, raise `purge_keep_days`, so history exists for what matters.
+4. The chattering radar signal; the Shelly plug that vanished; `person.klein`.
+
+**NEXT (owner, when he is at the office)**
+- The beacon: replace, or drop the BLE presence path.
+- The four dead automation generations: retire, or keep any?
+- `phoenix_customer_pin_enabled` (shared customer PIN): live is `off`, the repo said `true`.
+
+**EVIDENCE**
+- `ha-config`: `fcc0f58`, `cf81732`, `0649bef` (+ `5e3006f`, `d3f59f1`, `16c24f9`, `581fef3`) — all pushed
+- `docs/AUDIT-2026-09-11-sensor-behaviour.md`, `docs/CORRECTION-2026-09-11-retention-and-behaviour-from-db.md`
+- `secratary:/home/zabz/ceo-kernel-var/ha/behaviour-history.jsonl` (the trend row), `behaviour-raw.json`
+  (database view), `behaviour.json`/`behaviour.md` (API view)
+
+---
+
 ## 2026-09-11 19:40 · ZABZ-YOGA · The visual-modesty options space and the decision agenda are written
 
 **CHANGED**
