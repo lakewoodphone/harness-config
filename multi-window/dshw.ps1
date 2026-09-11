@@ -27,7 +27,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'doctor', 'help')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'tasks-export', 'tasks-import', 'doctor', 'help')]
     [string]$Command = 'status',
 
     [Parameter(Position = 1)]
@@ -765,6 +765,52 @@ function Invoke-Watchdog([string]$mode) {
     Write-Host "          Log: $StateDir\health.log"
 }
 
+# Moving the two tasks between machines: register them ONCE on a machine that is already
+# correct, export both to XML, and import either via `dshw tasks-import` or plain scp +
+# `schtasks /Create /TN <name> /XML <file> /F`. Two traps, both hit on 2026-09-11:
+#   1. Windows exports a UserId as a locally-mapped SID, so a naive host-name substitution
+#      corrupts it and `schtasks` fails with "no mapping between account names and security
+#      IDs". Import must rewrite <UserId> to the bare account name.
+#   2. The bundle/args inside the XML are absolute paths, so both machines must keep the
+#      repo at the same path.
+function Invoke-TasksExport([string]$dir) {
+    if (-not $dir) { $dir = Join-Path $StateDir 'tasks' }
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    foreach ($n in 'DSH Multi-Window Launcher', 'DSH Window Fleet Watchdog') {
+        $t = Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue
+        if (-not $t) { Write-Host "  [skip] '$n' is not registered here" -ForegroundColor Yellow; continue }
+        $file = Join-Path $dir (($n -replace '\s', '-') + '.xml')
+        $xml = Export-ScheduledTask -TaskName $n
+        [System.IO.File]::WriteAllText($file, $xml, (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host ("  [export] {0} ({1} bytes)" -f $file, $xml.Length)
+    }
+    Write-Host "Copy these to the other machine and run: dshw tasks-import -Slot <dir>"
+}
+
+function Invoke-TasksImport([string]$dir) {
+    if (-not $dir) { throw 'tasks-import needs a directory: dshw tasks-import -Slot <dir>' }
+    $account = if ($env:USERNAME) { $env:USERNAME } else { whoami }
+    $names = @{
+        'DSH-Multi-Window-Launcher.xml' = 'DSH Multi-Window Launcher'
+        'DSH-Window-Fleet-Watchdog.xml' = 'DSH Window Fleet Watchdog'
+    }
+    foreach ($k in $names.Keys) {
+        $path = Join-Path $dir $k
+        if (-not (Test-Path $path)) { Write-Host "  [skip] $k not found in $dir" -ForegroundColor Yellow; continue }
+        $xml = [System.IO.File]::ReadAllText($path)
+        # see the note above: never carry another machine's SID across
+        $xml = $xml -replace '<UserId>[^<]*</UserId>', "<UserId>$account</UserId>"
+        [System.IO.File]::WriteAllText($path, $xml, (New-Object System.Text.UTF8Encoding($false)))
+        $out = & schtasks.exe /Create /TN $names[$k] /XML $path /F 2>&1
+        if ($LASTEXITCODE -eq 0) { Write-Host ("  [import] {0}" -f $names[$k]) -ForegroundColor Green }
+        else { Write-Host ("  [FAIL] {0} :: {1}" -f $names[$k], ($out -join ' ')) -ForegroundColor Red }
+    }
+    foreach ($t in $names.Values) {
+        $task = Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
+        Write-Host ("  {0} -> {1}" -f $t, $(if ($task) { $task.State } else { 'MISSING' }))
+    }
+}
+
 function Invoke-Logs {
     $slot = Get-SlotCfgByPortOrLabel $Slot
     if (-not $slot) { Write-Error "no slot matches '$Slot'"; exit 2 }
@@ -826,6 +872,8 @@ switch ($Command) {
     'logs'      { Invoke-Logs }
     'health'    { Invoke-Health }
     'watchdog'  { Invoke-Watchdog ($Slot) }
+    'tasks-export' { Invoke-TasksExport ($Slot) }
+    'tasks-import' { Invoke-TasksImport ($Slot) }
     'autostart' { Invoke-Autostart ($Slot) }
     'doctor'    { Invoke-Doctor }
     'help'      { Get-Help $PSCommandPath -Detailed }

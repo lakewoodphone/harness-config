@@ -94,6 +94,38 @@ it survives an upgrade and a rebuild. `sync.py` copies `profiles/<name>/cordis.p
 is left alone. The shipped packages under `node_modules` are **never** edited by hand: an upgrade wipes
 them.
 
+### Deploying the fleet to another machine
+
+Four steps, in this order. Run `dshw doctor` and read what it says.
+
+```sh
+git pull                    # in the harness-config checkout on that machine
+python scripts/sync.py      # presets, settings, and the profile patch layer
+dshw doctor                 # names anything missing (node, dsh bin, browser, DSH_HOME)
+dshw up                     # start the engine if it is not listening, open the windows
+dshw autostart on           # bring the windows back at logon
+dshw watchdog on            # restart a dead engine every 5 minutes
+```
+
+The two scheduled tasks can be carried across rather than re-created, which guarantees the second machine
+gets exactly the first one's configuration:
+
+```sh
+dshw tasks-export                      # writes both task XMLs to ~/.dsh/multi-window/tasks/
+# copy them over, then on the other machine:
+dshw tasks-import -Slot <that-dir>
+```
+
+Two traps, both hit on 2026-09-11: Windows exports `UserId` as a **locally-mapped SID**, so importing
+another machine's XML unchanged fails with *"no mapping between account names and security IDs"* —
+`tasks-import` rewrites it to the bare account name; and the task arguments are **absolute paths**, so both
+machines must keep the repo at the same path.
+
+**One engine per `DSH_HOME`.** The fleet guards this on its own port: `dshw up` treats a live engine it does
+not own as an explicit take-over (`-Force`) rather than starting a second one. It cannot stop a
+*hand-started* `dsh web` on a different port from sharing the same home — if you start one by hand, stop
+the fleet's engine first (`dshw stop`), or accept two writers.
+
 ### Plugin packages
 
 A package under `packages/` is installed into a DSH profile by `file:` path, so it is
