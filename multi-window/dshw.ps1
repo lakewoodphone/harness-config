@@ -330,6 +330,21 @@ function Update-LatestLog($inv) {
 # launch look like a timeout with the engine "up" the whole time. A process created by Task
 # Scheduler belongs to no job of ours, so it survives the caller, the shell, and this
 # session. The transient task is removed as soon as the port is bound; the engine stays.
+# Register a scheduled task for the current interactive user, without guessing the account name.
+#
+# `-UserId "$env:USERDOMAIN\$env:USERNAME"` fails on a machine whose account name does not
+# resolve that way: observed 2026-09-11 on ZABZ-TECH as
+# "No mapping between account names and security IDs was done", which also left the fleet
+# with NO engine. The current user's SID always resolves, so use it.
+function New-InteractivePrincipal {
+    $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $sid = $identity.User.Value
+    if ($sid) {
+        return New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel Limited
+    }
+    return New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Limited
+}
+
 function Start-EngineDetached($inv, [int]$timeoutSeconds) {
     $mustUnregister = $false
     $existing = Get-ScheduledTask -TaskName $inv.taskName -ErrorAction SilentlyContinue
@@ -337,7 +352,7 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
         $action = New-ScheduledTaskAction -Execute $inv.node `
             -Argument "`"$($inv.bin)`" web --port $($inv.port) --no-open" `
             -WorkingDirectory $inv.cwd
-        $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+        $principal = New-InteractivePrincipal
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
             -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
         Register-ScheduledTask -TaskName $inv.taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
@@ -754,7 +769,7 @@ function Invoke-Autostart([string]$mode) {
     $action = New-ScheduledTaskAction -Execute $ps -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" up -ConfigPath `"$ConfigPath`" -WindowsMode no"
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
-    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+    $principal = New-InteractivePrincipal
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     }
@@ -838,7 +853,7 @@ function Invoke-Watchdog([string]$mode) {
         -RepetitionInterval (New-TimeSpan -Minutes 5)
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
         -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -MultipleInstances IgnoreNew
-    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+    $principal = New-InteractivePrincipal
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     }
