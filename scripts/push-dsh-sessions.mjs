@@ -219,7 +219,30 @@ async function postBatch(payload) {
     return text;
   }
 
-  // ── scp (default): write the batch to a file, copy it, import from the file ──────────────────
+  // ── local (for the archive host itself) ──────────────────────────────────────────────────────
+  // The always-on host runs the phone's engine, so IT also has sessions worth keeping. Sending them over
+  // ssh to itself would be silly, and copying them would be worse: the file is written next to the
+  // importer and imported in place. Same import, same idempotence, no transport.
+  if (TRANSPORT === 'local') {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const local = path.join(os.tmpdir(), `dsh-batch-${MACHINE}-${stamp}-${process.pid}.json`);
+    fs.writeFileSync(local, body);
+    try {
+      const r = spawnSync('python3', [IMPORTER, '--file', local],
+        { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024, timeout: SSH_TIMEOUT_MS });
+      const line = String(r.stdout || '').trim().split('\n').filter(Boolean).pop() || '';
+      let parsed = null;
+      try { parsed = JSON.parse(line); } catch { /* reported below */ }
+      if (r.error) throw new Error('local import failed: ' + r.error.message);
+      if (!parsed) throw new Error(`local import exit ${r.status}: ${String(r.stderr || line).slice(0, 300)}`);
+      if (!parsed.ok) throw new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200));
+      return JSON.stringify(parsed);
+    } finally {
+      try { fs.unlinkSync(local); } catch { /* already gone */ }
+    }
+  }
+
+  // ── scp (default for workstations): write the batch to a file, copy it, import from the file ────
   //
   // Why not stream it over ssh on stdin: on ZABZ-TECH a 4 MB stdin payload into a remote process
   // **stalls indefinitely** (measured: 300 s timeout, three orphaned shippers piled up, nothing
