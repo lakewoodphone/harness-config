@@ -145,45 +145,63 @@ if ($behind -gt 0) {
 }
 
 # --------------------------------------------------------------------------
-# 3. Apply to ~/.dsh, then PROVE the apply converged.
-#
-#    Skipped (never forced) while tracked files are modified: see the note in step 1.
 # --------------------------------------------------------------------------
-if ($dirty.Count -gt 0) {
-  $commitAt = (& git -C $gitDir rev-parse --short HEAD 2>$null)
+# 3. Apply to ~/.dsh — from the COMMITTED tree, not from the working tree.
+#
+#    Why: this file first refused to apply while tracked files were modified. That was safe but it made
+#    the sync useless on these machines, where several agent sessions hold files modified most of the
+#    day — ZABZ-YOGA sat on `dirty` while four files belonging to other sessions blocked every apply, so
+#    committed config changes reached the *repo* and never reached the live `~/.dsh`. That is precisely
+#    the drift this job exists to remove (PAIN P8).
+#
+#    The scheduled job's contract is "converge the live config to the committed source of truth". A
+#    half-written file in someone's editor is not the source of truth, so the apply now runs against a
+#    snapshot of HEAD exported to a temp directory: committed changes land, and nobody's in-flight work
+#    is published or lost. A dirty tree is still *reported* — it is useful to know — but it no longer
+#    blocks.
+# --------------------------------------------------------------------------
+$snapshot = Join-Path $env:TEMP ("harness-config-snap-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+$tarball = Join-Path $env:TEMP ("harness-config-snap-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.tar')
+$applyOk = $true
+$apply = @()
+$verifyOk = $false
+$verify = @()
+try {
+  New-Item -ItemType Directory -Force -Path $snapshot | Out-Null
+  $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  & git -C $gitDir archive --format=tar --output=$tarball HEAD 2>&1 | Out-Null
+  $archiveOk = ($LASTEXITCODE -eq 0)
+  if ($archiveOk) { & tar -xf $tarball -C $snapshot 2>&1 | Out-Null; $archiveOk = ($LASTEXITCODE -eq 0) }
+  $ErrorActionPreference = $prevEap
+
+  if (-not $archiveOk) {
+    throw 'could not export HEAD (git archive/tar failed)'
+  }
+
+  $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+  $apply = (& $python (Join-Path $snapshot 'scripts\sync.py') 2>&1)
+  $applyOk = ($LASTEXITCODE -eq 0)
+  # A second, dry run from the same snapshot is the verification: 'WOULD' means it did not converge.
+  $verify = (& $python (Join-Path $snapshot 'scripts\sync.py') --dry-run 2>&1)
+  $verifyOk = ($LASTEXITCODE -eq 0) -and -not ($verify -match 'WOULD')
+  $ErrorActionPreference = $prevEap
+
+  if (-not $applyOk) {
+    Record ([ordered]@{
+        result = 'attention'; detail = 'sync.py failed against the committed snapshot'
+        repo = $gitDir; branch = $branch; output = ($apply | Select-Object -Last 6) -join ' | '
+      })
+    exit 1
+  }
+} catch {
   Record ([ordered]@{
-      result    = 'dirty'
-      detail    = ("pulled to $commitAt but did NOT apply: $($dirty.Count) tracked file(s) modified " +
-                   "locally ($dirtyNames). ~/.dsh stays on the last good state until the tree is clean.")
-      repo      = $gitDir
-      branch    = $branch
-      commit    = $commitAt
-      behind    = $behind
-      ahead     = $ahead
-      dirty     = $dirty.Count
-      untracked = $untracked.Count
+      result = 'attention'; detail = "snapshot apply failed: $($_.Exception.Message)"
+      repo = $gitDir; branch = $branch
     })
   exit 1
+} finally {
+  Remove-Item $snapshot, $tarball -Recurse -Force -ErrorAction SilentlyContinue
 }
-
-$prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-$apply = (& $python (Join-Path $gitDir 'scripts\sync.py') 2>&1)
-$applyOk = ($LASTEXITCODE -eq 0)
-$ErrorActionPreference = $prevEap
-
-if (-not $applyOk) {
-  Record ([ordered]@{
-      result = 'attention'; detail = 'sync.py failed'
-      repo = $gitDir; branch = $branch; output = ($apply | Select-Object -Last 6) -join ' | '
-    })
-  exit 1
-}
-
-# A second, dry run is the verification: if anything still differs it says WOULD CHANGE.
-$prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-$verify = (& $python (Join-Path $gitDir 'scripts\sync.py') --dry-run 2>&1)
-$verifyOk = ($LASTEXITCODE -eq 0) -and -not ($verify -match 'WOULD')
-$ErrorActionPreference = $prevEap
 
 $changedLines = @($apply | Where-Object { $_ -match 'written|applied' })
 $applied = if ($changedLines.Count -gt 0) { ($changedLines -join ' | ').Trim() } else { 'nothing to apply' }

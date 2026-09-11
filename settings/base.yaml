@@ -7,6 +7,21 @@
 ui-onboarding:
   welcomeNoticeVersion: 2026-08-13.1
 
+# ---------------------------------------------------------------------------
+# How this file reaches a machine (2026-09-11)
+#
+# `scripts/autosync.ps1` runs on both workstations from Task Scheduler
+# (`PersonalSecretary-HarnessSync`, at logon and every 15 minutes). It
+# fast-forwards the repo to origin, then applies THIS file and the presets into
+# `~/.dsh` — from a snapshot of HEAD, not from the working tree.
+#
+# That distinction matters on a machine where several agent sessions hold files
+# modified: applying the working tree would publish somebody's half-written
+# preset, and refusing to apply would mean committed changes never arrive at all.
+# The snapshot gives both properties — committed changes land, in-flight work is
+# neither published nor lost. A dirty tree is reported in the run record.
+# ---------------------------------------------------------------------------
+
 ui-conversation:
   busyEnter: steer
 
