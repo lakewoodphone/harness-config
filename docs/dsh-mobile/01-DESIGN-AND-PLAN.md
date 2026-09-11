@@ -228,24 +228,51 @@ slug — reusing `vscode_chat_*` would be a semantic lie and would pollute the e
 
 | Concern | Decision |
 |---|---|
-| Decoding | **`decodeStorageRecord` from `@deepseek-ai/dsh-session`** — never hand-rolled. Three silent-data-loss traps are documented in §4: one-shot zstd reads only the first frame; packed rows carry `seq0` not `seq`; a torn final frame is a normal crash boundary |
-| Cursor | `(machine, project, session, last_seq)` in a persisted state file — **per-session monotonic seq, never a wall-clock cursor** (§9). Whole-file re-decode per run is deliberate: sessions are ~183 KB, and re-reading is cheaper than getting byte-offset arithmetic wrong |
-| Delivery | at-least-once + **upsert on `(machine, session, seq)`**. Re-delivery is free; exactly-once is not attempted |
-| Payload | plain JSON (the server has no transport compression — that is the client's job); ≤100 sessions / ≤4 MB per batch |
-| Auth | a distinct token header, server-side `hmac.compare_digest`, mirroring `x-ps-vscode-chat-ingest-token` |
-| Failure | the state file is written **only if zero errors** — the existing pipeline's rule, kept |
+| Decoding | **Rows are shipped verbatim** — see "Built and verified" below. The upstream research recommended `decodeStorageRecord`, but **that function does not exist in the installed build**: the persistence package exports only its Cordis plugin, and `zstd`/`scanLog` helpers live in bundles the package does not expose. Interpreting the format here would be a confident guess about a format we do not own (P22, L51) |
+| Frame reading | the three byte-level traps *are* handled, because they are about bytes rather than meaning: every zstd frame is decoded in order (a one-shot decompress reads only the first), a torn final frame is skipped and reported, and the headless profile's uncompressed `.jsonl` is read as-is |
+| Cursor | `(rowsShipped, bytes)` per session in `~/.dsh/dsh-archive-state.json` — never a wall-clock cursor. Whole-file re-read per run is deliberate: sessions are small, and re-reading is cheaper than getting byte-offset arithmetic wrong |
+| Delivery | at-least-once + **upsert on `(machine, session_id, ordinal)`**. A durable row's ordinal never moves because the journal is append-only, so re-delivery is free; exactly-once is not attempted |
+| Payload | plain JSON; ≤100 sessions / ≤4 MB per batch |
+| Failure | the cursor advances **only after the batch containing it was accepted** — advancing early is how a shipper silently loses data it believes it sent |
 
-**Server** (`personal-secretary-mvp`): `POST /api/v1/owner/dsh-sessions/ingest` →
-`app/services/dsh_session_ingest.py` → `dsh_session_exports`, `dsh_sessions`, `dsh_session_events` + an FTS5
-table, in the authoritative `secretary.db`. Idempotent by upsert; messages are reinserted per session like
-the existing ingest does.
+**Server** — and here the plan met reality, so the deviation is recorded rather than papered over.
+The intended home is in-app: `POST /api/v1/owner/dsh-sessions/ingest` →
+`app/services/dsh_session_ingest.py` → `dsh_session_exports`, `dsh_sessions`, `dsh_session_events` + FTS5 in
+the authoritative `secretary.db`. **That module and route are written, committed (`92b82c351`) and NOT
+deployed**, because the authority's checkout of `personal-secretary-mvp` is **51 commits behind origin with
+nine uncommitted local modifications, including `app/main.py`** — so deploying means either merging on a
+running company or hand-patching that deepens the drift. Neither is acceptable for a feature nobody is
+waiting on tonight.
 
-**Acceptance test:** a session started on each workstation — including one from the phone — appears in
-`secretary.db` within the hour with its events intact and searchable via FTS; running the shipper twice
-changes nothing (idempotence proven by row counts and by the second run's exit).
+What runs instead: `scripts/dsh-archive-import.py`, the same tables and semantics in its own SQLite database
+on the authority (`/home/zabz/dsh-archive/dsh-archive.db`), invoked over SSH by the shipper. When the
+company checkout is reconciled the tables move into `secretary.db`, and the importer doubles as the test
+harness for that move.
+
+### Built and verified, 2026-09-11 18:10
+
+| Step | Result |
+|---|---|
+| Importer alone | import → `sessions_created: 1`; **same batch again → `sessions_unchanged: 1`, `sessions_reindexed: 0`**; `--stats` correct; `--search` finds text that only existed in the payload |
+| Real run, ZABZ-YOGA | **42 sessions, 16,466 rows, 73 MB** in 186 s |
+| Second run (idempotence) | 1 session (one being written live), 5 new rows, 41 skipped by cursor, 3 s — and the authority's event count moved **exactly +5, 16,468 → 16,473**. Nothing duplicated |
+| Archive state | 43 sessions / 16,473 events / **16,473 indexed rows**, searchable |
+| Scheduled | `PersonalSecretary-PushDSHSessions` hourly at logon on **both** workstations — same idiom as `PersonalSecretary-PushVSCodeChats` |
+
+**A transport defect found and fixed while doing this, worth knowing:** the desktop's first run hung for ten
+minutes having shipped nothing. Node-spawned ssh does not reliably exit after the remote command completes
+when a large payload is fed on stdin — my first reading blamed the desktop, and the Yoga then showed the same
+behaviour on 5 of its batches. The shipper now kills the child the moment the importer's reply parses (the
+reply is printed only after `conn.commit()`, so it means the rows are durable), with a 240 s hard timeout as
+the outer bound. That is the difference between an hourly run taking seconds and taking eight minutes.
 
 **Explicitly not repeated from the old pipeline:** the `--days 1` window that silently loses anything missed
 for a day; the 50 MB skip that hides large sessions; storing only user messages.
+
+**Deliberately not done:** routing sessions to Project Hub projects. The Copilot ingest auto-creates a project
+when nothing matches, and DSH sessions are scoped by a raw cwd slug — that would sprinkle junk projects into
+the owner's hub before anyone decided the mapping. `cwd` is stored instead; the link can be added
+deliberately later.
 
 ---
 
