@@ -31,7 +31,23 @@ import urllib.parse
 from pathlib import Path
 
 STATE = Path.home() / ".dsh-phone"
-AUTHORITY = sys.argv[1] if len(sys.argv) > 1 else "secratary.tail93e6e6.ts.net"
+STATUS_FILE = STATE / "probe.json"
+
+
+def _parse_args():
+    import argparse
+    ap = argparse.ArgumentParser(description="Probe the phone stack end to end.")
+    ap.add_argument("authority", nargs="?",
+                    default="secratary.tail93e6e6.ts.net",
+                    help="the tailnet authority the phone dials")
+    ap.add_argument("--json", nargs="?", const=str(STATUS_FILE), default=None,
+                    help=f"write a machine-readable result (default {STATUS_FILE})")
+    ap.add_argument("--quiet", action="store_true", help="write the file, print nothing")
+    return ap.parse_args()
+
+
+ARGS = _parse_args()
+AUTHORITY = ARGS.authority
 GATE = ("127.0.0.1", 3086)
 REDIRECT = ("127.0.0.1", 3087)
 
@@ -40,7 +56,8 @@ results = []
 
 def record(n, name, ok, detail):
     results.append((n, name, ok, detail))
-    print(f"  {n}. {'PASS' if ok else 'FAIL'}  {name}: {detail}")
+    if not ARGS.quiet:
+        print(f"  {n}. {'PASS' if ok else 'FAIL'}  {name}: {detail}")
 
 
 def live_token():
@@ -229,11 +246,13 @@ def check_redirector():
 
 
 def main():
-    print(f"probing the phone stack for {AUTHORITY}")
+    if not ARGS.quiet:
+        print(f"probing the phone stack for {AUTHORITY}")
     token, how = live_token()
-    print(f"  token source: {how}")
-    if not token:
-        print("  no live token; checks 2-4 cannot run")
+    if not ARGS.quiet:
+        print(f"  token source: {how}")
+        if not token:
+            print("  no live token; checks 2-4 cannot run")
     try:
         cold_token = check_cold_visitor()
     except Exception as e:  # noqa: BLE001
@@ -249,9 +268,38 @@ def main():
     check_redirector()
 
     bad = [r for r in results if not r[2]]
-    print(f"\n  {len(results) - len(bad)}/{len(results)} passed")
-    if bad:
-        print("  failed: " + ", ".join(str(r[0]) for r in bad))
+    if not ARGS.quiet:
+        print(f"\n  {len(results) - len(bad)}/{len(results)} passed")
+        if bad:
+            print("  failed: " + ", ".join(str(r[0]) for r in bad))
+
+    if ARGS.json:
+        # A reading without a source and an age is not a reading. The kernel reads this
+        # file rather than re-deriving health, so the timestamp is part of the contract.
+        payload = {
+            "ts": time.time(),
+            "iso": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "host": socket.gethostname(),
+            "authority": AUTHORITY,
+            "token_source": how,
+            "ok": not bad,
+            "passed": len(results) - len(bad),
+            "total": len(results),
+            "failed": [str(r[0]) for r in bad],
+            "checks": [{"n": r[0], "name": r[1], "ok": r[2], "detail": r[3]}
+                       for r in results],
+        }
+        try:
+            path = Path(ARGS.json)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            tmp.replace(path)      # atomic: a reader never sees a half-written file
+            if not ARGS.quiet:
+                print(f"  wrote {path}")
+        except OSError as e:
+            print(f"  could not write {ARGS.json}: {e}", file=sys.stderr)
+            return 1
     return 1 if bad else 0
 
 
