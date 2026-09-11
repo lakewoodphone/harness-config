@@ -40,6 +40,7 @@
  *   node push-dsh-sessions.mjs --all --dry-run      # ignore the cursor, re-examine everything
  *   node push-dsh-sessions.mjs --verbose
  */
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -59,11 +60,20 @@ const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
 const SESSIONS_ROOT = path.join(DSH_HOME, 'sessions');
 const STATE_PATH = path.join(DSH_HOME, 'dsh-archive-state.json');
 const MACHINE = (process.env.DSH_ARCHIVE_MACHINE || os.hostname()).toLowerCase();
+const BATCH_SESSIONS = 100;
+const BATCH_BYTES = 4 * 1024 * 1024;
+
+// Two transports, same payload:
+//   ssh  (default) — pipe the batch into the importer on the authority. Works today.
+//   http            — POST to the in-app endpoint. Staged but NOT deployed: the
+//                     authority's company checkout is 51 commits behind with
+//                     hand-edited app/main.py, so the endpoint is not live yet.
+const TRANSPORT = opt('--transport', process.env.DSH_ARCHIVE_TRANSPORT || 'ssh').toLowerCase();
+const SSH_HOST = process.env.DSH_ARCHIVE_SSH_HOST || 'secretary-ts';
+const IMPORTER = process.env.DSH_ARCHIVE_IMPORTER || '/home/zabz/harness-config/scripts/dsh-archive-import.py';
 const ENDPOINT = process.env.DSH_ARCHIVE_ENDPOINT
   || 'https://api.abletelsolutions.com/api/v1/owner/dsh-sessions/ingest';
 const TOKEN = process.env.DSH_ARCHIVE_TOKEN || '';
-const BATCH_SESSIONS = 100;
-const BATCH_BYTES = 4 * 1024 * 1024;
 
 // ── reading bytes ───────────────────────────────────────────────────────────────────────────────
 
@@ -146,15 +156,35 @@ const key = (s) => `${s.project}/${s.session}`;
 // ── shipping ────────────────────────────────────────────────────────────────────────────────────
 
 async function postBatch(payload) {
-  if (!TOKEN) throw new Error('no token: set DSH_ARCHIVE_TOKEN (or use --dry-run)');
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-ps-dsh-session-ingest-token': TOKEN },
-    body: JSON.stringify(payload),
+  const body = JSON.stringify(payload);
+
+  if (TRANSPORT === 'http') {
+    if (!TOKEN) throw new Error('no token: set DSH_ARCHIVE_TOKEN (or use --dry-run)');
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-ps-dsh-session-ingest-token': TOKEN },
+      body,
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`ingest ${res.status}: ${text.slice(0, 300)}`);
+    return text;
+  }
+
+  // ssh: the importer reads the batch on stdin and prints one JSON summary line.
+  // Throwing on any non-zero exit or unparseable reply is what stops the cursor
+  // from advancing past rows the server never received.
+  const r = spawnSync('ssh', ['-T', '-o', 'BatchMode=yes', '-o', 'LogLevel=ERROR', SSH_HOST, 'python3', IMPORTER], {
+    input: body,
+    encoding: 'utf8',
+    maxBuffer: 128 * 1024 * 1024,
   });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`ingest ${res.status}: ${text.slice(0, 300)}`);
-  return text;
+  if (r.error) throw new Error('ssh spawn failed: ' + r.error.message);
+  if (r.status !== 0) throw new Error(`importer exit ${r.status}: ${String(r.stderr || '').slice(0, 300)}`);
+  const line = String(r.stdout || '').trim().split('\n').filter(Boolean).pop() || '';
+  let parsed;
+  try { parsed = JSON.parse(line); } catch { throw new Error('unparseable importer reply: ' + line.slice(0, 200)); }
+  if (!parsed.ok) throw new Error('importer refused: ' + JSON.stringify(parsed).slice(0, 200));
+  return JSON.stringify(parsed);
 }
 
 async function main() {
