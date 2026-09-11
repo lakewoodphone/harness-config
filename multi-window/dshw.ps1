@@ -27,7 +27,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'open', 'stop', 'logs', 'autostart', 'doctor', 'help')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'doctor', 'help')]
     [string]$Command = 'status',
 
     [Parameter(Position = 1)]
@@ -641,7 +641,7 @@ function Invoke-Doctor {
     if (-not $bin) { $problems += '@deepseek-ai/dsh/lib/bin.js not found' } else { Write-Host "dsh bin     : $bin" }
     $edge = Get-EdgePath
     if (-not $edge) { $problems += 'no Edge/Chrome binary found' } else { Write-Host "browser     : $edge" }
-    $home_dsh = Join-Path $env:USERPROFILE '.dsh'
+    $home_dsh = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }
     if (-not (Test-Path $home_dsh)) { $problems += "DSH_HOME missing: $home_dsh" } else { Write-Host "DSH_HOME    : $home_dsh" }
     foreach ($p in @($StateDir, $LogDir, $Cfg.browser.profileRoot)) {
         try { New-Item -ItemType Directory -Force -Path $p | Out-Null; Write-Host "dir ok      : $p" }
@@ -677,6 +677,92 @@ function Invoke-Autostart([string]$mode) {
     }
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
     Write-Host "autostart: '$taskName' registered (at logon, this user, hidden). Test now: Start-ScheduledTask -TaskName '$taskName'"
+}
+
+function Invoke-Health {
+    # Designed to be run from a scheduled task every few minutes. It is idempotent and
+    # additive: it starts ONLY the servers that should be listening and are not, then
+    # exits. It never stops or restarts a live engine, never opens browser windows, and
+    # appends a line to health.log only when it actually did something, so the log stays
+    # readable. Safe to run twice at once: the port bind itself is the lock, and the
+    # loser of a race fails with EADDRINUSE instead of starting a second writer on the
+    # same DSH_HOME (which would corrupt session logs).
+    $state = Get-State
+    $listenTable = Get-ListenTable
+    $slots = Get-Slots
+
+    if (Get-Mode -eq 'single') {
+        $needed = @($slots | Where-Object { $_.enabled } | Select-Object -First 1)
+        if (-not $needed) {
+            $needed = @([pscustomobject]@{ label = 'primary'; profile = 'w1'; workspace = $Cfg.primaryWorkspace
+                                           enabled = $true; port = (Get-PrimaryPort); index = 0 })
+        }
+    } else {
+        $needed = @($slots | Where-Object { $_.enabled })
+    }
+
+    $missing = @($needed | Where-Object { -not (Get-PortOwner ([int]$_.port) $listenTable) })
+    $healthLog = Join-Path $StateDir 'health.log'
+
+    if ($missing.Count -eq 0) {
+        Write-Host ("healthy: all {0} enabled engine(s) listening" -f $needed.Count)
+        return
+    }
+
+    Write-Host ("unhealthy: {0} of {1} engine(s) not listening - restarting: {2}" -f `
+        $missing.Count, $needed.Count, (($missing | ForEach-Object { $_.port }) -join ', '))
+    "[{0}] health: {1} engine(s) down ({2}) - restarting" -f `
+        (Get-Date -Format o), $missing.Count, (($missing | ForEach-Object { $_.port }) -join ',') |
+        Add-Content -LiteralPath $healthLog -Encoding utf8
+
+    $results = Start-SlotServerParallel $missing
+    foreach ($slot in $missing) {
+        $port = [int]$slot.port
+        $r = $results["$port"]
+        $inv = Get-ServerInvocation $slot
+        Update-LatestLog $inv
+        if (-not $r -or $r.error) {
+            $msg = if ($r -and $r.error) { $r.error } else { 'no result' }
+            Write-Host ("  [FAIL] port {0,-5} {1}" -f $port, $msg) -ForegroundColor Red
+            "[{0}] health: port {1} restart FAILED: {2}" -f (Get-Date -Format o), $port, $msg |
+                Add-Content -LiteralPath $healthLog -Encoding utf8
+            continue
+        }
+        Set-SlotRecord $state $port ([pscustomobject]@{
+            pid = $r.pid; url = $r.url; log = $r.log; workspace = $r.workspace
+            startedAt = $r.startedAt; label = $slot.label; profile = $slot.profile })
+        Write-Host ("  [up]   port {0,-5} pid {1,-7} {2}" -f $port, $r.pid, $slot.label) -ForegroundColor Green
+        "[{0}] health: port {1} restarted, pid {2}" -f (Get-Date -Format o), $port, $r.pid |
+            Add-Content -LiteralPath $healthLog -Encoding utf8
+    }
+    Save-State $state
+}
+
+function Invoke-Watchdog([string]$mode) {
+    $taskName = 'DSH Window Fleet Watchdog'
+    if ($mode -eq 'off') {
+        if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+            Write-Host "watchdog: removed '$taskName'"
+        } else { Write-Host 'watchdog: task was not registered' }
+        return
+    }
+    $ps = (Get-Command pwsh).Source
+    $script = Join-Path $PSScriptRoot 'dshw.ps1'
+    $action = New-ScheduledTaskAction -Execute $ps `
+        -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" health -ConfigPath `"$ConfigPath`""
+    $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) `
+        -RepetitionInterval (New-TimeSpan -Minutes 5)
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+        -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -MultipleInstances IgnoreNew
+    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+    if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+    }
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
+    Write-Host "watchdog: '$taskName' registered - 'dshw health' every 5 minutes, this user, no windows opened."
+    Write-Host "          It only ever STARTS a missing engine. Live engines are left alone."
+    Write-Host "          Log: $StateDir\health.log"
 }
 
 function Invoke-Logs {
@@ -738,6 +824,8 @@ switch ($Command) {
         }
     }
     'logs'      { Invoke-Logs }
+    'health'    { Invoke-Health }
+    'watchdog'  { Invoke-Watchdog ($Slot) }
     'autostart' { Invoke-Autostart ($Slot) }
     'doctor'    { Invoke-Doctor }
     'help'      { Get-Help $PSCommandPath -Detailed }

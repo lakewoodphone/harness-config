@@ -465,3 +465,10 @@ withdrawn an hour later. The real envelope is
 `{type:"client-request", rpcId, method, payload:{args}}`, and the fix was to **capture one real request
 from a live client and replay that**, not to guess the shape. Corollary: when an API can answer 200 with a
 semantic error, parse the body and assert success — never infer success from the status.
+
+**L37 · Killing my own throwaway test process is not a question for the owner.**
+I finished a portability test that left a disposable engine running on port 3097 and asked him whether to
+kill it. His answer: *"totally your decision you should not have bothered me to decide this for you."* He
+is the scarcest resource in this system and that question spent him on nothing. **Rule:** anything I
+created, anything reversible, anything inside the work I was already told to do — decide it. Escalate only
+money, customers, legal posture, family, genuine taste, or the irreversible. Housekeeping is mine.

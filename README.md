@@ -48,6 +48,12 @@ harness-config/
 │   └── cordis-bg/            # background-first shell policy
 ├── packages/                 # local DSH plugin packages
 │   └── plugin-cost/          # /cost command + composer cost pill, with a cited rate card
+├── profiles/                 # the profile patch layer we own (see below)
+│   └── web/cordis.patch.yml  # applied after every bundle layer, on the `web` profile
+├── multi-window/             # the window fleet: one engine, many windows
+│   ├── dshw.ps1              # supervisor + control command
+│   ├── dshw.cmd              # wrapper, so `dshw up` works from any shell
+│   └── windows.json          # the single source of truth: mode, ports, one row per window
 ├── settings/
 │   ├── base.yaml             # settings identical on every machine
 │   └── machines/
@@ -56,8 +62,37 @@ harness-config/
 ├── scripts/
 │   └── sync.py               # apply this repo onto the local ~/.dsh
 └── docs/
-    └── DECISIONS.md
+    ├── DECISIONS.md
+    └── multi-window/         # analysis, measured performance, research, open questions
 ```
+
+### The window fleet (`multi-window/`)
+
+Run `dshw` for help. The short version:
+
+```sh
+dshw up           # start the engine if needed, open every enabled window
+dshw new          # one more window, now
+dshw status       # per-window truth: port, pid, window count, memory
+dshw health       # idempotent: start ONLY what should be listening and is not
+dshw watchdog on  # schedule `dshw health` every 5 minutes
+dshw autostart on # schedule `dshw up` at logon, so the windows come back
+dshw doctor       # resolve every prerequisite and name what is missing
+```
+
+`windows.json` is the manifest. **`mode` is `single` and that is the only supported value**: one engine,
+many windows — because a window is only a browser client, because a second writer on one `DSH_HOME` has
+corrupted a session log upstream, and because one engine costs ~3 GB where twelve would cost ~17 GB. See
+[`docs/multi-window/ANALYSIS-AND-DECISION.md`](docs/multi-window/ANALYSIS-AND-DECISION.md) and
+[`docs/multi-window/PERFORMANCE-MEASURED.md`](docs/multi-window/PERFORMANCE-MEASURED.md).
+
+### Profile patches (`profiles/`)
+
+A profile's own `cordis.patch.yml` is the layer that belongs to us — applied after every bundle layer, so
+it survives an upgrade and a rebuild. `sync.py` copies `profiles/<name>/cordis.patch.yml` into
+`~/.dsh/profiles/<name>/`. It never touches `profiles/node_modules/`, and a profile it has no overlay for
+is left alone. The shipped packages under `node_modules` are **never** edited by hand: an upgrade wipes
+them.
 
 ### Plugin packages
 
