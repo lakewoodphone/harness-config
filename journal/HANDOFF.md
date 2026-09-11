@@ -90,8 +90,7 @@ the watchdog, ship for real, then prove idempotence by row counts across two run
   `lpt-ml-verify`; recipe recorded in `kosher-filter-ai/docs/DEVELOPMENT.md`.
 
 **IN FLIGHT**
-- Committing this to `kosher-filter-ai`. Full server suite was still running when this was written; the
-  Android suite is green.
+- Nothing outstanding. The commit and push described below landed, and CI is green on it.
 
 **BROKEN**
 - Nothing known-broken from this session. Carried over unchanged: three divergent `secretary.db` copies
@@ -109,9 +108,16 @@ the watchdog, ship for real, then prove idempotence by row counts across two run
 - Device logcat: `GantManNsfw: Model loaded successfully`, `NudeNet: Model loaded from
   .../files/models/nudenet_320n.onnx`, and with every model hidden
   `Blocked uncertain image share: No local classifiers available`.
+- Commit **`e0fef29`**, pushed; **Server CI ✅ (8m), Android CI ✅ (3m21s), Server ARM64 Image ✅ (5m)**.
 - Android unit suite **362 tests / 0 failures**; harness contract tests 8 passed, with the new one
   verified to fail against the pre-fix script from git.
+- Full server suite **1035 passed / 17 skipped / 7 failed**; 4 of the 7 were real drift from `853addc`
+  (now fixed), 2 are the known env-only Windows failures, 1 was a test file mid-edit.
 - Journal: LESSONS L47–L50, WINS W14, DECISIONS D20, PAIN P21.
+
+**CORRECTION TO THE ENTRY ABOVE (same session, 15:58 UTC).** The "IN FLIGHT" line I first wrote said
+the commit was pending. It is not: `e0fef29` is committed, pushed, and all three CI runs are green.
+Left visible rather than edited, per the append-only rule.
 
 ---
 
