@@ -190,6 +190,33 @@ def check_websocket(cookie):
         record(4, "websocket upgrades", False, f"{type(e).__name__}: {e}")
 
 
+def check_stale_cookie():
+    """The visitor who has been here before, holding a cookie that no longer works.
+
+    This is the state of a real phone, and it was invisible to every check that
+    started from a clean client: the gate saw `dsh-auth-` and relayed, the engine
+    said 401, and iOS offered the refusal as a download.
+    """
+    r = request(GATE, "GET", "/", {"Host": AUTHORITY, "Accept": "text/html",
+                                   "Cookie": "dsh-auth-thisisnotavalidcookie"})
+    loc = r["headers"].get("location", "")
+    ok = r["status"] in (301, 302, 303, 307) and "token=" in loc
+    record(7, "a stale cookie is repaired, not refused", ok,
+           f"{r['status']} -> {loc[:60] or '(no Location)'}"
+           + ("" if ok else " - a 401 here is the owner's original bug"))
+
+
+def check_stale_token():
+    """A saved link whose token died at the last engine restart."""
+    r = request(GATE, "GET", "/?token=token-from-an-engine-that-is-gone",
+                {"Host": AUTHORITY, "Accept": "text/html"})
+    loc = r["headers"].get("location", "")
+    ok = r["status"] in (301, 302, 303, 307) and "token=" in loc
+    record(8, "a stale token is replaced, not relayed", ok,
+           f"{r['status']} -> {loc[:60] or '(no Location)'}"
+           + ("" if ok else " - this is the link saved on the phone"))
+
+
 def check_fence():
     """Ask the ENGINE directly, not the gate.
 
@@ -248,16 +275,43 @@ def check_outside_in():
 
 
 def check_redirector():
-    """The public link a human may still have in their hand."""
+    """The public link a human may still have in their hand — followed all the way.
+
+    A 302 with a token in it proves nothing: the token it hands out has to be one the
+    engine still accepts, so this follows the redirect over real HTTPS and insists on
+    the document. Asserting on the redirect alone is how a dead token stayed invisible.
+    """
     try:
         r = request(REDIRECT, "GET", "/phone", {"Host": "ai.abletelsolutions.com"})
         loc = r["headers"].get("location", "")
-        ok = r["status"] in (301, 302, 303, 307) and "token=" in loc
-        record("6b", "public /phone redirects into the tailnet", ok,
-               f"{r['status']} -> {loc.split('?')[0] or '(no Location)'}"
-               + (" +token" if "token=" in loc else " NO TOKEN"))
+        if r["status"] not in (301, 302, 303, 307) or "token=" not in loc:
+            record("6b", "public /phone reaches the harness", False,
+                   f"{r['status']} -> {loc or '(no Location)'}")
+            return
+        try:
+            ctx = ssl.create_default_context()
+            conn = http.client.HTTPSConnection(AUTHORITY, 443, timeout=25, context=ctx)
+            conn.request("GET", "/" + (urllib.parse.urlparse(loc).query and
+                                       "?" + urllib.parse.urlparse(loc).query or ""),
+                         headers={"User-Agent": "probe-phone/1"})
+            r2 = conn.getresponse()
+            cookie = (r2.getheader("Set-Cookie") or "").split(";")[0]
+            r2.read(1000)
+            conn.close()
+            conn = http.client.HTTPSConnection(AUTHORITY, 443, timeout=25, context=ctx)
+            conn.request("GET", "/", headers={"User-Agent": "probe-phone/1", "Cookie": cookie})
+            r3 = conn.getresponse()
+            status, body = r3.status, r3.read(70000)
+            conn.close()
+            good, why = is_harness_document(body)
+            ok = status == 200 and good
+            record("6b", "public /phone reaches the harness", ok,
+                   f"302 -> tailnet -> {status}, {len(body)} bytes, {why}")
+        except Exception as e:  # noqa: BLE001
+            record("6b", "public /phone reaches the harness", False,
+                   f"redirect ok but the target failed: {type(e).__name__}: {e}")
     except Exception as e:  # noqa: BLE001
-        record("6b", "public /phone redirects into the tailnet", False,
+        record("6b", "public /phone reaches the harness", False,
                f"{type(e).__name__}: {e}")
 
 
@@ -284,7 +338,9 @@ def run_checks():
     guarded(4, "websocket upgrades", check_websocket, cookie)
     guarded(5, "engine still fences a foreign Host", check_fence)
     guarded(6, "real HTTPS through Tailscale Serve", check_outside_in)
-    guarded("6b", "public /phone redirects into the tailnet", check_redirector)
+    guarded(7, "a stale cookie is repaired, not refused", check_stale_cookie)
+    guarded(8, "a stale token is replaced, not relayed", check_stale_token)
+    guarded("6b", "public /phone reaches the harness", check_redirector)
     return how
 
 

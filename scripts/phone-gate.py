@@ -30,7 +30,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlsplit
 
 STATE_DIR = Path.home() / ".dsh-phone"
 COOKIE_PREFIX = b"dsh-auth-"
@@ -109,7 +109,47 @@ def relay(a: socket.socket, b: socket.socket) -> None:
                 pass
 
 
+def send_login(client: socket.socket, token: str) -> None:
+    """302 to a freshly minted link. No body: the browser follows immediately."""
+    client.sendall(
+        b"HTTP/1.1 302 Found\r\n"
+        b"Location: /?token=" + token.encode() + b"\r\n"
+        b"Cache-Control: no-store\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    )
+    client.close()
+
+
+def read_response_head(sock: socket.socket, limit: int = 65536, timeout: float = 20.0) -> bytes:
+    """Read until the end of the upstream response headers (may include some body)."""
+    buf = b""
+    sock.settimeout(timeout)
+    while b"\r\n\r\n" not in buf and len(buf) < limit:
+        chunk = sock.recv(4096)
+        if not chunk:
+            break
+        buf += chunk
+    return buf
+
+
+def status_of(response: bytes) -> int:
+    try:
+        return int(response.split(b" ", 2)[1])
+    except (IndexError, ValueError):
+        return 0
+
+
 def handle(client: socket.socket, engine_port: int) -> None:
+    """Relay, except where a visitor would hit a dead end we can remove.
+
+    The first version of this gate only checked whether credentials were *present*:
+    a `dsh-auth-` cookie or a `token=` in the query meant "authenticated, relay it".
+    Both are worthless when they are stale, and stale is the normal state of a link
+    saved on a phone — the engine answers 401 with "reopen the URL printed by dsh
+    web", which iOS offers as a text download. Measured 2026-09-11: a stale cookie
+    and a stale token each produced exactly that, while a clean client passed.
+    So: presence is not validity. Compare the token to the engine's current one, and
+    for a cookie-backed document request, look at what the engine actually answers.
+    """
     try:
         client.settimeout(20)
         first = client.recv(BUF)
@@ -128,26 +168,35 @@ def handle(client: socket.socket, engine_port: int) -> None:
         split_target = urlsplit(raw_target)      # tolerates absolute-form targets too
         path = split_target.path or "/"
         query = split_target.query
-        authenticated = COOKIE_PREFIX in head
-        wants_document = path in ("/", "/index.html")
+        document_request = method in ("GET", "HEAD") and path in ("/", "/index.html")
+        offered = dict(parse_qsl(query)).get("token", "")
+        token = live_token(engine_port) if document_request else ""
 
-        if method in ("GET", "HEAD") and wants_document and not authenticated and "token=" not in query:
-            token = live_token(engine_port)
-            host = tailnet_name() or "localhost"
-            if token:
-                body = b""  # 302 with no body: the browser follows immediately
-                response = (
-                    b"HTTP/1.1 302 Found\r\n"
-                    b"Location: /?token=" + token.encode() + b"\r\n"
-                    b"Cache-Control: no-store\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-                )
-                client.sendall(response)
-                client.close()
-                return
+        if document_request and token and offered != token:
+            # No token, or one the engine no longer honours (saved link, replayed
+            # redirect, half-refreshed bookmark). Hand back a link that works now.
+            send_login(client, token)
+            return
 
         client.settimeout(None)
         upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
         upstream.sendall(first)
+
+        if document_request and not offered:
+            # The visitor brought only a cookie, and a cookie can be stale. Ask the
+            # engine, and self-heal a refusal instead of passing the dead end through.
+            upstream_head = read_response_head(upstream)
+            if status_of(upstream_head) == 401 and token:
+                try:
+                    upstream.close()
+                except OSError:
+                    pass
+                send_login(client, token)
+                return
+            if upstream_head:
+                client.sendall(upstream_head)
+
+        upstream.settimeout(None)
         relay(client, upstream)
     except OSError:
         try:
