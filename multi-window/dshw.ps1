@@ -339,19 +339,22 @@ function Update-LatestLog($inv) {
 # launch look like a timeout with the engine "up" the whole time. A process created by Task
 # Scheduler belongs to no job of ours, so it survives the caller, the shell, and this
 # session. The transient task is removed as soon as the port is bound; the engine stays.
-# Register a scheduled task for the current interactive user, without guessing the account name.
-#
-# `-UserId "$env:USERDOMAIN\$env:USERNAME"` fails on a machine whose account name does not
-# resolve that way: observed 2026-09-11 on ZABZ-TECH as
-# "No mapping between account names and security IDs was done", which also left the fleet
-# with NO engine. The current user's SID always resolves, so use it.
-function New-InteractivePrincipal {
+function Test-IsElevated {
+    try {
+        $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+        return (New-Object System.Security.Principal.WindowsPrincipal($id)).IsInRole(
+            [System.Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch { return $false }
+}
+
+function New-InteractivePrincipal([switch]$Highest) {
     $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
     $sid = $identity.User.Value
+    $runLevel = if ($Highest) { 'Highest' } else { 'Limited' }
     if ($sid) {
-        return New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel Limited
+        return New-ScheduledTaskPrincipal -UserId $sid -LogonType Interactive -RunLevel $runLevel
     }
-    return New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel Limited
+    return New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel $runLevel
 }
 
 function Start-EngineDetached($inv, [int]$timeoutSeconds) {
@@ -361,7 +364,10 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
         $action = New-ScheduledTaskAction -Execute $inv.node `
             -Argument "`"$($inv.bin)`" web --port $($inv.port) --no-open" `
             -WorkingDirectory $inv.cwd
-        $principal = New-InteractivePrincipal
+        # Keep the engine at the same privilege level as this script: the owner wants DSH
+        # running elevated on both machines, and a task is the only way to create an
+        # elevated process without an interactive UAC prompt.
+        $principal = New-InteractivePrincipal -Highest:(Test-IsElevated)
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
             -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
         Register-ScheduledTask -TaskName $inv.taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
@@ -369,24 +375,36 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
     }
     Start-ScheduledTask -TaskName $inv.taskName
 
+    # Readiness here = the engine printed its URL in THIS log file AND the port answers.
+    # Deliberately no Get-NetTCPConnection: that query can stall for many seconds on a
+    # loaded machine, and a stalled query inside a wait loop is indistinguishable from a
+    # hung command (it cost several 420 s timeouts on 2026-09-11). A TCP connect with its
+    # own timeout is bounded and local.
     $deadline = (Get-Date).AddSeconds($timeoutSeconds)
-    $pid_ = $null
     $url = $null
+    $pid_ = $null
+    $probe = New-Object System.Net.Sockets.TcpClient
     while ((Get-Date) -lt $deadline) {
-        Start-Sleep -Milliseconds 500
-        if (-not $pid_) {
-            $owner = Get-PortOwner $inv.port
-            if ($owner) { $pid_ = $owner.Id }
-        }
-        if (Test-Path $inv.log) {
+        Start-Sleep -Milliseconds 700
+        if (-not $url -and (Test-Path $inv.log)) {
             $text = Read-NewLog $inv.log 0
             if ($text) {
                 $m = [regex]::Match($text, 'dsh web:\s*(\S+)')
                 if ($m.Success) { $url = $m.Groups[1].Value }
             }
         }
-        if ($pid_ -and $url) { break }
+        $bound = $false
+        try {
+            $task = $probe.ConnectAsync('127.0.0.1', $inv.port)
+            if ($task.Wait(1500)) { $bound = $probe.Connected }
+        } catch { }
+        if ($bound -and -not $pid_) {
+            $owner = Get-PortOwner $inv.port
+            if ($owner) { $pid_ = $owner.Id }
+        }
+        if ($url -and $bound) { break }
     }
+    try { $probe.Dispose() } catch { }
 
     if ($mustUnregister) {
         # the engine is its own process now; this task only ever existed to create it
@@ -807,7 +825,7 @@ function Invoke-Autostart([string]$mode) {
     $action = New-ScheduledTaskAction -Execute $ps -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" up -ConfigPath `"$ConfigPath`" -WindowsMode no"
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
-    $principal = New-InteractivePrincipal
+    $principal = New-InteractivePrincipal -Highest:(Test-IsElevated)
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     }
@@ -823,6 +841,12 @@ function Invoke-Health {
     # readable. Safe to run twice at once: the port bind itself is the lock, and the
     # loser of a race fails with EADDRINUSE instead of starting a second writer on the
     # same DSH_HOME (which would corrupt session logs).
+    # Transcript so a watchdog run that dies leaves evidence: a scheduled task that does
+    # nothing and says nothing is indistinguishable from one that is not running at all.
+    $logDir = Join-Path $StateDir 'logs'
+    New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+    Start-Transcript -Path (Join-Path $logDir ("health-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))) -Force | Out-Null
+    try {
     $state = Get-State
     $listenTable = Get-ListenTable
     $slots = Get-Slots
@@ -842,8 +866,7 @@ function Invoke-Health {
 
     if ($missing.Count -eq 0) {
         Write-Host ("healthy: all {0} enabled engine(s) listening" -f $needed.Count)
-        return
-    }
+    } else {
 
     Write-Host ("unhealthy: {0} of {1} engine(s) not listening - restarting: {2}" -f `
         $missing.Count, $needed.Count, (($missing | ForEach-Object { $_.port }) -join ', '))
@@ -872,6 +895,14 @@ function Invoke-Health {
             Add-Content -LiteralPath $healthLog -Encoding utf8
     }
     Save-State $state
+    }
+    } catch {
+        Write-Host ("health: FAILED - " + $_.Exception.Message) -ForegroundColor Red
+        "[{0}] health: FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message |
+            Add-Content -LiteralPath (Join-Path $StateDir 'health.log') -Encoding utf8
+    } finally {
+        try { Stop-Transcript | Out-Null } catch { }
+    }
 }
 
 function Invoke-Watchdog([string]$mode) {
@@ -891,7 +922,7 @@ function Invoke-Watchdog([string]$mode) {
         -RepetitionInterval (New-TimeSpan -Minutes 5)
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
         -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -MultipleInstances IgnoreNew
-    $principal = New-InteractivePrincipal
+    $principal = New-InteractivePrincipal -Highest:(Test-IsElevated)
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     }

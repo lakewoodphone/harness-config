@@ -1,27 +1,33 @@
 /**
  * dsh-plugin-windows — the browser half.
  *
- * WHAT IT DOES
- * Puts a `+` control beside the composer. Clicking it asks Windows to open a NEW DSH
- * window for a new conversation on this machine. The browser cannot start a process, so
- * the click navigates to a URL protocol the launcher registered:
+ * TWO CONTROLS, BESIDE THE COMPOSER:
  *
- *     dsh-new://open      ->   pwsh dshw.ps1 new
+ *   +   new session, this window. Forgets this window's remembered session and reloads,
+ *       so the app boots blank — the same state as a window that has never been used. The
+ *       previous conversation is not lost: it stays in the session list and can be reopened
+ *       from the sidebar. This is the "many conversations in one window" path.
  *
- * `dshw new` starts a fresh browser profile + window against the running engine, which
- * is exactly "another conversation". Registering the protocol is a one-line Windows
- * command, documented in multi-window/README.md:
+ *   ⧉   new session, new window. Hands `dsh-new://open` to Windows, which runs the
+ *       launcher (`dshw new`); the launcher opens a fresh browser profile + window against
+ *       the same engine, so it is a new conversation in its own window. This is the "several
+ *       conversations side by side" path.
  *
- *     New-Item 'HKCU:\Software\Classes\dsh-new\shell\open\command' -Force |
- *       Set-ItemProperty -Name '(default)' -Value '"C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -WindowStyle Hidden -File "C:\Users\ezabz\code\harness-config\multi-window\dshw.ps1" new'
+ * WHY THE FIRST ONE IS A STORAGE RESET AND NOT AN API CALL
+ * The app decides which conversation a window shows from one persisted key,
+ * `dsh.sessions.current`, read once at page load (dsh-api-session-controller, client half:
+ * `createSnapshotStore({}, { persist: { name: 'dsh.sessions.current' } })` -> the restored
+ * `sessionId` is handed to `SessionManager`). Clearing that key and reloading therefore
+ * produces exactly the blank-window state, using the app's own bootstrap path instead of a
+ * private API. Nothing is deleted and nothing on the host changes.
  *
  * WHY IT OWNS NO DEPENDENCIES
  * The browser loader treats every name in a Plugin's `inject` and in the package's
- * `dsh.client.inject` as a SERVICE it must resolve before the entry may activate. A
- * wrong name there does not degrade the plugin — it stops the whole web UI from booting
- * ("Failed to load plugins"). This file therefore declares nothing and reads the Slot
- * registry defensively with `ctx.get('slots')`. See packages/plugin-cost for the day
- * that exact mistake was made and cost the owner his interface.
+ * `dsh.client.inject` as a SERVICE it must resolve before the entry may activate. A wrong
+ * name there does not degrade the plugin — it stops the whole web UI booting ("Failed to
+ * load plugins"). This file therefore declares nothing and reads the Slot registry
+ * defensively with `ctx.get('slots')`. See packages/plugin-cost for the day that exact
+ * mistake was made and cost the owner his interface.
  *
  * The client loader has no module body of its own: a bundle is a plain script that
  * registers a factory with `window.__ModuleLoader__.load`, and the factory must populate
@@ -37,53 +43,79 @@ window.__ModuleLoader__.load({
     const React = require('react');
 
     const PROTOCOL = 'dsh-new://open';
+    const SESSION_KEY = 'dsh.sessions.current';
 
-    /** True when the host registered the protocol (a click would otherwise do nothing). */
-    function askForWindow() {
+    /**
+     * Start a new conversation in THIS window.
+     *
+     * Forgetting the remembered session and reloading is the app's own blank-window state:
+     * the loader finds no stored sessionId, so the session manager boots with none and the
+     * composer opens fresh. `windows.log`-style bookkeeping is unnecessary — the previous
+     * session lives on in the host's session list either way.
+     */
+    function newSessionHere() {
+      try {
+        window.localStorage.removeItem(SESSION_KEY);
+      } catch (error) {
+        // Private mode or a storage policy can refuse; the reload below still gets a blank
+        // window whenever nothing was stored in the first place.
+        if (window.console) window.console.warn('dsh-plugin-windows: ' + error);
+      }
+      const target = window.location.pathname + '?new=' + Date.now().toString(36);
+      window.location.replace(target);
+    }
+
+    /** Open a new window for a new conversation (the launcher does the real work). */
+    function newSessionInNewWindow() {
       try {
         window.location.href = PROTOCOL;
       } catch (error) {
-        // A missing protocol registration throws here on some builds; nothing to do
-        // from the page, and swallowing it keeps the composer usable.
         if (window.console) window.console.warn('dsh-plugin-windows: ' + error);
       }
     }
 
-    /**
-     * The + control.
-     *
-     * It is deliberately a plain button with inline styles from the shipped theme tokens
-     * so it needs no CSS insertion and no theme override.
-     */
-    function NewWindowButton(props) {
-      const title = 'Open a new DSH window (new conversation)';
-      const style = {
-        font: 'var(--dsw-font-xs-strong-13)',
-        color: 'var(--dsw-alias-label-primary)',
-        background: 'transparent',
-        border: '1px solid var(--dsw-alias-border-l2, rgba(128,128,128,0.35))',
-        borderRadius: '6px',
-        padding: '0 8px',
-        cursor: 'pointer',
-        lineHeight: '20px',
-        marginRight: '4px',
-      };
+    const BUTTON_STYLE = {
+      font: 'var(--dsw-font-xs-strong-13)',
+      color: 'var(--dsw-alias-label-primary)',
+      background: 'transparent',
+      border: '1px solid var(--dsw-alias-border-l2, rgba(128,128,128,0.35))',
+      borderRadius: '6px',
+      padding: '0 8px',
+      cursor: 'pointer',
+      lineHeight: '20px',
+    };
+
+    function Control(props) {
+      const isNewWindow = props && props.kind === 'window';
+      const title = isNewWindow
+        ? 'New session in a new window'
+        : 'New session in this window';
       return React.createElement(
         'button',
-        { type: 'button', title: title, 'aria-label': title, style: style, onClick: askForWindow },
-        '+',
+        {
+          type: 'button',
+          title: title,
+          'aria-label': title,
+          style: Object.assign({}, BUTTON_STYLE, isNewWindow ? { marginLeft: '4px' } : { marginRight: '0px' }),
+          onClick: isNewWindow ? newSessionInNewWindow : newSessionHere,
+        },
+        isNewWindow ? '\u29C9' : '+',
       );
     }
 
     function apply(ctx) {
       const slots = ctx.get('slots');
       if (slots === undefined) return;
-      slots.inject('conversation.composer.dock', () =>
+      slots.inject('conversation.composer.dock', () => {
         slots.register(
-          { name: 'conversation.composer.dock', id: 'new-window', order: 5, label: 'New window' },
-          NewWindowButton,
-        ),
-      );
+          { name: 'conversation.composer.dock', id: 'new-session-here', order: 5, label: 'New session' },
+          () => React.createElement(Control, { kind: 'here' }),
+        );
+        slots.register(
+          { name: 'conversation.composer.dock', id: 'new-session-window', order: 6, label: 'New session in a new window' },
+          () => React.createElement(Control, { kind: 'window' }),
+        );
+      });
     }
 
     exports.apply = apply;
