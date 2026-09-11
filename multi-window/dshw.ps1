@@ -425,10 +425,15 @@ function Open-SlotWindow($slot, $state) {
         "--user-data-dir=$profDir",
         "--no-first-run",
         "--no-default-browser-check",
+        # Measured 2026-09-11: these five cut a window's whole Edge footprint from ~770 MB
+        # to ~454 MB, because a DSH app window needs none of a browser's extensions,
+        # component extensions, sync or background networking.
+        "--disable-extensions",
+        "--disable-component-extensions-with-background-pages",
         "--disable-background-networking",
         "--disable-component-update",
         "--disable-sync",
-        "--disable-features=Translate,MediaRouter"
+        "--disable-features=Translate,MediaRouter,msEdgeSidebarV2,msEdgeCollections,msEdgeShoppingAssistant,EdgeWallet,msEdgeIdentityFeature"
     )
     $slotSize = Get-Prop $slot 'size'
     $slotPos  = Get-Prop $slot 'position'
@@ -439,6 +444,10 @@ function Open-SlotWindow($slot, $state) {
     if ($extra) { $winArgs += $extra }
 
     $proc = Start-Process -FilePath $exe -ArgumentList $winArgs -PassThru -ErrorAction Stop
+    # Measured 2026-09-11: 12 fresh windows booting at once cost the engine ~0.45 s of
+    # end-to-end work (72 calls, all 2xx, event-loop ping 208 ms worst case) while one
+    # window costs 60 ms. Staggering launches keeps the tail small.
+    Start-Sleep -Milliseconds 250
     # Record every launch: an Edge app window's own process exits immediately after it
     # hands off to its browser process, so a silent failure here is otherwise invisible.
     $line = "[{0}] open slot={1} profile={2} pid={3} args={4}" -f (Get-Date -Format o), $label, $slot.profile, $proc.Id, ($winArgs -join ' ')

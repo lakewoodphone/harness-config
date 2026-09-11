@@ -1,0 +1,33 @@
+[
+  # harness-config profile patch for the `web` profile.
+  #
+  # WHY THIS FILE EXISTS
+  # The composed profile tree is: each bundle's patch (from the installed packages),
+  # then $DSH_HOME/profiles/web/cordis.patch.yml, then $DSH_HOME/cordis.patch.yml.
+  # This file is the layer we own, and scripts/sync.py copies it here from the repo so a
+  # machine rebuilt from harness-config gets it too. Never edit
+  # ~/.dsh/profiles/node_modules/** - that is the shipped packages and an upgrade wipes it.
+
+  # ── WebSocket heartbeat ────────────────────────────────────────────────────
+  # dsh-api-gateway defaults websocketHeartbeatIntervalMs to 2000 ms, and that value is
+  # BOTH the ping cadence and the pong deadline: a peer that does not answer within the
+  # interval is terminated, and only 2 missed heartbeats are tolerated. This machine runs
+  # 8-12 browser windows against one engine, and measured (2026-09-11) a boot burst of 12
+  # windows produces 125 ms median / 193 ms max event-loop lag while two of the six boot
+  # calls cost 145 ms and 98 ms each. A slow EventSource/journal read in one window can
+  # stall the loop long enough to kill every window's socket at once - 12 reconnect storms
+  # from one hiccup. Raising the interval to 15 s makes a stall survivable, at the cost of
+  # slower detection of a genuinely dead peer (irrelevant here: the client is on loopback).
+  #
+  # Verified: this row targets the `typert-gateway` row that dsh-base mounts
+  # (`name: '@deepseek-ai/dsh-api-gateway'`), and the field's schema is
+  # `z.number().step(1).min(1).max(MAX_TIMER_DELAY_MS).default(2000)`.
+  # Takes effect on the next engine start (patchReload applies it at boot for the
+  # host plane), so a running engine keeps its old interval until restarted.
+  {
+    id: 'typert-gateway',
+    config: {
+      websocketHeartbeatIntervalMs: 15000,
+    },
+  },
+]

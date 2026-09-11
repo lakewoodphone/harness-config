@@ -456,3 +456,12 @@ no matter how new the feature that exposed it. The kernel refuses this exact fil
 (< 190); structurally old"*; nothing else in the fleet checks.
 *Cost of learning it:* none, because the answer was checked against the authority before it was believed.
 That check took one query.
+
+**L36 · A measurement that returns HTTP 200 is not a measurement that did work.**
+`dshw-perf` posted `{}` to the DSH `/api/*` endpoints. Every call answered **200** with
+`gateway/bad-request: invalid client-request message`, and the reported latencies were of schema rejection
+— not the boot path. A conclusion ("no degradation at 12 windows") was published from it and had to be
+withdrawn an hour later. The real envelope is
+`{type:"client-request", rpcId, method, payload:{args}}`, and the fix was to **capture one real request
+from a live client and replay that**, not to guess the shape. Corollary: when an API can answer 200 with a
+semantic error, parse the body and assert success — never infer success from the status.

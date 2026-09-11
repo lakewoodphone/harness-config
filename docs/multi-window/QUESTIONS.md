@@ -11,25 +11,38 @@ Asked 2026-09-11 · ZABZ-YOGA.
 
 ---
 
-## Q1 — How many engines: one shared process, or one process per window?
+## Q1 — How many engines: one shared process, or one process per window? — **ANSWERED 2026-09-11**
 
-Measured: an engine with its five MCP bridges costs **~1.4 GB**; the bridges are started per engine, so
-every extra engine pays it again. Eight engines ≈ 11 GB, twelve ≈ 17 GB. This laptop has 31.6 GB total
-and **7.7 GB free** at the moment of writing (a qemu VM holds 5.3 GB). One engine with 8–12 windows
-costs ~2.7–3.1 GB total.
+*Owner's answer, verbatim:* "what this is really about is performance... I don't specifically need different
+engines and all that shared session history is better than everything having its own sessions, because I
+really want to talk to you each time. I just want it to be in different windows so I could have a bunch of
+different conversations happening with you. And I also want no slowdowns... Obviously, the more integrated
+the windows are with each other even better."
 
-A window is only a browser client: one engine already hosts many **independent** sessions, so ten
-windows on one engine are ten separate agents, not ten views of one.
+**Decision: one shared engine, many windows — and it is also the faster choice.** Measured at 12 concurrent
+windows: 72/72 calls succeeded, worst case 0.45 s, no errors, engine memory flat. One engine ~3 GB against
+12 engines ~17 GB, and it is the only design that gives shared history. See `PERFORMANCE-MEASURED.md`.
 
-- **(a) One engine, many windows (recommended).** Cheapest and fits the laptop with room to work. A
-  window's own browser profile gives it its own cookie jar and its own "last session", so windows stay
-  independent. Blast radius: if the engine dies every window reconnects after the supervisor restarts
-  it (seconds).
-- **(b) One engine per window.** True process isolation — one window's crash cannot touch another. Costs
-  ~11 GB at eight windows and ~17 GB at twelve; does not fit the laptop as configured today. Available
-  as `"mode": "multi"` in `windows.json` whenever you want it.
+---
 
-**Recommendation: (a)**, with (b) kept switchable for the desktop.
+## Q7 — Should there be a cross-window panel: one place that shows what all the sessions are doing?
+
+You said you want the windows *more* integrated. They already share one session store, one set of agents and
+one event stream, so each window can see every session. What does not exist is a single view of the fleet —
+which session is working, which is waiting on you, which is stuck, and how much each has cost.
+
+- **(a) Nothing for now — use the sidebar session list (recommended until you have used twelve windows for a
+  few days).** The cheap version of integration already works. Building a panel you do not need is waste.
+- **(b) A status strip in each window** showing the other windows' sessions: running, waiting, done.
+- **(c) A dedicated "fleet" window** — one dashboard window listing every open session with state, model,
+  token spend and last activity, and a click to jump to it. This is the shape VS Code landed on for the
+  same problem (one Agent Sessions view, not twelve taskbar buttons).
+
+**Recommendation: (a) now, then tell me after a few days whether you keep alt-tabbing to find things.** If
+you do, (c) is the answer and it is a client-side plugin — the same work as question 3, so the two should be
+built together.
+
+---
 
 ## Q2 — Where should the windows sit, and how should they be identified?
 

@@ -1,8 +1,8 @@
 {
   "_comment": "DSH multi-window launcher configuration. ONE server, MANY windows is the default because each server process eagerly starts its own five stdio MCP bridges (~1.4 GB per server measured 2026-09-11). Set mode to 'multi' only when you deliberately want a second isolated engine.",
   "_modes": {
-    "single": "One DSH server on primaryPort; every window attaches to it. Sessions are independent; the engine is shared.",
-    "multi":  "Each slot runs its own DSH server on its own port. Independent engines, ~1.4 GB each, five MCP bridges each."
+    "single": "One DSH server on primaryPort; every window attaches to it. Sessions are independent; the engine is shared. THIS IS THE ONLY SUPPORTED MODE.",
+    "multi":  "UNSUPPORTED on a shared DSH_HOME - do not use. Two dsh web processes on one home have been observed writing duplicate sequence numbers into one session log and making the whole history unloadable (see docs/multi-window/research-dsh-perf-config.md section 6). It is also ~1.4 GB per engine against ~3 GB total for one engine with twelve windows."
   },
   "_fields": {
     "window.label": "Human label, shown in the window title and in status output.",

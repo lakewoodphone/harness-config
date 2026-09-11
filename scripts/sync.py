@@ -151,6 +151,43 @@ def plan_presets(dry: bool) -> list[str]:
     return msgs
 
 
+def plan_profile_patches(dry: bool) -> list[str]:
+    """Copy profiles/<name>/cordis.patch.yml into $DSH_HOME/profiles/<name>/.
+
+    The profile's own cordis.patch.yml is the layer that belongs to us: it is applied
+    after every bundle layer. The shipped packages under profiles/node_modules are never
+    touched, and a profile we do not have an overlay for is left exactly as it is.
+    """
+    msgs: list[str] = []
+    src_root = REPO / "profiles"
+    if not src_root.is_dir():
+        return ["profiles/: none in repo"]
+    for name in sorted(p for p in src_root.iterdir() if p.is_dir()):
+        src = name / "cordis.patch.yml"
+        if not src.is_file():
+            msgs.append(f"profile {name.name}: no cordis.patch.yml in repo")
+            continue
+        dest_dir = DSH_HOME / "profiles" / name.name
+        if not dest_dir.is_dir():
+            msgs.append(f"profile {name.name}: not present on this machine -- skipped")
+            continue
+        dest = dest_dir / "cordis.patch.yml"
+        if dest.exists() and _same(src, dest):
+            msgs.append(f"profile {name.name}: cordis.patch.yml up to date")
+            continue
+        if dry:
+            state = "WOULD UPDATE" if dest.exists() else "WOULD CREATE"
+            msgs.append(f"profile {name.name}: {state} cordis.patch.yml")
+        else:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            if dest.exists():
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+                shutil.copy2(dest, dest.with_suffix(f".yml.bak-{stamp}"))
+            dest.write_bytes(_norm(src.read_bytes()))
+            msgs.append(f"profile {name.name}: cordis.patch.yml applied")
+    return msgs
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -176,6 +213,8 @@ def main() -> int:
 
     print(" " + plan_settings(host, args.dry_run))
     for m in plan_presets(args.dry_run):
+        print(" " + m)
+    for m in plan_profile_patches(args.dry_run):
         print(" " + m)
 
     print()
