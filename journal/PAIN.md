@@ -797,3 +797,23 @@ workspace is picked. Hiding the rail was tried and reverted — it collapsed the
 workspace client-side per profile, so this is a client-plugin job like the drawer was, not a config value. (2) Only then
 revisit the rail: it needs the app's own layout to give the width back, which may mean the plugin asks the sidebar to
 collapse rather than a stylesheet hiding it.
+
+## P47 — Code the business depends on lives untracked on the box that runs it
+
+**Symptom.** The Shabbat/Yom Tov power automation — the thing that releases the office door and cuts HA + all
+cameras for every Shabbos and Yom Tov — existed only as untracked files on `secratary`. `git ls-files | grep -i
+shabbat` returned nothing. Same class as the nine other modified-but-uncommitted files and the 71-commit gap.
+
+**Evidence.** 2026-09-11: `git ls-files` empty for all five paths; `git status --porcelain` showing them as `??`;
+HANDOFF 19:45 entry recording the same checkout as "55 commits behind with nine uncommitted files, 510 lines of
+someone's live work".
+
+**Cost.** One disk failure or one careless `git clean` and the automation is gone, on a night when it is running
+for the first time. The archive carries a second-order cost too: nobody can review, diff or test what is not
+committed, which is how 55 improvements stayed unapplied.
+
+**Fix.** Done for this one case — commit `8490d137` on `origin/shabbat-automation-20260911`, pushed, working tree
+untouched (D39). Still open as a class: the five files should land on `master` (or be merged from the side branch)
+on a quiet day, and the general habit is to commit *someone else's* in-flight work to a side branch rather than
+leave it as the only copy. Detect it cheaply: the CEO kernel could flag any `??` file older than a week under
+`app/` on the authority, since that is exactly the shape of the loss.

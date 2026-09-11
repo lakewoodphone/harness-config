@@ -285,3 +285,16 @@ closes it too, as does Escape. At 1440px the sidebar **stays open at 280px** bef
 regression is excluded by measurement, not by intent — the plugin tests `matchMedia('(max-width: 768px)')` per click.
 `probe-phone.py` check 11 fails if the roster stops carrying it (12/12), and `serve-phone.sh` reinstalls the symlink and the
 bundle-list entry when either is missing, so the behaviour cannot vanish without a red check.
+
+**W25 · 2026-09-11 · Proved a physical automation would fire tonight without waiting for it to fire.**
+Erev Rosh Hashana 5787 needed the office interior maglock released and HA + all cameras powered down at 18:46:53
+EDT, with the household locked out for three days if the software step silently failed. Four independent readings
+established it in advance, none of them by reading code: the live app's own `/shabbat/status` returned
+`enabled=true, plug_connected=true, switch_on=true, next_action off @ 18:46:53`; `/proc/<pid>/task/*/comm` showed
+the **`apscheduler-boot`** thread alive in the live process (the thread that registers the 1-minute executor job);
+`curl 192.168.50.103/rpc/Schedule.List` showed the on-device cron holding OFF 18:46 and ON 20:23 **Sunday** — the
+device's own fallback, correct for a three-day block and not a Saturday-night lie; and a `.venv` dry-run with live
+settings showed the executor returning `nothing_due` at 18:43:53 and the action due at 18:44:30. The publish path
+was then exercised idempotently by re-sending the LOCKED payload (HTTP 200, `switch.smart_switch_l4` unchanged at
+`on`) — a real end-to-end test of the exact service the unlock uses, with zero physical effect. 14/14 unit tests
+pass. Nothing was assumed and nothing was left to hope.

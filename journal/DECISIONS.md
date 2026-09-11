@@ -332,3 +332,24 @@ picked — because a stylesheet cannot see a selection. Both use the same 768px 
 "narrow" rather than two that drift. The plugin is installed through a symlink plus a bundle-list entry (neither in git) and
 `serve-phone.sh` reinstall checks them, on the same reasoning as the gate: a component that can silently disappear needs a
 keeper, not a procedure.
+
+**D39 · 2026-09-11 · Untracked production code is archived onto a side branch built with plumbing, not by touching the working tree.**
+The Shabbat/Yom Tov automation (`shabbat_orchestrator.py`, `shalom_zmanim.py`, `shelly_plug.py` and their two test
+files) was **untracked in git on the host that runs the business**, with nine other files modified by another
+author and 71 commits of it behind origin. Archiving it was required — tonight it has to work and a disk death
+would take it forever — but committing it normally would have moved HEAD on production or swept someone else's
+in-flight work into my commit. Instead: a temporary `GIT_INDEX_FILE`, `git read-tree HEAD`, add only the five
+paths, `git write-tree`, `git commit-tree`, then `git branch -f shabbat-automation-20260911` and push. Result:
+commit `8490d137` on the remote, `git status --porcelain | wc -l` unchanged at 26, HEAD still `master`. This is
+the general pattern for preserving someone else's live work without negotiating with them.
+
+**D40 · 2026-09-11 · The erev-day block merge is not changed unilaterally an hour before Yom Tov; it is asked.**
+`is_power_down_day` counts *erev* days, so the maximal run Fri Sep 18 → Mon Sep 21 is programmed as ONE block:
+HA and every camera stay dark from Fri 18:35 until Mon 20:10, spanning Sunday Sep 20 (erev Yom Kippur, a
+working-day-shaped day, shop closed per the owner's own stated hours). The owner's human practice was off Friday →
+on Saturday night, up all Sunday, off again for Yom Kippur — so this is a divergence introduced by the automation,
+not a continuation of it. The change is small (run blocks over *holy* days only, and take the OFF time from the
+first holy day's erev) and would not affect tonight's Fri–Sun block. It was still not applied: it alters a security
+system's behaviour, it needs his judgement about the Sunday, and there is no urgency — the next program run that
+could apply it is Tue Sep 15 at 10:00. Escalated as one question with a recommendation instead. Recorded so a
+future self does not "helpfully" apply it in the meantime.
