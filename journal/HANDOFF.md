@@ -1751,3 +1751,33 @@ flag in production, or go without.
 - `phone-and-tech-full` `f4c1f0e7e` (lost mode), plus `d80e49d75`, `5491311cb`
 - `scripts/waze/test_profile_report.py` (9), `deploy/waze-mdm/fleet-api/test_fleet_monitor.py` (+3)
 - Live: `/fleet/alerts` 50 rows w/ messages; monitor `retired_exempt=9 stale_critical=53 complete=true`
+---
+
+## 2026-09-11 · ZABZ-YOGA · Unverified-default risk: the OTA ack timeout was a guess
+
+**CHANGED**
+- `DEFAULT_ACK_TIMEOUT = 900`, replacing an unexplained `180`. Measured rather than chosen:
+  across acknowledged commands (2026-09-11, `command_results.updated_at - commands.created_at`)
+  **Settings median 4 s but p95 ~4.5 days and max 6.3 days**; **InstallProfile median 340 s, p95 6.5 h**;
+  EnableLostMode/DeviceLocation median ~84 min. So 180 s sat *above* the median of ordinary commands and
+  *far below* the p95 of profile work, and could not distinguish "slow" from "dead". The constant now
+  carries those measurements inline instead of being a number nobody can justify.
+  It deliberately does **not** cover the multi-day tail: when a device is simply offline the right answer
+  is to stop and say so, not to block.
+- `await_command_result` now returns **`timed_out` separately from `ok`**. No terminal status means *we*
+  stopped waiting, not that the device refused. `ota.py` previously printed
+  "NOT confirmed applied" with no hint that the command is still queued and may land later — which is how
+  an operator re-issues a change that already took effect. It now says exactly that, and the `--timeout`
+  help carries the same warning.
+- 5 new tests (14 in `test_profile_report.py`). CLI help verified to render.
+
+**NOTE ON MY OWN DATA** — the raw `command_results.id` is the enrollment id, so "Settings" above mixes
+devices; a per-device latency would need `commands` grouped by enrollment. The conclusion is unaffected
+(all rows are real acknowledgements and the tail spans days), but I am not claiming a per-device figure
+I did not compute.
+
+**STILL BLOCKED, UNCHANGED** — staging does not exist (Heroku app 404 since at least 2026-09-09), so the
+portal remains built/tested/pushed but unverified on staging and not in production. Owner action, recorded
+in `QUESTIONS.md`.
+
+**EVIDENCE** — `personal-secretary-mvp` `90810c593`
