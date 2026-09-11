@@ -20,3 +20,12 @@
 *.png binary
 *.jpg binary
 *.zip binary
+
+# The journal is an append-only log written from several machines at once. A normal three-way merge
+# turns two simultaneous appends into a conflict, and the tempting resolution -- picking a side --
+# silently deletes the other session's memory. That is exactly the failure recorded as P44 on the
+# remote branch ("two sessions can rewrite the same file inside the same minute").
+#
+# `union` is git's built-in merge driver for append-only text: both sides' additions are kept. Correct
+# for a log, wrong for code, so it is scoped to the journal and to nothing else.
+journal/*.md merge=union
