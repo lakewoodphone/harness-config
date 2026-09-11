@@ -50,7 +50,12 @@ EVIDENCE    files, commits, or commands that prove the above
 
 **BROKEN**
 - Nothing newly broken. The cascade's own thresholds remain **uncalibrated** — no labelled frames exist, so every
-  attribute threshold is a guess (see `PAIN` P45). That is a real gap, not a bug.
+  attribute threshold is a guess (see `PAIN` P45 *"every threshold in the kosher filter's visual path is a guess"* —
+  the number alone is ambiguous, see `L157`). That is a real gap, not a bug.
+- The journal carries **duplicate entry numbers** from two machines writing at once: `P43/P44/P45` and `D37` each name
+  two different entries, and `L34/35/36/37/39/40/51/52/53`, `W5`, `W23`, `D17/18/19` were already duplicated in both
+  branches. Nothing was lost in this merge (union driver) and nothing is being renumbered — the fix is to cite entries
+  **by title**, and to take the next number from the merged file.
 
 **NEXT**
 - Build the labelling harness so a pilot batch (~200 frames) can be labelled in-house without cash, which is the
