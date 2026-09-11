@@ -125,29 +125,102 @@ def rewrite_target(first: bytes, new_target: bytes) -> bytes:
     return b"\r\n".join(lines) + sep + rest
 
 
-REPAIR_COOLDOWN = 8.0
-_repair_lock = threading.Lock()
-_last_repair: dict[str, float] = {}
+def read_all(sock: socket.socket, limit: int = 4_000_000, timeout: float = 20.0) -> bytes:
+    """Everything the peer sends until it closes. Upstream is forced to close per request."""
+    sock.settimeout(timeout)
+    buf = b""
+    while len(buf) < limit:
+        try:
+            chunk = sock.recv(BUF)
+        except OSError:
+            break
+        if not chunk:
+            break
+        buf += chunk
+    return buf
 
 
-def may_repair(client_ip: str) -> bool:
-    """At most one in-flight repair per client per cooldown window.
+def response_header(response: bytes, name: bytes) -> str:
+    for line in response.split(b"\r\n\r\n", 1)[0].split(b"\r\n")[1:]:
+        if line.lower().startswith(name.lower() + b":"):
+            return line.split(b":", 1)[1].strip().decode("latin-1")
+    return ""
 
-    The redirect design needed this and could not work without it: a client that keeps
-    a cookie the engine will never accept - curl -H, or a browser with cookies blocked -
-    looped until it gave up (measured: 50 hops). Repairing in flight removes the loop
-    for every normal client; this bound is for the pathological one, which now gets the
-    engine's own answer instead of an unending repair.
+
+def set_cookies(response: bytes) -> list[bytes]:
+    """Every Set-Cookie header value, verbatim, as a browser would see them."""
+    out = []
+    for line in response.split(b"\r\n\r\n", 1)[0].split(b"\r\n"):
+        if line.lower().startswith(b"set-cookie:"):
+            out.append(line.split(b":", 1)[1].strip())
+    return out
+
+
+def inject_headers(response: bytes, names_and_values: list[bytes]) -> bytes:
+    """Add headers to a complete response without touching its body."""
+    head, sep, body = response.partition(b"\r\n\r\n")
+    if not sep:
+        return response
+    lines = head.split(b"\r\n")
+    for item in reversed(names_and_values):
+        lines.insert(1, b"Set-Cookie: " + item)
+    return b"\r\n".join(lines) + sep + body
+
+
+def complete_login(engine_port: int, first: bytes, token: str, path: str) -> bytes | None:
+    """Sign the visitor in and return the document, all in one client response.
+
+    The whole reason this function exists, measured twice on 2026-09-11: any design where
+    the *client* is asked to follow a redirect to `/?token=` can be driven into a loop by
+    a client that keeps a bad cookie (curl with a pinned header; a browser refusing
+    cookies) - 50 hops and an abort. So the gate does the login itself:
+
+      1. ask the engine for the document with the live token appended,
+      2. keep the session cookie the engine hands back (not the client's stale one),
+      3. fetch the document with that cookie,
+      4. return the document to the client, with the Set-Cookie injected.
+
+    The client gets a working page in one request, no redirect chain, no token in its URL
+    or its history, and no loop is constructible. If step 1 does not produce a session,
+    return None and the caller relays whatever the engine said.
     """
-    now = time.time()
-    with _repair_lock:
-        if now - _last_repair.get(client_ip, 0.0) < REPAIR_COOLDOWN:
-            return False
-        _last_repair[client_ip] = now
-        if len(_last_repair) > 512:
-            for key in [k for k, seen in _last_repair.items() if now - seen > REPAIR_COOLDOWN]:
-                _last_repair.pop(key, None)
-        return True
+    try:
+        up = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
+        up.sendall(force_close(rewrite_target(first, path.encode() + b"?token=" + token.encode())))
+        exchange = read_response_head(up)
+        status = status_of(exchange)
+        cookies = set_cookies(exchange)
+        try:
+            up.close()
+        except OSError:
+            pass
+        if status not in (301, 302, 303, 307) or not cookies:
+            note(f"  login exchange answered {status} with {len(cookies)} cookie(s); relaying it")
+            return None
+
+        host = response_header(first, b"host") or tailnet_name() or "localhost"
+        cookie_header = b"; ".join(c.split(b";", 1)[0] for c in cookies)
+        request = (
+            f"GET {path} HTTP/1.1\r\nHost: {host}\r\n"
+            f"Cookie: {cookie_header.decode('latin-1')}\r\n"
+            f"User-Agent: phone-gate\r\nAccept: text/html,*/*\r\n"
+            f"Connection: close\r\n\r\n"
+        ).encode()
+        up2 = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
+        up2.sendall(request)
+        document = read_all(up2)
+        try:
+            up2.close()
+        except OSError:
+            pass
+        if status_of(document) != 200:
+            note(f"  signed-in fetch answered {status_of(document)}; relaying the exchange instead")
+            return None
+        note(f"  -> signed in in flight, returning {len(document)} bytes with {len(cookies)} cookie(s)")
+        return inject_headers(document, cookies)
+    except OSError as exc:
+        note(f"  complete_login failed: {exc}")
+        return None
 
 
 def read_response_head(sock: socket.socket, limit: int = 65536, timeout: float = 20.0) -> bytes:
@@ -279,37 +352,44 @@ def handle(client: socket.socket, engine_port: int) -> None:
              f"cookie={has_cookie} token_offered={bool(offered)} token_live={bool(token)} "
              f"proto={request_line.split(' ')[-1]}")
 
-        # A document request that cannot be authenticated as sent: no cookie at all,
-        # or a token the engine no longer honours (a saved link, a replayed redirect).
-        needs_token = bool(token) and (not offered and not has_cookie or bool(offered) and offered != token)
-        authed_upstream = None
-        if needs_token and may_repair(client_ip):
-            note("  -> adding the live token in flight (no redirect for the client)")
-            authed_upstream = rewrite_target(first, path.encode() + b"?token=" + token.encode())
+        # A document request that cannot be authenticated as sent: no cookie at all, or a
+        # token the engine no longer honours (a saved link, a replayed redirect, an engine
+        # restart). The gate signs the visitor in itself and returns the page.
+        needs_token = bool(token) and ((not offered and not has_cookie) or (bool(offered) and offered != token))
+        if needs_token:
+            note("  -> not authenticated as sent: signing in in flight")
+            signed_in = complete_login(engine_port, first, token, path)
+            if signed_in is not None:
+                client.settimeout(None)
+                client.sendall(signed_in)
+                client.close()
+                return
 
         client.settimeout(None)
         upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
-        upstream.sendall(force_close(authed_upstream or first))
+        upstream.sendall(force_close(first))
 
         if document_request and has_cookie and not offered:
-            # The visitor brought only a cookie, and a cookie can be stale. Ask the
-            # engine; if it refuses, retry once with the token rather than showing a
-            # dead end the visitor cannot diagnose.
+            # The visitor brought only a cookie, and a cookie can be stale. Ask the engine
+            # first; a refusal becomes a real sign-in rather than a dead end he cannot
+            # diagnose from a phone.
             upstream_head = read_response_head(upstream)
             status = status_of(upstream_head)
             note(f"  peeked upstream: {status}")
-            if status == 401 and token and may_repair(client_ip):
-                note("  -> cookie refused: retrying with the live token")
+            if status == 401 and token:
+                note("  -> cookie refused: signing in in flight")
                 try:
                     upstream.close()
                 except OSError:
                     pass
+                signed_in = complete_login(engine_port, first, token, path)
+                if signed_in is not None:
+                    client.sendall(signed_in)
+                    client.close()
+                    return
                 upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
-                upstream.sendall(force_close(rewrite_target(first, path.encode() + b"?token=" + token.encode())))
+                upstream.sendall(force_close(first))
                 upstream_head = read_response_head(upstream)
-                note(f"  retry answered: {status_of(upstream_head)}")
-            elif status == 401:
-                note("  -> relaying the 401: repaired recently, not looping")
             if upstream_head:
                 client.sendall(upstream_head)
 
