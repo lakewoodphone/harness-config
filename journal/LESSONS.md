@@ -1131,3 +1131,14 @@ is a question not spent on a decision only he can make, and it reads as an agent
 `personal-secretary-mvp/docs/{family,wedding,handoff}` + `journal/` + the `contacts` table, and keep the answer in
 `journal/reference/people.md` so the lookup is never needed twice. Ask him only what is genuinely his: money,
 customers, legal posture, family, taste, and anything irreversible.
+
+**L148 · 2026-09-11 · Editing a Python file does not reach a running scheduler — and the proof it took is behavioural, not a restart banner.**
+I changed how Shabbat/Yom Tov power-down runs are computed, then found the running uvicorn process had already cached
+both modules (my own `/shabbat/status` call had imported them). A restart was required, but the restart itself proves
+nothing: systemd reports `active` long before the app's lifespan has registered the jobs, and the app's own daily job
+would have gone on re-programming the device from the *old* code — silently reverting the change tomorrow morning.
+*Rule:* after restarting a scheduled app, verify three separate things — the health endpoint returns 200, the
+scheduler's boot thread exists in the **new** pid (`/proc/<pid>/task/*/comm`), and the *behaviour* changed (here:
+`curl 192.168.50.103/rpc/Schedule.List` showed 8 jobs with the split, where the old code produced 6 with the merge).
+Then run the idempotent operation a second time and require byte-identical output.
+*Cost if skipped:* a change that looks deployed, a green `systemctl status`, and a device that quietly reverts at 10:00.

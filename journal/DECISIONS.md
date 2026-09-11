@@ -353,3 +353,14 @@ first holy day's erev) and would not affect tonight's Fri–Sun block. It was st
 system's behaviour, it needs his judgement about the Sunday, and there is no urgency — the next program run that
 could apply it is Tue Sep 15 at 10:00. Escalated as one question with a recommendation instead. Recorded so a
 future self does not "helpfully" apply it in the meantime.
+
+**D41 · 2026-09-11 · Two holy periods separated by an ordinary weekday are two power-down runs (owner: "For sure, split it").**
+Asked with options and a recommendation, the owner chose to split. Power-down runs are now built from **holy days
+only** (`shalom_zmanim.is_holy_day` = Shabbat or chag); an erev day supplies the OFF *time* of the run that starts
+the next day (`block_off_time`) instead of extending a run already open. Concretely, from the device:
+`OFF 18/09 18:35 → ON 19/09 20:13` (Shabbat) and `OFF 20/09 18:31 → ON 21/09 20:10` (Yom Kippur) replace one
+`OFF 18/09 18:35 → ON 21/09 20:10` run. HA and every camera are therefore up for the whole of Sunday 20 Sep, and
+the interior maglock is re-latched Saturday night rather than left released for 73½ hours. Rosh Hashana (Sat+Sun,
+both holy) remains a single run, so tonight is unchanged. Supersedes the "left alone, escalated" position in D40 —
+the owner has now answered. `is_power_down_day()` is retained but is **no longer** the block predicate; do not
+rebuild runs from it.
