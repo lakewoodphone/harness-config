@@ -891,3 +891,33 @@ those 40 sessions succeeded. `NULL` timestamps also mean they cannot be aged out
 touching `work_sessions.status` outside `app/database.py`, and add a CHECK-constraint or a single writer to make
 the enum real. Do not delete the 40 rows — they are evidence of the defect, and the rule is never destroy data.
 
+
+
+## P51 — The owner has been read nothing since 2026-07-19, because a spam fix blocked *all* of it
+
+**Symptom.** `owner_message_queue` holds 595 undelivered rows and 742 ever-sent. The last successful send was
+`2026-07-19T02:32:33Z`; sent per month is May **402**, June **283**, July **20**, August **0**, September **0**.
+The cause is one file: `personal-secretary-mvp/data/OWNER_SMS_KILL_SWITCH` (mtime `Jul 20 17:57`), whose own
+text reads *"Created 2026-07-14 by Copilot per owner request. While this file exists, ALL owner SMS are blocked.
+The CEO was stuck in a loop sending 28+ 'URGENT' texts."* It is honoured in four modules, so it is not a stray
+flag: it is the designed gate, and it was never lifted.
+
+**Evidence.** The file and its text; the four call sites (`app/autopilot.py:7940`, `app/tool_factory.py:1772`,
+`app/services/notification_manager.py:349`, `app/chat_action_owner.py:237,457`); the monthly send counts above.
+A second, independent gate compounds it: `settings_overrides.owner_sms_min_urgency = "urgent"` (2026-05-04),
+so `normal` messages can never pass even with the switch removed. Transport is healthy — Twilio answers
+`status: active` with the same credentials.
+
+**Cost.** Everything the company concluded for 54 days reached nobody: 167 held owner items, including a
+**Gusto payroll notice saying payroll may be blocked for insufficient funds** (#1294, 2026-08-05), **7 critical
+rows**, and two Google password-breach alerts. This is P2's worst instance — not "nothing watches outcomes" but
+"outcomes are watched, recorded, and then swallowed". It is also the most plausible single explanation for the
+Copilot usage collapse after April 2026: the owner was receiving nothing while the company believed it was
+talking to him.
+
+**Fix.** Do **not** simply delete the file — that restores the 28-text loop that caused it. Replace the
+all-or-nothing switch with what the original fix should have been: a **rate limit plus dedup in front of the
+queue** (at most N owner SMS per hour, identical bodies collapsed, `urgent` and above). That makes a loop
+impossible *without* silencing payroll. Note the corrective logic already exists and is simply unused: the
+flush marks a blocked message `held` rather than dropping it, so nothing is lost while the gate is shut.
+

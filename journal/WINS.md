@@ -337,3 +337,16 @@ surviving completed-writes being the docstring and the two `[WORK_DONE]`-gated s
 **182 of 329 "completions" in 24 hours were hollow**. The complement of this win is W26's shape — the same
 defect class (`failures recorded as success`, `alarms routed nowhere`) appeared twice in one sitting.
 
+
+
+**W29 · 2026-09-11 · The 54-day owner silence was found, explained, and routed instead of escalated.**
+The question was "why is nothing reaching the owner". Answer, from primary evidence rather than inference: a
+kill switch file created to stop a 28-text spam loop, still honoured in four modules 54 days later, plus a
+second threshold that can never pass `normal` messages, against a healthy Twilio transport. With that in hand
+the response was not a risk report: 595 undelivered messages were **routed** (383 mine as engineering faults,
+45 superseded briefings, 167 owner items, nothing deleted), the six still-live owner items were promoted into a
+new decision queue, two `critical` items (Google breach alerts) were investigated to the point of being
+**closed as non-incidents** rather than forwarded, and the queue the owner asked for was built and working.
+The 28-text loop is what made the switch look reasonable; the correct replacement — a rate limit plus dedup —
+is the next piece of work, and it is safe to build before he answers.
+

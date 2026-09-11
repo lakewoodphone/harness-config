@@ -1233,3 +1233,25 @@ sits lexically inside `if "[WORK_DONE]" in accumulated_output:`, which a human c
 is non-zero; (b) if a test is written to detect a class of bug, seed it with a real instance of that bug and
 watch it fail before trusting it to pass.
 
+
+
+**L165 · 2026-09-11 · A blunt suppression fix outlives its incident, and the silence it creates is invisible
+because it looks like calm.** To stop the CEO sending 28+ "URGENT" texts, the previous agent created
+`data/OWNER_SMS_KILL_SWITCH` — a file that blocks **every** owner SMS. It was honoured in four modules, and for
+**54 days** the owner received nothing: 595 messages held, including a payroll-blocked notice and two account
+security alerts. Nothing detected the silence; the queue simply filled, and its status field said `held`, which
+reads like a deliberate decision rather than a total outage of the owner channel.
+*Rules:* (a) when suppressing a *symptom*, write down the trigger that un-suppresses it, and put it somewhere
+the system checks — an unused kill switch is an outage waiting for a date; (b) suppress with a **rate limit**,
+not a switch, whenever the symptom is "too many" rather than "wrong"; (c) the cheapest detector for this class
+is a freshness check on the channel itself (`MAX(sent_at)`) — the same shape as the archive alarm (L160) and
+exactly as absent.
+
+**L166 · 2026-09-11 · Distinguish the gate from the transport before naming a cause.** I first attributed 54
+days of silence to the urgency threshold and was about to fix that. Measuring the transport separately — Twilio
+`status: active` with the same credentials, and a per-month count of actual sends (May 402 → August 0) — showed
+two independent blockers: the threshold explains why `normal` messages cannot pass, the kill switch explains why
+*nothing* passed after 20 July. Fixing the one I noticed first would have changed nothing.
+*Rule:* for a "nothing is happening" symptom, measure each stage in order (trigger → gate → transport →
+delivery) and find the **first** stage that is empty. A plausible cause found early is not a cause confirmed.
+
