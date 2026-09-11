@@ -1,0 +1,20 @@
+# ZABZ-YOGA (home laptop) -- deltas from settings/base.yaml.
+#
+# This machine carries an extra model provider and raises the tool-call
+# parallelism. Neither is present on the desktop, which is exactly the drift the
+# single-source-of-truth repo is meant to make explicit rather than accidental.
+
+llm-pi-ai:
+  providers:
+    deepinfra:
+      apiKeyEnv: DEEPINFRA_API_KEY
+      api: openai-completions
+      baseURL: https://api.deepinfra.com/v1/openai
+      models:
+        - id: deepseek-ai/DeepSeek-V4-Flash-0731
+          name: deepseek-ai/DeepSeek-V4-Flash-0731
+        - id: deepseek-ai/DeepSeek-V4.1-Flash
+          name: deepseek-ai/DeepSeek-V4.1-Flash
+
+agent-loop:
+  maxParallelToolCalls: 20

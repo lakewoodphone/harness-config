@@ -1,0 +1,8 @@
+# ZABZ-TECH (office desktop) -- deltas from settings/base.yaml.
+#
+# The desktop's settings.yaml carried no machine-specific blocks at all
+# (169 bytes: onboarding, permission, preset default). Everything else lives in
+# base.yaml. This file exists so the absence is explicit and reviewable rather
+# than an accident of which machine happened to be edited.
+
+# No deltas today.

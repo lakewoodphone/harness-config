@@ -1,0 +1,20 @@
+# Base harness settings -- identical on every machine.
+#
+# Merged with settings/machines/<hostname>.yaml, where the machine file wins.
+# Keep secrets OUT of this file. Reference them by environment variable name
+# (e.g. apiKeyEnv: DEEPINFRA_API_KEY), never by value.
+
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+
+ui-conversation:
+  busyEnter: steer
+
+permission:
+  defaultPreset: danger-full-access
+
+agent-presets:
+  # cordis-bg carries the background-first shell policy: long pwsh commands are
+  # started as background jobs instead of dying at the 120s foreground timeout.
+  # Authored on ZABZ-TECH but never switched on there.
+  default: cordis-bg

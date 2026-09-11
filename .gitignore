@@ -1,0 +1,22 @@
+# harness-config: single source of truth for the DSH harness across all machines.
+# See README.md.
+
+# machine-local / secrets -- never commit
+*.bak-*
+.credentials.yaml
+.anonymous-user-id
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# dsh runtime state, if ever mirrored here
+sessions/
+profiles/node_modules/
+storages/
+
+# os
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -1,0 +1,2 @@
+name: Cordis (background-first shell)
+description: Everything the creation-mode preset has, plus a shell execution policy that starts long pwsh commands as background jobs instead of letting them hit the 120-second foreground timeout.
