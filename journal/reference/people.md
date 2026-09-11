@@ -9,6 +9,7 @@ comes up and it is not here, grep those directories **before** putting a questio
 | Field | Value |
 |---|---|
 | Name | **Eliyahu Tzvi Zabrowsky** ("Eliyahu") |
+| Face | `assets/people/eliyahu-zabrowsky-2026-09-11.jpg` |
 | Business | Lakewood Phone & Tech |
 | Machine he works on at night | `ZABZ-YOGA` / laptop, and this Linux box `secratary` |
 
@@ -17,6 +18,7 @@ comes up and it is not here, grep those directories **before** putting a questio
 | Field | Value |
 |---|---|
 | Name | **Yocheved Zabrowsky** — called **"Cheved"** |
+| Face | `assets/people/yocheved-zabrowsky-2026-09-11.jpg` |
 | Family-chat roster name | **"Dr Yocheved"** (chosen to distinguish her from Yocheved Rubin, see below) |
 | Phone | **(848) 224-5096** (family chat ID `e4610`) |
 | Windows account | `cheve` on `desktop-fgv6kmh` (her own machine, has her own AI assistant) |
