@@ -21,6 +21,8 @@ set -uo pipefail
 
 PORT="${PHONE_PORT:-3086}"
 STATE="${PHONE_STATE:-$HOME/.dsh-phone}"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REDIRECT_PORT="${PHONE_REDIRECT_PORT:-3087}"
 NODE="${PHONE_NODE:-/home/zabz/node/bin/node}"
 BIN="${PHONE_BIN:-/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js}"
 LOG="$STATE/engine-$PORT.log"
@@ -39,6 +41,23 @@ except Exception:
 
 engine_pid() {
   pgrep -f "dsh/lib/bin.js web --port $PORT" 2>/dev/null | head -1
+}
+
+redirector_pid() {
+  pgrep -f "phone-redirector[.]py" 2>/dev/null | head -1
+}
+
+ensure_redirector() {
+  # The owner's phone already has https://ai.abletelsolutions.com/phone on its home screen. The tunnel
+  # routes that path here, and this 302s into the harness so his existing icon opens the new app.
+  local pid; pid="$(redirector_pid)"
+  if [ -n "$pid" ]; then echo "redirector already running: pid $pid"; return 0; fi
+  if [ ! -f "$REPO_DIR/scripts/phone-redirector.py" ]; then echo "redirector script missing"; return 1; fi
+  setsid nohup python3 "$REPO_DIR/scripts/phone-redirector.py" --port "$REDIRECT_PORT" \
+    >>"$STATE/redirector.log" 2>&1 </dev/null &
+  sleep 1
+  pid="$(redirector_pid)"
+  [ -n "$pid" ] && echo "redirector started: pid $pid on 127.0.0.1:$REDIRECT_PORT" || echo "redirector failed to start (see $STATE/redirector.log)"
 }
 
 token() { grep -o 'token=[A-Za-z0-9_-]*' "$LOG" 2>/dev/null | head -1 | cut -d= -f2; }
@@ -118,6 +137,8 @@ if [ -z "$(engine_pid)" ]; then
 else
   echo "engine already running: pid $(engine_pid)"
 fi
+
+ensure_redirector
 
 T="$(token)"
 echo ""
