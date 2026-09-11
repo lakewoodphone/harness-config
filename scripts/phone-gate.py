@@ -37,7 +37,24 @@ COOKIE_PREFIX = b"dsh-auth-"
 BUF = 65536
 
 
-def live_token() -> str:
+def live_token(engine_port: int | None = None) -> str:
+    """The token the engine is actually serving.
+
+    Prefer the log of the engine we are wired to (`--engine-port`): picking a token by
+    newest file mtime is a heuristic, and the day an older log is touched last it would
+    hand a visitor a token that no engine accepts. The port is known, so use it, and
+    keep the mtime sweep only as a fallback for a renamed log.
+    """
+    if engine_port is not None:
+        exact = STATE_DIR / f"engine-{engine_port}.log"
+        if exact.exists():
+            try:
+                found = re.findall(r"token=([A-Za-z0-9_-]+)",
+                                   exact.read_text(encoding="utf-8", errors="replace"))
+                if found:
+                    return found[-1]
+            except OSError:
+                pass
     best = ""
     for log in sorted(STATE_DIR.glob("engine-*.log"), key=lambda p: p.stat().st_mtime):
         try:
@@ -115,7 +132,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
         wants_document = path in ("/", "/index.html")
 
         if method in ("GET", "HEAD") and wants_document and not authenticated and "token=" not in query:
-            token = live_token()
+            token = live_token(engine_port)
             host = tailnet_name() or "localhost"
             if token:
                 body = b""  # 302 with no body: the browser follows immediately
