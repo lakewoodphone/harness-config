@@ -181,6 +181,28 @@ to the inbox (design §3.3) and mailing on every run is what buried the 7 critic
 *It regenerates the collector from the ha-config mirror on every run*, so a fix in that repo lands
 without a second deployment step.
 
+**W16 · 2026-09-11 (later) · A one-space indentation bug had silently disabled the intrusion siren, and it is fixed and verified.**
+`packages/secretary.yaml` had `phoenix_alarm_mac_on`/`_off` indented one space, making them siblings of
+`rest_command:` rather than entries inside it. Home Assistant parsed the file, found no such commands,
+and carried on. **Measured before the fix:** `rest_command.phoenix_alarm_mac_on` and `_off` were ABSENT
+from the live service list while `script.phoenix_intrusion_reset` called one of them — an earlier commit
+message claimed the siren had been restored, and nothing had ever called it.
+Same class, same day: `configuration.yaml`'s entire `http:` block was mis-indented, so `ip_ban_enabled`
+and `login_attempts_threshold` added 2026-09-05 had **never been active**; `packages/phoenix_security.yaml`
+did not parse at all.
+*Measured after:* `rest_command.reload` restored both commands **with no downtime** (verified by re-reading
+the service list, not by the reload's return value), then an `ha core restart` loaded the `http:` settings.
+Post-change: all four `rest_command`s LIVE · 1068 entities · 150 automations / 64 on / 82 unavailable —
+**every count unchanged** · `grep -icE 'invalid config|failed to parse|setup failed'` → **0**.
+*The endpoint was checked before it was wired in:* `POST /alarm/on` → `200 {"ok": true, "alarm": "on"}`,
+so the step the sequence now makes actually answers.
+*Preventive artefact:* `scripts/validate_ha_yaml.py` parses with Home Assistant's tags registered and
+fails on a parse error, a `rest_command` ownership mistake, or an intrusion sequence whose first step is
+not the evidence-snapshot block. This defect class cannot ship again without the validator failing.
+*Honest caveat:* the siren being reachable is not the same as the siren being audible in the office. What
+is proven is that the call exists, resolves, and gets a 200 from the Mac mini listener. Loudness at the
+speaker is unverified from here.
+
 **W5 · 2026-09-11 · Twelve DSH windows became an operational reality, and the numbers say which design.**
 Built `multi-window/dshw.ps1` + `windows.json`: start/stop/restart/status/new/open/logs/autostart/doctor
 over one engine and N isolated browser windows. *Measurement:* engine up on port 3099 and **8 app windows
