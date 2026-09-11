@@ -958,3 +958,25 @@ repair locked out all comers for eight seconds — and my own probe failed withi
 reason it lasted a minute. *Rule:* behind a proxy, the socket peer is the proxy, not the person; never key a policy on it.
 *Also worth noting:* the probe caught its author's regression twice in one session, having first caught the bug it was
 written for. That is the entire argument for building it, and it is now the strongest artefact from this work.
+
+**L138 · 2026-09-11 20:37 UTC · "Who is visiting" cannot be recovered after the fact if the front door never recorded it.**
+The owner asked whether the phone work was finally live. Everything about *what* happened was readable — the gate's own
+decision log showed a cold visit signed in at 20:29:32 and the prompt I was answering posted at 20:29:52 — and nothing about
+*who* did it: Tailscale Serve rewrites every tailnet visitor to 127.0.0.1, the gate logs no User-Agent, and client identity
+does not exist anywhere else to recover it (`grep -rln userAgent` over the engine's server and web sources → nothing; the
+session file's `request/header` is the LLM request config, not the client). What remained was timing plus the tailnet's own
+per-peer counters: inference dressed as a reading. *Rule:* capture identity **at the point of entry**, because a proxy
+destroys it and no downstream record will have it. Any front door built for a user's device logs the device (User-Agent) and
+whatever identity the proxy forwards (`Tailscale-User-Login`, `X-Forwarded-For`) on every request it decides on — and the
+acceptance test drives that same device class through the same door. *Cost:* the phone workstream's final step, the owner's
+own confirmation from his phone, has been "the last unverified step" for three sessions (P42), and I still cannot tell his
+iPhone from a laptop on the tailnet.
+
+**L139 · 2026-09-11 20:37 UTC · Read the reflog before editing a shared file; a commit minutes old means a live writer.**
+Asked about the phone, I found its gate script rewritten at 20:31:46 — four minutes before, by another session — and this
+checkout had pulled three of that session's commits inside four minutes (reflog: 20:31:06, 20:31:46, 20:32:27). I had a
+five-line change ready for that exact file. *Rule:* before touching anything under `harness-config`, `git reflog --date=iso`
+plus `ls --time-style=full-iso` on the target file, both read as *now minus a few minutes*; a commit or mtime inside that
+window means a live writer, and the correct move is to write the intent into the journal and let its owner apply it — not to
+race it. *Cost:* the change is deferred by one session, which is cheap; a conflict or a stalled `--ff-only` pull on the other
+session is not (P13, P44).

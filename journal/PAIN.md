@@ -684,3 +684,31 @@ provenance rules exist to prevent, applied to myself instead of to a database.
 outside-in check through Serve. The standing rule is the durable part: **an acceptance test for anything the owner touches
 must run through the same proxy, on the same path, with the same dirty state his device has** — and passing from a clean
 terminal client is not evidence.
+
+## P43 — The phone path cannot say which device connected
+**Symptom.** The owner asked, on 2026-09-11, whether the phone work was finally live. I could prove *what* happened — the gate
+signed a cold visitor in at 20:29:32 and the prompt I was answering was posted through the gate at 20:29:52 — and could not
+prove *which device* did it. Serve rewrites every tailnet visitor to 127.0.0.1, `phone-gate.py` logs no User-Agent, and there
+is no second source: `grep -rln userAgent` across the engine's server and web sources returns nothing, and a session file's
+`request/header` is the LLM request config, not the client.
+**Evidence.** `~/.dsh-phone/gate.log` (no UA field in any line); the greps above; `journalctl -u tailscaled | grep
+connsInFlightByClient` showing the iPhone's own IP reaching Serve at the same minutes — which is corroboration, not identity.
+**Cost.** The phone stream's last acceptance step — *the owner's own phone* — stays unverifiable by me three sessions running
+(P42), and every future "is it my phone or my laptop?" question is answered by inference.
+**Fix.** (1) `phone-gate.py` records User-Agent and what Serve forwards (`Tailscale-User-Login`, `X-Forwarded-For`, if
+present) on every request it decides on — five lines, no new dependency. (2) Apply it with a restart **only when no socket is
+established on :3086**: the page holds `/api/remote.mux` open and the dsh web client has no reconnect logic, so restarting
+under the owner silently kills his page. (3) `probe-phone.py` then drives an iPhone User-Agent through Serve, so the probe's
+pass statement is about his device class rather than my curl.
+
+## P44 — Two sessions can rewrite the same file inside the same minute, and neither can see the other
+**Symptom.** While answering a question about the phone, another session committed to `scripts/phone-gate.py` at 20:31:43 and
+again at 20:32:24, having rewritten the file at 20:31:46 in this checkout; the only signal available to me was git (reflog
+pulls at 20:31:06, 20:31:46, 20:32:27 and the file's mtime). Nothing in the journal said the file was held.
+**Evidence.** `git -C ~/harness-config reflog --date=iso`; `ls --time-style=full-iso scripts/phone-gate.py` → 20:31:46; the
+three commit subjects landing "mobile layer / re-frame the document / keep the rail".
+**Cost.** A five-line change to that file was ready and would have raced a live writer — the real cost is not the lost edit
+but a conflict or a blocked `--ff-only` pull on the *other* session, which stalls work I cannot see.
+**Fix.** Before touching a shared artefact, read the reflog (L139). Then claim it in one line at the top of `HANDOFF.md` —
+`<path> — held by <session/host> until <time>` — and release it when done. Same failure class as P13 (`git add -A` sweeping
+another session's work); this is its file-level twin and the claim line is the cheap half of a fix.
