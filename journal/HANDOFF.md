@@ -31,12 +31,16 @@ EVIDENCE    files, commits, or commands that prove the above
 **IN FLIGHT**
 - `zabz` is installed on the Yoga only. The desktop has `cordis-bg` but not `zabz` — needs a sync run
   from the desktop clone (`python C:\Users\ezabz\Code\harness-config\scripts\sync.py`).
-- `zabz` is **not yet the default preset**. `settings/base.yaml` still sets `cordis-bg`. Deliberate:
-  change it once a real session has confirmed the tool list, because moving the default before
-  verification risks the owner landing in an untested agent.
-- The secretary MCP row is enabled on Windows but has **not been observed registering its 14 tools
-  in a live session**. The mount succeeds; tool registration is unproven. This is the one open
-  verification.
+- **`zabz` is now the default preset** on the Yoga (`settings/base.yaml` → `agent-presets.default`),
+  set after `standingKeyFor('zabz')` returned `mounted OK`. A profile restart is required for it to
+  take effect.
+- **The one unproven thing: the secretary MCP row's 14 tools have not been observed registering in a
+  live session.** What *is* proven: the preset mounts; the row resolves **enabled** on win32
+  (`disabled: !!js process.platform !== 'win32'` evaluates false); both paths exist; the venv python
+  imports the `mcp` SDK; the `dsh-mcp-client` package is present (0.1.5-rc.2); and an independent
+  handshake against `ps_mcp_server.py` returned all 14 tools. What is *not* proven is that the client
+  completes that handshake at preset mount time and registers them. First session on `zabz` should
+  list its tools — if `mcp__secretary__ps_*` is absent, this is the thread to pull.
 - `ceo-kernel` is staged on `secratary` at `/home/zabz/ceo-kernel` and runs, but **not scheduled** —
   it only runs when invoked.
 
@@ -45,10 +49,14 @@ EVIDENCE    files, commits, or commands that prove the above
 - Evolution loop still not closing: 56 unapplied, 30 duplicates, 13 node_modules targets (PAIN P4).
 - `engineering_indexer`: 172 ticks, 0 completions (PAIN P5).
 - 7 critical + 46 urgent messages held undelivered (PAIN P6).
+- The `zabz` preset has **no `QUESTIONS.md`, `DECISIONS.md` or `WINS.md` yet** — the journal README
+  names all six files; only `LESSONS.md`, `HANDOFF.md` and `PAIN.md` exist. A future self will look
+  for the missing three.
 
 **NEXT**
-Make the sentinel run on a schedule from `secratary` so it is not dependent on anyone remembering to
-invoke it — that converts the whole thing from a tool into a watch.
+Open a session on `zabz` and confirm the tool list — specifically whether `mcp__secretary__ps_*`
+appears. That closes the only open verification, and it is the difference between a CEO that can talk
+and one that can act on the company.
 
 **EVIDENCE**
 - `~/code/harness-config/presets/zabz/agent.cordis.yml` (20 rows)
