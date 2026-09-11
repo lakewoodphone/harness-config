@@ -11,6 +11,7 @@ loudly rather than re-ask quietly.
 
 | Asked | Question | Status |
 |---|---|---|
+| 2026-09-11 | The HA security system is blind: two door contacts are offline (since 2026-09-11 01:48) and every camera snapshot fails. Attempt a remote recovery now (reload Zigbee, retry the devices), or wait until someone is at the office on Sunday? | **open** — recommendation: remote recovery attempt now, because the failure is device-level and a reload is reversible; physical re-pair on Sunday if it does not take |
 | 2026-09-11 | Phone access: Tailscale-only, or a public login-gated endpoint as well? | **open** — recommendation given (Tailscale); no answer needed until the console is reachable |
 | 2026-09-11 | At the office on `ZABZ-TECH`, is it one long session per day or many short ones? | **open** — shapes how continuity should behave |
 | 2026-09-11 | Why did Copilot usage collapse after April 2026 (May −75%, June −78%, July ≈0)? | **open** — never answered; the single most informative unknown about what he actually needs |

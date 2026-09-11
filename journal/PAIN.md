@@ -278,3 +278,49 @@ which is the exact failure the whole kernel exists to catch (L12, P2).
 explicitly rather than leaving `?`, so an unresolved `?` becomes a bug rather than the normal state.
 Belongs in `ck/sentinel.py` + `ck/sources.py`; not started.
 
+---
+
+## P15 — The Home Assistant security system has been blind for a day and nothing told anyone
+
+**Symptom.** Three Zigbee devices — the outside-door contact, the interior control-room contact and
+the apartment deadbolt's old entity — went `unavailable` at **2026-09-11 01:48 local** and were still
+unavailable 11 hours later, when this session first looked. `binary_sensor.phoenix_outside_door_contact`
+is the canonical trigger named in `docs/SECURITY_DECISIONS.md` for the highest-severity scenario the
+business recognises: *door opened without an official unlock*. Separately, the camera snapshot step of
+the intrusion response fails 100% of the time (Dahua `192.168.50.170:80` unreachable, 365 errors), so
+a real intrusion would page the owner, strobe the lights and leave **no evidence**.
+
+**Evidence.** `ha-config/docs/AUDIT-2026-09-11-live-systems.md` §2 F1–F2; live reads via
+`scripts/ha_truth.py` at 2026-09-11 16:55–17:00 UTC; `docs/SECURITY_DECISIONS.md` for the trigger
+definition; commit `98f6235` for the intent of the snapshot step.
+
+**Cost.** The difference between a security system and a sense of security. Both failures were
+invisible in the Home Assistant UI summary: the sensors read `unavailable` on a dashboard nobody was
+looking at, and the integration that fails every call reports `loaded`.
+
+**Fix.** (1) Make this surface a *scheduled* reading with an alarm on **absence**, not a manual audit —
+the collector exists; nothing runs it yet. The `ceo-kernel` cron on `secratary` is the natural home.
+(2) The physical root causes are an owner action at the office: re-pair three devices, and bring the
+camera host back. (3) The HA SSH add-on is off, so nothing that needs the host can run at all.
+
+---
+
+## P16 — Home Assistant is on the office LAN and reachable from exactly one machine
+
+**Symptom.** The Home Assistant host answers only on the office LAN (`192.168.50.34`). From
+`ZABZ-YOGA` — where the owner works at night — nothing reaches it. Tailscale carries the workstations
+and `secratary`, not HA.
+
+**Evidence.** Direct probes from the Yoga at 2026-09-11 12:50 ET: HA tcp/22 and tcp/8123 unreachable,
+`secratary` via its Tailscale IP reachable, HA reachable **from** `secratary`.
+
+**Cost.** Every HA task either runs through an SSH hop that must be set up each time, or silently
+becomes impossible. It is why the overhaul's own Part 1 scripts have never been run: they assume
+`homeassistant.local` resolves. Nothing in the repo or the journal said this before this session, so
+each new self would have rediscovered it.
+
+**Fix.** Keep the collector's `-ViaSshHost` path (done, verified). Longer term: advertise the office
+subnet over Tailscale from `secratary` (`--advertise-routes=192.168.50.0/24`) with the route approved
+in the admin console, which makes HA directly reachable from both workstations and removes the hop
+entirely. Needs the owner's Tailscale admin action; not started.
+

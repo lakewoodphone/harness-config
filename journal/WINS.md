@@ -83,3 +83,21 @@ error is the useful part) and LESSONS L28/L29 record the method.
 *Honest caveat:* the discipline worked on the second look, not the first. The entry was written
 confidently and sat in the file. The lesson is that a surprising count needs a second filter before it
 becomes a finding, not that the correction mechanism is reliable on its own.
+
+**W11 · 2026-09-11 (later) · Home Assistant got a live truth surface, and it found the failures a manual look missed.**
+Before: the newest live Home Assistant facts in the repo were dated 2026-04-17, and the whole inventory
+path needed SSH, which is closed. Now: `scripts/ha_truth.py` reads HA's own APIs (REST + WebSocket
+admin) read-only and emits provenance packets plus deterministic findings; `scripts/ha-truth.ps1` runs
+it locally or through `secratary`.
+*Measurement (three verification runs, 16:55→17:01 UTC):* the tool reproduced every number this session
+had gathered by hand — 1068 live entities, 45 config entries (40 loaded, 2 not loaded, 3 setup_retry),
+1895 registry entities with 834 disabled, 82/150 automations unavailable, 41 Keymaster entities — and
+added three findings the manual pass had not surfaced: `EVIDENCE_CAPTURE_FAILING` (365 camera snapshot
+errors), `LOG_LOUDEST_ERROR` (683 identical OAuth lines) and `OAUTH_RETRY_STORM`.
+*Second measurement:* the first end-to-end run **refused** on `/api/error_log` because the endpoint
+returns text, not JSON, with the reason and the raw bytes in the payload. The fix took one edit, and
+the second run's log section is real. A tool that had silently returned an empty log would have hidden
+the camera failure entirely.
+*Honest caveat:* the tool cannot see add-on versions, the HAOS version, or `/config` contents — it says
+so in `not_verifiable` rather than leaving a blank. It is a complement to the SSH inventory path, not a
+replacement for it.

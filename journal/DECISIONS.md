@@ -69,3 +69,32 @@ It records `latest.json` + `history.jsonl` and routes nothing.
 every run before that exists would recreate the alert fatigue that buried 7 critical and 46 urgent
 messages (PAIN P6) — a monitor that trains its reader to ignore it is worse than a silent one.
 *Superseded when:* Phase 6 lands a systemd daemon; this entry is then **replaced, not duplicated**.
+
+**D13 · 2026-09-11 · Home Assistant's live truth is collected over HA's own APIs, read-only, not by SSH.**
+`scripts/ha_truth.py` + `scripts/ha-truth.ps1` read `/api/config`, `/api/states`, `/api/services`,
+`/api/error_log` and the WebSocket admin surfaces (`config_entries/get`, `entity`/`device` registry
+lists), and emit a payload in which every reading carries source, read time, the data's own age, its
+assertions, or an explicit refusal.
+*Why:* (1) it cannot mutate anything, so it is safe to run unattended; (2) it works from a host that
+can only reach the office LAN through `secratary`; (3) it kept working while the SSH add-on was off,
+which is exactly the condition the system was found in. The SSH-based `scripts/inventory.ps1` path
+stays for what only SSH can see (`/config` contents, add-ons via `ha` CLI) — the two are complements,
+and the audit states which claims come from which.
+*Explicitly rejected:* installing a Python package (`websockets`) on the company server to read from
+it. The protocol is ~120 lines of standard library instead.
+
+**D14 · 2026-09-11 · Severity on the HA truth surface is assigned by deterministic code, not by a model.**
+The collector maps measured conditions to fixed finding codes and severities
+(`SECURITY_SENSORS_UNAVAILABLE`, `EVIDENCE_CAPTURE_FAILING`, `KEYMASTER_ENTITIES_LOADED`, …). A model
+may summarise but may not decide whether something is a problem.
+*Why:* a monitor whose judgement varies between runs cannot be trended, diffed, or trusted; and the
+single most expensive failure in this system's history was a confident reading nobody could check.
+
+**D15 · 2026-09-11 · Security-relevant integration degradation is judged narrowly on purpose.**
+Only integrations with direct security or access-control consequences (`zha`, `mqtt`/`zigbee2mqtt`,
+`esphome`, `dahua`, `reolink`, `keymaster`, `phoenix_access_manager`, `hassio`, `bluetooth`/`bermuda`)
+raise the security flag. A dead printer and a flapping UPS are reported at their true severity.
+*Why:* the first run of the collector called the UPS and the printer "security-relevant" because their
+titles contained no security words but their domains were guessed into the list. Inflating severity is
+how an alert surface gets ignored — the same failure mode as the 144 sync-breaker alerts that led to
+three competing dismissal schemes (PAIN P6).
