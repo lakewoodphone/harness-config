@@ -62,6 +62,8 @@ const STATE_PATH = path.join(DSH_HOME, 'dsh-archive-state.json');
 const MACHINE = (process.env.DSH_ARCHIVE_MACHINE || os.hostname()).toLowerCase();
 const BATCH_SESSIONS = 100;
 const BATCH_BYTES = 4 * 1024 * 1024;
+// Rows per request: small enough that one session never has to finish inside a single HTTP deadline.
+const BATCH_ROWS = Number(process.env.DSH_ARCHIVE_BATCH_ROWS || 300);
 // A transport must never be able to hang a scheduled job forever (see postBatch).
 const SSH_TIMEOUT_MS = Number(process.env.DSH_ARCHIVE_SSH_TIMEOUT_MS || 240000);
 const transportNotes = {};
@@ -348,43 +350,62 @@ async function main() {
     const newRows = decoded.rows.slice(startRow);
     if (decoded.tornStart !== null) torn++;
 
-    const payload = {
-      session_id: s.session,
-      project: s.project,
-      header: decoded.header,
-      file: path.basename(s.file),
-      file_bytes: decoded.bytes,
-      frames: decoded.frames,
-      torn_tail: decoded.tornStart !== null,
-      total_rows: decoded.rows.length,
-      start_row: startRow,
-      rows: newRows,
-    };
-    const size = JSON.stringify(payload).length;
-
-    if (VERBOSE || DRY) {
-      console.log(`  ${DRY ? 'would send' : 'sending'} ${s.project}/${s.session.slice(0, 8)}  ` +
-        `rows ${startRow}..${decoded.rows.length} (${newRows.length} new), ${decoded.frames} frames` +
-        `${decoded.tornStart !== null ? ', TORN TAIL' : ''}, ${Math.round(size / 1024)} KB`);
+    // A big session is split into fragments, because the request that carries it has to finish inside
+    // the proxy's timeout. Measured 2026-09-11: the Yoga's backfill died twice with a 500 from the
+    // public endpoint, and the app's own error log had nothing for it — the failure was the *request*,
+    // not the code. One session here is 2,384 rows and ~10 MB; sending it whole asks the server to
+    // insert all of it inside one HTTP deadline while the company's autopilot is writing. The protocol
+    // already supported fragments (each carries its own `start_row`, and the server's ordinal is
+    // `start_row + index`), so the shipper now uses that.
+    const fragments = [];
+    for (let offset = 0; offset < newRows.length; offset += BATCH_ROWS) {
+      fragments.push({ startIndex: startRow + offset, rows: newRows.slice(offset, offset + BATCH_ROWS) });
     }
-    batch.sessions.push(payload);
-    batchBytes += size;
+    if (fragments.length === 0) fragments.push({ startIndex: startRow, rows: [] });
+
+    for (let fi = 0; fi < fragments.length; fi++) {
+      const frag = fragments[fi];
+      const payload = {
+        session_id: s.session,
+        project: s.project,
+        header: decoded.header,
+        file: path.basename(s.file),
+        file_bytes: decoded.bytes,
+        frames: decoded.frames,
+        torn_tail: decoded.tornStart !== null,
+        total_rows: decoded.rows.length,
+        start_row: frag.startIndex,
+        rows: frag.rows,
+      };
+      const size = JSON.stringify(payload).length;
+
+      if (VERBOSE || DRY) {
+        console.log(`  ${DRY ? 'would send' : 'sending'} ${s.project}/${s.session.slice(0, 8)}  ` +
+          `rows ${frag.startIndex}..${frag.startIndex + frag.rows.length} of ${decoded.rows.length}, ` +
+          `${decoded.frames} frames${decoded.tornStart !== null ? ', TORN TAIL' : ''}, ${Math.round(size / 1024)} KB`);
+      }
+      batch.sessions.push(payload);
+      batchBytes += size;
+      rowsSent += frag.rows.length;
+      bytesSent += size;
+
+      // The cursor advances only with the session's LAST fragment, so a session interrupted between
+      // fragments is re-sent whole next run rather than being marked done with a hole in it.
+      if (fi === fragments.length - 1) {
+        pendingCursor.push({
+          k,
+          v: {
+            rowsShipped: decoded.rows.length,
+            bytes: decoded.bytes,
+            lastRow: newRows.length ? newRows[newRows.length - 1].seq : (prev.lastRow ?? null),
+            at: new Date().toISOString(),
+          },
+        });
+      }
+
+      if (batch.sessions.length >= BATCH_SESSIONS || batchBytes >= BATCH_BYTES) await flush();
+    }
     sessionsSent++;
-    rowsSent += newRows.length;
-    bytesSent += size;
-
-    // queued, not applied: flush() commits these only once the server has accepted the batch
-    pendingCursor.push({
-      k,
-      v: {
-        rowsShipped: decoded.rows.length,
-        bytes: decoded.bytes,
-        lastRow: newRows.length ? newRows[newRows.length - 1].seq : (prev.lastRow ?? null),
-        at: new Date().toISOString(),
-      },
-    });
-
-    if (batch.sessions.length >= BATCH_SESSIONS || batchBytes >= BATCH_BYTES) await flush();
   }
   await flush();
 
