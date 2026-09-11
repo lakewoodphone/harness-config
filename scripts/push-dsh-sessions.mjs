@@ -261,7 +261,10 @@ async function main() {
 
   console.log(`machine : ${MACHINE}`);
   console.log(`sessions: ${found.length} on disk`);
-  console.log(`endpoint: ${DRY ? '(dry run — nothing sent)' : ENDPOINT}`);
+  console.log(`transport: ${DRY ? '(dry run — nothing sent)' : TRANSPORT}`);
+  if (!DRY) {
+    console.log(`target   : ${TRANSPORT === 'http' ? ENDPOINT : `${SSH_HOST}:${TRANSPORT === 'scp' ? REMOTE_INCOMING : 'stdin → ' + IMPORTER}`}`);
+  }
   console.log('');
 
   let sessionsSent = 0, rowsSent = 0, skipped = 0, torn = 0, bytesSent = 0;
