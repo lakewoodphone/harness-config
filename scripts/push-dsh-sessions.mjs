@@ -91,9 +91,13 @@ const ENDPOINT = process.env.DSH_ARCHIVE_ENDPOINT
  */
 function ingestToken() {
   if (process.env.DSH_ARCHIVE_TOKEN) return process.env.DSH_ARCHIVE_TOKEN.trim();
+  // The workstations keep the repo under ~/code (or ~/Code); the always-on Linux host keeps it directly
+  // in the home directory. Hard-coding only the Windows shape is how the authority's first backfill
+  // failed with 'no token' while the workstations worked.
   const candidates = [
     path.join(os.homedir(), 'code', 'personal-secretary-mvp', '.env'),
     path.join(os.homedir(), 'Code', 'personal-secretary-mvp', '.env'),
+    path.join(os.homedir(), 'personal-secretary-mvp', '.env'),
   ];
   for (const file of candidates) {
     try {
