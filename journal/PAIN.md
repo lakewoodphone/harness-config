@@ -182,8 +182,61 @@ a property of the interpreter launch, not of the MCP scripts. A naive process co
 **double-counts every python-based bridge**.
 *Kept as written, not deleted*, because the error is instructive: this is L2 — reading the wrong thing
 confidently — committed inside the very journal created to prevent it. See LESSONS L28.
+**Confirmed a second time with eight sessions open (2026-09-11 12:58).** Measured precisely — by
+exact process name and script basename, and excluding the survey's own command line — there is
+**one** DSH server process (`dsh web`, hosting ~8 sessions) with exactly **one** `ps_mcp_server.py`
+shim per external bridge. The bridges are composed **once per process, not once per session**: opening
+seven more sessions added no bridges. So the original worry was doubly wrong, and the design is
+better than the entry assumed.
 Measured as a side note: the whole DSH process tree with six bridges holds **721 MB** across 12
-processes, and that number is real, unlike the one above.
+processes, and that number is real, unlike the one above. The dominant cost is not the bridges — it is
+**one `dsh-subprocess-local/runner.js` shell per concurrent command at ~58 MB each**, so the memory
+story on this machine is driven by how many sessions run shells at once, not by MCP.
+
+---
+
+## P13 — Concurrent sessions share one repo, and `git add -A` sweeps each other's work
+
+**Symptom.** Eight DSH sessions were live in one project directory at once (`session_projcache`,
+2026-09-11 12:53–12:58), all on preset `zabz`, several of them editing the same working tree —
+`harness-config`, and other repos under `C:\Users\ezabz\code`. While this session was writing the
+journal, another session ("Add per-turn chat cost estimates") wrote
+`journal/reference/deepseek-token-pricing-2026-09-11.md` into the same repo, and this session's
+`git add -A` **committed it**, under a message that does not mention it.
+
+**Evidence.** `git log --oneline -- journal/reference/` → the file arrives in commit `4becfa4`, a
+commit whose message describes only journal corrections. File mtime 12:55:41, between two of this
+session's own edits.
+
+**Cost.** Small this time — the file was legitimate and correctly placed, and nothing was lost. The
+failure class is not small: two agents staging a shared tree means one can commit, attribute, or
+revert another's half-finished work, and neither can tell from the diff. It also produces exactly the
+phantom-difference confusion of P8/L21, with a new cause.
+
+**Fix.** Adopted rule: **in a shared working tree, stage explicit paths — never `git add -A` or
+`git add .`** (LESSONS L33). Longer term, concurrent sessions should not share a mutating repo at all:
+either serialise on it, or give each session its own clone and let the remote be the meeting point.
+Not built; the rule is the cheap half.
+
+---
+
+## P14 — The real memory cost of a session is the shell, not the tools
+
+**Symptom.** Six MCP bridges looked like the memory story. They are not. Measured on ZABZ-YOGA with
+eight sessions live: a DSH server at **678 MB**, six bridges as direct children at **4–63 MB**
+(the venv shim is ~4 MB; the real payload is its child), and then **each concurrent shell command at
+~58 MB** for its `dsh-subprocess-local/runner.js`.
+
+**Evidence.** Process survey at 12:58, counting by exact name and script basename: 16 direct children
+of the one DSH server, of which 10 were `runner.js` at ~58 MB and 6 were bridges.
+
+**Cost.** Roughly ten concurrent shell commands is ~580 MB before the sessions themselves. With eight
+parallel sessions on an i9/64 GB desktop that is affordable; on the Yoga it is the number that decides
+how much parallel work is safe, and nothing tracks it.
+
+**Fix.** Not urgent and not yet a problem — recorded so a future self sizes parallel work from the
+right variable instead of blaming MCP bridges, and so the "eight sessions" habit is a known cost.
+If it becomes a constraint, the lever is limiting concurrent shells per machine, not reducing bridges.
 
 ---
 

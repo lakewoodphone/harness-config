@@ -14,6 +14,7 @@ loudly rather than re-ask quietly.
 | 2026-09-11 | Phone access: Tailscale-only, or a public login-gated endpoint as well? | **open** — recommendation given (Tailscale); no answer needed until the console is reachable |
 | 2026-09-11 | At the office on `ZABZ-TECH`, is it one long session per day or many short ones? | **open** — shapes how continuity should behave |
 | 2026-09-11 | Why did Copilot usage collapse after April 2026 (May −75%, June −78%, July ≈0)? | **open** — never answered; the single most informative unknown about what he actually needs |
+| 2026-09-11 | The company recorded **zero ticks for twelve consecutive days, 2026-07-23 .. 2026-08-03**. Was that a deliberate shutdown, or an outage nobody noticed? | **open** — asked in session; the kernel now flags this gap on every run, and if it was intentional the kernel needs a *maintenance window* concept instead of a permanent alarm |
 
 **Answered and recorded elsewhere:**
 - 2026-09-11 · Who the CEO is and what it owns → `DECISIONS.md` D1

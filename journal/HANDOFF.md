@@ -50,6 +50,21 @@ time — so the 12-day hole above sat inside the quoted window and was reported 
 happened. Spans now read `120 days with data across 148 calendar days` and `30d of data over 52d`.
 Found by reading live data, not by review.
 
+**FOUND BY ACCIDENT, AND IT MATTERS: seven other sessions were running in this same directory**
+At 12:58 there were **eight live DSH sessions** on one DSH server process, all preset `zabz` — cost
+estimates, Home Assistant audit, Waze MDM status, extension mapping, three read-only recon sessions,
+and this one. One of them wrote `journal/reference/deepseek-token-pricing-2026-09-11.md` into
+`harness-config` while this session was editing the journal, and this session's `git add -A` committed
+it (in `4becfa4`) under a message that does not mention it.
+**That file is not mine, and I have not verified its numbers.** It appears legitimate and well-sourced,
+and its headline claim — every `deepseek-official` id is served by V4.1-Flash at Flash price — is
+consistent with the owner's own statement recorded in L26. Treat it as a claim from another session
+until checked.
+Consequences recorded: PAIN P13 (shared tree + `git add -A`), LESSONS L33 (stage explicit paths).
+Also measured and worth knowing: the MCP bridges compose **once per process, not once per session** —
+seven extra sessions added no bridges — and the real memory cost per concurrent session is its shell
+runner at ~58 MB, not the tools (PAIN P14).
+
 **CORRECTED — PAIN P10 was wrong, and it was wrong in the exact way this journal exists to catch**
 P10 claimed repeated mount-validation spawns duplicate MCP servers ("four `ps_mcp_server.py`"). **It
 does not.** The number came from filtering process command lines for `personal-secretary-mvp` — a
@@ -69,6 +84,7 @@ double-counts every python bridge. LESSONS L28/L29.
 
 **BROKEN / KNOWN** (unchanged unless noted)
 - **12-day total outage `2026-07-23..2026-08-03`, cause unknown** (new, above) — historical.
+- **Seven other sessions share this project directory** and may write into any repo under it (P13).
 - Three divergent `secretary.db` copies (P3); evolution loop not closing (P4); 7+46 held messages
   (P6); `harness-config` sync still manual (P8); 5 dead-weight agents (P5, up from 1).
 

@@ -50,6 +50,28 @@ source of truth.
 concluding that a remote differs from the source, compare the content — do not infer it from an error
 message produced by your own bad guess.
 
+**L32 · A process survey matches its own command line — twice over. (Extends L28, which was not enough.)**
+After L28 I re-ran the MCP count and got "8 DSH servers" and "3× every bridge". Both were false again,
+by the same mechanism in a new place: the survey's own command line contains the strings it searches
+for, **and** that text is copied into the `dsh-subprocess-local/runner.js` wrapper that runs the
+survey — so the query matches itself through two different processes. Filtering by *name* alone does
+not save you; the wrapper is a `node.exe` too.
+*Correct method:* filter on process **Name** *and* on a pattern that can only appear in the real
+target (here: a command line whose final argument is `dsh/lib/bin.js`, not one that merely mentions
+it), and state the number you expect before you count.
+*Learned:* L28 said "count the thing you meant". This one adds the reason it recurs: **a survey is
+part of the system it surveys.** Expect to match yourself, and design the filter to exclude you
+explicitly. Three false counts on one trivial question is the cost of not doing that.
+
+**L33 · In a shared working tree, stage explicit paths — never `git add -A`.**
+Eight DSH sessions were live in one project directory at once. Another session wrote a legitimate file
+into `harness-config/journal/reference/` while this session was editing the journal, and
+`git add -A` **committed it under someone else's commit message**, unmentioned.
+*Learned:* `git add -A` asserts "everything in this tree is mine and belongs in this commit", which is
+false the moment a second agent can write there. Stage the paths you actually changed. It costs one
+line and it preserves the difference between what you did and what merely happened next to you.
+*Cost of learning it:* an unattributed file in a commit, and the diff no longer explains itself.
+
 **L31 · A span counted in rows is not a span of time. Count the calendar.**
 The kernel reported "4 collapse windows in **120 days**" and labelled its worst window "**30d**". Both
 were counts of *days that have rows*. The window actually spanned **52 calendar days**, and inside it
