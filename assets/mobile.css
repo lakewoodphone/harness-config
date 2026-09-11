@@ -66,6 +66,17 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* Navigation-level controls inside a conversation, measured too small on the phone:
+   * the Chat / Trajectory tabs at 27x25 and the "Thought for a while" disclosure at
+   * 206x33. Matched on ARIA semantics, not class names, so it survives a client rebuild. */
+  [role="tab"] {
+    min-height: 44px;
+  }
+
+  [aria-expanded] {
+    min-height: 40px;
+  }
+
   /* ---- no auto-zoom on focus -------------------------------------------- */
 
   input,
