@@ -42,10 +42,13 @@
 
   /* ---- touch targets ---------------------------------------------------- */
 
-  /* Icon-only controls carry an aria-label; that is the stable, semantic hook. */
+  /* Icon-only controls carry an aria-label; that is the stable, semantic hook.
+   * Do NOT extend this to `button[aria-label] > *`: measured 2026-09-11, that sized the
+   * icon glyphs themselves to 44px and every icon on the page rendered enormous. The
+   * minimum belongs to the button box, which is what a thumb aims at; the glyph inside
+   * keeps the size its own CSS gives it. */
   button[aria-label],
-  [role="button"][aria-label],
-  button[aria-label] > * {
+  [role="button"][aria-label] {
     min-height: 44px;
     min-width: 44px;
   }
@@ -71,6 +74,7 @@
    * 206x33. Matched on ARIA semantics, not class names, so it survives a client rebuild. */
   [role="tab"] {
     min-height: 44px;
+    min-width: 64px;
   }
 
   [aria-expanded] {
