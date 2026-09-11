@@ -661,19 +661,3 @@ the model and agreement *inflates* while quality does not.
 automation that guesses at it. This is also why "the model can label our training data" is the wrong answer for
 fine-grained attributes (DECISIONS D21) — the label is the product.
 
-**L52 · In the DSH browser loader, a wrong dependency name breaks the whole UI, not the plugin.**
-`packages/plugin-cost` declared `dsh.client.inject: ["@deepseek-ai/dsh-api-session-controller",
-"@deepseek-ai/dsh-client-ui-conversation"]` and, later, `exports.inject = { required: [], optional: ['slots'] }`.
-The loader resolves **every name in both places as a SERVICE** through the client context and holds the entry
-at `pending` until each one exists. None of those three names ever resolved, so the entry never activated and
-**every window rendered "Failed to load plugins" instead of the app** — a broken cost pill took the whole
-interface down. Fix: declare nothing, read optional capabilities with `ctx.get('slots')`, and if a dependency
-is genuinely required use a service name the shipped client plugins use (`slots`, `locale`, `connection`,
-`remote`). The diagnostic to look for is the shell bundle's `assertEntriesActive`, which prints the offending
-entry and the names it is waiting on — that is the fastest path to the cause.
-
-**L53 · `$pid` is reserved and read-only, and PowerShell matches it case-insensitively.**
-`Stop-ServerTree` did `$pids = @()`. PowerShell resolved that to the automatic `$PID` and threw
-"cannot overwrite variable PID because it is read-only", so the function died before stopping anything and
-`dshw restart` hung — twice, for seven minutes each, with no output. Rename such a local (`$serverIds`). The
-same trap bit a loop variable earlier in this repo's history.
