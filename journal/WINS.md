@@ -101,6 +101,9 @@ the camera failure entirely.
 *Honest caveat:* the tool cannot see add-on versions, the HAOS version, or `/config` contents — it says
 so in `not_verifiable` rather than leaving a blank. It is a complement to the SSH inventory path, not a
 replacement for it.
+**CORRECTED later the same day:** "SSH, which is closed" was wrong — SSH is on port 2222, and the
+toolchain scripts all defaulted to 22 (LESSONS L46). Also, `EVIDENCE_CAPTURE_FAILING` overstated the
+camera situation; see W15.
 
 **W12 · 2026-09-11 (later) · The absence check paid for itself the same day: it found a 13-day outage nobody knew about.**
 `telemetry_gaps` was written because the kernel could not see a day on which nothing ran. Within the
@@ -160,6 +163,23 @@ model files back in place.
 *Honest caveats:* an emulator has no GpuDelegate and no NNAPI, so the GPU/NNAPI runtime paths and the
 GPU delegate now being optional are unverified on silicon. The two new Kotlin tests pass with or without
 the fix, so the on-device run — not the unit test — is the evidence.
+
+**W15 · 2026-09-11 (later) · The Home Assistant estate now reads itself every 30 minutes — and the first scheduled tick was observed, not assumed.**
+The instrument from W11 found everything but nothing ran it: `ha_truth.py` was invoked by hand, so a
+door contact going dark at 01:48 was a discovery rather than a message.
+*Measurement:* `ceo-kernel/scripts/run-ha-truth.sh` added (`0ec7104`), deployed to `secratary`, cron
+`*/30 * * * *` installed. The first line in `ha/run.log` is **18:21:43** — run by hand, which proves
+nothing. The second is **`18:30:01`** — the cron tick, at a time nobody chose. Same proof pattern as
+`run-sentinel.sh`, same rejection of the assumption that a cron line means a job runs.
+*What it records:* `ha/latest.json` + `ha/latest.md` per run, and one line in `ha/history.jsonl`
+carrying the trend rather than a sample — `{"at":"2026-09-11T18:21:43Z","entities":1068,"unavailable":400,
+"security_critical_unavailable":5,"severity":{"critical":3,"high":3,"medium":7,"low":1},
+"codes":["SECURITY_SENSORS_UNAVAILABLE","SECURITY_INTEGRATION_DEGRADED","EVIDENCE_CAPTURE_FAILING", …]}`.
+*Design decision worth keeping:* it keeps the **last good reading** when a run produces nothing, because
+an empty file is not evidence of health; and it exits 0 while routing nothing, because alerting belongs
+to the inbox (design §3.3) and mailing on every run is what buried the 7 critical messages.
+*It regenerates the collector from the ha-config mirror on every run*, so a fix in that repo lands
+without a second deployment step.
 
 **W5 · 2026-09-11 · Twelve DSH windows became an operational reality, and the numbers say which design.**
 Built `multi-window/dshw.ps1` + `windows.json`: start/stop/restart/status/new/open/logs/autostart/doctor
