@@ -169,20 +169,27 @@ def handle(client: socket.socket, engine_port: int) -> None:
         path = split_target.path or "/"
         query = split_target.query
         document_request = method in ("GET", "HEAD") and path in ("/", "/index.html")
+        has_cookie = COOKIE_PREFIX in head
         offered = dict(parse_qsl(query)).get("token", "")
         token = live_token(engine_port) if document_request else ""
 
-        if document_request and token and offered != token:
-            # No token, or one the engine no longer honours (saved link, replayed
-            # redirect, half-refreshed bookmark). Hand back a link that works now.
-            send_login(client, token)
-            return
+        if document_request and token:
+            if offered:
+                if offered != token:
+                    # A token the engine no longer honours: a saved link, a replayed
+                    # redirect, a bookmark from before the last restart. Mint a live one
+                    # rather than relaying a dead end the visitor cannot diagnose.
+                    send_login(client, token)
+                    return
+            elif not has_cookie:
+                send_login(client, token)
+                return
 
         client.settimeout(None)
         upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
         upstream.sendall(first)
 
-        if document_request and not offered:
+        if document_request and not offered and has_cookie:
             # The visitor brought only a cookie, and a cookie can be stale. Ask the
             # engine, and self-heal a refusal instead of passing the dead end through.
             upstream_head = read_response_head(upstream)
