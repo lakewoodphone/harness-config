@@ -310,3 +310,16 @@ journal itself, which is how yoga's HANDOFF entries already reach this machine t
 The useful consequence: a session that happened on yoga can be read, searched and continued from here, and the
 safety net that makes that possible — the hourly shipper — was found to be failing and was repaired in the same
 turn rather than being reported as a risk.
+
+
+**W27 · 2026-09-11 · Live-only code was rescued without disturbing it, and the alarm that was named-and-not-built
+is now built, wired and proven.**
+Two results, both verified rather than asserted. (1) The Shabbat fix running tonight lived only as uncommitted
+working-tree edits on the authority; it is now a pushed commit (`6784354c`, branch `deployed-truth-20260911`,
+verified with `git ls-remote`) with blob hashes equal to the live files, achieved via `read-tree`/`commit-tree`/
+`update-ref` so the working tree, the index and HEAD were never touched — dirty count identical before and after
+(30). (2) `check-dsh-freshness.py` closes the gap L160 named: exit 0 fresh / 1 stale / 2 could-not-read, wired as
+section 0 of the digest that already runs every 30 minutes, with a 6-case self-test that includes the real
+2.5-hour outage and a refusal path that must not read as health. Live run: all three machines shipping. No new
+cron, no second alert surface, no guessing.
+

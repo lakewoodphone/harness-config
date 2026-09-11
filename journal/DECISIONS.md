@@ -383,3 +383,23 @@ by naming which database was read and which process writes it. The DSH session a
 writer — `secretary.db` via the HTTP ingest route is authoritative; `dsh-archive/dsh-archive.db` is the retired
 `scp` interim. A future self that reads the interim store and believes it will report an outage that is not
 happening (L158).
+
+
+**D43 · 2026-09-11 · The archive-silence alarm lives in the owner digest, not in a new alerting path.**
+The silence alarm is `scripts/server/check-dsh-freshness.py`, invoked as section 0 of
+`owner-attention-digest.sh`, which cron already rebuilds every 30 minutes. Deliberately not built: a new cron
+entry, a new state file, or an outbound message. Reasons: one surface is easier to keep honest than two, the
+digest is the thing a human actually reads, and the rule against outbound sends without a per-message instruction
+stands. Thresholds are 75 min (authority) / 120 min (Windows hosts), chosen so the measured 2026-09-11 outage
+fires and one dropped 30-minute run does not — the self-test encodes that case so the number cannot be
+"adjusted" later without failing a test.
+
+**D44 · 2026-09-11 · Do not fast-forward the authority's deployment checkout tonight; rescue and reconcile
+deliberately.** The authority's checkout is 71 behind origin/master with 30 dirty files, and the correct fix is to
+level it and restart. Deliberately deferred past tonight: a restart re-registers `apscheduler`, and today is
+Erev Rosh Hashana with a three-day power-down block armed and an independent watchdog sleeping until 18:44:28
+(and tonight's OFF already executed). The irreversible half was done immediately — the deployed tree is now a
+pushed commit — and the reversible half (reconcile, restart, verify) waits for a calm window. This is the same
+reasoning as D41's predecessor: fix the thing that can be lost now, change the running system when nothing holy
+is half-armed.
+

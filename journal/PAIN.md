@@ -844,3 +844,29 @@ a backup or a maintenance job, make it WAL-aware (`.backup` API or `VACUUM INTO`
 block writers. 3) If the holder is inside the app, cut the number of write connections and make every write
 transaction short — a long write transaction on a 2.7 GB database with ~300 ticks/day is the real defect.
 Do **not** reach for a datastore migration on the strength of 12 errors in 21 hours.
+
+
+## P49 — The machine that serves the API runs a checkout GitHub has moved 71 commits past
+
+**Symptom.** `secratary:/home/zabz/personal-secretary-mvp` is **71 behind / 3 ahead** of `origin/master` and
+carries **30 dirty files**, while `secretary-api.service` serves from exactly that directory
+(`WorkingDirectory=/home/zabz/personal-secretary-mvp`, `ExecStart=.venv/bin/python -m uvicorn app.main:app`).
+In the same hour, `ZABZ-TECH` committed `3bf24ea0` — "merge: origin/master (22 commits: presence, waze-mdm, dsh
+ingest…)" — so the Windows host is merging and pushing work that the authority's runtime has never seen.
+
+**Evidence.** `git rev-list --left-right --count origin/master...HEAD` → `71  3`; `systemctl cat
+secretary-api.service` → the WorkingDirectory above; `git log --oneline -1` on ZABZ-TECH →
+`3bf24ea0 2026-09-11 18:22:52 -0400`.
+
+**Cost.** This is P3 for code instead of data: the same divergence that once produced a reported 45-day outage
+that never happened. Two concrete harms. (a) A fix verified on the Windows host can be absent from the running
+API, and nothing states which checkout is authoritative. (b) Code that is live exists nowhere but a dirty working
+tree — tonight's Shabbat fix was in that state until it was rescued to `deployed-truth-20260911` (`6784354c`).
+The blast radius grows with every tick the company runs from a tree nobody can reproduce.
+
+**Fix (proposed).** Decide and record which checkout is the deployment source, then make it reproducible:
+capture the deployed tree as a commit (done — `deployed-truth-20260911`), bring `master` level with
+`origin/master`, and restart in a calm window. The calm-window constraint is real: a restart re-registers
+`apscheduler`, and the Shabbat block is mid-holy-day with a live watchdog. Not a datastore migration and not an
+emergency — a scheduled, verified reconciliation.
+

@@ -1180,3 +1180,27 @@ one batch against an intact cursor. Verified directly — a forced failure again
 But nothing *told* anyone for two and a half hours. A scheduled task reporting `LastTaskResult = 0`, a cursor
 that looks current, and a store that quietly stopped growing is a shape that hides itself.
 *Rule:* fail-closed protects the data; the alarm is a separate mechanism, and this machine still has none.
+
+
+**L161 · 2026-09-11 · A check you have never seen fire is not a check — and the failure mode belongs IN the test.**
+Building the archive-silence alarm, I wrote the thresholds first and the self-test second. The self-test failed the
+case that mattered: I had set the Windows hosts a 180-minute window, so **the exact outage I was building the alarm
+to catch — this machine's real 2.5 hours of silence on 2026-09-11 — evaluated as healthy.** A plausible-looking
+number, chosen by feel, would have shipped an alarm that could not fire on the one event that had actually
+happened.
+*Rule:* for any threshold, alarm or guard, encode the historical failure as a test case and watch it fire before
+keeping the number. A self-test that only asserts the happy path proves the code runs, not that the alarm works.
+Corollary of L160: the previous session correctly named the missing alarm as NEXT and correctly did not build it
+in the same breath; this is what building it properly costs — one deliberately-failing case.
+
+**L162 · 2026-09-11 · Working production code can exist outside version control, and only the *deployment host*
+knows it does.** The Shabbat/Tov split that fired at 18:46:53 tonight existed **only as uncommitted working-tree
+files on secratary**. `origin/master` still carried the pre-split version, so every other machine in the fleet —
+and every future reader of the repo — believed the old behaviour was current. A `git status` on any other host
+reports clean. The generalizable shape: when the service runs from a checkout, that checkout is part of the
+running system, and *dirty* there means *unreproducible* everywhere else.
+*Rule:* before diagnosing "the deployment is behind", diff the **working tree** against the remote, not just the
+branch pointer. Rescue the dirty state into a real commit first (`git read-tree` into a temp index +
+`commit-tree` + `update-ref` a new branch leaves the working tree, index and HEAD untouched), push it, and only
+then reason about fast-forwarding.
+
