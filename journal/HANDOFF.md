@@ -14,6 +14,70 @@ EVIDENCE    files, commits, or commands that prove the above
 
 ---
 
+## 2026-09-11 20:07 · ZABZ-YOGA · The call harvest now runs by itself — 17.5h → under 30 minutes
+
+**CHANGED — the root cause is fixed and running unattended.**
+`dialpad-harvest-cron.sh` is installed on the authority and fires `*/30`. Confirmed by an
+**autonomous run at 20:01:36Z**: `read 236, stored 236, errors 0, 93.3s`, heartbeat written, nobody
+touching it. Median call capture lag had been **17.5h**; call staleness went **10.0h → 21m**.
+
+The harvester was never broken — a manual pass always read 236 calls with 0 errors in ~90s.
+**Nothing was ever scheduled to run it**, and no CLI existed: it was reachable only as Python
+`harvest_*` functions. That is the whole of P29.
+
+**Four bugs I hit and fixed, every one of which only appears when the thing actually runs:**
+| Bug | Symptom | Fix |
+|---|---|---|
+| CRLF in a `.sh` | `$'\r': command not found` on one line | strip CR + a guard that refuses to run on CRLF (L21) |
+| `timeout N cmd <<EOF` | heredoc becomes **stdin**, so `timeout` waits on stdin and cannot kill a hang; run sat past 150s | worker written to a `mktemp` file, stamping progress per stage (L116) |
+| SQLite contention | 21 × `database is locked`, 306s run — `busy_timeout=10000` means each contended write burns 10s (L115) | retry the idempotent pass: attempt 1 → 4 errors, attempt 2 → **0 errors** |
+| `MAX(fetched_at)` as freshness | `fetched_at` is **INSERT-only**; 4 runs reported `stored 236` while no row carried a `fetched_at` past 19:31:32 | read the harvest's own heartbeat file (L114) |
+
+That last one mattered most: it made a working job look dead *and* would have made a dead job look
+fresh after any single insert. A staleness metric built on an upserted table is measuring the wrong thing.
+
+**The check now reads honestly.** `comms_freshness` on the authority:
+> *email 39m · sms 2.1h · call harvest 2m · capture lag 17.5h (30d median)* — the **only** remaining
+> complaint is the draft queue.
+
+**Alarm verified in all three states** (`_scratch/comms-verify/verify_heartbeat.py`): fresh → passes;
+backdated 4h → `HIGH` *"call harvest has not completed in 4.0h (expected < 1.5h)"*; marker absent →
+*"not configured here"*, **not** a false alarm (the `phone_endpoint` pattern). Two metrics are
+deliberately reported-not-enforced with an explicit `*_budget_enforced=false` flag so a reader can see
+they are context rather than health: the manual Playwright voicemail crawl, and the 30-day lag median,
+which still carries the old once-a-day cadence and should converge over the next few days.
+
+**BROKEN — found and diagnosed, NOT yet fixed: named callers' voicemails are silently dropped.**
+`_DIALPAD_SUBJECT_RE` requires explicit `(NNN) NNN-NNNN` digits, so a subject ending in
+"from **Caller Wireless**" yields `phone_e164 = None`, and `build_caller_card` returns `None` at
+`voicemail_handler.py:653` — discarding the whole voicemail instead of degrading. Traced through
+`email_actions.py:203`. Seen on 3 voicemails (09-08, 09-10, 09-11) against 6 that did create tasks.
+Corporate and toll-free callers are exactly the ones that show up as names, and they are low-volume
+callers we would not otherwise recognise — the worst class to drop. Fix sketch: add a `caller_label`
+field to `CallerCard`, keep the card with no phone, skip the phone-keyed DB lookups, rate it `PARTIAL`,
+and still create the task. **Wants tests before it lands.**
+
+**Also not done, deliberately:** SMS bodies still come only from the manual Playwright crawl
+(`dialpad_sms_cache` newest 17:50Z, no browser running). Scheduling the crawler needs a logged-in
+profile and is a riskier change than the REST harvest, so it stays separate. `dialpad_pull_sms` still
+returns voice-bot sessions rather than message bodies — misnamed, and that misnaming is how the gap
+stayed invisible.
+
+**NEXT**
+1. Fix the named-caller voicemail drop (above) with tests — highest customer impact of what remains.
+2. Schedule the Playwright SMS crawl, or state plainly that SMS bodies are fetch-on-demand.
+3. The 36 pending drafts are the owner's call; asked, unanswered. See `QUESTIONS.md`.
+
+**EVIDENCE**
+- kernel commits `96406d9`, `75fdd32`, `7b63525`, `97cfe81`, `d69958d`, `b6fce71`
+- `crontab -l` on `secratary`: `*/30 * * * * .../scripts/dialpad-harvest-cron.sh`
+  (backup: `~/crontab.backup-20260911-193640.txt`); `~/dialpad-harvest.log` shows the 20:01:36Z
+  autonomous ok; `~/.dialpad-harvest.last_run` = `2026-09-11T20:01:36Z`
+- `python3 -m ck status --no-colour` on `secratary` → `[! ] comms_freshness`, 7 AUTHORITATIVE refs
+- verifiers: `_scratch/comms-verify/{verify_heartbeat.py,run_on_authority.py,verify_comms_freshness.py}`
+
+---
+
 ## 2026-09-11 20:00 · ZABZ-YOGA · His existing phone link now opens the harness — and my link never could have
 
 **THE ERROR I MADE, worth writing down before the fix.** I designed the phone path around Tailscale Serve
@@ -1829,3 +1893,47 @@ last_seen_write_errors=0`; `last_seen` 63/65 with 0 mismatches; container health
 built/tested/pushed but unverified on staging and not in production. Owner action; `QUESTIONS.md`.
 
 **EVIDENCE** — `personal-secretary-mvp` `fdbf9b615`, `a55e374d0`
+---
+
+## 2026-09-11 · ZABZ-YOGA · Live-verified against the real fleet (11/11); only the deployment step remains
+
+**THE KEY RESULT OF THIS ROUND**
+
+Staging cannot verify this work, so I verified it a different way: `scripts/waze-live-check.ts` runs the **real
+`WazeDeviceService`** — not a mock, not a copy — against the **live fleet-api** at Hetzner, using the repo's
+own credentials, and asserts the contract the portal depends on. Read-only (GET only), because the write
+paths would change the owner's hardware.
+
+**11/11 passed**, against DRN 2001 on the live fleet: linked device returned (LPT 2001, `state=active`);
+immutable derived name present; all usage numbers finite (nothing can render NaN); `cap_band` a known value
+with a consistent `cap_message`; the **server** states the policy (`data_stops_at_cap`, `cap_editable_by`) so
+the client is not hardcoding it; unknown serial degrades to `not_provisioned` (panel hides, no error); blank
+serial short-circuits without an API call; `getStaffDevice(drn)` returns the **same** contract as the
+customer path; an unconfigured service degrades instead of throwing.
+
+Exit code 0 on success so it can gate CI. It sets `process.exitCode` rather than calling `process.exit()`:
+a hard exit while fetch handles close trips a libuv assertion on Windows and reports non-zero even when
+every check passed — which would make the signal worthless.
+
+This is **stronger than a unit test and weaker than a staging deploy.** It proves the code that talks to the
+fleet works against the fleet. It does **not** prove the portal renders in a browser, and I am not claiming
+it does.
+
+**KNOWN COUPLING, NOTED NOT HIDDEN** — importing the service requires the full `env.config` validation, so
+`DATABASE_URL` / `JWT_SECRET` / `JWT_REFRESH_SECRET` must be present even for a fleet-only check. That is
+why the runner needs dummies. Worth decoupling; recorded rather than silently worked around.
+
+**OBJECTIVE STATUS — everything except deployment and in-browser verification**
+
+| Objective item | State |
+|---|---|
+| Customer "My Waze Device" surface | **built, pushed, service live-verified** |
+| Staff fleet surface | **built, pushed, service live-verified** |
+| `installed_profiles()` reporting falsely | **fixed + verified on real hardware** |
+| Silent alerting pipeline | **rebuilt, verified both directions** |
+| pause / lost-mode wiring | **done (lost mode staff-only, token-gated)** |
+| Unverified-default risks | **removed** (`last_seen`, ack timeout, clean-queue, DRN exporter, health alerts) |
+| Deployed to staging | **BLOCKED — the Heroku app does not exist** |
+| Verified through real entry points in a browser | **not done** — needs staging |
+
+**EVIDENCE** — `phone-and-tech-full` `a77ff7f30`; `personal-secretary-mvp` `fdbf9b615`, `a55e374d0`
