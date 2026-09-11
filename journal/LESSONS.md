@@ -707,3 +707,57 @@ then ask the registry when it was created. Both were available before the first 
 *Rule:* a finding that a working device is broken is a claim about the measurement at least as much as
 about the device. Test it against the device first. Pushback is a signal to re-measure, not to
 re-explain the original reasoning more confidently.
+**L112 · A query that silently matches zero rows returns the same shape as a healthy answer.**
+Building `comms_freshness` I wrote a capture-lag probe comparing a REAL column to a TEXT
+`strftime()` result. SQLite did not error — it matched nothing — and the check reported
+`call_capture_lag_hours = None` while every provenance line read `ok AUTHORITATIVE`. Had I trusted
+the absence of an exception, I would have shipped a check that could never fire.
+*Mechanism:* comparing REAL to TEXT in SQLite never coerces, so the predicate is just false. The
+aggregate over an empty set is `NULL`, which is indistinguishable from "no data yet".
+*Rule 1:* every new SQL predicate gets its own printed count before it is trusted. `SELECT COUNT(*)
+WHERE <predicate>` — if the number is 0 and you expected rows, **the query is the suspect, not the
+world**. The correct form here was `CAST(strftime('%s', ...) AS INTEGER)`.
+*Rule 2:* for a "healthy?" check, `None` must never be rendered as silence. Distinguish
+"no rows" from "cannot tell", and make the latter a refusal.
+*This is L110 again in a different costume:* a short record read as an absence, this time produced
+by my own query rather than by the recorder. Two data points now make it a pattern worth naming —
+**suspect the measurement before the subject.**
+*Cost:* none, because I ran it against the authority and read the `None` instead of assuming it
+passed. That is the only reason this is a lesson and not an incident.
+
+**L113 · A check whose input is a manual, long-stale path is a permanent false alarm.**
+The first version of `comms_freshness` raised HIGH on voicemail because it read
+`dialpad_ui_voicemail_row`, the Playwright crawl, which last ran 2026-06-14. The alert would have
+been *true* and permanently so — 2,139 hours and not moving.
+*Mechanism:* I picked the table whose name matched the concept instead of the path that actually
+carries the data. The REST harvester already covers voicemail capture, so the crawl's staleness
+measures a known, accepted gap rather than a regression.
+*Rule:* before wiring a signal to `needs_attention`, ask "can this ever go green without someone
+scheduling work?" If no, it is a metric, not a check. Report it, do not raise on it — because the
+surface that cries wolf is the one a reader learns to skip, and then the real finding is invisible
+beside it (P6).
+
+**L59 · He does not read documents. A deliverable is for the record, not a reading assignment.**
+I ended three consecutive turns with some version of "here are the docs, D33-07 and D33-08 are yours to review".
+He answered plainly: *"i don't review things, if you have important questions for me, ask them clearly and
+explained and i'll answer one at a time."* This is a category error I was making about the purpose of writing.
+The documents exist so a decision survives past this session and so the next session does not re-litigate it —
+they are not how the owner receives information. He receives information in the conversation, one question at a
+time, with the consequences explained.
+*Rule:* write the document, then ask the question. Never end a turn by handing him something to read. If a
+document contains four owner decisions, that is four future questions asked one at a time — not a review task.
+Encoded in the `zabz` persona as rule **2b** so it survives me (and note: the preset is read at session start, so
+that edit only takes effect in the next session — P11/LESSONS already says a change can look done while having no
+effect, so the rule is also here where I will actually read it).
+*Cost:* three turns where the owner had to correct the form rather than answer the question, on a thread he had
+opened himself.
+
+**L60 · When a delivered figure is disputed, find the longest matching prefix — the difference is usually formatting.**
+A patch script asserted on a note line in a document I had written, and failed. The text looked identical.
+Comparing code points found that my own document had a **hard line wrap** where my search pattern had a space:
+`recalibrate\nanything` versus `recalibrate anything`. Binary-searching for the longest matching prefix located
+the divergence in one step instead of rewriting the pattern by eye.
+*Rule:* when a literal replacement fails on text you are certain about, do not re-type it — bisect it. The
+mismatch is almost always invisible whitespace, a hard wrap, or a different dash. Cheap, and it stops a
+five-edit script from silently half-applying (which is what happened: the first three edits landed, the last
+three did not, and only the assertion caught it).
