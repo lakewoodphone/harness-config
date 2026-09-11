@@ -539,3 +539,34 @@ ledger shared by more than one writer has this failure built in.
 being rediscovered. A lesson that cannot be cited unambiguously is a lesson that will be re-learned. The
 previous occupant of this seat left 55 improvements unapplied precisely because records that cannot be
 referenced do not get acted on.
+**L52 · A number in an internal document is a claim, not a measurement — and an unmeasurable band is a warning sign.**
+The Feb-2026 research asserted per-attribute ceilings ("precise sleeve length <0.60", "collarbone <0.60") that
+had **no external referent**: no published accuracy exists for hemline-at-landmarks, collarbone coverage or
+tight-but-covered for *any* model, so those bands could never have been tested, only repeated. Six months later
+the numbers had drifted in both directions — sleeve length looks *better* than claimed (supervised 0.9118 clean),
+tightness *worse* (no benchmark above ~55%, DeepFashion Fit 0.45 / Skinny 0.35). The owner's instruction to
+"re-analyze fully" was correct, and the tell was available in February: a figure with no source and no
+benchmark behind it should have been marked as an assumption.
+*Rule:* when inheriting a number, ask whether anything outside the document can confirm it. If not, label it an
+assumption and treat re-testing as scheduled work rather than as a surprise.
+
+**L53 · The most convenient library is usually the one you cannot ship.**
+I recommended a geometric coverage method built on **DensePose** in the first draft of the re-analysis, before
+an agent verified the licence: **DensePose is CC BY-NC 4.0 — non-commercial.** The same pass found ModaNet
+("non-commercial research only"), FASHN Human Parser and `segformer_b2_clothes` (NVIDIA SegFormer terms) and
+MobileCLIP-S0 (`apple-amlr`) all unusable for a paid product. The Apache-2.0 route to the same capability
+(MediaPipe pose + selfie-multiclass + hair segmenter, ~22MB) was available the whole time.
+*Rule:* licence-clear the **mechanism and the dataset** before the architecture is written, not before release.
+Tech-report PDFs and blog posts never mention this; the `LICENSE` file does. Corrected in the document itself
+with the correction left visible.
+
+**L54 · A model's self-reported confidence is not a failure signal — never gate a fail-closed system on it.**
+Measured calibration error for frontier vision models reached **ECE 0.496**, and under underexposure accuracy
+fell **0.99 → 0.22 while stated confidence stayed flat at 0.87–0.90** (AUROC ≈ 0.50). Internal token
+probability is better (AUROC 0.92–0.99) but no verifiable frontier API exposes multimodal logprobs. So the
+design the Feb-2026 research implied — blur above a confidence threshold, escalate below it — **cannot be built
+on model confidence at all**.
+*Rule:* a fail-closed gate must key on a signal that is *falsifiable by construction* — a landmark that is
+present or absent, a mask that exists or does not — not on a number the model chooses to say about itself.
+This is the same shape as P3 (believing a stale database) one layer down: the artifact's own claim is not
+evidence about its state.
