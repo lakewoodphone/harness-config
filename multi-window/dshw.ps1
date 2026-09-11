@@ -204,15 +204,18 @@ function Read-NewLog([string]$path, [long]$offset) {
     } catch { return '' }
 }
 
-# Readiness = the process is alive, the port is listening, and the log shows the URL line.
-# Any one of those alone has produced a false positive at some point in this script's
-# development: a stale log line, a bound port with a half-built tree, a dead child.
-function Wait-ServerReady([string]$log, [long]$offset, [int]$timeoutSeconds, $proc, [int]$port) {
+# Readiness = the log shows the URL line AND the port is listening.
+#
+# It deliberately does NOT ask the launched process "are you alive?" through
+# Process.HasExited. Sampling that property blocks for the whole lifetime of a detached
+# child on Windows here, which made `dshw up` hang until its outer timeout with the engine
+# demonstrably running (measured twice on 2026-09-11, 420 s and 600 s). A dead child fails
+# the timeout anyway, and the caller reports its stderr tail, so nothing is lost.
+function Wait-ServerReady([string]$log, [long]$offset, [int]$timeoutSeconds, [int]$port) {
     $deadline = (Get-Date).AddSeconds($timeoutSeconds)
     $sawUrl = $null
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Milliseconds 500
-        if ($proc -and $proc.HasExited) { return $null }
         if (-not $sawUrl) {
             $text = Read-NewLog $log $offset
             if ($text) {
@@ -248,8 +251,11 @@ function Get-PortOwner([int]$port, $table = $null) {
     try { return Get-Process -Id $conn.OwningProcess -ErrorAction Stop } catch { return $null }
 }
 
-function Get-Descendants([int]$rootPid) {
-    $all = Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId
+function Get-Descendants([int]$rootPid, $all = $null) {
+    # Cache the process table per call where possible: an unfiltered Win32_Process query
+    # costs 5-35 s on a machine running a dozen Edge profiles plus eight MCP bridges, and
+    # doing it inside a wait loop is what made `up` look like a hang (2026-09-11).
+    if (-not $all) { $all = Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId -ErrorAction SilentlyContinue }
     $out = New-Object System.Collections.Generic.List[int]
     $frontier = @($rootPid)
     while ($frontier.Count -gt 0) {
@@ -414,7 +420,7 @@ function Start-SlotServer($slotCfg) {
             -WorkingDirectory $inv.cwd -WindowStyle Hidden -PassThru `
             -RedirectStandardOutput $inv.log -RedirectStandardError $inv.err
 
-    $url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $p $inv.port
+    $url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $inv.port
     if (-not $url) {
         if ($p.HasExited) {
             $tail = if (Test-Path $inv.err) { (Get-Content -LiteralPath $inv.err -Tail 15) -join "`n" } else { '(no stderr)' }
@@ -476,7 +482,7 @@ try {
         $inv  = Get-ServerInvocation $slot
         $r = [pscustomobject]@{ pid = $null; url = $null; log = $inv.log; err = $inv.err
                                 workspace = $inv.cwd; startedAt = (Get-Date).ToString('o'); error = $null }
-        $r.url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $null ([int]$port)
+        $r.url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) ([int]$port)
         Update-LatestLog $inv
         # the pid comes from the readiness file the launcher child wrote
         if (Test-Path $readies[$port]) {
@@ -748,6 +754,10 @@ function Get-TreeMemoryMb([int]$root, $all = $null) {
 function Invoke-New {
     $state = Get-State
     $slots = Get-Slots
+    # Counting open windows needs a full process-table read, which is the single most
+    # expensive thing in this script on a loaded machine (measured 15-35 s, and it is what
+    # made `up` appear to hang). It runs here only because `new` must pick a free slot;
+    # `up` never pays for it.
     $procTable = Get-WindowProcs
     $free = @($slots | Where-Object { (Get-WindowCount $_ $procTable) -eq 0 }) | Select-Object -First 1
     if (-not $free) {
