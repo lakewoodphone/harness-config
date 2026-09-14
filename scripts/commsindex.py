@@ -62,13 +62,14 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import json
 import os
 import re
 import sqlite3
 import sys
 import time
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # How old the index may be before `stats` calls it stale. The index is rebuilt by
 # comms-refresh.py on a 30-minute cadence on the authority (just after the Dialpad
@@ -110,6 +111,50 @@ CREATE VIRTUAL TABLE IF NOT EXISTS comms_tri USING fts5(
     tokenize='trigram');
 
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+
+-- ── The person layer ──────────────────────────────────────────────────────────
+--
+-- `comms` answers "what was said". These answer "who is this, and what is our
+-- whole history with them" -- which is the question that actually costs time, and
+-- which no single channel can answer, because one person reaches us by two numbers,
+-- a landline and an email address.
+--
+-- MERGING IS MEASURED, NOT GUESSED. Grouping communications by the name in them is
+-- the obvious approach and it is wrong here: the top names in this corpus are carrier
+-- caller-ID *locations*, not people -- "Pt Plsnt Bch Nj" appears on 37 different
+-- numbers, "Keyport NJ" on 23. Clustering on names naively would have merged 37
+-- strangers into one customer. So a name is only allowed to merge phones when it
+-- looks like a person (no digits, no state suffix, <=4 words) AND it is attached to
+-- at most three numbers. Everything else stays separate, and every alias records the
+-- reason it exists so a wrong merge can be found and argued with.
+CREATE TABLE IF NOT EXISTS people (
+    person_key   TEXT PRIMARY KEY,
+    display_name TEXT,
+    phones       TEXT,            -- JSON array, normalized digits
+    emails       TEXT,            -- JSON array, lowercased
+    names        TEXT,            -- JSON array of every name we have seen for them
+    first_seen   REAL,
+    last_seen    REAL,
+    comm_count   INTEGER DEFAULT 0,
+    kinds        TEXT,            -- JSON {"sms": 12, "call": 3}
+    basis        TEXT             -- why this person exists: address_book|name|phone
+);
+CREATE TABLE IF NOT EXISTS person_alias (
+    alias_value TEXT NOT NULL,    -- normalized phone digits, lowercased email, or a name
+    alias_kind  TEXT NOT NULL,    -- phone | email | name
+    person_key  TEXT NOT NULL,
+    reason      TEXT NOT NULL,    -- address_book:contacts | observed_name | shared_name | ...
+    source      TEXT,
+    PRIMARY KEY (alias_value, alias_kind, reason)
+);
+CREATE INDEX IF NOT EXISTS idx_alias_person ON person_alias(person_key);
+CREATE INDEX IF NOT EXISTS idx_alias_value ON person_alias(alias_value, alias_kind);
+CREATE INDEX IF NOT EXISTS idx_people_name ON people(display_name);
+CREATE INDEX IF NOT EXISTS idx_people_seen ON people(last_seen);
+-- Name lookup has to survive a half-remembered spelling, so names get a trigram
+-- index of their own rather than a LIKE scan over 2,400 rows per query.
+CREATE VIRTUAL TABLE IF NOT EXISTS people_fts USING fts5(
+    display_name, names, phones, person_key UNINDEXED, tokenize='trigram');
 """
 
 
@@ -304,6 +349,295 @@ def _richness(rec: dict) -> tuple:
     """Which of two records describing one event to keep: real words over markers."""
     text = str(rec.get("text") or "")
     return (0 if text.startswith("[") else 1, len(text), rec.get("ts") or 0)
+
+
+def _digits10(value: object) -> str:
+    d = re.sub(r"\D", "", str(value or ""))
+    if len(d) == 11 and d.startswith("1"):
+        d = d[1:]
+    return d if len(d) >= 10 else ""
+
+
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+# US state / territory codes as a trailing token: carrier caller-ID labels look like
+# "Keyport NJ", "Pt Plsnt Bch Nj", "Atlntic Hlds Nj" -- and those are the names that
+# appear on dozens of unrelated numbers.
+_STATE_TOKENS = {
+    "nj", "ny", "pa", "ct", "ca", "tx", "fl", "de", "md", "va", "ma", "il", "oh",
+    "ga", "nc", "sc", "az", "nv", "or", "wa", "mi", "mn", "mo", "wi", "co", "tn",
+    "in", "ky", "al", "ok", "ut", "ia", "ar", "ms", "ks", "nm", "ne", "id", "hi",
+    "nh", "me", "mt", "nd", "sd", "vt", "wy", "ak", "dc", "ri", "wv", "pr", "vi",
+}
+_NOT_A_PERSON = {
+    "unknown", "unknown caller", "wireless caller", "toll free", "tollfree",
+    "spam risk", "spam likely", "no caller id", "private", "restricted",
+    "unavailable", "voicemail", "do not answer",
+}
+# A person does not have ten phone numbers. Everything above this is a shared label
+# (a city, an employer, a call centre), so it is allowed to name a person but never
+# to merge two of them.
+_MAX_PHONES_PER_NAME = 3
+
+
+def person_like_name(name: object) -> str:
+    """Return a cleaned person name, or '' when the string is not a person.
+
+    Measured against this corpus: without the state-token and phone-count guards,
+    "Pt Plsnt Bch Nj" (37 numbers), "Keyport NJ" (23) and "Merck Co Inc" (15) would
+    each have been treated as one customer with dozens of disconnected conversations.
+    """
+    n = " ".join(str(name or "").split())
+    if len(n) < 3 or len(n) > 48:
+        return ""
+    if re.search(r"\d", n):
+        return ""
+    low = n.lower()
+    if low in _NOT_A_PERSON:
+        return ""
+    tokens = [t.strip(",.") for t in low.split()]
+    if tokens and tokens[-1] in _STATE_TOKENS:
+        return ""
+    if len(tokens) > 4:
+        return ""
+    return n
+
+
+def _slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+
+
+class _Union:
+    """Union-find over identifier nodes ('phone:…', 'email:…', 'name:…')."""
+
+    def __init__(self):
+        self.parent: dict[str, str] = {}
+
+    def find(self, node: str) -> str:
+        self.parent.setdefault(node, node)
+        root = node
+        while self.parent[root] != root:
+            root = self.parent[root]
+        while self.parent[node] != root:      # path compression
+            self.parent[node], node = root, self.parent[node]
+        return root
+
+    def union(self, a: str, b: str) -> None:
+        ra, rb = self.find(a), self.find(b)
+        if ra != rb:
+            # Deterministic: the lexicographically smaller root wins, so the same
+            # input always produces the same keys and the index stays comparable
+            # between rebuilds.
+            lo, hi = sorted((ra, rb))
+            self.parent[hi] = lo
+
+
+def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
+    """Build the person layer from address books plus what the corpus itself shows.
+
+    Evidence, in the order it is trusted:
+      1. an address-book row -- `contacts` or `dialpad_ui_contact_row` -- whose name
+         and number(s) belong to one person by definition;
+      2. a name observed on a communication, attached to the number it came from,
+         when the name looks like a person;
+      3. two numbers sharing the same person-like name, only while that name is on at
+         most `_MAX_PHONES_PER_NAME` numbers.
+    """
+    union = _Union()
+    names: dict[str, str] = {}          # 'name:slug' -> display name
+    ab_node: dict[str, str] = {}        # identifier node -> address-book source
+
+    def add_contact(name_raw, phones, emails, source):
+        name = person_like_name(name_raw)
+        nodes = []
+        for p in phones:
+            d = _digits10(p)
+            if d:
+                node = "phone:" + d
+                nodes.append(union.find(node))
+                ab_node.setdefault(node, source)
+        for e in emails:
+            if e:
+                node = "email:" + e.lower()
+                nodes.append(union.find(node))
+                ab_node.setdefault(node, source)
+        if name:
+            nm = "name:" + _slug(name)
+            names[nm] = name
+            nodes.append(union.find(nm))
+            ab_node.setdefault(nm, source)
+        for i in range(1, len(nodes)):
+            union.union(nodes[0], nodes[i])
+        return nodes
+
+    contact_rows = 0
+    if _has_table(src, "contacts"):
+        cols = [r[1] for r in src.execute('PRAGMA table_info("contacts")')]
+        pick = [c for c in ("name", "phone", "email", "source") if c in cols]
+        if "name" in pick:
+            sel = ", ".join(f'"{c}"' for c in pick)
+            for r in src.execute(f"SELECT {sel} FROM contacts"):
+                v = {c: r[c] for c in pick}
+                contact_rows += 1
+                # The contact's own `source` travels with the alias. It matters: 90 of
+                # these rows are `email_auto_discovered` -- addresses mechanically added
+                # because mail arrived from them -- and one of them is uber@uber.com.
+                # "We have this address on file" is therefore NOT evidence of a person,
+                # and a consumer that needs that distinction can now make it.
+                add_contact(v.get("name"), [v.get("phone")], [v.get("email")],
+                            str(v.get("source") or "contacts"))
+    if _has_table(src, "dialpad_ui_contact_row"):
+        for r in src.execute(
+                "SELECT display_name, phone_numbers, emails FROM dialpad_ui_contact_row"):
+            contact_rows += 1
+            add_contact(r["display_name"],
+                        re.findall(r"\d[\d\s().\-]{8,}\d", r["phone_numbers"] or ""),
+                        _EMAIL_RE.findall(r["emails"] or ""), "dialpad_contacts")
+
+    # 2. names seen in the corpus, per number
+    name_phones: dict[str, set] = {}
+    phone_names: dict[str, dict] = {}
+    for r in con.execute(
+            "SELECT address, counterparty, COUNT(*) n FROM comms "
+            "WHERE TRIM(COALESCE(address,'')) <> '' "
+            "GROUP BY address, counterparty"):
+        d = _digits10(r["address"])
+        if not d:
+            continue
+        name = person_like_name(r["counterparty"])
+        if not name:
+            continue
+        nm = _slug(name)
+        names.setdefault("name:" + nm, name)
+        name_phones.setdefault(nm, set()).add(d)
+        phone_names.setdefault(d, {})[nm] = phone_names.setdefault(d, {}).get(nm, 0) + (r["n"] or 0)
+
+    observed = 0
+    for d, counts in phone_names.items():
+        best = max(counts.items(), key=lambda kv: kv[1])[0]
+        # The name is allowed to label the number. It is only allowed to MERGE with
+        # others when it is a person-like name on few numbers.
+        if len(name_phones.get(best, ())) <= _MAX_PHONES_PER_NAME:
+            union.union("phone:" + d, "name:" + best)
+            observed += 1
+        else:
+            # Too many numbers share this string; keep it as a non-merging label.
+            pass
+
+    # ── materialise clusters ────────────────────────────────────────────────
+    con.execute("DELETE FROM people")
+    con.execute("DELETE FROM person_alias")
+    con.execute("DELETE FROM people_fts")
+
+    clusters: dict[str, dict] = {}
+    for node, name in names.items():
+        root = union.find(node)
+        c = clusters.setdefault(root, {"names": set(), "phones": set(), "emails": set(),
+                                       "reasons": []})
+        c["names"].add(name)
+        c["reasons"].append(("name", name, "observed_name", "corpus"))
+
+    for node in list(union.parent):
+        if node.startswith("phone:"):
+            c = clusters.setdefault(union.find(node),
+                                    {"names": set(), "phones": set(), "emails": set(),
+                                     "reasons": []})
+            c["phones"].add(node.split(":", 1)[1])
+        elif node.startswith("email:"):
+            c = clusters.setdefault(union.find(node),
+                                    {"names": set(), "phones": set(), "emails": set(),
+                                     "reasons": []})
+            c["emails"].add(node.split(":", 1)[1])
+
+    alias_rows = []
+    people_rows = []
+
+    # Aggregate the corpus once by address, so per-person statistics are a lookup
+    # rather than a scan per phone (5,000 phones x 164,000 rows is not a query, it is
+    # a denial of service on the one machine that runs the business).
+    addr_stats: dict[str, dict] = {}
+    for r in con.execute(
+            "SELECT COALESCE(address,'') a, kind, COUNT(*) n, MIN(ts) mn, MAX(ts) mx "
+            "FROM comms GROUP BY a, kind"):
+        key = _digits10(r["a"]) or ("raw:" + str(r["a"]).strip().lower())
+        if not key or key == "raw:":
+            continue
+        s = addr_stats.setdefault(key, {"n": 0, "mn": None, "mx": None, "kinds": {}})
+        s["n"] += r["n"] or 0
+        if r["mn"] is not None:
+            s["mn"] = r["mn"] if s["mn"] is None else min(s["mn"], r["mn"])
+        if r["mx"] is not None:
+            s["mx"] = r["mx"] if s["mx"] is None else max(s["mx"], r["mx"])
+        s["kinds"][r["kind"]] = s["kinds"].get(r["kind"], 0) + (r["n"] or 0)
+
+    for root, c in clusters.items():
+        key = "p:" + hashlib.sha1(root.encode("utf-8")).hexdigest()[:16]
+        display = ""
+        if c["names"]:
+            # Prefer a two-word name over a single token when both exist.
+            display = sorted(c["names"], key=lambda n: (0 if len(n.split()) > 1 else 1,
+                                                        -len(n)))[0]
+        phones = sorted(c["phones"])
+        emails = sorted(c["emails"])
+        # Provenance per cluster: an address book is authoritative, an observed name
+        # is an inference. The two must not be reported as the same kind of fact.
+        book_sources = {ab_node[n] for n in
+                        [("phone:" + p) for p in phones]
+                        + [("email:" + e) for e in emails]
+                        + [("name:" + _slug(n)) for n in c["names"]]
+                        if n in ab_node}
+        if book_sources:
+            basis_kind = "address_book:" + ",".join(sorted(book_sources))
+        elif c["names"]:
+            basis_kind = "name"
+        else:
+            basis_kind = "phone"
+        first = last = None
+        kinds: dict[str, int] = {}
+        count = 0
+        for p in phones:
+            s = addr_stats.get(p)
+            if not s:
+                continue
+            count += s["n"]
+            if s["mn"] is not None:
+                first = s["mn"] if first is None else min(first, s["mn"])
+            if s["mx"] is not None:
+                last = s["mx"] if last is None else max(last, s["mx"])
+            for k, n in s["kinds"].items():
+                kinds[k] = kinds.get(k, 0) + n
+        people_rows.append((key, display or (phones[0] if phones else ""),
+                            json.dumps(phones), json.dumps(emails),
+                            json.dumps(sorted(c["names"])), first, last, count,
+                            json.dumps(kinds), basis_kind))
+        for p in phones:
+            reason = ("address_book:" + ab_node["phone:" + p]
+                      if ("phone:" + p) in ab_node else "observed_name")
+            alias_rows.append((p, "phone", key, reason, "corpus"))
+        for e in emails:
+            reason = ("address_book:" + ab_node["email:" + e]
+                      if ("email:" + e) in ab_node else "observed_name")
+            alias_rows.append((e, "email", key, reason, "corpus"))
+        for n in c["names"]:
+            node = "name:" + _slug(n)
+            reason = ("address_book:" + ab_node[node]
+                      if node in ab_node else "observed_name")
+            alias_rows.append((_slug(n), "name", key, reason, "corpus"))
+
+    con.executemany(
+        "INSERT OR REPLACE INTO people(person_key, display_name, phones, emails, names,"
+        " first_seen, last_seen, comm_count, kinds, basis)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?)", people_rows)
+    con.executemany(
+        "INSERT OR REPLACE INTO person_alias(alias_value, alias_kind, person_key,"
+        " reason, source) VALUES(?,?,?,?,?)", alias_rows)
+    for row in people_rows:
+        con.execute("INSERT INTO people_fts(display_name, names, phones, person_key)"
+                    " VALUES(?,?,?,?)", (row[1], row[4], row[2], row[0]))
+    con.commit()
+
+    named = sum(1 for r in people_rows if r[1] and not _digits10(r[1]))
+    return {"people": len(people_rows), "named": named, "aliases": len(alias_rows),
+            "contact_rows": contact_rows, "observed_names": observed}
 
 
 # Each extractor yields dicts. Written as SQL + a row mapper so the shape of every
@@ -626,6 +960,89 @@ def rows_voice_transcripts(src: sqlite3.Connection):
         }
 
 
+def rows_email_triage(src: sqlite3.Connection):
+    """Inbound mail the triage pipeline classified, as a searchable record.
+
+    We do not store message bodies locally (they live in Gmail), so the searchable
+    text is sender + subject + the category the classifier chose. That is enough to
+    answer the questions that matter across channels -- "did this person ever email
+    us", "when did the vendor write about the invoice" -- and it is honest about what
+    it does not hold: the result says `mail-subject-only`, so no agent reads a subject
+    line as if it were the whole message.
+    """
+    if not _has_table(src, "email_triage_log"):
+        return
+    cols = [r[1] for r in src.execute('PRAGMA table_info("email_triage_log")')]
+    need = ("sender", "subject")
+    if not all(c in cols for c in need):
+        return
+    pick = [c for c in ("message_id", "thread_id", "sender", "subject", "category",
+                        "sub_category", "created_at") if c in cols]
+    sel = ", ".join(f'"{c}"' for c in pick)
+    for r in src.execute(f"SELECT {sel} FROM email_triage_log"):
+        v = {c: r[c] for c in pick}
+        subject = " ".join(str(v.get("subject") or "").split())
+        sender = " ".join(str(v.get("sender") or "").split())
+        if not subject and not sender:
+            continue
+        who = _EMAIL_RE.search(sender)
+        name = _EMAIL_RE.sub("", sender).strip(" <>\"'")
+        yield {
+            "kind": "email",
+            "ref": f"et:{v.get('message_id') or v.get('thread_id')}",
+            "ts": _ts_from(v.get("created_at")), "direction": "inbound",
+            "counterparty": name or None,
+            "address": who.group(0).lower() if who else sender or None,
+            "subject": f"mail-subject-only ({v.get('category') or 'unclassified'})",
+            "text": f"From {sender}: {subject}",
+            "source_table": "email_triage_log",
+        }
+
+
+def rows_email_sent(src: sqlite3.Connection):
+    """Mail the owner actually sent, with its body. Drafts are excluded on purpose.
+
+    A draft is not a communication. Indexing pending drafts would let an agent answer
+    "we told them X" from a message nobody ever sent, which is a worse failure than a
+    missing row -- so only rows with a `sent_at`, or status 'sent', are indexed.
+    """
+    if not _has_table(src, "email_drafts"):
+        return
+    cols = [r[1] for r in src.execute('PRAGMA table_info("email_drafts")')]
+    pick = [c for c in ("id", "thread_id", "original_message_id", "original_from",
+                        "to_addresses_json", "subject", "original_subject",
+                        "body_plain", "final_sent_body", "status", "sent_at",
+                        "created_at", "account_email") if c in cols]
+    if "id" not in pick:
+        return
+    sel = ", ".join(f'"{c}"' for c in pick)
+    where = []
+    if "sent_at" in cols:
+        where.append("sent_at IS NOT NULL")
+    if "status" in cols:
+        where.append("status = 'sent'")
+    if not where:
+        return
+    for r in src.execute(f"SELECT {sel} FROM email_drafts WHERE {' OR '.join(where)}"):
+        v = {c: r[c] for c in pick}
+        subject = " ".join(str(v.get("subject") or v.get("original_subject") or "").split())
+        body = str(v.get("final_sent_body") or v.get("body_plain") or "").strip()
+        text = (f"Subject: {subject}\n\n{body}").strip()
+        if not text:
+            continue
+        to_raw = str(v.get("to_addresses_json") or "")
+        to_addr = _EMAIL_RE.findall(to_raw)
+        yield {
+            "kind": "email", "ref": f"ed:{v.get('id')}",
+            "ts": _ts_from(v.get("sent_at") or v.get("created_at")),
+            "direction": "outbound",
+            "counterparty": None,
+            "address": to_addr[0].lower() if to_addr else None,
+            "subject": "sent mail",
+            "text": text, "source_table": "email_drafts_sent",
+        }
+
+
 EXTRACTORS = (
     ("sms", rows_sms),
     ("call", rows_calls),
@@ -638,6 +1055,8 @@ EXTRACTORS = (
     ("call_log", rows_call_log),
     ("sms_log", rows_sms_log),
     ("voice_transcript", rows_voice_transcripts),
+    ("email", rows_email_triage),
+    ("email_sent", rows_email_sent),
 )
 
 # label -> source table, so `index` can report written vs kept per source and show
@@ -654,6 +1073,8 @@ _EXTRACTOR_TABLE = {
     "call_log": "call_log",
     "sms_log": "sms_log",
     "voice_transcript": "voice_transcripts",
+    "email": "email_triage_log",
+    "email_sent": "email_drafts_sent",
 }
 
 
@@ -748,6 +1169,15 @@ def do_index(con: sqlite3.Connection, source: str, verbose: bool = False) -> dic
             kept[label] = con.execute(
                 "SELECT COUNT(*) FROM comms WHERE source_table = ?", (table,)
             ).fetchone()[0]
+    # The person layer is built from the corpus that was just indexed, so it is
+    # rebuilt here rather than by an extractor (it is an aggregate over `comms`, not
+    # another source of communications). It needs the source open for the address
+    # books, so it runs before `src` is closed.
+    try:
+        people = build_people(con, src)
+    except sqlite3.Error as exc:
+        print(f"  ! people: {exc}")
+        people = {}
     src.close()
 
     con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('last_index',?)",
@@ -765,11 +1195,11 @@ def do_index(con: sqlite3.Connection, source: str, verbose: bool = False) -> dic
     # The three tables must agree by construction. If they do not, everything this
     # index says about its own completeness is worthless -- so measure, do not trust.
     real = con.execute("SELECT COUNT(*) FROM comms").fetchone()[0]
-    fts = con.execute(f"SELECT COUNT(*) FROM comms_fts").fetchone()[0]
-    tri = con.execute(f"SELECT COUNT(*) FROM comms_tri").fetchone()[0]
+    fts = con.execute("SELECT COUNT(*) FROM comms_fts").fetchone()[0]
+    tri = con.execute("SELECT COUNT(*) FROM comms_tri").fetchone()[0]
     return {"counts": counts, "kept": kept, "collapsed": collapsed, "total": total,
             "kept_total": real, "fts_rows": fts, "trigram_rows": tri,
-            "consistent": real == fts == tri,
+            "consistent": real == fts == tri, "people": people,
             "seconds": round(time.time() - t0, 1)}
 
 
@@ -843,6 +1273,11 @@ def main() -> int:
         print(f"  {'TOTAL':<18} {r['total']:>9,} indexed "
               f"({collapsed_total:,} duplicate refs collapsed) in {r['seconds']}s"
               f"   consistency: {verdict}")
+        if r.get("people"):
+            p = r["people"]
+            print(f"  {'PEOPLE':<18} {p.get('people', 0):>9,} people "
+                  f"({p.get('named', 0):,} named) from {p.get('aliases', 0):,} aliases; "
+                  f"{p.get('contact_rows', 0):,} address-book rows read")
         return 0 if r["consistent"] else 1
     elif a.cmd == "search":
         for c in do_search(con, a.term, a.kind, a.limit, a.exact):

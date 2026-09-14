@@ -34,7 +34,7 @@ entries**, 0 redundant copies, `check` **0 errors**, legacy drift **0**, `import
 **H205** — journal v2 shipped and verified; the record was rebuilt from the frozen sources after a
 concurrent session's migration wrote a tree whose file names, marker ids and heading ids disagreed
 in 563 files. Decisions **D144** (one file per entry + self-healing cache), **D142** (identity-based
-absorption, aliases instead of copies), **D143** (rebuild-and-carry, never nuke). Wins **W108-W110**:
+absorption, aliases instead of copies), **D145** (rebuild-and-carry, never nuke). Wins **W108-W110**:
 the before/after read table, the no-loss proof, and the two silent failures that stopped (a mirror
 that could not refresh on Windows, a drift count that cried wolf at 322). Lessons **L1087-L1093**.
 Pain **P132** (two sessions can rewrite this journal at once; the lock does not cross machines) and

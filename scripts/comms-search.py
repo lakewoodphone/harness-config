@@ -71,12 +71,19 @@ def _age_hours(meta: dict) -> float | None:
     return (dt.datetime.now(dt.timezone.utc) - when).total_seconds() / 3600.0
 
 
+# How a communication is attributed to a party when no person is known: the phone
+# number if there is one, else whatever name the record carried.
+_PARTY_KEY = ("COALESCE(NULLIF(REPLACE(REPLACE(REPLACE(REPLACE("
+              "COALESCE(address,''),'(',''),')',''),'-',''),' ',''),''), "
+              "LOWER(TRIM(COALESCE(counterparty,''))))")
+
+
 def _digits(value: str) -> str:
     return re.sub(r"\D", "", value or "")
 
 
 def _row(r: sqlite3.Row) -> dict:
-    return {
+    out = {
         "kind": r["kind"],
         "day": r["day"],
         "ts": r["ts"],
@@ -88,18 +95,29 @@ def _row(r: sqlite3.Row) -> dict:
         "ref": r["ref"],
         "source_table": r["source_table"],
     }
+    # FTS5 can hand back the passage that matched, marked up. A reader (human or
+    # agent) should not have to scan 300 characters of a call transcript to find the
+    # word they searched for, so the hit is included when the query produced one.
+    try:
+        if r["snip"]:
+            out["match"] = r["snip"]
+    except (IndexError, KeyError):
+        pass
+    return out
 
 
 def search(db: str, q: str, kind: str | None = None, limit: int = 20,
            exact: bool = False, since: str | None = None,
-           until: str | None = None, party: str | None = None) -> dict:
+           until: str | None = None, party: str | None = None,
+           rank: str = "recent") -> dict:
     con = _connect(db)
     try:
         meta = _meta(con)
         table = "comms_tri" if exact else "comms_fts"
         # Trigram cannot stem, so it must be given a literal; porter gets the terms.
         match = f'"{q}"' if exact else q
-        sql = (f"SELECT c.* FROM {table} f JOIN comms c ON c.id = f.rowid "
+        sql = (f"SELECT c.*, snippet({table}, 0, '[[', ']]', ' … ', 14) AS snip, "
+               f"bm25({table}) AS score FROM {table} f JOIN comms c ON c.id = f.rowid "
                f"WHERE {table} MATCH ?")
         args: list = [match]
         if kind:
@@ -121,7 +139,10 @@ def search(db: str, q: str, kind: str | None = None, limit: int = 20,
                 pargs.append(f"%{dig[-10:]}%")
             sql += f" AND ({clause})"
             args.extend(pargs)
-        sql += " ORDER BY c.ts DESC LIMIT ?"
+        # Recency is the right default for this corpus ("who said this lately"), but
+        # a rare term in a year-old call is exactly what relevance ranking is for.
+        sql += (" ORDER BY score LIMIT ?" if rank == "relevance"
+                else " ORDER BY c.ts DESC LIMIT ?")
         args.append(int(limit))
         rows = con.execute(sql, args).fetchall()
         age = _age_hours(meta)
@@ -129,6 +150,7 @@ def search(db: str, q: str, kind: str | None = None, limit: int = 20,
             "ok": True,
             "mode": "search",
             "query": q,
+            "rank": rank,
             "count": len(rows),
             "results": [_row(r) for r in rows],
             "index_age_hours": None if age is None else round(age, 2),
@@ -140,23 +162,330 @@ def search(db: str, q: str, kind: str | None = None, limit: int = 20,
         con.close()
 
 
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
+
+
+def resolve_people(con: sqlite3.Connection, query: str, limit: int = 5) -> list[dict]:
+    """Find the person (or people) a query refers to: a number, an email, or a name.
+
+    Resolution is deliberately layered from certain to fuzzy: an exact phone or email
+    first, then an exact name, then a substring/trigram name match. The layer that
+    matched is returned, because "we matched 848-480-5115 exactly" and "we guessed a
+    half-remembered spelling" are different claims and an agent should see which.
+    """
+    q = " ".join(str(query or "").split())
+    if not q:
+        return []
+    keys: dict[str, str] = {}      # person_key -> how it matched
+
+    def _add(rows, how):
+        for r in rows:
+            keys.setdefault(r[0], how)
+
+    dig = _digits(q)
+    if dig and len(dig) >= 10:
+        _add(con.execute("SELECT person_key FROM person_alias "
+                         "WHERE alias_kind='phone' AND alias_value=?", (dig[-10:],)),
+             "phone-exact")
+    if "@" in q:
+        _add(con.execute("SELECT person_key FROM person_alias "
+                         "WHERE alias_kind='email' AND alias_value=?", (q.lower(),)),
+             "email-exact")
+    if q and not dig:
+        _add(con.execute("SELECT person_key FROM person_alias "
+                         "WHERE alias_kind='name' AND alias_value=?", (_slug(q),)),
+             "name-exact")
+    if not keys:
+        # Trigram FTS over display_name + every observed spelling.
+        try:
+            _add(con.execute(
+                "SELECT person_key FROM people_fts WHERE people_fts MATCH ? LIMIT ?",
+                (f'"{q}"', limit)), "name-fuzzy")
+        except sqlite3.OperationalError:
+            pass
+    if not keys:
+        _add(con.execute(
+            "SELECT person_key FROM people WHERE display_name LIKE ? OR phones LIKE ?"
+            " OR names LIKE ? LIMIT ?", (f"%{q}%", f"%{dig or q}%", f"%{q}%", limit)),
+            "name-contains")
+
+    out = []
+    for key, how in list(keys.items())[:limit]:
+        row = con.execute("SELECT * FROM people WHERE person_key = ?", (key,)).fetchone()
+        if not row:
+            continue
+        person = dict(row)
+        person["matched_by"] = how
+        try:
+            person["phones"] = json.loads(person.get("phones") or "[]")
+            person["emails"] = json.loads(person.get("emails") or "[]")
+            person["names"] = json.loads(person.get("names") or "[]")
+            person["kinds"] = json.loads(person.get("kinds") or "{}")
+        except ValueError:
+            pass
+        out.append(person)
+    return out
+
+
+def _person_clause(person: dict) -> tuple[str, list]:
+    """A WHERE fragment matching every identifier we know for one person."""
+    clauses, args = [], []
+    for phone in person.get("phones") or []:
+        clauses.append(
+            "REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.address,''),'(',''),')',''),"
+            "'-',''),' ','') LIKE ?")
+        args.append(f"%{phone}%")
+    for email in person.get("emails") or []:
+        clauses.append("LOWER(COALESCE(c.address,'')) = ?")
+        args.append(email)
+    for name in person.get("names") or []:
+        clauses.append("LOWER(COALESCE(c.counterparty,'')) = ?")
+        args.append(name.lower())
+    if not clauses:
+        clauses = ["0"]
+    return "(" + " OR ".join(clauses) + ")", args
+
+
+def person_view(db: str, query: str, limit: int = 40,
+                since: str | None = None) -> dict:
+    """Everything we know about one person, across every channel and every identifier."""
+    con = _connect(db)
+    try:
+        people = resolve_people(con, query)
+        if not people:
+            return {"ok": False, "mode": "person", "query": query,
+                    "error": ("no person matches that name/number/email — try "
+                              "mode=search to look in the text instead")}
+        results = []
+        for p in people:
+            clause, args = _person_clause(p)
+            sql = f"SELECT c.* FROM comms c WHERE {clause}"
+            a = list(args)
+            if since:
+                sql += " AND c.day >= ?"
+                a.append(since)
+            sql += " ORDER BY c.ts DESC LIMIT ?"
+            a.append(int(limit))
+            rows = con.execute(sql, a).fetchall()
+            entry = {
+                "person": p.get("display_name"),
+                "person_key": p.get("person_key"),
+                "matched_by": p.get("matched_by"),
+                "basis": p.get("basis"),
+                "phones": p.get("phones"),
+                "emails": p.get("emails"),
+                "names": p.get("names"),
+                "comm_count": p.get("comm_count"),
+                "kinds": p.get("kinds"),
+                "first_seen": p.get("first_seen"),
+                "last_seen": p.get("last_seen"),
+                "returned": len(rows),
+                "timeline": [_row(r) for r in reversed(rows)],
+            }
+            results.append(entry)
+        meta = _meta(con)
+        age = _age_hours(meta)
+        return {
+            "ok": True, "mode": "person", "query": query,
+            "matched": len(results), "people": results,
+            "index_age_hours": None if age is None else round(age, 2),
+            "index_stale": bool(age is not None and age > STALE_HOURS),
+        }
+    finally:
+        con.close()
+
+
+_AUTOMATED_SENDER = re.compile(
+    r"(no[-_.]?reply|do[-_.]?not[-_.]?reply|notifications?@|alerts?@|bounce|mailer|"
+    r"newsletter|marketing|updates?@|support@|service@|info@|team@|hello@)", re.I)
+
+# A message that is only an acknowledgement is a conversation closing, not one waiting
+# on an answer. Without this the list leads with "Thanks!" and "Perfect thank you so
+# much" -- true by the letter (their word was last, nobody replied) and useless as a
+# signal. Everything it removes is *counted and reported*, so the judgement is visible
+# rather than silent.
+#
+# Token-based rather than a regex on the whole string, because acknowledgements are
+# combinations ("perfect thank you so much", "have a good shabbos") and a phrase list
+# would grow forever. Any question mark disqualifies: a question is waiting on an
+# answer by definition.
+_ACK_WORDS = {
+    "a", "all", "amen", "and", "awesome", "best", "bye", "cool", "day", "do", "fine",
+    "good", "got", "great", "gutn", "have", "it", "k", "kk", "lot", "many", "much",
+    "nice", "night", "no", "np", "ok", "okay", "perfect", "please", "problem",
+    "right", "see", "shabbat", "shabbos", "shalom", "so", "sounds", "sure", "t",
+    "thank", "thanks", "thx", "to", "too", "tov", "ttyl", "ty", "tyvm", "u", "very",
+    "welcome", "weekend", "will", "ya", "yeah", "yep", "yes", "you", "yom",
+    "👍", "🙏", "✅", "😀", "😊", "🙂", "❤️",
+}
+
+
+def _is_acknowledgement(text: str) -> bool:
+    t = " ".join(str(text or "").split())
+    if not t or len(t) > 80 or "?" in t:
+        return False
+    tokens = [w.strip("!.,;:\"'()[]") for w in t.lower().split()]
+    tokens = [w for w in tokens if w]
+    if not tokens or len(tokens) > 7:
+        return False
+    return all(w in _ACK_WORDS for w in tokens)
+
+
+
+def _is_human_email(con: sqlite3.Connection, address: str) -> bool:
+    """Is this an address a person would expect an answer at?
+
+    Two conditions. The address must be on file from something other than mail
+    arriving (`email_auto_discovered` / `email_thread_state` contacts are created
+    mechanically from senders — uber@uber.com is one of them, and a "known contact"
+    built that way is not evidence of a customer). And it must not look like a
+    machine. The second is a labelled heuristic; the first is provenance.
+    """
+    addr = (address or "").strip().lower()
+    if not addr or "@" not in addr:
+        return False
+    if _AUTOMATED_SENDER.search(addr):
+        return False
+    row = con.execute(
+        "SELECT 1 FROM person_alias WHERE alias_kind='email' AND alias_value = ?"
+        " AND reason NOT LIKE '%email_auto_discovered%'"
+        " AND reason NOT LIKE '%email_thread_state%' LIMIT 1", (addr,)).fetchone()
+    return bool(row)
+
+
+def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
+    """Customers whose last word was theirs — nobody has answered them yet.
+
+    The business question this answers is "who is waiting on us", and it is the one a
+    readable archive is actually for: the last message per party, inbound, with no
+    outbound after it.
+
+    THREE SET-BASED SCANS, NOT THREE QUERIES PER PARTY. The first version asked the
+    database a question per conversation (~4,000 parties x 3 queries) and did not
+    finish in two minutes. This does one scan to find each party's newest timestamp,
+    one to fetch that row, and one to find the newest outbound per party -- then
+    compares them in memory.
+    """
+    con = _connect(db)
+    try:
+        rows = con.execute(
+            f"""
+            WITH base AS (
+                SELECT kind, direction, ts, day, text, counterparty, address,
+                       {_PARTY_KEY} AS party_key
+                FROM comms
+                WHERE kind IN ('sms','message','call','voicemail','email')
+                  AND ts IS NOT NULL
+            ),
+            newest AS (
+                SELECT party_key, MAX(ts) AS mts FROM base GROUP BY party_key
+            ),
+            outbound AS (
+                SELECT party_key, MAX(ts) AS ots FROM base
+                WHERE direction = 'outbound' GROUP BY party_key
+            )
+            SELECT b.party_key, b.kind, b.direction, b.day, b.ts, b.text,
+                   b.counterparty, b.address
+            FROM base b
+            JOIN newest n ON n.party_key = b.party_key AND n.mts = b.ts
+            LEFT JOIN outbound o ON o.party_key = b.party_key
+            WHERE b.direction = 'inbound'
+              AND (o.ots IS NULL OR o.ots < b.ts)
+            """).fetchall()
+        cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)
+                  ).strftime("%Y-%m-%d") if days else ""
+        waiting, missed = [], []
+        acknowledged: list = []
+        for r in rows:
+            if cutoff and (r["day"] or "") < cutoff:
+                continue
+            text = str(r["text"] or "")
+            is_call = r["kind"] == "call"
+            entry = {
+                "party": r["party_key"],
+                "who": r["counterparty"] or r["address"],
+                "since": r["day"],
+                "hours_waiting": (round((dt.datetime.now(dt.timezone.utc).timestamp()
+                                         - r["ts"]) / 3600.0, 1) if r["ts"] else None),
+                "last_kind": r["kind"],
+                "last_text": text[:400],
+            }
+            if is_call and text.startswith("[no transcript]"):
+                # Nobody got to speak, so there is nothing to answer -- it belongs in
+                # the "they tried to reach us" list, not the "someone is waiting on an
+                # answer" one. Mixing the two is what makes such a list stop being read.
+                missed.append(entry)
+            elif is_call:
+                # A call that was actually held is a conversation that happened. Even
+                # if the customer spoke last, they were answered -- in a phone business
+                # nearly every completed call would otherwise appear here, and a list
+                # that is mostly false stops being a signal.
+                continue
+            elif r["kind"] == "email" and not _is_human_email(con, str(r["party_key"] or "")):
+                # Measured: without this the list is 137 rows of Stripe payouts, GitHub
+                # notifications and Lowe's marketing -- automated mail outnumbers real
+                # customer mail, and it pushed every actual customer off the page.
+                continue
+            else:
+                if _is_acknowledgement(text):
+                    acknowledged.append(entry)
+                else:
+                    waiting.append(entry)
+        waiting.sort(key=lambda x: x["since"] or "", reverse=True)
+        missed.sort(key=lambda x: x["since"] or "", reverse=True)
+        # Resolve identities only for the rows being returned, not for every party.
+        for w in (waiting[:max(limit, 1)] + missed[:max(limit, 1)]):
+            w["person"] = None
+            people = resolve_people(con, w["party"], limit=1)
+            if people:
+                w["person"] = people[0]["display_name"]
+                w["person_key"] = people[0]["person_key"]
+        meta = _meta(con)
+        age = _age_hours(meta)
+        return {"ok": True, "mode": "waiting", "days": days,
+                "count": len(waiting[:limit]),
+                "total_waiting": len(waiting),
+                "total_missed_calls": len(missed),
+                "closed_by_acknowledgement": len(acknowledged),
+                "waiting": waiting[:limit],
+                "missed_calls": missed[:limit],
+                "index_age_hours": None if age is None else round(age, 2),
+                "index_stale": bool(age is not None and age > STALE_HOURS)}
+    finally:
+        con.close()
+
+
 def thread(db: str, party: str, limit: int = 60,
            since: str | None = None) -> dict:
-    """Everything we have with one person, oldest first — the actual conversation."""
+    """Everything we have with one person, oldest first — the actual conversation.
+
+    Identity-aware: the query is first resolved to a person, and if one is found the
+    thread includes every identifier that person uses (two mobiles, a landline, an
+    email), because "the conversation" is not the same thing as "the phone number".
+    """
     con = _connect(db)
     try:
         dig = _digits(party)
         if not dig and not party:
             return {"ok": False, "error": "party is required"}
-        clauses = ["c.counterparty LIKE ?"]
-        args: list = [f"%{party}%"]
-        if dig:
-            tail = dig[-10:]
-            clauses.append(
-                "REPLACE(REPLACE(REPLACE(REPLACE(c.address,'+',''),'-',''),' ',''),"
-                "'.','') LIKE ?")
-            args.append(f"%{tail}%")
-        sql = (f"SELECT c.* FROM comms c WHERE ({' OR '.join(clauses)})")
+        people = resolve_people(con, party, limit=1)
+        if people:
+            clause, args = _person_clause(people[0])
+            how = (f"person {people[0].get('display_name')!r} "
+                   f"({people[0].get('matched_by')}) across "
+                   f"{len(people[0].get('phones') or [])} number(s)")
+        else:
+            clauses = ["c.counterparty LIKE ?"]
+            args = [f"%{party}%"]
+            if dig:
+                clauses.append(
+                    "REPLACE(REPLACE(REPLACE(REPLACE(c.address,'+',''),'-',''),' ',''),"
+                    "'.','') LIKE ?")
+                args.append(f"%{dig[-10:]}%")
+            clause = "(" + " OR ".join(clauses) + ")"
+            how = "raw match on the query (no known person)"
+        sql = f"SELECT c.* FROM comms c WHERE {clause}"
         if since:
             sql += " AND c.day >= ?"
             args.append(since)
@@ -170,6 +499,7 @@ def thread(db: str, party: str, limit: int = 60,
             "ok": True,
             "mode": "thread",
             "party": party,
+            "resolved": how,
             "count": len(rows),
             "results": [_row(r) for r in rows],
             "index_age_hours": None if age is None else round(age, 2),
@@ -229,7 +559,7 @@ def health(db: str) -> dict:
 # ── HTTP / dynamic-tool entry point ───────────────────────────────────────────
 def run(mode: str = "search", q: str = "", party: str = "", kind: str = "",
         limit: str = "20", exact: str = "", since: str = "", until: str = "",
-        db: str = DEFAULT_DB) -> dict:
+        days: str = "", db: str = DEFAULT_DB) -> dict:
     """Called by POST /tools/run/comms_search with string params."""
     try:
         n = int(limit or 20)
@@ -241,7 +571,15 @@ def run(mode: str = "search", q: str = "", party: str = "", kind: str = "",
     if mode == "health":
         return dict(health(db), mode="health")
     if mode == "thread":
-        return thread(db, party, limit=n, since=since or None)
+        return thread(db, party or q, limit=n, since=since or None)
+    if mode == "person":
+        return person_view(db, party or q, limit=n, since=since or None)
+    if mode == "waiting":
+        try:
+            days = int(days or 7)
+        except (TypeError, ValueError):
+            days = 7
+        return waiting(db, days=max(1, min(days, 365)), limit=n)
     try:
         return search(db, q, kind=kind or None, limit=n, exact=truthy(exact),
                       since=since or None, until=until or None,
@@ -256,7 +594,8 @@ def _render(res: dict) -> str:
     if not res.get("ok"):
         return f"comms-search: ERROR {res.get('error') or res.get('problems')}"
     lines = []
-    if res.get("mode") == "health":
+    mode = res.get("mode")
+    if mode == "health":
         lines.append(f"comms index: {res['total']:,} communications "
                      f"({res['index_age_hours']}h old)")
         for k, v in (res.get("by_kind") or {}).items():
@@ -264,12 +603,46 @@ def _render(res: dict) -> str:
         if res.get("problems"):
             lines.append("  PROBLEMS: " + "; ".join(res["problems"]))
         return "\n".join(lines)
+    if mode == "person":
+        for p in res.get("people") or []:
+            lines.append(f"{p['person'] or '(no name)'}  [{p['person_key']}]  "
+                         f"matched by {p['matched_by']}")
+            lines.append(f"  numbers: {', '.join(p.get('phones') or []) or '—'}")
+            if p.get("emails"):
+                lines.append(f"  emails:  {', '.join(p['emails'])}")
+            kinds = ", ".join(f"{k} {v}" for k, v in (p.get("kinds") or {}).items())
+            lines.append(f"  history: {p.get('comm_count') or 0} communications "
+                         f"({kinds})")
+            for r in p.get("timeline") or []:
+                who = " ".join(str(r["who"] or r["phone"] or "").split())[:20]
+                body = " ".join((r["text"] or "").split())[:170]
+                arrow = {"inbound": "<-", "outbound": "->"}.get(r["direction"] or "", "  ")
+                lines.append(f"    {r['day'] or '?'} [{r['kind']:<9}] {arrow} {body}")
+        return "\n".join(lines)
+    if mode == "waiting":
+        lines.append(f"{res['total_waiting']} customer(s) waiting on an answer "
+                     f"(their words, nobody replied, within {res['days']} days)")
+        for w in res.get("waiting") or []:
+            body = " ".join((w["last_text"] or "").split())[:150]
+            who = str(w.get("person") or w["who"] or w["party"])[:26]
+            lines.append(f"  {w['since']}  {who:<26} [{w['last_kind']}] {body}")
+        missed = res.get("missed_calls") or []
+        if missed:
+            lines.append(f"{res.get('total_missed_calls', 0)} missed call(s), "
+                         f"no message left (newest first)")
+            for w in missed[:5]:
+                who = str(w.get("person") or w["who"] or w["party"])[:26]
+                lines.append(f"  {w['since']}  {who:<26} [call] no answer, no message")
+        return "\n".join(lines)
     stale = "  [INDEX STALE]" if res.get("index_stale") else ""
     lines.append(f"{res['count']} result(s) for {res.get('query') or res.get('party')}"
                  f"{stale}")
+    if res.get("resolved"):
+        lines.append(f"  resolved: {res['resolved']}")
     for r in res["results"]:
         who = " ".join(str(r["who"] or r["phone"] or "").split())[:24]
-        body = " ".join((r["text"] or "").split())
+        body = r.get("match") or " ".join((r["text"] or "").split())
+        body = " ".join(str(body).split())
         if len(body) > 220:
             body = body[:220] + "…"
         arrow = {"inbound": "<-", "outbound": "->"}.get(r["direction"] or "", "  ")
@@ -300,11 +673,26 @@ def main() -> int:
     p.add_argument("--since")
     p.set_defaults(mode="thread")
 
+    p = sub.add_parser("person")
+    p.add_argument("query")
+    p.add_argument("--limit", type=int, default=40)
+    p.add_argument("--since")
+    p.set_defaults(mode="person")
+
+    p = sub.add_parser("waiting")
+    p.add_argument("--days", type=int, default=7)
+    p.add_argument("--limit", type=int, default=25)
+    p.set_defaults(mode="waiting")
+
     sub.add_parser("health").set_defaults(mode="health")
 
     a = ap.parse_args()
     if a.mode == "health":
         res = dict(health(a.db), mode="health")
+    elif a.mode == "person":
+        res = person_view(a.db, a.query, limit=a.limit, since=a.since)
+    elif a.mode == "waiting":
+        res = waiting(a.db, days=a.days, limit=a.limit)
     elif a.mode == "thread":
         res = thread(a.db, a.party, limit=a.limit, since=a.since)
     else:
