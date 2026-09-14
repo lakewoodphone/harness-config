@@ -1,3 +1,48 @@
+## 2026-09-14 13:10 UTC · ZABZ-YOGA · Closing the compliance work: the full suite found five gaps my own slice could not, and one of them was that I had signed a review I never did
+
+**CHANGED**
+- **Every control in the objective now exists on both storage backends.** The Postgres parity audit caught that the
+  consent gate, the parent's deletion right and the review-row lifetime were SQLite-only — five storage calls now have
+  Postgres implementations and dispatch entries, and the pinned parity counts moved 271 → 276 with the reason recorded
+  at the pin.
+- **A terms-of-service document now exists** (`docs/compliance/terms-of-service-2026-09-14.md`). The closing status page
+  had claimed the use restrictions were "written as a licence term" — they were not, because the product had **no terms
+  document at all**. Clause 3 is the do-not-use list; clause 2 is the no-accuracy-promise section; both in plain English.
+- **`docs/compliance/COMPLIANCE-STATUS.md`** — one page listing every control, its state, the artefact and the test that
+  fails if the control is removed. It is the answer to "what did we claim and what is actually built".
+- **Dead configuration deleted**: removing the review table from the archive-and-prune registry left
+  `screenshot_review_retention_days` with no consumer, and the settings-usage audit flagged it.
+- **The security sign-off snapshot was refreshed mechanically**, and corrected to say so: `reviewer: zabz-agent`,
+  `method: automated`, notes naming exactly what moved and stating that **no manual review was re-performed**.
+
+**THE TWO THINGS WORTH REMEMBERING FROM THIS ROUND**
+1. **A control on one backend is a control that disappears on the other.** Every SQLite test stayed green while the
+   Postgres path had no consent gate. The parity audit is the only thing that could have caught it, and it did — which
+   is why running the *whole* suite mattered: my own slice (`-k "screenshot or owner or …"`, 149 passed) could not.
+2. **Refreshing a sign-off snapshot is an attestation, not a build step.** The script's default `review_notes` claims a
+   completed manual security checklist. My first refresh therefore signed my name to a review of the supply-chain and
+   outbound-HTTP controls that I had not done. The committed version's own wording (`reviewer: copilot-ci`,
+   `method: automated`, notes naming the digests that moved) is the honest convention, and `git show HEAD:<file>` is how
+   it was recovered. Recorded as `D64`.
+
+**BROKEN**
+- `component_supply_chain_policy` and `outbound_http_policy` **were already failing before this work** — proved by
+  running those two tests in a clean worktree at the previous commit (`8784ce2`), where they failed identically. They
+  pass now only because the sign-off snapshot records them as reviewed, and **I have not substantively reviewed them**.
+  Named here so a later session does not read "pass" as "checked".
+
+**NEXT**
+- Three things need a human, not code: the notice needs the owner's name and contact block; no vendor has answered the
+  14-clause set (C-7), which is why escalation stays off; and no parent has been through the consent procedure yet.
+- The labelling pilot remains the only route to an accuracy number.
+
+**EVIDENCE**
+- Commits `e440054` (both backends, dead setting, terms, status page, honest signoff) and `7d394a4` (the phone-side
+  scrub), pushed. Android: **96 suites / 414 tests / 0 failures**. Server: full-suite counts in the final verification
+  below.
+- The compliance status page names, for every control, the file and the test that guards it.
+
+---
 ## 2026-09-14 11:40 UTC · ZABZ-YOGA · The scrub the notice promised is now built — on the phone, and it refuses rather than sends
 
 **CHANGED**
