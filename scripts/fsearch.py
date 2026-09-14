@@ -114,9 +114,15 @@ def connect(db_path: str) -> sqlite3.Connection:
             mtime    REAL NOT NULL,
             sha      TEXT,
             name_rev TEXT,
+            path_key TEXT,
             indexed  INTEGER NOT NULL DEFAULT 0,
             err      TEXT
         );
+        -- On Windows, Code\ and code\ are the same directory, so the raw path is
+        -- not a safe unique key: the whole tree was catalogued twice (measured:
+        -- every payroll hit returned two identical rows). path_key is normcase'd
+        -- for exactly that reason.
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_files_path_key ON files(path_key);
         CREATE INDEX IF NOT EXISTS idx_files_name ON files(name);
         -- A reversed name turns `name LIKE '%foo%'` into a prefix match on
         -- name_rev, which sqlite CAN use an index for. Without it, filename
@@ -218,8 +224,14 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
             st = os.stat(path)
         except OSError:
             continue
-        row = con.execute("SELECT id, size, mtime, indexed FROM files WHERE path=?",
-                          (path,)).fetchone()
+        key = os.path.normcase(path)
+        row = con.execute(
+            "SELECT id, size, mtime, indexed FROM files WHERE path_key=?", (key,)
+        ).fetchone()
+        if row is None:
+            # pre-migration rows have no key yet
+            row = con.execute("SELECT id, size, mtime, indexed FROM files WHERE path=?",
+                              (path,)).fetchone()
         if row and not reindex and int(row["size"]) == st.st_size and abs(
                 float(row["mtime"]) - st.st_mtime) < 1e-6:
             skipped += 1
@@ -230,10 +242,11 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
         if row:
             fid = int(row["id"])
             con.execute(
-                "UPDATE files SET root=?, ext=?, name=?, name_rev=?, size=?, mtime=?,"
-                " indexed=? WHERE id=?",
+                "UPDATE files SET root=?, ext=?, name=?, name_rev=?, path_key=?,"
+                " size=?, mtime=?, indexed=? WHERE id=?",
                 (root, os.path.splitext(name)[1].lower(), name, name[::-1].lower(),
-                 st.st_size, st.st_mtime, 1 if text_ok else 0, fid))
+                 os.path.normcase(path), st.st_size, st.st_mtime,
+                 1 if text_ok else 0, fid))
             updated += 1
             con.execute("DELETE FROM content WHERE file_id=?", (fid,))
             # ONLY when the trigram index was actually created. This line was left
@@ -243,10 +256,10 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
                 con.execute("DELETE FROM tri WHERE file_id=?", (fid,))
         else:
             cur = con.execute(
-                "INSERT INTO files(path, root, ext, name, name_rev, size, mtime, indexed) "
-                "VALUES(?,?,?,?,?,?,?,?)",
+                "INSERT INTO files(path, root, ext, name, name_rev, path_key,"
+                " size, mtime, indexed) VALUES(?,?,?,?,?,?,?,?,?)",
                 (path, root, os.path.splitext(name)[1].lower(), name, name[::-1].lower(),
-                 st.st_size, st.st_mtime, 1 if text_ok else 0))
+                 os.path.normcase(path), st.st_size, st.st_mtime, 1 if text_ok else 0))
             fid = int(cur.lastrowid)
             added += 1
         indexed_ids.add(fid)
