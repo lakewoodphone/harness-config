@@ -1135,16 +1135,23 @@ number, so it is delivered by Gmail notification rather than by SMS (L174 stands
 (c) Make the repair step executable before offering it: the GV re-login needs a transport the headless host
 does not have (L175) — CDP over `tailscale serve --tcp=9222 tcp://127.0.0.1:9222` is the candidate,
 **not yet built**; `tailscale serve status` currently holds one https handler on :443 pointing at 3086.
-(d) Wire the chosen push channel. **The owner answered on 2026-09-14: the harness badge, not SMS or email.**
-Half-wired: `/attention` (host command) is installed on the authority and mount-tested; the digest on disk
-now reports delivery in §1b. **The badge — the part that is a *push* — is NOT built**, because it needs a
-client half and that channel belongs to the dynamic Cordis runner, which is disabled in his preset. The
-route out is a static client plugin (see `HANDOFF.md` 05:55). This is the last honest gap in P55.
+(d) Wire the chosen push channel. **The owner answered on 2026-09-14: the harness badge, not SMS or email.
+DONE the same session, and it is now the only channel in this list that has ever worked.**
+`/attention` (host command) is installed and mount-tested; the digest on disk reports delivery in §1b;
+and the **badge itself is live on the phone path** — `harness-config/assets/phone-badge.js` served by
+the gate at `/dsh-attention.js`, its data at `/dsh-attention.json`, injected into every served document.
+Proven by fetching `https://secratary.tail93e6e6.ts.net/` from another machine (200, badge tag present)
+and by photographing the pill and the expanded card in a real browser; 16/16 behavioural checks. The
+dynamic-runner problem was **routed around, not solved**: the gate carries the data, so no client↔host
+channel is needed. Remaining, and they are different problems from this one: the **62 unsent drafts** and
+the **298 undelivered owner messages** are now visible rather than fixed.
 
 **Evidence.** `SELECT status, COUNT(*) FROM owner_message_queue GROUP BY status`; the newest 8 `status='sent'`
 rows; `google_voice_secretary_health` (account_0 `failed`, 6,287 consecutive, last OK 2026-07-02T17:08Z);
 `gv_read_calls`/`gv_read_messages` → HTTP 401; `gv_read_voicemails` → 180 s timeout; `DISPLAY=` empty and
 only `Xvfb` on `secratary`; `~/secretary-attention-digest/latest.txt` (2026-09-14T05:31Z) §0a, §1, §1b, §3;
 `python3 -m ck status --no-colour` on `secratary` → 13 findings, `delivery` CRITICAL; `node
-~/test-attention-plugin.mjs` → the finding renders in `/attention`.
+~/test-attention-plugin.mjs` → the finding renders in `/attention`;
+`curl https://secratary.tail93e6e6.ts.net/dsh-attention.json` → `attention:6, highest:critical`;
+`_scratch/test-badge.py` → 16/16; screenshots `_scratch/badge-closed.png`, `badge-open.png`.
 
