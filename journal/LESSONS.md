@@ -1656,6 +1656,22 @@ container is sized by its content, and the first child wins; (c) measure geometr
 (`getBoundingClientRect` against `clientWidth`) instead of judging by eye, because "looks about right at
 this size" is what let v1 and v2 both ship.
 
+**L192 · 2026-09-14 · The journal's `L`/`P` numbers are a shared namespace written by concurrent sessions,
+so claim the number at the moment of writing or lose a lesson to a collision.**
+This session wrote **L174–L179** and **P55–P56** into the journal; within the same hour another session
+wrote **its own L174–L179, L189 and its own P56**, and the file now contains two `L176`s, two `L177`s, two
+`L178`s, two `L179`s and two `P56`s. I renumbered mine to **L190/L191 and P60** and said so in the entry.
+One of the pairs is a genuine duplicate; the other two are different lessons wearing the same number, and
+nothing in the file can tell a reader which is which.
+*Rules:* (a) choose a number **above the current maximum** and re-read the file immediately before writing,
+because "the highest I saw" is already stale in a session-parallel repo; (b) if a collision is found, the
+**newer** entry renumbers and **says so in its own text** — never silently edit the other session's entry,
+which is append-only and belongs to whoever wrote it; (c) when correcting a number, grep the other journal
+files for references to it, or the cross-reference points at the wrong lesson (this session had to fix
+`HANDOFF.md` for exactly that); (d) the underlying defect is that these files have no allocator. The fix is
+a claimed-numbers index, not more care — and until it exists, prefer a deliberately high number over a
+tidy one.
+
 
 
 **L178 · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the
