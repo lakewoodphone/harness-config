@@ -74,7 +74,8 @@ handoff	H75	75		2026-09-14 06:05 UTC	ZABZ-YOGA	open	## 2026-09-14 06:05 UTC · Z
 handoff	H73	73		2026-09-14 06:35 UTC	ZABZ-YOGA	open	## 2026-09-14 06:35 UTC · ZABZ-YOGA · The DRN fleet can now be managed from the portal — and three of my own numbers were wrong when I measured them	log/handoff/2026-09.2.md	1630	1727	524d9d98d01b9272
 handoff	H72	72		2026-09-14 07:40 UTC	ZABZ-YOGA	open	## 2026-09-14 07:40 UTC · ZABZ-YOGA · The filter's legal audit, written as counsel-of-record — and it killed the cheapest vendor	log/handoff/2026-09.2.md	1573	1629	86e7b2f4ffe0fcf3
 handoff	H71	71		2026-09-14 08:40 UTC	ZABZ-YOGA	open	## 2026-09-14 08:40 UTC · ZABZ-YOGA · The compliance controls a parent can actually use: notice, consent, deletion, expiry	log/handoff/2026-09.2.md	1529	1572	d05000fe68a8fd66
-handoff	H76	76		2026-09-14 14:41 UTC	ZABZ-YOGA	open	## 2026-09-14 14:41 UTC · ZABZ-YOGA · Is Netlify the best option for us? No: it prices deploys, we deploy constantly, and our DNS is already Cloudflare	log/handoff/2026-09.2.md	1881	1955	28dfe2dac0a83a26
+handoff	H76	76		2026-09-14 14:41 UTC	ZABZ-YOGA	open	## 2026-09-14 14:41 UTC · ZABZ-YOGA · Is Netlify the best option for us? No: it prices deploys, we deploy constantly, and our DNS is already Cloudflare	log/handoff/2026-09.2.md	1881	1954	28dfe2dac0a83a26
+handoff	H77	77		2026-09-14 15:23 UTC	SECRATARY	open	## 2026-09-14 15:23 UTC · SECRATARY · The composer's double layer is fixed at the root: the row was allowed to wrap	log/handoff/2026-09.2.md	1955	2025	e08dfa2d5502a224
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.md	16	22	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	log/lessons/2026-09.md	23	31	704b5a31f9362c6a
