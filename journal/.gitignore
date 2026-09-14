@@ -1,6 +1,6 @@
-__pycache__/index/journal.db
-index/stamp.json
-
+__pycache__/
+# generated cache: rebuildable from entries/ — never a source of truth
 index/journal.db
+index/stamp.json
+# the mutation lock: one per working tree, never committed
 .lock
-
