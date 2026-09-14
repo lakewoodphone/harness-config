@@ -976,3 +976,29 @@ This is P2 ("nothing watches outcomes") with a specific, cheap, recurring shape:
 
 Until (1) exists, the manual stand-in is task **#24869** on the authority, created 2026-09-14 with the
 tracking endpoint in its description.
+
+
+## P53 — The corpora that contain the answers were never ingested, and the index only knew 1% of them
+
+**Symptom.** The owner's own description: "recursive searches that take a few minutes and still don't find
+what you need". Both halves are separate defects. The latency was a re-walk per query (P54-ish, now fixed:
+45.34 s → 0.075 s). The recall is a missing ingest: the chat tables hold **1,009 sessions / 4,368 messages for
+seven months** — about 4.3 messages per session, which is metadata rather than conversation — while
+`%APPDATA%\Code\User\workspaceStorage` carries **16.97 GB in 737 `chatSessions/*.jsonl` files**, 42 of them
+over 100 MB and the largest **1,050 MB**.
+
+**Evidence.** `vscode_chat_messages` = 4,368 rows, oldest 2026-02-06, newest 2026-09-11; the filesystem
+inventory of `chatSessions` (737 files / 16.97 GB). Also unindexed: `~/.copilot/session-state` (528 MB,
+4,956 files), a `transcripts/` tree (111 files), the DSH session archive, and the company's own email/SMS/call
+history.
+
+**Cost.** Every question about the owner's own history, his systems, or his past decisions is answered from a
+1% sample, and the agent then says "I could not find it" — which reads as *it does not exist* rather than *it
+was never ingested*. That is the same confident-wrong-answer failure as P3, with the index instead of the
+database.
+
+**Fix (in progress).** `chatindex.py` ingests `chatSessions`/`transcripts`/`session-state` into an FTS5 store
+that is append-log aware, resumable by byte offset, streams in 1 MB reads, and drops the multi-megabyte
+`metadata.toolCallResults` blobs that would drown the human record. Not yet done: the company DB (email, SMS,
+calls) and the DSH archive into the same query surface.
+

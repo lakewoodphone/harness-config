@@ -1331,3 +1331,24 @@ the one thing that is genuinely his — here, the per-message send approval.
 it once it arrives" explained nothing. The version that worked named why early delivery has value (a large
 cover rigged by hand onto a frame: sleeves, body grommets, tie-downs) — a reason that costs the counterparty
 nothing but makes the request legitimate.
+
+
+**L169 · 2026-09-14 · The cost of a search is the walk, not the match — so index once and never walk again.**
+Measured on the primary machine before changing anything: `rg --files` enumerated **129,015 files in 0.41 s**,
+while `rg -l payroll` took **45.34 s** for 100 files. The enumerator is instant because it is one syscall each;
+the content search re-reads every byte of the tree for every question. After building a persistent SQLite FTS5
+index, the same query returned in **0.075 s** — about **600×** — with better relevance, because the index
+skips the trees nobody greps.
+*Rules:* (a) when a tool "feels slow", separate enumeration cost from match cost before optimising anything,
+because they fail for different reasons; (b) an index is only worth building if it is *incremental* — key it on
+(size, mtime) so the second run is cheap, or it becomes a thing nobody runs; (c) index age must be **reported**,
+not assumed, or a silently stale index is worse than no index (L167).
+
+**L170 · 2026-09-14 · Two tokenizers, because one index cannot be good at both prose and code.** FTS5's
+`porter` stems (`payroll`/`payrolls` collapse) but cannot match inside a word; `trigram` matches any substring
+(`entication` inside `authenticationMiddleware`) but cannot stem. Code search needs the first for prose and the
+second for identifiers, so the index carries both tables and the query picks. Verified on both hosts before
+building on it (SQLite 3.49.1 / 3.46.1, all three tokenizers present).
+*Corollary:* derive the plan from a **capability probe**, not from documentation about the version — my first
+attempt to test this failed purely from shell quoting, and the second proved the capability on the real host.
+

@@ -362,3 +362,13 @@ being archived, with a six-case self-test that now covers the exact case it got 
 segment, one of them to my own work from 36 hours earlier: the alarm that proved the previous agent wrong had
 to survive being proved wrong itself.
 
+
+
+**W31 · 2026-09-14 · Six hundred times faster on a measured query, and the formats were reverse-engineered
+rather than guessed.** `rg -l payroll` over the Code tree took **45.34 s**; the same question against a new
+SQLite FTS5 index takes **0.075 s** and returns better files. Built from measurements at every step: the
+corpus sizes (710,000 files / 53.82 GB catalogued), the tokenizer capabilities probed on *both* hosts, and a
+real 39.8 MB chat file opened to learn the format (`kind:2` carries `requests[]`; `message.text` is the human
+turn). Two FTS tables — `porter` for prose, `trigram` for identifiers — because one cannot do both. The chat
+corpus that the old index missed by ~99% (16.97 GB across 737 files) is being ingested by the same pass.
+

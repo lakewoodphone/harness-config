@@ -416,3 +416,16 @@ Deliberately **not** done: re-enabling owner SMS. `data/OWNER_SMS_KILL_SWITCH` s
 because his phone and his explicit instruction to silence it are his to change. The intended replacement
 (rate limit + dedup, `urgent` and above) is safe to build first and will be built before asking.
 
+
+
+**D46 · 2026-09-14 · Search is indexed, not recursive: one SQLite index per machine, two tokenizers, no daemon.**
+The fleet's searches become a persistent SQLite FTS5 index (`fsearch`) built by an incremental walker, plus a
+second store (`chatindex`) for conversation history. Chosen over the alternatives deliberately: **not** a new
+daemon (a supervisor that can silently die is the failure mode that hid the archive outage for 2.5 h, and
+`systemd`/Task Scheduler already owns that risk), **not** Zoekt/Livegrep (another service to keep alive for a
+corpus this size), **not** an external vector DB yet (no embeddings can be produced on these hosts today — no
+Ollama anywhere — and a dead `memory_vectors` table already sits in the company DB proving the cost of bolting
+one on before the pipeline works). SQLite is already proven here at 2.6 GB, needs no daemon, and FTS5 with
+`porter`+`trigram` covers stemming and substring. Vectors are a later, separate decision gated on a working
+embedding pipeline, measured, not assumed.
+
