@@ -548,3 +548,15 @@ Vision's 6,404 vision tokens are cross-attention KV memory, not context tokens**
 multiplies parameters by bytes under-states it.
 *What it settles:* **no CC-BY-NC and no research-only licence exists anywhere in the shortlist** (Molmo is Apache-2.0 at its earliest commit; Phi-3.5-vision is plain MIT — "intended for research and educational use" is a statement of intent, and a model card cannot narrow an unconditional grant). Only **Gemma 3**, **PaliGemma 2** (revocable Gemma Terms) and **Llama 3.2 Vision** (700M-MAU, no EU) are restricted and are out. Chosen stack: **fine-tuned Florence-2-base** first — MIT, 0.22 GB INT8, **577 fixed image tokens at a 768×768 input** so a 2048px frame costs the same as a 1024px one, measured **2.52 s/image on 4 vCPU with no GPU** — then **Qwen3-VL-4B-Instruct** (Apache-2.0, official GGUF + mmproj, CPU path named by the vendor).
 *And the part that is a rule, not a fact:* **only 2 of 10 model families publish any clothing/attribute figure, none publishes a person-detection AP, and no vision model in the set has a published CPU throughput number.** So the shortlist cannot be ranked from documents; it must be scored on our own labelled frames. The same discipline applies to the renderer of the product: the research itself corrected its own licence claims twice, which is why every licence statement here names the artifact it was read from.
+
+
+**D47 · 2026-09-14 · Two indexes, one refresh task, SQLite only — and the trigram index is opt-in.**
+Search is served by SQLite FTS5 (`fsearch` for files, `chatindex` for conversation history), refreshed
+hourly by one scheduled task per host (`DSH search index refresh` on Windows, a cron line on Linux).
+Chosen over a daemon: nothing here needs to stay resident, and a resident process that dies silently is
+the failure this fleet has paid for twice. The substring (trigram) index is **off by default** because
+measured cost was 10.87 GB for 112 GB of files when the same text was indexed twice; it is available via
+`--trigram` and restricted to code extensions, where substring search actually earns its keep. Vectors
+remain a separate, later decision, gated on a working embedding pipeline — the dead `memory_vectors`
+table in the company database is the standing evidence for not bolting one on before the pipeline works.
+

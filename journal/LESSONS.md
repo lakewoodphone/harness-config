@@ -1638,3 +1638,27 @@ narrow tools, or the server-side digest (`scripts/server/owner-attention-digest.
 already condenses the same facts. When a tool returns far more than the question needed, that is a
 finding about the tool — record it, and stop using it that way.
 
+
+
+**L176 · 2026-09-14 · `schtasks` does not run a shell, so a registered command containing `>>` is broken
+at birth — read back what you registered.** I registered the hourly refresh as
+`"python" "refresh.py" >> "refresh.log" 2>&1`. `schtasks /Create /TR` executes the string **directly**,
+not through `cmd.exe`, so the redirection was passed as literal arguments and the task would have failed
+on every run — silently, with only a `Last Result` code to show for it, which is precisely the failure
+mode this fleet keeps paying for. Fixed by wrapping in `cmd /c` and **reading the registered command back**
+(`schtasks /Query /FO LIST /V`), which is how the raw `>>` became visible.
+*Rule:* after registering any scheduled job, query it back and read the command it will actually run, and
+assert on it. `Status: Ready` only means the trigger is armed; it says nothing about whether the action
+can execute. Same discipline as L167's "the alarm must be seen to fire" — a schedule must be seen to be
+runnable.
+
+**L177 · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it
+defensive.** My line-length ceiling existed to stop a 419 MB line from exhausting memory, and it did —
+by throwing the line away. Measured consequence: the 1,050 MB conversation yielded **2 requests and 4
+messages while silently skipping 5 lines totalling ~400 MB**, i.e. the guard was removing the single
+largest conversation in the archive. The right move was not to raise the ceiling (that restores the
+memory problem) but to mine the oversized line for the fields that carry the text, with a bounded scan.
+*Rules:* (a) every guard that drops data should **count and record** what it dropped (the `skipped_lines`
+and `skipped_bytes` columns are what made this visible at all); (b) before accepting a guard's behaviour,
+ask what the dropped data was worth, not just whether the guard prevented the crash.
+

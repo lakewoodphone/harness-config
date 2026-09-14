@@ -57,7 +57,7 @@ import sqlite3
 import sys
 import time
 
-PARSER_VERSION = 2
+PARSER_VERSION = 3
 MAX_TURN_CHARS = 60_000        # per human/assistant turn
 MAX_LINE_BYTES = 64 * 1024 * 1024   # measured max is 419 MB; refuse rather than OOM
 MAX_FIELD_CHARS = 600
@@ -212,6 +212,137 @@ def looks_like_request(o):
         "message" in o or "requestId" in o or "response" in o or "timestamp" in o)
 
 
+# How much of an oversized line to mine, and how many turns to keep from it.
+# A 419 MB line is read once; 64 MB of scanning is seconds, not minutes.
+MAX_HARVEST_BYTES = 64 * 1024 * 1024
+MAX_HARVEST_TURNS = 200
+
+# Ordered so the human turn is found before the assistant's, matching the order
+# they appear in a request object.
+_HARVEST_PATTERNS = (
+    (b'"text":"', "user"),
+    (b'"response":[', "assistant"),
+    (b'"invocationMessage":{"value":"', "assistant"),
+    (b'"value":"', "assistant"),
+)
+
+
+def _json_string_at(blob: bytes, start: int, limit: int = 200_000) -> str | None:
+    """Decode a JSON string beginning at `start`, scanning forward for its close.
+
+    Handles the escapes that matter (`\\"`, `\\\\`, `\\n`) and gives up rather than
+    running away if a string never closes inside the budget.
+    """
+    out = []
+    i = start
+    end = min(len(blob), start + limit)
+    while i < end:
+        b = blob[i]
+        if b == 0x5C:                       # backslash
+            if i + 1 >= end:
+                break
+            nxt = blob[i + 1:i + 2]
+            if nxt == b"n":
+                out.append("\n")
+            elif nxt == b"t":
+                out.append("\t")
+            elif nxt == b"r":
+                out.append("\r")
+            elif nxt in (b'"', b"\\", b"/"):
+                out.append(nxt.decode("ascii"))
+            elif nxt == b"u" and i + 5 < end:
+                try:
+                    out.append(chr(int(blob[i + 2:i + 6].decode("ascii"), 16)))
+                    i += 6
+                    continue
+                except ValueError:
+                    pass
+            i += 2
+            continue
+        if b == 0x22:                       # closing quote
+            return "".join(out)
+        out.append(chr(b) if 32 <= b < 127 else " ")
+        i += 1
+    return None
+
+
+def harvest_oversized_bytes(blob: bytes) -> list[str]:
+    """Best-effort text extraction from a line too large to json.loads.
+
+    Heuristic by nature, and labelled as such in the quality flag. Two rules keep
+    it honest: never emit anything shorter than 200 characters (a field name is
+    not a turn), and cap the number of turns taken from one line.
+    """
+    found: list[str] = []
+    for needle, _role in _HARVEST_PATTERNS:
+        pos = 0
+        while len(found) < MAX_HARVEST_TURNS:
+            idx = blob.find(needle, pos)
+            if idx == -1:
+                break
+            pos = idx + len(needle)
+            text = _json_string_at(blob, pos)
+            if text and len(text) >= 200:
+                found.append(text[:MAX_TURN_CHARS])
+        if len(found) >= MAX_HARVEST_TURNS:
+            break
+    return found
+
+
+def iter_lines(fh, max_line=MAX_LINE_BYTES, stats=None):
+    """Yield line bytes with bounded memory. O(n), not O(n^2).
+
+    THE DEFECT THIS FIXES (measured 2026-09-14): the first version did
+    `buf += chunk` and then `buf.partition(b"\\n")` on every 1 MB read. On the
+    1,050 MB file, whose dominant line is **419 MB**, that is quadratic in the
+    line length: the process burned 1,525 s of CPU and never finished. Concatenating
+    a growing buffer and re-scanning it per chunk is the trap.
+
+    Instead: accumulate into a bytearray (mutating, not reallocating a new bytes
+    object per read) and only convert to bytes at a newline. A line longer than
+    `max_line` is skipped by discarding the buffer and scanning forward for the
+    next newline, so memory stays bounded no matter how pathological the input is.
+    """
+    buf = bytearray()
+    while True:
+        chunk = fh.read(1 << 20)
+        if not chunk:
+            break
+        buf.extend(chunk)
+        while True:
+            nl = buf.find(b"\n")
+            if nl == -1:
+                break
+            line = bytes(buf[:nl])
+            del buf[:nl + 1]
+            yield line
+        if len(buf) > max_line:
+            # Oversized single line. Measured on this corpus: 24 lines exceed the
+            # ceiling and the largest is 419 MB, and DISCARDING them loses real
+            # conversation -- the 1,050 MB file yielded 2 requests and 4 messages
+            # while skipping 5 lines. They cannot be json.loads'd, but the text we
+            # want sits in well-known string fields, so mine those directly, and
+            # record exactly how much was recovered rather than pretending the
+            # line was empty.
+            if stats is not None:
+                stats["skipped_long"] = stats.get("skipped_long", 0) + 1
+                stats["skipped_bytes"] = stats.get("skipped_bytes", 0) + len(buf)
+                got = harvest_oversized_bytes(bytes(buf[:MAX_HARVEST_BYTES]))
+                if got:
+                    stats.setdefault("harvested", []).extend(got)
+            buf.clear()
+            while True:
+                more = fh.read(1 << 20)
+                if not more:
+                    return
+                nl = more.find(b"\n")
+                if nl != -1:
+                    buf.extend(more[nl + 1:])
+                    break
+    if buf:
+        yield bytes(buf)            # a torn final line; the caller decides
+
+
 def ingest_file(con, path, source, verbose=False):
     """Replay one patch-log and write its turns. Returns a small report dict."""
     st = os.stat(path)
@@ -232,84 +363,62 @@ def ingest_file(con, path, source, verbose=False):
     title = None
     requests: list[dict] = []
     torn = False
-    skipped_long = 0
+    stats: dict = {}
     pos = start_offset
     base_requests_seen = 0
 
     with open(path, "rb") as fh:
         if start_offset:
             fh.seek(start_offset)
-        buf = b""
-        while True:
-            chunk = fh.read(1 << 20)
-            if not chunk:
-                break
-            buf += chunk
-            # guard: a pathological line must not be buffered without bound
-            if len(buf) > MAX_LINE_BYTES and b"\n" not in buf:
-                skipped_long += 1
-                while True:                        # scan forward to the next newline
-                    more = fh.read(1 << 20)
-                    if not more:
-                        break
-                    pos += len(more)
-                    nl = more.find(b"\n")
-                    if nl != -1:
-                        pos -= (len(more) - nl - 1)
-                        buf = more[nl + 1:]
-                        break
-                else:
-                    buf = b""
+        for line in iter_lines(fh, stats=stats):
+            if not line:
                 continue
-            while b"\n" in buf:
-                line, _, buf = buf.partition(b"\n")
-                pos += len(line) + 1
-                if not line.strip():
-                    continue
-                if line.startswith(b"\xef\xbb\xbf"):    # BOM on the first line
-                    line = line[3:]
-                try:
-                    obj = json.loads(line)
-                except Exception:
-                    continue
-                if not isinstance(obj, dict):
-                    continue
-                kind = obj.get("kind")
-                if kind == 0:
-                    v = obj.get("v") or {}
-                    sid = v.get("sessionId") or sid
-                    if not requests and isinstance(v.get("requests"), list):
-                        requests = [r for r in v["requests"] if looks_like_request(r)]
+            if not line.strip():
+                continue
+            if line.startswith(b"\xef\xbb\xbf"):     # BOM on the first line
+                line = line[3:]
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            if not isinstance(obj, dict):
+                continue
+            kind = obj.get("kind")
+            if kind == 0:
+                v = obj.get("v") or {}
+                sid = v.get("sessionId") or sid
+                if not requests and isinstance(v.get("requests"), list):
+                    requests = [r for r in v["requests"] if looks_like_request(r)]
+                else:
+                    base_requests_seen += 1
+                continue
+            if kind == 1:
+                keys = obj.get("k") or []
+                val = obj.get("v")
+                if keys and keys[0] == "customTitle":
+                    title = _clip(val, MAX_FIELD_CHARS)
+                elif keys and keys[0] == "requests" and len(keys) >= 2 \
+                        and isinstance(keys[1], int):
+                    idx = keys[1]
+                    while len(requests) <= idx:
+                        requests.append({})
+                    if len(keys) == 2:
+                        requests[idx] = val if isinstance(val, dict) else {}
                     else:
-                        base_requests_seen += 1
-                    continue
-                if kind == 1:
-                    keys = obj.get("k") or []
-                    val = obj.get("v")
-                    if keys and keys[0] == "customTitle":
-                        title = _clip(val, MAX_FIELD_CHARS)
-                    elif keys and keys[0] == "requests" and len(keys) >= 2 \
-                            and isinstance(keys[1], int):
-                        idx = keys[1]
-                        while len(requests) <= idx:
-                            requests.append({})
-                        if len(keys) == 2:
-                            requests[idx] = val if isinstance(val, dict) else {}
-                        else:
-                            requests[idx][keys[2]] = val
-                    continue
-                if kind == 2 and (obj.get("k") or []) == ["requests"]:
-                    v = obj.get("v")
-                    items = v if isinstance(v, list) else [v]
-                    for it in items:
-                        if looks_like_request(it):
-                            requests.append(it)
-                        elif isinstance(it, dict):
-                            requests.append(it)
-                    continue
-                # kind 3 and unknown kinds: patch semantics we do not need for text
-        if buf.strip():
-            torn = True                                # a partial line after a crash
+                        requests[idx][keys[2]] = val
+                continue
+            if kind == 2 and (obj.get("k") or []) == ["requests"]:
+                v = obj.get("v")
+                items = v if isinstance(v, list) else [v]
+                for it in items:
+                    if isinstance(it, dict):
+                        requests.append(it)
+                continue
+            # kind 3 (delete) and unknown kinds carry no text we index
+        pos = fh.tell()
+
+    skipped_long = stats.get("skipped_long", 0)
+    harvested = stats.get("harvested") or []
 
     # ── emit turns ──
     written = 0
@@ -359,6 +468,32 @@ def ingest_file(con, path, source, verbose=False):
             con.commit()
             con.execute("BEGIN")
 
+    # ── turns recovered from oversized lines ──
+    # These are heuristic, so they are written with a distinct request_id suffix
+    # and counted separately. They are the difference between 4 messages and the
+    # real content of the biggest conversation in the archive.
+    harvested = stats.get("harvested") or []
+    for k, text in enumerate(harvested):
+        role = "user" if k % 2 == 0 else "assistant"
+        rid = f"harvested{k}"
+        cur = con.execute(
+            "INSERT OR REPLACE INTO messages(session, request_id, role, ts, ts_iso,"
+            " text, model, mode, agent, tool_names, refs, char_start, char_end,"
+            " source, path, parser_version) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)",
+            (sid, rid, role, None, None, text, None, None, None, None, None,
+             len(text), source, path, PARSER_VERSION))
+        mid = cur.lastrowid
+        con.execute("DELETE FROM msg_fts WHERE rowid=?", (mid,))
+        con.execute("DELETE FROM msg_tri WHERE rowid=?", (mid,))
+        con.execute("INSERT INTO msg_fts(rowid, text, session, role) VALUES(?,?,?,?)",
+                    (mid, text, sid, role))
+        con.execute("INSERT INTO msg_tri(rowid, text, session, role) VALUES(?,?,?,?)",
+                    (mid, text, sid, role))
+        written += 1
+    con.commit()
+    con.execute("BEGIN")
+
     quality = "ok"
     if torn:
         quality = "torn_tail"
@@ -367,6 +502,8 @@ def ingest_file(con, path, source, verbose=False):
             else "later_base_ignored"
     if skipped_long:
         quality += f"+{skipped_long}_long_line_skipped"
+    if harvested:
+        quality += f"+{len(harvested)}_harvested"
 
     existing = con.execute("SELECT turns FROM sessions WHERE id=?", (sid,)).fetchone()
     if existing:
