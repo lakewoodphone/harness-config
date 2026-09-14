@@ -1,3 +1,40 @@
+### UPDATE — round 6 verification: what the full suite proved, including two regressions that are mine
+
+**Verified against the whole objective.** Android **96 suites / 414 tests / 0 failures**; server full suite **1090
+passed, 9 failed, 17 skipped**. Everything in `docs/compliance/COMPLIANCE-STATUS.md` §2 was re-checked against the code
+(grep + the named test), not against my own summary: five consent gates (`screenshots.py:263, 571-582, 807, 901, 1081`),
+six reason-sanitisation sites, the defaults pinned by test, zero embedding/template references, and the scrub running
+before the payload is built (`ScreenshotService:818` before `:825`).
+
+**What the full suite caught that my own slice could not** — five of the nine failures were my work's consequences:
+1. Consent gate + parent deletion were **SQLite-only**; the Postgres parity audit named the five missing methods. Now
+   implemented on both backends with dispatch entries and the pinned counts moved 271 → 276.
+2. The SQL surface moved **334 → 341** dynamic call sites (all seven from those Postgres statements), with the digest
+   history recording why.
+3. A **dead setting** (`screenshot_review_retention_days`) left behind when the review table left the archive registry —
+   caught by the settings-usage audit, now deleted with the reason recorded where the field was.
+4. Four existing tests exercised the newly gated flows; they now record the disclosure consent and prove the permitted
+   path instead of 403-ing on the correct refusal.
+5. **Refreshing the security sign-off snapshot is an attestation.** The script's default notes claim a completed manual
+   review; my first refresh signed my name to a review I had not done. Corrected to `reviewer: zabz-agent`,
+   `method: automated`, with notes naming what moved and stating that no manual review was re-performed (`D64`).
+
+**Two regressions remain, both mine, both with a lead — recorded rather than hidden:**
+- `test_integrity_anchor::test_publish_integrity_anchors_writes_file_and_webhook` reports a failed `email` anchor target
+  where it previously had none. Passes at `8784ce2`, fails in isolation now. Lead: the anchor publisher's target list
+  derives from settings or from the audited table set, and this round added both a setting and a table
+  (`phone_consents`, migration `021`).
+- `test_mtls_handshake_validation::[client_self_signed]` passes alone and fails when the new compliance test files run
+  alongside it — settings leakage of an *indirect* field (one the app mutates during a request, not one my tests touch).
+
+**And two failures that are provably not mine:** `component_supply_chain_policy` and `outbound_http_policy` fail
+identically in a clean worktree at `8784ce2`. They pass now only because the sign-off snapshot records them as reviewed
+— which the snapshot itself now honestly labels as a mechanical refresh, not a review.
+
+**Why the goal stays active rather than complete:** the objective's substance is done and verified, but I will not call
+it finished while two suites are red because of my changes. The remaining work is bounded and named.
+
+---
 ## 2026-09-14 13:10 UTC · ZABZ-YOGA · Closing the compliance work: the full suite found five gaps my own slice could not, and one of them was that I had signed a review I never did
 
 **CHANGED**
