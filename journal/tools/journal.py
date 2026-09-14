@@ -944,7 +944,8 @@ def rebuild_cache(compute_drift: bool = False) -> dict:
     db_note = _write_db(entries, aliases, refs)
     stamp = tree_signature()
     ceiling = {kind: max_number(kind) for kind in KINDS}
-    git_ceiling = read_stamp().get("git_ceiling") or {}
+    prev = read_stamp()
+    git_ceiling = prev.get("git_ceiling") or {}
     stamp.update({
         "built": now_utc(),
         "entries": len(entries),
@@ -954,8 +955,13 @@ def rebuild_cache(compute_drift: bool = False) -> dict:
         # `next-id` and `append --fetch` raise this from git; reads never run a subprocess,
         # so the last measured value lives here and `allocation_ceiling` trusts it.
         "git_ceiling": git_ceiling,
-        "unabsorbed": {},
-        "unabsorbed_total": None,
+        # Carry the last drift MEASUREMENT forward rather than resetting it to unknown. Every
+        # append rebuilds the cache, and nulling the count meant the always-read page flipped
+        # between "drift 0" and "unknown" several times an hour — a number that changes when
+        # nothing changed is not a reading. `check` refreshes it and dates it.
+        "unabsorbed": prev.get("unabsorbed") or {},
+        "unabsorbed_total": prev.get("unabsorbed_total"),
+        "drift_measured": prev.get("drift_measured"),
         "unabsorbed_error": None,
     })
     if compute_drift:
