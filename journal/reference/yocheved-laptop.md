@@ -321,9 +321,40 @@ Probes used for this file live in `_scratch/yocheved/` on `ZABZ-YOGA`:
    `secretary-ts:/home/zabz/harness-config.git`; the files were transferred directly and
    `HARNESS_CONFIG_COMMIT.txt` records the commit they came from. Until a transport exists, `autosync`
    cannot converge her machine — re-run a transfer instead.
-3. **No end-to-end model turn has been driven through her engine.** The route is proven at the API
-   level from her machine, and her engine boots and serves; what remains is a completion requested
-   through the running engine. That is the last acceptance check.
-4. Her code-changing work should stay outside the default workspace (`lpt-hub`) so a mistake cannot
+3. Her code-changing work should stay outside the default workspace (`lpt-hub`) so a mistake cannot
    reach the machine's own harness configuration; the other repos remain readable and usable.
+
+### 11. The acceptance test, stated exactly
+
+**A real model completion through her engine PASSED:**
+
+```powershell
+# on her box, with NODE_EXTRA_CA_CERTS + NODE_OPTIONS + DSH_HOME set
+node <dsh>\lib\bin.js --profile headless 'Reply with exactly this and nothing else: MANAGER_READY'
+# -> exit 0, 7 seconds, output: MANAGER_READY
+```
+
+That single result proves the whole chain at once: the Techloq filter is traversed, Node trusts the
+interception CA, the `deepinfra` route is selected, `DEEPINFRA_API_KEY` resolves from the credential
+store, and the model answers. Every earlier blocker in this file is downstream of that one fact.
+
+**What is NOT yet proven, and must not be claimed:**
+
+* **Her persona has NOT been shown reaching the model.** Two attempts hit the wrong surface and I did
+  not substitute a weaker check for the real one:
+  - `--profile headless` carries its **own** inline persona (`personaPrefix: You are a coding agent…`)
+    and does not consult the `.agent-presets` roster at all, so it can prove the model path and cannot
+    prove the preset. That is exactly the trap this file's own §10 warns about in another form: a green
+    result on a surface that does not exercise the thing under test.
+  - Passing her preset as a `--patch` layer composes cleanly (exit 0, 564 lines, every row resolving)
+    but does **not** replace the `persona` row in the dumped tree, because presets are mounted by the
+    agent-preset machinery after the profile is composed. A clean composition is evidence the preset is
+    *valid*, not that it *lands*.
+* Her preset is nonetheless registered exactly as the preset mechanism documents: the files are at
+  `~/.dsh/.agent-presets/yocheved/`, `USER_PRESET_DIR = ".agent-presets"` and
+  `COMPOSITION_FILE = "agent.cordis.yml"` match, and `settings.yaml` sets `agent-presets.default: yocheved`.
+
+**The one check that would settle it:** open the desktop shortcut and ask her assistant what its job is.
+If it answers as the Lakewood Phone & Tech shop manager rather than a coding agent, the preset landed.
+
 

@@ -1,0 +1,390 @@
+kind	id_full	num	suffix	date	host	status	heading	file	line_start	line_end	hash
+handoff	H1	1		2026-09-11	ZABZ-YOGA	done	## 2026-09-11 · ZABZ-YOGA · Built the conversational CEO and its memory	log/handoff/2026-09.1.md	6	132	03622a1e887387ee
+handoff	H2	2		2026-09-11	ZABZ-YOGA	open	## 2026-09-11 · ZABZ-YOGA · Kosher Waze portal built (customer + staff); staging is a dead target	log/handoff/2026-09.1.md	133	195	86e3f87e042716a6
+handoff	H3	3		2026-09-11	ZABZ-YOGA	done	## 2026-09-11 · ZABZ-YOGA · All three named defects closed; only the staging verification remains	log/handoff/2026-09.1.md	196	249	b3ca780621082381
+handoff	H4	4		2026-09-11	ZABZ-YOGA	open	## 2026-09-11 · ZABZ-YOGA · Unverified-default risk: the OTA ack timeout was a guess	log/handoff/2026-09.1.md	250	281	b9e99ede577c96b0
+handoff	H5	5		2026-09-11	ZABZ-YOGA	open	## 2026-09-11 · ZABZ-YOGA · Two more silent-lie fields removed; the queue backlog cleaned safely	log/handoff/2026-09.1.md	282	331	18f46574b48d373f
+handoff	H6	6		2026-09-11	ZABZ-YOGA	open	## 2026-09-11 · ZABZ-YOGA · Live-verified against the real fleet (11/11); only the deployment step remains	log/handoff/2026-09.1.md	332	377	474734f3dc0bca70
+handoff	H7	7		2026-09-11	ZABZ-YOGA	open	## 2026-09-11 · ZABZ-YOGA · DEPLOYED TO TEST — the real deploy path was Netlify + Hetzner, not Heroku	log/handoff/2026-09.1.md	378	434	72d4b4b53d882b33
+handoff	H8	8		2026-09-11	ZABZ-YOGA	open	## 2026-09-11 · ZABZ-YOGA · OBJECTIVE COMPLETE — both surfaces verified in a browser against the live fleet	log/handoff/2026-09.1.md	435	489	657cc54da2d92eb6
+handoff	H9	9		2026-09-11 12:55	ZABZ-YOGA	open	## 2026-09-11 12:55 · ZABZ-YOGA · The open verification is closed, and the kernel now runs by itself	log/handoff/2026-09.1.md	490	582	0080746656bc9fac
+handoff	H10	10		2026-09-11 13:02	ZABZ-YOGA	open	## 2026-09-11 13:02 · ZABZ-YOGA · Inventoried the WAZE/MDM/DRN/LPT stack and fixed a silent billing data loss	log/handoff/2026-09.1.md	583	656	2fdf58bb541faa7e
+handoff	H11	11		2026-09-11 13:05	ZABZ-YOGA	open	## 2026-09-11 13:05 · ZABZ-YOGA · Home Assistant: audited live, and the security system is blind	log/handoff/2026-09.1.md	657	736	759e5c26cc6f885f
+handoff	H12	12		2026-09-11 13:12	ZABZ-YOGA	open	## 2026-09-11 13:12 · ZABZ-YOGA · The thirteen-day silence, investigated and labelled	log/handoff/2026-09.1.md	737	781	0885b921ef81ebdb
+handoff	H13	13		2026-09-11 13:35	ZABZ-YOGA	open	## 2026-09-11 13:35 · ZABZ-YOGA · Kosher Waze unblocked: owner answered, cap bands built and live	log/handoff/2026-09.1.md	782	890	77cbf31e60262325
+handoff	H14	14		2026-09-11 13:40	ZABZ-YOGA	open	## 2026-09-11 13:40 · ZABZ-YOGA · Home Assistant: got into the host, and corrected two of my own wrong claims	log/handoff/2026-09.1.md	891	956	fd882bfd6a206456
+handoff	H15	15		2026-09-11 13:45	ZABZ-YOGA	open	## 2026-09-11 13:45 · ZABZ-YOGA · Closed the Kosher filter's on-device ML verification, and found a crash in it	log/handoff/2026-09.1.md	957	1006	c6f686f4608c6486
+handoff	H16	16		2026-09-11 13:45	ZABZ-YOGA	open	## 2026-09-11 13:45 · ZABZ-YOGA · Sync runs itself · the phone path is proven · the archive is designed	log/handoff/2026-09.1.md	1007	1077	ad4ba5c55a2ffd41
+handoff	H17	17		2026-09-11 14:00	ZABZ-YOGA	open	## 2026-09-11 14:00 · ZABZ-YOGA · Twelve DSH windows are now a supervised thing, not a hope	log/handoff/2026-09.1.md	1078	1136	dd5dc9350d3ef95d
+handoff	H18	18		2026-09-11 14:35	ZABZ-YOGA	open	## 2026-09-11 14:35 · ZABZ-YOGA · Home Assistant reads itself now, and the timeline system came back into git	log/handoff/2026-09.1.md	1137	1190	5a41dbd3603ff8f3
+handoff	H19	19		2026-09-11 14:45	ZABZ-YOGA	open	## 2026-09-11 14:45 · ZABZ-YOGA · The intrusion siren was never wired — one space of indentation	log/handoff/2026-09.1.md	1191	1247	15a552b505307c3d
+handoff	H20	20		2026-09-11 15:10	ZABZ-YOGA	open	## 2026-09-11 15:10 · ZABZ-YOGA · Every sensor audited; the boss beacon is the fault, not the BLE system	log/handoff/2026-09.1.md	1248	1327	fe5098c486a4f1ec
+handoff	H21	21		2026-09-11 17:30	ZABZ-YOGA	open	## 2026-09-11 17:30 · ZABZ-YOGA · The harness shows money now — a cited rate card, `/cost`, and a footer cost pill	log/handoff/2026-09.1.md	1328	1416	8368c094ac1329ea
+handoff	H22	22		2026-09-11 17:40 EDT	secratary	open	## 2026-09-11 17:40 EDT · secratary · Rosh Hashana 5787 is armed — and the "interior door" the automation releases is not the entity its config names	log/handoff/2026-09.1.md	1417	1502	4031bb224528b3c9
+handoff	H23	23		2026-09-11 17:46 EDT	secratary	open	## 2026-09-11 17:46 EDT · secratary · The owner's wife has a name, and it was on disk — L148, plus a people map	log/handoff/2026-09.1.md	1503	1526	6039ce6344c094c9
+handoff	H24	24		2026-09-11 17:50 EDT	secratary	open	## 2026-09-11 17:50 EDT · secratary · He said "split it" — two holy periods either side of an ordinary Sunday are now two runs, live on the authority	log/handoff/2026-09.1.md	1527	1597	f60067f534e67373
+handoff	H25	25		2026-09-11 17:50 EDT	secratary	open	## 2026-09-11 17:50 EDT · secratary · He said "split it" — two holy periods either side of an ordinary Sunday are now two runs, live on the authority	log/handoff/2026-09.1.md	1598	1668	92d99d50a563ca39
+handoff	H26	26		2026-09-11 17:52 EDT (21:52Z)	ZABZ-TECH	open	## 2026-09-11 17:52 EDT (21:52Z) · ZABZ-TECH · The yoga conversations are reachable from here, and this machine's archiving had quietly stopped	log/handoff/2026-09.1.md	1669	1706	e5a2aca04454ae1b
+handoff	H27	27		2026-09-11 18:05	ZABZ-YOGA	open	## 2026-09-11 18:05 · ZABZ-YOGA · The phone tells the truth now; the session shipper is ready to ship	log/handoff/2026-09.1.md	1707	1765	aca6723cedaab2c7
+handoff	H28	28		2026-09-11 18:10	ZABZ-YOGA	open	## 2026-09-11 18:10 · ZABZ-YOGA · The fleet heals itself, and the ninth window is one shortcut away	log/handoff/2026-09.1.md	1766	1828	55833918a6fdc179
+handoff	H29	29		2026-09-11 18:30 EDT (22:30Z)	ZABZ-TECH	open	## 2026-09-11 18:30 EDT (22:30Z) · ZABZ-TECH · Pulled both systems whole; rescued live-but-uncommitted code off secratary, and nothing was watching archive silence	log/handoff/2026-09.1.md	1829	1914	0447db18cd18bf71
+handoff	H30	30		2026-09-11 18:35 EDT (22:35Z)	ZABZ-TECH	open	## 2026-09-11 18:35 EDT (22:35Z) · ZABZ-TECH · The company was counting unfinished work as success; the number is now honest and the sentinel's findings are finally read	log/handoff/2026-09.1.md	1915	1980	6d90b63b63c8c884
+handoff	H31	31		2026-09-11 18:44	ZABZ-TECH	done	## 2026-09-11 18:44 · ZABZ-TECH · A regeneration had silently deleted two persona rules, and the plugin layer had no keeper	log/handoff/2026-09.1.md	1981	2078	f8fa76c8b9361688
+handoff	H32	32		2026-09-11 18:50	ZABZ-YOGA	open	## 2026-09-11 18:50 · ZABZ-YOGA · Every DSH session on both machines is now archived and searchable	log/handoff/2026-09.1.md	2079	2140	5207c48bcaf64253
+handoff	H33	33		2026-09-11 18:55 EDT (22:55Z)	ZABZ-TECH	open	## 2026-09-11 18:55 EDT (22:55Z) · ZABZ-TECH · The owner has been read nothing since 2026-07-19, and the cause is a kill switch the previous agent left in place	log/handoff/2026-09.1.md	2141	2205	8f39203bc055fc41
+handoff	H34	34		2026-09-11 19:05	ZABZ-YOGA	open	## 2026-09-11 19:05 · ZABZ-YOGA · The modesty model question was re-analysed from scratch — and the answer is "don't buy the programme"	log/handoff/2026-09.1.md	2206	2252	4d5c7bb75d17ceb2
+handoff	H35	35		2026-09-11 19:05	ZABZ-YOGA	open	## 2026-09-11 19:05 · ZABZ-YOGA · The `+` control exists, and the app no longer opens eight windows at you	log/handoff/2026-09.1.md	2253	2300	fd49025a4e73ddf3
+handoff	H36	36		2026-09-11 19:15	ZABZ-YOGA	done	## 2026-09-11 19:15 · ZABZ-YOGA · The phone now talks to an engine that never sleeps — and the fleet's credential had forked	log/handoff/2026-09.1.md	2301	2360	977c3e816e3f048d
+handoff	H37	37		2026-09-11 19:40	ZABZ-YOGA	open	## 2026-09-11 19:40 · ZABZ-YOGA · The visual-modesty options space and the decision agenda are written	log/handoff/2026-09.1.md	2361	2408	9b2467905c5fc9d4
+handoff	H38	38		2026-09-11 19:45	ZABZ-YOGA	open	## 2026-09-11 19:45 · ZABZ-YOGA · The DSH session archive is in the authoritative database — the objective is closed	log/handoff/2026-09.1.md	2409	2461	e0389177f8bac2d7
+handoff	H39	39		2026-09-11 19:55	ZABZ-YOGA	open	## 2026-09-11 19:55 · ZABZ-YOGA · Audited all four comms channels; the boss's drafts are 22/22 unanswered	log/handoff/2026-09.1.md	2462	2564	bf6110592c1fc34e
+handoff	H40	40		2026-09-11 20:00	ZABZ-YOGA	open	## 2026-09-11 20:00 · ZABZ-YOGA · His existing phone link now opens the harness — and my link never could have	log/handoff/2026-09.1.md	2565	2619	add319da82aa5d37
+handoff	H41	41		2026-09-11 20:05	ZABZ-YOGA	open	## 2026-09-11 20:05 · ZABZ-YOGA · Both machines run the fleet, and the `+` control is deployed	log/handoff/2026-09.1.md	2620	2675	4cc6ba933821a322
+handoff	H42	42		2026-09-11 20:07	ZABZ-YOGA	open	## 2026-09-11 20:07 · ZABZ-YOGA · The call harvest now runs by itself — 17.5h → under 30 minutes	log/handoff/2026-09.1.md	2676	2740	95e1aa0bf8335ecb
+handoff	H43	43		2026-09-11 20:30 UTC	ZABZ-YOGA	open	## 2026-09-11 20:30 UTC · ZABZ-YOGA · The owner's phone now reaches the harness — and the gate meant to do that had never fired once	log/handoff/2026-09.1.md	2741	2798	c8fb1737ff0369ee
+handoff	H44	44		2026-09-11 20:32	ZABZ-YOGA	done	## 2026-09-11 20:32 · ZABZ-YOGA · Named callers' voicemails no longer vanish — and the drop was proven, not inferred	log/handoff/2026-09.2.md	6	81	56fc1b554766b15e
+handoff	H45	45		2026-09-11 20:37 UTC	secratary	open	## 2026-09-11 20:37 UTC · secratary · "Are you working on my iPhone?" — yes, live, and he is on it; but the device is an inference, not a reading	log/handoff/2026-09.2.md	82	127	f1ced5d0ebb7313f
+handoff	H46	46		2026-09-11 20:40	ZABZ-YOGA	open	## 2026-09-11 20:40 · ZABZ-YOGA · The lifecycle is verified on every path, and the hang is explained	log/handoff/2026-09.2.md	128	162	1ee9715fcbb02bbd
+handoff	H47	47		2026-09-11 20:40 UTC	ZABZ-YOGA	open	## 2026-09-11 20:40 UTC · ZABZ-YOGA · The harness can now name home vs office — and the reason it never could was one un-granted phone permission	log/handoff/2026-09.2.md	163	219	2222e42ebee66b55
+handoff	H48	48		2026-09-11 20:45	ZABZ-YOGA	open	## 2026-09-11 20:45 · ZABZ-YOGA · The kosher filter's whole visual architecture is now designed and decided	log/handoff/2026-09.2.md	220	266	83cb2514609d93f4
+handoff	H49	49		2026-09-11 20:55	ZABZ-YOGA	open	## 2026-09-11 20:55 · ZABZ-YOGA · I escalated a customer emergency that did not exist — and fixed the reason I could not see it	log/handoff/2026-09.2.md	267	349	5d7e5763f951160e
+handoff	H50	50		2026-09-11 21:00 UTC	ZABZ-YOGA	open	## 2026-09-11 21:00 UTC · ZABZ-YOGA · CORRECTION: the phone link was not fixed at 20:30. It is fixed now, and here is what was actually wrong	log/handoff/2026-09.2.md	350	401	939af426262bdd3f
+handoff	H51	51		2026-09-11 21:25	ZABZ-YOGA	open	## 2026-09-11 21:25 · ZABZ-YOGA · Two controls, an elevated launcher, and the cost audit closed	log/handoff/2026-09.2.md	402	456	4b9ca1db34e833b8
+handoff	H52	52		2026-09-11 21:30 UTC	ZABZ-YOGA	open	## 2026-09-11 21:30 UTC · ZABZ-YOGA · The phone UI has a mobile layer, and he confirmed the link works	log/handoff/2026-09.2.md	457	502	e47ca341bdff2259
+handoff	H53	53		2026-09-11 22:00 UTC	ZABZ-YOGA	open	## 2026-09-11 22:00 UTC · ZABZ-YOGA · The phone UI is finished: layer, plugin, self-heal, and 12/12	log/handoff/2026-09.2.md	503	544	9d7e53b14b3b15c1
+handoff	H54	54		2026-09-12 01:05 UTC	ZABZ-YOGA	open	## 2026-09-12 01:05 UTC · ZABZ-YOGA · The kosher filter's image path was revealing unverified images — found and fixed on the browser lane	log/handoff/2026-09.2.md	545	601	9a6c4f0b2c5562f7
+handoff	H55	55		2026-09-13 22:05 EDT (2026-09-14 02:05Z)	ZABZ-TECH	open	## 2026-09-13 22:05 EDT (2026-09-14 02:05Z) · ZABZ-TECH · Restarted the API so the completion fix is live; my own alarm was crying wolf, and the fixed version now proves both directions	log/handoff/2026-09.2.md	602	671	14eab69c9a1ef9fe
+handoff	H56	56		2026-09-13 22:05 EDT (2026-09-14 02:05Z)	ZABZ-TECH	open	## 2026-09-13 22:05 EDT (2026-09-14 02:05Z) · ZABZ-TECH · Restarted the API so the completion fix is live; my own alarm was crying wolf, and the fixed version now proves both directions	log/handoff/2026-09.2.md	672	741	b31e898857ad41e4
+handoff	H57	57		2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The LPT website-overhaul + Google-Forms→LPT-sign-in arc is now one indexed document	log/handoff/2026-09.2.md	742	797	dfe26a8582b69d0e
+handoff	H58	58		2026-09-14	ZABZ-YOGA	open	## 2026-09-14 · ZABZ-YOGA · The phone sidebar is off-canvas at last, and the page stopped scrolling	log/handoff/2026-09.2.md	798	847	cb04ac52b32f8b15
+handoff	H59	59		2026-09-14 00:15 EDT (04:15Z)	ZABZ-TECH	open	## 2026-09-14 00:15 EDT (04:15Z) · ZABZ-TECH · Search was re-walking the disk every time; it is now indexed — 45.3 s became 0.075 s	log/handoff/2026-09.2.md	848	921	a684724d06952115
+handoff	H60	60		2026-09-14 02:08	secratary	open	## 2026-09-14 02:08 · secratary · The sukkah tarp was paid for on Aug 11 and never shipped; nobody was watching	log/handoff/2026-09.2.md	922	974	84c531340db2d2ca
+handoff	H61	61		2026-09-14 02:20	secratary	open	## 2026-09-14 02:20 · secratary · Chase email to ALCO sent (owner approved); the vendor-promise hole is written up as P52	log/handoff/2026-09.2.md	975	1015	37c69dc1b2568aec
+handoff	H62	62		2026-09-14 04:05 UTC	ZABZ-YOGA	open	## 2026-09-14 04:05 UTC · ZABZ-YOGA · Owner presence is now recorded on the authority and alarmed — and making it *act* is blocked by the diverged checkout, not by missing code	log/handoff/2026-09.2.md	1016	1080	b8fdf5d109d7a477
+handoff	H63	63		2026-09-14 05:05 UTC	ZABZ-YOGA	open	## 2026-09-14 05:05 UTC · ZABZ-YOGA · My lane: /attention built and verified; a live outage found in his phone's API — and my earlier "my plugin did it" was wrong	log/handoff/2026-09.2.md	1081	1121	92dc4187a0c38c1c
+handoff	H64	64		2026-09-14 05:05 UTC	ZABZ-YOGA	open	## 2026-09-14 05:05 UTC · ZABZ-YOGA · The kosher filter's image path was revealing unverified images — found and fixed on the browser lane	log/handoff/2026-09.2.md	1122	1178	308522abfc6b2a2c
+handoff	H65	65		2026-09-14 05:30 UTC	ZABZ-YOGA	open	## 2026-09-14 05:30 UTC · ZABZ-YOGA · The three tiers, answered from the code — and the first thing that leaves the phone is now scrubbed	log/handoff/2026-09.2.md	1179	1232	f65704d4947a1801
+handoff	H66	66		2026-09-14 05:45 UTC	ZABZ-YOGA	open	## 2026-09-14 05:45 UTC · ZABZ-YOGA · Owner asked "pull my emails and Google Voice calls/texts/voicemails and tell me what needs attention" — and the biggest finding is that **nothing has reached him from this company since 2026-07-19**	log/handoff/2026-09.2.md	1233	1299	986ee8b60f7beed8
+lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	235a8e5a9717b921
+lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.md	16	22	bc5ceb76f28aec87
+lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	log/lessons/2026-09.md	23	31	704b5a31f9362c6a
+lessons	L4	4		-	-	open	**L4 · Measure the thing you are about to claim**	log/lessons/2026-09.md	32	42	4d829b9be5146435
+lessons	L5	5		-	-	open	**L5 · The owner's attention is the scarcest resource. Spend it deliberately**	log/lessons/2026-09.md	43	50	d10b17343643cf0e
+lessons	L6	6		-	-	open	**L6 · Never ask permission already granted**	log/lessons/2026-09.md	51	58	05ecd16c036530f1
+lessons	L7	7		-	-	open	**L7 · Decide the development questions; escalate only what is his**	log/lessons/2026-09.md	59	66	882ec26660f9973b
+lessons	L8	8		-	-	open	**L8 · One question at a time, with options and a recommendation**	log/lessons/2026-09.md	67	75	d49b37d49022c3bc
+lessons	L9	9		-	-	open	**L9 · Produce the artefact, not the plan for the artefact**	log/lessons/2026-09.md	76	86	0c0799b764340a43
+lessons	L10	10		-	-	open	**L10 · The thing watching must outlive the thing being watched**	log/lessons/2026-09.md	87	94	4b7afbad9dc52eee
+lessons	L11	11		-	-	open	**L11 · Monitor outcomes, never liveness**	log/lessons/2026-09.md	95	101	b218e77bc4673ecc
+lessons	L12	12		-	-	open	**L12 · Alert on absence, not only on arrival**	log/lessons/2026-09.md	102	109	3411fb255861c0c5
+lessons	L13	13		-	-	open	**L13 · One source of truth per thing**	log/lessons/2026-09.md	110	117	3f25c06a5106a3f8
+lessons	L14	14		-	-	open	**L14 · Autonomy is a ladder, not a switch**	log/lessons/2026-09.md	118	125	4708b435cb3662b6
+lessons	L15	15		-	-	open	**L15 · Never let a timeout decide a risk question**	log/lessons/2026-09.md	126	133	6d4aee968711e270
+lessons	L16	16		-	-	open	**L16 · An improvement loop that cannot apply is worse than no loop**	log/lessons/2026-09.md	134	143	55bab0f7360fe7d1
+lessons	L17	17		-	-	open	**L17 · Write for the self that wakes up with no memory of this**	log/lessons/2026-09.md	144	151	79b054d4f22a0ef1
+lessons	L18	18		-	-	open	**L18 · Record the decision, not the discussion**	log/lessons/2026-09.md	152	158	a276b5241b6fd9fe
+lessons	L19	19		-	-	open	**L19 · Keep the record of having been wrong**	log/lessons/2026-09.md	159	168	2f7a10394ca84581
+lessons	L20	20		-	-	open	**L20 · Nothing is imported that has not been measured**	log/lessons/2026-09.md	169	180	d42962cd0270846c
+lessons	L21	21		-	-	open	**L21 · Windows git writes CRLF and the live config is LF**	log/lessons/2026-09.md	181	189	1781cb096cd2e806
+lessons	L22	22		-	-	open	**L22 · Home and office are genuinely separate networks**	log/lessons/2026-09.md	190	197	a2ffb2550cb91a28
+lessons	L23	23		-	-	open	**L23 · `ps_health` returns ~90 KB and will poison a context window**	log/lessons/2026-09.md	198	208	37bc17946ddec70a
+lessons	L24	24		-	-	open	**L24 · The venv python must be used directly, never through a shell wrapper**	log/lessons/2026-09.md	209	220	93c580cf2ec7b400
+lessons	L25	25		-	-	retracted	**L25 · Never change the owner's model on inference**	log/lessons/2026-09.md	221	235	4155e78984260cf5
+lessons	L26	26		-	-	open	**L26 · "More expensive" is not "more capable", and neither is "pro"**	log/lessons/2026-09.md	236	245	72da5f78bb057af0
+lessons	L27	27		-	-	open	**L27 · Check the money before touching the money**	log/lessons/2026-09.md	246	259	4fac629ca6eda986
+lessons	L28	28		-	-	open	**L28 · A filter that matches a directory counts every script inside it. Count the thing you meant**	log/lessons/2026-09.md	260	276	9378574ecc0af704
+lessons	L29	29		-	-	open	**L29 · A failed command is evidence about your command, not about the world**	log/lessons/2026-09.md	277	291	de1b13020e9383d9
+lessons	L30	30		-	-	open	**L30 · A monitor that only runs when someone invokes it is not a monitor**	log/lessons/2026-09.md	292	310	db0c4f57786284c4
+lessons	L31	31		-	-	open	**L31 · A span counted in rows is not a span of time. Count the calendar**	log/lessons/2026-09.md	311	327	c214e36caba0bfa4
+lessons	L32	32		-	-	open	**L32 · A process survey matches its own command line — twice over. (Extends L28, which was not enough.)**	log/lessons/2026-09.md	328	344	6880544aec32404a
+lessons	L33	33		-	-	open	**L33 · In a shared working tree, stage explicit paths — never `git add -A`**	log/lessons/2026-09.md	345	359	371c534332557abc
+lessons	L34	34		-	-	open	**L34 · A job can succeed, log success, and write into a file nobody reads. Ask where the write landed**	log/lessons/2026-09.md	360	389	846784832cfde9e2
+lessons	L34b	34	b	-	-	open	**L34b · A log file that the child process owns cannot be cleared by the parent**	log/lessons/2026-09.md	390	403	3aac0eb53b36d6b7
+lessons	L35	35		-	-	open	**L35 · "Loaded" is not "working", and the entity state is not the failure surface**	log/lessons/2026-09.md	404	421	edd45c88d12b81b2
+lessons	L35b	35	b	-	-	open	**L35b · Readiness needs three conditions, and each one alone has produced a false positive here**	log/lessons/2026-09.md	422	436	0eb91a0454001ccb
+lessons	L36	36		-	-	open	**L36 · A refusal must name the thing that was refused**	log/lessons/2026-09.md	437	450	d4ca0a988b45276d
+lessons	L36b	36	b	-	-	open	**L36b · A measurement that returns HTTP 200 is not a measurement that did work**	log/lessons/2026-09.md	451	465	dd18e44d59b6f00c
+lessons	L37	37		-	-	open	**L37 · Read the neighbouring evidence before naming a root cause**	log/lessons/2026-09.md	466	478	8df10f7a4a8ae12c
+lessons	L37b	37	b	-	-	open	**L37b · Killing my own throwaway test process is not a question for the owner**	log/lessons/2026-09.md	479	491	d2b18f6d45f08ab8
+lessons	L38	38		-	-	open	**L38 · Read the log span's clock before trusting a correlation**	log/lessons/2026-09.md	492	506	fd360405dc8a4005
+lessons	L39	39		-	-	open	**L39 · To date an outage, use append-only evidence. A file that is overwritten has no history**	log/lessons/2026-09.md	507	524	32a66952aa3c0c3e
+lessons	L39b	39	b	-	-	done	**L39b · Read the extension seam before deciding whether a change is a patch or a plugin**	log/lessons/2026-09.md	525	542	cc4953115b251f2c
+lessons	L40	40		-	-	open	**L40 · An outage can be invisible in the data that describes work, because absence has no rows**	log/lessons/2026-09.md	543	554	9deafde74a42c77b
+lessons	L40b	40	b	-	-	open	**L40b · A generated file must be generated from the tested file, or the tests are theatre**	log/lessons/2026-09.md	555	568	fbd304ea0a170bab
+lessons	L41	41		-	-	open	**L41 · "The bundle is on disk" is not "the loader can use it"**	log/lessons/2026-09.md	569	580	0fc2e46f20b44f3d
+lessons	L42	42		-	-	open	**L42 · Quote the number, or the region is unpriced**	log/lessons/2026-09.md	581	591	7dd8a344705d55d9
+lessons	L43	43		-	-	open	**L43 · On a time-of-day rate card, a timestamp is part of the price**	log/lessons/2026-09.md	592	603	0c3d1ff17874d8a5
+lessons	L44	44		-	-	open	**L44 · Never put a secret in an exception message**	log/lessons/2026-09.md	604	618	c277e00df5fc5502
+lessons	L45	45		-	-	open	**L45 · Count the artefacts, not the complaints**	log/lessons/2026-09.md	619	635	adb215d00645d8a8
+lessons	L46	46		-	-	open	**L46 · A port mismatch reads exactly like a dead machine**	log/lessons/2026-09.md	636	652	47761235c16dcd65
+lessons	L47	47		-	-	open	**L47 · A script that has never run against its real target is not a script**	log/lessons/2026-09.md	653	670	585f6bf4482f1ba6
+lessons	L48	48		-	-	open	**L48 · `catch (Exception)` does not catch `Error`, and that is how a `compileOnly` dependency crashes an app**	log/lessons/2026-09.md	671	686	9ca4457864a8e87f
+lessons	L49	49		-	-	open	**L49 · A test that passes before and after the fix has no teeth — check it against the broken revision**	log/lessons/2026-09.md	687	701	8be39a974c76ce53
+lessons	L50	50		-	-	open	**L50 · Never let a long job stream its progress UI into the conversation**	log/lessons/2026-09.md	702	713	07eb201c65cb4132
+lessons	L51	51		-	-	open	**L51 · A successful tool call is not a correct answer. Verify the claim, not the plumbing**	log/lessons/2026-09.md	714	735	b67160828bead6ad
+lessons	L51b	51	b	-	-	open	**L51b · A tracker row saying "waiting on the owner" is a claim, not evidence — check the decisions log before asking**	log/lessons/2026-09.md	736	754	b1155c8f2bf9688d
+lessons	L52	52		-	-	open	**L52 · A fix verified through one entry point is not verified. Test the path the user actually takes**	log/lessons/2026-09.md	755	813	a02515a8173a1de5
+lessons	L52b	52	b	-	-	open	**L52b · A number in an internal document is a claim, not a measurement — and an unmeasurable band is a warning sign**	log/lessons/2026-09.md	814	828	8c5d7445d013767a
+lessons	L53	53		-	-	open	**L53 · The most convenient library is usually the one you cannot ship**	log/lessons/2026-09.md	829	844	3e147e1082f16c3e
+lessons	L53b	53	b	-	-	open	**L53b · Read the authoritative deploy doc before escalating an infrastructure blocker**	log/lessons/2026-09.md	845	867	3b688eb3e8e395da
+lessons	L54	54		-	-	open	**L54 · A model's self-reported confidence is not a failure signal — never gate a fail-closed system on it**	log/lessons/2026-09.md	868	882	1fb29aadba850492
+lessons	L55	55		-	-	open	**L55 · The cheapest technical option can be the one the vendor forbids — read the terms before the price**	log/lessons/2026-09.md	883	900	e03b4b7a745ea05b
+lessons	L56	56		-	-	open	**L56 · "Cheapest" ranking is mostly an artifact of input tokenisation, not of the vendor**	log/lessons/2026-09.md	901	916	ec9e5734b11a7802
+lessons	L57	57		-	-	open	**L57 · When two independent agents disagree about a number, fetch the source — do not pick the convenient one**	log/lessons/2026-09.md	917	933	4fd57ab81e8c2210
+lessons	L58	58		-	-	open	**L58 · Price the labour, not the tooling**	log/lessons/2026-09.md	934	950	2529e759aac1c74b
+lessons	L59	59		-	-	open	**L59 · He does not read documents. A deliverable is for the record, not a reading assignment**	log/lessons/2026-09.md	951	969	bcc0c3d73dacb59b
+lessons	L60	60		-	-	open	**L60 · When a delivered figure is disputed, find the longest matching prefix — the difference is usually formatting**	log/lessons/2026-09.md	970	985	be566bb9630e9a0a
+lessons	L61	61		-	-	open	**L61 · Do not flag. Solve, or ask exactly one question and move on**	log/lessons/2026-09.md	986	1012	8578bfcc3aed2e3e
+lessons	L100	100		-	-	open	**L100 · A nested key at the wrong indentation is a silent no-op, and the reload will still say success**	log/lessons/2026-09.md	1013	1036	16c3a1c3a70d0390
+lessons	L101	101		-	-	open	**L101 · Two generations of one thing is worse than none, and the cheap way to find it is to ask what already exists**	log/lessons/2026-09.md	1037	1053	b9d1e707df060e79
+lessons	L102	102		-	-	open	**L102 · When a fix is a one-line structural change, deploy it and observe the specific service — not the summary**	log/lessons/2026-09.md	1054	1066	30095e10ff237c4d
+lessons	L103	103		-	-	open	**L103 · In the DSH browser loader, a wrong dependency name breaks the whole UI, not the plugin**	log/lessons/2026-09.md	1067	1083	75433578fc6bee21
+lessons	L104	104		-	-	open	**L104 · `$pid` is reserved and read-only, and PowerShell matches it case-insensitively**	log/lessons/2026-09.md	1084	1099	7ff4273e48b7413b
+lessons	L105	105		-	-	open	**L105 · `Process.HasExited` on a detached child can block for the child's whole lifetime**	log/lessons/2026-09.md	1100	1114	ed1e1311ba84d793
+lessons	L110	110		-	-	open	**L110 · A short record is not an absent device — check `created_at` before calling anything missing**	log/lessons/2026-09.md	1115	1136	765db84136aff90d
+lessons	L111	111		-	-	open	**L111 · "Double-check that" means test my own error first**	log/lessons/2026-09.md	1137	1148	3f21d5076cd5381d
+lessons	L112	112		-	-	open	**L112 · A query that silently matches zero rows returns the same shape as a healthy answer**	log/lessons/2026-09.md	1149	1170	b6008532c181c3e8
+lessons	L113	113		-	-	open	**L113 · A check whose input is a manual, long-stale path is a permanent false alarm**	log/lessons/2026-09.md	1171	1186	456bec0641a5d2f7
+lessons	L114	114		-	-	open	**L114 · A column named `fetched_at` may record when a row was first SEEN, not when you last looked**	log/lessons/2026-09.md	1187	1206	ad9e4861e8ac85b5
+lessons	L115	115		-	-	open	**L115 · A 10-second lock timeout is 30x the transaction time and still 300 seconds of wall clock**	log/lessons/2026-09.md	1207	1224	dcfa537567478f14
+lessons	L116	116		-	-	open	**L116 · `timeout N cmd <<EOF` gives the heredoc to the command's STDIN, so the timeout waits on stdin**	log/lessons/2026-09.md	1225	1242	02ff389fc98e046f
+lessons	L117	117		-	-	done	**L117 · Checking one channel and escalating is not diligence — it is a guess with a citation**	log/lessons/2026-09.md	1243	1266	877e99c25ba317bd
+lessons	L118	118		-	-	open	**L118 · When a data source embeds its vendor's internals, the fix is a reader, not a warning**	log/lessons/2026-09.md	1267	1286	9d35a2463f1a0b34
+lessons	L119	119		-	-	open	**L119 · Write the regression test in the direction that protects the real world, then run it before believing it**	log/lessons/2026-09.md	1287	1306	f30a55d9a4cbb070
+lessons	L130	130		-	-	open	**L130 · 2026-09-11 20:30 UTC · A component that is configured and a component that works are different readings**	log/lessons/2026-09.md	1307	1319	2f1f6b89be20c87b
+lessons	L131	131		-	-	open	**L131 · 2026-09-11 20:35 UTC · A probe that cannot report its own failure is worse than no probe**	log/lessons/2026-09.md	1320	1331	28ccc62582942af2
+lessons	L132	132		-	-	open	**L132 · 2026-09-11 20:40 UTC · A platform attribute that lives only in the working tree is a local modification**	log/lessons/2026-09.md	1332	1343	78744df682c6b3e4
+lessons	L133	133		-	-	open	**L133 · 2026-09-11 20:45 UTC · When you know the exact key, do not sort by mtime**	log/lessons/2026-09.md	1344	1356	04fd1ddb36f0c81d
+lessons	L134	134		-	-	open	**L134 · 2026-09-11 20:35 UTC · A proxy pools connections; one inspection per connection is not one inspection per request**	log/lessons/2026-09.md	1357	1368	2217ccd973074326
+lessons	L135	135		-	-	open	**L135 · 2026-09-11 20:35 UTC · A test client that opens its own connection cannot see a pooling bug**	log/lessons/2026-09.md	1369	1378	a1d7c45b354efc90
+lessons	L136	136		-	-	open	**L136 · 2026-09-11 20:40 UTC · Never hand a struggling client a task; finish the task for it**	log/lessons/2026-09.md	1379	1390	9b1055f18ee05f60
+lessons	L137	137		-	-	open	**L137 · 2026-09-11 20:45 UTC · A limit keyed on the client's IP is worthless behind a proxy**	log/lessons/2026-09.md	1391	1401	296e00086e615e53
+lessons	L138	138		-	-	open	**L138 · 2026-09-11 20:37 UTC · "Who is visiting" cannot be recovered after the fact if the front door never recorded it**	log/lessons/2026-09.md	1402	1420	beec306dd2235027
+lessons	L139	139		-	-	open	**L139 · 2026-09-11 20:37 UTC · Read the reflog before editing a shared file; a commit minutes old means a live writer**	log/lessons/2026-09.md	1421	1437	765d59eae69e0851
+lessons	L140	140		-	-	open	**L140 · 2026-09-11 · A rule that sizes a box must not size its contents**	log/lessons/2026-09.md	1438	1447	e2c94f1cb5ae4dae
+lessons	L141	141		-	-	open	**L141 · 2026-09-11 · A measurement is not a look**	log/lessons/2026-09.md	1448	1456	7d647b2c4c8e12b9
+lessons	L142	142		-	-	open	**L142 · 2026-09-11 · Do not remove a part of a layout you do not own**	log/lessons/2026-09.md	1457	1465	f9c7eb87ee27eda9
+lessons	L143	143		-	-	open	**L143 · 2026-09-11 · Injecting bytes into a served response means re-framing it**	log/lessons/2026-09.md	1466	1476	c6db23a40bfd6e88
+lessons	L144	144		-	-	open	**L144 · 2026-09-11 · Check the exit code of the command you think you ran**	log/lessons/2026-09.md	1477	1488	3bc42fc5886a2d7b
+lessons	L145	145		-	-	open	**L145 · 2026-09-11 · A monitor that is not deployed is not a monitor**	log/lessons/2026-09.md	1489	1497	c592cf80bc5dc32c
+lessons	L146	146		-	-	open	**L146 · 2026-09-11 · A lowercase `grep` on `.env` certifies an absence that is not there**	log/lessons/2026-09.md	1498	1512	5a1216e818005339
+lessons	L146b	146	b	-	-	open	**L146b · 2026-09-14 · Read the layout mechanism before you style it**	log/lessons/2026-09.md	1513	1526	5e3c3323b6bb9d01
+lessons	L147	147		-	-	retracted	**L147 · 2026-09-11 · Verify the device the code actually actuates, not the entity whose name matches it**	log/lessons/2026-09.md	1527	1542	5d4011bfae3bfaee
+lessons	L147b	147	b	-	-	open	**L147b · 2026-09-14 · A transformed ancestor owns its fixed descendants**	log/lessons/2026-09.md	1543	1555	57846b1ee616914a
+lessons	L148	148		-	-	open	**L148 · 2026-09-11 · Never ask the owner for a fact that is already written down**	log/lessons/2026-09.md	1556	1571	f6f9b0569005b7d2
+lessons	L148b	148	b	-	-	open	**L148b · 2026-09-11 · Editing a Python file does not reach a running scheduler — and the proof it took is behavioural, not a restart banner**	log/lessons/2026-09.md	1572	1588	eb44be682763df87
+lessons	L148c	148	c	-	-	open	**L148c · 2026-09-14 · Before hiding a control, verify it is not the only one**	log/lessons/2026-09.md	1589	1597	df99157f48f9f247
+lessons	L149	149		-	-	open	**L149 · 2026-09-14 · An uncommitted write on a deployment host blocks every deploy, silently**	log/lessons/2026-09.md	1598	1611	25cace008760180d
+lessons	L150	150		-	-	open	**L150 · 2026-09-11 20:40 · One successful measurement of a flaky-by-design signal is not a generalisation**	log/lessons/2026-09.md	1612	1626	e88f992ae82d0508
+lessons	L150b	150	b	-	-	open	**L150b · 2026-09-14 · A 200 document does not prove an application works**	log/lessons/2026-09.md	1627	1640	0e87b36f46e46e65
+lessons	L151	151		-	-	open	**L151 · 2026-09-11 20:40 · `ipaddress.is_private` does not mean "local LAN address"**	log/lessons/2026-09.md	1641	1656	4aa0d22c8392873c
+lessons	L151b	151	b	-	-	open	**L151b · 2026-09-14 · A booting service is not a dead one — and a dead one is not a plugin's fault**	log/lessons/2026-09.md	1657	1671	6d3b2433541f0c86
+lessons	L152	152		-	-	open	**L152 · 2026-09-11 20:40 · A self-satisfying guard will write a confident wrong answer to disk**	log/lessons/2026-09.md	1672	1686	66d6fd67b25fc5ae
+lessons	L152b	152	b	-	-	open	**L152b · 2026-09-14 · The harness can serve documents and still refuse its API, and the refusal is not from any plugin**	log/lessons/2026-09.md	1687	1700	568def7a80bf2815
+lessons	L153	153		-	-	open	**L153 · 2026-09-11 20:45 · A one-packet probe of a sleeping peer manufactures false negatives**	log/lessons/2026-09.md	1701	1714	8ddf8ae78744a122
+lessons	L154	154		-	-	open	**L154 · 2026-09-14 05:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow**	log/lessons/2026-09.md	1715	1727	6d954dc6bac23cea
+lessons	L154b	154	b	-	-	open	**L154b · 2026-09-12 01:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow**	log/lessons/2026-09.md	1728	1740	2c7652b80723195e
+lessons	L155	155		-	-	open	**L155 · 2026-09-14 05:05 · A record with no content yet is pending, not stale**	log/lessons/2026-09.md	1741	1754	cd345c87adead777
+lessons	L155b	155	b	-	-	open	**L155b · 2026-09-12 01:05 · A record with no content yet is pending, not stale**	log/lessons/2026-09.md	1755	1768	afe053a660c1530e
+lessons	L156	156		-	-	open	**L156 · 2026-09-14 05:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command**	log/lessons/2026-09.md	1769	1781	99d6cf16eccb0b69
+lessons	L156b	156	b	-	-	open	**L156b · 2026-09-12 01:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command**	log/lessons/2026-09.md	1782	1796	bc30d1ca6f7ec616
+lessons	L157	157		-	-	open	**L157 · 2026-09-14 05:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union**	log/lessons/2026-09.md	1797	1815	40602165d3e30e87
+lessons	L157b	157	b	-	-	open	**L157b · 2026-09-12 01:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union**	log/lessons/2026-09.md	1816	1836	ec3afdf39e525528
+lessons	L158	158		-	-	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session**	log/lessons/2026-09.md	1837	1856	a5d87b5632d16fae
+lessons	L158b	158	b	-	-	open	**L158b · 2026-09-11 · A second copy of a thing is not a second reading of it**	log/lessons/2026-09.md	1857	1875	fcdce7525affe19d
+lessons	L159	159		-	-	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it**	log/lessons/2026-09.md	1876	1891	bd8849484b3e807d
+lessons	L159b	159	b	-	-	open	**L159b · 2026-09-11 · A 500 from your own API can be a write lock, and the client's retry budget must outlast the server's patience**	log/lessons/2026-09.md	1892	1909	68cc31b73a2a92b6
+lessons	L160	160		-	-	open	**L160 · 2026-09-11 · Fail-closed cursors make a silent outage recoverable — which is not the same as noticing it**	log/lessons/2026-09.md	1910	1923	ae458e095cca2215
+lessons	L161	161		-	-	open	**L161 · 2026-09-11 · A check you have never seen fire is not a check — and the failure mode belongs IN the test**	log/lessons/2026-09.md	1924	1938	b38cb03bbd7ae646
+lessons	L162	162		-	-	open	**L162 · 2026-09-11 · Working production code can exist outside version control, and only the *deployment host* knows it does.** The Shabbat/Tov split that fired at 18:46:53 tonight existed**	log/lessons/2026-09.md	1939	1953	684b9025916f894e
+lessons	L163	163		-	-	open	**L163 · 2026-09-11 · Measure the size of a lie before you fix it — and beware a metric that counts the *failure handler* as success**	log/lessons/2026-09.md	1954	1972	2031eb1c35a9c27e
+lessons	L164	164		-	-	open	**L164 · 2026-09-11 · A structural guard must check *control flow*, not *text presence***	log/lessons/2026-09.md	1973	1989	a4f7e688d4c50fd7
+lessons	L165	165		-	-	open	**L165 · 2026-09-11 · A blunt suppression fix outlives its incident, and the silence it creates is invisible because it looks like calm**	log/lessons/2026-09.md	1990	2005	2772dfa41f2ade87
+lessons	L166	166		-	-	open	**L166 · 2026-09-11 · Distinguish the gate from the transport before naming a cause**	log/lessons/2026-09.md	2006	2018	dedc20d8c075446b
+lessons	L167	167		-	-	open	**L167 · 2026-09-11/13 · An alarm must distinguish "the machine stopped" from "there was nothing to say"**	log/lessons/2026-09.md	2019	2033	89ba7fd9bc704eb5
+lessons	L168	168		-	-	open	**L168 · 2026-09-11/13 · Do not confuse "I have been working for a while" with "no time has passed"**	log/lessons/2026-09.md	2034	2102	e5500ba550c258ba
+lessons	L169	169		-	-	open	**L169 · 2026-09-14 · The cost of a search is the walk, not the match — so index once and never walk again**	log/lessons/2026-09.md	2103	2119	5ddf21e62fd790a6
+lessons	L169b	169	b	-	-	open	**L169b · 2026-09-14 04:05 UTC · `ipaddress.is_private` is not "is a local LAN address"**	log/lessons/2026-09.md	2120	2136	5b3ae90fe19e1ea3
+lessons	L170	170		-	-	open	**L170 · 2026-09-14 · Two tokenizers, because one index cannot be good at both prose and code**	log/lessons/2026-09.md	2137	2154	6194f6071bc830ec
+lessons	L170b	170	b	-	-	open	**L170b · 2026-09-14 04:05 UTC · A one-packet probe of a sleeping peer manufactures false negatives — test the cold call, not the steady state**	log/lessons/2026-09.md	2155	2169	7cad3728f568e3bc
+lessons	L171	171		-	-	open	**L171 · 2026-09-14 · A Techloq-class filter serves its block page with a SUCCESS status code, so a status check reads a block as a pass**	log/lessons/2026-09.md	2170	2191	3d3b9120a7e66905
+lessons	L171b	171	b	-	-	open	**L171b · 2026-09-14 · Index the same text twice and you pay twice — choose ONE expensive index**	log/lessons/2026-09.md	2192	2210	dec3d41320fbc946
+lessons	L172	172		-	-	open	**L172 · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	log/lessons/2026-09.md	2211	2229	605fbab26eba58ed
+lessons	L172b	172	b	-	-	done	**L172b · 2026-09-14 · Index the trees you own; a backup directory is a second copy of your own index**	log/lessons/2026-09.md	2230	2241	a2bc7a600fb9257f
+lessons	L172c	172	c	-	-	open	**L172c · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	log/lessons/2026-09.md	2242	2266	304031132d2ef908
+lessons	L173	173		-	-	open	**L173 · 2026-09-14 · `import.meta.main` silently no-ops the whole CLI on Node < 24.2 — and `node --check`, `import()`, and a clean exit code all say the code is fine**	log/lessons/2026-09.md	2267	2286	4fb1610b5f44f9b1
+lessons	L173b	173	b	-	-	open	**L173b · 2026-09-14 · Two parsers of the same format will disagree; find out which one is inflating before you trust the bigger number.** The first chat ingester reported **15,149 messages**	log/lessons/2026-09.md	2287	2303	5cf223b2188e905a
+lessons	L174	174		-	-	open	**L174 · 2026-09-14 · Windows Task Scheduler was inert on `DESKTOP-FGV6KMH`; NSSM was the working detachment**	log/lessons/2026-09.md	2304	2324	e611054b5a892133
+lessons	L174b	174	b	-	-	open	**L174b · 2026-09-14 · Never send an alert about a broken channel through that channel**	log/lessons/2026-09.md	2325	2340	2dd16696e2913c71
+lessons	L175	175		-	-	open	**L175 · 2026-09-14 · A search index that returns `0` because it is empty is worse than no index**	log/lessons/2026-09.md	2341	2358	9f6e968da72b3230
+lessons	L175b	175	b	-	-	open	**L175b · 2026-09-14 · An instruction the owner cannot follow is a bug, not non-compliance — and a headless host cannot serve an interactive login**	log/lessons/2026-09.md	2359	2374	1d286181c1e564d9
+lessons	L176	176		-	-	open	**L176 · 2026-09-14 · Read the extension, not the folder name**	log/lessons/2026-09.md	2375	2388	d95e311096b93581
+lessons	L176b	176	b	-	-	open	**L176b · 2026-09-14 · `held` is a terminal state unless something explicitly drains it — so count `sent`, not `queued`**	log/lessons/2026-09.md	2389	2403	de1efcf34b139542
+lessons	L177	177		-	-	open	**L177 · 2026-09-14 · A doc citation is not a doc**	log/lessons/2026-09.md	2404	2420	c1b69db82b16f04d
+lessons	L177b	177	b	-	-	retracted	**L177b · 2026-09-14 · A truncated result and a true absence look identical to a reader**	log/lessons/2026-09.md	2421	2433	d7c0109f39590970
+lessons	L178	178		-	-	open	**L178 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	log/lessons/2026-09.md	2434	2448	07c39e1726c8faa3
+pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
+pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
+pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
+pain	P4	4		-	-	open	## P4 — The improvement loop does not close	log/pain/2026-09.md	67	83	3a8cc4301a68e850
+pain	P5	5		-	-	open	## P5 — Work assigned to agents that do not exist	log/pain/2026-09.md	84	99	a88453f2bc85c82c
+pain	P6	6		-	-	open	## P6 — Held messages and unanswered questions rot silently	log/pain/2026-09.md	100	116	75f3a23397189967
+pain	P7	7		-	-	open	## P7 — Context poisoning	log/pain/2026-09.md	117	133	b80fcef0da5526e4
+pain	P8	8		-	-	open	## P8 — Harness configuration drifts between machines	log/pain/2026-09.md	134	146	5e2b649c83fc2f15
+pain	P9	9		-	-	open	## P9 — The CEO stops when it owns the decision	log/pain/2026-09.md	147	158	4ca213bbe5f796d7
+pain	P10	10		-	-	open	## P10 — ~~Repeated mount-validation spawns duplicate MCP servers~~ **RETRACTED 2026-09-11 — see the correction at the end of this entry. There is no duplication	log/pain/2026-09.md	159	221	c82dc9cc8acc1d49
+pain	P11	11		-	-	open	## P11 — The preset default is chosen at session start, so changes need a restart	log/pain/2026-09.md	222	239	95bef3cb20d4ad11
+pain	P12	12		-	-	open	## P12 — Freshness is asserted but not measured, so every reading says `age=?`	log/pain/2026-09.md	240	263	51884bb32862cd30
+pain	P13	13		-	-	open	## P13 — Concurrent sessions share one repo, and `git add -A` sweeps each other's work	log/pain/2026-09.md	264	289	715609319966209b
+pain	P13b	13	b	-	-	open	## P13b — I leaked a live API key into the session transcript	log/pain/2026-09.md	290	315	5642422287aa257e
+pain	P14	14		-	-	open	## P14 — The real memory cost of a session is the shell, not the tools	log/pain/2026-09.md	316	336	65244cfc5058421c
+pain	P14b	14	b	-	-	open	## P14b — Nothing watches the windows, so a dead engine is silent until the owner notices	log/pain/2026-09.md	337	358	848d0c4b47b4eed1
+pain	P15	15		-	-	open	## P15 — Window layout is not remembered between launches	log/pain/2026-09.md	359	378	4eea7d2bd83f3c11
+pain	P15b	15	b	-	-	open	## P15b — A cron job that succeeded every day and persisted nothing anyone could read	log/pain/2026-09.md	379	408	30626478cfe600bf
+pain	P16	16		-	-	open	## P16 — A backgrounded window can grow host memory without bound	log/pain/2026-09.md	409	430	0a77cb104e2b2e25
+pain	P16b	16	b	-	-	open	## P16b — 8,182 files written for two days, every one of them empty	log/pain/2026-09.md	431	453	f1be6cb22157363e
+pain	P17	17		-	-	open	## P17 — The Home Assistant security system has been blind for a day and nothing told anyone	log/pain/2026-09.md	454	486	b0e581cf2bc9c5ba
+pain	P17b	17	b	-	-	open	## P17b — Agent fan-out is capped in depth and uncapped in breadth	log/pain/2026-09.md	487	506	aeee2cbae5312756
+pain	P17c	17	c	-	-	open	## P17c — A shared append-only ledger allocates IDs by read-then-increment, so concurrent writers collide	log/pain/2026-09.md	507	530	2c7614002e63cd0e
+pain	P18	18		-	-	open	## P18 — Home Assistant is on the office LAN and reachable from exactly one machine	log/pain/2026-09.md	531	552	8aaf3433929d5624
+pain	P18b	18	b	-	-	open	## P18b — A broken plugin in the composer takes the entire interface down	log/pain/2026-09.md	553	578	ee11e2dbe132a518
+pain	P19	19		-	-	open	## P19 — The audit that this whole role is built on is **untracked** in git	log/pain/2026-09.md	579	598	1b45c7ab5bb28d40
+pain	P20	20		-	-	open	## P20 — The monitor lives on the machine it monitors	log/pain/2026-09.md	599	620	2fe842f6a302c0c3
+pain	P21	21		-	-	open	## P21 — The last mile of verification is skipped when its dependency is not installed	log/pain/2026-09.md	621	648	173c98fd07a8e445
+pain	P22	22		-	-	open	## P22 — The secretary bridge reads a **stale replica**, and answers confidently about a company it cannot see	log/pain/2026-09.md	649	688	fc0227a82eb32f7d
+pain	P23	23		-	-	open	## P23 — A remote stdio MCP bridge spawns a process on the authority every time the network blinks	log/pain/2026-09.md	689	733	d348396c954a9811
+pain	P29	29		-	-	open	## P29 — Every customer channel is harvested by hand, so it all arrives a day late	log/pain/2026-09.md	734	765	243113e4fd3fd1e9
+pain	P40	40		-	-	open	## P40 — A broken phone link is detected but routed to nobody	log/pain/2026-09.md	766	782	cb3d0a4dc39b366e
+pain	P41	41		-	-	open	## P41 — Only the phone path has behavioural proof; every other endpoint has layer checks	log/pain/2026-09.md	783	796	6ed5864e6d11b4ba
+pain	P42	42		-	-	open	## P42 — I verified the phone with my client, not his	log/pain/2026-09.md	797	814	a1ec919538d64c8c
+pain	P43	43		-	-	open	## P43 — Nothing could name where the owner is, and the entity that should have looked broken looked normal	log/pain/2026-09.md	815	838	f67be323540e478d
+pain	P43b	43	b	-	-	open	## P43b — The phone path cannot say which device connected	log/pain/2026-09.md	839	858	3014e53e4cee196f
+pain	P44	44		-	-	open	## P44 — The live checkout on the authority is diverged, so nothing can be deployed safely	log/pain/2026-09.md	859	880	6a571931bfc76523
+pain	P44b	44	b	-	-	open	## P44b — Two sessions can rewrite the same file inside the same minute, and neither can see the other	log/pain/2026-09.md	881	896	840c80af46fba534
+pain	P45	45		-	-	open	## P45 — Every threshold in the kosher filter's visual path is a guess, because no labelled frames exist	log/pain/2026-09.md	897	919	c7efc7ecb1b841ba
+pain	P45b	45	b	-	-	open	## P45b — The harness ships a desktop layout and the phone gets it shrunk	log/pain/2026-09.md	920	938	2900082ed976ec34
+pain	P45c	45	c	-	-	open	## P45c — Every threshold in the kosher filter's visual path is a guess, because no labelled frames exist	log/pain/2026-09.md	939	961	68cd2e73c9e9c716
+pain	P46	46		-	-	open	## P46 — The phone still has no default workspace, and the rail costs 14%	log/pain/2026-09.md	962	977	30626c43bd360e91
+pain	P46b	46	b	-	-	open	## P46b — (update, 2026-09-14)	log/pain/2026-09.md	978	987	d12516e50dd349f4
+pain	P46c	46	c	-	-	open	## P46c — The provider's verdict is overwritten by the human review, so the audit he asked for is uncomputable	log/pain/2026-09.md	988	1010	5b80d7ef3de2644b
+pain	P47	47		-	-	open	## P47 — Code the business depends on lives untracked on the box that runs it	log/pain/2026-09.md	1011	1033	67733080e1e444a5
+pain	P47b	47	b	-	-	open	## P47b — A host that runs agents and deploys from one checkout will block its own deploys	log/pain/2026-09.md	1034	1050	0d5c47b58cf8f149
+pain	P47c	47	c	-	-	open	## P47c — CORRECTION (2026-09-14, same day, citing the entry above)	log/pain/2026-09.md	1051	1079	f06329486df42176
+pain	P48	48		-	-	open	## P48 — Something holds the write lock on the company database for longer than 30 seconds	log/pain/2026-09.md	1080	1109	9c628e8f3d38fa98
+pain	P48b	48	b	-	-	open	## P48b — The authority serves documents but refuses every API and websocket call (OPEN, 2026-09-14)	log/pain/2026-09.md	1110	1126	23c42604de724e3b
+pain	P49	49		-	-	open	## P49 — The machine that serves the API runs a checkout GitHub has moved 71 commits past	log/pain/2026-09.md	1127	1153	d2deddc4f140f6b3
+pain	P50	50		-	-	open	## P50 — `work_sessions.status` holds 40 non-status values, and nobody noticed	log/pain/2026-09.md	1154	1175	c5eab80c49abb856
+pain	P51	51		-	-	open	## P51 — The owner has been read nothing since 2026-07-19, because a spam fix blocked *all* of it	log/pain/2026-09.md	1176	1206	6f680cb74492aeac
+pain	P52	52		-	-	open	## P52 — The sentinel and my own alarm disagree about the same quiet machine	log/pain/2026-09.md	1207	1229	f289e66e62e99abf
+pain	P52b	52	b	-	-	open	## P52b — An outbound promise with a date has no keeper, so a paid order on a hard deadline went unwatched for 16 days	log/pain/2026-09.md	1230	1264	185a56e5846fabcd
+pain	P53	53		-	-	open	## P53 — The corpora that contain the answers were never ingested, and the index only knew 1% of them	log/pain/2026-09.md	1265	1291	e388abc2532761b9
+pain	P54	54		-	-	open	## P54 — The first search index was 10.87 GB for 112 GB of files, from two self-inflicted causes	log/pain/2026-09.md	1292	1314	42c5603f44748314
+pain	P55	55		-	-	open	## P55 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	log/pain/2026-09.md	1315	1358	0f9749c1664d890a
+decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
+decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
+decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
+decisions	D4	4		2026-09-11	-	open	**D4 · 2026-09-11 · Keep GitHub and chat sync; make the secretary the only authoritative chat store.**	log/decisions/2026-09.md	31	37	900a23331fe4b664
+decisions	D5	5		2026-09-11	-	open	**D5 · 2026-09-11 · One authoritative database.**	log/decisions/2026-09.md	38	45	774ee4798499c2da
+decisions	D6	6		2026-09-11	-	open	**D6 · 2026-09-11 · Authority on `secratary`, compute on the desktop.**	log/decisions/2026-09.md	46	54	fa612019b6c60ed2
+decisions	D7	7		2026-09-11	-	open	**D7 · 2026-09-11 · `harness-config` is the single source of truth for the harness.**	log/decisions/2026-09.md	55	62	72ed8875aea25f11
+decisions	D8	8		2026-09-11	-	open	**D8 · 2026-09-11 · Do not stop for permission already granted.**	log/decisions/2026-09.md	63	70	7deb54b07b48b591
+decisions	D9	9		2026-09-11	-	open	**D9 · 2026-09-11 · Build the conversational interface first.**	log/decisions/2026-09.md	71	79	c6a06d0e5416ba56
+decisions	D10	10		2026-09-11	-	open	**D10 · 2026-09-11 · The journal is the memory.**	log/decisions/2026-09.md	80	88	f1e1c4a5e40e7d9c
+decisions	D11	11		2026-09-11	-	open	**D11 · 2026-09-11 · The kernel is version-controlled the same way the harness is.**	log/decisions/2026-09.md	89	101	a4e15c209e4d550c
+decisions	D12	12		2026-09-11	-	retracted	**D12 · 2026-09-11 · The sentinel runs on cron as the interim Phase 6, and deliberately sends nothing.**	log/decisions/2026-09.md	102	114	9300f7df583f5fc2
+decisions	D13	13		2026-09-11	-	open	**D13 · 2026-09-11 · Home Assistant's live truth is collected over HA's own APIs, read-only, not by SSH.**	log/decisions/2026-09.md	115	131	41ceac9d703c33a7
+decisions	D14	14		2026-09-11	-	open	**D14 · 2026-09-11 · Severity on the HA truth surface is assigned by deterministic code, not by a model.**	log/decisions/2026-09.md	132	142	9de7b1c36785ac9a
+decisions	D15	15		2026-09-11	-	open	**D15 · 2026-09-11 · Security-relevant integration degradation is judged narrowly on purpose.**	log/decisions/2026-09.md	143	155	5f48ab9c64b27190
+decisions	D16	16		2026-09-11	-	open	**D16 · 2026-09-11 · The thirteen-day silence is investigated, explained and labelled — not silenced.**	log/decisions/2026-09.md	156	174	1f64410291e0b416
+decisions	D17	17		2026-09-11	-	open	**D17 · 2026-09-11 · A write crossing a storage boundary is verified by reading the row back from the consumer's store.**	log/decisions/2026-09.md	175	191	d88d308b29084a2f
+decisions	D17b	17	b	2026-09-11	-	open	**D17b · 2026-09-11 · One DSH engine, many windows — not one process per window.**	log/decisions/2026-09.md	192	204	fc1cf518b4e5f569
+decisions	D17c	17	c	2026-09-11	-	open	**D17c · 2026-09-11 · A write crossing a storage boundary is verified by reading the row back from the consumer's store.**	log/decisions/2026-09.md	205	221	3c7d2badb5bef3ca
+decisions	D18	18		2026-09-11	-	open	**D18 · 2026-09-11 · The Kosher Waze gate is four owner decisions, not twenty-one questions.**	log/decisions/2026-09.md	222	237	0c0dc7a24f348ac5
+decisions	D18b	18	b	2026-09-11	-	open	**D18b · 2026-09-11 · Window independence comes from the browser profile, not from a separate port.**	log/decisions/2026-09.md	238	249	54be7e4649324172
+decisions	D18c	18	c	2026-09-11	-	open	**D18c · 2026-09-11 · The Kosher Waze gate is four owner decisions, not twenty-one questions.**	log/decisions/2026-09.md	250	265	30cf1c84a565eb28
+decisions	D19	19		2026-09-11	-	open	**D19 · 2026-09-11 · Cost is a plugin, the rate card lives in git, and unpriced is an allowed answer.**	log/decisions/2026-09.md	266	296	ffe74ee040e7b820
+decisions	D19b	19	b	2026-09-11	-	open	**D19b · 2026-09-11 · No browser extension; act through the DSH launch API.**	log/decisions/2026-09.md	297	304	9c5fc01389ca78ab
+decisions	D19c	19	c	2026-09-11	-	open	**D19c · 2026-09-11 · The LPT website is the point of entry for managing fleets — not the MDM console.**	log/decisions/2026-09.md	305	314	9b33d4321d6ca735
+decisions	D20	20		2026-09-11	-	open	**D20 · 2026-09-11 · "Verified" means observed on the real target, and a free blocker gets cleared instead of recorded.**	log/decisions/2026-09.md	315	334	b51654a5d0aace8d
+decisions	D21	21		2026-09-11	-	open	**D21 · 2026-09-11 · The modesty model does not need a training programme, and the Levels need a wording fix.**	log/decisions/2026-09.md	335	361	7724babf41712bb4
+decisions	D22	22		2026-09-11	-	open	**D22 · 2026-09-11 · The modesty ladder is now: Level 3 hides women, everything is a configurable knob, and the cascade covers before it decides.**	log/decisions/2026-09.md	362	373	32b6f17351c8106c
+decisions	D30	30		2026-09-11	-	open	**D30 · 2026-09-11 · The phone signs itself in; the owner never handles a token URL again.**	log/decisions/2026-09.md	374	385	efd976f761f8061f
+decisions	D31	31		2026-09-11	-	open	**D31 · 2026-09-11 · "Does the phone work" has exactly one source of truth: `~/.dsh-phone/probe.json`.**	log/decisions/2026-09.md	386	396	1ba1f805aa0eb2be
+decisions	D32	32		2026-09-11	-	open	**D32 · 2026-09-11 · A broken public link is medium; a broken tailnet link is high.**	log/decisions/2026-09.md	397	405	1ad66d6956422e87
+decisions	D33	33		2026-09-11	-	open	**D33 · 2026-09-11 · `ai.abletelsolutions.com/` is left alone.**	log/decisions/2026-09.md	406	415	516cab9d46179bc0
+decisions	D34	34		2026-09-11	-	open	**D34 · 2026-09-11 · The gate completes the login in flight and returns the document. (Supersedes D30.).**	log/decisions/2026-09.md	416	426	a0314eb7dfc73282
+decisions	D35	35		2026-09-11	-	open	**D35 · 2026-09-11 · The public redirector hands out a bare URL.**	log/decisions/2026-09.md	427	434	4562003aba068d15
+decisions	D36	36		2026-09-11	-	open	**D36 · 2026-09-11 · One request per connection: `Connection: close` on everything but upgrades.**	log/decisions/2026-09.md	435	443	81f7cd1f183ca62f
+decisions	D37	37		2026-09-11	-	open	**D37 · 2026-09-11 · HA's `zone.home` is the shop; Home Assistant is never allowed to name "home".**	log/decisions/2026-09.md	444	457	dba5d406cd75331a
+decisions	D37b	37	b	2026-09-11	-	open	**D37b · 2026-09-11 · Mobile fixes live in a stylesheet the gate injects, not in the harness package.**	log/decisions/2026-09.md	458	469	4300cc843240de86
+decisions	D38	38		2026-09-11	-	open	**D38 · 2026-09-11 · The home zone is learned from a GPS fix, never typed in.**	log/decisions/2026-09.md	470	481	afcf9299f9a05b56
+decisions	D38b	38	b	2026-09-11	-	open	**D38b · 2026-09-11 · Phone behaviour is split by what it needs: CSS where any browser must get it, a client plugin where state is involved.**	log/decisions/2026-09.md	482	494	62e2d6dbb465e0c0
+decisions	D39	39		2026-09-11	-	open	**D39 · 2026-09-11 · Untracked production code is archived onto a side branch built with plumbing, not by touching the working tree.**	log/decisions/2026-09.md	495	508	bbb899090796f8bb
+decisions	D40	40		2026-09-11	-	open	**D40 · 2026-09-11 · The erev-day block merge is not changed unilaterally an hour before Yom Tov; it is asked.**	log/decisions/2026-09.md	509	523	b9755cc974ff7367
+decisions	D41	41		2026-09-11	-	open	**D41 · 2026-09-11 · Two holy periods separated by an ordinary weekday are two power-down runs (owner: "For sure, split it").**	log/decisions/2026-09.md	524	538	3e2373dee07ea4a2
+decisions	D41b	41	b	2026-09-11	-	open	**D41b · 2026-09-11 · The session-archive fix is patience in the client, not surgery on the production ingest path.**	log/decisions/2026-09.md	539	554	e4db691d47eb81d7
+decisions	D42	42		2026-09-11	-	open	**D42 · 2026-09-11 · Before reporting staleness, name the store and its writer.**	log/decisions/2026-09.md	555	565	82a95f32018632e3
+decisions	D43	43		2026-09-11	-	open	**D43 · 2026-09-11 · The archive-silence alarm lives in the owner digest, not in a new alerting path.**	log/decisions/2026-09.md	566	578	4d4c686aaeda13a5
+decisions	D44	44		2026-09-11	-	open	**D44 · 2026-09-11 · Do not fast-forward the authority's deployment checkout tonight; rescue and reconcile deliberately.**	log/decisions/2026-09.md	579	591	69b882f47c373e23
+decisions	D45	45		2026-09-11	-	open	**D45 · 2026-09-11 · The owner channel gets a queue, a rate limit and a digest — not a kill switch.**	log/decisions/2026-09.md	592	606	82f47460c3b9229a
+decisions	D39b	39	b	2026-09-12	-	open	**D39b · 2026-09-12 · A verdict is cached against the thing it is about, and an unverified allow is a defect, not a bug.**	log/decisions/2026-09.md	607	619	cd7aab4be77adb4d
+decisions	D40b	40	b	2026-09-12	-	open	**D40b · 2026-09-12 · The cover is recoverable; the placeholder is not — so bytes are never replaced on uncertainty.**	log/decisions/2026-09.md	620	631	ae9453127c32a0e0
+decisions	D41c	41	c	2026-09-12	-	open	**D41c · 2026-09-12 · The kosher filter's calibration question goes to the owner as one money question, with the free path first.**	log/decisions/2026-09.md	632	643	3dd4ec3578c224e5
+decisions	D39c	39	c	2026-09-14	-	open	**D39c · 2026-09-14 · A verdict is cached against the thing it is about, and an unverified allow is a defect, not a bug.**	log/decisions/2026-09.md	644	656	2550b6e0e4eef9d7
+decisions	D39d	39	d	2026-09-14	-	open	**D39d · 2026-09-14 · On a phone the sidebar is an off-canvas drawer with its toggle pinned to the screen, not a narrower rail.**	log/decisions/2026-09.md	657	668	634d4535a83aa054
+decisions	D40c	40	c	2026-09-14	-	open	**D40c · 2026-09-14 · The cover is recoverable; the placeholder is not — so bytes are never replaced on uncertainty.**	log/decisions/2026-09.md	669	680	291502c153de6f53
+decisions	D40d	40	d	2026-09-14	-	open	**D40d · 2026-09-14 · The authority's unpublished journal work was preserved by committing it, not by stashing or discarding.**	log/decisions/2026-09.md	681	690	87e7b91e114ecc9d
+decisions	D41d	41	d	2026-09-14	-	open	**D41d · 2026-09-14 · The kosher filter's calibration question goes to the owner as one money question, with the free path first.**	log/decisions/2026-09.md	691	702	17a890fd5297be69
+decisions	D41e	41	e	2026-09-14	-	open	**D41e · 2026-09-14 · Findings get a surface the owner already opens, before any outbound channel.**	log/decisions/2026-09.md	703	714	7f40a902c60928be
+decisions	D46	46		2026-09-14	-	open	**D46 · 2026-09-14 · Search is indexed, not recursive: one SQLite index per machine, two tokenizers, no daemon.**	log/decisions/2026-09.md	715	729	7adf4d54870894d1
+decisions	D46b	46	b	2026-09-14	-	open	**D46b · 2026-09-14 · Presence readings live in `owner_state[key='presence']`, not a new table.**	log/decisions/2026-09.md	730	746	4d4f2b4653d14040
+decisions	D47	47		2026-09-14	-	open	**D47 · 2026-09-14 · Staleness is the alarm, and a blind-but-fresh sample is a separate fault.**	log/decisions/2026-09.md	747	757	427e759902d3e33d
+decisions	D48	48		2026-09-14	-	open	**D48 · 2026-09-14 · Yocheved's box gets its own machine settings file, and NEVER inherits `base.yaml`'s sandbox.**	log/decisions/2026-09.md	758	781	77c1d371316cc4b6
+decisions	D49	49		2026-09-14	-	open	**D49 · 2026-09-14 · Her harness routes its model through DeepInfra, not a Cloudflare proxy to `api.deepseek.com`.**	log/decisions/2026-09.md	782	804	91b0580aa43bd978
+decisions	D50	50		2026-09-14	-	open	**D50 · 2026-09-14 · The tiered escalation is the architecture, and privacy is engineered and audited rather than offered as a choice.**	log/decisions/2026-09.md	805	817	8131dbac64edad9d
+decisions	D51	51		2026-09-14	-	open	**D51 · 2026-09-14 · CORRECTION to D50: the tiering is far more built than I said — it is the browsing path that is one tier deep.**	log/decisions/2026-09.md	818	826	4d7a7d047a3e7813
+decisions	D52	52		2026-09-14	-	open	**D52 · 2026-09-14 · The third-party tier receives a text adjudication over our own features, not a picture — and blur is banned everywhere.**	log/decisions/2026-09.md	827	837	a83b21c8862a369b
+decisions	D53	53		2026-09-14	-	open	**D53 · 2026-09-14 · For the filter's third tier, licence and CPU-path decide the shortlist — and no document can decide the ranking.**	log/decisions/2026-09.md	838	850	695477275cde7bb2
+decisions	D54	54		2026-09-14	-	open	**D54 · 2026-09-14 · I am the lawyer on this one — the compliance analysis is mine, not an outside firm's.**	log/decisions/2026-09.md	851	859	1ca96557d6208a11
+wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
+wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
+wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
+wins	W4	4		2026-09-11	-	open	**W4 · 2026-09-11 · The harness now converges instead of drifting.**	log/wins/2026-09.md	36	45	d56d59520a4b3f2c
+wins	W5	5		2026-09-11	-	open	**W5 · 2026-09-11 · The CRLF trap is solved for every machine, including future ones.**	log/wins/2026-09.md	46	54	96495473c0d94b3a
+wins	W5b	5	b	2026-09-11	-	open	**W5b · 2026-09-11 · Twelve DSH windows became an operational reality, and the numbers say which design.**	log/wins/2026-09.md	55	69	7cd70383df65e2a0
+wins	W6	6		2026-09-11	-	open	**W6 · 2026-09-11 · The `zabz` preset composes.**	log/wins/2026-09.md	70	78	a2cb457f6cfbbf3c
+wins	W14	14		2026-09-11	-	open	**W14 · 2026-09-11 · The Kosher filter's on-device ML verification finally ran — and it found a crash every JVM test had missed.**	log/wins/2026-09.md	79	104	b99a43550f03ce3b
+wins	W20	20		2026-09-11	-	open	**W20 · 2026-09-11 · The phone path is proven end to end, by the steps a human actually walks.**	log/wins/2026-09.md	105	118	36fd9955d8c20215
+wins	W21	21		2026-09-11	-	open	**W21 · 2026-09-11 · One negative test found two defects that every green check had hidden.**	log/wins/2026-09.md	119	129	59f2944f7d3a3f15
+wins	W22	22		2026-09-11	-	open	**W22 · 2026-09-11 · The phone signs in in one request, from every state, and the proof is the owner's own paths.**	log/wins/2026-09.md	130	143	62da6f9d8beda6d1
+wins	W23	23		2026-09-11	-	open	**W23 · 2026-09-11 · The harness can name "home" for the first time — from the home LAN, with no owner input and no new hardware.**	log/wins/2026-09.md	144	155	8e85722f0285a590
+wins	W23b	23	b	2026-09-11	-	open	**W23b · 2026-09-11 · The phone UI is now usable on a phone, and every claim is measured.**	log/wins/2026-09.md	156	168	6a772561c73f832b
+wins	W24	24		2026-09-11	-	open	**W24 · 2026-09-11 · Skipping an unreachable probe by topology cut a reading from 19.3 s to 2.2 s.**	log/wins/2026-09.md	169	179	c59e531c8feaf9a7
+wins	W24b	24	b	2026-09-11	-	open	**W24b · 2026-09-11 · The phone's drawer now closes itself when a conversation is picked, and desktop is untouched.**	log/wins/2026-09.md	180	192	030a6a4a7bac31bd
+wins	W25	25		2026-09-11	-	open	**W25 · 2026-09-11 · Proved a physical automation would fire tonight without waiting for it to fire.**	log/wins/2026-09.md	193	209	9a15d002e4f24bc0
+wins	W26	26		2026-09-11	-	open	**W26 · 2026-09-11 · Three independent paths to the yoga machine were verified by using them, not by assuming them.**	log/wins/2026-09.md	210	224	43d3a2fdf618fd27
+wins	W27	27		2026-09-11	-	open	**W27 · 2026-09-11 · Live-only code was rescued without disturbing it, and the alarm that was named-and-not-built is now built, wired and proven.**	log/wins/2026-09.md	225	238	89569bbf64a218da
+wins	W28	28		2026-09-11	-	open	**W28 · 2026-09-11 · The false-success defect was measured, fixed, guarded and surfaced — and the surface the owner already reads now shows the truth.**	log/wins/2026-09.md	239	253	bded68d03a39aa89
+wins	W29	29		2026-09-11	-	done	**W29 · 2026-09-11 · The 54-day owner silence was found, explained, and routed instead of escalated.**	log/wins/2026-09.md	254	268	f6eda6000b67e5b1
+wins	W7	7		2026-09-11 (later)	-	open	**W7 · 2026-09-11 (later) · The secretary bridge registers and works in a live session — the last unproven item, now proven.**	log/wins/2026-09.md	269	280	30e53b2a288ae712
+wins	W8	8		2026-09-11 (later)	-	open	**W8 · 2026-09-11 (later) · The kernel now watches without being asked.**	log/wins/2026-09.md	281	295	efba7293523fe1bf
+wins	W9	9		2026-09-11 (later)	-	open	**W9 · 2026-09-11 (later) · A false entry in my own record was caught by re-measuring, not by review.**	log/wins/2026-09.md	296	309	d93a534975552d4f
+wins	W10	10		2026-09-11 (later)	-	open	**W10 · 2026-09-11 (later) · The kernel learned to see absence — and immediately found a 12-day outage.**	log/wins/2026-09.md	310	326	2c1c61f5dff6cd22
+wins	W11	11		2026-09-11 (later)	-	open	**W11 · 2026-09-11 (later) · Home Assistant got a live truth surface, and it found the failures a manual look missed.**	log/wins/2026-09.md	327	351	65a24174593c239f
+wins	W12	12		2026-09-11 (later)	-	open	**W12 · 2026-09-11 (later) · The absence check paid for itself the same day: it found a 13-day outage nobody knew about.**	log/wins/2026-09.md	352	370	f6a72cb89cd2a641
+wins	W13	13		2026-09-11 (later)	-	open	**W13 · 2026-09-11 (later) · The harness shows money now, and the numbers are cross-checked against the harness itself.**	log/wins/2026-09.md	371	397	827d46c74d85c642
+wins	W15	15		2026-09-11 (later)	-	open	**W15 · 2026-09-11 (later) · The Home Assistant estate now reads itself every 30 minutes — and the first scheduled tick was observed, not assumed.**	log/wins/2026-09.md	398	418	a8523b96b74afaf0
+wins	W16	16		2026-09-11 (later)	-	open	**W16 · 2026-09-11 (later) · A one-space indentation bug had silently disabled the intrusion siren, and it is fixed and verified.**	log/wins/2026-09.md	419	444	7be5b94187f91e13
+wins	W30	30		2026-09-11/13	-	open	**W30 · 2026-09-11/13 · The completion fix went live, and the first honest reading was worse than the lie.**	log/wins/2026-09.md	445	458	81757c9fb41b9f21
+wins	W25b	25	b	2026-09-12	-	open	**W25b · 2026-09-12 · A concurrency test found the optimisation was dead on arrival, before it shipped.**	log/wins/2026-09.md	459	475	37b31f7927f11842
+wins	W25c	25	c	2026-09-14	-	open	**W25c · 2026-09-14 · A concurrency test found the optimisation was dead on arrival, before it shipped.**	log/wins/2026-09.md	476	492	af473684375df4f4
+wins	W25d	25	d	2026-09-14	-	open	**W25d · 2026-09-14 · The phone sidebar is off-canvas: the conversation gets the whole screen, and the page stopped scrolling.**	log/wins/2026-09.md	493	506	23076c29bdb8f4f6
+wins	W25e	25	e	2026-09-14	-	open	**W25e · 2026-09-14 · Correction to W25's sibling claim: the sensing was never the gap.**	log/wins/2026-09.md	507	517	1e27432ce7a5d23e
+wins	W26b	26	b	2026-09-14	-	open	**W26b · 2026-09-14 · One missing resize: what left the phone was full-resolution, and the same fix cut cost, exposure and latency at once.**	log/wins/2026-09.md	518	537	14a78fec693be81c
+wins	W26c	26	c	2026-09-14	-	open	**W26c · 2026-09-14 · `/attention` exists, mounts, registers, and the probe found a real outage the moment it learned to look.**	log/wins/2026-09.md	538	549	0297b83a855a734c
+wins	W31	31		2026-09-14	-	open	**W31 · 2026-09-14 · Six hundred times faster on a measured query, and the formats were reverse-engineered rather than guessed.** `rg -l payroll` over the Code tree took **45.34 s.**	log/wins/2026-09.md	550	561	4bee331d331ce872
+wins	W31b	31	b	2026-09-14	-	open	**W31b · 2026-09-14 · Owner presence is now a real, scheduled, fleet-visible reading — with zero deployment into a blocked checkout.**	log/wins/2026-09.md	562	579	ae236e68b8a63c37
+wins	W32	32		2026-09-14	-	open	**W32 · 2026-09-14 · The harness is already installed, so the best vehicle for a filtered network is the baseURL field — not new proxy infrastructure.**	log/wins/2026-09.md	580	600	ed081d8771decc41
+wins	W32b	32	b	2026-09-14	-	open	**W32b · 2026-09-14 · Found my own two design errors by measuring the artefact, and cut the index ~6×.**	log/wins/2026-09.md	601	615	d7e6da7a6cf0bb5b
+wins	W33	33		2026-09-14	-	open	**W33 · 2026-09-14 · Her box's real failure was diagnosed and fixed at the source, from a distance of one network hop.**	log/wins/2026-09.md	616	630	f93b24a087b1c732
+wins	W34	34		2026-09-14	-	open	**W34 · 2026-09-14 · Her laptop was reachable the whole time the record said it was not.**	log/wins/2026-09.md	631	642	2a464d4e81cbf267
