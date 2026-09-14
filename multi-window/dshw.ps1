@@ -566,7 +566,10 @@ function Open-SlotWindow($slot, $state) {
     $profDir = Join-Path $Cfg.browser.profileRoot $slot.profile
     New-Item -ItemType Directory -Force -Path $profDir | Out-Null
 
-    $target = if ($rec -and $rec.url) { $rec.url } else { "http://127.0.0.1:$targetPort/" }
+    # Get-Prop, not $rec.url: a record can legitimately have no url (an engine this launcher
+    # adopted rather than started, whose one-time token was printed to a console nobody
+    # captured), and StrictMode would turn that into a PropertyNotFoundException.
+    $target = if (Get-Prop $rec 'url') { Get-Prop $rec 'url' } else { "http://127.0.0.1:$targetPort/" }
     $label = if ($slot.label) { $slot.label } else { "$targetPort" }
     # NOTE (measured 2026-09-11, Edge 152 on Windows): --window-name is a no-op here and
     # the window caption is the page <title>. Geometry must be supplied on every launch,

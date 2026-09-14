@@ -12,7 +12,7 @@
     "window.port": "Only used in 'multi' mode: the port that window's own server listens on."
   },
   "mode": "single",
-  "primaryPort": 3099,
+  "primaryPort": 3080,
   "primaryWorkspace": "C:\\Users\\ezabz\\code",
   "server": {
     "logDir": "C:\\Users\\ezabz\\.dsh\\multi-window\\logs",

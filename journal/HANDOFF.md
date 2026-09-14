@@ -95,35 +95,46 @@ CHANGED
 - README: the deploy steps now include the package install, and the plugin section names all three
   packages instead of only `plugin-cost`.
 
-IN FLIGHT
-- The plugin layer is repaired and the two-engine hazard is now visible, so what remains is the
-  engine itself: the stray `dsh web` on 3080 is still running and still a second writer. Retiring it
-  ends the session that is running on it, so it is left to the owner to time.
+RESOLVED 2026-09-13 23:10 (same session, resumed after ~2.5 days)
+- **One writer. Nothing interrupted.** The idle fleet engine on **3099 was stopped**, and
+  `windows.json` `primaryPort` moved 3099 -> **3080** - the engine the owner is actually using -
+  which the fleet now *adopts* rather than fights. Chosen over the alternative (kill 3080, migrate the
+  owner to 3099) because retiring 3080 means killing the engine serving the very session doing the
+  work, which then cannot report its own success. Verified: exactly one listener on this DSH_HOME
+  (`3080`, pid 44040); `dshw status` no longer warns; `dshw doctor` exits **0** with `no blockers`.
+- **`plugin-mobile` installed** via the keeper's `-RequireAll`: linked and added to the bundle list,
+  so all three packages are junctions and the profile is reproducible from `packages/`.
+- **Residual, self-healing, not a regression:** the adopted engine's one-time token was printed to a
+  console nobody captured (`cmd.exe /c dsh web`), so its state record carries a tokenless URL and
+  `dshw new` would open a 401 until the fleet next starts that engine - which happens by itself at
+  reboot or `dshw restart`, capturing a fresh token. No window is lost, and the `+`/`+` controls were
+  never loaded on 3080 anyway (it predates the plugin install), so nothing got worse.
 
-BROKEN (found this session, not yet fixed)
-- **Two engines on one DSH_HOME.** `pid 44040` `dsh web` since 11:29:40 (port 3080) and `pid 22460`
-  `dsh web --port 3099` since 16:52:45 (the `windows.json` primary). `_modes.multi` calls this the
-  configuration that "has been observed writing duplicate sequence numbers into one session log and
-  making the whole history unloadable".
-- **The engine on 3080 has none of the plugin layer** - it predates the 15:30 install. Proven from
-  the live slot registry, with a positive control: `conversation.session.header.actions` has its two
-  expected occupants (`agent-preset`, `job-list`), while `conversation.composer.dock` has only the
-  shipped `stats` - no `new-session-here`, no `new-session-window`. So no `/cost`, no `+`/`+`
-  controls and no 15 s heartbeat patch on that engine.
-- **The keeper's check against the live profile:** `dsh-plugin-cost` COPY, `dsh-plugin-windows` COPY,
-  `dsh-plugin-mobile` MISSING and absent from the bundle list - 3 of 3 need repair. A copy drifts
-  silently; a junction cannot.
-- `multi-window/dshw.ps1` contains **zero** references to `plugin`, so `dshw doctor` reports none of
-  this and the deploy path cannot notice it either.
-- `tool-cordis` stays disabled in `zabz` and `cordis-bg`. The package exposes **no `Config`**, so its
-  process-global Cordis inspect providers cannot be turned off independently of its tools, which
-  makes any two presets containing that row mutually exclusive per process. Which preset should own
-  the creation toolset is the owner's call, recorded here rather than guessed.
+IN FLIGHT
+- Nothing outstanding for the harness. The next fleet change should start from `dshw doctor` exiting 0.
+
+WHAT WAS BROKEN AT 18:44, AND WHAT IT IS NOW (measured 2026-09-11, re-measured 2026-09-13)
+- Two engines on one DSH_HOME (`pid 44040` :3080 since 11:29:40 and `pid 22460` :3099 since 16:52:45)
+  -> **fixed**, see RESOLVED above. `_modes.multi` is explicit that this is the configuration which
+  "has been observed writing duplicate sequence numbers into one session log".
+- The engine on 3080 carried none of the plugin layer, proven from the live slot registry with a
+  positive control: `conversation.session.header.actions` had its two expected occupants
+  (`agent-preset`, `job-list`) while `conversation.composer.dock` had only the shipped `stats`.
+  A running engine does not re-read `package.json`, so this stands until a reload or restart.
+- Keeper check: `dsh-plugin-cost` COPY, `dsh-plugin-windows` COPY, `dsh-plugin-mobile` MISSING
+  -> **all three now LINK**; a copy drifts silently and a junction cannot.
+- `multi-window/dshw.ps1` had **zero** references to `plugin`, so `dshw doctor` could not see any of
+  this -> **now it checks**.
+- `tool-cordis` stays disabled in `zabz`/`cordis-bg`, and that is now a decision rather than an open
+  question. The package exposes **no `Config`**, so its process-global Cordis inspect providers cannot
+  be separated from its tools: enabling the row makes `zabz` and the shipped `cordis` mutually
+  exclusive per process, breaking whichever is opened second. Host-plane placement fails too - the
+  shipped `cordis` keeps its own row and would register the same providers a second time. So
+  runtime inspection remains available only from a `cordis` session.
 
 NEXT
-- Run `pwsh scripts/install-client-plugins.ps1` and restart the fleet engine, then retire the stray
-  3080 engine so that one DSH_HOME has one writer. Both are engine-lifecycle actions on a live
-  machine, so they are the owner's to time.
+- Nothing for the fleet. `dshw doctor` exits 0 and one engine serves this DSH_HOME. The live items
+  belong to the company/API track, not here.
 
 EVIDENCE
 - `git log`: `981525e`, `48f3885`; `git show f2b6453 -- presets/zabz/agent.cordis.yml` shows the
