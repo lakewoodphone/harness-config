@@ -44,6 +44,7 @@ REPO = "/home/zabz/harness-config"
 BASE = os.path.join(REPO, "settings", "base.yaml")
 STATE_DIR = os.path.expanduser("~/.dsh-model-watch")
 STATE_FILE = os.path.join(STATE_DIR, "state.json")
+STATUS_FILE = os.path.join(STATE_DIR, "status.json")
 LOG_FILE = os.path.join(STATE_DIR, "watch.log")
 
 N = 2          # consecutive same-state probes before a move
@@ -221,6 +222,8 @@ def main():
             log("FAILOVER %s -> %s (failed %d probes)" % (names[cur], names[target], bad[str(cur)]))
             if move_to(target, "failover to %s (%s down)" % (names[target], names[cur])):
                 log("failover committed")
+                state["last_move"] = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                      "from": names[cur], "to": names[target], "kind": "failover"}
                 bad[str(cur)] = 0
         else:
             log("current tier is down but no lower tier is answering; holding")
@@ -231,12 +234,31 @@ def main():
             log("RECOVERY %s -> %s (healthy %d probes)" % (names[cur], names[target], ok[str(target)]))
             if move_to(target, "recovery to %s" % names[target]):
                 log("recovery committed")
+                state["last_move"] = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                      "from": names[cur], "to": names[target], "kind": "recovery"}
                 ok[str(target)] = 0
 
     state["ok"] = ok
     state["bad"] = bad
     with open(STATE_FILE, "w") as f:
         json.dump(state, f)
+
+    # A machine-readable surface so a monitor, the badge or a future session can
+    # see what the fleet is actually running and when it last moved, without
+    # parsing the log. This exists because the 2026-09-14 outage proved the fleet
+    # can change model silently and nobody is told.
+    status = {
+        "updated": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "current": "?" if cur is None else names[cur],
+        "tier": cur,
+        "bridged": BRIDGE_MARKER in read_base(),
+        "healthy": [names[i] for i in range(len(TIERS)) if health[i]],
+        "unhealthy": [names[i] for i in range(len(TIERS)) if not health[i]],
+        "last_move": state.get("last_move"),
+    }
+    with open(STATUS_FILE, "w") as f:
+        json.dump(status, f, indent=1)
+        f.write("\n")
 
 
 if __name__ == "__main__":
