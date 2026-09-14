@@ -1,7 +1,12 @@
 /**
  * dsh-plugin-mobile — the browser half.
  *
- * ONE BEHAVIOUR: on a narrow viewport, picking a conversation closes the sidebar.
+ * TWO BEHAVIOURS, both for a phone-width viewport:
+ *
+ *   1. The phone layer stylesheet is linked, so the layout does not depend on a document the
+ *      client may have cached (see `ensureStylesheet`).
+ *   2. An action taken in the open drawer closes it — a conversation, or a header control like
+ *      "New session" — so the reader ends up looking at what they asked for.
  *
  * WHY THIS EXISTS
  * The harness composes its desktop layout at phone width. `assets/mobile.css` (injected by
@@ -16,7 +21,8 @@
  *   - the sidebar toggle is a `button` whose accessible name is "Open sidebar" when the
  *     drawer is closed and "Collapse sidebar" when it is open, so the drawer's own state is
  *     readable from the DOM;
- *   - conversations live inside the sidebar's list region.
+ *   - the drawer's surface is the sidebar column, so "an action taken in the drawer" is a
+ *     click inside that column that is not one of the three exclusions below.
  *
  * A click inside that region, on a narrow viewport, while the drawer is open, closes the
  * drawer shortly afterwards — short enough to feel immediate, long enough that the app has
@@ -46,7 +52,6 @@ window.__ModuleLoader__.load({
 
     const NARROW = '(max-width: 768px)';
     const SIDEBAR = '[class*="sidebarCol"]';
-    const LIST = '[class*="listArea"]';
     /** The app applies a selection, then re-renders; 150ms is below noticing, above a frame. */
     const SETTLE_MS = 150;
     const STYLESHEET = '/dsh-phone-mobile.css';
@@ -149,9 +154,21 @@ window.__ModuleLoader__.load({
           return;
         }
         if (sidebar === null) return;
+        // The toggle IS the app's own control for this; acting on it would fight it.
+        if (target.closest('button[aria-label*="sidebar" i]') !== null) return;
         if (isTextEntry(target) || isDisclosure(target)) return;
-        if (target.closest(LIST) === null) return;
 
+        // Anything else inside the drawer is an action the reader took, and each one should
+        // leave them looking at what they asked for rather than at the drawer.
+        //
+        // The first version required the click to be inside the conversation LIST, and that was
+        // wrong in a way only a phone shows. Measured at 393x852 on 2026-09-14: the drawer's
+        // "New session" control lives in the drawer's logo row (`hHd-Xa_logoRow`), NOT inside
+        // `bhn1Oq_listArea`, so tapping it started a brand-new session BEHIND an open drawer and
+        // the reader had to tap the toggle again before they could reach the composer. The rule
+        // is now the drawer's whole surface minus what genuinely must not dismiss it: text fields
+        // (searching is not navigating), disclosures carrying `aria-expanded` (expanding a
+        // workspace group), and the toggle itself.
         window.setTimeout(() => closeDrawer(), SETTLE_MS);
       } catch (error) {
         if (window.console) window.console.warn('dsh-plugin-mobile: ' + error);
