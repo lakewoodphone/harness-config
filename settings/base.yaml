@@ -72,3 +72,43 @@ agent-presets:
   # NOTE: this is read when a session starts, so a running process keeps its old
   # preset until restarted.
   default: zabz
+
+# ---------------------------------------------------------------------------
+# Fail-fast model behaviour (added 2026-09-14, after the DeepSeek flash outage).
+#
+# `streamIdleTimeoutMs` ships at 300000 (five minutes). In that outage a request
+# sat the full five minutes and then retried -- which is exactly what "nothing
+# would go when I type a question" felt like. 60 s bounds ONE dead attempt and
+# still clears DeepSeek's slowest observed first-token latency. `retryPolicy`
+# normal/2 keeps one transient-blip recovery without turning a dead provider
+# into a multi-minute stall. Both schemas were read out of the installed harness
+# (dsh-llm RetryPolicySchema, dsh-llm-deepseek adapter options) before writing.
+# ---------------------------------------------------------------------------
+llm-deepseek:
+  streamIdleTimeoutMs: 60000
+  retryPolicy:
+    mode: normal
+    maxRetries: 2
+    retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT]
+    backoff:
+      initialDelayMs: 500
+      maxDelayMs: 5000
+      jitterRatio: 0.1
+
+# ---------------------------------------------------------------------------
+# The third failover tier, on infrastructure independent of api.deepseek.com.
+# No secret is inlined: `apiKeyEnv` names a ref each machine supplies in
+# ~/.dsh/.credentials.yaml. Machine files may narrow `models`; their array
+# replaces this one (scripts/merge-settings.mjs deep-merges, arrays replace).
+# ---------------------------------------------------------------------------
+llm-pi-ai:
+  providers:
+    deepinfra:
+      apiKeyEnv: DEEPINFRA_API_KEY
+      api: openai-completions
+      baseURL: https://api.deepinfra.com/v1/openai
+      models:
+        - id: deepseek-ai/DeepSeek-V4-Flash-0731
+          name: DeepSeek V4 Flash (0731)
+        - id: deepseek-ai/DeepSeek-V4.1-Flash
+          name: DeepSeek V4.1 Flash
