@@ -77,6 +77,16 @@
     min-width: 64px;
   }
 
+  /* Every button inside a dialog. Measured on the live app at 393x852 on 2026-09-14: the
+   * first-load "Internal Testing Notice" is 345x480 with ONE control — "Continue", 297x36 —
+   * behind a blocking mask, so on a fresh phone the only way past the notice is a button 8px
+   * under the touch minimum. It carries no aria-label, so the icon rule above never reached
+   * it, and it is not inside the composer, so that rule did not either. */
+  [role="dialog"] button,
+  [role="alertdialog"] button {
+    min-height: 44px;
+  }
+
   [aria-expanded] {
     min-height: 40px;
   }
