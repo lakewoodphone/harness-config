@@ -1,3 +1,6 @@
 __pycache__/index/journal.db
 index/stamp.json
 
+index/journal.db
+.lock
+
