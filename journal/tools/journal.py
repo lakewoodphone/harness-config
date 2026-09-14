@@ -328,7 +328,7 @@ def read_lines(rel_file: str, start: int, end: int) -> str:
 
 def render(entry: dict) -> str:
     head = f"### {entry['id_full']} · {entry['kind']} · {entry['date'] or 'undated'} · {entry['status'] or '-'}"
-    body = read_lines(entry["file"], int(entry["line_start"]), int(entry["line_end"]))
+    body = read_lines(entry["file"], int(entry["line_start"]) + 1, int(entry["line_end"]))
     return f"{head}\n{body}\n"
 
 
@@ -505,8 +505,10 @@ def verify(rows: list[dict], quiet: bool = False) -> dict:
                 f"`journal.py split-shard {path.relative_to(JOURNAL).as_posix()}`")
         kind = path.parent.name
         ents = parse_shard(path, kind)
+        # Two sessions' clocks can disagree by minutes; only gross disorder means a
+        # stale append, so allow a quarter hour of backdating before complaining.
         for a, b in zip(ents, ents[1:]):
-            if a["date"] and b["date"] and a["date"] > b["date"]:
+            if a["date"] and b["date"] and _minute_key(a["date"]) - _minute_key(b["date"]) > 15:
                 problems["warn"].append(f"out of order in {path.relative_to(JOURNAL)}: {a['id_full']} ({a['date']}) then {b['id_full']} ({b['date']})")
         if not ents and path.stat().st_size > 400:
             problems["warn"].append(f"{path.relative_to(JOURNAL)} has content but no parseable entries")
@@ -532,6 +534,18 @@ def verify(rows: list[dict], quiet: bool = False) -> dict:
                 nxt = lines[i + 1] if i + 1 < len(lines) else ""
                 if not nxt.strip():
                     problems["error"].append(f"entry with empty heading at {path.relative_to(JOURNAL)}:{i + 1}")
+
+    # 6b. a marker must start its line. A glued marker (after a missing trailing
+    #     newline) silently folds one entry into the previous one's body. Only a whole
+    #     marker at the end of a line, preceded by separators, counts — a marker quoted
+    #     inside prose (a lesson about this very bug) does not.
+    glued = re.compile(r"^[-—─\s]*<!--\s*e:[a-z]+\|[^|]*\|[^|]*\|[^|]*\|[^|]*?-->\s*$")
+    for path in sorted(LOG.rglob("*.md")) if LOG.exists() else []:
+        for i, ln in enumerate(path.read_text(encoding="utf-8", errors="replace").split("\n")):
+            if "<!-- e:" in ln and not MARKER_RE.match(ln) and glued.match(ln):
+                problems["error"].append(
+                    f"marker does not start its line at {path.relative_to(JOURNAL)}:{i + 1} — "
+                    "that entry is being read into the previous one")
 
     # 7. the retired flat files must not accumulate entries the record lacks.
     #    A second session was writing them at the same time as the rebuild, so this
@@ -584,9 +598,11 @@ def remote_max(kind: str) -> tuple[int, str]:
     """
     letter = KINDS[kind]["letter"]
     nums: list[int] = []
+    # Every pattern is anchored: an id mentioned inside prose (a lesson about a glued
+    # marker quotes one) must not consume a number. That happened once and left a gap.
+    pattern = (rf"^## {letter}[0-9]+ |^\*\*{letter}[0-9]+ |^<!-- e:{kind}\|{letter}[0-9]+")
     try:
-        out = subprocess.run(["git", "-C", str(JOURNAL.parent), "grep", "-h", "-E",
-                              rf"^## {letter}[0-9]+ |^\*\*{letter}[0-9]+ |e:{kind}\|{letter}[0-9]+"],
+        out = subprocess.run(["git", "-C", str(JOURNAL.parent), "grep", "-h", "-E", pattern],
                              capture_output=True, text=True, timeout=60)
         for m in re.finditer(rf"{letter}(\d+)", out.stdout or ""):
             nums.append(int(m.group(1)))
@@ -597,7 +613,8 @@ def remote_max(kind: str) -> tuple[int, str]:
                              capture_output=True, text=True, timeout=60).stdout.split()
         if revs:
             out = subprocess.run(["git", "-C", str(JOURNAL.parent), "grep", "-h", "-E",
-                                 rf"e:{kind}\|{letter}[0-9]+"], capture_output=True, text=True, timeout=120)
+                                 rf"^<!-- e:{kind}\|{letter}[0-9]+"],
+                                 capture_output=True, text=True, timeout=120)
             for m in re.finditer(rf"{letter}(\d+)", out.stdout or ""):
                 nums.append(int(m.group(1)))
     except Exception:
@@ -624,7 +641,7 @@ def cmd_next_id(args) -> int:
 def build_heading(kind: str, id_full: str, title: str, date: str, host: str) -> str:
     spec = KINDS[kind]
     if kind == "handoff":
-        stamp = date or today()
+        stamp = date or now_utc()
         return f"## {stamp} · {host or host_tag()} · {title}"
     if kind == "lessons":
         return f"**{id_full} · {title}**"
@@ -635,11 +652,63 @@ def build_heading(kind: str, id_full: str, title: str, date: str, host: str) -> 
     return f"**{id_full} · {date or today()} · {title}.**"
 
 
+def _minute_key(date: str) -> int:
+    """A sortable minute-resolution key from a date like '2026-09-14 05:55 UTC'."""
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?", date or "")
+    if not m:
+        return 0
+    y, mo, d, hh, mm = m.groups()
+    return (((int(y) * 12 + int(mo)) * 31 + int(d)) * 24 + int(hh or 0)) * 60 + int(mm or 0)
+
+
+def _part_num(path: Path) -> int:
+    m = re.match(r"^\d{4}-\d{2}\.(\d+)$", path.stem)
+    return int(m.group(1)) + 1 if m else 1
+
+
 def shard_path(kind: str, date: str) -> Path:
+    """Where a new entry for this kind and month goes.
+
+    A month is one file until it crosses the cap, then it becomes .1/.2/... and
+    every later append goes to the highest part, so a shard never silently becomes
+    a monolith again.
+    """
     month = (date or today())[:7]
     if not re.match(r"^\d{4}-\d{2}$", month):
         month = today()[:7]
-    return LOG / kind / f"{month}.md"
+    base = LOG / kind
+    cands = sorted(base.glob(f"{month}*.md"), key=_part_num)
+    if not cands:
+        return base / f"{month}.md"
+    last = cands[-1]
+    if last.stat().st_size > 200_000:
+        if _part_num(last) > 1:
+            return base / f"{month}.{_part_num(last) + 1}.md"
+        new = base / f"{month}.1.md"
+        if not new.exists():
+            last.rename(new)          # first split: the plain month becomes .1
+        return base / f"{month}.2.md"
+    return last
+
+
+def append_block(path: Path, header: str, block: str) -> None:
+    """Append to a shard, guaranteeing the file ends with a newline first.
+
+    A shard whose last line lacked a trailing newline produced
+    `---<!-- e:pain|P56|... -->` — a marker that no longer starts its line, so the
+    parser silently folded one entry into the previous one's body. Writers go
+    through here so that cannot happen again.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    need_nl = False
+    if path.exists() and path.stat().st_size:
+        with path.open("rb") as fh:
+            fh.seek(-1, os.SEEK_END)
+            need_nl = fh.read(1) != b"\n"
+    with path.open("a", encoding="utf-8", newline="\n") as fh:
+        if need_nl:
+            fh.write("\n")
+        fh.write(header + block)
 
 
 def cmd_append(args) -> int:
@@ -652,19 +721,22 @@ def cmd_append(args) -> int:
         print("empty body — refusing to write an empty entry", file=sys.stderr)
         return 2
     best, _ = remote_max(kind)
-    id_full = f"{KINDS[kind]['letter']}{best + 1}" if kind != "handoff" else f"{KINDS[kind]['letter']}{best + 1}"
-    heading = build_heading(kind, id_full, args.title, args.date or today(), args.host or host_tag())
-    path = shard_path(kind, args.date or today())
+    id_full = f"{KINDS[kind]['letter']}{best + 1}"
+    # a handoff entry is identified by its timestamp, so both the heading and the
+    # marker carry one; anything else is a plain date.
+    stamp = args.date or (now_utc() if kind == "handoff" else today())
+    day = stamp[:10]
+    heading = build_heading(kind, id_full, args.title, stamp, args.host or host_tag())
+    path = shard_path(kind, day)
     path.parent.mkdir(parents=True, exist_ok=True)
     header = ""
     if not path.exists():
         header = (f"# {kind} · {path.stem}\n"
                   f"<!-- journal shard: append-only, oldest first. Never edit an entry — correct it with a new\n"
                   f"     entry that cites it. Reads: python tools/journal.py newest {kind} 3 -->\n\n")
-    marker = f"<!-- e:{kind}|{id_full}|{args.date or today()}|{args.host or host_tag()}|{args.status} -->"
-    block = f"{marker}\n{heading}\n\n{norm_body(body)}\n\n"
-    with path.open("a", encoding="utf-8", newline="\n") as fh:
-        fh.write(header + block)
+    marker = f"<!-- e:{kind}|{id_full}|{stamp}|{args.host or host_tag()}|{args.status} -->"
+    block = f"{marker}\n{heading}\n\n{norm_body(body)}\n\n---\n"
+    append_block(path, header, block)
     cmd_index(argparse.Namespace())
     print(f"+ {id_full} -> {path.relative_to(JOURNAL)}")
     if not args.no_check:
@@ -829,6 +901,20 @@ def cmd_resolve(args) -> int:
     return 0
 
 
+def _title_of(heading: str, kind: str) -> str:
+    """Recover a bare title from a heading of any shape the old files grew."""
+    h = heading.strip()
+    if kind == "lessons":
+        h = re.sub(r"^\*\*[A-Z]{0,2}L\d+\s*·\s*", "", h)
+    elif kind == "pain":
+        h = re.sub(r"^##\s*[A-Z]{0,2}P\d+\b", "", h).strip(" —–-")
+    else:
+        h = re.sub(r"^\*\*[A-Z]{0,2}[DW]\d+[a-z]?\s*·\s*", "", h)
+        h = re.sub(r"^\d{4}-\d{2}-\d{2}[^·]*·\s*", "", h)
+    h = h.strip().strip("*").strip()
+    return h[:-1] if h.endswith(".") else (h or "(untitled)")
+
+
 def cmd_import_flat(args) -> int:
     """Absorb new entries from the retired flat files into the shards.
 
@@ -836,14 +922,20 @@ def cmd_import_flat(args) -> int:
     anything that lands in HANDOFF.md/LESSONS.md/... after the rebuild is imported
     here rather than lost. Idempotent — an entry already in a shard is skipped by
     content, so this can be run as often as needed until the flat files go quiet.
+
+    It also handles the other direction the same session used: **a flat entry that
+    grew after the migration**. If the stored body is a prefix of the incoming one,
+    the entry is resynced in place rather than duplicated — appending a second copy
+    of the same problem is how a journal stops being readable.
     """
     import argparse as _a
     targets = args.files or [
         str(JOURNAL / f"{name}.md") for name in
         ("HANDOFF", "LESSONS", "PAIN", "DECISIONS", "WINS")
     ]
-    local = {content_key(e["heading"], e["body"]) for e in load_shards()}
-    total_new = 0
+    shard_entries = load_shards()
+    local = {content_key(e["heading"], e["body"]) for e in shard_entries}
+    total_new = total_resync = 0
     for raw in targets:
         path = Path(raw)
         if not path.exists():
@@ -853,9 +945,33 @@ def cmd_import_flat(args) -> int:
         if kind not in KINDS:
             continue
         ents = parse_legacy(path, kind)
+        if not ents:
+            print(f"-- {path.name}: nothing parseable")
+            continue
         new = [e for e in ents if content_key(e["heading"], e["body"]) not in local]
+        resyncs = []
+        for e in new:
+            stored = [s for s in shard_entries
+                      if s["kind"] == kind and e["id_full"] and s["id_full"] == e["id_full"]]
+            for s in stored:
+                if s["body"] and norm_body(e["body"]).startswith(norm_body(s["body"])):
+                    resyncs.append((s, e))
+                    break
+        for s, e in resyncs:
+            p = JOURNAL / s["file"]
+            lines = p.read_text(encoding="utf-8", errors="replace").split("\n")
+            head = lines[:s["heading_end"]]                      # through the heading line
+            tail = lines[s["line_end"] - 1:]                     # separator and anything after
+            p.write_text("\n".join(head + [norm_body(e["body"]), ""] + tail).lstrip("\n"),
+                         encoding="utf-8", newline="\n")
+            print(f"~ {s['id_full']} resynced from {path.name} (source grew by "
+                  f"{len(norm_body(e['body'])) - len(norm_body(s['body']))} chars)")
+            local.add(content_key(e["heading"], e["body"]))
+            total_resync += 1
+        resynced_ids = {s["id_full"] for s, _ in resyncs}
+        new = [e for e in new if e["id_full"] not in resynced_ids]
         if not new:
-            print(f"-- {path.name}: {len(ents)} entries, nothing new")
+            print(f"-- {path.name}: {len(ents)} entries, nothing new ({len(resyncs)} resynced)")
             continue
         base, _ = remote_max(kind)
         letter = KINDS[kind]["letter"]
@@ -864,7 +980,7 @@ def cmd_import_flat(args) -> int:
             id_full = f"{letter}{base}"
             date = e["date"] or today()
             heading = e["heading"] if kind == "handoff" else build_heading(
-                kind, id_full, e["heading"].strip("*").strip(), date, e["host"] or "imported")
+                kind, id_full, _title_of(e["heading"], kind), date, e["host"] or "imported")
             path_out = shard_path(kind, date)
             path_out.parent.mkdir(parents=True, exist_ok=True)
             header = ""
@@ -874,8 +990,7 @@ def cmd_import_flat(args) -> int:
                           f"     with an entry that cites it. Reads: python tools/journal.py newest {kind} 3 -->\n\n")
             status = "open"
             marker = f"<!-- e:{kind}|{id_full}|{date}|{e['host'] or 'imported'}|{status} -->"
-            with path_out.open("a", encoding="utf-8", newline="\n") as fh:
-                fh.write(f"{header}{marker}\n{heading}\n\n{norm_body(e['body'])}\n\n---\n\n")
+            append_block(path_out, header, f"{marker}\n{heading}\n\n{norm_body(e['body'])}\n\n---\n")
             local.add(content_key(e["heading"], e["body"]))
             print(f"+ {id_full} <- {path.name}:{e['line_start']}  {heading[:80]}")
             total_new += 1
@@ -923,7 +1038,7 @@ def cmd_split_shard(args) -> int:
     for n, part in enumerate(parts, 1):
         out = path.with_name(f"{month}.{n}.md")
         body = "\n\n".join(part)
-        head = re.sub(r"^#\s+\S+\s+·\s+\S+", f"# {kind} · {month}.{n}", preamble, count=1)
+        head = re.sub(r"^#\s+.*$", f"# {kind} · {month}.{n}", preamble, count=1, flags=re.M)
         out.write_text(f"{head}\n\n{body}\n", encoding="utf-8", newline="\n")
         print(f"{out.name}: {len(part)} entries, {out.stat().st_size // 1024} KB")
     cmd_index(argparse.Namespace())
