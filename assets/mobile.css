@@ -143,34 +143,54 @@
       transition: none !important;
     }
 
-    /* Closed: off-canvas, keeping its internal layout so opening is a plain slide. */
+    /* Closed: the column leaves the grid and sits just off the left edge.
+     *
+     * `left`, deliberately, NOT `transform`. A transformed ancestor becomes the containing
+     * block for its fixed descendants, so `transform: translateX(-100%)` here would carry
+     * the sidebar's own toggle off-screen with it — and that toggle is the ONLY control that
+     * opens the sidebar (verified: it is inside the sidebar, not in the content header).
+     * The first version of this rule did exactly that and would have locked the drawer shut.
+     */
     [class*="sidebarCol"]:has([class*="collapsed"]) {
       position: fixed;
-      inset: 0 auto 0 0;
+      top: 0;
+      bottom: 0;
+      left: -340px;
       width: min(86vw, 340px);
-      transform: translateX(-100%);
       z-index: 60;
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
     }
 
-    /* Open: over the conversation, with the scrim a phone user expects to be able to tap. */
+    /* ...and the toggle comes back to the top-left of the SCREEN, which is where a phone
+     * user looks. Measured on the live app at 393x852: it lands at [10,14] 44x44, fully
+     * visible and clickable, and the conversation header's own row starts at x=54 — tight,
+     * but no overlap. */
+    [class*="sidebarCol"]:has([class*="collapsed"]) [class*="toggle"] {
+      position: fixed;
+      left: max(10px, env(safe-area-inset-left));
+      top: calc(14px + env(safe-area-inset-top));
+      z-index: 70;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+    }
+
+    /* Open: over the conversation, with the scrim a phone user expects to be able to tap.
+     * The app renders its full header in this state, so the toggle sits inside the drawer
+     * where it belongs and no pinning is needed. */
     [class*="sidebarCol"]:not(:has([class*="collapsed"])) {
       position: fixed;
-      inset: 0 auto 0 0;
+      top: 0;
+      bottom: 0;
+      left: 0;
       width: min(86vw, 340px);
       z-index: 60;
       padding-top: env(safe-area-inset-top);
       padding-bottom: env(safe-area-inset-bottom);
       box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
       background: var(--dsh-phone-drawer-bg, canvas);
-      animation: dsh-phone-drawer-in 160ms ease-out;
     }
-  }
-
-  @keyframes dsh-phone-drawer-in {
-    from { transform: translateX(-100%); }
-    to { transform: translateX(0); }
   }
 
   /* ---- content column --------------------------------------------------- */
