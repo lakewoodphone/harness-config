@@ -25,6 +25,7 @@ const REPO = path.resolve(__dirname, '..');
 const BADGE = path.join(REPO, 'assets', 'phone-badge.js');
 const GATE = path.join(REPO, 'scripts', 'phone-gate.py');
 const PLUGIN = path.join(REPO, 'packages', 'plugin-attention-badge');
+const PLUGIN_CLIENT = path.join(PLUGIN, 'lib', 'client.js');
 
 /**
  * The interpreter that actually exists here. Windows has `python`; the authority has `python3` and no
@@ -88,6 +89,9 @@ function makeDom() {
       removeChild(child) {
         const i = this.children.indexOf(child);
         if (i >= 0) this.children.splice(i, 1);
+        // A removed element must stop answering getElementById, or a test cannot tell "the tag was
+        // dropped" from "the tag is still there" — and the plugin's retry turns on exactly that.
+        if (child && child.id && byId.get(child.id) === child) byId.delete(child.id);
         child.parentNode = null;
         return child;
       },
@@ -209,6 +213,63 @@ function boot(options) {
 
   const internals = window.__dshAttentionBadgeInternals;
   return { dom, window, internals, sandbox };
+}
+
+/**
+ * Boot the PLUGIN's client half in the same kind of sandbox, with its timers captured so the
+ * fallback and retry paths can be driven without waiting six seconds per case.
+ *
+ * This exists because the plugin is now the only thing standing between a dead tunnel and a badge
+ * that simply disappears: the owner hit exactly that on 2026-09-14 ("I think I saw the badge earlier
+ * today but I don't see it now") and the failure had no voice at all.
+ */
+function bootPlugin() {
+  const dom = makeDom();
+  const timeouts = [];
+  const intervals = [];
+  const window = {
+    document: dom.document,
+    console: { warn() {}, log() {} },
+    __dshBadgeSetTimeout: (fn, ms) => { timeouts.push({ fn, ms }); return timeouts.length; },
+    __dshBadgeClearTimeout: (id) => { if (id) timeouts[id - 1] = null; },
+    __dshBadgeSetInterval: (fn, ms) => { intervals.push({ fn, ms }); return intervals.length; },
+    __dshBadgeClearInterval: (id) => { if (id) intervals[id - 1] = null; },
+    setTimeout: () => 0,
+    clearTimeout: () => {},
+    setInterval: () => 0,
+    clearInterval: () => {},
+  };
+  window.window = window;
+
+  let spec = null;
+  window.__ModuleLoader__ = { load: (s) => { spec = s; } };
+
+  const sandbox = {
+    window, document: dom.document, console: window.console,
+    Symbol, Object, Array, String, Number, Boolean, Error, Math, JSON, isFinite,
+  };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  try {
+    vm.runInContext(fs.readFileSync(PLUGIN_CLIENT, 'utf8'), sandbox, { filename: 'plugin client.js' });
+  } catch (error) {
+    console.log('could not boot the plugin client in the verifier sandbox: ' + (error && error.message));
+    console.log((error && error.stack ? error.stack : '').split('\n').slice(0, 4).join('\n'));
+    process.exit(2);
+  }
+  return { dom, window, timeouts, intervals, spec, sandbox };
+}
+
+/** Mount the plugin the way the harness does: factory(), then apply(ctx) with an effect collector. */
+function mountPlugin() {
+  const p = bootPlugin();
+  const disposers = [];
+  const ctx = { effect: (fn) => { disposers.push(fn()); } };
+  const module = p.spec.factory();
+  module.apply(ctx);
+  p.disposers = disposers;
+  p.api = p.window.__dshAttentionBadgePlugin;
+  return p;
 }
 
 /** A fake XMLHttpRequest driven by a script.
@@ -541,6 +602,108 @@ console.log('== one badge, however many scripts ask for it ==');
   check('a second copy in the same page starts no timer', intervals === 1, `intervals=${intervals}`);
   check('a second copy in the same page adds no second root',
     b.dom.byId.get('dsh-attention-badge') === rootsBefore);
+}
+
+console.log('');
+console.log('== the plugin never lets the badge vanish silently (the 2026-09-14 outage) ==');
+{
+  // What happened: Tailscale was stuck on the owner's laptop, the badge script could not be fetched
+  // from the authority, and the pill simply disappeared. Nothing said why. The code that reports
+  // "cannot reach the authority" was itself fetched from the authority.
+  const p = mountPlugin();
+
+  check('the plugin registers with the module loader',
+    p.spec && p.spec.id === 'dsh-plugin-attention-badge');
+  check('the factory returns an apply', p.api !== undefined && typeof p.api.check === 'function');
+
+  const tag = p.dom.byId.get('dsh-attention-badge-loader');
+  check('it injects the badge script', tag !== undefined);
+  check('the script points at the authority badge',
+    tag && tag.src === p.api.authority + '/dsh-attention.js', tag && String(tag.src));
+  check('the script names the authority as the data origin',
+    tag && tag.getAttribute('data-attention-json') === p.api.authority);
+  check('the script is marked as plugin-injected', tag && tag.getAttribute('data-badge-source') === 'plugin');
+
+  check('a grace timer is armed', p.timeouts.length === 1 && p.timeouts[0].ms === p.api.graceMs);
+  check('a retry timer is armed', p.intervals.length === 1 && p.intervals[0].ms === p.api.retryMs);
+  check('nothing is shown before the grace period — a healthy machine never flashes a refusal',
+    p.dom.byId.get('dsh-attention-badge-offline') === undefined);
+
+  // The badge script never arrives: this is the outage.
+  p.timeouts[0].fn();
+
+  const fallback = p.dom.byId.get('dsh-attention-badge-offline');
+  check('an absent badge produces a local refusal pill', fallback !== undefined);
+  check('the refusal pill says the findings are unavailable', /findings unavailable/.test(fallback.innerHTML));
+  check('the refusal pill names the host it cannot reach', /secratary\.tail93e6e6\.ts\.net/.test(fallback.innerHTML));
+  check('the refusal pill shows no findings and claims no all-clear',
+    !/nothing needs attention/.test(fallback.innerHTML)
+    && !/\d+ needing attention/.test(fallback.innerHTML));
+  check('the refusal pill says it is retrying', /Retrying every 30s/.test(fallback.innerHTML));
+  check('the refusal pill explains why it shows nothing', /no findings to report/.test(fallback.innerHTML));
+  check('the refusal pill is styled for the frame',
+    p.dom.byId.get('dsh-attention-badge-offline-style') !== undefined);
+
+  // The authority comes back. The real badge loads and mounts itself.
+  const root = p.dom.makeElement('div');
+  root.setAttribute('id', 'dsh-attention-badge');
+  p.dom.document.body.appendChild(root);
+  p.window.__dshAttentionBadge = true;
+  p.api.check();
+
+  check('when the real badge arrives the fallback removes itself',
+    p.dom.byId.get('dsh-attention-badge-offline') === undefined);
+  check('the fallback style is removed with it',
+    p.dom.byId.get('dsh-attention-badge-offline-style') === undefined);
+  check('the real badge is left alone',
+    p.dom.byId.get('dsh-attention-badge') !== undefined);
+}
+
+console.log('');
+console.log('== the plugin recovers from a dead script tag ==');
+{
+  // A failed <script> load leaves the element in the document. The id guard would then treat the
+  // failure as "already loading" and never try again — one transient outage, permanent absence.
+  const p = mountPlugin();
+  const first = p.dom.byId.get('dsh-attention-badge-loader');
+  check('a tag exists to begin with', first !== undefined);
+
+  first.onerror();   // the simulated failed load
+  check('a failed load removes its own tag', p.dom.byId.get('dsh-attention-badge-loader') === undefined);
+  check('a failed load records why', /did not load/.test(p.api.state.lastError), p.api.state.lastError);
+
+  p.api.check();
+  check('the next check re-injects the script', p.dom.byId.get('dsh-attention-badge-loader') !== undefined);
+
+  // A tag that never errors but never produces a badge either: presumed hung and replaced, so a
+  // silent hang cannot become a permanent absence.
+  const before = p.dom.byId.get('dsh-attention-badge-loader');
+  p.api.check();   // first sighting of this tag
+  p.api.check();   // survived a full cycle -> replaced
+  const after = p.dom.byId.get('dsh-attention-badge-loader');
+  check('a hung tag is replaced rather than trusted', after !== undefined && after !== before);
+  check('the retry keeps exactly one tag in the document',
+    ((p.dom.document.head.children || []).filter((c) => c.id === 'dsh-attention-badge-loader').length) <= 1);
+  check('the plugin still refuses honestly while it cannot load',
+    p.dom.byId.get('dsh-attention-badge-offline') !== undefined);
+}
+
+console.log('');
+console.log('== the plugin cleans up after itself ==');
+{
+  const p = mountPlugin();
+  p.timeouts[0].fn();
+  check('the fallback is present before teardown', p.dom.byId.get('dsh-attention-badge-offline') !== undefined);
+  check('the plugin registered one disposer', p.disposers.length === 1 && typeof p.disposers[0] === 'function');
+
+  p.disposers[0]();
+
+  check('teardown removes the fallback', p.dom.byId.get('dsh-attention-badge-offline') === undefined);
+  check('teardown removes the plugin-injected tag',
+    p.dom.byId.get('dsh-attention-badge-loader') === undefined);
+  check('teardown clears the grace timer', p.timeouts[0] === null);
+  check('teardown clears the retry timer', p.intervals[0] === null);
+  check('teardown marks the plugin disposed', p.api.state.disposed === true);
 }
 
 console.log('');

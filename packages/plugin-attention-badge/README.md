@@ -51,9 +51,37 @@ A second copy would drift from `assets/phone-badge.js` the first time either sid
 drift would be invisible: the phone and the desktop would disagree about what the company is
 reporting, with no error anywhere. Loading the one file means one implementation and one truth.
 
-The cost is that a machine with no route to the authority shows nothing — which is the honest
-outcome, because it genuinely cannot know the findings, and `phone-badge.js` renders that as
-*"findings unavailable"* rather than as a green zero.
+## …and why it carries a small local voice anyway
+
+**Measured 2026-09-14, by the owner: *"I think I saw the badge earlier today but I don't see it now."***
+His laptop had rebooted and its Tailscale tunnel was stuck at `NoState`, so the badge script — which is
+fetched *from* the authority — could not load, and the pill simply **disappeared, saying nothing**. That
+is the exact failure this whole subsystem exists to prevent: silence looking like health.
+
+The design had a circular dependency: **the code that reports "cannot reach the authority" was itself
+fetched from the authority**, so the one state it could never render was the one it most needed.
+
+So this half carries a second, tiny, **local** reporter. If the real badge has not mounted within
+`MOUNT_GRACE_MS` (6 s), it renders a dashed refusal pill from code shipped with the plugin — served by
+the local engine, needing no network — naming the host it cannot reach, and retries every 30 s. When
+the authority returns, the real badge loads and the fallback removes itself.
+
+It deliberately renders **no findings at all**: an empty list would look like good news. The fallback is
+not a copy of the badge, so there is nothing in it to drift.
+
+A failed `<script>` load leaves a dead element in the document, and the id guard would then treat the
+failure as "already loading" and never retry — one transient outage becoming a permanent absence. The
+plugin therefore removes and replaces a tag that errors, and replaces one that survives a full retry
+cycle without producing a badge.
+
+```
+        ┌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐   fallback: dashed border, local code, no findings
+        ╎ ●  findings unavailable ╎
+        └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+        tap → The attention badge could not be loaded from
+              https://secratary.tail93e6e6.ts.net. The harness is
+              otherwise unaffected. Retrying every 30s.
+```
 
 ## Install
 
@@ -89,16 +117,17 @@ correct but silent: the reason only appears in the expanded card.
 
 | Failure | What you see | Why it is that way |
 |---|---|---|
-| no route to the authority | `findings unavailable`, dashed border, reason in the card | it genuinely cannot know the findings |
+| no route to the authority (tailnet down, host off) | a **dashed grey pill: `findings unavailable`** — from this plugin, not from the badge | the badge's own reporter is remote; this one is local, so the failure has a voice |
 | the authority's gate down | same | same |
 | the kernel stopped writing | a reading with `· stale <age>` and a `(stale)` card | a reading of unknown or old age must not look current |
 | the kernel's file is malformed | `findings unavailable` with the reason the gate gave | a refusal, not a confident zero |
 | the plugin is not installed | nothing at all | absence of the badge is not absence of findings |
+| the plugin is installed but the page is not reloaded | nothing at all | a client bundle mounts at boot |
 
 ## Verifying it
 
 ```bash
-node scripts/verify-badge.js            # 130 checks, no browser, either OS
+node scripts/verify-badge.js            # 163 checks, no browser, either OS
 python scripts/verify-badge-gate.py     # 55 checks of the gate's half
 ```
 

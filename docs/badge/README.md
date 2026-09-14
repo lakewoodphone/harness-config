@@ -90,16 +90,24 @@ object — and a sixth: it is an object whose `summary` is not a dict or whose `
 | all clear | `nothing needs attention` | `nothing needs attention` | a reading, `attention: 0`, fresh |
 | stale | `6 needing attention · stale 9h ago` + amber border | head marked `(stale)` | age > 20 min, **or** age unparseable |
 | unresolved | `6 needing attention · last good` | `last attempt failed: <reason>` | a fetch failed but a previous reading exists |
-| blind | `findings unavailable`, dashed border | `Findings NOT READABLE` + the reason | no reading ever arrived, or the gate refused |
+| blind | `findings unavailable`, dashed border | `Findings NOT READABLE` + the reason | the gate answered `read:false`, or no reading ever arrived |
+| **unreachable** | `findings unavailable`, dashed border — **from the plugin, locally** | which host could not be reached, and that it is retrying | the badge *script itself* cannot be fetched from the authority |
 
 The staleness threshold is 20 minutes against a kernel that writes every 5 — three missed writes.
+
+**The last row is the one that took an outage to notice.** On a desktop or laptop the badge is loaded
+*from the authority*, so when the authority is unreachable there is no badge and — before 2026-09-14 —
+nothing said so. The state that most needed reporting could not report itself, because its reporter
+was the thing that had failed. `dsh-plugin-attention-badge` now renders that row from code it carries
+locally. The phone is unaffected: it loads the badge and the document from the same origin, so if the
+document arrived, the script can too.
 
 ---
 
 ## 4. How to verify it
 
 ```bash
-node scripts/verify-badge.js          # 130 checks: render, failure modes, escaping, plugin, round trip
+node scripts/verify-badge.js          # 163 checks: render, failure modes, escaping, plugin fallback, round trip
 python scripts/verify-badge-gate.py   # 55 checks: payload shapes, refusals, CORS, injection, cache
 ```
 
@@ -196,7 +204,39 @@ restart on that machine.
 `owner_message_queue` reached **nothing** between 2026-07-19 and 2026-09-14 — 298 held messages, and
 the alert about the dead channel was sent *through the dead channel*. Every sensor was working; none
 of it was delivered. The badge exists to close that gap, and its own failure mode is the same one it
-was built to fix: **silence looks exactly like health**. Hence the four states above, two of which
+was built to fix: **silence looks exactly like health**. Hence the six states above, three of which
 are deliberately not green, and the staleness flag that refuses to present an old reading as current.
+
+## 9. Incident: the badge repeated its own founding mistake (2026-09-14)
+
+**Reported by the owner:** *"I think I saw the badge earlier today but I don't see it now."*
+
+**Cause, measured.** His laptop had rebooted at 16:41. `tailscaled` started 20 seconds later and then
+sat at `BackendState: NoState` for **51 minutes** — the tunnel never came back, `C:\ProgramData\
+Tailscale` was empty, and the hostname did not resolve. The badge script is fetched *from* the
+authority over that tunnel, so it could not load; the pill vanished and nothing said why.
+
+**The design defect this exposed — and it is the same one as §8, one level up.** The badge's
+unreachable-state was unreachable: the code that says *"I cannot reach the authority"* was itself being
+fetched from the authority. *Silence looked like health* about the badge's own delivery. A monitoring
+component must not depend on the thing it monitors in order to report that thing's failure.
+
+**Fixes.**
+1. `dsh-plugin-attention-badge` now carries a local refusal pill (§3, last row) plus a retry, with
+   tests for: the fallback appearing, naming the host, claiming no all-clear, removing itself when the
+   real badge arrives, replacing a dead `<script>` tag, and cleaning up on teardown.
+2. The **id-guard** flaw: a failed script load leaves the element in the document, so the guard read
+   the failure as *already loading* and never retried. A dead tag is now replaced.
+3. Nothing was changed about the phone path, which never had this defect: there, the document and the
+   badge script come from the same server, so a script that cannot load means a page that never arrived.
+
+**Not fixed, because it needs the owner.** Unsticking a Windows service needs elevation, which the
+agent does not have: `Restart-Service Tailscale` returned *"Cannot open 'Tailscale' service"*. The
+remaining work on this incident is his one action — restart the Tailscale service (or the machine) and
+sign in if it asks.
+
+**What remains uncovered:** no check alarms when the *tailnet itself* is down on a machine, so a
+machine can be isolated while every local check reads green. That is a real gap and it is recorded,
+not solved.
 
 Recorded in `journal/PAIN.md` P55, `journal/LESSONS.md` L174–L177 and L190–L192.
