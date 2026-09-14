@@ -114,6 +114,9 @@ handoff	H204	204		2026-09-14 23:08 UTC	ZABZ-YOGA	open	## 2026-09-14 23:08 UTC ·
 handoff	H205	205		2026-09-14 23:18 UTC	ZABZ-YOGA	open	## 2026-09-14 23:18 UTC · ZABZ-YOGA · Journal v2 is live and verified: one file per entry, a self-healing cache, and the record rebuilt from the frozen sources after a concurrent migration corrupted the derived tree	entries/handoff/H205.md	1	33	aef80ff8cfcfcb24
 handoff	H206	206		2026-09-14 23:23 UTC	SECRATARY	open	## 2026-09-14 23:23 UTC · SECRATARY · Fios fiber home install recorded: photos, credentials, ONT serial, and four open items	entries/handoff/H206.md	1	48	3b059bcbce68bb9e
 handoff	H207	207		2026-09-14 23:37 UTC	ZABZ-YOGA	open	## 2026-09-14 23:37 UTC · ZABZ-YOGA · Billing is live end to end - and activating it exposed a production database that the documented deploy would have destroyed	entries/handoff/H207.md	1	31	4c85a5bcc3f6ba8b
+handoff	H208	208		2026-09-14 23:39 UTC	ZABZ-YOGA	open	## 2026-09-14 23:39 UTC · ZABZ-YOGA · 2026-09-14 23:40Z ZABZ-YOGA: full view into customer comms -- identity, email, waiting, agent discovery	entries/handoff/H208.md	1	52	3cae3cbe68562aa7
+handoff	H209	209		2026-09-14 23:39 UTC	ZABZ-YOGA	open	## 2026-09-14 23:39 UTC · ZABZ-YOGA · Weitman laptop: quote SENT, authoritative case updated on ZABZ-TECH	entries/handoff/H209.md	1	10	744ed73eb50c255f
+handoff	H210	210		2026-09-14 23:40 UTC	ZABZ-YOGA	open	## 2026-09-14 23:40 UTC · ZABZ-YOGA · Journal v2 verified on Linux and merged to master: 240 checks, 0 errors, FAIL=0 WARN=0 - and a real id collision (D143) proved P132 during the merge	entries/handoff/H210.md	1	32	d7c64ed1f227eea2
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -420,6 +423,9 @@ lessons	L1465	1465		2026-09-14	SECRATARY	open	**L1465 · CHR30A on a Verizon Fio
 lessons	L1466	1466		2026-09-14	ZABZ-YOGA	open	**L1466 · Two machines allocated the same id during this very merge: the local ceiling reduces the rate, it does not prevent it**	entries/lessons/L1466.md	1	12	9bf6b805bd8c5f2a
 lessons	L1467	1467		2026-09-14	ZABZ-YOGA	open	**L1467 · Grouping comms by the name in them merges strangers: measure the label vocabulary first**	entries/lessons/L1467.md	1	49	071a0a76cf2de97c
 lessons	L1468	1468		2026-09-14	ZABZ-YOGA	open	**L1468 · A capability nobody can discover is a capability nobody has (register the tool, then verify through the agent surface)**	entries/lessons/L1468.md	1	30	58d79fe6bd9b287e
+lessons	L1469	1469		2026-09-14	ZABZ-YOGA	open	**L1469 · 'Last message was inbound' is not 'the customer is waiting' -- three filters, measured**	entries/lessons/L1469.md	1	32	249dcab6fff36668
+lessons	L1470	1470		2026-09-14	ZABZ-YOGA	open	**L1470 · Before writing a case file, check whether this case's file already exists on another machine**	entries/lessons/L1470.md	1	6	be3f995e5ff688b9
+lessons	L1471	1471		2026-09-14	ZABZ-YOGA	open	**L1471 · LPT laptop resale pricing is flat source_price x 1.36 x 1.06625 = x 1.4501; the tiered auto markup is not applied**	entries/lessons/L1471.md	1	6	b7443a5597c4ffbe
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
@@ -472,7 +478,7 @@ pain	P47c	47	c	-	-	open	## P47c — CORRECTION (2026-09-14, same day, citing the
 pain	P48	48		-	-	open	## P48 — Something holds the write lock on the company database for longer than 30 seconds	entries/pain/P48.md	1	29	9c628e8f3d38fa98
 pain	P48b	48	b	-	-	done	## P48b — The authority serves documents but refuses every API and websocket call (OPEN, 2026-09-14)	entries/pain/P48b.md	1	16	23c42604de724e3b
 pain	P49	49		-	-	open	## P49 — The machine that serves the API runs a checkout GitHub has moved 71 commits past	entries/pain/P49.md	1	26	d2deddc4f140f6b3
-pain	P50	50		-	-	open	## P50 — `work_sessions.status` holds 40 non-status values, and nobody noticed	entries/pain/P50.md	1	21	c5eab80c49abb856
+pain	P50	50		-	-	done	## P50 — `work_sessions.status` holds 40 non-status values, and nobody noticed	entries/pain/P50.md	1	21	c5eab80c49abb856
 pain	P51	51		-	-	open	## P51 — The owner has been read nothing since 2026-07-19, because a spam fix blocked *all* of it	entries/pain/P51.md	1	30	6f680cb74492aeac
 pain	P52	52		-	-	open	## P52 — The sentinel and my own alarm disagree about the same quiet machine	entries/pain/P52.md	1	22	f289e66e62e99abf
 pain	P52b	52	b	-	-	open	## P52b — An outbound promise with a date has no keeper, so a paid order on a hard deadline went unwatched for 16 days	entries/pain/P52b.md	1	34	185a56e5846fabcd
@@ -518,6 +524,7 @@ pain	P131	131		2026-09-14	ZABZ-YOGA	open	## P131 — The comms index has no inge
 pain	P132	132		2026-09-14	ZABZ-YOGA	open	## P132 — Two sessions can migrate and audit this journal at once, and the lock does not cross machines	entries/pain/P132.md	1	14	e1011d178f46a9d1
 pain	P133	133		2026-09-14	ZABZ-YOGA	open	## P133 — log/** and the six flat files are still writable by any stale checkout	entries/pain/P133.md	1	12	15435ca4a8f8df71
 pain	P134	134		2026-09-14	SECRATARY	open	## P134 — The journal itself has forked: SECRATARY holds 936 entries that exist on no other machine, and ZABZ-YOGA holds 304 that SECRATARY has never read	entries/pain/P134.md	1	45	c2006fbf4b56624a
+pain	P135	135		2026-09-14	ZABZ-YOGA	open	## P135 — A journal append takes 3 minutes and blocks the turn that needs it	entries/pain/P135.md	1	7	22b1620ff90ba12a
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -624,6 +631,7 @@ decisions	D142	142		2026-09-14	ZABZ-YOGA	open	**D142 · 2026-09-14 · Absorption
 decisions	D143	143		2026-09-14	SECRATARY	open	**D143 · 2026-09-14 · Fios home network record lives in personal-secretary-mvp/docs/network/ and the fact in memories 19173.**	entries/decisions/D143.md	1	16	e3cd69614ad53b94
 decisions	D144	144		2026-09-14	ZABZ-YOGA	open	**D144 · 2026-09-14 · The journal is one file per entry with a generated cache that heals itself.**	entries/decisions/D144.md	1	12	713086e575382d2c
 decisions	D145	145		2026-09-14	ZABZ-YOGA	open	**D145 · 2026-09-14 · Rebuild the derived tree from the frozen sources, then carry back what only it holds.**	entries/decisions/D145.md	1	12	2a9eb73ab50865c6
+decisions	D146	146		2026-09-14	ZABZ-YOGA	open	**D146 · 2026-09-14 · The person layer: people are built from evidence, every alias says why, drafts are not comms.**	entries/decisions/D146.md	1	37	3941095f3aee4115
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e

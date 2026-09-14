@@ -25,8 +25,7 @@ files are frozen inputs read only by `import-legacy` and `check`'s drift test. N
 end to end. Why it changed, measured: `AUDIT.md`. What it had to be: `SPEC-v2.md`.
 
 Measured tonight, same tree: `status` **5,986 B / 97 ms / exit 0** (was 12,347 B / 8.9 s / exit 1);
-`show` 9 ms on one file (was 0.41 s on a 249 KB shard); `search` 105 ms; `newest` 100 ms. **691
-entries**, 0 redundant copies, `check` **0 errors**, legacy drift **0**, `import-legacy` reports
+`show` 9 ms on one file (was 0.41 s on a 249 KB shard); `search` 105 ms; `newest` 100 ms. **707 entries** (23:38 UTC), 0 redundant copies, `check` **0 errors**, legacy drift **0**, `import-legacy` reports
 **new 0** (idempotent).
 
 ## Last session on the record
