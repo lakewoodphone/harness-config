@@ -365,6 +365,31 @@ def check_client_plugin():
            + ("present" if ok else "MISSING - the phone keeps the drawer open after a pick"))
 
 
+def check_authenticated_rpc(cookie):
+    """The app's own first call must work, not just the document.
+
+    Added 2026-09-14 after exactly this failure went unseen: the document loaded (200, cookie
+    minted) and every RPC the app makes returned **403 forbidden** — so the phone showed a
+    broken, empty interface while this probe reported 11/12 and the kernel called the phone
+    path proven. A document is the shell; the session list is the application. `agentPresets/list`
+    is the first call the client makes on load, with the args envelope the gateway expects.
+    """
+    name = "an authenticated RPC works (the app's first call)"
+    if not cookie:
+        record(12, name, False, "no session cookie to call with")
+        return
+    body = json.dumps({"type": "client-request", "rpcId": "probe-rpc", "method": "agentPresets/list",
+                       "payload": {"args": {"_request": {}}}}).encode()
+    r = request(GATE, "POST", "/api/agentPresets/list", {
+        "Host": AUTHORITY, "Cookie": cookie, "Content-Type": "application/json",
+        "Content-Length": str(len(body)),
+    }, body)
+    text = r["body"].decode("utf-8", "replace")[:120]
+    ok = r["status"] == 200 and '"ok":true' in r["body"].decode("utf-8", "replace")
+    record(12, name, ok,
+           f"{r['status']}, {len(r['body'])} bytes" + (f": {text}" if not ok else ""))
+
+
 def check_fence():
     """Ask the ENGINE directly, not the gate.
 
@@ -485,6 +510,7 @@ def run_checks():
     guarded(9, "a reused connection cannot bypass the gate", check_pooling)
     guarded(10, "the phone layer is served and complete", check_mobile_layer)
     guarded(11, "the mobile client plugin is in the browser roster", check_client_plugin)
+    guarded(12, "an authenticated RPC works (the app's first call)", check_authenticated_rpc, cookie)
     guarded("6b", "public /phone reaches the harness", check_redirector)
     return how
 
