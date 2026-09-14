@@ -236,7 +236,11 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
                  st.st_size, st.st_mtime, 1 if text_ok else 0, fid))
             updated += 1
             con.execute("DELETE FROM content WHERE file_id=?", (fid,))
-            con.execute("DELETE FROM tri WHERE file_id=?", (fid,))
+            # ONLY when the trigram index was actually created. This line was left
+            # unconditional when `tri` became opt-in, so every refresh died here
+            # with `no such table: tri` -- after the walk, before the state file.
+            if trigram:
+                con.execute("DELETE FROM tri WHERE file_id=?", (fid,))
         else:
             cur = con.execute(
                 "INSERT INTO files(path, root, ext, name, name_rev, size, mtime, indexed) "
@@ -284,7 +288,8 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
         for r in rows:
             if int(r["id"]) not in indexed_ids and not os.path.exists(r["path"]):
                 con.execute("DELETE FROM content WHERE file_id=?", (r["id"],))
-                con.execute("DELETE FROM tri WHERE file_id=?", (r["id"],))
+                if trigram:
+                    con.execute("DELETE FROM tri WHERE file_id=?", (r["id"],))
                 con.execute("DELETE FROM files WHERE id=?", (r["id"],))
                 pruned += 1
 
@@ -353,10 +358,19 @@ def do_find(con, pattern, limit, root_like, ext):
 
 def do_grep(con, term, limit, exact, root_like):
     if exact:
-        # NOTE: the `tri` table stores only (text, file_id). An earlier version of
-        # this branch also selected c.line and died with "no such column" on every
-        # substring query. The chunk's own offset is not recorded there, so we
-        # report the file and the matching text instead of a false line number.
+        # The `tri` table is opt-in, so this path must not assume it exists.
+        # Substring search over CONTENT is unavailable without it; say so and
+        # point at the two things that do work, rather than raising
+        # `no such table: tri` at the user.
+        have_tri = con.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='tri'").fetchone() is not None
+        if not have_tri:
+            print("  substring search needs the trigram index, which is off by "
+                  "default (it cost ~5 GB on this corpus).")
+            print("  options: `fsearch grep TERM` (word search, always available), "
+                  "`fsearch find NAME` (trigram path index), "
+                  "or rebuild with `--trigram`.")
+            return []
         sql = ("SELECT f.path, NULL AS line, substr(t.text, 1, 240) AS snip "
                "FROM tri t JOIN files f ON f.id = t.file_id WHERE tri MATCH ? LIMIT ?")
         return con.execute(sql, (f'"{term}"', limit * 4)).fetchall()[:limit]
