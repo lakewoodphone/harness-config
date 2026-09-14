@@ -1495,3 +1495,31 @@ re-runs in a loop until the service is removed; and a re-run of an idempotent sc
 script is truly idempotent (mine was not — it renamed a directory that no longer existed).
 
 
+**L175 · 2026-09-14 · A search index that returns `0` because it is empty is worse than no index.**
+`~/.fsearch/chats.db` was built 2026-09-14 01:05 with the full schema — `sessions`, `messages`, `msg_fts`,
+`msg_tri`, `ingest`, `meta` — and **0 rows in every one of them**. `chatindex search "<anything>"` answers
+`(0 of up to N)` in under a second, which reads exactly like "that conversation does not exist". I nearly told
+the owner the Google-Forms discussion was not in the capture, when it had simply never been loaded.
+*Rule:* a query tool that cannot distinguish "no matches" from "no data" is a false-negative generator and
+must not be trusted or shipped. An index must expose its own row count and age, and a `0` result must be
+reported as **"index empty"**, never as **"absent"**.
+*Evidence:* direct sqlite3 probe — every table 0 rows. Same class as L1/L2: absence is not evidence.
+Cost: one wrong conclusion, caught only because "0 files matched" was implausible against a previously
+recorded 17 GB / 1,009 sessions.
+
+**L176 · 2026-09-14 · Read the extension, not the folder name.**
+Hours of context loss came from assuming `chatSessions/` holds `.jsonl`. It holds **both**: 204 `.jsonl`
+files totalling 1.3 GB, and much larger **`.json`** files — single sessions at 214 MB and 98 MB. My first
+scanner filtered on `.jsonl` and so reported "0 files with matches" over a corpus that plainly contained the
+answer.
+*Rule:* before enumerating a store you did not create, list what is actually there; and treat any
+"0 results over a large corpus" as a bug in the query until proven otherwise.
+
+**L177 · 2026-09-14 · A doc citation is not a doc.**
+`lpt-account-sso-architecture-2026-09-05.md` is referenced by `AUDIT_AND_CLARIFICATIONS_2026-09-06.md` §C2 and
+by the computer-finder pivot doc, and is presented as the authority for how the LPT account system was
+architected. It **does not exist** — not on disk, not in `git log --all`, and the only occurrence of that
+filename anywhere is the citation itself.
+*Rule:* resolve a cited path before building on it; if it is missing, say so and re-ground the answer in a
+document that exists. A dangling pointer propagated through three documents is how a plan acquires a
+foundation nobody ever checked.
