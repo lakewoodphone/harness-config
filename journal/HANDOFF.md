@@ -1,3 +1,81 @@
+## 2026-09-14 · ZABZ-TECH · The computer-finder funnel is no longer dead — live on test, verified against the artifacts
+
+**What this session did:** first retrieved and consolidated the LPT website / Google-Forms / sign-in arc into one indexed document, then executed **Phase 3** of the account plan (put the computer finder behind the LPT account) and deployed it to test.
+
+CHANGED
+- **`phone-and-tech-full` commit `03acd5cea`** pushed to `test` and **deployed to test** (frontend on Netlify `lakewood-phone-test`, backend `lpt-test-backend` on Hetzner, migration applied to `lpt_test`).
+  - `laptop-preference` router: all three procedures `protectedProcedure` → **`customerProcedure`**. `protectedProcedure` throws FORBIDDEN for `role === 'CUSTOMER'`, so the questionnaire's own audience could never submit it. This was the HIGH-severity bug from the 2026-09-04 audit, and it made the feature dead twice over (the page was also unrouted).
+  - Route `/customer-portal/computer-finder` wired into `CustomerRoutes` + a "Find My Computer" nav entry. Deliberately behind login — no anonymous submissions (owner decision 2026-09-04).
+  - Budget tiers unified onto the decided `$600-750 / $750-900 / $900-1200 / $1200+`; added `conditionPreference` (new/refurbished/open-box/none), which the sourcing workflow needs as a hard filter and the website form never asked.
+  - Migration `20260914120000_unify_budget_tiers_add_condition_preference`.
+  - Fixed two **pre-existing** frontend typecheck errors from commit `15c368e13` (`FAQSection.tsx` unused type + import order; `useFaqs.ts` `debug.warn` called with 4 args vs 3) that were breaking the repo-wide gate.
+  - New `laptop-preference.router.test.ts`, 10/10.
+- **`phone-and-tech-full/docs/audit/LPT-WEBSITE-AND-ACCOUNT-OVERHAUL-MASTER.md`** — the consolidated index of the whole website-overhaul / Google-Forms / LPT-sign-in arc. **Every referenced path existence-checked (7/7).**
+- Journal: DECISIONS **D63** (customer-facing ⇒ `customerProcedure`; tier unification) and **D64** (derive enum types from the model); WINS **W28**; LESSONS **L175–L177**; PAIN entry on the empty search index.
+
+EVIDENCE (all read back, not assumed)
+- Live bundle `index-Cw1cZrFI.js` == the hash built locally, containing `computer-finder`, `Find My Computer`, `PREMIUM_1200_PLUS`, `REFURBISHED_OK`; `/customer-portal/computer-finder` → 200.
+- Running backend image's `dist/.../laptop-preference.js` contains `customerProcedure` ×4, `conditionPreference` ×2; `/health/live` → `{"status":"alive"}`; `laptopPreference.getMy` → **401** (registered; 404 would mean missing).
+- Postgres (read directly): migration recorded applied; `condition_preference` exists/nulable; `BudgetTier` holds exactly the four new labels with the three old ones **gone**; `ConditionPreference` holds its four.
+- `tsc --noEmit` clean both packages; ESLint clean on every file touched.
+
+BROKEN / STALE (found this session)
+- **`~/.fsearch/chats.db` is EMPTY** (0 rows, all tables) yet answers every query with `(0 of …)`. Do not trust it until the ingest is verified or the file is deleted. Nearly caused a false "that conversation doesn't exist" report.
+- **`lpt-account-sso-architecture-2026-09-05.md` does not exist** — cited by `AUDIT_AND_CLARIFICATIONS_2026-09-06.md` §C2 and the pivot doc; the only occurrence of the name anywhere is the citation.
+- **The verbatim Google-Forms chat is not recoverable on this machine.** Searched 285 session files (4.04 GB), Copilot `session-store.db` (0 rows), `~/.fsearch/chats.db` (0 rows), the authority's `conversations` table, and `git log --all`. Newest VS Code session is 2026-09-02. **Do not re-run this search** — see the master doc §6.
+- **Pre-existing repo-wide lint failures** remain in `invoice.service.ts`, `paymentService.ts`, `trpc/routers/order.ts`, `trpc/routers/notifications.ts`, and frontend `work-orders/*` + `lib/trpc.ts`. Untouched by this change; they block `pnpm lint` for everyone.
+- The test checkout on the host carries an **uncommitted** `backend/Dockerfile.production` fix (dated 2026-08-31, marks the original as unbuildable). It is load-bearing there and is not in git — worth committing before it is lost.
+
+NEXT
+1. **The secretary webhook is the remaining Phase 3 piece** — `POST /webhook/computer-form` in `personal-secretary-mvp`, shared-secret + idempotent, turning a website submission into the same output the Google Form path produces (contact + CEO task + lpt-hub sync record + case file + research plan). `scripts/process-computer-form-leads.py::process_row(forms_json, row, planner)` already does the whole pipeline; it needs a website-shaped row adapter (`build_plan` currently reads Google-Form column names) plus `COMPUTER_FORM_WEBHOOK_SECRET`. **Until that exists a submission is stored in the DB but nothing downstream happens, so the Google Form stays the live intake.**
+2. `chatindex` — fix or delete (PAIN entry above).
+3. Uncommitted website-audit answers still unexecuted: FAQ merge into the DB, labor-tier cleanup, populate the 0-row service catalog, `support@` inbox check.
+
+## 2026-09-14 · ZABZ-TECH · The LPT website-overhaul + Google-Forms→LPT-sign-in arc is now one indexed document
+## 2026-09-14 08:40 UTC · ZABZ-YOGA · The compliance controls a parent can actually use: notice, consent, deletion, expiry
+
+**CHANGED**
+- **C-4 built and tested** (`e0ee08b`): the review *record* now has a lifetime (`screenshot_review_row_retention_days`,
+  180 days), purged on the same write path as the image purge so no scheduler has to be remembered, with per-label
+  counts surviving as the anonymous aggregate that keeps `research/022`'s calibration requirement satisfiable. The
+  test caught a fail-dangerous in my first version: keying on `ts` (the device's claimed capture time) deleted a row the
+  instant it arrived when the clock was old — it keys on `received_ts` now (`D58`).
+- **`tests/test_compliance_defaults.py`** (5 tests) pins the shipped defaults as the legal posture: escalation off,
+  provider off, images not stored, frames scrubbed, gate fail-closed, verdicts expiring. `D57` says why — a default is
+  exactly what an unnoticed change would move.
+- **C-2, C-3, C-5, C-7 written** (`459fda2`): `docs/compliance/parent-notice-2026-09-14.md` (the page a parent reads,
+  including the retention table and an explicit "we publish no percentage"), `parental-consent-and-provisioning-2026-09-14.md`
+  (two separate consents, Form B structured as the literal §312.5(b)(2)(i) method — signed **and returned** by electronic
+  scan — plus an identity step, and the shop's six steps), and `vendor-clauses-and-use-restrictions-2026-09-14.md` (the
+  14-clause set with each clause's published status, the annual re-verification procedure, and the do-not-use list).
+- The controls table in `coppa-retention-and-security-program-2026-09-14.md` now carries honest states: C-1 and C-4
+  **done**, C-2/C-3 **drafted and unexercised**, C-5 **procedure written, first assessment not done**, C-7 **clause set
+  sendable, no vendor has answered**, plus two new items — C-8 (a `consent_record` in the product rather than a scanned
+  page in a customer file) and the note that nothing checks Form B exists.
+
+**IN FLIGHT**
+- No image egress remains gated behind unanswered clauses: lines 1, 2, 4, 12 and 13 of the vendor set (no training, no
+  retention, no human review, **no face embedding computed**, no response body stored) are unanswerable today, which is
+  why escalation stays off — the same state as the legal baseline, now with a document that says so.
+- The three documents are drafts: the notice needs the owner's approval and a contact block, the consent procedure needs
+  a first real run through it, and the vendor clause set needs sending.
+
+**BROKEN**
+- Nothing broken. Five more tests added this round (11 deletion/hygiene, 5 defaults) and the wide affected slice is
+  green: **all screenshot, owner, route-security, SQL-surface, prompt-hygiene, egress, deletion and defaults tests pass**.
+
+**NEXT**
+- C-8 (a consent record the product can point at) is the next real build, because it is the difference between "the shop
+  has a procedure" and "the system can prove consent". Then the labelling pilot, which is a separate thread.
+
+**EVIDENCE**
+- Commits `e0ee08b` (C-4 + the `received_ts` fix), `459fda2` (three documents + the controls table), `572dc64`
+  (defaults pinned). All pushed.
+- The storage SQL surface digest moved twice this round and the history comment records each move; count stayed 334
+  because both new statements are static SQL by design.
+
+---
+
 ## 2026-09-14 07:40 UTC · ZABZ-YOGA · The filter's legal audit, written as counsel-of-record — and it killed the cheapest vendor
 
 **CHANGED**
@@ -52,6 +130,104 @@
 - The two audits that caught my own changes: `Storage SQL surface audit failed: … digest changed` and
   `HTTP route security audit failed: unexpected routes requiring review (1): POST /owner/…/purge` — the codebase working
   as designed.
+
+---
+
+## 2026-09-14 06:35 UTC · ZABZ-YOGA · The DRN fleet can now be managed from the portal — and three of my own numbers were wrong when I measured them
+
+**CHANGED — the owner's three DRN needs, wired end to end.**
+The staff Waze page split the fleets correctly last round, but the **DRN half was read-only**: no way to
+open a device, and the disclaimer already promised "profiles" that nothing could produce. The owner had
+named the three things that fleet needs — *"are their phones alive, push a profile, lock a lost one"* —
+and settled that the portal is the entry point (D19). So: `WazeMdmDevicePanel` (new), a per-row **Open**
+on the DRN table, and five new `wazeFleet` procedures.
+
+Why a **second** panel rather than reusing `WazeDevicePanel`: that one is carrier-keyed (Telnyx cap/pause),
+and every one of those endpoints **404s for the whole DRN fleet**, because DRN run on their own SIMs we do
+not manage. Reusing it would have shown an error against a phone that is perfectly fine.
+
+**Deliberately NOT built: a raw profile picker.** There are 10 profile types and `hard-kiosk` /
+`soft-kiosk` / `vpn` all resolve to the same underlying file; pushing an arbitrary one at a locked phone
+is how you brick it. The portal exposes the two real intents — **re-apply lockdown**, or **lift it for
+service** — and delegates sequencing to the fleet-api's tested `/lockdown`, which already handles the
+per-DRN `layered-kiosk` identifier variants and the remove-then-install order iOS requires.
+
+**THREE CORRECTIONS TO MY OWN WORK, all found by measuring rather than reasoning.**
+
+1. **I was overstating the silent-device count by 9.** The DRN banner said *62 devices silent*, but 9 of
+   those are `retired` — out of service on purpose, and already exempted by the monitor's own
+   `retired_exempt` rule. I had reintroduced in the UI the exact exemption the monitor had fixed. Live
+   count now: **53 silent, 9 retired excluded**, and retired rows show a neutral "Retired" chip instead of
+   a red "Silent · 39d" alarm. Measured this session from `/fleet/devices`: 65 devices = 55 deployed,
+   9 retired, 1 deploying; all 9 retired are DRN (baltimore 1, chicago 2, lakewood 6).
+
+2. **Every timestamp the fleet-api emitted was timezone-free, and every consumer read it as local.**
+   `command_results.updated_at`, `enrollments.last_seen_at` and `fleet_devices.last_seen` are all
+   `timestamp without time zone` holding UTC, so `::text` gave `2026-09-08 22:54:13.245131`. Measured:
+   `Date.parse` on that returns `2026-09-09T02:54:13.245Z` — **four hours later than the true instant**
+   (this box is UTC-4), so a device looked four hours *fresher* and could sit under the 7-day "silent"
+   threshold while actually over it. Now formatted in SQL as ISO-8601 with an explicit `Z`.
+   **The verification of this was itself nearly a lie:** the first check used `Invoke-RestMethod`, which
+   silently converts ISO strings to `[datetime]` and re-renders them in local culture, so it printed
+   `09/11/2026 01:27:25` and the milliseconds vanished from a value that was correct on the wire.
+   Re-read with `curl` → `"2026-09-11T01:27:25.133Z"`. See LESSONS L195.
+
+3. **A bad `PG_DSN` hung indefinitely, and I had just put that on a request path.** `profile_report` is
+   now called from a portal request whose budget is seconds; an unreachable host does not refuse, it sits
+   in libpq's default (effectively unbounded) connect wait. Measured: >120 s unfetched, **5 s** with
+   `connect_timeout`. Bounded, and pinned by a test that fails on an unbounded connect.
+
+**THE HONEST PART OF THE PROFILE FEATURE.** Only **1 of 65 devices has ever answered a ProfileList**
+(DRN 2001 — the LPT test device, observed 2026-09-08T22:54:13Z). So every DRN device renders
+*"Could not determine the installed profiles"* **with the server's reason verbatim**, and the panel says
+plainly *"This is unknown, not empty — do not read it as 'the phone has no profiles'"*. That is the whole
+point: the old server-side check read `public.device_profiles`, which NanoMDM never populates, and
+therefore reported "MISSING" for profiles that were installed. `determination: known | unavailable` is now
+a first-class contract field, and a genuinely empty list is `known` — the two can no longer look alike.
+The read never wakes the device; **"Ask device to report"** is its own button, because enqueueing a
+ProfileList makes the phone do work and reveals we are watching it.
+
+**VERIFIED, with the caveat stated.** Backend deployed to the test stack (`bc85463`, healthy; four new
+procedures probed live → 401 "Authentication required", i.e. they exist). UI driven end-to-end against the
+**live test API** through a local host that reproduces Netlify's own `/api/*` proxy: banner reads
+*53 + 9 retired excluded*; DRN 1002's panel shows the unknown-profiles block with its reason; and the
+confirm gates hold — **empty, lowercase, and near-miss tokens all leave both buttons disabled; only the
+exact `SERVICE WINDOW` / `LOST MODE` enable them**, and nothing was clicked, so no MDM command was sent to
+any phone.
+
+**BLOCKED, and it is money, not engineering.** The frontend **cannot be published**: Netlify returns
+`403 Account credit usage exceeded - new deploys are blocked until credits are added`. The account
+(`ableTelSolutions`, Free) has `next_usage_period_start 2026-10-07`. **So the built bundle is verified but
+NOT deployed** — `test.lakewoodphoneandtech.com` still serves the previous bundle. One owner question open
+(QUESTIONS 2026-09-14).
+
+**A DOCUMENT IN THIS REPO IS WRONG, AND IT IS THE "AUTHORITATIVE" ONE.**
+`docs/operations/DEPLOY_ARCHITECTURE_REALITY.md` says *"There is no Netlify webhook / build hook"*. False:
+pushing to `test` **does** trigger a Netlify API build, which fails with *"Build blocked: Unrecognized Git
+contributor"*. Evidence — two such deploys in the API, `6aa78cd5…` (05:57:41Z) and `6aa78f87…` (06:09:11Z,
+titled with **my** commit message). This is very likely the source of the **197 GitHub "Run failed" emails
+in 7 days** another session found. Not yet corrected in the doc.
+
+**CHANGED — files.** `personal-secretary-mvp`: `fleet-api/{fleet_api.py,nanomdm_client.py}`, new
+`test_profile_report.py` (11 tests; **122 passing**, was 111) → commits `ce010c714`, `d23ca01ee` (both
+deployed to `87.99.141.172`). `phone-and-tech-full` (branch `test`): `waze-device.service.ts` (+11 tests,
+**31 passing**), `wazeFleet.ts`, `components/waze/{types,WazeDrnFleet,WazeMdmDevicePanel}.tsx`,
+`WazeFleetPage.tsx`, `WazeLptFleet.tsx` caption, new `scripts/verify-host.mjs` → `bc8546359`, `4bfad68ab`
+(both pushed to `origin/test`).
+
+**WHAT I DID NOT TOUCH.** No MDM command was sent to any device; no production host was changed; the test
+fixture (`waze-verify@example.invalid`, user 1226) was promoted to ADMIN only to authenticate and is
+**reverted to CUSTOMER**; `lpt_prod` untouched throughout.
+
+**EVIDENCE**
+- Live fleet read `GET /fleet/devices` on `87.99.141.172:8003` this session: 65 devices, 55 deployed /
+  9 retired / 1 deploying; DRN silent 53 non-retired (62 including retired).
+- Profile coverage: `claimed 1/65` — one row, DRN 2001, via `command_results` join on `ProfileList`
+  /`Acknowledged`.
+- Wire format before/after read with `curl`, and `Date.parse` compared for both forms in Node.
+- Screenshot: `personal-secretary-mvp/waze-drn-mdm-panel-verified.png`.
+- Netlify: `403` body captured verbatim; account credits read from `/api/v1/accounts`; the two
+  webhook-triggered "Unrecognized Git contributor" deploys read from `/sites/{id}/deploys`.
 
 ---
 
