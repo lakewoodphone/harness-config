@@ -1059,3 +1059,24 @@ internal, reversible, and needs no outbound permission, unlike SMS or email.
 - The local engine on ZABZ-YOGA (same build, port 3099) answers RPCs normally, so the build is not broken — this is host-specific.
 **Cost.** The owner's phone is a shell until this is fixed. The probe could not see it before today (L150).
 **Fix.** Unknown. The next probe to run is: start a second engine on that host with `DSH_HOME` pointed at a copy of the profile, on a scratch port, and compare `POST /api/...` against the one on 3089 — that isolates host state from process state. Note P40's consumer now works: the kernel reports this as **HIGH** (`the phone URL is broken: the end-to-end probe fails check(s) 4, 12`).
+
+## P54 — The first search index was 10.87 GB for 112 GB of files, from two self-inflicted causes
+
+**Symptom.** `~/.fsearch/index.db` reached **10.87 GB** while cataloguing 112 GB — a ratio no user would
+accept once they saw it, and enough to make a "just rebuild it" step feel expensive.
+
+**Measured causes, both mine.**
+1. Every chunk was written to **two** FTS5 tables (`content`/porter and `tri`/trigram), so the same
+   **2.19 GB of text was stored twice** and the trigram index cost roughly as much again on top.
+2. **15 GB of the 112 GB catalogued was duplicate trees** — `lpt-hub-workingtree-backup-*` (8.93 GB),
+   `artifacts/f21-backup` (5.79 GB), `_archive` (0.79 GB) — the same files under a second path.
+
+**Evidence.** `SELECT SUM(LENGTH(text)) FROM content` = 2.19 GB, identical for `tri`; `SELECT root,
+SUM(size) FROM files`; `SELECT ... WHERE path LIKE '%workingtree%'` = 26,367 files / 8.93 GB.
+
+**Fix (done).** Trigram is now opt-in (`--trigram`) and restricted to code extensions; the walker skips
+backup/worktree/archive directory *patterns*. Result: **1,845 MB for the same corpus** while the
+duplicates were still being walked. Still open: the index carries 685,000 file rows, and a date-aware
+rule ("catalog everything, but only index content in recently-touched trees") would cut it further
+without losing the ability to find an old file by name.
+

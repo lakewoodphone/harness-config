@@ -57,6 +57,16 @@ SKIP_DIRS = {
     ".vs", ".cache", "coverage", "htmlcov", ".terraform", "Pods", ".dart_tool",
 }
 
+# Directory NAME patterns that are copies of trees already indexed. Measured on
+# this machine: `lpt-hub-workingtree-backup-*` 8.93 GB, `artifacts/*backup*`
+# 5.79 GB, `_archive` 0.79 GB -- 15 GB of the 112 GB catalogued, all of it the
+# same files under a second path. Indexing them doubles storage and token count
+# and makes every result list carry a duplicate.
+SKIP_DIR_PATTERNS = (
+    "*workingtree*", "*_archive*", "*_snapshots*", "*backup*", "*_worktrees*",
+    "*_old*",
+)
+
 # Extensions worth their bytes. Everything else is catalogued by name only.
 TEXT_EXT = {
     ".py", ".pyi", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".vue", ".svelte",
@@ -74,6 +84,13 @@ TEXT_NAMES = {
     "Dockerfile", "Makefile", "makefile", "GNUmakefile", "CMakeLists.txt",
     "README", "LICENSE", "CHANGELOG", "NOTICE", ".gitignore", ".dockerignore",
     ".env", ".env.local", "requirements.txt", "Procfile",
+}
+# Extensions that earn a trigram (substring) entry: identifiers live here.
+TRIGRAM_EXT = {
+    ".py", ".pyi", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".vue", ".svelte",
+    ".go", ".rs", ".java", ".kt", ".kts", ".c", ".h", ".cc", ".cpp", ".hpp", ".cs",
+    ".rb", ".php", ".pl", ".lua", ".sh", ".bash", ".zsh", ".ps1", ".bat", ".cmd",
+    ".sql", ".psm1", ".dart", ".swift", ".m", ".mm",
 }
 MAX_TEXT_BYTES = 3_000_000     # skip anything bigger; not worth the index budget
 CHUNK = 4000                   # chars per content row, so a hit can be located
@@ -109,11 +126,11 @@ def connect(db_path: str) -> sqlite3.Connection:
             line UNINDEXED,
             tokenize='porter unicode61'
         );
-        CREATE VIRTUAL TABLE IF NOT EXISTS tri USING fts5(
-            text,
-            file_id UNINDEXED,
-            tokenize='trigram'
-        );
+        -- The trigram index is created ONLY under --trigram. Measured on
+        -- 2026-09-14: `content` and `tri` held the same 2.19 GB of text twice and
+        -- the index reached 10.87 GB for 112 GB of catalogued files. Substring
+        -- search earns its keep on source code, not on 611 MB of minified HTML,
+        -- so the default stays lean and the expensive index is opt-in.
         CREATE TABLE IF NOT EXISTS meta (
             key TEXT PRIMARY KEY,
             value TEXT
@@ -160,8 +177,15 @@ def walk_roots(roots, verbose=False):
             print(f"  ! not a directory: {root}")
             continue
         for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
-            dirnames[:] = [d for d in dirnames
-                           if d not in SKIP_DIRS and not d.startswith(".git")]
+            keep = []
+            for d in dirnames:
+                if d in SKIP_DIRS or d.startswith(".git"):
+                    continue
+                low = d.lower()
+                if any(fnmatch.fnmatch(low, pat) for pat in SKIP_DIR_PATTERNS):
+                    continue
+                keep.append(d)
+            dirnames[:] = keep
             seen_dirs += 1
             if verbose and seen_dirs % 2000 == 0:
                 print(f"    … {seen_dirs} dirs", flush=True)
@@ -169,10 +193,15 @@ def walk_roots(roots, verbose=False):
                 yield root, os.path.join(dirpath, name), name
 
 
-def do_index(con, roots, verbose=False, reindex=False):
+def do_index(con, roots, verbose=False, reindex=False, trigram=False):
     t0 = time.time()
     seen = added = updated = skipped = content_rows = 0
     indexed_ids: set[int] = set()
+
+    if trigram:
+        con.execute(
+            "CREATE VIRTUAL TABLE IF NOT EXISTS tri USING fts5("
+            "text, file_id UNINDEXED, tokenize='trigram')")
 
     con.execute("BEGIN")
     for root, path, name in walk_roots(roots, verbose):
@@ -228,7 +257,9 @@ def do_index(con, roots, verbose=False, reindex=False):
                     continue
                 con.execute("INSERT INTO content(text, file_id, line) VALUES(?,?,?)",
                             (piece, fid, text.count("\n", 0, i) + 1))
-                con.execute("INSERT INTO tri(text, file_id) VALUES(?,?)", (piece, fid))
+                if trigram and ext in TRIGRAM_EXT:
+                    con.execute("INSERT INTO tri(text, file_id) VALUES(?,?)",
+                                (piece, fid))
                 content_rows += 1
         if seen % 5000 == 0:
             con.commit()
@@ -323,6 +354,8 @@ def main() -> int:
     p.add_argument("--verbose", action="store_true")
     p.add_argument("--reindex", action="store_true",
                    help="re-read every file even if unchanged")
+    p.add_argument("--trigram", action="store_true",
+                   help="also build the substring index (large; code files only)")
 
     p = sub.add_parser("find")
     p.add_argument("pattern")
@@ -344,7 +377,8 @@ def main() -> int:
     con = connect(a.db)
 
     if a.cmd == "index":
-        res = do_index(con, a.root, verbose=a.verbose, reindex=a.reindex)
+        res = do_index(con, a.root, verbose=a.verbose, reindex=a.reindex,
+                   trigram=a.trigram)
         print(f"indexed in {res['seconds']}s: seen={res['seen']} new={res['added']} "
               f"changed={res['updated']} unchanged={res['skipped']} "
               f"chunks={res['chunks']} pruned={res['pruned']}")

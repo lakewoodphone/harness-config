@@ -1469,3 +1469,36 @@ third-party bundle (leaving `@deepseek-ai/dsh-base` + `@deepseek-ai/dsh-web-app`
 engine twice. The engine packages have not changed since 2026-09-11, `--trusted-host` is correct on the command line, and a
 loopback Host gets 401 (no trust) rather than 403. Cause still unknown; the class is "the fence refuses API/WS for the
 trusted authority while serving its documents".
+
+**L171 · 2026-09-14 · Index the same text twice and you pay twice — choose ONE expensive index.**
+Building the search index, I stored every chunk in two FTS5 tables: `content` with `porter` (stemming)
+and `tri` with `trigram` (substring). Measured afterwards: **the same 2.19 GB of text held in both**,
+and the index reached **10.87 GB for 112 GB of catalogued files**. A trigram index of 2.19 GB of
+*prose* is not worth 5 GB of disk, and 611 MB of the indexed text was minified HTML that nobody will
+ever substring-search.
+*Rules:* (a) before adding a second index over the same column, measure what each costs and what each
+uniquely answers; (b) make the expensive one **opt-in and scoped** — substring search earns its keep on
+source code, not on bulk prose; (c) a "10× storage for 2× capability" trade is usually a symptom of
+indexing too much rather than of needing more indexes. Result after making trigram opt-in and
+code-only: **1,845 MB for the same corpus** (measured while the duplicate trees were still being
+walked, so the real figure is lower).
+
+**L172 · 2026-09-14 · Index the trees you own; a backup directory is a second copy of your own index.**
+8.93 GB of `lpt-hub-workingtree-backup-*`, 5.79 GB of `artifacts/*backup*` and 0.79 GB of `_archive`
+were being catalogued under a second path — **15 GB of 112 GB catalogued**. Duplicates do three kinds
+of damage: storage, token count, and every result list carrying the same answer twice so the reader
+cannot tell which path is real.
+*Rule:* exclude by directory **pattern** (`*workingtree*`, `*backup*`, `*_archive*`), not just by a
+fixed name list — backup trees are named after whatever they back up.
+
+**L173 · 2026-09-14 · Two parsers of the same format will disagree; find out which one is inflating
+before you trust the bigger number.** The first chat ingester reported **15,149 messages**; the rewritten
+one (which applies the patch records the first ignored) reported **10,789**. The lazy reading is "the
+first one found more". Comparing them on the same 610 files settled it: **93 files where the new parser
+found substantially more, ZERO where the old one did**, and the old one carried **282 repeated-text
+groups versus 163** — including the text `b` repeated **39 times in one file**, which is the signature of
+emitting a row per record instead of replaying to a final state.
+*Rule:* when two implementations of one format disagree, compare them **per file**, and look for
+duplicate text as the tell. A larger total from a parser that does not apply patches is inflammation,
+not coverage.
+
