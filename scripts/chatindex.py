@@ -83,6 +83,11 @@ DEFAULT_ROOTS += [
 def connect(db_path: str) -> sqlite3.Connection:
     os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     con = sqlite3.connect(db_path, timeout=30)
+    # Python's sqlite3 opens an implicit transaction on the first write unless this
+    # is set, which makes an explicit "BEGIN" raise "cannot start a transaction
+    # within a transaction". Setting isolation_level=None (autocommit) hands
+    # transaction control to this file, where every BEGIN/COMMIT is deliberate.
+    con.isolation_level = None
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA synchronous=NORMAL")
@@ -435,6 +440,8 @@ def ingest_file(con, path, source, verbose=False):
 
     # ── emit turns ──
     written = 0
+    if con.in_transaction:
+        con.commit()                 # never BEGIN inside an open transaction
     con.execute("BEGIN")
     for n, req in enumerate(requests):
         if not isinstance(req, dict):
@@ -482,10 +489,9 @@ def ingest_file(con, path, source, verbose=False):
             # non-transaction is harmless; STARTING one inside an open transaction
             # is an error, and that is what made whole files fail with
             # "cannot start a transaction within a transaction".
-            try:
-                con.execute("BEGIN")
-            except sqlite3.OperationalError:
-                pass
+            if con.in_transaction:
+                con.commit()
+            con.execute("BEGIN")
 
     # Balance the transaction unconditionally. An unmatched BEGIN here is how
     # files with zero requests produced the error above.
@@ -593,12 +599,13 @@ def do_index(con, roots, verbose=False, limit=None):
     files.sort(key=os.path.getsize)          # small first: usable index in minutes
     if limit:
         files = files[:limit]
-    tot_r = tot_m = 0
+    tot_r = tot_m = errors = 0
     for i, path in enumerate(files, 1):
         try:
             r = ingest_file(con, path, "vscode")
         except (OSError, ValueError, sqlite3.Error) as exc:
-            print(f"  ! {os.path.basename(path)}: {exc}")
+            errors += 1
+            print(f"  ! {os.path.basename(path)}: {type(exc).__name__}: {exc}")
             continue
         tot_r += r["requests"]
         tot_m += r["messages"]
@@ -612,8 +619,10 @@ def do_index(con, roots, verbose=False, limit=None):
     con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('parser_version',?)",
                 (str(PARSER_VERSION),))
     con.commit()
+    if errors:
+        print(f"  WARNING: {errors} file(s) failed; their rows may be missing")
     return {"files": len(files), "requests": tot_r, "turns": tot_m,
-            "seconds": round(time.time() - t0, 1)}
+            "errors": errors, "seconds": round(time.time() - t0, 1)}
 
 
 def main() -> int:
