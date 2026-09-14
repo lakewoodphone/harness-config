@@ -1175,7 +1175,10 @@ data loss, which this business has suffered twice.
 **Fix (done).** Rebuild from scratch into the canonical path with the corrected code (verified: 120 real
 files → **11,906 messages, 0 errors**). Still open: make the re-ingest atomic per file so a single bad
 file cannot empty its own rows; the honest target is "a failed file changes nothing".
-## P56 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)
+## P60 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)
+
+*(Numbered 60, not 56, because other sessions claimed P56–P59 in the same hour. The numbers are a shared
+namespace written concurrently and a collision is worse than a gap — the same class of problem as L175.)*
 
 **Symptom.** Four `/health` probes 6 s apart returned `ok:true, ok:true, ok:false, ok:false`. The failure
 mode is honest in its own words — `"db check timed out (lock contention); api still responsive"` — and the
