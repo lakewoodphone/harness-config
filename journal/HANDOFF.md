@@ -64,6 +64,93 @@ EVIDENCE
 - `bash scripts/server/owner-attention-digest.sh` → the 0b numbers above; sentinel `6 of 12 failing`.
 - Commits on secratary `personal-secretary-mvp`: `afabf5d0` (v2), `534217c2`, `4dde29ab`, `53739081`;
   branch `ops-archive-freshness-alarm` verified far-side.
+## 2026-09-14 02:20 · secratary · Chase email to ALCO sent (owner approved); the vendor-promise hole is written up as P52
+
+CHANGED
+- **SENT** the chase email to Mark Ackerman (AKON/ALCO) about order #216040-00, after the owner approved
+  it: *"Yes, send it, document and update the documents."* Message id `1a09db366297807c`, thread
+  `19ff6b05605158e3`, labels `["SENT"]`, verified by reading the message back from Gmail. Sent as a
+  **threaded reply** to Mark's 2026-08-29 message.
+- **Documents updated:** `docs/personal/shlock/email-to-mark-2026-09-14.md` (new — verbatim body, why it is
+  shaped that way, the exact send method), `2026-09-13-status-and-draft.md` (now marked SENT + the full
+  four-rejection iteration trail), `thread-transcript-2026-08-alco.md` (message 14 + status header),
+  `README.md` (status 2026-09-14), `memories/repo/shlock-sukkah-rain-cover.md` (memory is gitignored —
+  it lives only on this box, so the tracked file carries the durable copy). Committed to the repo.
+- **PAIN P52 added** — "An outbound promise with a date has no keeper." Fix written: a promise-keeper row
+  for any outbound mail containing a promised date or a "we'll let you know", plus a per-order status
+  endpoint where the vendor exposes one. Manual stand-in for this order: task **#24869**.
+
+EVIDENCE
+- Sent body and method: `app/services/gmail_service.py::reply_to_message` is the **only** path that
+  preserves threading — the `gmail_send` action accepts no `thread_id`. Script:
+  `/home/zabz/_scratch/send_alco_chase_20260914.py` run with the repo venv. Verified live at send time:
+  `GMAIL_SEND_REQUIRES_APPROVAL=false` in `.env` and on the running PID, `MOCK_OUTBOUND_COMMS` unset.
+- **The draft took four owner rejections**, each a real constraint: too long ("he doesn't care about our
+  actual holiday") → too strong ("it sounds like you're threatening him") → don't name September 22
+  ("write the sooner the better") → no reason at all ("a few days with it once it arrives doesn't explain
+  anything"), then: "order it yourself a few times before giving me the final version. I don't need to
+  keep checking you." Lessons appended to `LESSONS.md`.
+- Order still **not shipped**: ALCO's live tracking sheet, tab `August 2026`, row `216040-00` = "In
+  Production", no tracking/courier, read 2026-09-14 02:07 UTC. 820-row tab with 721 shipped rows carrying
+  UPS numbers, so the source is live, not a stale copy.
+
+NEXT
+- Watch for Mark's reply; re-poll the ALCO tracking sheet daily (endpoint is in the task and the docs).
+- No dated answer by ~**Sep 17** → phone Mark direct **786-796-2036** / AKON **989-414-1209** /
+  ALCO **904-290-8007**. Can't ship by ~**Sep 18** → the Lookout Mountain fallback decision has to be made
+  that day (P52's fix says the system should be the one remembering this, not a future me re-reading a doc).
+- **Build the promise-keeper** (P52 fix 1). It is small and it is the difference between this being fixed
+  and this being rediscovered.
+
+## 2026-09-14 02:08 · secratary · The sukkah tarp was paid for on Aug 11 and never shipped; nobody was watching
+
+CHANGED
+- **Wrote `docs/personal/shlock/2026-09-13-status-and-draft.md`** (personal-secretary-mvp) — the tarp
+  status, the evidence with provenance, the deadline math, and the **UNSENT** chase email to Mark
+  Ackerman. Owner asked for the draft and will approve it.
+- **Corrected the durable records, which were 16 days stale.** `memories/repo/shlock-sukkah-rain-cover.md`
+  now opens with a 2026-09-13 status block; the Aug 29 / Aug 30 exchange (Mark: "Usual lead time is
+  3-4 weeks…"; owner: "Ok, thank you.") was added to it and to
+  `docs/personal/shlock/thread-transcript-2026-08-alco.md` (now 13 messages, not 11); README status fixed.
+- **Corrected a stale claim this system was asserting confidently: the frame IS built.** Owner stated it
+  2026-09-13. The memory file had carried "ELEPHANT: FRAME IS THE REAL CRITICAL PATH / backyard beam NOT
+  installed" since Aug 28. Old text retained, marked STALE — not deleted.
+
+EVIDENCE
+- **ALCO's live order-tracking backend is a public Google Sheet.** Sheet ID
+  `1cvxXkphG2srDEHP7JkIJhqAeOgRzq5yufV6EfBXtUKE` (harvested from the inline JS on
+  `alcocovers.com/knowledge-base/track-your-order/`); query
+  `/gviz/tq?sheet=August%202026&headers=1&tq=select%20C,D,E,F`. Read **2026-09-14 02:07 UTC**:
+  row `Date(2026,7,11)` / AKON / `216040-00` / **"In Production"** / tracking empty / courier empty /
+  Notes "Transferred to AKON". The tab is live proof, not a stale copy: 820 rows, 721 "Shipped" with
+  UPS tracking numbers.
+- **Gmail is authoritative and silent.** `in:anywhere (from:alcocovers.com OR from:akonllc.com OR
+  from:mark@akonllc.com)` from `eliyahuzabrowsky@gmail.com` = **7 messages, newest 2026-08-29**.
+  Order #216040-00, 342"×144" 18 oz tan, **$615.44 paid 2026-08-11**, free shipping.
+- Deadline: Sukkos begins **sundown Fri 2026-09-25**. ALCO stated 3–4 weeks on Aug 28 (→ ship Sep 18–25);
+  ALCO's own shipping FAQ says custom covers "generally ship in about 7-10 work days" (that window
+  closed Sep 11). Ships by Sep 18 → arrives ~Sep 22–23 → installable. Ships Sep 25 → wasted until 2027.
+
+BROKEN (found this session)
+- **No watcher exists on a vendor promise.** The order was paid, the spec was locked, the vendor went
+  quiet, and the project's own memory froze at Aug 28. The active failure is not the vendor's — it is
+  that a $615 order on a hard holiday deadline had nothing checking on it. Nothing in the tick loop,
+  the queue, or the journal noticed; the owner did. Not yet fixed — see NEXT.
+- **The pricing question from 2026-08-28 was never answered** ($615.44 vs. an upcharge for the 6 body
+  grommets replacing tabs). Mark said he'd check with production and did not come back.
+
+NEXT
+- Send the chase email **only on explicit per-message approval**; it asks for a ship date and proactive
+  updates, offers to pay for expedited shipping, and never threatens cancellation (non-refundable after
+  fabrication).
+- If no *dated* answer within 48h: phone. Mark Ackerman direct 786-796-2036, AKON main 989-414-1209,
+  ALCO support 904-290-8007.
+- If ALCO cannot commit to shipping by ~Sep 18, the fallback decision (Lookout Mountain Tarp, ~5
+  business days) must be made the same day — see `2026-08-21-supplier-audit-decision.md`.
+- Re-read the tracking sheet daily; it is the ground truth on ship status.
+- **Build the missing watcher:** any outbound email containing a promised date should create a
+  date-bound follow-up that surfaces in the digest. This is the same class of failure the owner has
+  paid for before — a promise with no keeper.
 
 ## 2026-09-11 18:44 · ZABZ-TECH · A regeneration had silently deleted two persona rules, and the plugin layer had no keeper
 

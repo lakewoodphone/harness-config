@@ -943,3 +943,36 @@ machine has **local work newer than its last shipment**, and report an idle mach
 of "stale archive", used by both, or delete one of them — two definitions of the same fact is the P3 shape
 (three copies of a database, none authoritative) applied to a metric.
 
+---
+
+## P52 — An outbound promise with a date has no keeper, so a paid order on a hard deadline went unwatched for 16 days
+
+**Symptom.** Order #216040-00 — a $615.44 custom sukkah tarp, paid 2026-08-11, spec locked 2026-08-27,
+drawing confirmed 2026-08-28 — sat unshipped with **nothing in this system watching it**. Mark Ackerman's
+last substantive reply (2026-08-29) was a promise: *"Usual lead time is 3-4 weeks. We'll let you know soon
+as a tracking number is available."* No tracking number ever came. The owner asked about it on 2026-09-13,
+**11 days before the holiday it was bought for** — and that question is the only reason anyone looked.
+
+**Evidence.** Gmail `in:anywhere (from:alcocovers.com OR from:akonllc.com)` from `eliyahuzabrowsky@gmail.com`
+= 7 messages, newest 2026-08-29. ALCO's own live tracking sheet (public gviz endpoint) read 2026-09-14
+02:07 UTC: `216040-00` = **"In Production"**, tracking and courier empty. Every durable record for the
+project (`memories/repo/shlock-sukkah-rain-cover.md`, the email thread transcript, the folder README)
+**ended at 2026-08-28** — the Aug 29 and Aug 30 exchange was not recorded anywhere. The system had a
+complete, confident picture of the project as of a moment 16 days in the past, and said nothing.
+
+**Cost.** The owner's scarcest resource — his own attention — had to be spent discovering a state the
+system already had the means to detect: one HTTP GET against a public endpoint, or one IMAP search, once a
+day. Had he not asked, the discovery would have come after the holiday, when the answer is worth nothing.
+This is P2 ("nothing watches outcomes") with a specific, cheap, recurring shape: **vendor promises**.
+
+**Fix.** Two parts, both small.
+1. **A promise-keeper, not a memory.** Any outbound email containing a promised date or a "we'll let you
+   know" creates a date-bound follow-up row on the authority that surfaces in the digest, so a promise
+   cannot be quietly retired by silence. The owner's own rule — *"you don't just flag things for random
+   reasons"* — is met by acting on the row (poll, chase, escalate), not by reporting it.
+2. **A status source per open order.** Where a vendor exposes order status (ALCO does: a public Google
+   Sheet behind a client-side gviz query in their order-tracking page JS), record the endpoint next to the
+   order and poll it. Ground truth beats waiting for an email that may never be sent.
+
+Until (1) exists, the manual stand-in is task **#24869** on the authority, created 2026-09-14 with the
+tracking endpoint in its description.
