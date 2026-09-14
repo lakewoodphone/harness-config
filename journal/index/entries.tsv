@@ -566,7 +566,7 @@ pain	P68	68		2026-09-14	imported	open	## P68 — `/health` flaps between ok and 
 pain	P69	69		2026-09-14	imported	open	## P69 — An index that fails at the end of a 29-minute run records no freshness	log/pain/2026-09.md	1943	1962	4b1641ef79b7e67e
 pain	P70	70		2026-09-14	SECRATARY	open	## P70 — The badge's pill sits in the bottom-right corner of the phone, where a composer control can be	log/pain/2026-09.md	1963	1996	11b487d35d7fa541
 pain	P71	71		2026-09-14	ZABZ-YOGA	done	## P71 — The journal is mid-merge with 213 duplicate-id errors, so its integrity check no longer alarms on anything new	log/pain/2026-09.md	1997	2031	bcbd86aafd15dc83
-pain	P72	72		2026-09-14	ZABZ-YOGA	open	## P72 — 2026-09-14 - 230 journal entries exist only in working copies, in the shared repo nowhere	log/pain/2026-09.md	2032	2088	3577f01a4dea0e86
+pain	P72	72		2026-09-14	ZABZ-YOGA	done	## P72 — 2026-09-14 - 230 journal entries exist only in working copies, in the shared repo nowhere	log/pain/2026-09.md	2032	2088	3577f01a4dea0e86
 pain	P73	73		2026-09-14	ZABZ-YOGA	open	## P73 — 2026-09-14 - The stall marker is gone but 2 of 3 sessions still exhaust the budget; the disease is elsewhere	log/pain/2026-09.md	2089	2143	c2e65ad04dae430e
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
