@@ -75,9 +75,9 @@ const moduleExports = registered[0].factory((name) => {
 });
 check('the factory returns an exports object', moduleExports && typeof moduleExports === 'object');
 check('it exports apply', typeof moduleExports.apply === 'function');
-check('it declares no dependencies (a wrong name here blanks the UI)',
-  moduleExports.inject === undefined || Object.keys(moduleExports.inject).length === 0);
-
+check('it declares exactly the slots dependency',
+  Array.isArray(moduleExports.inject) && moduleExports.inject.length === 1 && moduleExports.inject[0] === 'slots',
+  JSON.stringify(moduleExports.inject));
 console.log('slot registration');
 let declaredSlot = null;
 const registeredCells = [];
@@ -85,10 +85,10 @@ const fakeSlots = {
   inject: (name, callback) => { declaredSlot = name; callback(); },
   register: (options, cell) => { registeredCells.push({ options, cell }); },
 };
-const ctx = { get: (name) => (name === 'slots' ? fakeSlots : undefined) };
+const ctx = { slots: fakeSlots }; // the shipped client plugins reach the registry as ctx.slots
 moduleExports.apply(ctx);
 check('it waits for the composer dock slot', declaredSlot === 'conversation.composer.dock', String(declaredSlot));
-check('it registers two controls', registeredCells.length === 2, String(registeredCells.length));
+check('it registers the two controls in each place', registeredCells.length === 4, String(registeredCells.length));
 check('the first control is the in-window one',
   registeredCells[0] && registeredCells[0].options.id === 'new-session-here');
 check('the second control is the new-window one',

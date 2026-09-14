@@ -84,33 +84,29 @@ check('it exports apply', typeof exports_.apply === 'function');
 // ids and then optional:['slots']; none resolved, the entry stayed pending, and the loader
 // blanked the whole web UI with "Failed to load plugins". The ABSENCE of a declaration is
 // therefore a requirement, and this assertion is its regression test.
-check('it declares no dependencies (a wrong name here blanks the UI)',
-  exports_.inject === undefined || Object.keys(exports_.inject).length === 0,
-  JSON.stringify(exports_.inject));
-check('it exposes the rate table for diagnostics', typeof exports_.PRICING === 'object');
+check('it declares exactly the slots dependency (ctx.slots needs it)',
+  Array.isArray(exports_.inject) && exports_.inject.length === 1 && exports_.inject[0] === 'slots',
+  JSON.stringify(exports_.inject));check('it exposes the rate table for diagnostics', typeof exports_.PRICING === 'object');
 
 // ── drive apply() against a fake Slot registry ────────────────────────────────
 let registeredName;
 let registeredOptions;
 let registeredCell;
 let injectedSlot;
-const fakeContext = {
-  get: (key) => {
-    if (key !== 'slots') return undefined;
-    return {
-      inject: (name, callback) => {
-        injectedSlot = name;
-        callback();
-      },
-      register: (options, cell) => {
-        registeredOptions = options;
-        registeredCell = cell;
-        return () => {};
-      },
-    };
+// The plugin reaches the registry as ctx.slots (that is how the shipped client plugins do
+// it). The mock must therefore BE the slots service, not a ctx whose get() returns one.
+const fakeSlots = {
+  inject: (name, callback) => {
+    injectedSlot = name;
+    callback();
+  },
+  register: (options, cell) => {
+    registeredOptions = options;
+    registeredCell = cell;
+    return () => {};
   },
 };
-
+const fakeContext = { slots: fakeSlots };
 exports_.apply(fakeContext);
 console.log('slot registration');
 check('it waits for the composer dock slot', injectedSlot === 'conversation.composer.dock', injectedSlot);

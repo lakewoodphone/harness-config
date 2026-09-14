@@ -396,7 +396,12 @@ function CostPill(props) {
  * @param ctx the browser plugin context
  */
 function apply(ctx) {
-  const slots = ctx.get('slots');
+  // ctx.slots, not ctx.get('slots'): the shipped client plugins register their own
+  // composer pills with ctx.slots, and the by-name lookup returned undefined, so this
+  // plugin silently contributed nothing. The owner's report was "I don't see any of that".
+  // NOTE: this file GENERATES client source inside a template literal, so a backtick in a
+  // comment here ends the literal. Escape it or do not use one.
+  const slots = ctx.slots;
   if (slots === undefined) return;
   slots.inject('conversation.composer.dock', () =>
     slots.register({ name: 'conversation.composer.dock', id: 'cost', order: 10, label: 'Session cost' }, CostPill),
@@ -404,6 +409,10 @@ function apply(ctx) {
 }
 
     exports.apply = apply;
+    // The slots dependency MUST be declared: reaching the registry as ctx.slots without
+    // declaring it refuses the plugin at activation with 'cannot get property slots without
+    // inject', which is exactly what the owner saw.
+    exports.inject = ['slots'];
     exports.PRICING = PRICING;
     return module.exports;
   },

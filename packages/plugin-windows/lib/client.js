@@ -103,22 +103,39 @@ window.__ModuleLoader__.load({
       );
     }
 
+    /**
+     * Register the two controls.
+     *
+     * Reach the registry the way the SHIPPED client plugins do — `ctx.slots` with
+     * `inject: ['slots']` — not `ctx.get('slots')`. That mistake shipped once already: the
+     * plugin asked for a service by name, got `undefined`, and returned quietly, so the entry
+     * was active, in the roster, and contributed nothing. The owner's report was exactly
+     * "I only see a new session button".
+     *
+     * Both the input row and the composer dock are registered on purpose: whichever of them
+     * this build actually renders, the owner gets both controls.
+     */
     function apply(ctx) {
-      const slots = ctx.get('slots');
+      const slots = ctx.slots;
       if (slots === undefined) return;
-      slots.inject('conversation.composer.dock', () => {
-        slots.register(
-          { name: 'conversation.composer.dock', id: 'new-session-here', order: 5, label: 'New session' },
-          () => React.createElement(Control, { kind: 'here' }),
-        );
-        slots.register(
-          { name: 'conversation.composer.dock', id: 'new-session-window', order: 6, label: 'New session in a new window' },
-          () => React.createElement(Control, { kind: 'window' }),
-        );
-      });
+      const controls = [
+        { id: 'new-session-here', order: 5, kind: 'here', label: 'New session' },
+        { id: 'new-session-window', order: 6, kind: 'window', label: 'New session in a new window' },
+      ];
+      for (const place of ['conversation.input.right', 'conversation.composer.dock']) {
+        slots.inject(place, () => {
+          for (const c of controls) {
+            slots.register(
+              { name: place, id: c.id, order: c.order, label: c.label },
+              () => React.createElement(Control, { kind: c.kind }),
+            );
+          }
+        });
+      }
     }
 
     exports.apply = apply;
+    exports.inject = ['slots'];
     return module.exports;
   },
 });

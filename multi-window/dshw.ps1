@@ -908,6 +908,22 @@ function Invoke-Restore {
             Write-Host ("  [WARN] could not reopen '{0}': {1}" -f $slot.label, $_.Exception.Message) -ForegroundColor Yellow
         }
     }
+
+    # RECONCILE, so "restore" reopens what is open NOW rather than every profile that has
+    # ever been used. Without this the owner closed one window and the shortcut opened four:
+    # each `new` recorded a profile and nothing ever removed one. Anything recorded as open
+    # whose window is not live at this moment was closed by the owner, so it stops being part
+    # of the working set. This is the only place the prune happens, and it runs AFTER the
+    # reopen, so it cannot mark the set closed before restoring it.
+    $pruned = 0
+    foreach ($slot in $slots) {
+        if (-not $map.ContainsKey($slot.profile)) { continue }
+        if ($map[$slot.profile].open -ne $true) { continue }
+        if ((Get-WindowCount $slot $procTable) -gt 0) { continue }
+        Set-WindowRegistryEntry $map $slot.profile $false $slot.port
+        $pruned++
+    }
+    if ($pruned -gt 0) { Save-WindowRegistry $map; Write-Host ("restore: forgot {0} window(s) you had closed" -f $pruned) }
     Write-Host ("restore: {0} of {1} remembered window(s) reopened" -f $opened, $wanted.Count)
 }
 # ── the fast loop: one bounded check, restart only after two failures ────────
