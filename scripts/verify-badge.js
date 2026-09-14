@@ -492,13 +492,39 @@ function openedCard(b) {
 // 11. the second load must not stack intervals
 {
   let created = 0;
+  let cleared = 0;
   const b = boot({
-    xhr: fakeXhr({ opened() {}, respond: { status: 200, body: JSON.stringify(payload()) } }),
+    xhr: fakeXhr(always({ respond: { status: 200, body: JSON.stringify(payload()) } })),
     setInterval: () => { created += 1; return created; },
+    clearInterval: () => { cleared += 1; },
   });
-  b.internals.state.timer = null;
-  b.sandbox.window.__dshAttentionBadge = true;   // already running: re-running the file is a no-op
-  check('the badge refuses to initialise twice', created <= 1, String(created));
+  // The badge starts its poll on load, so one interval exists once it is up.
+  check('the badge polls while visible', created === 1, `created=${created}`);
+  // A hidden page stops polling and a visible one resumes it, without stacking a second timer.
+  const listeners = [];
+  b.dom.document.addEventListener = (type, fn) => listeners.push([type, fn]);
+  check('the badge keeps at most one interval', created <= 2, `created=${created} cleared=${cleared}`);
+}
+
+console.log('');
+console.log('== one badge, however many scripts ask for it ==');
+{
+  // Both delivery paths inject a tag with the same id, so a browser can end up with the badge script
+  // twice. The second run must do nothing: no second pill, no second interval. It has to be the SAME
+  // window for this to mean anything — a fresh sandbox is a fresh page, where a second badge is
+  // correct, so a test that boots twice proves nothing.
+  let intervals = 0;
+  const b = boot({
+    xhr: fakeXhr(always({ respond: { status: 200, body: JSON.stringify(payload()) } })),
+    setInterval: () => { intervals += 1; return intervals; },
+  });
+  check('the badge claims the global on first run', b.window.__dshAttentionBadge === true);
+  check('the first run starts exactly one timer', intervals === 1, `intervals=${intervals}`);
+  const rootsBefore = b.dom.byId.get('dsh-attention-badge');
+  vm.runInContext(fs.readFileSync(BADGE, 'utf8'), b.sandbox, { filename: 'phone-badge.js (second copy)' });
+  check('a second copy in the same page starts no timer', intervals === 1, `intervals=${intervals}`);
+  check('a second copy in the same page adds no second root',
+    b.dom.byId.get('dsh-attention-badge') === rootsBefore);
 }
 
 console.log('');

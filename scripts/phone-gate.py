@@ -488,12 +488,31 @@ def badge_json_response(origin: str = "") -> bytes:
         + b"\r\nConnection: close\r\n\r\n" + body
 
 
+_BADGE_JS_CACHE: dict = {"key": None, "body": b""}
+
+
 def badge_script_bytes() -> bytes:
+    """The badge source, cached on (mtime, size).
+
+    Read once per document request otherwise, and a document request happens on every page load, on
+    every machine. A few tens of KB of JavaScript re-read from disk per load is not a crisis; doing
+    it twice per load to decide whether to write a tag is just waste.
+    """
+    try:
+        st = BADGE_JS.stat()
+        key = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        _BADGE_JS_CACHE.update({"key": None, "body": b""})
+        return b""
+    if _BADGE_JS_CACHE.get("key") == key:
+        return _BADGE_JS_CACHE["body"]
     try:
         body = BADGE_JS.read_bytes()
     except OSError:
         return b""
-    return body if body.strip() else b""
+    body = body if body.strip() else b""
+    _BADGE_JS_CACHE.update({"key": key, "body": body})
+    return body
 
 
 def badge_script_response() -> bytes:
@@ -530,12 +549,19 @@ def badge_script_tag(available: bool | None = None) -> bytes:
 
 
 def inject_badge(document: bytes) -> bytes:
-    """Add the badge to a served document, once, before </head>."""
-    tag = badge_script_tag()
-    if not tag or b'id="dsh-attention-badge-loader"' in document:
+    """Add the badge to a served document, once, before </head>.
+
+    The "once" test is scoped to the head, not the whole document: `inject_badge` searches the whole
+    document for its own marker, so a page whose body merely *mentions* the marker would silently
+    get no badge. Looking only where the tag is actually inserted removes that failure mode.
+    """
+    tag = badge_script_tag(available=bool(badge_script_bytes()))
+    if not tag:
         return document
     at = document.lower().find(b"</head>")
     if at < 0:
+        return document
+    if b'id="dsh-attention-badge-loader"' in document[:at]:
         return document
     return document[:at] + tag + document[at:]
 

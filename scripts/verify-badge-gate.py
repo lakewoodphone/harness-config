@@ -258,6 +258,16 @@ def main() -> int:
         check("injection is idempotent", gate.inject_all(once) == once)
         check("a document with no head is left alone",
               gate.inject_all(b"<html><body>x</body></html>") == b"<html><body>x</body></html>")
+        # The guard looks only where it inserts. A page that merely MENTIONS the loader id in its
+        # body must still get a badge; the earlier whole-document substring test would have silently
+        # skipped it.
+        mention = b'<html><head><title>t</title></head><body>see id="dsh-attention-badge-loader"</body></html>'
+        check("a document that only mentions the marker still gets the badge",
+              b'<script id="dsh-attention-badge-loader"' in gate.inject_all(mention))
+        check("the phone layer still injects into that document too",
+              b"dsh-phone-mobile" in gate.inject_all(mention))
+        check("a document that already has the tag in its head is not doubled",
+              gate.inject_all(once).count(b'<script id="dsh-attention-badge-loader"') == 1)
 
     if "--json" in sys.argv:
         print(json.dumps(RESULTS))
