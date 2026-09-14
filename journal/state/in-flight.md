@@ -44,9 +44,33 @@ is in the office.
   The SMS kill-switch is his decision and is being honoured. The replacement channel is his to choose;
   nothing outbound is sent without his explicit word.
 
-## Fixed this session, so it is not re-opened
+## MUST BE UNDONE — changes made live that are still in place
+
+**These are deliberate and temporary. Nothing else in this file is an outstanding live change.**
+
+1. **The six Dahua config entries are DISABLED** (`disabled_by: user`, done ~12:29 ET) so the NVR
+   would stop being sent failed logins. The owner's 6 camera entities are therefore
+   `unavailable`, and `ha_truth.py` is *correctly* reporting them as a degraded security
+   integration. **Re-enable all six** once the lockout question is settled. Entry ids are in
+   `ha-config/_scratch/dahua_entry_ids.json`; re-enable via the WebSocket
+   `config_entries/disable` counterpart used to disable them.
+2. **Three automations are OFF** (via `automation.turn_off`, ~13:12 ET) so the RTSP clip path
+   stopped authenticating to the same NVR account during the lockout test:
+   - `automation.timeline_person_at_doorbell_clips_regen`
+   - `automation.timeline_front_door_activity_clips_regen`
+   - `automation.timeline_periodic_regeneration`
+
+   **Turn all three back on.** `automation.turn_off` is not restored by a restart unless the
+   automation has `initial_state: true`; do not assume it self-heals.
+
+**Why they are listed here rather than left to memory:** I disabled one path to the NVR, called
+the result quiet, and drew a wrong conclusion from it (L248). Leaving live changes unrecorded is
+the same failure one step further on.
+
 
 - UPS monitoring on the HA host (W48) — the `nut` app's password was in HaveIBeenPwned, so it never
   listened on 3493 and HA reported a connection failure three layers away from the cause.
 - The false `SECURITY_INTEGRATION_DEGRADED — zha` CRITICAL that fired every 30 minutes for three days
   about a discovery dismissed in 2025 (L230, D85).
+
+## Fixed this session, so it is not re-opened

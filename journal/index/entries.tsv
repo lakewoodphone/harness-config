@@ -521,7 +521,8 @@ lessons	L243	243		2026-09-14	ZABZ-TECH	open	**L243 · A package key is ignored w
 lessons	L244	244		2026-09-14	ZABZ-TECH	open	**L244 · Piping a file to a host through PowerShell converts LF to CRLF**	log/lessons/2026-09.2.md	621	650	d677ef1267fff500
 lessons	L245	245		2026-09-14	ZABZ-TECH	open	**L245 · owner-queue.py docstring says --ages-days; the parser wants --age-days. And stdin-piping a script to ssh from PowerShell silently never arrives**	log/lessons/2026-09.2.md	651	675	6261a8d5212a8e0f
 lessons	L246	246		2026-09-14	ZABZ-TECH	open	**L246 · A PowerShell cast failure inside Where-Object silently deletes rows from the authority's comms pull**	log/lessons/2026-09.2.md	676	698	c42e97a2491c843a
-lessons	L247	247		2026-09-14	ZABZ-TECH	open	**L247 · eBay sourcing via real browser: 403 challenge clears, SRP+item selectors, batch fetch**	log/lessons/2026-09.2.md	699	745	b9921bd97919b688
+lessons	L247	247		2026-09-14	ZABZ-TECH	open	**L247 · eBay sourcing via real browser: 403 challenge clears, SRP+item selectors, batch fetch**	log/lessons/2026-09.2.md	699	744	b9921bd97919b688
+lessons	L248	248		2026-09-14	ZABZ-TECH	open	**L248 · I stopped one path to a device and called the window quiet**	log/lessons/2026-09.2.md	745	781	2ce60c82d5441e7b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
