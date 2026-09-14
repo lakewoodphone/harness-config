@@ -279,7 +279,23 @@ function Wait-ServerReady([string]$log, [long]$offset, [int]$timeoutSeconds, [in
 function Get-ListenTable {
     $age = Get-Variable -Name ListenTableAge -Scope Script -ValueOnly -ErrorAction SilentlyContinue
     if ($age -and ((Get-Date) - $age).TotalSeconds -lt 5) { return $script:ListenTable }
-    $script:ListenTable = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
+    # AN EMPTY LISTEN TABLE IS A FAILED READ, NOT A QUIET MACHINE (2026-09-14).
+    #
+    # There is no state in which a live Windows box has zero listening sockets -- RPC, SMB and
+    # the like always listen -- so a null/empty result means the read failed, which on this
+    # machine happens under load. The consequence used to be silent and severe: Get-PortOwner
+    # returned $null, so `Ensure-Engine` concluded the port was free, never reclaimed the wedged
+    # engine that really owned 3099, and died with "address already in use" instead. That is the
+    # whole of engine-recovery.log 17:49:33 -> 17:49:38, and why the owner had a wedged engine
+    # for 100 minutes while the 1-minute watchdog logged a failure a minute. Retry before
+    # believing an empty answer.
+    $table = $null
+    for ($i = 1; $i -le 3; $i++) {
+        $table = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
+        if ($table -and @($table).Count -gt 0) { break }
+        Start-Sleep -Milliseconds 400
+    }
+    $script:ListenTable = $table
     $script:ListenTableAge = Get-Date
     return $script:ListenTable
 }
@@ -1095,35 +1111,34 @@ function Invoke-Ensure {
     $flag = Join-Path $StateDir "watchdog-failures-$port.txt"
     $log = Join-Path $StateDir 'watchdog.log'
     if (Test-EngineAlive $port) {
-
         Write-Host ("ensure: engine is answering on {0}" -f $port)
         return
     }
-    # Restart on the FIRST failed check, not the second. A two-strike rule looked cautious
-    # and was worse: the engine died on 2026-09-13, the first check only recorded a failure,
-    # and the owner was left dead in the water until the next minute. One bounded socket
-    # connect is cheap and a false positive costs a restart of an engine that was already
-    # not answering.
-    Write-Host ("ensure: engine on {0} is not answering - starting it" -f $port) -ForegroundColor Yellow
-    "[{0}] ensure: engine on {1} not answering - starting" -f (Get-Date -Format o), $port |
+    # RECOVER THROUGH Ensure-Engine, NOT THROUGH A SECOND COPY OF THE START LOGIC.
+    #
+    # This function used to start an engine itself and nothing else, which made the 1-minute
+    # watchdog the one caller that could NOT recover a wedged engine: the port was still bound,
+    # so every attempt died with "port 3099 already in use" and the log filled with failures
+    # while the engine stayed silent (16:45-18:22 on 2026-09-14, ~20 lines). Meanwhile the only
+    # path that COULD take the port -- Ensure-Engine, called by `new` and `restore` -- was wired
+    # to a window-opening command and killed a live engine on a false negative at 18:27.
+    #
+    # So there is now one recovery path, and it is the one that knows the difference between a
+    # loaded engine and a dead one (Test-EngineWedged: two patient probes, five seconds apart).
+    # The 1-minute watchdog is therefore allowed to reclaim a genuinely wedged engine -- and only
+    # that.
+    #
+    # Reaching here means the fast probe failed, which on this machine is often just load.
+    Write-Host ("ensure: engine on {0} is not answering the fast probe - checking patiently" -f $port) -ForegroundColor Yellow
+    "[{0}] ensure: engine on {1} not answering the fast probe" -f (Get-Date -Format o), $port |
         Add-Content -LiteralPath $log -Encoding utf8
-    try {
-        $slot = @(Get-Slots | Where-Object { $_.enabled } | Select-Object -First 1)[0]
-        $r = Start-OneSlotServer $slot
-        $state = Get-State
-        Set-SlotRecord $state $port ([pscustomobject]@{
-            pid = $r.pid; url = $r.url; log = $r.log; workspace = $r.workspace
-            startedAt = $r.startedAt; label = $slot.label; profile = $slot.profile })
-        Save-State $state
+    if (Ensure-Engine) {
         Remove-Item $flag -Force -ErrorAction SilentlyContinue
-        Write-Host ("ensure: engine started, pid {0}" -f $r.pid) -ForegroundColor Green
-        "[{0}] ensure: engine started, pid {1}" -f (Get-Date -Format o), $r.pid |
-            Add-Content -LiteralPath $log -Encoding utf8
-    } catch {
-        Write-Host ("ensure: start failed - {0}" -f $_.Exception.Message) -ForegroundColor Red
-        "[{0}] ensure: start FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message |
-            Add-Content -LiteralPath $log -Encoding utf8
+        return
     }
+    Write-Host ("ensure: could not recover an engine on {0}" -f $port) -ForegroundColor Red
+    "[{0}] ensure: could not recover an engine on {1}" -f (Get-Date -Format o), $port |
+        Add-Content -LiteralPath $log -Encoding utf8
 }
 # ── make sure an engine exists, and retry rather than give up ────────────────
 #
@@ -1132,7 +1147,7 @@ function Invoke-Ensure {
 # port is worse than one that refuses. This is the single place that answers "is there an
 # engine, and if not, start one", with a bounded retry, so every caller gets the same
 # behaviour instead of each inventing its own.
-function Test-EngineAlive([int]$port) {
+function Test-EngineAlive([int]$port, [int]$ConnectMs = 6000, [int]$ReadMs = 12000) {
     # AN HTTP ANSWER, NOT A BARE TCP CONNECT.
     #
     # This used to be `TcpClient.ConnectAsync` and nothing more. On DESKTOP-FGV6KMH that probe
@@ -1150,13 +1165,23 @@ function Test-EngineAlive([int]$port) {
     #
     # So the engine must actually answer HTTP. Any status is acceptance; connection refused,
     # a timeout, or a reset is a dead engine.
+    #
+    # THE BUDGET WAS TOO SHORT FOR THIS MACHINE (2026-09-14 18:27). It was 1500 ms to connect
+    # and 2500 ms to return the first byte, and that is not enough for a HEALTHY engine here:
+    # ten open windows (~97 Edge processes), a Next dev server on 3000, the personal-secretary
+    # stack on 8002 and ~1.4 GB of stdio MCP bridges put this box at 84% CPU, and a loopback
+    # GET of the UI shell behind a busy Node event loop routinely takes longer than 2.5 s. A
+    # false "not answering" is not a cosmetic log line -- `Ensure-Engine` KILLS the port holder
+    # on the strength of it. So the budget is now 6 s / 12 s by default, and callers that are
+    # about to TAKE SOMETHING AWAY (reclaim a port, kill a process) must ask for a patient
+    # probe and require two of them; see Test-EngineWedged.
     try {
         $client = New-Object System.Net.Sockets.TcpClient
         $connect = $client.ConnectAsync('127.0.0.1', $port)
-        if (-not $connect.Wait(1500) -or -not $client.Connected) { return $false }
+        if (-not $connect.Wait($ConnectMs) -or -not $client.Connected) { return $false }
         $stream = $client.GetStream()
-        $stream.ReadTimeout = 2500
-        $stream.WriteTimeout = 1500
+        $stream.ReadTimeout = $ReadMs
+        $stream.WriteTimeout = $ConnectMs
         $req = "GET / HTTP/1.1`r`nHost: 127.0.0.1:$port`r`nConnection: close`r`n`r`n"
         $bytes = [Text.Encoding]::ASCII.GetBytes($req)
         $stream.Write($bytes, 0, $bytes.Length)
@@ -1172,6 +1197,29 @@ function Test-EngineAlive([int]$port) {
     }
 }
 
+function Test-EngineWedged([int]$port) {
+    # A SLOW ANSWER IS NOT A DEAD ENGINE. This is the fix for the 2026-09-14 18:27 incident, and
+    # it exists because the recovery path was wired to the wrong command.
+    #
+    # What happened: `Ensure-Engine` reclaimed (KILLED) a bound-but-silent port after ONE probe
+    # on a 1.5 s / 2.5 s budget. `Ensure-Engine` is called by `dshw new` and `dshw restore` --
+    # commands whose entire job is to OPEN A WINDOW. So clicking "new window" on a loaded machine
+    # diagnosed a healthy engine as dead, killed the process the owner was typing into, and every
+    # open window on the machine froze. Evidence: engine-recovery.log 18:27:31 "port 3099 bound
+    # but not answering - reclaiming from pid 19556"; windows.log shows slot 5/10 opened at
+    # 18:28:43, 18:29:01, 18:31:14 and 18:32:51 with a `dshw.ps1 new` process in the same window;
+    # the engine that replaced it took 71 s to answer. The comments in this file already record
+    # the same wound twice (pid 32044 at 15:05 the same day, and 2026-09-13).
+    #
+    # The rule from here: only a port that is silent to TWO PATIENT probes, five seconds apart,
+    # is wedged. A busy engine that answers either probe is never touched, and no window-opening
+    # command may reclaim a bound port at all.
+    for ($i = 1; $i -le 2; $i++) {
+        if (Test-EngineAlive $port -ConnectMs 10000 -ReadMs 30000) { return $false }
+        if ($i -lt 2) { Start-Sleep -Seconds 5 }
+    }
+    return $true
+}
 function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
     # ONE place that answers "is there an engine, and if not, start one", so the launcher,
     # `new`, `restore` and the watchdog cannot drift. Every attempt is logged, because the
@@ -1199,7 +1247,15 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
         # EADDRINUSE path speak.
         $holder = Get-PortOwner $port
         if ($holder -and $holder.ProcessName -eq 'node') {
-            "[{0}] ensure: port {1} bound but not answering - reclaiming from pid {2}" -f (Get-Date -Format o), $port, $holder.Id |
+            if (-not (Test-EngineWedged $port)) {
+                # Bound AND answering on a patient probe: the engine is alive, only loaded.
+                # Never take a working engine away -- see Test-EngineWedged.
+                "[{0}] ensure: port {1} bound (pid {2}) and answering a patient probe - leaving it alone" -f (Get-Date -Format o), $port, $holder.Id |
+                    Add-Content -LiteralPath $recoveryLog -Encoding utf8
+                Write-Host ("engine on {0} answered a patient probe (pid {1}) - leaving it alone" -f $port, $holder.Id) -ForegroundColor Green
+                return $true
+            }
+            "[{0}] ensure: port {1} silent to two patient probes - reclaiming from pid {2}" -f (Get-Date -Format o), $port, $holder.Id |
                 Add-Content -LiteralPath $recoveryLog -Encoding utf8
             [void](Stop-ServerTree $port (Get-SlotRecord (Get-State) $port))
         } elseif ($holder) {
@@ -1232,6 +1288,24 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
                 "[{0}] ensure: start reported '{1}' but {2} answers now - treating it as up" -f (Get-Date -Format o), $_.Exception.Message, $port |
                     Add-Content -LiteralPath $recoveryLog -Encoding utf8
                 return $true
+            }
+            # EADDRINUSE IS PROOF THE PORT IS HELD, even when the listen table said otherwise.
+            # 2026-09-14 17:49: the table read came back empty on a loaded machine, so no reclaim
+            # was attempted and the start died with "port 3099 already in use". The watchdog then
+            # logged that same failure roughly once a minute for the next 100 minutes while a
+            # wedged engine kept the port. So: refresh the table with the cache bypassed, and if a
+            # node process really owns the port -- and is silent to the patient two-probe test --
+            # reclaim it and take another run at starting.
+            if ($_.Exception.Message -match 'already in use|EADDRINUSE') {
+                $script:ListenTableAge = $null
+                $holder2 = Get-PortOwner $port
+                if ($holder2 -and $holder2.ProcessName -eq 'node' -and (Test-EngineWedged $port)) {
+                    "[{0}] ensure: start hit EADDRINUSE - reclaiming the real holder, pid {1}" -f (Get-Date -Format o), $holder2.Id |
+                        Add-Content -LiteralPath $recoveryLog -Encoding utf8
+                    [void](Stop-ServerTree $port (Get-SlotRecord (Get-State) $port))
+                    Start-Sleep -Seconds 2
+                    continue
+                }
             }
             Write-Host ("  start failed: {0}" -f $_.Exception.Message) -ForegroundColor Red
             "[{0}] ensure: start FAILED - {1}" -f (Get-Date -Format o), $_.Exception.Message |
@@ -1338,7 +1412,15 @@ function Invoke-Health {
     # nothing and says nothing is indistinguishable from one that is not running at all.
     $logDir = Join-Path $StateDir 'logs'
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-    Start-Transcript -Path (Join-Path $logDir ("health-{0}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))) -Force | Out-Null
+    # ONE TRANSCRIPT PER DAY, APPENDED -- not one per run.
+    #
+    # The reason for a transcript at all is sound: "a scheduled task that does nothing and says
+    # nothing is indistinguishable from one that is not running at all". But a file per run at a
+    # run every five minutes is 288 files a day, and by 2026-09-14 this directory held ~1000
+    # health-*.log files, which is slow to enumerate and painful to read. Appending to a
+    # per-day file keeps the evidence and bounds the count to ~30 files a month. Nothing is
+    # deleted; the existing per-run files stay exactly where they are.
+    Start-Transcript -Path (Join-Path $logDir ("health-{0}.log" -f (Get-Date -Format 'yyyyMMdd'))) -Append -Force | Out-Null
     try {
     $state = Get-State
     $listenTable = Get-ListenTable
@@ -1522,11 +1604,23 @@ switch ($Command) {
     'status' { Invoke-Status }
     'windows' { Invoke-Up -WindowsOnly }
     'new'    {
-        if (Ensure-Engine) { Invoke-New } else { Write-Error 'no engine could be started on the primary port'; exit 1 }
+        # `new` OPENS A WINDOW. It must never take the engine down.
+        # If the port has a listener the engine exists; a slow probe means a loaded engine, not a
+        # dead one. 2026-09-14 18:27: this path reclaimed a live engine (pid 19556) and froze
+        # every window on the machine, because the probe budget was shorter than this machine's
+        # normal worst-case response time. See Test-EngineWedged.
+        $enginePort = Get-PrimaryPort
+        if (Get-PortOwner $enginePort) { Invoke-New }
+        elseif (Ensure-Engine) { Invoke-New }
+        else { Write-Error 'no engine could be started on the primary port'; exit 1 }
     }
     'ensure' { Invoke-Ensure }
     'restore' {
-        if (Ensure-Engine) { Invoke-Restore } else { Write-Error 'no engine could be started on the primary port'; exit 1 }
+        # Same rule as `new`: reopening windows must never reclaim a bound port.
+        $enginePort = Get-PrimaryPort
+        if (Get-PortOwner $enginePort) { Invoke-Restore }
+        elseif (Ensure-Engine) { Invoke-Restore }
+        else { Write-Error 'no engine could be started on the primary port'; exit 1 }
     }
     'open'   {
         $slot = Get-SlotCfgByPortOrLabel $Slot
