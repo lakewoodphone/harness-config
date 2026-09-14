@@ -462,14 +462,19 @@ function New-HiddenTaskAction {
 }
 
 function Invoke-HiddenTaskBootstrap {
-    # One-time, elevated-only: convert every interactive console scheduled task to a hidden
-    # launcher so the fleet stops popping PowerShell/python windows. Runs only when elevated
-    # (modifying these tasks needs admin), and only once per machine (marker in LOCALAPPDATA,
-    # which autosync does not copy, so each machine applies its own). Non-fatal by design:
-    # this must never break the watchdog's real job of keeping the engine alive.
+    # Self-heal: convert every interactive console scheduled task to a hidden launcher so the
+    # fleet stops popping PowerShell/python windows. Runs only when elevated (modifying these
+    # tasks needs admin) and at most once a day per machine (marker in LOCALAPPDATA, which
+    # autosync does not copy, so each machine keeps its own). Daily rather than once-ever on
+    # purpose: if some installer re-registers a visible task, the next day's pass hides it
+    # again instead of the owner having to report the popups a second time.
+    # Non-fatal by design: this must never break the watchdog's real job of keeping the engine alive.
     if (-not (Test-IsElevated)) { return }
     $marker = Join-Path $env:LOCALAPPDATA 'harness-config\hidden-tasks.applied'
-    if (Test-Path $marker) { return }
+    if (Test-Path $marker) {
+        $age = (Get-Date) - (Get-Item -LiteralPath $marker).LastWriteTime
+        if ($age.TotalHours -lt 24) { return }
+    }
     $script = Join-Path $RepoRoot 'scripts\Set-TaskHidden.ps1'
     if (-not (Test-Path $script)) { return }
     try {
@@ -1469,9 +1474,9 @@ function Restart-OneEngine($slot) {
     Write-Host "existing windows will reconnect on their own; a window that shows the auth page needs: dshw open <slot>"
 }
 
-# One-time self-heal: stop interactive console task windows from popping up. Safe to call on
-# every invocation (guarded by elevation + a per-machine marker), and it must run here rather
-# than only in `ensure`/`health` so a plain elevated `dshw status` also applies it once.
+# Self-heal: stop interactive console task windows from popping up. Safe to call on every
+# invocation (guarded by elevation + a per-machine daily marker), and it must run here rather
+# than only in `ensure`/`health` so a plain elevated `dshw status` also applies it.
 Invoke-HiddenTaskBootstrap
 
 switch ($Command) {
