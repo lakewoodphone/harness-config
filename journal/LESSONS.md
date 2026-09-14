@@ -997,7 +997,7 @@ nothing, re-send before believing it; and when a probe *is* the product, test it
 steady-state-only testing is what hid this, and the two earlier "verified" claims in this same session (L150) were the same
 mistake in a different costume.
 
-**L154 · 2026-09-12 01:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow.**
+**L154 · 2026-09-14 05:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow.**
 `MitmWsBridgeServer` stored the ML verdict for one image in `DecisionCache`, whose key is the **domain**, and returned
 `safe` early on a hit. On any image CDN that means the first SAFE picture flips the whole host to ALLOW for five minutes,
 and every later picture is revealed **without being classified at all**. The mirror failure is just as bad: one false DENY
@@ -1006,7 +1006,7 @@ judgement is about. Pixels are judged by content hash, hosts by hostname, pages 
 another. Check every cache for this shape — *is the key coarser than the claim?* A cache hit is only safe when the key is
 at least as specific as the thing being asserted.
 
-**L155 · 2026-09-12 01:05 · A record with no content yet is pending, not stale.**
+**L155 · 2026-09-14 05:05 · A record with no content yet is pending, not stale.**
 `ProxyImageStore.await` registers an empty slot for a URL and `put` swept "expired" slots on every store. An empty slot has
 `storedAtMs == 0`, so it looked ancient and was deleted mid-wait: the waiting thread timed out *after the bytes had
 arrived*. In production that would have silently disabled the whole optimisation on exactly the race it exists to win — the
@@ -1016,7 +1016,7 @@ have not written; give placeholders their own clock. And when a concurrency test
 two earlier print-based attempts found nothing because Gradle swallows stdout, and a diagnostic `assertNotNull` message
 found it in one run.
 
-**L156 · 2026-09-12 01:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command.**
+**L156 · 2026-09-14 05:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command.**
 D34-29 was written as "read absolute `scrollX`/`scrollY` **from the scrolled node**". `AccessibilityNodeInfo` has no public
 `getScrollY()` at all — the signal lives on `AccessibilityEvent`/`AccessibilityRecord`. The design survived, but the entry
 would have sent the next reader to an API that does not compile, and the compiler was the only thing that caught it.
@@ -1024,6 +1024,31 @@ would have sent the next reader to an API that does not compile, and the compile
 around it (`[System.IO.Compression.ZipFile]` over `platforms/android-34/android.jar`, search the class bytes for the method
 name) — ten seconds, and it separates "I remember this API" from "this API exists". Correct the record by **appending** a
 correction entry, never by editing the old one.
+
+**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**
+Two failures of the same kind, both caught by a source I could have read first. (1) I stamped a HANDOFF entry and its
+lessons **2026-09-12** because the date felt right; `Get-Date` says **2026-09-14** — a research agent noticed the
+discrepancy before I did, and the stamps had to be corrected across six journal files and a decisions file. (2) Asked
+*"don't we have a tiered system where it tries on device, then our servers, then a 3rd party api?"*, I answered from
+memory that the tiering was "a design" and the client "one tier deep" — then read the code and found the broker has had
+a full three-tier path for screenshots all along (`POST /audit/screenshot` → `review_screenshot_image` → a provider
+chain of ollama/openai-compatible/anthropic/gemini/clip, with retention pruning and usage accounting). My version would
+have sent the next build to write a provider abstraction that already exists. *Rules:* (1) stamp every record from
+`Get-Date`, never from continuity of feeling — a wrong date silently reorders the record; (2) when the owner asks "do we
+have X?", that is a research instruction: read the code, then answer with the file and line; (3) correct a wrong record
+by fixing the stamp and saying so, and by **appending** a correction entry for the substance (`D51`) — never by quietly
+rewording history.
+
+**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**
+`update_screenshot_review_classification` overwrites `safe`, `flagged`, `confidence`, `provider` and `status` on the
+existing review row. The owner's instruction was that the system should *"audit it and get better over time"* — and
+this one write makes that impossible: after any human review the provider's answer is gone, so no per-provider accuracy
+number can ever be computed, and the calibration manifest reads rewritten history. *Rule:* a machine verdict and a human
+verdict on the same object are **two facts**, not two versions of one fact; the second is an append (who decided, when,
+and what they said), and the first is immutable. This is the third instance in this file of one shape — `P43` (a
+self-satisfying guard), `L154` (a verdict cached against a coarser key): **the record of what happened must never be
+reconstructible only from what someone did afterwards.**
+
 
 
 **L138 · 2026-09-11 20:37 UTC · "Who is visiting" cannot be recovered after the fact if the front door never recorded it.**
@@ -1073,8 +1098,8 @@ The engine serves its document chunked. Inserting 4.4 KB of CSS corrupted the ch
 `IncompleteRead` — the probe failed six checks within a minute. *Rule:* if you modify a response body, you own its
 framing: de-chunk, inject, recompute `Content-Length`, drop `Transfer-Encoding`.
 
-**L157 · 2026-09-12 01:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union.**
-Merging `origin/master` on 2026-09-12 combined two machines' journals. Nothing was lost — the union driver kept both
+**L157 · 2026-09-14 05:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union.**
+Merging `origin/master` on 2026-09-14 combined two machines' journals. Nothing was lost — the union driver kept both
 sides — but the *numbers* collided: `P43`, `P44`, `P45` now name two different problems each, and `D37` two different
 decisions, because both sessions took "the next free number" from a file they had each read before the other pushed.
 Earlier collisions (`L34/35/36/37/39/40/51/52/53`, `W5`, `D17/18/19`) are already in both branches from the same
@@ -1438,5 +1463,35 @@ lookup the software runs and print the path it resolved. Fixing the error messag
 would have collapsed this diagnosis to one line.
 *Cost:* the failure sat in her logs since 2026-09-02 and her last real work was 2026-08-30 — thirteen days of a
 broken assistant that nobody was told about, because the error was only ever visible in a log on her own box.
+
+**L173 · 2026-09-14 · `import.meta.main` silently no-ops the whole CLI on Node < 24.2 — and `node --check`,
+`import()`, and a clean exit code all say the code is fine.**
+`@deepseek-ai/dsh`'s `lib/bin.js` ends with `if (import.meta.main) await runCli();`. `import.meta.main` is a
+Node **23.0/24.2+** feature. On her box (Node 22.14.0) the module imported successfully, **every** invocation —
+`-V`, `--help`, `--dump-default-config` — exited **0 with empty stdout and empty stderr**, and `node --check`
+plus a manual `import()` both passed. So the CLI looked "installed and working but quiet".
+Two things finally isolated it: (1) running the *same* command on a machine where DSH works, where `-V` printed
+`0.1.5-rc.1` — the difference had to be the interpreter; (2) reading the last line of `bin.js`. The real engine
+never even ran, yet an adjacent symptom (`DSH_HOME` being created) had made it look alive.
+*Rule:* when a CLI exits **0 and prints nothing**, that is not success — it is a control-flow no-op. Check the
+runtime version against the feature the entry point actually uses, and get a known-good output from a working
+machine to diff against. An engine whose `engines.node` warning is ignored is an engine that will not run.
+*Also:* npm prints `EBADENGINE` as a **warning** by default, so the mismatch installed "cleanly". Read those
+warnings — they were the whole diagnosis, and I read past them twice before the silent-CLI symptom forced it.
+
+**L174 · 2026-09-14 · Windows Task Scheduler was inert on `DESKTOP-FGV6KMH`; NSSM was the working detachment.**
+A long install cannot run through the exec API (hard 60 s cap, `taskkill` of the whole tree). The obvious
+detachment is a scheduled task, and it failed in a way worth remembering: `Register-ScheduledTask` succeeded,
+`Get-ScheduledTaskInfo` reported **`LastTaskResult: 0`**, and **nothing ran** — no log line, no marker file.
+A control `cmd.exe /c echo marker > file` task behaved identically, which is what proved the fault was Task
+Scheduler rather than my script. A trigger set in the future also leaves the task `Queued`, making
+`Start-ScheduledTask` a no-op.
+*Fix:* register a one-shot **NSSM service** instead. Services are proven on this box (`YochevedExec`,
+`YochevedShell`, `cloudflared`), and the install completed in **88 seconds** once it ran under one.
+*Rule:* "the task exited 0" is not evidence the work happened — **verify by artifact**. And when the obvious
+mechanism on a host silently does nothing, switch mechanisms rather than debugging the harness around it.
+*Two follow-ups that cost time:* `AppExit Default Exit` makes NSSM **restart** on clean exit, so a one-shot job
+re-runs in a loop until the service is removed; and a re-run of an idempotent script is only harmless if the
+script is truly idempotent (mine was not — it renamed a directory that no longer existed).
 
 

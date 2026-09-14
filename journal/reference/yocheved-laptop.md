@@ -228,3 +228,45 @@ Probes used for this file live in `_scratch/yocheved/` on `ZABZ-YOGA`:
 `blocktest.ps1` (filter allow/deny), `nodetls.ps1` (Node trust + per-endpoint behaviour),
 `toolcall.ps1` (DeepInfra tool-calling), `gitaccess.ps1` (credential scope), `apikey.ps1`,
 `usage.ps1`, `envtest.ps1` (replicated `.env` parse), `install-dsh2.ps1` (the installer).
+
+---
+
+## 9. Build status (2026-09-14) — what exists, and what still does not
+
+### Done and verified by artifact
+
+| Item | Evidence |
+|---|---|
+| Node upgraded to **24.12.0** | `node-upgrade.log` → `installed: v24.12.0`. Old tree kept as `node-v22.14.0-win-x64.bak-v22` (rollback) |
+| DSH installed, full plugin set | `C:\Users\cheve\dsh` — `dsh-run.log` → `missing count: 0`, `=== END OK ===`. 240/240 `@deepseek-ai` packages carry their `package.json` |
+| DSH CLI functional | `dsh -V` → `0.1.5-rc.1`; `--profile web --dump-config` → 539 lines |
+| `web` profile initialised | `C:\Users\cheve\.dsh\profiles\web\` (cordis.yml, cordis.patch.yml, package.json) |
+| Credential store | `C:\Users\cheve\.dsh\.credentials.yaml` — 6 refs written **from her own `.env`** (no secret crossed the wire) |
+| Settings with her model route | `C:\Users\cheve\.dsh\settings.yaml` — `deepinfra` / `deepseek-ai/DeepSeek-V4-Flash-0731`, `permission.defaultPreset: workspace-write` |
+| Engine boots | printed `dsh web: http://127.0.0.1:3099/?token=…` and answered on the port |
+| Provenance | commit on her box carried `Dsh-Actor: SYSTEM` / `Dsh-Machine: DESKTOP-FGV6KMH` / `Dsh-At: …` — `RESULT: hook FIRED` |
+
+### Not done — the honest list
+
+1. **Nothing runs persistently.** The engine was started, probed and stopped. It must become an NSSM
+   service (the pattern that works on this box) or her box boots with no harness.
+2. **No `lpt-hub` clone and no customer-data workspace.** The manager capability is configured but the
+   data access the owner asked for is not delivered.
+3. **Her Git credential is still the account-wide `gho_` OAuth token.** Until it is replaced with scoped
+   credentials, she can push to every repo the owner can reach.
+4. **`harness-config` does not reach her box.** Its origin is `secretary-ts:/home/zabz/harness-config.git`,
+   not GitHub, so `git clone` fails with "Repository not found". Her settings are currently written
+   directly rather than converging via `autosync.ps1`.
+5. **No end-to-end turn verified.** The engine serves, but no model completion has been driven through
+   her engine yet — the DeepInfra route was proven with a raw API call from her box, not through DSH.
+
+### The two commands that cost the most time, so they are not repeated
+
+* `dsh --help` and `dsh -V` are **not** the checks they look like. `--help` is deliberately disabled
+  (`.helpOption(false)`), and only `-V` prints the version. An invocation that exits **0 with empty
+  output** means the entry point no-opped — see `journal/LESSONS.md` **L173**.
+* **Windows Task Scheduler is inert on this host**: a task reports `LastTaskResult: 0` and runs nothing,
+  including a trivial `cmd` marker. Use **NSSM** for any detached work. See **L174**.
+  Also: `nssm set <svc> AppExit Default Exit` makes a one-shot service **restart** on clean exit, so
+  remove the service when the job is done.
+
