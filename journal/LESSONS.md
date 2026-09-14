@@ -1627,7 +1627,9 @@ silent. Two separate traps in one call.
 one is hit ("showing 40 of ≥40"); and treat "0 results" and "0 results **because the query or shape was
 wrong**" as different answers. An under-count is a **refusal**, and must be reported as one.
 
-**L178 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question.**
+**L190 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question.**
+*(written as L178; another session claimed 178–179 within the hour, so this was renumbered. The lesson
+number is a shared namespace written concurrently and a collision silently loses one of the two lessons.)*
 Called once this session to sanity-check the system; it returned **356,129 bytes** of autopilot
 subsystem history — the full `recent_runs` array for every subsystem, dozens of entries each — and the
 harness had to spill the overflow to a file. Nothing about that call required the history: the same
@@ -1638,8 +1640,8 @@ narrow tools, or the server-side digest (`scripts/server/owner-attention-digest.
 already condenses the same facts. When a tool returns far more than the question needed, that is a
 finding about the tool — record it, and stop using it that way.
 
-**L179 · 2026-09-14 · Two layouts passed review and were both wrong; the screenshot found what reading
-could not.**
+**L191 · 2026-09-14 · Two layouts passed review and were both wrong; the screenshot found what reading
+could not.** *(written as L179; renumbered for the same collision as L190.)*
 Building the attention badge, I wrote the CSS twice and read it twice, and each time it looked right.
 Rendered: v1 laid the expanded card on top of the pill and it came out **~100 px wide**; v2 fixed the
 row but let the **pill bound the container** — `position:fixed; right:12px` with no width, so the card

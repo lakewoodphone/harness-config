@@ -122,7 +122,7 @@ with options and a recommendation). It exists now, and it is the one channel tha
 and it rendered ~100 px wide. v2 fixed the row but let the **pill bound the container**, so the card
 inherited the pill's width and clipped at the viewport edge. v3 makes the row span the viewport inset by
 16 px with the pill right-aligned and the card filling it to 440 px. **A screenshot was the thing that
-found it** — the code looked correct twice. → L179.
+found it** — the code looked correct twice. → L191.
 
 **STILL OPEN**
 - The **62 unsent drafts** and the **298 undelivered owner messages** are now *visible* and still not
