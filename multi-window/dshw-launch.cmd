@@ -1,20 +1,24 @@
 @echo off
 rem ============================================================================
-rem DSH Windows - the one double-click that starts the fleet and opens a window.
+rem DSH - one double-click: elevated engine, then the windows you had open.
 rem
-rem WHY THIS IS A .cmd AND NOT THE SHORTCUT ITSELF
+rem WHY A .cmd AND NOT THE SHORTCUT ITSELF
 rem A .lnk can carry a "run as administrator" flag, but Windows refuses to elevate a
-rem .cmd/.bat directly - it needs an executable, so the shell shows "This app can't
-rem run" or silently runs it unelevated. A shortcut may, however, point at cmd.exe
-rem and pass this file as an argument, and then the flag applies to cmd.exe, which
-rem elevates the whole tree: this script, the pwsh it spawns, the DSH engine, and
-rem every Edge window it opens. That is what the shortcut on each desktop does.
+rem .cmd/.bat directly - it needs an executable, so the shortcut targets cmd.exe and
+rem carries the flag. cmd.exe then elevates this whole tree: this script, the pwsh it
+rem spawns, the DSH engine, and every Edge window it opens.
 rem
-rem WHAT IT DOES
-rem   1. if the engine is not listening, start it (dshw up - no windows)
-rem   2. reopen exactly the windows that were open when DSH was last closed
-rem Step 2 is the point: double-clicking a shortcut must end with the same windows
-rem you left, not with a silent engine and nothing to look at.
+rem NOTHING HERE DELETES OR CLEANS ANYTHING
+rem A reinstall of one plugin removed a DIFFERENT plugin's directory from the profile
+rem and the owner could not launch DSH. Install steps copy files; a single file being
+rem replaced is deleted one file at a time. Nothing recursive, ever.
+rem
+rem WHAT IT DOES, IN ORDER, EACH STEP VERIFIED
+rem   1. dshw ensure  - is the engine answering? if not, start it and wait, with a
+rem                    bounded retry. This is what stops the ERR_CONNECTION_REFUSED
+rem                    the owner saw when a window was opened against a dead port.
+rem   2. dshw restore - reopen exactly the windows that were open when DSH was last
+rem                    closed. A window closed on purpose stays closed.
 rem ============================================================================
 
 setlocal
@@ -23,7 +27,7 @@ set "DSHW=%DSHW_DIR%dshw.ps1"
 set "PWSH=%ProgramFiles%\PowerShell\7\pwsh.exe"
 if not exist "%PWSH%" set "PWSH=pwsh.exe"
 
-"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" up
+"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" ensure
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" restore
 
 endlocal

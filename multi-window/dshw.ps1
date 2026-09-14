@@ -27,7 +27,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'restore', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'tasks-export', 'tasks-import', 'doctor', 'help')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'restore', 'ensure', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'tasks-export', 'tasks-import', 'doctor', 'help')]
     [string]$Command = 'status',
 
     [Parameter(Position = 1)]
@@ -910,6 +910,101 @@ function Invoke-Restore {
     }
     Write-Host ("restore: {0} of {1} remembered window(s) reopened" -f $opened, $wanted.Count)
 }
+# ── the fast loop: one bounded check, restart only after two failures ────────
+function Invoke-Ensure {
+    $port = Get-PrimaryPort
+    $flag = Join-Path $StateDir "watchdog-failures-$port.txt"
+    $log = Join-Path $StateDir 'watchdog.log'
+    if (Test-EngineAlive $port) {
+
+        Write-Host ("ensure: engine is answering on {0}" -f $port)
+        return
+    }
+    # Restart on the FIRST failed check, not the second. A two-strike rule looked cautious
+    # and was worse: the engine died on 2026-09-13, the first check only recorded a failure,
+    # and the owner was left dead in the water until the next minute. One bounded socket
+    # connect is cheap and a false positive costs a restart of an engine that was already
+    # not answering.
+    Write-Host ("ensure: engine on {0} is not answering - starting it" -f $port) -ForegroundColor Yellow
+    "[{0}] ensure: engine on {1} not answering - starting" -f (Get-Date -Format o), $port |
+        Add-Content -LiteralPath $log -Encoding utf8
+    try {
+        $slot = @(Get-Slots | Where-Object { $_.enabled } | Select-Object -First 1)[0]
+        $r = Start-OneSlotServer $slot
+        $state = Get-State
+        Set-SlotRecord $state $port ([pscustomobject]@{
+            pid = $r.pid; url = $r.url; log = $r.log; workspace = $r.workspace
+            startedAt = $r.startedAt; label = $slot.label; profile = $slot.profile })
+        Save-State $state
+        Remove-Item $flag -Force -ErrorAction SilentlyContinue
+        Write-Host ("ensure: engine started, pid {0}" -f $r.pid) -ForegroundColor Green
+        "[{0}] ensure: engine started, pid {1}" -f (Get-Date -Format o), $r.pid |
+            Add-Content -LiteralPath $log -Encoding utf8
+    } catch {
+        Write-Host ("ensure: start failed - {0}" -f $_.Exception.Message) -ForegroundColor Red
+        "[{0}] ensure: start FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message |
+            Add-Content -LiteralPath $log -Encoding utf8
+    }
+}
+# ── make sure an engine exists, and retry rather than give up ────────────────
+#
+# The owner hit ERR_CONNECTION_REFUSED from the new-window control because the engine was
+# down at that instant and nothing retried: a launcher that starts a window against a dead
+# port is worse than one that refuses. This is the single place that answers "is there an
+# engine, and if not, start one", with a bounded retry, so every caller gets the same
+# behaviour instead of each inventing its own.
+function Test-EngineAlive([int]$port) {
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        $task = $client.ConnectAsync('127.0.0.1', $port)
+        if (-not $task.Wait(2000)) { return $false }
+        return $client.Connected
+    } catch { return $false }
+    finally { try { $client.Dispose() } catch { } }
+}
+
+function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
+    # ONE place that answers "is there an engine, and if not, start one", so the launcher,
+    # `new`, `restore` and the watchdog cannot drift. Every attempt is logged, because the
+    # engine died at 00:xx on 2026-09-13 while a restart was in flight and there was no
+    # record of what had been tried - an unlogged recovery is indistinguishable from none.
+    $port = Get-PrimaryPort
+    $recoveryLog = Join-Path $StateDir 'engine-recovery.log'
+    $slot = @(Get-Slots | Where-Object { $_.enabled } | Select-Object -First 1)
+    if (-not $slot) { throw 'no enabled slot in windows.json' }
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        if (Test-EngineAlive $port) { return $true }
+        Write-Host ("engine on {0} is not answering (attempt {1}/{2}) - starting it" -f $port, $attempt, $maxAttempts) -ForegroundColor Yellow
+        "[{0}] ensure: port {1} not answering, attempt {2}/{3}" -f (Get-Date -Format o), $port, $attempt, $maxAttempts |
+            Add-Content -LiteralPath $recoveryLog -Encoding utf8
+        try {
+            $r = Start-OneSlotServer $slot
+            $state = Get-State
+            Set-SlotRecord $state $port ([pscustomobject]@{
+                pid = $r.pid; url = $r.url; log = $r.log; workspace = $r.workspace
+                startedAt = $r.startedAt; label = $slot.label; profile = $slot.profile })
+            Save-State $state
+            $deadline = (Get-Date).AddSeconds($waitSeconds)
+            while ((Get-Date) -lt $deadline) {
+                if (Test-EngineAlive $port) {
+                    Write-Host ("engine is answering on {0}" -f $port) -ForegroundColor Green
+                    "[{0}] ensure: engine answering on {1} (pid {2})" -f (Get-Date -Format o), $port, $r.pid |
+                        Add-Content -LiteralPath $recoveryLog -Encoding utf8
+                    return $true
+                }
+                Start-Sleep -Milliseconds 750
+            }
+            "[{0}] ensure: engine started (pid {1}) but never answered on {2}" -f (Get-Date -Format o), $r.pid, $port |
+                Add-Content -LiteralPath $recoveryLog -Encoding utf8
+        } catch {
+            Write-Host ("  start failed: {0}" -f $_.Exception.Message) -ForegroundColor Red
+            "[{0}] ensure: start FAILED - {1}" -f (Get-Date -Format o), $_.Exception.Message |
+                Add-Content -LiteralPath $recoveryLog -Encoding utf8
+        }
+        Start-Sleep -Seconds 2
+    }
+    return $false
+}
 function Invoke-New {
     $state = Get-State
     $slots = Get-Slots
@@ -1067,20 +1162,29 @@ function Invoke-Health {
 }
 
 function Invoke-Watchdog([string]$mode) {
-    $taskName = 'DSH Window Fleet Watchdog'
+    # `1m` is the fast loop the owner actually needs: the browser cannot recover for you when
+    # the engine is gone (it retries a socket, it cannot start a process), and a five-minute
+    # gap is long enough to close DSH and give up. The fast loop checks with a bounded socket
+    # connect and restarts only after TWO consecutive failures, so a single blip cannot cause
+    # a restart loop.
+    $fast = ($mode -eq 'fast')
+    $taskName = if ($fast) { 'DSH Engine Watchdog (1m)' } else { 'DSH Window Fleet Watchdog' }
     if ($mode -eq 'off') {
-        if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
-            Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
-            Write-Host "watchdog: removed '$taskName'"
-        } else { Write-Host 'watchdog: task was not registered' }
+        foreach ($t in 'DSH Window Fleet Watchdog', 'DSH Engine Watchdog (1m)') {
+            if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) {
+                Unregister-ScheduledTask -TaskName $t -Confirm:$false
+                Write-Host "watchdog: removed '$t'"
+            }
+        }
         return
     }
     $ps = (Get-Command pwsh).Source
     $script = Join-Path $PSScriptRoot 'dshw.ps1'
+    $verb = if ($fast) { 'ensure' } else { 'health' }
     $action = New-ScheduledTaskAction -Execute $ps `
-        -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" health -ConfigPath `"$ConfigPath`""
+        -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" $verb -ConfigPath `"$ConfigPath`""
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) `
-        -RepetitionInterval (New-TimeSpan -Minutes 5)
+        -RepetitionInterval (New-TimeSpan -Minutes $(if ($fast) { 1 } else { 5 }))
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
         -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 15) -MultipleInstances IgnoreNew
     $principal = New-InteractivePrincipal -Highest:(Test-IsElevated)
@@ -1088,7 +1192,7 @@ function Invoke-Watchdog([string]$mode) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     }
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
-    Write-Host "watchdog: '$taskName' registered - 'dshw health' every 5 minutes, this user, no windows opened."
+    Write-Host ("watchdog: '{0}' registered - 'dshw {1}' every {2} minute(s), this user, no windows opened." -f $taskName, $verb, $(if ($fast) { 1 } else { 5 }))
     Write-Host "          It only ever STARTS a missing engine. Live engines are left alone."
     Write-Host "          Log: $StateDir\health.log"
 }
@@ -1175,8 +1279,13 @@ switch ($Command) {
     }
     'status' { Invoke-Status }
     'windows' { Invoke-Up -WindowsOnly }
-    'new'    { Invoke-New }
-    'restore' { Invoke-Restore }
+    'new'    {
+        if (Ensure-Engine) { Invoke-New } else { Write-Error 'no engine could be started on the primary port'; exit 1 }
+    }
+    'ensure' { Invoke-Ensure }
+    'restore' {
+        if (Ensure-Engine) { Invoke-Restore } else { Write-Error 'no engine could be started on the primary port'; exit 1 }
+    }
     'open'   {
         $slot = Get-SlotCfgByPortOrLabel $Slot
         if (-not $slot) { Write-Error "no slot matches '$Slot'"; exit 2 }

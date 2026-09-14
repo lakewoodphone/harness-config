@@ -30,4 +30,26 @@
       websocketHeartbeatIntervalMs: 15000,
     },
   },
+  # ── browser reconnect policy ───────────────────────────────────────────────
+  # The owner's complaint: when the engine goes away the page says "disconnected" and
+  # he closes everything and starts over. The client DOES retry, but on its shipped
+  # schedule (500 ms -> 10 s backoff, 15 s readiness deadline), so a window open across
+  # an engine restart can sit dead for many seconds before it tries again.
+  #
+  # Schema verified in dsh-client-connection's README: these fields are accepted on the
+  # Host Connection row, validated there, and injected into every served page. Values
+  # below are half the defaults, so a restarted engine is picked up in ~2 s instead of
+  # ~10+. A page reload is required after changing this (the Host injects it at boot).
+  {
+    id: 'connection',
+    config: {
+      recovery: {
+        backoffBaseMs: 250,
+        backoffFactor: 2,
+        backoffMaxMs: 2000,
+        generationReadyWarnMs: 2000,
+        generationReadyTimeoutMs: 10000,
+      },
+    },
+  },
 ]
