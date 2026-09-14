@@ -33,7 +33,8 @@ shards *and* every git ref, which is what stops two machines choosing the same n
   `QUESTIONS.md` was reconciled into it: five rows promoted (#12 the email reply loop, #13 Yocheved's write
   access, #14 iPhone location, #15 Google Voice, and #11 the delivery channel), sixteen closed with a
   disposition each in `archive/README.md`, and **#11 answered the same hour** — the owner picked the
-  harness badge, so it is closed and must not be re-asked. **7 pending.**
+  harness badge, so it is closed and must not be re-asked. **8 pending** (the eighth is **#16**, the
+  Netlify deploy credits blocking every frontend release, added 2026-09-14).
 
 - **The owner's phone path was broken, and is fixed as of 2026-09-14** (H70). It served documents and
   refused every `/api` call and WebSocket, because `profiles/web/cordis.patch.yml` restated the
@@ -41,6 +42,18 @@ shards *and* every git ref, which is what stops two machines choosing the same n
   trusted authorities (P48b, done). Probe **15/15**; a real browser at 393x852 has the layer, the cost
   pill and a working composer. Two items there stay open and named: a first run lands with no session
   (P46), and the gate died once with no cause on the record (P59).
+
+- **The Kosher Waze DRN fleet is now manageable from the LPT portal, and it is BLOCKED ON MONEY, not
+  engineering** (H73). The staff page can see each DRN phone's state and liveness, read the profiles it
+  is actually running, apply or lift lockdown, and lock a lost device — the owner's three stated needs
+  for that fleet, entered from the portal as he decided (D19). Built, unit-tested (**122** fleet-api,
+  **31** waze service), the backend deployed and its four new procedures verified live, and the UI driven
+  end-to-end against the live test API with the confirm gates proven to hold. **The frontend cannot be
+  published**: Netlify returns `403 Account credit usage exceeded` on exhausted Free-plan credits, so
+  `test.lakewoodphoneandtech.com` still serves the old bundle. Owner question **#16**. Two things future
+  sessions must not re-learn: only **1 of 65** devices has ever answered a ProfileList (so "unknown", not
+  "empty", is the correct reading of the panel), and the fleet carried **9 retired** devices that the
+  monitor already exempted from staleness and the UI was calling dead.
 
 ## State of the systems, as last measured
 
@@ -64,7 +77,7 @@ shards *and* every git ref, which is what stops two machines choosing the same n
 
 ## Id spaces, so a reference can be checked
 
-**H1-H68 · L1-L186 · P1-P58 · D1-D58 · W1-W36.** A bare number is ambiguous wherever the suffix repair
+**H1-H73 · L1-L212 · P1-P65 · D1-D70 · W1-W38.** A bare number is ambiguous wherever the suffix repair
 applied; the suffixed id in `index/entries.tsv` is the one to cite. (`L75` is referenced twice in old
 prose and has never existed — an INFO in `check`, left visible rather than papered over.)
 

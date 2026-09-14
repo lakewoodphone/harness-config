@@ -59,6 +59,7 @@ handoff	H57	57		2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The LPT 
 handoff	H58	58		2026-09-14	ZABZ-YOGA	open	## 2026-09-14 · ZABZ-YOGA · The phone sidebar is off-canvas at last, and the page stopped scrolling	log/handoff/2026-09.2.md	798	847	cb04ac52b32f8b15
 handoff	H59	59		2026-09-14 00:15 EDT (04:15Z)	ZABZ-TECH	open	## 2026-09-14 00:15 EDT (04:15Z) · ZABZ-TECH · Search was re-walking the disk every time; it is now indexed — 45.3 s became 0.075 s	log/handoff/2026-09.2.md	848	921	a684724d06952115
 handoff	H60	60		2026-09-14 02:08	secratary	open	## 2026-09-14 02:08 · secratary · The sukkah tarp was paid for on Aug 11 and never shipped; nobody was watching	log/handoff/2026-09.2.md	922	974	84c531340db2d2ca
+handoff	H74	74		2026-09-14 02:15 EDT (06:15Z)	ZABZ-TECH	open	## 2026-09-14 02:15 EDT (06:15Z) · ZABZ-TECH · Search went from a 45-second walk to an indexed 0.07 s, and the year of chat history the index never had	log/handoff/2026-09.2.md	1728	1799	7b02f560cd6c4864
 handoff	H61	61		2026-09-14 02:20	secratary	open	## 2026-09-14 02:20 · secratary · Chase email to ALCO sent (owner approved); the vendor-promise hole is written up as P52	log/handoff/2026-09.2.md	975	1015	37c69dc1b2568aec
 handoff	H62	62		2026-09-14 04:05 UTC	ZABZ-YOGA	open	## 2026-09-14 04:05 UTC · ZABZ-YOGA · Owner presence is now recorded on the authority and alarmed — and making it *act* is blocked by the diverged checkout, not by missing code	log/handoff/2026-09.2.md	1016	1080	b8fdf5d109d7a477
 handoff	H63	63		2026-09-14 05:05 UTC	ZABZ-YOGA	open	## 2026-09-14 05:05 UTC · ZABZ-YOGA · My lane: /attention built and verified; a live outage found in his phone's API — and my earlier "my plugin did it" was wrong	log/handoff/2026-09.2.md	1081	1121	92dc4187a0c38c1c
@@ -68,7 +69,11 @@ handoff	H66	66		2026-09-14 05:45 UTC	ZABZ-YOGA	open	## 2026-09-14 05:45 UTC · Z
 handoff	H68	68		2026-09-14 05:49 UTC	ZABZ-YOGA	done	## 2026-09-14 05:49 UTC · ZABZ-YOGA · The journal is a tree of documents with reads now — 389 entries instead of six files nobody could afford to open	log/handoff/2026-09.2.md	1382	1429	716018e1eeaaef5d
 handoff	H67	67		2026-09-14 05:55 UTC	ZABZ-YOGA	open	## 2026-09-14 05:55 UTC · ZABZ-YOGA · The delivery failure is now a measured check, live on the authority — and the finding is readable in two places (the GUI badge is NOT the one that is done)	log/handoff/2026-09.2.md	1299	1381	f8969788f31fbf0f
 handoff	H69	69		2026-09-14 05:57 UTC	ZABZ-YOGA	done	## 2026-09-14 05:57 UTC · ZABZ-YOGA · The rebuild is verified on all three machines — and the flat-drift check earned its place by finding three entries that lived on one machine only	log/handoff/2026-09.2.md	1430	1466	740d4f8b06b15a95
-handoff	H70	70		2026-09-14 06:00 UTC	SECRATARY	open	## 2026-09-14 06:00 UTC · SECRATARY · The phone was a shell and is now an agent, and the layer is delivered twice	log/handoff/2026-09.2.md	1467	1529	c988841c4b54eab6
+handoff	H70	70		2026-09-14 06:00 UTC	SECRATARY	open	## 2026-09-14 06:00 UTC · SECRATARY · The phone was a shell and is now an agent, and the layer is delivered twice	log/handoff/2026-09.2.md	1467	1528	c988841c4b54eab6
+handoff	H75	75		2026-09-14 06:05 UTC	ZABZ-YOGA	open	## 2026-09-14 06:05 UTC · ZABZ-YOGA · The badge is live on the phone path — proven by fetching it from this laptop and by photographing it in a real browser, not by configuration	log/handoff/2026-09.2.md	1800	1881	30946cf8d5b1e6fb
+handoff	H73	73		2026-09-14 06:35 UTC	ZABZ-YOGA	open	## 2026-09-14 06:35 UTC · ZABZ-YOGA · The DRN fleet can now be managed from the portal — and three of my own numbers were wrong when I measured them	log/handoff/2026-09.2.md	1630	1727	524d9d98d01b9272
+handoff	H72	72		2026-09-14 07:40 UTC	ZABZ-YOGA	open	## 2026-09-14 07:40 UTC · ZABZ-YOGA · The filter's legal audit, written as counsel-of-record — and it killed the cheapest vendor	log/handoff/2026-09.2.md	1573	1629	86e7b2f4ffe0fcf3
+handoff	H71	71		2026-09-14 08:40 UTC	ZABZ-YOGA	open	## 2026-09-14 08:40 UTC · ZABZ-YOGA · The compliance controls a parent can actually use: notice, consent, deletion, expiry	log/handoff/2026-09.2.md	1529	1572	d05000fe68a8fd66
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.md	16	22	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	log/lessons/2026-09.md	23	31	704b5a31f9362c6a
@@ -237,7 +242,20 @@ lessons	L185	185		2026-09-14	imported	open	**L185 · 2026-09-14 · `schtasks` do
 lessons	L186	186		2026-09-14	imported	open	**L186 · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it defensive**	log/lessons/2026-09.md	2540	2552	ea633b3660d41c02
 lessons	L187	187		2026-09-14	SECRATARY	open	**L187 · An overlay that restates a config deletes every key it does not restate**	log/lessons/2026-09.md	2553	2581	619769a51d97ac58
 lessons	L188	188		2026-09-14	SECRATARY	open	**L188 · A document is a delivery mechanism that a cache can delete without a trace**	log/lessons/2026-09.md	2582	2610	c5a80f1cf46a4ca9
-lessons	L189	189		2026-09-14	SECRATARY	open	**L189 · A PowerShell script with any non-ASCII byte needs a UTF-8 BOM, or the edition that runs it will not parse it**	log/lessons/2026-09.md	2611	2644	226fecadc341fc60
+lessons	L189	189		2026-09-14	SECRATARY	open	**L189 · A PowerShell script with any non-ASCII byte needs a UTF-8 BOM, or the edition that runs it will not parse it**	log/lessons/2026-09.md	2611	2643	226fecadc341fc60
+lessons	L200	200		2026-09-14	imported	open	**L200 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	log/lessons/2026-09.md	2644	2659	64c3d38b793c7a24
+lessons	L201	201		2026-09-14	imported	open	**L201 · 2026-09-14 · Two layouts passed review and were both wrong; the screenshot found what reading could not**	log/lessons/2026-09.md	2660	2678	763f8e2914b837d9
+lessons	L202	202		2026-09-14	imported	open	**L202 · 2026-09-14 · The journal's `L`/`P` numbers are a shared namespace written by concurrent sessions, so claim the number at the moment of writing or lose a lesson to a collision**	log/lessons/2026-09.md	2679	2696	db991d423bfba40f
+lessons	L203	203		2026-09-14	imported	open	**L203 · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the wrong lesson**	log/lessons/2026-09.md	2697	2708	c0807c02b1829588
+lessons	L204	204		2026-09-14	imported	open	**L204 · 2026-09-14 · Bumping a parser version is a data operation, not a metadata change**	log/lessons/2026-09.md	2709	2728	3c52721d07cce83c
+lessons	L205	205		2026-09-14	imported	open	**L205 · 2026-09-14 · An exemption implemented in the backend must be re-implemented in every surface that counts the same thing — or the surfaces will disagree, and the loudest one wins**	log/lessons/2026-09.md	2729	2741	7694c71d0610fd5d
+lessons	L206	206		2026-09-14	imported	open	**L206 · 2026-09-14 · A timestamp with no timezone is not a timestamp; it is a guess with a format**	log/lessons/2026-09.md	2742	2756	00f9c15ba6a2a02b
+lessons	L207	207		2026-09-14	imported	open	**L207 · 2026-09-14 · The tool you measure with can be the thing that is wrong. Read raw bytes before believing a rendering**	log/lessons/2026-09.md	2757	2769	e3f9528063e3748b
+lessons	L208	208		2026-09-14	imported	open	**L208 · 2026-09-14 · "It has never been asked" and "it has none" are different facts, and a UI that conflates them will tell an operator the opposite of the truth**	log/lessons/2026-09.md	2770	2784	ce6ce963759fe43b
+lessons	L209	209		2026-09-14	imported	open	**L209 · 2026-09-14 · Bound the connect, not just the query**	log/lessons/2026-09.md	2785	2794	dfade6c41e07aff1
+lessons	L210	210		2026-09-14	imported	open	**L210 · 2026-09-14 · A build script that reports success may not have rebuilt from the code you think**	log/lessons/2026-09.md	2795	2809	ce304ee75cdfd960
+lessons	L211	211		2026-09-14	imported	open	**L211 · 2026-09-14 · When the platform is blocked, build the verification path instead of waiting — and say which artifact you verified**	log/lessons/2026-09.md	2810	2822	7a06e92edbfa2174
+lessons	L212	212		2026-09-14	ZABZ-YOGA	open	**L212 · Piping a body through PowerShell double-encodes it; keep piped bodies ASCII and check the stored bytes**	log/lessons/2026-09.md	2823	2845	04096132940b4282
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -297,7 +315,12 @@ pain	P54	54		-	-	open	## P54 — The first search index was 10.87 GB for 112 GB 
 pain	P55	55		-	-	open	## P55 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	log/pain/2026-09.md	1315	1367	565067337a2b3cb7
 pain	P57	57		2026-09-14	ZABZ-YOGA	open	## P57 — The journal still has two writers - the sharded log and the flat files a second session keeps appending to	log/pain/2026-09.md	1368	1389	eca80cad5011cc47
 pain	P58	58		2026-09-14	ZABZ-YOGA	open	## P58 — 56 of 57 pain entries carry no proof of being finished, so the open list cannot be trusted as a to-do	log/pain/2026-09.md	1390	1409	f45a179c7c1579e3
-pain	P59	59		2026-09-14	SECRATARY	open	## P59 — The phone's gate died once and nothing on the host says why	log/pain/2026-09.md	1410	1446	b8a66b43cd180f7c
+pain	P59	59		2026-09-14	SECRATARY	open	## P59 — The phone's gate died once and nothing on the host says why	log/pain/2026-09.md	1410	1445	b8a66b43cd180f7c
+pain	P61	61		2026-09-14	imported	open	## P61 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	log/pain/2026-09.md	1446	1505	a11dab4dc6a91676
+pain	P62	62		2026-09-14	imported	open	## P62 — Re-ingesting after a parser change can silently empty an index	log/pain/2026-09.md	1506	1526	a042ab92f05e737e
+pain	P63	63		2026-09-14	imported	open	## P63 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)	log/pain/2026-09.md	1527	1622	7a796f34b814490d
+pain	P64	64		2026-09-14	ZABZ-YOGA	open	## P64 — Netlify deploy credits block every frontend release	log/pain/2026-09.md	1623	1652	6856c705c28e9978
+pain	P65	65		2026-09-14	ZABZ-YOGA	open	## P65 — The "authoritative" deploy doc stated a fact that is false about the Netlify webhook	log/pain/2026-09.md	1653	1678	dc4ca459ca7a58b5
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
@@ -368,7 +391,15 @@ decisions	D55	55		2026-09-14	ZABZ-YOGA	open	**D55 · 2026-09-14 · The journal h
 decisions	D56	56		2026-09-14	ZABZ-YOGA	open	**D56 · 2026-09-14 · One writer allocates ids over the index, the shards and every git ref.**	log/decisions/2026-09.md	878	898	a205573e5a8bc65b
 decisions	D57	57		2026-09-14	ZABZ-YOGA	open	**D57 · 2026-09-14 · Owner questions live only in owner_decision_queue; QUESTIONS.md is retired.**	log/decisions/2026-09.md	899	922	dd79ba648d656088
 decisions	D58	58		2026-09-14	imported	open	**D58 · 2026-09-14 · Two indexes, one refresh task, SQLite only — and the trigram index is opt-in.**	log/decisions/2026-09.md	923	935	b3f45673e111ae07
-decisions	D59	59		2026-09-14	SECRATARY	open	**D59 · 2026-09-14 · The phone layer is delivered twice, and a phone mounts the same client plugin set as a desktop.**	log/decisions/2026-09.md	936	966	af0f642871a4a7a3
+decisions	D59	59		2026-09-14	SECRATARY	open	**D59 · 2026-09-14 · The phone layer is delivered twice, and a phone mounts the same client plugin set as a desktop.**	log/decisions/2026-09.md	936	965	af0f642871a4a7a3
+decisions	D63	63		2026-09-14	imported	open	**D63 · 2026-09-14 · Being the lawyer meant reading the contracts, and the contract killed the cheapest vendor.**	log/decisions/2026-09.md	966	973	8e2ea36863a557d2
+decisions	D64	64		2026-09-14	imported	open	**D64 · 2026-09-14 · Two independent studies disagreed about whether COPPA applies, and the reconciliation — not either finding — is the decision.**	log/decisions/2026-09.md	974	979	f4d621233dacf1f1
+decisions	D65	65		2026-09-14	imported	open	**D65 · 2026-09-14 · The shipped defaults are the legal posture, so they are pinned by a test.**	log/decisions/2026-09.md	980	986	ffb565df7b67a138
+decisions	D66	66		2026-09-14	imported	open	**D66 · 2026-09-14 · Retention starts when we hold the data, not when the device says the moment was.**	log/decisions/2026-09.md	987	992	9035e027aec3b6f6
+decisions	D67	67		2026-09-14	imported	open	**D67 · 2026-09-14 · A portal may push a profile only as one of two named intents, never as a raw profile picker.**	log/decisions/2026-09.md	993	1000	cf61af19f0539c2f
+decisions	D68	68		2026-09-14	imported	open	**D68 · 2026-09-14 · The API owns timezone correctness; consumers are never asked to guess.**	log/decisions/2026-09.md	1001	1007	699d4d8e142abb2c
+decisions	D69	69		2026-09-14	imported	open	**D69 · 2026-09-14 · Any read that can fail to determine returns that failure as a field, not as an empty list.**	log/decisions/2026-09.md	1008	1014	bf9ccd629568a022
+decisions	D70	70		2026-09-14	imported	open	**D70 · 2026-09-14 · A `retired` device is exempt from staleness in every surface, and the monitor is the authority for that rule.**	log/decisions/2026-09.md	1015	1022	bb6ec154a8d85539
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
@@ -413,4 +444,5 @@ wins	W33	33		2026-09-14	-	open	**W33 · 2026-09-14 · Her box's real failure was
 wins	W34	34		2026-09-14	-	open	**W34 · 2026-09-14 · Her laptop was reachable the whole time the record said it was not.**	log/wins/2026-09.md	631	641	2a464d4e81cbf267
 wins	W35	35		2026-09-14	ZABZ-YOGA	open	**W35 · 2026-09-14 · The journal costs 6.6 KB to consult instead of 590 KB, and the read path is bounded by design.**	log/wins/2026-09.md	642	659	337917a1dc64fc39
 wins	W36	36		2026-09-14	ZABZ-YOGA	open	**W36 · 2026-09-14 · The audit proved 17 sources complete and caught two silent migration losses the tool reported as clean.**	log/wins/2026-09.md	660	676	129d2edb0fbc0966
-wins	W37	37		2026-09-14	SECRATARY	open	**W37 · 2026-09-14 · The owner's phone is a working agent again: 15/15, a cost pill, a drawer that gets out of the way, and a real tool answer.**	log/wins/2026-09.md	677	697	618342880cdefa90
+wins	W37	37		2026-09-14	SECRATARY	open	**W37 · 2026-09-14 · The owner's phone is a working agent again: 15/15, a cost pill, a drawer that gets out of the way, and a real tool answer.**	log/wins/2026-09.md	677	696	618342880cdefa90
+wins	W38	38		2026-09-14	ZABZ-YOGA	open	**W38 · 2026-09-14 · The DRN fleet is manageable from the portal, and four of its numbers are now measured.**	log/wins/2026-09.md	697	732	7bc7ca65d3507117

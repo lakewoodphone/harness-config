@@ -1694,3 +1694,84 @@ version bump, verify counts **increased or stayed level** — a drop is a failur
 the FTS and base tables when something looks empty, because a mismatch between them is the signature of a
 half-committed delete.
 
+
+---
+
+## On dashboards that disagree with the machine they describe (Waze fleet, 2026-09-14)
+
+**L193 · 2026-09-14 · An exemption implemented in the backend must be re-implemented in every surface
+that counts the same thing — or the surfaces will disagree, and the loudest one wins.**
+The monitor exempts `retired` devices from staleness (`retired_exempt`); it was fixed and verified on
+2026-09-11. I then built a staff banner that counted silent devices and **ignored the exemption**, so it
+claimed **62 DRN devices silent** when the honest number was **53** — the 9 retired phones were reported
+as faults. A retired phone is quiet *because it is out of service*.
+*Rule:* when a rule has already been encoded once (an exemption, a threshold, a band), grep for the rule
+before writing a second implementation of it, and make the second one read the same field the first one
+does. A number a human acts on must be the number the automation acts on.
+*Cost:* the owner would have been told 9 healthy-retired phones were dead, and "asked" to chase them.
+
+**L194 · 2026-09-14 · A timestamp with no timezone is not a timestamp; it is a guess with a format.**
+`timestamp without time zone` columns holding UTC, returned as `::text`, produce
+`2026-09-08 22:54:13.245131`. `Date.parse` reads that as **local**, giving `2026-09-09T02:54:13.245Z` on a
+UTC-4 box — **four hours later than the true instant**, so the device looked four hours *fresher* than it
+was and could pass under a 7-day "silent" threshold while actually over it. Nothing errored; the UI simply
+stated a wrong age.
+*Rule:* emit timestamps from a service as ISO-8601 **with an explicit offset or `Z`**, formatted in SQL
+(`to_char(col, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`) so it does not depend on the session TimeZone. Never
+make every consumer responsible for guessing the zone of a bare string.
+*Note the direction is not fixed:* the offset's sign flips whether staleness is under- or over-stated, so
+"it looked fine on my machine" proves nothing here.
+
+**L195 · 2026-09-14 · The tool you measure with can be the thing that is wrong. Read raw bytes before
+believing a rendering.**
+I "verified" the timestamp fix with `Invoke-RestMethod`, which **silently converts ISO-looking JSON strings
+into `[datetime]` and re-renders them in the local culture**. It printed `09/11/2026 01:27:25` and dropped
+the milliseconds — from a value that was, in fact, correct on the wire. For a minute I believed I had
+shipped a broken fix to production. Re-reading the same endpoint with `curl.exe` showed
+`"2026-09-11T01:27:25.133Z"`.
+*Rule:* when the claim is about an exact serialised form, inspect the raw body. A client that parses,
+normalises or formats is a lossy instrument — and a lossy instrument reports the *instrument's* transform
+as though it were the data. Same class as L2: reading the wrong thing confidently.
+
+**L196 · 2026-09-14 · "It has never been asked" and "it has none" are different facts, and a UI that
+conflates them will tell an operator the opposite of the truth.**
+`installed_profiles()` read `public.device_profiles`, which NanoMDM **never populates**, so it returned
+`[]` for every device forever and `diagnose lockdown` printed **"✗ MISSING" for every expected profile on
+devices that were fully locked**. Carried into a staff surface, that same shape would have rendered as
+"this phone has no profiles".
+*Rule:* any read whose answer can be *unknown* returns an explicit `determination: known | unavailable`
+plus a reason — never a bare list. Callers branch on `determination`, never on `len(...) == 0`. An empty
+list from "we never asked" is a refusal, not a zero (L1's corollary, now with a schema).
+*Second rule, same shape:* a read that requires a device to answer must be **separated** from the act of
+asking it. `GET /profiles/observed` never wakes the phone; `POST /profiles/refresh` is its own button,
+because enqueueing an MDM command makes the device do work and reveals we are watching it.
+
+**L197 · 2026-09-14 · Bound the connect, not just the query.**
+Moving `profile_report` onto a portal request path made an unbounded DB connect a request-path hazard. A
+DSN pointing at an unreachable host does not refuse — it sits in libpq's default wait. Measured:
+**>120 s unfetched, 5 s with `connect_timeout=5`**.
+*Rule:* any code reachable from a request must bound its connect explicitly; "the database is local and
+fast" is a description of the happy path. Pin it with a test that *fails* on an unbounded connect.
+
+**L198 · 2026-09-14 · A build script that reports success may not have rebuilt from the code you think.**
+`deploy-test-backend.sh` exited 0 and the container reported `healthy`, yet `wazeFleet.getMdmDevice`
+returned **404 "No procedure found"** while `wazeFleet.getHealth` returned **405 "Unsupported POST to a
+query procedure"**. The cause was a **race**: I probed while a *previous* deploy's container was still
+running — the log I read as mine (`deploy-…-060106.log`, "checkout state `03acd5c`") belonged to a
+concurrent session. My own run's log was `deploy-…-060923.log` and its container only came up at 06:17:32.
+*Rules:* (a) on a shared host, identify **your** deploy by its own log filename and by
+`docker inspect … StartedAt`, not by "the deploy finished"; (b) prove a deploy shipped by **grepping the
+running artifact** for a symbol only the new code has — exit code and health checks both lied here;
+(c) the 405-vs-404 distinction is the useful one: HTTP status tells you whether a route *exists*, which is
+what separates "not deployed" from "deployed and refusing me".
+
+**L199 · 2026-09-14 · When the platform is blocked, build the verification path instead of waiting — and
+say which artifact you verified.**
+Netlify refused to deploy (`403 Account credit usage exceeded`). Rather than stop, I served the built
+`frontend/dist` locally behind a proxy that reproduces Netlify's own `_redirects` `/api/*` rule, so the
+browser talks to one origin and the backend's strict CORS allowlist (which correctly excludes localhost)
+is never consulted, and **the shared test stack is not touched**. The feature was then driven end-to-end
+against the **live** test API.
+*Rule:* a paying blocker on the *deployment* is not a blocker on *verification* — but the distinction must
+be stated in the write-up, because "verified" on a locally-served build with a different API base is not
+"deployed". Name which artifact was exercised and how it differs from the deployable one.
