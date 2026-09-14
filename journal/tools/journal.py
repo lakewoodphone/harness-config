@@ -1202,7 +1202,13 @@ def cmd_status(args) -> int:
     b.line("JOURNAL %s · %s · format %s · %s" % (now_utc(), host_tag(), fmtv, source))
     nowp = JOURNAL / "NOW.md"
     if nowp.exists():
-        b.blob(_rl(nowp).strip())
+        # Its own cap, not the page's: sections are appended in order, so an unbounded
+        # NOW.md would push the pain list, the owner-question count and the check summary
+        # off the page — bounded, and useless. 1.8 KB of the 6 KB is the state page's share.
+        txt, cut = _rlb_bounded(nowp, 1800)
+        b.blob(txt.strip())
+        if cut:
+            b.line("… NOW.md truncated here — the file itself, or `status --full`")
     b.line("")
 
     hand = sorted([e for e in entries if e["kind"] == "handoff"],
@@ -1272,8 +1278,12 @@ def cmd_status(args) -> int:
     b.line("")
 
     errs, warns, _infos = cheap_check(entries)
-    b.line("CHECK %d error(s), %d warning(s) — journal.py check  %s"
-           % (errs, warns, "ERRORS PRESENT" if errs else "clean"))
+    # Say which rule set this is. The full `check` also counts dangling refs, legacy drift
+    # and history notes, so a bare "0 warnings" here once read as a clean tree while `check`
+    # had thirty things to say -- a summary that flatters the tree is worse than none.
+    b.line("CHECK %d error(s) on the cheap rules (duplicate id, malformed entry, sha) — "
+           "`journal.py check` adds dangling refs and legacy drift  %s"
+           % (errs, "ERRORS PRESENT" if errs else ""))
     b.marker(b.truncated)
     b.emit()
     return 0
@@ -1821,14 +1831,31 @@ def cmd_questions(args) -> int:
 
 
 def _queue_from_authority() -> str:
-    if os.name == "nt":
-        return ""
-    try:
-        out = subprocess.run(["python3", os.path.expanduser("~/bin/owner-queue.py"), "list", "--all", "--json"],
-                             capture_output=True, text=True, timeout=20)
-        return out.stdout if out.returncode == 0 else ""
-    except Exception:
-        return ""
+    """The live owner queue: spoken for directly on the authority, else over ssh.
+
+    `~/bin/owner-queue.py` exists only on the authority (P47), so every other machine has to
+    ask over ssh — and that is the route the operating instructions already document
+    (`ssh secratary-ts "python3 ~/bin/owner-queue.py next"`). This function used to return ""
+    whenever `os.name == "nt"`, which meant the mirror could never refresh on Windows: the
+    owner's own laptop showed a stale count forever and `status` reported it as if it were
+    current. Silent staleness is the failure this journal exists to prevent, so the ssh route
+    is tried rather than skipped.
+    """
+    direct = os.path.expanduser("~/bin/owner-queue.py")
+    tries = []
+    if os.path.exists(direct):
+        tries.append(["python3", direct, "list", "--all", "--json"])
+    tries.append(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "secratary-ts",
+                  "python3 ~/bin/owner-queue.py list --all --json"])
+    for cmd in tries:
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                                 errors="replace", timeout=45)
+        except Exception:
+            continue
+        if out.returncode == 0 and (out.stdout or "").lstrip().startswith("["):
+            return out.stdout
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -1836,16 +1863,28 @@ def _queue_from_authority() -> str:
 # ---------------------------------------------------------------------------
 
 def unabsorbed_counts() -> dict:
-    """The TRUE count of unabsorbed legacy entries, by kind, exact heading+body."""
+    """Legacy flat entries whose LOGICAL identity is not in the tree, by kind.
+
+    Identity is `identity_of` — the normalised body, or the title for a heading-only entry —
+    not the exact heading+body hash. The two disagree for the commonest case in this journal:
+    the same entry written twice on two machines under different numbers, where the body is
+    identical and only the id in the heading differs. Counting those as "unabsorbed" made
+    `status` tell every session that 322 entries were missing when the migration had in fact
+    absorbed all of them, and pointed at a command that would have done nothing. Drift must
+    mean "running `import-legacy` would add something", or it is a false alarm on the one
+    page that is always read.
+    """
     entries, _p = load_entries()
-    hashes = {e["hash"] for e in entries}
+    idents = {(e["kind"], identity_of(e["kind"], effective_heading(e), e.get("body", "")))
+              for e in entries}
     counts = {}
     for path, kind in flat_sources():
         try:
             ents = parse_legacy(path, kind)
         except Exception:
             continue
-        n = sum(1 for e in ents if entry_hash(e["heading"], e["body"]) not in hashes)
+        n = sum(1 for e in ents
+                if (kind, identity_of(kind, e["heading"], e["body"])) not in idents)
         if n:
             counts[kind] = counts.get(kind, 0) + n
     return counts
@@ -1853,10 +1892,12 @@ def unabsorbed_counts() -> dict:
 
 def shard_unabsorbed_counts() -> dict:
     entries, _p = load_entries()
-    hashes = {e["hash"] for e in entries}
+    idents = {(e["kind"], identity_of(e["kind"], effective_heading(e), e.get("body", "")))
+              for e in entries}
     counts = {}
     for path, kind in shard_sources():
-        n = sum(1 for e in parse_shard(path, kind) if entry_hash(e["heading"], e["body"]) not in hashes)
+        n = sum(1 for e in parse_shard(path, kind)
+                if (kind, identity_of(kind, e["heading"], e["body"])) not in idents)
         if n:
             counts[kind] = counts.get(kind, 0) + n
     return counts
@@ -1959,6 +2000,19 @@ def cmd_check(args) -> int:
 
     shard_counts = shard_unabsorbed_counts()
     flat_counts = unabsorbed_counts()
+    # Persist the measurement. `status` cannot compute drift itself (it would have to parse
+    # every legacy shard and flat file, which is exactly the cost v2 removed from the read
+    # path), so it quotes what the last `check` measured — a dated number rather than
+    # "unknown", which is the difference between a reading and a shrug (L1/L2).
+    try:
+        st = read_stamp()
+        if st:
+            st["unabsorbed"] = {k: v for k, v in list(shard_counts.items()) + list(flat_counts.items())}
+            st["unabsorbed_total"] = sum(st["unabsorbed"].values())
+            st["drift_measured"] = now_utc()
+            atomic_write(index_dir() / "stamp.json", json.dumps(st, indent=1, sort_keys=True) + "\n")
+    except Exception:
+        pass
     if shard_counts:
         warns.append("legacy drift in log/**: %s (true count from log/**) — journal.py import-legacy"
                      % " ".join("%s:%d" % (k, v) for k, v in sorted(shard_counts.items())))
@@ -2887,12 +2941,18 @@ def cmd_import_legacy(args) -> int:
 
 
 def _preview_unabsorbed() -> dict:
-    """The TRUE per-kind count of source entries no entry in the tree matches."""
+    """Per-kind count of source entries whose LOGICAL identity no entry in the tree matches.
+
+    Same rule as `unabsorbed_counts` and as absorption itself (`identity_of`): a flat copy of
+    an entry that is already filed under another number is *absorbed*, not missing. Counting
+    by exact hash reported 534 phantom gaps here after the migration had closed them all.
+    """
     entries, _p = load_entries()
-    hashes = {e["hash"] for e in entries}
+    idents = {(e["kind"], identity_of(e["kind"], effective_heading(e), e.get("body", "")))
+              for e in entries}
     counts = {}
     for c in legacy_candidates():
-        if c["hash"] not in hashes:
+        if (c["kind"], identity_of(c["kind"], c["heading"], c.get("body", ""))) not in idents:
             counts[c["kind"]] = counts.get(c["kind"], 0) + 1
     return counts
 

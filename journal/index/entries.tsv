@@ -110,6 +110,7 @@ handoff	H200	200		2026-09-14 22:50 UTC	ZABZ-YOGA	open	## 2026-09-14 22:50 UTC ·
 handoff	H201	201		2026-09-14 22:52 UTC	ZABZ-YOGA	open	## 2026-09-14 22:52 UTC · ZABZ-YOGA · The filter can take money: Checkout built, and the upsert that would have erased every subscription status	entries/handoff/H201.md	1	29	89e2cfa5408c0f32
 handoff	H202	202		2026-09-14 23:01 UTC	ZABZ-YOGA	open	## 2026-09-14 23:01 UTC · ZABZ-YOGA · 2026-09-14 23:05Z ZABZ-YOGA: Dialpad comms end to end -- complete index, scheduled, agent-reachable	entries/handoff/H202.md	1	52	73a187f956f5d522
 handoff	H203	203		2026-09-14 23:05 UTC	ZABZ-YOGA	open	## 2026-09-14 23:05 UTC · ZABZ-YOGA · Engine freeze: a wedged engine the watchdog could not replace for 100 minutes (fixed, pushed as 444c3b3); Tailscale was never down, MagicDNS was	entries/handoff/H203.md	1	64	91d2b29690c1dcb0
+handoff	H204	204		2026-09-14 23:08 UTC	ZABZ-YOGA	open	## 2026-09-14 23:08 UTC · ZABZ-YOGA · Draft backlog closed and the generator fixed; the expiry the table always had is now enforced	entries/handoff/H204.md	1	40	3952523a8908bed8
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -398,6 +399,7 @@ lessons	L1082	1082		2026-09-14	ZABZ-YOGA	open	**L1082 · Dialpad interleaves its
 lessons	L1083	1083		2026-09-14	ZABZ-YOGA	open	**L1083 · A relative 'started_label' is not a timestamp, and a dedup key without a date merges everything**	entries/lessons/L1083.md	1	34	b0bd57f1e02f063b
 lessons	L1084	1084		2026-09-14	ZABZ-YOGA	open	**L1084 · Chromium headless shell segfaults on eBay's anti-bot challenge page (not GPU, not memory)**	entries/lessons/L1084.md	1	29	7e95e9114ca8912e
 lessons	L1085	1085		2026-09-14	ZABZ-YOGA	open	**L1085 · The harvest's 'transcripts: found 0' is honest, not broken - do not rebuild it**	entries/lessons/L1085.md	1	35	d0fa18c5ae5ca040
+lessons	L1086	1086		2026-09-14	ZABZ-YOGA	open	**L1086 · A Windows path in a Linux column reads as corrupt audio; and supervise idempotent jobs**	entries/lessons/L1086.md	1	42	0f9e5dd10e4c7857
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
@@ -668,7 +670,6 @@ wins	W63	63		2026-09-14	imported	open	**W63 · 2026-09-14 · A year of the owner
 wins	W64	64		2026-09-14	imported	open	**W64 · 2026-09-14 · The filter's first full state audit found a live-adjacent security defect and a product that is far more built than any document said — and both were proved rather than asserted.**	entries/wins/W64.md	1	23	76c8c3d3adbd3686
 wins	W65	65		2026-09-14	ZABZ-YOGA	open	**W65 · 2026-09-14 · Outage response: 20-minute bridge, clean revert, a verified 3-tier ladder.**	entries/wins/W65.md	1	10	dade9959de91a179
 wins	W66	66		2026-09-14	ZABZ-YOGA	open	**W66 · 2026-09-14 · W: 35 scheduled-task console windows silenced on two Windows machines, behaviour unchanged.**	entries/wins/W66.md	1	12	62f4c82ba464fcb6
-wins	W67	67		2026-09-14	legacy	open	**W26 · 2026-09-14 · One missing resize: what left the phone was full-resolution, and the same fix cut cost, exposure and latency at once.**	entries/wins/W67.md	1	19	a970d87f198a03d3
 wins	W68	68		2026-09-14	legacy	open	**W37 · 2026-09-14 · The filter's website went from "planned" to running, answering, and testing green in one round — by cutting the plan down.**	entries/wins/W68.md	1	21	975af9b3f159b986
 wins	W104	104		2026-09-14	ZABZ-YOGA	open	**W104 · 2026-09-14 · The host code root was a Windows-only literal: local_context could not see any repositories.**	entries/wins/W104.md	1	34	eff7911880d71924
 wins	W105	105		2026-09-14	ZABZ-YOGA	open	**W105 · 2026-09-14 · A year of business conversation is complete, provable and refreshed every 30 minutes.**	entries/wins/W105.md	1	28	f9d643173b1db8ff
