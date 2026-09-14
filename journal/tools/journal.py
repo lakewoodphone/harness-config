@@ -113,8 +113,19 @@ def hostname() -> str:
 
 
 def host_tag() -> str:
-    h = (os.environ.get("DSH_MACHINE") or os.environ.get("COMPUTERNAME") or "unknown").upper()
-    return h
+    """The machine that wrote an entry — Windows COMPUTERNAME or a POSIX hostname.
+
+    The first version fell back to 'UNKNOWN' on Linux, which would have mislabelled
+    every entry written on the authority.
+    """
+    import socket
+    h = os.environ.get("DSH_MACHINE") or os.environ.get("COMPUTERNAME") or ""
+    if not h:
+        try:
+            h = socket.gethostname()
+        except Exception:
+            h = "unknown"
+    return h.split(".")[0].upper()
 
 
 def norm_body(text: str) -> str:
