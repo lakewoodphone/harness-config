@@ -230,7 +230,9 @@ lessons	L180	180		2026-09-14	ZABZ-YOGA	open	**L180 · A single-line heading rege
 lessons	L181	181		2026-09-14	ZABZ-YOGA	open	**L181 · Prose is not status - 56 of 57 pain entries prove nothing either way**	log/lessons/2026-09.md	2474	2485	9acb34f264978200
 lessons	L182	182		2026-09-14	ZABZ-YOGA	open	**L182 · A size difference between machines is an alarm, not a diagnosis - measure which copy is behind**	log/lessons/2026-09.md	2486	2498	fcb258f820779fe4
 lessons	L183	183		2026-09-14	ZABZ-YOGA	open	**L183 · A missing trailing newline glues a marker onto the line before it and merges two entries**	log/lessons/2026-09.md	2499	2511	9f110cda3720e72f
-lessons	L184	184		2026-09-14	ZABZ-YOGA	open	**L184 · A concurrent session put my staged work in its commit - verify what landed, not what you staged**	log/lessons/2026-09.md	2512	2525	06a6bcee8dcd42ce
+lessons	L184	184		2026-09-14	ZABZ-YOGA	open	**L184 · A concurrent session put my staged work in its commit - verify what landed, not what you staged**	log/lessons/2026-09.md	2512	2524	06a6bcee8dcd42ce
+lessons	L185	185		2026-09-14	imported	open	**L185 · 2026-09-14 · `schtasks` does not run a shell, so a registered command containing `>>` is broken at birth — read back what you registered**	log/lessons/2026-09.md	2525	2539	526932b6c896642d
+lessons	L186	186		2026-09-14	imported	open	**L186 · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it defensive**	log/lessons/2026-09.md	2540	2553	ea633b3660d41c02
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -358,7 +360,8 @@ decisions	D53	53		2026-09-14	-	open	**D53 · 2026-09-14 · For the filter's thir
 decisions	D54	54		2026-09-14	-	open	**D54 · 2026-09-14 · I am the lawyer on this one — the compliance analysis is mine, not an outside firm's.**	log/decisions/2026-09.md	851	858	1ca96557d6208a11
 decisions	D55	55		2026-09-14	ZABZ-YOGA	open	**D55 · 2026-09-14 · The journal has three tiers - append-only log, rewritten state, generated index.**	log/decisions/2026-09.md	859	877	e375a273a659a446
 decisions	D56	56		2026-09-14	ZABZ-YOGA	open	**D56 · 2026-09-14 · One writer allocates ids over the index, the shards and every git ref.**	log/decisions/2026-09.md	878	898	a205573e5a8bc65b
-decisions	D57	57		2026-09-14	ZABZ-YOGA	open	**D57 · 2026-09-14 · Owner questions live only in owner_decision_queue; QUESTIONS.md is retired.**	log/decisions/2026-09.md	899	923	dd79ba648d656088
+decisions	D57	57		2026-09-14	ZABZ-YOGA	open	**D57 · 2026-09-14 · Owner questions live only in owner_decision_queue; QUESTIONS.md is retired.**	log/decisions/2026-09.md	899	922	dd79ba648d656088
+decisions	D58	58		2026-09-14	imported	open	**D58 · 2026-09-14 · Two indexes, one refresh task, SQLite only — and the trigram index is opt-in.**	log/decisions/2026-09.md	923	936	b3f45673e111ae07
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
