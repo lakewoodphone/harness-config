@@ -55,9 +55,14 @@ permission:
 # LESSON (see journal/LESSONS.md L25): do not change the owner's model on
 # inference. Probe it, price it, and ask if it is his money.
 # ---------------------------------------------------------------------------
+# TEMPORARY BRIDGE (2026-09-14): DeepSeek's flash tier is down platform-wide
+# (deepseek-flash hangs; deepseek-v4-pro answers -- verified live against our key).
+# Owner chose v4-pro for the outage bridge (over the DeepInfra V4-Flash-0731
+# fallback). Auto-revert: scripts/flash-recovery-watch.sh on secratary probes
+# deepseek-flash and flips this line back to `deepseek-flash` when it recovers.
 agent-default-model:
   provider: deepseek-official
-  model: deepseek-flash
+  model: deepseek-v4-pro
 
 agent-presets:
   # `zabz` is the conversational CEO: full toolbelt, the secretary bridge, and a
