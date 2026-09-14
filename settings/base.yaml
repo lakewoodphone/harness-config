@@ -55,11 +55,7 @@ permission:
 # LESSON (see journal/LESSONS.md L25): do not change the owner's model on
 # inference. Probe it, price it, and ask if it is his money.
 # ---------------------------------------------------------------------------
-# TEMPORARY BRIDGE (2026-09-14): DeepSeek's flash tier is down platform-wide
-# (deepseek-flash hangs; deepseek-v4-pro answers -- verified live against our key).
-# Owner chose v4-pro for the outage bridge (over the DeepInfra V4-Flash-0731
-# fallback). Auto-revert: scripts/flash-recovery-watch.sh on secratary probes
-# deepseek-flash and flips this line back to `deepseek-flash` when it recovers.
+# BRIDGE(2026-09-14): v4-pro while DeepSeek flash is down; model-failover-watch.py reverts when healthy (owner-chosen bridge).
 agent-default-model:
   provider: deepseek-official
   model: deepseek-v4-pro
