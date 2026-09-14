@@ -38,6 +38,14 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 STATE_DIR = Path.home() / ".dsh-phone"
 MOBILE_CSS = Path(__file__).resolve().parent.parent / "assets" / "mobile.css"
+# The phone layer is these files concatenated, in this order: `mobile.css` is the base layer and
+# the others are scoped additions. One URL, one injected tag and one client-plugin link, so adding
+# a rule to the phone never means adding a delivery path (the composer's own fix and the question
+# card's live here — see the comments in each file for what they measured).
+LAYER_FILES = [
+    MOBILE_CSS,
+    Path(__file__).resolve().parent.parent / "assets" / "question-card.css",
+]
 BADGE_JS = Path(__file__).resolve().parent.parent / "assets" / "phone-badge.js"
 BADGE_STATE = Path(os.environ.get("CEO_KERNEL_STATE", str(Path.home() / "ceo-kernel-var"))) / "latest.json"
 COOKIE_PREFIX = b"dsh-auth-"
@@ -250,11 +258,27 @@ def mobile_css_bytes() -> bytes:
     """
     if os.environ.get("PHONE_MOBILE_CSS", "1") == "0":
         return b""
-    try:
-        css = MOBILE_CSS.read_bytes()
-    except OSError:
-        return b""
-    return css if css.strip() else b""
+    parts = []
+    for path in LAYER_FILES:
+        try:
+            body = path.read_bytes()
+        except OSError:
+            continue
+        if body.strip():
+            # a marker per file, so a served layer can say which files produced it
+            parts.append(b"/* " + path.name.encode() + b" */\n" + body)
+    return b"\n".join(parts)
+
+
+def layer_report() -> str:
+    """Which files the served layer is made of, and how big each is (for /dsh-phone-layer)."""
+    rows = []
+    for path in LAYER_FILES:
+        try:
+            rows.append(f"{path.name}={len(path.read_bytes())}B")
+        except OSError:
+            rows.append(f"{path.name}=missing")
+    return " ".join(rows)
 
 
 def mobile_style_tag() -> bytes:

@@ -73,10 +73,12 @@ PROBE = r"""
     return {x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
             right: Math.round(r.right), bottom: Math.round(r.bottom)}; };
   const clear = () => [...row.querySelectorAll('[data-layout-probe]')].forEach(e => e.remove());
+  const isProbe = e => e.closest('[data-layout-probe]') !== null;
   const pill = () => {  // plugin-cost, conversation.input.left: height 20, LEFT group
     const s = document.createElement('span');
     s.dataset.layoutProbe = 'pill';
     s.style.cssText = 'position:relative;flex:none;display:inline-flex';
+    s.dataset.layoutProbe = 'pill';
     const b = document.createElement('button');
     b.type = 'button'; b.textContent = '$0.0049';
     b.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:0 8px;height:20px;border:1px solid currentColor;border-radius:10px;font-size:12px;white-space:nowrap';
@@ -91,6 +93,13 @@ PROBE = r"""
     b.style.cssText = 'display:inline-flex;align-items:center;width:28px;height:28px';
     s.appendChild(b); return s;
   };
+  const stress = () => {  // a heavier real state: meter + the stop control side by side
+    const b = document.createElement('button');
+    b.dataset.layoutProbe = 'stress';
+    b.setAttribute('aria-label', 'Extra control');
+    b.style.cssText = 'width:44px;height:44px;flex:none';
+    return b;
+  };
   const stop = () => {  // an active turn swaps Send for Stop
     const b = document.createElement('button');
     b.dataset.layoutProbe = 'stop';
@@ -99,14 +108,18 @@ PROBE = r"""
     return b;
   };
   const preexisting = {
-    pills: [...row.querySelectorAll('span, button')].filter(e => /^\$\d/.test((e.textContent || '').trim())).length,
-    meters: row.querySelectorAll('button[aria-label^="Context"]').length,
-    rowHTMLLen: row.innerHTML.length,
+    pills: [...row.querySelectorAll('span, button')].filter(e => !isProbe(e) && e.childElementCount === 0
+      && /^\$\d/.test((e.textContent || '').trim())).length,
+    meters: [...row.querySelectorAll('button[aria-label^="Context"]')].filter(e => !isProbe(e)).length,
   };
   clear();
-  if (opts.pill) tools.appendChild(pill());
-  if (opts.meter) trailing.insertBefore(meter(), trailing.lastElementChild);
+  /* Compose only what the page does not already render. A session in use really does show the
+   * cost pill and the context meter, and adding a second one measured a row that no user sees:
+   * two pills fought for the space and one was reported as "clipped" (measured 2026-09-14). */
+  if (opts.pill && preexisting.pills === 0) tools.appendChild(pill());
+  if (opts.meter && preexisting.meters === 0) trailing.insertBefore(meter(), trailing.lastElementChild);
   if (opts.stop) trailing.insertBefore(stop(), trailing.lastElementChild);
+  if (opts.stress) trailing.insertBefore(stress(), trailing.lastElementChild);
 
   const visible = el => { const r = el.getBoundingClientRect(); return r.height > 0 && r.width > 0; };
   const buttons = [...row.querySelectorAll('button, [data-layout-probe]')].filter(visible);
@@ -126,6 +139,14 @@ PROBE = r"""
     bands, bandCount: bands.length, preexisting,
     controls: buttons.map(b => ({label: b.getAttribute('aria-label') || (b.textContent || '').trim().slice(0, 12), ...rect(b)})),
     overlap: toolsBox.right > trailingBox.x,
+    /* a control that does not shrink but is clipped inside a group that did is invisible
+     * damage: the row looks like one line and a control has silently disappeared. */
+    clipped: buttons.filter(b => !isProbe(b)).filter(b => {
+      const r = b.getBoundingClientRect();
+      const inTools = tools.contains(b), inTrailing = trailing.contains(b);
+      const g = inTools ? toolsBox : (inTrailing ? trailingBox : rowBox);
+      return r.right > g.right + 1 || r.left < g.x - 1;
+    }).map(b => b.getAttribute('aria-label') || (b.textContent || '').trim().slice(0, 12)),
     rowOverflowsCard: trailingBox.right > rowBox.right + 1 || toolsBox.x < rowBox.x - 1,
     seatHeightOfScreen: seat ? +(seatBox.h / window.innerHeight).toFixed(3) : null,
   };
@@ -212,7 +233,7 @@ def main() -> int:
     ap.add_argument("--url", default=DEFAULT_URL, help=f"gate URL (default {DEFAULT_URL})")
     ap.add_argument("--widths", default=",".join(str(w) for w in DEFAULT_WIDTHS))
     ap.add_argument("--states", default=",".join(DEFAULT_STATES),
-                    help="comma list of pill,meter,stop — each is added cumulatively")
+                    help="comma list of pill,meter,stop,stress — each is added cumulatively")
     ap.add_argument("--height", type=int, default=852)
     ap.add_argument("--settle", type=float, default=11.0, help="seconds to let the app boot")
     ap.add_argument("--port", type=int, default=9411, help="CDP port for the throwaway browser")
@@ -223,15 +244,15 @@ def main() -> int:
     widths = [int(w) for w in args.widths.split(",") if w.strip()]
     wanted = [s.strip() for s in args.states.split(",") if s.strip()]
     for s in wanted:
-        if s not in ("pill", "meter", "stop"):
+        if s not in ("pill", "meter", "stop", "stress"):
             print(f"unknown state {s!r}; expected pill, meter, stop", file=sys.stderr)
             return 2
 
     # each state is cumulative: pill alone, then pill+meter, then pill+meter+stop
     combos = []
     for i in range(len(wanted)):
-        opts = {k: k in wanted[: i + 1] for k in ("pill", "meter", "stop")}
-        combos.append((("+".join(k for k in ("pill", "meter", "stop") if opts[k])), opts))
+        opts = {k: k in wanted[: i + 1] for k in ("pill", "meter", "stop", "stress")}
+        combos.append((("+".join(k for k in ("pill", "meter", "stop", "stress") if opts[k])), opts))
 
     profile = Path("/tmp/phone-layout-check-profile")
     subprocess.run(["rm", "-rf", str(profile)], check=False)
@@ -286,6 +307,8 @@ def main() -> int:
                 if got["rowOverflowsCard"]:
                     failures.append(f"w={width} {label}: row overflows its card "
                                     f"(trailing right {got['trailing']['right']} > row right {got['row']['right']})")
+                if got.get("clipped"):
+                    failures.append(f"w={width} {label}: control(s) clipped inside a group: {got['clipped']}")
                 if got["overlap"]:
                     failures.append(f"w={width} {label}: the two groups overlap "
                                     f"(tools right {got['tools']['right']} > trailing x {got['trailing']['x']})")

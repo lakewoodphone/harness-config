@@ -1,0 +1,99 @@
+/* question-card.css — the phone view of an agent's question.
+ *
+ * WHY THIS EXISTS
+ * Measured 2026-09-14 on a reproduction built from the app's own CSSOM and the real
+ * `QuestionComposer` class map (`scripts/question-card-check.py`):
+ *
+ *   viewport     card                  Submit      composer overlap
+ *   393x852      y=194 h=511           OK          no
+ *   393x700      y=194 h=420           OK          no
+ *   393x640      y=194 h=384           OK          YES
+ *   393x560      y=194 h=336           UNREACHABLE tap lands on the composer's own row
+ *
+ * The shipped card caps itself at `max-height: min(60vh, 520px)` and scrolls its OWN body, which
+ * is right on a desktop and wrong on a phone for two reasons:
+ *
+ *   1. `vh` is the LARGE viewport. With iOS Safari's bars showing, and again with the keyboard
+ *      up, the real visible height is far less than `100vh`, so 60vh can exceed the space that
+ *      actually exists. The card's own footer — where Submit lives — is then pushed outside the
+ *      visible area while the page itself has nothing left to scroll.
+ *   2. The card is in the conversation stream and the composer sits under it. Once the card is
+ *      taller than the gap above the composer, the composer's surface covers the footer. A tap
+ *      at Submit's centre lands on the composer instead. That is the owner's report, exactly:
+ *      "only part of it shows up, I can't scroll, and I can't click."
+ *
+ * THE FIX
+ * On a phone the question is a modal demand for an answer, so it is presented as a sheet over
+ * the conversation at most phone widths: the card fills the viewport under the safe area, the
+ * header and footer are pinned (`flex-shrink: 0` from the shipped CSS), and ONLY the option list
+ * scrolls. The composer cannot cover a control that is laid out above it by construction, and
+ * `100dvh` tracks the keyboard, so the Submit button stays where a thumb can reach it.
+ *
+ * This is CSS-only: the card is mounted, unmounted and re-rendered by React, so nothing here may
+ * depend on a mount event (lesson L209's shape). It keys off the local-name substrings the CSS
+ * modules preserve across rebuilds, never a full hash, and it is scoped to phones, so the
+ * desktop layout is untouched by construction.
+ *
+ * Kill switch: remove this block. Nothing else reads it.
+ */
+
+@media (max-width: 768px) {
+  /* The frame is the card's own wrapper (`Mbwy4a_frame`) and it is the only element that can be
+   * positioned without touching the stream. It is matched as "a frame whose direct child is a
+   * card", NOT by reaching for the options list: measured 2026-09-14, the shipped tree is
+   * frame > card > body > options, so a `> _options` child selector NEVER MATCHED and the first
+   * version of this fix silently did nothing at all (the numbers were identical before and
+   * after — that is what gave it away, and what `question-card-check.py` is for). A card is
+   * unique enough to be the only hook needed. */
+  [class*="_frame"]:has(> [class*="_card"]) {
+    position: fixed;
+    inset: 0;
+    /* Above everything, including the "needing attention" badge, which is `position: fixed`
+     * at z-index 2147483000 and sits over the bottom-right of the screen: measured, that badge
+     * intercepted a tap aimed at this card's Submit button (lesson L216). A question that must
+     * be answered outranks a notification. */
+    z-index: 2147483600;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0;
+    background: var(--dsw-alias-bg-base, #fff);
+    /* the sheet covers the conversation, so the page behind it must not scroll */
+    overscroll-behavior: contain;
+  }
+
+  [class*="_frame"]:has(> [class*="_card"]) > [class*="_card"] {
+    /* measured: the shipped 60vh cap is the thing that hides the footer */
+    max-height: none;
+    height: 100%;
+    /* `dvh` follows the keyboard; `vh` does not */
+    height: 100dvh;
+    max-width: none;
+    border-radius: 0;
+    box-shadow: none;
+    /* the home indicator sits over the bottom of the sheet, and the notch over its top */
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+
+  /* Only the options scroll, and they scroll by touch. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_body"] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    min-height: 0;
+  }
+
+  /* The strip that names the owner of the question and the pager are fixed chrome; they must
+   * never be squeezed by a long option list. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_strip"],
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_footer"],
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_header"] {
+    flex-shrink: 0;
+  }
+
+  /* Submit is the one control that must always be tappable: give it a real thumb target and keep
+   * it clear of the safe area. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_submit"] {
+    min-height: 44px;
+  }
+}

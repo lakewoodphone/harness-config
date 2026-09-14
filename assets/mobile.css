@@ -176,6 +176,30 @@
     min-width: 0;
   }
 
+  /* Send is the one control that must never be crowded out, so it does not shrink. Measured at
+   * 320px and 358px with a stop control, a context meter and the cost pill all present: without
+   * this the row still fitted on one line but Send was pushed outside its group and clipped. */
+  [class*="composer"] button[aria-label^="Send message"] {
+    flex: none;
+  }
+
+  /* At the narrowest widths the context meter is the least load-bearing thing in the row: it
+   * restates a number the session's own trajectory shows, and dropping it keeps the cost pill,
+   * the model seat and Send all inside the card. Measured: 320px with everything present needs
+   * about 40px more than the row has. */
+  @media (max-width: 380px) {
+    [class*="composer"] button[aria-label^="Context"] {
+      display: none;
+    }
+    /* `/` commands are the one composer control that is also a keyboard action, so on the
+     * narrowest phones it costs less to reach than a thumb control does to fit. Measured at
+     * 320px with the cost pill, the context meter and a stop control present: the row has about
+     * 278px and everything asked for more, and the loser was Send. */
+    [class*="composer"] button[aria-label^="Commands"] {
+      display: none;
+    }
+  }
+
   /* Tighter gaps, so the two remaining groups fit side by side instead of stacking. */
   [class*="composerStack"] [class*="_row"] {
     gap: 8px;
