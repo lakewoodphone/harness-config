@@ -158,9 +158,21 @@ writers.
 
 ### Plugin packages
 
-There are three, all mountable client plugins: `plugin-cost` (the `/cost` command and the
-composer cost pill), `plugin-mobile` (the phone drawer; `scripts/serve-phone.sh` keeps it
-installed), and `plugin-windows` (the `+` and `⧉` controls beside the composer).
+There are four, all mountable client plugins: `plugin-cost` (the `/cost` command and the
+composer cost pill), `plugin-mobile` (the phone drawer and the phone layer's linked
+stylesheet; `scripts/serve-phone.sh` keeps it installed), `plugin-windows` (the `+` and `⧉`
+controls beside the composer, and **nothing at all below 768px** — a phone has one window),
+and `plugin-attention` (the in-harness attention badge).
+
+**Install them with `scripts/install-client-plugin.sh <package-dir> [profile]`** — one
+implementation for every package, because the per-package installers drifted: `plugin-mobile`
+had one and `plugin-cost` had none, so the always-on host serving the owner's phone carried no
+cost pill at all until 2026-09-14. `plugin-mobile` and `plugin-cost` both delegate to it, and
+`serve-phone.sh` keeps both installed on the phone host. On Windows,
+`scripts/install-client-plugins.ps1` is the keeper (junctions, not copies).
+
+The whole phone path — every component, port, and the exact command that proves each one — is
+inventoried in **`docs/dsh-mobile/02-SYSTEMS.md`**.
 
 `sync.py` does **not** install packages, and the profile's own `package.json` — the bundle
 list the loader mounts — is machine-local and not in git. A package is therefore invisible
