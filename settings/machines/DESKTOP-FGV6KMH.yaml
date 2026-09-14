@@ -48,8 +48,8 @@ permission:
 # sets both explicitly.
 # ---------------------------------------------------------------------------
 agent-default-model:
-  provider: deepinfra
-  model: deepseek-ai/DeepSeek-V4-Flash-0731
+  provider: deepseek-proxy
+  model: deepseek-flash
 
 # Her assistant is the shop manager, so a fresh session mounts the `yocheved` preset
 # (presets/yocheved/) rather than the owner's `zabz`. That preset derives from cordis-bg, so the
@@ -62,14 +62,39 @@ ui-conversation:
 
 llm-pi-ai:
   providers:
+    # PRIMARY: DeepSeek direct, reached through our own pass-through Worker
+    # (harness-config/packages/deepseek-proxy). The filter sees only ds.abletelsolutions.com, a
+    # hostname her box is already proven to reach; the Worker makes the upstream call from
+    # Cloudflare's edge, where the filter has no visibility, and streams the SSE response unbuffered.
+    #
+    # WHY THIS REPLACED DEEPINFRA: same model, much slower serving tier. Measured from a neutral
+    # network, same prompt, max_tokens=200, 3 runs each --
+    #     deepseek-flash direct   :  747 ms to first token, 160 tok/s
+    #     DeepInfra V4-Flash-0731 : 1693 ms to first token,  24 tok/s
+    # 2.3x slower to first token and ~6.7x per token, which is exactly what makes an assistant feel
+    # slow. Through the proxy there is no meaningful penalty: six sequential runs showed zero
+    # inter-chunk gaps over 300 ms in steady state, and a 4-run comparison put the proxy at 429 ms
+    # vs direct's 662 ms (noise), against DeepInfra's +900 ms.
+    deepseek-proxy:
+      apiKeyEnv: DEEPSEEK_API_KEY
+      api: openai-completions
+      baseURL: https://ds.abletelsolutions.com/v1
+      models:
+        - id: deepseek-flash
+          name: DeepSeek Flash (via proxy)
+        - id: deepseek-v4-pro
+          name: DeepSeek V4 Pro (via proxy)
+    # FALLBACK, kept selectable: an independent provider, so if the Worker, Cloudflare or the zone
+    # breaks, switching back is one `agent-default-model.provider` line and these models already
+    # exist. The Worker holds no key and no state, so there is nothing to rotate or repair there.
     deepinfra:
       apiKeyEnv: DEEPINFRA_API_KEY
       api: openai-completions
       baseURL: https://api.deepinfra.com/v1/openai
       models:
         - id: deepseek-ai/DeepSeek-V4-Flash-0731
-          name: DeepSeek V4 Flash (0731)
+          name: DeepSeek V4 Flash (0731, DeepInfra)
         - id: deepseek-ai/DeepSeek-V4.1-Flash
-          name: DeepSeek V4.1 Flash
+          name: DeepSeek V4.1 Flash (DeepInfra)
         - id: deepseek-ai/DeepSeek-V3.2
           name: DeepSeek V3.2
