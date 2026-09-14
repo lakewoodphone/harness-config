@@ -40,8 +40,11 @@ shards *and* every git ref, which is what stops two machines choosing the same n
   refused every `/api` call and WebSocket, because `profiles/web/cordis.patch.yml` restated the
   `connection` row's whole `config` and dropped `trustedHosts` — the only source of the `/api` fence's
   trusted authorities (P48b, done). Probe **15/15**; a real browser at 393x852 has the layer, the cost
-  pill and a working composer. Two items there stay open and named: a first run lands with no session
-  (P46), and the gate died once with no cause on the record (P59).
+  pill and a working composer. **The gate's three deaths were its own starting shell** — `setsid nohup`
+  leaves a process in its login-session cgroup, and logind reaps the scope when that session ends — so
+  the engine and the gate are now systemd units in `/system.slice/` with `Restart=always` (P59, done;
+  L213). Two items stay open: a first run on a *new* client asks for a workspace (the P46 family), and
+  the company API has two supervisors fighting over it (P66).
 
 - **The Kosher Waze DRN fleet is now manageable from the LPT portal, and it is BLOCKED ON MONEY, not
   engineering** (H73). The staff page can see each DRN phone's state and liveness, read the profiles it
