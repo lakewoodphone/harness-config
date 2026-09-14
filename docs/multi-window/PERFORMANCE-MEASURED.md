@@ -121,3 +121,107 @@ changes (`research-dsh-perf-config.md` §8).
 
 The real integration gap is **addressing**: a window cannot be pointed at a chosen session by URL, so a
 restored window needs a click. That is question 3, and it is the highest-value next piece of work.
+
+---
+
+# Re-measured 2026-09-14: 10 windows, and the engine is *faster* than the one-window baseline
+
+**The owner's question:** "we have 10 DSH windows open on this yoga laptop now, and the harness seems to
+be slowing down. Is it too much? Should we be doing different threads or cores?"
+
+**Answer: the windows are not the problem and the engine is not the problem. Ten windows whose agents are
+all RUNNING is what is heavy, and the resource that is actually tight is memory, not CPU. Adding
+threads or cores cannot help this architecture, and that is now sourced rather than asserted.**
+
+## What was measured, and how
+
+`session/list` on the live engine reported **10 of 238 sessions `running: true`** — every open window had
+a live agent loop, most on multi-round autonomous goals. The engine's HTTP latency was measured from Node
+(PowerShell's ~100 ms per-call overhead would swamp it) with 40 sequential cheap calls plus bursts; CPU
+was taken as a **delta over a 20 s window**, never as a cumulative `CPU` column, which says nothing about
+the present; memory is **private bytes**, because summing `WorkingSet` across 90 Chromium processes
+double-counts shared pages.
+
+## The engine got faster, not slower
+
+| | 2026-09-14, 10 windows | 2026-09-11, 1 window |
+|---|---|---|
+| cheap call p50 / p95 | **5.8 ms / 16.6 ms** (n=40) | 11.9 ms / 99 ms |
+| 2 / 4 / 8 concurrent | 8.9 / 14.0 / 31.0 ms p50 | — |
+| `settings/describe` | 7.5 ms | 145 ms |
+| `agentPresets/list` | 81.5 ms | 97.6 ms |
+
+Engine process: 13 OS threads, 763 CPU-seconds over 2.5 h (~0.08 of one core), private memory
+oscillating 1,307 → 1,441 → 1,390 MB in 2 minutes — busy, not leaking. **The single event loop is not the
+bottleneck, and ten WebSocket clients do not change that.**
+
+## Where the load actually is
+
+| consumer | processes | private | sustained CPU |
+|---|---|---|---|
+| Edge windows (10-11 instances) | 90 | 7,729 MB | **6.7 cores of 22** |
+| engine tree (node + MCP bridges + Playwright's Chrome) | 37-42 | 2,651-2,988 MB | 0.66 core |
+| `personal-secretary` uvicorn (+ `next dev`) | 4 | 2,526 MB | 0.22 core |
+| other node (MCP bridges) | 20 | 3,005 MB total incl. engine | 0.48 core |
+| TextInputHost | 1 | **1,195 MB** (abnormal) | — |
+
+**The per-window cost is a function of whether that window's agent is generating, not of the window count:**
+
+- window whose agent is generating: **1.0-1.1 of one core**, ~750 MB private
+- window sitting quiet: **0.24-0.28 of one core**, 467-783 MB private
+
+So ten idle windows ≈ 2.5 cores; ten generating agents ≈ 7 cores. Lean Edge flags are confirmed present
+on the live command lines, so this is *after* the 41% cut this document recorded on 2026-09-11.
+
+## The number that is actually tight: commit, not CPU
+
+- **committed 28.6-28.8 GB of 31.61 GB physical → 2.8-3.3 GB of headroom**, and free RAM drained
+  **~370 MB/min** while ten agents ran.
+- Not paging yet: 1.6-10 pages/sec, pagefile 0.13 GB used of 11.5 GB allocated, disk idle, CPU boosting
+  at 132% of nominal (no thermal throttle).
+- **The tripwire: if commit crosses 31.61 GB the machine starts paging to an 11.5 GB pagefile, and that
+  is the point at which it will feel genuinely slow.** Until then "slow" is commit pressure trimming
+  working sets, plus the renderer of whichever window is streaming (a streaming window sits at ~100% of
+  one core, which is enough to make a 700x440 window's scrolling and typing lag).
+
+## Threads and cores: ruled out, with sources
+
+Full sourced research: `~/code/research-node-cores-chromium-findings.md` (every claim labelled
+OFFICIAL / COMMUNITY / INFERENCE with URLs). The load-bearing facts:
+
+- Node runs all JS on **one** event-loop thread; the libuv pool (default 4, unchanged here) serves only
+  `fs`, `dns.lookup`, async crypto and async zlib — **network I/O never touches it**, so
+  `UV_THREADPOOL_SIZE` cannot speed up WebSocket fan-out.
+- `cluster` shares no memory; `worker_threads` shares only `SharedArrayBuffer`. Neither can share a live
+  object graph, and this engine is single-writer by design (two `dsh web` on one `DSH_HOME` corrupt the
+  session log — already recorded in this document's §"Why one engine is mandatory").
+- Microsoft: *"Setting thread affinity should generally be avoided, because it can interfere with the
+  scheduler's ability to schedule threads effectively across processors."* Priority is documented as
+  brief, time-critical-only, with boosts that decay every time slice.
+- The one place cores are real: Windows assigns QoS by window state — In Focus **High**, Visible
+  **Medium**, Minimized/Occluded **Low**, and Low/Utility schedules to efficient cores. On a 6 P-core /
+  10 E-core Ultra 7 155H, the nine background windows are *supposed* to land on E-cores.
+- `--single-process` is in Chromium's own dangerous-flags list (sandbox-disabling); `--disable-blink-
+  features` / `--enable-blink-features` are annotated "not supported".
+
+## Two structural facts found while measuring
+
+1. **There is no global session-concurrency cap in DSH.** `maxParallelToolCalls` is per-session (default
+   10; this machine sets **20**), and nothing limits how many sessions run at once. Ten was possible
+   because nothing prevents ten. Each parallel tool call can spawn a ~57 MB `dsh-subprocess-local` runner.
+2. **More windows are open than `windows.json` enables** — 8 enabled, ~11 open. `Invoke-New`
+   force-enables every slot before picking the first free one, so `dsh new` opens slots marked
+   `enabled: false` (w9, w10, w11).
+
+## Recommended, in measured order (none applied — the owner said change nothing yet, 2026-09-14)
+
+1. Free fixed overhead: Playwright's headless Chrome (**22 processes, 1.74 GB**, alive whether or not
+   browser automation is in use) and the `personal-secretary` dev stack (2.46 GB + `next dev`).
+2. Cap *simultaneously running* agents at 3-4; the cost tracks running sessions, not open windows.
+3. `maxParallelToolCalls` 20 → 10 (the default).
+4. Close unused windows, and fix `Invoke-New` to respect `enabled: false`.
+5. Still open from 2026-09-11: the WS downlink has **no byte-level backpressure**. Node's own docs are
+   explicit that `write() === false` means bytes queued in *server* memory, and WHATWG requires a
+   WebSocket whose buffer is full to be closed. This remains the known mechanism for an unexplained
+   memory climb, and it is a code-level property of the engine — not configurable.
+
