@@ -371,23 +371,47 @@ def check_authenticated_rpc(cookie):
     Added 2026-09-14 after exactly this failure went unseen: the document loaded (200, cookie
     minted) and every RPC the app makes returned **403 forbidden** — so the phone showed a
     broken, empty interface while this probe reported 11/12 and the kernel called the phone
-    path proven. A document is the shell; the session list is the application. `agentPresets/list`
-    is the first call the client makes on load, with the args envelope the gateway expects.
+    path proven. A document is the shell; the session list is the application.
+
+    THE METHOD IS `session/list`, and the first version of this check got that wrong in a way
+    worth keeping written down. It called `agentPresets/list` with the same args envelope and
+    got `200` carrying `{"result":{"ok":false,"error":{"code":"gateway/arguments-invalid",
+    "message":"args fields do not match the descriptor: unexpected \"_request\""}}}` — a
+    passing fence, a working gateway, and an assertion that read as a broken phone. The two
+    halves of that envelope are per-method, not universal: `session/list` accepts `_request`
+    (captured verbatim from the live browser: `{"type":"client-request","rpcId":"…","method":
+    "session/list","payload":{"args":{"_request":{}}}}`), `agentPresets/list` does not. So the
+    probe now drives the call the app actually makes on load, and asserts on the response
+    SHAPE the app depends on rather than on a substring of one method's reply.
     """
     name = "an authenticated RPC works (the app's first call)"
     if not cookie:
         record(12, name, False, "no session cookie to call with")
         return
-    body = json.dumps({"type": "client-request", "rpcId": "probe-rpc", "method": "agentPresets/list",
+    body = json.dumps({"type": "client-request", "rpcId": "probe-rpc", "method": "session/list",
                        "payload": {"args": {"_request": {}}}}).encode()
-    r = request(GATE, "POST", "/api/agentPresets/list", {
+    r = request(GATE, "POST", "/api/session/list", {
         "Host": AUTHORITY, "Cookie": cookie, "Content-Type": "application/json",
         "Content-Length": str(len(body)),
     }, body)
-    text = r["body"].decode("utf-8", "replace")[:120]
-    ok = r["status"] == 200 and '"ok":true' in r["body"].decode("utf-8", "replace")
-    record(12, name, ok,
-           f"{r['status']}, {len(r['body'])} bytes" + (f": {text}" if not ok else ""))
+    raw = r["body"].decode("utf-8", "replace")
+    ok, detail = False, ""
+    if r["status"] != 200:
+        detail = f"{r['status']}: {raw[:160]}"
+    else:
+        try:
+            reply = json.loads(raw)
+            result = reply.get("result") or {}
+            items = (result.get("value") or {}).get("items")
+            if result.get("ok") is not True:
+                detail = f"200 but the RPC refused: {raw[:200]}"
+            elif not isinstance(items, list):
+                detail = f"200, ok, but no session list in the reply: {raw[:200]}"
+            else:
+                ok, detail = True, f"200, ok, {len(items)} session(s) listed"
+        except Exception as exc:  # a reply that is not JSON is a reply the app cannot use
+            detail = f"200 but unparseable ({exc}): {raw[:160]}"
+    record(12, name, ok, detail)
 
 
 def check_fence():
