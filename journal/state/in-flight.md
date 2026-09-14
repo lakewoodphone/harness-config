@@ -14,6 +14,7 @@ becoming a `state/open-pain.md` row.
 | Kosher filter: browsing escalation route | `kosher-filter-ai` | `escalateToServerThreshold` is read by nothing; every `Decision.ESCALATE` still ends as block/cover. |
 | Search index | `harness-config/scripts/fsearch.py` | Recorded 45.34 s → 0.075 s; re-measure after any index change. |
 | Bound the camera scripts' internal retries | HA `packages/phoenix_snapshot_cameras.yaml` | ~500 failed NVR logins/hour is probably keeping the NVR account locked out and hiding whether the stored password is even wrong (P75). Do it *after* the owner answers queue #23, so the two causes are not confused. |
+| The HA version backlog | HA host, measured 2026-09-14 | Core **2025.10.3** -> 2026.9.2, Zigbee2MQTT 2.6.2 -> 2.14.1, ESPHome 2025.10.2 -> 2026.8.2, nut 0.16.1 -> 0.18.1, configurator 5.8.0 -> 6.1.0. Not a chore: a year of Core upgrades on a live security system needs a rollback plan, and the newest full backup on that host is **2026-05-11**. Mine to plan into a yes/no; his to accept the risk. |
 | The phone's gate died once, unexplained (P59) | cadence cut to `*/2`; evidence in the entry | Record the gate's exit status in a wrapper, and give it a heartbeat the probe alarms on a *gap* from — absence, not current state. |
 | A first phone run lands with no session (P46) | `assets/mobile.css` and `plugin-mobile` are done | Read the workspace controller's client half, then seed a default session the way `plugin-windows` clears `dsh.sessions.current`. |
 
