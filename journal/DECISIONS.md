@@ -443,3 +443,11 @@ The alternatives were worse in a way that matters: a checkout would have destroy
 would have collided with the incoming journal content on pop and left a conflict for its author. It was backed up to
 `~/journal-recovery-20260914-040121`, committed verbatim with a message naming the situation, rebased cleanly, and pushed —
 so the deployment could move again and the record survived intact.
+
+**D41 · 2026-09-14 · Findings get a surface the owner already opens, before any outbound channel.**
+Two sensing paths already work and reach nobody: the autosync's `attention` records (every 15 minutes, for 75 minutes today)
+and the phone probe's verdict the kernel reads. The next move is therefore a consumer, not another check — and the first
+consumer must be internal: a small attention count inside the harness client (host half reads the kernel's `latest.json`,
+client half renders the count and expands to the findings). Rejected for now: SMS or email on a finding, because that is
+outbound, it costs money, and it can interrupt him — that is his decision, and it is recorded as such in QUESTIONS.md rather
+than assumed.

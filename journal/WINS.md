@@ -382,3 +382,10 @@ x=0/339px over the conversation with the content still 393px; **after picking a 
 Scrolling, which the owner reported as "funny": the page is now unscrollable (`body` overflow hidden on narrow only), the
 transcript is the single scroller (`scrollBody` moved to 300 while `window.scrollY` stayed 0), and momentum is contained.
 Nothing in the content column sits under the pinned control — checked by geometry, not by eye.
+
+**W25b · 2026-09-14 · Correction to W25's sibling claim: the sensing was never the gap.**
+Recorded because a near-miss deserves the same evidence as a win. The autosync recorded `attention: pull --ff-only refused:
+histories diverged (5 behind)` every fifteen minutes for 75 minutes, and the kernel's `config_sync` check already escalates
+any `result != "clean"` to HIGH. The phone's own probe has the same property: it has been writing a verdict the kernel reads
+since this morning. Two independent sensing paths worked; neither had a consumer. That reframes the remaining work from
+"add checks" to "deliver what is already detected" (P40).

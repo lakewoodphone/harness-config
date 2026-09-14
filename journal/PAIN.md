@@ -1021,3 +1021,28 @@ The rail half of this entry is fixed: the sidebar is off-canvas on a phone and t
 What remains is the default workspace — a brand-new phone session still asks which workspace to use, and the app persists no
 workspace-selection key (`dsh.sessions.current` and `dsh.workspace.view.v5` are the only ones), so it must come from the
 workspace controller's own state, not from a key this layer can seed.
+
+## P47 — CORRECTION (2026-09-14, same day, citing the entry above)
+**The entry above is wrong in its diagnosis, and the correction matters more than the entry.** It says the blocked deploy
+"failed into a log nobody reads" and proposes a new keeper to detect "behind and dirty". No such check is needed: the
+autosync **already detected it and already recorded it, every fifteen minutes**, with the count climbing as the gap widened:
+
+```
+~/.harness-config-autosync/status.json
+  {"result":"attention","detail":"pull --ff-only refused: histories diverged (5 behind)","host":"secratary","at":"2026-09-14T04:00:01Z"}
+autosync.log
+  02:45 [attention] pull --ff-only refused: histories diverged (3 behind)
+  03:00 [attention] ... (3 behind)  03:15 (3 behind)  03:30 (4 behind)  03:45 (4 behind)  04:00 (5 behind)
+```
+
+and `check_config_sync` in the kernel treats `result != "clean"` as **HIGH**: `last config sync was '<result>' …`. So the
+sensing worked from the first refusal. What failed is the last hop — **the finding reached nobody**, which is P40, not a
+missing check. The owner learned about it because a person happened to try a deploy.
+
+**Cost of the wrong diagnosis.** An hour of my own time on a keeper that already exists, and a PAIN entry that would have
+sent a future self to build a duplicate. Left in place rather than edited, per this file's rule.
+
+**Fix, corrected.** Do not add a check. Give findings a consumer (P40). Concretely, and available now that client plugins
+are installable on this fleet: an attention surface inside the harness the owner already opens — the host half reads the
+kernel's `latest.json`, the client half renders a small count in the composer area that expands to the findings. That is
+internal, reversible, and needs no outbound permission, unlike SMS or email.
