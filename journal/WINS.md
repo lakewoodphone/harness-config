@@ -454,3 +454,22 @@ cannot scrub must not be sent. Wired into \eview_screenshot_image\ so every pro
 applied, grayscale/PNG normalised, refusal on unreadable input, deterministic hashes, clamped edge limits).
 *Why it matters:* it is the rare change that improves all three things the owner asked for simultaneously — cheaper,
 fewer pixels leaving the building, and a faster answer — and it is reversible per-config if a measurement ever disagrees.
+**W26 · 2026-09-14 · `/attention` exists, mounts, registers, and the probe found a real outage the moment it learned to look.**
+`packages/plugin-attention` gives the composer a `/attention` command: kernel findings, the phone path and config sync, each
+with its source and age, and a source that is missing says so instead of showing green. Verified against a real harness:
+the engine mounts it, and `commands/list` returns `{"name":"attention","description":"What the company is reporting: kernel
+findings, the phone path, config sync"}` beside `/cost`. Two other things landed in the same stretch and both earned their
+keep immediately: `serve-phone.sh` now waits for the engine's socket before claiming success (it used to return at the
+token, ~18s early), and probe check 12 calls the app's first RPC — which failed on its very first run, exposing P48.
+
+**W32 · 2026-09-14 · Found my own two design errors by measuring the artefact, and cut the index ~6×.**
+The search index worked and was fast (45.34 s → 0.075 s), which is exactly when it is easiest to stop
+looking. Measuring the index instead of the answer showed 10.87 GB for 112 GB of files, traced to the
+same 2.19 GB of text stored in two FTS tables and 15 GB of duplicate backup trees being catalogued
+under a second path. Both fixed: trigram made opt-in and code-only, backup/worktree/archive directories
+skipped by pattern. **1,845 MB for the same corpus**, measured before the duplicate exclusion even
+takes effect. The second correction was in the chat parser: the rewritten patched-replay version
+reported a *smaller* total than the naive one, and a per-file comparison proved the smaller number is
+the true one (93 files with more coverage, 0 with less, and the old parser repeating the text `b` 39×
+in a single file).
+

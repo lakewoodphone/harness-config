@@ -1523,3 +1523,65 @@ filename anywhere is the citation itself.
 *Rule:* resolve a cited path before building on it; if it is missing, say so and re-ground the answer in a
 document that exists. A dangling pointer propagated through three documents is how a plan acquires a
 foundation nobody ever checked.
+
+---
+
+## On a document that loads while the application is dead (2026-09-14, authority)
+
+**L150 · 2026-09-14 · A 200 document does not prove an application works.**
+The phone probe reported 11/12 — and the kernel called the phone path "proven" — while **every RPC the app makes returned
+403 `forbidden`**: the document loaded, the session cookie was minted, the page rendered, and `agentPresets/list`,
+`session/modelCatalog` and the `/api/remote.mux` websocket were all refused. The phone would show an empty, broken
+interface. A document is the shell; the session list is the application. Check 12 now calls `agentPresets/list` the way the
+client does, with the gateway's args envelope, and it failed the first time it ran — which is the only reason this is
+written down rather than discovered by the owner holding the phone.
+
+**L151 · 2026-09-14 · A booting service is not a dead one — and a dead one is not a plugin's fault.**
+I reported to the owner that my own new bundle had killed the engine, because a probe run failed 10 of 12 checks minutes
+after I installed it. Three tests refute that: the plugin mounts cleanly in an isolated profile (engine alive, listening,
+no stderr), its command registers (`commands/list` returns it beside `/cost`), and removing it changes nothing. The real
+timing, measured: the engine prints its token ~18s **before** it binds the socket, so a check run in that window sees a
+dead service. `serve-phone.sh` now waits for the socket and the probe waits for the services before judging. *Rule:* do not
+name a culprit from a single observation taken during a state you have not controlled for; and never report a cause you
+have not tested by removing it.
+
+**L152 · 2026-09-14 · The harness can serve documents and still refuse its API, and the refusal is not from any plugin.**
+Reproduced on the authority: `GET /` → 200 with a valid cookie; `POST /api/agentPresets/list` → **403 `forbidden`** (9-byte
+body) over Serve, over the loopback gate, and direct to the engine; the websocket upgrade → 403. Bisected by removing every
+third-party bundle (leaving `@deepseek-ai/dsh-base` + `@deepseek-ai/dsh-web-app`) — **still 403** — and by restarting the
+engine twice. The engine packages have not changed since 2026-09-11, `--trusted-host` is correct on the command line, and a
+loopback Host gets 401 (no trust) rather than 403. Cause still unknown; the class is "the fence refuses API/WS for the
+trusted authority while serving its documents".
+
+**L171 · 2026-09-14 · Index the same text twice and you pay twice — choose ONE expensive index.**
+Building the search index, I stored every chunk in two FTS5 tables: `content` with `porter` (stemming)
+and `tri` with `trigram` (substring). Measured afterwards: **the same 2.19 GB of text held in both**,
+and the index reached **10.87 GB for 112 GB of catalogued files**. A trigram index of 2.19 GB of
+*prose* is not worth 5 GB of disk, and 611 MB of the indexed text was minified HTML that nobody will
+ever substring-search.
+*Rules:* (a) before adding a second index over the same column, measure what each costs and what each
+uniquely answers; (b) make the expensive one **opt-in and scoped** — substring search earns its keep on
+source code, not on bulk prose; (c) a "10× storage for 2× capability" trade is usually a symptom of
+indexing too much rather than of needing more indexes. Result after making trigram opt-in and
+code-only: **1,845 MB for the same corpus** (measured while the duplicate trees were still being
+walked, so the real figure is lower).
+
+**L172 · 2026-09-14 · Index the trees you own; a backup directory is a second copy of your own index.**
+8.93 GB of `lpt-hub-workingtree-backup-*`, 5.79 GB of `artifacts/*backup*` and 0.79 GB of `_archive`
+were being catalogued under a second path — **15 GB of 112 GB catalogued**. Duplicates do three kinds
+of damage: storage, token count, and every result list carrying the same answer twice so the reader
+cannot tell which path is real.
+*Rule:* exclude by directory **pattern** (`*workingtree*`, `*backup*`, `*_archive*`), not just by a
+fixed name list — backup trees are named after whatever they back up.
+
+**L173 · 2026-09-14 · Two parsers of the same format will disagree; find out which one is inflating
+before you trust the bigger number.** The first chat ingester reported **15,149 messages**; the rewritten
+one (which applies the patch records the first ignored) reported **10,789**. The lazy reading is "the
+first one found more". Comparing them on the same 610 files settled it: **93 files where the new parser
+found substantially more, ZERO where the old one did**, and the old one carried **282 repeated-text
+groups versus 163** — including the text `b` repeated **39 times in one file**, which is the signature of
+emitting a row per record instead of replaying to a final state.
+*Rule:* when two implementations of one format disagree, compare them **per file**, and look for
+duplicate text as the tell. A larger total from a parser that does not apply patches is inflammation,
+not coverage.
+

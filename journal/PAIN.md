@@ -1065,3 +1065,36 @@ categories_json, reason)`, `decided_by_kind` in `{human_owner, human_partner, mo
 per-provider accuracy by joining the immutable machine verdict against the last human verdict, through the
 `classification_metrics` module that already exists. Rows with no human verdict are **unlabelled, not correct**. Schema and
 sampling arithmetic in `kosher-filter-ai/docs/research/022` §1–2.
+## P48 — The authority serves documents but refuses every API and websocket call (OPEN, 2026-09-14)
+**Symptom.** On the phone the app loads and then cannot list sessions, fetch presets or open its stream: `GET /` → 200,
+`POST /api/agentPresets/list` → **403 `forbidden`**, `/api/remote.mux` upgrade → **403**. The interface is a shell.
+**Evidence, all reproducible on the authority.**
+- `curl -s -i https://secratary.tail93e6e6.ts.net/api/agentPresets/list -H "Cookie: <fresh>" -H 'Content-Type: application/json' -d '{"type":"client-request","rpcId":"x","method":"agentPresets/list","payload":{"args":{"_request":{}}}}'` → `403`, body `forbidden`.
+- The same call over the gate (`127.0.0.1:3086`, Host = the authority) → 403; direct to the engine (`127.0.0.1:3089`) → 403; loopback Host → `401 unauthorized` (so the fence does not trust loopback either).
+- `GET /` with the same cookie and Host → 200, 37,804 bytes.
+- **Bisect:** with the profile bundle list reduced to `@deepseek-ai/dsh-base` + `@deepseek-ai/dsh-web-app` (every third-party bundle removed) and the engine restarted → **still 403**. So no plugin of ours is involved.
+- Engine packages unchanged since 2026-09-11 18:54; `dsh 0.1.5-rc.1`; the running command line carries `--trusted-host secratary.tail93e6e6.ts.net`; the engine's stderr is empty.
+- The local engine on ZABZ-YOGA (same build, port 3099) answers RPCs normally, so the build is not broken — this is host-specific.
+**Cost.** The owner's phone is a shell until this is fixed. The probe could not see it before today (L150).
+**Fix.** Unknown. The next probe to run is: start a second engine on that host with `DSH_HOME` pointed at a copy of the profile, on a scratch port, and compare `POST /api/...` against the one on 3089 — that isolates host state from process state. Note P40's consumer now works: the kernel reports this as **HIGH** (`the phone URL is broken: the end-to-end probe fails check(s) 4, 12`).
+
+## P54 — The first search index was 10.87 GB for 112 GB of files, from two self-inflicted causes
+
+**Symptom.** `~/.fsearch/index.db` reached **10.87 GB** while cataloguing 112 GB — a ratio no user would
+accept once they saw it, and enough to make a "just rebuild it" step feel expensive.
+
+**Measured causes, both mine.**
+1. Every chunk was written to **two** FTS5 tables (`content`/porter and `tri`/trigram), so the same
+   **2.19 GB of text was stored twice** and the trigram index cost roughly as much again on top.
+2. **15 GB of the 112 GB catalogued was duplicate trees** — `lpt-hub-workingtree-backup-*` (8.93 GB),
+   `artifacts/f21-backup` (5.79 GB), `_archive` (0.79 GB) — the same files under a second path.
+
+**Evidence.** `SELECT SUM(LENGTH(text)) FROM content` = 2.19 GB, identical for `tri`; `SELECT root,
+SUM(size) FROM files`; `SELECT ... WHERE path LIKE '%workingtree%'` = 26,367 files / 8.93 GB.
+
+**Fix (done).** Trigram is now opt-in (`--trigram`) and restricted to code extensions; the walker skips
+backup/worktree/archive directory *patterns*. Result: **1,845 MB for the same corpus** while the
+duplicates were still being walked. Still open: the index carries 685,000 file rows, and a date-aware
+rule ("catalog everything, but only index content in recently-touched trees") would cut it further
+without losing the ability to find an old file by name.
+
