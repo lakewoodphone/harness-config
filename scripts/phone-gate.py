@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import json
 import os
 import re
 import select
@@ -38,6 +39,8 @@ from urllib.parse import parse_qsl, urlsplit
 
 STATE_DIR = Path.home() / ".dsh-phone"
 MOBILE_CSS = Path(__file__).resolve().parent.parent / "assets" / "mobile.css"
+BADGE_JS = Path(__file__).resolve().parent.parent / "assets" / "phone-badge.js"
+BADGE_STATE = Path(os.environ.get("CEO_KERNEL_STATE", str(Path.home() / "ceo-kernel-var"))) / "latest.json"
 COOKIE_PREFIX = b"dsh-auth-"
 BUF = 65536
 
@@ -218,7 +221,7 @@ def complete_login(engine_port: int, first: bytes, token: str, path: str) -> byt
         if status_of(document) != 200:
             note(f"  signed-in fetch answered {status_of(document)}; relaying the exchange instead")
             return None
-        document = with_mobile_layer(document)
+        document = with_client_layers(document)
         note(f"  -> signed in in flight, returning {len(document)} bytes with {len(cookies)} cookie(s)")
         return inject_headers(document, cookies)
     except OSError as exc:
@@ -288,6 +291,127 @@ def inject_mobile(document: bytes) -> bytes:
     return document[:at] + tag + document[at:]
 
 
+# --------------------------------------------------------------------------
+# The attention badge
+#
+# WHY THE GATE CARRIES THIS
+# The owner asked to be told what needs attention *inside the harness he already opens*
+# (QUESTIONS.md, answered 2026-09-14). The findings live on the host, at
+# ~/ceo-kernel-var/latest.json, written every 5 minutes by the kernel's cron. The browser
+# cannot read a host file, and the channel that would normally carry it (`host.call`)
+# belongs to the dynamic Cordis runner, which is disabled in this preset. So the gate
+# serves them, for the same reason it already serves the mobile stylesheet: it is the one
+# place that can add something to a phone without a client rebuild.
+#
+# DELIBERATELY UNAUTHENTICATED, like the stylesheet: the payload is check names, severities
+# and one-line summaries - no credentials, no customer data - and requiring a cookie would
+# break the badge in exactly the case it exists for, a document the client had cached.
+# --------------------------------------------------------------------------
+
+_SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4, "unknown": 5}
+
+
+def badge_payload() -> bytes:
+    """The findings, reduced to what a badge renders, or an honest refusal."""
+    if os.environ.get("PHONE_ATTENTION_BADGE", "1") == "0":
+        return b'{"ok":false,"error":"the badge is switched off on this host (PHONE_ATTENTION_BADGE=0)"}'
+    try:
+        doc = json.loads(BADGE_STATE.read_text(encoding="utf-8"))
+    except OSError as exc:
+        return json.dumps({
+            "ok": False,
+            "error": f"cannot read {BADGE_STATE}: {exc.strerror or exc}",
+        }).encode()
+    except ValueError as exc:
+        return json.dumps({
+            "ok": False,
+            "error": f"{BADGE_STATE} is not valid JSON: {exc}",
+        }).encode()
+
+    summary = doc.get("summary") or {}
+    findings = doc.get("findings") or []
+    attention = [f for f in findings if f.get("needs_attention")]
+    attention.sort(key=lambda f: _SEVERITY_ORDER.get(str(f.get("severity")), 9))
+    quiet = [f.get("check") for f in findings if not f.get("needs_attention")]
+
+    return json.dumps({
+        "ok": True,
+        "at": doc.get("at") or doc.get("written_at") or doc.get("generatedAt"),
+        "host": doc.get("host"),
+        "total": summary.get("total"),
+        "ok_count": summary.get("ok"),
+        "attention": summary.get("attention"),
+        "unknown": summary.get("unknown"),
+        "highest": (attention[0].get("severity") if attention else "info"),
+        "checks": [
+            {
+                "check": f.get("check"),
+                "severity": f.get("severity"),
+                "summary": f.get("summary"),
+                "needs_attention": bool(f.get("needs_attention")),
+            }
+            for f in attention
+        ],
+        "quiet": quiet,
+    }, ensure_ascii=False).encode()
+
+
+def badge_json_response() -> bytes:
+    body = badge_payload()
+    return (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: application/json; charset=utf-8\r\n"
+        b"Cache-Control: no-store\r\n"
+        b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+        b"Connection: close\r\n\r\n" + body
+    )
+
+
+def badge_script_bytes() -> bytes:
+    try:
+        body = BADGE_JS.read_bytes()
+    except OSError:
+        return b""
+    return body if body.strip() else b""
+
+
+def badge_script_response() -> bytes:
+    body = badge_script_bytes()
+    if not body:
+        return b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    return (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: application/javascript; charset=utf-8\r\n"
+        b"Cache-Control: no-store\r\n"
+        b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+        b"Connection: close\r\n\r\n" + body
+    )
+
+
+def badge_script_tag() -> bytes:
+    """The badge as a document-level <script>, deferred so it cannot block the app."""
+    if not badge_script_bytes():
+        return b""
+    return (b'<script id="dsh-attention-badge-loader" data-layer="phone-badge" '
+            b'src="/dsh-attention.js" defer></script>')
+
+
+def inject_badge(document: bytes) -> bytes:
+    """Add the badge to a served document, once, before </head>."""
+    tag = badge_script_tag()
+    if not tag or b'id="dsh-attention-badge-loader"' in document:
+        return document
+    at = document.lower().find(b"</head>")
+    if at < 0:
+        return document
+    return document[:at] + tag + document[at:]
+
+
+def inject_all(document: bytes) -> bytes:
+    """Both layers, in one pass."""
+    return inject_badge(inject_mobile(document))
+
+
 def dechunk(body: bytes) -> bytes:
     """Unwrap chunked transfer encoding. Returns the input unchanged if it is not chunked."""
     out = b""
@@ -338,12 +462,13 @@ def reframe(response: bytes, body: bytes, no_store: bool = False) -> bytes:
     return b"\r\n".join(lines) + b"\r\n\r\n" + body
 
 
-def with_mobile_layer(response: bytes) -> bytes:
-    """A 200 document, de-chunked, with the phone layer in it, correctly framed.
+def with_client_layers(response: bytes) -> bytes:
+    """A 200 document, de-chunked, with the phone layer and the attention badge in it.
 
-    The layer is injected AND the answer is made uncacheable, because the two are the same
-    requirement: a document that can be reused without asking this gate is a document that
-    can silently lose the layer.
+    Both the injection AND the uncacheable answer are the same requirement: a document that
+    can be reused without asking this gate is a document that can silently lose the layer.
+    The badge is delivered twice for the same reason — injected here, and re-asserted by the
+    script itself, because an app that rewrites <head> can drop a node it does not own.
     """
     if status_of(response) != 200:
         return response
@@ -351,7 +476,7 @@ def with_mobile_layer(response: bytes) -> bytes:
     if not sep:
         return response
     body = dechunk(raw) if b"transfer-encoding: chunked" in head.lower() else raw
-    body = inject_mobile(body)
+    body = inject_all(body)
     return reframe(response, body, no_store=True)
 
 
@@ -496,6 +621,24 @@ def handle(client: socket.socket, engine_port: int) -> None:
             client.close()
             return
 
+        # The attention badge: the script, and the findings it renders. Also answered here
+        # WITHOUT auth, and for the same reason — the payload is check names and one-line
+        # summaries, and a badge that needs a cookie is a badge that vanishes on the cached
+        # document it exists to fix. Kill switch: PHONE_ATTENTION_BADGE=0.
+        if method == "GET" and path == "/dsh-attention.js":
+            body = badge_script_response()
+            note(f"  -> attention badge script: {len(body)} bytes")
+            client.sendall(body)
+            client.close()
+            return
+
+        if method == "GET" and path == "/dsh-attention.json":
+            body = badge_json_response()
+            note(f"  -> attention findings: {len(body)} bytes")
+            client.sendall(body)
+            client.close()
+            return
+
         # A document request that cannot be authenticated as sent: no cookie at all, or a
         # token the engine no longer honours (a saved link, a replayed redirect, an engine
         # restart). The gate signs the visitor in itself and returns the page.
@@ -533,7 +676,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
                     return
                 note("  -> sign-in did not complete; relaying the engine's answer")
             if status == 200:
-                response = with_mobile_layer(response)
+                response = with_client_layers(response)
             if response:
                 client.sendall(response)
             client.close()
