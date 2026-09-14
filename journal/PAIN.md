@@ -1046,3 +1046,22 @@ sent a future self to build a duplicate. Left in place rather than edited, per t
 are installable on this fleet: an attention surface inside the harness the owner already opens — the host half reads the
 kernel's `latest.json`, the client half renders a small count in the composer area that expands to the findings. That is
 internal, reversible, and needs no outbound permission, unlike SMS or email.
+
+## P46 — The provider's verdict is overwritten by the human review, so the audit he asked for is uncomputable
+**Symptom.** `update_screenshot_review_classification` (`server/app/storage_sections/screenshot_reviews.py:244`) is an
+in-place `UPDATE` of `safe`, `flagged`, `confidence`, `categories_json`, `reason`, `provider` and `status` on the existing
+review row. It is the single write path behind `declare_clean`, admin `dismiss` and admin `escalate` — the three human
+verdicts already being produced in the product.
+**Evidence.** The SQL is the proof; the table and columns are in the same file (`log_screenshot_review`, `:74`). What
+survives is partial: `entity_graph.log_screenshot_challenge_event` (`:290`) appends the *new* status, never what it replaced.
+**Cost.** The owner's instruction, verbatim: *"attracts it and audits it and gets better over time of the whole thing"*. This
+one write makes that impossible. After any human review there is no record of what the third party answered, so **no
+per-provider accuracy number can ever be computed** (and the provider column itself is rewritten, so the disagreement is
+invisible). The calibration manifest reads these rows, so it reads rewritten history. The audit is not merely unwired — with
+this schema it cannot be built at all, which is why the first cut of the fix is a data-model change and not metrics code.
+**Fix.** Stop mutating the machine verdict; append each reclassification as its own row
+(`screenshot_review_decisions(review_id, decided_ts, decided_by_kind, decided_by_id, safe, flagged, confidence,
+categories_json, reason)`, `decided_by_kind` in `{human_owner, human_partner, model_secondary, model_provider}`), then compute
+per-provider accuracy by joining the immutable machine verdict against the last human verdict, through the
+`classification_metrics` module that already exists. Rows with no human verdict are **unlabelled, not correct**. Schema and
+sampling arithmetic in `kosher-filter-ai/docs/research/022` §1–2.
