@@ -101,6 +101,43 @@
     line-height: 1.4;
   }
 
+  /* ---- the composer: fewer controls, so the row fits on one line ----------
+   *
+   * Measured at 393x852 on 2026-09-14 on a session with usage: the composer occupied **232px of
+   * 852** — 27% of the screen — because its input card WRAPS. The controls stack as
+   * `tools` (Commands, Add attachment, Access mode, cost pill) at y=678 and
+   * `trailing` (model, context meter, Send) at y=734, with the shipped stats strip on a third
+   * band at y=788. Two of those are redundant on this device, and removing them is what makes
+   * the row fit:
+   *
+   *   - **Access mode**, whose label on this phone is literally "Full access, current: Full
+   *     access" — `permission.defaultPreset: danger-full-access` is set on this host, so it is a
+   *     control that cannot change anything here. The owner asked for it gone.
+   *   - **the stats strip** (turns/steps, tokens, cache hit): it restates what the cost pill, the
+   *     trajectory view and the context meter already say, and the owner described the result as
+   *     "the icons turn into 2 layers because there isn't enough space".
+   *
+   * WHAT IS DELIBERATELY NOT DONE: the surviving controls keep their 44px boxes. "Maybe make all
+   * the icons smaller" is a real observation with the wrong lever — the box is the thumb target,
+   * and a smaller one is worse on a phone, which is why the check that every control is >= 44px
+   * exists. The space came from having fewer of them, not from shrinking what is left.
+   */
+  [class*="composer"] button[aria-label^="Access mode"] {
+    display: none;
+  }
+
+  /* The strip's own row would be left as an empty band, so its container goes with it. `:has()`
+   * is already required by the drawer rules below, and a browser without it keeps the strip
+   * rather than losing the card. */
+  [class*="composer"] *:has(> button[aria-label*="Cache hit"]) {
+    display: none;
+  }
+
+  /* Tighter gaps, so the two remaining groups fit side by side instead of stacking. */
+  [class*="composerStack"] [class*="_row"] {
+    gap: 8px;
+  }
+
   /* ---- the notch and the home indicator --------------------------------- */
 
   [class*="frame"] {
