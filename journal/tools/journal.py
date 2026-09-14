@@ -1,29 +1,35 @@
 #!/usr/bin/env python3
-"""journal.py — the only writer and the cheapest reader of the journal.
+"""journal.py v2 — the only writer and the cheapest reader of the journal.
 
-The journal is my memory. It is not documentation. Three failures drove this tool
-into existence, all measured on 2026-09-14:
+The journal is my memory. It is not documentation.
 
-  1. It was six flat files totalling 590 KB. Reading them cost ~150k tokens, so
-     nobody read them, so the same audits were recommissioned.
-  2. IDs were allocated by eye from the last line of a file that had been merged
-     from three machines, so PAIN held two different P13/P14/P17/P18/P43..P52 and
-     DECISIONS held four different D41s. A cross-reference like "PAIN P46" was
-     ambiguous three ways and nothing complained.
-  3. State and history were the same document. To learn what was open you read
-     1067 lines, most of them closed.
+v1 (frozen in tools/archive/journal-v1.py) proved the shape and then outgrew it: it
+kept 781 entries inside nine files of up to 249 KB, so `show` read 249 KB to print
+1.2 KB, `status` took 8.9 s and overflowed its own budget, and a second writer on a
+second machine produced 161 base ids naming two different entries. The audit is in
+../AUDIT.md; the contract this file implements is in ../SPEC-v2.md.
 
-So: the log is append-only and sharded by month; the state tier is small and
-rewritten; the index is generated; and the allocator is this program, which takes
-the maximum over the index AND every shard AND every remote ref, so two machines
-cannot pick the same number twice.
+What v2 changes, in one paragraph: **one file per entry** under `entries/<kind>/`,
+so a read is a single file open and two machines appending at once write two
+different files and cannot conflict; `index/` becomes a proven cache with a tree
+freshness stamp that self-heals; every read command has real filter flags and a
+budget that is enforced *while the text is assembled*, not after; and the 798 KB of
+legacy flat files plus the nine frozen shards are absorbed with an exact-content
+proof rather than a hope.
 
-Read path (see journal/README.md):
-    journal.py status                 # the always-read page, < 12 KB
+Read path:
+    journal.py status                 # the always-read page, <= --budget bytes, exit 0
     journal.py newest handoff 2       # newest entries of one kind
-    journal.py show P46               # one entry
-    journal.py search "duplicate id"  # ~50 lines per hit, never whole files
-    journal.py check                  # integrity; non-zero exit on error
+    journal.py show P46b              # one entry, one file open
+    journal.py search "stale database" --kind lessons
+    journal.py list --kind pain --status open --since 2026-09-10
+    journal.py check                  # integrity; non-zero exit ONLY on error
+
+Write path (all under the mutation lock, all atomic temp+replace):
+    journal.py append lessons --title T --body -   # absorbs legacy drift first
+    journal.py resolve P46 --status done --why "..."
+    journal.py import-legacy --apply
+    journal.py migrate-v2 --apply                  # split log/** into entries/**
 """
 
 from __future__ import annotations
@@ -31,9 +37,12 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import hashlib
+import json
 import os
 import re
+import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import time
@@ -44,9 +53,6 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 JOURNAL = Path(__file__).resolve().parent.parent
-LOG = JOURNAL / "log"
-INDEX = JOURNAL / "index" / "entries.tsv"
-STATE = JOURNAL / "state"
 
 KINDS = {
     "handoff": {
@@ -95,12 +101,44 @@ NOT_AN_ENTRY = re.compile(r"^(## YYYY|## ⚠)")
 LETTER_TO_KIND = {v["letter"]: k for k, v in KINDS.items()}
 
 MARKER_RE = re.compile(r"^<!--\s*e:(?P<kind>[a-z]+)\|(?P<id>[^|]*)\|(?P<date>[^|]*)\|(?P<host>[^|]*)\|(?P<status>[^|]*?)\s*-->\s*$")
+# The same marker without the closing angle bracket, for diagnosis only. v1 learned
+# that a marker appended to a shard whose last line lacked a newline becomes
+# '---<!-- e:pain|P56|...|open -->', which MARKER_RE correctly refuses — and the
+# entry is then silently folded into the previous one's body. This is how check says so.
+LOOSE_MARKER_RE = re.compile(r"^[-—─―\s]*<!--\s*e:(?P<kind>[a-z]+)\|(?P<id>[^|]*)\|(?P<date>[^|]*)\|(?P<host>[^|]*)\|(?P<status>[^|]*?)\s*(?:-->)?\s*$")
 SHARD_HEADER_RE = re.compile(r"^#\s+(?P<kind>[a-z]+)\s+·\s+(?P<month>\d{4}-\d{2})\s*$")
 H1_RE = re.compile(r"^# ")
 SECTION_RE = re.compile(r"^## (?!#)")
+# the optional trailing metadata line of a v2 entry file
+META_RE = re.compile(r"^<!--\s*j2\s+(?P<body>.*?)\s*-->\s*$")
+REF_RE = re.compile(r"(?<![A-Za-z0-9])([LPDW])(\d{1,3})(?![0-9])")
 
-MAX_STATUS_CHARS = 12000
+ENTRY_KINDS = tuple(KINDS)
+KIND_ORDER = {k: i for i, k in enumerate(KINDS)}
+FLAT_FILES = (("HANDOFF", "handoff"), ("LESSONS", "lessons"), ("PAIN", "pain"),
+              ("DECISIONS", "decisions"), ("WINS", "wins"))
+META_KEYS = ("tags", "refs", "sha", "alias_of")
 
+DEFAULT_BUDGET = 12000
+STATUS_BUDGET = 6000
+INDEX_HEADER = "kind\tid_full\tnum\tsuffix\tdate\thost\tstatus\theading\tfile\tline_start\tline_end\thash"
+ALIAS_HEADER = "alias_id\tkind\tcanonical_id\treason\tdate"
+STATUS_HEADER = "kind\tid\tstatus\tdate\thost\twhy"
+FORMAT_CONTENT = "2\n"
+ARCHIVE_NAME = "archive"
+
+LOCK_NAME = ".lock"
+LOCK_STALE_SEC = 600
+LOCK_WAIT_SEC = 30.0
+# Commands that read the tree to decide what to write back. Two of these running at
+# once on one tree is what produced 161 collided ids on 2026-09-14.
+MUTATING_COMMANDS = {"append", "import-legacy", "migrate-v2", "dedupe", "repair-ids",
+                     "resolve", "state", "questions", "gc-legacy", "index"}
+
+
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
 
 def now_utc() -> str:
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -110,17 +148,20 @@ def today() -> str:
     return _dt.date.today().isoformat()
 
 
-def hostname() -> str:
-    return os.environ.get("DSH_HOST") or os.environ.get("COMPUTERNAME") or os.uname().nodename if hasattr(os, "uname") else os.environ.get("COMPUTERNAME", "unknown")
+def _shortname() -> str:
+    try:
+        return socket.gethostname().split(".")[0]
+    except Exception:
+        return "unknown"
 
 
 def host_tag() -> str:
     """The machine that wrote an entry — Windows COMPUTERNAME or a POSIX hostname.
 
-    The first version fell back to 'UNKNOWN' on Linux, which would have mislabelled
-    every entry written on the authority.
+    v1's first version fell back to 'UNKNOWN' on Linux, which would have mislabelled
+    every entry written on the authority. os.uname() is never called unguarded: it
+    does not exist on Windows, and this tool runs on both.
     """
-    import socket
     h = os.environ.get("DSH_MACHINE") or os.environ.get("COMPUTERNAME") or ""
     if not h:
         try:
@@ -130,9 +171,84 @@ def host_tag() -> str:
     return h.split(".")[0].upper()
 
 
+def note(text: str) -> None:
+    print(text, file=sys.stderr)
+
+
+def _rl(path: Path) -> str:
+    """Read UTF-8 with a replace decoder; never raises on a file being written."""
+    try:
+        return path.read_bytes().decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def _rlb_bounded(path: Path, limit: int) -> tuple:
+    """Read at most `limit` bytes (never the whole file), then decode.
+
+    This is how a status section drawn from a huge hand-written file stays bounded
+    during assembly rather than after it. Returns (text, truncated).
+    """
+    if limit <= 0:
+        return "", True
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return "", False
+    with path.open("rb") as fh:
+        raw = fh.read(limit)
+    truncated = size > len(raw)
+    text = raw.decode("utf-8", errors="replace")
+    if truncated:
+        cut = max(text.rfind("\n"), text.rfind(" "))
+        if cut > limit // 2:
+            text = text[:cut]
+    return text, truncated
+
+
+def atomic_write(path: Path, text: str) -> None:
+    """Write through a temp file in the same directory, then os.replace."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.parent / (path.name + ".tmp" + str(os.getpid()))
+    with open(tmp, "wb") as fh:
+        fh.write(text.encode("utf-8"))
+    try:
+        os.replace(str(tmp), str(path))
+    except OSError:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
+def _path_of(rel: str) -> Path:
+    return JOURNAL / str(rel).replace("/", os.sep)
+
+
+def _rel_of(path: Path) -> str:
+    try:
+        return str(path.relative_to(JOURNAL)).replace(os.sep, "/")
+    except ValueError:
+        return str(path).replace(os.sep, "/")
+
+
+def redact(text: str) -> str:
+    """Never print a credential. Any token-looking run is masked before output."""
+    if not text:
+        return text
+    text = re.sub(r"(?i)\b(?:sk|pk|ghp|gho|xox[baprs])[-_][A-Za-z0-9_\-]{12,}", "<redacted>", text)
+    text = re.sub(r"\b[A-Za-z0-9_\-]{32,}\b", "<redacted>", text)
+    return text
+
+
+# ---------------------------------------------------------------------------
+# Identity keys — copied from v1, because they encode two real bugs
+# ---------------------------------------------------------------------------
+
 def norm_body(text: str) -> str:
     """Whitespace-collapsed body, used as the identity of an entry."""
-    lines = [ln.rstrip() for ln in text.replace("\r\n", "\n").split("\n")]
+    lines = [ln.rstrip() for ln in (text or "").replace("\r\n", "\n").split("\n")]
     while lines and not lines[-1].strip():
         lines.pop()
     while lines and lines[-1].strip() in {"---", "***"}:
@@ -157,20 +273,82 @@ def entry_hash(heading: str, body: str) -> str:
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
 
 
+STRUCTURE_RE = re.compile(r"^(##\s|[A-Z]{0,2}[LPDW]\d+[a-z]?\s*·|\*\*[LPDW]{1,2}\d+)")
+
+
+def content_key(heading: str, body: str) -> str:
+    """Loss-proof identity for a migration.
+
+    Bodies are preserved verbatim while headings are rewritten (ids get collision
+    suffixes, titles get normalised), so completeness is proved on the body. A few
+    old entries carried their whole content on the heading line; for those the
+    heading is the content. Structural lines — section headings such as '## On
+    evidence', and entry headings — are dropped from both sides, because the
+    migration moves them out of the body and into the shard's own structure.
+    """
+    lines = [ln for ln in norm_body(body).split("\n") if not STRUCTURE_RE.match(ln.strip())]
+    text = norm_body("\n".join(lines))
+    if not text:
+        text = re.sub(r"[ \t]+", " ", (heading or "").strip())
+        text = re.sub(r"^\*\*", "", text)
+        text = re.sub(r"^[A-Z]{0,2}(?=[LPDW]\d)", "", text)
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
+def num_of(id_full: str) -> int:
+    m = re.search(r"(\d+)", id_full or "")
+    return int(m.group(1)) if m else 0
+
+
+def suffix_of(id_full: str) -> str:
+    m = re.match(r"^[A-Z]+\d+(.*)$", id_full or "")
+    return m.group(1) if m else ""
+
+
+def build_heading(kind: str, id_full: str, title: str, date: str, host: str) -> str:
+    if kind == "handoff":
+        stamp = date or now_utc()
+        return f"## {stamp} · {host or host_tag()} · {title}"
+    if kind == "lessons":
+        return f"**{id_full} · {title}**"
+    if kind == "pain":
+        return f"## {id_full} — {title}"
+    if kind == "decisions":
+        return f"**{id_full} · {date or today()} · {title}.**"
+    return f"**{id_full} · {date or today()} · {title}.**"
+
+
+def _minute_key(date: str) -> int:
+    """A sortable minute-resolution key from a date like '2026-09-14 05:55 UTC'."""
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?", date or "")
+    if not m:
+        return 0
+    y, mo, d, hh, mm = m.groups()
+    return (((int(y) * 12 + int(mo)) * 31 + int(d)) * 24 + int(hh or 0)) * 60 + int(mm or 0)
+
+
+def _age_days(stamp: str) -> int:
+    try:
+        d = _dt.date.fromisoformat((stamp or "")[:10])
+    except ValueError:
+        return -1
+    return (_dt.date.today() - d).days
+
+
 # ---------------------------------------------------------------------------
-# Parsing
+# Parsing — v1's parsers, preserved verbatim in behaviour
 # ---------------------------------------------------------------------------
 
 class Entry(dict):
     """A journal entry. Duck-typed dict so it survives json round-trips."""
 
 
-def parse_shard(path: Path, kind: str) -> list[Entry]:
+def parse_shard(path: Path, kind: str) -> list:
     """Parse a shard that carries markers (everything written from 2026-09-14)."""
-    text = path.read_text(encoding="utf-8", errors="replace")
+    text = _rl(path)
     lines = text.split("\n")
     starts = [i for i, ln in enumerate(lines) if MARKER_RE.match(ln)]
-    entries: list[Entry] = []
+    entries = []
     for n, i in enumerate(starts):
         m = MARKER_RE.match(lines[i])
         end = starts[n + 1] if n + 1 < len(starts) else len(lines)
@@ -185,7 +363,7 @@ def parse_shard(path: Path, kind: str) -> list[Entry]:
             heading=heading,
             body=norm_body(body),
             section="",
-            file=str(path.relative_to(JOURNAL)).replace("\\", "/"),
+            file=_rel_of(path),
             line_start=i + 1,
             heading_end=i + 2,
             line_end=end,
@@ -193,8 +371,8 @@ def parse_shard(path: Path, kind: str) -> list[Entry]:
     return entries
 
 
-def parse_legacy(path: Path, kind: str) -> list[Entry]:
-    """Parse one of the six flat pre-2026-09-14 files. Used by migrate and audit.
+def parse_legacy(path: Path, kind: str) -> list:
+    """Parse one of the five flat pre-2026-09-14 files. Used by migrate and audit.
 
     Bold headings in the old files wrap onto a second line ('**L159 · A 500 from your
     own API ...' / 'must outlast ...**'), so the anchor deliberately does not require a
@@ -202,16 +380,16 @@ def parse_legacy(path: Path, kind: str) -> list[Entry]:
     37 entries on the first migration attempt.
     """
     spec = KINDS[kind]
-    text = path.read_text(encoding="utf-8", errors="replace")
+    text = _rl(path)
     lines = text.split("\n")
-    starts: list[tuple[int, re.Match]] = []
+    starts = []
     for i, ln in enumerate(lines):
         if NOT_AN_ENTRY.match(ln.strip()):
             continue
         m = spec["regex"].match(ln.strip())
         if m:
             starts.append((i, m))
-    entries: list[Entry] = []
+    entries = []
     section = ""
     for n, (i, m) in enumerate(starts):
         end = starts[n + 1][0] if n + 1 < len(starts) else len(lines)
@@ -259,630 +437,254 @@ def parse_legacy(path: Path, kind: str) -> list[Entry]:
     return entries
 
 
-def load_shards() -> list[Entry]:
-    out: list[Entry] = []
-    if not LOG.exists():
-        return out
-    for path in sorted(LOG.rglob("*.md")):
-        kind = path.parent.name
-        if kind not in KINDS:
+def shard_blocks(path: Path):
+    """(preamble, [(block_text, first_line, last_line)]) for a v1 shard.
+
+    The split is a pure line-range split, so concatenating the blocks reproduces the
+    source byte for byte apart from the preamble. That property is what makes the
+    migration provable instead of hopeful.
+    """
+    text = _rl(path)
+    lines = text.split("\n")
+    starts = [i for i, ln in enumerate(lines) if MARKER_RE.match(ln)]
+    blocks = []
+    for n, i in enumerate(starts):
+        end = starts[n + 1] if n + 1 < len(starts) else len(lines)
+        blocks.append(("\n".join(lines[i:end]), i + 1, end))
+    preamble = "\n".join(lines[:starts[0]]) if starts else text
+    return preamble, blocks
+
+
+def parse_meta(body: str):
+    """Split the optional trailing '<!-- j2 k=v ... -->' off an entry body."""
+    text = body or ""
+    lines = text.split("\n")
+    i = len(lines)
+    while i > 0 and not lines[i - 1].strip():
+        i -= 1
+    meta = {}
+    if i > 0:
+        m = META_RE.match(lines[i - 1].strip())
+        if m:
+            for tok in m.group("body").split():
+                if "=" in tok:
+                    k, v = tok.split("=", 1)
+                    meta[k.strip()] = v.strip()
+            return "\n".join(lines[:i - 1]), meta
+    return text, meta
+
+
+def parse_entry(path: Path, kind: str) -> Entry:
+    """Parse one v2 entry file. Never raises; returns the problems on the entry."""
+    text = _rl(path)
+    lines = [ln.rstrip("\r") for ln in text.split("\n")]
+    problems = []
+    if "\r\n" in text:
+        problems.append("file uses CRLF line endings; every journal write is LF")
+    while lines and not lines[-1].strip():
+        lines.pop()
+    stem = path.stem
+    e = Entry(
+        kind=kind, id_full="", num=0, suffix="", date="", host="", status="",
+        heading="", body="", tags=[], refs=[], alias_of="", sha="",
+        file=_rel_of(path), line_start=1, line_end=max(1, len(lines)),
+        hash="", problems=problems, meta={}, marker_kind="",
+    )
+    if not lines:
+        problems.append("file is empty")
+        return e
+    m = MARKER_RE.match(lines[0])
+    if not m:
+        problems.append("first line is not a v1 marker (^<!-- e:kind|id|date|host|status -->)")
+        return e
+    e["id_full"] = m.group("id")
+    e["date"] = m.group("date")
+    e["host"] = m.group("host")
+    e["status"] = m.group("status")
+    e["marker_kind"] = m.group("kind")
+    if m.group("kind") != kind:
+        problems.append(f"marker kind {m.group('kind')!r} disagrees with directory {kind!r}")
+    if m.group("kind") not in KINDS:
+        problems.append(f"marker kind {m.group('kind')!r} is not one of {', '.join(KINDS)}")
+    if e["id_full"] and e["id_full"] != stem:
+        problems.append(f"id in the file name ({stem}) disagrees with the marker ({e['id_full']})")
+    if len(lines) < 2 or not lines[1].strip():
+        problems.append("heading line is missing or empty")
+    heading = lines[1].strip() if len(lines) > 1 else ""
+    body_text, meta = parse_meta("\n".join(lines[2:]))
+    e["heading"] = heading
+    e["body"] = norm_body(body_text)
+    e["meta"] = meta
+    e["tags"] = [t for t in (meta.get("tags") or "").split(",") if t]
+    e["refs"] = [t for t in (meta.get("refs") or "").split(",") if t]
+    e["alias_of"] = meta.get("alias_of") or ""
+    e["sha"] = meta.get("sha") or ""
+    e["hash"] = entry_hash(heading, e["body"])
+    if e["sha"] and e["sha"] != e["hash"]:
+        problems.append(f"metadata sha={e['sha']} does not match the body ({e['hash']})")
+    if e["alias_of"]:
+        problems.append(f"this file declares itself an alias of {e['alias_of']} and should not exist")
+    if e["id_full"]:
+        spec = KINDS.get(kind)
+        head_m = spec["regex"].match(heading) if spec else None
+        if not head_m:
+            problems.append(f"heading does not match the {kind} heading form: {heading[:70]!r}")
+        else:
+            token = head_m.groupdict().get("id")
+            if token and token != e["id_full"]:
+                problems.append(f"heading carries id {token} but the marker says {e['id_full']}")
+    e["num"] = num_of(e["id_full"])
+    e["suffix"] = suffix_of(e["id_full"])
+    return e
+
+
+def entry_bytes(entry: dict) -> str:
+    """The exact bytes a v1 shard held for this entry, plus the v2 meta line.
+
+    v1 wrote marker, heading, blank line, normalised body, blank line, '---'. The
+    split is therefore reversible: strip the meta comment and this returns v1's block.
+    """
+    meta = dict(
+        tags=",".join(entry.get("tags") or []),
+        refs=",".join(entry.get("refs") or []),
+        sha=entry.get("sha") or entry_hash(entry.get("heading", ""), entry.get("body", "")),
+        alias_of=entry.get("alias_of") or "",
+    )
+    meta_line = "<!-- j2 " + " ".join(f"{k}={meta[k]}" for k in META_KEYS) + " -->"
+    parts = ["<!-- e:%s|%s|%s|%s|%s -->" % (entry["kind"], entry["id_full"], entry.get("date", ""),
+                                            entry.get("host", ""), entry.get("status", "")),
+             entry.get("heading", "")]
+    body = norm_body(entry.get("body", ""))
+    if body:
+        parts.append("")
+        parts.append(body)
+    parts.append("")
+    parts.append(meta_line)
+    return "\n".join(parts) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# The tree, the cache and its freshness proof
+# ---------------------------------------------------------------------------
+
+def entries_dir() -> Path:
+    return JOURNAL / "entries"
+
+
+def index_dir() -> Path:
+    return JOURNAL / "index"
+
+
+def log_dir() -> Path:
+    return JOURNAL / "log"
+
+
+def _walk(root: Path):
+    if not root.exists():
+        return
+    for dirpath, dirnames, filenames in os.walk(str(root)):
+        dirnames.sort()
+        for name in sorted(filenames):
+            p = Path(dirpath) / name
+            try:
+                st = p.stat()
+            except OSError:
+                continue
+            yield p, st
+
+
+def tree_signature() -> dict:
+    """sha1 over sorted (relpath, size, mtime_ns) of every real file, plus counts.
+
+    One stat per file, no read, no subprocess. `index/`, `archive/` and `tools/` are
+    excluded — the cache must not invalidate itself, and a moved legacy shard is a
+    tree change that `check` and `doctor` verify directly rather than on every read.
+    A v1 `index` run that regenerates entries.tsv from log/ cannot hide either: the
+    log signature moves with it.
+    """
+    entries_h = hashlib.sha1()
+    n_entries = 0
+    for p, st in _walk(entries_dir()):
+        entries_h.update(("%s\t%d\t%d\n" % (_rel_of(p), st.st_size, st.st_mtime_ns)).encode("utf-8"))
+        n_entries += 1
+    log_h = hashlib.sha1()
+    n_log = 0
+    for p, st in _walk(log_dir()):
+        if p.suffix != ".md":
             continue
-        out.extend(parse_shard(path, kind))
-    return out
+        log_h.update(("%s\t%d\t%d\n" % (_rel_of(p), st.st_size, st.st_mtime_ns)).encode("utf-8"))
+        n_log += 1
+    flat_h = hashlib.sha1()
+    for name, _kind in FLAT_FILES:
+        p = JOURNAL / (name + ".md")
+        if p.exists():
+            try:
+                st = p.stat()
+                flat_h.update(("%s.md\t%d\t%d\n" % (name, st.st_size, st.st_mtime_ns)).encode("utf-8"))
+            except OSError:
+                pass
+    return {
+        "entries_sig": entries_h.hexdigest(),
+        "entries_count": n_entries,
+        "log_sig": log_h.hexdigest(),
+        "log_count": n_log,
+        "flat_sig": flat_h.hexdigest(),
+    }
 
 
-def load_index() -> list[dict]:
-    if not INDEX.exists():
-        return []
+def load_entries():
+    """Every entry in the tree, parsed from files. This is the source of truth."""
+    out = []
+    problems = []
+    root = entries_dir()
+    if not root.exists():
+        return out, problems
+    for kind_dir in sorted(root.iterdir()):
+        if not kind_dir.is_dir():
+            continue
+        kind = kind_dir.name
+        for f in sorted(kind_dir.iterdir()):
+            if not f.is_file() or f.suffix != ".md":
+                continue
+            if kind not in KINDS:
+                problems.append("entries/%s/%s: directory %r is not a known kind" % (kind, f.name, kind))
+                continue
+            try:
+                e = parse_entry(f, kind)
+            except Exception as exc:                        # never abort a read
+                problems.append("%s: unparseable (%s)" % (_rel_of(f), exc))
+                continue
+            for p in e.get("problems") or []:
+                problems.append("%s: %s" % (_rel_of(f), p))
+            out.append(e)
+    return out, problems
+
+
+def load_aliases() -> list:
+    path = index_dir() / "aliases.tsv"
     rows = []
-    for ln in INDEX.read_text(encoding="utf-8").split("\n"):
-        if not ln.strip() or ln.startswith("kind\t"):
+    if not path.exists():
+        return rows
+    for ln in _rl(path).split("\n"):
+        if not ln.strip() or ln.startswith("alias_id\t"):
             continue
-        parts = ln.split("\t")
-        if len(parts) < 11:
-            continue
-        rows.append(dict(zip(
-            ["kind", "id_full", "num", "suffix", "date", "host", "status", "heading",
-             "file", "line_start", "line_end", "hash"], parts)))
+        parts = (ln.split("\t") + ["", "", "", ""])[:5]
+        rows.append({"alias_id": parts[0], "kind": parts[1], "canonical_id": parts[2],
+                     "reason": parts[3], "date": parts[4]})
     return rows
 
 
-def num_of(id_full: str) -> int:
-    m = re.search(r"(\d+)", id_full or "")
-    return int(m.group(1)) if m else 0
-
-
-def suffix_of(id_full: str) -> str:
-    m = re.match(r"^[A-Z]+\d+(.*)$", id_full or "")
-    return m.group(1) if m else ""
-
-
-# ---------------------------------------------------------------------------
-# Index
-# ---------------------------------------------------------------------------
-
-INDEX_HEADER = "kind\tid_full\tnum\tsuffix\tdate\thost\tstatus\theading\tfile\tline_start\tline_end\thash"
-
-
-def cmd_index(args) -> int:
-    entries = load_shards()
-    events = load_status_events()
-    rows = [INDEX_HEADER]
-    order = {k: i for i, k in enumerate(KINDS)}
-    entries.sort(key=lambda e: (order.get(e["kind"], 9), e["date"] or "", num_of(e["id_full"]), e["line_start"]))
-    for e in entries:
-        rows.append("\t".join([
-            e["kind"], e["id_full"], str(num_of(e["id_full"])), suffix_of(e["id_full"]),
-            e["date"] or "-", e["host"] or "-",
-            effective_status(e["kind"], e["id_full"], e["status"], events),
-            e["heading"], e["file"], str(e["line_start"]), str(e["line_end"]),
-            entry_hash(e["heading"], e["body"]),
-        ]))
-    INDEX.parent.mkdir(parents=True, exist_ok=True)
-    INDEX.write_text("\n".join(rows) + "\n", encoding="utf-8", newline="\n")
-    print(f"index: {len(rows) - 1} entries -> {INDEX.relative_to(JOURNAL)}")
-    return 0
-
-
-# ---------------------------------------------------------------------------
-# Reads
-# ---------------------------------------------------------------------------
-
-def read_lines(rel_file: str, start: int, end: int) -> str:
-    path = JOURNAL / rel_file
-    lines = path.read_text(encoding="utf-8", errors="replace").split("\n")
-    chunk = lines[start - 1:end]
-    while chunk and not chunk[-1].strip():
-        chunk.pop()
-    while chunk and chunk[-1].strip() in {"---", "***"}:
-        chunk.pop()
-    return "\n".join(chunk)
-
-
-def render(entry: dict) -> str:
-    head = f"### {entry['id_full']} · {entry['kind']} · {entry['date'] or 'undated'} · {entry['status'] or '-'}"
-    body = read_lines(entry["file"], int(entry["line_start"]) + 1, int(entry["line_end"]))
-    return f"{head}\n{body}\n"
-
-
-def cmd_show(args) -> int:
-    rows = load_index()
-    wanted = args.id.upper()
-    hits = [r for r in rows if r["id_full"].upper() == wanted]
-    if not hits:
-        hits = [r for r in rows if r["id_full"].upper().startswith(wanted)]
-    if not hits:
-        print(f"no entry {args.id}", file=sys.stderr)
-        return 2
-    if len(hits) > 1 and not args.all:
-        print(f"{len(hits)} entries match {args.id}: " + ", ".join(r["id_full"] for r in hits), file=sys.stderr)
-    for r in hits:
-        print(render(r))
-    return 0
-
-
-def cmd_newest(args) -> int:
-    rows = load_index()
-    kind = args.kind
-    if kind not in KINDS:
-        print(f"unknown kind {kind}; one of {', '.join(KINDS)}", file=sys.stderr)
-        return 2
-    rows = [r for r in rows if r["kind"] == kind]
-    rows.sort(key=lambda r: (r["date"] or "", int(r["num"]), int(r["line_start"])), reverse=True)
-    for r in rows[: args.n]:
-        print(render(r))
-    return 0
-
-
-def cmd_search(args) -> int:
-    pattern = re.compile(args.pattern, re.IGNORECASE)
-    roots = [LOG, STATE, JOURNAL / "reference", JOURNAL / "README.md", JOURNAL / "NOW.md"]
-    hits = 0
-    for root in roots:
-        paths = sorted(root.rglob("*.md")) if root.is_dir() else ([root] if root.exists() else [])
-        for path in paths:
-            lines = path.read_text(encoding="utf-8", errors="replace").split("\n")
-            current = ""
-            for i, ln in enumerate(lines):
-                if MARKER_RE.match(ln) and i + 1 < len(lines):
-                    current = lines[i + 1].strip()
-                if pattern.search(ln):
-                    hits += 1
-                    if hits <= args.limit:
-                        rel = path.relative_to(JOURNAL) if JOURNAL in path.resolve().parents or path.parent == JOURNAL else path
-                        print(f"{rel}:{i + 1}: {current[:90]}\n    {ln.strip()[:200]}")
-        if hits > args.limit:
-            break
-    print(f"-- {hits} matching line(s)" + (f", showing {args.limit}" if hits > args.limit else ""))
-    return 0 if hits else 1
-
-
-def cmd_status(args) -> int:
-    rows = load_index()
-    out: list[str] = []
-    out.append(f"JOURNAL STATUS · {now_utc()} · {host_tag()}")
-    now = JOURNAL / "NOW.md"
-    if now.exists():
-        out.append("")
-        out.append(now.read_text(encoding="utf-8", errors="replace").strip())
-    handoffs = sorted([r for r in rows if r["kind"] == "handoff"], key=lambda r: (r["date"], int(r["num"])), reverse=True)
-    out.append("")
-    out.append("NEWEST HANDOFF: " + (handoffs[0]["heading"] if handoffs else "none"))
-    out.append("")
-    open_pain = [r for r in rows if r["kind"] == "pain" and r["status"] != "done"]
-    out.append(f"OPEN PAIN: {len(open_pain)} of {len([r for r in rows if r['kind'] == 'pain'])}")
-    for r in open_pain[:8]:
-        out.append(f"  {r['id_full']:>6}  {r['heading'][:110]}")
-    qrows = []
-    qpath = STATE / "owner-questions.md"
-    if qpath.exists():
-        qtext = qpath.read_text(encoding="utf-8", errors="replace")
-        m = re.search(r"(\d+) pending", qtext)
-        if m:
-            qrows = [None] * int(m.group(1))          # the mirror states the count
-        else:
-            for ln in qtext.split("\n"):
-                if ln.startswith("| ") and not ln.startswith("| #") and "---" not in ln:
-                    qrows.append(ln)
-        src = re.search(r"generated (\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC)", qtext)
-        prov = f", mirror of {src.group(1)}" if src else ""
-    else:
-        prov = ""
-    out.append("")
-    out.append(f"OWNER QUESTIONS OPEN: {len(qrows)}{prov}  (authoritative: owner_decision_queue on the authority)")
-    for ln in [r for r in qrows if r][:4]:
-        cells = [c.strip() for c in ln.strip("|").split("|")]
-        out.append(f"  {cells[0]}  {cells[2][:110] if len(cells) > 2 else ''}")
-    inflight = STATE / "in-flight.md"
-    if inflight.exists():
-        out.append("")
-        out.append(inflight.read_text(encoding="utf-8", errors="replace").strip())
-    errs = verify(rows, quiet=True)
-    out.append("")
-    out.append(f"CHECK: {len(errs['error'])} error(s), {len(errs['warn'])} warning(s) — run `journal.py check`")
-    text = "\n".join(out)
-    print(text)
-    if len(text) > MAX_STATUS_CHARS:
-        print(f"\n!! status output {len(text)} chars > {MAX_STATUS_CHARS} budget", file=sys.stderr)
-        return 1
-    return 0
-
-
-# ---------------------------------------------------------------------------
-# Validation
-# ---------------------------------------------------------------------------
-
-REF_RE = re.compile(r"(?<![A-Za-z0-9])([LPDW])(\d{1,3})(?![0-9])")
-
-
-def verify(rows: list[dict], quiet: bool = False) -> dict:
-    problems = {"error": [], "warn": [], "info": []}
-    by_kind: dict[str, list[dict]] = {}
-    for r in rows:
-        by_kind.setdefault(r["kind"], []).append(r)
-
-    # 1. duplicate ids — the failure that made P46 mean three things
-    for kind, rs in by_kind.items():
-        seen: dict[str, list[dict]] = {}
-        for r in rs:
-            seen.setdefault(r["id_full"], []).append(r)
-        for id_full, group in seen.items():
-            if len(group) > 1:
-                where = ", ".join(f"{g['file']}:{g['line_start']}" for g in group)
-                problems["error"].append(f"duplicate id {id_full} in {kind} ({len(group)}x): {where}")
-        hashes: dict[str, list[dict]] = {}
-        for r in rs:
-            hashes.setdefault(r["hash"], []).append(r)
-        for h, group in hashes.items():
-            if len(group) > 1:
-                problems["warn"].append("duplicate entry (same heading and body) in " + ", ".join(f"{g['id_full']}({g['file']}:{g['line_start']})" for g in group))
-
-    # 2. collision-repaired ids. The rebuild made each repaired number explicit
-    #    (P46 / P46b / P46c), so this is no longer an uncaught collision — but a
-    #    reference to the bare number in older prose is still ambiguous, and that
-    #    is worth saying once per number rather than once per entry.
-    for kind, rs in by_kind.items():
-        letter = KINDS[kind]["letter"]
-        numbers: dict[int, set[str]] = {}
-        for r in rs:
-            numbers.setdefault(num_of(r["id_full"]), set()).add(r["id_full"])
-        collided = sorted((n, ids) for n, ids in numbers.items() if len(ids) > 1)
-        if collided:
-            names = ", ".join(f"{letter}{n}" for n, _ in collided)
-            sample = ", ".join(names.split(", ")[:12])
-            problems["warn"].append(
-                f"{letter}: {len(collided)} base id(s) name more than one entry ({sample}"
-                + (f", +{len(collided) - 12} more" if len(collided) > 12 else "")
-                + ") — repaired with suffixes, so a bare reference in older prose is ambiguous. "
-                  "Never write a bare id; use the suffixed one from index/entries.tsv.")
-
-    # 3. dangling references (info: prose can look like a reference)
-    known = {KINDS[k]["letter"]: {num_of(r["id_full"]) for r in rs} for k, rs in by_kind.items()}
-    for path in sorted(JOURNAL.rglob("*.md")):
-        if "archive" in path.parts or "tools" in path.parts:
-            continue
-        for i, ln in enumerate(path.read_text(encoding="utf-8", errors="replace").split("\n")):
-            if ln.startswith("<!--"):
-                continue
-            for m in REF_RE.finditer(ln):
-                letter, num = m.group(1), int(m.group(2))
-                if letter in known and num not in known[letter] and num > 0:
-                    problems["info"].append(f"dangling ref {letter}{num} at {path.relative_to(JOURNAL)}:{i + 1}")
-
-    # 4. shard size and ordering
-    for path in sorted(LOG.rglob("*.md")) if LOG.exists() else []:
-        size = path.stat().st_size
-        if size > 260_000:
-            problems["warn"].append(
-                f"shard {path.relative_to(JOURNAL)} is {size // 1024} KB — "
-                f"`journal.py split-shard {path.relative_to(JOURNAL).as_posix()}`")
-        kind = path.parent.name
-        ents = parse_shard(path, kind)
-        # Two sessions' clocks can disagree by minutes; only gross disorder means a
-        # stale append, so allow a quarter hour of backdating before complaining.
-        for a, b in zip(ents, ents[1:]):
-            if a["date"] and b["date"] and _minute_key(a["date"]) - _minute_key(b["date"]) > 15:
-                problems["warn"].append(f"out of order in {path.relative_to(JOURNAL)}: {a['id_full']} ({a['date']}) then {b['id_full']} ({b['date']})")
-        if not ents and path.stat().st_size > 400:
-            problems["warn"].append(f"{path.relative_to(JOURNAL)} has content but no parseable entries")
-
-    # 5. state tier freshness
-    newest_handoff = max((r["date"] for r in by_kind.get("handoff", []) if r["date"]), default="")
-    for name in ("NOW.md", "state/open-pain.md", "state/in-flight.md"):
-        p = JOURNAL / name
-        if not p.exists():
-            problems["warn"].append(f"{name} missing")
-            continue
-        m = re.search(r"(?:Updated|updated)[: ]+(\d{4}-\d{2}-\d{2})", p.read_text(encoding="utf-8", errors="replace"))
-        if not m:
-            problems["warn"].append(f"{name} has no 'Updated: YYYY-MM-DD' line")
-        elif newest_handoff and m.group(1) < newest_handoff[:10]:
-            problems["warn"].append(f"{name} says {m.group(1)} but the newest handoff is {newest_handoff[:10]} — state tier is stale")
-
-    # 6. every marker must be followed by a heading
-    for path in sorted(LOG.rglob("*.md")) if LOG.exists() else []:
-        lines = path.read_text(encoding="utf-8", errors="replace").split("\n")
-        for i, ln in enumerate(lines):
-            if MARKER_RE.match(ln):
-                nxt = lines[i + 1] if i + 1 < len(lines) else ""
-                if not nxt.strip():
-                    problems["error"].append(f"entry with empty heading at {path.relative_to(JOURNAL)}:{i + 1}")
-
-    # 6b. a marker must start its line. A glued marker (after a missing trailing
-    #     newline) silently folds one entry into the previous one's body. Only a whole
-    #     marker at the end of a line, preceded by separators, counts — a marker quoted
-    #     inside prose (a lesson about this very bug) does not.
-    glued = re.compile(r"^[-—─\s]*<!--\s*e:[a-z]+\|[^|]*\|[^|]*\|[^|]*\|[^|]*?-->\s*$")
-    for path in sorted(LOG.rglob("*.md")) if LOG.exists() else []:
-        for i, ln in enumerate(path.read_text(encoding="utf-8", errors="replace").split("\n")):
-            if "<!-- e:" in ln and not MARKER_RE.match(ln) and glued.match(ln):
-                problems["error"].append(
-                    f"marker does not start its line at {path.relative_to(JOURNAL)}:{i + 1} — "
-                    "that entry is being read into the previous one")
-
-    # 7. the retired flat files must not accumulate entries the record lacks.
-    #    A second session was writing them at the same time as the rebuild, so this
-    #    is the alarm that makes the transition safe rather than hopeful.
-    local = {content_key(e["heading"], e["body"]) for e in load_shards()}
-    for name, kind in (("HANDOFF", "handoff"), ("LESSONS", "lessons"), ("PAIN", "pain"),
-                       ("DECISIONS", "decisions"), ("WINS", "wins")):
-        flat = JOURNAL / f"{name}.md"
-        if not flat.exists():
-            continue
-        try:
-            ents = parse_legacy(flat, kind)
-        except Exception as exc:                     # a file mid-write is not an error
-            problems["info"].append(f"{name}.md could not be parsed right now: {exc}")
-            continue
-        stray = [e for e in ents if content_key(e["heading"], e["body"]) not in local]
-        if stray:
-            problems["warn"].append(
-                f"{name}.md has {len(stray)} entry/entries not in the log (first: "
-                f"{stray[0]['heading'][:70]!r}) — run `journal.py import-flat`")
-
-    if not quiet:
-        for level in ("error", "warn", "info"):
-            for p in problems[level][:60]:
-                print(f"{level.upper():5} {p}")
-            if len(problems[level]) > 60:
-                print(f"{level.upper():5} ... and {len(problems[level]) - 60} more")
-        print(f"-- {len(problems['error'])} error(s), {len(problems['warn'])} warning(s), {len(problems['info'])} info")
-    return problems
-
-
-def cmd_check(args) -> int:
-    rows = load_index()
-    if not rows:
-        print("no index — run `journal.py index`", file=sys.stderr)
-        return 1
-    problems = verify(rows)
-    return 1 if problems["error"] else 0
-
-
-# ---------------------------------------------------------------------------
-# Writes
-# ---------------------------------------------------------------------------
-
-def remote_max(kind: str) -> tuple[int, str]:
-    """Highest number for a kind anywhere in git history or on the remote.
-
-    This is what stops two machines allocating the same number: the answer is
-    taken over the local index, every shard, and every ref including origin.
-    """
-    letter = KINDS[kind]["letter"]
-    nums: list[int] = []
-    # Every pattern is anchored: an id mentioned inside prose (a lesson about a glued
-    # marker quotes one) must not consume a number. That happened once and left a gap.
-    pattern = (rf"^## {letter}[0-9]+ |^\*\*{letter}[0-9]+ |^<!-- e:{kind}\|{letter}[0-9]+")
-    try:
-        out = subprocess.run(["git", "-C", str(JOURNAL.parent), "grep", "-h", "-E", pattern],
-                             capture_output=True, text=True, timeout=60)
-        for m in re.finditer(rf"{letter}(\d+)", out.stdout or ""):
-            nums.append(int(m.group(1)))
-    except Exception:
-        pass
-    try:
-        revs = subprocess.run(["git", "-C", str(JOURNAL.parent), "rev-list", "--all"],
-                             capture_output=True, text=True, timeout=60).stdout.split()
-        if revs:
-            out = subprocess.run(["git", "-C", str(JOURNAL.parent), "grep", "-h", "-E",
-                                 rf"^<!-- e:{kind}\|{letter}[0-9]+"],
-                                 capture_output=True, text=True, timeout=120)
-            for m in re.finditer(rf"{letter}(\d+)", out.stdout or ""):
-                nums.append(int(m.group(1)))
-    except Exception:
-        pass
-    for r in load_index() + load_shards():
-        if r.get("kind") == kind:
-            nums.append(num_of(r["id_full"]))
-    best = max(nums) if nums else 0
-    return best, (subprocess.run(["git", "-C", str(JOURNAL.parent), "rev-parse", "--short", "HEAD"],
-                                 capture_output=True, text=True).stdout.strip() or "no-git")
-
-
-def cmd_next_id(args) -> int:
-    if args.kind not in KINDS:
-        print(f"unknown kind {args.kind}", file=sys.stderr)
-        return 2
-    best, rev = remote_max(args.kind)
-    letter = KINDS[args.kind]["letter"]
-    print(f"{letter}{best + 1}")
-    print(f"# highest seen: {letter}{best} (across index, shards and git @ {rev})", file=sys.stderr)
-    return 0
-
-
-def build_heading(kind: str, id_full: str, title: str, date: str, host: str) -> str:
-    spec = KINDS[kind]
-    if kind == "handoff":
-        stamp = date or now_utc()
-        return f"## {stamp} · {host or host_tag()} · {title}"
-    if kind == "lessons":
-        return f"**{id_full} · {title}**"
-    if kind == "pain":
-        return f"## {id_full} — {title}"
-    if kind == "decisions":
-        return f"**{id_full} · {date or today()} · {title}.**"
-    return f"**{id_full} · {date or today()} · {title}.**"
-
-
-def _minute_key(date: str) -> int:
-    """A sortable minute-resolution key from a date like '2026-09-14 05:55 UTC'."""
-    m = re.match(r"(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2}))?", date or "")
-    if not m:
-        return 0
-    y, mo, d, hh, mm = m.groups()
-    return (((int(y) * 12 + int(mo)) * 31 + int(d)) * 24 + int(hh or 0)) * 60 + int(mm or 0)
-
-
-def _part_num(path: Path) -> int:
-    m = re.match(r"^\d{4}-\d{2}\.(\d+)$", path.stem)
-    return int(m.group(1)) + 1 if m else 1
-
-
-def shard_path(kind: str, date: str) -> Path:
-    """Where a new entry for this kind and month goes.
-
-    A month is one file until it crosses the cap, then it becomes .1/.2/... and
-    every later append goes to the highest part, so a shard never silently becomes
-    a monolith again.
-    """
-    month = (date or today())[:7]
-    if not re.match(r"^\d{4}-\d{2}$", month):
-        month = today()[:7]
-    base = LOG / kind
-    cands = sorted(base.glob(f"{month}*.md"), key=_part_num)
-    if not cands:
-        return base / f"{month}.md"
-    last = cands[-1]
-    if last.stat().st_size > 200_000:
-        if _part_num(last) > 1:
-            return base / f"{month}.{_part_num(last) + 1}.md"
-        new = base / f"{month}.1.md"
-        if not new.exists():
-            last.rename(new)          # first split: the plain month becomes .1
-        return base / f"{month}.2.md"
-    return last
-
-
-def append_block(path: Path, header: str, block: str) -> None:
-    """Append to a shard, guaranteeing the file ends with a newline first.
-
-    A shard whose last line lacked a trailing newline produced
-    `---<!-- e:pain|P56|... -->` — a marker that no longer starts its line, so the
-    parser silently folded one entry into the previous one's body. Writers go
-    through here so that cannot happen again.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    need_nl = False
-    if path.exists() and path.stat().st_size:
-        with path.open("rb") as fh:
-            fh.seek(-1, os.SEEK_END)
-            need_nl = fh.read(1) != b"\n"
-    with path.open("a", encoding="utf-8", newline="\n") as fh:
-        if need_nl:
-            fh.write("\n")
-        fh.write(header + block)
-
-
-def cmd_append(args) -> int:
-    kind = args.kind
-    if kind not in KINDS:
-        print(f"unknown kind {kind}", file=sys.stderr)
-        return 2
-    body = (
-        Path(args.body).read_text(encoding="utf-8")
-        if args.body and args.body != "-"
-        else _read_stdin_utf8()
-    )
-    if not body.strip():
-        print("empty body — refusing to write an empty entry", file=sys.stderr)
-        return 2
-    best, _ = remote_max(kind)
-    id_full = f"{KINDS[kind]['letter']}{best + 1}"
-    # a handoff entry is identified by its timestamp, so both the heading and the
-    # marker carry one; anything else is a plain date.
-    stamp = args.date or (now_utc() if kind == "handoff" else today())
-    day = stamp[:10]
-    heading = build_heading(kind, id_full, args.title, stamp, args.host or host_tag())
-    path = shard_path(kind, day)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    header = ""
-    if not path.exists():
-        header = (f"# {kind} · {path.stem}\n"
-                  f"<!-- journal shard: append-only, oldest first. Never edit an entry — correct it with a new\n"
-                  f"     entry that cites it. Reads: python tools/journal.py newest {kind} 3 -->\n\n")
-    marker = f"<!-- e:{kind}|{id_full}|{stamp}|{args.host or host_tag()}|{args.status} -->"
-    block = f"{marker}\n{heading}\n\n{norm_body(body)}\n\n---\n"
-    append_block(path, header, block)
-    cmd_index(argparse.Namespace())
-    print(f"+ {id_full} -> {path.relative_to(JOURNAL)}")
-    if not args.no_check:
-        rc = cmd_check(argparse.Namespace())
-        return rc
-    return 0
-
-
-# ---------------------------------------------------------------------------
-# Audit and migrate
-# ---------------------------------------------------------------------------
-
-STRUCTURE_RE = re.compile(r"^(##\s|[A-Z]{0,2}[LPDW]\d+[a-z]?\s*·|\*\*[LPDW]{1,2}\d+)")
-
-
-def content_key(heading: str, body: str) -> str:
-    """Loss-proof identity for a migration.
-
-    Bodies are preserved verbatim while headings are rewritten (ids get collision
-    suffixes, titles get normalised), so completeness is proved on the body. A few
-    old entries carried their whole content on the heading line; for those the
-    heading is the content. Structural lines — section headings such as '## On
-    evidence', and entry headings — are dropped from both sides, because the
-    migration moves them out of the body and into the shard's own structure.
-    """
-    lines = [ln for ln in norm_body(body).split("\n") if not STRUCTURE_RE.match(ln.strip())]
-    text = norm_body("\n".join(lines))
-    if not text:
-        text = re.sub(r"[ \t]+", " ", (heading or "").strip())
-        text = re.sub(r"^\*\*", "", text)
-        text = re.sub(r"^[A-Z]{0,2}(?=[LPDW]\d)", "", text)
-    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
-
-
-def fingerprint(heading: str, body: str) -> str:
-    return entry_hash(heading, body)
-
-
-def cmd_audit(args) -> int:
-    """Report entries that exist in another copy of the journal but not here.
-
-    Used to prove a merge lost nothing, and to catch a machine that has drifted.
-    Compares body content, so a renamed or renumbered entry still counts as present.
-    """
-    local = {content_key(e["heading"], e["body"]) for e in load_shards()}
-    if args.local:
-        local |= {content_key(r["heading"], "") for r in load_index()}
-    missing_total = 0
-    for raw in args.files:
-        path = Path(raw)
-        kind = args.kind or path.stem.split(".")[0].lower()
-        kind = {"handoffs": "handoff"}.get(kind, kind)
-        if kind not in KINDS:
-            print(f"?? cannot tell the kind of {path} — pass --kind")
-            continue
-        ents = parse_legacy(path, kind)
-        missing = [e for e in ents if content_key(e["heading"], e["body"]) not in local]
-        missing_total += len(missing)
-        print(f"{path.name}: {len(ents)} entries, {len(missing)} not present locally")
-        for e in missing[:40]:
-            print(f"   MISSING {e['id_full'] or '-':>6}  {e['heading'][:100]}")
-    print(f"-- {missing_total} entry/entries missing locally")
-    return 0 if missing_total == 0 else 1
-
-
-def cmd_kinds(args) -> int:
-    for k, v in KINDS.items():
-        n = len([r for r in load_index() if r["kind"] == k])
-        print(f"{k:<10} {v['letter']}  {n:>4} entries   log/{k}/YYYY-MM.md")
-    return 0
-
-
-# ---------------------------------------------------------------------------
-# The state tier: small files that are always read, rewritten not appended
-# ---------------------------------------------------------------------------
-
-def field(body: str, name: str) -> str:
-    """Pull a bold field ('**Cost.** ...') out of an entry body."""
-    m = re.search(rf"(?im)^\*\*{name}\.?\*\*\s*(.*?)(?=\n\s*\n|\n\*\*|\Z)", body, re.S)
-    if not m:
-        return ""
-    return re.sub(r"\s+", " ", m.group(1)).strip()
-
-
-def cmd_state(args) -> int:
-    rows = [r for r in load_index() if r["kind"] == "pain"]
-    order = {k: i for i, k in enumerate(KINDS)}
-    rows.sort(key=lambda r: (num_of(r["id_full"]), suffix_of(r["id_full"])))
-    opens = [r for r in rows if r["status"] != "done"]
-    out = [
-        "# OPEN PAIN — what still hurts, ranked",
-        "",
-        f"Updated: {today()}",
-        "",
-        "**Generated** from `log/pain/` by `tools/journal.py state`. Do not edit by hand: an entry stops",
-        "being open by being corrected, not by being deleted here. A problem that is done carries",
-        "`status=done` in its marker and drops out of this list.",
-        "",
-        "| # | Symptom | Cost | Fix |",
-        "|---|---|---|---|",
-    ]
-    for r in opens:
-        body = read_lines(r["file"], int(r["line_start"]), int(r["line_end"]))
-        cost = field(body, "Cost")[:200]
-        fix = field(body, "Fix")[:200]
-        title = re.sub(r"^##\s*", "", r["heading"])
-        title = re.sub(r"^[A-Z]+\d+[a-z]?\s*[—–-]\s*", "", title)
-        out.append(f"| {r['id_full']} | {title} | {cost} | {fix} |")
-    path = STATE / "open-pain.md"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8", newline="\n")
-    print(f"state/open-pain.md: {len(opens)} open of {len(rows)} ({len(rows) - len(opens)} done)")
-    return 0
-
-
-STATUS_LEDGER = STATE / "status.tsv"
-STATUS_HEADER = "kind\tid\tstatus\tdate\thost\twhy"
-
-
-def load_status_events() -> dict[tuple[str, str], tuple[str, str, str]]:
+def load_status_events() -> dict:
     """Append-only status corrections, last row per (kind, id) wins.
 
     The log is append-only, so 'this is fixed now' is a *new* fact about an old
-    entry, not an edit to it. That is why status lives here and not in the shard.
+    entry, not an edit to it. That is why status lives here and not in the entry file.
     """
-    out: dict[tuple[str, str], tuple[str, str, str]] = {}
-    if not STATUS_LEDGER.exists():
+    out = {}
+    path = JOURNAL / "state" / "status.tsv"
+    if not path.exists():
         return out
-    for ln in STATUS_LEDGER.read_text(encoding="utf-8", errors="replace").split("\n"):
+    for ln in _rl(path).split("\n"):
         if not ln.strip() or ln.startswith("kind\t"):
             continue
         parts = (ln.split("\t") + ["", "", ""])[:6]
@@ -897,32 +699,1587 @@ def effective_status(kind: str, id_full: str, marker_status: str, events=None) -
     return ev[0] if ev else (marker_status or "open")
 
 
-def cmd_resolve(args) -> int:
-    """Record that an entry's status changed. Appends; never edits the shard."""
-    id_full = args.id.upper()
-    rows = load_index()
-    hit = [r for r in rows if r["id_full"].upper() == id_full]
-    if not hit:
-        print(f"no entry {args.id}", file=sys.stderr)
+def flat_sources() -> list:
+    """Every legacy flat file that could still hold unabsorbed entries."""
+    out = []
+    for name, kind in FLAT_FILES:
+        p = JOURNAL / (name + ".md")
+        if p.exists():
+            out.append((p, kind))
+    arch = JOURNAL / ARCHIVE_NAME
+    if arch.exists():
+        for child in sorted(arch.iterdir()):
+            if not child.is_dir():
+                continue
+            for name, kind in FLAT_FILES:
+                p = child / (name + ".md")
+                if p.exists():
+                    out.append((p, kind))
+    return out
+
+
+def shard_sources() -> list:
+    root = log_dir()
+    out = []
+    if not root.exists():
+        return out
+    for p in sorted(root.rglob("*.md")):
+        kind = p.parent.name
+        if kind in KINDS:
+            out.append((p, kind))
+    return out
+
+
+def alias_map(aliases=None) -> dict:
+    rows = aliases if aliases is not None else load_aliases()
+    return {a["alias_id"]: a for a in rows}
+
+
+def resolve_alias(id_full: str, aliases=None) -> str:
+    amap = alias_map(aliases)
+    seen = set()
+    cur = id_full
+    while cur in amap and cur not in seen:
+        seen.add(cur)
+        cur = amap[cur]["canonical_id"]
+    return cur
+
+
+# ---------------------------------------------------------------------------
+# Cache build / heal
+# ---------------------------------------------------------------------------
+
+def _entries_tsv_rows(entries: list, events: dict) -> list:
+    rows = [INDEX_HEADER]
+    sortable = sorted(entries, key=lambda e: (KIND_ORDER.get(e["kind"], 9), e.get("date") or "",
+                                              e.get("num") or 0, e["id_full"]))
+    for e in sortable:
+        rows.append("\t".join([
+            e["kind"], e["id_full"], str(e.get("num") or 0), e.get("suffix") or "",
+            e.get("date") or "-", e.get("host") or "-",
+            effective_status(e["kind"], e["id_full"], e.get("status", ""), events),
+            e["heading"], e["file"], str(e["line_start"]), str(e["line_end"]),
+            e["hash"],
+        ]))
+    return rows
+
+
+def _collect_refs(entries: list) -> list:
+    known = {e["id_full"] for e in entries}
+    out = []
+    for e in entries:
+        found = list(e.get("refs") or [])
+        for m in REF_RE.finditer("%s\n%s" % (e["heading"], e["body"])):
+            found.append("%s%s" % (m.group(1), m.group(2)))
+        seen = []
+        for r in found:
+            if r not in seen:
+                seen.append(r)
+        for r in seen:
+            out.append({"src_kind": e["kind"], "src_id": e["id_full"], "ref": r,
+                        "resolved": 1 if r in known else 0})
+    return out
+
+
+def _write_db(entries: list, aliases: list, refs: list) -> str:
+    """sqlite3 + FTS5, regenerable. Returns a one-line status string."""
+    path = index_dir() / "journal.db"
+    tmp = index_dir() / (".journal.db.tmp" + str(os.getpid()))
+    fts5 = False
+    try:
+        if tmp.exists():
+            tmp.unlink()
+        con = sqlite3.connect(str(tmp))
+        try:
+            con.execute("CREATE TABLE entries (kind TEXT, id_full TEXT, num INTEGER, suffix TEXT,"
+                        " date TEXT, host TEXT, status TEXT, heading TEXT, file TEXT,"
+                        " line_start INTEGER, line_end INTEGER, hash TEXT, tags TEXT, refs TEXT)")
+            con.execute("CREATE TABLE refs (src_kind TEXT, src_id TEXT, ref TEXT, resolved INTEGER)")
+            con.execute("CREATE TABLE aliases (alias_id TEXT, kind TEXT, canonical_id TEXT,"
+                        " reason TEXT, date TEXT)")
+            con.execute("CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT)")
+            try:
+                con.execute("CREATE VIRTUAL TABLE fts USING fts5(id_full, kind, heading, body,"
+                            " tokenize='unicode61')")
+                fts5 = True
+            except sqlite3.OperationalError:
+                fts5 = False
+            con.executemany("INSERT INTO entries VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                            [(e["kind"], e["id_full"], e.get("num") or 0, e.get("suffix") or "",
+                              e.get("date") or "", e.get("host") or "", e.get("status") or "",
+                              e["heading"], e["file"], e["line_start"], e["line_end"], e["hash"],
+                              ",".join(e.get("tags") or []), ",".join(e.get("refs") or []))
+                             for e in entries])
+            if fts5:
+                con.executemany("INSERT INTO fts VALUES (?,?,?,?)",
+                                [(e["id_full"], e["kind"], e["heading"], e["body"]) for e in entries])
+            con.executemany("INSERT INTO refs VALUES (?,?,?,?)",
+                            [(r["src_kind"], r["src_id"], r["ref"], r["resolved"]) for r in refs])
+            con.executemany("INSERT INTO aliases VALUES (?,?,?,?,?)",
+                            [(a["alias_id"], a["kind"], a["canonical_id"], a["reason"], a["date"])
+                             for a in aliases])
+            con.execute("INSERT INTO meta VALUES ('built', ?)", (now_utc(),))
+            con.execute("INSERT INTO meta VALUES ('fts5', ?)", ("1" if fts5 else "0",))
+            con.commit()
+        finally:
+            con.close()
+        os.replace(str(tmp), str(path))
+    except Exception as exc:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
+        return "journal.db not written (%s)" % exc
+    return "journal.db + fts5" if fts5 else "journal.db (no fts5)"
+
+
+def rebuild_cache(compute_drift: bool = False) -> dict:
+    entries, problems = load_entries()
+    events = load_status_events()
+    aliases = load_aliases()
+    refs = _collect_refs(entries)
+    idir = index_dir()
+    idir.mkdir(parents=True, exist_ok=True)
+    atomic_write(idir / "entries.tsv", "\n".join(_entries_tsv_rows(entries, events)) + "\n")
+    if not (idir / "aliases.tsv").exists():
+        atomic_write(idir / "aliases.tsv", ALIAS_HEADER + "\n")
+    db_note = _write_db(entries, aliases, refs)
+    stamp = tree_signature()
+    stamp.update({
+        "built": now_utc(),
+        "entries": len(entries),
+        "db": db_note,
+        "parse_problems": len(problems),
+        "unabsorbed": {},
+        "unabsorbed_total": None,
+        "unabsorbed_error": None,
+    })
+    if compute_drift:
+        try:
+            counts = unabsorbed_counts()
+            stamp["unabsorbed"] = counts
+            stamp["unabsorbed_total"] = sum(counts.values())
+        except Exception as exc:
+            stamp["unabsorbed_error"] = str(exc)
+    atomic_write(idir / "stamp.json", json.dumps(stamp, indent=1, sort_keys=True) + "\n")
+    return stamp
+
+
+def read_stamp() -> dict:
+    path = index_dir() / "stamp.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(_rl(path)) or {}
+    except Exception:
+        return {}
+
+
+def cache_fresh() -> bool:
+    stamp = read_stamp()
+    if not stamp:
+        return False
+    sig = tree_signature()
+    for key in ("entries_sig", "entries_count", "log_sig", "log_count", "flat_sig"):
+        if stamp.get(key) != sig.get(key):
+            return False
+    if not (index_dir() / "entries.tsv").exists():
+        return False
+    return True
+
+
+def ensure_cache(compute_drift: bool = False) -> bool:
+    """Make the cache provably fresh. Returns True if the cache is usable.
+
+    Called by every read command. It never blocks on the write lock: if the tree moved
+    while another session holds the lock, the read is answered from `entries/` and the
+    staleness is *said out loud* rather than hidden.
+    """
+    fresh = cache_fresh()
+    stamp = read_stamp()
+    if fresh and (not compute_drift or stamp.get("unabsorbed_total") is not None):
+        return True
+    lock = JOURNAL / LOCK_NAME
+    if lock.exists() and not _lock_is_mine(lock):
+        held = _rl(lock).strip().replace("\n", " / ")[:120]
+        note("journal: cache is stale and locked by %s — answering from entries/" % (held or "another session"))
+        return False
+    try:
+        stamp = rebuild_cache(compute_drift=compute_drift)
+        note("journal: cache rebuilt (%s entries)" % stamp.get("entries", 0))
+        return True
+    except Exception as exc:
+        note("journal: cache could not be rebuilt (%s) — answering from entries/" % exc)
+        return False
+
+
+def _lock_is_mine(lock: Path) -> bool:
+    mine = "%d@%s" % (os.getpid(), _shortname())
+    try:
+        return mine in _rl(lock)
+    except OSError:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Reading entries
+# ---------------------------------------------------------------------------
+
+def catalog():
+    """The entry list used by every read command. Never needs a subprocess."""
+    fresh = ensure_cache()
+    entries = []
+    if fresh:
+        tsv = index_dir() / "entries.tsv"
+        entries = _from_tsv(tsv) if tsv.exists() else []
+    source = "index/entries.tsv"
+    if not entries:
+        entries, _problems = load_entries()
+        source = "entries/"
+    return entries, source, fresh
+
+
+def _from_tsv(path: Path) -> list:
+    out = []
+    for ln in _rl(path).split("\n"):
+        if not ln.strip() or ln.startswith("kind\t"):
+            continue
+        parts = ln.split("\t")
+        if len(parts) < 12:
+            continue
+        (kind, id_full, num, suffix, date, host, status, heading, file, ls, le, h) = parts[:12]
+        try:
+            out.append(Entry(kind=kind, id_full=id_full, num=int(num or 0), suffix=suffix,
+                             date="" if date == "-" else date, host="" if host == "-" else host,
+                             status=status, heading=heading, body="", tags=[], refs=[],
+                             alias_of="", sha="", file=file, line_start=int(ls or 1),
+                             line_end=int(le or 1), hash=h, problems=[], meta={}))
+        except ValueError:
+            continue
+    return out
+
+
+def load_one(id_full: str, kind=None):
+    """Direct path lookup — exactly one file, no index, no directory scan."""
+    root = entries_dir()
+    if kind:
+        p = root / kind / (id_full + ".md")
+        return parse_entry(p, kind) if p.is_file() else None
+    if not root.exists():
+        return None
+    for k in ENTRY_KINDS:
+        p = root / k / (id_full + ".md")
+        if p.is_file():
+            return parse_entry(p, k)
+    return None
+
+
+def render(entry: dict, show_meta: bool = False) -> str:
+    kind = entry.get("kind", "")
+    head = "### %s · %s · %s · %s" % (entry["id_full"], kind, entry.get("date") or "undated",
+                                      entry.get("status") or "-")
+    body = entry.get("body") or ""
+    lines = [head, entry.get("heading", "")]
+    if body:
+        lines.append("")
+        lines.append(body)
+    if show_meta:
+        meta = "tags=%s refs=%s sha=%s" % (",".join(entry.get("tags") or []) or "-",
+                                           ",".join(entry.get("refs") or []) or "-",
+                                           entry.get("hash", ""))
+        if entry.get("alias_of"):
+            meta += " alias_of=" + entry["alias_of"]
+        lines.append("")
+        lines.append("-- %s -- %s" % (meta, entry.get("file", "?")))
+    return redact("\n".join(lines).rstrip()) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Budgeted output
+# ---------------------------------------------------------------------------
+
+class Budget:
+    """Accumulates output under a byte cap, during assembly.
+
+    A section that would overflow is cut *before* it is joined, so the cap is a
+    property of the assembly rather than a check performed afterwards — that
+    inversion is defect 1 in ../AUDIT.md.
+    """
+
+    def __init__(self, budget: int):
+        self.budget = max(200, int(budget))
+        self.parts = []
+        self.used = 0
+        self.truncated = 0
+        self._reserve = 0
+
+    def reserve(self, chars: int) -> None:
+        """Keep room for a marker that must survive truncation."""
+        self._reserve = max(0, chars)
+        self._trim()
+
+    def room(self) -> int:
+        return max(0, self.budget - self.used - self._reserve)
+
+    def line(self, text: str = "") -> bool:
+        text = text or ""
+        need = len(text.encode("utf-8")) + 1
+        if need > self.room():
+            return False
+        self.parts.append(text)
+        self.used += need
+        return True
+
+    def blob(self, text: str) -> bool:
+        """Add a multi-line blob, cutting it at the budget if it does not fit."""
+        for ln in (text or "").split("\n"):
+            if not self.line(ln):
+                return False
+        return True
+
+    def _trim(self) -> None:
+        while self.used > max(0, self.budget - self._reserve) and self.parts:
+            gone = self.parts.pop()
+            self.used -= len(gone.encode("utf-8")) + 1
+
+    def marker(self, remaining: int) -> None:
+        if remaining > 0:
+            self.line("… (+%d more)" % remaining)
+
+    def emit(self) -> str:
+        out = "\n".join(self.parts)
+        data = out.encode("utf-8")
+        if len(data) > self.budget:                       # belt and braces, never hit
+            out = data[:self.budget].decode("utf-8", errors="ignore").rsplit("\n", 1)[0]
+        print(out)
+        return out
+
+
+def cap_list(items: list, headline: str, b: Budget, fmt) -> None:
+    """Add a list section, cutting it during assembly and marking the cut."""
+    b.line(headline)
+    dropped = 0
+    for i, item in enumerate(items):
+        if not b.line(fmt(item)):
+            dropped = len(items) - i
+            b.truncated += dropped
+            break
+    if dropped:
+        b.marker(dropped)
+
+
+# ---------------------------------------------------------------------------
+# Commands: the always-read page
+# ---------------------------------------------------------------------------
+
+def cmd_status(args) -> int:
+    budget = getattr(args, "budget", None) or STATUS_BUDGET
+    if getattr(args, "full", False):
+        budget = max(budget, 200000)
+    b = Budget(budget)
+    b.reserve(24)
+    entries, source, fresh = catalog()
+    stamp = read_stamp()
+    fmtv = "2" if (JOURNAL / "FORMAT").exists() else "missing FORMAT"
+
+    b.line("JOURNAL %s · %s · format %s · %s" % (now_utc(), host_tag(), fmtv, source))
+    nowp = JOURNAL / "NOW.md"
+    if nowp.exists():
+        b.blob(_rl(nowp).strip())
+    b.line("")
+
+    hand = sorted([e for e in entries if e["kind"] == "handoff"],
+                  key=lambda e: (e.get("date") or "", e.get("num") or 0), reverse=True)
+    if hand:
+        h = hand[0]
+        b.line("HANDOFF %s · %s · %s" % (h["id_full"], h.get("date") or "-", h["heading"][:120]))
+    else:
+        b.line("HANDOFF none — the record holds no handoff")
+    b.line("")
+
+    counts = {}
+    for e in entries:
+        counts[e["kind"]] = counts.get(e["kind"], 0) + 1
+    b.line("ENTRIES " + "  ".join("%s:%d" % (k, counts.get(k, 0)) for k in KINDS)
+           + "   (total %d)" % len(entries))
+    b.line("")
+
+    pains = [e for e in entries if e["kind"] == "pain" and (e.get("status") or "open") != "done"]
+    pains.sort(key=lambda e: (e.get("num") or 0, e.get("suffix") or ""))
+    cap_list(pains[:8], "OPEN PAIN %d" % len(pains), b,
+             lambda e: "  %7s  %s" % (e["id_full"], e["heading"][:100]))
+    b.line("")
+
+    qpath = JOURNAL / "state" / "owner-questions.md"
+    if qpath.exists():
+        qtext, _cut = _rlb_bounded(qpath, 4000)
+        m = re.search(r"(\d+) pending", qtext) or re.search(r"(\d+) open", qtext)
+        nq = m.group(1) if m else "?"
+        src = re.search(r"generated (\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC)", qtext)
+        if src:
+            prov = "mirror generated " + src.group(1)
+        else:
+            prov = "mirror mtime " + _dt.date.fromtimestamp(qpath.stat().st_mtime).isoformat()
+        b.line("OWNER QUESTIONS %s open · %s · authoritative: owner_decision_queue on the authority" % (nq, prov))
+        rows = [ln for ln in qtext.split("\n")
+                if ln.startswith("| ") and not ln.startswith("| #") and "---" not in ln]
+        for ln in rows[:3]:
+            cells = [c.strip() for c in ln.strip("|").split("|")]
+            b.line("  %s  %s" % (cells[0], cells[3][:100] if len(cells) > 3 else ""))
+    else:
+        b.line("OWNER QUESTIONS mirror missing · authoritative: owner_decision_queue on the authority")
+    b.line("")
+
+    inflight = JOURNAL / "state" / "in-flight.md"
+    if inflight.exists():
+        txt, cut = _rlb_bounded(inflight, max(400, b.room() // 2))
+        b.blob(txt.strip())
+        if cut:
+            b.line("… (in-flight truncated)")
+        b.line("")
+
+    dtot = stamp.get("unabsorbed_total")
+    drift = stamp.get("unabsorbed") or {}
+    if dtot is None:
+        b.line("LEGACY DRIFT unknown (cache has not measured it) — journal.py check")
+    elif dtot:
+        b.line("LEGACY DRIFT %d entr%s not absorbed (%s) — journal.py import-legacy"
+               % (dtot, "y" if dtot == 1 else "ies",
+                  " ".join("%s:%d" % (k, v) for k, v in sorted(drift.items()))))
+    else:
+        b.line("LEGACY DRIFT 0 — everything in log/** and the flat files is absorbed")
+    if fresh:
+        b.line("CACHE fresh · stamp %s · %s entries" % (stamp.get("built", "?"), stamp.get("entries", "?")))
+    else:
+        b.line("CACHE stale (rebuilt or answered from entries/) — journal.py index --force")
+    b.line("")
+
+    errs, warns, _infos = cheap_check(entries)
+    b.line("CHECK %d error(s), %d warning(s) — journal.py check  %s"
+           % (errs, warns, "ERRORS PRESENT" if errs else "clean"))
+    b.marker(b.truncated)
+    b.emit()
+    return 0
+
+
+def cheap_check(entries: list):
+    """The cheap integrity rules only: no whole-tree grep, no big file reads.
+
+    The expensive rules (dangling refs, legacy drift, shard gluing) live in `check`,
+    which is allowed to take a second. status may not.
+    """
+    errs = 0
+    warns = 0
+    infos = 0
+    seen = {}
+    for e in entries:
+        seen.setdefault((e["kind"], e["id_full"]), []).append(e)
+        if e.get("problems"):
+            errs += 1
+    for _key, group in seen.items():
+        if len({g.get("hash") for g in group}) > 1:
+            errs += 1
+    dupes = {}
+    for e in entries:
+        dupes.setdefault(e.get("hash"), []).append(e)
+    for _h, g in dupes.items():
+        if len(g) > 1:
+            infos += 1
+    known = {(e["kind"], e["id_full"]) for e in entries}
+    seen_alias = set()
+    for a in load_aliases():
+        if (a["kind"], a["canonical_id"]) not in known:
+            if a["alias_id"] not in seen_alias:
+                seen_alias.add(a["alias_id"])
+                warns += 1
+    return errs, warns, infos
+
+
+# ---------------------------------------------------------------------------
+# Commands: list / newest / show / search / backlinks / pairs
+# ---------------------------------------------------------------------------
+
+def _matches(e: dict, args) -> bool:
+    kinds = getattr(args, "kind", None)
+    if kinds:
+        if e["kind"] not in [str(x).lower() for x in kinds if x]:
+            return False
+    st = getattr(args, "status", None)
+    if st and (e.get("status") or "open") != st:
+        return False
+    since = getattr(args, "since", None)
+    if since and (e.get("date") or "")[:10] < since:
+        return False
+    until = getattr(args, "until", None)
+    if until and ((e.get("date") or "9999")[:10] or "9999") > until:
+        return False
+    tag = getattr(args, "tag", None)
+    if tag and tag not in (e.get("tags") or []):
+        return False
+    host = getattr(args, "host", None)
+    if host and host.upper() not in (e.get("host") or "").upper():
+        return False
+    return True
+
+
+def cmd_list(args) -> int:
+    entries, source, _fresh = catalog()
+    rows = [e for e in entries if _matches(e, args)]
+    if getattr(args, "sort", "newest") == "id":
+        rows.sort(key=lambda e: (KIND_ORDER.get(e["kind"], 9), e.get("num") or 0, e.get("suffix") or ""))
+    else:
+        rows.sort(key=lambda e: (e.get("date") or "", e.get("num") or 0), reverse=True)
+    if getattr(args, "json", False):
+        print(json.dumps({"root": str(JOURNAL), "source": source, "count": len(rows),
+                          "entries": [_json_entry(e) for e in rows[:args.limit or 50]]}, indent=1))
+        return 0
+    b = Budget(_budget_of(args))
+    b.reserve(24)
+    b.line("# %d entr%s in %s" % (len(rows), "y" if len(rows) == 1 else "ies", source))
+    limit = args.limit or 50
+    shown = 0
+    for e in rows[:limit]:
+        line = "%-8s %-17s %-10s %-10s %s" % (e["id_full"], (e.get("date") or "-")[:16],
+                                              e.get("status") or "-", e.get("host") or "-",
+                                              e["heading"][:110])
+        if getattr(args, "long", False):
+            line += "   [%s]" % e.get("file")
+        if not b.line(line):
+            break
+        shown += 1
+    b.marker(len(rows) - shown)
+    b.emit()
+    if not rows:
+        note("no entries match")
+    return 0
+
+
+def cmd_newest(args) -> int:
+    kind = args.kind or getattr(args, "kind_opt", None)
+    if kind not in KINDS:
+        note("unknown kind %s; one of %s" % (kind, ", ".join(KINDS)))
         return 2
-    kind = hit[0]["kind"]
-    line = "\t".join([kind, hit[0]["id_full"], args.status, today(), host_tag(), args.why or ""])
-    if not STATUS_LEDGER.exists():
-        STATUS_LEDGER.parent.mkdir(parents=True, exist_ok=True)
-        STATUS_LEDGER.write_text(STATUS_HEADER + "\n", encoding="utf-8", newline="\n")
-    with STATUS_LEDGER.open("a", encoding="utf-8", newline="\n") as fh:
+    n = getattr(args, "n_opt", None) or args.n or 1
+    entries, _source, _fresh = catalog()
+    rows = [e for e in entries if e["kind"] == kind]
+    rows.sort(key=lambda e: (e.get("date") or "", e.get("num") or 0), reverse=True)
+    rows = rows[:max(1, n)]
+    if getattr(args, "json", False):
+        print(json.dumps({"kind": kind, "count": len(rows),
+                          "entries": [_json_entry(e, with_body=True) for e in rows]}, indent=1))
+        return 0
+    b = Budget(_budget_of(args))
+    b.reserve(24)
+    for e in rows:
+        if not b.blob(render(e)):
+            b.truncated += 1
+            break
+    b.marker(b.truncated)
+    b.emit()
+    return 0
+
+
+def _prefix_hits(want: str) -> list:
+    """Base id matching: L1 hits L1, L1a, L1b. Never silently picks one."""
+    want = want.upper()
+    if not re.match(r"^[A-Z]+\d+$", want):
+        return []
+    hits = []
+    for kind, spec in KINDS.items():
+        if not want.startswith(spec["letter"]):
+            continue
+        d = entries_dir() / kind
+        if not d.is_dir():
+            continue
+        for f in sorted(d.iterdir()):
+            if f.is_file() and f.suffix == ".md" and f.stem.upper().startswith(want):
+                e = parse_entry(f, kind)
+                if e["id_full"]:
+                    hits.append(e)
+    return hits
+
+
+def cmd_show(args) -> int:
+    ids = args.id if isinstance(args.id, list) else [args.id]
+    out_entries = []
+    b = Budget(_budget_of(args))
+    b.reserve(24)
+    misses = []
+    notes = []
+    for raw in ids:
+        want = str(raw).strip()
+        if not want:
+            continue
+        e = load_one(want) or load_one(want.upper())              # exact path: one open
+        if e is None:
+            canonical = resolve_alias(want) or resolve_alias(want.upper())
+            if canonical and canonical != want:
+                row = load_one(canonical)
+                if row is not None:
+                    notes.append("%s is an alias of %s" % (want, canonical))
+                    e = row
+                    want = canonical
+        if e is None:
+            hits = _prefix_hits(want)
+            if len(hits) == 1:
+                e = hits[0]
+                notes.append("%s resolved to %s (the only entry with that base id)" % (want, e["id_full"]))
+            elif len(hits) > 1:
+                notes.append("%s matches %d entries: %s — showing all of them, not picking one"
+                             % (want, len(hits), ", ".join(x["id_full"] for x in hits)))
+                out_entries.extend(hits)
+                continue
+        if e is None:
+            misses.append(want)
+            continue
+        out_entries.append(e)
+    if getattr(args, "all", False) and len(out_entries) == 1:
+        for x in _prefix_hits(out_entries[0]["id_full"]):
+            if x["id_full"] not in {o["id_full"] for o in out_entries}:
+                out_entries.append(x)
+    if getattr(args, "json", False):
+        print(json.dumps({"root": str(JOURNAL), "notes": notes, "missing": misses,
+                          "entries": [_json_entry(e, with_body=True) for e in out_entries]}, indent=1))
+        return 0 if out_entries else 2
+    for n in notes:
+        b.line("note: " + n)
+    for e in out_entries:
+        if not b.blob(render(e, show_meta=bool(getattr(args, "refs", False)))):
+            b.truncated += 1
+            break
+        b.line("")
+    if b.truncated:
+        b.marker(b.truncated)
+    b.emit()
+    for m in misses:
+        note("no entry %s" % m)
+    if misses and not out_entries:
+        return 2
+    return 0
+
+
+def cmd_search(args) -> int:
+    pats = args.pattern if isinstance(args.pattern, list) else [args.pattern]
+    pats = [p for p in pats if p is not None and p != ""]
+    if not pats:
+        note("no pattern given")
+        return 2
+    regex = bool(getattr(args, "regex", False))
+    entries, source, _fresh = catalog()
+    rx = None
+    if regex:
+        try:
+            rx = re.compile(pats[0], re.IGNORECASE)
+        except re.error as exc:
+            note("bad regex: %s" % exc)
+            return 2
+    limit = args.limit or 40
+    ctx_n = max(0, getattr(args, "context", 0) or 0)
+    hits = []
+    total_hits = 0
+    cands = [e for e in entries if _matches(e, args)]
+    for e in cands:
+        text = "%s\n%s" % (e["heading"], e["body"])
+        matches = []
+        if rx is not None:
+            for i, ln in enumerate(text.split("\n")):
+                if rx.search(ln):
+                    matches.append((i + 1, ln.strip()))
+        else:
+            for i, ln in enumerate(text.split("\n")):
+                low = ln.lower()
+                if all(p.lower() in low for p in pats):
+                    matches.append((i + 1, ln.strip()))
+        if matches:
+            total_hits += len(matches)
+            if len(hits) < limit:
+                hits.append((e, matches[:1 + ctx_n]))
+    if getattr(args, "legacy", False):
+        pat_re = rx if rx is not None else re.compile("|".join(re.escape(p) for p in pats), re.IGNORECASE)
+        for path, kind in shard_sources():
+            for e in parse_shard(path, kind):
+                lines = ("%s\n%s" % (e["heading"], e["body"])).split("\n")
+                mm = [(i + 1, lines[i].strip()) for i in range(len(lines)) if pat_re.search(lines[i])]
+                if mm:
+                    total_hits += len(mm)
+                    if len(hits) < limit:
+                        hits.append((e, mm[:1 + ctx_n]))
+    if getattr(args, "json", False):
+        print(json.dumps({"root": str(JOURNAL), "source": source, "total_matches": total_hits,
+                          "hits": [{"id": e["id_full"], "kind": e["kind"], "heading": redact(e["heading"]),
+                                    "file": e["file"],
+                                    "lines": [{"line": a, "text": redact(t)} for a, t in mm]}
+                                   for e, mm in hits]}, indent=1))
+        return 0 if hits else 1
+    b = Budget(_budget_of(args))
+    b.reserve(24)
+    for e, mm in hits:
+        if not b.line("%s · %s · %s · %s" % (e["id_full"], e["kind"], e.get("date") or "-",
+                                             e["heading"][:110])):
+            break
+        for _ln_no, txt in mm:
+            if not b.line("    " + txt[:200]):
+                break
+    b.marker(max(0, total_hits - len(hits)))
+    b.emit()
+    if not hits:
+        note("no match for %s — an empty result is a refusal, not health" % " ".join(pats))
+        return 1
+    return 0
+
+
+def cmd_backlinks(args) -> int:
+    want = args.id.strip().upper()
+    entries, _s, _f = catalog()
+    hits = []
+    for e in entries:
+        refs = set(e.get("refs") or [])
+        refs |= {"%s%s" % (m.group(1), m.group(2)) for m in REF_RE.finditer("%s\n%s" % (e["heading"], e["body"]))}
+        if want in refs:
+            hits.append(e)
+    if getattr(args, "json", False):
+        print(json.dumps({"root": str(JOURNAL), "id": want, "count": len(hits),
+                          "backlinks": [_json_entry(e) for e in hits]}, indent=1))
+        return 0 if hits else 1
+    b = Budget(_budget_of(args))
+    b.reserve(24)
+    b.line("# %d entr%s reference %s" % (len(hits), "y" if len(hits) == 1 else "ies", want))
+    shown = 0
+    for e in hits:
+        if not b.line("  %-8s %-10s %s" % (e["id_full"], e["kind"], e["heading"][:100])):
+            break
+        shown += 1
+    b.marker(len(hits) - shown)
+    b.emit()
+    return 0 if hits else 1
+
+
+def cmd_pairs(args) -> int:
+    entries, _s, _f = catalog()
+    groups = {}
+    for e in entries:
+        groups.setdefault((e["kind"], num_of(e["id_full"])), []).append(e)
+    pairs = []
+    for (kind, num), g in sorted(groups.items()):
+        if len({x["id_full"] for x in g}) > 1:
+            pairs.append((kind, num, sorted(g, key=lambda x: x["id_full"])))
+    limit = args.limit or 40
+    if getattr(args, "json", False):
+        print(json.dumps({"root": str(JOURNAL), "count": len(pairs),
+                          "pairs": [{"kind": k, "num": n,
+                                     "ids": [{"id": x["id_full"], "heading": redact(x["heading"])} for x in g]}
+                                    for k, n, g in pairs]}, indent=1))
+        return 0
+    b = Budget(_budget_of(args))
+    b.reserve(24)
+    b.line("# %d historical base-id collision(s): one number, two different entries" % len(pairs))
+    shown = 0
+    for kind, num, g in pairs[:limit]:
+        if not b.line("%s%d:" % (KINDS[kind]["letter"], num)):
+            break
+        for x in g:
+            if not b.line("    %-8s %s" % (x["id_full"], x["heading"][:95])):
+                break
+        shown += 1
+    b.marker(max(0, len(pairs) - shown))
+    b.emit()
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Commands: stats / kinds / state / questions
+# ---------------------------------------------------------------------------
+
+def cmd_stats(args) -> int:
+    entries, source, fresh = catalog()
+    by_kind = {}
+    by_month = {}
+    bytes_total = 0
+    sizes = []
+    tags = {}
+    for e in entries:
+        by_kind[e["kind"]] = by_kind.get(e["kind"], 0) + 1
+        month = (e.get("date") or "")[:7] or "(undated)"
+        by_month[month] = by_month.get(month, 0) + 1
+        try:
+            sz = os.stat(str(_path_of(e["file"]))).st_size
+        except OSError:
+            sz = 0
+        bytes_total += sz
+        sizes.append((sz, e["id_full"], e["kind"], e["heading"]))
+        for t in e.get("tags") or []:
+            tags[t] = tags.get(t, 0) + 1
+    opens = sum(1 for e in entries if (e.get("status") or "open") != "done")
+    sizes.sort(reverse=True)
+    oldest = sorted(entries, key=lambda e: (e.get("date") or "9999"))[:10]
+    legacy_bytes = sum(p.stat().st_size for p, _k in shard_sources() if p.exists())
+    top = args.top or 10
+    payload = {
+        "root": str(JOURNAL), "source": source, "cache_fresh": fresh,
+        "entries": len(entries), "bytes": bytes_total,
+        "by_kind": by_kind, "by_month": dict(sorted(by_month.items())),
+        "open": opens, "closed": len(entries) - opens,
+        "tags": dict(sorted(tags.items(), key=lambda kv: (-kv[1], kv[0]))[:30]),
+        "largest": [{"id": i, "kind": k, "bytes": s, "heading": redact(h)} for s, i, k, h in sizes[:top]],
+        "oldest_dated": [{"id": e["id_full"], "date": e.get("date")} for e in oldest],
+        "frozen_shard_bytes": legacy_bytes,
+        "avg_entry_bytes": bytes_total // max(1, len(entries)),
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=1))
+        return 0
+    b = Budget(_budget_of(args))
+    b.reserve(24)
+    b.line("# journal stats · %d entries · %d B in entries/ (avg %d B)"
+           % (len(entries), bytes_total, payload["avg_entry_bytes"]))
+    b.line("# source %s · cache %s · frozen log/** %d B"
+           % (source, "fresh" if fresh else "stale", legacy_bytes))
+    b.line("")
+    b.line("  per kind:  " + "  ".join("%s:%d" % (k, v) for k, v in sorted(by_kind.items())))
+    b.line("  per month: " + "  ".join("%s:%d" % (k, v) for k, v in sorted(by_month.items())))
+    b.line("  open %d / closed %d" % (opens, len(entries) - opens))
+    if tags:
+        b.line("  tags: " + "  ".join("%s:%d" % (k, v) for k, v in list(payload["tags"].items())[:12]))
+    b.line("")
+    b.line("  biggest entries:")
+    for s, i, k, h in sizes[:top]:
+        if not b.line("    %-8s %7d B  %s" % (i, s, h[:90])):
+            break
+    b.emit()
+    return 0
+
+
+def cmd_kinds(args) -> int:
+    entries, source, _f = catalog()
+    counts = {}
+    for e in entries:
+        counts[e["kind"]] = counts.get(e["kind"], 0) + 1
+    for k, spec in KINDS.items():
+        print("%-10s %s  %4d entries   entries/%s/<id>.md" % (k, spec["letter"], counts.get(k, 0), k))
+    print("-- %d entries from %s" % (sum(counts.values()), source))
+    return 0
+
+
+def _field(body: str, name: str) -> str:
+    m = re.search(r"(?im)^\*\*" + re.escape(name) + r"\.?\*\*\s*(.*?)(?=\n\s*\n|\n\*\*|\Z)", body or "", re.S)
+    if not m:
+        return ""
+    return re.sub(r"\s+", " ", m.group(1)).strip()
+
+
+def cmd_state(args) -> int:
+    """Regenerate state/open-pain.md — bounded, ranked, with counts."""
+    rows, source, _f = catalog()
+    pains = [e for e in rows if e["kind"] == "pain"]
+    pains.sort(key=lambda e: (e.get("num") or 0, e.get("suffix") or ""))
+    opens = [e for e in pains if (e.get("status") or "open") != "done"]
+    out = [
+        "# OPEN PAIN — what still hurts, ranked",
+        "",
+        "Updated: " + today(),
+        "",
+        "**Generated** from `entries/pain/` by `tools/journal.py state`. Do not edit by hand: an entry",
+        "stops being open by being corrected, not by being deleted here. A problem that is done carries",
+        "`status=done` in its marker or in a row of `state/status.tsv`, and drops out of this list.",
+        "",
+        "Provenance: %d open of %d pain entries, read from %s, written %s on %s."
+        % (len(opens), len(pains), source, now_utc(), host_tag()),
+        "",
+        "| # | Symptom | Cost | Fix |",
+        "|---|---|---|---|",
+    ]
+    for e in opens:
+        full = load_one(e["id_full"], "pain") or e
+        body = full.get("body") or ""
+        cost = _field(body, "Cost")[:200]
+        fix = _field(body, "Fix")[:200]
+        title = re.sub(r"^##\s*", "", e.get("heading") or "")
+        title = re.sub(r"^[A-Z]+\d+[a-z]?\s*[—–-]\s*", "", title)
+        out.append("| %s | %s | %s | %s |" % (e["id_full"], redact(title).replace("|", "/"),
+                                              redact(cost).replace("|", "/"),
+                                              redact(fix).replace("|", "/")))
+    atomic_write(JOURNAL / "state" / "open-pain.md", "\n".join(out).rstrip() + "\n")
+    print("state/open-pain.md: %d open of %d (%d done)" % (len(opens), len(pains), len(pains) - len(opens)))
+    return 0
+
+
+def cmd_questions(args) -> int:
+    """Mirror owner_decision_queue into state/owner-questions.md.
+
+    The database is authoritative; this file exists so a session that cannot reach the
+    authority still knows what is already waiting on the owner, and so the same
+    question is never asked twice in two different stores.
+    """
+    raw = ""
+    p = getattr(args, "from_json", None)
+    if p:
+        qp = Path(p)
+        raw = _rl(qp) if qp.exists() else ""
+    elif not getattr(args, "offline", False):
+        raw = _queue_from_authority()
+    path = JOURNAL / "state" / "owner-questions.md"
+    if not raw.strip():
+        if path.exists():
+            age = _age_days(_dt.date.fromtimestamp(path.stat().st_mtime).isoformat())
+            print("state/owner-questions.md: authority unreachable — existing mirror kept (%s day(s) old). "
+                  "It is a mirror: the truth is owner_decision_queue on the authority." % age)
+        else:
+            print("state/owner-questions.md: authority unreachable and no mirror exists — read the queue "
+                  "with `ssh secratary-ts \"python3 ~/bin/owner-queue.py next\"`")
+        return 0
+    try:
+        rows = json.loads(raw)
+    except Exception as exc:
+        note("could not parse the queue dump: %s" % exc)
+        return 2
+    if isinstance(rows, dict):
+        rows = rows.get("questions") or rows.get("rows") or []
+    pending = [r for r in rows if (r.get("status") or "") == "pending"]
+    out = [
+        "# OWNER QUESTIONS — open only",
+        "",
+        "Updated: " + today(),
+        "",
+        "**Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.",
+        "That table is the single source of truth for what is waiting on the owner; this is a mirror,",
+        "so a session with no route to the authority still reads the truth instead of re-asking.",
+        "Do not add a question here: add it there.",
+        "Provenance: %d row(s) read, %d pending, generated %s on %s."
+        % (len(rows), len(pending), now_utc(), host_tag()),
+        "",
+        "| # | Asked | Sev | Question | My recommendation |",
+        "|---|---|---|---|---|",
+    ]
+    for r in pending:
+        q = redact(re.sub(r"\s+", " ", (r.get("question") or "")))[:400].replace("|", "/")
+        rec = redact(re.sub(r"\s+", " ", (r.get("recommendation") or "")))[:220].replace("|", "/")
+        out.append("| %s | %s | %s | %s | %s |" % (r.get("id"), (r.get("asked_at") or "")[:10],
+                                                   r.get("severity"), q, rec))
+    closed = [r for r in rows if (r.get("status") or "") != "pending"]
+    out += ["", "Closed since the queue opened: %d. Answered questions move to `entries/decisions/` "
+                "with the owner's own words." % len(closed)]
+    atomic_write(path, "\n".join(out).rstrip() + "\n")
+    print("state/owner-questions.md: %d open, %d closed" % (len(pending), len(closed)))
+    return 0
+
+
+def _queue_from_authority() -> str:
+    if os.name == "nt":
+        return ""
+    try:
+        out = subprocess.run(["python3", os.path.expanduser("~/bin/owner-queue.py"), "list", "--all", "--json"],
+                             capture_output=True, text=True, timeout=20)
+        return out.stdout if out.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+# ---------------------------------------------------------------------------
+# Commands: check
+# ---------------------------------------------------------------------------
+
+def unabsorbed_counts() -> dict:
+    """The TRUE count of unabsorbed legacy entries, by kind, exact heading+body."""
+    entries, _p = load_entries()
+    hashes = {e["hash"] for e in entries}
+    counts = {}
+    for path, kind in flat_sources():
+        try:
+            ents = parse_legacy(path, kind)
+        except Exception:
+            continue
+        n = sum(1 for e in ents if entry_hash(e["heading"], e["body"]) not in hashes)
+        if n:
+            counts[kind] = counts.get(kind, 0) + n
+    return counts
+
+
+def shard_unabsorbed_counts() -> dict:
+    entries, _p = load_entries()
+    hashes = {e["hash"] for e in entries}
+    counts = {}
+    for path, kind in shard_sources():
+        n = sum(1 for e in parse_shard(path, kind) if entry_hash(e["heading"], e["body"]) not in hashes)
+        if n:
+            counts[kind] = counts.get(kind, 0) + n
+    return counts
+
+
+def cmd_check(args) -> int:
+    quiet = bool(getattr(args, "quiet", False))
+    max_warn = getattr(args, "max_warn", None) or 20
+    entries, source, fresh = catalog()
+    errors = []
+    warns = []
+    infos = []
+
+    if not entries_dir().exists() and (log_dir().exists() or (JOURNAL / "HANDOFF.md").exists()):
+        errors.append("entries/ does not exist — run `journal.py migrate-v2 --apply`")
+    for e in entries:
+        for p in e.get("problems") or []:
+            errors.append("%s: %s" % (e["file"], p))
+
+    by_id = {}
+    for e in entries:
+        by_id.setdefault((e["kind"], e["id_full"]), []).append(e)
+    for (kind, id_full), group in sorted(by_id.items()):
+        hashes = {g.get("hash") for g in group}
+        if len(group) > 1 and len(hashes) > 1:
+            errors.append("duplicate id %s in %s names %d different entries: %s"
+                          % (id_full, kind, len(hashes), ", ".join(g["file"] for g in group)))
+        elif len(group) > 1:
+            warns.append("exact duplicate %s in %s (%dx, same content) — journal.py dedupe"
+                         % (id_full, kind, len(group)))
+    by_hash = {}
+    for e in entries:
+        by_hash.setdefault(e.get("hash"), []).append(e)
+    for _h, group in by_hash.items():
+        if len(group) > 1:
+            infos.append("same heading+body under " + ", ".join("%s(%s)" % (g["id_full"], g["file"])
+                                                               for g in group))
+
+    known_ids = {e["id_full"] for e in entries}
+    known_pairs = {(e["kind"], e["id_full"]) for e in entries}
+    seen_alias = set()
+    for a in load_aliases():
+        if (a["kind"], a["canonical_id"]) not in known_pairs and a["alias_id"] not in seen_alias:
+            seen_alias.add(a["alias_id"])
+            warns.append("alias %s -> %s (%s): canonical id is missing"
+                         % (a["alias_id"], a["canonical_id"], a["kind"]))
+
+    for e in entries:
+        if not e.get("body"):
+            if e["kind"] == "lessons":
+                infos.append("%s is a heading-only lesson (empty body) — legal, recorded" % e["id_full"])
+            else:
+                warns.append("%s (%s) has an empty body" % (e["id_full"], e["kind"]))
+
+    dangling = set()
+    for e in entries:
+        refs = set(e.get("refs") or [])
+        refs |= {"%s%s" % (m.group(1), m.group(2)) for m in REF_RE.finditer("%s\n%s" % (e["heading"], e["body"]))}
+        for r in refs:
+            if r in known_ids or r in dangling:
+                continue
+            dangling.add(r)
+            warns.append("dangling ref %s (cited by %s) — nothing in entries/ has that id" % (r, e["id_full"]))
+
+    nums = {}
+    for e in entries:
+        nums.setdefault((e["kind"], num_of(e["id_full"])), set()).add(e["id_full"])
+    collided = [k for k, ids in nums.items() if len(ids) > 1]
+    if collided:
+        per = {}
+        for kind, _n in collided:
+            per[kind] = per.get(kind, 0) + 1
+        infos.append("%d historical base-id collision(s) %s — a bare reference in older prose is "
+                     "ambiguous; use the suffixed id (`journal.py pairs`)"
+                     % (len(collided), " ".join("%s:%d" % (KINDS[k]["letter"], v)
+                                                for k, v in sorted(per.items()))))
+
+    for kind in KINDS:
+        rows = sorted([e for e in entries if e["kind"] == kind],
+                      key=lambda e: (e.get("num") or 0, e.get("suffix") or ""))
+        for a, b2 in zip(rows, rows[1:]):
+            if a.get("date") and b2.get("date") and _minute_key(a["date"]) - _minute_key(b2["date"]) > 15:
+                infos.append("out of order in %s: %s (%s) then %s (%s)"
+                             % (kind, a["id_full"], a["date"], b2["id_full"], b2["date"]))
+                break
+
+    shard_counts = shard_unabsorbed_counts()
+    flat_counts = unabsorbed_counts()
+    if shard_counts:
+        warns.append("legacy drift in log/**: %s (true count from log/**) — journal.py import-legacy"
+                     % " ".join("%s:%d" % (k, v) for k, v in sorted(shard_counts.items())))
+    if flat_counts:
+        warns.append("legacy flat files hold entries entries/ lacks: %s (true count, exact heading+body) "
+                     "— journal.py import-legacy" % " ".join("%s:%d" % (k, v) for k, v in sorted(flat_counts.items())))
+
+    for path, kind in shard_sources():
+        for i, ln in enumerate(_rl(path).split("\n")):
+            if "<!-- e:" in ln and not MARKER_RE.match(ln) and LOOSE_MARKER_RE.match(ln):
+                errors.append("%s:%d: marker does not start its line — that entry is being read "
+                              "into the previous one's body" % (_rel_of(path), i + 1))
+                break
+
+    stamp = read_stamp()
+    if not fresh:
+        warns.append("index cache is stale (or locked) at read time — journal.py index --force")
+    newest_handoff = max([e.get("date") or "" for e in entries if e["kind"] == "handoff"] or [""])
+    if newest_handoff:
+        for name in ("NOW.md", "state/in-flight.md"):
+            p = JOURNAL / name
+            if not p.exists():
+                warns.append("%s missing" % name)
+                continue
+            m = re.search(r"(?i)updated[: ]+(\d{4}-\d{2}-\d{2})", _rl(p))
+            if not m:
+                warns.append("%s has no 'Updated: YYYY-MM-DD' line" % name)
+            elif m.group(1) < newest_handoff[:10]:
+                warns.append("%s says %s but the newest handoff is %s — state tier is stale"
+                             % (name, m.group(1), newest_handoff[:10]))
+    dupdir = JOURNAL / ARCHIVE_NAME / "duplicates"
+    if dupdir.exists():
+        n = sum(1 for _p, _s in _walk(dupdir))
+        if n:
+            infos.append("archive/duplicates holds %d moved duplicate entr%s" % (n, "y" if n == 1 else "ies"))
+
+    if getattr(args, "fix", False) and errors:
+        infos.append("--fix: nothing is repaired silently; run `journal.py dedupe --apply` or "
+                     "`journal.py repair-ids --apply` and read what it says")
+    rc = 1 if errors else 0
+    if getattr(args, "json", False):
+        print(json.dumps({"root": str(JOURNAL), "source": source, "cache_fresh": fresh,
+                          "errors": errors, "warnings": warns, "info": infos,
+                          "counts": {"error": len(errors), "warning": len(warns), "info": len(infos)}},
+                         indent=1))
+        return rc
+    if not quiet:
+        for ln in errors:
+            print("ERROR " + redact(ln))
+        for i, ln in enumerate(warns):
+            if i >= max_warn:
+                print("WARN  ... and %d more warning(s) (--max-warn N)" % (len(warns) - max_warn))
+                break
+            print("WARN  " + redact(ln))
+        for i, ln in enumerate(infos):
+            if i >= 10:
+                print("INFO  ... and %d more info line(s)" % (len(infos) - 10))
+                break
+            print("INFO  " + redact(ln))
+    print("-- %d error(s), %d warning(s), %d info" % (len(errors), len(warns), len(infos)))
+    return rc
+
+
+# ---------------------------------------------------------------------------
+# Commands: costs / doctor
+# ---------------------------------------------------------------------------
+
+def _timed(fn, *a, **kw):
+    import io
+    from contextlib import redirect_stdout
+    buf = io.StringIO()
+    t0 = time.perf_counter()
+    try:
+        with redirect_stdout(buf):
+            fn(*a, **kw)
+    except SystemExit:
+        pass
+    ms = (time.perf_counter() - t0) * 1000.0
+    return len(buf.getvalue().encode("utf-8")), ms
+
+
+def cmd_costs(args) -> int:
+    ns = argparse.Namespace
+    rows = []
+    b0 = ns(root=str(JOURNAL), json=False, budget=STATUS_BUDGET, full=False, quiet=True, no_color=True)
+    byt, ms = _timed(cmd_status, b0)
+    rows.append(("status", byt, ms, STATUS_BUDGET, 6000, 400.0))
+    lb = ns(root=str(JOURNAL), json=False, budget=12000, limit=50, kind=None, status=None,
+            since=None, until=None, tag=None, host=None, sort="newest", long=False, quiet=True, no_color=True)
+    byt, ms = _timed(cmd_list, lb)
+    rows.append(("list", byt, ms, 12000, 12000, 300.0))
+    entries, _s, _f = catalog()
+    newest = None
+    if entries:
+        newest = max(entries, key=lambda e: (e.get("date") or "", e.get("num") or 0))
+    if newest:
+        sb = ns(root=str(JOURNAL), json=False, budget=12000, full=False, refs=False, all=False,
+                id=[newest["id_full"]], quiet=True, no_color=True)
+        byt, ms = _timed(cmd_show, sb)
+        rows.append(("show " + newest["id_full"], byt, ms, 12000, 12000, 30.0))
+    srb = ns(root=str(JOURNAL), json=False, budget=12000, pattern=["journal"], kind=None, since=None,
+             until=None, status=None, tag=None, limit=40, context=0, regex=False, all_words=False,
+             legacy=False, sort="relevance", quiet=True, no_color=True)
+    byt, ms = _timed(cmd_search, srb)
+    rows.append(("search journal", byt, ms, 12000, 12000, 300.0))
+    nb = ns(root=str(JOURNAL), json=False, budget=12000, kind="handoff", n=1, n_opt=None,
+            kind_opt=None, full=False, quiet=True, no_color=True)
+    byt, ms = _timed(cmd_newest, nb)
+    rows.append(("newest handoff", byt, ms, 12000, 12000, 200.0))
+    kd = ns(root=str(JOURNAL), json=False, quiet=True, no_color=True)
+    byt, ms = _timed(cmd_kinds, kd)
+    rows.append(("kinds", byt, ms, 4096, 4096, 200.0))
+    payload = {
+        "root": str(JOURNAL),
+        "entries": len(entries),
+        "cache_fresh": cache_fresh(),
+        "index_bytes": {p.name: p.stat().st_size for p in sorted(index_dir().glob("*"))
+                        if p.is_file()} if index_dir().exists() else {},
+        "entries_tree_bytes": sum(st.st_size for _p, st in _walk(entries_dir())),
+        "frozen_log_bytes": sum(p.stat().st_size for p, _k in shard_sources() if p.exists()),
+        "measured": [{"command": n, "bytes": b_, "ms": round(m, 1), "budget": bud,
+                      "target_bytes": tb, "target_ms": tm, "ok": bool(b_ <= tb and m <= tm)}
+                     for n, b_, m, bud, tb, tm in rows],
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=1))
+        return 0
+    print("# read-path cost · %d entries · cache %s" % (payload["entries"],
+                                                        "fresh" if payload["cache_fresh"] else "stale"))
+    print("# root " + payload["root"])
+    print("%-18s %8s %8s  %11s %9s  ok" % ("command", "bytes", "ms", "byte target", "ms target"))
+    for n, b_, m, _bud, tb, tm in rows:
+        print("%-18s %8d %8.1f  %11d %9.0f  %s" % (n, b_, m, tb, tm,
+                                                   "yes" if (b_ <= tb and m <= tm) else "NO"))
+    print("# entries/ %d B · index/ %s · frozen log/** %d B"
+          % (payload["entries_tree_bytes"],
+             " ".join("%s:%d" % kv for kv in payload["index_bytes"].items()),
+             payload["frozen_log_bytes"]))
+    return 0
+
+
+def cmd_doctor(args) -> int:
+    stamp = read_stamp()
+    fresh = cache_fresh()
+    lock = JOURNAL / LOCK_NAME
+    lock_state = "free"
+    if lock.exists():
+        try:
+            age = int(time.time() - lock.stat().st_mtime)
+            lock_state = "HELD by %s (%ds)" % (_rl(lock).strip().replace("\n", " / ")[:90], age)
+        except OSError:
+            lock_state = "HELD (unreadable)"
+    fts = "unknown"
+    dbp = index_dir() / "journal.db"
+    if dbp.exists():
+        try:
+            con = sqlite3.connect(str(dbp))
+            try:
+                have = con.execute("SELECT count(*) FROM sqlite_master WHERE name='fts'").fetchone()[0]
+                fts = "yes" if have else "no"
+            finally:
+                con.close()
+        except Exception as exc:
+            fts = "error (%s)" % exc
+    git_note = "skipped"
+    if not getattr(args, "offline", False):
+        git_note = _git_note()
+    payload = {
+        "root": str(JOURNAL),
+        "format": (_rl(JOURNAL / "FORMAT").strip() or "missing"),
+        "entries_files": sum(1 for _p, _s in _walk(entries_dir())),
+        "entries_cached": stamp.get("entries"),
+        "cache_fresh": fresh,
+        "stamp_built": stamp.get("built"),
+        "unabsorbed_total": stamp.get("unabsorbed_total"),
+        "unabsorbed": stamp.get("unabsorbed"),
+        "lock": lock_state,
+        "writable": os.access(str(JOURNAL), os.W_OK) if JOURNAL.exists() else False,
+        "python": sys.version.split()[0],
+        "sqlite": sqlite3.sqlite_version,
+        "fts5": fts,
+        "git": git_note,
+        "index_files": sorted(p.name for p in index_dir().glob("*")
+                              if p.is_file()) if index_dir().exists() else [],
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=1))
+        return 0
+    print("root            " + payload["root"])
+    print("format          %s (entries/ present: %s)" % (payload["format"], entries_dir().exists()))
+    print("entries         %d file(s), %s in the last cache build"
+          % (payload["entries_files"], payload["entries_cached"]))
+    print("cache           %s · stamp %s" % ("fresh" if fresh else "STALE", payload["stamp_built"]))
+    print("legacy drift    %s — %s" % (payload["unabsorbed_total"], payload["unabsorbed"]))
+    print("lock            " + lock_state)
+    print("writable        %s" % payload["writable"])
+    print("python/sqlite   %s / %s · fts5 %s" % (payload["python"], payload["sqlite"], fts))
+    print("git             " + git_note)
+    return 0
+
+
+def _git_note() -> str:
+    repo = JOURNAL.parent
+    try:
+        rc = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+                            capture_output=True, text=True, timeout=15)
+        rev = rc.stdout.strip() or "no-git"
+    except Exception as exc:
+        return "git unavailable (%s)" % exc
+    try:
+        rc = subprocess.run(["git", "-C", str(repo), "ls-remote", "--exit-code", "origin", "HEAD"],
+                            capture_output=True, text=True, timeout=20)
+        reach = "origin reachable" if rc.returncode == 0 else "origin unreachable (rc=%d)" % rc.returncode
+    except Exception as exc:
+        reach = "origin unreachable (%s)" % type(exc).__name__
+    return "@%s, %s" % (rev, reach)
+
+
+# ---------------------------------------------------------------------------
+# Writes
+# ---------------------------------------------------------------------------
+
+def acquire_lock(command: str, wait: float = LOCK_WAIT_SEC):
+    """Serialise the journal's read-modify-write commands.
+
+    Two writers on one tree is what produced 161 collided ids on 2026-09-14, so this
+    refuses rather than proceeds. It breaks a stale lock (a crashed session must not
+    wedge the journal) and it waits briefly for a live one, because six concurrent
+    appends are a normal thing for the fleet to do and none of them is wrong.
+
+    The path is v1's (`journal/.lock`) and the content is v1's shape — plain text,
+    '<command> <pid>@<host>:<epoch>' — so a v1 and a v2 process exclude each other,
+    and a v1 process reading a v2 lock can still print who holds it.
+    """
+    token = "%s %d@%s:%d" % (command, os.getpid(), _shortname(), int(time.time()))
+    lock = JOURNAL / LOCK_NAME
+    deadline = time.time() + max(0.0, wait)
+    while True:
+        try:
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(token + "\n")
+            return True, token
+        except FileExistsError:
+            try:
+                age = time.time() - lock.stat().st_mtime
+                held = _rl(lock).strip()
+            except OSError:
+                age, held = 0.0, "(unreadable)"
+            if age > LOCK_STALE_SEC:
+                note("journal lock is stale (%ds old, held by %s); breaking it" % (int(age), held))
+                try:
+                    lock.unlink()
+                except OSError:
+                    pass
+                continue
+            if time.time() < deadline and not _lock_is_mine(lock):
+                time.sleep(0.05)
+                continue
+            note("REFUSING: another session holds the journal lock (%s, %ds ago). Two writers is what "
+                 "created 161 collided ids on 2026-09-14. Wait for it to finish, or remove %s if you "
+                 "are certain nothing is running." % (held, int(age), lock))
+            return False, ""
+        except OSError as exc:
+            note("REFUSING: could not take the journal lock (%s)" % exc)
+            return False, ""
+
+
+def release_lock(token: str) -> None:
+    """Remove the lock ONLY if this process still owns it."""
+    lock = JOURNAL / LOCK_NAME
+    try:
+        held = _rl(lock)
+    except OSError:
+        return
+    if token and token in held:
+        try:
+            lock.unlink()
+        except OSError:
+            pass
+
+
+def max_number(kind: str) -> int:
+    best = 0
+    d = entries_dir() / kind
+    if d.is_dir():
+        for f in d.iterdir():
+            if f.is_file() and f.suffix == ".md":
+                best = max(best, num_of(f.stem))
+    tsv = index_dir() / "entries.tsv"
+    if tsv.exists():
+        letter = KINDS[kind]["letter"]
+        for ln in _rl(tsv).split("\n"):
+            if ln.startswith(kind + "\t"):
+                parts = ln.split("\t")
+                if len(parts) > 1 and parts[1].upper().startswith(letter):
+                    best = max(best, num_of(parts[1]))
+    return best
+
+
+def git_max(kind: str, fetch: bool = False):
+    """Highest number visible in any local or remote git ref. Subprocess by design.
+
+    This is the part that stopped two machines choosing the same number. It is only
+    ever called from writer paths and `doctor`, never from a read.
+    """
+    letter = KINDS[kind]["letter"]
+    repo = JOURNAL.parent
+    nums = []
+    rev = "no-git"
+    if fetch:
+        try:
+            subprocess.run(["git", "-C", str(repo), "fetch", "--quiet", "--all"],
+                           capture_output=True, timeout=25)
+        except Exception:
+            pass
+    try:
+        rc = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
+                            capture_output=True, text=True, timeout=15)
+        rev = rc.stdout.strip() or "no-git"
+    except Exception:
+        pass
+    pattern = "^## %s[0-9]+ |^\\*\\*%s[0-9]+ |^<!-- e:%s\\|%s[0-9]+" % (letter, letter, kind, letter)
+    try:
+        out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern],
+                             capture_output=True, text=True, timeout=60)
+        for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
+            nums.append(int(m.group(1)))
+    except Exception:
+        pass
+    try:
+        out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern, "HEAD"],
+                             capture_output=True, text=True, timeout=60)
+        for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
+            nums.append(int(m.group(1)))
+    except Exception:
+        pass
+    return (max(nums) if nums else 0), rev
+
+
+def cmd_next_id(args) -> int:
+    kind = args.kind
+    if kind not in KINDS:
+        note("unknown kind %s" % kind)
+        return 2
+    local = max_number(kind)
+    remote, rev = git_max(kind, fetch=not getattr(args, "no_fetch", False))
+    best = max(local, remote)
+    letter = KINDS[kind]["letter"]
+    print("%s%d" % (letter, best + 1))
+    note("# highest seen: %s%d (entries/ + index %s%d, git @ %s %s%d)"
+         % (letter, best, letter, local, rev, letter, remote))
+    return 0
+
+
+def cmd_append(args) -> int:
+    kind = args.kind
+    if kind not in KINDS:
+        note("unknown kind %s; one of %s" % (kind, ", ".join(KINDS)))
+        return 2
+    title = (getattr(args, "title", None) or "").strip()
+    if not title:
+        note("--title is required")
+        return 2
+    src = getattr(args, "body_file", None) or getattr(args, "body", None)
+    if src is None:
+        note("no body: pass --body TEXT, --body -, or --body-file F")
+        return 2
+    if src == "-":
+        body = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+    elif os.path.exists(src):
+        body = Path(src).read_text(encoding="utf-8", errors="replace")
+    else:
+        body = src
+    body = norm_body(body)
+    stamp = getattr(args, "date", "") or (now_utc() if kind == "handoff" else today())
+    host = getattr(args, "host", "") or host_tag()
+    status = getattr(args, "status", "") or "open"
+    tags = [t for t in (getattr(args, "tags", "") or "").split(",") if t]
+    refs = [t for t in (getattr(args, "refs", "") or "").split(",") if t]
+
+    # legacy drift is absorbed first, so a v1 append that landed in log/ is not lost
+    absorbed = 0
+    try:
+        absorbed = absorb_legacy(kinds=[kind], apply=True, quiet=True)
+    except Exception as exc:
+        note("journal: legacy absorption skipped (%s)" % exc)
+        absorbed = 0
+    remote = 0
+    if not getattr(args, "no_fetch", False):
+        remote, _rev = git_max(kind, fetch=True)
+    base = max(max_number(kind), remote)
+    letter = KINDS[kind]["letter"]
+    want = "%s%d" % (letter, base + 1)
+    path = entries_dir() / kind / (want + ".md")
+    entry = {
+        "kind": kind, "id_full": want, "date": stamp, "host": host, "status": status,
+        "heading": build_heading(kind, want, title, stamp, host), "body": body,
+        "tags": tags, "refs": refs, "alias_of": "", "sha": "",
+    }
+    entry["sha"] = entry_hash(entry["heading"], entry["body"])
+    bumped_from = ""
+    if path.exists():
+        existing = parse_entry(path, kind)
+        if existing.get("hash") == entry["sha"]:
+            record_alias(want, kind, want, "identical content re-appended; alias written instead of a second file")
+            if getattr(args, "json", False):
+                print(json.dumps({"id": want, "file": _rel_of(path), "written": False,
+                                  "reason": "identical content already present"}, indent=1))
+            else:
+                print("= %s already exists with identical content — alias recorded, nothing written" % want)
+            return 0
+        n = base + 1
+        while True:
+            n += 1
+            cand = "%s%d" % (letter, n)
+            p2 = entries_dir() / kind / (cand + ".md")
+            if not p2.exists():
+                bumped_from = want
+                want = cand
+                path = p2
+                break
+        entry["id_full"] = want
+        entry["heading"] = build_heading(kind, want, title, stamp, host)
+        entry["sha"] = entry_hash(entry["heading"], entry["body"])
+    if getattr(args, "dry_run", False):
+        print("(dry-run) would write " + _rel_of(path))
+        print(entry_bytes(entry))
+        return 0
+    atomic_write(path, entry_bytes(entry))
+    if bumped_from:
+        record_alias(bumped_from, kind, want, "id collision avoided on append")
+    stamp_now = rebuild_cache()
+    if getattr(args, "json", False):
+        print(json.dumps({"id": want, "file": _rel_of(path), "kind": kind,
+                          "heading": entry["heading"], "bumped_from": bumped_from,
+                          "absorbed_legacy": absorbed, "entries": stamp_now.get("entries")}, indent=1))
+        return 0
+    if absorbed:
+        print("+ absorbed %d legacy entr%s from log/** and the flat files"
+              % (absorbed, "y" if absorbed == 1 else "ies"))
+    if bumped_from:
+        print("id bumped %s -> %s (collision avoided)" % (bumped_from, want))
+    print("+ %s -> %s  (%s entries)" % (want, _rel_of(path), stamp_now.get("entries")))
+    return 0
+
+
+def record_alias(alias_id: str, kind: str, canonical_id: str, reason: str) -> None:
+    path = index_dir() / "aliases.tsv"
+    if not path.exists():
+        atomic_write(path, ALIAS_HEADER + "\n")
+    rows = [ln for ln in _rl(path).split("\n") if ln.strip()]
+    if not rows or not rows[0].startswith("alias_id\t"):
+        rows = [ALIAS_HEADER] + rows
+    line = "\t".join([alias_id, kind, canonical_id, reason.replace("\t", " "), today()])
+    if line in rows:
+        return
+    rows.append(line)
+    atomic_write(path, "\n".join(rows) + "\n")
+
+
+def cmd_resolve(args) -> int:
+    """Record that an entry's status changed. Appends; never edits the entry file."""
+    want = args.id.strip().upper()
+    e = load_one(want) or load_one(want.upper())
+    if e is None:
+        canonical = resolve_alias(want)
+        if canonical:
+            e = load_one(canonical)
+    if e is None:
+        note("no entry %s" % args.id)
+        return 2
+    path = JOURNAL / "state" / "status.tsv"
+    if not path.exists():
+        atomic_write(path, STATUS_HEADER + "\n")
+    line = "\t".join([e["kind"], e["id_full"], args.status, today(), host_tag(),
+                      (args.why or "").replace("\t", " ")])
+    with open(path, "a", encoding="utf-8", newline="\n") as fh:
         fh.write(line + "\n")
-    cmd_index(argparse.Namespace())
-    cmd_state(argparse.Namespace())
-    print(f"= {hit[0]['id_full']} -> {args.status} ({args.why or 'no reason given'})")
+    if getattr(args, "alias_of", ""):
+        record_alias(e["id_full"], e["kind"], args.alias_of, args.why or "duplicate")
+    rebuild_cache()
+    print("= %s -> %s (%s)" % (e["id_full"], args.status, args.why or "no reason given"))
     return 0
 
 
 def _title_of(heading: str, kind: str) -> str:
     """Recover a bare title from a heading of any shape the old files grew."""
-    h = heading.strip()
+    h = (heading or "").strip()
     if kind == "lessons":
-        h = re.sub(r"^\*\*[A-Z]{0,2}L\d+\s*·\s*", "", h)
+        h = re.sub(r"^\*\*[A-Z]{0,2}L\d+[a-z]?\s*·\s*", "", h)
     elif kind == "pain":
         h = re.sub(r"^##\s*[A-Z]{0,2}P\d+\b", "", h).strip(" —–-")
     else:
@@ -932,362 +2289,528 @@ def _title_of(heading: str, kind: str) -> str:
     return h[:-1] if h.endswith(".") else (h or "(untitled)")
 
 
-def cmd_import_flat(args) -> int:
-    """Absorb new entries from the retired flat files into the shards.
+def _next_free(kind: str, taken: set) -> str:
+    letter = KINDS[kind]["letter"]
+    n = max_number(kind)
+    while True:
+        n += 1
+        cand = "%s%d" % (letter, n)
+        if cand not in taken and not (entries_dir() / kind / (cand + ".md")).exists():
+            taken.add(cand)
+            return cand
 
-    Built because two sessions were writing the flat journal at once on 2026-09-14:
-    anything that lands in HANDOFF.md/LESSONS.md/... after the rebuild is imported
-    here rather than lost. Idempotent — an entry already in a shard is skipped by
-    content, so this can be run as often as needed until the flat files go quiet.
 
-    It also handles the other direction the same session used: **a flat entry that
-    grew after the migration**. If the stored body is a prefix of the incoming one,
-    the entry is resynced in place rather than duplicated — appending a second copy
-    of the same problem is how a journal stops being readable.
+def absorb_legacy(kinds=None, apply: bool = False, quiet: bool = False,
+                  include_shards: bool = False) -> int:
+    """Absorb legacy entries that exist only in log/** or the flat files.
+
+    Identity is `entry_hash(heading, body)` — the exact key, not a fuzzy one. A flat
+    entry's heading is kept verbatim (including a heading the old file wrapped onto two
+    lines) unless it does not carry its allocated id, so the identity key is stable
+    across re-runs and a second pass absorbs nothing: migration is idempotent by proof,
+    not by hope. Returns the number of entries ADDED.
     """
-    import argparse as _a
-    targets = args.files or [
-        str(JOURNAL / f"{name}.md") for name in
-        ("HANDOFF", "LESSONS", "PAIN", "DECISIONS", "WINS")
-    ]
-    shard_entries = load_shards()
-    local = {content_key(e["heading"], e["body"]) for e in shard_entries}
-    total_new = total_resync = 0
-    for raw in targets:
-        path = Path(raw)
-        if not path.exists():
-            print(f"-- absent: {path.name}")
+    entries, _p = load_entries()
+    hashes = {e["hash"] for e in entries}
+    taken = {e["id_full"] for e in entries}
+    sources = []
+    if include_shards:
+        sources.extend(shard_sources())
+    sources.extend(flat_sources())
+    log_root = str(log_dir()).replace("\\", "/")
+    added = 0
+    for path, kind in sources:
+        if kinds and kind not in kinds:
             continue
-        kind = args.kind or path.stem.split(".")[0].lower()
-        if kind not in KINDS:
+        is_shard = str(path).replace("\\", "/").startswith(log_root)
+        try:
+            ents = parse_shard(path, kind) if is_shard else parse_legacy(path, kind)
+        except Exception as exc:
+            if not quiet:
+                note("%s: unparseable right now (%s)" % (_rel_of(path), exc))
             continue
-        ents = parse_legacy(path, kind)
-        if not ents:
-            print(f"-- {path.name}: nothing parseable")
+        for e in ents:
+            h = entry_hash(e["heading"], e["body"])
+            if h in hashes:
+                continue
+            id_full = e["id_full"] or _next_free(kind, taken)
+            same = load_one(id_full, kind)
+            if same is not None and same.get("hash") != h:
+                old = id_full
+                id_full = _next_free(kind, taken)
+                if apply:
+                    record_alias(old, kind, id_full, "legacy id collided with different content")
+                if not quiet:
+                    print("id bumped %s -> %s (collision avoided on legacy import)" % (old, id_full))
+            entry = {
+                "kind": kind,
+                "id_full": id_full,
+                "date": (e.get("date") or "").strip(),
+                "host": (e.get("host") or "").strip() or "legacy",
+                "status": (e.get("status") or "open").strip() or "open",
+                "heading": e["heading"],
+                "body": e["body"],
+                "tags": ["legacy-import"],
+                "refs": [],
+                "alias_of": "",
+                "sha": "",
+            }
+            if kind != "handoff" and not re.search(re.escape(id_full), entry["heading"] or ""):
+                entry["heading"] = build_heading(kind, id_full, _title_of(e["heading"], kind),
+                                                 entry["date"] or today(), entry["host"])
+            entry["sha"] = entry_hash(entry["heading"], entry["body"])
+            hashes.add(entry_hash(entry["heading"], entry["body"]))
+            taken.add(id_full)
+            if apply:
+                atomic_write(entries_dir() / kind / (id_full + ".md"), entry_bytes(entry))
+            added += 1
+            if not quiet:
+                print("+ %s <- %s:%s  %s" % (id_full, _rel_of(path), e.get("line_start"),
+                                             redact(entry["heading"][:80])))
+    return added
+
+
+def cmd_import_legacy(args) -> int:
+    apply = bool(getattr(args, "apply", False))
+    entries, _p = load_entries()
+    added = absorb_legacy(apply=apply, include_shards=bool(getattr(args, "include_shards", False)))
+    after, _p2 = load_entries()
+    remaining = unabsorbed_counts() if apply else _preview_unabsorbed()
+    payload = {"apply": apply, "before": len(entries), "after": len(after), "added": added,
+               "still_unabsorbed": remaining, "still_unabsorbed_total": sum(remaining.values())}
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=1))
+        return 0
+    if not apply:
+        print("-- dry run: %d entr%s would be absorbed (%d -> %d); re-run with --apply"
+              % (added, "y" if added == 1 else "ies", len(entries), len(entries) + added))
+    else:
+        rebuild_cache(compute_drift=True)
+        print("-- absorbed %d: %d -> %d" % (added, len(entries), len(after)))
+    if remaining:
+        print("-- still not absorbed: " + " ".join("%s:%d" % (k, v) for k, v in sorted(remaining.items())))
+    return 0
+
+
+def _preview_unabsorbed() -> dict:
+    entries, _p = load_entries()
+    hashes = {e["hash"] for e in entries}
+    counts = {}
+    for path, kind in flat_sources():
+        try:
+            ents = parse_legacy(path, kind)
+        except Exception:
             continue
-        new = [e for e in ents if content_key(e["heading"], e["body"]) not in local]
-        resyncs = []
-        for e in new:
-            stored = [s for s in shard_entries
-                      if s["kind"] == kind and e["id_full"] and s["id_full"] == e["id_full"]]
-            for s in stored:
-                if s["body"] and norm_body(e["body"]).startswith(norm_body(s["body"])):
-                    resyncs.append((s, e))
-                    break
-        for s, e in resyncs:
-            p = JOURNAL / s["file"]
-            lines = p.read_text(encoding="utf-8", errors="replace").split("\n")
-            head = lines[:s["heading_end"]]                      # through the heading line
-            tail = lines[s["line_end"] - 1:]                     # separator and anything after
-            p.write_text("\n".join(head + [norm_body(e["body"]), ""] + tail).lstrip("\n"),
-                         encoding="utf-8", newline="\n")
-            print(f"~ {s['id_full']} resynced from {path.name} (source grew by "
-                  f"{len(norm_body(e['body'])) - len(norm_body(s['body']))} chars)")
-            local.add(content_key(e["heading"], e["body"]))
-            total_resync += 1
-        resynced_ids = {s["id_full"] for s, _ in resyncs}
-        new = [e for e in new if e["id_full"] not in resynced_ids]
-        if not new:
-            print(f"-- {path.name}: {len(ents)} entries, nothing new ({len(resyncs)} resynced)")
-            continue
-        base, _ = remote_max(kind)
-        letter = KINDS[kind]["letter"]
-        for e in new:
-            base += 1
-            id_full = f"{letter}{base}"
-            date = e["date"] or today()
-            heading = e["heading"] if kind == "handoff" else build_heading(
-                kind, id_full, _title_of(e["heading"], kind), date, e["host"] or "imported")
-            path_out = shard_path(kind, date)
-            path_out.parent.mkdir(parents=True, exist_ok=True)
-            header = ""
-            if not path_out.exists():
-                header = (f"# {kind} · {path_out.stem}\n"
-                          "<!-- journal shard: append-only, oldest first. Never edit an entry — correct it\n"
-                          f"     with an entry that cites it. Reads: python tools/journal.py newest {kind} 3 -->\n\n")
-            status = "open"
-            marker = f"<!-- e:{kind}|{id_full}|{date}|{e['host'] or 'imported'}|{status} -->"
-            append_block(path_out, header, f"{marker}\n{heading}\n\n{norm_body(e['body'])}\n\n---\n")
-            local.add(content_key(e["heading"], e["body"]))
-            print(f"+ {id_full} <- {path.name}:{e['line_start']}  {heading[:80]}")
-            total_new += 1
-    if total_new:
-        cmd_index(_a.Namespace())
-        cmd_state(_a.Namespace())
-    print(f"-- imported {total_new} new entry/entries")
+        n = sum(1 for e in ents if entry_hash(e["heading"], e["body"]) not in hashes)
+        if n:
+            counts[kind] = counts.get(kind, 0) + n
+    return counts
+
+
+def cmd_migrate_v2(args) -> int:
+    """Split log/** shards into entries/ one-for-one, then absorb the flat files.
+
+    The split is by line range, verbatim, so the byte-preservation proof is exact:
+    for every source shard, the concatenation of its entries' blocks equals the source
+    file apart from the shard preamble. Idempotent: a second run writes nothing.
+    """
+    apply = bool(getattr(args, "apply", False))
+    sources = shard_sources()
+    written = 0
+    skipped = 0
+    bumped = 0
+    bumped_detail = []
+    proof = []
+    entries, _p = load_entries()
+    hashes = {e["hash"] for e in entries}
+    taken = {e["id_full"] for e in entries}
+    for path, kind in sources:
+        text = _rl(path)
+        preamble, blocks = shard_blocks(path)
+        block_bytes = sum(len(b.encode("utf-8")) for b, _s, _e in blocks)
+        src_bytes = len(text.encode("utf-8"))
+        accounted = block_bytes + len(preamble.encode("utf-8"))
+        for block, ls, le in blocks:
+            blines = block.split("\n")
+            m = MARKER_RE.match(blines[0]) if blines else None
+            if not m:
+                continue
+            heading = blines[1].strip() if len(blines) > 1 else ""
+            body = norm_body("\n".join(blines[2:]))
+            h = entry_hash(heading, body)
+            id_full = m.group("id")
+            target = entries_dir() / kind / (id_full + ".md")
+            if h in hashes:
+                skipped += 1
+                continue
+            if target.exists():
+                existing = parse_entry(target, kind)
+                if existing.get("hash") == h:
+                    skipped += 1
+                    hashes.add(h)
+                    continue
+                old = id_full
+                id_full = _next_free(kind, taken)
+                bumped += 1
+                bumped_detail.append("%s -> %s (%s:%d, content differs)" % (old, id_full, path.name, ls))
+                if apply:
+                    record_alias(old, kind, id_full,
+                                 "id collision during migrate-v2 from " + _rel_of(path))
+                target = entries_dir() / kind / (id_full + ".md")
+            taken.add(id_full)
+            hashes.add(h)
+            entry = {
+                "kind": kind, "id_full": id_full, "date": m.group("date"), "host": m.group("host"),
+                "status": m.group("status") or "open", "heading": heading, "body": body,
+                "tags": [], "refs": [], "alias_of": "", "sha": h,
+            }
+            if apply:
+                atomic_write(target, entry_bytes(entry))
+            written += 1
+        proof.append({"shard": _rel_of(path), "entries": len(blocks), "source_bytes": src_bytes,
+                      "block_bytes": block_bytes,
+                      "preamble_bytes": len(preamble.encode("utf-8")),
+                      "residue": src_bytes - accounted})
+    absorbed = 0
+    if apply:
+        absorbed = absorb_legacy(apply=True)
+        rebuild_cache(compute_drift=True)
+    total_residue = sum(p["residue"] for p in proof)
+    payload = {
+        "apply": apply, "shards": len(sources), "blocks": sum(p["entries"] for p in proof),
+        "written": written, "skipped_same_content": skipped, "bumped": bumped,
+        "bumped_detail": bumped_detail, "absorbed_from_flats": absorbed,
+        "residue_bytes": total_residue, "proof": proof,
+    }
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=1))
+        return 0 if total_residue == 0 else 1
+    print("migrate-v2 %s: %d shard(s), %d entries"
+          % ("applied" if apply else "DRY RUN (nothing written)", len(sources), payload["blocks"]))
+    print("  written %d · skipped as already present (same id + same hash) %d · ids bumped %d"
+          % (written, skipped, bumped))
+    for b2 in bumped_detail:
+        print("    bumped " + b2)
+    print("  absorbed from the flat files: %d" % absorbed)
+    print("  byte-preservation residue: %d B across %d shard(s)" % (total_residue, len(proof)))
+    for p in proof:
+        flag = "" if p["residue"] == 0 else "  <-- UNEXPLAINED"
+        print("    %-34s %4d entries  src %7d B  blocks %7d B  preamble %4d B  residue %d%s"
+              % (p["shard"], p["entries"], p["source_bytes"], p["block_bytes"],
+                 p["preamble_bytes"], p["residue"], flag))
+    if total_residue:
+        return 1
+    if not apply:
+        print("  (nothing written; re-run with --apply)")
     return 0
 
 
 def cmd_dedupe(args) -> int:
-    """Give collided ids a suffix instead of deleting an entry.
-
-    Why this exists (2026-09-14). `append` and `import-flat` both allocate the
-    next id with `remote_max(kind)`, which reads the index, the shards and every
-    git ref **that this checkout has fetched**. Two sessions on diverged
-    checkouts therefore both compute "next" independently, both write H81, and
-    the `git pull` that reunites them produces two entries with one id. `check`
-    calls that an ERROR, and it is: every prose citation of `H81` becomes
-    ambiguous, which is exactly how a lesson stops being citable (P17c).
-
-    The repair is the one the 2026-09-14 migration already used -- suffix the
-    later copy (`P46` -> `P46b`, `D41` -> `D41b`) -- because the alternative,
-    deleting one, throws away an entry that someone wrote. Content is never
-    lost, and the record of the collision stays visible in the ids.
-
-    Report-only by default; `--apply` writes. Renumbers the marker id and the
-    heading token where the heading carries one (handoff headings are
-    timestamps and carry no id, so for those only the marker changes).
-    """
-    entries = load_shards()
-    by_kind: dict[str, list[Entry]] = {}
+    entries, _p = load_entries()
+    by_hash = {}
     for e in entries:
-        by_kind.setdefault(e["kind"], []).append(e)
+        by_hash.setdefault(e["hash"], []).append(e)
+    moved = 0
+    for _h, group in sorted(by_hash.items()):
+        if len(group) < 2:
+            continue
+        group.sort(key=lambda e: (e.get("num") or 0, e.get("suffix") or ""))
+        keep = group[0]
+        for dup in group[1:]:
+            print("%s == %s (same heading and body) — keeping %s, %s %s"
+                  % (dup["id_full"], keep["id_full"], keep["id_full"],
+                     "moving" if args.apply else "would move", dup["file"]))
+            if args.apply:
+                dest = JOURNAL / ARCHIVE_NAME / "duplicates" / dup["kind"] / (dup["id_full"] + ".md")
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(_path_of(dup["file"])), str(dest))
+                record_alias(dup["id_full"], dup["kind"], keep["id_full"], "exact duplicate")
+                moved += 1
+    if args.apply and moved:
+        rebuild_cache()
+    print("-- %d duplicate file(s) moved to archive/duplicates/" % moved if args.apply
+          else "-- report only; re-run with --apply")
+    return 0
 
+
+def cmd_repair_ids(args) -> int:
+    entries, _p = load_entries()
+    by_id = {}
+    for e in entries:
+        by_id.setdefault((e["kind"], e["id_full"]), []).append(e)
+    collided = {k: v for k, v in by_id.items() if len(v) > 1 and len({x["hash"] for x in v}) > 1}
+    if not collided:
+        print("no id collides with different content — nothing to do")
+        return 0
     taken = {e["id_full"] for e in entries}
-    dupes: list[Entry] = []
-
-    for kind, rs in sorted(by_kind.items()):
-        groups: dict[str, list[Entry]] = {}
-        for e in rs:
-            groups.setdefault(e["id_full"], []).append(e)
-        for id_full, group in sorted(groups.items()):
-            if len(group) < 2:
-                continue
-            group.sort(key=lambda g: (g["file"], int(g["line_start"])))
-            # keep the FIRST occurrence exactly as it is; the later copies move
-            for n, dup in enumerate(group[1:], start=1):
-                candidate = f"{id_full}{chr(ord('a') + n - 1)}"
-                while candidate in taken:
-                    n += 1
-                    candidate = f"{id_full}{chr(ord('a') + n - 1)}"
-                taken.add(candidate)
-                dup["_new_id"] = candidate
-                dupes.append(dup)
-
-    if not dupes:
-        print("no duplicate ids — nothing to do")
-        return 0
-
-    for e in dupes:
-        print(f"{e['id_full']} -> {e['_new_id']}   {e['file']}:{e['line_start']}   "
-              f"{e['heading'][:70]}")
-
-    if not args.apply:
-        print(f"\n{len(dupes)} duplicate id(s). Report only; re-run with --apply to renumber.")
-        return 0
-
-    # group the rewrites per file, then apply bottom-up so line numbers hold
-    per_file: dict[str, list[Entry]] = {}
-    for e in dupes:
-        per_file.setdefault(e["file"], []).append(e)
-
     changed = 0
-    for rel, ents in per_file.items():
-        path = JOURNAL / rel
-        lines = path.read_text(encoding="utf-8").split("\n")
-        for e in sorted(ents, key=lambda x: int(x["line_start"]), reverse=True):
-            old_id, new_id = e["id_full"], e["_new_id"]
-            mi = int(e["line_start"]) - 1          # marker line, 0-based
-            hi = int(e["heading_end"]) - 1         # heading line, 0-based
-            m = MARKER_RE.match(lines[mi])
-            if not m:
-                print(f"  SKIP {rel}:{mi + 1} marker unreadable")
+    for (kind, id_full), group in sorted(collided.items()):
+        group.sort(key=lambda e: (e.get("date") or "", e.get("file") or ""))
+        keep = group[0]
+        for dup in group[1:]:
+            new_id = _next_free(kind, taken)
+            print("%s (%s) -> %s  (kept %s at %s)" % (id_full, dup["file"], new_id,
+                                                      keep["id_full"], keep["file"]))
+            if not args.apply:
                 continue
-            lines[mi] = (
-                f"<!-- e:{m.group('kind')}|{new_id}|{m.group('date')}|"
-                f"{m.group('host')}|{m.group('status')} -->"
-            )
-            # the heading carries the id for every kind except handoff, whose
-            # heading is a timestamp
-            if 0 <= hi < len(lines) and re.search(rf"\b{re.escape(old_id)}\b", lines[hi]):
-                lines[hi] = re.sub(rf"\b{re.escape(old_id)}\b", new_id, lines[hi], count=1)
+            full = parse_entry(_path_of(dup["file"]), kind)
+            full["id_full"] = new_id
+            full["heading"] = re.sub(r"\b" + re.escape(id_full) + r"\b", new_id, full["heading"], count=1)
+            full["sha"] = entry_hash(full["heading"], full["body"])
+            atomic_write(entries_dir() / kind / (new_id + ".md"), entry_bytes(full))
+            record_alias(id_full, kind, new_id,
+                         "id collided with different content; %s keeps %s" % (keep["id_full"], id_full))
             changed += 1
-        # the shard's own title line names the shard, not an entry, so it is untouched
-        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
-
-    print(f"\nrenumbered {changed} entry/entries")
-    cmd_index(argparse.Namespace())
-    cmd_state(argparse.Namespace())
+    if args.apply and changed:
+        rebuild_cache()
+    print("-- %d entr%s renumbered" % (changed, "y" if changed == 1 else "ies") if args.apply
+          else "-- report only; re-run with --apply")
     return 0
 
 
-def cmd_split_shard(args) -> int:
-    """Split an oversized shard at entry boundaries.
-
-    A shard is never read whole (that is what the index is for), but it is read by
-    `git diff`, by a careless future self, and by search; keeping a month under the
-    cap is the cheap defence. Names become 2026-09.1.md, 2026-09.2.md.
-    """
-    path = JOURNAL / args.shard if not Path(args.shard).is_absolute() else Path(args.shard)
-    kind = path.name.split(".")[0]
-    month = path.stem
-    text = path.read_text(encoding="utf-8", errors="replace")
-    lines = text.split("\n")
-    starts = [i for i, ln in enumerate(lines) if MARKER_RE.match(ln)]
-    if not starts:
-        print("no entries in that shard", file=sys.stderr)
-        return 2
-    blocks: list[str] = []
-    preamble = "\n".join(lines[:starts[0]]).rstrip()
-    for n, i in enumerate(starts):
-        end = starts[n + 1] if n + 1 < len(starts) else len(lines)
-        blocks.append("\n".join(lines[i:end]).rstrip())
-    cap = args.max_kb * 1024
-    parts: list[list[str]] = [[]]
-    size = len(preamble)
-    for b in blocks:
-        if size + len(b) > cap and parts[-1]:
-            parts.append([])
-            size = len(preamble)
-        parts[-1].append(b)
-        size += len(b) + 2
-    if len(parts) == 1:
-        print(f"{path.name}: {len(blocks)} entries, {len(text) // 1024} KB — already under {args.max_kb} KB")
+def cmd_gc_legacy(args) -> int:
+    hours = getattr(args, "quiet_hours", 0) or 0
+    sources = shard_sources()
+    if not sources:
+        print("log/** holds no shards — nothing to freeze")
         return 0
-    path.unlink()
-    for n, part in enumerate(parts, 1):
-        out = path.with_name(f"{month}.{n}.md")
-        body = "\n\n".join(part)
-        head = re.sub(r"^#\s+.*$", f"# {kind} · {month}.{n}", preamble, count=1, flags=re.M)
-        out.write_text(f"{head}\n\n{body}\n", encoding="utf-8", newline="\n")
-        print(f"{out.name}: {len(part)} entries, {out.stat().st_size // 1024} KB")
-    cmd_index(argparse.Namespace())
+    now = time.time()
+    newest = max(p.stat().st_mtime for p, _k in sources if p.exists())
+    age_h = (now - newest) / 3600.0
+    days = today()
+    dest = JOURNAL / ARCHIVE_NAME / ("legacy-shards-" + days)
+    print("log/**: %d shard(s), newest change %.1f h ago" % (len(sources), age_h))
+    if hours and age_h < hours:
+        print("refusing: log/** changed within the last %s h (a v1 writer may still be live)" % hours)
+        return 0
+    if not args.apply:
+        print("would move them to %s/ and leave log/ re-creatable" % _rel_of(dest))
+        return 0
+    dest.mkdir(parents=True, exist_ok=True)
+    for p, kind in sources:
+        out = dest / kind / p.name
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(p), str(out))
+    atomic_write(log_dir() / "README.md",
+                 "# log/ — FROZEN legacy shards\n\n"
+                 "The shards that used to live here were moved to `%s/` on %s by\n"
+                 "`journal.py gc-legacy`. Nothing reads them except `import-legacy` and\n"
+                 "`search --legacy`. `entries/` is the source of truth.\n\n"
+                 "A machine still running v1 will append here (kind directory + month file); the next\n"
+                 "v2 write or `import-legacy` absorbs it, which is why this directory survives.\n"
+                 % (_rel_of(dest), days))
+    rebuild_cache(compute_drift=True)
+    print("moved %d shard(s) -> %s/ · log/README.md written" % (len(sources), _rel_of(dest)))
     return 0
 
 
-def cmd_questions(args) -> int:
-    """Mirror owner_decision_queue into the state tier.
+def cmd_index(args) -> int:
+    stamp = rebuild_cache(compute_drift=True)
+    if not getattr(args, "quiet", False):
+        print("index: %s entries -> %s · stamp %s"
+              % (stamp.get("entries"), stamp.get("db"), stamp.get("built")))
+    if getattr(args, "stats", False):
+        for p in sorted(index_dir().glob("*")):
+            if p.is_file():
+                print("  %-16s %9d B" % (p.name, p.stat().st_size))
+    return 0
 
-    The database is authoritative; this file exists so a session that cannot reach
-    the authority still knows what is already waiting on the owner, and so the same
-    question is never asked twice in two different stores.
-    """
-    raw = (
-        _read_stdin_utf8()
-        if args.from_json in ("-", "")
-        else Path(args.from_json).read_text(encoding="utf-8")
-    )
-    import json
-    try:
-        rows = json.loads(raw)
-    except Exception as exc:
-        print(f"could not parse the queue dump: {exc}", file=sys.stderr)
+
+def cmd_selftest(args) -> int:
+    script = Path(__file__).resolve().parent / "selftest.py"
+    if not script.exists():
+        note("selftest.py not found at %s" % script)
         return 2
-    pending = [r for r in rows if (r.get("status") or "") == "pending"]
-    out = [
-        "# OWNER QUESTIONS — open only",
-        "",
-        f"Updated: {today()}",
-        "",
-        "**Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.",
-        "That table is the single source of truth for what is waiting on the owner; this is a mirror,",
-        "so a session with no route to the authority still reads the truth instead of re-asking.",
-        "Do not add a question here: add it there.",
-        f"Provenance: {len(rows)} row(s) read, {len(pending)} pending, generated {now_utc()} on {host_tag()}.",
-        "",
-        "| # | Asked | Sev | Question | My recommendation |",
-        "|---|---|---|---|---|",
-    ]
-    for r in pending:
-        q = re.sub(r"\s+", " ", (r.get("question") or ""))[:400]
-        rec = re.sub(r"\s+", " ", (r.get("recommendation") or ""))[:220]
-        out.append(f"| {r.get('id')} | {(r.get('asked_at') or '')[:10]} | {r.get('severity')} | {q} | {rec} |")
-    closed = [r for r in rows if (r.get("status") or "") != "pending"]
-    out += ["", f"Closed since the queue opened: {len(closed)}. "
-                "Answered questions move to `log/decisions/` with the owner's own words."]
-    path = STATE / "owner-questions.md"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8", newline="\n")
-    print(f"state/owner-questions.md: {len(pending)} open, {len(closed)} closed")
-    return 0
+    return subprocess.call([sys.executable, str(script)])
 
 
-def _read_stdin_utf8() -> str:
-    """Read stdin as UTF-8 regardless of the platform's default encoding.
+# ---------------------------------------------------------------------------
+# JSON helpers
+# ---------------------------------------------------------------------------
 
-    The bug this fixes (found 2026-09-14): `sys.stdin.read()` decodes with the
-    *locale* encoding, and `main()` reconfigured only `sys.stdout` to UTF-8. On
-    Windows, whose default is cp1252, every non-ASCII character in a piped
-    `--body -` was decoded as cp1252 and re-encoded as UTF-8 on write, so `—`
-    (U+2014) was stored as the three characters `â€”`. `journal.py check` does not
-    validate encoding, so the corruption was silent, and 43 sequences landed in
-    the shards before it was caught. Reading the binary stream and decoding it
-    explicitly removes any dependence on the platform default.
-    """
-    data = sys.stdin.buffer.read()
-    return data.decode("utf-8", errors="replace")
-
-
-LOCK = JOURNAL / ".lock"
-LOCK_STALE_SEC = 600
-# Commands that read the log to decide what to write back. Two of these running
-# at once on one tree is what produced 217 collided ids on 2026-09-14.
-MUTATING_COMMANDS = {"append", "import-flat", "dedupe", "resolve"}
+def _json_entry(e: dict, with_body: bool = False) -> dict:
+    d = {"id": e.get("id_full"), "kind": e.get("kind"), "date": e.get("date") or "",
+         "host": e.get("host") or "", "status": e.get("status") or "",
+         "heading": redact(e.get("heading") or ""), "file": e.get("file"),
+         "hash": e.get("hash"), "tags": e.get("tags") or [], "refs": e.get("refs") or []}
+    if with_body:
+        d["body"] = redact(e.get("body") or "")
+    if e.get("problems"):
+        d["problems"] = e["problems"]
+    return d
 
 
-def acquire_lock(command: str) -> tuple[bool, str]:
-    """Serialise the journal's read-modify-write commands.
-
-    The failure this prevents, measured 2026-09-14: `append` and `import-flat`
-    read the log, compute the next id from `remote_max()`, and then write. Two
-    sessions doing that concurrently on one tree produce two entries with one id,
-    and the `git pull` that reunites them makes the collision permanent -- 217
-    ids had to be renumbered, and `check` treats a duplicate id as an ERROR
-    because it makes every prose citation of that id ambiguous.
-
-    A stale lock is broken rather than honoured: a crashed session must not wedge
-    the journal forever, and the lock file records when it was taken so the age
-    is checkable. Returns (acquired, token); pass the token to release_lock.
-    """
-    token = f"{os.getpid()}@{socket.gethostname()}:{int(time.time())}"
-    for attempt in (1, 2):
-        try:
-            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            try:
-                age = time.time() - LOCK.stat().st_mtime
-                held = LOCK.read_text(encoding="utf-8", errors="replace").strip()
-            except OSError:
-                age, held = 0.0, "(unreadable)"
-            if age > LOCK_STALE_SEC and attempt == 1:
-                print(
-                    f"journal lock is stale ({int(age)}s old, held by {held}); breaking it",
-                    file=sys.stderr,
-                )
-                try:
-                    LOCK.unlink()
-                except OSError:
-                    pass
-                continue
-            print(
-                f"REFUSING: another session holds the journal lock ({held}, "
-                f"{int(age)}s ago). Two writers is what created 217 collided ids "
-                f"on 2026-09-14. Wait for it to finish, or remove {LOCK} if you "
-                f"are certain nothing is running.",
-                file=sys.stderr,
-            )
-            return False, ""
-        else:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write(f"{command} {token}\n")
-            return True, token
-    return False, ""
+def _budget_of(args) -> int:
+    return getattr(args, "budget", None) or DEFAULT_BUDGET
 
 
-def release_lock(token: str) -> None:
-    """Remove the lock ONLY if this process still owns it."""
-    try:
-        held = LOCK.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return
-    if token and token in held:
-        try:
-            LOCK.unlink()
-        except OSError:
-            pass
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def build_parser() -> argparse.ArgumentParser:
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--root", default=None,
+                        help="the journal directory (default: the parent of tools/, so it works from any cwd)")
+    common.add_argument("--json", action="store_true", help="machine-readable output")
+    common.add_argument("--budget", type=int, default=None, help="output byte cap (per-command default)")
+    common.add_argument("--quiet", action="store_true", help="errors only")
+    common.add_argument("--no-color", action="store_true", help="plain output (no ANSI)")
+
+    p = argparse.ArgumentParser(prog="journal.py", description=__doc__.split("\n")[0], parents=[common])
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    def add(name, help_text):
+        return sub.add_parser(name, help=help_text, parents=[common])
+
+    s = add("status", "the always-read page: bounded, assembled under the cap, exit 0")
+    s.add_argument("--full", action="store_true")
+    s.set_defaults(func=cmd_status)
+
+    s = add("list", "one line per entry; never prints bodies")
+    s.add_argument("--kind", action="append", default=None, help="repeatable")
+    s.add_argument("--status", default=None)
+    s.add_argument("--since", default=None)
+    s.add_argument("--until", default=None)
+    s.add_argument("--tag", default=None)
+    s.add_argument("--host", default=None)
+    s.add_argument("--limit", type=int, default=50)
+    s.add_argument("--sort", choices=["newest", "id"], default="newest")
+    s.add_argument("--long", action="store_true")
+    s.set_defaults(func=cmd_list)
+
+    s = add("newest", "newest N entries of a kind: `newest handoff 2`")
+    s.add_argument("kind", nargs="?", default=None)
+    s.add_argument("n", nargs="?", type=int, default=1)
+    s.add_argument("-k", "--kind-opt", dest="kind_opt", default=None)
+    s.add_argument("-n", dest="n_opt", type=int, default=None)
+    s.add_argument("--full", action="store_true")
+    s.set_defaults(func=cmd_newest)
+
+    s = add("show", "print an entry by id; an exact id opens exactly one file")
+    s.add_argument("id", nargs="+")
+    s.add_argument("--full", action="store_true")
+    s.add_argument("--refs", action="store_true", help="also show tags/refs/sha and the file")
+    s.add_argument("--all", action="store_true")
+    s.set_defaults(func=cmd_show)
+
+    s = add("search", "search entries; bounded snippets, never a whole file")
+    s.add_argument("pattern", nargs="+")
+    s.add_argument("--kind", action="append", default=None)
+    s.add_argument("--since", default=None)
+    s.add_argument("--until", default=None)
+    s.add_argument("--status", default=None)
+    s.add_argument("--tag", default=None)
+    s.add_argument("--limit", type=int, default=40)
+    s.add_argument("--context", type=int, default=0)
+    s.add_argument("--regex", action="store_true")
+    s.add_argument("--all-words", dest="all_words", action="store_true",
+                   help="every pattern must be present in the same line (the default)")
+    s.add_argument("--legacy", action="store_true", help="also scan the frozen shards")
+    s.add_argument("--sort", choices=["relevance", "newest"], default="relevance")
+    s.set_defaults(func=cmd_search)
+
+    s = add("backlinks", "which entries cite this id")
+    s.add_argument("id")
+    s.set_defaults(func=cmd_backlinks)
+
+    s = add("pairs", "historical base-id collisions: one number, two entries")
+    s.add_argument("--limit", type=int, default=40)
+    s.set_defaults(func=cmd_pairs)
+
+    s = add("stats", "counts, bytes, per-kind and per-month tables, biggest entries")
+    s.add_argument("--top", type=int, default=10)
+    s.set_defaults(func=cmd_stats)
+
+    s = add("kinds", "what lives where, one line per kind")
+    s.set_defaults(func=cmd_kinds)
+
+    s = add("state", "regenerate state/open-pain.md (bounded, ranked)")
+    s.set_defaults(func=cmd_state)
+
+    s = add("questions", "mirror owner_decision_queue into state/owner-questions.md")
+    s.add_argument("--offline", action="store_true")
+    s.add_argument("--from-json", dest="from_json", default=None,
+                   help="JSON dump from `owner-queue.py list --all --json`")
+    s.set_defaults(func=cmd_questions)
+
+    s = add("check", "integrity; exit non-zero only on ERROR")
+    s.add_argument("--fix", action="store_true", help="report what a repair would do")
+    s.add_argument("--max-warn", dest="max_warn", type=int, default=20)
+    s.set_defaults(func=cmd_check)
+
+    s = add("costs", "measure the read path (bytes + ms) and the tree sizes")
+    s.set_defaults(func=cmd_costs)
+
+    s = add("doctor", "one screen: format, cache, lock, drift, python/sqlite/fts5, git")
+    s.add_argument("--offline", action="store_true")
+    s.set_defaults(func=cmd_doctor)
+
+    s = add("append", "write an entry; the only sanctioned way")
+    s.add_argument("kind")
+    s.add_argument("--title", default="")
+    s.add_argument("--body", default=None)
+    s.add_argument("--body-file", dest="body_file", default=None)
+    s.add_argument("--date", default="")
+    s.add_argument("--host", default="")
+    s.add_argument("--status", default="open")
+    s.add_argument("--tags", default="")
+    s.add_argument("--refs", default="")
+    s.add_argument("--alias-of", dest="alias_of", default="")
+    s.add_argument("--dry-run", dest="dry_run", action="store_true")
+    s.add_argument("--no-fetch", dest="no_fetch", action="store_true")
+    s.set_defaults(func=cmd_append)
+
+    s = add("resolve", "record a status change in state/status.tsv (append-only)")
+    s.add_argument("id")
+    s.add_argument("--status", default="done",
+                   choices=["open", "done", "retracted", "superseded", "blocked"])
+    s.add_argument("--why", default="")
+    s.add_argument("--alias-of", dest="alias_of", default="")
+    s.set_defaults(func=cmd_resolve)
+
+    s = add("import-legacy", "absorb entries that exist only in log/** or the flat files")
+    s.add_argument("--apply", action="store_true")
+    s.add_argument("--dry-run", dest="dry_run", action="store_true")
+    s.add_argument("--include-shards", dest="include_shards", action="store_true",
+                   help="also treat log/** shards as a source (migrate-v2 does this anyway)")
+    s.set_defaults(func=cmd_import_legacy)
+
+    s = add("migrate-v2", "split log/** into entries/ one-for-one, then absorb the flats")
+    s.add_argument("--apply", action="store_true")
+    s.add_argument("--dry-run", dest="dry_run", action="store_true")
+    s.set_defaults(func=cmd_migrate_v2)
+
+    s = add("dedupe", "exact-content duplicates: keep the lowest id, move the other")
+    s.add_argument("--apply", action="store_true")
+    s.set_defaults(func=cmd_dedupe)
+
+    s = add("repair-ids", "renumber an entry whose id collides with different content")
+    s.add_argument("--apply", action="store_true")
+    s.set_defaults(func=cmd_repair_ids)
+
+    s = add("gc-legacy", "freeze log/** into archive/ once it has been quiet")
+    s.add_argument("--quiet-hours", dest="quiet_hours", type=float, default=24.0)
+    s.add_argument("--apply", action="store_true")
+    s.set_defaults(func=cmd_gc_legacy)
+
+    s = add("index", "rebuild the cache explicitly")
+    s.add_argument("--force", action="store_true")
+    s.add_argument("--stats", action="store_true")
+    s.set_defaults(func=cmd_index)
+
+    s = add("next-id", "the next free number for a kind (entries/ + index + every git ref)")
+    s.add_argument("kind")
+    s.add_argument("--no-fetch", dest="no_fetch", action="store_true")
+    s.set_defaults(func=cmd_next_id)
+
+    s = add("selftest", "run tools/selftest.py")
+    s.set_defaults(func=cmd_selftest)
+
+    return p
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv=None) -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
@@ -1296,72 +2819,15 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdin.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
-    p = argparse.ArgumentParser(prog="journal.py", description=__doc__.split("\n")[0])
-    sub = p.add_subparsers(dest="cmd", required=True)
-
-    s = sub.add_parser("status", help="the always-read page (bounded)")
-    s.set_defaults(func=cmd_status)
-    s = sub.add_parser("newest", help="newest N entries of a kind")
-    s.add_argument("kind")
-    s.add_argument("n", type=int, nargs="?", default=1)
-    s.set_defaults(func=cmd_newest)
-    s = sub.add_parser("show", help="print one entry by id (P46, L173, D41, W25, H64)")
-    s.add_argument("id")
-    s.add_argument("--all", action="store_true")
-    s.set_defaults(func=cmd_show)
-    s = sub.add_parser("search", help="regex across the journal, never whole files")
-    s.add_argument("pattern")
-    s.add_argument("--limit", type=int, default=40)
-    s.set_defaults(func=cmd_search)
-    s = sub.add_parser("index", help="regenerate index/entries.tsv from the shards")
-    s.set_defaults(func=cmd_index)
-    s = sub.add_parser("check", help="integrity: duplicate ids, ambiguity, staleness")
-    s.set_defaults(func=cmd_check)
-    s = sub.add_parser("next-id", help="the next free number for a kind (over index, shards and git)")
-    s.add_argument("kind")
-    s.set_defaults(func=cmd_next_id)
-    s = sub.add_parser("append", help="write an entry; the only sanctioned way")
-    s.add_argument("kind")
-    s.add_argument("--title", required=True)
-    s.add_argument("--date", default="")
-    s.add_argument("--host", default="")
-    s.add_argument("--status", default="open")
-    s.add_argument("--body", default="-")
-    s.add_argument("--no-check", action="store_true")
-    s.set_defaults(func=cmd_append)
-    s = sub.add_parser("audit", help="entries present in another copy but not here")
-    s.add_argument("files", nargs="+")
-    s.add_argument("--kind", default="")
-    s.add_argument("--local", action="store_true", help="also trust index headings for empty-bodied entries")
-    s.set_defaults(func=cmd_audit)
-    s = sub.add_parser("kinds", help="what lives where")
-    s.set_defaults(func=cmd_kinds)
-    s = sub.add_parser("state", help="regenerate state/open-pain.md from the log")
-    s.set_defaults(func=cmd_state)
-    s = sub.add_parser("questions", help="mirror owner_decision_queue into state/owner-questions.md")
-    s.add_argument("--from-json", default="-", help="JSON dump from `owner-queue.py list --all --json`")
-    s.set_defaults(func=cmd_questions)
-    s = sub.add_parser("split-shard", help="split an oversized shard at entry boundaries")
-    s.add_argument("shard", help="path relative to the journal, e.g. log/handoff/2026-09.md")
-    s.add_argument("--max-kb", type=int, default=200)
-    s.set_defaults(func=cmd_split_shard)
-    s = sub.add_parser("import-flat", help="absorb entries that landed in the retired flat files")
-    s.add_argument("files", nargs="*")
-    s.add_argument("--kind", default="")
-    s.set_defaults(func=cmd_import_flat)
-    s = sub.add_parser("dedupe", help="suffix collided ids instead of deleting an entry")
-    s.add_argument("--apply", action="store_true", help="write the renumbering (default: report only)")
-    s.set_defaults(func=cmd_dedupe)
-    s = sub.add_parser("resolve", help="record that an entry's status changed (append-only)")
-    s.add_argument("id")
-    s.add_argument("--status", default="done",
-                   choices=["open", "done", "retracted", "superseded", "blocked"])
-    s.add_argument("--why", default="")
-    s.set_defaults(func=cmd_resolve)
-
-    args = p.parse_args(argv)
-    if args.cmd in MUTATING_COMMANDS:
-        acquired, token = acquire_lock(args.cmd)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    global JOURNAL
+    root = getattr(args, "root", None)
+    if root:
+        JOURNAL = Path(root).expanduser().resolve()
+    cmd = getattr(args, "cmd", "")
+    if cmd in MUTATING_COMMANDS:
+        acquired, token = acquire_lock(cmd)
         if not acquired:
             return 3
         try:
