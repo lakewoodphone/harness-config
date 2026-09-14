@@ -230,13 +230,23 @@ component must not depend on the thing it monitors in order to report that thing
 3. Nothing was changed about the phone path, which never had this defect: there, the document and the
    badge script come from the same server, so a script that cannot load means a page that never arrived.
 
-**Not fixed, because it needs the owner.** Unsticking a Windows service needs elevation, which the
-agent does not have: `Restart-Service Tailscale` returned *"Cannot open 'Tailscale' service"*. The
-remaining work on this incident is his one action — restart the Tailscale service (or the machine) and
-sign in if it asks.
+**The isolation was in fact fixable without elevation — a first attempt said otherwise.** `Restart-Service
+Tailscale` returned *"Cannot open 'Tailscale' service"* (a genuine access-denied for service control), and
+I nearly handed the owner a task on that basis. Two user-level actions fixed it, both verified:
 
-**What remains uncovered:** no check alarms when the *tailnet itself* is down on a machine, so a
-machine can be isolated while every local check reads green. That is a real gap and it is recorded,
-not solved.
+1. **Launching the GUI** (`tailscale-ipn.exe`) drove the stuck backend from `NoState` to `Running`. The
+   daemon had been running for 51 minutes without ever initialising; the tray process is evidently what
+   completes the handshake.
+2. **`tailscale set --accept-dns=true`** — `CorpDNS` was **false**, so `secratary.tail93e6e6.ts.net` did
+   not resolve *even with the tunnel up*. That is the second half of the outage and the less obvious
+   half: a working tunnel is not the same as a resolvable name. After it: the name resolves to
+   `100.84.72.88` and `GET /dsh-attention.js` returns **200, 21,232 bytes**.
+
+*Lesson:* "needs admin" was true of the *service*, not of the *problem*. Check the user-level path before
+telling the owner something is his to do.
+
+**What remains uncovered:** no check alarms when the *tailnet itself* is down on a machine, and nothing
+distinguishes "tunnel down" from "DNS off" in the badge's own message. A machine can be isolated while
+every local check reads green. Recorded, not solved.
 
 Recorded in `journal/PAIN.md` P55, `journal/LESSONS.md` L174–L177 and L190–L192.
