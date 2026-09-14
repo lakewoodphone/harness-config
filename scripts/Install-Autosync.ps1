@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Register (or remove) the unattended harness-config sync on this machine.
 
@@ -27,6 +27,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'HiddenTaskAction.ps1')
 $taskName = 'PersonalSecretary-HarnessSync'
 $script = Join-Path $Repo 'scripts\autosync.ps1'
 
@@ -44,7 +45,7 @@ if (-not (Test-Path $script)) { throw "autosync.ps1 not found at $script" }
 $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
 if (-not $pwshPath) { throw 'pwsh (PowerShell 7) not found on PATH — required by the autosync script' }
 
-$action = New-ScheduledTaskAction -Execute $pwshPath `
+$action = New-HiddenTaskAction -Execute $pwshPath -TaskName $taskName `
   -Argument ('-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}"' -f $script) `
   -WorkingDirectory $Repo
 
