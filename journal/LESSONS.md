@@ -1255,3 +1255,27 @@ two independent blockers: the threshold explains why `normal` messages cannot pa
 *Rule:* for a "nothing is happening" symptom, measure each stage in order (trigger → gate → transport →
 delivery) and find the **first** stage that is empty. A plausible cause found early is not a cause confirmed.
 
+
+
+**L167 · 2026-09-11/13 · An alarm must distinguish "the machine stopped" from "there was nothing to say".**
+I built the archive-silence alarm (L160) to catch the real 2026-09-11 outage, where sessions existed and the
+shipper failed for 2.5 h. Two days later it fired **3/3 and was wrong**: `secratary` had no DSH activity at all,
+so it had nothing to ship, and `zabz-tech`/`zabz-yoga` were simply idle. v1's rule was "the archive has not
+advanced in N minutes", which cannot tell a broken shipper from a quiet machine.
+*Rules:* (a) for any "no data" alarm, the signal must be **"data exists and did not arrive"**, not "data did not
+arrive" — measure the producer's own state (here, the shipper cursor versus the newest local session file),
+because that is the only thing that distinguishes silence from failure; (b) a false alarm is not a neutral
+error: it teaches the reader to ignore the alarm, which destroys the value of the true positives; (c) when you
+fix an alarm, add the case that fooled it to the self-test, not just the case it was built for.
+
+**L168 · 2026-09-11/13 · Do not confuse "I have been working for a while" with "no time has passed".** This turn
+ran from 2026-09-11 18:20 to 2026-09-13 21:57 EDT. I read a three-day-old digest, saw timestamps 2.5 days
+older than the clock, and first narrated it as "three days have passed" with no idea what happened in them —
+then nearly went the other way and called it a clock fault. Both hosts agreed and were NTP-synchronised, so the
+elapsed time was real and the fleet had simply kept working.
+*Rules:* (a) timestamp your own observations and re-read the clock before summarising; an in-session snapshot
+is never evidence about the present; (b) when a long turn resumes, the first question is not "where was I" but
+**"what changed while I was away"** — read the journal, the digest and `MAX(updated_at)` before reporting
+anything as current; (c) if clocks are suspected, prove it with two independent hosts and NTP status before
+naming a clock fault, because a wrong clock claim is a confidently-wrong number.
+

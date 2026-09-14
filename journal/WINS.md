@@ -350,3 +350,15 @@ new decision queue, two `critical` items (Google breach alerts) were investigate
 The 28-text loop is what made the switch look reasonable; the correct replacement — a rate limit plus dedup —
 is the next piece of work, and it is safe to build before he answers.
 
+
+
+**W30 · 2026-09-11/13 · The completion fix went live, and the first honest reading was worse than the lie.**
+The API was restarted (pid 2966268 → 3225268, healthy in 12 s, `apscheduler-boot` re-registered, Shabbat status
+byte-identical before and after, so the holy-day schedule was never at risk because the **device** holds it).
+With the fix running, the first honest completion reading is **last 24h: finished=221, completed=10,
+genuine=3, hollow=7, failed=211** — against "82.8% completed" before. And my own new alarm was found to be
+crying wolf (3/3 stale, all false) and was rebuilt to distinguish an idle machine from one whose work is not
+being archived, with a six-case self-test that now covers the exact case it got wrong. Two fixes in one
+segment, one of them to my own work from 36 hours earlier: the alarm that proved the previous agent wrong had
+to survive being proved wrong itself.
+
