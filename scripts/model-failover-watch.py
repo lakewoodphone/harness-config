@@ -185,7 +185,8 @@ def main():
                 log("revert pushed" if ok else "revert failed; will retry")
             state["healthy_count"] = 0
         else:
-            log("bridge active; flash healthy %d/%d" % (state["healthy_count"], N))
+            log("bridge active; flash healthy %d/%d (unhealthy %d/%d)"
+                % (state["healthy_count"], N, state["unhealthy_count"], N))
     elif model == "deepseek-flash":
         if state["unhealthy_count"] >= N:
             log("flash unhealthy %d/%d; failing fleet over to deepseek-v4-pro" % (state["unhealthy_count"], N))
@@ -197,7 +198,8 @@ def main():
                 log("failover pushed" if ok else "failover failed; will retry")
             state["unhealthy_count"] = 0
         else:
-            log("flash unhealthy %d/%d" % (state["unhealthy_count"], N))
+            log("flash unhealthy %d/%d (healthy %d/%d)"
+                % (state["unhealthy_count"], N, state["healthy_count"], N))
     else:
         log("no action: model=%s bridged=%s" % (model, bridged))
 
