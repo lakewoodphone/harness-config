@@ -236,7 +236,8 @@ lessons	L184	184		2026-09-14	ZABZ-YOGA	open	**L184 · A concurrent session put m
 lessons	L185	185		2026-09-14	imported	open	**L185 · 2026-09-14 · `schtasks` does not run a shell, so a registered command containing `>>` is broken at birth — read back what you registered**	log/lessons/2026-09.md	2525	2539	526932b6c896642d
 lessons	L186	186		2026-09-14	imported	open	**L186 · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it defensive**	log/lessons/2026-09.md	2540	2552	ea633b3660d41c02
 lessons	L187	187		2026-09-14	SECRATARY	open	**L187 · An overlay that restates a config deletes every key it does not restate**	log/lessons/2026-09.md	2553	2581	619769a51d97ac58
-lessons	L188	188		2026-09-14	SECRATARY	open	**L188 · A document is a delivery mechanism that a cache can delete without a trace**	log/lessons/2026-09.md	2582	2611	c5a80f1cf46a4ca9
+lessons	L188	188		2026-09-14	SECRATARY	open	**L188 · A document is a delivery mechanism that a cache can delete without a trace**	log/lessons/2026-09.md	2582	2610	c5a80f1cf46a4ca9
+lessons	L189	189		2026-09-14	SECRATARY	open	**L189 · A PowerShell script with any non-ASCII byte needs a UTF-8 BOM, or the edition that runs it will not parse it**	log/lessons/2026-09.md	2611	2644	226fecadc341fc60
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
