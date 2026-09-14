@@ -132,7 +132,13 @@ ARCHIVE_NAME = "archive"
 
 LOCK_NAME = ".lock"
 LOCK_STALE_SEC = 600
-LOCK_WAIT_SEC = 30.0
+# How long a writer waits for the lock. 30 s was too short and produced a *flaky* failure
+# in the six-way concurrency selftest: each append does a `git grep` pass over every ref to
+# find the id ceiling, so six serialised writers on a loaded machine (which is the normal
+# state here — two agent sessions and a build) can exceed 30 s and exit non-zero. The
+# journal refuses loudly rather than writing blind, but a refusal under load is a false
+# alarm: a writer should queue. 240 s covers six fetches and still fails within a turn.
+LOCK_WAIT_SEC = 240.0
 # Commands that read the tree to decide what to write back. Two of these running at
 # once on one tree is what produced 161 collided ids on 2026-09-14.
 MUTATING_COMMANDS = {"append", "import-legacy", "migrate-v2", "dedupe", "repair-ids",
@@ -1862,6 +1868,14 @@ def _queue_from_authority() -> str:
 # Commands: check
 # ---------------------------------------------------------------------------
 
+def _absorbed_alias_ids() -> set:
+    """Source ids an alias row already records as absorbed under another id."""
+    try:
+        return set(alias_map().keys())
+    except Exception:
+        return set()
+
+
 def unabsorbed_counts() -> dict:
     """Legacy flat entries whose LOGICAL identity is not in the tree, by kind.
 
@@ -1878,13 +1892,15 @@ def unabsorbed_counts() -> dict:
     idents = {(e["kind"], identity_of(e["kind"], effective_heading(e), e.get("body", "")))
               for e in entries}
     counts = {}
+    aliased = _absorbed_alias_ids()
     for path, kind in flat_sources():
         try:
             ents = parse_legacy(path, kind)
         except Exception:
             continue
         n = sum(1 for e in ents
-                if (kind, identity_of(kind, e["heading"], e["body"])) not in idents)
+                if (kind, identity_of(kind, e["heading"], e["body"])) not in idents
+                and e["id_full"] not in aliased)
         if n:
             counts[kind] = counts.get(kind, 0) + n
     return counts
@@ -1895,9 +1911,11 @@ def shard_unabsorbed_counts() -> dict:
     idents = {(e["kind"], identity_of(e["kind"], effective_heading(e), e.get("body", "")))
               for e in entries}
     counts = {}
+    aliased = _absorbed_alias_ids()
     for path, kind in shard_sources():
         n = sum(1 for e in parse_shard(path, kind)
-                if (kind, identity_of(kind, e["heading"], e["body"])) not in idents)
+                if (kind, identity_of(kind, e["heading"], e["body"])) not in idents
+                and e["id_full"] not in aliased)
         if n:
             counts[kind] = counts.get(kind, 0) + n
     return counts
@@ -2757,6 +2775,13 @@ def absorb_all(kinds=None, apply: bool = False, quiet: bool = False) -> dict:
     by_hash = {}
     by_ident = {}
     claims = {}
+    # An alias row is a record that this source id was ALREADY absorbed under another id.
+    # Without this, a source whose parsed body differs from the body the writer emitted
+    # (a wrapped heading folds differently) is re-added on every pass and then collapsed
+    # again by `dedupe` — an import/dedupe loop that also leaves `status` telling every
+    # session, forever, that two entries are missing. The alias is the tool's own evidence
+    # that the entry is in the tree; believe it.
+    alias_owner = alias_map()
     for e in existing:
         by_hash.setdefault(e["hash"], e["id_full"])
         claims.setdefault(e["id_full"], e.get("hash"))
@@ -2783,6 +2808,8 @@ def absorb_all(kinds=None, apply: bool = False, quiet: bool = False) -> dict:
         ident = identity_of(kind, c["heading"], c["body"])
         exact = by_hash.get(h)
         owner = exact or by_ident.get(ident)
+        if not owner and c["id_full"]:
+            owner = alias_owner.get(c["id_full"])
         if owner:
             counts["identical" if exact else "aliased"] += 1
             if c["id_full"]:
@@ -2951,9 +2978,13 @@ def _preview_unabsorbed() -> dict:
     idents = {(e["kind"], identity_of(e["kind"], effective_heading(e), e.get("body", "")))
               for e in entries}
     counts = {}
+    aliased = _absorbed_alias_ids()
     for c in legacy_candidates():
-        if (c["kind"], identity_of(c["kind"], c["heading"], c.get("body", ""))) not in idents:
-            counts[c["kind"]] = counts.get(c["kind"], 0) + 1
+        if (c["kind"], identity_of(c["kind"], c["heading"], c.get("body", ""))) in idents:
+            continue
+        if c["id_full"] in aliased:
+            continue
+        counts[c["kind"]] = counts.get(c["kind"], 0) + 1
     return counts
 
 
@@ -3232,6 +3263,21 @@ def cmd_selftest(args) -> int:
     return subprocess.call([sys.executable, str(script)])
 
 
+def cmd_verify(args) -> int:
+    """The independent gate: proves a rebuild lost nothing, using the frozen v1 parser.
+
+    `selftest` checks the tool against its own rules; this checks the TREE against an
+    implementation of the old format that the new tool did not write (`tools/verify.py`).
+    It is the check that caught three defects the 240-check selftest could not see, so it
+    belongs in the tool rather than in a scratch directory.
+    """
+    script = Path(__file__).resolve().parent / "verify.py"
+    if not script.exists():
+        note("verify.py not found at %s" % script)
+        return 2
+    return subprocess.call([sys.executable, str(script)])
+
+
 # ---------------------------------------------------------------------------
 # JSON helpers
 # ---------------------------------------------------------------------------
@@ -3421,6 +3467,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = add("selftest", "run tools/selftest.py")
     s.set_defaults(func=cmd_selftest)
+
+    s = add("verify", "run tools/verify.py: the independent no-loss gate, frozen v1 parser")
+    s.set_defaults(func=cmd_verify)
 
     return p
 

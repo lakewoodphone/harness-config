@@ -111,6 +111,8 @@ handoff	H201	201		2026-09-14 22:52 UTC	ZABZ-YOGA	open	## 2026-09-14 22:52 UTC ·
 handoff	H202	202		2026-09-14 23:01 UTC	ZABZ-YOGA	open	## 2026-09-14 23:01 UTC · ZABZ-YOGA · 2026-09-14 23:05Z ZABZ-YOGA: Dialpad comms end to end -- complete index, scheduled, agent-reachable	entries/handoff/H202.md	1	52	73a187f956f5d522
 handoff	H203	203		2026-09-14 23:05 UTC	ZABZ-YOGA	open	## 2026-09-14 23:05 UTC · ZABZ-YOGA · Engine freeze: a wedged engine the watchdog could not replace for 100 minutes (fixed, pushed as 444c3b3); Tailscale was never down, MagicDNS was	entries/handoff/H203.md	1	64	91d2b29690c1dcb0
 handoff	H204	204		2026-09-14 23:08 UTC	ZABZ-YOGA	open	## 2026-09-14 23:08 UTC · ZABZ-YOGA · Draft backlog closed and the generator fixed; the expiry the table always had is now enforced	entries/handoff/H204.md	1	40	3952523a8908bed8
+handoff	H205	205		2026-09-14 23:18 UTC	ZABZ-YOGA	open	## 2026-09-14 23:18 UTC · ZABZ-YOGA · Journal v2 is live and verified: one file per entry, a self-healing cache, and the record rebuilt from the frozen sources after a concurrent migration corrupted the derived tree	entries/handoff/H205.md	1	33	aef80ff8cfcfcb24
+handoff	H206	206		2026-09-14 23:23 UTC	SECRATARY	open	## 2026-09-14 23:23 UTC · SECRATARY · Fios fiber home install recorded: photos, credentials, ONT serial, and four open items	entries/handoff/H206.md	1	48	3b059bcbce68bb9e
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -400,6 +402,21 @@ lessons	L1083	1083		2026-09-14	ZABZ-YOGA	open	**L1083 · A relative 'started_lab
 lessons	L1084	1084		2026-09-14	ZABZ-YOGA	open	**L1084 · Chromium headless shell segfaults on eBay's anti-bot challenge page (not GPU, not memory)**	entries/lessons/L1084.md	1	29	7e95e9114ca8912e
 lessons	L1085	1085		2026-09-14	ZABZ-YOGA	open	**L1085 · The harvest's 'transcripts: found 0' is honest, not broken - do not rebuild it**	entries/lessons/L1085.md	1	35	d0fa18c5ae5ca040
 lessons	L1086	1086		2026-09-14	ZABZ-YOGA	open	**L1086 · A Windows path in a Linux column reads as corrupt audio; and supervise idempotent jobs**	entries/lessons/L1086.md	1	42	0f9e5dd10e4c7857
+lessons	L1087	1087		2026-09-14	ZABZ-YOGA	open	**L1087 · An allocator that only looks at the new store steals ids the old store already owns**	entries/lessons/L1087.md	1	10	3c492738530dfb45
+lessons	L1088	1088		2026-09-14	ZABZ-YOGA	open	**L1088 · Byte identity is the wrong key for a log written by two machines**	entries/lessons/L1088.md	1	8	0fa80ee5be2bb8d3
+lessons	L1089	1089		2026-09-14	ZABZ-YOGA	open	**L1089 · A cache with no freshness proof is a stale reading presented as current**	entries/lessons/L1089.md	1	8	d2bacd084301d6cc
+lessons	L1090	1090		2026-09-14	ZABZ-YOGA	open	**L1090 · Verify a rebuild with a parser you did not write**	entries/lessons/L1090.md	1	8	0590687450c7bc1e
+lessons	L1091	1091		2026-09-14	ZABZ-YOGA	open	**L1091 · A repair has to go through the same path a write does**	entries/lessons/L1091.md	1	8	97742c00aa8e6639
+lessons	L1092	1092		2026-09-14	ZABZ-YOGA	open	**L1092 · A summary that flatters the tree is worse than no summary**	entries/lessons/L1092.md	1	8	e23935a930eb2224
+lessons	L1093	1093		2026-09-14	ZABZ-YOGA	open	**L1093 · Re-measure before repeating a state claim: three entries disagreed about Tailscale and none was fresh**	entries/lessons/L1093.md	1	8	efb4cf3c44720da1
+lessons	L1094	1094		2026-09-14	ZABZ-TECH	open	**L263 · There is no cheap hidden channel for used iPhones: the floor is 110-125 for working unlocked stock, the levers are grade and lot size, and buying in person wins on risk not price**	entries/lessons/L1094.md	1	85	8ab38ee8e05c230e
+lessons	L1095	1095		2026-09-14	ZABZ-YOGA	open	**L1095 · A DSH window costs what its running agent costs, not what the window costs; the engine is not the bottleneck and threads/cores cannot help it**	entries/lessons/L1095.md	1	39	7614d907d6c2f539
+lessons	L1096	1096		2026-09-14	ZABZ-YOGA	open	**L1096 · Feeding tool results back is not the same as making actions visible: prove a step-1 fact reaches step-2 context**	entries/lessons/L1096.md	1	22	0a145a2894741436
+lessons	L1462	1462		2026-09-14	SECRATARY	open	**L1462 · A production checkout can be hundreds of commits behind origin; push your one commit from a detached worktree, never by pulling**	entries/lessons/L1462.md	1	22	e146ea4d0a5dc361
+lessons	L1463	1463		2026-09-14	SECRATARY	open	**L1463 · ps_action save_memory silently drops category/importance/type/tags arguments — verify the row in secretary.db**	entries/lessons/L1463.md	1	18	60bbfa909a9a8ba1
+lessons	L1464	1464		2026-09-14	SECRATARY	open	**L1464 · On secratary the repos are directly under ~/, not ~/code/ — and the phone workspace is /home/zabz/phone**	entries/lessons/L1464.md	1	17	7c0910a08b835cc5
+lessons	L1465	1465		2026-09-14	SECRATARY	open	**L1465 · CHR30A on a Verizon Fios install is an ACCESS POINT, not a router — verify a model number against the vendor before calling a device the gateway**	entries/lessons/L1465.md	1	21	11316cf623423015
+lessons	L1466	1466		2026-09-14	ZABZ-YOGA	open	**L1466 · Two machines allocated the same id during this very merge: the local ceiling reduces the rate, it does not prevent it**	entries/lessons/L1466.md	1	12	9bf6b805bd8c5f2a
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
@@ -495,6 +512,9 @@ pain	P128	128		2026-09-14	ZABZ-YOGA	open	## P128 — journal.py check fails on 3
 pain	P129	129		2026-09-14	ZABZ-YOGA	open	## P129 — Local master and origin/master have diverged, so this machine's journal writes never reach the authority	entries/pain/P129.md	1	6	5d545f9be5651d09
 pain	P130	130		2026-09-14	ZABZ-YOGA	open	## P130 — The owner-question mirror silently keeps a stale copy while the authority is reachable by ssh in the same second	entries/pain/P130.md	1	12	227c3c8d07ccc1c9
 pain	P131	131		2026-09-14	ZABZ-YOGA	open	## P131 — The comms index has no ingestion watchdog, and recent voicemails index as a phone number	entries/pain/P131.md	1	43	78eadd5fb4200e4f
+pain	P132	132		2026-09-14	ZABZ-YOGA	open	## P132 — Two sessions can migrate and audit this journal at once, and the lock does not cross machines	entries/pain/P132.md	1	14	e1011d178f46a9d1
+pain	P133	133		2026-09-14	ZABZ-YOGA	open	## P133 — log/** and the six flat files are still writable by any stale checkout	entries/pain/P133.md	1	12	15435ca4a8f8df71
+pain	P134	134		2026-09-14	SECRATARY	open	## P134 — The journal itself has forked: SECRATARY holds 936 entries that exist on no other machine, and ZABZ-YOGA holds 304 that SECRATARY has never read	entries/pain/P134.md	1	45	c2006fbf4b56624a
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -597,6 +617,10 @@ decisions	D137	137		2026-09-14	ZABZ-YOGA	open	**D137 · 2026-09-14 · Browser au
 decisions	D139	139		2026-09-14	ZABZ-YOGA	open	**D139 · 2026-09-14 · Engine supervision: one recovery path, no reclaim from window-opening verbs, two patient probes before any kill.**	entries/decisions/D139.md	1	25	f140d54678f10345
 decisions	D140	140		2026-09-14	ZABZ-YOGA	open	**D140 · 2026-09-14 · The broker can start a subscription - and does it by writing nothing to tenant_billing_state, because that upsert is a full-row replace.**	entries/decisions/D140.md	1	24	3ed49c136e58a159
 decisions	D141	141		2026-09-14	ZABZ-YOGA	open	**D141 · 2026-09-14 · comms: refresh cadence, agent access, and a bounded transcript-gap spend.**	entries/decisions/D141.md	1	51	26a33bc5ab971034
+decisions	D142	142		2026-09-14	ZABZ-YOGA	open	**D142 · 2026-09-14 · Absorption and dedupe key on the logical entry, not on bytes.**	entries/decisions/D142.md	1	12	28ca7250a8a57aa6
+decisions	D143	143		2026-09-14	SECRATARY	open	**D143 · 2026-09-14 · Fios home network record lives in personal-secretary-mvp/docs/network/ and the fact in memories 19173.**	entries/decisions/D143.md	1	16	e3cd69614ad53b94
+decisions	D144	144		2026-09-14	ZABZ-YOGA	open	**D144 · 2026-09-14 · The journal is one file per entry with a generated cache that heals itself.**	entries/decisions/D144.md	1	12	713086e575382d2c
+decisions	D145	145		2026-09-14	ZABZ-YOGA	open	**D145 · 2026-09-14 · Rebuild the derived tree from the frozen sources, then carry back what only it holds.**	entries/decisions/D145.md	1	12	2a9eb73ab50865c6
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -674,3 +698,7 @@ wins	W68	68		2026-09-14	legacy	open	**W37 · 2026-09-14 · The filter's website 
 wins	W104	104		2026-09-14	ZABZ-YOGA	open	**W104 · 2026-09-14 · The host code root was a Windows-only literal: local_context could not see any repositories.**	entries/wins/W104.md	1	34	eff7911880d71924
 wins	W105	105		2026-09-14	ZABZ-YOGA	open	**W105 · 2026-09-14 · A year of business conversation is complete, provable and refreshed every 30 minutes.**	entries/wins/W105.md	1	28	f9d643173b1db8ff
 wins	W106	106		2026-09-14	ZABZ-YOGA	open	**W106 · 2026-09-14 · Six finance status endpoints and auto-categorize were dead on Linux: hardcoded Windows ledger path..**	entries/wins/W106.md	1	33	a84094ec15f1e39d
+wins	W108	108		2026-09-14	ZABZ-YOGA	open	**W108 · 2026-09-14 · The journal's read path, measured before and after.**	entries/wins/W108.md	1	18	1aae8f05fe78ff58
+wins	W109	109		2026-09-14	ZABZ-YOGA	open	**W109 · 2026-09-14 · The migration proved it lost nothing, and the frozen v1 tool still reads the tree.**	entries/wins/W109.md	1	12	6d78fb08cd92c3b0
+wins	W110	110		2026-09-14	ZABZ-YOGA	open	**W110 · 2026-09-14 · The owner-question mirror refreshes on Windows again, and drift stopped crying wolf.**	entries/wins/W110.md	1	6	cf081a427925727c
+wins	W111	111		2026-09-14	ZABZ-YOGA	open	**W111 · 2026-09-14 · The work loop never showed the model its own tool results, so no session could accumulate a fact.**	entries/wins/W111.md	1	35	45833224f9e59036

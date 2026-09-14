@@ -46,6 +46,7 @@ journal/
   tools/
     journal.py           v2 — the only *sanctioned* writer.
     selftest.py          240 checks: format, flags, budget, migration order, concurrency, LF.
+    verify.py            the independent no-loss gate: frozen v1 parser vs the live tree.
     bin/j  bin/journal.cmd   convenience wrappers.
     archive/journal-v1.py    frozen v1, for the compatibility test.
 ```
@@ -150,7 +151,7 @@ Global: `--root PATH` (any journal tree, for tests and repairs), `--json`, `--bu
 the derived tree — `entries/` and the four generated files under `index/` — move it aside, run
 `journal.py migrate-v2 --apply`, then carry back any entry whose identity is not in the legacy
 sources (those are the entries written *after* the last migration). Verify with
-`python _scratch/j-verify.py`, which parses the legacy sources with the **frozen v1 parser** and
+`journal.py verify`, which parses the legacy sources with the **frozen v1 parser** and
 proves every one of the 1,235 legacy entries survives by identity, that no id means two different
 entries, and that the read targets in `AUDIT.md` are still met.
 

@@ -1,0 +1,9 @@
+**D143 · 2026-09-14 · Rebuild the derived tree from the frozen sources, then carry back what only it holds.**
+
+The live `entries/` tree was written by a concurrent session's migration while this session audited the same tree. It was wrong in ways that could not be patched in place: 563 files whose name, marker id and heading id disagreed (the id allocator had ignored `log/**` and the flat files, so it handed out numbers the old record already owned), 30 of them carrying text that existed nowhere else, plus a cache that had lost the pain and decisions rows.
+
+Decided: never nuke a derived tree and never trust it either. The procedure is: park `entries/` and the four generated files under `index/` (a move, into `_scratch/derived-run1-<ts>/`), re-run `migrate-v2 --apply` from the frozen sources, then carry back every entry whose *identity* is not in the legacy sources, and re-file the few whose id is already owned by different content with `append` (leaving the old id on the record). Nothing is deleted at any step, and every step is reversible because `log/**` and the six flat files were never touched.
+
+The reason this decision exists in writing: the second writer's tree was not garbage. It held 33 entries of real work from the hour before, and the naive "clear entries/ and re-migrate" that its own report recommended would have destroyed them. A rebuild has to enumerate what only the thing being discarded holds.
+
+Verified outcome: 674 entries, `check` 0 errors, drift 0, and the independent gate (`_scratch/j-verify.py`, which parses the frozen v1 sources with the frozen v1 parser) reports every one of the 1,235 legacy entries present by identity - 837 exact, 398 under another id - with 383 aliases and 0 B unexplained.
