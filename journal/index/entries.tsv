@@ -515,7 +515,8 @@ lessons	L240	240		2026-09-14	imported	open	**L240 · 2026-09-14 · Text delivere
 lessons	L241	241		2026-09-14	imported	open	**L241 · 2026-09-14 · When an audit finds a security defect, reproduce the exact trigger before writing the severity — the loose phrasing changes what the fix has to be**	log/lessons/2026-09.2.md	547	562	cb26ae1cfeff3f06
 lessons	L242	242		2026-09-14	ZABZ-TECH	open	**L242 · Case lookup: never tree-grep; the lpt-hub case index answers in 40ms (rg fails by exit 2 through a nested junction)**	log/lessons/2026-09.2.md	563	582	56164f9977266aa1
 lessons	L243	243		2026-09-14	ZABZ-TECH	open	**L243 · A package key is ignored when configuration.yaml already declares that key**	log/lessons/2026-09.2.md	583	620	2dbce27842c0b5d8
-lessons	L244	244		2026-09-14	ZABZ-TECH	open	**L244 · Piping a file to a host through PowerShell converts LF to CRLF**	log/lessons/2026-09.2.md	621	651	d677ef1267fff500
+lessons	L244	244		2026-09-14	ZABZ-TECH	open	**L244 · Piping a file to a host through PowerShell converts LF to CRLF**	log/lessons/2026-09.2.md	621	650	d677ef1267fff500
+lessons	L245	245		2026-09-14	ZABZ-TECH	open	**L245 · owner-queue.py docstring says --ages-days; the parser wants --age-days. And stdin-piping a script to ssh from PowerShell silently never arrives**	log/lessons/2026-09.2.md	651	676	6261a8d5212a8e0f
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
