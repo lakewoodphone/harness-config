@@ -5,7 +5,7 @@ Rewritten, not appended. An item leaves this file by being finished (a `log/hand
 becoming a `state/open-pain.md` row.
 ## MUST BE UNDONE — changes made live that are still in place
 
-**Nothing. Both temporary changes from this session were restored and verified.**
+**Nothing. Every temporary change from this session was restored and verified by read-back.**
 
 - The six Dahua config entries were disabled (~12:29 ET) and are **re-enabled**; all six read
   `loaded` again.
@@ -13,19 +13,24 @@ becoming a `state/open-pain.md` row.
   `automation.timeline_person_at_doorbell_clips_regen`,
   `automation.timeline_front_door_activity_clips_regen`,
   `automation.timeline_periodic_regeneration`.
-- The snapshot breaker's counter is `0` and `timer.phoenix_snapshot_breaker` is `idle`.
+- The NVR's `General.LockLoginEnable` was set `false` (~14:20 ET, with the owner's explicit approval,
+  to diagnose) and is **`true` again** — read back and confirmed
+  (`LockLoginEnable=true, LockLoginTimes=10, LoginFailLockTime=1800`).
+- The snapshot breaker's counter and timer were reset; `timer.phoenix_snapshot_breaker` is `idle`.
 
-**Why this section exists at all:** the test those changes enabled was invalid because I had
+**Why this section exists at all:** the first test those changes enabled was invalid because I had
 disabled only one of two paths to the NVR and called the window quiet (L248). Leaving live changes
 unrecorded is the same failure one step further on, so they go in the state tier the moment they
-are made.
+are made — including the one on the owner's security device, which is the one that most needs to be
+provably put back.
 
 ## Mine, being worked
 
 | Item | Where | Next concrete step |
 |---|---|---|
-| The NVR credential, once the owner answers | HA `dahua` config entries ×6 + `timeline_tools/phoenix-capture.sh` | The lockout hypothesis is DEAD: 40 minutes with zero contact from either path still returned 401. The NVR genuinely rejects `admin` / the stored password, which the owner believes is current. Get the working password (or a reset) and load it into all six entries; the RTSP clip script reads the same entries, so one fix covers both. Then prove a real JPEG end to end. |
-| Bound the RTSP clip path too | `timeline_tools/phoenix-capture.sh` + the three timeline automations | The HTTP snapshot path now has a circuit breaker (W54); the RTSP path has none, so it still attempts (and fails) one login per doorbell event. Same treatment, or make it read the breaker. |
+| The NVR credential, once the owner answers | HA `dahua` config entries ×6 + `timeline_tools/phoenix-capture.sh` | **ANSWERED AND CLOSED: the credential was never wrong.** The NVR's illegal-login lockout was refusing the HA host's source IP with a bare 500 (no `WWW-Authenticate`) -- see H110, H111, L262. Snapshots were proven working and the evidence path wrote real JPEGs at 14:01-14:24 ET. |
+| **Finish the camera fix: dead channels** | HA `dahua` config entries, channels 0/1/2/4/5/6 | **This is the last step and without it the fix decays.** Every failed snapshot feeds the NVR lockout, and the verification sweep counted 2 failures, so the lock re-arms within a few doorbell events and the evidence path dies again. `channel=2` answered **400** while 1 and 5 answered 200 with JPEGs, so at least one entry points at a channel with no camera. A background job is probing all of them once the current 1800 s lock expires while the breaker holds HA off. Then: remove or correct the dead entries and the component's sub-stream entities so a sweep produces **zero** failures. |
+| Bound the RTSP clip path too | `timeline_tools/phoenix-capture.sh` + the three timeline automations | The HTTP snapshot path now has a circuit breaker (W54); the RTSP path has none, so it still attempts (and fails) one login per doorbell event -- and every one of those feeds the same lockout. Same treatment, or make it read the breaker. |
 | Pin Git's `ssh.exe` ahead of the broken Windows one | `harness-config` | `C:\Program Files\OpenSSH\ssh.exe` hangs after every remote command *while still printing output*, so a timeout reads as a short answer (L232). Until pinned, treat any timed-out remote read as an unread surface. |
 | Reconcile `ha-config` with the live host | `ha-config` (P83) | Three files (`scripts.yaml`, `configuration.yaml`, `packages/phoenix_snapshot_cameras.yaml`) were already drifted before this session. **Do not run the full `deploy.ps1`** until they are reconciled hunk by hunk, or it will revert the host's fixes. |
 | The retired Keymaster generation | HA host + `ha-config/docs/DISPOSAL-PLAN-2026-09-11-dead-generations.md` | 82 unavailable automations, 41 entities, the `_2` twins. Disposal pass, provable delete by delete; until then every count from that estate is inflated (P76). |
