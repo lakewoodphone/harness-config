@@ -1,7 +1,14 @@
-# The dsh-plugin-attention-badge bundle patch: mount on every web profile.
+# The dsh-plugin-attention-badge bundle patch: mount the badge on every machine.
 #
-# No `disabled` row and no host tools: this package contributes a client bundle and
-# nothing else, so the only thing a profile must do is list it in
-# `dsh.profile.bundles` (which scripts/install-client-plugin*.{sh,ps1} does).
-- id: plugin-attention-badge
-  name: dsh-plugin-attention-badge
+# One host row, inert (`lib/index.js` does nothing at runtime). The browser roster is
+# assembled from package manifests, not from this file, so the row exists only so the
+# package is a real loader entry and its client half is part of that roster.
+#
+# The row is an `insert` without an id target, so it adds a loader entry rather than
+# overriding one, and a later patch layer can still disable it by id. Measured
+# 2026-09-14: WITHOUT the `insert:` wrapper the loader reports
+# `entry "plugin-attention-badge" not found` and the bundle is skipped - the same
+# silent-asymmetry shape this package exists to remove, so the wrapper is not cosmetic.
+- insert:
+    - id: plugin-attention-badge
+      name: dsh-plugin-attention-badge
