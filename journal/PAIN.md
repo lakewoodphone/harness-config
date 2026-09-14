@@ -1155,3 +1155,24 @@ only `Xvfb` on `secratary`; `~/secretary-attention-digest/latest.txt` (2026-09-1
 `curl https://secratary.tail93e6e6.ts.net/dsh-attention.json` → `attention:6, highest:critical`;
 `_scratch/test-badge.py` → 16/16; screenshots `_scratch/badge-closed.png`, `badge-open.png`.
 
+
+
+## P56 — Re-ingesting after a parser change can silently empty an index
+
+**Symptom.** After raising the chat parser to v3, `chats-v2.db` ended with `messages = 0` while
+`msg_fts = 17,365` and `sessions = 1,601` — a database that looked populated by some measures and was
+empty by the one that matters.
+
+**Cause, both halves mine.** (1) The version-mismatch path deleted a file's messages *before* re-reading
+it, so any failure during the re-read left a hole; an unmatched `BEGIN` made every large file fail with
+"cannot start a transaction within a transaction". (2) My verification run pointed at an empty directory,
+so it passed without testing anything.
+
+**Cost.** ~13 minutes of processing and a derived index that had to be rebuilt. Low this time because the
+index is derived data and re-ingest is cheap — but the same shape applied to a *source* store would be
+data loss, which this business has suffered twice.
+
+**Fix (done).** Rebuild from scratch into the canonical path with the corrected code (verified: 120 real
+files → **11,906 messages, 0 errors**). Still open: make the re-ingest atomic per file so a single bad
+file cannot empty its own rows; the honest target is "a failed file changes nothing".
+

@@ -1654,3 +1654,25 @@ container is sized by its content, and the first child wins; (c) measure geometr
 (`getBoundingClientRect` against `clientWidth`) instead of judging by eye, because "looks about right at
 this size" is what let v1 and v2 both ship.
 
+
+
+**L178 · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the
+wrong lesson.** I "verified" the transaction fix by pointing the ingester at `~/.copilot/session-state`,
+which discovered **0 files**, so the run completed cleanly and printed success. The very next real run
+failed identically on every large file. The test had exercised the discovery code and nothing else.
+*Rules:* (a) a test must **prove it reached the code under test** — assert a non-zero count of the thing
+being processed, not merely a clean exit; (b) when a fix targets a specific input class (here: files large
+enough to need a transaction), the test must contain an instance of that class. "It returned 0" is
+indistinguishable from "it worked" unless you check.
+
+**L179 · 2026-09-14 · Bumping a parser version is a data operation, not a metadata change.** I raised
+`PARSER_VERSION` 2 → 3 so the improved parser would reprocess. The existing code path for "the stored
+version differs" began by **deleting every message for that path** and then re-reading — which is right
+only if the re-read succeeds. Combined with an error that aborted every large file, the result was a
+database with `messages = 0` but `msg_fts = 17,365`: rows deleted in the emit loop, then committed empty.
+*Rules:* (a) make re-ingest **atomic per file** — write into a fresh set and swap, or wrap the whole file
+in one transaction, so a failure leaves the previous data intact rather than a hole; (b) after any
+version bump, verify counts **increased or stayed level** — a drop is a failure, not a re-index; (c) compare
+the FTS and base tables when something looks empty, because a mismatch between them is the signature of a
+half-committed delete.
+
