@@ -554,6 +554,8 @@ try {
     return $results
 }
 
+. "$PSScriptRoot\dshw-geometry.ps1"
+
 function Open-SlotWindow($slot, $state) {
     $exe = Get-EdgePath
     if (-not $exe) { throw 'no Edge/Chrome binary found' }
@@ -594,8 +596,20 @@ function Open-SlotWindow($slot, $state) {
         "--disable-sync",
         "--disable-features=Translate,MediaRouter,msEdgeSidebarV2,msEdgeCollections,msEdgeShoppingAssistant,EdgeWallet,msEdgeIdentityFeature"
     )
+    # Placement: the owner's rule wins over the manifest. A remembered rectangle is used when
+    # the manifest has one AND the caller asked for a remembered launch (`restore`); a fresh
+    # window (`new`, and the + control) is placed on the monitor the pointer is on, cascaded
+    # off the window already there. `dshw save-layout` writes what he has arranged.
     $slotSize = Get-Prop $slot 'size'
     $slotPos  = Get-Prop $slot 'position'
+    if (-not $slotPos) {
+        try {
+            $placement = Get-PlacementForNewWindow
+            $slotPos = $placement.position
+            $slotSize = $placement.size
+            Write-Host ("  placing on {0} at {1}" -f $placement.monitor, $slotPos) -ForegroundColor DarkGray
+        } catch { }
+    }
     if ($slotSize) { $winArgs += "--window-size=$slotSize" }
     elseif (Get-Prop $Cfg.browser 'windowSize') { $winArgs += "--window-size=$(Get-Prop $Cfg.browser 'windowSize')" }
     if ($slotPos) { $winArgs += "--window-position=$slotPos" }

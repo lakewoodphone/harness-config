@@ -403,8 +403,12 @@ function apply(ctx) {
   // comment here ends the literal. Escape it or do not use one.
   const slots = ctx.slots;
   if (slots === undefined) return;
-  slots.inject('conversation.composer.dock', () =>
-    slots.register({ name: 'conversation.composer.dock', id: 'cost', order: 10, label: 'Session cost' }, CostPill),
+  // ONE seat, and the composer's LEFT row: the same row as the access control and the two new
+  // session controls. It used to register in conversation.composer.dock, which renders UNDER
+  // the input box - the owner's words were "both next to the Deepseek Model Picker and also
+  // like on bottom in a weird ui". The left row is where a composer control belongs.
+  slots.inject('conversation.input.left', () =>
+    slots.register({ name: 'conversation.input.left', id: 'cost', order: 60, label: 'Session cost' }, CostPill),
   );
 }
 

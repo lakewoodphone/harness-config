@@ -109,10 +109,10 @@ const fakeSlots = {
 const fakeContext = { slots: fakeSlots };
 exports_.apply(fakeContext);
 console.log('slot registration');
-check('it waits for the composer dock slot', injectedSlot === 'conversation.composer.dock', injectedSlot);
-check('it registers into the composer dock', registeredOptions?.name === 'conversation.composer.dock');
+check('it waits for the composer LEFT seat', injectedSlot === 'conversation.input.left', injectedSlot);
+check('it registers into the composer LEFT seat', registeredOptions?.name === 'conversation.input.left');
 check('it uses a fresh id so the shipped stats pill is untouched', registeredOptions?.id === 'cost', registeredOptions?.id);
-check('it places itself after the shipped stats pill', registeredOptions?.order === 10, String(registeredOptions?.order));
+check('it places itself after the shipped composer seats', registeredOptions?.order === 60, String(registeredOptions?.order));
 check('it registers a renderable cell', typeof registeredCell === 'function');
 
 // ── render with and without the projection ───────────────────────────────────
