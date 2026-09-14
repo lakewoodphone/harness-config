@@ -112,6 +112,7 @@ handoff	H202	202		2026-09-14 23:01 UTC	ZABZ-YOGA	open	## 2026-09-14 23:01 UTC ·
 handoff	H203	203		2026-09-14 23:05 UTC	ZABZ-YOGA	open	## 2026-09-14 23:05 UTC · ZABZ-YOGA · Engine freeze: a wedged engine the watchdog could not replace for 100 minutes (fixed, pushed as 444c3b3); Tailscale was never down, MagicDNS was	entries/handoff/H203.md	1	64	91d2b29690c1dcb0
 handoff	H204	204		2026-09-14 23:08 UTC	ZABZ-YOGA	open	## 2026-09-14 23:08 UTC · ZABZ-YOGA · Draft backlog closed and the generator fixed; the expiry the table always had is now enforced	entries/handoff/H204.md	1	40	3952523a8908bed8
 handoff	H205	205		2026-09-14 23:18 UTC	ZABZ-YOGA	open	## 2026-09-14 23:18 UTC · ZABZ-YOGA · Journal v2 is live and verified: one file per entry, a self-healing cache, and the record rebuilt from the frozen sources after a concurrent migration corrupted the derived tree	entries/handoff/H205.md	1	33	aef80ff8cfcfcb24
+handoff	H206	206		2026-09-14 23:26 UTC	ZABZ-YOGA	open	## 2026-09-14 23:26 UTC · ZABZ-YOGA · The silence was our monitoring, not the fleet: DRN 2 answered in seconds - liveness only advances when WE contact a device	entries/handoff/H206.md	1	48	ebd8a3e8a9928a7f
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
