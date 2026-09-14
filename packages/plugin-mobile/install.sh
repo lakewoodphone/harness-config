@@ -21,15 +21,39 @@ PKG="dsh-plugin-mobile"
 
 [ -d "$PROFILE" ] || { echo "no profile at $PROFILE" >&2; exit 1; }
 
-# 1. resolve by name
+# 1. resolve by name.
+#
+# A symlink needs a privilege on Windows that a normal shell does not have, so this falls back
+# to a directory junction (which needs none) and only then to a copy. Measured 2026-09-14: the
+# local profile on ZABZ-YOGA carries `dsh-plugin-cost (Junction)` and `dsh-plugin-windows
+# (Junction)` — evidence that `ln -s` alone is not enough on this fleet. A copy is the last
+# resort and says so, because a copy drifts from the checkout the moment either side is edited.
 mkdir -p "$PROFILE/node_modules"
 link="$PROFILE/node_modules/$PKG"
-if [ -L "$link" ] && [ "$(readlink "$link")" = "$HERE" ]; then
-  echo "ok: $link already points at $HERE"
+already=""
+if [ -L "$link" ] && [ "$(readlink "$link")" = "$HERE" ]; then already="symlink"
+elif [ -d "$link" ] && [ -f "$link/package.json" ] && [ ! -L "$link" ]; then already="maybe-junction"
+fi
+
+if [ -n "$already" ]; then
+  echo "ok: $link already resolves (${already})"
 else
   rm -rf "$link"
-  ln -s "$HERE" "$link"
-  echo "linked: $link -> $HERE"
+  if ln -s "$HERE" "$link" 2>/dev/null; then
+    echo "linked: $link -> $HERE"
+  elif command -v cmd.exe >/dev/null 2>&1; then
+    wtarget="$(cygpath -w "$HERE" 2>/dev/null || printf '%s' "$HERE")"
+    wlink="$(cygpath -w "$link" 2>/dev/null || printf '%s' "$link")"
+    if cmd.exe //c mklink /J "$wlink" "$wtarget" >/dev/null 2>&1; then
+      echo "junctioned: $link -> $HERE"
+    else
+      cp -r "$HERE" "$link"
+      echo "WARNING: copied instead of linked — this copy WILL drift from the checkout"
+    fi
+  else
+    cp -r "$HERE" "$link"
+    echo "WARNING: copied instead of linked — this copy WILL drift from the checkout"
+  fi
 fi
 
 # 2. add to the bundle list, in place, without a YAML/JSON dependency
