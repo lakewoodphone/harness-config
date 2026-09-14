@@ -530,7 +530,8 @@ lessons	L248	248		2026-09-14	ZABZ-TECH	open	**L248 · I stopped one path to a de
 lessons	L249	249		2026-09-14	ZABZ-TECH	open	**L249 · Repair pricing: use the invoice landed cost, not the supplier's published shipping rate - measured 1.8x error**	log/lessons/2026-09.2.md	781	807	aef7059ac16e9f17
 lessons	L250	250		2026-09-14	ZABZ-TECH	open	**L250 · Record the device OWNER as the customer and the deliverer/payor separately - filing under the payor lost the Savitz card for 3 weeks**	log/lessons/2026-09.2.md	808	829	90a513f27fbff02e
 lessons	L251	251		2026-09-14	ZABZ-TECH	open	**L251 · Measure the command, not the function - the case-index README understated its own cost by 4x**	log/lessons/2026-09.2.md	830	859	638784c1417955f0
-lessons	L252	252		2026-09-14	ZABZ-TECH	open	**L252 · An unguarded nested field on a hand-authored corpus aborts the whole import - 5 of 377 lpt-hub records did exactly that**	log/lessons/2026-09.2.md	860	902	58ed07db0d9308b8
+lessons	L252	252		2026-09-14	ZABZ-TECH	open	**L252 · An unguarded nested field on a hand-authored corpus aborts the whole import - 5 of 377 lpt-hub records did exactly that**	log/lessons/2026-09.2.md	860	901	58ed07db0d9308b8
+lessons	L253	253		2026-09-14	ZABZ-TECH	open	**L253 · An unavailable-since duration resets on restart, so it understates the outages that matter**	log/lessons/2026-09.2.md	902	937	210af19fb82739e1
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
