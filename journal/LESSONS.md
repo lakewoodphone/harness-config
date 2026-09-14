@@ -1834,3 +1834,25 @@ A state-law research stream had marked the Maryland Kids Code as *unverified* an
 
 **L162 · 2026-09-14 · A `git worktree` is not a copy of the working tree — untracked files stay behind, so it is the wrong control for environment-sensitive behaviour.**
 Chasing two test failures I had introduced, I compared "current" against "base" by adding a worktree at the previous commit and running the same two files in both. It worked — and it lied about one of them. `test_integrity_anchor::test_publish_integrity_anchors_writes_file_and_webhook` passed in the base worktree and failed in the main checkout, so I recorded "it is mine". It was not: the main checkout has an **untracked `server/.env`** that configures a real partner email (`LPT_ACCOUNTABILITY_EMAIL`, `LPT_PARTNER_EMAIL_SMTP_HOST=smtp.resend.com`), so the anchor publisher legitimately attempts an SMTP send that no test can complete; the worktree had no `.env`, hence a green result. **Proved by blanking three environment variables: 5 passed.** *Rules:* (1) before comparing two checkouts, ask what in the failing one is untracked — `.env`, generated fixtures, `data/`, local certificates — and whether the test's behaviour depends on it; (2) `git status --porcelain --ignored` in the failing checkout is the cheap way to see it; (3) "it passes at base" is evidence about *code* only when the environment is otherwise identical, which a worktree does not guarantee. The second failure in the same pair turned out to be load-sensitive rather than anyone's: it passes alone and with every combination I tried, and fails only under full-suite load.
+
+
+**L182 · 2026-09-14 · Two sessions edited one shared file and one silently lost its work — check the
+file on disk, not the commit that wrote it.** Commit `8891307d` added four freshness sections
+(0, 0a, 0b, 0c) to `owner-attention-digest.sh`. A later session rewrote that file from an earlier copy
+while adding its own `1b. DELIVERY`, which dropped all four. `git log` still showed my commit, so the
+history *looked* right while the working tree had none of it — and the digest, the one place a silent
+failure is supposed to surface, was reporting nothing at all.
+*Rules:* (a) a file's history is not its contents; after any hand-off or long gap, **read the working
+file** before assuming an edit survived; (b) when you find a lost edit, **merge rather than replace**,
+because the other session's work is in the same file and is just as real; (c) `bash -n` (or the
+equivalent) before writing, so a merge cannot leave a broken script in place of a working one.
+
+**L183 · 2026-09-14 · Do the expensive reshaping in the engine, not in a Python loop.** To
+de-duplicate 1,839,746 paths that differ only by case on Windows, I updated a key per row and deleted
+duplicates one at a time. It burned **1,016 s of CPU without finishing** and I killed it. SQLite's
+`COLLATE NOCASE` does the same job at the engine level, and rebuilding the table in one bulk
+`INSERT ... SELECT ... GROUP BY LOWER(path)` finishes in seconds.
+*Rule:* when a task needs a per-row loop over a large table, first ask whether the database can express
+it as one statement. A loop that is "obviously correct" is the slow answer, and its slowness is easy to
+mistake for the size of the job.
+
