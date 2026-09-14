@@ -451,3 +451,69 @@ consumer must be internal: a small attention count inside the harness client (ho
 client half renders the count and expands to the findings). Rejected for now: SMS or email on a finding, because that is
 outbound, it costs money, and it can interrupt him — that is his decision, and it is recorded as such in QUESTIONS.md rather
 than assumed.
+**D46 · 2026-09-14 · Presence readings live in `owner_state[key='presence']`, not a new table.**
+`owner_state` is a key/value table whose only other key (`current`) is written read-modify-write by
+`update_owner_state_from_calendar`, so adding a key is additive, needs no migration, cannot clobber anything,
+and is immediately readable through `ps_db_query` and `GET /owner_state?key=presence`. A new table would have
+needed a schema change and an endpoint; this needed neither.
+*Also decided:* the sampler is **out of tree** at `~/presence-runtime/`, not inside the repo checkout, because
+an untracked file at `app/services/presence.py` would block the eventual `git pull` (P44) — the workaround must
+not become a new obstacle.
+*Deliberately rejected:* mirroring a `presence` sub-key into `current`. Checked first: it would be read by
+**nothing** — `_build_owner_state_prompt_section` is a stub returning `""`, `_owner_state_snapshot` reads only
+`manual_availability_override`, and `voice_policy` reads only `calendar_inference`. Writing it would have looked
+like integration and been decoration.
+
+**D47 · 2026-09-14 · Staleness is the alarm, and a blind-but-fresh sample is a separate fault.**
+The sampler never writes a placeholder on failure; it exits non-zero and stays quiet, so `updated_at` goes stale
+and absence stays detectable. `check_presence` raises **HIGH** for a stale row and **HIGH** for a fresh row with
+`ha_answered: false` (Home Assistant unreachable), because those are different faults with different fixes.
+The known owner-dependent condition — no phone location permission — is **MEDIUM** and deliberately does not
+raise attention, so the alarm cannot cry wolf every five minutes the way the archive alarm did before P52.
+
+**D48 · 2026-09-14 · Yocheved's box gets its own machine settings file, and NEVER inherits `base.yaml`'s sandbox.**
+The owner is hiring her as the LPT manager and asked that her machine be powerful for the shop but unable to
+cause breaking changes. `harness-config` already has the mechanism — `settings/machines/<HOSTNAME>.yaml`, merged
+over `settings/base.yaml`, delivered by `scripts/autosync.ps1` from a committed snapshot. Her box joins that
+pattern as `settings/machines/DESKTOP-FGV6KMH.yaml`.
+*The load-bearing decision:* `base.yaml` pins `permission.defaultPreset: danger-full-access`. If her machine
+merges over that without an explicit override it silently gains unrestricted filesystem and shell access, and
+her own `~/.dsh` plus the harness config become writable by the agent acting on her behalf. So her file sets
+`workspace-write` explicitly. This is the one setting where an omission is a security failure rather than a
+default, and it is why her settings are a separate committed file rather than a line in `base.yaml`.
+*Also decided:* provenance is enforced in git, not requested from the model — a server-side
+`prepare-commit-msg` hook with `core.hooksPath` outside the workspace appends `Dsh-Actor` / `Dsh-Machine` /
+`Dsh-Session` / `Dsh-At` trailers. Outside the workspace because a hook she can edit is a convention, not a
+control. The owner's machines get the same hook with their own machine name, so one `git log --grep` partitions
+all history by origin.
+*Deliberately rejected:* handing her the owner's account-wide `gho_` OAuth token, which is what her Git
+Credential Manager holds today. It can push to every repo the owner can reach, which would make her commits
+indistinguishable from his and defeat the attribution requirement at its root. Repository-scoped credentials
+replace it instead (read-only to the company repo, read/write to `lpt-hub` only).
+
+**D49 · 2026-09-14 · Her harness routes its model through DeepInfra, not a Cloudflare proxy to `api.deepseek.com`.**
+Techloq MITM-s all TLS on her box (`issuer=CN=env1.dc3.us.techloq.com`) and blocks `api.deepseek.com` by URL
+category — it answers with HTML, and with **HTTP 302 and HTTP 200** depending on the client, so a naive
+status-code check reads the block page as success. `api.deepinfra.com` is allowed and returns real JSON.
+Verified from her own machine, through Techloq, at the exact call the harness makes: all three DeepSeek models
+return `finish_reason: tool_calls`, so the agent loop works. `dsh-llm-pi-ai` accepts a hand-declared
+OpenAI-compatible route (`baseURL`, `apiKeyEnv`, `models`), re-read per request, so this is a settings change
+and not a build.
+*Also decided — this is the part that made it a decision rather than a preference:* it is **cheaper**, not just
+easier. `deepseek-ai/DeepSeek-V4-Flash-0731` is **$0.06/M in, $0.18/M out, $0.015/M cache-read** against the
+owner's documented DeepSeek direct rates of $0.14/$0.28 for `deepseek-flash`, and DeepSeek's own listing
+describes `-0731` as superseding the preview with substantially enhanced agentic capability and outperforming
+V4-Pro (Preview). Cheaper *and* the stronger model.
+*Kept as the one-line fallback:* a Cloudflare Worker fronting `api.deepseek.com` (the owner's own suggestion).
+Switching is one `baseURL` line. Rejected *as the first move* because it builds infrastructure to work around a
+block that already has a cheaper, working, better-model bypass.
+*Rejected:* `deepseek-official` as the provider. The route is unreachable from her network, so a config that
+names it would fail at request time with a misleading error.
+
+
+
+**D19 · 2026-09-11 · The LPT website is the point of entry for managing fleets — not the MDM console.**
+Owner's words: *"there are different ways fleets. There is the lpt general one for sale. There is the drn 1 that is managed by lpt and stuff like that. The best point of entry for managing all this would be from the lpt website, not from some random website."*
+*Decision:* the LPT portal is where staff manage fleets. The standalone `waze-mdm-fleet-dashboard` container on the MDM host is **not** an entry point — the owner did not know it existed, and "some random website" is exactly what it is. It stays at most as an operator/backend tool, and nothing should be built that requires a human to go there.
+*Consequence for what was already built:* the staff page I added at `/admin/waze-fleet` is on the right side of this decision and should grow into that role; the old console should not be duplicated or surfaced.
+*Also established (measured, not assumed):* the fleet is **not** homogeneous. `fleet_devices.site` carries five values — `lakewood` (58), `lpt` (2), `monsey` (1), `baltimore` (1), `chicago` (2) — and **only `site='lpt'` has Telnyx SIMs (2 of 65 devices)**. So data caps, usage, and the customer portal panel apply to the LPT product fleet only; the other sites are MDM-managed phones with no cellular data through this system.
