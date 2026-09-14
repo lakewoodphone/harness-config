@@ -180,7 +180,82 @@ def do_check(as_json: bool) -> int:
     return 1 if stale else 0
 
 
+def _pid_looks_alive(pid_text: str) -> bool:
+    """Best-effort liveness check for a pid string, with no optional dependency."""
+    try:
+        n = int(str(pid_text).strip())
+    except (TypeError, ValueError):
+        return False
+    if os.name == "nt":
+        import subprocess
+        try:
+            out = subprocess.run(["tasklist", "/FI", f"PID eq {n}", "/NH"],
+                                 capture_output=True, text=True, timeout=15).stdout
+            return str(n) in (out or "")
+        except (OSError, subprocess.SubprocessError):
+            return False
+    try:
+        os.kill(n, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _acquire_lock() -> str | None:
+    """Take the single-instance lock, or return a reason we refused.
+
+    MEASURED: a full pass takes ~10 min and the schedule is hourly, so overlap is
+    unlikely -- but a manual run beside a scheduled one produced
+    `sqlite3.OperationalError: database is locked` and killed the whole refresh.
+    One lock file is cheaper than making every write resilient to contention, and
+    it turns a corrupted run into a clear refusal.
+    """
+    lock = os.path.join(FSEARCH_DIR, "refresh.lock")
+    pid = str(os.getpid())
+    try:
+        if os.path.exists(lock):
+            with open(lock, "r", encoding="utf-8") as fh:
+                held = fh.read().strip()
+            age_min = (time.time() - os.path.getmtime(lock)) / 60.0
+            if _pid_looks_alive(held) and age_min < 45:
+                return (f"another refresh is already running (pid {held}, started "
+                        f"{age_min:.0f} min ago); refusing to overlap")
+            os.remove(lock)                      # stale lock from a dead run
+        os.makedirs(FSEARCH_DIR, exist_ok=True)
+        with open(lock, "w", encoding="utf-8") as fh:
+            fh.write(pid)
+        return None
+    except OSError as exc:
+        print(f"  warning: could not manage the refresh lock ({exc})")
+        return None
+
+
+def _release_lock() -> None:
+    lock = os.path.join(FSEARCH_DIR, "refresh.lock")
+    try:
+        if os.path.exists(lock):
+            with open(lock, "r", encoding="utf-8") as fh:
+                if fh.read().strip() == str(os.getpid()):
+                    os.remove(lock)
+    except OSError:
+        pass
+
+
 def do_refresh(roots, as_json: bool, verbose: bool) -> int:
+    refusal = _acquire_lock()
+    if refusal:
+        if as_json:
+            print(json.dumps({"ok": False, "skipped": True, "reason": refusal}))
+        else:
+            print("  " + refusal)
+        return 0
+    try:
+        return _do_refresh_body(roots, as_json, verbose)
+    finally:
+        _release_lock()
+
+
+def _do_refresh_body(roots, as_json: bool, verbose: bool) -> int:
     started = dt.datetime.now(dt.timezone.utc)
     state = load_state()
     results = {}
