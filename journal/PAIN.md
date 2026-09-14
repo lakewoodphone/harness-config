@@ -1175,4 +1175,37 @@ data loss, which this business has suffered twice.
 **Fix (done).** Rebuild from scratch into the canonical path with the corrected code (verified: 120 real
 files → **11,906 messages, 0 errors**). Still open: make the re-ingest atomic per file so a single bad
 file cannot empty its own rows; the honest target is "a failed file changes nothing".
+## P56 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)
+
+**Symptom.** Four `/health` probes 6 s apart returned `ok:true, ok:true, ok:false, ok:false`. The failure
+mode is honest in its own words — `"db check timed out (lock contention); api still responsive"` — and the
+process is alive (systemd `active`, `NRestarts=1`, autopilot on). The endpoint returns **HTTP 200 even when
+`ok:false`**, so anything watching the status code sees a healthy service.
+
+**Measured.** `secretary.db` = **3.02 GB**; `secretary.db-wal` = **67,108,864 bytes — exactly 64 MiB, the
+cap the digest already flags as "near cap"**; WAL header valid; 5 `ps_mcp_server.py` processes running
+since 04:22–04:53 plus the API; journal shows **42 "lock contention" lines in the previous 2 hours**, so
+this predates the API restart that surfaced it (the restart is a coincidence, not the cause — and it is
+worth saying so, because assuming causation there is exactly L151's failure).
+
+**Cost.** The company's own health surface is **intermittently unusable and never alarmed on**: a check
+that flaps every few seconds produces no signal a monitor can act on, and 200-on-degraded means any uptime
+watcher is blind by construction. Every reader that needs a trustworthy DB probe can get a false negative
+half the time and cannot tell which half.
+
+**Fix (not yet built).**
+(a) A sentinel check for the *proportion* of recent `/health` probes that returned `ok:false`, read from
+whatever log the probe writes — a rate, not a single sample, because the failure is intermittent by nature
+(L176's lesson applied to a different signal).
+(b) Make degraded visibly degraded: `ok:false` should not be a 200 for a monitoring endpoint, or there
+should be a second field a monitor can key on. Decide, do not leave it to whoever reads the code next.
+(c) Find what holds the write lock for so long — candidates: the WAL at its cap and failing to checkpoint
+under load, the 3 GB database, and five MCP servers each opening connections. `PRAGMA wal_checkpoint` on a
+**copy**, never the live file.
+(d) Do **not** restart the API to "fix" this; it was already happening before the restart, and another
+restart would only hide the reading again.
+
+**Evidence.** `curl -s http://127.0.0.1:8002/health` ×4 → true/true/false/false with the exact error string;
+`ls -la data/secretary.db{,-wal}` → 3,019,935,744 and 67,108,864; `journalctl -u secretary-api --since "2
+hours ago" | grep -c "lock contention"` → 42; `ps -o pid,lstart,cmd` → five `ps_mcp_server.py` processes.
 
