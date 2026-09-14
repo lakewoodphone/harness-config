@@ -372,3 +372,13 @@ real 39.8 MB chat file opened to learn the format (`kind:2` carries `requests[]`
 turn). Two FTS tables — `porter` for prose, `trigram` for identifiers — because one cannot do both. The chat
 corpus that the old index missed by ~99% (16.97 GB across 737 files) is being ingested by the same pass.
 
+
+**W25 · 2026-09-14 · The phone sidebar is off-canvas: the conversation gets the whole screen, and the page stopped scrolling.**
+`assets/mobile.css`, injected by the gate, now takes the sidebar out of the app's grid on a narrow viewport and pins its
+toggle to the top-left of the screen. Measured on the live app at 393x852, all four states: **closed** sidebar at x=-340
+with the content column **337px -> 393px** and the toggle fixed at [10,14] 44x44 fully on screen; **open** the drawer at
+x=0/339px over the conversation with the content still 393px; **after picking a conversation** the drawer closes itself
+(plugin) back to x=-340; **desktop 1440px** the sidebar is `position: static` at 280px with `body` overflow untouched.
+Scrolling, which the owner reported as "funny": the page is now unscrollable (`body` overflow hidden on narrow only), the
+transcript is the single scroller (`scrollBody` moved to 300 while `window.scrollY` stayed 0), and momentum is contained.
+Nothing in the content column sits under the pinned control — checked by geometry, not by eye.

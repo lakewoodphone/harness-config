@@ -429,3 +429,17 @@ one on before the pipeline works). SQLite is already proven here at 2.6 GB, need
 `porter`+`trigram` covers stemming and substring. Vectors are a later, separate decision gated on a working
 embedding pipeline, measured, not assumed.
 
+
+**D39 · 2026-09-14 · On a phone the sidebar is an off-canvas drawer with its toggle pinned to the screen, not a narrower rail.**
+Chosen over a slimmer rail (cosmetic, keeps the 14% cost) and over `display: none` (broke the grid, L146). The whole block
+sits inside `@supports selector(:has(*))`, matched on the app's own `collapsed` class, so a browser without `:has()` keeps
+the previous layout instead of getting a rail stretched across the screen — the upgrade is fail-safe by construction.
+The frame's column template is overridden with `!important` because the app writes it inline, and the sidebar leaves the
+grid rather than being deleted. Paired with the scroll rules: on narrow viewports `html, body` stop scrolling and momentum
+is contained inside the app's own scrollers, so a drag can no longer chain out of the transcript and move the page.
+
+**D40 · 2026-09-14 · The authority's unpublished journal work was preserved by committing it, not by stashing or discarding.**
+The alternatives were worse in a way that matters: a checkout would have destroyed work that existed in no ref, and a stash
+would have collided with the incoming journal content on pop and left a conflict for its author. It was backed up to
+`~/journal-recovery-20260914-040121`, committed verbatim with a message naming the situation, rebased cleanly, and pushed —
+so the deployment could move again and the record survived intact.

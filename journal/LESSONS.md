@@ -1352,3 +1352,35 @@ building on it (SQLite 3.49.1 / 3.46.1, all three tokenizers present).
 *Corollary:* derive the plan from a **capability probe**, not from documentation about the version — my first
 attempt to test this failed purely from shell quoting, and the second proved the capability on the real host.
 
+
+---
+
+## On changing a layout you do not own (phone sidebar, 2026-09-14)
+
+**L146 · 2026-09-14 · Read the layout mechanism before you style it.**
+`display: none` on the sidebar collapsed the conversation to 56px and clipped every heading. The cause was invisible
+from the outside: `.pI_x6G_frame` is `display: grid`, and **the app sets its columns inline from JavaScript** —
+`grid-template-columns: 56px minmax(0px, 1fr) 0px`. Removing a grid child shifts the others into the wrong tracks, so the
+conversation moved into the 56px track. *Rule:* before changing a layout's boxes, read the live CSSOM and the inline
+styles on the container. Two minutes there replaced an afternoon of guessing, and the fix (`grid-template-columns:
+minmax(0,1fr) !important` plus taking the sidebar out of flow rather than deleting it) could only have been found that way.
+
+**L147 · 2026-09-14 · A transformed ancestor owns its fixed descendants.**
+The first working version moved the drawer with `transform: translateX(-100%)`. That creates a containing block for
+`position: fixed` descendants, so the sidebar's own toggle would have travelled off-screen with it — and that toggle is the
+only control that opens the sidebar. `left: -340px` moves the same box without adopting its children. *Rule:* when you take
+a container off-screen, check which of its children you are also removing from the user's reach; prefer `left`/`top` over
+`transform` when something inside must stay pinned.
+
+**L148 · 2026-09-14 · Before hiding a control, verify it is not the only one.**
+I assumed the content header had its own "Open sidebar" button, as the rail's icons are duplicated there. It does not: the
+only toggle lives inside the sidebar, at [10,14] 44x44. Enumerating every button whose accessible name mentions "sidebar",
+with its parent and its box, took one call and prevented shipping a phone interface that could never switch conversations.
+
+**L149 · 2026-09-14 · An uncommitted write on a deployment host blocks every deploy, silently.**
+The authority's checkout was 5 commits behind and refused to fast-forward: an agent session running *on that host* had
+written `journal/HANDOFF.md`, `LESSONS.md` and `PAIN.md` and never committed them. The work existed in no ref — a checkout
+or stash would have destroyed it, and a snapshot-style autosync would have too. Resolved by backing the three files up,
+committing them verbatim, rebasing onto `origin/master` (clean) and pushing. *Rule:* a host that both runs agents and
+deploys from a checkout will eventually block itself this way; the deploy path needs a keeper that says "N behind and dirty"
+rather than failing a pull into a log nobody reads.

@@ -1002,3 +1002,22 @@ that is append-log aware, resumable by byte offset, streams in 1 MB reads, and d
 `metadata.toolCallResults` blobs that would drown the human record. Not yet done: the company DB (email, SMS,
 calls) and the DSH archive into the same query surface.
 
+
+## P47 — A host that runs agents and deploys from one checkout will block its own deploys
+**Symptom.** The authority could not pull for hours: an agent session running on that host wrote journal entries and never
+committed them, so every deploy to that checkout failed with "Your local changes to the following files would be
+overwritten by merge" — into a log nobody reads. The work existed in no ref, so it was one autosync away from being
+overwritten and lost.
+**Evidence.** `git status` showed three modified journal files (+88/+53/+34 lines); `git log --all --grep` found 0 commits
+containing them; `origin/master` was 5 commits ahead; the backup is `~/journal-recovery-20260914-040121`.
+**Cost.** Every change to the phone stack in that window was undeliverable, and the failure was silent — the pull's error
+went to a health-check log that reports success.
+**Fix.** A keeper, in the shape of the ones already written for the phone stack: `config_sync` in the kernel should report
+"this checkout is N commits behind and has uncommitted changes", because "converged 11 minutes ago" is not the same reading
+as "cannot move". Then the writer is told, instead of the deploy path failing quietly.
+
+## P46 (update, 2026-09-14)
+The rail half of this entry is fixed: the sidebar is off-canvas on a phone and the conversation has the full width (W25).
+What remains is the default workspace — a brand-new phone session still asks which workspace to use, and the app persists no
+workspace-selection key (`dsh.sessions.current` and `dsh.workspace.view.v5` are the only ones), so it must come from the
+workspace controller's own state, not from a key this layer can seed.
