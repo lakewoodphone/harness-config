@@ -87,8 +87,8 @@ const fakeSlots = {
 };
 const ctx = { slots: fakeSlots }; // the shipped client plugins reach the registry as ctx.slots
 moduleExports.apply(ctx);
-check('it waits for the composer dock slot', declaredSlot === 'conversation.composer.dock', String(declaredSlot));
-check('it registers the two controls in each place', registeredCells.length === 4, String(registeredCells.length));
+check('it waits for the composer LEFT seat', declaredSlot === 'conversation.input.left', String(declaredSlot));
+check('it registers exactly two controls, in one place', registeredCells.length === 2, String(registeredCells.length));
 check('the first control is the in-window one',
   registeredCells[0] && registeredCells[0].options.id === 'new-session-here');
 check('the second control is the new-window one',

@@ -118,20 +118,24 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       const slots = ctx.slots;
       if (slots === undefined) return;
+      // ONE place, and it is the composer's LEFT seat - the same seat as the access-mode
+      // control and the plan chip, which is "the far left, beside the New session button"
+      // the owner asked for. Registering in two places put a second pair next to the model
+      // picker and a third under the input, which is what he saw and rejected.
+      // conversation.input.left renders for every session, so ordering is the only thing
+      // that decides position: attachments/access come first, these sit just after them.
       const controls = [
-        { id: 'new-session-here', order: 5, kind: 'here', label: 'New session' },
-        { id: 'new-session-window', order: 6, kind: 'window', label: 'New session in a new window' },
+        { id: 'new-session-here', order: 40, kind: 'here', label: 'New session' },
+        { id: 'new-session-window', order: 50, kind: 'window', label: 'New session in a new window' },
       ];
-      for (const place of ['conversation.input.right', 'conversation.composer.dock']) {
-        slots.inject(place, () => {
-          for (const c of controls) {
-            slots.register(
-              { name: place, id: c.id, order: c.order, label: c.label },
-              () => React.createElement(Control, { kind: c.kind }),
-            );
-          }
-        });
-      }
+      slots.inject('conversation.input.left', () => {
+        for (const c of controls) {
+          slots.register(
+            { name: 'conversation.input.left', id: c.id, order: c.order, label: c.label },
+            () => React.createElement(Control, { kind: c.kind }),
+          );
+        }
+      });
     }
 
     exports.apply = apply;
