@@ -55,10 +55,9 @@ permission:
 # LESSON (see journal/LESSONS.md L25): do not change the owner's model on
 # inference. Probe it, price it, and ask if it is his money.
 # ---------------------------------------------------------------------------
-# BRIDGE(2026-09-14): v4-pro while DeepSeek flash is down; model-failover-watch.py reverts when healthy (owner-chosen bridge).
 agent-default-model:
   provider: deepseek-official
-  model: deepseek-v4-pro
+  model: deepseek-flash
 
 agent-presets:
   # `zabz` is the conversational CEO: full toolbelt, the secretary bridge, and a
