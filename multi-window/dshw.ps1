@@ -1186,6 +1186,26 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
         Write-Host ("engine on {0} is not answering (attempt {1}/{2}) - starting it" -f $port, $attempt, $maxAttempts) -ForegroundColor Yellow
         "[{0}] ensure: port {1} not answering, attempt {2}/{3}" -f (Get-Date -Format o), $port, $attempt, $maxAttempts |
             Add-Content -LiteralPath $recoveryLog -Encoding utf8
+        # RECLAIM BEFORE STARTING (2026-09-14). A port that is BOUND but not answering means a
+        # wedged engine still owns it, and starting a second one dies with EADDRINUSE -- exactly
+        # what the owner walked into at 15:05 that afternoon: the health supervisor had already
+        # restarted 3099 as pid 32044 while the watchdog tried to start another, and the window
+        # it opened went to a URL that could not authenticate.
+        #
+        # Stop-ServerTree already finds the REAL holder by port instead of trusting the recorded
+        # pid (which was stale: ready-3099.json still named a dead pid 37064), so use it before
+        # every start, not only in `restart`. Guarded on the process name so a foreign listener
+        # is reported rather than killed; if it is not ours, start anyway and let the normal
+        # EADDRINUSE path speak.
+        $holder = Get-PortOwner $port
+        if ($holder -and $holder.ProcessName -eq 'node') {
+            "[{0}] ensure: port {1} bound but not answering - reclaiming from pid {2}" -f (Get-Date -Format o), $port, $holder.Id |
+                Add-Content -LiteralPath $recoveryLog -Encoding utf8
+            [void](Stop-ServerTree $port (Get-SlotRecord (Get-State) $port))
+        } elseif ($holder) {
+            "[{0}] ensure: port {1} held by {2} (pid {3}), not a node engine - not reclaiming" -f (Get-Date -Format o), $port, $holder.ProcessName, $holder.Id |
+                Add-Content -LiteralPath $recoveryLog -Encoding utf8
+        }
         try {
             $r = Start-OneSlotServer $slot
             $state = Get-State
@@ -1206,6 +1226,13 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
             "[{0}] ensure: engine started (pid {1}) but never answered on {2}" -f (Get-Date -Format o), $r.pid, $port |
                 Add-Content -LiteralPath $recoveryLog -Encoding utf8
         } catch {
+            # A competing supervisor may have won the race: if the port answers now, that is a
+            # success, not a failure. Same 2026-09-14 incident as the reclaim block above.
+            if (Test-EngineAlive $port) {
+                "[{0}] ensure: start reported '{1}' but {2} answers now - treating it as up" -f (Get-Date -Format o), $_.Exception.Message, $port |
+                    Add-Content -LiteralPath $recoveryLog -Encoding utf8
+                return $true
+            }
             Write-Host ("  start failed: {0}" -f $_.Exception.Message) -ForegroundColor Red
             "[{0}] ensure: start FAILED - {1}" -f (Get-Date -Format o), $_.Exception.Message |
                 Add-Content -LiteralPath $recoveryLog -Encoding utf8
