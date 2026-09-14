@@ -57,7 +57,7 @@ import sqlite3
 import sys
 import time
 
-PARSER_VERSION = 3
+PARSER_VERSION = 4
 MAX_TURN_CHARS = 60_000        # per human/assistant turn
 MAX_LINE_BYTES = 64 * 1024 * 1024   # measured max is 419 MB; refuse rather than OOM
 MAX_FIELD_CHARS = 600
@@ -340,7 +340,16 @@ def iter_lines(fh, max_line=MAX_LINE_BYTES, stats=None):
                     buf.extend(more[nl + 1:])
                     break
     if buf:
-        yield bytes(buf)            # a torn final line; the caller decides
+        # A trailing partial line: the file was cut off mid-record (VS Code does
+        # this when it is closed with a chat open). It is still worth parsing for
+        # whatever text is complete inside it, but the CALLER must know the line
+        # was not newline-terminated -- otherwise a truncated session is reported
+        # as "ok" and the loss becomes invisible. The flag is handed over rather
+        # than inferred, because an earlier version of this generator silently
+        # turned 648 torn sessions into 648 "ok" ones.
+        if stats is not None:
+            stats["torn_tail"] = True
+        yield bytes(buf)
 
 
 def ingest_file(con, path, source, verbose=False):
@@ -419,6 +428,10 @@ def ingest_file(con, path, source, verbose=False):
 
     skipped_long = stats.get("skipped_long", 0)
     harvested = stats.get("harvested") or []
+    # Set by iter_lines when the file ended without a newline, i.e. it was cut off
+    # mid-record. Without this, a truncated session reads as "ok" and the loss is
+    # invisible -- which is how 648 torn sessions went missing from the flag.
+    torn = bool(stats.get("torn_tail"))
 
     # ── emit turns ──
     written = 0
@@ -465,8 +478,21 @@ def ingest_file(con, path, source, verbose=False):
                         (mid, text, sid, role))
             written += 1
         if n % BATCH == 0:
-            con.commit()
-            con.execute("BEGIN")
+            # The BEGIN may already be closed by an earlier commit. Committing a
+            # non-transaction is harmless; STARTING one inside an open transaction
+            # is an error, and that is what made whole files fail with
+            # "cannot start a transaction within a transaction".
+            try:
+                con.execute("BEGIN")
+            except sqlite3.OperationalError:
+                pass
+
+    # Balance the transaction unconditionally. An unmatched BEGIN here is how
+    # files with zero requests produced the error above.
+    try:
+        con.commit()
+    except sqlite3.Error:
+        con.rollback()
 
     # ── turns recovered from oversized lines ──
     # These are heuristic, so they are written with a distinct request_id suffix
@@ -491,8 +517,13 @@ def ingest_file(con, path, source, verbose=False):
         con.execute("INSERT INTO msg_tri(rowid, text, session, role) VALUES(?,?,?,?)",
                     (mid, text, sid, role))
         written += 1
-    con.commit()
-    con.execute("BEGIN")
+    # Commit the harvested writes. Do NOT open a new transaction here: the code
+    # below only writes on the paths that follow, and an unmatched BEGIN was the
+    # source of the "transaction within a transaction" failures.
+    try:
+        con.commit()
+    except sqlite3.Error:
+        con.rollback()
 
     quality = "ok"
     if torn:

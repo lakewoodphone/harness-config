@@ -70,6 +70,51 @@ def run(cmd: list[str], timeout: int = 3600) -> tuple[int, str]:
         return 127, str(exc)
 
 
+
+def rebuild_name_index(db_path: str, out_path: str) -> tuple[int, str]:
+    """(rc, tail) for rebuilding the filename index from the file index.
+
+    WHY: `find` was measured at 2.795 s on 815,000 rows because a leading-wildcard
+    LIKE cannot use an index. A trigram index over the path answers the same query
+    in 0.000 s and also matches mid-path fragments. It must be rebuilt whenever the
+    file index changes, or filename search silently returns stale results.
+    """
+    import sqlite3
+    if not os.path.exists(db_path):
+        return 1, f"no file index at {db_path}"
+    try:
+        if os.path.exists(out_path):
+            os.remove(out_path)
+        src = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        dst = sqlite3.connect(out_path)
+        dst.executescript("""
+            PRAGMA journal_mode=OFF;
+            PRAGMA synchronous=OFF;
+            CREATE TABLE names (
+                id INTEGER PRIMARY KEY, path TEXT NOT NULL, name TEXT NOT NULL,
+                name_rev TEXT NOT NULL, ext TEXT, size INTEGER, mtime REAL);
+            CREATE INDEX idx_names_rev ON names(name_rev);
+            CREATE VIRTUAL TABLE path_fts USING fts5(
+                path, id UNINDEXED, tokenize='trigram');
+        """)
+        rows = src.execute("SELECT id, path, name, ext, size, mtime FROM files").fetchall()
+        dst.executemany(
+            "INSERT INTO names(id, path, name, name_rev, ext, size, mtime) "
+            "VALUES(?,?,?,?,?,?,?)",
+            [(r[0], r[1], r[2], (r[2] or "")[::-1].lower(), r[3], r[4], r[5])
+             for r in rows])
+        dst.executemany("INSERT INTO path_fts(path, id) VALUES(?, ?)",
+                        [(r[1], r[0]) for r in rows])
+        dst.commit()
+        dst.execute("INSERT INTO path_fts(path_fts) VALUES('optimize')")
+        dst.commit()
+        src.close()
+        dst.close()
+        return 0, f"names.db rebuilt: {len(rows):,} rows"
+    except sqlite3.Error as exc:
+        return 1, f"name index rebuild failed: {exc}"
+
+
 def load_state() -> dict:
     try:
         with open(STATE, "r", encoding="utf-8") as fh:
@@ -142,6 +187,17 @@ def do_refresh(roots: list[str], as_json: bool, verbose: bool) -> int:
         results["fsearch"] = {"rc": rc, "tail": out}
     else:
         results["fsearch"] = {"rc": 1, "tail": f"missing script or no roots (skipped {skipped})"}
+
+    if os.path.exists(FSEARCH):
+        # the file index lives beside the scripts; names.db sits next to it
+        rc, out = rebuild_name_index(
+            os.path.join(FSEARCH_DIR, "index.db"),
+            os.path.join(FSEARCH_DIR, "names.db"))
+        if rc != 0 and os.path.exists(os.path.join(FSEARCH_DIR, "lean.db")):
+            rc, out = rebuild_name_index(
+                os.path.join(FSEARCH_DIR, "lean.db"),
+                os.path.join(FSEARCH_DIR, "names.db"))
+        results["names"] = {"rc": rc, "tail": out}
 
     if os.path.exists(CHATINDEX):
         cmd = [_python(), CHATINDEX, "index"]
