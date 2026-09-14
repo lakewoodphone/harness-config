@@ -26,6 +26,22 @@ const BADGE = path.join(REPO, 'assets', 'phone-badge.js');
 const GATE = path.join(REPO, 'scripts', 'phone-gate.py');
 const PLUGIN = path.join(REPO, 'packages', 'plugin-attention-badge');
 
+/**
+ * The interpreter that actually exists here. Windows has `python`; the authority has `python3` and no
+ * `python`, so a hardcoded name meant the gate's half of this suite never ran on the host that serves
+ * the badge — and a suite that quietly skips half its checks is worse than no suite, because it reads
+ * as coverage.
+ */
+function pythonBin() {
+  const { spawnSync } = require('node:child_process');
+  for (const candidate of ['python3', 'python']) {
+    const probe = spawnSync(candidate, ['--version'], { encoding: 'utf8' });
+    if (probe.status === 0) return candidate;
+  }
+  return null;
+}
+const PYTHON = pythonBin();
+
 const results = [];
 function check(name, ok, detail) {
   results.push({ name, ok: Boolean(ok), detail: detail === undefined ? '' : String(detail) });
@@ -534,7 +550,9 @@ console.log('== round trip: the gate\'s real payload, rendered by the real badge
   // coupled — a rename on one side would have shown up only on the owner's phone. This takes the
   // bytes the gate actually produces and feeds them to the badge that actually renders them.
   const { spawnSync } = require('node:child_process');
-  const r = spawnSync('python', [path.join(REPO, 'scripts', 'verify-badge-gate.py'), '--payload'], { encoding: 'utf8' });
+  const r = PYTHON === null
+    ? { stdout: '', stderr: 'no python3 or python on PATH' }
+    : spawnSync(PYTHON, [path.join(REPO, 'scripts', 'verify-badge-gate.py'), '--payload'], { encoding: 'utf8' });
   if (!r.stdout) {
     check('the gate can produce a real payload', false, (r.stderr || '').split('\n')[0]);
   } else {
@@ -564,7 +582,9 @@ console.log('');
 console.log('== gate + plugin contract (via a tiny python helper) ==');
 {
   const { spawnSync } = require('node:child_process');
-  const r = spawnSync('python', [path.join(REPO, 'scripts', 'verify-badge-gate.py'), '--json'], { encoding: 'utf8' });
+  const r = PYTHON === null
+    ? { stdout: '', stderr: 'no python3 or python on PATH' }
+    : spawnSync(PYTHON, [path.join(REPO, 'scripts', 'verify-badge-gate.py'), '--json'], { encoding: 'utf8' });
   if (r.status !== 0 && !r.stdout) {
     check('the gate helper runs', false, (r.stderr || '').split('\n')[0]);
   } else {
