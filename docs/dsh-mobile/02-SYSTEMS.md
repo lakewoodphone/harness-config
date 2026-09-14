@@ -27,8 +27,24 @@ iPhone (Safari, or Home Screen)
 | Host | `secratary` (`100.84.72.88`), the always-on office box | `ssh secretary-ts 'uptime'` |
 | Node | `/home/zabz/node/bin/node` (22.23.2 — 20 fails silently) | `/home/zabz/node/bin/node -v` |
 | Harness | `/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh` **0.1.5-rc.1** | `node -e "console.log(require('/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/package.json').version)"` |
-| Engine | `dsh web --port 3089 --no-open --trusted-host secratary.tail93e6e6.ts.net` | `ss -ltn \| grep 3089` · `pgrep -af "bin[.]js web"` |
+| Engine | `dsh web --port 3089 --no-open --trusted-host secratary.tail93e6e6.ts.net`, owned by **`phone-engine.service`** | `systemctl status phone-engine` · `ss -ltn \| grep 3089` · `journalctl -u phone-engine -n 40` |
 | Harness home | `~/.dsh` — applied from the checkout by `scripts/autosync.sh`, cron `*/15` | `cat ~/.harness-config-autosync/status.json` |
+
+**The two long-lived processes are systemd units, and that is load-bearing.** They were first started
+from an SSH session, with `setsid nohup` — which detaches a terminal but does **not** move a process
+out of its cgroup, so they lived inside `session-NNNNN.scope`. systemd-logind reaps a session's
+processes when the session ends, silently (a signal leaves no traceback), and the phone simply
+stopped answering; measured three times on 2026-09-14 before the cause was found:
+
+```
+/proc/<gate>/cgroup -> 0::/user.slice/user-1000.slice/session-25033.scope
+14:47:06 systemd-logind: Session 25028 logged out. Waiting for processes to exit.
+14:47:16 systemd-logind: Removed session 25028.
+```
+
+`phone-engine.service` and `phone-gate.service` put them in `/system.slice/`, which no login can
+reap, with `Restart=always` (2–3 s) — and `serve-phone.sh` now defers to them instead of starting its
+own, because two supervisors for one process is its own outage.
 
 **Loopback-only is deliberate.** `dsh web` refuses `--host 0.0.0.0` because it would expose
 remote code execution to the network. The way in is a reverse proxy that preserves `Host`
@@ -42,8 +58,18 @@ targeted row's whole `config`, and without that key every `/api` call and WebSoc
 | Thing | Where | How to check |
 |---|---|---|
 | Serve | `tailscale serve` → `https://secratary.tail93e6e6.ts.net/` → `127.0.0.1:3086` | `tailscale serve status` |
-| Gate | `scripts/phone-gate.py` on `127.0.0.1:3086` | `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3086/ -H 'Host: secratary.tail93e6e6.ts.net'` → 200 |
+| Gate | `scripts/phone-gate.py` on `127.0.0.1:3086`, owned by **`phone-gate.service`** | `systemctl status phone-gate` · `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3086/ -H 'Host: secratary.tail93e6e6.ts.net'` → 200 |
 | Redirector | `scripts/phone-redirector.py` on `127.0.0.1:3087` — the public `/phone` icon | `curl -s -D- -o /dev/null http://127.0.0.1:3087/phone` → 302 |
+| Workspace | `/home/zabz/phone`, title **Phone**, kept by `scripts/ensure-phone-workspace.py` | `python3 scripts/ensure-phone-workspace.py --check` → exit 0 |
+
+The **workspace** line is the answer to "why is the workspace on the phone called scratch?". It was
+deliberate that a phone session does not run in a git checkout of the company's code — a
+conversation from the owner's pocket can run shell commands in its working directory. The *name* was
+the accident: `/home/zabz/_scratch` was registered as the only workspace, so every phone session
+landed in a junk-drawer directory. `/home/zabz/phone` is now first in the order, and the older
+`_scratch` record is deliberately left alone: **nine sessions store it as their cwd, and DSH refuses
+to attach a session whose directory no longer resolves**, so renaming it would make the owner's own
+history unopenable.
 
 The gate does four things and nothing else: signs a cold visitor in *in flight* (token → cookie,
 one response, no redirect chain that a bad cookie can loop), injects the phone layer into
@@ -92,8 +118,9 @@ another lane's in-flight work.
 
 | Mechanism | Where | How to check |
 |---|---|---|
-| Watchdog | crontab `*/2 * * * *` → `scripts/serve-phone.sh` (also `@reboot`) | `crontab -l \| grep serve-phone` |
-| What it repairs | the engine, the gate, the redirector, and **both** client plugin installs | `./scripts/serve-phone.sh` prints what it found; no output = nothing to do |
+| **systemd** owns the engine and the gate | `phone-engine.service`, `phone-gate.service` | `systemctl is-active phone-engine phone-gate` |
+| Watchdog | crontab `*/2 * * * *` → `scripts/serve-phone.sh` (also `@reboot`) — **defers to the units** and never restarts a healthy one | `crontab -l \| grep serve-phone` |
+| What it repairs | Serve, the redirector, **both** client plugin installs, and the phone workspace | `./scripts/serve-phone.sh` prints what it found; silence = nothing to do |
 | Probe | crontab `*/5` → `scripts/probe-phone.py --quiet --json` → `~/.dsh-phone/probe.json` | `python3 -c "import json;d=json.load(open('$HOME/.dsh-phone/probe.json'));print(d['ok'],d['passed'],d['total'],d['failed'])"` |
 | What the probe covers | 15 checks: cold visitor, token exchange, document, **WebSocket upgrade 101**, foreign-Host fence, real HTTPS through Serve, stale cookie, dead link, connection reuse, layer delivery, roster, **an authenticated RPC (`session/list`)**, **layer cannot be cached away**, **stylesheet route**, public `/phone` | `python3 scripts/probe-phone.py` |
 | Kernel | `ceo-kernel` sentinel check `phone_endpoint` reads that verdict | `ck status` on the authority |
@@ -124,15 +151,21 @@ with the cost pill, the tool answer, the drawer closing itself).
 
 ## 7. What is still rough, stated rather than hidden
 
-- **First run lands with no session.** A browser with no remembered session shows the pane and the
-  composer but no conversation; the reader opens the drawer and picks one (or taps New session).
-  P46's remainder — the app persists no selection key, so this is the workspace controller's
-  state, not something the injected layer can seed.
+- **First run on a brand-new client.** A browser with no history shows a "Choose workspace" row
+  until one is picked, because the app resolves a session's workspace by *membership* and a session
+  created outside the workspace picker has a directory but no membership
+  (`dsh-client-ui-workspace`: `workspaceId ?? currentWorkspaceId ?? recent`). The owner's phone does
+  not see it — his existing sessions already belong to a workspace — but a fresh device does. P46.
 - **In-transcript disclosures are 40px tall** and some path chips are 24px. Deliberate: 44px on
-  inline transcript rows distorts the whole message. The primary controls are all >= 44px.
-- **The gate died once, unexplained** (2026-09-14 05:48:40 → ~05:50): it was serving, then the port
-  was gone and Serve answered 502, then the watchdog restarted it and the next probe was green.
-  No traceback, no OOM line, 17.9 GB free. Watchdog cadence cut from 10 minutes to 2 in response;
-  the cause is still unknown — see PAIN P56.
+  inline transcript rows distorts the whole message. Every *primary* control is >= 44px, and the
+  composer's own row is now one line with no control under 44px.
+- **The composer used to wrap onto two lines with the cost pill present** (232px of the screen for
+  the whole composer). Fixed by removing the two controls that were redundant here — access mode
+  (`danger-full-access` is pinned on this host) and the shipped stats strip — not by shrinking the
+  remaining 44px targets. Measured after: one control row.
 - **A phone cannot be identified.** Serve rewrites every visitor to 127.0.0.1 and the gate logs no
   User-Agent, so "the owner is on his phone" is inference, not a reading (PAIN P43).
+- **Two other services on this host have more than one supervisor.** The cron API watchdog and the
+  `secretary-api.service` unit both start uvicorn, which produced four restarts in one hour and a
+  `kill -9` path in `secretary-startup.sh`. Not this path, and not touched tonight — the phone units
+  deliberately give each process exactly one owner. Recorded in `journal/PAIN.md`.
