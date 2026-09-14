@@ -1690,6 +1690,38 @@ base (`git reset --soft origin/master`), unstage, `git checkout <my-sha> -- <my 
 those paths; (d) re-fetch before every push in a long turn, because `origin/master` moves under you and the
 race is invisible from the working tree.
 
+**L215 · 2026-09-14 · A test whose harness is broken is worse than no test: it reports the broken harness
+as evidence. Check that the suite runs at all before trusting that it passes.**
+*(Numbered above the collisions — see L192.)*
+I wrote a 130-check verifier for the attention badge and used it as proof for hours. It **never ran**:
+`node scripts/verify-badge.js` exited 1 with zero PASS lines, three runs, three different crashes. Two
+causes, both in the harness rather than the badge — the `node:vm` sandbox had no `URL` global, so every
+request threw during URL construction **before it was opened**; and the fake transport cleared its own arm
+inside `open()`, so the badge's start-up request stayed in flight and the in-flight guard made every later
+load a silent no-op. Worse: the assertions then passed *by accident*, because a failure message reading
+"could not reach the findings" satisfies `/could not reach/` — the pattern meant to assert the failure path
+matched the bug I was trying to test for.
+*Rules:* (a) **run the suite and read the pass count before quoting it** — a verifier that errors on line
+one looks identical to a verifier with nothing to say; (b) an assertion that matches an error *string* is
+not an assertion about *behaviour* — assert the state (`state.error`, the rendered pill), not a substring a
+different failure also produces; (c) give a sandbox the globals the code needs (`URL`, `Date`, `JSON`) or
+the code fails at the first line that uses them; (d) never let a harness hold state the code under test also
+mutates — the arm-clearing bug was invisible precisely because both sides shared one mutable flag; (e) **a
+test must be green on every machine that has to run it**: the authority has `python3` and no `python`, so the
+gate half of this suite silently ran 68 of 130 checks there and reported a pass.
+
+**L216 · 2026-09-14 · One key cannot be both a flag and a count, and `Number(null)` is 0.**
+The badge payload carried `ok` as the success flag. Adding the healthy-check count, the obvious name for it
+was `ok` too — because `summary.ok` is what the kernel calls it — and so an all-clear arrived as `ok: 0`,
+which is falsy. **A healthy system became indistinguishable from an unreadable one**, and the badge would
+have announced "findings unavailable" about a system with no problems at all.
+*Rules:* (a) a boolean flag and a count must never share a name in one object; the collision is invisible in
+the JSON and only shows up in a falsy-zero test; (b) `Number(null) === 0` and `Number('') === 0`, so a
+coercion helper that returns 0 for absent input converts *missing information* into *good news* — reject
+null, undefined and blank explicitly; (c) decide readability from **shape** (`checks` is a list), not from a
+boolean, because shape is the one thing a wrong document cannot fake; (d) assert the *rendered* value, not
+the wire value — the wire carried `null` correctly and the browser turned it into `0`.
+
 
 
 **L178 · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the
