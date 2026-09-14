@@ -50,6 +50,33 @@ ARGS = _parse_args()
 AUTHORITY = ARGS.authority
 GATE = ("127.0.0.1", 3086)
 REDIRECT = ("127.0.0.1", 3087)
+ENGINE = ("127.0.0.1", 3089)
+
+
+def port_open(host_port, timeout=2.0):
+    try:
+        with socket.create_connection(host_port, timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def wait_for_services(max_wait=90.0):
+    """A booting engine is not a dead one.
+
+    Measured 2026-09-14: the engine prints its token about 18s before it binds the socket. This
+    probe runs every five minutes, so it can land inside that window and write a phone outage
+    that is really a boot in progress — which is how I came to blame a plugin for an outage it
+    had not caused. Waiting here is not leniency: the checks below still fail honestly for a
+    service that never arrives, and the wait itself is recorded in the status file.
+    """
+    started = time.time()
+    while time.time() - started < max_wait:
+        if port_open(GATE) and port_open(ENGINE):
+            break
+        time.sleep(3)
+    return round(time.time() - started, 1)
+
 
 results = []
 
@@ -465,6 +492,9 @@ def run_checks():
 def main():
     if not ARGS.quiet:
         print(f"probing the phone stack for {AUTHORITY}")
+    boot_wait = wait_for_services()
+    if boot_wait > 3 and not ARGS.quiet:
+        print(f"  waited {boot_wait}s for the gate and engine to accept connections")
     try:
         how = run_checks()
     except Exception as e:  # noqa: BLE001 - the status file must still be written
@@ -486,6 +516,7 @@ def main():
             "host": socket.gethostname(),
             "authority": AUTHORITY,
             "token_source": how,
+            "boot_wait_seconds": boot_wait,
             "ok": not bad,
             "passed": len(results) - len(bad),
             "total": len(results),

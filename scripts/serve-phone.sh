@@ -116,6 +116,11 @@ ensure_client_plugin() {
     echo "client plugin install failed (see $STATE/plugin-install.log)"
 }
 
+port_open() {
+  # Is something accepting on this loopback port? Used to tell "booting" apart from "dead".
+  timeout 2 bash -c "exec 3<>/dev/tcp/127.0.0.1/$1" 2>/dev/null
+}
+
 token() { grep -o 'token=[A-Za-z0-9_-]*' "$LOG" 2>/dev/null | head -1 | cut -d= -f2; }
 
 case "${1:-}" in
@@ -190,6 +195,16 @@ if [ -z "$(engine_pid)" ]; then
   # setsid + nohup so it survives this shell; the log carries the one-time token, so treat it as a secret.
   setsid nohup "$NODE" "$BIN" web --port "$ENGINE_PORT" --no-open --trusted-host "$DNS" >"$LOG" 2>>"$ERR" < /dev/null &
   for _ in $(seq 1 30); do sleep 3; grep -q 'token=' "$LOG" 2>/dev/null && break; done
+  # The token appears BEFORE the socket binds — measured 2026-09-14: token at ~18s, listening
+  # later. This script used to return at the token, so it reported success during a boot, and
+  # the five-minute probe then saw a closed port and wrote a phone outage that was really a
+  # boot in progress. I diagnosed a plugin as the culprit on that reading. Wait for the socket.
+  for _ in $(seq 1 60); do port_open "$ENGINE_PORT" && break; sleep 2; done
+  if port_open "$ENGINE_PORT"; then
+    echo "engine listening on :$ENGINE_PORT"
+  else
+    echo "engine did NOT bind :$ENGINE_PORT within 120s — see $ERR"
+  fi
 else
   echo "engine already running: pid $(engine_pid)"
 fi
@@ -197,6 +212,12 @@ fi
 ensure_gate
 ensure_redirector
 ensure_client_plugin
+
+# ...and the gate has to be accepting too, or "published" is a claim about Serve only.
+for _ in $(seq 1 15); do port_open "$PORT" && break; sleep 1; done
+if ! port_open "$PORT"; then
+  echo "gate is not listening on 127.0.0.1:$PORT — the phone link cannot work; see $STATE/gate.log"
+fi
 
 T="$(token)"
 echo ""
