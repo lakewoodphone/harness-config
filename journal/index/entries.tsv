@@ -516,7 +516,9 @@ lessons	L241	241		2026-09-14	imported	open	**L241 · 2026-09-14 · When an audit
 lessons	L242	242		2026-09-14	ZABZ-TECH	open	**L242 · Case lookup: never tree-grep; the lpt-hub case index answers in 40ms (rg fails by exit 2 through a nested junction)**	log/lessons/2026-09.2.md	563	582	56164f9977266aa1
 lessons	L243	243		2026-09-14	ZABZ-TECH	open	**L243 · A package key is ignored when configuration.yaml already declares that key**	log/lessons/2026-09.2.md	583	620	2dbce27842c0b5d8
 lessons	L244	244		2026-09-14	ZABZ-TECH	open	**L244 · Piping a file to a host through PowerShell converts LF to CRLF**	log/lessons/2026-09.2.md	621	650	d677ef1267fff500
-lessons	L245	245		2026-09-14	ZABZ-TECH	open	**L245 · owner-queue.py docstring says --ages-days; the parser wants --age-days. And stdin-piping a script to ssh from PowerShell silently never arrives**	log/lessons/2026-09.2.md	651	676	6261a8d5212a8e0f
+lessons	L245	245		2026-09-14	ZABZ-TECH	open	**L245 · owner-queue.py docstring says --ages-days; the parser wants --age-days. And stdin-piping a script to ssh from PowerShell silently never arrives**	log/lessons/2026-09.2.md	651	675	6261a8d5212a8e0f
+lessons	L246	246		2026-09-14	ZABZ-TECH	open	**L246 · A PowerShell cast failure inside Where-Object silently deletes rows from the authority's comms pull**	log/lessons/2026-09.2.md	676	698	c42e97a2491c843a
+lessons	L247	247		2026-09-14	ZABZ-TECH	open	**L247 · eBay sourcing via real browser: 403 challenge clears, SRP+item selectors, batch fetch**	log/lessons/2026-09.2.md	699	745	b9921bd97919b688
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -599,7 +601,9 @@ pain	P79	79		2026-09-14	imported	open	## P79 — 1,836 lines of screenshot accou
 pain	P80	80		2026-09-14	imported	open	## P80 — A parent who forgets their password has no way back in, and the site is about to invite the public	log/pain/2026-09.md	2325	2345	0824176a230b0fb8
 pain	P81	81		2026-09-14	imported	open	## P81 — The LPT identity surface is one non-rotatable shared secret, and its portal is off in production	log/pain/2026-09.md	2346	2369	3944b0f24b359e24
 pain	P82	82		2026-09-14	ZABZ-TECH	open	## P82 — Case state lives in 4 documents that drift, with no detector; 203/376 sync records do not resolve to a case file	log/pain/2026-09.md	2370	2391	72bf5b76bf5328e4
-pain	P83	83		2026-09-14	ZABZ-TECH	open	## P83 — The ha-config repo has silently drifted from the live host on the files deploy.ps1 would overwrite	log/pain/2026-09.md	2392	2424	8f24e04940dfc5e6
+pain	P83	83		2026-09-14	ZABZ-TECH	open	## P83 — The ha-config repo has silently drifted from the live host on the files deploy.ps1 would overwrite	log/pain/2026-09.md	2392	2423	8f24e04940dfc5e6
+pain	P84	84		2026-09-14	ZABZ-TECH	open	## P84 — The website's SMS record has been frozen since 2026-09-02 - every customer thread stops there	log/pain/2026-09.md	2424	2458	bb73768a93f0ed4c
+pain	P85	85		2026-09-14	ZABZ-TECH	open	## P85 — The research dispatcher reports status=complete and verifier_status=passed on an EMPTY synthesis, and all five web-search providers are dead	log/pain/2026-09.md	2459	2500	dbed18e1686dcf22
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
@@ -710,7 +714,8 @@ decisions	D88	88		2026-09-14	ZABZ-TECH	open	**D88 · 2026-09-14 · Order the lap
 decisions	D89	89		2026-09-14	ZABZ-TECH	open	**D89 · 2026-09-14 · Kosher Waze fleet becomes two device tiers (iPhone 11 + iPhone SE 2020, both eSIM-mandatory); D84 model criterion was wrong.**	log/decisions/2026-09.md	1490	1522	20cdce4b770bcca2
 decisions	D90	90		2026-09-14	imported	open	**D90 · 2026-09-14 · The filter gets its own website on an LPT subdomain, signing in with LPT identity through a server-side BFF — and a missing configuration value must close a door, never open one.**	log/decisions/2026-09.md	1523	1562	81a20437554f5a04
 decisions	D91	91		2026-09-14	ZABZ-TECH	open	**D91 · 2026-09-14 · Kosher Waze unit economics: custom case in every unit and a hard floor of 100 dollars gross profit per device sale; tier 2 only works if SE2s are bought at 50-70.**	log/decisions/2026-09.md	1563	1593	a5177155c38459ef
-decisions	D92	92		2026-09-14	ZABZ-TECH	open	**D92 · 2026-09-14 · Case system: case file is the record, sync record is a derived mirror, retrieval is index-first (lptcase).**	log/decisions/2026-09.md	1594	1612	17c05764ef3ef26c
+decisions	D92	92		2026-09-14	ZABZ-TECH	open	**D92 · 2026-09-14 · Case system: case file is the record, sync record is a derived mirror, retrieval is index-first (lptcase).**	log/decisions/2026-09.md	1594	1611	17c05764ef3ef26c
+decisions	D93	93		2026-09-14	ZABZ-TECH	open	**D93 · 2026-09-14 · Weitman laptop case: case artifacts, an authoritative null price in lptcase, and no intake record for a sale.**	log/decisions/2026-09.md	1612	1650	6f86075d75c18df2
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
