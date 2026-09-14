@@ -566,10 +566,15 @@ function Open-SlotWindow($slot, $state) {
     $profDir = Join-Path $Cfg.browser.profileRoot $slot.profile
     New-Item -ItemType Directory -Force -Path $profDir | Out-Null
 
-    # Get-Prop, not $rec.url: a record can legitimately have no url (an engine this launcher
-    # adopted rather than started, whose one-time token was printed to a console nobody
-    # captured), and StrictMode would turn that into a PropertyNotFoundException.
-    $target = if (Get-Prop $rec 'url') { Get-Prop $rec 'url' } else { "http://127.0.0.1:$targetPort/" }
+    # ALWAYS the clean origin, never the launch token.
+    #
+    # The token URL does two damaging things on every open: it burns a one-time exchange, and
+    # on success the server redirects to a clean "/" — which is a NEW document whose bootstrap
+    # finds no session of its own. The owner's report was exactly that: "it opened two windows
+    # and both open a new session... it's supposed to open the same session". Once a profile
+    # has its cookie (30-day lifetime, and the cookie is what authenticates), the clean URL is
+    # both sufficient and the only form that keeps the window's remembered session.
+    $target = "http://127.0.0.1:$targetPort/"
     $label = if ($slot.label) { $slot.label } else { "$targetPort" }
     # NOTE (measured 2026-09-11, Edge 152 on Windows): --window-name is a no-op here and
     # the window caption is the page <title>. Geometry must be supplied on every launch,
@@ -909,12 +914,11 @@ function Invoke-Restore {
         }
     }
 
-    # RECONCILE, so "restore" reopens what is open NOW rather than every profile that has
-    # ever been used. Without this the owner closed one window and the shortcut opened four:
-    # each `new` recorded a profile and nothing ever removed one. Anything recorded as open
-    # whose window is not live at this moment was closed by the owner, so it stops being part
-    # of the working set. This is the only place the prune happens, and it runs AFTER the
-    # reopen, so it cannot mark the set closed before restoring it.
+    # KEEP THE SET TIGHT. This runs after the reopen and marks closed any recorded window that
+    # is not live now, so the next restore reopens only what is actually on screen. Earlier
+    # versions opened first and reconciled afterwards, which is how three closed windows came
+    # back: the reopen happened before the prune could narrow the set.
+    $procTable = Get-WindowProcs
     $pruned = 0
     foreach ($slot in $slots) {
         if (-not $map.ContainsKey($slot.profile)) { continue }
@@ -925,6 +929,19 @@ function Invoke-Restore {
     }
     if ($pruned -gt 0) { Save-WindowRegistry $map; Write-Host ("restore: forgot {0} window(s) you had closed" -f $pruned) }
     Write-Host ("restore: {0} of {1} remembered window(s) reopened" -f $opened, $wanted.Count)
+
+    # Record what is on screen NOW as the working set. Restore is the only moment the set is
+    # known to be complete and correct, so it is where the record is written; a window closed
+    # afterwards is marked closed by the prune on the next restore. Together those two make
+    # "reopen what I had" true without a background watcher.
+    Start-Sleep -Seconds 3
+    $procTable = Get-WindowProcs
+    foreach ($slot in $slots) {
+        if ((Get-WindowCount $slot $procTable) -gt 0) {
+            Set-WindowRegistryEntry $map $slot.profile $true $slot.port
+        }
+    }
+    Save-WindowRegistry $map
 }
 # ── the fast loop: one bounded check, restart only after two failures ────────
 function Invoke-Ensure {
