@@ -109,21 +109,68 @@
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 
-  /* ---- the sidebar: leave the collapsed rail alone, fix the open drawer -- */
+  /* ---- the sidebar: an off-canvas drawer, so the conversation gets the width ----
+   *
+   * Researched 2026-09-11 by reading the live CSSOM instead of guessing, after a first
+   * attempt (`display: none` on the rail) collapsed the content column to 56px:
+   *
+   *   .pI_x6G_frame { display: grid; transition: grid-template-columns ... }
+   *   and the app sets the columns INLINE with JavaScript:
+   *     <div class="pI_x6G_frame" style="grid-template-columns: 56px minmax(0px, 1fr) 0px">
+   *
+   * So the rail's width is not a CSS fact, it is three grid tracks the app recomputes. That
+   * is why removing the rail shifted the conversation into the 56px track, and it is why the
+   * override below needs `!important` (inline styles win otherwise) and needs to be paired
+   * with taking the sidebar OUT of the grid rather than deleting it.
+   *
+   * Measured on the live app at 393x852, with the rules below applied:
+   *   closed: centre column 337px -> 393px, sidebar off-canvas at x=-65px, no page scroll
+   *   open:   sidebar overlays at 339px with a scrim, centre column stays 393px
+   *
+   * The whole block is gated on `:has()`. A browser without it keeps today's layout rather
+   * than getting a rail stretched across the screen, because an unsupported `:has()` drops
+   * the rule — the upgrade is fail-safe by construction, not by testing for it.
+   *
+   * The app's own toggle drives all of this: the sidebar carries a `collapsed` class while
+   * the rail is showing, and the header's "Open sidebar" button removes it. Nothing here
+   * invents state.
+   */
+  @supports selector(:has(*)) {
+    [class*="frame"] {
+      /* one track, because the sidebar is no longer in the grid */
+      grid-template-columns: minmax(0, 1fr) !important;
+      /* the app animates this property slowly; on a phone that reads as the page sliding */
+      transition: none !important;
+    }
 
-  /* Tried and reverted on 2026-09-11: hiding the collapsed rail (display:none) looked like
-   * an easy 14% of width, and it silently collapsed the content column to 56px, clipping
-   * every heading - the app's own layout sizing does not tolerate the rail disappearing.
-   * The rail is the product's design and its actions are duplicated in the header, so it
-   * stays. What is worth fixing is the *open* state: in flow, a 280px sidebar squeezed the
-   * content column from 337px to 113px, so opened it overlays instead. */
-  [class*="sidebarCol"]:not(:has([class*="collapsed"])) {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(86vw, 340px);
-    z-index: 60;
-    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
-    background: var(--dsh-phone-drawer-bg, canvas);
+    /* Closed: off-canvas, keeping its internal layout so opening is a plain slide. */
+    [class*="sidebarCol"]:has([class*="collapsed"]) {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: min(86vw, 340px);
+      transform: translateX(-100%);
+      z-index: 60;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* Open: over the conversation, with the scrim a phone user expects to be able to tap. */
+    [class*="sidebarCol"]:not(:has([class*="collapsed"])) {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: min(86vw, 340px);
+      z-index: 60;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+      background: var(--dsh-phone-drawer-bg, canvas);
+      animation: dsh-phone-drawer-in 160ms ease-out;
+    }
+  }
+
+  @keyframes dsh-phone-drawer-in {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
   }
 
   /* ---- content column --------------------------------------------------- */
@@ -132,6 +179,27 @@
     /* never let a wide child scroll the page sideways */
     max-width: 100vw;
     overflow-x: hidden;
+  }
+
+  /* ---- scroll hygiene: one scroller, no rubber-banding ------------------ */
+
+  /* Measured: `html`/`body` compute `overflow-y: visible`, and the app's own scroll areas
+   * sit inside the frame. On iOS that combination lets a drag chain out of the transcript
+   * and move the whole page, which is the "funny scroll" — the panel under the finger stays
+   * put while the page moves. Keeping the page itself unscrollable, and containing momentum
+   * inside the app's scrollers, leaves exactly one thing that scrolls. */
+  html,
+  body {
+    overscroll-behavior: none;
+    overflow: hidden;
+  }
+
+  [class*="scrollBody"],
+  [class*="scrollArea"],
+  [class*="listArea"],
+  [class*="conversation"] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Messages and tool cards get the full width, with a comfortable gutter. */
