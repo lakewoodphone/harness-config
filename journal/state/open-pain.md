@@ -79,3 +79,8 @@ being open by being corrected, not by being deleted here. A problem that is done
 | P74 | A finished job with a customer waiting has no owner in this system |  |  |
 | P75 | The camera evidence half of the intrusion response is dead, and it is one credential |  |  |
 | P76 | 82 unavailable automations are one retired generation, so every count from this estate is inflated |  |  |
+| P77 | A quoted repair cannot be ordered for unless the owner is reachable, and nothing records the case |  |  |
+| P78 | The filter product cannot take money, and the gap is one missing integration (measured 2026-09-14) | Every paying-customer path is blocked behind manual work. The price band ($5–10/device/month) and the seat model were decided on 2026-09-09 and implemented in code on 2026-09-10; the product still can |  |
+| P79 | 1,836 lines of screenshot accountability that no code path can reach, and no test noticed | A shipped-looking feature that has never run, in the one place the product promised accountability to a parent. Any claim that the app takes reviewable screenshots is currently false. |  |
+| P80 | A parent who forgets their password has no way back in, and the site is about to invite the public | Today it is survivable because accounts are created by the shop at the bench. The moment the customer website ships, one forgotten password is a permanent support ticket and an abandon point — and the |  |
+| P81 | The LPT identity surface is one non-rotatable shared secret, and its portal is off in production |  |  |

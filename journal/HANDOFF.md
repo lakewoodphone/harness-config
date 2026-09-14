@@ -1,3 +1,56 @@
+## 2026-09-14 12:30 EDT (16:30Z) · ZABZ-TECH · A year of business conversation is now searchable; and a run of my own defects, each found by measuring
+
+**Delivered, measured**
+
+| surface | before | now |
+|---|---|---|
+| content search over `~/Code` | 45.34 s (recursive) | **0.064 s** |
+| filename search | full walk | **0.061 s** |
+| chat history searchable | 4,368 messages | **21,951** (2026-01-16 → 09-11), consistent |
+| business comms searchable | **nothing** | **174,622** (2025-04-18 → 2026-09-14) |
+| file index | none | **919,873 files** after de-dup (was 1,839,746, half duplicates) |
+
+**The comms index is the headline.** The authority held 127,651 SMS, 12,473 calls, 4,052 transcripts,
+3,036 voicemails and 24,000+ message rows across 21 Dialpad tables, and **not one byte was full-text
+searchable** — the only FTS indexes covered email drafts, memories, project knowledge and chat exports.
+`scripts/commsindex.py` now indexes all of it in ~33 s with ten explicit extractors, plus a trigram table
+so substrings inside phone numbers match. Transcript artifact markers (`whole_call_summary_fragment`,
+`action_item_v2`) are stripped at ingest, because they were fragmenting phrase searches and making every
+result list look noisy.
+
+**Defects found in my own work, each by measuring rather than reading code**
+
+1. The index stored the same 2.19 GB of text twice (porter + trigram) → 10.87 GB. Trigram is now opt-in.
+2. **15 GB of 112 GB was duplicate trees** (`lpt-hub-workingtree-backup-*` 8.93 GB, `artifacts/f21-backup` 5.79 GB).
+3. The chat reader was **O(n²)** — 1,525 s CPU in 25 min with **zero output** on the 1,050 MB file.
+4. **My size guard was deleting the biggest conversation in the archive** (the 1,050 MB file yielded 2 requests). Mining those lines recovered **+4,619 messages (+27%)**.
+5. **`schtasks` doesn't run a shell**, so the registered command containing `>>` would have failed every run.
+6. Making trigram opt-in left **five** unguarded `tri` references; fixing them one at a time as they surfaced is how the same bug ships twice, so all five are now guarded and asserted by `scripts/assert-fsearch-guards.py`.
+7. **Half the file index was the same tree twice** — `Code\` and `code\` are one directory on Windows. 919,873 duplicates removed in 38.9 s with `COLLATE NOCASE`; my first attempt did it row-by-row and burned 1,016 s without finishing. `VACUUM` then freed 2,785 MB.
+8. That de-dup **dropped the PRIMARY KEY** on `files`, so new rows got `id = NULL` and the prune loop crashed on `int(r["id"])`. Table rebuilt with a primary key; prune made bulk.
+9. **A concurrent session rewrote `owner-attention-digest.sh`** and silently dropped my four freshness sections — `git log` still showed my commit while the working tree had none of it. Merged back alongside their `1b`, verified with `bash -n`.
+
+**BROKEN / NOT FINISHED — stated plainly**
+
+- **The hourly refresh task is DISABLED.** A full pass is ~175 s when incremental but many minutes when it must
+  `os.stat` every path, and it hit `database is locked` partway. Rather than let a 30-minute walk overlap
+  itself, I disabled it: `schtasks /Change /TN "DSH search index refresh" /ENABLE` re-arms it. The fix is to
+  use `DirEntry.stat` from `os.walk` instead of a fresh `os.stat` per file (currently 1,839,746 calls), which
+  is the next thing to do.
+- **Chat index is parser v3, not v4.** v4 restores the `torn_tail` signal (648 truncated sessions were being
+  reported as `ok`); the code is committed and needs one ~10-minute rebuild.
+- The comms index exists **only on the authority**, and is not yet wired into secratary's refresh.
+- `~/.fsearch/RETIRED-*.db` (≈10.5 GB) are superseded artefacts kept until the live indexes are proven over a
+  few days; delete then, not before.
+
+**EVIDENCE**
+- `fsearch grep payroll` → 0.064 s; `fsearch find seagate` → 0.061 s; `chatindex search payroll` → 0.063 s.
+- `fsearch stats` → 919,873 files, 0 case-duplicate groups, 4,885 MB; `VACUUM` freed 2,785 MB in 63 s.
+- `commsindex.py stats` → 174,622 comms; `search "when will it be ready" --kind sms` returns the real thread from 2026-04-24.
+- `chatindex` → messages 21,951 = msg_fts = msg_tri, consistent; 4,619 harvested rows.
+- `assert-fsearch-guards.py` → 5/5 GUARDED, PASS.
+- Commits: `harness-config` `5946ded`, `c9f3a4b`, `d77189d`, `dd8e801`, `83b25a6`, `5cb5465`, `4706005`, `c7ee668`; `personal-secretary-mvp` `a080c228`; `ceo-kernel` `0c8162d`. Journal: L169–L183, P52–P57, W31–W35, D46–D47.
+
 ## 2026-09-14 16:00 UTC · ZABZ-YOGA · Kosher filter audited end to end: the backend is far more built than anyone recorded, it cannot yet take money, and operator auth was failing open
 
 **What the owner asked for:** *"audit what still has to get done and write engineering docs to plan it
