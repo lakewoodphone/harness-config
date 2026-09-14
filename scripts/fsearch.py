@@ -97,7 +97,11 @@ CHUNK = 4000                   # chars per content row, so a hit can be located
 
 
 def connect(db_path: str) -> sqlite3.Connection:
-    con = sqlite3.connect(db_path, timeout=30)
+    # A long busy timeout, because a scheduled refresh can collide with an
+    # interactive query or a maintenance VACUUM. Measured: a refresh failed with
+    # database is locked purely because another process held the write lock for
+    # a moment, which is not a reason to lose an hour of indexing.
+    con = sqlite3.connect(db_path, timeout=300)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA synchronous=NORMAL")
@@ -118,7 +122,7 @@ def connect(db_path: str) -> sqlite3.Connection:
             indexed  INTEGER NOT NULL DEFAULT 0,
             err      TEXT
         );
-        -- On Windows, Code\ and code\ are the same directory, so the raw path is
+        -- On Windows, Code and code are the same directory (case-insensitively),
         -- not a safe unique key: the whole tree was catalogued twice (measured:
         -- every payroll hit returned two identical rows). path_key is normcase'd
         -- for exactly that reason.
@@ -228,12 +232,27 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
         row = con.execute(
             "SELECT id, size, mtime, indexed FROM files WHERE path_key=?", (key,)
         ).fetchone()
-        if row is None:
+        if row is None or row["size"] is None or row["mtime"] is None:
             # pre-migration rows have no key yet
             row = con.execute("SELECT id, size, mtime, indexed FROM files WHERE path=?",
                               (path,)).fetchone()
-        if row and not reindex and int(row["size"]) == st.st_size and abs(
-                float(row["mtime"]) - st.st_mtime) < 1e-6:
+        if row is not None and (row["size"] is None or row["mtime"] is None):
+            # A row whose size/mtime are NULL is a leftover from a table reshape.
+            # Repair it from the filesystem instead of raising TypeError -- a
+            # refresh must not die on a stale reference.
+            if row["id"] in indexed_ids:
+                continue
+            con.execute("DELETE FROM content WHERE file_id=?", (row["id"],))
+            con.execute("DELETE FROM files WHERE id=?", (row["id"],))
+            row = None
+        # `row` may be None (new file or a repaired stale reference). Both size and
+        # mtime must be non-NULL before int()/float() are called on them: after the
+        # path dedup reshaped the table, rows with NULL size reached this line and
+        # raised `int() argument must not be NoneType`, failing a whole refresh.
+        if (row and not reindex
+                and row["size"] is not None and row["mtime"] is not None
+                and int(row["size"]) == st.st_size
+                and abs(float(row["mtime"]) - st.st_mtime) < 1e-6):
             skipped += 1
             indexed_ids.add(int(row["id"]))
             continue
@@ -294,17 +313,43 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
                 print(f"    {seen} files, {added} new, {updated} changed, "
                       f"{content_rows} chunks ({time.time()-t0:.0f}s)", flush=True)
 
-    # prune files that have disappeared, but only inside the walked roots
+    # Prune rows whose file has disappeared, but only inside the walked roots.
+    #
+    # BULK, not a per-row loop: the loop version fetched every row for a root and
+    # deleted them one at a time (the same pattern that made the de-dup take 1,016 s
+    # of CPU), and it did `int(r["id"])`, which raised TypeError on the NULL ids a
+    # table reshape had left behind. Two SQL statements, no Python loop, and no
+    # integer conversion that can fail.
     pruned = 0
     for root in {os.path.abspath(r) for r in roots}:
-        rows = con.execute("SELECT id, path FROM files WHERE root=?", (root,)).fetchall()
-        for r in rows:
-            if int(r["id"]) not in indexed_ids and not os.path.exists(r["path"]):
-                con.execute("DELETE FROM content WHERE file_id=?", (r["id"],))
-                if trigram:
-                    con.execute("DELETE FROM tri WHERE file_id=?", (r["id"],))
-                con.execute("DELETE FROM files WHERE id=?", (r["id"],))
-                pruned += 1
+        # One pass over the root's rows, checking the filesystem once per row and
+        # collecting the dead ids; then three executemany deletes. No per-row SQL.
+        missing = [i for i, p in con.execute(
+            "SELECT id, path FROM files WHERE root=? AND id IS NOT NULL", (root,))
+            if not os.path.exists(p)]
+        if not missing:
+            continue
+        params = [(i,) for i in missing]
+        con.executemany("DELETE FROM content WHERE file_id=?", params)
+        if trigram:
+            con.executemany("DELETE FROM tri WHERE file_id=?", params)
+        con.executemany("DELETE FROM files WHERE id=?", params)
+        pruned += len(missing)
+    # A NULL id means a reshape dropped the primary key; those rows are unusable.
+    bad = con.execute("DELETE FROM files WHERE id IS NULL").rowcount
+    if bad:
+        pruned += bad
+
+    # Orphaned content rows (file removed outside this walk) inflate the index and
+    # break lookups. One statement, not a loop.
+    try:
+        orphans = con.execute(
+            "DELETE FROM content WHERE file_id NOT IN (SELECT id FROM files)"
+        ).rowcount
+        if orphans:
+            print(f"    removed {orphans} orphaned content chunk(s)")
+    except sqlite3.Error:
+        pass
 
     con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('last_index',?)",
                 (dt.datetime.now(dt.timezone.utc).isoformat(),))
