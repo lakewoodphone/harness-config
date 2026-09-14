@@ -519,6 +519,16 @@ def health(db: str) -> dict:
         total = sum(by_kind.values())
         fts = con.execute("SELECT COUNT(*) FROM comms_fts").fetchone()[0]
         tri = con.execute("SELECT COUNT(*) FROM comms_tri").fetchone()[0]
+        # Ingestion freshness, per channel: the newest communication we hold. This is
+        # the half the index cannot see about itself -- a fresh index over a database
+        # nothing is writing to reports "ok" forever (P29: the SMS crawler worked and
+        # nothing called it).
+        newest: dict[str, float] = {}
+        for r in con.execute("SELECT kind, MAX(ts) AS m FROM comms GROUP BY kind"):
+            if r["m"]:
+                newest[r["kind"]] = r["m"]
+        people = con.execute("SELECT COUNT(*) FROM people").fetchone()[0]
+        aliases = con.execute("SELECT COUNT(*) FROM person_alias").fetchone()[0]
     finally:
         con.close()
 
@@ -528,6 +538,20 @@ def health(db: str) -> dict:
             state = json.load(fh)
     except (OSError, ValueError):
         pass
+
+    now = dt.datetime.now(dt.timezone.utc).timestamp()
+    ingest = {}
+    for kind, ts in sorted(newest.items(), key=lambda kv: -(kv[1] or 0)):
+        hours = (now - ts) / 3600.0
+        ingest[kind] = {
+            "newest": dt.datetime.fromtimestamp(ts, dt.timezone.utc).isoformat(),
+            "age_hours": round(hours, 1),
+        }
+
+    # Only channels that flow daily are enforced. Voicemail and email are quiet for days
+    # at a time on a real business, and a budget on them would be a standing false alarm
+    # that teaches a reader to ignore this output.
+    LIVENESS_BUDGET_HOURS = {"sms": 30.0, "call": 30.0}
 
     problems = []
     if age is None:
@@ -540,13 +564,25 @@ def health(db: str) -> dict:
         problems.append(f"last refresh failed: {state.get('reason') or 'unknown'}")
     if state.get("missing"):
         problems.append(f"{state['missing']} source rows are not indexed")
+    for kind, budget in LIVENESS_BUDGET_HOURS.items():
+        info = ingest.get(kind)
+        if not info:
+            problems.append(f"no {kind} in the index at all")
+        elif info["age_hours"] > budget:
+            problems.append(
+                f"ingestion: newest {kind} is {info['age_hours']:.0f}h old "
+                f"(budget {budget:.0f}h) — the index is current but the database is not "
+                f"being fed (P29)")
     return {
         "ok": not problems,
         "problems": problems,
         "total": total,
         "by_kind": by_kind,
+        "people": people,
+        "person_aliases": aliases,
         "index_age_hours": None if age is None else round(age, 2),
         "last_index": meta.get("last_index"),
+        "ingestion": ingest,
         "fts_rows": fts,
         "trigram_rows": tri,
         "coverage_state": {
@@ -598,8 +634,19 @@ def _render(res: dict) -> str:
     if mode == "health":
         lines.append(f"comms index: {res['total']:,} communications "
                      f"({res['index_age_hours']}h old)")
+        # `message` and `history` come from the Playwright UI crawl, which stopped in
+        # June; texts and calls are covered by the REST harvest and the webhook, so a
+        # stale crawl is not a data loss. Labelled, so a reader does not mistake it for
+        # one -- an unlabelled old number reads as a broken system.
+        supplementary = {"message", "history"}
         for k, v in (res.get("by_kind") or {}).items():
-            lines.append(f"  {k:<10} {v:>9,}")
+            age_h = (res.get("ingestion") or {}).get(k, {}).get("age_hours")
+            note = "  (supplementary: UI crawl, frozen by design)" if k in supplementary else ""
+            lines.append(f"  {k:<10} {v:>9,}   newest "
+                         f"{age_h if age_h is not None else '?'}h ago{note}")
+        if res.get("people"):
+            lines.append(f"  people: {res['people']:,} "
+                         f"({res.get('person_aliases', 0):,} aliases)")
         if res.get("problems"):
             lines.append("  PROBLEMS: " + "; ".join(res["problems"]))
         return "\n".join(lines)
