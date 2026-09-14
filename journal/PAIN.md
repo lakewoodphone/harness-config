@@ -1283,22 +1283,99 @@ deliberate change to a shared integration, and the doc correction is mine to mak
 1. `chatindex.py` should refuse to answer `0` results from an empty index — print `index empty (0 rows); run: chatindex ingest` instead. A refusal is a correct answer; a confident empty one is not.
 2. Either finish the ingest and have it print a verified row count, or delete `~/.fsearch/chats.db` so nothing trusts it. An index that is present but empty is worse than an index that does not exist.
 
+---
 
-## P57 — An index that fails at the end of a 29-minute run records no freshness
+## P61 — The filter product cannot take money, and the gap is one missing integration (measured 2026-09-14)
 
-**Symptom.** The first scheduled refresh reported `FAILED in 1731.1 s` and wrote
-`last_failure_reason: sqlite3.OperationalError: no such table: tri` — *after* completing a full walk and
-building a 6.3 GB index. `refresh.py --check` therefore reported "no successful refresh has ever been
-recorded" while a perfectly usable index sat on disk, and a second partial index was left beside it.
+**Symptom.** The broker has a Stripe **webhook**, a Stripe **billing-portal** session for an existing
+customer, usage metering, a seat-count hard cap, and a status model with a 7-day grace window — and **no
+way to create a customer, a price or a subscription.** `grep -i 'checkout|subscribe'` over `server/app/`
+returns only the dashboard WebSocket message type. There is no plan catalogue either: `plan_code` defaults
+to the literal string `'beta'`, `billing_seat_price_cents = 0` and `billing_seat_stripe_price_id = ''`.
 
-**Cost.** Half an hour of machine time per attempt, an unverified artefact, and a freshness signal that
-says nothing is working when most of it is. The cascade also left **two file indexes** (`lean.db` 2.5 GB
-from the interrupted build, `index.db` 6.3 GB from the failed one) so it was no longer obvious which the
-query path should read.
+**Evidence.** `docs/audits/backend-audit-2026-09-14.md` §4; `server/app/billing.py:651-713`
+(`sync_tenant_seat_quantity`, dormant behind three config values); the only payment route a parent can
+reach is `POST /owner/billing/payment-method` (`app/routers/account_owner_dashboard.py:1195`), which opens
+a provider-hosted portal **for a customer that must already exist**.
 
-**Fix (done).** The optimize calls now check that the table exists, the obsolete `tri` definition is out of
-the schema, the partial is retired, and the crash is verified gone by a scoped run on a real root.
-**Still open:** `refresh.py` should validate its inputs *before* the expensive walk (does the db exist, is
-the schema current, do the scripts parse), and it should refuse to leave a half-built index under a name
-the query path will pick up. One index per host, named explicitly, is the honest target.
+**Cost.** Every paying-customer path is blocked behind manual work. The price band ($5–10/device/month)
+and the seat model were decided on 2026-09-09 and implemented in code on 2026-09-10; the product still
+cannot charge anyone. Worse, the nearest thing to enforcement is feature degradation — and **filtering
+itself is never cut off**, so a non-paying device keeps filtering.
 
+**Second defect in the same area.** `LPT_BILLING_STRIPE_WEBHOOK_SECRET` is empty in the working `.env`
+while `LPT_BILLING_STRIPE_SECRET_KEY` in the same file is a **live-mode** key, so `/webhook/billing/stripe`
+returns `503 not configured` while the key is live. That pairing is inert and backwards.
+
+**What would fix it.** W-BACK-060 in `docs/WEB_APP_AND_ONBOARDING_PLAN_2026-09-14.md`: build Checkout +
+a plan catalogue, set the webhook secret, and decide the exact per-tier price points and the billing party
+(the two sub-decisions already recorded as open in `docs/IMPLEMENTATION_BACKLOG.md`).
+
+---
+
+## P62 — 1,836 lines of screenshot accountability that no code path can reach, and no test noticed
+
+**Symptom.** `android/.../screenshot/ScreenshotService.kt:1627` (`startWithConsent`) has **zero callers
+repo-wide**, and `createScreenCaptureIntent()` — the only way to obtain a `MediaProjection` — appears
+**nowhere in the repository**. The service fail-closes with "Screenshot consent required" (`:179-182`),
+and every other entry point is inert because `:315-316` returns early when `mediaProjection == null`. The
+UI card that would have surfaced the problem is hidden when the store is empty
+(`MainActivity.kt:656-659`), so it is invisible from the device as well.
+
+**Evidence.** `docs/audits/android-client-capability-audit-2026-09-14.md` §1; **414 JVM unit tests pass
+and not one of them covers this file** — there is no test file for it at all, and no `androidTest` source
+set exists, so the whole class of runtime-permission behaviour is asserted only against fakes.
+
+**Cost.** A shipped-looking feature that has never run, in the one place the product promised
+accountability to a parent. Any claim that the app takes reviewable screenshots is currently false.
+
+**What would fix it.** (a) Wire the consent request (`createScreenCaptureIntent` + the existing
+fail-closed guard) and give it a caller; (b) surface the card regardless of store emptiness, so a dead
+path is visible; (c) add the first test for this file, and a real `androidTest` source set so VPN, Device
+Owner, accessibility and MediaProjection stop being asserted against fakes. The general lesson is L215's:
+a suite that cannot reach the code is not evidence about the code.
+
+---
+
+## P63 — A parent who forgets their password has no way back in, and the site is about to invite the public
+
+**Symptom.** Nothing in `server/app/**/*.py` implements forgot-password or reset-password (grep returns
+one unrelated comment). Public signup (`routers/account_owner_auth.py:169`) is unauthenticated and creates
+a tenant, household and `household_admin` with **no email verification** either. The only recovery that
+exists is a TOTP recovery code or a passkey.
+
+**Evidence.** `docs/LPT_SIGNIN_AND_ACCOUNT_AUDIT_2026-09-14.md` §4; the LPT side by contrast has
+`requestPasswordReset`/`resetPassword` plus a `PasswordResetToken` model.
+
+**Cost.** Today it is survivable because accounts are created by the shop at the bench. The moment the
+customer website ships, one forgotten password is a permanent support ticket and an abandon point — and
+the primitives to prevent it already exist in the repo (the magic-link/token pattern in
+`partner_magic_links.py` + single-use `partner_portal_login_tokens`, and one email path at
+`app/partner.py:631` that currently fails soft with `{delivered: False, reason: "email_disabled"}`).
+
+**What would fix it.** W-BACK-058 (reset) and W-BACK-059 (verification + actually configuring the email
+path) before the site is public.
+
+---
+
+## P64 — The LPT identity surface is one non-rotatable shared secret, and its portal is off in production
+
+**What hurts.** The only cross-app identity surface LPT exposes is
+`POST /api/auth/sso/assert` with an `x-lpt-sso-secret` header. It has no scopes, no consent, no audience
+or origin binding and no independent expiry: **anyone holding the secret and a valid token gets the full
+sanitized customer identity.** Rotating it means coordinating every relying party
+(`chumash-timeline/src/lib/lpt-sso.ts:155-160` documents exactly this), so in practice it does not rotate.
+
+**Evidence.** `docs/LPT_SIGNIN_AND_ACCOUNT_AUDIT_2026-09-14.md` §1/§3; the sibling hazard at
+`security.config.ts:106` (production session `sameSite:'strict'`) versus `auth-cookie.ts:38` (hardcoded
+`'none'` for `lpt_refresh`) — the helper wins today, so SSO works, and a future reader "fixing" the helper
+to honour the config would silently break every relying app.
+
+**Second half, and it is the scheduling constraint:** LPT's customer portal is feature-flagged **off in
+production** (`VITE_FEATURE_CUSTOMER_PORTAL="false"`; backend `CUSTOMER_PORTAL_ENABLED === 'true'`), on in
+test. So the LPT sign-in path cannot be the v1 primary even though the integration is cheap.
+
+**What would fix it.** (a) Ship the site's own sign-in behind the `identify()` seam, so the LPT path is a
+drop-in rather than a dependency; (b) ask LPT for a **dedicated** secret for this app rather than reusing
+the shared one, and record the rotation consequence; (c) restrict the BFF↔LPT call path by network, which
+is the only real mitigation for a shared-secret assertion endpoint.

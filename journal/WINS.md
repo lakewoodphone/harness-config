@@ -449,8 +449,7 @@ third party.
 *Built:* \server/app/frame_egress.py\ — downscale to the 1024px long edge, apply EXIF orientation before dropping the tag
 that carried it, normalise to RGB JPEG, strip all metadata, and report hashes rather than pixels so the audit trail can
 prove what was sent without keeping it. An undecodable frame is a **refusal**, never a pass-through, because a picture we
-cannot scrub must not be sent. Wired into \
-eview_screenshot_image\ so every provider benefits; commit \42bd0f1\.
+cannot scrub must not be sent. Wired into \eview_screenshot_image\ so every provider benefits; commit \42bd0f1\.
 *Measured:* \pytest tests/test_frame_egress.py\ -> **10 passed** (tall-frame geometry, no upscaling, EXIF gone, orientation
 applied, grayscale/PNG normalised, refusal on unreadable input, deterministic hashes, clamped edge limits).
 *Why it matters:* it is the rare change that improves all three things the owner asked for simultaneously — cheaper,
@@ -513,4 +512,25 @@ with a trigram table so substrings inside phone numbers match. Search quality wa
 deliverable, so transcript artifact markers (`whole_call_summary_fragment`, `action_item_v2`) are
 stripped at ingest: they were fragmenting phrase searches and making every result list look noisy.
 A real query now returns the right SMS from a year ago.
+
+**W36 · 2026-09-14 · The filter's first full state audit found a live-adjacent security defect and a
+product that is far more built than any document said — and both were proved rather than asserted.**
+Four source audits read the Android client, the broker, the web surfaces and LPT's identity stack in
+parallel, each required to cite `path:line` for every claim and to state what it could **not** determine.
+Result: `docs/ENGINEERING_STATE_AUDIT_2026-09-14.md` plus the own-website/onboarding plan and
+`decisions/38`, all committed and pushed at `8709ecf`.
+*What it found that mattered:* operator auth granted `super_admin` to any caller whenever
+`LPT_WEBHOOK_SECRET` was empty (`app/auth.py:405-431`) — fixed to deny by default with an explicit,
+default-off dev opt-in, **19 passed / 0 failed**; and a shipped-looking feature, screenshot
+accountability, is 1,836 lines that **no code path can reach** (`startWithConsent` has zero callers,
+`createScreenCaptureIntent` exists nowhere) while 414 green unit tests said nothing, which is `L215` in a
+new place.
+*Why the method is the win:* every headline number carries its provenance and its freshness, the one
+number that could have misled (**production exposure**) was settled by my own probe with a timestamp
+(`/admin` → 401, 2026-09-14 11:42:36Z), and the single most dangerous source in the repo —
+`server/data/broker.sqlite3`, which reads as an empty company — is now labelled a stale fixture in three
+documents so no future session reports its zeros as health. Two of my own claims were corrected by the
+audits rather than defended: my "no CORS at all" was false (`cors_policy.py` exists and is merely
+unconfigured), and a test of mine failed because it repeated the audited claim's loose phrasing instead
+of the real trigger.
 
