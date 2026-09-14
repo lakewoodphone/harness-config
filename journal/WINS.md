@@ -389,3 +389,53 @@ histories diverged (5 behind)` every fifteen minutes for 75 minutes, and the ker
 any `result != "clean"` to HIGH. The phone's own probe has the same property: it has been writing a verdict the kernel reads
 since this morning. Two independent sensing paths worked; neither had a consumer. That reframes the remaining work from
 "add checks" to "deliver what is already detected" (P40).
+**W31 · 2026-09-14 · Owner presence is now a real, scheduled, fleet-visible reading — with zero deployment into a blocked checkout.**
+The resolver could not be deployed: `secratary`'s `personal-secretary-mvp` is diverged (71 behind / 3 ahead / 41
+dirty) and pulling would mix other sessions' uncommitted work into the live host. Instead of stopping there or
+forcing it, the capability was delivered around the blockage: the resolver is extracted **out of tree** from
+`origin/master` (`~/presence-runtime/`, sha256 recorded), a 15-minute cron writes
+`owner_state[key='presence']` in the **authoritative** database, and it is readable *today* through the existing
+`ps_db_query` tool and `GET /owner_state?key=presence` — no schema change, no new endpoint, no restart.
+*Measurement:* cron verified firing **04:00:05 UTC with the row 1 second old**; the sentinel's new
+`check_presence` reads it with `provenance: … AUTHORITATIVE … data/secretary.db@secratary`; `ck status` went
+**12 → 13 findings with `attention` unchanged at 6**, and the self-test proves **7/7** cases in both directions.
+*Why it matters:* this is the first time in the company's history it can name *home* rather than only *the shop*,
+and it arrived without a deploy, a migration, a restart or a single grant of new privilege — which is the
+general shape for working around P44 instead of waiting for it.
+
+**W32 · 2026-09-14 · The harness is already installed, so the best vehicle for a filtered network is the baseURL field — not new proxy infrastructure.**
+The open ask was to put her laptop on the harness and get around a filter that blocks the DeepSeek API. The
+measurement first, then the build: Techloq blocks `api.deepseek.com` by URL category (its block page arrives as
+**HTTP 200/302 with `text/html`**, so a status check reads it as success) while `api.deepinfra.com` is allowed and
+returns real JSON. `@deepseek-ai/dsh-llm-pi-ai` accepts a hand-declared OpenAI-compatible route with `baseURL`,
+`apiKeyEnv` and `models`, re-read **per request** — so the entire fix is configuration, and the proposed
+Cloudflare proxy became a documented one-line fallback instead of the centrepiece.
+*Measurement:* from her own machine, through Techloq, at the exact call the harness makes, all three DeepSeek
+models returned `finish_reason: tool_calls` (DeepSeek-V4-Flash-0731, V4.1-Flash, V3.2) — the agent loop works.
+`DeepSeek-V4-Flash-0731` is **$0.06/M in, $0.18/M out, $0.015/M cache-read**, against the owner's documented
+direct DeepSeek rate of **$0.14/$0.28** for `deepseek-flash`.
+*Why it matters:* the cheaper route is also the stronger model (DeepSeek lists `-0731` as superseding the preview
+with substantially enhanced agentic capability, outperforming V4-Pro Preview), and it needed **zero new
+infrastructure, zero new secrets on the public internet, and no code change**. The general shape: when a network
+blocks one hostname, look for the same capability behind an allowed hostname and a configurable endpoint before
+building a tunnel.
+
+**W33 · 2026-09-14 · Her box's real failure was diagnosed and fixed at the source, from a distance of one network hop.**
+Her chat had been failing since 2026-09-02 with `Missing API key for DeepSeek V4 Flash (default)`, in a log on her
+own laptop that nobody was reading. Reached it through the exec API, proved the key was fine (byte-identical to
+the owner's, and a live completion succeeded from her machine), and traced the actual cause to the extension's
+`repoEnvPath()` searching only `vscode.workspace.workspaceFolders` — while activation is `onStartupFinished`,
+which can fire before folders are restored. Patched at the source in
+`src/vscode-extension/extension.js` with a remembered last-good path plus the workspace locations that actually
+exist on her box (`yocheved`), and added a `personalSecretaryGateway.selfTest` command so the next diagnosis is
+one command instead of a log archaeology session.
+*Why it matters:* the fix is in the repo, so every machine gets it — not just hers.
+
+**W34 · 2026-09-14 · Her laptop was reachable the whole time the record said it was not.**
+`docs/handoff/yocheved-progress/2026-08-25-v31-stable-cloudflare-access.md` reported remote access as **blocked**
+and named dashboard work as the only path forward. The block was a false alarm: a request *without* the service
+token correctly hits the Access login, and the helper script has always sent the right headers. Measured today:
+`{"host":"DESKTOP-FGV6KMH","ok":true,...}`. Nineteen days of a "blocked" label on a channel that worked.
+*Why it matters:* a documented blocker that was never re-tested after the first attempt cost more than the
+original fault. Re-test a claimed block before relaying it.
+

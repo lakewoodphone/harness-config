@@ -1384,3 +1384,59 @@ or stash would have destroyed it, and a snapshot-style autosync would have too. 
 committing them verbatim, rebasing onto `origin/master` (clean) and pushing. *Rule:* a host that both runs agents and
 deploys from a checkout will eventually block itself this way; the deploy path needs a keeper that says "N behind and dirty"
 rather than failing a pull into a log nobody reads.
+**L169 · 2026-09-14 04:05 UTC · `ipaddress.is_private` is not "is a local LAN address".**
+I used `is_private` to decide whether a Tailscale endpoint was dialable only from the same LAN. Measured on this
+repo's own interpreter (CPython 3.12.10): `is_private` is **True** for documentation (`203.0.113.0/24`),
+benchmarking (`198.18.0.0/15`) and reserved (`240.0.0.0/4`) space — none of which is a LAN — so an unroutable
+address was reported as an *unrecognised local network*. It is **False** for CGNAT (`100.64.0.0/10`), which is a
+real carrier WAN address and also Tailscale's own range. A unit test caught the first half.
+*Rule:* test RFC1918 membership explicitly (`10/8`, `172.16/12`, `192.168/16`), and give CGNAT its own guard that
+answers "unknown, and here is why" instead of a confident "elsewhere". Generally: a stdlib predicate that
+*sounds* like your question is not your question — read its actual table.
+*Also:* my first written explanation of this bug blamed CGNAT, i.e. it was wrong in the opposite direction from
+the truth. Corrected in the code comment the same session rather than left standing, because a wrong rationale
+outlives the fix and misleads the next reader.
+
+**L170 · 2026-09-14 04:05 UTC · A one-packet probe of a sleeping peer manufactures false negatives — test the
+cold call, not the steady state.**
+`probe_endpoint()` sent `tailscale ping --c 1`. From the home LAN, on the same network as the owner's iPhone, it
+reported "no endpoint observed" on a cold call and **succeeded on the very next identical call**; after warming,
+**8/8** returned `192.168.12.249`. An idle iOS peer has to be woken, so one packet converted a wake-up cost into
+a silent empty reading — the exact failure class (`P2`, `P43`) the module was built to eliminate, reproduced
+inside the tool written to fix it. Changed to `--c 3 --timeout 5s`: **5/5** consecutive runs, including the
+first, cold one.
+*Rule:* when a probe of a phone, radio or sleeping daemon comes back empty, re-send before believing it. And when
+the probe *is* the product, exercise its **first** call — steady-state-only testing is what hid this, and the two
+earlier "verified" claims in the same session (L150) were the same mistake in a different costume.
+
+**L171 · 2026-09-14 · A Techloq-class filter serves its block page with a SUCCESS status code, so a status check
+reads a block as a pass.**
+On Yocheved's box, `https://api.deepseek.com/v1/models` returned **HTTP 200 (`Invoke-WebRequest`) and HTTP 302
+(`node:https`) — both with `text/html`**. TCP 443 was open. So every cheap liveness signal said "reachable" while
+the endpoint was in fact filtered. The decisive evidence was not the status code but the **TLS issuer**:
+`issuer=CN=env1.dc3.us.techloq.com, O=Techloq Ltd` — a full MITM, which also proves *all* her HTTPS is
+intercepted, not just the blocked hosts.
+*Rule:* on a filtered network, judge a call by **content type and parseability**, never by status — and read the
+certificate issuer once to learn whether you are behind an interceptor at all. This is the same class as L150
+and P2: a confident reading from the wrong signal.
+*Second half, and the one that nearly cost a whole evening:* Node on her box **could not complete any TLS
+handshake** (`unable to get local issuer certificate`) even though `NODE_EXTRA_CA_CERTS` was set at *Machine*
+scope and the CA file existed. The probe process simply had not inherited it — it descended from an NSSM
+service started before that variable existed. Setting it **explicitly** made the identical script succeed.
+*Rule:* a machine-scoped environment variable is not evidence that a long-running service's children inherit
+it. Set it in the launcher, and prove it from the process that will actually run the work.
+
+**L172 · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken.**
+Her VS Code BYOK chat failed on 2026-09-02 with `Missing API key for DeepSeek V4 Flash (default)`, and the
+reasonable reading was a bad key. It was not: the key in her `.env` is **byte-identical** (same 32 chars, same
+sha256 prefix) to the owner's, and a live `POST` to DeepInfra **from her own machine** returned HTTP 200 with a
+real completion. The actual cause was in the extension: `repoEnvPath()` searched only
+`vscode.workspace.workspaceFolders`, and activation is `onStartupFinished` — which can fire **before** workspace
+folders are restored, so the lookup found nothing and reported a missing key.
+*Rule:* "missing credential" is a claim about a *lookup*, not about a *value*. Before believing it, run the
+lookup the software runs and print the path it resolved. Fixing the error message to name the resolved path
+would have collapsed this diagnosis to one line.
+*Cost:* the failure sat in her logs since 2026-09-02 and her last real work was 2026-08-30 — thirteen days of a
+broken assistant that nobody was told about, because the error was only ever visible in a log on her own box.
+
+

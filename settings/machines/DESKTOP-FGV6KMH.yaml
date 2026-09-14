@@ -1,0 +1,66 @@
+# DESKTOP-FGV6KMH -- Yocheved's laptop, the Lakewood Phone & Tech manager workstation.
+#
+# This file is merged OVER `settings/base.yaml` by `scripts/sync.py` (machine wins), and
+# reaches the machine through `scripts/autosync.ps1`. It is committed here rather than
+# edited on the box so that her machine's posture is reviewable and cannot drift silently.
+#
+# ---------------------------------------------------------------------------
+# THE LOAD-BEARING LINE IN THIS FILE IS THE SANDBOX PRESET.
+#
+# `base.yaml` pins `permission.defaultPreset: danger-full-access`. Inheriting that on this
+# machine would give an agent acting for her unrestricted filesystem and shell access --
+# including write access to her own ~/.dsh and to this harness config. Her requirement from
+# the owner is explicit: powerful enough for the shop, but unable to make breaking changes
+# to his systems. So the override below is not a preference; an omission here is a security
+# fault, and that is why her settings are a separate committed file at all.
+#
+# `workspace-write` keeps full read access, confines writes to the launched workspace, and
+# pairs with an `ask` approval policy. `read-only` is the stricter posture if the owner
+# ever wants it: change one word.
+# ---------------------------------------------------------------------------
+permission:
+  defaultPreset: workspace-write
+
+# ---------------------------------------------------------------------------
+# Model route.
+#
+# WHY NOT `deepseek-official`: this machine sits behind the Techloq filter, which blocks
+# `api.deepseek.com` by URL category. Measured 2026-09-14 from her box: the block page is
+# served as HTML with a *success* status (HTTP 302 via node:https, HTTP 200 via
+# Invoke-WebRequest), so a status check reads the block as a pass. `api.deepinfra.com` is
+# allowed and returns real JSON.
+#
+# Verified through Techloq, from her own machine, at the exact call the harness makes:
+# `deepseek-ai/DeepSeek-V4-Flash-0731` returned `finish_reason: tool_calls`, so the agent
+# loop works. It is also cheaper than the direct route -- $0.06/M in and $0.18/M out against
+# the owner's documented $0.14/$0.28 for `deepseek-flash` -- and DeepSeek describes `-0731`
+# as superseding the preview with substantially enhanced agentic capability.
+#
+# The `llm-pi-ai` adapter re-reads its profiles per request, so switching this route later
+# (e.g. to a Cloudflare Worker fronting api.deepseek.com) is a `baseURL` edit and needs no
+# restart. The deepinfra block below is merged over base.yaml's own deepinfra route, so the
+# older preview ids are replaced rather than left selectable.
+#
+# Network requirements this file cannot express (they live in the launcher): Node must be
+# told to trust the Techloq MITM CA via NODE_EXTRA_CA_CERTS, and IPv6 must be avoided via
+# NODE_OPTIONS=--dns-result-order=ipv4first. Machine-scope environment variables are NOT
+# reliably inherited by service-spawned processes on this box -- measured -- so the launcher
+# sets both explicitly.
+# ---------------------------------------------------------------------------
+agent-default-model:
+  provider: deepinfra
+  model: deepseek-ai/DeepSeek-V4-Flash-0731
+
+llm-pi-ai:
+  providers:
+    deepinfra:
+      apiKeyEnv: DEEPINFRA_API_KEY
+      api: openai-completions
+      baseURL: https://api.deepinfra.com/v1/openai
+      models:
+        - id: deepseek-ai/DeepSeek-V4-Flash-0731
+          name: DeepSeek V4 Flash (0731)
+        - id: deepseek-ai/DeepSeek-V4.1-Flash
+          name: DeepSeek V4.1 Flash
+        - id: deepseek-ai/DeepSeek-V3.2
+          name: DeepSeek V3.2
