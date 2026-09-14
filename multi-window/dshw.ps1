@@ -27,7 +27,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'tasks-export', 'tasks-import', 'doctor', 'help')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'restore', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'tasks-export', 'tasks-import', 'doctor', 'help')]
     [string]$Command = 'status',
 
     [Parameter(Position = 1)]
@@ -38,7 +38,7 @@ param(
     # Default is NO windows. Starting the engine and opening eight windows are separate
     # intentions: the owner opens windows himself, one at a time, from the `+` in the UI
     # (or `dshw new`). `dshw up -WindowsMode yes` is the explicit "start everything" form.
-    [ValidateSet('yes', 'no', 'auto')]
+    [ValidateSet('yes', 'no', 'auto', 'restore')]
     [string]$WindowsMode = 'no',
     # Launch engines through Task Scheduler so they cannot die with the calling shell. Use
     # when starting the fleet from an agent/tool session rather than a real terminal.
@@ -731,12 +731,18 @@ function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'no') {
         Write-Host ("  (started {0} server(s) in {1}s)" -f ($toStart.Count - $failed.Count), [math]::Round($sw.Elapsed.TotalSeconds, 1))
     }
 
-    if ($WindowsMode -in @('yes', 'auto')) {
+    if ($WindowsMode -eq 'restore') {
+        Invoke-Restore
+    }
+    elseif ($WindowsMode -in @('yes', 'auto')) {
         $state = Get-State
         foreach ($slot in $enabledWindows) {
             try { [void](Open-SlotWindow $slot $state) }
             catch { Write-Host ("  [WARN] could not open window '{0}': {1}" -f $slot.label, $_.Exception.Message) -ForegroundColor Yellow }
         }
+        $map = Get-WindowRegistry
+        foreach ($slot in $enabledWindows) { Set-WindowRegistryEntry $map $slot.profile $true $slot.port }
+        Save-WindowRegistry $map
         Write-Host ("  (asked the browser to open {0} window(s))" -f $enabledWindows.Count)
     }
     Write-Host ("up: {0} server(s) started, {1} already listening, {2} failed" -f `
@@ -818,6 +824,92 @@ function Get-TreeMemoryMb([int]$root, $all = $null) {
     return [math]::Round($sum / 1MB)
 }
 
+# ── which windows were open, so a relaunch can reopen the same ones ──────────
+#
+# The owner's requirement: "whichever window was open before a close should reopen".
+# The engine persists itself; the WINDOWS are the launcher's business, so the launcher owns
+# a small registry of the profiles it has opened. `open: true` means "this window is part of
+# the working set"; `open: false` means the owner closed it deliberately and it should not
+# come back. The registry is why the shortcut can restore rather than guess.
+function Get-WindowRegistry {
+    $path = Join-Path $StateDir 'windows-registry.json'
+    $map = @{}
+    if (Test-Path $path) {
+        try {
+            $raw = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+            foreach ($prop in $raw.PSObject.Properties) { $map[$prop.Name] = $prop.Value }
+        } catch { Write-Warning "windows-registry.json unreadable; starting a fresh registry" }
+    }
+    return $map
+}
+
+function Save-WindowRegistry($map) {
+    $path = Join-Path $StateDir 'windows-registry.json'
+    $json = [pscustomobject]$map | ConvertTo-Json -Depth 6
+    [System.IO.File]::WriteAllText($path, $json, (New-Object System.Text.UTF8Encoding($false)))
+}
+
+function Set-WindowRegistryEntry($map, [string]$profile, [bool]$open, [string]$port) {
+    $map[$profile] = [pscustomobject]@{
+        open     = $open
+        port     = $port
+        at       = (Get-Date).ToString('o')
+    }
+}
+
+# Reconcile the registry with reality: a profile recorded as open whose window is gone was
+# closed by the owner, so it stops being part of the working set.
+function Sync-WindowRegistry($state) {
+    $map = Get-WindowRegistry
+    $slots = Get-Slots
+    $procTable = Get-WindowProcs
+    $changed = $false
+    foreach ($slot in $slots) {
+        $entry = $map[$slot.profile]
+        if (-not $entry) { continue }
+        if ($entry.open -eq $false) { continue }
+        $live = (Get-WindowCount $slot $procTable) -gt 0
+        if (-not $live) {
+            Set-WindowRegistryEntry $map $slot.profile $false $slot.port
+            $changed = $true
+        }
+    }
+    if ($changed) { Save-WindowRegistry $map }
+    return $map
+}
+
+function Invoke-Restore {
+    # Reopen every window that was open when DSH was last closed, and nothing else. A window
+    # the owner closed on purpose stays closed because the registry marks it `open: false`.
+    $state = Get-State
+    $slots = Get-Slots
+    # NOTE: no reconciliation here. A restore runs at startup, when every window is by
+    # definition closed, so 'the window is gone' would mark the whole working set closed and
+    # the restore would find nothing to do (observed 2026-09-11). The registry is the record
+    # of the last working set; only an explicit close or a later reconcile changes it.
+    $map = Get-WindowRegistry
+    $wanted = @($slots | Where-Object { $map.ContainsKey($_.profile) -and $map[$_.profile].open -eq $true })
+    if ($wanted.Count -eq 0) {
+        # nothing remembered: this is a first run, so give the owner one window rather than none
+        Write-Host "no remembered windows; opening the first slot"
+        $first = $slots | Where-Object { $_.enabled } | Select-Object -First 1
+        if ($first) { [void](Open-SlotWindow $first $state); Set-WindowRegistryEntry $map $first.profile $true $first.port; Save-WindowRegistry $map }
+        return
+    }
+    $procTable = Get-WindowProcs
+    $opened = 0
+    foreach ($slot in $wanted) {
+        if ((Get-WindowCount $slot $procTable) -gt 0) { continue }
+        try {
+            [void](Open-SlotWindow $slot $state)
+            $opened++
+            Write-Host ("  [open]  {0}" -f $slot.label) -ForegroundColor Green
+        } catch {
+            Write-Host ("  [WARN] could not reopen '{0}': {1}" -f $slot.label, $_.Exception.Message) -ForegroundColor Yellow
+        }
+    }
+    Write-Host ("restore: {0} of {1} remembered window(s) reopened" -f $opened, $wanted.Count)
+}
 function Invoke-New {
     $state = Get-State
     $slots = Get-Slots
@@ -834,6 +926,10 @@ function Invoke-New {
     foreach ($slot in $slots) { $slot.enabled = $true }
     [void](Open-SlotWindow $free $state)
     Write-Host ("new window: slot '{0}' (profile {1}) against port {2}" -f $free.label, $free.profile, $(if (Get-Mode -eq 'multi') { $free.port } else { Get-PrimaryPort })) -ForegroundColor Green
+    $map = Get-WindowRegistry
+    $regPort = if (Get-Mode -eq 'multi') { $free.port } else { Get-PrimaryPort }
+    Set-WindowRegistryEntry $map $free.profile $true $regPort
+    Save-WindowRegistry $map
 }
 
 function Invoke-Doctor {
@@ -1080,6 +1176,7 @@ switch ($Command) {
     'status' { Invoke-Status }
     'windows' { Invoke-Up -WindowsOnly }
     'new'    { Invoke-New }
+    'restore' { Invoke-Restore }
     'open'   {
         $slot = Get-SlotCfgByPortOrLabel $Slot
         if (-not $slot) { Write-Error "no slot matches '$Slot'"; exit 2 }

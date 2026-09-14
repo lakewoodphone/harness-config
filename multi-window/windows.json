@@ -2,7 +2,7 @@
   "_comment": "DSH multi-window launcher configuration. ONE server, MANY windows is the default because each server process eagerly starts its own five stdio MCP bridges (~1.4 GB per server measured 2026-09-11). Set mode to 'multi' only when you deliberately want a second isolated engine.",
   "_modes": {
     "single": "One DSH server on primaryPort; every window attaches to it. Sessions are independent; the engine is shared. THIS IS THE ONLY SUPPORTED MODE.",
-    "multi":  "UNSUPPORTED on a shared DSH_HOME - do not use. Two dsh web processes on one home have been observed writing duplicate sequence numbers into one session log and making the whole history unloadable (see docs/multi-window/research-dsh-perf-config.md section 6). It is also ~1.4 GB per engine against ~3 GB total for one engine with twelve windows."
+    "multi": "UNSUPPORTED on a shared DSH_HOME - do not use. Two dsh web processes on one home have been observed writing duplicate sequence numbers into one session log and making the whole history unloadable (see docs/multi-window/research-dsh-perf-config.md section 6). It is also ~1.4 GB per engine against ~3 GB total for one engine with twelve windows."
   },
   "_fields": {
     "window.label": "Human label, shown in the window title and in status output.",
@@ -12,7 +12,7 @@
     "window.port": "Only used in 'multi' mode: the port that window's own server listens on."
   },
   "mode": "single",
-  "primaryPort": 3080,
+  "primaryPort": 3099,
   "primaryWorkspace": "C:\\Users\\ezabz\\code",
   "server": {
     "logDir": "C:\\Users\\ezabz\\.dsh\\multi-window\\logs",
@@ -28,21 +28,108 @@
   },
   "_geometry": {
     "_comment": "Default layout: a 4x2 grid on the primary 1440x900 display (work area 1440x852), read 2026-09-11. The machine also has three 2560x1440 panels (DISPLAY2/3/4). Per-window size/position here override browser.windowSize and are re-supplied on every launch, because Edge ignores them if an instance is already running.",
-    "columns": 4, "rows": 2, "width": 700, "height": 440
+    "columns": 4,
+    "rows": 2,
+    "width": 700,
+    "height": 440
   },
   "windows": [
-    { "label": "1 - main", "workspace": "C:\\Users\\ezabz\\code", "profile": "w1", "enabled": true, "position": "0,0",     "size": "700,440" },
-    { "label": "2",        "workspace": "C:\\Users\\ezabz\\code", "profile": "w2", "enabled": true, "position": "700,0",   "size": "700,440" },
-    { "label": "3",        "workspace": "C:\\Users\\ezabz\\code", "profile": "w3", "enabled": true, "position": "0,440",   "size": "700,440" },
-    { "label": "4",        "workspace": "C:\\Users\\ezabz\\code", "profile": "w4", "enabled": true, "position": "700,440", "size": "700,440" },
-    { "label": "5",        "workspace": "C:\\Users\\ezabz\\code", "profile": "w5", "enabled": true, "position": "0,0",     "size": "700,440" },
-    { "label": "6",        "workspace": "C:\\Users\\ezabz\\code", "profile": "w6", "enabled": true, "position": "700,0",   "size": "700,440" },
-    { "label": "7",        "workspace": "C:\\Users\\ezabz\\code", "profile": "w7", "enabled": true, "position": "0,440",   "size": "700,440" },
-    { "label": "8",        "workspace": "C:\\Users\\ezabz\\code", "profile": "w8", "enabled": true, "position": "700,440", "size": "700,440" },
-    { "label": "9",        "workspace": "C:\\Users\\ezabz\\code", "profile": "w9", "enabled": false, "position": "0,0",   "size": "700,440" },
-    { "label": "10",       "workspace": "C:\\Users\\ezabz\\code", "profile": "w10", "enabled": false, "position": "700,0", "size": "700,440" },
-    { "label": "11",       "workspace": "C:\\Users\\ezabz\\code", "profile": "w11", "enabled": false, "position": "0,440", "size": "700,440" },
-    { "label": "12",       "workspace": "C:\\Users\\ezabz\\code", "profile": "w12", "enabled": false, "position": "700,440", "size": "700,440" }
+    {
+      "label": "1 - main",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w1",
+      "enabled": true,
+      "position": "0,0",
+      "size": "700,440"
+    },
+    {
+      "label": "2",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w2",
+      "enabled": true,
+      "position": "700,0",
+      "size": "700,440"
+    },
+    {
+      "label": "3",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w3",
+      "enabled": true,
+      "position": "0,440",
+      "size": "700,440"
+    },
+    {
+      "label": "4",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w4",
+      "enabled": true,
+      "position": "700,440",
+      "size": "700,440"
+    },
+    {
+      "label": "5",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w5",
+      "enabled": true,
+      "position": "0,0",
+      "size": "700,440"
+    },
+    {
+      "label": "6",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w6",
+      "enabled": true,
+      "position": "700,0",
+      "size": "700,440"
+    },
+    {
+      "label": "7",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w7",
+      "enabled": true,
+      "position": "0,440",
+      "size": "700,440"
+    },
+    {
+      "label": "8",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w8",
+      "enabled": true,
+      "position": "700,440",
+      "size": "700,440"
+    },
+    {
+      "label": "9",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w9",
+      "enabled": false,
+      "position": "0,0",
+      "size": "700,440"
+    },
+    {
+      "label": "10",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w10",
+      "enabled": false,
+      "position": "700,0",
+      "size": "700,440"
+    },
+    {
+      "label": "11",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w11",
+      "enabled": false,
+      "position": "0,440",
+      "size": "700,440"
+    },
+    {
+      "label": "12",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w12",
+      "enabled": false,
+      "position": "700,440",
+      "size": "700,440"
+    }
   ],
   "_multiPorts": {
     "_comment": "Only read in mode 'multi'. Ports are assigned from basePort upward, in window order.",

@@ -12,9 +12,9 @@ rem every Edge window it opens. That is what the shortcut on each desktop does.
 rem
 rem WHAT IT DOES
 rem   1. if the engine is not listening, start it (dshw up - no windows)
-rem   2. open ONE window (dshw new)
-rem The second step is the point: double-clicking a shortcut must end with DSH on
-rem screen, not with a silent engine and nothing to look at.
+rem   2. reopen exactly the windows that were open when DSH was last closed
+rem Step 2 is the point: double-clicking a shortcut must end with the same windows
+rem you left, not with a silent engine and nothing to look at.
 rem ============================================================================
 
 setlocal
@@ -24,6 +24,6 @@ set "PWSH=%ProgramFiles%\PowerShell\7\pwsh.exe"
 if not exist "%PWSH%" set "PWSH=pwsh.exe"
 
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" up
-"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" new
+"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" restore
 
 endlocal
