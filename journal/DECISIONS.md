@@ -688,3 +688,43 @@ DECIDED AND DONE
 STILL OPEN AND NAMED
 - The passcode work (`wip/passcode-encryption`) is **uncommitted in the desk's tree**, 25 commits behind `origin/test`, and its **vitest suite has never run** because `pnpm install` cannot complete while another session holds the checkout. That is the only thing between A1 and shipping.
 - The desk's `reports` repo has no remote — a single-disk copy of the whole question register.
+
+**D68 · 2026-09-14 · The filter's website is built, server-rendered in its own service, and on an LPT subdomain because that is what keeps the customer's existing login working.**
+*(Numbered above the current maximum — the `D` series is written concurrently; see `L192`. Cite this one by its title.)*
+The owner's instruction was *"keep working, anything that needs my attention or decision do so, otherwise keep
+working."* One thing genuinely needed him and was asked as one question with three options and the consequence of
+each: **the site's address.** He chose a subdomain of `lakewoodphoneandtech.com` (now
+`filterapp.lakewoodphoneandtech.com`). That is the decision it looks like a formality — LPT's shared login cookie
+is scoped to that domain, so on it customers sign in with the account they already have and **nothing changes on
+the LPT side**; off it the cookie silently stops arriving and the button stops working with no error at all. The
+broker keeps `filter.` and does not move, because provisioned phones have its URL baked in. Recorded in the repo as
+`decisions/38` D38-07.
+
+*Built and verified this round* (`kosher-filter-ai` `5a05c34` → `5092f9d`): `web/server/`, the site's own FastAPI
+service — own session cookie (`HttpOnly`, `Lax`, **host-only**, HMAC-signed, rotating on login), server-side broker
+client, pages, `/healthz`, and a JSON contract. **The broker's session cookie never touches a browser**, so no CORS
+or cookie attribute on the broker had to change. **33 tests pass**, and it was run and probed, not assumed:
+`/` 200, `/login` 200 with a real CSRF token, `/onboarding` 303 when signed out, and an unreachable broker →
+`err=unavailable`. Also `deploy/site/` (compose + caddy + README) and a non-root `Dockerfile`.
+
+*Three engineering decisions inside that, each with a reason worth keeping:*
+1. **Server-rendered, not a SPA** (D38-06) — a deliberate narrowing of the plan. This repo's tests are Python, so
+   this is the one customer-facing surface that is **cheap to prove works**: 33 tests in ~5 s, no browser, no npm
+   build in CI. The JSON endpoints were written first, so a SPA is a later layer rather than a rewrite. **No
+   `web/client/` was created**, because nothing builds it and an empty scaffold lies about progress.
+2. **`unavailable` is never reported as `invalid_credentials`.** A broker outage and a mistyped password produce
+   the same 200-with-`authenticated:false` from the broker; collapsing them would tell a parent their password was
+   wrong when the truth is that we could not ask. The difference decides whether they retry or give up.
+3. **An unreadable device list is `unknown`, never an empty account** (`D61`'s rule, in a new surface). "We could not
+   read it" and "you have no phone attached" are different facts and only one of them is about the customer.
+
+*And the rule from D38-05 was applied before it could be needed:* `SITE_SESSION_SECRET` absent or under 32
+characters **refuses to start**, because an unsigned session cookie is a forged session. A missing *broker* URL, by
+contrast, does not stop the site serving pages — it closes sign-in with its own message. Security-critical missing
+values stop the process; availability-critical ones degrade loudly instead of quietly.
+
+**Honest limits, recorded rather than glossed:** sessions are in memory (a restart signs everyone out — deliberate
+for v1 so no third party's credential is written at rest); **docker is not installed on this machine**, so the
+image build and container run are **untested** (the compose file parses and the app runs and answers — that is all
+that was verified); and the LPT sign-in cannot switch on until LPT issues a secret **for this site** rather than the
+one already shared with other relying apps.
