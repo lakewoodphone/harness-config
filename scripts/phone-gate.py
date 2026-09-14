@@ -226,13 +226,13 @@ def complete_login(engine_port: int, first: bytes, token: str, path: str) -> byt
         return None
 
 
-def mobile_style_tag() -> bytes:
-    """The phone layer, read once from assets/mobile.css.
+def mobile_css_bytes() -> bytes:
+    """The phone layer source, or b"" when it is unavailable or switched off.
 
-    Injected here rather than in the harness package because the package belongs to npm -
-    an update would silently drop the change - and this gate already touches every
-    document request, so it is the one place that can add a stylesheet to a phone without
-    a client rebuild. Kill switch: PHONE_MOBILE_CSS=0.
+    Injected into documents rather than shipped in the harness package because the package
+    belongs to npm — an update would silently drop the change — and this gate already
+    touches every document request, so it is the one place that can add a stylesheet to a
+    phone without a client rebuild. Kill switch: PHONE_MOBILE_CSS=0.
     """
     if os.environ.get("PHONE_MOBILE_CSS", "1") == "0":
         return b""
@@ -240,9 +240,41 @@ def mobile_style_tag() -> bytes:
         css = MOBILE_CSS.read_bytes()
     except OSError:
         return b""
-    if not css.strip():
+    return css if css.strip() else b""
+
+
+def mobile_style_tag() -> bytes:
+    """The phone layer as a document-level <style> tag."""
+    css = mobile_css_bytes()
+    if not css:
         return b""
     return b'<style id="dsh-phone-mobile" data-layer="phone-gate">' + css + b"</style>"
+
+
+def mobile_stylesheet_response() -> bytes:
+    """The phone layer as a stylesheet the client can link, at /dsh-phone-mobile.css.
+
+    WHY THIS EXISTS ALONGSIDE THE INJECTED TAG — the same reason twice over.
+    1. A document the client already has cached carries whatever it had at the time; the
+       layer is delivered by rewriting that document, so a reused document is a shell with
+       no layer. `plugin-mobile` links this URL at boot, which restores the layer without
+       needing the document to be fresh.
+    2. It is also the only form an app that rewrites its own <head> cannot lose: a client
+       plugin can re-assert a link element it owns.
+
+    `no-store`, because this file changes with the repo and a stale copy is exactly the
+    failure being fixed; it is 10 KB, fetched once per page load.
+    """
+    body = mobile_css_bytes()
+    if not body:
+        return b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    return (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: text/css; charset=utf-8\r\n"
+        b"Cache-Control: no-store\r\n"
+        b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+        b"Connection: close\r\n\r\n" + body
+    )
 
 
 def inject_mobile(document: bytes) -> bytes:
@@ -275,26 +307,44 @@ def dechunk(body: bytes) -> bytes:
         rest = rest[start + size + 2:]
 
 
-def reframe(response: bytes, body: bytes) -> bytes:
+def reframe(response: bytes, body: bytes, no_store: bool = False) -> bytes:
     """Rebuild a response so its framing matches the bytes actually being sent.
 
     Measured the hard way on 2026-09-11: the engine serves the document chunked, so a
     stylesheet inserted into it corrupted the chunk sizes and every client got
     IncompleteRead. Content-Length is recomputed here and chunked framing is dropped,
     because after this the body is a known, complete byte string.
+
+    `no_store` drops every caching validator and asserts `Cache-Control: no-store`. It
+    exists because the phone layer is delivered by REWRITING THE DOCUMENT, so a client
+    that serves the document from its own cache gets a shell with no layer at all — and
+    the only symptom is a phone that looks like none of the phone work was ever done.
+    Measured 2026-09-14: the engine sends its document with **no** `Cache-Control` and no
+    validator at all, a cold client rendered the layer correctly in the same minute, and a
+    warm browser in this session rendered the app with the layer absent (its own `fetch`
+    of `/` returned the engine's 28,141-byte document, un-injected). A response with no
+    cache directives is exactly what a phone is free to reuse without asking.
     """
     head, sep, _ = response.partition(b"\r\n\r\n")
     if not sep:
         return response
-    lines = [ln for ln in head.split(b"\r\n")
-             if not ln.lower().startswith(b"transfer-encoding:")
-             and not ln.lower().startswith(b"content-length:")]
+    drop = [b"transfer-encoding:", b"content-length:"]
+    if no_store:
+        drop += [b"etag:", b"last-modified:", b"expires:", b"age:", b"cache-control:"]
+    lines = [ln for ln in head.split(b"\r\n") if not ln.lower().startswith(tuple(drop))]
     lines.insert(1, b"Content-Length: " + str(len(body)).encode())
+    if no_store:
+        lines.insert(1, b"Cache-Control: no-store")
     return b"\r\n".join(lines) + b"\r\n\r\n" + body
 
 
 def with_mobile_layer(response: bytes) -> bytes:
-    """A 200 document, de-chunked, with the phone layer in it, correctly framed."""
+    """A 200 document, de-chunked, with the phone layer in it, correctly framed.
+
+    The layer is injected AND the answer is made uncacheable, because the two are the same
+    requirement: a document that can be reused without asking this gate is a document that
+    can silently lose the layer.
+    """
     if status_of(response) != 200:
         return response
     head, sep, raw = response.partition(b"\r\n\r\n")
@@ -302,7 +352,7 @@ def with_mobile_layer(response: bytes) -> bytes:
         return response
     body = dechunk(raw) if b"transfer-encoding: chunked" in head.lower() else raw
     body = inject_mobile(body)
-    return reframe(response, body)
+    return reframe(response, body, no_store=True)
 
 
 def read_response_head(sock: socket.socket, limit: int = 65536, timeout: float = 20.0) -> bytes:
@@ -433,6 +483,18 @@ def handle(client: socket.socket, engine_port: int) -> None:
         note(f"{method} {path}{'?' + query[:24] if query else ''} "
              f"cookie={has_cookie} token_offered={bool(offered)} token_live={bool(token)} "
              f"proto={request_line.split(' ')[-1]}")
+
+        # The phone layer as a standalone stylesheet, for the client plugin to link.
+        # Answered here, deliberately WITHOUT auth: it is styling, it carries no data, and
+        # requiring a cookie would make it unavailable in exactly the case it exists for - a
+        # client whose document came from its own cache. Every other path falls through to
+        # the engine as before.
+        if method == "GET" and path == "/dsh-phone-mobile.css":
+            body = mobile_stylesheet_response()
+            note(f"  -> phone layer stylesheet: {len(body)} bytes")
+            client.sendall(body)
+            client.close()
+            return
 
         # A document request that cannot be authenticated as sent: no cookie at all, or a
         # token the engine no longer honours (a saved link, a replayed redirect, an engine

@@ -49,6 +49,43 @@ window.__ModuleLoader__.load({
     const LIST = '[class*="listArea"]';
     /** The app applies a selection, then re-renders; 150ms is below noticing, above a frame. */
     const SETTLE_MS = 150;
+    const STYLESHEET = '/dsh-phone-mobile.css';
+    const STYLESHEET_ID = 'dsh-phone-mobile-link';
+
+    /**
+     * Make sure the phone layer is in THIS document, whatever this document was.
+     *
+     * The gate also injects the layer as a `<style>` while it serves the document, and that
+     * is the fast path. This is the path that cannot be lost:
+     *
+     *   - a document served from the browser's own cache carries whatever it had at the
+     *     time, and the layer is delivered by REWRITING documents, so a reused document is a
+     *     shell with no layer. Measured 2026-09-14: a warm browser in this session rendered
+     *     the app with the layer absent (`body` scrollable, sidebar a 56px column at 393px)
+     *     while a cold one rendered it correctly in the same minute — and a fetch of `/` from
+     *     that warm client returned the engine's un-injected 28,141-byte document.
+     *   - an app that rewrites its own `<head>` can drop a node it does not know about; a
+     *     link this plugin owns can be put back, and the observer below does exactly that.
+     *
+     * Linked at every width on purpose: the stylesheet scopes itself with media queries, so
+     * there is no viewport for which loading it is wrong, and no resize logic to get wrong.
+     * The gate answers it without auth and with `no-store`, so a stale layer is impossible.
+     */
+    function ensureStylesheet() {
+      try {
+        const head = document.head;
+        if (head === null || head === undefined) return;
+        if (document.getElementById(STYLESHEET_ID) !== null) return;
+        const link = document.createElement('link');
+        link.id = STYLESHEET_ID;
+        link.rel = 'stylesheet';
+        link.href = STYLESHEET;
+        link.setAttribute('data-layer', 'phone-gate');
+        head.appendChild(link);
+      } catch (error) {
+        if (window.console) window.console.warn('dsh-plugin-mobile: ' + error);
+      }
+    }
 
     function isNarrow() {
       try {
@@ -131,10 +168,24 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
+      let observer = null;
       const detach = () => {
         document.removeEventListener('click', onClick, true);
         document.removeEventListener('keydown', onKeydown, true);
+        if (observer !== null) observer.disconnect();
       };
+      // The layer first: it is what makes the rest of this file's behaviour visible at all.
+      ensureStylesheet();
+      // Re-asserted if the app rewrites <head>. Appending fires this observer once more, finds
+      // the link present, and does nothing, so it converges rather than looping.
+      try {
+        if (typeof MutationObserver === 'function' && document.head) {
+          observer = new MutationObserver(() => ensureStylesheet());
+          observer.observe(document.head, { childList: true });
+        }
+      } catch (error) {
+        if (window.console) window.console.warn('dsh-plugin-mobile: ' + error);
+      }
       // Capture phase so a handler that stops propagation cannot hide the click from us.
       document.addEventListener('click', onClick, true);
       document.addEventListener('keydown', onKeydown, true);

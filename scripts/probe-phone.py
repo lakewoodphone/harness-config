@@ -506,6 +506,68 @@ def check_redirector():
                f"{type(e).__name__}: {e}")
 
 
+def check_layer_cannot_be_cached():
+    """A client that may already hold the document still gets the layer, and must not reuse it.
+
+    Added 2026-09-14, and it is the check that explains the owner's own experience. The layer
+    is delivered by REWRITING THE DOCUMENT, so a client that serves the document from its own
+    cache is running a shell with no layer — and every other check here reads the server's
+    answer, which is correct in both cases. Measured the same day: a cold browser at 393x852
+    rendered the layer correctly (`frame` one column of 393px, sidebar off-canvas at -340,
+    toggle pinned 44x44, page scroll locked) while a warm browser in the same session rendered
+    the app with the layer absent, and a fetch of `/` from that warm client returned the
+    engine's un-injected 28,141-byte document. The engine sends its document with no
+    `Cache-Control` at all, which is what a phone is free to reuse without asking.
+
+    Two things are asserted, because they are two halves of one requirement: the answer is
+    `no-store` (a client may not reuse it), and the body carries the layer (it was injected).
+    """
+    name = "the phone layer cannot be lost to a client cache"
+    r = request(GATE, "GET", "/", {
+        "Host": AUTHORITY,
+        "Accept": "text/html",
+        # exactly what a browser sends when it may already hold this document
+        "If-None-Match": '"probe-revalidation"',
+        "If-Modified-Since": "Mon, 01 Jan 2024 00:00:00 GMT",
+        "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                       "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"),
+    })
+    text = r["body"].decode("utf-8", "replace")
+    cache_control = (r["headers"].get("cache-control") or "").lower()
+    has_layer = 'id="dsh-phone-mobile"' in text
+    ok = r["status"] == 200 and has_layer and "no-store" in cache_control
+    detail = (f"{r['status']}, {len(r['body'])} bytes, "
+              f"cache-control={cache_control or 'ABSENT'}")
+    if not has_layer:
+        detail += ", and no layer in the body"
+    record(13, name, ok, detail)
+
+
+def check_mobile_stylesheet():
+    """The layer is also served as its own stylesheet, which a client plugin can link.
+
+    The document copy can be lost to a cache or dropped by an app rewriting its `<head>`; a
+    `<link>` the mobile plugin owns cannot. This asserts the route the plugin links actually
+    answers with CSS — an empty 404 would leave the phone with no layer while every other
+    check here stayed green, which is precisely the failure mode 13 exists for.
+    """
+    name = "the layer is also served as its own stylesheet"
+    r = request(GATE, "GET", "/dsh-phone-mobile.css", {"Host": AUTHORITY})
+    content_type = (r["headers"].get("content-type") or "").lower()
+    text = r["body"].decode("utf-8", "replace")
+    rules = {
+        "media block": "max-width: 768px" in text,
+        "16px fields": "font-size: 16px !important" in text,
+        "44px targets": "min-height: 44px" in text,
+        "drawer rules": "sidebarCol" in text,
+    }
+    ok = r["status"] == 200 and "text/css" in content_type and all(rules.values())
+    missing = [n for n, present in rules.items() if not present]
+    record(14, name, ok,
+           f"{r['status']}, {len(r['body'])} bytes, type={content_type or 'ABSENT'}"
+           + (f", missing: {', '.join(missing)}" if missing else ", all four rules present"))
+
+
 def guarded(n, name, fn, *a, **kw):
     """Run one check so that its own crash is recorded as that check failing."""
     try:
@@ -535,6 +597,10 @@ def run_checks():
     guarded(10, "the phone layer is served and complete", check_mobile_layer)
     guarded(11, "the mobile client plugin is in the browser roster", check_client_plugin)
     guarded(12, "an authenticated RPC works (the app's first call)", check_authenticated_rpc, cookie)
+    # 13 and 14 are about the layer SURVIVING, which is a different question from it being
+    # served: the owner's phone can hold a document this host never injected.
+    guarded(13, "the phone layer cannot be lost to a client cache", check_layer_cannot_be_cached)
+    guarded(14, "the layer is also served as its own stylesheet", check_mobile_stylesheet)
     guarded("6b", "public /phone reaches the harness", check_redirector)
     return how
 
