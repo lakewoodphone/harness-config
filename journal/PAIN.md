@@ -1098,3 +1098,29 @@ duplicates were still being walked. Still open: the index carries 685,000 file r
 rule ("catalog everything, but only index content in recently-touched trees") would cut it further
 without losing the ability to find an old file by name.
 
+
+
+## P55 — The search index had no automation and no alarm; it would have gone stale silently
+
+**Symptom.** `fsearch`/`chatindex` are incremental, so a refresh is cheap — but nothing ran them. The
+index was built by hand, once, and a state built by hand decays the moment the person who built it stops
+looking. Worse, nothing checked it: a stale index answers *confidently and wrongly*, which is the
+provenance failure (P3) wearing new clothes.
+
+**Evidence.** No scheduled task existed for either index before 2026-09-14; `refresh-state.json` did not
+exist; the digest had no section for it. Meanwhile the fleet's other freshness alarms (archive, comms)
+each caught a real fault in the same week.
+
+**Cost.** Every search executed against a frozen snapshot, silently missing everything written after the
+build — and worse than the 45-second walk it replaced, because the walk at least saw the new files.
+
+**Fix (done).** `refresh.py` refreshes both indexes incrementally, records `last_success` in a state file,
+and exits non-zero with a readable reason on failure instead of dying quietly; `install_refresh.py`
+registers it as a per-user Scheduled Task on Windows (`DSH search index refresh`, hourly, verified
+`Status: Ready`, `Next Run Time` populated) and as a cron line on Linux. `check-search-freshness.py` is
+wired into the digest as section 0c with exit 0/1/2 where 2 means *cannot tell*, and it printed UNKNOWN
+rather than healthy on a host with no refresh yet.
+
+**Still open.** The two other corpora the owner named (the company DB — email/SMS/calls — and the DSH
+session archive) are not in this query surface yet, so a single search still does not cover everything.
+

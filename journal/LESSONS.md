@@ -1585,3 +1585,31 @@ emitting a row per record instead of replaying to a final state.
 duplicate text as the tell. A larger total from a parser that does not apply patches is inflammation,
 not coverage.
 
+
+
+**L174 · 2026-09-14 · `buf += chunk` then `partition` is O(n^2) on a long line — the guard I wrote to
+prevent a stall caused one.** Reading the chat corpus, the loop accumulated 1 MB reads into a `bytes`
+object (`buf += chunk`) and then re-scanned it with `buf.partition(b"\n")` on every iteration. On the
+1,050 MB file, whose dominant line is **419 MB**, that is quadratic in line length: the process burned
+**1,525 s of CPU in 25 minutes and wrote nothing**. The "long line guard" I added for safety never
+mattered, because the cost was in the accumulation itself, not in the absence of a newline.
+*Fix, and the rule:* use a `bytearray` (mutating, not reallocating a new immutable object per read),
+`find` for the newline, `del` the consumed prefix, and only materialise a line when one actually ends.
+Guard memory by discarding an over-long buffer and resyncing on the next newline.
+*Evidence:* same file, same machine, after the change — parsing and writing within seconds.
+*Generalisation:* when a job is slow, measure **CPU time against wall time and output growth** before
+theorising. 1,525 s CPU with zero output growth is a computation bug, not an I/O wait, and the two need
+opposite fixes.
+
+**L175 · 2026-09-14 · A tool nobody is told to use is not a tool — documentation is not a mechanism.**
+The search index made the fleet's most common operation ~600× faster (45.34 s → 0.07 s, measured), and
+for a while nothing at all instructed a future session to use it: the default behaviour would still have
+been a recursive walk, and the index would have rotted while every search stayed slow. The fix was not
+another document; it was a **persona rule** (`make_zabz_preset.py`, regenerated, verified with `--check`,
+installed to the live profile) naming the two commands, the measured numbers, and the rule that a stale
+index is a fault to fix rather than a state to work through.
+*Rules:* (a) shipping a capability includes shipping the *instruction to use it*, in the place the reader
+actually reads; (b) pair it with a **freshness alarm** in the digest, because "use this index" without
+"and it must be current" produces confident answers from stale data — the same failure as P3 with a new
+mechanism.
+
