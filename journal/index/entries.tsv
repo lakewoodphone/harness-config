@@ -107,7 +107,8 @@ handoff	H95	95		2026-09-14 16:37 UTC	ZABZ-TECH	open	## 2026-09-14 16:37 UTC · Z
 handoff	H97	97		2026-09-14 16:58 UTC	ZABZ-TECH	open	## 2026-09-14 16:58 UTC · ZABZ-TECH · Weitman wants a 14in laptop: case file created, flows pulled up, sourcing run with coverage honestly incomplete	log/handoff/2026-09.4.md	544	613	3239700a73c2e1dd
 handoff	H98	98		2026-09-14 17:00 UTC	ZABZ-TECH	open	## 2026-09-14 17:00 UTC · ZABZ-TECH · LPT case system rebuilt: lptcase index/search + front-matter standard on all 180 cases (lpt-hub c5efd646); Abramczyk USB/\ recorded	log/handoff/2026-09.4.md	614	662	814ceab420f4edcd
 handoff	H99	99		2026-09-14 17:00 UTC	ZABZ-TECH	open	## 2026-09-14 17:00 UTC · ZABZ-TECH · Atlas delivery: she is a flip-phone customer with no email, so the preview must be physical - an SD card she can view in her own camera; USB verified CLEAN 31,883/31,883	log/handoff/2026-09.4.md	663	712	245423298d73edf9
-handoff	H100	100		2026-09-14 17:27 UTC	ZABZ-TECH	open	## 2026-09-14 17:27 UTC · ZABZ-TECH · 82XM00LMUS screen: ordered and accepted at 180 - the case the shop nearly lost is now in the queue for the bench	log/handoff/2026-09.4.md	713	759	acd5470491fbbe39
+handoff	H100	100		2026-09-14 17:27 UTC	ZABZ-TECH	open	## 2026-09-14 17:27 UTC · ZABZ-TECH · 82XM00LMUS screen: ordered and accepted at 180 - the case the shop nearly lost is now in the queue for the bench	log/handoff/2026-09.4.md	713	758	acd5470491fbbe39
+handoff	H101	101		2026-09-14 17:42 UTC	ZABZ-TECH	open	## 2026-09-14 17:42 UTC · ZABZ-TECH · LPT case system audited and made measurably faster: 846ms -> 361ms on the edit-then-lookup loop, verified equivalent	log/handoff/2026-09.4.md	759	819	f706c36a83ba45f0
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.1.md	6	15	235a8e5a9717b921
 lessons	L1a	1	a	-	-	retracted	**L1a · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	069d95a6e4dafd47
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.1.md	16	22	bc5ceb76f28aec87
@@ -524,7 +525,9 @@ lessons	L245	245		2026-09-14	ZABZ-TECH	open	**L245 · owner-queue.py docstring s
 lessons	L246	246		2026-09-14	ZABZ-TECH	open	**L246 · A PowerShell cast failure inside Where-Object silently deletes rows from the authority's comms pull**	log/lessons/2026-09.2.md	676	698	c42e97a2491c843a
 lessons	L247	247		2026-09-14	ZABZ-TECH	open	**L247 · eBay sourcing via real browser: 403 challenge clears, SRP+item selectors, batch fetch**	log/lessons/2026-09.2.md	699	744	b9921bd97919b688
 lessons	L248	248		2026-09-14	ZABZ-TECH	open	**L248 · I stopped one path to a device and called the window quiet**	log/lessons/2026-09.2.md	745	780	2ce60c82d5441e7b
-lessons	L249	249		2026-09-14	ZABZ-TECH	open	**L249 · Repair pricing: use the invoice landed cost, not the supplier's published shipping rate - measured 1.8x error**	log/lessons/2026-09.2.md	781	808	aef7059ac16e9f17
+lessons	L249	249		2026-09-14	ZABZ-TECH	open	**L249 · Repair pricing: use the invoice landed cost, not the supplier's published shipping rate - measured 1.8x error**	log/lessons/2026-09.2.md	781	807	aef7059ac16e9f17
+lessons	L250	250		2026-09-14	ZABZ-TECH	open	**L250 · Record the device OWNER as the customer and the deliverer/payor separately - filing under the payor lost the Savitz card for 3 weeks**	log/lessons/2026-09.2.md	808	829	90a513f27fbff02e
+lessons	L251	251		2026-09-14	ZABZ-TECH	open	**L251 · Measure the command, not the function - the case-index README understated its own cost by 4x**	log/lessons/2026-09.2.md	830	860	638784c1417955f0
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -609,7 +612,8 @@ pain	P81	81		2026-09-14	imported	open	## P81 — The LPT identity surface is one
 pain	P82	82		2026-09-14	ZABZ-TECH	open	## P82 — Case state lives in 4 documents that drift, with no detector; 203/376 sync records do not resolve to a case file	log/pain/2026-09.md	2370	2391	72bf5b76bf5328e4
 pain	P83	83		2026-09-14	ZABZ-TECH	open	## P83 — The ha-config repo has silently drifted from the live host on the files deploy.ps1 would overwrite	log/pain/2026-09.md	2392	2423	8f24e04940dfc5e6
 pain	P84	84		2026-09-14	ZABZ-TECH	open	## P84 — The website's SMS record has been frozen since 2026-09-02 - every customer thread stops there	log/pain/2026-09.md	2424	2458	bb73768a93f0ed4c
-pain	P85	85		2026-09-14	ZABZ-TECH	open	## P85 — The research dispatcher reports status=complete and verifier_status=passed on an EMPTY synthesis, and all five web-search providers are dead	log/pain/2026-09.md	2459	2500	dbed18e1686dcf22
+pain	P85	85		2026-09-14	ZABZ-TECH	open	## P85 — The research dispatcher reports status=complete and verifier_status=passed on an EMPTY synthesis, and all five web-search providers are dead	log/pain/2026-09.md	2459	2499	dbed18e1686dcf22
+pain	P86	86		2026-09-14	ZABZ-TECH	open	## P86 — lpt-hub exists twice, both copies are written to, and the authority's mirror lands on the copy nobody reads	log/pain/2026-09.md	2500	2549	826a747ace6cb836
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
@@ -722,7 +726,8 @@ decisions	D90	90		2026-09-14	imported	open	**D90 · 2026-09-14 · The filter get
 decisions	D91	91		2026-09-14	ZABZ-TECH	open	**D91 · 2026-09-14 · Kosher Waze unit economics: custom case in every unit and a hard floor of 100 dollars gross profit per device sale; tier 2 only works if SE2s are bought at 50-70.**	log/decisions/2026-09.md	1563	1593	a5177155c38459ef
 decisions	D92	92		2026-09-14	ZABZ-TECH	open	**D92 · 2026-09-14 · Case system: case file is the record, sync record is a derived mirror, retrieval is index-first (lptcase).**	log/decisions/2026-09.md	1594	1611	17c05764ef3ef26c
 decisions	D93	93		2026-09-14	ZABZ-TECH	open	**D93 · 2026-09-14 · Weitman laptop case: case artifacts, an authoritative null price in lptcase, and no intake record for a sale.**	log/decisions/2026-09.md	1612	1649	6f86075d75c18df2
-decisions	D94	94		2026-09-14	ZABZ-TECH	open	**D94 · 2026-09-14 · Owner's repair pricing rule, stated directly: (cost + shipping) x 1.4 + 65 - now canonical at lpt-hub/docs/customer-operations/PRICING-RULE.md.**	log/decisions/2026-09.md	1650	1685	ff24d57355892b10
+decisions	D94	94		2026-09-14	ZABZ-TECH	open	**D94 · 2026-09-14 · Owner's repair pricing rule, stated directly: (cost + shipping) x 1.4 + 65 - now canonical at lpt-hub/docs/customer-operations/PRICING-RULE.md.**	log/decisions/2026-09.md	1650	1684	ff24d57355892b10
+decisions	D95	95		2026-09-14	ZABZ-TECH	open	**D95 · 2026-09-14 · Kosher Waze product terms settled: button-covering branded case with open Lightning port, phone+case only, 100 dollar device-sale profit floor, 8-month warranty, owner places every order, in-shop sales with a status-only portal.**	log/decisions/2026-09.md	1685	1718	bc9b907963f09bdd
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
