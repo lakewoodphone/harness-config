@@ -1,55 +1,54 @@
-## 2026-09-14 12:30 EDT (16:30Z) · ZABZ-TECH · A year of business conversation is now searchable; and a run of my own defects, each found by measuring
+## 2026-09-14 17:50 UTC · ZABZ-YOGA · "I don't see it now": the badge vanished because the tunnel died, and it had no voice for that — both fixed, and the fix needed no elevation after all
 
-**Delivered, measured**
+**The report.** *"I think I saw the badge earlier today but I don't see it now."* Two independent causes,
+both on this laptop, both now fixed:
 
-| surface | before | now |
-|---|---|---|
-| content search over `~/Code` | 45.34 s (recursive) | **0.064 s** |
-| filename search | full walk | **0.061 s** |
-| chat history searchable | 4,368 messages | **21,951** (2026-01-16 → 09-11), consistent |
-| business comms searchable | **nothing** | **174,622** (2025-04-18 → 2026-09-14) |
-| file index | none | **919,873 files** after de-dup (was 1,839,746, half duplicates) |
+1. **The machine rebooted at 16:41:46**, `tailscaled` started 20 s later and sat at
+   **`BackendState: NoState` for 51 minutes** with `C:\ProgramData\Tailscale` empty. The tunnel never
+   came back. **`Restart-Service Tailscale` → access denied** (service control needs elevation, which the
+   agent does not have), and `Stop-Process` on the daemon → denied too.
+2. **`CorpDNS: false`** — MagicDNS was **off**, so `secratary.tail93e6e6.ts.net` did not resolve *even
+   once the backend read `Running`*. A working tunnel is not a resolvable name.
 
-**The comms index is the headline.** The authority held 127,651 SMS, 12,473 calls, 4,052 transcripts,
-3,036 voicemails and 24,000+ message rows across 21 Dialpad tables, and **not one byte was full-text
-searchable** — the only FTS indexes covered email drafts, memories, project knowledge and chat exports.
-`scripts/commsindex.py` now indexes all of it in ~33 s with ten explicit extractors, plus a trigram table
-so substrings inside phone numbers match. Transcript artifact markers (`whole_call_summary_fragment`,
-`action_item_v2`) are stripped at ingest, because they were fragmenting phrase searches and making every
-result list look noisy.
+**And the badge is fetched FROM the authority over exactly that tunnel.** So the script never loaded and
+the pill disappeared, **saying nothing**. On the phone this cannot happen (document and script come from
+the same server); on Yoga and the desktop the badge is remote.
 
-**Defects found in my own work, each by measuring rather than reading code**
+**FIXED, both at user level — I nearly handed him a task on a false "needs admin".**
+- **Launching the GUI** (`tailscale-ipn.exe`) drove the backend `NoState → Running`. The daemon had been
+  running for 51 minutes without completing its handshake; the tray process is what finishes it.
+- **`tailscale set --accept-dns=true`** re-enabled MagicDNS. The name then resolved to `100.84.72.88`.
+- Verified end to end: `GET /dsh-attention.js` → **200, 21,232 bytes, badge v3**;
+  `GET /dsh-attention.json` → `read=true, 13 checks, 7 healthy, 6 need attention, highest critical`;
+  `ssh secretary-ts` works again; and the commits that had queued behind the dead tunnel are pushed.
 
-1. The index stored the same 2.19 GB of text twice (porter + trigram) → 10.87 GB. Trigram is now opt-in.
-2. **15 GB of 112 GB was duplicate trees** (`lpt-hub-workingtree-backup-*` 8.93 GB, `artifacts/f21-backup` 5.79 GB).
-3. The chat reader was **O(n²)** — 1,525 s CPU in 25 min with **zero output** on the 1,050 MB file.
-4. **My size guard was deleting the biggest conversation in the archive** (the 1,050 MB file yielded 2 requests). Mining those lines recovered **+4,619 messages (+27%)**.
-5. **`schtasks` doesn't run a shell**, so the registered command containing `>>` would have failed every run.
-6. Making trigram opt-in left **five** unguarded `tri` references; fixing them one at a time as they surfaced is how the same bug ships twice, so all five are now guarded and asserted by `scripts/assert-fsearch-guards.py`.
-7. **Half the file index was the same tree twice** — `Code\` and `code\` are one directory on Windows. 919,873 duplicates removed in 38.9 s with `COLLATE NOCASE`; my first attempt did it row-by-row and burned 1,016 s without finishing. `VACUUM` then freed 2,785 MB.
-8. That de-dup **dropped the PRIMARY KEY** on `files`, so new rows got `id = NULL` and the prune loop crashed on `int(r["id"])`. Table rebuilt with a primary key; prune made bulk.
-9. **A concurrent session rewrote `owner-attention-digest.sh`** and silently dropped my four freshness sections — `git log` still showed my commit while the working tree had none of it. Merged back alongside their `1b`, verified with `bash -n`.
+**FIXED IN THE PRODUCT, because a monitor must not depend on the thing it monitors.**
+`dsh-plugin-attention-badge` now carries a small **local** refusal pill: if the real badge has not mounted
+within 6 s it renders a dashed `findings unavailable` pill **naming the host it cannot reach**, and retries
+every 30 s; when the authority returns, the real badge loads and the fallback removes itself. It renders
+**no findings** — an empty list would look like good news — and it is not a copy of the badge, so there is
+nothing in it to drift. Also fixed: a failed `<script>` load leaves a dead element and the id guard read
+that as *already loading*, so **one transient outage became a permanent absence**; a dead tag is now
+replaced, as is one that survives a full retry cycle without producing a badge.
+**33 new checks (163 total, was 130)**, all passing; screenshot `_scratch/badge-offline.png`; the new
+state is in `docs/badge/README.md` §3 and the incident is written up in §9.
 
-**BROKEN / NOT FINISHED — stated plainly**
+**The transferable rule → L217.** The badge's own `findings unavailable` state lives inside a script that
+is fetched from the authority, so **the one state it could never render was the one it most needed**. This
+is the founding failure of the whole subsystem (P55: the alert about the dead channel sent through the
+dead channel) reproduced one level up, by me, two hours after writing the doc about it.
 
-- **The hourly refresh task is DISABLED.** A full pass is ~175 s when incremental but many minutes when it must
-  `os.stat` every path, and it hit `database is locked` partway. Rather than let a 30-minute walk overlap
-  itself, I disabled it: `schtasks /Change /TN "DSH search index refresh" /ENABLE` re-arms it. The fix is to
-  use `DirEntry.stat` from `os.walk` instead of a fresh `os.stat` per file (currently 1,839,746 calls), which
-  is the next thing to do.
-- **Chat index is parser v3, not v4.** v4 restores the `torn_tail` signal (648 truncated sessions were being
-  reported as `ok`); the code is committed and needs one ~10-minute rebuild.
-- The comms index exists **only on the authority**, and is not yet wired into secratary's refresh.
-- `~/.fsearch/RETIRED-*.db` (≈10.5 GB) are superseded artefacts kept until the live indexes are proven over a
-  few days; delete then, not before.
+**Still open, recorded not solved:** nothing alarms when the *tailnet itself* is down on a machine, and
+the badge's message does not distinguish "tunnel down" from "DNS off". A machine can be isolated while
+every local check reads green.
 
 **EVIDENCE**
-- `fsearch grep payroll` → 0.064 s; `fsearch find seagate` → 0.061 s; `chatindex search payroll` → 0.063 s.
-- `fsearch stats` → 919,873 files, 0 case-duplicate groups, 4,885 MB; `VACUUM` freed 2,785 MB in 63 s.
-- `commsindex.py stats` → 174,622 comms; `search "when will it be ready" --kind sms` returns the real thread from 2026-04-24.
-- `chatindex` → messages 21,951 = msg_fts = msg_tri, consistent; 4,619 harvested rows.
-- `assert-fsearch-guards.py` → 5/5 GUARDED, PASS.
-- Commits: `harness-config` `5946ded`, `c9f3a4b`, `d77189d`, `dd8e801`, `83b25a6`, `5cb5465`, `4706005`, `c7ee668`; `personal-secretary-mvp` `a080c228`; `ceo-kernel` `0c8162d`. Journal: L169–L183, P52–P57, W31–W35, D46–D47.
+- `tailscale status --json` → `BackendState: Running`, `MagicDNSSuffix: tail93e6e6.ts.net`,
+  `Self DNSName: zabz-yoga-1.tail93e6e6.ts.net.`; `Resolve-DnsName secratary…` → `100.84.72.88`.
+- `Restart-Service Tailscale` → *"Cannot open 'Tailscale' service on computer '.'"* (denied);
+  `Start-Process tailscale-ipn.exe` → backend Running.
+- `node scripts/verify-badge.js` → **163/163**; `python scripts/verify-badge-gate.py` → **55/55**.
+- Commit `7b90bd1` (plugin fallback + tests + docs), pushed after the tunnel returned.
 
 ## 2026-09-14 16:00 UTC · ZABZ-YOGA · Kosher filter audited end to end: the backend is far more built than anyone recorded, it cannot yet take money, and operator auth was failing open
 
