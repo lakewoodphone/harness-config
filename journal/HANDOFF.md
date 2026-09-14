@@ -17,14 +17,21 @@ CHANGED
 - **`scripts/install-client-plugins.ps1`** - a keeper for the local plugin packages, on D38's
   reasoning ("a component that can silently disappear needs a keeper, not a procedure"). It installs
   each package as a **directory junction** to the checkout rather than a copy, so an edit here is
-  live without a reinstall and the two cannot drift.
+  live without a reinstall and the two cannot drift. **Applied**: `dsh-plugin-cost` and
+  `dsh-plugin-windows` went COPY -> Junction and Node now resolves both by name through the junction
+  into the checkout. A package that is in the repo but not in the bundle list is reported as
+  information, not a fault, so the check cannot become noise nobody reads.
+- **Wired into `dshw`**: `up` repairs the plugin layer BEFORE starting an engine - the exact moment
+  the 15:45 boot died - and `doctor` reports it alongside any **foreign engine on the same
+  DSH_HOME**. `status` warns about the same. Verified live: `doctor` prints `plugins: every mounted
+  client bundle resolves` and blocks on `another dsh web on port 3080 (pid 44040)`.
 - README: the deploy steps now include the package install, and the plugin section names all three
   packages instead of only `plugin-cost`.
 
 IN FLIGHT
-- The keeper has been run in `-Check` only. `-Apply` changes how the running fleet resolves its
-  plugins and needs a profile reload or engine restart, so it was deliberately not done to a live
-  fleet.
+- The plugin layer is repaired and the two-engine hazard is now visible, so what remains is the
+  engine itself: the stray `dsh web` on 3080 is still running and still a second writer. Retiring it
+  ends the session that is running on it, so it is left to the owner to time.
 
 BROKEN (found this session, not yet fixed)
 - **Two engines on one DSH_HOME.** `pid 44040` `dsh web` since 11:29:40 (port 3080) and `pid 22460`

@@ -149,9 +149,12 @@ another machine's XML unchanged fails with *"no mapping between account names an
 machines must keep the repo at the same path.
 
 **One engine per `DSH_HOME`.** The fleet guards this on its own port: `dshw up` treats a live engine it does
-not own as an explicit take-over (`-Force`) rather than starting a second one. It cannot stop a
-*hand-started* `dsh web` on a different port from sharing the same home — if you start one by hand, stop
-the fleet's engine first (`dshw stop`), or accept two writers.
+not own as an explicit take-over (`-Force`) rather than starting a second one. It cannot *stop* a
+hand-started `dsh web` on a different port, but it can now see one: `dshw status` and `dshw doctor` read
+each listener's command line and name any `dsh web` that is not the fleet's own, with `doctor` raising it
+as a blocker rather than a note. Seen live on 2026-09-11: `another dsh web on port 3080 (pid 44040) shares
+this DSH_HOME`. If you start one by hand, stop the fleet's engine first (`dshw stop`), or accept two
+writers.
 
 ### Plugin packages
 

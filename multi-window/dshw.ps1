@@ -251,6 +251,33 @@ function Get-PortOwner([int]$port, $table = $null) {
     try { return Get-Process -Id $conn.OwningProcess -ErrorAction Stop } catch { return $null }
 }
 
+function Get-ForeignEngines {
+    # A `dsh web` process listening against this DSH_HOME that this launcher does not manage.
+    #
+    # windows.json calls two engines on one home unsupported: "two dsh web processes on one
+    # home have been observed writing duplicate sequence numbers into one session log and
+    # making the whole history unloadable". It cannot be seen from the port alone, because a
+    # hand-started engine takes the default 3080, which no slot in windows.json uses -- so it
+    # is read from the process command line instead.
+    $managed = @{}
+    $st = Get-State
+    if ($st -and $st.slots) { foreach ($port in @($st.slots.Keys)) { $managed[[int]$port] = $true } }
+    $out = @()
+    foreach ($conn in Get-ListenTable) {
+        $procId = [int]$conn.OwningProcess
+        if ($procId -le 0) { continue }
+        $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+        if (-not $proc -or $proc.ProcessName -ne 'node') { continue }
+        $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue).CommandLine
+        if (-not $cmd) { continue }
+        # A dsh web engine, not one of the subprocess runners or MCP bridges.
+        if ($cmd -notmatch 'dsh' -or $cmd -notmatch 'web' -or $cmd -match 'subprocess-local') { continue }
+        if ($managed.ContainsKey([int]$conn.LocalPort)) { continue }
+        $out += [pscustomobject]@{ Port = [int]$conn.LocalPort; Pid = $procId }
+    }
+    return $out
+}
+
 function Get-Descendants([int]$rootPid, $all = $null) {
     # Cache the process table per call where possible: an unfiltered Win32_Process query
     # costs 5-35 s on a machine running a dozen Edge profiles plus eight MCP bridges, and
@@ -632,6 +659,20 @@ function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'no') {
     if ($Force) {
         foreach ($f in @((Join-Path $StateDir 'windows.log'))) { if (Test-Path $f) { Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue } }
     }
+    # Settle the plugin layer BEFORE an engine starts. A profile whose bundle list names a
+    # package that cannot be resolved does not degrade -- the engine refuses to boot with
+    # "cannot resolve profile bundle ...", which is how the 15:45 start on 2026-09-11 died and
+    # why plugin-windows then had to be copied in by hand. Idempotent and cheap.
+    $keeper = Join-Path $RepoRoot 'scripts\install-client-plugins.ps1'
+    if (Test-Path $keeper) {
+        & pwsh -NoProfile -File $keeper -Check *> $null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  [plugins] a mounted bundle does not resolve - repairing before start" -ForegroundColor Yellow
+            & pwsh -NoProfile -File $keeper 2>&1 | ForEach-Object { Write-Host "    $_" }
+            if ($LASTEXITCODE -ne 0) { Write-Host "  [plugins] repair failed - the engine may refuse to boot" -ForegroundColor Red }
+        }
+    }
+
     # Which servers must exist?
     if (Get-Mode -eq 'single') {
         $needed = @($slots | Where-Object { $_.enabled -and $_.port -eq (Get-PrimaryPort) } | Select-Object -First 1)
@@ -745,6 +786,11 @@ function Invoke-Status {
     $procTable = Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId -ErrorAction SilentlyContinue
     foreach ($e in $enginePids) { $tree += Get-TreeMemoryMb ([int]$e) $procTable }
     Write-Host ("{0} engine(s) live, {1} window(s) open, {2} MB engine RSS, {3} MB whole engine tree" -f $enginePids.Count, $win, $mem, $tree)
+    $foreign = @(Get-ForeignEngines)
+    if ($foreign.Count) {
+        Write-Host ("WARNING: {0} other dsh web against this DSH_HOME ({1}) - one writer only" -f `
+            $foreign.Count, (($foreign | ForEach-Object { "pid $($_.Pid) :$($_.Port)" }) -join ', ')) -ForegroundColor Yellow
+    }
 }
 
 # Sum the working set of a process and every descendant: an engine's real cost is its
@@ -803,6 +849,22 @@ function Invoke-Doctor {
     }
     $disabled = @($Cfg.windows | Where-Object { -not $_.enabled }).Count
     Write-Host ("slots       : {0} enabled, {1} disabled" -f @($Cfg.windows | Where-Object { $_.enabled }).Count, $disabled)
+    # The two things that have actually broken this fleet, checked here so `doctor` names them
+    # rather than leaving them to be discovered when an engine refuses to boot.
+    $keeper = Join-Path $RepoRoot 'scripts\install-client-plugins.ps1'
+    if (Test-Path $keeper) {
+        & pwsh -NoProfile -File $keeper -Check *> $null
+        if ($LASTEXITCODE -eq 0) { Write-Host "plugins     : every mounted client bundle resolves" }
+        else { $problems += 'a mounted client bundle does not resolve - run scripts/install-client-plugins.ps1' }
+    }
+    $foreign = @(Get-ForeignEngines)
+    if ($foreign.Count -eq 0) {
+        Write-Host "engines     : no other dsh web against this DSH_HOME"
+    } else {
+        foreach ($f in $foreign) {
+            $problems += "another dsh web on port $($f.Port) (pid $($f.Pid)) shares this DSH_HOME - two writers on one home can corrupt a session log; stop it, or take the port with 'dshw up -Force'"
+        }
+    }
     if ($problems.Count) {
         Write-Host "`nBLOCKERS:" -ForegroundColor Red
         $problems | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
