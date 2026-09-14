@@ -388,3 +388,4 @@ P55	pain	P92	same entry absorbed by identity, not by bytes	2026-09-14	-	0f9749c1
 W26	wins	W107	same entry absorbed by identity, not by bytes	2026-09-14	-	1857c66cb6bc5081	archive/flat-2026-09-14/WINS.md:443
 W67	wins	W26b	identity duplicate inside entries/	2026-09-14	legacy	a970d87f198a03d3	archive/duplicates/wins/W67.md
 W107	wins	W26b	identity duplicate inside entries/	2026-09-14	legacy	a970d87f198a03d3	archive/duplicates/wins/W107.md
+L263	lessons	L1094	same entry absorbed by identity, not by bytes	2026-09-14	ZABZ-TECH	8ab38ee8e05c230e	log/lessons/2026-09.2.md:630

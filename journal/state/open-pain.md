@@ -6,7 +6,7 @@ Updated: 2026-09-14
 stops being open by being corrected, not by being deleted here. A problem that is done carries
 `status=done` in its marker or in a row of `state/status.tsv`, and drops out of this list.
 
-Provenance: 86 open of 93 pain entries, read from index/entries.tsv, written 2026-09-14 23:07 UTC on ZABZ-YOGA.
+Provenance: 88 open of 95 pain entries, read from index/entries.tsv, written 2026-09-14 23:19 UTC on ZABZ-YOGA.
 
 | # | Symptom | Cost | Fix |
 |---|---|---|---|
@@ -96,3 +96,5 @@ Provenance: 86 open of 93 pain entries, read from index/entries.tsv, written 202
 | P129 | Local master and origin/master have diverged, so this machine's journal writes never reach the authority |  |  |
 | P130 | The owner-question mirror silently keeps a stale copy while the authority is reachable by ssh in the same second |  |  |
 | P131 | The comms index has no ingestion watchdog, and recent voicemails index as a phone number |  | Either add an index-age metric to `ck/sentinel.py:check_comms_freshness` (read `~/.fsearch/comms-state.json`, fail above ~2 h), or wire `comms-refresh.py --check` into the existing owner-attention dig |
+| P132 | Two sessions can migrate and audit this journal at once, and the lock does not cross machines |  |  |
+| P133 | log/** and the six flat files are still writable by any stale checkout |  |  |
