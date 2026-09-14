@@ -85,16 +85,47 @@ credentials split the work: `CF_API_TOKEN` can write DNS, `CF_ZERO_TRUST_TOKEN` 
 (`Workers Scripts:Edit`). Neither can edit zone Workers **routes** (403), which is why the Worker is
 published as a **custom domain** instead — that path needs no route permission.
 
-**Remaining, blocked only on her laptop being online:**
-1. add `DEEPSEEK_API_KEY` to her `~/.dsh/.credentials.yaml` (script staged, key embedded as base64 so it
-   does not sit in cleartext on either end);
-2. run `sync.ps1` to apply the new route;
-3. **prove the proxy is reachable from behind her filter** — the decisive test, because everything above
-   was measured from this side;
-4. one real streaming turn through her harness on the new route.
+**Status: all four steps are DONE — see 6b below.**
 
-Script ready at `_scratch/yocheved/wire-key.ps1`; it does 1, then tests the proxy **and** direct side by
-side from her machine, so the block and the workaround are shown in the same output.
+---
+
+
+## 6b. ALL OF THE ABOVE IS DONE — deployed and proven end to end (2026-09-14)
+
+Her harness now runs on the proxy route and **answered a real turn on it**: `PROXY_ROUTE_OK` in **5
+seconds**, exit 0, via `--profile headless` with
+`agent-default-model: { provider: deepseek-proxy, model: deepseek-flash }`.
+
+**The block and the workaround, from her own machine in one run:**
+
+| From her laptop, behind the filter | Result |
+|---|---|
+| Proxy `/__health` | **200** — reachable |
+| Proxy with a valid key | **200**, real model list |
+| Proxy with no token | **401** — refused |
+| **Direct `api.deepseek.com`** | **200 with `text/html`** ← the block page, confirming the diagnosis |
+
+**Latency measured from her box** (same prompt, `max_tokens=150`, streaming):
+
+| Route | TTFT | total | tok/s |
+|---|---|---|---|
+| **PROXY `deepseek-flash`** | **465 ms** | **1,406 ms** | **159** |
+| DeepInfra `V4-Flash-0731` | 382 ms | 2,759 ms | 57 |
+| PROXY `deepseek-v4-pro` | 698 ms | 2,642 ms | 77 |
+
+**~2.8× the throughput and half the total wait.** DeepInfra's TTFT is marginally better on this run (382
+vs 465 ms) — that is the part she waits for before text starts — but it then takes twice as long to
+finish, which is what makes a reply feel slow.
+
+### Deployment trap worth remembering
+
+`sync.ps1` reported **`settings.yaml: already up to date`** right after the machine file was updated in
+git, and her live settings still said `deepinfra`. Cause: `sync.ps1` merges the machine settings file **as
+it exists on that machine**, and the updated file had only been committed — never pushed to her box. The
+change looked applied and was not.
+
+*Rule:* for a machine that cannot pull `harness-config` itself, a committed change is not a delivered
+change. Push the file, run sync, then **read the live value back** — the read-back is the only evidence.
 
 ## 7. Failure modes, and the fallback
 

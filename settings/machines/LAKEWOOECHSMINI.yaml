@@ -1,0 +1,61 @@
+# LakewooechsMini -- the office Mac mini, Yocheved's manager workstation.
+#
+# This file is merged OVER `settings/base.yaml` by `scripts/sync.py` (machine wins).
+#
+# ---------------------------------------------------------------------------
+# THE LOAD-BEARING LINE IN THIS FILE IS THE SANDBOX PRESET.
+#
+# `base.yaml` pins `permission.defaultPreset: danger-full-access`. Inheriting that here would give an
+# agent acting for her unrestricted filesystem and shell access, including write access to her own
+# `~/.dsh` and to this harness config. The owner's requirement is explicit: powerful enough for the
+# shop, but unable to make breaking changes to his systems without him seeing it first. So the
+# override below is not a preference -- an omission here is a security fault, which is why her
+# settings are a separate committed file at all.
+# ---------------------------------------------------------------------------
+permission:
+  defaultPreset: workspace-write
+
+# ---------------------------------------------------------------------------
+# Model route: DeepSeek DIRECT.
+#
+# No proxy and no Worker on this machine. The office network has no content filter, so
+# `api.deepseek.com` is reachable as itself -- verified from this host before wiring it. The proxy
+# that her laptop needs exists only because Techloq blocks the direct endpoint by URL category there;
+# carrying that machinery here would add a dependency for no benefit.
+#
+# Direct is also the fast route, which is the whole point: measured 2026-09-14 from a neutral
+# network, same prompt, max_tokens=200, three runs each --
+#     deepseek-flash direct   :  747 ms to first token, 160 tok/s
+#     DeepInfra V4-Flash-0731 : 1693 ms to first token,  24 tok/s
+# So this machine gets the better tier natively, with nothing in the path to keep alive.
+#
+# The `deepinfra` route is retained as an independent fallback, selectable with one
+# `agent-default-model.provider` line if DeepSeek itself is ever unavailable.
+# ---------------------------------------------------------------------------
+agent-default-model:
+  provider: deepseek-official
+  model: deepseek-flash
+
+# Her assistant is the shop manager, so a fresh session mounts the `yocheved` preset
+# (presets/yocheved/). Derived from cordis-bg, so the background-first shell policy is retained.
+agent-presets:
+  default: yocheved
+
+ui-conversation:
+  busyEnter: steer
+
+llm-pi-ai:
+  providers:
+    # Not used as the default; present so switching is a one-line change and so the model picker
+    # offers an independent provider.
+    deepinfra:
+      apiKeyEnv: DEEPINFRA_API_KEY
+      api: openai-completions
+      baseURL: https://api.deepinfra.com/v1/openai
+      models:
+        - id: deepseek-ai/DeepSeek-V4-Flash-0731
+          name: DeepSeek V4 Flash (0731, DeepInfra)
+        - id: deepseek-ai/DeepSeek-V4.1-Flash
+          name: DeepSeek V4.1 Flash (DeepInfra)
+        - id: deepseek-ai/DeepSeek-V3.2
+          name: DeepSeek V3.2 (DeepInfra)
