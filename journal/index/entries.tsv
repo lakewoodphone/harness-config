@@ -259,7 +259,8 @@ lessons	L210	210		2026-09-14	imported	open	**L210 · 2026-09-14 · A build scrip
 lessons	L211	211		2026-09-14	imported	open	**L211 · 2026-09-14 · When the platform is blocked, build the verification path instead of waiting — and say which artifact you verified**	log/lessons/2026-09.md	2810	2822	7a06e92edbfa2174
 lessons	L212	212		2026-09-14	ZABZ-YOGA	open	**L212 · Piping a body through PowerShell double-encodes it; keep piped bodies ASCII and check the stored bytes**	log/lessons/2026-09.md	2823	2844	04096132940b4282
 lessons	L213	213		2026-09-14	ZABZ-YOGA	open	**L213 · Run the target runtime against the real artifact before a hosting cutover: four Netlify semantics do not exist on Cloudflare**	log/lessons/2026-09.md	2845	2882	fda7c12bc76aeff0
-lessons	L214	214		2026-09-14	SECRATARY	open	**L214 · The composer's two layers were flex-wrap, not width — composing the real DOM beat reading the CSS**	log/lessons/2026-09.md	2883	2947	fa2b100ee1916636
+lessons	L214	214		2026-09-14	SECRATARY	open	**L214 · The composer's two layers were flex-wrap, not width — composing the real DOM beat reading the CSS**	log/lessons/2026-09.md	2883	2946	fa2b100ee1916636
+lessons	L215	215		2026-09-14	SECRATARY	open	**L215 · A layout check must group controls by vertical centre, not by top edge**	log/lessons/2026-09.md	2947	2975	ee67e0d18d8560ac
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -405,7 +406,8 @@ decisions	D67	67		2026-09-14	imported	open	**D67 · 2026-09-14 · A portal may p
 decisions	D68	68		2026-09-14	imported	open	**D68 · 2026-09-14 · The API owns timezone correctness; consumers are never asked to guess.**	log/decisions/2026-09.md	1001	1007	699d4d8e142abb2c
 decisions	D69	69		2026-09-14	imported	open	**D69 · 2026-09-14 · Any read that can fail to determine returns that failure as a field, not as an empty list.**	log/decisions/2026-09.md	1008	1014	bf9ccd629568a022
 decisions	D70	70		2026-09-14	imported	open	**D70 · 2026-09-14 · A `retired` device is exempt from staleness in every surface, and the monitor is the authority for that rule.**	log/decisions/2026-09.md	1015	1021	bb6ec154a8d85539
-decisions	D71	71		2026-09-14	ZABZ-YOGA	open	**D71 · 2026-09-14 · The frontend hosting target becomes Cloudflare Workers Static Assets.**	log/decisions/2026-09.md	1022	1074	91762f796c08c50b
+decisions	D71	71		2026-09-14	ZABZ-YOGA	open	**D71 · 2026-09-14 · The frontend hosting target becomes Cloudflare Workers Static Assets.**	log/decisions/2026-09.md	1022	1073	91762f796c08c50b
+decisions	D72	72		2026-09-14	SECRATARY	open	**D72 · 2026-09-14 · P67 was never an entry: the pain is P66, and the dangling-ref warning that says so is correct.**	log/decisions/2026-09.md	1074	1098	ecc89dd748b90c1f
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
