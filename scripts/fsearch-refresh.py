@@ -2,26 +2,26 @@
 """refresh — keep the search indexes current, and say so when they are not.
 
 WHY THIS EXISTS. An index is only worth having if it is current, and the failure
-mode here is the fleet's most expensive habit: something runs, fails silently, and
-looks healthy (L160, L167, P51). The indexes are incremental, so a refresh is
-seconds to minutes — but nothing was running them, and nothing checked that they
-had run.
+mode here is already the fleet's most expensive habit: something runs, fails
+silently, and looks healthy (L160, L167, P51). `fsearch`/`chatindex` are
+incremental, so a refresh is seconds, not minutes — but nothing was *running*
+them, and nothing was checking that they had run.
 
-WHAT IT REFRESHES, all incremental
-  fsearch     file name + content index over the host's code and document trees
-  names.db    the small trigram path index that makes `find` instant
-  chatindex   conversation history (VS Code Copilot sessions, agent sessions)
-  commsindex  SMS, calls, transcripts and voicemails (on the authority)
+WHAT IT DOES
+  1. refreshes both indexes incrementally (cheap: unchanged files are skipped),
+  2. records when it last succeeded, in a state file,
+  3. is safe to run from cron: exits non-zero and writes a reason on failure,
+     rather than dying quietly.
 
-It records `last_success` (or a readable failure reason) in a state file, retries
-once on a transient `database is locked`, and exits non-zero on real failure so a
-scheduler can see it.
+Authored to run on Windows (Task Scheduler) and Linux (cron) with the same file.
+Per-host roots are declared below; a root that does not exist is skipped, so the
+same file works on every machine in the fleet.
 
 USAGE
-  refresh.py                 refresh everything, print a one-line summary
-  refresh.py --check         do not refresh; report staleness, exit 1 if stale
-  refresh.py --roots A B     override the file-index roots
-  refresh.py --json          machine-readable
+  refresh.py                 # refresh everything, print a one-line summary
+  refresh.py --check         # do not refresh; report staleness and exit 1 if stale
+  refresh.py --roots A B     # override the roots
+  refresh.py --json
 """
 from __future__ import annotations
 
@@ -39,14 +39,9 @@ STATE = os.path.join(FSEARCH_DIR, "refresh-state.json")
 
 FSEARCH = os.path.join(FSEARCH_DIR, "fsearch.py")
 CHATINDEX = os.path.join(FSEARCH_DIR, "chatindex.py")
-COMMSINDEX = os.path.join(FSEARCH_DIR, "commsindex.py")
-COMMS_DB = os.path.join(FSEARCH_DIR, "comms.db")
-CHAT_DB = os.path.join(FSEARCH_DIR, "chats.db")
-INDEX_DB = os.path.join(FSEARCH_DIR, "index.db")
-NAMES_DB = os.path.join(FSEARCH_DIR, "names.db")
 
-# A refresh older than this means the automation is not working: two missed hourly
-# runs, the same "two missed windows" rule used for the archive alarm.
+# A refresh older than this means the automation is not working. Two missed
+# hourly runs; the same "two missed windows" rule used for the archive alarm.
 STALE_AFTER_MIN = 150
 
 ROOTS_DEFAULT = [
@@ -63,22 +58,26 @@ def _python() -> str:
     return sys.executable or "python3"
 
 
-def run(cmd, timeout: int = 3600):
-    """Run a child and return (rc, tail). Never raises."""
+def run(cmd: list[str], timeout: int = 3600) -> tuple[int, str]:
+    """Run a child and return (rc, tail of output). Never raises."""
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        return p.returncode, ((p.stdout or "")[-800:] + (p.stderr or "")[-400:]).strip()
+        tail = (p.stdout or "")[-800:] + (p.stderr or "")[-400:]
+        return p.returncode, tail.strip()
     except subprocess.TimeoutExpired:
         return 124, f"timed out after {timeout}s"
     except OSError as exc:
         return 127, str(exc)
 
 
-def rebuild_name_index(db_path: str, out_path: str):
-    """Rebuild the trigram path index that makes filename search instant.
 
-    Measured: without it `find` scanned 919,873 rows (2.795 s); with it, 0.000 s on
-    the same query, and it also matches mid-path fragments.
+def rebuild_name_index(db_path: str, out_path: str) -> tuple[int, str]:
+    """(rc, tail) for rebuilding the filename index from the file index.
+
+    WHY: `find` was measured at 2.795 s on 815,000 rows because a leading-wildcard
+    LIKE cannot use an index. A trigram index over the path answers the same query
+    in 0.000 s and also matches mid-path fragments. It must be rebuilt whenever the
+    file index changes, or filename search silently returns stale results.
     """
     import sqlite3
     if not os.path.exists(db_path):
@@ -86,8 +85,8 @@ def rebuild_name_index(db_path: str, out_path: str):
     try:
         if os.path.exists(out_path):
             os.remove(out_path)
-        src = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=300)
-        dst = sqlite3.connect(out_path, timeout=300)
+        src = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        dst = sqlite3.connect(out_path)
         dst.executescript("""
             PRAGMA journal_mode=OFF;
             PRAGMA synchronous=OFF;
@@ -98,8 +97,7 @@ def rebuild_name_index(db_path: str, out_path: str):
             CREATE VIRTUAL TABLE path_fts USING fts5(
                 path, id UNINDEXED, tokenize='trigram');
         """)
-        rows = src.execute(
-            "SELECT id, path, name, ext, size, mtime FROM files").fetchall()
+        rows = src.execute("SELECT id, path, name, ext, size, mtime FROM files").fetchall()
         dst.executemany(
             "INSERT INTO names(id, path, name, name_rev, ext, size, mtime) "
             "VALUES(?,?,?,?,?,?,?)",
@@ -115,16 +113,6 @@ def rebuild_name_index(db_path: str, out_path: str):
         return 0, f"names.db rebuilt: {len(rows):,} rows"
     except sqlite3.Error as exc:
         return 1, f"name index rebuild failed: {exc}"
-
-
-def _last_line(text) -> str:
-    """The last non-empty line of a subprocess tail, or '' if there is none.
-
-    Never raises: this is used while REPORTING a failure, and a reporter that
-    crashes replaces the real error with its own.
-    """
-    lines = [ln for ln in (text or "").splitlines() if ln.strip()]
-    return lines[-1][:120] if lines else ""
 
 
 def load_state() -> dict:
@@ -143,7 +131,8 @@ def save_state(state: dict) -> None:
     os.replace(tmp, STATE)
 
 
-def staleness(state: dict, now: float):
+def staleness(state: dict, now: float) -> float | None:
+    """Minutes since the last successful refresh, or None if never."""
     last = state.get("last_success")
     if not last:
         return None
@@ -158,13 +147,13 @@ def staleness(state: dict, now: float):
 
 def do_check(as_json: bool) -> int:
     now = time.time()
-    age = staleness(load_state(), now)
+    state = load_state()
+    age = staleness(state, now)
     if age is None:
         msg = "SEARCH INDEX STALE: no successful refresh has ever been recorded"
         stale = True
     elif age > STALE_AFTER_MIN:
-        msg = (f"SEARCH INDEX STALE: last successful refresh {age:.0f} min ago "
-               f"(limit {STALE_AFTER_MIN})")
+        msg = f"SEARCH INDEX STALE: last successful refresh {age:.0f} min ago (limit {STALE_AFTER_MIN})"
         stale = True
     else:
         msg = f"search index fresh: refreshed {age:.0f} min ago"
@@ -180,131 +169,44 @@ def do_check(as_json: bool) -> int:
     return 1 if stale else 0
 
 
-def _pid_looks_alive(pid_text: str) -> bool:
-    """Best-effort liveness check for a pid string, with no optional dependency."""
-    try:
-        n = int(str(pid_text).strip())
-    except (TypeError, ValueError):
-        return False
-    if os.name == "nt":
-        import subprocess
-        try:
-            out = subprocess.run(["tasklist", "/FI", f"PID eq {n}", "/NH"],
-                                 capture_output=True, text=True, timeout=15).stdout
-            return str(n) in (out or "")
-        except (OSError, subprocess.SubprocessError):
-            return False
-    try:
-        os.kill(n, 0)
-        return True
-    except OSError:
-        return False
-
-
-def _acquire_lock() -> str | None:
-    """Take the single-instance lock, or return a reason we refused.
-
-    MEASURED: a full pass takes ~10 min and the schedule is hourly, so overlap is
-    unlikely -- but a manual run beside a scheduled one produced
-    `sqlite3.OperationalError: database is locked` and killed the whole refresh.
-    One lock file is cheaper than making every write resilient to contention, and
-    it turns a corrupted run into a clear refusal.
-    """
-    lock = os.path.join(FSEARCH_DIR, "refresh.lock")
-    pid = str(os.getpid())
-    try:
-        if os.path.exists(lock):
-            with open(lock, "r", encoding="utf-8") as fh:
-                held = fh.read().strip()
-            age_min = (time.time() - os.path.getmtime(lock)) / 60.0
-            if _pid_looks_alive(held) and age_min < 45:
-                return (f"another refresh is already running (pid {held}, started "
-                        f"{age_min:.0f} min ago); refusing to overlap")
-            os.remove(lock)                      # stale lock from a dead run
-        os.makedirs(FSEARCH_DIR, exist_ok=True)
-        with open(lock, "w", encoding="utf-8") as fh:
-            fh.write(pid)
-        return None
-    except OSError as exc:
-        print(f"  warning: could not manage the refresh lock ({exc})")
-        return None
-
-
-def _release_lock() -> None:
-    lock = os.path.join(FSEARCH_DIR, "refresh.lock")
-    try:
-        if os.path.exists(lock):
-            with open(lock, "r", encoding="utf-8") as fh:
-                if fh.read().strip() == str(os.getpid()):
-                    os.remove(lock)
-    except OSError:
-        pass
-
-
-def do_refresh(roots, as_json: bool, verbose: bool) -> int:
-    refusal = _acquire_lock()
-    if refusal:
-        if as_json:
-            print(json.dumps({"ok": False, "skipped": True, "reason": refusal}))
-        else:
-            print("  " + refusal)
-        return 0
-    try:
-        return _do_refresh_body(roots, as_json, verbose)
-    finally:
-        _release_lock()
-
-
-def _do_refresh_body(roots, as_json: bool, verbose: bool) -> int:
+def do_refresh(roots: list[str], as_json: bool, verbose: bool) -> int:
     started = dt.datetime.now(dt.timezone.utc)
     state = load_state()
     results = {}
+
     real_roots = [r for r in roots if os.path.isdir(r)]
     skipped = [r for r in roots if not os.path.isdir(r)]
 
-    fsearch_cmd = []
     if os.path.exists(FSEARCH) and real_roots:
-        fsearch_cmd = [_python(), FSEARCH, "--db", INDEX_DB, "index"]
+        cmd = [_python(), FSEARCH, "index"]
         for r in real_roots:
-            fsearch_cmd += ["--root", r]
+            cmd += ["--root", r]
         if verbose:
-            fsearch_cmd.append("--verbose")
-        rc, out = run(fsearch_cmd)
+            cmd.append("--verbose")
+        rc, out = run(cmd)
         results["fsearch"] = {"rc": rc, "tail": out}
     else:
-        results["fsearch"] = {
-            "rc": 1, "tail": f"missing script or no roots (skipped {skipped})"}
+        results["fsearch"] = {"rc": 1, "tail": f"missing script or no roots (skipped {skipped})"}
 
-    rc, out = rebuild_name_index(INDEX_DB, NAMES_DB)
-    results["names"] = {"rc": rc, "tail": out}
+    if os.path.exists(FSEARCH):
+        # the file index lives beside the scripts; names.db sits next to it
+        rc, out = rebuild_name_index(
+            os.path.join(FSEARCH_DIR, "index.db"),
+            os.path.join(FSEARCH_DIR, "names.db"))
+        if rc != 0 and os.path.exists(os.path.join(FSEARCH_DIR, "lean.db")):
+            rc, out = rebuild_name_index(
+                os.path.join(FSEARCH_DIR, "lean.db"),
+                os.path.join(FSEARCH_DIR, "names.db"))
+        results["names"] = {"rc": rc, "tail": out}
 
     if os.path.exists(CHATINDEX):
-        rc, out = run([_python(), CHATINDEX, "--db", CHAT_DB, "index"], timeout=5400)
+        cmd = [_python(), CHATINDEX, "index"]
+        if verbose:
+            cmd.append("--verbose")
+        rc, out = run(cmd, timeout=5400)
         results["chatindex"] = {"rc": rc, "tail": out}
     else:
-        results["chatindex"] = {"rc": 1, "tail": "missing chatindex.py"}
-
-    if os.path.exists(COMMSINDEX):
-        rc, out = run([_python(), COMMSINDEX, "--db", COMMS_DB, "index"], timeout=1800)
-        keep = [ln for ln in (out or "").splitlines() if "TOTAL" in ln]
-        results["comms"] = {"rc": rc, "tail": (keep[0] if keep else (out or "")[-200:])}
-    else:
-        results["comms"] = {"rc": 0, "tail": "commsindex.py absent (not this host)"}
-
-    # One retry for a TRANSIENT lock. A moment of contention is not a broken
-    # index, and the state file cannot tell the difference afterwards.
-    def retry(name: str, cmd: list) -> None:
-        tail = (results.get(name, {}).get("tail") or "").lower()
-        if "locked" not in tail:
-            return
-        time.sleep(20)
-        rc, out = run(cmd, timeout=5400)
-        results[name] = {"rc": rc, "tail": out[-800:], "retried": True}
-
-    if fsearch_cmd:
-        retry("fsearch", fsearch_cmd)
-    if os.path.exists(COMMSINDEX):
-        retry("comms", [_python(), COMMSINDEX, "--db", COMMS_DB, "index"])
+        results["chatindex"] = {"rc": 1, "tail": "missing script"}
 
     ok = all(v["rc"] == 0 for v in results.values())
     finished = dt.datetime.now(dt.timezone.utc)
@@ -320,13 +222,8 @@ def _do_refresh_body(roots, as_json: bool, verbose: bool) -> int:
         state.pop("last_failure_reason", None)
     else:
         state["last_failure"] = finished.isoformat()
-        # A step that produced no output must not break the error report. The
-        # previous version did `splitlines()[-1]` unguarded here, so an empty tail
-        # raised IndexError and the ORIGINAL failure was replaced by a crash while
-        # describing it -- the failure was hidden by the code meant to explain it.
         state["last_failure_reason"] = "; ".join(
-            f"{k}: rc={v['rc']} {_last_line(v.get('tail'))}"
-            for k, v in results.items() if v["rc"] != 0) or "a step failed with no output"
+            f"{k}: rc={v['rc']}" for k, v in results.items() if v["rc"] != 0)
     save_state(state)
 
     if as_json:
@@ -335,7 +232,7 @@ def _do_refresh_body(roots, as_json: bool, verbose: bool) -> int:
     else:
         for name, v in results.items():
             mark = "ok  " if v["rc"] == 0 else "FAIL"
-            print(f"  {mark} {name}: {_last_line(v.get('tail'))}")
+            print(f"  {mark} {name}: {v['tail'].splitlines()[-1] if v['tail'] else ''}")
         print(f"  {'refreshed' if ok else 'FAILED'} in {state['last_seconds']}s"
               + (f"; skipped missing roots {skipped}" if skipped else ""))
     return 0 if ok else 1
@@ -344,7 +241,7 @@ def _do_refresh_body(roots, as_json: bool, verbose: bool) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--check", action="store_true", help="report staleness only")
     ap.add_argument("--roots", nargs="*", default=None)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--verbose", action="store_true")

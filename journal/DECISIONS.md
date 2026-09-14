@@ -761,3 +761,42 @@ P1/P2/P4/P5/P7/P17/P24/P37 are engineering and moved to §6 as committed work ra
 decisions I took myself. That section exists because I twice put development decisions in front of the owner
 (A4 the encryption key, and several P-series items). **A register that mixes the two spends his attention on
 questions with one sensible answer.**
+
+**D-new3 · 2026-09-14 · A staffing change is a systems change: Weinberg out, the new manager in, and hours left deliberately open.**
+
+**The news, in the owner's words:** *"today I fired Weinberg because I could not afford to pay him his salary
+any more. It was too much. So now I hired my wife… Now my wife will become the manager of Lakewood phone in
+tech. But since she has college on Monday and Wednesdays, we really have to change around the hours… she
+might manage it two days, Tuesdays and Thursdays and bachrach will come and do night hours maybe on monday
+and wednesday."* A meeting with his wife and Moshe Bachrach was planned for that evening. He asked for the
+hours question to stay open and for us to move on — he was fasting (a Jewish fast day) and said he could not
+think well.
+
+**What I did NOT do, deliberately: I did not close the hours question or disable any account.**
+- The hours question (register **D3**) is now **DEFERRED**, not answered. Fixing hours that are about to
+  change by decision is wasted work, and guessing would have written three wrong values into a fourth place.
+- The defect underneath it is still recorded as mine: **three places state opening hours and all three are
+  wrong** — the live auto-reply text says *"Sun-Thu 6-11 PM"* to real customers, the `business_hours` jsonb in
+  **the same database row** says Mon–Fri 9–18 *and Saturday 10–16* (claiming the shop is open Shabbos), and
+  the website says Mon–Thu 10:30–5:30 / Fri 10:30–1:00 / closed Shabbos. Both config values were last written
+  **2025-11-07** and have contradicted each other ever since; `business_hours` is read by nothing, so it is
+  inert, but the *message* is sent. Fix: one authoritative place, and no numeric hours in the reply text.
+
+**What the staffing change actually implies for the systems** (recorded in register §0b so it is not lost in
+the meeting): a live **MANAGER** account in production (`users` id 232, `izzyme97@gmail.com`, ACTIVE, **98
+payments** processed under it) that would need disabling — **but the link between that address and our
+Yisroel is an ASSUMPTION, not a finding.** His employment agreement and hire notes contain **no email
+address at all**, so nothing positively ties `izzyme97@gmail.com` to him. I will not disable an account on a
+name match. The MANAGER role already exists (id 199 Moshe Bachrach holds it), so the new manager is a role
+assignment. And a signed employment agreement now needs a superseding record.
+
+**A separate defect this surfaced, worth its own look:** production `users` id **134** (`Mattis Klein`) is
+**SUSPENDED** yet is still referenced on **3 payments and 1 order**. If a suspended account is not actually
+blocked, then "disable the account" is not sufficient to remove someone's access — which matters now that a
+real staff change is being made.
+
+**Also retracted in the register:** I offered "only 8,047 of 55,781 outbound messages fall inside the
+advertised hours" as evidence for the hours defect. That number is **not credible** — those rows are
+dominated by the Dialpad import proven in D2 to record messages that were never sent. Two of my own figures
+have now needed retracting in one day (this and the "5,858 unowned-money" figure); both were quantities I
+repeated from a summary instead of measuring myself.

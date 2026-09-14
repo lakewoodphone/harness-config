@@ -39,3 +39,21 @@ Eliyahu's brother Yitzchok Meir ("Yitz"), family-chat name **"Kallah"** — see
 - **Elchonon Zabrowsky** (+1 845-499-9155), **Shlomo Zabrowsky** (+1 845-587-6289), **Yisroel Zev Zabrowsky** (+1 845-499-4412), **Bubby Zabrowsky** — in `contacts`.
 - **Ezra** — his fiancee is **Yocheved Yanofsky** (`chevedy@gmail.com`, contact 483), whose brother is Yechezkel Yanufsky.
 - **Yisroel** — employee, runs the macOS mini `zabz-tech-linux`.
+
+## Staff changes — 2026-09-14
+
+- **Yisroel Weinberg — employment ENDED 2026-09-14.** Owner's words: *"I fired Weinberg because I could not
+  afford to pay him his salary any more. It was too much."* Hired 2026-05-11 as Shop Operator, full-time W-2
+  salaried (agreement: `lpt-hub/docs/operations/weinberg-employment-agreement-2026-05-11.md`).
+  **A live MANAGER account may still exist in production** — `users` id **232**, `izzyme97@gmail.com`,
+  status ACTIVE, with **98 payments** processed under it and 1 order assigned. **That address is NOT
+  confirmed to be his:** neither the agreement nor the hire notes contain any email address, so the link is
+  an assumption. Confirm before disabling anything; do not act on the id alone.
+- **Mrs. Zabrowsky (owner's wife) — becomes manager of Lakewood Phone & Tech**, working around college on
+  Mondays and Wednesdays. The MANAGER role already exists, so this is a role assignment, not new construction.
+- **Moshe Bachrach** — may take evening hours Mondays and Wednesdays under the new arrangement. Already
+  holds MANAGER in production (`users` id **199**, `moshbachrach@gmail.com`).
+- **Shop hours are UNSETTLED as of 2026-09-14**; a meeting was planned that evening. **Do not treat any
+  recorded opening hours as current.** Three places stated hours and all three were wrong (see register D3).
+- **Suspension may not be enforced.** Production `users` id 134 (`Mattis Klein`) is SUSPENDED yet still
+  referenced on 3 payments and 1 order — so "SUSPENDED" may be descriptive rather than blocking.

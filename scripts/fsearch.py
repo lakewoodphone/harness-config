@@ -97,11 +97,7 @@ CHUNK = 4000                   # chars per content row, so a hit can be located
 
 
 def connect(db_path: str) -> sqlite3.Connection:
-    # A long busy timeout, because a scheduled refresh can collide with an
-    # interactive query or a maintenance VACUUM. Measured: a refresh failed with
-    # database is locked purely because another process held the write lock for
-    # a moment, which is not a reason to lose an hour of indexing.
-    con = sqlite3.connect(db_path, timeout=300)
+    con = sqlite3.connect(db_path, timeout=30)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA synchronous=NORMAL")
@@ -118,15 +114,9 @@ def connect(db_path: str) -> sqlite3.Connection:
             mtime    REAL NOT NULL,
             sha      TEXT,
             name_rev TEXT,
-            path_key TEXT,
             indexed  INTEGER NOT NULL DEFAULT 0,
             err      TEXT
         );
-        -- On Windows, Code and code are the same directory (case-insensitively),
-        -- not a safe unique key: the whole tree was catalogued twice (measured:
-        -- every payroll hit returned two identical rows). path_key is normcase'd
-        -- for exactly that reason.
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_files_path_key ON files(path_key);
         CREATE INDEX IF NOT EXISTS idx_files_name ON files(name);
         -- A reversed name turns `name LIKE '%foo%'` into a prefix match on
         -- name_rev, which sqlite CAN use an index for. Without it, filename
@@ -186,61 +176,27 @@ def looks_binary(head: bytes) -> bool:
 
 
 def walk_roots(roots, verbose=False):
-    """Yield (root, path, name, DirEntry) using os.scandir.
-
-    WHY scandir AND NOT os.walk: this index spends ~990 s per pass, and 1,845,821
-    of the files are UNCHANGED -- so nearly all of it is bookkeeping. `os.walk`
-    hands back only names, forcing a fresh `os.stat` per file; `os.scandir` already
-    has the stat from reading the directory, so `entry.stat()` usually costs
-    nothing. On Windows that is ~1.8 M syscalls removed.
-    """
     seen_dirs = 0
     for root in roots:
         root = os.path.abspath(root)
         if not os.path.isdir(root):
             print(f"  ! not a directory: {root}")
             continue
-        stack = [root]
-        while stack:
-            dirpath = stack.pop()
+        for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+            keep = []
+            for d in dirnames:
+                if d in SKIP_DIRS or d.startswith(".git"):
+                    continue
+                low = d.lower()
+                if any(fnmatch.fnmatch(low, pat) for pat in SKIP_DIR_PATTERNS):
+                    continue
+                keep.append(d)
+            dirnames[:] = keep
             seen_dirs += 1
             if verbose and seen_dirs % 2000 == 0:
                 print(f"    … {seen_dirs} dirs", flush=True)
-            try:
-                entries = list(os.scandir(dirpath))
-            except OSError:
-                continue
-            for entry in entries:
-                try:
-                    if entry.is_dir(follow_symlinks=False):
-                        d = entry.name
-                        if d in SKIP_DIRS or d.startswith(".git"):
-                            continue
-                        low = d.lower()
-                        if any(fnmatch.fnmatch(low, pat)
-                               for pat in SKIP_DIR_PATTERNS):
-                            continue
-                        stack.append(entry.path)
-                    elif entry.is_file(follow_symlinks=False):
-                        yield root, entry.path, entry.name, entry
-                except OSError:
-                    continue
-
-
-def _load_known(con, roots):
-    """One pass over stored metadata, so the walk needs no per-file query.
-
-    MEASURED: the old loop ran a SELECT for every file, 1.8 M queries per pass, to
-    answer a question the database could answer in one go. A dict of
-    path_key -> (id, size, mtime) is a few hundred MB at this scale and removes
-    every one of those round trips.
-    """
-    known = {}
-    abs_roots = [os.path.abspath(r) for r in roots]
-    for key, fid, size, mtime in con.execute(
-            "SELECT path_key, id, size, mtime FROM files WHERE path_key IS NOT NULL"):
-        known[key] = (fid, size, mtime)
-    return known, abs_roots
+            for name in filenames:
+                yield root, os.path.join(dirpath, name), name
 
 
 def do_index(con, roots, verbose=False, reindex=False, trigram=False):
@@ -256,36 +212,28 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
             "text, file_id UNINDEXED, tokenize='trigram')")
 
     con.execute("BEGIN")
-    known, abs_roots = _load_known(con, roots)
-    if verbose:
-        print(f"    loaded {len(known):,} stored paths into memory", flush=True)
-    for root, path, name, entry in walk_roots(roots, verbose):
+    for root, path, name in walk_roots(roots, verbose):
         seen += 1
-        # The scan already read this entry, so stat is usually free. If it does
-        # raise, the file vanished mid-walk: skip it, do not abort the pass.
         try:
-            st = entry.stat()
+            st = os.stat(path)
         except OSError:
             continue
-        key = os.path.normcase(path)
-        prior = known.get(key)
-        if (prior is not None and not reindex
-                and prior[1] is not None and prior[2] is not None
-                and int(prior[1]) == st.st_size
-                and abs(float(prior[2]) - st.st_mtime) < 1e-6):
+        row = con.execute("SELECT id, size, mtime, indexed FROM files WHERE path=?",
+                          (path,)).fetchone()
+        if row and not reindex and int(row["size"]) == st.st_size and abs(
+                float(row["mtime"]) - st.st_mtime) < 1e-6:
             skipped += 1
-            indexed_ids.add(int(prior[0]))
+            indexed_ids.add(int(row["id"]))
             continue
-        fid = int(prior[0]) if prior is not None and prior[0] is not None else None
-        row = prior
 
         text_ok = is_text(path, name) and st.st_size <= MAX_TEXT_BYTES
-        if fid:
+        if row:
+            fid = int(row["id"])
             con.execute(
-                "UPDATE files SET root=?, ext=?, name=?, name_rev=?, path_key=?,"
-                " size=?, mtime=?, indexed=? WHERE id=?",
+                "UPDATE files SET root=?, ext=?, name=?, name_rev=?, size=?, mtime=?,"
+                " indexed=? WHERE id=?",
                 (root, os.path.splitext(name)[1].lower(), name, name[::-1].lower(),
-                 key, st.st_size, st.st_mtime, 1 if text_ok else 0, fid))
+                 st.st_size, st.st_mtime, 1 if text_ok else 0, fid))
             updated += 1
             con.execute("DELETE FROM content WHERE file_id=?", (fid,))
             # ONLY when the trigram index was actually created. This line was left
@@ -295,10 +243,10 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
                 con.execute("DELETE FROM tri WHERE file_id=?", (fid,))
         else:
             cur = con.execute(
-                "INSERT INTO files(path, root, ext, name, name_rev, path_key,"
-                " size, mtime, indexed) VALUES(?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO files(path, root, ext, name, name_rev, size, mtime, indexed) "
+                "VALUES(?,?,?,?,?,?,?,?)",
                 (path, root, os.path.splitext(name)[1].lower(), name, name[::-1].lower(),
-                 key, st.st_size, st.st_mtime, 1 if text_ok else 0))
+                 st.st_size, st.st_mtime, 1 if text_ok else 0))
             fid = int(cur.lastrowid)
             added += 1
         indexed_ids.add(fid)
@@ -333,43 +281,17 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
                 print(f"    {seen} files, {added} new, {updated} changed, "
                       f"{content_rows} chunks ({time.time()-t0:.0f}s)", flush=True)
 
-    # Prune rows whose file has disappeared, but only inside the walked roots.
-    #
-    # BULK, not a per-row loop: the loop version fetched every row for a root and
-    # deleted them one at a time (the same pattern that made the de-dup take 1,016 s
-    # of CPU), and it did `int(r["id"])`, which raised TypeError on the NULL ids a
-    # table reshape had left behind. Two SQL statements, no Python loop, and no
-    # integer conversion that can fail.
+    # prune files that have disappeared, but only inside the walked roots
     pruned = 0
     for root in {os.path.abspath(r) for r in roots}:
-        # One pass over the root's rows, checking the filesystem once per row and
-        # collecting the dead ids; then three executemany deletes. No per-row SQL.
-        missing = [i for i, p in con.execute(
-            "SELECT id, path FROM files WHERE root=? AND id IS NOT NULL", (root,))
-            if not os.path.exists(p)]
-        if not missing:
-            continue
-        params = [(i,) for i in missing]
-        con.executemany("DELETE FROM content WHERE file_id=?", params)
-        if trigram:
-            con.executemany("DELETE FROM tri WHERE file_id=?", params)
-        con.executemany("DELETE FROM files WHERE id=?", params)
-        pruned += len(missing)
-    # A NULL id means a reshape dropped the primary key; those rows are unusable.
-    bad = con.execute("DELETE FROM files WHERE id IS NULL").rowcount
-    if bad:
-        pruned += bad
-
-    # Orphaned content rows (file removed outside this walk) inflate the index and
-    # break lookups. One statement, not a loop.
-    try:
-        orphans = con.execute(
-            "DELETE FROM content WHERE file_id NOT IN (SELECT id FROM files)"
-        ).rowcount
-        if orphans:
-            print(f"    removed {orphans} orphaned content chunk(s)")
-    except sqlite3.Error:
-        pass
+        rows = con.execute("SELECT id, path FROM files WHERE root=?", (root,)).fetchall()
+        for r in rows:
+            if int(r["id"]) not in indexed_ids and not os.path.exists(r["path"]):
+                con.execute("DELETE FROM content WHERE file_id=?", (r["id"],))
+                if trigram:
+                    con.execute("DELETE FROM tri WHERE file_id=?", (r["id"],))
+                con.execute("DELETE FROM files WHERE id=?", (r["id"],))
+                pruned += 1
 
     con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('last_index',?)",
                 (dt.datetime.now(dt.timezone.utc).isoformat(),))

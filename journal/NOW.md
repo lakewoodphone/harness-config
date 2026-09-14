@@ -66,12 +66,22 @@ shards *and* every git ref, which is what stops two machines choosing the same n
   is actually running, apply or lift lockdown, and lock a lost device — the owner's three stated needs
   for that fleet, entered from the portal as he decided (D19). Built, unit-tested (**122** fleet-api,
   **31** waze service), the backend deployed and its four new procedures verified live, and the UI driven
-  end-to-end against the live test API with the confirm gates proven to hold. **The frontend cannot be
-  published**: Netlify returns `403 Account credit usage exceeded` on exhausted Free-plan credits, so
-  `test.lakewoodphoneandtech.com` still serves the old bundle. Owner question **#16**. Two things future
-  sessions must not re-learn: only **1 of 65** devices has ever answered a ProfileList (so "unknown", not
-  "empty", is the correct reading of the panel), and the fleet carried **9 retired** devices that the
+  end-to-end against the live test API with the confirm gates proven to hold. **It is now PUBLISHED** —
+  `test.lakewoodphoneandtech.com` serves it (owner question #16 closed by the Pages move above). Two things
+  future sessions must not re-learn: only **1 of 65** devices has ever answered a ProfileList (so "unknown",
+  not "empty", is the correct reading of the panel), and the fleet carried **9 retired** devices that the
   monitor already exempted from staleness and the UI was calling dead.
+
+- **THE DRN FLEET IS LARGELY NOT ATTACHED TO THE MDM, and the dashboard used to hide that** (H200, L565).
+  Measured on the authority 2026-09-14: **65 devices enrolled, only 8 have EVER replied to a command**, and
+  **48 of the 57 that never replied are marked `deployed`**. The only actively-managed phone was DRN 26
+  (3,380 replies) and it stopped **2026-09-11 16:00**; nothing has replied since. The "24 commands/day" that
+  looks like fleet activity is one hourly `Settings` sweep to that one device. So a profile push, lockdown or
+  Lost Mode to any of those 48 does nothing, and any belief that DRN's fleet is managed or locked is
+  unfounded for 48 of 63 phones. The page now separates **went quiet (an outage — 5 devices, red)** from
+  **never reported (a setup question — 48, amber)**, and rows read "Never reported" instead of an age.
+  **Open for the owner:** whether those 48 are supposed to be in service — if DRN believes they are managed,
+  they are not, and nobody has told them.
 
 ## State of the systems, as last measured
 
