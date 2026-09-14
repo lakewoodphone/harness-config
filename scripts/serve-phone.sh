@@ -273,6 +273,13 @@ echo "serve active: https://$DNS/ -> 127.0.0.1:$PORT"
 PLUGINS_CHANGED=""
 ensure_client_plugin
 
+# ...and the workspace the phone starts in, which is host state in `~/.dsh/storages/` and can
+# vanish the same way. It restarts the engine itself when it has to repair, so it runs before the
+# engine block and does nothing at all in the normal case.
+if [ -f "$REPO_DIR/scripts/ensure-phone-workspace.py" ]; then
+  python3 "$REPO_DIR/scripts/ensure-phone-workspace.py" 2>&1 | sed 's/^/workspace: /' | grep -v '^workspace: ok:' || true
+fi
+
 if [ -z "$(engine_pid)" ] && unit_owned phone-engine; then
   # The unit owns the engine. Track the token the same way the fallback path does, because the gate
   # signs cold visitors in with it and `--print-link` hands it to the owner.
