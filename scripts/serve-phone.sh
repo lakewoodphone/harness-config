@@ -31,7 +31,31 @@ ERR="$STATE/engine-$ENGINE_PORT.err"
 
 mkdir -p "$STATE" 2>/dev/null || exit 2
 
+# ── who owns the two long-lived processes ─────────────────────────────────────
+#
+# systemd, when the units exist, and cron-side scripts never (PAIN P59, 2026-09-14).
+#
+# WHY THIS IS NOT OBVIOUS AND COST THREE OUTAGES. `setsid nohup` detaches a process from its
+# controlling terminal, but it does NOT move it out of its cgroup — and a process started from an
+# SSH session is created inside that session's `session-NNNNN.scope`. When the session ends,
+# systemd-logind waits for the scope's processes to exit and then removes the scope, taking them
+# with it. Measured on secratary: the gate was killed minutes after the SSH command that started
+# it returned, with no traceback (a signal, not a crash, so nothing appears in its own log) and no
+# OOM line — the phone just stopped answering and the 2-minute watchdog restarted it. The engine
+# and the redirector were in the same position, in three different session scopes.
+#
+# A unit puts them in `/system.slice/phone-*.service`, which no login can reap, and gives them
+# `Restart=always` — so the recovery time is 2 seconds rather than up to the watchdog's interval.
+unit_owned() { [ -f "/etc/systemd/system/$1.service" ]; }
+unit_active() { unit_owned "$1" && systemctl is-active --quiet "$1.service"; }
+unit_pid() { systemctl show "$1.service" -p MainPID --value 2>/dev/null; }
+
 gate_pid() {
+  if unit_owned phone-gate; then
+    local p; p="$(unit_pid phone-gate)"
+    [ -n "$p" ] && [ "$p" != "0" ] && { echo "$p"; return 0; }
+    return 1
+  fi
   # pidfile, for the same reason as the redirector below: never ask a process list a question about
   # yourself.
   local pidfile="$STATE/gate.pid"
@@ -45,6 +69,19 @@ ensure_gate() {
   # Sits between Serve and the engine so that ANY URL which reaches this host signs the visitor in.
   # Without it, a first visit to the bare address returns the harness's plain-text "authentication
   # required" — which iOS offers to download as a document (measured 2026-09-11).
+  if unit_owned phone-gate; then
+    # The unit owns it. `restart` is deliberately NOT used here: this script runs every two minutes,
+    # and restarting a healthy gate would drop the owner's page for no reason. A dead one is already
+    # being restarted by systemd within 2 seconds, so the only job left is to say what is true.
+    if unit_active phone-gate; then
+      echo "gate already running: pid $(unit_pid phone-gate) (systemd)"
+    else
+      echo "gate unit is not active; asking systemd to start it"
+      sudo -n systemctl start phone-gate.service 2>/dev/null || systemctl start phone-gate.service 2>/dev/null \
+        || echo "could not start phone-gate.service"
+    fi
+    return 0
+  fi
   local pid; pid="$(gate_pid)"
   if [ -n "$pid" ]; then echo "gate already running: pid $pid"; return 0; fi
   if [ ! -f "$REPO_DIR/scripts/phone-gate.py" ]; then echo "gate script missing"; return 1; fi
@@ -67,6 +104,11 @@ except Exception:
 }
 
 engine_pid() {
+  if unit_owned phone-engine; then
+    local p; p="$(unit_pid phone-engine)"
+    [ -n "$p" ] && [ "$p" != "0" ] && { echo "$p"; return 0; }
+    return 1
+  fi
   pgrep -f "dsh/lib/bin.js web --port $ENGINE_PORT" 2>/dev/null | head -1
 }
 
@@ -166,8 +208,21 @@ case "${1:-}" in
     exit 0
     ;;
   --stop)
+    # Both, and in this order: clearing Serve first means the phone cannot reach a half-stopped
+    # stack. The units are stopped rather than killed so systemd does not immediately restart them
+    # (Restart=always would fight a bare `kill`), and the fallback path is kept for a host where the
+    # units were never installed.
     tailscale serve reset >/dev/null 2>&1 && echo "serve config cleared on this host"
-    P="$(engine_pid)"; [ -n "$P" ] && kill "$P" 2>/dev/null && echo "stopped engine pid $P"
+    if unit_owned phone-gate; then
+      sudo -n systemctl stop phone-gate.service 2>/dev/null || systemctl stop phone-gate.service 2>/dev/null || true
+      echo "stopped phone-gate.service (systemd will NOT restart it: stop is deliberate)"
+    fi
+    if unit_owned phone-engine; then
+      sudo -n systemctl stop phone-engine.service 2>/dev/null || systemctl stop phone-engine.service 2>/dev/null || true
+      echo "stopped phone-engine.service"
+    else
+      P="$(engine_pid)"; [ -n "$P" ] && kill "$P" 2>/dev/null && echo "stopped engine pid $P"
+    fi
     exit 0
     ;;
 esac
@@ -218,7 +273,16 @@ echo "serve active: https://$DNS/ -> 127.0.0.1:$PORT"
 PLUGINS_CHANGED=""
 ensure_client_plugin
 
-if [ -z "$(engine_pid)" ]; then
+if [ -z "$(engine_pid)" ] && unit_owned phone-engine; then
+  # The unit owns the engine. Track the token the same way the fallback path does, because the gate
+  # signs cold visitors in with it and `--print-link` hands it to the owner.
+  echo "engine: asking systemd to start phone-engine.service"
+  sudo -n systemctl start phone-engine.service 2>/dev/null || systemctl start phone-engine.service 2>/dev/null \
+    || echo "could not start phone-engine.service"
+  for _ in $(seq 1 60); do port_open "$ENGINE_PORT" && break; sleep 2; done
+  port_open "$ENGINE_PORT" && echo "engine listening on :$ENGINE_PORT (systemd)" \
+    || echo "engine did NOT bind :$ENGINE_PORT within 120s — see $ERR and: journalctl -u phone-engine -n 40"
+elif [ -z "$(engine_pid)" ]; then
   echo "starting the engine on :$ENGINE_PORT (trusting $DNS; the gate publishes :$PORT)"
   rm -f "$LOG" "$ERR"
   # setsid + nohup so it survives this shell; the log carries the one-time token, so treat it as a secret.
