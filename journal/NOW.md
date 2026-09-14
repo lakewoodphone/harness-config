@@ -35,6 +35,13 @@ shards *and* every git ref, which is what stops two machines choosing the same n
   disposition each in `archive/README.md`, and **#11 answered the same hour** — the owner picked the
   harness badge, so it is closed and must not be re-asked. **7 pending.**
 
+- **The owner's phone path was broken, and is fixed as of 2026-09-14** (H70). It served documents and
+  refused every `/api` call and WebSocket, because `profiles/web/cordis.patch.yml` restated the
+  `connection` row's whole `config` and dropped `trustedHosts` — the only source of the `/api` fence's
+  trusted authorities (P48b, done). Probe **15/15**; a real browser at 393x852 has the layer, the cost
+  pill and a working composer. Two items there stay open and named: a first run lands with no session
+  (P46), and the gate died once with no cause on the record (P59).
+
 ## State of the systems, as last measured
 
 - **This journal was rebuilt on 2026-09-14.** Six flat files (590 KB, 389 entries when the migration ran,

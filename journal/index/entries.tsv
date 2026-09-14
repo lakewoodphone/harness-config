@@ -67,7 +67,8 @@ handoff	H65	65		2026-09-14 05:30 UTC	ZABZ-YOGA	open	## 2026-09-14 05:30 UTC · Z
 handoff	H66	66		2026-09-14 05:45 UTC	ZABZ-YOGA	open	## 2026-09-14 05:45 UTC · ZABZ-YOGA · Owner asked "pull my emails and Google Voice calls/texts/voicemails and tell me what needs attention" — and the biggest finding is that **nothing has reached him from this company since 2026-07-19**	log/handoff/2026-09.2.md	1233	1298	986ee8b60f7beed8
 handoff	H68	68		2026-09-14 05:49 UTC	ZABZ-YOGA	done	## 2026-09-14 05:49 UTC · ZABZ-YOGA · The journal is a tree of documents with reads now — 389 entries instead of six files nobody could afford to open	log/handoff/2026-09.2.md	1382	1429	716018e1eeaaef5d
 handoff	H67	67		2026-09-14 05:55 UTC	ZABZ-YOGA	open	## 2026-09-14 05:55 UTC · ZABZ-YOGA · The delivery failure is now a measured check, live on the authority — and the finding is readable in two places (the GUI badge is NOT the one that is done)	log/handoff/2026-09.2.md	1299	1381	f8969788f31fbf0f
-handoff	H69	69		2026-09-14 05:57 UTC	ZABZ-YOGA	done	## 2026-09-14 05:57 UTC · ZABZ-YOGA · The rebuild is verified on all three machines — and the flat-drift check earned its place by finding three entries that lived on one machine only	log/handoff/2026-09.2.md	1430	1467	740d4f8b06b15a95
+handoff	H69	69		2026-09-14 05:57 UTC	ZABZ-YOGA	done	## 2026-09-14 05:57 UTC · ZABZ-YOGA · The rebuild is verified on all three machines — and the flat-drift check earned its place by finding three entries that lived on one machine only	log/handoff/2026-09.2.md	1430	1466	740d4f8b06b15a95
+handoff	H70	70		2026-09-14 06:00 UTC	SECRATARY	open	## 2026-09-14 06:00 UTC · SECRATARY · The phone was a shell and is now an agent, and the layer is delivered twice	log/handoff/2026-09.2.md	1467	1529	c988841c4b54eab6
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.md	16	22	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	log/lessons/2026-09.md	23	31	704b5a31f9362c6a
@@ -233,7 +234,9 @@ lessons	L182	182		2026-09-14	ZABZ-YOGA	open	**L182 · A size difference between 
 lessons	L183	183		2026-09-14	ZABZ-YOGA	open	**L183 · A missing trailing newline glues a marker onto the line before it and merges two entries**	log/lessons/2026-09.md	2499	2511	9f110cda3720e72f
 lessons	L184	184		2026-09-14	ZABZ-YOGA	open	**L184 · A concurrent session put my staged work in its commit - verify what landed, not what you staged**	log/lessons/2026-09.md	2512	2524	06a6bcee8dcd42ce
 lessons	L185	185		2026-09-14	imported	open	**L185 · 2026-09-14 · `schtasks` does not run a shell, so a registered command containing `>>` is broken at birth — read back what you registered**	log/lessons/2026-09.md	2525	2539	526932b6c896642d
-lessons	L186	186		2026-09-14	imported	open	**L186 · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it defensive**	log/lessons/2026-09.md	2540	2553	ea633b3660d41c02
+lessons	L186	186		2026-09-14	imported	open	**L186 · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it defensive**	log/lessons/2026-09.md	2540	2552	ea633b3660d41c02
+lessons	L187	187		2026-09-14	SECRATARY	open	**L187 · An overlay that restates a config deletes every key it does not restate**	log/lessons/2026-09.md	2553	2581	619769a51d97ac58
+lessons	L188	188		2026-09-14	SECRATARY	open	**L188 · A document is a delivery mechanism that a cache can delete without a trace**	log/lessons/2026-09.md	2582	2611	c5a80f1cf46a4ca9
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -282,7 +285,7 @@ pain	P47	47		-	-	open	## P47 — Code the business depends on lives untracked on
 pain	P47b	47	b	-	-	open	## P47b — A host that runs agents and deploys from one checkout will block its own deploys	log/pain/2026-09.md	1034	1050	0d5c47b58cf8f149
 pain	P47c	47	c	-	-	open	## P47c — CORRECTION (2026-09-14, same day, citing the entry above)	log/pain/2026-09.md	1051	1079	f06329486df42176
 pain	P48	48		-	-	open	## P48 — Something holds the write lock on the company database for longer than 30 seconds	log/pain/2026-09.md	1080	1109	9c628e8f3d38fa98
-pain	P48b	48	b	-	-	open	## P48b — The authority serves documents but refuses every API and websocket call (OPEN, 2026-09-14)	log/pain/2026-09.md	1110	1126	23c42604de724e3b
+pain	P48b	48	b	-	-	done	## P48b — The authority serves documents but refuses every API and websocket call (OPEN, 2026-09-14)	log/pain/2026-09.md	1110	1126	23c42604de724e3b
 pain	P49	49		-	-	open	## P49 — The machine that serves the API runs a checkout GitHub has moved 71 commits past	log/pain/2026-09.md	1127	1153	d2deddc4f140f6b3
 pain	P50	50		-	-	open	## P50 — `work_sessions.status` holds 40 non-status values, and nobody noticed	log/pain/2026-09.md	1154	1175	c5eab80c49abb856
 pain	P51	51		-	-	open	## P51 — The owner has been read nothing since 2026-07-19, because a spam fix blocked *all* of it	log/pain/2026-09.md	1176	1206	6f680cb74492aeac
@@ -292,7 +295,8 @@ pain	P53	53		-	-	open	## P53 — The corpora that contain the answers were never
 pain	P54	54		-	-	open	## P54 — The first search index was 10.87 GB for 112 GB of files, from two self-inflicted causes	log/pain/2026-09.md	1292	1314	42c5603f44748314
 pain	P55	55		-	-	open	## P55 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	log/pain/2026-09.md	1315	1367	565067337a2b3cb7
 pain	P57	57		2026-09-14	ZABZ-YOGA	open	## P57 — The journal still has two writers - the sharded log and the flat files a second session keeps appending to	log/pain/2026-09.md	1368	1389	eca80cad5011cc47
-pain	P58	58		2026-09-14	ZABZ-YOGA	open	## P58 — 56 of 57 pain entries carry no proof of being finished, so the open list cannot be trusted as a to-do	log/pain/2026-09.md	1390	1410	f45a179c7c1579e3
+pain	P58	58		2026-09-14	ZABZ-YOGA	open	## P58 — 56 of 57 pain entries carry no proof of being finished, so the open list cannot be trusted as a to-do	log/pain/2026-09.md	1390	1409	f45a179c7c1579e3
+pain	P59	59		2026-09-14	SECRATARY	open	## P59 — The phone's gate died once and nothing on the host says why	log/pain/2026-09.md	1410	1446	b8a66b43cd180f7c
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
@@ -362,7 +366,8 @@ decisions	D54	54		2026-09-14	-	open	**D54 · 2026-09-14 · I am the lawyer on th
 decisions	D55	55		2026-09-14	ZABZ-YOGA	open	**D55 · 2026-09-14 · The journal has three tiers - append-only log, rewritten state, generated index.**	log/decisions/2026-09.md	859	877	e375a273a659a446
 decisions	D56	56		2026-09-14	ZABZ-YOGA	open	**D56 · 2026-09-14 · One writer allocates ids over the index, the shards and every git ref.**	log/decisions/2026-09.md	878	898	a205573e5a8bc65b
 decisions	D57	57		2026-09-14	ZABZ-YOGA	open	**D57 · 2026-09-14 · Owner questions live only in owner_decision_queue; QUESTIONS.md is retired.**	log/decisions/2026-09.md	899	922	dd79ba648d656088
-decisions	D58	58		2026-09-14	imported	open	**D58 · 2026-09-14 · Two indexes, one refresh task, SQLite only — and the trigram index is opt-in.**	log/decisions/2026-09.md	923	936	b3f45673e111ae07
+decisions	D58	58		2026-09-14	imported	open	**D58 · 2026-09-14 · Two indexes, one refresh task, SQLite only — and the trigram index is opt-in.**	log/decisions/2026-09.md	923	935	b3f45673e111ae07
+decisions	D59	59		2026-09-14	SECRATARY	open	**D59 · 2026-09-14 · The phone layer is delivered twice, and a phone mounts the same client plugin set as a desktop.**	log/decisions/2026-09.md	936	966	af0f642871a4a7a3
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
@@ -406,4 +411,5 @@ wins	W32b	32	b	2026-09-14	-	open	**W32b · 2026-09-14 · Found my own two design
 wins	W33	33		2026-09-14	-	open	**W33 · 2026-09-14 · Her box's real failure was diagnosed and fixed at the source, from a distance of one network hop.**	log/wins/2026-09.md	616	630	f93b24a087b1c732
 wins	W34	34		2026-09-14	-	open	**W34 · 2026-09-14 · Her laptop was reachable the whole time the record said it was not.**	log/wins/2026-09.md	631	641	2a464d4e81cbf267
 wins	W35	35		2026-09-14	ZABZ-YOGA	open	**W35 · 2026-09-14 · The journal costs 6.6 KB to consult instead of 590 KB, and the read path is bounded by design.**	log/wins/2026-09.md	642	659	337917a1dc64fc39
-wins	W36	36		2026-09-14	ZABZ-YOGA	open	**W36 · 2026-09-14 · The audit proved 17 sources complete and caught two silent migration losses the tool reported as clean.**	log/wins/2026-09.md	660	677	129d2edb0fbc0966
+wins	W36	36		2026-09-14	ZABZ-YOGA	open	**W36 · 2026-09-14 · The audit proved 17 sources complete and caught two silent migration losses the tool reported as clean.**	log/wins/2026-09.md	660	676	129d2edb0fbc0966
+wins	W37	37		2026-09-14	SECRATARY	open	**W37 · 2026-09-14 · The owner's phone is a working agent again: 15/15, a cost pill, a drawer that gets out of the way, and a real tool answer.**	log/wins/2026-09.md	677	697	618342880cdefa90
