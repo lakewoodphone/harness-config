@@ -167,13 +167,26 @@
      * visible and clickable, and the conversation header's own row starts at x=54 — tight,
      * but no overlap. */
     [class*="sidebarCol"]:has([class*="collapsed"]) [class*="toggle"] {
-      position: fixed;
-      left: max(10px, env(safe-area-inset-left));
-      top: calc(14px + env(safe-area-inset-top));
-      z-index: 70;
-      width: 44px;
-      height: 44px;
+      position: fixed !important;
+      left: max(10px, env(safe-area-inset-left)) !important;
+      top: calc(14px + env(safe-area-inset-top)) !important;
+      width: 44px !important;
+      height: 44px !important;
+      z-index: 70 !important;
       border-radius: 8px;
+      /* the app re-renders this control between its two forms; without this it can be caught
+       * mid-slide, a labelled pill sitting over the conversation title */
+      transition: none !important;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+
+    /* Nothing may sit under the pinned control. Measured: the conversation header's title row
+     * starts at x=20, inside the toggle's 10..54 footprint, so title and control overlapped.
+     * This clears it in every render state, not just the settled one. */
+    [class*="centerCol"] [class*="titleRow"],
+    [class*="centerCol"] [class*="headerRow"] {
+      padding-left: 56px;
     }
 
     /* Open: over the conversation, with the scrim a phone user expects to be able to tap.
