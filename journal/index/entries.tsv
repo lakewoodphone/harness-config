@@ -57,8 +57,10 @@ handoff	H55	55		2026-09-13 22:05 EDT (2026-09-14 02:05Z)	ZABZ-TECH	open	## 2026-
 handoff	H56	56		2026-09-13 22:05 EDT (2026-09-14 02:05Z)	ZABZ-TECH	open	## 2026-09-13 22:05 EDT (2026-09-14 02:05Z) · ZABZ-TECH · Restarted the API so the completion fix is live; my own alarm was crying wolf, and the fixed version now proves both directions	log/handoff/2026-09.2.md	672	741	b31e898857ad41e4
 handoff	H57	57		2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The LPT website-overhaul + Google-Forms→LPT-sign-in arc is now one indexed document	log/handoff/2026-09.2.md	742	797	dfe26a8582b69d0e
 handoff	H58	58		2026-09-14	ZABZ-YOGA	open	## 2026-09-14 · ZABZ-YOGA · The phone sidebar is off-canvas at last, and the page stopped scrolling	log/handoff/2026-09.2.md	798	847	cb04ac52b32f8b15
-handoff	H85	85		2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The computer-finder funnel is no longer dead — live on test, verified against the artifacts	log/handoff/2026-09.2.md	2499	2533	04950b31f4813149
-handoff	H86	86		2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The LPT website-overhaul + Google-Forms→LPT-sign-in arc is now one indexed document	log/handoff/2026-09.2.md	2534	2539	e0faad223f59cb6d
+handoff	H82	82		2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The computer-finder funnel is no longer dead — live on test, verified against the artifacts	log/handoff/2026-09.2.md	2271	2305	04950b31f4813149
+handoff	H83	83		2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The LPT website-overhaul + Google-Forms→LPT-sign-in arc is now one indexed document	log/handoff/2026-09.2.md	2306	2311	e0faad223f59cb6d
+handoff	H85a	85	a	2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The computer-finder funnel is no longer dead — live on test, verified against the artifacts	log/handoff/2026-09.2.md	3004	3038	04950b31f4813149
+handoff	H86a	86	a	2026-09-14	ZABZ-TECH	open	## 2026-09-14 · ZABZ-TECH · The LPT website-overhaul + Google-Forms→LPT-sign-in arc is now one indexed document	log/handoff/2026-09.2.md	3039	3044	e0faad223f59cb6d
 handoff	H59	59		2026-09-14 00:15 EDT (04:15Z)	ZABZ-TECH	open	## 2026-09-14 00:15 EDT (04:15Z) · ZABZ-TECH · Search was re-walking the disk every time; it is now indexed — 45.3 s became 0.075 s	log/handoff/2026-09.2.md	848	921	a684724d06952115
 handoff	H60	60		2026-09-14 02:08	secratary	open	## 2026-09-14 02:08 · secratary · The sukkah tarp was paid for on Aug 11 and never shipped; nobody was watching	log/handoff/2026-09.2.md	922	974	84c531340db2d2ca
 handoff	H74	74		2026-09-14 02:15 EDT (06:15Z)	ZABZ-TECH	open	## 2026-09-14 02:15 EDT (06:15Z) · ZABZ-TECH · Search went from a 45-second walk to an indexed 0.07 s, and the year of chat history the index never had	log/handoff/2026-09.2.md	1728	1799	7b02f560cd6c4864
@@ -76,208 +78,423 @@ handoff	H75	75		2026-09-14 06:05 UTC	ZABZ-YOGA	open	## 2026-09-14 06:05 UTC · Z
 handoff	H73	73		2026-09-14 06:35 UTC	ZABZ-YOGA	open	## 2026-09-14 06:35 UTC · ZABZ-YOGA · The DRN fleet can now be managed from the portal — and three of my own numbers were wrong when I measured them	log/handoff/2026-09.2.md	1630	1727	524d9d98d01b9272
 handoff	H72	72		2026-09-14 07:40 UTC	ZABZ-YOGA	open	## 2026-09-14 07:40 UTC · ZABZ-YOGA · The filter's legal audit, written as counsel-of-record — and it killed the cheapest vendor	log/handoff/2026-09.2.md	1573	1629	86e7b2f4ffe0fcf3
 handoff	H71	71		2026-09-14 08:40 UTC	ZABZ-YOGA	open	## 2026-09-14 08:40 UTC · ZABZ-YOGA · The compliance controls a parent can actually use: notice, consent, deletion, expiry	log/handoff/2026-09.2.md	1529	1572	d05000fe68a8fd66
-handoff	H84	84		2026-09-14 09:30 UTC	ZABZ-YOGA	open	## 2026-09-14 09:30 UTC · ZABZ-YOGA · Consent is now enforced at every door — and there were three doors I did not know about	log/handoff/2026-09.2.md	2407	2498	12b8e66d3de9a049
-handoff	H83	83		2026-09-14 10:20 UTC	ZABZ-YOGA	open	## 2026-09-14 10:20 UTC · ZABZ-YOGA · My own parent notice claimed a scrub that does not exist — audited, corrected, and the retention hole closed	log/handoff/2026-09.2.md	2361	2406	141084f483d8923e
-handoff	H80	80		2026-09-14 11:05 UTC	ZABZ-YOGA	open	## 2026-09-14 11:05 UTC · ZABZ-YOGA · The owner asked why the badge was only on his iPhone — and the answer was that I had generalised nothing. It is now on every machine.	log/handoff/2026-09.2.md	2183	2270	fdf6f7fce50a4586
-handoff	H82	82		2026-09-14 11:40 UTC	ZABZ-YOGA	open	## 2026-09-14 11:40 UTC · ZABZ-YOGA · The scrub the notice promised is now built — on the phone, and it refuses rather than sends	log/handoff/2026-09.2.md	2317	2360	36574fc93c53f231
-handoff	H81	81		2026-09-14 13:10 UTC	ZABZ-YOGA	open	## 2026-09-14 13:10 UTC · ZABZ-YOGA · Closing the compliance work: the full suite found five gaps my own slice could not, and one of them was that I had signed a review I never did	log/handoff/2026-09.2.md	2271	2316	24755e5bbbcdfefc
+handoff	H81	81		2026-09-14 09:30 UTC	ZABZ-YOGA	open	## 2026-09-14 09:30 UTC · ZABZ-YOGA · Consent is now enforced at every door — and there were three doors I did not know about	log/handoff/2026-09.2.md	2179	2270	12b8e66d3de9a049
+handoff	H84a	84	a	2026-09-14 09:30 UTC	ZABZ-YOGA	open	## 2026-09-14 09:30 UTC · ZABZ-YOGA · Consent is now enforced at every door — and there were three doors I did not know about	log/handoff/2026-09.2.md	2912	3003	12b8e66d3de9a049
+handoff	H80	80		2026-09-14 10:20 UTC	ZABZ-YOGA	open	## 2026-09-14 10:20 UTC · ZABZ-YOGA · My own parent notice claimed a scrub that does not exist — audited, corrected, and the retention hole closed	log/handoff/2026-09.2.md	2133	2178	141084f483d8923e
+handoff	H83a	83	a	2026-09-14 10:20 UTC	ZABZ-YOGA	open	## 2026-09-14 10:20 UTC · ZABZ-YOGA · My own parent notice claimed a scrub that does not exist — audited, corrected, and the retention hole closed	log/handoff/2026-09.2.md	2866	2911	141084f483d8923e
+handoff	H77	77		2026-09-14 11:05 UTC	ZABZ-YOGA	open	## 2026-09-14 11:05 UTC · ZABZ-YOGA · The owner asked why the badge was only on his iPhone — and the answer was that I had generalised nothing. It is now on every machine.	log/handoff/2026-09.2.md	1955	2042	fdf6f7fce50a4586
+handoff	H80a	80	a	2026-09-14 11:05 UTC	ZABZ-YOGA	open	## 2026-09-14 11:05 UTC · ZABZ-YOGA · The owner asked why the badge was only on his iPhone — and the answer was that I had generalised nothing. It is now on every machine.	log/handoff/2026-09.2.md	2688	2775	fdf6f7fce50a4586
+handoff	H79	79		2026-09-14 11:40 UTC	ZABZ-YOGA	open	## 2026-09-14 11:40 UTC · ZABZ-YOGA · The scrub the notice promised is now built — on the phone, and it refuses rather than sends	log/handoff/2026-09.2.md	2089	2132	36574fc93c53f231
+handoff	H82a	82	a	2026-09-14 11:40 UTC	ZABZ-YOGA	open	## 2026-09-14 11:40 UTC · ZABZ-YOGA · The scrub the notice promised is now built — on the phone, and it refuses rather than sends	log/handoff/2026-09.2.md	2822	2865	36574fc93c53f231
+handoff	H78	78		2026-09-14 13:10 UTC	ZABZ-YOGA	open	## 2026-09-14 13:10 UTC · ZABZ-YOGA · Closing the compliance work: the full suite found five gaps my own slice could not, and one of them was that I had signed a review I never did	log/handoff/2026-09.2.md	2043	2088	24755e5bbbcdfefc
+handoff	H81a	81	a	2026-09-14 13:10 UTC	ZABZ-YOGA	open	## 2026-09-14 13:10 UTC · ZABZ-YOGA · Closing the compliance work: the full suite found five gaps my own slice could not, and one of them was that I had signed a review I never did	log/handoff/2026-09.2.md	2776	2821	24755e5bbbcdfefc
 handoff	H76	76		2026-09-14 14:41 UTC	ZABZ-YOGA	open	## 2026-09-14 14:41 UTC · ZABZ-YOGA · Is Netlify the best option for us? No: it prices deploys, we deploy constantly, and our DNS is already Cloudflare	log/handoff/2026-09.2.md	1881	1954	28dfe2dac0a83a26
-handoff	H77	77		2026-09-14 15:23 UTC	SECRATARY	open	## 2026-09-14 15:23 UTC · SECRATARY · The composer's double layer is fixed at the root: the row was allowed to wrap	log/handoff/2026-09.2.md	1955	2024	e08dfa2d5502a224
-handoff	H79	79		2026-09-14 15:30 UTC	ZABZ-YOGA	open	## 2026-09-14 15:30 UTC · ZABZ-YOGA · The labelling pilot is built — the harness that produces the number nothing else can	log/handoff/2026-09.2.md	2104	2182	97f7db25cee2d5d2
-handoff	H87	87		2026-09-14 15:43 UTC	SECRATARY	open	## 2026-09-14 15:43 UTC · SECRATARY · The question card is answerable from the phone now, and the composer's two layers are gone for good	log/handoff/2026-09.2.md	2540	2618	295368ec2ee7be04
-handoff	H78	78		2026-09-14 16:00 UTC	ZABZ-YOGA	open	## 2026-09-14 16:00 UTC · ZABZ-YOGA · The badge audited and hardened — the audit found a bug that made a healthy system read as broken, and the verifier I wrote to prove the badge had never actually run	log/handoff/2026-09.2.md	2025	2103	81a1c3358ef17a83
-lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	235a8e5a9717b921
-lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.md	16	22	bc5ceb76f28aec87
-lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	log/lessons/2026-09.md	23	31	704b5a31f9362c6a
-lessons	L4	4		-	-	open	**L4 · Measure the thing you are about to claim**	log/lessons/2026-09.md	32	42	4d829b9be5146435
-lessons	L5	5		-	-	open	**L5 · The owner's attention is the scarcest resource. Spend it deliberately**	log/lessons/2026-09.md	43	50	d10b17343643cf0e
-lessons	L6	6		-	-	open	**L6 · Never ask permission already granted**	log/lessons/2026-09.md	51	58	05ecd16c036530f1
-lessons	L7	7		-	-	open	**L7 · Decide the development questions; escalate only what is his**	log/lessons/2026-09.md	59	66	882ec26660f9973b
-lessons	L8	8		-	-	open	**L8 · One question at a time, with options and a recommendation**	log/lessons/2026-09.md	67	75	d49b37d49022c3bc
-lessons	L9	9		-	-	open	**L9 · Produce the artefact, not the plan for the artefact**	log/lessons/2026-09.md	76	86	0c0799b764340a43
-lessons	L10	10		-	-	open	**L10 · The thing watching must outlive the thing being watched**	log/lessons/2026-09.md	87	94	4b7afbad9dc52eee
-lessons	L11	11		-	-	open	**L11 · Monitor outcomes, never liveness**	log/lessons/2026-09.md	95	101	b218e77bc4673ecc
-lessons	L12	12		-	-	open	**L12 · Alert on absence, not only on arrival**	log/lessons/2026-09.md	102	109	3411fb255861c0c5
-lessons	L13	13		-	-	open	**L13 · One source of truth per thing**	log/lessons/2026-09.md	110	117	3f25c06a5106a3f8
-lessons	L14	14		-	-	open	**L14 · Autonomy is a ladder, not a switch**	log/lessons/2026-09.md	118	125	4708b435cb3662b6
-lessons	L15	15		-	-	open	**L15 · Never let a timeout decide a risk question**	log/lessons/2026-09.md	126	133	6d4aee968711e270
-lessons	L16	16		-	-	open	**L16 · An improvement loop that cannot apply is worse than no loop**	log/lessons/2026-09.md	134	143	55bab0f7360fe7d1
-lessons	L17	17		-	-	open	**L17 · Write for the self that wakes up with no memory of this**	log/lessons/2026-09.md	144	151	79b054d4f22a0ef1
-lessons	L18	18		-	-	open	**L18 · Record the decision, not the discussion**	log/lessons/2026-09.md	152	158	a276b5241b6fd9fe
-lessons	L19	19		-	-	open	**L19 · Keep the record of having been wrong**	log/lessons/2026-09.md	159	168	2f7a10394ca84581
-lessons	L20	20		-	-	open	**L20 · Nothing is imported that has not been measured**	log/lessons/2026-09.md	169	180	d42962cd0270846c
-lessons	L21	21		-	-	open	**L21 · Windows git writes CRLF and the live config is LF**	log/lessons/2026-09.md	181	189	1781cb096cd2e806
-lessons	L22	22		-	-	open	**L22 · Home and office are genuinely separate networks**	log/lessons/2026-09.md	190	197	a2ffb2550cb91a28
-lessons	L23	23		-	-	open	**L23 · `ps_health` returns ~90 KB and will poison a context window**	log/lessons/2026-09.md	198	208	37bc17946ddec70a
-lessons	L24	24		-	-	open	**L24 · The venv python must be used directly, never through a shell wrapper**	log/lessons/2026-09.md	209	220	93c580cf2ec7b400
-lessons	L25	25		-	-	retracted	**L25 · Never change the owner's model on inference**	log/lessons/2026-09.md	221	235	4155e78984260cf5
-lessons	L26	26		-	-	open	**L26 · "More expensive" is not "more capable", and neither is "pro"**	log/lessons/2026-09.md	236	245	72da5f78bb057af0
-lessons	L27	27		-	-	open	**L27 · Check the money before touching the money**	log/lessons/2026-09.md	246	259	4fac629ca6eda986
-lessons	L28	28		-	-	open	**L28 · A filter that matches a directory counts every script inside it. Count the thing you meant**	log/lessons/2026-09.md	260	276	9378574ecc0af704
-lessons	L29	29		-	-	open	**L29 · A failed command is evidence about your command, not about the world**	log/lessons/2026-09.md	277	291	de1b13020e9383d9
-lessons	L30	30		-	-	open	**L30 · A monitor that only runs when someone invokes it is not a monitor**	log/lessons/2026-09.md	292	310	db0c4f57786284c4
-lessons	L31	31		-	-	open	**L31 · A span counted in rows is not a span of time. Count the calendar**	log/lessons/2026-09.md	311	327	c214e36caba0bfa4
-lessons	L32	32		-	-	open	**L32 · A process survey matches its own command line — twice over. (Extends L28, which was not enough.)**	log/lessons/2026-09.md	328	344	6880544aec32404a
-lessons	L33	33		-	-	open	**L33 · In a shared working tree, stage explicit paths — never `git add -A`**	log/lessons/2026-09.md	345	359	371c534332557abc
-lessons	L34	34		-	-	open	**L34 · A job can succeed, log success, and write into a file nobody reads. Ask where the write landed**	log/lessons/2026-09.md	360	389	846784832cfde9e2
-lessons	L34b	34	b	-	-	open	**L34b · A log file that the child process owns cannot be cleared by the parent**	log/lessons/2026-09.md	390	403	3aac0eb53b36d6b7
-lessons	L35	35		-	-	open	**L35 · "Loaded" is not "working", and the entity state is not the failure surface**	log/lessons/2026-09.md	404	421	edd45c88d12b81b2
-lessons	L35b	35	b	-	-	open	**L35b · Readiness needs three conditions, and each one alone has produced a false positive here**	log/lessons/2026-09.md	422	436	0eb91a0454001ccb
-lessons	L36	36		-	-	open	**L36 · A refusal must name the thing that was refused**	log/lessons/2026-09.md	437	450	d4ca0a988b45276d
-lessons	L36b	36	b	-	-	open	**L36b · A measurement that returns HTTP 200 is not a measurement that did work**	log/lessons/2026-09.md	451	465	dd18e44d59b6f00c
-lessons	L37	37		-	-	open	**L37 · Read the neighbouring evidence before naming a root cause**	log/lessons/2026-09.md	466	478	8df10f7a4a8ae12c
-lessons	L37b	37	b	-	-	open	**L37b · Killing my own throwaway test process is not a question for the owner**	log/lessons/2026-09.md	479	491	d2b18f6d45f08ab8
-lessons	L38	38		-	-	open	**L38 · Read the log span's clock before trusting a correlation**	log/lessons/2026-09.md	492	506	fd360405dc8a4005
-lessons	L39	39		-	-	open	**L39 · To date an outage, use append-only evidence. A file that is overwritten has no history**	log/lessons/2026-09.md	507	524	32a66952aa3c0c3e
-lessons	L39b	39	b	-	-	done	**L39b · Read the extension seam before deciding whether a change is a patch or a plugin**	log/lessons/2026-09.md	525	542	cc4953115b251f2c
-lessons	L40	40		-	-	open	**L40 · An outage can be invisible in the data that describes work, because absence has no rows**	log/lessons/2026-09.md	543	554	9deafde74a42c77b
-lessons	L40b	40	b	-	-	open	**L40b · A generated file must be generated from the tested file, or the tests are theatre**	log/lessons/2026-09.md	555	568	fbd304ea0a170bab
-lessons	L41	41		-	-	open	**L41 · "The bundle is on disk" is not "the loader can use it"**	log/lessons/2026-09.md	569	580	0fc2e46f20b44f3d
-lessons	L42	42		-	-	open	**L42 · Quote the number, or the region is unpriced**	log/lessons/2026-09.md	581	591	7dd8a344705d55d9
-lessons	L43	43		-	-	open	**L43 · On a time-of-day rate card, a timestamp is part of the price**	log/lessons/2026-09.md	592	603	0c3d1ff17874d8a5
-lessons	L44	44		-	-	open	**L44 · Never put a secret in an exception message**	log/lessons/2026-09.md	604	618	c277e00df5fc5502
-lessons	L45	45		-	-	open	**L45 · Count the artefacts, not the complaints**	log/lessons/2026-09.md	619	635	adb215d00645d8a8
-lessons	L46	46		-	-	open	**L46 · A port mismatch reads exactly like a dead machine**	log/lessons/2026-09.md	636	652	47761235c16dcd65
-lessons	L47	47		-	-	open	**L47 · A script that has never run against its real target is not a script**	log/lessons/2026-09.md	653	670	585f6bf4482f1ba6
-lessons	L48	48		-	-	open	**L48 · `catch (Exception)` does not catch `Error`, and that is how a `compileOnly` dependency crashes an app**	log/lessons/2026-09.md	671	686	9ca4457864a8e87f
-lessons	L49	49		-	-	open	**L49 · A test that passes before and after the fix has no teeth — check it against the broken revision**	log/lessons/2026-09.md	687	701	8be39a974c76ce53
-lessons	L50	50		-	-	open	**L50 · Never let a long job stream its progress UI into the conversation**	log/lessons/2026-09.md	702	713	07eb201c65cb4132
-lessons	L51	51		-	-	open	**L51 · A successful tool call is not a correct answer. Verify the claim, not the plumbing**	log/lessons/2026-09.md	714	735	b67160828bead6ad
-lessons	L51b	51	b	-	-	open	**L51b · A tracker row saying "waiting on the owner" is a claim, not evidence — check the decisions log before asking**	log/lessons/2026-09.md	736	754	b1155c8f2bf9688d
-lessons	L52	52		-	-	open	**L52 · A fix verified through one entry point is not verified. Test the path the user actually takes**	log/lessons/2026-09.md	755	813	a02515a8173a1de5
-lessons	L52b	52	b	-	-	open	**L52b · A number in an internal document is a claim, not a measurement — and an unmeasurable band is a warning sign**	log/lessons/2026-09.md	814	828	8c5d7445d013767a
-lessons	L53	53		-	-	open	**L53 · The most convenient library is usually the one you cannot ship**	log/lessons/2026-09.md	829	844	3e147e1082f16c3e
-lessons	L53b	53	b	-	-	open	**L53b · Read the authoritative deploy doc before escalating an infrastructure blocker**	log/lessons/2026-09.md	845	867	3b688eb3e8e395da
-lessons	L54	54		-	-	open	**L54 · A model's self-reported confidence is not a failure signal — never gate a fail-closed system on it**	log/lessons/2026-09.md	868	882	1fb29aadba850492
-lessons	L55	55		-	-	open	**L55 · The cheapest technical option can be the one the vendor forbids — read the terms before the price**	log/lessons/2026-09.md	883	900	e03b4b7a745ea05b
-lessons	L56	56		-	-	open	**L56 · "Cheapest" ranking is mostly an artifact of input tokenisation, not of the vendor**	log/lessons/2026-09.md	901	916	ec9e5734b11a7802
-lessons	L57	57		-	-	open	**L57 · When two independent agents disagree about a number, fetch the source — do not pick the convenient one**	log/lessons/2026-09.md	917	933	4fd57ab81e8c2210
-lessons	L58	58		-	-	open	**L58 · Price the labour, not the tooling**	log/lessons/2026-09.md	934	950	2529e759aac1c74b
-lessons	L59	59		-	-	open	**L59 · He does not read documents. A deliverable is for the record, not a reading assignment**	log/lessons/2026-09.md	951	969	bcc0c3d73dacb59b
-lessons	L60	60		-	-	open	**L60 · When a delivered figure is disputed, find the longest matching prefix — the difference is usually formatting**	log/lessons/2026-09.md	970	985	be566bb9630e9a0a
-lessons	L61	61		-	-	open	**L61 · Do not flag. Solve, or ask exactly one question and move on**	log/lessons/2026-09.md	986	1012	8578bfcc3aed2e3e
-lessons	L100	100		-	-	open	**L100 · A nested key at the wrong indentation is a silent no-op, and the reload will still say success**	log/lessons/2026-09.md	1013	1036	16c3a1c3a70d0390
-lessons	L101	101		-	-	open	**L101 · Two generations of one thing is worse than none, and the cheap way to find it is to ask what already exists**	log/lessons/2026-09.md	1037	1053	b9d1e707df060e79
-lessons	L102	102		-	-	open	**L102 · When a fix is a one-line structural change, deploy it and observe the specific service — not the summary**	log/lessons/2026-09.md	1054	1066	30095e10ff237c4d
-lessons	L103	103		-	-	open	**L103 · In the DSH browser loader, a wrong dependency name breaks the whole UI, not the plugin**	log/lessons/2026-09.md	1067	1083	75433578fc6bee21
-lessons	L104	104		-	-	open	**L104 · `$pid` is reserved and read-only, and PowerShell matches it case-insensitively**	log/lessons/2026-09.md	1084	1099	7ff4273e48b7413b
-lessons	L105	105		-	-	open	**L105 · `Process.HasExited` on a detached child can block for the child's whole lifetime**	log/lessons/2026-09.md	1100	1114	ed1e1311ba84d793
-lessons	L110	110		-	-	open	**L110 · A short record is not an absent device — check `created_at` before calling anything missing**	log/lessons/2026-09.md	1115	1136	765db84136aff90d
-lessons	L111	111		-	-	open	**L111 · "Double-check that" means test my own error first**	log/lessons/2026-09.md	1137	1148	3f21d5076cd5381d
-lessons	L112	112		-	-	open	**L112 · A query that silently matches zero rows returns the same shape as a healthy answer**	log/lessons/2026-09.md	1149	1170	b6008532c181c3e8
-lessons	L113	113		-	-	open	**L113 · A check whose input is a manual, long-stale path is a permanent false alarm**	log/lessons/2026-09.md	1171	1186	456bec0641a5d2f7
-lessons	L114	114		-	-	open	**L114 · A column named `fetched_at` may record when a row was first SEEN, not when you last looked**	log/lessons/2026-09.md	1187	1206	ad9e4861e8ac85b5
-lessons	L115	115		-	-	open	**L115 · A 10-second lock timeout is 30x the transaction time and still 300 seconds of wall clock**	log/lessons/2026-09.md	1207	1224	dcfa537567478f14
-lessons	L116	116		-	-	open	**L116 · `timeout N cmd <<EOF` gives the heredoc to the command's STDIN, so the timeout waits on stdin**	log/lessons/2026-09.md	1225	1242	02ff389fc98e046f
-lessons	L117	117		-	-	done	**L117 · Checking one channel and escalating is not diligence — it is a guess with a citation**	log/lessons/2026-09.md	1243	1266	877e99c25ba317bd
-lessons	L118	118		-	-	open	**L118 · When a data source embeds its vendor's internals, the fix is a reader, not a warning**	log/lessons/2026-09.md	1267	1286	9d35a2463f1a0b34
-lessons	L119	119		-	-	open	**L119 · Write the regression test in the direction that protects the real world, then run it before believing it**	log/lessons/2026-09.md	1287	1306	f30a55d9a4cbb070
-lessons	L130	130		-	-	open	**L130 · 2026-09-11 20:30 UTC · A component that is configured and a component that works are different readings**	log/lessons/2026-09.md	1307	1319	2f1f6b89be20c87b
-lessons	L131	131		-	-	open	**L131 · 2026-09-11 20:35 UTC · A probe that cannot report its own failure is worse than no probe**	log/lessons/2026-09.md	1320	1331	28ccc62582942af2
-lessons	L132	132		-	-	open	**L132 · 2026-09-11 20:40 UTC · A platform attribute that lives only in the working tree is a local modification**	log/lessons/2026-09.md	1332	1343	78744df682c6b3e4
-lessons	L133	133		-	-	open	**L133 · 2026-09-11 20:45 UTC · When you know the exact key, do not sort by mtime**	log/lessons/2026-09.md	1344	1356	04fd1ddb36f0c81d
-lessons	L134	134		-	-	open	**L134 · 2026-09-11 20:35 UTC · A proxy pools connections; one inspection per connection is not one inspection per request**	log/lessons/2026-09.md	1357	1368	2217ccd973074326
-lessons	L135	135		-	-	open	**L135 · 2026-09-11 20:35 UTC · A test client that opens its own connection cannot see a pooling bug**	log/lessons/2026-09.md	1369	1378	a1d7c45b354efc90
-lessons	L136	136		-	-	open	**L136 · 2026-09-11 20:40 UTC · Never hand a struggling client a task; finish the task for it**	log/lessons/2026-09.md	1379	1390	9b1055f18ee05f60
-lessons	L137	137		-	-	open	**L137 · 2026-09-11 20:45 UTC · A limit keyed on the client's IP is worthless behind a proxy**	log/lessons/2026-09.md	1391	1401	296e00086e615e53
-lessons	L138	138		-	-	open	**L138 · 2026-09-11 20:37 UTC · "Who is visiting" cannot be recovered after the fact if the front door never recorded it**	log/lessons/2026-09.md	1402	1420	beec306dd2235027
-lessons	L139	139		-	-	open	**L139 · 2026-09-11 20:37 UTC · Read the reflog before editing a shared file; a commit minutes old means a live writer**	log/lessons/2026-09.md	1421	1437	765d59eae69e0851
-lessons	L140	140		-	-	open	**L140 · 2026-09-11 · A rule that sizes a box must not size its contents**	log/lessons/2026-09.md	1438	1447	e2c94f1cb5ae4dae
-lessons	L141	141		-	-	open	**L141 · 2026-09-11 · A measurement is not a look**	log/lessons/2026-09.md	1448	1456	7d647b2c4c8e12b9
-lessons	L142	142		-	-	open	**L142 · 2026-09-11 · Do not remove a part of a layout you do not own**	log/lessons/2026-09.md	1457	1465	f9c7eb87ee27eda9
-lessons	L143	143		-	-	open	**L143 · 2026-09-11 · Injecting bytes into a served response means re-framing it**	log/lessons/2026-09.md	1466	1476	c6db23a40bfd6e88
-lessons	L144	144		-	-	open	**L144 · 2026-09-11 · Check the exit code of the command you think you ran**	log/lessons/2026-09.md	1477	1488	3bc42fc5886a2d7b
-lessons	L145	145		-	-	open	**L145 · 2026-09-11 · A monitor that is not deployed is not a monitor**	log/lessons/2026-09.md	1489	1497	c592cf80bc5dc32c
-lessons	L146	146		-	-	open	**L146 · 2026-09-11 · A lowercase `grep` on `.env` certifies an absence that is not there**	log/lessons/2026-09.md	1498	1512	5a1216e818005339
-lessons	L146b	146	b	-	-	open	**L146b · 2026-09-14 · Read the layout mechanism before you style it**	log/lessons/2026-09.md	1513	1526	5e3c3323b6bb9d01
-lessons	L147	147		-	-	retracted	**L147 · 2026-09-11 · Verify the device the code actually actuates, not the entity whose name matches it**	log/lessons/2026-09.md	1527	1542	5d4011bfae3bfaee
-lessons	L147b	147	b	-	-	open	**L147b · 2026-09-14 · A transformed ancestor owns its fixed descendants**	log/lessons/2026-09.md	1543	1555	57846b1ee616914a
-lessons	L148	148		-	-	open	**L148 · 2026-09-11 · Never ask the owner for a fact that is already written down**	log/lessons/2026-09.md	1556	1571	f6f9b0569005b7d2
-lessons	L148b	148	b	-	-	open	**L148b · 2026-09-11 · Editing a Python file does not reach a running scheduler — and the proof it took is behavioural, not a restart banner**	log/lessons/2026-09.md	1572	1588	eb44be682763df87
-lessons	L148c	148	c	-	-	open	**L148c · 2026-09-14 · Before hiding a control, verify it is not the only one**	log/lessons/2026-09.md	1589	1597	df99157f48f9f247
-lessons	L149	149		-	-	open	**L149 · 2026-09-14 · An uncommitted write on a deployment host blocks every deploy, silently**	log/lessons/2026-09.md	1598	1611	25cace008760180d
-lessons	L150	150		-	-	open	**L150 · 2026-09-11 20:40 · One successful measurement of a flaky-by-design signal is not a generalisation**	log/lessons/2026-09.md	1612	1626	e88f992ae82d0508
-lessons	L150b	150	b	-	-	open	**L150b · 2026-09-14 · A 200 document does not prove an application works**	log/lessons/2026-09.md	1627	1640	0e87b36f46e46e65
-lessons	L151	151		-	-	open	**L151 · 2026-09-11 20:40 · `ipaddress.is_private` does not mean "local LAN address"**	log/lessons/2026-09.md	1641	1656	4aa0d22c8392873c
-lessons	L151b	151	b	-	-	open	**L151b · 2026-09-14 · A booting service is not a dead one — and a dead one is not a plugin's fault**	log/lessons/2026-09.md	1657	1671	6d3b2433541f0c86
-lessons	L152	152		-	-	open	**L152 · 2026-09-11 20:40 · A self-satisfying guard will write a confident wrong answer to disk**	log/lessons/2026-09.md	1672	1686	66d6fd67b25fc5ae
-lessons	L152b	152	b	-	-	open	**L152b · 2026-09-14 · The harness can serve documents and still refuse its API, and the refusal is not from any plugin**	log/lessons/2026-09.md	1687	1700	568def7a80bf2815
-lessons	L153	153		-	-	open	**L153 · 2026-09-11 20:45 · A one-packet probe of a sleeping peer manufactures false negatives**	log/lessons/2026-09.md	1701	1714	8ddf8ae78744a122
-lessons	L154	154		-	-	open	**L154 · 2026-09-14 05:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow**	log/lessons/2026-09.md	1715	1727	6d954dc6bac23cea
-lessons	L154b	154	b	-	-	open	**L154b · 2026-09-12 01:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow**	log/lessons/2026-09.md	1728	1740	2c7652b80723195e
-lessons	L155	155		-	-	open	**L155 · 2026-09-14 05:05 · A record with no content yet is pending, not stale**	log/lessons/2026-09.md	1741	1754	cd345c87adead777
-lessons	L155b	155	b	-	-	open	**L155b · 2026-09-12 01:05 · A record with no content yet is pending, not stale**	log/lessons/2026-09.md	1755	1768	afe053a660c1530e
-lessons	L156	156		-	-	open	**L156 · 2026-09-14 05:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command**	log/lessons/2026-09.md	1769	1781	99d6cf16eccb0b69
-lessons	L156b	156	b	-	-	open	**L156b · 2026-09-12 01:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command**	log/lessons/2026-09.md	1782	1796	bc30d1ca6f7ec616
-lessons	L157	157		-	-	open	**L157 · 2026-09-14 05:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union**	log/lessons/2026-09.md	1797	1815	40602165d3e30e87
-lessons	L157b	157	b	-	-	open	**L157b · 2026-09-12 01:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union**	log/lessons/2026-09.md	1816	1836	ec3afdf39e525528
-lessons	L158	158		-	-	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session**	log/lessons/2026-09.md	1837	1856	a5d87b5632d16fae
-lessons	L158b	158	b	-	-	open	**L158b · 2026-09-11 · A second copy of a thing is not a second reading of it**	log/lessons/2026-09.md	1857	1875	fcdce7525affe19d
-lessons	L159	159		-	-	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it**	log/lessons/2026-09.md	1876	1891	bd8849484b3e807d
-lessons	L159b	159	b	-	-	open	**L159b · 2026-09-11 · A 500 from your own API can be a write lock, and the client's retry budget must outlast the server's patience**	log/lessons/2026-09.md	1892	1909	68cc31b73a2a92b6
-lessons	L160	160		-	-	open	**L160 · 2026-09-11 · Fail-closed cursors make a silent outage recoverable — which is not the same as noticing it**	log/lessons/2026-09.md	1910	1923	ae458e095cca2215
-lessons	L161	161		-	-	open	**L161 · 2026-09-11 · A check you have never seen fire is not a check — and the failure mode belongs IN the test**	log/lessons/2026-09.md	1924	1938	b38cb03bbd7ae646
-lessons	L162	162		-	-	open	**L162 · 2026-09-11 · Working production code can exist outside version control, and only the *deployment host* knows it does.** The Shabbat/Tov split that fired at 18:46:53 tonight existed**	log/lessons/2026-09.md	1939	1953	684b9025916f894e
-lessons	L163	163		-	-	open	**L163 · 2026-09-11 · Measure the size of a lie before you fix it — and beware a metric that counts the *failure handler* as success**	log/lessons/2026-09.md	1954	1972	2031eb1c35a9c27e
-lessons	L164	164		-	-	open	**L164 · 2026-09-11 · A structural guard must check *control flow*, not *text presence***	log/lessons/2026-09.md	1973	1989	a4f7e688d4c50fd7
-lessons	L165	165		-	-	open	**L165 · 2026-09-11 · A blunt suppression fix outlives its incident, and the silence it creates is invisible because it looks like calm**	log/lessons/2026-09.md	1990	2005	2772dfa41f2ade87
-lessons	L166	166		-	-	open	**L166 · 2026-09-11 · Distinguish the gate from the transport before naming a cause**	log/lessons/2026-09.md	2006	2018	dedc20d8c075446b
-lessons	L167	167		-	-	open	**L167 · 2026-09-11/13 · An alarm must distinguish "the machine stopped" from "there was nothing to say"**	log/lessons/2026-09.md	2019	2033	89ba7fd9bc704eb5
-lessons	L168	168		-	-	open	**L168 · 2026-09-11/13 · Do not confuse "I have been working for a while" with "no time has passed"**	log/lessons/2026-09.md	2034	2102	e5500ba550c258ba
-lessons	L169	169		-	-	open	**L169 · 2026-09-14 · The cost of a search is the walk, not the match — so index once and never walk again**	log/lessons/2026-09.md	2103	2119	5ddf21e62fd790a6
-lessons	L169b	169	b	-	-	open	**L169b · 2026-09-14 04:05 UTC · `ipaddress.is_private` is not "is a local LAN address"**	log/lessons/2026-09.md	2120	2136	5b3ae90fe19e1ea3
-lessons	L170	170		-	-	open	**L170 · 2026-09-14 · Two tokenizers, because one index cannot be good at both prose and code**	log/lessons/2026-09.md	2137	2154	6194f6071bc830ec
-lessons	L170b	170	b	-	-	open	**L170b · 2026-09-14 04:05 UTC · A one-packet probe of a sleeping peer manufactures false negatives — test the cold call, not the steady state**	log/lessons/2026-09.md	2155	2169	7cad3728f568e3bc
-lessons	L171	171		-	-	open	**L171 · 2026-09-14 · A Techloq-class filter serves its block page with a SUCCESS status code, so a status check reads a block as a pass**	log/lessons/2026-09.md	2170	2191	3d3b9120a7e66905
-lessons	L171b	171	b	-	-	open	**L171b · 2026-09-14 · Index the same text twice and you pay twice — choose ONE expensive index**	log/lessons/2026-09.md	2192	2210	dec3d41320fbc946
-lessons	L172	172		-	-	open	**L172 · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	log/lessons/2026-09.md	2211	2229	605fbab26eba58ed
-lessons	L172b	172	b	-	-	done	**L172b · 2026-09-14 · Index the trees you own; a backup directory is a second copy of your own index**	log/lessons/2026-09.md	2230	2241	a2bc7a600fb9257f
-lessons	L172c	172	c	-	-	open	**L172c · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	log/lessons/2026-09.md	2242	2266	304031132d2ef908
-lessons	L173	173		-	-	open	**L173 · 2026-09-14 · `import.meta.main` silently no-ops the whole CLI on Node < 24.2 — and `node --check`, `import()`, and a clean exit code all say the code is fine**	log/lessons/2026-09.md	2267	2286	4fb1610b5f44f9b1
-lessons	L173b	173	b	-	-	open	**L173b · 2026-09-14 · Two parsers of the same format will disagree; find out which one is inflating before you trust the bigger number.** The first chat ingester reported **15,149 messages**	log/lessons/2026-09.md	2287	2303	5cf223b2188e905a
-lessons	L174	174		-	-	open	**L174 · 2026-09-14 · Windows Task Scheduler was inert on `DESKTOP-FGV6KMH`; NSSM was the working detachment**	log/lessons/2026-09.md	2304	2324	e611054b5a892133
-lessons	L174b	174	b	-	-	open	**L174b · 2026-09-14 · Never send an alert about a broken channel through that channel**	log/lessons/2026-09.md	2325	2340	2dd16696e2913c71
-lessons	L175	175		-	-	open	**L175 · 2026-09-14 · A search index that returns `0` because it is empty is worse than no index**	log/lessons/2026-09.md	2341	2358	9f6e968da72b3230
-lessons	L175b	175	b	-	-	open	**L175b · 2026-09-14 · An instruction the owner cannot follow is a bug, not non-compliance — and a headless host cannot serve an interactive login**	log/lessons/2026-09.md	2359	2374	1d286181c1e564d9
-lessons	L176	176		-	-	open	**L176 · 2026-09-14 · Read the extension, not the folder name**	log/lessons/2026-09.md	2375	2388	d95e311096b93581
-lessons	L176b	176	b	-	-	open	**L176b · 2026-09-14 · `held` is a terminal state unless something explicitly drains it — so count `sent`, not `queued`**	log/lessons/2026-09.md	2389	2403	de1efcf34b139542
-lessons	L177	177		-	-	open	**L177 · 2026-09-14 · A doc citation is not a doc**	log/lessons/2026-09.md	2404	2420	c1b69db82b16f04d
-lessons	L177b	177	b	-	-	retracted	**L177b · 2026-09-14 · A truncated result and a true absence look identical to a reader**	log/lessons/2026-09.md	2421	2433	d7c0109f39590970
-lessons	L178	178		-	-	open	**L178 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	log/lessons/2026-09.md	2434	2447	07c39e1726c8faa3
-lessons	L179	179		2026-09-14	ZABZ-YOGA	open	**L179 · A dedupe key over the body alone dropped seven entries whose bodies are empty**	log/lessons/2026-09.md	2448	2460	fe762241b6b752b7
-lessons	L180	180		2026-09-14	ZABZ-YOGA	open	**L180 · A single-line heading regex dropped thirty-seven entries and reported success**	log/lessons/2026-09.md	2461	2473	5b20f08aeaaf55f0
-lessons	L181	181		2026-09-14	ZABZ-YOGA	open	**L181 · Prose is not status - 56 of 57 pain entries prove nothing either way**	log/lessons/2026-09.md	2474	2485	9acb34f264978200
-lessons	L182	182		2026-09-14	ZABZ-YOGA	open	**L182 · A size difference between machines is an alarm, not a diagnosis - measure which copy is behind**	log/lessons/2026-09.md	2486	2498	fcb258f820779fe4
-lessons	L183	183		2026-09-14	ZABZ-YOGA	open	**L183 · A missing trailing newline glues a marker onto the line before it and merges two entries**	log/lessons/2026-09.md	2499	2511	9f110cda3720e72f
-lessons	L184	184		2026-09-14	ZABZ-YOGA	open	**L184 · A concurrent session put my staged work in its commit - verify what landed, not what you staged**	log/lessons/2026-09.md	2512	2524	06a6bcee8dcd42ce
-lessons	L185	185		2026-09-14	imported	open	**L185 · 2026-09-14 · `schtasks` does not run a shell, so a registered command containing `>>` is broken at birth — read back what you registered**	log/lessons/2026-09.md	2525	2539	526932b6c896642d
-lessons	L186	186		2026-09-14	imported	open	**L186 · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it defensive**	log/lessons/2026-09.md	2540	2552	ea633b3660d41c02
-lessons	L187	187		2026-09-14	SECRATARY	open	**L187 · An overlay that restates a config deletes every key it does not restate**	log/lessons/2026-09.md	2553	2581	619769a51d97ac58
-lessons	L188	188		2026-09-14	SECRATARY	open	**L188 · A document is a delivery mechanism that a cache can delete without a trace**	log/lessons/2026-09.md	2582	2610	c5a80f1cf46a4ca9
-lessons	L189	189		2026-09-14	SECRATARY	open	**L189 · A PowerShell script with any non-ASCII byte needs a UTF-8 BOM, or the edition that runs it will not parse it**	log/lessons/2026-09.md	2611	2643	226fecadc341fc60
-lessons	L200	200		2026-09-14	imported	open	**L200 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	log/lessons/2026-09.md	2644	2659	64c3d38b793c7a24
-lessons	L201	201		2026-09-14	imported	open	**L201 · 2026-09-14 · Two layouts passed review and were both wrong; the screenshot found what reading could not**	log/lessons/2026-09.md	2660	2678	763f8e2914b837d9
-lessons	L202	202		2026-09-14	imported	open	**L202 · 2026-09-14 · The journal's `L`/`P` numbers are a shared namespace written by concurrent sessions, so claim the number at the moment of writing or lose a lesson to a collision**	log/lessons/2026-09.md	2679	2696	db991d423bfba40f
-lessons	L203	203		2026-09-14	imported	open	**L203 · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the wrong lesson**	log/lessons/2026-09.md	2697	2708	c0807c02b1829588
-lessons	L204	204		2026-09-14	imported	open	**L204 · 2026-09-14 · Bumping a parser version is a data operation, not a metadata change**	log/lessons/2026-09.md	2709	2728	3c52721d07cce83c
-lessons	L205	205		2026-09-14	imported	open	**L205 · 2026-09-14 · An exemption implemented in the backend must be re-implemented in every surface that counts the same thing — or the surfaces will disagree, and the loudest one wins**	log/lessons/2026-09.md	2729	2741	7694c71d0610fd5d
-lessons	L206	206		2026-09-14	imported	open	**L206 · 2026-09-14 · A timestamp with no timezone is not a timestamp; it is a guess with a format**	log/lessons/2026-09.md	2742	2756	00f9c15ba6a2a02b
-lessons	L207	207		2026-09-14	imported	open	**L207 · 2026-09-14 · The tool you measure with can be the thing that is wrong. Read raw bytes before believing a rendering**	log/lessons/2026-09.md	2757	2769	e3f9528063e3748b
-lessons	L208	208		2026-09-14	imported	open	**L208 · 2026-09-14 · "It has never been asked" and "it has none" are different facts, and a UI that conflates them will tell an operator the opposite of the truth**	log/lessons/2026-09.md	2770	2784	ce6ce963759fe43b
-lessons	L209	209		2026-09-14	imported	open	**L209 · 2026-09-14 · Bound the connect, not just the query**	log/lessons/2026-09.md	2785	2794	dfade6c41e07aff1
-lessons	L210	210		2026-09-14	imported	open	**L210 · 2026-09-14 · A build script that reports success may not have rebuilt from the code you think**	log/lessons/2026-09.md	2795	2809	ce304ee75cdfd960
-lessons	L211	211		2026-09-14	imported	open	**L211 · 2026-09-14 · When the platform is blocked, build the verification path instead of waiting — and say which artifact you verified**	log/lessons/2026-09.md	2810	2822	7a06e92edbfa2174
-lessons	L212	212		2026-09-14	ZABZ-YOGA	open	**L212 · Piping a body through PowerShell double-encodes it; keep piped bodies ASCII and check the stored bytes**	log/lessons/2026-09.md	2823	2844	04096132940b4282
-lessons	L213	213		2026-09-14	ZABZ-YOGA	open	**L213 · Run the target runtime against the real artifact before a hosting cutover: four Netlify semantics do not exist on Cloudflare**	log/lessons/2026-09.md	2845	2882	fda7c12bc76aeff0
-lessons	L214	214		2026-09-14	SECRATARY	open	**L214 · The composer's two layers were flex-wrap, not width — composing the real DOM beat reading the CSS**	log/lessons/2026-09.md	2883	2946	fa2b100ee1916636
-lessons	L215	215		2026-09-14	SECRATARY	open	**L215 · A layout check must group controls by vertical centre, not by top edge**	log/lessons/2026-09.md	2947	2974	ee67e0d18d8560ac
-lessons	L217	217		2026-09-14	SECRATARY	open	**L217 · A question card on a phone must own the viewport: vh is a lie on iOS, and a tap test is the only honest check**	log/lessons/2026-09.md	2975	3040	7b7b7791bebbd92e
-lessons	L218	218		2026-09-14	imported	open	**L218 · 2026-09-14 · A shared branch was rewritten under me; `push` printed success and nothing landed**	log/lessons/2026-09.md	3041	3061	ebf037b9f7522711
-lessons	L219	219		2026-09-14	imported	open	**L219 · 2026-09-14 · A test whose harness is broken is worse than no test: it reports the broken harness as evidence. Check that the suite runs at all before trusting that it passes**	log/lessons/2026-09.md	3062	3083	d7c8cf9da1989c4e
-lessons	L220	220		2026-09-14	imported	open	**L220 · 2026-09-14 · One key cannot be both a flag and a count, and `Number(null)` is 0**	log/lessons/2026-09.md	3084	3098	6f4ba9603cecc862
-lessons	L221	221		2026-09-14	imported	open	**L221 · 2026-09-14 · An "unverified" tag is not a neutral result when it suppresses something that is true**	log/lessons/2026-09.md	3099	3104	64f0bf1e66bdbbe0
-lessons	L222	222		2026-09-14	imported	open	**L222 · 2026-09-14 · Assert on the artefact that ships, not on the call that was supposed to produce it**	log/lessons/2026-09.md	3105	3110	8e0911968f013dae
-lessons	L223	223		2026-09-14	imported	open	**L223 · 2026-09-14 · A `git worktree` is not a copy of the working tree — untracked files stay behind, so it is the wrong control for environment-sensitive behaviour**	log/lessons/2026-09.md	3111	3117	1a9d9885a5d1e0ef
+handoff	H79a	79	a	2026-09-14 15:30 UTC	ZABZ-YOGA	open	## 2026-09-14 15:30 UTC · ZABZ-YOGA · The labelling pilot is built — the harness that produces the number nothing else can	log/handoff/2026-09.2.md	2609	2687	97f7db25cee2d5d2
+handoff	H84	84		2026-09-14 15:30 UTC	ZABZ-YOGA	open	## 2026-09-14 15:30 UTC · ZABZ-YOGA · The labelling pilot is built — the harness that produces the number nothing else can	log/handoff/2026-09.2.md	2312	2390	97f7db25cee2d5d2
+handoff	H85	85		2026-09-14 15:35 UTC	ZABZ-YOGA	open	## 2026-09-14 15:35 UTC · ZABZ-YOGA · 2026-09-14 15:35 UTC · ZABZ-YOGA · Self-audit: the largest cause of company work failing was a prompt instructing a disabled syntax, and the host that runs the company could not receive a fix	log/handoff/2026-09.2.md	2391	2484	58b4415d86e705d4
+handoff	H86	86		2026-09-14 15:38 UTC	ZABZ-YOGA	open	## 2026-09-14 15:38 UTC · ZABZ-YOGA · Bulk iPhone sourcing risk and verification research delivered; three of my own premises corrected	log/handoff/2026-09.2.md	2485	2529	313152ba21dbbdba
+handoff	H87	87		2026-09-14 15:43 UTC	SECRATARY	open	## 2026-09-14 15:43 UTC · SECRATARY · The question card is answerable from the phone now, and the composer's two layers are gone for good	log/handoff/2026-09.2.md	3045	3123	295368ec2ee7be04
+handoff	H88	88		2026-09-14 15:47 UTC	ZABZ-YOGA	open	## 2026-09-14 15:47 UTC · ZABZ-YOGA · 2026-09-14 15:50 UTC - CORRECTION to H85: the first work session after the fix still failed, so the stall rate is unmeasured	log/handoff/2026-09.4.md	5	50	6a0ab7cbeb263a63
+handoff	H89	89		2026-09-14 15:49 UTC	ZABZ-YOGA	open	## 2026-09-14 15:49 UTC · ZABZ-YOGA · Bulk iPhone sourcing for the Waze fleet: research complete, one deadline-bound owner question raised, journal merge left broken	log/handoff/2026-09.4.md	51	95	1aa5e3398342a7ec
+handoff	H90	90		2026-09-14 15:50 UTC	ZABZ-YOGA	open	## 2026-09-14 15:50 UTC · ZABZ-YOGA · Bulk iPhone price baseline delivered; Swappa two-series error found and corrected	log/handoff/2026-09.4.md	96	144	80b78c4b5fd23d37
+handoff	H91	91		2026-09-14 15:54 UTC	ZABZ-YOGA	open	## 2026-09-14 15:54 UTC · ZABZ-YOGA · 2026-09-14 15:58 UTC - Journal integrity restored locally (217 ids renumbered), master was never polluted, integration deliberately not forced	log/handoff/2026-09.4.md	145	206	682699f5c2dd9579
+handoff	H78a	78	a	2026-09-14 16:00 UTC	ZABZ-YOGA	open	## 2026-09-14 16:00 UTC · ZABZ-YOGA · The badge audited and hardened — the audit found a bug that made a healthy system read as broken, and the verifier I wrote to prove the badge had never actually run	log/handoff/2026-09.2.md	2530	2608	81a1c3358ef17a83
+lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.1.md	6	15	235a8e5a9717b921
+lessons	L1a	1	a	-	-	retracted	**L1a · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	069d95a6e4dafd47
+lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.1.md	16	22	bc5ceb76f28aec87
+lessons	L2a	2	a	-	-	open	**L2a · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.md	16	22	c5a485d88de217f0
+lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	log/lessons/2026-09.1.md	23	31	704b5a31f9362c6a
+lessons	L3a	3	a	-	-	open	**L3a · Verify by doing, not by configuring**	log/lessons/2026-09.md	23	31	5549ff96210a9c3b
+lessons	L4	4		-	-	open	**L4 · Measure the thing you are about to claim**	log/lessons/2026-09.1.md	32	42	4d829b9be5146435
+lessons	L4a	4	a	-	-	open	**L4a · Measure the thing you are about to claim**	log/lessons/2026-09.md	32	42	c2e4fa876bf0bf93
+lessons	L5	5		-	-	open	**L5 · The owner's attention is the scarcest resource. Spend it deliberately**	log/lessons/2026-09.1.md	43	50	d10b17343643cf0e
+lessons	L5a	5	a	-	-	open	**L5a · The owner's attention is the scarcest resource. Spend it deliberately**	log/lessons/2026-09.md	43	50	5e965af2c514c695
+lessons	L6	6		-	-	open	**L6 · Never ask permission already granted**	log/lessons/2026-09.1.md	51	58	05ecd16c036530f1
+lessons	L6a	6	a	-	-	open	**L6a · Never ask permission already granted**	log/lessons/2026-09.md	51	58	9b47f23eafa5d6b9
+lessons	L7	7		-	-	open	**L7 · Decide the development questions; escalate only what is his**	log/lessons/2026-09.1.md	59	66	882ec26660f9973b
+lessons	L7a	7	a	-	-	open	**L7a · Decide the development questions; escalate only what is his**	log/lessons/2026-09.md	59	66	2f239eddf8475e3b
+lessons	L8	8		-	-	open	**L8 · One question at a time, with options and a recommendation**	log/lessons/2026-09.1.md	67	75	d49b37d49022c3bc
+lessons	L8a	8	a	-	-	open	**L8a · One question at a time, with options and a recommendation**	log/lessons/2026-09.md	67	75	813f802e1e4f8148
+lessons	L9	9		-	-	open	**L9 · Produce the artefact, not the plan for the artefact**	log/lessons/2026-09.1.md	76	86	0c0799b764340a43
+lessons	L9a	9	a	-	-	open	**L9a · Produce the artefact, not the plan for the artefact**	log/lessons/2026-09.md	76	86	d9e0bdd548da700d
+lessons	L10	10		-	-	open	**L10 · The thing watching must outlive the thing being watched**	log/lessons/2026-09.1.md	87	94	4b7afbad9dc52eee
+lessons	L10a	10	a	-	-	open	**L10a · The thing watching must outlive the thing being watched**	log/lessons/2026-09.md	87	94	5e6d45675c69b344
+lessons	L11	11		-	-	open	**L11 · Monitor outcomes, never liveness**	log/lessons/2026-09.1.md	95	101	b218e77bc4673ecc
+lessons	L11a	11	a	-	-	open	**L11a · Monitor outcomes, never liveness**	log/lessons/2026-09.md	95	101	cfaeac73312732e0
+lessons	L12	12		-	-	open	**L12 · Alert on absence, not only on arrival**	log/lessons/2026-09.1.md	102	109	3411fb255861c0c5
+lessons	L12a	12	a	-	-	open	**L12a · Alert on absence, not only on arrival**	log/lessons/2026-09.md	102	109	5e9d8bf7e15408a0
+lessons	L13	13		-	-	open	**L13 · One source of truth per thing**	log/lessons/2026-09.1.md	110	117	3f25c06a5106a3f8
+lessons	L13a	13	a	-	-	open	**L13a · One source of truth per thing**	log/lessons/2026-09.md	110	117	febd860b913100b2
+lessons	L14	14		-	-	open	**L14 · Autonomy is a ladder, not a switch**	log/lessons/2026-09.1.md	118	125	4708b435cb3662b6
+lessons	L14a	14	a	-	-	open	**L14a · Autonomy is a ladder, not a switch**	log/lessons/2026-09.md	118	125	449cc28a8d8a1e95
+lessons	L15	15		-	-	open	**L15 · Never let a timeout decide a risk question**	log/lessons/2026-09.1.md	126	133	6d4aee968711e270
+lessons	L15a	15	a	-	-	open	**L15a · Never let a timeout decide a risk question**	log/lessons/2026-09.md	126	133	b8361398a99c1fb5
+lessons	L16	16		-	-	open	**L16 · An improvement loop that cannot apply is worse than no loop**	log/lessons/2026-09.1.md	134	143	55bab0f7360fe7d1
+lessons	L16a	16	a	-	-	open	**L16a · An improvement loop that cannot apply is worse than no loop**	log/lessons/2026-09.md	134	143	21a78f9a776acb25
+lessons	L17	17		-	-	open	**L17 · Write for the self that wakes up with no memory of this**	log/lessons/2026-09.1.md	144	151	79b054d4f22a0ef1
+lessons	L17a	17	a	-	-	open	**L17a · Write for the self that wakes up with no memory of this**	log/lessons/2026-09.md	144	151	4517f65e97c4a4b0
+lessons	L18	18		-	-	open	**L18 · Record the decision, not the discussion**	log/lessons/2026-09.1.md	152	158	a276b5241b6fd9fe
+lessons	L18a	18	a	-	-	open	**L18a · Record the decision, not the discussion**	log/lessons/2026-09.md	152	158	0733d5e6a2470c01
+lessons	L19	19		-	-	open	**L19 · Keep the record of having been wrong**	log/lessons/2026-09.1.md	159	168	2f7a10394ca84581
+lessons	L19a	19	a	-	-	open	**L19a · Keep the record of having been wrong**	log/lessons/2026-09.md	159	168	bad45b15e4ec3c1d
+lessons	L20	20		-	-	open	**L20 · Nothing is imported that has not been measured**	log/lessons/2026-09.1.md	169	180	d42962cd0270846c
+lessons	L20a	20	a	-	-	open	**L20a · Nothing is imported that has not been measured**	log/lessons/2026-09.md	169	180	d67ec9ae661f291f
+lessons	L21	21		-	-	open	**L21 · Windows git writes CRLF and the live config is LF**	log/lessons/2026-09.1.md	181	189	1781cb096cd2e806
+lessons	L21a	21	a	-	-	open	**L21a · Windows git writes CRLF and the live config is LF**	log/lessons/2026-09.md	181	189	3d69535ecad7be77
+lessons	L22	22		-	-	open	**L22 · Home and office are genuinely separate networks**	log/lessons/2026-09.1.md	190	197	a2ffb2550cb91a28
+lessons	L22a	22	a	-	-	open	**L22a · Home and office are genuinely separate networks**	log/lessons/2026-09.md	190	197	7743040e0967c81d
+lessons	L23	23		-	-	open	**L23 · `ps_health` returns ~90 KB and will poison a context window**	log/lessons/2026-09.1.md	198	208	37bc17946ddec70a
+lessons	L23a	23	a	-	-	open	**L23a · `ps_health` returns ~90 KB and will poison a context window**	log/lessons/2026-09.md	198	208	869966d51e85bf10
+lessons	L24	24		-	-	open	**L24 · The venv python must be used directly, never through a shell wrapper**	log/lessons/2026-09.1.md	209	220	93c580cf2ec7b400
+lessons	L24a	24	a	-	-	open	**L24a · The venv python must be used directly, never through a shell wrapper**	log/lessons/2026-09.md	209	220	0e47b2d4656e8ada
+lessons	L25	25		-	-	retracted	**L25 · Never change the owner's model on inference**	log/lessons/2026-09.1.md	221	235	4155e78984260cf5
+lessons	L25a	25	a	-	-	retracted	**L25a · Never change the owner's model on inference**	log/lessons/2026-09.md	221	235	a60b450683a937b0
+lessons	L26	26		-	-	open	**L26 · "More expensive" is not "more capable", and neither is "pro"**	log/lessons/2026-09.1.md	236	245	72da5f78bb057af0
+lessons	L26a	26	a	-	-	open	**L26a · "More expensive" is not "more capable", and neither is "pro"**	log/lessons/2026-09.md	236	245	79e84816d6e367b5
+lessons	L27	27		-	-	open	**L27 · Check the money before touching the money**	log/lessons/2026-09.1.md	246	259	4fac629ca6eda986
+lessons	L27a	27	a	-	-	open	**L27a · Check the money before touching the money**	log/lessons/2026-09.md	246	259	0a6927e1ca2efca3
+lessons	L28	28		-	-	open	**L28 · A filter that matches a directory counts every script inside it. Count the thing you meant**	log/lessons/2026-09.1.md	260	276	9378574ecc0af704
+lessons	L28a	28	a	-	-	open	**L28a · A filter that matches a directory counts every script inside it. Count the thing you meant**	log/lessons/2026-09.md	260	276	e4a670533afdee65
+lessons	L29	29		-	-	open	**L29 · A failed command is evidence about your command, not about the world**	log/lessons/2026-09.1.md	277	291	de1b13020e9383d9
+lessons	L29a	29	a	-	-	open	**L29a · A failed command is evidence about your command, not about the world**	log/lessons/2026-09.md	277	291	7ea82b61448ff757
+lessons	L30	30		-	-	open	**L30 · A monitor that only runs when someone invokes it is not a monitor**	log/lessons/2026-09.1.md	292	310	db0c4f57786284c4
+lessons	L30a	30	a	-	-	open	**L30a · A monitor that only runs when someone invokes it is not a monitor**	log/lessons/2026-09.md	292	310	ab478e2c882e5f92
+lessons	L31	31		-	-	open	**L31 · A span counted in rows is not a span of time. Count the calendar**	log/lessons/2026-09.1.md	311	327	c214e36caba0bfa4
+lessons	L31a	31	a	-	-	open	**L31a · A span counted in rows is not a span of time. Count the calendar**	log/lessons/2026-09.md	311	327	dfc2a0fccbc19a2e
+lessons	L32	32		-	-	open	**L32 · A process survey matches its own command line — twice over. (Extends L28, which was not enough.)**	log/lessons/2026-09.1.md	328	344	6880544aec32404a
+lessons	L32a	32	a	-	-	open	**L32a · A process survey matches its own command line — twice over. (Extends L28, which was not enough.)**	log/lessons/2026-09.md	328	344	955f8bcc81e45017
+lessons	L33	33		-	-	open	**L33 · In a shared working tree, stage explicit paths — never `git add -A`**	log/lessons/2026-09.1.md	345	359	371c534332557abc
+lessons	L33a	33	a	-	-	open	**L33a · In a shared working tree, stage explicit paths — never `git add -A`**	log/lessons/2026-09.md	345	359	2186158378dd60e1
+lessons	L34	34		-	-	open	**L34 · A job can succeed, log success, and write into a file nobody reads. Ask where the write landed**	log/lessons/2026-09.1.md	360	389	846784832cfde9e2
+lessons	L34a	34	a	-	-	open	**L34a · A job can succeed, log success, and write into a file nobody reads. Ask where the write landed**	log/lessons/2026-09.md	360	389	5fe019fc6453ccae
+lessons	L34b	34	b	-	-	open	**L34b · A log file that the child process owns cannot be cleared by the parent**	log/lessons/2026-09.1.md	390	403	3aac0eb53b36d6b7
+lessons	L34ba	34	ba	-	-	open	**L34ba · A log file that the child process owns cannot be cleared by the parent**	log/lessons/2026-09.md	390	403	d65cd6e1961339a2
+lessons	L35	35		-	-	open	**L35 · "Loaded" is not "working", and the entity state is not the failure surface**	log/lessons/2026-09.1.md	404	421	edd45c88d12b81b2
+lessons	L35a	35	a	-	-	open	**L35a · "Loaded" is not "working", and the entity state is not the failure surface**	log/lessons/2026-09.md	404	421	1f883423bc608ade
+lessons	L35b	35	b	-	-	open	**L35b · Readiness needs three conditions, and each one alone has produced a false positive here**	log/lessons/2026-09.1.md	422	436	0eb91a0454001ccb
+lessons	L35ba	35	ba	-	-	open	**L35ba · Readiness needs three conditions, and each one alone has produced a false positive here**	log/lessons/2026-09.md	422	436	55b278fb5b995ed1
+lessons	L36	36		-	-	open	**L36 · A refusal must name the thing that was refused**	log/lessons/2026-09.1.md	437	450	d4ca0a988b45276d
+lessons	L36a	36	a	-	-	open	**L36a · A refusal must name the thing that was refused**	log/lessons/2026-09.md	437	450	c320ac1c38d2756f
+lessons	L36b	36	b	-	-	open	**L36b · A measurement that returns HTTP 200 is not a measurement that did work**	log/lessons/2026-09.1.md	451	465	dd18e44d59b6f00c
+lessons	L36ba	36	ba	-	-	open	**L36ba · A measurement that returns HTTP 200 is not a measurement that did work**	log/lessons/2026-09.md	451	465	ace9dda0c69d5af6
+lessons	L37	37		-	-	open	**L37 · Read the neighbouring evidence before naming a root cause**	log/lessons/2026-09.1.md	466	478	8df10f7a4a8ae12c
+lessons	L37a	37	a	-	-	open	**L37a · Read the neighbouring evidence before naming a root cause**	log/lessons/2026-09.md	466	478	eb2afe7f2f92521b
+lessons	L37b	37	b	-	-	open	**L37b · Killing my own throwaway test process is not a question for the owner**	log/lessons/2026-09.1.md	479	491	d2b18f6d45f08ab8
+lessons	L37ba	37	ba	-	-	open	**L37ba · Killing my own throwaway test process is not a question for the owner**	log/lessons/2026-09.md	479	491	9a58413f45e0243b
+lessons	L38	38		-	-	open	**L38 · Read the log span's clock before trusting a correlation**	log/lessons/2026-09.1.md	492	506	fd360405dc8a4005
+lessons	L38a	38	a	-	-	open	**L38a · Read the log span's clock before trusting a correlation**	log/lessons/2026-09.md	492	506	4262a54eaba9de41
+lessons	L39	39		-	-	open	**L39 · To date an outage, use append-only evidence. A file that is overwritten has no history**	log/lessons/2026-09.1.md	507	524	32a66952aa3c0c3e
+lessons	L39a	39	a	-	-	open	**L39a · To date an outage, use append-only evidence. A file that is overwritten has no history**	log/lessons/2026-09.md	507	524	7dade5021e30b817
+lessons	L39b	39	b	-	-	done	**L39b · Read the extension seam before deciding whether a change is a patch or a plugin**	log/lessons/2026-09.1.md	525	542	cc4953115b251f2c
+lessons	L39ba	39	ba	-	-	done	**L39ba · Read the extension seam before deciding whether a change is a patch or a plugin**	log/lessons/2026-09.md	525	542	fdeba0ddb9496ec6
+lessons	L40	40		-	-	open	**L40 · An outage can be invisible in the data that describes work, because absence has no rows**	log/lessons/2026-09.1.md	543	554	9deafde74a42c77b
+lessons	L40a	40	a	-	-	open	**L40a · An outage can be invisible in the data that describes work, because absence has no rows**	log/lessons/2026-09.md	543	554	2bff173f45415048
+lessons	L40b	40	b	-	-	open	**L40b · A generated file must be generated from the tested file, or the tests are theatre**	log/lessons/2026-09.1.md	555	568	fbd304ea0a170bab
+lessons	L40ba	40	ba	-	-	open	**L40ba · A generated file must be generated from the tested file, or the tests are theatre**	log/lessons/2026-09.md	555	568	6824df69571d7f69
+lessons	L41	41		-	-	open	**L41 · "The bundle is on disk" is not "the loader can use it"**	log/lessons/2026-09.1.md	569	580	0fc2e46f20b44f3d
+lessons	L41a	41	a	-	-	open	**L41a · "The bundle is on disk" is not "the loader can use it"**	log/lessons/2026-09.md	569	580	19d5c73e9338b198
+lessons	L42	42		-	-	open	**L42 · Quote the number, or the region is unpriced**	log/lessons/2026-09.1.md	581	591	7dd8a344705d55d9
+lessons	L42a	42	a	-	-	open	**L42a · Quote the number, or the region is unpriced**	log/lessons/2026-09.md	581	591	b2f006686671d6bd
+lessons	L43	43		-	-	open	**L43 · On a time-of-day rate card, a timestamp is part of the price**	log/lessons/2026-09.1.md	592	603	0c3d1ff17874d8a5
+lessons	L43a	43	a	-	-	open	**L43a · On a time-of-day rate card, a timestamp is part of the price**	log/lessons/2026-09.md	592	603	9fd755c96418beb6
+lessons	L44	44		-	-	open	**L44 · Never put a secret in an exception message**	log/lessons/2026-09.1.md	604	618	c277e00df5fc5502
+lessons	L44a	44	a	-	-	open	**L44a · Never put a secret in an exception message**	log/lessons/2026-09.md	604	618	02218a7118b2b4ad
+lessons	L45	45		-	-	open	**L45 · Count the artefacts, not the complaints**	log/lessons/2026-09.1.md	619	635	adb215d00645d8a8
+lessons	L45a	45	a	-	-	open	**L45a · Count the artefacts, not the complaints**	log/lessons/2026-09.md	619	635	6eb9ffb3611dde0a
+lessons	L46	46		-	-	open	**L46 · A port mismatch reads exactly like a dead machine**	log/lessons/2026-09.1.md	636	652	47761235c16dcd65
+lessons	L46a	46	a	-	-	open	**L46a · A port mismatch reads exactly like a dead machine**	log/lessons/2026-09.md	636	652	b76617e58a2b45fb
+lessons	L47	47		-	-	open	**L47 · A script that has never run against its real target is not a script**	log/lessons/2026-09.1.md	653	670	585f6bf4482f1ba6
+lessons	L47a	47	a	-	-	open	**L47a · A script that has never run against its real target is not a script**	log/lessons/2026-09.md	653	670	6c6cd53443f28a11
+lessons	L48	48		-	-	open	**L48 · `catch (Exception)` does not catch `Error`, and that is how a `compileOnly` dependency crashes an app**	log/lessons/2026-09.1.md	671	686	9ca4457864a8e87f
+lessons	L48a	48	a	-	-	open	**L48a · `catch (Exception)` does not catch `Error`, and that is how a `compileOnly` dependency crashes an app**	log/lessons/2026-09.md	671	686	3d71bed92669a575
+lessons	L49	49		-	-	open	**L49 · A test that passes before and after the fix has no teeth — check it against the broken revision**	log/lessons/2026-09.1.md	687	701	8be39a974c76ce53
+lessons	L49a	49	a	-	-	open	**L49a · A test that passes before and after the fix has no teeth — check it against the broken revision**	log/lessons/2026-09.md	687	701	7a169902769968f0
+lessons	L50	50		-	-	open	**L50 · Never let a long job stream its progress UI into the conversation**	log/lessons/2026-09.1.md	702	713	07eb201c65cb4132
+lessons	L50a	50	a	-	-	open	**L50a · Never let a long job stream its progress UI into the conversation**	log/lessons/2026-09.md	702	713	01e8dcb53c3ab32d
+lessons	L51	51		-	-	open	**L51 · A successful tool call is not a correct answer. Verify the claim, not the plumbing**	log/lessons/2026-09.1.md	714	735	b67160828bead6ad
+lessons	L51a	51	a	-	-	open	**L51a · A successful tool call is not a correct answer. Verify the claim, not the plumbing**	log/lessons/2026-09.md	714	735	0a44ba9f744d06ec
+lessons	L51b	51	b	-	-	open	**L51b · A tracker row saying "waiting on the owner" is a claim, not evidence — check the decisions log before asking**	log/lessons/2026-09.1.md	736	754	b1155c8f2bf9688d
+lessons	L51ba	51	ba	-	-	open	**L51ba · A tracker row saying "waiting on the owner" is a claim, not evidence — check the decisions log before asking**	log/lessons/2026-09.md	736	754	6369ebfb6013ec32
+lessons	L52	52		-	-	open	**L52 · A fix verified through one entry point is not verified. Test the path the user actually takes**	log/lessons/2026-09.1.md	755	813	a02515a8173a1de5
+lessons	L52a	52	a	-	-	open	**L52a · A fix verified through one entry point is not verified. Test the path the user actually takes**	log/lessons/2026-09.md	755	813	c74dcde14e38060f
+lessons	L52b	52	b	-	-	open	**L52b · A number in an internal document is a claim, not a measurement — and an unmeasurable band is a warning sign**	log/lessons/2026-09.1.md	814	828	8c5d7445d013767a
+lessons	L52ba	52	ba	-	-	open	**L52ba · A number in an internal document is a claim, not a measurement — and an unmeasurable band is a warning sign**	log/lessons/2026-09.md	814	828	43d65ef40364a285
+lessons	L53	53		-	-	open	**L53 · The most convenient library is usually the one you cannot ship**	log/lessons/2026-09.1.md	829	844	3e147e1082f16c3e
+lessons	L53a	53	a	-	-	open	**L53a · The most convenient library is usually the one you cannot ship**	log/lessons/2026-09.md	829	844	e87ea9895f90c4b6
+lessons	L53b	53	b	-	-	open	**L53b · Read the authoritative deploy doc before escalating an infrastructure blocker**	log/lessons/2026-09.1.md	845	867	3b688eb3e8e395da
+lessons	L53ba	53	ba	-	-	open	**L53ba · Read the authoritative deploy doc before escalating an infrastructure blocker**	log/lessons/2026-09.md	845	867	672896c22b7b3c8b
+lessons	L54	54		-	-	open	**L54 · A model's self-reported confidence is not a failure signal — never gate a fail-closed system on it**	log/lessons/2026-09.1.md	868	882	1fb29aadba850492
+lessons	L54a	54	a	-	-	open	**L54a · A model's self-reported confidence is not a failure signal — never gate a fail-closed system on it**	log/lessons/2026-09.md	868	882	08e59c10a54c71e4
+lessons	L55	55		-	-	open	**L55 · The cheapest technical option can be the one the vendor forbids — read the terms before the price**	log/lessons/2026-09.1.md	883	900	e03b4b7a745ea05b
+lessons	L55a	55	a	-	-	open	**L55a · The cheapest technical option can be the one the vendor forbids — read the terms before the price**	log/lessons/2026-09.md	883	900	ec159fbc0ef1126c
+lessons	L56	56		-	-	open	**L56 · "Cheapest" ranking is mostly an artifact of input tokenisation, not of the vendor**	log/lessons/2026-09.1.md	901	916	ec9e5734b11a7802
+lessons	L56a	56	a	-	-	open	**L56a · "Cheapest" ranking is mostly an artifact of input tokenisation, not of the vendor**	log/lessons/2026-09.md	901	916	431bf6a9a99b8ab9
+lessons	L57	57		-	-	open	**L57 · When two independent agents disagree about a number, fetch the source — do not pick the convenient one**	log/lessons/2026-09.1.md	917	933	4fd57ab81e8c2210
+lessons	L57a	57	a	-	-	open	**L57a · When two independent agents disagree about a number, fetch the source — do not pick the convenient one**	log/lessons/2026-09.md	917	933	0e68790d5f311aa8
+lessons	L58	58		-	-	open	**L58 · Price the labour, not the tooling**	log/lessons/2026-09.1.md	934	950	2529e759aac1c74b
+lessons	L58a	58	a	-	-	open	**L58a · Price the labour, not the tooling**	log/lessons/2026-09.md	934	950	c76ed3bd7be928cd
+lessons	L59	59		-	-	open	**L59 · He does not read documents. A deliverable is for the record, not a reading assignment**	log/lessons/2026-09.1.md	951	969	bcc0c3d73dacb59b
+lessons	L59a	59	a	-	-	open	**L59a · He does not read documents. A deliverable is for the record, not a reading assignment**	log/lessons/2026-09.md	951	969	8c68c5a8162e34da
+lessons	L60	60		-	-	open	**L60 · When a delivered figure is disputed, find the longest matching prefix — the difference is usually formatting**	log/lessons/2026-09.1.md	970	985	be566bb9630e9a0a
+lessons	L60a	60	a	-	-	open	**L60a · When a delivered figure is disputed, find the longest matching prefix — the difference is usually formatting**	log/lessons/2026-09.md	970	985	9713e18045fd3c2b
+lessons	L61	61		-	-	open	**L61 · Do not flag. Solve, or ask exactly one question and move on**	log/lessons/2026-09.1.md	986	1012	8578bfcc3aed2e3e
+lessons	L61a	61	a	-	-	open	**L61a · Do not flag. Solve, or ask exactly one question and move on**	log/lessons/2026-09.md	986	1012	67cf7165a1fc39fb
+lessons	L100	100		-	-	open	**L100 · A nested key at the wrong indentation is a silent no-op, and the reload will still say success**	log/lessons/2026-09.1.md	1013	1036	16c3a1c3a70d0390
+lessons	L100a	100	a	-	-	open	**L100a · A nested key at the wrong indentation is a silent no-op, and the reload will still say success**	log/lessons/2026-09.md	1013	1036	e3c8607b4997f3b2
+lessons	L101	101		-	-	open	**L101 · Two generations of one thing is worse than none, and the cheap way to find it is to ask what already exists**	log/lessons/2026-09.1.md	1037	1053	b9d1e707df060e79
+lessons	L101a	101	a	-	-	open	**L101a · Two generations of one thing is worse than none, and the cheap way to find it is to ask what already exists**	log/lessons/2026-09.md	1037	1053	f1480cc9aa8e7933
+lessons	L102	102		-	-	open	**L102 · When a fix is a one-line structural change, deploy it and observe the specific service — not the summary**	log/lessons/2026-09.1.md	1054	1066	30095e10ff237c4d
+lessons	L102a	102	a	-	-	open	**L102a · When a fix is a one-line structural change, deploy it and observe the specific service — not the summary**	log/lessons/2026-09.md	1054	1066	2c6f40b82a437b38
+lessons	L103	103		-	-	open	**L103 · In the DSH browser loader, a wrong dependency name breaks the whole UI, not the plugin**	log/lessons/2026-09.1.md	1067	1083	75433578fc6bee21
+lessons	L103a	103	a	-	-	open	**L103a · In the DSH browser loader, a wrong dependency name breaks the whole UI, not the plugin**	log/lessons/2026-09.md	1067	1083	880a766f8dfe1fb7
+lessons	L104	104		-	-	open	**L104 · `$pid` is reserved and read-only, and PowerShell matches it case-insensitively**	log/lessons/2026-09.1.md	1084	1099	7ff4273e48b7413b
+lessons	L104a	104	a	-	-	open	**L104a · `$pid` is reserved and read-only, and PowerShell matches it case-insensitively**	log/lessons/2026-09.md	1084	1099	42fa6b8a0e976e83
+lessons	L105	105		-	-	open	**L105 · `Process.HasExited` on a detached child can block for the child's whole lifetime**	log/lessons/2026-09.1.md	1100	1114	ed1e1311ba84d793
+lessons	L105a	105	a	-	-	open	**L105a · `Process.HasExited` on a detached child can block for the child's whole lifetime**	log/lessons/2026-09.md	1100	1114	904c02ce46276a51
+lessons	L110	110		-	-	open	**L110 · A short record is not an absent device — check `created_at` before calling anything missing**	log/lessons/2026-09.1.md	1115	1136	765db84136aff90d
+lessons	L110a	110	a	-	-	open	**L110a · A short record is not an absent device — check `created_at` before calling anything missing**	log/lessons/2026-09.md	1115	1136	5ce3f60010789d51
+lessons	L111	111		-	-	open	**L111 · "Double-check that" means test my own error first**	log/lessons/2026-09.1.md	1137	1148	3f21d5076cd5381d
+lessons	L111a	111	a	-	-	open	**L111a · "Double-check that" means test my own error first**	log/lessons/2026-09.md	1137	1148	ae25a923a34fb288
+lessons	L112	112		-	-	open	**L112 · A query that silently matches zero rows returns the same shape as a healthy answer**	log/lessons/2026-09.1.md	1149	1170	b6008532c181c3e8
+lessons	L112a	112	a	-	-	open	**L112a · A query that silently matches zero rows returns the same shape as a healthy answer**	log/lessons/2026-09.md	1149	1170	f18d04d50dfa9be5
+lessons	L113	113		-	-	open	**L113 · A check whose input is a manual, long-stale path is a permanent false alarm**	log/lessons/2026-09.1.md	1171	1186	456bec0641a5d2f7
+lessons	L113a	113	a	-	-	open	**L113a · A check whose input is a manual, long-stale path is a permanent false alarm**	log/lessons/2026-09.md	1171	1186	730194b13e4ff9c4
+lessons	L114	114		-	-	open	**L114 · A column named `fetched_at` may record when a row was first SEEN, not when you last looked**	log/lessons/2026-09.1.md	1187	1206	ad9e4861e8ac85b5
+lessons	L114a	114	a	-	-	open	**L114a · A column named `fetched_at` may record when a row was first SEEN, not when you last looked**	log/lessons/2026-09.md	1187	1206	3093f20639940988
+lessons	L115	115		-	-	open	**L115 · A 10-second lock timeout is 30x the transaction time and still 300 seconds of wall clock**	log/lessons/2026-09.1.md	1207	1224	dcfa537567478f14
+lessons	L115a	115	a	-	-	open	**L115a · A 10-second lock timeout is 30x the transaction time and still 300 seconds of wall clock**	log/lessons/2026-09.md	1207	1224	7fc59bb9b381875f
+lessons	L116	116		-	-	open	**L116 · `timeout N cmd <<EOF` gives the heredoc to the command's STDIN, so the timeout waits on stdin**	log/lessons/2026-09.1.md	1225	1242	02ff389fc98e046f
+lessons	L116a	116	a	-	-	open	**L116a · `timeout N cmd <<EOF` gives the heredoc to the command's STDIN, so the timeout waits on stdin**	log/lessons/2026-09.md	1225	1242	6494266db71b23b9
+lessons	L117	117		-	-	done	**L117 · Checking one channel and escalating is not diligence — it is a guess with a citation**	log/lessons/2026-09.1.md	1243	1266	877e99c25ba317bd
+lessons	L117a	117	a	-	-	done	**L117a · Checking one channel and escalating is not diligence — it is a guess with a citation**	log/lessons/2026-09.md	1243	1266	1a062b755fd361cd
+lessons	L118	118		-	-	open	**L118 · When a data source embeds its vendor's internals, the fix is a reader, not a warning**	log/lessons/2026-09.1.md	1267	1286	9d35a2463f1a0b34
+lessons	L118a	118	a	-	-	open	**L118a · When a data source embeds its vendor's internals, the fix is a reader, not a warning**	log/lessons/2026-09.md	1267	1286	577bad988dbcc437
+lessons	L119	119		-	-	open	**L119 · Write the regression test in the direction that protects the real world, then run it before believing it**	log/lessons/2026-09.1.md	1287	1306	f30a55d9a4cbb070
+lessons	L119a	119	a	-	-	open	**L119a · Write the regression test in the direction that protects the real world, then run it before believing it**	log/lessons/2026-09.md	1287	1306	35f84f543df439b4
+lessons	L130	130		-	-	open	**L130 · 2026-09-11 20:30 UTC · A component that is configured and a component that works are different readings**	log/lessons/2026-09.1.md	1307	1319	2f1f6b89be20c87b
+lessons	L130a	130	a	-	-	open	**L130a · 2026-09-11 20:30 UTC · A component that is configured and a component that works are different readings**	log/lessons/2026-09.md	1307	1319	21545d2bde7fe7e6
+lessons	L131	131		-	-	open	**L131 · 2026-09-11 20:35 UTC · A probe that cannot report its own failure is worse than no probe**	log/lessons/2026-09.1.md	1320	1331	28ccc62582942af2
+lessons	L131a	131	a	-	-	open	**L131a · 2026-09-11 20:35 UTC · A probe that cannot report its own failure is worse than no probe**	log/lessons/2026-09.md	1320	1331	068441ac2fe3483b
+lessons	L132	132		-	-	open	**L132 · 2026-09-11 20:40 UTC · A platform attribute that lives only in the working tree is a local modification**	log/lessons/2026-09.1.md	1332	1343	78744df682c6b3e4
+lessons	L132a	132	a	-	-	open	**L132a · 2026-09-11 20:40 UTC · A platform attribute that lives only in the working tree is a local modification**	log/lessons/2026-09.md	1332	1343	26c53fd671e6c1f7
+lessons	L133	133		-	-	open	**L133 · 2026-09-11 20:45 UTC · When you know the exact key, do not sort by mtime**	log/lessons/2026-09.1.md	1344	1356	04fd1ddb36f0c81d
+lessons	L133a	133	a	-	-	open	**L133a · 2026-09-11 20:45 UTC · When you know the exact key, do not sort by mtime**	log/lessons/2026-09.md	1344	1356	cd660df384bd4f9d
+lessons	L134	134		-	-	open	**L134 · 2026-09-11 20:35 UTC · A proxy pools connections; one inspection per connection is not one inspection per request**	log/lessons/2026-09.1.md	1357	1368	2217ccd973074326
+lessons	L134a	134	a	-	-	open	**L134a · 2026-09-11 20:35 UTC · A proxy pools connections; one inspection per connection is not one inspection per request**	log/lessons/2026-09.md	1357	1368	82f07951eaadffac
+lessons	L135	135		-	-	open	**L135 · 2026-09-11 20:35 UTC · A test client that opens its own connection cannot see a pooling bug**	log/lessons/2026-09.1.md	1369	1378	a1d7c45b354efc90
+lessons	L135a	135	a	-	-	open	**L135a · 2026-09-11 20:35 UTC · A test client that opens its own connection cannot see a pooling bug**	log/lessons/2026-09.md	1369	1378	a0cdbb0cfed2596e
+lessons	L136	136		-	-	open	**L136 · 2026-09-11 20:40 UTC · Never hand a struggling client a task; finish the task for it**	log/lessons/2026-09.1.md	1379	1390	9b1055f18ee05f60
+lessons	L136a	136	a	-	-	open	**L136a · 2026-09-11 20:40 UTC · Never hand a struggling client a task; finish the task for it**	log/lessons/2026-09.md	1379	1390	bcd6ae05706e0c47
+lessons	L137	137		-	-	open	**L137 · 2026-09-11 20:45 UTC · A limit keyed on the client's IP is worthless behind a proxy**	log/lessons/2026-09.1.md	1391	1401	296e00086e615e53
+lessons	L137a	137	a	-	-	open	**L137a · 2026-09-11 20:45 UTC · A limit keyed on the client's IP is worthless behind a proxy**	log/lessons/2026-09.md	1391	1401	df7e7f25bd702fbb
+lessons	L138	138		-	-	open	**L138 · 2026-09-11 20:37 UTC · "Who is visiting" cannot be recovered after the fact if the front door never recorded it**	log/lessons/2026-09.1.md	1402	1420	beec306dd2235027
+lessons	L138a	138	a	-	-	open	**L138a · 2026-09-11 20:37 UTC · "Who is visiting" cannot be recovered after the fact if the front door never recorded it**	log/lessons/2026-09.md	1402	1420	05075995e998b62b
+lessons	L139	139		-	-	open	**L139 · 2026-09-11 20:37 UTC · Read the reflog before editing a shared file; a commit minutes old means a live writer**	log/lessons/2026-09.1.md	1421	1437	765d59eae69e0851
+lessons	L139a	139	a	-	-	open	**L139a · 2026-09-11 20:37 UTC · Read the reflog before editing a shared file; a commit minutes old means a live writer**	log/lessons/2026-09.md	1421	1437	eeb7ccf6d6e23b1e
+lessons	L140	140		-	-	open	**L140 · 2026-09-11 · A rule that sizes a box must not size its contents**	log/lessons/2026-09.1.md	1438	1447	e2c94f1cb5ae4dae
+lessons	L140a	140	a	-	-	open	**L140a · 2026-09-11 · A rule that sizes a box must not size its contents**	log/lessons/2026-09.md	1438	1447	b7b084d662757f64
+lessons	L141	141		-	-	open	**L141 · 2026-09-11 · A measurement is not a look**	log/lessons/2026-09.1.md	1448	1456	7d647b2c4c8e12b9
+lessons	L141a	141	a	-	-	open	**L141a · 2026-09-11 · A measurement is not a look**	log/lessons/2026-09.md	1448	1456	ba98a7e4bca83e87
+lessons	L142	142		-	-	open	**L142 · 2026-09-11 · Do not remove a part of a layout you do not own**	log/lessons/2026-09.1.md	1457	1465	f9c7eb87ee27eda9
+lessons	L142a	142	a	-	-	open	**L142a · 2026-09-11 · Do not remove a part of a layout you do not own**	log/lessons/2026-09.md	1457	1465	4f80a33254b22f7a
+lessons	L143	143		-	-	open	**L143 · 2026-09-11 · Injecting bytes into a served response means re-framing it**	log/lessons/2026-09.1.md	1466	1476	c6db23a40bfd6e88
+lessons	L143a	143	a	-	-	open	**L143a · 2026-09-11 · Injecting bytes into a served response means re-framing it**	log/lessons/2026-09.md	1466	1476	d22b06bd6dc98239
+lessons	L144	144		-	-	open	**L144 · 2026-09-11 · Check the exit code of the command you think you ran**	log/lessons/2026-09.1.md	1477	1488	3bc42fc5886a2d7b
+lessons	L144a	144	a	-	-	open	**L144a · 2026-09-11 · Check the exit code of the command you think you ran**	log/lessons/2026-09.md	1477	1488	12f9908bfe331447
+lessons	L145	145		-	-	open	**L145 · 2026-09-11 · A monitor that is not deployed is not a monitor**	log/lessons/2026-09.1.md	1489	1497	c592cf80bc5dc32c
+lessons	L145a	145	a	-	-	open	**L145a · 2026-09-11 · A monitor that is not deployed is not a monitor**	log/lessons/2026-09.md	1489	1497	2eb817816ede8360
+lessons	L146	146		-	-	open	**L146 · 2026-09-11 · A lowercase `grep` on `.env` certifies an absence that is not there**	log/lessons/2026-09.1.md	1498	1512	5a1216e818005339
+lessons	L146a	146	a	-	-	open	**L146a · 2026-09-11 · A lowercase `grep` on `.env` certifies an absence that is not there**	log/lessons/2026-09.md	1498	1512	33ae7e3925bf4b88
+lessons	L146b	146	b	-	-	open	**L146b · 2026-09-14 · Read the layout mechanism before you style it**	log/lessons/2026-09.1.md	1513	1526	5e3c3323b6bb9d01
+lessons	L146ba	146	ba	-	-	open	**L146ba · 2026-09-14 · Read the layout mechanism before you style it**	log/lessons/2026-09.md	1513	1526	35d7c988a0b23b6d
+lessons	L147	147		-	-	retracted	**L147 · 2026-09-11 · Verify the device the code actually actuates, not the entity whose name matches it**	log/lessons/2026-09.1.md	1527	1542	5d4011bfae3bfaee
+lessons	L147a	147	a	-	-	retracted	**L147a · 2026-09-11 · Verify the device the code actually actuates, not the entity whose name matches it**	log/lessons/2026-09.md	1527	1542	c5bffe3fd4814c6a
+lessons	L147b	147	b	-	-	open	**L147b · 2026-09-14 · A transformed ancestor owns its fixed descendants**	log/lessons/2026-09.1.md	1543	1555	57846b1ee616914a
+lessons	L147ba	147	ba	-	-	open	**L147ba · 2026-09-14 · A transformed ancestor owns its fixed descendants**	log/lessons/2026-09.md	1543	1555	24d583d6d931de2d
+lessons	L148	148		-	-	open	**L148 · 2026-09-11 · Never ask the owner for a fact that is already written down**	log/lessons/2026-09.1.md	1556	1571	f6f9b0569005b7d2
+lessons	L148a	148	a	-	-	open	**L148a · 2026-09-11 · Never ask the owner for a fact that is already written down**	log/lessons/2026-09.md	1556	1571	d60540e49b9867a1
+lessons	L148b	148	b	-	-	open	**L148b · 2026-09-11 · Editing a Python file does not reach a running scheduler — and the proof it took is behavioural, not a restart banner**	log/lessons/2026-09.1.md	1572	1588	eb44be682763df87
+lessons	L148ba	148	ba	-	-	open	**L148ba · 2026-09-11 · Editing a Python file does not reach a running scheduler — and the proof it took is behavioural, not a restart banner**	log/lessons/2026-09.md	1572	1588	5a52b6d2c9448216
+lessons	L148c	148	c	-	-	open	**L148c · 2026-09-14 · Before hiding a control, verify it is not the only one**	log/lessons/2026-09.1.md	1589	1597	df99157f48f9f247
+lessons	L148ca	148	ca	-	-	open	**L148ca · 2026-09-14 · Before hiding a control, verify it is not the only one**	log/lessons/2026-09.md	1589	1597	086608ed11711671
+lessons	L149	149		-	-	open	**L149 · 2026-09-14 · An uncommitted write on a deployment host blocks every deploy, silently**	log/lessons/2026-09.1.md	1598	1611	25cace008760180d
+lessons	L149a	149	a	-	-	open	**L149a · 2026-09-14 · An uncommitted write on a deployment host blocks every deploy, silently**	log/lessons/2026-09.md	1598	1611	6ff08fe3d7af4d65
+lessons	L150	150		-	-	open	**L150 · 2026-09-11 20:40 · One successful measurement of a flaky-by-design signal is not a generalisation**	log/lessons/2026-09.1.md	1612	1626	e88f992ae82d0508
+lessons	L150a	150	a	-	-	open	**L150a · 2026-09-11 20:40 · One successful measurement of a flaky-by-design signal is not a generalisation**	log/lessons/2026-09.md	1612	1626	6d4ee633ba2a562c
+lessons	L150b	150	b	-	-	open	**L150b · 2026-09-14 · A 200 document does not prove an application works**	log/lessons/2026-09.1.md	1627	1640	0e87b36f46e46e65
+lessons	L150ba	150	ba	-	-	open	**L150ba · 2026-09-14 · A 200 document does not prove an application works**	log/lessons/2026-09.md	1627	1640	28f1c75ac9b9e3c7
+lessons	L151	151		-	-	open	**L151 · 2026-09-11 20:40 · `ipaddress.is_private` does not mean "local LAN address"**	log/lessons/2026-09.1.md	1641	1656	4aa0d22c8392873c
+lessons	L151a	151	a	-	-	open	**L151a · 2026-09-11 20:40 · `ipaddress.is_private` does not mean "local LAN address"**	log/lessons/2026-09.md	1641	1656	c99a4db5443d7635
+lessons	L151b	151	b	-	-	open	**L151b · 2026-09-14 · A booting service is not a dead one — and a dead one is not a plugin's fault**	log/lessons/2026-09.1.md	1657	1671	6d3b2433541f0c86
+lessons	L151ba	151	ba	-	-	open	**L151ba · 2026-09-14 · A booting service is not a dead one — and a dead one is not a plugin's fault**	log/lessons/2026-09.md	1657	1671	fe1074f52fd5cba1
+lessons	L152	152		-	-	open	**L152 · 2026-09-11 20:40 · A self-satisfying guard will write a confident wrong answer to disk**	log/lessons/2026-09.1.md	1672	1686	66d6fd67b25fc5ae
+lessons	L152a	152	a	-	-	open	**L152a · 2026-09-11 20:40 · A self-satisfying guard will write a confident wrong answer to disk**	log/lessons/2026-09.md	1672	1686	6a5a22fa37f8b348
+lessons	L152b	152	b	-	-	open	**L152b · 2026-09-14 · The harness can serve documents and still refuse its API, and the refusal is not from any plugin**	log/lessons/2026-09.1.md	1687	1700	568def7a80bf2815
+lessons	L152ba	152	ba	-	-	open	**L152ba · 2026-09-14 · The harness can serve documents and still refuse its API, and the refusal is not from any plugin**	log/lessons/2026-09.md	1687	1700	900d6af01168f367
+lessons	L153	153		-	-	open	**L153 · 2026-09-11 20:45 · A one-packet probe of a sleeping peer manufactures false negatives**	log/lessons/2026-09.1.md	1701	1714	8ddf8ae78744a122
+lessons	L153a	153	a	-	-	open	**L153a · 2026-09-11 20:45 · A one-packet probe of a sleeping peer manufactures false negatives**	log/lessons/2026-09.md	1701	1714	195a7b3b02edee2f
+lessons	L154	154		-	-	open	**L154 · 2026-09-14 05:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow**	log/lessons/2026-09.1.md	1715	1727	6d954dc6bac23cea
+lessons	L154a	154	a	-	-	open	**L154a · 2026-09-14 05:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow**	log/lessons/2026-09.md	1715	1727	2ddc57c489bb2068
+lessons	L154b	154	b	-	-	open	**L154b · 2026-09-12 01:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow**	log/lessons/2026-09.1.md	1728	1740	2c7652b80723195e
+lessons	L154ba	154	ba	-	-	open	**L154ba · 2026-09-12 01:05 · A per-item verdict cached against a group key is not a cache bug — it is an unverified allow**	log/lessons/2026-09.md	1728	1740	baf6f7ab7f4cd596
+lessons	L155	155		-	-	open	**L155 · 2026-09-14 05:05 · A record with no content yet is pending, not stale**	log/lessons/2026-09.1.md	1741	1754	cd345c87adead777
+lessons	L155a	155	a	-	-	open	**L155a · 2026-09-14 05:05 · A record with no content yet is pending, not stale**	log/lessons/2026-09.md	1741	1754	309e0e340d023ec6
+lessons	L155b	155	b	-	-	open	**L155b · 2026-09-12 01:05 · A record with no content yet is pending, not stale**	log/lessons/2026-09.1.md	1755	1768	afe053a660c1530e
+lessons	L155ba	155	ba	-	-	open	**L155ba · 2026-09-12 01:05 · A record with no content yet is pending, not stale**	log/lessons/2026-09.md	1755	1768	db5d1294c1066f69
+lessons	L156	156		-	-	open	**L156 · 2026-09-14 05:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command**	log/lessons/2026-09.1.md	1769	1781	99d6cf16eccb0b69
+lessons	L156a	156	a	-	-	open	**L156a · 2026-09-14 05:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command**	log/lessons/2026-09.md	1769	1781	ab299df4da514c52
+lessons	L156b	156	b	-	-	open	**L156b · 2026-09-12 01:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command**	log/lessons/2026-09.1.md	1782	1796	bc30d1ca6f7ec616
+lessons	L156ba	156	ba	-	-	open	**L156ba · 2026-09-12 01:05 · Verify a platform API exists before designing around it — the SDK jar settles it in one command**	log/lessons/2026-09.md	1782	1796	4354bcbd19be52df
+lessons	L157	157		-	-	open	**L157 · 2026-09-14 05:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union**	log/lessons/2026-09.1.md	1797	1815	40602165d3e30e87
+lessons	L157a	157	a	-	-	open	**L157a · 2026-09-14 05:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union**	log/lessons/2026-09.md	1797	1815	5f759fdff96ec46e
+lessons	L157b	157	b	-	-	open	**L157b · 2026-09-12 01:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union**	log/lessons/2026-09.1.md	1816	1836	ec3afdf39e525528
+lessons	L157ba	157	ba	-	-	open	**L157ba · 2026-09-12 01:05 · An entry number is not a key: two machines mint the same next number, and the log merges by union**	log/lessons/2026-09.md	1816	1836	f8b2e4ccb8925f98
+lessons	L158	158		-	-	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session**	log/lessons/2026-09.1.md	1837	1856	a5d87b5632d16fae
+lessons	L158a	158	a	-	-	open	**L158a · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session**	log/lessons/2026-09.md	1837	1856	e5eb41568f198605
+lessons	L158b	158	b	-	-	open	**L158b · 2026-09-11 · A second copy of a thing is not a second reading of it**	log/lessons/2026-09.1.md	1857	1875	fcdce7525affe19d
+lessons	L158ba	158	ba	-	-	open	**L158ba · 2026-09-11 · A second copy of a thing is not a second reading of it**	log/lessons/2026-09.md	1857	1875	9e53d49bd2c6ad32
+lessons	L159	159		-	-	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it**	log/lessons/2026-09.1.md	1876	1891	bd8849484b3e807d
+lessons	L159a	159	a	-	-	open	**L159a · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it**	log/lessons/2026-09.md	1876	1891	806b9d1f5845d8a2
+lessons	L159b	159	b	-	-	open	**L159b · 2026-09-11 · A 500 from your own API can be a write lock, and the client's retry budget must outlast the server's patience**	log/lessons/2026-09.1.md	1892	1909	68cc31b73a2a92b6
+lessons	L159ba	159	ba	-	-	open	**L159ba · 2026-09-11 · A 500 from your own API can be a write lock, and the client's retry budget must outlast the server's patience**	log/lessons/2026-09.md	1892	1909	3de2b0cda68fccf6
+lessons	L160	160		-	-	open	**L160 · 2026-09-11 · Fail-closed cursors make a silent outage recoverable — which is not the same as noticing it**	log/lessons/2026-09.1.md	1910	1923	ae458e095cca2215
+lessons	L160a	160	a	-	-	open	**L160a · 2026-09-11 · Fail-closed cursors make a silent outage recoverable — which is not the same as noticing it**	log/lessons/2026-09.md	1910	1923	4a20cc452edf57b8
+lessons	L161	161		-	-	open	**L161 · 2026-09-11 · A check you have never seen fire is not a check — and the failure mode belongs IN the test**	log/lessons/2026-09.1.md	1924	1938	b38cb03bbd7ae646
+lessons	L161a	161	a	-	-	open	**L161a · 2026-09-11 · A check you have never seen fire is not a check — and the failure mode belongs IN the test**	log/lessons/2026-09.md	1924	1938	1dae8638646bb983
+lessons	L162	162		-	-	open	**L162 · 2026-09-11 · Working production code can exist outside version control, and only the *deployment host* knows it does.** The Shabbat/Tov split that fired at 18:46:53 tonight existed**	log/lessons/2026-09.1.md	1939	1953	684b9025916f894e
+lessons	L162a	162	a	-	-	open	**L162a · 2026-09-11 · Working production code can exist outside version control, and only the *deployment host* knows it does.** The Shabbat/Tov split that fired at 18:46:53 tonight existed**	log/lessons/2026-09.md	1939	1953	17ad31fed37e8151
+lessons	L163	163		-	-	open	**L163 · 2026-09-11 · Measure the size of a lie before you fix it — and beware a metric that counts the *failure handler* as success**	log/lessons/2026-09.1.md	1954	1972	2031eb1c35a9c27e
+lessons	L163a	163	a	-	-	open	**L163a · 2026-09-11 · Measure the size of a lie before you fix it — and beware a metric that counts the *failure handler* as success**	log/lessons/2026-09.md	1954	1972	74580ad6b5f382f9
+lessons	L164	164		-	-	open	**L164 · 2026-09-11 · A structural guard must check *control flow*, not *text presence***	log/lessons/2026-09.1.md	1973	1989	a4f7e688d4c50fd7
+lessons	L164a	164	a	-	-	open	**L164a · 2026-09-11 · A structural guard must check *control flow*, not *text presence***	log/lessons/2026-09.md	1973	1989	b2beebc05cbcc4ec
+lessons	L165	165		-	-	open	**L165 · 2026-09-11 · A blunt suppression fix outlives its incident, and the silence it creates is invisible because it looks like calm**	log/lessons/2026-09.1.md	1990	2005	2772dfa41f2ade87
+lessons	L165a	165	a	-	-	open	**L165a · 2026-09-11 · A blunt suppression fix outlives its incident, and the silence it creates is invisible because it looks like calm**	log/lessons/2026-09.md	1990	2005	f7676852052e96e0
+lessons	L166	166		-	-	open	**L166 · 2026-09-11 · Distinguish the gate from the transport before naming a cause**	log/lessons/2026-09.1.md	2006	2018	dedc20d8c075446b
+lessons	L166a	166	a	-	-	open	**L166a · 2026-09-11 · Distinguish the gate from the transport before naming a cause**	log/lessons/2026-09.md	2006	2018	73a61bda7decd937
+lessons	L167	167		-	-	open	**L167 · 2026-09-11/13 · An alarm must distinguish "the machine stopped" from "there was nothing to say"**	log/lessons/2026-09.1.md	2019	2033	89ba7fd9bc704eb5
+lessons	L167a	167	a	-	-	open	**L167a · 2026-09-11/13 · An alarm must distinguish "the machine stopped" from "there was nothing to say"**	log/lessons/2026-09.md	2019	2033	eef08ce64f03adb4
+lessons	L168	168		-	-	open	**L168 · 2026-09-11/13 · Do not confuse "I have been working for a while" with "no time has passed"**	log/lessons/2026-09.1.md	2034	2102	e5500ba550c258ba
+lessons	L168a	168	a	-	-	open	**L168a · 2026-09-11/13 · Do not confuse "I have been working for a while" with "no time has passed"**	log/lessons/2026-09.md	2034	2102	7fb740f9bc55f0ec
+lessons	L169	169		-	-	open	**L169 · 2026-09-14 · The cost of a search is the walk, not the match — so index once and never walk again**	log/lessons/2026-09.1.md	2103	2119	5ddf21e62fd790a6
+lessons	L169a	169	a	-	-	open	**L169a · 2026-09-14 · The cost of a search is the walk, not the match — so index once and never walk again**	log/lessons/2026-09.md	2103	2119	13667803faf17da8
+lessons	L169b	169	b	-	-	open	**L169b · 2026-09-14 04:05 UTC · `ipaddress.is_private` is not "is a local LAN address"**	log/lessons/2026-09.1.md	2120	2136	5b3ae90fe19e1ea3
+lessons	L169ba	169	ba	-	-	open	**L169ba · 2026-09-14 04:05 UTC · `ipaddress.is_private` is not "is a local LAN address"**	log/lessons/2026-09.md	2120	2136	797ae518506e5f85
+lessons	L170	170		-	-	open	**L170 · 2026-09-14 · Two tokenizers, because one index cannot be good at both prose and code**	log/lessons/2026-09.1.md	2137	2154	6194f6071bc830ec
+lessons	L170a	170	a	-	-	open	**L170a · 2026-09-14 · Two tokenizers, because one index cannot be good at both prose and code**	log/lessons/2026-09.md	2137	2154	35b25b588857f8dc
+lessons	L170b	170	b	-	-	open	**L170b · 2026-09-14 04:05 UTC · A one-packet probe of a sleeping peer manufactures false negatives — test the cold call, not the steady state**	log/lessons/2026-09.1.md	2155	2169	7cad3728f568e3bc
+lessons	L170ba	170	ba	-	-	open	**L170ba · 2026-09-14 04:05 UTC · A one-packet probe of a sleeping peer manufactures false negatives — test the cold call, not the steady state**	log/lessons/2026-09.md	2155	2169	d87e9d242026dba3
+lessons	L171	171		-	-	open	**L171 · 2026-09-14 · A Techloq-class filter serves its block page with a SUCCESS status code, so a status check reads a block as a pass**	log/lessons/2026-09.1.md	2170	2191	3d3b9120a7e66905
+lessons	L171a	171	a	-	-	open	**L171a · 2026-09-14 · A Techloq-class filter serves its block page with a SUCCESS status code, so a status check reads a block as a pass**	log/lessons/2026-09.md	2170	2191	6e15925e36f02c90
+lessons	L171b	171	b	-	-	open	**L171b · 2026-09-14 · Index the same text twice and you pay twice — choose ONE expensive index**	log/lessons/2026-09.1.md	2192	2210	dec3d41320fbc946
+lessons	L171ba	171	ba	-	-	open	**L171ba · 2026-09-14 · Index the same text twice and you pay twice — choose ONE expensive index**	log/lessons/2026-09.md	2192	2210	3bddb30a4ad5f44c
+lessons	L172	172		-	-	open	**L172 · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	log/lessons/2026-09.1.md	2211	2229	605fbab26eba58ed
+lessons	L172a	172	a	-	-	open	**L172a · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	log/lessons/2026-09.md	2211	2229	a2b8caf50b4eeddf
+lessons	L172b	172	b	-	-	done	**L172b · 2026-09-14 · Index the trees you own; a backup directory is a second copy of your own index**	log/lessons/2026-09.1.md	2230	2241	a2bc7a600fb9257f
+lessons	L172ba	172	ba	-	-	done	**L172ba · 2026-09-14 · Index the trees you own; a backup directory is a second copy of your own index**	log/lessons/2026-09.md	2230	2241	d1814e185fd131ef
+lessons	L172c	172	c	-	-	open	**L172c · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	log/lessons/2026-09.1.md	2242	2266	304031132d2ef908
+lessons	L172ca	172	ca	-	-	open	**L172ca · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	log/lessons/2026-09.md	2242	2266	aa7bb11c09ea46ed
+lessons	L173	173		-	-	open	**L173 · 2026-09-14 · `import.meta.main` silently no-ops the whole CLI on Node < 24.2 — and `node --check`, `import()`, and a clean exit code all say the code is fine**	log/lessons/2026-09.1.md	2267	2286	4fb1610b5f44f9b1
+lessons	L173a	173	a	-	-	open	**L173a · 2026-09-14 · `import.meta.main` silently no-ops the whole CLI on Node < 24.2 — and `node --check`, `import()`, and a clean exit code all say the code is fine**	log/lessons/2026-09.md	2267	2286	fa372f7840c92d49
+lessons	L173b	173	b	-	-	open	**L173b · 2026-09-14 · Two parsers of the same format will disagree; find out which one is inflating before you trust the bigger number.** The first chat ingester reported **15,149 messages**	log/lessons/2026-09.1.md	2287	2303	5cf223b2188e905a
+lessons	L173ba	173	ba	-	-	open	**L173ba · 2026-09-14 · Two parsers of the same format will disagree; find out which one is inflating before you trust the bigger number.** The first chat ingester reported **15,149 messages**	log/lessons/2026-09.md	2287	2303	92bcd87fc5df660e
+lessons	L174	174		-	-	open	**L174 · 2026-09-14 · Windows Task Scheduler was inert on `DESKTOP-FGV6KMH`; NSSM was the working detachment**	log/lessons/2026-09.1.md	2304	2324	e611054b5a892133
+lessons	L174a	174	a	-	-	open	**L174a · 2026-09-14 · Windows Task Scheduler was inert on `DESKTOP-FGV6KMH`; NSSM was the working detachment**	log/lessons/2026-09.md	2304	2324	26a9f38b62fd474f
+lessons	L174b	174	b	-	-	open	**L174b · 2026-09-14 · Never send an alert about a broken channel through that channel**	log/lessons/2026-09.1.md	2325	2340	2dd16696e2913c71
+lessons	L174ba	174	ba	-	-	open	**L174ba · 2026-09-14 · Never send an alert about a broken channel through that channel**	log/lessons/2026-09.md	2325	2340	6639d04760d5e32a
+lessons	L175	175		-	-	open	**L175 · 2026-09-14 · A search index that returns `0` because it is empty is worse than no index**	log/lessons/2026-09.1.md	2341	2358	9f6e968da72b3230
+lessons	L175a	175	a	-	-	open	**L175a · 2026-09-14 · A search index that returns `0` because it is empty is worse than no index**	log/lessons/2026-09.md	2341	2358	b81dfde31f039f08
+lessons	L175b	175	b	-	-	open	**L175b · 2026-09-14 · An instruction the owner cannot follow is a bug, not non-compliance — and a headless host cannot serve an interactive login**	log/lessons/2026-09.1.md	2359	2374	1d286181c1e564d9
+lessons	L175ba	175	ba	-	-	open	**L175ba · 2026-09-14 · An instruction the owner cannot follow is a bug, not non-compliance — and a headless host cannot serve an interactive login**	log/lessons/2026-09.md	2359	2374	1237fe27c9e25185
+lessons	L176	176		-	-	open	**L176 · 2026-09-14 · Read the extension, not the folder name**	log/lessons/2026-09.1.md	2375	2388	d95e311096b93581
+lessons	L176a	176	a	-	-	open	**L176a · 2026-09-14 · Read the extension, not the folder name**	log/lessons/2026-09.md	2375	2388	e0d18a424c0607fb
+lessons	L176b	176	b	-	-	open	**L176b · 2026-09-14 · `held` is a terminal state unless something explicitly drains it — so count `sent`, not `queued`**	log/lessons/2026-09.1.md	2389	2403	de1efcf34b139542
+lessons	L176ba	176	ba	-	-	open	**L176ba · 2026-09-14 · `held` is a terminal state unless something explicitly drains it — so count `sent`, not `queued`**	log/lessons/2026-09.md	2389	2403	92937b54dc2b0d0b
+lessons	L177	177		-	-	open	**L177 · 2026-09-14 · A doc citation is not a doc**	log/lessons/2026-09.1.md	2404	2420	c1b69db82b16f04d
+lessons	L177a	177	a	-	-	open	**L177a · 2026-09-14 · A doc citation is not a doc**	log/lessons/2026-09.md	2404	2420	5a687412dd37ad7b
+lessons	L177b	177	b	-	-	retracted	**L177b · 2026-09-14 · A truncated result and a true absence look identical to a reader**	log/lessons/2026-09.1.md	2421	2433	d7c0109f39590970
+lessons	L177ba	177	ba	-	-	retracted	**L177ba · 2026-09-14 · A truncated result and a true absence look identical to a reader**	log/lessons/2026-09.md	2421	2433	fd8e8c42c9aebb71
+lessons	L178	178		-	-	open	**L178 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	log/lessons/2026-09.1.md	2434	2447	07c39e1726c8faa3
+lessons	L178a	178	a	-	-	open	**L178a · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	log/lessons/2026-09.md	2434	2447	f600471c6d09c66c
+lessons	L179	179		2026-09-14	ZABZ-YOGA	open	**L179 · A dedupe key over the body alone dropped seven entries whose bodies are empty**	log/lessons/2026-09.1.md	2448	2460	fe762241b6b752b7
+lessons	L179a	179	a	2026-09-14	ZABZ-YOGA	open	**L179a · A dedupe key over the body alone dropped seven entries whose bodies are empty**	log/lessons/2026-09.md	2448	2460	298ff64b0cd6d2b7
+lessons	L180	180		2026-09-14	ZABZ-YOGA	open	**L180 · A single-line heading regex dropped thirty-seven entries and reported success**	log/lessons/2026-09.1.md	2461	2473	5b20f08aeaaf55f0
+lessons	L180a	180	a	2026-09-14	ZABZ-YOGA	open	**L180a · A single-line heading regex dropped thirty-seven entries and reported success**	log/lessons/2026-09.md	2461	2473	367b82a51fc5526c
+lessons	L181	181		2026-09-14	ZABZ-YOGA	open	**L181 · Prose is not status - 56 of 57 pain entries prove nothing either way**	log/lessons/2026-09.1.md	2474	2485	9acb34f264978200
+lessons	L181a	181	a	2026-09-14	ZABZ-YOGA	open	**L181a · Prose is not status - 56 of 57 pain entries prove nothing either way**	log/lessons/2026-09.md	2474	2485	84dcba11763a60e6
+lessons	L182	182		2026-09-14	ZABZ-YOGA	open	**L182 · A size difference between machines is an alarm, not a diagnosis - measure which copy is behind**	log/lessons/2026-09.1.md	2486	2498	fcb258f820779fe4
+lessons	L182a	182	a	2026-09-14	ZABZ-YOGA	open	**L182a · A size difference between machines is an alarm, not a diagnosis - measure which copy is behind**	log/lessons/2026-09.md	2486	2498	6b99d1d675e8c249
+lessons	L183	183		2026-09-14	ZABZ-YOGA	open	**L183 · A missing trailing newline glues a marker onto the line before it and merges two entries**	log/lessons/2026-09.1.md	2499	2511	9f110cda3720e72f
+lessons	L183a	183	a	2026-09-14	ZABZ-YOGA	open	**L183a · A missing trailing newline glues a marker onto the line before it and merges two entries**	log/lessons/2026-09.md	2499	2511	21abb7dd7efa9070
+lessons	L184	184		2026-09-14	ZABZ-YOGA	open	**L184 · A concurrent session put my staged work in its commit - verify what landed, not what you staged**	log/lessons/2026-09.1.md	2512	2524	06a6bcee8dcd42ce
+lessons	L184a	184	a	2026-09-14	ZABZ-YOGA	open	**L184a · A concurrent session put my staged work in its commit - verify what landed, not what you staged**	log/lessons/2026-09.md	2512	2524	a3c68c82417bfb56
+lessons	L185	185		2026-09-14	imported	open	**L185 · 2026-09-14 · `schtasks` does not run a shell, so a registered command containing `>>` is broken at birth — read back what you registered**	log/lessons/2026-09.1.md	2525	2539	526932b6c896642d
+lessons	L185a	185	a	2026-09-14	imported	open	**L185a · 2026-09-14 · `schtasks` does not run a shell, so a registered command containing `>>` is broken at birth — read back what you registered**	log/lessons/2026-09.md	2525	2539	8a1de4f12917ea4e
+lessons	L186	186		2026-09-14	imported	open	**L186 · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it defensive**	log/lessons/2026-09.1.md	2540	2552	ea633b3660d41c02
+lessons	L186a	186	a	2026-09-14	imported	open	**L186a · 2026-09-14 · When a size guard discards data, measure what it discarded before calling it defensive**	log/lessons/2026-09.md	2540	2552	c7466c7fcd20730e
+lessons	L187	187		2026-09-14	SECRATARY	open	**L187 · An overlay that restates a config deletes every key it does not restate**	log/lessons/2026-09.1.md	2553	2581	619769a51d97ac58
+lessons	L187a	187	a	2026-09-14	SECRATARY	open	**L187a · An overlay that restates a config deletes every key it does not restate**	log/lessons/2026-09.md	2553	2581	3ae13328f3407075
+lessons	L188	188		2026-09-14	SECRATARY	open	**L188 · A document is a delivery mechanism that a cache can delete without a trace**	log/lessons/2026-09.1.md	2582	2610	c5a80f1cf46a4ca9
+lessons	L188a	188	a	2026-09-14	SECRATARY	open	**L188a · A document is a delivery mechanism that a cache can delete without a trace**	log/lessons/2026-09.md	2582	2610	c376d9cd746709ed
+lessons	L189	189		2026-09-14	SECRATARY	open	**L189 · A PowerShell script with any non-ASCII byte needs a UTF-8 BOM, or the edition that runs it will not parse it**	log/lessons/2026-09.1.md	2611	2643	226fecadc341fc60
+lessons	L189a	189	a	2026-09-14	SECRATARY	open	**L189a · A PowerShell script with any non-ASCII byte needs a UTF-8 BOM, or the edition that runs it will not parse it**	log/lessons/2026-09.md	2611	2643	7de1158349bcf8d1
+lessons	L200	200		2026-09-14	imported	open	**L200 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	log/lessons/2026-09.1.md	2644	2659	64c3d38b793c7a24
+lessons	L200a	200	a	2026-09-14	imported	open	**L200a · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	log/lessons/2026-09.md	2644	2659	627aa3e2a1da608a
+lessons	L201	201		2026-09-14	imported	open	**L201 · 2026-09-14 · Two layouts passed review and were both wrong; the screenshot found what reading could not**	log/lessons/2026-09.1.md	2660	2678	763f8e2914b837d9
+lessons	L201a	201	a	2026-09-14	imported	open	**L201a · 2026-09-14 · Two layouts passed review and were both wrong; the screenshot found what reading could not**	log/lessons/2026-09.md	2660	2678	17cf9a6ec93cd3b5
+lessons	L202	202		2026-09-14	imported	open	**L202 · 2026-09-14 · The journal's `L`/`P` numbers are a shared namespace written by concurrent sessions, so claim the number at the moment of writing or lose a lesson to a collision**	log/lessons/2026-09.1.md	2679	2696	db991d423bfba40f
+lessons	L202a	202	a	2026-09-14	imported	open	**L202a · 2026-09-14 · The journal's `L`/`P` numbers are a shared namespace written by concurrent sessions, so claim the number at the moment of writing or lose a lesson to a collision**	log/lessons/2026-09.md	2679	2696	4d0c84d69bef0dfb
+lessons	L203	203		2026-09-14	imported	open	**L203 · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the wrong lesson**	log/lessons/2026-09.1.md	2697	2708	c0807c02b1829588
+lessons	L203a	203	a	2026-09-14	imported	open	**L203a · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the wrong lesson**	log/lessons/2026-09.md	2697	2708	fc0445026b2252b8
+lessons	L204	204		2026-09-14	imported	open	**L204 · 2026-09-14 · Bumping a parser version is a data operation, not a metadata change**	log/lessons/2026-09.1.md	2709	2728	3c52721d07cce83c
+lessons	L204a	204	a	2026-09-14	imported	open	**L204a · 2026-09-14 · Bumping a parser version is a data operation, not a metadata change**	log/lessons/2026-09.md	2709	2728	d06e97f48337b964
+lessons	L205	205		2026-09-14	imported	open	**L205 · 2026-09-14 · An exemption implemented in the backend must be re-implemented in every surface that counts the same thing — or the surfaces will disagree, and the loudest one wins**	log/lessons/2026-09.1.md	2729	2741	7694c71d0610fd5d
+lessons	L205a	205	a	2026-09-14	imported	open	**L205a · 2026-09-14 · An exemption implemented in the backend must be re-implemented in every surface that counts the same thing — or the surfaces will disagree, and the loudest one wins**	log/lessons/2026-09.md	2729	2741	7bdb9872b44da77d
+lessons	L206	206		2026-09-14	imported	open	**L206 · 2026-09-14 · A timestamp with no timezone is not a timestamp; it is a guess with a format**	log/lessons/2026-09.1.md	2742	2756	00f9c15ba6a2a02b
+lessons	L206a	206	a	2026-09-14	imported	open	**L206a · 2026-09-14 · A timestamp with no timezone is not a timestamp; it is a guess with a format**	log/lessons/2026-09.md	2742	2756	5c05fd8873c1e75e
+lessons	L207	207		2026-09-14	imported	open	**L207 · 2026-09-14 · The tool you measure with can be the thing that is wrong. Read raw bytes before believing a rendering**	log/lessons/2026-09.1.md	2757	2769	e3f9528063e3748b
+lessons	L207a	207	a	2026-09-14	imported	open	**L207a · 2026-09-14 · The tool you measure with can be the thing that is wrong. Read raw bytes before believing a rendering**	log/lessons/2026-09.md	2757	2769	8b4c891d16b1c064
+lessons	L208	208		2026-09-14	imported	open	**L208 · 2026-09-14 · "It has never been asked" and "it has none" are different facts, and a UI that conflates them will tell an operator the opposite of the truth**	log/lessons/2026-09.1.md	2770	2784	ce6ce963759fe43b
+lessons	L208a	208	a	2026-09-14	imported	open	**L208a · 2026-09-14 · "It has never been asked" and "it has none" are different facts, and a UI that conflates them will tell an operator the opposite of the truth**	log/lessons/2026-09.md	2770	2784	5af949fe84113a92
+lessons	L209	209		2026-09-14	imported	open	**L209 · 2026-09-14 · Bound the connect, not just the query**	log/lessons/2026-09.1.md	2785	2794	dfade6c41e07aff1
+lessons	L209a	209	a	2026-09-14	imported	open	**L209a · 2026-09-14 · Bound the connect, not just the query**	log/lessons/2026-09.md	2785	2794	9e3b63a01c456020
+lessons	L210	210		2026-09-14	imported	open	**L210 · 2026-09-14 · A build script that reports success may not have rebuilt from the code you think**	log/lessons/2026-09.1.md	2795	2809	ce304ee75cdfd960
+lessons	L210a	210	a	2026-09-14	imported	open	**L210a · 2026-09-14 · A build script that reports success may not have rebuilt from the code you think**	log/lessons/2026-09.md	2795	2809	de9345b6daae7404
+lessons	L211	211		2026-09-14	imported	open	**L211 · 2026-09-14 · When the platform is blocked, build the verification path instead of waiting — and say which artifact you verified**	log/lessons/2026-09.1.md	2810	2822	7a06e92edbfa2174
+lessons	L211a	211	a	2026-09-14	imported	open	**L211a · 2026-09-14 · When the platform is blocked, build the verification path instead of waiting — and say which artifact you verified**	log/lessons/2026-09.md	2810	2822	9ae8897cfd28859f
+lessons	L212	212		2026-09-14	ZABZ-YOGA	open	**L212 · Piping a body through PowerShell double-encodes it; keep piped bodies ASCII and check the stored bytes**	log/lessons/2026-09.1.md	2823	2844	04096132940b4282
+lessons	L212a	212	a	2026-09-14	ZABZ-YOGA	open	**L212a · Piping a body through PowerShell double-encodes it; keep piped bodies ASCII and check the stored bytes**	log/lessons/2026-09.md	2823	2844	0450bc023e0447cc
+lessons	L213	213		2026-09-14	ZABZ-YOGA	open	**L213 · Run the target runtime against the real artifact before a hosting cutover: four Netlify semantics do not exist on Cloudflare**	log/lessons/2026-09.1.md	2845	2882	fda7c12bc76aeff0
+lessons	L213a	213	a	2026-09-14	ZABZ-YOGA	open	**L213a · Run the target runtime against the real artifact before a hosting cutover: four Netlify semantics do not exist on Cloudflare**	log/lessons/2026-09.md	2845	2882	165e6d9c13597559
+lessons	L214	214		2026-09-14	imported	open	**L214 · 2026-09-14 · A shared branch was rewritten under me; `push` printed success and nothing landed**	log/lessons/2026-09.1.md	2883	2903	bad0344aeca68968
+lessons	L214a	214	a	2026-09-14	imported	open	**L214a · 2026-09-14 · A shared branch was rewritten under me; `push` printed success and nothing landed**	log/lessons/2026-09.md	2883	2903	e9877228369a1ac3
+lessons	L215	215		2026-09-14	imported	open	**L215 · 2026-09-14 · An "unverified" tag is not a neutral result when it suppresses something that is true**	log/lessons/2026-09.1.md	2904	2909	37c59f11550df261
+lessons	L215a	215	a	2026-09-14	imported	open	**L215a · 2026-09-14 · An "unverified" tag is not a neutral result when it suppresses something that is true**	log/lessons/2026-09.md	2904	2909	75d6a948bf6fb2fa
+lessons	L216	216		2026-09-14	imported	open	**L216 · 2026-09-14 · Assert on the artefact that ships, not on the call that was supposed to produce it**	log/lessons/2026-09.1.md	2910	2915	039018abd44e48e1
+lessons	L216a	216	a	2026-09-14	imported	open	**L216a · 2026-09-14 · Assert on the artefact that ships, not on the call that was supposed to produce it**	log/lessons/2026-09.md	2910	2915	c0e61ee7a0b02dd6
+lessons	L217	217		2026-09-14	imported	open	**L217 · 2026-09-14 · A `git worktree` is not a copy of the working tree — untracked files stay behind, so it is the wrong control for environment-sensitive behaviour**	log/lessons/2026-09.1.md	2916	2921	1d8aa92ed845ef55
+lessons	L217a	217	a	2026-09-14	imported	open	**L217a · 2026-09-14 · A `git worktree` is not a copy of the working tree — untracked files stay behind, so it is the wrong control for environment-sensitive behaviour**	log/lessons/2026-09.md	2916	2921	c4d08ee0217c7ddf
+lessons	L217b	217	b	2026-09-14	SECRATARY	open	**L217b · A question card on a phone must own the viewport: vh is a lie on iOS, and a tap test is the only honest check**	log/lessons/2026-09.md	3101	3166	47c56883a75eaf93
+lessons	L218	218		2026-09-14	ZABZ-YOGA	open	**L218 · Bulk iPhone liquidation sourcing: fees, gates, dead channels, and live lot benchmarks**	log/lessons/2026-09.1.md	2922	2954	b1952a6b33b9b316
+lessons	L218a	218	a	2026-09-14	ZABZ-YOGA	open	**L218a · Bulk iPhone liquidation sourcing: fees, gates, dead channels, and live lot benchmarks**	log/lessons/2026-09.md	2922	2954	b576b27206ff1a3f
+lessons	L218b	218	b	2026-09-14	imported	open	**L218b · 2026-09-14 · A shared branch was rewritten under me; `push` printed success and nothing landed**	log/lessons/2026-09.md	3167	3187	380f621853183d43
+lessons	L219	219		2026-09-14	ZABZ-YOGA	open	**L219 · 2026-09-14 · Four deployment lessons: prompt/executor mismatch, git apply --check lies, backup coverage, silent deploy preconditions**	log/lessons/2026-09.1.md	2955	3019	b97807effcae43d0
+lessons	L219a	219	a	2026-09-14	ZABZ-YOGA	open	**L219a · 2026-09-14 · Four deployment lessons: prompt/executor mismatch, git apply --check lies, backup coverage, silent deploy preconditions**	log/lessons/2026-09.md	2955	3019	8ddd32eb0c956989
+lessons	L219b	219	b	2026-09-14	imported	open	**L219b · 2026-09-14 · A test whose harness is broken is worse than no test: it reports the broken harness as evidence. Check that the suite runs at all before trusting that it passes**	log/lessons/2026-09.md	3188	3209	a344fa5cd57ae075
+lessons	L220	220		2026-09-14	ZABZ-YOGA	open	**L220 · Multi-part research: fan out to subagents, verify only the spine yourself; reddit .rss atom feed is the way in**	log/lessons/2026-09.1.md	3020	3065	de3a8942b32879d1
+lessons	L220a	220	a	2026-09-14	ZABZ-YOGA	open	**L220a · Multi-part research: fan out to subagents, verify only the spine yourself; reddit .rss atom feed is the way in**	log/lessons/2026-09.md	3020	3065	fcec8fb9e3bef4f1
+lessons	L220b	220	b	2026-09-14	imported	open	**L220b · 2026-09-14 · One key cannot be both a flag and a count, and `Number(null)` is 0**	log/lessons/2026-09.md	3210	3224	fd93ca14402ed335
+lessons	L221	221		2026-09-14	ZABZ-YOGA	open	**L221 · 2026-09-14 - Piping a journal body through PowerShell double-encodes it, and the write path never noticed**	log/lessons/2026-09.1.md	3066	3101	1a694a7bd7d4f113
+lessons	L221a	221	a	2026-09-14	ZABZ-YOGA	open	**L221a · 2026-09-14 - Piping a journal body through PowerShell double-encodes it, and the write path never noticed**	log/lessons/2026-09.md	3066	3100	30c568de9f3320da
+lessons	L221b	221	b	2026-09-14	imported	open	**L221b · 2026-09-14 · An "unverified" tag is not a neutral result when it suppresses something that is true**	log/lessons/2026-09.md	3225	3230	33e83c92d761b892
+lessons	L222	222		2026-09-14	ZABZ-YOGA	open	**L222 · eBay SOLD comps are unreachable from this fleet: every automated path is gated; use a logged-in Terapeak session**	log/lessons/2026-09.2.md	5	30	cf25aa4861bf4ed4
+lessons	L222a	222	a	2026-09-14	imported	open	**L222a · 2026-09-14 · Assert on the artefact that ships, not on the call that was supposed to produce it**	log/lessons/2026-09.md	3231	3236	3cc2baa88c458fb7
+lessons	L223	223		2026-09-14	ZABZ-YOGA	open	**L223 · 2026-09-14 - The journal append path corrupted every non-ASCII body from Windows, and check cannot see it (root cause fixed with an end-to-end proof)**	log/lessons/2026-09.2.md	31	69	c3d63eed27fa6be7
+lessons	L223a	223	a	2026-09-14	imported	open	**L223a · 2026-09-14 · A `git worktree` is not a copy of the working tree — untracked files stay behind, so it is the wrong control for environment-sensitive behaviour**	log/lessons/2026-09.md	3237	3243	57f201c727de08dc
+lessons	L224	224		2026-09-14	ZABZ-YOGA	open	**L224 · A platform can accept a config rule and silently ignore it; prefer the one that complains**	log/lessons/2026-09.2.md	70	103	7178e124d5d3a627
+lessons	L225	225		2026-09-14	ZABZ-YOGA	open	**L225 · A marketplace price column is not what it looks like: Swappa's 'Avg Price' is ASKING, not sold, and misreading it corrupted a margin model twice in one day**	log/lessons/2026-09.2.md	104	133	469aec49b425b02e
+lessons	L226	226		2026-09-14	ZABZ-YOGA	open	**L226 · A price page can carry TWO series; a truncated extraction silently hands you the wrong one**	log/lessons/2026-09.2.md	134	168	3188c88e1183ba35
+lessons	L227	227		2026-09-14	ZABZ-YOGA	open	**L227 · journal.py append --body takes a FILE PATH or -, never inline prose**	log/lessons/2026-09.2.md	169	198	f760a4afc424487c
+lessons	L228	228		2026-09-14	ZABZ-YOGA	open	**L228 · Workflow results cap at ~50KB and truncate silently - agents must write to disk and return an index**	log/lessons/2026-09.2.md	199	211	7ebd59407b765886
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -300,7 +517,7 @@ pain	P16	16		-	-	open	## P16 — A backgrounded window can grow host memory with
 pain	P16b	16	b	-	-	open	## P16b — 8,182 files written for two days, every one of them empty	log/pain/2026-09.md	431	453	f1be6cb22157363e
 pain	P17	17		-	-	open	## P17 — The Home Assistant security system has been blind for a day and nothing told anyone	log/pain/2026-09.md	454	486	b0e581cf2bc9c5ba
 pain	P17b	17	b	-	-	open	## P17b — Agent fan-out is capped in depth and uncapped in breadth	log/pain/2026-09.md	487	506	aeee2cbae5312756
-pain	P17c	17	c	-	-	open	## P17c — A shared append-only ledger allocates IDs by read-then-increment, so concurrent writers collide	log/pain/2026-09.md	507	530	2c7614002e63cd0e
+pain	P17c	17	c	-	-	done	## P17c — A shared append-only ledger allocates IDs by read-then-increment, so concurrent writers collide	log/pain/2026-09.md	507	530	2c7614002e63cd0e
 pain	P18	18		-	-	open	## P18 — Home Assistant is on the office LAN and reachable from exactly one machine	log/pain/2026-09.md	531	552	8aaf3433929d5624
 pain	P18b	18	b	-	-	open	## P18b — A broken plugin in the composer takes the entire interface down	log/pain/2026-09.md	553	578	ee11e2dbe132a518
 pain	P19	19		-	-	open	## P19 — The audit that this whole role is built on is **untracked** in git	log/pain/2026-09.md	579	598	1b45c7ab5bb28d40
@@ -343,10 +560,13 @@ pain	P62	62		2026-09-14	imported	open	## P62 — Re-ingesting after a parser cha
 pain	P63	63		2026-09-14	imported	open	## P63 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)	log/pain/2026-09.md	1527	1622	7a796f34b814490d
 pain	P64	64		2026-09-14	ZABZ-YOGA	open	## P64 — Netlify deploy credits block every frontend release	log/pain/2026-09.md	1623	1652	6856c705c28e9978
 pain	P65	65		2026-09-14	ZABZ-YOGA	open	## P65 — The "authoritative" deploy doc stated a fact that is false about the Netlify webhook	log/pain/2026-09.md	1653	1677	dc4ca459ca7a58b5
-pain	P66	66		2026-09-14	SECRATARY	open	## P66 — The composer doubled the moment a session had usage, and the earlier fix removed the wrong thing	log/pain/2026-09.md	1678	1723	d46d5c91ba9aea4b
-pain	P68	68		2026-09-14	imported	open	## P68 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)	log/pain/2026-09.md	1724	1833	acc86873ab3327c7
-pain	P69	69		2026-09-14	imported	open	## P69 — An index that fails at the end of a 29-minute run records no freshness	log/pain/2026-09.md	1834	1853	4b1641ef79b7e67e
-pain	P70	70		2026-09-14	SECRATARY	open	## P70 — The badge's pill sits in the bottom-right corner of the phone, where a composer control can be	log/pain/2026-09.md	1854	1888	11b487d35d7fa541
+pain	P66	66		2026-09-14	imported	open	## P66 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)	log/pain/2026-09.md	1678	1787	2c04302bf5634ff8
+pain	P67	67		2026-09-14	ZABZ-YOGA	open	## P67 — 2026-09-14 · The authority cannot receive a fix, so every fix is a hand-port into an already-diverged file	log/pain/2026-09.md	1788	1832	b3b2de72be46b723
+pain	P68	68		2026-09-14	imported	open	## P68 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)	log/pain/2026-09.md	1833	1942	acc86873ab3327c7
+pain	P69	69		2026-09-14	imported	open	## P69 — An index that fails at the end of a 29-minute run records no freshness	log/pain/2026-09.md	1943	1962	4b1641ef79b7e67e
+pain	P70	70		2026-09-14	SECRATARY	open	## P70 — The badge's pill sits in the bottom-right corner of the phone, where a composer control can be	log/pain/2026-09.md	1963	1996	11b487d35d7fa541
+pain	P71	71		2026-09-14	ZABZ-YOGA	done	## P71 — The journal is mid-merge with 213 duplicate-id errors, so its integrity check no longer alarms on anything new	log/pain/2026-09.md	1997	2031	bcbd86aafd15dc83
+pain	P72	72		2026-09-14	ZABZ-YOGA	open	## P72 — 2026-09-14 - 230 journal entries exist only in working copies, in the shared repo nowhere	log/pain/2026-09.md	2032	2089	3577f01a4dea0e86
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
@@ -427,18 +647,29 @@ decisions	D68	68		2026-09-14	imported	open	**D68 · 2026-09-14 · The API owns t
 decisions	D69	69		2026-09-14	imported	open	**D69 · 2026-09-14 · Any read that can fail to determine returns that failure as a field, not as an empty list.**	log/decisions/2026-09.md	1008	1014	bf9ccd629568a022
 decisions	D70	70		2026-09-14	imported	open	**D70 · 2026-09-14 · A `retired` device is exempt from staleness in every surface, and the monitor is the authority for that rule.**	log/decisions/2026-09.md	1015	1021	bb6ec154a8d85539
 decisions	D71	71		2026-09-14	ZABZ-YOGA	open	**D71 · 2026-09-14 · The frontend hosting target becomes Cloudflare Workers Static Assets.**	log/decisions/2026-09.md	1022	1073	91762f796c08c50b
-decisions	D72	72		2026-09-14	SECRATARY	open	**D72 · 2026-09-14 · P67 was never an entry: the pain is P66, and the dangling-ref warning that says so is correct.**	log/decisions/2026-09.md	1074	1097	ecc89dd748b90c1f
-decisions	D73	73		2026-09-14	imported	open	**D73 · 2026-09-14 · The computer-finder questionnaire is a customer-facing feature, so it is gated by `customerProcedure` — and its budget bands are the four the owner decided, not the three the code had.**	log/decisions/2026-09.md	1098	1106	86bf7586ab958a57
-decisions	D74	74		2026-09-14	imported	open	**D74 · 2026-09-14 · Enum types in backend services are derived from the generated model, never imported by name.**	log/decisions/2026-09.md	1107	1113	b762a0a03230c106
-decisions	D75	75		2026-09-14	imported	open	**D75 · 2026-09-14 · Consent is enforced at every door, and I only found the other three by going to look.**	log/decisions/2026-09.md	1114	1120	ab5540713cb06dfc
-decisions	D76	76		2026-09-14	imported	open	**D76 · 2026-09-14 · I audited my own parent notice against the code and three sentences were untrue.**	log/decisions/2026-09.md	1121	1127	04f976296be24c02
-decisions	D77	77		2026-09-14	imported	open	**D77 · 2026-09-14 · Archiving is right for our own audit records and wrong for a record about a child.**	log/decisions/2026-09.md	1128	1133	d6f4e6b0958da05c
-decisions	D78	78		2026-09-14	imported	open	**D78 · 2026-09-14 · The scrub belongs on the phone, and the pixel test found the bug the geometry test could not.**	log/decisions/2026-09.md	1134	1142	55de330b6a53fe18
-decisions	D79	79		2026-09-14	imported	open	**D79 · 2026-09-14 · A control implemented on one storage backend is a control that disappears on the other.**	log/decisions/2026-09.md	1143	1149	ccb19a9c2eea8668
-decisions	D80	80		2026-09-14	imported	open	**D80 · 2026-09-14 · Refreshing a sign-off snapshot is an attestation, so it has to say what it actually is.**	log/decisions/2026-09.md	1150	1156	ef684097beb9a38f
-decisions	D81	81		2026-09-14	imported	open	**D81 · 2026-09-14 · The owner's answer on the product's promise: no numbers until measured, and make the words carry it (his words: option 1, "but use 3 to make it sound good").**	log/decisions/2026-09.md	1157	1164	05a02774f67ff54c
-decisions	D82	82		2026-09-14	imported	open	**D82 · 2026-09-14 · Correction to the round-6 verification: one of the two "regressions that are mine" was environmental, and the method that said otherwise was flawed.**	log/decisions/2026-09.md	1165	1171	06c154ec1736e4fa
-decisions	D83	83		2026-09-14	SECRATARY	open	**D83 · 2026-09-14 · L217 is the phone question-card lesson and P70 is the badge pain: L216 and P67 do not exist.**	log/decisions/2026-09.md	1172	1196	3233d27ebdbc5632
+decisions	D72	72		2026-09-14	imported	open	**D72 · 2026-09-14 · The computer-finder questionnaire is a customer-facing feature, so it is gated by `customerProcedure` — and its budget bands are the four the owner decided, not the three the code had.**	log/decisions/2026-09.md	1074	1082	58eded391f076f74
+decisions	D73	73		2026-09-14	imported	open	**D73 · 2026-09-14 · Enum types in backend services are derived from the generated model, never imported by name.**	log/decisions/2026-09.md	1083	1089	8411fe67c73f0d0f
+decisions	D73a	73	a	2026-09-14	imported	open	**D73a · 2026-09-14 · The computer-finder questionnaire is a customer-facing feature, so it is gated by `customerProcedure` — and its budget bands are the four the owner decided, not the three the code had.**	log/decisions/2026-09.md	1203	1211	697a346d52ca3ebe
+decisions	D74	74		2026-09-14	imported	open	**D74 · 2026-09-14 · Consent is enforced at every door, and I only found the other three by going to look.**	log/decisions/2026-09.md	1090	1096	931364fa29f9c3be
+decisions	D74a	74	a	2026-09-14	imported	open	**D74a · 2026-09-14 · Enum types in backend services are derived from the generated model, never imported by name.**	log/decisions/2026-09.md	1212	1218	2492356b6360907b
+decisions	D75	75		2026-09-14	imported	open	**D75 · 2026-09-14 · I audited my own parent notice against the code and three sentences were untrue.**	log/decisions/2026-09.md	1097	1103	50684e525a0b3fa6
+decisions	D75a	75	a	2026-09-14	imported	open	**D75a · 2026-09-14 · Consent is enforced at every door, and I only found the other three by going to look.**	log/decisions/2026-09.md	1219	1225	e40477f75571bafb
+decisions	D76	76		2026-09-14	imported	open	**D76 · 2026-09-14 · Archiving is right for our own audit records and wrong for a record about a child.**	log/decisions/2026-09.md	1104	1109	d436a9e25c6773e0
+decisions	D76a	76	a	2026-09-14	imported	open	**D76a · 2026-09-14 · I audited my own parent notice against the code and three sentences were untrue.**	log/decisions/2026-09.md	1226	1232	fc96c5f6b25d954c
+decisions	D77	77		2026-09-14	imported	open	**D77 · 2026-09-14 · The scrub belongs on the phone, and the pixel test found the bug the geometry test could not.**	log/decisions/2026-09.md	1110	1118	c42035b79886f51b
+decisions	D77a	77	a	2026-09-14	imported	open	**D77a · 2026-09-14 · Archiving is right for our own audit records and wrong for a record about a child.**	log/decisions/2026-09.md	1233	1238	64a83958de7b96b4
+decisions	D78	78		2026-09-14	imported	open	**D78 · 2026-09-14 · A control implemented on one storage backend is a control that disappears on the other.**	log/decisions/2026-09.md	1119	1125	cc710a6cc4d9d4a1
+decisions	D78a	78	a	2026-09-14	imported	open	**D78a · 2026-09-14 · The scrub belongs on the phone, and the pixel test found the bug the geometry test could not.**	log/decisions/2026-09.md	1239	1247	f1d09ccfd4b9f53b
+decisions	D79	79		2026-09-14	imported	open	**D79 · 2026-09-14 · Refreshing a sign-off snapshot is an attestation, so it has to say what it actually is.**	log/decisions/2026-09.md	1126	1132	acb7b58f48148d58
+decisions	D79a	79	a	2026-09-14	imported	open	**D79a · 2026-09-14 · A control implemented on one storage backend is a control that disappears on the other.**	log/decisions/2026-09.md	1248	1254	223a98150c6f0b35
+decisions	D80	80		2026-09-14	imported	open	**D80 · 2026-09-14 · The owner's answer on the product's promise: no numbers until measured, and make the words carry it (his words: option 1, "but use 3 to make it sound good").**	log/decisions/2026-09.md	1133	1140	4ae4bcf086fd8d5b
+decisions	D80a	80	a	2026-09-14	imported	open	**D80a · 2026-09-14 · Refreshing a sign-off snapshot is an attestation, so it has to say what it actually is.**	log/decisions/2026-09.md	1255	1261	54c3a78e02dce50d
+decisions	D81	81		2026-09-14	imported	open	**D81 · 2026-09-14 · Correction to the round-6 verification: one of the two "regressions that are mine" was environmental, and the method that said otherwise was flawed.**	log/decisions/2026-09.md	1141	1147	fffd3e6497c89da4
+decisions	D81a	81	a	2026-09-14	imported	open	**D81a · 2026-09-14 · The owner's answer on the product's promise: no numbers until measured, and make the words carry it (his words: option 1, "but use 3 to make it sound good").**	log/decisions/2026-09.md	1262	1269	00dc8683ab280afb
+decisions	D82	82		2026-09-14	ZABZ-YOGA	open	**D82 · 2026-09-14 · 2026-09-14 · Ghost-agent mappings, hand-port as the interim deploy method, and how the credential-named path is blocked.**	log/decisions/2026-09.md	1148	1202	cf8a85bd5442ab2e
+decisions	D82a	82	a	2026-09-14	imported	open	**D82a · 2026-09-14 · Correction to the round-6 verification: one of the two "regressions that are mine" was environmental, and the method that said otherwise was flawed.**	log/decisions/2026-09.md	1270	1276	480588954719c127
+decisions	D83	83		2026-09-14	SECRATARY	open	**D83 · 2026-09-14 · L217 is the phone question-card lesson and P70 is the badge pain: L216 and P67 do not exist.**	log/decisions/2026-09.md	1277	1300	3233d27ebdbc5632
+decisions	D84	84		2026-09-14	ZABZ-YOGA	open	**D84 · 2026-09-14 · Bulk iPhone supply for the Kosher Waze line: iPhone 11 standard, B-Stock/GameStop as the channel, overseas rejected on FCC not duty.**	log/decisions/2026-09.md	1301	1368	b5ad68f4a1145d9d
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
@@ -487,4 +718,6 @@ wins	W37	37		2026-09-14	SECRATARY	open	**W37 · 2026-09-14 · The owner's phone 
 wins	W38	38		2026-09-14	ZABZ-YOGA	open	**W38 · 2026-09-14 · The DRN fleet is manageable from the portal, and four of its numbers are now measured.**	log/wins/2026-09.md	697	731	7bc7ca65d3507117
 wins	W39	39		2026-09-14	imported	open	**W39 · 2026-09-14 · The retention purge the test caught: an old clock would have deleted a record on arrival.**	log/wins/2026-09.md	732	739	d20212a723a19129
 wins	W40	40		2026-09-14	imported	open	**W40 · 2026-09-14 · The computer-finder funnel is live on test, and the verification is the bundle hash — not the deploy log.**	log/wins/2026-09.md	740	751	3ba0d0f48a3b35b6
-wins	W41	41		2026-09-14	imported	open	**W41 · 2026-09-14 · Four self-inflicted defects found by measuring the artefact, and one of them was deleting the biggest conversation in the archive.**	log/wins/2026-09.md	752	766	d37eea7daea398ec
+wins	W41	41		2026-09-14	ZABZ-YOGA	open	**W41 · 2026-09-14 · 2026-09-14 · Counting failure reasons beat reading them; the port gate survived its own failure.**	log/wins/2026-09.md	752	804	7ae1c565ebd6b583
+wins	W42	42		2026-09-14	ZABZ-YOGA	open	**W42 · 2026-09-14 · 2026-09-14 - Work mode verified end to end on the DEPLOYED prompt: 2 executable actions parsed, 0 dead tags.**	log/wins/2026-09.md	805	851	acd2c7a0082a879e
+wins	W43	43		2026-09-14	ZABZ-YOGA	open	**W43 · 2026-09-14 · 2026-09-14 - 41 owner briefings were raw tool-call JSON; the guard catches all 41 and no genuine briefing.**	log/wins/2026-09.md	852	909	6ebae192b44fc8b3

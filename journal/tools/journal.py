@@ -33,8 +33,10 @@ import datetime as _dt
 import hashlib
 import os
 import re
+import socket
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -727,7 +729,11 @@ def cmd_append(args) -> int:
     if kind not in KINDS:
         print(f"unknown kind {kind}", file=sys.stderr)
         return 2
-    body = Path(args.body).read_text(encoding="utf-8") if args.body and args.body != "-" else sys.stdin.read()
+    body = (
+        Path(args.body).read_text(encoding="utf-8")
+        if args.body and args.body != "-"
+        else _read_stdin_utf8()
+    )
     if not body.strip():
         print("empty body — refusing to write an empty entry", file=sys.stderr)
         return 2
@@ -1012,6 +1018,99 @@ def cmd_import_flat(args) -> int:
     return 0
 
 
+def cmd_dedupe(args) -> int:
+    """Give collided ids a suffix instead of deleting an entry.
+
+    Why this exists (2026-09-14). `append` and `import-flat` both allocate the
+    next id with `remote_max(kind)`, which reads the index, the shards and every
+    git ref **that this checkout has fetched**. Two sessions on diverged
+    checkouts therefore both compute "next" independently, both write H81, and
+    the `git pull` that reunites them produces two entries with one id. `check`
+    calls that an ERROR, and it is: every prose citation of `H81` becomes
+    ambiguous, which is exactly how a lesson stops being citable (P17c).
+
+    The repair is the one the 2026-09-14 migration already used -- suffix the
+    later copy (`P46` -> `P46b`, `D41` -> `D41b`) -- because the alternative,
+    deleting one, throws away an entry that someone wrote. Content is never
+    lost, and the record of the collision stays visible in the ids.
+
+    Report-only by default; `--apply` writes. Renumbers the marker id and the
+    heading token where the heading carries one (handoff headings are
+    timestamps and carry no id, so for those only the marker changes).
+    """
+    entries = load_shards()
+    by_kind: dict[str, list[Entry]] = {}
+    for e in entries:
+        by_kind.setdefault(e["kind"], []).append(e)
+
+    taken = {e["id_full"] for e in entries}
+    dupes: list[Entry] = []
+
+    for kind, rs in sorted(by_kind.items()):
+        groups: dict[str, list[Entry]] = {}
+        for e in rs:
+            groups.setdefault(e["id_full"], []).append(e)
+        for id_full, group in sorted(groups.items()):
+            if len(group) < 2:
+                continue
+            group.sort(key=lambda g: (g["file"], int(g["line_start"])))
+            # keep the FIRST occurrence exactly as it is; the later copies move
+            for n, dup in enumerate(group[1:], start=1):
+                candidate = f"{id_full}{chr(ord('a') + n - 1)}"
+                while candidate in taken:
+                    n += 1
+                    candidate = f"{id_full}{chr(ord('a') + n - 1)}"
+                taken.add(candidate)
+                dup["_new_id"] = candidate
+                dupes.append(dup)
+
+    if not dupes:
+        print("no duplicate ids — nothing to do")
+        return 0
+
+    for e in dupes:
+        print(f"{e['id_full']} -> {e['_new_id']}   {e['file']}:{e['line_start']}   "
+              f"{e['heading'][:70]}")
+
+    if not args.apply:
+        print(f"\n{len(dupes)} duplicate id(s). Report only; re-run with --apply to renumber.")
+        return 0
+
+    # group the rewrites per file, then apply bottom-up so line numbers hold
+    per_file: dict[str, list[Entry]] = {}
+    for e in dupes:
+        per_file.setdefault(e["file"], []).append(e)
+
+    changed = 0
+    for rel, ents in per_file.items():
+        path = JOURNAL / rel
+        lines = path.read_text(encoding="utf-8").split("\n")
+        for e in sorted(ents, key=lambda x: int(x["line_start"]), reverse=True):
+            old_id, new_id = e["id_full"], e["_new_id"]
+            mi = int(e["line_start"]) - 1          # marker line, 0-based
+            hi = int(e["heading_end"]) - 1         # heading line, 0-based
+            m = MARKER_RE.match(lines[mi])
+            if not m:
+                print(f"  SKIP {rel}:{mi + 1} marker unreadable")
+                continue
+            lines[mi] = (
+                f"<!-- e:{m.group('kind')}|{new_id}|{m.group('date')}|"
+                f"{m.group('host')}|{m.group('status')} -->"
+            )
+            # the heading carries the id for every kind except handoff, whose
+            # heading is a timestamp
+            if 0 <= hi < len(lines) and re.search(rf"\b{re.escape(old_id)}\b", lines[hi]):
+                lines[hi] = re.sub(rf"\b{re.escape(old_id)}\b", new_id, lines[hi], count=1)
+            changed += 1
+        # the shard's own title line names the shard, not an entry, so it is untouched
+        path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
+
+    print(f"\nrenumbered {changed} entry/entries")
+    cmd_index(argparse.Namespace())
+    cmd_state(argparse.Namespace())
+    return 0
+
+
 def cmd_split_shard(args) -> int:
     """Split an oversized shard at entry boundaries.
 
@@ -1063,7 +1162,11 @@ def cmd_questions(args) -> int:
     the authority still knows what is already waiting on the owner, and so the same
     question is never asked twice in two different stores.
     """
-    raw = sys.stdin.read() if args.from_json in ("-", "") else Path(args.from_json).read_text(encoding="utf-8")
+    raw = (
+        _read_stdin_utf8()
+        if args.from_json in ("-", "")
+        else Path(args.from_json).read_text(encoding="utf-8")
+    )
     import json
     try:
         rows = json.loads(raw)
@@ -1099,9 +1202,98 @@ def cmd_questions(args) -> int:
     return 0
 
 
+def _read_stdin_utf8() -> str:
+    """Read stdin as UTF-8 regardless of the platform's default encoding.
+
+    The bug this fixes (found 2026-09-14): `sys.stdin.read()` decodes with the
+    *locale* encoding, and `main()` reconfigured only `sys.stdout` to UTF-8. On
+    Windows, whose default is cp1252, every non-ASCII character in a piped
+    `--body -` was decoded as cp1252 and re-encoded as UTF-8 on write, so `—`
+    (U+2014) was stored as the three characters `â€”`. `journal.py check` does not
+    validate encoding, so the corruption was silent, and 43 sequences landed in
+    the shards before it was caught. Reading the binary stream and decoding it
+    explicitly removes any dependence on the platform default.
+    """
+    data = sys.stdin.buffer.read()
+    return data.decode("utf-8", errors="replace")
+
+
+LOCK = JOURNAL / ".lock"
+LOCK_STALE_SEC = 600
+# Commands that read the log to decide what to write back. Two of these running
+# at once on one tree is what produced 217 collided ids on 2026-09-14.
+MUTATING_COMMANDS = {"append", "import-flat", "dedupe", "resolve"}
+
+
+def acquire_lock(command: str) -> tuple[bool, str]:
+    """Serialise the journal's read-modify-write commands.
+
+    The failure this prevents, measured 2026-09-14: `append` and `import-flat`
+    read the log, compute the next id from `remote_max()`, and then write. Two
+    sessions doing that concurrently on one tree produce two entries with one id,
+    and the `git pull` that reunites them makes the collision permanent -- 217
+    ids had to be renumbered, and `check` treats a duplicate id as an ERROR
+    because it makes every prose citation of that id ambiguous.
+
+    A stale lock is broken rather than honoured: a crashed session must not wedge
+    the journal forever, and the lock file records when it was taken so the age
+    is checkable. Returns (acquired, token); pass the token to release_lock.
+    """
+    token = f"{os.getpid()}@{socket.gethostname()}:{int(time.time())}"
+    for attempt in (1, 2):
+        try:
+            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                age = time.time() - LOCK.stat().st_mtime
+                held = LOCK.read_text(encoding="utf-8", errors="replace").strip()
+            except OSError:
+                age, held = 0.0, "(unreadable)"
+            if age > LOCK_STALE_SEC and attempt == 1:
+                print(
+                    f"journal lock is stale ({int(age)}s old, held by {held}); breaking it",
+                    file=sys.stderr,
+                )
+                try:
+                    LOCK.unlink()
+                except OSError:
+                    pass
+                continue
+            print(
+                f"REFUSING: another session holds the journal lock ({held}, "
+                f"{int(age)}s ago). Two writers is what created 217 collided ids "
+                f"on 2026-09-14. Wait for it to finish, or remove {LOCK} if you "
+                f"are certain nothing is running.",
+                file=sys.stderr,
+            )
+            return False, ""
+        else:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(f"{command} {token}\n")
+            return True, token
+    return False, ""
+
+
+def release_lock(token: str) -> None:
+    """Remove the lock ONLY if this process still owns it."""
+    try:
+        held = LOCK.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return
+    if token and token in held:
+        try:
+            LOCK.unlink()
+        except OSError:
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    try:
+        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
     p = argparse.ArgumentParser(prog="journal.py", description=__doc__.split("\n")[0])
@@ -1157,6 +1349,9 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("files", nargs="*")
     s.add_argument("--kind", default="")
     s.set_defaults(func=cmd_import_flat)
+    s = sub.add_parser("dedupe", help="suffix collided ids instead of deleting an entry")
+    s.add_argument("--apply", action="store_true", help="write the renumbering (default: report only)")
+    s.set_defaults(func=cmd_dedupe)
     s = sub.add_parser("resolve", help="record that an entry's status changed (append-only)")
     s.add_argument("id")
     s.add_argument("--status", default="done",
@@ -1165,6 +1360,14 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(func=cmd_resolve)
 
     args = p.parse_args(argv)
+    if args.cmd in MUTATING_COMMANDS:
+        acquired, token = acquire_lock(args.cmd)
+        if not acquired:
+            return 3
+        try:
+            return args.func(args)
+        finally:
+            release_lock(token)
     return args.func(args)
 
 

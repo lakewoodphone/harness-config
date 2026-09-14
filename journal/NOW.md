@@ -33,8 +33,9 @@ shards *and* every git ref, which is what stops two machines choosing the same n
   `QUESTIONS.md` was reconciled into it: five rows promoted (#12 the email reply loop, #13 Yocheved's write
   access, #14 iPhone location, #15 Google Voice, and #11 the delivery channel), sixteen closed with a
   disposition each in `archive/README.md`, and **#11 answered the same hour** — the owner picked the
-  harness badge, so it is closed and must not be re-asked. **8 pending** (the eighth is **#16**, the
-  Netlify deploy credits blocking every frontend release, added 2026-09-14).
+  harness badge, so it is closed and must not be re-asked. **7 pending** other than these — **#16**
+  (Netlify deploy credits) was **answered and resolved 2026-09-14** by moving the frontend to
+  Cloudflare Pages, so it cost nothing and needs nothing from him.
 
 - **The owner's phone path was broken, and is fixed as of 2026-09-14** (H70). It served documents and
   refused every `/api` call and WebSocket, because `profiles/web/cordis.patch.yml` restated the
@@ -43,20 +44,22 @@ shards *and* every git ref, which is what stops two machines choosing the same n
   pill and a working composer. Two items there stay open and named: a first run lands with no session
   (P46), and the gate died once with no cause on the record (P59).
 
-- **Frontend hosting moves from Netlify to Cloudflare Workers Static Assets** (D71, H76, L213).
-  Netlify's allowance ran out and blocked every frontend release: it charges 15 credits per
-  production deploy against 300 free credits, i.e. **20 deploys a month**, for a repo that
-  deploys ~37 (measured: 16 successful production deploys in 13 days; bandwidth is only ~20
-  credits of the burn, so ~97% is the act of deploying). Cloudflare charges nothing for static
-  asset requests, our DNS is **already Cloudflare** (Netlify was only the origin), and the
-  artifact needs no rewriting. **Built and verified but NOT cut over** — the target was proved
-  by running the real Cloudflare runtime locally (`wrangler dev`, no account needed) against
-  the real build. Four Netlify semantics do not exist there and each was found by testing, not
-  reading: the `/*  /index.html 200` catch-all is rejected as an infinite loop and ignored, only
-  statuses 200/301/302/303/307/308 are legal (no 404 rule), external 200 proxies are refused,
-  and a 200 rewrite to `/index.html` becomes a **307 to `/`** that loses the router's path.
-  What is left needs the owner: a **Cloudflare API token** (none exists on any machine, only
-  tunnel tokens) and a DNS change per hostname. Rollback is moving the origin back.
+- **The frontend moved off Netlify to Cloudflare Pages, and it is DONE and LIVE** (D83, H87, L224;
+  this supersedes D71, which chose Workers Static Assets before anyone had checked which credential
+  existed). Netlify's allowance ran out and blocked every frontend release — 15 credits per
+  production deploy against 300 free, i.e. **20 deploys a month**, for a repo that deploys ~37.
+  Cloudflare: 500 builds/month, unlimited requests and bandwidth, direct upload, no metering, $0
+  against $108–240/yr. Our DNS was **already Cloudflare**, so the cutover was two CNAME edits and
+  the rollback is two edits back to `lakewood-phone-{test,prod}.netlify.app`.
+  **`lakewoodphoneandtech.com`, `www`, and `test.lakewoodphoneandtech.com` now serve from Pages**,
+  verified live (deep links, landing pages at their own paths, 301s, `/api` → 404, headers, email MX
+  untouched, 0 console errors in a browser). **The Waze DRN panel that Netlify was blocking is live
+  on the test site.** Deploy from now on: `node scripts/deploy-frontend-cloudflare.mjs --env test|production`
+  — the token is in `personal-secretary-mvp/data/heroku-migration/cloudflare.env`, and it has **no
+  Workers permission**, which is the whole reason this is Pages.
+  Two things future sessions must not re-learn: Cloudflare **silently ignores** a `404` rule in
+  `_redirects` (verify behaviour, never the parse log), and **MX/TXT on this zone are live email** —
+  touch only the frontend CNAMEs.
 
 - **The Kosher Waze DRN fleet is now manageable from the LPT portal** (H73, D67-D70, L205-L211).
   The staff page can see each DRN phone's state and liveness, read the profiles it
@@ -92,7 +95,7 @@ shards *and* every git ref, which is what stops two machines choosing the same n
 
 ## Id spaces, so a reference can be checked
 
-**H1-H76 · L1-L213 · P1-P65 · D1-D71 · W1-W38.** A bare number is ambiguous wherever the suffix repair
+**H1-H87 · L1-L224 · P1-P67 · D1-D83 · W1-W45.** A bare number is ambiguous wherever the suffix repair
 applied; the suffixed id in `index/entries.tsv` is the one to cite. (`L75` is referenced twice in old
 prose and has never existed — an INFO in `check`, left visible rather than papered over.)
 
