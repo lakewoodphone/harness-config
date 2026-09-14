@@ -36,8 +36,6 @@
 [CmdletBinding()]
 param(
     [string]$WrapperDir = (Join-Path $PSScriptRoot 'hidden-tasks'),
-    # Console-host executables that produce a visible window when run interactively.
-    [string[]]$TargetExes = @('pwsh.exe','powershell.exe','python.exe','cmd.exe','node.exe','conhost.exe'),
     [string[]]$Only = @(),
     [switch]$Restore,
     [switch]$WhatIf
@@ -49,6 +47,19 @@ $WSCRIPT = Join-Path $env:SystemRoot 'System32\wscript.exe'
 function Get-ExeName([string]$exe) {
     if (-not $exe) { return '' }
     return ([System.IO.Path]::GetFileName($exe)).ToLowerInvariant()
+}
+
+# Does this action launch something that gets a visible console window when run interactively?
+# Covers .exe console hosts, extensionless names (a task may say `cmd` or `python`), and
+# .cmd/.bat scripts — all of which pop a window and steal focus. wscript.exe is our own
+# hidden launcher, so a task already pointing at it is excluded (keeps the job idempotent).
+function Test-IsConsoleAction([string]$exe) {
+    if (-not $exe) { return $false }
+    $name = Get-ExeName $exe
+    if ($name -eq 'wscript.exe') { return $false }
+    if ($name -match '\.(cmd|bat|com)$') { return $true }
+    $base = $name -replace '\.exe$', ''
+    return ($base -in @('pwsh', 'powershell', 'python', 'py', 'cmd', 'node', 'conhost', 'cscript'))
 }
 
 function Get-SafeName([string]$taskName) {
@@ -116,12 +127,12 @@ foreach ($t in $all) {
     if ($acts.Count -gt 1) { continue }
     $a = $acts[0]
     $exeName = Get-ExeName $a.Execute
-    $isWrapped = ($exeName -eq 'wscript.exe' -or $exeName -eq 'cscript.exe')
+    $isWrapped = ($exeName -eq 'wscript.exe')
     if ($Restore) {
         if ($isWrapped) { $targets += $t }
         continue
     }
-    if ($exeName -in $TargetExes) { $targets += $t }
+    if (Test-IsConsoleAction $a.Execute) { $targets += $t }
 }
 
 if ($targets.Count -eq 0) {
