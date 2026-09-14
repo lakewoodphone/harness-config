@@ -1,3 +1,70 @@
+## 2026-09-13 22:05 EDT (2026-09-14 02:05Z) · ZABZ-TECH · Restarted the API so the completion fix is live; my own alarm was crying wolf, and the fixed version now proves both directions
+
+**CORRECTION FIRST, because I got this wrong mid-session.** I initially reported "three days have passed"
+as if sessions had been lost, then briefly believed the clocks disagreed. Neither is true. The elapsed time is
+real — this same turn spanned **2026-09-11 18:20 → 2026-09-13 21:57 EDT (~2.5 days)** — and both hosts agree
+exactly (`zabz-tech` 2026-09-13 21:57 EDT / `2026-09-14T01:57Z`; `secratary` `2026-09-14 01:57:05 UTC`,
+`System clock synchronized: yes`, `NTP service: active`). Nothing was lost; the fleet simply ran while I was
+mid-turn.
+
+CHANGED
+- **Restarted `secretary-api` so the honest-completion fix is actually the running code.** Old pid 2966268 →
+  new pid **3225268**, `/health` 200 after **12 s**, `apscheduler-boot` thread present (24 threads, 1
+  apscheduler), `Restart=always` supervisor intact. The restart was safe for the holy days precisely because
+  the **device** holds the schedule: `/shabbat/status` unchanged before and after (`enabled:false`,
+  `plug_connected:true`, `switch_on:true`, next action OFF `2026-09-18T18:00:17-04:00`). The watchdog process
+  from the earlier session has exited; the next OFF is a week away.
+- **The fix is working, and the honest numbers are worse and truer.** Digest section 0b, first reading with
+  the fix live: **last 24h finished=221, completed=10, genuine=3, hollow=7, failed=211**; last 7d
+  finished=1365, completed=818, genuine=372, hollow=446, failed=547. Before the fix the same query said
+  "82.8% completed". 211 failures in a day is not a regression — it is the ~55% of sessions that were always
+  failing now being recorded as failing instead of as success.
+- **Fixed my own archive alarm, which was crying wolf.** v1 alarmed on "the archive has not advanced in N
+  minutes" and on 2026-09-13 it fired **3/3 — wrongly**. This host had simply had no DSH activity, so it had
+  nothing to ship (9 local session files, newest `2026-09-11 21:47`, all 9 fully shipped per the cursor). v2
+  separates the two cases v1 conflated: **local work that is not archived** → real finding; **no new local
+  work** → quiet, no alarm. Remote hosts are context only, since their disks cannot be read from here.
+  `--selftest` now proves **both** directions, including the idle case that v1 failed. Deployed
+  (`8c2952e88f7c2d31`, deployed == committed) and pushed as `afabf5d0` on `ops-archive-freshness-alarm`.
+- Read the sentinel's current findings and the digest as they exist now rather than re-asserting 09-11.
+
+IN FLIGHT / OBSERVED LIVE
+- `evolution` is now worse on paper: **71 proposals unapplied** (was 56) with 38 duplicate offers on one
+  file. The loop keeps generating and still never closes — P4 is the largest unbuilt subsystem.
+- A **new** sentinel finding appeared: `session_archive ... 13 session(s) last seen 2.1d ago` (HIGH). It is
+  the same false-positive shape my v2 just fixed in my own alarm; the sentinel's version still needs the same
+  treatment, otherwise two alarms will disagree about the same quiet machine.
+- Money queued, not just noted: a Stripe **$30.00 payment to Deep Infra Inc. failed** (2026-09-12), alongside
+  the Telnyx −$9.61 and the four Gusto payroll blocks already captured.
+- **A family item the system created and then misrouted**: task **#24867** (2026-09-14T01:55, `high`, `open`)
+  — *"Owner to review CHEMED test results + 2 radiology reports on patient portal. This was incorrectly routed
+  to finance_bookkeeper."* Now in the owner queue.
+- Five missed Google Voice calls 11–14 Sep (Weber Yitzy 14 Sep 01:02, Alon ×2, Matatov, Manela) — the digest
+  surfaces them; Google Voice monitoring is still blind pending the owner's re-login.
+
+BROKEN (carried)
+- `data/OWNER_SMS_KILL_SWITCH` still in place **by owner decision** (2026-09-11): SMS stays off, the digest is
+  the only channel. So the digest's reliability is now load-bearing, which is why the v2 fix mattered.
+- `owner_sms_min_urgency = "urgent"` remains; irrelevant while the switch is on.
+
+NEXT
+1. Give the sentinel's `session_archive` check the same idle-vs-unshipped distinction as my v2.
+2. P4: the evolution loop — 71 unapplied proposals, 38 duplicates, last successful application 4 July.
+3. Work queue item #9 (Telnyx/money) and #8 (the four chronic syncs).
+
+EVIDENCE
+- `date -u` on secratary `2026-09-14 01:57:05 UTC`; `timedatectl` → `System clock synchronized: yes`;
+  ZABZ-TECH `Get-Date` → `2026-09-13 21:57:00 -04:00` = `2026-09-14T01:57:00Z`. Clocks agree.
+- `systemctl show -p MainPID --value secretary-api` → `3225268`; `ls /proc/3225268/task/*/comm` →
+  `apscheduler-boo`; `curl 127.0.0.1:8002/shabbat/status` identical pre/post restart.
+- `python3 scripts/server/check-dsh-freshness.py --selftest` → **6 PASS / selftest: OK**;
+  live → `nothing unarchived`, `secratary 0 min`, `zabz-tech 50.9 h quiet`, `zabz-yoga 52.9 h quiet`, rc=0.
+- `find ~/.dsh/sessions -name '*.zstd'` → 9 files, newest `2026-09-11 21:47`; cursor `sessions: 9`,
+  `savedAt 2026-09-14T01:55:48Z`. Nothing was ever unshipped.
+- `bash scripts/server/owner-attention-digest.sh` → the 0b numbers above; sentinel `6 of 12 failing`.
+- Commits on secratary `personal-secretary-mvp`: `afabf5d0` (v2), `534217c2`, `4dde29ab`, `53739081`;
+  branch `ops-archive-freshness-alarm` verified far-side.
+
 ## 2026-09-11 18:44 · ZABZ-TECH · A regeneration had silently deleted two persona rules, and the plugin layer had no keeper
 
 CHANGED
@@ -81,73 +148,6 @@ BROKEN      what is known-broken right now
 NEXT        the single most useful next action
 EVIDENCE    files, commits, or commands that prove the above
 ```
-
-## 2026-09-13 22:05 EDT (2026-09-14 02:05Z) · ZABZ-TECH · Restarted the API so the completion fix is live; my own alarm was crying wolf, and the fixed version now proves both directions
-
-**CORRECTION FIRST, because I got this wrong mid-session.** I initially reported "three days have passed"
-as if sessions had been lost, then briefly believed the clocks disagreed. Neither is true. The elapsed time is
-real — this same turn spanned **2026-09-11 18:20 → 2026-09-13 21:57 EDT (~2.5 days)** — and both hosts agree
-exactly (`zabz-tech` 2026-09-13 21:57 EDT / `2026-09-14T01:57Z`; `secratary` `2026-09-14 01:57:05 UTC`,
-`System clock synchronized: yes`, `NTP service: active`). Nothing was lost; the fleet simply ran while I was
-mid-turn.
-
-CHANGED
-- **Restarted `secretary-api` so the honest-completion fix is actually the running code.** Old pid 2966268 →
-  new pid **3225268**, `/health` 200 after **12 s**, `apscheduler-boot` thread present (24 threads, 1
-  apscheduler), `Restart=always` supervisor intact. The restart was safe for the holy days precisely because
-  the **device** holds the schedule: `/shabbat/status` unchanged before and after (`enabled:false`,
-  `plug_connected:true`, `switch_on:true`, next action OFF `2026-09-18T18:00:17-04:00`). The watchdog process
-  from the earlier session has exited; the next OFF is a week away.
-- **The fix is working, and the honest numbers are worse and truer.** Digest section 0b, first reading with
-  the fix live: **last 24h finished=221, completed=10, genuine=3, hollow=7, failed=211**; last 7d
-  finished=1365, completed=818, genuine=372, hollow=446, failed=547. Before the fix the same query said
-  "82.8% completed". 211 failures in a day is not a regression — it is the ~55% of sessions that were always
-  failing now being recorded as failing instead of as success.
-- **Fixed my own archive alarm, which was crying wolf.** v1 alarmed on "the archive has not advanced in N
-  minutes" and on 2026-09-13 it fired **3/3 — wrongly**. This host had simply had no DSH activity, so it had
-  nothing to ship (9 local session files, newest `2026-09-11 21:47`, all 9 fully shipped per the cursor). v2
-  separates the two cases v1 conflated: **local work that is not archived** → real finding; **no new local
-  work** → quiet, no alarm. Remote hosts are context only, since their disks cannot be read from here.
-  `--selftest` now proves **both** directions, including the idle case that v1 failed. Deployed
-  (`8c2952e88f7c2d31`, deployed == committed) and pushed as `afabf5d0` on `ops-archive-freshness-alarm`.
-- Read the sentinel's current findings and the digest as they exist now rather than re-asserting 09-11.
-
-IN FLIGHT / OBSERVED LIVE
-- `evolution` is now worse on paper: **71 proposals unapplied** (was 56) with 38 duplicate offers on one
-  file. The loop keeps generating and still never closes — P4 is the largest unbuilt subsystem.
-- A **new** sentinel finding appeared: `session_archive ... 13 session(s) last seen 2.1d ago` (HIGH). It is
-  the same false-positive shape my v2 just fixed in my own alarm; the sentinel's version still needs the same
-  treatment, otherwise two alarms will disagree about the same quiet machine.
-- Money queued, not just noted: a Stripe **$30.00 payment to Deep Infra Inc. failed** (2026-09-12), alongside
-  the Telnyx −$9.61 and the four Gusto payroll blocks already captured.
-- **A family item the system created and then misrouted**: task **#24867** (2026-09-14T01:55, `high`, `open`)
-  — *"Owner to review CHEMED test results + 2 radiology reports on patient portal. This was incorrectly routed
-  to finance_bookkeeper."* Now in the owner queue.
-- Five missed Google Voice calls 11–14 Sep (Weber Yitzy 14 Sep 01:02, Alon ×2, Matatov, Manela) — the digest
-  surfaces them; Google Voice monitoring is still blind pending the owner's re-login.
-
-BROKEN (carried)
-- `data/OWNER_SMS_KILL_SWITCH` still in place **by owner decision** (2026-09-11): SMS stays off, the digest is
-  the only channel. So the digest's reliability is now load-bearing, which is why the v2 fix mattered.
-- `owner_sms_min_urgency = "urgent"` remains; irrelevant while the switch is on.
-
-NEXT
-1. Give the sentinel's `session_archive` check the same idle-vs-unshipped distinction as my v2.
-2. P4: the evolution loop — 71 unapplied proposals, 38 duplicates, last successful application 4 July.
-3. Work queue item #9 (Telnyx/money) and #8 (the four chronic syncs).
-
-EVIDENCE
-- `date -u` on secratary `2026-09-14 01:57:05 UTC`; `timedatectl` → `System clock synchronized: yes`;
-  ZABZ-TECH `Get-Date` → `2026-09-13 21:57:00 -04:00` = `2026-09-14T01:57:00Z`. Clocks agree.
-- `systemctl show -p MainPID --value secretary-api` → `3225268`; `ls /proc/3225268/task/*/comm` →
-  `apscheduler-boo`; `curl 127.0.0.1:8002/shabbat/status` identical pre/post restart.
-- `python3 scripts/server/check-dsh-freshness.py --selftest` → **6 PASS / selftest: OK**;
-  live → `nothing unarchived`, `secratary 0 min`, `zabz-tech 50.9 h quiet`, `zabz-yoga 52.9 h quiet`, rc=0.
-- `find ~/.dsh/sessions -name '*.zstd'` → 9 files, newest `2026-09-11 21:47`; cursor `sessions: 9`,
-  `savedAt 2026-09-14T01:55:48Z`. Nothing was ever unshipped.
-- `bash scripts/server/owner-attention-digest.sh` → the 0b numbers above; sentinel `6 of 12 failing`.
-- Commits on secratary `personal-secretary-mvp`: `afabf5d0` (v2), `534217c2`, `4dde29ab`, `53739081`;
-  branch `ops-archive-freshness-alarm` verified far-side.
 
 ## 2026-09-11 18:55 EDT (22:55Z) · ZABZ-TECH · The owner has been read nothing since 2026-07-19, and the cause is a kill switch the previous agent left in place
 
