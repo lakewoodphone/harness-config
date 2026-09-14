@@ -24,6 +24,7 @@
  *   $CEO_KERNEL_STATE/latest.json          the kernel's findings  (default ~/ceo-kernel-var)
  *   ~/.dsh-phone/probe.json                the phone path's verdict
  *   ~/.harness-config-autosync/status.json the harness-config sync
+ *   ~/.dsh-phone/phone-ui.json             the phone layer's own UI checks
  *
  * A reading that is missing or too old is reported as exactly that, never as health.
  */
@@ -38,6 +39,11 @@ const SOURCES = [
   { label: 'kernel findings', file: path.join(KERNEL_STATE, 'latest.json'), staleMinutes: 20 },
   { label: 'phone probe', file: path.join(os.homedir(), '.dsh-phone', 'probe.json'), staleMinutes: 20 },
   { label: 'config sync', file: path.join(os.homedir(), '.harness-config-autosync', 'status.json'), staleMinutes: 45 },
+  // The phone layer's UI checks. They exist because two layout defects reached the owner's phone on
+  // 2026-09-14 with nothing automatic noticing: the composer doubled into two rows of controls, and
+  // an agent's question could not be answered from the phone at all. Freshness here is daily
+  // (cron `30 5 * * *`), so the window is generous rather than tight.
+  { label: 'phone ui', file: path.join(os.homedir(), '.dsh-phone', 'phone-ui.json'), staleMinutes: 1560 },
 ];
 
 function readJson(file) {
@@ -68,7 +74,7 @@ function human(minutes) {
 
 /** Build the report. Pure enough to test: takes the three documents, returns text. */
 export function attentionReport(docs) {
-  const [kernel, probe, sync] = docs;
+  const [kernel, probe, sync, phoneUi] = docs;
   const lines = [];
 
   // 1. the kernel's findings: the only place the company's own checks are summarised
@@ -112,6 +118,16 @@ export function attentionReport(docs) {
                (stale ? '  <- STALE' : ''));
   } else {
     lines.push(`  config sync   no record at ${SOURCES[2].file}`);
+  }
+  if (phoneUi !== undefined) {
+    const age = ageMinutes(phoneUi);
+    const stale = age !== undefined && age > SOURCES[3].staleMinutes;
+    const verdict = phoneUi.ok === true ? 'pass' : phoneUi.ok === false ? 'FAIL' : String(phoneUi.skipped || 'no verdict');
+    lines.push(`  phone ui      ${verdict} ${human(age)}` +
+               (phoneUi.ok === false ? `  <- the phone's own controls are broken: ${phoneUi.composer?.summary || ''} ${phoneUi.question_card?.summary || ''}`.trimEnd() : '') +
+               (stale ? '  <- STALE, nothing is proving the phone layout' : ''));
+  } else {
+    lines.push(`  phone ui      no verdict at ${SOURCES[3].file}`);
   }
   lines.push('');
   lines.push('Read-only. Each reading carries the source and age above; a missing one is said out loud.');
