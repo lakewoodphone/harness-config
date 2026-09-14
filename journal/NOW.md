@@ -40,14 +40,26 @@ shards *and* every git ref, which is what stops two machines choosing the same n
   refused every `/api` call and WebSocket, because `profiles/web/cordis.patch.yml` restated the
   `connection` row's whole `config` and dropped `trustedHosts` — the only source of the `/api` fence's
   trusted authorities (P48b, done). Probe **15/15**; a real browser at 393x852 has the layer, the cost
-  pill and a working composer. **The gate's three deaths were its own starting shell** — `setsid nohup`
-  leaves a process in its login-session cgroup, and logind reaps the scope when that session ends — so
-  the engine and the gate are now systemd units in `/system.slice/` with `Restart=always` (P59, done;
-  L213). Two items stay open: a first run on a *new* client asks for a workspace (the P46 family), and
-  the company API has two supervisors fighting over it (P66).
+  pill and a working composer. Two items there stay open and named: a first run lands with no session
+  (P46), and the gate died once with no cause on the record (P59).
 
-- **The Kosher Waze DRN fleet is now manageable from the LPT portal, and it is BLOCKED ON MONEY, not
-  engineering** (H73). The staff page can see each DRN phone's state and liveness, read the profiles it
+- **Frontend hosting moves from Netlify to Cloudflare Workers Static Assets** (D71, H76, L213).
+  Netlify's allowance ran out and blocked every frontend release: it charges 15 credits per
+  production deploy against 300 free credits, i.e. **20 deploys a month**, for a repo that
+  deploys ~37 (measured: 16 successful production deploys in 13 days; bandwidth is only ~20
+  credits of the burn, so ~97% is the act of deploying). Cloudflare charges nothing for static
+  asset requests, our DNS is **already Cloudflare** (Netlify was only the origin), and the
+  artifact needs no rewriting. **Built and verified but NOT cut over** — the target was proved
+  by running the real Cloudflare runtime locally (`wrangler dev`, no account needed) against
+  the real build. Four Netlify semantics do not exist there and each was found by testing, not
+  reading: the `/*  /index.html 200` catch-all is rejected as an infinite loop and ignored, only
+  statuses 200/301/302/303/307/308 are legal (no 404 rule), external 200 proxies are refused,
+  and a 200 rewrite to `/index.html` becomes a **307 to `/`** that loses the router's path.
+  What is left needs the owner: a **Cloudflare API token** (none exists on any machine, only
+  tunnel tokens) and a DNS change per hostname. Rollback is moving the origin back.
+
+- **The Kosher Waze DRN fleet is now manageable from the LPT portal** (H73, D67-D70, L205-L211).
+  The staff page can see each DRN phone's state and liveness, read the profiles it
   is actually running, apply or lift lockdown, and lock a lost device — the owner's three stated needs
   for that fleet, entered from the portal as he decided (D19). Built, unit-tested (**122** fleet-api,
   **31** waze service), the backend deployed and its four new procedures verified live, and the UI driven
@@ -80,7 +92,7 @@ shards *and* every git ref, which is what stops two machines choosing the same n
 
 ## Id spaces, so a reference can be checked
 
-**H1-H73 · L1-L212 · P1-P65 · D1-D70 · W1-W38.** A bare number is ambiguous wherever the suffix repair
+**H1-H76 · L1-L213 · P1-P65 · D1-D71 · W1-W38.** A bare number is ambiguous wherever the suffix repair
 applied; the suffixed id in `index/entries.tsv` is the one to cite. (`L75` is referenced twice in old
 prose and has never existed — an INFO in `check`, left visible rather than papered over.)
 

@@ -12,7 +12,7 @@ becoming a `state/open-pain.md` row.
 | Kosher filter: browsing escalation route | `kosher-filter-ai` | `escalateToServerThreshold` is read by nothing; every `Decision.ESCALATE` still ends as block/cover. |
 | Search index | `harness-config/scripts/fsearch.py` | Recorded 45.34 s → 0.075 s; re-measure after any index change. |
 | The three stale checkouts | `ZABZ-TECH` 6 behind, `secratary` 1 behind on 2026-09-14 | Pull them before trusting a reading taken there. |
-| The company API has two supervisors (P66) | measured: 4 restarts in the 14:00 hour, 12 today, and a `kill -9` inside `secretary-startup.sh` | Pick one owner — systemd already is — then delete the cron line or reduce it to a check, and retire `~/secretary-api.pid`. A calm window, restart under observation. |
+| The phone's gate died once, unexplained (P59) | cadence cut to `*/2`; evidence in the entry | Record the gate's exit status in a wrapper, and give it a heartbeat the probe alarms on a *gap* from — absence, not current state. |
 | A first phone run lands with no session (P46) | `assets/mobile.css` and `plugin-mobile` are done | Read the workspace controller's client half, then seed a default session the way `plugin-windows` clears `dsh.sessions.current`. |
 
 ## Mine, waiting on a measurement before I claim it
