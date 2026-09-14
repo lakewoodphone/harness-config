@@ -110,12 +110,22 @@ ensure_client_plugin() {
   # absent from this host entirely, so the owner's phone had no cost pill and nothing said
   # so (measured 2026-09-14: the bundle list was [dsh-base, dsh-web-app, dsh-plugin-mobile]).
   # A keeper that watches one of two things is the trap; it must watch the list.
+  #
+  # THE NAME IS THE PACKAGE'S `name`, NOT THE DIRECTORY'S. The first version of this loop used
+  # `basename`, which for `packages/plugin-mobile` is `plugin-mobile` while the package — and
+  # the node_modules entry and the bundle-list string — is `dsh-plugin-mobile`. So the check
+  # never matched, the installer ran on EVERY pass, and this script reported
+  # "client plugin (re)installed" every two minutes about plugins that were already installed:
+  # a false claim in the log, found by running it rather than by reading it. The installer
+  # itself is idempotent, so nothing was damaged — the report was simply untrue, and a keeper
+  # whose reports cannot be trusted is worse than none.
   local profile="${DSH_HOME:-$HOME/.dsh}/profiles/web"
   [ -d "$profile" ] || return 0
   local pkgdir name rc=0
   for pkgdir in "$REPO_DIR/packages/plugin-mobile" "$REPO_DIR/packages/plugin-cost"; do
     [ -d "$pkgdir" ] || continue
-    name="$(basename "$pkgdir")"
+    name="$("$NODE" -e 'process.stdout.write(require(process.argv[1]).name)' "$pkgdir/package.json" 2>/dev/null)"
+    [ -n "$name" ] || { echo "client plugin has no readable name: $pkgdir"; rc=1; continue; }
     [ -e "$profile/node_modules/$name" ] && grep -q "\"$name\"" "$profile/package.json" 2>/dev/null && continue
     if bash "$REPO_DIR/scripts/install-client-plugin.sh" "$pkgdir" "$profile" >>"$STATE/plugin-install.log" 2>&1; then
       PLUGINS_CHANGED=1
