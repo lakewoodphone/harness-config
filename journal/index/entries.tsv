@@ -97,8 +97,9 @@ handoff	H87	87		2026-09-14 15:43 UTC	SECRATARY	open	## 2026-09-14 15:43 UTC · S
 handoff	H88	88		2026-09-14 15:47 UTC	ZABZ-YOGA	open	## 2026-09-14 15:47 UTC · ZABZ-YOGA · 2026-09-14 15:50 UTC - CORRECTION to H85: the first work session after the fix still failed, so the stall rate is unmeasured	log/handoff/2026-09.4.md	5	50	6a0ab7cbeb263a63
 handoff	H89	89		2026-09-14 15:49 UTC	ZABZ-YOGA	open	## 2026-09-14 15:49 UTC · ZABZ-YOGA · Bulk iPhone sourcing for the Waze fleet: research complete, one deadline-bound owner question raised, journal merge left broken	log/handoff/2026-09.4.md	51	95	1aa5e3398342a7ec
 handoff	H90	90		2026-09-14 15:50 UTC	ZABZ-YOGA	open	## 2026-09-14 15:50 UTC · ZABZ-YOGA · Bulk iPhone price baseline delivered; Swappa two-series error found and corrected	log/handoff/2026-09.4.md	96	144	80b78c4b5fd23d37
-handoff	H91	91		2026-09-14 15:54 UTC	ZABZ-YOGA	open	## 2026-09-14 15:54 UTC · ZABZ-YOGA · 2026-09-14 15:58 UTC - Journal integrity restored locally (217 ids renumbered), master was never polluted, integration deliberately not forced	log/handoff/2026-09.4.md	145	206	682699f5c2dd9579
+handoff	H91	91		2026-09-14 15:54 UTC	ZABZ-YOGA	open	## 2026-09-14 15:54 UTC · ZABZ-YOGA · 2026-09-14 15:58 UTC - Journal integrity restored locally (217 ids renumbered), master was never polluted, integration deliberately not forced	log/handoff/2026-09.4.md	145	205	682699f5c2dd9579
 handoff	H78a	78	a	2026-09-14 16:00 UTC	ZABZ-YOGA	open	## 2026-09-14 16:00 UTC · ZABZ-YOGA · The badge audited and hardened — the audit found a bug that made a healthy system read as broken, and the verifier I wrote to prove the badge had never actually run	log/handoff/2026-09.2.md	2530	2608	81a1c3358ef17a83
+handoff	H92	92		2026-09-14 16:12 UTC	ZABZ-TECH	open	## 2026-09-14 16:12 UTC · ZABZ-TECH · Atlas: work finished 09-09, USB written 09-10, undelivered and unpaid; customer chased it 09-14 and the system could not see the job	log/handoff/2026-09.4.md	206	263	b8fe051ee4a37e44
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.1.md	6	15	235a8e5a9717b921
 lessons	L1a	1	a	-	-	retracted	**L1a · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	069d95a6e4dafd47
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.1.md	16	22	bc5ceb76f28aec87
@@ -494,7 +495,8 @@ lessons	L224	224		2026-09-14	ZABZ-YOGA	open	**L224 · A platform can accept a co
 lessons	L225	225		2026-09-14	ZABZ-YOGA	open	**L225 · A marketplace price column is not what it looks like: Swappa's 'Avg Price' is ASKING, not sold, and misreading it corrupted a margin model twice in one day**	log/lessons/2026-09.2.md	104	133	469aec49b425b02e
 lessons	L226	226		2026-09-14	ZABZ-YOGA	open	**L226 · A price page can carry TWO series; a truncated extraction silently hands you the wrong one**	log/lessons/2026-09.2.md	134	168	3188c88e1183ba35
 lessons	L227	227		2026-09-14	ZABZ-YOGA	open	**L227 · journal.py append --body takes a FILE PATH or -, never inline prose**	log/lessons/2026-09.2.md	169	198	f760a4afc424487c
-lessons	L228	228		2026-09-14	ZABZ-YOGA	open	**L228 · Workflow results cap at ~50KB and truncate silently - agents must write to disk and return an index**	log/lessons/2026-09.2.md	199	211	7ebd59407b765886
+lessons	L228	228		2026-09-14	ZABZ-YOGA	open	**L228 · Workflow results cap at ~50KB and truncate silently - agents must write to disk and return an index**	log/lessons/2026-09.2.md	199	210	7ebd59407b765886
+lessons	L229	229		2026-09-14	ZABZ-TECH	open	**L229 · A checksum manifest's paths are relative to where it was generated - prove one path before verifying 31,882 of them**	log/lessons/2026-09.2.md	211	238	622eb76d97ac5876
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -567,7 +569,8 @@ pain	P69	69		2026-09-14	imported	open	## P69 — An index that fails at the end 
 pain	P70	70		2026-09-14	SECRATARY	open	## P70 — The badge's pill sits in the bottom-right corner of the phone, where a composer control can be	log/pain/2026-09.md	1963	1996	11b487d35d7fa541
 pain	P71	71		2026-09-14	ZABZ-YOGA	done	## P71 — The journal is mid-merge with 213 duplicate-id errors, so its integrity check no longer alarms on anything new	log/pain/2026-09.md	1997	2031	bcbd86aafd15dc83
 pain	P72	72		2026-09-14	ZABZ-YOGA	done	## P72 — 2026-09-14 - 230 journal entries exist only in working copies, in the shared repo nowhere	log/pain/2026-09.md	2032	2088	3577f01a4dea0e86
-pain	P73	73		2026-09-14	ZABZ-YOGA	open	## P73 — 2026-09-14 - The stall marker is gone but 2 of 3 sessions still exhaust the budget; the disease is elsewhere	log/pain/2026-09.md	2089	2143	c2e65ad04dae430e
+pain	P73	73		2026-09-14	ZABZ-YOGA	open	## P73 — 2026-09-14 - The stall marker is gone but 2 of 3 sessions still exhaust the budget; the disease is elsewhere	log/pain/2026-09.md	2089	2142	c2e65ad04dae430e
+pain	P74	74		2026-09-14	ZABZ-TECH	open	## P74 — A finished job with a customer waiting has no owner in this system	log/pain/2026-09.md	2143	2176	a12132a4da7d8c62
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
