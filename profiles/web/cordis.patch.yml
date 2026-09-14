@@ -40,9 +40,30 @@
   # Host Connection row, validated there, and injected into every served page. Values
   # below are half the defaults, so a restarted engine is picked up in ~2 s instead of
   # ~10+. A page reload is required after changing this (the Host injects it at boot).
+  #
+  # ---------------------------------------------------------------------------
+  # `trustedHosts` BELOW IS NOT DECORATION. DO NOT REMOVE IT WHEN EDITING `recovery`.
+  # ---------------------------------------------------------------------------
+  # A PATCH REPLACES THE TARGETED ROW'S WHOLE `config` — dsh-web-app's own bundle
+  # patch states that rule, and this row is the `/api` browser-trust fence's only
+  # source of trusted authorities. The shipped row reads
+  # `trustedHosts: !!js ctx.webRuntime.trustedHosts`, which is where `--trusted-host`
+  # lands. Restating `config` without that key left the fence with an EMPTY list, so
+  # every request whose Host was not loopback got `403 forbidden` on every `/api`
+  # call and every WebSocket upgrade — while documents kept serving, because the
+  # index route is not fenced. The page loaded and was a shell.
+  #
+  # Invisible on a workstation: its browser always uses a loopback Host, which the
+  # fence trusts by construction. Total on the phone, which reaches the engine
+  # through Tailscale Serve at the authority's name. Measured on secratary
+  # 2026-09-14 — same engine, same flags, only this file changed:
+  #   key absent    → POST /api/agentPresets/list + Host=<authority> → 403 forbidden
+  #   key restated  → POST /api/agentPresets/list + Host=<authority> → 401 unauthorized
+  # (401 is correct: the fence passed, only the cookie is missing.) PAIN P48.
   {
     id: 'connection',
     config: {
+      trustedHosts: !!js ctx.webRuntime.trustedHosts,
       recovery: {
         backoffBaseMs: 250,
         backoffFactor: 2,
