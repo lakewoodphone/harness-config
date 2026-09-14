@@ -1778,3 +1778,35 @@ be stated in the write-up, because "verified" on a locally-served build with a d
 
 **L160 · 2026-09-14 · An "unverified" tag is not a neutral result when it suppresses something that is true.**
 A state-law research stream had marked the Maryland Kids Code as *unverified* and told readers not to assert anything about it. Verified later, it is **in force, not enjoined**, no Fourth Circuit ruling exists in the case — the district court says so directly ("Pending such litigation, the Kids Code remains in effect") — and it turned out to be the *most favourable* children's statute examined, expressly excluding photographs and "the sale, delivery, or use of a physical product". The same pass corrected three other statuses: California SB 976's core was upheld by the Ninth Circuit (only the like-count provision was reversed), the California AADC split leaves the monitoring-signal duty in force while the data-minimisation restriction is enjoined, and Texas HB 1181 is not law at all. *Rules:* (1) "unverified" is a placeholder for work, not a finding — it reads as caution while suppressing a real answer, and here it took minutes to resolve by opening the statute; (2) when a *status* is the fact in question (in force / enjoined / died), the only acceptable sources are the statute, the docket or the opinion itself.
+
+
+**L180 · 2026-09-14 · When you make a feature optional, audit every path that assumed it existed.**
+I made the trigram index opt-in to cut storage 6×, and left `do_index` running
+`INSERT INTO tri(tri) VALUES('optimize')` unconditionally. Result: **every refresh died with
+`no such table: tri` — after completing a full 1,731 s walk and building the index.** The work
+succeeded and the run reported failure, so no freshness was recorded and a 6.3 GB index was left
+behind by a run the state file called broken.
+*Rules:* (a) "optional" is not a property of the creation site, it is a property of every reader,
+writer and maintenance call — grep the name and audit each one; (b) **fail loudly at the start, not
+after the expensive part** — a guard condition that can only fail is best checked before the work, so
+a misconfiguration costs seconds instead of half an hour; (c) a run that does the work and then
+reports failure is worse than a run that fails early, because it consumes the budget and leaves
+unverified artefacts.
+
+**L181 · 2026-09-14 · Choose an algorithm by measuring it, because the plausible one can be both
+slower and wrong.** Filename search was 2.795 s on 815,000 rows (a leading-wildcard `LIKE` cannot use
+an index). I built a reversed-name index so `%foo%` becomes a prefix match — a standard trick. Measured
+against the alternatives on the same data:
+
+| strategy | time | hits |
+|---|---|---|
+| old `name LIKE '%seagate%'` | 0.029 s | 6 |
+| **reversed-name prefix (mine)** | 0.111 s | **0** |
+| trigram over the full path | 0.000 s | 6 |
+
+It was **four times slower than the thing it replaced and returned nothing**, because `seagate` appears
+mid-name (`seagate-mobile-hdd-...`) and reversing the *needle* only matches suffixes. The trigram path
+index won and additionally matches mid-path fragments, which no name matching can do.
+*Rule:* when two strategies are plausible, build both and time them on the real corpus before choosing —
+and check the **hits**, not just the milliseconds, because a fast wrong answer passes a latency test.
+

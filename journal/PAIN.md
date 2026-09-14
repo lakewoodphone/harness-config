@@ -1282,3 +1282,23 @@ deliberate change to a shared integration, and the doc correction is mine to mak
 **What would fix it.** Two things, both small:
 1. `chatindex.py` should refuse to answer `0` results from an empty index — print `index empty (0 rows); run: chatindex ingest` instead. A refusal is a correct answer; a confident empty one is not.
 2. Either finish the ingest and have it print a verified row count, or delete `~/.fsearch/chats.db` so nothing trusts it. An index that is present but empty is worse than an index that does not exist.
+
+
+## P57 — An index that fails at the end of a 29-minute run records no freshness
+
+**Symptom.** The first scheduled refresh reported `FAILED in 1731.1 s` and wrote
+`last_failure_reason: sqlite3.OperationalError: no such table: tri` — *after* completing a full walk and
+building a 6.3 GB index. `refresh.py --check` therefore reported "no successful refresh has ever been
+recorded" while a perfectly usable index sat on disk, and a second partial index was left beside it.
+
+**Cost.** Half an hour of machine time per attempt, an unverified artefact, and a freshness signal that
+says nothing is working when most of it is. The cascade also left **two file indexes** (`lean.db` 2.5 GB
+from the interrupted build, `index.db` 6.3 GB from the failed one) so it was no longer obvious which the
+query path should read.
+
+**Fix (done).** The optimize calls now check that the table exists, the obsolete `tri` definition is out of
+the schema, the partial is retired, and the crash is verified gone by a scoped run on a real root.
+**Still open:** `refresh.py` should validate its inputs *before* the expensive walk (does the db exist, is
+the schema current, do the scripts parse), and it should refuse to leave a half-built index under a name
+the query path will pick up. One index per host, named explicitly, is the honest target.
+

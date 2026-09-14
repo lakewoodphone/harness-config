@@ -449,7 +449,8 @@ third party.
 *Built:* \server/app/frame_egress.py\ — downscale to the 1024px long edge, apply EXIF orientation before dropping the tag
 that carried it, normalise to RGB JPEG, strip all metadata, and report hashes rather than pixels so the audit trail can
 prove what was sent without keeping it. An undecodable frame is a **refusal**, never a pass-through, because a picture we
-cannot scrub must not be sent. Wired into \eview_screenshot_image\ so every provider benefits; commit \42bd0f1\.
+cannot scrub must not be sent. Wired into \
+eview_screenshot_image\ so every provider benefits; commit \42bd0f1\.
 *Measured:* \pytest tests/test_frame_egress.py\ -> **10 passed** (tall-frame geometry, no upscaling, EXIF gone, orientation
 applied, grayscale/PNG normalised, refusal on unreadable input, deterministic hashes, clamped edge limits).
 *Why it matters:* it is the rare change that improves all three things the owner asked for simultaneously — cheaper,
@@ -487,3 +488,16 @@ The dead-end the account plan was stuck behind is fixed and running on test. Bot
 - live routing — `laptopPreference.getMy` answers **401** and is registered (404 would mean missing), the route `/customer-portal/computer-finder` returns 200 serving the new bundle.
 *Also:* `tsc --noEmit` clean both packages, ESLint clean on every file touched, and 10/10 on the new `laptop-preference.router.test.ts`.
 *Method worth keeping:* when a container runs baked-in code with no volume mounts (`docker inspect --format '{{json .Mounts}}'` → `[]`), a `prisma migrate deploy` run against it reads the **image's** migration folder and silently reports "no pending migrations". My first attempt did exactly that and said "up to date" while the migration was not applied. The deploy has to rebuild the image first; the migration then belongs to the new image.
+
+
+**W34 · 2026-09-14 · Four self-inflicted defects found by measuring the artefact, and one of them was
+deleting the biggest conversation in the archive.** In one session the search work produced, and then
+caught, each of these by measuring rather than assuming: an index that stored the same 2.19 GB of text
+twice (10.87 GB total, now ~1.8 GB); a reader that was O(n²) and burned 1,525 s of CPU with zero output on
+the 1,050 MB chat log; a size guard that prevented that OOM by *throwing away the line*, which held the
+largest conversation (recovering it added **+27%**, 4,619 messages); and a `schtasks` command that would
+have failed on every run because `>>` needs a shell. Plus, after the fact, a torn-tail flag I had silently
+broken (648 truncated sessions reported as "ok") and an opt-in change that made every refresh crash after
+doing its work. Every one of these was found by comparing a claim against a measurement — CPU against wall
+time, size against contents, registered command against intended command — not by reading code.
+
