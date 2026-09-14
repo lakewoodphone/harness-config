@@ -76,3 +76,6 @@ being open by being corrected, not by being deleted here. A problem that is done
 | P69 | An index that fails at the end of a 29-minute run records no freshness | Half an hour of machine time per attempt, an unverified artefact, and a freshness signal that says nothing is working when most of it is. The cascade also left **two file indexes** (`lean.db` 2.5 GB f |  |
 | P70 | The badge's pill sits in the bottom-right corner of the phone, where a composer control can be |  |  |
 | P73 | 2026-09-14 - The stall marker is gone but 2 of 3 sessions still exhaust the budget; the disease is elsewhere |  |  |
+| P74 | A finished job with a customer waiting has no owner in this system |  |  |
+| P75 | The camera evidence half of the intrusion response is dead, and it is one credential |  |  |
+| P76 | 82 unavailable automations are one retired generation, so every count from this estate is inflated |  |  |
