@@ -82,3 +82,8 @@ being open by being corrected, not by being deleted here. A problem that is done
 | P78 | 1,836 lines of screenshot accountability that no code path can reach, and no test noticed | A shipped-looking feature that has never run, in the one place the product promised accountability to a parent. Any claim that the app takes reviewable screenshots is currently false. |  |
 | P79 | A parent who forgets their password has no way back in, and the site is about to invite the public | Today it is survivable because accounts are created by the shop at the bench. The moment the customer website ships, one forgotten password is a permanent support ticket and an abandon point — and the |  |
 | P80 | The LPT identity surface is one non-rotatable shared secret, and its portal is off in production |  |  |
+| P81 | Tailscale wedged on ZABZ-YOGA: NoState with no state file, needs a reboot |  |  |
+| P82 | lpt-hub production sync dead 18 days: no cron, and its source dir does not exist |  |  |
+| P83 | No automatic outage alert reaches the owner: SMS kill switch, GV dead, badge client unbuilt |  |  |
+| P84 | Authority DB: 3.76 GB with lock flapping, 326 stale-key rows, and a conflicted production checkout |  |  |
+| P85 | P: desktop personal-secretary-mvp repo diverged - two task installers stuck old; Cloudflare git flaky |  |  |

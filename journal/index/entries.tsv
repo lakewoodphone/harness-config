@@ -103,7 +103,8 @@ handoff	H94	94		2026-09-14 16:00 UTC	ZABZ-YOGA	open	## 2026-09-14 16:00 UTC · Z
 handoff	H92	92		2026-09-14 16:31 UTC	ZABZ-YOGA	open	## 2026-09-14 16:31 UTC · ZABZ-YOGA · 2026-09-14 16:40 UTC - Owner queue audited: 13 pending, #8 mis-filed and resolved, #19 has a deadline tomorrow	log/handoff/2026-09.4.md	206	244	2cbb991588dc579e
 handoff	H93	93		2026-09-14 17:06 UTC	ZABZ-YOGA	open	## 2026-09-14 17:06 UTC · ZABZ-YOGA · 2026-09-14 17:20 UTC - Self-audit handoff: 14 fixes deployed and verified, the work loop still fails at 5/5 while acting every step	log/handoff/2026-09.4.md	245	317	b44e9859cad25b8c
 handoff	H95	95		2026-09-14 17:15 UTC	ZABZ-YOGA	open	## 2026-09-14 17:15 UTC · ZABZ-YOGA · 2026-09-14 17:40 UTC - Final handoff: 14 fixes live and verified; the work loop needs dispatch-time enforcement	log/handoff/2026-09.4.md	398	462	d04b1fcb6d3c176b
-handoff	H96	96		2026-09-14 21:40 UTC	ZABZ-YOGA	open	## 2026-09-14 21:40 UTC · ZABZ-YOGA · DeepSeek flash outage handled: bridge reverted, 3-tier failover live, desktop audit still open	log/handoff/2026-09.4.md	463	498	309a1f6a413843a7
+handoff	H96	96		2026-09-14 21:40 UTC	ZABZ-YOGA	open	## 2026-09-14 21:40 UTC · ZABZ-YOGA · DeepSeek flash outage handled: bridge reverted, 3-tier failover live, desktop audit still open	log/handoff/2026-09.4.md	463	497	309a1f6a413843a7
+handoff	H97	97		2026-09-14 21:45 UTC	ZABZ-YOGA	open	## 2026-09-14 21:45 UTC · ZABZ-YOGA · H: scheduled-task console-window popups stopped on ZABZ-YOGA and ZABZ-TECH	log/handoff/2026-09.4.md	498	534	21c7b6b801ffc983
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	log/lessons/2026-09.1.md	6	15	235a8e5a9717b921
 lessons	L1a	1	a	-	-	retracted	**L1a · No claim without provenance. No trend without freshness**	log/lessons/2026-09.md	6	15	069d95a6e4dafd47
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	log/lessons/2026-09.1.md	16	22	bc5ceb76f28aec87
@@ -511,7 +512,8 @@ lessons	L236	236		2026-09-14	imported	open	**L236 · 2026-09-14 · Text delivere
 lessons	L237	237		2026-09-14	imported	open	**L237 · 2026-09-14 · When an audit finds a security defect, reproduce the exact trigger before writing the severity — the loose phrasing changes what the fix has to be**	log/lessons/2026-09.2.md	416	431	e48fc065d334e8ca
 lessons	L238	238		2026-09-14	ZABZ-YOGA	open	**L238 · 2026-09-14 - STOP SEARCHING was demonstrably present in the prompt and demonstrably ignored**	log/lessons/2026-09.2.md	432	490	c2ba53859ee7a5c1
 lessons	L239	239		2026-09-14	ZABZ-YOGA	open	**L239 · 2026-09-14 - The offered tool list does not constrain what the model calls, so enforcement must be at dispatch**	log/lessons/2026-09.2.md	491	534	1eb36025a210411d
-lessons	L240	240		2026-09-14	ZABZ-YOGA	open	**L240 · A model provider is a single point of failure until the ladder exists (2026-09-14 DeepSeek flash outage)**	log/lessons/2026-09.2.md	535	553	80dc4c44e878c61a
+lessons	L240	240		2026-09-14	ZABZ-YOGA	open	**L240 · A model provider is a single point of failure until the ladder exists (2026-09-14 DeepSeek flash outage)**	log/lessons/2026-09.2.md	535	552	80dc4c44e878c61a
+lessons	L241	241		2026-09-14	ZABZ-YOGA	open	**L241 · Scheduled-task console windows: -WindowStyle Hidden still pops; wrap in wscript for SW_HIDE at creation**	log/lessons/2026-09.2.md	553	583	e1c9e40c41c29bcb
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -595,7 +597,8 @@ pain	P80	80		2026-09-14	imported	open	## P80 — The LPT identity surface is one
 pain	P81	81		2026-09-14	ZABZ-YOGA	open	## P81 — Tailscale wedged on ZABZ-YOGA: NoState with no state file, needs a reboot	log/pain/2026-09.md	2371	2377	182ffbf01be508b8
 pain	P82	82		2026-09-14	ZABZ-YOGA	open	## P82 — lpt-hub production sync dead 18 days: no cron, and its source dir does not exist	log/pain/2026-09.md	2378	2384	cc9d2cb566a1b2d8
 pain	P83	83		2026-09-14	ZABZ-YOGA	open	## P83 — No automatic outage alert reaches the owner: SMS kill switch, GV dead, badge client unbuilt	log/pain/2026-09.md	2385	2391	231d70d0b31d4d43
-pain	P84	84		2026-09-14	ZABZ-YOGA	open	## P84 — Authority DB: 3.76 GB with lock flapping, 326 stale-key rows, and a conflicted production checkout	log/pain/2026-09.md	2392	2399	d1db00fe960e7bb3
+pain	P84	84		2026-09-14	ZABZ-YOGA	open	## P84 — Authority DB: 3.76 GB with lock flapping, 326 stale-key rows, and a conflicted production checkout	log/pain/2026-09.md	2392	2398	d1db00fe960e7bb3
+pain	P85	85		2026-09-14	ZABZ-YOGA	open	## P85 — P: desktop personal-secretary-mvp repo diverged - two task installers stuck old; Cloudflare git flaky	log/pain/2026-09.md	2399	2419	5403a7899596ad04
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
@@ -701,7 +704,8 @@ decisions	D83	83		2026-09-14	SECRATARY	open	**D83 · 2026-09-14 · L217 is the p
 decisions	D84	84		2026-09-14	ZABZ-YOGA	open	**D84 · 2026-09-14 · Bulk iPhone supply for the Kosher Waze line: iPhone 11 standard, B-Stock/GameStop as the channel, overseas rejected on FCC not duty.**	log/decisions/2026-09.md	1301	1367	b5ad68f4a1145d9d
 decisions	D85	85		2026-09-14	ZABZ-YOGA	open	**D85 · 2026-09-14 · 2026-09-14 - The owner passes on lot 67654 and states the standing device-sourcing policy.**	log/decisions/2026-09.md	1368	1401	f432fbb410de856e
 decisions	D86	86		2026-09-14	imported	open	**D86 · 2026-09-14 · The filter gets its own website on an LPT subdomain, signing in with LPT identity through a server-side BFF — and a missing configuration value must close a door, never open one.**	log/decisions/2026-09.md	1402	1441	42681d589ad01b7f
-decisions	D87	87		2026-09-14	ZABZ-YOGA	open	**D87 · 2026-09-14 · Outage response 2026-09-14: bridge, 3-tier ladder, fail-fast.**	log/decisions/2026-09.md	1442	1454	503fdc581626ef29
+decisions	D87	87		2026-09-14	ZABZ-YOGA	open	**D87 · 2026-09-14 · Outage response 2026-09-14: bridge, 3-tier ladder, fail-fast.**	log/decisions/2026-09.md	1442	1453	503fdc581626ef29
+decisions	D88	88		2026-09-14	ZABZ-YOGA	open	**D88 · 2026-09-14 · D: scheduled tasks run through a hidden wscript launcher.**	log/decisions/2026-09.md	1454	1474	01a916fa60b0f3b8
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	log/wins/2026-09.md	6	16	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	log/wins/2026-09.md	17	25	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	log/wins/2026-09.md	26	35	e197c3a2a5bee72e
@@ -774,4 +778,5 @@ wins	W61	61		2026-09-14	ZABZ-YOGA	open	**W61 · 2026-09-14 · 2026-09-14 - The w
 wins	W62	62		2026-09-14	imported	open	**W62 · 2026-09-14 · Four self-inflicted defects found by measuring the artefact, and one of them was deleting the biggest conversation in the archive.**	log/wins/2026-09.md	1849	1862	e9b02cde5ac30759
 wins	W63	63		2026-09-14	imported	open	**W63 · 2026-09-14 · A year of the owner's business conversation is now searchable, and nothing was.**	log/wins/2026-09.md	1863	1876	950327d829733f70
 wins	W64	64		2026-09-14	imported	open	**W64 · 2026-09-14 · The filter's first full state audit found a live-adjacent security defect and a product that is far more built than any document said — and both were proved rather than asserted.**	log/wins/2026-09.md	1877	1899	76c8c3d3adbd3686
-wins	W65	65		2026-09-14	ZABZ-YOGA	open	**W65 · 2026-09-14 · Outage response: 20-minute bridge, clean revert, a verified 3-tier ladder.**	log/wins/2026-09.md	1900	1910	dade9959de91a179
+wins	W65	65		2026-09-14	ZABZ-YOGA	open	**W65 · 2026-09-14 · Outage response: 20-minute bridge, clean revert, a verified 3-tier ladder.**	log/wins/2026-09.md	1900	1909	dade9959de91a179
+wins	W66	66		2026-09-14	ZABZ-YOGA	open	**W66 · 2026-09-14 · W: 35 scheduled-task console windows silenced on two Windows machines, behaviour unchanged.**	log/wins/2026-09.md	1910	1922	62f4c82ba464fcb6
