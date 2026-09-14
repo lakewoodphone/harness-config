@@ -210,7 +210,16 @@ def _rlb_bounded(path: Path, limit: int) -> tuple:
 
 
 def atomic_write(path: Path, text: str) -> None:
-    """Write through a temp file in the same directory, then os.replace."""
+    """Write through a temp file in the same directory, then os.replace.
+
+    Every write is LF, unconditionally. A legacy source with CRLF line endings (one of
+    the six flat files had them) otherwise reproduces its carriage returns inside the
+    entry file, which `check` then reports as an ERROR on a tree the tool itself wrote.
+    Line endings are not content: normalising them here cannot lose an entry, and the
+    byte-preservation proof compares whitespace-normalised text for exactly this reason.
+    """
+    if "\r" in text:
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.parent / (path.name + ".tmp" + str(os.getpid()))
     with open(tmp, "wb") as fh:
@@ -637,7 +646,7 @@ def entry_bytes(entry: dict) -> str:
         parts.append(body)
     parts.append("")
     parts.append(meta_line)
-    return "\n".join(parts) + "\n"
+    return ("\n".join(parts) + "\n").replace("\r\n", "\n").replace("\r", "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -1368,10 +1377,25 @@ def cmd_newest(args) -> int:
         note("unknown kind %s; one of %s" % (kind, ", ".join(KINDS)))
         return 2
     n = getattr(args, "n_opt", None) or args.n or 1
-    entries, _source, _fresh = catalog()
-    rows = [e for e in entries if e["kind"] == kind]
-    rows.sort(key=lambda e: (e.get("date") or "", e.get("num") or 0), reverse=True)
-    rows = rows[:max(1, n)]
+    n = max(1, n)
+    rows = None
+    # Fast path: pick the newest ids from the cache and open only those files. Going
+    # through catalog() reads every entry to print two of them, which made `newest` the
+    # slowest read in the tool (397 ms against a 200 ms target) for the *cheapest*
+    # question anyone asks. The cache is a cache; when it is not fresh, fall back.
+    if cache_fresh():
+        try:
+            cand = [r for r in _from_tsv(index_dir() / "entries.tsv") if r["kind"] == kind]
+            cand.sort(key=lambda e: (e.get("date") or "", e.get("num") or 0), reverse=True)
+            got = [load_one(r["id_full"], kind) for r in cand[:n]]
+            rows = [e for e in got if e]
+        except Exception:
+            rows = None
+    if rows is None:
+        entries, _source, _fresh = catalog()
+        rows = [e for e in entries if e["kind"] == kind]
+        rows.sort(key=lambda e: (e.get("date") or "", e.get("num") or 0), reverse=True)
+        rows = rows[:n]
     if getattr(args, "json", False):
         print(json.dumps({"kind": kind, "count": len(rows),
                           "entries": [_json_entry(e, with_body=True) for e in rows]}, indent=1))
@@ -1981,18 +2005,30 @@ def cmd_check(args) -> int:
 
     if getattr(args, "fix", False):
         fixed = 0
-        for rel, kind in [(e["file"], e["kind"]) for e in entries]:
-            fpath = _path_of(rel)
+        for e in entries:
+            fpath = _path_of(e["file"])
             if not fpath.is_file():
                 continue
             raw = fpath.read_bytes().decode("utf-8", errors="replace")
-            if "\r" in raw:
-                atomic_write(fpath, raw.replace("\r\n", "\n").replace("\r", "\n"))
-                fixed += 1
+            need = "\r" in raw
+            if not need:
+                kv = re.search(r"<!--\s*j2\s+(.*?)-->", raw)
+                got = re.search(r"sha=(\S+)", kv.group(1)) if kv else None
+                if got and got.group(1) != entry_hash(effective_heading(e), e.get("body", "")):
+                    need = True     # a stale sha: re-emitting recomputes it from the body
+            if need:
+                # Re-emit through the tool's own writer so the sha, the line endings and
+                # the meta line are all canonical. Doing this with a bare text replace
+                # fixed the CRLF and left the sha stale, which turned one ERROR into
+                # another -- the repair has to go through the same path a write does.
+                fresh_entry = parse_entry(fpath, e["kind"])
+                if fresh_entry:
+                    atomic_write(fpath, entry_bytes(fresh_entry))
+                    fixed += 1
         if fixed:
-            errors = [e for e in errors if "CRLF" not in e]
+            errors = [e for e in errors if "CRLF" not in e and "does not match the body" not in e]
             rebuild_cache()
-            infos.append("--fix: rewrote %d file(s) with LF line endings" % fixed)
+            infos.append("--fix: re-emitted %d file(s) in canonical form (LF, recomputed sha)" % fixed)
         else:
             infos.append("--fix: nothing mechanically fixable (dedupe/repair-ids are separate "
                          "commands and never run implicitly)")
