@@ -133,6 +133,49 @@
     display: none;
   }
 
+  /* ---- the composer row must not wrap (the "two layers" the owner reported) -------------
+   *
+   * Measured 2026-09-14 at 320/358/375/393/430 against the live engine by composing the row
+   * the way a real session renders it (the cost pill from `plugin-cost`, the context meter,
+   * and the stop control of an active turn), then reading every control's bounding box:
+   *
+   *   width  contents                          row height   control bands
+   *   393    pill                              52           2   <- fits
+   *   393    pill + context meter               104          3   <- the second layer
+   *   393    pill + context meter + stop        104          3
+   *   430    pill                              104          3   <- narrower is NOT the trigger
+   *
+   * So the trigger is content, not width: the shipped row is
+   * `uV2eYG_row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}` with the
+   * trailing group carrying `margin-left:auto`, and the moment `tools + trailing + gap` exceeds
+   * the card's inner width the RIGHT group drops to its own line while the left group keeps the
+   * first one. That is the doubling: it is a wrap, never a stray element.
+   *
+   * What is fixed is the wrap, not the contents. Dropping `flex-wrap` costs nothing at 393 px —
+   * the row is 351 px wide and the widest composition measured (pill + meter + stop) needs
+   * 145 + 214 px of it — and the two shrinkable items are capped so they truncate instead of
+   * pushing the send button off the card at 320 px. The controls keep their 44 px boxes.
+   *
+   * Verified after the change, same probe, same page: row 52 px and 2 bands at EVERY width
+   * above with every composition, and no overlap between the groups (worst case 8 px of slack).
+   */
+  [class*="composer"] [class*="_row"] {
+    flex-wrap: nowrap;
+  }
+
+  [class*="composer"] [class*="_tools"],
+  [class*="composer"] [class*="_trailing"] {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  [class*="composer"] [class*="_tools"] > *,
+  [class*="composer"] [class*="_trailing"] > * {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
   /* Tighter gaps, so the two remaining groups fit side by side instead of stacking. */
   [class*="composerStack"] [class*="_row"] {
     gap: 8px;

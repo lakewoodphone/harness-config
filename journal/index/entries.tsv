@@ -257,7 +257,8 @@ lessons	L209	209		2026-09-14	imported	open	**L209 · 2026-09-14 · Bound the con
 lessons	L210	210		2026-09-14	imported	open	**L210 · 2026-09-14 · A build script that reports success may not have rebuilt from the code you think**	log/lessons/2026-09.md	2795	2809	ce304ee75cdfd960
 lessons	L211	211		2026-09-14	imported	open	**L211 · 2026-09-14 · When the platform is blocked, build the verification path instead of waiting — and say which artifact you verified**	log/lessons/2026-09.md	2810	2822	7a06e92edbfa2174
 lessons	L212	212		2026-09-14	ZABZ-YOGA	open	**L212 · Piping a body through PowerShell double-encodes it; keep piped bodies ASCII and check the stored bytes**	log/lessons/2026-09.md	2823	2844	04096132940b4282
-lessons	L213	213		2026-09-14	ZABZ-YOGA	open	**L213 · Run the target runtime against the real artifact before a hosting cutover: four Netlify semantics do not exist on Cloudflare**	log/lessons/2026-09.md	2845	2883	fda7c12bc76aeff0
+lessons	L213	213		2026-09-14	ZABZ-YOGA	open	**L213 · Run the target runtime against the real artifact before a hosting cutover: four Netlify semantics do not exist on Cloudflare**	log/lessons/2026-09.md	2845	2882	fda7c12bc76aeff0
+lessons	L214	214		2026-09-14	SECRATARY	open	**L214 · The composer's two layers were flex-wrap, not width — composing the real DOM beat reading the CSS**	log/lessons/2026-09.md	2883	2947	fa2b100ee1916636
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
@@ -322,7 +323,8 @@ pain	P61	61		2026-09-14	imported	open	## P61 — The company has delivered nothi
 pain	P62	62		2026-09-14	imported	open	## P62 — Re-ingesting after a parser change can silently empty an index	log/pain/2026-09.md	1506	1526	a042ab92f05e737e
 pain	P63	63		2026-09-14	imported	open	## P63 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)	log/pain/2026-09.md	1527	1622	7a796f34b814490d
 pain	P64	64		2026-09-14	ZABZ-YOGA	open	## P64 — Netlify deploy credits block every frontend release	log/pain/2026-09.md	1623	1652	6856c705c28e9978
-pain	P65	65		2026-09-14	ZABZ-YOGA	open	## P65 — The "authoritative" deploy doc stated a fact that is false about the Netlify webhook	log/pain/2026-09.md	1653	1678	dc4ca459ca7a58b5
+pain	P65	65		2026-09-14	ZABZ-YOGA	open	## P65 — The "authoritative" deploy doc stated a fact that is false about the Netlify webhook	log/pain/2026-09.md	1653	1677	dc4ca459ca7a58b5
+pain	P66	66		2026-09-14	SECRATARY	open	## P66 — The composer doubled the moment a session had usage, and the earlier fix removed the wrong thing	log/pain/2026-09.md	1678	1724	d46d5c91ba9aea4b
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
