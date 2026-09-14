@@ -548,7 +548,8 @@ lessons	L257	257		2026-09-14	ZABZ-TECH	open	**L257 · Incoming used-iPhone QC or
 lessons	L258	258		2026-09-14	ZABZ-TECH	open	**L258 · Three inherited research prices were unreproducible when opened (112.50, 144, 1.00 dollars): a number in the pipeline doc is only as good as the last time someone opened the page it came from**	log/lessons/2026-09.2.md	1076	1100	4d27925b5429bbd7
 lessons	L259	259		2026-09-14	ZABZ-TECH	open	**L259 · A channel is only the value lane if you measure its price at the quality bar you will actually buy at**	log/lessons/2026-09.2.md	1101	1137	f0e1b067b67fa345
 lessons	L260	260		2026-09-14	ZABZ-TECH	open	**L260 · An owner-queue row's number is a timestamped claim, not a fact - re-read it live before repeating it (queue #9's Telnyx balance was stale by 5 days and wrong in the alarming direction)**	log/lessons/2026-09.2.md	1138	1160	baa8fed0163cafce
-lessons	L261	261		2026-09-14	ZABZ-TECH	open	**L261 · Uline served HTTP 200 with a bot-challenge page and the extractor invented plausible rows for it: check the page title before trusting an extracted number**	log/lessons/2026-09.2.md	1161	1188	7698aa8dd43e7ebe
+lessons	L261	261		2026-09-14	ZABZ-TECH	open	**L261 · Uline served HTTP 200 with a bot-challenge page and the extractor invented plausible rows for it: check the page title before trusting an extracted number**	log/lessons/2026-09.2.md	1161	1187	7698aa8dd43e7ebe
+lessons	L262	262		2026-09-14	ZABZ-TECH	open	**L262 · A 500 with no WWW-Authenticate is a refusal of the source, not of the credentials**	log/lessons/2026-09.2.md	1188	1234	aa395572681bbd83
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	log/pain/2026-09.md	6	25	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	log/pain/2026-09.md	26	48	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	log/pain/2026-09.md	49	66	fab2dc6c56d0a427
