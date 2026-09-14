@@ -291,7 +291,7 @@ answering `not_office` honestly instead of guessing.
 *Depends on:* the owner granting the iOS HA app location permission — currently `Not determined`, which is the root cause
 of the dead `device_tracker.iphone_15_2`.
 
-**D39 · 2026-09-12 · A verdict is cached against the thing it is about, and an unverified allow is a defect, not a bug.**
+**D39 · 2026-09-14 · A verdict is cached against the thing it is about, and an unverified allow is a defect, not a bug.**
 Found and fixed in the kosher filter's browser lane: per-image ML verdicts were stored in the **domain**-keyed broker cache
 and returned `safe` early on a hit, so on an image CDN the first SAFE picture flipped the whole host to ALLOW for five
 minutes and every later picture was revealed unclassified. A cached domain ALLOW is no longer sufficient to reveal an
@@ -300,7 +300,7 @@ image, and an unjudgeable picture no longer writes a domain DENY that reached th
 least as specific as the claim**; pixels by content hash, hosts by hostname, pages by URL. Any future cache in this
 product is measured against that sentence.
 
-**D40 · 2026-09-12 · The cover is recoverable; the placeholder is not — so bytes are never replaced on uncertainty.**
+**D40 · 2026-09-14 · The cover is recoverable; the placeholder is not — so bytes are never replaced on uncertainty.**
 Continuing the same review: the proxy still forwards image bodies unchanged, and the injected CSS blur is what covers
 them until a verdict arrives. Byte-level placeholder substitution is deliberately **deferred**, and the guard-rail is
 recorded so it is not silently re-decided later: a placeholder may follow only a **positive DENY**, never "unknown" or
@@ -308,7 +308,7 @@ recorded so it is not silently re-decided later: a placeholder may follow only a
 *Impact:* the tempting quick win would convert a recoverable cover into an unrecoverable one on every image the cascade
 cannot reach in time, turning a single false positive into a permanently broken page.
 
-**D41 · 2026-09-12 · The kosher filter's calibration question goes to the owner as one money question, with the free path first.**
+**D41 · 2026-09-14 · The kosher filter's calibration question goes to the owner as one money question, with the free path first.**
 The 2026-09-11 re-analysis removed the need to train a model, which changed the funding question that had been sitting open
 as `A-BACK-014` ("fund a modesty model, ~$1,200"). What remains is ground truth: no labelled frames exist, so every
 threshold is unverified (P45). The honest sequence is in-house first — build the harness, label ~200 frames in about an
@@ -517,3 +517,18 @@ Owner's words: *"there are different ways fleets. There is the lpt general one f
 *Decision:* the LPT portal is where staff manage fleets. The standalone `waze-mdm-fleet-dashboard` container on the MDM host is **not** an entry point — the owner did not know it existed, and "some random website" is exactly what it is. It stays at most as an operator/backend tool, and nothing should be built that requires a human to go there.
 *Consequence for what was already built:* the staff page I added at `/admin/waze-fleet` is on the right side of this decision and should grow into that role; the old console should not be duplicated or surfaced.
 *Also established (measured, not assumed):* the fleet is **not** homogeneous. `fleet_devices.site` carries five values — `lakewood` (58), `lpt` (2), `monsey` (1), `baltimore` (1), `chicago` (2) — and **only `site='lpt'` has Telnyx SIMs (2 of 65 devices)**. So data caps, usage, and the customer portal panel apply to the LPT product fleet only; the other sites are MDM-managed phones with no cellular data through this system.
+
+**D50 · 2026-09-14 · The tiered escalation is the architecture, and privacy is engineered and audited rather than offered as a choice.**
+The owner's answer, verbatim: *"Don't we have a tiered system where it tries on device, and if not, it goes to our servers, which usually send it to a 3rd party api for cost, and then attracts it and audits it and gets better over time of the whole thing And as for privacy, so we have to find very cheap 3rd party apis that actually can provide privacy or we can have our model scrub the pictures before they get sent, or other things, analyzes and audit this very well, and research the top market options and figure it out"*.
+
+*What that settles:* the open question "may family screenshots leave the phone?" is **not his to answer the way I asked it**. Escalation on-device → our server → third-party API is the architecture he already holds in his head, the third party is a **cost** decision made by *the server*, and privacy is to be **engineered** — verifiable zero-retention terms where they exist, and/or our own model scrubbing the frame before it is sent — then **audited** so the whole thing improves. So: no more asking him to pick a privacy posture; that question is closed by this instruction.
+
+*Verified state of the tiering, so this entry is not another confident memory:* tier 1 exists and was worked on today. The **client is one tier deep** — `CommunityContentProfiles.escalateToServerThreshold` is defined, clamped and serialized, and is **read by nothing**; every `Decision.ESCALATE` in the Android app terminates in "block/cover" (a fail-closed cover, not a question asked of anyone). The **server half is already mature**: `app/services/ai_gateway.py` speaks OpenAI-compatible chat completions to openai/anthropic/google/openrouter with per-provider keys and an exclusion list, `smart_router.py` carries per-model `$/Mtok` and picks the cheapest capable route, `ai_spend_tracker.py` accounts spend, and vision callers already exist (`browser_vision.py`, `board_photo_analyzer.py`, `sms_media.py`). **What is missing is the wire between them**, not a provider.
+
+*Consequence for the next build:* build the escalation wire — an authenticated frame-escalation route on the authority, the local scrub that runs before anything is sent, a per-frame cost/quota record, and the audit that reads it. The vendor survey (research 021) is an **input to a server-side route**, so the default provider ships behind a config key and a provider swap never needs a client release. Client-side, `escalateToServerThreshold` gains a consumer or gets deleted — a knob nothing reads is worse than no knob, because it reads as a capability.
+
+**D51 · 2026-09-14 · CORRECTION to D50: the tiering is far more built than I said — it is the browsing path that is one tier deep.**
+D50 recorded, from memory and a partial read, that *"the client is one tier deep"* and described the server half as "provider routing" in the abstract. Read properly the same day, the broker is **already three-tiered for screenshots**: `POST /audit/screenshot` (`server/app/routers/screenshots.py:446`) decodes the phone's JPEG and runs `review_screenshot_image` **synchronously**, and that function implements a real provider chain — `ollama`, OpenAI-compatible, `anthropic`, `gemini`, `clip` — chosen by `settings.screenshot_review_provider` with schema validation and a fail-closed `provider="none"` (`screenshot_review.py:34`, `:363`, `:411`). Every review row already stores the answering `provider`, the confidence, the categories and the reason, the image is encrypted at rest or deleted per `screenshot_retention_days`, and per-tenant usage is counted.
+*What is actually missing, and it is much narrower:* (1) the **browsing** cascade's `ESCALATE` never leaves the device — `escalateToServerThreshold` is read by nothing and every `Decision.ESCALATE` ends as block/cover; (2) there is **no scrub before egress** — the bytes the phone sends are the bytes the third party receives; (3) there is **no per-image price** on the vision route, so provider cost is invisible; (4) **provider terms are a config string, not a gate**; and (5) the human verdicts already being produced (`/self/audit/screenshot_reviews/{id}/declare_clean`, admin `dismiss`/`escalate`) are **free in-distribution labels that nothing yet turns into an accuracy number**.
+*Why this correction is worth its own entry:* my wrong version would have sent the next build to write a provider abstraction that already exists, and it is the same failure as the 2026-09-11 false crisis — a confident report from an unverified read. The rule it re-proves (`L156`, `L154`): read the code before describing it, and when a memory and the source disagree, the source wins. Full detail with line numbers in `kosher-filter-ai/docs/research/021-tiers-and-privacy-2026-09-14.md` Part One.
+

@@ -740,7 +740,7 @@ It costs nothing *yet* only because no customer is running it.
 labelled in-house — about an hour of a person's time, and the shop's own traffic is the distribution that matters, since
 no public dataset matches it. 200 frames with ~40 positives per attribute puts the floor near 2.4%, enough to learn
 whether the cascade can hold a usable risk level at all: evidence before a purchase order. Decide about a paid
-1,000-frame round only after that. Needs **one owner answer** (money) — asked 2026-09-12, see `QUESTIONS.md`.
+1,000-frame round only after that. Needs **one owner answer** (money) — asked 2026-09-14, see `QUESTIONS.md`.
 
 
 ## P43 — The phone path cannot say which device connected

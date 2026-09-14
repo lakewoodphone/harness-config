@@ -255,7 +255,7 @@ did not fail fast — it **stalled for ~19 seconds** every single time. The reso
 *Measurement:* 19,342 ms → 2,249 ms on the same host and the same verdict.
 *Why it matters:* a slow probe is how a reading gets abandoned by the next caller; the fix cost three lines.
 
-**W25 · 2026-09-12 · A concurrency test found the optimisation was dead on arrival, before it shipped.**
+**W25 · 2026-09-14 · A concurrency test found the optimisation was dead on arrival, before it shipped.**
 `ProxyImageStore` exists to stop the classifier re-downloading every image the browser already fetched. Its waiter test
 failed on the first run: `put()` swept "expired" slots on every store, and a waiter's placeholder has no bytes yet
 (`storedAtMs == 0`), so it looked ancient and was deleted mid-wait — the waiter timed out **after the bytes arrived**.
@@ -439,3 +439,18 @@ token correctly hits the Access login, and the helper script has always sent the
 *Why it matters:* a documented blocker that was never re-tested after the first attempt cost more than the
 original fault. Re-test a claimed block before relaying it.
 
+
+**W26 · 2026-09-14 · One missing resize: what left the phone was full-resolution, and the same fix cut cost, exposure and latency at once.**
+The owner asked how the three tiers stood and told me to engineer the privacy. Reading the egress path showed no resize
+anywhere: _decode_screenshot_base64 decoded and handed the bytes straight to the provider chain, so every frame went out
+at full phone resolution (1080x2400 and up). Both mainstream vendors tokenise a tall image as tiles, so the same question
+cost **2-2.7x** more than at a 1024px long edge, and the EXIF riding along carried GPS, device model and capture time to a
+third party.
+*Built:* \server/app/frame_egress.py\ — downscale to the 1024px long edge, apply EXIF orientation before dropping the tag
+that carried it, normalise to RGB JPEG, strip all metadata, and report hashes rather than pixels so the audit trail can
+prove what was sent without keeping it. An undecodable frame is a **refusal**, never a pass-through, because a picture we
+cannot scrub must not be sent. Wired into \eview_screenshot_image\ so every provider benefits; commit \42bd0f1\.
+*Measured:* \pytest tests/test_frame_egress.py\ -> **10 passed** (tall-frame geometry, no upscaling, EXIF gone, orientation
+applied, grayscale/PNG normalised, refusal on unreadable input, deterministic hashes, clamped edge limits).
+*Why it matters:* it is the rare change that improves all three things the owner asked for simultaneously — cheaper,
+fewer pixels leaving the building, and a faster answer — and it is reversible per-config if a measurement ever disagrees.
