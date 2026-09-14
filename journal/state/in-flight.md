@@ -1,39 +1,37 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-14 23:50Z (ZABZ-YOGA, comms/Dialpad session, round 2)
+Updated: 2026-09-15 00:15Z (ZABZ-YOGA, comms/Dialpad session, round 2)
 
-Rewritten, not appended. An item leaves this file by being finished (a `log/handoff/` entry) or by
-becoming a `state/open-pain.md` row. This session: **H202** and **H208** (round 2); its record:
-**W105**, **D141**, **D146**, **L1081–L1086**, **L1467–L1469**, **P131**.
+Rewritten, not appended. This session: **H202**, **H208**, **H213**; record **W105**, **D141**,
+**D146**, **L1081–L1086**, **L1467–L1469**, **L1474**, **L1475**, **P131**.
 *(Correction: H208 cites "D142" for the digest decision — the decision is **D146**.)*
 
 ## Running right now, unattended
 
-Both jobs are idempotent. If one is not running and work remains, re-run its command.
+Both are idempotent and both now stop with a reason when they stall (three passes with no
+movement in the remaining count). If one is not running and work remains, re-run its command.
 
 | Job | Where it lives | What says it worked |
 |---|---|---|
-| **Recording download** — 2,500 calls with a recording URL and no usable local audio (selector: no media row **or** the file is not on disk) | `~/dialpad-recording-gap.log`; `scripts/dialpad-recording-gap.py --limit 2500` | `ls data/dialpad/recording/ \| wc -l` rising (3,022 at 23:47Z); `SELECT kind, COUNT(*) FROM dialpad_media_file GROUP BY kind`. **Free** — the cost is the transcription it enables. |
-| **Transcript backfill, supervised** | `~/supervised-retry.sh` → `scripts/dialpad-transcript-gap.py --limit 5000 --retry-failed --max-minutes 2400`; logs `~/dialpad-transcript-gap.log` + `.supervisor.log` | `SELECT status, COUNT(*) FROM dialpad_call_retranscript GROUP BY status` — 249 successes / 349 audio-minutes at 23:47Z (~$2.1). **Cumulative cap 6,000 min (~$36)**, measured backlog ~5,486 min (~$33). |
-| **Comms index refresh** | authority cron `7,37 * * * *` → `~/.fsearch/comms-refresh.py` | `~/.fsearch/comms-state.json` and `comms-refresh.py --check` (exit 0). Rebuild is 60 s with the person layer; if `at` is more than ~40 min old the cron line has gone. |
+| **Recording download** — 4,000+ calls with a media URL and no *usable* local audio (no row, file missing, **or the file is not audio**) | `~/supervised-download.sh` → `scripts/dialpad-recording-gap.py --limit 700`; logs `~/dialpad-recording-gap.log` + `.supervisor.log` | `ls data/dialpad/recording \| wc -l` rising (3,478 at 00:14Z); re-run the dry run until it selects 0. **Free.** Measured backlog 5,434 audio-minutes. |
+| **Transcript backfill** | `~/supervised-retry.sh` → `scripts/dialpad-transcript-gap.py --limit 5000 --retry-failed`; logs `~/dialpad-transcript-gap.log` + `.supervisor.log` | Its dry run must select a number that falls. **Transcript queue is 2 calls / 6.8 min right now** — i.e. every call with real audio and no transcript is already transcribed; the queue refills as the downloader lands audio. Cumulative cap 6,000 min (~$36), 352 spent. |
+| **Comms index refresh** | authority cron `7,37 * * * *` → `~/.fsearch/comms-refresh.py` | `~/.fsearch/comms-state.json`, `comms-refresh.py --check` (exit 0), and `comms_search health` (index age **and** ingestion age per channel). |
 
-**Read this before touching the transcript job.** The first attempt marked 1,107 calls `failed` in four
-minutes and it was **not** the audio: `dialpad_media_file.local_path` held Windows paths
-(`data\dialpad\recording\…`) while the files were on the authority all along (375 MB of them). 1,933
-rows were repaired by `scripts/dialpad-media-path-repair.py` (exact reversal in
-`data/media-path-backup-*.json`) and the retry passes `--retry-failed` to re-open the terminal rows.
-The pipeline also dies with `database is locked` under the app's continuous writes, which is why it
-runs under a supervisor. Newly downloaded recordings are picked up automatically by the next attempt,
-because the selector joins on `dialpad_media_file`.
+**Read this before touching the transcript job.** Two defects made it look healthy while doing
+nothing for twenty minutes, and both are fixed but worth knowing: `--retry-failed` now reaches
+the pipeline (`force=True`), because the pipeline silently skipped every terminal-failure row;
+and the selector now checks `os.path.exists` (and audio-ness), because joining
+`dialpad_media_file` selected 1,054 calls that had a media **row** and no **file** — instant
+failure, every pass, rc=0. See **L1475**.
 
 ## Mine, measured and waiting on a trigger
 
 | Item | What would show it |
 |---|---|
-| **Index-age sensing for the kernel** (**P131**) | Today the index sat 6.7 h stale and nothing anywhere said so; the fix is to read `~/.fsearch/comms-state.json` from `ck/sentinel.py:check_comms_freshness`, or call `comms-refresh.py --check` from the attention digest. Not shipped because it cannot be verified from this laptop (the sentinel reads the authority's database) and an unverified change to the sensing organ is worse than a recorded gap. |
-| **A "waiting" line in the owner's digest** (**D146**) | `ps_comms_waiting` returns it now (20 customers, 7 days, verified); putting it on *his* surface is its own small change because that surface has a documented alert-fatigue history (P40). One deduplicated line, only when the count is non-zero. |
-| **The 3,181 softer re-transcripts** (**P131**) | Those calls already have Dialpad text; a re-transcript is a quality swap, ~$44. Deferred deliberately — decide once this round's spend has reported. |
-| **Alias coverage is 49%** | 1,225 people, 921 named, 49% of communications attributed. The rest are one-off callers who never gave a name. Raising it means work on name inference, and a wrong merge is worse than a missing one (L1467). |
+| **Kernel index-age metric** (**P131**) | `ck/sentinel.py` was being edited by another session (` M ck/sentinel.py` on the authority at 23:45Z), so a change there collides. The information is available to agents through `health` meanwhile. |
+| **A "waiting" line in the owner's digest** (**D146**) | `ps_comms_waiting` returns it (20 customers in 7 days, verified). Putting it on *his* surface is its own change: one deduplicated line, only when non-zero, because that surface has an alert-fatigue history (P40). |
+| **The softer re-transcripts** | 4,415 calls with local audio and no successful re-transcript, 7,537 minutes — but most already have Dialpad's own readable text. ~$45 for a quality swap. Deferred behind the no-text gap, which is what the current cap covers. |
+| **Alias coverage is 49%** | 1,225 people, 921 named. The rest are one-off callers who never gave a name; a wrong merge is worse than a missing one (L1467). |
 | **The harvest re-requests the same 200 transcript-less calls every 30 min** (**L1085**) | `harvest_transcripts_for_recent_calls` has no negative cache: ~9,600 API calls a day that always answer "none". Harmless, but it makes a healthy no-op read as a fault. Fix is a small "asked and empty" marker. |
 
 ## Broken, as last measured

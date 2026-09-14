@@ -432,6 +432,8 @@ lessons	L1471	1471		2026-09-14	ZABZ-YOGA	open	**L1471 · LPT laptop resale prici
 lessons	L1472	1472		2026-09-14	ZABZ-YOGA	open	**L1472 · A verifier that only runs under pwsh 7 cannot see Windows PowerShell 5.1 faults (four of them, measured)**	entries/lessons/L1472.md	1	37	71316a8fa2880e11
 lessons	L1473	1473		2026-09-14	ZABZ-YOGA	open	**L1473 · A terminal condition must not be one blessed action name: ask_owner and update_task(blocked) are the same intent**	entries/lessons/L1473.md	1	27	9a9bc418621d3f76
 lessons	L1474	1474		2026-09-14	ZABZ-YOGA	open	**L1474 · Freshness has two halves: the index can be current while the database is not being fed**	entries/lessons/L1474.md	1	72	9c8d7e746e2e9fd9
+lessons	L1475	1475		2026-09-14	ZABZ-YOGA	open	**L1475 · A namespaced action name puts the verb second, so a prefix rule read reconnaissance as work**	entries/lessons/L1475.md	1	33	03ab519176caa4fd
+lessons	L1476	1476		2026-09-14	ZABZ-YOGA	open	**L1476 · A supervisor that reports rc=0 forever is not a job that works**	entries/lessons/L1476.md	1	38	e49f3a78f2090b6b
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
@@ -531,6 +533,7 @@ pain	P132	132		2026-09-14	ZABZ-YOGA	open	## P132 — Two sessions can migrate an
 pain	P133	133		2026-09-14	ZABZ-YOGA	open	## P133 — log/** and the six flat files are still writable by any stale checkout	entries/pain/P133.md	1	12	15435ca4a8f8df71
 pain	P134	134		2026-09-14	SECRATARY	open	## P134 — The journal itself has forked: SECRATARY holds 936 entries that exist on no other machine, and ZABZ-YOGA holds 304 that SECRATARY has never read	entries/pain/P134.md	1	45	c2006fbf4b56624a
 pain	P135	135		2026-09-14	ZABZ-YOGA	open	## P135 — A journal append takes 3 minutes and blocks the turn that needs it	entries/pain/P135.md	1	7	22b1620ff90ba12a
+pain	P136	136		2026-09-14	ZABZ-YOGA	open	## P136 — The reconnaissance nudge can never fire: its counter resets every tick and each tick runs one step	entries/pain/P136.md	1	26	86806c7a97467002
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
