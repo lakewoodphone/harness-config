@@ -3,7 +3,6 @@
 Updated: 2026-09-14
 Rewritten, not appended. An item leaves this file by being finished (a `log/handoff/` entry) or by
 becoming a `state/open-pain.md` row.
-
 ## Mine, being worked
 
 | Item | Where | Next concrete step |
@@ -18,8 +17,8 @@ becoming a `state/open-pain.md` row.
 
 | Item | What would settle it |
 |---|---|
-| Whether the open-pain list is really 56 live problems | Nothing in the record marks old entries done. `journal.py resolve <id> --status done --why ...` is now the way to say so; every claim needs its evidence. |
-| Per-machine journal divergence | `journal.py check` now warns when a flat file holds entries the log lacks, and `audit` proves a merge lost nothing. Run both after any concurrent-session week. |
+| Whether the open-pain list is really 58 live problems | Nothing in the record marks old entries done; only 1 of 59 carries a completion marker. `journal.py resolve <id> --status done --why ...` is now the way to say so, and every closure needs its evidence. |
+| Per-machine journal divergence | `journal.py check` warns when a flat file holds entries the log lacks, and `audit` proves a merge lost nothing. It already found three entries written on `ZABZ-TECH` that existed nowhere else (L185, L186, D58). |
 
 ## His, queued (see `state/owner-questions.md`)
 
