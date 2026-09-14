@@ -50,7 +50,7 @@
     inset: 0;
     /* Above everything, including the "needing attention" badge, which is `position: fixed`
      * at z-index 2147483000 and sits over the bottom-right of the screen: measured, that badge
-     * intercepted a tap aimed at this card's Submit button (lesson L216). A question that must
+     * intercepted a tap aimed at this card's Submit button (lesson L217). A question that must
      * be answered outranks a notification. */
     z-index: 2147483600;
     display: flex;
