@@ -117,6 +117,7 @@ handoff	H207	207		2026-09-14 23:37 UTC	ZABZ-YOGA	open	## 2026-09-14 23:37 UTC ·
 handoff	H208	208		2026-09-14 23:39 UTC	ZABZ-YOGA	open	## 2026-09-14 23:39 UTC · ZABZ-YOGA · 2026-09-14 23:40Z ZABZ-YOGA: full view into customer comms -- identity, email, waiting, agent discovery	entries/handoff/H208.md	1	52	3cae3cbe68562aa7
 handoff	H209	209		2026-09-14 23:39 UTC	ZABZ-YOGA	open	## 2026-09-14 23:39 UTC · ZABZ-YOGA · Weitman laptop: quote SENT, authoritative case updated on ZABZ-TECH	entries/handoff/H209.md	1	10	744ed73eb50c255f
 handoff	H210	210		2026-09-14 23:40 UTC	ZABZ-YOGA	open	## 2026-09-14 23:40 UTC · ZABZ-YOGA · Journal v2 verified on Linux and merged to master: 240 checks, 0 errors, FAIL=0 WARN=0 - and a real id collision (D143) proved P132 during the merge	entries/handoff/H210.md	1	32	d7c64ed1f227eea2
+handoff	H211	211		2026-09-14 23:42 UTC	ZABZ-YOGA	open	## 2026-09-14 23:42 UTC · ZABZ-YOGA · config-sync no longer freezes silently: diverged commits are preserved on a side ref (48665e7); secratary still 25/9	entries/handoff/H211.md	1	70	f3ecbd67bbeb2e05
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
