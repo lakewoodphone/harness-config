@@ -117,6 +117,16 @@ def rebuild_name_index(db_path: str, out_path: str):
         return 1, f"name index rebuild failed: {exc}"
 
 
+def _last_line(text) -> str:
+    """The last non-empty line of a subprocess tail, or '' if there is none.
+
+    Never raises: this is used while REPORTING a failure, and a reporter that
+    crashes replaces the real error with its own.
+    """
+    lines = [ln for ln in (text or "").splitlines() if ln.strip()]
+    return lines[-1][:120] if lines else ""
+
+
 def load_state() -> dict:
     try:
         with open(STATE, "r", encoding="utf-8") as fh:
@@ -235,9 +245,13 @@ def do_refresh(roots, as_json: bool, verbose: bool) -> int:
         state.pop("last_failure_reason", None)
     else:
         state["last_failure"] = finished.isoformat()
+        # A step that produced no output must not break the error report. The
+        # previous version did `splitlines()[-1]` unguarded here, so an empty tail
+        # raised IndexError and the ORIGINAL failure was replaced by a crash while
+        # describing it -- the failure was hidden by the code meant to explain it.
         state["last_failure_reason"] = "; ".join(
-            f"{k}: rc={v['rc']} {(v.get('tail') or '').splitlines()[-1][:120]}"
-            for k, v in results.items() if v["rc"] != 0)
+            f"{k}: rc={v['rc']} {_last_line(v.get('tail'))}"
+            for k, v in results.items() if v["rc"] != 0) or "a step failed with no output"
     save_state(state)
 
     if as_json:
@@ -246,8 +260,7 @@ def do_refresh(roots, as_json: bool, verbose: bool) -> int:
     else:
         for name, v in results.items():
             mark = "ok  " if v["rc"] == 0 else "FAIL"
-            last = (v["tail"] or "").splitlines()
-            print(f"  {mark} {name}: {last[-1] if last else ''}")
+            print(f"  {mark} {name}: {_last_line(v.get('tail'))}")
         print(f"  {'refreshed' if ok else 'FAILED'} in {state['last_seconds']}s"
               + (f"; skipped missing roots {skipped}" if skipped else ""))
     return 0 if ok else 1
