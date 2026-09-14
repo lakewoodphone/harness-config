@@ -598,7 +598,8 @@ pain	P81	81		2026-09-14	ZABZ-YOGA	open	## P81 — Tailscale wedged on ZABZ-YOGA:
 pain	P82	82		2026-09-14	ZABZ-YOGA	open	## P82 — lpt-hub production sync dead 18 days: no cron, and its source dir does not exist	log/pain/2026-09.md	2378	2384	cc9d2cb566a1b2d8
 pain	P83	83		2026-09-14	ZABZ-YOGA	open	## P83 — No automatic outage alert reaches the owner: SMS kill switch, GV dead, badge client unbuilt	log/pain/2026-09.md	2385	2391	231d70d0b31d4d43
 pain	P84	84		2026-09-14	ZABZ-YOGA	open	## P84 — Authority DB: 3.76 GB with lock flapping, 326 stale-key rows, and a conflicted production checkout	log/pain/2026-09.md	2392	2398	d1db00fe960e7bb3
-pain	P85	85		2026-09-14	ZABZ-YOGA	open	## P85 — P: desktop personal-secretary-mvp repo diverged - two task installers stuck old; Cloudflare git flaky	log/pain/2026-09.md	2399	2419	5403a7899596ad04
+pain	P85	85		2026-09-14	ZABZ-YOGA	open	## P85 — P: desktop personal-secretary-mvp repo diverged - two task installers stuck old; Cloudflare git flaky	log/pain/2026-09.md	2399	2418	5403a7899596ad04
+pain	P86	86		2026-09-14	ZABZ-YOGA	open	## P86 — Desktop URL/auth error was a supervisor race on port 3099 + a ready record naming a dead pid	log/pain/2026-09.md	2419	2434	d2a56f88b064d708
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	log/decisions/2026-09.md	6	14	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	log/decisions/2026-09.md	15	22	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	log/decisions/2026-09.md	23	30	40acc837d9101270
