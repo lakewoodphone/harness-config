@@ -666,3 +666,25 @@ onboarding flow for users and more."*
 
 *The general rule this establishes, and the reason it is a decision rather than a bug fix:* **a missing
 configuration value must close a door, never open one.** Every future surface is held to it.
+
+**D-new · 2026-09-14 · One owner-question register, and the queue is now a machine I keep — not a thing I keep rebuilding.**
+
+MEASURED FIRST, and it changed the plan. The owner asked me to "check the office desktop, we updated and had a conversation there already." Finding it took real work because my own tooling lied twice:
+- `~/.fsearch/chats.db` was **0 rows** when I probed it and I reported that as "the chat index is empty and lies." It was **rebuilt at 17:34:36 UTC the same day to 1,601 sessions / 21,951 messages** (journal L254). The emptiness was true when captured and is now historical — so the *finding* aged into a false statement I was still repeating.
+- Reading DSH session files, `zstandard.decompress()` returns only the **first frame** and silently returned 198 bytes for a 7 MB session. **Every file is a multi-frame stream**; `stream_reader()` gets the whole thing. My first scan therefore reported "0 of 227 sessions mention this work" over a corpus that contained it many times — the same false-negative shape as the empty index, in a different tool, the same day.
+
+*Rule:* an absence reported by a reader I wrote is a claim about my reader first and the data second. Two false negatives in one session, in two different tools, both of which read as "it isn't there."
+
+WHAT I FOUND ON THE DESKTOP (session `dd5c9b67`, "pull up the latest chat")
+The owner had already started exactly the work I was doing on yoga, and had gone further on the business side: `reports/lpt-overhaul/` (a repo with no remote, so the desk is its only home) held `INDEX.md`, a pulled master doc, and an **`OWNER-QUESTIONS.md` with A1 already answered** — *"sounds good"* to encrypting device passcodes. So there were **two rival registers**: the desk's organized one (A/S series, 1 answered) and my `MASTER-QUESTIONS-2026-09-14.md` on yoga (47 questions, 0 answered). His instruction was in the transcript verbatim: *"let's go through questions one at a time carefully with you documenting my answers before doing work"*, then *"this time don't implement as i answer, first we go through all the qs."*
+
+DECIDED AND DONE
+1. **Consolidated to ONE register** at `reports/lpt-overhaul/OWNER-QUESTIONS.md` (14,076 chars, commit `d123ac8`; original preserved as `OWNER-QUESTIONS.prior-20260914-174447.md`; INDEX updated at `944064c`). Three sets — A (systems audit, 12/15 answered), S (website, 6, mostly dev), D (14 measured from production) — with the queue count at the top and the recorded A1 answer preserved verbatim. **I did not add a fourth document; I merged into the owner's own organized one.**
+2. **Provisioning the passcode key is MY decision, not his.** I had asked it as A4. It is infrastructure sequencing with one sensible answer: generate on the server, keep it with the 6-hourly DB backup, verify the restore *before* enabling encryption. Asking it spent his attention on a non-question. Now recorded in §6 of the register as a development decision.
+3. **§6 of the register now exists** so dev decisions stop being queued: the key, one register, `repair_jobs` is the real catalog, the vendored `a2p_auto_reply_log`, backgrounding the awaited secretary forward, row-derived provenance.
+
+*Rule this establishes:* **a question register that mixes owner decisions with development decisions costs the owner his attention on questions he should never see.** Only D13 (irreversible deletion of 18.5 GB) and D14 (customer-record merges) are true escalations; the rest I can decide or present as an answerable finding.
+
+STILL OPEN AND NAMED
+- The passcode work (`wip/passcode-encryption`) is **uncommitted in the desk's tree**, 25 commits behind `origin/test`, and its **vitest suite has never run** because `pnpm install` cannot complete while another session holds the checkout. That is the only thing between A1 and shipping.
+- The desk's `reports` repo has no remote — a single-disk copy of the whole question register.
