@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Register (or remove) the unattended harness-config sync on this machine.
 

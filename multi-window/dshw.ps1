@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     dshw - run, restore and supervise a set of independent DSH windows.
 
@@ -61,6 +61,20 @@ $LogDir   = $Cfg.server.logDir
 New-Item -ItemType Directory -Force -Path $StateDir, $LogDir | Out-Null
 $StatePath = Join-Path $StateDir 'state.json'
 
+# Read an OPTIONAL key from windows.json without throwing.
+#
+# Under Set-StrictMode, `$Cfg.someNewKey` on a config that does not declare it throws
+# "The property 'x' cannot be found on this object". That is exactly how a machine-specific
+# `dshInstall` key failed: the read threw, `ensure` caught it, printed "start failed", and no
+# engine was ever launched. An optional key that is absent must read as empty, never as an error.
+function Get-ConfigValue([string]$name, $default = '') {
+    if ($null -eq $Cfg) { return $default }
+    $prop = $Cfg.PSObject.Properties[$name]
+    if ($null -eq $prop) { return $default }
+    if ($null -eq $prop.Value) { return $default }
+    return $prop.Value
+}
+
 function Get-State {
     $slots = @{}
     if (Test-Path $StatePath) {
@@ -103,11 +117,42 @@ function Resolve-NodeExe {
 }
 
 function Resolve-DshBin {
-    $candidates = @(
+    # An explicit override wins: a machine may install DSH under its own npm prefix rather than the
+    # npx cache or a profile. Yocheved's laptop does exactly that (`C:\Users\cheve\dsh`), and without
+    # this the fleet could not find the engine binary at all -- `dshw doctor` reported
+    # "@deepseek-ai/dsh/lib/bin.js not found" and every `ensure` silently did nothing, so the
+    # launcher opened no window at all. Confirmed 2026-09-14.
+    $candidates = @()
+    # Read optional config keys defensively: under Set-StrictMode (which this script runs with)
+    # touching a property a hand-written JSON does not declare THROWS, and that turned into
+    # "ensure: start failed - The property 'dshBin' cannot be found on this object". A missing
+    # optional key must simply mean "not configured".
+    $cfgDshBin = ''
+    $cfgDshInstall = ''
+    $cfgDshBin = [string](Get-ConfigValue 'dshBin')
+    $cfgDshInstall = [string](Get-ConfigValue 'dshInstall')
+    foreach ($explicit in @($env:DSH_BIN, $cfgDshBin)) {
+        if ($explicit) { $candidates += $explicit }
+    }
+    # A configured install ROOT (the npm prefix) is the friendlier knob: bin.js sits at a fixed path
+    # beneath it, so a machine only has to say where DSH lives.
+    foreach ($root in @($env:DSH_INSTALL, $cfgDshInstall)) {
+        if ($root) { $candidates += (Join-Path $root 'node_modules\@deepseek-ai\dsh\lib\bin.js') }
+    }
+    $candidates += @(
         (Join-Path $env:LOCALAPPDATA 'npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh\lib\bin.js'),
         (Join-Path $env:USERPROFILE '.dsh\profiles\node_modules\@deepseek-ai\dsh\lib\bin.js')
     )
-    foreach ($c in $candidates) { if (Test-Path $c) { return $c } }
+    foreach ($c in $candidates) { if ($c -and (Test-Path $c)) { return $c } }
+    # Scan the npx cache: the directory hash is not stable across machines, so the hardcoded path
+    # above is a fast path rather than the only path.
+    $npx = Join-Path $env:LOCALAPPDATA 'npm-cache\_npx'
+    if (Test-Path $npx) {
+        foreach ($d in (Get-ChildItem $npx -Directory -ErrorAction SilentlyContinue)) {
+            $p = Join-Path $d.FullName 'node_modules\@deepseek-ai\dsh\lib\bin.js'
+            if (Test-Path $p) { return $p }
+        }
+    }
     # fall back: the .bin shim's target, discovered from the shim itself
     $shim = Get-Command dsh -ErrorAction SilentlyContinue
     if ($shim) {
@@ -117,7 +162,7 @@ function Resolve-DshBin {
             if ($m) { return $m.Matches[0].Value }
         }
     }
-    throw 'cannot locate @deepseek-ai/dsh/lib/bin.js'
+    throw 'cannot locate @deepseek-ai/dsh/lib/bin.js -- set `dshInstall` in windows.json or $env:DSH_INSTALL to the npm prefix DSH is installed under'
 }
 
 function Get-EdgePath {
@@ -401,6 +446,36 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
         $mustUnregister = $true
     }
     Start-ScheduledTask -TaskName $inv.taskName
+
+    # FALLBACK: Task Scheduler is not dependable everywhere. On DESKTOP-FGV6KMH a task
+    # registers, reports LastTaskResult 0, and nothing runs -- including a trivial
+    # `cmd /c echo` marker task (measured 2026-09-14). Because this function was the only
+    # launch path, `ensure` then failed silently, the engine never started, and the desktop
+    # shortcut opened no window at all. So an immediate bind check is mandatory: if the task
+    # produced nothing, start the engine through WMI instead, which also escapes this
+    # process's job object and needs no service registration.
+    Start-Sleep -Milliseconds 1200
+    $boundEarly = $false
+    try {
+        $probeEarly = New-Object System.Net.Sockets.TcpClient
+        $t = $probeEarly.ConnectAsync('127.0.0.1', $inv.port)
+        if ($t.Wait(1200)) { $boundEarly = $probeEarly.Connected }
+        $probeEarly.Dispose()
+    } catch { }
+    if (-not $boundEarly -and -not (Test-Path $inv.log)) {
+        try {
+            $outer = "$env:SystemRoot\System32\cmd.exe"
+            $inner = "/c `"`"$($inv.node)`" `"$($inv.bin)`" web --port $($inv.port) --no-open 1> `"`"$($inv.log)`"`" 2> `"`"$($inv.err)`"`"`""
+            $res = ([wmiclass]'Win32_Process').Create("$outer $inner", $inv.cwd, $null)
+            if ($res.ReturnValue -eq 0) {
+                Write-Host ("start: Task Scheduler produced nothing - engine started via WMI (pid {0})" -f $res.ProcessId) -ForegroundColor Yellow
+            } else {
+                Write-Host ("start: WMI fallback returned {0}" -f $res.ReturnValue) -ForegroundColor Red
+            }
+        } catch {
+            Write-Host ("start: WMI fallback failed - {0}" -f $_.Exception.Message) -ForegroundColor Red
+        }
+    }
 
     # Readiness here = the engine printed its URL in THIS log file AND the port answers.
     # Deliberately no Get-NetTCPConnection: that query can stall for many seconds on a
@@ -1001,13 +1076,43 @@ function Invoke-Ensure {
 # engine, and if not, start one", with a bounded retry, so every caller gets the same
 # behaviour instead of each inventing its own.
 function Test-EngineAlive([int]$port) {
-    $client = New-Object System.Net.Sockets.TcpClient
+    # AN HTTP ANSWER, NOT A BARE TCP CONNECT.
+    #
+    # This used to be `TcpClient.ConnectAsync` and nothing more. On DESKTOP-FGV6KMH that probe
+    # returns **True for a port with no listener at all** when run inside another process's tree
+    # (measured 2026-09-14: `Test-EngineAlive 3099` -> True while `Get-NetTCPConnection` showed no
+    # listener, reproducibly, in the context the launcher runs in; the same call in a fresh shell
+    # returned False). A bound-but-inherited socket is indistinguishable from a live server to a
+    # connect-only check.
+    #
+    # The consequence was total and silent: `ensure` concluded the engine was up, never started
+    # one, and the desktop shortcut then opened a window against a dead port -- so double-clicking
+    # the icon raised UAC, flashed a console, and produced no window, with nothing logged. A probe
+    # that can report health for something that is not there is worse than no probe, which is the
+    # same failure class as the stale-database incident this repo keeps citing.
+    #
+    # So the engine must actually answer HTTP. Any status is acceptance; connection refused,
+    # a timeout, or a reset is a dead engine.
     try {
-        $task = $client.ConnectAsync('127.0.0.1', $port)
-        if (-not $task.Wait(2000)) { return $false }
-        return $client.Connected
-    } catch { return $false }
-    finally { try { $client.Dispose() } catch { } }
+        $client = New-Object System.Net.Sockets.TcpClient
+        $connect = $client.ConnectAsync('127.0.0.1', $port)
+        if (-not $connect.Wait(1500) -or -not $client.Connected) { return $false }
+        $stream = $client.GetStream()
+        $stream.ReadTimeout = 2500
+        $stream.WriteTimeout = 1500
+        $req = "GET / HTTP/1.1`r`nHost: 127.0.0.1:$port`r`nConnection: close`r`n`r`n"
+        $bytes = [Text.Encoding]::ASCII.GetBytes($req)
+        $stream.Write($bytes, 0, $bytes.Length)
+        $buffer = New-Object byte[] 64
+        $read = $stream.Read($buffer, 0, $buffer.Length)
+        if ($read -le 0) { return $false }
+        $head = [Text.Encoding]::ASCII.GetString($buffer, 0, $read)
+        return ($head -match '^HTTP/\d\.\d')
+    } catch {
+        return $false
+    } finally {
+        try { $client.Dispose() } catch { }
+    }
 }
 
 function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {

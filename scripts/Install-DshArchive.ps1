@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Register (or remove) the hourly DSH session archive push on this machine.
 

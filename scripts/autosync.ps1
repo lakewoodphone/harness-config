@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Keep this machine's harness-config in step with the source of truth — unattended.
 

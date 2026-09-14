@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Publish this machine's DSH harness to the owner's tailnet, so the iPhone can talk to it.
 
