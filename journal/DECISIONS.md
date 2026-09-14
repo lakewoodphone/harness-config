@@ -728,3 +728,36 @@ for v1 so no third party's credential is written at rest); **docker is not insta
 image build and container run are **untested** (the compose file parses and the app runs and answers — that is all
 that was verified); and the LPT sign-in cannot switch on until LPT issues a secret **for this site** rather than the
 one already shared with other relying apps.
+
+**D-new2 · 2026-09-14 · D1 answered: money is only real if a work order exists — and "Charge Now" is decision drift, not a gap.**
+
+**Owner's words:** *"yes it is quite common for on the spot jobs to not get recorded. This is why I'm saying
+to get rid of the charge now tab and things chargeable only through a work order. In order to charge them,
+you have to create a work order. Now, obviously, if you're doing it on the spot, it has to be very simple
+flow. You just fill out the information in charge now, but at least it'll be through a work order. And that
+whole system, anyways, has to be made more robust."*
+
+**The decision, three parts:** (1) the Charge Now tab goes away — charging happens only through a work
+order; (2) the counter flow must stay fast, so the charge-now *screen* survives as the work-order creation
+form and creates the job in the same motion; (3) the whole charging system gets made more robust.
+
+**Why this matters beyond the one question.** The August 2026 systems audit already answered "charges only
+from work orders" (its Q8). The Charge Now tab survived that decision anyway. **So this is decision drift,
+not an unanswered question — the task is to enforce a decision that already existed, and no new decision was
+needed.** That distinction changes the work: it is not "decide how to charge", it is "find every surface that
+bypasses the decided path and close it".
+
+**What it makes non-optional.** Payment question Q17 ("should every work order carry an amount") was an open
+question; it is now a **prerequisite**. If charging requires a work order, an order that cannot hold an
+amount is a dead end — and **504 of 594 orders carry no amount**, **0 of 594 record parts or a warranty
+date**, and the create form is a long 7-section flow. Creating an order at the counter in seconds, that can
+carry a price, is now on the critical path.
+
+**Also absorbed, so it stops being a second queue:** the 40-question `PAYMENT_FLOW_QUESTIONS_2026-09-10.md`
+(none ever answered) is now the P-series inside the single register. D1 closes P11 and P12 by implication;
+P1/P2/P4/P5/P7/P17/P24/P37 are engineering and moved to §6 as committed work rather than questions.
+
+**Process note worth keeping:** the register now states its own queue counts at the top and carries §6 for
+decisions I took myself. That section exists because I twice put development decisions in front of the owner
+(A4 the encryption key, and several P-series items). **A register that mixes the two spends his attention on
+questions with one sensible answer.**
