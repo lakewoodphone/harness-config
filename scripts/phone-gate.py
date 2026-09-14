@@ -152,6 +152,18 @@ def response_header(response: bytes, name: bytes) -> str:
     return ""
 
 
+def request_header(first: bytes, name: bytes) -> str:
+    """One header value from a request head, for the CORS origin.
+
+    The request is not a response and has no status line to skip, so this cannot reuse
+    `response_header` - the line after the request line is already the first header.
+    """
+    for line in first.split(b"\r\n\r\n", 1)[0].split(b"\r\n")[1:]:
+        if line.lower().startswith(name.lower() + b":"):
+            return line.split(b":", 1)[1].strip().decode("latin-1")
+    return ""
+
+
 def set_cookies(response: bytes) -> list[bytes]:
     """Every Set-Cookie header value, verbatim, as a browser would see them."""
     out = []
@@ -356,12 +368,28 @@ def badge_payload() -> bytes:
     }, ensure_ascii=False).encode()
 
 
-def badge_json_response() -> bytes:
+def badge_json_response(origin: str = "") -> bytes:
+    """The findings, with the CORS headers the other machines need.
+
+    The phone fetches this same-origin through the gate. A desktop or laptop does not run this
+    gate at all — it runs its own engine — so its badge is loaded from here by
+    `dsh-plugin-attention-badge` and the fetch is cross-origin. Without these headers the browser
+    discards the answer and the badge falls back to "findings unavailable" on every machine
+    except the phone, which is exactly the asymmetry this fixed.
+
+    The origin is echoed rather than `*` because the response depends on no credentials, but a
+    wildcard cannot be combined with credentials; the badge sends `withCredentials` so that a
+    cookie, where one exists, is allowed too.
+    """
     body = badge_payload()
+    allow = origin if origin else "*"
     return (
         b"HTTP/1.1 200 OK\r\n"
         b"Content-Type: application/json; charset=utf-8\r\n"
         b"Cache-Control: no-store\r\n"
+        b"Access-Control-Allow-Origin: " + allow.encode("latin-1", "replace") + b"\r\n"
+        b"Access-Control-Allow-Credentials: true\r\n"
+        b"Vary: Origin\r\n"
         b"Content-Length: " + str(len(body)).encode() + b"\r\n"
         b"Connection: close\r\n\r\n" + body
     )
@@ -633,7 +661,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
             return
 
         if method == "GET" and path == "/dsh-attention.json":
-            body = badge_json_response()
+            body = badge_json_response(origin=request_header(first, b"origin") or "")
             note(f"  -> attention findings: {len(body)} bytes")
             client.sendall(body)
             client.close()

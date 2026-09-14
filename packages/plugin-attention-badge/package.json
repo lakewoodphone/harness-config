@@ -1,0 +1,23 @@
+{
+  "name": "dsh-plugin-attention-badge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The owner's attention badge on every machine, not just the phone: one script tag, loaded from the authority, that shows what the company is reporting.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "scripts": {
+    "verify": "node --check lib/client.js && node --check lib/index.js"
+  }
+}

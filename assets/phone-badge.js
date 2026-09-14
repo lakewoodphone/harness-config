@@ -185,9 +185,13 @@
   }
 
   function load() {
-    var url = '/dsh-attention.json?t=' + Date.now();
+    // Cross-origin aware: on the phone this is same-origin through the gate. On a desktop or
+    // laptop the badge script is loaded from the authority by dsh-plugin-attention-badge, so
+    // this request goes cross-origin and needs the gate's CORS headers plus credentials.
+    var url = new URL('/dsh-attention.json?t=' + Date.now(), document.baseURI || location.href).href;
     var req = new XMLHttpRequest();
     req.open('GET', url, true);
+    req.withCredentials = true;
     req.timeout = 12000;
     req.onreadystatechange = function () {
       if (req.readyState !== 4) return;

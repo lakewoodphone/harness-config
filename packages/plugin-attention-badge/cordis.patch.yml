@@ -1,0 +1,7 @@
+# The dsh-plugin-attention-badge bundle patch: mount on every web profile.
+#
+# No `disabled` row and no host tools: this package contributes a client bundle and
+# nothing else, so the only thing a profile must do is list it in
+# `dsh.profile.bundles` (which scripts/install-client-plugin*.{sh,ps1} does).
+- id: plugin-attention-badge
+  name: dsh-plugin-attention-badge
