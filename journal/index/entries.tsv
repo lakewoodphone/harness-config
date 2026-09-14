@@ -426,6 +426,7 @@ lessons	L1468	1468		2026-09-14	ZABZ-YOGA	open	**L1468 · A capability nobody can
 lessons	L1469	1469		2026-09-14	ZABZ-YOGA	open	**L1469 · 'Last message was inbound' is not 'the customer is waiting' -- three filters, measured**	entries/lessons/L1469.md	1	32	249dcab6fff36668
 lessons	L1470	1470		2026-09-14	ZABZ-YOGA	open	**L1470 · Before writing a case file, check whether this case's file already exists on another machine**	entries/lessons/L1470.md	1	6	be3f995e5ff688b9
 lessons	L1471	1471		2026-09-14	ZABZ-YOGA	open	**L1471 · LPT laptop resale pricing is flat source_price x 1.36 x 1.06625 = x 1.4501; the tiered auto markup is not applied**	entries/lessons/L1471.md	1	6	b7443a5597c4ffbe
+lessons	L1472	1472		2026-09-14	ZABZ-YOGA	open	**L1472 · A verifier that only runs under pwsh 7 cannot see Windows PowerShell 5.1 faults (four of them, measured)**	entries/lessons/L1472.md	1	37	71316a8fa2880e11
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
