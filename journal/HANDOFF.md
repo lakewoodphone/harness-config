@@ -1,3 +1,53 @@
+## 2026-09-14 11:05 UTC · ZABZ-YOGA · The owner asked why the badge was only on his iPhone — and the answer was that I had generalised nothing. It is now on every machine.
+
+**The question, and the honest answer.** *"why just my iphone and not the desktop and yoga"* — because the
+badge was delivered by **the phone gate rewriting the document**, and that mechanism exists on exactly one
+surface. Measured on ZABZ-YOGA: its own engine on `127.0.0.1:3099`, reached over loopback, with nothing
+rewriting its document and therefore nothing injecting the badge. I built it for the surface named in the
+question that commissioned it and never generalised it — the same defect as `/attention` reaching the
+phone host and not the desktop (the thing `install-client-plugin.sh` was written about the day before).
+
+**CHANGED**
+- **`packages/plugin-attention-badge` — new, static client plugin.** It adds **one script tag** pointing at
+  `https://secratary.tail93e6e6.ts.net/dsh-attention.js` — the badge that already exists, from the host that
+  already serves it — into whatever document mounts it. No Slot query, no host RPC, no dynamic Cordis
+  runner: the three things that blocked the first attempt. It **deliberately does not bundle a copy**: two
+  copies drift invisibly and the phone and the desktop would then disagree about what the company reports.
+  Fetched cross-origin, a classic `<script>` needs no CORS; the badge **then** fetches `/dsh-attention.json`
+  from its own origin, which does.
+- **The gate's findings endpoint now sends CORS headers** (`Access-Control-Allow-Origin` echoed,
+  `Access-Control-Allow-Credentials: true`, `Vary: Origin`) and a `request_header()` reader was added —
+  the file had only a *response* header reader. Without these the browser discards the cross-origin answer
+  and the badge says "findings unavailable" everywhere except the phone.
+- **Installed, not just written:** `install-client-plugins.ps1 -RequireAll` on **ZABZ-YOGA** and
+  **ZABZ-DESKTOP**; both compositions resolve (verified with `dsh --profile web --dump-config`, exit 0, row
+  present, no "not found"). Desktop pulled `harness-config` to `e17fa7e` first.
+- **A real bug found by that verification:** the bundle patch needs the **`insert:` wrapper**. Without it
+  the loader reported *"entry \"plugin-attention-badge\" not found"* and skipped the bundle — silently. That
+  is precisely the asymmetry class this package exists to remove, so it is now a comment in the file.
+
+**STILL REQUIRES A GESTURE, AND IT IS NOT MINE TO MAKE**
+- **Desktop:** `patchReload: live` and the bundle row is in place, so a **page reload** should mount it.
+  Not yet observed on a screen — this session has no browser on that host.
+- **ZABZ-YOGA:** the badge is in Yoga's bundle list, but **this session is served by Yoga's engine on 3099
+  (pid 660)**. Restarting that engine to make the badge appear would end the session doing the work, so I
+  did **not** do it. A page reload may be enough (the client roster is fetched per load); if not, the
+  restart happens when he is ready, not mid-task.
+- `dsh-plugin-attention` (the `/attention` host command) is now **also mounted on the desktop** as a side
+  effect of `-RequireAll`. Said out loud rather than left as a silent extra.
+
+**EVIDENCE**
+- Commit **`e17fa7e`** on `origin/master` (`secretary-ts:~/harness-config.git`), which had to be rebased
+  onto a rewritten `master` first — see L193.
+- `python _scratch/test-badge-everywhere.py` → **17/17**: package shape, the CORS headers over real HTTP
+  with an `Origin`, the request-header reader (missing/case-insensitive cases), and the badge resolving its
+  data URL against its own base so it asks the authority rather than the local engine.
+- Live gate (pid **3462869**, restarted after the pull) answers an `Origin: http://127.0.0.1:3099` request
+  with the three CORS headers and 1,894 bytes of findings.
+- Desktop → authority: `ping secratary` **1 ms, 0% loss**, tailscale peer `active; direct
+  192.168.50.77:41641`. Desktop profile bundles now include `dsh-plugin-attention-badge`.
+- Yoga: `dsh --profile web --dump-config` exit 0; bundles `[…, dsh-plugin-mobile, dsh-plugin-attention-badge]`.
+
 ### UPDATE — round 6 verification: what the full suite proved, including two regressions that are mine
 
 **Verified against the whole objective.** Android **96 suites / 414 tests / 0 failures**; server full suite **1090

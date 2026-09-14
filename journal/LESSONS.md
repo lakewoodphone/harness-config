@@ -1672,6 +1672,24 @@ files for references to it, or the cross-reference points at the wrong lesson (t
 a claimed-numbers index, not more care — and until it exists, prefer a deliberately high number over a
 tidy one.
 
+**L210 · 2026-09-14 · A shared branch was rewritten under me; `push` printed success and nothing landed.**
+*(written as L193; another session claimed it within the hour — see L192, which now has three examples.)*
+I committed the badge-for-every-machine and pushed. The output said `To secretary-ts:…` and a commit range,
+and I took that as delivered. It was not: `origin/master` had been **rewritten** by a concurrent session
+(`git merge-base --is-ancestor <mine> origin/master` → **1**) and my commit was reachable only from my own
+HEAD. The authority then reported `behind=0` three times while serving the old code, and the same commits
+existed twice under different SHAs (`ab5ce26` here, `fba30a6` there) — the signature of someone else's
+rebase-and-force-push. I lost most of a turn to it, and twice wrote a conclusion from a ref instead of from
+the bytes.
+*Rules:* (a) after any push, assert reachability — `git merge-base --is-ancestor <sha> origin/master` — and
+never the push's own prose; (b) when a machine claims to be up to date while its files disagree with yours,
+**compare SHAs, not states**: "behind=0" is a claim about a ref, and a rewritten ref can be simultaneously
+current and missing your work; (c) to land one commit on a rewritten base **without disturbing a working
+tree full of other sessions' in-flight edits**, do not stash and do not rebase — point the branch at the new
+base (`git reset --soft origin/master`), unstage, `git checkout <my-sha> -- <my paths>`, and commit only
+those paths; (d) re-fetch before every push in a long turn, because `origin/master` moves under you and the
+race is invisible from the working tree.
+
 
 
 **L178 · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the
@@ -1778,37 +1796,6 @@ be stated in the write-up, because "verified" on a locally-served build with a d
 
 **L160 · 2026-09-14 · An "unverified" tag is not a neutral result when it suppresses something that is true.**
 A state-law research stream had marked the Maryland Kids Code as *unverified* and told readers not to assert anything about it. Verified later, it is **in force, not enjoined**, no Fourth Circuit ruling exists in the case — the district court says so directly ("Pending such litigation, the Kids Code remains in effect") — and it turned out to be the *most favourable* children's statute examined, expressly excluding photographs and "the sale, delivery, or use of a physical product". The same pass corrected three other statuses: California SB 976's core was upheld by the Ninth Circuit (only the like-count provision was reversed), the California AADC split leaves the monitoring-signal duty in force while the data-minimisation restriction is enjoined, and Texas HB 1181 is not law at all. *Rules:* (1) "unverified" is a placeholder for work, not a finding — it reads as caution while suppressing a real answer, and here it took minutes to resolve by opening the statute; (2) when a *status* is the fact in question (in force / enjoined / died), the only acceptable sources are the statute, the docket or the opinion itself.
-
-
-**L180 · 2026-09-14 · When you make a feature optional, audit every path that assumed it existed.**
-I made the trigram index opt-in to cut storage 6×, and left `do_index` running
-`INSERT INTO tri(tri) VALUES('optimize')` unconditionally. Result: **every refresh died with
-`no such table: tri` — after completing a full 1,731 s walk and building the index.** The work
-succeeded and the run reported failure, so no freshness was recorded and a 6.3 GB index was left
-behind by a run the state file called broken.
-*Rules:* (a) "optional" is not a property of the creation site, it is a property of every reader,
-writer and maintenance call — grep the name and audit each one; (b) **fail loudly at the start, not
-after the expensive part** — a guard condition that can only fail is best checked before the work, so
-a misconfiguration costs seconds instead of half an hour; (c) a run that does the work and then
-reports failure is worse than a run that fails early, because it consumes the budget and leaves
-unverified artefacts.
-
-**L181 · 2026-09-14 · Choose an algorithm by measuring it, because the plausible one can be both
-slower and wrong.** Filename search was 2.795 s on 815,000 rows (a leading-wildcard `LIKE` cannot use
-an index). I built a reversed-name index so `%foo%` becomes a prefix match — a standard trick. Measured
-against the alternatives on the same data:
-
-| strategy | time | hits |
-|---|---|---|
-| old `name LIKE '%seagate%'` | 0.029 s | 6 |
-| **reversed-name prefix (mine)** | 0.111 s | **0** |
-| trigram over the full path | 0.000 s | 6 |
-
-It was **four times slower than the thing it replaced and returned nothing**, because `seagate` appears
-mid-name (`seagate-mobile-hdd-...`) and reversing the *needle* only matches suffixes. The trigram path
-index won and additionally matches mid-path fragments, which no name matching can do.
-*Rule:* when two strategies are plausible, build both and time them on the real corpus before choosing —
-and check the **hits**, not just the milliseconds, because a fast wrong answer passes a latency test.
 
 **L161 · 2026-09-14 · Assert on the artefact that ships, not on the call that was supposed to produce it.**
 `FrameScrubber`'s geometry tests all passed while the feature was broken. The box arithmetic was correct; what was wrong was that the crop removed the head, so the face had nothing to paint and the payload carried a grey rectangle where a face should have been anonymised. The failing assertion was the one that **decoded the JPEG and read the pixels back**; every test that could have been written against the function calls would have gone green. *Rules:* (1) for anything whose purpose is a property of its output — anonymisation, redaction, encryption, compression, a cover — assert the property of the output, and read it back through the same path a consumer would; (2) check that your test harness can actually observe the property, because Robolectric's default graphics mode does not rasterise, so a pixel test written without `@GraphicsMode(NATIVE)` silently asserts nothing; (3) when a pixel test fails and the geometry test passes, believe the pixel test — the arithmetic being right is not the same as the answer being right.
