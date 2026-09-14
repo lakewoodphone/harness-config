@@ -112,11 +112,8 @@ handoff	H202	202		2026-09-14 23:01 UTC	ZABZ-YOGA	open	## 2026-09-14 23:01 UTC ·
 handoff	H203	203		2026-09-14 23:05 UTC	ZABZ-YOGA	open	## 2026-09-14 23:05 UTC · ZABZ-YOGA · Engine freeze: a wedged engine the watchdog could not replace for 100 minutes (fixed, pushed as 444c3b3); Tailscale was never down, MagicDNS was	entries/handoff/H203.md	1	64	91d2b29690c1dcb0
 handoff	H204	204		2026-09-14 23:08 UTC	ZABZ-YOGA	open	## 2026-09-14 23:08 UTC · ZABZ-YOGA · Draft backlog closed and the generator fixed; the expiry the table always had is now enforced	entries/handoff/H204.md	1	40	3952523a8908bed8
 handoff	H205	205		2026-09-14 23:18 UTC	ZABZ-YOGA	open	## 2026-09-14 23:18 UTC · ZABZ-YOGA · Journal v2 is live and verified: one file per entry, a self-healing cache, and the record rebuilt from the frozen sources after a concurrent migration corrupted the derived tree	entries/handoff/H205.md	1	33	aef80ff8cfcfcb24
-<<<<<<< HEAD
-handoff	H206	206		2026-09-14 23:26 UTC	ZABZ-YOGA	open	## 2026-09-14 23:26 UTC · ZABZ-YOGA · The silence was our monitoring, not the fleet: DRN 2 answered in seconds - liveness only advances when WE contact a device	entries/handoff/H206.md	1	48	ebd8a3e8a9928a7f
-=======
 handoff	H206	206		2026-09-14 23:23 UTC	SECRATARY	open	## 2026-09-14 23:23 UTC · SECRATARY · Fios fiber home install recorded: photos, credentials, ONT serial, and four open items	entries/handoff/H206.md	1	48	3b059bcbce68bb9e
->>>>>>> origin/master
+handoff	H207	207		2026-09-14 23:37 UTC	ZABZ-YOGA	open	## 2026-09-14 23:37 UTC · ZABZ-YOGA · Billing is live end to end - and activating it exposed a production database that the documented deploy would have destroyed	entries/handoff/H207.md	1	31	4c85a5bcc3f6ba8b
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -421,6 +418,8 @@ lessons	L1463	1463		2026-09-14	SECRATARY	open	**L1463 · ps_action save_memory s
 lessons	L1464	1464		2026-09-14	SECRATARY	open	**L1464 · On secratary the repos are directly under ~/, not ~/code/ — and the phone workspace is /home/zabz/phone**	entries/lessons/L1464.md	1	17	7c0910a08b835cc5
 lessons	L1465	1465		2026-09-14	SECRATARY	open	**L1465 · CHR30A on a Verizon Fios install is an ACCESS POINT, not a router — verify a model number against the vendor before calling a device the gateway**	entries/lessons/L1465.md	1	21	11316cf623423015
 lessons	L1466	1466		2026-09-14	ZABZ-YOGA	open	**L1466 · Two machines allocated the same id during this very merge: the local ceiling reduces the rate, it does not prevent it**	entries/lessons/L1466.md	1	12	9bf6b805bd8c5f2a
+lessons	L1467	1467		2026-09-14	ZABZ-YOGA	open	**L1467 · Grouping comms by the name in them merges strangers: measure the label vocabulary first**	entries/lessons/L1467.md	1	49	071a0a76cf2de97c
+lessons	L1468	1468		2026-09-14	ZABZ-YOGA	open	**L1468 · A capability nobody can discover is a capability nobody has (register the tool, then verify through the agent surface)**	entries/lessons/L1468.md	1	30	58d79fe6bd9b287e
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
@@ -484,7 +483,7 @@ pain	P92	92		-	legacy	open	## P55 — The company has delivered nothing to the o
 pain	P57	57		2026-09-14	ZABZ-YOGA	open	## P57 — The journal still has two writers - the sharded log and the flat files a second session keeps appending to	entries/pain/P57.md	1	22	eca80cad5011cc47
 pain	P58	58		2026-09-14	ZABZ-YOGA	open	## P58 — 56 of 57 pain entries carry no proof of being finished, so the open list cannot be trusted as a to-do	entries/pain/P58.md	1	20	f45a179c7c1579e3
 pain	P59	59		2026-09-14	SECRATARY	open	## P59 — The phone's gate died once and nothing on the host says why	entries/pain/P59.md	1	36	b8a66b43cd180f7c
-pain	P61	61		2026-09-14	imported	blocked	## P61 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	entries/pain/P61.md	1	60	a11dab4dc6a91676
+pain	P61	61		2026-09-14	imported	done	## P61 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	entries/pain/P61.md	1	60	a11dab4dc6a91676
 pain	P62	62		2026-09-14	imported	open	## P62 — Re-ingesting after a parser change can silently empty an index	entries/pain/P62.md	1	21	a042ab92f05e737e
 pain	P63	63		2026-09-14	imported	open	## P63 — `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14)	entries/pain/P63.md	1	96	7a796f34b814490d
 pain	P64	64		2026-09-14	ZABZ-YOGA	open	## P64 — Netlify deploy credits block every frontend release	entries/pain/P64.md	1	30	6856c705c28e9978
@@ -706,3 +705,4 @@ wins	W108	108		2026-09-14	ZABZ-YOGA	open	**W108 · 2026-09-14 · The journal's r
 wins	W109	109		2026-09-14	ZABZ-YOGA	open	**W109 · 2026-09-14 · The migration proved it lost nothing, and the frozen v1 tool still reads the tree.**	entries/wins/W109.md	1	12	6d78fb08cd92c3b0
 wins	W110	110		2026-09-14	ZABZ-YOGA	open	**W110 · 2026-09-14 · The owner-question mirror refreshes on Windows again, and drift stopped crying wolf.**	entries/wins/W110.md	1	6	cf081a427925727c
 wins	W111	111		2026-09-14	ZABZ-YOGA	open	**W111 · 2026-09-14 · The work loop never showed the model its own tool results, so no session could accumulate a fact.**	entries/wins/W111.md	1	35	45833224f9e59036
+wins	W112	112		2026-09-14	ZABZ-YOGA	open	**W112 · 2026-09-14 · The 53-silent-devices alarm was our own monitoring: 27 answered within seconds once we asked.**	entries/wins/W112.md	1	49	668024fe0fbe3756

@@ -52,8 +52,17 @@ Pain **P132** (two sessions can rewrite this journal at once; the lock does not 
   **H87**). Cloudflare silently ignores a `404` rule in `_redirects`; MX/TXT on that zone are live
   email — touch only the frontend CNAMEs.
 - **DRN fleet** — manageable from the LPT portal (state, liveness, applied profiles, lockdown,
-  lost-device lock). Only 1 of 65 devices has ever answered a ProfileList, so "unknown" is the
-  correct reading of the panel, not "empty".
+  lost-device lock). **The fleet is healthy and the "53 silent devices" alarm was our own monitoring**
+  (H200 → H206, L565). A device only answers when something is SENT to it, and the only regular traffic
+  was one hourly sweep at a SINGLE device, so everyone else's `last_seen` was frozen at enrolment.
+  Measured: a read-only query got an answer from DRN 2 in seconds, then `POST /fleet/heartbeat` asked all
+  54 quiet devices and **27 answered within seconds** — **28 of 65 heard from in the last hour, up from 0**.
+  The heartbeat is deployed and runs every 6 h (`stale_hours=24`), so "silent" now means the phone did not
+  answer. Two traps: the MDM's reply history **before 2026-08-14 is gone** from every surviving store, so a
+  gap in the record is NOT evidence about hardware (our July batch records prove the fleet was provisioned:
+  install-waze 57, lockdown 47, activation-lock 45, renumber 39, all completed); and a count that only moves
+  when WE act measures us, not the fleet. Profile truth is still read-only-cached: 1 device had a
+  ProfileList on file before the heartbeat, so "unknown" is the correct reading, never "empty".
 - **Comms and transcripts** — a transcript-gap backfill (~1,117 calls, idempotent re-run) and the
   comms index refresh are in flight; their measurements live in `state/in-flight.md`, which the
   other session owns this hour.

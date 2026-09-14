@@ -2287,6 +2287,49 @@ def _git_note() -> str:
 # Writes
 # ---------------------------------------------------------------------------
 
+def _lock_holder_is_dead(held: str) -> bool:
+    """True when the lock names a process on THIS host that no longer exists.
+
+    An append takes well under a second, so a lock left behind by a killed session
+    is an orphan long before LOCK_STALE_SEC expires. Measured 2026-09-14: a dead
+    `append 8996@zabz-yoga` blocked every journal write for ten minutes and a
+    resolve had to be retried twice. The lock already records the pid and the host,
+    so "is anyone there?" can be answered rather than inferred from age.
+
+    Returns False whenever the answer is unknown — a remote host, an unparseable
+    lock, a live process we cannot inspect — so the caller keeps the age rule.
+    """
+    m = re.search(r"(\d+)@([^:]+):", held or "")
+    if not m:
+        return False
+    pid, host = int(m.group(1)), m.group(2)
+    if host != _shortname():
+        return False  # cannot inspect another machine's processes
+    if pid == os.getpid():
+        return False  # that is us
+    if os.name == "nt":
+        # Never os.kill on Windows: signal 0 is not a liveness probe there, it can
+        # terminate the target. Ask the kernel for a handle instead, and treat only
+        # a missing process as dead.
+        try:
+            import ctypes
+
+            handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+            if handle:
+                ctypes.windll.kernel32.CloseHandle(handle)
+                return False
+            return True
+        except Exception:
+            return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except (PermissionError, OSError):
+        return False  # it exists, or we cannot tell
+    return False
+
+
 def acquire_lock(command: str, wait: float = LOCK_WAIT_SEC):
     """Serialise the journal's read-modify-write commands.
 
@@ -2314,8 +2357,13 @@ def acquire_lock(command: str, wait: float = LOCK_WAIT_SEC):
                 held = _rl(lock).strip()
             except OSError:
                 age, held = 0.0, "(unreadable)"
-            if age > LOCK_STALE_SEC:
-                note("journal lock is stale (%ds old, held by %s); breaking it" % (int(age), held))
+            if age > LOCK_STALE_SEC or _lock_holder_is_dead(held):
+                why = (
+                    "%ds old" % int(age)
+                    if age > LOCK_STALE_SEC
+                    else "its holder is gone"
+                )
+                note("journal lock is stale (%s, held by %s); breaking it" % (why, held))
                 try:
                     lock.unlink()
                 except OSError:
