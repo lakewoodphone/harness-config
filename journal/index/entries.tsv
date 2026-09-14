@@ -531,5 +531,195 @@ lessons	L506	506		-	legacy	open	**L506 · 2026-09-14 · An instruction the owner
 lessons	L507	507		-	legacy	open	**L507 · 2026-09-14 · `held` is a terminal state unless something explicitly drains it — so count `sent`, not `queued`**	entries/lessons/L507.md	1	14	8f4e2c1a41a16ccd
 lessons	L508	508		-	legacy	open	**L508 · 2026-09-14 · A truncated result and a true absence look identical to a reader**	entries/lessons/L508.md	1	12	78e7d2f66eeb6e8e
 lessons	L509	509		-	legacy	open	**L509 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	entries/lessons/L509.md	1	14	fe2e7ed66cdd590c
+lessons	L511	511		-	legacy	open	**L511 · Read the extension seam before deciding whether a change is a patch or a plugin**	entries/lessons/L511.md	1	17	8c6c906164fa42be
+lessons	L512	512		-	legacy	open	**L512 · A generated file must be generated from the tested file, or the tests are theatre**	entries/lessons/L512.md	1	13	ca3e73f8d97d097a
+lessons	L513	513		-	legacy	open	**L513 · "The bundle is on disk" is not "the loader can use it"**	entries/lessons/L513.md	1	11	153837fe278360b4
+lessons	L514	514		-	legacy	open	**L514 · Quote the number, or the region is unpriced**	entries/lessons/L514.md	1	10	f723964bf26eee61
+lessons	L515	515		-	legacy	open	**L515 · On a time-of-day rate card, a timestamp is part of the price**	entries/lessons/L515.md	1	9	3bcd34d185427320
+lessons	L516	516		-	legacy	open	**L516 · Never put a secret in an exception message**	entries/lessons/L516.md	1	14	42c8087d6f6c3c36
+lessons	L517	517		-	legacy	open	**L517 · Count the artefacts, not the complaints**	entries/lessons/L517.md	1	16	b8188cf90b5a4d4c
+lessons	L518	518		-	legacy	open	**L518 · A port mismatch reads exactly like a dead machine**	entries/lessons/L518.md	1	16	2e92f8a294e29b43
+lessons	L519	519		-	legacy	open	**L519 · A script that has never run against its real target is not a script**	entries/lessons/L519.md	1	17	d701daaca96e5536
+lessons	L520	520		-	legacy	open	**L520 · `catch (Exception)` does not catch `Error`, and that is how a `compileOnly` dependency crashes an app**	entries/lessons/L520.md	1	15	fd9111fb988c44a3
+lessons	L521	521		-	legacy	open	**L521 · A test that passes before and after the fix has no teeth — check it against the broken revision**	entries/lessons/L521.md	1	14	be2ca263c1254158
+lessons	L522	522		-	legacy	open	**L522 · Never let a long job stream its progress UI into the conversation**	entries/lessons/L522.md	1	9	7e93d11b94b902c7
+lessons	L523	523		-	legacy	open	**L523 · A log file that the child process owns cannot be cleared by the parent**	entries/lessons/L523.md	1	11	6ed9a50b00048ec5
+lessons	L524	524		-	legacy	open	**L524 · Readiness needs three conditions, and each one alone has produced a false positive here**	entries/lessons/L524.md	1	12	8fe2e7b698ad8cdf
+lessons	L525	525		-	legacy	open	**L525 · A successful tool call is not a correct answer. Verify the claim, not the plumbing**	entries/lessons/L525.md	1	21	706761a1d2e052c3
+lessons	L526	526		-	legacy	open	**L526 · A measurement that returns HTTP 200 is not a measurement that did work**	entries/lessons/L526.md	1	12	cff7c41fe5972d4f
+lessons	L527	527		-	legacy	open	**L527 · Killing my own throwaway test process is not a question for the owner**	entries/lessons/L527.md	1	10	febcba2a54beaed6
+lessons	L528	528		-	legacy	open	**L528 · A tracker row saying "waiting on the owner" is a claim, not evidence — check the decisions log before asking**	entries/lessons/L528.md	1	16	2409addc941d8f0c
+lessons	L529	529		-	legacy	open	**L529 · A fix verified through one entry point is not verified. Test the path the user actually takes**	entries/lessons/L529.md	1	58	2209b651d4855375
+lessons	L530	530		-	legacy	open	**L530 · A number in an internal document is a claim, not a measurement — and an unmeasurable band is a warning sign**	entries/lessons/L530.md	1	14	e424652157b68f71
+lessons	L531	531		-	legacy	open	**L531 · The most convenient library is usually the one you cannot ship**	entries/lessons/L531.md	1	13	5a8cf90c141bb07d
+lessons	L532	532		-	legacy	open	**L532 · A model's self-reported confidence is not a failure signal — never gate a fail-closed system on it**	entries/lessons/L532.md	1	14	ef931b1b98e17c20
+lessons	L533	533		-	legacy	open	**L533 · The cheapest technical option can be the one the vendor forbids — read the terms before the price**	entries/lessons/L533.md	1	15	cb930843fb6ec8ca
+lessons	L534	534		-	legacy	open	**L534 · "Cheapest" ranking is mostly an artifact of input tokenisation, not of the vendor**	entries/lessons/L534.md	1	15	70810e465184cb35
+lessons	L535	535		-	legacy	open	**L535 · When two independent agents disagree about a number, fetch the source — do not pick the convenient one**	entries/lessons/L535.md	1	16	11869407190b8929
+lessons	L536	536		-	legacy	open	**L536 · Price the labour, not the tooling**	entries/lessons/L536.md	1	14	56a675af687e4a96
+lessons	L537	537		-	legacy	open	**L537 · In the DSH browser loader, a wrong dependency name breaks the whole UI, not the plugin**	entries/lessons/L537.md	1	14	a8d3afc29c83ca98
+lessons	L538	538		-	legacy	open	**L538 · `$pid` is reserved and read-only, and PowerShell matches it case-insensitively**	entries/lessons/L538.md	1	13	59316cb32a915d60
+lessons	L539	539		-	legacy	open	**L539 · He does not read documents. A deliverable is for the record, not a reading assignment**	entries/lessons/L539.md	1	18	1becae91aff4a976
+lessons	L540	540		-	legacy	open	**L540 · When a delivered figure is disputed, find the longest matching prefix — the difference is usually formatting**	entries/lessons/L540.md	1	13	095cc1b8e90bdc24
+lessons	L541	541		-	legacy	open	**L541 · A column named `fetched_at` may record when a row was first SEEN, not when you last looked**	entries/lessons/L541.md	1	19	047b9fdc461da9c8
+lessons	L542	542		-	legacy	open	**L542 · A 10-second lock timeout is 30x the transaction time and still 300 seconds of wall clock**	entries/lessons/L542.md	1	15	b23d3171453ee878
+lessons	L543	543		-	legacy	open	**L543 · `timeout N cmd <<EOF` gives the heredoc to the command's STDIN, so the timeout waits on stdin**	entries/lessons/L543.md	1	17	a64644c496deb3ac
+lessons	L544	544		-	legacy	open	**L544 · Do not flag. Solve, or ask exactly one question and move on**	entries/lessons/L544.md	1	24	5a4c96df26499178
+lessons	L545	545		-	legacy	open	**L545 · `Process.HasExited` on a detached child can block for the child's whole lifetime**	entries/lessons/L545.md	1	12	d5aadaaeb67a375f
+lessons	L546	546		-	legacy	open	**L546 · Read the authoritative deploy doc before escalating an infrastructure blocker**	entries/lessons/L546.md	1	20	344d311bc68e6e0b
+lessons	L547	547		-	legacy	open	**L547 · Checking one channel and escalating is not diligence — it is a guess with a citation**	entries/lessons/L547.md	1	23	63d8d42acab325d0
+lessons	L548	548		-	legacy	open	**L548 · When a data source embeds its vendor's internals, the fix is a reader, not a warning**	entries/lessons/L548.md	1	17	92f06373376fa8ec
+lessons	L549	549		-	legacy	open	**L549 · 2026-09-11 20:35 UTC · A proxy pools connections; one inspection per connection is not one inspection per request**	entries/lessons/L549.md	1	11	e65e77e551ebab53
+lessons	L550	550		-	legacy	open	**L550 · 2026-09-11 20:35 UTC · A test client that opens its own connection cannot see a pooling bug**	entries/lessons/L550.md	1	9	c81c306143179bea
+lessons	L551	551		-	legacy	open	**L551 · 2026-09-11 20:40 UTC · Never hand a struggling client a task; finish the task for it**	entries/lessons/L551.md	1	11	315d9fefa2fc2414
+lessons	L552	552		-	legacy	open	**L552 · 2026-09-11 20:45 UTC · A limit keyed on the client's IP is worthless behind a proxy**	entries/lessons/L552.md	1	10	91cbf822764cdb95
+lessons	L553	553		-	legacy	open	**L553 · 2026-09-11 20:37 UTC · "Who is visiting" cannot be recovered after the fact if the front door never recorded it**	entries/lessons/L553.md	1	16	73698ab5c3561024
+lessons	L554	554		-	legacy	open	**L554 · 2026-09-11 20:37 UTC · Read the reflog before editing a shared file; a commit minutes old means a live writer**	entries/lessons/L554.md	1	16	669cf3dbdec01233
+lessons	L555	555		-	legacy	open	**L555 · 2026-09-11 · A rule that sizes a box must not size its contents**	entries/lessons/L555.md	1	9	c56901e40b1b0d61
+lessons	L556	556		-	legacy	open	**L556 · 2026-09-11 · A measurement is not a look**	entries/lessons/L556.md	1	8	14793e7ed590ca65
+lessons	L557	557		-	legacy	open	**L557 · 2026-09-11 · Do not remove a part of a layout you do not own**	entries/lessons/L557.md	1	8	a94c7f8d42f0e496
+lessons	L558	558		-	legacy	open	**L558 · 2026-09-11 · Editing a Python file does not reach a running scheduler — and the proof it took is behavioural, not a restart banner**	entries/lessons/L558.md	1	14	dcb6d347fb1abcac
+lessons	L559	559		-	legacy	open	**L559 · 2026-09-11 · A second copy of a thing is not a second reading of it**	entries/lessons/L559.md	1	16	0f78617dd12a48ca
+lessons	L560	560		-	legacy	open	**L560 · 2026-09-11 · A 500 from your own API can be a write lock, and the client's retry budget must outlast the server's patience**	entries/lessons/L560.md	1	17	6de79a6c86345c5a
+lessons	L561	561		-	legacy	open	**L561 · 2026-09-11 · Fail-closed cursors make a silent outage recoverable — which is not the same as noticing it**	entries/lessons/L561.md	1	13	90449ec569903ac4
+lessons	L562	562		-	legacy	open	**L562 · 2026-09-11 · A check you have never seen fire is not a check — and the failure mode belongs IN the test**	entries/lessons/L562.md	1	14	1805d2b07bb0bee9
+lessons	L563	563		-	legacy	open	**L563 · 2026-09-11 · Working production code can exist outside version control, and only the *deployment host* knows it does.** The Shabbat/Tov split that fired at 18:46:53 tonight existed**	entries/lessons/L563.md	1	14	4ed881c8ec2628ab
+lessons	L564	564		-	legacy	open	**L564 · 2026-09-11 · Measure the size of a lie before you fix it — and beware a metric that counts the *failure handler* as success**	entries/lessons/L564.md	1	18	0196e2ed6fc2f347
+lessons	L565	565		-	legacy	open	**L565 · 2026-09-11 · A structural guard must check *control flow*, not *text presence***	entries/lessons/L565.md	1	16	078ee9f43f85cb9c
+lessons	L566	566		-	legacy	open	**L566 · 2026-09-11 · A blunt suppression fix outlives its incident, and the silence it creates is invisible because it looks like calm**	entries/lessons/L566.md	1	15	6787b1a4f2243116
+lessons	L567	567		-	legacy	open	**L567 · 2026-09-11 · Distinguish the gate from the transport before naming a cause**	entries/lessons/L567.md	1	12	8399b15391d4fbf4
+lessons	L568	568		-	legacy	open	**L568 · 2026-09-11/13 · An alarm must distinguish "the machine stopped" from "there was nothing to say"**	entries/lessons/L568.md	1	14	f8623f3a19e5bfa5
+lessons	L569	569		-	legacy	open	**L569 · 2026-09-11/13 · Do not confuse "I have been working for a while" with "no time has passed"**	entries/lessons/L569.md	1	68	01fd602205d510f8
+lessons	L570	570		-	legacy	open	**L570 · 2026-09-14 · The cost of a search is the walk, not the match — so index once and never walk again**	entries/lessons/L570.md	1	14	ec56333c6e15d87a
+lessons	L571	571		-	legacy	open	**L571 · 2026-09-14 · Two tokenizers, because one index cannot be good at both prose and code**	entries/lessons/L571.md	1	17	050915fdb1f344bf
+lessons	L572	572		-	legacy	open	**L572 · 2026-09-14 · Read the layout mechanism before you style it**	entries/lessons/L572.md	1	11	dc804c0a6fc51650
+lessons	L573	573		-	legacy	open	**L573 · 2026-09-14 · A transformed ancestor owns its fixed descendants**	entries/lessons/L573.md	1	10	599c27e98644e01d
+lessons	L574	574		-	legacy	open	**L574 · 2026-09-14 · Before hiding a control, verify it is not the only one**	entries/lessons/L574.md	1	8	f7a46f0459054100
+lessons	L575	575		-	legacy	open	**L575 · 2026-09-14 04:05 UTC · `ipaddress.is_private` is not "is a local LAN address"**	entries/lessons/L575.md	1	16	1ca2fadcbe1e33d7
+lessons	L576	576		-	legacy	open	**L576 · 2026-09-14 04:05 UTC · A one-packet probe of a sleeping peer manufactures false negatives — test the cold call, not the steady state**	entries/lessons/L576.md	1	14	59b1e8800f2797d1
+lessons	L577	577		-	legacy	open	**L577 · 2026-09-14 · A Techloq-class filter serves its block page with a SUCCESS status code, so a status check reads a block as a pass**	entries/lessons/L577.md	1	19	64e6d45b26a64741
+lessons	L578	578		-	legacy	open	**L578 · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	entries/lessons/L578.md	1	16	3c5ed57c12e7312d
+lessons	L579	579		-	legacy	open	**L579 · 2026-09-14 · `import.meta.main` silently no-ops the whole CLI on Node < 24.2 — and `node --check`, `import()`, and a clean exit code all say the code is fine**	entries/lessons/L579.md	1	17	64046736dfffd757
+lessons	L580	580		-	legacy	open	**L580 · 2026-09-14 · Windows Task Scheduler was inert on `DESKTOP-FGV6KMH`; NSSM was the working detachment**	entries/lessons/L580.md	1	18	c2ca5fc6e0d670e3
+lessons	L581	581		-	legacy	open	**L581 · 2026-09-14 · A search index that returns `0` because it is empty is worse than no index**	entries/lessons/L581.md	1	15	17f459567f248966
+lessons	L582	582		-	legacy	open	**L582 · 2026-09-14 · Read the extension, not the folder name**	entries/lessons/L582.md	1	11	c21a64e5b38b5f24
+lessons	L583	583		-	legacy	open	**L583 · 2026-09-14 · A doc citation is not a doc**	entries/lessons/L583.md	1	16	34d5e5b28f02e8db
+lessons	L584	584		-	legacy	open	**L584 · 2026-09-14 · A 200 document does not prove an application works**	entries/lessons/L584.md	1	11	9f668749a0c59dce
+lessons	L585	585		-	legacy	open	**L585 · 2026-09-14 · A booting service is not a dead one — and a dead one is not a plugin's fault**	entries/lessons/L585.md	1	12	d4d23721edc9eae0
+lessons	L586	586		-	legacy	open	**L586 · 2026-09-14 · The harness can serve documents and still refuse its API, and the refusal is not from any plugin**	entries/lessons/L586.md	1	11	87613e23422c24e9
+lessons	L587	587		-	legacy	open	**L587 · 2026-09-14 · Index the same text twice and you pay twice — choose ONE expensive index**	entries/lessons/L587.md	1	16	0ad9ce6267bbd077
+lessons	L588	588		-	legacy	open	**L588 · 2026-09-14 · Index the trees you own; a backup directory is a second copy of your own index**	entries/lessons/L588.md	1	11	9b56a66bc1bf5ce0
+lessons	L589	589		-	legacy	open	**L589 · 2026-09-14 · Two parsers of the same format will disagree; find out which one is inflating before you trust the bigger number.** The first chat ingester reported **15,149 messages**	entries/lessons/L589.md	1	14	3393d8d52e9c9fc0
+lessons	L590	590		-	legacy	open	**L590 · 2026-09-14 · Never send an alert about a broken channel through that channel**	entries/lessons/L590.md	1	13	11b9a3d4b88b35b8
+lessons	L591	591		-	legacy	open	**L591 · 2026-09-14 · An instruction the owner cannot follow is a bug, not non-compliance — and a headless host cannot serve an interactive login**	entries/lessons/L591.md	1	13	717b15a7e3088e4c
+lessons	L592	592		-	legacy	open	**L592 · 2026-09-14 · `held` is a terminal state unless something explicitly drains it — so count `sent`, not `queued`**	entries/lessons/L592.md	1	14	d7dc0227f1f6b15a
+lessons	L593	593		-	legacy	open	**L593 · 2026-09-14 · A truncated result and a true absence look identical to a reader**	entries/lessons/L593.md	1	12	2e69825e0972bf17
+lessons	L594	594		-	legacy	open	**L594 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	entries/lessons/L594.md	1	16	69a65fb6d913c2dc
+lessons	L595	595		-	legacy	open	**L595 · 2026-09-14 · Two layouts passed review and were both wrong; the screenshot found what reading could not**	entries/lessons/L595.md	1	19	8255cae346793ff6
+lessons	L596	596		-	legacy	open	**L596 · 2026-09-14 · The journal's `L`/`P` numbers are a shared namespace written by concurrent sessions, so claim the number at the moment of writing or lose a lesson to a collision**	entries/lessons/L596.md	1	18	a174d667f03595d7
+lessons	L597	597		-	legacy	open	**L597 · 2026-09-14 · A test that exercises nothing passes for the right reason and teaches you the wrong lesson**	entries/lessons/L597.md	1	12	d4291cd399dcfe35
+lessons	L598	598		-	legacy	open	**L598 · 2026-09-14 · Bumping a parser version is a data operation, not a metadata change**	entries/lessons/L598.md	1	20	e9b1dd2944fa274d
+lessons	L599	599		-	legacy	open	**L599 · 2026-09-14 · An exemption implemented in the backend must be re-implemented in every surface that counts the same thing — or the surfaces will disagree, and the loudest one wins**	entries/lessons/L599.md	1	13	0516dc35a5c11274
+lessons	L600	600		-	legacy	open	**L600 · 2026-09-14 · A timestamp with no timezone is not a timestamp; it is a guess with a format**	entries/lessons/L600.md	1	15	f79f56c8a5ca6a91
+lessons	L601	601		-	legacy	open	**L601 · 2026-09-14 · The tool you measure with can be the thing that is wrong. Read raw bytes before believing a rendering**	entries/lessons/L601.md	1	13	3d38d7054cf95949
+lessons	L602	602		-	legacy	open	**L602 · 2026-09-14 · "It has never been asked" and "it has none" are different facts, and a UI that conflates them will tell an operator the opposite of the truth**	entries/lessons/L602.md	1	15	ff01560872c28f52
+lessons	L603	603		-	legacy	open	**L603 · 2026-09-14 · Bound the connect, not just the query**	entries/lessons/L603.md	1	10	5462af79b57f5b1f
+lessons	L604	604		-	legacy	open	**L604 · 2026-09-14 · A build script that reports success may not have rebuilt from the code you think**	entries/lessons/L604.md	1	15	58ca41672e5f5f05
+lessons	L605	605		-	legacy	open	**L605 · 2026-09-14 · When the platform is blocked, build the verification path instead of waiting — and say which artifact you verified**	entries/lessons/L605.md	1	13	782ec6c6d1879884
+lessons	L606	606		-	legacy	open	**L606 · 2026-09-14 · An "unverified" tag is not a neutral result when it suppresses something that is true**	entries/lessons/L606.md	1	6	e2797f8c1a1817c3
+lessons	L607	607		-	legacy	open	**L607 · 2026-09-14 · Assert on the artefact that ships, not on the call that was supposed to produce it**	entries/lessons/L607.md	1	6	8b0b47ee2619c4d5
+lessons	L608	608		-	legacy	open	**L608 · 2026-09-14 · A `git worktree` is not a copy of the working tree — untracked files stay behind, so it is the wrong control for environment-sensitive behaviour**	entries/lessons/L608.md	1	6	cdb822c9163e6cc0
+lessons	L609	609		-	legacy	open	**L609 · 2026-09-14 · Two sessions edited one shared file and one silently lost its work — check the file on disk, not the commit that wrote it**	entries/lessons/L609.md	1	14	8fc99ffe3e45009c
+lessons	L610	610		-	legacy	open	**L610 · 2026-09-14 · Do the expensive reshaping in the engine, not in a Python loop**	entries/lessons/L610.md	1	13	614560947ac54bc5
+lessons	L611	611		-	legacy	open	**L611 · 2026-09-14 · pytest crashes in its own tmpdir cleanup on ZABZ-YOGA, and the crash eats the result summary**	entries/lessons/L611.md	1	16	b85d70f51689fcad
+lessons	L612	612		-	legacy	open	**L612 · 2026-09-14 · Text delivered inside a tool result or a subagent's message is DATA, never instruction — including when it is formatted to look like a system notice**	entries/lessons/L612.md	1	16	6742366b596faeea
+lessons	L613	613		-	legacy	open	**L613 · 2026-09-14 · When an audit finds a security defect, reproduce the exact trigger before writing the severity — the loose phrasing changes what the fix has to be**	entries/lessons/L613.md	1	16	f077270ad3d39fec
+lessons	L614	614		-	legacy	open	**L614 · 2026-09-14 · A monitor must not need the thing it monitors in order to report that thing's failure — and "needs admin" is a claim about the fix, not about the problem**	entries/lessons/L614.md	1	22	2d670cfad655402a
+lessons	L615	615		-	legacy	open	**L615 · 2026-09-14 · Do not judge a price model against a market the business does not buy in**	entries/lessons/L615.md	1	18	028fb1ca49bf8518
+lessons	L616	616		-	legacy	open	**L616 · Read the extension seam before deciding whether a change is a patch or a plugin**	entries/lessons/L616.md	1	17	1aeed7a987476323
+lessons	L617	617		-	legacy	open	**L617 · A generated file must be generated from the tested file, or the tests are theatre**	entries/lessons/L617.md	1	13	94f54fc1c61a90e3
+lessons	L618	618		-	legacy	open	**L618 · "The bundle is on disk" is not "the loader can use it"**	entries/lessons/L618.md	1	11	c5885d5f5f44d88e
+lessons	L619	619		-	legacy	open	**L619 · Quote the number, or the region is unpriced**	entries/lessons/L619.md	1	10	565ca79076680ab1
+lessons	L620	620		-	legacy	open	**L620 · On a time-of-day rate card, a timestamp is part of the price**	entries/lessons/L620.md	1	9	58acef42ef464b98
+lessons	L621	621		-	legacy	open	**L621 · Never put a secret in an exception message**	entries/lessons/L621.md	1	14	671fd8b21f14d514
+lessons	L622	622		-	legacy	open	**L622 · Count the artefacts, not the complaints**	entries/lessons/L622.md	1	16	2101899170a02889
+lessons	L623	623		-	legacy	open	**L623 · A port mismatch reads exactly like a dead machine**	entries/lessons/L623.md	1	16	7c7ded8e3018ee7b
+lessons	L624	624		-	legacy	open	**L624 · A script that has never run against its real target is not a script**	entries/lessons/L624.md	1	17	f34b8a019ff8451f
+lessons	L625	625		-	legacy	open	**L625 · `catch (Exception)` does not catch `Error`, and that is how a `compileOnly` dependency crashes an app**	entries/lessons/L625.md	1	15	09f06c5cd3ce2de6
+lessons	L626	626		-	legacy	open	**L626 · A test that passes before and after the fix has no teeth — check it against the broken revision**	entries/lessons/L626.md	1	14	4833ed045216e46f
+lessons	L627	627		-	legacy	open	**L627 · Never let a long job stream its progress UI into the conversation**	entries/lessons/L627.md	1	9	4f3b6ed60a9dc65b
+lessons	L628	628		-	legacy	open	**L628 · A log file that the child process owns cannot be cleared by the parent**	entries/lessons/L628.md	1	11	73bff68bd66bed6a
+lessons	L629	629		-	legacy	open	**L629 · Readiness needs three conditions, and each one alone has produced a false positive here**	entries/lessons/L629.md	1	12	1130c581418a8240
+lessons	L630	630		-	legacy	open	**L630 · A successful tool call is not a correct answer. Verify the claim, not the plumbing**	entries/lessons/L630.md	1	21	bd007bd2d97e7494
+lessons	L631	631		-	legacy	open	**L631 · A measurement that returns HTTP 200 is not a measurement that did work**	entries/lessons/L631.md	1	12	38b812e44655b4c9
+lessons	L632	632		-	legacy	open	**L632 · Killing my own throwaway test process is not a question for the owner**	entries/lessons/L632.md	1	10	44f878f676992937
+lessons	L633	633		-	legacy	open	**L633 · A tracker row saying "waiting on the owner" is a claim, not evidence — check the decisions log before asking**	entries/lessons/L633.md	1	16	1c841bed0db184fa
+lessons	L634	634		-	legacy	open	**L634 · A fix verified through one entry point is not verified. Test the path the user actually takes**	entries/lessons/L634.md	1	58	0b3439c7b692213a
+lessons	L635	635		-	legacy	open	**L635 · A number in an internal document is a claim, not a measurement — and an unmeasurable band is a warning sign**	entries/lessons/L635.md	1	14	0debd02a7dc38196
+lessons	L636	636		-	legacy	open	**L636 · The most convenient library is usually the one you cannot ship**	entries/lessons/L636.md	1	13	4b569aca3cd3e6d2
+lessons	L637	637		-	legacy	open	**L637 · A model's self-reported confidence is not a failure signal — never gate a fail-closed system on it**	entries/lessons/L637.md	1	14	e9cfd9199b5c8809
+lessons	L638	638		-	legacy	open	**L638 · The cheapest technical option can be the one the vendor forbids — read the terms before the price**	entries/lessons/L638.md	1	15	a6f4d72ed1a555ac
+lessons	L639	639		-	legacy	open	**L639 · "Cheapest" ranking is mostly an artifact of input tokenisation, not of the vendor**	entries/lessons/L639.md	1	15	fdca31e6c319a791
+lessons	L640	640		-	legacy	open	**L640 · When two independent agents disagree about a number, fetch the source — do not pick the convenient one**	entries/lessons/L640.md	1	16	da79ed6888bda512
+lessons	L641	641		-	legacy	open	**L641 · Price the labour, not the tooling**	entries/lessons/L641.md	1	14	f9bc3018893b5b97
+lessons	L642	642		-	legacy	open	**L642 · In the DSH browser loader, a wrong dependency name breaks the whole UI, not the plugin**	entries/lessons/L642.md	1	14	f419721404dc9591
+lessons	L643	643		-	legacy	open	**L643 · `$pid` is reserved and read-only, and PowerShell matches it case-insensitively**	entries/lessons/L643.md	1	13	f1a622fc54001e0a
+lessons	L644	644		-	legacy	open	**L644 · He does not read documents. A deliverable is for the record, not a reading assignment**	entries/lessons/L644.md	1	18	46b3fad0bc154d3f
+lessons	L645	645		-	legacy	open	**L645 · When a delivered figure is disputed, find the longest matching prefix — the difference is usually formatting**	entries/lessons/L645.md	1	13	a889771ebbd75c74
+lessons	L646	646		-	legacy	open	**L646 · A column named `fetched_at` may record when a row was first SEEN, not when you last looked**	entries/lessons/L646.md	1	19	f51988b08a7a2a85
+lessons	L647	647		-	legacy	open	**L647 · A 10-second lock timeout is 30x the transaction time and still 300 seconds of wall clock**	entries/lessons/L647.md	1	15	24072942c47553c4
+lessons	L648	648		-	legacy	open	**L648 · `timeout N cmd <<EOF` gives the heredoc to the command's STDIN, so the timeout waits on stdin**	entries/lessons/L648.md	1	17	4b468512305da7c8
+lessons	L649	649		-	legacy	open	**L649 · Do not flag. Solve, or ask exactly one question and move on**	entries/lessons/L649.md	1	24	dcb67bc76de7dc35
+lessons	L650	650		-	legacy	open	**L650 · `Process.HasExited` on a detached child can block for the child's whole lifetime**	entries/lessons/L650.md	1	12	3dad44d56b3e9a59
+lessons	L651	651		-	legacy	open	**L651 · Read the authoritative deploy doc before escalating an infrastructure blocker**	entries/lessons/L651.md	1	20	3eabb89bd5dbb3a6
+lessons	L652	652		-	legacy	open	**L652 · Checking one channel and escalating is not diligence — it is a guess with a citation**	entries/lessons/L652.md	1	23	77a800f5894073aa
+lessons	L653	653		-	legacy	open	**L653 · When a data source embeds its vendor's internals, the fix is a reader, not a warning**	entries/lessons/L653.md	1	17	04ad3e4f26fbb207
+lessons	L654	654		-	legacy	open	**L654 · 2026-09-11 20:35 UTC · A proxy pools connections; one inspection per connection is not one inspection per request**	entries/lessons/L654.md	1	11	e9fe33ac41980202
+lessons	L655	655		-	legacy	open	**L655 · 2026-09-11 20:35 UTC · A test client that opens its own connection cannot see a pooling bug**	entries/lessons/L655.md	1	9	ab6477e69d23fcc8
+lessons	L656	656		-	legacy	open	**L656 · 2026-09-11 20:40 UTC · Never hand a struggling client a task; finish the task for it**	entries/lessons/L656.md	1	11	b0c4f500d90a0015
+lessons	L657	657		-	legacy	open	**L657 · 2026-09-11 20:45 UTC · A limit keyed on the client's IP is worthless behind a proxy**	entries/lessons/L657.md	1	10	8fe355f195fde5b6
+lessons	L658	658		-	legacy	open	**L658 · 2026-09-11 20:37 UTC · "Who is visiting" cannot be recovered after the fact if the front door never recorded it**	entries/lessons/L658.md	1	16	7ec4991ac80b39ba
+lessons	L659	659		-	legacy	open	**L659 · 2026-09-11 20:37 UTC · Read the reflog before editing a shared file; a commit minutes old means a live writer**	entries/lessons/L659.md	1	16	a8cfda9ca826fb21
+lessons	L660	660		-	legacy	open	**L660 · 2026-09-11 · A rule that sizes a box must not size its contents**	entries/lessons/L660.md	1	9	8fd98acb85363174
+lessons	L661	661		-	legacy	open	**L661 · 2026-09-11 · A measurement is not a look**	entries/lessons/L661.md	1	8	4ac922a60c63f7e8
+lessons	L662	662		-	legacy	open	**L662 · 2026-09-11 · Do not remove a part of a layout you do not own**	entries/lessons/L662.md	1	8	a6a92d8361b2c9b9
+lessons	L663	663		-	legacy	open	**L663 · 2026-09-11 · Editing a Python file does not reach a running scheduler — and the proof it took is behavioural, not a restart banner**	entries/lessons/L663.md	1	14	79df6d3b2ca0bc0c
+lessons	L664	664		-	legacy	open	**L664 · 2026-09-11 · A second copy of a thing is not a second reading of it**	entries/lessons/L664.md	1	16	406b527261d7c2ac
+lessons	L665	665		-	legacy	open	**L665 · 2026-09-11 · A 500 from your own API can be a write lock, and the client's retry budget must outlast the server's patience**	entries/lessons/L665.md	1	17	8e29fd6c33569ab8
+lessons	L666	666		-	legacy	open	**L666 · 2026-09-11 · Fail-closed cursors make a silent outage recoverable — which is not the same as noticing it**	entries/lessons/L666.md	1	13	c93509279ec7a9f4
+lessons	L667	667		-	legacy	open	**L667 · 2026-09-11 · A check you have never seen fire is not a check — and the failure mode belongs IN the test**	entries/lessons/L667.md	1	14	a0ff900fa30656bd
+lessons	L668	668		-	legacy	open	**L668 · 2026-09-11 · Working production code can exist outside version control, and only the *deployment host* knows it does.** The Shabbat/Tov split that fired at 18:46:53 tonight existed**	entries/lessons/L668.md	1	14	28abca98da876fc9
+lessons	L669	669		-	legacy	open	**L669 · 2026-09-11 · Measure the size of a lie before you fix it — and beware a metric that counts the *failure handler* as success**	entries/lessons/L669.md	1	18	e487cb6581e0cdaf
+lessons	L670	670		-	legacy	open	**L670 · 2026-09-11 · A structural guard must check *control flow*, not *text presence***	entries/lessons/L670.md	1	16	57129bf90dcb9246
+lessons	L671	671		-	legacy	open	**L671 · 2026-09-11 · A blunt suppression fix outlives its incident, and the silence it creates is invisible because it looks like calm**	entries/lessons/L671.md	1	15	8d84cacff5bf461e
+lessons	L672	672		-	legacy	open	**L672 · 2026-09-11 · Distinguish the gate from the transport before naming a cause**	entries/lessons/L672.md	1	12	04564d2069525b6d
+lessons	L673	673		-	legacy	open	**L673 · 2026-09-11/13 · An alarm must distinguish "the machine stopped" from "there was nothing to say"**	entries/lessons/L673.md	1	14	ceaafb15829da1a1
+lessons	L674	674		-	legacy	open	**L674 · 2026-09-11/13 · Do not confuse "I have been working for a while" with "no time has passed"**	entries/lessons/L674.md	1	68	3351521178c5f356
+lessons	L675	675		-	legacy	open	**L675 · 2026-09-14 · The cost of a search is the walk, not the match — so index once and never walk again**	entries/lessons/L675.md	1	14	7c27db9b4770d8ee
+lessons	L676	676		-	legacy	open	**L676 · 2026-09-14 · Two tokenizers, because one index cannot be good at both prose and code**	entries/lessons/L676.md	1	17	80355956d0d32b10
+lessons	L677	677		-	legacy	open	**L677 · 2026-09-14 · Read the layout mechanism before you style it**	entries/lessons/L677.md	1	11	60229f04e462b8c7
+lessons	L678	678		-	legacy	open	**L678 · 2026-09-14 · A transformed ancestor owns its fixed descendants**	entries/lessons/L678.md	1	10	f341b7b477818f37
+lessons	L679	679		-	legacy	open	**L679 · 2026-09-14 · Before hiding a control, verify it is not the only one**	entries/lessons/L679.md	1	8	ec92f877d7c497b5
+lessons	L680	680		-	legacy	open	**L680 · 2026-09-14 04:05 UTC · `ipaddress.is_private` is not "is a local LAN address"**	entries/lessons/L680.md	1	16	11a3fb858eb7e564
+lessons	L681	681		-	legacy	open	**L681 · 2026-09-14 04:05 UTC · A one-packet probe of a sleeping peer manufactures false negatives — test the cold call, not the steady state**	entries/lessons/L681.md	1	14	1650e9beac6b7f27
+lessons	L682	682		-	legacy	open	**L682 · 2026-09-14 · A Techloq-class filter serves its block page with a SUCCESS status code, so a status check reads a block as a pass**	entries/lessons/L682.md	1	19	51c5860de293ca28
+lessons	L683	683		-	legacy	open	**L683 · 2026-09-14 · A TLS-intercepting filter can make a working API key look broken**	entries/lessons/L683.md	1	16	0427a4e4c3099b6d
+lessons	L684	684		-	legacy	open	**L684 · 2026-09-14 · `import.meta.main` silently no-ops the whole CLI on Node < 24.2 — and `node --check`, `import()`, and a clean exit code all say the code is fine**	entries/lessons/L684.md	1	17	169b23eeb3422bc8
+lessons	L685	685		-	legacy	open	**L685 · 2026-09-14 · Windows Task Scheduler was inert on `DESKTOP-FGV6KMH`; NSSM was the working detachment**	entries/lessons/L685.md	1	18	0a05684ec68a47e2
+lessons	L686	686		-	legacy	open	**L686 · 2026-09-14 · A search index that returns `0` because it is empty is worse than no index**	entries/lessons/L686.md	1	15	0a8c310933165748
+lessons	L687	687		-	legacy	open	**L687 · 2026-09-14 · Read the extension, not the folder name**	entries/lessons/L687.md	1	11	87d431dea11fe408
+lessons	L688	688		-	legacy	open	**L688 · 2026-09-14 · A doc citation is not a doc**	entries/lessons/L688.md	1	16	463dc339fc4c3b97
+lessons	L689	689		-	legacy	open	**L689 · 2026-09-14 · A 200 document does not prove an application works**	entries/lessons/L689.md	1	11	506e64c225ecdf5e
+lessons	L690	690		-	legacy	open	**L690 · 2026-09-14 · A booting service is not a dead one — and a dead one is not a plugin's fault**	entries/lessons/L690.md	1	12	dd0ff56c25112efa
+lessons	L691	691		-	legacy	open	**L691 · 2026-09-14 · The harness can serve documents and still refuse its API, and the refusal is not from any plugin**	entries/lessons/L691.md	1	11	41d0124ba4590302
+lessons	L692	692		-	legacy	open	**L692 · 2026-09-14 · Index the same text twice and you pay twice — choose ONE expensive index**	entries/lessons/L692.md	1	16	6011511466dfadb0
+lessons	L693	693		-	legacy	open	**L693 · 2026-09-14 · Index the trees you own; a backup directory is a second copy of your own index**	entries/lessons/L693.md	1	11	810e5c6f5054a7a2
+lessons	L694	694		-	legacy	open	**L694 · 2026-09-14 · Two parsers of the same format will disagree; find out which one is inflating before you trust the bigger number.** The first chat ingester reported **15,149 messages**	entries/lessons/L694.md	1	14	94dfd98a7eac6fd4
+lessons	L695	695		-	legacy	open	**L695 · 2026-09-14 · Never send an alert about a broken channel through that channel**	entries/lessons/L695.md	1	13	06d811acc2786eff
+lessons	L696	696		-	legacy	open	**L696 · 2026-09-14 · An instruction the owner cannot follow is a bug, not non-compliance — and a headless host cannot serve an interactive login**	entries/lessons/L696.md	1	13	0025dfd65a8f46a9
+lessons	L697	697		-	legacy	open	**L697 · 2026-09-14 · `held` is a terminal state unless something explicitly drains it — so count `sent`, not `queued`**	entries/lessons/L697.md	1	14	5b5acfb72e72e08e
+lessons	L698	698		-	legacy	open	**L698 · 2026-09-14 · A truncated result and a true absence look identical to a reader**	entries/lessons/L698.md	1	12	2dc969a18c692d90
+lessons	L699	699		-	legacy	open	**L699 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question**	entries/lessons/L699.md	1	14	a7664f799e2db481
 lessons	L320	320		2026-09-14	SECRATARY	open	**L320 · The 326 stale-key rows premise is falsified: they are ingested transcripts, and the real leak is elsewhere**	entries/lessons/L320.md	1	20	c0ab475cb9596ccc
 lessons	L510	510		2026-09-14	SECRATARY	open	**L510 · A local commit silently blinds a machine: autosync is fast-forward-only**	entries/lessons/L510.md	1	23	22030e96b1e3f8c3
+lessons	L700	700		2026-09-14	SECRATARY	open	**L700 · Authority DB: the real faults are verbatim transcript ingest, a stuck WAL checkpoint, and connection growth**	entries/lessons/L700.md	1	19	4091c9e418a13dd7
