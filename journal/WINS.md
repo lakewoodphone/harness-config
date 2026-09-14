@@ -449,8 +449,7 @@ third party.
 *Built:* \server/app/frame_egress.py\ — downscale to the 1024px long edge, apply EXIF orientation before dropping the tag
 that carried it, normalise to RGB JPEG, strip all metadata, and report hashes rather than pixels so the audit trail can
 prove what was sent without keeping it. An undecodable frame is a **refusal**, never a pass-through, because a picture we
-cannot scrub must not be sent. Wired into \
-eview_screenshot_image\ so every provider benefits; commit \42bd0f1\.
+cannot scrub must not be sent. Wired into \eview_screenshot_image\ so every provider benefits; commit \42bd0f1\.
 *Measured:* \pytest tests/test_frame_egress.py\ -> **10 passed** (tall-frame geometry, no upscaling, EXIF gone, orientation
 applied, grayscale/PNG normalised, refusal on unreadable input, deterministic hashes, clamped edge limits).
 *Why it matters:* it is the rare change that improves all three things the owner asked for simultaneously — cheaper,
@@ -473,16 +472,4 @@ takes effect. The second correction was in the chat parser: the rewritten patche
 reported a *smaller* total than the naive one, and a per-file comparison proved the smaller number is
 the true one (93 files with more coverage, 0 with less, and the old parser repeating the text `b` 39×
 in a single file).
-
-
-
-**W33 · 2026-09-14 · The pathological file that broke the ingester now parses, and the index can no longer
-go stale unnoticed.** The 1,050 MB chat log — whose largest single line is 419 MB — defeated the first
-reader: 1,525 s of CPU in 25 minutes with zero output. Rewriting the reader around a `bytearray` with
-`find`/`del` instead of `buf += chunk` and `partition` turned it into seconds of parsing with visible
-output growth, diagnosed by comparing CPU time against wall time rather than guessing. In the same pass the
-index got the automation it lacked: an hourly scheduled task (registered, enabled, next run shown), an
-incremental `refresh.py` that records success or a readable failure, and a digest section that reports
-freshness and says UNKNOWN rather than healthy when it cannot see. Capability, instruction (a regenerated
-persona rule, `--check` clean), and alarm — all three, because any two of them leave the same hole.
 

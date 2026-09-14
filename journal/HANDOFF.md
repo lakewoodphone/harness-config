@@ -1,3 +1,69 @@
+## 2026-09-14 05:45 UTC · ZABZ-YOGA · Owner asked "pull my emails and Google Voice calls/texts/voicemails and tell me what needs attention" — and the biggest finding is that **nothing has reached him from this company since 2026-07-19**
+
+**THE HEADLINE IS NOT ABOUT EMAIL.** `owner_message_queue` has **296 rows in `held`**, and its **last
+`sent` row is 2026-07-19** (the newest 8 `status='sent'` rows run 07-09 → 07-19 and *every one of them*
+is a "Google Voice is blind" alert). The gates are `data/OWNER_SMS_KILL_SWITCH` (owner decision
+2026-09-11) and `owner_sms_min_urgency=urgent`. So the kernel's CRITICAL `attention_debt` — "7 critical
+held, 37 urgent held, oldest question 133d" — is **not a backlog problem, it is a total delivery
+failure**. The 09-11 decision stopped unwanted SMS by stopping *all* SMS and never wired a replacement.
+
+**The Google Voice answer, honestly — and the part that matters is a refusal, not a zero.** Pulled GV
+traffic the only way that still works: **Gmail notifications** (a previous session already pointed the
+digest at this — `scripts/server/owner-attention-digest.sh` §3):
+- 18 missed-call notices in 14 days, 6 in the last week: **Weber Yitzy 09-13 21:02**, Alon ×2 09-11,
+  Matatov 09-11, Manela 09-10, Radzik Sruly 09-10 (+ Mattis Klein 09-09).
+- 113 SMS notices with real content (Alon, Matatov, Shabsi, Foyer Public).
+- **Exactly one voicemail: 2026-09-08 22:45 from (347) 829-4551** — garbled transcript, explicit callback
+  request, unread since.
+- **Nothing newer than 09-08 is visible, because the reader is dead.** `gv_read_calls` and
+  `gv_read_messages` → `HTTP 401 invalid authentication credentials`; `gv_read_voicemails` → **timed out
+  at 180 s**. `google_voice_secretary_health`: account_0 `failed`, **6,284 consecutive failures**, last OK
+  **2026-07-02 17:08Z**; account_1 `failed`, **5,958**, last OK **2026-07-02 13:47Z**.
+
+**A self-inflicted wound worth naming: the alert loop texts the owner through the thing that is broken.**
+Between 09-09 21:04 and 09-12 19:30 the system emitted **~100 copies of "Google Voice monitoring is blind
+… until you re-login at /google-voice/login"** — as SMS *through Google Voice*, to the GV number, which
+bounced back as GV email notifications. `OWNER_PHONE_NUMBER=+17325691594` **is the Google Voice number**.
+The alert proved the channel blind and then used it.
+
+**And the repair instruction it has repeated for 56 days was never followable.** `/google-voice/login`
+calls `interactive_login(wait_for_completion=False)`, which launches a **visible Chrome window on
+`secratary`**. `secratary` has `DISPLAY=` empty and only `Xvfb`; the window opens nowhere. **This is not
+advice that was ignored, it is an instruction that could not be carried out.**
+
+**From the sweep (174 unique messages / 4 Gmail accounts, plus Dialpad):**
+- **A sales lead went unanswered.** Dialpad 2026-09-14 01:10Z, `(848) 333-6341`: *"Can I order a laptop
+  asap. Can you call me to discuss?"* → AI auto-reply: *"we're closed… walk-in hours Mon-Thu 10:30-5:30"*.
+- **A first-time customer was told "my boss did not have time".** Dialpad 09-11, `(848) 480-5115`.
+- **197 GitHub "Run failed" emails in 7 days** on `phone-and-tech-full` (`a77ff7f…`), 5 workflows.
+  Root cause: the Grand Supervisor scripts call `gh api repos/…/issues/84/comments?per_page=100`
+  (issue 84 exists, OPEN) → `gh command failed` → exit 1.
+- **DeepInfra's 09-12 charge failure is cosmetic** — `/v1/me` → 200 with the correct account, and a $30
+  charge cleared 09-10.
+- **Telnyx is fixed on evidence**: "Payment Success" + "Account Re-enabled" both 2026-09-10. Owner-queue
+  #9's Telnyx half should be closed; the Gusto/bank half still stands.
+- US Mobile line …1707 at 90% premium data · Netlify ableTelSolutions **75% of 300 credits in 3 days** of a
+  Sep 7–Oct 6 cycle · Ronen Hizami MD bill · PayPal cases `PP-R-MAF-644541080`/`PP-R-VHU-644541358` ·
+  Amazon/Alibaba/AliExpress seller messages · ALCO custom cover still no ship date (his own chaser 09-13).
+- **`email_drafts` is now 24+ `pending_review`** (newest: Deep Infra, AliExpress, both 09-12). That question
+  is already open in `QUESTIONS.md` (2026-09-11) — **not re-asked**.
+
+**WHAT I DID NOT TOUCH.** Nothing sent, no queue row resolved, no deploy. Read-only apart from the journal.
+
+**EVIDENCE**
+- Pulls ran on `secratary` through `/api/v1/actions/execute` (`gmail_search`: `newer_than:3d`,
+  `is:unread newer_than:30d`, `from:voice-noreply@google.com`, `from:txt.voice.google.com`).
+  Artifacts `~/comms-pull/*.json` on `secratary`; analyses `_scratch\gmail-report.txt`,
+  `_scratch\sweep2-report.txt`, `_scratch\sweep3-report.txt`.
+- **`gmail_search` silently caps at 40 results** in production even when asked for 200 (verified: asked 200,
+  got 40 on the 3-day query). Worth fixing — a truncated search reads as a complete one.
+- Diagnoses run on `secratary`: `~/db-attention.py`, `~/db-attention2.py`, `~/db-dialpad.py`,
+  `~/gv-feasibility.py`, `~/money-check.py`.
+- `pgrep -af remote-debugging-port` → none; `tailscale serve status` → **only** one https handler,
+  `https://secratary.tail93e6e6.ts.net/ → http://127.0.0.1:3086` (so a second `--https=443` will conflict).
+
+---
+
 ## 2026-09-14 05:30 UTC · ZABZ-YOGA · The three tiers, answered from the code — and the first thing that leaves the phone is now scrubbed
 
 **CHANGED**

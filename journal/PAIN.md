@@ -1098,29 +1098,43 @@ duplicates were still being walked. Still open: the index carries 685,000 file r
 rule ("catalog everything, but only index content in recently-touched trees") would cut it further
 without losing the ability to find an old file by name.
 
+## P55 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would
+have said so was aimed at a channel that is dark (OPEN, measured 2026-09-14)
 
+**Symptom.** `owner_message_queue`: **296 `held`**, **2 `queued`**, and the newest `status='sent'` row is
+**2026-07-19T02:32Z**. The eight newest `sent` rows are all July and all the same *"Google Voice monitoring
+is blind"* alert. Meanwhile the kernel's sentinel reports CRITICAL `attention_debt`: *"7 critical
+message(s) held; 37 urgent message(s) held; oldest question 133d old."*
 
-## P55 — The search index had no automation and no alarm; it would have gone stale silently
+**Cause, three layers, each verified separately.**
+1. `data/OWNER_SMS_KILL_SWITCH` (owner decision 2026-09-11, still correct for its original purpose) turned
+   SMS **off**, and `owner_sms_min_urgency=urgent` gates everything else. No replacement channel was wired,
+   so the kill-switch became a total mute.
+2. The obvious replacement routes to **the dead thing**: `OWNER_PHONE_NUMBER=+17325691594` **is** the Google
+   Voice number, whose monitoring has 6,284 consecutive auth failures and last worked 2026-07-02.
+   The 100-odd "GV is blind" alerts sent 09-09 → 09-12 were delivered *through* GV.
+3. The remaining surfaces are pull-only: `~/secretary-attention-digest/latest.txt` (cron `*/30`, fresh and
+   actually very good) and the dashboard, which require the owner to go and look. Nothing pushes.
 
-**Symptom.** `fsearch`/`chatindex` are incremental, so a refresh is cheap — but nothing ran them. The
-index was built by hand, once, and a state built by hand decays the moment the person who built it stops
-looking. Worse, nothing checked it: a stale index answers *confidently and wrongly*, which is the
-provenance failure (P3) wearing new clothes.
+**Cost.** 56 days of findings that reached nobody: the Deep Infra failed charge, the Telnyx negative
+balance and its later fix, the Gusto payroll blocks, the CHEMED/radiology item, the sales lead from
+`(848) 333-6341`, the Netlify credit burn, the 24 stuck email drafts. The owner's own 2026-09-11 decision
+to keep SMS off is being honoured — but it is being honoured by a system that then says nothing at all.
 
-**Evidence.** No scheduled task existed for either index before 2026-09-14; `refresh-state.json` did not
-exist; the digest had no section for it. Meanwhile the fleet's other freshness alarms (archive, comms)
-each caught a real fault in the same week.
+**Fix (proposed, needs his channel choice before anything is sent).**
+(a) **Measure delivery, not queue depth** — a sentinel check on `MAX(sent_at)` in `owner_message_queue`
+(and `email_drafts.sent_at`) that raises when nothing has been delivered in N days (L176). This one check
+would have caught all 56 days on day two.
+(b) Kill the self-referential alert: the GV-blind alert must not travel by GV SMS, and must collapse to
+**once per 24 h** (L174).
+(c) Make the repair step executable before offering it: the GV re-login needs a transport the headless host
+does not have (L175) — CDP over `tailscale serve --tcp=9222 tcp://127.0.0.1:9222` is the candidate,
+**not yet built**; `tailscale serve status` currently holds one https handler on :443 pointing at 3086.
+(d) Wire the chosen push channel (the 2026-09-14 `QUESTIONS.md` row, still open, recommendation = badge in
+the harness he already opens).
 
-**Cost.** Every search executed against a frozen snapshot, silently missing everything written after the
-build — and worse than the 45-second walk it replaced, because the walk at least saw the new files.
-
-**Fix (done).** `refresh.py` refreshes both indexes incrementally, records `last_success` in a state file,
-and exits non-zero with a readable reason on failure instead of dying quietly; `install_refresh.py`
-registers it as a per-user Scheduled Task on Windows (`DSH search index refresh`, hourly, verified
-`Status: Ready`, `Next Run Time` populated) and as a cron line on Linux. `check-search-freshness.py` is
-wired into the digest as section 0c with exit 0/1/2 where 2 means *cannot tell*, and it printed UNKNOWN
-rather than healthy on a host with no refresh yet.
-
-**Still open.** The two other corpora the owner named (the company DB — email/SMS/calls — and the DSH
-session archive) are not in this query surface yet, so a single search still does not cover everything.
+**Evidence.** `SELECT status, COUNT(*) FROM owner_message_queue GROUP BY status`; the newest 8 `status='sent'`
+rows; `google_voice_secretary_health` (account_0 `failed`, 6,284 consecutive, last OK 2026-07-02T17:08Z);
+`gv_read_calls`/`gv_read_messages` → HTTP 401; `gv_read_voicemails` → 180 s timeout; `DISPLAY=` empty and
+only `Xvfb` on `secratary`; `~/secretary-attention-digest/latest.txt` (2026-09-14T05:00Z) §0a, §1, §3.
 

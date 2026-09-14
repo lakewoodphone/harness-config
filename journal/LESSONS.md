@@ -1585,31 +1585,56 @@ emitting a row per record instead of replaying to a final state.
 duplicate text as the tell. A larger total from a parser that does not apply patches is inflammation,
 not coverage.
 
+**L174 · 2026-09-14 · Never send an alert about a broken channel through that channel.**
+The GV watcher's failure alert — *"Google Voice monitoring is blind … re-login at /google-voice/login"* —
+was delivered by **`send_sms`, to `OWNER_PHONE_NUMBER=+17325691594`, which is the Google Voice number**.
+It arrived as a GV SMS→email notification, i.e. the alert used the very pipe it was reporting dead.
+Measured: **~100 copies sent between 09-09 21:04 and 09-12 19:30**, all of which landed back in Gmail.
+Cost: the one signal that mattered was buried in its own echo, and the 56 days of blindness were never seen.
+*Rule:* an alert about channel X must travel on a channel that is **not X**, and the alert path must be
+asserted to work **before** the alert is raised — otherwise the alarm's own delivery becomes the evidence
+that it is fine, which is the exact opposite of true.
 
+**L175 · 2026-09-14 · An instruction the owner cannot follow is a bug, not non-compliance — and a headless
+host cannot serve an interactive login.**
+`/google-voice/login` calls `interactive_login(wait_for_completion=False)`, which launches a **visible**
+Chrome window. `secratary` has `DISPLAY=` empty and only `Xvfb`/`google-chrome`; the window opens nowhere.
+The same remediation string has been repeated to the owner since ~2026-07-19 (and sent 100× in September)
+and could never have succeeded once.
+*Rule:* before putting a step in front of the owner, execute it (or prove it executable) on the machine it
+names. "Re-login at /url" is a claim that the URL **works** — verify the display, the port binding and the
+reachable host before it becomes his instruction. A repair step that requires a GUI needs a transport
+(CDP over `tailscale serve --tcp`, or X forwarding) shipped with it, or it is not a repair step.
 
-**L174 · 2026-09-14 · `buf += chunk` then `partition` is O(n^2) on a long line — the guard I wrote to
-prevent a stall caused one.** Reading the chat corpus, the loop accumulated 1 MB reads into a `bytes`
-object (`buf += chunk`) and then re-scanned it with `buf.partition(b"\n")` on every iteration. On the
-1,050 MB file, whose dominant line is **419 MB**, that is quadratic in line length: the process burned
-**1,525 s of CPU in 25 minutes and wrote nothing**. The "long line guard" I added for safety never
-mattered, because the cost was in the accumulation itself, not in the absence of a newline.
-*Fix, and the rule:* use a `bytearray` (mutating, not reallocating a new immutable object per read),
-`find` for the newline, `del` the consumed prefix, and only materialise a line when one actually ends.
-Guard memory by discarding an over-long buffer and resyncing on the next newline.
-*Evidence:* same file, same machine, after the change — parsing and writing within seconds.
-*Generalisation:* when a job is slow, measure **CPU time against wall time and output growth** before
-theorising. 1,525 s CPU with zero output growth is a computation bug, not an I/O wait, and the two need
-opposite fixes.
+**L176 · 2026-09-14 · `held` is a terminal state unless something explicitly drains it — so count
+`sent`, not `queued`.**
+`owner_message_queue` reads like a backlog with 296 `held` rows. It is worse than that: the newest
+`status='sent'` row is **2026-07-19**, and the last eight `sent` rows are all July and all the same
+"Google Voice is blind" alert. `owner_sms_min_urgency=urgent` plus the owner's kill-switch mean nothing
+below `urgent` is ever delivered, and apparently nothing above it either.
+*Rule:* health of an outbound queue is measured by **delivery timestamps, newest first** — a queue with
+activity but no recent `sent_at` is not busy, it is severed. Any monitor that counts "pending" without
+also alarming on "nothing delivered in N days" will report a dead channel as a loaded one.
+Corollary: after disabling a channel, the disabled channel must be replaced in the same change, or the
+silence it creates is indistinguishable from having nothing to say (L11/L12/L30 in a new place).
 
-**L175 · 2026-09-14 · A tool nobody is told to use is not a tool — documentation is not a mechanism.**
-The search index made the fleet's most common operation ~600× faster (45.34 s → 0.07 s, measured), and
-for a while nothing at all instructed a future session to use it: the default behaviour would still have
-been a recursive walk, and the index would have rotted while every search stayed slow. The fix was not
-another document; it was a **persona rule** (`make_zabz_preset.py`, regenerated, verified with `--check`,
-installed to the live profile) naming the two commands, the measured numbers, and the rule that a stale
-index is a fault to fix rather than a state to work through.
-*Rules:* (a) shipping a capability includes shipping the *instruction to use it*, in the place the reader
-actually reads; (b) pair it with a **freshness alarm** in the digest, because "use this index" without
-"and it must be current" produces confident answers from stale data — the same failure as P3 with a new
-mechanism.
+**L177 · 2026-09-14 · A truncated result and a true absence look identical to a reader.**
+`gmail_search` asked for 200 results returns **40** in production; asked for 200 on another query it
+returns 200. The report I built from it read `count: 0` for a query that had matches, because the
+response shape is `{ok, results:[{data:{messages}}]}` and a wrong-shaped read of a non-empty answer is
+silent. Two separate traps in one call.
+*Rule:* read a search API's own `count`/`total` field, not `len(rows)`; state the cap in the output when
+one is hit ("showing 40 of ≥40"); and treat "0 results" and "0 results **because the query or shape was
+wrong**" as different answers. An under-count is a **refusal**, and must be reported as one.
+
+**L178 · 2026-09-14 · `ps_health` is a context bomb — 356 KB and a truncated tail, for one question.**
+Called once this session to sanity-check the system; it returned **356,129 bytes** of autopilot
+subsystem history — the full `recent_runs` array for every subsystem, dozens of entries each — and the
+harness had to spill the overflow to a file. Nothing about that call required the history: the same
+question ("is the company up, and is anything blocked?") is answered by `ps_company_status` plus
+`ps_circuit_breakers`.
+*Rule:* never call `ps_health` for a status glance. If a health reading is genuinely needed, prefer the
+narrow tools, or the server-side digest (`scripts/server/owner-attention-digest.sh`, 7.6 KB) which
+already condenses the same facts. When a tool returns far more than the question needed, that is a
+finding about the tool — record it, and stop using it that way.
 
