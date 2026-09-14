@@ -34,6 +34,11 @@ let protocolHits = 0;
 
 const fakeWindow = {
   __ModuleLoader__: { load: (entry) => registered.push(entry) },
+  // A desktop viewport by default: the controls exist only above the phone breakpoint, and
+  // the phone case is exercised explicitly at the end of this file.
+  innerWidth: 1280,
+  addEventListener: () => {},
+  removeEventListener: () => {},
   localStorage: {
     removeItem: (k) => storage.delete(k),
     getItem: (k) => (storage.has(k) ? storage.get(k) : null),
@@ -48,11 +53,17 @@ const fakeWindow = {
   console: { warn: () => {} },
 };
 
-// React stub: record the props of the created element so a test can drive onClick.
+// React stub: record the props of the created element so a test can drive onClick. `useState`
+// honours the lazy-initializer form the plugin's viewport hook uses — a stub that returned
+// the function itself would make a phone-width reading look truthy and hide the bug it tests.
 function createElement(type, props, children) {
   return { type, props: props || {}, children };
 }
-const React = { createElement, useEffect: () => {}, useState: (v) => [v, () => {}] };
+const React = {
+  createElement,
+  useEffect: () => {},
+  useState: (v) => [typeof v === 'function' ? v() : v, () => {}],
+};
 
 // The bundle uses React both as the injected module AND, for the helper components, as a
 // bare global inside the factory closure, so the sandbox global and the injected module
@@ -125,6 +136,30 @@ check('in-window control does NOT touch the protocol', protocolHits === 0, Strin
 windowElement.props.onClick();
 check('new-window control navigates to the launcher protocol',
   navigations[navigations.length - 1] === 'dsh-new://open', String(navigations[navigations.length - 1]));
+
+// ── the phone ────────────────────────────────────────────────────────────────
+// Both controls are meaningless on a phone: `⧉` hands a Windows-only protocol URL to a
+// device with one window, and `+` duplicates the sidebar's own new-session affordance. The
+// guard is on the viewport, so this asserts the RENDERED result, not the intent.
+console.log('phone (393px)');
+function renderControl(cell, props) {
+  const outer = cell(props);
+  return outer && typeof outer.type === 'function' ? outer.type(outer.props) : outer;
+}
+fakeWindow.innerWidth = 393;
+const phoneHere = renderControl(registeredCells[0].cell, { kind: 'here' });
+const phoneWindow = renderControl(registeredCells[1].cell, { kind: 'window' });
+check('the in-window control renders nothing at 393px', phoneHere === null, String(phoneHere));
+check('the new-window control renders nothing at 393px', phoneWindow === null, String(phoneWindow));
+check('the breakpoint is inclusive: 768px is still a phone',
+  (fakeWindow.innerWidth = 768, renderControl(registeredCells[1].cell, { kind: 'window' }) === null));
+fakeWindow.innerWidth = 769;
+check('one pixel above the breakpoint brings the control back',
+  renderControl(registeredCells[1].cell, { kind: 'window' }) !== null);
+fakeWindow.innerWidth = 1280;
+check('and a desktop still gets both',
+  renderControl(registeredCells[0].cell, { kind: 'here' }) !== null &&
+  renderControl(registeredCells[1].cell, { kind: 'window' }) !== null);
 
 console.log('');
 if (failures === 0) { console.log('client smoke OK'); process.exit(0); }

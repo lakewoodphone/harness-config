@@ -46,6 +46,45 @@ window.__ModuleLoader__.load({
     const SESSION_KEY = 'dsh.sessions.current';
 
     /**
+     * The phone breakpoint, the same number `assets/mobile.css` and the mobile plugin use.
+     *
+     * ON A PHONE BOTH CONTROLS ARE NONSENSE, so neither is rendered there:
+     *
+     *   ⧉  opens a new WINDOW through the `dsh-new://` protocol, which only Windows resolves
+     *      and which a phone has nowhere to put — "it's just a phone, so it doesn't need more
+     *      than one window" (owner, 2026-09-14). Leaving it would be a control that looks
+     *      live and does nothing.
+     *   +  starts a blank conversation in this window, which the phone UI already offers from
+     *      its own sidebar; a second copy beside the composer costs a tap target in the
+     *      scarcest space on the screen.
+     *
+     * Suppressing them here rather than by not installing the package is deliberate: the same
+     * profile may be served to a desktop and a phone at once, and the decision belongs to the
+     * viewport, not to whoever provisioned the host.
+     */
+    const PHONE_MAX_WIDTH = 768;
+
+    /**
+     * Is this viewport phone-width? Read per render and re-read on resize, because the same
+     * browser is a phone and a desktop at different moments — the same rule plugin-mobile
+     * follows. Fails open (a desktop) when `window` cannot be measured, so an unusual
+     * environment loses nothing.
+     */
+    function useIsPhone() {
+      const read = () => {
+        if (typeof window === 'undefined' || typeof window.innerWidth !== 'number') return false;
+        return window.innerWidth <= PHONE_MAX_WIDTH;
+      };
+      const [isPhone, setIsPhone] = React.useState(read);
+      React.useEffect(() => {
+        const onResize = () => setIsPhone(read());
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+      }, []);
+      return isPhone;
+    }
+
+    /**
      * Start a new conversation in THIS window.
      *
      * Forgetting the remembered session and reloading is the app's own blank-window state:
@@ -86,6 +125,9 @@ window.__ModuleLoader__.load({
     };
 
     function Control(props) {
+      // The hook runs unconditionally, before any early return, as React requires.
+      const isPhone = useIsPhone();
+      if (isPhone) return null;
       const isNewWindow = props && props.kind === 'window';
       const title = isNewWindow
         ? 'New session in a new window'

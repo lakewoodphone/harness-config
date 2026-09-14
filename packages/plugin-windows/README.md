@@ -28,6 +28,25 @@ Two consequences worth knowing:
 - **The only failure mode is a missing protocol registration**, in which case the button
   does nothing. It cannot break the UI.
 
+## On a phone, neither control exists
+
+Below **768 px** the composer shows no `+` and no `⧉`, and that is deliberate:
+
+- `⧉` hands `dsh-new://open` to Windows. A phone has nowhere to put a second window and no
+  handler for the protocol, so the control would look live and do nothing — the owner asked
+  for its absence in as many words on 2026-09-14: *"it doesn't need the plus button to open a
+  new window because it's just a phone, so it doesn't need more than one window"*.
+- `+` blanks this window into a new conversation, which the phone UI already offers from its
+  own sidebar. A second copy beside the composer costs a tap target in the scarcest space on
+  the screen.
+
+The guard is on the **viewport**, not on the host: the same profile may serve a desktop and a
+phone at once, so the decision belongs to the width the page is rendered at — the same rule
+`plugin-mobile` and `assets/mobile.css` follow, at the same breakpoint. It is read per render
+and re-read on resize, so rotating a phone or widening a window does the right thing without a
+reload. `test/client-smoke.mjs` asserts the rendered result at 393 px, at exactly 768 px, one
+pixel above it, and at desktop width.
+
 ## Dependencies: none, on purpose
 
 The browser loader resolves **every** name in a plugin's `inject` and in the package's

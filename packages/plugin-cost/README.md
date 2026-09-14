@@ -57,18 +57,28 @@ Sources: [DeepSeek models & pricing](https://api-docs.deepseek.com/quick_start/p
 ## Install
 
 ```bash
-# from the harness-config checkout
-node packages/plugin-cost/scripts/build.mjs          # regenerate lib/ from src/
-node packages/plugin-cost/scripts/build.mjs --check  # fail if lib/ is stale
-
-# into the web profile
-cd ~/.dsh/profiles/web
-pnpm add "file:<path-to>/harness-config/packages/plugin-cost"
-# then add "dsh-plugin-cost" to dsh.profile.bundles in that profile's package.json
+# from the harness-config checkout — into the default web profile
+bash packages/plugin-cost/install.sh              # ${DSH_HOME:-~/.dsh}/profiles/web
+bash packages/plugin-cost/install.sh /path/to/profile
 ```
 
-The bundle list is read when the profile boots, so **restart the profile** for the
-plugin to mount.
+The installer links the package into the profile (a copy drifts; a symlink, else a Windows
+junction, else a copy that warns) and adds its name to that profile's `dsh.profile.bundles`.
+It delegates to `scripts/install-client-plugin.sh` — one implementation for every client
+plugin, because the per-package installers drifted: `plugin-mobile` had one and this package
+had none, so the always-on host that serves the owner's phone carried no cost pill at all
+until 2026-09-14. `scripts/serve-phone.sh` now checks *both* packages on every run, so the
+phone's copy cannot silently vanish.
+
+Regenerating `lib/` and installing are separate steps, on purpose:
+
+```bash
+node packages/plugin-cost/scripts/build.mjs          # regenerate lib/ from src/
+node packages/plugin-cost/scripts/build.mjs --check  # fail if lib/ is stale
+```
+
+The bundle list is read when the profile boots, so **restart the profile** for the plugin to
+mount.
 
 ## Verifying it, not assuming it
 

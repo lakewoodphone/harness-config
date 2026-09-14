@@ -97,23 +97,35 @@ ensure_redirector() {
 }
 
 ensure_client_plugin() {
-  # The phone's drawer behaviour lives in packages/plugin-mobile, and it reaches the browser
+  # The phone's client layer lives in packages/*, and each package reaches the browser
   # through two things that are not in git and can vanish without a trace: a symlink in the
   # profile's node_modules and the package name in that profile's `dsh.profile.bundles`. An
   # npm command run inside the profile, or a rebuilt node_modules, silently takes the
-  # behaviour away and the phone is merely annoying again — the hardest kind of regression to
-  # notice. So the same script that keeps the gate and the redirector alive keeps this too:
-  # check, and reinstall only when something is actually missing.
-  local pkg="$REPO_DIR/packages/plugin-mobile"
+  # behaviour away — and the phone is merely annoying again, which is the hardest kind of
+  # regression to notice. So the same script that keeps the gate and the redirector alive
+  # keeps these too: check each, and reinstall only when something is actually missing.
+  #
+  # BOTH packages, and that is the point of the loop: `plugin-mobile` has been kept alive
+  # here since 2026-09-11 while `plugin-cost` — installed by hand on Windows only — was
+  # absent from this host entirely, so the owner's phone had no cost pill and nothing said
+  # so (measured 2026-09-14: the bundle list was [dsh-base, dsh-web-app, dsh-plugin-mobile]).
+  # A keeper that watches one of two things is the trap; it must watch the list.
   local profile="${DSH_HOME:-$HOME/.dsh}/profiles/web"
-  [ -d "$pkg" ] || return 0
   [ -d "$profile" ] || return 0
-  if [ -e "$profile/node_modules/dsh-plugin-mobile" ] && grep -q '"dsh-plugin-mobile"' "$profile/package.json" 2>/dev/null; then
-    return 0
-  fi
-  bash "$pkg/install.sh" "$profile" >>"$STATE/plugin-install.log" 2>&1 &&
-    echo "client plugin (re)installed into $profile" ||
-    echo "client plugin install failed (see $STATE/plugin-install.log)"
+  local pkgdir name rc=0
+  for pkgdir in "$REPO_DIR/packages/plugin-mobile" "$REPO_DIR/packages/plugin-cost"; do
+    [ -d "$pkgdir" ] || continue
+    name="$(basename "$pkgdir")"
+    [ -e "$profile/node_modules/$name" ] && grep -q "\"$name\"" "$profile/package.json" 2>/dev/null && continue
+    if bash "$REPO_DIR/scripts/install-client-plugin.sh" "$pkgdir" "$profile" >>"$STATE/plugin-install.log" 2>&1; then
+      PLUGINS_CHANGED=1
+      echo "client plugin (re)installed: $name -> $profile"
+    else
+      rc=1
+      echo "client plugin install failed: $name (see $STATE/plugin-install.log)"
+    fi
+  done
+  return $rc
 }
 
 port_open() {
@@ -189,6 +201,13 @@ if ! tailscale serve status 2>/dev/null | grep -q "$PORT"; then
 fi
 echo "serve active: https://$DNS/ -> 127.0.0.1:$PORT"
 
+# BEFORE the engine decision, so a plugin that had to be (re)installed is in the bundle list
+# the engine reads at boot. Installing afterwards means it mounts only at some future,
+# unrelated restart — which is how a keeper that runs every ten minutes can still leave a
+# feature missing for days.
+PLUGINS_CHANGED=""
+ensure_client_plugin
+
 if [ -z "$(engine_pid)" ]; then
   echo "starting the engine on :$ENGINE_PORT (trusting $DNS; the gate publishes :$PORT)"
   rm -f "$LOG" "$ERR"
@@ -207,11 +226,18 @@ if [ -z "$(engine_pid)" ]; then
   fi
 else
   echo "engine already running: pid $(engine_pid)"
+  # A bundle list is read when the profile boots, so an install that happened while this
+  # engine was up is NOT in the running process. Say so instead of letting the pill be
+  # silently absent: this is the same class of claim as "config changed" without a restart.
+  if [ -n "$PLUGINS_CHANGED" ]; then
+    echo "NOTE: a client plugin was (re)installed while this engine was running."
+    echo "      The engine mounts the bundle list at boot — restart it to pick the plugin up:"
+    echo "      bash $0 --stop && bash $0"
+  fi
 fi
 
 ensure_gate
 ensure_redirector
-ensure_client_plugin
 
 # ...and the gate has to be accepting too, or "published" is a claim about Serve only.
 for _ in $(seq 1 15); do port_open "$PORT" && break; sleep 1; done
