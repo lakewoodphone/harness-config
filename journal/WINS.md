@@ -439,3 +439,11 @@ token correctly hits the Access login, and the helper script has always sent the
 *Why it matters:* a documented blocker that was never re-tested after the first attempt cost more than the
 original fault. Re-test a claimed block before relaying it.
 
+
+**W26 · 2026-09-14 · `/attention` exists, mounts, registers, and the probe found a real outage the moment it learned to look.**
+`packages/plugin-attention` gives the composer a `/attention` command: kernel findings, the phone path and config sync, each
+with its source and age, and a source that is missing says so instead of showing green. Verified against a real harness:
+the engine mounts it, and `commands/list` returns `{"name":"attention","description":"What the company is reporting: kernel
+findings, the phone path, config sync"}` beside `/cost`. Two other things landed in the same stretch and both earned their
+keep immediately: `serve-phone.sh` now waits for the engine's socket before claiming success (it used to return at the
+token, ~18s early), and probe check 12 calls the app's first RPC — which failed on its very first run, exposing P48.

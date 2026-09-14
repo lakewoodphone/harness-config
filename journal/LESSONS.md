@@ -1440,3 +1440,32 @@ would have collapsed this diagnosis to one line.
 broken assistant that nobody was told about, because the error was only ever visible in a log on her own box.
 
 
+
+---
+
+## On a document that loads while the application is dead (2026-09-14, authority)
+
+**L150 · 2026-09-14 · A 200 document does not prove an application works.**
+The phone probe reported 11/12 — and the kernel called the phone path "proven" — while **every RPC the app makes returned
+403 `forbidden`**: the document loaded, the session cookie was minted, the page rendered, and `agentPresets/list`,
+`session/modelCatalog` and the `/api/remote.mux` websocket were all refused. The phone would show an empty, broken
+interface. A document is the shell; the session list is the application. Check 12 now calls `agentPresets/list` the way the
+client does, with the gateway's args envelope, and it failed the first time it ran — which is the only reason this is
+written down rather than discovered by the owner holding the phone.
+
+**L151 · 2026-09-14 · A booting service is not a dead one — and a dead one is not a plugin's fault.**
+I reported to the owner that my own new bundle had killed the engine, because a probe run failed 10 of 12 checks minutes
+after I installed it. Three tests refute that: the plugin mounts cleanly in an isolated profile (engine alive, listening,
+no stderr), its command registers (`commands/list` returns it beside `/cost`), and removing it changes nothing. The real
+timing, measured: the engine prints its token ~18s **before** it binds the socket, so a check run in that window sees a
+dead service. `serve-phone.sh` now waits for the socket and the probe waits for the services before judging. *Rule:* do not
+name a culprit from a single observation taken during a state you have not controlled for; and never report a cause you
+have not tested by removing it.
+
+**L152 · 2026-09-14 · The harness can serve documents and still refuse its API, and the refusal is not from any plugin.**
+Reproduced on the authority: `GET /` → 200 with a valid cookie; `POST /api/agentPresets/list` → **403 `forbidden`** (9-byte
+body) over Serve, over the loopback gate, and direct to the engine; the websocket upgrade → 403. Bisected by removing every
+third-party bundle (leaving `@deepseek-ai/dsh-base` + `@deepseek-ai/dsh-web-app`) — **still 403** — and by restarting the
+engine twice. The engine packages have not changed since 2026-09-11, `--trusted-host` is correct on the command line, and a
+loopback Host gets 401 (no trust) rather than 403. Cause still unknown; the class is "the fence refuses API/WS for the
+trusted authority while serving its documents".
