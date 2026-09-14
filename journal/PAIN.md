@@ -1124,17 +1124,27 @@ to keep SMS off is being honoured — but it is being honoured by a system that 
 **Fix (proposed, needs his channel choice before anything is sent).**
 (a) **Measure delivery, not queue depth** — a sentinel check on `MAX(sent_at)` in `owner_message_queue`
 (and `email_drafts.sent_at`) that raises when nothing has been delivered in N days (L176). This one check
-would have caught all 56 days on day two.
+would have caught all 56 days on day two. **DONE 2026-09-14** — `check_delivery`, live on the authority,
+**CRITICAL** with the real numbers, 4/4 directions proven (`~/selftest-delivery.py`). It is now the third
+CRITICAL finding and the only one that says the owner is unreachable.
 (b) Kill the self-referential alert: the GV-blind alert must not travel by GV SMS, and must collapse to
-**once per 24 h** (L174).
+**once per 24 h** (L174). **Partially true as stated — corrected:** measured, it fires about **twice a
+week** (`last_owner_alert_at` = 2026-09-12; newest queue rows 09-12 19:15/19:30). The ~100 copies were the
+**email-notification echo**, not 100 queue rows. What remains real: it still travels by GV SMS to the GV
+number, so it is delivered by Gmail notification rather than by SMS (L174 stands).
 (c) Make the repair step executable before offering it: the GV re-login needs a transport the headless host
 does not have (L175) — CDP over `tailscale serve --tcp=9222 tcp://127.0.0.1:9222` is the candidate,
 **not yet built**; `tailscale serve status` currently holds one https handler on :443 pointing at 3086.
-(d) Wire the chosen push channel (the 2026-09-14 `QUESTIONS.md` row, still open, recommendation = badge in
-the harness he already opens).
+(d) Wire the chosen push channel. **The owner answered on 2026-09-14: the harness badge, not SMS or email.**
+Half-wired: `/attention` (host command) is installed on the authority and mount-tested; the digest on disk
+now reports delivery in §1b. **The badge — the part that is a *push* — is NOT built**, because it needs a
+client half and that channel belongs to the dynamic Cordis runner, which is disabled in his preset. The
+route out is a static client plugin (see `HANDOFF.md` 05:55). This is the last honest gap in P55.
 
 **Evidence.** `SELECT status, COUNT(*) FROM owner_message_queue GROUP BY status`; the newest 8 `status='sent'`
-rows; `google_voice_secretary_health` (account_0 `failed`, 6,284 consecutive, last OK 2026-07-02T17:08Z);
+rows; `google_voice_secretary_health` (account_0 `failed`, 6,287 consecutive, last OK 2026-07-02T17:08Z);
 `gv_read_calls`/`gv_read_messages` → HTTP 401; `gv_read_voicemails` → 180 s timeout; `DISPLAY=` empty and
-only `Xvfb` on `secratary`; `~/secretary-attention-digest/latest.txt` (2026-09-14T05:00Z) §0a, §1, §3.
+only `Xvfb` on `secratary`; `~/secretary-attention-digest/latest.txt` (2026-09-14T05:31Z) §0a, §1, §1b, §3;
+`python3 -m ck status --no-colour` on `secratary` → 13 findings, `delivery` CRITICAL; `node
+~/test-attention-plugin.mjs` → the finding renders in `/attention`.
 
