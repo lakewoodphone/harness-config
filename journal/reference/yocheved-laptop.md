@@ -270,3 +270,60 @@ Probes used for this file live in `_scratch/yocheved/` on `ZABZ-YOGA`:
   Also: `nssm set <svc> AppExit Default Exit` makes a one-shot service **restart** on clean exit, so
   remove the service when the job is done.
 
+---
+
+## 10. FINAL STATE (2026-09-14) — provisioned and verified
+
+### Working, with the evidence for each
+
+| Item | Evidence |
+|---|---|
+| **Node 24.12.0** (was 22.14, too old for DSH) | `node --version` → `v24.12.0`; old tree kept as `node-v22.14.0-win-x64.bak-v22` |
+| **DSH 0.1.5-rc.1, full plugin set** | `dsh -V` → `0.1.5-rc.1`; 240/240 `@deepseek-ai` packages carry a `package.json`; 17/17 required packages present |
+| **`web` profile boots clean** | engine starts, prints its token URL, **zero stderr**, port 3099 listening, shell returns **200 (28,297 bytes)** |
+| **Client plugins served to her browser** | served shell references `plugin-cost`, `plugin-windows`, `plugin-attention`, `plugin-mobile` — this *is* the cost pill and the new-window `+` |
+| **Model route** | `settings.yaml` → `deepinfra` / `deepseek-ai/DeepSeek-V4-Flash-0731`; the route itself was proven with real tool-calls from this machine (3/3 models, `finish_reason: tool_calls`) |
+| **Her persona** | `~/.dsh/.agent-presets/yocheved/` (18,571 chars), `agent-presets.default: yocheved` |
+| **Sandbox posture** | `permission.defaultPreset: workspace-write` (never `danger-full-access`) |
+| **Customer data** | `C:\Users\cheve\code\lpt-hub` — 11,740 tracked files, HEAD `af119319`, `docs/customer-operations` present |
+| **Second repo** | `C:\Users\cheve\code\personal-secretary-mvp` cloned |
+| **Scoped credentials** | deploy key `id_ed25519_lpthub` authenticates as **`lakewoodphone/lpt-hub` only** — proven by `ssh -T` |
+| **Provenance** | `bootstrap.ps1` → `RESULT: hook FIRED`, commit carried `Dsh-Actor` / `Dsh-Machine: DESKTOP-FGV6KMH` / `Dsh-At` |
+| **Execution policy** | was effectively Restricted (what she hit); now `RemoteSigned` at CurrentUser **and** LocalMachine, and a fresh shell runs a `.ps1` with no `Bypass` → `NOPOLICY_OK` |
+| **Desktop shortcut** | `Yocheved AI Assistant.lnk` on both `Desktop` and `OneDrive\Desktop`, targeting `cmd.exe /c` on her machine-specific launcher with the RunAs-user flag set, so it raises the UAC prompt |
+| **`+` new-window button** | `dsh-new://` protocol registered per machine |
+| **config sync without Python** | `scripts/sync.ps1` + `scripts/merge-settings.mjs`; ran to convergence on her box |
+
+### Bugs in MY OWN tooling, found and fixed — keep these in mind
+
+1. **`sync.ps1` destroyed a YAML list and duplicated a key.** A hand-rolled PowerShell YAML parser
+   emitted `llm-pi-ai.models` as a map instead of a list, and the block appeared **twice**; the engine
+   then refused to boot with `DUPLICATE_KEY at line 21`. **`dsh --dump-config` did not catch it**,
+   because dumping the composed profile never reads the user's settings document — a green dump is
+   not evidence the engine can start. Fixed by delegating the merge to `scripts/merge-settings.mjs`,
+   which uses the harness's own `yaml` package and **re-parses its own output** before writing.
+2. **`merge-settings.mjs` first resolved the wrong `yaml`.** A bare `require('yaml')` found a package
+   with no `parse` → `YAML.parse is not a function`. It correctly refused to write. Now it probes
+   candidate `node_modules` directories (DSH install, profile, npx cache) and validates the import by
+   shape before using it.
+3. **`sync.ps1` called `pwsh`, which is not on SYSTEM's PATH.** The exec server runs as SYSTEM, so the
+   settings merge silently never ran and her box kept the broken file. Call PowerShell 7 by absolute
+   path; a `C:\ProgramData\dsh-shims\pwsh.cmd` shim is now on Machine PATH.
+4. **A one-shot NSSM service with `AppExit Default Exit` restarts on clean exit**, so it re-ran and
+   deleted a *finished* 2 GB clone on its last loop. Make such scripts idempotent, and remove the
+   service when the job is done.
+
+### Still open
+
+1. **Nothing starts the engine automatically yet.** The desktop shortcut is the intended path
+   (`dshw ensure` → `dshw restore`), and it is written but was not clicked by a human.
+2. **`harness-config` does not reach her box from git.** Its origin is
+   `secretary-ts:/home/zabz/harness-config.git`; the files were transferred directly and
+   `HARNESS_CONFIG_COMMIT.txt` records the commit they came from. Until a transport exists, `autosync`
+   cannot converge her machine — re-run a transfer instead.
+3. **No end-to-end model turn has been driven through her engine.** The route is proven at the API
+   level from her machine, and her engine boots and serves; what remains is a completion requested
+   through the running engine. That is the last acceptance check.
+4. Her code-changing work should stay outside the default workspace (`lpt-hub`) so a mistake cannot
+   reach the machine's own harness configuration; the other repos remain readable and usable.
+

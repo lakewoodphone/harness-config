@@ -51,6 +51,15 @@ agent-default-model:
   provider: deepinfra
   model: deepseek-ai/DeepSeek-V4-Flash-0731
 
+# Her assistant is the shop manager, so a fresh session mounts the `yocheved` preset
+# (presets/yocheved/) rather than the owner's `zabz`. That preset derives from cordis-bg, so the
+# background-first shell policy is retained.
+agent-presets:
+  default: yocheved
+
+ui-conversation:
+  busyEnter: steer
+
 llm-pi-ai:
   providers:
     deepinfra:

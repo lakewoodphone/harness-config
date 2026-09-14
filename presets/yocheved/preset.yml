@@ -1,0 +1,2 @@
+name: Yocheved (Lakewood Phone & Tech manager)
+description: The shop manager's assistant — customer records and jobs in lpt-hub, research, parts and pricing lookups, drafting, and her own documents. Derived from cordis-bg so the background-first shell policy is retained. Sandbox is workspace-write on this machine, and every change is machine-tagged by git.
