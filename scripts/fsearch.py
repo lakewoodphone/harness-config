@@ -132,11 +132,11 @@ def connect(db_path: str) -> sqlite3.Connection:
             line UNINDEXED,
             tokenize='porter unicode61'
         );
-        -- The trigram index is created ONLY under --trigram. Measured on
-        -- 2026-09-14: `content` and `tri` held the same 2.19 GB of text twice and
-        -- the index reached 10.87 GB for 112 GB of catalogued files. Substring
-        -- search earns its keep on source code, not on 611 MB of minified HTML,
-        -- so the default stays lean and the expensive index is opt-in.
+        -- NO trigram table here on purpose. Measured on 2026-09-14: a `content`
+        -- table plus a `tri` table held the same 2.19 GB of text twice and the
+        -- index reached 10.87 GB for 112 GB of files. Filename/path substring
+        -- search is served instead by the small dedicated `names.db` trigram
+        -- index, which measured 0.000 s on the same query.
         CREATE TABLE IF NOT EXISTS meta (
             key TEXT PRIMARY KEY,
             value TEXT
@@ -205,6 +205,8 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
     indexed_ids: set[int] = set()
 
     if trigram:
+        # Opt-in and code-only: on the measured corpus a full trigram index of all
+        # prose cost ~5 GB and answered nothing that the path index does not.
         con.execute(
             "CREATE VIRTUAL TABLE IF NOT EXISTS tri USING fts5("
             "text, file_id UNINDEXED, tokenize='trigram')")
@@ -291,8 +293,17 @@ def do_index(con, roots, verbose=False, reindex=False, trigram=False):
     con.execute("INSERT OR REPLACE INTO meta(key,value) VALUES('last_seconds',?)",
                 (f"{time.time()-t0:.1f}",))
     con.commit()
-    con.execute("INSERT INTO content(content) VALUES('optimize')")
-    con.execute("INSERT INTO tri(tri) VALUES('optimize')")
+    # Optimize only what exists. Making the trigram index opt-in left this
+    # unconditional, so every refresh died on `no such table: tri` AFTER doing the
+    # full walk -- reporting a failure for work that had actually succeeded.
+    def _fts_exists(name: str) -> bool:
+        return con.execute(
+            "SELECT 1 FROM sqlite_master WHERE name=?", (name,)).fetchone() is not None
+
+    if _fts_exists("content"):
+        con.execute("INSERT INTO content(content) VALUES('optimize')")
+    if _fts_exists("tri"):
+        con.execute("INSERT INTO tri(tri) VALUES('optimize')")
     con.commit()
     return {"seen": seen, "added": added, "updated": updated, "skipped": skipped,
             "chunks": content_rows, "pruned": pruned, "seconds": round(time.time() - t0, 1)}
