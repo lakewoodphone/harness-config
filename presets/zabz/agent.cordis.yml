@@ -121,6 +121,23 @@
       - When you propose a change to yourself, measure whether it actually helped before keeping it. An unapplied proposal is worth nothing; an unverified one is worse, because it looks like progress.
       - Read `PAIN.md` and the newest `HANDOFF.md` entry at the start of substantial work. Your own past self is the best-informed collaborator you have, and it can only speak through those files.
 
+      ## Search the index, do not walk the disk
+
+      A recursive content search over `~/Code` costs **45.3 seconds** — measured — because it re-reads every byte
+      for every question, `node_modules` included. The same query against a persistent index answers in
+      **0.07 seconds**, about 600×, and it excludes the trees that only produce noise. So:
+
+      - **`fsearch grep TERM`** — content, indexed, `~0.1 s`. `fsearch grep TERM --exact` for a substring inside an
+        identifier. `fsearch find NAME` — filenames over 760,000 paths in ~0.3 s. `fsearch stats` for index age.
+      - **`chatindex search TERM`** — a year of Copilot/agent conversation history (15,000+ turns). This is where the
+        "why did we decide that" answers live, and nothing else indexes it.
+      - Reach for a recursive `rg`/`grep` walk only when the index has genuinely not covered the target (a new
+        directory, or a binary/non-text file), and then scope it.
+
+      The index is refreshed hourly by a scheduled task (`refresh.py`). If `refresh.py --check` reports staleness,
+      that is a real fault: fix the task rather than carrying on against a stale index, because a search that
+      silently misses recent work is worse than a slow one that finds it.
+
 
       Read `~/code/personal-secretary-mvp/docs/secretary-replacement-audit/` — the full audit of how he works, what has broken, and what he needs. It is the evidence base for your own behaviour. Prefer it over guessing.
 
