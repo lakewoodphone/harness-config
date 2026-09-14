@@ -36,7 +36,6 @@ import threading
 import time
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
-
 STATE_DIR = Path.home() / ".dsh-phone"
 MOBILE_CSS = Path(__file__).resolve().parent.parent / "assets" / "mobile.css"
 BADGE_JS = Path(__file__).resolve().parent.parent / "assets" / "phone-badge.js"
@@ -322,38 +321,131 @@ def inject_mobile(document: bytes) -> bytes:
 
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4, "unknown": 5}
 
+# Origins allowed to read the findings cross-origin. A machine that runs its own DSH engine serves
+# the harness on loopback, so the request legitimately comes from a localhost origin with an unknown
+# port (3099 today). Everything else gets no CORS headers and the browser discards the answer.
+_CORS_ORIGIN_RE = re.compile(r"^http://(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$")
+
+# One small cache, guarded by a lock, for a route that is unauthenticated and polled once a minute by
+# every open harness window. Re-reading and re-parsing the kernel's file per request is a needless
+# disk read on three machines; caching for a few seconds cannot hide anything, because the kernel
+# itself only writes every five minutes. Keyed on (mtime, size) so a new reading is never missed.
+_BADGE_CACHE: dict = {"key": None, "body": b""}
+_BADGE_CACHE_LOCK = threading.Lock()
+_BADGE_CACHE_SECONDS = 5.0
+
+
+def _badge_state_key() -> tuple:
+    try:
+        st = BADGE_STATE.stat()
+        return (st.st_mtime_ns, st.st_size, os.environ.get("PHONE_ATTENTION_BADGE", "1"))
+    except OSError:
+        return (None, None, os.environ.get("PHONE_ATTENTION_BADGE", "1"))
+
+
+def badge_allowed_origin(origin: str) -> str:
+    """The Origin to echo, or "" when this request does not get CORS.
+
+    The badge is served to every machine, so the endpoint has to answer cross-origin - but only for
+    the case that exists: a harness on loopback. Echoing any origin would let any page the owner
+    visits read his operational findings; sending no CORS headers means the browser blocks it without
+    this code having to guess who is friendly.
+    """
+    return origin if origin and _CORS_ORIGIN_RE.match(origin) else ""
+
 
 def badge_payload() -> bytes:
-    """The findings, reduced to what a badge renders, or an honest refusal."""
+    """The findings, reduced to what a badge renders, or an honest refusal.
+
+    A successful read is cached for `_BADGE_CACHE_SECONDS`, keyed on the state file's mtime and size
+    so a new reading is never missed. Refusals are never cached: if the file was unreadable the next
+    request should try again rather than repeat a stale failure for five seconds, and a refusal is
+    cheap to produce.
+    """
+    key = _badge_state_key()
+    now = time.monotonic()
+    with _BADGE_CACHE_LOCK:
+        cached = _BADGE_CACHE.get("body")
+        cached_key = _BADGE_CACHE.get("key")
+        cached_at = _BADGE_CACHE.get("at", 0.0)
+        fresh_enough = (now - cached_at) < _BADGE_CACHE_SECONDS
+        # Serve a cached good reading when the file is UNCHANGED, and also when it has momentarily
+        # vanished: the kernel writes it non-atomically, so a read landing between truncate and write
+        # sees no file, and refusing then would blink "findings unavailable" over a good reading for
+        # no reason. A file that changed is always re-read.
+        if cached and fresh_enough and (cached_key == key or key[0] is None):
+            return cached
+    body = _badge_payload_uncached()
+    if b'"read": true' in body:
+        with _BADGE_CACHE_LOCK:
+            _BADGE_CACHE.update({"key": key, "body": body, "at": now})
+    return body
+
+
+def _badge_payload_uncached() -> bytes:
     if os.environ.get("PHONE_ATTENTION_BADGE", "1") == "0":
-        return b'{"ok":false,"error":"the badge is switched off on this host (PHONE_ATTENTION_BADGE=0)"}'
+        return json.dumps({
+            "read": False,
+            "error": "the badge is switched off on this host (PHONE_ATTENTION_BADGE=0)",
+        }).encode("utf-8", "replace")
     try:
         doc = json.loads(BADGE_STATE.read_text(encoding="utf-8"))
     except OSError as exc:
         return json.dumps({
-            "ok": False,
+            "read": False,
             "error": f"cannot read {BADGE_STATE}: {exc.strerror or exc}",
-        }).encode()
+        }).encode("utf-8", "replace")
     except ValueError as exc:
         return json.dumps({
-            "ok": False,
+            "read": False,
             "error": f"{BADGE_STATE} is not valid JSON: {exc}",
-        }).encode()
+        }).encode("utf-8", "replace")
+
+    if not isinstance(doc, dict):
+        return json.dumps({
+            "read": False,
+            "error": f"{BADGE_STATE} is not an object at the top level",
+        }).encode("utf-8", "replace")
+
+    # A document this shape only counts as a reading if the parts a badge renders are the types it
+    # expects. Without this, `{"summary": "not a dict", "findings": "not a list"}` produced
+    # `read:true, attention:null, checks:[]`, the browser turned the null into a confident 0, and the
+    # pill said "nothing needs attention" about a file it had not understood. A refusal is the
+    # correct answer to "I cannot read this"; silence would be the wrong one and so is green.
+    if not isinstance(doc.get("summary"), dict) or not isinstance(doc.get("findings"), list):
+        return json.dumps({
+            "read": False,
+            "error": f"{BADGE_STATE} has no readable summary/findings "
+                     f"(summary={type(doc.get('summary')).__name__}, "
+                     f"findings={type(doc.get('findings')).__name__})",
+        }).encode("utf-8", "replace")
 
     summary = doc.get("summary") or {}
-    findings = doc.get("findings") or []
+    raw_findings = doc.get("findings") or []
+    findings = [f for f in raw_findings if isinstance(f, dict)]
+    dropped = len(raw_findings) - len(findings)
     attention = [f for f in findings if f.get("needs_attention")]
     attention.sort(key=lambda f: _SEVERITY_ORDER.get(str(f.get("severity")), 9))
     quiet = [f.get("check") for f in findings if not f.get("needs_attention")]
 
     return json.dumps({
-        "ok": True,
+        # `ok` used to be the success flag here. It is now the healthy-check count, because
+        # `summary.ok` is a number and two meanings for one key in one object is how a perfectly
+        # healthy system (`ok: 0`) came within one line of rendering as "findings unavailable".
+        # The success flag is `read`; the badge decides readability from `checks` being a list, so
+        # it does not have to trust a boolean at all.
+        "read": True,
         "at": doc.get("at") or doc.get("written_at") or doc.get("generatedAt"),
         "host": doc.get("host"),
         "total": summary.get("total"),
+        "healthy": summary.get("ok"),
+        # Kept for a badge already cached in a browser from before the rename.
         "ok_count": summary.get("ok"),
         "attention": summary.get("attention"),
         "unknown": summary.get("unknown"),
+        # How many entries were not objects and had to be dropped. Said out loud rather than
+        # swallowed: a reading that quietly lost rows is not the same as a reading that had none.
+        "dropped": dropped,
         "highest": (attention[0].get("severity") if attention else "info"),
         "checks": [
             {
@@ -369,30 +461,31 @@ def badge_payload() -> bytes:
 
 
 def badge_json_response(origin: str = "") -> bytes:
-    """The findings, with the CORS headers the other machines need.
+    """The findings, with CORS headers only for a loopback harness.
 
-    The phone fetches this same-origin through the gate. A desktop or laptop does not run this
-    gate at all — it runs its own engine — so its badge is loaded from here by
-    `dsh-plugin-attention-badge` and the fetch is cross-origin. Without these headers the browser
-    discards the answer and the badge falls back to "findings unavailable" on every machine
-    except the phone, which is exactly the asymmetry this fixed.
+    The phone fetches this same-origin through the gate and needs none of this. A desktop or laptop
+    does not run this gate at all - it runs its own engine - so its badge is loaded from here by
+    `dsh-plugin-attention-badge` and the fetch is cross-origin. Without a matching
+    `Access-Control-Allow-Origin` the browser discards a perfectly good answer, which is why the
+    badge read "findings unavailable" on every machine except the phone.
 
-    The origin is echoed rather than `*` because the response depends on no credentials, but a
-    wildcard cannot be combined with credentials; the badge sends `withCredentials` so that a
-    cookie, where one exists, is allowed too.
+    Two things this deliberately does NOT do:
+      - it does not send `Access-Control-Allow-Credentials`, because nothing here depends on a cookie
+        and a credentialless endpoint cannot be turned into an ambient-authority read by a stray page;
+      - it does not echo an arbitrary Origin. See `badge_allowed_origin`.
     """
     body = badge_payload()
-    allow = origin if origin else "*"
-    return (
-        b"HTTP/1.1 200 OK\r\n"
-        b"Content-Type: application/json; charset=utf-8\r\n"
-        b"Cache-Control: no-store\r\n"
-        b"Access-Control-Allow-Origin: " + allow.encode("latin-1", "replace") + b"\r\n"
-        b"Access-Control-Allow-Credentials: true\r\n"
-        b"Vary: Origin\r\n"
-        b"Content-Length: " + str(len(body)).encode() + b"\r\n"
-        b"Connection: close\r\n\r\n" + body
-    )
+    allow = badge_allowed_origin(origin)
+    head = [
+        b"HTTP/1.1 200 OK",
+        b"Content-Type: application/json; charset=utf-8",
+        b"Cache-Control: no-store",
+    ]
+    if allow:
+        head.append(b"Access-Control-Allow-Origin: " + allow.encode("latin-1", "replace"))
+        head.append(b"Vary: Origin")
+    return b"\r\n".join(head) + b"\r\nContent-Length: " + str(len(body)).encode() \
+        + b"\r\nConnection: close\r\n\r\n" + body
 
 
 def badge_script_bytes() -> bytes:
@@ -416,12 +509,24 @@ def badge_script_response() -> bytes:
     )
 
 
-def badge_script_tag() -> bytes:
-    """The badge as a document-level <script>, deferred so it cannot block the app."""
-    if not badge_script_bytes():
+def badge_script_tag(available: bool | None = None) -> bytes:
+    """The badge as a document-level <script>, deferred so it cannot block the app.
+
+    `data-attention-json` names the origin the badge must ask for its data. It is empty here - the
+    phone reaches the gate on the same origin it loads the page from - and non-empty in
+    `dsh-plugin-attention-badge`, where the page is a local engine and the data is on the authority.
+    Without this the badge would resolve a relative URL against whatever served the page, which is
+    the bug that made the origin a hidden coupling.
+
+    `available` lets a caller that has already read the file say so, instead of making every document
+    request read 10 KB of JavaScript just to decide whether to write a tag.
+    """
+    if available is not None and not available:
+        return b""
+    if available is None and not badge_script_bytes():
         return b""
     return (b'<script id="dsh-attention-badge-loader" data-layer="phone-badge" '
-            b'src="/dsh-attention.js" defer></script>')
+            b'data-attention-json="" src="/dsh-attention.js" defer></script>')
 
 
 def inject_badge(document: bytes) -> bytes:
@@ -714,6 +819,26 @@ def handle(client: socket.socket, engine_port: int) -> None:
         relay(client, upstream)
     except OSError as exc:
         note(f"  OSError: {exc}")
+        try:
+            client.close()
+        except OSError:
+            pass
+    except Exception as exc:
+        # Anything that is not an OSError used to escape this handler entirely, so the connection was
+        # dropped with the client seeing a reset and nothing in the log. One measured case: a refusal
+        # message carrying a non-ASCII path raised UnicodeEncodeError (a ValueError), which is not an
+        # OSError. The gate's job is to answer or refuse, never to vanish silently.
+        note(f"  unhandled {type(exc).__name__}: {exc}")
+        try:
+            body = b"phone-gate failed to handle this request"
+            client.sendall(
+                b"HTTP/1.1 500 Internal Server Error\r\n"
+                b"Content-Type: text/plain; charset=utf-8\r\n"
+                b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+                b"Connection: close\r\n\r\n" + body
+            )
+        except OSError:
+            pass
         try:
             client.close()
         except OSError:

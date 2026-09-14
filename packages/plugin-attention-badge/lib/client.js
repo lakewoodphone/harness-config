@@ -55,6 +55,11 @@ window.__ModuleLoader__.load({
      *
      * The guard is on the id, not a local flag: the phone gate injects a script with this same
      * id, so on the phone path this becomes a no-op instead of a second badge.
+     *
+     * `data-attention-json` names the origin the badge must ask for its findings. It must be the
+     * authority: this page is a local engine on loopback, which serves no `/dsh-attention.json`,
+     * so a relative fetch would fail here while working perfectly on the phone — the exact
+     * asymmetry this package exists to remove.
      */
     function loadBadge() {
       if (document.getElementById(BADGE_LOADER_ID) !== null) return null;
@@ -63,6 +68,8 @@ window.__ModuleLoader__.load({
       script.src = BADGE_SRC;
       script.async = true;
       script.setAttribute('data-layer', 'attention-badge-plugin');
+      script.setAttribute('data-attention-json', BADGE_AUTHORITY);
+      script.setAttribute('data-badge-source', 'plugin');
       (document.head || document.documentElement).appendChild(script);
       return script;
     }
