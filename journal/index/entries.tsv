@@ -132,6 +132,7 @@ handoff	H222	222		2026-09-15 13:48 UTC	ZABZ-YOGA	open	## 2026-09-15 13:48 UTC ·
 handoff	H223	223		2026-09-15 13:56 UTC	ZABZ-YOGA	open	## 2026-09-15 13:56 UTC · ZABZ-YOGA · She can now order parts and update customer cases, and every write is signed with her machine	entries/handoff/H223.md	1	39	1c1e84d784990adc
 handoff	H224	224		2026-09-15 13:57 UTC	ZABZ-YOGA	open	## 2026-09-15 13:57 UTC · ZABZ-YOGA · comms read-path: the index was reachable, the tool was not	entries/handoff/H224.md	1	56	078ffebd11d3015c
 handoff	H225	225		2026-09-15 14:02 UTC	ZABZ-YOGA	open	## 2026-09-15 14:02 UTC · ZABZ-YOGA · comms: the reader now answers, and the owner can see who is waiting	entries/handoff/H225.md	1	59	02671c717818890e
+handoff	H226	226		2026-09-15 14:04 UTC	ZABZ-YOGA	open	## 2026-09-15 14:04 UTC · ZABZ-YOGA · The owner queue forgets now, the badge tells the truth, and a six-month-dead reminder poll exists	entries/handoff/H226.md	1	63	2e816f9a44cdb481
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -477,6 +478,7 @@ lessons	L1467	1467		2026-09-15	SECRATARY	open	**L1467 · Resolve a phone number'
 lessons	L1503	1503		2026-09-15	ZABZ-YOGA	open	**L1503 · An agent's first call is the only one you get: a tool that errors on a guessed parameter is dead**	entries/lessons/L1503.md	1	41	5abf91a844c6b8e2
 lessons	L1504	1504		2026-09-15	ZABZ-YOGA	open	**L1504 · A loose FTS match ordered by recency is indistinguishable from no search**	entries/lessons/L1504.md	1	29	3395366672b95bfe
 lessons	L1505	1505		2026-09-15	ZABZ-YOGA	open	**L1505 · A scheduled task can report Ready while shipping nothing — read its log, do not trust its state**	entries/lessons/L1505.md	1	25	01d733369c91e247
+lessons	L1506	1506		2026-09-15	ZABZ-YOGA	open	**L1506 · My own test probe pushed to production: guard EVERY invocation of a mutating tool, and never explain a cause you have not checked**	entries/lessons/L1506.md	1	24	114a5989685cae77
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -694,6 +696,7 @@ decisions	D148	148		2026-09-14	ZABZ-YOGA	open	**D148 · 2026-09-14 · The parent
 decisions	D149	149		2026-09-14	ZABZ-YOGA	open	**D149 · 2026-09-14 · lpt-sync write-back goes to references.websiteOrder; case identity may be established by caseId.**	entries/decisions/D149.md	1	38	4998a464114177ae
 decisions	D150	150		2026-09-14	ZABZ-YOGA	open	**D150 · 2026-09-14 · Her agent's learning: one shared journal, her machines append to it, provenance by host.**	entries/decisions/D150.md	1	18	0420dead7d3b7ae8
 decisions	D151	151		2026-09-15	ZABZ-YOGA	open	**D151 · 2026-09-15 · One party-resolution helper for search and thread, and it always reports whom it resolved.**	entries/decisions/D151.md	1	31	7907f8a2d32074e0
+decisions	D152	152		2026-09-15	ZABZ-YOGA	open	**D152 · 2026-09-15 · Owner-queue shelf life, alert lifecycle bound to subsystem success, SMS off with the app as the surfaced channel.**	entries/decisions/D152.md	1	33	ceabf57872b398b8
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -791,3 +794,4 @@ wins	W124	124		2026-09-14	ZABZ-YOGA	open	**W124 · 2026-09-14 · 42 urgent owner
 wins	W125	125		2026-09-14	ZABZ-YOGA	open	**W125 · 2026-09-14 · The owner-SMS kill switch was enforced at three call sites out of more than a dozen.**	entries/wins/W125.md	1	36	ca0631ce260d425e
 wins	W126	126		2026-09-14	ZABZ-YOGA	open	**W126 · 2026-09-14 · Her laptop's web search works again: real search snippets instead of a dozen page fetches.**	entries/wins/W126.md	1	22	ccb957eadb4d7b50
 wins	W127	127		2026-09-15	ZABZ-YOGA	open	**W127 · 2026-09-15 · Profile coverage went from 1 of 65 to 34: the fleet now answers 'is the kiosk installed?'.**	entries/wins/W127.md	1	43	77f12a396fab73b7
+wins	W128	128		2026-09-15	ZABZ-YOGA	open	**W128 · 2026-09-15 · The owner's badge tells the truth: held 163->20, urgent/critical 42->13, and delivery is no longer a false green.**	entries/wins/W128.md	1	23	ea13ba008fca1241
