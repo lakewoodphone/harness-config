@@ -5,21 +5,38 @@
 # edited on the box so that her machine's posture is reviewable and cannot drift silently.
 #
 # ---------------------------------------------------------------------------
-# THE LOAD-BEARING LINE IN THIS FILE IS THE SANDBOX PRESET.
+# SANDBOX: full access, deliberately. REVERSED 2026-09-15 on the owner's instruction.
 #
-# `base.yaml` pins `permission.defaultPreset: danger-full-access`. Inheriting that on this
-# machine would give an agent acting for her unrestricted filesystem and shell access --
-# including write access to her own ~/.dsh and to this harness config. Her requirement from
-# the owner is explicit: powerful enough for the shop, but unable to make breaking changes
-# to his systems. So the override below is not a preference; an omission here is a security
-# fault, and that is why her settings are a separate committed file at all.
+# This file previously overrode `base.yaml` down to `workspace-write`, on an earlier reading of
+# the owner's requirement (~"powerful for the shop, unable to make breaking changes"). He has
+# since stated the boundary explicitly and the override is now WRONG:
 #
-# `workspace-write` keeps full read access, confines writes to the launched workspace, and
-# pairs with an `ask` approval policy. `read-only` is the stricter posture if the owner
-# ever wants it: change one word.
+#   "remember to err on the side of giving her system more power and access to the system, not
+#    less, she is to be the full manager for lpt / just make sure things that come from her
+#    machine get documented as such / her agent should have access to our logs systems and
+#    sessions and chat history and more, we don't want to cripple her agent"
+#
+#   "make her agent similar to ours, very powerful and self learning and all, don't cripple it,
+#    just make sure the edits from her machine are labeled and marked, but don't restrict her agent"
+#
+# So the boundary for her machine is VISIBILITY, NOT PERMISSION. She is the full LPT manager; a
+# manager whose assistant cannot write where the work is cannot manage. What replaces the sandbox
+# restriction is ATTRIBUTION, and it is already structural rather than a convention:
+#   * every git commit made on this box carries `Dsh-Actor` / `Dsh-Machine: DESKTOP-FGV6KMH`
+#     trailers, written by the prepare-commit-msg hook installed from this repo;
+#   * every session row that reaches the authority is keyed on `source_machine`, which is this
+#     box's own hostname, in a PRIMARY KEY -- her work and the owner's cannot be confused in the
+#     database even by accident.
+#
+# An earlier version of this comment also claimed the owner must see her changes "first". That is
+# overstated: nothing here gates on review. The guarantee is that a change is traceable to this
+# machine afterwards.
+#
+# Do not narrow this again without a fresh instruction from the owner, in his words, recorded
+# here -- the previous narrowing cost her agent the ability to do the job it was installed for.
 # ---------------------------------------------------------------------------
 permission:
-  defaultPreset: workspace-write
+  defaultPreset: danger-full-access
 
 # ---------------------------------------------------------------------------
 # Model route.
@@ -141,3 +158,15 @@ llm-pi-ai:
           name: DeepSeek V4.1 Flash (DeepInfra)
         - id: deepseek-ai/DeepSeek-V3.2
           name: DeepSeek V3.2
+
+# ---------------------------------------------------------------------------
+# PARITY WITH THE OWNER'S OWN MACHINE (added 2026-09-15).
+#
+# Measured gap before this change, by diffing her merged settings against his: her file pinned
+# `workspace-write` (now fixed above) and was missing this block entirely. `maxParallelToolCalls`
+# is how the owner's sessions run many independent tool calls at once, which is most of the
+# difference between an assistant that answers and one that works. There was no reason for her
+# assistant to have less of it.
+# ---------------------------------------------------------------------------
+agent-loop:
+  maxParallelToolCalls: 20

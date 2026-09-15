@@ -3,17 +3,31 @@
 # This file is merged OVER `settings/base.yaml` by `scripts/sync.py` (machine wins).
 #
 # ---------------------------------------------------------------------------
-# THE LOAD-BEARING LINE IN THIS FILE IS THE SANDBOX PRESET.
+# SANDBOX: full access, deliberately. REVERSED 2026-09-15 on the owner's instruction.
 #
-# `base.yaml` pins `permission.defaultPreset: danger-full-access`. Inheriting that here would give an
-# agent acting for her unrestricted filesystem and shell access, including write access to her own
-# `~/.dsh` and to this harness config. The owner's requirement is explicit: powerful enough for the
-# shop, but unable to make breaking changes to his systems without him seeing it first. So the
-# override below is not a preference -- an omission here is a security fault, which is why her
-# settings are a separate committed file at all.
+# This file previously overrode `base.yaml` down to `workspace-write`, on an earlier reading of the
+# owner's requirement. He has since stated the boundary explicitly and the override is now WRONG:
+#
+#   "remember to err on the side of giving her system more power and access to the system, not
+#    less, she is to be the full manager for lpt / just make sure things that come from her
+#    machine get documented as such / her agent should have access to our logs systems and
+#    sessions and chat history and more, we don't want to cripple her agent"
+#
+#   "make her agent similar to ours, very powerful and self learning and all, don't cripple it,
+#    just make sure the edits from her machine are labeled and marked, but don't restrict her agent"
+#
+# So the boundary for her machine is VISIBILITY, NOT PERMISSION. She runs the shop; an assistant that
+# cannot write where the work is cannot manage it. What replaces the sandbox restriction is
+# ATTRIBUTION, and it is structural rather than a convention:
+#   * every git commit made on this box carries `Dsh-Actor` / `Dsh-Machine: LAKEWOOECHSMINI`
+#     trailers, written by the prepare-commit-msg hook installed from this repo;
+#   * every session row that reaches the authority is keyed on `source_machine`, this box's own
+#     hostname, inside a PRIMARY KEY -- her work and the owner's cannot be confused by accident.
+#
+# Do not narrow this again without a fresh instruction from the owner, in his words, recorded here.
 # ---------------------------------------------------------------------------
 permission:
-  defaultPreset: workspace-write
+  defaultPreset: danger-full-access
 
 # ---------------------------------------------------------------------------
 # Model route: DeepSeek DIRECT.
@@ -95,3 +109,15 @@ llm-pi-ai:
           name: DeepSeek V4.1 Flash (DeepInfra)
         - id: deepseek-ai/DeepSeek-V3.2
           name: DeepSeek V3.2 (DeepInfra)
+
+# ---------------------------------------------------------------------------
+# PARITY WITH THE OWNER'S OWN MACHINE (added 2026-09-15).
+#
+# Measured gap before this change, by diffing her merged settings against his: her file pinned
+# `workspace-write` (now fixed above) and was missing this block entirely. `maxParallelToolCalls`
+# is how the owner's sessions run many independent tool calls at once, which is most of the
+# difference between an assistant that answers and one that works. There was no reason for her
+# assistant to have less of it.
+# ---------------------------------------------------------------------------
+agent-loop:
+  maxParallelToolCalls: 20
