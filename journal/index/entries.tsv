@@ -256,6 +256,7 @@ handoff	H318	318		2026-09-15 22:18 UTC	ZABZ-TECH	open	## 2026-09-15 22:18 UTC ·
 handoff	H319	319		2026-09-15 22:20 UTC	ZABZ-TECH	open	## 2026-09-15 22:20 UTC · ZABZ-TECH · 16 of 78 full-site parts done; customer-PII leak closed in production; price matrix still public; rebuild still blocked	entries/handoff/H319.md	1	55	864f89920dbab8c8
 handoff	H320	320		2026-09-15 22:23 UTC	ZABZ-TECH	open	## 2026-09-15 22:23 UTC · ZABZ-TECH · personality-system COMPLETE: 344 tests, 9/9 workstreams merged, deployed and verified live; 7 named follow-ups remain	entries/handoff/H320.md	1	69	ca565cdf334f0a03
 handoff	H321	321		2026-09-15 22:25 UTC	ZABZ-TECH	open	## 2026-09-15 22:25 UTC · ZABZ-TECH · Weissman SSD: 160 dollar deposit taken and the drive shipped to 300DDR ticket 74048 (from the Mac mini)	entries/handoff/H321.md	1	70	8655adc5b9f4fa68
+handoff	H350	350		2026-09-15 22:50 UTC	ZABZ-YOGA	open	## 2026-09-15 22:50 UTC · ZABZ-YOGA · Full reconciliation with the production database: 4 disagreeing stores mapped, rollback points verified, apply gate self-tested, fleet of 7 read-only axes launched	entries/handoff/H350.md	1	84	a3169c5b62f1a177
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1214,3 +1215,5 @@ wins	W167	167		2026-09-15	ZABZ-YOGA	open	**W167 · 2026-09-15 · The dead-weight
 wins	W168	168		2026-09-15	ZABZ-YOGA	open	**W168 · 2026-09-15 · Authority journal commits preserved; first fresh company-output read in 15 rounds.**	entries/wins/W168.md	1	38	1d55ba4f2a42af3e
 wins	W169	169		2026-09-15	ZABZ-YOGA	open	**W169 · 2026-09-15 · The company's output is 86% self, now measurable in one command.**	entries/wins/W169.md	1	34	fa30b9633a7186f8
 wins	W170	170		2026-09-15	ZABZ-YOGA	open	**W170 · 2026-09-15 · The descriptor leak is fixed, not bounded: 8,160 descriptors closed and the suite passes on the default limit.**	entries/wins/W170.md	1	32	bfb2d70cd733d1dd
+wins	W171	171		2026-09-15	ZABZ-YOGA	open	**W171 · 2026-09-15 · Her agent found two real defects in my tooling, one of them destroying customer data.**	entries/wins/W171.md	1	45	96e139b5aee9db8d
+wins	W172	172		2026-09-15	ZABZ-YOGA	open	**W172 · 2026-09-15 · Unblocked her Mac: a journal id collision had stopped the machine taking any updates at all.**	entries/wins/W172.md	1	28	6bec15dfd0dc4c41
