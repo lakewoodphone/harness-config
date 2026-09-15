@@ -92,10 +92,9 @@ def bare_root(root: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-@pytest.fixture()
-def tree(tmp_path):
+def build_tree(root: Path):
     """A temp journal root whose only interesting text is INSIDE bodies."""
-    root = bare_root(tmp_path / "journal")
+    bare_root(root)
     mod = load_module()
     set_root(mod, root)
     ids = {
@@ -113,6 +112,18 @@ def tree(tmp_path):
                             "Nothing distinctive in this body."),
     }
     return mod, root, ids
+
+
+@pytest.fixture(scope="module")
+def tree(tmp_path_factory):
+    """One tree for the read-only tests: building it is six cache rebuilds, so share it."""
+    return build_tree(tmp_path_factory.mktemp("journal-tree") / "journal")
+
+
+@pytest.fixture()
+def own_tree(tmp_path):
+    """A private tree, for the tests that mutate their root (cache, db or entries)."""
+    return build_tree(tmp_path / "journal")
 
 
 @pytest.fixture()
@@ -170,9 +181,9 @@ def test_body_matches_report_the_body_line_not_the_heading(tree):
         assert BODY_TERM not in h["heading"].lower()
 
 
-def test_body_search_survives_a_missing_journal_db(tree):
+def test_body_search_survives_a_missing_journal_db(own_tree):
     """Tier 3: index/journal.db is gitignored, so a fresh clone has no bodies in cache."""
-    mod, root, ids = tree
+    mod, root, ids = own_tree
     db = root / "index" / "journal.db"
     assert db.exists(), "the fixture should have built a db cache"
     with_db = run(mod, ["search", BODY_TERM])
@@ -185,9 +196,9 @@ def test_body_search_survives_a_missing_journal_db(tree):
     assert not db.exists(), "tier 3 read; it must not silently rebuild the db"
 
 
-def test_body_search_survives_an_empty_cache(tree):
+def test_body_search_survives_an_empty_cache(own_tree):
     """The fresh-clone path: no db, no stamp, no tsv — the cache rebuilds, search works."""
-    mod, root, ids = tree
+    mod, root, ids = own_tree
     for name in ("journal.db", "stamp.json", "entries.tsv"):
         (root / "index" / name).unlink()
     rc, out, err = run(mod, ["search", BODY_TERM])
@@ -217,8 +228,23 @@ def test_a_superstring_of_a_real_body_term_is_not_a_match(tree):
     mod, _root, _ids = tree
     rc, out, _err = run(mod, ["search", BODY_TERM + "-extended"])
     assert rc == 1, out
-    rc, out, _err = run(mod, ["search", "drift-gauge"])
+    rc, out, _err = run(mod, ["search", "sentinel-drift-gauged"])
     assert rc == 1, out
+    rc, out, _err = run(mod, ["search", "sentineldriftgauge"])
+    assert rc == 1, out
+
+
+def test_plain_mode_is_still_a_substring_match(tree):
+    """Documents the semantics deliberately, so nobody 'fixes' it into word matching.
+
+    The old code did `p.lower() in ln.lower()` on the heading. Bodies are now matched
+    the same way: a substring of a real term matches, which is why `drift-gauge` finds
+    the three fixture bodies. Changing that would be a different defect.
+    """
+    mod, _root, ids = tree
+    rc, out, _err = run(mod, ["search", "drift-gauge"])
+    assert rc == 0
+    assert ids["body_lesson"] in out and ids["body_win"] in out
 
 
 def test_all_patterns_must_share_a_line(tree):
@@ -264,8 +290,8 @@ def test_kind_filter_still_restricts_a_body_search(tree):
     assert ids["body_lesson"] not in out
 
 
-def test_since_and_until_still_bound_a_body_search(tree):
-    mod, _root, ids = tree
+def test_since_and_until_still_bound_a_body_search(own_tree):
+    mod, _root, ids = own_tree
     old = add(mod, "lessons", "An old entry that still holds the instrument",
               "Ancient body holding %s." % BODY_TERM, date="2020-01-01")
     rc, out, _err = run(mod, ["search", BODY_TERM, "--since", "2026-01-01"])
@@ -318,7 +344,8 @@ def test_legacy_search_still_reads_shard_bodies(legacy_tree):
 
 
 def test_no_pattern_is_still_a_usage_error(tree):
+    """`pattern` is a required positional, so argparse exits 2 before any read."""
     mod, _root, _ids = tree
-    rc, out, err = run(mod, ["search"])
-    assert rc == 2
-    assert "no pattern" in err
+    with pytest.raises(SystemExit) as exc:
+        run(mod, ["search"])
+    assert exc.value.code == 2

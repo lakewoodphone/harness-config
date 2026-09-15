@@ -596,6 +596,9 @@ lessons	L1568	1568		2026-09-15	ZABZ-TECH	open	**L1568 · The chat hub forwarded 
 lessons	L1569	1569		2026-09-15	ZABZ-TECH	open	**L1569 · Remote-editing a server checkout: hash-guard the write, echo the changed lines, and never restore from a backup you made after the change**	entries/lessons/L1569.md	1	33	3d14cfcb8f8ec7e8
 lessons	L1570	1570		2026-09-15	ZABZ-TECH	open	**L1570 · Family chat has five send paths that never write the message row, so 'why did Chip say that' cannot be answered from our own DB**	entries/lessons/L1570.md	1	32	c7dba95ee86cf5a5
 lessons	L1571	1571		2026-09-15	ZABZ-TECH	open	**L1571 · Verify the premise before it reaches the owner - an agent's report is a claim**	entries/lessons/L1571.md	1	36	a564fd732ffecca6
+lessons	L1572	1572		2026-09-15	ZABZ-TECH	open	**L1572 · Measured: 10.4% of the family chat's carrier messages are absent from our own database, and 18 were recorded as dropped that Twilio delivered**	entries/lessons/L1572.md	1	42	96e4ffc6161aaa28
+lessons	L1573	1573		2026-09-15	ZABZ-TECH	open	**L1573 · PowerShell to ssh: pass multi-line scripts on stdin, never as an argument, and never end a line with 2>&1**	entries/lessons/L1573.md	1	35	f2bcfb73eb69246f
+lessons	L1574	1574		2026-09-15	ZABZ-TECH	open	**L1574 · Never build a masking regex inline: I printed two live Stripe secret keys into the session transcript**	entries/lessons/L1574.md	1	17	6a8aafbcd06ab5c7
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -723,6 +726,8 @@ pain	P162	162		2026-09-15	ZABZ-TECH	open	## P162 — A device attached to a hous
 pain	P163	163		2026-09-15	ZABZ-TECH	open	## P163 — journal.py search could not read entry bodies, so recall returned false negatives	entries/pain/P163.md	1	12	e33fc8c2e2e429d9
 pain	P164	164		2026-09-15	ZABZ-TECH	open	## P164 — Nothing watches the LOCAL services the mesh depends on: a stopped Tailscale or IP Helper silently makes a whole machine LAN-only, with no alert	entries/pain/P164.md	1	21	293fd2158b410793
 pain	P165	165		2026-09-15	ZABZ-TECH	open	## P165 — The family chat DB silently loses outbound rows, and nothing notices because the chat still works	entries/pain/P165.md	1	30	15a13d1ff3b9f0a2
+pain	P166	166		2026-09-15	ZABZ-TECH	open	## P166 — Chip's 2026-09-15 sends bypassed the production reply path entirely - unknown producer, and it is the same day he sent canned lines to one member at a time	entries/pain/P166.md	1	42	a2c20629432790f3
+pain	P167	167		2026-09-15	ZABZ-TECH	open	## P167 — The database corruption alarm has no transport - it could never alert, and that is why the integrity check ran twice	entries/pain/P167.md	1	32	471e8f8012a2c265
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
