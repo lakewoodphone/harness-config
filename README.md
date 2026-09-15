@@ -60,11 +60,55 @@ harness-config/
 │       ├── ZABZ-YOGA.yaml    # per-machine deltas
 │       └── ZABZ-TECH.yaml
 ├── scripts/
-│   └── sync.py               # apply this repo onto the local ~/.dsh
+│   ├── sync.py               # apply this repo onto the local ~/.dsh
+│   └── agent-fleet.ps1       # create / inspect / tear down a fleet of parallel agent worktrees
 └── docs/
     ├── DECISIONS.md
+    ├── parallel-agent-orchestration.md  # the fleet design, the research, the failure modes
+    ├── agent-brief-template.md          # the contract to hand a subagent, all eight parts
     └── multi-window/         # analysis, measured performance, research, open questions
 ```
+
+### The agent fleet (`scripts/agent-fleet.ps1`)
+
+When a backlog is too big to do serially — which is how sessions stall, one increment at a time — the
+work is split into independent streams, each given **its own git worktree and branch**, and the agent
+then **manages** rather than builds. The mechanical part is one command, on every platform:
+
+```powershell
+# Windows
+.\scripts\agent-fleet.ps1 doctor   -Repo C:\path\to\repo   # can this machine host a fleet?
+.\scripts\agent-fleet.ps1 new      -Name lpt-route,egress-wiring -Repo C:\path\to\repo
+.\scripts\agent-fleet.ps1 status   -Repo C:\path\to\repo
+.\scripts\agent-fleet.ps1 clean    -Repo C:\path\to\repo
+.\scripts\agent-fleet.ps1 rmall    -Repo C:\path\to\repo   # branches kept, work stays salvageable
+```
+
+```sh
+# Linux / macOS — identical commands, because there is no `pwsh` on the Linux or macOS nodes
+./scripts/agent-fleet.sh doctor
+./scripts/agent-fleet.sh new   -n lpt-route,egress-wiring -r /path/to/repo
+./scripts/agent-fleet.sh status -r /path/to/repo
+./scripts/agent-fleet.sh clean  -r /path/to/repo
+./scripts/agent-fleet.sh rmall  -r /path/to/repo
+```
+
+**Deployed on every machine, not just this one.** The skill ships in **all three presets** (`zabz`,
+`yocheved`, `cordis-bg`), and `scripts/sync.py` (or `harness-autosync.sh`) applies it into
+`~/.dsh/.agent-presets/*/skills/`. Run `doctor` on a machine that has never hosted a fleet before
+trusting it: the mesh audit found no `pwsh` on the Linux/macOS nodes, no Python `yaml` on the mac mini,
+and no `harness-config` checkout at all on two machines.
+
+**The rule that makes it safe:** isolation is created by the manager **before** agents start, never
+negotiated between agents while they run. File-lease and messaging layers in this space are advisory
+— they do not stop an agent editing a file another claimed — so **worktree isolation and the
+manager's merge discipline are the only real guarantees.** The manager assigns exclusive file scopes,
+merges back **serially in risk order**, re-runs the tests after every merge, never merges a generated
+file from a branch, and **treats every agent report as a claim until reproduced**.
+
+Read `docs/parallel-agent-orchestration.md` before running a fleet for the first time; it carries the
+research, the four things worktrees do *not* isolate, and the failure-handling table. Start every brief
+from `docs/agent-brief-template.md`.
 
 ### The window fleet (`multi-window/`)
 
