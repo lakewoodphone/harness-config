@@ -60,11 +60,39 @@ harness-config/
 │       ├── ZABZ-YOGA.yaml    # per-machine deltas
 │       └── ZABZ-TECH.yaml
 ├── scripts/
-│   └── sync.py               # apply this repo onto the local ~/.dsh
+│   ├── sync.py               # apply this repo onto the local ~/.dsh
+│   └── agent-fleet.ps1       # create / inspect / tear down a fleet of parallel agent worktrees
 └── docs/
     ├── DECISIONS.md
+    ├── parallel-agent-orchestration.md  # the fleet design, the research, the failure modes
+    ├── agent-brief-template.md          # the contract to hand a subagent, all eight parts
     └── multi-window/         # analysis, measured performance, research, open questions
 ```
+
+### The agent fleet (`scripts/agent-fleet.ps1`)
+
+When a backlog is too big to do serially — which is how sessions stall, one increment at a time — the
+work is split into independent streams, each given **its own git worktree and branch**, and the agent
+then **manages** rather than builds. The mechanical part is one command:
+
+```powershell
+.\scripts\agent-fleet.ps1 new   -Name lpt-route,egress-wiring,docs-fix -Repo C:\path\to\repo
+.\scripts\agent-fleet.ps1 status -Repo C:\path\to\repo   # dirty count, artifacts, disk per worktree
+.\scripts\agent-fleet.ps1 clean  -Repo C:\path\to\repo   # drop _pt_* / __pycache__ / .pytest_cache
+.\scripts\agent-fleet.ps1 rm    -Name lpt-route -Repo C:\path\to\repo
+.\scripts\agent-fleet.ps1 rmall  -Repo C:\path\to\repo   # branches are kept, so work stays salvageable
+```
+
+**The rule that makes it safe:** isolation is created by the manager **before** agents start, never
+negotiated between agents while they run. File-lease and messaging layers in this space are advisory
+— they do not stop an agent editing a file another claimed — so **worktree isolation and the
+manager's merge discipline are the only real guarantees.** The manager assigns exclusive file scopes,
+merges back **serially in risk order**, re-runs the tests after every merge, never merges a generated
+file from a branch, and **treats every agent report as a claim until reproduced**.
+
+Read `docs/parallel-agent-orchestration.md` before running a fleet for the first time; it carries the
+research, the four things worktrees do *not* isolate, and the failure-handling table. Start every brief
+from `docs/agent-brief-template.md`.
 
 ### The window fleet (`multi-window/`)
 
