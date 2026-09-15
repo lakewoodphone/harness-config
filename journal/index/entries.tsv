@@ -150,6 +150,7 @@ handoff	H240	240		2026-09-15 15:21 UTC	ZABZ-YOGA	open	## 2026-09-15 15:21 UTC ·
 handoff	H241	241		2026-09-15 15:26 UTC	ZABZ-YOGA	open	## 2026-09-15 15:26 UTC · ZABZ-YOGA · Two platform path bugs fixed from failing tests; pre-existing failures 9 to 1	entries/handoff/H241.md	1	30	a024bf2346b2d150
 handoff	H242	242		2026-09-15 15:43 UTC	ZABZ-YOGA	open	## 2026-09-15 15:43 UTC · ZABZ-YOGA · Nine pre-existing failures closed; pytest tests/ is now 7 failed / 2708 passed / 0 errors	entries/handoff/H242.md	1	39	50b15fde00f15b8c
 handoff	H243	243		2026-09-15 15:54 UTC	ZABZ-YOGA	open	## 2026-09-15 15:54 UTC · ZABZ-YOGA · Quiet-hours timezone fixed; the suite is 2711 passed / 4 flaky / 0 errors	entries/handoff/H243.md	1	31	c5191d1c1366a233
+handoff	H244	244		2026-09-15 15:58 UTC	ZABZ-YOGA	open	## 2026-09-15 15:58 UTC · ZABZ-YOGA · test_mcp_enabled was deterministic, not flaky; P152's thread hypothesis corrected	entries/handoff/H244.md	1	41	5dd7060880a0ac00
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -514,6 +515,8 @@ lessons	L1521	1521		2026-09-15	ZABZ-YOGA	open	**L1521 · A unit test that reads 
 lessons	L1522	1522		2026-09-15	ZABZ-YOGA	open	**L1522 · Path code written for one platform is silently wrong on the other -- a wrong path compares unequal, it does not raise**	entries/lessons/L1522.md	1	29	487e9f5974c16b84
 lessons	L1523	1523		2026-09-15	ZABZ-YOGA	open	**L1523 · Fixing a suite's pre-existing failures does not make it a gate: the remaining errors are environmental, not attributable**	entries/lessons/L1523.md	1	25	2c8850d6e071740f
 lessons	L1524	1524		2026-09-15	ZABZ-YOGA	open	**L1524 · A test helper encodes a timezone, and that assumption travels with the machine it was written on**	entries/lessons/L1524.md	1	26	a4dde72c38ef534a
+lessons	L1525	1525		2026-09-15	ZABZ-YOGA	open	**L1525 · CORRECTION to P152: the worker is synchronous; and the suite loads .env into os.environ, which beats _env_file=None**	entries/lessons/L1525.md	1	34	19fde0114f512ee5
+lessons	L1526	1526		2026-09-15	ZABZ-YOGA	open	**L1526 · Two environment facts that beat the obvious fix, and a reminder that flaky is a label not a mechanism**	entries/lessons/L1526.md	1	25	76e7524faa5460f0
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -627,7 +630,8 @@ pain	P148	148		2026-09-15	ZABZ-YOGA	done	## P148 — Reminders are marked sent i
 pain	P149	149		2026-09-15	ZABZ-YOGA	done	## P149 — run_subsystem_once cannot run the five browser syncs, and only journal.py refreshes the mirror	entries/pain/P149.md	1	26	5599cf747e989ad0
 pain	P150	150		2026-09-15	ZABZ-YOGA	done	## P150 — Three of the nine pre-existing test failures are one root cause: .env.example is missing 24 declared settings	entries/pain/P150.md	1	43	ca92fc0fb95b9bcd
 pain	P151	151		2026-09-15	ZABZ-YOGA	superseded	## P151 — The suite's 153 order-dependent errors were a descriptor limit; seven failures left, four of them quiet-hours	entries/pain/P151.md	1	40	a97f47ca12cddcc0
-pain	P152	152		2026-09-15	ZABZ-YOGA	open	## P152 — The suite's residual failures are flaky: ~six members, membership varies per invocation, three visible mechanisms	entries/pain/P152.md	1	32	f4a7b65d971c43d5
+pain	P152	152		2026-09-15	ZABZ-YOGA	superseded	## P152 — The suite's residual failures are flaky: ~six members, membership varies per invocation, three visible mechanisms	entries/pain/P152.md	1	32	f4a7b65d971c43d5
+pain	P153	153		2026-09-15	ZABZ-YOGA	open	## P153 — The residual suite failures: corrected mechanisms, and the one measurement that would name them	entries/pain/P153.md	1	24	190a908088745428
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
