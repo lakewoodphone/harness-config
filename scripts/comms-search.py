@@ -659,9 +659,9 @@ def _render(res: dict) -> str:
                          f"({res.get('person_aliases', 0):,} aliases)")
         if res.get("calls_total"):
             pct = 100.0 * (res["calls_total"] - res.get("calls_without_transcript", 0)) / res["calls_total"]
-            lines.append(f"  calls with words: {res['calls_total'] - res.get('calls_without_transcript', 0):,}"
-                         f"/{res['calls_total']:,} ({pct:.0f}%) — the rest have no audio anywhere "
-                         f"(source limitation, not a backlog)")
+            lines.append(f"  call records with words: {res['calls_total'] - res.get('calls_without_transcript', 0):,}"
+                         f"/{res['calls_total']:,} ({pct:.0f}%) — indexed records, so multi-leg calls are "
+                         f"collapsed; the rest have no audio anywhere (source limitation, not a backlog)")
         if res.get("problems"):
             lines.append("  PROBLEMS: " + "; ".join(res["problems"]))
         return "\n".join(lines)
