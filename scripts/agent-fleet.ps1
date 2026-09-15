@@ -24,7 +24,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('new', 'status', 'clean', 'rm', 'rmall')]
+    [ValidateSet('new', 'status', 'doctor', 'clean', 'rm', 'rmall')]
     [string]$Action,
 
     [string]$Repo = '.',
@@ -179,6 +179,49 @@ switch ($Action) {
     }
 
     'status' { Show-Status $repoPath $fleetRoot }
+
+    # "Can this machine host a fleet" and "is this repo ready right now" are different questions.
+    # Conflating them is how a tool says READY and then refuses to do the thing.
+    'doctor' {
+        $ok = $true
+        Write-Host "repo:       $repoPath"
+        Write-Host "fleet root: $fleetRoot`n"
+
+        $gitVer = (& git --version) 2>$null
+        Write-Host ("{0,-28} {1}" -f 'git', ($(if ($gitVer) { $gitVer } else { 'MISSING' })))
+        if (-not $gitVer) { $ok = $false }
+
+        $py = (Get-Command python -ErrorAction SilentlyContinue)
+        Write-Host ("{0,-28} {1}" -f 'python', ($(if ($py) { $py.Source } else { 'MISSING (optional)' })))
+
+        $wt = Invoke-Git $repoPath @('worktree', 'list')
+        Write-Host ("{0,-28} {1}" -f 'worktrees supported', ($(if ($wt.ok) { 'yes' } else { 'NO - git too old' })))
+        if (-not $wt.ok) { $ok = $false }
+
+        $parent = Split-Path -Parent $fleetRoot
+        New-Item -ItemType Directory -Force -Path $parent -ErrorAction SilentlyContinue | Out-Null
+        $writable = $true
+        try { $probe = Join-Path $parent ('.write-probe-' + [guid]::NewGuid().ToString('N')); New-Item -ItemType File -Path $probe -Force | Out-Null; Remove-Item $probe -Force }
+        catch { $writable = $false }
+        Write-Host ("{0,-28} {1}" -f 'fleet root writable', ($(if ($writable) { "yes ($parent)" } else { "NO ($parent)" })))
+        if (-not $writable) { $ok = $false }
+
+        $gitdir = (Invoke-Git $repoPath @('rev-parse', '--git-dir')).out
+        $nested = $gitdir -match '[\\/]worktrees[\\/]'
+        Write-Host ("{0,-28} {1}" -f 'nested worktree', ($(if ($nested) { 'YES - do not create a fleet from here' } else { 'no' })))
+        if ($nested) { $ok = $false }
+
+        $dirty = (& git -C $repoPath status --porcelain 2>$null | Measure-Object).Count
+        Write-Host ("{0,-28} {1}" -f 'base clean', ($(if ($dirty -eq 0) { 'yes' } else { "NO ($dirty changed) - 'new' will refuse" })))
+
+        Write-Host ''
+        if (-not $ok) { Write-Host 'NOT READY: this machine cannot host a fleet - see the failures above.' -ForegroundColor Red; exit 1 }
+        if ($dirty -ne 0) {
+            Write-Host 'CAPABLE, not ready: this machine can host a fleet, but the base has uncommitted changes' -ForegroundColor Yellow
+            Write-Host "and 'new' will refuse until it is clean. Commit or stash first."; exit 1
+        }
+        Write-Host 'READY: this machine can host a fleet, and the base is clean enough to cut branches from.' -ForegroundColor Green
+    }
 
     'clean' {
         $trees = @(Get-AgentWorktrees $repoPath)

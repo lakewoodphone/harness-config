@@ -139,7 +139,18 @@ cmd_doctor() {
   if [ "$st" = "0" ]; then printf '%-28s %s\n' "base clean" "yes"; else printf '%-28s %s\n' "base clean" "NO ($st changed) — 'new' will refuse"; fi
 
   echo
-  if [ "$ok" = "1" ]; then echo "READY: this machine can host a fleet."; else echo "NOT READY: see the failures above."; exit 1; fi
+  # "Can this machine host a fleet" and "is this repo ready right now" are different questions, and
+  # conflating them is how a tool says READY and then refuses. Report both.
+  if [ "$ok" != "1" ]; then
+    echo "NOT READY: this machine cannot host a fleet — see the failures above."
+    exit 1
+  fi
+  if [ "$st" != "0" ]; then
+    echo "CAPABLE, not ready: this machine can host a fleet, but the base has $st uncommitted change(s)"
+    echo "and 'new' will refuse until it is clean. Commit or stash first."
+    exit 1
+  fi
+  echo "READY: this machine can host a fleet, and the base is clean enough to cut branches from."
 }
 
 cmd_new() {
