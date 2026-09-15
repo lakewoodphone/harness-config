@@ -43,10 +43,10 @@ const MACHINE = os.hostname();
  * `where` is plain English, because her agent should not have to know that `zabz-tech` is the desktop.
  */
 const FLEET = [
-  { alias: 'desktop-ts', where: "the owner's office desktop (ZABZ-TECH), i9/64GB", user: 'ezabz' },
-  { alias: 'secratary-ts', where: 'the company server (secratary) — the authoritative database and the autonomous company', user: 'zabz' },
-  { alias: 'laptop-ts', where: "the owner's Yoga laptop (ZABZ-YOGA), where he works at night", user: 'ezabz' },
-  { alias: 'linux-pc-ts', where: 'the Linux PC (zabz-tech-linux)', user: 'zabz' },
+  { alias: 'desktop-ts', where: "the owner's office desktop (ZABZ-TECH), i9/64GB", user: 'ezabz', os: 'windows' },
+  { alias: 'secratary-ts', where: 'the company server (secratary) — the authoritative database and the autonomous company', user: 'zabz', os: 'linux' },
+  { alias: 'laptop-ts', where: "the owner's Yoga laptop (ZABZ-YOGA), where he works at night", user: 'ezabz', os: 'windows' },
+  { alias: 'linux-pc-ts', where: 'the Linux PC (zabz-tech-linux)', user: 'zabz', os: 'linux' },
 ];
 
 /**
@@ -72,11 +72,58 @@ function checkDanger(cmd) {
   return null;
 }
 
-function run(alias, command, timeoutMs = 120000) {
+function run(alias, command, timeoutMs = 120000, { stdin } = {}) {
   const r = spawnSync('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'LogLevel=ERROR', alias, command], {
-    encoding: 'utf8', timeout: timeoutMs,
+    encoding: 'utf8', timeout: timeoutMs, input: stdin,
   });
   return { ok: r.status === 0, out: (r.stdout || '').trim(), err: (r.stderr || '').trim(), code: r.status };
+}
+
+/**
+ * Run a PowerShell script on a WINDOWS host.
+ *
+ * FOUR FAILED ATTEMPTS ARE RECORDED HERE because each one looked like a different problem, and all of
+ * them were the same problem -- quoting through node -> ssh -> cmd.exe -> PowerShell:
+ *   1. `grep` on a Windows host: no such command. Failed loudly, which was fine.
+ *   2. PowerShell inline with escaped quotes: the escaping was eaten and it reported "0 variables"
+ *      instead of erroring. The WORSE kind of wrong -- it reads as an answer.
+ *   3. PowerShell inline, simplified: still eaten. `ssh host "..."` on Windows passes the string
+ *      through cmd.exe before PowerShell sees it.
+ *   4. Piping the script to `powershell -Command -` over stdin: verified by hand in PowerShell that
+ *      the remote logic is correct (it returns 334 matching lines), but the same bytes sent from node
+ *      produced nothing. Rather than keep bisecting a transport I do not control, the transport is
+ *      removed.
+ *
+ * WHAT WORKS: `-EncodedCommand`, which takes BASE64 UTF-16LE. Base64 contains no quotes, no
+ * backslashes and no metacharacters, so no layer between here and the remote PowerShell has anything
+ * to mangle. This is worth the extra three lines: every previous attempt was correct logic defeated by
+ * a quoting layer, which is not a bug anyone can reason about from the output.
+ */
+function psRemote(alias, script, timeoutMs = 60000) {
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+  return run(alias, `powershell -NoProfile -EncodedCommand ${encoded}`, timeoutMs);
+}
+
+function readEnvNamesWindows(alias, p) {
+  const script = [
+    `$f = '${p}'`,
+    'if (Test-Path $f) {',
+    // Skip comment lines: a .env carries commented-out examples, and they are not "configured" --
+    // reporting them made the list longer and less true.
+    "  Get-Content $f | Where-Object { $_ -like '*=*' -and -not $_.TrimStart().StartsWith('#') } | ForEach-Object { ($_ -split '=')[0].Trim() } | Where-Object { $_ -ne '' } | Sort-Object -Unique",
+    '} else { "NOSUCHFILE" }',
+  ].join('\n');
+  return psRemote(alias, script, 60000);
+}
+
+function readEnvValueWindows(alias, p, key) {
+  const script = [
+    `$f = '${p}'`,
+    'if (Test-Path $f) {',
+    `  Get-Content $f | Where-Object { $_ -like '${key}=*' } | Select-Object -First 1`,
+    '} else { "NOSUCHFILE" }',
+  ].join('\n');
+  return psRemote(alias, script, 45000);
 }
 
 function main() {
@@ -99,6 +146,9 @@ function main() {
     console.error(`ps-mesh: "${host}" is not in the fleet. Known: ${FLEET.map((f) => f.alias).join(', ')}`);
     process.exit(2);
   }
+  // Windows hosts run `ssh host "cmd"` through cmd.exe/PowerShell: no grep, no cat, and \r\n output.
+  // Chosen per host rather than assumed, which is what broke the office-desktop attempt first time.
+  const windows = known.os === 'windows';
 
   if (VERB === 'run') {
     const cmd = ARGS[2];
@@ -127,23 +177,32 @@ function main() {
   }
 
   if (VERB === 'env') {
-    // A .env is the machine's secrets. Listing the NAMES is safe and answers "what is configured
-    // here"; printing a VALUE is a deliberate act, so it needs --key and says what it is doing.
+    // A .env holds the machine's secrets. Listing the NAMES answers "what is configured here" and is
+    // safe; printing a VALUE is a deliberate act, so it needs --key and says which one it is doing.
     const p = ARGS[2] && !ARGS[2].startsWith('--') ? ARGS[2] : null;
     if (!p) { console.error('ps-mesh env: needs the .env path, e.g. /home/zabz/personal-secretary-mvp/.env'); process.exit(2); }
     const keyIdx = ARGS.indexOf('--key');
     if (keyIdx !== -1) {
       const key = ARGS[keyIdx + 1];
       if (!key) { console.error('ps-mesh env: --key needs a name'); process.exit(2); }
-      // Only the requested name, and only its own line: never the whole file.
-      const r = run(host, `grep -m1 '^${key}=' "${p}"`, 30000);
-      if (!r.ok || !r.out) { console.error(`ps-mesh: ${key} is not set in ${p} on ${host}`); process.exit(1); }
-      console.log(r.out);
+      const r = windows ? readEnvValueWindows(host, p, key) : run(host, `grep -m1 '^${key}=' "${p}"`, 30000);
+      if (!r.ok || !r.out || /NOSUCHFILE/.test(r.out)) { console.error(`ps-mesh: ${key} is not set in ${p} on ${host}`); process.exit(1); }
+      const line = r.out.split('\n').map((l) => l.replace(/\r$/, '')).find((l) => l.startsWith(`${key}=`)) || '';
+      const value = line.slice(key.length + 1).trim();
+      // A secret pasted into a terminal ends up in scrollback, in a log, or in a model's context.
+      // Show enough to confirm WHICH value it is, and require an explicit flag to print all of it.
+      if (ARGS.includes('--show-secret')) { console.log(`${key}=${value}`); return; }
+      const shown = value.length <= 4 ? '*'.repeat(value.length) : `${value.slice(0, 4)}${'*'.repeat(Math.max(0, value.length - 4))}`;
+      console.log(`  ${key} on ${host}: ${shown}   (${value.length} chars)`);
+      console.log(`  to print it in full:  add --show-secret`);
       return;
     }
-    const r = run(host, `grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' "${p}" | tr -d '=' | sort`, 30000);
-    if (!r.ok) { console.error(r.err || `could not read ${p}`); process.exit(1); }
-    const names = r.out.split('\n').filter(Boolean);
+    const r = windows
+      ? readEnvNamesWindows(host, p)
+      : run(host, `grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "${p}" | grep -v '^[[:space:]]*#' | sed 's/=.*//' | sort -u`, 45000);
+    if (!r.ok) { console.error(r.err || `could not read ${p} on ${host}`); process.exit(1); }
+    if (/NO SUCH FILE/i.test(r.out)) { console.error(`ps-mesh: no file at ${p} on ${host}`); process.exit(1); }
+    const names = r.out.split('\n').map((l) => l.trim().replace(/\r$/, '')).filter(Boolean);
     console.log(`  ${names.length} variable(s) configured in ${p} on ${host} (names only):`);
     for (const n of names) console.log(`    ${n}`);
     console.log('\n  one value:  ps-mesh env ' + host + ' ' + p + ' --key NAME');
