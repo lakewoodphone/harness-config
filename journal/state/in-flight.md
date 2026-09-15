@@ -1,56 +1,60 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-15 01:50Z (ZABZ-YOGA, comms/Dialpad session, goal round 4)
+Updated: 2026-09-15 02:55Z (ZABZ-YOGA, comms/Dialpad session, **goal complete — H219**)
 
-Rewritten, not appended. This session: **H202**, **H208**, **H213**, **H214**; record **W105**,
-**D141**, **D146**, **L1081–L1086**, **L1467–L1469**, **L1474–L1476**, **L1479**, **L1481**,
-**L1484**, **P131**. *(Correction: H208 cites "D142" for the digest decision — it is **D146**.)*
+Rewritten, not appended. This session: **H202**, **H208**, **H213**, **H214**, **H219**; record
+**W105**, **D141**, **D146**, **L1081–L1086**, **L1467–L1469**, **L1474–L1476**, **L1479**,
+**L1481**, **L1484**, **P131**. *(Correction: H208 cites "D142" for the digest decision — it is
+**D146**.)*
 
-## The two numbers that say where this stands
+## Done — the comms objective is met
 
-* **`fetchable: 0`** — the fetch is done. Every call whose audio Dialpad will still serve is
-  local. (The queue shows 4 because the live harvest keeps adding new calls; that is the system
-  working, not a backlog.)
-* **415 calls left to transcribe**, of 10,357 total: **3,753 carry words in the index (36%)**, 691
-  of those from our own re-transcription of the recording (~1,119 audio-minutes, **~$6.72** spent
-  of the ~$36 cap). Draining at **~24/min** with four shards plus cron ticks — measured: 642 →
-  690 transcripts in four minutes. (The index's "calls with words" lags by up to 30 minutes
-  because it rebuilds on `:07` and `:37`.)
+Texts **127,678** (2025-04-18 → live) · calls **12,552** (2025-10-20 → live; the far end probed
+in 2024-10, 2025-01, 2025-04, 2025-06, 2025-07 and 2025-09, `read=0 stored=0 errors=0` each time,
+so the oldest call is the account's first and not the harvest's horizon) · voicemails **916**
+records with audio fetched for every one Dialpad will still serve · **transcripts: 6,497 calls
+carry Dialpad's own text and 1,101 carry a transcript we made from the audio, and the queue is
+0** · index **166,874 with 0 missing**, base = fts = trigram, rebuilt on `:07`/`:37` and swapped
+in atomically · five read modes through the live API, the CLI and MCP, registered so agents find
+them · staleness visible on both halves, with the cron failing on either. Spend **~$10.90 of the
+~$36 cap**.
 
-## Running right now
+**Do not re-open the ceiling.** **6,055 calls can never have words**: 74 hold a file that is not
+audio, 1,258 hold media URLs Dialpad refuses with HTTP 404, and 4,797 have no audio URL at all —
+Dialpad neither recorded nor transcribed them, because its AI transcription only appears in this
+account's data from around April 2026. Of the 916 voicemail calls, 312 are readable and 604 are in
+that bucket (**L1481**, **L1479**).
 
-| Job | How | What says it worked |
+## Running — four cron entries, nothing session-dependent
+
+| Job | Schedule | What says it worked |
 |---|---|---|
-| **Sharded transcription** — `scripts/dialpad-transcript-gap.py --shard I/N`, four processes | launched by hand this round; **cron `*/10` continues when they finish** | Measured: **437 → 642 transcripts in 14 minutes** (~16/min, vs ~3/min serial). Disjoint slices by `rowid % N`, so nothing is transcribed or paid for twice. |
-| **Dialpad media fetch** (`--limit 300`) | cron `*/5`, flock | Dry run selects ~0. Files on disk ~4,900. |
-| **Comms index refresh** (`~/.fsearch/comms-refresh.py`) | cron `7,37` | **Now builds beside the live file and swaps it in atomically** — verified: the live index answered continuously through a build (166,903 → 166,905) and never went empty. Exit non-zero when the index is incomplete **or** the data has stopped flowing. |
-| **Dialpad harvest** | cron `*/30` | Freshness on the health surface: newest SMS 0.4 h, newest call 0.4 h. |
+| **Dialpad harvest** (calls, sessions, transcripts) | `*/30` | Freshness in `health`: newest SMS 0.4 h, newest call 0.8 h |
+| **Media fetch** (`dialpad-recording-gap.py --limit 300`) | `*/5` | Dry run selects ~0 (only calls the harvest added minutes ago) |
+| **Transcript gap** (`dialpad-transcript-gap.py --limit 400 --retry-failed --max-minutes 600`) | `*/10` | Dry run selects **0**. Cumulative budget inside the tool (6,000 min ≈ $36) |
+| **Index refresh** (`~/.fsearch/comms-refresh.py`) | `7,37` | Exit 0; `comms_state.json`; **builds beside the live file and swaps it in atomically**, so no reader sees a half-built table |
 
-**Read this before touching them.** Ten defects made these jobs look healthy while producing
-nothing, all fixed today. The pattern: **a job's exit code and its output are different things.**
-The families: a flag that never reached the layer doing the work; a selector that joined the
-media **row** instead of testing the **file**; a multi-URL call judged from one joined row; a
-scan window too small to see the work; and three writers where `database is locked` discarded
-work already done — in one case work already **paid for** (**L1484**). A read-snapshot upgrade
-cannot be waited out by `busy_timeout`, so all three retry on a fresh transaction.
+**Read this before touching them.** Ten defects, all one family: **a job that runs, exits 0 and
+produces nothing.** A flag that never reached the layer doing the work; selectors that joined the
+media **row** and never tested the **file**; a multi-URL call judged from one joined row; a scan
+window too small to see the work; three writers where `database is locked` discarded completed
+work — in one case work already **paid for** (**L1484**); a selector re-offering URLs Dialpad had
+already refused; and a selector re-offering files that are not audio. Every one was found by
+measuring the job's *subject* rather than watching its exit code.
 
-## Settled, with evidence — do not re-open these
+## Also settled, with evidence
 
-* **6,129 calls can never have words** (**L1481**): Dialpad neither recorded nor transcribed
-  them, their media URLs 404, and no notification email exists for any of them — 248 Dialpad
-  voicemail emails exist in Gmail and every one describes a voicemail that already has text.
-  Of the 916 voicemail calls, 312 are readable and 604 are in this bucket.
-* **"All time" is complete for calls**: 7-day windows probed in 2024-10, 2025-01, 2025-04,
-  2025-07, 2025-09 and 2025-06 returned `read=0 stored=0 errors=0`, so 2025-10-20 is the
-  account's first call, not the harvest's horizon.
 * **A dynamic tool edited in place is deployed on the next call** — `run_tool` reloads when the
-  file is newer than the loaded copy, proven by edit-and-revert without a restart.
+  file is newer than the loaded copy; proven by editing the installed file (the next API call
+  returned the change) and reverting it.
+* **`--shard I/N` partitions the work** by `rowid % N`, so several transcription processes can run
+  at once without paying twice for the same call. It took the rate from ~3/min to ~24/min.
 
 ## Mine, measured and waiting on a trigger
 
 | Item | What would show it |
 |---|---|
+| **A "waiting" line in the owner's digest** (**D146**) | `ps_comms_waiting` returns it (18 waiting, 13 missed calls, verified through the live API). One deduplicated line, only when non-zero — that surface has an alert-fatigue history (P40). |
 | **Kernel index-age metric** (**P131**) | `ck/sentinel.py` was being edited by another session, so a change there collides. `health` exposes it to agents and the cron fails on ingestion staleness. |
-| **A "waiting" line in the owner's digest** (**D146**) | `ps_comms_waiting` returns it (17 waiting, 12 missed calls, verified through the live API). One deduplicated line, only when non-zero — that surface has an alert-fatigue history (P40). |
-| **The softer re-transcripts** | Calls that already have Dialpad text and could be re-transcribed from better audio for ~$45. Deferred behind everything that has no words at all. |
-| **Alias coverage is 49%** | 1,225 people, 921 named. The rest are one-off callers who never gave a name; a wrong merge is worse than a missing one (L1467). |
+| **The softer re-transcripts** | Calls that already have Dialpad text and could be re-transcribed from better audio for ~$45. Now the only transcript work left, and it is a quality swap, not a gap. |
+| **Alias coverage is 49%** | 1,226 people, 921 named. The rest are one-off callers who never gave a name; a wrong merge is worse than a missing one (**L1467**). |

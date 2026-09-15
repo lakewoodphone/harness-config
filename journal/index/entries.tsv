@@ -125,6 +125,7 @@ handoff	H215	215		2026-09-15 01:42 UTC	ZABZ-YOGA	open	## 2026-09-15 01:42 UTC ·
 handoff	H216	216		2026-09-15 01:50 UTC	ZABZ-YOGA	open	## 2026-09-15 01:50 UTC · ZABZ-YOGA · lpt-sync-to-production: pre-create guard + idempotency + real dry run (committed, push blocked)	entries/handoff/H216.md	1	65	7c16e175ae076d23
 handoff	H217	217		2026-09-15 01:58 UTC	ZABZ-YOGA	open	## 2026-09-15 01:58 UTC · ZABZ-YOGA · Owner-approved vendor email sent for order 161898; task 25106 reopened from a false done	entries/handoff/H217.md	1	41	4a5437b3b76152a9
 handoff	H218	218		2026-09-15 02:27 UTC	ZABZ-YOGA	open	## 2026-09-15 02:27 UTC · ZABZ-YOGA · lpt-sync: three defects fixed, verified dry-run only, pushed to lpt-sync-precreate-guard-20260915	entries/handoff/H218.md	1	76	487dfba2a40fa29a
+handoff	H219	219		2026-09-15 02:49 UTC	ZABZ-YOGA	done	## 2026-09-15 02:49 UTC · ZABZ-YOGA · 2026-09-15 02:50Z ZABZ-YOGA: the objective is met -- every obtainable word is in, the remainder is measured	entries/handoff/H219.md	1	57	06eaee1f97834917
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -770,3 +771,4 @@ wins	W120	120		2026-09-14	ZABZ-YOGA	open	**W120 · 2026-09-14 · Proved a produc
 wins	W121	121		2026-09-14	ZABZ-YOGA	open	**W121 · 2026-09-14 · A health check returned 1,780 run records: ps_health cost ~100k tokens, now 27 KB.**	entries/wins/W121.md	1	40	7ee5abcc4daa85c2
 wins	W122	122		2026-09-14	ZABZ-YOGA	open	**W122 · 2026-09-14 · The ghost-agent detector scanned goal_plans and goal_steps but not tasks, where live work is assigned.**	entries/wins/W122.md	1	37	7f2c6d24f24baab6
 wins	W123	123		2026-09-14	ZABZ-YOGA	open	**W123 · 2026-09-14 · A portable applier exists now, so no machine in the fleet is unreachable by config.**	entries/wins/W123.md	1	12	4f0e80433316faf4
+wins	W124	124		2026-09-14	ZABZ-YOGA	open	**W124 · 2026-09-14 · 42 urgent owner alerts were held and unseen because a failed SMS was silent.**	entries/wins/W124.md	1	44	ce9a2a107ffb87e4
