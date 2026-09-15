@@ -182,6 +182,9 @@ handoff	H272	272		2026-09-15 19:46 UTC	ZABZ-TECH	open	## 2026-09-15 19:46 UTC ·
 handoff	H273	273		2026-09-15 19:48 UTC	ZABZ-TECH	open	## 2026-09-15 19:48 UTC · ZABZ-TECH · kf2/measures-reader: D39-11 measures reader built, route and report, on branch agent/measures-reader	entries/handoff/H273.md	1	19	8b3d29ff1b0665f4
 handoff	H274	274		2026-09-15 19:49 UTC	ZABZ-TECH	open	## 2026-09-15 19:49 UTC · ZABZ-TECH · PART-127 and PART-128: 5 portal pages reachable of 17 built, and MFA well built but never required - the customer product is assembled and unreachable	entries/handoff/H274.md	1	74	083de154dd29780f
 handoff	H275	275		2026-09-15 19:49 UTC	ZABZ-TECH	open	## 2026-09-15 19:49 UTC · ZABZ-TECH · Credential night: the AWS admin key is dead, Lakewood's Twilio token is rotated, and the owner has told us Device Parts is out of favour	entries/handoff/H275.md	1	29	507f0cc94308e465
+handoff	H276	276		2026-09-15 19:55 UTC	ZABZ-TECH	open	## 2026-09-15 19:55 UTC · ZABZ-TECH · The account/sign-in audit series is COMPLETE - all fifteen parts 117-131 documented (129 auth drift, 130 filter site, 131 test blind spots)	entries/handoff/H276.md	1	77	6371154c0b097be7
+handoff	H277	277		2026-09-15 19:57 UTC	ZABZ-TECH	open	## 2026-09-15 19:57 UTC · ZABZ-TECH · Family chat / Chip: inbound body was being stored in media_urls and Chip was answering blind - fixed, deployed, 116 rows repaired	entries/handoff/H277.md	1	31	6d429d18f760f93f
+handoff	H278	278		2026-09-15 19:57 UTC	ZABZ-TECH	open	## 2026-09-15 19:57 UTC · ZABZ-TECH · Company audit: 8 workstreams, 2 production fixes landed (restart storm + dropped money alerts), and a concurrent operator on the live tree	entries/handoff/H278.md	1	77	23679904a1af4754
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -588,6 +591,11 @@ lessons	L1563	1563		2026-09-15	ZABZ-TECH	open	**L1563 · Prove the key is a key 
 lessons	L1564	1564		2026-09-15	ZABZ-TECH	open	**L1564 · A zero from a grep that matches nothing is not a measurement**	entries/lessons/L1564.md	1	31	e22e2c0ad9bf6089
 lessons	L1565	1565		2026-09-15	ZABZ-TECH	open	**L1565 · The desktop secretary API's LAN ingress is a netsh portproxy, and it dies silently when iphlpsvc stops**	entries/lessons/L1565.md	1	16	02ae6f6d67f58ea3
 lessons	L1566	1566		2026-09-15	ZABZ-TECH	open	**L1566 · Rotating a shared auth token: enumerate consumers, restart them, THEN promote - and never read a slow startup as a failure**	entries/lessons/L1566.md	1	16	e7c8de85580cb6f3
+lessons	L1567	1567		2026-09-15	ZABZ-TECH	open	**L1567 · PowerShell expands backtick-0 to NUL inside a double-quoted replacement string - and this session produced FOUR checks that gave confident answers while structurally unable to be right**	entries/lessons/L1567.md	1	34	d464ca3335631bc6
+lessons	L1568	1568		2026-09-15	ZABZ-TECH	open	**L1568 · The chat hub forwarded correctly and stored the opposite, so every test passed while Chip read blank lines**	entries/lessons/L1568.md	1	39	b1f18ee15235792b
+lessons	L1569	1569		2026-09-15	ZABZ-TECH	open	**L1569 · Remote-editing a server checkout: hash-guard the write, echo the changed lines, and never restore from a backup you made after the change**	entries/lessons/L1569.md	1	33	3d14cfcb8f8ec7e8
+lessons	L1570	1570		2026-09-15	ZABZ-TECH	open	**L1570 · Family chat has five send paths that never write the message row, so 'why did Chip say that' cannot be answered from our own DB**	entries/lessons/L1570.md	1	32	c7dba95ee86cf5a5
+lessons	L1571	1571		2026-09-15	ZABZ-TECH	open	**L1571 · Verify the premise before it reaches the owner - an agent's report is a claim**	entries/lessons/L1571.md	1	36	a564fd732ffecca6
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -714,6 +722,7 @@ pain	P161	161		2026-09-15	ZABZ-TECH	open	## P161 — The public rentals endpoint
 pain	P162	162		2026-09-15	ZABZ-TECH	open	## P162 — A device attached to a household is not visible to a scoped admin until it logs a hello	entries/pain/P162.md	1	6	44baf3f4bfd887f6
 pain	P163	163		2026-09-15	ZABZ-TECH	open	## P163 — journal.py search could not read entry bodies, so recall returned false negatives	entries/pain/P163.md	1	12	e33fc8c2e2e429d9
 pain	P164	164		2026-09-15	ZABZ-TECH	open	## P164 — Nothing watches the LOCAL services the mesh depends on: a stopped Tailscale or IP Helper silently makes a whole machine LAN-only, with no alert	entries/pain/P164.md	1	21	293fd2158b410793
+pain	P165	165		2026-09-15	ZABZ-TECH	open	## P165 — The family chat DB silently loses outbound rows, and nothing notices because the chat still works	entries/pain/P165.md	1	30	15a13d1ff3b9f0a2
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -841,6 +850,7 @@ decisions	D163	163		2026-09-15	ZABZ-TECH	open	**D163 · 2026-09-15 · Device Par
 decisions	D164	164		2026-09-15	ZABZ-TECH	open	**D164 · 2026-09-15 · AWS: the leaked AdministratorAccess key is deleted - both keys on phone-tech-dev-user, console profile deliberately left alone.**	entries/decisions/D164.md	1	22	77416894cb1e6a32
 decisions	D165	165		2026-09-15	ZABZ-TECH	open	**D165 · 2026-09-15 · Lakewood's own Twilio auth token is rotated and the leaked one is dead.**	entries/decisions/D165.md	1	29	ac7aa03e29a988f8
 decisions	D166	166		2026-09-15	ZABZ-TECH	open	**D166 · 2026-09-15 · LPT Google return leg now points at api.lakewoodphoneandtech.com (the apex 404s every /api path).**	entries/decisions/D166.md	1	34	ac72742e5014b1f0
+decisions	D167	167		2026-09-15	ZABZ-TECH	open	**D167 · 2026-09-15 · Stripe Terminal audit after the unauth tRPC router: no evidence of use, and the reader does NOT need re-pairing.**	entries/decisions/D167.md	1	24	c4d040a3071f2d5e
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
