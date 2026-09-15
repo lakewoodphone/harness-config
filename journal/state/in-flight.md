@@ -1,11 +1,11 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-15 02:55Z (ZABZ-YOGA, comms/Dialpad session, **goal complete — H219**)
+Updated: 2026-09-15 14:05Z (ZABZ-YOGA, comms session — objective complete H219, reader hardening H224/H225)
 
-Rewritten, not appended. This session: **H202**, **H208**, **H213**, **H214**, **H219**; record
-**W105**, **D141**, **D146**, **L1081–L1086**, **L1467–L1469**, **L1474–L1476**, **L1479**,
-**L1481**, **L1484**, **P131**. *(Correction: H208 cites "D142" for the digest decision — it is
-**D146**.)*
+Rewritten, not appended. Earlier session: **H202**, **H208**, **H213**, **H214**, **H219**; record
+**W105**, **D141**, **D146**, **D151**, **L1081–L1086**, **L1467–L1469**, **L1474–L1476**, **L1479**,
+**L1481**, **L1484**, **L1503**, **L1504**, **P131**, **P143**, **H224**, **H225**.
+*(Correction: H208 cites "D142" for the digest decision — it is **D146**.)*
 
 ## Done — the comms objective is met
 
@@ -14,16 +14,42 @@ in 2024-10, 2025-01, 2025-04, 2025-06, 2025-07 and 2025-09, `read=0 stored=0 err
 so the oldest call is the account's first and not the harvest's horizon) · voicemails **916**
 records with audio fetched for every one Dialpad will still serve · **transcripts: 6,497 calls
 carry Dialpad's own text and 1,101 carry a transcript we made from the audio, and the queue is
-0** · index **166,874 with 0 missing**, base = fts = trigram, rebuilt on `:07`/`:37` and swapped
-in atomically · five read modes through the live API, the CLI and MCP, registered so agents find
-them · staleness visible on both halves, with the cron failing on either. Spend **~$10.90 of the
-~$36 cap**.
+0** · index **166,939 with 0 missing** (2026-09-15 14:00Z), base = fts = trigram, rebuilt on
+`:07`/`:37` and swapped in atomically · five read modes through the live API, the CLI and MCP,
+registered so agents find them · staleness visible on both halves, with the cron failing on
+either. Spend **~$10.90 of the ~$36 cap**.
 
 **Do not re-open the ceiling.** **6,055 calls can never have words**: 74 hold a file that is not
 audio, 1,258 hold media URLs Dialpad refuses with HTTP 404, and 4,797 have no audio URL at all —
 Dialpad neither recorded nor transcribed them, because its AI transcription only appears in this
 account's data from around April 2026. Of the 916 voicemail calls, 312 are readable and 604 are in
 that bucket (**L1481**, **L1479**).
+
+## Done — the reader layer, 2026-09-15 (H224, H225)
+
+The index was built and kept fresh; the *reader* was not usable by an agent. Measured: 34
+calls to `comms_search` through the live API, every one of them mine — the fleet had been
+told to use it and could not. Fixed: parameter aliases and `**extra` (an agent guesses
+`query=`, and a guessed key used to be dropped, leaving FTS5 to answer
+`syntax error near ""`); every query tokenised and quoted (`screen replacement?` was a
+syntax error); the loose fallback drops stopwords, orders by bm25 and reports
+`match_mode` + the terms used (a sentence used to return `It's a iPhone 16 pro max`);
+`_party_filter` is shared by search and thread (they disagreed about who "Dovid" is, so
+`thread Dovid` returned 0 while `search --party Dovid` returned his messages); opt-outs
+have their own bucket (a `Stop` sat at the top of `waiting`); `search --party X` with no
+keywords works; `--line` gives a digest one age-carrying summary line.
+
+**The owner can now see it**: digest section **1c** prints
+`🔔 N customer(s) waiting on a reply (last 3 days)` and nothing when N is 0. Verified by
+running the digest as cron does — 6.1 s end to end. (`D146`'s line, delivered.)
+
+`scripts/comms-verify.py` (harness-config) is the regression battery: **13 assertions**
+through the live HTTP dispatcher and the CLI. Run it after any change here.
+
+**Two measurement rules earned in this batch:** HTTP 200 is not success — `{"ok": false}`
+rides inside a 200, so a log full of "200 OK" is not evidence a tool worked (**L1503**);
+and any search that loosens must be relevance-ordered, name the terms it used, and say it
+loosened (**L1504**).
 
 ## Running — four cron entries, nothing session-dependent
 
@@ -54,7 +80,9 @@ measuring the job's *subject* rather than watching its exit code.
 
 | Item | What would show it |
 |---|---|
-| **A "waiting" line in the owner's digest** (**D146**) | `ps_comms_waiting` returns it (18 waiting, 13 missed calls, verified through the live API). One deduplicated line, only when non-zero — that surface has an alert-fatigue history (P40). |
+| **Names for the unnamed people** | 1,226 people, ~922 named; 43 of 60 `waiting` rows still show a bare number. A read-only subagent is measuring which of the business's own records (repair jobs, invoices, orders, lpt-hub case files, contact exports) hold name↔phone mappings, and how many of the unnamed they would cover. Biggest single lever on every other view. |
+| **`display_name` can be a source LABEL, not a person** | `7325036369` has 1,669 communications and reads as **"Microsoft Word"**, because `dialpad_sms_cache.customer_name` says so — the source says it, so this is not a merge error, but an agent will be misled. 38 of 1,226 names look non-human by a rough filter and most of the rest are legitimate businesses. Needs a deliberate design pass (prefer evidence-weighted names; fall back to the number), not a blocklist guessed in a hurry. |
+| **The fleet still does not reach for it** | 34 calls, all mine. The tool can no longer dead-end; nothing yet puts recent comms in front of an agent at the moment a customer speaks (inbound message or task context). |
 | **Kernel index-age metric** (**P131**) | `ck/sentinel.py` was being edited by another session, so a change there collides. `health` exposes it to agents and the cron fails on ingestion staleness. |
 | **The softer re-transcripts** | Calls that already have Dialpad text and could be re-transcribed from better audio for ~$45. Now the only transcript work left, and it is a quality swap, not a gap. |
-| **Alias coverage is 49%** | 1,226 people, 921 named. The rest are one-off callers who never gave a name; a wrong merge is worse than a missing one (**L1467**). |
+| **The authority's app checkout is a third lineage** (**P143**) | 57 commits reachable from no remote (now backed up as `backup/secratary-checkout-20260915`), 136 behind origin/master, 75 dirty files. Needs a dedicated reconciliation session; never scp a whole file into it — patch the single hunk (`/tmp/pt.py` pattern). |
