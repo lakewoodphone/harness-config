@@ -182,6 +182,7 @@ handoff	H272	272		2026-09-15 19:46 UTC	ZABZ-TECH	open	## 2026-09-15 19:46 UTC ·
 handoff	H273	273		2026-09-15 19:48 UTC	ZABZ-TECH	open	## 2026-09-15 19:48 UTC · ZABZ-TECH · kf2/measures-reader: D39-11 measures reader built, route and report, on branch agent/measures-reader	entries/handoff/H273.md	1	19	8b3d29ff1b0665f4
 handoff	H274	274		2026-09-15 19:49 UTC	ZABZ-TECH	open	## 2026-09-15 19:49 UTC · ZABZ-TECH · PART-127 and PART-128: 5 portal pages reachable of 17 built, and MFA well built but never required - the customer product is assembled and unreachable	entries/handoff/H274.md	1	74	083de154dd29780f
 handoff	H275	275		2026-09-15 19:49 UTC	ZABZ-TECH	open	## 2026-09-15 19:49 UTC · ZABZ-TECH · Credential night: the AWS admin key is dead, Lakewood's Twilio token is rotated, and the owner has told us Device Parts is out of favour	entries/handoff/H275.md	1	29	507f0cc94308e465
+handoff	H276	276		2026-09-15 20:05 UTC	LAKEWOOECHSMINI	open	## 2026-09-15 20:05 UTC · LAKEWOOECHSMINI · Weissman SSD: $160 deposit taken and the drive shipped to 300DDR ticket 74048 (from the Mac mini)	entries/handoff/H276.md	1	68	1551ce37213fa730
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -588,6 +589,7 @@ lessons	L1563	1563		2026-09-15	ZABZ-TECH	open	**L1563 · Prove the key is a key 
 lessons	L1564	1564		2026-09-15	ZABZ-TECH	open	**L1564 · A zero from a grep that matches nothing is not a measurement**	entries/lessons/L1564.md	1	31	e22e2c0ad9bf6089
 lessons	L1565	1565		2026-09-15	ZABZ-TECH	open	**L1565 · The desktop secretary API's LAN ingress is a netsh portproxy, and it dies silently when iphlpsvc stops**	entries/lessons/L1565.md	1	16	02ae6f6d67f58ea3
 lessons	L1566	1566		2026-09-15	ZABZ-TECH	open	**L1566 · Rotating a shared auth token: enumerate consumers, restart them, THEN promote - and never read a slow startup as a failure**	entries/lessons/L1566.md	1	16	e7c8de85580cb6f3
+lessons	L1567	1567		2026-09-15	LAKEWOOECHSMINI	open	**L1567 · lpt-hub is not one record - check which clone before trusting a case file**	entries/lessons/L1567.md	1	28	1f6a654b1441f29d
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -713,6 +715,7 @@ pain	P160	160		2026-09-15	ZABZ-TECH	open	## P160 — Live production credentials
 pain	P161	161		2026-09-15	ZABZ-TECH	open	## P161 — The public rentals endpoint was a read proxy into the company backup bucket	entries/pain/P161.md	1	21	eb39089cc1e43748
 pain	P162	162		2026-09-15	ZABZ-TECH	open	## P162 — A device attached to a household is not visible to a scoped admin until it logs a hello	entries/pain/P162.md	1	6	44baf3f4bfd887f6
 pain	P163	163		2026-09-15	ZABZ-TECH	open	## P163 — journal.py search could not read entry bodies, so recall returned false negatives	entries/pain/P163.md	1	12	e33fc8c2e2e429d9
+pain	P164	164		2026-09-15	LAKEWOOECHSMINI	open	## P164 — journal entry IDs collide across machines - reconciliation needs the owner's rule	entries/pain/P164.md	1	48	a3a134b137867283
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
