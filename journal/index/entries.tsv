@@ -134,6 +134,7 @@ handoff	H224	224		2026-09-15 13:57 UTC	ZABZ-YOGA	open	## 2026-09-15 13:57 UTC ·
 handoff	H225	225		2026-09-15 14:02 UTC	ZABZ-YOGA	open	## 2026-09-15 14:02 UTC · ZABZ-YOGA · comms: the reader now answers, and the owner can see who is waiting	entries/handoff/H225.md	1	59	02671c717818890e
 handoff	H226	226		2026-09-15 14:04 UTC	ZABZ-YOGA	open	## 2026-09-15 14:04 UTC · ZABZ-YOGA · The owner queue forgets now, the badge tells the truth, and a six-month-dead reminder poll exists	entries/handoff/H226.md	1	63	2e816f9a44cdb481
 handoff	H227	227		2026-09-15 14:06 UTC	ZABZ-YOGA	open	## 2026-09-15 14:06 UTC · ZABZ-YOGA · Daily note from ZABZ-YOGA	entries/handoff/H227.md	1	25	e6dd8529383a93e2
+handoff	H228	228		2026-09-15 14:11 UTC	ZABZ-YOGA	open	## 2026-09-15 14:11 UTC · ZABZ-YOGA · Verification addendum: the reminder error is gone by observation, and the stale Pesach override is inert	entries/handoff/H228.md	1	24	64fd3e674cbf16c7
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -483,6 +484,7 @@ lessons	L1506	1506		2026-09-15	ZABZ-YOGA	open	**L1506 · My own test probe pushe
 lessons	L1507	1507		2026-09-15	ZABZ-YOGA	open	**L1507 · A patch script must accumulate on a running copy; PATCH OK is a claim about text, not behaviour**	entries/lessons/L1507.md	1	29	28c7fdce1773a096
 lessons	L1508	1508		2026-09-15	ZABZ-YOGA	open	**L1508 · An alert is a lifecycle, not a row: age it on the observation clock, clear it where you raise it, never measure a closed channel**	entries/lessons/L1508.md	1	37	11c5e955f891826e
 lessons	L1509	1509		2026-09-15	ZABZ-YOGA	open	**L1509 · A swallowed exception in my own journal tool hid a real defect: the alias table stores rows, not ids**	entries/lessons/L1509.md	1	43	0dfdc545cb1ad687
+lessons	L1510	1510		2026-09-15	ZABZ-YOGA	open	**L1510 · Verify after the change point, never in a window that can contain the before**	entries/lessons/L1510.md	1	20	22239618a234dff5
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
