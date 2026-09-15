@@ -152,6 +152,7 @@ handoff	H242	242		2026-09-15 18:12 UTC	ZABZ-TECH	open	## 2026-09-15 18:12 UTC ·
 handoff	H243	243		2026-09-15 18:13 UTC	ZABZ-TECH	open	## 2026-09-15 18:13 UTC · ZABZ-TECH · Newman flash-drive case COMPLETE - both drives cleaned, data on the Kingston, ready for pickup ( uncollected)	entries/handoff/H243.md	1	62	0d20eb2467853563
 handoff	H244	244		2026-09-15 18:18 UTC	ZABZ-TECH	open	## 2026-09-15 18:18 UTC · ZABZ-TECH · iPhone sourcing answered: buy the verified five-lot, decide by verifiability not price, and stop optimising a \ margin item against a \ subscription	entries/handoff/H244.md	1	55	1fae3c34c9462b46
 handoff	H245	245		2026-09-15 18:25 UTC	ZABZ-TECH	open	## 2026-09-15 18:25 UTC · ZABZ-TECH · iPhone sourcing COMPLETE: the market clears at \, so the five-lot is bought at market; all four sweeps in-repo	entries/handoff/H245.md	1	59	281786effaa3e887
+handoff	H246	246		2026-09-15 18:31 UTC	ZABZ-TECH	open	## 2026-09-15 18:31 UTC · ZABZ-TECH · The filter's measurement spine is built and pushed; the egress wiring is the next increment, and I left main red once getting there	entries/handoff/H246.md	1	59	b22136fb1deb1aa4
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -522,6 +523,7 @@ lessons	L1527	1527		2026-09-15	ZABZ-TECH	open	**L1527 · Gating destructive work
 lessons	L1528	1528		2026-09-15	ZABZ-TECH	open	**L1528 · Bot-walled US retail storefronts: stealth render is the only reliable path; Shopify .js is authoritative for stock**	entries/lessons/L1528.md	1	26	1f9db442636bf06e
 lessons	L1529	1529		2026-09-15	ZABZ-TECH	open	**L1529 · LPT master index says production deploy is the Google-Form gate; production already runs the computer-finder behind the account**	entries/lessons/L1529.md	1	13	6e1690189dd2e6e7
 lessons	L1530	1530		2026-09-15	ZABZ-TECH	open	**L1530 · Retracted: I invented the button-covering requirement, then cited my own document as evidence for it**	entries/lessons/L1530.md	1	28	7fcd9f53823fba03
+lessons	L1531	1531		2026-09-15	ZABZ-TECH	open	**L1531 · A control that looks like a defect: I built a recovery procedure for the owner's own security feature**	entries/lessons/L1531.md	1	23	8eb7c0e3f6423c2f
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
