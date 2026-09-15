@@ -1075,6 +1075,7 @@ decisions	D187	187		2026-09-15	ZABZ-YOGA	open	**D187 · 2026-09-15 · In-app rem
 decisions	D188	188		2026-09-15	ZABZ-YOGA	open	**D188 · 2026-09-15 · A stale owner-question mirror is refreshed at the reader, and its age is printed.**	entries/decisions/D188.md	1	15	74420b63938685f4
 decisions	D189	189		2026-09-15	ZABZ-YOGA	open	**D189 · 2026-09-15 · The config contract counts accepted env names; templates document declared settings with their code defaults.**	entries/decisions/D189.md	1	20	4526ca9c4428376e
 decisions	D190	190		2026-09-15	ZABZ-YOGA	open	**D190 · 2026-09-15 · The owner's queue reaches his surface, and the parts that were never his are gone.**	entries/decisions/D190.md	1	66	7abc3269c89d8cb2
+decisions	D191	191		2026-09-15	ZABZ-YOGA	open	**D191 · 2026-09-15 · Cross-machine id collisions: the convention, the 98, and the defect still underneath.**	entries/decisions/D191.md	1	82	f910e386dd4ae34e
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
