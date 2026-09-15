@@ -113,15 +113,64 @@ Outside the workspace on purpose: a hook she can edit is a convention, not a con
    is `~/lpt-hub`. The launcher now points at the repo rather than the repo being duplicated to match a
    guess.
 
-## 8. Open — an owner decision
+## 8. The two controls beside the composer (cost pill + new window)
+
+Both of the owner's controls are present and working on the Mac:
+
+| Control | What it does | How it is served |
+|---|---|---|
+| **Cost pill** | session spend in USD in the composer, plus `/cost` | `dsh-plugin-cost` — client **and** host halves linked into the profile |
+| **`+` new session** | blank conversation in this window | `dsh-plugin-windows` client half (clears `dsh.sessions.current`, reloads) |
+| **`⧉` new window** | same conversation list, its own window | `dsh-plugin-windows` client half → `dsh-new://open` → the macOS handler below |
+
+**`plugin-windows` is not Windows-only in its code.** Reading it settles this: the client half is plain
+React that registers into `conversation.input.left`, and the only platform-specific thing in the whole
+design is the **OS registration of the `dsh-new://` scheme**. So it was installed unchanged, and macOS got
+its own handler rather than a forked plugin.
+
+**The macOS handler:** `~/Applications/DSH New Window.app` — an `osacompile` bundle whose `Info.plist`
+declares `CFBundleURLTypes` with scheme `dsh-new` (LaunchServices reads registrations from app bundles, not
+from shell scripts) and which is marked `LSUIElement` so it has no Dock icon. Its AppleScript extracts the
+action from the URL and runs `~/.dsh/bin/new-window.command`.
+
+**Proven end to end**, by driving the protocol exactly as the control does:
+
+```
+$ open dsh-new://open
+[21:30:48] === new window requested ===
+[21:30:48] profile w1 is fresh -- opening the token URL to set its auth cookie
+[21:30:48] opened Google Chrome window w1
+[21:30:48] === done ===
+```
+
+Each window gets its **own browser profile** (`~/.dsh/browser-profiles/wN`), which is what makes it a
+separate window with its own remembered conversation rather than a second tab on the same session, and the
+token URL is used only when that profile has no cookie yet.
+
+**The new-window script deliberately refuses to start an engine.** Its first run, while the engine happened
+to be mid-restart, logged *"engine is not answering on 3099 -- refusing to start a second one"* and did
+nothing — which is correct: two writers on one `DSH_HOME` can corrupt a session log, so the window control
+may never be the thing that starts an engine.
+
+**Verified on this box:**
+
+| Check | Result |
+|---|---|
+| Served bundle ids | `dsh-plugin-cost` **1**, `dsh-plugin-windows` **1** in the page payload |
+| Host + client halves linked | `lib/index.js` (25,965 B) and `lib/client.js` (16,646 B) both present |
+| Rate card loadable | `pricing.json` parsed: `routes` + `unpriced` sections |
+| Session-log reader works | `node:zlib.zstdDecompressSync` available — **yes**, which is what `/cost` needs to read a session log |
+| A real turn | `PRICED`, and `session.v3.jsonl.zstd` written under `~/.dsh/sessions/--Users-lpt--/` |
+
+## 9. Open — an owner decision
 
 There is a **second account on this machine**: `moshemontrose` ("Moshe Montrose", uid 502, **not** an
 admin, **no password set**, home directory with 11 entries, last console login **Aug 11**). `who` also
 still lists him at the console, which is a stale entry rather than an active session.
 
 Nothing was done to it: deleting or disabling a user account is irreversible and it is not mine to
-decide, especially in a week where a shop employee is being let go. The question is in
-`journal/state/owner-questions.md`.
+decide, especially in a week where a shop employee is being let go. The question is queued as **#35** in
+`owner_decision_queue`.
 
 Note also that this machine was **Yisroel's** (there is a `com.personalsecretary.nodeagent` LaunchAgent and
 his Chrome profile under `/Users/moshemontrose`), so it may hold other people's data. That is the same
