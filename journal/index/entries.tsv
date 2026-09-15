@@ -591,6 +591,7 @@ pain	P141	141		2026-09-14	ZABZ-YOGA	open	## P141 — Her laptop cannot join Tail
 pain	P142	142		2026-09-15	ZABZ-YOGA	open	## P142 — Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that)	entries/pain/P142.md	1	33	ed9d07e073a531d7
 pain	P143	143		2026-09-15	ZABZ-YOGA	open	## P143 — The app repo has three lineages and the live one is the least published	entries/pain/P143.md	1	42	db0bfe5bdb74e286
 pain	P144	144		2026-09-15	ZABZ-YOGA	open	## P144 — What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders	entries/pain/P144.md	1	36	d3711352fd29f1a6
+pain	P145	145		2026-09-15	ZABZ-YOGA	open	## P145 — The production clone is a divergent lineage: master 61 ahead and 138 behind origin, so a fix exists on one disk only	entries/pain/P145.md	1	26	24187c68f65b8179
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
