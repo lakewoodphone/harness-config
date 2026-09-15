@@ -151,6 +151,7 @@ handoff	H241	241		2026-09-15 17:44 UTC	ZABZ-TECH	open	## 2026-09-15 17:44 UTC ·
 handoff	H242	242		2026-09-15 18:12 UTC	ZABZ-TECH	open	## 2026-09-15 18:12 UTC · ZABZ-TECH · iPhone sourcing answer delivered: buy at the counter + repair-grade arbitrage; Sage 5-lot re-verified live at 135.80/unit	entries/handoff/H242.md	1	41	762508fbe0f57eab
 handoff	H243	243		2026-09-15 18:13 UTC	ZABZ-TECH	open	## 2026-09-15 18:13 UTC · ZABZ-TECH · Newman flash-drive case COMPLETE - both drives cleaned, data on the Kingston, ready for pickup ( uncollected)	entries/handoff/H243.md	1	62	0d20eb2467853563
 handoff	H244	244		2026-09-15 18:18 UTC	ZABZ-TECH	open	## 2026-09-15 18:18 UTC · ZABZ-TECH · iPhone sourcing answered: buy the verified five-lot, decide by verifiability not price, and stop optimising a \ margin item against a \ subscription	entries/handoff/H244.md	1	55	1fae3c34c9462b46
+handoff	H245	245		2026-09-15 18:25 UTC	ZABZ-TECH	open	## 2026-09-15 18:25 UTC · ZABZ-TECH · iPhone sourcing COMPLETE: the market clears at \, so the five-lot is bought at market; all four sweeps in-repo	entries/handoff/H245.md	1	59	281786effaa3e887
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -637,6 +638,7 @@ pain	P153	153		2026-09-15	ZABZ-TECH	open	## P153 — lpt-hub on ZABZ-TECH is 244
 pain	P154	154		2026-09-15	ZABZ-TECH	open	## P154 — The kosher-filter-ai clone on ZABZ-TECH is 165 commits stale, and it is the repo the owner asks about most	entries/pain/P154.md	1	27	4a4aa9fb7d88e44d
 pain	P155	155		2026-09-15	ZABZ-TECH	open	## P155 — The Waze fleet's sourcing evidence lived on one laptop, and the handoffs pointed at paths that did not exist elsewhere	entries/pain/P155.md	1	19	1742fee5850ae1a5
 pain	P156	156		2026-09-15	ZABZ-TECH	open	## P156 — Policy approval tasks have no honored path: approving one cannot unblock the action (task #25399 proves it)	entries/pain/P156.md	1	17	20be159b916b037d
+pain	P157	157		2026-09-15	ZABZ-TECH	open	## P157 — pwsh 'spawn EPERM' on long here-string commands	entries/pain/P157.md	1	10	c2754f5dc8fb3540
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
