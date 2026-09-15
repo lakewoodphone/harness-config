@@ -93,8 +93,32 @@ function report(rows) {
   }
 }
 
+/**
+ * Repositories that are READ-ONLY for this machine, on purpose.
+ *
+ * MEASURED 2026-09-15 on her laptop: her GitHub key is a DEPLOY KEY SCOPED TO ONE REPOSITORY
+ * (lakewoodphone/lpt-hub). It authenticates and pushes there, and it is refused by
+ * personal-secretary-mvp with "Please make sure you have the correct access rights". That is a
+ * deliberate boundary somebody set on purpose, not a fault to route around -- widening it would be a
+ * change to who may write the company's code, and that is the owner's call, not mine to assume.
+ *
+ * So those clones are kept but treated as READ-ONLY: pull and report honestly, never push. Without
+ * this they are committing and then failing to push every hour, which fills a log with "needing
+ * attention" and trains everyone to ignore it.
+ *
+ * `lpt-hub` -- the customer case files -- is NOT here, because that is the one her agent must write.
+ */
+const READ_ONLY_PATTERNS = [
+  /personal-secretary-mvp$/i,
+];
+
+function isReadOnly(repo) {
+  return READ_ONLY_PATTERNS.some((re) => re.test(repo));
+}
+
 function syncRepo(repo) {
   const row = { repo, result: 'unchanged', detail: '' };
+  const readOnly = isReadOnly(repo);
 
   if (!fs.existsSync(path.join(repo, '.git'))) { row.result = 'skipped'; row.detail = 'not a git checkout'; return row; }
 
@@ -106,7 +130,7 @@ function syncRepo(repo) {
     const dirty = git(repo, ['status', '--porcelain']).out;
     const ahead = git(repo, ['rev-list', '--count', '@{u}..HEAD']).out || '0';
     row.result = 'would-sync';
-    row.detail = `${dirty ? dirty.split('\n').length + ' changed path(s)' : 'clean'}, ${ahead} local commit(s) ahead`;
+    row.detail = `${readOnly ? 'read-only, ' : ''}${dirty ? dirty.split('\n').length + ' changed path(s)' : 'clean'}, ${ahead} local commit(s) ahead`;
     return row;
   }
 
@@ -115,14 +139,19 @@ function syncRepo(repo) {
   if (!pull.ok) {
     // A failed rebase must never be resolved by choosing a side.
     git(repo, ['rebase', '--abort']);
-    // A pull can also fail simply because the remote is unreachable; that is not divergence and the
-    // local commit step below is still worth doing, so say which one it was.
-    const offline = /could not resolve|unable to access|timed out|network|Could not read from remote/i.test(pull.out);
+    const offline = /could not resolve|unable to access|timed out|network|Could not read from remote|correct access rights|not found/i.test(pull.out);
+    if (readOnly) {
+      // Expected for a read-only clone we lack credentials for: say so plainly and move on.
+      row.result = 'read-only';
+      row.detail = 'kept as-is; this machine has no fetch/push credential for it (by design)';
+      return row;
+    }
     row.result = offline ? 'offline' : 'attention';
     row.detail = offline ? 'remote unreachable; local work still committed below' : `pull/rebase failed: ${pull.out.split('\n').slice(-2).join(' ')}`;
   }
 
-  // 2. commit anything outstanding, with attribution written into the message.
+  // 2. capture anything outstanding. For a read-only clone the work is still recorded LOCALLY -- it
+  //    must not be lost just because it cannot be published -- but it is not pushed.
   const status = git(repo, ['status', '--porcelain']).out;
   let committed = false;
   if (status) {
@@ -130,7 +159,7 @@ function syncRepo(repo) {
     const when = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
     const changed = status.split('\n').length;
     const message = [
-      `chore(${MACHINE.toLowerCase()}): sync ${changed} path(s) from the manager workstation`,
+      `chore(${MACHINE.toLowerCase()}): ${changed} path(s) captured from the manager workstation`,
       '',
       'Committed by repo-sync.mjs so that work done on this machine is recorded and does not sit',
       'untracked in the working tree. Files touched:',
@@ -140,14 +169,20 @@ function syncRepo(repo) {
       `Dsh-Actor: ${ACTOR}`,
       `Dsh-Machine: ${MACHINE}`,
       `Dsh-At: ${when}`,
+      readOnly ? 'Dsh-Note: held locally (no push credential for this repository on this machine)' : null,
     ].filter((l) => l !== null).join('\n');
     const c = git(repo, ['commit', '-m', message]);
     if (c.ok) { committed = true; row.detail = `${changed} path(s) committed`; }
     else { row.result = 'attention'; row.detail = `commit failed: ${c.out.split('\n').slice(-2).join(' ')}`; }
   }
 
-  // 3. push, so the work actually leaves the machine.
+  // 3. push, so the work actually leaves the machine -- unless this clone has no credential for it.
   const ahead = Number(git(repo, ['rev-list', '--count', '@{u}..HEAD']).out || '0');
+  if (readOnly && ahead > 0) {
+    row.result = 'read-only';
+    row.detail = `${ahead} local commit(s) held here; this machine cannot push this repository`;
+    return row;
+  }
   if (ahead > 0) {
     if (NOPUSH) { row.result = row.result === 'attention' ? row.result : 'local-only'; row.detail = `${ahead} commit(s) ahead (push disabled)`; }
     else {
