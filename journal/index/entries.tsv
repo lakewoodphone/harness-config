@@ -675,6 +675,7 @@ decisions	D146	146		2026-09-14	ZABZ-YOGA	open	**D146 · 2026-09-14 · The person
 decisions	D147	147		2026-09-14	ZABZ-TECH	open	**D147 · 2026-09-14 · The dead camera path had three stacked causes - wrong port, empty channels, orphaned entity names.**	entries/decisions/D147.md	1	50	6c8ca5c3704c3486
 decisions	D148	148		2026-09-14	ZABZ-YOGA	open	**D148 · 2026-09-14 · The parent-facing claim step does not exist, and the right fix was to delete it from the plan rather than build an anti-abuse endpoint.**	entries/decisions/D148.md	1	19	b5566f435b9c7cb5
 decisions	D149	149		2026-09-14	ZABZ-YOGA	open	**D149 · 2026-09-14 · lpt-sync write-back goes to references.websiteOrder; case identity may be established by caseId.**	entries/decisions/D149.md	1	38	4998a464114177ae
+decisions	D150	150		2026-09-14	ZABZ-YOGA	open	**D150 · 2026-09-14 · Her agent's learning: one shared journal, her machines append to it, provenance by host.**	entries/decisions/D150.md	1	18	0420dead7d3b7ae8
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
