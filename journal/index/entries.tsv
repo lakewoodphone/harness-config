@@ -175,6 +175,8 @@ handoff	H265	265		2026-09-15 19:24 UTC	ZABZ-TECH	open	## 2026-09-15 19:24 UTC ·
 handoff	H266	266		2026-09-15 19:26 UTC	ZABZ-TECH	open	## 2026-09-15 19:26 UTC · ZABZ-TECH · The deployment gap measured: /opt/lpt/src is NOT a git checkout, so the 3.78GB production image cannot be rebuilt from the host - and three routers are still bare in source	entries/handoff/H266.md	1	61	d18806314a1ad97d
 handoff	H267	267		2026-09-15 19:31 UTC	ZABZ-TECH	open	## 2026-09-15 19:31 UTC · ZABZ-TECH · LPT site->broker session wiring: the site now calls POST /owner/auth/lpt/session (worktree f4bd486)	entries/handoff/H267.md	1	27	592a170bb9a30214
 handoff	H268	268		2026-09-15 19:31 UTC	ZABZ-TECH	open	## 2026-09-15 19:31 UTC · ZABZ-TECH · Waze fleet run: repo is behind production on six auth fixes including a Stripe Terminal exposure; queue residue cleared 8,607->509	entries/handoff/H268.md	1	55	c6f94e7fff84203e
+handoff	H269	269		2026-09-15 19:32 UTC	ZABZ-TECH	open	## 2026-09-15 19:32 UTC · ZABZ-TECH · Round 7: smart-fields and systemLog guarded in SOURCE (131 tests) - and my round-5 syntax check never ran, so those claims are corrected	entries/handoff/H269.md	1	70	ee2af63d7e6512da
+handoff	H270	270		2026-09-15 19:34 UTC	ZABZ-TECH	open	## 2026-09-15 19:34 UTC · ZABZ-TECH · PART-125 done: no customer can recover an account, and the fix is not in recovery - they have no password to recover	entries/handoff/H270.md	1	63	9bd752ec0b11a3cf
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -570,6 +572,9 @@ lessons	L1552	1552		2026-09-15	ZABZ-TECH	open	**L1552 · IAM access-key deletion
 lessons	L1553	1553		2026-09-15	ZABZ-TECH	open	**L1553 · CloudTrail plus queue depth is what turns 'rotate the leaked key' into a decidable plan**	entries/lessons/L1553.md	1	11	44a9fcc11513899b
 lessons	L1554	1554		2026-09-15	ZABZ-TECH	open	**L1554 · When you wire an uncalled route, the new field's DEFAULT is the security decision**	entries/lessons/L1554.md	1	12	b97f44918ec2c3c0
 lessons	L1555	1555		2026-09-15	ZABZ-TECH	open	**L1555 · Never print a secret: check env-var NAMES and presence, never values, and never SELECT * on a credential table**	entries/lessons/L1555.md	1	19	14f2773fbf1eb9c1
+lessons	L1556	1556		2026-09-15	ZABZ-TECH	open	**L1556 · A verification is not valid until you have watched it fail on a known-bad input: my esbuild syntax check never ran, and LASTEXITCODE after a pipeline reports the wrong command**	entries/lessons/L1556.md	1	48	8f1f721d3cf16303
+lessons	L1557	1557		2026-09-15	ZABZ-TECH	open	**L1557 · A world-readable-by-URL judgement is only safe if the URL cannot address anything but the intended object**	entries/lessons/L1557.md	1	14	8932a1f4caaba0ea
+lessons	L1558	1558		2026-09-15	ZABZ-TECH	open	**L1558 · Worktree the DEPLOYED branch, not the checked-out one: a stale base made an agent silently revert live fixes**	entries/lessons/L1558.md	1	24	b499ebab550f6386
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -692,6 +697,7 @@ pain	P157	157		2026-09-15	ZABZ-TECH	open	## P157 — pwsh 'spawn EPERM' on long 
 pain	P158	158		2026-09-15	ZABZ-TECH	open	## P158 — Fabricated requirements in authoritative docs: my own writing is not evidence for my own claims	entries/pain/P158.md	1	20	8717348f234e31e6
 pain	P159	159		2026-09-15	ZABZ-TECH	open	## P159 — Handy cannot insert text while you speak, so it is not a perfect Windows voice-typing clone	entries/pain/P159.md	1	29	74eedf4ac380a224
 pain	P160	160		2026-09-15	ZABZ-TECH	open	## P160 — Live production credentials are committed in plaintext across the fleet's repos - including an AWS AdministratorAccess key	entries/pain/P160.md	1	25	074a5de72f026b28
+pain	P161	161		2026-09-15	ZABZ-TECH	open	## P161 — The public rentals endpoint was a read proxy into the company backup bucket	entries/pain/P161.md	1	21	eb39089cc1e43748
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
