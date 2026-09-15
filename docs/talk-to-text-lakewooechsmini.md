@@ -42,10 +42,27 @@ Decisive facts:
   ("one five five") instead of writing digits, which is fatal for prices, phone numbers and IMEIs. It is
   staged on the machine anyway (see §3) so it can be switched in from Settings → Models in ten seconds.
 
-**Hotkey: hold `Option` (the Alt key on her Lenovo keyboard) + `Space`, speak, release.** Not `Fn`: `fn` is
-an Apple-vendor HID usage that third-party keyboards never send, and hers is a *Lenovo Traditional USB
-Keyboard* (verified through `ioreg`). Escape cancels a recording. `Option+Shift+Space` is bound to the
-post-processing variant, which is deliberately left switched off (see §5).
+**Gesture: press `Command+H` once — the key with the Windows logo — speak, press it again to stop.**
+That is Windows parity, which is what the owner asked for on 2026-09-15: *"i need it to start when i push
+windows h, and i don't need to hold it down, and it automatically puts the text in whatever text box."*
+So the mode is **toggle, not push-to-talk** (`push_to_talk: false`), the binding is `command+h`, and the
+transcript is pasted into whatever field has focus. Escape cancels a recording.
+
+Two things make `Command+H` safe to take, and both were checked rather than assumed:
+
+- **Handy consumes it.** Handy registers shortcuts through `HotkeyManager::new_with_blocking()`, and the
+  handy-keys crate documents that constructor as: *"Registered hotkeys will be blocked from reaching other
+  applications."* So macOS's own **Cmd+H ("Hide")** never fires while Handy is running — verified in Handy's
+  log as `Registered handy-keys shortcut: transcribe -> Hotkey { modifiers: Modifiers(CMD_LEFT | CMD_RIGHT),
+  key: Some(H) }`, i.e. it is live on both Command keys. The trade: `Cmd+H` no longer hides windows; that is
+  the price of the muscle memory she already has.
+- **The key in the Windows-key position IS Command.** Her keyboard is a *Lenovo Traditional USB Keyboard*
+  (seen in `ioreg`), a PC keyboard, and macOS maps its Windows key to Command.
+
+**It does not press Enter.** `auto_submit` is deliberately `False`: Windows voice typing inserts text and
+leaves it in the box for you to check, and pressing Enter automatically would send half-finished messages to
+customers. (It was found switched ON during setup — someone turned it on in Handy's UI while testing — and
+turned back off. If hands-free sending is ever wanted, that is the one setting.)
 
 ## 2. The microphone question (the part that nearly cost $30 for nothing)
 
@@ -138,12 +155,26 @@ Everything below is an observed result, not a configuration claim.
    permission grant` (Enigo is the crate that synthesises Cmd+V).
 4. **It survives a login.** Handy was started *by launchd* through the LaunchAgent, not by hand:
    `launchctl print gui/501/com.zabz.handy.autostart` reports `state = running`.
+5. **A real person dictated into it.** While the machine was being set up, someone at the desk recorded
+   *"Does this work?"* (14:39:52) and *"Hello, what's up?"* (14:40:39) — both transcribed exactly, with the
+   log showing the full path: `handy-keys event ... Command+H Pressed` → recording → 24,480 samples →
+   transcription. That person also recorded `Command+H` in Handy's own settings UI, which is how the key
+   was chosen; the setup kept their binding rather than overriding it. This is the only check whose result
+   is human speech rather than a synthesised voice, and it is the one that matters.
 
 Re-verify after any change with: `bash scripts/install-handy-dictation-macos.sh` (it re-checks and prints
 the same evidence) or by hand — `grep -E "Loaded whisper model|permission to simulate" ~/Library/Logs/com.pais.handy/handy.log`.
 
 ## 7. Known limits, stated plainly
 
+- **Handy holds its settings in memory and rewrites `settings_store.json` on any change made in its UI.**
+  Editing the file while Handy is running therefore loses the edit the moment a human touches a setting —
+  this actually happened during setup: `paste_method` was temporarily set to `none` for a test, the file was
+  restored, and the app then wrote its stale in-memory copy back over it, leaving dictation that transcribed
+  perfectly and pasted nothing. **Always restart Handy after writing the file** (`launchctl kickstart -k
+  gui/501/com.zabz.handy.autostart`).
+- **`Command+H` no longer hides windows** on that Mac while Handy runs. That is the direct consequence of
+  Windows parity; if it ever becomes annoying, the binding is one line in `settings_store.json`.
 - **Recordings longer than about five minutes are silently dropped** (Handy issue #1332, open). The guide
   tells her to break long dictation into chunks.
 - **The mic is quiet.** At input volume 80 the recording peaked near −20 dBFS with a noise floor around

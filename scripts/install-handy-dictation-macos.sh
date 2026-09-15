@@ -81,7 +81,11 @@ s.update({
     "selected_model": model_id,            # also what makes Handy skip onboarding (see settings.rs)
     "selected_language": "en",             # do not let a stray word flip the transcription language
     "translate_to_english": False,
-    "push_to_talk": True,                  # hold the keys to record, release to stop
+    # WINDOWS PARITY, on the owner's instruction (2026-09-15): "i need it to start when i push
+    # windows h, and i don't need to hold it down, and it automatically puts the text in whatever
+    # text box". So: toggle mode, on the key in the Windows-key position.
+    "push_to_talk": False,                 # press once to start, press again to stop -- no holding
+    "auto_submit": False,                  # insert the text; do NOT press Enter and send it
     "autostart_enabled": True,
     "start_hidden": True,                  # no window at login; it lives in the menu bar
     "show_tray_icon": True,
@@ -101,9 +105,18 @@ s.update({
     "experimental_enabled": False,
     "debug_mode": False,
 })
+# The hotkey. "command+h" is the key in the WINDOWS-KEY POSITION on a PC keyboard, so pressing
+# Win+H on the Lenovo keyboard she uses is literally this. Handy registers it on both Command keys
+# and -- verified in the handy-keys crate docs -- "registered hotkeys are blocked from reaching other
+# applications", so macOS's own Cmd+H ("Hide") never fires.
+s["bindings"].setdefault("transcribe", {})
+s["bindings"]["transcribe"]["current_binding"] = "command+h"
 json.dump(store, open(path, "w"), indent=2, sort_keys=True)
 print("wrote", path)
 PY
+# NOTE, and it cost time once: Handy keeps its settings in MEMORY and rewrites this file whenever
+# anything changes in its UI. Editing the file while the app is running therefore loses the edit the
+# moment she touches a setting. Always restart Handy after writing it (step 5 does exactly that).
 
 say "4/6 privacy permissions (Microphone, Accessibility, Input Monitoring, Post Events)"
 # Why by hand: macOS asks a human to click these dialogs, and this machine has no human sitting in
