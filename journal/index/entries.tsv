@@ -572,6 +572,7 @@ pain	P137	137		2026-09-14	ZABZ-YOGA	open	## P137 — A session believed it close
 pain	P138	138		2026-09-14	ZABZ-YOGA	done	## P138 — The budget extension tripled the cost of a failure without changing the outcome (task 25106: 15 steps, still failed)	entries/pain/P138.md	1	46	e58db81cc351baa2
 pain	P139	139		2026-09-14	ZABZ-YOGA	open	## P139 — The test suite cannot be run green (8 pre-existing failures, 153 order-dependent errors), so it is not a gate	entries/pain/P139.md	1	30	63dc636822e40ef5
 pain	P140	140		2026-09-14	ZABZ-YOGA	open	## P140 — personal-secretary-mvp on secratary is 41 ahead / 134 behind origin - nothing can be pushed without merging someone else's history	entries/pain/P140.md	1	6	c62de6b5a44aff16
+pain	P141	141		2026-09-14	ZABZ-YOGA	open	## P141 — Her laptop cannot join Tailscale, so it cannot reach the authority directly (IPv6 fixed, login still stalls)	entries/pain/P141.md	1	30	3239a0f5879e5e71
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
