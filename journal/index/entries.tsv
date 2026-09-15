@@ -159,6 +159,7 @@ handoff	H249	249		2026-09-15 16:19 UTC	ZABZ-YOGA	open	## 2026-09-15 16:19 UTC ·
 handoff	H250	250		2026-09-15 16:20 UTC	ZABZ-YOGA	open	## 2026-09-15 16:20 UTC · ZABZ-YOGA · Hub preserved and measured; the company's output is 1,729 done tasks of which nearly all are self-inspection	entries/handoff/H250.md	1	28	6947c995e0285340
 handoff	H251	251		2026-09-15 16:24 UTC	ZABZ-YOGA	open	## 2026-09-15 16:24 UTC · ZABZ-YOGA · Task-origin report shipped; the mix question is queued for the owner (queue table was locked)	entries/handoff/H251.md	1	31	2a494bc1d7311feb
 handoff	H252	252		2026-09-15 17:03 UTC	ZABZ-YOGA	open	## 2026-09-15 17:03 UTC · ZABZ-YOGA · P151 closed: two conftest fixtures, proven at the default descriptor limit	entries/handoff/H252.md	1	23	923860f126c36b77
+handoff	H253	253		2026-09-15 17:05 UTC	ZABZ-YOGA	open	## 2026-09-15 17:05 UTC · ZABZ-YOGA · P158 closed: hub cleaned 42 to 6 with every sha recorded; next rounds should be design work, not cleanup	entries/handoff/H253.md	1	32	de89ae42700eae61
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -533,6 +534,7 @@ lessons	L1531	1531		2026-09-15	ZABZ-YOGA	open	**L1531 · Fifth instance of one d
 lessons	L1532	1532		2026-09-15	ZABZ-YOGA	open	**L1532 · A task that completes is not work that mattered: measure whose work it is, not how much**	entries/lessons/L1532.md	1	26	75479609fe844fe0
 lessons	L1533	1533		2026-09-15	ZABZ-YOGA	open	**L1533 · A ratio that is stable across windows is a fact about the wiring; make it take one command or it becomes folklore**	entries/lessons/L1533.md	1	22	3274fc681a07ead0
 lessons	L1534	1534		2026-09-15	ZABZ-YOGA	open	**L1534 · When a mitigation works the leak underneath stops being visible: measure the resource, not the suite**	entries/lessons/L1534.md	1	27	5f0cf7ff0d6d8162
+lessons	L1535	1535		2026-09-15	ZABZ-YOGA	open	**L1535 · A ref is safe to delete when reachability proves it, not when the name looks like debris**	entries/lessons/L1535.md	1	26	6bcdb7df8e5428e0
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -652,7 +654,7 @@ pain	P154	154		2026-09-15	ZABZ-YOGA	done	## P154 — The residual flakiness is l
 pain	P155	155		2026-09-15	ZABZ-YOGA	superseded	## P155 — Five live findings from a fresh sweep: dead-weight agents, duplicate evolution offers, config divergence, stale session archive	entries/pain/P155.md	1	30	b09f48b43bf637bc
 pain	P156	156		2026-09-15	ZABZ-YOGA	superseded	## P156 — The three real HIGH findings left: duplicate evolution offers, dead-weight agents, config divergence	entries/pain/P156.md	1	24	f231334db3973d59
 pain	P157	157		2026-09-15	ZABZ-YOGA	open	## P157 — One real finding left on the badge: the harness-config divergence (13 ahead / 104 behind)	entries/pain/P157.md	1	19	aa61e0666d6b67f8
-pain	P158	158		2026-09-15	ZABZ-YOGA	open	## P158 — The shared journal hub is a junk drawer: 42 branches, thirty from one day	entries/pain/P158.md	1	19	80fb473cc2666bfc
+pain	P158	158		2026-09-15	ZABZ-YOGA	done	## P158 — The shared journal hub is a junk drawer: 42 branches, thirty from one day	entries/pain/P158.md	1	19	80fb473cc2666bfc
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -889,3 +891,4 @@ wins	W145	145		2026-09-15	ZABZ-YOGA	open	**W145 · 2026-09-15 · The dead-weight
 wins	W146	146		2026-09-15	ZABZ-YOGA	open	**W146 · 2026-09-15 · Authority journal commits preserved; first fresh company-output read in 15 rounds.**	entries/wins/W146.md	1	37	dc661e787d3334c4
 wins	W147	147		2026-09-15	ZABZ-YOGA	open	**W147 · 2026-09-15 · The company's output is 86% self, now measurable in one command.**	entries/wins/W147.md	1	33	0dc28e4fa5b63d5d
 wins	W148	148		2026-09-15	ZABZ-YOGA	open	**W148 · 2026-09-15 · The descriptor leak is fixed, not bounded: 8,160 descriptors closed and the suite passes on the default limit.**	entries/wins/W148.md	1	31	3634d7743b115806
+wins	W149	149		2026-09-15	ZABZ-YOGA	open	**W149 · 2026-09-15 · The shared journal hub went from 42 branches to 6, provably losing nothing.**	entries/wins/W149.md	1	32	3714aadea5515c19
