@@ -102,21 +102,47 @@ const LIMIT = Number(opt('--limit', 20));
 async function get(pathname, params = {}) {
   const url = new URL(BASE + pathname);
   for (const [k, v] of Object.entries(params)) if (v !== '' && v != null) url.searchParams.set(k, String(v));
-  const res = await fetch(url, {
-    headers: { [CRED.header]: KEY, accept: 'application/json' },
-    signal: AbortSignal.timeout(60000),
-  });
-  const text = await res.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch { /* leave null */ }
-  if (!res.ok) {
-    // A 401 here is almost always "wrong header for this token", not a server fault, so say so.
+  const headers = { [CRED.header]: KEY, accept: 'application/json' };
+
+  // RETRY ONCE ON A 5xx. Added because her agent measured the need FROM HER MAC and filed it as
+  // journal P165:
+  //   "ps-system.mjs whoami reported api health 502 (Cloudflare bad gateway) on the first call, and a
+  //    later search returned 500 internal_error. The very next call in the same minute succeeded.
+  //    Does not look fatal, but a failed archive search should be retried once before concluding the
+  //    archive is down."
+  // She is right, and the reason it matters is the direction of the error: a transient 502 reported as
+  // a failure teaches the reader that the archive is broken when the archive is fine. One quiet retry
+  // separates "the thing is down" from "a gateway blinked", and it costs a second.
+  //
+  // A 4xx is deliberately NOT retried: 401 and 404 are answers rather than blinks, and repeating them
+  // only delays the real message.
+  let lastErr = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    let res;
+    try {
+      res = await fetch(url, { headers, signal: AbortSignal.timeout(60000) });
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 1) { await new Promise((r) => setTimeout(r, 1000)); continue; }
+      throw err;
+    }
+    const text = await res.text();
+    let json = null;
+    try { json = JSON.parse(text); } catch { /* leave null */ }
+    if (res.ok) return json;
+    if (res.status >= 500 && attempt === 1) {
+      lastErr = new Error(`${res.status} ${text.slice(0, 160)}`);
+      await new Promise((r) => setTimeout(r, 1000));
+      continue;
+    }
     const hint = res.status === 401
       ? `\n           the credential found in ${CRED.source} was sent as "${CRED.header}" and rejected.`
-      : '';
+      : res.status >= 500
+        ? `\n           retried once and got the same answer, so this looks like the service rather than a blip.`
+        : '';
     throw new Error(`${res.status} ${text.slice(0, 200)}${hint}`);
   }
-  return json;
+  throw lastErr ?? new Error('request failed');
 }
 
 function fail(msg, hint) {

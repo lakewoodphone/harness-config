@@ -31,6 +31,7 @@
  *
  * Hosts are the fleet's own ssh aliases: desktop-ts, secratary-ts, laptop-ts, linux-pc-ts.
  */
+import fs from 'node:fs';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 
@@ -126,6 +127,59 @@ function readEnvValueWindows(alias, p, key) {
   return psRemote(alias, script, 45000);
 }
 
+/**
+ * Read a file from a remote host BYTE-FAITHFULLY, and write one back the same way.
+ *
+ * WHY THIS IS NOT JUST `cat` -- WHICH IS WHAT IT WAS. Found by her agent and filed as journal P166 and
+ * L1568, from her Mac, with the damage named:
+ *
+ *   "ps-mesh file is the documented way to read a file from another machine, and on Windows hosts it
+ *    silently mangles every non-ASCII character, so the natural workflow 'read a record over the mesh,
+ *    edit it, write it back' quietly degrades customer records."
+ *
+ * The old implementation ran `cat "<path>"` over ssh. On a Windows host that goes through cmd.exe and
+ * PowerShell and the bytes come back re-encoded, so content is altered with NO error raised. That is
+ * the worst shape this tool could have: its whole purpose is moving customer records between machines,
+ * and it corrupted them silently. Reading to look at something was fine; reading as the first half of
+ * an edit was not, and nothing said so.
+ *
+ * THE FIX IS BASE64, not a cleverer `cat`. Base64 is pure ASCII, so no layer between the two machines
+ * -- ssh, cmd.exe, PowerShell, or node's utf8 decoding -- has a character available to mangle. Encode
+ * on the far side, decode here. `scp` would also be faithful but needs a second connection plus a temp
+ * file at each end; base64 rides the connection already open.
+ *
+ * `write` exists so the whole workflow is correct rather than half of it: a faithful read with an
+ * unfaithful write would still corrupt the record on the way back.
+ */
+/** Windows hosts need a different remote shell (no grep, no cat, cmd.exe in the path). */
+function isWindowsHost(alias) {
+  const f = FLEET.find((x) => x.alias === alias);
+  return Boolean(f && f.os === 'windows');
+}
+
+function readFileB64(alias, p, timeoutMs = 120000) {
+  const cmd = isWindowsHost(alias)
+    ? 'powershell -NoProfile -EncodedCommand ' + Buffer.from(
+        "if (Test-Path '" + p + "') { [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path '" + p + "').Path)) } else { 'NOSUCHFILE' }",
+        'utf16le').toString('base64')
+    : "if [ -f '" + p + "' ]; then base64 < '" + p + "' | tr -d '\\n'; else echo NOSUCHFILE; fi";
+  return run(alias, cmd, timeoutMs);
+}
+
+function writeFileB64(alias, p, b64, timeoutMs = 120000) {
+  if (isWindowsHost(alias)) {
+    const script = [
+      "$b64 = '" + b64 + "'",
+      '$bytes = [Convert]::FromBase64String($b64)',
+      "[IO.File]::WriteAllBytes('" + p + "', $bytes)",
+      '$bytes.Length',
+    ].join('\n');
+    return psRemote(alias, script, timeoutMs);
+  }
+  const cmd = "printf '%s' '" + b64 + "' | base64 -d > '" + p + "' && wc -c < '" + p + "' | tr -d ' '";
+  return run(alias, cmd, timeoutMs);
+}
+
 function main() {
   if (VERB === 'hosts' || VERB === 'host') {
     console.log(`  fleet, as seen from ${MACHINE}:`);
@@ -167,13 +221,45 @@ function main() {
     process.exit(r.ok ? 0 : 1);
   }
 
-  if (VERB === 'file') {
+  if (VERB === 'file' || VERB === 'read') {
     const p = ARGS[2];
     if (!p) { console.error('ps-mesh file: needs a path'); process.exit(2); }
-    const r = run(host, `cat "${p}"`, 60000);
-    if (r.out) console.log(r.out);
-    if (r.err) console.error(r.err);
-    process.exit(r.ok ? 0 : 1);
+    const r = readFileB64(host, p, 120000);
+    if (!r.ok) { console.error(r.err || `could not read ${p} on ${host}`); process.exit(1); }
+    if (/NOSUCHFILE/.test(r.out) && r.out.trim() === 'NOSUCHFILE') { console.error(`ps-mesh: no file at ${p} on ${host}`); process.exit(1); }
+    // Decode to BYTES, then emit bytes. Writing the decoded buffer to stdout rather than a string is
+    // the whole point: a string would re-encode and we would be back where we started.
+    const b64 = r.out.replace(/\s+/g, '');
+    let buf;
+    try { buf = Buffer.from(b64, 'base64'); }
+    catch { console.error('ps-mesh: remote did not return valid base64'); process.exit(1); }
+    const outIdx = ARGS.indexOf('--out');
+    if (outIdx !== -1) {
+      const local = ARGS[outIdx + 1];
+      if (!local) { console.error('ps-mesh file: --out needs a local path'); process.exit(2); }
+      fs.writeFileSync(local, buf);
+      console.log(`  wrote ${local} (${buf.length} bytes, byte-faithful)`);
+    } else {
+      process.stdout.write(buf);
+    }
+    return;
+  }
+
+  if (VERB === 'write') {
+    // The other half of a safe read-modify-write, and it did not exist before her agent reported the
+    // read defect -- fixing only the read would leave the workflow half-correct.
+    const p = ARGS[2];
+    const fromIdx = ARGS.indexOf('--from');
+    const local = fromIdx !== -1 ? ARGS[fromIdx + 1] : null;
+    if (!p || !local) { console.error('ps-mesh write: needs <host> <remote path> --from <local file>'); process.exit(2); }
+    if (!fs.existsSync(local)) { console.error(`ps-mesh write: local file not found: ${local}`); process.exit(1); }
+    const textIdx = ARGS.indexOf('--text');
+    const bytes = textIdx !== -1 ? Buffer.from(ARGS[textIdx + 1], 'utf8') : fs.readFileSync(local);
+    const r = writeFileB64(host, p, bytes.toString('base64'), 120000);
+    if (!r.ok) { console.error(r.err || `could not write ${p} on ${host}`); process.exit(1); }
+    console.log(`  wrote ${p} on ${host} (${bytes.length} bytes sent, byte-faithful)`);
+    if (r.out.trim()) console.log(`  remote reports ${r.out.trim()} bytes`);
+    return;
   }
 
   if (VERB === 'env') {
