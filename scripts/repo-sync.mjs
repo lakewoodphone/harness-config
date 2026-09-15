@@ -51,17 +51,45 @@ const VERB = (process.argv[2] || '').toLowerCase();
 /**
  * The repositories a MANAGER workstation keeps current.
  *
- * A profile rather than "every git repo in the home directory", because the defaults have to be safe
- * on any machine this runs on. On the owner's own box, `harness-config` carries over a hundred
- * in-flight paths at any moment -- a bulk sync that swept it up and pushed would publish half-written
- * work and, worse, could commit it under a message that says the manager's machine produced it. So
- * harness-config is NOT in this list. It has its own convergence path (`harness-autosync` on macOS,
- * `PersonalSecretary-HarnessSync` on Windows) written for exactly that hazard.
+ * THIS IS A WIDE LIST ON PURPOSE. An earlier version covered only lpt-hub and the secretary repo -- an
+ * arbitrary default of mine, and the owner corrected it: she runs the whole shop, so the flip-phone
+ * deployment, the Home Assistant config, the filter/Waze system and the rest are all hers to see and
+ * work with. A manager who can only see two repositories is a crippled manager, which is exactly what
+ * he said not to build.
  *
- * Case-INSENSITIVE de-duplication matters here and I got it wrong first: on Windows `~/code` and
- * `~/Code` are the same directory, so a naive list reports every repository twice and syncs it twice.
- * Paths are compared through `fs.realpathSync.native` with case folded.
+ * WHY NOT "EVERY GIT REPO IN THE HOME DIRECTORY", which would be simpler:
+ * On the OWNER's own box, `harness-config` carries over a hundred in-flight paths at any moment; a bulk
+ * sweep would commit half-written work and push it under a message attributing it to the manager's
+ * machine. harness-config also has its own convergence path written for exactly that hazard. So the
+ * list is explicit -- and anything a machine does not have is simply skipped with a note, which is what
+ * makes one list work on both of her machines.
+ *
+ * Case-INSENSITIVE de-duplication matters and I got it wrong first: on Windows `~/code` and `~/Code`
+ * are the same directory, so a naive list reports every repository twice and syncs it twice. Paths are
+ * compared through `fs.realpathSync.native` with case folded.
  */
+const MANAGER_REPOS = [
+  // The shop's own records and the customer-facing work.
+  'lpt-hub',
+  // The company system.
+  'personal-secretary-mvp',
+  // The products she sells and supports.
+  'lpt-flip-phone',
+  'lpt-schematics',
+  'tesla-lin-chip',
+  // Physical infrastructure she runs day to day.
+  'ha-config',
+  'kosher-filter-ai',
+  // Supporting material a manager legitimately reaches for.
+  'research-knowledge-base',
+  'quickbooks-agent',
+  'phone-and-tech-full',
+  'yocheved',
+];
+
+/** Where a repo may live on either platform, tried in order. */
+const REPO_PARENTS = ['code', 'Code', ''];
+
 function managerRepos() {
   const found = new Map();
   const add = (p) => {
@@ -72,11 +100,15 @@ function managerRepos() {
     const key = real.toLowerCase();
     if (!found.has(key)) found.set(key, real);
   };
-  for (const seg of ['code', 'Code', '']) {
-    add(path.join(HOME, seg, 'lpt-hub'));
-    add(path.join(HOME, seg, 'personal-secretary-mvp'));
+  for (const parent of REPO_PARENTS) {
+    for (const name of MANAGER_REPOS) {
+      add(parent ? path.join(HOME, parent, name) : path.join(HOME, name));
+    }
   }
-  add(path.join(HOME, 'lpt-hub'));
+  // A few places these actually live when the name does not match the directory.
+  add(path.join(HOME, 'code', 'research'));
+  add(path.join(HOME, 'Code', 'research'));
+  add(path.join(HOME, 'code', 'phone-and-tech'));
   return [...found.values()];
 }
 
