@@ -479,6 +479,8 @@ lessons	L1503	1503		2026-09-15	ZABZ-YOGA	open	**L1503 · An agent's first call i
 lessons	L1504	1504		2026-09-15	ZABZ-YOGA	open	**L1504 · A loose FTS match ordered by recency is indistinguishable from no search**	entries/lessons/L1504.md	1	29	3395366672b95bfe
 lessons	L1505	1505		2026-09-15	ZABZ-YOGA	open	**L1505 · A scheduled task can report Ready while shipping nothing — read its log, do not trust its state**	entries/lessons/L1505.md	1	25	01d733369c91e247
 lessons	L1506	1506		2026-09-15	ZABZ-YOGA	open	**L1506 · My own test probe pushed to production: guard EVERY invocation of a mutating tool, and never explain a cause you have not checked**	entries/lessons/L1506.md	1	24	114a5989685cae77
+lessons	L1507	1507		2026-09-15	ZABZ-YOGA	open	**L1507 · A patch script must accumulate on a running copy; PATCH OK is a claim about text, not behaviour**	entries/lessons/L1507.md	1	29	28c7fdce1773a096
+lessons	L1508	1508		2026-09-15	ZABZ-YOGA	open	**L1508 · An alert is a lifecycle, not a row: age it on the observation clock, clear it where you raise it, never measure a closed channel**	entries/lessons/L1508.md	1	37	11c5e955f891826e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -584,6 +586,7 @@ pain	P140	140		2026-09-14	ZABZ-YOGA	open	## P140 — personal-secretary-mvp on s
 pain	P141	141		2026-09-14	ZABZ-YOGA	open	## P141 — Her laptop cannot join Tailscale, so it cannot reach the authority directly (IPv6 fixed, login still stalls)	entries/pain/P141.md	1	30	3239a0f5879e5e71
 pain	P142	142		2026-09-15	ZABZ-YOGA	open	## P142 — Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that)	entries/pain/P142.md	1	33	ed9d07e073a531d7
 pain	P143	143		2026-09-15	ZABZ-YOGA	open	## P143 — The app repo has three lineages and the live one is the least published	entries/pain/P143.md	1	42	db0bfe5bdb74e286
+pain	P144	144		2026-09-15	ZABZ-YOGA	open	## P144 — What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders	entries/pain/P144.md	1	36	d3711352fd29f1a6
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
