@@ -768,6 +768,7 @@ lessons	L1667	1667		2026-09-15	LAKEWOOECHSMINI	open	**L1667 · L1569 · Customer
 lessons	L1668	1668		2026-09-15	ZABZ-YOGA	open	**L1668 · An unrebuildable journal cache turns a search into a false 'no match'; financial figures must be re-derived from the processor's own notices and the live bank feed**	entries/lessons/L1668.md	1	35	add723da273b3a33
 lessons	L1669	1669		2026-09-15	ZABZ-YOGA	open	**L1669 · Four reconciliation rules earned 2026-09-15: a 'broken tool' is usually a wrong expectation; a record's link IS the idempotency guard; two tables in one DB are not one corpus; 'duplicate' rows can be two halves of one event**	entries/lessons/L1669.md	1	53	d16de4b2f35d2276
 lessons	L1670	1670		2026-09-15	ZABZ-YOGA	open	**L1670 · A kill switch's coverage lives in the deployed artifact; autonomy lives in the caller graph**	entries/lessons/L1670.md	1	56	721df1bf1a6f330e
+lessons	L1671	1671		2026-09-15	ZABZ-YOGA	open	**L1671 · Minting blind is the root cause; the detector was right (98/98) and the patch was still reverted unexplained**	entries/lessons/L1671.md	1	98	ae1ec4c8b3aa1d67
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1083,6 +1084,7 @@ decisions	D190	190		2026-09-15	ZABZ-YOGA	open	**D190 · 2026-09-15 · The owner'
 decisions	D191	191		2026-09-15	ZABZ-YOGA	open	**D191 · 2026-09-15 · Cross-machine id collisions: the convention, the 98, and the defect still underneath.**	entries/decisions/D191.md	1	82	f910e386dd4ae34e
 decisions	D192	192		2026-09-15	ZABZ-YOGA	open	**D192 · 2026-09-15 · Payroll arrears are Gusto's own stated number, not a reconstruction; the final week's run is not optional; and filing ownership goes to the queue.**	entries/decisions/D192.md	1	34	11459d404f9cda4f
 decisions	D193	193		2026-09-15	ZABZ-YOGA	open	**D193 · 2026-09-15 · AI writes off in production: decided, done, verified, with the claim measured against the build.**	entries/decisions/D193.md	1	79	fec1766673253999
+decisions	D194	194		2026-09-15	ZABZ-YOGA	open	**D194 · 2026-09-15 · Reconciliation decisions 2026-09-15: repoint not backfill; view not delete; every apply behind a proven gate; reporter not auto-writer; origin/main authoritative but not a superset.**	entries/decisions/D194.md	1	52	e0a46976afdca843
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
