@@ -1,6 +1,9 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-15 14:05Z (ZABZ-YOGA, comms session — objective complete H219, reader hardening H224/H225)
+Updated: 2026-09-15 20:05Z (ZABZ-TECH, credential session — AWS key killed D164, Twilio token rotated D165, H275)
+
+Sections below the marker are from the comms session (ZABZ-YOGA, 14:05Z); this session's open
+work is at the end of the file.
 
 Rewritten, not appended. Earlier session: **H202**, **H208**, **H213**, **H214**, **H219**; record
 **W105**, **D141**, **D146**, **D151**, **L1081–L1086**, **L1467–L1469**, **L1474–L1476**, **L1479**,
@@ -80,36 +83,27 @@ measuring the job's *subject* rather than watching its exit code.
 
 | Item | What would show it |
 |---|---|
-| **Done 2026-09-15: names, and a wrong name removed** | 1,226 -> **1,479** people, 922 -> **1,204** with a real name, from the shop's own case records (368 files) and the repair-order SMS templates inside the corpus (9,782 messages). `name_trust` (0 case record / 1 order template / 2 observed label) now chooses the display name, and a case record saying the name is UNKNOWN suppresses an untrusted label -- so the busiest correspondent (1,669 comms) shows its number instead of "Microsoft Word", which was a job description. **267 of the 295 stay unnamed and ~90% of `waiting` will keep showing a number: that is the data, not a bug.** |
-| **The name source that is unreachable** | The Prisma Postgres `phonetech_dev` behind `repos/phone-and-tech-full` is what renders the named templates, and it is **not installed on the authority** (`postgresql.service` does not exist as a unit, no `postgres` user, nothing on 5432 -- measured, not assumed). Six heavy unnamed numbers (7326642417/448, 7326146974/404, 3472154686/315, 8483897895/292, 8454282434/174, 5163302373/162) are the ones it would name. |
+| **Names for the unnamed people** | 1,226 people, ~922 named; 43 of 60 `waiting` rows still show a bare number. A read-only subagent is measuring which of the business's own records (repair jobs, invoices, orders, lpt-hub case files, contact exports) hold name↔phone mappings, and how many of the unnamed they would cover. Biggest single lever on every other view. |
+| **`display_name` can be a source LABEL, not a person** | `7325036369` has 1,669 communications and reads as **"Microsoft Word"**, because `dialpad_sms_cache.customer_name` says so — the source says it, so this is not a merge error, but an agent will be misled. 38 of 1,226 names look non-human by a rough filter and most of the rest are legitimate businesses. Needs a deliberate design pass (prefer evidence-weighted names; fall back to the number), not a blocklist guessed in a hurry. |
 | **The fleet still does not reach for it** | 34 calls, all mine. The tool can no longer dead-end; nothing yet puts recent comms in front of an agent at the moment a customer speaks (inbound message or task context). |
-| **This checkout needs a merge before master can take the naming work** | `~/code/harness-config` is **6 commits ahead of origin/master and 2 behind**, and two files another live session is editing (`presets/yocheved/agent.cordis.yml`, `scripts/ps-mesh.mjs`) block `git pull --rebase` and `git merge`. The naming work is pushed to the remote as **`refs/heads/comms-naming-20260915`** (`eb1b9ab3`). To land it: when those two files are clean, `git pull origin master` then `git push origin HEAD:master`. Never stash or discard another session's uncommitted files to get a merge through. |
 | **Kernel index-age metric** (**P131**) | `ck/sentinel.py` was being edited by another session, so a change there collides. `health` exposes it to agents and the cron fails on ingestion staleness. |
 | **The softer re-transcripts** | Calls that already have Dialpad text and could be re-transcribed from better audio for ~$45. Now the only transcript work left, and it is a quality swap, not a gap. |
-| **Voicemail self-identification** | "my name is X" in a transcript -- measured ~10-12 usable names after review, ASR-noisy. Deliberately NOT applied: the owner's own "... from Lakewood" line sits on 40+ customer numbers and must be screened first. |
-| **The authority's app checkout is a third lineage** (**P143**) | 57 commits reachable from no remote (now backed up as `backup/secratary-checkout-20260915`), 136 behind origin/master, 75 dirty files. Needs a dedicated reconciliation session; never scp a whole file into it -- patch the single hunk (`/tmp/pt.py` pattern). |
+| **The authority's app checkout is a third lineage** (**P143**) | 57 commits reachable from no remote (now backed up as `backup/secratary-checkout-20260915`), 136 behind origin/master, 75 dirty files. Needs a dedicated reconciliation session; never scp a whole file into it — patch the single hunk (`/tmp/pt.py` pattern). |
 
----
+## Credential session, 2026-09-15 20:05Z (ZABZ-TECH) — full record **H275**, decisions **D163–D165**
 
-## In flight — added 2026-09-15 17:2xZ (ZABZ-YOGA, self-audit round 59; H255)
+Closed tonight: the AWS AdministratorAccess key in `phone-and-tech-full/backend/.env.test` is deleted
+and verified dead (**D164**); Lakewood's own Twilio auth token is rotated through Twilio's
+secondary-token path, every consumer patched and restarted, the old token now 401 (**D165**).
+Device Parts is out of favour by owner instruction (**D163**).
 
-*(Appended, not a rewrite, because another session holds in-flight state in this file and
-clobbering a live session's notes is a real loss. The rewrite convention resumes when one
-session owns the file.)*
+Still open, mine:
 
-- **Shipped:** `check_owner_queue` in `~/ceo-kernel` (`9962993`) — the next owner decision,
-  one at a time, with true age/severity/blocking/recommendation, in the badge payload.
-  15 checks; payload verified 17:14Z.
-- **Owner queue 14 → 11 pending** with recorded reasons (#39, #15, #31, #10 split; one
-  owner-only medical row re-filed). Mirror refreshed: 11 open, 30 closed.
-- **Evolution proposals 12 → 1 → 0.** Ten generic refactor templates + one duplicate
-  dismissed with per-class reasons; #222 closed as applied (capability above).
-- **Mine, not his, still open:** enable cheap-first routing as a *measured* change; repair
-  Google Voice monitoring over CDP; find why a medical task routed to `finance_bookkeeper`;
-  fix the generic-refactor proposer template once `app/evolution.py` is free (another
-  session holds ~79–80 modified files, including it).
-- **Blocked on another session, not on the owner:** anything touching `app/evolution.py`
-  or `app/workforce.py`.
-- **Loose end to remember:** row #39's note carries a `CORRECTION:` clause — I wrote "the
-  row is gone" before the delete had run, and the delete had failed on a lock. See L1537.
-
+| Item | State |
+|---|---|
+| **ZABZ-YOGA's app stack** | DONE 19:58Z — patched, restarted, `/health` 200 with token fp `c4e6`. The earlier "unreachable" was Tailscale on ZABZ-TECH being stopped, not yoga. |
+| **Tailscale on ZABZ-TECH** | Root cause found and fixed at the cause (**D172**): IP Helper crashed at 15:40 local and Windows stopped Tailscale as its dependent; iphlpsvc's own recovery never restarts it. `scripts/ensure-mesh-prereqs.ps1` + the 5-minute task 'DSH Mesh Prereqs (5m)' now repair iphlpsvc first, then Tailscale, then the LAN portproxy — verified by breaking it on purpose. **Still open: the other five nodes have no such watch.** |
+| **Dead plaintext in the repos** | The leaked AWS key and Twilio token strings are still in `phone-and-tech-full` and `personal-secretary-mvp`. Both are inert now, so this is hygiene plus a pre-commit secret gate — not done inside another session's dirty tree. |
+| **Outworq LLC's Twilio token** | Still live in `personal-secretary-mvp/deploy/twilio-studio-flow/.env.vogel`, verified active. Client account — queue **#17**, needs Shimon. |
+| **IAM leftovers** | `github-actions-deployer` holds an unused AdministratorAccess key; root has MFA disabled and no root access keys; `~/.twilio-cli/config.json` holds two API-key secrets (not affected by an auth-token rotation). |
+| **Local desktop API startup** | ~6 minutes to `Application startup complete` (Chroma telemetry warning last line before it). `scripts/restart-api.ps1` waits only 45s, so it always reports failure — **L1566**. |

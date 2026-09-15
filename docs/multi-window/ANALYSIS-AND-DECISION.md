@@ -110,6 +110,23 @@ Design points that are not obvious:
 - **Auth survives a restart** because the cookie's signing secret lives in
   `$DSH_HOME/.credentials.yaml` and the cookie is valid 30 days; the supervisor stores the tokenized
   startup URL per engine so a fresh window can always complete the exchange.
+- **Every window opens the TOKENIZED URL** — corrected 2026-09-15 after one day of the opposite.
+  Between 2026-09-14 and 2026-09-15 `Open-SlotWindow` opened the *clean* origin, on the belief that the
+  `?token=` exchange "burns a one-time exchange" and that its 303 to `/` "is a NEW document whose
+  bootstrap finds no session". Both premises were false: the launch token is a stable per-process value
+  (`dsh-client-connection` `processLaunchToken` caches it in a WeakMap) and nothing in the client boot
+  path reads `location.search` except the `?fixture=` test hooks, so the redirected document is
+  indistinguishable from a direct load of `/`. What the clean origin really depends on is the profile's
+  cookie, and **nothing seeds that cookie** — so a profile that had never exchanged a token got the bare
+  `dsh web authentication required` page. That is what the owner hit three times on 2026-09-15
+  (17:00:35, 17:02:37, 17:03:46, profile `w9`): `w1`–`w8` had been seeded as a side effect of the older
+  launcher, `w9` was created after the change and could never authenticate. Measured in the other
+  direction too: a throwaway profile launched twice at the tokenized URL kept **one** window root and the
+  **same** session id (`session-ea10e311…`). `Resolve-WindowUrl` now prefers the token, validates
+  scheme/host/port/path/token, and recovers a fresh token from the engine's own `dsh web: <url>` log line
+  when `state.json` is stale (the token changes on every restart); the clean origin is the last resort,
+  and a stale token still degrades safely because the server 303s an already-cookied browser to `/`.
+  `dshw doctor` proves the token with a live 303 probe instead of asserting it.
 - **Boot persistence:** `dshw autostart on` registers one Task Scheduler task, At-logon, "run only when
   the user is logged on" — the research is explicit that a session-0 service can hold the server but can
   never show or be reached by the user's window

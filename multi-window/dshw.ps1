@@ -731,6 +731,58 @@ try {
 
 . "$PSScriptRoot\dshw-geometry.ps1"
 
+# Which URL a window opens: the engine's TOKENIZED launch URL whenever one can be found, and the
+# clean origin only as a last resort.
+#
+# MEASURED 2026-09-15 (ZABZ-TECH), because the decision recorded here on 2026-09-14 was wrong:
+#   - That note claimed the tokenized URL "burns a one-time exchange" and lands on "a NEW document
+#     whose bootstrap finds no session". Both are false. The launch token is a stable per-process
+#     value (dsh-client-connection/lib/browser-auth.js: processLaunchToken caches it in a WeakMap on
+#     the process owner) and is re-exchangeable at will; and nothing in the client boot path reads
+#     location.search except the `?fixture=` test hooks, so the 303 -> "/" document is
+#     indistinguishable from a direct load of "/". Session choice is localStorage
+#     ["dsh.sessions.current"], keyed by origin, and survives either way.
+#     Proof: a throwaway profile launched twice at the tokenized URL kept ONE window root and the
+#     SAME session id (session-ea10e311-c9ae-48ce-886b-8b44eb1846df) across both launches.
+#   - The clean origin authenticates ONLY through the profile's cookie, and NOTHING ever seeded that
+#     cookie: a profile that has never exchanged a token -- or one whose 30-day cookie expired or was
+#     cleared -- is served the bare 401 page "dsh web authentication required; reopen the URL printed
+#     by dsh web". Reproduced headlessly on a fresh profile, and it is exactly what the owner hit on
+#     2026-09-15 at 17:00-17:03 with profile w9: three attempts, three 401 pages. Every profile that
+#     did work (w1..w8) had been seeded as a side effect of an older launcher that still opened the
+#     tokenized URL.
+# So the tokenized URL is preferred: it authenticates regardless of what the cookie jar holds, and a
+# stale token degrades safely -- the server 303s an already-cookied browser to the clean "/".
+function Test-LaunchUrl([string]$url, [int]$port) {
+    if ([string]::IsNullOrWhiteSpace($url)) { return $false }
+    try { $u = [uri]$url } catch { return $false }
+    if ($u.Scheme -ne 'http' -or $u.Host -ne '127.0.0.1' -or $u.Port -ne $port) { return $false }
+    if ($u.AbsolutePath -ne '/') { return $false }
+    return [regex]::IsMatch($u.Query, '(?:^|[?&])token=[^&]+')
+}
+
+function Resolve-WindowUrl([int]$port, $rec) {
+    $clean = "http://127.0.0.1:$port/"
+    if ($rec) {
+        $recorded = Get-Prop $rec 'url'
+        if (Test-LaunchUrl ([string]$recorded) $port) { return [string]$recorded }
+    }
+    # A stale URL needs a fresh one: the token changes with every engine RESTART, and state.json can
+    # lag it (an adopted engine, or a restart that died before saving). The engine prints its own URL
+    # at startup, so the newest log for this port is the authority -- the LAST match, because a log
+    # can hold several launches.
+    foreach ($log in @((Join-Path $LogDir "$port.log"), $(if ($rec) { Get-Prop $rec 'log' }))) {
+        if (-not $log -or -not (Test-Path $log)) { continue }
+        try { $text = Get-Content -LiteralPath $log -Raw -ErrorAction Stop } catch { continue }
+        $m = [regex]::Matches($text, 'dsh web:\s*(\S+)')
+        for ($i = $m.Count - 1; $i -ge 0; $i--) {
+            $cand = $m[$i].Groups[1].Value
+            if (Test-LaunchUrl $cand $port) { return $cand }
+        }
+    }
+    return $clean
+}
+
 function Open-SlotWindow($slot, $state) {
     $exe = Get-EdgePath
     if (-not $exe) { throw 'no Edge/Chrome binary found' }
@@ -743,15 +795,11 @@ function Open-SlotWindow($slot, $state) {
     $profDir = Join-Path $Cfg.browser.profileRoot $slot.profile
     New-Item -ItemType Directory -Force -Path $profDir | Out-Null
 
-    # ALWAYS the clean origin, never the launch token.
-    #
-    # The token URL does two damaging things on every open: it burns a one-time exchange, and
-    # on success the server redirects to a clean "/" — which is a NEW document whose bootstrap
-    # finds no session of its own. The owner's report was exactly that: "it opened two windows
-    # and both open a new session... it's supposed to open the same session". Once a profile
-    # has its cookie (30-day lifetime, and the cookie is what authenticates), the clean URL is
-    # both sufficient and the only form that keeps the window's remembered session.
-    $target = "http://127.0.0.1:$targetPort/"
+    # The engine's tokenized URL, so a window can never land on the 401 page (see Resolve-WindowUrl
+    # above for the measurement that reversed the previous "clean origin" decision). "One window,
+    # same session" is unaffected: the 303 to "/" happens inside this window, and the session comes
+    # from the profile's own localStorage, not from the URL.
+    $target = Resolve-WindowUrl $targetPort $rec
     $label = if ($slot.label) { $slot.label } else { "$targetPort" }
     # NOTE (measured 2026-09-11, Edge 152 on Windows): --window-name is a no-op here and
     # the window caption is the page <title>. Geometry must be supplied on every launch,
@@ -1389,6 +1437,38 @@ function Invoke-Doctor {
     if (-not $bin) { $problems += '@deepseek-ai/dsh/lib/bin.js not found' } else { Write-Host "dsh bin     : $bin" }
     $edge = Get-EdgePath
     if (-not $edge) { $problems += 'no Edge/Chrome binary found' } else { Write-Host "browser     : $edge" }
+    # How a new window will authenticate. A window that opens the CLEAN origin can only pass through
+    # that profile's cookie and nothing seeds it, which is exactly how the owner met the bare
+    # "dsh web authentication required" page on 2026-09-15. So doctor names the URL a new window
+    # would use and proves the token is accepted (303), instead of leaving it to be discovered in the
+    # browser. The token itself is redacted -- doctor output gets pasted into notes and logs.
+    $dport = Get-PrimaryPort
+    $durl = Resolve-WindowUrl $dport (Get-SlotRecord (Get-State) $dport)
+    if (Test-LaunchUrl $durl $dport) {
+        Write-Host ("window url  : {0} (tokenized)" -f ($durl -replace 'token=.*', 'token=<redacted>'))
+    } else {
+        Write-Host ("window url  : {0} (NO TOKEN - a profile without a cookie shows the auth page)" -f $durl) -ForegroundColor Yellow
+        $problems += "no usable launch token for port $dport; new windows depend on an already-seeded profile cookie"
+    }
+    if (Test-PortInUse $dport) {
+        # HttpClient with redirects OFF, because that is the only way to observe the 303:
+        # `Invoke-WebRequest -MaximumRedirection 0` throws "Operation is not valid due to the current
+        # state of the object" on PowerShell 7, and following the redirect reports a harmless 200.
+        $client = $null
+        try {
+            $handler = [System.Net.Http.HttpClientHandler]::new()
+            $handler.AllowAutoRedirect = $false
+            $client = [System.Net.Http.HttpClient]::new($handler)
+            $client.Timeout = [TimeSpan]::FromSeconds(5)
+            $resp = $client.SendAsync([System.Net.Http.HttpRequestMessage]::new('GET', $durl)).GetAwaiter().GetResult()
+            $code = [int]$resp.StatusCode
+            Write-Host ("auth probe  : token exchange -> {0}{1}" -f $code, $(if ($code -eq 303) { ' (accepted)' } else { ' (EXPECTED 303)' }))
+            if ($code -ne 303) { $problems += "the launch token for port $dport was refused with HTTP $code" }
+            $resp.Dispose()
+        } catch {
+            Write-Host ("auth probe  : failed - {0}" -f $_.Exception.Message) -ForegroundColor Yellow
+        } finally { if ($client) { $client.Dispose() } }
+    }
     $home_dsh = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }
     if (-not (Test-Path $home_dsh)) { $problems += "DSH_HOME missing: $home_dsh" } else { Write-Host "DSH_HOME    : $home_dsh" }
     foreach ($p in @($StateDir, $LogDir, $Cfg.browser.profileRoot)) {
