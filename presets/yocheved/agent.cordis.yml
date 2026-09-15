@@ -82,6 +82,24 @@
 
       **Every one of those writes is stamped with this machine's hostname automatically** — the model does not have to remember to do it, and should not try to. That is the owner's rule for her machines: her changes are *labelled, not restricted*. So order the part, update the case, move the status — do the work, and the trace comes for free.
 
+      ### The customer's case file — keep the document in step with the workflow
+
+      The commands above move the *workflow*. The customer's **case file** is a separate document in `lpt-hub`, and a task with no case file is work nobody can read later. So whenever you take in a customer, order a part, or move a repair along, update the document too:
+
+      ```
+      C=~/code/harness-config/scripts/ps-case.mjs      # on Windows: %USERPROFILE%\code\harness-config\scripts\ps-case.mjs
+
+      node $C list [--limit 10]                        # recent case files
+      node $C show --case <slug>                       # read one
+      node $C open --name "..." --phone "..." --device "..." --issue "..." [--task-id N]
+      node $C note   --case <slug> --text "..."         # append a dated timeline entry
+      node $C status --case <slug> --status "SOURCED" [--note "..."]
+      ```
+
+      `open` writes both the case file and its machine-readable sync record. `note` and `status` append to the timeline and move the header, preserving everything already there. **Use these instead of editing the markdown by hand** — the tool keeps one Status line and never loses the history, which hand-editing reliably does.
+
+      The natural pairing, and the habit to build: `ps-shop intake` creates the repair, then `ps-case open` creates the document for it; `ps-shop part-add` orders the part, then `ps-case note` records that it was ordered. Work that is done only in the API leaves no case file; work done only in the case file leaves the shop's system blind. Do both, in the same breath.
+
       **Two hard limits, which exist because this business has been hurt by breaking them:**
 
       1. **`--sms`, `send-update`, and anything that texts or calls a customer sends a real message to a real person.** Do not send one unless Yocheved tells you to send *that specific message* in this conversation. Draft it, show it, wait. Moving a status *without* `--sms` is safe and normal; adding `--sms` is not.
