@@ -147,6 +147,10 @@ handoff	H237	237		2026-09-15 16:42 UTC	ZABZ-TECH	open	## 2026-09-15 16:42 UTC ·
 handoff	H238	238		2026-09-15 17:15 UTC	ZABZ-TECH	open	## 2026-09-15 17:15 UTC · ZABZ-TECH · Eli Green case CLOSED: flash verified, WiFi calling live, Play Store restored, device returned (WhatsApp key stays customer-side)	entries/handoff/H238.md	1	23	94e863b1668284c5
 handoff	H239	239		2026-09-15 17:22 UTC	ZABZ-TECH	open	## 2026-09-15 17:22 UTC · ZABZ-TECH · 300DDR ticket 73459: chip-off pass 1 = documents only (<99%), pass 2 running, no decision due; case file corrected and commit 19e8e9ffd	entries/handoff/H239.md	1	34	8092f13e2a7098d2
 handoff	H240	240		2026-09-15 17:29 UTC	ZABZ-TECH	open	## 2026-09-15 17:29 UTC · ZABZ-TECH · LPT Waze iPhone sourcing library: stranded on the laptop, now in lpt-hub and on origin	entries/handoff/H240.md	1	36	d3c2c8dca2e1a418
+handoff	H241	241		2026-09-15 17:44 UTC	ZABZ-TECH	open	## 2026-09-15 17:44 UTC · ZABZ-TECH · Customer update SENT for 300DDR ticket 73459 (msg 5840531270180864); corrects H239's 'not sent'; pass 2 still pending	entries/handoff/H241.md	1	34	5fbd4d55ceee59e2
+handoff	H242	242		2026-09-15 18:12 UTC	ZABZ-TECH	open	## 2026-09-15 18:12 UTC · ZABZ-TECH · iPhone sourcing answer delivered: buy at the counter + repair-grade arbitrage; Sage 5-lot re-verified live at 135.80/unit	entries/handoff/H242.md	1	41	762508fbe0f57eab
+handoff	H243	243		2026-09-15 18:13 UTC	ZABZ-TECH	open	## 2026-09-15 18:13 UTC · ZABZ-TECH · Newman flash-drive case COMPLETE - both drives cleaned, data on the Kingston, ready for pickup ( uncollected)	entries/handoff/H243.md	1	62	0d20eb2467853563
+handoff	H244	244		2026-09-15 18:18 UTC	ZABZ-TECH	open	## 2026-09-15 18:18 UTC · ZABZ-TECH · iPhone sourcing answered: buy the verified five-lot, decide by verifiability not price, and stop optimising a \ margin item against a \ subscription	entries/handoff/H244.md	1	55	1fae3c34c9462b46
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -512,6 +516,8 @@ lessons	L1522	1522		2026-09-15	ZABZ-TECH	open	**L1522 · Chip-off labs: PC-3000 
 lessons	L1523	1523		2026-09-15	ZABZ-TECH	open	**L1523 · A path in a handoff is not a delivered file - published work goes to a repo and gets pushed**	entries/lessons/L1523.md	1	20	775e0bff7c4c4ff9
 lessons	L1524	1524		2026-09-15	ZABZ-TECH	open	**L1524 · A repo status line and a DNS lookup are not deploy state - a loopback-bound container behind an unreloaded proxy is deployed and invisible at once**	entries/lessons/L1524.md	1	30	1b968b729fd1aaa7
 lessons	L1525	1525		2026-09-15	ZABZ-TECH	open	**L1525 · A notification IMAGE is fetched by the app with no session - a login-gated URL breaks it, including on the LAN**	entries/lessons/L1525.md	1	44	8c8ee912fa1c15e4
+lessons	L1526	1526		2026-09-15	ZABZ-TECH	open	**L1526 · Customer SMS has three gate layers: policy approval (a dead end), the agent kill switch (never touch), and POST /api/v1/dialpad/sms/send (the owner-approved path that works)**	entries/lessons/L1526.md	1	19	c56f791e43b2ebd4
+lessons	L1527	1527		2026-09-15	ZABZ-TECH	open	**L1527 · Gating destructive work on verification: fail closed, never compare against an input that does not exist yet, and do not run three 13 GB scans at once**	entries/lessons/L1527.md	1	36	1911e41702b6d5ac
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -629,6 +635,7 @@ pain	P152	152		2026-09-15	ZABZ-TECH	open	## P152 — 64 caseIds carry two sync r
 pain	P153	153		2026-09-15	ZABZ-TECH	open	## P153 — lpt-hub on ZABZ-TECH is 2446 behind / 30 ahead of origin/main -- nothing can be pushed from this machine, and a workstation sync bot rewrites the same sync records	entries/pain/P153.md	1	12	ec2a1c9a310cb1bd
 pain	P154	154		2026-09-15	ZABZ-TECH	open	## P154 — The kosher-filter-ai clone on ZABZ-TECH is 165 commits stale, and it is the repo the owner asks about most	entries/pain/P154.md	1	27	4a4aa9fb7d88e44d
 pain	P155	155		2026-09-15	ZABZ-TECH	open	## P155 — The Waze fleet's sourcing evidence lived on one laptop, and the handoffs pointed at paths that did not exist elsewhere	entries/pain/P155.md	1	19	1742fee5850ae1a5
+pain	P156	156		2026-09-15	ZABZ-TECH	open	## P156 — Policy approval tasks have no honored path: approving one cannot unblock the action (task #25399 proves it)	entries/pain/P156.md	1	17	20be159b916b037d
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -748,6 +755,7 @@ decisions	D155	155		2026-09-15	ZABZ-TECH	open	**D155 · 2026-09-15 · RattleByte
 decisions	D156	156		2026-09-15	ZABZ-TECH	open	**D156 · 2026-09-15 · Case record written on the authority; only the app the customer needs re-enabled; flash judged by applied carrier config.**	entries/decisions/D156.md	1	12	f439cf614e067c3f
 decisions	D157	157		2026-09-15	ZABZ-TECH	open	**D157 · 2026-09-15 · No in-house soldered iPad charge-port repairs (A1893 job declined).**	entries/decisions/D157.md	1	11	af7878e3d5ffce5f
 decisions	D158	158		2026-09-15	ZABZ-TECH	open	**D158 · 2026-09-15 · Two secrets not one - the notification image needs the LAN URL, the tap-through link needs the public one.**	entries/decisions/D158.md	1	45	227630ddcd2d83fe
+decisions	D159	159		2026-09-15	ZABZ-TECH	open	**D159 · 2026-09-15 · The filter's escalation architecture: phone-first three tiers, a swappable US-hosted tier 2, and 'don't lock things in' made into engineering rules.**	entries/decisions/D159.md	1	53	89573ee2bd3fcaaf
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -850,3 +858,4 @@ wins	W129	129		2026-09-15	ZABZ-TECH	open	**W129 · 2026-09-15 · The control-roo
 wins	W130	130		2026-09-15	ZABZ-TECH	open	**W130 · 2026-09-15 · Recovered a vendor reply that had been silently lost for three days, and fixed two dead MCP write-path tools on the way.**	entries/wins/W130.md	1	39	4609afb6e1021061
 wins	W131	131		2026-09-15	ZABZ-TECH	open	**W131 · 2026-09-15 · All three door contacts are live again - both dead ones returned on a battery swap alone.**	entries/wins/W131.md	1	39	a86e6faf43e83452
 wins	W132	132		2026-09-15	ZABZ-TECH	open	**W132 · 2026-09-15 · The door security chain is verified end to end - all three contacts flip correctly and the lock is back.**	entries/wins/W132.md	1	32	89450943ee0201ac
+wins	W133	133		2026-09-15	ZABZ-TECH	open	**W133 · 2026-09-15 · Newman infected-drive job complete: 12.97 GB proved onto the customer's own drive; the fail-closed gate is what made it safe.**	entries/wins/W133.md	1	36	d76f75428cec80a1
