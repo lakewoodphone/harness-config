@@ -1,14 +1,19 @@
-# agent-fleet.ps1 — mechanical setup, inspection and teardown for a fleet of parallel coding agents.
+# agent-fleet.ps1 - mechanical setup, inspection and teardown for a fleet of parallel coding agents.
+#
+# NOTE (2026-09-15): this file is deliberately ASCII-only. It had four U+2014 em dashes and no BOM;
+# Windows PowerShell 5.1 decodes a BOM-less file as CP1252, so each em dash became three characters
+# ending in U+201D, which 5.1 treats as a string delimiter - the script failed to parse at all under
+# 5.1 while working fine under pwsh 7. Keep it ASCII.
 #
 # Why this exists: running N agents on one repository means N worktrees, and the failures are almost
-# never in the code — they are forgotten worktrees eating disk, branches cut from a dirty base, and
+# never in the code - they are forgotten worktrees eating disk, branches cut from a dirty base, and
 # per-worktree test temp directories colliding. This script makes the mechanical part one command so
 # the manager's attention goes to partitioning and integration, which is where the value is.
 #
 # Design rationale and the research behind it: harness-config/docs/parallel-agent-orchestration.md
 #
 # Safety posture, deliberately:
-#   * It NEVER touches the repository's main worktree — only worktrees it created under -Root.
+#   * It NEVER touches the repository's main worktree - only worktrees it created under -Root.
 #   * It refuses to create a fleet from a dirty base, because a branch cut from uncommitted work
 #     produces a merge nobody can reason about.
 #   * It refuses to remove a dirty worktree unless -Force is given explicitly.
@@ -16,6 +21,8 @@
 #
 # Usage:
 #   agent-fleet.ps1 new   -Name lpt-route,egress-wiring,docs-fix -Repo C:\path\to\repo
+#   agent-fleet.ps1 new   -Name a,b -Repo C:\path\to\repo -Base master          # branch from a named ref
+#   agent-fleet.ps1 new   -Name a,b -Repo C:\path\to\repo -AllowDirtyBase       # base has other work in flight
 #   agent-fleet.ps1 status -Repo C:\path\to\repo
 #   agent-fleet.ps1 clean  -Repo C:\path\to\repo          # drop _pt_* / __pycache__ / .gradle
 #   agent-fleet.ps1 rm    -Name lpt-route -Repo C:\path\to\repo
@@ -30,8 +37,13 @@ param(
     [string]$Repo = '.',
     [string]$Root = '',
     [string[]]$Name = @(),
-    [string]$Base = 'main',
-    [switch]$Force
+    # '' resolves to the repository's current branch. The old default of 'main' silently failed on every
+    # repo in this mesh that uses 'master' (personal-secretary-mvp, phone-and-tech-full).
+    [string]$Base = '',
+    [switch]$Force,
+    # Worktrees are cut from a commit, so uncommitted work in the base can never leak into one. What it
+    # does do is make the eventual merge into a dirty base harder, so it stays opt-in and names the paths.
+    [switch]$AllowDirtyBase
 )
 
 $ErrorActionPreference = 'Stop'
@@ -136,22 +148,38 @@ function Clear-Artifacts([string]$Path) {
 
 $repoPath = Get-RepoPath
 $fleetRoot = Get-FleetRoot $repoPath
+if (-not $Base) {
+    # Resolved, never assumed: a hard-coded base is how a fleet silently refuses to start on a repo
+    # that names its default branch 'master'.
+    $Base = (Invoke-Git $repoPath @('rev-parse', '--abbrev-ref', 'HEAD')).out
+    if (-not $Base -or $Base -eq 'HEAD') { $Base = 'master' }
+}
 
 switch ($Action) {
 
     'new' {
+        # Accept both call styles. PowerShell passes `-Name a,b,c` as a 3-element array, but
+        # `-Name ($list -join ',')` arrives as ONE element containing commas -- which silently
+        # created a single worktree with an enormous name instead of eight. Split defensively rather
+        # than trusting the caller's shape.
+        $Name = @($Name | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
         if ($Name.Count -eq 0) { throw "-Name is required for 'new' (comma-separated slugs, e.g. -Name a,b,c)" }
         New-Item -ItemType Directory -Force -Path $fleetRoot | Out-Null
 
         $status = Invoke-Git $repoPath @('status', '--porcelain')
         if (-not $status.ok) { throw "git status failed: $($status.out)" }
+        if ($status.out -and -not $AllowDirtyBase) {
+            throw "Refusing to create a fleet: '$repoPath' has uncommitted changes. A branch cut from a dirty base produces a merge nobody can reason about. Commit, stash, or pass -AllowDirtyBase to cut from HEAD anyway.`n$($status.out)"
+        }
         if ($status.out) {
-            throw "Refusing to create a fleet: '$repoPath' has uncommitted changes. A branch cut from a dirty base produces a merge nobody can reason about. Commit or stash first.`n$($status.out)"
+            Write-Host "WARNING: '$repoPath' has uncommitted changes. Worktrees are cut from $Base, so these paths are NOT present in any worktree:" -ForegroundColor Yellow
+            ($status.out -split "`n") | ForEach-Object { Write-Host "         $_" -ForegroundColor Yellow }
+            Write-Host ''
         }
 
         Invoke-Git $repoPath @('fetch', '--quiet', 'origin') | Out-Null
         $head = (Invoke-Git $repoPath @('rev-parse', '--short', 'HEAD')).out
-        Write-Host "base $Base @ $head — creating $($Name.Count) worktree(s) under $fleetRoot`n"
+        Write-Host "base $Base @ $head - creating $($Name.Count) worktree(s) under $fleetRoot`n"
 
         $created = 0
         foreach ($n in $Name) {
