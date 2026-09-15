@@ -115,7 +115,7 @@ def _row(r: sqlite3.Row) -> dict:
 # 34 calls later, every one of them mine, is the measurement of that. So: accept
 # the aliases, sanitise instead of refusing, and when the search has to loosen to
 # find anything at all, say so in the result rather than passing a loose match off
-# as an exact one (L1489).
+# as an exact one (L1503, L1504).
 _FTS_TOKEN = re.compile(r'"[^"]+"|[A-Za-z0-9_]+')
 _RELATIVE = re.compile(r"^(\d+)\s*(h|d|w|m|y)$", re.I)
 _WORD_DAYS = {"today": 0, "now": 0, "yesterday": 1, "week": 7, "month": 30, "year": 365}
@@ -553,6 +553,40 @@ def _is_acknowledgement(text: str) -> bool:
     return all(w in _ACK_WORDS for w in tokens)
 
 
+# Carrier/CTIA opt-out keywords, plus the ways people actually say it.
+_OPTOUT_WORDS = {"stop", "stopall", "unsubscribe", "unsub", "cancel", "end", "quit",
+                 "remove", "optout", "revoke", "delete"}
+
+
+def _is_optout(text: str) -> bool:
+    """An opt-out is not a question waiting for an answer.
+
+    Measured 2026-09-15 on the live index: "Stop" from 8482996583 sat at the TOP of
+    `waiting` -- the list is sorted newest-first, and it was the newest -- so the first
+    row any reader saw was an opt-out presented as the customer most in need of a reply.
+    An opt-out ENDS a conversation, and answering it is the one reply that is actively
+    wrong, so it must not be in the same bucket as a customer who asked a question.
+
+    Deliberately narrow: "stop" as the whole message, or an opt-out word followed by
+    words that can only be about messaging. "Stop by tomorrow" is a real sentence and
+    stays in `waiting`.
+    """
+    t = " ".join(str(text or "").split()).strip().lower().strip(".!,")
+    if not t or len(t) > 60:
+        return False
+    if t in _OPTOUT_WORDS:
+        return True
+    toks = re.findall(r"[a-z'-]+", t)
+    if not toks or len(toks) > 6:
+        return False
+    if toks[0] in {"please", "pls", "plz"} and len(toks) <= 3 and toks[-1] in _OPTOUT_WORDS:
+        return True
+    if toks[0] not in _OPTOUT_WORDS:
+        return False
+    return any(w in {"me", "us", "texting", "text", "texts", "sending", "messages",
+                     "message", "this", "these", "now", "the"} for w in toks[1:])
+
+
 
 def _is_human_email(con: sqlite3.Connection, address: str) -> bool:
     """Is this an address a person would expect an answer at?
@@ -618,6 +652,7 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                   ).strftime("%Y-%m-%d") if days else ""
         waiting, missed = [], []
         acknowledged: list = []
+        opted_out: list = []
         for r in rows:
             if cutoff and (r["day"] or "") < cutoff:
                 continue
@@ -649,7 +684,9 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                 # customer mail, and it pushed every actual customer off the page.
                 continue
             else:
-                if _is_acknowledgement(text):
+                if _is_optout(text):
+                    opted_out.append(entry)
+                elif _is_acknowledgement(text):
                     acknowledged.append(entry)
                 else:
                     waiting.append(entry)
@@ -669,6 +706,7 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                 "total_waiting": len(waiting),
                 "total_missed_calls": len(missed),
                 "closed_by_acknowledgement": len(acknowledged),
+                "closed_by_optout": len(opted_out),
                 "waiting": waiting[:limit],
                 "missed_calls": missed[:limit],
                 "index_age_hours": None if age is None else round(age, 2),
@@ -893,6 +931,39 @@ def run(mode: str = "search", q: str = "", party: str = "", kind: str = "",
                          f"words, e.g. q=\"water damage\""}
 
 
+def _summary_line(res: dict) -> str:
+    """ONE line, for a digest or a cron log: the number a reader acts on, with its age.
+
+    Digests are where this system has historically lost its readers (P40) -- a digest
+    that grows a paragraph per subsystem stops being read, and a number without its age
+    is not a fact. So every line carries the index age and says STALE when it is.
+    """
+    if not res.get("ok"):
+        return f"comms: ERROR {res.get('error') or res.get('problems')}"
+    mode = res.get("mode")
+    age = res.get("index_age_hours")
+    stale = " [INDEX STALE]" if res.get("index_stale") else ""
+    if mode == "waiting":
+        bits = [f"{res.get('total_waiting', 0)} customer(s) waiting on a reply "
+                f"(last {res.get('days')}d)"]
+        if res.get("total_missed_calls"):
+            bits.append(f"{res['total_missed_calls']} missed call(s) with no message")
+        return "; ".join(bits) + f"  [index {age}h{stale}]"
+    if mode == "health":
+        return (f"comms index: {res.get('total', 0):,} records, {age}h old, "
+                f"{len(res.get('problems') or [])} problem(s){stale}")
+    if mode == "search":
+        return (f"comms search: {res.get('count')} hit(s), match={res.get('match_mode')}"
+                f"  [index {age}h{stale}]")
+    if mode == "thread":
+        return (f"comms thread for {res.get('party')!r}: {res.get('count')} record(s)"
+                f"  [index {age}h{stale}]")
+    if mode == "person":
+        return (f"comms person {res.get('query')!r}: "
+                f"{len(res.get('people') or [])} match(es)  [index {age}h{stale}]")
+    return f"comms {mode}  [index {age}h{stale}]"
+
+
 def _render(res: dict) -> str:
     if not res.get("ok"):
         return f"comms-search: ERROR {res.get('error') or res.get('problems')}"
@@ -939,8 +1010,14 @@ def _render(res: dict) -> str:
                 lines.append(f"    {r['day'] or '?'} [{r['kind']:<9}] {arrow} {body}")
         return "\n".join(lines)
     if mode == "waiting":
+        tail = []
+        if res.get("closed_by_acknowledgement"):
+            tail.append(f"{res['closed_by_acknowledgement']} acknowledged")
+        if res.get("closed_by_optout"):
+            tail.append(f"{res['closed_by_optout']} opted out")
         lines.append(f"{res['total_waiting']} customer(s) waiting on an answer "
-                     f"(their words, nobody replied, within {res['days']} days)")
+                     f"(their words, nobody replied, within {res['days']} days)"
+                     + (f" — {', '.join(tail)} excluded" if tail else ""))
         for w in res.get("waiting") or []:
             body = " ".join((w["last_text"] or "").split())[:150]
             who = str(w.get("person") or w["who"] or w["party"])[:26]
@@ -974,6 +1051,8 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--db", default=DEFAULT_DB)
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--line", action="store_true",
+                    help="one summary line, for a digest or a cron log")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("search")
@@ -1026,7 +1105,8 @@ def main() -> int:
                          until=a.until, party=a.party, rank=a.rank)
         except sqlite3.OperationalError as exc:
             res = {"ok": False, "error": f"{exc} — FTS5 syntax; quote phrases"}
-    print(json.dumps(res, indent=1) if a.json else _render(res))
+    print(json.dumps(res, indent=1) if a.json
+          else (_summary_line(res) if a.line else _render(res)))
     return 0 if res.get("ok") else 1
 
 
