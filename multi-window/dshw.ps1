@@ -24,28 +24,6 @@
 
     Exit codes: 0 ok, 1 nothing to do / partial, 2 bad usage, 3 precondition failed.
 #>
-# ── web search on a filtered network (DESKTOP-FGV6KMH only) ──────────────────────────────────────
-#
-# The harness web-search provider is a DeepSeek Anthropic-format Messages call that defaults to
-# https://api.deepseek.com/anthropic/v1. On the owner's machines and on the office Mac that is
-# reachable as itself; on Yocheved's LAPTOP it is blocked by URL category (Techloq), while chat is
-# fine because chat uses the deepseek-proxy route. Search has its own endpoint, so it failed on every
-# call and silently degraded into a dozen page fetches per answer.
-#
-# HOW THIS VARIABLE MAY BE SET AT ALL -- established by reading the installed harness, not guessed:
-# `DEEPSEEK_SEARCH_BASE_URL` is in dsh-app-boot's BOOTSTRAP_NAMES, meaning it "decides how the process
-# reaches the network". A .env file may NOT set it (the harness-home .env is the only layer ever
-# exempted, and only for HTTP(S)_PROXY/NO_PROXY). Putting it in ~/.dsh/.env made the engine refuse to
-# boot outright, and the symptom looked like a launcher fault. So it must be in the environment of the
-# process that starts the engine -- which is this script, whichever entry point invoked it.
-#
-# It is HOSTNAME-GATED because the redirect exists for exactly one machine's filter; applying it
-# everywhere would route every other machine's search through a Worker for no reason. Existing values
-# win, so a launcher that already set one is not overridden.
-if ($env:COMPUTERNAME -eq 'DESKTOP-FGV6KMH' -and -not $env:DEEPSEEK_SEARCH_BASE_URL) {
-    $env:DEEPSEEK_SEARCH_BASE_URL = 'https://ds.abletelsolutions.com/anthropic/v1'
-}
-
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
@@ -71,6 +49,33 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+
+# ── web search on a filtered network (DESKTOP-FGV6KMH only) ──────────────────────────────────────
+#
+# The harness web-search provider is a DeepSeek Anthropic-format Messages call that defaults to
+# https://api.deepseek.com/anthropic/v1. On the owner's machines and on the office Mac that is
+# reachable as itself; on Yocheved's LAPTOP it is blocked by URL category (Techloq), while chat is
+# fine because chat uses the deepseek-proxy route. Search has its own endpoint, so it failed on every
+# call and silently degraded into a dozen page fetches per answer.
+#
+# HOW THIS VARIABLE MAY BE SET AT ALL -- established by reading the installed harness, not guessed:
+# `DEEPSEEK_SEARCH_BASE_URL` is in dsh-app-boot's BOOTSTRAP_NAMES, meaning it "decides how the process
+# reaches the network". A .env file may NOT set it (the harness-home .env is the only layer ever
+# exempted, and only for HTTP(S)_PROXY/NO_PROXY). Putting it in ~/.dsh/.env made the engine refuse to
+# boot outright, and the symptom looked like a launcher fault. So it must be in the environment of the
+# process that starts the engine -- which is this script, whichever entry point invoked it.
+#
+# It is HOSTNAME-GATED because the redirect exists for exactly one machine's filter; applying it
+# everywhere would route every other machine's search through a Worker for no reason. Existing values
+# win, so a launcher that already set one is not overridden.
+#
+# PLACEMENT MATTERS AND I GOT IT WRONG ONCE: this block must come AFTER the `param()` block.
+# PowerShell requires `[CmdletBinding()]` and `param()` to be the first statements in a script, so an
+# assignment above them is a parse error -- six of them, and the engine died on a busy day. Comment
+# prose above `param()` is fine; executable code is not.
+if ($env:COMPUTERNAME -eq 'DESKTOP-FGV6KMH' -and -not $env:DEEPSEEK_SEARCH_BASE_URL) {
+    $env:DEEPSEEK_SEARCH_BASE_URL = 'https://ds.abletelsolutions.com/anthropic/v1'
+}
 
 # ── paths ───────────────────────────────────────────────────────────────────
 $RepoRoot   = Split-Path -Parent $PSScriptRoot           # multi-window/ -> repo root
