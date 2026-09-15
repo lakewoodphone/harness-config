@@ -140,6 +140,7 @@ handoff	H230	230		2026-09-15 14:27 UTC	ZABZ-YOGA	open	## 2026-09-15 14:27 UTC ·
 handoff	H231	231		2026-09-15 14:28 UTC	ZABZ-YOGA	open	## 2026-09-15 14:28 UTC · ZABZ-YOGA · Her Mac: mesh access, fleet tooling, and the plain-language rule; laptop unreachable	entries/handoff/H231.md	1	49	fa11f7b9f11ee47f
 handoff	H232	232		2026-09-15 14:28 UTC	ZABZ-YOGA	open	## 2026-09-15 14:28 UTC · ZABZ-YOGA · The app can narrate itself again (and the dead sweep was never dead): logging configured, credentials redacted, app_voice check added	entries/handoff/H232.md	1	78	4c96fd65e9b0b49c
 handoff	H233	233		2026-09-15 14:34 UTC	ZABZ-YOGA	open	## 2026-09-15 14:34 UTC · ZABZ-YOGA · Questions get a shelf life and the badge can go green again: attention_debt now counts live debt and states ages	entries/handoff/H233.md	1	49	8d202c25b05ca6e5
+handoff	H234	234		2026-09-15 14:37 UTC	ZABZ-YOGA	open	## 2026-09-15 14:37 UTC · ZABZ-YOGA · The pain count itself was wrong: three callers counted marker status, and five entries are resolved	entries/handoff/H234.md	1	30	3a36047a591a17ae
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -494,6 +495,7 @@ lessons	L1511	1511		2026-09-15	ZABZ-YOGA	open	**L1511 · A merged fact must carr
 lessons	L1512	1512		2026-09-15	ZABZ-YOGA	open	**L1512 · A missing log line is not evidence of a missing subsystem: silence is not a result until you check the logger**	entries/lessons/L1512.md	1	36	76b8616688d919da
 lessons	L1513	1513		2026-09-15	ZABZ-YOGA	open	**L1513 · Every alarm needs a stated escape condition: severity must follow freshness, not a count**	entries/lessons/L1513.md	1	24	6961f5161ed2250a
 lessons	L1514	1514		2026-09-15	ZABZ-YOGA	open	**L1514 · An aggregate age printed beside a subset count is a wrong number**	entries/lessons/L1514.md	1	26	1e1c376936d9f781
+lessons	L1515	1515		2026-09-15	ZABZ-YOGA	open	**L1515 · A representation is not the value: a missing log line, an aggregate age, and a capped list all lied in one session**	entries/lessons/L1515.md	1	31	6cf017a274d7c00c
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -819,3 +821,4 @@ wins	W127	127		2026-09-15	ZABZ-YOGA	open	**W127 · 2026-09-15 · Profile coverag
 wins	W128	128		2026-09-15	ZABZ-YOGA	open	**W128 · 2026-09-15 · The owner's badge tells the truth: held 163->20, urgent/critical 42->13, and delivery is no longer a false green.**	entries/wins/W128.md	1	23	ea13ba008fca1241
 wins	W129	129		2026-09-15	ZABZ-YOGA	open	**W129 · 2026-09-15 · The application can narrate itself again: 0 INFO lines per minute to 124, with credentials redacted.**	entries/wins/W129.md	1	23	83badbec5abb62d1
 wins	W130	130		2026-09-15	ZABZ-YOGA	open	**W130 · 2026-09-15 · 313 questions stopped pretending to be live work, and the badge can go green again.**	entries/wins/W130.md	1	21	2183e2847a718185
+wins	W131	131		2026-09-15	ZABZ-YOGA	open	**W131 · 2026-09-15 · The once-read page and the offline state file now agree with the resolver: 95 to 91, and the number can no longer drift.**	entries/wins/W131.md	1	20	1b3875d0f80741ac
