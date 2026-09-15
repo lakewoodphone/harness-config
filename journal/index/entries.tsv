@@ -120,6 +120,7 @@ handoff	H210	210		2026-09-14 23:40 UTC	ZABZ-YOGA	open	## 2026-09-14 23:40 UTC ·
 handoff	H211	211		2026-09-14 23:42 UTC	ZABZ-YOGA	open	## 2026-09-14 23:42 UTC · ZABZ-YOGA · config-sync no longer freezes silently: diverged commits are preserved on a side ref (48665e7); secratary still 25/9	entries/handoff/H211.md	1	70	f3ecbd67bbeb2e05
 handoff	H212	212		2026-09-14 23:48 UTC	ZABZ-YOGA	open	## 2026-09-14 23:48 UTC · ZABZ-YOGA · Work loop can finally see its own tool results; the step budget is now the binding constraint	entries/handoff/H212.md	1	48	da31948900e36e06
 handoff	H213	213		2026-09-14 23:49 UTC	ZABZ-YOGA	open	## 2026-09-14 23:49 UTC · ZABZ-YOGA · 2026-09-15 00:05Z ZABZ-YOGA: round 2 -- freshness with two halves, voicemail audio unblocked, all-time proven	entries/handoff/H213.md	1	59	8ad95c78cff355a5
+handoff	H351	351		2026-09-15	ZABZ-YOGA	open	## 2026-09-15 · ZABZ-YOGA · Gusto close-out and Weinberg's unpaid weeks: the number is 2208.32, the Sep 16 run is his last pay, and Gusto can never file the NJ-W-3	entries/handoff/H351.md	1	79	c9f87ab3d498663d
 handoff	H214	214		2026-09-15 01:39 UTC	ZABZ-YOGA	open	## 2026-09-15 01:39 UTC · ZABZ-YOGA · 2026-09-15 01:45Z ZABZ-YOGA: round 4 -- fetch complete, last transcripts draining, atomic index swap	entries/handoff/H214.md	1	53	b33f0fe263fd6b59
 handoff	H215	215		2026-09-15 01:42 UTC	ZABZ-YOGA	open	## 2026-09-15 01:42 UTC · ZABZ-YOGA · secratary harness-config is a journal LINEAGE FORK: L510's recipe does not apply	entries/handoff/H215.md	1	20	dd9f5b448eb68436
 handoff	H216	216		2026-09-15 01:50 UTC	ZABZ-YOGA	open	## 2026-09-15 01:50 UTC · ZABZ-YOGA · lpt-sync-to-production: pre-create guard + idempotency + real dry run (committed, push blocked)	entries/handoff/H216.md	1	65	7c16e175ae076d23
@@ -257,6 +258,7 @@ handoff	H319	319		2026-09-15 22:20 UTC	ZABZ-TECH	open	## 2026-09-15 22:20 UTC ·
 handoff	H320	320		2026-09-15 22:23 UTC	ZABZ-TECH	open	## 2026-09-15 22:23 UTC · ZABZ-TECH · personality-system COMPLETE: 344 tests, 9/9 workstreams merged, deployed and verified live; 7 named follow-ups remain	entries/handoff/H320.md	1	69	ca565cdf334f0a03
 handoff	H321	321		2026-09-15 22:25 UTC	ZABZ-TECH	open	## 2026-09-15 22:25 UTC · ZABZ-TECH · Weissman SSD: 160 dollar deposit taken and the drive shipped to 300DDR ticket 74048 (from the Mac mini)	entries/handoff/H321.md	1	70	8655adc5b9f4fa68
 handoff	H350	350		2026-09-15 22:50 UTC	ZABZ-YOGA	open	## 2026-09-15 22:50 UTC · ZABZ-YOGA · Full reconciliation with the production database: 4 disagreeing stores mapped, rollback points verified, apply gate self-tested, fleet of 7 read-only axes launched	entries/handoff/H350.md	1	84	a3169c5b62f1a177
+handoff	H352	352		2026-09-15 23:05 UTC	ZABZ-YOGA	open	## 2026-09-15 23:05 UTC · ZABZ-YOGA · Full reconciliation applied: 4 production orders created and verified from a 7-axis fleet; Chaya Brodie duplicate hazard closed; four inherited claims corrected including a false 'broken re'	entries/handoff/H352.md	1	115	a8b7e46266af6e3d
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -763,6 +765,9 @@ lessons	L1664	1664		2026-09-15	ZABZ-YOGA	open	**L1664 · Never write an act in t
 lessons	L1665	1665		2026-09-15	ZABZ-YOGA	open	**L1665 · A derived column that nothing refreshes is not provenance**	entries/lessons/L1665.md	1	49	5ed1aef801774a54
 lessons	L1666	1666		2026-09-15	LAKEWOOECHSMINI	open	**L1666 · L1568 · ps-mesh file is not byte-faithful - it silently mangles non-ASCII (scp is)**	entries/lessons/L1666.md	1	47	da49ed4541333598
 lessons	L1667	1667		2026-09-15	LAKEWOOECHSMINI	open	**L1667 · L1569 · Customer price lives in the owner's formula, not in the case file (Gutterman, 202**	entries/lessons/L1667.md	1	25	959f6723e93638f0
+lessons	L1668	1668		2026-09-15	ZABZ-YOGA	open	**L1668 · An unrebuildable journal cache turns a search into a false 'no match'; financial figures must be re-derived from the processor's own notices and the live bank feed**	entries/lessons/L1668.md	1	35	add723da273b3a33
+lessons	L1669	1669		2026-09-15	ZABZ-YOGA	open	**L1669 · Four reconciliation rules earned 2026-09-15: a 'broken tool' is usually a wrong expectation; a record's link IS the idempotency guard; two tables in one DB are not one corpus; 'duplicate' rows can be two halves of one event**	entries/lessons/L1669.md	1	53	d16de4b2f35d2276
+lessons	L1670	1670		2026-09-15	ZABZ-YOGA	open	**L1670 · A kill switch's coverage lives in the deployed artifact; autonomy lives in the caller graph**	entries/lessons/L1670.md	1	56	721df1bf1a6f330e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1076,6 +1081,8 @@ decisions	D188	188		2026-09-15	ZABZ-YOGA	open	**D188 · 2026-09-15 · A stale ow
 decisions	D189	189		2026-09-15	ZABZ-YOGA	open	**D189 · 2026-09-15 · The config contract counts accepted env names; templates document declared settings with their code defaults.**	entries/decisions/D189.md	1	20	4526ca9c4428376e
 decisions	D190	190		2026-09-15	ZABZ-YOGA	open	**D190 · 2026-09-15 · The owner's queue reaches his surface, and the parts that were never his are gone.**	entries/decisions/D190.md	1	66	7abc3269c89d8cb2
 decisions	D191	191		2026-09-15	ZABZ-YOGA	open	**D191 · 2026-09-15 · Cross-machine id collisions: the convention, the 98, and the defect still underneath.**	entries/decisions/D191.md	1	82	f910e386dd4ae34e
+decisions	D192	192		2026-09-15	ZABZ-YOGA	open	**D192 · 2026-09-15 · Payroll arrears are Gusto's own stated number, not a reconstruction; the final week's run is not optional; and filing ownership goes to the queue.**	entries/decisions/D192.md	1	34	11459d404f9cda4f
+decisions	D193	193		2026-09-15	ZABZ-YOGA	open	**D193 · 2026-09-15 · AI writes off in production: decided, done, verified, with the claim measured against the build.**	entries/decisions/D193.md	1	79	fec1766673253999
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
