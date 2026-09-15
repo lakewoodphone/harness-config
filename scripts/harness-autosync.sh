@@ -111,13 +111,25 @@ fi
 SUMMARY="$(printf '%s' "$APPLY" | grep -E '^\s+(install|verify):' | tr '\n' ';' | sed 's/  */ /g')"
 log "apply ok: $SUMMARY"
 
-# ---- 3. report --------------------------------------------------------------------------------
+# ---- 3. contribute local commits back ---------------------------------------------------------
+# Her agent's journal entries are the thing this machine produces, and an entry that never leaves the
+# machine is not learning -- it is a note in a drawer. So local commits are pushed back.
+#
+# A plain `git push` is the only form used: it can never rewrite or destroy a commit, so a refusal is
+# simply "someone else got there first", which the next run resolves after the rebase above. No force,
+# no lease, no reset.
 AHEAD_AFTER="$(git -C "$REPO" rev-list --count '@{u}..HEAD' 2>/dev/null || echo 0)"
 if [ "${AHEAD_AFTER:-0}" -gt 0 ]; then
-  # Local commits (almost certainly her agent's journal entries) are not on the remote. That is not a
-  # failure -- but it is not synced either, so it is reported rather than hidden.
-  log "note: $AHEAD_AFTER local commit(s) not yet on the remote"
-  write_status "attention" "applied; $AHEAD_AFTER local commit(s) ahead of origin" 0 "$AHEAD_AFTER"
+  log "note: $AHEAD_AFTER local commit(s) ahead -- attempting to contribute them"
+  PUSHOUT="$(git -C "$REPO" push origin HEAD 2>&1)"
+  if [ $? -eq 0 ]; then
+    log "pushed $AHEAD_AFTER local commit(s) to origin"
+    write_status "ok" "${SUMMARY:-applied}; contributed $AHEAD_AFTER local commit(s)"
+    log "=== autosync done ==="
+    exit 0
+  fi
+  log "push REFUSED (kept locally, nothing lost): $PUSHOUT"
+  write_status "attention" "applied; $AHEAD_AFTER local commit(s) could not be pushed yet" 0 "$AHEAD_AFTER"
   exit 1
 fi
 
