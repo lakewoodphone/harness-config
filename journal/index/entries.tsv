@@ -423,7 +423,6 @@ lessons	L1462	1462		2026-09-14	SECRATARY	open	**L1462 · A production checkout c
 lessons	L1463	1463		2026-09-14	SECRATARY	open	**L1463 · ps_action save_memory silently drops category/importance/type/tags arguments — verify the row in secretary.db**	entries/lessons/L1463.md	1	18	60bbfa909a9a8ba1
 lessons	L1464	1464		2026-09-14	SECRATARY	open	**L1464 · On secratary the repos are directly under ~/, not ~/code/ — and the phone workspace is /home/zabz/phone**	entries/lessons/L1464.md	1	17	7c0910a08b835cc5
 lessons	L1465	1465		2026-09-14	SECRATARY	open	**L1465 · CHR30A on a Verizon Fios install is an ACCESS POINT, not a router — verify a model number against the vendor before calling a device the gateway**	entries/lessons/L1465.md	1	21	11316cf623423015
-lessons	L1466	1466		2026-09-14	ZABZ-YOGA	open	**L1466 · Two machines allocated the same id during this very merge: the local ceiling reduces the rate, it does not prevent it**	entries/lessons/L1466.md	1	12	9bf6b805bd8c5f2a
 lessons	L1467	1467		2026-09-14	ZABZ-YOGA	open	**L1467 · Grouping comms by the name in them merges strangers: measure the label vocabulary first**	entries/lessons/L1467.md	1	49	071a0a76cf2de97c
 lessons	L1468	1468		2026-09-14	ZABZ-YOGA	open	**L1468 · A capability nobody can discover is a capability nobody has (register the tool, then verify through the agent surface)**	entries/lessons/L1468.md	1	30	58d79fe6bd9b287e
 lessons	L1469	1469		2026-09-14	ZABZ-YOGA	open	**L1469 · 'Last message was inbound' is not 'the customer is waiting' -- three filters, measured**	entries/lessons/L1469.md	1	32	249dcab6fff36668
@@ -436,8 +435,10 @@ lessons	L1475	1475		2026-09-14	ZABZ-YOGA	open	**L1475 · A namespaced action nam
 lessons	L1476	1476		2026-09-14	ZABZ-YOGA	open	**L1476 · A supervisor that reports rc=0 forever is not a job that works**	entries/lessons/L1476.md	1	38	e49f3a78f2090b6b
 lessons	L1477	1477		2026-09-14	ZABZ-TECH	open	**L1477 · A substring match on a historical payload is not a live signal - my watchdog reported a device that never answered**	entries/lessons/L1477.md	1	34	ea0a9eda6dcc145f
 lessons	L1478	1478		2026-09-14	ZABZ-TECH	open	**L1478 · A stale ref and git add -A caused a cross-machine journal id collision, and my commit claimed another session work**	entries/lessons/L1478.md	1	36	58a84740f07e1abb
+lessons	L1479	1479		2026-09-14	ZABZ-YOGA	open	**L1479 · A downloaded file with no row does not exist; and 604 voicemails are recoverable from nowhere**	entries/lessons/L1479.md	1	61	1ee9691c0ced883c
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
+lessons	L1466	1466		2026-09-15	SECRATARY	open	**L1466 · The Google Voice home-phone trick is dead twice over, and magicJack's cheapest price is not the one on the front page**	entries/lessons/L1466.md	1	31	b2b824b4b5c8d291
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -535,7 +536,9 @@ pain	P132	132		2026-09-14	ZABZ-YOGA	open	## P132 — Two sessions can migrate an
 pain	P133	133		2026-09-14	ZABZ-YOGA	open	## P133 — log/** and the six flat files are still writable by any stale checkout	entries/pain/P133.md	1	12	15435ca4a8f8df71
 pain	P134	134		2026-09-14	SECRATARY	open	## P134 — The journal itself has forked: SECRATARY holds 936 entries that exist on no other machine, and ZABZ-YOGA holds 304 that SECRATARY has never read	entries/pain/P134.md	1	45	c2006fbf4b56624a
 pain	P135	135		2026-09-14	ZABZ-YOGA	open	## P135 — A journal append takes 3 minutes and blocks the turn that needs it	entries/pain/P135.md	1	7	22b1620ff90ba12a
-pain	P136	136		2026-09-14	ZABZ-YOGA	open	## P136 — The reconnaissance nudge can never fire: its counter resets every tick and each tick runs one step	entries/pain/P136.md	1	26	86806c7a97467002
+pain	P136	136		2026-09-14	ZABZ-YOGA	done	## P136 — The reconnaissance nudge can never fire: its counter resets every tick and each tick runs one step	entries/pain/P136.md	1	26	86806c7a97467002
+pain	P137	137		2026-09-14	ZABZ-YOGA	open	## P137 — A session believed it closed task #25118 while the task stayed open, then died at the budget	entries/pain/P137.md	1	43	50989bd069e8f1bc
+pain	P138	138		2026-09-14	ZABZ-YOGA	open	## P138 — The budget extension tripled the cost of a failure without changing the outcome (task 25106: 15 steps, still failed)	entries/pain/P138.md	1	46	e58db81cc351baa2
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -643,6 +646,7 @@ decisions	D143	143		2026-09-14	SECRATARY	open	**D143 · 2026-09-14 · Fios home 
 decisions	D144	144		2026-09-14	ZABZ-YOGA	open	**D144 · 2026-09-14 · The journal is one file per entry with a generated cache that heals itself.**	entries/decisions/D144.md	1	12	713086e575382d2c
 decisions	D145	145		2026-09-14	ZABZ-YOGA	open	**D145 · 2026-09-14 · Rebuild the derived tree from the frozen sources, then carry back what only it holds.**	entries/decisions/D145.md	1	12	2a9eb73ab50865c6
 decisions	D146	146		2026-09-14	ZABZ-YOGA	open	**D146 · 2026-09-14 · The person layer: people are built from evidence, every alias says why, drafts are not comms.**	entries/decisions/D146.md	1	37	3941095f3aee4115
+decisions	D147	147		2026-09-14	ZABZ-TECH	open	**D147 · 2026-09-14 · The dead camera path had three stacked causes - wrong port, empty channels, orphaned entity names.**	entries/decisions/D147.md	1	50	6c8ca5c3704c3486
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -726,3 +730,4 @@ wins	W110	110		2026-09-14	ZABZ-YOGA	open	**W110 · 2026-09-14 · The owner-quest
 wins	W111	111		2026-09-14	ZABZ-YOGA	open	**W111 · 2026-09-14 · The work loop never showed the model its own tool results, so no session could accumulate a fact.**	entries/wins/W111.md	1	35	45833224f9e59036
 wins	W112	112		2026-09-14	ZABZ-YOGA	open	**W112 · 2026-09-14 · The 53-silent-devices alarm was our own monitoring: 27 answered within seconds once we asked.**	entries/wins/W112.md	1	49	668024fe0fbe3756
 wins	W113	113		2026-09-14	ZABZ-YOGA	open	**W113 · 2026-09-14 · Journal lock detects a dead holder: 600s of blocked writes became 0.02s.**	entries/wins/W113.md	1	23	c1358abd8af83ce7
+wins	W114	114		2026-09-14	ZABZ-YOGA	open	**W114 · 2026-09-14 · The budget extension fires on a live session: 75414 failed at 5/5, 75415 extended 5 -> 8.**	entries/wins/W114.md	1	38	bc518b06a3ea5071
