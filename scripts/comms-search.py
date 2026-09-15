@@ -106,6 +106,160 @@ def _row(r: sqlite3.Row) -> dict:
     return out
 
 
+# ── turning what an agent typed into a query FTS5 will actually accept ────────
+# An agent has not read this schema. It arrives with `query=` because that is what
+# every other search tool calls it, or with a whole sentence, or with "screen
+# replacement?" and a trailing question mark -- and raw FTS5 answers all three with
+# `syntax error near "?"`, which reads to the caller as "this tool is broken".
+# A tool that dead-ends on the first try is a tool the fleet stops calling, and
+# 34 calls later, every one of them mine, is the measurement of that. So: accept
+# the aliases, sanitise instead of refusing, and when the search has to loosen to
+# find anything at all, say so in the result rather than passing a loose match off
+# as an exact one (L1489).
+_FTS_TOKEN = re.compile(r'"[^"]+"|[A-Za-z0-9_]+')
+_RELATIVE = re.compile(r"^(\d+)\s*(h|d|w|m|y)$", re.I)
+_WORD_DAYS = {"today": 0, "now": 0, "yesterday": 1, "week": 7, "month": 30, "year": 365}
+
+# Words that appear in almost every record, so in a disjunction they match everything
+# and rank nothing. Used ONLY on the loose fallback path: if the conjunction matched,
+# no word is ever removed from a query.
+_STOPWORDS = frozenset("""
+a an the and or but if of to in on at for with about from by as is are was were be been being
+do does did doing have has had we you i he she it they me my our your us them his her its their
+what when where who whom which why how that this these those there here then than so such
+no not only own same too very can will would should could just now also get got
+""".split())
+
+# What a caller might reasonably call each parameter.
+_Q_ALIASES = ("query", "term", "terms", "text", "keywords", "keyword", "search", "q", "what")
+_PARTY_ALIASES = ("party", "customer", "person", "name", "phone", "number", "who",
+                  "contact", "caller", "from")
+_KIND_ALIASES = ("kind", "type", "channel", "source")
+_SINCE_ALIASES = ("since", "after", "from", "start", "date_from", "start_date")
+_UNTIL_ALIASES = ("until", "before", "to", "end", "date_to", "end_date")
+_LIMIT_ALIASES = ("limit", "n", "max", "count", "max_results", "top")
+_DAYS_ALIASES = ("days", "window", "last_days")
+_MODE_ALIASES = {
+    "find": "search", "grep": "search", "lookup": "search", "query": "search",
+    "conversation": "thread", "history": "thread", "messages": "thread",
+    "who": "person", "identity": "person", "about": "person", "profile": "person",
+    "unanswered": "waiting", "needs_reply": "waiting", "pending": "waiting",
+    "status": "health", "check": "health", "index": "health", "freshness": "health",
+}
+VALID_MODES = ("search", "thread", "person", "waiting", "health")
+
+
+def _first(extra: dict, names: tuple[str, ...]) -> str:
+    """The first alias the caller actually supplied, as a string."""
+    for name in names:
+        v = extra.get(name)
+        if v is None:
+            continue
+        if isinstance(v, (list, tuple)):
+            v = " ".join(str(x) for x in v)
+        v = str(v).strip()
+        if v:
+            return v
+    return ""
+
+
+def _fts_terms(q: str) -> list[str]:
+    """Natural language -> FTS5-safe pieces, keeping explicit "quoted phrases"."""
+    return [t for t in _FTS_TOKEN.findall(q or "") if t.strip('"')]
+
+
+def _match_expr(terms: list[str], joiner: str) -> str:
+    """Every piece quoted, so no punctuation can reach the FTS5 parser as syntax."""
+    return joiner.join(t if t.startswith('"') else f'"{t}"' for t in terms)
+
+
+def _significant(term: str) -> bool:
+    """Does this word carry meaning in a search of this corpus?"""
+    word = term.strip('"').lower()
+    if not word:
+        return False
+    if any(c.isdigit() for c in word):
+        return True          # a phone number or model number is always meaningful
+    if len(word) <= 2:
+        return False
+    return word not in _STOPWORDS
+
+
+def normalize_since(value: str | None, today: str | None = None) -> str | None:
+    """Accept what a person types: 2026-09-01, 7d, 24h, 3w, 'last week', 'today'.
+
+    Returns YYYY-MM-DD, or None when the value is not a date at all -- and the
+    caller must then DROP the bound rather than apply a guess, because a silently
+    wrong `since` returns an empty answer that reads like "nothing happened".
+    """
+    v = " ".join(str(value or "").split()).lower()
+    v = re.sub(r"^(last|past|previous)\s+", "", v).strip()
+    if not v or v in ("all", "any", "ever", "always", "none"):
+        return None
+    if re.match(r"^\d{4}-\d{2}-\d{2}", v):
+        return v[:10]
+    if v in _WORD_DAYS:
+        days = _WORD_DAYS[v]
+    else:
+        m = _RELATIVE.match(v)
+        if not m:
+            return None
+        n, unit = int(m.group(1)), m.group(2).lower()
+        days = n * {"h": 0, "d": 1, "w": 7, "m": 30, "y": 365}[unit]
+        if unit == "h" and n >= 24:
+            days = n // 24
+    base = (dt.datetime.strptime(today, "%Y-%m-%d")
+            if today else dt.datetime.now(dt.timezone.utc))
+    return (base - dt.timedelta(days=days)).strftime("%Y-%m-%d")
+
+
+def _party_filter(con: sqlite3.Connection, party: str, persons: int = 3) -> tuple[str, list, dict]:
+    """Match one party, expanding a NAME through the person layer first.
+
+    `party='Dovid'` used to match only records whose counterparty string happened to
+    contain "Dovid", so a customer we know by number returned nothing and the caller
+    concluded we had never spoken. The name is now resolved to every identifier we
+    hold for that person, and which identity was used comes back in the result -- a
+    resolution that cannot say who it resolved to is not evidence.
+
+    The literal match is always OR-ed in beside the resolved one, because resolution
+    can pick the wrong Dovid and a person's own name is always on their records. Same
+    helper for search and thread: the two modes disagreeing about who a party is was
+    the bug that made `thread Dovid` return nothing while `search --party Dovid`
+    returned his messages.
+    """
+    clauses, args, info = [], [], {}
+    try:
+        found = resolve_people(con, party, limit=5)
+    except sqlite3.Error:
+        found = []
+    if found:
+        chosen = found[:max(1, int(persons))]
+        info = {
+            "party_resolved": chosen[0].get("display_name") or chosen[0].get("person_key"),
+            "party_matched_by": chosen[0].get("matched_by"),
+            "party_confidence": ("exact" if str(chosen[0].get("matched_by", "")).endswith("exact")
+                                 else "estimated"),
+        }
+        others = [p.get("display_name") or p.get("person_key") for p in found[len(chosen):]]
+        if others:
+            # Saying which OTHER people share the name is what stops a caller reading a
+            # merged thread as one customer when it is three.
+            info["other_candidates"] = others[:4]
+        for p in chosen:
+            clause, args_p = _person_clause(p)
+            clauses.append(clause)
+            args.extend(args_p)
+    clauses.append("c.counterparty LIKE ?")
+    args.append(f"%{party}%")
+    dig = _digits(party)
+    if dig:
+        clauses.append("REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(c.address,''),'(',''),')',''),"
+                       "'-',''),' ','') LIKE ?")
+        args.append(f"%{dig[-10:]}%")
+    return "(" + " OR ".join(clauses) + ")", args, info
+
+
 def search(db: str, q: str, kind: str | None = None, limit: int = 20,
            exact: bool = False, since: str | None = None,
            until: str | None = None, party: str | None = None,
@@ -113,44 +267,103 @@ def search(db: str, q: str, kind: str | None = None, limit: int = 20,
     con = _connect(db)
     try:
         meta = _meta(con)
-        table = "comms_tri" if exact else "comms_fts"
-        # Trigram cannot stem, so it must be given a literal; porter gets the terms.
-        match = f'"{q}"' if exact else q
-        sql = (f"SELECT c.*, snippet({table}, 0, '[[', ']]', ' … ', 14) AS snip, "
-               f"bm25({table}) AS score FROM {table} f JOIN comms c ON c.id = f.rowid "
-               f"WHERE {table} MATCH ?")
-        args: list = [match]
+        q = " ".join(str(q or "").split())
+        since = normalize_since(since)
+        until = normalize_since(until)
+        terms = _fts_terms(q)
+
+        where: list = []
+        args: list = []
+        info: dict = {}
         if kind:
-            sql += " AND c.kind = ?"
+            where.append("c.kind = ?")
             args.append(kind)
         if since:
-            sql += " AND c.day >= ?"
+            where.append("c.day >= ?")
             args.append(since)
         if until:
-            sql += " AND c.day <= ?"
+            where.append("c.day <= ?")
             args.append(until)
         if party:
-            dig = _digits(party)
-            clause = "c.counterparty LIKE ?"
-            pargs: list = [f"%{party}%"]
-            if dig:
-                clause += (" OR REPLACE(REPLACE(REPLACE(c.address,'+',''),'-',''),' ','')"
-                           " LIKE ?")
-                pargs.append(f"%{dig[-10:]}%")
-            sql += f" AND ({clause})"
-            args.extend(pargs)
-        # Recency is the right default for this corpus ("who said this lately"), but
-        # a rare term in a year-old call is exactly what relevance ranking is for.
-        sql += (" ORDER BY score LIMIT ?" if rank == "relevance"
-                else " ORDER BY c.ts DESC LIMIT ?")
-        args.append(int(limit))
-        rows = con.execute(sql, args).fetchall()
+            clause, args_p, info = _party_filter(con, party)
+            where.append(clause)
+            args.extend(args_p)
+
+        if not terms and not where:
+            return {"ok": False, "mode": "search", "query": q,
+                    "error": ("nothing to search for — pass q (words to look for) "
+                              "and/or party (a name, number or email)")}
+
+        table = "comms_tri" if exact else "comms_fts"
+        rows: list = []
+        match_mode = None
+        note = None
+
+        def _run(match: str, by: str | None = None) -> list:
+            sql = (f"SELECT c.*, snippet({table}, 0, '[[', ']]', ' … ', 14) AS snip, "
+                   f"bm25({table}) AS score FROM {table} f JOIN comms c ON c.id = f.rowid "
+                   f"WHERE {table} MATCH ?")
+            a = [match, *args]
+            if where:
+                sql += " AND " + " AND ".join(where)
+            # Recency is the right default for this corpus ("who said this lately"),
+            # but a rare term in a year-old call is what relevance ranking is for.
+            sql += (" ORDER BY score LIMIT ?" if (by or rank) == "relevance"
+                    else " ORDER BY c.ts DESC LIMIT ?")
+            return con.execute(sql, [*a, int(limit)]).fetchall()
+
+        if terms:
+            # Trigram cannot stem, so it must be given a literal; porter gets terms.
+            primary = f'"{q}"' if exact else _match_expr(terms, " AND ")
+            try:
+                rows = _run(primary)
+                match_mode = "exact-phrase" if exact else "all-terms"
+            except sqlite3.OperationalError:
+                rows = []          # fall through to the looser, always-safe form
+            if not rows and len(terms) > 1:
+                # A sentence has two ways to fail. As a conjunction it matches nothing
+                # ("when did we last talk about a cracked screen" is not a sentence
+                # anyone said); as a disjunction its stopwords match everything. The
+                # first attempt did exactly that and put "It's a iPhone 16 pro max" on
+                # top of a question about a cracked screen, because the loose path was
+                # still ordered by date -- and a loose match sorted by recency is
+                # indistinguishable from no search at all. So the loose path drops the
+                # empty words and is ordered by relevance, and it says which words it
+                # actually used.
+                significant = [t for t in terms if _significant(t)] or terms
+                loose = _match_expr(significant, " OR ")
+                try:
+                    loose_rows = _run(loose, by="relevance")
+                except sqlite3.OperationalError:
+                    loose_rows = []
+                if loose_rows:
+                    rows = loose_rows
+                    match_mode = "any-term"
+                    note = ("no single record contained every term; these contain at "
+                            "least one of " + str([t.strip('"') for t in significant])
+                            + ", best match first — treat the match as loose")
+                else:
+                    match_mode = match_mode or "all-terms"
+                    note = "no record contained any of these terms"
+            elif not rows:
+                note = "no record matched"
+        else:
+            # Filters only: "everything from this customer", "all calls in June".
+            # Previously this path did not exist, so a caller with a party and no
+            # keywords got an FTS5 syntax error instead of their history.
+            match_mode = "filter-only"
+            sql = ("SELECT c.*, substr(COALESCE(c.text,''),1,400) AS snip, 0 AS score "
+                   "FROM comms c WHERE " + " AND ".join(where) +
+                   " ORDER BY c.ts DESC LIMIT ?")
+            rows = con.execute(sql, [*args, int(limit)]).fetchall()
+
         age = _age_hours(meta)
-        return {
+        out = {
             "ok": True,
             "mode": "search",
             "query": q,
             "rank": rank,
+            "match_mode": match_mode,
             "count": len(rows),
             "results": [_row(r) for r in rows],
             "index_age_hours": None if age is None else round(age, 2),
@@ -158,6 +371,14 @@ def search(db: str, q: str, kind: str | None = None, limit: int = 20,
             "indexed_total": con.execute("SELECT COUNT(*) FROM comms").fetchone()[0],
             "last_index": meta.get("last_index"),
         }
+        if terms:
+            out["terms"] = [t.strip('"') for t in terms]
+        if since or until:
+            out["date_filter"] = {"since": since, "until": until}
+        if note:
+            out["note"] = note
+        out.update(info)
+        return out
     finally:
         con.close()
 
@@ -468,23 +689,20 @@ def thread(db: str, party: str, limit: int = 60,
     try:
         dig = _digits(party)
         if not dig and not party:
-            return {"ok": False, "error": "party is required"}
-        people = resolve_people(con, party, limit=1)
-        if people:
-            clause, args = _person_clause(people[0])
-            how = (f"person {people[0].get('display_name')!r} "
-                   f"({people[0].get('matched_by')}) across "
-                   f"{len(people[0].get('phones') or [])} number(s)")
+            return {"ok": False, "mode": "thread", "error": "party is required"}
+        # One person, not three: a thread is a claim that these words are one
+        # conversation, so merging every Dovid would invent a correspondent who does
+        # not exist. Any other people sharing the name are reported alongside instead.
+        clause, args, info = _party_filter(con, party, persons=1)
+        if info:
+            how = (f"person {info.get('party_resolved')!r} "
+                   f"({info.get('party_matched_by')}), plus a literal match on {party!r}")
+            if info.get("other_candidates"):
+                how += ("; other people share this name — " +
+                        ", ".join(str(o) for o in info["other_candidates"]) +
+                        " — use mode=person to pick one")
         else:
-            clauses = ["c.counterparty LIKE ?"]
-            args = [f"%{party}%"]
-            if dig:
-                clauses.append(
-                    "REPLACE(REPLACE(REPLACE(REPLACE(c.address,'+',''),'-',''),' ',''),"
-                    "'.','') LIKE ?")
-                args.append(f"%{dig[-10:]}%")
-            clause = "(" + " OR ".join(clauses) + ")"
-            how = "raw match on the query (no known person)"
+            how = f"raw match on {party!r} (no known person)"
         sql = f"SELECT c.* FROM comms c WHERE {clause}"
         if since:
             sql += " AND c.day >= ?"
@@ -495,7 +713,7 @@ def thread(db: str, party: str, limit: int = 60,
         rows = list(reversed(rows))  # chronological reads better for a conversation
         meta = _meta(con)
         age = _age_hours(meta)
-        return {
+        out = {
             "ok": True,
             "mode": "thread",
             "party": party,
@@ -505,6 +723,8 @@ def thread(db: str, party: str, limit: int = 60,
             "index_age_hours": None if age is None else round(age, 2),
             "index_stale": bool(age is not None and age > STALE_HOURS),
         }
+        out.update(info)
+        return out
     finally:
         con.close()
 
@@ -605,8 +825,30 @@ def health(db: str) -> dict:
 # ── HTTP / dynamic-tool entry point ───────────────────────────────────────────
 def run(mode: str = "search", q: str = "", party: str = "", kind: str = "",
         limit: str = "20", exact: str = "", since: str = "", until: str = "",
-        days: str = "", db: str = DEFAULT_DB) -> dict:
-    """Called by POST /tools/run/comms_search with string params."""
+        days: str = "", db: str = DEFAULT_DB, **extra) -> dict:
+    """Called by POST /tools/run/comms_search with string params.
+
+    Tolerant on purpose. This is called by LLM agents that were told what it does,
+    not what its parameters are named, and an unknown argument used to raise
+    TypeError while a guessed argument name used to search for the empty string and
+    return an FTS5 syntax error -- both of which read as "broken tool". So unknown
+    keys are accepted and ignored, every plausible spelling of every parameter is
+    honoured, and a mode we do not have says which modes we do.
+    """
+    q = q or _first(extra, _Q_ALIASES)
+    party = party or _first(extra, _PARTY_ALIASES)
+    kind = kind or _first(extra, _KIND_ALIASES)
+    since = since or _first(extra, _SINCE_ALIASES)
+    until = until or _first(extra, _UNTIL_ALIASES)
+    limit = limit if str(limit or "").strip() else _first(extra, _LIMIT_ALIASES)
+    days = days or _first(extra, _DAYS_ALIASES)
+
+    mode = re.sub(r"[^a-z]", "", str(mode or "").strip().lower()) or "search"
+    mode = _MODE_ALIASES.get(mode, mode)
+    if mode not in VALID_MODES:
+        return {"ok": False, "mode": mode, "error": f"unknown mode {mode!r} — use one of: "
+                + ", ".join(VALID_MODES)}
+
     try:
         n = int(limit or 20)
     except (TypeError, ValueError):
@@ -617,23 +859,38 @@ def run(mode: str = "search", q: str = "", party: str = "", kind: str = "",
     if mode == "health":
         return dict(health(db), mode="health")
     if mode == "thread":
-        return thread(db, party or q, limit=n, since=since or None)
+        if not (party or q):
+            return {"ok": False, "mode": "thread",
+                    "error": "thread needs party= (a name, phone number or email)"}
+        return thread(db, party or q, limit=n, since=normalize_since(since))
     if mode == "person":
-        return person_view(db, party or q, limit=n, since=since or None)
+        if not (party or q):
+            return {"ok": False, "mode": "person",
+                    "error": "person needs party= (a name, phone number or email)"}
+        return person_view(db, query=party or q, limit=n, since=normalize_since(since))
     if mode == "waiting":
         try:
-            days = int(days or 7)
+            d = int(days or 7)
         except (TypeError, ValueError):
-            days = 7
-        return waiting(db, days=max(1, min(days, 365)), limit=n)
+            d = 7
+        return waiting(db, days=max(1, min(d, 365)), limit=n)
+
+    # A caller who says "the last 30 days" without a date is common enough that it
+    # should not silently search all time.
+    if not since and days:
+        since = f"{days}d"
+    rank = "relevance" if _first(extra, ("rank", "sort", "order_by", "order")).lower() in (
+        "relevance", "relevant", "score", "best", "bm25") else "recent"
     try:
         return search(db, q, kind=kind or None, limit=n, exact=truthy(exact),
                       since=since or None, until=until or None,
-                      party=party or None)
+                      party=party or None, rank=rank)
     except sqlite3.OperationalError as exc:
-        # A malformed FTS query is a user error, not a crash: say which.
+        # A malformed FTS query is a user error, not a crash: say which, and say what
+        # would have worked, because the caller is going to retry with this message.
         return {"ok": False, "mode": mode, "query": q,
-                "error": f"{exc} — FTS5 syntax; quote phrases, e.g. \"water damage\""}
+                "error": f"{exc} — FTS5 rejected the expression; retry with plain "
+                         f"words, e.g. q=\"water damage\""}
 
 
 def _render(res: dict) -> str:
@@ -720,13 +977,18 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("search")
-    p.add_argument("q")
+    # Optional, not required: `search --party <customer>` with no keywords is a real
+    # question ("everything from this customer"), and requiring a positional forced
+    # the caller to invent one.
+    p.add_argument("q", nargs="?", default="")
     p.add_argument("--kind", default=None)
     p.add_argument("--limit", type=int, default=20)
     p.add_argument("--exact", action="store_true")
     p.add_argument("--since")
     p.add_argument("--until")
     p.add_argument("--party")
+    p.add_argument("--days", default="")
+    p.add_argument("--rank", default="recent", choices=("recent", "relevance"))
     p.set_defaults(mode="search")
 
     p = sub.add_parser("thread")
@@ -760,7 +1022,8 @@ def main() -> int:
     else:
         try:
             res = search(a.db, a.q, kind=a.kind, limit=a.limit, exact=a.exact,
-                         since=a.since, until=a.until, party=a.party)
+                         since=a.since or (f"{a.days}d" if a.days else None),
+                         until=a.until, party=a.party, rank=a.rank)
         except sqlite3.OperationalError as exc:
             res = {"ok": False, "error": f"{exc} — FTS5 syntax; quote phrases"}
     print(json.dumps(res, indent=1) if a.json else _render(res))
