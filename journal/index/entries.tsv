@@ -141,6 +141,9 @@ handoff	H231	231		2026-09-15 15:14 UTC	ZABZ-TECH	open	## 2026-09-15 15:14 UTC ·
 handoff	H232	232		2026-09-15 15:23 UTC	ZABZ-TECH	open	## 2026-09-15 15:23 UTC · ZABZ-TECH · 300DDR ticket 74048 issued for the Weissman SN740 - now it just has to be shipped	entries/handoff/H232.md	1	52	8a12258ac1fff1be
 handoff	H233	233		2026-09-15 15:25 UTC	ZABZ-TECH	open	## 2026-09-15 15:25 UTC · ZABZ-TECH · RattleByte ticket #188880 (Panasonic DMP-BD84 region-free) — vendor reply recovered from the portal, logged, task reopened	entries/handoff/H233.md	1	50	a9f5fbefb20688f2
 handoff	H234	234		2026-09-15 15:30 UTC	ZABZ-TECH	open	## 2026-09-15 15:30 UTC · ZABZ-TECH · RattleByte #188880 logged and task reopened; install procedure confirmed correct and the USB stick is the ranked cause; ps_task_update/ps_memory_search fixed (8e8616e5)	entries/handoff/H234.md	1	62	b3aa16d8428e6bba
+handoff	H235	235		2026-09-15 16:27 UTC	ZABZ-TECH	open	## 2026-09-15 16:27 UTC · ZABZ-TECH · Newman (347) 768-0413 flash-drive intake: case filed, bench armed, drives not yet connected	entries/handoff/H235.md	1	58	2ff12aab2a7ef5fc
+handoff	H236	236		2026-09-15 16:35 UTC	ZABZ-TECH	open	## 2026-09-15 16:35 UTC · ZABZ-TECH · Newman virus case: AutoIt USB worm confirmed on both drives, 12.7 GB data intact and copied off, deliverable medium awaits the owner	entries/handoff/H236.md	1	56	eccb2f1520edbac1
+handoff	H237	237		2026-09-15 16:42 UTC	ZABZ-TECH	open	## 2026-09-15 16:42 UTC · ZABZ-TECH · Eli Green S22 Ultra U1 flash: post-flash verified, Play Store was disabled (fixed), case file updated	entries/handoff/H237.md	1	24	e49e795d38597a0b
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -493,6 +496,10 @@ lessons	L1509	1509		2026-09-15	ZABZ-YOGA	open	**L1509 · A swallowed exception i
 lessons	L1510	1510		2026-09-15	ZABZ-TECH	open	**L1510 · Answer a live case question from the newest communication, not the case file**	entries/lessons/L1510.md	1	37	bb54fed012213e63
 lessons	L1511	1511		2026-09-15	ZABZ-TECH	open	**L1511 · A 300DDR ticket number is per-device and does not exist until the final form is submitted**	entries/lessons/L1511.md	1	47	97e189da0829fee8
 lessons	L1512	1512		2026-09-15	ZABZ-TECH	open	**L1512 · A reply that lives only on a vendor portal is invisible to a mail-shaped pipeline, and a task auto-created from a notification will be closed against the notification**	entries/lessons/L1512.md	1	42	e826b4ad84e03317
+lessons	L1513	1513		2026-09-15	ZABZ-TECH	open	**L1513 · lpt-recovery-manager claim wants the case DIRECTORY basename, not the new-case slug**	entries/lessons/L1513.md	1	27	d0007040d00df031
+lessons	L1514	1514		2026-09-15	ZABZ-TECH	open	**L1514 · FAT drives with Hebrew names: the default mount shows ??? and a copy under it destroys the names; also pkill -f kills your own ssh shell**	entries/lessons/L1514.md	1	32	84f2efd4bca0e62d
+lessons	L1515	1515		2026-09-15	ZABZ-TECH	open	**L1515 · A missing system app on a freshly flashed phone is usually DISABLED for user 0 — ask pm before blaming the flash**	entries/lessons/L1515.md	1	16	41a00a6dfb770886
+lessons	L1516	1516		2026-09-15	ZABZ-TECH	open	**L1516 · Flashing U1 with the carrier SIM in gives the carrier's CSC, not XAA — judge the flash by the carrier config**	entries/lessons/L1516.md	1	10	e7845fad26803360
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -721,6 +728,7 @@ decisions	D152	152		2026-09-15	ZABZ-YOGA	open	**D152 · 2026-09-15 · Owner-queu
 decisions	D153	153		2026-09-15	ZABZ-TECH	open	**D153 · 2026-09-15 · Sync records get a labEscalation block; Weissman SSD price is 800 not 500.**	entries/decisions/D153.md	1	32	82f2f5e8cb4bacd4
 decisions	D154	154		2026-09-15	ZABZ-TECH	open	**D154 · 2026-09-15 · Vendor mail signs under the account-holder name (not the customer alias); the DMP-BD84 case is filed as a device log, not a customer case.**	entries/decisions/D154.md	1	29	a7cc45f6f5a1b5ca
 decisions	D155	155		2026-09-15	ZABZ-TECH	open	**D155 · 2026-09-15 · RattleByte #188880: the owner takes the three data points himself - no agent sends or chases anything until then.**	entries/decisions/D155.md	1	24	ce24a553fd632789
+decisions	D156	156		2026-09-15	ZABZ-TECH	open	**D156 · 2026-09-15 · Case record written on the authority; only the app the customer needs re-enabled; flash judged by applied carrier config.**	entries/decisions/D156.md	1	12	f439cf614e067c3f
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
