@@ -760,6 +760,8 @@ lessons	L1662	1662		2026-09-15	ZABZ-YOGA	open	**L1662 · A ref is safe to delete
 lessons	L1663	1663		2026-09-15	ZABZ-YOGA	open	**L1663 · A queue needs a terminal state for every outcome, or its length is a lie**	entries/lessons/L1663.md	1	28	c764b6dcc87ef7ac
 lessons	L1664	1664		2026-09-15	ZABZ-YOGA	open	**L1664 · Never write an act in the past tense before you read it back**	entries/lessons/L1664.md	1	48	bcb52e091acd0c7d
 lessons	L1665	1665		2026-09-15	ZABZ-YOGA	open	**L1665 · A derived column that nothing refreshes is not provenance**	entries/lessons/L1665.md	1	49	5ed1aef801774a54
+lessons	L1666	1666		2026-09-15	LAKEWOOECHSMINI	open	**L1666 · L1568 · ps-mesh file is not byte-faithful - it silently mangles non-ASCII (scp is)**	entries/lessons/L1666.md	1	47	da49ed4541333598
+lessons	L1667	1667		2026-09-15	LAKEWOOECHSMINI	open	**L1667 · L1569 · Customer price lives in the owner's formula, not in the case file (Gutterman, 202**	entries/lessons/L1667.md	1	25	959f6723e93638f0
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -919,6 +921,8 @@ pain	P194	194		2026-09-15	ZABZ-YOGA	open	## P194 — The three real HIGH finding
 pain	P195	195		2026-09-15	ZABZ-YOGA	open	## P195 — One real finding left on the badge: the harness-config divergence (13 ahead / 104 behind)	entries/pain/P195.md	1	20	673b83c0af44567f
 pain	P196	196		2026-09-15	ZABZ-YOGA	open	## P196 — The shared journal hub is a junk drawer: 42 branches, thirty from one day	entries/pain/P196.md	1	20	3895097561c30b1e
 pain	P197	197		2026-09-15	ZABZ-YOGA	open	## P197 — Entry ids collide across machines when unpushed; the journal repos are 39/10 apart	entries/pain/P197.md	1	66	df42a9a909e70c64
+pain	P198	198		2026-09-15	LAKEWOOECHSMINI	open	## P198 — P165 — ps-system.mjs on lakewooechsmini returns 502/500 intermittently	entries/pain/P198.md	1	10	10d935558e4676da
+pain	P199	199		2026-09-15	LAKEWOOECHSMINI	open	## P199 — P166 — No byte-safe remote file read in the mesh: ps-mesh file corrupts records on round	entries/pain/P199.md	1	19	9607db49af9a296f
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
