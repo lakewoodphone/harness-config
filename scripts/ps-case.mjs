@@ -29,11 +29,22 @@
  * repo-sync carries the same machine tag.
  *
  * Usage:
- *   node ps-case.mjs open --name "..." --phone "..." --device "..." --issue "..." [--slug x] [--task-id N] [--contact-id N]
+ *   node ps-case.mjs open --name "..." --phone "..." --device "..." --issue "..." \
+ *        [--work-order WO...] [--order-number N] [--ticket-number N] [--next "..."]
  *   node ps-case.mjs note --case <slug> --text "..."            # append a dated timeline entry
  *   node ps-case.mjs status --case <slug> --status "SOURCED" [--note "..."]
+ *   node ps-case.mjs price --case <slug> [--parts-cost 49.99] [--bench 20] [--record]
  *   node ps-case.mjs show --case <slug>
  *   node ps-case.mjs list [--limit 10]
+ *
+ * `open` writes the sync record per docs/customer-operations/CROSS_REPO_CUSTOMER_SYNC_CONTRACT.md, so
+ * pass whichever matcher is known -- workOrderId, orderNumber, ticketNumber or the phone is required
+ * for the record to be matched at all downstream.
+ *
+ * `price` closes the gap journal L1569 recorded: the case file held OUR cost and nowhere the customer
+ * price, so "what does this customer owe" had no answer. It shows the arithmetic from the documented
+ * framework (parts 1.4x cost, labor $30-$120 by complexity) and leaves the number to the manager, who
+ * has quoting authority within it.
  *
  * Options: --root <lpt-hub path>  (default: search the usual places), --json
  */
@@ -123,26 +134,64 @@ function appendTimeline(text, entry) {
   return `${text.replace(/\s*$/, '')}\n\n## Timeline\n${bullet}\n`;
 }
 
-function writeSyncRecord(root, { caseId, name, phone, device, issue, taskId, contactId }) {
+/**
+ * Write the machine-readable sync record, conforming to the repo's OWN contract:
+ * `docs/customer-operations/CROSS_REPO_CUSTOMER_SYNC_CONTRACT.md`.
+ *
+ * I HAD THIS WRONG. The first version copied the shape of one existing record and used
+ * `references.contactId` / `references.taskId`. The contract requires its `references` matchers to be
+ * `workOrderId`, `orderNumber`, `ticketNumber` or `customer.phone`, in that order of preference, and it
+ * says the structured record is AUTHORITATIVE for projection fields. A record written with keys the
+ * consumer does not look for is not a rejected record -- it is a record that silently never matches, so
+ * the customer's case exists in lpt-hub and never appears against the live work order. That is exactly
+ * the silent-failure class this session has already been fixing, and I introduced it.
+ *
+ * `sourcePath` is relative to the lpt-hub root, per the contract, and `relatedPaths` is where the
+ * contract wants supporting docs to travel with the case.
+ */
+function writeSyncRecord(root, { caseId, name, phone, device, issue, workOrderId, orderNumber, ticketNumber, relatedPaths, nextAction, portalSummary, referral, existing }) {
   const { sync } = ensureDirs(root);
   const file = path.join(sync, `${caseId}-${dateOnly()}.json`);
-  let existing = {};
-  if (fs.existsSync(file)) { try { existing = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { existing = {}; } }
+  let prior = existing ?? {};
+  if (!existing && fs.existsSync(file)) { try { prior = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { prior = {}; } }
+
+  // Matchers, in the contract's own precedence order. Only the ones actually known are written --
+  // an empty string is not a matcher and would be worse than an absent key.
+  const references = { ...(prior.references ?? {}) };
+  if (workOrderId) references.workOrderId = workOrderId;
+  if (orderNumber) references.orderNumber = orderNumber;
+  if (ticketNumber) references.ticketNumber = ticketNumber;
+  if (relatedPaths?.length) references.relatedPaths = relatedPaths;
+
+  // The case document is the primary source, and it lives beside the record.
+  const caseDoc = `docs/customer-operations/cases/${caseId}.md`;
+
+  const operational = {
+    ...(prior.operational ?? {}),
+    internalSummary: issue || prior.operational?.internalSummary || '',
+  };
+  // The contract asks for these explicitly, and they are the difference between a case someone can act
+  // on and a case someone has to re-read.
+  if (nextAction) operational.nextAction = nextAction;
+  if (portalSummary) operational.portalSummary = portalSummary;
+  operational.shouldSyncToWebsite = prior.operational?.shouldSyncToWebsite ?? true;
+
   const record = {
     recordType: 'customer-case-sync-record',
     version: 1,
     caseId,
-    sourcePath: path.relative(root, file).split(path.sep).join('/'),
-    customer: { name, phone },
-    device: { summary: device },
-    references: { contactId: contactId ?? existing?.references?.contactId ?? null, taskId: taskId ?? existing?.references?.taskId ?? null },
-    workflow: existing.workflow ?? {
-      customerState: 'real-interaction',
-      ticketState: taskId ? 'ticket-created' : 'no-ticket',
-      workOrderState: 'checked-in',
-      contactPreference: 'sms',
+    sourcePath: caseDoc,
+    customer: { name: name ?? prior.customer?.name, phone: phone ?? prior.customer?.phone },
+    device: { summary: device ?? prior.device?.summary },
+    references,
+    workflow: {
+      ...(prior.workflow ?? {}),
+      customerState: prior.workflow?.customerState ?? 'real-interaction',
+      ticketState: prior.workflow?.ticketState ?? (ticketNumber ? 'ticket-created' : 'no-ticket'),
+      workOrderState: prior.workflow?.workOrderState ?? (workOrderId ? 'work-order-referenced' : 'checked-in'),
+      contactPreference: prior.workflow?.contactPreference ?? 'sms',
     },
-    operational: { internalSummary: issue },
+    operational,
     // The label the owner asked for: which machine produced this record.
     source: { machine: MACHINE, recordedAt: fullStamp(), tool: 'ps-case.mjs' },
   };
@@ -192,11 +241,14 @@ function main() {
     const slug = opt('--slug') || `${slugify(name)}-${slugify(device || 'device')}-${dateOnly()}`;
     const { cases } = ensureDirs(root);
     const file = path.join(cases, `${slug}.md`);
-    const taskId = opt('--task-id') ? Number(opt('--task-id')) : null;
-    const contactId = opt('--contact-id') ? Number(opt('--contact-id')) : null;
+    // The contract's matchers, in its own precedence order.
+    const workOrderId = opt('--work-order');
+    const orderNumber = opt('--order-number');
+    const ticketNumber = opt('--ticket-number');
+    const nextAction = opt('--next');
 
     if (fs.existsSync(file)) {
-      console.log(`ps-case: ${path.relative(root, file)} already exists -- appending instead of overwriting`);
+      console.log(`ps-case: ${path.relative(root, file)} already exists -- updating the sync record only`);
     } else {
       const doc = [
         `# ${name}${device ? ' — ' + device : ''}`,
@@ -205,7 +257,12 @@ function main() {
         `**Customer:** ${name} — ${phone}`,
         device ? `**Device:** ${device}` : null,
         `**Work:** ${issue || '(to be assessed)'}`,
-        taskId ? `**Task:** ${taskId}` : null,
+        workOrderId ? `**Work order:** ${workOrderId}` : null,
+        orderNumber ? `**Order:** ${orderNumber}` : null,
+        ticketNumber ? `**Ticket:** ${ticketNumber}` : null,
+        '',
+        '## Customer / Case Linkage',
+        `- Recorded from \`${MACHINE}\` on ${dateOnly()}.`,
         '',
         '## Timeline',
         `- **${dateOnly()}:** Intake recorded from \`${MACHINE}\`. ${issue || ''}`.trim(),
@@ -214,8 +271,63 @@ function main() {
       fs.writeFileSync(file, doc, 'utf8');
       console.log(`  wrote ${path.relative(root, file)}`);
     }
-    const rel = writeSyncRecord(root, { caseId: slug, name, phone, device, issue, taskId, contactId });
+    const rel = writeSyncRecord(root, {
+      caseId: slug, name, phone, device, issue,
+      workOrderId, orderNumber, ticketNumber, nextAction,
+    });
     console.log(`  wrote ${rel}  (source.machine=${MACHINE})`);
+    console.log('  matchers per CROSS_REPO_CUSTOMER_SYNC_CONTRACT.md: ' +
+      [workOrderId && 'workOrderId', orderNumber && 'orderNumber', ticketNumber && 'ticketNumber', 'customer.phone'].filter(Boolean).join(', '));
+    return;
+  }
+
+  if (VERB === 'price') {
+    // Close the gap her agent found (journal L1569): the case file recorded OUR cost and left the
+    // customer price nowhere, so nobody could answer "what does this customer owe".
+    //
+    // The framework is DOCUMENTED, not invented -- lpt-hub docs/operations/weinberg-hire-working-notes
+    // section "Pricing Structure": labor $30-$120 by job complexity, parts at 1.4x cost, bench fee for
+    // jobs that sit, and the manager has full quoting authority within it. So this does not decide a
+    // price; it shows the arithmetic and the labor range and leaves the number to her judgment, which
+    // is what the framework itself says.
+    //
+    // OUR COST STAYS INTERNAL: the case file may carry it (the shop's own record) but nothing here
+    // suggests putting cost or markup in front of a customer -- that rule is absolute in this company
+    // and is why the ever-share warning exists.
+    const partsCost = opt('--parts-cost');
+    const caseSlug = opt('--case');
+    const p = caseSlug ? casePath(root, caseSlug) : null;
+    let cost = partsCost ? Number(partsCost) : null;
+    if (cost === null && p && fs.existsSync(p)) {
+      // Try to read the cost the case file already records, so she does not have to retype it.
+      const t = fs.readFileSync(p, 'utf8');
+      const m = t.match(/\$\s*([0-9]+(?:\.[0-9]{1,2})?)/g);
+      if (m && m.length) cost = Number(m[0].replace(/[^0-9.]/g, ''));
+    }
+    if (cost === null) {
+      console.error('ps-case price: needs --parts-cost <number>, or --case <slug> whose file records a cost');
+      process.exit(2);
+    }
+    const partsPrice = Math.round(cost * 1.4 * 100) / 100;
+    const laborLo = 30; const laborHi = 120;
+    const bench = opt('--bench') ? Number(opt('--bench')) : 0;
+    console.log(`  parts cost        : $${cost.toFixed(2)}   (internal — never shown to a customer)`);
+    console.log(`  parts price       : $${partsPrice.toFixed(2)}   (1.4x, the documented markup)`);
+    console.log(`  labor             : $${laborLo}–$${laborHi} by job complexity — this is the manager's call`);
+    console.log(`  bench fee         : ${bench ? '$' + bench.toFixed(2) : '(if the device sat — amount is TBD in the framework)'}`);
+    console.log('');
+    console.log(`  customer total    : $${(partsPrice + laborLo + bench).toFixed(2)} – $${(partsPrice + laborHi + bench).toFixed(2)}`);
+    console.log(`  do NOT quote the cost, the markup, or where the part came from — only the total.`);
+    if (caseSlug && p && fs.existsSync(p)) {
+      if (ARGS.includes('--record')) {
+        const t = setHeaderLine(fs.readFileSync(p, 'utf8'), 'Quoted price',
+          `$${(partsPrice + laborLo).toFixed(2)}–$${(partsPrice + laborHi).toFixed(2)} range set ${dateOnly()}, from ${MACHINE}`);
+        fs.writeFileSync(p, t, 'utf8');
+        console.log(`  recorded the range in ${path.relative(root, p)}`);
+      } else {
+        console.log(`  add --record to write that range into the case file`);
+      }
+    }
     return;
   }
 
