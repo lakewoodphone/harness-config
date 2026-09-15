@@ -146,6 +146,7 @@ handoff	H236	236		2026-09-15 16:35 UTC	ZABZ-TECH	open	## 2026-09-15 16:35 UTC ·
 handoff	H237	237		2026-09-15 16:42 UTC	ZABZ-TECH	open	## 2026-09-15 16:42 UTC · ZABZ-TECH · Eli Green S22 Ultra U1 flash: post-flash verified, Play Store was disabled (fixed), case file updated	entries/handoff/H237.md	1	24	e49e795d38597a0b
 handoff	H238	238		2026-09-15 17:15 UTC	ZABZ-TECH	open	## 2026-09-15 17:15 UTC · ZABZ-TECH · Eli Green case CLOSED: flash verified, WiFi calling live, Play Store restored, device returned (WhatsApp key stays customer-side)	entries/handoff/H238.md	1	23	94e863b1668284c5
 handoff	H239	239		2026-09-15 17:22 UTC	ZABZ-TECH	open	## 2026-09-15 17:22 UTC · ZABZ-TECH · 300DDR ticket 73459: chip-off pass 1 = documents only (<99%), pass 2 running, no decision due; case file corrected and commit 19e8e9ffd	entries/handoff/H239.md	1	34	8092f13e2a7098d2
+handoff	H240	240		2026-09-15 17:29 UTC	ZABZ-TECH	open	## 2026-09-15 17:29 UTC · ZABZ-TECH · LPT Waze iPhone sourcing library: stranded on the laptop, now in lpt-hub and on origin	entries/handoff/H240.md	1	36	d3c2c8dca2e1a418
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -507,6 +508,8 @@ lessons	L1518	1518		2026-09-15	ZABZ-TECH	open	**L1518 · iPad soldered charge-po
 lessons	L1519	1519		2026-09-15	ZABZ-TECH	open	**L1519 · asusrouter.com is HTTP-only on the LAN - https:// can never work**	entries/lessons/L1519.md	1	6	96f690541f0d50a5
 lessons	L1520	1520		2026-09-15	ZABZ-TECH	open	**L1520 · Not running has four meanings - broken, orphaned, dismissed, deliberately disabled - and collapsing them lies**	entries/lessons/L1520.md	1	46	216a143c7051ba18
 lessons	L1521	1521		2026-09-15	ZABZ-TECH	open	**L1521 · A 'chip-off recovered poorly' report is a price band and a tool limit, not a dead end: read the band, and remember the dumps persist**	entries/lessons/L1521.md	1	17	f4d3570e065bb86c
+lessons	L1522	1522		2026-09-15	ZABZ-TECH	open	**L1522 · Chip-off labs: PC-3000 Flash vs Rusolut VNR, the three rebuild blockers (XOR key / ECC-LDPC / FTL translator), and the three questions to ask when a lab reports a partial rebuild**	entries/lessons/L1522.md	1	22	b4ffddac31f59d40
+lessons	L1523	1523		2026-09-15	ZABZ-TECH	open	**L1523 · A path in a handoff is not a delivered file - published work goes to a repo and gets pushed**	entries/lessons/L1523.md	1	20	775e0bff7c4c4ff9
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -622,6 +625,8 @@ pain	P150	150		2026-09-15	ZABZ-TECH	open	## P150 — The apartment door lock has
 pain	P151	151		2026-09-15	ZABZ-TECH	open	## P151 — Case sync records are only 'minimally validated', so out-of-schema keys live in production records unnoticed	entries/pain/P151.md	1	10	31b19d1ea977dcbc
 pain	P152	152		2026-09-15	ZABZ-TECH	open	## P152 — 64 caseIds carry two sync records; the phone bundle builder reads that directory authoritatively, so projection is a coin flip	entries/pain/P152.md	1	14	99efd9b8b6c461b3
 pain	P153	153		2026-09-15	ZABZ-TECH	open	## P153 — lpt-hub on ZABZ-TECH is 2446 behind / 30 ahead of origin/main -- nothing can be pushed from this machine, and a workstation sync bot rewrites the same sync records	entries/pain/P153.md	1	12	ec2a1c9a310cb1bd
+pain	P154	154		2026-09-15	ZABZ-TECH	open	## P154 — The kosher-filter-ai clone on ZABZ-TECH is 165 commits stale, and it is the repo the owner asks about most	entries/pain/P154.md	1	27	4a4aa9fb7d88e44d
+pain	P155	155		2026-09-15	ZABZ-TECH	open	## P155 — The Waze fleet's sourcing evidence lived on one laptop, and the handoffs pointed at paths that did not exist elsewhere	entries/pain/P155.md	1	19	1742fee5850ae1a5
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
