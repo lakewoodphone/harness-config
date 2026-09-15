@@ -613,6 +613,7 @@ pain	P146	146		2026-09-15	ZABZ-YOGA	done	## P146 — Journal ids collide when tw
 pain	P147	147		2026-09-15	ZABZ-YOGA	done	## P147 — Nothing asserts the app can narrate itself, and the journal has no explicit retention cap	entries/pain/P147.md	1	24	74adf10235a0f11d
 pain	P148	148		2026-09-15	ZABZ-YOGA	done	## P148 — Reminders are marked sent into a dashboard nothing has been shown to render	entries/pain/P148.md	1	21	ad28517535acc74f
 pain	P149	149		2026-09-15	ZABZ-YOGA	done	## P149 — run_subsystem_once cannot run the five browser syncs, and only journal.py refreshes the mirror	entries/pain/P149.md	1	26	5599cf747e989ad0
+pain	P150	150		2026-09-15	ZABZ-YOGA	open	## P150 — Three of the nine pre-existing test failures are one root cause: .env.example is missing 24 declared settings	entries/pain/P150.md	1	43	ca92fc0fb95b9bcd
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
