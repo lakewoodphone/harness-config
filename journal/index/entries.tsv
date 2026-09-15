@@ -201,6 +201,10 @@ handoff	H291	291		2026-09-15 20:58 UTC	ZABZ-TECH	open	## 2026-09-15 20:58 UTC ·
 handoff	H292	292		2026-09-15 20:59 UTC	ZABZ-TECH	open	## 2026-09-15 20:59 UTC · ZABZ-TECH · W2-CORE: Tier 1 committed on agent/rentals-core (4 commits); gate green except 2 frozen-test API mismatches	entries/handoff/H292.md	1	43	172fbb51e7f42000
 handoff	H293	293		2026-09-15 21:01 UTC	ZABZ-TECH	open	## 2026-09-15 21:01 UTC · ZABZ-TECH · waze-mdm fleet dashboard gate: hash moved out of the repo Caddyfile into .env (live, verified)	entries/handoff/H293.md	1	23	aff1213cba93fa52
 handoff	H294	294		2026-09-15 21:03 UTC	ZABZ-TECH	open	## 2026-09-15 21:03 UTC · ZABZ-TECH · 2026-09-15 night: fleet-api, Caddy gate and the portal all deployed; DRN 45 is visible at last	entries/handoff/H294.md	1	46	a96f87e282445f25
+handoff	H295	295		2026-09-15 21:11 UTC	ZABZ-TECH	open	## 2026-09-15 21:11 UTC · ZABZ-TECH · Lakewood Rentals final state: all five workstreams merged, gate green, deployed sha-matched; one human sign-in outstanding	entries/handoff/H295.md	1	35	6ca38fe1de02b42e
+handoff	H296	296		2026-09-15 21:12 UTC	ZABZ-TECH	open	## 2026-09-15 21:12 UTC · ZABZ-TECH · Walk-in hours sign delivered + Wednesday-closed propagated to the site (PR #142); GBP still wrong	entries/handoff/H296.md	1	49	e0f8aba863171cea
+handoff	H297	297		2026-09-15 21:15 UTC	ZABZ-TECH	open	## 2026-09-15 21:15 UTC · ZABZ-TECH · New windows open the tokenized URL; the 2026-09-15 auth-page failure is fixed and verified	entries/handoff/H297.md	1	51	07ecda73ae313332
+handoff	H298	298		2026-09-15 21:15 UTC	ZABZ-TECH	open	## 2026-09-15 21:15 UTC · ZABZ-TECH · Bounded the suite nondeterminism: 9 deterministic failures under one worker vs 38 under 8 forks - and my own audit's fixes caused two of the file failures	entries/handoff/H298.md	1	70	9bdd4b26feb95657
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -642,6 +646,9 @@ lessons	L1598	1598		2026-09-15	ZABZ-TECH	open	**L1598 · tsx hoists imports abov
 lessons	L1599	1599		2026-09-15	ZABZ-TECH	open	**L1599 · Docker Compose interpolates values inside .env - an unquoted bcrypt hash is silently destroyed**	entries/lessons/L1599.md	1	18	c80baeb5e66ec8a5
 lessons	L1600	1600		2026-09-15	ZABZ-TECH	open	**L1600 · Verifying a bind-mounted Caddyfile secret: five traps that make an unapplied change look green**	entries/lessons/L1600.md	1	19	ad2b6dacd401a1b4
 lessons	L1601	1601		2026-09-15	ZABZ-TECH	open	**L1601 · verify-secret-move.py - the tested tool for proving a secret moved layers unchanged**	entries/lessons/L1601.md	1	21	d900dd8315d41d97
+lessons	L1602	1602		2026-09-15	ZABZ-TECH	open	**L1602 · Prove an auth gate with a request, not with a hash comparison - and 'caddy hash-password' needs --plaintext**	entries/lessons/L1602.md	1	32	6e7d596aefbc0ff9
+lessons	L1603	1603		2026-09-15	ZABZ-TECH	open	**L1603 · Do not junction node_modules into a git worktree - Vite /@fs refuses paths outside the root; run pnpm install**	entries/lessons/L1603.md	1	26	bf58f09448e19a50
+lessons	L1604	1604		2026-09-15	ZABZ-TECH	open	**L1604 · A DSH window opened at the clean origin 401s on any profile whose cookie was never seeded; open the tokenized URL**	entries/lessons/L1604.md	1	32	c37d3769c4c667ce
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -776,6 +783,8 @@ pain	P169	169		2026-09-15	ZABZ-TECH	open	## P169 — The only gate on the fleet 
 pain	P170	170		2026-09-15	ZABZ-TECH	open	## P170 — curl -fsS health gates in restart.sh and verify-production.sh turn a degraded 503 into did-not-start - and my 90s revert all-clear was too short to prove the loop stopped	entries/pain/P170.md	1	16	b4444ed3ed50c63b
 pain	P171	171		2026-09-15	ZABZ-TECH	open	## P171 — W3's whole-suite numbers do not reconcile: 11 failed post-fix against 10 at base, with the extra one claimed pre-existing	entries/pain/P171.md	1	17	aa2e7e55e166f670
 pain	P172	172		2026-09-15	ZABZ-TECH	open	## P172 — Scheduled reminders fail on an import error: agent_bus imports a function autopilot no longer defines	entries/pain/P172.md	1	20	19f3d30890deb47a
+pain	P173	173		2026-09-15	ZABZ-TECH	open	## P173 — Walk-in hours live in 6+ hand-written strings and drift silently; the schedule is not one source of truth	entries/pain/P173.md	1	20	4d3fd279d1f06bea
+pain	P174	174		2026-09-15	ZABZ-TECH	open	## P174 — A working behaviour was reversed for a day on a premise nobody measured, and the wrong premise was written into the code as fact	entries/pain/P174.md	1	27	90ecd9a3699495ce
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -909,6 +918,8 @@ decisions	D169	169		2026-09-15	ZABZ-TECH	open	**D169 · 2026-09-15 · The Waze/M
 decisions	D170	170		2026-09-15	ZABZ-TECH	open	**D170 · 2026-09-15 · The company's purpose is settled: it is Zabz's own mind - external memory, sensing and backup brain - and the business metric I built the audit on was the wrong yardstick.**	entries/decisions/D170.md	1	61	6ec12e829c8a1f0c
 decisions	D171	171		2026-09-15	ZABZ-TECH	open	**D171 · 2026-09-15 · Owner keeps the three rolled Stripe keys valid for the grace period; a 6-hourly watcher now covers the account while they are alive.**	entries/decisions/D171.md	1	17	3e0b76bbb0af27f8
 decisions	D172	172		2026-09-15	ZABZ-TECH	open	**D172 · 2026-09-15 · P164 root cause found: IP Helper crashes and takes Tailscale with it, and a 5-minute watcher now repairs both.**	entries/decisions/D172.md	1	18	9ba952b6f39cd7ec
+decisions	D173	173		2026-09-15	ZABZ-TECH	open	**D173 · 2026-09-15 · Walk-in hours changed 2026-09-15: Wednesday closed; door sign built; site code updated.**	entries/decisions/D173.md	1	53	627267f149086ece
+decisions	D174	174		2026-09-15	ZABZ-TECH	open	**D174 · 2026-09-15 · Window URL policy: tokenized first, clean origin last; recover the token from the engine log; prove it in doctor.**	entries/decisions/D174.md	1	30	618db89bcf253b4d
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1021,3 +1032,4 @@ wins	W139	139		2026-09-15	ZABZ-TECH	open	**W139 · 2026-09-15 · Three live cred
 wins	W140	140		2026-09-15	ZABZ-TECH	open	**W140 · 2026-09-15 · Phantom work generation stopped, verified in the data: 25 tasks/day about two subsystems that do not exist went to 0.**	entries/wins/W140.md	1	45	10222e61a653595e
 wins	W141	141		2026-09-15	ZABZ-TECH	open	**W141 · 2026-09-15 · The fleet-api silent-failure fixes are deployed, verified by in-container hash, and behaving live.**	entries/wins/W141.md	1	39	4de455ff3c64c225
 wins	W142	142		2026-09-15	ZABZ-TECH	open	**W142 · 2026-09-15 · The rentals backup now exists and has been restored once, with evidence.**	entries/wins/W142.md	1	34	539c7a5a262d9c0a
+wins	W143	143		2026-09-15	ZABZ-TECH	open	**W143 · 2026-09-15 · Diagnosing a browser-side failure from the machine: headless screenshot, LevelDB evidence, window titles, cmdline window roots.**	entries/wins/W143.md	1	29	651d5a20b8942625
