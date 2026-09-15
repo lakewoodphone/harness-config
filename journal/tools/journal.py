@@ -801,6 +801,27 @@ def effective_status(kind: str, id_full: str, marker_status: str, events=None) -
     return ev[0] if ev else (marker_status or "open")
 
 
+def open_entries(entries: list, kind: str | None = None, events=None) -> list:
+    """Entries whose EFFECTIVE status is exactly `open`.
+
+    The entry file records how an entry was written; `state/status.tsv` records what
+    became of it. Three callers asked `marker != "done"`, which counts every
+    `superseded`, `retracted` and `blocked` entry as open work. Measured 2026-09-15:
+    the always-read status page said OPEN PAIN 95 while 91 were open, and it would drift
+    further with every entry anyone resolved; `state/open-pain.md` -- the file a session
+    reads when the authority is unreachable -- was generated from the same wrong set and
+    claimed in its own header that a corrected entry drops out of it.
+    """
+    ev = events if events is not None else load_status_events()
+    out = []
+    for e in entries:
+        if kind and e.get("kind") != kind:
+            continue
+        if effective_status(e["kind"], e["id_full"], e.get("status") or "", ev) == "open":
+            out.append(e)
+    return out
+
+
 def flat_sources() -> list:
     """Every legacy flat file that could still hold unabsorbed entries."""
     out = []
@@ -1244,7 +1265,8 @@ def cmd_status(args) -> int:
            + "   (total %d)" % len(entries))
     b.line("")
 
-    pains = [e for e in entries if e["kind"] == "pain" and (e.get("status") or "open") != "done"]
+    # Effective status, not the frozen marker: `superseded` is not open work.
+    pains = open_entries(entries, "pain")
     pains.sort(key=lambda e: (e.get("num") or 0, e.get("suffix") or ""))
     cap_list(pains[:8], "OPEN PAIN %d" % len(pains), b,
              lambda e: "  %7s  %s" % (e["id_full"], e["heading"][:100]))
@@ -1693,7 +1715,7 @@ def cmd_stats(args) -> int:
         sizes.append((sz, e["id_full"], e["kind"], e["heading"]))
         for t in e.get("tags") or []:
             tags[t] = tags.get(t, 0) + 1
-    opens = sum(1 for e in entries if (e.get("status") or "open") != "done")
+    opens = len(open_entries(entries))
     sizes.sort(reverse=True)
     oldest = sorted(entries, key=lambda e: (e.get("date") or "9999"))[:10]
     legacy_bytes = sum(p.stat().st_size for p, _k in shard_sources() if p.exists())
@@ -1756,7 +1778,7 @@ def cmd_state(args) -> int:
     rows, source, _f = catalog()
     pains = [e for e in rows if e["kind"] == "pain"]
     pains.sort(key=lambda e: (e.get("num") or 0, e.get("suffix") or ""))
-    opens = [e for e in pains if (e.get("status") or "open") != "done"]
+    opens = open_entries(pains)
     out = [
         "# OPEN PAIN — what still hurts, ranked",
         "",
@@ -1783,7 +1805,7 @@ def cmd_state(args) -> int:
                                               redact(cost).replace("|", "/"),
                                               redact(fix).replace("|", "/")))
     atomic_write(JOURNAL / "state" / "open-pain.md", "\n".join(out).rstrip() + "\n")
-    print("state/open-pain.md: %d open of %d (%d done)" % (len(opens), len(pains), len(pains) - len(opens)))
+    print("state/open-pain.md: %d open of %d (%d closed)" % (len(opens), len(pains), len(pains) - len(opens)))
     return 0
 
 

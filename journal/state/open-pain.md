@@ -1,21 +1,18 @@
 # OPEN PAIN — what still hurts, ranked
 
-Updated: 2026-09-14
+Updated: 2026-09-15
 
 **Generated** from `entries/pain/` by `tools/journal.py state`. Do not edit by hand: an entry
 stops being open by being corrected, not by being deleted here. A problem that is done carries
 `status=done` in its marker or in a row of `state/status.tsv`, and drops out of this list.
 
-Provenance: 88 open of 95 pain entries, read from index/entries.tsv, written 2026-09-14 23:19 UTC on ZABZ-YOGA.
+Provenance: 91 open of 110 pain entries, read from index/entries.tsv, written 2026-09-15 14:36 UTC on ZABZ-YOGA.
 
 | # | Symptom | Cost | Fix |
 |---|---|---|---|
 | P1 | The owner's attention is spent on questions that are not his | The owner is the scarcest resource in the system and he was acting as a decision router for questions the agent should have decided. It is also why the workflow was abandoned: usage collapsed 75% in M | Encoded in the `zabz` persona: finish the work, never ask permission already held, one question at a time with options and a recommendation, and never route development decisions up. Remaining work: m |
 | P3 | Reading the wrong data and believing it | A false crisis report to the owner. If it had been acted on, real systems would have been "fixed" that were not broken. | Provenance layer — done. Every reading carries source, authority, and age; a consumer that cannot establish them refuses. Remaining: **collapse the three copies** into one authority plus explicitly-ma |
 | P4 | The improvement loop does not close | Real tokens spent every day generating improvements that structurally cannot land — which looks like progress and is worse than doing nothing. | Design exists (path filter, dedup, real apply path, verify-then-keep-or-revert). Not built. This is the highest-value unbuilt subsystem, because it is the mechanism of self-improvement. |
-| P5 | Work assigned to agents that do not exist | Work silently vanishing. The blueprint and reality disagree and nothing reconciles them. | A reconciliation check comparing `company_blueprint.py` against live agent ids, plus routing orphaned steps. Not built. |
-| P6 | Held messages and unanswered questions rot silently | The system detected real problems and buried them. Some were customer-facing. | Inbox with ageing, escalation ladder (24h→48h→72h), and an interrupt quota — designed, not built. Note the 144 sync-breaker alerts in one month are almost certainly why the dismissal schemes appeared: |
-| P7 | Context poisoning | Compaction discards the decisions the owner cares about, which is the real cause of "you forgot what we decided". | Pruning and spill policy exist in the harness. The specific trap is the MCP bridge returning huge payloads — needs a wrapper that truncates and summarises before it reaches the model. |
 | P8 | Harness configuration drifts between machines |  | `harness-config` source of truth — done, with sync, remote on `secratary`, and LF normalisation. Remaining: no scheduled sync, so drift resumes the moment someone forgets. |
 | P9 | The CEO stops when it owns the decision |  | Rules recorded in the persona. Monitoring it is the honest test: if it recurs, the rule is insufficient and the harness needs to enforce it rather than the prompt. |
 | P10 | ~~Repeated mount-validation spawns duplicate MCP servers~~ **RETRACTED 2026-09-11 — see the correction at the end of this entry. There is no duplication | Wasted memory and duplicate subprocess trees, each holding its own connection to the secretary API. On a machine with six MCP bridges this compounds. It also makes process evidence harder to read — "i | Do not mount-validate repeatedly. Validate once, then rely on it. Longer term: the mount-validate path should detect an existing standing generation and reuse it rather than re-composing. Needs invest |
@@ -56,17 +53,14 @@ Provenance: 88 open of 95 pain entries, read from index/entries.tsv, written 202
 | P47c | CORRECTION (2026-09-14, same day, citing the entry above) |  |  |
 | P48 | Something holds the write lock on the company database for longer than 30 seconds | Silent, invisible, and it looks like health: the scheduled task exits 0, the cursor is current, and the machine's conversations simply stop being archived until someone diffs the store against the cur |  |
 | P49 | The machine that serves the API runs a checkout GitHub has moved 71 commits past | This is P3 for code instead of data: the same divergence that once produced a reported 45-day outage that never happened. Two concrete harms. (a) A fix verified on the Windows host can be absent from  |  |
-| P50 | `work_sessions.status` holds 40 non-status values, and nobody noticed | Small in volume, large in kind: it means *something* writes into this column without going through `update_work_session`, which is the same class of defect as the completion lie — an unguarded write t |  |
 | P51 | The owner has been read nothing since 2026-07-19, because a spam fix blocked *all* of it | Everything the company concluded for 54 days reached nobody: 167 held owner items, including a | Do **not** simply delete the file — that restores the 28-text loop that caused it. Replace the all-or-nothing switch with what the original fix should have been: a **rate limit plus dedup in front of  |
 | P52 | The sentinel and my own alarm disagree about the same quiet machine | The digest's section 0 says all quiet while section 0a says HIGH — a reader cannot tell which to believe, and the correct response is to start ignoring both. This is precisely the failure mode that pr |  |
 | P52b | An outbound promise with a date has no keeper, so a paid order on a hard deadline went unwatched for 16 days | The owner's scarcest resource — his own attention — had to be spent discovering a state the system already had the means to detect: one HTTP GET against a public endpoint, or one IMAP search, once a d | Two parts, both small. 1. **A promise-keeper, not a memory.** Any outbound email containing a promised date or a "we'll let you know" creates a date-bound follow-up row on the authority that surfaces  |
 | P53 | The corpora that contain the answers were never ingested, and the index only knew 1% of them | Every question about the owner's own history, his systems, or his past decisions is answered from a 1% sample, and the agent then says "I could not find it" — which reads as *it does not exist* rather |  |
 | P54 | The first search index was 10.87 GB for 112 GB of files, from two self-inflicted causes |  |  |
-| P55 | The company has delivered nothing to the owner since 2026-07-19, and every sensor that would | 56 days of findings that reached nobody: the Deep Infra failed charge, the Telnyx negative balance and its later fix, the Gusto payroll blocks, the CHEMED/radiology item, the sales lead from `(848) 33 |  |
 | P57 | The journal still has two writers - the sharded log and the flat files a second session keeps appending to | Two sources of truth for the same fact, which is the exact defect this rebuild removed elsewhere. A session reading only `log/` can be minutes behind; a session reading only the flat files is unbounde | `journal.py check` warns when a flat file holds an entry the log lacks, and `import-flat` absorbs it (and resyncs an entry whose source grew). Retire the flat files once `import-flat` reports nothing  |
 | P58 | 56 of 57 pain entries carry no proof of being finished, so the open list cannot be trusted as a to-do | A future session either re-derives what is open by reading 1,067 lines of prose (the exact tax the rebuild removed), or trusts a list that is 98% noise and stops reading it — which is how the previous | `state/status.tsv` is append-only and `journal.py resolve <id> --status done --why "..."` writes to it, so the log stays immutable and the status becomes a dated fact. Closing these 56 requires eviden |
 | P59 | The phone's gate died once and nothing on the host says why | Small tonight by luck: a phone opened in that minute shows a 502 the owner cannot act on. The class is not small — this is the one path the owner depends on from his pocket, and its recovery depended  |  |
-| P61 | The company has delivered nothing to the owner since 2026-07-19, and every sensor that would | 56 days of findings that reached nobody: the Deep Infra failed charge, the Telnyx negative balance and its later fix, the Gusto payroll blocks, the CHEMED/radiology item, the sales lead from `(848) 33 |  |
 | P62 | Re-ingesting after a parser change can silently empty an index | ~13 minutes of processing and a derived index that had to be rebuilt. Low this time because the index is derived data and re-ingest is cheap — but the same shape applied to a *source* store would be d |  |
 | P63 | `/health` flaps between ok and "database lock contention", and **no monitor raises on it** (OPEN, first seen 2026-09-14) | The company's own health surface is **intermittently unusable and never alarmed on**: a check that flaps every few seconds produces no signal a monitor can act on, and 200-on-degraded means any uptime |  |
 | P64 | Netlify deploy credits block every frontend release |  |  |
@@ -90,11 +84,20 @@ Provenance: 88 open of 95 pain entries, read from index/entries.tsv, written 202
 | P85 | P: desktop personal-secretary-mvp repo diverged - two task installers stuck old; Cloudflare git flaky |  |  |
 | P86 | Desktop URL/auth error was a supervisor race on port 3099 + a ready record naming a dead pid |  |  |
 | P91 | lpt-hub case index reports 258 problems but the checker invariant looks wrong, not the data: 377 sync records vs 180 case files, orphans point at hardware-diagnostics |  |  |
-| P92 | The company has delivered nothing to the owner since 2026-07-19, and every sensor that would | 56 days of findings that reached nobody: the Deep Infra failed charge, the Telnyx negative balance and its later fix, the Gusto payroll blocks, the CHEMED/radiology item, the sales lead from `(848) 33 |  |
 | P127 | Tailscale on ZABZ-YOGA is dead since boot, so the authority and the owner queue are unreachable from home |  |  |
-| P128 | journal.py check fails on 318 errors: the migration's heading-form class has no repair tool, and append re-absorbs legacy files every time |  |  |
 | P129 | Local master and origin/master have diverged, so this machine's journal writes never reach the authority |  |  |
 | P130 | The owner-question mirror silently keeps a stale copy while the authority is reachable by ssh in the same second |  |  |
 | P131 | The comms index has no ingestion watchdog, and recent voicemails index as a phone number |  | Either add an index-age metric to `ck/sentinel.py:check_comms_freshness` (read `~/.fsearch/comms-state.json`, fail above ~2 h), or wire `comms-refresh.py --check` into the existing owner-attention dig |
 | P132 | Two sessions can migrate and audit this journal at once, and the lock does not cross machines |  |  |
 | P133 | log/** and the six flat files are still writable by any stale checkout |  |  |
+| P134 | The journal itself has forked: SECRATARY holds 936 entries that exist on no other machine, and ZABZ-YOGA holds 304 that SECRATARY has never read |  |  |
+| P135 | A journal append takes 3 minutes and blocks the turn that needs it |  |  |
+| P137 | A session believed it closed task #25118 while the task stayed open, then died at the budget |  |  |
+| P139 | The test suite cannot be run green (8 pre-existing failures, 153 order-dependent errors), so it is not a gate |  |  |
+| P141 | Her laptop cannot join Tailscale, so it cannot reach the authority directly (IPv6 fixed, login still stalls) |  |  |
+| P142 | Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that) |  |  |
+| P143 | The app repo has three lineages and the live one is the least published |  |  |
+| P145 | The production clone is a divergent lineage: master 61 ahead and 138 behind origin, so a fix exists on one disk only |  |  |
+| P146 | Journal ids collide when two machines allocate offline (H228/H229/L1510/P145 all doubled today) |  |  |
+| P147 | Nothing asserts the app can narrate itself, and the journal has no explicit retention cap |  |  |
+| P148 | Reminders are marked sent into a dashboard nothing has been shown to render |  |  |
