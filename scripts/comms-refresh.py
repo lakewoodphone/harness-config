@@ -142,6 +142,27 @@ def _run(cmd: list[str], timeout: int = 1800) -> tuple[int, str]:
     return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
 
 
+def _liveness() -> dict:
+    """Ask the reader whether the data is still flowing, and take its answer.
+
+    Not re-derived here (a second copy of the rule is a second thing to drift, and the
+    cron and the agent would then be able to disagree about the same database). The
+    reader's `health` already decides this; this only carries the verdict into the state
+    file so a failed pass is visible without anyone asking.
+    """
+    reader = _tool("comms-search.py")
+    if not os.path.exists(reader):
+        return {"ok": True, "problems": []}
+    rc, out = _run([PY, reader, "--db", INDEX_DB, "--json", "health"], timeout=120)
+    if rc != 0:
+        return {"ok": True, "problems": [], "note": f"reader rc={rc}"}
+    try:
+        payload = json.loads(out)
+    except ValueError:
+        return {"ok": True, "problems": [], "note": "reader output unparseable"}
+    return payload
+
+
 def do_refresh(max_age_minutes: int) -> int:
     starter = _read_state()
     with _Lock(LOCK):
@@ -203,19 +224,30 @@ def do_refresh(max_age_minutes: int) -> int:
                  "sample": t.get("missing_sample")} for t in tables if t.get("missing")
             ]
         # A source that stops moving is also a failure worth seeing: the index can
-        # be "complete" while ingestion is dead (the P29 pattern).
+        # be "complete" while ingestion is dead (the P29 pattern). The liveness verdict
+        # is taken from `comms-search.py health` rather than re-derived here -- one
+        # implementation of the rule, so the cron and the agent cannot disagree.
+        liveness = _liveness()
+        state["ingestion"] = liveness.get("ingestion")
+        state["ingestion_problems"] = liveness.get("problems") or []
+        if not liveness.get("ok", True):
+            state["ok"] = False
+            state["reason"] = ("ingestion stale: "
+                               + "; ".join(liveness.get("problems") or []))
         try:
             state["source_mtime"] = dt.datetime.fromtimestamp(
                 os.path.getmtime(SOURCE), dt.timezone.utc).isoformat()
         except OSError:
             pass
         _write_state(state)
-        _log(f"{'ok' if state['ok'] else 'INCOMPLETE'} total={total:,} "
+        _log(f"{'ok' if state['ok'] else 'ATTENTION'} total={total:,} "
              f"missing={missing:,} collapsed={collapsed:,} in {state['seconds']}s "
              f"{index_out}")
-        print(f"comms-refresh: {'ok' if state['ok'] else 'INCOMPLETE'} — "
+        print(f"comms-refresh: {'ok' if state['ok'] else 'ATTENTION'} — "
               f"{total:,} indexed, {missing:,} missing, {collapsed:,} duplicate refs "
               f"collapsed, {state['seconds']}s")
+        for problem in state["ingestion_problems"]:
+            print(f"  INGESTION: {problem}")
         return 0 if state["ok"] else 1
 
 
@@ -246,10 +278,13 @@ def do_check(max_age_minutes: int, as_json: bool) -> int:
         problems.append(f"last run failed: {state.get('reason') or 'unknown reason'}")
     if state.get("missing"):
         problems.append(f"{state['missing']:,} source rows are not in the index")
+    for problem in state.get("ingestion_problems") or []:
+        problems.append(problem)
 
     payload = {
         "ok": not problems,
         "problems": problems,
+        "ingestion": state.get("ingestion"),
         "age_minutes": None if age_min is None else round(age_min, 1),
         "total": state.get("total"),
         "by_kind": state.get("by_kind"),
