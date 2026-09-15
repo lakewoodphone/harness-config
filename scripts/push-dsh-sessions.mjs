@@ -112,15 +112,24 @@ function ingestToken() {
   // The workstations keep the repo under ~/code (or ~/Code); the always-on Linux host keeps it directly
   // in the home directory. Hard-coding only the Windows shape is how the authority's first backfill
   // failed with 'no token' while the workstations worked.
+  //
+  // harness-config is listed LAST and deliberately: the manager's machines keep their credential in
+  // this repository's own .env, because that is the one place guaranteed to exist wherever this script
+  // runs -- it lives here. It also must NOT go in ~/.dsh/.env: the harness treats that path as
+  // authoritative for bootstrap names and refuses to BOOT when it finds one there (measured
+  // 2026-09-15 -- her engine would not start at all). Her laptop shipped zero sessions for a while
+  // because this list did not include it.
   const candidates = [
     path.join(os.homedir(), 'code', 'personal-secretary-mvp', '.env'),
     path.join(os.homedir(), 'Code', 'personal-secretary-mvp', '.env'),
     path.join(os.homedir(), 'personal-secretary-mvp', '.env'),
+    path.join(os.homedir(), 'code', 'harness-config', '.env'),
   ];
   for (const file of candidates) {
     try {
-      const line = fs.readFileSync(file, 'utf8').split('\n').find((l) => l.startsWith('DSH_SESSION_INGEST_TOKEN='));
-      if (line) return line.slice('DSH_SESSION_INGEST_TOKEN='.length).trim().replace(/^["']|["']$/g, '');
+      const line = fs.readFileSync(file, 'utf8').split('\n')
+        .find((l) => l.replace(/^\uFEFF/, '').startsWith('DSH_SESSION_INGEST_TOKEN='));
+      if (line) return line.replace(/^\uFEFF/, '').slice('DSH_SESSION_INGEST_TOKEN='.length).trim().replace(/^["']|["']$/g, '');
     } catch { /* try the next */ }
   }
   return '';
