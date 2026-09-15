@@ -153,6 +153,8 @@ handoff	H243	243		2026-09-15 18:13 UTC	ZABZ-TECH	open	## 2026-09-15 18:13 UTC ·
 handoff	H244	244		2026-09-15 18:18 UTC	ZABZ-TECH	open	## 2026-09-15 18:18 UTC · ZABZ-TECH · iPhone sourcing answered: buy the verified five-lot, decide by verifiability not price, and stop optimising a \ margin item against a \ subscription	entries/handoff/H244.md	1	55	1fae3c34c9462b46
 handoff	H245	245		2026-09-15 18:25 UTC	ZABZ-TECH	open	## 2026-09-15 18:25 UTC · ZABZ-TECH · iPhone sourcing COMPLETE: the market clears at \, so the five-lot is bought at market; all four sweeps in-repo	entries/handoff/H245.md	1	59	281786effaa3e887
 handoff	H246	246		2026-09-15 18:31 UTC	ZABZ-TECH	open	## 2026-09-15 18:31 UTC · ZABZ-TECH · The filter's measurement spine is built and pushed; the egress wiring is the next increment, and I left main red once getting there	entries/handoff/H246.md	1	59	b22136fb1deb1aa4
+handoff	H247	247		2026-09-15 18:43 UTC	ZABZ-TECH	open	## 2026-09-15 18:43 UTC · ZABZ-TECH · Account/sign-in audit opened: PART-117 done, and the account system has one customer behind it who cannot sign in	entries/handoff/H247.md	1	25	3d2a2c6480af3852
+handoff	H248	248		2026-09-15 18:45 UTC	ZABZ-TECH	open	## 2026-09-15 18:45 UTC · ZABZ-TECH · Mac mini dictation: live, Windows parity (Command+H toggle), verified with real speech	entries/handoff/H248.md	1	57	c76d9ba3527d661b
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -524,6 +526,12 @@ lessons	L1528	1528		2026-09-15	ZABZ-TECH	open	**L1528 · Bot-walled US retail st
 lessons	L1529	1529		2026-09-15	ZABZ-TECH	open	**L1529 · LPT master index says production deploy is the Google-Form gate; production already runs the computer-finder behind the account**	entries/lessons/L1529.md	1	13	6e1690189dd2e6e7
 lessons	L1530	1530		2026-09-15	ZABZ-TECH	open	**L1530 · Retracted: I invented the button-covering requirement, then cited my own document as evidence for it**	entries/lessons/L1530.md	1	28	7fcd9f53823fba03
 lessons	L1531	1531		2026-09-15	ZABZ-TECH	open	**L1531 · A control that looks like a defect: I built a recovery procedure for the owner's own security feature**	entries/lessons/L1531.md	1	23	8eb7c0e3f6423c2f
+lessons	L1532	1532		2026-09-15	ZABZ-TECH	open	**L1532 · A truncated hardware read is not a negative finding (the Mac mini HAD a microphone)**	entries/lessons/L1532.md	1	24	7f391f6c5ba0c5e9
+lessons	L1533	1533		2026-09-15	ZABZ-TECH	open	**L1533 · Handy dictation can be fully provisioned over SSH: one JSON file, catalog filenames in the binary, id = repo_id/filename**	entries/lessons/L1533.md	1	32	6b2b1c2a4691949b
+lessons	L1534	1534		2026-09-15	ZABZ-TECH	open	**L1534 · A hand-written TCC.db row grants Mic/Accessibility/InputMonitoring on macOS 26 -- and it can be proven from the app log**	entries/lessons/L1534.md	1	29	64fb0701876b55db
+lessons	L1535	1535		2026-09-15	ZABZ-TECH	open	**L1535 · In lpt_prod the column is camelCase unless the Prisma model says @map, and one table mixes both**	entries/lessons/L1535.md	1	27	fa93b678df089d64
+lessons	L1536	1536		2026-09-15	ZABZ-TECH	open	**L1536 · Handy caches settings in memory and rewrites the file: always restart it after editing**	entries/lessons/L1536.md	1	23	ae05f5606d556563
+lessons	L1537	1537		2026-09-15	ZABZ-TECH	open	**L1537 · handy-keys blocks registered hotkeys, so Command+H is fair game on macOS (from the crate docs)**	entries/lessons/L1537.md	1	21	7c8f14abe31419ea
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -765,6 +773,7 @@ decisions	D157	157		2026-09-15	ZABZ-TECH	open	**D157 · 2026-09-15 · No in-hous
 decisions	D158	158		2026-09-15	ZABZ-TECH	open	**D158 · 2026-09-15 · Two secrets not one - the notification image needs the LAN URL, the tap-through link needs the public one.**	entries/decisions/D158.md	1	45	227630ddcd2d83fe
 decisions	D159	159		2026-09-15	ZABZ-TECH	open	**D159 · 2026-09-15 · The filter's escalation architecture: phone-first three tiers, a swappable US-hosted tier 2, and 'don't lock things in' made into engineering rules.**	entries/decisions/D159.md	1	53	89573ee2bd3fcaaf
 decisions	D160	160		2026-09-15	ZABZ-TECH	open	**D160 · 2026-09-15 · The security evidence viewer audited end to end and rebuilt - the evidence was fine, the presentation was not.**	entries/decisions/D160.md	1	61	f589deaccc1c36e0
+decisions	D161	161		2026-09-15	ZABZ-TECH	open	**D161 · 2026-09-15 · Dictation on the Mac mini is Windows parity: Command+H toggles it, no hold, no Enter, stays local.**	entries/decisions/D161.md	1	26	4d5d4ee698ea8b93
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -868,3 +877,4 @@ wins	W130	130		2026-09-15	ZABZ-TECH	open	**W130 · 2026-09-15 · Recovered a ven
 wins	W131	131		2026-09-15	ZABZ-TECH	open	**W131 · 2026-09-15 · All three door contacts are live again - both dead ones returned on a battery swap alone.**	entries/wins/W131.md	1	39	a86e6faf43e83452
 wins	W132	132		2026-09-15	ZABZ-TECH	open	**W132 · 2026-09-15 · The door security chain is verified end to end - all three contacts flip correctly and the lock is back.**	entries/wins/W132.md	1	32	89450943ee0201ac
 wins	W133	133		2026-09-15	ZABZ-TECH	open	**W133 · 2026-09-15 · Newman infected-drive job complete: 12.97 GB proved onto the customer's own drive; the fail-closed gate is what made it safe.**	entries/wins/W133.md	1	36	d76f75428cec80a1
+wins	W134	134		2026-09-15	ZABZ-TECH	open	**W134 · 2026-09-15 · Real human speech on the Mac mini transcribed exactly -- and the log, not the file, revealed the stale setting.**	entries/wins/W134.md	1	26	48b8329ef39f38ba
