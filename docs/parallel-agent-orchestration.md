@@ -180,12 +180,40 @@ Parallelism is not free; integration cost is real. Do not spawn a fleet when:
   sources) does not apply. The binding constraint instead is the shared pytest temp dir, hence the
   mandatory `--basetemp`.
 - **Android:** Gradle work is expensive and may be offline-only. Treat "the agent ran Gradle" as
-  unverified by default and say so.
+  unverified by default and say so. Two machines in this mesh have **no Android SDK at all**, so a
+  Kotlin test run there is impossible — an agent on such a machine must say "not executed" rather than
+  imply a green suite.
 - **Disk:** worktrees share the object database. Measured on `kosher-filter-ai`: a **35.8 MB** working
-  tree, so ten worktrees is roughly 360 MB before artifacts. Cheap. Artifacts are not — clean
-  `_pt_*`, `__pycache__` and `.gradle` at teardown.
-- **The tooling:** `scripts/agent-fleet.ps1` creates, lists and tears down the fleet so the mechanical
-  part is one command rather than ten, and so worktrees are never forgotten.
+  tree, so ten worktrees is roughly 360 MB before artifacts. Artifacts are not — a ten-agent fleet
+  measured **393 MB** after Gradle and pytest caches, one worktree alone at 120 MB. Run
+  `agent-fleet.sh clean` at teardown.
+- **The tooling:** `scripts/agent-fleet.ps1` (Windows) and `scripts/agent-fleet.sh` (Linux/macOS) —
+  same commands on both, because a capability that exists on one platform is not a capability.
+
+## 3a. Deploying the capability across the mesh
+
+The harness is authoritative **here**, and every machine must be brought to it. Writing the skill
+does not deploy it, and a capability that lives on one machine is the exact problem this repo was
+created to solve.
+
+What "deployed" means on each machine:
+
+1. `~/code/harness-config` exists, is current with the remote, and `scripts/agent-fleet.*` is present.
+2. `python scripts/sync.py` (or `harness-autosync.sh`, which fetches, applies and writes a status
+   file) has run, so `~/.dsh/.agent-presets/<preset>/skills/parallel-agent-orchestration/SKILL.md`
+   exists. The skill is in **all three presets** — `zabz`, `yocheved`, `cordis-bg` — so any agent on
+   any machine gets it, not just the one that happens to read `zabz`.
+3. `agent-fleet.sh doctor` (or `.ps1 doctor`) reports **READY** for the repo the fleet will run on.
+
+**Verified per-machine state on 2026-09-15, which is why `doctor` exists:** no `pwsh` on `secratary`,
+`zabz-tech-linux` or `LakewooechsMini`; `~/code/harness-config` absent on `secratary` and
+`zabz-tech-linux`; the mac mini's checkout stale and its Python missing `yaml` (so the Python sync
+path cannot run there — use `harness-sync.mjs`, which is Node); `laptop-ts` is a Windows host
+(`ZABZ-YOGA`) and answers PowerShell, so a POSIX probe against it is meaningless.
+
+**Verification is by execution, not by presence.** After deploying, run `doctor`, then `status`
+against a real repo. A skill file sitting in a directory is not a working capability; a fleet script
+that has cut and reported a real worktree is.
 
 ## 4. The one-paragraph version
 

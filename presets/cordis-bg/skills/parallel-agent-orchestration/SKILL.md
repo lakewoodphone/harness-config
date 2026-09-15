@@ -43,21 +43,8 @@ resource per fleet.**
 
 ### 3. Cut each workstream its own worktree and branch
 
-Use `scripts/agent-fleet.ps1` on Windows or `scripts/agent-fleet.sh` on Linux/macOS — same commands,
-same safety posture. Branch each from a **known-clean** `main`, never from another agent's branch.
-
-```sh
-agent-fleet.sh doctor                     # can this machine host a fleet at all? run it first
-agent-fleet.sh new   -n lpt-route,egress-wiring -r /path/to/repo
-agent-fleet.sh status -r /path/to/repo    # dirty / artifacts / disk per worktree, mid-run
-agent-fleet.sh clean  -r /path/to/repo    # drop _pt_* / __pycache__ / .pytest_cache
-agent-fleet.sh rm    -n lpt-route -r /path/to/repo
-agent-fleet.sh rmall  -r /path/to/repo    # branches kept, so unmerged work stays salvageable
-```
-
-**`doctor` is not decorative.** On this mesh there is no `pwsh` on the Linux or macOS nodes, no Python
-`yaml` on the mac mini, and `~/code/harness-config` is absent on two machines — a fleet that assumes
-any of those works fails at the worst moment. Run `doctor`, read what it says, fix that first.
+Use `scripts/agent-fleet.ps1` (`new` / `status` / `rm`). Branch each from a **known-clean** `main`,
+never from another agent's branch.
 
 ### 4. Write the brief as a contract — all eight parts
 

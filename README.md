@@ -73,15 +73,31 @@ harness-config/
 
 When a backlog is too big to do serially — which is how sessions stall, one increment at a time — the
 work is split into independent streams, each given **its own git worktree and branch**, and the agent
-then **manages** rather than builds. The mechanical part is one command:
+then **manages** rather than builds. The mechanical part is one command, on every platform:
 
 ```powershell
-.\scripts\agent-fleet.ps1 new   -Name lpt-route,egress-wiring,docs-fix -Repo C:\path\to\repo
-.\scripts\agent-fleet.ps1 status -Repo C:\path\to\repo   # dirty count, artifacts, disk per worktree
-.\scripts\agent-fleet.ps1 clean  -Repo C:\path\to\repo   # drop _pt_* / __pycache__ / .pytest_cache
-.\scripts\agent-fleet.ps1 rm    -Name lpt-route -Repo C:\path\to\repo
-.\scripts\agent-fleet.ps1 rmall  -Repo C:\path\to\repo   # branches are kept, so work stays salvageable
+# Windows
+.\scripts\agent-fleet.ps1 doctor   -Repo C:\path\to\repo   # can this machine host a fleet?
+.\scripts\agent-fleet.ps1 new      -Name lpt-route,egress-wiring -Repo C:\path\to\repo
+.\scripts\agent-fleet.ps1 status   -Repo C:\path\to\repo
+.\scripts\agent-fleet.ps1 clean    -Repo C:\path\to\repo
+.\scripts\agent-fleet.ps1 rmall    -Repo C:\path\to\repo   # branches kept, work stays salvageable
 ```
+
+```sh
+# Linux / macOS — identical commands, because there is no `pwsh` on the Linux or macOS nodes
+./scripts/agent-fleet.sh doctor
+./scripts/agent-fleet.sh new   -n lpt-route,egress-wiring -r /path/to/repo
+./scripts/agent-fleet.sh status -r /path/to/repo
+./scripts/agent-fleet.sh clean  -r /path/to/repo
+./scripts/agent-fleet.sh rmall  -r /path/to/repo
+```
+
+**Deployed on every machine, not just this one.** The skill ships in **all three presets** (`zabz`,
+`yocheved`, `cordis-bg`), and `scripts/sync.py` (or `harness-autosync.sh`) applies it into
+`~/.dsh/.agent-presets/*/skills/`. Run `doctor` on a machine that has never hosted a fleet before
+trusting it: the mesh audit found no `pwsh` on the Linux/macOS nodes, no Python `yaml` on the mac mini,
+and no `harness-config` checkout at all on two machines.
 
 **The rule that makes it safe:** isolation is created by the manager **before** agents start, never
 negotiated between agents while they run. File-lease and messaging layers in this space are advisory

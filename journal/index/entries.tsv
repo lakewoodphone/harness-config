@@ -162,6 +162,8 @@ handoff	H252	252		2026-09-15 18:51 UTC	ZABZ-TECH	open	## 2026-09-15 18:51 UTC ·
 handoff	H253	253		2026-09-15 18:53 UTC	ZABZ-TECH	open	## 2026-09-15 18:53 UTC · ZABZ-TECH · PART-119 done: production issues 7-day access tokens (code default 15m) - and MFA is configured-required but never enforced	entries/handoff/H253.md	1	76	b616354afb7063a7
 handoff	H254	254		2026-09-15 19:05 UTC	ZABZ-TECH	open	## 2026-09-15 19:05 UTC · ZABZ-TECH · CRITICAL found and fixed: the terminal router (12 procedures) and a2pAutoReply (5) had NO auth and were reachable from the internet - connection tokens were minted unauthenticated	entries/handoff/H254.md	1	78	d5b32f0c8eb4f513
 handoff	H255	255		2026-09-15 19:07 UTC	ZABZ-TECH	open	## 2026-09-15 19:07 UTC · ZABZ-TECH · Both LPT units Activation-Locked; the endpoint had SIX defects and the SUCCESS/FAILED semantics are inverted	entries/handoff/H255.md	1	45	7b69a289d025eaaa
+handoff	H256	256		2026-09-15 19:08 UTC	ZABZ-TECH	open	## 2026-09-15 19:08 UTC · ZABZ-TECH · android inference telemetry emitter: client half shipped, server endpoint is the blocker	entries/handoff/H256.md	1	14	7c8e915016286fdd
+handoff	H257	257		2026-09-15 19:09 UTC	ZABZ-TECH	open	## 2026-09-15 19:09 UTC · ZABZ-TECH · Inference budget gate wired into the live egress path (worktree only)	entries/handoff/H257.md	1	20	a80cf1f983692b24
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -546,6 +548,8 @@ lessons	L1541	1541		2026-09-15	ZABZ-TECH	open	**L1541 · A code default is not t
 lessons	L1542	1542		2026-09-15	ZABZ-TECH	open	**L1542 · An audit probe must be chosen so it cannot change state: a malformed body proves reachability, and when a probe does execute, re-read the state**	entries/lessons/L1542.md	1	22	c6dd83e7b73797bd
 lessons	L1543	1543		2026-09-15	ZABZ-TECH	open	**L1543 · A guard census must parse declaration forms across every router - the guard chain's own file can look perfect while 43 other files pick the unguarded builder**	entries/lessons/L1543.md	1	20	7a9b90206b464483
 lessons	L1544	1544		2026-09-15	ZABZ-TECH	open	**L1544 · Six fatal defects in one endpoint, invisible in the source: diff the wire request, and never infer a status word's meaning**	entries/lessons/L1544.md	1	18	41bdb3c5a70de6f9
+lessons	L1545	1545		2026-09-15	ZABZ-TECH	open	**L1545 · Android unit tests cannot run on this machine: no Android SDK, and Gradle says so in 12s**	entries/lessons/L1545.md	1	6	a45e11c6dfc743fe
+lessons	L1546	1546		2026-09-15	ZABZ-TECH	open	**L1546 · Wiring a SQLite-only storage section into a request path: reach _conn and fail closed, do not grow the Postgres parity surface**	entries/lessons/L1546.md	1	28	e8c1f5866a9803b0
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
