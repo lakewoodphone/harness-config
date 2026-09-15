@@ -149,6 +149,7 @@ handoff	H239	239		2026-09-15 15:10 UTC	ZABZ-YOGA	open	## 2026-09-15 15:10 UTC ·
 handoff	H240	240		2026-09-15 15:21 UTC	ZABZ-YOGA	open	## 2026-09-15 15:21 UTC · ZABZ-YOGA · Pre-existing failures 9 to 2; cheap-first routing off in production and queued as #39	entries/handoff/H240.md	1	33	b899f0090967c031
 handoff	H241	241		2026-09-15 15:26 UTC	ZABZ-YOGA	open	## 2026-09-15 15:26 UTC · ZABZ-YOGA · Two platform path bugs fixed from failing tests; pre-existing failures 9 to 1	entries/handoff/H241.md	1	30	a024bf2346b2d150
 handoff	H242	242		2026-09-15 15:43 UTC	ZABZ-YOGA	open	## 2026-09-15 15:43 UTC · ZABZ-YOGA · Nine pre-existing failures closed; pytest tests/ is now 7 failed / 2708 passed / 0 errors	entries/handoff/H242.md	1	39	50b15fde00f15b8c
+handoff	H243	243		2026-09-15 15:54 UTC	ZABZ-YOGA	open	## 2026-09-15 15:54 UTC · ZABZ-YOGA · Quiet-hours timezone fixed; the suite is 2711 passed / 4 flaky / 0 errors	entries/handoff/H243.md	1	31	c5191d1c1366a233
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -512,6 +513,7 @@ lessons	L1520	1520		2026-09-15	ZABZ-YOGA	open	**L1520 · A path guard fails clos
 lessons	L1521	1521		2026-09-15	ZABZ-YOGA	open	**L1521 · A unit test that reads the deployment's .env is not a unit test -- and the same file was disabling cheap-first routing in production**	entries/lessons/L1521.md	1	25	3d43f4bd94e71672
 lessons	L1522	1522		2026-09-15	ZABZ-YOGA	open	**L1522 · Path code written for one platform is silently wrong on the other -- a wrong path compares unequal, it does not raise**	entries/lessons/L1522.md	1	29	487e9f5974c16b84
 lessons	L1523	1523		2026-09-15	ZABZ-YOGA	open	**L1523 · Fixing a suite's pre-existing failures does not make it a gate: the remaining errors are environmental, not attributable**	entries/lessons/L1523.md	1	25	2c8850d6e071740f
+lessons	L1524	1524		2026-09-15	ZABZ-YOGA	open	**L1524 · A test helper encodes a timezone, and that assumption travels with the machine it was written on**	entries/lessons/L1524.md	1	26	a4dde72c38ef534a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -624,7 +626,8 @@ pain	P147	147		2026-09-15	ZABZ-YOGA	done	## P147 — Nothing asserts the app can
 pain	P148	148		2026-09-15	ZABZ-YOGA	done	## P148 — Reminders are marked sent into a dashboard nothing has been shown to render	entries/pain/P148.md	1	21	ad28517535acc74f
 pain	P149	149		2026-09-15	ZABZ-YOGA	done	## P149 — run_subsystem_once cannot run the five browser syncs, and only journal.py refreshes the mirror	entries/pain/P149.md	1	26	5599cf747e989ad0
 pain	P150	150		2026-09-15	ZABZ-YOGA	done	## P150 — Three of the nine pre-existing test failures are one root cause: .env.example is missing 24 declared settings	entries/pain/P150.md	1	43	ca92fc0fb95b9bcd
-pain	P151	151		2026-09-15	ZABZ-YOGA	open	## P151 — The suite's 153 order-dependent errors were a descriptor limit; seven failures left, four of them quiet-hours	entries/pain/P151.md	1	40	a97f47ca12cddcc0
+pain	P151	151		2026-09-15	ZABZ-YOGA	superseded	## P151 — The suite's 153 order-dependent errors were a descriptor limit; seven failures left, four of them quiet-hours	entries/pain/P151.md	1	40	a97f47ca12cddcc0
+pain	P152	152		2026-09-15	ZABZ-YOGA	open	## P152 — The suite's residual failures are flaky: ~six members, membership varies per invocation, three visible mechanisms	entries/pain/P152.md	1	32	f4a7b65d971c43d5
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -852,3 +855,4 @@ wins	W136	136		2026-09-15	ZABZ-YOGA	open	**W136 · 2026-09-15 · Five of nine pr
 wins	W137	137		2026-09-15	ZABZ-YOGA	open	**W137 · 2026-09-15 · Seven of nine pre-existing failures fixed, three of them defects in the tests themselves.**	entries/wins/W137.md	1	34	8bd420be4c004a4f
 wins	W138	138		2026-09-15	ZABZ-YOGA	open	**W138 · 2026-09-15 · Eight of nine pre-existing failures fixed; the last is one Windows-path test.**	entries/wins/W138.md	1	33	e6fe8e474b1ccbbc
 wins	W139	139		2026-09-15	ZABZ-YOGA	open	**W139 · 2026-09-15 · The nine pre-existing failures are closed; the full suite is 6 failed / 74 errors / 2635 passed.**	entries/wins/W139.md	1	37	8653415cf1d0a2bb
+wins	W140	140		2026-09-15	ZABZ-YOGA	open	**W140 · 2026-09-15 · The quiet-hours failures were a timezone in the test helper; the suite is 2711 passed with a small flaky set left.**	entries/wins/W140.md	1	24	e436b9847581b688
