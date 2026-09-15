@@ -156,3 +156,28 @@ the same evidence) or by hand — `grep -E "Loaded whisper model|permission to s
 - **Handy self-updates** (`auto_updates` in the cask plus its own updater). If an update ever changes the
   settings schema, Handy migrates it itself and keeps unknown keys; if dictation ever stops, re-run the
   script in §1 and read the log.
+
+## 8. Addendum, 2026-09-15 (after a research correction)
+
+**The TCC route is unsupported, and it still worked — say both things.** A separate check established the
+*Apple-sanctioned* facts: a configuration profile **can** pre-grant Accessibility when delivered by MDM, but
+it **cannot** grant Microphone at all ("A profile can't grant access to the microphone; it can only deny
+it"), and `profiles install` no longer exists as a local command (removed in macOS 11). So the supported
+answer really is "a human clicks twice". What this machine used instead is the direct write to the user TCC
+database (§4), which is not sanctioned, is not documented, and could stop working after an OS update — but
+is **verified working here** by behaviour, not by configuration: the microphone delivered samples and
+Handy's log reports the input-simulation permission granted. If a future macOS silently ignores hand-written
+rows, dictation stops pasting and the fix is the documented one — open
+System Settings → Privacy & Security, tick Handy under Microphone and Accessibility. Treat §4 as a
+convenience with a known fallback, never as the only path.
+
+**Never build Handy locally on this machine.** Its release pipeline sets `signingIdentity: "-"` (ad-hoc
+signing), and its own BUILD.md warns that a rebuild silently drops the Accessibility grant while System
+Settings still shows the toggle ON — Handy then sits on "Waiting…" forever. Install the released cask/DMG
+only (which is what was done here). If that symptom ever appears anyway:
+`sudo tccutil reset Accessibility com.pais.handy`, reopen Handy, re-grant.
+
+**A point to re-check if this machine lives into macOS 27:** Apple is deprecating the PPPC Accessibility
+key in favour of newer declarative privacy defaults that only AppKit apps are documented to support. Handy
+is a Tauri app, so it is unverified whether it benefits. That is a reason to revisit the app choice in a
+year, not a reason to change it now.
