@@ -434,6 +434,9 @@ lessons	L1473	1473		2026-09-14	ZABZ-YOGA	open	**L1473 · A terminal condition mu
 lessons	L1474	1474		2026-09-14	ZABZ-YOGA	open	**L1474 · Freshness has two halves: the index can be current while the database is not being fed**	entries/lessons/L1474.md	1	72	9c8d7e746e2e9fd9
 lessons	L1475	1475		2026-09-14	ZABZ-YOGA	open	**L1475 · A namespaced action name puts the verb second, so a prefix rule read reconnaissance as work**	entries/lessons/L1475.md	1	33	03ab519176caa4fd
 lessons	L1476	1476		2026-09-14	ZABZ-YOGA	open	**L1476 · A supervisor that reports rc=0 forever is not a job that works**	entries/lessons/L1476.md	1	38	e49f3a78f2090b6b
+lessons	L1477	1477		2026-09-14	ZABZ-YOGA	open	**L1477 · Rows whose state is outside every filter become invisible to all cleanup and all metrics**	entries/lessons/L1477.md	1	34	f520b31d94f982fa
+lessons	L1478	1478		2026-09-14	ZABZ-YOGA	open	**L1478 · A feature wired to the wrong branch is not tested by testing its helper: find every site that makes the decision**	entries/lessons/L1478.md	1	32	c4387c1d7c863016
+lessons	L1479	1479		2026-09-14	ZABZ-YOGA	open	**L1479 · A downloaded file with no row does not exist; and 604 voicemails are recoverable from nowhere**	entries/lessons/L1479.md	1	61	1ee9691c0ced883c
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
@@ -533,7 +536,9 @@ pain	P132	132		2026-09-14	ZABZ-YOGA	open	## P132 — Two sessions can migrate an
 pain	P133	133		2026-09-14	ZABZ-YOGA	open	## P133 — log/** and the six flat files are still writable by any stale checkout	entries/pain/P133.md	1	12	15435ca4a8f8df71
 pain	P134	134		2026-09-14	SECRATARY	open	## P134 — The journal itself has forked: SECRATARY holds 936 entries that exist on no other machine, and ZABZ-YOGA holds 304 that SECRATARY has never read	entries/pain/P134.md	1	45	c2006fbf4b56624a
 pain	P135	135		2026-09-14	ZABZ-YOGA	open	## P135 — A journal append takes 3 minutes and blocks the turn that needs it	entries/pain/P135.md	1	7	22b1620ff90ba12a
-pain	P136	136		2026-09-14	ZABZ-YOGA	open	## P136 — The reconnaissance nudge can never fire: its counter resets every tick and each tick runs one step	entries/pain/P136.md	1	26	86806c7a97467002
+pain	P136	136		2026-09-14	ZABZ-YOGA	done	## P136 — The reconnaissance nudge can never fire: its counter resets every tick and each tick runs one step	entries/pain/P136.md	1	26	86806c7a97467002
+pain	P137	137		2026-09-14	ZABZ-YOGA	open	## P137 — A session believed it closed task #25118 while the task stayed open, then died at the budget	entries/pain/P137.md	1	43	50989bd069e8f1bc
+pain	P138	138		2026-09-14	ZABZ-YOGA	open	## P138 — The budget extension tripled the cost of a failure without changing the outcome (task 25106: 15 steps, still failed)	entries/pain/P138.md	1	46	e58db81cc351baa2
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -724,3 +729,4 @@ wins	W110	110		2026-09-14	ZABZ-YOGA	open	**W110 · 2026-09-14 · The owner-quest
 wins	W111	111		2026-09-14	ZABZ-YOGA	open	**W111 · 2026-09-14 · The work loop never showed the model its own tool results, so no session could accumulate a fact.**	entries/wins/W111.md	1	35	45833224f9e59036
 wins	W112	112		2026-09-14	ZABZ-YOGA	open	**W112 · 2026-09-14 · The 53-silent-devices alarm was our own monitoring: 27 answered within seconds once we asked.**	entries/wins/W112.md	1	49	668024fe0fbe3756
 wins	W113	113		2026-09-14	ZABZ-YOGA	open	**W113 · 2026-09-14 · Journal lock detects a dead holder: 600s of blocked writes became 0.02s.**	entries/wins/W113.md	1	23	c1358abd8af83ce7
+wins	W114	114		2026-09-14	ZABZ-YOGA	open	**W114 · 2026-09-14 · The budget extension fires on a live session: 75414 failed at 5/5, 75415 extended 5 -> 8.**	entries/wins/W114.md	1	38	bc518b06a3ea5071
