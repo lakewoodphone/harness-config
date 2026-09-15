@@ -139,6 +139,7 @@ handoff	H229	229		2026-09-15 14:26 UTC	ZABZ-YOGA	open	## 2026-09-15 14:26 UTC ·
 handoff	H230	230		2026-09-15 14:27 UTC	ZABZ-YOGA	open	## 2026-09-15 14:27 UTC · ZABZ-YOGA · correction: H229 cites L1505, the trust-grade lesson is L1511 (and why an entry cannot cite its own sibling)	entries/handoff/H230.md	1	21	4431fca809f397b1
 handoff	H231	231		2026-09-15 14:28 UTC	ZABZ-YOGA	open	## 2026-09-15 14:28 UTC · ZABZ-YOGA · Her Mac: mesh access, fleet tooling, and the plain-language rule; laptop unreachable	entries/handoff/H231.md	1	49	fa11f7b9f11ee47f
 handoff	H232	232		2026-09-15 14:28 UTC	ZABZ-YOGA	open	## 2026-09-15 14:28 UTC · ZABZ-YOGA · The app can narrate itself again (and the dead sweep was never dead): logging configured, credentials redacted, app_voice check added	entries/handoff/H232.md	1	78	4c96fd65e9b0b49c
+handoff	H233	233		2026-09-15 14:34 UTC	ZABZ-YOGA	open	## 2026-09-15 14:34 UTC · ZABZ-YOGA · Questions get a shelf life and the badge can go green again: attention_debt now counts live debt and states ages	entries/handoff/H233.md	1	49	8d202c25b05ca6e5
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -491,6 +492,8 @@ lessons	L1509	1509		2026-09-15	ZABZ-YOGA	open	**L1509 · A swallowed exception i
 lessons	L1510	1510		2026-09-15	ZABZ-YOGA	open	**L1510 · Verify after the change point, never in a window that can contain the before**	entries/lessons/L1510.md	1	20	22239618a234dff5
 lessons	L1511	1511		2026-09-15	ZABZ-YOGA	open	**L1511 · A merged fact must carry its own trust grade, or the loudest label wins**	entries/lessons/L1511.md	1	37	b8a0308565c82b5b
 lessons	L1512	1512		2026-09-15	ZABZ-YOGA	open	**L1512 · A missing log line is not evidence of a missing subsystem: silence is not a result until you check the logger**	entries/lessons/L1512.md	1	36	76b8616688d919da
+lessons	L1513	1513		2026-09-15	ZABZ-YOGA	open	**L1513 · Every alarm needs a stated escape condition: severity must follow freshness, not a count**	entries/lessons/L1513.md	1	24	6961f5161ed2250a
+lessons	L1514	1514		2026-09-15	ZABZ-YOGA	open	**L1514 · An aggregate age printed beside a subset count is a wrong number**	entries/lessons/L1514.md	1	26	1e1c376936d9f781
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -596,10 +599,11 @@ pain	P140	140		2026-09-14	ZABZ-YOGA	open	## P140 — personal-secretary-mvp on s
 pain	P141	141		2026-09-14	ZABZ-YOGA	open	## P141 — Her laptop cannot join Tailscale, so it cannot reach the authority directly (IPv6 fixed, login still stalls)	entries/pain/P141.md	1	30	3239a0f5879e5e71
 pain	P142	142		2026-09-15	ZABZ-YOGA	open	## P142 — Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that)	entries/pain/P142.md	1	33	ed9d07e073a531d7
 pain	P143	143		2026-09-15	ZABZ-YOGA	open	## P143 — The app repo has three lineages and the live one is the least published	entries/pain/P143.md	1	42	db0bfe5bdb74e286
-pain	P144	144		2026-09-15	ZABZ-YOGA	open	## P144 — What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders	entries/pain/P144.md	1	36	d3711352fd29f1a6
+pain	P144	144		2026-09-15	ZABZ-YOGA	superseded	## P144 — What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders	entries/pain/P144.md	1	36	d3711352fd29f1a6
 pain	P145	145		2026-09-15	ZABZ-YOGA	open	## P145 — The production clone is a divergent lineage: master 61 ahead and 138 behind origin, so a fix exists on one disk only	entries/pain/P145.md	1	26	24187c68f65b8179
 pain	P146	146		2026-09-15	ZABZ-YOGA	open	## P146 — Journal ids collide when two machines allocate offline (H228/H229/L1510/P145 all doubled today)	entries/pain/P146.md	1	39	5d2b0fb790de977c
 pain	P147	147		2026-09-15	ZABZ-YOGA	open	## P147 — Nothing asserts the app can narrate itself, and the journal has no explicit retention cap	entries/pain/P147.md	1	24	74adf10235a0f11d
+pain	P148	148		2026-09-15	ZABZ-YOGA	open	## P148 — Reminders are marked sent into a dashboard nothing has been shown to render	entries/pain/P148.md	1	21	ad28517535acc74f
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -714,6 +718,7 @@ decisions	D150	150		2026-09-14	ZABZ-YOGA	open	**D150 · 2026-09-14 · Her agent'
 decisions	D151	151		2026-09-15	ZABZ-YOGA	open	**D151 · 2026-09-15 · One party-resolution helper for search and thread, and it always reports whom it resolved.**	entries/decisions/D151.md	1	31	7907f8a2d32074e0
 decisions	D152	152		2026-09-15	ZABZ-YOGA	open	**D152 · 2026-09-15 · Owner-queue shelf life, alert lifecycle bound to subsystem success, SMS off with the app as the surfaced channel.**	entries/decisions/D152.md	1	33	ceabf57872b398b8
 decisions	D153	153		2026-09-15	ZABZ-YOGA	open	**D153 · 2026-09-15 · The app configures its own logging at INFO with credential redaction; scheduled tasks state their refusals.**	entries/decisions/D153.md	1	29	2e62b2a544b2ed08
+decisions	D154	154		2026-09-15	ZABZ-YOGA	open	**D154 · 2026-09-15 · Shelf life and severity constants: questions 14 days, question debt 14 days, fresh critical 48 hours.**	entries/decisions/D154.md	1	18	72cab9c7b6c685ee
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -813,3 +818,4 @@ wins	W126	126		2026-09-14	ZABZ-YOGA	open	**W126 · 2026-09-14 · Her laptop's we
 wins	W127	127		2026-09-15	ZABZ-YOGA	open	**W127 · 2026-09-15 · Profile coverage went from 1 of 65 to 34: the fleet now answers 'is the kiosk installed?'.**	entries/wins/W127.md	1	43	77f12a396fab73b7
 wins	W128	128		2026-09-15	ZABZ-YOGA	open	**W128 · 2026-09-15 · The owner's badge tells the truth: held 163->20, urgent/critical 42->13, and delivery is no longer a false green.**	entries/wins/W128.md	1	23	ea13ba008fca1241
 wins	W129	129		2026-09-15	ZABZ-YOGA	open	**W129 · 2026-09-15 · The application can narrate itself again: 0 INFO lines per minute to 124, with credentials redacted.**	entries/wins/W129.md	1	23	83badbec5abb62d1
+wins	W130	130		2026-09-15	ZABZ-YOGA	open	**W130 · 2026-09-15 · 313 questions stopped pretending to be live work, and the badge can go green again.**	entries/wins/W130.md	1	21	2183e2847a718185
