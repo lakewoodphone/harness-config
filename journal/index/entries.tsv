@@ -126,6 +126,7 @@ handoff	H216	216		2026-09-15 01:50 UTC	ZABZ-YOGA	open	## 2026-09-15 01:50 UTC ·
 handoff	H217	217		2026-09-15 01:58 UTC	ZABZ-YOGA	open	## 2026-09-15 01:58 UTC · ZABZ-YOGA · Owner-approved vendor email sent for order 161898; task 25106 reopened from a false done	entries/handoff/H217.md	1	41	4a5437b3b76152a9
 handoff	H218	218		2026-09-15 02:27 UTC	ZABZ-YOGA	open	## 2026-09-15 02:27 UTC · ZABZ-YOGA · lpt-sync: three defects fixed, verified dry-run only, pushed to lpt-sync-precreate-guard-20260915	entries/handoff/H218.md	1	76	487dfba2a40fa29a
 handoff	H219	219		2026-09-15 02:49 UTC	ZABZ-YOGA	done	## 2026-09-15 02:49 UTC · ZABZ-YOGA · 2026-09-15 02:50Z ZABZ-YOGA: the objective is met -- every obtainable word is in, the remainder is measured	entries/handoff/H219.md	1	57	06eaee1f97834917
+handoff	H220	220		2026-09-15 03:10 UTC	ZABZ-YOGA	open	## 2026-09-15 03:10 UTC · ZABZ-YOGA · Her machines: full power, company access, self-learning loop live	entries/handoff/H220.md	1	47	7672ffbdcb33a211
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -461,6 +462,9 @@ lessons	L1496	1496		2026-09-14	ZABZ-YOGA	open	**L1496 · Her machines were cripp
 lessons	L1497	1497		2026-09-14	ZABZ-YOGA	open	**L1497 · A provider name that no route defines is not a YAML error, and nothing complains**	entries/lessons/L1497.md	1	14	3afe783ededc6724
 lessons	L1498	1498		2026-09-14	ZABZ-YOGA	open	**L1498 · Three pain entries in one session had a stale premise: re-measure a pain before acting on it**	entries/lessons/L1498.md	1	33	97fe83885e5dabc9
 lessons	L1499	1499		2026-09-14	LAKEWOOECHSMINI	open	**L1499 · AUTOSYNC TEST ENTRY - written on her machine, safe to delete**	entries/lessons/L1499.md	1	6	3ea0f40485cc9c29
+lessons	L1500	1500		2026-09-14	ZABZ-YOGA	open	**L1500 · A blocked-by-design state looks exactly like a broken state: find the switch at the path the code computes**	entries/lessons/L1500.md	1	28	5fdbad8b778d54bb
+lessons	L1501	1501		2026-09-14	ZABZ-YOGA	open	**L1501 · Her web search was silently dead: the endpoint is Techloq-blocked and the chat path hid it**	entries/lessons/L1501.md	1	32	a71089f42499cea3
+lessons	L1502	1502		2026-09-14	ZABZ-YOGA	open	**L1502 · Four ways a launcher silently fails: bootstrap-only .env keys, param() placement, the wrong entry point, and session 0**	entries/lessons/L1502.md	1	31	698a667683d1009f
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 lessons	L1466	1466		2026-09-15	SECRATARY	open	**L1466 · The Google Voice home-phone trick is dead twice over, and magicJack's cheapest price is not the one on the front page**	entries/lessons/L1466.md	1	31	b2b824b4b5c8d291
@@ -772,3 +776,5 @@ wins	W121	121		2026-09-14	ZABZ-YOGA	open	**W121 · 2026-09-14 · A health check 
 wins	W122	122		2026-09-14	ZABZ-YOGA	open	**W122 · 2026-09-14 · The ghost-agent detector scanned goal_plans and goal_steps but not tasks, where live work is assigned.**	entries/wins/W122.md	1	37	7f2c6d24f24baab6
 wins	W123	123		2026-09-14	ZABZ-YOGA	open	**W123 · 2026-09-14 · A portable applier exists now, so no machine in the fleet is unreachable by config.**	entries/wins/W123.md	1	12	4f0e80433316faf4
 wins	W124	124		2026-09-14	ZABZ-YOGA	open	**W124 · 2026-09-14 · 42 urgent owner alerts were held and unseen because a failed SMS was silent.**	entries/wins/W124.md	1	44	ce9a2a107ffb87e4
+wins	W125	125		2026-09-14	ZABZ-YOGA	open	**W125 · 2026-09-14 · The owner-SMS kill switch was enforced at three call sites out of more than a dozen.**	entries/wins/W125.md	1	36	ca0631ce260d425e
+wins	W126	126		2026-09-14	ZABZ-YOGA	open	**W126 · 2026-09-14 · Her laptop's web search works again: real search snippets instead of a dozen page fetches.**	entries/wins/W126.md	1	22	ccb957eadb4d7b50
