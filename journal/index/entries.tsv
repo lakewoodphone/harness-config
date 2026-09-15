@@ -156,6 +156,9 @@ handoff	H246	246		2026-09-15 18:31 UTC	ZABZ-TECH	open	## 2026-09-15 18:31 UTC ·
 handoff	H247	247		2026-09-15 18:43 UTC	ZABZ-TECH	open	## 2026-09-15 18:43 UTC · ZABZ-TECH · Account/sign-in audit opened: PART-117 done, and the account system has one customer behind it who cannot sign in	entries/handoff/H247.md	1	25	3d2a2c6480af3852
 handoff	H248	248		2026-09-15 18:45 UTC	ZABZ-TECH	open	## 2026-09-15 18:45 UTC · ZABZ-TECH · Mac mini dictation: live, Windows parity (Command+H toggle), verified with real speech	entries/handoff/H248.md	1	57	c76d9ba3527d661b
 handoff	H249	249		2026-09-15 18:48 UTC	ZABZ-TECH	open	## 2026-09-15 18:48 UTC · ZABZ-TECH · Activation Lock fixed into the maintained onboarding path; three items still need the owner; a latent DEP payload bug recorded	entries/handoff/H249.md	1	43	51bbaa34b7204ee4
+handoff	H250	250		2026-09-15 18:49 UTC	ZABZ-TECH	open	## 2026-09-15 18:49 UTC · ZABZ-TECH · PART-118 done: customer Google sign-in was disabled in production; enabled, verified, and the flow now reaches Google	entries/handoff/H250.md	1	71	9ee5cec948e43aef
+handoff	H251	251		2026-09-15 18:51 UTC	ZABZ-TECH	open	## 2026-09-15 18:51 UTC · ZABZ-TECH · The LPT sign-in button had never worked - identify_lpt was imported and never called; now wired as far as the broker allows	entries/handoff/H251.md	1	52	631eecc03e6cf581
+handoff	H252	252		2026-09-15 18:51 UTC	ZABZ-TECH	open	## 2026-09-15 18:51 UTC · ZABZ-TECH · Mac mini dictation: the missing text was a click on the pill, not a broken pipeline	entries/handoff/H252.md	1	40	64bc0a4d1dfb6c65
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -534,6 +537,8 @@ lessons	L1535	1535		2026-09-15	ZABZ-TECH	open	**L1535 · In lpt_prod the column 
 lessons	L1536	1536		2026-09-15	ZABZ-TECH	open	**L1536 · Handy caches settings in memory and rewrites the file: always restart it after editing**	entries/lessons/L1536.md	1	23	ae05f5606d556563
 lessons	L1537	1537		2026-09-15	ZABZ-TECH	open	**L1537 · handy-keys blocks registered hotkeys, so Command+H is fair game on macOS (from the crate docs)**	entries/lessons/L1537.md	1	21	7c8f14abe31419ea
 lessons	L1538	1538		2026-09-15	ZABZ-TECH	open	**L1538 · A detached worktree at my own commit made rebase republish 30 stale commits; and 'Everything up-to-date' is not success**	entries/lessons/L1538.md	1	25	f63dace877548527
+lessons	L1539	1539		2026-09-15	ZABZ-TECH	open	**L1539 · docker compose env_file is read at container creation, so 'I changed the config and restarted it' proves nothing - check printenv inside the running container**	entries/lessons/L1539.md	1	12	ac146a30282e6dbb
+lessons	L1540	1540		2026-09-15	ZABZ-TECH	open	**L1540 · Handy's pill X discards a recording where Windows' X keeps it -- and the log distinguishes stop from cancel**	entries/lessons/L1540.md	1	28	6360be371cdd76fc
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -654,6 +659,7 @@ pain	P155	155		2026-09-15	ZABZ-TECH	open	## P155 — The Waze fleet's sourcing e
 pain	P156	156		2026-09-15	ZABZ-TECH	open	## P156 — Policy approval tasks have no honored path: approving one cannot unblock the action (task #25399 proves it)	entries/pain/P156.md	1	17	20be159b916b037d
 pain	P157	157		2026-09-15	ZABZ-TECH	open	## P157 — pwsh 'spawn EPERM' on long here-string commands	entries/pain/P157.md	1	10	c2754f5dc8fb3540
 pain	P158	158		2026-09-15	ZABZ-TECH	open	## P158 — Fabricated requirements in authoritative docs: my own writing is not evidence for my own claims	entries/pain/P158.md	1	20	8717348f234e31e6
+pain	P159	159		2026-09-15	ZABZ-TECH	open	## P159 — Handy cannot insert text while you speak, so it is not a perfect Windows voice-typing clone	entries/pain/P159.md	1	29	74eedf4ac380a224
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
