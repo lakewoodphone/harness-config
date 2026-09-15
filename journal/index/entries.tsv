@@ -158,6 +158,7 @@ handoff	H248	248		2026-09-15 16:17 UTC	ZABZ-YOGA	open	## 2026-09-15 16:17 UTC ·
 handoff	H249	249		2026-09-15 16:19 UTC	ZABZ-YOGA	open	## 2026-09-15 16:19 UTC · ZABZ-YOGA · Badge 3 attention / 11 ok; five false alarms cleared in four rounds and the ratio is the finding	entries/handoff/H249.md	1	30	cead14926c917cd2
 handoff	H250	250		2026-09-15 16:20 UTC	ZABZ-YOGA	open	## 2026-09-15 16:20 UTC · ZABZ-YOGA · Hub preserved and measured; the company's output is 1,729 done tasks of which nearly all are self-inspection	entries/handoff/H250.md	1	28	6947c995e0285340
 handoff	H251	251		2026-09-15 16:24 UTC	ZABZ-YOGA	open	## 2026-09-15 16:24 UTC · ZABZ-YOGA · Task-origin report shipped; the mix question is queued for the owner (queue table was locked)	entries/handoff/H251.md	1	31	2a494bc1d7311feb
+handoff	H252	252		2026-09-15 17:03 UTC	ZABZ-YOGA	open	## 2026-09-15 17:03 UTC · ZABZ-YOGA · P151 closed: two conftest fixtures, proven at the default descriptor limit	entries/handoff/H252.md	1	23	923860f126c36b77
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -531,6 +532,7 @@ lessons	L1530	1530		2026-09-15	ZABZ-YOGA	open	**L1530 · A fresh id is not a new
 lessons	L1531	1531		2026-09-15	ZABZ-YOGA	open	**L1531 · Fifth instance of one defect: an aggregate with no time bound reports history as live**	entries/lessons/L1531.md	1	35	ceec9c58d88e65b9
 lessons	L1532	1532		2026-09-15	ZABZ-YOGA	open	**L1532 · A task that completes is not work that mattered: measure whose work it is, not how much**	entries/lessons/L1532.md	1	26	75479609fe844fe0
 lessons	L1533	1533		2026-09-15	ZABZ-YOGA	open	**L1533 · A ratio that is stable across windows is a fact about the wiring; make it take one command or it becomes folklore**	entries/lessons/L1533.md	1	22	3274fc681a07ead0
+lessons	L1534	1534		2026-09-15	ZABZ-YOGA	open	**L1534 · When a mitigation works the leak underneath stops being visible: measure the resource, not the suite**	entries/lessons/L1534.md	1	27	5f0cf7ff0d6d8162
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -643,7 +645,7 @@ pain	P147	147		2026-09-15	ZABZ-YOGA	done	## P147 — Nothing asserts the app can
 pain	P148	148		2026-09-15	ZABZ-YOGA	done	## P148 — Reminders are marked sent into a dashboard nothing has been shown to render	entries/pain/P148.md	1	21	ad28517535acc74f
 pain	P149	149		2026-09-15	ZABZ-YOGA	done	## P149 — run_subsystem_once cannot run the five browser syncs, and only journal.py refreshes the mirror	entries/pain/P149.md	1	26	5599cf747e989ad0
 pain	P150	150		2026-09-15	ZABZ-YOGA	done	## P150 — Three of the nine pre-existing test failures are one root cause: .env.example is missing 24 declared settings	entries/pain/P150.md	1	43	ca92fc0fb95b9bcd
-pain	P151	151		2026-09-15	ZABZ-YOGA	superseded	## P151 — The suite's 153 order-dependent errors were a descriptor limit; seven failures left, four of them quiet-hours	entries/pain/P151.md	1	40	a97f47ca12cddcc0
+pain	P151	151		2026-09-15	ZABZ-YOGA	done	## P151 — The suite's 153 order-dependent errors were a descriptor limit; seven failures left, four of them quiet-hours	entries/pain/P151.md	1	40	a97f47ca12cddcc0
 pain	P152	152		2026-09-15	ZABZ-YOGA	superseded	## P152 — The suite's residual failures are flaky: ~six members, membership varies per invocation, three visible mechanisms	entries/pain/P152.md	1	32	f4a7b65d971c43d5
 pain	P153	153		2026-09-15	ZABZ-YOGA	open	## P153 — The residual suite failures: corrected mechanisms, and the one measurement that would name them	entries/pain/P153.md	1	24	190a908088745428
 pain	P154	154		2026-09-15	ZABZ-YOGA	done	## P154 — The residual flakiness is leaked fire-and-forget threads in the hub tests, poisoning the in-flight marker across tests	entries/pain/P154.md	1	41	3e9fbec951fc830a
@@ -886,3 +888,4 @@ wins	W144	144		2026-09-15	ZABZ-YOGA	open	**W144 · 2026-09-15 · The evolution l
 wins	W145	145		2026-09-15	ZABZ-YOGA	open	**W145 · 2026-09-15 · The dead-weight agents were retired in July; badge 3 attention / 11 ok.**	entries/wins/W145.md	1	32	106f792d70694f75
 wins	W146	146		2026-09-15	ZABZ-YOGA	open	**W146 · 2026-09-15 · Authority journal commits preserved; first fresh company-output read in 15 rounds.**	entries/wins/W146.md	1	37	dc661e787d3334c4
 wins	W147	147		2026-09-15	ZABZ-YOGA	open	**W147 · 2026-09-15 · The company's output is 86% self, now measurable in one command.**	entries/wins/W147.md	1	33	0dc28e4fa5b63d5d
+wins	W148	148		2026-09-15	ZABZ-YOGA	open	**W148 · 2026-09-15 · The descriptor leak is fixed, not bounded: 8,160 descriptors closed and the suite passes on the default limit.**	entries/wins/W148.md	1	31	3634d7743b115806
