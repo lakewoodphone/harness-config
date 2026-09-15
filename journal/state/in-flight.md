@@ -11,9 +11,11 @@ Rewritten, not appended. This session: **H202**, **H208**, **H213**, **H214**; r
 * **`fetchable: 0`** — the fetch is done. Every call whose audio Dialpad will still serve is
   local. (The queue shows 4 because the live harvest keeps adding new calls; that is the system
   working, not a backlog.)
-* **455 calls left to transcribe**, of 10,357 total: **3,753 already carry words (36%)**, 642 of
-  those from our own re-transcription of the recording (~1,064 audio-minutes, **~$6.39** spent
-  of the ~$36 cap). The remaining 455 are draining at **~16/min** with four shards plus cron.
+* **415 calls left to transcribe**, of 10,357 total: **3,753 carry words in the index (36%)**, 691
+  of those from our own re-transcription of the recording (~1,119 audio-minutes, **~$6.72** spent
+  of the ~$36 cap). Draining at **~24/min** with four shards plus cron ticks — measured: 642 →
+  690 transcripts in four minutes. (The index's "calls with words" lags by up to 30 minutes
+  because it rebuilds on `:07` and `:37`.)
 
 ## Running right now
 
