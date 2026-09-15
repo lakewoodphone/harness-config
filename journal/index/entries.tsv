@@ -731,3 +731,4 @@ wins	W111	111		2026-09-14	ZABZ-YOGA	open	**W111 · 2026-09-14 · The work loop n
 wins	W112	112		2026-09-14	ZABZ-YOGA	open	**W112 · 2026-09-14 · The 53-silent-devices alarm was our own monitoring: 27 answered within seconds once we asked.**	entries/wins/W112.md	1	49	668024fe0fbe3756
 wins	W113	113		2026-09-14	ZABZ-YOGA	open	**W113 · 2026-09-14 · Journal lock detects a dead holder: 600s of blocked writes became 0.02s.**	entries/wins/W113.md	1	23	c1358abd8af83ce7
 wins	W114	114		2026-09-14	ZABZ-YOGA	open	**W114 · 2026-09-14 · The budget extension fires on a live session: 75414 failed at 5/5, 75415 extended 5 -> 8.**	entries/wins/W114.md	1	38	bc518b06a3ea5071
+wins	W115	115		2026-09-14	ZABZ-YOGA	open	**W115 · 2026-09-14 · Retry waste measured (62% of failures, 115 steps) and the ceiling calibrated against 4 real completions.**	entries/wins/W115.md	1	34	8abc89d7b53bf9e6
