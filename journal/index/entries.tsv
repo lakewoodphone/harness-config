@@ -502,6 +502,7 @@ lessons	L1515	1515		2026-09-15	ZABZ-YOGA	open	**L1515 · A representation is not
 lessons	L1516	1516		2026-09-15	ZABZ-YOGA	open	**L1516 · Wiring a channel is not surfacing it: verify the signal at the reader, not at the writer**	entries/lessons/L1516.md	1	30	a22e8e73f0a09720
 lessons	L1517	1517		2026-09-15	ZABZ-YOGA	open	**L1517 · A hook is verified when its trigger fires in production, not when its call site exists**	entries/lessons/L1517.md	1	25	f03779438c97ffb4
 lessons	L1518	1518		2026-09-15	ZABZ-YOGA	open	**L1518 · A forced run must clear every gate the scheduled run checks, and the result must distinguish ran from quoted-an-old-status**	entries/lessons/L1518.md	1	31	2de4c8fee2da6230
+lessons	L1519	1519		2026-09-15	ZABZ-YOGA	open	**L1519 · CORRECTION to P150: the contract ignores validation_alias; I looked up uppercase env names in a dict of snake_case fields**	entries/lessons/L1519.md	1	45	17a65f9fe3c7dee4
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
