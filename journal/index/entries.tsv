@@ -227,6 +227,7 @@ handoff	H317	317		2026-09-15 22:12 UTC	ZABZ-TECH	open	## 2026-09-15 22:12 UTC ·
 handoff	H318	318		2026-09-15 22:18 UTC	ZABZ-TECH	open	## 2026-09-15 22:18 UTC · ZABZ-TECH · personality-system DEPLOYED: AI layer works for the first time (real output, fallbackUsed false); operator surface fails closed; real CAS on saves	entries/handoff/H318.md	1	76	52a35d4cb7bfcd74
 handoff	H319	319		2026-09-15 22:20 UTC	ZABZ-TECH	open	## 2026-09-15 22:20 UTC · ZABZ-TECH · 16 of 78 full-site parts done; customer-PII leak closed in production; price matrix still public; rebuild still blocked	entries/handoff/H319.md	1	55	864f89920dbab8c8
 handoff	H320	320		2026-09-15 22:23 UTC	ZABZ-TECH	open	## 2026-09-15 22:23 UTC · ZABZ-TECH · personality-system COMPLETE: 344 tests, 9/9 workstreams merged, deployed and verified live; 7 named follow-ups remain	entries/handoff/H320.md	1	69	ca565cdf334f0a03
+handoff	H321	321		2026-09-15 22:25 UTC	ZABZ-TECH	open	## 2026-09-15 22:25 UTC · ZABZ-TECH · Weissman SSD: 160 dollar deposit taken and the drive shipped to 300DDR ticket 74048 (from the Mac mini)	entries/handoff/H321.md	1	70	8655adc5b9f4fa68
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -700,6 +701,8 @@ lessons	L1630	1630		2026-09-15	ZABZ-TECH	open	**L1630 · A backslash-u escape in
 lessons	L1631	1631		2026-09-15	ZABZ-TECH	open	**L1631 · A shebang on a test-imported module makes Vite skip the whole test file while node --check still passes**	entries/lessons/L1631.md	1	44	6365e90b795e105e
 lessons	L1632	1632		2026-09-15	ZABZ-TECH	open	**L1632 · A seed migration re-runs on every migrate deploy and would re-activate a known-password ADMIN that someone deliberately suspended**	entries/lessons/L1632.md	1	48	da1d1b08bd1031d9
 lessons	L1633	1633		2026-09-15	ZABZ-TECH	open	**L1633 · A row count is not a timestamp: prove WHEN state changed before reporting data loss (second false alarm of this class)**	entries/lessons/L1633.md	1	47	d936859fe9c37ae0
+lessons	L1635	1635		2026-09-15	ZABZ-TECH	open	**L1635 · I crash-looped production with a token replace that duplicated an import binding - a token count is not a parse check**	entries/lessons/L1635.md	1	50	a0895dc4d5802ecb
+lessons	L1636	1636		2026-09-15	ZABZ-TECH	open	**L1636 · lpt-hub is not one record - check which clone before trusting a case file**	entries/lessons/L1636.md	1	30	92971d8351ab420e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -843,6 +846,7 @@ pain	P178	178		2026-09-15	ZABZ-TECH	open	## P178 — An unwritable /data crashes
 pain	P179	179		2026-09-15	ZABZ-YOGA	open	## P179 — parallel worktree agents share one node_modules; local DB measurement needs a tunnel	entries/pain/P179.md	1	16	fce2fcd900b3daab
 pain	P180	180		2026-09-15	ZABZ-TECH	done	## P180 — The tree-level guard test has two blind spots: an allowlisted WRITE looks like a read, and publicProcedure is counted as guarded	entries/pain/P180.md	1	17	983b19f4ae466cc9
 pain	P181	181		2026-09-15	ZABZ-TECH	open	## P181 — Two of six workstreams landed 0 commits while reporting 'running'; 'running' is an assertion, not evidence - count commits per branch	entries/pain/P181.md	1	35	4ea3070d826dc1b3
+pain	P182	182		2026-09-15	ZABZ-TECH	open	## P182 — Journal entries written on the mac mini cannot be published; entry IDs collide across machines	entries/pain/P182.md	1	50	1cbe9d94adf4deb4
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270

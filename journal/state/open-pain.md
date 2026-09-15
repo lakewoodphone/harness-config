@@ -6,7 +6,7 @@ Updated: 2026-09-15
 stops being open by being corrected, not by being deleted here. A problem that is done carries
 `status=done` in its marker or in a row of `state/status.tsv`, and drops out of this list.
 
-Provenance: 113 open of 126 pain entries, read from index/entries.tsv, written 2026-09-15 19:54 UTC on ZABZ-TECH.
+Provenance: 128 open of 144 pain entries, read from index/entries.tsv, written 2026-09-15 22:25 UTC on ZABZ-TECH.
 
 | # | Symptom | Cost | Fix |
 |---|---|---|---|
@@ -123,3 +123,18 @@ Provenance: 113 open of 126 pain entries, read from index/entries.tsv, written 2
 | P162 | A device attached to a household is not visible to a scoped admin until it logs a hello |  |  |
 | P163 | journal.py search could not read entry bodies, so recall returned false negatives |  |  |
 | P164 | Nothing watches the LOCAL services the mesh depends on: a stopped Tailscale or IP Helper silently makes a whole machine LAN-only, with no alert |  |  |
+| P166 | Chip's 2026-09-15 sends bypassed the production reply path entirely - unknown producer, and it is the same day he sent canned lines to one member at a time |  |  |
+| P167 | The database corruption alarm has no transport - it could never alert, and that is why the integrity check ran twice |  |  |
+| P168 | journal.py drops body, tags and refs from its cache - so --tag never matches and backlinks cannot see prose citations |  |  |
+| P169 | The only gate on the fleet location map is a bcrypt hash committed to the repo |  |  |
+| P170 | curl -fsS health gates in restart.sh and verify-production.sh turn a degraded 503 into did-not-start - and my 90s revert all-clear was too short to prove the loop stopped |  |  |
+| P171 | W3's whole-suite numbers do not reconcile: 11 failed post-fix against 10 at base, with the extra one claimed pre-existing |  |  |
+| P172 | Scheduled reminders fail on an import error: agent_bus imports a function autopilot no longer defines |  |  |
+| P173 | Walk-in hours live in 6+ hand-written strings and drift silently; the schedule is not one source of truth |  |  |
+| P174 | A working behaviour was reversed for a day on a premise nobody measured, and the wrong premise was written into the code as fact |  |  |
+| P175 | Chumash Timeline signed-in features are dead in production and the failure is self-concealing |  |  |
+| P176 | A task brief's measured claims still need re-measuring before you act on them |  |  |
+| P178 | An unwritable /data crashes the fleet dashboard at startup and restart-loops it (init_db WAL pragma) - pre-existing |  |  |
+| P179 | parallel worktree agents share one node_modules; local DB measurement needs a tunnel |  |  |
+| P181 | Two of six workstreams landed 0 commits while reporting 'running'; 'running' is an assertion, not evidence - count commits per branch |  |  |
+| P182 | Journal entries written on the mac mini cannot be published; entry IDs collide across machines |  |  |
