@@ -167,6 +167,8 @@ handoff	H257	257		2026-09-15 19:09 UTC	ZABZ-TECH	open	## 2026-09-15 19:09 UTC ·
 handoff	H258	258		2026-09-15 19:12 UTC	ZABZ-TECH	open	## 2026-09-15 19:12 UTC · ZABZ-TECH · PART-120 corrected: census was 28 not 43, and the error hid that production runs a stale unguarded build - six routers patched, nine endpoints now 401	entries/handoff/H258.md	1	73	a6ec46ede0b7ecd7
 handoff	H259	259		2026-09-15 19:15 UTC	ZABZ-TECH	open	## 2026-09-15 19:15 UTC · ZABZ-TECH · kf/append-only-review-decisions: machine verdict no longer destroyed by the human verdict	entries/handoff/H259.md	1	10	531ac1db182d77ce
 handoff	H260	260		2026-09-15 19:15 UTC	ZABZ-TECH	open	## 2026-09-15 19:15 UTC · ZABZ-TECH · PART-122 retracts PART-119 F-7: the reuse-revocation throw is the test harness's mock, not production - and that unblocks the 7-day access token fix	entries/handoff/H260.md	1	64	bf8998af3ec4863b
+handoff	H261	261		2026-09-15 19:19 UTC	ZABZ-TECH	open	## 2026-09-15 19:19 UTC · ZABZ-TECH · PART-123: the SSO placeholder-secret item CLOSES in production (43-char real secret, fail-closed) and a worse one OPENS - one shared secret for the whole fleet with no per-app isolation	entries/handoff/H261.md	1	58	371f72d7bf6d2271
+handoff	H262	262		2026-09-15 19:20 UTC	ZABZ-TECH	open	## 2026-09-15 19:20 UTC · ZABZ-TECH · waze-mdm system analysis: five silent-failure defects fixed and measured; 22 devices not reporting needs the owner	entries/handoff/H262.md	1	46	2fb0561aad4e5ae8
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -556,6 +558,7 @@ lessons	L1546	1546		2026-09-15	ZABZ-TECH	open	**L1546 · Wiring a SQLite-only st
 lessons	L1547	1547		2026-09-15	ZABZ-TECH	open	**L1547 · An environment's source tree is not the repository, and a false positive in analysis can be a true positive in production - measure what is DEPLOYED, not just what is committed**	entries/lessons/L1547.md	1	18	ae697132055b7b06
 lessons	L1548	1548		2026-09-15	ZABZ-TECH	open	**L1548 · Adding lines to storage_sections/screenshot_reviews.py moves the SQL-surface digest, not just the count**	entries/lessons/L1548.md	1	6	d314e8dd5df663c2
 lessons	L1549	1549		2026-09-15	ZABZ-TECH	open	**L1549 · A warning emitted by a test harness is a claim about the harness until the harness is checked - a mock returning undefined throws inside production code and prints a production-sounding message**	entries/lessons/L1549.md	1	27	9ee43e611ac0ad92
+lessons	L1550	1550		2026-09-15	ZABZ-TECH	open	**L1550 · The whole stack kept running and said nothing: every fix must end with a number that moved**	entries/lessons/L1550.md	1	31	336df4887b826db9
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
