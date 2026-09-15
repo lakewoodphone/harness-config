@@ -510,6 +510,8 @@ lessons	L1520	1520		2026-09-15	ZABZ-TECH	open	**L1520 · Not running has four me
 lessons	L1521	1521		2026-09-15	ZABZ-TECH	open	**L1521 · A 'chip-off recovered poorly' report is a price band and a tool limit, not a dead end: read the band, and remember the dumps persist**	entries/lessons/L1521.md	1	17	f4d3570e065bb86c
 lessons	L1522	1522		2026-09-15	ZABZ-TECH	open	**L1522 · Chip-off labs: PC-3000 Flash vs Rusolut VNR, the three rebuild blockers (XOR key / ECC-LDPC / FTL translator), and the three questions to ask when a lab reports a partial rebuild**	entries/lessons/L1522.md	1	22	b4ffddac31f59d40
 lessons	L1523	1523		2026-09-15	ZABZ-TECH	open	**L1523 · A path in a handoff is not a delivered file - published work goes to a repo and gets pushed**	entries/lessons/L1523.md	1	20	775e0bff7c4c4ff9
+lessons	L1524	1524		2026-09-15	ZABZ-TECH	open	**L1524 · A repo status line and a DNS lookup are not deploy state - a loopback-bound container behind an unreloaded proxy is deployed and invisible at once**	entries/lessons/L1524.md	1	30	1b968b729fd1aaa7
+lessons	L1525	1525		2026-09-15	ZABZ-TECH	open	**L1525 · A notification IMAGE is fetched by the app with no session - a login-gated URL breaks it, including on the LAN**	entries/lessons/L1525.md	1	44	8c8ee912fa1c15e4
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
