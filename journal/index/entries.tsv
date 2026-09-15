@@ -165,6 +165,8 @@ handoff	H255	255		2026-09-15 19:07 UTC	ZABZ-TECH	open	## 2026-09-15 19:07 UTC ·
 handoff	H256	256		2026-09-15 19:08 UTC	ZABZ-TECH	open	## 2026-09-15 19:08 UTC · ZABZ-TECH · android inference telemetry emitter: client half shipped, server endpoint is the blocker	entries/handoff/H256.md	1	14	7c8e915016286fdd
 handoff	H257	257		2026-09-15 19:09 UTC	ZABZ-TECH	open	## 2026-09-15 19:09 UTC · ZABZ-TECH · Inference budget gate wired into the live egress path (worktree only)	entries/handoff/H257.md	1	20	a80cf1f983692b24
 handoff	H258	258		2026-09-15 19:12 UTC	ZABZ-TECH	open	## 2026-09-15 19:12 UTC · ZABZ-TECH · PART-120 corrected: census was 28 not 43, and the error hid that production runs a stale unguarded build - six routers patched, nine endpoints now 401	entries/handoff/H258.md	1	73	a6ec46ede0b7ecd7
+handoff	H259	259		2026-09-15 19:15 UTC	ZABZ-TECH	open	## 2026-09-15 19:15 UTC · ZABZ-TECH · kf/append-only-review-decisions: machine verdict no longer destroyed by the human verdict	entries/handoff/H259.md	1	10	531ac1db182d77ce
+handoff	H260	260		2026-09-15 19:15 UTC	ZABZ-TECH	open	## 2026-09-15 19:15 UTC · ZABZ-TECH · PART-122 retracts PART-119 F-7: the reuse-revocation throw is the test harness's mock, not production - and that unblocks the 7-day access token fix	entries/handoff/H260.md	1	64	bf8998af3ec4863b
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -552,6 +554,8 @@ lessons	L1544	1544		2026-09-15	ZABZ-TECH	open	**L1544 · Six fatal defects in on
 lessons	L1545	1545		2026-09-15	ZABZ-TECH	open	**L1545 · Android unit tests cannot run on this machine: no Android SDK, and Gradle says so in 12s**	entries/lessons/L1545.md	1	6	a45e11c6dfc743fe
 lessons	L1546	1546		2026-09-15	ZABZ-TECH	open	**L1546 · Wiring a SQLite-only storage section into a request path: reach _conn and fail closed, do not grow the Postgres parity surface**	entries/lessons/L1546.md	1	28	e8c1f5866a9803b0
 lessons	L1547	1547		2026-09-15	ZABZ-TECH	open	**L1547 · An environment's source tree is not the repository, and a false positive in analysis can be a true positive in production - measure what is DEPLOYED, not just what is committed**	entries/lessons/L1547.md	1	18	ae697132055b7b06
+lessons	L1548	1548		2026-09-15	ZABZ-TECH	open	**L1548 · Adding lines to storage_sections/screenshot_reviews.py moves the SQL-surface digest, not just the count**	entries/lessons/L1548.md	1	6	d314e8dd5df663c2
+lessons	L1549	1549		2026-09-15	ZABZ-TECH	open	**L1549 · A warning emitted by a test harness is a claim about the harness until the harness is checked - a mock returning undefined throws inside production code and prints a production-sounding message**	entries/lessons/L1549.md	1	27	9ee43e611ac0ad92
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -796,6 +800,7 @@ decisions	D159	159		2026-09-15	ZABZ-TECH	open	**D159 · 2026-09-15 · The filter
 decisions	D160	160		2026-09-15	ZABZ-TECH	open	**D160 · 2026-09-15 · The security evidence viewer audited end to end and rebuilt - the evidence was fine, the presentation was not.**	entries/decisions/D160.md	1	61	f589deaccc1c36e0
 decisions	D161	161		2026-09-15	ZABZ-TECH	open	**D161 · 2026-09-15 · Dictation on the Mac mini is Windows parity: Command+H toggles it, no hold, no Enter, stays local.**	entries/decisions/D161.md	1	26	4d5d4ee698ea8b93
 decisions	D162	162		2026-09-15	ZABZ-TECH	open	**D162 · 2026-09-15 · The evidence archive was world-readable, half of it was 640x480, and clips were never purged.**	entries/decisions/D162.md	1	66	7a44e493f1c2f3fc
+decisions	D163	163		2026-09-15	ZABZ-TECH	open	**D163 · 2026-09-15 · Device Parts is out of favour - the owner paid the DHL duty himself and is not happy with the cost.**	entries/decisions/D163.md	1	19	23b1e83afe416719
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
