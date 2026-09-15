@@ -660,6 +660,7 @@ pain	P155	155		2026-09-15	ZABZ-YOGA	superseded	## P155 — Five live findings fr
 pain	P156	156		2026-09-15	ZABZ-YOGA	superseded	## P156 — The three real HIGH findings left: duplicate evolution offers, dead-weight agents, config divergence	entries/pain/P156.md	1	24	f231334db3973d59
 pain	P157	157		2026-09-15	ZABZ-YOGA	open	## P157 — One real finding left on the badge: the harness-config divergence (13 ahead / 104 behind)	entries/pain/P157.md	1	19	aa61e0666d6b67f8
 pain	P158	158		2026-09-15	ZABZ-YOGA	done	## P158 — The shared journal hub is a junk drawer: 42 branches, thirty from one day	entries/pain/P158.md	1	19	80fb473cc2666bfc
+pain	P159	159		2026-09-15	ZABZ-YOGA	open	## P159 — Entry ids collide across machines when unpushed; the journal repos are 39/10 apart	entries/pain/P159.md	1	65	40bb17380c98d2a0
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
