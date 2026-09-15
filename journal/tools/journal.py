@@ -287,7 +287,11 @@ def entry_hash(heading: str, body: str) -> str:
     L173) put the entire lesson on the heading line and have an empty body, so a
     body-only key dropped seven of them on the first migration attempt.
     """
-    payload = f"{re.sub(r'[ \t]+', ' ', (heading or '').strip())}\n---\n{norm_body(body)}"
+    # No backslash inside the f-string: Python < 3.12 rejects that (PEP 701 lifted the restriction),
+    # and her Mac mini ships the system Python 3.9. The journal has to run THERE, where she works,
+    # so the escape lives in a plain constant instead of inside the expression.
+    heading_clean = re.sub(r"[ \t]+", " ", (heading or "").strip())
+    payload = f"{heading_clean}\n---\n{norm_body(body)}"
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
 
 
