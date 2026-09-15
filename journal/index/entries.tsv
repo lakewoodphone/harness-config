@@ -679,6 +679,7 @@ pain	P156	156		2026-09-15	ZABZ-TECH	open	## P156 — Policy approval tasks have 
 pain	P157	157		2026-09-15	ZABZ-TECH	open	## P157 — pwsh 'spawn EPERM' on long here-string commands	entries/pain/P157.md	1	10	c2754f5dc8fb3540
 pain	P158	158		2026-09-15	ZABZ-TECH	open	## P158 — Fabricated requirements in authoritative docs: my own writing is not evidence for my own claims	entries/pain/P158.md	1	20	8717348f234e31e6
 pain	P159	159		2026-09-15	ZABZ-TECH	open	## P159 — Handy cannot insert text while you speak, so it is not a perfect Windows voice-typing clone	entries/pain/P159.md	1	29	74eedf4ac380a224
+pain	P160	160		2026-09-15	LAKEWOOECHSMINI	open	## P160 — journal entries from this machine cannot be published - harness-config will not converge (ahead 4 / behind 6, colliding entry IDs)	entries/pain/P160.md	1	34	b5ff6f3ac894f3e8
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
