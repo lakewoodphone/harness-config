@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import glob
 import hashlib
 import json
 import os
@@ -378,6 +379,36 @@ _NOT_A_PERSON = {
 # to merge two of them.
 _MAX_PHONES_PER_NAME = 3
 
+# The owner's own words, and the most dangerous false positive in the corpus: he
+# identifies himself as "<name> from Lakewood|Leica|Liquid|Microphone" and that line sits
+# against 40+ customer numbers. Measured 2026-09-15 -- a naive "my name is X" reader
+# labels the CUSTOMER as the owner.
+_OWNER_SELF_ID = re.compile(r"\bfrom\s+(lakewood|leica|liquid|microphone|local)\b", re.I)
+# Labels that name a category of customer rather than a customer. "levovitz Customer" is
+# NOT in here -- that one the order system writes with a real name in front of it, and
+# person_like_name strips the suffix instead of discarding the name with it.
+_NOT_A_NAME_LABEL = {
+    "walk-in", "walkin", "walk in", "customer", "new customer", "unknown customer",
+    "name not captured", "no name", "pending", "pending customer", "unnamed",
+    "n/a", "na", "tbd",
+}
+
+# Where the shop's own case records keep a customer name beside a number. The index
+# builds on the authority, where this checkout exists; on a machine without it the source
+# contributes nothing rather than failing, which is why absence is tolerated, not asserted.
+_SYNC_RECORD_DIRS = (
+    "/home/zabz/repos/lpt-hub/docs/customer-operations/sync-records",
+    os.path.expanduser("~/code/lpt-hub/docs/customer-operations/sync-records"),
+    os.path.expanduser("~/lpt-hub/docs/customer-operations/sync-records"),
+)
+# The repair-order SMS templates the shop actually sends. Two shapes, both measured
+# against the 9,782 stored messages that mention a repair order; between them they name
+# the three busiest people the corpus alone leaves as bare numbers.
+_ORDER_TEMPLATES = (
+    re.compile(r"(?:Good|Great)\s+news\s+([^!,.]{2,45}?)\s*[!,.]", re.I),
+    re.compile(r"^Hi\s+([^,]{2,45}?),\s+your\s+repair\s+order", re.I | re.M),
+)
+
 
 def person_like_name(name: object) -> str:
     """Return a cleaned person name, or '' when the string is not a person.
@@ -387,12 +418,25 @@ def person_like_name(name: object) -> str:
     each have been treated as one customer with dozens of disconnected conversations.
     """
     n = " ".join(str(name or "").split())
+    # "levovitz Customer" is how the order system labels a customer whose name it does
+    # know. The name is everything in front of the word, so strip the suffix -- discarding
+    # the row would throw away the only name that number has.
+    if n.lower().endswith(" customer"):
+        n = n[: -len(" customer")].strip()
+    # "Spitz Spitz" is how one of the shop's own case records writes a duplicated surname;
+    # the person is "Spitz". Measured 2026-09-15: 440 communications were displayed under
+    # the doubled form.
+    parts = n.split()
+    if len(parts) > 1 and len({p.lower() for p in parts}) == 1:
+        n = parts[0]
     if len(n) < 3 or len(n) > 48:
         return ""
     if re.search(r"\d", n):
         return ""
     low = n.lower()
-    if low in _NOT_A_PERSON:
+    if low in _NOT_A_PERSON or low in _NOT_A_NAME_LABEL:
+        return ""
+    if _OWNER_SELF_ID.search(n):
         return ""
     tokens = [t.strip(",.") for t in low.split()]
     if tokens and tokens[-1] in _STATE_TOKENS:
@@ -431,6 +475,82 @@ class _Union:
             self.parent[hi] = lo
 
 
+def case_records() -> tuple[list[tuple[str, str, str]], set[str]]:
+    """The shop's case records, twice over.
+
+    Returns `(usable, unnamed)`:
+      * `usable` -- (name, phone10, file) where the record names the customer, which is
+        the highest-trust evidence in the layer: a case record is written by the shop
+        about a named customer, so the name and the number belong together by
+        construction rather than by inference. Measured 2026-09-15: 368 files, 213 named
+        numbers, 15 of them people the corpus alone leaves as bare digits.
+      * `unnamed` -- the phones whose record says, in the shop's own words, that the
+        customer's name is not known ("Pending customer", "Walk-in Customer"). That is a
+        NEGATIVE fact and it is worth as much as a name: it is the evidence that whatever
+        label the corpus carries for that number is not a person's name.
+    """
+    usable: list[tuple[str, str, str]] = []
+    unnamed: set[str] = set()
+    for directory in _SYNC_RECORD_DIRS:
+        if not os.path.isdir(directory):
+            continue
+        for fn in sorted(os.listdir(directory)):
+            if not fn.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(directory, fn), encoding="utf-8") as fh:
+                    doc = json.load(fh)
+            except (OSError, ValueError):
+                continue                    # a half-written record is not a source
+            cust = doc.get("customer")
+            if not isinstance(cust, dict):
+                continue
+            raw_name = str(cust.get("name") or "").strip()
+            name = person_like_name(raw_name)
+            for raw in [cust.get("phone")] + list(cust.get("aliases") or []):
+                d = _digits10(raw)
+                if not d:
+                    continue
+                if name:
+                    usable.append((name, d, fn))
+                elif raw_name:
+                    unnamed.add(d)
+        if usable or unnamed:
+            break       # the first directory that exists wins; never double-count a name
+    return usable, unnamed
+
+
+def names_from_order_templates(con: sqlite3.Connection) -> dict[str, tuple[str, int]]:
+    """phone10 -> (name, messages that said it), read out of the messages themselves.
+
+    The shop's repair-order SMS carry the customer's name in the first line -- "Great news
+    Elchonon Zelman! Your repair order #WO... is completed" -- so these names were already
+    in the index and were simply never read as names. Measured 2026-09-15: 9,782 messages,
+    252 numbers, and this is what names the three busiest people the corpus leaves bare
+    (599, 494 and 440 communications each).
+
+    Trusted ABOVE a `counterparty` label, which is the counter-intuitive part and the
+    correct one: a template's name slot is written by our own order system, while
+    `counterparty` is a caller-ID string that can read "Microsoft Word".
+    """
+    tally: dict[str, dict[str, int]] = {}
+    for r in con.execute("SELECT address, text FROM comms WHERE text LIKE '%repair order%'"):
+        d = _digits10(r["address"])
+        if not d:
+            continue
+        text = r["text"] or ""
+        for pattern in _ORDER_TEMPLATES:
+            m = pattern.search(text)
+            if not m:
+                continue
+            name = person_like_name(m.group(1))
+            if name:
+                counts = tally.setdefault(d, {})
+                counts[name] = counts.get(name, 0) + 1
+            break
+    return {d: max(c.items(), key=lambda kv: kv[1]) for d, c in tally.items()}
+
+
 def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
     """Build the person layer from address books plus what the corpus itself shows.
 
@@ -444,9 +564,15 @@ def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
     """
     union = _Union()
     names: dict[str, str] = {}          # 'name:slug' -> display name
+    # slug -> 0 the shop's own case record, 1 the shop's own order template, 2 a label
+    # observed on a communication. The display name is chosen by trust FIRST, because
+    # without it "Microsoft Word" (a two-word caller-ID label) beat every real
+    # single-word name on its cluster, and a customer with 1,669 communications was
+    # displayed as a software product.
+    name_trust: dict[str, int] = {}
     ab_node: dict[str, str] = {}        # identifier node -> address-book source
 
-    def add_contact(name_raw, phones, emails, source):
+    def add_contact(name_raw, phones, emails, source, trust=2):
         name = person_like_name(name_raw)
         nodes = []
         for p in phones:
@@ -463,6 +589,12 @@ def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
         if name:
             nm = "name:" + _slug(name)
             names[nm] = name
+            # min(), not setdefault(): a name claimed by a trusted source must be able to
+            # RAISE the trust of a name an untrusted source happened to supply first.
+            # Measured 2026-09-15 -- with setdefault, the Dialpad contact book's
+            # "Microsoft Word" kept the same trust as a case record and still won the
+            # display sort on the number with 1,669 communications.
+            name_trust[_slug(name)] = min(name_trust.get(_slug(name), trust), trust)
             nodes.append(union.find(nm))
             ab_node.setdefault(nm, source)
         for i in range(1, len(nodes)):
@@ -483,19 +615,48 @@ def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
                 # because mail arrived from them -- and one of them is uber@uber.com.
                 # "We have this address on file" is therefore NOT evidence of a person,
                 # and a consumer that needs that distinction can now make it.
-                add_contact(v.get("name"), [v.get("phone")], [v.get("email")],
-                            str(v.get("source") or "contacts"))
+                # Trust follows the same distinction: the owner's own contact book is the
+                # best evidence there is, and a mechanically discovered address is the
+                # same grade as a caller-ID label.
+                src_name = str(v.get("source") or "contacts")
+                add_contact(v.get("name"), [v.get("phone")], [v.get("email")], src_name,
+                            trust=2 if ("auto_discovered" in src_name
+                                        or "thread_state" in src_name) else 0)
     if _has_table(src, "dialpad_ui_contact_row"):
         for r in src.execute(
                 "SELECT display_name, phone_numbers, emails FROM dialpad_ui_contact_row"):
             contact_rows += 1
+            # trust=2. This is the source of the bare numbers in the first place (281 of
+            # the 295 unnamed people had basis=address_book:dialpad_contacts), because
+            # Dialpad stores a phone number in the name field when it has no name. It also
+            # stores caller-ID strings there -- "Microsoft Word" lives here.
             add_contact(r["display_name"],
                         re.findall(r"\d[\d\s().\-]{8,}\d", r["phone_numbers"] or ""),
-                        _EMAIL_RE.findall(r["emails"] or ""), "dialpad_contacts")
+                        _EMAIL_RE.findall(r["emails"] or ""), "dialpad_contacts", trust=2)
+
+    # 1b. the shop's own case records: a name and a number that belong together by
+    #     construction, not by inference. Highest trust in the layer, and measured to be
+    #     the only source that names several of the busiest people the corpus leaves bare.
+    #     `named_unknown` is the same records saying the opposite -- that this customer's
+    #     name is NOT known -- which is used below to stop a label becoming a name.
+    sync_rows = 0
+    case_rows, named_unknown = case_records()
+    for name, phone, _fn in case_rows:
+        add_contact(name, [phone], [], "lpt_sync_record", trust=0)
+        sync_rows += 1
 
     # 2. names seen in the corpus, per number
     name_phones: dict[str, set] = {}
     phone_names: dict[str, dict] = {}
+
+    # 1c. names our own order system wrote into the messages it sent.
+    for d, (tname, n) in names_from_order_templates(con).items():
+        nm = _slug(tname)
+        names.setdefault("name:" + nm, tname)
+        name_trust.setdefault(nm, 1)
+        name_phones.setdefault(nm, set()).add(d)
+        phone_names.setdefault(d, {})[nm] = phone_names.setdefault(d, {}).get(nm, 0) + n
+
     for r in con.execute(
             "SELECT address, counterparty, COUNT(*) n FROM comms "
             "WHERE TRIM(COALESCE(address,'')) <> '' "
@@ -573,9 +734,25 @@ def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
         key = "p:" + hashlib.sha1(root.encode("utf-8")).hexdigest()[:16]
         display = ""
         if c["names"]:
-            # Prefer a two-word name over a single token when both exist.
-            display = sorted(c["names"], key=lambda n: (0 if len(n.split()) > 1 else 1,
-                                                        -len(n)))[0]
+            # Trust first, then a capitalised spelling, then a two-word name over a single
+            # token, then length. Trust first is the fix: measured 2026-09-15,
+            # "Microsoft Word" -- a two-word label on a number with 1,669 communications
+            # -- won this sort against every real name on its cluster and became that
+            # customer's name, and one slug arriving as both "nashi nueman" and
+            # "Nashi Neuman" was decided by set iteration order.
+            ranked = sorted(c["names"], key=lambda n: (name_trust.get(_slug(n), 2),
+                                                       0 if n[:1].isupper() else 1,
+                                                       0 if len(n.split()) > 1 else 1,
+                                                       -len(n)))
+            # A case record saying the customer's name is UNKNOWN is evidence that the
+            # labels on this number are not names. Measured: the shop's own file for
+            # 7325036369 is "windows-laptop-microsoft-word-techloq-..." with customer
+            # "Pending customer", while the corpus label is "Microsoft Word" -- a job
+            # description, on the busiest customer in the database. With no trusted name
+            # and the shop saying it has none, show the number instead of a wrong name.
+            trusted = any(name_trust.get(_slug(n), 2) <= 1 for n in c["names"])
+            if trusted or not (c["phones"] & named_unknown):
+                display = ranked[0]
         phones = sorted(c["phones"])
         emails = sorted(c["emails"])
         # Provenance per cluster: an address book is authoritative, an observed name
@@ -637,7 +814,9 @@ def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
 
     named = sum(1 for r in people_rows if r[1] and not _digits10(r[1]))
     return {"people": len(people_rows), "named": named, "aliases": len(alias_rows),
-            "contact_rows": contact_rows, "observed_names": observed}
+            "contact_rows": contact_rows, "observed_names": observed,
+            "case_record_names": sync_rows,
+            "order_template_names": sum(1 for _ in names_from_order_templates(con))}
 
 
 # Each extractor yields dicts. Written as SQL + a row mapper so the shape of every
