@@ -89,11 +89,42 @@ llm-pi-ai:
       apiKeyEnv: DEEPSEEK_API_KEY
       api: openai-completions
       baseURL: https://ds.abletelsolutions.com/v1
+      # THE ROUTE DECLARES ITS MODALITIES, because a `models` list here REPLACES pi-ai's installed
+      # catalog and the fallback is `["text"]` -- which makes the adapter refuse an attachment. That
+      # fallback, not any model limit, is why images did nothing.
+      #
+      # MEASURED rather than taken from the catalog (same prompt, 3 runs, text vs image):
+      #   direct deepseek-flash      TEXT 3/3 433ms 84tok/s   IMAGE 3/3 381ms 91tok/s "Green"
+      #   direct v4-flash-vision-exp TEXT 3/3 368ms 78tok/s   IMAGE 3/3 400ms 76tok/s "Green"
+      #   proxy  deepseek-flash      TEXT 3/3 429ms 81tok/s   IMAGE 2/3 517ms 87tok/s "Green"
+      #   direct deepseek-v4-pro     TEXT 3/3 386ms 48tok/s   IMAGE 0/3  (genuinely image-blind)
+      # So images cost nothing extra and need no separate "vision" model; only v4-pro cannot read one.
+      # The fix is that the route must not under-claim, because under-claiming refuses the image before
+      # it is ever sent. A per-model `input:` is deliberately NOT used any more: I added it from the
+      # shipped catalog and created the limitation I was trying to describe.
+      defaultInput: [text, image]
       models:
+        # NO `input:` DECLARATIONS HERE, DELIBERATELY -- I added them and they were wrong.
+        #
+        # `input` tells the pi-ai adapter which modalities a model accepts, and the adapter ENFORCES it:
+        # declaring `input: [text]` makes it refuse an attachment. I set that from pi-ai's own shipped
+        # catalog (which lists only deepseek-v4-flash-vision-exp as accepting images) and labelled the
+        # others "text only, faster". MEASURED 2026-09-14, same prompt, 3 runs each, text vs image:
+        #
+        #   direct  deepseek-flash               TEXT 3/3 433ms 84tok/s   IMAGE 3/3 381ms 91tok/s  "Green"
+        #   direct  deepseek-v4-flash-vision-exp TEXT 3/3 368ms 78tok/s   IMAGE 3/3 400ms 76tok/s  "Green"
+        #   direct  deepseek-v4-pro              TEXT 3/3 386ms 48tok/s   IMAGE 0/3  (genuinely blind)
+        #   proxy   deepseek-flash               TEXT 3/3 429ms 81tok/s   IMAGE 2/3 517ms 87tok/s  "Green"
+        #
+        # So deepseek-flash reads images at the SAME speed as text, and there is no "faster text model"
+        # to prefer. The catalog under-declares; the model is fine. Only deepseek-v4-pro is image-blind.
+        #
+        # Leaving `input` absent means these entries fall back to the route's own declaration rather
+        # than to a claim of mine. Do not re-add a per-model `input` unless it is measured first.
         - id: deepseek-v4-flash-vision-exp
           name: DeepSeek Flash Vision (images)
         - id: deepseek-flash
-          name: DeepSeek Flash (text only, faster)
+          name: DeepSeek Flash (images)
         - id: deepseek-v4-pro
           name: DeepSeek V4 Pro (text only)
     # FALLBACK, kept selectable: an independent provider, so if the Worker, Cloudflare or the zone

@@ -64,11 +64,22 @@ llm-pi-ai:
       apiKeyEnv: DEEPSEEK_API_KEY
       api: openai-completions
       baseURL: https://api.deepseek.com/v1
+      # See the note on the laptop's config: a `models` list REPLACES pi-ai's installed catalog, so the
+      # route itself must declare what it accepts or the adapter falls back to ["text"] and refuses an
+      # attachment. Measured: deepseek-flash reads images at the same speed as text, so there is no
+      # trade-off here, and only deepseek-v4-pro is genuinely image-blind.
+      defaultInput: [text, image]
       models:
+        # NO `input:` DECLARATIONS -- measured rather than assumed, and my first attempt was wrong.
+        # Declaring `input: [text]` makes the pi-ai adapter REFUSE an attachment, so it creates the
+        # limitation it claims to describe. Measured here: deepseek-flash reads images in about the same
+        # time as text (direct: TEXT 433ms/84tok/s vs IMAGE 381ms/91tok/s), so there is no trade-off to
+        # make and no "faster text model". Only deepseek-v4-pro is genuinely image-blind (0/3).
+        # pi-ai's shipped catalog under-declares deepseek-flash; the model itself is fine.
         - id: deepseek-v4-flash-vision-exp
           name: DeepSeek Flash Vision (images)
         - id: deepseek-flash
-          name: DeepSeek Flash (text only, faster)
+          name: DeepSeek Flash (images)
         - id: deepseek-v4-pro
           name: DeepSeek V4 Pro (text only)
     # Not used as the default; present so switching is a one-line change and so the model picker
