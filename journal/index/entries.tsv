@@ -155,6 +155,7 @@ handoff	H245	245		2026-09-15 16:09 UTC	ZABZ-YOGA	open	## 2026-09-15 16:09 UTC ·
 handoff	H246	246		2026-09-15 16:11 UTC	ZABZ-YOGA	open	## 2026-09-15 16:11 UTC · ZABZ-YOGA · The kernel's tick collapse alarm was history; five HIGH findings ranked for the next rounds	entries/handoff/H246.md	1	37	20eb6f9704352dfe
 handoff	H247	247		2026-09-15 16:14 UTC	ZABZ-YOGA	open	## 2026-09-15 16:14 UTC · ZABZ-YOGA · Badge 4 attention / 10 ok; the archive is healthy and the check now says so	entries/handoff/H247.md	1	30	a0df0682e0f4dd9e
 handoff	H248	248		2026-09-15 16:17 UTC	ZABZ-YOGA	open	## 2026-09-15 16:17 UTC · ZABZ-YOGA · Evolution offers dedup on content and refuse node_modules; five findings reduced to two real ones	entries/handoff/H248.md	1	38	b92e93e89661dbc1
+handoff	H249	249		2026-09-15 16:19 UTC	ZABZ-YOGA	open	## 2026-09-15 16:19 UTC · ZABZ-YOGA · Badge 3 attention / 11 ok; five false alarms cleared in four rounds and the ratio is the finding	entries/handoff/H249.md	1	30	cead14926c917cd2
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -525,6 +526,7 @@ lessons	L1527	1527		2026-09-15	ZABZ-YOGA	open	**L1527 · Fire-and-forget threads
 lessons	L1528	1528		2026-09-15	ZABZ-YOGA	open	**L1528 · Three times now: an alarm must state what would make it green, or it becomes wallpaper**	entries/lessons/L1528.md	1	24	85c983d2126adf0f
 lessons	L1529	1529		2026-09-15	ZABZ-YOGA	open	**L1529 · An alarm must separate the failure it names from a quiet success; where a central view cannot, say so**	entries/lessons/L1529.md	1	27	5818ba08c38304b9
 lessons	L1530	1530		2026-09-15	ZABZ-YOGA	open	**L1530 · A fresh id is not a new thing: dedup keyed on identity cannot see a re-offer**	entries/lessons/L1530.md	1	25	6ad1cee27f3346a8
+lessons	L1531	1531		2026-09-15	ZABZ-YOGA	open	**L1531 · Fifth instance of one defect: an aggregate with no time bound reports history as live**	entries/lessons/L1531.md	1	35	ceec9c58d88e65b9
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -642,7 +644,8 @@ pain	P152	152		2026-09-15	ZABZ-YOGA	superseded	## P152 — The suite's residual 
 pain	P153	153		2026-09-15	ZABZ-YOGA	open	## P153 — The residual suite failures: corrected mechanisms, and the one measurement that would name them	entries/pain/P153.md	1	24	190a908088745428
 pain	P154	154		2026-09-15	ZABZ-YOGA	done	## P154 — The residual flakiness is leaked fire-and-forget threads in the hub tests, poisoning the in-flight marker across tests	entries/pain/P154.md	1	41	3e9fbec951fc830a
 pain	P155	155		2026-09-15	ZABZ-YOGA	superseded	## P155 — Five live findings from a fresh sweep: dead-weight agents, duplicate evolution offers, config divergence, stale session archive	entries/pain/P155.md	1	30	b09f48b43bf637bc
-pain	P156	156		2026-09-15	ZABZ-YOGA	open	## P156 — The three real HIGH findings left: duplicate evolution offers, dead-weight agents, config divergence	entries/pain/P156.md	1	24	f231334db3973d59
+pain	P156	156		2026-09-15	ZABZ-YOGA	superseded	## P156 — The three real HIGH findings left: duplicate evolution offers, dead-weight agents, config divergence	entries/pain/P156.md	1	24	f231334db3973d59
+pain	P157	157		2026-09-15	ZABZ-YOGA	open	## P157 — One real finding left on the badge: the harness-config divergence (13 ahead / 104 behind)	entries/pain/P157.md	1	19	aa61e0666d6b67f8
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -875,3 +878,4 @@ wins	W141	141		2026-09-15	ZABZ-YOGA	open	**W141 · 2026-09-15 · pytest tests/ i
 wins	W142	142		2026-09-15	ZABZ-YOGA	open	**W142 · 2026-09-15 · Third permanently-red alarm fixed: tick_completion now reads INFO; badge attention 6 to 5.**	entries/wins/W142.md	1	25	cf42ff47ad52d91b
 wins	W143	143		2026-09-15	ZABZ-YOGA	open	**W143 · 2026-09-15 · The session-archive alarm was false; badge 6 to 4 attention after two fixes.**	entries/wins/W143.md	1	35	a633b6965fbf70e9
 wins	W144	144		2026-09-15	ZABZ-YOGA	open	**W144 · 2026-09-15 · The evolution loop can no longer re-offer a change or offer a vendored file.**	entries/wins/W144.md	1	31	fd0285d51daaee47
+wins	W145	145		2026-09-15	ZABZ-YOGA	open	**W145 · 2026-09-15 · The dead-weight agents were retired in July; badge 3 attention / 11 ok.**	entries/wins/W145.md	1	32	106f792d70694f75
