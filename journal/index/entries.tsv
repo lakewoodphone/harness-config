@@ -206,6 +206,9 @@ handoff	H296	296		2026-09-15 21:12 UTC	ZABZ-TECH	open	## 2026-09-15 21:12 UTC ·
 handoff	H297	297		2026-09-15 21:15 UTC	ZABZ-TECH	open	## 2026-09-15 21:15 UTC · ZABZ-TECH · New windows open the tokenized URL; the 2026-09-15 auth-page failure is fixed and verified	entries/handoff/H297.md	1	51	07ecda73ae313332
 handoff	H298	298		2026-09-15 21:15 UTC	ZABZ-TECH	open	## 2026-09-15 21:15 UTC · ZABZ-TECH · Bounded the suite nondeterminism: 9 deterministic failures under one worker vs 38 under 8 forks - and my own audit's fixes caused two of the file failures	entries/handoff/H298.md	1	70	9bdd4b26feb95657
 handoff	H299	299		2026-09-15 21:16 UTC	ZABZ-TECH	open	## 2026-09-15 21:16 UTC · ZABZ-TECH · Window URL fix is on origin/master (265e4e9); ZABZ-YOGA left alone because its checkout is mid-merge	entries/handoff/H299.md	1	29	bc38671e44f3885e
+handoff	H300	300		2026-09-15 21:17 UTC	ZABZ-TECH	open	## 2026-09-15 21:17 UTC · ZABZ-TECH · 2026-09-15 21:15Z: the waze contract fix is deployed and truthful; the customer-visible half needs the frontend, and the build recipe is finally in git	entries/handoff/H300.md	1	43	1abed0fbedba071a
+handoff	H301	301		2026-09-15 21:27 UTC	ZABZ-TECH	open	## 2026-09-15 21:27 UTC · ZABZ-TECH · personality-system audit + 12-agent fix fleet (prod AI never worked; unauthenticated PII; silent-overwrite CAS; one-click erasure)	entries/handoff/H301.md	1	82	dfb428507ef5f2b8
+handoff	H302	302		2026-09-15 21:28 UTC	ZABZ-TECH	open	## 2026-09-15 21:28 UTC · ZABZ-TECH · The deterministic half of the suite is GREEN: 9 failures to 1, and the worst one was 41 tests that had never run because of a duplicate vitest import	entries/handoff/H302.md	1	65	f0d945b07162dad8
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -651,6 +654,7 @@ lessons	L1602	1602		2026-09-15	ZABZ-TECH	open	**L1602 · Prove an auth gate with
 lessons	L1603	1603		2026-09-15	ZABZ-TECH	open	**L1603 · Do not junction node_modules into a git worktree - Vite /@fs refuses paths outside the root; run pnpm install**	entries/lessons/L1603.md	1	26	bf58f09448e19a50
 lessons	L1604	1604		2026-09-15	ZABZ-TECH	open	**L1604 · A DSH window opened at the clean origin 401s on any profile whose cookie was never seeded; open the tokenized URL**	entries/lessons/L1604.md	1	32	c37d3769c4c667ce
 lessons	L1605	1605		2026-09-15	ZABZ-TECH	open	**L1605 · Check that a command RAN before checking what it said - a crashed run filtered for failure counts reports zero, which is exactly what a passing run reports**	entries/lessons/L1605.md	1	37	07bf52c62e1e5f1e
+lessons	L1606	1606		2026-09-15	ZABZ-TECH	open	**L1606 · AI models must never be hardcoded: resolve from the gateway catalog, prefer route aliases, env chain + validation + provenance**	entries/lessons/L1606.md	1	42	c84fcce8734f6627
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -922,6 +926,8 @@ decisions	D171	171		2026-09-15	ZABZ-TECH	open	**D171 · 2026-09-15 · Owner keep
 decisions	D172	172		2026-09-15	ZABZ-TECH	open	**D172 · 2026-09-15 · P164 root cause found: IP Helper crashes and takes Tailscale with it, and a 5-minute watcher now repairs both.**	entries/decisions/D172.md	1	18	9ba952b6f39cd7ec
 decisions	D173	173		2026-09-15	ZABZ-TECH	open	**D173 · 2026-09-15 · Walk-in hours changed 2026-09-15: Wednesday closed; door sign built; site code updated.**	entries/decisions/D173.md	1	53	627267f149086ece
 decisions	D174	174		2026-09-15	ZABZ-TECH	open	**D174 · 2026-09-15 · Window URL policy: tokenized first, clean origin last; recover the token from the engine log; prove it in doctor.**	entries/decisions/D174.md	1	30	618db89bcf253b4d
+decisions	D175	175		2026-09-15	ZABZ-TECH	open	**D175 · 2026-09-15 · Sign corrected: no Closed wording, 4 walk-in days only, call-or-text band; supersedes D173's sign content.**	entries/decisions/D175.md	1	47	99163846c25cf561
+decisions	D176	176		2026-09-15	ZABZ-TECH	open	**D176 · 2026-09-15 · Hours sign header restyled to the business-card lockup; note band moved from khaki to navy.**	entries/decisions/D176.md	1	28	fac1aac1ae881b42
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
