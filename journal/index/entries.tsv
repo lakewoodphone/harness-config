@@ -145,6 +145,7 @@ handoff	H235	235		2026-09-15 14:45 UTC	ZABZ-YOGA	open	## 2026-09-15 14:45 UTC ·
 handoff	H236	236		2026-09-15 14:49 UTC	ZABZ-YOGA	open	## 2026-09-15 14:49 UTC · ZABZ-YOGA · The round-35 sync hook is observed in production, and three more pains resolved by measurement	entries/handoff/H236.md	1	41	27b996935ccbf1d9
 handoff	H237	237		2026-09-15 14:53 UTC	ZABZ-YOGA	open	## 2026-09-15 14:53 UTC · ZABZ-YOGA · The on-demand sync trigger exists now; one of three gates was missed on the first attempt and caught by reading the response	entries/handoff/H237.md	1	32	a549fd08f9c07117
 handoff	H238	238		2026-09-15 15:06 UTC	ZABZ-YOGA	open	## 2026-09-15 15:06 UTC · ZABZ-YOGA · Config templates now match the code; the pre-existing failure set is 9 to 6 with two clusters left	entries/handoff/H238.md	1	32	48534f54f239e4f4
+handoff	H239	239		2026-09-15 15:10 UTC	ZABZ-YOGA	open	## 2026-09-15 15:10 UTC · ZABZ-YOGA · Config contracts green, the gateway guard fails closed, pre-existing failures 9 to 4	entries/handoff/H239.md	1	34	d720e264d8081365
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -504,6 +505,7 @@ lessons	L1516	1516		2026-09-15	ZABZ-YOGA	open	**L1516 · Wiring a channel is not
 lessons	L1517	1517		2026-09-15	ZABZ-YOGA	open	**L1517 · A hook is verified when its trigger fires in production, not when its call site exists**	entries/lessons/L1517.md	1	25	f03779438c97ffb4
 lessons	L1518	1518		2026-09-15	ZABZ-YOGA	open	**L1518 · A forced run must clear every gate the scheduled run checks, and the result must distinguish ran from quoted-an-old-status**	entries/lessons/L1518.md	1	31	2de4c8fee2da6230
 lessons	L1519	1519		2026-09-15	ZABZ-YOGA	open	**L1519 · CORRECTION to P150: the contract ignores validation_alias; I looked up uppercase env names in a dict of snake_case fields**	entries/lessons/L1519.md	1	45	17a65f9fe3c7dee4
+lessons	L1520	1520		2026-09-15	ZABZ-YOGA	open	**L1520 · A path guard fails closed, and a Windows-written test is not a specification for POSIX**	entries/lessons/L1520.md	1	27	4639a88ad9de523b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -839,3 +841,4 @@ wins	W132	132		2026-09-15	ZABZ-YOGA	open	**W132 · 2026-09-15 · A reminder mark
 wins	W133	133		2026-09-15	ZABZ-YOGA	open	**W133 · 2026-09-15 · The sync-alert clear is verified live (3+4 alerts) and both browser syncs work.**	entries/wins/W133.md	1	26	40daf61347278b86
 wins	W134	134		2026-09-15	ZABZ-YOGA	open	**W134 · 2026-09-15 · The run-once endpoint can now force a sync, and a refusal names its gate.**	entries/wins/W134.md	1	23	74d686c488779d75
 wins	W135	135		2026-09-15	ZABZ-YOGA	open	**W135 · 2026-09-15 · Three of the nine pre-existing failures fixed: the contract ignored validation_alias and both env templates were incomplete.**	entries/wins/W135.md	1	33	bc98cef06dede159
+wins	W136	136		2026-09-15	ZABZ-YOGA	open	**W136 · 2026-09-15 · Five of nine pre-existing failures fixed, and the workspace guard now fails closed on foreign absolute paths.**	entries/wins/W136.md	1	35	650ace0b98508735
