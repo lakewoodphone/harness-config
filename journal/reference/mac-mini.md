@@ -6,6 +6,40 @@ Read this instead of rediscovering it. Every fact says how it was measured.
 
 ---
 
+## 0. What changed on 2026-09-15 (read this part first)
+
+The owner's instruction was to make her agent as powerful as the owner's and fully self-learning, and
+explicitly NOT to cripple it — the boundary being that anything from her machines is **labelled**, not
+restricted. Four things were wrong or missing here, all now fixed and verified on the box:
+
+| Was | Is now | How it was proven |
+|---|---|---|
+| `permission.defaultPreset: workspace-write` (overriding base's full access) | `danger-full-access` | merged settings re-read on the machine |
+| `agent-default-model.provider: deepseek-direct` while `llm-pi-ai` defined only `deepinfra` — **the named provider did not exist**, and a hand-merge had spliced comments into the middle of the file | both routes present, vision model default | `harness-sync` verify line, then a headless run returning `SYNC-OK` |
+| no `agent-loop` block at all | `maxParallelToolCalls: 20` | same |
+| **zero MCP rows** in her preset (the owner's has seven) | `mcp-secretary` mounts | engine log shows the server answering `ListToolsRequest`; `ssh secratary-ts` returns `SSH_OK` |
+
+Also installed here, and running: `com.lakewoodphone.dsh-session-sync` (hourly, ships her chats to the
+company archive keyed on `source_machine`) and `com.lakewoodphone.harness-autosync` (every 15 min:
+pull, rebase local journal commits, apply, push them back). Both are LaunchAgents in `lpt`'s own
+session — running them as root would scatter root-owned files through her home and read root's idea
+of `HOME`. Status lands in `~/.dsh-sync/status.json`; last observed `result: ok`.
+
+**To change her configuration, change it in the repo — never on the box.** `~/code/harness-config` here
+is a real git checkout of the authority's repo and can `git pull` on its own, so a commit on the
+authority reaches her within 15 minutes.
+
+**To read her agent's own learning:** `python3 ~/code/harness-config/journal/tools/journal.py status`
+(local copy; the shared one is the authority's). Her entries are stamped `LAKEWOOECHSMINI` and are
+pushed back to the shared remote, so they are readable from the owner's machines too.
+
+**HONEST GAP:** her *laptop* still has a thinner tool-belt than this Mac — `ps-system.mjs` over HTTPS
+(read-only) plus web search, against the secretary MCP here. Closing it needs either the laptop joined
+to Tailscale or an HTTPS-reachable company MCP endpoint. Its Tailscale is installed and the service
+runs, but the node sits at `NeedsLogin`.
+
+---
+
 ## 1. The machine
 
 | | |
