@@ -147,6 +147,7 @@ handoff	H237	237		2026-09-15 14:53 UTC	ZABZ-YOGA	open	## 2026-09-15 14:53 UTC ·
 handoff	H238	238		2026-09-15 15:06 UTC	ZABZ-YOGA	open	## 2026-09-15 15:06 UTC · ZABZ-YOGA · Config templates now match the code; the pre-existing failure set is 9 to 6 with two clusters left	entries/handoff/H238.md	1	32	48534f54f239e4f4
 handoff	H239	239		2026-09-15 15:10 UTC	ZABZ-YOGA	open	## 2026-09-15 15:10 UTC · ZABZ-YOGA · Config contracts green, the gateway guard fails closed, pre-existing failures 9 to 4	entries/handoff/H239.md	1	34	d720e264d8081365
 handoff	H240	240		2026-09-15 15:21 UTC	ZABZ-YOGA	open	## 2026-09-15 15:21 UTC · ZABZ-YOGA · Pre-existing failures 9 to 2; cheap-first routing off in production and queued as #39	entries/handoff/H240.md	1	33	b899f0090967c031
+handoff	H241	241		2026-09-15 15:26 UTC	ZABZ-YOGA	open	## 2026-09-15 15:26 UTC · ZABZ-YOGA · Two platform path bugs fixed from failing tests; pre-existing failures 9 to 1	entries/handoff/H241.md	1	30	a024bf2346b2d150
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -508,6 +509,7 @@ lessons	L1518	1518		2026-09-15	ZABZ-YOGA	open	**L1518 · A forced run must clear
 lessons	L1519	1519		2026-09-15	ZABZ-YOGA	open	**L1519 · CORRECTION to P150: the contract ignores validation_alias; I looked up uppercase env names in a dict of snake_case fields**	entries/lessons/L1519.md	1	45	17a65f9fe3c7dee4
 lessons	L1520	1520		2026-09-15	ZABZ-YOGA	open	**L1520 · A path guard fails closed, and a Windows-written test is not a specification for POSIX**	entries/lessons/L1520.md	1	27	4639a88ad9de523b
 lessons	L1521	1521		2026-09-15	ZABZ-YOGA	open	**L1521 · A unit test that reads the deployment's .env is not a unit test -- and the same file was disabling cheap-first routing in production**	entries/lessons/L1521.md	1	25	3d43f4bd94e71672
+lessons	L1522	1522		2026-09-15	ZABZ-YOGA	open	**L1522 · Path code written for one platform is silently wrong on the other -- a wrong path compares unequal, it does not raise**	entries/lessons/L1522.md	1	29	487e9f5974c16b84
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -845,3 +847,4 @@ wins	W134	134		2026-09-15	ZABZ-YOGA	open	**W134 · 2026-09-15 · The run-once en
 wins	W135	135		2026-09-15	ZABZ-YOGA	open	**W135 · 2026-09-15 · Three of the nine pre-existing failures fixed: the contract ignored validation_alias and both env templates were incomplete.**	entries/wins/W135.md	1	33	bc98cef06dede159
 wins	W136	136		2026-09-15	ZABZ-YOGA	open	**W136 · 2026-09-15 · Five of nine pre-existing failures fixed, and the workspace guard now fails closed on foreign absolute paths.**	entries/wins/W136.md	1	35	650ace0b98508735
 wins	W137	137		2026-09-15	ZABZ-YOGA	open	**W137 · 2026-09-15 · Seven of nine pre-existing failures fixed, three of them defects in the tests themselves.**	entries/wins/W137.md	1	34	8bd420be4c004a4f
+wins	W138	138		2026-09-15	ZABZ-YOGA	open	**W138 · 2026-09-15 · Eight of nine pre-existing failures fixed; the last is one Windows-path test.**	entries/wins/W138.md	1	33	e6fe8e474b1ccbbc
