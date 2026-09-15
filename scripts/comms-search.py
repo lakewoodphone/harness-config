@@ -529,6 +529,14 @@ def health(db: str) -> dict:
                 newest[r["kind"]] = r["m"]
         people = con.execute("SELECT COUNT(*) FROM people").fetchone()[0]
         aliases = con.execute("SELECT COUNT(*) FROM person_alias").fetchone()[0]
+        # The completeness ceiling, on the surface where an agent asks "is this everything".
+        # A gap that is KNOWN and has a reason is different from a gap nobody has looked at,
+        # and only the second one is a defect. Counted from the index itself: a call row
+        # whose text is still the synthetic "[no transcript]" marker has no words anywhere.
+        unreadable = con.execute(
+            "SELECT COUNT(*) FROM comms WHERE kind='call' AND text LIKE '[no transcript]%'"
+        ).fetchone()[0]
+        calls_total = con.execute("SELECT COUNT(*) FROM comms WHERE kind='call'").fetchone()[0]
     finally:
         con.close()
 
@@ -580,6 +588,8 @@ def health(db: str) -> dict:
         "by_kind": by_kind,
         "people": people,
         "person_aliases": aliases,
+        "calls_without_transcript": unreadable,
+        "calls_total": calls_total,
         "index_age_hours": None if age is None else round(age, 2),
         "last_index": meta.get("last_index"),
         "ingestion": ingest,
@@ -647,6 +657,11 @@ def _render(res: dict) -> str:
         if res.get("people"):
             lines.append(f"  people: {res['people']:,} "
                          f"({res.get('person_aliases', 0):,} aliases)")
+        if res.get("calls_total"):
+            pct = 100.0 * (res["calls_total"] - res.get("calls_without_transcript", 0)) / res["calls_total"]
+            lines.append(f"  calls with words: {res['calls_total'] - res.get('calls_without_transcript', 0):,}"
+                         f"/{res['calls_total']:,} ({pct:.0f}%) — the rest have no audio anywhere "
+                         f"(source limitation, not a backlog)")
         if res.get("problems"):
             lines.append("  PROBLEMS: " + "; ".join(res["problems"]))
         return "\n".join(lines)
