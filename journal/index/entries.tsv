@@ -169,6 +169,10 @@ handoff	H259	259		2026-09-15 19:15 UTC	ZABZ-TECH	open	## 2026-09-15 19:15 UTC ·
 handoff	H260	260		2026-09-15 19:15 UTC	ZABZ-TECH	open	## 2026-09-15 19:15 UTC · ZABZ-TECH · PART-122 retracts PART-119 F-7: the reuse-revocation throw is the test harness's mock, not production - and that unblocks the 7-day access token fix	entries/handoff/H260.md	1	64	bf8998af3ec4863b
 handoff	H261	261		2026-09-15 19:19 UTC	ZABZ-TECH	open	## 2026-09-15 19:19 UTC · ZABZ-TECH · PART-123: the SSO placeholder-secret item CLOSES in production (43-char real secret, fail-closed) and a worse one OPENS - one shared secret for the whole fleet with no per-app isolation	entries/handoff/H261.md	1	58	371f72d7bf6d2271
 handoff	H262	262		2026-09-15 19:20 UTC	ZABZ-TECH	open	## 2026-09-15 19:20 UTC · ZABZ-TECH · waze-mdm system analysis: five silent-failure defects fixed and measured; 22 devices not reporting needs the owner	entries/handoff/H262.md	1	46	2fb0561aad4e5ae8
+handoff	H263	263		2026-09-15 19:20 UTC	ZABZ-TECH	open	## 2026-09-15 19:20 UTC · ZABZ-TECH · PART-124: a guardrail's docblock says it preserves the current session and its code revokes every refresh token for the user - so every identity change logs the customer out	entries/handoff/H263.md	1	68	1f1d40fd0180dfd2
+handoff	H264	264		2026-09-15 19:23 UTC	ZABZ-TECH	open	## 2026-09-15 19:23 UTC · ZABZ-TECH · Lakewood Rentals: live, empty, and until now absent from the journal	entries/handoff/H264.md	1	26	d4f2d5db7f3d8370
+handoff	H265	265		2026-09-15 19:24 UTC	ZABZ-TECH	open	## 2026-09-15 19:24 UTC · ZABZ-TECH · Round 5: fixed the identity-change logout bug (session now spared, 116 tests, new assertion proven to bite) - source only, not deployed	entries/handoff/H265.md	1	63	8d33c30dd838dbab
+handoff	H266	266		2026-09-15 19:26 UTC	ZABZ-TECH	open	## 2026-09-15 19:26 UTC · ZABZ-TECH · The deployment gap measured: /opt/lpt/src is NOT a git checkout, so the 3.78GB production image cannot be rebuilt from the host - and three routers are still bare in source	entries/handoff/H266.md	1	61	d18806314a1ad97d
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -559,6 +563,9 @@ lessons	L1547	1547		2026-09-15	ZABZ-TECH	open	**L1547 · An environment's source
 lessons	L1548	1548		2026-09-15	ZABZ-TECH	open	**L1548 · Adding lines to storage_sections/screenshot_reviews.py moves the SQL-surface digest, not just the count**	entries/lessons/L1548.md	1	6	d314e8dd5df663c2
 lessons	L1549	1549		2026-09-15	ZABZ-TECH	open	**L1549 · A warning emitted by a test harness is a claim about the harness until the harness is checked - a mock returning undefined throws inside production code and prints a production-sounding message**	entries/lessons/L1549.md	1	27	9ee43e611ac0ad92
 lessons	L1550	1550		2026-09-15	ZABZ-TECH	open	**L1550 · The whole stack kept running and said nothing: every fix must end with a number that moved**	entries/lessons/L1550.md	1	31	336df4887b826db9
+lessons	L1551	1551		2026-09-15	ZABZ-TECH	open	**L1551 · When you add the assertion that closes an audit finding, deliberately break the thing it protects and confirm the assertion fails**	entries/lessons/L1551.md	1	29	e46006550d0050a8
+lessons	L1552	1552		2026-09-15	ZABZ-TECH	open	**L1552 · IAM access-key deletion is eventually consistent: a probe run too early reports the opposite of the truth**	entries/lessons/L1552.md	1	11	90dece801a27f176
+lessons	L1553	1553		2026-09-15	ZABZ-TECH	open	**L1553 · CloudTrail plus queue depth is what turns 'rotate the leaked key' into a decidable plan**	entries/lessons/L1553.md	1	11	44a9fcc11513899b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -680,6 +687,7 @@ pain	P156	156		2026-09-15	ZABZ-TECH	open	## P156 — Policy approval tasks have 
 pain	P157	157		2026-09-15	ZABZ-TECH	open	## P157 — pwsh 'spawn EPERM' on long here-string commands	entries/pain/P157.md	1	10	c2754f5dc8fb3540
 pain	P158	158		2026-09-15	ZABZ-TECH	open	## P158 — Fabricated requirements in authoritative docs: my own writing is not evidence for my own claims	entries/pain/P158.md	1	20	8717348f234e31e6
 pain	P159	159		2026-09-15	ZABZ-TECH	open	## P159 — Handy cannot insert text while you speak, so it is not a perfect Windows voice-typing clone	entries/pain/P159.md	1	29	74eedf4ac380a224
+pain	P160	160		2026-09-15	ZABZ-TECH	open	## P160 — Live production credentials are committed in plaintext across the fleet's repos - including an AWS AdministratorAccess key	entries/pain/P160.md	1	25	074a5de72f026b28
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -804,6 +812,7 @@ decisions	D160	160		2026-09-15	ZABZ-TECH	open	**D160 · 2026-09-15 · The securi
 decisions	D161	161		2026-09-15	ZABZ-TECH	open	**D161 · 2026-09-15 · Dictation on the Mac mini is Windows parity: Command+H toggles it, no hold, no Enter, stays local.**	entries/decisions/D161.md	1	26	4d5d4ee698ea8b93
 decisions	D162	162		2026-09-15	ZABZ-TECH	open	**D162 · 2026-09-15 · The evidence archive was world-readable, half of it was 640x480, and clips were never purged.**	entries/decisions/D162.md	1	66	7a44e493f1c2f3fc
 decisions	D163	163		2026-09-15	ZABZ-TECH	open	**D163 · 2026-09-15 · Device Parts is out of favour - the owner paid the DHL duty himself and is not happy with the cost.**	entries/decisions/D163.md	1	19	23b1e83afe416719
+decisions	D164	164		2026-09-15	ZABZ-TECH	open	**D164 · 2026-09-15 · AWS: the leaked AdministratorAccess key is deleted - both keys on phone-tech-dev-user, console profile deliberately left alone.**	entries/decisions/D164.md	1	22	77416894cb1e6a32
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
