@@ -485,6 +485,14 @@ lessons	L1506	1506		2026-09-15	ZABZ-YOGA	open	**L1506 · My own test probe pushe
 lessons	L1507	1507		2026-09-15	ZABZ-YOGA	open	**L1507 · A patch script must accumulate on a running copy; PATCH OK is a claim about text, not behaviour**	entries/lessons/L1507.md	1	29	28c7fdce1773a096
 lessons	L1508	1508		2026-09-15	ZABZ-YOGA	open	**L1508 · An alert is a lifecycle, not a row: age it on the observation clock, clear it where you raise it, never measure a closed channel**	entries/lessons/L1508.md	1	37	11c5e955f891826e
 lessons	L1509	1509		2026-09-15	ZABZ-YOGA	open	**L1509 · A swallowed exception in my own journal tool hid a real defect: the alias table stores rows, not ids**	entries/lessons/L1509.md	1	43	0dfdc545cb1ad687
+lessons	L1510	1510		2026-09-15	LAKEWOOECHSMINI	open	**L1510 · A case can be unfindable by the phone number that actually calls**	entries/lessons/L1510.md	1	8	76b01b1bf9b97a69
+lessons	L1511	1511		2026-09-15	LAKEWOOECHSMINI	open	**L1511 · A customer search by the number as she types it returns nothing — normalise before you search**	entries/lessons/L1511.md	1	18	b6549c3c6a4fa18b
+lessons	L1512	1512		2026-09-15	LAKEWOOECHSMINI	open	**L1512 · eBay refuses this machine — harvest eBay from desktop-ts, not from the Mac mini**	entries/lessons/L1512.md	1	16	36ba4df725e15b76
+lessons	L1513	1513		2026-09-15	LAKEWOOECHSMINI	open	**L1513 · eBay blocks its SEARCH endpoint fleet-wide, but item pages still work — and the harvester fails silently**	entries/lessons/L1513.md	1	23	5d93a845546d92c3
+lessons	L1514	1514		2026-09-15	LAKEWOOECHSMINI	open	**L1514 · Lenovo model ID from a bottom-cover label when the MTM label is not in the photo**	entries/lessons/L1514.md	1	24	0a4585ea553a7071
+lessons	L1515	1515		2026-09-15	LAKEWOOECHSMINI	open	**L1515 · Do not put an unverified 'what it's worth used' number in a repair-vs-replace recommendation**	entries/lessons/L1515.md	1	19	f9a9ee782cbfa86c
+lessons	L1516	1516		2026-09-15	LAKEWOOECHSMINI	open	**L1516 · ThinkPad FRU numbers: take them from the HMM, not from a seller's compatibility list (44C9909 vs 44C9991)**	entries/lessons/L1516.md	1	23	d8ac1d580356a7c5
+lessons	L1517	1517		2026-09-15	LAKEWOOECHSMINI	open	**L1517 · A price is not verified until its currency is verified (printerready.com defaults to CAD, not USD)**	entries/lessons/L1517.md	1	19	4ea7cd227a249464
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -591,6 +599,9 @@ pain	P141	141		2026-09-14	ZABZ-YOGA	open	## P141 — Her laptop cannot join Tail
 pain	P142	142		2026-09-15	ZABZ-YOGA	open	## P142 — Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that)	entries/pain/P142.md	1	33	ed9d07e073a531d7
 pain	P143	143		2026-09-15	ZABZ-YOGA	open	## P143 — The app repo has three lineages and the live one is the least published	entries/pain/P143.md	1	42	db0bfe5bdb74e286
 pain	P144	144		2026-09-15	ZABZ-YOGA	open	## P144 — What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders	entries/pain/P144.md	1	36	d3711352fd29f1a6
+pain	P145	145		2026-09-15	LAKEWOOECHSMINI	open	## P145 — The sourcing venv had no browser binary, and the harvester writes into a checkout that does not exist here	entries/pain/P145.md	1	10	ec5801edddb2d6fa
+pain	P146	146		2026-09-15	LAKEWOOECHSMINI	open	## P146 — ps-shop intake case_id slug is unusable when --model is descriptive	entries/pain/P146.md	1	17	d80e44e883259559
+pain	P147	147		2026-09-15	LAKEWOOECHSMINI	open	## P147 — eBay, Amazon and Cloudflare-walled parts shops are unfetchable from this harness; only plain-HTML shops can be priced	entries/pain/P147.md	1	26	545f34b2c0c8b31a
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -704,6 +715,7 @@ decisions	D149	149		2026-09-14	ZABZ-YOGA	open	**D149 · 2026-09-14 · lpt-sync w
 decisions	D150	150		2026-09-14	ZABZ-YOGA	open	**D150 · 2026-09-14 · Her agent's learning: one shared journal, her machines append to it, provenance by host.**	entries/decisions/D150.md	1	18	0420dead7d3b7ae8
 decisions	D151	151		2026-09-15	ZABZ-YOGA	open	**D151 · 2026-09-15 · One party-resolution helper for search and thread, and it always reports whom it resolved.**	entries/decisions/D151.md	1	31	7907f8a2d32074e0
 decisions	D152	152		2026-09-15	ZABZ-YOGA	open	**D152 · 2026-09-15 · Owner-queue shelf life, alert lifecycle bound to subsystem success, SMS off with the app as the surfaced channel.**	entries/decisions/D152.md	1	33	ceabf57872b398b8
+decisions	D153	153		2026-09-15	LAKEWOOECHSMINI	open	**D153 · 2026-09-15 · Shlesinger X201 flicker: diagnose the cable before ordering a panel; laptopscreen.com does not carry 2010 ThinkPads.**	entries/decisions/D153.md	1	30	2eadd58bcc5866eb
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -803,3 +815,4 @@ wins	W126	126		2026-09-14	ZABZ-YOGA	open	**W126 · 2026-09-14 · Her laptop's we
 wins	W127	127		2026-09-15	ZABZ-YOGA	open	**W127 · 2026-09-15 · Profile coverage went from 1 of 65 to 34: the fleet now answers 'is the kiosk installed?'.**	entries/wins/W127.md	1	43	77f12a396fab73b7
 wins	W128	128		2026-09-15	ZABZ-YOGA	open	**W128 · 2026-09-15 · The owner's badge tells the truth: held 163->20, urgent/critical 42->13, and delivery is no longer a false green.**	entries/wins/W128.md	1	23	ea13ba008fca1241
 wins	W129	129		2026-09-15	ZABZ-TECH	open	**W129 · 2026-09-15 · The control-room interior door contact is fully back on a battery swap alone - and a battery reading is not a battery state.**	entries/wins/W129.md	1	48	aaa82d32da89d648
+wins	W130	130		2026-09-15	LAKEWOOECHSMINI	open	**W130 · 2026-09-15 · A parallel sweep's own contradiction was caught before any money moved - quote FRUs from the OEM manual, not the seller.**	entries/wins/W130.md	1	19	9b4c40fa33b889c9
