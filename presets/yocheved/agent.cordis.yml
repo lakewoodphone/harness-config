@@ -353,3 +353,47 @@
 
 - id: present
   name: '@deepseek-ai/dsh-tool-present'
+
+# ── MCP: the company's own system ────────────────────────────────────────────────────────────────
+#
+# Added 2026-09-15. Her preset previously carried ZERO MCP rows where the owner's carries seven, so
+# her assistant could reach the shop's files but not the shop's *systems*. That is the gap the owner
+# called out: "her agent should have access to our logs systems and sessions and chat history and
+# more, we don't want to cripple her agent."
+#
+# This is the secretary bridge: `ps_mcp_server.py` on the authority, exposing the company's own API as
+# tools. It runs as a plain local child process on the AUTHORITY (reached over ssh from here), so it
+# needs no Python environment on her Mac and cannot be broken by anything installed locally.
+#
+# VERIFIED REACHABLE from this Mac before wiring: `ssh secratary-ts` answers, and the server file and
+# its interpreter both exist on the far side. It is gated to non-Windows because her *laptop* has no
+# route to the authority at all (its Tailscale is logged out and the two sites are separate networks);
+# a row that cannot start would only add noise there. The laptop reads the company through
+# scripts/ps-system.mjs over HTTPS instead, which works from anywhere.
+#
+# `failOnStartupError: false` is deliberate: if the tunnel to the authority is down, her assistant must
+# still work on everything local rather than refusing to mount.
+- id: mcp-secretary
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform === 'win32'
+  config:
+    serverName: secretary
+    transport: stdio
+    command: ssh
+    args:
+      - '-T'
+      - '-o'
+      - 'BatchMode=yes'
+      - '-o'
+      - 'LogLevel=ERROR'
+      - '-o'
+      - 'ConnectTimeout=10'
+      - '-o'
+      - 'ServerAliveInterval=30'
+      - '-o'
+      - 'ServerAliveCountMax=3'
+      - 'secratary-ts'
+      - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
+      - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
