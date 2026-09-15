@@ -33,8 +33,19 @@ permission:
 # `agent-default-model.provider` line if DeepSeek itself is ever unavailable.
 # ---------------------------------------------------------------------------
 agent-default-model:
-  provider: deepseek-official
-  model: deepseek-flash
+  provider: deepseek-direct
+  # VISION, AND WHY THROUGH THE pi-ai ROUTE RATHER THAN `deepseek-official`.
+  #
+  # Two blocks stood between this machine and images, and only the second is obvious:
+  #   1. pi-ai's catalog declares exactly one DeepSeek model that accepts images
+  #      (deepseek-v4-flash-vision-exp, input text+image); `deepseek-flash` and `deepseek-v4-pro` are
+  #      text-only. Attaching an image to a text-only model returns HTTP 200 with an EMPTY reply --
+  #      no error, which reads as a broken app.
+  #   2. the `dsh-llm-deepseek` adapter hard-rejects image content by design
+  #      ("does not support image content", UNSUPPORTED), which is what `deepseek-official` uses.
+  # So the default is the pi-ai `deepseek-direct` route on the vision model: images work, and the
+  # request still goes straight to api.deepseek.com with no proxy involved.
+  model: deepseek-v4-flash-vision-exp
 
 # Her assistant is the shop manager, so a fresh session mounts the `yocheved` preset
 # (presets/yocheved/). Derived from cordis-bg, so the background-first shell policy is retained.
@@ -46,6 +57,20 @@ ui-conversation:
 
 llm-pi-ai:
   providers:
+    # DIRECT DeepSeek, no proxy -- this machine has no content filter, so the pass-through Worker that
+    # her laptop needs would add a hop for nothing. Kept as a selectable route so the model picker can
+    # offer the vision model and the text-only ones side by side.
+    deepseek-direct:
+      apiKeyEnv: DEEPSEEK_API_KEY
+      api: openai-completions
+      baseURL: https://api.deepseek.com/v1
+      models:
+        - id: deepseek-v4-flash-vision-exp
+          name: DeepSeek Flash Vision (images)
+        - id: deepseek-flash
+          name: DeepSeek Flash (text only, faster)
+        - id: deepseek-v4-pro
+          name: DeepSeek V4 Pro (text only)
     # Not used as the default; present so switching is a one-line change and so the model picker
     # offers an independent provider.
     deepinfra:

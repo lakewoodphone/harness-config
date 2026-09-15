@@ -49,7 +49,17 @@ permission:
 # ---------------------------------------------------------------------------
 agent-default-model:
   provider: deepseek-proxy
-  model: deepseek-flash
+  # THE VISION MODEL, AND WHY IT IS THE DEFAULT HERE.
+  #
+  # pi-ai's shipped catalog declares exactly one DeepSeek model that accepts images:
+  #   deepseek-v4-flash-vision-exp   input: ["text", "image"]    priced as flash
+  # while `deepseek-flash` and `deepseek-v4-pro` are text-only (`input: ["text"]`). Every route
+  # originally configured here used a text-only model, so attaching an image produced NO error and NO
+  # answer -- HTTP 200 with an empty reply -- which looked like a fault in the pass-through Worker.
+  # It was not: the Worker carries images correctly. Verified by sending a solid green PNG and getting
+  # "Green" back through ds.abletelsolutions.com, and by the same request on a text-only model
+  # returning an empty message. The text-only models stay selectable for speed.
+  model: deepseek-v4-flash-vision-exp
 
 # Her assistant is the shop manager, so a fresh session mounts the `yocheved` preset
 # (presets/yocheved/) rather than the owner's `zabz`. That preset derives from cordis-bg, so the
@@ -80,10 +90,12 @@ llm-pi-ai:
       api: openai-completions
       baseURL: https://ds.abletelsolutions.com/v1
       models:
+        - id: deepseek-v4-flash-vision-exp
+          name: DeepSeek Flash Vision (images)
         - id: deepseek-flash
-          name: DeepSeek Flash (via proxy)
+          name: DeepSeek Flash (text only, faster)
         - id: deepseek-v4-pro
-          name: DeepSeek V4 Pro (via proxy)
+          name: DeepSeek V4 Pro (text only)
     # FALLBACK, kept selectable: an independent provider, so if the Worker, Cloudflare or the zone
     # breaks, switching back is one `agent-default-model.provider` line and these models already
     # exist. The Worker holds no key and no state, so there is nothing to rotate or repair there.
