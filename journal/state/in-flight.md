@@ -1,6 +1,6 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-15 00:35Z (ZABZ-YOGA, comms/Dialpad session, round 3 of the goal)
+Updated: 2026-09-15 00:45Z (ZABZ-YOGA, comms/Dialpad session, goal round 2)
 
 Rewritten, not appended. This session: **H202**, **H208**, **H213**; record **W105**, **D141**,
 **D146**, **L1081–L1086**, **L1467–L1469**, **L1474–L1476**, **L1479**, **P131**.
@@ -24,21 +24,28 @@ Rewritten, not appended. This session: **H202**, **H208**, **H213**; record **W1
 * **A downloaded file is not ingested until its row exists** (**L1479**), and **bookkeeping
   must not fail the work it records** — both cost real progress today.
 
-## Running right now, unattended
+## Running right now — CRON, not supervisors
 
-| Job | Where it lives | What says it worked |
+Hand-launched supervisors die with the SSH session that started them, which is why the fetch
+kept stopping. Everything below is a cron entry on the authority, flock-guarded and
+idempotent, so nothing depends on a session staying open.
+
+| Job | Schedule | What says it worked |
 |---|---|---|
-| **Recording download** — 3,404 calls with a URL Dialpad has not refused | `~/supervised-download.sh` → `scripts/dialpad-recording-gap.py --limit 700`; logs `~/dialpad-recording-gap.log` + `.supervisor.log` | It is converging: **files +180 and rows +180 in four minutes, `errors: 0`**, queue 5,097 → 3,404 (00:31Z). Files on disk 3,945. Re-run the dry run until it selects 0. |
-| **Transcript backfill** | `~/supervised-retry.sh` → `scripts/dialpad-transcript-gap.py --limit 5000 --retry-failed` | Its dry run must fall to 0 (**it is 0 now** — every call with real local audio and no transcript is transcribed); the queue refills as the downloader lands audio. Cumulative cap 6,000 min (~$36); **381 min / 277 calls spent (~$2.3)**. |
-| **Comms index refresh** | authority cron `7,37 * * * *` → `~/.fsearch/comms-refresh.py` | Exit 0, `~/.fsearch/comms-state.json`, and `comms_search health`. It now **fails when the data stops flowing**, not only when the index is incomplete (verified: injected staleness → exit 1). |
+| **Dialpad media fetch** (`scripts/dialpad-recording-gap.py --limit 300`) | `*/5` | A cron-equivalent run measured **276 files in 345 s** (`requested 426, errors 150` — the 404s the attempt log records). Queue 3,237 calls; files on disk 3,945 and rising. Watch `~/dialpad-recording-gap.log`; the dry run must fall to 0. **Free.** |
+| **Transcript gap** (`scripts/dialpad-transcript-gap.py --limit 400 --retry-failed --max-minutes 600`) | `*/10` | Its dry run selects the calls with **no text at all** and real audio. **It is 0 right now** — every such call is transcribed; the queue refills as the fetch lands audio. **The cumulative cap (6,000 min ≈ $36) is inside the tool**, so cron and a human are bounded identically. Spent: 277 calls / 381 min (~$2.3). |
+| **Comms index refresh** (`~/.fsearch/comms-refresh.py`) | `7,37 * * * *` | Exit 0; `~/.fsearch/comms-state.json`; `comms_search health`. Fails when the **data** stops flowing, not only when the index is incomplete (verified: injected staleness → exit 1). |
+| **Dialpad harvest** (calls, sessions, transcripts) | `*/30` | Unchanged; `~/dialpad-harvest.log`. |
 
-**Read this before touching either job.** Three defects made them look healthy while doing
-nothing, all fixed and all worth knowing: `--retry-failed` did not reach the pipeline's
-terminal-failure guard; the selectors joined `dialpad_media_file` (a media **row** is not a
-media **file** — `os.path.exists` and the audio check are what count); and both row-writes
-(`dialpad_media_file`, `dialpad_media_download_attempt`) died with SQLITE_BUSY, which the
-10-second busy timeout cannot fix because it is a read-snapshot upgrade. The supervisors now
-stop with a reason when the queue stops moving, which is how the third one was found.
+**Read this before touching the fetch or the transcription.** Six defects made these look
+healthy while doing nothing, all fixed and all worth knowing: `--retry-failed` did not reach
+the pipeline's terminal-failure guard; selectors joined `dialpad_media_file` (a media **row**
+is not a media **file** — `os.path.exists` and the audio check are what count); a multi-URL
+call was judged from one joined row; the scan window was `limit*3`, so a small limit saw only
+already-resolved rows and reported `selected 0` on a 3,237-call queue; both row-writes died
+with SQLITE_BUSY (a read-snapshot upgrade the 10-second busy timeout cannot wait out); and the
+selector kept re-offering URLs Dialpad had already refused (2,105 of them). **L1475**,
+**L1476**, **L1479**.
 
 ## Mine, measured and waiting on a trigger
 
