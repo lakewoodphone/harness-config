@@ -102,7 +102,7 @@ Still open, mine:
 | Item | State |
 |---|---|
 | **ZABZ-YOGA's app stack** | DONE 19:58Z — patched, restarted, `/health` 200 with token fp `c4e6`. The earlier "unreachable" was Tailscale on ZABZ-TECH being stopped, not yoga. |
-| **Tailscale on ZABZ-TECH** | Was Stopped (service, Automatic) at ~19:45Z, which broke every MagicDNS name — yoga, `secratary-ts`, the journal remote. Started by hand and it resolved. **Not yet fixed at the cause**: nothing watches this service, and a stopped Tailscale silently downgrades the whole fleet to LAN-only. |
+| **Tailscale on ZABZ-TECH** | Root cause found and fixed at the cause (**D172**): IP Helper crashed at 15:40 local and Windows stopped Tailscale as its dependent; iphlpsvc's own recovery never restarts it. `scripts/ensure-mesh-prereqs.ps1` + the 5-minute task 'DSH Mesh Prereqs (5m)' now repair iphlpsvc first, then Tailscale, then the LAN portproxy — verified by breaking it on purpose. **Still open: the other five nodes have no such watch.** |
 | **Dead plaintext in the repos** | The leaked AWS key and Twilio token strings are still in `phone-and-tech-full` and `personal-secretary-mvp`. Both are inert now, so this is hygiene plus a pre-commit secret gate — not done inside another session's dirty tree. |
 | **Outworq LLC's Twilio token** | Still live in `personal-secretary-mvp/deploy/twilio-studio-flow/.env.vogel`, verified active. Client account — queue **#17**, needs Shimon. |
 | **IAM leftovers** | `github-actions-deployer` holds an unused AdministratorAccess key; root has MFA disabled and no root access keys; `~/.twilio-cli/config.json` holds two API-key secrets (not affected by an auth-token rotation). |
