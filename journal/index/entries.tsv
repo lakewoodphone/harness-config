@@ -719,6 +719,7 @@ decisions	D151	151		2026-09-15	ZABZ-YOGA	open	**D151 · 2026-09-15 · One party-
 decisions	D152	152		2026-09-15	ZABZ-YOGA	open	**D152 · 2026-09-15 · Owner-queue shelf life, alert lifecycle bound to subsystem success, SMS off with the app as the surfaced channel.**	entries/decisions/D152.md	1	33	ceabf57872b398b8
 decisions	D153	153		2026-09-15	ZABZ-TECH	open	**D153 · 2026-09-15 · Sync records get a labEscalation block; Weissman SSD price is 800 not 500.**	entries/decisions/D153.md	1	32	82f2f5e8cb4bacd4
 decisions	D154	154		2026-09-15	ZABZ-TECH	open	**D154 · 2026-09-15 · Vendor mail signs under the account-holder name (not the customer alias); the DMP-BD84 case is filed as a device log, not a customer case.**	entries/decisions/D154.md	1	29	a7cc45f6f5a1b5ca
+decisions	D155	155		2026-09-15	ZABZ-TECH	open	**D155 · 2026-09-15 · RattleByte #188880: the owner takes the three data points himself - no agent sends or chases anything until then.**	entries/decisions/D155.md	1	24	ce24a553fd632789
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
