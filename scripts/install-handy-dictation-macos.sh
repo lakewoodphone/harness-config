@@ -97,7 +97,10 @@ s.update({
     "mute_while_recording": False,
     "paste_method": "ctrl_v",              # clipboard + Cmd-V; the reliable method in Chrome
     "clipboard_handling": "dont_modify",   # her clipboard is restored after every dictation
-    "overlay_style": "live",
+    "overlay_style": "none",               # no clickable recording pill: its (x) DISCARDS a recording,
+                                           # while the Windows habit is that the x on the bar KEEPS the
+                                           # text. Two dictations were lost to that click on day one.
+                                           # The start/stop beep and the menu-bar icon are the indicators.
     "vad_enabled": True,
     "filler_word_removal_enabled": True,
     "update_checks_enabled": True,

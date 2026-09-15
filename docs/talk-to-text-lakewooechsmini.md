@@ -64,6 +64,14 @@ leaves it in the box for you to check, and pressing Enter automatically would se
 customers. (It was found switched ON during setup — someone turned it on in Handy's UI while testing — and
 turned back off. If hands-free sending is ever wanted, that is the one setting.)
 
+**There is no on-screen box, and that is deliberate.** Handy can show a recording pill, and Windows users
+read that pill as the Windows voice-typing bar — where clicking the **X keeps the text**. Handy's pill X
+**discards the recording**, silently, with no transcript and no history entry. That is exactly what happened
+twice on day one (18:46:59 and 18:47:19: `Initiating operation cancellation` with no key event anywhere in
+the log). `overlay_style: "none"` removes the trap; the start/stop beep and the menu-bar icon are the
+indicators, and the only way to finish a recording is the shortcut itself. Reverting is one line
+(`overlay_style: "live"`), but do it only with a user who will never click the pill.
+
 ## 2. The microphone question (the part that nearly cost $30 for nothing)
 
 The Mac mini M4 has **no built-in microphone** — Apple's own tech specs list only "built-in speaker /
@@ -161,6 +169,11 @@ Everything below is an observed result, not a configuration claim.
    transcription. That person also recorded `Command+H` in Handy's own settings UI, which is how the key
    was chosen; the setup kept their binding rather than overriding it. This is the only check whose result
    is human speech rather than a synthesised voice, and it is the one that matters.
+6. **A start → stop → transcribe → paste cycle end to end.** `TranscribeAction::start` at 18:49:01,
+   `TranscribeAction::stop` at 18:49:04, 48,000 samples, then `Using paste method: CtrlV` and
+   `Text pasted successfully in 562 ms`, with the sentence landing in `history.db`. This is the proof that
+   the **toggle** stop path (press the shortcut again) works; the recordings that produced nothing earlier
+   the same evening were the cancel path, not a broken pipeline.
 
 Re-verify after any change with: `bash scripts/install-handy-dictation-macos.sh` (it re-checks and prints
 the same evidence) or by hand — `grep -E "Loaded whisper model|permission to simulate" ~/Library/Logs/com.pais.handy/handy.log`.
@@ -175,6 +188,12 @@ the same evidence) or by hand — `grep -E "Loaded whisper model|permission to s
   gui/501/com.zabz.handy.autostart`).
 - **`Command+H` no longer hides windows** on that Mac while Handy runs. That is the direct consequence of
   Windows parity; if it ever becomes annoying, the binding is one line in `settings_store.json`.
+- **Text arrives when you finish, not while you speak.** Windows voice typing inserts word by word through
+  the platform text service; Handy transcribes at the end and pastes once (`paste_delay_ms: 60`, measured
+  562 ms for a short sentence). For dictating into a chat box the result is identical, the feedback is not.
+  If the live feel is ever wanted more than the accuracy, Apple's own dictation (Control twice) inserts as
+  you speak, on-device, with no custom vocabulary at all; that is the trade to make explicitly, not by
+  accident.
 - **Recordings longer than about five minutes are silently dropped** (Handy issue #1332, open). The guide
   tells her to break long dictation into chunks.
 - **The mic is quiet.** At input volume 80 the recording peaked near −20 dBFS with a noise floor around
