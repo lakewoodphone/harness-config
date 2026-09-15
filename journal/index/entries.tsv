@@ -136,6 +136,11 @@ handoff	H226	226		2026-09-15 14:04 UTC	ZABZ-YOGA	open	## 2026-09-15 14:04 UTC ·
 handoff	H227	227		2026-09-15 14:06 UTC	ZABZ-YOGA	open	## 2026-09-15 14:06 UTC · ZABZ-YOGA · Daily note from ZABZ-YOGA	entries/handoff/H227.md	1	25	e6dd8529383a93e2
 handoff	H228	228		2026-09-15 14:11 UTC	LAKEWOOECHSMINI	open	## 2026-09-15 14:11 UTC · LAKEWOOECHSMINI · Daily note from LakewooechsMini	entries/handoff/H228.md	1	25	8553daded821a6f0
 handoff	H229	229		2026-09-15 14:11 UTC	LAKEWOOECHSMINI	open	## 2026-09-15 14:11 UTC · LAKEWOOECHSMINI · Daily note from LakewooechsMini	entries/handoff/H229.md	1	25	8553daded821a6f0
+handoff	H230	230		2026-09-15 15:07 UTC	ZABZ-TECH	open	## 2026-09-15 15:07 UTC · ZABZ-TECH · Weissman SSD (8482993187) - 300DDR approved by customer 09-14, not yet booked or shipped	entries/handoff/H230.md	1	54	5134ec291eb34f23
+handoff	H231	231		2026-09-15 15:14 UTC	ZABZ-TECH	open	## 2026-09-15 15:14 UTC · ZABZ-TECH · Weissman SSD: no 300DDR ticket exists - #73459 is a different customer's SanDisk	entries/handoff/H231.md	1	38	8c452e61638ff610
+handoff	H232	232		2026-09-15 15:23 UTC	ZABZ-TECH	open	## 2026-09-15 15:23 UTC · ZABZ-TECH · 300DDR ticket 74048 issued for the Weissman SN740 - now it just has to be shipped	entries/handoff/H232.md	1	52	8a12258ac1fff1be
+handoff	H233	233		2026-09-15 15:25 UTC	ZABZ-TECH	open	## 2026-09-15 15:25 UTC · ZABZ-TECH · RattleByte ticket #188880 (Panasonic DMP-BD84 region-free) — vendor reply recovered from the portal, logged, task reopened	entries/handoff/H233.md	1	50	a9f5fbefb20688f2
+handoff	H234	234		2026-09-15 15:30 UTC	ZABZ-TECH	open	## 2026-09-15 15:30 UTC · ZABZ-TECH · RattleByte #188880 logged and task reopened; install procedure confirmed correct and the USB stick is the ranked cause; ps_task_update/ps_memory_search fixed (8e8616e5)	entries/handoff/H234.md	1	62	b3aa16d8428e6bba
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -485,6 +490,9 @@ lessons	L1506	1506		2026-09-15	ZABZ-YOGA	open	**L1506 · My own test probe pushe
 lessons	L1507	1507		2026-09-15	ZABZ-YOGA	open	**L1507 · A patch script must accumulate on a running copy; PATCH OK is a claim about text, not behaviour**	entries/lessons/L1507.md	1	29	28c7fdce1773a096
 lessons	L1508	1508		2026-09-15	ZABZ-YOGA	open	**L1508 · An alert is a lifecycle, not a row: age it on the observation clock, clear it where you raise it, never measure a closed channel**	entries/lessons/L1508.md	1	37	11c5e955f891826e
 lessons	L1509	1509		2026-09-15	ZABZ-YOGA	open	**L1509 · A swallowed exception in my own journal tool hid a real defect: the alias table stores rows, not ids**	entries/lessons/L1509.md	1	43	0dfdc545cb1ad687
+lessons	L1510	1510		2026-09-15	ZABZ-TECH	open	**L1510 · Answer a live case question from the newest communication, not the case file**	entries/lessons/L1510.md	1	37	bb54fed012213e63
+lessons	L1511	1511		2026-09-15	ZABZ-TECH	open	**L1511 · A 300DDR ticket number is per-device and does not exist until the final form is submitted**	entries/lessons/L1511.md	1	47	97e189da0829fee8
+lessons	L1512	1512		2026-09-15	ZABZ-TECH	open	**L1512 · A reply that lives only on a vendor portal is invisible to a mail-shaped pipeline, and a task auto-created from a notification will be closed against the notification**	entries/lessons/L1512.md	1	42	e826b4ad84e03317
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -591,6 +599,10 @@ pain	P141	141		2026-09-14	ZABZ-YOGA	open	## P141 — Her laptop cannot join Tail
 pain	P142	142		2026-09-15	ZABZ-YOGA	open	## P142 — Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that)	entries/pain/P142.md	1	33	ed9d07e073a531d7
 pain	P143	143		2026-09-15	ZABZ-YOGA	open	## P143 — The app repo has three lineages and the live one is the least published	entries/pain/P143.md	1	42	db0bfe5bdb74e286
 pain	P144	144		2026-09-15	ZABZ-YOGA	open	## P144 — What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders	entries/pain/P144.md	1	36	d3711352fd29f1a6
+pain	P145	145		2026-09-15	ZABZ-TECH	open	## P145 — An outcome settled on the telephone never reaches the case file, so the file looks like it is waiting on the owner	entries/pain/P145.md	1	30	11f48196366ce259
+pain	P146	146		2026-09-15	ZABZ-TECH	open	## P146 — ps_task_update and ps_memory_search MCP tools are dead - they call routes that do not exist (HTTP 404)	entries/pain/P146.md	1	36	1ef54fa88c695b75
+pain	P147	147		2026-09-15	ZABZ-TECH	open	## P147 — A counterparty reply that only exists on a vendor portal never enters the system, and the needs_response flag that would catch it is unread	entries/pain/P147.md	1	28	352084a60c014d11
+pain	P148	148		2026-09-15	ZABZ-TECH	open	## P148 — The company API's write path returns a fast 500 'database is locked' under harvest contention while /health still says 200 (new measurement on P48)	entries/pain/P148.md	1	43	1154bf4346861272
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -704,6 +716,8 @@ decisions	D149	149		2026-09-14	ZABZ-YOGA	open	**D149 · 2026-09-14 · lpt-sync w
 decisions	D150	150		2026-09-14	ZABZ-YOGA	open	**D150 · 2026-09-14 · Her agent's learning: one shared journal, her machines append to it, provenance by host.**	entries/decisions/D150.md	1	18	0420dead7d3b7ae8
 decisions	D151	151		2026-09-15	ZABZ-YOGA	open	**D151 · 2026-09-15 · One party-resolution helper for search and thread, and it always reports whom it resolved.**	entries/decisions/D151.md	1	31	7907f8a2d32074e0
 decisions	D152	152		2026-09-15	ZABZ-YOGA	open	**D152 · 2026-09-15 · Owner-queue shelf life, alert lifecycle bound to subsystem success, SMS off with the app as the surfaced channel.**	entries/decisions/D152.md	1	33	ceabf57872b398b8
+decisions	D153	153		2026-09-15	ZABZ-TECH	open	**D153 · 2026-09-15 · Sync records get a labEscalation block; Weissman SSD price is 800 not 500.**	entries/decisions/D153.md	1	32	82f2f5e8cb4bacd4
+decisions	D154	154		2026-09-15	ZABZ-TECH	open	**D154 · 2026-09-15 · Vendor mail signs under the account-holder name (not the customer alias); the DMP-BD84 case is filed as a device log, not a customer case.**	entries/decisions/D154.md	1	29	a7cc45f6f5a1b5ca
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -803,3 +817,4 @@ wins	W126	126		2026-09-14	ZABZ-YOGA	open	**W126 · 2026-09-14 · Her laptop's we
 wins	W127	127		2026-09-15	ZABZ-YOGA	open	**W127 · 2026-09-15 · Profile coverage went from 1 of 65 to 34: the fleet now answers 'is the kiosk installed?'.**	entries/wins/W127.md	1	43	77f12a396fab73b7
 wins	W128	128		2026-09-15	ZABZ-YOGA	open	**W128 · 2026-09-15 · The owner's badge tells the truth: held 163->20, urgent/critical 42->13, and delivery is no longer a false green.**	entries/wins/W128.md	1	23	ea13ba008fca1241
 wins	W129	129		2026-09-15	ZABZ-TECH	open	**W129 · 2026-09-15 · The control-room interior door contact is fully back on a battery swap alone - and a battery reading is not a battery state.**	entries/wins/W129.md	1	48	aaa82d32da89d648
+wins	W130	130		2026-09-15	ZABZ-TECH	open	**W130 · 2026-09-15 · Recovered a vendor reply that had been silently lost for three days, and fixed two dead MCP write-path tools on the way.**	entries/wins/W130.md	1	39	4609afb6e1021061
