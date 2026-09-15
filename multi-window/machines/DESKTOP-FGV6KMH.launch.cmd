@@ -52,11 +52,23 @@ rem
 rem The Worker fronting this zone passes the request path straight through to api.deepseek.com, so it
 rem carries /anthropic/v1/messages unchanged. Verified 2026-09-15: that path through
 rem ds.abletelsolutions.com returned HTTP 200 with a real Anthropic Messages body, while the same path
-rem on api.deepseek.com is blocked here. The key is already available to the engine through the
-rem credentials service (DEEPSEEK_API_KEY), so only the base URL needs to change.
+rem on api.deepseek.com returned the filter's HTML block page (HTTP 200, text/html, 2498 bytes).
+rem
+rem THIS VARIABLE CANNOT LIVE IN A .env FILE. The harness classifies DEEPSEEK_SEARCH_BASE_URL as
+rem bootstrap-only (dsh-app-boot, BOOTSTRAP_NAMES): it "decides how it reaches the network", and the
+rem only .env layer allowed to carry such a name is the harness home, for proxy names alone. Put it in
+rem ~/.dsh/.env and the engine refuses to start at all -- which is exactly what happened, and it looked
+rem like a launcher fault rather than a settings one. So it is set HERE, in the process that starts the
+rem engine, and the scheduled task is pointed at THIS FILE rather than at dshw.ps1 directly.
 if not defined DEEPSEEK_SEARCH_BASE_URL set "DEEPSEEK_SEARCH_BASE_URL=https://ds.abletelsolutions.com/anthropic/v1"
 
+rem --- the verb to run, defaulting to her normal "give me my assistant" behaviour ----------------
+rem The scheduled task passes `new` (what the desktop shortcut always meant); a bare invocation
+rem behaves the same way.
+set "DSHW_VERB=%~1"
+if "%DSHW_VERB%"=="" set "DSHW_VERB=new"
+
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" ensure
-"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" restore
+"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" %DSHW_VERB%
 
 endlocal
