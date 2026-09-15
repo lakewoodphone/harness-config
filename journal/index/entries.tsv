@@ -155,6 +155,7 @@ handoff	H245	245		2026-09-15 18:25 UTC	ZABZ-TECH	open	## 2026-09-15 18:25 UTC ·
 handoff	H246	246		2026-09-15 18:31 UTC	ZABZ-TECH	open	## 2026-09-15 18:31 UTC · ZABZ-TECH · The filter's measurement spine is built and pushed; the egress wiring is the next increment, and I left main red once getting there	entries/handoff/H246.md	1	59	b22136fb1deb1aa4
 handoff	H247	247		2026-09-15 18:43 UTC	ZABZ-TECH	open	## 2026-09-15 18:43 UTC · ZABZ-TECH · Account/sign-in audit opened: PART-117 done, and the account system has one customer behind it who cannot sign in	entries/handoff/H247.md	1	25	3d2a2c6480af3852
 handoff	H248	248		2026-09-15 18:45 UTC	ZABZ-TECH	open	## 2026-09-15 18:45 UTC · ZABZ-TECH · Mac mini dictation: live, Windows parity (Command+H toggle), verified with real speech	entries/handoff/H248.md	1	57	c76d9ba3527d661b
+handoff	H249	249		2026-09-15 18:48 UTC	ZABZ-TECH	open	## 2026-09-15 18:48 UTC · ZABZ-TECH · Activation Lock fixed into the maintained onboarding path; three items still need the owner; a latent DEP payload bug recorded	entries/handoff/H249.md	1	43	51bbaa34b7204ee4
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -532,6 +533,7 @@ lessons	L1534	1534		2026-09-15	ZABZ-TECH	open	**L1534 · A hand-written TCC.db r
 lessons	L1535	1535		2026-09-15	ZABZ-TECH	open	**L1535 · In lpt_prod the column is camelCase unless the Prisma model says @map, and one table mixes both**	entries/lessons/L1535.md	1	27	fa93b678df089d64
 lessons	L1536	1536		2026-09-15	ZABZ-TECH	open	**L1536 · Handy caches settings in memory and rewrites the file: always restart it after editing**	entries/lessons/L1536.md	1	23	ae05f5606d556563
 lessons	L1537	1537		2026-09-15	ZABZ-TECH	open	**L1537 · handy-keys blocks registered hotkeys, so Command+H is fair game on macOS (from the crate docs)**	entries/lessons/L1537.md	1	21	7c8f14abe31419ea
+lessons	L1538	1538		2026-09-15	ZABZ-TECH	open	**L1538 · A detached worktree at my own commit made rebase republish 30 stale commits; and 'Everything up-to-date' is not success**	entries/lessons/L1538.md	1	25	f63dace877548527
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
