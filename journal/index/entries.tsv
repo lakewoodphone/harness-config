@@ -160,6 +160,8 @@ handoff	H250	250		2026-09-15 18:49 UTC	ZABZ-TECH	open	## 2026-09-15 18:49 UTC ·
 handoff	H251	251		2026-09-15 18:51 UTC	ZABZ-TECH	open	## 2026-09-15 18:51 UTC · ZABZ-TECH · The LPT sign-in button had never worked - identify_lpt was imported and never called; now wired as far as the broker allows	entries/handoff/H251.md	1	52	631eecc03e6cf581
 handoff	H252	252		2026-09-15 18:51 UTC	ZABZ-TECH	open	## 2026-09-15 18:51 UTC · ZABZ-TECH · Mac mini dictation: the missing text was a click on the pill, not a broken pipeline	entries/handoff/H252.md	1	40	64bc0a4d1dfb6c65
 handoff	H253	253		2026-09-15 18:53 UTC	ZABZ-TECH	open	## 2026-09-15 18:53 UTC · ZABZ-TECH · PART-119 done: production issues 7-day access tokens (code default 15m) - and MFA is configured-required but never enforced	entries/handoff/H253.md	1	76	b616354afb7063a7
+handoff	H254	254		2026-09-15 19:05 UTC	ZABZ-TECH	open	## 2026-09-15 19:05 UTC · ZABZ-TECH · CRITICAL found and fixed: the terminal router (12 procedures) and a2pAutoReply (5) had NO auth and were reachable from the internet - connection tokens were minted unauthenticated	entries/handoff/H254.md	1	78	d5b32f0c8eb4f513
+handoff	H255	255		2026-09-15 19:07 UTC	ZABZ-TECH	open	## 2026-09-15 19:07 UTC · ZABZ-TECH · Both LPT units Activation-Locked; the endpoint had SIX defects and the SUCCESS/FAILED semantics are inverted	entries/handoff/H255.md	1	45	7b69a289d025eaaa
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -541,6 +543,9 @@ lessons	L1538	1538		2026-09-15	ZABZ-TECH	open	**L1538 · A detached worktree at 
 lessons	L1539	1539		2026-09-15	ZABZ-TECH	open	**L1539 · docker compose env_file is read at container creation, so 'I changed the config and restarted it' proves nothing - check printenv inside the running container**	entries/lessons/L1539.md	1	12	ac146a30282e6dbb
 lessons	L1540	1540		2026-09-15	ZABZ-TECH	open	**L1540 · Handy's pill X discards a recording where Windows' X keeps it -- and the log distinguishes stop from cancel**	entries/lessons/L1540.md	1	28	6360be371cdd76fc
 lessons	L1541	1541		2026-09-15	ZABZ-TECH	open	**L1541 · A code default is not the behaviour: read the running container against the declared default, and report the measured effect not the setting**	entries/lessons/L1541.md	1	24	0ddde9b5ee0da0ef
+lessons	L1542	1542		2026-09-15	ZABZ-TECH	open	**L1542 · An audit probe must be chosen so it cannot change state: a malformed body proves reachability, and when a probe does execute, re-read the state**	entries/lessons/L1542.md	1	22	c6dd83e7b73797bd
+lessons	L1543	1543		2026-09-15	ZABZ-TECH	open	**L1543 · A guard census must parse declaration forms across every router - the guard chain's own file can look perfect while 43 other files pick the unguarded builder**	entries/lessons/L1543.md	1	20	7a9b90206b464483
+lessons	L1544	1544		2026-09-15	ZABZ-TECH	open	**L1544 · Six fatal defects in one endpoint, invisible in the source: diff the wire request, and never infer a status word's meaning**	entries/lessons/L1544.md	1	18	41bdb3c5a70de6f9
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
