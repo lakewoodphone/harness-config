@@ -173,6 +173,8 @@ handoff	H263	263		2026-09-15 19:20 UTC	ZABZ-TECH	open	## 2026-09-15 19:20 UTC ·
 handoff	H264	264		2026-09-15 19:23 UTC	ZABZ-TECH	open	## 2026-09-15 19:23 UTC · ZABZ-TECH · Lakewood Rentals: live, empty, and until now absent from the journal	entries/handoff/H264.md	1	26	d4f2d5db7f3d8370
 handoff	H265	265		2026-09-15 19:24 UTC	ZABZ-TECH	open	## 2026-09-15 19:24 UTC · ZABZ-TECH · Round 5: fixed the identity-change logout bug (session now spared, 116 tests, new assertion proven to bite) - source only, not deployed	entries/handoff/H265.md	1	63	8d33c30dd838dbab
 handoff	H266	266		2026-09-15 19:26 UTC	ZABZ-TECH	open	## 2026-09-15 19:26 UTC · ZABZ-TECH · The deployment gap measured: /opt/lpt/src is NOT a git checkout, so the 3.78GB production image cannot be rebuilt from the host - and three routers are still bare in source	entries/handoff/H266.md	1	61	d18806314a1ad97d
+handoff	H267	267		2026-09-15 19:31 UTC	ZABZ-TECH	open	## 2026-09-15 19:31 UTC · ZABZ-TECH · LPT site->broker session wiring: the site now calls POST /owner/auth/lpt/session (worktree f4bd486)	entries/handoff/H267.md	1	27	592a170bb9a30214
+handoff	H268	268		2026-09-15 19:31 UTC	ZABZ-TECH	open	## 2026-09-15 19:31 UTC · ZABZ-TECH · Waze fleet run: repo is behind production on six auth fixes including a Stripe Terminal exposure; queue residue cleared 8,607->509	entries/handoff/H268.md	1	55	c6f94e7fff84203e
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -566,6 +568,8 @@ lessons	L1550	1550		2026-09-15	ZABZ-TECH	open	**L1550 · The whole stack kept ru
 lessons	L1551	1551		2026-09-15	ZABZ-TECH	open	**L1551 · When you add the assertion that closes an audit finding, deliberately break the thing it protects and confirm the assertion fails**	entries/lessons/L1551.md	1	29	e46006550d0050a8
 lessons	L1552	1552		2026-09-15	ZABZ-TECH	open	**L1552 · IAM access-key deletion is eventually consistent: a probe run too early reports the opposite of the truth**	entries/lessons/L1552.md	1	11	90dece801a27f176
 lessons	L1553	1553		2026-09-15	ZABZ-TECH	open	**L1553 · CloudTrail plus queue depth is what turns 'rotate the leaked key' into a decidable plan**	entries/lessons/L1553.md	1	11	44a9fcc11513899b
+lessons	L1554	1554		2026-09-15	ZABZ-TECH	open	**L1554 · When you wire an uncalled route, the new field's DEFAULT is the security decision**	entries/lessons/L1554.md	1	12	b97f44918ec2c3c0
+lessons	L1555	1555		2026-09-15	ZABZ-TECH	open	**L1555 · Never print a secret: check env-var NAMES and presence, never values, and never SELECT * on a credential table**	entries/lessons/L1555.md	1	19	14f2773fbf1eb9c1
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
