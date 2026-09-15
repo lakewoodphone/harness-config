@@ -205,6 +205,7 @@ handoff	H295	295		2026-09-15 21:11 UTC	ZABZ-TECH	open	## 2026-09-15 21:11 UTC ·
 handoff	H296	296		2026-09-15 21:12 UTC	ZABZ-TECH	open	## 2026-09-15 21:12 UTC · ZABZ-TECH · Walk-in hours sign delivered + Wednesday-closed propagated to the site (PR #142); GBP still wrong	entries/handoff/H296.md	1	49	e0f8aba863171cea
 handoff	H297	297		2026-09-15 21:15 UTC	ZABZ-TECH	open	## 2026-09-15 21:15 UTC · ZABZ-TECH · New windows open the tokenized URL; the 2026-09-15 auth-page failure is fixed and verified	entries/handoff/H297.md	1	51	07ecda73ae313332
 handoff	H298	298		2026-09-15 21:15 UTC	ZABZ-TECH	open	## 2026-09-15 21:15 UTC · ZABZ-TECH · Bounded the suite nondeterminism: 9 deterministic failures under one worker vs 38 under 8 forks - and my own audit's fixes caused two of the file failures	entries/handoff/H298.md	1	70	9bdd4b26feb95657
+handoff	H299	299		2026-09-15 21:16 UTC	ZABZ-TECH	open	## 2026-09-15 21:16 UTC · ZABZ-TECH · Window URL fix is on origin/master (265e4e9); ZABZ-YOGA left alone because its checkout is mid-merge	entries/handoff/H299.md	1	29	bc38671e44f3885e
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -649,6 +650,7 @@ lessons	L1601	1601		2026-09-15	ZABZ-TECH	open	**L1601 · verify-secret-move.py -
 lessons	L1602	1602		2026-09-15	ZABZ-TECH	open	**L1602 · Prove an auth gate with a request, not with a hash comparison - and 'caddy hash-password' needs --plaintext**	entries/lessons/L1602.md	1	32	6e7d596aefbc0ff9
 lessons	L1603	1603		2026-09-15	ZABZ-TECH	open	**L1603 · Do not junction node_modules into a git worktree - Vite /@fs refuses paths outside the root; run pnpm install**	entries/lessons/L1603.md	1	26	bf58f09448e19a50
 lessons	L1604	1604		2026-09-15	ZABZ-TECH	open	**L1604 · A DSH window opened at the clean origin 401s on any profile whose cookie was never seeded; open the tokenized URL**	entries/lessons/L1604.md	1	32	c37d3769c4c667ce
+lessons	L1605	1605		2026-09-15	ZABZ-TECH	open	**L1605 · Check that a command RAN before checking what it said - a crashed run filtered for failure counts reports zero, which is exactly what a passing run reports**	entries/lessons/L1605.md	1	37	07bf52c62e1e5f1e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
