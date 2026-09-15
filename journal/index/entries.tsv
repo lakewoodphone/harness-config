@@ -482,6 +482,7 @@ lessons	L1505	1505		2026-09-15	ZABZ-YOGA	open	**L1505 · A scheduled task can re
 lessons	L1506	1506		2026-09-15	ZABZ-YOGA	open	**L1506 · My own test probe pushed to production: guard EVERY invocation of a mutating tool, and never explain a cause you have not checked**	entries/lessons/L1506.md	1	24	114a5989685cae77
 lessons	L1507	1507		2026-09-15	ZABZ-YOGA	open	**L1507 · A patch script must accumulate on a running copy; PATCH OK is a claim about text, not behaviour**	entries/lessons/L1507.md	1	29	28c7fdce1773a096
 lessons	L1508	1508		2026-09-15	ZABZ-YOGA	open	**L1508 · An alert is a lifecycle, not a row: age it on the observation clock, clear it where you raise it, never measure a closed channel**	entries/lessons/L1508.md	1	37	11c5e955f891826e
+lessons	L1509	1509		2026-09-15	ZABZ-YOGA	open	**L1509 · A swallowed exception in my own journal tool hid a real defect: the alias table stores rows, not ids**	entries/lessons/L1509.md	1	43	0dfdc545cb1ad687
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427

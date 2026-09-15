@@ -46,6 +46,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import traceback
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -2573,7 +2574,15 @@ def cmd_append(args) -> int:
     try:
         absorbed = absorb_all(kinds=[kind], apply=True, quiet=True)["added"]
     except Exception as exc:
-        note("journal: legacy absorption skipped (%s)" % exc)
+        # A silent skip is a refusal, not health. Absorption is how text in log/** and the
+        # flat files enters the record, so a failure here has to be diagnosable rather than
+        # a one-line note: this swallowed a reproducible TypeError
+        # ("sequence item 2: expected str instance, dict found", absorb_all passing an alias
+        # row dict to record_alias) for an unknown length of time and simply carried on.
+        _tb = traceback.format_exc().strip().splitlines()
+        _where = _tb[-2].strip() if len(_tb) > 1 else "?"
+        note("journal: legacy absorption skipped (%s: %s) at %s"
+             % (type(exc).__name__, exc, _where))
         absorbed = 0
     remote = 0
     if not getattr(args, "no_fetch", False):
@@ -2637,6 +2646,18 @@ def cmd_append(args) -> int:
 
 def record_alias(alias_id: str, kind: str, canonical_id: str, reason: str,
                  host: str = "", sha: str = "", source: str = "") -> None:
+    # Refuse a non-id loudly instead of writing a str(dict) into index/aliases.tsv.
+    # Measured 2026-09-15: absorb_all passed an alias ROW (a dict) here, which raised
+    # deep inside a join and read as an unrelated TypeError -- and cmd_append swallowed
+    # the whole absorption into a one-line note, so a broken pass looked like a quiet
+    # no-op. A corrupt alias row is worse than a crash: it is a permanent claim about
+    # the record.
+    for name, value in (("alias_id", alias_id), ("canonical_id", canonical_id)):
+        if not isinstance(value, str):
+            raise TypeError(
+                "record_alias: %s must be an id string, got %s (%r)"
+                % (name, type(value).__name__, value)
+            )
     path = index_dir() / "aliases.tsv"
     if not path.exists():
         atomic_write(path, ALIAS_HEADER + "\n")
@@ -2867,7 +2888,21 @@ def absorb_all(kinds=None, apply: bool = False, quiet: bool = False) -> dict:
         exact = by_hash.get(h)
         owner = exact or by_ident.get(ident)
         if not owner and c["id_full"]:
-            owner = alias_owner.get(c["id_full"])
+            # alias_owner maps an absorbed source id to the ALIAS ROW, which is a dict
+            # (see alias_map), not to its canonical id. Handing that dict on as `owner`
+            # made record_alias build a TSV line out of a dict and raise
+            # "TypeError: sequence item 2: expected str instance, dict found" -- measured
+            # 2026-09-15, reproducible on `--kind lessons` and `--kind wins`. Two
+            # consequences: absorption aborted mid-pass (candidates after the first alias
+            # were never absorbed), and the `c["id_full"] != owner` test below was always
+            # true against a dict, so an alias was recorded even when the candidate was
+            # already its own canonical id.
+            _alias_row = alias_owner.get(c["id_full"])
+            owner = (
+                _alias_row.get("canonical_id", "")
+                if isinstance(_alias_row, dict)
+                else (_alias_row or "")
+            ) or ""
         if owner:
             counts["identical" if exact else "aliased"] += 1
             if c["id_full"]:
