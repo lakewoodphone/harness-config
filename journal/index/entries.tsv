@@ -767,6 +767,7 @@ pain	P168	168		2026-09-15	ZABZ-TECH	open	## P168 — journal.py drops body, tags
 pain	P169	169		2026-09-15	ZABZ-TECH	open	## P169 — The only gate on the fleet location map is a bcrypt hash committed to the repo	entries/pain/P169.md	1	17	8c827a67bcf7d1ca
 pain	P170	170		2026-09-15	ZABZ-TECH	open	## P170 — curl -fsS health gates in restart.sh and verify-production.sh turn a degraded 503 into did-not-start - and my 90s revert all-clear was too short to prove the loop stopped	entries/pain/P170.md	1	16	b4444ed3ed50c63b
 pain	P171	171		2026-09-15	ZABZ-TECH	open	## P171 — W3's whole-suite numbers do not reconcile: 11 failed post-fix against 10 at base, with the extra one claimed pre-existing	entries/pain/P171.md	1	17	aa2e7e55e166f670
+pain	P172	172		2026-09-15	ZABZ-TECH	open	## P172 — Scheduled reminders fail on an import error: agent_bus imports a function autopilot no longer defines	entries/pain/P172.md	1	20	19f3d30890deb47a
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
