@@ -1076,6 +1076,111 @@ def _from_tsv(path: Path) -> list:
     return out
 
 
+class EntryTexts:
+    """The text `search` scans: heading plus body, loaded once per run, cached per entry.
+
+    Why this exists. `catalog()` answers from `index/entries.tsv` and `_from_tsv()` builds
+    every Entry with `body=""`, so `search` could only ever match a heading. A term that
+    lived only in a body came back as "no match", which reads as *never recorded* — the
+    most expensive thing this tree can say wrongly (`L2`). Bodies therefore come from the
+    cheapest source that is provably complete, with real fallbacks behind it:
+
+      1. `entries/` itself, when `catalog()` could not use the cache: those Entries are
+         already parsed, body and all, so the text is used as-is.
+      2. `index/journal.db`. Its fts5 table stores every body verbatim, and the same
+         `rebuild_cache()` pass writes it and `entries.tsv`, so the two cannot disagree
+         when the cache is fresh. One query covers the whole tree (~6 ms, 1.8 MB). It is
+         trusted only when the cache is fresh AND its id set is exactly the catalog's: a
+         db one entry short is refused *whole*, never believed row by row, because
+         believing a stale copy is the recorded way this system manufactured a crisis.
+      3. the entry's own file, reading only lines `[line_start, line_end]` from the TSV and
+         re-deriving the body through the same `parse_meta`/`norm_body` the real parser
+         uses, so every tier yields identical text and therefore identical results.
+
+    Tier 3 is what a fresh clone (`index/journal.db` is gitignored), an sqlite built
+    without FTS5, a corrupt db or a cache held under another session's lock falls back to.
+    Nothing here writes. A file that cannot be read is *counted* rather than treated as an
+    entry with no text: an unreadable file must not read as "no match".
+    """
+
+    def __init__(self, entries: list, fresh: bool):
+        self._rows = {e["id_full"]: e for e in entries}
+        self._fresh = fresh
+        self._bodies = None
+        self._cache = {}
+        self.unreadable = []
+
+    def text(self, e: dict) -> str:
+        got = self._cache.get(e["id_full"])
+        if got is None:
+            got = "%s\n%s" % (e["heading"], self._body(e))
+            self._cache[e["id_full"]] = got
+        return got
+
+    def _body(self, e: dict) -> str:
+        parsed = e.get("body")
+        if parsed:
+            return parsed
+        bodies = self._db_bodies()
+        if bodies is not None:
+            got = bodies.get(e["id_full"])
+            if got is not None:
+                return got
+        return self._from_file(e)
+
+    def _db_bodies(self):
+        if self._bodies is None:
+            self._bodies = self._load_db()
+        return self._bodies
+
+    def _load_db(self):
+        """Every body from index/journal.db, or None if it cannot be trusted whole."""
+        if not self._fresh:
+            return None
+        path = index_dir() / "journal.db"
+        if not path.exists():
+            return None
+        try:
+            con = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+        except (sqlite3.Error, OSError, ValueError):
+            return None
+        try:
+            rows = con.execute("SELECT id_full, body FROM fts").fetchall()
+        except sqlite3.Error:
+            return None
+        finally:
+            con.close()
+        got = {id_full: (body or "") for id_full, body in rows}
+        if set(got) != set(self._rows):
+            return None
+        return got
+
+    def _from_file(self, e: dict) -> str:
+        """The body region of one entry file, derived exactly as parse_entry derives it."""
+        rel = e.get("file") or ""
+        if not rel:
+            return ""
+        end = int(e.get("line_end") or 0)
+        if end <= 2:
+            return ""
+        path = _path_of(rel)
+        chunks = []
+        try:
+            with path.open("rb") as fh:
+                for i, ln in enumerate(fh, 1):
+                    if i > end:
+                        break
+                    chunks.append(ln)
+        except OSError:
+            self.unreadable.append(e["id_full"])
+            return ""
+        lines = [ln.rstrip("\r") for ln in b"".join(chunks).decode("utf-8", errors="replace").split("\n")]
+        while lines and not lines[-1].strip():
+            lines.pop()
+        body_text, _meta = parse_meta("\n".join(lines[2:]))
+        return norm_body(body_text)
+
+
 def load_one(id_full: str, kind=None):
     """Direct path lookup — exactly one file, no index, no directory scan."""
     root = entries_dir()
@@ -1549,7 +1654,7 @@ def cmd_search(args) -> int:
         note("no pattern given")
         return 2
     regex = bool(getattr(args, "regex", False))
-    entries, source, _fresh = catalog()
+    entries, source, fresh = catalog()
     rx = None
     if regex:
         try:
@@ -1562,8 +1667,9 @@ def cmd_search(args) -> int:
     hits = []
     total_hits = 0
     cands = [e for e in entries if _matches(e, args)]
+    texts = EntryTexts(entries, fresh)
     for e in cands:
-        text = "%s\n%s" % (e["heading"], e["body"])
+        text = texts.text(e)
         matches = []
         if rx is not None:
             for i, ln in enumerate(text.split("\n")):
@@ -1578,6 +1684,9 @@ def cmd_search(args) -> int:
             total_hits += len(matches)
             if len(hits) < limit:
                 hits.append((e, matches[:1 + ctx_n]))
+    if texts.unreadable:
+        note("journal: %d entry file(s) are unreadable, so their bodies were NOT searched: %s"
+             % (len(texts.unreadable), ", ".join(texts.unreadable[:8])))
     if getattr(args, "legacy", False):
         pat_re = rx if rx is not None else re.compile("|".join(re.escape(p) for p in pats), re.IGNORECASE)
         for path, kind in shard_sources():

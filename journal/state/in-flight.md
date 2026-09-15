@@ -1,6 +1,9 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-15 14:05Z (ZABZ-YOGA, comms session — objective complete H219, reader hardening H224/H225)
+Updated: 2026-09-15 20:05Z (ZABZ-TECH, credential session — AWS key killed D164, Twilio token rotated D165, H275)
+
+Sections below the marker are from the comms session (ZABZ-YOGA, 14:05Z); this session's open
+work is at the end of the file.
 
 Rewritten, not appended. Earlier session: **H202**, **H208**, **H213**, **H214**, **H219**; record
 **W105**, **D141**, **D146**, **D151**, **L1081–L1086**, **L1467–L1469**, **L1474–L1476**, **L1479**,
@@ -86,3 +89,21 @@ measuring the job's *subject* rather than watching its exit code.
 | **Kernel index-age metric** (**P131**) | `ck/sentinel.py` was being edited by another session, so a change there collides. `health` exposes it to agents and the cron fails on ingestion staleness. |
 | **The softer re-transcripts** | Calls that already have Dialpad text and could be re-transcribed from better audio for ~$45. Now the only transcript work left, and it is a quality swap, not a gap. |
 | **The authority's app checkout is a third lineage** (**P143**) | 57 commits reachable from no remote (now backed up as `backup/secratary-checkout-20260915`), 136 behind origin/master, 75 dirty files. Needs a dedicated reconciliation session; never scp a whole file into it — patch the single hunk (`/tmp/pt.py` pattern). |
+
+## Credential session, 2026-09-15 20:05Z (ZABZ-TECH) — full record **H275**, decisions **D163–D165**
+
+Closed tonight: the AWS AdministratorAccess key in `phone-and-tech-full/backend/.env.test` is deleted
+and verified dead (**D164**); Lakewood's own Twilio auth token is rotated through Twilio's
+secondary-token path, every consumer patched and restarted, the old token now 401 (**D165**).
+Device Parts is out of favour by owner instruction (**D163**).
+
+Still open, mine:
+
+| Item | State |
+|---|---|
+| **ZABZ-YOGA's app stack** | DONE 19:58Z — patched, restarted, `/health` 200 with token fp `c4e6`. The earlier "unreachable" was Tailscale on ZABZ-TECH being stopped, not yoga. |
+| **Tailscale on ZABZ-TECH** | Was Stopped (service, Automatic) at ~19:45Z, which broke every MagicDNS name — yoga, `secratary-ts`, the journal remote. Started by hand and it resolved. **Not yet fixed at the cause**: nothing watches this service, and a stopped Tailscale silently downgrades the whole fleet to LAN-only. |
+| **Dead plaintext in the repos** | The leaked AWS key and Twilio token strings are still in `phone-and-tech-full` and `personal-secretary-mvp`. Both are inert now, so this is hygiene plus a pre-commit secret gate — not done inside another session's dirty tree. |
+| **Outworq LLC's Twilio token** | Still live in `personal-secretary-mvp/deploy/twilio-studio-flow/.env.vogel`, verified active. Client account — queue **#17**, needs Shimon. |
+| **IAM leftovers** | `github-actions-deployer` holds an unused AdministratorAccess key; root has MFA disabled and no root access keys; `~/.twilio-cli/config.json` holds two API-key secrets (not affected by an auth-token rotation). |
+| **Local desktop API startup** | ~6 minutes to `Application startup complete` (Chroma telemetry warning last line before it). `scripts/restart-api.ps1` waits only 45s, so it always reports failure — **L1566**. |

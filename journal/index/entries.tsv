@@ -713,6 +713,7 @@ pain	P160	160		2026-09-15	ZABZ-TECH	open	## P160 — Live production credentials
 pain	P161	161		2026-09-15	ZABZ-TECH	open	## P161 — The public rentals endpoint was a read proxy into the company backup bucket	entries/pain/P161.md	1	21	eb39089cc1e43748
 pain	P162	162		2026-09-15	ZABZ-TECH	open	## P162 — A device attached to a household is not visible to a scoped admin until it logs a hello	entries/pain/P162.md	1	6	44baf3f4bfd887f6
 pain	P163	163		2026-09-15	ZABZ-TECH	open	## P163 — journal.py search could not read entry bodies, so recall returned false negatives	entries/pain/P163.md	1	12	e33fc8c2e2e429d9
+pain	P164	164		2026-09-15	ZABZ-TECH	open	## P164 — Nothing watches the LOCAL services the mesh depends on: a stopped Tailscale or IP Helper silently makes a whole machine LAN-only, with no alert	entries/pain/P164.md	1	21	293fd2158b410793
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
