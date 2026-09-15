@@ -152,6 +152,7 @@ handoff	H242	242		2026-09-15 15:43 UTC	ZABZ-YOGA	open	## 2026-09-15 15:43 UTC ·
 handoff	H243	243		2026-09-15 15:54 UTC	ZABZ-YOGA	open	## 2026-09-15 15:54 UTC · ZABZ-YOGA · Quiet-hours timezone fixed; the suite is 2711 passed / 4 flaky / 0 errors	entries/handoff/H243.md	1	31	c5191d1c1366a233
 handoff	H244	244		2026-09-15 15:58 UTC	ZABZ-YOGA	open	## 2026-09-15 15:58 UTC · ZABZ-YOGA · test_mcp_enabled was deterministic, not flaky; P152's thread hypothesis corrected	entries/handoff/H244.md	1	41	5dd7060880a0ac00
 handoff	H245	245		2026-09-15 16:09 UTC	ZABZ-YOGA	open	## 2026-09-15 16:09 UTC · ZABZ-YOGA · The suite is green and can be a gate; two follow-ups left (descriptor leak, worker DB path)	entries/handoff/H245.md	1	41	e64488f1378ddcd0
+handoff	H246	246		2026-09-15 16:11 UTC	ZABZ-YOGA	open	## 2026-09-15 16:11 UTC · ZABZ-YOGA · The kernel's tick collapse alarm was history; five HIGH findings ranked for the next rounds	entries/handoff/H246.md	1	37	20eb6f9704352dfe
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -519,6 +520,7 @@ lessons	L1524	1524		2026-09-15	ZABZ-YOGA	open	**L1524 · A test helper encodes a
 lessons	L1525	1525		2026-09-15	ZABZ-YOGA	open	**L1525 · CORRECTION to P152: the worker is synchronous; and the suite loads .env into os.environ, which beats _env_file=None**	entries/lessons/L1525.md	1	34	19fde0114f512ee5
 lessons	L1526	1526		2026-09-15	ZABZ-YOGA	open	**L1526 · Two environment facts that beat the obvious fix, and a reminder that flaky is a label not a mechanism**	entries/lessons/L1526.md	1	25	76e7524faa5460f0
 lessons	L1527	1527		2026-09-15	ZABZ-YOGA	open	**L1527 · Fire-and-forget threads make tests order-dependent, and a path resolved at call time turns a leaked thread into cross-test state**	entries/lessons/L1527.md	1	30	14f67a726f657626
+lessons	L1528	1528		2026-09-15	ZABZ-YOGA	open	**L1528 · Three times now: an alarm must state what would make it green, or it becomes wallpaper**	entries/lessons/L1528.md	1	24	85c983d2126adf0f
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -635,6 +637,7 @@ pain	P151	151		2026-09-15	ZABZ-YOGA	superseded	## P151 — The suite's 153 order
 pain	P152	152		2026-09-15	ZABZ-YOGA	superseded	## P152 — The suite's residual failures are flaky: ~six members, membership varies per invocation, three visible mechanisms	entries/pain/P152.md	1	32	f4a7b65d971c43d5
 pain	P153	153		2026-09-15	ZABZ-YOGA	open	## P153 — The residual suite failures: corrected mechanisms, and the one measurement that would name them	entries/pain/P153.md	1	24	190a908088745428
 pain	P154	154		2026-09-15	ZABZ-YOGA	done	## P154 — The residual flakiness is leaked fire-and-forget threads in the hub tests, poisoning the in-flight marker across tests	entries/pain/P154.md	1	41	3e9fbec951fc830a
+pain	P155	155		2026-09-15	ZABZ-YOGA	open	## P155 — Five live findings from a fresh sweep: dead-weight agents, duplicate evolution offers, config divergence, stale session archive	entries/pain/P155.md	1	30	b09f48b43bf637bc
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -864,3 +867,4 @@ wins	W138	138		2026-09-15	ZABZ-YOGA	open	**W138 · 2026-09-15 · Eight of nine p
 wins	W139	139		2026-09-15	ZABZ-YOGA	open	**W139 · 2026-09-15 · The nine pre-existing failures are closed; the full suite is 6 failed / 74 errors / 2635 passed.**	entries/wins/W139.md	1	37	8653415cf1d0a2bb
 wins	W140	140		2026-09-15	ZABZ-YOGA	open	**W140 · 2026-09-15 · The quiet-hours failures were a timezone in the test helper; the suite is 2711 passed with a small flaky set left.**	entries/wins/W140.md	1	24	e436b9847581b688
 wins	W141	141		2026-09-15	ZABZ-YOGA	open	**W141 · 2026-09-15 · pytest tests/ is GREEN: 2715 passed, 0 failed, 0 errors.**	entries/wins/W141.md	1	40	95a0b7129b857976
+wins	W142	142		2026-09-15	ZABZ-YOGA	open	**W142 · 2026-09-15 · Third permanently-red alarm fixed: tick_completion now reads INFO; badge attention 6 to 5.**	entries/wins/W142.md	1	25	cf42ff47ad52d91b
