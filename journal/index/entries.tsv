@@ -756,6 +756,7 @@ decisions	D156	156		2026-09-15	ZABZ-TECH	open	**D156 · 2026-09-15 · Case recor
 decisions	D157	157		2026-09-15	ZABZ-TECH	open	**D157 · 2026-09-15 · No in-house soldered iPad charge-port repairs (A1893 job declined).**	entries/decisions/D157.md	1	11	af7878e3d5ffce5f
 decisions	D158	158		2026-09-15	ZABZ-TECH	open	**D158 · 2026-09-15 · Two secrets not one - the notification image needs the LAN URL, the tap-through link needs the public one.**	entries/decisions/D158.md	1	45	227630ddcd2d83fe
 decisions	D159	159		2026-09-15	ZABZ-TECH	open	**D159 · 2026-09-15 · The filter's escalation architecture: phone-first three tiers, a swappable US-hosted tier 2, and 'don't lock things in' made into engineering rules.**	entries/decisions/D159.md	1	53	89573ee2bd3fcaaf
+decisions	D160	160		2026-09-15	ZABZ-TECH	open	**D160 · 2026-09-15 · The security evidence viewer audited end to end and rebuilt - the evidence was fine, the presentation was not.**	entries/decisions/D160.md	1	61	f589deaccc1c36e0
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
