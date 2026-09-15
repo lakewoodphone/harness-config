@@ -161,6 +161,7 @@ handoff	H251	251		2026-09-15 16:24 UTC	ZABZ-YOGA	open	## 2026-09-15 16:24 UTC ·
 handoff	H252	252		2026-09-15 17:03 UTC	ZABZ-YOGA	open	## 2026-09-15 17:03 UTC · ZABZ-YOGA · P151 closed: two conftest fixtures, proven at the default descriptor limit	entries/handoff/H252.md	1	23	923860f126c36b77
 handoff	H253	253		2026-09-15 17:05 UTC	ZABZ-YOGA	open	## 2026-09-15 17:05 UTC · ZABZ-YOGA · P158 closed: hub cleaned 42 to 6 with every sha recorded; next rounds should be design work, not cleanup	entries/handoff/H253.md	1	32	de89ae42700eae61
 handoff	H254	254		2026-09-15 17:09 UTC	ZABZ-YOGA	open	## 2026-09-15 17:09 UTC · ZABZ-YOGA · P4's state is honest now: 12 open proposals for me to review one at a time, auto-apply stays off	entries/handoff/H254.md	1	38	eaa0b2254e0e1050
+handoff	H255	255		2026-09-15 17:19 UTC	ZABZ-YOGA	open	## 2026-09-15 17:19 UTC · ZABZ-YOGA · Owner queue check shipped in the kernel; queue drained 14 to 11; proposals 12 to 1	entries/handoff/H255.md	1	68	0a13e737db8df37f
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -537,6 +538,8 @@ lessons	L1533	1533		2026-09-15	ZABZ-YOGA	open	**L1533 · A ratio that is stable 
 lessons	L1534	1534		2026-09-15	ZABZ-YOGA	open	**L1534 · When a mitigation works the leak underneath stops being visible: measure the resource, not the suite**	entries/lessons/L1534.md	1	27	5f0cf7ff0d6d8162
 lessons	L1535	1535		2026-09-15	ZABZ-YOGA	open	**L1535 · A ref is safe to delete when reachability proves it, not when the name looks like debris**	entries/lessons/L1535.md	1	26	6bcdb7df8e5428e0
 lessons	L1536	1536		2026-09-15	ZABZ-YOGA	open	**L1536 · A queue needs a terminal state for every outcome, or its length is a lie**	entries/lessons/L1536.md	1	27	143eb901cadd10f7
+lessons	L1537	1537		2026-09-15	ZABZ-YOGA	open	**L1537 · Never write an act in the past tense before you read it back**	entries/lessons/L1537.md	1	47	53e7cbcd9f2b579d
+lessons	L1538	1538		2026-09-15	ZABZ-YOGA	open	**L1538 · A derived column that nothing refreshes is not provenance**	entries/lessons/L1538.md	1	48	4a34ed0f3653637e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -775,6 +778,7 @@ decisions	D154	154		2026-09-15	ZABZ-YOGA	open	**D154 · 2026-09-15 · Shelf life
 decisions	D155	155		2026-09-15	ZABZ-YOGA	open	**D155 · 2026-09-15 · In-app reminders are held and age in 24h; the badge line is freshness-first; journald keeps the measured default cap.**	entries/decisions/D155.md	1	24	2303b6c35149993c
 decisions	D156	156		2026-09-15	ZABZ-YOGA	open	**D156 · 2026-09-15 · A stale owner-question mirror is refreshed at the reader, and its age is printed.**	entries/decisions/D156.md	1	14	d2485b15571f3bb0
 decisions	D157	157		2026-09-15	ZABZ-YOGA	open	**D157 · 2026-09-15 · The config contract counts accepted env names; templates document declared settings with their code defaults.**	entries/decisions/D157.md	1	19	e38ea21d1f478fb9
+decisions	D158	158		2026-09-15	ZABZ-YOGA	open	**D158 · 2026-09-15 · The owner's queue reaches his surface, and the parts that were never his are gone.**	entries/decisions/D158.md	1	65	f17d7dde80454b8d
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e

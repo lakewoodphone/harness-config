@@ -88,3 +88,28 @@ measuring the job's *subject* rather than watching its exit code.
 | **The softer re-transcripts** | Calls that already have Dialpad text and could be re-transcribed from better audio for ~$45. Now the only transcript work left, and it is a quality swap, not a gap. |
 | **Voicemail self-identification** | "my name is X" in a transcript -- measured ~10-12 usable names after review, ASR-noisy. Deliberately NOT applied: the owner's own "... from Lakewood" line sits on 40+ customer numbers and must be screened first. |
 | **The authority's app checkout is a third lineage** (**P143**) | 57 commits reachable from no remote (now backed up as `backup/secratary-checkout-20260915`), 136 behind origin/master, 75 dirty files. Needs a dedicated reconciliation session; never scp a whole file into it -- patch the single hunk (`/tmp/pt.py` pattern). |
+
+---
+
+## In flight — added 2026-09-15 17:2xZ (ZABZ-YOGA, self-audit round 59; H255)
+
+*(Appended, not a rewrite, because another session holds in-flight state in this file and
+clobbering a live session's notes is a real loss. The rewrite convention resumes when one
+session owns the file.)*
+
+- **Shipped:** `check_owner_queue` in `~/ceo-kernel` (`9962993`) — the next owner decision,
+  one at a time, with true age/severity/blocking/recommendation, in the badge payload.
+  15 checks; payload verified 17:14Z.
+- **Owner queue 14 → 11 pending** with recorded reasons (#39, #15, #31, #10 split; one
+  owner-only medical row re-filed). Mirror refreshed: 11 open, 30 closed.
+- **Evolution proposals 12 → 1 → 0.** Ten generic refactor templates + one duplicate
+  dismissed with per-class reasons; #222 closed as applied (capability above).
+- **Mine, not his, still open:** enable cheap-first routing as a *measured* change; repair
+  Google Voice monitoring over CDP; find why a medical task routed to `finance_bookkeeper`;
+  fix the generic-refactor proposer template once `app/evolution.py` is free (another
+  session holds ~79–80 modified files, including it).
+- **Blocked on another session, not on the owner:** anything touching `app/evolution.py`
+  or `app/workforce.py`.
+- **Loose end to remember:** row #39's note carries a `CORRECTION:` clause — I wrote "the
+  row is gone" before the delete had run, and the delete had failed on a lock. See L1537.
+
