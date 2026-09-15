@@ -1247,6 +1247,10 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("index")
     p.add_argument("--verbose", action="store_true")
+    p.add_argument("--no-swap", action="store_true",
+                   help="build in place instead of building beside the live index and "
+                        "swapping it in (only for debugging; in-place leaves a window "
+                        "where readers see an empty table)")
     p = sub.add_parser("search")
     p.add_argument("term")
     p.add_argument("--kind", default=None)
@@ -1258,9 +1262,50 @@ def main() -> int:
     sub.add_parser("stats")
     a = ap.parse_args()
 
-    con = connect(a.db)
+    # BUILD BESIDE THE LIVE INDEX, THEN SWAP IT IN.
+    #
+    # Building in place empties `comms` and refills it over 25-90 s, and anything that reads
+    # during that window gets a partial answer with no sign that it is partial. Measured
+    # 2026-09-15: `waiting` returned 0 customers at 01:38 — right inside the `:37` rebuild —
+    # and 17 when asked again minutes later. A query that answers "nobody is waiting" because
+    # the table is half-built is worse than an error, because it is believed.
+    #
+    # `os.replace` is atomic on the same filesystem: a reader that already has the old file
+    # open keeps reading it (its inode stays alive), and the next connection gets the
+    # finished index. The stale WAL/shm sidecars belong to the file being replaced, so they
+    # are removed after the swap — a fresh reader must not find a WAL from a different file.
+    live = os.path.abspath(a.db)
+    if a.cmd == "index" and not a.no_swap:
+        build_path = live + ".new"
+        for stale in (build_path, build_path + "-wal", build_path + "-shm"):
+            try:
+                os.unlink(stale)
+            except OSError:
+                pass
+        con = connect(build_path)
+    else:
+        build_path = None
+        con = connect(a.db)
     if a.cmd == "index":
         r = do_index(con, a.source, a.verbose)
+        if build_path:
+            # Fold the WAL back in and drop to DELETE journaling so the finished file is
+            # self-contained: one file to rename, no sidecars travelling with it.
+            try:
+                con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                con.execute("PRAGMA journal_mode=DELETE")
+            except sqlite3.Error:
+                pass
+            con.close()
+            os.replace(build_path, live)
+            for stale in (live + "-wal", live + "-shm"):
+                try:
+                    os.unlink(stale)
+                except OSError:
+                    pass
+            r["swapped"] = True
+        else:
+            con.close()
         collapsed_total = 0
         for k, n in r["counts"].items():
             collapsed = r["collapsed"].get(k, 0)
@@ -1320,7 +1365,10 @@ def main() -> int:
               + "  ".join(f"{t}={con.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]:,}"
                           for t in ("comms_fts", "comms_tri"))
               + ("  OK" if both else "  MISMATCH"))
-    con.close()
+    try:
+        con.close()          # already closed on the swap path; harmless either way
+    except sqlite3.Error:
+        pass
     return 0
 
 
