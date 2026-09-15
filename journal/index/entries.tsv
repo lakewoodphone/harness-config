@@ -130,6 +130,7 @@ handoff	H220	220		2026-09-15 03:10 UTC	ZABZ-YOGA	open	## 2026-09-15 03:10 UTC ·
 handoff	H221	221		2026-09-15 03:17 UTC	ZABZ-YOGA	open	## 2026-09-15 03:17 UTC · ZABZ-YOGA · Her Mac got the secretary MCP; laptop engine back in session 1 with search working	entries/handoff/H221.md	1	38	ec359acc05920b13
 handoff	H222	222		2026-09-15 13:48 UTC	ZABZ-YOGA	open	## 2026-09-15 13:48 UTC · ZABZ-YOGA · CORRECTION to H215: the lineage fork is worse than I recorded (identity-level baseline 477/742/762)	entries/handoff/H222.md	1	24	b2d442336294b3f0
 handoff	H223	223		2026-09-15 13:56 UTC	ZABZ-YOGA	open	## 2026-09-15 13:56 UTC · ZABZ-YOGA · She can now order parts and update customer cases, and every write is signed with her machine	entries/handoff/H223.md	1	39	1c1e84d784990adc
+handoff	H224	224		2026-09-15 13:57 UTC	ZABZ-YOGA	open	## 2026-09-15 13:57 UTC · ZABZ-YOGA · comms read-path: the index was reachable, the tool was not	entries/handoff/H224.md	1	56	078ffebd11d3015c
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -472,6 +473,9 @@ lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Tim
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 lessons	L1466	1466		2026-09-15	SECRATARY	open	**L1466 · The Google Voice home-phone trick is dead twice over, and magicJack's cheapest price is not the one on the front page**	entries/lessons/L1466.md	1	31	b2b824b4b5c8d291
 lessons	L1467	1467		2026-09-15	SECRATARY	open	**L1467 · Resolve a phone number's real carrier with Twilio Lookup instead of trusting the MVNO paperwork**	entries/lessons/L1467.md	1	35	d8bc16670a06739c
+lessons	L1503	1503		2026-09-15	ZABZ-YOGA	open	**L1503 · An agent's first call is the only one you get: a tool that errors on a guessed parameter is dead**	entries/lessons/L1503.md	1	41	5abf91a844c6b8e2
+lessons	L1504	1504		2026-09-15	ZABZ-YOGA	open	**L1504 · A loose FTS match ordered by recency is indistinguishable from no search**	entries/lessons/L1504.md	1	29	3395366672b95bfe
+lessons	L1505	1505		2026-09-15	ZABZ-YOGA	open	**L1505 · A scheduled task can report Ready while shipping nothing — read its log, do not trust its state**	entries/lessons/L1505.md	1	25	01d733369c91e247
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -576,6 +580,7 @@ pain	P139	139		2026-09-14	ZABZ-YOGA	open	## P139 — The test suite cannot be ru
 pain	P140	140		2026-09-14	ZABZ-YOGA	open	## P140 — personal-secretary-mvp on secratary is 41 ahead / 134 behind origin - nothing can be pushed without merging someone else's history	entries/pain/P140.md	1	6	c62de6b5a44aff16
 pain	P141	141		2026-09-14	ZABZ-YOGA	open	## P141 — Her laptop cannot join Tailscale, so it cannot reach the authority directly (IPv6 fixed, login still stalls)	entries/pain/P141.md	1	30	3239a0f5879e5e71
 pain	P142	142		2026-09-15	ZABZ-YOGA	open	## P142 — Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that)	entries/pain/P142.md	1	33	ed9d07e073a531d7
+pain	P143	143		2026-09-15	ZABZ-YOGA	open	## P143 — The app repo has three lineages and the live one is the least published	entries/pain/P143.md	1	42	db0bfe5bdb74e286
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -687,6 +692,7 @@ decisions	D147	147		2026-09-14	ZABZ-TECH	open	**D147 · 2026-09-14 · The dead c
 decisions	D148	148		2026-09-14	ZABZ-YOGA	open	**D148 · 2026-09-14 · The parent-facing claim step does not exist, and the right fix was to delete it from the plan rather than build an anti-abuse endpoint.**	entries/decisions/D148.md	1	19	b5566f435b9c7cb5
 decisions	D149	149		2026-09-14	ZABZ-YOGA	open	**D149 · 2026-09-14 · lpt-sync write-back goes to references.websiteOrder; case identity may be established by caseId.**	entries/decisions/D149.md	1	38	4998a464114177ae
 decisions	D150	150		2026-09-14	ZABZ-YOGA	open	**D150 · 2026-09-14 · Her agent's learning: one shared journal, her machines append to it, provenance by host.**	entries/decisions/D150.md	1	18	0420dead7d3b7ae8
+decisions	D151	151		2026-09-15	ZABZ-YOGA	open	**D151 · 2026-09-15 · One party-resolution helper for search and thread, and it always reports whom it resolved.**	entries/decisions/D151.md	1	31	7907f8a2d32074e0
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
