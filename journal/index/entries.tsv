@@ -120,6 +120,8 @@ handoff	H210	210		2026-09-14 23:40 UTC	ZABZ-YOGA	open	## 2026-09-14 23:40 UTC ·
 handoff	H211	211		2026-09-14 23:42 UTC	ZABZ-YOGA	open	## 2026-09-14 23:42 UTC · ZABZ-YOGA · config-sync no longer freezes silently: diverged commits are preserved on a side ref (48665e7); secratary still 25/9	entries/handoff/H211.md	1	70	f3ecbd67bbeb2e05
 handoff	H212	212		2026-09-14 23:48 UTC	ZABZ-YOGA	open	## 2026-09-14 23:48 UTC · ZABZ-YOGA · Work loop can finally see its own tool results; the step budget is now the binding constraint	entries/handoff/H212.md	1	48	da31948900e36e06
 handoff	H213	213		2026-09-14 23:49 UTC	ZABZ-YOGA	open	## 2026-09-14 23:49 UTC · ZABZ-YOGA · 2026-09-15 00:05Z ZABZ-YOGA: round 2 -- freshness with two halves, voicemail audio unblocked, all-time proven	entries/handoff/H213.md	1	59	8ad95c78cff355a5
+handoff	H214	214		2026-09-15 01:39 UTC	ZABZ-YOGA	open	## 2026-09-15 01:39 UTC · ZABZ-YOGA · 2026-09-15 01:45Z ZABZ-YOGA: round 4 -- fetch complete, last transcripts draining, atomic index swap	entries/handoff/H214.md	1	53	b33f0fe263fd6b59
+handoff	H215	215		2026-09-15 01:42 UTC	ZABZ-YOGA	open	## 2026-09-15 01:42 UTC · ZABZ-YOGA · secratary harness-config is a journal LINEAGE FORK: L510's recipe does not apply	entries/handoff/H215.md	1	20	dd9f5b448eb68436
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
