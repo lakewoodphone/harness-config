@@ -603,6 +603,7 @@ pain	P145	145		2026-09-15	ZABZ-TECH	open	## P145 — An outcome settled on the t
 pain	P146	146		2026-09-15	ZABZ-TECH	open	## P146 — ps_task_update and ps_memory_search MCP tools are dead - they call routes that do not exist (HTTP 404)	entries/pain/P146.md	1	36	1ef54fa88c695b75
 pain	P147	147		2026-09-15	ZABZ-TECH	open	## P147 — A counterparty reply that only exists on a vendor portal never enters the system, and the needs_response flag that would catch it is unread	entries/pain/P147.md	1	28	352084a60c014d11
 pain	P148	148		2026-09-15	ZABZ-TECH	open	## P148 — The company API's write path returns a fast 500 'database is locked' under harvest contention while /health still says 200 (new measurement on P48)	entries/pain/P148.md	1	43	1154bf4346861272
+pain	P149	149		2026-09-15	ZABZ-TECH	open	## P149 — lpt-hub on ZABZ-TECH is 2442 behind / 26 ahead of origin/main - a local commit is not a record anywhere else	entries/pain/P149.md	1	39	620b8e55d568fd7d
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
