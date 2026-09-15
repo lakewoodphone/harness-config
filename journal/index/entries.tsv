@@ -142,6 +142,7 @@ handoff	H232	232		2026-09-15 14:28 UTC	ZABZ-YOGA	open	## 2026-09-15 14:28 UTC ·
 handoff	H233	233		2026-09-15 14:34 UTC	ZABZ-YOGA	open	## 2026-09-15 14:34 UTC · ZABZ-YOGA · Questions get a shelf life and the badge can go green again: attention_debt now counts live debt and states ages	entries/handoff/H233.md	1	49	8d202c25b05ca6e5
 handoff	H234	234		2026-09-15 14:37 UTC	ZABZ-YOGA	open	## 2026-09-15 14:37 UTC · ZABZ-YOGA · The pain count itself was wrong: three callers counted marker status, and five entries are resolved	entries/handoff/H234.md	1	30	3a36047a591a17ae
 handoff	H235	235		2026-09-15 14:45 UTC	ZABZ-YOGA	open	## 2026-09-15 14:45 UTC · ZABZ-YOGA · The in-app reminder channel now reaches the owner's badge, and the badge line shows live items instead of stale criticals	entries/handoff/H235.md	1	39	e5594fb803a2a98b
+handoff	H236	236		2026-09-15 14:49 UTC	ZABZ-YOGA	open	## 2026-09-15 14:49 UTC · ZABZ-YOGA · The round-35 sync hook is observed in production, and three more pains resolved by measurement	entries/handoff/H236.md	1	41	27b996935ccbf1d9
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -498,6 +499,7 @@ lessons	L1513	1513		2026-09-15	ZABZ-YOGA	open	**L1513 · Every alarm needs a sta
 lessons	L1514	1514		2026-09-15	ZABZ-YOGA	open	**L1514 · An aggregate age printed beside a subset count is a wrong number**	entries/lessons/L1514.md	1	26	1e1c376936d9f781
 lessons	L1515	1515		2026-09-15	ZABZ-YOGA	open	**L1515 · A representation is not the value: a missing log line, an aggregate age, and a capped list all lied in one session**	entries/lessons/L1515.md	1	31	6cf017a274d7c00c
 lessons	L1516	1516		2026-09-15	ZABZ-YOGA	open	**L1516 · Wiring a channel is not surfacing it: verify the signal at the reader, not at the writer**	entries/lessons/L1516.md	1	30	a22e8e73f0a09720
+lessons	L1517	1517		2026-09-15	ZABZ-YOGA	open	**L1517 · A hook is verified when its trigger fires in production, not when its call site exists**	entries/lessons/L1517.md	1	25	f03779438c97ffb4
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -589,12 +591,12 @@ pain	P126	126		2026-09-14	ZABZ-YOGA	done	## P126 — A wedged engine on 3099 sur
 pain	P127	127		2026-09-14	ZABZ-YOGA	open	## P127 — Tailscale on ZABZ-YOGA is dead since boot, so the authority and the owner queue are unreachable from home	entries/pain/P127.md	1	26	49078186e1c3e526
 pain	P128	128		2026-09-14	ZABZ-YOGA	done	## P128 — journal.py check fails on 318 errors: the migration's heading-form class has no repair tool, and append re-absorbs legacy files every time	entries/pain/P128.md	1	43	c923075b86d573e8
 pain	P129	129		2026-09-14	ZABZ-YOGA	open	## P129 — Local master and origin/master have diverged, so this machine's journal writes never reach the authority	entries/pain/P129.md	1	6	5d545f9be5651d09
-pain	P130	130		2026-09-14	ZABZ-YOGA	open	## P130 — The owner-question mirror silently keeps a stale copy while the authority is reachable by ssh in the same second	entries/pain/P130.md	1	12	227c3c8d07ccc1c9
+pain	P130	130		2026-09-14	ZABZ-YOGA	done	## P130 — The owner-question mirror silently keeps a stale copy while the authority is reachable by ssh in the same second	entries/pain/P130.md	1	12	227c3c8d07ccc1c9
 pain	P131	131		2026-09-14	ZABZ-YOGA	open	## P131 — The comms index has no ingestion watchdog, and recent voicemails index as a phone number	entries/pain/P131.md	1	43	78eadd5fb4200e4f
 pain	P132	132		2026-09-14	ZABZ-YOGA	open	## P132 — Two sessions can migrate and audit this journal at once, and the lock does not cross machines	entries/pain/P132.md	1	14	e1011d178f46a9d1
 pain	P133	133		2026-09-14	ZABZ-YOGA	open	## P133 — log/** and the six flat files are still writable by any stale checkout	entries/pain/P133.md	1	12	15435ca4a8f8df71
 pain	P134	134		2026-09-14	SECRATARY	open	## P134 — The journal itself has forked: SECRATARY holds 936 entries that exist on no other machine, and ZABZ-YOGA holds 304 that SECRATARY has never read	entries/pain/P134.md	1	45	c2006fbf4b56624a
-pain	P135	135		2026-09-14	ZABZ-YOGA	open	## P135 — A journal append takes 3 minutes and blocks the turn that needs it	entries/pain/P135.md	1	7	22b1620ff90ba12a
+pain	P135	135		2026-09-14	ZABZ-YOGA	done	## P135 — A journal append takes 3 minutes and blocks the turn that needs it	entries/pain/P135.md	1	7	22b1620ff90ba12a
 pain	P136	136		2026-09-14	ZABZ-YOGA	done	## P136 — The reconnaissance nudge can never fire: its counter resets every tick and each tick runs one step	entries/pain/P136.md	1	26	86806c7a97467002
 pain	P137	137		2026-09-14	ZABZ-YOGA	open	## P137 — A session believed it closed task #25118 while the task stayed open, then died at the budget	entries/pain/P137.md	1	43	50989bd069e8f1bc
 pain	P138	138		2026-09-14	ZABZ-YOGA	done	## P138 — The budget extension tripled the cost of a failure without changing the outcome (task 25106: 15 steps, still failed)	entries/pain/P138.md	1	46	e58db81cc351baa2
@@ -605,9 +607,10 @@ pain	P142	142		2026-09-15	ZABZ-YOGA	open	## P142 — Her laptop's Tailscale logi
 pain	P143	143		2026-09-15	ZABZ-YOGA	open	## P143 — The app repo has three lineages and the live one is the least published	entries/pain/P143.md	1	42	db0bfe5bdb74e286
 pain	P144	144		2026-09-15	ZABZ-YOGA	superseded	## P144 — What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders	entries/pain/P144.md	1	36	d3711352fd29f1a6
 pain	P145	145		2026-09-15	ZABZ-YOGA	open	## P145 — The production clone is a divergent lineage: master 61 ahead and 138 behind origin, so a fix exists on one disk only	entries/pain/P145.md	1	26	24187c68f65b8179
-pain	P146	146		2026-09-15	ZABZ-YOGA	open	## P146 — Journal ids collide when two machines allocate offline (H228/H229/L1510/P145 all doubled today)	entries/pain/P146.md	1	39	5d2b0fb790de977c
+pain	P146	146		2026-09-15	ZABZ-YOGA	done	## P146 — Journal ids collide when two machines allocate offline (H228/H229/L1510/P145 all doubled today)	entries/pain/P146.md	1	39	5d2b0fb790de977c
 pain	P147	147		2026-09-15	ZABZ-YOGA	done	## P147 — Nothing asserts the app can narrate itself, and the journal has no explicit retention cap	entries/pain/P147.md	1	24	74adf10235a0f11d
 pain	P148	148		2026-09-15	ZABZ-YOGA	done	## P148 — Reminders are marked sent into a dashboard nothing has been shown to render	entries/pain/P148.md	1	21	ad28517535acc74f
+pain	P149	149		2026-09-15	ZABZ-YOGA	open	## P149 — run_subsystem_once cannot run the five browser syncs, and only journal.py refreshes the mirror	entries/pain/P149.md	1	26	5599cf747e989ad0
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -724,6 +727,7 @@ decisions	D152	152		2026-09-15	ZABZ-YOGA	open	**D152 · 2026-09-15 · Owner-queu
 decisions	D153	153		2026-09-15	ZABZ-YOGA	open	**D153 · 2026-09-15 · The app configures its own logging at INFO with credential redaction; scheduled tasks state their refusals.**	entries/decisions/D153.md	1	29	2e62b2a544b2ed08
 decisions	D154	154		2026-09-15	ZABZ-YOGA	open	**D154 · 2026-09-15 · Shelf life and severity constants: questions 14 days, question debt 14 days, fresh critical 48 hours.**	entries/decisions/D154.md	1	18	72cab9c7b6c685ee
 decisions	D155	155		2026-09-15	ZABZ-YOGA	open	**D155 · 2026-09-15 · In-app reminders are held and age in 24h; the badge line is freshness-first; journald keeps the measured default cap.**	entries/decisions/D155.md	1	24	2303b6c35149993c
+decisions	D156	156		2026-09-15	ZABZ-YOGA	open	**D156 · 2026-09-15 · A stale owner-question mirror is refreshed at the reader, and its age is printed.**	entries/decisions/D156.md	1	14	d2485b15571f3bb0
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -826,3 +830,4 @@ wins	W129	129		2026-09-15	ZABZ-YOGA	open	**W129 · 2026-09-15 · The application
 wins	W130	130		2026-09-15	ZABZ-YOGA	open	**W130 · 2026-09-15 · 313 questions stopped pretending to be live work, and the badge can go green again.**	entries/wins/W130.md	1	21	2183e2847a718185
 wins	W131	131		2026-09-15	ZABZ-YOGA	open	**W131 · 2026-09-15 · The once-read page and the offline state file now agree with the resolver: 95 to 91, and the number can no longer drift.**	entries/wins/W131.md	1	20	1b3875d0f80741ac
 wins	W132	132		2026-09-15	ZABZ-YOGA	open	**W132 · 2026-09-15 · A reminder marked sent reaches nobody no more, and the badge line shows what is live.**	entries/wins/W132.md	1	25	0804575c64998749
+wins	W133	133		2026-09-15	ZABZ-YOGA	open	**W133 · 2026-09-15 · The sync-alert clear is verified live (3+4 alerts) and both browser syncs work.**	entries/wins/W133.md	1	26	40daf61347278b86

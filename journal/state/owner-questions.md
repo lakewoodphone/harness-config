@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-09-14
+Updated: 2026-09-15
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 37 row(s) read, 11 pending, generated 2026-09-15 03:17 UTC on ZABZ-YOGA.
+Provenance: 38 row(s) read, 12 pending, generated 2026-09-15 14:48 UTC on ZABZ-YOGA.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -20,6 +20,7 @@ Provenance: 37 row(s) read, 11 pending, generated 2026-09-15 03:17 UTC on ZABZ-Y
 | 31 | 2026-09-14 | medium | Rotate the two leaked provider API keys? | Prepare every step and drive the rotation with him |
 | 35 | 2026-09-14 | medium | The office Mac mini is now Yocheved's manager workstation, and it still has a SECOND ACCOUNT on it: moshemontrose (Moshe Montrose, uid 502, not an admin, no password set, home directory with 11 entries, last console login Aug 11). who still lists him at the console. That machine was Yisroel's before, so the home directory may hold his work or personal data. Should I remove that account and its dat | Leave it alone until you name it, then archive-then-delete if the data is Yisroel's. Removing a user account is irreversible and I will not do it in a week when an employee is being let go without you naming the account  |
 | 36 | 2026-09-15 | medium | Approve buying the magicJack box ($44.99, includes the first 12 months) so your mother's house number +1 732-363-1752 can move off the cellular box onto the Fios fiber? | Buy it. magicJack is the cheapest thing a non-technical person can run ($44.99 including 12 months, then $43/yr) and it removes the weak-signal problem entirely, because on fiber there are no bars to lose. I will write t |
+| 38 | 2026-09-15 | medium | The customer website is built, deployed and healthy on lpt-apps, and the only thing between it and the public is one DNS record I cannot create: a Cloudflare A record 'filterapp' -> the lpt-apps public IP (proxied), exactly like the existing 'filter' record. The Caddy block for filterapp.lakewoodphoneandtech.com is already appended to /opt/caddy/Caddyfile and validated, but deliberately NOT reload | Option 1 (recommended): give me Cloudflare access (an API token scoped to the lakewoodphoneandtech.com zone, DNS edit) and I will add the record and finish it in one step. Option 2: you add the A record 'filterapp' yours |
 | 24 | 2026-09-14 | low | Your Spotify integration in Home Assistant lost its login (the refresh token was revoked) and has been retrying it on a loop ever since -- 650 errors in the last log window, the loudest thing in the system. Do you want to re-connect Spotify, or should I remove the integration? | Re-connect it: the login takes one minute and it is a working integration you presumably want. I cannot do it for you because it needs your Spotify credentials. If you would rather not, say so and I will remove the entry |
 
 Closed since the queue opened: 26. Answered questions move to `entries/decisions/` with the owner's own words.
