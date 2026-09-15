@@ -518,6 +518,7 @@ lessons	L1524	1524		2026-09-15	ZABZ-TECH	open	**L1524 · A repo status line and 
 lessons	L1525	1525		2026-09-15	ZABZ-TECH	open	**L1525 · A notification IMAGE is fetched by the app with no session - a login-gated URL breaks it, including on the LAN**	entries/lessons/L1525.md	1	44	8c8ee912fa1c15e4
 lessons	L1526	1526		2026-09-15	ZABZ-TECH	open	**L1526 · Customer SMS has three gate layers: policy approval (a dead end), the agent kill switch (never touch), and POST /api/v1/dialpad/sms/send (the owner-approved path that works)**	entries/lessons/L1526.md	1	19	c56f791e43b2ebd4
 lessons	L1527	1527		2026-09-15	ZABZ-TECH	open	**L1527 · Gating destructive work on verification: fail closed, never compare against an input that does not exist yet, and do not run three 13 GB scans at once**	entries/lessons/L1527.md	1	36	1911e41702b6d5ac
+lessons	L1528	1528		2026-09-15	ZABZ-TECH	open	**L1528 · Bot-walled US retail storefronts: stealth render is the only reliable path; Shopify .js is authoritative for stock**	entries/lessons/L1528.md	1	26	1f9db442636bf06e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427

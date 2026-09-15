@@ -6,7 +6,7 @@ Updated: 2026-09-15
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 42 row(s) read, 12 pending, generated 2026-09-15 17:23 UTC on ZABZ-TECH.
+Provenance: 43 row(s) read, 13 pending, generated 2026-09-15 18:20 UTC on ZABZ-TECH.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -21,6 +21,7 @@ Provenance: 42 row(s) read, 12 pending, generated 2026-09-15 17:23 UTC on ZABZ-T
 | 36 | 2026-09-15 | medium | Approve buying the magicJack box ($44.99, includes the first 12 months) so your mother's house number +1 732-363-1752 can move off the cellular box onto the Fios fiber? | Buy it. magicJack is the cheapest thing a non-technical person can run ($44.99 including 12 months, then $43/yr) and it removes the weak-signal problem entirely, because on fiber there are no bars to lose. I will write t |
 | 38 | 2026-09-15 | medium | The customer website is built, deployed and healthy on lpt-apps, and the only thing between it and the public is one DNS record I cannot create: a Cloudflare A record 'filterapp' -> the lpt-apps public IP (proxied), exactly like the existing 'filter' record. The Caddy block for filterapp.lakewoodphoneandtech.com is already appended to /opt/caddy/Caddyfile and validated, but deliberately NOT reload | Option 1 (recommended): give me Cloudflare access (an API token scoped to the lakewoodphoneandtech.com zone, DNS edit) and I will add the record and finish it in one step. Option 2: you add the A record 'filterapp' yours |
 | 40 | 2026-09-15 | medium | The company spent the last 30 days almost entirely on itself: of 5,524 completed tasks, 86% were work on its own subsystems, 13% touched a shop/customer/money subject, and 59 (1%) came from something you delegated. Do you want me to shift that mix? | Cap it and re-route: an 86% self share is the company maintaining itself, which has value only if there is enough business-facing output to justify the spend. I would cap self-generated tasks per day and put owner-delega |
+| 43 | 2026-09-15 | medium | May the LPT Waze fleet product ship with an aftermarket screen, meaning no True Tone and a permanent Unknown Part row in Settings / General / About / Parts and Service History? | Recommend A: buy every unit whole at 135.80, and keep the repair route only for absorbing a damaged trade-in. The saving is real but small: 72-83 in parts, 90-124 with bench time, so roughly 40-55 under buying whole at s |
 | 24 | 2026-09-14 | low | Your Spotify integration in Home Assistant lost its login (the refresh token was revoked) and has been retrying it on a loop ever since -- 650 errors in the last log window, the loudest thing in the system. Do you want to re-connect Spotify, or should I remove the integration? | Re-connect it: the login takes one minute and it is a working integration you presumably want. I cannot do it for you because it needs your Spotify credentials. If you would rather not, say so and I will remove the entry |
 
 Closed since the queue opened: 30. Answered questions move to `entries/decisions/` with the owner's own words.
