@@ -6,14 +6,13 @@ Updated: 2026-09-15
 stops being open by being corrected, not by being deleted here. A problem that is done carries
 `status=done` in its marker or in a row of `state/status.tsv`, and drops out of this list.
 
-Provenance: 128 open of 144 pain entries, read from index/entries.tsv, written 2026-09-15 22:25 UTC on ZABZ-TECH.
+Provenance: 123 open of 159 pain entries, read from index/entries.tsv, written 2026-09-15 22:46 UTC on ZABZ-YOGA.
 
 | # | Symptom | Cost | Fix |
 |---|---|---|---|
 | P1 | The owner's attention is spent on questions that are not his | The owner is the scarcest resource in the system and he was acting as a decision router for questions the agent should have decided. It is also why the workflow was abandoned: usage collapsed 75% in M | Encoded in the `zabz` persona: finish the work, never ask permission already held, one question at a time with options and a recommendation, and never route development decisions up. Remaining work: m |
 | P3 | Reading the wrong data and believing it | A false crisis report to the owner. If it had been acted on, real systems would have been "fixed" that were not broken. | Provenance layer — done. Every reading carries source, authority, and age; a consumer that cannot establish them refuses. Remaining: **collapse the three copies** into one authority plus explicitly-ma |
 | P4 | The improvement loop does not close | Real tokens spent every day generating improvements that structurally cannot land — which looks like progress and is worse than doing nothing. | Design exists (path filter, dedup, real apply path, verify-then-keep-or-revert). Not built. This is the highest-value unbuilt subsystem, because it is the mechanism of self-improvement. |
-| P6 | Held messages and unanswered questions rot silently | The system detected real problems and buried them. Some were customer-facing. | Inbox with ageing, escalation ladder (24h→48h→72h), and an interrupt quota — designed, not built. Note the 144 sync-breaker alerts in one month are almost certainly why the dismissal schemes appeared: |
 | P8 | Harness configuration drifts between machines |  | `harness-config` source of truth — done, with sync, remote on `secratary`, and LF normalisation. Remaining: no scheduled sync, so drift resumes the moment someone forgets. |
 | P9 | The CEO stops when it owns the decision |  | Rules recorded in the persona. Monitoring it is the honest test: if it recurs, the rule is insufficient and the harness needs to enforce it rather than the prompt. |
 | P10 | ~~Repeated mount-validation spawns duplicate MCP servers~~ **RETRACTED 2026-09-11 — see the correction at the end of this entry. There is no duplication | Wasted memory and duplicate subprocess trees, each holding its own connection to the secretary API. On a machine with six MCP bridges this compounds. It also makes process evidence harder to read — "i | Do not mount-validate repeatedly. Validate once, then rely on it. Longer term: the mount-validate path should detect an existing standing generation and reuse it rather than re-composing. Needs invest |
@@ -59,7 +58,6 @@ Provenance: 128 open of 144 pain entries, read from index/entries.tsv, written 2
 | P52b | An outbound promise with a date has no keeper, so a paid order on a hard deadline went unwatched for 16 days | The owner's scarcest resource — his own attention — had to be spent discovering a state the system already had the means to detect: one HTTP GET against a public endpoint, or one IMAP search, once a d | Two parts, both small. 1. **A promise-keeper, not a memory.** Any outbound email containing a promised date or a "we'll let you know" creates a date-bound follow-up row on the authority that surfaces  |
 | P53 | The corpora that contain the answers were never ingested, and the index only knew 1% of them | Every question about the owner's own history, his systems, or his past decisions is answered from a 1% sample, and the agent then says "I could not find it" — which reads as *it does not exist* rather |  |
 | P54 | The first search index was 10.87 GB for 112 GB of files, from two self-inflicted causes |  |  |
-| P55 | The company has delivered nothing to the owner since 2026-07-19, and every sensor that would | 56 days of findings that reached nobody: the Deep Infra failed charge, the Telnyx negative balance and its later fix, the Gusto payroll blocks, the CHEMED/radiology item, the sales lead from `(848) 33 |  |
 | P57 | The journal still has two writers - the sharded log and the flat files a second session keeps appending to | Two sources of truth for the same fact, which is the exact defect this rebuild removed elsewhere. A session reading only `log/` can be minutes behind; a session reading only the flat files is unbounde | `journal.py check` warns when a flat file holds an entry the log lacks, and `import-flat` absorbs it (and resyncs an entry whose source grew). Retire the flat files once `import-flat` reports nothing  |
 | P58 | 56 of 57 pain entries carry no proof of being finished, so the open list cannot be trusted as a to-do | A future session either re-derives what is open by reading 1,067 lines of prose (the exact tax the rebuild removed), or trusts a list that is 98% noise and stops reading it — which is how the previous | `state/status.tsv` is append-only and `journal.py resolve <id> --status done --why "..."` writes to it, so the log stays immutable and the status becomes a dated fact. Closing these 56 requires eviden |
 | P59 | The phone's gate died once and nothing on the host says why | Small tonight by luck: a phone opened in that minute shows a 502 the owner cannot act on. The class is not small — this is the one path the owner depends on from his pocket, and its recovery depended  |  |
@@ -86,37 +84,19 @@ Provenance: 128 open of 144 pain entries, read from index/entries.tsv, written 2
 | P85 | P: desktop personal-secretary-mvp repo diverged - two task installers stuck old; Cloudflare git flaky |  |  |
 | P86 | Desktop URL/auth error was a supervisor race on port 3099 + a ready record naming a dead pid |  |  |
 | P91 | lpt-hub case index reports 258 problems but the checker invariant looks wrong, not the data: 377 sync records vs 180 case files, orphans point at hardware-diagnostics |  |  |
-| P92 | The company has delivered nothing to the owner since 2026-07-19, and every sensor that would | 56 days of findings that reached nobody: the Deep Infra failed charge, the Telnyx negative balance and its later fix, the Gusto payroll blocks, the CHEMED/radiology item, the sales lead from `(848) 33 |  |
 | P127 | Tailscale on ZABZ-YOGA is dead since boot, so the authority and the owner queue are unreachable from home |  |  |
-| P128 | journal.py check fails on 318 errors: the migration's heading-form class has no repair tool, and append re-absorbs legacy files every time |  |  |
 | P129 | Local master and origin/master have diverged, so this machine's journal writes never reach the authority |  |  |
-| P130 | The owner-question mirror silently keeps a stale copy while the authority is reachable by ssh in the same second |  |  |
 | P131 | The comms index has no ingestion watchdog, and recent voicemails index as a phone number |  | Either add an index-age metric to `ck/sentinel.py:check_comms_freshness` (read `~/.fsearch/comms-state.json`, fail above ~2 h), or wire `comms-refresh.py --check` into the existing owner-attention dig |
 | P132 | Two sessions can migrate and audit this journal at once, and the lock does not cross machines |  |  |
 | P133 | log/** and the six flat files are still writable by any stale checkout |  |  |
 | P134 | The journal itself has forked: SECRATARY holds 936 entries that exist on no other machine, and ZABZ-YOGA holds 304 that SECRATARY has never read |  |  |
-| P135 | A journal append takes 3 minutes and blocks the turn that needs it |  |  |
 | P137 | A session believed it closed task #25118 while the task stayed open, then died at the budget |  |  |
-| P139 | The test suite cannot be run green (8 pre-existing failures, 153 order-dependent errors), so it is not a gate |  |  |
-| P140 | personal-secretary-mvp on secratary is 41 ahead / 134 behind origin - nothing can be pushed without merging someone else's history |  |  |
 | P141 | Her laptop cannot join Tailscale, so it cannot reach the authority directly (IPv6 fixed, login still stalls) |  |  |
 | P142 | Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that) |  |  |
 | P143 | The app repo has three lineages and the live one is the least published |  |  |
-| P144 | What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders |  |  |
 | P145 | An outcome settled on the telephone never reaches the case file, so the file looks like it is waiting on the owner |  |  |
-| P146 | ps_task_update and ps_memory_search MCP tools are dead - they call routes that do not exist (HTTP 404) |  |  |
-| P147 | A counterparty reply that only exists on a vendor portal never enters the system, and the needs_response flag that would catch it is unread |  |  |
-| P148 | The company API's write path returns a fast 500 'database is locked' under harvest contention while /health still says 200 (new measurement on P48) |  |  |
-| P149 | lpt-hub on ZABZ-TECH is 2442 behind / 26 ahead of origin/main - a local commit is not a record anywhere else |  |  |
-| P150 | The apartment door lock has been silent 22h and my do-not-investigate note on its battery 0 is unsafe |  |  |
-| P151 | Case sync records are only 'minimally validated', so out-of-schema keys live in production records unnoticed |  |  |
-| P152 | 64 caseIds carry two sync records; the phone bundle builder reads that directory authoritatively, so projection is a coin flip |  |  |
 | P153 | lpt-hub on ZABZ-TECH is 2446 behind / 30 ahead of origin/main -- nothing can be pushed from this machine, and a workstation sync bot rewrites the same sync records |  |  |
-| P154 | The kosher-filter-ai clone on ZABZ-TECH is 165 commits stale, and it is the repo the owner asks about most | I nearly briefed the owner on two-month-old state for the one project he asked about. Same class as P140/P143/P149/P153 (other repos behind origin) but worse, because this is the lane with the most jo | `git fetch` before reading any repo state on any machine, and treat a *directory mtime* as no evidence about a git tree. Done here: fast-forwarded to `feb878a` (`--ff-only`, working tree clean apart f |
-| P155 | The Waze fleet's sourcing evidence lived on one laptop, and the handoffs pointed at paths that did not exist elsewhere |  |  |
-| P156 | Policy approval tasks have no honored path: approving one cannot unblock the action (task #25399 proves it) |  |  |
 | P157 | pwsh 'spawn EPERM' on long here-string commands |  |  |
-| P158 | Fabricated requirements in authoritative docs: my own writing is not evidence for my own claims |  |  |
 | P159 | Handy cannot insert text while you speak, so it is not a perfect Windows voice-typing clone |  |  |
 | P160 | Live production credentials are committed in plaintext across the fleet's repos - including an AWS AdministratorAccess key |  |  |
 | P161 | The public rentals endpoint was a read proxy into the company backup bucket |  |  |
@@ -138,3 +118,18 @@ Provenance: 128 open of 144 pain entries, read from index/entries.tsv, written 2
 | P179 | parallel worktree agents share one node_modules; local DB measurement needs a tunnel |  |  |
 | P181 | Two of six workstreams landed 0 commits while reporting 'running'; 'running' is an assertion, not evidence - count commits per branch |  |  |
 | P182 | Journal entries written on the mac mini cannot be published; entry IDs collide across machines |  |  |
+| P183 | The production clone is a divergent lineage: master 61 ahead and 138 behind origin, so a fix exists on one disk only |  |  |
+| P184 | Journal ids collide when two machines allocate offline (H322/H323/L1637/P183 all doubled today) |  |  |
+| P185 | Nothing asserts the app can narrate itself, and the journal has no explicit retention cap |  |  |
+| P186 | Reminders are marked sent into a dashboard nothing has been shown to render |  |  |
+| P187 | run_subsystem_once cannot run the five browser syncs, and only journal.py refreshes the mirror |  |  |
+| P188 | Three of the nine pre-existing test failures are one root cause: .env.example is missing 24 declared settings |  |  |
+| P189 | The suite's 153 order-dependent errors were a descriptor limit; seven failures left, four of them quiet-hours |  |  |
+| P190 | The suite's residual failures are flaky: ~six members, membership varies per invocation, three visible mechanisms |  |  |
+| P191 | The residual suite failures: corrected mechanisms, and the one measurement that would name them |  |  |
+| P192 | The residual flakiness is leaked fire-and-forget threads in the hub tests, poisoning the in-flight marker across tests |  |  |
+| P193 | Five live findings from a fresh sweep: dead-weight agents, duplicate evolution offers, config divergence, stale session archive |  |  |
+| P194 | The three real HIGH findings left: duplicate evolution offers, dead-weight agents, config divergence |  |  |
+| P195 | One real finding left on the badge: the harness-config divergence (13 ahead / 104 behind) |  |  |
+| P196 | The shared journal hub is a junk drawer: 42 branches, thirty from one day |  |  |
+| P197 | Entry ids collide across machines when unpushed; the journal repos are 39/10 apart |  |  |

@@ -107,3 +107,35 @@ Still open, mine:
 | **Outworq LLC's Twilio token** | Still live in `personal-secretary-mvp/deploy/twilio-studio-flow/.env.vogel`, verified active. Client account — queue **#17**, needs Shimon. |
 | **IAM leftovers** | `github-actions-deployer` holds an unused AdministratorAccess key; root has MFA disabled and no root access keys; `~/.twilio-cli/config.json` holds two API-key secrets (not affected by an auth-token rotation). |
 | **Local desktop API startup** | ~6 minutes to `Application startup complete` (Chroma telemetry warning last line before it). `scripts/restart-api.ps1` waits only 45s, so it always reports failure — **L1566**. |
+
+---
+
+## In flight — appended 2026-09-15 22:5xZ (ZABZ-YOGA, self-audit round 59; entry ids renumbered by the convergence)
+
+*(Ids below are the POST-convergence numbers: the local lineage was renumbered because two
+machines had allocated the same ids for different entries. Map:
+`_scratch/merge-20260915/renumber-map.tsv`. Old numbers, for anyone holding them:
+H255→H349, L1537→L1664, L1538→L1665, D158→D190, P159→P197.)*
+
+- **The journal divergence is CLOSED.** 62 upstream commits merged (`8e135b4`), 98 cross-machine
+  id collisions resolved by renumbering the local lineage onto fresh ids (`a009aaa`), pushed,
+  `behind/ahead: 0 0`. `journal.py check` = 0 errors; `verify` = FAIL=0 WARN=0; index 1,211
+  entries. The 15-minute HarnessSync task now returns `[clean]`, exit 0 —
+  `~/.dsh-sync-status/status.json` says `result: clean, behind: 0, ahead: 0`.
+- **Found while doing it:** the repo had been left mid-merge with 103 unresolved paths by a
+  session that pulled from the authority's *working copy*; cleared. The autosync script itself
+  was innocent — it never merges or rebases, and had been reporting the divergence correctly
+  every 15 minutes all along.
+- **Shipped earlier this round:** `check_owner_queue` in `~/ceo-kernel` (`9962993`, `491e4ef`) —
+  the next owner decision, one at a time, in the badge payload. Owner queue 14 → 11 pending;
+  evolution proposals 12 → 0.
+- **Mine, not his, still open:** enable cheap-first routing as a *measured* change; repair Google
+  Voice monitoring over CDP; find why a medical task routed to `finance_bookkeeper`; fix the
+  generic-refactor proposer template once `app/evolution.py` is free (another session holds it).
+- **Blocked on another session, not the owner:** anything touching `app/evolution.py` or
+  `app/workforce.py`.
+- **Loose ends to remember:** (1) row #39's resolution carries a `CORRECTION:` clause — an
+  earlier version claimed a config row was deleted before the delete had run (L1664); (2)
+  `_scratch/merge-20260915/` holds both sides of every collision and must not be deleted until
+  someone has confirmed nothing needs recovering from it.
+
