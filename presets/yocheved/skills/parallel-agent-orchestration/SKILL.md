@@ -1,9 +1,14 @@
 ---
 name: parallel-agent-orchestration
-description: Use when a task is large enough to fan out across many agents rather than be done serially — running parallel subagents on one repository, splitting a backlog into simultaneous workstreams, managing a fleet of agents building at once, using git worktrees for agent isolation, integrating many agent branches back into main, or when the owner says to "build everything", "don't stop", "work on all of it", or asks why progress keeps stalling after each increment. Also use when deciding whether work can be parallelised at all.
+description: Use as the DEFAULT for any larger job rather than iterating serially — running parallel subagents on one repository, splitting a backlog into simultaneous workstreams, managing a fleet of agents building at once, using git worktrees for agent isolation, integrating many agent branches back into main. Triggers on a big or large job, a backlog, "everything that needs doing", "build it all out", "work on all of them", a multi-repo or many-file build-out, or when the owner asks why progress keeps stalling after each increment. Also use when deciding whether work can be parallelised at all, and read it BEFORE starting to do a large job single-threaded.
 ---
 
 # Running a fleet of agents on one repository
+
+**This is the default for a larger job, not an optimisation to reach for later.** A serial agent stops
+after every increment and needs restarting — that is the measured failure this exists to end. If a job
+has more than one genuinely independent piece, fan it out first and manage; iterate serially only when
+the work is genuinely sequential.
 
 You manage; they build. The failure this prevents is real and measured: an agent working serially
 stops after every increment, and 2,283 turns in this system's history were the owner saying *"keep
@@ -43,8 +48,21 @@ resource per fleet.**
 
 ### 3. Cut each workstream its own worktree and branch
 
-Use `scripts/agent-fleet.ps1` (`new` / `status` / `rm`). Branch each from a **known-clean** `main`,
-never from another agent's branch.
+Use `scripts/agent-fleet.ps1` on Windows or `scripts/agent-fleet.sh` on Linux/macOS — same commands,
+same safety posture. Branch each from a **known-clean** `main`, never from another agent's branch.
+
+```sh
+agent-fleet.sh doctor                     # can this machine host a fleet at all? run it first
+agent-fleet.sh new   -n lpt-route,egress-wiring -r /path/to/repo
+agent-fleet.sh status -r /path/to/repo    # dirty / artifacts / disk per worktree, mid-run
+agent-fleet.sh clean  -r /path/to/repo    # drop _pt_* / __pycache__ / .pytest_cache
+agent-fleet.sh rm    -n lpt-route -r /path/to/repo
+agent-fleet.sh rmall  -r /path/to/repo    # branches kept, so unmerged work stays salvageable
+```
+
+**`doctor` is not decorative.** On this mesh there is no `pwsh` on the Linux or macOS nodes, no Python
+`yaml` on the mac mini, and `~/code/harness-config` is absent on two machines — a fleet that assumes
+any of those works fails at the worst moment. Run `doctor`, read what it says, fix that first.
 
 ### 4. Write the brief as a contract — all eight parts
 
