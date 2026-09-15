@@ -160,6 +160,7 @@ handoff	H250	250		2026-09-15 16:20 UTC	ZABZ-YOGA	open	## 2026-09-15 16:20 UTC ·
 handoff	H251	251		2026-09-15 16:24 UTC	ZABZ-YOGA	open	## 2026-09-15 16:24 UTC · ZABZ-YOGA · Task-origin report shipped; the mix question is queued for the owner (queue table was locked)	entries/handoff/H251.md	1	31	2a494bc1d7311feb
 handoff	H252	252		2026-09-15 17:03 UTC	ZABZ-YOGA	open	## 2026-09-15 17:03 UTC · ZABZ-YOGA · P151 closed: two conftest fixtures, proven at the default descriptor limit	entries/handoff/H252.md	1	23	923860f126c36b77
 handoff	H253	253		2026-09-15 17:05 UTC	ZABZ-YOGA	open	## 2026-09-15 17:05 UTC · ZABZ-YOGA · P158 closed: hub cleaned 42 to 6 with every sha recorded; next rounds should be design work, not cleanup	entries/handoff/H253.md	1	32	de89ae42700eae61
+handoff	H254	254		2026-09-15 17:09 UTC	ZABZ-YOGA	open	## 2026-09-15 17:09 UTC · ZABZ-YOGA · P4's state is honest now: 12 open proposals for me to review one at a time, auto-apply stays off	entries/handoff/H254.md	1	38	eaa0b2254e0e1050
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -535,6 +536,7 @@ lessons	L1532	1532		2026-09-15	ZABZ-YOGA	open	**L1532 · A task that completes i
 lessons	L1533	1533		2026-09-15	ZABZ-YOGA	open	**L1533 · A ratio that is stable across windows is a fact about the wiring; make it take one command or it becomes folklore**	entries/lessons/L1533.md	1	22	3274fc681a07ead0
 lessons	L1534	1534		2026-09-15	ZABZ-YOGA	open	**L1534 · When a mitigation works the leak underneath stops being visible: measure the resource, not the suite**	entries/lessons/L1534.md	1	27	5f0cf7ff0d6d8162
 lessons	L1535	1535		2026-09-15	ZABZ-YOGA	open	**L1535 · A ref is safe to delete when reachability proves it, not when the name looks like debris**	entries/lessons/L1535.md	1	26	6bcdb7df8e5428e0
+lessons	L1536	1536		2026-09-15	ZABZ-YOGA	open	**L1536 · A queue needs a terminal state for every outcome, or its length is a lie**	entries/lessons/L1536.md	1	27	143eb901cadd10f7
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -892,3 +894,4 @@ wins	W146	146		2026-09-15	ZABZ-YOGA	open	**W146 · 2026-09-15 · Authority journ
 wins	W147	147		2026-09-15	ZABZ-YOGA	open	**W147 · 2026-09-15 · The company's output is 86% self, now measurable in one command.**	entries/wins/W147.md	1	33	0dc28e4fa5b63d5d
 wins	W148	148		2026-09-15	ZABZ-YOGA	open	**W148 · 2026-09-15 · The descriptor leak is fixed, not bounded: 8,160 descriptors closed and the suite passes on the default limit.**	entries/wins/W148.md	1	31	3634d7743b115806
 wins	W149	149		2026-09-15	ZABZ-YOGA	open	**W149 · 2026-09-15 · The shared journal hub went from 42 branches to 6, provably losing nothing.**	entries/wins/W149.md	1	32	3714aadea5515c19
+wins	W150	150		2026-09-15	ZABZ-YOGA	open	**W150 · 2026-09-15 · The improvement loop's review queue is honest: 75 unapplied rows were 12 real proposals.**	entries/wins/W150.md	1	29	e6b2cc9233411a76
