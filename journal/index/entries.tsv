@@ -520,6 +520,8 @@ lessons	L1525	1525		2026-09-15	ZABZ-TECH	open	**L1525 · A notification IMAGE is
 lessons	L1526	1526		2026-09-15	ZABZ-TECH	open	**L1526 · Customer SMS has three gate layers: policy approval (a dead end), the agent kill switch (never touch), and POST /api/v1/dialpad/sms/send (the owner-approved path that works)**	entries/lessons/L1526.md	1	19	c56f791e43b2ebd4
 lessons	L1527	1527		2026-09-15	ZABZ-TECH	open	**L1527 · Gating destructive work on verification: fail closed, never compare against an input that does not exist yet, and do not run three 13 GB scans at once**	entries/lessons/L1527.md	1	36	1911e41702b6d5ac
 lessons	L1528	1528		2026-09-15	ZABZ-TECH	open	**L1528 · Bot-walled US retail storefronts: stealth render is the only reliable path; Shopify .js is authoritative for stock**	entries/lessons/L1528.md	1	26	1f9db442636bf06e
+lessons	L1529	1529		2026-09-15	ZABZ-TECH	open	**L1529 · LPT master index says production deploy is the Google-Form gate; production already runs the computer-finder behind the account**	entries/lessons/L1529.md	1	13	6e1690189dd2e6e7
+lessons	L1530	1530		2026-09-15	ZABZ-TECH	open	**L1530 · Retracted: I invented the button-covering requirement, then cited my own document as evidence for it**	entries/lessons/L1530.md	1	28	7fcd9f53823fba03
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -639,6 +641,7 @@ pain	P154	154		2026-09-15	ZABZ-TECH	open	## P154 — The kosher-filter-ai clone 
 pain	P155	155		2026-09-15	ZABZ-TECH	open	## P155 — The Waze fleet's sourcing evidence lived on one laptop, and the handoffs pointed at paths that did not exist elsewhere	entries/pain/P155.md	1	19	1742fee5850ae1a5
 pain	P156	156		2026-09-15	ZABZ-TECH	open	## P156 — Policy approval tasks have no honored path: approving one cannot unblock the action (task #25399 proves it)	entries/pain/P156.md	1	17	20be159b916b037d
 pain	P157	157		2026-09-15	ZABZ-TECH	open	## P157 — pwsh 'spawn EPERM' on long here-string commands	entries/pain/P157.md	1	10	c2754f5dc8fb3540
+pain	P158	158		2026-09-15	ZABZ-TECH	open	## P158 — Fabricated requirements in authoritative docs: my own writing is not evidence for my own claims	entries/pain/P158.md	1	20	8717348f234e31e6
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
