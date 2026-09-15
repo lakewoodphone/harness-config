@@ -144,6 +144,7 @@ handoff	H234	234		2026-09-15 15:30 UTC	ZABZ-TECH	open	## 2026-09-15 15:30 UTC ·
 handoff	H235	235		2026-09-15 16:27 UTC	ZABZ-TECH	open	## 2026-09-15 16:27 UTC · ZABZ-TECH · Newman (347) 768-0413 flash-drive intake: case filed, bench armed, drives not yet connected	entries/handoff/H235.md	1	58	2ff12aab2a7ef5fc
 handoff	H236	236		2026-09-15 16:35 UTC	ZABZ-TECH	open	## 2026-09-15 16:35 UTC · ZABZ-TECH · Newman virus case: AutoIt USB worm confirmed on both drives, 12.7 GB data intact and copied off, deliverable medium awaits the owner	entries/handoff/H236.md	1	56	eccb2f1520edbac1
 handoff	H237	237		2026-09-15 16:42 UTC	ZABZ-TECH	open	## 2026-09-15 16:42 UTC · ZABZ-TECH · Eli Green S22 Ultra U1 flash: post-flash verified, Play Store was disabled (fixed), case file updated	entries/handoff/H237.md	1	24	e49e795d38597a0b
+handoff	H238	238		2026-09-15 17:15 UTC	ZABZ-TECH	open	## 2026-09-15 17:15 UTC · ZABZ-TECH · Eli Green case CLOSED: flash verified, WiFi calling live, Play Store restored, device returned (WhatsApp key stays customer-side)	entries/handoff/H238.md	1	23	94e863b1668284c5
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -500,6 +501,9 @@ lessons	L1513	1513		2026-09-15	ZABZ-TECH	open	**L1513 · lpt-recovery-manager cl
 lessons	L1514	1514		2026-09-15	ZABZ-TECH	open	**L1514 · FAT drives with Hebrew names: the default mount shows ??? and a copy under it destroys the names; also pkill -f kills your own ssh shell**	entries/lessons/L1514.md	1	32	84f2efd4bca0e62d
 lessons	L1515	1515		2026-09-15	ZABZ-TECH	open	**L1515 · A missing system app on a freshly flashed phone is usually DISABLED for user 0 — ask pm before blaming the flash**	entries/lessons/L1515.md	1	16	41a00a6dfb770886
 lessons	L1516	1516		2026-09-15	ZABZ-TECH	open	**L1516 · Flashing U1 with the carrier SIM in gives the carrier's CSC, not XAA — judge the flash by the carrier config**	entries/lessons/L1516.md	1	10	e7845fad26803360
+lessons	L1517	1517		2026-09-15	ZABZ-TECH	open	**L1517 · iPad 6 (A1893) charging port has no solder-free part**	entries/lessons/L1517.md	1	6	b9c424a1eb14ca19
+lessons	L1518	1518		2026-09-15	ZABZ-TECH	open	**L1518 · iPad soldered charge-port flex: pin count, difficulty, killer mistakes**	entries/lessons/L1518.md	1	26	ab90e53fdaad2861
+lessons	L1519	1519		2026-09-15	ZABZ-TECH	open	**L1519 · asusrouter.com is HTTP-only on the LAN - https:// can never work**	entries/lessons/L1519.md	1	6	96f690541f0d50a5
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -612,6 +616,7 @@ pain	P147	147		2026-09-15	ZABZ-TECH	open	## P147 — A counterparty reply that o
 pain	P148	148		2026-09-15	ZABZ-TECH	open	## P148 — The company API's write path returns a fast 500 'database is locked' under harvest contention while /health still says 200 (new measurement on P48)	entries/pain/P148.md	1	43	1154bf4346861272
 pain	P149	149		2026-09-15	ZABZ-TECH	open	## P149 — lpt-hub on ZABZ-TECH is 2442 behind / 26 ahead of origin/main - a local commit is not a record anywhere else	entries/pain/P149.md	1	39	620b8e55d568fd7d
 pain	P150	150		2026-09-15	ZABZ-TECH	open	## P150 — The apartment door lock has been silent 22h and my do-not-investigate note on its battery 0 is unsafe	entries/pain/P150.md	1	38	a31a9a01d927af3f
+pain	P151	151		2026-09-15	ZABZ-TECH	open	## P151 — Case sync records are only 'minimally validated', so out-of-schema keys live in production records unnoticed	entries/pain/P151.md	1	10	31b19d1ea977dcbc
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -729,6 +734,7 @@ decisions	D153	153		2026-09-15	ZABZ-TECH	open	**D153 · 2026-09-15 · Sync recor
 decisions	D154	154		2026-09-15	ZABZ-TECH	open	**D154 · 2026-09-15 · Vendor mail signs under the account-holder name (not the customer alias); the DMP-BD84 case is filed as a device log, not a customer case.**	entries/decisions/D154.md	1	29	a7cc45f6f5a1b5ca
 decisions	D155	155		2026-09-15	ZABZ-TECH	open	**D155 · 2026-09-15 · RattleByte #188880: the owner takes the three data points himself - no agent sends or chases anything until then.**	entries/decisions/D155.md	1	24	ce24a553fd632789
 decisions	D156	156		2026-09-15	ZABZ-TECH	open	**D156 · 2026-09-15 · Case record written on the authority; only the app the customer needs re-enabled; flash judged by applied carrier config.**	entries/decisions/D156.md	1	12	f439cf614e067c3f
+decisions	D157	157		2026-09-15	ZABZ-TECH	open	**D157 · 2026-09-15 · No in-house soldered iPad charge-port repairs (A1893 job declined).**	entries/decisions/D157.md	1	11	af7878e3d5ffce5f
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
