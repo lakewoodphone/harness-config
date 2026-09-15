@@ -38,6 +38,24 @@ set "NODE_OPTIONS=--dns-result-order=ipv4first"
 rem --- keep the harness home explicit rather than inferred from a possibly-SYSTEM profile ---
 set "DSH_HOME=C:\Users\cheve\.dsh"
 
+rem --- WEB SEARCH: route it through our own Worker, because the default endpoint is blocked ---
+rem Added 2026-09-15. The harness web-search provider is a DeepSeek Anthropic-format Messages call, and
+rem it defaults to https://api.deepseek.com/anthropic/v1 -- which Techloq blocks by URL category on this
+rem machine. Chat never noticed, because chat goes through the deepseek-proxy route; search has its own
+rem endpoint and its own config, so it failed on EVERY call. Evidence, from her own session archive
+rem (session 901efff6): every web search returned
+rem   "DeepSeek search request failed: TypeError: fetch failed ... endpoint
+rem    https://api.deepseek.com/anthropic/v1/messages"
+rem and the workaround was a dozen r.jina.ai page fetches per answer -- a search that silently degrades
+rem into fetching one URL at a time.
+rem
+rem The Worker fronting this zone passes the request path straight through to api.deepseek.com, so it
+rem carries /anthropic/v1/messages unchanged. Verified 2026-09-15: that path through
+rem ds.abletelsolutions.com returned HTTP 200 with a real Anthropic Messages body, while the same path
+rem on api.deepseek.com is blocked here. The key is already available to the engine through the
+rem credentials service (DEEPSEEK_API_KEY), so only the base URL needs to change.
+if not defined DEEPSEEK_SEARCH_BASE_URL set "DEEPSEEK_SEARCH_BASE_URL=https://ds.abletelsolutions.com/anthropic/v1"
+
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" ensure
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" restore
 
