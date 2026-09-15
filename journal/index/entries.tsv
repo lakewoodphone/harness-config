@@ -197,6 +197,10 @@ handoff	H287	287		2026-09-15 20:40 UTC	ZABZ-TECH	open	## 2026-09-15 20:40 UTC ·
 handoff	H288	288		2026-09-15 20:46 UTC	ZABZ-TECH	open	## 2026-09-15 20:46 UTC · ZABZ-TECH · 2026-09-15 20:45 UTC: the portal break I caused is fixed; Heroku is retired; where the live estate actually is	entries/handoff/H288.md	1	41	d436dd253fc71c10
 handoff	H289	289		2026-09-15 20:50 UTC	ZABZ-TECH	open	## 2026-09-15 20:50 UTC · ZABZ-TECH · 2026-09-15 end: 12 commits on master, the base convention closed, one path left unverified	entries/handoff/H289.md	1	28	cf01a81d54f73f9d
 handoff	H290	290		2026-09-15 20:50 UTC	ZABZ-TECH	open	## 2026-09-15 20:50 UTC · ZABZ-TECH · Lakewood Rentals: audited, hardened, deployed, and one human sign-in short of proven	entries/handoff/H290.md	1	42	8e49795696581e0c
+handoff	H291	291		2026-09-15 20:58 UTC	ZABZ-TECH	open	## 2026-09-15 20:58 UTC · ZABZ-TECH · W2 applied to live and verified; the residual restart rate is deliberate external restarts, not a fault - and W2's leak effect is suggestive but unproven	entries/handoff/H291.md	1	14	fae3136b169d31e4
+handoff	H292	292		2026-09-15 20:59 UTC	ZABZ-TECH	open	## 2026-09-15 20:59 UTC · ZABZ-TECH · W2-CORE: Tier 1 committed on agent/rentals-core (4 commits); gate green except 2 frozen-test API mismatches	entries/handoff/H292.md	1	43	172fbb51e7f42000
+handoff	H293	293		2026-09-15 21:01 UTC	ZABZ-TECH	open	## 2026-09-15 21:01 UTC · ZABZ-TECH · waze-mdm fleet dashboard gate: hash moved out of the repo Caddyfile into .env (live, verified)	entries/handoff/H293.md	1	23	aff1213cba93fa52
+handoff	H294	294		2026-09-15 21:03 UTC	ZABZ-TECH	open	## 2026-09-15 21:03 UTC · ZABZ-TECH · 2026-09-15 night: fleet-api, Caddy gate and the portal all deployed; DRN 45 is visible at last	entries/handoff/H294.md	1	46	a96f87e282445f25
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -634,6 +638,10 @@ lessons	L1594	1594		2026-09-15	ZABZ-TECH	open	**L1594 · Landing an auth guard s
 lessons	L1595	1595		2026-09-15	ZABZ-TECH	open	**L1595 · A 200 on a bare base URL is not a health check - read the reverse proxy**	entries/lessons/L1595.md	1	6	e826a8eaadd309cf
 lessons	L1596	1596		2026-09-15	ZABZ-TECH	open	**L1596 · A source-scanning test must strip comments, or good documentation breaks it**	entries/lessons/L1596.md	1	6	587d5c654a9c82ba
 lessons	L1597	1597		2026-09-15	ZABZ-TECH	open	**L1597 · Never relax a guard to make tests green - move the coverage instead**	entries/lessons/L1597.md	1	6	be8c9ebc6c4b70d4
+lessons	L1598	1598		2026-09-15	ZABZ-TECH	open	**L1598 · tsx hoists imports above module-scope env assignments, so test DB overrides silently do nothing**	entries/lessons/L1598.md	1	89	7fea63d6a820e742
+lessons	L1599	1599		2026-09-15	ZABZ-TECH	open	**L1599 · Docker Compose interpolates values inside .env - an unquoted bcrypt hash is silently destroyed**	entries/lessons/L1599.md	1	18	c80baeb5e66ec8a5
+lessons	L1600	1600		2026-09-15	ZABZ-TECH	open	**L1600 · Verifying a bind-mounted Caddyfile secret: five traps that make an unapplied change look green**	entries/lessons/L1600.md	1	19	ad2b6dacd401a1b4
+lessons	L1601	1601		2026-09-15	ZABZ-TECH	open	**L1601 · verify-secret-move.py - the tested tool for proving a secret moved layers unchanged**	entries/lessons/L1601.md	1	21	d900dd8315d41d97
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
