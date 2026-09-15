@@ -1325,8 +1325,25 @@ function Invoke-New {
     $procTable = Get-WindowProcs
     $free = @($slots | Where-Object { (Get-WindowCount $_ $procTable) -eq 0 }) | Select-Object -First 1
     if (-not $free) {
+        # NO FREE SLOT IS NOT THE SAME AS NOTHING TO DO.
+        #
+        # Measured 2026-09-15: the engine had been stopped (its port free) but Edge still held window
+        # processes whose slot count read as occupied, so this branch ran, printed "all slots are
+        # already open", and exited 1 -- WITHOUT ever starting an engine. The click did nothing, the
+        # task recorded failure, and the cause was a window count, not a server.
+        #
+        # `new` is reached from the desktop shortcut, whose whole purpose is to hand her a working
+        # assistant. So before giving up, make sure an engine exists: if the port is free, bring one
+        # up. A window may still not open (every slot genuinely occupied), but she is never left with
+        # a dead port and a silent click.
+        $enginePort = Get-PrimaryPort
+        if (-not (Get-PortOwner $enginePort)) {
+            Write-Host ("no free window slot, and no engine on {0} - starting the engine before reporting" -f $enginePort) -ForegroundColor Yellow
+            if (Ensure-Engine) { Write-Host ("engine is now up on {0}" -f $enginePort) }
+            else { Write-Error ("no free window slot AND no engine could be started on {0}" -f $enginePort); exit 1 }
+        }
         Write-Host "all $($slots.Count) window slots are already open. Add another row to windows.json." -ForegroundColor Yellow
-        exit 1
+        exit 0
     }
     foreach ($slot in $slots) { $slot.enabled = $true }
     [void](Open-SlotWindow $free $state)
