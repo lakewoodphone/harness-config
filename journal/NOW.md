@@ -60,8 +60,13 @@ Pain **P132** (two sessions can rewrite this journal at once; the lock does not 
   answer. Two traps: the MDM's reply history **before 2026-08-14 is gone** from every surviving store, so a
   gap in the record is NOT evidence about hardware (our July batch records prove the fleet was provisioned:
   install-waze 57, lockdown 47, activation-lock 45, renumber 39, all completed); and a count that only moves
-  when WE act measures us, not the fleet. Profile truth is still read-only-cached: 1 device had a
-  ProfileList on file before the heartbeat, so "unknown" is the correct reading, never "empty".
+  when WE act measures us, not the fleet. **Profile truth went from 1 of 65 devices to 34** (W127):
+  `POST /fleet/heartbeat?profiles=true` sends a read-only ProfileList, scheduled daily at 06:15 UTC, and 34
+  devices now report their real profile sets — DRN 1 reports its per-DRN kiosk
+  `com.abletel.waze.layeredkiosk.drn1` plus webtrap and siri-dns, i.e. the device's own testimony that it is
+  locked, which independently confirms the July provisioning. The panel always shows the AGE of the
+  observation, and it must: a profile list from a week ago is not a statement about now. DRN 26 still reads
+  "unavailable", correctly — it is the one phone genuinely not answering.
 - **Comms and transcripts** — a transcript-gap backfill (~1,117 calls, idempotent re-run) and the
   comms index refresh are in flight; their measurements live in `state/in-flight.md`, which the
   other session owns this hour.
