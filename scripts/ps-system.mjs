@@ -44,12 +44,20 @@ function envFileValue(key) {
     path.join(os.homedir(), 'code', 'personal-secretary-mvp', '.env'),
     path.join(os.homedir(), 'Code', 'personal-secretary-mvp', '.env'),
     path.join(os.homedir(), 'personal-secretary-mvp', '.env'),
+    // The harness-config checkout, which is where this script lives and therefore the one place a
+    // machine can keep a credential that is definitely present when the script runs.
+    //
+    // NOTE, learned the hard way (2026-09-15): the token must NOT live in `~/.dsh/.env`. The harness
+    // REFUSES TO BOOT while any launch-environment key is set there -- it aborts with 'only the
+    // launching environment may set DSH_SESSION_INGEST_TOKEN'. Writing it there took her engine
+    // offline entirely and looked, from the outside, exactly like a launcher fault.
+    path.join(os.homedir(), 'code', 'harness-config', '.env'),
     path.join(os.homedir(), '.dsh', '.env'),
   ];
   for (const f of candidates) {
     try {
-      const line = fs.readFileSync(f, 'utf8').split('\n').find((l) => l.startsWith(key + '='));
-      if (line) return line.slice(key.length + 1).trim().replace(/^["']|["']$/g, '');
+      const line = fs.readFileSync(f, 'utf8').split('\n').find((l) => l.replace(/^\uFEFF/, '').startsWith(key + '='));
+      if (line) return line.replace(/^\uFEFF/, '').slice(key.length + 1).trim().replace(/^["']|["']$/g, '');
     } catch { /* next */ }
   }
   return '';
