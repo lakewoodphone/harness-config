@@ -887,6 +887,8 @@ lessons	L1743	1743		2026-09-16	secratary	open	**L1743 · journal.py append --bod
 lessons	L1744	1744		2026-09-16	secratary	open	**L1744 · With only the option list scrolling, the question is the one thing that cannot be recovered**	entries/lessons/L1744.md	1	37	d24273edbbe47829
 lessons	L1745	1745		2026-09-16	secratary	open	**L1745 · NJ pre-insurance vehicle inspection: the failure mode is a suspension of collision+comprehensive, never a cancellation**	entries/lessons/L1745.md	1	13	1caa9d54759a0e81
 lessons	L1746	1746		2026-09-16	secratary	open	**L1746 · Plymouth Rock eService can be logged into unattended: use email MFA and read the code out of the owner's own Gmail**	entries/lessons/L1746.md	1	17	2cb4b2b8f0237bce
+lessons	L1747	1747		2026-09-16	secratary	open	**L1747 · The journal allocates ids locally, so a machine that is behind can mint an id that already exists on the remote**	entries/lessons/L1747.md	1	32	9fec55105e5b4175
+lessons	L1748	1748		2026-09-16	secratary	open	**L1748 · When master has diverged, deliver work on a branch built on top of origin/master via git worktree**	entries/lessons/L1748.md	1	26	256e84f2c75e628a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
