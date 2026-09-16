@@ -1,0 +1,43 @@
+{
+  "measuredAt": "2026-09-16T14:32:56.258Z",
+  "host": "ZABZ-YOGA",
+  "reps": 12,
+  "cases": {
+    "windowsHide:true (harness default)": {
+      "n": 12,
+      "min": 353.5,
+      "p10": 381,
+      "p50": 583,
+      "mean": 583,
+      "p90": 736,
+      "max": 902.1
+    },
+    "windowsHide:false (visible window)": {
+      "n": 12,
+      "min": 343.2,
+      "p10": 390.8,
+      "p50": 551.8,
+      "mean": 538.1,
+      "p90": 619.8,
+      "max": 801.1
+    },
+    "windowsHide:true + detached + priority": {
+      "n": 12,
+      "min": 355,
+      "p10": 391.3,
+      "p50": 584.4,
+      "mean": 553.7,
+      "p90": 616.3,
+      "max": 724.2
+    },
+    "windowsHide:true (repeat)": {
+      "n": 12,
+      "min": 335.8,
+      "p10": 362.9,
+      "p50": 566.8,
+      "mean": 556.6,
+      "p90": 680,
+      "max": 770.9
+    }
+  }
+}
