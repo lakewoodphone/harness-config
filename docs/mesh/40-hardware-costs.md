@@ -332,15 +332,19 @@ NJ residential **24.95 ¢/kWh** (EIA Table 5.6.A, June 2026, released 2026-08-26
 
 ### The finding that actually decides this: per-turn TCO is nearly flat
 
-| Option | Upfront (taxed) | 3-yr electricity | Turns | **3-yr $/turn** | Threads |
+| Option | Upfront (taxed) | 3-yr electricity | Turns | **3-yr $/turn** | **Cores** |
 |---|---|---|---|---|---|
-| 3 × $120 mini PC (16 GB, 10 W) | $383.85 | $196.83 | 42 | **$13.83** | 18 |
-| One 128 GB desktop (~$1,800, 50 W) | $1,800 | $328 | 118 | **$18.03** | 32 |
-| Used rack server, 128 GB @ $774.99 (125 W) | $826.33 | $820.14 | 118 | **$13.95** | 16–28 |
-| **HP Z440, 32 GB @ $219.99 (105 W)** | **$234.56** | **$688.92** | 29 | **$31.84** — worst | 12 |
-| `secratary` refresh: RAM + i7-4790 | $84.22 | ~$426 (65 W, est.) | 29 | **$17.60** | 8 |
+| **3 × $120 mini PC (16 GB, 10 W)** | **$383.85** | $196.83 | 42 | **$13.83** | **18** |
+| **Recommended package (3 nodes + `secratary` refresh)** | **$468.07** | $203.31 | 50 | **$13.43** | **22** |
+| Used rack server, 128 GB @ $774.99 (125 W) | $826.33 | $820.14 | 118 | $13.95 | 16–28 |
+| `secratary` refresh only: DDR3 + i7-4790 | $84.22 | ~$426 (65 W, est.) | 29 | $17.60 | 8 |
+| **HP Z440, 32 GB @ $219.99 (105 W)** | **$234.56** | **$688.92** | 29 | **$31.84** | 12 |
+| **One 128 GB DDR5 workstation, real listing @ $4,899.99 (~50 W)** | **$5,224.61** | $328 | 118 | **$47.06 — worst** | **24** |
 
-At 2026 memory prices, **the cheapest DDR5/DDR4 machines and the cheap used micro PCs land within a few dollars of each other per turn**, because RAM is the dominant input to every option. **$/turn therefore does not discriminate. The discriminators are upfront cash, added threads, watts, noise, resilience and maintenance.** That is the real result of this section, and it is why the recommendation below is argued on those axes rather than on a $/turn ranking.
+**Two results fall out of this table, and they decide the recommendation:**
+
+1. **Per-turn total cost of ownership is nearly flat across the cheap options** — $13.43 to $13.95 — because at 2026 prices RAM is the dominant input to every route. **$/turn therefore does not discriminate between a fleet of micro PCs, a refreshed old server, or a used rack server.** The discriminators are upfront cash, **added cores**, watts, noise, resilience and maintenance.
+2. **The flat $/turn hides a hard constraint: cores.** The measured demand is 40–55 concurrent turns and each generating turn costs ~1 core. The two big-machine options in this table hold 118 resident turns but provide only **24 and 16–28 cores** — they cannot serve 55 turns. The cheap-node route is the only one that scales cores linearly and in units the owner actually needs.
 
 ### Complexity — the cost with no invoice
 
@@ -359,7 +363,9 @@ At 2026 memory prices, **the cheapest DDR5/DDR4 machines and the cheap used micr
 | 3 | **Intel i7-4790** for `secratary` | LGA1150 drop-in, 4C/8T — doubles the tick loop's generating ceiling | **$42.65** |
 | | **Total** | | **$468.07** |
 
-**Resulting mesh:** resident turns **74 → 124**; threads **48 → 70**; non-Yoga capacity **45 → 95 turns**, covering the stated 40–55 demand with the 25 % rule intact and leaving the Yoga free to be the machine he works on. Added continuous draw ~31 W = **+$67.80/yr**. **3-year $/turn ≈ $13.43.**
+**Resulting mesh:** resident turns **74 → 124**; **cores available to generate 48 → 70** (against a 40–55-turn demand, so the binding constraint is finally cleared); non-Yoga capacity **45 → 95 turns**, covering the stated demand with the 25 % rule intact and leaving the Yoga free to be the machine he works on. Added continuous draw ~31 W = **+$67.80/yr**. **3-year $/turn ≈ $13.43.**
+
+**Why this package and not a bigger one:** it is the only route that adds **cores and turns together, in the ratio the demand actually needs**, at the lowest upfront cash, with the smallest electricity bill, silently, and with capacity purchasable one node at a time as need is measured. The workstation route spends **11× more cash** and still delivers only **24 cores** against a 40–55 core requirement.
 
 **Second tranche, only if the mesh is still tight:** a single 32 GB DDR4-3200 UDIMM into the HP Pavilion TP01-2xxx (`linux-pc-ts`) — **$237.77** for +27 turns on an existing 6C/12T box already running Ubuntu. Do this rather than a 4th node only if the goal is avoiding another machine to maintain; a 4th $120 node costs less, adds 6 threads, and is the better raw buy.
 
