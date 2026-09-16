@@ -273,6 +273,13 @@ handoff	H363	363		2026-09-16 00:37 UTC	ZABZ-YOGA	open	## 2026-09-16 00:37 UTC ·
 handoff	H364	364		2026-09-16 00:47 UTC	ZABZ-YOGA	open	## 2026-09-16 00:47 UTC · ZABZ-YOGA · unified-search integrated: 203 tests green, 144k documents answering, the refresh scheduled and observed running	entries/handoff/H364.md	1	52	0e079dcb30fad6db
 handoff	H365	365		2026-09-16 00:52 UTC	ZABZ-YOGA	open	## 2026-09-16 00:52 UTC · ZABZ-YOGA · Round 5: indexer identity trio applied - C-007 verified, C-008 applied but unmeasurable, C-009 hit the wrong path for 13 of 14; shared helper took concatenations 14 to 6; canonical surface is now stale	entries/handoff/H365.md	1	64	cc77878ff03ce849
 handoff	H366	366		2026-09-16 01:13 UTC	ZABZ-YOGA	open	## 2026-09-16 01:13 UTC · ZABZ-YOGA · journal.py was mojibake again and corrupting other sessions entries; repaired with the cp1252 inverse (not latin-1) and the writer now refuses to emit mojibake; check 1095 -> 0 errors	entries/handoff/H366.md	1	57	0272921d9423af7e
+handoff	H367	367		2026-09-16 01:53 UTC	ZABZ-YOGA	open	## 2026-09-16 01:53 UTC · ZABZ-YOGA · Six footer-hash mismatches corrected to 0 errors; the append path's body round trip is the cause and L221/L223 already recorded it; journal bodies no longer routed through PowerShell	entries/handoff/H367.md	1	51	0d8229194df55ec9
+handoff	H368	368		2026-09-16 01:58 UTC	ZABZ-YOGA	open	## 2026-09-16 01:58 UTC · ZABZ-YOGA · unified-search: 8 adapters built, 7 on main, 459 tests green; the chat corpus parse is running	entries/handoff/H368.md	1	73	d8dd7c9ed6219803
+handoff	H369	369		2026-09-16 01:59 UTC	ZABZ-YOGA	open	## 2026-09-16 01:59 UTC · ZABZ-YOGA · ZABZ-YOGA sluggish: not throttling, a live audit fleet plus paging (2026-09-15 21:30)	entries/handoff/H369.md	1	47	cfd7324cb67b8f5e
+handoff	H370	370		2026-09-16 02:57 UTC	ZABZ-YOGA	open	## 2026-09-16 02:57 UTC · ZABZ-YOGA · S5 Dialpad users slice closed: PWH read, no Yisroel user, Bachrach rings first and rings on Wednesday	entries/handoff/H370.md	1	29	ccaef134f7013e51
+handoff	H371	371		2026-09-16 03:20 UTC	ZABZ-YOGA	open	## 2026-09-16 03:20 UTC · ZABZ-YOGA · S10 Dialpad slice: webhooks are 401-ing (secret mismatch), SMS double-delivered to a second company, and plan/seats only readable via the internal API	entries/handoff/H371.md	1	31	913d907d30caa2ed
+handoff	H372	372		2026-09-16 03:21 UTC	ZABZ-YOGA	open	## 2026-09-16 03:21 UTC · ZABZ-YOGA · Dialpad is mapped: three access paths, the workflow endpoint, and the media library - plus two live defects	entries/handoff/H372.md	1	68	cb50d04104c3c554
+handoff	H373	373		2026-09-16 14:22 UTC	ZABZ-YOGA	open	## 2026-09-16 14:22 UTC · ZABZ-YOGA · DSH scale program: locks + MCP waste fixed and verified; four audits in flight (2026-09-16)	entries/handoff/H373.md	1	60	cc3c3d0e82ee0157
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -797,6 +804,22 @@ lessons	L1680	1680		2026-09-15	ZABZ-YOGA	open	**L1680 · An unanchored .gitignor
 lessons	L1681	1681		2026-09-15	ZABZ-YOGA	open	**L1681 · Applied is not the same claim as had-an-effect (C-008 in place, unmeasurable); and a fix aimed at the wrong layer looks identical to a fix that failed - group the survivors by their provenance field**	entries/lessons/L1681.md	1	41	5e410d021001d543
 lessons	L1682	1682		2026-09-15	ZABZ-YOGA	open	**L1682 · I hung the company API for fifteen minutes by holding a SQLite write transaction from a script with no timeout**	entries/lessons/L1682.md	1	35	4595ac427a0838b7
 lessons	L1685	1685		2026-09-15	ZABZ-YOGA	open	**L1685 · MagicDNS on ZABZ-YOGA blocks one call for ~60s and then heals; retry before blaming the mesh**	entries/lessons/L1685.md	1	9	789cbdade87fe1a6
+lessons	L1686	1686		2026-09-15	ZABZ-YOGA	open	**L1686 · Task Manager Speed field on Intel hybrid chips is the base clock - never diagnose throttling from it**	entries/lessons/L1686.md	1	34	3e410e6c6f42f465
+lessons	L1687	1687		2026-09-15	ZABZ-YOGA	open	**L1687 · Do not run fan-out agent fleets on ZABZ-YOGA - it saturates the laptop he is sitting in front of**	entries/lessons/L1687.md	1	37	470bf2f1fa351d38
+lessons	L1688	1688		2026-09-15	ZABZ-YOGA	open	**L1688 · git grep without -l or a pathspec hits committed CI logs and a full ESLint JSON dump in phone-and-tech-full**	entries/lessons/L1688.md	1	9	74191a1a81e61368
+lessons	L1689	1689		2026-09-15	ZABZ-YOGA	open	**L1689 · A queue row whose premise was never tested is worse than no row: row 28 cost the owner two asks and hid 3 dead cameras**	entries/lessons/L1689.md	1	9	56a07a440faf7112
+lessons	L1690	1690		2026-09-15	ZABZ-YOGA	open	**L1690 · I told the owner we deploy on Netlify and asked for a Netlify token; the site moved to Cloudflare Pages on 2026-09-14 and he caught it**	entries/lessons/L1690.md	1	26	ca7935c48833aba3
+lessons	L1691	1691		2026-09-15	ZABZ-YOGA	open	**L1691 · Dialpad internal API: workflow bodies are unreachable; /api/media 200 is a false positive**	entries/lessons/L1691.md	1	21	ded57dbd2cf74a67
+lessons	L1692	1692		2026-09-15	ZABZ-YOGA	open	**L1692 · Cloudflare Access on the HA public host defeats any third-party media fetch (200 but text/html)**	entries/lessons/L1692.md	1	30	8a4df4931823e683
+lessons	L1693	1693		2026-09-15	ZABZ-YOGA	open	**L1693 · A Dahua HTTP 401 proves nothing about the password - implement Digest before blaming the credential**	entries/lessons/L1693.md	1	35	c473d4f54909c80a
+lessons	L1694	1694		2026-09-15	ZABZ-YOGA	open	**L1694 · A disabled HA config entry yields NO state object, so a Lovelace tile is silently blank**	entries/lessons/L1694.md	1	39	1c0113c2d035591f
+lessons	L1695	1695		2026-09-15	ZABZ-YOGA	open	**L1695 · HA rest_command never retries, so a brief secretary outage makes a security alarm page nobody**	entries/lessons/L1695.md	1	39	02de279a5553d609
+lessons	L1696	1696		2026-09-15	ZABZ-YOGA	open	**L1696 · Dialpad Personal Working Hours are readable by API — internal /api/user/{key}?extended=1, not the UI**	entries/lessons/L1696.md	1	18	9826e98254dbd254
+lessons	L1697	1697		2026-09-15	ZABZ-YOGA	open	**L1697 · Dialpad: the internal web API (dialpad.com/api/*) answers what the public v2 API 403s - /licenses, /company/{id}, /changelog are the three that matter**	entries/lessons/L1697.md	1	24	6df87421bb2fa40c
+lessons	L1698	1698		2026-09-15	ZABZ-YOGA	open	**L1698 · Ask the artifact, never the document: three deploy paths, three truths**	entries/lessons/L1698.md	1	15	af0461c98bba7ba5
+lessons	L1699	1699		2026-09-15	ZABZ-YOGA	open	**L1699 · Journal lock rewritten as an OS lock (verified)**	entries/lessons/L1699.md	1	6	8da9f4691b76c02a
+lessons	L1700	1700		2026-09-16	ZABZ-YOGA	open	**L1700 · Journal lock: the unlink-based stale-break was a real race - fixed with an OS lock plus an inode check**	entries/lessons/L1700.md	1	53	53603d98720ad8ba
+lessons	L1701	1701		2026-09-16	ZABZ-YOGA	open	**L1701 · MCP servers cost four processes each and their discarded generations were never reaped - direct node plus a reaper**	entries/lessons/L1701.md	1	50	8b87555abee9dec0
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -964,6 +987,9 @@ pain	P202	202		2026-09-15	ZABZ-YOGA	open	## P202 — The company's own systems h
 pain	P203	203		2026-09-15	ZABZ-YOGA	open	## P203 — CVE-2026-11822: FTS5 memory corruption in SQLite 3.49.1 (Yoga) and 3.46.1 (secratary); fixed in 3.53.2	entries/pain/P203.md	1	33	8915954b1c52bb48
 pain	P204	204		2026-09-15	ZABZ-YOGA	open	## P204 — journal.py check's verdict depends on unrelated code in its own file	entries/pain/P204.md	1	72	99df90abcf93ab09
 pain	P205	205		2026-09-15	ZABZ-YOGA	open	## P205 — C-900: live prod credentials printed into a session transcript by an audit agent	entries/pain/P205.md	1	12	e8eb4c4befb67873
+pain	P206	206		2026-09-15	ZABZ-YOGA	open	## P206 — No admin on zabz-yoga blocks Defender exclusions and thermal telemetry	entries/pain/P206.md	1	32	5facf5844d0890f5
+pain	P207	207		2026-09-15	ZABZ-YOGA	open	## P207 — personal-secretary-mvp repo HEAD is older than the deployed code; a merge from HEAD regresses the security roster	entries/pain/P207.md	1	34	a9c7b794f9cb81b9
+pain	P208	208		2026-09-16	ZABZ-YOGA	open	## P208 — list_agents has no deadline and re-scans every session file serially - ranked pain list for the DSH scale program	entries/pain/P208.md	1	47	11a9f6feb2266823
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1125,6 +1151,9 @@ decisions	D197	197		2026-09-15	ZABZ-YOGA	open	**D197 · 2026-09-15 · Reconcilia
 decisions	D198	198		2026-09-15	ZABZ-YOGA	open	**D198 · 2026-09-15 · idguard: collision-safe ids as a peer module, consumed by the sync.**	entries/decisions/D198.md	1	75	4cdec369bc7b8ab6
 decisions	D199	199		2026-09-15	ZABZ-YOGA	open	**D199 · 2026-09-15 · Gusto close-out path chosen: Sep 16 run stands, Gusto files 2026, arrears off-cycle next week, bookkeeper only for the residual.**	entries/decisions/D199.md	1	43	79a554469b4155c7
 decisions	D200	200		2026-09-15	ZABZ-YOGA	open	**D200 · 2026-09-15 · Six entries repaired from the encoding incident an earlier session fixed; the write path still does not notice bad bytes.**	entries/decisions/D200.md	1	77	04bbfdd7b7fb3f20
+decisions	D201	201		2026-09-15	ZABZ-YOGA	open	**D201 · 2026-09-15 · Owner queue collapsed 33 to 13: four read-only triage slices settled 20 rows without him, and row 28 was a false diagnosis that had left 3 of 6 shop cameras dead.**	entries/decisions/D201.md	1	69	c84f0fdd1b66299d
+decisions	D202	202		2026-09-15	ZABZ-YOGA	open	**D202 · 2026-09-15 · LPT full build: the plan, and the one question that is the owner's.**	entries/decisions/D202.md	1	14	b5b516b46fa7ac32
+decisions	D203	203		2026-09-16	ZABZ-YOGA	open	**D203 · 2026-09-16 · Program rule: remove waste first, reduce capability last - so the capability knobs stay untouched.**	entries/decisions/D203.md	1	57	34cbb89e6472fc9e
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e

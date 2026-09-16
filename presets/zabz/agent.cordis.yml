@@ -512,25 +512,35 @@
   config:
     serverName: fetch
     transport: stdio
-    command: 'npx.cmd'
+    # DIRECT node, no npx.cmd (2026-09-15). Was: command npx.cmd, args [-y, mcp-fetch-server].
+    # Measured on ZABZ-YOGA that shape cost four OS processes per server
+    # (cmd.exe -> npx-cli.js -> cmd.exe -> server), plus an npm registry resolve on every
+    # start because `npx -y <pkg>` only reuses a cached install when name AND version match,
+    # and a leaked generation of the whole chain whenever a bridge was replaced -- the engine
+    # held three full generations of every MCP server at once. One process now, and the child
+    # DSH spawns IS the server, so killing it kills the server.
+    command: 'C:\Program Files\nodejs\node.exe'
     args:
-      - '-y'
-      - mcp-fetch-server
+      - 'C:\Users\ezabz\.dsh\tools\mcp\node_modules\mcp-fetch-server\dist\index.js'
     toolCallTimeoutMs: 90000
     failOnStartupError: false
 
 # Deterministic accessibility-tree browser automation. Playwright downloads and
 # browser profiles are the most likely thing to be slow or missing on a fresh
 # machine, hence failOnStartupError false.
+#
+# DIRECT node, no npx.cmd (2026-09-15) -- same reasoning as mcp-fetch above, and
+# Playwright was the worst offender because `@playwright/mcp@latest` additionally
+# forced a registry hit for the `latest` tag on every start.
 - id: mcp-playwright
   name: '@deepseek-ai/dsh-mcp-client'
   disabled: !!js process.platform !== 'win32'
   config:
     serverName: playwright
     transport: stdio
-    command: 'npx.cmd'
+    command: 'C:\Program Files\nodejs\node.exe'
     args:
-      - '@playwright/mcp@latest'
+      - 'C:\Users\ezabz\.dsh\tools\mcp\node_modules\@playwright\mcp\cli.js'
       - '--headless'
       - '--no-sandbox'
       - '--output-dir'
