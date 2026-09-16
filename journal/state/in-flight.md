@@ -1,29 +1,29 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H260)
+Updated: 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
 
 Rewritten, not appended. Earlier sessions still live in this file: **ZABZ-TECH credential session, 2026-09-15 20:05Z**
 (AWS key killed D164, Twilio token rotated D165, H275 - its open work is at the END of this file, do not overwrite it) and
 the comms session (ZABZ-YOGA, 14:05Z).
-*(Corrections: H208 cites "D142" for the digest decision — it is **D146**. H259 addenda 3/4 said the API fix was holding —
-**H260 supersedes that**; it was not a fix.)*
+*(Corrections: H208 cites "D142" for the digest decision — it is **D146**. H389 addenda 3/4 said the API fix was holding —
+**H390 supersedes that**; it was not a fix.)*
 
 ## Open right now
 
-1. **`secretary-api` memory runaway — CONTAINED, NOT FIXED (P160).** The 09-15 fixes (`44e3f8e8`, `ce20ab28`) moved the
+1. **`secretary-api` memory runaway — CONTAINED, NOT FIXED (P211).** The 09-15 fixes (`44e3f8e8`, `ce20ab28`) moved the
    failure interval from 6.5 minutes to 30–60 minutes but did not stop it: **23 OOM kills on 2026-09-16** (hourly, 00:00 →
    13:18) after **8 on 2026-09-15**, all at ~20.2–20.8 GB `anon-rss`, plus a SIGBUS at 14:35 on 09-16. Containment applied
    2026-09-16: `MemoryHigh=5G MemoryMax=8G MemorySwapMax=1G` on the unit (drop-in `20-memory-guard.conf`, runtime
    `set-property` too, reversible without a restart). **The allocator is still un-named.** Armed: `~/phone/oom-evidence/
    burst-catcher.sh` (6 h window, 2 s poll, py-spy dumps at 5 GB) — give it HOURS; a 40-minute watch against a 30–60 minute
-   interval is a coin flip (L1551). Next levers in order: `app/workforce.py:1417` per-tick `ThreadPoolExecutor` +
+   interval is a coin flip (L1735). Next levers in order: `app/workforce.py:1417` per-tick `ThreadPoolExecutor` +
    `shutdown(wait=False)` (unbounded abandoned ticks), the reviewed-but-unapplied
    `docs/incidents/2026-09-15-secretary-api-oom/proposed-hard-heap-limit.patch`, then `ANALYZE` (never run on the 5.5 GB
    database — no `sqlite_stat1` exists). Full evidence + numbers: `harness-config/docs/incidents/2026-09-15-secretary-api-oom/`.
 2. **RattleByte ticket #188880 (portal id 2553) — reopened with the owner's photos, waiting on the vendor.**
    Portal: *"Reopened by info@lakewoodphoneandtech.com 16/09/2026 00:11"*, **three client messages** — the back-plate photo
    (`01-back-panel-full.jpg`, 541.1 kb) and the full reply as an attached `.txt`, because the portal silently stored only the
-   first **122 characters** of the 2,900-character reply it reported as posted (L1549). Asked of Eriks: is
+   first **122 characters** of the 2,900-character reply it reported as posted (L1733). Asked of Eriks: is
    `RattleByte-Panasonic-BD83-V1.84-R1-Solderless-Initial` right for this exact unit, and what triggers the Initial install.
    **One item still owed to him: the OEM Main Version screen** (HOME MENU → Setup → Player Settings → System → System
    Information → Firmware Version Information → Main Version). Case log on `main` at

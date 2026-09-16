@@ -1,8 +1,8 @@
 # Incident: `secretary-api` memory runaway → OOM kills (2026-09-15/16) — evidence archive
 
 **Status: OPEN.** Contained, not fixed. The API still grows to a multi-GB footprint and is killed; the allocation that does it
-has not been named yet. This folder is the durable copy of the evidence behind journal **P160**, **H259**, **H260** and
-**L1551** — it lives in git because `~/phone/` is a scratch desk that is not backed up.
+has not been named yet. This folder is the durable copy of the evidence behind journal **P211**, **H389**, **H390** and
+**L1735** — it lives in git because `~/phone/` is a scratch desk that is not backed up.
 
 ## What is happening, in numbers
 
@@ -29,7 +29,7 @@ Survival times observed: 6.5, 15, 26, 34, 42, 54, 62 minutes. The tail of the 09
 
 Note the proposal file in this folder (`proposed-systemd-memory-guard.conf`, written before the second kill wave) argues for
 3G/6G. What was actually installed is 5G/8G (the archive captures the intent, the installed values are the ones recorded in
-the journal entry H260).
+the journal entry H390).
 
 ## Leading hypotheses, ranked (from `diagnosis-report.md`)
 
@@ -61,7 +61,7 @@ $PYSPY dump --pid $(pgrep -f 'personal-secretary-mvp/.venv/bin/python.*uvicorn')
 ```
 
 Nothing fired the 5 GB trigger during the 09-15 window, so there are no frames in this archive. A 40-minute watch against a
-30–60 minute failure interval is a coin flip (L1551).
+30–60 minute failure interval is a coin flip (L1735).
 
 ## Files
 
