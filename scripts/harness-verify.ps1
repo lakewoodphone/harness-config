@@ -135,6 +135,33 @@ Check 'no stale MCP generations' {
     return ($n -eq 0), "stale MCP generation chains older than 30m: $n"
 }
 
+# ---- 10. the change is DEPLOYED, not just committed ----------------------------------------
+# A change that is committed but not applied is not a change. sync.py copies presets into
+# ~/.dsh/.agent-presets/, and the engine reads THAT copy -- so the repo being correct proves
+# nothing about what the running harness will use. This compares the two by hash and reads the
+# deployed values back.
+Check 'preset deployed to ~/.dsh' {
+    $repoPreset = "$repo\presets\zabz\agent.cordis.yml"
+    $liveDir = Join-Path $env:USERPROFILE '.dsh\.agent-presets\zabz'
+    $live = Join-Path $liveDir 'agent.cordis.yml'
+    if (-not (Test-Path $live)) { return $false, "not deployed: $live" }
+    $same = (Get-FileHash $repoPreset).Hash -eq (Get-FileHash $live).Hash
+    $txt = Get-Content -Raw $live
+    $pruner = ([regex]::Match($txt, 'thresholdChars:\s*(\d+)')).Groups[1].Value
+    $ratio = ([regex]::Match($txt, 'thresholdRatio:\s*([\d.]+)')).Groups[1].Value
+    $rules = @('Keep working sessions short', 'Prefer the in-process file tools') |
+             Where-Object { $txt -match [regex]::Escape($_) }
+    # The skills ride along in the same preset directory and are part of the deployment: a
+    # regenerated skill that never reached ~/.dsh is a document nobody will read. This check
+    # caught exactly that on 2026-09-16 (the measured host budgets sat in the repo for two
+    # rounds while the deployed copy was still the old one).
+    $repoSkill = "$repo\presets\zabz\skills\parallel-agent-orchestration\SKILL.md"
+    $liveSkill = Join-Path $liveDir 'skills\parallel-agent-orchestration\SKILL.md'
+    $skillSame = (Test-Path $liveSkill) -and ((Get-FileHash $repoSkill).Hash -eq (Get-FileHash $liveSkill).Hash)
+    return ($same -and $skillSame -and $rules.Count -eq 2),
+           "preset hash match=$same; skills match=$skillSame; deployed thresholdChars=$pruner thresholdRatio=$ratio; instruction rules=$($rules.Count)/2"
+}
+
 # ---- report ------------------------------------------------------------------------------
 $failed = @($results | Where-Object { -not $_.Ok })
 if (-not $Quiet) {
