@@ -858,6 +858,8 @@ lessons	L1717	1717		2026-09-16	ZABZ-YOGA	open	**L1717 · A keeper that only runs
 lessons	L1718	1718		2026-09-16	ZABZ-YOGA	open	**L1718 · An artifact that is not in the repo is a draft - 4.8 MB of this program's evidence sat in an unversioned directory on one laptop**	entries/lessons/L1718.md	1	44	00f395c7d17bf5dd
 lessons	L1719	1719		2026-09-16	ZABZ-YOGA	open	**L1719 · Committed and deployed are different facts - the deployment check caught the orchestration skill sitting stale in ~/.dsh for two rounds**	entries/lessons/L1719.md	1	34	5bdc5f75bb2d3125
 lessons	L1725	1725		2026-09-16	ZABZ-YOGA	open	**L1725 · I took ZABZ-TECH's engine down for 20 minutes: piping a spawning script into ssh, then killing a service without proving the restart path - and the sync that left an unbootable bundle list**	entries/lessons/L1725.md	1	57	3d24368a38c44618
+lessons	L1726	1726		2026-09-16	ZABZ-YOGA	open	**L1726 · A loader entry's activation order is not its tree order: ctx.get() in apply() can be empty, and the failure is silent**	entries/lessons/L1726.md	1	12	04c872395fc4cb1c
+lessons	L1727	1727		2026-09-16	ZABZ-YOGA	open	**L1727 · child_process.spawn('pwsh', {detached:true}) on Windows exits 0 without running the script**	entries/lessons/L1727.md	1	15	68598c8b4aff4515
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427

@@ -1,0 +1,21 @@
+# The dsh-plugin-health bundle patch.
+#
+# ONE host row, which is the whole plugin. `tool-cordis` is disabled in the agent
+# preset and the dynamic Cordis runner is a session-scoped, temporary mechanism —
+# a health surface must outlive a session and be reachable from any window, so it
+# belongs to the profile plane, not to an agent's context.
+#
+# The row is an `insert` without an id target, so it ADDS a loader entry rather
+# than overriding one, and a later patch layer can still disable it by id:
+#
+#   { id: 'plugin-health', disabled: true }
+#
+# No config is required. Every key is optional and has a working default:
+#   probeIntervalMs, lagIntervalMs, lagWindow, staleAfterMs, snapshotFile,
+#   listAgentsCacheMs, listAgentsTimeoutMs, listAgentsMaxTimeoutMs,
+#   listAgentsToolName, listAgentsStatsFile, slotBytes, maxSlots, minSlots,
+#   governorRoot, governorToolName, toolName (the engine_health tool name).
+# See README.md for what each one does.
+- insert:
+    - id: plugin-health
+      name: dsh-plugin-health
