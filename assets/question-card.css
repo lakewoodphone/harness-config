@@ -29,12 +29,26 @@
  * scrolls. The composer cannot cover a control that is laid out above it by construction, and
  * `100dvh` tracks the keyboard, so the Submit button stays where a thumb can reach it.
  *
+ * THE SECOND FAILURE, AND WHY THE SHEET IS TOP-ANCHORED
+ * Submit appeared and the question did not. The owner, 2026-09-14 23:2x UTC: "I can't scroll up
+ * enough to see the actual question. I just see the options for responses." The first version of
+ * this file anchored the sheet with `inset: 0`, which is the LAYOUT viewport. On iOS the visible
+ * area is the VISUAL viewport, and with the keyboard up it is both shorter and OFFSET — so a
+ * sheet pinned to the layout viewport's top begins above the first visible pixel, and the
+ * question, being the first thing in the card, is what disappears. CSS cannot read
+ * `visualViewport`, so this file supplies the correct no-JS layout (`top: 0`, `height: 100dvh`,
+ * which follows the keyboard) and `dsh-plugin-mobile` asserts it against the real visible band,
+ * in pixels, when the two disagree. Measured with `scripts/question-card-live-probe.py` against
+ * the running app, band 240x420 on a 393x852 screen: before the repair the title sat at y=39
+ * (outside the band), after it at y=279 (inside), with Submit at y=608.
+ *
  * This is CSS-only: the card is mounted, unmounted and re-rendered by React, so nothing here may
  * depend on a mount event (lesson L209's shape). It keys off the local-name substrings the CSS
  * modules preserve across rebuilds, never a full hash, and it is scoped to phones, so the
  * desktop layout is untouched by construction.
  *
- * Kill switch: remove this block. Nothing else reads it.
+ * Kill switch: remove this block. Nothing else reads it — except `plugin-mobile`, which will
+ * then find a card that does not fit and pin it, which is the older, simpler behaviour.
  */
 
 @media (max-width: 768px) {
@@ -44,19 +58,40 @@
    * frame > card > body > options, so a `> _options` child selector NEVER MATCHED and the first
    * version of this fix silently did nothing at all (the numbers were identical before and
    * after — that is what gave it away, and what `question-card-check.py` is for). A card is
-   * unique enough to be the only hook needed. */
+   * unique enough to be the only hook needed.
+   *
+   * TOP-ANCHORED AND BOUNDED, NOT `inset: 0`. The first version anchored the frame with
+   * `inset: 0`, which is the LAYOUT viewport. On iOS the visible area is not the layout
+   * viewport: with the URL bar showing and again with the keyboard up, the visual viewport is
+   * shorter and — this is the part that hid the question — often OFFSET, so a box pinned to the
+   * layout viewport's top starts above the first pixel the reader can see. The options sat in
+   * the visible middle and the question was unreachable above them, which is exactly the
+   * owner's report of 2026-09-14 23:2x: "I can't scroll up enough to see the actual question."
+   * `height: 100dvh` follows the keyboard; `dvh` did NOT follow the offset, so the frame's
+   * height is now also asserted in pixels against the visual viewport by `plugin-mobile`
+   * ("question card: make the question reachable"), which is the only place that can read
+   * `visualViewport`. This rule is the no-JS fallback and is correct whenever there is no
+   * offset. */
   [class*="_frame"]:has(> [class*="_card"]) {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    /* `dvh` follows the keyboard; `vh` does not */
+    height: 100dvh;
+    max-height: 100dvh;
     /* Above everything, including the "needing attention" badge, which is `position: fixed`
      * at z-index 2147483000 and sits over the bottom-right of the screen: measured, that badge
      * intercepted a tap aimed at this card's Submit button (lesson L217). A question that must
      * be answered outranks a notification. */
     z-index: 2147483600;
     display: flex;
+    flex-direction: column;
     align-items: stretch;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 0;
+    overflow: hidden;
     background: var(--dsw-alias-bg-base, #fff);
     /* the sheet covers the conversation, so the page behind it must not scroll */
     overscroll-behavior: contain;
@@ -66,8 +101,6 @@
     /* measured: the shipped 60vh cap is the thing that hides the footer */
     max-height: none;
     height: 100%;
-    /* `dvh` follows the keyboard; `vh` does not */
-    height: 100dvh;
     max-width: none;
     border-radius: 0;
     box-shadow: none;

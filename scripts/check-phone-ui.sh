@@ -48,14 +48,23 @@ composer_out="$(python3 "$HERE/phone-layout-check.py" --url "$URL" 2>&1)"
 composer_rc=$?
 card_out="$(python3 "$HERE/question-card-check.py" --app-url "$URL" 2>&1)"
 card_rc=$?
+# The two checks above measure a REPLICA of the card, built from the app's CSSOM. The third runs
+# against the running app: it mounts the card's real markup into the real composer seat and reads
+# the geometry back, with the visible band forced to an offset — the condition that hid the
+# question from the owner on 2026-09-14 ("I can't scroll up enough to see the actual question").
+# A replica cannot see the real ancestor chain or `visualViewport`, so this is the only check that
+# would have caught it.
+live_out="$(python3 "$HERE/question-card-live-probe.py" --url "$URL" --band 240,420 --assert 2>&1)"
+live_rc=$?
 
 composer_tail="$(printf '%s' "$composer_out" | tail -3 | tr '\n' ' ')"
 card_tail="$(printf '%s' "$card_out" | tail -3 | tr '\n' ' ')"
+live_tail="$(printf '%s' "$live_out" | tail -2 | tr '\n' ' ')"
 
-python3 - "$EVIDENCE" "$started" "$composer_rc" "$card_rc" "$composer_tail" "$card_tail" <<'PY'
+python3 - "$EVIDENCE" "$started" "$composer_rc" "$card_rc" "$live_rc" "$composer_tail" "$card_tail" "$live_tail" <<'PY'
 import json, sys
-evidence, started, crc, krc, ctail, ktail = sys.argv[1:7]
-ok = (int(crc) == 0 and int(krc) == 0)
+evidence, started, crc, krc, lrc, ctail, ktail, ltail = sys.argv[1:9]
+ok = (int(crc) == 0 and int(krc) == 0 and int(lrc) == 0)
 json.dump({
     "ok": ok,
     # `at`, not `checked_at`: the consumers of this tree (plugin-attention's ageMinutes, and the
@@ -64,14 +73,16 @@ json.dump({
     "at": started,
     "composer": {"ok": int(crc) == 0, "summary": ctail.strip()},
     "question_card": {"ok": int(krc) == 0, "summary": ktail.strip()},
+    "question_card_live": {"ok": int(lrc) == 0, "summary": ltail.strip()},
 }, open(evidence, "w"), indent=1)
 PY
 
-if [ "$composer_rc" -ne 0 ] || [ "$card_rc" -ne 0 ]; then
-  note "FAIL composer=$composer_rc card=$card_rc"
+if [ "$composer_rc" -ne 0 ] || [ "$card_rc" -ne 0 ] || [ "$live_rc" -ne 0 ]; then
+  note "FAIL composer=$composer_rc card=$card_rc live=$live_rc"
   say "phone UI checks FAILED"
   say "--- composer ---"; printf '%s\n' "$composer_out" | tail -8
   say "--- question card ---"; printf '%s\n' "$card_out" | tail -8
+  say "--- question card, live ---"; printf '%s\n' "$live_out" | tail -8
   exit 1
 fi
 note "PASS"

@@ -1,11 +1,12 @@
 # dsh-plugin-mobile
 
-Phone behaviour for DSH. Two things, because two things cannot live in a stylesheet:
+Phone behaviour for DSH. Three things, because none of them can live in a stylesheet:
 
 | Surface | What it does | Where it lives |
 |---|---|---|
 | The phone layer, on any viewport | Links `/dsh-phone-mobile.css` and keeps it linked, so the layout never depends on a document the client may have cached | Browser half: `lib/client.js` |
 | The sidebar, on a narrow viewport | An action taken in the open drawer closes it — a conversation, or a header control like **New session**; a tap outside closes it; Escape closes it | Browser half: `lib/client.js` |
+| An agent's question card, on a narrow viewport | Pins the sheet to the band the reader can actually see (`visualViewport`), in pixels, when the stylesheet's layout-viewport anchor leaves the question off-screen — and removes the repair once the card fits | Browser half: `lib/client.js` |
 
 ## Why this exists
 
@@ -83,6 +84,19 @@ What neither can prove is the behaviour: only a browser does. Open the harness a
 open the sidebar, tap a conversation, and confirm the drawer is gone and the conversation is
 visible.
 
+The question-card repair has a check that runs without a live question — it mounts the card's
+real markup into the real app's composer seat and reads the result back:
+
+```bash
+python3 scripts/question-card-live-probe.py --url http://127.0.0.1:3086/
+python3 scripts/question-card-live-probe.py --url ... --band 240,420   # keyboard band
+```
+
+The second form forces `visualViewport` to an offset, which is the condition that hid the
+question in the first place. It must print `QUESTION VISIBLE IN BAND: True`, a non-empty
+inline repair, and `"repaired": true` in `window.__dshPhoneCard`. Measured 2026-09-14 on
+secratary: before the repair the title sat at y=39 with the band at y=240; after it, y=279.
+
 ## What breaks on a harness upgrade
 
 - **The toggle's accessible name.** `lib/client.js` decides the drawer is open by matching
@@ -91,5 +105,8 @@ visible.
 - **`[class*="sidebarCol"]` / `[class*="listArea"]`.** CSS-module local-name substrings,
   matched the same way the stylesheet matches them, so a rebuild that keeps local names
   keeps this working.
+- **The question card's `_frame` / `_card` / `_title` classes.** Same contract as above. The
+  repair only ever acts on a card that does not fit the visible band, so a renamed class means
+  the sheet keeps the stylesheet's behaviour — it cannot misfire on something else.
 - The plugin is inert on the host side, so a host upgrade cannot break it the way a row that
   registers a service could.

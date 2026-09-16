@@ -1,3 +1,14 @@
+/* phone-layer-version: 2026-09-16.1
+ *
+ * BUMP THIS TOKEN whenever anything in the phone layer changes. It is how an OPEN tab finds
+ * out a fix exists: `dsh-plugin-mobile` reads this token out of the layer the document is
+ * using, compares it with the one the gate is serving, and re-applies (and, when nothing is
+ * being typed, reloads) when they differ. Measured 2026-09-16: the question-card repair had
+ * shipped and verified, and the owner's phone still could not read a question, because his
+ * tab had been open since before the fix and a rewritten document cannot reach a tab that
+ * has already loaded. Without a bump, a CSS change reaches only new tabs.
+ */
+
 /* mobile.css — the phone layer for the harness UI.
  *
  * Injected into the document by scripts/phone-gate.py for every document request, so it
