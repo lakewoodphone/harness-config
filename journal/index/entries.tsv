@@ -831,6 +831,10 @@ lessons	L1708	1708		2026-09-16	ZABZ-YOGA	open	**L1708 · Append steady-state sam
 lessons	L1709	1709		2026-09-16	ZABZ-YOGA	open	**L1709 · Append steady-state sample 3 after narrowing the legacy-change check**	entries/lessons/L1709.md	1	6	3ae827877d383b9e
 lessons	L1710	1710		2026-09-16	ZABZ-YOGA	open	**L1710 · Journal append was slow because of pre-write work, not the lock: legacy absorption on every write plus 15303 pathlib.relative_to calls**	entries/lessons/L1710.md	1	47	12af89578512598a
 lessons	L1711	1711		2026-09-16	ZABZ-YOGA	open	**L1711 · Count browser memory by private bytes, never WorkingSet - the 8.18 GB window figure was 2.2x inflated, and tabs cannot replace windows**	entries/lessons/L1711.md	1	33	ca655bb277574367
+lessons	L1712	1712		2026-09-16	ZABZ-YOGA	open	**L1712 · DSH money is only in the console export, never in local session logs**	entries/lessons/L1712.md	1	6	a316980e93c365f0
+lessons	L1713	1713		2026-09-16	ZABZ-YOGA	open	**L1713 · Regenerating a generated preset deletes hand edits - --check warned me and I regenerated anyway, deleting two owner rules from the live system prompt**	entries/lessons/L1713.md	1	44	4a67a4d493692846
+lessons	L1714	1714		2026-09-16	ZABZ-YOGA	open	**L1714 · DSH session logs are multi-frame zstd; .decompress() silently returns only the first frame**	entries/lessons/L1714.md	1	6	60de0209b7959edc
+lessons	L1715	1715		2026-09-16	ZABZ-YOGA	open	**L1715 · DSH cost is requests x mean context; the cache is already healthy, so only volume is left**	entries/lessons/L1715.md	1	6	600ad6fbd9a32815
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1165,6 +1169,7 @@ decisions	D200	200		2026-09-15	ZABZ-YOGA	open	**D200 · 2026-09-15 · Six entrie
 decisions	D201	201		2026-09-15	ZABZ-YOGA	open	**D201 · 2026-09-15 · Owner queue collapsed 33 to 13: four read-only triage slices settled 20 rows without him, and row 28 was a false diagnosis that had left 3 of 6 shop cameras dead.**	entries/decisions/D201.md	1	69	c84f0fdd1b66299d
 decisions	D202	202		2026-09-15	ZABZ-YOGA	open	**D202 · 2026-09-15 · LPT full build: the plan, and the one question that is the owner's.**	entries/decisions/D202.md	1	14	b5b516b46fa7ac32
 decisions	D203	203		2026-09-16	ZABZ-YOGA	open	**D203 · 2026-09-16 · Program rule: remove waste first, reduce capability last - so the capability knobs stay untouched.**	entries/decisions/D203.md	1	57	34cbb89e6472fc9e
+decisions	D204	204		2026-09-16	ZABZ-YOGA	open	**D204 · 2026-09-16 · Cost round 3: compaction trigger fixed and pruner tightened (76.7% -> 66.6% kept, measured); MCP un-mounting deferred as a capability call for the owner.**	entries/decisions/D204.md	1	46	77b96e1ac88a522b
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
