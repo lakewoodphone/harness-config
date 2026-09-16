@@ -64,6 +64,67 @@ Check 'process reaper scheduled' {
     return $true, "state=$($t.State); last=$($info.LastRunTime); result=$($info.LastTaskResult)"
 }
 
+# ---- 3b. the metrics sampler is actually SAMPLING -----------------------------------------
+# WHY THIS EXISTS (2026-09-16, verification pass -- docs/mesh/60-verification.md). The machine's own
+# longitudinal record stopped for 4.8 hours and NOTHING reported it, because the instrument was
+# absent from this file entirely and a stale CSV is indistinguishable from an idle machine. The
+# task was `Running` the whole time, which is exactly why "the task is running" must never be the
+# check. The check is the FACT the record depends on: the CSV advanced recently, and a heartbeat
+# naming a live PID says so. Two independent signals, because either alone can lie -- a CSV can be
+# touched by a superseeded process, and a heartbeat can name a PID that is sampling into the void.
+Check 'metrics sampler is sampling' {
+    $csv = Join-Path $env:USERPROFILE '.dsh\metrics\harness-metrics.csv'
+    $hb  = Join-Path $env:USERPROFILE '.dsh-sync-status\metrics-sampler.json'
+    if (-not (Test-Path $csv)) { return $false, "no metrics CSV at $csv -- the sampler has never run here" }
+    $ageSec = [int]((Get-Date) - (Get-Item $csv).LastWriteTime).TotalSeconds
+    $hbDetail = 'no heartbeat file'
+    $hbOk = $false
+    if (Test-Path $hb) {
+        try {
+            $h = Get-Content -Raw -LiteralPath $hb | ConvertFrom-Json
+            $p = if ($h.pid) { Get-Process -Id ([int]$h.pid) -ErrorAction SilentlyContinue } else { $null }
+            $hbOk = ($h.state -eq 'running') -and $p -and ($p.ProcessName -match 'pwsh|powershell')
+            $hbDetail = "state=$($h.state) pid=$($h.pid) sample=$($h.sample) rows=$($h.rows_written)"
+        } catch { $hbDetail = "heartbeat unreadable: $($_.Exception.Message)" }
+    }
+    # 90 s = four missed 20 s samples. Tighter than that would flap on a busy machine; looser would
+    # not catch the failure that motivated this check (a 4.8 h hole).
+    $fresh = $ageSec -lt 90
+    return ($fresh -and $hbOk),
+           "csv age=${ageSec}s (limit 90) fresh=$fresh; heartbeat live=$hbOk [$hbDetail]"
+}
+
+# ---- 3c. the sampler task can RECOVER itself ----------------------------------------------
+# A running process is not enough: the first version of this task would have ended the record and
+# never come back, because the script ran a finite 540 samples and the trigger had NO repetition.
+# This asserts the recovery path exists, so that a crash costs 5 minutes instead of a day.
+#
+# It deliberately accepts EITHER task name. MEASURED 2026-09-16: on this machine the original task's
+# file is owned by BUILTIN\Administrators and grants the running user only Read, so the non-elevated
+# harness CANNOT fix it in place (Register-ScheduledTask -Force, Unregister-ScheduledTask and
+# `schtasks /Change` all return "Access is denied"). scripts/Install-MetricsSampler.ps1 therefore
+# registers a watchdog task it owns, and the original is left as a known liability that is printed
+# for a human. A check that demanded the ORIGINAL task be correct would fail forever on a machine
+# nobody can fix without elevation -- and a check that always fails is a check people ignore, which
+# is the exact failure this file's own header warns about.
+Check 'sampler task repeats and tolerates a laptop' {
+    $names = @('DSH Metrics Sampler Watchdog', 'DSH Metrics Sampler')
+    $detail = @()
+    foreach ($n in $names) {
+        $t = Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue
+        if (-not $t) { $detail += "${n}: absent"; continue }
+        $rep = $t.Triggers | ForEach-Object { $_.Repetition.Interval } | Where-Object { $_ } | Select-Object -First 1
+        $args = ($t.Actions | Select-Object -First 1).Arguments
+        $finite = ($args -match '-Samples\s+[1-9]')
+        $batteryOk = (-not $t.Settings.DisallowStartIfOnBatteries) -and (-not $t.Settings.StopIfGoingOnBatteries)
+        $ok = ($rep) -and (-not $finite) -and $batteryOk -and $t.Settings.StartWhenAvailable
+        $detail += ("{0}: repetition='{1}' finite-samples={2} battery-safe={3} start-when-available={4} => {5}" -f `
+                    $n, $rep, $finite, $batteryOk, $t.Settings.StartWhenAvailable, $(if ($ok) { 'OK' } else { 'NOT RECOVERABLE' }))
+        if ($ok) { return $true, ($detail -join ' | ') }
+    }
+    return $false, (($detail -join ' | ') + ' -- fix with scripts/Install-MetricsSampler.ps1')
+}
+
 # ---- 4. node startup cache -----------------------------------------------------------------
 Check 'NODE_COMPILE_CACHE set' {
     $v = [Environment]::GetEnvironmentVariable('NODE_COMPILE_CACHE', 'User')
@@ -137,7 +198,12 @@ Check 'commit under physical RAM' {
     $commitGb = [math]::Round((Get-Counter '\Memory\Committed Bytes' -MaxSamples 1).CounterSamples.CookedValue / 1GB, 1)
     $pagesIn = [math]::Round((Get-Counter '\Memory\Pages Input/sec' -MaxSamples 1).CounterSamples.CookedValue)
     $ok = $commitGb -lt $physGb
-    return $ok, "commit=$commitGb GB of $physGb GB physical; pages_in/s=$pagesIn (~0.81 GB per running turn; ~13-14 turns pages this host)"
+    # The guidance string used to repeat "~0.81 GB per running turn; ~13-14 turns pages this host".
+    # That constant was measured on 2026-09-16 against this machine's own sampler history and did
+    # NOT survive: commit tracks the NODE PROCESS count at ~0.58 GB per process (r = 0.937) with an
+    # idle floor of ~18 GB, and the largest page-in burst in the record (27,028/s) happened with
+    # ZERO engines generating. Report the two measured quantities instead of the inherited claim.
+    return $ok, "commit=$commitGb GB of $physGb GB physical; pages_in/s=$pagesIn (measured: idle commit floor ~18 GB; ~0.58 GB commit per extra node process -- see docs/mesh/60-verification.md §2)"
 }
 
 # ---- 9. stale MCP generations -------------------------------------------------------------

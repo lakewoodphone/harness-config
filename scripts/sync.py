@@ -231,6 +231,50 @@ def ensure_client_plugins(dry_run: bool) -> tuple[int, str]:
     return 1, "client plugins: PROBLEM -- " + " | ".join(tail[-3:] or ["no output"])
 
 
+def ensure_metrics_sampler(dry_run: bool) -> tuple[int, str]:
+    """The continuous metrics sampler must exist and be reachable on every Windows node.
+
+    WHY THIS IS PART OF SYNC (2026-09-16, verification pass -- docs/mesh/60-verification.md).
+    `scripts/harness-metrics.ps1` is the machine's own longitudinal record: it is what every
+    measurement in the mesh design documents is checked against, and what a future session reads to
+    answer "is this laptop under pressure". It had exactly the failure mode `ensure_client_plugins`
+    exists to prevent -- it was installed by hand, once, on one machine, and nothing kept it alive.
+
+    MEASURED: the task `DSH Metrics Sampler` ran a FINITE `-Samples 540` (three hours) with a trigger
+    that had NO repetition, so pid 908 started at 16:10:25Z and the record ended at 19:10:25Z with the
+    next run at 23:59 -- a 4.8-hour hole, and nothing anywhere reported it. A stale CSV looks exactly
+    like an idle machine, which is why the check is "the CSV advanced", not "the task is Running".
+
+    The keeper is `scripts/Install-MetricsSampler.ps1`: it registers a repeating task, exits 0 when a
+    sampler is live, and (on a machine whose task file is owned by Administrators and unwritable by
+    the running token) registers a watchdog task it owns instead, printing the one elevated command
+    that removes the old one. It is quiet by default so a per-sync run does not add noise.
+
+    A failure returns attention (1), not 2: the sync itself succeeded.
+    """
+    if os.name != "nt":
+        return 0, "metrics sampler: not Windows -- skipped"
+    installer = REPO / "scripts" / "Install-MetricsSampler.ps1"
+    if not installer.exists():
+        return 0, "metrics sampler: installer absent -- skipped"
+    if dry_run:
+        return 0, "metrics sampler: would run Install-MetricsSampler.ps1 -Quiet"
+    shell = shutil.which("pwsh") or shutil.which("powershell")
+    if not shell:
+        return 1, "metrics sampler: no pwsh/powershell on PATH -- could not install"
+    try:
+        proc = subprocess.run(
+            [shell, "-NoProfile", "-File", str(installer), "-Quiet"],
+            capture_output=True, text=True, timeout=300,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return 1, f"metrics sampler: could not run the installer ({exc})"
+    if proc.returncode == 0:
+        return 0, "metrics sampler: task present and a sampler is reachable"
+    tail = [ln for ln in (proc.stdout or proc.stderr or "").strip().splitlines() if ln.strip()]
+    return 1, "metrics sampler: PROBLEM -- " + " | ".join(tail[-3:] or ["no output"])
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -263,12 +307,15 @@ def main() -> int:
     plugin_status, plugin_msg = ensure_client_plugins(args.dry_run)
     print(" " + plugin_msg)
 
+    sampler_status, sampler_msg = ensure_metrics_sampler(args.dry_run)
+    print(" " + sampler_msg)
+
     print()
     if args.dry_run:
         print("dry run: nothing was written")
     else:
         print("sync complete. Restart the DSH profile for a settings change to take effect.")
-    return plugin_status
+    return max(plugin_status, sampler_status)
 
 
 if __name__ == "__main__":

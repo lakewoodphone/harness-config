@@ -1,5 +1,37 @@
 # 20 — Placement: where agent work runs across the 6-node mesh
 
+## CORRECTIONS APPLIED 2026-09-16 (verification pass — see 60-verification.md)
+
+A second agent re-measured this document's load-bearing numbers on `ZABZ-YOGA` at 21:44–21:56Z and against
+the machine's own sampler record (`~/.dsh/metrics/harness-metrics.csv`). Four things were wrong here, and one
+of them is a **provenance** error in the document whose §0 is entirely about provenance discipline. Prose is
+left intact and marked `[corrected 2026-09-16: was X]` so the error stays legible.
+
+| # | Old value (in this document) | Corrected value | Evidence |
+|---|---|---|---|
+| 1 | **`§1.4`, `§6.1`: "one generating turn = 0.81 GB commit, ~1 core" tagged PRIOR-MEASURED** (`:172`, `:665`) | **Not supported.** Measured: **≈18 GB resident before any work** and **≈0.58 GB commit per extra node PROCESS** (r = 0.937). "Generating turn" is not the unit the machine recorded — the sampler's `engines` column has no documented definition and does not predict memory (`engines=15` and `21` both showed 34.6 GB while `engines=13` showed 17.2 GB) | least-squares over 477 rows: `corr(commit_gb,node)=0.937`, slope 0.5754; commit at `engines≤13` never exceeded 19.11 GB; idle floor 17.0–18.4 GB. `60-verification.md` §2.2 |
+| 2 | **`§6.1` table header "Measured constants used"** (`:661–674`), of which `:670–672` (`ZABZ-YOGA` budget, `secratary`, `ZABZ-TECH` headroom) are one live reading from one moment | **`:670–672` are now labelled for what they are** — one `/healthz` reading at 20:10Z, not constants. `:665` is PRIOR-MEASURED from `PROGRAM.md:75` and is corrected by row 1. The commit limit in `:670` is also **wrong today**: measured 43.11 GiB, not 44,149 MiB | `(Get-Counter '\Memory\Commit Limit')` = 46,293,966,848 B = 43.11 GiB = 31.61 GiB RAM + 11,776 MB pagefile, exactly. `AutomaticManagedPagefile = True`, so the limit MOVES. `60-verification.md` §1.2 |
+| 3 | **`§4.2`: "`ZABZ-YOGA` budget: commit limit 44,149 MiB"** (`:670`) | **43.11 GiB, read at call time.** Never hard-code it | same as row 2 — note `Win32_OperatingSystem.TotalVirtualMemorySize` IS the commit limit and excludes committed bytes, which is the trap that produced the old number |
+| 4 | **`§1.4`, `§6.3`, `§D6`, `§9`: "1,596 % disk time"** (`:178`, `:716`, `:760`, `:802`, `:845`; also `:501`) | **Not a possible reading of `\PhysicalDisk(_Total)\% Disk Time` on a one-disk machine**, and no counter is named anywhere. **The condition is real and re-measured: 4.48 % avg at 21:46Z, 97.31 % avg at 21:53Z.** Cite the saturation, the queue length and the latency — never the 1,596 % | `Win32_DiskDrive` → 1 device; `Get-Volume` → 1 volume; `Get-Counter '\PhysicalDisk(_Total)\% Disk Time'` and `\...\Current Disk Queue Length` (0.00 at 21:46Z, 0.74 at 21:47Z) |
+| 5 | **`§8 Phase 1 item 2`: acceptance = "one cold `GET /` **200** from a phone with no token in the URL"** (`:781–783`) | **A cold no-token `GET /` is never 200 — it is 401 by design** (`:437–445` of this same document says so). Measured: `GET /` on a foreign authority = **401**, `GET /api` = **403**. The publish test is: `tailscale serve status` names a port **that has a live listener**, and the served URL is **not 403 and not 502**. **Also measured and worse: `ZABZ-YOGA`'s serve entry currently points at `127.0.0.1:3086`, which has NO listener — so `https://zabz-yoga-1.tail93e6e6.ts.net/` returns 502 right now** | `curl --noproxy '*' http://127.0.0.1:3099/` → 401; `... -H "Host: zabz-yoga-1.tail93e6e6.ts.net" /api` → 403; `Get-NetTCPConnection` on 3080–3100 → only 3099; `curl https://zabz-yoga-1.tail93e6e6.ts.net/` → **502 in 0.060 s**. Full corrected procedure: `60-verification.md` §4.2 |
+| 6 | **`§0`: "Serve is not enabled on `ZABZ-TECH`, `ZABZ-YOGA` or `linux-pc` (\"No serve config\")"** (`:33–35`, `:88–89`) | **Stale for `ZABZ-YOGA`** — it is served now (see row 5 for where it points). `§9` of this same document (`:852–857`) already said the general fact correctly; §0 was not reconciled with §9 | `tailscale serve status` → `https://zabz-yoga-1.tail93e6e6.ts.net (tailnet only) |-- / proxy http://127.0.0.1:3086` |
+| 7 | **`§6.3`: "1,172 ms for one scan (430 files / 237.5 MB)"** (`:669`) and "237.5 MB corpus" (`:720`, `:760`, `:802`) | **The corpus is 444 files / 255,137,162 B (243.3 MiB) as measured**, and the same figure is quoted as a *file count* and a *memory quantity* in two places. Treat `list_agents` cost as **"≈250 MB corpus"** and re-measure the scan | `Get-ChildItem ~/.dsh/sessions -Recurse -File | Measure Length -Sum` → `n=444 bytes=255137162`. `30-truth-and-disk.md:18` says 436 / 251,054,028 — three mutually exclusive figures in circulation. `60-verification.md` §1.3 |
+| 8 | **`§1.4`: "the binding resource on the laptop is **commit**, not CPU"** (`:173`) | **Contradicted by `40-hardware-costs.md:325` ("the binding constraint is CORES, not RAM"), which is the better-supported claim.** The laptop's commit has never exceeded 36.49 GB against a 43.11 GiB limit; what it does is page under I/O pressure | `60-verification.md` §3 C6 |
+
+**What did NOT change.** The spine of this document — one engine per `DSH_HOME`, sessions never move, the
+client targets whatever origin served it (`§1.3`), the gate-in-front shape proven on `secratary` (`§1.0`),
+the placement-not-restart recovery model (`§5`), and D1–D6 — is unaffected by every correction above. Rows
+1 and 8 change *sizing inputs*; rows 4 and 5 change *what proves it works*. The design does not rest on any
+number that failed.
+
+**One warning that this pass earned the hard way.** `§7` D3 and `§4.2` propose publishing each node with
+`tailscale serve`. **That is now demonstrated insufficient on this very laptop: a serve entry can point at a
+port with no listener, and every request then returns 502 while `tailscale serve status` looks perfectly
+healthy.** Any acceptance test for publication must include the listener check, in addition to the status
+line — see `60-verification.md` §4.2 steps 1 and 3.
+
+---
+
 **Program:** `docs/mesh/` (this file is the placement volume; it depends on nothing else in the series and
 nothing in the series depends on it being read first).
 **Date:** 2026-09-16. **Author:** an agent session, not the owner. **Status:** design, nothing implemented by
@@ -33,6 +65,11 @@ Three numbers that this document does **not** have, and says so rather than gues
 - **Whether the owner has enabled Tailscale Serve beyond `secratary`.** MEASURED here: Serve is **not** enabled
   on `ZABZ-TECH`, `ZABZ-YOGA` or `linux-pc` ("No serve config"), and `secratary` is served. So the tailnet-level
   enablement exists; the *per-node* publication is what is missing.
+  `[corrected 2026-09-16: **stale for `ZABZ-YOGA`, which is served now** — measured `tailscale serve status` →
+  `https://zabz-yoga-1.tail93e6e6.ts.net (tailnet only) |-- / proxy http://127.0.0.1:3086`. This §0 sentence
+  was never reconciled with §9 of this same document (`:852–857`), which had the general fact right. **And the
+  more useful correction: being served is not sufficient** — that entry points at a port with no listener, so
+  every request through the URL returns **502**. See `60-verification.md` §4.2 and §4.3.]`
 
 ---
 
@@ -86,7 +123,7 @@ Environment=HOME=/home/zabz NODE_ENV=production      # no DSH_HOME => the defaul
   `scripts/phone-gate.py --listen-port 3086 --engine-port 3089`, and Tailscale Serve publishes **the gate**:
   MEASURED `tailscale serve status` on secratary → `https://secratary.tail93e6e6.ts.net (tailnet only) |-- / proxy http://127.0.0.1:3086`.
   Funnel is **not** configured (correctly), and `ZABZ-TECH`, `ZABZ-YOGA` and `linux-pc` all report
-  **"No serve config"**.
+  **"No serve config"**. `[corrected 2026-09-16: stale for `ZABZ-YOGA` — it reports a serve entry, pointing at `127.0.0.1:3086`, which has no listener, so the URL answers 502. Source: 60-verification.md §4.3.]`
 - **It is continuously probed, not assumed:** cron `*/5` runs `scripts/probe-phone.py` → `~/.dsh-phone/probe.json`,
   and its 15 checks include the cold visitor, the token exchange, the document, the **WebSocket upgrade 101**,
   the foreign-Host fence, a stale cookie, a dead link, **an authenticated `session/list` RPC**, and that the
@@ -175,7 +212,7 @@ sessions do not move. Replicas are archives, not live sessions.**
 - It is **windows whose agents are generating** that is heavy, and *"the resource that is actually tight is
   memory, not CPU"*, with *"cap simultaneously running agents at 3-4"* as a recommendation —
   PRIOR-MEASURED, `PERFORMANCE-MEASURED.md:127-135, 220-221`.
-- Under load the second binding resource is **disk**: **1,596 %** disk time when builds + indexers + agents ran
+- Under load the second binding resource is **disk**: **1,596 %** disk time when builds + indexers + agents ran `[corrected 2026-09-16: the condition is real — 97.31 % average disk time over a 3 s window on this laptop, with SearchIndexer reading 44–102 MB/s — but the NUMBER is not a possible reading of the counter it is attributed to, because this machine has ONE physical disk and ONE volume and a per-disk percentage cannot exceed 100. No counter is named anywhere in the wave. Cite the saturation, the queue length and the latency; drop 1,596 %. Source: 60-verification.md §1.5 and §6.3 item 2.]`
   together — PRIOR-MEASURED, `docs/parallel-agent-orchestration.md:186-188` context and the program's own
   disk finding.
 
@@ -498,7 +535,7 @@ fields a placement decision needs are a subset of it and need no new instrumenta
 | `loop.lag.p95/p95Max` | `/healthz` | a node that is already stuttering should not be offered more |
 | `governor.inUse/free/waiting` (+ the published arithmetic) | `/healthz` | the node's own admission answer, verbatim |
 | `listing.listAgents.lastScanMs` | `/healthz` | a surrogate for filesystem pressure — a 430-file corpus makes this a load signal |
-| disk headroom on the worktree volume | **not yet present** | the 1,596 % disk-time finding says this is a first-class resource, not an afterthought |
+| disk headroom on the worktree volume | **not yet present** | the 1,596 % disk-time finding says this is a first-class resource, not an afterthought `[corrected 2026-09-16: the finding is real and this field is still missing; the figure is 97.31 % measured, not 1,596 %.]` |
 
 **PROPOSED, the one missing field:** disk headroom (free bytes *and* a recent commit/IO stall indicator) on
 each volume that can host a worktree. Without it, placement reasons about memory only and reintroduces the
@@ -662,15 +699,15 @@ difference is arithmetic rather than adjective.
 
 | constant | value | provenance |
 |---|---|---|
-| one generating turn | **0.81 GB commit, ~1 core** | PRIOR-MEASURED, `PROGRAM.md:75` |
+| one generating turn | **0.81 GB commit, ~1 core** | PRIOR-MEASURED, `PROGRAM.md:75` `[corrected 2026-09-16: the ~1 core survives; the 0.81 GB does NOT. Measured on this laptop: ≈18 GB of commit is resident before any work and each further node process costs ≈0.58 GB (r = 0.937 over 477 samples). This is the input every row below is derived from, so treat all of §6.3 as PROVISIONAL until it is re-derived. Source: 60-verification.md §2.2.]` |
 | one shell tool call in flight | **160 MB, ~2 processes** | PRIOR-MEASURED, `10-dsh-source-audit.md:63-65`; governor constant `governor.js:53` |
 | a browser window | **325–566 MB private** (lean flags) | PRIOR-MEASURED, `PROGRAM.md:75` |
 | an idle browser window | ~0.25 core | PRIOR-MEASURED, `PERFORMANCE-MEASURED.md:168-171` |
-| `list_agents` on the live corpus | **1,172 ms** for one scan (430 files / 237.5 MB) | MEASURED §1.6, and the 3000 ms TTL cache is live |
-| `ZABZ-YOGA` budget | commit limit 44,149 MiB; 26,335 MiB free at idle-ish; **phys avail 17,575 MiB** | MEASURED §1.6 |
-| `secratary` | **4 cores, 23.4 GB RAM, 17,404 MB available** | MEASURED §1.6 |
-| `ZABZ-TECH` | **24c/32t, 63.6 GB (MEASURED §1.0)**; commit 44.5 GB / ~19.1 GB headroom (**PRIOR-MEASURED**, `PROGRAM.md:76`) | MEASURED (shape) + PRIOR-MEASURED (headroom) |
-| `zabz-tech-linux` | **12 cores (i5-11400), 11.7 GB** — MEASURED §1.0 | MEASURED |
+| `list_agents` on the live corpus | **1,172 ms** for one scan (430 files / 237.5 MB) | MEASURED §1.6, and the 3000 ms TTL cache is live `[corrected 2026-09-16: the corpus is 444 files / 255,137,162 B (243.3 MiB) as measured, and 430/237.5 arrives from `30-truth-and-disk.md:18`'s 436/251,054,028 — three mutually exclusive figures, all claiming MEASURED. Use "≈250 MB corpus" and re-measure the scan. Source: 60-verification.md §1.3.]` |
+| `ZABZ-YOGA` budget | commit limit 44,149 MiB; 26,335 MiB free at idle-ish; **phys avail 17,575 MiB** | MEASURED §1.6 `[corrected 2026-09-16: this whole row is ONE `/healthz` reading at 20:10Z, not a constant. The commit limit measured now is **43.11 GiB** (= 31.61 GiB RAM + 11,776 MB pagefile, exactly), and it MOVES because `AutomaticManagedPagefile=True`. Read it at call time; never hard-code it. Source: 60-verification.md §1.2.]` |
+| `secratary` | **4 cores, 23.4 GB RAM, 17,404 MB available** | MEASURED §1.6 `[corrected 2026-09-16: the 17,404 MB is a transient reading of free memory, NOT headroom above a resident floor. With ≈18 GB already committed on a loaded node, 23.4 − 18 ≈ 5 GB of real headroom, and its **4 cores** are the binding limit regardless. Do not size anything on the 17,404 MB.]` |
+| `ZABZ-TECH` | **24c/32t, 63.6 GB (MEASURED §1.0)**; commit 44.5 GB / ~19.1 GB headroom (**PRIOR-MEASURED**, `PROGRAM.md:76`) | MEASURED (shape) + PRIOR-MEASURED (headroom) `[corrected 2026-09-16: the header above says "Measured constants used". This row is explicitly PRIOR-MEASURED — §0 of this document (`:29–32`) says its headroom "was NOT measured" — so the header is a provenance error in the one place this document promises provenance. Nothing on ZABZ-TECH was re-measured in this wave. Source: 60-verification.md §3 C10.]` |
+| `zabz-tech-linux` | **12 cores (i5-11400), 11.7 GB** — MEASURED §1.0 | MEASURED `[corrected 2026-09-16: this is the same machine `40-hardware-costs.md` describes as 6 c/12 t, and `10-inventory.md:439` as `nproc -> 12`. 12 logical / 6 physical. State which one is meant wherever it is used; the core count is the binding figure and the two differ by 2×.]` |
 | `LakewooechsMini` | 10 cores (M4), 16 GB, **17 GB disk free** — an employee machine, and nearly full | MEASURED §1.0 |
 
 ### 6.2 Where each piece lands
@@ -725,6 +762,16 @@ live (§1.6). The design's whole job is to keep that reading looking like that w
 the fleet runs somewhere else.
 ```
 
+> `[corrected 2026-09-16 — this whole block is a DERIVATION from the refuted 0.81 GB/turn constant, so it is
+> retained as the original argument but must not be quoted as a measurement. What the machine's own sampler
+> record does support: idle commit floor ≈17–18.4 GB; ≈0.58 GB per extra node process (r = 0.937); peak
+> observed commit 36.49 GB at 58 node processes with 62,865 page-ins/s; and **commit has never exceeded the
+> 43.11 GiB limit**, so "the laptop CAN run it" is right for the wrong reason — the laptop does not run out of
+> commit, it pages under disk pressure. The disk line: 1,596 % is not a possible reading of the counter it is
+> attributed to (one disk); the measured figure is 97.31 % average, and the corpus is ≈243–255 MB, not
+> 237.5 MB. The "26,334 MiB free of 44,149 MiB" reading is one `/healthz` snapshot at 20:10Z; the limit today
+> is 43.11 GiB and it moves. Source: 60-verification.md §1.2, §1.3, §1.5, §2.2.]`
+
 **The difference is not "the laptop is a bit slower".** The recommended plan leaves ~13 GB of physical headroom
 and 20 free cores on the machine he is holding; the loser spends 9–15 cores of it and pushes commit toward the
 paging tripwire — the tripwire being *the* thing that makes the machine feel broken
@@ -757,7 +804,7 @@ mine to take and record. These are taken.
 | D3 | **`--trusted-host <node>.tail93e6e6.ts.net` is baked into the launcher and synced from the repo**, not passed ad hoc; `tailscale serve` publishes the **gate**, never the engine directly. | `--trusted-host` is a **startup** setting, so an ad-hoc change means an engine restart means every live session ends. Publishing the gate is already the proven shape (`serve status` on secratary → `:3086`), and it hides the token exchange from every client (§3.3). | Publishing the engine's own port: then every device needs a `?token=` link at least once per origin, and a first-time visitor hitting the bare URL gets a 401. |
 | D4 | **The broker is the authority; the authority is not an engine host** — with one measured exception, already taken. | `secratary` has **4 cores, 23.4 GB, swap 100 % used** (MEASURED §1.0/§1.6): a fine control plane, a hopeless worker. | Moving *fleet* work there, or treating its 4 cores as capacity. The phone engine already lives there and that is fine — one idle session store is not a fleet. |
 | D5 | **Position is computed, never stored; no verb ever returns a refusal.** | Already the governor's rule and the owner's rule (`PROGRAM.md:11`, `governor.js:37-39, 63-71`). | A cap: subtracts capability, which is the one thing the program refuses to do. |
-| D6 | **Disk headroom becomes a first-class placement input.** | 1,596 % disk time is a measured collapse, and the sync zstd decompress on a 237.5 MB corpus is on the same loop. | Memory-only placement, which is what the governor does today and why it cannot see the disk failure coming. |
+| D6 | **Disk headroom becomes a first-class placement input.** | 1,596 % disk time is a measured collapse, and the sync zstd decompress on a 237.5 MB corpus is on the same loop. `[corrected 2026-09-16: the DECISION STANDS and is arguably strengthened — measured 97.31 % average disk time on this laptop, single disk, with SearchIndexer at 44–102 MB/s sustained. Only the figure 1,596 % must not be used (one disk cannot exceed 100 %), and the corpus is ≈250 MB rather than 237.5 MB. Source: 60-verification.md §1.3, §1.5.]` | Memory-only placement, which is what the governor does today and why it cannot see the disk failure coming. |
 
 ---
 
@@ -781,6 +828,19 @@ Each phase ends in something **measurable**, and nothing in a later phase is nee
    *Measure:* `tailscale serve status` on each node, and one cold `GET /` **200** from a phone with no token in
    the URL. Today three of the four workstations report **"No serve config"** (MEASURED §1.0) — this is the
    single highest-value item in Phase 1, because it is the whole difference between "reachable" and "not".
+   `[corrected 2026-09-16: **the "200" is wrong and so is the missing half of the test.** (a) A cold `GET /`
+   with no token is **401 by design** — §3.1 `:437–445` of this same document says a first-time visitor who
+   reaches the root without a token "gets a 401 and a dead page", so §8.1 contradicted §3.1. Measured on
+   ZABZ-YOGA: `GET /` on a foreign authority → **401**; `GET /api` on a foreign authority → **403** (the fence
+   is stricter on `/api`). **A node behind a gate answers 200 here because the gate does the token exchange;
+   a node publishing a raw engine cannot.** (b) `tailscale serve status` ALONE IS NOT EVIDENCE — measured the
+   same evening, this laptop's serve entry pointed at `127.0.0.1:3086`, which had NO LISTENER, and every
+   request through `https://zabz-yoga-1.tail93e6e6.ts.net/` returned **502** while `serve status` looked
+   healthy. The test must therefore ALSO assert that the port named by `serve status` has a live listener.
+   Full corrected procedure, with the meaning of 401/200/403/502/000: **`60-verification.md` §4.2**. Also note
+   `--no-proxy`: this machine's `AutoConfigURL` PAC can manufacture a 502 that reads like a broken mesh.]`
+   `[corrected 2026-09-16: "three of the four workstations report No serve config" is stale for ZABZ-YOGA —
+   it IS served now (see the 502 above). §9 of this document already recorded the general fact.]`
 3. **Ship the §3.2 fragment plugin** into the gate's injected layer (§3.3 item 2), so it lands on every node at
    once. *Measure:* `https://<node>.tail93e6e6.ts.net/#session=<id>` opens that session from the phone.
 4. **Make cross-node placement an explicit, written act.** Until Phase 3 exists, `agent-fleet` ships with
@@ -799,7 +859,7 @@ Each phase ends in something **measurable**, and nothing in a later phase is nee
 
 | buy | why, in the measurements | what it changes |
 |---|---|---|
-| **A dedicated NVMe volume for `<DSH_HOME>` and worktrees** (or at minimum, separate them from the build artifacts) | 1,596 % disk time; a 237.5 MB session corpus with a synchronous zstd decompress on the same loop; `list_agents` at 1,172 ms for one scan | the largest measurable non-memory stall in the whole program stops being a stall |
+| **A dedicated NVMe volume for `<DSH_HOME>` and worktrees** (or at minimum, separate them from the build artifacts) | 1,596 % disk time `[corrected 2026-09-16: use the measured 97.31 % average / single disk instead]`; a 237.5 MB session corpus `[corrected 2026-09-16: ≈243–255 MB measured]` with a synchronous zstd decompress on the same loop; `list_agents` at 1,172 ms for one scan | the largest measurable non-memory stall in the whole program stops being a stall |
 | **Parity for `ZABZ-TECH`** (not a purchase — the fixes are already written): `NODE_COMPILE_CACHE`, the reaper, `maxParallelToolCalls`, Defender exclusions | the desktop is a **24c/32t, 63.6 GB** box carrying the waste the laptop already shed (MEASURED §1.0 for its shape; `PROGRAM.md:76, 89-104` for the waste) | it becomes the fleet node it is already the best candidate for |
 | **A Linux worker on the office LAN** — `zabz-tech-linux` already exists at **12 cores / 11.7 GB** | the cheapest capacity in the roster that is not the owner's laptop and not the authority; needs no purchase, only parity deployment | a second work node for fleets that must not touch either laptop |
 | **Disk, not cores, on the mac mini** | MEASURED: **17 GB free of 228 GB** (§1.0). An employee's machine with 93 % disk used cannot host worktrees, and should not be given fleet work without that being fixed first | rules `LakewooechsMini` out of the worker role as-is — a measured exclusion, not an opinion |
@@ -843,7 +903,12 @@ Two things, and neither is a document to read. **The first is a single question,
 1. **Money, and it is the only question in this file for him.** Phase 2 proposes an always-on worker node
    (≥16 cores, ≥64 GB, NVMe, wired at the office) so that fleets do not depend on either laptop being awake,
    and a dedicated NVMe volume for `<DSH_HOME>` + worktrees because **1,596 % disk time** is the measured stall
-   that memory tuning cannot fix. Two cheap alternatives already exist and need no purchase —
+   that memory tuning cannot fix. `[corrected 2026-09-16: this is the sentence that carries a wrong number into
+   a question for the owner, so it is corrected rather than annotated. What is measured is **97.31 % average
+   disk time on a single disk over a 3-second window**, with SearchIndexer reading 44–102 MB/s through it, and
+   `\PhysicalDisk(_Total)\% Disk Time` cannot exceed 100 % on one disk so 1,596 % was never a reading of that
+   counter. **The question to the owner is unchanged in substance** — the disk is a real bottleneck and the
+   money question is real — but do not put "1,596 %" in front of him.]` Two cheap alternatives already exist and need no purchase —
    `ZABZ-TECH` at **24c/32t / 63.6 GB** and `zabz-tech-linux` at **12 cores / 11.7 GB** (both MEASURED §1.0) —
    so the honest question is whether he wants to buy a box or spend the two free ones first.
    *My recommendation: Phase 1 + parity on the two existing machines, and revisit the purchase only if a
@@ -852,7 +917,7 @@ Two things, and neither is a document to read. **The first is a single question,
 2. **A status correction to the record, not a question: Tailscale Serve is already enabled and `secratary` is
    already published** — MEASURED `tailscale serve status` → `https://secratary.tail93e6e6.ts.net (tailnet
    only) |-- / proxy http://127.0.0.1:3086`, with Funnel deliberately **off**. What is *not* done is per-node
-   publication: `ZABZ-TECH`, `ZABZ-YOGA` and `linux-pc` each report **"No serve config"**. The blocker recorded
+   publication: `ZABZ-TECH`, `ZABZ-YOGA` and `linux-pc` each report **"No serve config"**. `[corrected 2026-09-16: `ZABZ-YOGA` DOES have a serve entry now; what it does not have is a live listener behind it (points at 3086, nothing there, URL answers 502). This §9 paragraph is the one place the document had the general fact right — the sentence corrected here is only the per-node list. Source: 60-verification.md §4.3.]` The blocker recorded
    on 2026-09-11 (`docs/dsh-mobile/01-DESIGN-AND-PLAN.md:71-76`) is therefore closed, and Phase 1 item 2 needs
    no owner action at all.
 

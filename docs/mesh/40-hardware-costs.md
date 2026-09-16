@@ -326,19 +326,34 @@ Note the inversion at rank 4: **a single large machine is more efficient per res
 
 ### Where the fleet stands today — MEASURED
 
-| Node | CPU | Cores/threads | RAM | Resident turns | Generating ceiling |
-|---|---|---|---|---|---|
-| Yoga 9 14IMH9 (this laptop) | Ultra 7 155H | 16 c / 22 t | 31.6 GB | 29 | 22 |
-| `secratary` (OptiPlex 9020 SFF) | i5-4570 | 4 c / 4 t | 23.4 GB | 21 | 4 |
-| `linux-pc-ts` (**HP Pavilion Desktop TP01-2xxx**) | i5-11400 | 6 c / 12 t | 11.6 GB | 10 | 12 |
-| `mac-mini-ts` (Apple M4) | M4 | 10 c | 16 GB | 14 | 10 |
-| **Total** | | **48 threads** | **82.6 GB** | **74** | **48** |
+`[corrected 2026-09-16: the "Resident turns" column was computed with the refuted `0.75 × RAM / 0.81` form. Corrected values use `floor((0.75 × RAM − 18) / 0.58)` — the measured idle floor and the measured per-process slope — and the `Generating ceiling` column is kept because it is the one that binds (§4, and `:43`'s own `min()` rule). The corrected column is what a node can hold; the third column is what it can run.]`
+
+| Node | CPU | Cores/threads | RAM | Resident processes **(corrected)** | was | Generating ceiling |
+|---|---|---|---|---|---|---|
+| Yoga 9 14IMH9 (this laptop) | Ultra 7 155H | 16 c / 22 t | 31.6 GB | **9** | 29 | 22 |
+| `secratary` (OptiPlex 9020 SFF) | i5-4570 | 4 c / 4 t | 23.4 GB | **0** | 21 | **4** |
+| `linux-pc-ts` (**HP Pavilion Desktop TP01-2xxx**) | i5-11400 | 6 c / 12 t | 11.6 GB | **0** | 10 | 12 |
+| `mac-mini-ts` (Apple M4) | M4 | 10 c | 16 GB | **0** | 14 | 10 |
+| **Total** | | **48 threads** | **82.6 GB** (4 nodes) | **9** | 74 | **48** |
+
+> **Three of those four rows are zero, and that is the honest reading of the floor.** With ≈18 GB already
+> resident on a loaded harness node, a 23.4 GB server is at its floor, a 16 GB mini is below it, and an
+> 11.6 GB box is far below it — before any of them is asked to generate. The 4-node "74" was a memory
+> ceiling with no floor subtracted; **the number of additional processes these machines can hold is 9,
+> and none of the four can *generate* more than its cores allow.** `ZABZ-TECH` (63.65 GB, 32 threads) is
+> not in this table and is the only node that is both large and idle — `10-inventory.md:345–346`.
+> `[added 2026-09-16]`
+>
+> **Scope, stated because it was not:** this table is **four of the seven measured machines**.
+> `20-placement.md:51–57` and `10-inventory.md:594–602` list seven; adding `ZABZ-TECH` (63.65 GB) and the
+> two Hetzner boxes (1.87 GB, 7.57 GB) takes the measured fleet to ≈155 GB. The "82.6 GB" above is a
+> four-node subset, not the fleet. `[added 2026-09-16]`
 
 > **Correction to the fleet inventory.** The brief describes `zabz-tech-linux` as "a macOS mini for his employee Yisroel". **MEASURED 2026-09-16:** the host reachable as `linux-pc-ts` runs hostname `zabz-tech-linux`, `Linux 6.8.0-111-generic x86_64` — **Ubuntu on an HP Pavilion Desktop TP01-2xxx with an i5-11400**, not macOS and not a mini. `dmidecode` reports **2 DIMM slots** (DIMM1: 8 GB Samsung `M378A1G44AB0-CWE`; DIMM2: 4 GB SK Hynix `HMA851U6DJR6N-XN`), **DDR4-3200**, **`Maximum Capacity: 64 GB`**, on a 468 GB NVMe volume that is **96 % full**. The recorded inventory is stale; the measurement is the truth. This matters because it makes that machine a strong upgrade target.
 
 ### The real diagnosis
 
-Demand is 40–55 concurrent turns = **44.6 GB at 55 turns**, which alone **exceeds the Yoga's 31.6 GB**. The mesh already holds **74 resident turns in aggregate**, so total memory is *not* the shortage. **The shortage is placement — the work lands on the one machine that cannot be upgraded (item 1) — plus core count.** Any purchase is therefore about (i) creating *elsewhere* to put turns and (ii) adding cores to run them.
+Demand is 40–55 concurrent turns = **44.6 GB at 55 turns**, which alone **exceeds the Yoga's 31.6 GB**. `[corrected 2026-09-16: "40–55 concurrent turns" is NOT a measured demand — no document in this wave measures it, and the 44.6 GB is that assumption multiplied by the refuted 0.81 GB/turn. It is retained here as the figure the original argument used, and must be re-derived from `sessions.agentLoopsRunning` in `/healthz` before any purchase is sized against it. Source: 60-verification.md §2.3.]` The mesh already holds **74 resident turns in aggregate** `[corrected 2026-09-16: with the ≈18 GB floor subtracted the four measured nodes hold **9** additional processes, not 74; see the table above.]`, so total memory is *not* the shortage. **The shortage is placement — the work lands on the one machine that cannot be upgraded (item 1) — plus core count.** Any purchase is therefore about (i) creating *elsewhere* to put turns and (ii) adding cores to run them. `[added 2026-09-16: the placement half of this diagnosis is the part that survives every correction — the laptop is the machine that cannot be upgraded, and work lands there by default.]`
 
 ### (a) 3–4 cheap used mini PCs — at VERIFIED prices
 
@@ -387,7 +402,11 @@ RAM is the dominant and now pathological cost, and **the real listing prices are
 
 **ARITHMETIC, derived from the owner's own measured constants** (0.81 GB/turn, ~1 core per generating turn, 25 % headroom):
 
-- **40–55 concurrent turns at ~1 core per generating turn requires 40–55 usable cores.**
+> `[corrected 2026-09-16: the phrase "the owner's own measured constants" cannot carry `0.81 GB/turn`. It is inherited from `docs/dsh-at-scale/PROGRAM.md:75` and never measured by this document or by any document in this wave. The machine's own sampler record gives ≈18 GB resident before any work and ≈0.58 GB per extra node process. **The CORES finding below does not depend on it** — it needs only "a generating turn needs about one core", which is the part that is measured, and it is the finding this section is about.]`
+
+> `[corrected 2026-09-16: **"1,596 % disk time" is cited in `20-placement.md` at `:178`, `:501`, `:716`, `:760`, `:802`, `:845` and is used there to justify a dedicated NVMe volume.** It is NOT a possible reading of `\PhysicalDisk(_Total)\% Disk Time` on `ZABZ-YOGA`, which has exactly ONE physical disk and ONE volume, and no document in the wave names the counter it came from. Re-measured on this machine: 4.48 % avg in a quiet window (21:46Z) and **97.31 % avg seven minutes later** (21:53Z), with SearchIndexer reading 44–102 MB/s through it. **The disk really does saturate; the number does not survive.** If a disk-time figure is needed for a purchase decision, re-derive it naming the counter and the instance set, and report queue length and latency alongside it — `60-verification.md` §6.3 item 2.]`
+
+- **40–55 concurrent turns at ~1 core per generating turn requires 40–55 usable cores.** `[corrected 2026-09-16: the CORES half of this bullet is the document's strongest claim and it stands. The turn count (40–55) is not measured — see the correction in §4's "The real diagnosis". Do not buy against 40–55 until `/healthz`'s `sessions.agentLoopsRunning` has measured it.]`
 - An i9-14900K or Ryzen 9 7950X has **24 cores / 32 threads** → it can saturate only **~24–32 turns.**
 - **One 24-core desktop therefore does not replace the mesh at 55 turns.** It would need to be two such boxes, or a 32–64-core Threadripper/EPYC-class machine — a materially different and much more expensive tier.
 - The RAM to reach 55 resident turns is only **$600–900** at today's prices. **RAM is not the problem; cores are.** Buying a big machine to fix a presumed RAM shortage would spend $5,000 to solve the wrong axis and still come up ~20 cores short.
@@ -467,7 +486,7 @@ NJ residential **24.95 ¢/kWh** (EIA Table 5.6.A, June 2026, released 2026-08-26
 
 **Budget variant, if cash is the constraint:** swap line 1 for **3 × OptiPlex 7070 Micro, i5-9500T, 16 GB, 256 GB NVMe at $150** `[F]` — https://www.ebay.com/itm/336795130291 — total **$564.03**, saving $111.83, and give up **18 threads** and half the RAM ceiling. Same 42 turns either way.
 
-**Resulting mesh:** resident turns **74 → 124**; **threads 48 → 88** and **physical cores 36 → 54** (against a 40–55-turn demand, so the binding constraint is finally cleared with headroom); non-Yoga capacity **45 → 95 turns**, leaving the Yoga free to be the machine he works on. Added continuous draw ~37 W = **+$80.92/yr**. **3-year $/turn ≈ $18.37**; upfront $/turn **$13.52**.
+**Resulting mesh:** resident turns **74 → 124**; **threads 48 → 88** and **physical cores 36 → 54** (against a 40–55-turn demand, so the binding constraint is finally cleared with headroom); non-Yoga capacity **45 → 95 turns**, leaving the Yoga free to be the machine he works on. Added continuous draw ~37 W = **+$80.92/yr**. **3-year $/turn ≈ $18.37**; upfront $/turn **$13.52**. `[corrected 2026-09-16: the "74 → 124" and "45 → 95" resident-turn figures carry the refuted unit and are not usable as stated — with the ≈18 GB floor the four measured nodes hold 9 additional processes, not 74 (see the corrected table in §4). **The THREADS and CORES halves of this sentence are sound and are the part the recommendation rests on**: 3 × 12 threads + 4 (the i7-4790) = 40 added threads, 36 → 88, and 3 × 6 physical + 0 = 18, so physical cores 36 → 54. Against the document's own §4 finding that CORES bind, that arithmetic is the argument, and it does not depend on the per-turn constant.]`
 
 **Why this package and not a bigger one:** it is the only route that adds **cores and turns together, in the ratio the demand actually needs**, at the lowest upfront cash, with the smallest electricity bill, silently, and with capacity purchasable one node at a time as need is measured. The workstation route spends **~8× more cash** and still delivers only **24 physical cores** against a 40–55 core requirement.
 
