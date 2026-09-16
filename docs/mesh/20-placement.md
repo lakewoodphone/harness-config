@@ -425,6 +425,45 @@ session *by origin* (`dsh.sessions.current` on a distinct port), which is what `
 (`research-session-urls.md:443`). Neither substitutes for a real session URL when the session lives on a
 different machine.
 
+### 3.3 The pattern to generalise: a per-node gate, proven on `secratary`
+
+Remote access does **not** need to be designed. It has been built, and it is worth being precise about what it
+does, because the mesh version is the same component pointed at more nodes.
+
+`scripts/phone-gate.py` is **a raw TCP relay, not an HTTP proxy** — deliberately, so that the WebSocket upgrade
+survives untouched (`phone-gate.py:15`). It does four things and nothing else
+(`docs/dsh-mobile/02-SYSTEMS.md:74-76`):
+
+1. **Signs a cold visitor in, in flight.** The problem it solves is measured, 2026-09-11: DSH authenticates with
+   a one-time `?token=` on `GET /` **only**, so a first-time visitor who reaches the root without it — a typed
+   address, a restored tab, a phone home-screen icon — gets a 401 and a dead page (`phone-gate.py:4-13`). The
+   gate reads the live token from the engine's own log at request time (so it survives engine restarts,
+   `:19, 55-76`) and **performs the exchange itself**: ask the engine for the document with the token, keep the
+   session cookie the engine hands back, fetch the document with that cookie, and return it to the client with
+   `Set-Cookie` injected (`:194-245`). The client never sees a token in its URL or its history, **and no
+   redirect loop is constructible** — the naive `302 → /?token=` shape was measured looping 50 hops to an abort
+   (`:198-205`).
+2. **Injects the client layer under the client's own control.** A mobile stylesheet and the
+   `dsh-plugin-mobile` / `dsh-plugin-cost` links are injected before `</head>`, and the document is marked
+   `Cache-Control: no-store`, because a document served from the client's own cache carries no layer at all
+   (`:83-86, 631-653`). **This is the mechanism that makes "the same client everywhere" a per-node decision
+   rather than a package fork**, and it is also the mount point for the §3.2 fragment reader.
+3. **Relays `/api` and the WebSocket byte-for-byte**, so nothing about the RPC protocol or the mux is
+   reimplemented.
+4. **Refuses a foreign `Host`** and leaves the upgrade case alone (`:711-727`), so the fence from §3.1 is not
+   weakened by the extra hop.
+
+**PROPOSED: this is the unit of mesh remote access.** One gate per node, in front of that node's one engine, and
+`tailscale serve` publishes **the gate** (as it does today — `serve status` → `:3086`, and the gate relays to
+`:3089`). Each node then has exactly one publishable URL, one cold-visitor path that works from a phone without
+a token in the URL, and one place to hang the per-device client layer. **Nothing about this needs new
+research — it needs `serve-phone.py` renamed in spirit and pointed at each node's own ports.**
+
+**And it composes with §5:** the gate is also the natural place to surface *which node you are on*. A device
+that lands on the wrong node today gets a 401-free page showing that node's sessions; with the vocabulary of
+§3.2 it can be told, in one line, "this is `zabz-yoga`; the session you asked for lives on `zabz-tech`" and
+handed the link — which is the difference between a mesh and a redirect puzzle.
+
 ---
 
 ## 4. The queue, not a cap
@@ -630,7 +669,9 @@ difference is arithmetic rather than adjective.
 | `list_agents` on the live corpus | **1,172 ms** for one scan (430 files / 237.5 MB) | MEASURED §1.6, and the 3000 ms TTL cache is live |
 | `ZABZ-YOGA` budget | commit limit 44,149 MiB; 26,335 MiB free at idle-ish; **phys avail 17,575 MiB** | MEASURED §1.6 |
 | `secratary` | **4 cores, 23.4 GB RAM, 17,404 MB available** | MEASURED §1.6 |
-| `ZABZ-TECH` | 32 cores, 63.6 GB, commit 44.5 GB, **~19.1 GB headroom** — *never re-measured; SSH unreachable* | PRIOR-MEASURED, `PROGRAM.md:76` |
+| `ZABZ-TECH` | **24c/32t, 63.6 GB (MEASURED §1.0)**; commit 44.5 GB / ~19.1 GB headroom (**PRIOR-MEASURED**, `PROGRAM.md:76`) | MEASURED (shape) + PRIOR-MEASURED (headroom) |
+| `zabz-tech-linux` | **12 cores (i5-11400), 11.7 GB** — MEASURED §1.0 | MEASURED |
+| `LakewooechsMini` | 10 cores (M4), 16 GB, **17 GB disk free** — an employee machine, and nearly full | MEASURED §1.0 |
 
 ### 6.2 Where each piece lands
 
@@ -665,14 +706,23 @@ is attached to).**
 
 ```
 ZABZ-YOGA  commit   = 0.74 engine + 1 chat 0.81 + 6 fleet 4.86 + fleet shells 0.96
-                    + build ~3 + 1.8 windows  =  12.2 GB of commit, on a machine already
-                    measured at 26.3 GB used of a 44.1 GB limit before any of this
-           physical = 17.6 GB available against ~12 GB of new demand
-           CPU      = ~1 + 6 + 2..8 = **9–15 of 22 cores**, and the event loop p95 already
-                    reaches 706 ms max under load (MEASURED §1.6)
+                    + build ~3 + 1.8 windows  =  12.2 GB of commit of NEW demand
+           physical = 17,575 MiB available against ~12 GB of new demand, i.e. it survives
+                    — and that is exactly why this is a PLACEMENT problem and not a
+                    "buy more RAM" problem. The laptop CAN run it; it just stops being
+                    the machine he is holding and becomes the machine that is working
+           CPU      = ~1 + 6 + 2..8 = **9–15 of 22 cores**, and the event loop already
+                    measured 706 ms max lag under load (MEASURED §1.6)
            disk     = the measured failure mode: 1,596 % disk time when builds + indexers
-                    + agents ran together — and every zstd decompress on the 237.5 MB
-                    session corpus is synchronous on that same loop
+                    + agents ran together — and the zstd decompress into `list_agents`
+                    is SYNCHRONOUS on that same loop (READ,
+                    `dsh-session-persistence-jsonl/lib/index.js:1263` `zstdDecompressSync`),
+                    which on this node's 237.5 MB corpus measured 1,172 ms for one scan (§1.6)
+
+CONTEXT, so the two columns are comparable: the same engine measured 26,334 MiB of
+commit still free of a 44,149 MiB limit while 8 agent loops and 6 tool runners were
+live (§1.6). The design's whole job is to keep that reading looking like that while
+the fleet runs somewhere else.
 ```
 
 **The difference is not "the laptop is a bit slower".** The recommended plan leaves ~13 GB of physical headroom
@@ -703,9 +753,9 @@ mine to take and record. These are taken.
 | # | decision | why | alternative rejected |
 |---|---|---|---|
 | D1 | **Sessions do not move. Placement moves work.** | The session log, its lease and its "current session" pointer are all node-local by construction (§1.2), and the write lease is deliberately non-expropriable across hosts. | Replicating `~/.dsh/sessions` between nodes: no shipped mechanism, and a network-share `DSH_HOME` breaks atomic rename/fsync/single-writer assumptions the persistence layer is built on. |
-| D2 | **`serve-phone.*` must publish the *existing* engine, not start a second one on the same `DSH_HOME`.** | A second engine on one home is the documented corruption case, and sharing a home is *documented as the feature* (`serve-phone.ps1:16-18`). The corruption is not hypothetical — `windows.json:5`. | Leaving it: it works until it does not, and when it does not, a history is unloadable. |
-| D3 | **`--trusted-host <node>.tail93e6e6.ts.net` is baked into the launcher and synced from the repo**, not passed ad hoc. | It is a **startup** setting, so an ad-hoc change means an engine restart means every live session ends. Baking it in makes restarts rare and predictable. | A dedicated trusted engine per node (the `serve-phone` shape): doubles the engine and the MCP surface for no benefit once D2 is taken. |
-| D4 | **The broker is the authority; the authority is not an engine host.** | `secratary` has **4 cores, 23.4 GB, 17.4 GB available** (MEASURED §1.6). It is a fine control plane and a poor worker. | Putting the phone's engine there permanently: it is the current design (`dsh-mobile/01:322-347, 399`) and it makes the mesh depend on a 4-core box for *every* device's sessions. |
+| D2 | **One engine per `DSH_HOME`, always — and the correct remote shape is a *gate in front of that engine*, not a second engine.** | The Windows script's *"shares DSH_HOME, so it is the same agent"* (`serve-phone.ps1:16-18`) is the one-writer violation (`windows.json:5`); the Linux shape — `phone-gate.service` on 3086 relaying to `phone-engine.service` on 3089, one engine, one home — is MEASURED working on `secratary` with a 15-check probe (§1.0, §3.3). | Leaving the Windows shape: it works until a session is opened on both engines, and then a history is unloadable. |
+| D3 | **`--trusted-host <node>.tail93e6e6.ts.net` is baked into the launcher and synced from the repo**, not passed ad hoc; `tailscale serve` publishes the **gate**, never the engine directly. | `--trusted-host` is a **startup** setting, so an ad-hoc change means an engine restart means every live session ends. Publishing the gate is already the proven shape (`serve status` on secratary → `:3086`), and it hides the token exchange from every client (§3.3). | Publishing the engine's own port: then every device needs a `?token=` link at least once per origin, and a first-time visitor hitting the bare URL gets a 401. |
+| D4 | **The broker is the authority; the authority is not an engine host** — with one measured exception, already taken. | `secratary` has **4 cores, 23.4 GB, swap 100 % used** (MEASURED §1.0/§1.6): a fine control plane, a hopeless worker. | Moving *fleet* work there, or treating its 4 cores as capacity. The phone engine already lives there and that is fine — one idle session store is not a fleet. |
 | D5 | **Position is computed, never stored; no verb ever returns a refusal.** | Already the governor's rule and the owner's rule (`PROGRAM.md:11`, `governor.js:37-39, 63-71`). | A cap: subtracts capability, which is the one thing the program refuses to do. |
 | D6 | **Disk headroom becomes a first-class placement input.** | 1,596 % disk time is a measured collapse, and the sync zstd decompress on a 237.5 MB corpus is on the same loop. | Memory-only placement, which is what the governor does today and why it cannot see the disk failure coming. |
 
@@ -719,19 +769,24 @@ Each phase ends in something **measurable**, and nothing in a later phase is nee
 
 **Goal: the mesh stops being four machines and starts being one system with honest limits.**
 
-1. **Fix D2 (the phone engine).** Audit for a second engine on any one `DSH_HOME`; change `serve-phone.*` to
-   publish the running engine's port, and re-mint the token exchange once.
-   *Measure:* `serve-phone.ps1 -Status` shows the URL, the served port equals the **primary** port (3099), and
-   no second `bin.js web` is running against `~/.dsh` on that node.
-2. **Publish every node the owner uses.** `tailscale serve --bg <port>` per node; `--trusted-host <node>.tail93e6e6.ts.net`
-   in the launcher, synced from `harness-config` (D3).
-   *Measure:* `tailscale serve status` on each node, and one `GET /` **200** with a token from the phone.
-3. **Ship the §3.2 fragment plugin.** *Measure:* `https://<node>.tail93e6e6.ts.net/#session=<id>` opens that
-   session from the phone.
+1. **Make every node match the node that already works (§1.0).** Audit for a second engine against any one
+   `DSH_HOME`; adopt the `secratary` shape — one engine, loopback only, `--trusted-host <node>.tail93e6e6.ts.net`,
+   owned by a service rather than a login session — and a gate in front of it (§3.3). Converge `serve-phone.ps1`
+   onto the Linux shape, which is the correct one.
+   *Measure:* on every node, `ps … | grep 'bin[.]js web' | wc -l` is **1**; `tailscale serve status` names the
+   gate's port; `probe-phone.py` (adapted per node) passes its WebSocket-upgrade and authenticated-`session/list`
+   checks from the phone. `secratary` is the reference implementation and already passes all 15.
+2. **Publish every node the owner uses.** `tailscale serve --bg <gate port>` per node; `--trusted-host
+   <node>.tail93e6e6.ts.net` in the launcher, synced from `harness-config` (D3).
+   *Measure:* `tailscale serve status` on each node, and one cold `GET /` **200** from a phone with no token in
+   the URL. Today three of the four workstations report **"No serve config"** (MEASURED §1.0) — this is the
+   single highest-value item in Phase 1, because it is the whole difference between "reachable" and "not".
+3. **Ship the §3.2 fragment plugin** into the gate's injected layer (§3.3 item 2), so it lands on every node at
+   once. *Measure:* `https://<node>.tail93e6e6.ts.net/#session=<id>` opens that session from the phone.
 4. **Make cross-node placement an explicit, written act.** Until Phase 3 exists, `agent-fleet` ships with
    `-Node` and the launcher refuses to fan a fleet out on the laptop he is holding without saying so.
-   *Measure:* a 6-agent fleet runs on `ZABZ-TECH` and the laptop's commit is unchanged ±1 GB; the
-   `/healthz` reading on the laptop before and after is the evidence.
+   *Measure:* a 6-agent fleet runs on `ZABZ-TECH` (24c/32t) or `zabz-tech-linux` (12 cores) and the laptop's
+   commit is unchanged ±1 GB; the `/healthz` reading on the laptop before and after is the evidence.
 5. **Write the §5.2 handoff before every fleet.** *Measure:* a kill of the fleet's node mid-run, and the
    work found again from the journal entry alone on a second node.
 
@@ -745,7 +800,9 @@ Each phase ends in something **measurable**, and nothing in a later phase is nee
 | buy | why, in the measurements | what it changes |
 |---|---|---|
 | **A dedicated NVMe volume for `<DSH_HOME>` and worktrees** (or at minimum, separate them from the build artifacts) | 1,596 % disk time; a 237.5 MB session corpus with a synchronous zstd decompress on the same loop; `list_agents` at 1,172 ms for one scan | the largest measurable non-memory stall in the whole program stops being a stall |
-| **Parity for `ZABZ-TECH`** (not a purchase — the fixes are already written): `NODE_COMPILE_CACHE`, the reaper, `maxParallelToolCalls`, Defender exclusions | the desktop is a 32-core / 63.6 GB box carrying the waste the laptop already shed (`PROGRAM.md:76, 89-104`) | it becomes the fleet node it is already the best candidate for |
+| **Parity for `ZABZ-TECH`** (not a purchase — the fixes are already written): `NODE_COMPILE_CACHE`, the reaper, `maxParallelToolCalls`, Defender exclusions | the desktop is a **24c/32t, 63.6 GB** box carrying the waste the laptop already shed (MEASURED §1.0 for its shape; `PROGRAM.md:76, 89-104` for the waste) | it becomes the fleet node it is already the best candidate for |
+| **A Linux worker on the office LAN** — `zabz-tech-linux` already exists at **12 cores / 11.7 GB** | the cheapest capacity in the roster that is not the owner's laptop and not the authority; needs no purchase, only parity deployment | a second work node for fleets that must not touch either laptop |
+| **Disk, not cores, on the mac mini** | MEASURED: **17 GB free of 228 GB** (§1.0). An employee's machine with 93 % disk used cannot host worktrees, and should not be given fleet work without that being fixed first | rules `LakewooechsMini` out of the worker role as-is — a measured exclusion, not an opinion |
 | **Always-on compute for the worker role** — a small NUC/1 L box with ≥16 cores and ≥64 GB, NVMe, wired at the office | the *only* always-on node today has **4 cores and 23.4 GB** (MEASURED) and is already running the company's 18-agent tick loop | work that must not depend on a laptop being awake gets somewhere to run |
 | (optional) **a laptop-speed ceiling check**: is the owner's laptop already NVMe? | §6 says the laptop is not the fleet host again — so spending on it is the wrong spend | avoids buying the wrong thing |
 
@@ -781,14 +838,22 @@ handoff are all still correct.*
 
 ## 9. Open, and genuinely the owner's
 
-Only one thing in this document is his rather than mine, and it is not a document to read:
+Two things, and neither is a document to read. **The first is a single question, asked plainly.**
 
-1. **Tailscale Serve must be enabled on the tailnet — one click, and only he can do it.** On 2026-09-11 the
-   answer was *"Serve is not enabled on your tailnet. To enable, visit:
-   https://login.tailscale.com/f/serve?node=<nodeid>"* (`docs/dsh-mobile/01-DESIGN-AND-PLAN.md:71-76`). Every
-   remote-access path in §3 is blocked behind that click. It has not been re-checked in this session, so it
-   may already be done.
+1. **Money, and it is the only question in this file for him.** Phase 2 proposes an always-on worker node
+   (≥16 cores, ≥64 GB, NVMe, wired at the office) so that fleets do not depend on either laptop being awake,
+   and a dedicated NVMe volume for `<DSH_HOME>` + worktrees because **1,596 % disk time** is the measured stall
+   that memory tuning cannot fix. Two cheap alternatives already exist and need no purchase —
+   `ZABZ-TECH` at **24c/32t / 63.6 GB** and `zabz-tech-linux` at **12 cores / 11.7 GB** (both MEASURED §1.0) —
+   so the honest question is whether he wants to buy a box or spend the two free ones first.
+   *My recommendation: Phase 1 + parity on the two existing machines, and revisit the purchase only if a
+   measured fleet run still queues.*
 
-Everything else in §7 and §8 is a development decision and is taken here. When the queue reaches this file's
-Phase 3, the one question that will genuinely belong to him is **money**: how much the always-on worker node
-in Phase 2 may cost.
+2. **A status correction to the record, not a question: Tailscale Serve is already enabled and `secratary` is
+   already published** — MEASURED `tailscale serve status` → `https://secratary.tail93e6e6.ts.net (tailnet
+   only) |-- / proxy http://127.0.0.1:3086`, with Funnel deliberately **off**. What is *not* done is per-node
+   publication: `ZABZ-TECH`, `ZABZ-YOGA` and `linux-pc` each report **"No serve config"**. The blocker recorded
+   on 2026-09-11 (`docs/dsh-mobile/01-DESIGN-AND-PLAN.md:71-76`) is therefore closed, and Phase 1 item 2 needs
+   no owner action at all.
+
+Everything else in §7 and §8 is a development decision and is taken here.
