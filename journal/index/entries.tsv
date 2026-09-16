@@ -835,6 +835,7 @@ lessons	L1712	1712		2026-09-16	ZABZ-YOGA	open	**L1712 · DSH money is only in th
 lessons	L1713	1713		2026-09-16	ZABZ-YOGA	open	**L1713 · Regenerating a generated preset deletes hand edits - --check warned me and I regenerated anyway, deleting two owner rules from the live system prompt**	entries/lessons/L1713.md	1	44	4a67a4d493692846
 lessons	L1714	1714		2026-09-16	ZABZ-YOGA	open	**L1714 · DSH session logs are multi-frame zstd; .decompress() silently returns only the first frame**	entries/lessons/L1714.md	1	6	60de0209b7959edc
 lessons	L1715	1715		2026-09-16	ZABZ-YOGA	open	**L1715 · DSH cost is requests x mean context; the cache is already healthy, so only volume is left**	entries/lessons/L1715.md	1	6	600ad6fbd9a32815
+lessons	L1716	1716		2026-09-16	ZABZ-YOGA	open	**L1716 · A trivial pwsh tool call costs 540-700 ms and 78% of it is PowerShell's own startup - the fix is using read/grep instead, not tuning the runner**	entries/lessons/L1716.md	1	43	4ccbe8389a50ffb9
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1005,6 +1006,7 @@ pain	P205	205		2026-09-15	ZABZ-YOGA	open	## P205 — C-900: live prod credential
 pain	P206	206		2026-09-15	ZABZ-YOGA	open	## P206 — No admin on zabz-yoga blocks Defender exclusions and thermal telemetry	entries/pain/P206.md	1	32	5facf5844d0890f5
 pain	P207	207		2026-09-15	ZABZ-YOGA	open	## P207 — personal-secretary-mvp repo HEAD is older than the deployed code; a merge from HEAD regresses the security roster	entries/pain/P207.md	1	34	a9c7b794f9cb81b9
 pain	P208	208		2026-09-16	ZABZ-YOGA	open	## P208 — list_agents has no deadline and re-scans every session file serially - ranked pain list for the DSH scale program	entries/pain/P208.md	1	47	11a9f6feb2266823
+pain	P209	209		2026-09-16	ZABZ-YOGA	open	## P209 — No budget, ceiling or alert of any kind guards DSH spend	entries/pain/P209.md	1	6	5f4af46bcdcf470d
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1170,6 +1172,8 @@ decisions	D201	201		2026-09-15	ZABZ-YOGA	open	**D201 · 2026-09-15 · Owner queu
 decisions	D202	202		2026-09-15	ZABZ-YOGA	open	**D202 · 2026-09-15 · LPT full build: the plan, and the one question that is the owner's.**	entries/decisions/D202.md	1	14	b5b516b46fa7ac32
 decisions	D203	203		2026-09-16	ZABZ-YOGA	open	**D203 · 2026-09-16 · Program rule: remove waste first, reduce capability last - so the capability knobs stay untouched.**	entries/decisions/D203.md	1	57	34cbb89e6472fc9e
 decisions	D204	204		2026-09-16	ZABZ-YOGA	open	**D204 · 2026-09-16 · Cost round 3: compaction trigger fixed and pruner tightened (76.7% -> 66.6% kept, measured); MCP un-mounting deferred as a capability call for the owner.**	entries/decisions/D204.md	1	46	77b96e1ac88a522b
+decisions	D205	205		2026-09-16	ZABZ-YOGA	open	**D205 · 2026-09-16 · DSH cost levers chosen: thresholdRatio, MCP trim, pruner bounds, session splitting.**	entries/decisions/D205.md	1	6	9dd0b8bd8a850888
+decisions	D206	206		2026-09-16	ZABZ-YOGA	open	**D206 · 2026-09-16 · Persistent shell rejected for now: it loses run_in_background, escalation, the spill file and Job-object cleanup; the runner's 135 ms and its cleanup guarantee are the same purchase.**	entries/decisions/D206.md	1	50	46096d0adfc113f2
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1313,3 +1317,4 @@ wins	W170	170		2026-09-15	ZABZ-YOGA	open	**W170 · 2026-09-15 · The descriptor 
 wins	W171	171		2026-09-15	ZABZ-YOGA	open	**W171 · 2026-09-15 · Her agent found two real defects in my tooling, one of them destroying customer data.**	entries/wins/W171.md	1	45	96e139b5aee9db8d
 wins	W172	172		2026-09-15	ZABZ-YOGA	open	**W172 · 2026-09-15 · Unblocked her Mac: a journal id collision had stopped the machine taking any updates at all.**	entries/wins/W172.md	1	28	6bec15dfd0dc4c41
 wins	W173	173		2026-09-15	ZABZ-YOGA	open	**W173 · 2026-09-15 · Four parallel read-only audits mapped a business fact across 100+ surfaces and found the two things serial reading had missed.**	entries/wins/W173.md	1	38	f4ebc92e256d7caa
+wins	W174	174		2026-09-16	ZABZ-YOGA	open	**W174 · 2026-09-16 · The owner's own console CSV export is the authoritative DSH cost source and settled a 4.7x discrepancy.**	entries/wins/W174.md	1	6	154a4b720642d69a
