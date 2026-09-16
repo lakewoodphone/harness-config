@@ -2688,6 +2688,32 @@ def git_max(kind: str, fetch: bool = False):
             nums.append(int(m.group(1)))
     except Exception:
         pass
+    # AND EVERY REMOTE-TRACKING REF, because the fetch above is otherwise never read.
+    #
+    # MEASURED 2026-09-15, ZABZ-TECH: fourteen ids meant two different entries -- D185, D186,
+    # H322-H328, L1637-L1639, W149, W150 -- and the checkout could not fast-forward because every one
+    # of them was an untracked local file that origin/master also had with different content. The
+    # mechanism is here: `git grep <pattern>` with NO ref greps the WORKING TREE, the second call greps
+    # HEAD, and neither can see a number that exists only on origin. So `cmd_append`'s
+    # `git_max(kind, fetch=True)` fetched, then ignored what it had fetched, and two machines that had
+    # both just fetched still both chose the same next number.
+    #
+    # This is the fix for the cause. The earlier remedy was manual (the "renumbered H234 -> H328"
+    # commentary in the record) and it cost a session every time it happened.
+    #
+    # Bounded on purpose: a writer path must not hang on a hub with hundreds of refs.
+    try:
+        refs = subprocess.run(["git", "-C", str(repo), "for-each-ref", "--format=%(refname)",
+                               "refs/remotes/origin"],
+                              capture_output=True, text=True, timeout=20)
+        remote_refs = [r for r in (refs.stdout or "").split() if r][:25]
+        for ref in remote_refs:
+            out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern, ref],
+                                 capture_output=True, text=True, timeout=60)
+            for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
+                nums.append(int(m.group(1)))
+    except Exception:
+        pass
     return (max(nums) if nums else 0), rev
 
 
