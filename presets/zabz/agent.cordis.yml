@@ -299,8 +299,40 @@
     - id: tool-subagent-control
       name: '@deepseek-ai/dsh-tool-subagent-control'
 
+    # `list_agents` — SUPERSEDED ON WINDOWS, KEPT EVERYWHERE ELSE (2026-09-16).
+    #
+    # The shipped tool has NO deadline and NO cache. It declares no `timeoutMs`, so
+    # `dsh-tool-call-timeout-policy` returns `next()` untouched
+    # (lib/index.js:123-124) and a stalled listing has no cancellation anywhere in
+    # the stack; and every call re-walks every session on disk (readdir + open +
+    # zstd decompress + JSON.parse per session, serially, on the shared event
+    # loop) with nothing caching the result, so N concurrent callers pay it N
+    # times. Measured on ZABZ-YOGA 2026-09-16: 389 session directories, 214 MB
+    # compressed, recorded calls from 644 ms to 4285 ms, and one matched
+    # call/result pair 21 minutes apart with no timeout to stop it.
+    #
+    # `dsh-plugin-health` (harness-config/packages/plugin-health) registers a
+    # replacement GLOBALLY that keeps this tool's name, arguments, output schema
+    # and rendered text, and adds a cooperative deadline (aborts the scan, then
+    # returns the last known listing or an explicit `unavailable` row), a declared
+    # `timeoutMs` so the hard backstop is armed, and a ~3 s single-flight cache.
+    #
+    # A scoped tool SHADOWS a global one, so on a machine that has the plugin this
+    # row must be off. It is gated on the platform rather than deleted because the
+    # plugin is not installed everywhere: `scripts/sync.py` calls
+    # `install-client-plugins.ps1`, which is Windows-only, so on Linux and macOS
+    # there is no replacement to fall back to and the shipped tool must stay.
+    # Leaving the row enabled everywhere would silently defeat the replacement on
+    # Windows; deleting it outright would silently remove the tool on Linux.
+    #
+    # The alternative shape — a row here naming `dsh-plugin-health` — was rejected:
+    # an uninstalled package would then break the PRESET mount, and therefore
+    # session creation, instead of the engine boot.
+    #
+    # `install-client-plugins.ps1 -Check` is the diagnostic for the Windows side.
     - id: tool-subagent-list-agents
       name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
+      disabled: !!js process.platform === 'win32'
 
     - id: tool-subagent
       name: '@deepseek-ai/dsh-tool-subagent'

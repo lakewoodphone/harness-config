@@ -25,7 +25,8 @@ proven necessary.
 | `60-cost-audit.md` | *(in flight)* Where the API money went; prompt-prefix/cache stability; compaction knobs; ranked savings that do not reduce capability. |
 | `70-toolcall-latency.md` | *(in flight)* Per-call overhead measured cold and warm; the persistent-shell behavioural diff and spec. |
 | `80-windows-and-parity.md` | *(in flight)* Browser window cost, the `Invoke-New` force-enable defect, and ZABZ-TECH counters over SSH. |
-| `90-plugin-health-governor.md` | *(in flight)* Host plugin: health surface, a deadline + short-TTL cache for `list_agents`, an admission governor. |
+| `90-plugin-health-governor.md` | Host plugin (`packages/plugin-health`): a live health surface (`GET /healthz` + an `engine_health` tool — loop lag p50/p95/max, memory, commit charge, process/thread counts, tool-call runner processes, MCP servers per name, running agent loops); a deadline + short-TTL cache replacing `list_agents` (which declares no `timeoutMs`, so nothing could ever time it out, and re-scans every session on disk for every caller); and an admission governor that leases heavy work against measured memory headroom and queues rather than refusing. 58 unit tests plus a 15-check cross-process stress proof. Needs one engine restart to mount. |
+| `tools/measure-tool-call.py` | Time any tool call from the authoritative session log (pairs `tool/call` and `tool/result` by `callId`). This is how `list_agents`'s 644–4285 ms range and its 21-minute outlier were measured without a wrapper distorting them. |
 | `lock_stress.py` | The proof for the lock rewrite: 3 writers zero overlap; a force-killed holder released the lock in 0.00 s. |
 
 ## Landed and verified
