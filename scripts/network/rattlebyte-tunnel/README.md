@@ -11,6 +11,25 @@ paths crossed the **same Zayo routers** (`64.125.22.0 → 64.125.31.111 → 64.1
 route exists and only that line's traffic is discarded for that prefix — an external peering/filtering fault, not the ISP
 being down, not the router, not DNS, and not the site.
 
+## Status — updated 2026-09-16 ~20:00 local
+
+**The direct block lifted the same day.** At ~13:00 the site was unreachable from this line on **0/10** attempts, every
+port, the whole `/22`. By ~20:00 the direct path answered **8/8** with `302` and 0.13–0.20 s connect, measured with
+`curl` (which ignores the PAC, so that is a genuine direct measurement).
+
+**This workaround is therefore currently unnecessary — and is deliberately left in place.** The block was total and then
+cleared once already inside a single day; while the PAC routes `rattlebyte.com` through the office tunnel the site always
+loads. The cost is latency on that one domain only: measured **0.4–11 s through the tunnel versus 0.17 s direct**.
+
+Two ways to change that, in increasing order of commitment:
+
+- **Prefer direct, keep the tunnel as a fallback** — change `rattlebyte.pac` to return
+  `"DIRECT; SOCKS5 127.0.0.1:11080; SOCKS 127.0.0.1:11080"`. This depends on the browser honouring proxy-list fallback
+  when the **origin** times out, which has **not** been verified here — treat it as unproven, not as a guarantee.
+- **Remove it entirely** — see *Undo* below, but only after the direct path has been stable for a while.
+
+`verify-rattlebyte.ps1` prints the direct result next to the tunnel's, so the state can be re-read at any time.
+
 **What this installs.** Only `rattlebyte.com` is routed through the office server; everything else stays `DIRECT`.
 
 ```
