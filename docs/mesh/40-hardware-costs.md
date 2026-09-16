@@ -1,5 +1,43 @@
 # 40 — Hardware Costs: Home-Office + LPT-Office AI Agent Mesh
 
+## CORRECTIONS APPLIED 2026-09-16 (verification pass — see 60-verification.md)
+
+A second agent re-measured this document's load-bearing numbers against the machine's own longitudinal
+record (`~/.dsh/metrics/harness-metrics.csv`, 477 rows, 2026-09-16 12:56:55–17:47:41Z) and against live
+counters on `ZABZ-YOGA` at 21:44–21:56Z. **The costing constant this entire document is built on — "one
+actively generating agent turn = 0.81 GB" — did not survive.** It is not a measurement made by this
+document, or by any document in this wave: it is one line inherited from `docs/dsh-at-scale/PROGRAM.md:75`,
+tagged PRIOR-MEASURED by `20-placement.md:665`, and then used here under the heading **"Costing
+constants"** with no tag at all. The corrections below are applied in place; prose that used the old
+constant is left visible and marked `[corrected 2026-09-16: was X]`, so the error stays legible.
+
+| # | Old value (in this document) | Corrected value | Evidence |
+|---|---|---|---|
+| 1 | **0.81 GB commit per generating turn** (`:22`, `:23`), the basis of every "resident turns" number | **≈0.58 GB commit per extra node PROCESS** (r = 0.937), with an **idle commit floor of ≈17–18.4 GB already resident** before any work. "Generating turns" is not the unit this machine recorded; see `60-verification.md` §2.2 | least-squares over 477 rows of `~/.dsh/metrics/harness-metrics.csv`: `corr(commit_gb,node)=0.937`, slope `0.5754`; commit at `engines≤13` never exceeded 19.11 GB while the idle floor with 9–13 processes resident was 17.0–18.4 GB |
+| 2 | **"Resident turns" as the capacity unit** (`:31–41`, `:270–274`, `:409`) | **The wrong unit on its own.** It is a MEMORY limit, and this document's own `:43` says capacity is `min(resident turns, cores that can generate)`. The corrected tables print **both** and take the `min`. `secratary` moves **21 → 4** | this document `:43` vs `:271`, which prints "Resident turns 21" and "Generating ceiling 4" in adjacent columns unreconciled; and `:329` ("requires 40–55 usable cores") |
+| 3 | `31.6 GB → 29 resident turns` (`:37`) | **≈12 resident turns; 22 is the core ceiling** | `(0.75 × 31.61 − 18.0) / 0.58 = 12` |
+| 4 | `8→7 / 16→14 / 32→29 / 64→59 / 128→118` (`:33–41`) | **5 / 11 / 23 / 46 / 92** — subtract the measured floor, then divide by 0.58 | same command; old formula `0.75×RAM/0.81`, corrected `(0.75×RAM − 18)/0.58` |
+| 5 | `:274` "Resident turns **74**" over four nodes | **74 resident / ~30 generating** — the `min` of `:43` applied row by row (29→22, 21→4, 10→10, 14→10) | `60-verification.md` §2.4 |
+| 6 | `:280` "Demand is 40–55 concurrent turns = **44.6 GB at 55 turns**" | **The demand figure is asserted, never measured, and is derived from the constant corrected in row 1.** Treat 40–55 as an unvalidated input until `sessions.agentLoopsRunning` in `/healthz` measures it | `60-verification.md` §2.3 and §6.2 — no document in the wave measures demand |
+| 7 | "**1,596 %** disk time" (`20-placement.md:178`, `:716`, `:802`, `:845`; cross-referenced here) | **Not a possible reading of `\PhysicalDisk(_Total)\% Disk Time` on this machine — it has exactly ONE physical disk and ONE volume**, and no document in the wave names the counter it came from. **The underlying condition is real and was re-measured: 4.48 % avg in a quiet window, 97.31 % avg seven minutes later.** Cite the saturation and the queue length, never the 1,596 % | `Win32_DiskDrive` → 1 device; `Get-Volume` → 1 volume; `Get-Counter '\PhysicalDisk(_Total)\% Disk Time'` min 2.83 / avg 4.48 / max 6.15 at 21:46Z, **avg 97.31** at 21:53Z |
+| 8 | `:329` "40–55 concurrent turns at ~1 core each requires 40–55 usable cores" | **The CORES conclusion STANDS** — it is the best-supported claim in this document. Only the per-turn memory constant behind it is corrected | `60-verification.md` §3 C6 |
+| 9 | `:274` totals "**82.6 GB / 48 threads**" over four nodes | **Scope it explicitly.** The roster is SEVEN machines; measured total ≈155 GB (≈113 GB excluding the two Hetzner boxes, which have no `node`) | `20-placement.md:51–57`, `10-inventory.md:594–602` |
+| 10 | soldered-RAM verdict (§1, `:67`) | **Stands, and gains independent evidence:** `Win32_PhysicalMemoryArray.MaxCapacityEx = 32 GB` equals exactly what is installed, so there is no headroom even if a slot existed | `(Get-CimInstance Win32_PhysicalMemoryArray).MaxCapacityEx` → `33554432` KB |
+
+**What did NOT change, and this matters as much as what did.** The RAM-is-soldered verdict (§1), the
+`secratary` OptiPlex 9020 identification and its DDR3 + i7-4790 upgrade arithmetic (§2), the used-workstation
+and rack-server rejections (§5.2, §5.3), the electricity rate and every per-watt ranking (§3, §4), and the
+**direction** of the recommendation — **cores, not RAM, bind** — all survive re-measurement. Row 8 is why:
+§4 reaches the right conclusion by the right argument. What fails is the number this document attaches to a
+turn, and therefore the size of the capacity it believes it is buying.
+
+**One sentence you can rely on instead of the constant:** *on this machine, ≈18 GB of commit is already
+resident before any work, and each further node process costs ≈0.58 GB; commit exceeds the 31.61 GB of
+physical memory somewhere above ~45 node processes, and the machine has been observed at 36.49 GB commit
+with 58 of them and 62,865 page-ins/s.*
+
+---
+
 **Written:** 2026-09-16 · **Author:** Zabz (delegated research session)
 **Scope:** costed, evidence-backed hardware plan. No purchase, no install, no machine modified. This file is the only thing written.
 
@@ -19,8 +57,9 @@
 
 ### Costing constants
 
-- One actively generating agent turn = **0.81 GB** commit and **~1 core** while generating.
-- **25 % headroom rule:** usable RAM = `0.75 × installed`; resident turns = `floor(0.75 × RAM_GB / 0.81)`.
+- One actively generating agent turn = **0.81 GB** commit and **~1 core** while generating. `[corrected 2026-09-16: was 0.81 GB, unqualified. This line is NOT a measurement made by this document — it is inherited from `docs/dsh-at-scale/PROGRAM.md:75` and re-quoted. This machine's own sampler record REFUTES it as a marginal cost: commit tracks the node PROCESS count at ≈0.58 GB per process (r = 0.937, 477 rows of ~/.dsh/metrics/harness-metrics.csv), and the idle floor is ≈17–18.4 GB before any work. Use `(0.75 × RAM − 18) / 0.58` and treat the result as a MEMORY ceiling only. Source: 60-verification.md §2.2.]`
+- **25 % headroom rule:** usable RAM = `0.75 × installed`; resident turns = `floor(0.75 × RAM_GB / 0.81)`. `[corrected 2026-09-16: was `floor(0.75 × RAM_GB / 0.81)`. Corrected: `floor((0.75 × RAM_GB − 18) / 0.58)`, because the old form assumes a node starts at ZERO commit and divides by a per-turn cost the sampler does not support. On this laptop the old form gives 29 and the corrected form gives 12. Source: 60-verification.md §2.2.]`
+- **The unit is wrong on its own.** `[added 2026-09-16]` A "resident turn" is a MEMORY figure. §4 of this document — correctly — says the binding constraint is CORES, and `:43` below already states the rule: capacity is `min(resident turns, cores that can generate)`. Everywhere a resident-turn number appears below, read it as the memory half of a `min()`, never as capacity. `secratary` is the case that matters: **21 resident turns and 4 cores is 4 usable generations, not 21.** Source: 60-verification.md §2.4.
 - **Electricity: New Jersey residential 24.95 ¢/kWh** — **PUBLISHED**, EIA *Electric Power Monthly* Table 5.6.A, data for **June 2026**, released 2026-08-26, https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_a (accessed 2026-09-16). US residential average 18.34 ¢/kWh, +5.0 % YoY — https://www.eia.gov/electricity/monthly/update/end-use.php (accessed 2026-09-16).
 - **New Jersey *commercial* rate, same table and period: 18.47 ¢/kWh.** Use this if the Lakewood office is on a commercial meter — **it makes every power figure in this document conservative.**
 - **ARITHMETIC: 1 W continuous = 8.766 kWh/yr = $2.19/yr in New Jersey.** Each 100 W of continuous draw costs **$218.56/yr**. This single constant decides most of this document.
@@ -28,19 +67,41 @@
 
 ### Capacity table — ARITHMETIC
 
-| Installed RAM | Usable (75 %) | Resident turns |
-|---|---|---|
-| 8 GB | 6.0 GB | 7 |
-| 12 GB | 9.0 GB | 11 |
-| 16 GB | 12.0 GB | 14 |
-| 24 GB | 18.0 GB | 22 |
-| 31.6 GB | 23.7 GB | 29 |
-| 32 GB | 24.0 GB | 29 |
-| 40 GB | 30.0 GB | 37 |
-| 64 GB | 48.0 GB | 59 |
-| 128 GB | 96.0 GB | 118 |
+> **RECOMPUTED 2026-09-16.** `[corrected 2026-09-16: this table was `0.75 × RAM / 0.81`, which assumes a node starts at zero commit.]`
+> Two changes, both measured on `ZABZ-YOGA` and both from `~/.dsh/metrics/harness-metrics.csv` (477 rows,
+> 2026-09-16 12:56:55–17:47:41Z), not from the brief:
+>
+> 1. **A resident floor of 18 GB is subtracted first.** An idle machine running this harness already holds
+>    17.0–18.4 GB of commit with 9–13 node processes resident. Memory a node has already spent is not
+>    capacity it can offer. **Unit assumed: one "resident process" = one DSH node process** (the sampler's
+>    `node` column) — **not** a generating turn, because the sampler never recorded a generating-turn count
+>    (`sessions.agentLoopsRunning` exists in `/healthz` and is unused for this). The 18 GB floor is
+>    therefore itself a **lower bound**; on a node with a smaller baseline the ceiling is higher.
+> 2. **0.58 replaces 0.81 GB.** Least-squares slope of commit on node-process count, r = 0.937.
+>
+> Corrected form: `resident processes = floor((0.75 × RAM_GB − 18) / 0.58)`.
 
-> **Caveat, repeated at every ranking:** the resident-turn number is a **memory** limit. The CPU limit is **~one core per *generating* turn**. A node's useful capacity is `min(resident turns, cores that can generate)`. Most agent wall-clock is spent waiting on a model API rather than burning a core, so a node can **hold** far more turns than it can **saturate** at once. Both numbers appear for every candidate; neither alone is the answer.
+| Installed RAM | Usable (75 %) | Resident processes **(corrected)** | was |
+|---|---|---|---|
+| 8 GB | 6.0 GB | **0** — the floor exceeds the usable budget; this node cannot hold one extra process | 7 |
+| 12 GB | 9.0 GB | **0** — same | 11 |
+| 16 GB | 12.0 GB | **0** — same. `linux-pc-ts` has 11.4 GB and measures 10.3 GB available, which is a *transient* reading, not headroom above a floor | 14 |
+| 24 GB | 18.0 GB | **0** — exactly the floor. `secratary` is in this row and its real ceiling is its **4 cores** | 22 |
+| 31.6 GB | 23.7 GB | **9** (`(23.7−18)/0.58`), and measured behaviour says **≤13** held 19.1 GB while 15+ crossed physical memory | 29 |
+| 32 GB | 24.0 GB | **10** | 29 |
+| 40 GB | 30.0 GB | **20** | 37 |
+| 64 GB | 48.0 GB | **51** | 59 |
+| 128 GB | 96.0 GB | **134** | 118 |
+
+> **Read the 8–24 GB rows as the finding, not as an artefact.** `[added 2026-09-16]` If ≈18 GB is already
+> resident, then **a 16 GB node has no capacity for even one more heavy process, and a 24 GB node has one
+> core's worth and no memory** — which is exactly why `secratary` (23.4 GB, 4 cores) is a control plane and
+> not a worker, and why the mac mini (16 GB, swap 92 % used) cannot be one either. The 18 GB floor is
+> measured on THIS laptop with the full harness loaded; a bare Linux node would have a lower floor, and that
+> is the single measurement that would most change this table. **It has not been taken.** `60-verification.md`
+> §6.3 records it as the highest-value open measurement.
+
+> **Caveat, repeated at every ranking:** the resident-turn number is a **memory** limit. The CPU limit is **~one core per *generating* turn**. A node's useful capacity is `min(resident turns, cores that can generate)`. Most agent wall-clock is spent waiting on a model API rather than burning a core, so a node can **hold** far more turns than it can **saturate** at once. Both numbers appear for every candidate; neither alone is the answer. `[added 2026-09-16: this caveat was already correct and was, until now, not applied to the table directly above it or to the total at `:274`. The `min()` is the operating rule, not a footnote.]`
 
 ---
 

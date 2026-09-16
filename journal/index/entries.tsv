@@ -318,6 +318,7 @@ handoff	H408	408		2026-09-16 19:44 UTC	ZABZ-YOGA	open	## 2026-09-16 19:44 UTC ·
 handoff	H409	409		2026-09-16 19:44 UTC	ZABZ-YOGA	open	## 2026-09-16 19:44 UTC · ZABZ-YOGA · F3 agent/lpt-questionnaire: catalogue seed delivered, questionnaire blocked by the context allowlist	entries/handoff/H409.md	1	23	76573b6c486d815d
 handoff	H410	410		2026-09-16 20:02 UTC	ZABZ-YOGA	open	## 2026-09-16 20:02 UTC · ZABZ-YOGA · Monthly anniversary reminder is live on the owner's calendar; recurrence fix pushed, not deployed	entries/handoff/H410.md	1	32	4671180fa954ef02
 handoff	H411	411		2026-09-16 20:11 UTC	ZABZ-YOGA	open	## 2026-09-16 20:11 UTC · ZABZ-YOGA · Mesh program: 5 design waves in flight; constants, next steps and open bugs written down for the next session	entries/handoff/H411.md	1	61	a0e68fe236cc5d48
+handoff	H412	412		2026-09-16 22:02 UTC	ZABZ-YOGA	open	## 2026-09-16 22:02 UTC · ZABZ-YOGA · Mesh program: both Windows nodes are published and self-healing; the numbers behind the purchase are being corrected	entries/handoff/H412.md	1	42	1293185c36173f2b
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -658,6 +659,8 @@ lessons	L1501	1501		2026-09-14	ZABZ-YOGA	open	**L1501 · Her web search was sile
 lessons	L1502	1502		2026-09-14	ZABZ-YOGA	open	**L1502 · Four ways a launcher silently fails: bootstrap-only .env keys, param() placement, the wrong entry point, and session 0**	entries/lessons/L1502.md	1	31	698a667683d1009f
 lessons	L1683	1683		2026-09-14	ZABZ-YOGA	open	**L223 · 2026-09-14 - The journal append path corrupted every non-ASCII body from Windows, and check cannot see it (root cause fixed with an end-to-end proof)**	entries/lessons/L1683.md	1	39	c3d63eed27fa6be7
 lessons	L1684	1684		2026-09-14	ZABZ-YOGA	open	**L221a · 2026-09-14 - Piping a journal body through PowerShell double-encodes it, and the write path never noticed**	entries/lessons/L1684.md	1	35	30c568de9f3320da
+lessons	L1776	1776		2026-09-14	ZABZ-YOGA	open	**L221 · 2026-09-14 - Piping a journal body through PowerShell double-encodes it, and the write path never noticed**	entries/lessons/L1776.md	1	35	1a694a7bd7d4f113
+lessons	L1777	1777		2026-09-14	ZABZ-TECH	open	**L263 · There is no cheap hidden channel for used iPhones: the floor is 110-125 for working unlocked stock, the levers are grade and lot size, and buying in person wins on risk not price**	entries/lessons/L1777.md	1	153	b6c7c9e22f3e7cbc
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 lessons	L1466	1466		2026-09-15	SECRATARY	open	**L1466 · The Google Voice home-phone trick is dead twice over, and magicJack's cheapest price is not the one on the front page**	entries/lessons/L1466.md	1	31	b2b824b4b5c8d291
@@ -932,6 +935,38 @@ lessons	L1772	1772		2026-09-16	ZABZ-YOGA	open	**L1772 · A control that blocks a
 lessons	L1773	1773		2026-09-16	ZABZ-YOGA	open	**L1773 · reminders.recurrence was a decoy, create_event had no recurrence, and the real recurring mechanism is standing_work_orders cron**	entries/lessons/L1773.md	1	23	d182f774b0eb2f89
 lessons	L1774	1774		2026-09-16	ZABZ-YOGA	open	**L1774 · OWNER_PHONE_NUMBER is Google Voice; the line he reads is OWNER_NOTIFY_NUMBER**	entries/lessons/L1774.md	1	24	0dfc5822ebada02c
 lessons	L1775	1775		2026-09-16	ZABZ-YOGA	open	**L1775 · ServerAliveInterval does not save you from a hanging REMOTE command - two ssh sessions sat open 24 minutes because the TCP session was alive and the far side was stuck**	entries/lessons/L1775.md	1	13	8e2ad5d0cf9b310d
+lessons	L1778	1778		2026-09-16	zabz-yoga	retracted	**L1778 · timing probe 1**	entries/lessons/L1778.md	1	6	9d9faf23573c4073
+lessons	L1779	1779		2026-09-16	zabz-yoga	retracted	**L1779 · timing probe 2**	entries/lessons/L1779.md	1	6	8a4de7a4681dbe75
+lessons	L1780	1780		2026-09-16	zabz-yoga	retracted	**L1780 · timing probe 3**	entries/lessons/L1780.md	1	6	5854b1853472cb43
+lessons	L1781	1781		2026-09-16	zabz-yoga	retracted	**L1781 · timing probe 4**	entries/lessons/L1781.md	1	6	59c3080b679da475
+lessons	L1782	1782		2026-09-16	zabz-yoga	retracted	**L1782 · timing probe 5**	entries/lessons/L1782.md	1	6	2827e3540aeacb07
+lessons	L1783	1783		2026-09-16	zabz-yoga	retracted	**L1783 · timing probe 6**	entries/lessons/L1783.md	1	6	92c4d23167e2fc82
+lessons	L1784	1784		2026-09-16	zabz-yoga	retracted	**L1784 · timing probe 7**	entries/lessons/L1784.md	1	6	fcd6b5f8cb973ff5
+lessons	L1785	1785		2026-09-16	zabz-yoga	retracted	**L1785 · timing probe 8**	entries/lessons/L1785.md	1	6	53abafa9078d5433
+lessons	L1786	1786		2026-09-16	zabz-yoga	retracted	**L1786 · timing probe 9**	entries/lessons/L1786.md	1	6	53719a3e4ec245ab
+lessons	L1787	1787		2026-09-16	zabz-yoga	retracted	**L1787 · timing probe 10**	entries/lessons/L1787.md	1	6	8d9af406d1845f28
+lessons	L1788	1788		2026-09-16	zabz-yoga	retracted	**L1788 · timing probe default 1**	entries/lessons/L1788.md	1	6	964d9d046c480887
+lessons	L1789	1789		2026-09-16	zabz-yoga	retracted	**L1789 · timing probe default 2**	entries/lessons/L1789.md	1	6	e454b262990c4fa2
+lessons	L1790	1790		2026-09-16	zabz-yoga	retracted	**L1790 · timing probe default 3**	entries/lessons/L1790.md	1	6	1763007e7cb2d9ec
+lessons	L1791	1791		2026-09-16	zabz-yoga	retracted	**L1791 · probe one**	entries/lessons/L1791.md	1	6	07c609c6bd09c389
+lessons	L1792	1792		2026-09-16	zabz-yoga	retracted	**L1792 · probe 2**	entries/lessons/L1792.md	1	6	3f00c05e1f1824b9
+lessons	L1793	1793		2026-09-16	zabz-yoga	retracted	**L1793 · probe 3**	entries/lessons/L1793.md	1	6	c3483fecaa13d92c
+lessons	L1794	1794		2026-09-16	zabz-yoga	retracted	**L1794 · probe 4**	entries/lessons/L1794.md	1	6	0e30c7a14e4595ca
+lessons	L1795	1795		2026-09-16	zabz-yoga	retracted	**L1795 · probe 5**	entries/lessons/L1795.md	1	6	5d06311a49baa87e
+lessons	L1796	1796		2026-09-16	zabz-yoga	retracted	**L1796 · probe 6**	entries/lessons/L1796.md	1	6	453477cb85927b3e
+lessons	L1797	1797		2026-09-16	zabz-yoga	retracted	**L1797 · probe 7**	entries/lessons/L1797.md	1	6	afa845b7b1a7b354
+lessons	L1798	1798		2026-09-16	zabz-yoga	retracted	**L1798 · probe 8**	entries/lessons/L1798.md	1	6	7ae82afb9e9d6676
+lessons	L1799	1799		2026-09-16	zabz-yoga	retracted	**L1799 · probe 9**	entries/lessons/L1799.md	1	6	67c04248f072420f
+lessons	L1800	1800		2026-09-16	zabz-yoga	retracted	**L1800 · probe 10**	entries/lessons/L1800.md	1	6	4783b23029afa728
+lessons	L1801	1801		2026-09-16	zabz-yoga	retracted	**L1801 · probe 11**	entries/lessons/L1801.md	1	6	05793b88210fdf2f
+lessons	L1802	1802		2026-09-16	zabz-yoga	retracted	**L1802 · probe plain(no flag)**	entries/lessons/L1802.md	1	6	8a185b1351b882b2
+lessons	L1803	1803		2026-09-16	zabz-yoga	retracted	**L1803 · probe --no-fetch**	entries/lessons/L1803.md	1	6	5f4bb7ee0d63b7d6
+lessons	L1804	1804		2026-09-16	ZABZ-YOGA	open	**L1804 · A tool call that never returns kills the whole process tree it started**	entries/lessons/L1804.md	1	17	e72d28f69fe5cd44
+lessons	L1805	1805		2026-09-16	ZABZ-YOGA	open	**L1805 · Publishing a loopback engine yields 403, not a working app: tailscale serve preserves Host**	entries/lessons/L1805.md	1	16	38128e0d9718f551
+lessons	L1806	1806		2026-09-16	ZABZ-YOGA	open	**L1806 · 401, 403, 404 and 502 on the same URL mean four different things**	entries/lessons/L1806.md	1	21	d06e4e5a07dd8753
+lessons	L1807	1807		2026-09-16	ZABZ-YOGA	open	**L1807 · cmd /c with a quoted program plus redirection can silently do nothing**	entries/lessons/L1807.md	1	11	2be53c06c54da521
+lessons	L1808	1808		2026-09-16	ZABZ-YOGA	open	**L1808 · dshw.ps1 redefines Add-Content, and a called script inherits that**	entries/lessons/L1808.md	1	13	baaf7c3270451ea0
+lessons	L1809	1809		2026-09-16	ZABZ-YOGA	open	**L1809 · journal.py --root was accepted and silently ignored (argparse subparser clobber)**	entries/lessons/L1809.md	1	15	6df3f2aff0439ee3
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1112,6 +1147,7 @@ pain	P215	215		2026-09-16	secratary	open	## P215 — Binding a personal policy h
 pain	P216	216		2026-09-16	secratary	open	## P216 — The live harness-config install and the git checkout drift in both directions, and nothing detects it	entries/pain/P216.md	1	38	bbf337ce3bda3965
 pain	P217	217		2026-09-16	ZABZ-YOGA	open	## P217 — Customer SMS sent by scripts/send-lpt-sms.py write nothing to sms_log, so they are invisible to dedup and to the send audit	entries/pain/P217.md	1	16	bee232d0a7dbf083
 pain	P218	218		2026-09-16	ZABZ-YOGA	open	## P218 — Production and laptop checkouts carry unlanded work; it blocks deploys and collides parallel agents	entries/pain/P218.md	1	28	2d243a7841950496
+pain	P219	219		2026-09-16	ZABZ-YOGA	open	## P219 — The mesh's own processes are the top disk reader, and a purchase rested on the opposite claim	entries/pain/P219.md	1	19	03ff78fa02f1c0d5
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1301,6 +1337,8 @@ decisions	D225	225		2026-09-16	ZABZ-YOGA	open	**D225 · 2026-09-16 · Owner SMS:
 decisions	D226	226		2026-09-16	ZABZ-YOGA	open	**D226 · 2026-09-16 · Do not hot-patch the secratary checkout to deploy code.**	entries/decisions/D226.md	1	6	8c57724e46940ad5
 decisions	D227	227		2026-09-16	ZABZ-YOGA	open	**D227 · 2026-09-16 · Placement wave: serve-phone runs a second engine on one DSH_HOME (verified); a network-shared DSH_HOME is impossible; the mesh capacity tables already exist; secratary is 4 cores.**	entries/decisions/D227.md	1	44	c1cf49f4fdbff1ef
 decisions	D228	228		2026-09-16	ZABZ-YOGA	open	**D228 · 2026-09-16 · Mesh inventory measured: Tailscale is the only transport from this laptop (it is on CGNAT, LAN fails), the authority is on a DERP relay, and my own reaper would race a fleet scheduler.**	entries/decisions/D228.md	1	35	60b3d78f932d28af
+decisions	D229	229		2026-09-16	ZABZ-YOGA	open	**D229 · 2026-09-16 · The phone gate is the only door; the engine's /api fence stays closed.**	entries/decisions/D229.md	1	16	528736060a694dfb
+decisions	D230	230		2026-09-16	ZABZ-YOGA	open	**D230 · 2026-09-16 · Node durability is the one-minute watchdog hook plus a logon entry.**	entries/decisions/D230.md	1	15	63893d1b087c807c
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1459,3 +1497,4 @@ wins	W185	185		2026-09-16	secratary	open	**W185 · 2026-09-16 · The phone quest
 wins	W186	186		2026-09-16	ZABZ-YOGA	open	**W186 · 2026-09-16 · RattleByte DMP-BD84 resolved: wrong-model firmware was the whole defect; correct file + emptied stick + board left connected = flashed and paired in one trip.**	entries/wins/W186.md	1	20	9197e0c8b558ab23
 wins	W187	187		2026-09-16	ZABZ-YOGA	open	**W187 · 2026-09-16 · The live shop website is fixed and verified on the served bundle - the blocker was the deploy credential, not the code.**	entries/wins/W187.md	1	40	a206974a7884906e
 wins	W188	188		2026-09-16	ZABZ-YOGA	open	**W188 · 2026-09-16 · The monthly anniversary reminder is live and verified.**	entries/wins/W188.md	1	23	3ad7fa687ea00cfe
+wins	W189	189		2026-09-16	ZABZ-YOGA	open	**W189 · 2026-09-16 · Both Windows nodes answer an authenticated RPC over the tailnet with no engine restart.**	entries/wins/W189.md	1	18	465bac4ff911ddc6
