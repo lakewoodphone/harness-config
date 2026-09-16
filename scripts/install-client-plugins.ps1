@@ -107,11 +107,24 @@ $ours = $packages | ForEach-Object { $_.Name }
 $foreign = $bundles | Where-Object { $ours -notcontains $_ }
 
 $problems = 0
+
+# PHASE 1 -- discover and repair every junction BEFORE naming anything in the manifest.
+#
+# WHY THE PHASES ARE SEPARATE (2026-09-16). The manifest used to be rewritten INSIDE the loop, once
+# per package. So a run that established the first junction and then failed on a later one -- a
+# locked file, a permission, or simply the process being killed -- left `dsh.profile.bundles` naming
+# a bundle that could not resolve, and the engine then refused to boot at all:
+#
+#     Error: dsh: cannot resolve profile bundle "dsh-plugin-attention"
+#
+# That happened for real on ZABZ-TECH, it took twenty minutes to diagnose because every
+# process-level signal (port, pid, MCP counts) looked fine, and the machine's own engine watchdog
+# could not repair it (it kept replaying the same deterministic failure). The invariant that
+# prevents the whole class is simple and is now enforced: **never name a bundle you have not just
+# proved resolves.** Junctions first, manifest second, once, and only names that resolved.
+$status = @{}
 foreach ($pkg in $packages) {
     $target = Join-Path $modules $pkg.Name
-    $inBundles = $bundles -contains $pkg.Name
-
-    # Classify: a junction to the repo is correct; anything else is a copy, a foreign link, or absent.
     $kind = 'MISSING'
     if (Test-Path $target) {
         $item = Get-Item $target -Force
@@ -122,33 +135,49 @@ foreach ($pkg in $packages) {
         else { $kind = 'COPY' }
     }
 
+    if ($kind -ne 'LINK' -and -not $Check) {
+        # Repair: a junction to the checkout, so the profile and the repo cannot diverge.
+        try {
+            if (Test-Path $target) { Remove-Item $target -Recurse -Force -ErrorAction Stop }
+            New-Item -ItemType Junction -Path $target -Target $pkg.Source -ErrorAction Stop | Out-Null
+            $kind = 'LINK'
+        } catch {
+            Write-Host ("      ! could not link {0}: {1}" -f $pkg.Name, $_.Exception.Message)
+        }
+    }
+    $status[$pkg.Name] = $kind
+}
+
+# PHASE 2 -- report, and rewrite the manifest ONCE with only the names that resolve.
+$resolved = @($packages | Where-Object { $status[$_.Name] -eq 'LINK' } | ForEach-Object { $_.Name })
+$unresolved = @($packages | Where-Object { $status[$_.Name] -ne 'LINK' } | ForEach-Object { $_.Name })
+
+foreach ($pkg in $packages) {
+    $kind = $status[$pkg.Name]
+    $inBundles = $bundles -contains $pkg.Name
     if (-not $inBundles -and -not $RequireAll) {
-        # Deliberate or not, it is not mounted, so it cannot break a boot. Information only.
         Write-Host ("  {0,-24} {1,-14} not mounted (repo-only; -RequireAll to install)" -f $pkg.Name, $kind)
         continue
     }
-
     $ok = ($kind -eq 'LINK')
-    if (-not $ok) { $problems++ }
+    if (-not $ok -and $inBundles) { $problems++ }   # a NAMED bundle that cannot resolve is the hazard
     Write-Host ("  {0,-24} {1,-14} bundles={2,-6} {3}" -f $pkg.Name, $kind, $inBundles, $(if ($ok) { 'ok' } else { 'NEEDS FIX' }))
+}
 
-    if ($ok -or $Check) { continue }
-
-    # Repair: a junction to the checkout, so the profile and the repo cannot diverge.
-    if (Test-Path $target) { Remove-Item $target -Recurse -Force }
-    New-Item -ItemType Junction -Path $target -Target $pkg.Source | Out-Null
-    Write-Host "      linked: $target -> $($pkg.Source)"
-
-    if (-not $inBundles) {
-        # Rewrite the parsed manifest: no YAML/JSON dependency, and every other field survives.
+if (-not $Check) {
+    # Drop from the bundle list anything we just failed to make resolvable, and add what we did.
+    $wanted = @($bundles | Where-Object { $unresolved -notcontains $_ })
+    $added = @($resolved | Where-Object { $wanted -notcontains $_ })
+    if ($added.Count -gt 0 -or $wanted.Count -ne $bundles.Count) {
         if (-not $config.dsh) { $config | Add-Member -NotePropertyName dsh -NotePropertyValue ([pscustomobject]@{}) }
         if (-not $config.dsh.profile) { $config.dsh | Add-Member -NotePropertyName profile -NotePropertyValue ([pscustomobject]@{}) }
-        $bundles = @($bundles) + $pkg.Name
-        $config.dsh.profile | Add-Member -NotePropertyName bundles -NotePropertyValue $bundles -Force
-        # LF, to match the rest of the repo and to keep the file diffable.
+        $config.dsh.profile | Add-Member -NotePropertyName bundles -NotePropertyValue @($wanted + $added) -Force
         $json = $config | ConvertTo-Json -Depth 20
         [System.IO.File]::WriteAllText($manifest, $json + "`n", (New-Object System.Text.UTF8Encoding($false)))
-        Write-Host "      added to bundles: $($pkg.Name)"
+        if ($added.Count -gt 0) { Write-Host ("      added to bundles: {0}" -f ($added -join ', ')) }
+        if ($wanted.Count -ne $bundles.Count) {
+            Write-Host ("      REMOVED from bundles (could not resolve -- naming it would stop the engine booting): {0}" -f (($bundles | Where-Object { $unresolved -contains $_ }) -join ', '))
+        }
     }
 }
 
