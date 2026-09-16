@@ -26,8 +26,10 @@ was removed.
 | Node start | 1608 ms cold | **446 ms** warm | `NODE_COMPILE_CACHE` |
 | tool-result bytes carried | 76.7 % of raw | **66.6 %** | pruner 5000/2500/700 |
 
-Run `scripts/harness-verify.ps1` to check the invariants behind all of it (9 checks, exits
-non-zero on a false one, `-Quiet` for a timer).
+Run `scripts/harness-verify.ps1` to check the invariants behind all of it (10 checks, exits
+non-zero on a false one, `-Quiet` for a timer). It asserts the **deployed** copy under `~/.dsh`,
+not just the repo — committed is not the same as deployed, and only one of those is what the
+harness actually reads.
 
 ## What changed, and what each one bought
 

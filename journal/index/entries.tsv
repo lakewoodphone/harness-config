@@ -840,6 +840,7 @@ lessons	L1715	1715		2026-09-16	ZABZ-YOGA	open	**L1715 · DSH cost is requests x 
 lessons	L1716	1716		2026-09-16	ZABZ-YOGA	open	**L1716 · A trivial pwsh tool call costs 540-700 ms and 78% of it is PowerShell's own startup - the fix is using read/grep instead, not tuning the runner**	entries/lessons/L1716.md	1	43	4ccbe8389a50ffb9
 lessons	L1717	1717		2026-09-16	ZABZ-YOGA	open	**L1717 · A keeper that only runs when someone remembers is a procedure - install-client-plugins.ps1 existed and nothing called it, so sync.py calls it now**	entries/lessons/L1717.md	1	45	f68b3a422f248de6
 lessons	L1718	1718		2026-09-16	ZABZ-YOGA	open	**L1718 · An artifact that is not in the repo is a draft - 4.8 MB of this program's evidence sat in an unversioned directory on one laptop**	entries/lessons/L1718.md	1	44	00f395c7d17bf5dd
+lessons	L1719	1719		2026-09-16	ZABZ-YOGA	open	**L1719 · Committed and deployed are different facts - the deployment check caught the orchestration skill sitting stale in ~/.dsh for two rounds**	entries/lessons/L1719.md	1	34	5bdc5f75bb2d3125
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
