@@ -297,7 +297,10 @@ handoff	H387	387		2026-09-16 15:16 UTC	ZABZ-YOGA	open	## 2026-09-16 15:16 UTC ·
 handoff	H388	388		2026-09-16 15:21 UTC	ZABZ-YOGA	open	## 2026-09-16 15:21 UTC · ZABZ-YOGA · plugin-health: live on an isolated engine, one restart from being live on the real one	entries/handoff/H388.md	1	28	5cd198416c44bff4
 handoff	H389	389		2026-09-16 15:54 UTC	SECRATARY	open	## 2026-09-16 15:54 UTC · SECRATARY · RattleByte #188880 reopened with the photos and the correspondence on the record; case log restored to main (re-appended after an id collision)	entries/handoff/H389.md	1	166	0ac998f1e41baeb8
 handoff	H390	390		2026-09-16 15:54 UTC	SECRATARY	open	## 2026-09-16 15:54 UTC · SECRATARY · The 2026-09-15 API fixes did not stop the OOM - 23 kills on 2026-09-16 plus a SIGBUS (re-appended after an id collision)	entries/handoff/H390.md	1	66	fb7feab5d9748c01
-handoff	H395	395		2026-09-16 17:07 UTC	secratary	open	## 2026-09-16 17:07 UTC · secratary · Car insurance HPA70002908356: he IS insured, and the car has no collision or comprehensive	entries/handoff/H395.md	1	28	ea938b17d8ae08aa
+handoff	H391	391		2026-09-16 16:38 UTC	ZABZ-YOGA	open	## 2026-09-16 16:38 UTC · ZABZ-YOGA · LPT website redo audited: every public surface read first-hand; the sign-in block is an allowlist, not the flag	entries/handoff/H391.md	1	52	b68da268be8e9e3a
+handoff	H392	392		2026-09-16 16:49 UTC	ZABZ-YOGA	open	## 2026-09-16 16:49 UTC · ZABZ-YOGA · RattleByte workaround installed on ZABZ-YOGA: PAC + ssh -D supervisor, vendor portal now reachable	entries/handoff/H392.md	1	38	f035cdb6237a81ae
+handoff	H393	393		2026-09-16 16:58 UTC	ZABZ-YOGA	open	## 2026-09-16 16:58 UTC · ZABZ-YOGA · LPT full build: audit done, seven-agent fleet in flight, split-brain found	entries/handoff/H393.md	1	51	fd2183f5a7afa3ec
+handoff	H394	394		2026-09-16 17:00 UTC	ZABZ-YOGA	open	## 2026-09-16 17:00 UTC · ZABZ-YOGA · Monitoring round: 3-hour sampler running; 13 windows at commit 32.28GB over 31.6GB physical with sustained 3k pages/s - and where the 32GB actually lives	entries/handoff/H394.md	1	60	edb47ac1c5354c1d
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -872,12 +875,11 @@ lessons	L1732	1732		2026-09-16	SECRATARY	open	**L1732 · osTicket-class vendor p
 lessons	L1733	1733		2026-09-16	SECRATARY	open	**L1733 · A helpdesk portal stored a 122-char stub of a 2,900-char message and still reported success - read the body's END, keep posts short, attach long content**	entries/lessons/L1733.md	1	41	c84ad7800d51129f
 lessons	L1734	1734		2026-09-16	SECRATARY	open	**L1734 · SQLite memory is per-connection x per-thread; temp_store=MEMORY made a 10 GB burst that read like a leak - measure the shape first**	entries/lessons/L1734.md	1	19	4f8af284277d09eb
 lessons	L1735	1735		2026-09-16	SECRATARY	open	**L1735 · A flat window shorter than the failure interval is not evidence of a fix - state the bar, mark the claim provisional, and make the next session read the watcher**	entries/lessons/L1735.md	1	29	ca5f243e1b28b9b6
-lessons	L1736	1736		2026-09-16	secratary	open	**L1736 · NJ pre-insurance vehicle inspection: the failure mode is a suspension of collision+comprehensive, never a cancellation**	entries/lessons/L1736.md	1	12	d3a219f378504fb7
-lessons	L1737	1737		2026-09-16	secratary	open	**L1737 · Plymouth Rock eService can be logged into unattended: use email MFA and read the code out of the owner's own Gmail**	entries/lessons/L1737.md	1	16	31cb628b3417dbc6
-lessons	L1741	1741		2026-09-16	secratary	open	**L1741 · The only surviving copy of a deleted doc can be under .runtime/deployments/ — and a repo sweep can delete the live one**	entries/lessons/L1741.md	1	13	03ac45981b27140e
-lessons	L1742	1742		2026-09-16	secratary	open	**L1742 · A fix that exists only in the live install is not a fix: the phone question-card repair was never committed**	entries/lessons/L1742.md	1	22	1709446e257c9330
-lessons	L1743	1743		2026-09-16	secratary	open	**L1743 · journal.py append --body eats backticks: pass a file**	entries/lessons/L1743.md	1	6	47bf3855fbe3ee0d
-lessons	L1744	1744		2026-09-16	secratary	open	**L1744 · With only the option list scrolling, the question is the one thing that cannot be recovered**	entries/lessons/L1744.md	1	37	d24273edbbe47829
+lessons	L1736	1736		2026-09-16	ZABZ-YOGA	open	**L1736 · Ask the artifact, never the document: three deploy paths, three truths**	entries/lessons/L1736.md	1	15	1bdc366633835637
+lessons	L1737	1737		2026-09-16	ZABZ-YOGA	open	**L1737 · An auth gate written as a substring match on the request path is invisible to a guard census**	entries/lessons/L1737.md	1	26	335f1054d0c15b1d
+lessons	L1738	1738		2026-09-16	ZABZ-YOGA	open	**L1738 · A site unreachable from one line is not "your internet" - prove it with a same-hoster control, a multi-node check and a transit comparison**	entries/lessons/L1738.md	1	18	260a667c4629a189
+lessons	L1739	1739		2026-09-16	ZABZ-YOGA	open	**L1739 · Chromium ignores a file:// PAC on Windows - serve the PAC over http://127.0.0.1; and never verify a proxy with chrome.exe --dump-dom**	entries/lessons/L1739.md	1	16	0b44ce8ed7b6bd9b
+lessons	L1740	1740		2026-09-16	ZABZ-YOGA	open	**L1740 · When a SaaS endpoint cannot be guessed, read the product's own JavaScript out of the browser cache**	entries/lessons/L1740.md	1	44	e93db58c066ff039
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1052,8 +1054,8 @@ pain	P209	209		2026-09-16	ZABZ-YOGA	open	## P209 — No budget, ceiling or alert
 pain	P210	210		2026-09-16	ZABZ-YOGA	open	## P210 — A new bundle cannot hot-mount, so every plugin costs an engine restart and the live sessions with it	entries/pain/P210.md	1	12	3e26ae368346d716
 pain	P211	211		2026-09-16	SECRATARY	open	## P211 — secretary-api OOM-killed every 20-60 min at ~20 GB RSS, and the fixes so far only shortened the interval	entries/pain/P211.md	1	41	228269bf6ba3cf22
 pain	P212	212		2026-09-16	SECRATARY	open	## P212 — Journal ids collide by construction: max(seen)+1 means two machines writing concurrently pick the same number (measured 10/10)	entries/pain/P212.md	1	39	1654d2351bf7e619
-pain	P215	215		2026-09-16	secratary	open	## P215 — Binding a personal policy has no compliance checklist, so a mandatory NJ inspection was never scheduled	entries/pain/P215.md	1	14	ac9e4bc2d5471c84
-pain	P216	216		2026-09-16	secratary	open	## P216 — The live harness-config install and the git checkout drift in both directions, and nothing detects it	entries/pain/P216.md	1	38	bbf337ce3bda3965
+pain	P213	213		2026-09-16	ZABZ-YOGA	open	## P213 — The LPT intake funnel failed silently at five points, and its worst failure mode was a quiet fallback	entries/pain/P213.md	1	31	0039323ae8c2a22e
+pain	P214	214		2026-09-16	ZABZ-YOGA	open	## P214 — 185.112.144.0/22 (1984 Hosting shared range) is blackholed from the T-Mobile home line	entries/pain/P214.md	1	10	96e9f322e9aa05e0
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1226,8 +1228,8 @@ decisions	D206	206		2026-09-16	ZABZ-YOGA	open	**D206 · 2026-09-16 · Persistent
 decisions	D209	209		2026-09-16	ZABZ-YOGA	open	**D209 · 2026-09-16 · list_agents replacement: global registration + a platform-gated preset row, not a preset row that names the package.**	entries/decisions/D209.md	1	14	4fcb2d07d3d353f9
 decisions	D210	210		2026-09-16	SECRATARY	open	**D210 · 2026-09-16 · RattleByte #188880: D155's hold lifted by the owner's instruction; photos committed with the case; case log restored to main from the rescue branch.**	entries/decisions/D210.md	1	33	d48e2a393fcd3fcf
 decisions	D211	211		2026-09-16	SECRATARY	open	**D211 · 2026-09-16 · API runaway: cgroup containment applied (5G/8G) and the incident evidence archived in git; the allocator hunt stays open with capture armed.**	entries/decisions/D211.md	1	33	946a7ee9e08d771c
-decisions	D214	214		2026-09-16	secratary	open	**D214 · 2026-09-16 · Car-insurance case file lives at docs/personal-insurance/ in the company repo; the working evidence stays on the phone desk.**	entries/decisions/D214.md	1	8	60de4e81245ff85e
-decisions	D215	215		2026-09-16	secratary	open	**D215 · 2026-09-16 · The car-insurance record is an index + case file + decision paper in docs/personal-insurance, with raw evidence only on the phone desk.**	entries/decisions/D215.md	1	33	4abf9eab0ad72e47
+decisions	D212	212		2026-09-16	ZABZ-YOGA	open	**D212 · 2026-09-16 · D198 · Customer-facing fixes first; the portal flag is the last step of the redo, not the first.**	entries/decisions/D212.md	1	25	91e5350a1c13747d
+decisions	D213	213		2026-09-16	ZABZ-YOGA	open	**D213 · 2026-09-16 · Tunnel only rattlebyte.com through the office server via a localhost PAC (not a Tailscale exit node, not a hosts entry).**	entries/decisions/D213.md	1	16	9b03714e18d64179
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1379,6 +1381,4 @@ wins	W178	178		2026-09-16	ZABZ-YOGA	open	**W178 · 2026-09-16 · harness-verify.
 wins	W179	179		2026-09-16	ZABZ-YOGA	open	**W179 · 2026-09-16 · Both machines now pass the same 10-check verifier.**	entries/wins/W179.md	1	53	4e511249f00f58d4
 wins	W180	180		2026-09-16	ZABZ-YOGA	open	**W180 · 2026-09-16 · The engine has a health surface, a list_agents that cannot hang, and an admission governor — with the numbers.**	entries/wins/W180.md	1	14	7dbbaf2be029d499
 wins	W181	181		2026-09-16	SECRATARY	open	**W181 · 2026-09-16 · RattleByte #188880 reopened with the photos and the full correspondence on the record.**	entries/wins/W181.md	1	32	6460524c650d195d
-wins	W183	183		2026-09-16	secratary	open	**W183 · 2026-09-16 · Read the owner's live insurance policy out of the insurer's portal, unattended, including email MFA.**	entries/wins/W183.md	1	10	bd9d9eab335b51b5
-wins	W184	184		2026-09-16	secratary	open	**W184 · 2026-09-16 · Proved the phone question card works with a probe against the running app, and made a stale tab self-heal.**	entries/wins/W184.md	1	12	08b805a0eee013f4
-wins	W185	185		2026-09-16	secratary	open	**W185 · 2026-09-16 · The phone question card is proved working against the running app, and a stale tab heals itself (corrects W184).**	entries/wins/W185.md	1	28	23f30846ca014757
+wins	W182	182		2026-09-16	ZABZ-YOGA	open	**W182 · 2026-09-16 · Six scoped workstreams plus first-hand reproduction found what weeks of serial reading had missed.**	entries/wins/W182.md	1	26	4472148de51a8520

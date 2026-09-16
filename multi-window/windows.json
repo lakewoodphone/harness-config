@@ -102,7 +102,7 @@
       "label": "9",
       "workspace": "C:\\Users\\ezabz\\code",
       "profile": "w9",
-      "enabled": false,
+      "enabled": true,
       "position": "0,0",
       "size": "700,440"
     },
@@ -110,7 +110,7 @@
       "label": "10",
       "workspace": "C:\\Users\\ezabz\\code",
       "profile": "w10",
-      "enabled": false,
+      "enabled": true,
       "position": "700,0",
       "size": "700,440"
     },
@@ -118,7 +118,7 @@
       "label": "11",
       "workspace": "C:\\Users\\ezabz\\code",
       "profile": "w11",
-      "enabled": false,
+      "enabled": true,
       "position": "0,440",
       "size": "700,440"
     },
@@ -126,13 +126,46 @@
       "label": "12",
       "workspace": "C:\\Users\\ezabz\\code",
       "profile": "w12",
-      "enabled": false,
+      "enabled": true,
       "position": "700,440",
+      "size": "700,440"
+    },
+    {
+      "label": "13 - auto",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w13",
+      "enabled": true,
+      "position": "700,0",
+      "size": "700,440"
+    },
+    {
+      "label": "14 - auto",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w14",
+      "enabled": true,
+      "position": "0,440",
+      "size": "700,440"
+    },
+    {
+      "label": "15 - auto",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w15",
+      "enabled": true,
+      "position": "700,440",
+      "size": "700,440"
+    },
+    {
+      "label": "16 - auto",
+      "workspace": "C:\\Users\\ezabz\\code",
+      "profile": "w16",
+      "enabled": true,
+      "position": "0,0",
       "size": "700,440"
     }
   ],
   "_multiPorts": {
     "_comment": "Only read in mode 'multi'. Ports are assigned from basePort upward, in window order.",
     "basePort": 3081
-  }
+  },
+  "maxWindows": 24
 }
