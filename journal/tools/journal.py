@@ -3988,7 +3988,30 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _root_from_argv(argv):
+    """The value of `--root`, wherever it appears on the command line.
+
+    WHY THIS EXISTS, measured 2026-09-16. `journal.py --root <tmp> append ...` wrote to the REAL
+    journal. Both the top-level parser and every subcommand declare `--root` (the subcommands take
+    `parents=[common]`), and argparse lets the subcommand's own default overwrite the value the
+    top-level parser already stored — so a `--root` written BEFORE the subcommand was accepted and
+    silently discarded. The measured cost: a timing probe meant for a scratch directory wrote 16
+    throwaway entries (L1778-L1803) into the live tree and printed `+ L1791 -> ...` as if all were
+    well. A safety flag that is accepted and ignored produces exactly the outcome it was used to
+    prevent, so the fix is to read it off the raw argv rather than document an ordering rule.
+    """
+    value = None
+    for index, item in enumerate(argv):
+        if item == "--root" and index + 1 < len(argv):
+            value = argv[index + 1]
+        elif item.startswith("--root="):
+            value = item.split("=", 1)[1]
+    return value
+
+
 def main(argv=None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
@@ -4000,11 +4023,17 @@ def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     global JOURNAL
-    root = getattr(args, "root", None)
+    # Both places, because argparse's subcommand default can erase the top-level one: whichever
+    # spelling the caller used, the flag is now honoured.
+    root = getattr(args, "root", None) or _root_from_argv(argv)
     if root:
         JOURNAL = Path(root).expanduser().resolve()
         clear_caches()
     cmd = getattr(args, "cmd", "")
+    if root and cmd in MUTATING_COMMANDS:
+        # An explicit root that is about to WRITE says where it went, out loud. Silence here is
+        # what let a scratch run write into the live journal without anyone noticing.
+        print(f"journal: writing to {JOURNAL}", file=sys.stderr)
     if cmd in MUTATING_COMMANDS:
         acquired, token = acquire_lock(cmd)
         if not acquired:
