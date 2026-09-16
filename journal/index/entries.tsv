@@ -986,6 +986,7 @@ lessons	L1818	1818		2026-09-16	ZABZ-YOGA	open	**L1818 · Provisioning from Windo
 lessons	L1819	1819		2026-09-16	ZABZ-YOGA	open	**L1819 · dsh-plugin-health's /healthz is a permanent 503 off Windows, and mesh-health scores 503 as FAIL**	entries/lessons/L1819.md	1	39	2663774f3bdb46be
 lessons	L1820	1820		2026-09-16	ZABZ-YOGA	open	**L1820 · A measurement gap on a counter is not a reason to refuse work (mesh capacity, S1)**	entries/lessons/L1820.md	1	41	a9a84a62e7fac698
 lessons	L1821	1821		2026-09-16	ZABZ-YOGA	open	**L1821 · Windows mesh dispatch: ssh.exe hangs on a stdout pipe, and ZABZ-YOGA's sshd cannot traverse the symlinks DSH bundle resolution needs**	entries/lessons/L1821.md	1	12	90ed091312904bc0
+lessons	L1822	1822		2026-09-16	ZABZ-YOGA	open	**L1822 · A node name must be the name that resolves: Self.HostName is not it (mesh capacity, S1)**	entries/lessons/L1822.md	1	37	bf4cd72a78a58f34
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427

@@ -130,13 +130,14 @@ The whole point of the route is that it keeps answering when a node is sick. Wit
 * `accepts.fleet` is `false`, `maxChildren` is `0`, and `reason` says why.
 * Everything measured from the OS — `cpu`, `mem`, `disk` — is unaffected and still reported.
 
-Measured (raw response, spare gate instance on `127.0.0.1:3087` with `--engine-port 59999`):
+Measured on the shipped build (raw response, spare gate instance on `127.0.0.1:3087` with
+`--engine-port 59999`, 2026-09-16 23:32:56Z):
 
 ```json
-{"schema": 1, "node": "zabz-yoga", "fqdn": "zabz-yoga-1.tail93e6e6.ts.net", "at": "2026-09-16T23:16:36Z",
+{"schema": 1, "node": "zabz-yoga-1", "fqdn": "zabz-yoga-1.tail93e6e6.ts.net", "at": "2026-09-16T23:32:56Z",
  "cpu": {"logical": 22, "physical": 16, "load1": null},
- "mem": {"totalMiB": 32373, "freeMiB": 15452, "swapUsedPct": 0.0},
- "disk": {"workRoot": "C:/Users/ezabz/code", "freeGiB": 63.7},
+ "mem": {"totalMiB": 32373, "freeMiB": 14804, "swapUsedPct": 0.0},
+ "disk": {"workRoot": "C:/Users/ezabz/code", "freeGiB": 64.2},
  "agents": null, "governor": null,
  "accepts": {"oneShot": true, "fleet": false, "maxChildren": 0,
              "reason": "the engine on 127.0.0.1:59999 does not answer, so residency cannot be measured here: one-shot runs are accepted, fleets are not placed on this node"}}
@@ -202,9 +203,11 @@ pwsh -File scripts\mesh-capacity-probe.ps1 -Local
 pwsh -File scripts\mesh-capacity-probe.ps1 -All
 ```
 
-Exit `0` when every targeted node passed, `1` when any failed or was unreachable. The probe fetches
-with an `HttpClient` whose `UseProxy` is false — **the PAC proxy on this laptop invents a 502 for a
-tailnet name**, so a proxied fetch measures the proxy, not the node. For a human at a shell,
+Exit `0` when every targeted node passed, `1` when any failed or was unreachable. It checks the shape
+(types, nullability, no unknown fields), the rules that carry meaning (`fleet:false` must name its
+reason; `oneShot` must be true), and the identity invariant `node == fqdn's first label`. The probe
+fetches with an `HttpClient` whose `UseProxy` is false — **the PAC proxy on this laptop invents a 502
+for a tailnet name**, so a proxied fetch measures the proxy, not the node. For a human at a shell,
 `curl --noproxy '*' https://<node>.tail93e6e6.ts.net/mesh/capacity` is the same thing.
 
 For the node it runs on, the probe also compares `mem.freeMiB` and `disk.freeGiB` against a direct
@@ -223,27 +226,29 @@ pwsh -File scripts\mesh-capacity-probe.ps1 -Local -Port 3087 -Raw   # -> PASS, a
 
 ## 7. Evidence
 
-### 7.1 After the 23:40Z correction — all four gated nodes, 2026-09-16 23:27Z
+### 7.1 The shipped build — all four gated nodes, 2026-09-16 23:32Z
 
 Fetched from the laptop with the proxy off; `mesh-capacity-probe.ps1` validates every payload
-against §2.1 (types, nullability, unknown fields, and `fleet:false` with no reason). 5/5 targets
-`PASS` — loopback plus the four nodes:
+against §2.1 (types, nullability, unknown fields, the `node == fqdn` label invariant, and
+`fleet:false` with no reason). 5/5 targets `PASS` — loopback plus the four nodes. This is the run
+against the bytes deployed on every node (gate sha256 `4ec735cd…1661`):
 
 ```
-2026-09-16T23:26:53Z  host=ZABZ-YOGA  targets=5  failed=0
-loopback        zabz-yoga-1.tail93e6e6.ts.net      schema=1  loops=9  slots=24  free=23   109ms  PASS
-zabz-yoga (self) zabz-yoga-1.tail93e6e6.ts.net     schema=1  loops=9  slots=24  free=23   285ms  PASS
-zabz-tech       zabz-tech.tail93e6e6.ts.net        schema=1  loops=0  slots=24  free=24   311ms  PASS
-zabz-tech-linux zabz-tech-linux.tail93e6e6.ts.net  schema=1  agents=null  slots=24  free=24   454ms  PASS
-secratary       secratary.tail93e6e6.ts.net        schema=1  agents=null  slots=24  free=24   293ms  PASS
+2026-09-16T23:32:41Z  host=ZABZ-YOGA  targets=5  failed=0
+loopback           zabz-yoga-1.tail93e6e6.ts.net     schema=1  loops=9  slots=24  free=23   260ms  PASS
+zabz-yoga-1 (self) zabz-yoga-1.tail93e6e6.ts.net     schema=1  loops=9  slots=24  free=23   182ms  PASS
+zabz-tech          zabz-tech.tail93e6e6.ts.net       schema=1  loops=0  slots=24  free=24   325ms  PASS
+zabz-tech-linux    zabz-tech-linux.tail93e6e6.ts.net schema=1  agents=null  slots=24  free=24   329ms  PASS
+secratary          secratary.tail93e6e6.ts.net       schema=1  agents=null  slots=24  free=24   303ms  PASS
 ```
 
-`accepts.fleet`, and the reason that carries the inference — the node the fix was for, raw:
+`accepts.fleet: true` and `maxChildren: 12` on all five targets. The node the governor fix was for,
+raw (note `node` = the DNS label, and the reason carrying the `inUse` inference):
 
 ```json
-{"schema": 1, "node": "zabz-tech-linux", "fqdn": "zabz-tech-linux.tail93e6e6.ts.net", "at": "2026-09-16T23:27:01Z",
+{"schema": 1, "node": "zabz-tech-linux", "fqdn": "zabz-tech-linux.tail93e6e6.ts.net", "at": "2026-09-16T23:32:42Z",
  "cpu": {"logical": 12, "physical": 6, "load1": 0.02},
- "mem": {"totalMiB": 11673, "freeMiB": 10252, "swapUsedPct": 15.4},
+ "mem": {"totalMiB": 11673, "freeMiB": 10255, "swapUsedPct": 15.4},
  "disk": {"workRoot": "/home/zabz/code", "freeGiB": 20.8},
  "agents": null,
  "governor": {"budgetSlots": 24, "inUse": 0, "queued": 0},
@@ -254,7 +259,15 @@ secratary       secratary.tail93e6e6.ts.net        schema=1  agents=null  slots=
 and the authority, raw:
 
 ```json
-{"schema": 1, "node": "secratary", "fqdn": "secratary.tail93e6e6.ts.net", "at": "2026-09-16T23:27:01Z",
+{"schema": 1, "node": "secratary", "fqdn": "secratary.tail93e6e6.ts.net", "at": "2026-09-16T23:32:42Z",
+ "cpu": {"logical": 4, "physical": 4, "load1": 0.16},
+ "mem": {"totalMiB": 23422, "freeMiB": 17146, "swapUsedPct": 99.9},
+ "disk": {"workRoot": "/home/zabz/code", "freeGiB": 183.9},
+ "agents": null,
+ "governor": {"budgetSlots": 24, "inUse": 0, "queued": 0},
+ "accepts": {"oneShot": true, "fleet": true, "maxChildren": 12,
+             "reason": "slot budget computed from memory; no governor lease directory on this node, so inUse is reported as 0 and is not measured"}}
+```
  "cpu": {"logical": 4, "physical": 4, "load1": 0.3},
  "mem": {"totalMiB": 23422, "freeMiB": 17135, "swapUsedPct": 99.9},
  "disk": {"workRoot": "/home/zabz/code", "freeGiB": 184.0},
@@ -264,29 +277,30 @@ and the authority, raw:
              "reason": "slot budget computed from memory; no governor lease directory on this node, so inUse is reported as 0 and is not measured"}}
 ```
 
-The two Windows nodes, with a lease directory present (laptop first, so its `inUse` is measured):
+The two Windows nodes, with a lease directory present (same run, so the laptop's `inUse` is measured
+rather than inferred — and the laptop's `node` is the DNS label, `zabz-yoga-1`):
 
 ```json
-{"node": "zabz-yoga", "cpu": {"logical": 22, "physical": 16, "load1": null},
- "mem": {"totalMiB": 32373, "freeMiB": 15025, "swapUsedPct": 0.0},
+{"node": "zabz-yoga-1", "cpu": {"logical": 22, "physical": 16, "load1": null},
+ "mem": {"totalMiB": 32373, "freeMiB": 14984, "swapUsedPct": 0.0},
  "disk": {"workRoot": "C:/Users/ezabz/code", "freeGiB": 64.2},
- "agents": {"loopsRunning": 9, "sessionsLive": 15},
+ "agents": {"loopsRunning": 9, "sessionsLive": 16},
  "governor": {"budgetSlots": 24, "inUse": 1, "queued": 0},
  "accepts": {"oneShot": true, "fleet": true, "maxChildren": 12, "reason": null}}
 
 {"node": "zabz-tech", "cpu": {"logical": 32, "physical": 24, "load1": null},
- "mem": {"totalMiB": 65173, "freeMiB": 52235, "swapUsedPct": 0.0},
+ "mem": {"totalMiB": 65173, "freeMiB": 52229, "swapUsedPct": 0.0},
  "disk": {"workRoot": "C:/Users/ezabz/code", "freeGiB": 220.4},
  "agents": {"loopsRunning": 0, "sessionsLive": 1},
  "governor": {"budgetSlots": 24, "inUse": 0, "queued": 0},
  "accepts": {"oneShot": true, "fleet": true, "maxChildren": 12, "reason": null}}
 ```
 
-The engine-down case still holds after the correction (spare gate on `127.0.0.1:3087`,
-`--engine-port 59999`, 23:27:10Z, probe `PASS`):
+The engine-down case still holds on the shipped build (spare gate on `127.0.0.1:3087`,
+`--engine-port 59999`, 23:32:56Z, probe `PASS`):
 
 ```json
-{"node": "zabz-yoga", "agents": null, "governor": null,
+{"node": "zabz-yoga-1", "agents": null, "governor": null,
  "accepts": {"oneShot": true, "fleet": false, "maxChildren": 0,
              "reason": "the engine on 127.0.0.1:59999 does not answer, so residency cannot be measured here: one-shot runs are accepted, fleets are not placed on this node"}}
 ```
