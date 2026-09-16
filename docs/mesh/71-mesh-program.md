@@ -171,9 +171,13 @@ verify" is a correct answer and a confident wrong claim is not.
 
 ## 5. What we deliberately do NOT build yet
 
-* **Automatic `subagent` routing** — a remote `SubagentProvider` needs a preset row, which needs an
-  engine restart (P210). v1's `mesh-run` gives the same capability one level up. This is the first
-  thing to land when a restart window opens, and the interface is already frozen for it (§2.3).
+* **Automatic `subagent` routing** — a remote `SubagentProvider` mounted in the RUNNING engine needs a
+  preset row, which needs an engine restart (P210). But a **`mesh` PROFILE needs no restart at all**:
+  `dsh --profile mesh headless "<task>"` starts a fresh process with that composition, so its children
+  can fan out across the mesh while the node running the parent stays flat. That is the owner's
+  sentence implemented without touching a live engine, and it is stream S6's deliverable. Mounting the
+  same provider in the resident engine is the upgrade, and the first thing to land when a restart
+  window opens; §2.3's interface is already frozen for it.
 * **Sessions moving between nodes** — they cannot, by construction. Session *placement* (choosing a
   node at creation) is v2 and needs a client-side redirect the harness does not have.
 * **A heartbeat table of node state** — the broker re-reads. Stale state is how this system has lied
