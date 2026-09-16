@@ -63,7 +63,8 @@ param(
     [int]$EnginePort = 3099,
     [string]$EngineAuthority = "",
     [switch]$Publish,
-    [switch]$Status
+    [switch]$Status,
+    [switch]$Quiet
 )
 
 $ErrorActionPreference = 'Stop'
@@ -87,7 +88,7 @@ function Say-Log([string]$message) {
     # that matches parameter name 'Path'". Measured 2026-09-16: the gate self-healed and the status
     # record was written, but the log line was lost and the watchdog printed a red failure.
     Microsoft.PowerShell.Management\Add-Content -Path (Join-Path $statusDir 'phone-gate.log') -Value $line
-    Write-Host $line
+    if (-not $Quiet) { Write-Host $line }
 }
 
 function Get-Listener([int]$port) {
@@ -117,8 +118,15 @@ if ($failed.Count -eq 0) {
         $findings += "gate:${ListenPort}:already-listening:pid=$($existing.OwningProcess)"
     } else {
         if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Force -Path $stateDir | Out-Null }
-        $python = (Get-Command python.exe -ErrorAction SilentlyContinue).Source
-        if (-not $python) { $failed += 'python.exe not on PATH' }
+        # pythonw.exe, NOT python.exe. A console-subsystem child started with a hidden window still
+        # OWNS a console, and when that console closes the process receives CTRL_CLOSE_EVENT and
+        # dies -- which is the shape of the two silent deaths measured on 2026-09-16 (banner
+        # printed, then gone, while main() is an infinite accept loop, so it was killed, not
+        # crashed). pythonw is a GUI-subsystem binary: it has no console to close, and the gate
+        # writes its own log with --log-file, so nothing is lost by having no stdout.
+        $python = (Get-Command pythonw.exe -ErrorAction SilentlyContinue).Source
+        if (-not $python) { $python = (Get-Command python.exe -ErrorAction SilentlyContinue).Source }
+        if (-not $python) { $failed += 'no pythonw.exe or python.exe on PATH' }
         else {
             $gateArgs = @('--listen-port', "$ListenPort", '--engine-port', "$EnginePort")
             if ($EngineAuthority) { $gateArgs += @('--engine-authority', $EngineAuthority) }
