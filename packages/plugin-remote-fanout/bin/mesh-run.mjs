@@ -73,14 +73,16 @@ const NODES = {
     cwd: 'C:/Users/ezabz',
     verified: '2026-09-17: node v24.19.0, dsh 0.1.5-rc.1, a child turn completed over ssh',
   },
-  'zabz-yoga': {
+  // Keyed on the Tailscale DNS label: the capacity contract's invariant is
+  // `node === fqdn.split(".")[0]`, so this label is what a broker answer names.
+  'zabz-yoga-1': {
     ssh: 'laptop-ts',
-    hosts: ['ZABZ-YOGA', 'zabz-yoga', 'zabz-yoga-1.tail93e6e6.ts.net'],
+    hosts: ['ZABZ-YOGA', 'zabz-yoga', 'zabz-yoga-1', 'zabz-yoga-1.tail93e6e6.ts.net'],
     shell: 'powershell',
     nodeExe: 'C:/Program Files/nodejs/node.exe',
     dshBin: 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js',
     cwd: 'C:/Users/ezabz',
-    verified: '2026-09-17: node v24.12.0, dsh 0.1.5-rc.1, but NOT reachable as a worker over ssh — see MESH_YOGA_UNREACHABLE below',
+    verified: 'MEASURED 2026-09-17: node v24.12.0, dsh 0.1.5-rc.1. ACCEPTED v1 ssh work after its module links were recreated INSIDE an ssh session (413 links, 22 s): `ssh <laptop> dsh --profile headless "Reply with exactly: LAPTOP OK"` -> LAPTOP OK, exit 0, 10.3 s. Before that relink it refused every reparse point as UNTRUSTED (70-remote-fanout-proof.md §4.4)',
   },
   'zabz-tech-linux': {
     ssh: 'linux-pc-ts',
@@ -230,6 +232,56 @@ function isHostToken(value) {
   return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(value ?? ''));
 }
 
+/**
+ * Can this node's sshd session traverse the reparse points a CHILD will resolve
+ * through? One read through an EXISTING link under `<DSH_HOME>/profiles`, and —
+ * only when the home has no links yet — one fresh junction in the target's TEMP.
+ *
+ * It must read a pre-existing link, not a freshly created one: a junction
+ * created inside the sshd session is always trusted by that session, so probing
+ * with one would certify a node whose real links are untrusted (measured
+ * 2026-09-17, `70-remote-fanout-proof.md` §4.4).
+ *
+ * POSIX targets have no reparse points, so the probe is skipped and says so.
+ */
+async function probeTraversal(node, alias, nodeFacts, timeoutMs = 30_000) {
+  if (nodeFacts.shell !== 'powershell') return { ok: true, skipped: 'posix target: reparse points do not exist' };
+  const script = [
+    '$dsh = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }',
+    '$links = @(Get-ChildItem -Path (Join-Path $dsh "profiles") -Recurse -Depth 3 -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.LinkType } | Select-Object -First 5)',
+    'if ($links.Count -gt 0) {',
+    '  $ok = 0; $bad = @()',
+    '  foreach ($link in $links) {',
+    '    try { $null = Get-ChildItem -LiteralPath $link.FullName -Force -ErrorAction Stop | Select-Object -First 1; $ok++ }',
+    '    catch { $bad += ($link.FullName + " :: " + $_.Exception.Message) }',
+    '  }',
+    '  if ($bad.Count -eq 0) { "MESH-TRAVERSAL=OK existing " + $ok + " of " + $links.Count + " link(s) traversable" }',
+    '  else { "MESH-TRAVERSAL=BLOCKED " + $bad.Count + " of " + $links.Count + " link(s) :: " + $bad[0] }',
+    '} else {',
+    '  $d = Join-Path $env:TEMP ("meshtrav-" + [guid]::NewGuid().ToString("N"))',
+    '  $t = Join-Path $d "t"; $l = Join-Path $d "l"',
+    '  New-Item -ItemType Directory -Force -Path $t | Out-Null',
+    '  Set-Content -Path (Join-Path $t "probe.txt") -Value "OK" -Encoding ascii',
+    '  New-Item -ItemType Junction -Path $l -Target $t | Out-Null',
+    '  try { $v = (Get-Content -LiteralPath (Join-Path $l "probe.txt") -Raw).Trim(); "MESH-TRAVERSAL=OK fresh-home " + $v } catch { "MESH-TRAVERSAL=BLOCKED fresh-home :: " + $_.Exception.Message }',
+    '  & cmd /c rmdir /s /q "$d"',
+    '}',
+  ].join('\n');
+  const result = await sshRun(['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', alias, 'powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand', pwshEncode(script)], { timeoutMs });
+  const line = /MESH-TRAVERSAL=(\S+)(.*)/.exec(result.stdout);
+  if (line === null) {
+    return { ok: false, reason: `the traversal probe printed no verdict (exit ${result.exitCode ?? 'none'}; stdout: ${result.stdout.trim().slice(0, 200)}; stderr: ${result.stderr.trim().slice(0, 200)})` };
+  }
+  const detail = (line[2] ?? '').trim().slice(0, 200);
+  if (line[1] === 'OK') return { ok: true, reason: `reparse points traverse over ssh — ${detail}` };
+  return { ok: false, reason: `this node's sshd session cannot traverse a reparse point (${detail}) — profile bundle resolution would fail; fix it by recreating the links INSIDE an ssh session (see 70-remote-fanout-proof.md §4.4)` };
+}
+
+/** base64(UTF-16LE) for `powershell -EncodedCommand`. */
+function pwshEncode(script) {
+  return Buffer.from(script, 'utf16le').toString('base64');
+}
+
 const options = parseArgs(process.argv.slice(2));
 const dshBin = resolveDshBin(options.dshBin);
 if (dshBin === undefined || !existsSync(dshBin)) {
@@ -288,10 +340,31 @@ if (node === undefined) {
 
 const alias = NODES[node]?.ssh;
 if (alias === undefined) {
-  record({ phase: 'configure', ok: false, error: `unknown node "${node}" — add it to the NODES table in mesh-run` });
+  record({
+    phase: 'configure',
+    ok: false,
+    error: `the broker named node "${node}", which is not in this dispatcher's node table — refusing to dispatch into a lookup miss`,
+    knownNodes: Object.keys(NODES),
+  });
+  console.error(`mesh-run: the broker named node "${node}", which is not in this dispatcher's node table (${Object.keys(NODES).join(', ')})`);
   process.exit(EXIT_FAILED);
 }
 const nodeFacts = NODES[node];
+
+// ---- 2b. CAPABILITY, PROBED BEFORE ANY WORK IS STARTED ------------------------
+// A Windows node whose sshd session cannot traverse reparse points cannot run a
+// DSH child, because profile bundle resolution goes through the junctions in
+// <DSH_HOME>/profiles/node_modules. That property is NOT visible in any
+// configuration — measured 2026-09-17 on two nodes with identical junctions,
+// targets, ACLs, token privileges, integrity level and fsutil symlink policy,
+// where one traverses and the other returns UNKNOWN. So it is probed, recorded,
+// and a blocked node fails the run BEFORE a parent is started.
+const traversal = await probeTraversal(node, alias, nodeFacts);
+record({ phase: 'traversal', node, shell: nodeFacts.shell, ...traversal });
+if (!traversal.ok) {
+  console.error(`mesh-run: node "${node}" cannot accept v1 ssh work: ${traversal.reason}`);
+  process.exit(EXIT_FAILED);
+}
 
 // ---- 2/3. CONFIGURE and RUN ---------------------------------------------------
 // The target's own facts travel as environment for the profile that is about to

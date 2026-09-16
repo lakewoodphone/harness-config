@@ -166,6 +166,32 @@ MESHRUN_EXIT_CODE=0
 by the failed runs recorded in §4.4 and §4.5 — `10` queued is only reachable when the broker answers
 `position > 0`, and **no placement in this session was ever queued** (§6.3).
 
+### 2.6 Which nodes can accept v1 work — measured, per node
+
+This is the table the broker and the acceptance harness should consume. **It is a measurement, not a
+configuration read**: every "ACCEPTS" below is backed by a completed `--profile headless` turn on that
+node, because no configuration field predicts it (§4.4).
+
+| node (broker name = Tailscale DNS label) | ssh | traversal probe over that node's own sshd | v1 ssh work | measured by |
+|---|---|---|---|---|
+| `zabz-tech` | `desktop-ts` | **OK** | **ACCEPTS** | 5 child turns completed: 3 in the proof (§2.3) + 2 single-child runs, 8.5–20.4 s each |
+| `zabz-yoga-1` | `laptop-ts` | **OK** — 5 of 5 existing links traversable | **ACCEPTS** since 2026-09-17 23:44Z | `LAPTOP OK`, exit 0, 10.3 s over ssh; then a full `mesh-run` dispatch to it: `childHosts: ["zabz-yoga"]`, exit 0. Before the in-session relink it refused every reparse point as UNTRUSTED (§4.4) |
+| `secratary` | `secratary-ts` | skipped (POSIX: no reparse points) | **UNKNOWN** — no child turn has ever completed there | node v22.23.2 and the dsh install are measured (`62` §1.2). The one dispatch that landed there died on the caller-vs-target shell bug (§4.5) before that bug was fixed |
+| `zabz-tech-linux` | `linux-pc-ts` | skipped (POSIX) | **NO — not a node yet** | no Node runtime at all (`62` §3.1, re-read 2026-09-16); `accepts.fleet=false`; 21 GiB free |
+| `lakewooechsmini` | `mac-mini-ts` | skipped (POSIX) | **UNKNOWN** — never exercised as a worker | paths measured (`62` §3.2); `20-placement.md` §8 keeps the employee machine off fleet work |
+
+Three rules that follow, and they are the durable part:
+
+1. **A node name is its Tailscale DNS label** — `zabz-yoga-1` (not `zabz-yoga`), `zabz-tech-linux`
+   (not `linux-pc`), `lakewooechsmini` (not `mac-mini`) — because the capacity contract's invariant is
+   `node === fqdn.split(".")[0]`. `mesh-run` keys its tables on that label and **fails the run loudly,
+   naming the node and listing the known ones**, rather than dispatching into a lookup miss. This
+   matters: `-Exclude "zabz-yoga"` silently excluded nothing after the rename.
+2. **A passing probe is necessary, not sufficient.** `mesh-run` probes traversal before it starts a
+   parent (`phase: "traversal"`), but the thing that certifies a worker is a completed one-shot turn.
+3. **Re-probe after any node build, reinstall or image refresh.** The property is per-machine and
+   invisible; the only honest way to know is to measure it, and the fix is one command (§4.4).
+
 ---
 
 ## 3. How the dispatcher fits the frozen interfaces
@@ -229,31 +255,82 @@ child never booted. The harness builds it, and the correct boundary is:
 
 That shape works and is what §4.4 below then made unnecessary for the final proof.
 
-### 4.4 The laptop cannot accept ssh dispatch at all — this is the finding that changed the direction
+### 4.4 UNTRUSTED REPARSE POINTS — why the laptop refused ssh work, and the fix that returned it to the fleet
 
-`ssh <laptop> node <dsh>/lib/bin.js --profile headless "<task>"` **cannot work on this fleet** for a
-structural reason. DSH resolves a profile's bundles through `$DSH_HOME/profiles/node_modules`, where
-each package is a **symlink** into the installation. A process launched by the laptop's sshd cannot
-traverse those symlinks. The same probe binary, run locally and over ssh, on 2026-09-17:
+**First measured 2026-09-17 ~23:31Z, fixed and re-measured the same night.** `ssh <laptop> node
+<dsh>/lib/bin.js --profile headless "<task>"` failed with `plugin tree failed to load … loader entries
+failed to apply`, because DSH resolves a profile's bundles through `$DSH_HOME/profiles/node_modules`
+and a process launched by that machine's sshd could not read through those links. The same probe
+binary, run locally and over ssh:
 
 | | local (laptop shell) | launched by the laptop's sshd |
 |---|---|---|
-| `lstat @deepseek-ai/dsh-llm` | `symlink=true` | `symlink=true` (the link itself is visible) |
+| `lstat @deepseek-ai/dsh-llm` | link visible | link visible |
 | read a file **through** the link | OK, 2228 bytes | **`UNKNOWN` (-4094)** |
 | `require.resolve('@deepseek-ai/dsh-llm')` | the npx cache | **`MODULE_NOT_FOUND`** |
-| `ssh <node> dsh --profile headless` | works | **`plugin tree failed to load … loader entries failed to apply`** |
+| `ssh <node> dsh --profile headless` | works | **`plugin tree failed to load`** |
 
-The desktop's sshd session resolves the same symlinks fine — its `mesh` parent booted **over ssh** and
-loaded this plugin, and the earlier proven `REMOTE OK` run is the same shape. So the mesh's working
-direction today is **laptop → desktop**, and that is the direction the owner wants anyway: the machine
-he is working on stays flat and the work lands on the idle 32-core desktop.
+**The mechanism, in the operating system's own words.** `cmd /c type <link>\<file>` run inside the
+laptop's sshd session prints:
 
-**This is a report for S1/S5, not a workaround to hide:** the broker will happily place a job on
-`zabz-yoga` (it did, at 23:24Z: `node=zabz-yoga, position=0, score=22`) while that node cannot accept
-it over the ssh transport. Either `accepts` must carry this fact, or the transport for that node must
-be the v2 route. `mesh-run` therefore takes `-Exclude`, and the exclusion is visible in the broker's
-own `rationale` (`"zabz-yoga: … excluded by the caller"`). A silent exclusion would be the bug, not
-the exclusion.
+```
+The path cannot be traversed because it contains an untrusted reparse point.
+```
+
+That is Windows' reparse-point trust check, not a permissions failure — which is why every number an
+administrator would normally look at was identical on the two machines, and why the diagnosis could
+only come from a differential probe:
+
+| eliminated, by measurement | result |
+|---|---|
+| link **type** (`Get-Item .LinkType`) | `Junction` on both nodes, same targets |
+| the **target** chain | all real directories on both; no extra reparse hop (`AppData\Local\npm-cache\_npx\…`) |
+| **ACL** of `~/.dsh` | identical (`SYSTEM`, `Administrators`, `<machine>\ezabz` — inherited full control) |
+| token **privileges** (`whoami /priv` over each node's own sshd) | identical, including `SeChangeNotifyPrivilege` **Enabled** and `SeCreateSymbolicLinkPrivilege` Enabled |
+| **integrity** level | `High Mandatory Level` on both |
+| `fsutil behavior query SymlinkEvaluation` | identical on both: L2L/L2R Enabled, **R2L/R2R Disabled** |
+| the **caller** | the laptop's sshd fails even for a connection from **itself** (`ssh ezabz@127.0.0.1`), so it is not the network, not Tailscale, and not the client |
+| the **path** | a freshly created junction in a plain directory outside `~/.dsh` fails the same way — it is reparse points as a class, not `$DSH_HOME` |
+| which **process** reads | the sshd session's own PowerShell reads through a junction it created **in that session**, while `node.exe` reading the *same* link fails |
+
+So the one-line rule is: **a Windows node can only resolve a profile's bundles over ssh if its sshd
+session *trusts* the reparse points those bundles resolve through**, and a link created in another
+logon session is not trusted. What decides trust beyond the creating session was **not established** —
+the seven rows above are what it is *not*. Therefore it must be **probed, never assumed**.
+
+**The fix, and the trap in it.** Recreate the links — but **from inside an ssh session**, so the
+creating context and the reading context are the same one. Recreating them from a local session (my
+first attempt, and the obvious reading of "relink") changes nothing: the newly created link is
+immediately untrusted for sshd again. Both were measured:
+
+| relink performed | result over the laptop's sshd |
+|---|---|
+| from a local session (`New-Item -ItemType Junction`, same target) | **still `UNKNOWN`** — the relink is a no-op for this failure |
+| from inside the sshd session, 413 links, 22 s, 0 failed | **reads OK** |
+
+The acceptance command then behaved:
+
+```
+$ ssh <laptop> node <dsh>/lib/bin.js --profile headless "Reply with exactly: LAPTOP OK"
+LAPTOP OK
+EXIT=0                        (10.3 s wall)
+```
+
+and it is durable: after a subsequent **local** `--profile headless` run (which re-runs
+`healProfilesModuleFallback`), the link is still a `Junction` and still traverses over sshd — the heal
+treats a junction with the right target as current and does not touch it. The engine (`pid 1784`,
+started 15:49) was never restarted and is still up; a local run on the same machine still succeeds.
+`zabz-yoga` is therefore **both a dispatcher and a worker** again, and the mesh recovered its
+second-heaviest node.
+
+**What the fleet should do with this.** `mesh-run` now probes the target **before** it starts a parent
+and fails the run if the probe fails (`phase: "traversal"` in the log), so a node is never dispatched
+into blind. The probe deliberately reads the **existing** links (5 of them) rather than creating one:
+a junction created inside the sshd session is always trusted by it, so probing with a fresh one would
+certify a node whose real links are untrusted — which is exactly the mistake the first version made.
+The `-Exclude` flag stays for real exclusions (maintenance, an owner request), and the exclusion is
+always visible in the broker's own `rationale`; the earlier `-Exclude "zabz-yoga,secratary"` in §2.2 is
+only a historical record of the night the laptop was down, not a standing restriction.
 
 ### 4.5 The remote **shell** is a property of the target, not of the caller
 
@@ -344,6 +421,12 @@ this proves; continuation is a separate contract that does not exist yet.
   laptop was otherwise healthy. A 1500 ms capacity read is a tight bound for a node that is running
   eleven agent loops; worth watching, because an unreachable node is *excluded* from placement and
   that is indistinguishable from a busy one at the caller.
+* **Resolved the same night:** the broker's placement on `zabz-yoga` at 23:24Z (`node=zabz-yoga,
+  position=0, score=22`) was correct by its own arithmetic and could not be executed because that
+  node's links were untrusted (§4.4). After the relink, `zabz-yoga-1` passes the traversal probe and a
+  child turn completed there through `mesh-run` (`childHosts: ["zabz-yoga"]`, exit 0). The node name
+  is `zabz-yoga-1` now, and `-Exclude` strings written against the old label would silently match
+  nothing — hence the loud lookup-miss failure in `mesh-run`.
 * Six live leases existed on the mesh from other streams' testing during this session
   (`/nodes?fresh=1`, 23:23:59Z: `live: 6, byNode {zabz-tech: 3, zabz-tech-linux: 1, secratary: 1,
   zabz-yoga: 1}, oldestAgeSec: 182`). The TTL is doing its job; no cleanup was needed.
@@ -371,13 +454,17 @@ processes were separate `--profile mesh` one-shots against the same `DSH_HOME`.
 * `~/.dsh/profiles/mesh/` **on ZABZ-YOGA** — the deliverable, installed by the keeper, linked to the
   repo package, and checkable with `install-mesh-profile.mjs --check` (exit 0).
 * `~/.dsh/mesh/logs/*.jsonl` and `*.out` **on ZABZ-YOGA** — the run records the dispatcher is
-  specified to write (`71` §2.3). They are the evidence for §2.3.
-* The four repo files/paths in §1 are the source of truth; nothing was pushed to git.
+  specified to write (`71` §2.3). They are the evidence for §2.3 and §2.6.
+* **The relinked module fallback on ZABZ-YOGA** (413 links, recreated inside an ssh session) — not a
+  leftover but a repair, and the reason that node can accept work at all (§4.4). Reverting it would
+  take the laptop back out of the fleet.
+* The repo files in §1 are the source of truth; nothing was pushed to git.
 
-**Removed:** `C:\Users\ezabz\fanout-tmp\` on **both** nodes (scripts, markers, the desktop's plugin
-copy), and `~/.dsh/profiles/mesh/` **on ZABZ-TECH**, whose plugin link pointed into that directory —
-a dangling bundle junction is exactly the failure `install-client-plugins.ps1:65-85` was written to
-prevent. Verified afterwards: `PROOF_DIR_REMOVED=True`, `PROFILE_REMOVED=True`,
+**Removed:** `C:\Users\ezabz\fanout-tmp\` **and** `C:\Users\ezabz\meshprobe\` on ZABZ-YOGA, plus the
+files copied to `C:\Users\ezabz\` on ZABZ-TECH (`meshprobe-*.ps1`, `readthrough.mjs`, the probe
+scripts), and `~/.dsh/profiles/mesh/` **on ZABZ-TECH**, whose plugin link pointed into the removed
+directory — a dangling bundle junction is exactly the failure `install-client-plugins.ps1:65-85` was
+written to prevent. Verified afterwards: `PROOF_DIR_REMOVED=True`, `PROFILE_REMOVED=True`,
 `WEB_PROFILE_INTACT=True`, `PROFILES_NODE_MODULES_INTACT=True` on the desktop, and on the laptop
 `MESH_PROFILE_STILL_OK=True`, `PLUGIN_LINK_ALIVE=True`. No scheduled task was created on any node and
 no stray process was left running.
@@ -386,12 +473,19 @@ no stray process was left running.
 
 ## 8. What this changes in the program
 
-1. **`71` §2.3's v1 transport is correct but not universally usable.** `ssh <alias> dsh --profile
-   headless` works station→station on Windows and does **not** work into `zabz-yoga` (§4.4). The
-   transport is right; the *node capability* is what is missing, and it belongs in `accepts`.
+1. **`71` §2.3's v1 transport is correct but not universally usable**, and the reason is now known and
+   fixable: a Windows node whose sshd session does not trust the reparse points the bundles resolve
+   through cannot run a DSH child, and `zabz-yoga` was in exactly that state until its links were
+   recreated **inside an ssh session** (§4.4). The transport is right; the *node capability* is what
+   varies, and **it must be probed, never assumed** — `mesh-run` now does, before it starts a parent.
+   §2.6 is the measured answer for every node.
 2. **The dispatcher, not the profile, owns per-node facts** (§4.5). A profile cannot describe a
    machine it is not running on.
 3. **`mesh-run` is the caller-side product; the `mesh` profile is the agent-side one.** `mesh-run`
    decides and verifies; `dsh --profile mesh headless "<task>"` is what a parent agent that fans out
-   its own children runs in. Both are one file and one profile.
-4. **The one genuinely missing contract is unchanged**: continuable remote children (§6.1).
+   its own children runs in. Both are one file and one profile, and `scripts/mesh-run.ps1` is a
+   two-statement shim onto the implementation at `packages/plugin-remote-fanout/bin/mesh-run.mjs` —
+   kept deliberately logic-free so it cannot drift from what it points at.
+4. **Node names are Tailscale DNS labels** (`zabz-yoga-1`, `zabz-tech-linux`, `lakewooechsmini`), and
+   a dispatcher that cannot find a broker-named node must fail loudly rather than dispatch (§2.6).
+5. **The one genuinely missing contract is unchanged**: continuable remote children (§6.1).
