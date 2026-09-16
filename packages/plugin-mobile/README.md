@@ -1,12 +1,13 @@
 # dsh-plugin-mobile
 
-Phone behaviour for DSH. Three things, because none of them can live in a stylesheet:
+Phone behaviour for DSH. Four things, because none of them can live in a stylesheet:
 
 | Surface | What it does | Where it lives |
 |---|---|---|
 | The phone layer, on any viewport | Links `/dsh-phone-mobile.css` and keeps it linked, so the layout never depends on a document the client may have cached | Browser half: `lib/client.js` |
 | The sidebar, on a narrow viewport | An action taken in the open drawer closes it — a conversation, or a header control like **New session**; a tap outside closes it; Escape closes it | Browser half: `lib/client.js` |
 | An agent's question card, on a narrow viewport | Pins the sheet to the band the reader can actually see (`visualViewport`), in pixels, when the stylesheet's layout-viewport anchor leaves the question off-screen — and removes the repair once the card fits | Browser half: `lib/client.js` |
+| A tab that is already open | Compares the `phone-layer-version` token in the layer it is using with the one the gate is serving, re-applies the newer bytes in place, and reloads only when no question is pending and nothing is focused or typed | Browser half: `lib/client.js` |
 
 ## Why this exists
 
