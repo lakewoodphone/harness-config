@@ -1,14 +1,39 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-15 20:05Z (ZABZ-TECH, credential session — AWS key killed D164, Twilio token rotated D165, H275)
+Updated: 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H260)
 
-Sections below the marker are from the comms session (ZABZ-YOGA, 14:05Z); this session's open
-work is at the end of the file.
+Rewritten, not appended. Earlier sessions still live in this file: **ZABZ-TECH credential session, 2026-09-15 20:05Z**
+(AWS key killed D164, Twilio token rotated D165, H275 - its open work is at the END of this file, do not overwrite it) and
+the comms session (ZABZ-YOGA, 14:05Z).
+*(Corrections: H208 cites "D142" for the digest decision — it is **D146**. H259 addenda 3/4 said the API fix was holding —
+**H260 supersedes that**; it was not a fix.)*
 
-Rewritten, not appended. Earlier session: **H202**, **H208**, **H213**, **H214**, **H219**; record
-**W105**, **D141**, **D146**, **D151**, **L1081–L1086**, **L1467–L1469**, **L1474–L1476**, **L1479**,
-**L1481**, **L1484**, **L1503**, **L1504**, **P131**, **P143**, **H224**, **H225**.
-*(Correction: H208 cites "D142" for the digest decision — it is **D146**.)*
+## Open right now
+
+1. **`secretary-api` memory runaway — CONTAINED, NOT FIXED (P160).** The 09-15 fixes (`44e3f8e8`, `ce20ab28`) moved the
+   failure interval from 6.5 minutes to 30–60 minutes but did not stop it: **23 OOM kills on 2026-09-16** (hourly, 00:00 →
+   13:18) after **8 on 2026-09-15**, all at ~20.2–20.8 GB `anon-rss`, plus a SIGBUS at 14:35 on 09-16. Containment applied
+   2026-09-16: `MemoryHigh=5G MemoryMax=8G MemorySwapMax=1G` on the unit (drop-in `20-memory-guard.conf`, runtime
+   `set-property` too, reversible without a restart). **The allocator is still un-named.** Armed: `~/phone/oom-evidence/
+   burst-catcher.sh` (6 h window, 2 s poll, py-spy dumps at 5 GB) — give it HOURS; a 40-minute watch against a 30–60 minute
+   interval is a coin flip (L1551). Next levers in order: `app/workforce.py:1417` per-tick `ThreadPoolExecutor` +
+   `shutdown(wait=False)` (unbounded abandoned ticks), the reviewed-but-unapplied
+   `docs/incidents/2026-09-15-secretary-api-oom/proposed-hard-heap-limit.patch`, then `ANALYZE` (never run on the 5.5 GB
+   database — no `sqlite_stat1` exists). Full evidence + numbers: `harness-config/docs/incidents/2026-09-15-secretary-api-oom/`.
+2. **RattleByte ticket #188880 (portal id 2553) — reopened with the owner's photos, waiting on the vendor.**
+   Portal: *"Reopened by info@lakewoodphoneandtech.com 16/09/2026 00:11"*, **three client messages** — the back-plate photo
+   (`01-back-panel-full.jpg`, 541.1 kb) and the full reply as an attached `.txt`, because the portal silently stored only the
+   first **122 characters** of the 2,900-character reply it reported as posted (L1549). Asked of Eriks: is
+   `RattleByte-Panasonic-BD83-V1.84-R1-Solderless-Initial` right for this exact unit, and what triggers the Initial install.
+   **One item still owed to him: the OEM Main Version screen** (HOME MENU → Setup → Player Settings → System → System
+   Information → Firmware Version Information → Main Version). Case log on `main` at
+   `lpt-hub/hardware-diagnostics/panasonic-dmp-bd84-rattlebyte-diagnostic-2026-09-12.md` (§F5 photos, §F6 verbatim
+   correspondence); commits `738baba47` + `7effbfed4`. Free retry that needs nobody: a 256 MB–2 GB USB stick, single
+   partition, FAT32 formatted on Windows, `PANA_DVD.FRM` alone at root. The portal session expired — request a fresh access
+   link via `view.php` → "Check Ticket Status" (email + ticket number) before looking for a reply; it will never arrive by
+   email (L1512).
+   `shutdown(wait=False)` (unbounded abandoned ticks), and `ANALYZE`, which has never run on the 5.5 GB database.
+
 
 ## Done — the comms objective is met
 
