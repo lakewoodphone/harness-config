@@ -125,6 +125,33 @@ Fleets break on these, not on the code:
 | Cannot verify (no dependency, no device, no network) | **"not verified"** is the correct answer; record it, never claim it |
 | Integration would break `main` | revert and re-queue with a smaller scope |
 
+## What each host can actually take — measured, 2026-09-15/16
+
+Fan the fleet **off** the machine the owner is sitting in front of when it is heavy. These are
+measurements, not rules of thumb; method and raw counters are in `_dsh-scale/`.
+
+| Host | What it is | Measured | Rule |
+|---|---|---|---|
+| `ZABZ-YOGA` | laptop, 22 logical cores, 31.61 GB physical | commit 20.6-22.9 GB with the fleet quiet and **28.7 GB at ten running turns**; pagefile 16 MB; hard page faults 145-2,400/s depending on load; ~325 MB private per browser window | **0.81 GB per running turn**, so roughly 13-14 turns before it pages, and ~46 windows before windows bind. Keep fleets here small, or run them elsewhere |
+| `ZABZ-TECH` | office desktop, i9 / 64 GB | **unmeasured** — the mesh was down when this was written | state no budget for it until it is measured; do not scale this table by 2x and call it a budget |
+| `secratary` | Linux authority | — | prefer it for anything that must not depend on a laptop being awake |
+
+Three measured facts that change how a fleet is briefed:
+
+- **A shell tool call costs ~700 ms** (trivial `pwsh`: start-up 78 %, the Job-owner runner 19 %,
+  everything else under 3 %) while `read` is **0.76 ms** and `stat` **0.11 ms**. No shipped tool
+  declares `isConcurrencySafe`, so parallel calls in one step run **in series** — N shell calls
+  cost N x ~700 ms. Put "use the file tools, batch shell work" in every worker's brief.
+- **Sessions and subagents are not processes.** A subagent runs in-process; the process cost is
+  per *tool call* (~160 MB in flight: a ~57 MB Job-owner runner plus the shell).
+- **On the laptop the binding resource is memory commit, not CPU** — measured at 36-39 GB against
+  31.6 GB physical with hard faults at 2,400/s while CPU sat near 65 %. A fleet can be "only"
+  65 % busy and still be paging.
+
+Records: `_dsh-scale/10-dsh-source-audit.md` (process model), `_dsh-scale/50-implementation.md`
+(what changed and what it bought), `_dsh-scale/80-windows-and-parity.md` (window budget; count
+browser memory by private bytes, never `WorkingSet`).
+
 ## Off-limits
 
 Never let an agent push. Never let an agent touch `main`. Never merge a branch whose tests you have not

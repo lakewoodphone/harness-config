@@ -22,6 +22,7 @@ import filecmp
 import os
 import shutil
 import socket
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -188,6 +189,48 @@ def plan_profile_patches(dry: bool) -> list[str]:
     return msgs
 
 
+def ensure_client_plugins(dry_run: bool) -> tuple[int, str]:
+    """Every name in the profile's bundle list must resolve. Returns (status, message).
+
+    WHY THIS IS PART OF SYNC (2026-09-16). This script copies settings, presets and the profile
+    patch into ~/.dsh -- and does NOT install plugin packages, because the bundle list lives in
+    the machine-local `~/.dsh/profiles/web/package.json` and the packages themselves are
+    junctioned into `profiles/node_modules`. So a machine rebuilt from harness-config, or a
+    node_modules tree that gets rebuilt, silently loses every plugin with no error.
+
+    That is not hypothetical: on 2026-09-11 the engine refused to boot with
+    `cannot resolve profile bundle "dsh-plugin-cost"`, and plugin-windows had to be copied by
+    hand twice. `scripts/install-client-plugins.ps1` is the keeper for that invariant (its own
+    header cites DECISIONS D38: "a component that can silently disappear needs a keeper, not a
+    procedure") -- but until now nothing called it, so the keeper only ran when someone
+    remembered. This is the call.
+
+    A failure here returns attention (1) rather than 2: the sync itself succeeded, and what is
+    wrong is a machine-local resolution problem that the message names.
+    """
+    if os.name != "nt":
+        return 0, "client plugins: not Windows -- skipped"
+    installer = REPO / "scripts" / "install-client-plugins.ps1"
+    if not installer.exists():
+        return 0, "client plugins: installer absent -- skipped"
+    if dry_run:
+        return 0, "client plugins: would run install-client-plugins.ps1 -RequireAll"
+    shell = shutil.which("pwsh") or shutil.which("powershell")
+    if not shell:
+        return 1, "client plugins: no pwsh/powershell on PATH -- could not verify the bundle list"
+    try:
+        proc = subprocess.run(
+            [shell, "-NoProfile", "-File", str(installer), "-RequireAll"],
+            capture_output=True, text=True, timeout=300,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return 1, f"client plugins: could not run the installer ({exc})"
+    if proc.returncode == 0:
+        return 0, "client plugins: every bundle name resolves"
+    tail = [ln for ln in (proc.stdout or proc.stderr or "").strip().splitlines() if ln.strip()]
+    return 1, "client plugins: PROBLEM -- " + " | ".join(tail[-3:] or ["no output"])
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -217,12 +260,15 @@ def main() -> int:
     for m in plan_profile_patches(args.dry_run):
         print(" " + m)
 
+    plugin_status, plugin_msg = ensure_client_plugins(args.dry_run)
+    print(" " + plugin_msg)
+
     print()
     if args.dry_run:
         print("dry run: nothing was written")
     else:
         print("sync complete. Restart the DSH profile for a settings change to take effect.")
-    return 0
+    return plugin_status
 
 
 if __name__ == "__main__":
