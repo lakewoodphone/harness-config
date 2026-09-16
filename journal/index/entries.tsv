@@ -1300,6 +1300,7 @@ decisions	D224	224		2026-09-16	ZABZ-YOGA	open	**D224 · 2026-09-16 · Monthly an
 decisions	D225	225		2026-09-16	ZABZ-YOGA	open	**D225 · 2026-09-16 · Owner SMS: the kill switch binds autonomous sends, not direct requests.**	entries/decisions/D225.md	1	21	c5c88b39f53a395a
 decisions	D226	226		2026-09-16	ZABZ-YOGA	open	**D226 · 2026-09-16 · Do not hot-patch the secratary checkout to deploy code.**	entries/decisions/D226.md	1	6	8c57724e46940ad5
 decisions	D227	227		2026-09-16	ZABZ-YOGA	open	**D227 · 2026-09-16 · Placement wave: serve-phone runs a second engine on one DSH_HOME (verified); a network-shared DSH_HOME is impossible; the mesh capacity tables already exist; secratary is 4 cores.**	entries/decisions/D227.md	1	44	c1cf49f4fdbff1ef
+decisions	D228	228		2026-09-16	ZABZ-YOGA	open	**D228 · 2026-09-16 · Mesh inventory measured: Tailscale is the only transport from this laptop (it is on CGNAT, LAN fails), the authority is on a DERP relay, and my own reaper would race a fleet scheduler.**	entries/decisions/D228.md	1	35	60b3d78f932d28af
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
