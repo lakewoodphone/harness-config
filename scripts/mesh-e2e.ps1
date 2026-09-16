@@ -216,6 +216,13 @@ function Invoke-Json {
         if ($respCode -eq 200 -and $respBody) {
             try { $respDoc = $respBody | ConvertFrom-Json }
             catch { $errText = "HTTP 200 but the body is not JSON: $($_.Exception.Message)" }
+        } elseif ($respCode -ne 200 -and $respBody) {
+            # A FAIL must carry the SERVER's own words. Measured 2026-09-16T23:35Z: the broker
+            # answered GET /nodes with HTTP 500 and {"error":"effective is not defined"}; without
+            # this line the harness reported only "HTTP 500: " and sent the reader off to guess.
+            $excerpt = ($respBody -replace '\s+', ' ').Trim()
+            if ($excerpt.Length -gt 300) { $excerpt = $excerpt.Substring(0, 300) + '...' }
+            $errText = "HTTP $respCode body: $excerpt"
         }
         $ok = ($respCode -eq 200 -and $errText -eq $null)
         $last = [pscustomobject]@{
@@ -346,10 +353,16 @@ function Test-CapacityShape($doc) {
     # perfectly good 15423. Test for "is a number" instead.
     $fm = $doc.mem.freeMiB
     $isNumber = ($fm -is [int]) -or ($fm -is [long]) -or ($fm -is [double]) -or ($fm -is [decimal])
+    $fmText = if ($null -eq $doc.mem) { 'there is no mem object at all' } else { "mem.freeMiB = $($doc.mem.freeMiB)" }
     if ($null -eq $doc.mem -or -not $isNumber) {
-        [void]$problems.Add('mem.freeMiB is missing or not a number')
+        [void]$problems.Add("$fmText, which is not a number. Not pedantry: packages/mesh-broker/lib/capacity.js validateCapacity() " +
+            'rejects any document whose mem.freeMiB is not a number, so such a node is UNREACHABLE to the broker whatever its ' +
+            'accepts block claims (measured 2026-09-16: lakewooechsmini published exactly this, declaring accepts.oneShot true, ' +
+            'while the broker could not see it at all)')
     }
-    if ($null -eq $doc.mem.totalMiB) { [void]$problems.Add('mem.totalMiB is missing (§2.1 sample has it)') }
+    if ($null -eq $doc.mem -or $null -eq $doc.mem.totalMiB) {
+        [void]$problems.Add("mem.totalMiB is missing (value: $(if ($null -eq $doc.mem) { 'no mem object' } else { "$($doc.mem.totalMiB)" })) - it is the one number in mem that cannot drift, so it is the cheapest thing a gate can get right")
+    }
     if ($null -eq $doc.disk -or $null -eq $doc.disk.freeGiB) { [void]$problems.Add('disk.freeGiB is missing') }
     if ($null -eq $doc.accepts) { [void]$problems.Add('accepts is missing (§2.1: oneShot is still true when the engine is down)') }
     if ($null -ne $doc.accepts -and $doc.accepts.oneShot -ne $true -and $null -eq $doc.agents) {
@@ -408,6 +421,73 @@ function Get-MeshBrokerRoot {
     return $null
 }
 
+function Get-MeshSourceFingerprint {
+    <#
+      The revision the hermetic steps are actually loading.
+
+      WHY THIS EXISTS: the hermetic mesh runs packages/mesh-broker straight out of the working
+      tree, so if a stream edits it while the harness runs, different sub-cases test DIFFERENT
+      revisions and the result is a mixture that nothing explains.
+
+      MEASURED 2026-09-16, run 20260916T233552Z: two sub-cases failed at 23:36:41 with
+      `{"error":"effective is not defined"}` and two others PASSED, in the same run, against what
+      looked like the same code - because broker.js was rewritten at 23:36:49, mid-run. Recording
+      the fingerprint at both ends turns that from a mystery into a stated fact, and it is what
+      lets a reader tell "the mesh is broken" apart from "the tree moved underneath the test".
+    #>
+    $root = Get-MeshBrokerRoot
+    $fp = [ordered]@{
+        at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'); root = $root
+        hash = $null; gitHead = $null; dirty = $null; files = @()
+    }
+    if (-not $root) { return [pscustomobject]$fp }
+    $files = @(Get-ChildItem -Path $root -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -in @('.js', '.mjs', '.json') -and $_.FullName -notmatch '\\node_modules\\' })
+    $parts = @()
+    foreach ($f in ($files | Sort-Object FullName)) {
+        $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash
+        $rel = $f.FullName.Substring($root.Length).TrimStart('\')
+        $parts += "$rel=$h"
+        $fp.files += ("{0}  {1}  {2}" -f $rel, $f.LastWriteTime.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'), $h.Substring(0, 12))
+    }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $fp.hash = ([System.BitConverter]::ToString(
+        $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(($parts -join ';')))) -replace '-', '').Substring(0, 16)
+    $repoRoot = Split-Path -Parent (Split-Path -Parent $root)
+    try { $fp.gitHead = (& git -C $repoRoot rev-parse HEAD 2>$null | Select-Object -First 1) } catch { }
+    try {
+        $porcelain = (& git -C $repoRoot status --porcelain -- packages/mesh-broker 2>$null | Out-String).Trim()
+        $fp.dirty = if ($porcelain) { $porcelain } else { '(clean)' }
+    } catch { }
+    return [pscustomobject]$fp
+}
+
+function Read-FileText([string]$Path) {
+    <#
+      Read a file another process is still writing, retrying instead of treating a lock as a fact.
+
+      MEASURED 2026-09-16, three rounds x two stub gates, six files:
+        * `[System.IO.File]::ReadAllText($path)` THREW MethodInvocationException on every single
+          one of the six - a Start-Process -RedirectStandardOutput child holds the handle in a way
+          that .NET's default share mode cannot open. It is the obvious call and it is the wrong one.
+        * `Get-Content -Path $path -Raw -ErrorAction SilentlyContinue` returned the text 6 times
+          out of 6.
+      So: Get-Content, retried. This function was first written with ReadAllText and made the
+      hermetic mesh fail deterministically - a self-inflicted regression that the final verification
+      run caught, which is the entire argument for running the thing you just edited.
+    #>
+    for ($i = 0; $i -lt 6; $i++) {
+        try {
+            if (Test-Path $Path) {
+                $text = Get-Content -Path $Path -Raw -ErrorAction SilentlyContinue
+                if ($text) { return $text }
+            }
+        } catch { }
+        Start-Sleep -Milliseconds 60
+    }
+    return ''
+}
+
 function Start-StubGate {
     param([string]$Node, [int]$Slots, [int]$DiskGiB = 236, [double]$Load1 = 0.42, [string]$Tag = 'g')
     $root = Get-MeshBrokerRoot
@@ -422,15 +502,26 @@ function Start-StubGate {
         -RedirectStandardOutput $out -RedirectStandardError $err -PassThru -NoNewWindow
     [void]$script:Procs.Add($proc)
     $url = $null
-    foreach ($i in 1..100) {
+    foreach ($i in 1..200) {
         Start-Sleep -Milliseconds 120
-        if (Test-Path $out) {
-            $text = Get-Content $out -Raw
-            if ($text -match 'at (http://127\.0\.0\.1:\d+)') { $url = $Matches[1]; break }
-        }
+        $text = Read-FileText $out
+        if ($text -match 'at (http://127\.0\.0\.1:\d+)') { $url = $Matches[1]; break }
         if ($proc.HasExited) { break }
     }
-    return [pscustomobject]@{ node = $Node; slots = $Slots; url = $url; proc = $proc; out = $out; err = $err }
+    # A stub gate that does not start is a FAIL that must say WHY, like every other FAIL here.
+    $diagnostic = $null
+    if (-not $url) {
+        $stderrText = (Read-FileText $err).Trim()
+        $diagnostic = if ($proc.HasExited) {
+            "the stub gate for '$Node' exited with code $($proc.ExitCode) before printing a URL"
+        } else {
+            "the stub gate for '$Node' never printed a URL within 24 s (pid $($proc.Id), still running)"
+        }
+        if ($stderrText) { $diagnostic += "; stderr: $stderrText" }
+        $stdoutText = (Read-FileText $out).Trim()
+        if ($stdoutText) { $diagnostic += "; stdout: $stdoutText" }
+    }
+    return [pscustomobject]@{ node = $Node; slots = $Slots; url = $url; proc = $proc; out = $out; err = $err; diagnostic = $diagnostic }
 }
 
 function Start-HermeticMesh {
@@ -453,7 +544,8 @@ function Start-HermeticMesh {
     }
     $missing = @($gates | Where-Object { -not $_.url })
     if ($missing.Count -gt 0) {
-        return [pscustomobject]@{ ok = $false; error = "stub gate(s) did not report a URL: $(($missing.node) -join ', ')"; gates = $gates; procs = @() }
+        $why = (($missing | ForEach-Object { $_.diagnostic }) -join ' | ')
+        return [pscustomobject]@{ ok = $false; error = "stub gate(s) did not report a URL: $why"; gates = $gates; procs = @() }
     }
     $roster = [ordered]@{
         schema = 1; cacheTtlMs = $CacheTtlMs; readTimeoutMs = $ReadTimeoutMs; leaseTtlMs = $LeaseTtlMs
@@ -493,7 +585,7 @@ function Start-HermeticMesh {
         $readyError = if ($n.ok) {
             "GET /nodes answered 200 but listed $(@($n.doc.nodes).Count) node(s) where $(@($gates).Count) gate(s) were started"
         } else {
-            "GET /nodes?fresh=1 answered HTTP $($n.code): $($n.error)"
+            "GET /nodes?fresh=1: $($n.error)"
         }
     }
     $meshError = if (-not $up) {
@@ -537,6 +629,9 @@ $script:Scratch = Join-Path $env:USERPROFILE ".dsh\mesh\acceptance\$script:RunId
 New-Item -ItemType Directory -Force -Path $script:Scratch | Out-Null
 if (-not $ReportPath) { $ReportPath = Join-Path $script:Scratch 'report.json' }
 
+# The revision every hermetic sub-case will load, captured before the first one starts.
+$sourceAtStart = Get-MeshSourceFingerprint
+
 Write-Host ''
 Write-Host 'MESH ACCEPTANCE HARNESS (stream S7)' -ForegroundColor White
 Write-Host "  contract   $script:Contract"
@@ -544,6 +639,7 @@ Write-Host "  run        $script:RunId   from $script:Host0   started $script:St
 Write-Host "  evidence   $script:Scratch"
 Write-Host '  rules      proxy OFF on every call; a timeout on every call; no engine is restarted;'
 Write-Host '             no process is killed that this script did not start.'
+Write-Host "  broker src $($sourceAtStart.hash)   git $($sourceAtStart.gitHead)"
 
 # ---------------------------------------------------------------------------
 # STEP 4 BASELINE (measured first, deliberately: the fleet is not dispatched yet, so these
@@ -899,7 +995,9 @@ if ($meshRunExists) {
     # dependency as present and require a real fleet run to be pointed at it.
     $step3Evidence = "scripts\mesh-run.ps1 is present but this harness does not dispatch fleets by itself - §4.3 needs a real run whose MESH-HOST: lines are checked against the broker's choice"
     [void]$step3Detail.Add('  mesh-run.ps1 present: ' + $meshRunPath)
-    [void]$step3Detail.Add('  TO COMPLETE: run the 6-child fleet and match every MESH-HOST: line to the node the broker named.')
+    [void]$step3Detail.Add('  the implementation is packages/plugin-remote-fanout/bin/mesh-run.mjs; scripts/mesh-run.ps1 is a 16-line shim that forwards to it')
+    [void]$step3Detail.Add('  TO COMPLETE: dispatch the 6-child fleet and match every MESH-HOST: line to the node the broker named.')
+    [void]$step3Detail.Add('  THIS HARNESS DOES NOT FIRE A FLEET BY ITSELF: that spends money and occupies other people''s machines, which is a decision, not a default.')
     Add-Step -Id 'S3' -Name 'work lands there (§4.3)' -Status 'SKIP' -Evidence $step3Evidence -Detail @($step3Detail)
 } else {
     $step3Evidence = 'scripts\mesh-run.ps1 does not exist, so no fleet can be dispatched and no MESH-HOST: line can be produced'
@@ -999,7 +1097,14 @@ if (-not $meshRunExists) {
 } else {
     Add-Step -Id 'S5' -Name 'a node can die (§4.5)' -Status 'SKIP' `
         -Evidence 'mesh-run.ps1 is present but this harness does not dispatch a fleet by itself, so a mid-run gate kill cannot be arranged here' `
-        -Detail @($step5Detail)
+        -Detail @(
+            '  NOTE - §4.5 AS WRITTEN CONFLICTS WITH THIS HARNESS''S OWN RULES, and the conflict is the manager''s to resolve:',
+            '  "kill the chosen node''s gate mid-run" means killing the gate a DIFFERENT stream deployed and is running on a node',
+            '  this harness does not own, while S7''s brief says "never kill a process that is not a gate you started".',
+            '  The two sanctioned ways out: (a) accept STEP 5b, which kills a stub gate THIS harness started and proves the same',
+            '  broker-side property; or (b) have the manager state, for one named node and one named pid, that the gate may be killed.',
+            '  Until then §4.5''s kill half is deliberately not executed, because a green result is worth less than the rule that stops it.'
+        )
 }
 
 # --- 5b: the broker's half of §4.5, which exists and can be tested today ----------------
@@ -1100,10 +1205,20 @@ if (-not $hermeticAvailable) {
     } else {
         # Prove the mesh really has 5 slots BEFORE relying on it: §4.6 is meaningless if the
         # condition is wrong, and a stub with an implicit governor.inUse would quietly be 3.
-        $nz = Invoke-Json -Url "$($meshG.base)/nodes?fresh=1" -Retries 2 -RetryGapMs 500 -Seconds 15
-        $actualSlots = if ($nz.ok) { [int]$nz.doc.nodes[0].slots } else { -1 }
-        [void]$step6Detail.Add("  the mesh: one node, $actualSlots slot(s) as the broker itself computed them ($($nz.doc.nodes[0].slotArithmetic))")
-        if ($actualSlots -ne 5) {
+        # Guard every dereference: a null `nodes` here means the READ failed, which is a
+        # different fact from "the mesh has the wrong number of slots" and must not be reported
+        # as one. (Measured 2026-09-16: the unguarded version of this line reported "the test
+        # mesh has -1 slot(s)" and sent the reader after the wrong problem entirely.)
+        $nz = Invoke-Json -Url "$($meshG.base)/nodes?fresh=1" -Retries 3 -RetryGapMs 1000 -Seconds 20
+        $nodeList = if ($nz.ok -and $nz.doc.nodes) { @($nz.doc.nodes) } else { @() }
+        $actualSlots = if ($nodeList.Count -gt 0) { [int]$nodeList[0].slots } else { $null }
+        $arithLine = if ($nodeList.Count -gt 0) { [string]$nodeList[0].slotArithmetic } else { '' }
+        [void]$step6Detail.Add("  the mesh: $($nodeList.Count) node(s) reported, $(if ($null -eq $actualSlots) { 'unknown' } else { "$actualSlots slot(s)" }) as the broker itself computed them ($arithLine)")
+        if ($null -eq $actualSlots) {
+            Add-Step -Id 'S6' -Name 'queue, never amputate (§4.6)' -Status 'FAIL' `
+                -Evidence "the PRE-CONDITION read failed after $($nz.attempts) attempt(s), so 'a mesh with 5 slots' was never established and nothing else here would mean anything: GET /nodes?fresh=1 on $($meshG.base) -> $($nz.error)" `
+                -Detail @($step6Detail)
+        } elseif ($actualSlots -ne 5) {
             Add-Step -Id 'S6' -Name 'queue, never amputate (§4.6)' -Status 'FAIL' `
                 -Evidence "the test mesh has $actualSlots slot(s), not the 5 §4.6 specifies - the precondition could not be established, so nothing else here would mean anything" `
                 -Detail @($step6Detail)
@@ -1166,6 +1281,18 @@ if (-not $hermeticAvailable) {
 # ===========================================================================
 # summary, report, exit code
 # ===========================================================================
+$sourceAtEnd = Get-MeshSourceFingerprint
+$sourceMoved = ($sourceAtStart.hash -ne $sourceAtEnd.hash)
+if ($sourceMoved) {
+    Add-Note ("packages/mesh-broker CHANGED while this run was in progress: $($sourceAtStart.hash) -> $($sourceAtEnd.hash). " +
+              'The hermetic sub-cases therefore did not all test the same revision, and a mixture of PASS and FAIL among them ' +
+              'must be read as "the tree moved", not as "the broker is intermittently broken". Re-run on a still tree to get a ' +
+              'verdict about one revision.')
+    Write-Host ''
+    Write-Host "  WARNING: packages/mesh-broker changed mid-run ($($sourceAtStart.hash) -> $($sourceAtEnd.hash))." -ForegroundColor Yellow
+    Write-Host '           Hermetic sub-cases did not all test the same revision; re-run on a still tree for a clean verdict.' -ForegroundColor Yellow
+}
+
 $pass = @($script:Steps | Where-Object { $_.status -eq 'PASS' }).Count
 $fail = @($script:Steps | Where-Object { $_.status -eq 'FAIL' }).Count
 $skip = @($script:Steps | Where-Object { $_.status -eq 'SKIP' }).Count
@@ -1189,6 +1316,7 @@ $report = [ordered]@{
     steps = @($script:Steps)
     nodes = @($nodeResults)
     liveBroker = $liveBroker
+    meshBrokerSource = [ordered]@{ start = $sourceAtStart; end = $sourceAtEnd; changedDuringRun = $sourceMoved }
     step2subcases = @($step2Sub)
     step5bsubcases = @($step5bSub)
     notes = @($script:Notes)

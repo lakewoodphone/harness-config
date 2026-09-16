@@ -326,6 +326,7 @@ handoff	H416	416		2026-09-16 23:22 UTC	ZABZ-YOGA	open	## 2026-09-16 23:22 UTC ·
 handoff	H417	417		2026-09-16 23:27 UTC	ZABZ-YOGA	open	## 2026-09-16 23:27 UTC · ZABZ-YOGA · S2: zabz-tech-linux is a live mesh node (node v22.23.2, DSH 0.1.5-rc.1, gate 3086, engine 3099, tailscale serve up)	entries/handoff/H417.md	1	51	c6c007a339ab10b4
 handoff	H418	418		2026-09-16 23:28 UTC	zabz-yoga	open	## 2026-09-16 23:28 UTC · zabz-yoga · Shlock: the tarp that was 'not shipped' was delivered Sep 15; records corrected; the frame state is the open question	entries/handoff/H418.md	1	80	b894c3c979d293bd
 handoff	H419	419		2026-09-16 23:31 UTC	ZABZ-YOGA	open	## 2026-09-16 23:31 UTC · ZABZ-YOGA · Remote fan-out is proven; the mesh profile is the dispatcher that needs no restart	entries/handoff/H419.md	1	25	d5e2a97e5fc9920c
+handoff	H420	420		2026-09-16 23:46 UTC	ZABZ-YOGA	open	## 2026-09-16 23:46 UTC · ZABZ-YOGA · The mesh is built and proven: fan-out works, four nodes, the broker decides, and the elastic answer is rent-the-peak	entries/handoff/H420.md	1	50	483893bfba5462f4
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
