@@ -43,7 +43,20 @@ if (Test-Path -LiteralPath $Staging) { Remove-Item -LiteralPath $Staging -Recurs
 New-Item -ItemType Directory -Force -Path $Staging | Out-Null
 
 try {
-    Expand-Archive -LiteralPath $Archive -DestinationPath $Staging -Force
+    # ZipFile.ExtractToDirectory first: Expand-Archive is a cmdlet wrapper whose per-entry progress
+    # handling makes it several times slower on a tree of ~1,600 files, and the caller's exec channel
+    # has a hard 60-second cap. The fallback exists so a zip variant this cannot read still lands.
+    $extracted = $false
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+        if ($Archive -match '\.zip$') {
+            [System.IO.Compression.ZipFile]::ExtractToDirectory($Archive, $Staging)
+            $extracted = $true
+        }
+    } catch {
+        Write-Host ("apply: ZipFile extraction failed ({0}); falling back to Expand-Archive" -f $_.Exception.Message)
+    }
+    if (-not $extracted) { Expand-Archive -LiteralPath $Archive -DestinationPath $Staging -Force }
 
     $added = 0
     $updated = 0
