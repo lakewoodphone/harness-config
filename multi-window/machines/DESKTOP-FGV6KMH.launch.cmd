@@ -22,8 +22,20 @@ rem deleted one file at a time, never recursively.
 rem ============================================================================
 
 setlocal
+rem %~dp0 is THIS file's directory, and this file lives in multi-window\machines\ -- so dshw.ps1 is
+rem one level UP. The original line built "%DSHW_DIR%dshw.ps1", i.e. machines\dshw.ps1, which does not
+rem exist; `pwsh -File` then failed instantly and the launcher did nothing at all. Measured 2026-09-15.
 set "DSHW_DIR=%~dp0"
-set "DSHW=%DSHW_DIR%dshw.ps1"
+set "DSHW=%DSHW_DIR%..\dshw.ps1"
+if not exist "%DSHW%" (
+  echo Launcher is misinstalled: expected dshw.ps1 at %DSHW%
+  pause
+  exit /b 3
+)
+rem The machine's own config is passed EXPLICITLY even though dshw.ps1 now defaults to it: a launcher
+rem that depends on a default it does not control is how this machine ran against the owner's
+rem directories for a day.
+set "DSHW_CFG=%DSHW_DIR%DESKTOP-FGV6KMH.windows.json"
 set "PWSH=%ProgramFiles%\PowerShell\7\pwsh.exe"
 if not exist "%PWSH%" set "PWSH=pwsh.exe"
 
@@ -68,7 +80,20 @@ rem behaves the same way.
 set "DSHW_VERB=%~1"
 if "%DSHW_VERB%"=="" set "DSHW_VERB=new"
 
-"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" ensure
-"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" %DSHW_VERB%
+rem Every invocation carries -ConfigPath. `ensure` and the verb are TWO processes and both need it;
+rem passing it only to one is how a launcher half-works.
+"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" -ConfigPath "%DSHW_CFG%" ensure
+set "ENSURE_RC=%ERRORLEVEL%"
+"%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" -ConfigPath "%DSHW_CFG%" %DSHW_VERB%
+set "VERB_RC=%ERRORLEVEL%"
+
+if not "%VERB_RC%"=="0" (
+  echo.
+  echo The assistant could not be started ^(ensure=%ENSURE_RC% verb=%VERB_RC%^).
+  echo Logs: C:\Users\cheve\.dsh\multi-window\logs
+  echo.
+  pause
+)
 
 endlocal
+exit /b %VERB_RC%

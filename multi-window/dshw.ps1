@@ -79,7 +79,27 @@ if ($env:COMPUTERNAME -eq 'DESKTOP-FGV6KMH' -and -not $env:DEEPSEEK_SEARCH_BASE_
 
 # ── paths ───────────────────────────────────────────────────────────────────
 $RepoRoot   = Split-Path -Parent $PSScriptRoot           # multi-window/ -> repo root
-if (-not $ConfigPath) { $ConfigPath = Join-Path $PSScriptRoot 'windows.json' }
+
+# CONFIG RESOLUTION: the machine's own file WINS, and this is not a convenience -- it is the fix for a
+# launcher that clicked into nothing.
+#
+# MEASURED 2026-09-15 on Yocheved's laptop (DESKTOP-FGV6KMH). `multi-window/windows.json` is the
+# OWNER's fleet config; it names `C:\Users\ezabz\.dsh\multi-window` as its stateDir. Every entry point
+# that invoked this script WITHOUT `-ConfigPath` therefore ran against a stranger's directories. On
+# her box `C:\Users\ezabz\.dsh` exists but is not writable by her user, so the very first diagnostics
+# write -- `Add-Content ... watchdog.log` / `engine-recovery.log` -- threw, and because this script
+# runs with `$ErrorActionPreference = 'Stop'` the exception aborted the launcher BEFORE a window was
+# ever opened. The desktop shortcut then flashed a console for a few seconds and closed. Evidence:
+# `C:\Users\cheve\.dsh\multi-window\logs\open.log`, 2026-09-15 09:44:14.
+#
+# Two entry points failed the same way on that box (a scheduled-task .vbs running `dshw.ps1 new`, and
+# the open.cmd -> task chain), because both omitted the parameter. A default that is correct only when
+# every caller remembers an argument is not a default. So the per-machine file is chosen here, once,
+# and `doctor` prints which file was used -- this class of fault is then visible from one command.
+if (-not $ConfigPath) {
+    $machineCfg = Join-Path $PSScriptRoot ("machines\{0}.windows.json" -f $env:COMPUTERNAME)
+    $ConfigPath = if (Test-Path $machineCfg) { $machineCfg } else { Join-Path $PSScriptRoot 'windows.json' }
+}
 if (-not (Test-Path $ConfigPath)) { Write-Error "config not found: $ConfigPath"; exit 3 }
 
 $Cfg    = Get-Content -Raw -LiteralPath $ConfigPath | ConvertFrom-Json
@@ -100,6 +120,45 @@ function Get-ConfigValue([string]$name, $default = '') {
     if ($null -eq $prop) { return $default }
     if ($null -eq $prop.Value) { return $default }
     return $prop.Value
+}
+
+# A DIAGNOSTICS WRITE MUST NEVER BE THE REASON THE USER GETS NO WINDOW.
+#
+# This script runs with `$ErrorActionPreference = 'Stop'`, so a single unwritable log path is a hard
+# abort of whatever was underway. MEASURED 2026-09-15 on her laptop: the launch sequence died on
+# `Add-Content -LiteralPath ...\watchdog.log` (access denied against a state dir belonging to another
+# user's profile) and never reached Open-SlotWindow. The symptom was "the shortcut opens a console
+# for a few seconds and nothing else", because the only place the failure was recorded was a log the
+# launcher never managed to write.
+#
+# Every write of a log line in this file goes through Add-Content, so the safe behaviour lives in one
+# place: a shadowing function. It reports the problem on the console, never throws, and lets the
+# caller carry on. Directory creation (line ~108) is still a hard check, so a genuinely unusable state
+# dir is caught rather than papered over -- what changed is only that failing to *narrate* a run can
+# no longer be what ends the run.
+#
+# The real cmdlet remains reachable as Microsoft.PowerShell.Management\Add-Content, and that is what
+# Write-LogLine uses (calling the bare name there would recurse into this shim).
+function Write-LogLine([string]$path, $text) {
+    if (-not $path) { return }
+    try {
+        $dir = Split-Path -Parent $path
+        if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+        $body = if ($text -is [array]) { $text -join [Environment]::NewLine } else { [string]$text }
+        Microsoft.PowerShell.Management\Add-Content -LiteralPath $path -Value $body -Encoding utf8 -ErrorAction Stop
+    } catch {
+        Write-Host ("  [WARN] could not write {0}: {1}" -f $path, $_.Exception.Message) -ForegroundColor Yellow
+    }
+}
+
+function Add-Content {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$LiteralPath,
+        [Parameter(ValueFromPipeline = $true)][AllowNull()]$Value,
+        [string]$Encoding = 'utf8'
+    )
+    process { Write-LogLine -path $LiteralPath -text $Value }
 }
 
 function Get-State {
@@ -1431,6 +1490,11 @@ function Invoke-New {
 
 function Invoke-Doctor {
     $problems = @()
+    # WHICH CONFIG AM I ACTUALLY RUNNING AGAINST. Printed first because the 2026-09-15 fault on her
+    # laptop was exactly this and was invisible: the launcher had silently picked up the OWNER's fleet
+    # config, so every path it used belonged to another person's profile, and the only clue was an
+    # access-denied line in a log. One line here would have ended it in seconds.
+    Write-Host ("config      : {0}" -f $ConfigPath)
     $node = try { Resolve-NodeExe } catch { $null }
     if (-not $node) { $problems += 'node.exe not on PATH' } else { Write-Host "node        : $node ($(& $node -v))" }
     $bin = try { Resolve-DshBin } catch { $null }
