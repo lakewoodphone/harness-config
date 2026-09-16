@@ -311,6 +311,11 @@ handoff	H401	401		2026-09-16 19:21 UTC	ZABZ-YOGA	open	## 2026-09-16 19:21 UTC ·
 handoff	H402	402		2026-09-16 19:31 UTC	ZABZ-YOGA	open	## 2026-09-16 19:31 UTC · ZABZ-YOGA · Git: harness-config master + personal-secretary-mvp master + lpt-hub main each took what they safely could; two files cannot go to master without a real merge, and the diff-onto-their-base route is proven by dry run	entries/handoff/H402.md	1	72	1880ad0858971f19
 handoff	H403	403		2026-09-16 19:35 UTC	ZABZ-YOGA	open	## 2026-09-16 19:35 UTC · ZABZ-YOGA · 2026-09-16 ZABZ-YOGA - Hirschfeld case sent and closed; LPT comms friction audited and fixed with a runbook plus a generated flows index	entries/handoff/H403.md	1	26	c9958e481af4d9cd
 handoff	H404	404		2026-09-16 19:36 UTC	ZABZ-YOGA	open	## 2026-09-16 19:36 UTC · ZABZ-YOGA · ## 2026-09-16 17:10 UTC · ZABZ-YOGA · unified-search round 2: comms gap closed (167,159 docs), the chat corpus is in, ranking guarded; mail's gap is upstream of search	entries/handoff/H404.md	1	83	e8b1133e7c426011
+handoff	H405	405		2026-09-16 19:37 UTC	ZABZ-YOGA	open	## 2026-09-16 19:37 UTC · ZABZ-YOGA · ## 2026-09-16 17:18 UTC · ZABZ-YOGA · RattleByte #188880: correct BD90 Initial firmware staged on the USB stick (verified); menu procedure recorded; OEM Main Version still owed	entries/handoff/H405.md	1	42	768c290f31e8de3d
+handoff	H406	406		2026-09-16 19:38 UTC	ZABZ-YOGA	open	## 2026-09-16 19:38 UTC · ZABZ-YOGA · LPT build: integration branch live, E2 cutover plan landed, one security claim retracted	entries/handoff/H406.md	1	30	416af5aa899fd15d
+handoff	H407	407		2026-09-16 19:41 UTC	ZABZ-YOGA	open	## 2026-09-16 19:41 UTC · ZABZ-YOGA · Home phone for the owner mother: magicJack chosen, order reached CONFIRM but not placed, port not started	entries/handoff/H407.md	1	63	3cf2936e40231df9
+handoff	H408	408		2026-09-16 19:44 UTC	ZABZ-YOGA	open	## 2026-09-16 19:44 UTC · ZABZ-YOGA · DMP-BD84/RattleByte closed and documented; four-disc region kit ordered and verified; tunnel workaround versioned; journal id-collision recovered	entries/handoff/H408.md	1	52	839dcd6932ffc4c3
+handoff	H409	409		2026-09-16 19:44 UTC	ZABZ-YOGA	open	## 2026-09-16 19:44 UTC · ZABZ-YOGA · F3 agent/lpt-questionnaire: catalogue seed delivered, questionnaire blocked by the context allowlist	entries/handoff/H409.md	1	23	76573b6c486d815d
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -912,6 +917,14 @@ lessons	L1759	1759		2026-09-16	ZABZ-YOGA	open	**L1759 · Three probes, three ans
 lessons	L1760	1760		2026-09-16	ZABZ-YOGA	open	**L1760 · Never glob/grep from C:\Users\ezabz\code - measured 322,355 files and >60s, which is a guaranteed 30s tool timeout**	entries/lessons/L1760.md	1	17	652a149aaf3cdc04
 lessons	L1761	1761		2026-09-16	ZABZ-YOGA	open	**L1761 · LPT customer comms: a runbook and a generated flows index now exist - read them before rediscovering anything**	entries/lessons/L1761.md	1	20	7193d9f638f56917
 lessons	L1762	1762		2026-09-16	ZABZ-YOGA	open	**L1762 · A schedule column nobody reads is a decorative field**	entries/lessons/L1762.md	1	12	987d3fdead2989f2
+lessons	L1763	1763		2026-09-16	ZABZ-YOGA	open	**L1763 · Monitor selection for eye strain / presbyopia: 27in 4K at 163 PPI beats QHD; hardware not software low-blue-light**	entries/lessons/L1763.md	1	63	c2a7991901dcd6cd
+lessons	L1764	1764		2026-09-16	ZABZ-YOGA	open	**L1764 · Correction: quote marketplace prices from the owner's own page, not from a cached index; Dell S2725QS at USD 269 is the pick over the USB-C S2725QC**	entries/lessons/L1764.md	1	26	501803d121263899
+lessons	L1765	1765		2026-09-16	ZABZ-YOGA	open	**L1765 · Panasonic "This USB device is incompatible" is the same message for a wrong-model FRM and a bad stick - check the file, not the media, first**	entries/lessons/L1765.md	1	22	4ff157b9362c69ac
+lessons	L1766	1766		2026-09-16	ZABZ-YOGA	open	**L1766 · Corrected: the RattleByte Panasonic Initial flash auto-starts from the Home Screen - the update menu is for later updates only**	entries/lessons/L1766.md	1	23	987644bf2523874a
+lessons	L1767	1767		2026-09-16	ZABZ-YOGA	open	**L1767 · The frontend deploy had a second silent failure mode: npx dies with ECOMPROMISED, so the documented deploy could not run at all**	entries/lessons/L1767.md	1	44	7ff6d35791c89fe3
+lessons	L1768	1768		2026-09-16	ZABZ-YOGA	open	**L1768 · A schedule column nobody reads is a decorative field**	entries/lessons/L1768.md	1	12	0532dfb53c784cb2
+lessons	L1769	1769		2026-09-16	ZABZ-YOGA	open	**L1769 · lpt: the computer-finder questionnaire is blocked at createContext, before any procedure guard**	entries/lessons/L1769.md	1	18	9772c406ce075630
+lessons	L1770	1770		2026-09-16	ZABZ-YOGA	open	**L1770 · Region test kits: buy by label, verify by the Region Code item specific, and never test DVD region 2 with a PAL disc**	entries/lessons/L1770.md	1	30	2171329054644a8c
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1275,6 +1288,7 @@ decisions	D220	220		2026-09-16	ZABZ-YOGA	open	**D220 · 2026-09-16 · Sent mothe
 decisions	D221	221		2026-09-16	ZABZ-YOGA	open	**D221 · 2026-09-16 · Correct addresses for the owner's mother: adeenaz18@gmail.com and adeenaz@yahoo.com (supersedes D214)..**	entries/decisions/D221.md	1	22	4f7f184b702059a5
 decisions	D222	222		2026-09-16	ZABZ-YOGA	open	**D222 · 2026-09-16 · Monthly anniversary ritual: one rose per month, reminder on the 15th.**	entries/decisions/D222.md	1	14	3cf66d59854f6329
 decisions	D223	223		2026-09-16	ZABZ-YOGA	open	**D223 · 2026-09-16 · Governor enforcement landed (acquire before heavy work); and a held lock is contention, not a fault.**	entries/decisions/D223.md	1	38	79eacba6771e46ba
+decisions	D224	224		2026-09-16	ZABZ-YOGA	open	**D224 · 2026-09-16 · Monthly anniversary ritual: one rose per month, reminder on the 15th.**	entries/decisions/D224.md	1	14	a36d13b706eaf990
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
