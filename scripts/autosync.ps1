@@ -119,6 +119,8 @@ function Write-SyncStatus($obj) {
       repo                    = $(if ($null -eq $obj.repo) { '' } else { $obj.repo })
       commit                  = $(if ($null -eq $obj.commit) { '' } else { $obj.commit })
       preserved_ref           = $(if ($null -eq $obj.preserved_ref) { '' } else { $obj.preserved_ref })
+      # Added 2026-09-15: -1 = not measured, 0 = measured and none. Never a null.
+      id_collisions           = $(if ($null -eq $obj.id_collisions) { -1 } else { $obj.id_collisions })
     }
     ($doc | ConvertTo-Json -Depth 4) | Set-Content -Path $syncStatusPath -Encoding utf8
   } catch {
@@ -134,6 +136,14 @@ function Record($obj) {
   $defaults = [ordered]@{ behind = 0; ahead = 0; branch = ''; local_commits_preserved = $false }
   foreach ($p in $defaults.Keys) {
     if ($null -eq $obj.$p) { $obj | Add-Member -NotePropertyName $p -NotePropertyValue $defaults[$p] -Force }
+  }
+  # Cross-machine id collisions (journal/tools/idguard.py). This is the failure that is
+  # invisible to BOTH this script and `journal.py check` -- a fast-forward cannot see it, and
+  # check compares ids only within the working tree -- and it arrives as an unresolvable merge
+  # hours later. 2026-09-15: 98 such ids cost most of a session. -1 means "not measured".
+  if (-not ($obj.PSObject.Properties.Name -contains 'id_collisions')) {
+    $obj | Add-Member -NotePropertyName id_collisions `
+      -NotePropertyValue $(if ($null -eq $script:IdCollisions) { -1 } else { $script:IdCollisions }) -Force
   }
   ($obj | ConvertTo-Json -Depth 6) | Set-Content -Path $statusPath -Encoding utf8
   $line = '{0} [{1}] {2}' -f $obj.at, $obj.result, $obj.detail
@@ -209,6 +219,32 @@ if (-not $fetchOk) {
 
 $behind = 0; $ahead = 0
 if ($counts -match '^(\d+)\s+(\d+)$') { $behind = [int]$Matches[1]; $ahead = [int]$Matches[2] }
+
+# --------------------------------------------------------------------------
+# 2a. CROSS-MACHINE ID COLLISIONS. Measured here, before anything can exit, because this is
+#     the fault that both this script and `journal.py check` are blind to: a fast-forward
+#     cannot see it, and check compares ids within the working tree only. It surfaces as a
+#     merge that refuses to resolve -- 98 ids on 2026-09-15, most of a session to untangle.
+#
+#     Read-only: idguard never writes to the journal. Its own ground-truth test is the 98:
+#       python journal/tools/idguard.py --local-rev 919cfa64 --refs 613ee55   -> 98 collisions
+#     A collision is NOT an error in this script's job -- the sync may still be perfectly
+#     able to fast-forward -- so it is recorded as a number, not turned into a failure here.
+# --------------------------------------------------------------------------
+$IdCollisions = -1
+try {
+  $idguard = Join-Path $gitDir 'journal\tools\idguard.py'
+  if (Test-Path $idguard) {
+    $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    $igRaw = (& $python $idguard --json 2>$null | Out-String)
+    $ErrorActionPreference = $prevEap
+    if ($igRaw -and $igRaw.Trim().StartsWith('{')) {
+      $IdCollisions = @(($igRaw | ConvertFrom-Json).collisions).Count
+    }
+  }
+} catch {
+  $IdCollisions = -1   # cannot see is reported as cannot see, never as zero
+}
 
 # --------------------------------------------------------------------------
 # 2b. AHEAD => PRESERVE FIRST, before any pull can move HEAD. This is the fix.
