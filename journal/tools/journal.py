@@ -253,11 +253,25 @@ def _path_of(rel: str) -> Path:
     return JOURNAL / str(rel).replace("/", os.sep)
 
 
+_JOURNAL_PREFIX = str(JOURNAL) + os.sep
+
+
 def _rel_of(path: Path) -> str:
+    """Path relative to JOURNAL, as a forward-slash string.
+
+    FAST PATH ADDED 2026-09-16. `cProfile` of `append --dry-run` showed 15,303 calls to
+    `pathlib.relative_to` costing **7.2 s** -- more than half the whole append. `str.startswith`
+    over a precomputed prefix returns the identical value for the case that actually occurs
+    (every path this tool passes is already under JOURNAL), and falls back to the old
+    behaviour for anything that is not.
+    """
+    s = str(path)
+    if s.startswith(_JOURNAL_PREFIX):
+        return s[len(_JOURNAL_PREFIX):].replace(os.sep, "/")
     try:
         return str(path.relative_to(JOURNAL)).replace(os.sep, "/")
     except ValueError:
-        return str(path).replace(os.sep, "/")
+        return s.replace(os.sep, "/")
 
 
 def redact(text: str) -> str:
@@ -735,6 +749,35 @@ def tree_signature() -> dict:
         "log_count": n_log,
         "flat_sig": flat_h.hexdigest(),
     }
+
+
+def legacy_signature() -> dict:
+    """log/flat signature ONLY -- no walk of `entries/`.
+
+    WHY (measured 2026-09-16, cProfile of `append --dry-run`): `tree_signature()` walks
+    `entries/` (15,303 files) to build `entries_sig`, but the one consumer on the WRITE
+    path -- `_legacy_sig()`, the cache key for `legacy_candidates` -- uses only
+    `log_sig`, `log_count` and `flat_sig`. So every append stat'ed 15,303 files it could
+    not possibly need, 8.2 s of a 14.9 s append. The full `tree_signature()` is unchanged
+    and still used where the entries signature is genuinely wanted (cache freshness).
+    """
+    log_h = hashlib.sha1()
+    n_log = 0
+    for p, st in _walk(log_dir()):
+        if p.suffix != ".md":
+            continue
+        log_h.update(("%s\t%d\t%d\n" % (_rel_of(p), st.st_size, st.st_mtime_ns)).encode("utf-8"))
+        n_log += 1
+    flat_h = hashlib.sha1()
+    for name, _kind in FLAT_FILES:
+        p = JOURNAL / (name + ".md")
+        if p.exists():
+            try:
+                st = p.stat()
+                flat_h.update(("%s.md\t%d\t%d\n" % (name, st.st_size, st.st_mtime_ns)).encode("utf-8"))
+            except OSError:
+                pass
+    return {"log_sig": log_h.hexdigest(), "log_count": n_log, "flat_sig": flat_h.hexdigest()}
 
 
 def load_entries():
@@ -2845,10 +2888,12 @@ def cmd_append(args) -> int:
     tags = [t for t in (getattr(args, "tags", "") or "").split(",") if t]
     refs = [t for t in (getattr(args, "refs", "") or "").split(",") if t]
 
-    # legacy drift is absorbed first, so a v1 append that landed in log/ is not lost
+    # legacy drift is absorbed first, so a v1 append that landed in log/ is not lost --
+    # but only when there is a reason to (see absorb_if_due): this scan cost 12.6 s of a
+    # 14.9 s append when it ran unconditionally.
     absorbed = 0
     try:
-        absorbed = absorb_all(kinds=[kind], apply=True, quiet=True)["added"]
+        absorbed = absorb_if_due(kind, force=bool(getattr(args, "absorb", False)))
     except Exception as exc:
         # A silent skip is a refusal, not health. Absorption is how text in log/** and the
         # flat files enters the record, so a failure here has to be diagnosable rather than
@@ -3045,7 +3090,7 @@ def legacy_candidates(kinds=None) -> list:
 
 
 def _legacy_sig() -> str:
-    sig = tree_signature()
+    sig = legacy_signature()          # log/flat only; see legacy_signature()
     return "%s|%s|%s|%s" % (sig["log_sig"], sig["log_count"], sig["flat_sig"], JOURNAL)
 
 
@@ -3108,6 +3153,78 @@ def scan_tree() -> dict:
     for c in legacy_candidates():
         out.setdefault((c["kind"], c["id_full"]), {}).setdefault(c["hash"], []).append(c["origin"])
     return out
+
+
+# ---------------------------------------------------------------------------
+# Legacy absorption: a MIGRATION task, not per-append work
+# ---------------------------------------------------------------------------
+# Measured 2026-09-16 on ZABZ-YOGA, cProfile of `append --dry-run --no-fetch`:
+# total 14.9 s, of which absorb_all 12.6 s -- legacy_candidates 12.2 s, seven calls to
+# max_number at 11.7 s, 15,303 pathlib relative_to() calls (7.2 s) and 8.2 s inside
+# tree_signature. The append itself is ~0.3 s. So every write paid a full-tree scan
+# on the chance that a v1 process had dropped something into log/**, and under a fleet
+# that multiplied into the 41-98 s appends that were previously blamed on the lock.
+#
+# It now runs only when there is a REASON: no stamp yet, the stamp is older than
+# ABSORB_INTERVAL_SEC, a legacy source changed since the stamp, or the caller forces it
+# (`append --absorb`, or JOURNAL_ABSORB=always). Drift stays bounded and recoverable
+# either way: `import-legacy --apply` absorbs on demand and `check` reports drift.
+ABSORB_INTERVAL_SEC = float(os.environ.get("JOURNAL_ABSORB_INTERVAL_SEC", 6 * 3600))
+ABSORB_STAMP = JOURNAL / "state" / "absorb-stamp.json"
+
+
+def _legacy_touched_since(ts: float) -> bool:
+    """True if any legacy SOURCE is newer than `ts`.
+
+    Deliberately cheap and deliberately narrow. It walks `log/**` and stats the v1 flat
+    files (`FLAT_FILES`) -- and nothing else. An earlier version globbed every top-level
+    file in the journal, which included the tool's OWN output (`aliases.tsv`,
+    `entries.tsv`, ...): every append then looked like "a legacy source changed", so the
+    absorption scan it was meant to skip ran anyway (measured 2.5 s of a 2.7 s dry-run).
+    It never walks `entries/` or `index/`, where the 15,303 `relative_to` calls came from.
+    """
+    sources = [log_dir()]
+    sources += [JOURNAL / (name + ".md") for name, _kind in FLAT_FILES]
+    for src in sources:
+        try:
+            if src.is_dir():
+                for dirpath, _dirs, files in os.walk(src):
+                    for name in files:
+                        try:
+                            if os.path.getmtime(os.path.join(dirpath, name)) > ts:
+                                return True
+                        except OSError:
+                            continue
+            elif src.stat().st_mtime > ts:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _absorb_stamp_at() -> float:
+    try:
+        return float(json.loads(ABSORB_STAMP.read_text(encoding="utf-8")).get("at", 0))
+    except Exception:  # noqa: BLE001 - a missing or unreadable stamp just means "due"
+        return 0.0
+
+
+def absorb_if_due(kind: str, force: bool = False) -> int:
+    """Absorb legacy drift for `kind` when due; return the number of entries added."""
+    if os.environ.get("JOURNAL_ABSORB") == "always":
+        force = True
+    last = _absorb_stamp_at()
+    if (not force and last > 0 and (time.time() - last) < ABSORB_INTERVAL_SEC
+            and not _legacy_touched_since(last)):
+        return 0
+    added = absorb_all(kinds=[kind], apply=True, quiet=True)["added"]
+    try:
+        ABSORB_STAMP.parent.mkdir(parents=True, exist_ok=True)
+        ABSORB_STAMP.write_text(json.dumps({"at": time.time(), "kind": kind}),
+                                encoding="utf-8")
+    except OSError:
+        pass
+    return added
 
 
 def absorb_all(kinds=None, apply: bool = False, quiet: bool = False) -> dict:
@@ -3782,6 +3899,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--alias-of", dest="alias_of", default="")
     s.add_argument("--dry-run", dest="dry_run", action="store_true")
     s.add_argument("--no-fetch", dest="no_fetch", action="store_true")
+    s.add_argument("--absorb", action="store_true",
+                    help="force the legacy-drift scan before writing (normally only when due)")
     s.set_defaults(func=cmd_append)
 
     s = add("resolve", "record a status change in state/status.tsv (append-only)")

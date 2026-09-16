@@ -1457,7 +1457,13 @@ function Invoke-New {
     # made `up` appear to hang). It runs here only because `new` must pick a free slot;
     # `up` never pays for it.
     $procTable = Get-WindowProcs
-    $free = @($slots | Where-Object { (Get-WindowCount $_ $procTable) -eq 0 }) | Select-Object -First 1
+    # `$_.enabled -and` added 2026-09-16. Without it the pick considered ALL TWELVE rows,
+    # and the line below force-enabled whichever one it chose -- so `new` opened slots that
+    # windows.json says must never open (w9-w12), and never wrote the file back, leaving
+    # `status`/`doctor` reporting "8 enabled" while 12 were on screen. Measured on
+    # ZABZ-YOGA: the 4 extra windows cost 37 processes / 1,731 MB private = 44 % of the
+    # whole Edge footprint, and they reuse w1-w4's screen positions, so they stack.
+    $free = @($slots | Where-Object { $_.enabled -and (Get-WindowCount $_ $procTable) -eq 0 }) | Select-Object -First 1
     if (-not $free) {
         # NO FREE SLOT IS NOT THE SAME AS NOTHING TO DO.
         #
@@ -1479,7 +1485,9 @@ function Invoke-New {
         Write-Host "all $($slots.Count) window slots are already open. Add another row to windows.json." -ForegroundColor Yellow
         exit 0
     }
-    foreach ($slot in $slots) { $slot.enabled = $true }
+    # The force-enable that used to sit here (`foreach ($slot in $slots) { $slot.enabled = $true }`)
+    # was removed 2026-09-16: it was the mechanism by which `new` opened disabled slots, and it
+    # is what made the window count a one-way ratchet that only a human could undo.
     [void](Open-SlotWindow $free $state)
     Write-Host ("new window: slot '{0}' (profile {1}) against port {2}" -f $free.label, $free.profile, $(if (Get-Mode -eq 'multi') { $free.port } else { Get-PrimaryPort })) -ForegroundColor Green
     $map = Get-WindowRegistry

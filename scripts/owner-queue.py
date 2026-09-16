@@ -46,9 +46,29 @@ import sqlite3
 import sys
 import textwrap
 
-DEFAULT_DB = os.environ.get(
-    "OWNER_QUEUE_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db"
-)
+AUTHORITY_DB = "/home/zabz/personal-secretary-mvp/data/secretary.db"
+# The same database, as seen from a Windows workstation. Used only when it exists.
+LOCAL_DB = os.path.join(os.path.expanduser("~"), "code", "personal-secretary-mvp",
+                        "data", "secretary.db")
+
+
+def default_db() -> str:
+    """The queue's database, resolved for THIS host.
+
+    WHY THIS IS NOT A CONSTANT (2026-09-15). The old default was the authority path
+    only. On Windows that path is interpreted as a RELATIVE drive path, so the script
+    silently created `C:\\home\\zabz\\...` and then reported an empty queue -- the owner's
+    decision queue read as "nothing needs him" from the machine he actually works on.
+    A missing database must be a loud failure, never an empty queue.
+    """
+    env = os.environ.get("OWNER_QUEUE_DB")
+    if env:
+        return env
+    if os.path.exists(AUTHORITY_DB):
+        return AUTHORITY_DB
+    if os.path.exists(LOCAL_DB):
+        return LOCAL_DB
+    return AUTHORITY_DB
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS owner_decision_queue (
@@ -79,11 +99,64 @@ def now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
 
+SCHEMA_VERSION = 1
+
+
 def connect(path: str) -> sqlite3.Connection:
+    """Open the queue database.
+
+    WHY THIS IS NOT JUST `connect + executescript` (2026-09-15, measured on ZABZ-YOGA).
+    The old version ran `executescript(SCHEMA)` on EVERY invocation, including `next`,
+    `list` and `stats`. DDL takes the database's write lock, so *reading* the owner queue
+    contended with the 18 agents writing the same 500 MB file -- and the whole point of
+    this queue is that it is read often and written rarely.
+
+    Two refusals are deliberate:
+    - A missing database fails loudly instead of being created empty. An empty queue is
+      indistinguishable from "nothing needs the owner", which is the one wrong answer this
+      file exists to prevent. The old default was the Linux authority path, so on Windows
+      it silently created `C:\\home\\zabz\\...` and reported an empty queue.
+    - The table is bootstrapped ONLY on the authority. Everywhere else a missing table
+      means "read the real one over ssh", not "make a new empty one here".
+
+    `PRAGMA user_version` is deliberately NOT used to gate the bootstrap: that field is
+    shared with whatever else opens this database, and writing it to track our own schema
+    would be a silent conflict.
+    """
+    if not os.path.exists(path):
+        raise SystemExit(
+            f"owner-queue: no database at {path}\n"
+            "  This queue lives on the authority. From Windows either:\n"
+            "    ssh secratary-ts \"python3 ~/bin/owner-queue.py next\"   (read the real one), or\n"
+            "    --db <path>                                            (point at a copy).\n"
+            "  Refusing to create an empty database: it would report an empty queue."
+        )
     con = sqlite3.connect(path, timeout=20)
     con.row_factory = sqlite3.Row
-    con.executescript(SCHEMA)
-    con.commit()
+    con.execute("PRAGMA busy_timeout=10000")
+    row = con.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='owner_decision_queue'"
+    ).fetchone()
+    if row is None:
+        if os.path.abspath(path) != os.path.abspath(AUTHORITY_DB):
+            raise SystemExit(
+                f"owner-queue: {path} has no owner_decision_queue table.\n"
+                "  This is a local copy, not the authority. Read the real queue with:\n"
+                "    ssh secratary-ts \"python3 ~/bin/owner-queue.py next\"\n"
+                "  Refusing to create an empty queue table here."
+            )
+        # BEGIN IMMEDIATE, not the default deferred begin: a read-then-write upgrade
+        # returns SQLITE_BUSY immediately and busy_timeout cannot wait it out. Once this
+        # succeeds, SQLite guarantees no SQLITE_BUSY until COMMIT (sqlite.org/rescode.html).
+        con.execute("BEGIN IMMEDIATE")
+        try:
+            for statement in SCHEMA.split(";"):
+                if statement.strip():
+                    con.execute(statement)
+            con.commit()
+        except sqlite3.OperationalError:
+            con.rollback()
+            raise
     return con
 
 
@@ -238,7 +311,8 @@ def cmd_answer(con, a) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--db", default=DEFAULT_DB)
+    ap.add_argument("--db", default=None,
+                    help="default: this host's copy of the authority database")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("add")
@@ -271,7 +345,7 @@ def main() -> int:
     p.add_argument("--answer", required=True)
 
     a = ap.parse_args()
-    con = connect(a.db)
+    con = connect(a.db or default_db())
     fn = {"add": cmd_add, "next": cmd_next, "list": cmd_list,
           "stats": cmd_stats, "resolve": cmd_resolve, "answer": cmd_answer}[a.cmd]
     return fn(con, a)

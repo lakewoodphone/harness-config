@@ -820,6 +820,14 @@ lessons	L1698	1698		2026-09-15	ZABZ-YOGA	open	**L1698 · Ask the artifact, never
 lessons	L1699	1699		2026-09-15	ZABZ-YOGA	open	**L1699 · Journal lock rewritten as an OS lock (verified)**	entries/lessons/L1699.md	1	6	8da9f4691b76c02a
 lessons	L1700	1700		2026-09-16	ZABZ-YOGA	open	**L1700 · Journal lock: the unlink-based stale-break was a real race - fixed with an OS lock plus an inode check**	entries/lessons/L1700.md	1	53	53603d98720ad8ba
 lessons	L1701	1701		2026-09-16	ZABZ-YOGA	open	**L1701 · MCP servers cost four processes each and their discarded generations were never reaped - direct node plus a reaper**	entries/lessons/L1701.md	1	50	8b87555abee9dec0
+lessons	L1702	1702		2026-09-16	ZABZ-YOGA	open	**L1702 · Journal append: legacy absorption no longer runs on every write**	entries/lessons/L1702.md	1	6	48daf5175a9b5f06
+lessons	L1703	1703		2026-09-16	ZABZ-YOGA	open	**L1703 · Steady-state append timing after gating legacy absorption**	entries/lessons/L1703.md	1	6	92e0677553d29315
+lessons	L1704	1704		2026-09-16	ZABZ-YOGA	open	**L1704 · Third append timing measurement**	entries/lessons/L1704.md	1	6	b0808db44c9222e7
+lessons	L1705	1705		2026-09-16	ZABZ-YOGA	open	**L1705 · Append path: no more 15,303-file walk, no more pathlib.relative_to**	entries/lessons/L1705.md	1	6	f0ddecc4329b5c27
+lessons	L1706	1706		2026-09-16	ZABZ-YOGA	open	**L1706 · Second timing sample after the append-path fixes**	entries/lessons/L1706.md	1	6	197a486a0beb145d
+lessons	L1707	1707		2026-09-16	ZABZ-YOGA	open	**L1707 · Append steady-state sample 1 after narrowing the legacy-change check**	entries/lessons/L1707.md	1	6	12bf3c4937ce8e5b
+lessons	L1708	1708		2026-09-16	ZABZ-YOGA	open	**L1708 · Append steady-state sample 2 after narrowing the legacy-change check**	entries/lessons/L1708.md	1	6	27e4350dbea6ef22
+lessons	L1709	1709		2026-09-16	ZABZ-YOGA	open	**L1709 · Append steady-state sample 3 after narrowing the legacy-change check**	entries/lessons/L1709.md	1	6	3ae827877d383b9e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
