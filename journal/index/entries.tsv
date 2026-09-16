@@ -320,6 +320,7 @@ handoff	H410	410		2026-09-16 20:02 UTC	ZABZ-YOGA	open	## 2026-09-16 20:02 UTC ·
 handoff	H411	411		2026-09-16 20:11 UTC	ZABZ-YOGA	open	## 2026-09-16 20:11 UTC · ZABZ-YOGA · Mesh program: 5 design waves in flight; constants, next steps and open bugs written down for the next session	entries/handoff/H411.md	1	61	a0e68fe236cc5d48
 handoff	H412	412		2026-09-16 22:02 UTC	ZABZ-YOGA	open	## 2026-09-16 22:02 UTC · ZABZ-YOGA · Mesh program: both Windows nodes are published and self-healing; the numbers behind the purchase are being corrected	entries/handoff/H412.md	1	42	1293185c36173f2b
 handoff	H413	413		2026-09-16 22:12 UTC	ZABZ-YOGA	open	## 2026-09-16 22:12 UTC · ZABZ-YOGA · Mesh: the gate is the door on three nodes, a security hole is closed, and harness-config has forked	entries/handoff/H413.md	1	53	f8c17443ec3d239f
+handoff	H414	414		2026-09-16 22:41 UTC	zabz-yoga	open	## 2026-09-16 22:41 UTC · zabz-yoga · Contact lenses: Sept shipment is two RIGHT-eye lenses; Clearview email drafted but UNSENT (owner parked it 2026-09-16)	entries/handoff/H414.md	1	28	146b5c48c10f2392
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -971,6 +972,8 @@ lessons	L1809	1809		2026-09-16	ZABZ-YOGA	open	**L1809 · journal.py --root was a
 lessons	L1810	1810		2026-09-16	ZABZ-YOGA	open	**L1810 · Tailscale serve forwards device identity, and Serve status is still not evidence**	entries/lessons/L1810.md	1	15	edaf4a54b1130144
 lessons	L1811	1811		2026-09-16	zabz-yoga	open	**L1811 · Personal-life lookups (contact lenses) live in personal-secretary-mvp/docs/personal/, and ps_action gmail_search beats email_catalog**	entries/lessons/L1811.md	1	33	bfac190d8dfe0826
 lessons	L1812	1812		2026-09-16	zabz-yoga	open	**L1812 · Reading tiny print off phone photos (crop+upscale, EXIF orientation) and fetching Gmail attachments when no action can (relative gmail token dir)**	entries/lessons/L1812.md	1	43	000a7d72bc73139a
+lessons	L1813	1813		2026-09-16	ZABZ-YOGA	open	**L1813 · An unindexable predicate turns a per-row update into a full-table read, and the mapping usually already exists**	entries/lessons/L1813.md	1	16	c63892cf02d5618c
+lessons	L1814	1814		2026-09-16	ZABZ-YOGA	open	**L1814 · A killed scheduled task leaves orphaned children that keep the lock, so the next run fails for a reason unrelated to the fix**	entries/lessons/L1814.md	1	14	452c29f00c65f3aa
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1504,3 +1507,4 @@ wins	W186	186		2026-09-16	ZABZ-YOGA	open	**W186 · 2026-09-16 · RattleByte DMP-
 wins	W187	187		2026-09-16	ZABZ-YOGA	open	**W187 · 2026-09-16 · The live shop website is fixed and verified on the served bundle - the blocker was the deploy credential, not the code.**	entries/wins/W187.md	1	40	a206974a7884906e
 wins	W188	188		2026-09-16	ZABZ-YOGA	open	**W188 · 2026-09-16 · The monthly anniversary reminder is live and verified.**	entries/wins/W188.md	1	23	3ad7fa687ea00cfe
 wins	W189	189		2026-09-16	ZABZ-YOGA	open	**W189 · 2026-09-16 · Both Windows nodes answer an authenticated RPC over the tailnet with no engine restart.**	entries/wins/W189.md	1	18	465bac4ff911ddc6
+wins	W190	190		2026-09-16	ZABZ-YOGA	open	**W190 · 2026-09-16 · The unified-search ingest stops re-reading its own index once per document.**	entries/wins/W190.md	1	12	9645bef4cbd650a6

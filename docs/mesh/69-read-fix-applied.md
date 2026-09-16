@@ -3,11 +3,18 @@
 Follows `docs/mesh/68-read-amplification.md` (the diagnosis). This file records the change, the
 before/after numbers, the integrity results, and what could not be verified.
 
+**Two parts.** §1–§8 are the `chunks` delete, applied 2026-09-16 18:26, committed as `ee2f829`
+(unified-search) and `add478a` (harness-config) — the owner verified it live: the orphaned 16:15
+tree was reaped, the 18:45:47 tick ran the fixed code, and the chunk scan was gone. **§9 is PART 2,
+the `ngram` delete** — the scan that then became the whole of the remaining read, applied the same
+evening and **not yet committed**. Part 2's scope and provenance are stated at §9.0.
+
 Author: delegated agent. Host **ZABZ-YOGA**, 2026-09-16, all times local EDT (= UTC-4).
-Repo: `C:\Users\ezabz\code\unified-search`, HEAD **dd66603**. File changed: `scripts/usearch.py`
-only, mtime 18:26:08. **Nothing was committed** (owner commits). **No state-changing git command
-was run.** The live index was never written to, and no process was restarted, killed or
-reconfigured.
+Repo: `C:\Users\ezabz\code\unified-search`. **Nothing was committed by this agent** (owner commits).
+**No state-changing git command was run.** The live index was never written to, and no process was
+restarted, killed or reconfigured.
+
+*(Part 1 below: HEAD was dd66603 and the only change was `scripts/usearch.py`.)*
 
 ---
 
@@ -328,7 +335,8 @@ live write lock away from the running ingest — which the brief forbids. So:
   + ~8.7 % overhead = the measured 1,379.7 MB). Measured here: 1.391 s → **0.0004 s** for that
   statement, on a warm cache, at the same index size.
 * **Remains, and this fix does not touch it:** the `ngram` scan (~0.04 s/document, ~1.5 TB across a
-  full `db:localdb` sweep), the adapter state that never advances so every run is a full pass
+  full `db:localdb` sweep — **PART 2, §9, removed this one too**; §9.7 lists what is still left), the
+  adapter state that never advances so every run is a full pass
   (`sync.py:317-328` kills the adapter before it saves), `timeout_seconds` that does not bound the
   ingest, and a 30-minute tick over a source that needs longer (doc 68 §5). **The refresh is much
   cheaper per document but is not yet bounded**, and I would not claim it converges on the strength
@@ -347,3 +355,318 @@ checkpointing; I opened it read-only only, and wrote nothing to it.
 Not done, deliberately, because the brief scoped it: no `ngram` change; no restart, kill or
 reconfigure; no scheduled-task change; no committing; no journal entry (exactly one new file was
 allowed — `journal.py append handoff` for this belongs to the parent session).
+
+---
+
+# PART 2 — the `ngram` delete
+
+## 9.0 What was asked, what was found, and the provenance
+
+After Part 1 landed, the owner measured the live run again: **125.5 MB/s of reads from a
+70-second-old process** (2,510 MB in 20 s) with the chunk delete gone. I reproduced that
+independently before touching anything: PID **8940** (`usearch.py add - --source db:localdb`, started
+18:46:20, running the Part 1 code) read at **124 MB/s over a 30.1 s window at 19:03–19:05**,
+lifetime 132.4 GB. This needs to be said plainly, because it frames Part 2: *the running process
+loaded its code before Part 2 existed, so nothing below is in effect for it — the first process that
+can show the difference is the next `usearch.py add`, i.e. the 19:15:46 tick.*
+
+**Establishing the shape first, as asked.** Answered from the data, not assumed, on a snapshot at
+18:50:
+
+1. **No companion mapping exists.** Every object whose name contains `ngram` is the FTS5 virtual
+   table and its five shadows — `ngram`, `ngram_config`, `ngram_content`, `ngram_data`,
+   `ngram_docsize`, `ngram_idx`. `chunks` has `chunks_meta`; `ngram` has nothing. Confirmed
+   independently by the full table list.
+2. **The plan is the defect.** `EXPLAIN QUERY PLAN DELETE FROM ngram WHERE doc_id=?` →
+   `SCAN ngram VIRTUAL TABLE INDEX 0:`. `ngram.doc_id` is `UNINDEXED`, and FTS5 can only push down a
+   constraint on `rowid`.
+3. **Exactly one `ngram` row per document** — the invariant the guard rests on. Measured live:
+   159,507 docs = 159,507 `ngram` rows = 159,507 `ngram_docsize` rows, **0** doc_ids with more than
+   one, **0** `ngram` rows without a document. (At 19:03: 159,600 = 159,600.) Since the map is total
+   (no orphans) and injective (no doc with two) between two equal-sized sets, it is a bijection.
+4. **Rows are INSERTED in exactly one place**: `usearch.py` `add_document` — the only
+   `INSERT INTO ngram` in the repo. So the insert path is fully visible and capturable, which is what
+   makes the fix possible at all.
+5. **But `ngram` rows are DELETED in three places, not one.** Two adapters issue the delete with
+   their own SQL, reaching past the "adapters never write SQL" contract (the same exception
+   `delete_documents` was built for):
+   `adapters/files/sync.py:392-393` (`prune_docs`) and `adapters/journal/sync.py:526-527`
+   (`prune_missing`). They cannot maintain a mapping they do not know about, so the map has to
+   reconcile itself. **They also each carry the Part 1 `chunks` defect too** — `DELETE FROM chunks
+   WHERE doc_id=?` at files:392 and journal:526 — which is the next un-indexed full scan of a 1.27 GB
+   table per vanished document. See §9.7.
+6. **Nothing enumerates tables and assumes a fixed set.** The three tests that enumerate
+   `sqlite_master` (`tests/test_usearch_core.py:526`, `:554`, `:700`) use `assertIn` per name, not an
+   exact set; no test asserts the exact set of `integrity_check` keys (checked by grep). Adding a
+   table and three keys is safe.
+
+**Scope and provenance.** File changed: `scripts/usearch.py` only, in the working tree, **uncommitted**
+— `git diff --stat` is `1 file changed, 165 insertions(+), 9 deletions(-)`, HEAD still `ee2f829`.
+The live index was never written to: every live reading below used a `mode=ro` URI connection, and
+my only other live action was reading counters from `Get-CimInstance`. No process was restarted,
+killed or reconfigured; **I never took the write lock** (so: I worked on a copy, and waited for
+nothing). The copy is deleted and confirmed absent.
+
+## 9.1 Getting a trustworthy copy (the Part 1 method did not survive contact)
+
+Two new lessons about copying this index while its writer runs, both measured tonight:
+
+* **The sqlite3 backup API cannot snapshot it** (Part 1, §2): against a live writer it restarts in a
+  loop — 111 GB read and 56 GB written for a 0-byte destination. Killed.
+* **A raw file copy is not reliably consistent either.** Copy #2 (18:49, `usearch.db` + `-wal`,
+  7.7 s) **failed `PRAGMA quick_check`**: `Tree 8 page 22371 cell 73: Rowid 1168231115683 out of
+  order`, in `chunks_data` (root page 8). That looked like corruption, so I tested the database
+  itself rather than the copy: **the live index passes `quick_check(1)` = ok in 85.9 s (read-only)**.
+  The copy was torn — by copying a WAL database while it checkpoints. A torn copy is worse than no
+  copy, because it would have made every integrity number below a lie.
+* **What works: `VACUUM INTO` over a read-only connection.** One stable read snapshot, no restart
+  semantics, no writes to the source: 2.36 GB → **2,332,286,976 B in 23.3 s**, then
+  `quick_check(1)` = **ok in 56.0 s**. Counts matched the live database taken at the same minute
+  (159,514 docs / 988,506 / 988,506 / 159,514 / 159,514), and the five existing invariants were all
+  **0** on the copy. VACUUM compacts, so the copy's page layout differs from the live file — noted
+  where it could matter, and immaterial for a statement whose cost is a full scan of one table.
+
+## 9.2 The change
+
+The mapping the diagnosis said would have to be created, created — plus the guard, plus one thing
+the brief did not ask for and the live index needs (§9.5):
+
+```sql
+CREATE TABLE IF NOT EXISTS ngram_meta (
+    ngram_id INTEGER PRIMARY KEY,        -- the FTS5 `ngram` rowid, the only key FTS5 deletes by
+    doc_id   INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_nm_doc ON ngram_meta(doc_id);
+```
+
+* `add_document` captures the rowid FTS5 assigned (`ng.lastrowid`) and writes the map row **in the
+  same transaction as the ngram row**, so a crash cannot produce an unmapped row.
+* The delete becomes
+  `DELETE FROM ngram WHERE rowid IN (SELECT ngram_id FROM ngram_meta WHERE doc_id=?)` at all four
+  sites (`add_document`, prune, `delete_documents`, `drop_source`), each followed by
+  `DELETE FROM ngram_meta WHERE doc_id=?`.
+* **The guard, as specified**: `expected = COUNT(*) FROM ngram_meta WHERE doc_id=?`, then
+  `SELECT changes()` after the fast delete; any disagreement — or `expected < 1` — prints a stderr
+  line and re-runs the original `DELETE FROM ngram WHERE doc_id=?`. A stale ngram row is a wrong
+  search result; a slow delete is only slow.
+* `SCHEMA_VERSION` 1 → 2, and `migrate()` reports `ngram_backfilled` / `ngram_stale_removed`
+  (kept separate from the existing `backfilled`, which means chunks — the migration tests assert on
+  that one).
+* `integrity_check` gains `ngram_without_meta`, `ngram_meta_without_ngram`, `orphan_ngram`.
+
+**Deviation from the brief's sketch, stated:** I named the column `ngram_id` rather than `rowid`
+(a literal `rowid` column shadows SQLite's own, and `chunks_meta` sets the house style with
+`chunk_id`) and typed `doc_id INTEGER` rather than `TEXT` because `ngram.doc_id` holds `docs.id`.
+Functionally identical to what was asked.
+
+**Alternatives considered and rejected** (recorded so this is not re-litigated):
+* *Insert with an explicit rowid equal to `docs.id`* — then no map is needed at all
+  (`DELETE FROM ngram WHERE rowid=?`). Rejected because the 159,600 rows already in the table have
+  auto-assigned rowids, so it requires a **destructive one-time `DELETE FROM ngram` + rebuild of a
+  live derived index**, during which the trigram rung returns nothing. The additive table needs no
+  deletion of index rows and no downtime.
+* *Store the ngram rowid on the `docs` row (`ALTER TABLE docs ADD COLUMN ngram_id`)* — one row per
+  document makes the doc row a natural home, and it dies with the doc row. Rejected as more invasive
+  to the most-read table for no functional gain, and it needs `UPDATE ... FROM` for the back-fill.
+
+## 9.3 Measured, before and after — per-document READ BYTES, the diagnosis's own method
+
+The single-document CLI timing is **not** sensitive enough here (`usearch.py add` costs 0.12–0.16 s
+of fixed process and write-path time, against a 0.09 s scan), so I measured what doc 68 measured:
+the read bytes of the ingest process. One long-lived `usearch.py add` fed 200 already-indexed
+`db:localdb` documents over stdin, its `ReadTransferCount` sampled through
+`GetProcessIoCounters` (same units and method as doc 68 §1), with a zero-document run as the floor.
+
+| measurement (clean copy, warm cache, **the same 200 documents**) | BEFORE | AFTER |
+|---|---|---|
+| floor, 0 documents | 1.0 MB read, 0.07 s | 32.7 MB read, 0.02 MB written, 0.29 s (map complete) |
+| same floor, map **missing** (the one-time adoption) | — | 33.0 MB read, **8.11 MB written, 0.32 s** |
+| 200 documents: **read** | **2,877.4 MB** | **41.6 MB** / **53.1 MB** |
+| 200 documents: read operations | 702,349 | 10,028 / 12,816 |
+| 200 documents: bytes per read op | **4,097** (a 4 KB page scan) | 4,150 / 4,138 |
+| 200 documents: wall clock | **14.03 s** | **0.70 s / 0.74 s** |
+| **net read per document** | **14.39 MB** (3,512 read ops) | **44.6 KB / 101.7 KB** |
+
+**Net reduction: 140×–320× per document**, and 20× on wall clock for the same 200 documents. The
+residual 45–102 KB/document is the *write path's own page reads* — the indexed `docs`,
+`chunks_meta`, `ngram_meta` and FTS5 inserts each have to read the pages they modify. There is no
+longer any scan; 100 KB per document is what indexing a document costs.
+
+Statement level, same document, in a transaction and rolled back:
+
+| | BEFORE | AFTER |
+|---|---|---|
+| `DELETE FROM ngram` for one document | 0.0899 / 0.0823 s (also measured 0.0419 / 0.0370 s later on the same warm copy — cache state moves this figure by 2×) | **0.00021 / 0.00006 s** |
+| `changes()` | 1 | 1 |
+| plan | `SCAN ngram VIRTUAL TABLE INDEX 0:` | `SCAN ngram VIRTUAL TABLE INDEX 0:=` + `SEARCH ngram_meta USING COVERING INDEX idx_nm_doc (doc_id=?)` |
+
+**The one number that got worse, and it is not hidden.** Single-document end-to-end through the CLI
+for the same already-indexed document: **0.141 / 0.120 s before → 0.352 / 0.272 s after**. The cause
+is stated in row 2 of the table above: the map-integrity check in `init_db` reads ~33 MB per
+**process**, so a process that indexes ONE document pays it in full. A refresh process indexes
+~81,000 documents, so it amortises to **~0.4 KB and ~3 µs per document**. Anyone measuring this fix
+with a single document will see it as a regression; that is the wrong unit. The reason the check is
+there at all is §9.5.
+
+## 9.4 The guard, and the honest note about when it fires
+
+Exercised through the real code path on the copy, plus directly, because the end-to-end route turned
+out to pre-empt it:
+
+* **End-to-end, injected before the process started** (removed a document's map row; added a stale
+  map row pointing at a nonexistent rowid): in both cases the re-ingest came out clean —
+  `ngram_without_meta` 0, `ngram_meta_without_ngram` 0, one ngram row and one map row per document —
+  **with no fallback message**. Cause: `init_db` reconciles the map at process start, so by the time
+  `add_document` ran there was nothing left to disagree about. That is the designed behaviour and the
+  faster outcome, but it means this route does not exercise the guard.
+* **Directly, with the discrepancy injected after `init_db`** — branch 1 (map stale: 1 map row for
+  2 ngram rows) → fast delete `changes()=0` ≠ `expected=1` → fallback fired, slow delete removed
+  **2** rows, 0 left. A fast-path-only implementation would have deleted nothing and left two stale
+  ngram rows behind. Branch 2 (`expected < 1`) → fallback fired and returned 0. Both stderr lines are
+  in the transcript: `usearch: doc 168505: 0 ngram row(s) deleted through ngram_meta but the map
+  records 1; falling back to the full-scan delete so none is left behind`.
+* **The out-of-band writers** — issued `DELETE FROM ngram WHERE doc_id=?` exactly as
+  `adapters/files/sync.py` does: `ngram_meta_without_ngram` went to 1, then
+  `ensure_ngram_map()` returned `{'backfilled': 0, 'stale_removed': 1}` and the count returned to
+  **0**. The map survives the two adapters that write SQL directly.
+
+## 9.5 Why `init_db` reconciles the map (and not just `migrate`)
+
+`migrate()` runs only on `usearch.py upgrade`, and **the ingest never calls it** (`cmd_add` calls
+`init_db`). A back-fill that lived only in `migrate()` would have left this fix inert until a human
+remembered a command, and every re-indexed document would have kept paying the full scan — a fix
+that is correct and does nothing. `init_db` is the one function every writer path calls (`cmd_add`,
+`cmd_init`, `sync.py:1666/179/623/711/881`, `seed_local_tree.py`, `selftest.py`), so that is where
+the map is reconciled. Two consequences, both measured:
+
+* **It is idempotent and cheap**: two counting queries, `0` written, when the map is whole (32.7 MB
+  read, 0.29 s — see §9.3).
+* **It repairs what the two direct-SQL adapters break** (§9.0 item 5), which no insert-time mapping
+  can prevent.
+
+## 9.6 Integrity
+
+**Copy** (`check --sample 0`, run twice — after the new delete, and again after all four sites and
+the guard tests had been exercised): **OK, exit 0**, every key zero and `fts_integrity_rank` True —
+`orphan_chunks 0, orphan_chunks_meta 0, chunk_count_mismatch 0, chunks_without_meta 0,
+ngram_without_meta 0, ngram_meta_without_ngram 0, orphan_ngram 0`. Row counts on the copy:
+`ngram_docsize` 159,515 = `ngram_meta` 159,515 = `docs` 159,515, with 0 documents holding two ngram
+rows.
+
+**Live, read-only, 2026-09-16 19:03:35** (before the fix can have run anywhere):
+
+| query | result | time |
+|---|---|---|
+| `docs` | 159,600 | 1.1 s |
+| `chunks_docsize` / `chunks_meta` | 988,602 / 988,602 | 0.0 s |
+| `ngram` / `ngram_docsize` | 159,600 / 159,600 | 0.0 s |
+| `orphan_chunks` | **0** | 59.0 s |
+| `chunks_without_meta` | **0** | 6.5 s |
+| `chunk_count_mismatch` | **0** | 1.0 s |
+| `orphan_ngram` | **0** | 0.4 s |
+| doc_ids with more than one `ngram` row | **0** | 0.2 s |
+| `ngram_meta` exists / `schema_version` | **no / 1** | — |
+
+So on the live index the ngram mapping is a bijection *by the counting argument* (§9.0 item 3), and
+it will be recorded as one by the next writer.
+
+### 9.6.1 An index with no `ngram_meta` yet must not look broken
+
+The live index is exactly that state right now, and `check` on it would have reported
+`ngram_without_meta: 159,600` — a "problem" that needs no action and heals itself inside one ingest
+tick. A health check that cries wolf is a health check nobody runs (the function's own docstring
+says so). So those two keys report `None` — the check framework's existing "not applicable" —
+whenever the table does not exist, with the reason written to stderr instead. Measured on the copy
+with `ngram_meta` dropped:
+
+```
+OK   ...usearch.db
+  fts_integrity_rank True   orphan_chunks 0   chunks_without_meta 0
+  ngram_without_meta None   ngram_meta_without_ngram None   orphan_ngram 0
+exit code: 0
+stderr: usearch: ngram_meta does not exist on this index yet, so the ngram map invariants cannot be
+        evaluated. The next writer creates and fills it (init_db -> ensure_ngram_map); until then a
+        re-indexed document scans the whole ngram table instead of deleting one row.
+```
+
+and then the writer heals it — `usearch.py init` → `schema v2` → the same check reads
+`ngram_without_meta 0`, `ngram_meta_without_ngram 0`, **OK, exit 0**. That is precisely the sequence
+the live index is about to go through at 19:15:46, and it is why I could verify the unmigrated path
+without touching it.
+
+### 9.6.2 Functional checks beyond the invariants
+
+* **Suites**: `tests/test_usearch_core.py` **87 tests OK** and `tests/test_end_to_end.py`
+  **28 tests OK**, run **twice** — once after the fix and again after the `integrity_check`
+  tolerance edit. These build their own indexes and never touch `~/.usearch`.
+* **All four converted sites exercised for ngram**: prune (`usearch: pruned 1 vanished documents`,
+  leaving 1 doc = 1 ngram row = 1 map row); `delete_documents` (returned 1, source's ngram and map
+  rows both fell by one); `drop_source` (`dropped 2 document(s)`, 0 ngram rows and 0 map rows left
+  behind); `add_document` (all of §9.3 and §9.4).
+* **The trigram rung still answers**: `ngram MATCH '"covery"'` returned document ids
+  `[5264, 7427, 7626, 7627, 9089]`, exactly the ids a `LIKE '%covery%'` over title/path returns —
+  so the index still maps rowids to the right documents after this change.
+* `ast.parse` OK, and the schema's own guard test still passes (no comment line contains a statement
+  separator).
+
+## 9.7 The residual: what is left, and the next amplifier
+
+**Prediction for the live ingest** (labelled as a prediction — no post-fix live run exists yet): the
+read per re-indexed document falls from **14.39 MB to 45–102 KB**, so the 124–125.5 MB/s measured on
+the current process should become **roughly 0.4–3 MB/s**, i.e. single-digit MB/s, and a full
+`db:localdb` sweep's read cost falls from **~1.17 TB** (81,000 × 14.39 MB) to **~4–8 GB**, plus the
+one-time ~33 MB map adoption. The process should stop being read-bound at all; the remaining cost is
+the write path and the adapter, not the index.
+
+**What is NOT fixed, and is now the largest remaining scan:** the two adapters that delete with their
+own SQL —
+
+* `adapters/files/sync.py:392` — `DELETE FROM chunks WHERE doc_id=?` (**1.27 GB full scan per
+  vanished file**), and `:393` — the same for `ngram` (now an 18 MB full scan per vanished file);
+* `adapters/journal/sync.py:526` — the same two statements.
+
+Neither has the rowid mapping available to it (`chunks_meta` / `ngram_meta` are keyed by the rowid,
+and both are reachable through the same helper shape), so the complete fix is for those two
+`prune_*` functions to call the shared helpers — `delete_chunks_for_doc` / `delete_ngram_for_doc`
+plus their meta deletes — instead of issuing SQL. I did **not** change them: they are outside
+`usearch.py`, the brief for this pass named `usearch.py`, and a change to two more files on a live
+index is a separate, verifiable increment. Their cost is proportional to the number of documents
+that vanish per run, not to the corpus, so they are a real but far smaller amplifier than the sweep
+was.
+
+Everything else in doc 68 §5 also still stands (the adapter state that never advances, the
+decorative `timeout_seconds`, the 30-minute cadence over a source that needs longer).
+
+## 9.8 What I could not verify
+
+1. **The fix running against the live index.** The process alive at 19:05 (PID 8940, started 18:46:20)
+   loaded its code before this change and keeps the old `ngram` delete. The first process that can
+   show it is the next tick — `NextRunTime` 19:15:46 (`LastRunTime` 18:45:47, `LastTaskResult`
+   **267009 = still running** at 19:05). **If that 18:45 run is still alive at 19:15, the new tick
+   can fail with `database is locked` before it ever reaches a document** — the same collision doc 68
+   §2 describes, and not something this change addresses. The confirmation to run afterwards is 30 s
+   of `ReadTransferCount` on the new PID (it should read in single-digit MB/s, not 124 MB/s).
+2. **The residual live rate.** Predicted from measured per-document bytes, not measured.
+3. **`fts_integrity_rank` on the live database** — its probe needs the write lock (Part 1, §5.3), so
+   it was verified on the copy and the live run is unverified.
+4. **The ~33 MB per-process map-integrity read.** Measured once, on the copy. It is 0.03 % of a
+   single pre-fix sweep and amortises to ~0.4 KB/document across 81,000, so I did not optimise it —
+   but it is new recurring I/O and it is the reason a one-document CLI run is slower (§9.3).
+   A cheaper trigger would need a flag that the two direct-SQL adapters can invalidate, which is
+   exactly what the scan is for.
+5. **The two adapter sites in §9.7** — unchanged, therefore still scanning.
+
+## 9.9 Provenance (Part 2)
+
+Every number above was produced on this host on 2026-09-16 between 18:38 and 19:06, by the commands
+and code shown. The snapshot used for all destructive work was
+`%TEMP%\zabz-ngram-clean\usearch.db`, taken 18:53:08 with `VACUUM INTO` over a read-only connection,
+`quick_check` ok in 56.0 s, **deleted at 19:06 and confirmed absent**. A first raw-copy attempt
+(`%TEMP%\zabz-ngram-fixcopy`, 18:49) was discarded because it failed `quick_check` (§9.1) and was
+removed before the second snapshot was taken. Live figures come from `mode=ro` connections (invariants
+and counts, stamped 19:03:35), from `Get-CimInstance` (process counters and the 124 MB/s window,
+19:03–19:05) and from `Get-ScheduledTaskInfo` (19:05). No write of any kind was made to
+`C:\Users\ezabz\.usearch\usearch.db`; its size/mtime movement during the session (2,360,856,576 B at
+18:50 → 2,366,541,824 B at 19:05:30) is the running ingest's own checkpointing. `git status` shows
+`M scripts/usearch.py` and nothing else; the `tests/` suites were run with
+`PYTHONDONTWRITEBYTECODE=1` and no bytecode was written into the repo.
