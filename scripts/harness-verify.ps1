@@ -162,6 +162,35 @@ Check 'preset deployed to ~/.dsh' {
            "preset hash match=$same; skills match=$skillSame; deployed thresholdChars=$pruner thresholdRatio=$ratio; instruction rules=$($rules.Count)/2"
 }
 
+# ---- 11. every declared plugin bundle RESOLVES --------------------------------------------
+# WHY THIS EXISTS (2026-09-16, found by getting it wrong). The engine refuses to boot when a
+# declared bundle cannot be resolved:
+#
+#     Error: dsh: cannot resolve profile bundle "dsh-plugin-cost" ...
+#
+# and one cause is now known and was live on BOTH machines: `autosync` runs the installer from a
+# TEMP snapshot of HEAD, so the junctions it created pointed into a directory that was deleted
+# minutes later -- leaving every plugin dangling and no engine able to start.
+#
+# This checks the physical fact the loader needs, not the process that is supposed to create it:
+# for each declared local bundle, `<profile>/node_modules/<name>/package.json` must be readable
+# THROUGH the link. It must be a walk-through, not an existence test: `Test-Path` returns TRUE for a
+# dangling directory reparse point, which is how this stayed invisible while every other check --
+# including the one asserting that sync *calls* the installer -- reported healthy on a machine that
+# could not boot.
+Check 'declared plugin bundles resolve' {
+    $live = Join-Path $env:USERPROFILE '.dsh\profiles\web\package.json'
+    if (-not (Test-Path $live)) { return $false, "no profile manifest at $live" }
+    try { $bundles = @((Get-Content $live -Raw | ConvertFrom-Json).dsh.profile.bundles) }
+    catch { return $false, "unreadable manifest: $($_.Exception.Message)" }
+    $ours = @($bundles | Where-Object { $_ -like 'dsh-plugin-*' })
+    if ($ours.Count -eq 0) { return $true, 'no local plugin bundles declared' }
+    $modules = Join-Path $env:USERPROFILE '.dsh\profiles\web\node_modules'
+    $broken = @($ours | Where-Object { -not (Test-Path (Join-Path $modules "$_\package.json")) })
+    return ($broken.Count -eq 0),
+           "declared=$($ours.Count); unresolvable=[$($broken -join ', ')] (a declared bundle that will not resolve stops the engine booting)"
+}
+
 # ---- report ------------------------------------------------------------------------------
 $failed = @($results | Where-Object { -not $_.Ok })
 if (-not $Quiet) {
