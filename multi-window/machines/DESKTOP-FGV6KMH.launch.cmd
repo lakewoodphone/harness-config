@@ -29,7 +29,7 @@ set "DSHW_DIR=%~dp0"
 set "DSHW=%DSHW_DIR%..\dshw.ps1"
 if not exist "%DSHW%" (
   echo Launcher is misinstalled: expected dshw.ps1 at %DSHW%
-  pause
+  timeout /t 20 /nobreak >nul
   exit /b 3
 )
 rem The machine's own config is passed EXPLICITLY even though dshw.ps1 now defaults to it: a launcher
@@ -86,15 +86,24 @@ rem Every invocation carries -ConfigPath. `ensure` and the verb are TWO processe
 rem passing it only to one is how a launcher half-works.
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" -ConfigPath "%DSHW_CFG%" ensure
 set "ENSURE_RC=%ERRORLEVEL%"
+rem `ensure` as the verb means "just check the engine" -- do not run it twice.
+if /i "%DSHW_VERB%"=="ensure" (
+  set "VERB_RC=%ENSURE_RC%"
+  goto report
+)
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" -ConfigPath "%DSHW_CFG%" %DSHW_VERB%
 set "VERB_RC=%ERRORLEVEL%"
+
+:report
 
 if not "%VERB_RC%"=="0" (
   echo.
   echo The assistant could not be started ^(ensure=%ENSURE_RC% verb=%VERB_RC%^).
   echo Logs: C:\Users\cheve\.dsh\multi-window\logs
   echo.
-  pause
+  rem BOUNDED, never `pause`. This file is also the scheduled task's payload, and a hidden console
+  rem waiting for a keypress keeps the task Running until its 20-minute limit.
+  timeout /t 20 /nobreak >nul
 )
 
 endlocal

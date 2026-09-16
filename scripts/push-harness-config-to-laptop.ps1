@@ -118,8 +118,15 @@ try {
     $tmp = Join-Path $env:TEMP ("hc-push-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
     New-Item -ItemType Directory -Force -Path $tmp | Out-Null
     $zip = Join-Path $tmp 'harness-config.zip'
-    $applyLocal = Join-Path $RepoRoot 'scripts\apply-harness-config-archive.ps1'
-    if (-not (Test-Path $applyLocal)) { Log 'FAIL: scripts/apply-harness-config-archive.ps1 missing from the checkout'; exit 3 }
+
+    # THE APPLIER COMES FROM ORIGIN, NOT FROM THIS CHECKOUT. A machine that delivers must not depend on
+    # its own working tree being current -- that is the very failure being fixed, one level up. Measured
+    # 2026-09-15: the owner's desktop checkout was 53 commits behind origin/master, so a pusher reading
+    # the applier from disk would have shipped a stale applier while shipping fresh content.
+    $applyLocal = Join-Path $tmp 'apply-harness-config-archive.ps1'
+    $applyText = (& git show origin/master:scripts/apply-harness-config-archive.ps1 | Out-String)
+    if ($LASTEXITCODE -ne 0 -or -not $applyText.Trim()) { Log 'FAIL: origin/master has no scripts/apply-harness-config-archive.ps1'; exit 3 }
+    [System.IO.File]::WriteAllText($applyLocal, $applyText, [System.Text.UTF8Encoding]::new($false))
 
     # journal/ is excluded at BUILD time as well as at apply time: two independent refusals, because the
     # one thing this must never do is put different content under a journal id that already exists.
