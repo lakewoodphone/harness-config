@@ -29,7 +29,7 @@ set "DSHW_DIR=%~dp0"
 set "DSHW=%DSHW_DIR%..\dshw.ps1"
 if not exist "%DSHW%" (
   echo Launcher is misinstalled: expected dshw.ps1 at %DSHW%
-  pause
+  timeout /t 20 /nobreak >nul
   exit /b 3
 )
 rem The machine's own config is passed EXPLICITLY even though dshw.ps1 now defaults to it: a launcher
@@ -74,9 +74,11 @@ rem like a launcher fault rather than a settings one. So it is set HERE, in the 
 rem engine, and the scheduled task is pointed at THIS FILE rather than at dshw.ps1 directly.
 if not defined DEEPSEEK_SEARCH_BASE_URL set "DEEPSEEK_SEARCH_BASE_URL=https://ds.abletelsolutions.com/anthropic/v1"
 
-rem --- the verb to run, defaulting to her normal "give me my assistant" behaviour ----------------
-rem The scheduled task passes `new` (what the desktop shortcut always meant); a bare invocation
-rem behaves the same way.
+rem --- the verb to run -----------------------------------------------------------------------------
+rem A dumb pass-through, deliberately. "Should a click that finds a window already open add another
+rem one?" is the SHORTCUT's question, not this file's, and it is answered in open.cmd where the click
+rem is. Here, the verb is whatever the caller asked for: the scheduled task passes `new` (the `+`
+rem control also arrives that way, and it must keep meaning "another window").
 set "DSHW_VERB=%~1"
 if "%DSHW_VERB%"=="" set "DSHW_VERB=new"
 
@@ -84,15 +86,24 @@ rem Every invocation carries -ConfigPath. `ensure` and the verb are TWO processe
 rem passing it only to one is how a launcher half-works.
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" -ConfigPath "%DSHW_CFG%" ensure
 set "ENSURE_RC=%ERRORLEVEL%"
+rem `ensure` as the verb means "just check the engine" -- do not run it twice.
+if /i "%DSHW_VERB%"=="ensure" (
+  set "VERB_RC=%ENSURE_RC%"
+  goto report
+)
 "%PWSH%" -NoProfile -ExecutionPolicy Bypass -File "%DSHW%" -ConfigPath "%DSHW_CFG%" %DSHW_VERB%
 set "VERB_RC=%ERRORLEVEL%"
+
+:report
 
 if not "%VERB_RC%"=="0" (
   echo.
   echo The assistant could not be started ^(ensure=%ENSURE_RC% verb=%VERB_RC%^).
   echo Logs: C:\Users\cheve\.dsh\multi-window\logs
   echo.
-  pause
+  rem BOUNDED, never `pause`. This file is also the scheduled task's payload, and a hidden console
+  rem waiting for a keypress keeps the task Running until its 20-minute limit.
+  timeout /t 20 /nobreak >nul
 )
 
 endlocal

@@ -4,13 +4,13 @@ rem Her desktop launcher -- the thing the desktop shortcut actually runs.
 rem
 rem THE CHAIN, and there is exactly one of each link:
 rem   shortcut  ->  THIS FILE  ->  scheduled task "Yocheved DSH Window"
-rem             ->  DESKTOP-FGV6KMH.launch.cmd  ->  dshw.ps1 ensure + new
+rem             ->  DESKTOP-FGV6KMH.launch.cmd new  ->  dshw.ps1 ensure + new
 rem
 rem WHY THE TASK IS IN THE MIDDLE. A window created by a process that is not inside her interactive
 rem session is created on no desktop anybody can see. The task runs with an Interactive logon type, so
-rem it is inside her session by construction, whatever launched this file. (The shortcut itself no
-rem longer asks for elevation -- nothing here needs administrator rights -- so the session-0 trap is
-rem gone as well; the task is kept because it is independent of who clicks.)
+rem it is inside her session by construction, whatever launched this file. (The shortcut itself does not
+rem ask for elevation -- verified: no RunAsUser flag in the .lnk -- so the session-0 trap is gone too;
+rem the task is kept because it is independent of who clicks.)
 rem
 rem WHY THIS FILE DOES NOT WIN32-LAUNCH ANYTHING ITSELF. It used to be the only path, and it was the
 rem path that broke: it invoked dshw.ps1 without the machine's own config, so the launcher ran against
@@ -18,8 +18,14 @@ rem the OWNER's directories, failed to write its own log, and closed -- a consol
 rem (2026-09-15). The environment and the config path now live in ONE place, launch.cmd, and every
 rem entry point funnels through it.
 rem
-rem IT REPORTS. A click that silently does nothing is the failure being fixed here, so this window
-rem waits, then says what happened and where the log is.
+rem "OPEN MY ASSISTANT" MEANS ONE WINDOW. Measured 2026-09-15: the task's verb is `new`, which picks the
+rem first slot with no live window -- so clicking the shortcut with a window already open opened a
+rem SECOND window in profile w2, and every later click added another. That question belongs here, where
+rem the click is, and the answer is: if a window is already open, bring the engine up and stop. The `+`
+rem control is how she asks for another window, and it reaches launch.cmd directly.
+rem
+rem IT REPORTS. A click that silently does nothing is the failure being fixed here, so this window waits,
+rem then says what happened and where the log is.
 rem ============================================================================
 
 setlocal
@@ -29,6 +35,19 @@ set "LOG=C:\Users\cheve\.dsh\multi-window\logs\launcher.log"
 
 echo Starting the shop assistant...
 echo.
+
+set "OPEN=0"
+for /f %%C in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%HERE%DESKTOP-FGV6KMH.windowcount.ps1" 2^>nul') do set "OPEN=%%C"
+
+if not "%OPEN%"=="0" (
+  rem A window is already there. Still check the engine -- a window onto a dead engine shows nothing --
+  rem then stop rather than adding a second window.
+  call "%HERE%DESKTOP-FGV6KMH.launch.cmd" ensure
+  echo The assistant is already open ^(%OPEN% window^(s^)^). No second window was started.
+  timeout /t 3 /nobreak >nul
+  endlocal
+  exit /b 0
+)
 
 schtasks /run /tn "%TASK%" >nul 2>&1
 if errorlevel 1 (
