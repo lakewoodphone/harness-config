@@ -316,6 +316,8 @@ handoff	H406	406		2026-09-16 19:38 UTC	ZABZ-YOGA	open	## 2026-09-16 19:38 UTC ·
 handoff	H407	407		2026-09-16 19:41 UTC	ZABZ-YOGA	open	## 2026-09-16 19:41 UTC · ZABZ-YOGA · Home phone for the owner mother: magicJack chosen, order reached CONFIRM but not placed, port not started	entries/handoff/H407.md	1	63	3cf2936e40231df9
 handoff	H408	408		2026-09-16 19:44 UTC	ZABZ-YOGA	open	## 2026-09-16 19:44 UTC · ZABZ-YOGA · DMP-BD84/RattleByte closed and documented; four-disc region kit ordered and verified; tunnel workaround versioned; journal id-collision recovered	entries/handoff/H408.md	1	52	839dcd6932ffc4c3
 handoff	H409	409		2026-09-16 19:44 UTC	ZABZ-YOGA	open	## 2026-09-16 19:44 UTC · ZABZ-YOGA · F3 agent/lpt-questionnaire: catalogue seed delivered, questionnaire blocked by the context allowlist	entries/handoff/H409.md	1	23	76573b6c486d815d
+handoff	H410	410		2026-09-16 20:02 UTC	ZABZ-YOGA	open	## 2026-09-16 20:02 UTC · ZABZ-YOGA · Monthly anniversary reminder is live on the owner's calendar; recurrence fix pushed, not deployed	entries/handoff/H410.md	1	32	4671180fa954ef02
+handoff	H411	411		2026-09-16 20:11 UTC	ZABZ-YOGA	open	## 2026-09-16 20:11 UTC · ZABZ-YOGA · Mesh program: 5 design waves in flight; constants, next steps and open bugs written down for the next session	entries/handoff/H411.md	1	61	a0e68fe236cc5d48
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -925,6 +927,10 @@ lessons	L1767	1767		2026-09-16	ZABZ-YOGA	open	**L1767 · The frontend deploy had
 lessons	L1768	1768		2026-09-16	ZABZ-YOGA	open	**L1768 · A schedule column nobody reads is a decorative field**	entries/lessons/L1768.md	1	12	0532dfb53c784cb2
 lessons	L1769	1769		2026-09-16	ZABZ-YOGA	open	**L1769 · lpt: the computer-finder questionnaire is blocked at createContext, before any procedure guard**	entries/lessons/L1769.md	1	18	9772c406ce075630
 lessons	L1770	1770		2026-09-16	ZABZ-YOGA	open	**L1770 · Region test kits: buy by label, verify by the Region Code item specific, and never test DVD region 2 with a PAL disc**	entries/lessons/L1770.md	1	30	2171329054644a8c
+lessons	L1771	1771		2026-09-16	ZABZ-YOGA	open	**L1771 · A broken output pipe is not evidence that a write failed**	entries/lessons/L1771.md	1	14	c5763680f57dae72
+lessons	L1772	1772		2026-09-16	ZABZ-YOGA	open	**L1772 · A control that blocks a channel also blocks the owner's own request**	entries/lessons/L1772.md	1	18	e74cc7f58ec71d28
+lessons	L1773	1773		2026-09-16	ZABZ-YOGA	open	**L1773 · reminders.recurrence was a decoy, create_event had no recurrence, and the real recurring mechanism is standing_work_orders cron**	entries/lessons/L1773.md	1	23	d182f774b0eb2f89
+lessons	L1774	1774		2026-09-16	ZABZ-YOGA	open	**L1774 · OWNER_PHONE_NUMBER is Google Voice; the line he reads is OWNER_NOTIFY_NUMBER**	entries/lessons/L1774.md	1	24	0dfc5822ebada02c
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1104,6 +1110,7 @@ pain	P214	214		2026-09-16	ZABZ-YOGA	open	## P214 — 185.112.144.0/22 (1984 Host
 pain	P215	215		2026-09-16	secratary	open	## P215 — Binding a personal policy has no compliance checklist, so a mandatory NJ inspection was never scheduled	entries/pain/P215.md	1	14	ac9e4bc2d5471c84
 pain	P216	216		2026-09-16	secratary	open	## P216 — The live harness-config install and the git checkout drift in both directions, and nothing detects it	entries/pain/P216.md	1	38	bbf337ce3bda3965
 pain	P217	217		2026-09-16	ZABZ-YOGA	open	## P217 — Customer SMS sent by scripts/send-lpt-sms.py write nothing to sms_log, so they are invisible to dedup and to the send audit	entries/pain/P217.md	1	16	bee232d0a7dbf083
+pain	P218	218		2026-09-16	ZABZ-YOGA	open	## P218 — Production and laptop checkouts carry unlanded work; it blocks deploys and collides parallel agents	entries/pain/P218.md	1	28	2d243a7841950496
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1289,6 +1296,8 @@ decisions	D221	221		2026-09-16	ZABZ-YOGA	open	**D221 · 2026-09-16 · Correct ad
 decisions	D222	222		2026-09-16	ZABZ-YOGA	open	**D222 · 2026-09-16 · Monthly anniversary ritual: one rose per month, reminder on the 15th.**	entries/decisions/D222.md	1	14	3cf66d59854f6329
 decisions	D223	223		2026-09-16	ZABZ-YOGA	open	**D223 · 2026-09-16 · Governor enforcement landed (acquire before heavy work); and a held lock is contention, not a fault.**	entries/decisions/D223.md	1	38	79eacba6771e46ba
 decisions	D224	224		2026-09-16	ZABZ-YOGA	open	**D224 · 2026-09-16 · Monthly anniversary ritual: one rose per month, reminder on the 15th.**	entries/decisions/D224.md	1	14	a36d13b706eaf990
+decisions	D225	225		2026-09-16	ZABZ-YOGA	open	**D225 · 2026-09-16 · Owner SMS: the kill switch binds autonomous sends, not direct requests.**	entries/decisions/D225.md	1	21	c5c88b39f53a395a
+decisions	D226	226		2026-09-16	ZABZ-YOGA	open	**D226 · 2026-09-16 · Do not hot-patch the secratary checkout to deploy code.**	entries/decisions/D226.md	1	6	8c57724e46940ad5
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1446,3 +1455,4 @@ wins	W184	184		2026-09-16	secratary	open	**W184 · 2026-09-16 · Proved the phon
 wins	W185	185		2026-09-16	secratary	open	**W185 · 2026-09-16 · The phone question card is proved working against the running app, and a stale tab heals itself (corrects W184).**	entries/wins/W185.md	1	28	23f30846ca014757
 wins	W186	186		2026-09-16	ZABZ-YOGA	open	**W186 · 2026-09-16 · RattleByte DMP-BD84 resolved: wrong-model firmware was the whole defect; correct file + emptied stick + board left connected = flashed and paired in one trip.**	entries/wins/W186.md	1	20	9197e0c8b558ab23
 wins	W187	187		2026-09-16	ZABZ-YOGA	open	**W187 · 2026-09-16 · The live shop website is fixed and verified on the served bundle - the blocker was the deploy credential, not the code.**	entries/wins/W187.md	1	40	a206974a7884906e
+wins	W188	188		2026-09-16	ZABZ-YOGA	open	**W188 · 2026-09-16 · The monthly anniversary reminder is live and verified.**	entries/wins/W188.md	1	23	3ad7fa687ea00cfe
