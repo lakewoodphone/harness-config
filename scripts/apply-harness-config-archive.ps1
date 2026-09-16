@@ -111,7 +111,10 @@ try {
     }
     $sha.Dispose()
 
-    [pscustomobject]@{
+    # Written WITHOUT a BOM on purpose: the caller reads this file back and parses it, and a
+    # PowerShell-5.1 `Set-Content -Encoding utf8` BOM makes that parse fail on the first character.
+    # Measured 2026-09-15, on the first end-to-end run of the delivery.
+    $json = [pscustomobject]@{
         appliedAt  = (Get-Date).ToUniversalTime().ToString('o')
         machine    = $env:COMPUTERNAME
         tree       = $TreeId
@@ -123,7 +126,8 @@ try {
         skipped    = $skipped
         failed     = $failed.Count
         failures   = $failed
-    } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $ReportPath -Encoding utf8
+    } | ConvertTo-Json -Depth 4
+    [System.IO.File]::WriteAllText($ReportPath, $json, [System.Text.UTF8Encoding]::new($false))
 
     Write-Host ("apply: added={0} updated={1} unchanged={2} skipped={3} failed={4}" -f $added, $updated, $unchanged, $skipped, $failed.Count)
     foreach ($x in ($failed | Select-Object -First 10)) { Write-Host ("  FAIL {0}" -f $x) }
