@@ -280,6 +280,7 @@ handoff	H370	370		2026-09-16 02:57 UTC	ZABZ-YOGA	open	## 2026-09-16 02:57 UTC ·
 handoff	H371	371		2026-09-16 03:20 UTC	ZABZ-YOGA	open	## 2026-09-16 03:20 UTC · ZABZ-YOGA · S10 Dialpad slice: webhooks are 401-ing (secret mismatch), SMS double-delivered to a second company, and plan/seats only readable via the internal API	entries/handoff/H371.md	1	31	913d907d30caa2ed
 handoff	H372	372		2026-09-16 03:21 UTC	ZABZ-YOGA	open	## 2026-09-16 03:21 UTC · ZABZ-YOGA · Dialpad is mapped: three access paths, the workflow endpoint, and the media library - plus two live defects	entries/handoff/H372.md	1	68	cb50d04104c3c554
 handoff	H373	373		2026-09-16 14:22 UTC	ZABZ-YOGA	open	## 2026-09-16 14:22 UTC · ZABZ-YOGA · DSH scale program: locks + MCP waste fixed and verified; four audits in flight (2026-09-16)	entries/handoff/H373.md	1	60	cc3c3d0e82ee0157
+handoff	H374	374		2026-09-16 14:29 UTC	ZABZ-YOGA	open	## 2026-09-16 14:29 UTC · ZABZ-YOGA · Round 2: append 10.4s -> 2.5s, window ratchet fixed, reaper scheduled; push and ZABZ-TECH blocked on broken Tailscale	entries/handoff/H374.md	1	51	001923e1e30772e7
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -828,6 +829,8 @@ lessons	L1706	1706		2026-09-16	ZABZ-YOGA	open	**L1706 · Second timing sample af
 lessons	L1707	1707		2026-09-16	ZABZ-YOGA	open	**L1707 · Append steady-state sample 1 after narrowing the legacy-change check**	entries/lessons/L1707.md	1	6	12bf3c4937ce8e5b
 lessons	L1708	1708		2026-09-16	ZABZ-YOGA	open	**L1708 · Append steady-state sample 2 after narrowing the legacy-change check**	entries/lessons/L1708.md	1	6	27e4350dbea6ef22
 lessons	L1709	1709		2026-09-16	ZABZ-YOGA	open	**L1709 · Append steady-state sample 3 after narrowing the legacy-change check**	entries/lessons/L1709.md	1	6	3ae827877d383b9e
+lessons	L1710	1710		2026-09-16	ZABZ-YOGA	open	**L1710 · Journal append was slow because of pre-write work, not the lock: legacy absorption on every write plus 15303 pathlib.relative_to calls**	entries/lessons/L1710.md	1	47	12af89578512598a
+lessons	L1711	1711		2026-09-16	ZABZ-YOGA	open	**L1711 · Count browser memory by private bytes, never WorkingSet - the 8.18 GB window figure was 2.2x inflated, and tabs cannot replace windows**	entries/lessons/L1711.md	1	33	ca655bb277574367
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
