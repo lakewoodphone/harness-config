@@ -1,0 +1,37 @@
+# The mesh broker (docs/mesh/71-mesh-program.md §2.2, stream S5), for the authority.
+# NOT INSTALLED by stream S5 - this file is the ready unit so that installing it is a
+# deliberate, one-command act by whoever owns the authority at that moment.
+#
+#   sudo cp packages/mesh-broker/deploy/mesh-broker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mesh-broker
+#   sudo systemctl status mesh-broker --no-pager
+#
+# The service needs no secret, no token and no allow-list entry of its own: it serves the
+# authority's loopback, and publishing it is a separate decision about `tailscale serve`,
+# which this stream does not make.
+
+[Unit]
+Description=mesh broker - placement decisions for the DSH mesh (never refuses; queues instead)
+Documentation=file:///home/zabz/code/harness-config/docs/mesh/76-broker.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zabz
+WorkingDirectory=/home/zabz/mesh-broker
+ExecStart=/usr/bin/node /home/zabz/mesh-broker/bin/mesh-broker.mjs --port 3091
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=2
+# The broker is a decision service holding a few kilobytes: it needs no privileges and no
+# writable path beyond its own log.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

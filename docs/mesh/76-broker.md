@@ -6,6 +6,15 @@ FROZEN), §3 row S5, §4 items 2 and 6. **Depends on:** `docs/mesh/66-dsh-remote
 **Date:** 2026-09-16, 23:15–23:21Z (every timestamp below is UTC, from the machines' own clocks).
 **Author:** stream S5, an agent session; not the owner. **Status: built, tested, and running on the
 authority.**
+**Amended 2026-09-16 23:27–23:57Z with FOUR OWNER-APPROVED AMENDMENTS** — the fleet disk floor
+scales with the fleet (§10.1), a swapping node's slots are halved for ranking (§10.2), the score is
+`min(memorySlotTerm, physicalCores × 0.75)` with both terms printed (§10.3), and the roster carries a
+per-node v1 transport capability that ranks a node measured unable to take the work below one that
+can (§10.4). §10.5 records the two §2.1 contract-line corrections, which stream S1 landed in
+`71-mesh-program.md` before this stream got there. **§10.6 is a fifth, contract-only change: the
+`absent` state** (approved 2026-09-17, implemented in ~20 lines), and §10.7 records the agreed SHAPE
+of a future elastic tier that is deliberately **not built**. Everything measured before the
+amendments is marked as such; §7's readings are from 23:20Z and §11's are from 23:57Z.
 **Read-only with respect to everything else:** no engine was started, stopped, restarted or
 reconfigured; no allow-list or serve config was changed; `personal-secretary-mvp` was not touched;
 nothing was committed (the manager integrates).
@@ -26,15 +35,15 @@ A small Node service on the authority that answers one question — *where shoul
 |---|---|
 | `packages/mesh-broker/lib/scoring.js` | the frozen §2.2 arithmetic, as pure functions over a reading |
 | `packages/mesh-broker/lib/capacity.js` | the client: `GET /mesh/capacity` through a node's gate, short timeout, never rejects |
-| `packages/mesh-broker/lib/config.js` | the roster loader (a whole-file failure if there is no node) |
+| `packages/mesh-broker/lib/config.js` | the roster loader (a whole-file failure if there is no node, **or if a row is mis-keyed**) |
 | `packages/mesh-broker/lib/leases.js` | the lease table — the broker's **only** state, in memory, TTL-reaped |
-| `packages/mesh-broker/lib/broker.js` | the decision: tiers, ranking, position, and the `rationale` |
+| `packages/mesh-broker/lib/broker.js` | the decision: tiers, ranking, position, the transport capability, and the `rationale` |
 | `packages/mesh-broker/lib/server.js` | `POST /place`, `POST /done`, `GET /nodes[?fresh=1]`, `GET /healthz` |
 | `packages/mesh-broker/lib/stub-gate.js` | a §2.1 stub gate, for the tests and for manual runs |
 | `packages/mesh-broker/bin/mesh-broker.mjs` | the service entry point (prints its roster, TTLs and port at boot) |
 | `packages/mesh-broker/bin/mesh-stub-gate.mjs` | the stub as a CLI |
-| `packages/mesh-broker/nodes.json` | the roster: `zabz-tech`, `zabz-yoga`, `zabz-tech-linux`, `secratary` |
-| `packages/mesh-broker/test/*.test.mjs` | 37 tests, including the §4 items 2 and 6 acceptance tests |
+| `packages/mesh-broker/nodes.json` | the roster: `zabz-tech`, `zabz-yoga-1`, `zabz-tech-linux`, `secratary` — each with its `dispatch` capability |
+| `packages/mesh-broker/test/*.test.mjs` | **57 tests** (37 before the amendments), including the §4 items 2 and 6 acceptance tests and one named test per amendment |
 | `packages/mesh-broker/deploy/secratary-smoke.sh` | the on-authority smoke run (tests, service, three verbs) |
 | `packages/mesh-broker/deploy/mesh-broker.service` | a ready systemd unit — **not installed** (see §6.4) |
 
@@ -60,15 +69,15 @@ Body `{"task":{"kind":"oneShot"|"fleet","children":6,"worktreeGiB":2,"prefer":"h
 | `node` | the node named. Always a non-empty string: **no code path returns an error instead of a placement** |
 | `position` | `0` = start now; `>0` = queued behind that many accepted jobs on that node. Never a refusal |
 | `lease` | opaque, TTL'd; released by `/done` or reclaimed by the broker at expiry |
-| `score` | free slots on the chosen node — the §2.2 example's own number (`"score": 9`, "9 free slots of 24") |
+| `score` | free slots on the chosen node — the **effective** count (§10.3): the §2.2 memory term, capped by `floor(cpu.physical × 0.75)`, then halved if the node is swapping (§10.2) |
 | `eligible` | how many nodes were in the tier the winner came from |
-| `rationale` | the numbers the decision used, in order: the roster count, the frozen slot arithmetic verbatim, the disk gate, the load, the lease counts, the fit arithmetic, the position arithmetic, and why each loser lost. **Non-empty is asserted by test** |
+| `rationale` | the numbers the decision used, in order: the roster count, the frozen slot arithmetic verbatim, the free-slot count, the disk gate with its scaled requirement, the load, **both score terms and the effective score**, **the transport capability**, the fit arithmetic, the position arithmetic, and why each loser lost. **Non-empty is asserted by test** |
 | `queue` | the live accepted jobs ahead on that node (`{lease, node, kind, children, state, waitsMs}`); `[]` when `position` is 0 |
 
 Additive fields (not in §2.2, safe for any caller that ignores them): `at`, `kind`, `children`,
-`tier` (`fits`/`highest-slots`/`queued`/`internal-fault`), `blockedBy`
-(`unreachable`/`disk`/`accepts`/`caller-excluded`/`no-free-slots`), `considered`, `unreachable`,
-`excluded`, `expiresAt`, `leaseTtlSec`.
+`tier` (`fits`/`highest-slots`/`transport`/`queued`/`internal-fault`), `blockedBy`
+(`unreachable`/`disk`/`accepts`/`transport`/`caller-excluded`/`no-free-slots`), `considered`,
+`unreachable`, `excluded`, `expiresAt`, `leaseTtlSec`.
 
 ### `POST /done`
 
@@ -84,10 +93,18 @@ dropped, and never given a reading it did not send**. When a previous reading ex
 under `staleReading` with its own age and the note *"this is the last reading that succeeded; it is
 NOT current"*.
 
-## 3. The scoring, exactly as §2.2 froze it
+Every row also carries the numbers behind the score, so a caller never has to parse a sentence out of
+`rationale`: `slots` (effective), `memorySlots`, `coreSlots`, `coreSlotsBasis`
+(`physical`/`logical`), `swapApplied`, `swapUsedPct`, `scoreTerms` (all five together), and
+`transport: { v1, measuredAt, evidence }`.
+
+## 3. The scoring: §2.2's memory arithmetic, and the three things layered on it
 
 ```
-slots = min(floor((freeMiB - 3885) / 160), 24)   -   governor.inUse
+memorySlots  = min(floor((freeMiB - 3885) / 160), 24)  -  governor.inUse      <- §2.2, unchanged
+coreSlots    = floor(cpu.physical * 0.75)                                     <- §10.3
+slots        = min(memorySlots, coreSlots)                                    <- §10.3
+slots        = swapUsedPct >= 90 ? floor(slots / 2) : slots                   <- §10.2
 ```
 
 * `3885 MiB` reserve and `24` maxSlots are the governor's own derivation
@@ -99,10 +116,13 @@ slots = min(floor((freeMiB - 3885) / 160), 24)   -   governor.inUse
   act on).
 * A node is eligible iff `freeSlots - children >= 0` **or** it has the highest `slots` on the mesh, so
   *a fleet bigger than every node still places, queued rather than refused*.
-* A node with `freeGiB < 20` is ineligible for `kind=fleet`. Where the caller declares `worktreeGiB`,
-  the requirement becomes `20 + worktreeGiB` (DEV DECISION: the 20 GiB floor is for the fleet's own
-  writes, not for the worktree the caller already knows it needs).
+* A node with `freeGiB < 20 + worktreeGiB + 0.5 × children` is ineligible for `kind=fleet` (§10.1).
 * `kind=oneShot` has no disk gate (§2.2 gates fleets only), but the disk is still printed.
+* **§2.2's frozen line is a memory formula, and it is still what the first rationale line prints,
+  verbatim.** The three amendments change which node WINS and what `score` means; they do not edit
+  the frozen arithmetic, and every one of them is printed alongside it. That distinction matters:
+  §2.2 is frozen and this stream does not own it, so the amendments are additional ranking terms the
+  rationale exposes, and the manager can see exactly what was added to the decision (§10.6).
 
 The arithmetic is pinned by a test that reproduces §2.2's own worked example — `mem.freeMiB 51000`
 with `governor.inUse 15` → `"score": 9`, `"9 free slots of 24"`:
@@ -112,11 +132,16 @@ zabz-tech: 24 slot(s) of at most 24: floor((52040 MiB free - 3885 MiB reserve) /
            capped at maxSlots=24 -> 24, minus governor.inUse=0 -> 24
 ```
 
+(That reading has no `cpu` block, so the core term is *unknown* rather than zero and the memory term
+stands alone — which is why the score is still exactly 9. With a `cpu.physical: 16` present the core
+term would be 12, which does not bind below 12, and `score` would still be 9: *"9 memory slot(s), 12
+core slot(s) of 16 physical x 0.75 -> effective 9"*.)
+
 ## 4. The four robustness rules, and where each lives
 
 | §2.2 rule | how it is made true | evidence |
 |---|---|---|
-| **It never refuses** | Three tiers (`fits` → `highest-slots` → `queued`, each relaxing one gate), ending in `emergencyPlacement()`: an internal fault still returns a node and `position ≥ 1`. A malformed body, an unparseable roster entry, an excluded-everything caller and an all-dark mesh all answer **200** with a placement | `test/acceptance.test.mjs`: "with EVERY node at zero slots…", "every node unreachable…", "a malformed body still returns a placement", "excluding every node is a caller mistake", "an internal fault still returns a placement" |
+| **It never refuses** | Four tiers (`fits` → `highest-slots` → `transport` → `queued`, each relaxing one gate), ending in `emergencyPlacement()`: an internal fault still returns a node and `position ≥ 1`. A malformed body, an unparseable roster entry, an excluded-everything caller, an all-dark mesh and a mesh whose every node is measured unable to take v1 work all answer **200** with a placement | `test/acceptance.test.mjs`: "with EVERY node at zero slots…", "every node unreachable…", "a malformed body still returns a placement", "excluding every node is a caller mistake", "an internal fault still returns a placement", "when the only candidate cannot take v1 work it is still placed…" |
 | **It stores nothing it can go stale on** | The only mutable state is a `Map` of readings with timestamps (≤15 s) and the lease table, in memory. **No file is written anywhere** | `test/leases.test.mjs` runs placements in a temp cwd and asserts the directory is still empty |
 | **Every decision is explainable** | `rationale` is built from the same numbers the decision used, and a test asserts it is non-empty and contains the frozen slot arithmetic (`3885 MiB reserve`, `160 MiB`, `maxSlots=24`), the free-slot count, the child count and the position arithmetic | `test/acceptance.test.mjs` §4.2 test |
 | **A dead dispatcher cannot wedge the mesh** | Leases are TTL'd (default 900 s) and reaped by whoever reads the table; nothing has to notice a death | `test/acceptance.test.mjs` "/done releases the reservation, and a lease nobody releases is reclaimed at its TTL" |
@@ -126,10 +151,16 @@ zabz-tech: 24 slot(s) of at most 24: floor((52040 MiB free - 3885 MiB reserve) /
 1. **Direct reads, no federation.** Implemented per `66-dsh-remote-capability.md` §4 item 1: the
    broker calls each gate's `/mesh/capacity`; there is no PUBLISH verb, no heartbeat table and no
    node-state table. 15 s of staleness is the *maximum*, not a design input.
-2. **Roster = 4 nodes.** `zabz-tech`, `zabz-yoga` (note the MagicDNS name is `zabz-yoga-1`),
-   `zabz-tech-linux`, `secratary`. The **Mac Mini is deliberately absent**: it is Yisroel's machine
-   (`20-placement.md` §1.0), and placing work on an employee's computer is the owner's call, not a dev
-   default. Adding it is one entry in `nodes.json` and no code change.
+2. **Roster = 4 nodes, keyed by Tailscale DNS label.** `zabz-tech`, `zabz-yoga-1` (NOT `zabz-yoga`:
+   the host name is `zabz-yoga` but the only name that resolves is `zabz-yoga-1` — measured 2026-09-16
+   23:31Z), `zabz-tech-linux` (not the ssh alias `linux-pc`), `secratary`. The **Mac Mini is
+   deliberately absent**, and the reason has changed: it is not a policy question any more, it is a
+   measurement. `curl http://lakewooechsmini.tail93e6e6.ts.net/mesh/capacity` **exits 7** from the
+   authority (2026-09-16 23:30Z) while the node itself is `active` in `tailscale status`, so there is
+   no capacity surface to read. The older reason here — "it is Yisroel's machine, so placing work on
+   an employee's computer is the owner's call" — is out of date: the owner has given free rein on it
+   and it is becoming a worker node. Adding it is one entry in `nodes.json`, with its `dispatch`
+   measured the same way as the others, and no code change (§10.4).
 3. **Port 3091, loopback.** Free on the authority (MEASURED: `ss -ltn` shows 3086, 3087, 3089, 8002 in
    use). **Publication is not this stream's decision** — the broker serves `127.0.0.1` and nothing was
    added to `tailscale serve`.
@@ -175,7 +206,7 @@ zabz-tech: 24 slot(s) of at most 24: floor((52040 MiB free - 3885 MiB reserve) /
 ```
 cd packages/mesh-broker
 npm run verify      # node --check on every source file
-npm test            # 37 tests: scoring, config, leases, acceptance
+npm test            # 57 tests: scoring, config, leases, acceptance
 npm run stress      # just the §4.6 30-concurrent-against-5-slots test
 ```
 
@@ -243,9 +274,14 @@ HTTP 200, all with a node and an integer position ≥ 0, **5 at position 0 and 2
 | zabz-tech-linux | false | 48 ms | 24 | 23 |
 | secratary | false | 19 ms | 24 | 24 |
 
-`secratary` reports `accepts.fleet:false` with the gate's own reason (*"no governor lease directory on
-this node, so its slot budget cannot be measured: one-shot runs are accepted, fleets are not placed
-here"*) and the broker both respects it and prints it.
+`secratary` reported `accepts.fleet:false` at 23:20Z with the gate's own reason (*"no governor lease
+directory on this node, so its slot budget cannot be measured: one-shot runs are accepted, fleets are
+not placed here"*) and the broker both respected it and printed it. **That reading is superseded**:
+S1 corrected the rule at 23:40Z (the budget is computed from memory and only `inUse`/`queued` come
+from the lease directory), and by 23:34Z all four nodes reported `accepts.fleet:true`, `secratary`
+and `zabz-tech-linux` carrying a `reason` that is a *note* rather than a restriction — "a `reason` on
+a `fleet: true` answer is a note" was already this broker's reading of §2.1 (§5 item 12), so no code
+changed for it.
 
 ### 7.3 A real placement, verbatim (the flagship rationale)
 
@@ -301,10 +337,11 @@ reachability, and it is now `reachable: true, slotsKnown: false` (§5 item 11).
 
 ## 9. What could not be verified
 
-* **The Mac Mini, `zabz-tech-linux`'s fleet acceptance, and long-run behaviour.** `zabz-tech-linux`
-  answered `/mesh/capacity` (MEASURED above) but reports `accepts.fleet:false`, so no fleet placement
-  has ever been *executed* on it — the broker only decided *where*; **nothing in this stream ran work
-  on any node**. That is stream S6's and S7's acceptance, not S5's.
+* **The Mac Mini, `zabz-tech-linux`'s fleet acceptance, and long-run behaviour.** No fleet placement
+  has ever been *executed* on any node — the broker only decided *where*; **nothing in this stream ran
+  work on any node**. That is stream S6's and S7's acceptance, not S5's. (`zabz-tech-linux` reported
+  `accepts.fleet:false` when this list was written; by 23:34Z it reported `true`, so the blocker moved
+  from the gate to whether a fleet can actually run there — still unmeasured.)
 * **Publication of the broker beyond the authority's loopback.** It listens on `127.0.0.1:3091` on
   `secratary` and nothing was added to `tailscale serve`. Any caller not on the authority needs that
   decision to be taken by whoever owns the mesh's allow-list.
@@ -319,3 +356,346 @@ reachability, and it is now `reachable: true, slotsKnown: false` (§5 item 11).
 * Whether the **`position` semantics** (a computed depth, not a FIFO ticket) are what the owner wants
   from a queue. §2.2 freezes the shape and forbids stored state; FIFO would need both changed, so it is
   left as the honest reading rather than quietly invented.
+
+---
+
+## 10. The amendments (owner-approved 2026-09-17)
+
+Five changes on top of the built broker. The first four were approved together at 23:27Z; §10.6 was
+approved after the elastic-cloud study. Each names its measurement, its test, and what it deliberately
+does **not** do.
+
+### 10.1 The fleet disk floor scales with the fleet — `requiredGiB = 20 + worktreeGiB + 0.5 × children`
+
+**Why.** MEASURED 2026-09-16 23:34Z: `zabz-tech-linux` reports `disk.freeGiB 20.8` against a flat
+20 GiB floor — **0.8 GiB of margin**, so one worktree flipped it into a silent overlap and the broker
+said nothing. A floor that does not move with the fleet is not a floor.
+
+**Rule.** One-shot needs `20 + 0.5` (the same formula with `children = 1`; `kind=oneShot` has no disk
+gate anyway and the number is printed for information). A 6-child fleet needs 23 GiB; a 12-child fleet
+needs 26 GiB. Half a gigabyte per child is the conservative allowance for the scratch and logs a child
+writes that the caller has not declared.
+
+**Where.** `scoring.js` `PER_CHILD_DISK_GIB = 0.5` and `diskRequirementGiB()`; the rationale line prints
+all three terms (`20 GiB fleet floor + 2 GiB declared worktree + 0.5 GiB/child x 6 child(ren)`).
+
+**Tests.** *"AMENDMENT 1 the fleet disk floor scales with the fleet: 20 + worktree + 0.5 per child"*
+and *"AMENDMENT 1 the real numbers: 20.8 GiB free passes a 1-child fleet and fails a 12-child one"*
+(scoring), plus *"AMENDMENT 1 the real 20.8 GiB node: a 1-child fleet places there, a 12-child fleet
+does not"* (acceptance, end to end through `POST /place`).
+
+**Not done.** No per-child disk measurement — 0.5 GiB is a stated allowance, not a reading, and the
+rationale prints it as an allowance.
+
+### 10.2 A swapping node's slots are halved for ranking — `swapUsedPct >= 90` → `floor(slots / 2)`
+
+**Why.** MEASURED repeatedly 2026-09-16: `secratary` reports `mem.swapUsedPct 99.9` (4,092 of
+4,095 MiB). Its `mem.freeMiB` therefore counts memory the node must **fault back in**, which is the
+opposite of capacity for a fleet that starts six processes at once.
+
+**Rule.** A node at or above 90% swap has its effective slots halved **for ranking**. **Never a gate**:
+a node that is merely unattractive is still placed on when it is the only candidate, and the halving is
+printed — `"swap 99.9% used (>= 90%): free memory is memory that must be faulted back in, so 3 slot(s)
+halved to 1 - a ranking penalty, never a refusal"`. The owner's rule is queue-never-amputate, and this
+is a ranking change, not a refusal.
+
+**Where.** `scoring.js` `SWAP_PENALTY_PCT = 90`, `swapPenalty()`; applied inside `effectiveSlots()` and
+reported as `swapApplied`/`swapUsedPct` on `/nodes`.
+
+**Tests.** *"AMENDMENT 2 a node at or above 90% swap has its effective slots halved, and the line says
+so"*, *"AMENDMENT 2 secratary's live numbers: 24 memory slots, 3 core slots, halved to 1 by 99.9%
+swap"* (scoring) and *"AMENDMENT 2 a node at 99.9% swap reports the halving in its rationale and is
+still placeable"* (acceptance). The boundary is asserted inclusive at exactly 90 and exclusive at 89.9.
+
+**A first cut, stated plainly.** **90% is a first cut, not a measured threshold.** It is where a node
+starts swapping hard enough that the memory term stops meaning capacity, but the number has not been
+read off a node under a real fleet load, and there is no read that distinguishes "swapped once an hour
+ago" from "swapping right now" — `swapUsedPct` is a level, not a rate. Revisit it the first time a node
+is read while a fleet is running: the sharper signal would be a swap *rate* (pages in/out per second),
+which §2.1 does not report today.
+
+### 10.3 The score is `min(memorySlots, floor(cpu.physical × 0.75))`, and both terms are printed
+
+**Why.** The frozen model derived slots purely from memory, so `secratary` (4 cores) scored **24 slots**
+and `zabz-tech-linux` (6 physical cores) scored 24 — a 6x overstatement on the authority, and the
+broker would happily send it a 12-child fleet. The score said nothing about whether the CPU could run
+what the memory could hold.
+
+**The measured constant.** ~1 core per actively generating agent turn (0.81 GB commit + ~1 core,
+measured 2026-09-15/16), and this laptop's paging threshold is **13-14 concurrent turns on 16 physical
+cores** — i.e. `floor(16 × 0.75) = 12`, the measured number to within one. A quarter of the cores is
+held back for the OS and the human at the keyboard.
+
+**Rule.** `coreSlots = floor(cpu.physical × 0.75)`; `effective = min(memorySlots, coreSlots)`; then the
+swap halving of §10.2. `cpu.logical` is used **only** when `physical` is absent, and the line names
+which was used and calls the logical basis a *looser ceiling*. A reading with neither is unknown —
+never zero — and the memory term stands alone.
+
+**Where.** `scoring.js` `CORE_SLOT_FRACTION = 0.75`, `coreSlots()`, `effectiveSlots()`. The rationale
+prints one line per node in exactly this shape:
+
+```
+secratary: 24 memory slot(s), 3 core slot(s) of 4 physical x 0.75 -> effective 3
+zabz-yoga-1: 23 memory slot(s), 12 core slot(s) of 16 physical x 0.75 -> effective 12
+```
+
+**What the four live nodes then score** (MEASURED 2026-09-16 23:34Z, from each gate's own document):
+
+| node | cpu.logical | cpu.physical | memorySlots | coreSlots | swap | **effective** |
+|---|---|---|---|---|---|---|
+| `zabz-tech` | 32 | 24 | 24 | 18 | 0% | **18** |
+| `zabz-tech-linux` | 12 | 6 | 24 | 4 | 15.3% | **4** |
+| `zabz-yoga-1` | 22 | 16 | 23 (inUse 1) | 12 | 0% | **12** |
+| `secratary` | 4 | 4 | 24 | 3 | 99.9% | **1** (3 halved) |
+
+**Two of these disagree with the forecast this amendment was briefed with, and the measurement wins.**
+`zabz-tech` was expected to be ~12; the node reports **24 physical cores** (i9-14900, `NumberOfCores`
+24 × 32 logical, measured over its own sshd) so its core term is 18, not 12 — the 12 came from an
+earlier note that read its *16* physical as if it were the desktop's. And `zabz-yoga-1` matches the
+forecast at 12 exactly. `secratary` was expected to be ~3 and is **3 before the swap halving and 1
+after**, which is the honest number for a box that is already 99.9% into swap.
+
+**Is 18 right for a 24-core desktop?** Unknown, and stated as unknown. The 0.75 constant is calibrated
+on a 16-core laptop; a 24-core machine has proportionally more cache and memory bandwidth and may
+sustain more than 18 turns, or fewer if its disk is the real limit. The number is *conservative in the
+right direction* (it under-promises a big machine, where a guess costs queue time) and it is *the
+measured shape* on the machine the measurement was taken on. **The way to settle it is a reading from
+`zabz-tech` under a real fleet** — start 18 children there and watch `commit` and page-ins. Until then
+the constant is not tuned to taste in either direction.
+
+**Where the brief's arithmetic is stored.** `CORE_SLOT_FRACTION` is one exported literal with the
+measurement in the comment above it, so a future session can change one number and see the whole
+fleet's ranking move — and `/nodes` publishes `scoreTerms` with `coreSlotsBasis`, so the change is
+visible per request.
+
+**Tests.** *"AMENDMENT 3 core slots are 0.75 x PHYSICAL cores, and never more than that"*, *"AMENDMENT 3
+cpu.logical is the fallback when physical is absent…"*, *"AMENDMENT 3 the effective score is the
+smaller term…"*, *"AMENDMENT 3 a node with 64 GiB free and 0 cores ranks below one with 8 GiB free and 8
+cores"*, *"AMENDMENT 3 effective slots are never negative…"*, and the acceptance test *"AMENDMENT 3 the
+rationale prints both score terms, so a small box is not read as a big one"*.
+
+**Why it matters beyond the score.** The owner is deciding whether to rent small cloud machines as
+elastic capacity. Under the old model a 2-vCPU rental reports 24 memory slots and looks like a
+workhorse; under this one it scores `floor(2 × 0.75) = 1`, and the rationale prints both terms so that
+number is visible before anything is bought.
+
+### 10.4 The roster carries a per-node v1 transport capability, and the broker ranks on it
+
+**Why — a correctness bug in production, MEASURED by stream S6 at 23:27Z 2026-09-16.** A dispatcher
+**cannot run work on `zabz-yoga` at all**: a process launched by that machine's sshd cannot traverse the
+symlinks in `~/.dsh/profiles/node_modules`, which is exactly how a DSH profile resolves its bundles —
+reading *through* the link gives `UNKNOWN (-4094)`, `require.resolve` gives `MODULE_NOT_FOUND`, and
+`ssh <that node> dsh --profile headless` dies with *"plugin tree failed to load"*
+(`70-remote-fanout-proof.md` §4.4). `zabz-tech` over its sshd is fine. The broker had already placed
+work there — `node=zabz-yoga, position=0, score=22`, 23:24Z — with no way to know it could not be done.
+**A placed job that cannot run is worse than a queued one.**
+
+**Rule.** Each roster row carries `dispatch: { v1, measuredAt, evidence }`, and the three states are
+never collapsed:
+
+| `dispatch.v1` | meaning | how the broker treats it |
+|---|---|---|
+| `true` | measured to accept `ssh <alias> dsh --profile headless` | a normal candidate |
+| `false` | measured **not** to (the reason is in `evidence`) | ranked **below every node that can take the work**; chosen only when nothing else is eligible, and then the rationale says *"chosen despite transport=unavailable, because nothing else is eligible"* |
+| `null` | never measured | ranked between the two, and printed as **unmeasured** — "not a claim that it works and not a claim that it does not" |
+
+`"unmeasured"` and `"measured broken"` are different facts, and a broker that printed both as `false`
+would be inventing a measurement. This is a **ranking** change, never a gate: queue-never-amputate
+still holds, and a new tier (`tier=transport`, `blockedBy: ["transport"]`) names exactly that case.
+
+**The live roster, with its evidence (all `nodes.json`, read 2026-09-17):**
+
+| node | v1 | evidence |
+|---|---|---|
+| `zabz-tech` | `true` | S6's parent booted over ssh there and loaded the mesh plugin; three child turns completed with their `MESH-HOST:` lines verified (`70-remote-fanout-proof.md` §2) |
+| `zabz-yoga-1` | `false` | the sshd symlink-traversal failure above (§4.4). **It dispatches fine; it cannot be dispatched INTO** |
+| `zabz-tech-linux` | `true` | MEASURED by this stream 23:33Z: `node /home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js --profile headless "<task>"` over its sshd loaded the profile tree, printed the headless usage text and reached the model call, failing only on `MISSING_CREDENTIAL: llm-deepseek` — the transport works and the credential is the separate gap |
+| `secratary` | `null` | **UNMEASURED.** It has node v20.20.2 and a dsh engine at `/home/zabz/dsh-engine`, but its `DSH_HOME` (`~/.dsh/profiles/`) holds only `node_modules` and `web` — there is no `headless` profile to load, so a v1 dispatch there can be shown neither to succeed nor to fail. Recorded as unmeasured rather than guessed, which is the whole point of the third state |
+
+**Tests.** *"AMENDMENT 4 a node measured unable to accept v1 work ranks below one that can, and says
+why"*, *"AMENDMENT 4 a v1-unusable node with MORE slots still loses to a usable one with fewer"* (the
+live bug, as a regression test), *"AMENDMENT 4 when the only candidate cannot take v1 work it is still
+placed…"*, *"AMENDMENT 4 an unmeasured transport is neither 'works' nor 'broken'…"*.
+
+**The permanent fix is v2.** The ssh transport is v1 and its one structural weakness is that it depends
+on a login shell seeing the same filesystem the profile expects. The **v2 HTTP route** (`71` §1's
+second-tier transport, the plugin-owned `/mesh/run` with HMAC) does not depend on ssh at all, so the
+day it lands this entire capability column becomes a fallback rather than a gate — a node that fails
+v1 can still take v2 work. This stream did not build it (§3's workstreams give it to S6), and the
+capability is a *roster fact* precisely so it can be one line to re-measure when it does.
+
+### 10.5 The two §2.1 contract lines
+
+Both were corrected **by stream S1, in `71-mesh-program.md`, before this stream got to them** — recorded
+here so the change of author is not mistaken for the change not happening:
+
+1. **The `governor` bullet.** It said `governor` is read from the lease directory if present, else
+   `null`. Stale: `budgetSlots` is **always** computed from `mem.freeMiB`, and only `inUse`/`queued` come
+   from the lease directory — `0` each, and named in `accepts.reason`, when it does not exist. S1's
+   text now reads exactly that, and adds that `governor` is null *as a whole* only when the engine does
+   not answer. The broker's `slotArithmetic()` already treated a missing `governor` as `inUse = 0` and
+   said so in the rationale, so no code changed.
+2. **The `node` field.** It said "short name, matches the ssh alias prefix". Wrong and now settled in
+   the file: it is **the node's Tailscale DNS label** (`Self.DNSName` minus the domain) — `zabz-tech-linux`,
+   not `linux-pc`; `zabz-yoga-1`, not `zabz-yoga`; `lakewooechsmini`, not `Mac mini`/`LakewooechsMini`.
+   The gate answers the DNS label and `mesh-health.ps1` can only resolve it. S1's comment in the §2.1
+   sample now carries the invariant *`node == fqdn.split(".")[0]`*, and **this stream enforces it in
+   `lib/config.js`: the broker refuses to boot on a row whose name is not the first label of its own
+   fqdn**, because that failure is otherwise a node that silently never answers (measured: the laptop's
+   `Self.HostName` is `zabz-yoga` while its `Self.DNSName` is `zabz-yoga-1`, and
+   `zabz-yoga.tail93e6e6.ts.net` does not resolve). Test: *"§2.1 naming: a roster keyed on the HOST NAME
+   or the ssh alias is refused at startup, loudly"*, and the live negative case is in §11.5.
+
+### 10.6 Amendment 5 — the `absent` state (approved 2026-09-17, implemented small)
+
+**Why.** The elastic-cloud study found one genuine gap in §2.2's frozen interface: `GET /nodes` had no
+way to describe a node that is **configured but not yet provisioned**. Such a row is neither reachable
+nor unreachable, and calling it `unreachable` is a false claim about reachability — the same error class
+this broker already fixed once when it refused to fake a reading for a node that answered with
+`mem.freeMiB: null` (§8, third item).
+
+**What was approved and built (~20 lines).** `GET /nodes` gains an `absent` state:
+
+* `absent: true` when a roster row is marked `volatile` and has **never answered** (not on this read and
+  not on any read since the broker started). `unreachable` is then `false` — the two states are
+  mutually exclusive, which is the point.
+* An absent node is **excluded from `eligible`, from the ranking and from the candidate count**, and it
+  is given **no reading and no latency** — the `reads`/`readFailures` counters still move, because a
+  read really was attempted, but no member of the latency cache (`latencyMs` stays `null`) is invented.
+* Its `ageSec` is the time since it was **configured** (`absentSince` names that moment), not since a
+  last reading that never happened.
+* `POST /place` reports `absent: N` on the response and counts it in the decision line
+  (`… 2 configured node(s): 0 unreachable, 0 excluded by the caller, 0 switched off in the roster, 1 absent (configured, never answered, not ranked)`).
+* If **every** node is absent there is nothing to exclude, so the whole roster is the pool and the
+  never-refuse rule still produces a placement — the one case where an absent node can be named.
+
+**Tests.** *"AMENDMENT 5 a configured node that has never been read is ABSENT, not unreachable, and is
+not ranked"* (acceptance), and *"the per-node v1 transport capability keeps 'measured broken' and
+'unmeasured' apart"* covers the config normalizer next to it.
+
+**A deliberately narrow reading of the approval.** The approved change came with the `volatile` roster
+key named as *not* approved. The implementation therefore uses the marker internally and **sets it
+nowhere in the live roster**, so nothing becomes absent today and no node's behaviour changes. When the
+elastic tier is built (§10.7) the marker is what a proposed row would carry before it is provisioned.
+
+### 10.7 The elastic tier: the agreed SHAPE, deliberately NOT built
+
+Recorded because the study that produced it is expensive to redo, and because **the teardown rule
+matters more than the price**:
+
+> A forgotten CPX41 at **$141.49/month** costs **86.7% of owning the machine outright** — the point of
+> elastic capacity is defeated by one instance nobody tears down.
+
+**Agreed shape (NOT approved, NOT built, no provisioner exists):**
+
+* Roster keys `volatile: true`, `hourlyUsd`, `maxLifetimeSec` — a row that describes capacity that may
+  not exist yet, what it costs per hour, and how long it may live.
+* A **single-flight provisioning lock** — one provisioner, so two simultaneous `tier != "fits"`
+  placements cannot each boot an instance.
+* A **teardown rule** — `maxLifetimeSec` as a hard ceiling, plus teardown on a completed run, and a
+  reaper that does not depend on the placing caller still being alive (that last part is the same
+  reasoning as the lease TTL, and it is why the rule belongs beside the lease, not beside the caller).
+
+**The firing condition, as the study recommends it:**
+
+* `POST /place` returns `tier != "fits"` **twice**, **at least 60 s apart**, **with `?fresh=1`** on the
+  second read — so a single transient reading cannot boot a machine.
+* **Fleets of 2+ children only. Never for a one-shot**: a headless turn is 3-5 s against a 2-4 minute
+  boot, so a one-shot can never be improved by renting a box.
+* **It lives in the dispatcher (S6), not in the broker.** §2.2 forbids the broker storing node state, and
+  a "have I already tried twice?" counter is stored state. The broker reports the two readings it took;
+  the caller decides.
+
+**Why this document stops here.** Everything else in the elastic tier needs a provisioner that does not
+exist, and building one to satisfy a study would be premature. The broker side of the shape — `absent`,
+the capability column, the terms printed in the rationale — is what the study actually needed from this
+stream.
+
+---
+
+## 11. The amended broker, measured live (2026-09-16 23:43–23:45Z)
+
+### 11.1 The suite, on the shipped code
+
+```
+cd packages/mesh-broker && npm test
+ℹ tests 57   ℹ pass 57   ℹ fail 0     (Node v24.12.0, this laptop)
+
+# the authority, Node v20.20.2, deploy/secratary-smoke.sh:
+# tests 57   # suites 0   # pass 57   # fail 0   # duration_ms 1138.212514
+```
+
+The 37 tests that existed before the amendments all still pass, with the four that asserted the old
+numbers updated to the new ones **and to the reason**: `score` 24 → 18 where a physical core term binds
+(§4.2 acceptance, §2.1 down-state), the disk requirement string (`20 GiB required` → `21 GiB required`
+where the per-child term applies), and the roster name (`zabz-yoga` → `zabz-yoga-1`).
+
+### 11.2 The live mesh, read through the redeployed broker
+
+`GET /nodes?fresh=1` on the running broker (pid 1844492, started 23:44:21Z) — every node answering,
+`absent: false` on all four:
+
+| node | unreachable | latencyMs | effectiveSlots | memorySlots | coreSlots | swapUsedPct | halved | transport.v1 |
+|---|---|---|---|---|---|---|---|---|
+| `zabz-tech` | false | 12 | 18 | 24 | 18 (physical) | 0 | false | true |
+| `zabz-yoga-1` | false | 69 | 12 | 23 | 12 (physical) | 0 | false | **false** |
+| `zabz-tech-linux` | false | 7 | 4 | 24 | 4 (physical) | 15.3 | false | true |
+| `secratary` | false | 3 | 1 | 24 | 3 (physical) | 99.9 | **true** | **null** (unmeasured) |
+
+### 11.3 A real placement, verbatim, AFTER the amendments
+
+`POST /place {"task":{"kind":"fleet","children":6,"worktreeGiB":2}}` against the running broker,
+23:44:29Z — every amended line is marked `←`:
+
+```
+chosen from 4 configured node(s): 0 unreachable, 0 excluded by the caller, 0 switched off in the roster; tier=fits; chosen zabz-tech
+zabz-tech: 18 slot(s) of at most 24: floor((51998 MiB free - 3885 MiB reserve) / 160 MiB) = 300 slot(s), capped at maxSlots=24 -> 24, minus governor.inUse=0 -> 24
+zabz-tech: 16 free slot(s) of 24 (slots 18 = 24 raw - see above, minus 2 broker lease(s) running here; 0 queued)
+zabz-tech: disk 219.9 GiB free on C:/Users/ezabz/code vs 25 GiB required (20 GiB fleet floor + 2 GiB declared worktree + 0.5 GiB/child x 6 child(ren)) -> gate passes          ← §10.1
+zabz-tech: load1 not measured on 32 logical cpu(s), 0 agent loop(s) running
+zabz-tech: 24 memory slot(s), 18 core slot(s) of 24 physical x 0.75 -> effective 18                                                    ← §10.3
+zabz-tech: transport v1 (ssh --profile headless) MEASURED to work (measured 2026-09-16): stream S6's parent booted over ssh on this node and loaded the mesh plugin, and three child turns completed through `ssh <node> dsh --profile headless` with their MESH-HOST: lines verified (docs/mesh/70-remote-fanout-proof.md §2) - work dispatched here can actually run      ← §10.4
+zabz-tech: 16 free slot(s) - 6 child(ren) = 10 >= 0 -> fits now
+position 0: 16 free slot(s) - 6 child(ren) = 10 >= 0 on a reachable node -> start now
+zabz-yoga-1: 12 free slot(s) of 24, 23 memory slot(s), 12 core slot(s) of 16 physical x 0.75 -> effective 12, 6 after 6 child(ren), transport v1 MEASURED BROKEN
+zabz-tech-linux: 4 free slot(s) of 24, 24 memory slot(s), 4 core slot(s) of 6 physical x 0.75 -> effective 4, -2 after 6 child(ren), disk 20.8 GiB < 25 GiB required
+secratary: 1 free slot(s) of 24, 24 memory slot(s), 3 core slot(s) of 4 physical x 0.75 -> effective 1 (after the swap halving from 3), -5 after 6 child(ren), swap 99.9% used: effective slots halved, transport v1 unmeasured
+lease mu4qzgy1-13j7w-3-d0adcb7b (opaque, running) expires 2026-09-16T23:59:29.833Z; ttl 900 s, reclaimed by the broker at expiry so a dead dispatcher cannot wedge the mesh
+```
+
+(That run had two leases already running on `zabz-tech` from the smoke script's own placements, which
+is why the score is 16 rather than 18. `2` running leases × 1 slot each is subtracted before the
+comparison, and the line says so — the subtraction is not hidden.)
+
+**What changed about the decision, in one line each:** `zabz-tech-linux` is now correctly *too small to
+matter* (4 slots, not 24) **and** correctly under the disk requirement (20.8 < 25); `secratary` is 1 slot
+rather than 24, and its own line names the swap halving that produced it; `zabz-yoga-1` carries
+"transport v1 MEASURED BROKEN" so no future placement lands a job there while `zabz-tech` is available;
+and `zabz-tech` — the only node that both fits and can take the work (`eligible: 1` is exactly that
+fact) — is chosen for a reason a reader can check term by term.
+
+### 11.4 The `absent` state, and the naming invariant, as live negatives
+
+* A roster whose row is keyed `zabz-yoga` with fqdn `zabz-yoga-1.tail93e6e6.ts.net` **refuses to boot**
+  (§10.5), with the reason and both spellings in the message — measured, exit 1.
+* A `volatile` row that has never answered reports `absent: true`, `unreachable: false`, no reading and
+  no latency, an age measured from configuration, and is excluded from the ranking — measured by the
+  acceptance test; **not observable on the live roster**, because no live row is volatile.
+
+### 11.5 What could not be verified
+
+* **No fleet was executed by this stream.** Every number above is the broker deciding *where*; the only
+  work this session ran on another machine was the capability probes of §10.4 (`dsh --profile headless`
+  over `zabz-tech-linux`'s sshd, which reached the model call and stopped at a missing credential) and
+  the plain ssh/lscpu reads. So "(effective) slots" is a claim about what a node would accept, not a
+  measurement of what it sustained. That is S6's and S7's acceptance.
+* **The core constant on a 24-core machine** (§10.3) and **the 90% swap threshold under load** (§10.2)
+  are the two numbers in this document that are *chosen* rather than measured, and both say so where
+  they are defined.
+* **`secratary`'s v1 transport is unmeasured** and is recorded as `null` rather than guessed (§10.4).
+* **The live `zabz-yoga-1` reading was taken while the node was busy** (8 agent loops, 15 sessions,
+  23:34Z). Its effective 12 is the memory-and-core arithmetic on a busy box, not an idle one.
+* **The Mac Mini does not answer `/mesh/capacity`** (`curl` exit 7 from the authority, 23:30Z, while the
+  node is `active` in `tailscale status`), so it is not in the roster; its `dispatch.v1` is therefore
+  unmeasured too, and the roster's old "it is Yisroel's machine" reason is superseded by that
+  measurement (§5 item 2).
