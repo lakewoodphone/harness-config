@@ -403,3 +403,5 @@ L1638	lessons	L1687	id collided across machines with different content; origin k
 L1639	lessons	L1688	id collided across machines with different content; origin keeps L1639	2026-09-15	-	-	-
 W149	wins	W174	id collided across machines with different content; origin keeps W149	2026-09-15	-	-	-
 W150	wins	W175	id collided across machines with different content; origin keeps W150	2026-09-15	-	-	-
+L223	lessons	L1683	same entry absorbed by identity, not by bytes	2026-09-15	ZABZ-YOGA	c3d63eed27fa6be7	log/lessons/2026-09.2.md:31
+L221a	lessons	L1684	same entry absorbed by identity, not by bytes	2026-09-15	ZABZ-YOGA	30c568de9f3320da	log/lessons/2026-09.md:3066

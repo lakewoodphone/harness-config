@@ -280,6 +280,7 @@ handoff	H364	364		2026-09-16 00:47 UTC	ZABZ-YOGA	open	## 2026-09-16 00:47 UTC ·
 handoff	H365	365		2026-09-16 00:52 UTC	ZABZ-YOGA	open	## 2026-09-16 00:52 UTC · ZABZ-YOGA · Round 5: indexer identity trio applied - C-007 verified, C-008 applied but unmeasurable, C-009 hit the wrong path for 13 of 14; shared helper took concatenations 14 to 6; canonical surface is now stale	entries/handoff/H365.md	1	64	cc77878ff03ce849
 handoff	H373	373		2026-09-16 00:53 UTC	ZABZ-TECH	open	## 2026-09-16 00:53 UTC · ZABZ-TECH · Chumash Timeline audited, fixed, deployed and verified live - main 72a7eaa on lpt-apps-01	entries/handoff/H373.md	1	84	c768ce1fddc5712d
 handoff	H366	366		2026-09-16 01:13 UTC	ZABZ-YOGA	open	## 2026-09-16 01:13 UTC · ZABZ-YOGA · journal.py was mojibake again and corrupting other sessions entries; repaired with the cp1252 inverse (not latin-1) and the writer now refuses to emit mojibake; check 1095 -> 0 errors	entries/handoff/H366.md	1	57	0272921d9423af7e
+handoff	H374	374		2026-09-16 02:43 UTC	ZABZ-TECH	open	## 2026-09-16 02:43 UTC · ZABZ-TECH · Her launcher opens: one default resolved to the wrong person's paths, and the delivery that keeps it fixed now proves itself	entries/handoff/H374.md	1	72	c1f9c54aeea0dcf9
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -807,6 +808,8 @@ lessons	L1685	1685		2026-09-15	ZABZ-YOGA	open	**L1685 · MagicDNS on ZABZ-YOGA b
 lessons	L1686	1686		2026-09-15	ZABZ-TECH	open	**L1686 · MCP Playwright: context reuse inflates CLS, and pre-hydration clicks fake 'nothing changed'**	entries/lessons/L1686.md	1	14	0508ced9426dddc1
 lessons	L1687	1687		2026-09-15	ZABZ-TECH	open	**L1687 · Verified both conditional headlines: the AI kill switch is fail-open and misses ai-workspace; Elasticsearch was never deployed**	entries/lessons/L1687.md	1	45	1204d12d33ff1aea
 lessons	L1688	1688		2026-09-15	ZABZ-TECH	open	**L1688 · A launcher default that is only correct when every caller remembers a parameter is not a default**	entries/lessons/L1688.md	1	59	a3ccf68ef10f1d82
+lessons	L1689	1689		2026-09-15	ZABZ-TECH	open	**L1689 · Settings were being applied faithfully and nothing was delivering them**	entries/lessons/L1689.md	1	52	eda37135523ada71
+lessons	L1690	1690		2026-09-15	ZABZ-TECH	open	**L1690 · The id allocator fetched the remote and then never read it - fourteen ids meant two entries**	entries/lessons/L1690.md	1	47	7a31bb6b2c298dbd
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1282,3 +1285,4 @@ wins	W172	172		2026-09-15	ZABZ-YOGA	open	**W172 · 2026-09-15 · Unblocked her M
 wins	W173	173		2026-09-15	ZABZ-YOGA	open	**W173 · 2026-09-15 · Four parallel read-only audits mapped a business fact across 100+ surfaces and found the two things serial reading had missed.**	entries/wins/W173.md	1	38	f4ebc92e256d7caa
 wins	W174	174		2026-09-15	ZABZ-TECH	open	**W174 · 2026-09-15 · Closed the anonymous pricing exposure in production with ONE restart and no outage - the node --check gate is what made the difference.**	entries/wins/W174.md	1	47	b41f5c69f22a7b9e
 wins	W175	175		2026-09-15	ZABZ-TECH	open	**W175 · 2026-09-15 · Chumash Timeline: seven parallel workstreams, a live app audited, rebuilt and deployed in one night.**	entries/wins/W175.md	1	67	18c4c36f31d5682b
+wins	W176	176		2026-09-15	ZABZ-TECH	open	**W176 · 2026-09-15 · Her desktop launcher opens her assistant, and the delivery that keeps it fixed proves itself.**	entries/wins/W176.md	1	39	2878d731b730e40a
