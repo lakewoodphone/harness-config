@@ -3,6 +3,8 @@
 **Written:** 2026-09-16 · **Author:** Zabz (delegated research session)
 **Scope:** costed, evidence-backed hardware plan. No purchase, no install, no machine modified. This file is the only thing written.
 
+> **Revision note, 2026-09-16.** This document was revised in place after a second verification pass returned prices read from **directly fetched** listing pages. Three first-draft claims were wrong and are corrected, marked inline where they appear: (1) a "$120 turnkey 16 GB node" was a **search snippet only** and could not be reproduced — the verified floor for a 16 GB node is **$150**, which changes the recommended purchase; (2) **HP EliteDesk 800 G5 Mini supports 64 GB, not 32 GB**; (3) the first draft said no published micro-PC noise figure existed — **HP publishes one (20 dB LpAm idle)**. All figures below that carry `[F]` were read on a fetched page; `[S]` marks snippet-only. **A number that could not be sourced is recorded as NOT FOUND rather than estimated.**
+
 ---
 
 ## 0. Provenance legend
@@ -135,7 +137,8 @@ All figures **MEASURED** at 2026-09-16 20:09 EDT via `ssh secratary-ts`, with `l
 
 | Candidate | Spec | Price (taxed) | Idle W | Resident turns | Verdict |
 |---|---|---|---|---|---|
-| **Dell OptiPlex 7060 SFF**, i7-8700 (**6C/12T**), 16 GB, 256 GB NVMe, eBay Refurbished | 3× the 9020's threads, native NVMe boot | **$379.68** (MARKET $356.37, https://www.ebay.com/itm/267490790433, accessed 2026-09-16). Also seen $199.99–$249.99 for i7-8700 SFF configs (https://www.ebay.com/shop/7060-sff), and 32 GB/512 GB at $359.95 (https://www.ebay.com/b/Dell-Intel-Core-i7-8th-Gen-PC-Desktops-All-In-One-Computers/179/bn_97812999) | ~20–25 W (community estimate — **no rigorous SFF measurement found**) | 14 | **The recommended replacement if the 9020 is replaced.** 6C/12T versus 4C/4T is the change that actually matters. |
+| **Dell OptiPlex 5090 Micro**, i5-10500T (**6C/12T**), 16 GB, 256 GB SSD `[F]` — https://www.ebay.com/itm/137735826695 | 3× the 9020's threads, native NVMe boot, **64 GB DIMM ceiling**, ~12 W idle | **$197.26** (MARKET $185.00, free delivery) | ~12 | 14 | **The best replacement for the 9020 found in this pass** — cheaper than the SFF options, quieter, and it doubles the RAM ceiling. Same part recommended as a mesh node in §4, so one purchase serves both purposes. |
+| **Dell OptiPlex 7060 SFF**, i7-8700 (**6C/12T**), 16 GB, 256 GB NVMe, eBay Refurbished | 3× the 9020's threads, native NVMe boot, 4 UDIMM slots | **$379.68** (MARKET $356.37, https://www.ebay.com/itm/267490790433, accessed 2026-09-16). Also $169.95 for the **6 c / 6 t i5-8500** version + $55.57 ship (https://www.ebay.com/itm/327350158758) | ~20–25 W (community estimate — **no rigorous SFF measurement found**) | 14 | Superseded by the 5090 Micro above: same thread count, half the price, a quarter of the watts. |
 | **HP EliteDesk 800 G4 SFF**, i7-8700 (6C/12T) | same class | **$138.61–$245.22** (MARKET, four listings at $129.99 / $175.00 / $189.99 / $229.97, https://www.ebay.com/shop/hp-elitedesk-800-g4-i7, accessed 2026-09-16) — cheapest 6C/12T SFF found | ~20–25 W (estimate) | 14 | Better value than the OptiPlex; take the $175 config with a drive. |
 | **Stay and refresh the 9020** — +8 GB DDR3 ($41.57) + i7-4790 ($42.65) | 32 GB / 8 threads | **$84.22 total** | ~65 W (desktop class; **not measured**) | 29 | **Cheapest path by far.** Buys time; does not escape DDR3 or 2013 silicon. |
 
@@ -145,23 +148,40 @@ All figures **MEASURED** at 2026-09-16 20:09 EDT via `ssh secratary-ts`, with `l
 
 ## 3. Cheap Linux nodes — what is actually available
 
-All prices **MARKET**, live eBay US listing/search pages, **2026-09-16**. NJ tax 6.625 % applied and eBay collects it (PUBLISHED, above). Common listings advertise free shipping; where delivery was priced it was $9.99–$26.05.
+All prices **MARKET**. `[F]` = the price was read on a page **fetched live on 2026-09-16**; `[S]` = a search-result snippet only, page not fetched. **This distinction matters and is the reason this table was rewritten once:** the first draft of this document carried a $120 turnkey 16 GB OptiPlex that turned out to be `[S]`-only. The **verified floor** for a bootable 16 GB node is **$150**, and the verified floor for any bootable node at all is **$130**.
 
-### Candidate table
+### Candidate table — verified listings `[F]`
 
-| # | Machine | Cores/threads | RAM | Storage | Price (MARKET) | Idle W | Resident turns |
+| Machine | Cores/threads | RAM | Storage | Price `[F]` | Idle W | Turns | RAM ceiling |
 |---|---|---|---|---|---|---|---|
-| 1 | **Dell OptiPlex 3070 Micro**, i5-9500T, 16 GB, 500 GB HDD, free ship — https://www.ebay.com/shop/dell-optiplex-3070-micro | 6 c / 6 t | 16 GB | 500 GB HDD | **$120.00** or Best Offer | ~10 | 14 |
-| 2 | **HP EliteDesk 800 G5 DM**, i5-9500T, 16 GB, **No HDD** — https://www.ebay.com/itm/366490566850 | 6 c / 6 t | 16 GB | none | **$79.00** | ~10 | 14 |
-| 3 | **HP EliteDesk 800 G5 Mini**, i5-9500, 16 GB, No HDD — https://www.ebay.com/shop/hp-elitedesk-800-g5 | 6 c / 6 t | 16 GB | none | **$97.99** | ~10 | 14 |
-| 4 | Dell OptiPlex 3060/3070, i5-8500T/9500T, 16 GB, No HDD — https://www.ebay.com/shop/dell-optiplex-16-gb-ram | 6 c / 6 t | 16 GB | none | **$102.50** (auction) / **$119.99** BIN | ~10 | 14 |
-| 5 | OptiPlex 3070 Micro, i5-9500T, 16 GB — https://www.ebay.com/shop/optiplex-3070-micro | 6 c / 6 t | 16 GB | varies | **$129.99** +$26.05 ship / **$159.00** +$9.99 ship | ~10 | 14 |
-| 6 | **HP EliteDesk 800 G5 Mini**, i5-9500T, 16 GB, 256 GB NVMe, very-good refurb, free ship — https://www.ebay.com/b/hp-mini-computer/bn_7024898108 | 6 c / 6 t | 16 GB | 256 GB NVMe | **$199.99** (was $249.99) | ~10 | 14 |
-| 7 | **Dell OptiPlex 3070 Micro**, i5-9500T, 16 GB, 128 GB SSD, refurb + **2-yr warranty** — https://www.ebay.com/itm/307071642280 | 6 c / 6 t | 16 GB | 128 GB SSD | **$239.99**, free ship | ~10 | 14 |
-| 8 | Lenovo ThinkCentre M920q, i5-8500T, 32 GB, 512 GB M.2 — https://www.ebay.ca/sch/i.html?_nkw=thinkcentre+m920q | 6 c / 6 t | 32 GB | 512 GB M.2 | C$505 ≈ **US$365** | ~10 | 29 |
-| 9 | **GMKtec NucBox K8 Plus**, Ryzen 7 8845HS, **32 GB DDR5**, 1 TB — https://www.gmktec.com/products/gmktec-nucbox-k8-plus-mini-pc-amd-ryzen%E2%84%A2-7-8845hs | **8 c / 16 t** | 32 GB | 1 TB NVMe | **$399.99** sale ($619.99 reg) | 10–11 | 29 |
-| 10 | **Minisforum MS-01**, i9-13900H, up to 64 GB, 3× M.2 + PCIe x16 — https://store.minisforum.com/products/minisforum-ms-01-workstation | **14 c / 20 t** | up to 64 GB | 3× M.2 | **$679** sale ($849 reg) | 25–29 | 29 @32 GB |
-| 11 | **Lot of 7** OptiPlex 3070 Micro, i5-9500T, **8 GB** — https://www.ebay.com/itm/358793480712 | 6 c / 6 t | 8 GB | varies | **$999.99** ended = **$143/unit** | ~10 | **7** |
+| **Dell OptiPlex 5090 Micro**, i5-10500T — https://www.ebay.com/itm/137735826695 | **6 c / 12 t** | **16 GB** | 256 GB SSD | **$185.00**, free delivery | ~12 | 14 | **64 GB** |
+| **Dell OptiPlex 7070 Micro**, i5-9500T — https://www.ebay.com/itm/336795130291 | 6 c / 6 t | **16 GB** | 256 GB NVMe | **$150.00**, free delivery | ~13 | 14 | 32 GB |
+| Dell OptiPlex 7070 Micro, i5-9500T — https://www.ebay.com/itm/800651936824 | 6 c / 6 t | 16 GB | 256 GB NVMe | $174.97, free delivery | ~13 | 14 | 32 GB |
+| Dell OptiPlex 3070 Micro, i5-9500T — https://www.ebay.com/itm/407202058656 | 6 c / 6 t | 8 GB | 256 GB NVMe | $130.00 + $5.93 ship | ~10 | 7 | 32 GB |
+| Dell OptiPlex 3070 Micro, i5-8500T — https://www.ebay.com/itm/188807871523 | 6 c / 6 t | 8 GB | none | $107.99, free delivery | ~10 | 7 | 32 GB |
+| Dell OptiPlex 3070 Micro **lot of 2**, i5-9500T — https://www.ebay.com/itm/147500464130 | 6 c / 6 t | 8 GB ea | none | $199.99 (≈$107.50/unit) + $15 ship | ~10 | 7 ea | 32 GB |
+| **HP EliteDesk 800 G6 Mini**, i5-10500T — https://www.ebay.com/itm/298680578058 | **6 c / 12 t** | 8 GB | 240 GB | $199.99, free delivery | 11–12 | 7 | **64 GB** |
+| HP EliteDesk 800 G4 Mini, i5-8500T — https://www.ebay.com/itm/358395219402 | 6 c / 6 t | 8 GB | 256 GB | $180.00, free delivery | **11–12** | 7 | 32 GB |
+| HP EliteDesk 800 G5 Mini, i5-9500T — https://www.ebay.com/itm/168372467225 | 6 c / 6 t | 8 GB | 256 GB NVMe | $269.99, free delivery | NOT FOUND | 7 | **64 GB** |
+| Lenovo M920x Tiny, 8th gen — https://www.ebay.com/itm/287314080977 | 6 c / 6 t | **16 GB** | 256 GB NVMe | $249.99, free delivery | NOT FOUND | 14 | 32 GB (64 GB shown to work) |
+| Lenovo M920q Tiny, i5-8500T — https://www.ebay.com/itm/178498867189 | 6 c / 6 t | 8 GB | none | $130.90, free delivery | 12–15 | 7 | 32 GB (64 GB shown to work) |
+| Lenovo M720q Tiny, i5-8500T + PCIe riser — https://www.ebay.com/itm/820116197639 | 6 c / 6 t | — | — | $150.00 + $5.93 ship | 11–14 | — | 32 GB |
+| Lenovo **M910q** Tiny, i5-7500T — https://www.ebay.com/itm/178498871974 | **4 c / 4 t** | 8 GB | none | $69.95, free delivery | NOT FOUND | 7 | 32 GB |
+| Dell OptiPlex 7080 Micro — https://www.ebay.com/itm/198198969412 | 6 c / 6 t | **16 GB** | 128 GB | $309.95, free delivery | ~11 | 14 | **64 GB** |
+| Dell OptiPlex **7060 SFF**, i5-8500 — https://www.ebay.com/itm/327350158758 | 6 c / 6 t | 16 GB | 256 GB NVMe | $169.95 + **$55.57** ship | NOT FOUND (SFF) | 14 | **64 GB, 4 UDIMM** |
+| **GMKtec NucBox K8 Plus**, Ryzen 7 8845HS — https://www.gmktec.com/products/gmktec-nucbox-k8-plus-mini-pc-amd-ryzen%E2%84%A2-7-8845hs | **8 c / 16 t** | 32 GB DDR5 | 1 TB NVMe | **$399.99** | **8.5** wall-metered | 29 | **128 GB** |
+| Minisforum MS-01, i9-13900H — https://store.minisforum.com/products/minisforum-ms-01-workstation | **14 c / 20 t** | barebone / 32 GB | 3 × M.2 | $679.00 / $1,183.00 | 25–29 | 29 @32 GB | 96 GB |
+| FIREBAT AM02, **N100** — https://www.firebatpc.com/products/n100-intel-mini-pc-3-4ghz-am02-model | 4 c / 4 t | 16 GB LPDDR5 | 512 GB | $199.99, in stock | ~10 | 14 | 32 GB (1 slot) |
+| GMKtec G3, **N100** — https://www.gmktec.com/products/nucbox-g3-most-cost-effective-mini-pc-with-intel-n100-processor | 4 c / 4 t | 16 GB | 512 GB | $169.99 — **SOLD OUT** | 10–11 (8.4 tuned) | 14 | 32 GB |
+| Beelink Mini S12 Pro, **N100** — https://www.amazon.com/dp/B0DP2KFWW4 | 4 c / 4 t | 16 GB | 512 GB | $339.00 | **5.7** tuned | 14 | 32 GB (1 slot) |
+
+**Snippet-only prices from the first draft, now demoted — do not rely on them:** a 16 GB OptiPlex 3070 Micro at "$120" and HP EliteDesk G5 units at "$79.00 / $97.99". These appeared only in eBay search snippets `[S]`; the same search pages also spawned a contradictory "$239.99 cheapest" claim elsewhere. **The verified numbers above supersede them.**
+
+**Specification corrections found during verification:**
+- **HP EliteDesk 800 G5 Mini supports 64 GB (2 × 32 GB) — not 32 GB.** The first draft said 32 GB; that was wrong.
+- OptiPlex 3070 / 7070 / 7080 Micro: **2 SODIMM**, ceiling 32 GB (7070/3070) and **64 GB** (7080, 5090). OptiPlex 7060 **SFF**: **4 UDIMM, 64 GB**. Dell owner's manual: https://dl.dell.com/topicspdf/optiplex-3070-desktop_owners-manual5_en-us.pdf and https://dl.dell.com/topicspdf/optiplex-7060-desktop_specifications2_en-us.pdf (accessed 2026-09-16).
+- **The killer number for the "buy 8 GB and upgrade later" plan:** a **32 GB (2 × 16 GB) DDR4-2666 SODIMM kit is $203.08** — https://www.newegg.com/a-tech-ddr4-laptop-memory-ram-32gb-ddr4-2666-cas-latency-cl19/p/0RM-0032-004K3 `[F]`, accessed 2026-09-16. **Pre-installed RAM is worth far more than the sticker gap between an 8 GB and a 16 GB node.**
+- eBay **does** collect NJ sales tax as a marketplace facilitator, added at checkout; **6.625 % statewide with no local or county add-on**, and the Urban Enterprise Zone 3.3125 % rate does **not** apply to shipped orders — https://www.ebay.com/help/buying/paying-items/paying-taxes?id=4771 and https://www.nj.gov/treasury/taxation/salestax.shtml `[F]`, accessed 2026-09-16. Free shipping is common: eBay's free-shipping filter shows 956 of ~1,862 used "optiplex micro i5" listings. Where charged it is typically a flat ~$15 (USPS Ground Advantage, 3 lb Zone 4 = $13.70).
 
 ### Idle power — PUBLISHED, meter-measured
 
@@ -172,12 +192,12 @@ All prices **MARKET**, live eBay US listing/search pages, **2026-09-16**. NJ tax
 | **Dell OptiPlex 3070 Micro** | **just over 10 W** at 120 V; STH assumes 9–12 W for this class | https://www.servethehome.com/project-tinyminimicro-dell-optiplex-3070-micro-review/2 (2020-07-31, accessed 2026-09-16) |
 | Dell OptiPlex 7070 Micro, six-core | just over **13 W** | https://www.servethehome.com/dell-optiplex-7070-micro-project-tinyminimicro-guide-and-review/3 |
 | Dell OptiPlex 7060 Micro, **65 W-TDP** CPU | just over **18 W** | https://www.servethehome.com/dell-optiplex-7060-micro-tinyminimicro-at-65w-tdp-cpu-overview/3 |
-| **Lenovo ThinkCentre M720q Tiny** | **27 W idle** / 68 W load — an outlier; a commenter on the same page expected <10 W | https://www.servethehome.com/lenovo-thinkcentre-m720q-tiny-compact-pc-review/4/ |
+| **Lenovo ThinkCentre M720q Tiny** | **11–14 W** (STH unit was a dual-core G5400T); a separate STH page measured **27 W idle / 68 W load** on a different configuration; a repeatable community run reports **4–6 W** on an i5-8500T/32 GB in Proxmox. **Band: 11–27 W, unit-dependent.** | https://www.servethehome.com/lenovo-thinkcentre-m720q-tiny-tinyminimicro-feature/3/ and https://www.servethehome.com/lenovo-thinkcentre-m720q-tiny-compact-pc-review/4/ |
 | **Beelink MINI S12 (N100)** | **8.2 W idle**, 22.5 W max | https://xdaforums.com/t/beelink-mini-s12-and-mini-s12-pro-review-budget-mini-pcs-that-checked-all-the-boxes.4562923 |
 | **Beelink S12 Pro (N100)**, powersave-tuned | **5.7 W headless**, 10 W with 2 USB SSDs | https://windgate.net/beelink-s12-pro-intel-n100-powersave-optimization |
 | Fanless N100/N200 appliance | **10.5–12 W** | https://www.servethehome.com/fanless-intel-n100-firewall-and-virtualization-appliance-review/4 |
 | **Beelink SER7 (Ryzen 7 7840HS)** | **6–10 W idle**, 44–46 W sustained, 77–79 W peak | https://www.servethehome.com/beelink-ser7-review-a-smaller-and-cheaper-amd-ryzen-7-7840hs-mini-pc/4/ (2023-10-24) |
-| **GMKtec K8 Plus (8845HS)** | **10–11 W idle**, 90–95 W load | https://www.reddit.com/r/MiniPCs/comments/1in4nvs/ |
+| **GMKtec K8 Plus (8845HS)** | **8.5 W wall-metered**; 90–95 W load (a separate report: 10–11 W idle) | https://liliputing.com/gmktec-nucbox-k8-review-amd-ryzen-7-8845hs-is-a-nuc-like-mini-pc and https://www.reddit.com/r/MiniPCs/comments/1in4nvs/ |
 | **Minisforum MS-01 (i9-13900H)** | **25–29 W idle** | https://www.servethehome.com/minisforum-ms-01-review-the-10gbe-with-pcie-slot-mini-pc-intel/5 |
 | Beelink SER8 (8845HS) | 7–10 W idle | https://www.servethehome.com/beelink-ser8-review-amd-ryzen-7-8845hs-powered-mini-pc/3 |
 
@@ -194,23 +214,36 @@ All prices **MARKET**, live eBay US listing/search pages, **2026-09-16**. NJ tax
 
 **Do not overstate this.** A micro PC declared at 20 dB idle versus a 1U/2U server at 23–28 dBA idle is only **+4 to +8 dB ≈ 2.5–6× sound power** — both are library-quiet *at idle*. The disqualifying gap is at **load**: +14 to +19 dB ≈ **25–80× sound power**, i.e. a quiet room versus a loud office. Every server figure above is a **minimal/entry configuration at 23 °C**; a realistically populated build is louder and unpublished. Dell also states that any GPGPU card makes a configuration *"about twice as loud"* as typical. So the rack server's disqualifier is **loaded noise plus power**, not idle noise. (This corrects an earlier draft of this file that claimed a published dB figure did not exist — HP publishes one.)
 
-### Ranking — capacity per dollar, upfront
+### Ranking — capacity per dollar, upfront (verified `[F]` prices only)
 
-Price × 1.06625 for NJ tax; resident turns ÷ taxed price:
+Price × 1.06625 for NJ tax; resident turns ÷ taxed price. **This table was rebuilt after verification.** The `[S]`-only prices in the first draft ($79–$120 for 16 GB nodes) are excluded — they could not be reproduced on a fetched page.
 
-| Rank | Candidate | Taxed price | Turns | **$/turn** | Threads |
-|---|---|---|---|---|---|
-| 1 | HP EliteDesk 800 G5, i5-9500T, 16 GB, **no HDD** @ $79 | $84.23 | 14 | **$6.02** | 6 |
-| 2 | HP EliteDesk 800 G5, i5-9500, 16 GB, no HDD @ $97.99 | $104.48 | 14 | **$7.46** | 6 |
-| 3 | OptiPlex 3060/3070, 16 GB, no HDD @ $102.50 (auction) | $109.29 | 14 | **$7.81** | 6 |
-| 4 | **OptiPlex 3070 Micro, 16 GB, 500 GB HDD @ $120 (turnkey)** | **$127.95** | **14** | **$9.14** | 6 |
-| 5 | OptiPlex 3060/3070, 16 GB, no HDD @ $119.99 | $127.94 | 14 | $9.14 | 6 |
-| 6 | ThinkCentre M920q, 32 GB, 512 GB @ ~US$365 | $389.18 | 29 | $13.42 | 6 |
-| 7 | GMKtec K8 Plus, 32 GB, 1 TB, new @ $399.99 | $426.49 | 29 | $14.71 | **16** |
-| 8 | OptiPlex 3070 Micro refurb + 2-yr warranty @ $239.99 | $255.89 | 14 | $18.28 | 6 |
-| 9 | **Lot of 7 × 8 GB @ $143/unit** | $152.47 | **7** | **$21.78** — worst | 6 |
+| Rank | Candidate `[F]` | Taxed price | Turns | **$/turn** | **$/thread** | Threads |
+|---|---|---|---|---|---|---|
+| 1 | **OptiPlex 7070 Micro, i5-9500T, 16 GB, 256 GB NVMe @ $150** | **$159.94** | 14 | **$11.42** | $26.66 | 6 |
+| 2 | OptiPlex 7070 Micro, 16 GB @ $174.97 | $186.56 | 14 | $13.33 | $31.09 | 6 |
+| 3 | **OptiPlex 5090 Micro, i5-10500T, 16 GB, 256 GB SSD @ $185** | **$197.26** | 14 | **$14.09** | **$16.44** | **12** |
+| 4 | OptiPlex 7080 Micro, 16 GB @ $309.95 | $330.48 | 14 | $23.61 | $55.08 | 6 |
+| 5 | Lenovo M920x, 16 GB, 256 GB NVMe @ $249.99 | $266.55 | 14 | $19.04 | $44.43 | 6 |
+| 6 | FIREBAT AM02, N100, 16 GB LPDDR5, 512 GB @ $199.99 | $213.24 | 14 | $15.23 | $53.31 | 4 |
+| 7 | GMKtec K8 Plus, 32 GB, 1 TB, new @ $399.99 | $426.49 | 29 | $14.71 | $26.66 | 16 |
+| 8 | MS-01 barebone @ $679 (needs RAM to be useful) | $724.00 | 0 as shipped | — | — | 20 |
+| 9 | **OptiPlex 3070 Micro, 8 GB, 256 GB NVMe @ $130 + $5.93 ship** | **$144.94** | **7** | **$20.71** | $24.16 | 6 |
+| 10 | HP EliteDesk 800 G6 Mini, i5-10500T, **8 GB** @ $199.99 | $213.24 | 7 | $30.46 | $17.77 | **12** |
+| 11 | HP EliteDesk 800 G5 Mini, **8 GB** @ $269.99 | $287.88 | 7 | $41.13 | $47.98 | 6 |
+| 12 | OptiPlex 3070 Micro, 8 GB, **no disk** @ $107.99 | $115.14 | 7 | $16.45 | $19.19 | 6 |
+| 13 | Lenovo M910q, i5-7500T **4 c / 4 t**, 8 GB, no disk @ $69.95 | $74.58 | 7 | $10.65 | $18.65 | 4 |
 
-A "no HDD" unit needs a boot disk. SSD prices are elevated in the same 2026 shortage; **I did not obtain a firm citable SSD listing**, so $30–45 is an **unpriced assumption, NOT FOUND as a sourced figure**. Adding $35 lifts the $79 unit to ~$9.1/turn — level with the turnkey units. **Buy turnkey unless the bare unit is cheaper by more than the cost of a disk.**
+**Read this table two ways, because it contains a genuine tension:**
+
+- **Cheapest per resident turn:** the M910q at $10.65, then the 7070 Micro at $11.42. But the M910q is a 4-core/4-thread 2017 CPU — it adds almost no generating capacity and sits at a 32 GB ceiling.
+- **Cheapest per *thread*:** the **OptiPlex 5090 Micro at $16.44/thread** and the **EliteDesk 800 G6 Mini at $17.77/thread** — both **6 c / 12 t i5-10500T** machines. Every 8th/9th-gen 6 c / 6 t option costs **$19–48 per thread**.
+
+**Since the binding constraint is cores (see §4), the right ranking is $/thread, and the 5090 Micro wins it.** It is also the only cheap verified node with a **64 GB ceiling**.
+
+An 8 GB node is poor on both measures: $16.45 for 7 turns and **only 6 threads**, and fixing it means a **$203.08** 32 GB SODIMM kit — so the "cheap 8 GB box, upgrade later" plan costs more in total than buying 16 GB outright.
+
+**On "no disk" units** (M910q $69.95, 3070 Micro $107.99, 3070 lot of 2): a boot disk must be added, and **SSD prices are elevated in the same 2026 shortage** — I obtained no firm citable SSD listing, so a disk is **NOT FOUND as a sourced figure**. Adding ~$35 to the $107.99 unit takes it to ~$152 taxed → ~$21.7/turn, i.e. **worse than the complete $130 8 GB unit and far worse than the $150 16 GB unit.** **Buy turnkey.**
 
 ### Ranking — capacity per watt (1 W = $2.19/yr)
 
@@ -246,20 +279,26 @@ Note the inversion at rank 4: **a single large machine is more efficient per res
 
 Demand is 40–55 concurrent turns = **44.6 GB at 55 turns**, which alone **exceeds the Yoga's 31.6 GB**. The mesh already holds **74 resident turns in aggregate**, so total memory is *not* the shortage. **The shortage is placement — the work lands on the one machine that cannot be upgraded (item 1) — plus core count.** Any purchase is therefore about (i) creating *elsewhere* to put turns and (ii) adding cores to run them.
 
-### (a) 3–4 cheap used mini PCs
+### (a) 3–4 cheap used mini PCs — at VERIFIED prices
 
-Using the $120 turnkey 16 GB units (candidate 1):
+Two verified configurations, because the choice between them is the whole decision:
 
-| | 3 nodes | 4 nodes |
+| | **3 × OptiPlex 5090 Micro** (i5-10500T, 6 c/**12 t**, 16 GB, 256 GB SSD) @ $185 | **3 × OptiPlex 7070 Micro** (i5-9500T, 6 c/6 t, 16 GB, 256 GB NVMe) @ $150 |
 |---|---|---|
-| Purchase | 3 × $120 = $360 → **$383.85 taxed** | 4 × $120 = $480 → **$511.80 taxed** |
-| Turns added | **+42** | +56 |
-| Threads added | **+18** | +24 |
-| Idle power | 30 W → **$65.61/yr** | 40 W → $87.48/yr |
-| 3-yr TCO | $383.85 + $196.83 = **$580.68** | $511.80 + $262.44 = $774.24 |
-| **$/turn upfront** | **$9.14** | $9.14 |
-| **3-yr $/turn** | **$13.83** | $13.83 |
-| Complexity | 3 more Linux boxes to patch, monitor, reboot, house | 4 more |
+| Purchase `[F]` | 3 × $185 = $555 → **$591.64 taxed** | 3 × $150 = $450 → **$479.81 taxed** |
+| Turns added | **+42** | +42 |
+| **Physical cores added** | **+18** | +18 |
+| **Threads added** | **+36** | +18 |
+| RAM ceiling per node | **64 GB** | 32 GB |
+| Idle power | 36 W → **$78.74/yr** | 39 W → $85.30/yr |
+| 3-yr TCO | $591.64 + $236.21 = **$827.85** | $479.81 + $255.89 = **$735.70** |
+| **$/turn upfront** | $14.09 | **$11.42** |
+| **$/thread upfront** | **$16.44** | $26.66 |
+| **3-yr $/turn** | $19.71 | **$17.52** |
+
+**The 5090 costs $111.83 more and buys 18 extra threads and a doubling of the RAM ceiling.** Since §4's finding is that **cores, not RAM, bind**, that is the better purchase — and it is the only cheap verified node here whose 64 GB ceiling leaves room to grow when DDR prices recover. Take the 7070 only if cash is the hard constraint.
+
+For reference, a 4-node variant of the 5090 (4 × $185 → $788.85 taxed) buys **+56 turns and +48 threads** at 48 W ($104.96/yr) — worth it only if measured demand exceeds ~70 turns, which it does not today.
 
 ### (b) One modern high-core desktop with 64–128 GB
 
@@ -281,7 +320,7 @@ RAM is the dominant and now pathological cost, and **the real listing prices are
 | i9-14900K AORUS build *(snippet-only)* — https://www.newegg.com/p/pl?d=ryzen+9+7950x | i9-14900K, 128 GB DDR5 | $5,449.99 | 118 | $49.25 |
 | **RAM alone, 128 GB DDR5** | 2 × 64 GB kit | **$1,960–2,200** | 118 | $17.7–19.9 before CPU/mobo/PSU/case |
 
-**$/turn: $44 upfront plus electricity. This is 3.2× worse than three $120 mini PCs at $13.83, and roughly twice the cost of the used rack server on 3-year total cost of ownership.**
+**$/turn: $44 upfront plus electricity — roughly 2.4× the recommended package's $18.37 on 3-year TCO, and 3.3× its upfront $/turn, for a machine that provides only 24 physical cores against the 40–55 needed.**
 
 ### The finding that kills option (b) outright: the binding constraint is CORES, not RAM
 
@@ -332,19 +371,19 @@ NJ residential **24.95 ¢/kWh** (EIA Table 5.6.A, June 2026, released 2026-08-26
 
 ### The finding that actually decides this: per-turn TCO is nearly flat
 
-| Option | Upfront (taxed) | 3-yr electricity | Turns | **3-yr $/turn** | **Cores** |
+| Option | Upfront (taxed) | 3-yr electricity | Turns | **3-yr $/turn** | **Threads gained** |
 |---|---|---|---|---|---|
-| **3 × $120 mini PC (16 GB, 10 W)** | **$383.85** | $196.83 | 42 | **$13.83** | **18** |
-| **Recommended package (3 nodes + `secratary` refresh)** | **$468.07** | $203.31 | 50 | **$13.43** | **22** |
+| **3 × OptiPlex 7070 Micro (16 GB, 13 W) — budget route** | **$479.81** | $255.89 | 42 | **$17.52** | **18** |
+| **RECOMMENDED: 3 × OptiPlex 5090 Micro + `secratary` refresh** | **$675.86** | $242.77 | 50 | **$18.37** | **40** |
 | Used rack server, 128 GB @ $774.99 (125 W) | $826.33 | $820.14 | 118 | $13.95 | 16–28 |
-| `secratary` refresh only: DDR3 + i7-4790 | $84.22 | ~$426 (65 W, est.) | 29 | $17.60 | 8 |
-| **HP Z440, 32 GB @ $219.99 (105 W)** | **$234.56** | **$688.92** | 29 | **$31.84** | 12 |
-| **One 128 GB DDR5 workstation, real listing @ $4,899.99 (~50 W)** | **$5,224.61** | $328 | 118 | **$47.06 — worst** | **24** |
+| `secratary` refresh only: DDR3 + i7-4790 | $84.22 | ~$426 (65 W, est.) | 29 | $17.60 | 4 |
+| **HP Z440, 32 GB @ $219.99 (105 W)** | **$234.56** | **$688.92** | 29 | **$31.84** | 8 |
+| **One 128 GB DDR5 workstation, real listing @ $4,899.99 (~50 W)** | **$5,224.61** | $328 | 118 | **$47.06 — worst** | **28** |
 
 **Two results fall out of this table, and they decide the recommendation:**
 
-1. **Per-turn total cost of ownership is nearly flat across the cheap options** — $13.43 to $13.95 — because at 2026 prices RAM is the dominant input to every route. **$/turn therefore does not discriminate between a fleet of micro PCs, a refreshed old server, or a used rack server.** The discriminators are upfront cash, **added cores**, watts, noise, resilience and maintenance.
-2. **The flat $/turn hides a hard constraint: cores.** The measured demand is 40–55 concurrent turns and each generating turn costs ~1 core. The two big-machine options in this table hold 118 resident turns but provide only **24 and 16–28 cores** — they cannot serve 55 turns. The cheap-node route is the only one that scales cores linearly and in units the owner actually needs.
+1. **Per-turn total cost of ownership is nearly flat across the cheap options** — $17.52 to $18.37 for the small-node routes, and $13.95 for a used rack server — because at 2026 prices RAM and cores dominate every route. **$/turn therefore does not discriminate.** The discriminators are upfront cash, **added threads**, watts, noise, resilience and maintenance.
+2. **The flat $/turn hides a hard constraint: cores.** The measured demand is 40–55 concurrent turns and each generating turn costs ~1 core. The two big-machine options in this table hold 118 resident turns but provide only **24 and 16–28 cores**. The cheap-node route is the only one that scales cores linearly and in units the owner actually needs.
 
 ### Complexity — the cost with no invoice
 
@@ -360,16 +399,26 @@ NJ residential **24.95 ¢/kWh** (EIA Table 5.6.A, June 2026, released 2026-08-26
 
 | # | Purchase | Detail | Cost taxed |
 |---|---|---|---|
-| 1 | **3 × used 6-core / 16 GB micro PC** | HP EliteDesk 800 G5 Mini (i5-9500T) or Dell OptiPlex 3070 Micro (i5-9500T), turnkey with a disk, ~$120 each | **$383.85** |
+| 1 | **3 × Dell OptiPlex 5090 Micro** `[F]` — https://www.ebay.com/itm/137735826695 | **i5-10500T 6 c / 12 t, 16 GB, 256 GB SSD, 64 GB ceiling**, ~12 W idle, free delivery, $185 each | **$591.64** |
 | 2 | **2 × 8 GB DDR3-1600** for `secratary` | Timetec 16 GB kit (2×8 GB), drop the 2 × 4 GB → 32 GB @ 1600 | **$41.57** |
 | 3 | **Intel i7-4790** for `secratary` | LGA1150 drop-in, 4C/8T — doubles the tick loop's generating ceiling | **$42.65** |
-| | **Total** | | **$468.07** |
+| | **Total** | | **$675.86** |
 
-**Resulting mesh:** resident turns **74 → 124**; **cores available to generate 48 → 70** (against a 40–55-turn demand, so the binding constraint is finally cleared); non-Yoga capacity **45 → 95 turns**, covering the stated demand with the 25 % rule intact and leaving the Yoga free to be the machine he works on. Added continuous draw ~31 W = **+$67.80/yr**. **3-year $/turn ≈ $13.43.**
+**Budget variant, if cash is the constraint:** swap line 1 for **3 × OptiPlex 7070 Micro, i5-9500T, 16 GB, 256 GB NVMe at $150** `[F]` — https://www.ebay.com/itm/336795130291 — total **$564.03**, saving $111.83, and give up **18 threads** and half the RAM ceiling. Same 42 turns either way.
 
-**Why this package and not a bigger one:** it is the only route that adds **cores and turns together, in the ratio the demand actually needs**, at the lowest upfront cash, with the smallest electricity bill, silently, and with capacity purchasable one node at a time as need is measured. The workstation route spends **11× more cash** and still delivers only **24 cores** against a 40–55 core requirement.
+**Resulting mesh:** resident turns **74 → 124**; **threads 48 → 88** and **physical cores 36 → 54** (against a 40–55-turn demand, so the binding constraint is finally cleared with headroom); non-Yoga capacity **45 → 95 turns**, leaving the Yoga free to be the machine he works on. Added continuous draw ~37 W = **+$80.92/yr**. **3-year $/turn ≈ $18.37**; upfront $/turn **$13.52**.
 
-**Second tranche, only if the mesh is still tight:** a single 32 GB DDR4-3200 UDIMM into the HP Pavilion TP01-2xxx (`linux-pc-ts`) — **$237.77** for +27 turns on an existing 6C/12T box already running Ubuntu. Do this rather than a 4th node only if the goal is avoiding another machine to maintain; a 4th $120 node costs less, adds 6 threads, and is the better raw buy.
+**Why this package and not a bigger one:** it is the only route that adds **cores and turns together, in the ratio the demand actually needs**, at the lowest upfront cash, with the smallest electricity bill, silently, and with capacity purchasable one node at a time as need is measured. The workstation route spends **~8× more cash** and still delivers only **24 physical cores** against a 40–55 core requirement.
+
+### Single best value for money
+
+**One Dell OptiPlex 5090 Micro — i5-10500T (6 c / 12 t), 16 GB, 256 GB SSD, $185 free delivery — https://www.ebay.com/itm/137735826695** `[F]`, accessed 2026-09-16.
+
+$197.26 taxed buys **14 resident turns AND 12 threads AND 16 GB already installed AND a 64 GB ceiling AND a complete bootable machine at ~12 W ($26.25/yr)**. At **$16.44 per thread** it is the cheapest verified way to buy the *scarce* resource — the next-best 6 c / 12 t option, the EliteDesk 800 G6 Mini, is $17.77/thread and comes with only 8 GB. Every 8th/9th-gen 6 c / 6 t alternative costs **$19–48 per thread**.
+
+**Runner-up on pure $/turn:** the **OptiPlex 7070 Micro at $150** — $11.42/turn, the cheapest verified turn capacity available — but 6 c/6 t and a 32 GB ceiling, so it solves memory and not cores.
+
+**Second tranche, only if the mesh is still tight:** a single 32 GB DDR4-3200 UDIMM into the HP Pavilion TP01-2xxx (`linux-pc-ts`) — **$237.77** for +27 turns on an existing 6C/12T box already running Ubuntu. Do this rather than a 4th node only if the goal is avoiding another machine to maintain; a 4th node costs less per turn, adds threads, and is the better raw buy.
 
 **Do not buy a fourth node yet.** Add one only when measured resident turns in the non-Yoga mesh exceed ~90 — capacity that is not needed is electricity and maintenance paid for nothing.
 
@@ -379,7 +428,7 @@ NJ residential **24.95 ¢/kWh** (EIA Table 5.6.A, June 2026, released 2026-08-26
 
 Each of these looks attractive and fails on a **measured** constraint.
 
-**1. Any 8 GB machine — including the lot that looks cheapest per unit.** The 7-unit OptiPlex 3070 Micro lot at **$999.99 = $143/unit** (MARKET, https://www.ebay.com/itm/358793480712) has 8 GB each: **7 resident turns** against 14 for a 16 GB unit bought singly for $120. That is **$21.78/turn**, the worst figure here — and the lot costs *more per unit* than a 16 GB machine bought individually. Fixing it means buying DDR4 separately, and a 32 GB stick is **$223–256**, so each 8 GB node becomes $143 + $223 = $366 for 29 turns, against $120 for 14 on a machine that already has what it needs. **8 GB is below the useful floor for a 40–55-turn demand.**
+**1. Any 8 GB machine.** The verified 8 GB turnkey node is the **OptiPlex 3070 Micro at $130 + $5.93 ship = $144.94 taxed** `[F]` — https://www.ebay.com/itm/407202058656 — which delivers **7 resident turns for $20.71/turn**, against the **OptiPlex 7070 Micro's 16 GB and 14 turns at $159.94 = $11.42/turn**. **Fifteen dollars more buys double the capacity.** Worse, "buy 8 GB now, upgrade later" is the single most expensive plan on the table: a **32 GB (2 × 16 GB) DDR4-2666 SODIMM kit is $203.08** today `[F]` — https://www.newegg.com/a-tech-ddr4-laptop-memory-ram-32gb-ddr4-2666-cas-latency-cl19/p/0RM-0032-004K3 — so an 8 GB node plus a 32 GB kit costs **$348** for 29 turns (**$12.00/turn**) and took two purchases instead of one, versus **$317.84** for two complete 16 GB 7070 Micros giving 28 turns and **12 threads instead of 6**. Also rejected: the earlier-seen 7-unit lot at $143/unit for 8 GB machines (https://www.ebay.com/itm/358793480712, $999.99, ended), whose headline price was *higher per unit* than a 16 GB machine bought singly. **8 GB is below the useful floor for a 40–55-turn demand.**
 
 **2. A used workstation (HP Z440, Dell Precision T5820).** This is the most seductive trap in the whole document, because the upfront arithmetic looks like the best deal available: an HP Z440 with a **6-core/12-thread Xeon E5-1650 v3 and 32 GB DDR4** was listed at **$219.99** (MARKET, https://www.ebay.com/b/HP-Z440-Towers/179/bn_89095653) — and 32 GB of DDR4 *alone* costs $223–256 today, so the machine appears free. *(A subagent reported the same configuration at $112.05 from a browse band; I could not reproduce that figure and found $219.99 for the nearest comparable listing, so I use $219.99 and treat $112.05 as unverified.)* **It fails on measured idle power: the Z440 with this exact CPU draws about 100–110 W at idle** (PUBLISHED, above) = **$218–241/yr**, making its 3-year cost per turn **$31.84 — the second-worst option considered**, beaten only by a $4,899.99 DDR5 workstation, and *worse than a used rack server on total cost of ownership* because it holds only 29 turns against the rack server's 118. **Do not buy a used workstation for a mesh node. The DDR4 bundled inside it is not free; it is paid for monthly in electricity.**
 
@@ -391,24 +440,24 @@ Each of these looks attractive and fails on a **measured** constraint.
 
 **6. ARM single-board computers (Raspberry Pi 5 16 GB, Orange Pi 5).** They look ideal — 16 GB for ~$120–160, a few watts — and the 0.81 GB/turn constant is architecture-independent so the capacity arithmetic appears to work. It fails on **workload compatibility**: this estate is x86 Linux with x86 `node_modules`, .NET and Windows-only tooling, and native Python wheels. An ARM node would need emulation, which consumes exactly the resource that is scarce (**CPU**). Its RAM is also **soldered**, so it repeats the Yoga's mistake in miniature. *Engineering judgement grounded in the estate's inventory; I did not benchmark an ARM node.*
 
-> **If low power is the actual goal, buy x86 instead — an Intel N100 node.** Measured idle at the wall: **Beelink MINI S12 (N100) 8.2 W idle / 22.5 W max** (https://xdaforums.com/t/beelink-mini-s12-and-mini-s12-pro-review-budget-mini-pcs-that-checked-all-the-boxes.4562923) and **Beelink S12 Pro 5.7 W idle headless, 10 W with 2 USB SSDs after powersave tuning** (https://windgate.net/beelink-s12-pro-intel-n100-powersave-optimization) — all accessed 2026-09-16. That is **less than half a 6-core Tiny's 10–13 W**. The trade is real and must be stated: an N100 has **4 cores**, so only ~4 generating turns against a 6-core Tiny's 6, and the 64-bit x86 ISA is what this estate's tooling needs. **N100 is the right answer for a many-cheap-nodes strategy on electricity; 6-core Tiny is the right answer on cores and on $/turn at the RAM sizes involved.** A sourced current price for a 16 GB N100 mini PC was **NOT FOUND** in this pass, so it is not costed here.
+> **If low power is the actual goal, buy x86 instead — an Intel N100 node.** Measured idle at the wall: **Beelink MINI S12 (N100) 8.2 W idle / 22.5 W max** (https://xdaforums.com/t/beelink-mini-s12-and-mini-s12-pro-review-budget-mini-pcs-that-checked-all-the-boxes.4562923) and **Beelink S12 Pro 5.7 W idle headless, 10 W with 2 USB SSDs after powersave tuning** (https://windgate.net/beelink-s12-pro-intel-n100-powersave-optimization) — all accessed 2026-09-16. That is **less than half a 6-core Tiny's 10–13 W**. Verified `[F]` prices: **be careful here** — the cheapest sticker, **GMKtec G3 (N100, 16 GB/512 GB) at $169.99, shows "Sold out"** (https://www.gmktec.com/products/nucbox-g3-most-cost-effective-mini-pc-with-intel-n100-processor), and Beelink S12 Pro is **$339.00** (https://www.amazon.com/dp/B0DP2KFWW4) while an N150 Beelink S13 is **$349.00** (https://www.newegg.com/p/1VK-01TK-001X6). **Exactly one N100 unit with 16 GB was verifiably in stock under $200 on 2026-09-16: the FIREBAT AM02 at $199.99** — https://www.firebatpc.com/products/n100-intel-mini-pc-3-4ghz-am02-model. At $213.24 taxed for 14 turns and **4 threads** it is **$53.31/thread** — versus $16.44/thread for the 6 c/12 t OptiPlex 5090 Micro. **N100 is the right answer on electricity and the wrong answer on cores and on $/thread.** A ≥$200 N100 node does not beat a $185 twelve-thread x86 node.
 
-**7. Buying bare RAM as the primary strategy, at 2026 prices.** This is the trap the DRAM spike creates. **DDR4 rose more than 50 % in Q3 2026** and DDR3 rose with it (PUBLISHED). A bare 32 GB DDR4-3200 stick costs **$223–256** and delivers 29 turns to a machine you must already own; for **$120 you can buy a complete 16 GB machine with 6 cores, a PSU, a chassis, a disk and a NIC.** Per turn the bare stick is slightly cheaper ($7.5–8.8 vs $9.1); per **core** it adds nothing at all. **Buy whole used machines before buying RAM.** The only RAM purchases that clear the bar are the two small top-ups in the recommendation — and those clear it only because the machines exist and the slots are already empty.
+**7. Buying bare RAM as the primary strategy, at 2026 prices.** This is the trap the DRAM spike creates. **DDR4 rose more than 50 % in Q3 2026**, contract DRAM prices rose ~90–95 % QoQ in Q1 2026, and DDR3 rose with it (PUBLISHED, above). Verified `[F]`: a **32 GB DDR4-3200 UDIMM stick is $223–256**, a **32 GB (2 × 16 GB) DDR4-2666 SODIMM kit is $203.08**, and a **64 GB DDR4-3200 kit is $490–494**. Meanwhile a **complete 16 GB machine with 12 threads, a PSU, a chassis, a disk and a NIC is $185**. Per turn the bare stick is slightly cheaper ($7.5–8.8 against $14.09 for the 5090); per **thread** it adds **nothing at all**. **Buy whole used machines before buying RAM.** The only RAM purchases that clear the bar are the two small top-ups in the recommendation — and those clear it only because those machines already exist and their slots are already empty.
 
 **8. Assuming the mesh's total RAM is the problem.** MEASURED: the four existing nodes already hold **74 resident turns** against a stated demand of 40–55. **Total memory is not the shortage.** The shortage is placement — the work lands on the one machine that cannot be upgraded — plus core count. Buying a huge single machine to add raw resident turns, when 74 already exist and are not being used, would be paying to solve a problem that is not the measured one.
 
-**9. A modern high-core workstation with 64–128 GB DDR5.** Attractive because it is the "one machine to manage" answer and it has a real turns-per-watt advantage. It fails on **three measured constraints at once**: (i) **price** — a real current listing, i9-14900K with 128 GB DDR5 and 1 TB NVMe, is **$4,899.99** (https://www.newegg.com/p/3D5-002T-00S40, accessed 2026-09-16), which is **$44 per resident turn upfront**, 3.2× a $120 micro PC and worse than a used rack server on 3-year TCO; (ii) **cores** — 24 cores cannot serve a 40–55-turn demand that spends ~1 core per generating turn, so the machine does **not** replace the mesh even after spending $5,000; (iii) **RAM is ~8× its 2025 price** and 128 GB of DDR5 alone is **$1,960–2,200** (2 × 64 GB kit at $979.99–1,099.99). It would be the right answer in a year when DDR5 is cheap again. **Do not buy it now.**
+**9. A modern high-core workstation with 64–128 GB DDR5.** Attractive because it is the "one machine to manage" answer and it has a real turns-per-watt advantage. It fails on **three measured constraints at once**: (i) **price** — a real current listing, i9-14900K with 128 GB DDR5 and 1 TB NVMe, is **$4,899.99** (https://www.newegg.com/p/3D5-002T-00S40, accessed 2026-09-16), which is **$44.28 per resident turn upfront** against **$13.52** for the recommended package — 3.3× worse, and worse than a used rack server on 3-year TCO; (ii) **cores** — its 24 physical cores cannot serve a 40–55-turn demand that spends ~1 core per generating turn, so the machine does **not** replace the mesh even after spending $5,000; (iii) **RAM is ~8× its 2025 price** and 128 GB of DDR5 alone is **$1,960–2,200** (2 × 64 GB kit at $979.99–1,099.99). It would be the right answer in a year when DDR5 is cheap again. **Do not buy it now.**
 
 ---
 
 ## NOT FOUND — stated gaps, not guesses
 
-1. **A citable complete-build price for a 64 GB DDR5 desktop** — a real 128 GB listing was found ($4,899.99) and a Dell Precision 3680 configuration exists (14th Gen Core, up to 24 cores/32 threads, 4 × DDR5 DIMM slots, 64 GB as 2 × 32 GB DDR5-4400, configurable to 128 GB — https://www.dell.com/en-us/shop/desktop-computers/precision-3680-tower-workstation/spd/precision-t3680-workstation, accessed 2026-09-16), but the US configurator is JS-rendered and carried no price. **The gap is immaterial: the constraint that rejects this route is cores, not price.**
-2. **Meter-measured idle wattage for a 128 GB desktop workstation** — the 40–60 W figure is an **assumption**. Also **no rigorous measured idle exists for SFF-class** (as opposed to Micro) machines; the 20–25 W SFF figure is a community estimate. **No measured idle-wall-watts was found for an i5-8500T specifically** — the nearest are the 65 W-TDP 7060 Micro (18 W), the 6-core EliteDesk 800 G4 Mini (11–12 W) and the M720q (27 W).
-3. **A firm citable SSD listing** to complete a "no HDD" node. $30–45 is an **unpriced assumption**; SSD prices are elevated in the same 2026 shortage.
+1. **A citable complete-build price for a 64 GB desktop** — a real 128 GB listing was found ($4,899.99) and a Dell Precision 3680 configuration exists (14th Gen Core, up to 24 cores/32 threads, 4 × DDR5 DIMM slots, 64 GB as 2 × 32 GB DDR5-4400, configurable to 128 GB — https://www.dell.com/en-us/shop/desktop-computers/precision-3680-tower-workstation/spd/precision-t3680-workstation, accessed 2026-09-16), but the US configurator is JS-rendered and carried no price. **The gap is immaterial: the constraint that rejects this route is cores, not price.**
+2. **Meter-measured idle wattage for a 128 GB desktop workstation** — the 40–60 W figure is an **assumption**. Also **no rigorous measured idle exists for SFF-class** (as opposed to Micro) machines; the 20–25 W SFF figure is a community estimate. **No measured idle-wall-watts was found for an i5-8500T specifically** — the nearest are the 65 W-TDP 7060 Micro (18 W), the 6-core EliteDesk 800 G4 Mini (11–12 W) and the M720q (11–27 W).
+3. **A firm citable SSD listing** to complete a "no disk" node (M910q $69.95, 3070 Micro $107.99). SSD prices are elevated in the same 2026 shortage and no price was verified, so no "no disk" node is costed as a finished node.
 4. **Idle power or noise for a rack server in a realistically populated working configuration** — every vendor figure located is a minimal/entry config (SPECpower's near-empty R730 at 46.9 W, HPE's 70–80 W DL360 Gen9), and the populated community figures are snippet-only.
 5. **A SK hynix primary datasheet for `H58G66BK7BX067`** — only distributor pages and third-party benchmark databases surfaced. Its identity as 32 Gb LPDDR5 rests on a distributor listing.
-6. **Samsung `M378B1G73` 8 GB DDR3-1600 UDIMM price**, **Intel Xeon E3-1270 v3 price**, and **current first-party Beelink SER7 price** — browse pages only, no captured listing prices. Also **no page-verified second-retailer DDR4 price** (B&H returned 403, Best Buy 422/403 to direct fetch; the Amazon $490.00 DDR4 figure **is** page-verified).
+6. **Prices that were looked for and not found at all** — OptiPlex **5070 Micro** (no listing, no idle measurement), OptiPlex **7070 SFF**, **7080 SFF**, any **7090** listing, **HP ProDesk 600 G6 Mini**, **HP EliteDesk 800 G5 Mini** measured idle watts (anecdotes only), **ThinkCentre M910q** and **M920x** measured idle watts, **Samsung `M378B1G73`** 8 GB DDR3-1600, **Intel Xeon E3-1270 v3**, and live new prices for **Beelink SER5 (5560U)**, **Beelink SER7 (7840HS)**, **Minisforum UM480XT** and **Minisforum UM690** — every SKU of those was out of stock, so **no price was invented.** Also **no page-verified second-retailer DDR4 price** (B&H returned 403, Best Buy 422/403 to direct fetch; the Amazon $490.00 DDR4 figure **is** page-verified).
 7. **Any published ops-hours comparison of N small Linux nodes versus 1 big one**, and **any small-business per-node cost of downtime** (the only figure found, ITIC 2024, is enterprise-scale: >90 % of mid-size and large enterprises put one hour of downtime above $300,000 — https://itic-corp.com/itic-2024-hourly-cost-of-downtime-report, cited only to show the number exists and **not transferable** to a two-person shop). Item 4's complexity analysis is therefore **engineering judgement**, labelled as such.
 
 ## Provenance of the measurements
