@@ -389,3 +389,17 @@ W26	wins	W107	same entry absorbed by identity, not by bytes	2026-09-14	-	1857c66
 W67	wins	W26b	identity duplicate inside entries/	2026-09-14	legacy	a970d87f198a03d3	archive/duplicates/wins/W67.md
 W107	wins	W26b	identity duplicate inside entries/	2026-09-14	legacy	a970d87f198a03d3	archive/duplicates/wins/W107.md
 L263	lessons	L1094	same entry absorbed by identity, not by bytes	2026-09-14	ZABZ-TECH	8ab38ee8e05c230e	log/lessons/2026-09.2.md:630
+D185	decisions	D201	id collided across machines with different content; origin keeps D185	2026-09-15	-	-	-
+D186	decisions	D202	id collided across machines with different content; origin keeps D186	2026-09-15	-	-	-
+H322	handoff	H367	id collided across machines with different content; origin keeps H322	2026-09-15	-	-	-
+H323	handoff	H368	id collided across machines with different content; origin keeps H323	2026-09-15	-	-	-
+H324	handoff	H369	id collided across machines with different content; origin keeps H324	2026-09-15	-	-	-
+H325	handoff	H370	id collided across machines with different content; origin keeps H325	2026-09-15	-	-	-
+H326	handoff	H371	id collided across machines with different content; origin keeps H326	2026-09-15	-	-	-
+H327	handoff	H372	id collided across machines with different content; origin keeps H327	2026-09-15	-	-	-
+H328	handoff	H373	id collided across machines with different content; origin keeps H328	2026-09-15	-	-	-
+L1637	lessons	L1686	id collided across machines with different content; origin keeps L1637	2026-09-15	-	-	-
+L1638	lessons	L1687	id collided across machines with different content; origin keeps L1638	2026-09-15	-	-	-
+L1639	lessons	L1688	id collided across machines with different content; origin keeps L1639	2026-09-15	-	-	-
+W149	wins	W174	id collided across machines with different content; origin keeps W149	2026-09-15	-	-	-
+W150	wins	W175	id collided across machines with different content; origin keeps W150	2026-09-15	-	-	-
