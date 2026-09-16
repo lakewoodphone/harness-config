@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import html
 import json
 import os
 import re
@@ -685,9 +686,199 @@ def inject_badge(document: bytes) -> bytes:
     return document[:at] + tag + document[at:]
 
 
+# --------------------------------------------------------------------------
+# The iOS head
+#
+# WHY THE GATE CARRIES THIS, AND WHY IT IS NOT A CLIENT PLUGIN
+# `assets/mobile.css` spends a whole section on `env(safe-area-inset-*)` (:222-328), and as served
+# every one of those rules evaluates to 0 on iOS: the document the engine ships declares
+# `<meta name="viewport" content="width=device-width, initial-scale=1" />` and nothing else, and
+# `env(safe-area-inset-*)` is only non-zero when that meta carries `viewport-fit=cover`. Measured
+# 2026-09-16 by reading the served head in full (`.../dsh-web-frontend/dist/index.html`, 25 lines):
+# no `viewport-fit`, no `apple-mobile-web-app-*`, no `theme-color`, and no `apple-touch-icon`.
+#
+# It lives here rather than in `plugin-mobile` because it must reach a browser that has no plugin
+# loaded yet (a cold Home Screen launch), and because the manifest is a separate HTTP response that
+# never passes through a document at all. Same reason as the stylesheet and the badge: the gate is
+# the one place that changes what a phone is given without a rebuild of the npm package.
+#
+# WHAT EACH TAG IS FOR
+#   viewport-fit=cover  makes `env(safe-area-inset-*)` real. With the status-bar style below the
+#                       gain is the BOTTOM inset — the composer clears the home indicator, which is
+#                       the inset the layer's own composer rule actually needs.
+#   apple-mobile-web-app-capable=yes
+#                       the legacy switch; iOS before 16.4 needs it to open a Home Screen icon
+#                       without Safari chrome. Harmless where the manifest is honoured.
+#   apple-mobile-web-app-status-bar-style
+#                       `default` ON PURPOSE, see `status_bar_style()`.
+#   theme-color         the harness's own boot background tokens, so browser chrome matches the app:
+#                       light `#fff`, dark `#151517`, read from
+#                       `.../dsh-web-frontend/dist/assets/index-DPX2bQLO.css` (`.boot{--dsh-boot-bg:
+#                       #fff}` and `body[data-ds-dark-theme] .boot{--dsh-boot-bg: #151517}`). The
+#                       app's dark theme is a `data-` attribute the client sets, NOT the OS media
+#                       query, so these two track the OS scheme and can disagree with the app's own
+#                       theme. Cosmetic, and the alternative is no theme color at all.
+#   apple-touch-icon    NOT INJECTED, DELIBERATELY. iOS does not accept an SVG for this rel, and
+#                       this repo contains no PNG that is an icon: the only PNGs are UI screenshots
+#                       under `docs/dsh-mobile/evidence/`, and a screenshot of the app is worse than
+#                       the screenshot iOS takes for itself. The real fix is a PNG upstream in
+#                       `dsh-web-frontend`, whose dist ships `favicon.svg` only. Recorded rather
+#                       than faked — a tag pointing at the SVG would look like the fix and do
+#                       nothing.
+#
+# KILL SWITCH: PHONE_HEAD=0, the same shape as PHONE_MOBILE_CSS=0 and PHONE_ATTENTION_BADGE=0. It
+# turns off this whole section, the manifest rewrite included.
+# --------------------------------------------------------------------------
+
+PHONE_HEAD_MARKER = b"<!-- dsh-phone-head -->"
+# A viewport meta tag, and the same shape as a lookahead so `name="viewport-x"` is not one.
+_META_VIEWPORT_RE = re.compile(rb"""<meta\b[^>]*\bname\s*=\s*["']?viewport["']?(?=[\s/>])[^>]*>""", re.I)
+_VIEWPORT_NAME_RE = re.compile(rb"""\bname\s*=\s*["']?viewport["']?(?=[\s/>])""", re.I)
+_VIEWPORT_CONTENT_RE = re.compile(rb"""\bcontent\s*=\s*(?:"([^"]*)"|'([^']*)')""", re.I)
+_STATUS_BAR_STYLE_RE = re.compile(r"^[a-z][a-z-]{0,30}$")
+
+
+def head_enabled() -> bool:
+    """PHONE_HEAD=0 switches the whole iOS-head delivery off."""
+    return os.environ.get("PHONE_HEAD", "1") != "0"
+
+
+def status_bar_style() -> str:
+    """The `apple-mobile-web-app-status-bar-style` value, `PHONE_STATUS_BAR_STYLE` to override.
+
+    DEFAULT `default`, NOT `black-translucent`, and that is a deliberate refusal to guess.
+    `black-translucent` also hands the top band to the page and makes `env(safe-area-inset-top)`
+    non-zero (which `assets/mobile.css` :286-299 is written for), but it draws the status glyphs in
+    WHITE over whatever the page paints. On a light harness theme the clock and the battery become
+    invisible, and nobody here can see the owner's phone to check which theme it is in. `default`
+    cannot produce that defect, and it still gives the bottom inset, which is the one the composer
+    needs. Flip it with `PHONE_STATUS_BAR_STYLE=black-translucent` once someone has looked at the
+    phone. The value is validated because it is injected into a document verbatim.
+    """
+    value = os.environ.get("PHONE_STATUS_BAR_STYLE", "default").strip().lower()
+    return value if _STATUS_BAR_STYLE_RE.match(value) else "default"
+
+
+def _viewport_fixed(tag: bytes) -> bytes:
+    """One viewport `<meta>` with `viewport-fit=cover`, keeping every directive it already carried."""
+    if b"viewport-fit" in tag.replace(b" ", b"").lower():
+        return tag                      # already correct: this document is not touched
+    content = _VIEWPORT_CONTENT_RE.search(tag)
+    default = b"width=device-width, initial-scale=1, viewport-fit=cover"
+    if content is None:
+        body = tag.rstrip()[:-1].rstrip()
+        if body.endswith(b"/"):
+            body = body[:-1].rstrip()
+        return body + b' content="' + default + b'>'
+    existing = (content.group(1) if content.group(1) is not None else content.group(2) or b"")
+    existing = existing.strip().rstrip(b";,").strip()
+    merged = (existing + b", viewport-fit=cover") if existing else default
+    return tag[:content.start()] + b'content="' + merged + b'"' + tag[content.end():]
+
+
+def head_metas(head: bytes) -> bytes:
+    """The metas this head does not already have, behind one marker; b"" when it has them all.
+
+    Every tag is guarded on its own name, so a document that grows one of these upstream keeps its
+    own and this injects nothing for that name. The marker guards the block as a whole, so a second
+    pass over a document this gate already served changes nothing.
+    """
+    style = status_bar_style().encode("ascii")
+    wanted = [
+        (b"mobile-web-app-capable", b'<meta name="mobile-web-app-capable" content="yes">'),
+        (b"apple-mobile-web-app-capable", b'<meta name="apple-mobile-web-app-capable" content="yes">'),
+        (b"apple-mobile-web-app-status-bar-style",
+         b'<meta name="apple-mobile-web-app-status-bar-style" content="' + style + b'">'),
+        (b"theme-color", b'<meta name="theme-color" content="#fff" media="(prefers-color-scheme: light)">'),
+        (b"theme-color", b'<meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)">'),
+    ]
+    tags = [tag for (name, tag) in wanted if (b'name="' + name + b'"') not in head]
+    if not tags:
+        return b""
+    return PHONE_HEAD_MARKER + b"".join(tags)
+
+
+def inject_head(document: bytes) -> bytes:
+    """The iOS head: rewrite the viewport meta in place, add the missing metas before `</head>`."""
+    if not head_enabled():
+        return document
+    at = document.lower().find(b"</head>")
+    if at < 0:
+        return document
+    if PHONE_HEAD_MARKER in document[:at]:
+        return document
+    head = _META_VIEWPORT_RE.sub(lambda m: _viewport_fixed(m.group(0)), document[:at])
+    return head + head_metas(head) + document[at:]
+
+
+def manifest_response(engine_port: int, engine_authority: str = "") -> bytes:
+    """The PWA manifest with the display mode iOS documents, or b"" to relay the engine's own.
+
+    `display` is rewritten from `fullscreen` to **`standalone`**, which is the value Apple documents
+    for this platform: "display: standalone … iOS/iPadOS: opens as a Home Screen Web App with
+    isolated cookies and storage, separate from the browser" (Apple, WWDC 2023 session 10120, "What's
+    new in web apps", 5:01-5:53; read 2026-09-16). `fullscreen` is a valid manifest value whose iOS
+    behaviour nobody here has observed. On iOS a Home Screen Web App is the mode that removes Safari
+    chrome — which is what "installable" has to mean if it is to mean anything on the phone.
+
+    REWRITTEN AT THE GATE, not upstream, on purpose: this response is only in the path of a tailnet
+    client, so the owner's desktop windows keep `fullscreen` — which
+    `docs/multi-window/research-desktop-app.md` B6 already records as an upstream bug of its own.
+
+    `theme_color`/`background_color` are deliberately NOT added. iOS ignores both (its splash comes
+    from `apple-touch-startup-image`), and the document's two `theme-color` metas already track the
+    OS scheme, which a single-valued manifest field cannot. Icons are left alone: no PNG exists in
+    this repo to point an iOS icon at (see the section note above).
+
+    A manifest the gate could not read is not a manifest to invent: any failure returns b"" and the
+    caller relays whatever the engine said.
+    """
+    if not head_enabled():
+        return b""
+    host = engine_authority or f"127.0.0.1:{engine_port}"
+    try:
+        up = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
+        up.sendall((f"GET /manifest.webmanifest HTTP/1.1\r\nHost: {host}\r\n"
+                    f"User-Agent: phone-gate\r\nAccept: application/manifest+json,*/*\r\n"
+                    f"Connection: close\r\n\r\n").encode())
+        raw = read_all(up)
+        try:
+            up.close()
+        except OSError:
+            pass
+    except OSError as exc:
+        note(f"  manifest fetch failed: {exc}")
+        return b""
+    head, sep, body = raw.partition(b"\r\n\r\n")
+    if not sep or status_of(raw) != 200:
+        note(f"  manifest upstream answered {status_of(raw)}; relaying it")
+        return b""
+    if b"transfer-encoding: chunked" in head.lower():
+        body = dechunk(body)
+    try:
+        doc = json.loads(body.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        note(f"  manifest is not JSON ({type(exc).__name__}); relaying it")
+        return b""
+    if not isinstance(doc, dict):
+        note("  manifest is not a JSON object; relaying it")
+        return b""
+    if doc.get("display") == "standalone":
+        return b""                       # already what iOS documents: the response is not touched
+    doc["display"] = "standalone"
+    out = json.dumps(doc, ensure_ascii=False, indent=2).encode("utf-8")
+    return (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: application/manifest+json; charset=utf-8\r\n"
+        b"Cache-Control: no-store\r\n"
+        b"Content-Length: " + str(len(out)).encode() + b"\r\n"
+        b"Connection: close\r\n\r\n" + out
+    )
+
+
 def inject_all(document: bytes) -> bytes:
-    """Both layers, in one pass."""
-    return inject_badge(inject_mobile(document))
+    """All three layers, in one pass: the phone stylesheet, the iOS head, the attention badge."""
+    return inject_badge(inject_head(inject_mobile(document)))
 
 
 def dechunk(body: bytes) -> bytes:
@@ -851,6 +1042,145 @@ def force_close(head_bytes: bytes) -> bytes:
     return b"\r\n".join(out) + sep + rest
 
 
+# --------------------------------------------------------------------------
+# WHO MAY BE SIGNED IN
+#
+# THE HOLE THIS CLOSES, measured 2026-09-16 21:58Z by the security audit of this same program: a cold
+# `GET /` through a node's tailnet name came back **200 with a working session cookie and no
+# credential of any kind**, because `complete_login` performs the engine's token exchange on the
+# visitor's behalf. That cookie drives `/api` and the WebSocket mux — full engine control, a shell as
+# the owner; on `secratary` that is RCE as `zabz` on the company authority. The only thing bounding it
+# was tailnet membership, and that tailnet's ACL is default allow-all with nothing tagged.
+#
+# THE CONTROL IS THE DEVICE, NOT THE IDENTITY. `tailscale serve` forwards the caller's identity:
+#
+#     Tailscale-User-Login: lakewoodphoneandtech@gmail.com
+#     Tailscale-User-Name: Eliyahu
+#     X-Forwarded-For: 100.72.162.5
+#
+# (captured from a loopback listener behind Serve, 2026-09-16 18:06:48 local). The LOGIN does not
+# discriminate: every device on this tailnet is enrolled under the same Google identity — all six
+# peers, user 2701425880688073 — including `lakewooechsmini`, the employee's Mac. So the login header
+# cannot be the check; the device address can, and `X-Forwarded-For` is the header that names it.
+#
+# WHY THE LAST ENTRY AND NOT THE FIRST. A proxy that APPENDS to an incoming `X-Forwarded-For` lets a
+# caller prepend anything it likes; the entry the proxy itself added is the LAST one. Reading the
+# first would let a foreign device present itself as the owner's laptop by sending that header. Read
+# through the closest trusted proxy, the last entry is the one a caller cannot forge. (Measured
+# 2026-09-16: a `curl -H 'X-Forwarded-For: 8.8.8.8'` through Serve arrives as
+# `8.8.8.8, 100.72.162.5` — see the `xff=` field this gate logs.)
+#
+# WHAT IS DELIBERATELY NOT CHANGED. A request with no `X-Forwarded-For` did not come through Serve:
+# it is a loopback client on this machine, which the engine already trusts by itself. That path is
+# left exactly as it was — no sign-in added, none removed. The gate's own sign-in path is untouched,
+# and no credential is required that a Home Screen Web App could not supply (it has no address bar in
+# which to type a `?token=`, which is the entire reason this gate exists). The Tailscale ACL is not
+# touched by this program at all.
+#
+# FAIL-OPEN ON A MISSING OR EMPTY LIST, DELIBERATELY. A missing file, or a file with no usable lines,
+# means "no restriction" and says so once, loudly, in the log. That is the behaviour as it was before
+# this section existed, and it keeps a mis-edit from locking the owner out of his own node from his
+# phone — where he cannot open a terminal to fix it. The restrictive direction is what happens the
+# moment the file names devices and none of them is yours.
+# --------------------------------------------------------------------------
+
+ALLOW_FILE = Path(__file__).resolve().parent / "phone-gate-allow.txt"
+_FORWARDED_MAX = 256
+_ALLOW_CACHE: dict = {"key": None, "ips": frozenset()}
+_ALLOW_NOTED: set = set()
+
+
+def _log_text(value: str, limit: int = 64) -> str:
+    """Header text made safe for a line-oriented log: no control characters, bounded length.
+
+    A header is text an attacker chooses. Letting it through raw would let a caller forge log lines
+    (and, since `note()` writes a line per call, could also break the file's shape).
+    """
+    cleaned = "".join(ch if 32 <= ord(ch) < 127 else "?" for ch in str(value)[:limit])
+    return cleaned or "-"
+
+
+def _normalise_address(value: str) -> str:
+    """One device address, comparable: trimmed, lowercased, no `::ffff:` prefix, no brackets."""
+    text = str(value).strip().lower()
+    if text.startswith("::ffff:"):
+        text = text[7:]
+    if text.startswith("[") and "]" in text:
+        text = text[1:text.index("]")]
+    return text.strip()
+
+
+def forwarded_device(first: bytes) -> str:
+    """The device address Serve reports, or "" when this request did not come through Serve."""
+    raw = request_header(first, b"x-forwarded-for")[:_FORWARDED_MAX]
+    if not raw:
+        return ""
+    return _normalise_address(raw.split(",")[-1])
+
+
+def allowed_devices() -> tuple[frozenset, bool]:
+    """(the allow-list, whether it restricts anything). Re-read whenever the file changes."""
+    try:
+        stat = ALLOW_FILE.stat()
+        key = (stat.st_mtime_ns, stat.st_size)
+    except OSError:
+        key = None
+    if key is not None and _ALLOW_CACHE.get("key") == key:
+        return _ALLOW_CACHE["ips"], bool(_ALLOW_CACHE["ips"])
+    ips = set()
+    if key is not None:
+        try:
+            text = ALLOW_FILE.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            text = ""
+        for line in text.splitlines():
+            entry = line.split("#", 1)[0].strip()
+            if entry:
+                ips.add(_normalise_address(entry))
+    if not ips and "unrestricted" not in _ALLOW_NOTED:
+        _ALLOW_NOTED.add("unrestricted")
+        note(f"  phone-gate: NO DEVICE RESTRICTION — {ALLOW_FILE} "
+             + ("does not exist" if key is None else "lists no devices")
+             + "; every device on the tailnet will be signed in automatically. Add one tailnet "
+               "address per line to restrict it (see the file's own header).")
+    if ips and "restricted" not in _ALLOW_NOTED:
+        _ALLOW_NOTED.add("restricted")
+        note(f"  phone-gate: sign-in restricted to {len(ips)} device(s) by {ALLOW_FILE.name}")
+    _ALLOW_CACHE.update({"key": key, "ips": frozenset(ips)})
+    return frozenset(ips), bool(ips)
+
+
+def forbidden_response(device: str) -> bytes:
+    """A short HTML refusal that names the device, so the owner can allow it in one line.
+
+    HTML, not the engine's `text/plain`: iOS offers plain text as a download, which is the dead end
+    this gate was built to remove (its own header, 2026-09-11). The address is HTML-escaped because
+    it arrives in a header — attacker-chosen text must not become markup here.
+    """
+    who = html.escape(_log_text(device, 64))
+    name = html.escape(ALLOW_FILE.name)
+    body = (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<title>Not signed in</title></head>"
+        "<body style=\"font:16px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+        "margin:2rem;max-width:34rem\">"
+        "<h1 style=\"font-size:1.15rem;margin:0 0 .75rem\">This node does not sign in this device</h1>"
+        "<p>Only the owner's own devices are signed in automatically. This request came from "
+        f"<code>{who}</code>.</p>"
+        f"<p>To allow it, add that address on one line to <code>{name}</code>, beside "
+        "<code>phone-gate.py</code>, then reload this page.</p>"
+        "</body></html>"
+    ).encode("utf-8")
+    return (
+        b"HTTP/1.1 403 Forbidden\r\n"
+        b"Content-Type: text/html; charset=utf-8\r\n"
+        b"Cache-Control: no-store\r\n"
+        b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+        b"Connection: close\r\n\r\n" + body
+    )
+
+
 def handle(client: socket.socket, engine_port: int, engine_authority: str = "") -> None:
     """Relay, except where a visitor would hit a dead end we can remove.
 
@@ -903,7 +1233,33 @@ def handle(client: socket.socket, engine_port: int, engine_authority: str = "") 
             client_ip = str(client.getpeername()[0])
         except OSError:
             client_ip = "?"
+
+        # Who is asking, decided by the one header a caller cannot forge through Serve: the address
+        # the proxy itself appended. A request with no X-Forwarded-For never went through Serve, so it
+        # is loopback on this machine — the path the engine already trusts, left alone here.
+        # A caller that SUPPLIED an X-Forwarded-For of its own makes the raw header carry more than
+        # one entry; that is recorded (`xff=`) because it is both a spoof attempt and the reason the
+        # parser reads the LAST entry. It is silent otherwise, so ordinary lines stay readable.
+        device = forwarded_device(first)
+        allow, restricted = allowed_devices()
+        if device and restricted and device not in allow:
+            note(f"{method} {path} client={_log_text(device)} peer={client_ip} -> REFUSED: not in "
+                 f"{ALLOW_FILE.name}; this node signs in its owner's own devices only")
+            try:
+                client.sendall(forbidden_response(device))
+            except OSError:
+                pass
+            try:
+                client.close()
+            except OSError:
+                pass
+            return
+
+        offered_forward = request_header(first, b"x-forwarded-for")
+        spoof = (f" xff={_log_text(offered_forward, 96)}"
+                 if "," in offered_forward else "")
         note(f"{method} {path}{'?' + query[:24] if query else ''} "
+             f"client={_log_text(device) if device else 'loopback'} peer={client_ip}{spoof} "
              f"cookie={has_cookie} token_offered={bool(offered)} token_live={bool(token)} "
              f"proto={request_line.split(' ')[-1]}")
 
@@ -936,6 +1292,20 @@ def handle(client: socket.socket, engine_port: int, engine_authority: str = "") 
             client.sendall(body)
             client.close()
             return
+
+        # The PWA manifest, rewritten so the Home Screen Web App opens without Safari chrome
+        # (`display: standalone`, the mode Apple documents for iOS). Answered here rather than
+        # relayed because the engine serves the shipped manifest, which says `fullscreen`.
+        # Deliberately WITHOUT auth, like the stylesheet: a manifest is not data, and the engine
+        # itself serves it publicly. `b""` means "could not read it" - then the engine's own
+        # answer is relayed unchanged rather than replaced with something invented.
+        if method == "GET" and path == "/manifest.webmanifest":
+            body = manifest_response(engine_port, engine_authority)
+            if body:
+                note(f"  -> manifest (iOS head): {len(body)} bytes")
+                client.sendall(body)
+                client.close()
+                return
 
         # A document request that cannot be authenticated as sent: no cookie at all, or a
         # token the engine no longer honours (a saved link, a replayed redirect, an engine
@@ -1038,19 +1408,75 @@ def main() -> int:
         except OSError:
             LOG_PATH = None
 
+    # WHO AM I, BEFORE ANYTHING CAN FAIL. Measured 2026-09-16: this gate has died silently four
+    # times, twice with a 0-byte stderr and once after ~7 minutes of normal service (it served
+    # requests at 18:01:04, 18:02:08 and 18:02:44 local and was gone by 18:03). main() is an
+    # infinite accept loop and the listening banner proves the import succeeded, so a process that
+    # stops leaving only a banner was killed, not crashed — the leading hypothesis is a console-close
+    # event against a child started with `Start-Process -WindowStyle Hidden`, which still owns a
+    # console (the launcher now uses pythonw.exe). This line and the `finally` below are what make
+    # the next death readable instead of inferred: a start with no matching "exiting" line means it
+    # was terminated from outside, and an "exiting" line means it stopped on its own.
+    # argv carries no secret by construction — the token is read from the engine's log, never passed.
+    note(f"phone-gate starting pid={os.getpid()} parent={getattr(os, 'getppid', lambda: '?')()} "
+         f"argv={' '.join(sys.argv[1:])}")
+
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind(("127.0.0.1", args.listen_port))
+    # ONE LISTENER PER PORT, ENFORCED BY THE OS. Measured on this host 2026-09-16, because the
+    # module name is not the behaviour: with SO_REUSEADDR on Windows a SECOND socket binds the same
+    # 127.0.0.1:port and both listen (two `--listen-port 3086` gates were caught alive in the same
+    # second, pids 28108 and 17776, splitting incoming connections), while SO_REUSEADDR on POSIX
+    # only means "a restart may reuse a TIME_WAIT port". Four probes on this machine:
+    #   two SO_REUSEADDR sockets          -> the second bind SUCCEEDS      (the bug)
+    #   SO_EXCLUSIVEADDRUSE then REUSEADDR -> the second bind is refused    (WinError 10013)
+    #   REUSEADDR then SO_EXCLUSIVEADDRUSE -> the second bind is refused    (WinError 10048)
+    #   exclusive rebind right after a kill, with a real TIME_WAIT entry on the port
+    #                                     -> SUCCEEDS on the first attempt  (a restart stays instant)
+    # So exclusivity costs nothing here; it only removes the split-brain listener.
+    if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+    else:
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        srv.bind(("127.0.0.1", args.listen_port))
+    except OSError as exc:
+        # A duplicate start is not a failure. The watchdog (`phone-gate-ensure.ps1`) and
+        # `serve-phone.ps1` can both decide to start the gate, and the loser must leave quietly:
+        # one line saying who owns the port, exit 0, no traceback. Any OSError here is treated the
+        # same way — Windows reports the refusal as 10013 in one direction and 10048 in the other,
+        # so matching on an errno would be guessing.
+        note(f"phone-gate: 127.0.0.1:{args.listen_port} is already owned by another process "
+             f"({exc}); this duplicate start is exiting 0 and leaving it alone")
+        try:
+            srv.close()
+        except OSError:
+            pass
+        return 0
     srv.listen(128)
     note(f"phone-gate listening on 127.0.0.1:{args.listen_port} -> engine 127.0.0.1:{args.engine_port}"
          + (f" (presenting authority {args.engine_authority})" if args.engine_authority else ""))
-    while True:
+    accept_failures = 0
+    try:
+        while True:
+            try:
+                client, _ = srv.accept()
+            except OSError as exc:
+                # Logged once, then left alone: a socket that fails accept() forever would
+                # otherwise spin at full CPU with no record of why.
+                accept_failures += 1
+                if accept_failures == 1:
+                    note(f"phone-gate: accept() failed ({exc}); continuing")
+                continue
+            threading.Thread(target=handle, args=(client, args.engine_port, args.engine_authority),
+                             daemon=True).start()
+    finally:
+        # Reached on a clean stop and on a KeyboardInterrupt; NOT reached when the process is
+        # terminated from outside, and that absence is the diagnosis (see the starting line above).
+        note(f"phone-gate exiting (pid={os.getpid()}, accept failures={accept_failures})")
         try:
-            client, _ = srv.accept()
+            srv.close()
         except OSError:
-            continue
-        threading.Thread(target=handle, args=(client, args.engine_port, args.engine_authority),
-                         daemon=True).start()
+            pass
     return 0
 
 

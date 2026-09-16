@@ -967,6 +967,8 @@ lessons	L1806	1806		2026-09-16	ZABZ-YOGA	open	**L1806 · 401, 403, 404 and 502 o
 lessons	L1807	1807		2026-09-16	ZABZ-YOGA	open	**L1807 · cmd /c with a quoted program plus redirection can silently do nothing**	entries/lessons/L1807.md	1	11	2be53c06c54da521
 lessons	L1808	1808		2026-09-16	ZABZ-YOGA	open	**L1808 · dshw.ps1 redefines Add-Content, and a called script inherits that**	entries/lessons/L1808.md	1	13	baaf7c3270451ea0
 lessons	L1809	1809		2026-09-16	ZABZ-YOGA	open	**L1809 · journal.py --root was accepted and silently ignored (argparse subparser clobber)**	entries/lessons/L1809.md	1	15	6df3f2aff0439ee3
+lessons	L1810	1810		2026-09-16	ZABZ-YOGA	open	**L1810 · Tailscale serve forwards device identity, and Serve status is still not evidence**	entries/lessons/L1810.md	1	15	edaf4a54b1130144
+lessons	L1811	1811		2026-09-16	zabz-yoga	open	**L1811 · Personal-life lookups (contact lenses) live in personal-secretary-mvp/docs/personal/, and ps_action gmail_search beats email_catalog**	entries/lessons/L1811.md	1	33	bfac190d8dfe0826
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1148,6 +1150,8 @@ pain	P216	216		2026-09-16	secratary	open	## P216 — The live harness-config ins
 pain	P217	217		2026-09-16	ZABZ-YOGA	open	## P217 — Customer SMS sent by scripts/send-lpt-sms.py write nothing to sms_log, so they are invisible to dedup and to the send audit	entries/pain/P217.md	1	16	bee232d0a7dbf083
 pain	P218	218		2026-09-16	ZABZ-YOGA	open	## P218 — Production and laptop checkouts carry unlanded work; it blocks deploys and collides parallel agents	entries/pain/P218.md	1	28	2d243a7841950496
 pain	P219	219		2026-09-16	ZABZ-YOGA	open	## P219 — The mesh's own processes are the top disk reader, and a purchase rested on the opposite claim	entries/pain/P219.md	1	19	03ff78fa02f1c0d5
+pain	P220	220		2026-09-16	ZABZ-YOGA	open	## P220 — One anonymous GET through the tailnet signs into the owner's engine, and every device shares one identity	entries/pain/P220.md	1	24	048c495639f4c684
+pain	P221	221		2026-09-16	ZABZ-YOGA	open	## P221 — The phone gate keeps being killed, and the only supervisor available is the one-minute watchdog	entries/pain/P221.md	1	23	f0fa0e47412623c8
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270

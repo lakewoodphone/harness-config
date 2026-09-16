@@ -584,3 +584,162 @@ either node.**
   discards the query) is exactly right. What changed tonight is that **the gate removes the redirect**, so
   the fragment now survives even a cold visit — which makes the §4.3 plugin sufficient rather than
   theoretical.
+
+---
+
+## 9. What was built after this report (2026-09-16 22:00–22:10Z, ZABZ-YOGA)
+
+Items 5 and 4 of §6 are no longer proposals. Everything below was run, and the readings are the ones I
+took, not the ones I expected.
+
+### 9.1 Item 5 — the iOS head, shipped and live in `phone-gate.py`
+
+`inject_head()` + `head_metas()` + `_viewport_fixed()` + `manifest_response()`, wired into the existing
+`inject_all()` and a new self-answered `/manifest.webmanifest` route — so they sit beside the stylesheet
+and badge injections and follow their kill-switch idiom: **`PHONE_HEAD=0`** turns off the whole section,
+`PHONE_STATUS_BAR_STYLE` overrides the status-bar value with a validated fallback.
+
+**Served bytes, quoted from the gate running the finished file** (`GET https://zabz-yoga-1.tail93e6e6.ts.net/`,
+22:06:5xZ, 54,839 B):
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!-- dsh-phone-head -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#151517" media="(prefers-color-scheme: dark)">
+```
+
+and the manifest: **200**, `application/manifest+json`, 266 B, `"display": "standalone"`, icons left as
+the shipped SVG. Regression check in the same minute: `/dsh-phone-mobile.css` **200 / 25,769 B**,
+`/dsh-attention.json` **200**, `/api` without a cookie **401**, and the fence control (tailnet Host
+straight at the engine) still **403**.
+
+In-process checks on the same file: injection is **byte-identical on a second pass**; a document that
+already carries its own `theme-color` keeps exactly one; a document with no `</head>` is returned
+unchanged; `PHONE_HEAD=0` returns the document and the manifest untouched.
+
+**Two things deliberately NOT done, with the reason in the code:** no `apple-touch-icon` (iOS rejects an
+SVG for that rel and this repo's only PNGs are app screenshots — the real fix is a PNG upstream), and no
+`theme_color`/`background_color` in the manifest (iOS ignores both; its splash comes from
+`apple-touch-startup-image`, and a single-valued manifest field cannot track the OS colour scheme the way
+the two `<meta>` tags do).
+
+**`apple-mobile-web-app-status-bar-style` is `default`, not `black-translucent`, and that is a refusal to
+guess.** `black-translucent` is what makes `env(safe-area-inset-top)` non-zero — and it draws the status
+glyphs in white over whatever the page paints, so on a light harness theme the clock and battery become
+invisible. Nobody here can see the owner's phone to check. `default` cannot produce that defect and still
+gives the bottom inset (the composer clearing the home indicator), which is the inset the layer needs
+most. One env var flips it once someone has looked.
+
+### 9.2 Item 4 — `packages/plugin-session-link/`, written, not installed
+
+Four files, the minimum the convention defines (`packages/<name>/` + `package.json` +
+`cordis.patch.yml` + `lib/index.js` + `lib/client.js`, exactly as `plugin-mobile` and
+`plugin-attention-badge` are shaped): `dsh-plugin-session-link`. A single file cannot be a bundle — the
+loader resolves a package **by name** from the profile's `node_modules` and reads its manifest for the
+patch and the client entry — so "one new file" is one new package.
+
+`scripts/install-client-plugins.ps1 -Check` (read-only, 22:08Z) reports it as
+`dsh-plugin-session-link  MISSING  not mounted (repo-only; -RequireAll to install)` and exits **0** — the
+package is discoverable by the installer and deliberately **not** installed into `~/.dsh`. `node --check`
+passes on both halves, and all four loader-facing fields (`main`, `exports["./client"]`,
+`dsh.bundle.patch`, `dsh.client.platform`) resolve on disk.
+
+**The logic was tested without an engine**, by loading `lib/client.js` in a `vm` sandbox with a stubbed
+loader/`window`/`sessions` service and collapsing the retry ladder — **11 of 11 checks pass**: no fragment
+→ completely inert; session present → `open(id)` once, one info line, fragment cleared; list settled
+without the id → **nothing selected**, one line, fragment cleared; list never settles → best-effort
+selection at the deadline plus one line; service never appears → one line, no throw; an unrelated fragment
+(`#tab=settings`) and a malformed id are both ignored.
+
+### 9.3 Two defects found in the gate while doing this, both fixed in the same file
+
+1. **Two gates could bind the same port.** Measured on this host: with `SO_REUSEADDR` on Windows a second
+   socket binds the same `127.0.0.1:port` and both listen — pids 28108 and 17776 were caught alive in the
+   same second, splitting incoming connections. Four probes decided the fix rather than the
+   documentation: two `SO_REUSEADDR` sockets → the second bind **succeeds** (the bug);
+   `SO_EXCLUSIVEADDRUSE` then `SO_REUSEADDR` → refused (**WinError 10013**); `SO_REUSEADDR` then
+   `SO_EXCLUSIVEADDRUSE` → refused (**WinError 10048**); and an exclusive rebind immediately after a kill,
+   with a real `TCP 127.0.0.1:3333 → …:3334 TIME_WAIT 0` entry on the port, **succeeded on the first
+   attempt** — so exclusivity costs nothing and a restart stays instant. The gate now sets
+   `SO_EXCLUSIVEADDRUSE` where it exists and `SO_REUSEADDR` only on POSIX, and the losing side of the race
+   logs one line and **exits 0** instead of raising. Verified live against the running gate: the second
+   process printed `[WinError 10048] … already owned by another process`, exited 0, exactly one gate
+   process remained, and the incumbent still answered 200.
+2. **The gate died silently four times.** It now writes a `starting pid=… parent=… argv=…` line before
+   anything can fail, and an `exiting` line in a `finally` around the accept loop, so the next death is
+   readable rather than inferred: a start with no matching `exiting` means it was terminated from outside.
+   `accept()` failures are logged once (they used to spin in silence). No supervisor was added — that is
+   the launcher's job.
+
+**Final `scripts/phone-gate.py`:** 63,550 B, 1,318 lines,
+**sha256 `C1DC930FCC4D7E59BFE888EC447800E56BB0D926CD4B3420C8FAFD2A52BED6B2`** (22:05:38Z). The gate
+serving the §9.1 bytes is pid 11428, started 22:06:03Z, i.e. **after** that write. Every JOB A reading in
+§9.1 was taken from that process.
+
+**Still not verified, and the command that will:** the plugin needs
+`pwsh scripts/install-client-plugins.ps1` plus an engine restart before a browser can load it — the engine
+was deliberately not restarted (P210). After that restart the roster in the served document must contain
+`dsh-plugin-session-link/client.js`, and a URL ending `#session=<id>` must open that session.
+
+### 9.4 WHO MAY BE SIGNED IN — the hole the gate itself opened, closed
+
+**The finding (another session's audit, 2026-09-16 21:58Z):** a cold `GET /` through a node's tailnet
+name returned **200 with a working session cookie and no credential of any kind**, because
+`complete_login()` performs the engine's token exchange on the visitor's behalf. That cookie drives
+`/api` and the WebSocket mux — full engine control, a shell as the owner; on `secratary` that is RCE as
+`zabz` on the company authority. The only thing bounding it was tailnet membership, and that ACL is
+default allow-all with nothing tagged.
+
+**The control is the device, not the identity.** `tailscale serve` forwards
+`Tailscale-User-Login`/`Tailscale-User-Name`, but every device on this tailnet is enrolled under the same
+Google identity (*all six peers, user 2701425880688073*), including the employee's Mac — so the login
+cannot discriminate and `X-Forwarded-For` is the header that can.
+
+**New file `scripts/phone-gate-allow.txt`** (3,051 B) lists five devices — `100.72.162.5` (this laptop),
+`100.85.105.93` (the iPhone), `100.85.153.96` (zabz-tech), `100.84.72.88` (secratary), `100.105.248.90`
+(zabz-tech-linux) — and **deliberately excludes `100.126.146.121` (lakewooechsmini, the employee's Mac)**,
+with the reason written in the file itself, because a device on that list receives a 30-day cookie that is
+a shell on the owner's engine, his mail and the company database. The gate re-reads the file when it
+changes, so allowing a device is one line and no restart.
+
+**Two things measured rather than assumed:**
+
+* **Serve REPLACES a caller's `X-Forwarded-For`, it does not append.** Proved by sending
+  `X-Forwarded-For: 8.8.8.8` through the tailnet: the gate logged `client=100.72.162.5` and **no**
+  `xff=` anomaly field, which is only emitted when the raw header carries more than one entry. So a
+  tailnet caller cannot present itself as another device. The parser still reads the **last** entry,
+  which is the one a proxy appends — correct under either behaviour, and defensive if that ever changes.
+* **A request with no `X-Forwarded-For` never went through Serve** and is loopback on this machine — the
+  path the engine already trusts. It is left exactly as it was: `client=loopback`, still signed in.
+
+**A refused device gets a 640-byte HTML 403** naming its own address and the file to add it to — not the
+engine's plain text, because iOS offers plain text as a download and that dead end is the reason this
+gate exists. The address is HTML-escaped (it arrives in a header). The rule is one rule for every path,
+so a non-allowed device gets the same 403 on `/`, on `/api` and on the WebSocket upgrade. Log lines now
+carry `client=<deciding device> peer=<socket peer>`, and never a token.
+
+**Deliberate fail-open, stated so it can be overruled:** a missing file, or one with no usable lines,
+means *no restriction* and says so once, loudly. That preserves the pre-existing behaviour and keeps a
+typo from locking the owner out of his own node from a phone, where he has no terminal to fix it.
+
+**Verified live (22:09–22:10Z), and the second one by header injection only:**
+
+| Check | Result |
+|---|---|
+| owner's laptop through the tailnet (`client=100.72.162.5`) | **200** + `Set-Cookie`, signed in in flight |
+| `X-Forwarded-For: 100.126.146.121` sent to `127.0.0.1:3086` | **403** `text/html`, names `100.126.146.121` — **no request was made from the employee's machine**, and none was necessary |
+| the same address on `POST /api/session/list` | **403** |
+| loopback with no XFF | **200**, unchanged |
+| spoofed XFF through Serve | **200** and no anomaly logged (Serve replaced it) |
+| **WebSocket upgrade** through the tailnet | **101** and the gate logged `client=100.72.162.5` — so Serve forwards the device header on the upgrade too, and the mux is inside the control rather than beside it |
+
+**Final file:** 72,210 B, 1,484 lines,
+**sha256 `CCEC6C517374981CD45DC8E3EC103089A0C734AC737C64FF60C339EE66D490C5`** (22:09:01Z), running as
+pid 16156. Every reading above was taken from that process. Unit tests on the final file: 12 allow-list
+checks (last-entry parsing, address normalisation, the shipped five, the employee's Mac excluded,
+announce-once, fail-open on a missing and on a comment-only file) and 6 refusal-page checks (HTML,
+escaped, names the device and the file, no token, `no-store`) all pass.
