@@ -327,6 +327,7 @@ handoff	H417	417		2026-09-16 23:27 UTC	ZABZ-YOGA	open	## 2026-09-16 23:27 UTC ·
 handoff	H418	418		2026-09-16 23:28 UTC	zabz-yoga	open	## 2026-09-16 23:28 UTC · zabz-yoga · Shlock: the tarp that was 'not shipped' was delivered Sep 15; records corrected; the frame state is the open question	entries/handoff/H418.md	1	80	b894c3c979d293bd
 handoff	H419	419		2026-09-16 23:31 UTC	ZABZ-YOGA	open	## 2026-09-16 23:31 UTC · ZABZ-YOGA · Remote fan-out is proven; the mesh profile is the dispatcher that needs no restart	entries/handoff/H419.md	1	25	d5e2a97e5fc9920c
 handoff	H420	420		2026-09-16 23:46 UTC	ZABZ-YOGA	open	## 2026-09-16 23:46 UTC · ZABZ-YOGA · The mesh is built and proven: fan-out works, four nodes, the broker decides, and the elastic answer is rent-the-peak	entries/handoff/H420.md	1	50	483893bfba5462f4
+handoff	H421	421		2026-09-16 23:47 UTC	ZABZ-YOGA	open	## 2026-09-16 23:47 UTC · ZABZ-YOGA · S7 mesh acceptance harness: baseline 4 PASS/1 FAIL/3 SKIP on 2026-09-16T23:45Z; hermetic mesh proven; three items are the manager's	entries/handoff/H421.md	1	52	cab85e41274ffe82
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -989,6 +990,11 @@ lessons	L1820	1820		2026-09-16	ZABZ-YOGA	open	**L1820 · A measurement gap on a 
 lessons	L1821	1821		2026-09-16	ZABZ-YOGA	open	**L1821 · Windows mesh dispatch: ssh.exe hangs on a stdout pipe, and ZABZ-YOGA's sshd cannot traverse the symlinks DSH bundle resolution needs**	entries/lessons/L1821.md	1	12	90ed091312904bc0
 lessons	L1822	1822		2026-09-16	ZABZ-YOGA	open	**L1822 · A node name must be the name that resolves: Self.HostName is not it (mesh capacity, S1)**	entries/lessons/L1822.md	1	37	bf4cd72a78a58f34
 lessons	L1823	1823		2026-09-16	ZABZ-YOGA	open	**L1823 · Windows took the laptop out of the fleet: sshd could not traverse UNTRUSTED REPARSE POINTS, and the relink must run inside an ssh session (corrects L1821)**	entries/lessons/L1823.md	1	12	e8601da0a264b640
+lessons	L1824	1824		2026-09-16	ZABZ-YOGA	open	**L1824 · PowerShell is case-insensitive: a local \ destroyed the -Body parameter and four acceptance sub-cases passed while testing the wrong task**	entries/lessons/L1824.md	1	21	2ef04719c6528d10
+lessons	L1825	1825		2026-09-16	ZABZ-YOGA	open	**L1825 · Read a Start-Process redirect file with Get-Content -Raw, never [System.IO.File]::ReadAllText**	entries/lessons/L1825.md	1	20	86666fce11f0e504
+lessons	L1826	1826		2026-09-16	ZABZ-YOGA	open	**L1826 · macOS: never invoke bare tailscale over ssh -- and a subprocess timeout that kills only the shim leaks a spinning orphan**	entries/lessons/L1826.md	1	15	95f7b42409f28146
+lessons	L1827	1827		2026-09-16	ZABZ-YOGA	open	**L1827 · macOS load average is not a CPU signal, and Pages free is not available memory**	entries/lessons/L1827.md	1	16	9ae2ddca437d44b4
+lessons	L1828	1828		2026-09-16	ZABZ-YOGA	open	**L1828 · macOS 26 keeps a SECOND wallpaper for the idle state, and it can be a 4K video**	entries/lessons/L1828.md	1	14	4005ec12dd4fd995
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1172,6 +1178,7 @@ pain	P218	218		2026-09-16	ZABZ-YOGA	open	## P218 — Production and laptop check
 pain	P219	219		2026-09-16	ZABZ-YOGA	open	## P219 — The mesh's own processes are the top disk reader, and a purchase rested on the opposite claim	entries/pain/P219.md	1	19	03ff78fa02f1c0d5
 pain	P220	220		2026-09-16	ZABZ-YOGA	open	## P220 — One anonymous GET through the tailnet signs into the owner's engine, and every device shares one identity	entries/pain/P220.md	1	24	048c495639f4c684
 pain	P221	221		2026-09-16	ZABZ-YOGA	open	## P221 — The phone gate keeps being killed, and the only supervisor available is the one-minute watchdog	entries/pain/P221.md	1	23	f0fa0e47412623c8
+pain	P222	222		2026-09-16	ZABZ-YOGA	open	## P222 — §4.5's kill-the-gate step can only be satisfied by breaking S7's own never-kill-a-foreign-process rule	entries/pain/P222.md	1	21	5bbe5f8c69eb2047
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1364,6 +1371,7 @@ decisions	D228	228		2026-09-16	ZABZ-YOGA	open	**D228 · 2026-09-16 · Mesh inven
 decisions	D229	229		2026-09-16	ZABZ-YOGA	open	**D229 · 2026-09-16 · The phone gate is the only door; the engine's /api fence stays closed.**	entries/decisions/D229.md	1	16	528736060a694dfb
 decisions	D230	230		2026-09-16	ZABZ-YOGA	open	**D230 · 2026-09-16 · Node durability is the one-minute watchdog hook plus a logon entry.**	entries/decisions/D230.md	1	15	63893d1b087c807c
 decisions	D231	231		2026-09-16	zabz-yoga	open	**D231 · 2026-09-16 · Where the Shlock project's authoritative records live, by layer (tarp on secratary psmvp master; frame in lpt-hub research).**	entries/decisions/D231.md	1	23	7b385f420cd5b381
+decisions	D232	232		2026-09-16	ZABZ-YOGA	open	**D232 · 2026-09-16 · Acceptance-harness rules: the one FAIL/SKIP test, a hermetic mesh for controllability, and why the frozen scoring formula is not asserted.**	entries/decisions/D232.md	1	27	05b349798081a0df
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1524,3 +1532,4 @@ wins	W187	187		2026-09-16	ZABZ-YOGA	open	**W187 · 2026-09-16 · The live shop w
 wins	W188	188		2026-09-16	ZABZ-YOGA	open	**W188 · 2026-09-16 · The monthly anniversary reminder is live and verified.**	entries/wins/W188.md	1	23	3ad7fa687ea00cfe
 wins	W189	189		2026-09-16	ZABZ-YOGA	open	**W189 · 2026-09-16 · Both Windows nodes answer an authenticated RPC over the tailnet with no engine restart.**	entries/wins/W189.md	1	18	465bac4ff911ddc6
 wins	W190	190		2026-09-16	ZABZ-YOGA	open	**W190 · 2026-09-16 · The unified-search ingest stops re-reading its own index once per document.**	entries/wins/W190.md	1	12	9645bef4cbd650a6
+wins	W191	191		2026-09-16	ZABZ-YOGA	open	**W191 · 2026-09-16 · The Mac Mini's waste was ours: ~0.8 of a core recovered and the machine became a mesh node.**	entries/wins/W191.md	1	14	8c61cc6bad161c83

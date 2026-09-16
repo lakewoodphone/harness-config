@@ -100,8 +100,10 @@ with_timeout() { # with_timeout SECONDS cmd [args...]
   local pid=$!
   ( sleep "$t"; kill -9 -"$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null ) &
   local watcher=$!
+  disown "$watcher" 2>/dev/null   # keeps the shell from announcing the watcher's own death
   wait "$pid" 2>/dev/null; local rc=$?
   kill "$watcher" 2>/dev/null
+  wait "$watcher" 2>/dev/null
   if [ "$rc" -eq 137 ] || [ "$rc" -eq 143 ]; then
     echo "TIMEOUT: killed after ${t}s (whole process group) — this command is the known hang"
   else
