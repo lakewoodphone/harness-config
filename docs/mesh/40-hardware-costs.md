@@ -20,6 +20,7 @@
 - One actively generating agent turn = **0.81 GB** commit and **~1 core** while generating.
 - **25 % headroom rule:** usable RAM = `0.75 × installed`; resident turns = `floor(0.75 × RAM_GB / 0.81)`.
 - **Electricity: New Jersey residential 24.95 ¢/kWh** — **PUBLISHED**, EIA *Electric Power Monthly* Table 5.6.A, data for **June 2026**, released 2026-08-26, https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_a (accessed 2026-09-16). US residential average 18.34 ¢/kWh, +5.0 % YoY — https://www.eia.gov/electricity/monthly/update/end-use.php (accessed 2026-09-16).
+- **New Jersey *commercial* rate, same table and period: 18.47 ¢/kWh.** Use this if the Lakewood office is on a commercial meter — **it makes every power figure in this document conservative.**
 - **ARITHMETIC: 1 W continuous = 8.766 kWh/yr = $2.19/yr in New Jersey.** Each 100 W of continuous draw costs **$218.56/yr**. This single constant decides most of this document.
 - New Jersey sales tax **6.625 %**, collected by eBay as a registered marketplace facilitator — **PUBLISHED**, NJ Treasury https://www.nj.gov/treasury/taxation/remotesellersfaq.shtml and https://taxcloud.com/sales-tax/new-jersey (accessed 2026-09-16).
 
@@ -164,15 +165,34 @@ All prices **MARKET**, live eBay US listing/search pages, **2026-09-16**. NJ tax
 
 ### Idle power — PUBLISHED, meter-measured
 
-- **OptiPlex 3070 Micro:** *"Idle power consumption on 120V power we saw just over 10W idle for the quad-core units. We generally assume these nodes will use 9-12W idle."* — ServeTheHome, *Project TinyMiniMicro: Dell OptiPlex 3070 Micro Review*, https://www.servethehome.com/project-tinyminimicro-dell-optiplex-3070-micro-review/2 (2020-07-31, accessed 2026-09-16). Corroborated by an independent homelab measurement: an OptiPlex 3070m idles *"around 8-12 watts with a small load"*, https://static.xtremeownage.com/blog/2024/balancing-power-consumption-cost-the-true-price-of-efficiency (2024-06-07, accessed 2026-09-16).
-- **OptiPlex 7070 Micro (six-core): just over 13 W** — https://www.servethehome.com/dell-optiplex-7070-micro-project-tinyminimicro-guide-and-review/3 (accessed 2026-09-16).
-- **OptiPlex 7060 Micro (six-core): just over 18 W** — https://www.servethehome.com/dell-optiplex-7060-micro-tinyminimicro-at-65w-tdp-cpu-overview/3 (accessed 2026-09-16).
-- **GMKtec K8 Plus: 10–11 W idle**, 90–95 W load, **31–32 dB idle**, 37–39 dB load — https://www.reddit.com/r/MiniPCs/comments/1in4nvs/ (accessed 2026-09-16).
-- **Minisforum MS-01: 25–29 W idle, 37–38 dBA** — https://www.servethehome.com/minisforum-ms-01-review-the-10gbe-with-pcie-slot-mini-pc-intel/5 (accessed 2026-09-16).
-- **Beelink SER8: 7–10 W idle**, very low noise — https://www.servethehome.com/beelink-ser8-review-amd-ryzen-7-8845hs-powered-mini-pc/3 (accessed 2026-09-16).
-- **A conflicting figure exists:** a blog claims 15–20 W idle for an i5-8500T Micro, https://www.marginseye.com/blog/dell-optiplex-micro-review (2026-07-08). I use **10 W**, flag the spread, and note the two meter-based sources agree with each other and disagree with the blog. **No rigorous measured idle exists for SFF-class** (as opposed to Micro) machines — community estimate 20–25 W, https://www.reddit.com/r/homelab/comments/194khbq/optiplex_idle_power_consumption (2024-09-16).
+| Machine | Measured idle | Source |
+|---|---|---|
+| **HP EliteDesk 800 G4 Mini, 6-core** | **11–12 W** at 120 V | ServeTheHome, https://www.servethehome.com/hp-elitedesk-800-g4-mini-tinyminimicro-guide-review/3/ (accessed 2026-09-16) |
+| **HP EliteDesk 800 G4 Desktop Mini** | **11.351 W**, "Normal Operation (Long idle)", 115 VAC — **HP's own ENERGY STAR-method declaration** | HP datasheet, https://h20195.www2.hp.com/v2/getpdf.aspx/c06040430.pdf (accessed 2026-09-16) |
+| **Dell OptiPlex 3070 Micro** | **just over 10 W** at 120 V; STH assumes 9–12 W for this class | https://www.servethehome.com/project-tinyminimicro-dell-optiplex-3070-micro-review/2 (2020-07-31, accessed 2026-09-16) |
+| Dell OptiPlex 7070 Micro, six-core | just over **13 W** | https://www.servethehome.com/dell-optiplex-7070-micro-project-tinyminimicro-guide-and-review/3 |
+| Dell OptiPlex 7060 Micro, **65 W-TDP** CPU | just over **18 W** | https://www.servethehome.com/dell-optiplex-7060-micro-tinyminimicro-at-65w-tdp-cpu-overview/3 |
+| **Lenovo ThinkCentre M720q Tiny** | **27 W idle** / 68 W load — an outlier; a commenter on the same page expected <10 W | https://www.servethehome.com/lenovo-thinkcentre-m720q-tiny-compact-pc-review/4/ |
+| **Beelink MINI S12 (N100)** | **8.2 W idle**, 22.5 W max | https://xdaforums.com/t/beelink-mini-s12-and-mini-s12-pro-review-budget-mini-pcs-that-checked-all-the-boxes.4562923 |
+| **Beelink S12 Pro (N100)**, powersave-tuned | **5.7 W headless**, 10 W with 2 USB SSDs | https://windgate.net/beelink-s12-pro-intel-n100-powersave-optimization |
+| Fanless N100/N200 appliance | **10.5–12 W** | https://www.servethehome.com/fanless-intel-n100-firewall-and-virtualization-appliance-review/4 |
+| **Beelink SER7 (Ryzen 7 7840HS)** | **6–10 W idle**, 44–46 W sustained, 77–79 W peak | https://www.servethehome.com/beelink-ser7-review-a-smaller-and-cheaper-amd-ryzen-7-7840hs-mini-pc/4/ (2023-10-24) |
+| **GMKtec K8 Plus (8845HS)** | **10–11 W idle**, 90–95 W load | https://www.reddit.com/r/MiniPCs/comments/1in4nvs/ |
+| **Minisforum MS-01 (i9-13900H)** | **25–29 W idle** | https://www.servethehome.com/minisforum-ms-01-review-the-10gbe-with-pcie-slot-mini-pc-intel/5 |
+| Beelink SER8 (8845HS) | 7–10 W idle | https://www.servethehome.com/beelink-ser8-review-amd-ryzen-7-8845hs-powered-mini-pc/3 |
 
-**Noise:** sub-1-litre chassis with a single 35 W-class TDP CPU and a small blower; every source describes them as quiet under light load (ServeTheHome on the 3070 Micro: *"It sips power, is relatively quiet"*). **No published dB(A) measurement found for this class** — see NOT FOUND.
+*All accessed 2026-09-16. **Usable band for a Tiny/Micro node with a 35 W-TDP-class CPU: 10–13 W**, with the M720q's 27 W and the 65 W-TDP 7060 Micro's 18 W as the upper outliers. A blog claiming 15–20 W idle for an i5-8500T Micro (https://www.marginseye.com/blog/dell-optiplex-micro-review, 2026-07-08) disagrees with every meter-based source; I use 10 W for the 3070/EliteDesk class and flag the spread. **N100 nodes are materially lower — 6–8 W headless.** **No rigorous measured idle exists for SFF-class** (as opposed to Micro) machines — community estimate 20–25 W, https://www.reddit.com/r/homelab/comments/194khbq/optiplex_idle_power_consumption (2024-09-16).*
+
+### Noise — PUBLISHED declared levels (correcting an earlier assumption in this file)
+
+| Machine | Declared idle | Source |
+|---|---|---|
+| **HP EliteDesk 800 G4 Desktop Mini** | **LpAm 20 dB idle**, LwAd 3.2 bels; 28 dB on HDD random writes — per ISO 7779 / ISO 9296 | HP datasheet, https://h20195.www2.hp.com/v2/getpdf.aspx/c06040430.pdf (accessed 2026-09-16) |
+| HPE ProLiant DL360 Gen9 | idle **23–25 dBA** LpAm (ISO 7779, 23 °C); operating 25–31 dBA Entry/Base, **39 dBA Performance** | https://support.hpe.com/hpesc/public/docDisplay?docId=c04442953 (accessed 2026-09-16) |
+| Dell R630 / R730 / R730xd | min-config idle **25 / 28 / 31 dBA** | Dell, *13G PowerEdge Acoustical Performance*, https://i.dell.com/sites/csdocuments/Shared-Content_data-Sheets_Documents/en/Dell-13G-PowerEdge-Acoustical-Performance-and-Dependencies.pdf (accessed 2026-09-16) |
+| Beelink SER7 under light load | ~34.6 dBA in a 34 dBA studio — within ~1 dB of the room floor, so an **upper bound, not a clean measurement** | https://www.servethehome.com/beelink-ser7-review-a-smaller-and-cheaper-amd-ryzen-7-7840hs-mini-pc/4/ |
+
+**Do not overstate this.** A micro PC declared at 20 dB idle versus a 1U/2U server at 23–28 dBA idle is only **+4 to +8 dB ≈ 2.5–6× sound power** — both are library-quiet *at idle*. The disqualifying gap is at **load**: +14 to +19 dB ≈ **25–80× sound power**, i.e. a quiet room versus a loud office. Every server figure above is a **minimal/entry configuration at 23 °C**; a realistically populated build is louder and unpublished. Dell also states that any GPGPU card makes a configuration *"about twice as loud"* as typical. So the rack server's disqualifier is **loaded noise plus power**, not idle noise. (This corrects an earlier draft of this file that claimed a published dB figure did not exist — HP publishes one.)
 
 ### Ranking — capacity per dollar, upfront
 
@@ -243,20 +263,38 @@ Using the $120 turnkey 16 GB units (candidate 1):
 
 ### (b) One modern high-core desktop with 64–128 GB
 
-RAM is the dominant and now pathological cost. **PUBLISHED / MARKET, accessed 2026-09-16:**
+RAM is the dominant and now pathological cost, and **the real listing prices are worse than the component arithmetic suggests.**
 
-- 32 GB DDR5-6000 kit (Corsair Vengeance RGB): **$454.99** — Newegg Insider, https://www.newegg.com/insider/best-ddr5-ram-kits-in-2026-and-why-prices-are-up (2026-07-31).
-- A Newegg bundle put 32 GB DDR5 at **$239.99** — Tom's Hardware, https://www.tomshardware.com/pc-components/score-32gb-of-ddr5-ram-from-only-usd240-in-these-newegg-hardware-bundles-for-intel-and-amd-gaming-pc-builds-huge-savings-on-premium-gigabyte-motherboards-coupled-with-popular-corsair-vengeance-memory (2026-06-15).
-- The spike itself: **DDR4 up more than 50 % in Q3 2026**, and *"DDR3 also impacted by higher costs"* — https://wccftech.com/memory-shortages-drive-ddr4-prices-over-50-in-q3-2026-ddr3-also-impacted-by-higher-costs (2026-07-08); corroborated https://www.tomshardware.com/pc-components/ram/memory-price-surge-begins-to-cool-as-consumers-hit-affordability-limit-ai-demand-still-keeps-dram-and-nand-prices-climbing-through-q3-2026 (2026-07-04).
+**PUBLISHED / MARKET, accessed 2026-09-16:**
 
-| RAM target | @ $239.99 / 32 GB | @ $454.99 / 32 GB | Resident turns |
-|---|---|---|---|
-| 64 GB | $479.98 | $909.98 | 59 |
-| 128 GB | **$959.96** | **$1,819.96** | 118 |
+- **DDR5 64 GB kit (2 × 32 GB) DDR5-5600** (Crucial Pro CP2K32G56C46U5): **$1,099.99 = $17.19/GB** — https://www.newegg.com/crucial-pro-64gb-ddr5-5600-cas-latency-cl46-desktop-memory-black/p/N82E16820156380
+- Amazon: Crucial 64 GB DDR5-4800 UDIMM **$1,048.00 = $16.38/GB**; G.SKILL Ripjaws S5 64 GB DDR5-5200 **$979.99 = $15.31/GB** — https://www.amazon.com/dp/B0C79H54TQ
+- **DDR4 64 GB kit (2 × 32 GB) DDR4-3200** (Crucial CT2K32G4DFD832A): **$493.89** Newegg / **$490.00 Amazon = $7.66/GB** — https://www.newegg.com/crucial-64gb-ddr4-3200-cas-latency-cl22-desktop-memory/p/N82E16820156238 and https://www.amazon.com/dp/B07ZLD6Q1G (the Amazon price is page-verified; B&H and Best Buy both returned 403/422 to direct fetch, so there is **no page-verified second-retailer DDR4 price**).
+- **The shortage is structural, not a blip:** conventional DRAM contract prices rose **~90–95 % QoQ in Q1 2026** (a record), with a further **58–63 % projected for Q2**; legacy DDR4 is being phased out and in some configurations trades **above** DDR5 — https://www.hiper-global.com/news/memory-and-ssd-update-mid-2026/. A 64 GB DDR5-5600 SODIMM kit was **$130** a year earlier → RAM is roughly **8× its 2025 price**, and DDR5 carries a **~2.1× premium over DDR4**. Also **DDR4 up more than 50 % in Q3 2026** with *"DDR3 also impacted by higher costs"* — https://wccftech.com/memory-shortages-drive-ddr4-prices-over-50-in-q3-2026-ddr3-also-impacted-by-higher-costs (2026-07-08).
 
-**$/turn on RAM alone:** 128 GB → **$8.14/turn** at the cheapest sourced DDR5 price, **$15.42/turn** at retail — *before* CPU, motherboard, PSU, case, cooler or storage.
+**Actual current listings for a whole machine of this class:**
 
-**NOT FOUND:** a citable price for the complete build (Ryzen 9 7950X / i9-14900K class, 128 GB, 2 TB NVMe). A Newegg listing exists for an "ASUS TUF GT501 — Ryzen 9-7950X — RTX 5060 — 2TB NVMe — 32GB DDR5" (https://www.newegg.com/p/pl?d=ryzen+7950x) but I did not capture its price, so I state none. **The conclusion is robust without it: ≥$960 of the build is RAM at the best sourced price — 2.5× the cost of three complete used nodes that add 18 threads between them, for a machine that adds 32.** Add ~$700–1,000 for the rest → **~$1,650–1,950**, 118 turns, 32 threads, ~40–60 W idle ($88–131/yr) → **3-yr $/turn ≈ $16–18**, i.e. **worse than three $120 mini PCs at $13.83**, with less resilience. Its only real advantage is **turns per watt** (2.36 vs 1.40).
+| Machine | Spec | Price | Turns | **$/turn upfront** |
+|---|---|---|---|---|
+| **ADAMANT CUSTOM 24-Core workstation** — https://www.newegg.com/p/3D5-002T-00S40 | **i9-14900K (24 cores)**, **128 GB DDR5**, 1 TB 990 PRO, RTX 5060 Ti, Win 11 Pro, 3-yr warranty | **$4,899.99** → $5,224.61 taxed | 118 | **$44.28** |
+| Ryzen 9 7950X prebuilt *(snippet-only)* | 7950X, 64 GB DDR5, liquid-cooled | $3,399 | 59 | $61.42 |
+| i9-14900K AORUS build *(snippet-only)* — https://www.newegg.com/p/pl?d=ryzen+9+7950x | i9-14900K, 128 GB DDR5 | $5,449.99 | 118 | $49.25 |
+| **RAM alone, 128 GB DDR5** | 2 × 64 GB kit | **$1,960–2,200** | 118 | $17.7–19.9 before CPU/mobo/PSU/case |
+
+**$/turn: $44 upfront plus electricity. This is 3.2× worse than three $120 mini PCs at $13.83, and roughly twice the cost of the used rack server on 3-year total cost of ownership.**
+
+### The finding that kills option (b) outright: the binding constraint is CORES, not RAM
+
+**ARITHMETIC, derived from the owner's own measured constants** (0.81 GB/turn, ~1 core per generating turn, 25 % headroom):
+
+- **40–55 concurrent turns at ~1 core per generating turn requires 40–55 usable cores.**
+- An i9-14900K or Ryzen 9 7950X has **24 cores / 32 threads** → it can saturate only **~24–32 turns.**
+- **One 24-core desktop therefore does not replace the mesh at 55 turns.** It would need to be two such boxes, or a 32–64-core Threadripper/EPYC-class machine — a materially different and much more expensive tier.
+- The RAM to reach 55 resident turns is only **$600–900** at today's prices. **RAM is not the problem; cores are.** Buying a big machine to fix a presumed RAM shortage would spend $5,000 to solve the wrong axis and still come up ~20 cores short.
+
+**And the electrical advantage does not repay it:** 55 N100-class nodes at 8 W ≈ 440 W ≈ **$962/yr**, against ~$262/yr for one 120 W box — a **~$700/yr** delta that never repays a $4,899 workstation within its service life, while the workstation provides *fewer* cores than the fleet.
+
+**Verdict on (b): reject.** Not because it is expensive — because at 2026 prices it is the worst value per turn *and* it does not clear the binding constraint.
 
 ### (c) Upgrading what he already owns
 
@@ -286,9 +324,9 @@ NJ residential **24.95 ¢/kWh** (EIA Table 5.6.A, June 2026, released 2026-08-26
 | 3 micro PCs | 30 | 262.9 | **$65.61** | ARITHMETIC |
 | One big desktop, 128 GB | 40–60 | 350–526 | **$88–131** | **assumption, not measured** |
 | Used workstation (Z440, E5-1650 v3) | **100–110** | 876–964 | **$218–241** | PUBLISHED, measured |
-| Used rack server (R730) | **125–252** | 1,095–2,208 | **$273–551** | PUBLISHED, measured |
+| Used rack server (R730 / DL360 Gen9) | **47 – 252** — 47 W only in a near-empty SPECpower config; **80 W** in a verified minimal 24 h run; **125–252 W** realistically populated | 412–2,208 | **$103–551** | PUBLISHED, measured |
 
-**Rack-server and workstation idle draw — PUBLISHED, and this is the whole argument against both:** R730 *"using ~145 w at basically idle"* (https://forums.servethehome.com/index.php?threads/dell-r730-vs-r720-power-usage.31985/, 2021-02-24); measured **125 W** (light, ESXi + 2 VMs), **156 W** (dual E5-2647 v4, all-SSD), **252 W** (dual E5-2696 v4, 512 GB, 4× SAS) — same thread; **196–210 W** after powerd++ tuning (https://dan.langille.org/2024/01/29/using-powerd-to-reduce-power-consumption-on-a-dell-r730/, 2024-01-29); DL380 Gen9 **160–180 W** idle (https://www.reddit.com/r/homelab/comments/14edwwl/, accessed 2026-09-16). **HP Z440 with E5-1650 v3 draws about 100–110 W idle** — https://www.reddit.com/r/homelab/comments/17vd8qj/hp_z440_workstation_e51650v3_haswell_power (2024-09-16, accessed 2026-09-16).
+**Rack-server and workstation idle draw — PUBLISHED, and the spread matters.** At the bottom: a Dell R730 with 2 × E5-2699 v3, 64 GB and 1 SSD measured **46.9 W "Active Idle"** on a calibrated Yokogawa WT210 — **SPECpower_ssj2008**, https://www.spec.org/power_ssj2008/results/res2015q1/power_ssj2008-20150203-00686.html (published 2015-02-18, accessed 2026-09-16). **But that is a near-empty configuration (one PSU, one SSD) and must not be budgeted for a working node.** Next: an HPE DL360 Gen9 with 2 × E5-2650 v4 and 64 GB measured **80 W average over a 24-hour run**, 70–80 W after HPE's recommended power profile — https://community.hpe.com/t5/hpe-proliant-servers-ml-dl-sl/setting-up-the-hpe-proliant-dl360-gen9-for-maximum-energy/td-p/7257260 (posted 2025-10-18, accessed 2026-09-16). Then realistically populated: R730 *"using ~145 w at basically idle"* (https://forums.servethehome.com/index.php?threads/dell-r730-vs-r720-power-usage.31985/, 2021-02-24); measured **125 W** (light, ESXi + 2 VMs), **156 W** (dual E5-2647 v4, all-SSD), **252 W** (dual E5-2696 v4, 512 GB, 4× SAS); **196–210 W** after powerd++ tuning (https://dan.langille.org/2024/01/29/using-powerd-to-reduce-power-consumption-on-a-dell-r730/, 2024-01-29); DL380 Gen9 **160–180 W** idle (https://www.reddit.com/r/homelab/comments/14edwwl/). **So the honest band is 47–80 W tuned-and-minimal, 100–300 W realistically populated.** **HP Z440 with an E5-1650 v3 draws about 100–110 W idle** — https://www.reddit.com/r/homelab/comments/17vd8qj/hp_z440_workstation_e51650v3_haswell_power (2024-09-16, accessed 2026-09-16).
 
 **Note on the big-desktop wattage:** I found **no meter-measured idle figure** for a 128 GB desktop workstation, so 40–60 W is an **assumption, flagged as such**. It changes no ranking — even at 60 W it costs far less to run than one workstation or rack server.
 
