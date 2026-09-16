@@ -61,6 +61,28 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repo = Split-Path -Parent $PSScriptRoot
+
+# NEVER LINK INTO A TRANSIENT SNAPSHOT. Measured 2026-09-16 on BOTH machines, and it took the
+# desktop's engine down and left the laptop one restart away from the same fate.
+#
+# `autosync` applies harness-config from a SNAPSHOT of HEAD under %LOCALAPPDATA%\Temp
+# (`harness-config-snap-<timestamp>`) rather than from the working tree -- a deliberate property,
+# so a dirty tree is neither published nor lost. But when it runs THIS script from there, `$repo`
+# IS the snapshot, so every junction this script created pointed into a directory that was deleted
+# minutes later. The links then dangle: `Test-Path <link>/package.json` is false and
+# `require.resolve` from the profile fails with MODULE_NOT_FOUND, so the engine cannot resolve its
+# own bundles and refuses to boot at all:
+#
+#     Error: dsh: cannot resolve profile bundle "dsh-plugin-cost" ...
+#
+# The trigger is any restart AFTER a sync -- which is why a reboot produced it. A junction must
+# point at the checkout, the only copy that persists, no matter where the script was invoked from.
+$checkout = Join-Path $env:USERPROFILE 'code\harness-config'
+if ($repo -like "$env:TEMP*" -and (Test-Path (Join-Path $checkout 'packages'))) {
+    Write-Host "note: invoked from a temp snapshot ($repo)"
+    Write-Host "      linking to the checkout instead ($checkout) -- a junction into %TEMP% dangles"
+    $repo = $checkout
+}
 $dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $HOME '.dsh' }
 if (-not $ProfileDir) { $ProfileDir = Join-Path $dshHome 'profiles\web' }
 

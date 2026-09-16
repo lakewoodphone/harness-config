@@ -864,6 +864,7 @@ lessons	L1727	1727		2026-09-16	ZABZ-YOGA	open	**L1727 · child_process.spawn('pw
 lessons	L1728	1728		2026-09-16	ZABZ-YOGA	open	**L1728 · tools.register() takes RAW JSON Schema: required is an array, not the author DSL's required: true**	entries/lessons/L1728.md	1	16	98e150e6c99712b6
 lessons	L1729	1729		2026-09-16	ZABZ-YOGA	open	**L1729 · A new bundle in dsh.profile.bundles does NOT hot-mount; patchReload:live does not cover the bundle list**	entries/lessons/L1729.md	1	14	ee06d15410464091
 lessons	L1730	1730		2026-09-16	ZABZ-YOGA	open	**L1730 · sync.py copies presets from the working tree on a timer: land the adder before the remover, because the preset lands first**	entries/lessons/L1730.md	1	12	a29e75e3a0855cc8
+lessons	L1731	1731		2026-09-16	ZABZ-YOGA	open	**L1731 · Autosync junctioned client plugins into a TEMP snapshot - every reboot left both machines' engines unable to resolve their bundles and unable to boot**	entries/lessons/L1731.md	1	52	973067f1de354d95
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
