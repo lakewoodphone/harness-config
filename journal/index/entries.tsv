@@ -281,6 +281,7 @@ handoff	H365	365		2026-09-16 00:52 UTC	ZABZ-YOGA	open	## 2026-09-16 00:52 UTC ·
 handoff	H373	373		2026-09-16 00:53 UTC	ZABZ-TECH	open	## 2026-09-16 00:53 UTC · ZABZ-TECH · Chumash Timeline audited, fixed, deployed and verified live - main 72a7eaa on lpt-apps-01	entries/handoff/H373.md	1	84	c768ce1fddc5712d
 handoff	H366	366		2026-09-16 01:13 UTC	ZABZ-YOGA	open	## 2026-09-16 01:13 UTC · ZABZ-YOGA · journal.py was mojibake again and corrupting other sessions entries; repaired with the cp1252 inverse (not latin-1) and the writer now refuses to emit mojibake; check 1095 -> 0 errors	entries/handoff/H366.md	1	57	0272921d9423af7e
 handoff	H374	374		2026-09-16 02:43 UTC	ZABZ-TECH	open	## 2026-09-16 02:43 UTC · ZABZ-TECH · Her launcher opens: one default resolved to the wrong person's paths, and the delivery that keeps it fixed now proves itself	entries/handoff/H374.md	1	72	c1f9c54aeea0dcf9
+handoff	H375	375		2026-09-16 13:00 UTC	LAKEWOOECHSMINI	open	## 2026-09-16 13:00 UTC · LAKEWOOECHSMINI · Daily note from LakewooechsMini	entries/handoff/H375.md	1	25	aefde7d9c1275421
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
