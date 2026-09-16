@@ -148,9 +148,12 @@ Three measured facts that change how a fleet is briefed:
   31.6 GB physical with hard faults at 2,400/s while CPU sat near 65 %. A fleet can be "only"
   65 % busy and still be paging.
 
-Records: `_dsh-scale/10-dsh-source-audit.md` (process model), `_dsh-scale/50-implementation.md`
-(what changed and what it bought), `_dsh-scale/80-windows-and-parity.md` (window budget; count
-browser memory by private bytes, never `WorkingSet`).
+Records (in the repo, so they reach every machine): `docs/dsh-at-scale/PROGRAM.md` is the spine;
+`10-dsh-source-audit.md` (process model), `50-implementation.md` (what changed and what it bought),
+`80-windows-and-parity.md` (window budget; count browser memory by private bytes, never
+`WorkingSet`), `70-toolcall-latency.md` (per-call cost and why the persistent shell was refused),
+`60-cost-audit.md` (the money). `scripts/harness-verify.ps1` checks these invariants and exits
+non-zero when one is false.
 
 ## Off-limits
 
