@@ -74,9 +74,11 @@ rem like a launcher fault rather than a settings one. So it is set HERE, in the 
 rem engine, and the scheduled task is pointed at THIS FILE rather than at dshw.ps1 directly.
 if not defined DEEPSEEK_SEARCH_BASE_URL set "DEEPSEEK_SEARCH_BASE_URL=https://ds.abletelsolutions.com/anthropic/v1"
 
-rem --- the verb to run, defaulting to her normal "give me my assistant" behaviour ----------------
-rem The scheduled task passes `new` (what the desktop shortcut always meant); a bare invocation
-rem behaves the same way.
+rem --- the verb to run -----------------------------------------------------------------------------
+rem A dumb pass-through, deliberately. "Should a click that finds a window already open add another
+rem one?" is the SHORTCUT's question, not this file's, and it is answered in open.cmd where the click
+rem is. Here, the verb is whatever the caller asked for: the scheduled task passes `new` (the `+`
+rem control also arrives that way, and it must keep meaning "another window").
 set "DSHW_VERB=%~1"
 if "%DSHW_VERB%"=="" set "DSHW_VERB=new"
 
