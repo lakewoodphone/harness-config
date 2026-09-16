@@ -58,6 +58,9 @@ These are not style preferences. Every one is measured from months of transcript
 
 **1. Do not stop to ask permission you already have.** 9.9% of his messages were "keep going", "get to work", "fully solve it" — 2,283 turns spent restarting an agent that had halted to report. Finish the job. A turn may end only for one of four reasons: the task is complete with evidence; you are genuinely blocked; the decision is his to make; or the action is irreversible. Never ask "shall I proceed?" for work already inside your mandate. Long work goes to a background job so the turn is not idled.
 
+**1b. On any larger job, orchestrate — do not grind serially.** His words, 2026-09-15: *"meaning on any larger job, you should default to orchestraotr and give out jobs to subagents. the harness sholuld know this and defualt to this on jobs instead of constant single thread iterations."* When a job has more than one genuinely independent piece — a backlog, several repos, a build-out, many files, "everything that needs doing" — **default to fanning it out across subagents**, each isolated in its own git worktree and branch, and then manage them rather than build. Partition by file so no two agents touch the same path, write each brief as a contract with a checkable definition of done, integrate serially in risk order, and reproduce every claim yourself before believing it. **Single-thread iteration is the fallback for genuinely sequential work, not the default.** A serial agent stops after each increment and needs restarting; a fleet finishes the job while you integrate. The capability, both scripts and the brief template are in `presets/*/skills/parallel-agent-orchestration/` and `docs/parallel-agent-orchestration.md` — read them before a machine's first fleet, and run `agent-fleet doctor` there first.
+
+
 **2. Ask rarely, ask well, ask one at a time, and always recommend.** 4.2% of his messages were "one at a time" and 2.2% were "give me options with a recommendation". When something truly belongs to him, ask exactly one question, in plain language, with the options laid out and one of them marked as your recommendation. Never a menu of five. Never two questions at once. Never a wall of text before the question.
 
 **2b. He does not review documents — never end a turn by handing him one.** His words, 2026-09-11: *"i don't review things, if you have important questions for me, ask them clearly and explained and i'll answer one at a time, remember that."* A deliverable is for the record and for future sessions; it is **not** a request for him to read. So: never write "review this document and tell me", never ask him to confirm a table, never summarise a doc and stop. Convert every decision inside a document into **one plain-language question with explained consequences and options**, asked in the conversation. Write the document anyway — that is how the decision survives past this session — but the turn ends with a question, not a document. If there is nothing genuinely his, the turn ends with the work finished, not with a reading assignment.
@@ -83,6 +86,9 @@ These are not style preferences. Every one is measured from months of transcript
 **Verify, do not assume.** Nothing is "working" because it was configured. Mount it, run it, call it, and read the result. When you claim something is fixed, say what you observed.
 
 **One source of truth per thing.** Harness configuration lives in `~/code/harness-config` (git, remote on `secratary`) — change it there and sync, never edit `~/.dsh` directly. The company's authoritative database is on `secratary`. Anything that must survive or be seen from another machine goes to the authoritative store.
+
+**AI models are never hardcoded — resolve them at runtime.** Models change constantly; a literal model name in application code is a time bomb. Standing instruction, 2026-09-15: *"ai models change very often, can never be hardcoded and get changed and updated all the time so we need robust easy flows for that."* Measured consequence: every recorded live AI call in `personality-system` failed for over a week because a hardcoded name stopped existing, and the silent deterministic fallback hid it — users saw plausible text and nobody knew. So: read the gateway's own catalog (`GET $SECRETARY_API_BASE/v1/models`) and **prefer its route aliases** (`secretary-auto`, `secretary-fast`, `secretary-smart`; never `secretary-genius`, measured 502 on 2026-09-15), let an operator override per tier with a comma-separated env chain so a model swap needs no code change, **validate every configured id against the catalog and drop what is not listed**, cache with single-flight and fail soft, publish which model actually served a request, and never let an AI outage be silent. Full rule and evidence: `journal.py show L1606`.
+
 
 **Never destroy data.** No `rm -rf`, no `pm clear`, no factory reset, no `git reset --hard`, no force push, no dropping tables, without an explicit per-action yes for that exact command on that exact thing. This business has lost customer data twice.
 
@@ -296,30 +302,40 @@ MCP_ROWS = r"""
   config:
     serverName: fetch
     transport: stdio
-    command: 'npx.cmd'
+    # DIRECT node, no npx.cmd (2026-09-16). Was: command npx.cmd, args [-y, mcp-fetch-server].
+    # On Windows that shape cost four OS processes per server -- cmd.exe -> npx-cli.js ->
+    # cmd.exe -> server -- and `npx -y <pkg>` only reuses a cached install when the name AND
+    # version match, so every start hit the npm registry (~3-4 s measured). The chain layers
+    # also survived a kill, which is how the engine ended up holding THREE complete
+    # generations of every MCP server at once. One process now, and the child DSH spawns IS
+    # the server, so killing it kills the server.
+    command: 'C:\\Program Files\\nodejs\\node.exe'
     args:
-      - '-y'
-      - mcp-fetch-server
+      - 'C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\mcp-fetch-server\\dist\\index.js'
     toolCallTimeoutMs: 90000
     failOnStartupError: false
 
 # Deterministic accessibility-tree browser automation. Playwright downloads and
 # browser profiles are the most likely thing to be slow or missing on a fresh
 # machine, hence failOnStartupError false.
+#
+# DIRECT node, no npx.cmd (2026-09-16) -- same reasoning as mcp-fetch, and this row
+# was the worst offender because `@playwright/mcp@latest` forced a registry hit for
+# the `latest` tag on every single start.
 - id: mcp-playwright
   name: '@deepseek-ai/dsh-mcp-client'
   disabled: !!js process.platform !== 'win32'
   config:
     serverName: playwright
     transport: stdio
-    command: 'npx.cmd'
+    command: 'C:\\Program Files\\nodejs\\node.exe'
     args:
-      - '@playwright/mcp@latest'
+      - 'C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\@playwright\\mcp\\cli.js'
       - '--headless'
       - '--no-sandbox'
       - '--output-dir'
-      - 'C:\Users\ezabz\code\personal-secretary-mvp\data\browser\mcp-output'
-    cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+      - 'C:\\Users\\ezabz\\code\\personal-secretary-mvp\\data\\browser\\mcp-output'
+    cwd: 'C:\\Users\\ezabz\\code\\personal-secretary-mvp'
     toolCallTimeoutMs: 180000
     failOnStartupError: false
 """

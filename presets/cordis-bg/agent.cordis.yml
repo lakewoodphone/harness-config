@@ -146,16 +146,35 @@
   config:
     - id: compaction-basic
       name: '@deepseek-ai/dsh-compaction-basic'
+      # thresholdRatio 0.7 (2026-09-16, cost audit). The trigger ignored the 256,000-token
+      # completion reservation that the adapter enforces, leaving a 7,424-token band where
+      # the credential's legal ceiling (792,576) is LOWER than the compaction trigger: DSH
+      # refuses to compact and the API rejects the request. Ten CONTEXT_WINDOW_EXCEEDED
+      # failures were recorded, each forcing an emergency whole-history compaction
+      # (retainTokens = 0) -- a wasted full-price request plus a summary. 0.7 puts the
+      # trigger at 700k, comfortably under the ceiling, so the band cannot be entered.
+      # Nothing about what the agent can do changes; it now respects a limit it already had.
+      config:
+        thresholdRatio: 0.7
 
     - id: command-compact
       name: '@deepseek-ai/dsh-command-compact'
 
+    # Tightened 2026-09-16 from 8192/4096/1024. Measured over the recorded corpus
+    # (12,597,690 chars of tool output) the old values kept 76.7% of raw and suppressed
+    # only ~735k tokens, while tool output is 82.5-95.8% of prompt tokens in the long
+    # sessions that were half the bill. These values keep head+tail -- where the signal is
+    # for command output and diffs -- and the FULL result still goes to the spill file,
+    # re-readable on demand. Deliberately less aggressive than the audit's 2000/800/400:
+    # over-tightening forces an extra read call, and every extra call re-sends the whole
+    # context, which can cost more than the bytes it saved. Re-measure before tightening
+    # further.
     - id: tool-result-pruner
       name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
       config:
-        thresholdChars: 8192
-        headChars: 4096
-        tailChars: 1024
+        thresholdChars: 5000
+        headChars: 2500
+        tailChars: 700
 
 # ── delegation and workflows ────────────────────────────────────────────────
 
