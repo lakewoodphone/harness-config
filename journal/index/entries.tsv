@@ -281,6 +281,7 @@ handoff	H371	371		2026-09-16 03:20 UTC	ZABZ-YOGA	open	## 2026-09-16 03:20 UTC ·
 handoff	H372	372		2026-09-16 03:21 UTC	ZABZ-YOGA	open	## 2026-09-16 03:21 UTC · ZABZ-YOGA · Dialpad is mapped: three access paths, the workflow endpoint, and the media library - plus two live defects	entries/handoff/H372.md	1	68	cb50d04104c3c554
 handoff	H373	373		2026-09-16 14:22 UTC	ZABZ-YOGA	open	## 2026-09-16 14:22 UTC · ZABZ-YOGA · DSH scale program: locks + MCP waste fixed and verified; four audits in flight (2026-09-16)	entries/handoff/H373.md	1	60	cc3c3d0e82ee0157
 handoff	H374	374		2026-09-16 14:29 UTC	ZABZ-YOGA	open	## 2026-09-16 14:29 UTC · ZABZ-YOGA · Round 2: append 10.4s -> 2.5s, window ratchet fixed, reaper scheduled; push and ZABZ-TECH blocked on broken Tailscale	entries/handoff/H374.md	1	51	001923e1e30772e7
+handoff	H375	375		2026-09-16 14:40 UTC	ZABZ-YOGA	open	## 2026-09-16 14:40 UTC · ZABZ-YOGA · Round 5: session-shape cost rule + sync now installs client plugins + measured fleet budgets published; plugin-health in flight; Tailscale still down	entries/handoff/H375.md	1	67	5406911f651e49b6
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -836,6 +837,7 @@ lessons	L1713	1713		2026-09-16	ZABZ-YOGA	open	**L1713 · Regenerating a generate
 lessons	L1714	1714		2026-09-16	ZABZ-YOGA	open	**L1714 · DSH session logs are multi-frame zstd; .decompress() silently returns only the first frame**	entries/lessons/L1714.md	1	6	60de0209b7959edc
 lessons	L1715	1715		2026-09-16	ZABZ-YOGA	open	**L1715 · DSH cost is requests x mean context; the cache is already healthy, so only volume is left**	entries/lessons/L1715.md	1	6	600ad6fbd9a32815
 lessons	L1716	1716		2026-09-16	ZABZ-YOGA	open	**L1716 · A trivial pwsh tool call costs 540-700 ms and 78% of it is PowerShell's own startup - the fix is using read/grep instead, not tuning the runner**	entries/lessons/L1716.md	1	43	4ccbe8389a50ffb9
+lessons	L1717	1717		2026-09-16	ZABZ-YOGA	open	**L1717 · A keeper that only runs when someone remembers is a procedure - install-client-plugins.ps1 existed and nothing called it, so sync.py calls it now**	entries/lessons/L1717.md	1	45	f68b3a422f248de6
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
