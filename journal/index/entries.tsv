@@ -931,6 +931,7 @@ lessons	L1771	1771		2026-09-16	ZABZ-YOGA	open	**L1771 · A broken output pipe is
 lessons	L1772	1772		2026-09-16	ZABZ-YOGA	open	**L1772 · A control that blocks a channel also blocks the owner's own request**	entries/lessons/L1772.md	1	18	e74cc7f58ec71d28
 lessons	L1773	1773		2026-09-16	ZABZ-YOGA	open	**L1773 · reminders.recurrence was a decoy, create_event had no recurrence, and the real recurring mechanism is standing_work_orders cron**	entries/lessons/L1773.md	1	23	d182f774b0eb2f89
 lessons	L1774	1774		2026-09-16	ZABZ-YOGA	open	**L1774 · OWNER_PHONE_NUMBER is Google Voice; the line he reads is OWNER_NOTIFY_NUMBER**	entries/lessons/L1774.md	1	24	0dfc5822ebada02c
+lessons	L1775	1775		2026-09-16	ZABZ-YOGA	open	**L1775 · ServerAliveInterval does not save you from a hanging REMOTE command - two ssh sessions sat open 24 minutes because the TCP session was alive and the far side was stuck**	entries/lessons/L1775.md	1	13	8e2ad5d0cf9b310d
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
