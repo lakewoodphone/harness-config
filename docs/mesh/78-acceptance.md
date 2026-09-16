@@ -212,6 +212,21 @@ against every one of six files held by a `Start-Process -RedirectStandardOutput`
 function's comment), a stub gate that fails to start now reports its exit code and stderr, and the
 whole harness is re-run after every edit. This one is the argument for that last habit.
 
+**6. The harness leaked its own processes — and my first diagnosis of it was half wrong.** Cleanup
+ran only on the last line of the script. A background run whose stdout pipe failed kept running for
+many minutes, and its stub gates were *legitimately alive* while it did; a sweep found six of my
+processes listening and I killed them, which killed that run's children out from under it. One
+(`mesh-stub-gate --node solo --slots 5`, step 6's) was a genuine leak that outlived its run and
+survived a `finally` that had already printed its cleanup line.
+*Guard, and deliberately structural rather than a better explanation:* every hermetic mesh is now
+**registered** and stopped in a `finally`, plus a backstop that kills every process whose **parent
+is this script** — ownership by parentage, which does not depend on having remembered to record a
+PID anywhere. Verified: a clean-slate run now ends with **zero** leaked processes.
+Two further lessons from the same five minutes. First, "the harness printed a cleanup line" is not
+evidence that nothing leaked; enumerate the machine's own listeners. Second, I wrote `$pid` while
+removing the leaks — a **read-only PowerShell automatic variable** — so the first cleanup attempt
+killed nothing whatsoever, in the same session as lesson 1 above about automatic variables.
+
 ---
 
 ## 5. Baseline status — what the mesh actually is on 2026-09-16
@@ -234,6 +249,18 @@ itself — see §4). The authoritative run is
 | `S6` queue, never amputate | **PASS** | 30/30 HTTP 200 against exactly 5 slots; 25 positions > 0 (max 29); zero non-200 |
 
 **4 PASS · 1 FAIL · 3 SKIP.** Exit code **1**, because one step failed.
+
+**Reproduced.** Re-run at 23:49:22Z (`20260916T234922Z`) with the shipped script, after the cleanup
+fix, it returned the *same* verdicts — 4 PASS / 1 FAIL / 3 SKIP — with the same single failure. Two
+independent runs agreeing on every step is worth more than either one alone; only the free-memory
+figures and the live mesh's free-slot counts differ between them.
+
+**And then the mesh moved again, mid-session.** The last run, `20260916T235146Z` at 23:51:46Z,
+returned **4 PASS / 0 FAIL / 4 SKIP, exit 0** — S1 flipped from FAIL to SKIP because
+`LakewooechsMini`'s gate stopped answering on `:443` entirely, i.e. S1 was redeploying that node at
+the moment of measurement. The other four nodes all PASSed with deltas of +80, +65, −5 and +6 MiB.
+So within twenty minutes the same check moved FAIL → SKIP for the same node, for a reason that has
+nothing to do with the harness. **Read `report.json`, or re-run — never quote this table.**
 
 Per-node readings (step 1, live gates at 23:45Z):
 

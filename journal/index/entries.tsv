@@ -995,6 +995,7 @@ lessons	L1825	1825		2026-09-16	ZABZ-YOGA	open	**L1825 · Read a Start-Process re
 lessons	L1826	1826		2026-09-16	ZABZ-YOGA	open	**L1826 · macOS: never invoke bare tailscale over ssh -- and a subprocess timeout that kills only the shim leaks a spinning orphan**	entries/lessons/L1826.md	1	15	95f7b42409f28146
 lessons	L1827	1827		2026-09-16	ZABZ-YOGA	open	**L1827 · macOS load average is not a CPU signal, and Pages free is not available memory**	entries/lessons/L1827.md	1	16	9ae2ddca437d44b4
 lessons	L1828	1828		2026-09-16	ZABZ-YOGA	open	**L1828 · macOS 26 keeps a SECOND wallpaper for the idle state, and it can be a 4K video**	entries/lessons/L1828.md	1	14	4005ec12dd4fd995
+lessons	L1829	1829		2026-09-16	ZABZ-YOGA	open	**L1829 · $pid is read-only; and do not call a process 'leaked' until you have checked whether the run that owns it has finished**	entries/lessons/L1829.md	1	32	ee7023c98d673730
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1372,6 +1373,7 @@ decisions	D229	229		2026-09-16	ZABZ-YOGA	open	**D229 · 2026-09-16 · The phone 
 decisions	D230	230		2026-09-16	ZABZ-YOGA	open	**D230 · 2026-09-16 · Node durability is the one-minute watchdog hook plus a logon entry.**	entries/decisions/D230.md	1	15	63893d1b087c807c
 decisions	D231	231		2026-09-16	zabz-yoga	open	**D231 · 2026-09-16 · Where the Shlock project's authoritative records live, by layer (tarp on secratary psmvp master; frame in lpt-hub research).**	entries/decisions/D231.md	1	23	7b385f420cd5b381
 decisions	D232	232		2026-09-16	ZABZ-YOGA	open	**D232 · 2026-09-16 · Acceptance-harness rules: the one FAIL/SKIP test, a hermetic mesh for controllability, and why the frozen scoring formula is not asserted.**	entries/decisions/D232.md	1	27	05b349798081a0df
+decisions	D233	233		2026-09-16	ZABZ-YOGA	open	**D233 · 2026-09-16 · Section 4.5: the stub-gate half stands, the fleet-death half is deferred, and no one kills another stream's node.**	entries/decisions/D233.md	1	28	ad967eb9afd51502
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e

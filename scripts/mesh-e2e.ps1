@@ -94,6 +94,7 @@ $script:RunId = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
 $script:Host0 = $env:COMPUTERNAME
 $script:StartedAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 $script:Procs = New-Object System.Collections.ArrayList      # ONLY processes this script started
+$script:Meshes = New-Object System.Collections.ArrayList     # every hermetic mesh, so the finally can stop it
 $script:Scratch = ''
 $script:Notes = New-Object System.Collections.ArrayList
 
@@ -544,6 +545,11 @@ function Start-HermeticMesh {
     }
     $missing = @($gates | Where-Object { -not $_.url })
     if ($missing.Count -gt 0) {
+        # Stop what we already started before giving up. An early return that forgets this is how
+        # a failed mesh becomes a leaked gate listening on the host we are about to measure.
+        foreach ($g in $gates) {
+            if ($g.proc -and -not $g.proc.HasExited) { Stop-Process -Id $g.proc.Id -Force -ErrorAction SilentlyContinue }
+        }
         $why = (($missing | ForEach-Object { $_.diagnostic }) -join ' | ')
         return [pscustomobject]@{ ok = $false; error = "stub gate(s) did not report a URL: $why"; gates = $gates; procs = @() }
     }
@@ -593,11 +599,17 @@ function Start-HermeticMesh {
     } elseif (-not $ready) {
         "the hermetic broker came up on $base but was never ready to be asked: $readyError"
     } else { $null }
-    return [pscustomobject]@{
+    $mesh = [pscustomobject]@{
         ok = ($up -and $ready); error = $meshError
         base = $base; gates = $gates; proc = $proc; leaseTtlMs = $LeaseTtlMs
         roster = $rosterPath; log = $out; err = $err; tag = $Tag
     }
+    # REGISTER IT. The finally stops every registered mesh, so no mesh can be leaked by a
+    # control-flow path that forgot to stop it. Measured 2026-09-16: a step-6 gate survived a
+    # run whose own explicit Stop-HermeticMesh looked correct, which is exactly the kind of bug
+    # that is not worth finding by reading - make it impossible instead.
+    [void]$script:Meshes.Add($mesh)
+    return $mesh
 }
 
 function Stop-HermeticMesh($Mesh) {
@@ -640,6 +652,10 @@ Write-Host "  evidence   $script:Scratch"
 Write-Host '  rules      proxy OFF on every call; a timeout on every call; no engine is restarted;'
 Write-Host '             no process is killed that this script did not start.'
 Write-Host "  broker src $($sourceAtStart.hash)   git $($sourceAtStart.gitHead)"
+
+# Everything from here to the summary runs inside a try, so the cleanup in the finally is
+# guaranteed. See the note on that finally for why it is not merely tidy.
+try {
 
 # ---------------------------------------------------------------------------
 # STEP 4 BASELINE (measured first, deliberately: the fleet is not dispatched yet, so these
@@ -1330,13 +1346,49 @@ try {
 }
 
 # ---------------------------------------------------------------------------
-# cleanup — only the processes this script started
+# cleanup — only the processes this script started, and IN A FINALLY so it always runs.
+#
+# MEASURED 2026-09-16: this block used to run only at the very end of the script, and a run whose
+# stdout pipe failed left FIVE stub gates and one ssh tunnel still LISTENING on 127.0.0.1 minutes
+# later, plus a sixth under a different port. Found by enumerating my own listeners at the end of
+# the session, which is now the habit. A harness that silently leaves gates listening on the
+# machine it just measured is worse than one that reports a failure, because the next measurement
+# is then taken on a polluted host.
 # ---------------------------------------------------------------------------
-$killed = 0
-foreach ($p in $script:Procs) {
-    if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; $killed++ }
+} finally {
+    $killed = 0
+    # Pass 0: every hermetic mesh this run started, by registry rather than by remembering to
+    # stop it at the right place in the control flow.
+    foreach ($mesh in $script:Meshes) {
+        if ($mesh) {
+            foreach ($g in @($mesh.gates)) {
+                if ($g -and $g.proc -and -not $g.proc.HasExited) { Stop-Process -Id $g.proc.Id -Force -ErrorAction SilentlyContinue; $killed++ }
+            }
+            if ($mesh.proc -and -not $mesh.proc.HasExited) { Stop-Process -Id $mesh.proc.Id -Force -ErrorAction SilentlyContinue; $killed++ }
+        }
+    }
+    # Pass 1: the processes we tracked. Necessary, and provably NOT sufficient - measured
+    # 2026-09-16: after this loop had already run, one `mesh-stub-gate --node alpha --slots 10`
+    # was still listening. Tracking a PID list and trusting it is how a leak becomes invisible.
+    foreach ($proc in $script:Procs) {
+        if ($proc -and -not $proc.HasExited) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            $killed++
+        }
+    }
+    # Pass 2, the backstop: every process whose PARENT is this script. That is, by definition,
+    # a process this script started and nothing else - no other stream's gate, no engine, no
+    # helper. Ownership by parentage does not depend on having remembered to add a PID anywhere.
+    try {
+        $children = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$PID" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -in @('node.exe', 'node', 'ssh.exe', 'ssh') })
+        foreach ($child in $children) {
+            Stop-Process -Id $child.ProcessId -Force -ErrorAction SilentlyContinue
+            $killed++
+        }
+    } catch { }
+    Write-Host "  cleaned up $killed process(es) this script started; every engine and every pre-existing gate was left alone."
 }
-Write-Host "  cleaned up $killed process(es) this script started; every engine and every pre-existing gate was left alone."
 
 if ($Json) { $report | ConvertTo-Json -Depth 12 }
 
