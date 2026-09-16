@@ -76,3 +76,15 @@ Nothing fired the 5 GB trigger during the 09-15 window, so there are no frames i
 | `kernel-task-table-at-2300-kill.txt` | The kernel's per-task table at the 23:00 kill: the API was **84 % of all anonymous memory on the box**. |
 | `pyspy-dump-2311-health-probe-park.txt` | The 23:11:57 py-spy dump: 35 of 36 threads parked in `_get_conn <- _db_check`. |
 | `smaps-rollup-prefix.tsv` | Anonymous mapping growth before the first fix. |
+
+## Where the fixes live, and what is saved where (as of 2026-09-16 16:20Z)
+
+| Thing | Location |
+|---|---|
+| Watchdog startup grace | authority `personal-secretary-mvp`, commit `71547526` (branch `master`) |
+| SQLite per-connection memory + `temp_store=FILE` | commit `44e3f8e8` |
+| Single-flight cached `/health` DB probe | commit `ce20ab28` |
+| All three, off-machine | pushed today as **`origin/backup/secratary-checkout-20260916`** on GitHub (the authority checkout is 103 commits ahead of `origin/master` and must never be pushed there blindly — P143) |
+| Containment | `/etc/systemd/system/secretary-api.service.d/20-memory-guard.conf` on the authority (`MemoryHigh=5G MemoryMax=8G MemorySwapMax=1G`), applied at runtime with `set-property --runtime` so the running unit is covered; reversible without a restart |
+| Evidence capture | `~/phone/oom-evidence/burst-catcher.sh <seconds>` armed 2026-09-16 16:0xZ for 6 h → `burst-catcher.log`, `burst-*.dump.txt` |
+| Journal record | `P211` (pain, open), `D211` (containment decision), `L1734` (SQLite memory), `L1735` (how to judge a provisional fix), `H390` (the corrected state of play), `P212` (the id-collision defect found while saving this) |
