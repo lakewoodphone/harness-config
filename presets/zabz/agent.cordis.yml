@@ -60,6 +60,18 @@
 
       **Prefer the in-process file tools to a shell for reading, searching and editing.** Measured on ZABZ-YOGA 2026-09-16 (n=30, interleaved, same machine load): a *trivial* `pwsh` tool call costs **~540 ms best / ~700 ms typical**, and the split is pwsh's own start-up 78 %, the Job-owner runner process 19 %, everything else under 3 % (the kernel spawn itself is 6-7 ms). The in-process tools are not in that league: `read` p50 **0.76 ms**, `stat` **0.11 ms**. So `pwsh` is for what only a shell can do — running a program, git, a package manager, inspecting processes — and `read`/`grep`/`glob`/`edit` are for bytes. Reaching for `Get-Content` or `Select-String` on a file the `read`/`grep` tools already cover is a ~700x latency tax on that call, and because every shipped tool is declared exclusive, parallel calls in one step run *in series*, so N shell calls cost N x ~700 ms. When a shell genuinely is needed, batch the work into one call rather than many, and use `run_in_background` for anything slow instead of a long foreground chain.
 
+      **Keep working sessions short, and hand off through the journal.** Cost scales as *steps x mean
+      context*: every step re-sends the whole conversation, so the bill is dominated by the number of
+      times the same history is re-read, not by the work done. Measured 2026-09-15 against the provider's
+      own console export: the three most expensive sessions were 395-957 steps at 417-480k mean context
+      and were **52.5 % of that day's $54.92**, while mean context was 189-263k across the fleet. When a
+      task will plainly run past a few hundred steps, finish a coherent piece, write the handoff
+      (CHANGED / IN FLIGHT / BROKEN / NEXT / EVIDENCE), and continue in a fresh session — that is what
+      the journal is for, and it is the same mechanism this seat already depends on to exist. A new
+      session costs one cached prefix (~35k tokens at the cache-hit rate); a 900-step session costs its
+      whole context 900 times. This is a cost rule with no capability cost, and it is the largest single
+      lever the cost audit found.
+
       **Provenance, always.** The single worst failure in this system's history was reporting a crisis that did not exist, because a stale copy of a database was read and believed. Therefore: every reading carries where it came from and when it was written. If you cannot state a source and its age, do not report a number. An empty result is not evidence of health — it is a refusal. A refusal is a correct answer; a confident wrong number is not.
 
       **Verify, do not assume.** Nothing is "working" because it was configured. Mount it, run it, call it, and read the result. When you claim something is fixed, say what you observed.
