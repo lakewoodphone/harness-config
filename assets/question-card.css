@@ -107,13 +107,33 @@
     /* the home indicator sits over the bottom of the sheet, and the notch over its top */
     padding-bottom: max(8px, env(safe-area-inset-bottom));
     padding-top: max(8px, env(safe-area-inset-top));
+    /* THE CARD IS THE ONE SCROLLPORT, so the QUESTION ITSELF can be scrolled back into view.
+     *
+     * Measured 2026-09-16, third report from the same surface. With only the option list
+     * scrolling (the shipped layout, and the first version of this file), the question is the
+     * ONE thing that cannot be recovered: the header is `flex-shrink: 0` and sits above the
+     * scrollport, so if the sheet's top lands above the first pixel the reader can see — which
+     * is what a visual-viewport offset does, and what the owner kept hitting — the options are
+     * on screen, the question is not, and there is nothing left to scroll. "I can just see the
+     * options." Exactly.
+     *
+     * With the card as the scrollport, every part of the card is reachable by the gesture a
+     * thumb already knows, whatever the viewport does, and without depending on any script
+     * having measured the offset correctly. The plugin's pixel repair stays (it is what makes
+     * the card land correctly in the first place); this is the floor under it. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
-  /* Only the options scroll, and they scroll by touch. */
+  /* One scrollport, not two: the option list grows to its natural height inside the card
+   * instead of scrolling in a box of its own. */
   [class*="_frame"]:has(> [class*="_card"]) [class*="_body"] {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
     min-height: 0;
+    flex: 0 0 auto;
+    overflow: visible;
   }
 
   /* The strip that names the owner of the question and the pager are fixed chrome; they must
@@ -122,6 +142,17 @@
   [class*="_frame"]:has(> [class*="_card"]) [class*="_footer"],
   [class*="_frame"]:has(> [class*="_card"]) [class*="_header"] {
     flex-shrink: 0;
+  }
+
+  /* Submit stays where a thumb is, even though the card now scrolls as one piece: the footer is
+   * sticky to the bottom of the scrollport, so the question can be scrolled to AND the button is
+   * always on screen. Measured 2026-09-16 without this: with the card as the scrollport, Submit
+   * landed at y=799 on a 393x852 screen — reachable, but only after a scroll the reader has no
+   * reason to expect. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_footer"] {
+    position: sticky;
+    bottom: 0;
+    background: var(--dsw-specific-input-major, var(--dsw-alias-bg-base, #fff));
   }
 
   /* Submit is the one control that must always be tappable: give it a real thumb target and keep

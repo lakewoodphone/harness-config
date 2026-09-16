@@ -357,10 +357,10 @@ window.__ModuleLoader__.load({
       if (vv === null || vv === undefined) {
         return { top: 0, height: window.innerHeight };
       }
-      const scale = typeof vv.scale === 'number' && vv.scale > 0 ? vv.scale : 1;
-      // A zoomed page scales the visual viewport instead of offsetting it, and pinning a
-      // sheet to it would fight the reader's own zoom. Leave it to the stylesheet.
-      if (scale > 1.01) return null;
+      // `offsetTop` and `height` are already in CSS pixels and already account for a pinch
+      // zoom, so a zoomed page needs no special case. An earlier version bailed out entirely
+      // when `scale > 1.01`, which silently disabled the repair — and a repair that is
+      // silently absent is the failure this whole file exists to prevent.
       return { top: vv.offsetTop, height: vv.height };
     }
 
@@ -430,6 +430,7 @@ window.__ModuleLoader__.load({
       let cardFrame = null;
       let queued = false;
       let layerTimer = null;
+      let cardTimer = null;
 
       const settleCard = () => {
         queued = false;
@@ -485,6 +486,7 @@ window.__ModuleLoader__.load({
         window.removeEventListener('orientationchange', schedule);
         document.removeEventListener('visibilitychange', checkLayer);
         if (layerTimer !== null) window.clearInterval(layerTimer);
+        if (cardTimer !== null) window.clearInterval(cardTimer);
       };
       // The layer first: it is what makes the rest of this file's behaviour visible at all.
       ensureStylesheet();
@@ -492,6 +494,22 @@ window.__ModuleLoader__.load({
       // `keepLayerCurrent()` performs its first check itself; the interval and the visibility
       // listener are what make it survive a tab that stays open for days.
       const checkLayer = keepLayerCurrent();
+      // And the card is re-measured on a clock, not only when `visualViewport` says something
+      // moved. Measured 2026-09-16: the events are not a reliable proxy for the visible band on
+      // iOS — the keyboard animates, the band settles, and the last event can arrive before the
+      // geometry the reader ends up with. A card that is mounted is therefore re-measured a few
+      // times a second while it is up (two `getBoundingClientRect` reads, and only while a card
+      // exists), so a late-arriving offset is corrected instead of leaving the question above
+      // the first visible pixel.
+      if (typeof window.setInterval === 'function') {
+        cardTimer = window.setInterval(() => {
+          if (cardFrame === null) {
+            cardFrame = questionFrame();
+            if (cardFrame === null) return;
+          }
+          schedule();
+        }, 250);
+      }
       if (typeof window.setInterval === 'function') {
         layerTimer = window.setInterval(checkLayer, LAYER_POLL_MS);
       }

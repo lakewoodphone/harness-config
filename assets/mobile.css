@@ -1,4 +1,4 @@
-/* phone-layer-version: 2026-09-16.1
+/* phone-layer-version: 2026-09-16.3
  *
  * BUMP THIS TOKEN whenever anything in the phone layer changes. It is how an OPEN tab finds
  * out a fix exists: `dsh-plugin-mobile` reads this token out of the layer the document is

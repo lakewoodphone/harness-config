@@ -218,6 +218,7 @@ const cardBodyEl = new CardElement('body');
 const cardObservers = [];
 const cardRaf = [];
 const cardWindowListeners = [];
+const cardIntervals = [];
 const band = { offsetTop: 0, height: 852, scale: 1 };
 const cardRegistered = [];
 const cardWindow = {
@@ -225,6 +226,8 @@ const cardWindow = {
   matchMedia: () => ({ matches: true }),
   console: { warn: () => {} },
   setTimeout: (fn) => { fn(); return 1; },
+  setInterval: (fn) => { cardIntervals.push(fn); return cardIntervals.length; },
+  clearInterval: () => {},
   requestAnimationFrame: (fn) => { cardRaf.push(fn); return cardRaf.length; },
   addEventListener: (type, fn) => cardWindowListeners.push({ type, fn }),
   removeEventListener: () => {},
@@ -302,6 +305,31 @@ check('the measurement is left where a probe can read it',
   typeof cardWindow.__dshPhoneCard === 'object' && cardWindow.__dshPhoneCard !== null &&
   cardWindow.__dshPhoneCard.repaired === true,
   JSON.stringify(cardWindow.__dshPhoneCard));
+
+// Behaviour 3b — the band can move with NO event this file listens for. The keyboard animates,
+// the visual viewport settles afterwards, and the last event can arrive before the geometry the
+// reader actually ends up with. Measured 2026-09-16: the owner could still not read a question
+// after the pixel repair had been proved working, so the repair is now re-run on a clock while a
+// card is mounted rather than only when `visualViewport` says something moved.
+band.offsetTop = 0;
+band.height = 852;
+cardFrameNode.rect = { top: 0, bottom: 852, left: 0, right: 393, height: 852, width: 393 };
+cardTitle.rect = { top: 39, bottom: 60, left: 18, right: 300, height: 21, width: 282 };
+for (const observer of cardObservers) observer.cb([{ addedNodes: [cardFrameNode], removedNodes: [] }]);
+runFrames();
+check('a fitting card is left alone before the band moves',
+  Object.keys(cardFrameNode.inline).length === 0, JSON.stringify(cardFrameNode.inline));
+
+check('the card is re-measured on a clock while it is mounted (not only on viewport events)',
+  cardIntervals.length > 0, 'intervals=' + cardIntervals.length);
+// The band moves and NOTHING fires: no mutation, no visualViewport event, no resize.
+band.offsetTop = 240;
+band.height = 420;
+for (const tick of cardIntervals) tick();
+runFrames();
+check('a band that moves silently is still corrected at the next tick',
+  cardFrameNode.inline.top !== undefined && cardFrameNode.inline.top.value === '240px',
+  JSON.stringify(cardFrameNode.inline.top));
 
 // Now the band moves back to the whole screen and the card fits: the repair must be removed, or
 // the phone would keep a stale pixel height after the keyboard closes.
