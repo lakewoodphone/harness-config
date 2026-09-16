@@ -80,5 +80,16 @@ for ($i = 0; $i -lt $Samples; $i++) {
     }
 
     ($row.Values | ForEach-Object { "$_" }) -join ',' | Add-Content -Path $csv -Encoding utf8
+
+    # The metric that actually predicts felt slowness (measured 2026-09-16): how many sessions are
+    # GENERATING right now. Windows and process counts did not track it; this does. A session log
+    # written in the last 60 s means that session's agent loop is running.
+    try {
+        $sess = Join-Path $env:USERPROFILE '.dsh\sessions'
+        $active = @(Get-ChildItem $sess -Recurse -File -Filter 'session.v3.jsonl.zstd' -ErrorAction SilentlyContinue |
+                    Where-Object { $_.LastWriteTime -gt (Get-Date).AddSeconds(-60) }).Count
+        "{0},{1},{2},{3}" -f $row.ts, $active, $row.commit_gb, $row.pages_in_s |
+            Add-Content -Path (Join-Path $dir 'sessions-activity.csv') -Encoding utf8
+    } catch { }
     Start-Sleep -Seconds $IntervalSeconds
 }
