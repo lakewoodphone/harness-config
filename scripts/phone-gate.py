@@ -37,6 +37,19 @@ import time
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 STATE_DIR = Path.home() / ".dsh-phone"
+# Where an engine's startup line — and therefore its one-time token — may be written.
+# systemd owns the Linux engines, so there the log is under `~/.dsh-phone`. Windows has no
+# systemd, and its launchers redirect the engine's stdout to a file instead. Measured
+# 2026-09-16 on ZABZ-YOGA: the running engine's `dsh web: http://127.0.0.1:3099/?token=…`
+# line was in `~/.dsh/multi-window/logs/3099.log` (82 bytes) and this gate, which looked
+# only under `~/.dsh-phone`, found no token at all — so a cold visitor got the engine's
+# plain-text 401 rather than a sign-in. The multi-window launcher's own log is the one
+# that exists on every Windows node, so it is searched first.
+ENGINE_LOG_DIRS = [Path.home() / ".dsh" / "multi-window" / "logs", STATE_DIR]
+_LOCALAPPDATA = os.environ.get("LOCALAPPDATA")
+if _LOCALAPPDATA:
+    # what serve-phone.ps1 used, kept so an engine started by the old path is still readable
+    ENGINE_LOG_DIRS.append(Path(_LOCALAPPDATA) / "dsh-phone")
 MOBILE_CSS = Path(__file__).resolve().parent.parent / "assets" / "mobile.css"
 # The phone layer is these files concatenated, in this order: `mobile.css` is the base layer and
 # the others are scoped additions. One URL, one injected tag and one client-plugin link, so adding
@@ -50,6 +63,19 @@ BADGE_JS = Path(__file__).resolve().parent.parent / "assets" / "phone-badge.js"
 BADGE_STATE = Path(os.environ.get("CEO_KERNEL_STATE", str(Path.home() / "ceo-kernel-var"))) / "latest.json"
 COOKIE_PREFIX = b"dsh-auth-"
 BUF = 65536
+# Set by --log-file. `note()` writes here as well as to stdout, so a gate started with no
+# inherited stdout still leaves a record of every decision it made.
+LOG_PATH: "Path | None" = None
+_LOG_LOCK = threading.Lock()
+
+
+def token_in(path: Path) -> str:
+    """The last `token=` in one file, or "" when there is none (or it cannot be read)."""
+    try:
+        found = re.findall(r"token=([A-Za-z0-9_-]+)", path.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        return ""
+    return found[-1] if found else ""
 
 
 def live_token(engine_port: int | None = None) -> str:
@@ -59,25 +85,38 @@ def live_token(engine_port: int | None = None) -> str:
     newest file mtime is a heuristic, and the day an older log is touched last it would
     hand a visitor a token that no engine accepts. The port is known, so use it, and
     keep the mtime sweep only as a fallback for a renamed log.
+
+    The exact-port lookups come in two shapes because the launchers differ: systemd
+    (Linux) writes `engine-<port>.log`, and the Windows multi-window launcher writes
+    `<port>.log` plus a timestamped `<port>-<date>.log` per start. The timestamped file
+    is what a restarted engine writes, and the newest of those carries the live token —
+    measured 2026-09-16, `~/.dsh/multi-window/logs/3099-20260916-154910.log`.
     """
     if engine_port is not None:
-        exact = STATE_DIR / f"engine-{engine_port}.log"
-        if exact.exists():
-            try:
-                found = re.findall(r"token=([A-Za-z0-9_-]+)",
-                                   exact.read_text(encoding="utf-8", errors="replace"))
+        for directory in ENGINE_LOG_DIRS:
+            for name in (f"engine-{engine_port}.log", f"{engine_port}.log"):
+                found = token_in(directory / name)
                 if found:
-                    return found[-1]
+                    return found
+            try:
+                candidates = sorted(directory.glob(f"{engine_port}-*.log"),
+                                    key=lambda p: p.stat().st_mtime, reverse=True)
             except OSError:
-                pass
+                candidates = []
+            for path in candidates:
+                found = token_in(path)
+                if found:
+                    return found
     best = ""
-    for log in sorted(STATE_DIR.glob("engine-*.log"), key=lambda p: p.stat().st_mtime):
+    for directory in ENGINE_LOG_DIRS:
         try:
-            found = re.findall(r"token=([A-Za-z0-9_-]+)", log.read_text(encoding="utf-8", errors="replace"))
+            logs = sorted(directory.glob("engine-*.log"), key=lambda p: p.stat().st_mtime)
         except OSError:
             continue
-        if found:
-            best = found[-1]
+        for log in logs:
+            found = token_in(log)
+            if found:
+                best = found
     return best
 
 
@@ -137,6 +176,62 @@ def rewrite_target(first: bytes, new_target: bytes) -> bytes:
     return b"\r\n".join(lines) + sep + rest
 
 
+def rewrite_authority(head_bytes: bytes, authority: str) -> bytes:
+    """Present this request to the engine as if it came from `authority`.
+
+    WHY THE GATE HAS TO DO THIS, measured 2026-09-16 on ZABZ-YOGA. `tailscale serve`
+    preserves the client's Host header — proven by the reading itself: with
+    `tailscale serve --bg 3099` and no `--trusted-host`, `GET /api` through
+    `https://zabz-yoga-1.tail93e6e6.ts.net` returned **403**, the fence refusing a Host
+    it does not trust, while `/` returned 401. So publishing a loopback engine exposes
+    nothing but a 403 to every /api call: the phone loads a shell that cannot talk.
+
+    The alternative was `--trusted-host <node FQDN>` on the engine — but that is a
+    **startup** setting (dsh-web-app/lib/index.js:37, dsh-client-connection:739), so
+    applying it means restarting the engine, and the engine is where the owner's live
+    sessions are. One of them is this session. An engine restart is therefore not a
+    cost the gate may impose; it is a cost it exists to avoid.
+
+    Rewriting to a loopback authority instead keeps the fence CLOSED and makes the gate
+    the only door: the engine trusts exactly what it already trusted (`127.0.0.1`), no
+    network name is ever added to `trustedHosts`, and a request that reaches the engine
+    without passing this gate is still refused.
+
+    BOTH Host and Origin must be rewritten. The fence requires
+    `new URL(origin).host === hostUrl.host` (dsh-client-connection/lib/index.js:208-211),
+    so rewriting Host alone turns every browser POST into a 403 while leaving curls
+    green — the exact shape of bug that made the earlier phone work look done. An
+    ABSENT Origin is accepted (`origin === undefined -> true`), so a request without one
+    is forwarded as-is rather than given a fabricated value.
+
+    The cookie the engine mints is named for the authority it saw
+    (`cookieName(authority)`, :280), which is why the sign-in exchange must use the same
+    rewritten authority: mint for one authority and reload for another and every later
+    request 401s.
+    """
+    if b"\r\n\r\n" not in head_bytes:
+        return head_bytes
+    head, sep, rest = head_bytes.partition(b"\r\n\r\n")
+    lines = head.split(b"\r\n")
+    if not lines:
+        return head_bytes
+    encoded = authority.encode()
+    out = [lines[0]]
+    saw_host = False
+    for line in lines[1:]:
+        low = line.lower()
+        if low.startswith(b"host:"):
+            out.append(b"Host: " + encoded)
+            saw_host = True
+        elif low.startswith(b"origin:"):
+            out.append(b"Origin: http://" + encoded)
+        else:
+            out.append(line)
+    if not saw_host:
+        out.insert(1, b"Host: " + encoded)
+    return b"\r\n".join(out) + sep + rest
+
+
 def read_all(sock: socket.socket, limit: int = 4_000_000, timeout: float = 20.0) -> bytes:
     """Everything the peer sends until it closes. Upstream is forced to close per request."""
     sock.settimeout(timeout)
@@ -191,7 +286,7 @@ def inject_headers(response: bytes, names_and_values: list[bytes]) -> bytes:
     return b"\r\n".join(lines) + sep + body
 
 
-def complete_login(engine_port: int, first: bytes, token: str, path: str) -> bytes | None:
+def complete_login(engine_port: int, first: bytes, token: str, path: str, authority: str = "") -> bytes | None:
     """Sign the visitor in and return the document, all in one client response.
 
     The whole reason this function exists, measured twice on 2026-09-11: any design where
@@ -222,7 +317,7 @@ def complete_login(engine_port: int, first: bytes, token: str, path: str) -> byt
             note(f"  login exchange answered {status} with {len(cookies)} cookie(s); relaying it")
             return None
 
-        host = response_header(first, b"host") or tailnet_name() or "localhost"
+        host = authority or response_header(first, b"host") or tailnet_name() or "localhost"
         cookie_header = b"; ".join(c.split(b";", 1)[0] for c in cookies)
         request = (
             f"GET {path} HTTP/1.1\r\nHost: {host}\r\n"
@@ -683,16 +778,32 @@ def status_of(response: bytes) -> int:
 
 
 def note(msg: str) -> None:
-    """Say what this gate decided, on stdout (serve-phone.sh sends it to gate.log).
+    """Say what this gate decided, on stdout and (if asked) in a file.
 
     Added after a confusing hour: curl through this gate behaved differently from a real
     browser through Tailscale Serve, and with no record of the gate's own decisions there
     was nothing to reason from but the client's symptom. Never log a token.
+
+    `--log-file` exists so the gate can be started with NO inherited stdout at all. On
+    Windows the detached launcher (`phone-gate-ensure.ps1` via VBScript) deliberately gives
+    its child no handle on anyone's stdout — which is what stops a launcher from being left
+    holding a pipe open — so the gate has to be able to write its own record. Measured
+    2026-09-16: routing that through `cmd /c ... >> log` instead produced an empty log and a
+    gate that never started, because cmd's quote handling around a quoted program plus
+    redirection is not worth trusting.
     """
-    try:
-        print(f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {msg}", flush=True)
-    except OSError:
-        pass
+    line = f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {msg}"
+    with _LOG_LOCK:
+        try:
+            print(line, flush=True)
+        except OSError:
+            pass
+        if LOG_PATH is not None:
+            try:
+                with LOG_PATH.open("a", encoding="utf-8", errors="replace") as handle:
+                    handle.write(line + "\n")
+            except OSError:
+                pass
 
 
 def read_request_head(client: socket.socket, first: bytes) -> bytes:
@@ -740,7 +851,7 @@ def force_close(head_bytes: bytes) -> bytes:
     return b"\r\n".join(out) + sep + rest
 
 
-def handle(client: socket.socket, engine_port: int) -> None:
+def handle(client: socket.socket, engine_port: int, engine_authority: str = "") -> None:
     """Relay, except where a visitor would hit a dead end we can remove.
 
     Two bugs lived here, both of the same family — trusting a proxy-shaped assumption
@@ -768,6 +879,10 @@ def handle(client: socket.socket, engine_port: int) -> None:
             client.close()
             return
         first = read_request_head(client, first)
+        # What the engine will see. Everything the gate sends upstream uses this, and
+        # everything it answers the client uses `first`; the only exceptions are the
+        # routes the gate answers itself, where the client's own headers are the truth.
+        forward = rewrite_authority(first, engine_authority) if engine_authority else first
         head = first.split(b"\r\n\r\n", 1)[0]
         request_line = head.split(b"\r\n", 1)[0].decode("latin-1", "replace")
         # Split on whitespace, not on the first space: partition(" ") on
@@ -828,7 +943,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
         needs_token = bool(token) and ((not offered and not has_cookie) or (bool(offered) and offered != token))
         if needs_token:
             note("  -> not authenticated as sent: signing in in flight")
-            signed_in = complete_login(engine_port, first, token, path)
+            signed_in = complete_login(engine_port, forward, token, path, engine_authority)
             if signed_in is not None:
                 client.settimeout(None)
                 client.sendall(signed_in)
@@ -837,7 +952,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
 
         client.settimeout(None)
         upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=10)
-        upstream.sendall(force_close(first))
+        upstream.sendall(force_close(forward))
 
         if document_request and method == "GET":
             # A document is buffered rather than streamed, for two reasons: a cookie can be
@@ -852,7 +967,7 @@ def handle(client: socket.socket, engine_port: int) -> None:
             note(f"  document upstream answered {status}")
             if status == 401 and token:
                 note("  -> refused: signing in in flight")
-                signed_in = complete_login(engine_port, first, token, path)
+                signed_in = complete_login(engine_port, forward, token, path, engine_authority)
                 if signed_in is not None:
                     client.sendall(signed_in)
                     client.close()
@@ -899,19 +1014,43 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--listen-port", type=int, default=3086)
     ap.add_argument("--engine-port", type=int, default=3089)
+    ap.add_argument("--engine-authority", default="",
+                    help="host:port to present to the engine as Host AND Origin (e.g. 127.0.0.1:3099). "
+                         "Required when the engine was NOT started with --trusted-host for the name this "
+                         "gate is published under: the fence refuses an untrusted Host with 403, and "
+                         "Tailscale Serve preserves the client's Host. Setting it to the engine's own "
+                         "loopback authority keeps the fence closed and needs no engine restart.")
+    ap.add_argument("--log-file", default="",
+                    help="append this gate's own decision log here (in addition to stdout). Needed when "
+                         "the launcher gives the process no inherited stdout, which is how it stays "
+                         "detached on Windows.")
     args = ap.parse_args()
+
+    global LOG_PATH
+    if args.log_file:
+        LOG_PATH = Path(args.log_file)
+        try:
+            LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            # One rotation, at start: a phone gate left running for months must not fill a disk,
+            # and the interesting lines are always the recent ones.
+            if LOG_PATH.exists() and LOG_PATH.stat().st_size > 4 * 1024 * 1024:
+                LOG_PATH.replace(LOG_PATH.with_suffix(LOG_PATH.suffix + ".1"))
+        except OSError:
+            LOG_PATH = None
 
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(("127.0.0.1", args.listen_port))
     srv.listen(128)
-    print(f"phone-gate listening on 127.0.0.1:{args.listen_port} -> engine 127.0.0.1:{args.engine_port}", flush=True)
+    note(f"phone-gate listening on 127.0.0.1:{args.listen_port} -> engine 127.0.0.1:{args.engine_port}"
+         + (f" (presenting authority {args.engine_authority})" if args.engine_authority else ""))
     while True:
         try:
             client, _ = srv.accept()
         except OSError:
             continue
-        threading.Thread(target=handle, args=(client, args.engine_port), daemon=True).start()
+        threading.Thread(target=handle, args=(client, args.engine_port, args.engine_authority),
+                         daemon=True).start()
     return 0
 
 

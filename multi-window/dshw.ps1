@@ -1242,6 +1242,30 @@ function Invoke-Restore {
 # ── the fast loop: one bounded check, restart only after two failures ────────
 function Invoke-Ensure {
     $port = Get-PrimaryPort
+    # THE PHONE GATE FIRST, AND INDEPENDENTLY OF ENGINE HEALTH.
+    #
+    # The gate is what makes this node reachable from the owner's phone over the tailnet: the
+    # engine's /api fence accepts only a loopback Host, so the gate presents the rewritten
+    # authority and is the single door (`scripts/phone-gate-ensure.ps1` has the measurements).
+    # It is checked BEFORE the engine because the two failures are independent — a gate that is
+    # down makes the published URL answer 502 while the engine is perfectly healthy, which looks
+    # exactly like "the other machine is offline" from a phone.
+    #
+    # This is also the only durability hook available on a machine where registering a scheduled
+    # task needs elevation (measured 2026-09-16: BUILTIN\Administrators is "deny only", a
+    # UAC-filtered token). This watchdog already runs every minute as the user, so hanging the
+    # gate on it needs no new task and no admin.
+    $gateEnsure = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\phone-gate-ensure.ps1'
+    if (Test-Path $gateEnsure) {
+        try {
+            # -Publish is cheap when Serve is already correct: the script asks `serve status`
+            # before asserting anything. Without it, a daemon restart would leave the gate
+            # listening and the tailnet name dead, which is the failure that has no symptom here.
+            & $gateEnsure -EnginePort $port -Publish -ListenPort 3086 *> $null
+        } catch {
+            Write-Host ("ensure: phone gate check failed: {0}" -f $_.Exception.Message) -ForegroundColor Yellow
+        }
+    }
     $flag = Join-Path $StateDir "watchdog-failures-$port.txt"
     $log = Join-Path $StateDir 'watchdog.log'
     if (Test-EngineAlive $port) {
