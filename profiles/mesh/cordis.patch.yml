@@ -1,0 +1,84 @@
+# The `mesh` profile — a dispatcher you can start on ANY node, with no restart.
+#
+# WHY A PROFILE AND NOT A PLUGIN IN THE RUNNING ENGINE
+# A mounted bundle cannot hot-load (P210), and the owner is working in a live
+# session on the laptop's engine, so nothing resident may be restarted. But a
+# PROFILE is read at process start: `dsh --profile mesh headless "<task>"` boots
+# a fresh process whose composition carries this plugin, so its children fan out
+# across the mesh while the node running the parent stays flat. That is the
+# owner's sentence — "agents and sessions always get routed to the most empty
+# part of the mesh" — implemented today, with no restart anywhere.
+# Mounting the same provider in a resident engine is the upgrade, and it is the
+# first thing to land when a restart window opens.
+#
+# THE COMPOSITION
+#   @deepseek-ai/dsh-base           the process-wide agent plane and toolbelt
+#   @deepseek-ai/dsh-headless       the one-shot runner: one task, one answer, exit
+#   dsh-plugin-remote-fanout        the remote provider and its second tool row
+#
+# `@deepseek-ai/dsh-agent-presets` is a ROW, not a bundle: it declares no
+# `dsh.bundle` in its package.json, and naming it in the bundle list fails the
+# boot with "profile bundle ... declares no dsh.bundle" (measured 2026-09-17).
+# It is inserted below instead — which is what `docs/mesh/62-worker-runtime.md`
+# §4.4 says the right way is: a patch layer, not a bundle list.
+#
+# The bundles are named in the profile's `package.json`, which is machine-local
+# and is materialised by `packages/plugin-remote-fanout/bin/install-mesh-profile.mjs`.
+# This file is the layer ABOVE the bundle patches: it is applied after them, and
+# a patch REPLACES the targeted row's whole config, so every key is restated.
+#
+# Every `!!js` expression below is DOUBLE-QUOTED on purpose: a plain YAML scalar
+# containing ": " (which every ternary does) is a parse error, and the boot
+# fails at the overlay with "bad indentation of a mapping entry" (measured
+# 2026-09-17). The expressions use forward slashes so that Windows paths need no
+# escaping inside a double-quoted scalar.
+#
+# NOTHING HERE IS HARD-CODED TO A MACHINE. The things that legitimately differ
+# per node resolve from the environment at boot:
+#
+#   MESH_TARGET_NODE       the ssh destination children go to   (default laptop-ts)
+#   MESH_TARGET_HOSTS      comma-separated hostnames that destination is allowed
+#                          to be (`71` §2.4's location check). EMPTY MEANS
+#                          "recorded but not checked", and the plugin says so.
+#   MESH_REMOTE_SHELL      the TARGET's shell: `powershell` or `posix`. Set by the
+#                          dispatcher from its node table — the local platform is
+#                          NOT a fact about the target, and inferring it from
+#                          `process.platform` sent a PowerShell command to a Linux
+#                          node and killed every child with exit 127 (measured
+#                          2026-09-16).
+#   MESH_NODE_EXE          node interpreter path ON THE TARGET
+#   MESH_DSH_BIN           @deepseek-ai/dsh/lib/bin.js path ON THE TARGET
+#   MESH_REMOTE_CWD        working directory for the child on the target
+#   MESH_CHILD_TIMEOUT_MS  bound on one remote child turn
+#
+# AI models are never hard-coded anywhere in this stack; the child inherits the
+# target's own credential and route resolution because it boots the target's own
+# `headless` profile against the target's own DSH_HOME — `71` §2.3's frozen v1
+# transport, `ssh <alias> dsh --profile headless "<prompt>"`.
+- insert:
+    - id: agent-presets
+      name: '@deepseek-ai/dsh-agent-presets'
+      config:
+        default: standard
+
+- id: remote-fanout
+  config:
+    providerName: remote-ssh
+    target: !!js "process.env.MESH_TARGET_NODE ?? 'laptop-ts'"
+    sshExe: !!js "process.platform === 'win32' ? 'C:/Program Files/OpenSSH/ssh.exe' : 'ssh'"
+    sshArgs:
+      - '-o'
+      - 'BatchMode=yes'
+      - '-o'
+      - 'StrictHostKeyChecking=accept-new'
+      - '-o'
+      - 'ConnectTimeout=10'
+    remoteShell: !!js "process.env.MESH_REMOTE_SHELL ?? (process.platform === 'win32' ? 'powershell' : 'posix')"
+    remoteNodeExe: !!js "process.env.MESH_NODE_EXE ?? (process.platform === 'win32' ? 'C:/Program Files/nodejs/node.exe' : '/home/zabz/node/bin/node')"
+    remoteDshBin: !!js "process.env.MESH_DSH_BIN ?? (process.platform === 'win32' ? 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js' : '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js')"
+    remoteProfile: headless
+    remoteCwd: !!js "process.env.MESH_REMOTE_CWD ?? (process.platform === 'win32' ? 'C:/Users/ezabz' : '/home/zabz')"
+    targetHosts: !!js "process.env.MESH_TARGET_HOSTS ? process.env.MESH_TARGET_HOSTS.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : []"
+    verifyMeshHost: true
+    timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 300000"
+    maxOutputBytes: 200000

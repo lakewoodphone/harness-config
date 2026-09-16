@@ -71,7 +71,13 @@ gate's existing device allow-list, so it is exactly as exposed as the gate itsel
 ```json
 {
   "schema": 1,
-  "node": "zabz-tech",                       // short name, matches the ssh alias prefix
+  "node": "zabz-tech",                       // the node's Tailscale DNS LABEL: Self.DNSName minus the
+                                             // tailnet domain — the name MagicDNS resolves, and the one
+                                             // `mesh-health.ps1` and the broker can act on. NOT the ssh
+                                             // alias prefix: `zabz-tech-linux`'s aliases are `linux-pc`
+                                             // and `hp-linux`, and this laptop's HostName is `zabz-yoga`
+                                             // while the only name that resolves is `zabz-yoga-1`.
+                                             // Invariant the probe enforces: node == fqdn's first label.
   "fqdn": "zabz-tech.tail93e6e6.ts.net",
   "at": "2026-09-16T23:20:00Z",
   "cpu":   { "logical": 32, "physical": 16, "load1": 0.42 },
@@ -86,9 +92,18 @@ gate's existing device allow-list, so it is exactly as exposed as the gate itsel
 Rules the gate must obey:
 * **Every field is measured or absent — never guessed.** If the engine is down, `agents` and
   `governor` are `null` and `accepts.oneShot` is still `true` (a headless run needs no engine).
-  `reason` carries the one-line explanation when `accepts` is restricted.
-* `mem.freeMiB` is the OS's own free-memory number; `governor` is read from the governor's lease
-  directory if present, else `null`.
+  `reason` carries the one-line explanation when `accepts` is restricted, **and also when a number
+  inside `accepts` is derived rather than measured**: a node with no governor lease directory
+  reports the slot budget computed from `mem.freeMiB` with `governor.inUse: 0` and still accepts
+  fleets, naming that in `reason`; only an unmeasurable *budget* makes `accepts.fleet` false. A
+  `reason` on a `fleet: true` answer is therefore a note, not a restriction. (Corrected 2026-09-16
+  23:40Z: the first build refused fleets on any node without a lease directory, which excluded
+  `zabz-tech-linux` and the authority and halved the mesh. See 72 §2.)
+* `mem.freeMiB` is the OS's own free-memory number, and `governor.budgetSlots` is **always** computed
+  from it — `min(floor((freeMiB - reserve) / 160), 24)`, `reserve = max(2 GiB, 12% of physical)`,
+  floored at 4. The governor's lease directory supplies only `inUse` and `queued`; when no directory
+  exists they are `0` and `reason` says so (previous bullet). `governor` is `null` as a whole — every
+  field of it — only when the engine does not answer.
 * The route is answered **before** the sign-in logic, so a cold caller gets capacity, not a cookie.
 * Residency/budget arithmetic belongs to the BROKER, not here: the gate reports measurements only.
 

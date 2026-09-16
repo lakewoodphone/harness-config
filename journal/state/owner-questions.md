@@ -6,7 +6,7 @@ Updated: 2026-09-16
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 78 row(s) read, 14 pending, generated 2026-09-16 21:43 UTC on ZABZ-YOGA.
+Provenance: 78 row(s) read, 14 pending, generated 2026-09-16 23:18 UTC on ZABZ-YOGA.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|

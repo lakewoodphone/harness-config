@@ -127,8 +127,26 @@ foreach ($node in $Nodes) {
             # 404 = plugin-health is not mounted on that node. That is a gap, not a fault: the
             # front door works and the node can still serve work, so it is reported as a warning
             # rather than a failure. Anything else that is not 200 is a failure.
+            # 404 = plugin-health is not mounted on that node; 503 on a NON-WINDOWS node is the
+            # probe saying "not applicable here", not "this node is sick". MEASURED 2026-09-16 by
+            # stream S2: plugin-health's process probe P/Invokes CreateToolhelp32Snapshot
+            # (packages/plugin-health/lib/snapshot.ps1), so on Linux the probe can never produce a
+            # snapshot and index.js answers 503 permanently. S2 mounted it on the Linux node and
+            # watched this very line go from "WARN: 404" to "FAIL: 503" — mounting a health surface
+            # made the node look WORSE. Classifying that as a failure would mark every Linux node
+            # degraded for ever and fail the acceptance harness for a reason that is not a fault.
+            # A real 503 on Windows still fails, because there the probe is supported.
+            $nonWindows503 = $false
+            if ($health.code -eq 503 -and $health.body) {
+                try {
+                    $hb = $health.body | ConvertFrom-Json
+                    if ($hb.identity.platform -and $hb.identity.platform -ne 'win32') { $nonWindows503 = $true }
+                } catch { }
+            }
             if ($health.code -eq 404) {
                 $checks += 'WARN: GET /healthz -> 404 (plugin-health not mounted on this node)'
+            } elseif ($nonWindows503) {
+                $checks += 'WARN: GET /healthz -> 503 (the process probe is Windows-only, so the health surface cannot answer here)'
             } else {
                 $checks += Classify 'GET /healthz (with the cookie from GET /)' $health @(200)
             }

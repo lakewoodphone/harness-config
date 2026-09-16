@@ -321,6 +321,11 @@ handoff	H411	411		2026-09-16 20:11 UTC	ZABZ-YOGA	open	## 2026-09-16 20:11 UTC ·
 handoff	H412	412		2026-09-16 22:02 UTC	ZABZ-YOGA	open	## 2026-09-16 22:02 UTC · ZABZ-YOGA · Mesh program: both Windows nodes are published and self-healing; the numbers behind the purchase are being corrected	entries/handoff/H412.md	1	42	1293185c36173f2b
 handoff	H413	413		2026-09-16 22:12 UTC	ZABZ-YOGA	open	## 2026-09-16 22:12 UTC · ZABZ-YOGA · Mesh: the gate is the door on three nodes, a security hole is closed, and harness-config has forked	entries/handoff/H413.md	1	53	f8c17443ec3d239f
 handoff	H414	414		2026-09-16 22:41 UTC	zabz-yoga	open	## 2026-09-16 22:41 UTC · zabz-yoga · Contact lenses: Sept shipment is two RIGHT-eye lenses; Clearview email drafted but UNSENT (owner parked it 2026-09-16)	entries/handoff/H414.md	1	28	146b5c48c10f2392
+handoff	H415	415		2026-09-16 23:21 UTC	ZABZ-YOGA	open	## 2026-09-16 23:21 UTC · ZABZ-YOGA · S5 mesh broker: built, tested on both Node versions, live on the authority	entries/handoff/H415.md	1	33	cb791c4545e59950
+handoff	H416	416		2026-09-16 23:22 UTC	ZABZ-YOGA	open	## 2026-09-16 23:22 UTC · ZABZ-YOGA · S1 of the mesh program: GET /mesh/capacity is live on every gated node	entries/handoff/H416.md	1	56	73b613d99cc7817a
+handoff	H417	417		2026-09-16 23:27 UTC	ZABZ-YOGA	open	## 2026-09-16 23:27 UTC · ZABZ-YOGA · S2: zabz-tech-linux is a live mesh node (node v22.23.2, DSH 0.1.5-rc.1, gate 3086, engine 3099, tailscale serve up)	entries/handoff/H417.md	1	51	c6c007a339ab10b4
+handoff	H418	418		2026-09-16 23:28 UTC	zabz-yoga	open	## 2026-09-16 23:28 UTC · zabz-yoga · Shlock: the tarp that was 'not shipped' was delivered Sep 15; records corrected; the frame state is the open question	entries/handoff/H418.md	1	80	b894c3c979d293bd
+handoff	H419	419		2026-09-16 23:31 UTC	ZABZ-YOGA	open	## 2026-09-16 23:31 UTC · ZABZ-YOGA · Remote fan-out is proven; the mesh profile is the dispatcher that needs no restart	entries/handoff/H419.md	1	25	d5e2a97e5fc9920c
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -974,6 +979,13 @@ lessons	L1811	1811		2026-09-16	zabz-yoga	open	**L1811 · Personal-life lookups (
 lessons	L1812	1812		2026-09-16	zabz-yoga	open	**L1812 · Reading tiny print off phone photos (crop+upscale, EXIF orientation) and fetching Gmail attachments when no action can (relative gmail token dir)**	entries/lessons/L1812.md	1	43	000a7d72bc73139a
 lessons	L1813	1813		2026-09-16	ZABZ-YOGA	open	**L1813 · An unindexable predicate turns a per-row update into a full-table read, and the mapping usually already exists**	entries/lessons/L1813.md	1	16	c63892cf02d5618c
 lessons	L1814	1814		2026-09-16	ZABZ-YOGA	open	**L1814 · A killed scheduled task leaves orphaned children that keep the lock, so the next run fails for a reason unrelated to the fix**	entries/lessons/L1814.md	1	14	452c29f00c65f3aa
+lessons	L1815	1815		2026-09-16	ZABZ-YOGA	open	**L1815 · A socket timeout is not a wall-clock timeout, and unknown must not be reported as unreachable**	entries/lessons/L1815.md	1	31	313374103565b199
+lessons	L1816	1816		2026-09-16	zabz-yoga	open	**L1816 · A vendor's self-serve order tracker is a hint, not ground truth - the carrier number is truth**	entries/lessons/L1816.md	1	27	3a7f6431c87e1911
+lessons	L1817	1817		2026-09-16	zabz-yoga	open	**L1817 · A watcher task may only be closed by evidence of the OUTCOME, not by having been written**	entries/lessons/L1817.md	1	29	0dc3ccbeac912d74
+lessons	L1818	1818		2026-09-16	ZABZ-YOGA	open	**L1818 · Provisioning from Windows: scp dies on a C:/ path, and errexit kills a run over a cosmetic du**	entries/lessons/L1818.md	1	32	04c02d0662810534
+lessons	L1819	1819		2026-09-16	ZABZ-YOGA	open	**L1819 · dsh-plugin-health's /healthz is a permanent 503 off Windows, and mesh-health scores 503 as FAIL**	entries/lessons/L1819.md	1	39	2663774f3bdb46be
+lessons	L1820	1820		2026-09-16	ZABZ-YOGA	open	**L1820 · A measurement gap on a counter is not a reason to refuse work (mesh capacity, S1)**	entries/lessons/L1820.md	1	41	a9a84a62e7fac698
+lessons	L1821	1821		2026-09-16	ZABZ-YOGA	open	**L1821 · Windows mesh dispatch: ssh.exe hangs on a stdout pipe, and ZABZ-YOGA's sshd cannot traverse the symlinks DSH bundle resolution needs**	entries/lessons/L1821.md	1	12	90ed091312904bc0
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1348,6 +1360,7 @@ decisions	D227	227		2026-09-16	ZABZ-YOGA	open	**D227 · 2026-09-16 · Placement 
 decisions	D228	228		2026-09-16	ZABZ-YOGA	open	**D228 · 2026-09-16 · Mesh inventory measured: Tailscale is the only transport from this laptop (it is on CGNAT, LAN fails), the authority is on a DERP relay, and my own reaper would race a fleet scheduler.**	entries/decisions/D228.md	1	35	60b3d78f932d28af
 decisions	D229	229		2026-09-16	ZABZ-YOGA	open	**D229 · 2026-09-16 · The phone gate is the only door; the engine's /api fence stays closed.**	entries/decisions/D229.md	1	16	528736060a694dfb
 decisions	D230	230		2026-09-16	ZABZ-YOGA	open	**D230 · 2026-09-16 · Node durability is the one-minute watchdog hook plus a logon entry.**	entries/decisions/D230.md	1	15	63893d1b087c807c
+decisions	D231	231		2026-09-16	zabz-yoga	open	**D231 · 2026-09-16 · Where the Shlock project's authoritative records live, by layer (tarp on secratary psmvp master; frame in lpt-hub research).**	entries/decisions/D231.md	1	23	7b385f420cd5b381
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e

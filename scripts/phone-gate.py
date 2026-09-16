@@ -24,12 +24,14 @@ from __future__ import annotations
 
 import argparse
 import base64
+import ctypes
 import hashlib
 import html
 import json
 import os
 import re
 import select
+import shutil
 import socket
 import subprocess
 import sys
@@ -687,6 +689,689 @@ def inject_badge(document: bytes) -> bytes:
 
 
 # --------------------------------------------------------------------------
+# THE MESH CAPACITY SURFACE — `GET /mesh/capacity`   (docs/mesh/71-mesh-program.md §2.1)
+#
+# WHY THIS LIVES IN THE GATE. The placement broker (stream S5, on the authority) has to
+# know, at the moment it decides, how much room each node really has. Every other way to
+# carry that answer — a host plugin route, a new engine API — costs an engine restart, and
+# on this deployment a restart ends every live session (P210, measured). The gate already
+# runs on every node, restarts freely, and already answers routes of its own before
+# relaying (`/dsh-phone-mobile.css`, `/dsh-attention.json`), so the capacity surface ships
+# here and needs no restart at all. That is why 71 §1 calls the gate the capacity authority.
+#
+# WHAT IT IS ALLOWED TO SAY: a measurement, or `null`. Never a guess, and never a zero
+# standing in for "not measured" — a node reported with 0 free slots is queued for ever by
+# the broker, which is worse than an absent field. `agents` and `governor` are `null`
+# whenever the engine does not answer, and `accepts.reason` then says so in one line;
+# `accepts.oneShot` stays true, because the v1 transport is
+# `ssh <node> dsh --profile headless` and that needs no engine at all (71 §0: measured
+# 18 s, exit 0, on a node whose engine was never involved).
+#
+# NO RESIDENCY ARITHMETIC OF ITS OWN (71 §2.1, last bullet). The gate owns no leases and
+# keeps no node state that could go stale. It reports what it just measured; `accepts` is
+# derived from two of those measurements (governor free slots, disk free) and the broker
+# recomputes its own view (71 §2.2) instead of trusting this one.
+#
+# THE GOVERNOR NUMBERS ARE REPRODUCED, NOT RE-DERIVED. `budgetSlots` uses the governor's
+# own constants — 160 MiB per slot, reserve max(2 GiB, 12% of physical), capped at 24,
+# floored at 4 — and the same free-memory counter node's `os.freemem()` reads, so this
+# route and `governor.mjs status` agree instead of drifting apart
+# (packages/plugin-health/lib/governor.js:53-149, read 2026-09-16). `inUse`/`queued` are
+# counted from the lease directory itself — `<root>/leases/slot-NN.lease` whose `expiresAt`
+# is still in the future, and `<root>/waiters/*.wait` — never from a heartbeat this process
+# would have to keep.
+#
+# MEASURED HERE, 2026-09-16: `GET /healthz` is plugin-health's route, it answers 200 with a
+# session cookie and 401 without one, and it carries `sessions.agentLoopsRunning`,
+# `sessions.live` and the governor's own view. So `agents` costs one loopback request with a
+# cookie the gate mints for itself (the same token exchange `complete_login` performs for a
+# visitor) and caches; a 401 re-mints, which is also what makes it survive an engine
+# restart. `agents` is the ONLY field that needs the engine: every other number here is read
+# from the OS or from the governor's directory and is unaffected by the engine being down.
+#
+# KILL SWITCH: PHONE_GATE_MESH=0 makes the route fall through to the engine, exactly as if
+# this section had never been loaded.
+# --------------------------------------------------------------------------
+
+MESH_SCHEMA = 1
+# The governor's constants, copied deliberately and named so they can be diffed against
+# governor.js rather than found by grep (packages/plugin-health/lib/governor.js:53-78).
+MESH_GOVERNOR_PER_SLOT = 160 * 1024 * 1024        # PER_SLOT_BYTES_DEFAULT
+MESH_GOVERNOR_MAX_SLOTS = 24                      # MAX_SLOTS_DEFAULT
+MESH_GOVERNOR_MIN_SLOTS = 4                       # MIN_SLOTS_DEFAULT
+MESH_GOVERNOR_RESERVE_MIN = 2 * 1024 * 1024 * 1024  # RESERVE_MIN_BYTES
+MESH_GOVERNOR_RESERVE_FRACTION = 0.12             # RESERVE_FRACTION
+# 71 §2.2 puts a node with less than this free out of fleet placement; mirrored here only so
+# `accepts` says the same thing the broker will, never as the authority on it.
+MESH_FLEET_MIN_FREE_GIB = 20
+# The largest number of children this route will offer to a fleet, whatever the budget.
+# The frozen example in 71 §2.1 shows `maxChildren: 12` beside `budgetSlots: 24`, so 12 is
+# the per-node child cap the interface was written against, overridable per node.
+MESH_MAX_CHILDREN = 12
+# TWO timeouts, and they are different on purpose. Measured 2026-09-16 on this laptop: a connect to
+# a dead loopback port is not refused, it HANGS until the timeout (2.0 s in the first build), so
+# the connect timeout is what the engine-down case costs; `/healthz` itself answers in a few
+# hundred ms normally but does a session scan that is allowed to take ~1 s, so the read has real
+# room. One timeout for both would either slow every engine-down read or start truncating a slow
+# but perfectly healthy one.
+MESH_ENGINE_CONNECT_TIMEOUT = 0.75
+MESH_ENGINE_READ_TIMEOUT = 4.0
+
+_MESH_LOCK = threading.Lock()
+# Identity and core counts cannot change under a running process, so they are read once (a
+# `tailscale status` call and, on Windows, one WMI query) and then answered from here. A
+# FAILURE is cached too, but only for a minute, so a node whose tailscale was starting up
+# is not stuck nameless for the life of the gate.
+_MESH_CACHE: dict = {"node": None, "fqdn": None, "physicalCores": None, "identityAt": 0.0,
+                     "physicalAt": 0.0}
+_MESH_IDENTITY_RETRY_SECONDS = 60.0
+
+# The cookie the gate mints for ITSELF to read the node's own `/healthz`. Not a visitor's
+# cookie: nothing about a caller is involved in producing or using it, and it never leaves
+# this process (it is not a response header, a log line or a payload field).
+_ENGINE_COOKIE: dict = {"value": b""}
+
+
+def mesh_enabled() -> bool:
+    """PHONE_GATE_MESH=0 switches the whole capacity route off."""
+    return os.environ.get("PHONE_GATE_MESH", "1") != "0"
+
+
+def _mesh_powershell() -> "str | None":
+    """The PowerShell that exists on this node, or None. `pwsh` first (what plugin-health uses)."""
+    return shutil.which("pwsh") or shutil.which("powershell") or shutil.which("powershell.exe")
+
+
+def _memory_bytes() -> "tuple[int, int] | None":
+    """(total, free) physical memory in bytes, from the OS's own counter, or None.
+
+    Windows uses `GlobalMemoryStatusEx` — the very call node's `os.freemem()` makes, which
+    is what the governor derives its budget from — and Linux uses `/proc/meminfo`'s
+    `MemAvailable` for the same reason. Reporting a different "free" than the governor's own
+    derivation would make this route and `governor.mjs status` disagree on the same machine
+    in the same second, which is exactly the kind of two-sources-one-number bug this program
+    exists to remove.
+    """
+    if sys.platform == "win32":
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = [("dwLength", ctypes.c_ulong),
+                        ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong),
+                        ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong),
+                        ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong),
+                        ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+        status = MEMORYSTATUSEX()
+        status.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+        try:
+            if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+                return None
+        except (AttributeError, OSError):
+            return None
+        return int(status.ullTotalPhys), int(status.ullAvailPhys)
+    try:
+        page = int(os.sysconf("SC_PAGE_SIZE"))
+        total = int(os.sysconf("SC_PHYS_PAGES")) * page
+    except (AttributeError, OSError, ValueError):
+        return None
+    free = None
+    try:
+        for line in Path("/proc/meminfo").read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("MemAvailable:"):
+                free = int(line.split()[1]) * 1024
+                break
+    except (OSError, ValueError, IndexError):
+        free = None
+    if free is None:
+        try:
+            free = int(os.sysconf("SC_AVPHYS_PAGES")) * page
+        except (AttributeError, OSError, ValueError):
+            return None
+    return total, free
+
+
+def _swap_used_percent() -> "float | None":
+    """How much of the page file / swap is in use, as a percentage, or None.
+
+    Windows has no swap, it has a page file, and the honest analogue is the share of that
+    page file currently committed: `(committed - physical) / (commitLimit - physical)` from
+    `GetPerformanceInfo`, which is a real measurement rather than a rename of something
+    else. A node with no page file reports 0.0 — that is a measurement too (nothing is
+    paged), not a stand-in for "unknown", which is null.
+    """
+    if sys.platform == "win32":
+        class PERFORMANCE_INFORMATION(ctypes.Structure):
+            _fields_ = [("cb", ctypes.c_ulong),
+                        ("CommitTotal", ctypes.c_size_t),
+                        ("CommitLimit", ctypes.c_size_t),
+                        ("CommitPeak", ctypes.c_size_t),
+                        ("PhysicalTotal", ctypes.c_size_t),
+                        ("PhysicalAvailable", ctypes.c_size_t),
+                        ("SystemCache", ctypes.c_size_t),
+                        ("KernelTotal", ctypes.c_size_t),
+                        ("KernelPaged", ctypes.c_size_t),
+                        ("KernelNonpaged", ctypes.c_size_t),
+                        ("PageSize", ctypes.c_size_t),
+                        ("HandleCount", ctypes.c_ulong),
+                        ("ProcessCount", ctypes.c_ulong),
+                        ("ThreadCount", ctypes.c_ulong)]
+        info = PERFORMANCE_INFORMATION()
+        info.cb = ctypes.sizeof(PERFORMANCE_INFORMATION)
+        try:
+            if not ctypes.windll.psapi.GetPerformanceInfo(ctypes.byref(info), info.cb):
+                return None
+        except (AttributeError, OSError):
+            return None
+        page = int(info.PageSize) or 4096
+        committed = int(info.CommitTotal) * page
+        limit = int(info.CommitLimit) * page
+        physical = int(info.PhysicalTotal) * page
+        pagefile = limit - physical
+        if pagefile <= 0:
+            return 0.0
+        return round(max(0.0, committed - physical) / pagefile * 100.0, 1)
+    if sys.platform == "darwin":
+        # macOS reports swap as human text (`total = 2048.00M  used = 12.00M`), and only
+        # through sysctl, so this is the one platform-specific branch with no clean library.
+        try:
+            raw = subprocess.run(["sysctl", "-n", "vm.swapusage"], capture_output=True,
+                                 text=True, timeout=5).stdout
+            total = used = None
+            for token in raw.replace("=", " ").split():
+                if token.endswith(("M", "G", "K")):
+                    value = float(token[:-1]) * {"K": 1024, "M": 1024 ** 2, "G": 1024 ** 3}[token[-1]]
+                    if total is None:
+                        total = value
+                    elif used is None:
+                        used = value
+            if total is None or used is None or total <= 0:
+                return 0.0 if total == 0 else None
+            return round(used / total * 100.0, 1)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return None
+    try:
+        values = {}
+        for line in Path("/proc/meminfo").read_text(encoding="utf-8", errors="replace").splitlines():
+            for name in ("SwapTotal:", "SwapFree:"):
+                if line.startswith(name):
+                    values[name] = int(line.split()[1]) * 1024
+    except (OSError, ValueError, IndexError):
+        return None
+    total = values.get("SwapTotal:")
+    free = values.get("SwapFree:")
+    if total is None or free is None:
+        return None
+    if total <= 0:
+        return 0.0
+    return round(max(0.0, total - free) / total * 100.0, 1)
+
+
+def _logical_cpu_count() -> "int | None":
+    try:
+        count = os.cpu_count()
+    except (AttributeError, OSError):
+        return None
+    return int(count) if count else None
+
+
+def _physical_cpu_count_cold() -> "int | None":
+    """Physical cores, measured platform by platform. Windows needs one WMI query.
+
+    Python cannot read a physical core count anywhere: `os.cpu_count()` is logical, and on
+    SMT hardware the two differ by 40% on this laptop (22 logical, 16 physical, measured
+    2026-09-16). The count never changes on a running host, so one query at first use is
+    honest and cheap; a failure returns None, and the field is null rather than a guess.
+    """
+    if sys.platform == "win32":
+        shell = _mesh_powershell()
+        if not shell:
+            return None
+        script = "(Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfCores -Sum).Sum"
+        try:
+            out = subprocess.run([shell, "-NoProfile", "-NonInteractive", "-Command", script],
+                                 capture_output=True, text=True, timeout=15).stdout.strip()
+            return int(out) or None
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return None
+    if sys.platform == "darwin":
+        try:
+            out = subprocess.run(["sysctl", "-n", "hw.physicalcpu"], capture_output=True,
+                                 text=True, timeout=5).stdout.strip()
+            return int(out) or None
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return None
+    # Linux: distinct (physical id, core id) pairs is the only definition that survives a
+    # multi-socket host; `cpu cores` alone is a per-socket count on some kernels.
+    try:
+        text = Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    cores = set()
+    socket_id = core_id = None
+    fallback = None
+    for line in text.splitlines() + [""]:
+        if not line.strip():
+            if socket_id is not None and core_id is not None:
+                cores.add((socket_id, core_id))
+            socket_id = core_id = None
+            continue
+        key, _, value = line.partition(":")
+        key = key.strip()
+        value = value.strip()
+        if key == "physical id":
+            socket_id = value
+        elif key == "core id":
+            core_id = value
+        elif key == "cpu cores" and fallback is None:
+            try:
+                fallback = int(value)
+            except ValueError:
+                fallback = None
+    if cores:
+        return len(cores)
+    return fallback or None
+
+
+def _physical_cpu_count() -> "int | None":
+    now = time.monotonic()
+    with _MESH_LOCK:
+        if _MESH_CACHE["physicalCores"] is not None:
+            return _MESH_CACHE["physicalCores"]
+        if now - _MESH_CACHE["physicalAt"] < _MESH_IDENTITY_RETRY_SECONDS:
+            return None
+        _MESH_CACHE["physicalAt"] = now
+    value = _physical_cpu_count_cold()
+    with _MESH_LOCK:
+        if value:
+            _MESH_CACHE["physicalCores"] = value
+    return value
+
+
+def _load1() -> "float | None":
+    """The 1-minute load average, or null where the OS does not have one.
+
+    Null on Windows, deliberately. Windows has no load average, and node's own
+    `os.loadavg()` there returns `[0, 0, 0]` — measured 2026-09-16 in this node's
+    `/healthz`: `"loadAverage":[0,0,0]` on a machine that was demonstrably busy. A literal
+    zero is the one value that must never reach the broker, because it reads as "idle".
+    """
+    try:
+        return round(float(os.getloadavg()[0]), 2)
+    except (AttributeError, OSError):
+        return None
+
+
+def mesh_identity() -> "tuple[str, str | None]":
+    """(node name, tailnet FQDN). The node name is the Tailscale DNS LABEL.
+
+    THE RULE, settled by the manager 2026-09-16 and measured here before it was applied:
+    `node` is `Self.DNSName` minus the tailnet domain — the name MagicDNS actually resolves —
+    and never the ssh alias prefix. On this fleet the two disagree for `zabz-tech-linux`
+    (ssh aliases `linux-pc`/`hp-linux`) and for THIS laptop, which is the case that made the
+    distinction load-bearing: `Self.HostName` here is `zabz-yoga`, while its resolvable name
+    is `zabz-yoga-1.tail93e6e6.ts.net` — measured 2026-09-16 23:31Z,
+    `Resolve-DnsName zabz-yoga.tail93e6e6.ts.net` → **DNS name does not exist**, and
+    `curl https://zabz-yoga.tail93e6e6.ts.net/mesh/capacity` → curl error 6, while
+    `zabz-yoga-1` resolves to 100.72.162.5 and answers 200. Tailscale appends the `-1` to the
+    DNS name only, and `Self.HostName` is not reliable in general either — the iPhone on this
+    tailnet reports it as `localhost`. A name the broker or `mesh-health.ps1` cannot resolve
+    is a name that cannot be placed, so the label is what this route reports.
+
+    The invariant that follows, and that the probe checks: `node == fqdn.split(".")[0]`.
+    """
+    override_node = os.environ.get("PHONE_GATE_MESH_NODE", "").strip()
+    override_fqdn = os.environ.get("PHONE_GATE_MESH_FQDN", "").strip()
+    if override_node and override_fqdn:
+        return override_node, override_fqdn
+    now = time.monotonic()
+    with _MESH_LOCK:
+        node, fqdn = _MESH_CACHE["node"], _MESH_CACHE["fqdn"]
+        fresh = (now - _MESH_CACHE["identityAt"]) < _MESH_IDENTITY_RETRY_SECONDS
+    if (node and fqdn) or fresh:
+        return (override_node or node or _fallback_node_name(), override_fqdn or fqdn)
+    self_doc: dict = {}
+    try:
+        raw = subprocess.run(["tailscale", "status", "--json"], capture_output=True,
+                             text=True, timeout=10).stdout
+        self_doc = json.loads(raw).get("Self") or {}
+    except (OSError, ValueError, subprocess.SubprocessError):
+        self_doc = {}
+    host = str(self_doc.get("HostName") or "").strip()
+    dns = str(self_doc.get("DNSName") or "").strip().rstrip(".")
+    # The label first; HostName only when there is no DNS name at all to take one from, and the
+    # OS hostname only when Tailscale cannot name this node at all. Each step down is a weaker
+    # measurement and the fallbacks say so by being unreachable from the tailnet.
+    if not dns:
+        dns = tailnet_name()
+    label = dns.split(".")[0].strip() if dns else ""
+    label = label or host
+    with _MESH_LOCK:
+        _MESH_CACHE["identityAt"] = now
+        if label:
+            _MESH_CACHE["node"] = label
+        if dns:
+            _MESH_CACHE["fqdn"] = dns
+        node, fqdn = _MESH_CACHE["node"], _MESH_CACHE["fqdn"]
+    return (override_node or node or _fallback_node_name(), override_fqdn or fqdn or None)
+
+
+def _fallback_node_name() -> str:
+    """When Tailscale cannot name this node, the OS hostname is still a measurement."""
+    try:
+        return socket.gethostname().split(".")[0].strip().lower() or "unknown"
+    except OSError:
+        return "unknown"
+
+
+def mesh_work_root() -> Path:
+    """The directory 71 §2.1 calls `workRoot`: where this node's repos and worktrees live.
+
+    `~/code` on every node in this fleet today, overridable with PHONE_GATE_WORK_ROOT so a
+    node laid out differently reports the truth instead of a path that does not exist.
+    """
+    override = os.environ.get("PHONE_GATE_WORK_ROOT", "").strip()
+    if override:
+        return Path(override)
+    candidate = Path.home() / "code"
+    return candidate if candidate.is_dir() else Path.home()
+
+
+def mesh_governor_root() -> "Path | None":
+    """The governor's lease directory, or None when this node has never run one."""
+    candidates = []
+    override = os.environ.get("PHONE_GATE_GOVERNOR_ROOT", "").strip()
+    if override:
+        candidates.append(Path(override))
+    dsh_home = os.environ.get("DSH_HOME", "").strip()
+    if dsh_home:
+        candidates.append(Path(dsh_home) / "governor")
+    candidates.append(Path.home() / ".dsh" / "governor")
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def governor_budget_slots(total_bytes: int, free_bytes: int) -> int:
+    """The governor's own budget arithmetic, reproduced (governor.js:117-149)."""
+    reserve = max(MESH_GOVERNOR_RESERVE_MIN,
+                  int(round(total_bytes * MESH_GOVERNOR_RESERVE_FRACTION)))
+    usable = max(0, free_bytes - reserve)
+    budget = usable // MESH_GOVERNOR_PER_SLOT
+    if budget > MESH_GOVERNOR_MAX_SLOTS:
+        budget = MESH_GOVERNOR_MAX_SLOTS
+    if budget < MESH_GOVERNOR_MIN_SLOTS:
+        budget = MESH_GOVERNOR_MIN_SLOTS
+    return int(budget)
+
+
+def governor_measurement(total_bytes: int, free_bytes: int, root: "Path | None") -> dict:
+    """{budgetSlots, inUse, queued}.
+
+    THE BUDGET DOES NOT NEED THE LEASE DIRECTORY; ONLY `inUse` DOES. Corrected 2026-09-16
+    23:40Z after the broker measured the cost of getting this wrong: with the directory
+    required, `zabz-tech-linux` and the authority — the two nodes this mesh was built to
+    use, 24 free slots each — were refused fleet placement for the whole first hour. The
+    budget is arithmetic on a memory measurement the governor itself makes; the directory
+    only counts how many of those slots are taken.
+
+    So a node with no lease directory is reported with its computed budget and `inUse: 0`.
+    That zero is an INFERENCE FROM THE ABSENCE OF THE DIRECTORY, not a number invented to
+    fill a hole: the governor creates its layout before it grants anything (`ensureLayout`,
+    ``governor.js:100``), so a host with no lease directory under any root the gate looks in
+    has no holders and no waiters. It is never silent — `accepts.reason` names it in one
+    line — because the honest distinction is that an UNMEASURED BUDGET is a different thing
+    from an unmeasured counter, and only the first one stops a fleet being placed.
+
+    With a directory present, `inUse` counts leases whose `expiresAt` is still in the future:
+    a file left behind by a killed process is not a holder, and counting it would make a node
+    look busy for ever. Read fresh on every request, like everything else here.
+    """
+    measurement = {
+        "budgetSlots": governor_budget_slots(total_bytes, free_bytes),
+        "inUse": 0,
+        "queued": 0,
+    }
+    if root is None:
+        return measurement
+    now_ms = time.time() * 1000.0
+    in_use = 0
+    try:
+        lease_files = sorted((root / "leases").glob("slot-*.lease"))
+    except OSError:
+        lease_files = []
+    for path in lease_files:
+        try:
+            document = json.loads(path.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, ValueError):
+            continue                       # an unreadable lease cannot be renewed, so it is not a holder
+        expires = document.get("expiresAt") if isinstance(document, dict) else None
+        if isinstance(expires, (int, float)) and not isinstance(expires, bool) and expires > now_ms:
+            in_use += 1
+    try:
+        queued = len(list((root / "waiters").glob("*.wait")))
+    except OSError:
+        queued = 0
+    measurement["inUse"] = in_use
+    measurement["queued"] = queued
+    return measurement
+
+
+def _engine_get(engine_port: int, target: str, cookie: bytes = b"") -> "tuple[int | None, bytes]":
+    """One GET to this node's own engine. `(None, b"")` means the engine did not answer."""
+    try:
+        upstream = socket.create_connection(("127.0.0.1", engine_port), timeout=MESH_ENGINE_CONNECT_TIMEOUT)
+    except OSError:
+        return None, b""
+    try:
+        request = (f"GET {target} HTTP/1.1\r\nHost: 127.0.0.1:{engine_port}\r\n"
+                   f"User-Agent: phone-gate-capacity\r\nAccept: application/json,*/*\r\n"
+                   f"Connection: close\r\n").encode()
+        if cookie:
+            request += b"Cookie: " + cookie + b"\r\n"
+        upstream.sendall(request + b"\r\n")
+        raw = read_all(upstream, limit=500_000, timeout=MESH_ENGINE_READ_TIMEOUT)
+    except OSError:
+        return None, b""
+    finally:
+        try:
+            upstream.close()
+        except OSError:
+            pass
+    return status_of(raw), raw
+
+
+def mint_engine_cookie(engine_port: int) -> bytes:
+    """A session cookie for the gate's OWN loopback reads of `/healthz`.
+
+    The same exchange `complete_login` performs for a visitor, and for the same reason: the
+    engine's token is a one-time query parameter that mints a cookie, and `/healthz` wants
+    the cookie. Measured 2026-09-16: `/healthz` answers 401 without one and 200 with it.
+    The cookie is kept in memory, so the exchange happens once per engine start rather than
+    once per capacity request, and a 401 re-mints — which is also how this survives an
+    engine restart without the gate being restarted.
+    """
+    token = live_token(engine_port)
+    if not token:
+        return b""
+    status, raw = _engine_get(engine_port, "/?token=" + token)
+    if status not in (301, 302, 303, 307):
+        return b""
+    cookies = set_cookies(raw)
+    if not cookies:
+        return b""
+    return b"; ".join(item.split(b";", 1)[0] for item in cookies)
+
+
+def engine_probe(engine_port: int) -> "tuple[bool, dict | None]":
+    """(is the engine answering at all, its `/healthz` document or None).
+
+    Two different facts, and the route needs both: an engine that is DOWN makes `agents` and
+    `governor` null, while an engine that is UP but without plugin-health mounted leaves
+    `agents` unmeasurable (a 404) without that being a node outage.
+    """
+    with _MESH_LOCK:
+        cookie = _ENGINE_COOKIE["value"]
+    status, raw = _engine_get(engine_port, "/healthz", cookie)
+    if status is None:
+        return False, None
+    if status in (401, 403) and mesh_enabled():
+        minted = mint_engine_cookie(engine_port)
+        if minted:
+            with _MESH_LOCK:
+                _ENGINE_COOKIE["value"] = minted
+            status, raw = _engine_get(engine_port, "/healthz", minted)
+    if status != 200:
+        return True, None
+    # Measured 2026-09-16: the engine answers `/healthz` chunked (`Transfer-Encoding: chunked`
+    # and no Content-Length), so the body must be unwrapped before it is JSON — the same
+    # framing trap `reframe` was written for on the document route.
+    head, _, body = raw.partition(b"\r\n\r\n")
+    if b"transfer-encoding: chunked" in head.lower():
+        body = dechunk(body)
+    try:
+        document = json.loads(body.decode("utf-8", "replace"))
+    except ValueError:
+        return True, None
+    return True, document if isinstance(document, dict) else None
+
+
+def capacity_payload(engine_port: int) -> dict:
+    """The §2.1 object: every field measured, or null."""
+    node, fqdn = mesh_identity()
+    memory = _memory_bytes()
+    swap_used = _swap_used_percent()
+    alive, health = engine_probe(engine_port)
+
+    # `governor` is a measurement of a live thing only. With the engine down the lease
+    # directory is a set of files whose holders cannot be checked and whose renewals have
+    # stopped, so it is refused rather than reported — 71 §2.1 says so explicitly, and a
+    # stale `inUse: 0` is precisely the confident wrong number this program exists to kill.
+    # With the engine UP the budget is always reported, directory or not: see
+    # `governor_measurement` for why the directory is only needed for `inUse`.
+    lease_root = mesh_governor_root()
+    governor = None
+    if alive and memory is not None:
+        governor = governor_measurement(memory[0], memory[1], lease_root)
+
+    agents = None
+    if health is not None:
+        sessions = health.get("sessions")
+        if isinstance(sessions, dict) \
+                and isinstance(sessions.get("live"), int) and not isinstance(sessions.get("live"), bool) \
+                and isinstance(sessions.get("agentLoopsRunning"), int) \
+                and not isinstance(sessions.get("agentLoopsRunning"), bool):
+            agents = {"loopsRunning": sessions["agentLoopsRunning"], "sessionsLive": sessions["live"]}
+
+    work_root = mesh_work_root()
+    free_gib = None
+    try:
+        free_gib = round(shutil.disk_usage(str(work_root)).free / (1024 ** 3), 1)
+    except OSError:
+        free_gib = None
+
+    free_slots = None
+    if governor is not None:
+        free_slots = max(0, governor["budgetSlots"] - governor["inUse"])
+
+    # TWO lists, and the difference is the whole correction of 2026-09-16 23:40Z. A BLOCKER
+    # makes `accepts.fleet` false; a NOTE is something the caller should know while the node
+    # still accepts the work. Only an unmeasurable BUDGET is a blocker. An unmeasured
+    # `inUse` is not: a fleet can be placed on a node whose budget is known and whose in-use
+    # count is merely unmeasured, and refusing that is the one behaviour this design forbids
+    # (71 §2.2, "never a refusal"). The broker read the old shape correctly and excluded both
+    # Linux nodes, halving the mesh.
+    blockers = []
+    notes = []
+    if not alive:
+        blockers.append(f"the engine on 127.0.0.1:{engine_port} does not answer, so residency "
+                        f"cannot be measured here: one-shot runs are accepted, fleets are not "
+                        f"placed on this node")
+    elif memory is None:
+        blockers.append("free memory could not be measured on this node, so its slot budget "
+                        "cannot be computed: one-shot runs are accepted, fleets are not placed here")
+    else:
+        if lease_root is None:
+            notes.append("slot budget computed from memory; no governor lease directory on this "
+                         "node, so inUse is reported as 0 and is not measured")
+        if free_slots == 0:
+            blockers.append(f"{governor['inUse']} of {governor['budgetSlots']} governor slots are "
+                            f"in use")
+    if free_gib is None:
+        blockers.append(f"the free space on {work_root} could not be measured")
+    elif free_gib < MESH_FLEET_MIN_FREE_GIB:
+        blockers.append(f"only {free_gib} GiB free on {work_root}, below the "
+                        f"{MESH_FLEET_MIN_FREE_GIB} GiB a fleet needs")
+    accepts_fleet = not blockers
+    max_children = 0
+    if accepts_fleet:
+        max_children = min(int(free_slots), MESH_MAX_CHILDREN)
+        try:
+            override = int(os.environ.get("PHONE_GATE_MAX_CHILDREN", ""))
+            if override >= 0:
+                max_children = min(max_children, override)
+        except ValueError:
+            pass
+
+    return {
+        "schema": MESH_SCHEMA,
+        "node": node,
+        "fqdn": fqdn,
+        "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "cpu": {
+            "logical": _logical_cpu_count(),
+            "physical": _physical_cpu_count(),
+            "load1": _load1(),
+        },
+        "mem": {
+            "totalMiB": round(memory[0] / 1048576) if memory else None,
+            "freeMiB": round(memory[1] / 1048576) if memory else None,
+            "swapUsedPct": swap_used,
+        },
+        "disk": {
+            "workRoot": str(work_root).replace("\\", "/"),
+            "freeGiB": free_gib,
+        },
+        "agents": agents,
+        "governor": governor,
+        "accepts": {
+            # True always, and not as a courtesy: the v1 transport is
+            # `ssh <node> dsh --profile headless`, which starts its own process and needs no
+            # engine on the far side (71 §0). Nothing this gate can measure changes that.
+            "oneShot": True,
+            "fleet": accepts_fleet,
+            "maxChildren": max_children,
+            # Blockers first, then notes: a caller reading only the first clause reads the
+            # reason the fleet was refused, and a caller on an accepting node reads why a
+            # number in this object is derived rather than measured.
+            "reason": "; ".join(blockers + notes) if (blockers or notes) else None,
+        },
+    }
+
+
+def mesh_capacity_response(engine_port: int) -> bytes:
+    """The capacity reading as a complete HTTP response.
+
+    Answered by the gate itself and closed, exactly like the stylesheet route: this is a raw
+    TCP relay that inspects only the first request head, so a self-answered route must be a
+    whole response on one connection. `no-store`, because every number in it is a
+    measurement with a timestamp and a cached copy is a stale claim about a live machine.
+    """
+    if not mesh_enabled():
+        return b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    body = json.dumps(capacity_payload(engine_port), ensure_ascii=False).encode("utf-8", "replace")
+    return (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: application/json; charset=utf-8\r\n"
+        b"Cache-Control: no-store\r\n"
+        b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+        b"Connection: close\r\n\r\n" + body
+    )
+
+
+# --------------------------------------------------------------------------
 # The iOS head
 #
 # WHY THE GATE CARRIES THIS, AND WHY IT IS NOT A CLIENT PLUGIN
@@ -1289,6 +1974,20 @@ def handle(client: socket.socket, engine_port: int, engine_authority: str = "") 
         if method == "GET" and path == "/dsh-attention.json":
             body = badge_json_response(origin=request_header(first, b"origin") or "")
             note(f"  -> attention findings: {len(body)} bytes")
+            client.sendall(body)
+            client.close()
+            return
+
+        # The mesh capacity surface (docs/mesh/71-mesh-program.md §2.1). Answered here,
+        # BEFORE any sign-in logic runs, so a cold caller asking where there is room gets a
+        # reading rather than a cookie — and measured fresh on every request, because the
+        # broker's whole design rests on never trusting a cached heartbeat (71 §5). It is
+        # inside the device allow-list above, exactly as the gate itself is: the numbers are
+        # machine names, capacities and free bytes, and what they must not be is available
+        # to a device this node would not sign in at all.
+        if method == "GET" and path == "/mesh/capacity" and mesh_enabled():
+            body = mesh_capacity_response(engine_port)
+            note(f"  -> mesh capacity: {len(body)} bytes")
             client.sendall(body)
             client.close()
             return
