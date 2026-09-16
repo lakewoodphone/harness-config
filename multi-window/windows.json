@@ -135,7 +135,7 @@
       "workspace": "C:\\Users\\ezabz\\code",
       "profile": "w13",
       "enabled": true,
-      "position": 0,
+      "position": "700,0",
       "size": "700,440"
     },
     {
@@ -143,7 +143,7 @@
       "workspace": "C:\\Users\\ezabz\\code",
       "profile": "w14",
       "enabled": true,
-      "position": 700,
+      "position": "0,440",
       "size": "700,440"
     },
     {
@@ -151,7 +151,7 @@
       "workspace": "C:\\Users\\ezabz\\code",
       "profile": "w15",
       "enabled": true,
-      "position": 1400,
+      "position": "700,440",
       "size": "700,440"
     },
     {
@@ -159,7 +159,7 @@
       "workspace": "C:\\Users\\ezabz\\code",
       "profile": "w16",
       "enabled": true,
-      "position": 2100,
+      "position": "0,0",
       "size": "700,440"
     }
   ],
