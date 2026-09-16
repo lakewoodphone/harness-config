@@ -73,7 +73,7 @@ audit calls the capability risk "small, **not none**", so it goes to him as one 
 | Host | Measured | Rule |
 |---|---|---|
 | `ZABZ-YOGA` | 22 logical cores, 31.61 GB physical; **0.81 GB per running turn**; ~13–14 turns to paging; ~325 MB private per browser window; ~46 windows of headroom | fan heavy fleets out, not in |
-| `ZABZ-TECH` | **UNMEASURED** — the mesh was down for the whole program | do not scale the laptop's numbers and call it a budget |
+| `ZABZ-TECH` | **measured 2026-09-16**: 32 cores, 63.6 GB physical, commit **44.5 GB**, 38.1 GB free, 28 page-ins/s, 518 processes, one engine on :3099 | ~19.1 GB headroom, i.e. ~23 running turns at the laptop's slope — **but it is not yet fixed there**: 46 MCP server processes with 15 npx shims, no `NODE_COMPILE_CACHE`, no reaper, `maxParallelToolCalls` unset (code default 10). Deploying the fixes requires integrating the two histories first (see "Open items") |
 | `secratary` | — | prefer it for anything that must not depend on a laptop being awake |
 
 Windows are *not* the binding resource. Sessions and subagents are **not processes** (subagents run
@@ -86,9 +86,15 @@ program inherited was a summed working set and was 2.2× inflated.
 1. **The health/governor plugin** — in flight when this was written: a host-plane health surface,
    a deadline + short-TTL cache for the hanging `list_agents`, and an admission governor. Owned by
    a subagent; verified on an isolated engine before it goes near the live preset.
-2. **ZABZ-TECH parity** — blocked on Tailscale (`NoState`; the laptop was on 192.168.12.x with an
-   APIPA tailnet interface). Nothing has been pushed either: every commit is local-only until the
-   mesh returns.
+2. **ZABZ-TECH parity** — measured for the first time on 2026-09-16 (see the table above): it has
+   ~19.1 GB of headroom but carries the same waste the laptop had, and **none of this program's
+   fixes are deployed there yet**. Deploying them needs the two histories integrated first: the
+   laptop was `ahead 17, behind 12`, and the 12 remote commits collide with the laptop's journal
+   entries as **add/add conflicts on the same ids** (D201, D202, H367–H375, L1686–L1690, W174,
+   W175) — two machines assigning one number to different records, which is exactly the class their
+   `git_max` fix prevents from now on. Both records must survive under distinct ids with alias rows
+   (`journal.py repair-ids` / `index/aliases.tsv`), never by dropping a side. The laptop's work is
+   safe on the remote as branch `perf/dsh-at-scale-2026-09-16` in the meantime.
 3. **Defender path exclusions** — needs one elevated command (`Add-MpPreference -ExclusionPath
    'C:\Users\ezabz\code','C:\Users\ezabz\.dsh'`). Defender was measured at ~30 % of a core while
    the fleet churns files, and `node -v` takes 964 ms loaded against 289 ms warm.
