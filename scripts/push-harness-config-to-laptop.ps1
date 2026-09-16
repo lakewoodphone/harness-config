@@ -130,7 +130,11 @@ try {
 
     # journal/ is excluded at BUILD time as well as at apply time: two independent refusals, because the
     # one thing this must never do is put different content under a journal id that already exists.
+    # `journal/tools/` IS INCLUDED -- the tools are code, not the record, and excluding the whole
+    # directory quietly froze `journal.py` and `rehash.py` on every machine that receives anything.
+    # Measured 2026-09-15: the first scheduled delivery shipped exactly one file because of this.
     $paths = @(& git ls-tree --name-only origin/master) | Where-Object { $_ -and $_ -ne 'journal' }
+    $paths += 'journal/tools'
     & git archive --format=zip -o $zip origin/master -- $paths 2>&1 | Out-Null
     if (-not (Test-Path $zip)) { Log 'FAIL: git archive produced nothing'; exit 3 }
     $zipBytes = [System.IO.File]::ReadAllBytes($zip)

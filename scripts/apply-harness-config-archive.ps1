@@ -86,8 +86,13 @@ try {
         $rel = $f.FullName.Substring($Staging.Length).TrimStart('\', '/')
         $relNorm = $rel -replace '/', '\'
 
-        # journal/ is never copied: see the header. Also refuse anything that would escape the target.
-        if ($relNorm -match '^journal\\' -or $relNorm -eq 'journal') { $skipped++; continue }
+        # journal/ is never copied: see the header. `journal/tools/` IS copied -- the journal's own
+        # scripts are code, and freezing them on the receiving machine is how its `journal.py` stops
+        # being the tool every other machine runs. Also refuse anything that would escape the target.
+        if (($relNorm -match '^journal\\' -or $relNorm -eq 'journal') -and $relNorm -notmatch '^journal\\tools\\') {
+            $skipped++
+            continue
+        }
         if ($relNorm -match '\\\.\.\\' -or $relNorm -match '^\.\.') { $skipped++; continue }
 
         $dest = Join-Path $Target $relNorm
