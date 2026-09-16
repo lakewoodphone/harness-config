@@ -63,7 +63,23 @@ try {
     $unchanged = 0
     $skipped = 0
     $failed = @()
-    $hashes = @{}
+
+    # .NET copy and a .NET hasher, not the cmdlets.
+    #
+    # MEASURED 2026-09-15: the cmdlet version (Get-ChildItem + Get-FileHash twice + Copy-Item per file)
+    # did not finish 1,584 files inside the 60-second cap of the channel that delivers the archive, so
+    # no delivery could complete. Two changes fix that: the archive is built without `journal/` (the
+    # harness never reads it, and copying it is the one genuinely dangerous thing this script could
+    # do), and the work is done in .NET.
+    #
+    # EQUAL LENGTH IS NOT EQUAL CONTENT, so a length match is confirmed by hash before a file is called
+    # unchanged. Skipping that check would make this script a mechanism that silently leaves a stale
+    # file behind -- the exact class of fault it exists to end.
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    function Get-Sha256([string]$p) {
+        $fs = [System.IO.File]::OpenRead($p)
+        try { return [BitConverter]::ToString($sha.ComputeHash($fs)) } finally { $fs.Dispose() }
+    }
 
     $files = Get-ChildItem -LiteralPath $Staging -Recurse -File -Force
     foreach ($f in $files) {
@@ -78,21 +94,22 @@ try {
         $dir = Split-Path -Parent $dest
         try {
             if ($dir -and -not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-            $srcHash = (Get-FileHash -LiteralPath $f.FullName -Algorithm SHA256).Hash
-            $hashes[$relNorm] = $srcHash
             if (Test-Path -LiteralPath $dest) {
-                $dstHash = (Get-FileHash -LiteralPath $dest -Algorithm SHA256).Hash
-                if ($dstHash -eq $srcHash) { $unchanged++; continue }
-                Copy-Item -LiteralPath $f.FullName -Destination $dest -Force
+                if ((Get-Item -LiteralPath $dest).Length -eq $f.Length -and (Get-Sha256 $dest) -eq (Get-Sha256 $f.FullName)) {
+                    $unchanged++
+                    continue
+                }
+                [System.IO.File]::Copy($f.FullName, $dest, $true)
                 $updated++
             } else {
-                Copy-Item -LiteralPath $f.FullName -Destination $dest -Force
+                [System.IO.File]::Copy($f.FullName, $dest, $true)
                 $added++
             }
         } catch {
             $failed += ("{0}: {1}" -f $relNorm, $_.Exception.Message)
         }
     }
+    $sha.Dispose()
 
     [pscustomobject]@{
         appliedAt  = (Get-Date).ToUniversalTime().ToString('o')
