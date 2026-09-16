@@ -302,6 +302,7 @@ handoff	H392	392		2026-09-16 16:49 UTC	ZABZ-YOGA	open	## 2026-09-16 16:49 UTC ·
 handoff	H393	393		2026-09-16 16:58 UTC	ZABZ-YOGA	open	## 2026-09-16 16:58 UTC · ZABZ-YOGA · LPT full build: audit done, seven-agent fleet in flight, split-brain found	entries/handoff/H393.md	1	51	fd2183f5a7afa3ec
 handoff	H394	394		2026-09-16 17:00 UTC	ZABZ-YOGA	open	## 2026-09-16 17:00 UTC · ZABZ-YOGA · Monitoring round: 3-hour sampler running; 13 windows at commit 32.28GB over 31.6GB physical with sustained 3k pages/s - and where the 32GB actually lives	entries/handoff/H394.md	1	60	edb47ac1c5354c1d
 handoff	H395	395		2026-09-16 17:07 UTC	secratary	open	## 2026-09-16 17:07 UTC · secratary · Car insurance HPA70002908356: he IS insured, and the car has no collision or comprehensive	entries/handoff/H395.md	1	28	ea938b17d8ae08aa
+handoff	H396	396		2026-09-16 17:47 UTC	secratary	open	## 2026-09-16 17:47 UTC · secratary · Insurance session closed out: everything committed and pushed, one decision open	entries/handoff/H396.md	1	47	12117c964c5279f0
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
