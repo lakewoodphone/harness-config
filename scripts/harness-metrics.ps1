@@ -71,12 +71,24 @@ for ($i = 0; $i -lt $Samples; $i++) {
     } catch { }
 
     if ($i % 5 -eq 0) {
+        # MEASURED 2026-09-16: this block wrote mcp=0 engines=0 while the engine was demonstrably
+        # running (the same filter matches standalone: engines=1, mcp=7). I did not find the cause
+        # before spending more context on it, so the column is made honest instead of believed: a
+        # value is written ONLY when the query produced one, and 0 is written only when the query
+        # really ran and found none. Recording "0" for "I did not measure" is how an instrument
+        # starts lying, and that is worse than a blank.
         try {
             $all = Get-CimInstance Win32_Process -ErrorAction Stop
-            $row.mcp = @($all | Where-Object { $_.CommandLine -match 'mcp-fetch-server|@playwright/mcp|firecrawl-mcp|context7-mcp|mcp-remote|ps_mcp_server' }).Count
-            $row.engines = @($all | Where-Object { $_.CommandLine -match 'dsh\\lib\\bin\.js\s+web' }).Count
-            $row.cim_ok = 1
-        } catch { }
+            $m = @($all | Where-Object { $_.CommandLine -match 'mcp-fetch-server|@playwright/mcp|firecrawl-mcp|context7-mcp|mcp-remote|ps_mcp_server' })
+            $e = @($all | Where-Object { $_.CommandLine -match 'dsh\\lib\\bin\.js\s+web' })
+            if ($all.Count -gt 0 -and ($m.Count + $e.Count) -gt 0) {
+                $row.mcp = $m.Count
+                $row.engines = $e.Count
+                $row.cim_ok = 1
+            } else {
+                $row.mcp = 'n/a'; $row.engines = 'n/a'; $row.cim_ok = 0
+            }
+        } catch { $row.mcp = 'n/a'; $row.engines = 'n/a' }
     }
 
     ($row.Values | ForEach-Object { "$_" }) -join ',' | Add-Content -Path $csv -Encoding utf8
