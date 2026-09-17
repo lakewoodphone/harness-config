@@ -368,6 +368,7 @@ that the 255 did not leave a lease behind.
 | the owner's laptop engine was never touched | `Get-Process -Id 4880` before and after | same pid, same start time `08:51:07`, alive at the end |
 | the desktop's live engine was never touched | its own task's log and `Get-Process -Id 24556` | alive at the end; its sibling streams ran throughout; `listeners on :3099 = 1` before and after |
 | nothing was left running | the task's own tail | `after kill: listeners on :3097 = 0`; the one-shot task unregistered |
+| a task-created junction IS traversable on that machine, so the repair is scriptable | local one-shot task: create a probe junction, then `cmd /c type` through it | **exit 0, 95 lines**, while the real link in the same process returned `untrusted mount point` (`§8` item 7); the probe was removed |
 
 ## 8. What the next session should know
 
@@ -391,3 +392,37 @@ that the 255 did not leave a lease behind.
    answers. The composition and the resolution can disagree.
 6. **`docs/mesh/92` §2's file list and its 66-test count are one revision behind.** The committed tree
    is 89 tests and six test files, and `remote-script.js` did change (`102`).
+
+7. **The junction repair IS scriptable from a task on that machine — measured, so nobody has to guess
+   whether "console only" means "at the keyboard".** `90` §6 says an ssh-created junction is the
+   untrusted kind, which is how this one got here. A **probe** junction (in this session's own scratch
+   path, never in a profile) was created and read from a one-shot task with an Interactive principal,
+   in the same process that then failed on the real link:
+
+   ```
+   === probe junction: C:\Users\ezabz\105-probe-junction
+     created=True
+   === READ THROUGH IT (the only proof that matters) ===
+     cmd type exit=0 lines=95
+       /**
+        * dsh-plugin-remote-fanout — one agent, running on one node, fanning children
+     node read ok chars=4382 placement=false
+   === the REAL link, same process, for contrast ===
+     cmd type exit=1 first=[The path cannot be traversed because it contains an untrusted mount point.]
+     node read ERROR UNKNOWN
+   === cleaning the probe up ===
+     removed=True
+   ```
+
+   So a task-created junction **is** trusted and traversable here, which means the repair can be done by
+   a local one-shot task — remove the link, recreate it, and prove it with a read — **without taking a
+   session on that machine's desktop**. That is this session's recommendation for whoever owns that
+   machine's profile. It was not done here for two reasons stated plainly: the link is not in this
+   session's ownership, and the only way to prove the *engine* then resolves it is to restart an engine
+   that sibling streams are using, which the brief forbade. The probe junction was removed; the real
+   link was never touched.
+
+8. **The desktop's provider code is at `8bb3789`-era content on disk right now**: the same read through
+   the *probe* junction (which does traverse) printed `chars=4382 placement=false`, i.e. the repo copy
+   on that machine is still the pre-placement revision. Both the `git pull` and the junction repair are
+   needed; neither alone is enough.
