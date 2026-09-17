@@ -61,7 +61,19 @@ One behaviour, three parts, all inside the single-package installer:
 
 `scripts/install-client-plugin.sh` sha256 after the change:
 `3c7e3180445e415858fc708ee7771c36b7bd2c52f496a14195cebefcf20b7c43`. Pre-fix blob:
-`f0b23c1c0376a63b257d0a05d52fa779b8dc60a7`.
+`f0b23c1c0376a63b257d0a05d52fa779b8dc60a7` (the file's diff is +66/−3).
+
+**Published:** commit `4a8de19` on `master`, a fast-forward from `bfeb1fa`, pushed to
+`secretary-ts:/home/zabz/harness-config.git` — carrying the installer, this file and the four journal
+entries `L1894` / `L1895` / `H458` / `D250`. That matters for §3: the next machine that syncs, ZABZ-TECH
+included, now receives the fixed installer rather than the pre-fix one whose 26-commit-behind checkout
+still holds it. Only these seven paths were staged; the ~196 paths other streams have dirty in that tree
+were not touched, and no history was rewritten.
+
+`serve-phone.sh:167-180` installs only `plugin-mobile` and `plugin-cost` (both real bundles, so the new
+exit 3 never fires there) and already branches on the exit code, reporting a refusal as
+`client plugin install failed: <name>` with `rc=1` rather than continuing — which is the correct outcome
+for a package that must not be named.
 
 ### 1.3 The proof — the failure mode, before and after, in scratch homes
 
