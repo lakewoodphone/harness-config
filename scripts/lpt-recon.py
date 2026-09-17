@@ -390,9 +390,22 @@ def fs_checks():
             age = round((utcnow() - ts).total_seconds() / 60.0, 1)
         except Exception:  # noqa: BLE001
             pass
-        out.append(dict(name="lpt.refresh_age_min", value=age, ok=(age is not None and age < 60),
-                        unit="min", says="age of the lpt-hub corpus refresh",
-                        prov=f"records={d.get('records')} ff={d.get('fast_forward')}"))
+        ff = (d.get("fast_forward") or "").lower()
+        # 2026-09-17: measuring only the status.json TIMESTAMP was a false green. The refresh writes
+        # status.json on every run even when it REFUSES to update the corpus, so the check read "0.20
+        # min old" while `fast_forward: refused` - the clone was `ahead 1, behind 1116` and the corpus
+        # had not moved since 03:45. A clock that runs and cannot do its job is not freshness, so the
+        # refusal is now a FAIL in its own right, and it carries the branch line that explains it.
+        fresh = age is not None and age < 60
+        ok = fresh and ff not in ("refused", "failed", "error", "conflict")
+        out.append(dict(name="lpt.refresh_age_min", value=age, ok=ok, unit="min",
+                        says="age of the lpt-hub corpus refresh (a refused fast-forward is NOT fresh)",
+                        prov=f"records={d.get('records')} ff={d.get('fast_forward')} "
+                             f"branch={d.get('branch')}"))
+        if not ok:
+            out.append(dict(name="lpt.refresh_fast_forward", value=ff or "unknown", ok=False, unit="",
+                            says="the corpus refresh RAN but could not update the corpus",
+                            prov=f"branch={d.get('branch')} - reconcile the clone (do not reset it)"))
         out.append(dict(name="lpt.records_count", value=d.get("records"), ok=True, unit="",
                         says="sync records the refresh sees", prov="refresh status.json"))
     return out
