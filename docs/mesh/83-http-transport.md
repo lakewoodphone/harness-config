@@ -21,7 +21,7 @@ restarted except `zabz-tech`, whose engine was idle and which is named in §7.
 | node | transport v2 reachable? | evidence | cost of full deployment |
 |---|---|---|---|
 | `zabz-tech` | **YES — live now** | §6: an ssh-disabled child ran over the route; route log shows `verdict":"hmac-valid"` and `verdict":"ran"` | engine restarted once (idle: 0 connections, 401 on its own `/healthz`), 23188 → 23164 |
-| `zabz-yoga-1` (this laptop) | **no — and it must not be restarted** | the plugin is not in `~/.dsh/profiles/web/package.json` on this node; the owner's live session runs in pid 1784 | one engine restart, at a moment the owner chooses. Nothing else: §3.4's four commands, already proven on the desktop |
+| `zabz-yoga-1` (this laptop) | **YES — CORRECTED 2026-09-17 13:06Z** | `GET http://127.0.0.1:3099/mesh/health` **and** `http://127.0.0.1:3086/mesh/health` both answer **200**, `secretPath C:/ProgramData/dsh-mesh.env`, `secretConfigured: true`. The engine restarted at 08:50 and the bundle loaded; this row said "no — and it must not be restarted" and that is **STALE** | one engine restart, which has now happened. **`nodeSource` on this node still lies**: its route reports `node: "zabz-yoga"`, `fqdn: ""` while naming `tailscale status --json Self.DNSName` as the source, because the engine booted at 08:51:07 — **52 s before `tailscale-ipn` started at 08:51:59** — read an empty `Self.DNSName`, and cached it for the life of the process. Fixed in the package (`lib/node-identity.js`, §2 defect 1 of `93-transport-concurrency.md` §5); it takes effect on this node's next restart, which this stream did not make |
 | `lakewooechsmini` (Mac) | **no** | §5 and §11: the machine answers, its engine has been up **4 h 30 min** (pid 12458, `etime 04:30:20` at 04:14:56Z) with **2 session files touched in 30 min and one live session**, 16 GiB total with **swapUsedPct 58**, and it is an employee's machine | one engine restart. **Refused tonight** — see §11 |
 | `secratary` (authority) | unknown | not attempted: not in this stream's brief and the authority's swap is a separate stream's problem (`81` §3.5) | unchanged |
 
@@ -113,7 +113,7 @@ node C:/path/harness-config/packages/plugin-mesh-http/bin/mesh-http.mjs check   
 #   then restart that node's engine — a mounted bundle cannot hot-load (P210)
 ```
 
-`mesh-http.mjs check` on this laptop, before deployment, reads:
+`mesh-http.mjs check` on this laptop, **before** deployment, read:
 
 ```
 mesh-http 0.1.0 on zabz-yoga (node zabz-yoga-1, tailscale status --json Self.DNSName)
@@ -123,8 +123,31 @@ mesh-http 0.1.0 on zabz-yoga (node zabz-yoga-1, tailscale status --json Self.DNS
   verdict          NOT ready
 ```
 
-Nothing about that changes on the laptop until a restart window exists. There is **no** partial
-deployment that is useful: the junction and the bundle name are inert until the engine reads them.
+**CORRECTED 2026-09-17 13:52Z — the paragraph that used to follow this is now false.** It said
+*"Nothing about that changes on the laptop until a restart window exists"*. The laptop's engine was
+restarted at **08:50** by another stream; the junction and the bundle name took effect, and this
+same command now reads, at 13:52Z with the package at v0.2.0 (`93-transport-concurrency.md`):
+
+```
+mesh-http 0.2.0 on zabz-yoga (node zabz-yoga-1, tailscale status --json Self.DNSName)
+  secret           64 bytes at C:/ProgramData/dsh-mesh.env ({"mode":"ACL","acl":[…Administrators:(F), SYSTEM:(F), ZABZ-YOGA\ezabz:(R)]})
+  concurrency      5 at once, 780s queue budget — cpu term binds: 5. 9.2 logical CPUs of budget ÷ 1.68 per tool-heavy turn.
+  identity         corroborated by the tailnet
+  verdict          ready to accept v2 work
+```
+
+and `mesh-http.mjs probe` — the roster walk this document asked for in §6.7 — reports it as
+`ACCEPTS v2` beside `zabz-tech`. **The claim that there is no partial deployment still holds**: the
+junction alone was inert for four and a half hours, and only the restart made the route exist. What
+was wrong was the assumption that the restart had not happened.
+
+**One defect this exposes on the running laptop engine, and it is not fixed there:** its route answers
+`node: "zabz-yoga"`, `fqdn: ""`, while naming `tailscale status --json Self.DNSName` as the source
+that produced that name. The engine booted at 08:51:07, `tailscale-ipn` started at 08:51:59, the boot
+read saw an empty `Self.DNSName`, and `createNodeIdentity` cached it for the life of the process. A
+fresh process on the same machine reading the same file returns `zabz-yoga-1.tail93e6e6.ts.net`.
+Fixed in `lib/node-identity.js`; on this node it takes effect at the **next** restart, which this
+stream deliberately did not make (pid 4880 serves the owner's live work).
 
 ---
 
@@ -207,7 +230,7 @@ spread: no device on the tailnet, and no other node, gains it by being reachable
 | prompt | 32000 chars | it is one argv entry; the platform's command-line ceiling is the real limit |
 | wall clock | default 900 s, max 3600 s | the child is killed; the answer carries `timedOut: true` and the status is 504 |
 | output | 2 MiB per stream | a runaway child cannot grow the engine's heap through this route |
-| concurrency | **1** | one generating turn ≈ 0.81 GB commit and ≈ 1 core (`71` §2.2); a second request gets 429 with a position |
+| concurrency | **1** — **SUPERSEDED, see `93-transport-concurrency.md`** | one generating turn ≈ 0.81 GB commit and ≈ 1 core (`71` §2.2); a second request gets 429 with a position. `84` §3/§4.3 then measured both halves of that sentence: commit is **403 MiB**/turn, not 810, and CPU is 0.62-1.68 logical CPUs depending on the turn. The ceiling is now derived from the node's own capacity (`lib/concurrency.js`) and a request beyond it **queues with a visible position instead of being refused** |
 | nonce ledger | 8192 entries, window-pruned | bounded memory |
 
 **Refused, deliberately:**
@@ -499,8 +522,10 @@ the same exit code today.
   schema-1 document, it has no `dsh` route today, and v1 ssh to it completes a real child in 4.3 s.
 * **`secratary`.** Not attempted; it is not in this stream's brief and the broker already reaches it
   over ssh for `/place`.
-* **Concurrent runs on one node.** Refused by design (§5), so "two runs at once is safe" is neither
-  claimed nor disproved. The measured single-run cost is 7.1 s and 3.4 s for the two runs above.
+* **Concurrent runs on one node.** Refused by design (§5), so "two runs at once is safe" was neither
+  claimed nor disproved here. **Now measured — `93-transport-concurrency.md` §6.** Twelve concurrent
+  v2 requests on `zabz-tech` were all served: eight admitted immediately, four queued at positions
+  1-4 and served in arrival order, with the node's own counters recorded alongside.
 * **The Windows engine log's exact encoding.** The JSONL records from the dispatcher contain one
   mojibake sequence where the child's output had a non-ASCII character; the **artifacts on disk are
   correct** (`stdout.txt 381 B`, sha256 `6342E361594B635D…`, read back verbatim). The corruption is
@@ -508,8 +533,13 @@ the same exit code today.
   laptop-side run's stdout came through byte-clean.
 * **Rotation without a restart** is unit-tested (§2, `loadSecret` re-reads on a changed file) but has
   not been exercised against a live engine.
-* **The `429` busy path against a live node.** Unit-tested; producing it live would need two
-  dispatches inside one turn.
+* **The `429` busy path against a live node.** Unit-tested; producing it live would have needed two
+  dispatches inside one turn. **Superseded by `93` §6/§7:** the queue was produced live, the node's
+  engine log carries the four `QUEUE` lines with their positions and the four `DEQUEUE` lines in
+  arrival order, and the only `429` left in the contract is `node-queue-wait-exceeded` — a wait
+  budget, not a capacity refusal.
+* **The laptop's identity on its RUNNING engine.** Degraded until that engine is next restarted;
+  no restart of it was made (§3.4, corrected).
 * **`zabz-tech` after a reboot.** The engine there is hand-started, like the authority's broker
   (`81` §0.8). Nothing about this stream makes that worse, and nothing about it makes it better.
 
