@@ -328,6 +328,8 @@ handoff	H418	418		2026-09-16 23:28 UTC	zabz-yoga	open	## 2026-09-16 23:28 UTC ·
 handoff	H419	419		2026-09-16 23:31 UTC	ZABZ-YOGA	open	## 2026-09-16 23:31 UTC · ZABZ-YOGA · Remote fan-out is proven; the mesh profile is the dispatcher that needs no restart	entries/handoff/H419.md	1	25	d5e2a97e5fc9920c
 handoff	H420	420		2026-09-16 23:46 UTC	ZABZ-YOGA	open	## 2026-09-16 23:46 UTC · ZABZ-YOGA · The mesh is built and proven: fan-out works, four nodes, the broker decides, and the elastic answer is rent-the-peak	entries/handoff/H420.md	1	50	483893bfba5462f4
 handoff	H421	421		2026-09-16 23:47 UTC	ZABZ-YOGA	open	## 2026-09-16 23:47 UTC · ZABZ-YOGA · S7 mesh acceptance harness: baseline 4 PASS/1 FAIL/3 SKIP on 2026-09-16T23:45Z; hermetic mesh proven; three items are the manager's	entries/handoff/H421.md	1	52	cab85e41274ffe82
+handoff	H422	422		2026-09-17 00:56 UTC	zabz-yoga	open	## 2026-09-17 00:56 UTC · zabz-yoga · Shlock: information fully recovered, plan corrected, and the frame as built is NOT adequate in wind (118 mph site, fails at 58-76 mph)	entries/handoff/H422.md	1	35	650128c37e3ce814
+handoff	H423	423		2026-09-17 03:34 UTC	ZABZ-YOGA	open	## 2026-09-17 03:34 UTC · ZABZ-YOGA · THE OVERNIGHT PROGRAM: seven streams, and done means the acceptance run is green with zero skips	entries/handoff/H423.md	1	47	41ce4b0e0b3663fa
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
