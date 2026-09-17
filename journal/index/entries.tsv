@@ -996,6 +996,8 @@ lessons	L1826	1826		2026-09-16	ZABZ-YOGA	open	**L1826 · macOS: never invoke bar
 lessons	L1827	1827		2026-09-16	ZABZ-YOGA	open	**L1827 · macOS load average is not a CPU signal, and Pages free is not available memory**	entries/lessons/L1827.md	1	16	9ae2ddca437d44b4
 lessons	L1828	1828		2026-09-16	ZABZ-YOGA	open	**L1828 · macOS 26 keeps a SECOND wallpaper for the idle state, and it can be a 4K video**	entries/lessons/L1828.md	1	14	4005ec12dd4fd995
 lessons	L1829	1829		2026-09-16	ZABZ-YOGA	open	**L1829 · $pid is read-only; and do not call a process 'leaked' until you have checked whether the run that owns it has finished**	entries/lessons/L1829.md	1	32	ee7023c98d673730
+lessons	L1830	1830		2026-09-16	ZABZ-YOGA	open	**L1830 · Shell traps that fail SILENTLY and make a checker report the opposite of the truth**	entries/lessons/L1830.md	1	22	be12d1d767204664
+lessons	L1831	1831		2026-09-16	ZABZ-YOGA	open	**L1831 · A managed policy file is the mechanism on a Mac that is not MDM-enrolled**	entries/lessons/L1831.md	1	16	059b3a59a8b79c2a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1535,3 +1537,4 @@ wins	W188	188		2026-09-16	ZABZ-YOGA	open	**W188 · 2026-09-16 · The monthly ann
 wins	W189	189		2026-09-16	ZABZ-YOGA	open	**W189 · 2026-09-16 · Both Windows nodes answer an authenticated RPC over the tailnet with no engine restart.**	entries/wins/W189.md	1	18	465bac4ff911ddc6
 wins	W190	190		2026-09-16	ZABZ-YOGA	open	**W190 · 2026-09-16 · The unified-search ingest stops re-reading its own index once per document.**	entries/wins/W190.md	1	12	9645bef4cbd650a6
 wins	W191	191		2026-09-16	ZABZ-YOGA	open	**W191 · 2026-09-16 · The Mac Mini's waste was ours: ~0.8 of a core recovered and the machine became a mesh node.**	entries/wins/W191.md	1	14	8c61cc6bad161c83
+wins	W192	192		2026-09-16	ZABZ-YOGA	open	**W192 · 2026-09-16 · The Mac Mini is now fleet-placeable, and the reclaim job is reversible with one command.**	entries/wins/W192.md	1	17	2d694631fc5676e4

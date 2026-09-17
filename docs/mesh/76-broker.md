@@ -6,15 +6,18 @@ FROZEN), §3 row S5, §4 items 2 and 6. **Depends on:** `docs/mesh/66-dsh-remote
 **Date:** 2026-09-16, 23:15–23:21Z (every timestamp below is UTC, from the machines' own clocks).
 **Author:** stream S5, an agent session; not the owner. **Status: built, tested, and running on the
 authority.**
-**Amended 2026-09-16 23:27–23:57Z with FOUR OWNER-APPROVED AMENDMENTS** — the fleet disk floor
-scales with the fleet (§10.1), a swapping node's slots are halved for ranking (§10.2), the score is
-`min(memorySlotTerm, physicalCores × 0.75)` with both terms printed (§10.3), and the roster carries a
+**Amended 2026-09-16 23:27Z – 2026-09-17 00:20Z, all owner-approved** — the fleet disk floor scales
+with the fleet (§10.1), a swapping node's slots are halved for ranking (§10.2), the score is
+`min(memorySlotTerm, physicalCores × 0.75)` with both terms printed (§10.3), the roster carries a
 per-node v1 transport capability that ranks a node measured unable to take the work below one that
-can (§10.4). §10.5 records the two §2.1 contract-line corrections, which stream S1 landed in
-`71-mesh-program.md` before this stream got there. **§10.6 is a fifth, contract-only change: the
-`absent` state** (approved 2026-09-17, implemented in ~20 lines), and §10.7 records the agreed SHAPE
-of a future elastic tier that is deliberately **not built**. Everything measured before the
-amendments is marked as such; §7's readings are from 23:20Z and §11's are from 23:57Z.
+can (§10.4, and its `zabz-yoga-1` row was corrected from a stale `false` to a measured `true`), the
+`absent` state for a configured-but-never-provisioned node (§10.6), a `slow` state so a busy node is
+never reported as a dead one (§10.8), and a `capacity-unreadable` state so a broken reader is never
+reported as an offline machine (§10.9). §10.5 records the two §2.1 contract-line corrections, which
+stream S1 landed in `71-mesh-program.md` before this stream got there. §10.7 keeps the agreed SHAPE
+of a future elastic tier that is deliberately **not built**. **§2.2 of `71-mesh-program.md` has been
+amended to match this code**, so the frozen contract and the implementation now say the same thing.
+§7's readings are from 23:20Z; §11's are from 23:43–00:20Z.
 **Read-only with respect to everything else:** no engine was started, stopped, restarted or
 reconfigured; no allow-list or serve config was changed; `personal-secretary-mvp` was not touched;
 nothing was committed (the manager integrates).
