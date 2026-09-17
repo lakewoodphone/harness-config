@@ -366,6 +366,7 @@ handoff	H457	457		2026-09-17 14:22 UTC	ZABZ-YOGA	open	## 2026-09-17 14:22 UTC ·
 handoff	H458	458		2026-09-17 14:26 UTC	ZABZ-YOGA	open	## 2026-09-17 14:26 UTC · ZABZ-YOGA · 99: the POSIX installer's landmine is fixed and proven; ZABZ-TECH's provider is installed and composing; its 26-commit drift is measured and NOT synced	entries/handoff/H458.md	1	26	fa11a004ce945530
 handoff	H459	459		2026-09-17 14:27 UTC	ZABZ-YOGA	open	## 2026-09-17 14:27 UTC · ZABZ-YOGA · Fishman two Seagate drives: 300DDR says 85% / 75%, customer answer drafted, not sent	entries/handoff/H459.md	1	23	8a8d5b8a182bd9e9
 handoff	H460	460		2026-09-17 14:35 UTC	ZABZ-YOGA	open	## 2026-09-17 14:35 UTC · ZABZ-YOGA · The idle restart window is armed on ZABZ-YOGA (one restart will land placement + mesh-http v0.2.0), and the live layer is stale for a measured reason	entries/handoff/H460.md	1	57	6a45d5820540aa6c
+handoff	H461	461		2026-09-17 14:47 UTC	ZABZ-YOGA	open	## 2026-09-17 14:47 UTC · ZABZ-YOGA · Spend guard built, tested and demonstrated; NOT yet mounted in the live engine	entries/handoff/H461.md	1	30	d3730d3d971b84f8
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1085,6 +1086,10 @@ lessons	L1894	1894		2026-09-17	ZABZ-YOGA	open	**L1894 · Reparse-point trust on 
 lessons	L1895	1895		2026-09-17	ZABZ-YOGA	open	**L1895 · A checkout 26 commits behind is not a mesh node: before any fast-forward, measure whether the machine's uncommitted files are NEWER than the branch**	entries/lessons/L1895.md	1	14	2c298459af227051
 lessons	L1896	1896		2026-09-17	ZABZ-YOGA	open	**L1896 · The recovery-chances answer is the 300DDR chances-form email, not a repo doc**	entries/lessons/L1896.md	1	11	dee067b920945885
 lessons	L1897	1897		2026-09-17	ZABZ-YOGA	open	**L1897 · A host-plane activation has three parts (package, live layer, running engine), and an uncommitted live layer is reverted by autosync every 15 minutes**	entries/lessons/L1897.md	1	40	e0e4a289b75e86a8
+lessons	L1898	1898		2026-09-17	ZABZ-YOGA	open	**L1898 · The gateway's 'force the fast/cheap tier' alias is a tier FLOOR, not an equality**	entries/lessons/L1898.md	1	14	660673f9aac17162
+lessons	L1899	1899		2026-09-17	ZABZ-YOGA	open	**L1899 · A generated plugin artifact must not carry require(absolute path) - or the building machine's home**	entries/lessons/L1899.md	1	14	f388b2ed1f0e8af8
+lessons	L1900	1900		2026-09-17	ZABZ-YOGA	open	**L1900 · Never rewrite ~/.dsh/profiles/web/cordis.patch.yml as a whole file - it holds !!js expressions**	entries/lessons/L1900.md	1	12	8d8161242a8dd47d
+lessons	L1901	1901		2026-09-17	ZABZ-YOGA	open	**L1901 · To prove a guard refuses BEFORE billing: pre-seed its counter, then read turn/end**	entries/lessons/L1901.md	1	15	61405f1bbf62cb89
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1286,6 +1291,7 @@ pain	P236	236		2026-09-17	ZABZ-YOGA	open	## P236 — A queued remote child looks
 pain	P237	237		2026-09-17	ZABZ-YOGA	done	## P237 — install-client-plugin.sh (POSIX) has the pre-fix bundle-enrolment bug; only the PowerShell installer was repaired	entries/pain/P237.md	1	36	a35ee9e8edee49f5
 pain	P238	238		2026-09-17	ZABZ-YOGA	open	## P238 — A measurement brief whose turn budget cannot afford the comparison it asks for	entries/pain/P238.md	1	44	9bc940af58307948
 pain	P239	239		2026-09-17	ZABZ-YOGA	open	## P239 — An installed host-plane row is silently reverted from ~/.dsh every 15 minutes unless it is committed, and nothing says so	entries/pain/P239.md	1	39	c24df9dcb3ecf889
+pain	P240	240		2026-09-17	ZABZ-YOGA	open	## P240 — The spend guard's ceiling is per-engine: two engines on one host share one state file	entries/pain/P240.md	1	12	0aa687fc56a4f321
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
