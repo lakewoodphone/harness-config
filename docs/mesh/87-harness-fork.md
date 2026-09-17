@@ -707,3 +707,32 @@ pure fast-forward for the laptop (`merge-base HEAD origin/master` = `c057738` = 
 `grep -c "PRESERVE FIRST, THEN REPORT" scripts/autosync.sh` = **1** on `origin/master`, on the
 authority, and on the laptop — so the machine that would otherwise re-diverge every fifteen minutes
 now carries the fix that reports a divergence instead of freezing on it silently.
+
+### 7.5 The third collision, caught live — and why it is a rule, not a bug
+
+Minutes after `c4b1b57` landed, the laptop's tree held **8 untracked journal entries whose ids were
+the ones the merge had just used**: `handoff/H433.md`, `lessons/L1848`–`L1852.md`, `pain/P229.md`,
+`pain/P230.md` — every one of them a *different* entry from master's, e.g. laptop `H433` is
+*"Reconciled the owner's inventory sheet vs the live MDM registry…"* (04:10Z) while master's `H433`
+is *"O5 THE AUTHORITY: the broker is a systemd service…"* (03:49Z). A live stream had allocated from
+a view taken before the push.
+
+Its consequence is specific and easy to misread: the laptop's **ancestry is clean**
+(`merge-base HEAD origin/master` = `c057738` = `HEAD`, so `git pull --ff-only` is a pure
+fast-forward), but the **working-tree update is refused** — *"The following untracked working tree
+files would be overwritten by merge"*. A verifier that checks ancestry passes; a verifier that
+actually pulls fails. **That failure is a concurrent writer, not a defect in the merge**, and the
+only reason it is distinguishable is that the write was logged: `2026-09-17T04:10:36Z UTC`,
+entries 1563 → 1576, gate 2 having proved on a fresh read that none of the 13 was present.
+
+**Three collisions in one night** — the authority's 41, `c057738`'s 13, this stream's 8. The same
+mechanism each time: `journal.py append` allocates `max(everything it can see) + 1`, and it **cannot
+see another machine's uncommitted files.** So the rule is not a tool but a discipline:
+
+> **Pull before you append, and treat an uncommitted entry in a diverged tree as an id already
+> spent.** A fleet that appends first will collide every time, and the collision will always look
+> like the other side's fault.
+
+The remedy for the 8 is the same instrument as for the other two — re-file through `append`, which
+bumps on collision and leaves an alias — and **never** by hand-renaming the files, which is how the
+v1 tree acquired 220 duplicate copies.
