@@ -151,7 +151,7 @@ _LOCK_FD = None
 # Commands that read the tree to decide what to write back. Two of these running at
 # once on one tree is what produced 161 collided ids on 2026-09-14.
 MUTATING_COMMANDS = {"append", "import-legacy", "migrate-v2", "dedupe", "repair-ids",
-                     "resolve", "state", "questions", "gc-legacy", "index"}
+                     "resolve", "state", "questions", "gc-legacy", "index", "claim"}
 
 
 # ---------------------------------------------------------------------------
@@ -2702,8 +2702,43 @@ def _drop_os_lock(fd: int) -> None:
         pass
 
 
+def _held_lock_text(fd: int) -> str:
+    """Read the lock file through the descriptor that HOLDS it.
+
+    MEASURED 2026-09-17 (ZABZ-YOGA): on Windows `msvcrt.locking` makes the locked byte
+    range unreadable from any other handle, so `_rl(lock)` raised PermissionError, the old
+    code's `except OSError: held = ""` swallowed it, `token in held` was False for every
+    command, and the unlink never ran. The consequence was not theoretical: EVERY mutating
+    command left `journal/.lock` behind, holder pid dead -- `questions`, `import-legacy`,
+    `index`, `state`, `append`, reproduced one by one (the file's content was always this
+    process's own token, so nothing else was holding it). Reading through our own fd sees
+    the bytes we wrote and bypasses the Windows read restriction entirely.
+    """
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+        raw = os.read(fd, 512)
+    except OSError:
+        return ""
+    return raw.decode("utf-8", errors="replace")
+
+
 def release_lock(token: str) -> None:
-    """Release the OS lock and remove the lock file only if it is still ours."""
+    """Release the OS lock and remove the lock file only if it is still ours.
+
+    Ownership is proved by TWO checks and the file is unlinked only when both hold: the
+    token is still the one we wrote, and the path still resolves to the inode we locked.
+    The inode check is what protects an unlink (a waiter that unlinked-and-recreated the
+    path confuses us about ownership, never about the inode); the token check protects
+    against a recycled inode number after a previous unlink.
+
+    ORDER MATTERS ON WINDOWS, and this is the second half of the leak. MEASURED
+    2026-09-17: an `unlink` while our own handle is open fails with WinError 32 even after
+    `LK_UNLCK` -- `os.open` takes no FILE_SHARE_DELETE, so the handle itself, not the byte
+    range, blocks the delete. The sequence is therefore prove-ownership, drop the OS lock,
+    CLOSE the fd, then unlink. A waiter that takes the lock inside that last window does no
+    harm: it re-reads the token, then writes its own, and the token check here has already
+    run.
+    """
     global _LOCK_FD
     lock = JOURNAL / LOCK_NAME
     fd, _LOCK_FD = _LOCK_FD, None
@@ -2713,16 +2748,25 @@ def release_lock(token: str) -> None:
         held = _rl(lock)
     except OSError:
         held = ""
+    if not held:
+        # Windows: the lock we hold makes the path unreadable to a SECOND handle. Ours is
+        # not a second handle, so ask it directly rather than concluding "not ours".
+        held = _held_lock_text(fd)
+    mine = False
     try:
-        if token and token in held and os.stat(str(lock)).st_ino == os.fstat(fd).st_ino:
-            lock.unlink()
+        mine = bool(token) and token in held and os.stat(str(lock)).st_ino == os.fstat(fd).st_ino
     except OSError:
-        pass
+        mine = False
     _drop_os_lock(fd)
     try:
         os.close(fd)
     except OSError:
         pass
+    if mine:
+        try:
+            lock.unlink()
+        except OSError:
+            pass
 
 
 def max_number(kind: str) -> int:
@@ -2870,7 +2914,625 @@ def git_max(kind: str, fetch: bool = False):
                 nums.append(int(m.group(1)))
     except Exception:
         pass
+    if nums:
+        # WIRE THE CEILING TO THE MEASUREMENT. This call is the reason the field exists and it
+        # was missing: `note_git_ceiling()` was defined and called from nowhere, so
+        # `stamp.json:git_ceiling` was `{}` on every machine, `allocation_ceiling()` was always
+        # just `max_number()`, and the only thing that kept `append` off a stale number was this
+        # live subprocess. MEASURED 2026-09-17: on this laptop `allocation_ceiling` returned
+        # exactly the local maximum for all five kinds while `git_max` returned the same
+        # numbers -- the two mechanisms agreed by accident because the numbers happened to
+        # match, and a machine whose HEAD is behind or whose origin holds a higher number was
+        # one fetch step away from disagreeing. Recording what was measured makes the field a
+        # reading instead of a stub. It never lowers a value and never raises an id past what
+        # this run already saw, so it cannot change the number this call returns.
+        try:
+            note_git_ceiling({kind: max(nums)})
+        except Exception:
+            pass
     return (max(nums) if nums else 0), rev
+
+
+# ---------------------------------------------------------------------------
+# ID ALLOCATION, 2026-09-17: the reservation layer that makes a cross-machine
+# collision impossible rather than merely unlikely.  See docs/mesh/108-id-allocation.md.
+# ---------------------------------------------------------------------------
+
+ALLOC_DIRNAME = "alloc"
+RESERVATION_FILE = "bands.tsv"
+# How much of the id space one claim takes. Every number inside the window is ours, so
+# nothing in it can collide no matter what the other machines do. 64 is deliberately small:
+# a window that is never used is wasted space, and "a gap costs nothing" is about *gaps in
+# the record*, not about reserving a thousand numbers nobody will ever write (the reference
+# document's `D255` mechanism does exactly that, one id at a time).
+RESERVATION_WINDOW = 64
+RESERVATION_HEADER = "kind\treserved_from\treserved_through\thost\tstamp\trev"
+
+
+def alloc_dir() -> Path:
+    return JOURNAL / ALLOC_DIRNAME
+
+
+def ledger_path() -> Path:
+    return alloc_dir() / RESERVATION_FILE
+
+
+def _git_repo() -> Path:
+    """The repo whose refs are the shared coordination surface: the nearest enclosing one.
+
+    WALK UP, do not assume one level. `journal/` normally sits at the root of the
+    harness-config checkout, so its parent is the repo -- but it is also legitimately a
+    `journal/` directory inside any other checkout (a clone, a worktree, a fixture), and
+    `JOURNAL.parent` then points at a directory that is not a repository at all. MEASURED
+    2026-09-17: with a `journal/` inside a cloned repo, `JOURNAL.parent` made every git call
+    fail, `hash-object` returned an empty blob, and the claim died as `tree-build-failed`
+    with nothing to say why. A journal tree with no enclosing repo is a single-machine tree
+    and `has_shared_ref()` says so.
+    """
+    try:
+        top = subprocess.run(["git", "-C", str(JOURNAL), "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True, timeout=20)
+        if top.returncode == 0 and top.stdout.strip():
+            return Path(top.stdout.strip())
+    except Exception:
+        pass
+    return JOURNAL.parent
+
+
+def _git(*argv, repo=None, text=True):
+    """Run git and return (rc, stdout). Never raises; a missing git is exit 127."""
+    try:
+        p = subprocess.run(["git", "-C", str(repo or _git_repo())] + list(argv),
+                           capture_output=True, text=True, timeout=45)
+        return p.returncode, (p.stdout or "")
+    except Exception:
+        return 127, ""
+
+
+def has_shared_ref() -> bool:
+    """True when another machine could mint into the same id space as this one.
+
+    The test is "is there a remote-tracking ref to coordinate through", not "is git
+    installed". A repo with no origin is a single machine by construction; there is nothing
+    to be disjoint from and nothing to push to. MEASURED on the live tree 2026-09-17:
+    `refs/remotes/origin/master` exists, so the live tree is always in the safe branch.
+    """
+    rc, out = _git("for-each-ref", "--format=%(refname)", "refs/remotes/origin")
+    return rc == 0 and bool(out.strip())
+
+
+def ledger_exists() -> bool:
+    """Is there a reservation ledger ANYWHERE -- local file or shared ref?
+
+    This separates the two degenerate cases, and the difference is a collision risk rather
+    than a nicety. No ledger at all means a scratch or fixture tree that no other machine
+    writes to. A ledger that exists is a published statement that ids are being handed out by
+    a cooperative scheme, so a number outside every window in it is not "probably free" -- it
+    is unauthorised, whatever this machine can currently see.
+    """
+    if ledger_path().exists():
+        return True
+    if has_shared_ref():
+        rc, out = _git("show", "refs/remotes/origin/master:journal/%s/%s"
+                       % (ALLOC_DIRNAME, RESERVATION_FILE))
+        return rc == 0 and bool(out.strip())
+    return False
+
+
+def read_ledger_rows() -> list:
+    """Reservation rows, local file first and the shared ref as the union.
+
+    Reading BOTH matters: a machine that has just claimed but not yet fetched must not
+    forget its own reservation, and a machine that has just fetched must not miss one it has
+    never written locally. The higher `reserved_through` wins per kind; the row itself is
+    kept so `show` can name the machine and the moment.
+    """
+    rows = []
+    local = ledger_path()
+    if local.exists():
+        rows.extend(_parse_ledger(_rl(local)))
+    if has_shared_ref():
+        rc, out = _git("show", "refs/remotes/origin/master:journal/%s/%s"
+                       % (ALLOC_DIRNAME, RESERVATION_FILE))
+        if rc == 0 and out.strip():
+            rows.extend(_parse_ledger(out))
+    return rows
+
+
+def _parse_ledger(text: str) -> list:
+    """Rows are `kind, reserved_from, reserved_through, host, stamp, rev`.
+
+    A FOUR-column row is accepted as a legacy shape and read as `through = cells[1]`,
+    `from = 1`: the only such rows in existence were written earlier the same evening and a
+    window that claims to start at 1 is exactly what they meant. Giving a pre-existing row a
+    silently different meaning would be worse than keeping it literal.
+    """
+    out = []
+    for ln in (text or "").split("\n"):
+        ln = ln.rstrip("\r")
+        if not ln.strip() or ln.startswith("kind\t") or ln.startswith("#"):
+            continue
+        cells = ln.split("\t")
+        if len(cells) < 4:
+            continue
+        try:
+            if cells[1].isdigit() and cells[2].isdigit():
+                frm, through, host = int(cells[1]), int(cells[2]), cells[3]
+                stamp = cells[4] if len(cells) > 4 else ""
+                rev = cells[5] if len(cells) > 5 else "-"
+            else:
+                frm, through, host = 1, int(cells[1]), cells[2]
+                stamp = cells[3] if len(cells) > 3 else ""
+                rev = cells[4] if len(cells) > 4 else "-"
+        except (TypeError, ValueError):
+            continue
+        out.append({"kind": cells[0], "reserved_from": frm, "reserved_through": through,
+                    "host": host, "stamp": stamp, "rev": rev})
+    return out
+
+
+def reserved_through(kind: str, host: str = "") -> int:
+    """The highest number reserved for `kind`, by anyone, plus separately by this host."""
+    best_any = 0
+    best_mine = 0
+    me = (host or host_tag()).upper()
+    for r in read_ledger_rows():
+        if r["kind"] != kind:
+            continue
+        best_any = max(best_any, r["reserved_through"])
+        if r["host"].upper() == me:
+            best_mine = max(best_mine, r["reserved_through"])
+    return best_any, best_mine
+
+
+def is_reserved(kind: str, number: int, host: str = "") -> bool:
+    """Is `number` inside a window THIS host reserved? Coverage is what authorises a mint.
+
+    A WINDOW HAS TWO ENDS. MEASURED 2026-09-17, and this was the last collision in the
+    two-machine test: with only `reserved_through` in the ledger, a machine whose window moved
+    UP (because another machine had taken the numbers below) still appeared to cover all the
+    lower numbers, so it minted L2 out of a window that really began at L66 and collided with
+    the machine that had published L2. The floor is therefore recorded and checked.
+    """
+    me = (host or host_tag()).upper()
+    for r in read_ledger_rows():
+        if r["kind"] == kind and r["host"].upper() == me:
+            if r.get("reserved_from", 0) <= number <= r["reserved_through"]:
+                return True
+    return False
+
+
+def reservation_base(kind: str) -> int:
+    """The highest number a NEW claim must clear: every source AND everyone's reservation.
+
+    `best_any` is the load-bearing term and it is not a formality. A claim that only cleared
+    the local maximum would hand the second machine the SAME window as the first -- measured
+    2026-09-17: m1 reserved L2..L65, m2 then reserved L2..L65 too, and the id collided anyway
+    while every individual call looked correct. The second machine must land above the first
+    machine's window, which is exactly why the reservation has to be pushed to be read.
+
+    `git_max` returns `(number, rev)`; unpacking it is not optional either. Passing the tuple
+    into `max()` raised `TypeError: '>' not supported between instances of 'tuple' and 'int'`
+    inside a guarded call, so the reservation was computed and then silently ignored.
+    """
+    local = max_number(kind)
+    remote, _rev = git_max(kind, fetch=False)
+    best_any, _best_mine = reserved_through(kind)
+    return max(local, allocation_ceiling(kind), remote, best_any)
+
+
+def _render_ledger(rows: list) -> str:
+    seen = set()
+    body = []
+    for r in rows:
+        key = (r["kind"], r.get("reserved_from", 1), r["reserved_through"], r["host"].upper())
+        if key in seen:
+            continue
+        seen.add(key)
+        body.append("\t".join([r["kind"], str(r.get("reserved_from", 1)),
+                               str(r["reserved_through"]), r["host"],
+                               r.get("stamp", ""), r.get("rev", "-")]))
+    return RESERVATION_HEADER + "\n" + ("\n".join(body) + "\n" if body else "")
+
+
+def reserve_locally(kind: str, host: str = "", cover: int = 0) -> dict:
+    """Write a window for this host into the LOCAL ledger. Touches no ref, no network.
+
+    This is the ONLY thing `append` may do when it runs out of window, and it is deliberately
+    NOT enough on its own: two machines that reserve locally from the same base choose the
+    SAME window, which is the collision this file exists to prevent. Making it safe is the job
+    of `publish_reservation`, which is explicit and which an operator runs on purpose. Keeping
+    the two apart is the whole point; see docs/mesh/108-id-allocation.md.
+
+    `cover` is the number the caller is ABOUT to write, if it knows one. The window is grown
+    until it reaches it. MEASURED 2026-09-17, and it is the subtler half of the claim bug:
+    without `cover`, a machine reserves the window that starts above the LEDGER's base while
+    its own next free number sits BELOW that base -- so the number it then writes is outside
+    the window it just reserved, and two machines that both claimed this way still collided
+    (`m1` and `m2` each minted L2). A reservation that does not cover the number you are about
+    to write is not a reservation.
+    """
+    first = max(max_number(kind), allocation_ceiling(kind)) + 1
+    through = reservation_base(kind) + RESERVATION_WINDOW
+    if cover > through:
+        through = cover + RESERVATION_WINDOW - 1
+    row = {"kind": kind, "reserved_from": first, "reserved_through": through,
+           "host": host or host_tag(), "stamp": now_utc(), "rev": "-"}
+    rows = read_ledger_rows()
+    rows.append(row)
+    atomic_write(ledger_path(), _render_ledger(rows))
+    return row
+
+
+def publish_reservation(attempts: int = 3):
+    """Publish the LOCAL ledger to `origin/master`. The ONE path that moves a remote ref.
+
+    Returns (ok: bool, detail: str).
+
+    EXPLICIT AND SEPARATE FROM `append` ON PURPOSE, and that separation is the direct result of
+    a measured failure. An earlier version had `append` claim-and-push inline, so RECORDING A
+    JOURNAL LESSON MOVED THE FLEET'S SHARED BRANCH: on 2026-09-17 `journal.py append` pushed
+    `79efb088`, whose tree was built from this worktree's STALE local `refs/remotes/origin/master`
+    (13 commits behind the remote) instead of the just-fetched tip, and it reverted
+    `origin/master` to a pre-convergence state -- 1249 paths deleted, all 1728 journal entries
+    gone, exit 0, nothing visibly wrong. A writer that can move a shared branch as a side effect
+    of writing a diary entry is disqualifying. So append writes locally and does nothing else,
+    and publishing lives here.
+
+    TWO GUARDS, both fail-closed, both aimed at exactly that failure:
+
+    1. PARENT AND TREE COME FROM ONE IMMUTABLE COMMIT. The parent is resolved to a commit hash
+       first and the parent TREE is read from that same hash -- never from the mutable
+       `refs/remotes/origin/master` name, which is what went stale. A commit whose tree is not
+       its parent's tree is a mass deletion and it is silent, so the builder is handed the hash.
+    2. A REJECTED PUSH IS RE-READ, NOT RETRIED BLIND. Someone else publishing in the meantime
+       means their reservation is now in the ref; the next attempt rebuilds on it, so the loser
+       of a race claims above the winner instead of beside them.
+    """
+    if not has_shared_ref():
+        return False, ("no origin ref: single-machine tree, nothing to publish and nothing to "
+                       "collide with")
+    detail = "no attempt was made"
+    for attempt in range(1, max(1, attempts) + 1):
+        if _git("fetch", "--quiet", "--all")[0] != 0:
+            return False, ("could not fetch origin on attempt %d: refusing to build a publish "
+                           "on a ref I cannot confirm is current" % attempt)
+        rc, tip = _git("rev-parse", "--verify", "refs/remotes/origin/master")
+        if rc != 0 or not tip.strip():
+            return False, "no origin/master to publish on"
+        tip = tip.strip()
+        # Parent TREE from the parent COMMIT: the same immutable object, never a ref name.
+        rc, tree = _git("rev-parse", "%s^{tree}" % tip)
+        if rc != 0 or not tree.strip():
+            return False, "could not resolve the tree of %s" % tip[:8]
+        tree = tree.strip()
+        # PUBLISH THE UNION AND SHIFT ANY COLLIDING WINDOW UPWARDS. Publishing only the LOCAL
+        # file was a real bug, measured 2026-09-17 and caught by the two-machine test: each
+        # machine's local ledger holds only its own row (the ledger rows the APPEND path saw
+        # came from the ref, not from the file), so m2's publish REPLACED the shared ledger
+        # with a single row -- and that row re-used m1's numbers, so both machines then minted
+        # L2. The shared ledger must be the union, and a local window that would land inside or
+        # below another host's must move above it.
+        local_rows = _parse_ledger(_rl(ledger_path())) if ledger_path().exists() else []
+        remote_rows = _parse_ledger(_git("show", "%s:journal/%s/%s"
+                                         % (tip, ALLOC_DIRNAME, RESERVATION_FILE))[1])
+        me = host_tag().upper()
+        others = {}
+        for r in remote_rows:
+            if r["host"].upper() != me:
+                others[r["kind"]] = max(others.get(r["kind"], 0), r["reserved_through"])
+        for r in local_rows:
+            if r["host"].upper() == me and r["reserved_through"] <= others.get(r["kind"], 0):
+                # The whole window moves, not just its ceiling: keeping the old floor would
+                # leave the lower numbers looking reserved and let this machine mint into
+                # another machine's window. Width is RESERVATION_WINDOW, not the width this row
+                # happened to have -- a window widened locally to `cover` a number must not
+                # carry that extra width forward once the reason for it has gone.
+                r["reserved_from"] = others[r["kind"]] + 1
+                r["reserved_through"] = others[r["kind"]] + RESERVATION_WINDOW
+                note("journal: this host's %s window would have overlapped %s; moved to %s%d..%s%d"
+                     % (r["kind"], tip[:8], KINDS[r["kind"]]["letter"], r["reserved_from"],
+                        KINDS[r["kind"]]["letter"], r["reserved_through"]))
+        rows = remote_rows + [r for r in local_rows if r["host"].upper() == me]
+        blob = _stage_blob(_render_ledger(rows))
+        if not blob:
+            return False, "could not write the ledger blob"
+        path = "journal/%s/%s" % (ALLOC_DIRNAME, RESERVATION_FILE)
+        rc, new_tree = _build_claim_tree(tree.strip(), path, blob)
+        if rc != 0 or not new_tree:
+            return False, "tree-build-failed"
+        rc, commit = _git_with_input(
+            ["commit-tree", new_tree.strip(), "-p", tip],
+            "journal(alloc): %s publishes the reservation ledger\n" % host_tag())
+        if rc != 0 or not commit.strip():
+            return False, "commit-tree-failed"
+        commit = commit.strip()
+        if _git("update-ref", "refs/heads/alloc/%s" % _safe_ref(host_tag()), commit)[0] != 0:
+            return False, "update-ref-failed"
+        rc, _out = _git("push", "--quiet", "origin",
+                        "refs/heads/alloc/%s:refs/heads/master" % _safe_ref(host_tag()))
+        if rc == 0:
+            # The local ledger becomes exactly what was published. Writing it only on success
+            # is deliberate: a failed publish must NOT leave a local row claiming numbers that
+            # no other machine can see, or the next append would happily mint inside a window
+            # that was never published.
+            atomic_write(ledger_path(), _render_ledger(rows))
+            _git("fetch", "--quiet", "--all")
+            return True, "published %s on attempt %d" % (commit[:8], attempt)
+        detail = "push rejected on attempt %d; re-reading the ref and rebuilding" % attempt
+    return False, detail
+
+
+def acquire_reservation(kind: str, fetch: bool = True, attempts: int = 3):
+    """Reserve a window locally AND publish it. The deliberate path, and only that path.
+
+    Kept as one entry point so `claim` (and any future caller) cannot accidentally use the
+    local-only half and believe it was published.
+    """
+    cover = max(max_number(kind), allocation_ceiling(kind)) + 1
+    row = reserve_locally(kind, cover=cover)
+    ok, detail = publish_reservation(attempts=attempts)
+    if not ok:
+        return False, row["reserved_through"], detail
+    return True, row["reserved_through"], detail
+
+
+def _safe_ref(host: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]", "-", (host or "unknown")).lower()
+
+
+def _stage_blob(text: str) -> str:
+    rc, out = _git_with_input(["hash-object", "-w", "--stdin"], text)
+    return out.strip() if rc == 0 else ""
+
+
+def _build_claim_tree(parent_tree: str, path: str, blob: str):
+    """The parent tree with ONE file replaced, built one level at a time with `mktree`.
+
+    TWO DEAD ENDS ARE RECORDED HERE, both measured on 2026-09-17, because both look like
+    they should work and neither does:
+
+    * `git mktree` refuses an entry whose name contains a slash -- `fatal: path
+      journal/alloc/bands.tsv? contains slash`. It builds exactly one level, so a nested
+      path needs one call per level. That is what this does.
+    * a temporary index (`GIT_INDEX_FILE` + `read-tree` + `update-index --index-info` +
+      `write-tree`) silently drops the new path. `update-index` prints `Ignoring path
+      journal/alloc/bands.tsv` and `write-tree` then returns the PARENT tree unchanged --
+      the claim "succeeds", the commit lands, and the file is not in it. The cause is that
+      a path whose intermediate directory does not exist in the worktree is refused, and
+      for a writer this is the worst possible shape of failure: exit 0, nothing written.
+
+    Nested `mktree` has neither problem: it never touches the index, the worktree or any
+    file, so it cannot disturb another stream's staged work in this repository.
+    """
+    parts = [p for p in path.split("/") if p]
+    if not parts:
+        return 1, ""
+    # Walk from the deepest directory up, so each level is built from the finished subtree
+    # of the level below it. A directory that does not exist yet is not an error: the first
+    # claim in a repository creates journal/alloc/ from nothing.
+    new_tree = parent_tree
+    for depth in range(len(parts) - 2, -1, -1):
+        name = parts[depth]
+        rc, entries = _list_tree(new_tree)
+        if rc != 0:
+            return rc, ""
+        kids = {}
+        for ln in entries:
+            if "\t" not in ln:
+                continue
+            meta, nm = ln.split("\t", 1)
+            kids[nm.rsplit("/", 1)[-1]] = meta
+        if depth == len(parts) - 2:
+            # The directory that will hold the file.
+            rows = ["%s\t%s" % (meta, nm) for nm, meta in kids.items()
+                    if nm != parts[-1] and meta.endswith(" blob")]
+            rows.append("100644 blob %s\t%s" % (blob, parts[-1]))
+        else:
+            rows = ["%s\t%s" % (meta, nm) for nm, meta in kids.items() if nm != name]
+        rc, sub_tree = _git_with_input(["mktree"], "\n".join(rows) + "\n")
+        sub_tree = sub_tree.strip()
+        if rc != 0 or not sub_tree:
+            return (rc or 1), ""
+        new_tree = _replace_tree_entry(new_tree, name, sub_tree)
+        if not new_tree:
+            return 1, ""
+    return 0, new_tree
+
+
+def _list_tree(tree: str):
+    """(rc, entries) where each entry is a raw `ls-tree` line with a BASENAME path.
+
+    `ls-tree <tree> <dir>/` prints full paths, and feeding one of those straight back to
+    `mktree` fails with `fatal: path journal/alloc/bands.tsv? contains slash` -- a tree
+    object holds names, never paths. `-z` keeps unusual characters in a name intact.
+    """
+    rc, out = _git("ls-tree", "-z", tree)
+    if rc != 0:
+        return rc, []
+    rows = []
+    for rec in out.split("\0"):
+        # A tree ENTRY is names and metadata only -- no name may contain a line break -- so
+        # any \r or \n here is a line-ending artefact of the pipe, never data. MEASURED
+        # 2026-09-17: leaving it in produced `fatal: input format error`, a tree holding
+        # `journal\r`, and eventually "alloc\r/bands.tsv" -- a claim that "succeeded" and was
+        # unreadable by every reader.
+        rec = _clean_tree_field(rec)
+        if "\t" not in rec:
+            continue
+        meta, nm = rec.split("\t", 1)
+        rows.append("%s\t%s" % (meta, nm.rsplit("/", 1)[-1]))
+    return 0, rows
+
+
+def _clean_tree_field(text: str) -> str:
+    """Strip pipe artefacts from a tree entry. A tree NAME can never contain a newline."""
+    if "\r" not in text and "\n" not in text:
+        return text
+    return text.replace("\r\n", "").replace("\n", "").replace("\r", "")
+
+
+def _replace_tree_entry(tree: str, name: str, obj: str, mode: str = "040000 tree") -> str:
+    """The same tree with `name` pointed at `obj` -- a subtree, or a blob with a blob mode."""
+    rc, rows = _list_tree(tree)
+    if rc != 0:
+        return ""
+    entries = [r for r in rows if r.split("\t", 1)[1] != name]
+    entries.append("%s %s\t%s" % (mode, obj, name))
+    rc, out = _git_with_input(["mktree"], "\n".join(entries) + "\n")
+    return _clean_tree_field(out.strip()) if rc == 0 else ""
+
+
+def _git_with_input(argv, text: str):
+    """git with stdin, BINARY on both sides.
+
+    Text mode is not usable for the plumbing commands and the reason is measured: on Windows
+    the pipe mangles `ls-tree -z` output into names containing literal `\\r`, so a tree gets
+    built holding `journal\\r/alloc\\r/bands.tsv\\r`. git then answers `fatal: input format
+    error` for some calls and, worse, ACCEPTS others -- producing a claim commit that lands,
+    exits 0, and is unreadable by every reader. Binary mode removes the translation entirely.
+    """
+    try:
+        p = subprocess.run(["git", "-C", str(_git_repo())] + list(argv),
+                           input=text.encode("utf-8"), capture_output=True, timeout=45)
+        return p.returncode, (p.stdout or b"").decode("utf-8", errors="replace")
+    except Exception:
+        return 127, ""
+
+
+def _git_path(name: str) -> Path:
+    """A scratch path inside the repository's git dir, so it can never be seen as content."""
+    rc, out = _git("rev-parse", "--git-dir")
+    base = Path(out.strip()) if rc == 0 and out.strip() else (_git_repo() / ".git")
+    if not base.is_absolute():
+        base = _git_repo() / base
+    return base / name
+
+
+def cmd_claim(args) -> int:
+    """Reserve a window of ids for this host and push the claim, so no other machine can
+    mint into it. This is the one command that needs the network; `append` needs it only
+    when the window runs out."""
+    kinds = [args.kind] if getattr(args, "kind", "") else [k for k in KINDS]
+    as_json = bool(getattr(args, "json", False))
+    granted_all, out_rows = True, []
+    for kind in kinds:
+        if kind not in KINDS:
+            note("unknown kind %s" % kind)
+            return 2
+        letter = KINDS[kind]["letter"]
+        # ALREADY COVERED? Then claim NOTHING. This is load-bearing and was measured: a naive
+        # `claim` reserved a fresh window every time it was run, so a machine that claimed
+        # twice held two windows whose LOWER bound fell below its own next free number -- and
+        # the append then wrote a number that was not inside the window it had just published,
+        # letting two machines both mint L2 (2026-09-17). Covering the real next id, and doing
+        # nothing when it is already covered, is what makes the reservation mean what it says.
+        want = max(max_number(kind), allocation_ceiling(kind)) + 1
+        if is_reserved(kind, want):
+            covered = _covered_ranges(kind)
+            out_rows.append({"kind": kind, "granted": True, "already": True,
+                             "reserved": covered, "next": "%s%d" % (letter, want)})
+            if not as_json:
+                print("= %-9s already reserved for %s up to %s; nothing to publish"
+                      % (kind, host_tag(), covered))
+            continue
+        granted, through, detail = acquire_reservation(kind, fetch=not getattr(args, "no_fetch", False))
+        if not granted:
+            granted_all = False
+            note("REFUSING to reserve %s: %s. A write with no reservation could mint a number "
+                 "another machine is already using, which is the defect this exists to stop. "
+                 "Connect to origin and run `claim` again." % (kind, detail))
+            if as_json:
+                out_rows.append({"kind": kind, "granted": False, "why": detail})
+                print(json.dumps(out_rows, indent=1))
+            return 4
+        out_rows.append({"kind": kind, "granted": True, "reserved_through": through,
+                         "letter_from": "%s1..%s" % (letter, letter), "next": "%s%d" % (letter, want),
+                         "letter_through": "%s%d" % (letter, through), "detail": detail})
+        if not as_json:
+            print("+ %-9s now covers %s%d for %s (window through %s%d)  (%s)"
+                  % (kind, letter, want, host_tag(), letter, through, detail))
+    if as_json:
+        print(json.dumps(out_rows, indent=1))
+    return 0 if granted_all else 4
+
+
+def next_writable(kind: str) -> int:
+    """The first number this host may write: the higher of what is written and what is reserved.
+
+    MEASURED 2026-09-17, and this is the bug that made `append` ignore its own claim. A machine
+    that has just claimed L66..L129 has `max_number() == 1` -- it has not written anything yet --
+    so an allocator built only from "what exists" asked for L2, found L2 outside its window, and
+    reserved a THIRD window rather than using the one it had just published, writing L130. The
+    reservation is part of "where the next id is", alongside the entries, the index, log/** and
+    every git ref. For a host with no window this returns the plain legacy answer, so nothing
+    changes for a tree that has never claimed.
+    """
+    reach = max(max_number(kind), allocation_ceiling(kind)) + 1
+    letter = KINDS[kind]["letter"]
+    me = host_tag().upper()
+    for r in read_ledger_rows():
+        if r["kind"] == kind and r["host"].upper() == me:
+            reach = max(reach, r.get("reserved_from", 1))
+    return reach
+
+
+def ensure_reservation(kind: str, want_number: int, fetch: bool = True):
+    """Make sure this host may mint a number, and return the number it may actually use.
+
+    Returns (ok, number, detail). This function NEVER touches a network or a remote ref: it is
+    on the `append` path, and `append` must be incapable of moving a shared branch. The measured
+    consequence of getting that wrong is recorded in `publish_reservation`'s docstring -- a
+    journal append reverted the fleet's `origin/master` by 1249 paths.
+
+    Four outcomes:
+
+    * the candidate is inside this host's window -> ok, unchanged, one ref read;
+    * the window is spent and a LOCAL ledger exists -> reserve another window LOCALLY and use
+      its first number. The ledger stays local until an operator publishes it on purpose;
+    * the window is spent and there is NO local ledger, but one exists on the remote -> REFUSE.
+      Reserving here would compute a base blind to the remote half of the ledger and hand back
+      a window that overlaps another machine's. The fix is `journal.py claim`, which pulls the
+      published ledger and reserves above it;
+    * no ledger anywhere and no origin ref -> a scratch/fixture tree, single-machine by
+      construction, and the caller's own maximum is already safe.
+    """
+    if want_number <= 0:
+        want_number = reservation_base(kind) + 1
+    if is_reserved(kind, want_number):
+        return True, want_number, "covered by this host's window"
+    if not has_shared_ref():
+        if not ledger_exists():
+            return True, want_number, "single-machine tree: no ledger and no origin ref"
+        # A ledger exists, so ids are being handed out by a cooperative scheme, but this
+        # machine cannot reach it. Refusing is the only honest answer: it cannot see what is
+        # free, and the one thing it does know -- its own window -- has just run out. MEASURED
+        # 2026-09-17: an earlier version returned True here and let a machine whose origin refs
+        # had gone mint straight past the end of its own reservation (L2..L4 reserved, L5 and
+        # L6 written anyway), which is the silent overflow this exists to prevent.
+        return False, want_number, ("no origin ref and %s%d is outside this host's reserved "
+                                    "window; the local ledger covers %s"
+                                    % (KINDS[kind]["letter"], want_number, _covered_ranges(kind)))
+    if not ledger_path().exists():
+        return False, want_number, ("no local reservation ledger: run `journal.py claim %s` to "
+                                    "pull the published ledger and reserve a window" % kind)
+    letter = KINDS[kind]["letter"]
+    row = reserve_locally(kind, cover=want_number)
+    first = row["reserved_through"] - RESERVATION_WINDOW + 1
+    return True, first, ("reserved %s%d..%s%d LOCALLY and NOT published; run "
+                         "`journal.py publish` before another machine can see it"
+                         % (letter, first, letter, row["reserved_through"]))
+
+
+def _covered_ranges(kind: str) -> str:
+    """What this host may still write, for a refusal that an operator can act on."""
+    me = host_tag().upper()
+    out = []
+    for r in read_ledger_rows():
+        if r["kind"] == kind and r["host"].upper() == me:
+            out.append("%s%d..%s%d" % (KINDS[kind]["letter"], r.get("reserved_from", 1),
+                                       KINDS[kind]["letter"], r["reserved_through"]))
+    return ", ".join(sorted(out)) or "(nothing)"
 
 
 def cmd_next_id(args) -> int:
@@ -2882,9 +3544,27 @@ def cmd_next_id(args) -> int:
     remote, rev = git_max(kind, fetch=not getattr(args, "no_fetch", False))
     best = max(local, allocation_ceiling(kind), remote)
     letter = KINDS[kind]["letter"]
-    print("%s%d" % (letter, best + 1))
+    want = best + 1
+    if bool(getattr(args, "plan", False)):
+        # ADVISORY ONLY: this asks what a write WOULD use and, when the answer needs a
+        # reservation, says so instead of taking one. Taking one here would make a read
+        # command mutate the shared ref, which is exactly the kind of surprise this
+        # weekend's convergence was made of.
+        ok = is_reserved(kind, want) or not has_shared_ref()
+        print("%s%d" % (letter, want))
+        note("# %s" % ("reserved for %s -- append may write it" % host_tag() if ok
+                       else "NOT reserved for %s -- append will claim a window first, and will "
+                            "refuse if that claim cannot be pushed" % host_tag()))
+        return 0 if ok else 4
+    print("%s%d" % (letter, want))
     note("# highest seen: %s%d (entries/ + index + log/** + flats %s%d, git @ %s %s%d)"
          % (letter, best, letter, local, rev, letter, remote))
+    _any, mine = reserved_through(kind)
+    if mine:
+        note("# %s: reserved through %s%d for %s" % (kind, letter, mine, host_tag()))
+    elif has_shared_ref():
+        note("# %s: NOT reserved for %s yet -- `append` will claim a window and push it before "
+             "writing, and will REFUSE if that push does not land" % (kind, host_tag()))
     return 0
 
 
@@ -2937,6 +3617,25 @@ def cmd_append(args) -> int:
     # never below the ceiling of ANY source: log/**, the flats, the index, or a git ref
     base = max(max_number(kind), allocation_ceiling(kind), remote)
     letter = KINDS[kind]["letter"]
+    # THE MINT NEEDS AUTHORITY, and the id is decided BY the reservation rather than checked
+    # against it afterwards. `append` allocates `max(everything it can see) + 1`, and it cannot
+    # see another machine's uncommitted work -- the measured cause of the four cross-machine
+    # collisions of 2026-09-16/17 (41 orphaned ids on the authority, 13 in the 107 commit, 8 on
+    # the desktop, 18 on 09-17). Ordering matters and was wrong on the first attempt here:
+    # checking a number and then writing a DIFFERENT one is worse than not checking at all.
+    reserved_ok, want_number, reserve_detail = ensure_reservation(
+        kind, next_writable(kind), fetch=not getattr(args, "no_fetch", False))
+    if not reserved_ok:
+        note("REFUSING to write %s%d: %s." % (letter, base + 1, reserve_detail))
+        note("Every id this machine can see is already inside another machine's window, or the "
+             "claim could not be pushed so no other machine would know about it. A number that "
+             "is not reserved is a number another machine may be about to use: the four "
+             "collisions of 2026-09-16/17 were all minted exactly this way. Nothing was written. "
+             "Reconnect to origin and run `journal.py claim %s`." % kind)
+        return 4
+    # The reservation may have moved the number upwards (the other machine's window was in the
+    # way), and the bump loop below may move it again if the file is somehow taken.
+    base = max(base, want_number - 1)
     want = "%s%d" % (letter, base + 1)
     path = entries_dir() / kind / (want + ".md")
     entry = {
@@ -2970,9 +3669,17 @@ def cmd_append(args) -> int:
         entry["heading"] = build_heading(kind, want, title, stamp, host)
         entry["sha"] = entry_hash(entry["heading"], entry["body"])
     if getattr(args, "dry_run", False):
+        # A dry run mints nothing, so it needs no authority -- but it must SAY whether the
+        # number it would use is one this host is allowed to write, because that is the whole
+        # question a dry run is being asked.
+        if not is_reserved(kind, num_of(want)) and has_shared_ref():
+            note("(dry-run) %s is not inside a window reserved for %s; a real append would "
+                 "claim one first, and would refuse if it could not push the claim." % (want, host))
         print("(dry-run) would write " + _rel_of(path))
         print(entry_bytes(entry))
         return 0
+    if reserve_detail.startswith("granted") or "window now through" in reserve_detail:
+        note("journal: reserved a new id window for %s -- %s" % (host_tag(), reserve_detail))
     atomic_write(path, entry_bytes(entry))
     if bumped_from:
         record_alias(bumped_from, kind, want, "id collision avoided on append")
@@ -3989,7 +4696,15 @@ def build_parser() -> argparse.ArgumentParser:
     s = add("next-id", "the next free number for a kind (entries/ + index + every git ref)")
     s.add_argument("kind")
     s.add_argument("--no-fetch", dest="no_fetch", action="store_true")
+    s.add_argument("--plan", action="store_true",
+                   help="advisory: say whether a write would use a RESERVED number, exit 4 if not")
     s.set_defaults(func=cmd_next_id)
+
+    s = add("claim", "reserve a window of ids for this machine and push the claim (needs origin)")
+    s.add_argument("kind", nargs="?", default="",
+                   help="one kind, or every kind when omitted")
+    s.add_argument("--no-fetch", dest="no_fetch", action="store_true")
+    s.set_defaults(func=cmd_claim)
 
     s = add("import-flat", "DEPRECATED alias of import-legacy (a shipped script still calls it)")
     s.add_argument("files", nargs="*", help="ignored: v2 absorbs every source in one pass")

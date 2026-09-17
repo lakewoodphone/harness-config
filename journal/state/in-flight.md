@@ -1,12 +1,54 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — merge `3568d39`, `docs/mesh/107`). Previous: 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203); 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
+Updated: 2026-09-17 17:2xZ (ZABZ-YOGA, id-allocation session — L1928, `docs/mesh/108-id-allocation.md`). Previous: 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — merge `3568d39`, `docs/mesh/107`); 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203); 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
 
 Rewritten, not appended. Earlier sessions still live in this file: **ZABZ-TECH credential session, 2026-09-15 20:05Z**
 (AWS key killed D164, Twilio token rotated D165, H275 - its open work is at the END of this file, do not overwrite it) and
 the comms session (ZABZ-YOGA, 14:05Z).
 *(Corrections: H208 cites "D142" for the digest decision — it is **D146**. H389 addenda 3/4 said the API fix was holding —
 **H390 supersedes that**; it was not a fix.)*
+
+## New since 2026-09-17 17:2xZ — THE JOURNAL ID ALLOCATOR, and a reverted `origin/master`
+
+**A. `journal.py append` now writes LOCALLY ONLY and cannot move any ref. Read this before the
+   next journal write on any machine.** The previous version claimed a window and pushed it
+   inline, and on 2026-09-17 that reverted `origin/master` while recording a lesson:
+   commit `79efb088`, parent `53cf517`, **1249 paths deleted and all 1728 journal entries gone**,
+   exit 0. Cause: the parent COMMIT came from the just-fetched tip but the parent TREE came from
+   the stale local `refs/remotes/origin/master` (13 commits behind), and a commit whose tree is
+   not its parent's tree is a mass deletion. Restored with the owner's explicit authorisation
+   (`--force-with-lease` naming the exact old value), content-verified: 1728 entries, `check`
+   0 errors. Full record and every measurement: `docs/mesh/108-id-allocation.md` §5.
+
+**The workflow from here, once per machine per window (~64 ids per kind):**
+
+```
+journal.py claim lessons     # explicit; reserves and PUBLISHES; refuses if it cannot confirm the ref
+journal.py append ...        # local only; never touches a ref
+```
+
+`claim` with no kind covers all five kinds. `next-id KIND --plan` says whether a write would be
+allowed without performing one. **If `append` exits 4, the machine has no reservation for that
+kind: run `claim`.** Nothing is bricked — inside a window it already holds, a machine keeps
+writing offline, and it only refuses at the window's edge with no reachable ref.
+
+**B. The allocation rule is fixed and proved.** `journal/tools/verify-alloc.py` — 21 checks,
+0 failures. The pre-change tool (from git `622876e`) mints `L2` on **both** machines; the new
+rule has the first claim `L2..L65` and the second fetch that claim and mint `L66`. `selftest`
+239/240 → **240/240**; `check` 0 errors before and after.
+
+**C. Two smaller defects fixed:** every mutating command leaked `journal/.lock` (two causes: the
+ownership test could not read its own lock file on Windows, then the unlink preceded the close),
+and `note_git_ceiling()` is no longer dead code.
+
+**D. Still open, recorded not fixed:** `check` cannot see a cross-tree collision (single-tree by
+contract; the cheap fix is `git hash-object --stdin-paths` locally plus `git ls-tree -r
+origin/master` upstream, and the right home is `idguard`, not `check`), and `idguard` undercounts
+because it reads a generated cache a committing writer must remember to rebuild.
+
+**E. Evidence left in place deliberately.** Local-only branch `broken/alloc-claim-20260917`
+holds the bad commit `79efb088`. `refs/heads/alloc/zabz-yoga` also still points at it. Neither is
+a live ref on the remote; do not build on either.
 
 ## New since 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — `docs/mesh/107-journal-convergence.md`)
 

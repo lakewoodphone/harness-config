@@ -1127,6 +1127,8 @@ lessons	L1923	1923		2026-09-17	ZABZ-YOGA	open	**L1923 · Correction to L1896: th
 lessons	L1924	1924		2026-09-17	ZABZ-YOGA	open	**L1924 · Windows: copying a profile node_modules duplicates junctions and silently tests an older plugin**	entries/lessons/L1924.md	1	42	a839cd1dd8c25f4f
 lessons	L1925	1925		2026-09-17	ZABZ-YOGA	open	**L1925 · The untrusted-mount-point discriminator is the reparse point's ACL OWNER, not the reader or the creator**	entries/lessons/L1925.md	1	38	92d6a730e5cc048b
 lessons	L1926	1926		2026-09-17	ZABZ-YOGA	open	**L1926 · A profile check is evidence only for the logon class that ran it - --dump-config names no class**	entries/lessons/L1926.md	1	31	4e512c3b5c19282d
+lessons	L1927	1927		2026-09-17	ZABZ-YOGA	open	**L1927 · The journal id allocator now requires a reserved window -- and the first journal write on any machine will push**	entries/lessons/L1927.md	1	59	adad205d4b1b8795
+lessons	L1928	1928		2026-09-17	ZABZ-YOGA	open	**L1928 · Never build a commit on a ref you have not just read -- a journal append reverted origin/master by 1249 paths**	entries/lessons/L1928.md	1	68	c16ed71c79ff8431
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1727,3 +1729,5 @@ wins	W200	200		2026-09-17	ZABZ-YOGA	open	**W200 · 2026-09-17 · a 30-commit syn
 wins	W201	201		2026-09-17	ZABZ-YOGA	open	**W201 · 2026-09-17 · The before-state of a live roster flag, measured in process against the real fleet.**	entries/wins/W201.md	1	26	6af90a09f9183ba4
 wins	W202	202		2026-09-17	ZABZ-YOGA	open	**W202 · 2026-09-17 · Broker-driven placement proven ON zabz-tech - ledger source=broker with the lease released.**	entries/wins/W202.md	1	37	f641c14bb52836ab
 wins	W203	203		2026-09-17	ZABZ-YOGA	open	**W203 · 2026-09-17 · The last wall: zabz-tech's self-ssh fixed with one key line, and the child's MESH-HOST line measured.**	entries/wins/W203.md	1	34	664d211ab5c998c6
+wins	W204	204		2026-09-17	ZABZ-YOGA	open	**W204 · 2026-09-17 · verify-alloc.py is the standing gate for the allocation rule.**	entries/wins/W204.md	1	6	7a74dbdce06532c0
+wins	W205	205		2026-09-17	ZABZ-YOGA	open	**W205 · 2026-09-17 · Append is local-only: it can no longer move any ref.**	entries/wins/W205.md	1	6	5bec35cdbdff5e52
