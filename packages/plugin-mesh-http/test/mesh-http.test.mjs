@@ -19,6 +19,7 @@ import test from 'node:test';
 import { MeshAuth, newNonce, sign, signatureMatches } from '../lib/auth.js';
 import { IntakeError, isJsonContentType, parseJsonObject, readBoundedBody } from '../lib/body.js';
 import { createMeshHttp, defaultSecretFile, locateDshBin, VERSION } from '../lib/index.js';
+import { deriveConcurrencyLimit } from '../lib/concurrency.js';
 import { createNodeIdentity, labelFromDnsName } from '../lib/node-identity.js';
 import { childArgv, composeTask, OneShotRunner } from '../lib/runner.js';
 import { forgetSecret, loadSecret, parseEnvText } from '../lib/secret.js';
@@ -219,28 +220,101 @@ test('the task carries the MESH-HOST instruction and the child command is a fixe
     'the task is one argv entry: a shell would have to be invoked for it to mean anything');
 });
 
-test('a second run while one is in flight is refused with a position, not queued and not run', async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'mesh-http-run-'));
-  // A child that takes long enough to overlap: node -e "setTimeout(()=>{},400)"
+test('a request beyond the limit is QUEUED with a visible position and served in arrival order', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'mesh-http-queue-'));
+  // A real child that takes long enough to overlap: four requests, one slot.
+  const child = path.join(dir, 'slow-dsh.mjs');
+  writeFileSync(child, 'setTimeout(()=>{process.stdout.write("MESH-HOST: T\\nDONE\\n")},300);\n', 'utf8');
   const runner = new OneShotRunner({
     nodeExe: process.execPath,
-    dshBin: '--eval', // ignored: the argv is [nodeExe, '--eval'? no] — see below
+    dshBin: child,
     profile: 'headless',
     maxOutputBytes: 4096,
     artifactDir: dir,
     log: () => {},
+    maxConcurrent: 1,
+    maxQueueWaitMs: 20000,
   });
-  // The runner builds [nodeExe, dshBin, '--profile', profile, 'headless', task]; to make a real
-  // sleep we would have to fork a real dsh. Instead drive the slot directly: the property under
-  // test is the slot, and it is the same object the handler consults.
-  runner.inFlight = { requestId: 'held', startedAtMs: Date.now(), startedAt: new Date().toISOString(), timeoutMs: 1000 };
-  const refused = await runner.run({ task: 't', cwd: HERE, timeoutMs: 1000, requestId: 'second', host: 'H' });
+  const pending = [1, 2, 3, 4].map((i) => runner.run({ task: `t${i}`, cwd: HERE, timeoutMs: 10000, requestId: `r${i}`, host: 'H' }));
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  assert.equal(runner.active, 1, 'exactly one child is running, from the runner\'s own accounting');
+  assert.equal(runner.inFlight.size, 1);
+  assert.deepEqual(runner.view().queue.map((entry) => entry.position), [1, 2, 3],
+    'the three waiting requests hold positions 1, 2 and 3');
+  assert.equal(runner.view().busy, true);
+  const results = await Promise.all(pending);
+  assert.deepEqual(results.map((r) => r.queue.position), [0, 1, 2, 3],
+    'the first was admitted immediately (position 0) and the rest kept the position they were given');
+  assert.deepEqual(results.map((r) => r.ok), [true, true, true, true], 'NOTHING was refused');
+  assert.ok(results.every((r) => r.queue.limit === 1), 'every answer names the limit it faced');
+  assert.ok(results.slice(1).every((r) => r.queue.waitedMs > 0), 'a queued run reports how long it waited');
+  assert.equal(runner.stats.queued, 3);
+  assert.equal(runner.stats.queuePeak, 3);
+  assert.equal(runner.stats.refusedBusy, 0);
+  assert.equal(runner.stats.completed, 4);
+  assert.equal(runner.active, 0, 'every slot was returned');
+  assert.equal(runner.queue.length, 0);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('N simultaneous callers cannot all take the same free slot (the admission is synchronous)', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'mesh-http-race-'));
+  const child = path.join(dir, 'slow-dsh.mjs');
+  writeFileSync(child, 'setTimeout(()=>{process.stdout.write("done\\n")},250);\n', 'utf8');
+  const runner = new OneShotRunner({
+    nodeExe: process.execPath, dshBin: child, profile: 'headless', maxOutputBytes: 4096,
+    artifactDir: dir, log: () => {}, maxConcurrent: 2, maxQueueWaitMs: 20000,
+  });
+  const pending = [1, 2, 3, 4, 5, 6].map((i) => runner.run({ task: `t${i}`, cwd: HERE, timeoutMs: 10000, requestId: `r${i}`, host: 'H' }));
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  assert.equal(runner.active, 2, 'the ceiling held: six callers, two slots, two running');
+  assert.equal(runner.queue.length, 4);
+  await Promise.all(pending);
+  assert.ok(runner.stats.maxInFlightSeen <= 2, `never more than the limit ran at once (saw ${runner.stats.maxInFlightSeen})`);
+  assert.equal(runner.stats.completed, 6);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('refuseWhenFull restores the v0.1.0 behaviour: 429 with a position, never a queue', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'mesh-http-refuse-'));
+  const child = path.join(dir, 'slow-dsh.mjs');
+  writeFileSync(child, 'setTimeout(()=>{process.stdout.write("done\\n")},250);\n', 'utf8');
+  const runner = new OneShotRunner({
+    nodeExe: process.execPath, dshBin: child, profile: 'headless', maxOutputBytes: 4096,
+    artifactDir: dir, log: () => {}, maxConcurrent: 1, refuseWhenFull: true,
+  });
+  const first = runner.run({ task: 'a', cwd: HERE, timeoutMs: 10000, requestId: 'first', host: 'H' });
+  const refused = await runner.run({ task: 'b', cwd: HERE, timeoutMs: 10000, requestId: 'second', host: 'H' });
   assert.equal(refused.ok, false);
   assert.equal(refused.status, 429);
   assert.equal(refused.reason, 'node-busy');
+  assert.equal(refused.queue.position, 1, 'even a refusal carries the position it would have held');
   assert.equal(runner.stats.refusedBusy, 1);
+  assert.equal(runner.queue.length, 0, 'a refusal is not a queue');
   assert.equal(runner.view().busy, true);
-  runner.inFlight = null;
+  await first;
+  assert.equal(runner.active, 0);
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('a queued request whose wait exceeds the node budget is refused, naming the queue', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'mesh-http-qexp-'));
+  const child = path.join(dir, 'slow-dsh.mjs');
+  writeFileSync(child, 'setTimeout(()=>{process.stdout.write("done\\n")},700);\n', 'utf8');
+  const runner = new OneShotRunner({
+    nodeExe: process.execPath, dshBin: child, profile: 'headless', maxOutputBytes: 4096,
+    artifactDir: dir, log: () => {}, maxConcurrent: 1, maxQueueWaitMs: 120,
+  });
+  const first = runner.run({ task: 'a', cwd: HERE, timeoutMs: 10000, requestId: 'first', host: 'H' });
+  const expired = await runner.run({ task: 'b', cwd: HERE, timeoutMs: 10000, requestId: 'second', host: 'H' });
+  assert.equal(expired.status, 429);
+  assert.equal(expired.reason, 'node-queue-wait-exceeded',
+    'the only remaining 429 is a WAIT budget, not a capacity refusal');
+  assert.equal(expired.queue.position, 1);
+  assert.equal(runner.stats.refusedQueueWait, 1);
+  await first;
+  assert.equal(runner.stats.completed, 1, 'the first one still ran');
+  assert.equal(runner.active, 0);
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -269,12 +343,15 @@ test('the node name comes from the tailnet label, never from the caller', () => 
   assert.equal(labelFromDnsName('zabz-yoga-1.tail93e6e6.ts.net.'), 'zabz-yoga-1');
   assert.equal(labelFromDnsName('zabz-tech.tail93e6e6.ts.net'), 'zabz-tech');
   assert.equal(labelFromDnsName(null), null);
+  assert.equal(labelFromDnsName(''), null, 'an empty DNSName is not a label');
 
   const identity = createNodeIdentity({ tailnetReader: () => ({ fqdn: 'zabz-tech.tail93e6e6.ts.net', node: 'zabz-tech', hostName: 'zabz-tech', error: null }) });
   const described = identity.describe();
   assert.equal(described.node, 'zabz-tech');
   assert.equal(described.fqdn, 'zabz-tech.tail93e6e6.ts.net');
   assert.equal(described.host, identity.host());
+  assert.equal(described.identityDegraded, false);
+  assert.equal(described.node, described.fqdn.split('.')[0], 'the contract invariant 71 §2.1 holds');
 
   const override = createNodeIdentity({ nodeNameOverride: 'explicit-name', tailnetReader: () => ({ fqdn: null, node: null, hostName: null, error: 'not installed' }) });
   assert.equal(override.describe().node, 'explicit-name');
@@ -287,7 +364,10 @@ test('the node name comes from the tailnet label, never from the caller', () => 
 
 /** Mount exactly what the engine mounts, on a plain node:http server. */
 async function withRoute(config, fn) {
-  const mount = createMeshHttp({ config, log: () => {} });
+  // `capacityUrl: ''` by default: the declared-ceiling read is a loopback HTTP call to THIS
+  // machine's gate, and a unit test that depends on whatever gate happens to be running is not a
+  // unit test. The tests that exercise it inject a stub instead.
+  const mount = createMeshHttp({ config: { capacityUrl: '', ...config }, log: () => {} });
   const server = createServer((req, res) => mount.handler(req, res));
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
@@ -316,11 +396,141 @@ test('GET /mesh/health reports the route, the version, the limits and whether a 
     assert.equal(body.service, 'mesh-http');
     assert.equal(body.version, VERSION);
     assert.equal(body.auth.secretConfigured, true);
-    assert.equal(body.limits.oneRunAtATime, true);
-    assert.equal(body.runner.busy, false);
     assert.equal(typeof body.host, 'string');
+    // The ceiling is published WITH its arithmetic, so a reader can check the number instead of
+    // trusting it. `limit` is derived from this machine, so it is asserted as a shape, not a value.
+    assert.equal(typeof body.limits.maxConcurrent, 'number');
+    assert.ok(body.limits.maxConcurrent >= 1);
+    assert.equal(body.limits.oneRunAtATime, body.limits.maxConcurrent === 1,
+      'the v0.1.0 field stays TRUE exactly when the derived ceiling is 1, and never lies');
+    assert.equal(typeof body.limits.maxQueueWaitSec, 'number');
+    assert.equal(body.limits.refuseWhenFull, false);
+    assert.equal(body.concurrency.limit, body.limits.maxConcurrent);
+    assert.equal(typeof body.concurrency.terms.cpu, 'number');
+    assert.equal(typeof body.concurrency.inputs.logicalCpus, 'number');
+    assert.match(body.concurrency.sources.commitPerTurnMiB, /84-calibration/);
+    assert.match(body.concurrency.note, /term binds/);
+    assert.equal(body.runner.busy, false);
+    assert.equal(body.runner.limit, body.limits.maxConcurrent);
+    assert.equal(body.runner.inFlightCount, 0);
+    assert.equal(body.runner.queueDepth, 0);
   });
   rmSync(dir, { recursive: true, force: true });
+});
+
+test('the ceiling is derived from the given machine, by a pure function, and every term is cited', () => {
+  // The measured inputs from docs/mesh/93-transport-concurrency.md §4, 2026-09-17.
+  const tech = deriveConcurrencyLimit({
+    logicalCpus: 32, totalMiB: 65173, availableMiB: 53616, declaredMax: 12, availableSource: 'test',
+  });
+  assert.equal(tech.terms.cpu, 8, 'floor(32 × 0.42 / 1.68) = 8');
+  assert.equal(tech.terms.mem, 113, 'floor((53616 − 7821) / 403)');
+  assert.equal(tech.terms.declared, 12);
+  assert.equal(tech.limit, 8);
+  assert.equal(tech.terms.binding, 'cpu');
+  assert.match(tech.sources.cpuPerTurn, /84-calibration/);
+
+  // A four-core authority: the CPU term binds hard, which is the row that matters for safety.
+  const authority = deriveConcurrencyLimit({
+    logicalCpus: 4, totalMiB: 8192, availableMiB: 3000, declaredMax: 12, availableSource: 'test',
+  });
+  assert.equal(authority.terms.cpu, 1);
+  assert.equal(authority.limit, 1, '8 children on 4 cores is the 2× oversubscription 84 §6.2 records');
+
+  // The declared ceiling is a CAP, never the source: a big node is held to what it published.
+  const big = deriveConcurrencyLimit({
+    logicalCpus: 128, totalMiB: 262144, availableMiB: 200000, declaredMax: 12, availableSource: 'test',
+  });
+  assert.equal(big.terms.cpu, 32);
+  assert.equal(big.limit, 12);
+  assert.equal(big.terms.binding, 'declared');
+
+  // Fail soft: without the contract, or without a memory reading, it is still a derived number.
+  const noContract = deriveConcurrencyLimit({ logicalCpus: 32, availableMiB: 53616, totalMiB: 65173, availableSource: 'test' });
+  assert.equal(noContract.limit, 8);
+  assert.match(noContract.note, /Unavailable inputs: declared/);
+  const noMemory = deriveConcurrencyLimit({ logicalCpus: 32, declaredMax: 12, availableSource: 'test' });
+  assert.equal(noMemory.limit, 8);
+  assert.equal(noMemory.terms.mem, null);
+
+  // A misconfigured ceiling can never exceed the governor's own ceiling on this host.
+  const absurd = deriveConcurrencyLimit({ logicalCpus: 128, totalMiB: 262144, availableMiB: 200000, declaredMax: 9999, availableSource: 'test' });
+  assert.equal(absurd.limit, 24);
+  assert.equal(absurd.terms.binding, 'hard');
+});
+
+test('an explicit maxConcurrent is honoured, and is clamped to the hard ceiling', async () => {
+  const { dir, file } = secretFile();
+  await withRoute({ secretFile: file, artifactDir: dir, maxConcurrent: 3 }, async ({ base, mount }) => {
+    assert.equal(mount.runner.maxConcurrent, 3);
+    const body = await (await fetch(`${base}/mesh/health`)).json();
+    assert.equal(body.limits.maxConcurrent, 3);
+    assert.equal(body.limits.oneRunAtATime, false);
+    assert.equal(body.concurrency.forced, 3);
+    assert.match(body.concurrency.note, /forces 3/);
+  });
+  rmSync(dir, { recursive: true, force: true });
+  const { dir: dir2, file: file2 } = secretFile();
+  await withRoute({ secretFile: file2, artifactDir: dir2, maxConcurrent: 999, hardCeiling: 24 }, async ({ mount }) => {
+    assert.equal(mount.runner.maxConcurrent, 24, 'nothing may exceed the governor\'s ceiling');
+  });
+  rmSync(dir2, { recursive: true, force: true });
+});
+
+test('a boot-time tailnet read that returned no DNSName is retried, not cached for ever', () => {
+  // MEASURED, 2026-09-17: on ZABZ-YOGA engine pid 4880 started 08:51:07 and `tailscale-ipn`
+  // started 08:51:59, so the boot read saw an empty Self.DNSName. Caching that made the engine
+  // report node "zabz-yoga" and fqdn "" for the rest of its life, while claiming
+  // nodeSource "tailscale status --json Self.DNSName" — a source that had not produced the value.
+  let call = 0;
+  const reader = () => {
+    call += 1;
+    if (call === 1) return { fqdn: '', node: null, hostName: 'zabz-yoga', error: null, emptyDnsName: true };
+    return { fqdn: 'zabz-yoga-1.tail93e6e6.ts.net', node: 'zabz-yoga-1', hostName: 'zabz-yoga', error: null };
+  };
+  let clock = 0;
+  const identity = createNodeIdentity({ tailnetReader: reader, degradedRetryMs: 15000, nowMs: () => clock });
+
+  const degraded = identity.describe();
+  assert.equal(degraded.fqdn, null, 'an empty DNSName is null, not the empty string');
+  assert.equal(degraded.nodeSource, 'os.hostname()', 'the source must not name a field that did not supply it');
+  assert.equal(degraded.identityDegraded, true);
+  assert.match(degraded.identityReason, /no Self\.DNSName/);
+  assert.equal(call, 1);
+
+  // Within the retry interval it does not fork a subprocess per request...
+  clock = 1000;
+  identity.describe();
+  assert.equal(call, 1, 'a degraded read is rate-limited, not re-read per request');
+
+  // ...and after it, it heals without a restart.
+  clock = 20000;
+  const healed = identity.describe();
+  assert.equal(healed.node, 'zabz-yoga-1');
+  assert.equal(healed.fqdn, 'zabz-yoga-1.tail93e6e6.ts.net');
+  assert.equal(healed.identityDegraded, false);
+  assert.equal(healed.node, healed.fqdn.split('.')[0]);
+  assert.equal(call, 2);
+
+  // A GOOD read is still cached for the life of the process: a tailnet name does not change.
+  clock = 400000;
+  identity.describe();
+  assert.equal(call, 2, 'a good read is not re-read');
+});
+
+test('a name tailscale cannot supply is never GUESSED from MagicDNSSuffix and the hostname', () => {
+  // zabz-yoga's real label is `zabz-yoga-1` while its HostName is `zabz-yoga`, so
+  // "<HostName>.<MagicDNSSuffix>" would produce a plausible, well-formed and WRONG identity.
+  const guessedWouldBe = `zabz-yoga.tail93e6e6.ts.net`;
+  const identity = createNodeIdentity({
+    tailnetReader: () => ({ fqdn: null, node: null, hostName: 'zabz-yoga', magicDnsSuffix: 'tail93e6e6.ts.net', error: null, emptyDnsName: true }),
+  });
+  const described = identity.describe();
+  assert.equal(described.fqdn, null);
+  assert.notEqual(described.fqdn, guessedWouldBe);
+  assert.equal(described.host, described.node, 'the honest fallback is os.hostname(), labelled as such');
+  assert.equal(described.nodeSource, 'os.hostname()');
+  assert.equal(described.identityDegraded, true, 'and the caller is told it cannot be corroborated');
 });
 
 test('an unsigned POST is refused 401 and never runs anything', async () => {

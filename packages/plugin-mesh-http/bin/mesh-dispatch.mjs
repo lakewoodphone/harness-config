@@ -133,6 +133,7 @@ export function parseArgs(argv) {
     node: undefined, prompt: undefined, timeoutSec: 900, wantJson: false,
     requireV2: false, noFallback: false, allowFallback: false, quiet: false,
     secretFile: undefined, cwd: undefined, logDir: undefined, dryRun: false,
+    preferV1: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -145,7 +146,16 @@ export function parseArgs(argv) {
     else if (arg === '-RequireV2' || arg === '--require-v2') options.requireV2 = true;
     else if (arg === '-NoFallback' || arg === '--no-fallback') options.noFallback = true;
     else if (arg === '--allow-fallback') options.allowFallback = true;
-    else if (arg === '-SecretFile' || arg === '--secret-file') options.secretFile = argv[++i];
+    else if (arg === '-PreferV1' || arg === '--prefer-v1') options.preferV1 = true;
+    else if (arg === '-Transport' || arg === '--transport') {
+      const wanted = String(argv[++i] ?? '').toLowerCase();
+      if (wanted !== 'v1' && wanted !== 'v2' && wanted !== 'auto') {
+        process.stderr.write(`mesh-dispatch: -Transport must be v1, v2 or auto (got "${wanted}")\n`);
+        process.exit(EXIT_TRANSPORT_FAILED);
+      }
+      options.preferV1 = wanted === 'v1';
+      if (wanted === 'v2') options.requireV2 = true;
+    } else if (arg === '-SecretFile' || arg === '--secret-file') options.secretFile = argv[++i];
     else if (arg === '-Workdir' || arg === '--workdir') options.cwd = argv[++i];
     else if (arg === '-LogDir' || arg === '--log-dir') options.logDir = argv[++i];
     else if (arg === '--dry-run') options.dryRun = true;
@@ -153,6 +163,9 @@ export function parseArgs(argv) {
       process.stdout.write([
         'mesh-dispatch -Node <node> -Prompt "<task>" [options]',
         '  -TimeoutSec N        wall-clock bound for one turn (default 900)',
+        '  -Transport v1|v2|auto  which transport to use. Default auto = v2 when the node answers',
+        '                       with a secret, v1 only when it has no route or no secret.',
+        '  -PreferV1            same as -Transport v1: deliberate oversubscription or a v1-only node',
         '  -RequireV2           refuse to fall back to ssh; a v2 refusal is terminal (exit 3)',
         '  -NoFallback          same as -RequireV2, kept for callers that spell it that way',
         '  -Workdir PATH        working directory ON THE TARGET (needs the node to allow it)',
@@ -396,9 +409,28 @@ async function main() {
   const base = `https://${facts.label}.${TAILNET}`;
   const secretFile = options.secretFile ?? defaultDispatcherSecretFile();
   const secret = readSecret(secretFile);
+  // ---- THE TRANSPORT ORDER, AS A DOCUMENTED DECISION AND NOT AN ACCIDENT OF FALLBACK ----
+  // v1 (ssh) spawns one process per child per node and has NO ceiling of its own
+  // (`lib/ssh-transport.js`: one ssh per child, no slot). v2 (this route) has a ceiling derived
+  // from the node's own capacity and a FIFO behind it, so it can never oversubscribe a node on
+  // purpose and never refuses for capacity. Measured 2026-09-17 on `zabz-tech`
+  // (`docs/mesh/93-transport-concurrency.md` §6): at N = 12 the two transports achieved the SAME
+  // concurrency, and v2 was the one that reported what it was doing. So v2 is the default for a
+  // single child AND for a fleet, and v1 is chosen for exactly three stated conditions:
+  //   1. the node has no route, or has one with no secret — it cannot be dispatched to otherwise;
+  //   2. the caller asks for it (`-Transport v1` / `-PreferV1`), which is the only way to place
+  //      MORE children on a node than that node's own measured ceiling allows;
+  //   3. the route cannot be reached at all (gate down, relay dropping).
+  // It is explicitly NOT chosen because the node is busy: since v0.2.0 a busy node QUEUES with a
+  // visible position, and falling back there would have moved the child to another machine for no
+  // reason — which is the duplicate the owner must never get (`70` §4.2).
+  const preferredTransport = options.preferV1 ? 'v1' : 'v2';
   record({
     phase: 'start',
-    transportPlan: 'v2 (https route) -> v1 (ssh) unless -RequireV2',
+    transportPlan: preferredTransport === 'v1'
+      ? 'v1 (ssh) by request; v2 is the default'
+      : 'v2 (https route) -> v1 (ssh) only if the node has no route or no secret',
+    preferredTransport,
     url: `${base}/mesh/run`,
     ssh: facts.ssh,
     timeoutSec: options.timeoutSec,
@@ -407,17 +439,18 @@ async function main() {
   });
 
   if (options.dryRun) {
-    process.stdout.write(JSON.stringify({ runId, node: options.node, url: base, ssh: facts.ssh, secret: secret.ok }, null, 2) + '\n');
+    process.stdout.write(JSON.stringify({ runId, node: options.node, url: base, ssh: facts.ssh, secret: secret.ok, preferredTransport }, null, 2) + '\n');
     process.exit(EXIT_OK);
   }
 
   // ---- transport v2: probe, then post ------------------------------------
   let attemptedV2 = false;
   let fallbackReason;
-  if (secret.ok) {
+  if (secret.ok && preferredTransport === 'v2') {
     const probe = await probeRoute({ base });
     if (probe.ok && probe.json?.service === 'mesh-http') {
       attemptedV2 = true;
+      const nodeLimit = probe.json.limits?.maxConcurrent ?? probe.json.runner?.limit ?? null;
       record({
         phase: 'probe',
         transport: 'http',
@@ -426,13 +459,19 @@ async function main() {
         service: probe.json.service,
         version: probe.json.version,
         nodeSaysItIs: { host: probe.json.host, node: probe.json.node, nodeSource: probe.json.nodeSource, fqdn: probe.json.fqdn },
+        identityDegraded: probe.json.identityDegraded === true,
+        identityReason: probe.json.identityReason ?? null,
         secretConfiguredOnNode: probe.json.auth?.secretConfigured === true,
+        // A busy node is NOT a reason to fall back: it queues. Recorded so the caller can see the
+        // depth it is joining, and the ceiling it is joining behind.
+        nodeConcurrency: nodeLimit,
+        nodeQueueDepth: probe.json.runner?.queueDepth ?? null,
+        nodeInFlight: probe.json.runner?.inFlightCount ?? null,
+        nodeConcurrencyNote: probe.json.concurrency?.note ?? null,
         busy: probe.json.runner?.busy === true,
       });
       if (probe.json.auth?.secretConfigured !== true) {
         fallbackReason = `the node has no shared secret (${probe.json.auth?.secretReason ?? 'no reason given'})`;
-      } else if (probe.json.runner?.busy === true) {
-        fallbackReason = 'the node is running another turn (one run at a time by design)';
       } else {
         const body = JSON.stringify({
           prompt: options.prompt,
@@ -442,7 +481,10 @@ async function main() {
         });
         const started = Date.now();
         // The POST bound is the child's bound plus a generous margin: the node owns the child's
-        // timeout, and the dispatcher must not cut a turn the node is still honestly running.
+        // timeout, and the dispatcher must not cut a turn the node is still honestly running. It
+        // must ALSO be longer than the node's queue-wait budget (780 s by default) so the node
+        // always answers first — a client that gives up while the node still runs the child is a
+        // turn that happened and whose answer nobody saw.
         const post = await postToNode({ url: `${base}/mesh/run`, body, secret: secret.secret, timeoutMs: (options.timeoutSec + 60) * 1000 });
         const { meshHosts, transportHosts } = extractHosts(post.json?.stdout ?? '');
         const disagreements = [...meshHosts, ...transportHosts].filter((host) => !hostMatchesNode(host, options.node));
@@ -457,6 +499,9 @@ async function main() {
           timedOut: post.json?.timedOut === true,
           childMs: post.json?.ms ?? null,
           dispatcherMs: Date.now() - started,
+          // WHERE IT WAITED. The node's own report of the queue it faced, carried through to the
+          // caller's record so a slow dispatch can be told apart from a slow child.
+          queue: post.json?.queue ?? null,
           meshHostLines: meshHosts.length,
           transportHostLines: transportHosts.length,
           childHosts: [...new Set(meshHosts)],
@@ -479,6 +524,7 @@ async function main() {
             disagreements,
             meshHostLines: meshHosts.length,
             ms: post.json?.ms ?? null,
+            queue: post.json?.queue ?? null,
             stdout: post.json?.stdout ?? '',
             stderr: post.json?.stderr ?? '',
           };
@@ -496,6 +542,9 @@ async function main() {
         : `no route on this node (${probe.error ?? 'no error field; see the status'})`;
       record({ phase: 'probe', transport: 'http', ok: false, url: `${base}/mesh/health`, status: probe.status ?? null, error: probe.error ?? null, reason: fallbackReason });
     }
+  } else if (preferredTransport === 'v1') {
+    fallbackReason = 'transport v1 was requested explicitly (-Transport v1 / -PreferV1)';
+    record({ phase: 'transport', ok: true, transport: 'ssh', reason: fallbackReason });
   } else {
     fallbackReason = `this dispatcher has no shared secret (${secret.reason})`;
     record({ phase: 'probe', transport: 'http', ok: false, reason: fallbackReason });

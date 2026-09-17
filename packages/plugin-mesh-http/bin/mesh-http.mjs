@@ -151,7 +151,10 @@ function checkCommand({ flags }) {
       `  profile          ${readout.profile} (subcommand headless)`,
       `  child cwd        ${readout.cwd}`,
       `  artifacts        ${readout.artifactDir}`,
-      `  runs             started=${readout.runner.started} completed=${readout.runner.completed} failed=${readout.runner.failed} refused-busy=${readout.runner.refusedBusy} timed-out=${readout.runner.timedOut}`,
+      `  concurrency      ${readout.runner.limit} at once, ${Math.round(readout.runner.queueWaitBudgetMs / 1000)}s queue budget — ${readout.concurrency.note}`,
+      `                   ${readout.concurrency.terms === null ? '(no arithmetic)' : `cpu=${readout.concurrency.terms.cpu} mem=${readout.concurrency.terms.mem} declared=${readout.concurrency.terms.declared} hard=${readout.concurrency.terms.hard}`}`,
+      `  identity         ${readout.identityDegraded ? `DEGRADED: ${readout.identityReason}` : 'corroborated by the tailnet'}`,
+      `  runs             started=${readout.runner.started} completed=${readout.runner.completed} failed=${readout.runner.failed} refused-busy=${readout.runner.refusedBusy} timed-out=${readout.runner.timedOut} queued=${readout.runner.queued} queue-peak=${readout.runner.queuePeak}`,
       `  verdict          ${report.ok ? 'ready to accept v2 work' : 'NOT ready'}`,
       '',
     ].join('\n'));
@@ -206,10 +209,19 @@ async function probeCommand({ flags }) {
       record = {
         node: name, url: `${base}/mesh/health`, status: response.status, ms: Date.now() - started,
         service: json?.service ?? null,
+        version: json?.version ?? null,
         secretConfigured: json?.auth?.secretConfigured ?? null,
         busy: json?.runner?.busy ?? null,
         nodeSaysItIs: json?.node ?? null,
         host: json?.host ?? null,
+        fqdn: json?.fqdn ?? null,
+        identityDegraded: json?.identityDegraded ?? null,
+        identityReason: json?.identityReason ?? null,
+        // What this node says it may run at once, and the arithmetic behind it — so a probe is a
+        // capacity reading and not merely a reachability check.
+        maxConcurrent: json?.limits?.maxConcurrent ?? json?.runner?.limit ?? null,
+        queueDepth: json?.runner?.queueDepth ?? null,
+        concurrencyNote: json?.concurrency?.note ?? null,
         verdict: response.ok && json?.service === 'mesh-http'
           ? (json.auth?.secretConfigured === true ? 'ACCEPTS v2' : 'route present, NO SECRET')
           : `not v2 (HTTP ${response.status})`,

@@ -33,6 +33,16 @@
  */
 
 import { MeshAuth } from './auth.js';
+import {
+  COMMIT_PER_TURN_MIB,
+  CPU_PER_TURN,
+  HARD_CEILING,
+  LOGICAL_CPU_BUDGET_FRACTION,
+  createDeclaredCapacityReader,
+  declaredMaxChildren,
+  deriveConcurrencyLimit,
+  readLocalInputs,
+} from './concurrency.js';
 import { createMeshHealthHandler, createMeshRunHandler } from './handler.js';
 import { createNodeIdentity } from './node-identity.js';
 import { OneShotRunner, defaultArtifactDir, usableWorkdir } from './runner.js';
@@ -47,7 +57,7 @@ export const name = 'mesh-http';
 /** No hard service declaration: the route is contributed only when `webServer` exists. */
 export const inject = [];
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 /** The route this plugin owns, and the health route beside it. */
 export const ROUTE = '/mesh/run';
@@ -84,11 +94,62 @@ export const DEFAULTS = {
   logFile: undefined,
   probeTimeoutMs: 4000,
   requestTimeoutMs: 4000,
+  // ---- how many turns at once, and what happens to the rest -------------------------------
+  /** `undefined` = DERIVE it from this node's own capacity (`lib/concurrency.js`). An explicit
+   *  number is honoured and clamped to `hardCeiling`; `MESH_HTTP_MAX_CONCURRENT` sets it too. */
+  maxConcurrent: undefined,
+  /** How long a queued request waits before `node-queue-wait-exceeded`. 780 s by default, which
+   *  is deliberately SHORTER than a dispatcher's default 900 s POST budget, so the node answers
+   *  before the caller gives up. */
+  maxQueueWaitSec: 780,
+  /** v0.1.0's `429 node-busy` instead of a queue. Off: a refusal has to be re-aimed by a caller,
+   *  and the caller that re-aims is how work ends up on the wrong node (`70` §4.5). */
+  refuseWhenFull: false,
+  /** The node's own published capacity contract, read over loopback. `''` disables the read. */
+  capacityUrl: 'http://127.0.0.1:3086/mesh/capacity',
+  capacityTtlMs: 30000,
+  capacityTimeoutMs: 1500,
+  cpuBudgetFraction: LOGICAL_CPU_BUDGET_FRACTION,
+  cpuPerTurn: CPU_PER_TURN,
+  commitPerTurnMiB: COMMIT_PER_TURN_MIB,
+  reserveMiB: undefined, // max(2 GiB, 12 % of physical) when undefined
+  hardCeiling: HARD_CEILING,
+  /** A DEGRADED tailnet reading is retried at this interval; a good one is cached for the process
+   *  (`lib/node-identity.js` — a boot-time empty `Self.DNSName` must not become the node's name). */
+  degradedRetryMs: 15000,
 };
 
 /** The platform's own secret location. Windows has no /etc, so ProgramData is its equivalent. */
 export function defaultSecretFile(platform = process.platform) {
   return platform === 'win32' ? 'C:/ProgramData/dsh-mesh.env' : '/etc/dsh-mesh.env';
+}
+
+/**
+ * Every knob a node operator may move without editing this file, and nothing else. Explicit
+ * `config` wins over the environment, so a composition that pins a value is not overridable.
+ */
+export function readEnvConfig(env = process.env) {
+  const out = {};
+  const num = (name, target, transform = Number) => {
+    if (env[name] === undefined || env[name] === '') return;
+    const value = transform(env[name]);
+    if (Number.isFinite(value)) out[target] = value;
+  };
+  num('MESH_HTTP_MAX_CONCURRENT', 'maxConcurrent', (v) => Number.parseInt(v, 10));
+  num('MESH_HTTP_QUEUE_WAIT_SEC', 'maxQueueWaitSec', (v) => Number.parseInt(v, 10));
+  num('MESH_HTTP_CAPACITY_TTL_MS', 'capacityTtlMs', (v) => Number.parseInt(v, 10));
+  num('MESH_HTTP_CAPACITY_TIMEOUT_MS', 'capacityTimeoutMs', (v) => Number.parseInt(v, 10));
+  num('MESH_HTTP_CPU_BUDGET_FRACTION', 'cpuBudgetFraction');
+  num('MESH_HTTP_CPU_PER_TURN', 'cpuPerTurn');
+  num('MESH_HTTP_COMMIT_PER_TURN_MIB', 'commitPerTurnMiB');
+  num('MESH_HTTP_RESERVE_MIB', 'reserveMiB');
+  num('MESH_HTTP_HARD_CEILING', 'hardCeiling');
+  num('MESH_HTTP_DEGRADED_RETRY_MS', 'degradedRetryMs');
+  if (env.MESH_HTTP_CAPACITY_URL !== undefined) out.capacityUrl = env.MESH_HTTP_CAPACITY_URL;
+  if (env.MESH_HTTP_REFUSE_WHEN_FULL !== undefined) {
+    out.refuseWhenFull = /^(1|true|yes|on)$/i.test(env.MESH_HTTP_REFUSE_WHEN_FULL);
+  }
+  return out;
 }
 
 /** The default working directory of a dispatched child: the machine's code root, if it exists. */
@@ -155,16 +216,56 @@ export function createLogger({ logFile }) {
  * Build the whole route. Exported so a test or a bare HTTP server (`bin/mesh-http.mjs`) can mount
  * exactly what the engine mounts, with no engine in the room.
  */
-export function createMeshHttp({ config = {}, log = () => {}, identity = undefined } = {}) {
-  const merged = { ...DEFAULTS, ...Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) };
+export function createMeshHttp({ config = {}, log = () => {}, identity = undefined, localInputs = undefined, env = process.env } = {}) {
+  const merged = { ...DEFAULTS, ...readEnvConfig(env), ...Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) };
   merged.secretFile = merged.secretFile ?? defaultSecretFile();
   merged.cwd = merged.cwd ?? defaultCwd();
   merged.artifactDir = merged.artifactDir ?? defaultArtifactDir();
   merged.dshBin = locateDshBin(merged.dshBin);
 
-  const said = createNodeIdentity({ nodeNameOverride: merged.nodeName });
+  const said = createNodeIdentity({ nodeNameOverride: merged.nodeName, degradedRetryMs: merged.degradedRetryMs });
   const who = identity ?? (() => said.describe());
   const auth = new MeshAuth({ resolveSecret: () => loadSecret(merged.secretFile), skewSeconds: merged.skewSeconds });
+
+  // ---- the ceiling, derived from this node's own capacity --------------------------------
+  // The LOCAL terms are read synchronously and are always available; the node's DECLARED ceiling
+  // comes from its own capacity contract over loopback, cached and single-flight, and only ever
+  // narrows the answer (`lib/concurrency.js` argues why it is a cap and not a source).
+  const inputs = localInputs ?? readLocalInputs();
+  const forced = Number.isFinite(Number(merged.maxConcurrent)) && Number(merged.maxConcurrent) >= 1
+    ? Math.floor(Number(merged.maxConcurrent))
+    : null;
+  const capacity = createDeclaredCapacityReader({
+    url: merged.capacityUrl,
+    ttlMs: merged.capacityTtlMs,
+    timeoutMs: merged.capacityTimeoutMs,
+  });
+  const resolution = {
+    limit: 0, forced, terms: {}, inputs: {}, sources: {}, note: '', contract: { url: merged.capacityUrl, readAt: null, error: null },
+  };
+  const recompute = (declaredMax, contract) => {
+    const derived = deriveConcurrencyLimit({
+      ...inputs,
+      declaredMax,
+      cpuBudgetFraction: merged.cpuBudgetFraction,
+      cpuPerTurn: merged.cpuPerTurn,
+      commitPerTurnMiB: merged.commitPerTurnMiB,
+      reserveMiB: merged.reserveMiB,
+      hardCeiling: merged.hardCeiling,
+    });
+    Object.assign(resolution, derived);
+    resolution.inputs = { ...derived.inputs, declaredMax };
+    resolution.forced = forced;
+    if (forced !== null) {
+      resolution.terms = { ...derived.terms, forced, binding: 'forced' };
+      resolution.limit = Math.min(forced, merged.hardCeiling);
+      resolution.note = `MESH_HTTP_MAX_CONCURRENT (or config.maxConcurrent) forces ${resolution.limit}; the derived minimum was ${derived.limit}.`;
+    }
+    if (contract !== undefined) resolution.contract = contract;
+    return resolution;
+  };
+  recompute(null, { url: merged.capacityUrl, readAt: null, error: 'not read yet' });
+
   const runner = new OneShotRunner({
     nodeExe: merged.nodeExe,
     dshBin: merged.dshBin,
@@ -174,15 +275,53 @@ export function createMeshHttp({ config = {}, log = () => {}, identity = undefin
     maxOutputBytes: merged.maxOutputBytes,
     artifactDir: merged.artifactDir,
     log,
+    maxConcurrent: resolution.limit,
+    maxQueueWaitMs: merged.maxQueueWaitSec * 1000,
+    refuseWhenFull: merged.refuseWhenFull,
+    hardCeiling: merged.hardCeiling,
   });
-  const run = createMeshRunHandler({ config: merged, auth, runner, identity: who, log });
-  const health = createMeshHealthHandler({ config: merged, auth, runner, identity: who, log, version: VERSION });
+
+  /** Re-read the declared ceiling and move the runner's limit. Never throws, never blocks a run. */
+  const refreshLimit = async () => {
+    const read = await capacity.read();
+    const capacityNode = read.value ?? null;
+    recompute(declaredMaxChildren(capacityNode), {
+      url: merged.capacityUrl,
+      readAt: read.at === null || read.at === 0 ? null : new Date(read.at).toISOString(),
+      error: read.error ?? null,
+      node: capacityNode?.node ?? null,
+      maxChildren: declaredMaxChildren(capacityNode),
+      cpuLogical: capacityNode?.cpu?.logical ?? null,
+      cpuPhysical: capacityNode?.cpu?.physical ?? null,
+      memFreeMiB: capacityNode?.mem?.freeMiB ?? null,
+    });
+    const moved = runner.setLimit(resolution.limit);
+    if (moved.previous !== moved.limit) {
+      log(`mesh-http concurrency ${moved.previous} -> ${moved.limit} (${resolution.note})`);
+    }
+    return resolution;
+  };
+
+  const run = createMeshRunHandler({ config: merged, auth, runner, identity: who, log, refreshLimit });
+  const health = createMeshHealthHandler({
+    config: merged,
+    auth,
+    runner,
+    identity: who,
+    log,
+    version: VERSION,
+    concurrency: resolution,
+    refreshLimit,
+  });
 
   return {
     config: merged,
     auth,
     runner,
     identity: who,
+    /** The arithmetic behind the ceiling, exactly as `/mesh/health` publishes it. */
+    concurrency: resolution,
+    refreshLimit,
     handler: async (req, res) => {
       const url = safePath(req.url);
       if (url === merged.healthPath) return health(req, res);
@@ -204,6 +343,7 @@ export function createMeshHttp({ config = {}, log = () => {}, identity = undefin
         profile: merged.profile,
         cwd: merged.cwd,
         artifactDir: merged.artifactDir,
+        concurrency: resolution,
         runner: runner.view(),
       };
     },
@@ -239,6 +379,11 @@ export function apply(ctx, config = {}) {
   const mount = (webCtx) => {
     const webServer = webCtx.get('webServer');
     if (webServer === undefined || typeof webServer.register !== 'function') return;
+    // The declared ceiling is read once at mount and then refreshed by every health read and every
+    // dispatch. Not awaited: a route that cannot mount because a capacity contract was slow is
+    // exactly the coupling `lib/concurrency.js` refuses, and the LOCAL terms already derived a
+    // working ceiling before this call.
+    plugin.refreshLimit().catch(() => {});
     webCtx.effect(() => webServer.register({
       kind: 'exact',
       path: plugin.config.path,
@@ -250,7 +395,8 @@ export function apply(ctx, config = {}) {
       handler: plugin.health,
     }), `mesh-http: ${plugin.config.healthPath}`);
     ctx.logger?.info?.(`mesh-http: ${plugin.config.path} and ${plugin.config.healthPath} registered on this node`
-      + ` (secret ${plugin.readout().secretConfigured ? 'present' : `NOT CONFIGURED at ${plugin.config.secretFile}`})`);
+      + ` (secret ${plugin.readout().secretConfigured ? 'present' : `NOT CONFIGURED at ${plugin.config.secretFile}`})`
+      + ` (concurrency ${plugin.runner.maxConcurrent}: ${plugin.concurrency.note})`);
   };
 
   if (typeof ctx.inject === 'function') {
@@ -264,3 +410,15 @@ export { MeshAuth } from './auth.js';
 export { OneShotRunner, composeTask, taskDisposition, childArgv, defaultArtifactDir } from './runner.js';
 export { createNodeIdentity } from './node-identity.js';
 export { loadSecret, parseEnvText } from './secret.js';
+export {
+  COMMIT_PER_TURN_MIB,
+  CPU_PER_TURN,
+  HARD_CEILING,
+  LOGICAL_CPU_BUDGET_FRACTION,
+  createDeclaredCapacityReader,
+  declaredMaxChildren,
+  deriveConcurrencyLimit,
+  fetchJsonOnce,
+  readAvailableMemoryMiB,
+  readLocalInputs,
+} from './concurrency.js';

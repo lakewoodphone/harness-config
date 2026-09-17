@@ -49,8 +49,12 @@ function logLine(log, fields) {
  * @param {() => object} deps.identity           `createNodeIdentity().describe()`
  * @param {(line: string) => void} deps.log
  */
-export function createMeshRunHandler({ config, auth, runner, identity, log }) {
+export function createMeshRunHandler({ config, auth, runner, identity, log, refreshLimit = null }) {
   return async function meshRunHandler(req, res) {
+    // The ceiling follows the machine: kick a capacity re-read on every dispatch. It is TTL-cached
+    // and single-flight inside `lib/concurrency.js`, so this is cheap, and it is deliberately NOT
+    // awaited — a run must never wait on the gate that just relayed it.
+    if (typeof refreshLimit === 'function') Promise.resolve().then(refreshLimit).catch(() => {});
     const at = new Date().toISOString();
     const requestId = typeof req.headers['x-mesh-request-id'] === 'string' && /^[A-Za-z0-9._-]{1,64}$/.test(req.headers['x-mesh-request-id'])
       ? req.headers['x-mesh-request-id']
@@ -131,11 +135,14 @@ export function createMeshRunHandler({ config, auth, runner, identity, log }) {
       const result = await runner.run({ task, cwd, timeoutMs, requestId, host: me.host });
 
       if (result.ok !== true) {
-        // A refusal from the runner (busy) is not a failure of the request; it is the node
-        // saying no, with a position. 429 + Retry-After is the honest answer.
+        // A refusal from the runner is not a failure of the request; it is the node saying no,
+        // WITH A POSITION. 429 + Retry-After is the honest answer, and `queue` carries the
+        // position so the caller can tell "this node is full and will not queue" apart from
+        // "this node queued me and the queue did not drain in my budget".
         return refuse(result.status, result.reason, result.detail ?? null, {
           authenticated: true,
           busy: result.busy ?? null,
+          queue: result.queue ?? null,
           retryAfterSec: config.busyRetryAfterSec,
         });
       }
@@ -150,6 +157,10 @@ export function createMeshRunHandler({ config, auth, runner, identity, log }) {
         stdoutBytes: result.stdoutBytes,
         stderrBytes: result.stderrBytes,
         truncated: result.stdoutTruncated === true || result.stderrTruncated === true,
+        // WHERE THIS RUN WAITED, in the answer. `position: 0` means it was admitted immediately;
+        // anything else is the place it held in the node's FIFO and how long it held it. This is
+        // the field that makes the queue visible instead of merely real.
+        queue: result.queue ?? { position: 0, waitedMs: 0, limit: runner.maxConcurrent },
         host: me.host,
         node: me.node,
         nodeSource: me.nodeSource,
@@ -170,6 +181,10 @@ export function createMeshRunHandler({ config, auth, runner, identity, log }) {
         timedOut: answered.timedOut,
         ms: answered.ms,
         stdoutBytes: answered.stdoutBytes,
+        queuePosition: answered.queue.position,
+        queueWaitedMs: answered.queue.waitedMs,
+        inFlightAfter: runner.inFlight.size,
+        queuedAfter: runner.queue.length,
         meshHostLineSeen: new RegExp(`^\\s*${config.meshHostLine.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\S`, 'm').test(result.stdout),
       });
       // 504 for a timeout and 502 for a child that could not be started: the caller asked for an
@@ -200,12 +215,18 @@ export function createMeshRunHandler({ config, auth, runner, identity, log }) {
  * the 401 that the node has no route. A capability probe is the difference between a fallback
  * (v1 still works, the fleet keeps moving) and a failure.
  */
-export function createMeshHealthHandler({ config, auth, runner, identity, log, version }) {
-  return function meshHealthHandler(req, res) {
+export function createMeshHealthHandler({ config, auth, runner, identity, log, version, concurrency = null, refreshLimit = null }) {
+  return async function meshHealthHandler(req, res) {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.setHeader('allow', 'GET, HEAD');
       sendJson(res, 405, { ok: false, reason: 'method-not-allowed' });
       return;
+    }
+    // A health answer that quotes a stale ceiling is worse than no answer: this is the call a
+    // dispatcher makes BEFORE it decides to dispatch. Awaiting one TTL-cached loopback read is
+    // the price of the number being current, and the read fails soft (the cached value stands).
+    if (typeof refreshLimit === 'function') {
+      try { await refreshLimit(); } catch { /* the previously derived limit stands */ }
     }
     const resolved = auth.resolveSecret();
     const me = identity();
@@ -229,12 +250,33 @@ export function createMeshHealthHandler({ config, auth, runner, identity, log, v
         maxPromptChars: config.maxPromptChars,
         maxTimeoutSec: config.maxTimeoutSec,
         defaultTimeoutSec: config.defaultTimeoutSec,
-        oneRunAtATime: true,
+        /** Kept honest for a reader that only knows the v0.1.0 field: true exactly when the
+         *  derived ceiling happens to be 1, which on a node with a real capacity contract is
+         *  false. `concurrency.limit` is the field to read. */
+        oneRunAtATime: runner.maxConcurrent === 1,
+        maxConcurrent: runner.maxConcurrent,
+        maxQueueWaitSec: Math.round(runner.maxQueueWaitMs / 1000),
+        refuseWhenFull: runner.refuseWhenFull,
+      },
+      // The arithmetic, published so nobody has to read the source to check the number.
+      concurrency: concurrency === null ? { limit: runner.maxConcurrent, terms: null, inputs: null } : {
+        limit: concurrency.limit,
+        forced: concurrency.forced ?? null,
+        terms: concurrency.terms,
+        inputs: concurrency.inputs,
+        sources: concurrency.sources,
+        note: concurrency.note,
+        contract: concurrency.contract,
       },
       runner: runner.view(),
       at: new Date().toISOString(),
     };
-    logLine(log, { at: body.at, requestId: 'health', verdict: 'health', secretConfigured: body.auth.secretConfigured, busy: body.runner.busy });
+    logLine(log, {
+      at: body.at, requestId: 'health', verdict: 'health',
+      secretConfigured: body.auth.secretConfigured, busy: body.runner.busy,
+      limit: runner.maxConcurrent, inFlight: runner.inFlightCount, queued: runner.queueDepth,
+      identityDegraded: me.identityDegraded === true,
+    });
     sendJson(res, 200, body);
   };
 }
