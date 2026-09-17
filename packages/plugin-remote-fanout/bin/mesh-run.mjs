@@ -46,72 +46,35 @@ import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, 
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { createBrokerClient } from '../lib/broker-client.js';
+import { hostMatchesNode, invocationForNode, isHostToken, NODES } from '../lib/nodes.js';
+
 const BROKER_SSH = process.env.MESH_BROKER_SSH ?? 'secratary-ts';
 const BROKER_URL = process.env.MESH_BROKER_URL ?? 'http://localhost:3091';
 
 /**
- * The node table: everything about a node that only the DISPATCHER can know.
- *
- * Why it has to live here and not in the `mesh` profile: the profile is booted on
- * whichever node runs the parent, so `process.platform` describes the PARENT's
- * machine, not the target's. Measured 2026-09-16: with the shell inferred from
- * the local platform, a parent on Windows dispatched to the Linux authority and
- * every child died with `bash: line 1: powershell: command not found` (exit 127).
- * The node name is known only to the placement decision, so the per-node facts
- * travel with it, as environment for the profile that is about to boot.
- *
- * `verified` records whether the two paths were ever measured on that node —
- * an empty result is not health, and an unverified path is not a placement.
+ * ONE implementation of "ask the broker", shared with the provider
+ * (`lib/broker-client.js`). It reaches the broker the same way every other
+ * caller does — one bounded `ssh` to the authority running a `curl` against a
+ * loopback-only service — and it refreshes nothing: `brokerPost` below is the
+ * same `{ok, json, parseError}` shape this file has always branched on.
  */
-const NODES = {
-  'zabz-tech': {
-    ssh: 'desktop-ts',
-    hosts: ['ZABZ-TECH', 'zabz-tech', 'zabz-tech.tail93e6e6.ts.net'],
-    shell: 'powershell',
-    nodeExe: 'C:/Program Files/nodejs/node.exe',
-    dshBin: 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: 'C:/Users/ezabz',
-    verified: '2026-09-17: node v24.19.0, dsh 0.1.5-rc.1, a child turn completed over ssh',
-  },
-  // Keyed on the Tailscale DNS label: the capacity contract's invariant is
-  // `node === fqdn.split(".")[0]`, so this label is what a broker answer names.
-  'zabz-yoga-1': {
-    ssh: 'laptop-ts',
-    hosts: ['ZABZ-YOGA', 'zabz-yoga', 'zabz-yoga-1', 'zabz-yoga-1.tail93e6e6.ts.net'],
-    shell: 'powershell',
-    nodeExe: 'C:/Program Files/nodejs/node.exe',
-    dshBin: 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: 'C:/Users/ezabz',
-    verified: 'MEASURED 2026-09-17: node v24.12.0, dsh 0.1.5-rc.1. ACCEPTED v1 ssh work after its module links were recreated INSIDE an ssh session (413 links, 22 s): `ssh <laptop> dsh --profile headless "Reply with exactly: LAPTOP OK"` -> LAPTOP OK, exit 0, 10.3 s. Before that relink it refused every reparse point as UNTRUSTED (70-remote-fanout-proof.md §4.4)',
-  },
-  'zabz-tech-linux': {
-    ssh: 'linux-pc-ts',
-    hosts: ['zabz-tech-linux'],
-    shell: 'posix',
-    nodeExe: '/home/zabz/.local/node-v24.12.0-linux-x64/bin/node',
-    dshBin: '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: '/home/zabz/code',
-    verified: 'NOT VERIFIED: this node has no Node runtime yet (62-worker-runtime.md §3.1); the paths are the ones §3.4 says to install',
-  },
-  secratary: {
-    ssh: 'secratary-ts',
-    hosts: ['secratary'],
-    shell: 'posix',
-    nodeExe: '/home/zabz/node/bin/node',
-    dshBin: '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: '/home/zabz/code',
-    verified: 'MEASURED 2026-09-16 (62 §1.2): node v22.23.2 at /home/zabz/node/bin/node; the dsh install is the one the systemd engine runs from',
-  },
-  'lakewooechsmini': {
-    ssh: 'mac-mini-ts',
-    hosts: ['LakewooechsMini'],
-    shell: 'posix',
-    nodeExe: '/usr/local/bin/node',
-    dshBin: '/Users/lpt/.dsh-install/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: '/Users/lpt/lpt-hub',
-    verified: 'MEASURED 2026-09-16 (62 §3.2) for the two paths; not exercised as a worker',
-  },
-};
+const broker = createBrokerClient({
+  sshExe: process.env.MESH_SSH_EXE,
+  sshTarget: BROKER_SSH,
+  url: BROKER_URL,
+  timeoutMs: 30_000,
+});
+
+/**
+ * The node table lives in `lib/nodes.js` — moved there 2026-09-17, when the
+ * PROVIDER needed the same facts for the same broker-named nodes. Two copies
+ * would have drifted, and the drift would have been invisible until a child
+ * landed somewhere it could not run. It is the same content this file carried:
+ * `verified` records whether the two paths were ever measured on that node,
+ * because an empty result is not health and an unverified path is not a
+ * placement.
+ */
 
 const EXIT_COMPLETED = 0;
 const EXIT_QUEUED = 10;
@@ -163,9 +126,6 @@ function resolveDshBin(explicit) {
 }
 
 /** Quote one argument for the remote shell as a single-quoted POSIX/PowerShell-safe word. */
-function singleQuote(value) {
-  return `'${String(value).replace(/'/g, `'\\''`)}'`;
-}
 
 /**
  * Run one ssh command with stdout/stderr captured through FILES (never pipes —
@@ -206,31 +166,23 @@ function sshRun(argv, { timeoutMs }) {
   });
 }
 
-/** POST one JSON body to a broker route, over ssh, and parse the reply. */
+/** POST one JSON body to a broker route, over ssh. Throws nothing: failures come back as `ok:false`. */
 async function brokerPost(route, body, timeoutMs) {
-  const json = JSON.stringify(body);
-  if (json.includes("'")) throw new Error('mesh-run: refusing a body containing a single quote (it is passed through a shell)');
-  const curl = `curl -s -S -XPOST ${BROKER_URL}${route} -H "content-type: application/json" -d ${singleQuote(json)}`;
-  const result = await sshRun(['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', BROKER_SSH, curl], { timeoutMs });
-  if (!result.ok) return { ok: false, ...result, parseError: result.stderr.trim().slice(0, 400) || 'ssh to the authority failed' };
   try {
-    return { ok: true, ...result, json: JSON.parse(result.stdout.trim()) };
+    const json = route === '/place'
+      ? await broker.place(body.task, { timeout: timeoutMs })
+      : await broker.done(body.lease, body.ok !== false, { timeout: timeoutMs });
+    return { ok: true, json };
   } catch (error) {
-    return { ok: false, ...result, parseError: `unparsable broker reply: ${String(error?.message ?? error)}; body was ${result.stdout.trim().slice(0, 200)}` };
+    return { ok: false, parseError: `${error?.code ?? 'broker-error'}: ${String(error?.message ?? error)}` };
   }
 }
 
-/** Which nodes may legitimately report a given host. */
-function hostMatchesNode(host, node) {
-  const allowed = NODES[node]?.hosts ?? [node];
-  const normalize = (value) => String(value ?? '').trim().toLowerCase().split('.')[0].replace(/-ts$/, '');
-  return allowed.some((candidate) => normalize(candidate) === normalize(host));
-}
-
-/** A host token worth comparing: not the placeholder the report writes when a child never ran. */
-function isHostToken(value) {
-  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(String(value ?? ''));
-}
+/**
+ * `hostMatchesNode` and `isHostToken` moved to `lib/nodes.js` — the provider's
+ * location check needs the same two functions against the node the BROKER named,
+ * and a second copy of a check is a second answer to the same question.
+ */
 
 /**
  * Can this node's sshd session traverse the reparse points a CHILD will resolve
@@ -375,8 +327,15 @@ const env = {
   MESH_TARGET_NODE: alias,
   MESH_TARGET_HOSTS: nodeFacts.hosts.join(','),
   MESH_REMOTE_SHELL: nodeFacts.shell,
-  MESH_NODE_EXE: nodeFacts.nodeExe,
-  MESH_DSH_BIN: nodeFacts.dshBin,
+  // The invocation travels as THREE facts, in the order the resolver prefers
+  // them: an executor on the target's PATH (the node's own `dsh` wrapper, which
+  // sources the worker credential), then the interpreter pair as its fallback.
+  // Passing the pair alone is what produced a child that died with
+  // `node …: not found` on `zabz-tech-linux` (docs/mesh/102-linux-dispatch.md).
+  MESH_NODE_COMMAND: nodeFacts.command ?? '',
+  MESH_WORKER_ENV_FILES: (nodeFacts.credentialEnvFiles ?? []).join(','),
+  MESH_NODE_EXE: nodeFacts.driver ?? '',
+  MESH_DSH_BIN: nodeFacts.bin ?? '',
   MESH_REMOTE_CWD: options.workdir ?? nodeFacts.cwd,
 };
 const started = Date.now();
@@ -386,6 +345,8 @@ record({
   alias,
   children: options.children,
   shell: nodeFacts.shell,
+  // WHICH INVOCATION THE CHILD WILL USE, in the run log, before it runs.
+  invocation: invocationForNode(node),
   targetVerified: nodeFacts.verified,
   dshBin,
   prompt: options.prompt.slice(0, 200),

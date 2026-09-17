@@ -1,8 +1,8 @@
 {
   "name": "dsh-plugin-remote-fanout",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "A remote one-shot subagent provider: registers a second named provider on ctx.subagents whose children are real DSH agent turns on ANOTHER node, reached over ssh. The parent process spawns nothing locally but one ssh client; the child runs in its own engine process on the target machine.",
+  "description": "A remote one-shot subagent provider: registers a second named provider on ctx.subagents whose children are real DSH agent turns on whichever node the placement broker names, reached over ssh. The parent process spawns nothing locally but one ssh client; the child runs in its own engine process on the target machine.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -10,13 +10,16 @@
     "./remote-script": { "default": "./lib/remote-script.js" },
     "./ssh-transport": { "default": "./lib/ssh-transport.js" },
     "./provider": { "default": "./lib/provider.js" },
+    "./placement": { "default": "./lib/placement.js" },
+    "./broker-client": { "default": "./lib/broker-client.js" },
+    "./nodes": { "default": "./lib/nodes.js" },
     "./package.json": "./package.json"
   },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" }
   },
   "scripts": {
-    "verify": "node --check lib/index.js && node --check lib/remote-script.js && node --check lib/ssh-transport.js && node --check lib/provider.js && node --test test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs",
-    "test": "node --test test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs"
+    "verify": "node --check lib/index.js && node --check lib/remote-script.js && node --check lib/ssh-transport.js && node --check lib/provider.js && node --check lib/placement.js && node --check lib/broker-client.js && node --check lib/nodes.js && node --check bin/mesh-run.mjs && node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/placement.test.mjs test/broker-client.test.mjs",
+    "test": "node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/placement.test.mjs test/broker-client.test.mjs"
   }
 }
