@@ -136,7 +136,13 @@
       remoteDshBin: !!js "process.env.MESH_DSH_BIN ?? (process.platform === 'win32' ? 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js' : '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js')",
       remoteProfile: 'headless',
       remoteCwd: !!js "process.env.MESH_REMOTE_CWD ?? (process.platform === 'win32' ? 'C:/Users/ezabz' : '/home/zabz')",
-      targetHosts: !!js "process.env.MESH_TARGET_HOSTS ? process.env.MESH_TARGET_HOSTS.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : ['zabz-tech']",
+      # 103 (2026-09-17): the default was a node name, which made the row choose a
+      # node -- and on `zabz-tech` itself a self-default. No key in this row may
+      # choose or validate a node: in `broker` mode the placed node's own host list
+      # comes from lib/nodes.js, and in the hand-set `fixed` fallback an empty list
+      # means the location check is recorded and not made. That is the honest record
+      # for a row that names no node. Do not restore a node name here.
+      targetHosts: !!js "process.env.MESH_TARGET_HOSTS ? process.env.MESH_TARGET_HOSTS.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : []",
       verifyMeshHost: true,
       timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 300000",
       maxOutputBytes: 200000,
