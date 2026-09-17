@@ -169,7 +169,8 @@ RECON_STATUS="/home/zabz/.lpt-recon/status.json"
 REFRESH_STATUS="/home/zabz/.lpt-hub-refresh/status.json"
 CORPUS=$(python3 -c '
 import json, os, time
-out = {"gap": None, "errors": None, "refresh": "unreadable", "records": None, "ageh": None}
+out = {"gap": None, "errors": None, "refresh": "unreadable", "records": None, "ageh": None,
+       "head": None, "behind": None, "newest": None, "origin_head": None}
 try:
     r = json.load(open("/home/zabz/.lpt-recon/status.json"))
     out["gap"] = int(r.get("push_would_create", 0) or 0)
@@ -181,6 +182,12 @@ try:
     f = json.load(open("/home/zabz/.lpt-hub-refresh/status.json"))
     out["refresh"] = str(f.get("status", "?"))
     out["records"] = f.get("records")
+    # These three were ALREADY in the status file and the digest discarded them. They are the only
+    # way this page can say whether the clone it is counting is current.
+    out["head"] = str(f.get("head") or "?")[:9]
+    out["behind"] = f.get("behind")
+    out["origin_head"] = str(f.get("origin_main") or "?")[:9]
+    out["newest"] = f.get("newest_record")
 except Exception:
     pass
 print(json.dumps(out))
@@ -189,18 +196,35 @@ cgap=$(printf '%s' "$CORPUS"      | python3 -c 'import sys,json;print(json.load(
 cage=$(printf '%s' "$CORPUS"      | python3 -c 'import sys,json;print(json.load(sys.stdin).get("ageh"))' 2>/dev/null || echo "?")
 crec=$(printf '%s' "$CORPUS"      | python3 -c 'import sys,json;print(json.load(sys.stdin).get("records"))' 2>/dev/null || echo "?")
 cref=$(printf '%s' "$CORPUS"      | python3 -c 'import sys,json;print(json.load(sys.stdin).get("refresh"))' 2>/dev/null || echo "?")
+chead=$(printf '%s' "$CORPUS"     | python3 -c 'import sys,json;print(json.load(sys.stdin).get("head"))' 2>/dev/null || echo "?")
+cbehind=$(printf '%s' "$CORPUS"   | python3 -c 'import sys,json;print(json.load(sys.stdin).get("behind"))' 2>/dev/null || echo 0)
 if [ "$cgap" = "-1" ] || [ -z "$cgap" ]; then
   echo -n "Corpus push:       "; echo "🔴 COULD NOT READ — the corpus surface is UNMEASURED, not healthy"
   PROBLEMS=$((PROBLEMS+1))
 else
-  echo -n "Corpus records:    "; echo "$crec in the authority clone (refresh status: $cref)"
+  # FRESHNESS IS PART OF THE NUMBER. The clone is only ever as current as what has reached ORIGIN,
+  # and `lpt-hub-refresh.sh` pulls from origin — so work committed on another machine and not yet
+  # pushed is INVISIBLE here. Measured 2026-09-17: the authority reported `behind: 0` while
+  # ZABZ-TECH held 3 unpushed commits and a corpus of 187 cases / 384 records against this clone's
+  # 186 / 383. Every count below was therefore one case and one record stale, and nothing said so.
+  echo -n "Corpus records:    "; echo "$crec in the authority clone at ${chead:-?} (refresh: $cref, behind origin: ${cbehind:-?})"
+  if [ "${cbehind:-0}" != "0" ] && [ -n "${cbehind:-}" ]; then
+    echo -n "Corpus freshness:  "; echo "🔴 the clone is $cbehind commit(s) BEHIND origin — every count below reads a stale corpus"
+    PROBLEMS=$((PROBLEMS+1))
+  fi
   echo -n "Corpus push gap:   "
   if [ "$cgap" -gt 0 ]; then
     echo "🔴 $cgap record(s) in the hub but NOT in production (measured ${cage}h ago)"
+    echo "                     NOTE: 'would create' is not 'should create'. Records held for a"
+    echo "                     documented reason are counted here too; the record schema has no"
+    echo "                     field in which to say 'held, and why' (operational is"
+    echo "                     additionalProperties:false). Do not read this as $cgap broken jobs."
     PROBLEMS=$((PROBLEMS+1))
   else
     echo "✅ none — every hub record has a production order (measured ${cage}h ago)"
   fi
+  echo "                     BLIND SPOT, stated: unpushed commits on another host are invisible to"
+  echo "                     this check. Run 'git status' on the machine that does the case work."
 fi
 
 # The four-surface verifier (tools/customer/audit.py) checks whether the hub case file, the hub
