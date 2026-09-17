@@ -919,7 +919,7 @@ export function createBroker(options = {}) {
     view.slotsKnown = arith.known;
     view.freeSlots = Math.max(0, arith.slots - running);
     view.slotArithmetic = arith.arithmetic;
-    view.scoreTerms = { memorySlots: arith.memorySlots, coreSlots: effective.coreSlots, coreSlotsBasis: effective.coreBasis, swapApplied: effective.swapApplied, effectiveSlots: effective.effective };
+    view.scoreTerms = { memorySlots: arith.memorySlots, coreSlots: effective.coreSlots, coreSlotsBasis: effective.coreBasis, swapApplied: effective.swapApplied, effectiveSlots: effective.effective, reserveMiB: arith.reserveMiB, reserveBasis: arith.reserveBasis };
     // AMENDMENT 4: the roster's per-node transport capability, reported as the three-state
     // fact it is (`true`/`false`/`null` = unmeasured).
     view.transport = { v1: dispatch.v1, measuredAt: dispatch.measuredAt, evidence: dispatch.evidence };
@@ -969,6 +969,19 @@ export function createBroker(options = {}) {
     /** Exposed for tests and for /nodes; not a state store. */
     readings,
     leases,
-    config: { nodes, cacheTtlMs, readTimeoutMs, retryTimeoutMs, leaseTtlMs, reserveMiB: RESERVE_MIB, perSlotMiB: PER_SLOT_MIB, maxSlots: MAX_SLOTS },
+    /**
+     * The reserve is NOT one number any more, and this field deliberately does not pretend to
+     * be one: it is derived per node from that node's own `mem.totalMiB` (`scoring.js`
+     * `reserveMiB()`), and the per-node result rides on every `/nodes` row in `scoreTerms`.
+     * `fallbackMiB` is the frozen literal, used only for a node that reports no total memory.
+     * (Was `reserveMiB: 3885`; nothing read it, and a scalar here said the opposite of what the
+     * broker does — see docs/mesh/86-authority.md §3.)
+     */
+    reserveRule: {
+      rule: "max(2048 MiB, 12% of the node's own mem.totalMiB) - the governor's own derivation (governor.js:126), applied per node",
+      perNode: true,
+      fallbackMiB: RESERVE_MIB,
+    },
+    config: { nodes, cacheTtlMs, readTimeoutMs, retryTimeoutMs, leaseTtlMs, perSlotMiB: PER_SLOT_MIB, maxSlots: MAX_SLOTS },
   };
 }

@@ -338,6 +338,8 @@ handoff	H420	420		2026-09-16 23:46 UTC	ZABZ-YOGA	open	## 2026-09-16 23:46 UTC ·
 handoff	H421	421		2026-09-16 23:47 UTC	ZABZ-YOGA	open	## 2026-09-16 23:47 UTC · ZABZ-YOGA · S7 mesh acceptance harness: baseline 4 PASS/1 FAIL/3 SKIP on 2026-09-16T23:45Z; hermetic mesh proven; three items are the manager's	entries/handoff/H421.md	1	52	cab85e41274ffe82
 handoff	H422	422		2026-09-17 00:56 UTC	zabz-yoga	open	## 2026-09-17 00:56 UTC · zabz-yoga · Shlock: information fully recovered, plan corrected, and the frame as built is NOT adequate in wind (118 mph site, fails at 58-76 mph)	entries/handoff/H422.md	1	35	650128c37e3ce814
 handoff	H423	423		2026-09-17 03:34 UTC	ZABZ-YOGA	open	## 2026-09-17 03:34 UTC · ZABZ-YOGA · THE OVERNIGHT PROGRAM: seven streams, and done means the acceptance run is green with zero skips	entries/handoff/H423.md	1	47	41ce4b0e0b3663fa
+handoff	H433	433		2026-09-17 03:49 UTC	ZABZ-YOGA	open	## 2026-09-17 03:49 UTC · ZABZ-YOGA · O5 THE AUTHORITY: the broker is a systemd service, the swap is 1.8%, the reserve is per node	entries/handoff/H433.md	1	55	1e15349b8b041fd5
+handoff	H434	434		2026-09-17 03:53 UTC	ZABZ-YOGA	open	## 2026-09-17 03:53 UTC · ZABZ-YOGA · Screen Time enabled for the DRN call-blocking practice: 48 live, 54 queued	entries/handoff/H434.md	1	30	4b303ac03906fc37
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1007,6 +1009,12 @@ lessons	L1828	1828		2026-09-16	ZABZ-YOGA	open	**L1828 · macOS 26 keeps a SECOND
 lessons	L1829	1829		2026-09-16	ZABZ-YOGA	open	**L1829 · $pid is read-only; and do not call a process 'leaked' until you have checked whether the run that owns it has finished**	entries/lessons/L1829.md	1	32	ee7023c98d673730
 lessons	L1830	1830		2026-09-16	ZABZ-YOGA	open	**L1830 · Shell traps that fail SILENTLY and make a checker report the opposite of the truth**	entries/lessons/L1830.md	1	22	be12d1d767204664
 lessons	L1831	1831		2026-09-16	ZABZ-YOGA	open	**L1831 · A managed policy file is the mechanism on a Mac that is not MDM-enrolled**	entries/lessons/L1831.md	1	16	059b3a59a8b79c2a
+lessons	L1848	1848		2026-09-16	zabz-yoga	open	**L1848 · A canonical document kept only in a gitignored scratch folder is one deleted file from gone**	entries/lessons/L1848.md	1	42	5050f1884b184049
+lessons	L1849	1849		2026-09-16	ZABZ-YOGA	open	**L1849 · A sandbox rule that blocks egress silently blinds the service it protects (mesh-broker, secratary)**	entries/lessons/L1849.md	1	40	f301fa5ff75c6bd3
+lessons	L1850	1850		2026-09-16	ZABZ-YOGA	open	**L1850 · A 100%-full swap area can be 97% cold tmpfs and 1.7% process memory (secratary, measured with mincore)**	entries/lessons/L1850.md	1	45	40af6adb679c1e9f
+lessons	L1851	1851		2026-09-16	ZABZ-YOGA	open	**L1851 · A hardware-derived constant is not a constant: the broker's 3885 MiB reserve was one machine's number**	entries/lessons/L1851.md	1	40	2037ea7cd6c1bebe
+lessons	L1852	1852		2026-09-16	ZABZ-YOGA	open	**L1852 · Apple has no MDM call blocker; allowEnablingRestrictions is the Screen Time gate and allowScreenTime is not a real key**	entries/lessons/L1852.md	1	14	b5f7bd56ab1f1e46
+lessons	L1853	1853		2026-09-16	ZABZ-YOGA	open	**L1853 · ProfileList cannot show a profile's content - put a version marker in PayloadDisplayName**	entries/lessons/L1853.md	1	10	b62e6df0f61a4adb
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1197,6 +1205,8 @@ pain	P219	219		2026-09-16	ZABZ-YOGA	open	## P219 — The mesh's own processes ar
 pain	P220	220		2026-09-16	ZABZ-YOGA	open	## P220 — One anonymous GET through the tailnet signs into the owner's engine, and every device shares one identity	entries/pain/P220.md	1	24	048c495639f4c684
 pain	P221	221		2026-09-16	ZABZ-YOGA	open	## P221 — The phone gate keeps being killed, and the only supervisor available is the one-minute watchdog	entries/pain/P221.md	1	23	f0fa0e47412623c8
 pain	P222	222		2026-09-16	ZABZ-YOGA	open	## P222 — §4.5's kill-the-gate step can only be satisfied by breaking S7's own never-kill-a-foreign-process rule	entries/pain/P222.md	1	21	5bbe5f8c69eb2047
+pain	P229	229		2026-09-16	ZABZ-YOGA	open	## P229 — /tmp on secratary is 5.9 GB of stale scratch on a 12 GiB tmpfs, and it is not safe to delete in a batch	entries/pain/P229.md	1	33	a149e619b90c9cdb
+pain	P230	230		2026-09-16	ZABZ-YOGA	open	## P230 — The deployed fleet-api on Hetzner and the repo copy have forked in both directions	entries/pain/P230.md	1	17	a7d43e33c7ebcb8d
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1398,6 +1408,9 @@ decisions	D230	230		2026-09-16	ZABZ-YOGA	open	**D230 · 2026-09-16 · Node durab
 decisions	D231	231		2026-09-16	zabz-yoga	open	**D231 · 2026-09-16 · Where the Shlock project's authoritative records live, by layer (tarp on secratary psmvp master; frame in lpt-hub research).**	entries/decisions/D231.md	1	23	7b385f420cd5b381
 decisions	D232	232		2026-09-16	ZABZ-YOGA	open	**D232 · 2026-09-16 · Acceptance-harness rules: the one FAIL/SKIP test, a hermetic mesh for controllability, and why the frozen scoring formula is not asserted.**	entries/decisions/D232.md	1	27	05b349798081a0df
 decisions	D233	233		2026-09-16	ZABZ-YOGA	open	**D233 · 2026-09-16 · Section 4.5: the stub-gate half stands, the fleet-death half is deferred, and no one kills another stream's node.**	entries/decisions/D233.md	1	28	ad967eb9afd51502
+decisions	D241	241		2026-09-16	zabz-yoga	open	**D241 · 2026-09-16 · Shlock's canonical design sources and recovery archaeology are now committed to git (lpt-hub/research/miscellaneous/shlcok-source, commit 9a8815799).**	entries/decisions/D241.md	1	30	d55630cf017e3ae1
+decisions	D242	242		2026-09-16	ZABZ-YOGA	open	**D242 · 2026-09-16 · The broker derives its reserve per node from mem.totalMiB; the gate's budgetSlots is advisory (closes 81-overnight-program section 3 item 2).**	entries/decisions/D242.md	1	44	15f0578fbf23d0d9
+decisions	D243	243		2026-09-16	ZABZ-YOGA	open	**D243 · 2026-09-16 · Screen Time (Communication Limits) is the DRN fleet's call-blocking lever; enabled per-DRN on 48/54 as the practice.**	entries/decisions/D243.md	1	25	64ae0aa25bceaaf9
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e

@@ -104,8 +104,16 @@ Rules the gate must obey:
   floored at 4. The governor's lease directory supplies only `inUse` and `queued`; when no directory
   exists they are `0` and `reason` says so (previous bullet). `governor` is `null` as a whole — every
   field of it — only when the engine does not answer.
+* **`governor.budgetSlots` is ADVISORY. The broker does not consume it, and must not.** It is floored
+  at 4 and capped at 24, so it turns "this node has no measurable headroom" into "4 slots" and
+  "500 free slots" into "24" — neither of which is a fact the broker can rank on. It is reported
+  because it is the number the gate's own governor would grant, which is worth being able to read
+  beside the broker's. The authoritative arithmetic lives in the broker and derives its reserve from
+  the node's **own** `mem.totalMiB` (§2.2). *(Settled 2026-09-17 by stream O5, `86-authority.md` §3.)*
 * The route is answered **before** the sign-in logic, so a cold caller gets capacity, not a cookie.
 * Residency/budget arithmetic belongs to the BROKER, not here: the gate reports measurements only.
+  (The one exception the paragraph above creates is `governor.budgetSlots`, which is a *report of the
+  gate's own governor* — advisory, never consumed by the broker.)
 
 ### 2.2 The broker API — on secratary (stream S5)
 
@@ -125,11 +133,25 @@ Responds `200`:
   broker implements; `76-broker.md` §10 carries each one with its measurement and its test):
 
   ```
-  memorySlots = min(floor((freeMiB - 3885) / 160), 24) - governor.inUse      // the original term
+  memorySlots = min(floor((freeMiB - reserveMiB) / 160), 24) - governor.inUse   // the original term
+  reserveMiB  = max(2048, round(0.12 x mem.totalMiB))                          // governor.js:126, PER NODE
   coreSlots   = floor(cpu.physical * 0.75)                                   // physical, else cpu.logical
   slots       = min(memorySlots, coreSlots)                                  // the score is the SMALLER
   slots       = mem.swapUsedPct >= 90 ? floor(slots / 2) : slots             // swapping = halved
   ```
+
+  * **The reserve is derived per node, and this replaces the frozen literal `3885`.** `3885` is what
+    the governor's own `max(2 GiB, 12% of physical)` produces on **one** machine — the 31.6 GB laptop
+    it was first read on — and §2.2 previously applied that one machine's reserve to a 23 GB
+    authority and a 64 GB desktop alike. Measured 2026-09-17 03:36Z from the four live nodes' own
+    §2.1 documents: `11673 MiB -> 2048` (`zabz-tech-linux`, the 2 GiB floor binds), `23422 -> 2811`
+    (`secratary`), `32373 -> 3885` (`zabz-yoga-1` — the one node the literal is right for),
+    `65173 -> 7821` (`zabz-tech`). On the desktop the frozen literal **under-reserved by 3936 MiB**,
+    ~24 slots of headroom the broker claimed and the machine's own governor was holding back. The
+    input is `mem.totalMiB`, which §2.1 already carries; a node that reports none gets the frozen
+    3885 and the rationale says `fallback`. The score the worked example publishes is unchanged
+    (`maxSlots=24` is what binds it), and the reserve actually used is on every `/nodes` row under
+    `scoreTerms.reserveMiB` / `.reserveBasis`. Full record: `86-authority.md` §3.
 
   * **Why the core term.** One actively generating agent turn costs ~1 core (0.81 GB commit + ~1 core,
     measured 2026-09-15/16) and this laptop pages at 13-14 concurrent turns on 16 physical cores, i.e.
