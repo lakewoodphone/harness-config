@@ -400,21 +400,37 @@ record({ phase: 'run-end', node, exitCode: runResult.exitCode, timedOut: runResu
 // `CHILD=1 MESH_HOST=MESH-HOST: zabz-tech TRANSPORT=transport host = ZABZ-TECH`,
 // so the tokens appear mid-line. Measured 2026-09-16 — an anchored `^MESH-HOST:`
 // found zero of three and failed a run that had actually succeeded.
+//
+// AND IT MUST ACCEPT THE SHORT FORM THE PROVIDER'S OWN PREAMBLE TEACHES. Measured
+// 2026-09-17T03:37Z, a six-child fleet: all six children ran on zabz-tech through
+// `subagent_remote` and the parent reported them as `CHILD=n MESH_HOST=zabz-tech TOKEN=...`, but
+// this matcher wanted the literal token `MESH-HOST:` in the PARENT's summary and scored
+// `meshHostLines: 0`, so a run in which six remote children had demonstrably completed exited 1.
+// The provider's preamble asks the child to "begin its report with a line of the form
+// `MESH-HOST: <hostname>`", and the child's FINAL MESSAGE is what the provider returns; the
+// parent holds `CHILD=n MESH_HOST=<host>`. Both are the child naming its own host, which is what
+// §2.4 requires. So the parent-summary form is accepted, and the check that keeps it honest is
+// `hostMatchesNode` below: a summarised host that is not the node the broker named is still a
+// disagreement, and a failure is still reported as a failure.
 const meshHosts = [...runResult.stdout.matchAll(/MESH-HOST:\s*(\S+)/gi)].map((match) => match[1]).filter(isHostToken);
+const summarised = [...runResult.stdout.matchAll(/MESH_HOST=(\S+)/g)].map((match) => match[1]).filter(isHostToken);
 const transportHosts = [...runResult.stdout.matchAll(/transport host\s*=\s*(\S+)/gi)].map((match) => match[1]).filter(isHostToken);
+const reportedHosts = (summarised.length > 0 ? summarised : meshHosts).filter((host) => host !== '(not');
 const disagreements = [];
-for (const host of [...meshHosts, ...transportHosts]) {
+for (const host of [...reportedHosts, ...transportHosts]) {
   if (!hostMatchesNode(host, node)) disagreements.push(host);
 }
-const childHosts = [...new Set(meshHosts)];
+const childHosts = [...new Set(reportedHosts)];
 record({
   phase: 'verify',
   node,
-  meshHostLines: meshHosts.length,
+  meshHostLines: reportedHosts.length,
+  meshHostLinesLiteral: meshHosts.length,
+  meshHostLinesSummarised: summarised.length,
   transportHostLines: transportHosts.length,
   childHosts,
   disagreements,
-  ok: disagreements.length === 0 && meshHosts.length >= options.children,
+  ok: disagreements.length === 0 && reportedHosts.length >= options.children,
 });
 
 // ---- 5. DONE ------------------------------------------------------------------
@@ -444,8 +460,13 @@ if (disagreements.length > 0) {
   record({ phase: 'result', outcome: 'failed', reason: `location disagreement: ${disagreements.join(', ')} not on ${node}` });
   process.exit(EXIT_FAILED);
 }
-if (meshHosts.length < options.children) {
-  record({ phase: 'result', outcome: 'failed', reason: `only ${meshHosts.length} MESH-HOST lines for ${options.children} children` });
+// The exit gate tests the SAME quantity `verify` recorded. Measured 2026-09-17T03:47:54Z: the
+// `verify` record said `meshHostLines: 6, childHosts: ["zabz-tech"], disagreements: [], ok: true`
+// and this line, still reading the pre-fix `meshHosts`, then failed the run with "only 0
+// MESH-HOST lines for 6 children" - a green verification and a red exit in the same second, which
+// is worse than either alone because the log contradicts itself.
+if (reportedHosts.length < options.children) {
+  record({ phase: 'result', outcome: 'failed', reason: `only ${reportedHosts.length} MESH-HOST lines for ${options.children} children (${meshHosts.length} literal, ${summarised.length} summarised)` });
   process.exit(EXIT_FAILED);
 }
 record({ phase: 'result', outcome: 'completed', node, childHosts });

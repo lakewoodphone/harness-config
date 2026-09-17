@@ -241,7 +241,7 @@ Check 'preset deployed to ~/.dsh' {
            "preset hash match=$same; skills match=$skillSame; deployed thresholdChars=$pruner thresholdRatio=$ratio; instruction rules=$($rules.Count)/2"
 }
 
-# ---- 11. every declared plugin bundle RESOLVES --------------------------------------------
+# ---- 11. every declared bundle RESOLVES *and* DECLARES a bundle ---------------------------
 # WHY THIS EXISTS (2026-09-16, found by getting it wrong). The engine refuses to boot when a
 # declared bundle cannot be resolved:
 #
@@ -257,17 +257,49 @@ Check 'preset deployed to ~/.dsh' {
 # dangling directory reparse point, which is how this stayed invisible while every other check --
 # including the one asserting that sync *calls* the installer -- reported healthy on a machine that
 # could not boot.
+#
+# WIDENED 2026-09-17 (the fourth "check that cannot fail", and this one SHOULD have caught the
+# defect). The check filtered `-like 'dsh-plugin-*'`, so `dsh-mesh-broker` -- a *service with a
+# bin*, whose package.json has no `dsh` key at all -- was invisible to it while the loader threw on
+# it and the whole profile refused to compose:
+#
+#     Error: dsh: profile bundle "dsh-mesh-broker" declares no dsh.bundle in its package.json
+#       at dsh-app-boot/lib/index.js:852
+#
+# Measured read-only with `dsh --profile web --dump-config` (exit 1) on ZABZ-YOGA, 2026-09-17,
+# with the engine still running: the machine was one restart away from an engine that could not come
+# back. The invariant the loader enforces is TWO facts per name -- resolves AND declares
+# `dsh.bundle.patch` -- and this check now asserts both, for EVERY name in the list, not only the
+# local ones. A name that does not declare a bundle is named in the detail so the offender is not a
+# matter of deduction.
 Check 'declared plugin bundles resolve' {
     $live = Join-Path $env:USERPROFILE '.dsh\profiles\web\package.json'
     if (-not (Test-Path $live)) { return $false, "no profile manifest at $live" }
     try { $bundles = @((Get-Content $live -Raw | ConvertFrom-Json).dsh.profile.bundles) }
     catch { return $false, "unreadable manifest: $($_.Exception.Message)" }
-    $ours = @($bundles | Where-Object { $_ -like 'dsh-plugin-*' })
-    if ($ours.Count -eq 0) { return $true, 'no local plugin bundles declared' }
+    if ($bundles.Count -eq 0) { return $true, 'no bundles declared' }
     $modules = Join-Path $env:USERPROFILE '.dsh\profiles\web\node_modules'
-    $broken = @($ours | Where-Object { -not (Test-Path (Join-Path $modules "$_\package.json")) })
-    return ($broken.Count -eq 0),
-           "declared=$($ours.Count); unresolvable=[$($broken -join ', ')] (a declared bundle that will not resolve stops the engine booting)"
+    $unresolvable = @()
+    $notABundle = @()
+    foreach ($name in $bundles) {
+        # Resolution is a WALK-THROUGH, never an existence test: Test-Path is true for a dangling
+        # reparse point, which is exactly how a dead junction once looked healthy.
+        $manifest = Join-Path $modules "$name\package.json"
+        if (-not (Test-Path -LiteralPath $manifest)) {
+            # An in-box bundle resolves from the installation, not the profile: resolve it the way
+            # the loader does before calling it broken.
+            $installed = Join-Path $env:USERPROFILE 'AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules'
+            $alt = Join-Path $installed "$name\package.json"
+            if (Test-Path -LiteralPath $alt) { $manifest = $alt } else { $unresolvable += $name; continue }
+        }
+        try { $declared = (Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json).dsh.bundle.patch }
+        catch { $notABundle += "$name (manifest unreadable: $($_.Exception.Message))"; continue }
+        if (-not $declared) { $notABundle += $name }
+    }
+    $ok = ($unresolvable.Count -eq 0) -and ($notABundle.Count -eq 0)
+    return $ok, ("declared=$($bundles.Count); unresolvable=[$($unresolvable -join ', ')]; " +
+                 "no dsh.bundle=[$($notABundle -join ', ')] -- either one stops the engine booting " +
+                 "(dsh-app-boot/index.js:831, :852); prove it with: dsh --profile web --dump-config")
 }
 
 # ---- report ------------------------------------------------------------------------------

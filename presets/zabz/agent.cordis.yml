@@ -355,6 +355,29 @@
         toolName: subagent_fork
         backgroundMode: continuable
 
+    # The mesh: delegation whose children are real agent turns on ANOTHER node
+    # (`packages/plugin-remote-fanout`, provider `remote-ssh`, configured in
+    # profiles/web/cordis.patch.yml). `subagent` above stays local; the choice is
+    # visible in which tool the agent calls, and the child's own first line is its
+    # hostname, so where the work ran is measured rather than asserted.
+    #
+    # ONE-SHOT ONLY, by construction: the provider has no `prepareContinuable`, so
+    # a follow-up message to a remote child is rejected by the seam. One-shot
+    # fan-out is what a fleet is; continuation needs the Activation ownership
+    # contract dsh-subagent's README names as missing.
+    #
+    # The provider is a HOST-plane row registered once per process — a provider
+    # inside a preset would collide on the second session (DUPLICATE_PROVIDER).
+    # This row is the TOOL, the half a preset owns.
+    - id: tool-subagent-remote
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: remote-ssh
+        toolName: subagent_remote
+        enableRunInBackground: false
+        maxDepth: provider-managed
+
+
     # Production dsh does not install these optional providers. Install the
     # matching Bundle in this Profile and restart the Host, then copy this
     # preset and remove `disabled` from the matching tool row. Host availability

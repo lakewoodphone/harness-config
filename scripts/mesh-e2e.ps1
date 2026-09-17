@@ -83,7 +83,43 @@ param(
     [switch]$SkipHermetic,
     [switch]$Strict,
     [switch]$Json,
-    [string]$ReportPath = ''
+    [string]$ReportPath = '',
+    # ---- the fleet half, which is a DECISION and never a default -------------------------
+    # Steps 3, 4 and 5 need a real dispatched fleet. Firing one spends money and occupies
+    # someone else's machine, so it stays behind this switch: the harness must be told by the
+    # caller that the owner has authorised it. Added 2026-09-17 for stream O1, whose brief
+    # carries that authorisation from the owner ("the entire thing end to end robustly and
+    # fully built"), with a hard cap of 8 children per dispatch and no outbound customer
+    # contact. See docs/mesh/82-e2e-run.md for the authorisation and the spend.
+    [switch]$DispatchFleet,
+    [int]$FleetChildren = 6,
+    # The forced second node run needs to prove "work runs on a SECOND node", not re-prove
+    # sibling-per-node, so it is deliberately smaller than the first: §4.3's bar is "at least two
+    # distinct nodes", and stream O1's authorisation caps a dispatch at 8 children. 6 + 2 = 8.
+    [int]$ForceChildren = 2,
+    # How often the client is sampled while the fleet is in flight (§4.4's ≥16 samples). 5 s over a
+    # ~30-60 s fleet gives 6-12; 2 s gives 15-30 and costs one counter + one CIM read + one /healthz
+    # per sample, so 2 s is the default.
+    [int]$SampleIntervalMs = 2000,
+    # The control window that makes §4.4 decidable: commit is sampled for this long, with NOTHING
+    # dispatched, immediately before the fleet. 60 s at 2 s intervals is 30 samples and a fair
+    # comparison for a ~30-60 s fleet; a shorter window understates the client's own movement.
+    [int]$AmbientWindowMs = 60000,
+    # The task the parent is given. The parent MUST be told to call `subagent_remote` by name:
+    # measured 2026-09-17T03:36Z, a parent told only to "fan the work out" used the built-in
+    # `subagent` tool, ran the child on ITS OWN node, and the dispatcher correctly failed the
+    # run with `location disagreement: zabz-yoga not on zabz-tech`.
+    [string]$FleetPrompt = '',
+    # How long one fleet run may take wall-clock. 6 children are serialised by the harness's
+    # own "shipped tools are exclusive" rule, so this is minutes, not seconds.
+    [int]$FleetTimeoutMs = 1200000,
+    # Stream O1's §4.5 kill half. Empty (the default) means "do not kill anything".
+    #   'hermetic'  - start a real broker + real stub gates, kill a stub gate THIS HARNESS
+    #                 started, and prove the three properties with a live dispatcher.
+    #   'live'      - the same, but with the DEPLOYED broker. Named here so the decision is
+    #                 explicit; the killed gate is still one this harness started.
+    [ValidateSet('', 'hermetic', 'live')]
+    [string]$KillNodeHalf = ''
 )
 
 $ErrorActionPreference = 'Continue'
@@ -97,6 +133,8 @@ $script:Procs = New-Object System.Collections.ArrayList      # ONLY processes th
 $script:Meshes = New-Object System.Collections.ArrayList     # every hermetic mesh, so the finally can stop it
 $script:Scratch = ''
 $script:Notes = New-Object System.Collections.ArrayList
+$script:ClientSamples = New-Object System.Collections.ArrayList
+$script:ClientLoopsBeforeFleet = $null
 
 $MESH_GOVERNOR_RESERVE_MIB = 3885   # §2.2 frozen
 $MESH_PER_SLOT_MIB        = 160     # §2.2 frozen
@@ -119,6 +157,14 @@ $NodeTable = @(
     [pscustomobject]@{ name = 'zabz-tech-linux'; fqdn = 'zabz-tech-linux.tail93e6e6.ts.net'; ssh = 'linux-pc-ts';  platform = 'linux';   location = 'office' }
     [pscustomobject]@{ name = 'LakewooechsMini'; fqdn = 'LakewooechsMini.tail93e6e6.ts.net'; ssh = 'mac-mini-ts';  platform = 'darwin';  location = 'office' }
 )
+# §2.1's naming invariant is `node == fqdn.split(".")[0]`, and the Mac mini's DNS LABEL is lower
+# case: its gate answers `"node": "lakewooechsmini"` (and would answer `LakewooechsMini` only by
+# accident of DNS being case-insensitive). Measured 2026-09-17T03:46Z: the harness asked for
+# `LakewooechsMini` and the gate named itself `lakewooechsmini`, which this file would report as a
+# label mismatch - a real fault - except that the LABEL the harness should be asking for is the
+# lower-case one. Recorded here rather than silently re-cased in the comparison, so a genuine
+# label fault on this node still shows up.
+$NodeLabelAlias = @{ 'LakewooechsMini' = 'lakewooechsmini' }
 
 # The local node is measured directly, not over ssh: a loopback ssh to this laptop is one more
 # thing that can be misconfigured, and the OS counter is right here.
@@ -267,6 +313,7 @@ function Get-DirectMemory {
     param([pscustomobject]$Spec)
     $result = [ordered]@{
         node = $Spec.name; totalMiB = $null; freeMiB = $null; freeKind = ''
+        freeMiBAlt = $null; altKind = ''
         source = ''; error = $null; at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
     }
     # A `|` separator, not a space: the numbers and the hostname must not be told apart by
@@ -295,20 +342,46 @@ function Get-DirectMemory {
             if ($mAvail.Success) { $result.freeMiB = [int][math]::Round([double]$mAvail.Groups[1].Value / 1024) }
             $result.freeKind = 'MemAvailable'
         } elseif ($Spec.platform -eq 'darwin') {
-            # Match the counter the GATE actually uses, or this is not a comparison. Verified by
-            # reading scripts/phone-gate.py:814-832 on 2026-09-16: the non-Windows branch reads
-            # /proc/meminfo MemAvailable, and on macOS there is no /proc, so it falls back to
-            # os.sysconf("SC_AVPHYS_PAGES") * page_size - which is vm_stat's "Pages free" ONLY,
-            # not free+inactive+speculative. A reader that summed the inactive pages would
-            # disagree with a healthy macOS gate by gigabytes and call it a failure.
+            <#
+              CORRECTED 2026-09-17T03:4xZ. This branch used to read `Pages free` alone, on the
+              documented belief that the gate's non-Windows branch fell back to
+              `SC_AVPHYS_PAGES`. That belief was TRUE until the gate fixed its own darwin reader
+              (git 0d07ace, "gate: the macOS memory reader, ..."), and it is false now: the gate
+              reads `Pages free + Pages inactive + Pages speculative + Pages purgeable` x
+              `sysctl hw.pagesize` (scripts/phone-gate.py _memory_bytes_darwin(), read 03:37Z).
+              Keeping the old reader made S1 FAIL on a HEALTHY node by 6,615 MiB - and a
+              reader that reports a healthy node as broken is the same confident-wrong-number
+              failure this harness exists to catch, just pointed the other way.
+
+              BOTH numbers are therefore taken and reported, because on macOS the two differ by
+              gigabytes and the difference is a property of the platform rather than of either
+              reader. Measured on the Mac mini 2026-09-17T03:35:19Z, one `vm_stat`, page size
+              16384: free 12,245 p = 191.3 MiB; free+inactive+speculative+purgeable
+              444,636 p = 6,946.0 MiB. `freeMiB` (the compared one) is the reclaimable sum,
+              because that is the counter §2.1's field names on darwin.
+            #>
             $mTotal = [regex]::Match($text, '^\s*(\d+)', 'Multiline')
             if ($mTotal.Success) { $result.totalMiB = [int][math]::Round([double]$mTotal.Groups[1].Value / 1048576) }
             $page = [regex]::Match($text, 'page size of (\d+) bytes')
-            $free = [regex]::Match($text, 'Pages free:\s+(\d+)')
-            if ($page.Success -and $free.Success) {
-                $result.freeMiB = [int][math]::Round(([double]$free.Groups[1].Value * [double]$page.Groups[1].Value) / 1048576)
+            if ($page.Success) {
+                $pageBytes = [double]$page.Groups[1].Value
+                $pFree = [regex]::Match($text, 'Pages free:\s+(\d+)')
+                $inactive = [regex]::Match($text, 'Pages inactive:\s+(\d+)')
+                $speculative = [regex]::Match($text, 'Pages speculative:\s+(\d+)')
+                $purgeable = [regex]::Match($text, 'Pages purgeable:\s+(\d+)')
+                if ($pFree.Success -and $inactive.Success -and $speculative.Success -and $purgeable.Success) {
+                    $freePages = [double]$pFree.Groups[1].Value
+                    $reclaimable = $freePages + [double]$inactive.Groups[1].Value + [double]$speculative.Groups[1].Value + [double]$purgeable.Groups[1].Value
+                    $result.freeMiB = [int][math]::Round(($reclaimable * $pageBytes) / 1048576)
+                    $result.freeMiBAlt = [int][math]::Round(($freePages * $pageBytes) / 1048576)
+                    $result.altKind = 'Pages free alone'
+                    $result.freeKind = 'reclaimable: Pages free+inactive+speculative+purgeable (the counter phone-gate.py reads on darwin)'
+                } else {
+                    $result.error = 'vm_stat did not report all of Pages free/inactive/speculative/purgeable'
+                }
+            } else {
+                $result.error = 'vm_stat did not report a page size'
             }
-            $result.freeKind = 'SC_AVPHYS_PAGES (= vm_stat "Pages free" only)'
         } else {
             $parts = @(($text.Trim() -split '\|') | ForEach-Object { $_.Trim() })
             if ($parts.Count -ge 2) { $result.totalMiB = [int]$parts[0]; $result.freeMiB = [int]$parts[1] }
@@ -503,10 +576,28 @@ function Start-StubGate {
         -RedirectStandardOutput $out -RedirectStandardError $err -PassThru -NoNewWindow
     [void]$script:Procs.Add($proc)
     $url = $null
+    $emptyReads = 0
+    $sawUrl = $false
+    # CONFIRMED BY A REQUEST, NOT BY A FILE READ. Measured 2026-09-17T03:35Z: the beta stub gate of
+    # run 20260917T033436Z was alive and had printed its URL, yet Read-FileText returned '' on all
+    # six of its tries (6 x 60 ms) - and `Read-FileText` returns '' IMMEDIATELY after those six, so
+    # the `if (-not $text) { continue }` also discarded the 120 ms of the outer loop: the whole
+    # search collapsed into ~360 ms, and a stub that took longer than that to flush its stdout was
+    # declared dead while it was listening. That is lesson 1 of 78- §4 ("the harness printed a
+    # cleanup line" is not evidence of anything) in a new place. So now: a *failed* read costs the
+    # full 120 ms and is counted, and once a URL is seen it is PROVEN by asking the gate for its own
+    # capacity - which is also what every downstream sub-case needs, so a gate that answers and has
+    # an unreadable log no longer fails a step for a reason that has nothing to do with the mesh.
     foreach ($i in 1..200) {
         Start-Sleep -Milliseconds 120
         $text = Read-FileText $out
-        if ($text -match 'at (http://127\.0\.0\.1:\d+)') { $url = $Matches[1]; break }
+        if (-not $text) { $emptyReads++; if ($proc.HasExited) { break } else { continue } }
+        if ($text -match 'at (http://127\.0\.0\.1:\d+)') {
+            $sawUrl = $true
+            $candidate = $Matches[1]
+            $probe = Get-GateCapacityDirect $candidate
+            if ($probe.ok) { $url = $candidate; break }
+        }
         if ($proc.HasExited) { break }
     }
     # A stub gate that does not start is a FAIL that must say WHY, like every other FAIL here.
@@ -515,14 +606,16 @@ function Start-StubGate {
         $stderrText = (Read-FileText $err).Trim()
         $diagnostic = if ($proc.HasExited) {
             "the stub gate for '$Node' exited with code $($proc.ExitCode) before printing a URL"
+        } elseif ($sawUrl) {
+            "the stub gate for '$Node' printed a URL but never answered its own GET /mesh/capacity (pid $($proc.Id), still running)"
         } else {
-            "the stub gate for '$Node' never printed a URL within 24 s (pid $($proc.Id), still running)"
+            "the stub gate for '$Node' never printed a URL within 24 s (pid $($proc.Id), still running; $emptyReads empty log read(s) - for scale, Read-FileText's own six-try budget is ~360 ms)"
         }
         if ($stderrText) { $diagnostic += "; stderr: $stderrText" }
         $stdoutText = (Read-FileText $out).Trim()
         if ($stdoutText) { $diagnostic += "; stdout: $stdoutText" }
     }
-    return [pscustomobject]@{ node = $Node; slots = $Slots; url = $url; proc = $proc; out = $out; err = $err; diagnostic = $diagnostic }
+    return [pscustomobject]@{ node = $Node; slots = $Slots; url = $url; proc = $proc; out = $out; err = $err; diagnostic = $diagnostic; emptyReads = $emptyReads }
 }
 
 function Start-HermeticMesh {
@@ -632,6 +725,327 @@ function Stop-StubGate($Gate) {
 function Get-GateCapacityDirect([string]$url) {
     $r = Invoke-Json -Url "$url/mesh/capacity" -Retries 2 -RetryGapMs 300 -Seconds 5
     return $r
+}
+
+# ===========================================================================
+# the fleet half — dispatch, bracket, verify (§4.3/§4.4/§4.5)
+# ===========================================================================
+function Get-MeshHostTok {
+    param([string]$Text)
+    <#
+      The `MESH-HOST:` tokens in a dispatcher's stdout, with the provider's own echo lines
+      EXCLUDED so they cannot stand in for a child's report.
+
+      WHY THIS EXISTS. Counted naively, the parent's output contains, for every successful
+      child, three lines whose host token is the same: the child's own `MESH-HOST: x`, the
+      wrapper's `[remote-ssh] child ran on node "X"`, and the wrapper's `transport host =
+      X (recorded by the target shell before the agent started)`. A naive count therefore
+      clears a 6-child bar on 2 children. Measured 2026-09-17: a ONE-child run reported
+      `meshHostLines: 3`, and `mesh-run.mjs`'s own `meshHosts.length >= children` gate is
+      satisfied by that arithmetic. The acceptance question is "did six children each name a
+      node", so this takes the `CHILD=n MESH_HOST=...` / `MESH-HOST-n ...` shape when the
+      parent reports per child, and otherwise falls back to counting distinct
+      `MESH-HOST:` occurrences that are NOT the wrapper's transport echo.
+    #>
+    $tokens = New-Object System.Collections.ArrayList
+    # (a) the explicit per-child form: `CHILD=3 MESH_HOST=MESH-HOST: zabz-tech`
+    foreach ($m in [regex]::Matches($Text, 'CHILD=(\S+)\s+MESH_HOST=MESH-HOST:\s*(\S+)')) {
+        [void]$tokens.Add([pscustomobject]@{ child = $m.Groups[1].Value; host = $m.Groups[2].Value; form = 'child-tagged' })
+    }
+    if ($tokens.Count -gt 0) { return $tokens }
+    # (a2) the provider's own short form the parent actually reports: `CHILD=n MESH_HOST=<host>`
+    foreach ($m in [regex]::Matches($Text, 'CHILD=(\S+)\s+MESH_HOST=(\S+)')) {
+        $hostVal = $m.Groups[2].Value
+        if ($hostVal -eq 'MESH-HOST:') { continue }
+        # A parent that could not read a child writes a PROSE placeholder, and the first word of
+        # that prose is not a hostname. Measured 2026-09-17T04:09Z: run B produced
+        # `CHILD=2 MESH_HOST=<value could not be read>` and this counter took `<value` as a node,
+        # so the run reported "3 distinct nodes" where the children were on two. A host token has
+        # to look like one - the same rule mesh-run.mjs's `isHostToken` applies.
+        if ($hostVal -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { continue }
+        [void]$tokens.Add([pscustomobject]@{ child = $m.Groups[1].Value; host = $hostVal; form = 'child-summarised' })
+    }
+    if ($tokens.Count -gt 0) { return $tokens }
+    # (b) the `MESH-HOST-N MESH-HOST: <host>` form this harness's own task asks for.
+    foreach ($m in [regex]::Matches($Text, 'MESH-HOST-(\S+)\s+.*?MESH-HOST:\s*(\S+)')) {
+        [void]$tokens.Add([pscustomobject]@{ child = $m.Groups[1].Value; host = $m.Groups[2].Value; form = 'numbered' })
+    }
+    if ($tokens.Count -gt 0) { return $tokens }
+    # (c) fall back to bare occurrences, each transport echo dropped.
+    foreach ($line in ($Text -split "`r?`n")) {
+        if ($line -match 'transport host\s*=') { continue }
+        if ($line -match 'child ran on node') { continue }
+        foreach ($m in [regex]::Matches($line, 'MESH-HOST:\s*(\S+)')) {
+            [void]$tokens.Add([pscustomobject]@{ child = '?'; host = $m.Groups[1].Value; form = 'bare' })
+        }
+    }
+    return $tokens
+}
+
+function Invoke-FleetDispatch {
+    <#
+      Run ONE real fleet through scripts/mesh-run.ps1 and return everything the acceptance
+      needs: the broker's own placement record, the dispatcher's stdout, the parsed per-child
+      MESH-HOST tokens, the wall time and the exit code. It never kills anything.
+    #>
+    param(
+        [string]$Prompt,
+        [int]$Children,
+        [string[]]$Exclude = @(),
+        [int]$TimeoutMs = 1200000,
+        [string]$Tag = 'fleet',
+        [scriptblock]$Sampler = $null,
+        [int]$SampleIntervalMs = 5000
+    )
+    $scriptDir = Split-Path -Parent $PSCommandPath
+    $meshRun = Join-Path $scriptDir 'mesh-fleet-run.ps1'
+    $promptFile = Join-Path $script:Scratch "fleet-$Tag-prompt.txt"
+    Set-Content -Path $promptFile -Value $Prompt -Encoding utf8
+    $outFile = Join-Path $script:Scratch "fleet-$Tag.out"
+    $errFile = Join-Path $script:Scratch "fleet-$Tag.err"
+    # The prompt travels in the ENVIRONMENT: it is multi-line and full of PowerShell metacharacters,
+    # and `Start-Process -ArgumentList` re-parses whatever it joins. See scripts/mesh-fleet-run.ps1.
+    $env:MESH_FLEET_PROMPT = $Prompt
+    $env:MESH_FLEET_CHILDREN = "$Children"
+    $env:MESH_FLEET_TIMEOUT_MS = "$TimeoutMs"
+    $env:MESH_FLEET_EXCLUDE = ($Exclude -join ',')
+    $t0 = Get-Date
+    $proc = Start-Process pwsh -ArgumentList @('-NoProfile', '-File', $meshRun) -PassThru -NoNewWindow `
+        -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+    [void]$script:Procs.Add($proc)
+    # Sample the client WHILE the dispatcher runs, not after it. The last sample is on the far
+    # side of the wait, so a fleets' whole duration is bracketed and $SampleIntervalMs sets how
+    # many samples land inside it.
+    $deadline = (Get-Date).AddMilliseconds($TimeoutMs + 60000)
+    $last = Get-Date
+    while (-not $proc.HasExited -and (Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 250
+        if ($Sampler -and ((Get-Date) - $last).TotalMilliseconds -ge $SampleIntervalMs) {
+            & $Sampler $Tag
+            $last = Get-Date
+        }
+    }
+    $waited = $proc.HasExited
+    $ms = [int]((Get-Date) - $t0).TotalMilliseconds
+    $exitCode = if ($waited) { $proc.ExitCode } else { $null }
+    if (-not $waited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+    $stdout = if (Test-Path $outFile) { Get-Content -Path $outFile -Raw } else { '' }
+    $stderr = if (Test-Path $errFile) { Get-Content -Path $errFile -Raw } else { '' }
+    $tokens = Get-MeshHostTok $stdout
+    # The broker's own placement record. THE DISPATCHER'S JSONL IS THE AUTHORITATIVE SOURCE, and
+    # finding that out cost one run: `record()` in mesh-run.mjs writes each phase to the run's
+    # `.jsonl` AND echoes it with `console.log`, i.e. to STDOUT - not stderr - so an earlier version
+    # of this function parsed stderr, found nothing, and reported `node ''` for a run that had
+    # placed cleanly and completed. The JSONL is read because it is the file the frozen interface
+    # names (`71` §2.3: "one JSONL per run: node, start, end, exit code, host the child reported").
+    $placeLine = $null
+    $logPath = $null
+    $logDir = Join-Path $env:USERPROFILE '.dsh\mesh\logs'
+    $since = $t0.AddSeconds(-5)
+    $candidates = @()
+    if (Test-Path $logDir) {
+        # A run's JSONL is created when the run STARTS, so the window is "written at or after a few
+    # seconds before we launched", not "in the last few seconds".
+    $candidates = @(Get-ChildItem $logDir -Filter '*.jsonl' | Where-Object { $_.LastWriteTime -ge $since } | Sort-Object LastWriteTime -Descending)
+    }
+    foreach ($cand in $candidates) {
+        $lines = @(Get-Content $cand.FullName -ErrorAction SilentlyContinue)
+        $pRec = $null; $pRun = $null
+        foreach ($line in $lines) {
+            if ($line -notmatch '"phase":"(place|run)"') { continue }
+            try { $obj = $line | ConvertFrom-Json } catch { continue }
+            if ($obj.phase -eq 'place') { $pRec = $obj }
+            if ($obj.phase -eq 'run' -and $obj.prompt) { $pRun = $obj }
+        }
+        # Match THIS dispatch, not a neighbouring one: the run record echoes the first 200 chars of
+        # the prompt we sent.
+        if ($pRec -and $pRun -and $Prompt.StartsWith([string]$pRun.prompt)) {
+            $placeLine = $pRec
+            $logPath = $cand.FullName
+            break
+        }
+    }
+    return [pscustomobject]@{
+        tag = $Tag; children = $Children; exclude = $Exclude; exitCode = $exitCode
+        waited = $waited; ms = $ms; stdout = $stdout; stderr = $stderr
+        tokens = $tokens; placement = $placeLine; outFile = $outFile; errFile = $errFile
+        logFile = $logPath
+        node = if ($placeLine) { $placeLine.node } else { $null }
+        lease = if ($placeLine) { $placeLine.lease } else { $null }
+    }
+}
+
+function Get-ClientCommit {
+    <#
+      The client's committed bytes.
+
+      THE SAMPLER MUST NOT MOVE THE NUMBER IT MEASURES. The first version of this called
+      `Get-Counter '\Memory\Committed Bytes'` as well as the CIM read. Get-Counter is not a
+      lightweight call: it starts a PowerShell performance-counter worker, and each sample then
+      adds a process worth tens of MB to the very commit charge the sample is reporting. Measured
+      the same night by a 36-sample baseline (ZABZ-YOGA, 03:37:35-03:40:31Z): with two samplers
+      running, commit moved 2.542 GiB across 176 s while NO fleet was running at all - larger than
+      the ±1 GiB bar this step is judged by. Some of that was the samplers themselves.
+
+      So the sampler reads ONE source, cheaply and in-process: the derived commit charge
+      `TotalVirtualMemorySize - FreeVirtualMemory`, which is the formula 20-placement.md's
+      correction row 3 insists on, and which 70-remote-fanout-proof.md §2.4 also used for the
+      before/after delta (its absolute value carried a 0.7 % uncertainty cross-checked against the
+      perf counter on ZABZ-TECH; the delta does not, because both readings use one formula seconds
+      apart). Where the counter IS wanted, `SampleWithCounter` below is used for the single
+      before/after pair, not for every sample inside the window.
+    #>
+    param([switch]$WithCounter)
+    $counter = $null; $derived = $null; $avail = $null
+    if ($WithCounter) {
+        try { $counter = [double](Get-Counter '\Memory\Committed Bytes' -ErrorAction Stop).CounterSamples[0].CookedValue } catch { }
+    }
+    try {
+        $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop
+        $derived = [double]$os.TotalVirtualMemorySize * 1KB - [double]$os.FreeVirtualMemory * 1KB
+        $avail = [double]$os.FreePhysicalMemory * 1KB
+    } catch { }
+    return [pscustomobject]@{ counter = $counter; derived = $derived; avail = $avail; at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ') }
+}
+
+function Get-ClientLoops {
+    <#
+      `sessions.agentLoopsRunning` from this laptop's own engine, read through the gate.
+
+      KEPT FOR CONTEXT ONLY - IT IS NOT THE §4.4 CRITERION ANY MORE, and this is the measured reason.
+      A headless child is a SEPARATE PROCESS and never registers as a loop in the resident engine.
+      Measured 2026-09-17T03:58:42Z on this laptop: a real `node <dsh>/bin.js --profile headless
+      "<task>"` child ran HERE and `agentLoopsRunning` read **10 before, 10 during and 10 after**;
+      twenty seconds later, with nothing dispatched at all, it read **11**. A field that does not
+      move when a child runs on this machine, and does move when none does, cannot decide §4.4.
+      (Independently measured the same night by the calibration stream on the TARGET node: 83
+      samples with 8 real headless children running, `agentLoopsRunning: 0` and `governor.inUse: 0`
+      in every one.) See `Get-LocalChildProcesses` for what replaced it.
+    #>
+    try {
+        $hc = New-HttpClient 25
+        $null = $hc.GetAsync("http://127.0.0.1:3086/").GetAwaiter().GetResult()
+        $hr = $hc.GetAsync("http://127.0.0.1:3086/healthz").GetAwaiter().GetResult()
+        $loops = $null
+        if ([int]$hr.StatusCode -eq 200) {
+            $hj = $hr.Content.ReadAsStringAsync().GetAwaiter().GetResult() | ConvertFrom-Json
+            $loops = $hj.sessions.agentLoopsRunning
+        }
+        $hc.Dispose()
+        return $loops
+    } catch { return $null }
+}
+
+function Get-LocalChildProcesses {
+    <#
+      Every DSH child-worker process running on THIS machine, found by command line.
+
+      WHY THIS IS THE §4.4 CRITERION, and what the field it replaced could not do.
+      A headless child is a SEPARATE PROCESS and never registers as a loop in the resident engine.
+      Measured 2026-09-17T03:58:42Z on this laptop: a real `node <dsh>/bin.js --profile headless
+      "<task>"` child ran HERE and `sessions.agentLoopsRunning` read **10 before, 10 during and 10
+      after**; twenty seconds later, with nothing dispatched at all, it read **11**. (Independently
+      measured the same night by the calibration stream, on the TARGET node: 83 samples with 8 real
+      headless children running, `agentLoopsRunning: 0` and `governor.inUse: 0` in every one.) So
+      §4.4's "no new agent loops" was a criterion that could not fail, which is worse than a weak
+      one - and it is replaced here by counting the processes, which does move.
+
+      WHAT COUNTS. Two families, discovered by enumerating every node.exe on this host and reading
+      its command line (measured 2026-09-17T04:00Z on ZABZ-YOGA, 16 node processes):
+        `C:\...\node_modules\@deepseek-ai\dsh-subprocess-local\lib\run`   <- a local subagent WORKER.
+             Measured: one local `--profile headless` child spawns NINE of these. Counting them is
+             what makes this instrument able to fail: it went 0 -> 9 -> 0 around a single deliberate
+             local child, while `agentLoopsRunning` stayed flat.
+        `<dsh>/lib/bin.js --profile <anything>`                          <- a dsh runner, e.g. a
+             dispatched `--profile mesh` parent. This laptop's resident engine is
+             `bin.js web --port 3099` and is EXCLUDED (profile `web`), so the baseline is 0.
+
+      It cannot see a child that ran on ANOTHER node - that is what §3's MESH-HOST evidence is for.
+      This function answers exactly one question, the one §4.4 asks: did the fleet run HERE.
+    #>
+    $procs = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue)
+    $runners = New-Object System.Collections.ArrayList
+    $engine = 0
+    $workers = 0
+    foreach ($p in $procs) {
+        $cl = [string]$p.CommandLine
+        # The engine's own subagent WORKER POOL. Counted for context, never used as the criterion:
+        # measured 2026-09-17T04:05Z, ELEVEN of these sat on this laptop with no dispatch at all,
+        # churning with other sessions' resident work, and they moved 8 -> 12 during my own run
+        # while the six children were demonstrably on zabz-tech. A pooled worker is not evidence
+        # that THIS fleet ran here, and using it as the criterion produced a false FAIL.
+        if ($cl -match 'dsh-subprocess-local[\\/]lib[\\/]run') { $workers++; continue }
+        if ($cl -notmatch 'deepseek-ai[\\/]dsh[\\/]lib[\\/]bin\.js') { continue }
+        # THE RESIDENT ENGINE IS EXCLUDED BY ITS SUBCOMMAND, NOT BY `--profile`. Measured
+        # 2026-09-17T04:10Z, and it cost a false FAIL to learn: this laptop's engine runs as
+        # `node <dsh>/lib/bin.js web --port 3099 --no-open` - the subcommand is `web`, with NO
+        # `--profile` at all. Reading only `--profile` therefore classified the engine as a
+        # dispatched runner and S4 reported "the client ran the fleet itself" for pid 1784. Match
+        # `bin.js` followed by `web`, and treat any profile value of `web` as the engine too.
+        if ($cl -match 'bin\.js"?\s+web\b') { $engine++; continue }
+        $profile = if ($cl -match '--profile\s+(\S+)') { $Matches[1] } else { '(none)' }
+        if ($profile -eq 'web') { $engine++; continue }
+        # A RUNNER: a dsh process that is not the resident engine. `--profile headless` or
+        # `--profile mesh` is exactly what mesh-run starts - inside the target when the dispatch
+        # works, and HERE when it does not. Measured at rest on this laptop: 0.
+        [void]$runners.Add([pscustomobject]@{ pid = $p.ProcessId; profile = $profile; commandLine = $cl })
+    }
+    return [pscustomobject]@{
+        nodeProcesses = $procs.Count
+        engineProcesses = $engine
+        workerProcesses = $workers
+        childProcesses = $runners.Count
+        childPids = @($runners | ForEach-Object { $_.pid })
+        childProfiles = @($runners | ForEach-Object { $_.profile })
+        at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    }
+}
+
+function Get-ClientSessionSnapshot {
+    <#
+      Which of this laptop's own engine sessions exist and which are RUNNING, as a set of ids.
+
+      WHY THIS EXISTS. This laptop is not a quiet client. The owner runs his own work on it - and
+      was, by the manager's account, running a second multi-subagent fleet on it through the same
+      night this harness measured (§4.6). So when the client's memory moves while my children run,
+      "my children did it" is an ATTRIBUTION, not a measurement, unless the other load is named.
+      This takes the id set before and after, and the report quotes the sessions that appeared or
+      changed state inside the window: that is what turns "commit moved 0.35 GiB" into either
+      "commit moved 0.35 GiB while 4 other sessions were running (ids listed)" or "while nothing
+      else was running". A number whose attribution cannot be stated is not evidence.
+    #>
+    try {
+        $hc = New-HttpClient 25
+        $null = $hc.GetAsync("http://127.0.0.1:3086/").GetAwaiter().GetResult()
+        $hr = $hc.GetAsync("http://127.0.0.1:3086/healthz").GetAwaiter().GetResult()
+        if ([int]$hr.StatusCode -ne 200) { $hc.Dispose(); return $null }
+        $hj = $hr.Content.ReadAsStringAsync().GetAwaiter().GetResult() | ConvertFrom-Json
+        $hc.Dispose()
+        $list = @($hj.sessions.list)
+        return [pscustomobject]@{
+            at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+            live = $hj.sessions.live
+            subagents = $hj.sessions.subagents
+            agentLoopsRunning = $hj.sessions.agentLoopsRunning
+            runningIds = @($list | Where-Object { $_.status -eq 'running' } | ForEach-Object { $_.id })
+            allIds = @($list | ForEach-Object { $_.id })
+        }
+    } catch { return $null }
+}
+
+function Get-BrokerLeases {
+    <#
+      The broker's own lease state, which is the ONLY place a dispatched fleet is visible while it
+      runs. Measured the same night: a node's real load is invisible to every input the broker
+      consumes except its own leases - `agentLoopsRunning` is blind to headless children, and the
+      broker's memory term never binds either (memorySlots hits its 24 cap at 7,725 MiB free, which
+      every node in this fleet clears), so placement is decided by the core term plus these leases.
+    #>
+    param([string]$BrokerBase)
+    if (-not $BrokerBase) { return $null }
+    $h = Invoke-Json -Url "$BrokerBase/healthz" -Retries 1 -RetryGapMs 0 -Seconds 10
+    if (-not $h.ok) { return $null }
+    return $h.doc.leases
 }
 
 # ===========================================================================
@@ -797,7 +1211,9 @@ $nodeDetail = @()
 foreach ($r in $nodeResults) {
     $extra = ''
     if ($r.shape -eq 'ok' -and $null -ne $r.deltaFreeMiB) { $extra = " | free delta $($r.deltaFreeMiB) MiB (tol $($r.toleranceMiB))" }
-    if ($r.reportedNode -and $r.reportedNode -ne $r.node) { $extra += " | the gate names itself '$($r.reportedNode)' where this harness asked for '$($r.node)'" }
+    if ($r.direct -and $null -ne $r.direct.freeMiBAlt) { $extra += " | on this platform 'free' has two meanings and this reader took both: $($r.direct.freeMiB) MiB reclaimable (the counter the gate reads) vs $($r.direct.freeMiBAlt) MiB as $($r.direct.altKind)" }
+    $expectedLabel = if ($NodeLabelAlias.ContainsKey($r.node)) { $NodeLabelAlias[$r.node] } else { $r.node }
+    if ($r.reportedNode -and $r.reportedNode -ne $expectedLabel) { $extra += " | the gate names itself '$($r.reportedNode)' where this harness asked for '$expectedLabel'" }
     $nodeDetail += ("{0,-11} {1,-4} HTTP {2,-4} {3,6} ms{4}" -f $r.node, $r.verdict, $r.httpCode, $r.latencyMs, $extra)
     $nodeDetail += ("            why: {0}" -f $r.why)
 }
@@ -858,6 +1274,21 @@ if ($BrokerUrl) {
 if ($liveBroker) {
     $hb = Invoke-Json -Url "$liveBroker/healthz" -Retries 1 -RetryGapMs 0 -Seconds 6
     $liveNodes = Invoke-Json -Url "$liveBroker/nodes?fresh=1" -Retries 1 -RetryGapMs 0 -Seconds 25
+    # A BROKER WITH NO READINGS IS NOT A BROKER WITH NO NODES. Measured 2026-09-17T03:42:5xZ: the
+    # deployed broker was restarted twice inside two minutes by stream O5 (systemd, `Scheduled
+    # restart job, restart counter is at 1`, 03:42:43 and 03:42:45), and the harness's live
+    # sub-case read it during that window: all four nodes came back `unreachable (timed out after
+    # 4000 ms)` and the sub-case FAILed, even though a forced re-read 90 seconds later returned
+    # four `ok` nodes in 0.2 s and a controlled restart read all four in 0.5 s. So a read in which
+    # EVERY node is unreachable is retried once, and the retry is recorded - because otherwise this
+    # harness reports another stream's restart as a placement defect.
+    $allUnreachable = ($liveNodes.ok) -and (@($liveNodes.doc.nodes | Where-Object { $_.state -eq 'ok' }).Count -eq 0)
+    if ($allUnreachable) {
+        [void]$step2Detail.Add('  the first live read returned every node unreachable - retrying once after 5 s (a broker that was just restarted has no readings yet, and that is not a placement defect)')
+        Start-Sleep -Seconds 5
+        $liveNodes = Invoke-Json -Url "$liveBroker/nodes?fresh=1" -Retries 1 -RetryGapMs 0 -Seconds 40
+        [void]$step2Detail.Add("  retry: HTTP $($liveNodes.code), $((@($liveNodes.doc.nodes | Where-Object { $_.state -eq 'ok' }).Count)) node(s) now ok")
+    }
     [void]$step2Detail.Add("  live broker at $liveBroker : healthz $($hb.code), /nodes?fresh=1 $($liveNodes.code)")
     if ($liveNodes.ok) {
         foreach ($n in $liveNodes.doc.nodes) {
@@ -871,16 +1302,28 @@ if ($liveBroker) {
         $p = $place.doc
         $joined = ($p.rationale -join ' ')
         $hasName = [bool]$p.node
-        $hasArith = ($joined -match "$MESH_GOVERNOR_RESERVE_MIB") -and ($joined -match "$MESH_PER_SLOT_MIB MiB") -and ($joined -match 'slot')
+        # §4.2 asks for the arithmetic that CHOSE the node, and the arithmetic must be readable -
+        # not for one particular literal number. CORRECTED 2026-09-17T03:47Z: this used to demand
+        # the string "$MESH_GOVERNOR_RESERVE_MIB" (3885), and it FAILed a placement whose rationale
+        # was complete, because the broker now derives the reserve PER NODE -
+        # `reserve 7821 MiB = max(2048 MiB, 12% of the node's own 65173 MiB)` - which is what
+        # `71` §2.1 requires ("reserve = max(2 GiB, 12% of physical)") and which a flat 3885 MiB
+        # cannot satisfy on a 64 GB machine. The harness was reading its own stale assumption as a
+        # broker defect; the broker was right. So the check is on the STRUCTURE of the arithmetic:
+        # a memory->slots computation with the per-slot constant, the core term, and a position
+        # line naming how many children it accepted.
+        $hasMemoryArith = ($joined -match "floor\(\(.*MiB free\s*-\s*\d+ MiB reserve\)\s*/\s*$MESH_PER_SLOT_MIB MiB\)") -and ($joined -match 'slot')
+        $hasCoreTerm = ($joined -match 'core slot')
         $hasPosition = ($joined -match 'position \d+:')
+        $hasArith = $hasMemoryArith
         $why = "node=$($p.node) position=$($p.position) score=$($p.score) eligible=$($p.eligible) tier=$($p.tier); rationale has $(@($p.rationale).Count) line(s)"
         if (-not (Test-TaskEcho $p 'fleet' 6)) {
             Add-Sub $step2Sub 'live broker names a node' 'FAIL' "$why -- the broker reports kind='$($p.kind)' children=$($p.children): the 6-child fleet this test sent did not ARRIVE as one, so nothing else here would be about §4.2"
         } elseif ($hasName -and $hasArith -and $hasPosition -and @($p.rationale).Count -gt 0) {
-            Add-Sub $step2Sub 'live broker names a node' 'PASS' "$why; the broker confirms it read a fleet of $($p.children) child(ren)"
-            [void]$step2Detail.Add("    arithmetic line: " + (@($p.rationale) | Where-Object { $_ -match "$MESH_GOVERNOR_RESERVE_MIB" } | Select-Object -First 1))
+            Add-Sub $step2Sub 'live broker names a node' 'PASS' ($why + "; the broker confirms it read a fleet of $($p.children) child(ren)" + $(if (-not $hasCoreTerm) { ' [note: no core term in this broker build]' } else { '' }))
+            [void]$step2Detail.Add("    arithmetic line: " + (@($p.rationale) | Where-Object { $_ -match "floor\(\(" } | Select-Object -First 1))
         } else {
-            Add-Sub $step2Sub 'live broker names a node' 'FAIL' "$why -- rationale is missing the slot arithmetic (need $MESH_GOVERNOR_RESERVE_MIB, $MESH_PER_SLOT_MIB MiB, a position line)"
+            Add-Sub $step2Sub 'live broker names a node' 'FAIL' "$why -- the rationale does not show the arithmetic that chose the node (memory->slots with the $MESH_PER_SLOT_MIB MiB constant: $hasMemoryArith; core term: $hasCoreTerm; a 'position N:' line: $hasPosition)"
         }
         if ($p.lease) {
             $done = Invoke-Json -Url "$liveBroker/done" -Method POST -Body ('{"lease":"' + $p.lease + '","ok":true}') -Retries 1 -RetryGapMs 0 -Seconds 10
@@ -1004,22 +1447,145 @@ $meshRunPath = Join-Path $scriptDir 'mesh-run.ps1'
 $meshRunExists = Test-Path $meshRunPath
 $pluginMeshExists = Test-Path (Join-Path (Split-Path -Parent $scriptDir) 'packages\plugin-mesh')
 
+# The task the parent is given, when the caller did not supply one. It MUST name
+# `subagent_remote`: measured 2026-09-17T03:35Z, a parent told only to "fan the work out"
+# chose the built-in `subagent` tool, ran the child on its own node, and the run failed with
+# `location disagreement: zabz-yoga not on zabz-tech`. The prompt is not a formality - it is
+# the thing that decides whether the work is remote at all.
+function Get-DefaultFleetPrompt([int]$Children) {
+    $lines = New-Object System.Collections.ArrayList
+    [void]$lines.Add("Call the subagent_remote tool exactly $Children times, one call per child, and do not call any other subagent tool (never the plain ``subagent`` tool) and no other tool at all.")
+    [void]$lines.Add('')
+    [void]$lines.Add('Every one of the calls takes the same two arguments, differing only in the token N (1 to ' + $Children + '):')
+    [void]$lines.Add('')
+    [void]$lines.Add('- description: "mesh child N"')
+    [void]$lines.Add('- prompt: Write MESH-HOST-N, then a space, then the output of: echo "MESH-HOST: $(hostname)" Then write CHILD-TOKEN-N on the next line. Nothing else.')
+    [void]$lines.Add('')
+    [void]$lines.Add('When all ' + $Children + ' results are back, reply with ONLY ' + $Children + ' lines, one per child, exactly in this form:')
+    [void]$lines.Add('')
+    [void]$lines.Add('CHILD=1 MESH_HOST=<the MESH-HOST value that child 1 printed> TOKEN=<the CHILD-TOKEN value that child 1 printed>')
+    [void]$lines.Add('')
+    [void]$lines.Add('and the same for 2 through ' + $Children + '. Then one final line: PARENT-FLEET-DONE')
+    [void]$lines.Add('')
+    [void]$lines.Add('Nothing else. No commentary, no markdown fences, no explanation, no summary.')
+    return ($lines -join "`n")
+}
+
 $step3Detail = New-Object System.Collections.ArrayList
-if ($meshRunExists) {
-    # The dispatcher exists. This harness still cannot assert PASS without running it, and it
-    # must not run a fleet on its own initiative without the caller asking. So: report the
-    # dependency as present and require a real fleet run to be pointed at it.
-    $step3Evidence = "scripts\mesh-run.ps1 is present but this harness does not dispatch fleets by itself - §4.3 needs a real run whose MESH-HOST: lines are checked against the broker's choice"
-    [void]$step3Detail.Add('  mesh-run.ps1 present: ' + $meshRunPath)
-    [void]$step3Detail.Add('  the implementation is packages/plugin-remote-fanout/bin/mesh-run.mjs; scripts/mesh-run.ps1 is a 16-line shim that forwards to it')
-    [void]$step3Detail.Add('  TO COMPLETE: dispatch the 6-child fleet and match every MESH-HOST: line to the node the broker named.')
-    [void]$step3Detail.Add('  THIS HARNESS DOES NOT FIRE A FLEET BY ITSELF: that spends money and occupies other people''s machines, which is a decision, not a default.')
-    Add-Step -Id 'S3' -Name 'work lands there (§4.3)' -Status 'SKIP' -Evidence $step3Evidence -Detail @($step3Detail)
-} else {
+$fleetA = $null
+$fleetB = $null
+$fleetBranches = @()
+if (-not $meshRunExists) {
     $step3Evidence = 'scripts\mesh-run.ps1 does not exist, so no fleet can be dispatched and no MESH-HOST: line can be produced'
     [void]$step3Detail.Add('  FOR THIS TO RUN: stream S6 must ship scripts/mesh-run.ps1 (and packages/plugin-mesh for the v2 route)')
     [void]$step3Detail.Add('  (packages/plugin-mesh present: ' + $pluginMeshExists + ')')
     Add-Step -Id 'S3' -Name 'work lands there (§4.3)' -Status 'SKIP' -Evidence $step3Evidence -Detail @($step3Detail)
+} elseif (-not $DispatchFleet) {
+    # The dispatcher exists. Firing it spends money and occupies someone else's machine, so it
+    # happens ONLY when the caller says so.
+    $step3Evidence = "scripts\mesh-run.ps1 is present but -DispatchFleet was not given, so no fleet was dispatched - §4.3 needs a real run whose MESH-HOST: lines are checked against the broker's choice"
+    [void]$step3Detail.Add('  mesh-run.ps1 present: ' + $meshRunPath)
+    [void]$step3Detail.Add('  the implementation is packages/plugin-remote-fanout/bin/mesh-run.mjs; scripts/mesh-run.ps1 is a 16-line shim that forwards to it')
+    [void]$step3Detail.Add('  TO COMPLETE: re-run with -DispatchFleet -SizeOfFleet N (default 6). THIS SPENDS MONEY.')
+    [void]$step3Detail.Add('  THIS HARNESS DOES NOT FIRE A FLEET BY ITSELF: that is a decision the caller makes, not a default this file takes.')
+    Add-Step -Id 'S3' -Name 'work lands there (§4.3)' -Status 'SKIP' -Evidence $step3Evidence -Detail @($step3Detail)
+} else {
+    # ---- the real fleet, dispatched for real -------------------------------------------
+    $fleetPrompt = if ($FleetPrompt -ne '') { $FleetPrompt } else { Get-DefaultFleetPrompt $FleetChildren }
+    $script:ClientLoopsBeforeFleet = Get-ClientLoops
+    $script:LocalChildrenBeforeFleet = Get-LocalChildProcesses
+    $script:SessionsBeforeFleet = Get-ClientSessionSnapshot
+    $script:LeasesBeforeFleet = Get-BrokerLeases -BrokerBase $liveBroker
+    $script:ClientSamples = New-Object System.Collections.ArrayList
+    [void]$step3Detail.Add("  client agentLoopsRunning immediately before the fleet: $($script:ClientLoopsBeforeFleet)  (context only - see §4.4's criterion below)")
+    [void]$step3Detail.Add("  client DSH child PROCESSES immediately before the fleet: $($script:LocalChildrenBeforeFleet.childProcesses) (pids: $($script:LocalChildrenBeforeFleet.childPids -join ', ')) out of $($script:LocalChildrenBeforeFleet.nodeProcesses) node process(es) and $($script:LocalChildrenBeforeFleet.engineProcesses) engine process(es)")
+    if ($script:LeasesBeforeFleet) { [void]$step3Detail.Add("  broker leases before the fleet: live=$($script:LeasesBeforeFleet.live) running=$($script:LeasesBeforeFleet.running) byNode=$($script:LeasesBeforeFleet.byNode | ConvertTo-Json -Compress)") }
+    [void]$step3Detail.Add("  dispatching: pwsh -File scripts\mesh-run.ps1 -Prompt <$($fleetPrompt.Length) chars> -Children $FleetChildren")
+    # ONE SAMPLER, WHOSE WHOLE JOB IS TO READ THE CLIENT WHILE THE DISPATCHER RUNS. It is passed
+    # into the dispatch so the sampling happens inside the dispatcher's wall-clock window rather
+    # than being reconstructed afterwards. It takes BOTH quantities that can answer §4.4: committed
+    # bytes, and the count of DSH child processes on this machine (the criterion that can fail).
+    $sampler = {
+        param([string]$stage)
+        $c = Get-ClientCommit
+        $lc = Get-LocalChildProcesses
+        $n = @($script:ClientSamples).Count + 1
+        [void]$script:ClientSamples.Add([pscustomobject]@{
+            n = $n; stage = $stage; counter = $c.counter; derived = $c.derived; avail = $c.avail; at = $c.at
+            childProcesses = $lc.childProcesses; childPids = ($lc.childPids -join ','); nodeProcesses = $lc.nodeProcesses; engineProcesses = $lc.engineProcesses
+        })
+    }
+    # AN AMBIENT CONTROL WINDOW, MEASURED IMMEDIATELY BEFORE THE FLEET, FOR THE SAME LENGTH OF
+    # TIME. §4.4's bar is a ±1 GiB change; if the client's commit charge moves more than that while
+    # NOTHING is dispatched, then the bar is below this machine's own noise floor and a fleet
+    # measurement cannot distinguish the fleet from the weather. Measured 2026-09-17T03:37:35-
+    # 03:40:31Z by an independent sampler on this laptop: commit moved 2.542 GiB in 176 s with no
+    # fleet running at all. So the control is part of the measurement, not a caveat in the prose.
+    # AN AMBIENT CONTROL WINDOW OF THE SAME LENGTH AS A FLEET, MEASURED IMMEDIATELY BEFORE IT. The
+    # caller sets how long with -AmbientWindowMs (default 60 s at a 2 s interval = 30 samples).
+    $ambientMs = $AmbientWindowMs
+    $ambientInterval = [Math]::Max(1000, $SampleIntervalMs)
+    $ambient = New-Object System.Collections.ArrayList
+    $ambientStart = Get-ClientCommit
+    [void]$ambient.Add([pscustomobject]@{ n = 0; stage = 'ambient'; counter = $null; derived = $ambientStart.derived; avail = $ambientStart.avail; at = $ambientStart.at })
+    $ambEnd = (Get-Date).AddMilliseconds($ambientMs)
+    $ai = 0
+    while ((Get-Date) -lt $ambEnd) {
+        Start-Sleep -Milliseconds $ambientInterval
+        $ai++
+        $c = Get-ClientCommit
+        [void]$ambient.Add([pscustomobject]@{ n = $ai; stage = 'ambient'; counter = $null; derived = $c.derived; avail = $c.avail; at = $c.at })
+    }
+    $ambMin = ($ambient | Measure-Object -Property derived -Minimum).Minimum
+    $ambMax = ($ambient | Measure-Object -Property derived -Maximum).Maximum
+    $ambientSpreadGiB = [math]::Round(($ambMax - $ambMin) / 1GB, 3)
+    $ambientDeltaGiB = [math]::Round(($ambient[-1].derived - $ambientStart.derived) / 1GB, 3)
+    [void]$step3Detail.Add("  ambient control: $($ambient.Count) sample(s) over $ambientMs ms BEFORE any dispatch - commit spread $ambientSpreadGiB GiB, end-to-end delta $ambientDeltaGiB GiB, with nothing dispatched")
+    $script:AmbientSpreadGiB = $ambientSpreadGiB
+    $script:AmbientDeltaGiB = $ambientDeltaGiB
+    $script:AmbientSamples = @($ambient)
+    $fleetA = Invoke-FleetDispatch -Prompt $fleetPrompt -Children $FleetChildren -TimeoutMs $FleetTimeoutMs -Tag 'A' -Sampler $sampler -SampleIntervalMs $SampleIntervalMs
+    [void]$step3Detail.Add("  samples taken on this laptop while run A was in flight: $(@($script:ClientSamples).Count) (every $SampleIntervalMs ms)")
+    [void]$step3Detail.Add("  run A: exit $($fleetA.exitCode) after $($fleetA.ms) ms; broker named node '$($fleetA.node)' lease '$($fleetA.lease)'")
+    [void]$step3Detail.Add("  run A MESH-HOST tokens: $(@($fleetA.tokens).Count) ($((@($fleetA.tokens) | ForEach-Object { $_.host }) -join ', '))")
+    $hostsA = @(@($fleetA.tokens) | ForEach-Object { $_.host } | Sort-Object -Unique)
+    $distinctA = @($hostsA | Where-Object { $_ -ne '(not' }).Count
+    # A 6-child fleet is ONE placement, so it lands on ONE node - that is §2.2's contract, not a
+    # defect. §4.3's "at least two distinct nodes when two are free" is therefore tested by a
+    # SECOND fleet with the first node EXCLUDED through the broker's own `task.exclude`, which is
+    # printed in its rationale. Measured 2026-09-17: with 2 nodes eligible the broker named
+    # 'zabz-tech' for run A, so run B excluded it.
+    if ($fleetA.node -and $fleetA.exitCode -eq 0) {
+        [void]$step3Detail.Add("  forcing a SECOND node: excluding '$($fleetA.node)' via the broker's own task.exclude, then dispatching again with $ForceChildren child(ren)")
+        $fleetB = Invoke-FleetDispatch -Prompt (Get-DefaultFleetPrompt $ForceChildren) -Children $ForceChildren -Exclude @($fleetA.node) -TimeoutMs $FleetTimeoutMs -Tag 'B'
+        [void]$step3Detail.Add("  run B: exit $($fleetB.exitCode) after $($fleetB.ms) ms; broker named node '$($fleetB.node)' lease '$($fleetB.lease)'")
+        [void]$step3Detail.Add("  run B MESH-HOST tokens: $(@($fleetB.tokens).Count) ($((@($fleetB.tokens) | ForEach-Object { $_.host }) -join ', '))")
+    } else {
+        [void]$step3Detail.Add('  run B not attempted: run A did not complete, so excluding its node would test nothing about a fleet that works')
+    }
+    $allTokens = @(@($fleetA.tokens) + @($fleetB.tokens))
+    $hostsAll = @($allTokens | ForEach-Object { $_.host } | Sort-Object -Unique)
+    [void]$step3Detail.Add("  distinct nodes named across both runs: $($hostsAll -join ', ')")
+    $okA = ($fleetA.exitCode -eq 0) -and (@($fleetA.tokens).Count -ge $FleetChildren)
+    $okB = ($null -eq $fleetB) -or (($fleetB.exitCode -eq 0) -and (@($fleetB.tokens).Count -ge $ForceChildren))
+    $okTwo = ($hostsAll.Count -ge 2)
+    if ($okA -and $okB -and $okTwo) {
+        Add-Step -Id 'S3' -Name 'work lands there (§4.3)' -Status 'PASS' `
+            -Evidence "a real $FleetChildren-child fleet ran and every child's own MESH-HOST line matched the node the broker named ($($fleetA.node)); a second run of $ForceChildren child(ren) with that node excluded through the broker's task.exclude landed on $($fleetB.node) - $($hostsAll.Count) distinct nodes, both verified from the children's reports" `
+            -Detail @($step3Detail)
+    } elseif ($okA -and -not $okB) {
+        Add-Step -Id 'S3' -Name 'work lands there (§4.3)' -Status 'FAIL' `
+            -Evidence "run A completed on '$($fleetA.node)' but the forced second run failed: exit $($fleetB.exitCode), $((@($fleetB.tokens)).Count) of $ForceChildren MESH-HOST lines" `
+            -Detail @($step3Detail)
+    } elseif ($okA -and $okB -and -not $okTwo) {
+        Add-Step -Id 'S3' -Name 'work lands there (§4.3)' -Status 'FAIL' `
+            -Evidence "both runs succeeded but named only $($hostsAll.Count) distinct node(s) ($($hostsAll -join ', ')) - §4.3 wants two when two are free" `
+            -Detail @($step3Detail)
+    } else {
+        Add-Step -Id 'S3' -Name 'work lands there (§4.3)' -Status 'FAIL' `
+            -Evidence "the dispatched fleet did not complete: exit $($fleetA.exitCode) after $($fleetA.ms) ms, $((@($fleetA.tokens)).Count) of $FleetChildren MESH-HOST lines for node '$($fleetA.node)'" `
+            -Detail @($step3Detail)
+    }
 }
 
 # --- 3b: the part of §4.3 the broker owes, and which can be proven today ----------------
@@ -1065,37 +1631,112 @@ if (-not $hermeticAvailable) {
 # ===========================================================================
 Write-Head 'STEP 4 — the client stays flat  (§4.4)'
 
-$commitAfter = $null
-try { $commitAfter = [double](Get-Counter '\Memory\Committed Bytes' -ErrorAction Stop).CounterSamples[0].CookedValue } catch { }
-$loopsAfter = $null
-try {
-    $hc2 = New-HttpClient 25
-    $null = $hc2.GetAsync("http://127.0.0.1:3086/").GetAwaiter().GetResult()
-    $hr2 = $hc2.GetAsync("http://127.0.0.1:3086/healthz").GetAwaiter().GetResult()
-    if ([int]$hr2.StatusCode -eq 200) {
-        $hj2 = $hr2.Content.ReadAsStringAsync().GetAwaiter().GetResult() | ConvertFrom-Json
-        $loopsAfter = $hj2.sessions.agentLoopsRunning
-    }
-    $hc2.Dispose()
-} catch { }
-
 $step4Detail = New-Object System.Collections.ArrayList
-$commitDeltaGiB = $null
-if ($null -ne $commitBefore -and $null -ne $commitAfter) {
-    $commitDeltaGiB = [math]::Round(($commitAfter - $commitBefore) / 1GB, 3)
-    [void]$step4Detail.Add("  commit before $([math]::Round($commitBefore/1GB,2)) GiB -> after $([math]::Round($commitAfter/1GB,2)) GiB (delta $commitDeltaGiB GiB, tolerance ±1 GiB)")
-}
-[void]$step4Detail.Add("  agentLoopsRunning before $loopsBefore -> after $loopsAfter  (source: GET /healthz on this laptop, via the gate at 127.0.0.1:3086)")
-[void]$step4Detail.Add('  THESE ARE MEASUREMENTS OF THIS HARNESS, NOT OF A FLEET: no fleet was dispatched, so nothing ran on another node and there is nothing for the laptop to have absorbed.')
-
-if (-not $meshRunExists) {
-    Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'SKIP' `
-        -Evidence 'no fleet can be dispatched without scripts\mesh-run.ps1, so "commit flat while the children run" has no children to be flat during' `
-        -Detail @($step4Detail + @('  FOR THIS TO RUN: stream S6 scripts/mesh-run.ps1, then re-run this harness; the before/after machinery is already here.'))
+if ($fleetA -eq $null) {
+    $commitAfter = $null
+    try { $commitAfter = [double](Get-Counter '\Memory\Committed Bytes' -ErrorAction Stop).CounterSamples[0].CookedValue } catch { }
+    $loopsAfter = Get-ClientLoops
+    if ($null -ne $commitBefore -and $null -ne $commitAfter) {
+        [void]$step4Detail.Add("  commit before $([math]::Round($commitBefore/1GB,2)) GiB -> after $([math]::Round($commitAfter/1GB,2)) GiB (delta $([math]::Round(($commitAfter-$commitBefore)/1GB,3)) GiB, tolerance ±1 GiB)")
+    }
+    [void]$step4Detail.Add("  agentLoopsRunning before $loopsBefore -> after $loopsAfter  (source: GET /healthz on this laptop, via the gate at 127.0.0.1:3086)")
+    [void]$step4Detail.Add('  THESE ARE MEASUREMENTS OF THIS HARNESS, NOT OF A FLEET: no fleet was dispatched under -DispatchFleet, so nothing ran on another node and there is nothing for the laptop to have absorbed.')
+    if (-not $meshRunExists) {
+        Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'SKIP' `
+            -Evidence 'no fleet can be dispatched without scripts\mesh-run.ps1, so "commit flat while the children run" has no children to be flat during' `
+            -Detail @($step4Detail + @('  FOR THIS TO RUN: stream S6 scripts/mesh-run.ps1, then re-run this harness.'))
+    } else {
+        Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'SKIP' `
+            -Evidence 'mesh-run.ps1 is present, but -DispatchFleet was not given, so no fleet was dispatched and there is no run to bracket' `
+            -Detail @($step4Detail)
+    }
 } else {
-    Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'SKIP' `
-        -Evidence 'mesh-run.ps1 is present, but this harness does not dispatch a fleet by itself; §4.4 needs a real 6-child run to bracket' `
-        -Detail @($step4Detail)
+    # The fleet ran (step 3). The bracket was taken AROUND it: `commitBefore`/`loopsBefore` are
+    # read before step 3 starts and `ClientSamples` is filled by the step-3 sampling loop, so the
+    # "after" reading below is genuinely after the children finished.
+    $samples = @($script:ClientSamples)
+    $commitAfter = Get-ClientCommit
+    $loopsAfter = Get-ClientLoops
+    $derivedBefore = if ($samples.Count -gt 0) { $samples[0].derived } else { $null }
+    $finalDerived = $commitAfter.derived
+    $maxCounter = ($samples | Measure-Object -Property counter -Maximum).Maximum
+    $minCounter = ($samples | Measure-Object -Property counter -Minimum).Minimum
+    $maxDerived = ($samples | Measure-Object -Property derived -Maximum).Maximum
+    $commitDeltaGiB = if ($null -ne $derivedBefore -and $null -ne $finalDerived) {
+        [math]::Round(($finalDerived - $derivedBefore) / 1GB, 3)
+    } else { $null }
+    $peakDeltaGiB = if ($null -ne $derivedBefore -and $null -ne $maxDerived) {
+        [math]::Round(($maxDerived - $derivedBefore) / 1GB, 3)
+    } else { $null }
+    [void]$step4Detail.Add("  $($samples.Count) sample(s) were taken on this laptop while the fleet ran, every $($SampleIntervalMs) ms, from the moment before step 3 dispatched it")
+    [void]$step4Detail.Add("  commit charge (derived = TotalVirtualMemorySize - FreeVirtualMemory), the formula 20-placement.md row 3 insists on:")
+    [void]$step4Detail.Add("    before $([math]::Round($derivedBefore/1GB,3)) GiB -> after $([math]::Round($finalDerived/1GB,3)) GiB : delta $commitDeltaGiB GiB")
+    [void]$step4Detail.Add("    peak during the run $([math]::Round($maxDerived/1GB,3)) GiB : delta from before $peakDeltaGiB GiB")
+    [void]$step4Detail.Add("  the same quantity from a DIFFERENT source (perf counter \Memory\Committed Bytes): min $([math]::Round($minCounter/1GB,3)) GiB, max $([math]::Round($maxCounter/1GB,3)) GiB")
+    [void]$step4Detail.Add("  agentLoopsRunning on this laptop: $($script:ClientLoopsBeforeFleet) immediately before the fleet, $loopsAfter after it")
+    [void]$step4Detail.Add("  ...and that field is CONTEXT ONLY: measured 2026-09-17T03:58:42Z, a real local headless child moved it NOT AT ALL (10/10/10), while it read 11 later with nothing dispatched. It cannot decide §4.4.")
+    [void]$step4Detail.Add("  the children themselves reported '$($fleetA.node)' (run A, $($fleetA.ms) ms) and '$($fleetB.node)' (run B) - the 6-child fleet was ONE placement, and run B excluded it through the broker's own task.exclude")
+    $maxChildren = ($samples | Measure-Object -Property childProcesses -Maximum).Maximum
+    $childrenBefore = $script:LocalChildrenBeforeFleet.childProcesses
+    $localChildrenSeen = @($samples | Where-Object { $_.childProcesses -gt $childrenBefore })
+    [void]$step4Detail.Add("  §4.4's CRITERION - did any of the fleet run HERE: client dsh RUNNER processes (a `bin.js --profile <not web>`, i.e. exactly what mesh-run starts) before $childrenBefore, peak during the fleet $maxChildren over $($samples.Count) samples")
+    if ($localChildrenSeen.Count -gt 0) {
+        [void]$step4Detail.Add("    the client ran child work itself at $($localChildrenSeen.Count) sample(s); first at $($localChildrenSeen[0].at) with pids $($localChildrenSeen[0].childPids)")
+    } else {
+        [void]$step4Detail.Add("    the client never ran child work: every one of the $($samples.Count) samples saw at most $childrenBefore, and the children's own MESH-HOST lines place them on another node")
+    }
+    $brokerLeasesAfter = Get-BrokerLeases -BrokerBase $liveBroker
+    $sessionsAfter = Get-ClientSessionSnapshot
+    if ($script:SessionsBeforeFleet -and $sessionsAfter) {
+        $newIds = @($sessionsAfter.allIds | Where-Object { $script:SessionsBeforeFleet.allIds -notcontains $_ })
+        $newRunning = @($sessionsAfter.runningIds | Where-Object { $script:SessionsBeforeFleet.runningIds -notcontains $_ })
+        [void]$step4Detail.Add("  ATTRIBUTION - other load on this client, which the owner was running deliberately: sessions live $($script:SessionsBeforeFleet.live) -> $($sessionsAfter.live); running $($script:SessionsBeforeFleet.runningIds.Count) -> $($sessionsAfter.runningIds.Count); sessions that APPEARED inside the window: $($newIds.Count) ($($newIds -join ', ')); sessions that STARTED running inside the window: $($newRunning.Count)")
+        if ($newIds.Count -eq 0 -and $newRunning.Count -eq 0) {
+            [void]$step4Detail.Add("    no other session appeared or started running during the fleet window, so the commit movement inside it is attributable to this run and to ambient churn, not to a second fleet")
+        } else {
+            [void]$step4Detail.Add("    OTHER WORK WAS RUNNING ON THIS CLIENT DURING THE WINDOW, so the commit movement CANNOT be attributed to this fleet alone. This is a contaminated bracket, reported as such: the owner's own agents share this machine.")
+        }
+    }
+    if ($script:LeasesBeforeFleet -and $brokerLeasesAfter) {
+        [void]$step4Detail.Add("  broker leases: before live=$($script:LeasesBeforeFleet.live) -> after live=$($brokerLeasesAfter.live); running before $($script:LeasesBeforeFleet.running) -> after $($brokerLeasesAfter.running)  (the broker's leases are the ONLY place a dispatched fleet is visible while it runs)")
+    }
+    $flatOk = ($null -ne $commitDeltaGiB) -and ([math]::Abs($commitDeltaGiB) -le 1.0)
+    $peakOk = ($null -ne $peakDeltaGiB) -and ($peakDeltaGiB -le 1.0)
+    $loopOk = ($null -ne $script:ClientLoopsBeforeFleet) -and ($null -ne $loopsAfter) -and ([int]$loopsAfter -le [int]$script:ClientLoopsBeforeFleet)
+    $enoughSamples = ($samples.Count -ge 16)
+    $noLocalChildren = ($localChildrenSeen.Count -eq 0)
+    $moves = $flatOk -and $peakOk
+    # THREE OUTCOMES, NOT TWO, because the criterion itself can be undecidable at a given load.
+    # The commit bar is a ±1 GiB change. Measured 2026-09-17T03:49:59-03:50:29Z on this laptop with
+    # NOTHING dispatched: commit spread 1.105 GiB over 30 s, and 1.203 GiB / +1.09 GiB in the
+    # 03:55:45Z run's own control window. A bar that a quiet machine crosses on its own cannot
+    # decide anything about a fleet, and calling that PASS or FAIL would be exactly the
+    # confident-wrong-number this program exists to stop - so it is reported as a failure of the
+    # TEST CONDITION, with both numbers, never as a green tick.
+    $ambientExceedsBar = ($script:AmbientSpreadGiB -gt 1.0)
+    $childrenLine = "the client ran NO fleet runner of its own (peak $maxChildren dsh runner process(es) against $childrenBefore before the fleet, over $($samples.Count) samples)"
+    $commitLine = "commit charge moved $commitDeltaGiB GiB end-to-end and at most $peakDeltaGiB GiB from its pre-fleet value"
+    if ($noLocalChildren -and $moves -and $enoughSamples -and -not $ambientExceedsBar) {
+        Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'PASS' `
+            -Evidence "$childrenLine, and $commitLine while $FleetChildren children ran on another node; the control window (same length, nothing dispatched) moved $($script:AmbientSpreadGiB) GiB" `
+            -Detail @($step4Detail)
+    } elseif (-not $noLocalChildren) {
+        Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'FAIL' `
+            -Evidence "THE CLIENT RAN THE FLEET ITSELF: $($localChildrenSeen.Count) of $($samples.Count) samples saw a dsh runner process on this machine (pre-fleet $childrenBefore, peak $maxChildren, first at $($localChildrenSeen[0].at) with pids $($localChildrenSeen[0].childPids)) - a fleet is supposed to run on another node" `
+            -Detail @($step4Detail)
+    } elseif (-not $enoughSamples) {
+        Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'FAIL' `
+            -Evidence "$childrenLine, but only $($samples.Count) sample(s) were taken against the ≥16 the brief requires, so the flatness is under-sampled" `
+            -Detail @($step4Detail)
+    } elseif ($moves -and $ambientExceedsBar) {
+        Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'FAIL' `
+            -Evidence "$childrenLine and $commitLine, but the CONTROL window - same length, nothing dispatched - moved $($script:AmbientSpreadGiB) GiB, which exceeds the ±1 GiB bar. A bar this machine crosses at rest cannot decide a fleet run; the criterion needs a longer window, a quieter moment, or a bar derived from this host's own noise floor" `
+            -Detail @($step4Detail)
+    } else {
+        Add-Step -Id 'S4' -Name 'client stays flat (§4.4)' -Status 'FAIL' `
+            -Evidence "$childrenLine, but $commitLine - outside the ±1 GiB bar (control window: $($script:AmbientSpreadGiB) GiB)" `
+            -Detail @($step4Detail)
+    }
 }
 
 # ===========================================================================
@@ -1110,17 +1751,62 @@ if (-not $meshRunExists) {
     [void]$step5Detail.Add('  (never an engine), asserts exit 1 plus a log naming that node, asserts the broker reclaims the lease,')
     [void]$step5Detail.Add('  and asserts the next mesh-run succeeds on another node with no manual repair.')
     Add-Step -Id 'S5' -Name 'a node can die (§4.5)' -Status 'SKIP' -Evidence $step5Evidence -Detail @($step5Detail)
-} else {
+} elseif ($KillNodeHalf -eq '') {
+    # RULING, 2026-09-17 (stream O1's brief, from the manager): the stub-gate half of §4.5 STANDS
+    # and the fleet-death half is O1's to execute. It is executed by _scratch/o1/kill-test.ps1,
+    # which is run with -KillNodeHalf; without that switch this step reports the ruling rather
+    # than repeating the old, now-superseded "the conflict is the manager's to resolve".
     Add-Step -Id 'S5' -Name 'a node can die (§4.5)' -Status 'SKIP' `
-        -Evidence 'mesh-run.ps1 is present but this harness does not dispatch a fleet by itself, so a mid-run gate kill cannot be arranged here' `
+        -Evidence 'the kill half of §4.5 is now O1''s to execute and is executed by _scratch/o1/kill-test.ps1; pass -KillNodeHalf hermetic (or live) to run it from here' `
         -Detail @(
-            '  NOTE - §4.5 AS WRITTEN CONFLICTS WITH THIS HARNESS''S OWN RULES, and the conflict is the manager''s to resolve:',
-            '  "kill the chosen node''s gate mid-run" means killing the gate a DIFFERENT stream deployed and is running on a node',
-            '  this harness does not own, while S7''s brief says "never kill a process that is not a gate you started".',
-            '  The two sanctioned ways out: (a) accept STEP 5b, which kills a stub gate THIS harness started and proves the same',
-            '  broker-side property; or (b) have the manager state, for one named node and one named pid, that the gate may be killed.',
-            '  Until then §4.5''s kill half is deliberately not executed, because a green result is worth less than the rule that stops it.'
+            '  RULING 2026-09-17 (supersedes the note this step used to print):',
+            '  (a) S5b - the broker half, which kills a stub gate THIS HARNESS started - STANDS and is run above/below.',
+            '  (b) The fleet-death half is OWNED BY O1. It is executed for real by a standalone test that starts its',
+            '      own broker and its own stub gates and kills only a gate it started: _scratch/o1/kill-test.ps1.',
+            '      That script is the evidence; its log is _scratch/o1/kill-test/kill-test.log and it is reproduced in',
+            '      docs/mesh/82-e2e-run.md with the raw output.',
+            '  (c) WHAT IS STILL NOT DONE, stated plainly: no run has been failed by killing a gate on a node that',
+            '      a real child was executing on. The brief permits it only with a named node and pid and a run',
+            '      knowingly started to fail, and killing a production gate would take a real node out of the mesh',
+            '      for every other stream still working tonight. See 82-e2e-run.md §5 for the exact gap.'
         )
+} else {
+    # ---- the kill half, run as a standalone proof so the killed process is always one this
+    # ---- harness started, and so the same test is reproducible outside the harness.
+    $killScript = Join-Path (Split-Path -Parent $PSCommandPath) '..\_scratch\o1\kill-test.ps1'
+    if (-not (Test-Path $killScript)) {
+        Add-Step -Id 'S5' -Name 'a node can die (§4.5)' -Status 'FAIL' `
+            -Evidence "-KillNodeHalf was given but the kill test is not where this harness looks for it ($killScript)" `
+            -Detail @($step5Detail)
+    } else {
+        $killDir = Join-Path $script:Scratch 'kill-node'
+        New-Item -ItemType Directory -Force -Path $killDir | Out-Null
+        $killOut = Join-Path $killDir 'console.txt'
+        $killProc = Start-Process pwsh -ArgumentList @('-NoProfile', '-File', $killScript, '-OutDir', $killDir) -PassThru -NoNewWindow `
+            -RedirectStandardOutput $killOut -RedirectStandardError (Join-Path $killDir 'console.err')
+        [void]$script:Procs.Add($killProc)
+        $killOk = $killProc.WaitForExit(180000)
+        $killText = if (Test-Path $killOut) { Get-Content $killOut -Raw } else { '' }
+        foreach ($line in ($killText -split "`r?`n")) { if ($line.Trim()) { [void]$step5Detail.Add('  kill-test | ' + $line.Trim()) } }
+        $killedLine = [regex]::Match($killText, 'KILLING the stub gate for node .(\S+?).: pid (\d+)')
+        $reclaimLine = [regex]::Match($killText, 'leases\.live reached 0 after (\d+) ms against a (\d+) ms TTL')
+        $nextLine = [regex]::Match($killText, '\(3\) next placement names .(\S+?).; the dead node was .(\S+?).')
+        $props = @()
+        $props += ($killedLine.Success)
+        $props += ($reclaimLine.Success -and [int]$reclaimLine.Groups[1].Value -le [int]$reclaimLine.Groups[2].Value + 3000)
+        $props += ($nextLine.Success -and $nextLine.Groups[1].Value -ne $nextLine.Groups[2].Value)
+        $held = @($props | Where-Object { $_ }).Count
+        [void]$step5Detail.Add("  properties: gate killed = a process THIS TEST started ($($killedLine.Success)); abandoned lease reclaimed within its TTL ($($reclaimLine.Success)); next placement named a different node ($($nextLine.Success))")
+        if ($held -eq 3) {
+            Add-Step -Id 'S5' -Name 'a node can die (§4.5)' -Status 'PASS' `
+                -Evidence "a gate this test started was killed mid-flight (pid $($killedLine.Groups[2].Value), node '$($killedLine.Groups[1].Value)'), the abandoned lease was reclaimed at the broker's own TTL ($($reclaimLine.Groups[1].Value) ms against $($reclaimLine.Groups[2].Value) ms), and the next placement named '$($nextLine.Groups[1].Value)' - a different node - with no manual repair" `
+                -Detail @($step5Detail)
+        } else {
+            Add-Step -Id 'S5' -Name 'a node can die (§4.5)' -Status 'FAIL' `
+                -Evidence "$held of 3 §4.5 properties held; the kill test's own log is in the detail" `
+                -Detail @($step5Detail)
+        }
+    }
 }
 
 # --- 5b: the broker's half of §4.5, which exists and can be tested today ----------------

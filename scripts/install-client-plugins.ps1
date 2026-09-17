@@ -27,6 +27,17 @@ The invariant that matters is: **every name in the bundle list resolves.** A pac
 it is somebody's decision, and a check that cries wolf about a deliberate choice gets ignored.
 Pass -RequireAll to treat those as faults too.
 
+THE SECOND HALF OF THAT INVARIANT, ADDED 2026-09-17 AFTER IT BIT US
+Resolving is not sufficient: the name must also DECLARE A BUNDLE. `packages/` contains bundles and
+plain programs (`mesh-broker`, `deepseek-proxy` -- a service with a `bin`, no `dsh` key at all), and
+the loader mounts every declared name as a patch layer, throwing on any that declares no
+`dsh.bundle.patch`. This script used to enrol every package it could link, so the moment
+`packages/mesh-broker` existed the next sync made two machines unbootable -- live on ZABZ-YOGA and
+ZABZ-TECH, both found on 2026-09-17 with `dsh --profile web --dump-config` exit 1 while the running
+engines looked perfectly healthy. Enrolment is now gated on `dsh.bundle.patch`, and a declared name
+that fails the test is REMOVED from the list rather than left to fail the next boot. Verified both
+ways: the check fails on the pre-repair profile and passes after it.
+
 WHY A JUNCTION RATHER THAN A COPY
 A package may resolve by name from the repo checkout (a junction) or from a copy in
 node_modules. A copy drifts the moment the package is edited, and the drift is invisible: the
@@ -103,14 +114,31 @@ if ($config.dsh -and $config.dsh.profile -and $config.dsh.profile.bundles) {
 }
 
 # Every packages/plugin-* directory that declares a name.
+#
+# `Bundle` IS THE FACT THAT DECIDES ENROLMENT, and it was missing (2026-09-17). A profile's
+# `dsh.profile.bundles` is not a dependency list: every name in it is mounted as a patch LAYER, and
+# the loader THROWS on a name whose package declares no `dsh.bundle.patch` --
+#
+#     Error: dsh: profile bundle "dsh-mesh-broker" declares no dsh.bundle in its package.json
+#       at dsh-app-boot/lib/index.js:852
+#
+# so ONE such name stops the engine booting at all. `packages/` holds both kinds of thing: bundles
+# (`dsh-plugin-*`) and plain programs with a `bin` that are started as their own process
+# (`mesh-broker`, `deepseek-proxy`). This script used to enrol every package it could link, so as
+# soon as `packages/mesh-broker` existed, a sync armed a machine that could not come back -- measured
+# live on ZABZ-YOGA (manifest written 23:47, engine up since 15:49, `dsh --profile web --dump-config`
+# exit 1 with the error above) and on ZABZ-TECH. The invariant this now enforces is the loader's own:
+# **never name a bundle you have not just proved declares one.**
 $packages = @()
 if (Test-Path $pkgRoot) {
     foreach ($dir in Get-ChildItem $pkgRoot -Directory | Sort-Object Name) {
         $pkgJson = Join-Path $dir.FullName 'package.json'
         if (-not (Test-Path $pkgJson)) { continue }
-        $name = (Get-Content $pkgJson -Raw | ConvertFrom-Json).name
+        $parsed = Get-Content $pkgJson -Raw | ConvertFrom-Json
+        $name = $parsed.name
         if (-not $name) { continue }
-        $packages += [pscustomobject]@{ Name = $name; Source = $dir.FullName }
+        $isBundle = [bool]($parsed.dsh -and $parsed.dsh.bundle -and $parsed.dsh.bundle.patch)
+        $packages += [pscustomobject]@{ Name = $name; Source = $dir.FullName; Bundle = $isBundle }
     }
 }
 
@@ -170,13 +198,21 @@ foreach ($pkg in $packages) {
     $status[$pkg.Name] = $kind
 }
 
-# PHASE 2 -- report, and rewrite the manifest ONCE with only the names that resolve.
-$resolved = @($packages | Where-Object { $status[$_.Name] -eq 'LINK' } | ForEach-Object { $_.Name })
-$unresolved = @($packages | Where-Object { $status[$_.Name] -ne 'LINK' } | ForEach-Object { $_.Name })
+# PHASE 2 -- report, and rewrite the manifest ONCE with only the names that resolve AND declare a
+# bundle. A package that is linked but declares no `dsh.bundle.patch` is NEVER enrolled: naming it
+# would stop the engine booting (see the note above `$packages`).
+$resolved = @($packages | Where-Object { $status[$_.Name] -eq 'LINK' -and $_.Bundle } | ForEach-Object { $_.Name })
+$unresolved = @($packages | Where-Object { $status[$_.Name] -ne 'LINK' -or -not $_.Bundle } | ForEach-Object { $_.Name })
 
 foreach ($pkg in $packages) {
     $kind = $status[$pkg.Name]
     $inBundles = $bundles -contains $pkg.Name
+    if (-not $pkg.Bundle) {
+        $note = if ($inBundles) { 'declares no dsh.bundle -- REMOVING from the bundle list (naming it stops the engine booting)' }
+                else { 'declares no dsh.bundle -- linked, never named as a bundle' }
+        Write-Host ("  {0,-24} {1,-14} {2}" -f $pkg.Name, $kind, $note)
+        continue
+    }
     if (-not $inBundles -and -not $RequireAll) {
         Write-Host ("  {0,-24} {1,-14} not mounted (repo-only; -RequireAll to install)" -f $pkg.Name, $kind)
         continue
@@ -198,7 +234,7 @@ if (-not $Check) {
         [System.IO.File]::WriteAllText($manifest, $json + "`n", (New-Object System.Text.UTF8Encoding($false)))
         if ($added.Count -gt 0) { Write-Host ("      added to bundles: {0}" -f ($added -join ', ')) }
         if ($wanted.Count -ne $bundles.Count) {
-            Write-Host ("      REMOVED from bundles (could not resolve -- naming it would stop the engine booting): {0}" -f (($bundles | Where-Object { $unresolved -contains $_ }) -join ', '))
+            Write-Host ("      REMOVED from bundles (either it would not resolve, or it declares no dsh.bundle -- naming it would stop the engine booting): {0}" -f (($bundles | Where-Object { $unresolved -contains $_ }) -join ', '))
         }
     }
 }

@@ -8,6 +8,8 @@ What changes:
   * a new persona, written from the measured analysis of 23,035 owner turns
   * an MCP row giving the agent the secretary's 14 live tools
   * display metadata
+  * the mesh delegation tool (`subagent_remote`), added 2026-09-17 — see
+    REMOTE_DELEGATION_ROW below and docs/mesh/90-provider-mount.md
 
 Run from the harness-config repo root:
     python scripts/make_zabz_preset.py
@@ -170,6 +172,68 @@ You are expected to get better on your own, not to wait to be improved.
 
 
 Read `~/code/personal-secretary-mvp/docs/secretary-replacement-audit/` — the full audit of how he works, what has broken, and what he needs. It is the evidence base for your own behaviour. Prefer it over guessing.
+"""
+
+# ── the mesh delegation row, inserted into the delegation group ──────────────
+#
+# WHAT IT IS. `packages/plugin-remote-fanout` registers a second named provider
+# on the process-wide `ctx.subagents` registry whose children are real DSH agent
+# turns on ANOTHER node. The provider row lives in the HOST plane (the `web`
+# profile's own patch layer, profiles/web/cordis.patch.yml) because
+# `ctx.subagents.registerProvider` THROWS when one name is registered twice
+# (`dsh-subagent/lib/index.js:3106-3116`, DUPLICATE_PROVIDER) and a preset mounts
+# once per session — a provider row here would work for the first session and
+# break every session after it.
+#
+# THIS ROW IS THE TOOL, which is the half a preset owns. It resolves the host
+# registry exactly as the built-in `subagent` row above resolves `spawn`, and it
+# is the shape the shipped `codex` / `claude-code` rows below use: a host-plane
+# provider, a preset-level tool.
+#
+# `maxDepth: provider-managed` IS REQUIRED, NOT A PREFERENCE. An out-of-process
+# child advertises no capabilities, and `dsh-tool-subagent` refuses a numeric
+# maxDepth on a provider without the `depthLimit` capability
+# (`dsh-tool-subagent/lib/index.js:377`). `enableRunInBackground: false` keeps a
+# call synchronous, so a parent collects each remote child's result directly
+# instead of polling a job.
+#
+# THE TOOL APPEARS ONLY WHEN THE PROVIDER DOES, and it degrades quietly rather
+# than breaking the preset: the shipped tool row logs "subagent provider
+# \"remote-ssh\" not registered yet; the \"subagent_remote\" tool will register
+# when it appears" (`lib/index.js:565-575`) and waits for
+# `subagent/provider-added`. So a machine where the bundle is not installed still
+# mounts this preset and simply has no `subagent_remote` — the same reasoning the
+# MCP rows use for `failOnStartupError: false`.
+REMOTE_ANCHOR = """    - id: tool-subagent-fork
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: fork
+        toolName: subagent_fork
+        backgroundMode: continuable
+"""
+
+REMOTE_DELEGATION_ROW = """\
+    # The mesh: delegation whose children are real agent turns on ANOTHER node
+    # (`packages/plugin-remote-fanout`, provider `remote-ssh`, configured in
+    # profiles/web/cordis.patch.yml). `subagent` above stays local; the choice is
+    # visible in which tool the agent calls, and the child's own first line is its
+    # hostname, so where the work ran is measured rather than asserted.
+    #
+    # ONE-SHOT ONLY, by construction: the provider has no `prepareContinuable`, so
+    # a follow-up message to a remote child is rejected by the seam. One-shot
+    # fan-out is what a fleet is; continuation needs the Activation ownership
+    # contract dsh-subagent's README names as missing.
+    #
+    # The provider is a HOST-plane row registered once per process — a provider
+    # inside a preset would collide on the second session (DUPLICATE_PROVIDER).
+    # This row is the TOOL, the half a preset owns.
+    - id: tool-subagent-remote
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: remote-ssh
+        toolName: subagent_remote
+        enableRunInBackground: false
+        maxDepth: provider-managed
 """
 
 MCP_ROWS = r"""
@@ -396,6 +460,29 @@ def main() -> int:
 
     # Strip the original cordis self-authoring prose paragraph if it survived
     # (it lives inside the persona we just replaced, so nothing to do here).
+
+    # ── the mesh delegation row ──────────────────────────────────────────────
+    #
+    # WHY IT IS INSERTED AND NOT CARRIED IN presets/cordis-bg/agent.cordis.yml:
+    # that file is the SOURCE for two presets, and this capability is granted to
+    # one of them on purpose — the owner's own `zabz` sessions. `cordis-bg` keeps
+    # delegating locally.
+    #
+    # THE ANCHOR IS CHECKED, NOT ASSUMED. If the fork row is ever rewritten the
+    # count is not 1 and this exits 2 rather than silently generating a preset
+    # without the tool — a silent no-op is how a capability disappears while
+    # `--check` stays green.
+    if "tool-subagent-remote" not in text:
+        occurrences = text.count(REMOTE_ANCHOR)
+        if occurrences != 1:
+            print(
+                f"could not locate the tool-subagent-fork anchor "
+                f"(found {occurrences}, want exactly 1) — refusing to generate a preset "
+                f"silently missing the mesh delegation tool",
+                file=sys.stderr,
+            )
+            return 2
+        text = text.replace(REMOTE_ANCHOR, REMOTE_ANCHOR + "\n" + REMOTE_DELEGATION_ROW + "\n", 1)
 
     if "mcp-secretary" not in text:
         text = text.rstrip("\n") + "\n" + MCP_ROWS
