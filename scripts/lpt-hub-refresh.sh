@@ -51,6 +51,31 @@ STATUS="$STATE_DIR/status.json"
 LOG="$STATE_DIR/refresh.log"
 mkdir -p "$STATE_DIR"
 
+# --- SERIALISE ------------------------------------------------------------------
+# Measured 2026-09-17T16:00:01Z: two runs of this script collided in the same clone and git
+# refused with `Unable to create '.../.git/index.lock': File exists ... error: could not detach
+# HEAD`, recorded as `status=refused rc=2`. The three fixes made earlier that day -- checking the
+# fetch, rebasing instead of refusing, cross-checking ls-remote -- did nothing about two copies of
+# this script running at once, which is possible because the cron fires every 15 minutes while a
+# fetch-and-rebase can take longer than that, and because the secretary commits into the same
+# working tree on its own schedule.
+#
+# `flock -n` takes an exclusive lock or exits immediately: a second run reports `busy` and does
+# nothing rather than fighting the first for .git/index.lock. A busy run is a REPORTED fact, not a
+# silent skip -- if every run were busy, the status file would say so instead of showing stale
+# `ok`. flock is util-linux and present on the authority; where it is absent the guard degrades to
+# "run anyway", which is the old behaviour rather than a new failure.
+LOCK="$STATE_DIR/refresh.lock"
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"$LOCK"
+    if ! flock -n 9; then
+        printf '{"updated":"%s","status":"busy","rc":3,"note":"another refresh holds the lock"}\n' \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS"
+        echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) status=busy rc=3 (another refresh holds the lock)" >> "$LOG"
+        exit 3
+    fi
+fi
+
 now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 result="ok"
 rc=0
