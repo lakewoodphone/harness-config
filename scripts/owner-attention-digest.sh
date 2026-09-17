@@ -202,6 +202,44 @@ else
     echo "✅ none — every hub record has a production order (measured ${cage}h ago)"
   fi
 fi
+
+# The four-surface verifier (tools/customer/audit.py) checks whether the hub case file, the hub
+# sync record, production Postgres and the secretary SQLite actually AGREE. It writes a tiny status
+# file; this reports its findings AND the AGE of that file, because a verifier that has stopped
+# running looks exactly like a verifier that found nothing — and that is the failure mode this whole
+# section exists to end. A stale report is counted as a problem, not shown as agreement.
+VERIFY_REPORT="/home/zabz/.lpt-verify/four-surface.json"
+vres=$(python3 -c '
+import json, os, time
+p = "/home/zabz/.lpt-verify/four-surface.json"
+try:
+    d = json.load(open(p))
+    print("%s|%s|%s|%s|%s" % (d.get("errors"), d.get("warnings"), d.get("unreachable"),
+                              round((time.time() - os.path.getmtime(p)) / 60.0, 1),
+                              d.get("updated", "?")))
+except Exception:
+    print("-1|-1|-1|?|unreadable")
+' 2>/dev/null || echo "-1|-1|-1|?|unreadable")
+verr=$(printf '%s' "$vres" | cut -d'|' -f1)
+vwarn=$(printf '%s' "$vres" | cut -d'|' -f2)
+vunreach=$(printf '%s' "$vres" | cut -d'|' -f3)
+vage=$(printf '%s' "$vres" | cut -d'|' -f4)
+echo -n "4-surface verify:  "
+if [ "$verr" = "-1" ]; then
+  echo "🔴 REPORT UNREADABLE ($VERIFY_REPORT) — the verifier has never run or its output is gone"
+  PROBLEMS=$((PROBLEMS+1))
+elif [ "$vage" != "?" ] && [ "$(printf '%.0f' "$vage" 2>/dev/null || echo 0)" -gt 90 ]; then
+  echo "🔴 STALE ${vage}m — the verifier has stopped running; its last result is not a current answer"
+  PROBLEMS=$((PROBLEMS+1))
+elif [ "$vunreach" != "0" ]; then
+  echo "🔴 $vunreach SURFACE(S) UNREACHABLE — a refusal, not health (last run ${vage}m ago)"
+  PROBLEMS=$((PROBLEMS+1))
+elif [ "$verr" -gt 0 ]; then
+  echo "🔴 $verr drift finding(s), $vwarn warning(s) (last run ${vage}m ago)"
+  PROBLEMS=$((PROBLEMS+1))
+else
+  echo "✅ all four surfaces agree (last run ${vage}m ago)"
+fi
 echo ""
 if [ "$PROBLEMS" -gt 0 ]; then echo "🔴 $PROBLEMS problem(s) — see above"; else echo "✅ All health checks OK"; fi
 echo "=== END DIGEST ==="
