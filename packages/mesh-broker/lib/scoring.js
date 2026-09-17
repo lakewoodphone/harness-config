@@ -1,9 +1,12 @@
 /**
  * The frozen scoring of `docs/mesh/71-mesh-program.md` §2.2, written down once.
  *
- *   slots = min(floor((freeMiB - reserveMiB) / 160), maxSlots)   — minus governor.inUse
- *   reserveMiB = 3885      (the governor's own derivation: 12% of 31.6 GB, the number
- *                           docs/mesh/71-mesh-program.md §2.2 froze)
+ *   slots = min(floor((freeMiB - reserveMiB(reading)) / 160), maxSlots)  — minus governor.inUse
+ *   reserveMiB(reading) = max(2 GiB, 12% of the node's own mem.totalMiB) — the governor's own
+ *                           derivation (governor.js:126) applied to the node being scored.
+ *                           `3885` is what it yields on a 31.6 GB machine, and is kept as the
+ *                           FALLBACK for a node that reports no `mem.totalMiB` — see
+ *                           `reserveMiB()` below, and docs/mesh/86-authority.md §3.
  *   maxSlots   = 24        (packages/plugin-health/lib/governor.js MAX_SLOTS_DEFAULT)
  *   160 MiB                (governor.js PER_SLOT_BYTES_DEFAULT — the measured cost of
  *                           one in-flight shell tool call: runner.js 57 MB + shell 103 MB)
@@ -17,7 +20,7 @@
  * contract `docs/mesh/71-mesh-program.md` §2.2 - the docs and this code are the same thing said
  * twice, so a change here that is not there (or the reverse) is drift, and drift is a bug.
  *
- *  1. THE SLOT MODEL IS NOT PURELY MEMORY. `floor((freeMiB - 3885) / 160)` says how many
+ *  1. THE SLOT MODEL IS NOT PURELY MEMORY. `floor((freeMiB - reserve) / 160)` says how many
  *     heavy tool calls fit in the free memory; it says nothing about whether the CPU can
  *     run them. Measured 2026-09-15/16: one actively generating agent turn costs ~1 core
  *     (0.81 GB commit + ~1 core), and this laptop's paging threshold is 13-14 concurrent
@@ -34,10 +37,14 @@
  *     load has been read.
  *
  * WORKED EXAMPLE THAT PINS THE SPEC (asserted in test/scoring.test.mjs): the §2.1 sample
- * reading has mem.freeMiB = 51000, and §2.2's example response reports `"score": 9` with
- * `"rationale": ["9 free slots of 24", ...]`. floor((51000 - 3885) / 160) = 294, capped at
- * 24, minus governor.inUse 15 = 9. The two documents agree, and this module reproduces
- * exactly that number.
+ * reading has mem.freeMiB = 51000 and mem.totalMiB = 65156, and §2.2's example response reports
+ * `"score": 9` with `"rationale": ["9 free slots of 24", ...]`. This node's own reserve is 7819
+ * MiB, so floor((51000 - 7819) / 160) = 269, capped at 24, minus governor.inUse 15 = 9. The two
+ * documents still agree, and this module reproduces exactly that number. **The cap is why the
+ * example is independent of which reserve is used** — with the old frozen 3885 the intermediate
+ * would be 294 instead of 269 and the answer, 9, would be identical. That is the property that
+ * lets the worked example keep pinning the CONTRACT while the reserve becomes a per-node
+ * derivation; the intermediate count changes, the published score does not.
  *
  * WHAT THIS MODULE DELIBERATELY DOES NOT DO
  * It does not read the clock, the filesystem or the network. Every function here is
@@ -46,8 +53,25 @@
 
 /** Measured cost of one in-flight heavy tool call (governor.js:53). */
 export const PER_SLOT_MIB = 160;
-/** The governor's reserve, frozen by §2.2 (12% of a 31.6 GB machine). */
+/**
+ * The governor's reserve as it was frozen by §2.2: **3885 MiB**, the number
+ * `max(2 GiB, 12% of physical)` produces on the 31.6 GB machine it was first read on.
+ *
+ * KEPT, AND USED ONLY AS THE FALLBACK for a node that does not report its own `mem.totalMiB`.
+ * The live rule is `reserveMiB(reading)` below. Measured 2026-09-17 03:36Z against the four
+ * live nodes: this literal is exactly right on `zabz-yoga-1` (32373 MiB), over-reserves
+ * `secratary` by 1074 MiB and `zabz-tech-linux` by 1837 MiB, and **under-reserves `zabz-tech`
+ * by 3936 MiB** — ~24 slots of headroom it claims on the busiest node and does not have.
+ *
+ * `test/scoring.test.mjs` pins this number *as the constant*, and that assertion is still true:
+ * this value is still exported under this name. What changed is where the SHIPPING arithmetic
+ * gets its reserve from.
+ */
 export const RESERVE_MIB = 3885;
+/** `governor.js:126` `RESERVE_MIN_BYTES` — below this the governor's budget only queues sooner. */
+export const RESERVE_MIN_MIB = 2048;
+/** `governor.js:77` `RESERVE_FRACTION` — held back for everything that is not a tool process. */
+export const RESERVE_FRACTION = 0.12;
 /** The governor's ceiling (governor.js:61). */
 export const MAX_SLOTS = 24;
 /** §2.2: a node with freeGiB < 20 is ineligible for kind=fleet. */
@@ -89,6 +113,65 @@ export function governorInUse(reading) {
 /** `mem.freeMiB` — the OS's own free-memory number, which §2.1 says is always measured. */
 export function freeMiB(reading) {
   return finiteNumber(reading?.mem?.freeMiB);
+}
+
+/**
+ * THE RESERVE, DERIVED PER NODE — the governor's own formula, applied to the node being scored.
+ *
+ * `packages/plugin-health/lib/governor.js:126` is, byte for byte,
+ *
+ *   reserveBytes = max(RESERVE_MIN_BYTES, round(totalBytes * RESERVE_FRACTION))
+ *
+ * with `RESERVE_MIN_BYTES = 2 GiB` and `RESERVE_FRACTION = 0.12`. It is a **per-host**
+ * quantity: the memory held back *on that host* for everything that is not a tool process
+ * (browser, editor, engine). The broker scores a heterogeneous mesh, so the honest input is
+ * the reserve of the node in front of it, not the reserve of the machine the constant was
+ * first read on.
+ *
+ * MEASURED 2026-09-17 03:36Z, from the four live nodes' own §2.1 documents (`GET /nodes`):
+ *
+ *   zabz-tech-linux   11673 MiB ->  2048   (the 2 GiB floor binds; frozen 3885 over-reserves by 1837)
+ *   secratary         23422 MiB ->  2811   (frozen 3885 over-reserves by 1074)
+ *   zabz-yoga-1       32373 MiB ->  3885   (the frozen literal IS this machine's number)
+ *   zabz-tech         65173 MiB ->  7821   (frozen 3885 UNDER-reserves by 3936 MiB, ~24 slots)
+ *
+ * So the frozen literal is right on one of four nodes, and wrong in the dangerous direction on
+ * the largest and busiest one: it tells the broker the 64 GB desktop has four gigabytes of
+ * headroom that the desktop's own governor is holding back.
+ *
+ * A node that reports no `mem.totalMiB` gets `RESERVE_MIB`, and `basis` says `fallback`, so the
+ * substitution is printed in the rationale rather than made silently. `basis` is `floor` when
+ * the 2 GiB minimum is what binds on a node small enough for it to bind — a different fact
+ * from `derived` and worth being able to see.
+ *
+ * @param {object|null} reading a §2.1 capacity document, or null when there is none
+ * @returns {{reserveMiB:number, totalMiB:number|null, basis:'derived'|'floor'|'fallback', line:string}}
+ */
+export function reserveMiB(reading) {
+  const totalMiB = finiteNumber(reading?.mem?.totalMiB);
+  if (totalMiB === null || totalMiB <= 0) {
+    return {
+      reserveMiB: RESERVE_MIB,
+      totalMiB: null,
+      basis: 'fallback',
+      line: `reserve ${RESERVE_MIB} MiB: the node reported no mem.totalMiB, so the frozen fallback is used `
+        + '(the value the governor derives on a 31.6 GB machine) - named here rather than substituted silently',
+    };
+  }
+  const totalBytes = Math.round(totalMiB * 1048576);
+  const rawBytes = Math.round(totalBytes * RESERVE_FRACTION);
+  const floorBinds = rawBytes < RESERVE_MIN_MIB * 1048576;
+  const reserveBytes = Math.max(RESERVE_MIN_MIB * 1048576, rawBytes);
+  const derived = Math.round(reserveBytes / 1048576);
+  return {
+    reserveMiB: derived,
+    totalMiB,
+    basis: floorBinds ? 'floor' : 'derived',
+    line: `reserve ${derived} MiB = max(${RESERVE_MIN_MIB} MiB, ${RESERVE_FRACTION * 100}% of the node's own ${totalMiB} MiB)`
+      + (floorBinds
+        ? ' - the 2 GiB floor is what binds on a node this small'
+        : ` (the governor's own derivation, governor.js:126)`),
+  };
 }
 
 /** `mem.swapUsedPct`, or null when the gate did not report one. */
@@ -212,16 +295,24 @@ export function diskFreeGiB(reading) {
  * which is the number §2.2's worked example pins - the two agree whenever the core term is
  * not the binding one, which is exactly the intent.
  *
+ * `reserveMiB` / `reserveBasis` are the reserve that was actually subtracted, derived from the
+ * node's OWN `mem.totalMiB` (`reserveMiB()`), and `reserveBasis` says whether that came from
+ * the derivation, the governor's 2 GiB floor, or the frozen fallback. Published on `/nodes`
+ * under `scoreTerms`, so the number behind the score is auditable line by line.
+ *
  * @param {object|null} reading a §2.1 capacity document, or null when there is none
- * @returns {{freeMiB:number|null, inUse:number|null, inUseAssumed:boolean, beforeCap:number|null,
- *            capped:number|null, raw:number, memorySlots:number, slots:number, effective:object,
- *            floored:boolean, known:boolean, arithmetic:string, line:string}}
+ * @returns {{freeMiB:number|null, inUse:number|null, inUseAssumed:boolean, reserveMiB:number,
+ *            reserveTotalMiB:number|null, reserveBasis:string, reserveLine:string,
+ *            beforeCap:number|null, capped:number|null, raw:number, memorySlots:number,
+ *            slots:number, effective:object, floored:boolean, known:boolean, arithmetic:string,
+ *            line:string}}
  */
 export function slotArithmetic(reading) {
   const free = freeMiB(reading);
   const inUse = governorInUse(reading);
   const assumedInUse = inUse === null ? 0 : inUse;
-  const beforeCap = free === null ? null : Math.floor((free - RESERVE_MIB) / PER_SLOT_MIB);
+  const reserve = reserveMiB(reading);
+  const beforeCap = free === null ? null : Math.floor((free - reserve.reserveMiB) / PER_SLOT_MIB);
   const capped = beforeCap === null ? null : Math.min(beforeCap, MAX_SLOTS);
   const raw = (capped === null ? 0 : capped) - assumedInUse;
   const memorySlots = Math.max(0, raw);
@@ -231,8 +322,9 @@ export function slotArithmetic(reading) {
   if (free === null) {
     parts.push('no mem.freeMiB reading');
   } else {
-    parts.push(`floor((${Math.round(free)} MiB free - ${RESERVE_MIB} MiB reserve) / ${PER_SLOT_MIB} MiB) = ${beforeCap} slot(s)`);
+    parts.push(`floor((${Math.round(free)} MiB free - ${reserve.reserveMiB} MiB reserve) / ${PER_SLOT_MIB} MiB) = ${beforeCap} slot(s)`);
     parts.push(`capped at maxSlots=${MAX_SLOTS} -> ${capped}`);
+    parts.push(reserve.line);
   }
   parts.push(inUse === null
     ? 'no governor reading, so governor.inUse is treated as 0 (the engine may be down; a missing measurement is not a restriction)'
@@ -246,6 +338,10 @@ export function slotArithmetic(reading) {
     freeMiB: free,
     inUse,
     inUseAssumed: inUse === null,
+    reserveMiB: reserve.reserveMiB,
+    reserveTotalMiB: reserve.totalMiB,
+    reserveBasis: reserve.basis,
+    reserveLine: reserve.line,
     beforeCap,
     capped,
     raw,

@@ -42,13 +42,18 @@ test('§2.2 example: freeMiB 51000 with governor.inUse 15 gives the spec\'s own 
     governor: { budgetSlots: 24, inUse: 15, queued: 0 },
   };
   const arithmetic = slotArithmetic(reading);
-  // floor((51000 - 3885) / 160) = floor(294.47) = 294, capped at 24, minus 15 = 9.
-  assert.equal(arithmetic.beforeCap, 294);
+  // This node reports totalMiB 65156, so its OWN reserve is max(2 GiB, 12% of 65156) = 7819 MiB,
+  // not the laptop's frozen 3885: floor((51000 - 7819) / 160) = floor(269.88) = 269, capped at
+  // 24, minus 15 = 9. The score the spec publishes is unchanged, which is why this example can
+  // keep pinning the contract while the reserve becomes per-node (docs/mesh/86-authority.md §3).
+  assert.equal(arithmetic.reserveMiB, 7819);
+  assert.equal(arithmetic.reserveBasis, 'derived');
+  assert.equal(arithmetic.beforeCap, 269);
   assert.equal(arithmetic.capped, MAX_SLOTS);
   assert.equal(arithmetic.raw, 9);
   assert.equal(arithmetic.slots, 9, 'the spec example response reports exactly this');
   assert.match(arithmetic.arithmetic, /51000 MiB free/);
-  assert.match(arithmetic.arithmetic, new RegExp(`${RESERVE_MIB} MiB reserve`));
+  assert.match(arithmetic.arithmetic, new RegExp(`${arithmetic.reserveMiB} MiB reserve`));
   assert.match(arithmetic.arithmetic, new RegExp(`${PER_SLOT_MIB} MiB`));
   assert.match(arithmetic.arithmetic, /maxSlots=24/);
   assert.match(arithmetic.arithmetic, /minus governor\.inUse=15 -> 9/);

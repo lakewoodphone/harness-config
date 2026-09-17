@@ -34,7 +34,39 @@ echo "== tests (node --test) =="
 node --test test/scoring.test.mjs test/config.test.mjs test/leases.test.mjs test/acceptance.test.mjs 2>&1 | tail -18
 echo
 
-if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+if systemctl cat mesh-broker >/dev/null 2>&1; then
+  # THE SERVICE IS INSTALLED (stream O5, 2026-09-17 - docs/mesh/86-authority.md §1). systemd owns
+  # the broker on this host now, so this script must not start a second one on the same port: the
+  # second would die of EADDRINUSE while the first answered every curl below, which is the exact
+  # "green while proving nothing" failure §6.4 of 76-broker.md records. It uses the service, and
+  # it names the code the service is actually running so the reader can tell it apart from the
+  # tree this script just tested.
+  echo "== the broker is a SUPERVISED SERVICE on this host =="
+  systemctl show -p MainPID -p ExecStart -p Restart --value mesh-broker | sed 's/^/   /'
+  echo "   enabled: $(systemctl is-enabled mesh-broker 2>&1)   active: $(systemctl is-active mesh-broker 2>&1)"
+  if ! systemctl is-active --quiet mesh-broker; then
+    echo "   the unit exists but is not running; starting it"
+    systemctl start mesh-broker
+    sleep 1.5
+  fi
+  SVC_PID=$(systemctl show -p MainPID --value mesh-broker)
+  if [ -z "$SVC_PID" ] || [ "$SVC_PID" = "0" ]; then
+    echo "FATAL: the service has no MainPID"; systemctl status mesh-broker --no-pager -l | tail -25; exit 1
+  fi
+  echo "   the code the SERVICE runs: $(tr '\0' ' ' < "/proc/$SVC_PID/cmdline")"
+  # /proc/<pid>/cmdline is NUL-separated. The first version of this line did `tr -d '\0'`, which
+  # DELETES the separators and glues the argv together - so the path it then tried to hash was
+  # "/usr/bin/node/home/zabz/..." and the hash printed as an empty string. A line that promises a
+  # sha256 and prints nothing is worse than no line: it is the "green while proving nothing"
+  # pattern 76-broker.md §6.4 records, in a line whose whole job is provenance.
+  SVC_SCRIPT=$(tr '\0' '\n' < "/proc/$SVC_PID/cmdline" | grep -m1 'mesh-broker\.mjs$')
+  SVC_SHA=$(sha256sum "$(dirname "$SVC_SCRIPT")/../lib/scoring.js" 2>/dev/null | cut -d' ' -f1)
+  echo "   sha256 lib/scoring.js the SERVICE runs : ${SVC_SHA:-COULD NOT HASH $SVC_SCRIPT}"
+  echo "   sha256 lib/scoring.js THIS SCRIPT tested: $(sha256sum "$PKG_ROOT/lib/scoring.js" | cut -d' ' -f1)"
+  echo "   (if those two differ, the verbs below are answered by a DIFFERENT build than the tests above)"
+  echo "   journal, last 8 lines:"; journalctl -u mesh-broker -n 8 --no-pager | sed 's/^/   /'
+  echo
+elif [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
   OLD_PID="$(cat "$PIDFILE")"
   echo "== stopping the previous broker on pid $OLD_PID =="
   kill "$OLD_PID" 2>/dev/null
@@ -56,20 +88,22 @@ if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
   echo "   pid $OLD_PID is gone after $((WAITED / 5)) s"
 fi
 
-echo "== starting the broker on 127.0.0.1:$PORT =="
-nohup node bin/mesh-broker.mjs --port "$PORT" > "$LOG" 2>&1 &
-NEW_PID=$!
-echo $NEW_PID > "$PIDFILE"
-sleep 1.5
-if ! kill -0 "$NEW_PID" 2>/dev/null; then
-  echo "FATAL: the new broker (pid $NEW_PID) is not running - the port may still be held, or the roster refused to load."
-  echo "---- its log: ----"
+if ! systemctl cat mesh-broker >/dev/null 2>&1; then
+  echo "== starting the broker on 127.0.0.1:$PORT =="
+  nohup node bin/mesh-broker.mjs --port "$PORT" > "$LOG" 2>&1 &
+  NEW_PID=$!
+  echo $NEW_PID > "$PIDFILE"
+  sleep 1.5
+  if ! kill -0 "$NEW_PID" 2>/dev/null; then
+    echo "FATAL: the new broker (pid $NEW_PID) is not running - the port may still be held, or the roster refused to load."
+    echo "---- its log: ----"
+    cat "$LOG"
+    exit 1
+  fi
+  echo "pid $NEW_PID, log $LOG"
   cat "$LOG"
-  exit 1
+  echo
 fi
-echo "pid $NEW_PID, log $LOG"
-cat "$LOG"
-echo
 
 echo "== GET /healthz =="
 curl -s --max-time 10 "http://127.0.0.1:$PORT/healthz"
@@ -86,4 +120,8 @@ echo "== POST /place : a malformed body must still place =="
 curl -s --max-time 20 -X POST -H 'content-type: application/json' -d 'not json' \
   "http://127.0.0.1:$PORT/place"
 echo
-echo "== leaving the broker running; stop it with: kill \$(cat $PIDFILE) =="
+if systemctl cat mesh-broker >/dev/null 2>&1; then
+  echo "== the broker stays up under systemd; stop it with: sudo systemctl stop mesh-broker =="
+else
+  echo "== leaving the broker running; stop it with: kill \$(cat $PIDFILE) =="
+fi
