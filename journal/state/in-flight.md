@@ -1,6 +1,6 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203). Previous: 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
+Updated: 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — merge `3568d39`, `docs/mesh/107`). Previous: 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203); 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
 
 Rewritten, not appended. Earlier sessions still live in this file: **ZABZ-TECH credential session, 2026-09-15 20:05Z**
 (AWS key killed D164, Twilio token rotated D165, H275 - its open work is at the END of this file, do not overwrite it) and
@@ -8,26 +8,59 @@ the comms session (ZABZ-YOGA, 14:05Z).
 *(Corrections: H208 cites "D142" for the digest decision — it is **D146**. H389 addenda 3/4 said the API fix was holding —
 **H390 supersedes that**; it was not a fix.)*
 
-## New since 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203 and `journal/reference/id-collision-20260917.md`)
+## New since 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — `docs/mesh/107-journal-convergence.md`)
 
-A. **The journal collides with `origin/master` on ten ids, and the sync keeper is correctly refusing.** This laptop's
-   worktree holds a *different entry* under `D254, H464, H465, H466, L1906, L1907, L1908, L1909, P242, P244` than
-   `origin/master` does; eight more (`D252, D253, H467, H468, L1910, L1911, L1912, P246`) collide with the other
-   machine's unpushed work. `journal.py check` reports **0 errors** and cannot see any of it; `idguard.py` reports 9 of
-   the 10 (its local side is the generated cache, and the other machine committed `D254/H474/L1914/P247` **without
-   regenerating `journal/index/entries.tsv`**). Nine of the colliding entries exist in **no commit anywhere** — do not
-   run `checkout`/`clean`/`pull` in this repo until the map in `journal/reference/id-collision-20260917.md` is applied.
-   WHICH SIDE MOVES IS DECIDED BY WHO PUSHES SECOND, and that reference document says why a one-sided renumber cannot
-   converge.
-B. **`zabz-tech`'s live engine (pid 24556, started 09:32:02) is still pre-placement** and needs one restart in an honest
+A. **CLOSED — the journal collision, on this machine, and pushed.** The 18 contested ids were re-derived from source
+   and resolved on `origin/master` at **`3568d39`**: origin keeps its entry at every contested id, this machine's
+   conflicting entry moved to a fresh id allocated by `journal.py append --body-file`. The map —
+   `D252→D256, D253→D257, D254→D258, H464→H480, H465→H481, H466→H482, H467→H483, H468→H484, L1906→L1920,
+   L1907→L1921, L1908→L1922, L1909→L1923, L1910→L1924, L1911→L1925, L1912→L1926, P242→P249, P244→P250,
+   P246→P251` — is a file: `journal/reference/id-collision-20260917-renumber.tsv`. The 8 vacated old-id paths are
+   **moved, not deleted**, to `journal/archive/collided-ids-2026-09-17/`. Gates: `check` **0 errors**,
+   `verify` **FAIL=0 WARN=0**, no-loss **1728 = |L ∪ O| = 1728, delta 0**, selftest 239/240 (the one failure
+   reproduced on the unpatched tool). **The 23 entry files that existed in NO commit anywhere are now committed
+   (`622876e`) and pushed**, so `checkout`/`clean`/`pull` can no longer destroy them. Two corrections to the record
+   this replaces: it was **23** uncommitted entry files, not nine; and a one-sided renumber *does* converge when the
+   mover merges origin first and renumbers above the merged high-water mark **including the other machine's recorded
+   unpushed ids** — which is what happened here, and the laptop pushed first.
+
+B. **STILL OPEN — the defect that generates the next collision. Both machines now mint from the same refs.** After
+   `3568d39` the next free id is **`D259, H485, L1927, P252, W204` on BOTH machines** (measured, and the frozen v1
+   reader agrees: `v1 next-id lessons -> L1927`). The next pair of concurrent writes recreates exactly this defect,
+   and none of `check` / `idguard` / `repair-ids` can see it. **Obligation: `zabz-tech` must merge `origin/master`
+   before its next journal write** — `append` fetches by default, so it will then mint above `L1926` instead of at
+   `L1927`. That is a timing promise, not a mechanism. The real fix is still the **reserved band per machine, or a
+   host suffix on the id**, that `D191`/`D198` asked for and that does not exist. Highest-value follow-up here.
+
+C. **This machine's working tree is `0 ahead / 11 behind` and cannot fast-forward.** `git merge --ff-only
+   origin/master` refuses **atomically** (HEAD and the other file unchanged) on `scripts/lpt-hub-refresh.sh` —
+   another stream's staged, uncommitted work, three different blobs: worktree+index `f458cef…`, `HEAD dc4287e…`,
+   `origin 679e27a…` — and on `journal/state/absorb-stamp.json` (generated, touched by the journal tools as other
+   streams write). **Nothing is at risk while it waits**: `622876e` and `3568d39` are both on `origin`. One
+   `git merge --ff-only origin/master` completes it once that stream commits its file.
+
+D. **`P243` was restored, deliberately.** It existed at `HEAD` and on `origin/master`, had been deleted in this
+   working tree with **no status event, no reference from any entry and no commit** explaining it, and the merge would
+   have honoured that deletion **silently** (delete-local + unchanged-upstream). Origin's copy is back. The deletion
+   is still visible in Git history, so a stream that meant it can repeat it in one command — dropping a unique entry
+   is the more expensive error.
+
+E. **`zabz-tech`'s live engine (pid 24556, started 09:32:02) is still pre-placement** and needs one restart in an honest
    idle window to consult the broker (D247, doc 106 §5). It was NOT restarted by this session, and it should now
    succeed: the junction is repaired, the provider resolves at `0.2.0` from both reader classes, and `desktop-ts` from
    its own Interactive logon class returns exit 0 in 402 ms. The same machine's `ssh` from *inside* an ssh session hangs
    for every destination (measured) — probe it as an Interactive one-shot task, never over ssh.
-C. **Two tool defects, measured, not fixed:** `repair-ids --apply` renumbers a duplicate-id tree but leaves the
-   offending file behind, so the tree still fails `check` (reproduced on a synthetic tree); and `idguard`'s verdict
-   depends on a generated cache that a committing writer must remember to rebuild. The reconcile verb `D191` asked for
-   is still unbuilt.
+
+F. **Tool defects, and exactly which are fixed.** `repair-ids --apply` wrote the renumbered copy and **left the
+   offending file behind**, so the tree still failed `check` after the "repair" (reproduced on a synthetic tree,
+   `journal.py:3711` pre-fix) — **FIXED and proved** in `3568d39`: it now moves the replaced file to
+   `archive/collided-ids-<date>/<kind>/` and records host/sha/source on the alias row, the way `dedupe` always has
+   (`2 errors → 0 errors`). **Characterised, not fixed:** `check` cannot see a cross-tree collision at all
+   (single-tree by contract — it would take `git hash-object --stdin-paths` locally plus `git ls-tree -r origin/master`
+   upstream, and the right home is **`idguard`**, not `check`, which is on the read path); `idguard` reads the
+   generated `journal/index/entries.tsv` and **undercounts** (9 when the answer was 10 — `zabz-tech` committed
+   `D254/H474/L1914/P247` without rebuilding it); and `note_git_ceiling()` is **dead code**, so
+   `allocation_ceiling`'s `git_ceiling` field is `{}` on every machine.
 
 ## Open right now
 
