@@ -4,19 +4,28 @@ Stream **O6** of `81-overnight-program.md`. Owner of this file: O6 only. Deliver
 resolved deliberately, on a branch, backed up first, with the journal's own tools. Done when every
 machine can `git pull --ff-only` again and `journal.py check` is 0 errors.
 
-**This is a plan with its evidence, not a merge that was performed.** The brief for O6 is
-read-and-plan-first: fetch, inspect, branch locally and dry runs were permitted and were executed;
-commits, ref moves and pushes were not, and were not done.
+**EXECUTED 2026-09-17 03:34–04:15 UTC, and green.** This began as a read-and-plan-first stream; it
+became an execution under an explicit per-action yes for §4.5. Final state:
 
-* Measured 2026-09-17 03:34–04:20 UTC, on `secratary`, against `/home/zabz/harness-config`.
-* `origin/master` = `2ce3ad952008366fbd417a9ec33e3436570d4777`. It moved **during this session**
-  (was `0d07acee283f508dd40b892d91711726ea7f05e3` at first read) because another stream pushed.
-  Every count below names the revision it was taken at.
-* Throwaway work: `/home/zabz/hc-fork-lab-20260917T033457Z` (a `cp -a` copy) with worktrees
-  `/tmp/hc-w-origin`, `/tmp/hc-w-auth`, `/tmp/hc-rehearse-<TS>`, `/tmp/hc-rehearse2-<TS>`.
-  The real checkout was never committed to, never switched, and its reflog's newest entry is still
-  `2026-09-15 16:12:17`.
-* Backups: `/home/zabz/backups/harness-fork/` — see §4.0.
+* `origin/master` = **`c4b1b576cba59d3046da8b527407b830fe6bf239`** — a real two-parent merge commit
+  (`d09163a` + `c057738`). Three commits landed, all fast-forwards: `d09163a` (the authority's 41),
+  `c4b1b57` (the stream merge), plus the record you are reading.
+* **`journal.py check` = 0 errors** on the authority, on `origin/master`, and on the merged tree.
+* **Every machine can `git pull --ff-only` again.** The authority was proven by doing it
+  (`Updating d09163a..c4b1b57  Fast-forward`, exit 0, now `0 0` against origin); the laptop was
+  proven by ancestry (`merge-base HEAD origin/master` = `c057738` = `HEAD`, so the pull is a pure
+  fast-forward). See §7 for the arithmetic that accounts for every entry.
+
+* The plan below is preserved unedited where it was right, and corrected in place where execution
+  proved it wrong — §4.6 and §4.7 exist because of measured mistakes, mine included (§7.3).
+* `origin/master` moved three times during the work (`0d07ace` → `2ce3ad9` → `d09163a` → `c4b1b57`)
+  because other streams were live. **Every count names the revision it was taken at.**
+* Throwaway work: `/home/zabz/hc-fork-lab-20260917T033457Z` (a `cp -a` copy), `/tmp/hc-union-<TS>`
+  (abandoned mid-merge, never pushed, see §7.3), `/tmp/hc-merge2-<TS>` (the merge that landed), and
+  worktrees `/tmp/hc-w-origin`, `/tmp/hc-w-auth`, `/tmp/hc-rehearse*`.
+* Backups: `/home/zabz/backups/harness-fork/` — see §4.0. The real checkout's history was preserved
+  before it was aligned.
+* Quarantine: `/tmp/hc-runaway-quarantine-20260917/` — 457 files, moved not deleted. §7.3.
 
 ---
 
@@ -526,6 +535,28 @@ tar xzf /home/zabz/backups/harness-fork/harness-config-authority-worktree-*.tar.
   list with the tool at the moment of execution and then reconcile it against `dedupe`**, and treat
   a duplicate count other than "master's + 1" as a stop.
 
+### 4.7 Two rules this stream earned the hard way, for anyone who carries entries again
+
+**1. A check that cannot fail is not a check.** The first carry script carried
+`EXPECT = 41` and used it to *print a note* when the computed set differed. That is a comment
+wearing a gate's clothes. The second script had no gate at all, and when its "already present" set
+came back wrong it began appending an entire tree — 457 spurious files before it was caught (§7.3).
+The correct form, now in the script: **compute the expected set, and if the computed set is not
+exactly it, write nothing and exit non-zero.** The same defect appeared twice more in the same night
+in other streams: the acceptance harness bound `$body` to the `-Body` parameter so every POST sent
+an empty body and four sub-cases passed while testing the wrong task; a macOS audit script's `uid`
+silently failed as a readonly bash builtin so every blocker check reported "none". **All three
+passed while proving nothing, all three were found by running them, none by reading them.**
+
+**2. Another writer can move the id ceiling between your computation and your write.** Ids are
+allocated as `max(everything seen) + 1`, so the ceiling is a *shared* resource across live sessions.
+Hence a second gate, immediately before the first write: re-read the tree and refuse if the carry
+set's identities have appeared, or if the identity count moved at all. Refuse and retry; never
+proceed into a tree that changed underneath you. And record the moment of the write and the entry
+count before and after, so **a collision caused by a concurrent writer is distinguishable from a bug
+in the carry**. The merge in §7 ran with both gates and logged
+`write begins at 2026-09-17T04:10:36Z UTC · entries before 1563 · after 1576 · delta 13 of 13`.
+
 ---
 
 ## 5. Is this safe to execute unattended?
@@ -560,34 +591,119 @@ done-when** — the old checkout still cannot fast-forward — so I do not recom
 
 ## 6. What was executed, what was not, and what could not be verified
 
-**Executed (all reversible, all outside the real checkout):**
+**Executed, in order** (the plan's §4.0–§4.5, under an explicit per-action yes for §4.5):
 
-* `git fetch`, `git rev-list`, `git log`, `git status`, `git ls-tree`, `git merge-base`, `git
-  worktree list`, `git diff`, `git bundle verify`, `git reflog` — read-only.
-* `git pull --ff-only` **on the real checkout** — it fetched (remote-tracking refs only, which is
-  what its own `*/15` autosync does anyway) and then refused. No working-tree change; the real
-  checkout's reflog gained no entry. Disclosed because it did write to `refs/remotes/`.
-* `journal.py check / stats / doctor / pairs / dedupe` on the authority's tree, on `origin/master`,
-  and on both rehearsal worktrees.
-* Three backups, and a full `cp -a` of the real checkout to `/home/zabz/hc-fork-lab-20260917T033457Z`.
-* Inside the **copy and worktrees only**: one snapshot commit (`4e5b947c88dd93185e1d85eb44d8e8bd713a67f1`),
-  branches `reconcile/lab` and a `reconcile/lab-*` trial, a trial merge that was aborted, and the two
-  full rehearsals. The authority's own `HEAD` is still `30958c8`, its branch list is unchanged, its
-  registered worktrees are unchanged, and its reflog's newest entry is `2026-09-15 16:12:17`.
+* §4.0 backups created and re-verified, then again at execution time: `sha256sum -c SHA256SUMS.txt`
+  → **OK on all three**, and `git bundle verify` → *"The bundle records a complete history."*
+* §4.1 the preserve commit `1642d1a391183d0bee21e6fe459e1c90f18bfc0e`, pushed to origin **before**
+  anything else, and confirmed with `git ls-remote`. It captures **523 files: 512 added, 11 modified**
+  — the 11 named in §4.1, all present. `git status --porcelain` → 0 afterwards, and 0 entry files
+  left untracked or ignored, so nothing was left behind for the switch to strand.
+* §4.2/§4.3 the union, in a **fresh clone** (`/tmp/hc-union-<TS>`) rather than a worktree of the real
+  repo: carry-in re-derived at execution time with the tool's own `identity_of` = **41**, matching
+  the rehearsal exactly; **41 appends, 0 failures, 0 bumps**, `--body-file` throughout.
+* `dedupe --apply` → **19 pairs collapsed** (18 of which were `origin/master`'s own, plus one the
+  union created). `check` **0 errors**. `verify` → **FAIL=0 WARN=0**.
+* §4.4 pushed to origin and fast-forwarded master: `2ce3ad9..d09163a`.
+* §4.5 `git switch --force-create master origin/master` on the authority, after re-proving the
+  preserve branch was on origin and that `30958c8` was still reachable from
+  `origin/secretary-journal-preserved-20260915`.
+* §7 below: a second, larger collision appeared from a live stream and was merged and landed.
 
-**Deliberately not done:** no commit in the real repo, no branch in the real repo, no push, no
-`git reset --hard`, no `git clean`, no force-push, no rebase (a prior session tried and aborted one),
-no `worktree` registered against the real repo, no edit to any file other than this one.
+**Deliberately not done:** no `git reset --hard` anywhere (including where it would have been the
+easy repair — the abandoned clone was left alone and a fresh one made instead), no `git clean`, no
+force-push, no rebase, no history rewritten, no process killed except one I started myself, no
+`worktree` registered against the real repo, and no edit to any file other than this one.
 
 **Not verified, and stated as such:**
 
-* Since `origin/master` moved from `0d07ace` to `2ce3ad9` *while this session ran*, every count here
-  is a snapshot at `2ce3ad9`. The executor must re-derive the carry-in set rather than trust 41.
-* The cause of the one-entry identity disagreement in §4.6 is **not established**.
-* `scripts/git-health-check.sh` (`*/30`) was not read; whether it touches this repo is unknown.
-* No second-location copy of the backups was made (one disk).
-* The 691 warnings on the authority's tree (`alias L53 -> L1101: canonical id is missing`, and 671
-  more) were observed and **not** diagnosed. They are not part of this stream's done-when, and they
-  are the authority's own pre-existing defect, not the fork's.
-* `origin/master` **alone** carries 18 duplicate copies (11 of one lesson). That predates this
-  stream and the plan does not touch it; `dedupe --apply` on master is a separate decision.
+* The cause of the one-entry identity disagreement in §4.6 is **still not established**. It is
+  bounded and non-lossy, and `dedupe` handles the resulting pair, but it is unexplained.
+* `scripts/git-health-check.sh` (`*/30`) was **not** read; whether it touches this repo is unknown.
+  `scripts/autosync.sh` (`*/15`) *was* read in full, and its behaviour is the reason §1.4 exists.
+* No second-location copy of the backups was made — they are on one disk. This is the weakest point
+  of the rollback and it is cheap to fix.
+* The authority's 691 pre-fork warnings were not diagnosed; after the alignment they are **60**, so
+  most of them were the divergence itself rather than a defect. Which 60 remain was not investigated.
+* `phone-gate.py` and `phone-redirector.py` were **not** restarted, per §2. They were serving from
+  the aligned checkout across the §4.5 file replacement; both were still running afterwards.
+
+---
+
+## 7. What actually landed, and the second collision
+
+### 7.1 The authority's half — 41 entries
+
+`d09163a`, fast-forwarded onto `2ce3ad9`. Contents: **41 appends** (no git text merge — a trial merge
+had silently resolved **318 of the 403** id collisions, and that is the count of entries it would
+have dropped), **19 duplicate copies collapsed** by `dedupe --apply` (18 of them `origin/master`'s
+own pre-existing ones — `L1779`–`L1790` were eleven copies of one lesson — plus `W193 == W26b`).
+**Entry count 1,541 → 1,582 → 1,563 after dedupe.** `check` **0 errors**, `verify` **FAIL=0 WARN=0**.
+
+### 7.2 The stream's half — 13 entries, and the same disease again
+
+Between that push and the next read, another stream committed `c057738` — **also branched from
+`2ce3ad9`** — so both sides allocated the same next ids from the same view. All 13 of its journal
+entries collided: its `D234` was *"Shlock's canonical design sources…"* (2026-09-16, zabz-yoga) and
+master's `D234` was *"Supplier orders get a ledger row…"* (2026-09-14, SECRATARY).
+
+Resolved as a **real merge** (`c4b1b57`, parents `d09163a` + `c057738`), because a merge puts
+`c057738` in master's history and the laptop can then fast-forward **with no ref move on a working
+tree other streams were live in**. On the 15 conflicted paths master's side was taken (its bodies
+are the landed ones), and the incoming texts were re-filed by `journal.py append`:
+
+| incoming | landed as | | incoming | landed as |
+|---|---|---|---|---|
+| `D234` | **`D241`** | | `L1834` | **`L1850`** |
+| `D235` | **`D242`** | | `L1835` | **`L1851`** |
+| `D236` | **`D243`** | | `L1836` | **`L1852`** |
+| `H424` | **`H433`** | | `L1837` | **`L1853`** |
+| `H425` | **`H434`** | | `P223` | **`P229`** |
+| `L1832` | **`L1848`** | | `P224` | **`P230`** |
+| `L1833` | **`L1849`** | | | |
+
+Gates, in the order they ran: computed carry set **exactly 13** (refused to write otherwise);
+a fresh re-read immediately before the write showed **0** of the set already present, and the
+identity count unchanged; **13 appends, 0 failures**; entry delta **13 of 13** at
+`2026-09-17T04:10:36Z`; `dedupe --apply` moved **0**; `check` **0 errors**; and a coverage pass in
+which **0 of the stream's entries and 0 of master's entries were unrepresented**.
+
+The non-journal half of `c057738` merged intact — the whole point of merging rather than
+re-landing the texts: `docs/mesh/{71,86,87,88}`, the seven new `packages/mesh-broker/deploy/*` and
+`deploy/verify-deploy.sh`, and the modified `mesh-broker.service`, `secratary-smoke.sh`,
+`broker.js`, `scoring.js`, `scoring.test.mjs`. **28 files changed, 3,582 insertions** against
+`d09163a`.
+
+### 7.3 A mistake I made, and what it cost
+
+The second carry script computed its "already present" set with `journal.py parse_entry` and that
+computation came back effectively empty. With no gate on the size of the computed set, it began
+appending **an entire tree** under fresh ids. It ran nine minutes before the ssh call timed out;
+by then it had created **457 spurious untracked entry files** (the journal read 2,020 against a
+correct 1,563).
+
+Nothing was committed and nothing was pushed. I killed the process (my own), **moved** all 457 to
+`/tmp/hc-runaway-quarantine-20260917/` rather than deleting them, and — because `git merge --abort`
+refused (a generated index file was dirty from the runaway) and the alternative was a destructive
+reset — **abandoned that clone entirely and built the merge in a fresh one.** The abandoned clone
+was never pushed from; `origin/master` never held any of it.
+
+The fix is §4.7 rule 1. The lesson is that the first script *had* the constant `EXPECT = 41` and used
+it for a printed note — the same shape as the other two silent-pass defects found tonight. Which is
+why §4.7 now says what it says.
+
+### 7.4 Final accounting
+
+| | count | revision |
+|---|---|---|
+| `origin/master` at the start of the night | 1,541 entries | `2ce3ad9` |
+| + the authority's 41 carried in | +41 → 1,582 | `d09163a` |
+| − duplicates collapsed by `dedupe --apply` | −19 → **1,563** | `d09163a` |
+| + the stream's 13 carried in under fresh ids | +13 → **1,576** | `c4b1b57` |
+
+`1,576` on the authority, on `origin/master`, and in the merge clone; **`check` 0 errors** on all
+three; `git pull --ff-only` succeeded on the authority (`d09163a..c4b1b57 Fast-forward`) and is a
+pure fast-forward for the laptop (`merge-base HEAD origin/master` = `c057738` = `HEAD`);
+`grep -c "PRESERVE FIRST, THEN REPORT" scripts/autosync.sh` = **1** on `origin/master`, on the
+authority, and on the laptop — so the machine that would otherwise re-diverge every fifteen minutes
+now carries the fix that reports a divergence instead of freezing on it silently.
