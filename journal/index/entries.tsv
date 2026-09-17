@@ -370,6 +370,7 @@ handoff	H461	461		2026-09-17 14:47 UTC	ZABZ-YOGA	open	## 2026-09-17 14:47 UTC ·
 handoff	H463	463		2026-09-17 14:51 UTC	ZABZ-YOGA	open	## 2026-09-17 14:51 UTC · ZABZ-YOGA · mesh-http v0.2.0 committed and pushed, zabz-tech synced to the tip, the row committed -- broker placement is still uncommitted	entries/handoff/H463.md	1	41	fc381e11d1b59d8e
 handoff	H464	464		2026-09-17 15:14 UTC	zabz-tech	open	## 2026-09-17 15:14 UTC · zabz-tech · Weitman laptop case recovered to origin/main; the \.57 answer was found and never sent	entries/handoff/H464.md	1	39	21ccb15dfaf4eb2f
 handoff	H465	465		2026-09-17 15:21 UTC	ZABZ-YOGA	open	## 2026-09-17 15:21 UTC · ZABZ-YOGA · lpt-hub lineages unified + pushed; Fishman case current; the production-order linker is attaching housekeeping tasks to customer cases	entries/handoff/H465.md	1	30	a3cf63bb494dd780
+handoff	H466	466		2026-09-17 15:27 UTC	zabz-tech	open	## 2026-09-17 15:27 UTC · zabz-tech · Customer-data plane: the authority corpus was 46h wedged and is fixed; the edit path does not exist	entries/handoff/H466.md	1	100	31b33e1b441dd658
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1098,6 +1099,8 @@ lessons	L1904	1904		2026-09-17	ZABZ-YOGA	open	**L1904 · on zabz-tech an ssh-spa
 lessons	L1905	1905		2026-09-17	ZABZ-YOGA	open	**L1905 · a hand-edit to a profile layer is reverted by the sync keeper within minutes; the durable form is a commit**	entries/lessons/L1905.md	1	24	087bf886789b5c3a
 lessons	L1906	1906		2026-09-17	zabz-tech	open	**L1906 · dialpad_sms_cache.created_at is the sync time; and never infer silence from the absence of SMS**	entries/lessons/L1906.md	1	10	c96db03d3187ad5f
 lessons	L1907	1907		2026-09-17	ZABZ-YOGA	open	**L1907 · A mesh-synced repo can DIVERGE, not just lag - prove it by hash before pulling**	entries/lessons/L1907.md	1	25	6b62de8abd596c7a
+lessons	L1908	1908		2026-09-17	zabz-tech	open	**L1908 · A refresh job that fast-forwards to a stale ref reports health while the corpus goes stale**	entries/lessons/L1908.md	1	78	9183261bfbb0982b
+lessons	L1909	1909		2026-09-17	zabz-tech	open	**L1909 · Two real customers are silently dropped by the sync-record reader: a snake_case record_type and a string device**	entries/lessons/L1909.md	1	85	e69b2b5fe4ab528b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1303,6 +1306,8 @@ pain	P240	240		2026-09-17	ZABZ-YOGA	open	## P240 — The spend guard's ceiling i
 pain	P241	241		2026-09-17	ZABZ-YOGA	open	## P241 — broker-driven placement exists in no commit, so every node still falls back to a named target -- and on zabz-tech that target is itself	entries/pain/P241.md	1	22	4c5f6b8b53435e05
 pain	P242	242		2026-09-17	zabz-tech	open	## P242 — lpt-hub on ZABZ-TECH is a diverged branch, so case work written there is invisible to the fleet	entries/pain/P242.md	1	28	b90136b5221ebd03
 pain	P243	243		2026-09-17	ZABZ-YOGA	open	## P243 — The production-order linker attaches housekeeping tasks to customer cases	entries/pain/P243.md	1	22	e099d95f1620a3c4
+pain	P244	244		2026-09-17	ZABZ-YOGA	open	## P244 — An inbound customer enquiry can sit unanswered for a day while every scan reports success	entries/pain/P244.md	1	31	05dc9f8b9332a62f
+pain	P245	245		2026-09-17	ZABZ-YOGA	open	## P245 — A deposit smaller than the lab's own non-refundable charge turns every failed job into a loss - the per-job margin rule does not catch it	entries/pain/P245.md	1	21	ca37d1e116e70eed
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
