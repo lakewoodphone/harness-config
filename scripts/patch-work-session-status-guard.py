@@ -181,7 +181,15 @@ def main() -> int:
     print("wrote tests/test_work_session_status.py")
 
     # ── repair the 39 rows, after exporting them ──────────────────────────
-    con = sqlite3.connect("data/secretary.db")
+    # ABSOLUTE and defaults to the AUTHORITY. This is a WRITE connection and it used to be
+    # CWD-relative ("data/secretary.db"), which resolved to a decoy database that really
+    # existed at /home/zabz/data/secretary.db -- so a wrong-working-directory run could have
+    # written into the decoy and reported success. See classify-session-actions.py.
+    con = sqlite3.connect(
+        os.environ.get(
+            "SECRETARY_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db"
+        )
+    )
     con.row_factory = sqlite3.Row
     rows = [
         dict(r)

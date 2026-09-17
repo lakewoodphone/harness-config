@@ -3708,9 +3708,28 @@ def cmd_repair_ids(args) -> int:
             full["id_full"] = new_id
             full["heading"] = re.sub(r"\b" + re.escape(id_full) + r"\b", new_id, full["heading"], count=1)
             full["sha"] = entry_hash(full["heading"], full["body"])
+            # The renumbered copy is written FIRST, then the file it replaces is MOVED OUT of
+            # entries/ -- never deleted. Without this move the invariant this command is named
+            # for does not hold: the renumbered copy is written and the offending file stays
+            # behind, so `check` reports the SAME duplicate id afterwards as before.
+            # MEASURED 2026-09-17 on a synthetic tree: `L1999 (entries/lessons/L1999b.md) -> L2000`
+            # left L1999.md and L1999b.md both declaring marker L1999 and `check` still exited 1.
+            # `cmd_dedupe` has always done this move (see the shutil.move below it); this command
+            # did not. The destination matches the 2026-09-15 repair of the same defect, which
+            # archived D185/D186/H322-H328/L1637-L1639/W149/W150 under
+            # `archive/collided-ids-2026-09-15/<kind>/`.
+            archive = JOURNAL / ARCHIVE_NAME / ("collided-ids-" + today())
+            dest = archive / kind / (id_full + ".md")
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            n = 1
+            while dest.exists():
+                n += 1
+                dest = archive / kind / ("%s-%d.md" % (id_full, n))
             atomic_write(entries_dir() / kind / (new_id + ".md"), entry_bytes(full))
+            shutil.move(str(_path_of(dup["file"])), str(dest))
             record_alias(id_full, kind, new_id,
-                         "id collided with different content; %s keeps %s" % (keep["id_full"], id_full))
+                         "id collided with different content; %s keeps %s" % (keep["id_full"], id_full),
+                         host=dup.get("host"), sha=dup.get("hash"), source=_rel_of(dest))
             changed += 1
     if args.apply and changed:
         rebuild_cache()

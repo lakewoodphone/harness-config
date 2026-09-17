@@ -1,12 +1,12 @@
 # OPEN PAIN — what still hurts, ranked
 
-Updated: 2026-09-15
+Updated: 2026-09-17
 
 **Generated** from `entries/pain/` by `tools/journal.py state`. Do not edit by hand: an entry
 stops being open by being corrected, not by being deleted here. A problem that is done carries
 `status=done` in its marker or in a row of `state/status.tsv`, and drops out of this list.
 
-Provenance: 123 open of 159 pain entries, read from index/entries.tsv, written 2026-09-15 22:46 UTC on ZABZ-YOGA.
+Provenance: 175 open of 212 pain entries, read from index/entries.tsv, written 2026-09-17 16:41 UTC on ZABZ-YOGA.
 
 | # | Symptom | Cost | Fix |
 |---|---|---|---|
@@ -133,3 +133,55 @@ Provenance: 123 open of 159 pain entries, read from index/entries.tsv, written 2
 | P195 | One real finding left on the badge: the harness-config divergence (13 ahead / 104 behind) |  |  |
 | P196 | The shared journal hub is a junk drawer: 42 branches, thirty from one day |  |  |
 | P197 | Entry ids collide across machines when unpushed; the journal repos are 39/10 apart |  |  |
+| P198 | P165 — ps-system.mjs on lakewooechsmini returns 502/500 intermittently |  |  |
+| P199 | P166 — No byte-safe remote file read in the mesh: ps-mesh file corrupts records on round |  |  |
+| P200 | A concurrent session's mojibake rewrite of journal.py produced 1,065 false errors and silently corrupted the one entry appended during that window; the writer should refuse a heading containing U+00C2 |  |  |
+| P201 | GBP is unreadable and unwritable from the fleet: both access paths are dead while a doc claims they work |  |  |
+| P202 | The company's own systems have no idea whether the shop is open, and three of them assert that it is |  |  |
+| P203 | CVE-2026-11822: FTS5 memory corruption in SQLite 3.49.1 (Yoga) and 3.46.1 (secratary); fixed in 3.53.2 |  |  |
+| P204 | journal.py check's verdict depends on unrelated code in its own file |  |  |
+| P205 | C-900: live prod credentials printed into a session transcript by an audit agent |  |  |
+| P206 | No admin on zabz-yoga blocks Defender exclusions and thermal telemetry |  |  |
+| P207 | personal-secretary-mvp repo HEAD is older than the deployed code; a merge from HEAD regresses the security roster |  |  |
+| P208 | list_agents has no deadline and re-scans every session file serially - ranked pain list for the DSH scale program |  |  |
+| P209 | No budget, ceiling or alert of any kind guards DSH spend |  |  |
+| P210 | A new bundle cannot hot-mount, so every plugin costs an engine restart and the live sessions with it |  |  |
+| P211 | secretary-api OOM-killed every 20-60 min at ~20 GB RSS, and the fixes so far only shortened the interval |  |  |
+| P212 | Journal ids collide by construction: max(seen)+1 means two machines writing concurrently pick the same number (measured 10/10) |  |  |
+| P213 | The LPT intake funnel failed silently at five points, and its worst failure mode was a quiet fallback |  |  |
+| P214 | 185.112.144.0/22 (1984 Hosting shared range) is blackholed from the T-Mobile home line |  |  |
+| P215 | Binding a personal policy has no compliance checklist, so a mandatory NJ inspection was never scheduled |  |  |
+| P216 | The live harness-config install and the git checkout drift in both directions, and nothing detects it |  |  |
+| P217 | Customer SMS sent by scripts/send-lpt-sms.py write nothing to sms_log, so they are invisible to dedup and to the send audit |  |  |
+| P218 | Production and laptop checkouts carry unlanded work; it blocks deploys and collides parallel agents |  |  |
+| P219 | The mesh's own processes are the top disk reader, and a purchase rested on the opposite claim |  |  |
+| P220 | One anonymous GET through the tailnet signs into the owner's engine, and every device shares one identity |  |  |
+| P221 | The phone gate keeps being killed, and the only supervisor available is the one-minute watchdog |  |  |
+| P222 | §4.5's kill-the-gate step can only be satisfied by breaking S7's own never-kill-a-foreign-process rule |  |  |
+| P223 | A paid supplier order has no delivery check: $167.96 sat unshipped for 148 days and the task about it was closed done | 167.96 USD of unaccounted spend, and it recovers only because a 180-day PayPal window happens to still be open (expires **2026-10-16**). A second instance would land the same way. This is the same cla | A delivery watchdog over `purchases` (once supplier orders are actually written there): for every order older than its expected ship window with no tracking record, raise a task and age it. Immediate: |
+| P224 | The journal exists in two lineages that differ byte-for-byte on nearly every shared entry, and nothing reports it | Every write to this journal is now local-only until the reconciliation happens, and the divergence is silent: `autosync.sh` reports `converged: true` while the branch is three commits behind (it never | A deliberate reconciliation with the **entry file** as the unit: for each shared id, decide which bytes win (they are the same entry — pick the richer body and record the other as an alias), then let  |
+| P225 | A task is retired by its session's progress mirror, not by its action (#25106 closed 26 minutes after creation) | This is the fourth recorded instance of the same failure and it is not a coincidence: the owner's **question #8** is four broken syncs with seven tasks "marked completed while the failures are unchang |  |
+| P226 | P135, measured: 1,807 task closures came from the progress mirror |  | Still the one named in P135: require evidence of the task's own action before it can close. Do not bulk-reopen the 1,807: some genuinely finished. |
+| P227 | The installation cannot tell a break-in from the owner, and the cameras' own detection never reaches Home Assistant |  |  |
+| P228 | Five generations of light-controller automation, four of them dead |  |  |
+| P229 | /tmp on secratary is 5.9 GB of stale scratch on a 12 GiB tmpfs, and it is not safe to delete in a batch |  |  |
+| P230 | The deployed fleet-api on Hetzner and the repo copy have forked in both directions |  |  |
+| P231 | The mesh acceptance bar cannot decide the client's flatness on a busy laptop: a +-1 GiB criterion against a machine that moves 1.1-2.5 GiB at rest |  |  |
+| P232 | The MDM enrolment profile is served to the internet with no authentication, protected only by an unset env var default |  |  |
+| P233 | One journal id means two different entries across machines - third occurrence, and no per-machine check can see it |  |  |
+| P234 | P229 — waze-mdm fleet state defects measured 2026-09-17 (alert age, DRN 26 flood, false critical, blind registry, dead metrics) |  |  |
+| P235 | P230 — The WAZE MDM renumber trail is nearly unrecoverable: health history keeps only 2 bulk snapshots and commands has no device column |  |  |
+| P236 | A queued remote child looks like a running one to its parent, because the seam has no start()-time progress channel |  |  |
+| P238 | A measurement brief whose turn budget cannot afford the comparison it asks for |  |  |
+| P239 | An installed host-plane row is silently reverted from ~/.dsh every 15 minutes unless it is committed, and nothing says so |  |  |
+| P240 | The spend guard's ceiling is per-engine: two engines on one host share one state file |  |  |
+| P241 | broker-driven placement exists in no commit, so every node still falls back to a named target -- and on zabz-tech that target is itself |  |  |
+| P242 | lpt-hub on ZABZ-TECH is a diverged branch, so case work written there is invisible to the fleet |  |  |
+| P243 | The production-order linker attaches housekeeping tasks to customer cases |  |  |
+| P244 | An inbound customer enquiry can sit unanswered for a day while every scan reports success |  |  |
+| P245 | A deposit smaller than the lab's own non-refundable charge turns every failed job into a loss - the per-job margin rule does not catch it |  |  |
+| P247 | One repair job, two case files and two sync records - only one carrying the idempotency guard, so a push fires a second order; no detector exists |  |  |
+| P248 | The sync idempotency guard exists on 9 of 383 records, so duplicate-order protection is a habit rather than a mechanism |  |  |
+| P249 | A child that runs on zabz-tech-linux and delegates further dies MISSING_CREDENTIAL (open, same class as 102) |  |  |
+| P250 | zabz-tech boots a 0.1.0 provider plugin behind an untraversable junction, and --dump-config cannot see it |  |  |
+| P251 | zabz-tech cannot ssh to itself, so a child placed on the broker's favourite node dies at 255 in 108ms |  |  |

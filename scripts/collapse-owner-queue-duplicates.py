@@ -25,7 +25,12 @@ sys.path.insert(0, ".")
 
 from app.database import _ensure_owner_message_columns, _get_conn  # noqa: E402
 
-DB_URL = "sqlite:///data/secretary.db"
+# ABSOLUTE sqlite URL, defaults to the AUTHORITY -- see classify-session-actions.py. This one
+# WRITES, so a CWD-relative path could have written into the decoy and reported success.
+import os as _os
+DB_URL = "sqlite:///" + _os.environ.get(
+    "SECRETARY_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db"
+)
 
 
 def main() -> int:
