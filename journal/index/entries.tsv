@@ -439,6 +439,7 @@ handoff	H531	531		2026-09-17 22:15 UTC	ZABZ-TECH	open	## 2026-09-17 22:15 UTC ·
 handoff	H532	532		2026-09-17 22:28 UTC	ZABZ-TECH	open	## 2026-09-17 22:28 UTC · ZABZ-TECH · Shlock: measured end to end by the owner - the frame, the footings, the mechanism and the limits are now facts; two fixes and four design packages remain	entries/handoff/H532.md	1	33	cfbffbb3018337c6
 handoff	H533	533		2026-09-17 22:29 UTC	ZABZ-TECH	open	## 2026-09-17 22:29 UTC · ZABZ-TECH · Weinberg-whatsapp-status-link: SET UP END TO END - live demo, QR, two commands to go live. Only her details block it.	entries/handoff/H533.md	1	36	2b0a3cd18a4ce1cf
 handoff	H534	534		2026-09-17 22:35 UTC	ZABZ-TECH	open	## 2026-09-17 22:35 UTC · ZABZ-TECH · PICKUP POINT - Weinberg whatsapp status-link: done and live as a demo; push it and it is hers; blocked only on 3 facts	entries/handoff/H534.md	1	38	0dbfad76a5075c1f
+handoff	H535	535		2026-09-17 22:37 UTC	ZABZ-TECH	open	## 2026-09-17 22:37 UTC · ZABZ-TECH · Shlock: four mechanism packages and a build sheet, all pushed to main - the job is now a shopping list and a five-day sequence with nothing on a lead time	entries/handoff/H535.md	1	29	8549595ad5fd8df2
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1227,6 +1228,8 @@ lessons	L1964	1964		2026-09-17	ZABZ-TECH	open	**L1964 · Publishing a static pag
 lessons	L1965	1965		2026-09-17	ZABZ-TECH	open	**L1965 · A 403 from a plain urllib check is not downtime - it is usually the user-agent being blocked**	entries/lessons/L1965.md	1	14	ca970bfbe0177822
 lessons	L1966	1966		2026-09-17	ZABZ-TECH	open	**L1966 · CORRECTION to L1964: the shop websites are NOT on Netlify - read the x-nf-request-id header, and do not infer a host from a Netlify site listing a custom domain**	entries/lessons/L1966.md	1	26	d8c0c84322a9e1fc
 lessons	L1967	1967		2026-09-17	ZABZ-TECH	open	**L1967 · The harness-config convention for a diverged machine is a branch named diverged-<HOST>-<DATE>, not a merge**	entries/lessons/L1967.md	1	17	60923afa6d98d18f
+lessons	L1968	1968		2026-09-17	ZABZ-TECH	open	**L1968 · Family Link cannot block the Google app on Samsung, because system apps cannot be app-limited - the fix is ADB, and the reason is documented by Google**	entries/lessons/L1968.md	1	37	1b38c93dda087ad1
+lessons	L1969	1969		2026-09-17	ZABZ-TECH	open	**L1969 · Before commissioning research on how to do a thing, check what our own repos already document - and read the SOP rather than its filename**	entries/lessons/L1969.md	1	30	92acf407ed34507b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
