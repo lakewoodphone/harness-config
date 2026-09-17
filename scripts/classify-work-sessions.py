@@ -21,7 +21,10 @@ import re
 import sqlite3
 import sys
 
-DB = "data/secretary.db"
+# ABSOLUTE, defaults to the AUTHORITY -- see classify-session-actions.py. CWD-relative paths
+# here resolved to a decoy database that really existed at /home/zabz/data/secretary.db.
+import os as _os
+DB = _os.environ.get("SECRETARY_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db")
 
 # Marker -> what it means, in the order the loop can emit them.
 MARKERS = [

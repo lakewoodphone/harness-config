@@ -25,7 +25,10 @@ import re
 import sqlite3
 import sys
 
-DB = "data/secretary.db"
+# ABSOLUTE, defaults to the AUTHORITY -- see the note in classify-session-actions.py. A
+# CWD-relative "data/secretary.db" resolved to a decoy database that really existed.
+import os as _os
+DB = _os.environ.get("SECRETARY_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db")
 DAYS = 14
 
 BUSINESS = (

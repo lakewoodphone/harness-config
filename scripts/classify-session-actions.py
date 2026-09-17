@@ -26,7 +26,14 @@ import re
 import sqlite3
 import sys
 
-DB = "data/secretary.db"
+# ABSOLUTE, and it defaults to the AUTHORITY. Measured 2026-09-17: this line used to be the
+# CWD-relative "data/secretary.db", and a decoy database already existed at the path that
+# resolves to when the process runs with cwd=/home/zabz (73,728 B, only vscode_chat_* tables,
+# last written 2026-08-14). Twenty processes run with that cwd. A CWD-relative path is a
+# correctness bug, not a convenience: it silently reads or writes the wrong store and reports
+# success. Override with SECRETARY_DB when a non-authority copy is genuinely intended.
+import os as _os
+DB = _os.environ.get("SECRETARY_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db")
 
 # Actions that only look. Anything not listed here is treated as mutating, because
 # the failure mode is under-reporting work, not over-reporting it.
