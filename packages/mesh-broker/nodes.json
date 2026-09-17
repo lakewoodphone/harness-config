@@ -24,11 +24,11 @@
       "location": "home",
       "baseUrl": "https://zabz-yoga-1.tail93e6e6.ts.net",
       "dispatch": {
-        "v1": false,
+        "v1": true,
         "measuredAt": "2026-09-16",
-        "evidence": "a process launched by this node's sshd cannot traverse ~/.dsh/profiles/node_modules: reading a file THROUGH the link gives UNKNOWN (-4094) and require.resolve gives MODULE_NOT_FOUND, so `dsh --profile headless` dies with 'plugin tree failed to load' (docs/mesh/70-remote-fanout-proof.md §4.4). It dispatches fine; it cannot be dispatched INTO."
+        "evidence": "reparse-point trust fixed by an in-session relink; LAPTOP OK exit 0 in 10.3 s; a full dispatch to this node completed exit 0 (stream S6, 23:44Z)"
       },
-      "note": "the owner's laptop, 16c/22t. The name is `zabz-yoga-1`, not `zabz-yoga`: Self.HostName is zabz-yoga but Self.DNSName - the only name that resolves - is zabz-yoga-1 (measured 2026-09-16 23:31Z, and the ssh alias prefix `zabz-yoga-1-ts` agrees). It is the DISPATCHER today, not a target."
+      "note": "the owner's laptop, 16c/22t. The name is `zabz-yoga-1`, not `zabz-yoga`: Self.HostName is zabz-yoga but Self.DNSName - the only name that resolves - is zabz-yoga-1 (measured 2026-09-16 23:31Z, and the ssh alias prefix `zabz-yoga-1-ts` agrees). Its v1 dispatch was MEASURED BROKEN from 23:27Z until stream S6 relinked its profile junctions in-session at 23:44Z (413 links, 22 s, 0 failed; engine pid 1784 never restarted); it is a dispatch target again, and a dispatcher as well."
     },
     {
       "node": "zabz-tech-linux",

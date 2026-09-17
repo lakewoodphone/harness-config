@@ -12,8 +12,10 @@
  * mesh, so a fleet bigger than every node still places, queued rather than refused.
  * A node with `freeGiB < 20 + worktreeGiB + 0.5 * children` is ineligible for `kind=fleet`.
  *
- * TWO AMENDMENTS ON TOP OF THE MEMORY TERM (owner-approved 2026-09-17, recorded in
- * docs/mesh/76-broker.md §10.1 and §10.2 with their measurements):
+ * THE AMENDMENTS ON TOP OF THE MEMORY TERM. "AMENDMENT n" in this tree means the owner-approved
+ * amendment `n` of `docs/mesh/76-broker.md` §10, and all five are written into the frozen
+ * contract `docs/mesh/71-mesh-program.md` §2.2 - the docs and this code are the same thing said
+ * twice, so a change here that is not there (or the reverse) is drift, and drift is a bug.
  *
  *  1. THE SLOT MODEL IS NOT PURELY MEMORY. `floor((freeMiB - 3885) / 160)` says how many
  *     heavy tool calls fit in the free memory; it says nothing about whether the CPU can
@@ -23,7 +25,7 @@
  *     within one. So `effective = min(memorySlots, floor(physical * 0.75))`, with a quarter
  *     of the cores left for the OS and the human. Without it the old model rated `secratary`
  *     (4 cores) at 24 slots - a 6x overstatement - and would have rated a 2-vCPU rental the
- *     same, which is a wrong thing to buy elastic capacity on.
+ *     same, which is a wrong thing to buy elastic capacity on. (§10.3)
  *  2. A SWAPPING NODE CANNOT ABSORB A SPIKE. If `mem.swapUsedPct >= 90` the node's free
  *     memory is memory it must fault back in, so its slots are halved for RANKING. It is a
  *     ranking penalty, never a gate: a node that is merely unattractive is still placeable

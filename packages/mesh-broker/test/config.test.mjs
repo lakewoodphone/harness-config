@@ -80,8 +80,8 @@ test('the per-node v1 transport capability keeps "measured broken" and "unmeasur
   const config = loadConfig(fileURLToPath(new URL('../nodes.json', import.meta.url)));
   const byName = Object.fromEntries(config.nodes.map((entry) => [entry.node, entry]));
   assert.equal(byName['zabz-tech'].dispatch.v1, true, 'measured working: S6 ran children there');
-  assert.equal(byName['zabz-yoga-1'].dispatch.v1, false, 'measured broken: its sshd cannot traverse the profile symlinks');
-  assert.ok(byName['zabz-yoga-1'].dispatch.evidence.includes('sshd'));
+  assert.equal(byName['zabz-yoga-1'].dispatch.v1, true, 'measured working again: S6 fixed the reparse-point trust and a full dispatch to it completed exit 0');
+  assert.ok(byName['zabz-yoga-1'].dispatch.evidence.includes('reparse-point'));
   assert.equal(byName['secratary'].dispatch.v1, null, 'unmeasured stays unmeasured - not a claim in either direction');
   assert.equal(byName['zabz-tech-linux'].dispatch.v1, true, 'measured working: the profile tree loads over its sshd');
 });

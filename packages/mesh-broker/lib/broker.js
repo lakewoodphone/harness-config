@@ -24,12 +24,19 @@
  *     measurements with timestamps, 15 s TTL) and `leases` (live reservations with TTLs).
  *     No files, no tables, no last-known-good node state.
  *  3. EVERY DECISION IS EXPLAINABLE. `rationale` is the list of numbers the decision used -
- *     the frozen slot arithmetic verbatim, the disk gate, the load, the lease counts, the
- *     position arithmetic, and why each other candidate lost. A placement whose rationale is
- *     empty is a bug, and test/acceptance.test.mjs asserts it cannot happen.
+ *     the frozen slot arithmetic verbatim, the disk gate, the load, BOTH score terms, the
+ *     transport capability, the disk requirement term by term, whether the node was slow, the
+ *     lease counts, the position arithmetic, and why each other candidate lost. A placement
+ *     whose rationale is empty is a bug, and test/acceptance.test.mjs asserts it cannot happen.
+ *
+ * ONE STATE PER NODE, AND THE STATES ARE NOT INTERCHANGEABLE (requirements 3 and 4, 2026-09-17)
+ * `ok` / `slow` / `unreachable` / `capacity-unreadable` / `absent`. A busy node is not a dead one,
+ * and a node with a broken reader is not an offline machine: each calls for a different response,
+ * and conflating them is how a mesh quietly loses a node. See docs/mesh/71-mesh-program.md §2.2
+ * for the frozen wording and docs/mesh/76-broker.md §10 for the measurements behind it.
  */
 
-import { capacityUrl, readNodeCapacity, DEFAULT_READ_TIMEOUT_MS } from './capacity.js';
+import { capacityUrl, readNodeCapacity, DEFAULT_READ_TIMEOUT_MS, RETRY_READ_TIMEOUT_MS } from './capacity.js';
 import { createLeaseTable, DEFAULT_LEASE_TTL_MS } from './leases.js';
 import {
   MAX_SLOTS,
@@ -117,6 +124,7 @@ export function normalizeTask(body) {
  * @param {Array<object>} options.nodes            the roster (see lib/config.js)
  * @param {number} [options.cacheTtlMs]            readings are reused for at most this long (15000)
  * @param {number} [options.readTimeoutMs]         per-node read timeout (1500)
+ * @param {number} [options.retryTimeoutMs]        the ONE retry's budget when a read times out (scales from readTimeoutMs: 1500 -> 4000)
  * @param {number} [options.leaseTtlMs]            lease TTL (900000)
  * @param {Function} [options.readCapacity]        injectable reader, for tests
  * @param {() => number} [options.now]             injectable clock, for tests
@@ -128,6 +136,13 @@ export function createBroker(options = {}) {
   }
   const cacheTtlMs = Number.isFinite(options.cacheTtlMs) && options.cacheTtlMs > 0 ? options.cacheTtlMs : DEFAULT_CACHE_TTL_MS;
   const readTimeoutMs = Number.isFinite(options.readTimeoutMs) && options.readTimeoutMs > 0 ? options.readTimeoutMs : DEFAULT_READ_TIMEOUT_MS;
+  // A timeout gets ONE retry, at a longer budget, so "busy" and "gone" stop looking alike.
+  // The budget scales from the caller's own deadline unless they name one, so a tight bound
+  // stays tight: 1500 -> 4000 (the shipping pair, 4000 being the measured Mac Mini latency),
+  // 300 -> 1200 (the tests).
+  const retryTimeoutMs = Number.isFinite(options.retryTimeoutMs) && options.retryTimeoutMs > 0
+    ? options.retryTimeoutMs
+    : Math.min(RETRY_READ_TIMEOUT_MS, Math.max(1000, Math.round(readTimeoutMs * 4)));
   const leaseTtlMs = Number.isFinite(options.leaseTtlMs) && options.leaseTtlMs > 0 ? options.leaseTtlMs : DEFAULT_LEASE_TTL_MS;
   const now = typeof options.now === 'function' ? options.now : () => Date.now();
   const readCapacity = typeof options.readCapacity === 'function' ? options.readCapacity : readNodeCapacity;
@@ -188,7 +203,7 @@ export function createBroker(options = {}) {
       const previous = readings.get(node.node);
       let result;
       try {
-        result = await readCapacity({ node, timeoutMs: readTimeoutMs });
+        result = await readCapacity({ node, timeoutMs: readTimeoutMs, retryTimeoutMs });
       } catch (error) {
         result = { ok: false, error: `the capacity reader threw: ${messageOf(error)}` };
       }
@@ -203,8 +218,25 @@ export function createBroker(options = {}) {
       const entry = {
         at,
         ok,
-        doc: ok ? result.doc : (previous?.doc ?? null),
+        // A capacity-unreadable node keeps the DOCUMENT it sent, so /nodes can show what the
+        // broken reader actually produced. Any other failure keeps the last document that
+        // parsed, which is what `staleReading` is for.
+        doc: ok
+          ? result.doc
+          : (result?.state === 'capacity-unreadable' && result.doc !== null && result.doc !== undefined
+            ? result.doc
+            : (previous?.doc ?? null)),
         error: ok ? null : (result?.error ?? 'unknown error'),
+        /** `timeout`/`refused`/`dns`/`reset`/`never-answers`/`other` - the KIND of failure. */
+        errorKind: ok ? null : (result?.errorKind ?? 'other'),
+        /** `ok`/`slow`/`capacity-unreadable`/`unreachable`/`absent` - what the broker will say. */
+        state: ok ? (result?.state ?? 'ok') : (result?.state ?? 'unreachable'),
+        /** The retry pairing: whether a first timeout was followed by a longer second attempt. */
+        retried: result?.retried === true,
+        retryWasFast: result?.retryWasFast === true,
+        firstLatencyMs: Number.isFinite(result?.firstLatencyMs) ? result.firstLatencyMs : null,
+        elapsedMs: Number.isFinite(result?.elapsedMs) ? result.elapsedMs : null,
+        reason: ok ? null : (result?.reason ?? null),
         status: result?.status ?? null,
         latencyMs: Number.isFinite(result?.latencyMs) ? result.latencyMs : null,
         url: result?.url ?? capacityUrl(node),
@@ -220,7 +252,8 @@ export function createBroker(options = {}) {
     return promise.finally(() => inflight.delete(node.node));
   }
 
-  /** Re-read every node whose reading is older than the cache TTL, in parallel. Never throws. */  async function refresh({ fresh = false } = {}) {
+  /** Re-read every node whose reading is older than the cache TTL, in parallel. Never throws. */
+  async function refresh({ fresh = false } = {}) {
     const at = now();
     const pending = nodes.filter((node) => {
       const cached = readings.get(node.node);
@@ -248,6 +281,25 @@ export function createBroker(options = {}) {
     // when its configuration was seen rather than from a last reading that never happened.
     const absent = isAbsent(node);
     const baseline = baselineOf(node, at);
+    // ONE STATE, NAMED (requirements 3 and 4). These are mutually exclusive and ordered, and
+    // each says something different about the far side:
+    //   absent              - configured, never answered since the broker started
+    //   capacity-unreadable - answered, but what it sent is not a usable §2.1 document
+    //   unreachable         - nothing answered: refused, DNS failure, or both attempts timed out
+    //   slow               - it timed out once and answered on the longer second attempt
+    //   ok                 - a normal reading
+    // A slow node is ranked lower; an unreadable one and an unreachable one are not ranked at
+    // all, but they are reported as the different facts they are.
+    const state = reachable
+      ? (entry?.state === 'slow' ? 'slow' : 'ok')
+      : absent
+        ? 'absent'
+        : entry === undefined
+          ? 'unread'
+          : entry.state === 'capacity-unreadable'
+            ? 'capacity-unreadable'
+            : 'unreachable';
+    const slow = reachable && entry?.state === 'slow';
     const doc = reachable ? entry.doc : null;
     const arith = slotArithmetic(doc);
     // The score is the EFFECTIVE slot count: the memory term capped by the core term, then
@@ -309,7 +361,13 @@ export function createBroker(options = {}) {
       reachable,
       // An ABSENT node is not unreachable: it has no network history to be either. Calling it
       // unreachable was the false claim this amendment exists to remove.
-      unreachable: !reachable && !absent,
+      unreachable: state === 'unreachable',
+      state,
+      slow,
+      capacityUnreadable: state === 'capacity-unreadable',
+      capacityReason: state === 'capacity-unreadable' ? (entry?.error ?? 'the capacity document could not be read') : null,
+      elapsedMs: entry?.elapsedMs ?? null,
+      firstLatencyMs: entry?.firstLatencyMs ?? null,
       absent,
       absentAgeSec: absent ? Math.max(0, Math.round((at - baseline.configuredAt) / 1000)) : null,
       absentReason: absent
@@ -395,6 +453,23 @@ export function createBroker(options = {}) {
   }
 
   /**
+   * The slow line: a node that missed the deadline once and answered on the longer second
+   * attempt. Printed so "busy" is never read as "gone" - MEASURED 2026-09-16 23:31:18Z, the
+   * broker used to say `zabz-yoga: unreachable (timed out after 1500 ms)` while that laptop's
+   * own gate was answering in 89-232 ms and it was simply running the acceptance harness.
+   */
+  function slowLine(candidate) {
+    if (!candidate.slow) return null;
+    const kind = candidate.entry?.retryWasFast
+      ? 'the node missed the deadline on a COLD first read and answered immediately on the second attempt (a miss to re-check, not proof of congestion)'
+      : 'the node was STILL slow on the second attempt';
+    return `${candidate.node}: SLOW - the first read missed the ${Math.round(readTimeoutMs)} ms deadline`
+      + `${candidate.firstLatencyMs === null ? '' : ` (${candidate.firstLatencyMs} ms)`}, the second answered in `
+      + `${candidate.entry?.latencyMs ?? 'unknown'} ms for ${candidate.elapsedMs ?? 'unknown'} ms door-to-door; `
+      + `${kind} -> ranked below every node that answered first time, never refused`;
+  }
+
+  /**
    * The transport line: what the roster says about `ssh <node> dsh --profile headless`, which
    * is v1 and the only transport that exists today.
    *
@@ -419,6 +494,9 @@ export function createBroker(options = {}) {
     if (candidate.absent) {
       return `${candidate.node}: absent - ${candidate.absentReason}; configured ${candidate.absentAgeSec} s ago, excluded from the ranking (it is not unreachable, it has never been reachable)`;
     }
+    if (candidate.capacityUnreadable) {
+      return `${candidate.node}: CAPACITY-UNREADABLE - the node answered but its capacity document could not be read (${candidate.capacityReason}) - a broken reader, not an offline machine; not ranked`;
+    }
     if (!candidate.reachable) {
       const stale = candidate.lastReadingAgeSec === null ? '' : `, last good reading ${candidate.lastReadingAgeSec} s old`;
       return `${candidate.node}: unreachable (last attempt ${candidate.ageSec} s ago${stale}: ${candidate.reason}) - reported, never dropped, never faked`;
@@ -428,6 +506,7 @@ export function createBroker(options = {}) {
       candidate.effective.summary,
       `${candidate.freeSlots - task.children} after ${task.children} child(ren)`,
     ];
+    if (candidate.slow) bits.push(`SLOW (${candidate.elapsedMs ?? '?'} ms door-to-door, first attempt missed the deadline): ${candidate.entry?.retryWasFast ? 'a cold-start miss, not proof of congestion' : 'still slow on the second attempt'}`);
     if (candidate.swapApplied) bits.push(`swap ${candidate.swapUsedPct}% used: effective slots halved`);
     if (!candidate.dispatchOk) bits.push('transport v1 MEASURED BROKEN');
     else if (candidate.dispatch.v1 === null) bits.push('transport v1 unmeasured');
@@ -447,6 +526,10 @@ export function createBroker(options = {}) {
         return `no node that can take v1 work can start this now; ${chosen.node} is the best of the candidates that cannot `
           + `(transport.v1=${chosen.dispatch.v1 === false ? 'false' : 'unmeasured'}), chosen despite transport=unavailable `
           + 'because nothing else is eligible -> placed there, QUEUED rather than refused (queue, never amputate)';
+      case 'slow':
+        return `every node that can start this is SLOW (each missed the ${Math.round(readTimeoutMs)} ms deadline at least once and answered on the longer second attempt); `
+          + `${chosen.node} is the best of them (${chosen.elapsedMs ?? 'unknown'} ms door-to-door, state=${chosen.state}) -> placed there, `
+          + 'QUEUED rather than refused (a slow node is ranked lower, never amputated; the next read of a warm node returns it to full rank)';
       case 'queued': {
         const why = [];
         if (!chosen.reachable) why.push('it is unreachable, so its capacity is unknown');
@@ -516,15 +599,32 @@ export function createBroker(options = {}) {
     // "fits now" candidate while any node that can take it is in play. If no node can take it
     // at all, the pool falls back to every eligible node, so the choice is still a placement -
     // it is just a visible one, said in as many words in the rationale.
+    //
+    // REQUIREMENT 3 (2026-09-17) adds the same shape for a SLOW node: a node that timed out once
+    // and answered on the longer second attempt is ranked below a node that answered first time,
+    // and it is never refused - it is placed on when it is the best or the only candidate, and
+    // the rationale says that is what happened.
     const eligible = withDisk;
     const dispatchable = eligible.filter((candidate) => candidate.dispatchOk);
-    if (dispatchable.some((candidate) => candidate.fits)) {
+    const preferred = dispatchable.filter((candidate) => !candidate.slow);
+    const usable = preferred.length > 0 ? preferred : dispatchable;
+    const withSlow = eligible.filter((candidate) => candidate.dispatchOk || candidate.slow);
+    if (usable.some((candidate) => candidate.fits)) {
       tier = 'fits';
-      pool = dispatchable.filter((candidate) => candidate.fits);
-    } else if (dispatchable.length > 0) {
+      pool = usable.filter((candidate) => candidate.fits);
+    } else if (usable.length > 0) {
       tier = 'highest-slots';
-      const highest = Math.max(...dispatchable.map((candidate) => candidate.slots));
-      pool = dispatchable.filter((candidate) => candidate.slots === highest);
+      const highest = Math.max(...usable.map((candidate) => candidate.slots));
+      pool = usable.filter((candidate) => candidate.slots === highest);
+    } else if (withSlow.some((candidate) => candidate.fits)) {
+      // Everything that fits is either transport-blocked or slow (or both). Placed, QUEUED, and
+      // named - a slow node that fits is still a better answer than a refusal.
+      tier = 'slow';
+      pool = withSlow.filter((candidate) => candidate.fits);
+    } else if (withSlow.length > 0) {
+      tier = 'slow';
+      const highest = Math.max(...withSlow.map((candidate) => candidate.slots));
+      pool = withSlow.filter((candidate) => candidate.slots === highest);
     } else if (eligible.some((candidate) => candidate.fits)) {
       // Nothing eligible can take v1 work, but something could run it if the transport were
       // not the problem. Queued rather than refused, and the transport is named.
@@ -556,6 +656,10 @@ export function createBroker(options = {}) {
       const va = a.candidate.dispatchOk ? 1 : 0;
       const vb = b.candidate.dispatchOk ? 1 : 0;
       if (va !== vb) return vb - va;
+      // A SLOW node ranks below a fast one, and above nothing: it is still a placement target.
+      const sa = a.candidate.slow ? 1 : 0;
+      const sb = b.candidate.slow ? 1 : 0;
+      if (sa !== sb) return sa - sb;
       if (a.candidate.slots !== b.candidate.slots) return b.candidate.slots - a.candidate.slots;
       return compareRanking(a.key, b.key);
     };
@@ -598,6 +702,8 @@ export function createBroker(options = {}) {
     lines.push(coreTermLine(chosen));
     const swap = swapLine(chosen);
     if (swap !== null) lines.push(swap);
+    const slow = slowLine(chosen);
+    if (slow !== null) lines.push(slow);
     lines.push(transportLine(chosen));
     lines.push(`${chosen.node}: ${chosen.freeSlots} free slot(s) - ${task.children} child(ren) = ${chosen.freeSlots - task.children} `
       + `${chosen.freeSlots - task.children >= 0 ? '>= 0 -> fits now' : '< 0 -> does not fit now'}`);
@@ -741,6 +847,19 @@ export function createBroker(options = {}) {
     const reachable = entry !== undefined && entry.ok === true;
     const absent = isAbsent(node);
     const baseline = baselineOf(node, at);
+    // The same closed set as `evaluate`: absent / capacity-unreadable / unreachable / slow / ok.
+    // `capacity-unreadable` is the state a node whose READER is broken gets - it answered, so it
+    // is not unreachable, and it is excluded from the ranking so an unmeasured budget is never
+    // treated as a big one.
+    const state = reachable
+      ? (entry?.state === 'slow' ? 'slow' : 'ok')
+      : absent
+        ? 'absent'
+        : entry === undefined
+          ? 'unread'
+          : entry.state === 'capacity-unreadable'
+            ? 'capacity-unreadable'
+            : 'unreachable';
     const doc = reachable ? entry.doc : null;
     const arith = slotArithmetic(doc);
     const effective = effectiveSlots(arith);
@@ -753,15 +872,26 @@ export function createBroker(options = {}) {
       location: node.location,
       baseUrl: node.baseUrl,
       url: capacityUrl(node),
-      unreachable: !reachable && !absent,
+      state,
+      unreachable: state === 'unreachable',
       absent,
+      capacityUnreadable: state === 'capacity-unreadable',
       absentSince: absent ? iso(baseline.configuredAt) : null,
       ageSec: absent ? Math.max(0, Math.round((at - baseline.configuredAt) / 1000)) : ageOf(entry, at),
       attempts: entry?.attempts ?? 0,
       latencyMs: entry?.latencyMs ?? null,
+      retried: entry?.retried === true,
+      firstLatencyMs: entry?.firstLatencyMs ?? null,
+      elapsedMs: entry?.elapsedMs ?? null,
     };
     if (absent) {
       view.note = 'configured in the roster and never answered: this is the ABSENT state, not unreachable - the node has no network history to be either, and it is excluded from the ranking. Measured by this broker, not a claim about the far side.';
+    }
+    if (state === 'slow') {
+      view.note = `the first read missed the ${Math.round(readTimeoutMs)} ms deadline and the longer second attempt answered (${view.elapsedMs} ms door-to-door, first attempt ${view.firstLatencyMs} ms, retry ${view.latencyMs} ms): ${entry?.retryWasFast ? 'a cold-start miss rather than proof of congestion, and the next read of a warm node comes back ok at full rank' : 'still slow on the second attempt'}. It is ranked below every node that answered first time and is never refused.`;
+    }
+    if (state === 'capacity-unreadable') {
+      view.note = 'the node ANSWERED but its capacity document could not be read, so its budget is unknown and it is excluded from the ranking: this is a broken reader, not an offline machine. The reason it gave is in `reason`.';
     }
     if (reachable) {
       view.reading = doc;
@@ -769,11 +899,14 @@ export function createBroker(options = {}) {
       view.warning = entry.note;
       view.lastReadingAt = entry.lastOkAt === null ? null : iso(entry.lastOkAt);
     } else {
-      view.reason = entry?.error ?? 'never read';
+      view.reason = state === 'capacity-unreadable' ? (entry?.reason ?? entry?.error ?? 'the capacity document could not be read') : (entry?.error ?? 'never read');
       view.lastReadingAt = entry?.lastOkAt === null || entry?.lastOkAt === undefined ? null : iso(entry.lastOkAt);
       view.lastReadingAgeSec = entry?.lastOkAt === null || entry?.lastOkAt === undefined ? null : seconds(at - entry.lastOkAt);
-      if (entry?.doc !== null && entry?.doc !== undefined) {
+      if (entry?.doc !== null && entry?.doc !== undefined && state !== 'capacity-unreadable') {
         view.staleReading = { doc: entry.doc, ageSec: seconds(at - entry.at), note: 'this is the last reading that succeeded; it is NOT current' };
+      }
+      if (state === 'capacity-unreadable' && entry?.doc !== null && entry?.doc !== undefined) {
+        view.unreadableReading = { doc: entry.doc, ageSec: seconds(at - entry.at), note: 'the document this node sent; it is not a usable §2.1 capacity document' };
       }
     }
     view.slots = arith.slots;
@@ -836,6 +969,6 @@ export function createBroker(options = {}) {
     /** Exposed for tests and for /nodes; not a state store. */
     readings,
     leases,
-    config: { nodes, cacheTtlMs, readTimeoutMs, leaseTtlMs, reserveMiB: RESERVE_MIB, perSlotMiB: PER_SLOT_MIB, maxSlots: MAX_SLOTS },
+    config: { nodes, cacheTtlMs, readTimeoutMs, retryTimeoutMs, leaseTtlMs, reserveMiB: RESERVE_MIB, perSlotMiB: PER_SLOT_MIB, maxSlots: MAX_SLOTS },
   };
 }

@@ -43,7 +43,7 @@ A small Node service on the authority that answers one question — *where shoul
 | `packages/mesh-broker/bin/mesh-broker.mjs` | the service entry point (prints its roster, TTLs and port at boot) |
 | `packages/mesh-broker/bin/mesh-stub-gate.mjs` | the stub as a CLI |
 | `packages/mesh-broker/nodes.json` | the roster: `zabz-tech`, `zabz-yoga-1`, `zabz-tech-linux`, `secratary` — each with its `dispatch` capability |
-| `packages/mesh-broker/test/*.test.mjs` | **57 tests** (37 before the amendments), including the §4 items 2 and 6 acceptance tests and one named test per amendment |
+| `packages/mesh-broker/test/*.test.mjs` | **60 tests** (37 before the amendments), including the §4 items 2 and 6 acceptance tests and one named test per amendment |
 | `packages/mesh-broker/deploy/secratary-smoke.sh` | the on-authority smoke run (tests, service, three verbs) |
 | `packages/mesh-broker/deploy/mesh-broker.service` | a ready systemd unit — **not installed** (see §6.4) |
 
@@ -71,7 +71,7 @@ Body `{"task":{"kind":"oneShot"|"fleet","children":6,"worktreeGiB":2,"prefer":"h
 | `lease` | opaque, TTL'd; released by `/done` or reclaimed by the broker at expiry |
 | `score` | free slots on the chosen node — the **effective** count (§10.3): the §2.2 memory term, capped by `floor(cpu.physical × 0.75)`, then halved if the node is swapping (§10.2) |
 | `eligible` | how many nodes were in the tier the winner came from |
-| `rationale` | the numbers the decision used, in order: the roster count, the frozen slot arithmetic verbatim, the free-slot count, the disk gate with its scaled requirement, the load, **both score terms and the effective score**, **the transport capability**, the fit arithmetic, the position arithmetic, and why each loser lost. **Non-empty is asserted by test** |
+| `rationale` | the numbers the decision used, in order: the roster count and each node's state, the frozen slot arithmetic verbatim, the free-slot count, the disk gate with its scaled requirement, the load, **both score terms and the effective score**, **the swap half when it applied**, **whether the node was slow and how long it took**, **the transport capability**, the fit arithmetic, the position arithmetic, and why each loser lost. **Non-empty is asserted by test** |
 | `queue` | the live accepted jobs ahead on that node (`{lease, node, kind, children, state, waitsMs}`); `[]` when `position` is 0 |
 
 Additive fields (not in §2.2, safe for any caller that ignores them): `at`, `kind`, `children`,
@@ -107,6 +107,12 @@ slots        = min(memorySlots, coreSlots)                                    <-
 slots        = swapUsedPct >= 90 ? floor(slots / 2) : slots                   <- §10.2
 ```
 
+**All of this is now written into the frozen contract**: `docs/mesh/71-mesh-program.md` §2.2 was
+amended 2026-09-17 to carry the core term, the swap half, the per-child disk floor and the transport
+and node-state rules, because a contract that disagrees with the code is worse than no contract — the
+next reader would implement the wrong one. `"AMENDMENT n"` anywhere in this package means amendment
+`n` of this document's §10.
+
 * `3885 MiB` reserve and `24` maxSlots are the governor's own derivation
   (`packages/plugin-health/lib/governor.js`: `MAX_SLOTS_DEFAULT` 24, reserve = 12 % of total, 3885 MiB
   on a 31.6 GB machine) — §2.2 froze those two numbers, so they are literals in `scoring.js`.
@@ -119,10 +125,13 @@ slots        = swapUsedPct >= 90 ? floor(slots / 2) : slots                   <-
 * A node with `freeGiB < 20 + worktreeGiB + 0.5 × children` is ineligible for `kind=fleet` (§10.1).
 * `kind=oneShot` has no disk gate (§2.2 gates fleets only), but the disk is still printed.
 * **§2.2's frozen line is a memory formula, and it is still what the first rationale line prints,
-  verbatim.** The three amendments change which node WINS and what `score` means; they do not edit
-  the frozen arithmetic, and every one of them is printed alongside it. That distinction matters:
-  §2.2 is frozen and this stream does not own it, so the amendments are additional ranking terms the
-  rationale exposes, and the manager can see exactly what was added to the decision (§10.6).
+  verbatim.** The amendments change which node WINS and what `score` means; they do not edit the
+  memory arithmetic itself, and every one of them is printed alongside it. As of 2026-09-17 the
+  amended terms are also part of §2.2 on disk, so the frozen contract and this code agree.
+* **Ranking order, in one place** (the tier ladder of §4 plus the ordering inside a tier):
+  `fits` → `highest-slots` → `slow` → `transport` → `queued`, and within a tier: reachable first,
+  transport-capable first, fast before slow, then effective slots, then a bounded `prefer` bonus,
+  then load, then roster order. Every one of those comparisons prints its own line in the rationale.
 
 The arithmetic is pinned by a test that reproduces §2.2's own worked example — `mem.freeMiB 51000`
 with `governor.inUse 15` → `"score": 9`, `"9 free slots of 24"`:
@@ -141,7 +150,7 @@ core slot(s) of 16 physical x 0.75 -> effective 9"*.)
 
 | §2.2 rule | how it is made true | evidence |
 |---|---|---|
-| **It never refuses** | Four tiers (`fits` → `highest-slots` → `transport` → `queued`, each relaxing one gate), ending in `emergencyPlacement()`: an internal fault still returns a node and `position ≥ 1`. A malformed body, an unparseable roster entry, an excluded-everything caller, an all-dark mesh and a mesh whose every node is measured unable to take v1 work all answer **200** with a placement | `test/acceptance.test.mjs`: "with EVERY node at zero slots…", "every node unreachable…", "a malformed body still returns a placement", "excluding every node is a caller mistake", "an internal fault still returns a placement", "when the only candidate cannot take v1 work it is still placed…" |
+| **It never refuses** | Five tiers (`fits` → `highest-slots` → `slow` → `transport` → `queued`, each relaxing one gate), ending in `emergencyPlacement()`: an internal fault still returns a node and `position ≥ 1`. A malformed body, an unparseable roster entry, an excluded-everything caller, an all-dark mesh and a mesh whose every node is measured unable to take v1 work all answer **200** with a placement | `test/acceptance.test.mjs`: "with EVERY node at zero slots…", "every node unreachable…", "a malformed body still returns a placement", "excluding every node is a caller mistake", "an internal fault still returns a placement", "when the only candidate cannot take v1 work it is still placed…" |
 | **It stores nothing it can go stale on** | The only mutable state is a `Map` of readings with timestamps (≤15 s) and the lease table, in memory. **No file is written anywhere** | `test/leases.test.mjs` runs placements in a temp cwd and asserts the directory is still empty |
 | **Every decision is explainable** | `rationale` is built from the same numbers the decision used, and a test asserts it is non-empty and contains the frozen slot arithmetic (`3885 MiB reserve`, `160 MiB`, `maxSlots=24`), the free-slot count, the child count and the position arithmetic | `test/acceptance.test.mjs` §4.2 test |
 | **A dead dispatcher cannot wedge the mesh** | Leases are TTL'd (default 900 s) and reaped by whoever reads the table; nothing has to notice a death | `test/acceptance.test.mjs` "/done releases the reservation, and a lease nobody releases is reclaimed at its TTL" |
@@ -153,11 +162,16 @@ core slot(s) of 16 physical x 0.75 -> effective 9"*.)
    node-state table. 15 s of staleness is the *maximum*, not a design input.
 2. **Roster = 4 nodes, keyed by Tailscale DNS label.** `zabz-tech`, `zabz-yoga-1` (NOT `zabz-yoga`:
    the host name is `zabz-yoga` but the only name that resolves is `zabz-yoga-1` — measured 2026-09-16
-   23:31Z), `zabz-tech-linux` (not the ssh alias `linux-pc`), `secratary`. The **Mac Mini is
-   deliberately absent**, and the reason has changed: it is not a policy question any more, it is a
-   measurement. `curl http://lakewooechsmini.tail93e6e6.ts.net/mesh/capacity` **exits 7** from the
-   authority (2026-09-16 23:30Z) while the node itself is `active` in `tailscale status`, so there is
-   no capacity surface to read. The older reason here — "it is Yisroel's machine, so placing work on
+   23:31Z), `zabz-tech-linux` (not the ssh alias `linux-pc`), `secratary`. The **Mac Mini
+   (`lakewooechsmini`) is deliberately absent, and the reason has changed twice**: it is no longer a
+   policy question (the owner has given free rein and it is becoming a worker node), and it is no
+   longer "no answer at all" either. Measured 2026-09-16 23:30Z: `curl
+   http://lakewooechsmini.tail93e6e6.ts.net/mesh/capacity` **exits 7** from the authority while the
+   node is `active` in `tailscale status`; by 2026-09-17 it answers **200 with an unusable document**
+   (`mem: {totalMiB: null, freeMiB: null}`), which is stream S3/S1 work in progress (the fix is
+   `sysctl hw.memsize` plus `vm_stat`) and not a fault in this roster. The broker now reports that as
+   `capacity-unreadable` rather than dropping the node (§10.9), so the day its reader works it becomes
+   a placement target with no code change. The older reason here — "it is Yisroel's machine, so placing work on
    an employee's computer is the owner's call" — is out of date: the owner has given free rein on it
    and it is becoming a worker node. Adding it is one entry in `nodes.json`, with its `dispatch`
    measured the same way as the others, and no code change (§10.4).
@@ -198,6 +212,21 @@ core slot(s) of 16 physical x 0.75 -> effective 9"*.)
 12. **`accepts` and `maxChildren` are hard gates, a missing `accepts` is not.** A gate that *measured*
     `fleet:false` or `maxChildren: 0` is respected (and quoted in the rationale); a null/absent
     `accepts` is unknown, and unknown is not a restriction.
+13. **A timeout is retried once, and a retry is reported as `slow`** (requirement 3, §10.8). The
+    deadline stays and the worst case is bounded at `readTimeoutMs + retryTimeoutMs`; the retry is what
+    separates "busy" from "gone". The rule is `slow = retried` and deliberately not a cleverer one: an
+    earlier version also required the retry to be slow, and a live measurement killed it, because that
+    rule hid a real missed deadline. The false-alarm cost is bounded — one read, one tier — and the
+    acceptance test pins the recovery, so a warm node returns to full rank on its next read.
+14. **A 200 whose body is unusable is `capacity-unreadable`, never `unreachable` and never dropped**
+    (requirement 4, §10.9). The node answered; its reader is broken; those are different facts and the
+    caller can act on the difference. `validateCapacity()`'s strictness is unchanged — an unmeasured
+    budget is still not treated as a big one.
+15. **A roster capability is a dated measurement.** `dispatch.v1` was `false` for `zabz-yoga-1` for the
+    eleven minutes the junction failure existed (23:27–23:44Z), and that stale row cost 12 effective
+    slots — a whole node. The fix is written back into the roster the same hour it is proven (§10.4),
+    and the evidence string carries the date and what was run. The same applies to every constant in
+    this file: a number whose date is unknown is not a measurement.
 
 ## 6. How to run it
 
@@ -206,7 +235,7 @@ core slot(s) of 16 physical x 0.75 -> effective 9"*.)
 ```
 cd packages/mesh-broker
 npm run verify      # node --check on every source file
-npm test            # 57 tests: scoring, config, leases, acceptance
+npm test            # 60 tests: scoring, config, leases, acceptance
 npm run stress      # just the §4.6 30-concurrent-against-5-slots test
 ```
 
@@ -235,8 +264,14 @@ node packages/mesh-broker/bin/mesh-broker.mjs --port 3091 \
 ### 6.4 On the authority
 
 ```
-scp -r packages/mesh-broker secratary-ts:/home/zabz/mesh-broker-run
+# WRONG, and it fails silently - see the lesson below:
+#   scp -r packages/mesh-broker secratary-ts:/home/zabz/mesh-broker-run
+# RIGHT: copy the sub-trees INTO the existing directory, then run the smoke script.
+scp -r packages/mesh-broker/lib packages/mesh-broker/test packages/mesh-broker/nodes.json \
+       packages/mesh-broker/package.json packages/mesh-broker/deploy \
+       secratary-ts:/home/zabz/mesh-broker-run/
 ssh secratary-ts "bash /home/zabz/mesh-broker-run/deploy/secratary-smoke.sh"
+ssh secratary-ts "cd /home/zabz/mesh-broker-run && grep -c AMENDMENT test/scoring.test.mjs"   # verify the copy landed
 ```
 
 The smoke script runs the tests, starts the broker on `127.0.0.1:3091` with a pidfile
@@ -244,6 +279,28 @@ The smoke script runs the tests, starts the broker on `127.0.0.1:3091` with a pi
 `deploy/mesh-broker.service` is a ready unit and is **not installed**: publishing or daemonising the
 broker is the manager's/owner's call, and the unit must be pointed at whatever path the manager
 chooses.
+
+#### The lesson: two ways the deploy "succeeded" while proving nothing (MEASURED 2026-09-17)
+
+Recorded because *"the test passed while proving nothing"* is the worst possible test, and both of
+these were hit in the same session:
+
+1. **`scp -r <dir> host:/an/existing/dir` is a no-op that exits 0.** With a destination that already
+   exists, scp recreates `<dir>` *inside* it and nothing at the top level is touched; every exit code
+   says 0. The first "deploy" therefore changed nothing, and the broker kept serving the **old** code —
+   which is exactly what the smoke output showed (`tests 37`, and a rationale without a single amended
+   line) while reporting success. **Verify the copy, not the exit code**: grep for something only the
+   new code has (`grep -c AMENDMENT test/scoring.test.mjs`) and read the boot banner's roster.
+2. **The restart raced, so the old broker answered every curl.** The script sent SIGTERM and slept
+   0.5 s; the old process had not yet released the port, the new one died with `EADDRINUSE`, the
+   pidfile was rewritten to point at the corpse, and the three verbs below it were answered by the
+   **previous** broker. A smoke run that exercises the old code and prints the old numbers is the
+   worst kind of green. The script now **waits for the old pid to disappear** (polling `kill -0`, up to
+   10 s, then SIGKILL), starts the new one, and **fails loudly if the new pid is not alive** — printing
+   its log rather than curling a stranger.
+
+The general rule both share: after a redeploy, assert on something that could only have come from the
+new build, and make the assertion name the process that answered it.
 
 ## 7. Evidence (MEASURED 2026-09-16)
 
@@ -481,14 +538,17 @@ number is visible before anything is bought.
 
 ### 10.4 The roster carries a per-node v1 transport capability, and the broker ranks on it
 
-**Why — a correctness bug in production, MEASURED by stream S6 at 23:27Z 2026-09-16.** A dispatcher
-**cannot run work on `zabz-yoga` at all**: a process launched by that machine's sshd cannot traverse the
-symlinks in `~/.dsh/profiles/node_modules`, which is exactly how a DSH profile resolves its bundles —
-reading *through* the link gives `UNKNOWN (-4094)`, `require.resolve` gives `MODULE_NOT_FOUND`, and
-`ssh <that node> dsh --profile headless` dies with *"plugin tree failed to load"*
-(`70-remote-fanout-proof.md` §4.4). `zabz-tech` over its sshd is fine. The broker had already placed
+**Why — a correctness bug in production, MEASURED by stream S6 at 23:27Z 2026-09-16 (and FIXED at
+23:44Z the same day; the `false` below is history, not the current state).** A dispatcher **could not
+run work on `zabz-yoga` at all**: a process launched by that machine's sshd could not traverse the
+junctions in `~/.dsh/profiles/node_modules`, which is exactly how a DSH profile resolves its bundles —
+reading *through* the link gave `UNKNOWN (-4094)`, `require.resolve` gave `MODULE_NOT_FOUND`, and
+`ssh <that node> dsh --profile headless` died with *"plugin tree failed to load"*
+(`70-remote-fanout-proof.md` §4.4). `zabz-tech` over its sshd was fine. The broker had already placed
 work there — `node=zabz-yoga, position=0, score=22`, 23:24Z — with no way to know it could not be done.
-**A placed job that cannot run is worse than a queued one.**
+**A placed job that cannot run is worse than a queued one.** The cause turned out to be the platform's
+reparse-point trust check rather than anything about DSH, and stream S6 cleared it by relinking
+in-session (§10.4's roster table has the measurement).
 
 **Rule.** Each roster row carries `dispatch: { v1, measuredAt, evidence }`, and the three states are
 never collapsed:
@@ -508,9 +568,17 @@ still holds, and a new tier (`tier=transport`, `blockedBy: ["transport"]`) names
 | node | v1 | evidence |
 |---|---|---|
 | `zabz-tech` | `true` | S6's parent booted over ssh there and loaded the mesh plugin; three child turns completed with their `MESH-HOST:` lines verified (`70-remote-fanout-proof.md` §2) |
-| `zabz-yoga-1` | `false` | the sshd symlink-traversal failure above (§4.4). **It dispatches fine; it cannot be dispatched INTO** |
+| `zabz-yoga-1` | `true` | **was `false` from 23:27Z to 23:44Z and is fixed.** The failure was Windows' *reparse-point trust check*: the profile links are junctions, and Windows refuses to traverse one created outside the reading session (*"The path cannot be traversed because it contains an untrusted reparse point"*). Relinked **in-session** — 413 links, 22 s, 0 failed — after which `ssh <laptop> … --profile headless "Reply with exactly: LAPTOP OK"` returned `LAPTOP OK` exit 0 in 10.3 s with engine pid 1784 **never restarted**, and a full dispatch TO the laptop completed exit 0 with `childHosts: ["zabz-yoga"]` (stream S6, 23:44Z) |
 | `zabz-tech-linux` | `true` | MEASURED by this stream 23:33Z: `node /home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js --profile headless "<task>"` over its sshd loaded the profile tree, printed the headless usage text and reached the model call, failing only on `MISSING_CREDENTIAL: llm-deepseek` — the transport works and the credential is the separate gap |
 | `secratary` | `null` | **UNMEASURED.** It has node v20.20.2 and a dsh engine at `/home/zabz/dsh-engine`, but its `DSH_HOME` (`~/.dsh/profiles/`) holds only `node_modules` and `web` — there is no `headless` profile to load, so a v1 dispatch there can be shown neither to succeed nor to fail. Recorded as unmeasured rather than guessed, which is the whole point of the third state |
+
+**The `false` state earned its keep in the eleven minutes it existed.** Between 23:27Z and 23:44Z a
+placement could have gone to a node that could not run it, and after the fix the same mechanism is what
+makes the mesh genuinely two-node: `zabz-tech` (18 effective slots) **and** `zabz-yoga-1` (12) are both
+transport-capable, **30 effective slots instead of 18**. The lesson is not "the broker was wrong to
+mark it false" — it was right, from a measurement — it is that **a roster capability is a dated
+measurement, and a fix must be written back here the same hour it is proven**, because a stale `false`
+costs a whole node.
 
 **Tests.** *"AMENDMENT 4 a node measured unable to accept v1 work ranks below one that can, and says
 why"*, *"AMENDMENT 4 a v1-unusable node with MORE slots still loses to a usable one with fewer"* (the
@@ -579,7 +647,6 @@ nowhere in the live roster**, so nothing becomes absent today and no node's beha
 elastic tier is built (§10.7) the marker is what a proposed row would carry before it is provisioned.
 
 ### 10.7 The elastic tier: the agreed SHAPE, deliberately NOT built
-
 Recorded because the study that produced it is expensive to redo, and because **the teardown rule
 matters more than the price**:
 
@@ -611,6 +678,95 @@ exist, and building one to satisfy a study would be premature. The broker side o
 the capability column, the terms printed in the rationale — is what the study actually needed from this
 stream.
 
+### 10.8 A busy node is not a dead one — the `slow` state (approved 2026-09-17)
+
+**Why.** MEASURED 2026-09-16 23:31:18Z: the deployed broker reported
+`zabz-yoga: unreachable (timed out after 1500 ms)` **while that laptop's own gate was answering in
+89-232 ms** — it was simply busy running the acceptance harness. In the same window one tailnet read to
+`zabz-tech` took **7342 ms**. The broker was turning "busy" into "gone", and the two call for opposite
+actions: a slow node should be ranked lower, a dead one avoided entirely. A node wrongly called
+unreachable is dropped from the ranking, which is a whole node lost to a stopwatch.
+
+**What was chosen, and why this shape.** The deadline stays — the caller must not hang — and the
+outcome is distinguished by **making a second attempt**:
+
+* A read that fails on **time** gets exactly **one retry** at a longer budget
+  (`RETRY_READ_TIMEOUT_MS`, 4000 ms shipping; it scales down with a caller's own deadline, so a 300 ms
+  test pair is 300 + 600). Nothing else is retried: a refused connection, a DNS failure, a 5xx or bad
+  JSON are facts about the far side that a second second cannot change.
+* **First attempt times out + second succeeds = `slow`**, carrying the elapsed time, the first
+  attempt's latency, and its real capacity. It is ranked **below every node that answered first time**
+  and **never refused** (if every candidate is slow, `tier=slow` places on the best of them and says
+  so).
+* **Both attempts fail, or the connection is refused = `unreachable`**, exactly as before.
+* The worst case per re-read is bounded at `readTimeoutMs + retryTimeoutMs` (1500 + 4000 ms), which is
+  the property the dispatcher depends on.
+
+The pairing is what makes the distinction *legitimate* rather than a guess: within one read, a first
+attempt failing and a second succeeding cannot happen to a machine that is gone. There is no third
+attempt and no per-node timing memory — §2.2 forbids stored node state, and three attempts would turn a
+dark mesh into a 16-second wait.
+
+**Where.** `capacity.js` `classifyReadError()` / `isRetryableRead()` / `RETRY_READ_TIMEOUT_MS` and the
+retry in `readNodeCapacity()`; the `slow` state and the `tier=slow` fallback in `broker.js`; the line
+`"…: SLOW - the first read missed the 1500 ms deadline (1512 ms), the second answered in 31 ms for 1543 ms
+door-to-door -> the node is BUSY, not gone; ranked below every node that answered first time, never
+refused"`.
+
+**Tests.** *"a node that accepts the connection and never answers is unreachable within the hard
+timeout"* (unchanged in intent, updated for the retry and asserting the bound) and *"REQUIREMENT 3 a
+node that misses the deadline once and answers on the retry is SLOW, not unreachable"*, which drives a
+server that accepts the first request and answers the second.
+
+**Known limit, stated.** One retry cannot tell "busy for a second" from "slowly dying"; it tells
+"answered within 5.5 s" from "did not". A node that is slow on *every* read shows up as `slow` on every
+`/nodes`, which is the signal to look at it — not a claim about why.
+
+### 10.9 A broken reader is not an offline machine — `capacity-unreadable` (approved 2026-09-17)
+
+**Why.** A node whose reader is broken answers `200` with something that is not a usable §2.1 document.
+Before this the broker rejected the document outright, so the node was **invisible** — and an invisible
+node and an offline node look identical at the caller. The Mac Mini is the live case: it now answers
+`200` with `mem: { totalMiB: null, freeMiB: null }` (stream S1's reader; the fix is `sysctl hw.memsize`
+plus `vm_stat`), and it is about to become a worker, so today it would be silently absent from every
+placement.
+
+**The rule.** A 200 whose body is not a usable capacity document is its **own state**:
+
+* `state: "capacity-unreadable"`, `unreachable: false` (it answered — saying otherwise is a false claim
+  about the network), `absent: false`.
+* Excluded from the ranking, so an unmeasured budget is never treated as a big one — the strictness of
+  `validateCapacity()` is unchanged and deliberate.
+* Visible in `/nodes` with **the node's own reason** (`reason`, e.g. `"schema 2 is not 1"`), a note
+  saying *"a broken reader, not an offline machine"*, and the document it actually sent kept under
+  `unreadableReading` so the reader can be debugged.
+* The rationale prints it as `"lakewooechsmini: CAPACITY-UNREADABLE - the node answered but its
+  capacity document could not be read (schema 2 is not 1) - a broken reader, not an offline machine;
+  not ranked"`.
+
+**What is deliberately NOT this state.** A document that is usable apart from `mem.freeMiB: null` stays
+`reachable` with `slotsKnown: false` and 0 slots (§5 item 11) — the node answered and only its memory
+is unread, which is *unknown slots*, not an *unreadable capacity*. `absent` also wins over this state:
+a node that has never answered is absent, not unreadable.
+
+**Tests.** *"REQUIREMENT 4 a node whose capacity cannot be read is CAPACITY-UNREADABLE, not unreachable
+and not dropped"*, plus the pre-existing *"a node that answers with mem.freeMiB null is REACHABLE with
+unknown slots"*, which pins the boundary between the two.
+
+### 10.10 The five states, in one table
+
+| state | the node's own behaviour | ranked? | said in the rationale as |
+|---|---|---|---|
+| `ok` | answered, usable document | yes | normal lines (both score terms, disk, transport) |
+| `slow` | missed the deadline once, answered on the retry | yes, below every `ok` node | `SLOW - … BUSY, not gone` |
+| `unreachable` | refused, or both attempts timed out | no | `UNREACHABLE … reported, never dropped, never faked` |
+| `capacity-unreadable` | answered with an unusable document | no | `CAPACITY-UNREADABLE … a broken reader, not an offline machine` |
+| `absent` | in the roster, `volatile`, never answered | no | `absent … it is not unreachable, it has never been reachable` |
+
+Order of precedence when more than one could apply: `absent` → `capacity-unreadable` → `unreachable` →
+`slow` → `ok`. Never-refuse still holds across all five: if nothing is rankable the whole roster is the
+pool, and the placement comes back with a position.
+
 ---
 
 ## 11. The amended broker, measured live (2026-09-16 23:43–23:45Z)
@@ -619,10 +775,10 @@ stream.
 
 ```
 cd packages/mesh-broker && npm test
-ℹ tests 57   ℹ pass 57   ℹ fail 0     (Node v24.12.0, this laptop)
+ℹ tests 60   ℹ pass 60   ℹ fail 0     (Node v24.12.0, this laptop)
 
 # the authority, Node v20.20.2, deploy/secratary-smoke.sh:
-# tests 57   # suites 0   # pass 57   # fail 0   # duration_ms 1138.212514
+# tests 60   # suites 0   # pass 60   # fail 0   # duration_ms 4093.3928
 ```
 
 The 37 tests that existed before the amendments all still pass, with the four that asserted the old
@@ -632,55 +788,87 @@ where the per-child term applies), and the roster name (`zabz-yoga` → `zabz-yo
 
 ### 11.2 The live mesh, read through the redeployed broker
 
-`GET /nodes?fresh=1` on the running broker (pid 1844492, started 23:44:21Z) — every node answering,
-`absent: false` on all four:
+`GET /nodes?fresh=1` on the running broker (pid 1892155, started 2026-09-17 00:05Z) — every node
+answering, all four `ok`/`slow`-healthy, `absent: 0`:
 
-| node | unreachable | latencyMs | effectiveSlots | memorySlots | coreSlots | swapUsedPct | halved | transport.v1 |
+| node | state | latencyMs | effectiveSlots | memorySlots | coreSlots | swapUsedPct | halved | transport.v1 |
 |---|---|---|---|---|---|---|---|---|
-| `zabz-tech` | false | 12 | 18 | 24 | 18 (physical) | 0 | false | true |
-| `zabz-yoga-1` | false | 69 | 12 | 23 | 12 (physical) | 0 | false | **false** |
-| `zabz-tech-linux` | false | 7 | 4 | 24 | 4 (physical) | 15.3 | false | true |
-| `secratary` | false | 3 | 1 | 24 | 3 (physical) | 99.9 | **true** | **null** (unmeasured) |
+| `zabz-tech` | ok | 9 | 18 | 24 | 18 (physical) | 0 | false | true |
+| `zabz-yoga-1` | ok | 82 | 12 | 23 | 12 (physical) | 0 | false | **true** (§10.4 fix — it was `false`, and that false row cost 12 effective slots) |
+| `zabz-tech-linux` | ok | 7 | 4 | 24 | 4 (physical) | 15.3 | false | true |
+| `secratary` | ok | 3 | 1 | 24 | 3 (physical) | 99.9 | **true** | **null** (unmeasured) |
 
-### 11.3 A real placement, verbatim, AFTER the amendments
+**30 effective slots on the two nodes that can take v1 work**, not 18 — the difference between a
+one-node fleet mesh and a two-node one, and every bit of it now visible in one line per node.
 
-`POST /place {"task":{"kind":"fleet","children":6,"worktreeGiB":2}}` against the running broker,
-23:44:29Z — every amended line is marked `←`:
+### 11.3 Real placements, verbatim, AFTER the amendments
+
+**First: the desktop wins on slots, and the laptop is a healthy loser with a working transport**
+(`POST /place {fleet, 6 children, worktree 0}`, 00:04Z, `score 16`, `eligible 2`):
 
 ```
 chosen from 4 configured node(s): 0 unreachable, 0 excluded by the caller, 0 switched off in the roster; tier=fits; chosen zabz-tech
-zabz-tech: 18 slot(s) of at most 24: floor((51998 MiB free - 3885 MiB reserve) / 160 MiB) = 300 slot(s), capped at maxSlots=24 -> 24, minus governor.inUse=0 -> 24
-zabz-tech: 16 free slot(s) of 24 (slots 18 = 24 raw - see above, minus 2 broker lease(s) running here; 0 queued)
-zabz-tech: disk 219.9 GiB free on C:/Users/ezabz/code vs 25 GiB required (20 GiB fleet floor + 2 GiB declared worktree + 0.5 GiB/child x 6 child(ren)) -> gate passes          ← §10.1
-zabz-tech: load1 not measured on 32 logical cpu(s), 0 agent loop(s) running
-zabz-tech: 24 memory slot(s), 18 core slot(s) of 24 physical x 0.75 -> effective 18                                                    ← §10.3
-zabz-tech: transport v1 (ssh --profile headless) MEASURED to work (measured 2026-09-16): stream S6's parent booted over ssh on this node and loaded the mesh plugin, and three child turns completed through `ssh <node> dsh --profile headless` with their MESH-HOST: lines verified (docs/mesh/70-remote-fanout-proof.md §2) - work dispatched here can actually run      ← §10.4
+zabz-tech: disk 214.5 GiB free on C:/Users/ezabz/code vs 23 GiB required (20 GiB fleet floor + 0 GiB declared worktree + 0.5 GiB/child x 6 child(ren)) -> gate passes      ← §10.1
+zabz-tech: 24 memory slot(s), 18 core slot(s) of 24 physical x 0.75 -> effective 18                                       ← §10.3
+zabz-tech: transport v1 (ssh --profile headless) MEASURED to work (measured 2026-09-16): … - work dispatched here can actually run     ← §10.4
 zabz-tech: 16 free slot(s) - 6 child(ren) = 10 >= 0 -> fits now
 position 0: 16 free slot(s) - 6 child(ren) = 10 >= 0 on a reachable node -> start now
-zabz-yoga-1: 12 free slot(s) of 24, 23 memory slot(s), 12 core slot(s) of 16 physical x 0.75 -> effective 12, 6 after 6 child(ren), transport v1 MEASURED BROKEN
-zabz-tech-linux: 4 free slot(s) of 24, 24 memory slot(s), 4 core slot(s) of 6 physical x 0.75 -> effective 4, -2 after 6 child(ren), disk 20.8 GiB < 25 GiB required
+zabz-yoga-1: 12 free slot(s) of 24, 23 memory slot(s), 12 core slot(s) of 16 physical x 0.75 -> effective 12, 6 after 6 child(ren)
+zabz-tech-linux: 4 free slot(s) of 24, 24 memory slot(s), 4 core slot(s) of 6 physical x 0.75 -> effective 4, -2 after 6 child(ren), disk 20.8 GiB < 23 GiB required
 secratary: 1 free slot(s) of 24, 24 memory slot(s), 3 core slot(s) of 4 physical x 0.75 -> effective 1 (after the swap halving from 3), -5 after 6 child(ren), swap 99.9% used: effective slots halved, transport v1 unmeasured
-lease mu4qzgy1-13j7w-3-d0adcb7b (opaque, running) expires 2026-09-16T23:59:29.833Z; ttl 900 s, reclaimed by the broker at expiry so a dead dispatcher cannot wedge the mesh
 ```
 
-(That run had two leases already running on `zabz-tech` from the smoke script's own placements, which
-is why the score is 16 rather than 18. `2` running leases × 1 slot each is subtracted before the
-comparison, and the line says so — the subtraction is not hidden.)
+**Then: the mesh actually spreads.** Four fleet-6 placements issued **concurrently**, then a fifth
+afterwards (all 00:05Z). The loser line above is the winner line below, and no placement was
+transport-blocked:
 
-**What changed about the decision, in one line each:** `zabz-tech-linux` is now correctly *too small to
-matter* (4 slots, not 24) **and** correctly under the disk requirement (20.8 < 25); `secratary` is 1 slot
-rather than 24, and its own line names the swap halving that produced it; `zabz-yoga-1` carries
-"transport v1 MEASURED BROKEN" so no future placement lands a job there while `zabz-tech` is available;
-and `zabz-tech` — the only node that both fits and can take the work (`eligible: 1` is exactly that
-fact) — is chosen for a reason a reader can check term by term.
+| placement | chosen | position | score | eligible | tier |
+|---|---|---|---|---|---|
+| 1 (concurrent) | `zabz-tech` | 0 | 13 | 2 | fits |
+| **2 (concurrent)** | **`zabz-yoga-1`** | 0 | 12 | 2 | fits |
+| 3 (concurrent) | `zabz-tech` | 0 | 12 | 2 | fits |
+| 4 (concurrent) | `zabz-tech` | 0 | 14 | 2 | fits |
+| 5 (afterwards, desktop at 11 free) | `zabz-tech` | 0 | 11 | 2 | fits |
 
-### 11.4 The `absent` state, and the naming invariant, as live negatives
+Placement 2's rationale, verbatim — the laptop taking real work, with its own transport proof and its
+own core term:
+
+```
+chosen from 4 configured node(s): 0 unreachable, 0 excluded by the caller, 0 switched off in the roster; tier=fits; chosen zabz-yoga-1
+zabz-yoga-1: 12 slot(s) of at most 24: floor((13729 MiB free - 3885 MiB reserve) / 160 MiB) = 61 slot(s), capped at maxSlots=24 -> 24, minus governor.inUse=1 -> 23
+zabz-yoga-1: 12 free slot(s) of 24 (slots 12 = 23 raw - see above, minus 0 broker lease(s) running here; 0 queued)
+zabz-yoga-1: disk 69.3 GiB free on C:/Users/ezabz/code vs 23 GiB required (20 GiB fleet floor + 0 GiB declared worktree + 0.5 GiB/child x 6 child(ren)) -> gate passes
+zabz-yoga-1: load1 not measured on 22 logical cpu(s), 10 agent loop(s) running
+zabz-yoga-1: 23 memory slot(s), 12 core slot(s) of 16 physical x 0.75 -> effective 12
+zabz-yoga-1: transport v1 (ssh --profile headless) MEASURED to work (measured 2026-09-16): reparse-point trust fixed by an in-session relink; LAPTOP OK exit 0 in 10.3 s; a full dispatch to this node completed exit 0 (stream S6, 23:44Z) - work dispatched here can actually run
+zabz-yoga-1: 12 free slot(s) - 6 child(ren) = 6 >= 0 -> fits now
+position 0: 12 free slot(s) - 6 child(ren) = 6 >= 0 on a reachable node -> start now
+zabz-tech: 11 free slot(s) of 24, 24 memory slot(s), 18 core slot(s) of 24 physical x 0.75 -> effective 18, 5 after 6 child(ren)
+…
+```
+
+**What changed about the decision, in one line each:** `zabz-tech-linux` is correctly *too small to
+matter* (4 slots, not 24) **and** under the disk requirement (20.8 < 23); `secratary` is 1 slot rather
+than 24, and its own line names the swap halving that produced it; `zabz-yoga-1` is a **first-class
+target again** — its 12 effective core slots are real capacity, and the row that said otherwise now
+says why it changed; and the two-node spread is what the arithmetic produces when the desktop fills up,
+with no caller-side exclusion and no transport workaround.
+
+### 11.4 The `absent` state, the `slow` state and the naming invariant, as live negatives
 
 * A roster whose row is keyed `zabz-yoga` with fqdn `zabz-yoga-1.tail93e6e6.ts.net` **refuses to boot**
   (§10.5), with the reason and both spellings in the message — measured, exit 1.
 * A `volatile` row that has never answered reports `absent: true`, `unreachable: false`, no reading and
   no latency, an age measured from configuration, and is excluded from the ranking — measured by the
   acceptance test; **not observable on the live roster**, because no live row is volatile.
+* A 200 that is not a usable document reports `capacity-unreadable` with the node's own reason, not
+  `unreachable` — measured by the acceptance test; **not observable live**, because every live reader
+  currently answers a usable document.
+* A read that misses the deadline and then succeeds reports `slow` with both latencies, ranked below a
+  node that answered first time — measured live on `zabz-yoga-1` (2026-09-16 23:58Z: `retried: true`,
+  first attempt 1505 ms against the 1500 ms deadline, retry 455 ms, `elapsedMs` 1960) and measured by
+  the acceptance test in both directions (retry slow = congested; retry fast = cold-start miss, and the
+  next read returns the node to `ok`).
 
 ### 11.5 What could not be verified
 
@@ -695,7 +883,9 @@ fact) — is chosen for a reason a reader can check term by term.
 * **`secratary`'s v1 transport is unmeasured** and is recorded as `null` rather than guessed (§10.4).
 * **The live `zabz-yoga-1` reading was taken while the node was busy** (8 agent loops, 15 sessions,
   23:34Z). Its effective 12 is the memory-and-core arithmetic on a busy box, not an idle one.
-* **The Mac Mini does not answer `/mesh/capacity`** (`curl` exit 7 from the authority, 23:30Z, while the
-  node is `active` in `tailscale status`), so it is not in the roster; its `dispatch.v1` is therefore
-  unmeasured too, and the roster's old "it is Yisroel's machine" reason is superseded by that
-  measurement (§5 item 2).
+* **The Mac Mini's reader is stream S3/S1 work in progress, not this stream's.** It answered `200`
+  with `mem: {totalMiB: null, freeMiB: null}` on 2026-09-17 (it exited 7 with no route on 2026-09-16
+  23:30Z), so it is not in the roster yet and its `dispatch.v1` is unmeasured too. The broker already
+  handles the day it works: an unusable document is `capacity-unreadable` (§10.9), and a working one
+  turns it into a placement target with no code change. The roster's old "it is Yisroel's machine"
+  reason is superseded by measurement (§5 item 2).

@@ -32,6 +32,80 @@ export const CAPACITY_PATH = '/mesh/capacity';
 /** Short by design: a placement decision must not wait on a sleeping laptop. */
 export const DEFAULT_READ_TIMEOUT_MS = 1500;
 
+/**
+ * The SECOND attempt's timeout, for a node that timed out but is demonstrably alive.
+ *
+ * MEASURED 2026-09-16 23:31:18Z: the deployed broker said `zabz-yoga: unreachable (timed out
+ * after 1500 ms)` while that laptop's own gate was answering in 89-232 ms and one tailnet read
+ * to `zabz-tech` took 7342 ms. The laptop was BUSY, not gone - it was running the acceptance
+ * harness - and "busy" and "dead" are different facts that call for different actions: a slow
+ * node should be ranked lower, a dead one avoided entirely.
+ *
+ * So a timeout gets exactly ONE retry at this longer budget, and the pairing is what makes the
+ * distinction legitimate: within a single read, the first attempt failing and the second
+ * succeeding can only mean a slow process, because a refused connection or a dead machine
+ * cannot produce a success a few seconds later. Worst case per slow node per re-read is
+ * 1500 + 4000 ms, which is a hard bound a caller can rely on. 4000 ms is not a guess: the
+ * Mac Mini was measured answering a tailnet read door-to-door in 7342 ms under load, and the
+ * dispatcher's own patience is longer than either number.
+ */
+export const RETRY_READ_TIMEOUT_MS = 4000;
+
+/**
+ * The error codes that mean "nothing is listening / nothing is there", as opposed to "it did
+ * not answer in time". A refusal is a fact about the far side and is never retried.
+ */
+export const NEVER_ANSWERS_CODES = ['ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'ENOTFOUND', 'EAI_AGAIN', 'ECONNRESET', 'EPIPE', 'ERR_INVALID_URL'];
+
+/**
+ * What makes a retried read SLOW. The rule is deliberately the simple one: **a retry happened**,
+ * which means the node did not answer inside our deadline on the first attempt. The approved
+ * wording is exact - "a second, longer attempt succeeds" is `slow` - and the rule is honest about
+ * what it measured: *this read missed the deadline*, not "this node is congested".
+ *
+ * WHY IT IS NOT TIGHTENED FURTHER. A first version of this file marked `slow` only when the
+ * retry was ALSO slow (>= 400 ms after a >= 1 s read), on the theory that a cold first read -
+ * name resolution plus a TLS handshake, neither of which happens again - is a hiccup rather than
+ * a busy node. MEASURED on the authority 23:58Z: the broker's first GET to `zabz-yoga-1` missed
+ * the 1500 ms deadline and the retry answered in 455 ms, while three direct `curl` reads of the
+ * same gate from the same machine took 0.15-0.32 s each. Both rules describe that event
+ * differently and only one of them is defensible: the read DID miss the deadline, and the
+ * ranking penalty is transient - the next read of a warm node comes back `ok` and full rank
+ * (tested). A rule that hides the miss would be the "confident wrong number" this project exists
+ * to avoid, so the miss is reported, with the numbers, and the cost of a false `slow` is bounded
+ * to one read and one tier.
+ *
+ * The floor below is kept only for the `/nodes` note's wording, so a retry that came back fast is
+ * still described as fast rather than as congestion.
+ */
+export const SLOW_READ_FLOOR_MS = 1000;
+
+/** The retry latency below which a `slow` label is reported as a cold-start miss, not congestion. */
+export function slowRetryFloorMs(timeoutMs) {
+  const base = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_READ_TIMEOUT_MS;
+  return Math.max(400, Math.round(base / 3));
+}
+
+/**
+ * Why a read failed, as one of a small closed set, so callers can act on the KIND of failure
+ * instead of matching on an English sentence. `timeout` is the only one that is retried.
+ */
+export function classifyReadError(error) {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  const code = typeof error?.code === 'string' ? error.code : null;
+  if (code !== null && NEVER_ANSWERS_CODES.includes(code)) return code === 'ECONNREFUSED' ? 'refused' : 'never-answers';
+  if (/timed out after|ETIMEDOUT|Timeout/i.test(message)) return 'timeout';
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo|name not resolved|dns/i.test(message)) return 'dns';
+  if (/ECONNRESET|socket hang up|EPIPE/i.test(message)) return 'reset';
+  if (/ECONNREFUSED|EHOSTUNREACH|ENETUNREACH/i.test(message)) return 'refused';
+  return 'other';
+}
+
+/** A failure worth one longer second attempt: only a timeout, and only a timeout. */
+export function isRetryableRead(result) {
+  return result?.ok !== true && result?.errorKind === 'timeout';
+}
+
 /** A capacity document is a few hundred bytes; anything larger is not one. */
 export const MAX_BODY_BYTES = 256 * 1024;
 
@@ -66,7 +140,13 @@ export function httpGetJson(url, options = {}) {
       if (settled) return;
       settled = true;
       if (hardTimer !== null) clearTimeout(hardTimer);
-      resolve({ status: null, doc: null, error: null, bytes: 0, ...result, latencyMs: Date.now() - startedAt });
+      const withTiming = { status: null, doc: null, error: null, bytes: 0, ...result, latencyMs: Date.now() - startedAt };
+      // `errorKind` is the classification of WHY it failed, in a closed set, so a caller can
+      // say "slow" instead of "unreachable" without parsing the sentence (`classifyReadError`).
+      // The original Error is preferred when there is one: Node puts the errno code
+      // (`ECONNREFUSED`, `ETIMEDOUT`) on it and the sentence may not carry that code.
+      const cause = result.errorObject ?? (withTiming.error === null ? null : Object.assign(new Error(withTiming.error), { code: withTiming.code ?? null }));
+      resolve({ ...withTiming, errorKind: withTiming.ok === true ? null : classifyReadError(cause) });
     };
     let parsed;
     try {
@@ -112,10 +192,10 @@ export function httpGetJson(url, options = {}) {
           }
           done({ ok: true, status, doc, error: null, bytes: Buffer.byteLength(body) });
         });
-        response.on('error', (error) => done({ ok: false, status: response.statusCode ?? null, error: error.message }));
+        response.on('error', (error) => done({ ok: false, status: response.statusCode ?? null, error: error.message, code: error.code ?? null }));
       });
     } catch (error) {
-      done({ ok: false, error: error.message });
+      done({ ok: false, error: error.message, code: error.code ?? null });
       return;
     }
     request.setTimeout(timeoutMs, () => {
@@ -125,7 +205,7 @@ export function httpGetJson(url, options = {}) {
       request.destroy(new Error(`timed out after ${timeoutMs} ms (hard wall-clock deadline)`));
     }, timeoutMs);
     if (typeof hardTimer.unref === 'function') hardTimer.unref();
-    request.on('error', (error) => done({ ok: false, error: error.message }));
+    request.on('error', (error) => done({ ok: false, error: error.message, code: error.code ?? null }));
   });
 }
 
@@ -171,14 +251,75 @@ export function validateCapacity(doc, expectedNode) {
 /**
  * Read one node. The default reader used by the broker; injectable so the tests can drive
  * every failure mode without a network.
+ *
+ * TWO ATTEMPTS, ONE MEANING (requirement 3, approved 2026-09-17). A timeout gets exactly one
+ * retry at `retryTimeoutMs` (4000), and the pairing is what turns "no answer in 1500 ms" into
+ * an honest reading of the machine: a node that answers 2 s later was BUSY, and a node that
+ * does not answer at all - or refuses the connection outright - is gone. The two states are
+ * reported as `slow` and `unreachable` respectively, never conflated, because the first should
+ * be ranked lower and the second avoided entirely. A refusal, a DNS failure, a 5xx or bad JSON
+ * is never retried: those are facts about the far side that a second second cannot change.
+ *
+ * The worst case is bounded at `timeoutMs + retryTimeoutMs` (5.5 s at the defaults), which is
+ * what keeps a caller that must not hang still safe.
+ *
+ * A 200 that is not a usable §2.1 document is `capacity-unreadable`, NOT unreachable and NOT a
+ * silent drop (requirement 4): the node answered, so calling it unreachable would be a false
+ * claim, and dropping it would hide a broken reader behind an offline-looking row.
  */
-export async function readNodeCapacity({ node, timeoutMs = DEFAULT_READ_TIMEOUT_MS }) {
+export async function readNodeCapacity({ node, timeoutMs = DEFAULT_READ_TIMEOUT_MS, retryTimeoutMs }) {
+  // The retry budget SCALES with the configured deadline when the caller does not name one:
+  // a 300 ms timeout (the tests) must not grow a 4000 ms second attempt, or the caller's own
+  // bound becomes meaningless. Four times the first attempt, floored at 1 s, capped at the
+  // measured 4000 ms - so the shipping pair is (1500, 4000) and a tight pair stays tight.
+  const retryBudgetMs = Number.isFinite(retryTimeoutMs) && retryTimeoutMs > 0
+    ? retryTimeoutMs
+    : Math.min(RETRY_READ_TIMEOUT_MS, Math.max(1000, Math.round(timeoutMs * 4)));
   const url = capacityUrl(node);
-  const result = await httpGetJson(url, { timeoutMs });
-  if (!result.ok) return { ...result, url };
+  const startedAt = Date.now();
+  let result = await httpGetJson(url, { timeoutMs });
+  let retried = false;
+  let firstLatencyMs = result.latencyMs;
+  if (isRetryableRead(result)) {
+    retried = true;
+    result = await httpGetJson(url, { timeoutMs: retryBudgetMs });
+  }
+  const elapsedMs = Date.now() - startedAt;
+  if (!result.ok) {
+    return { ...result, url, retried, firstLatencyMs, elapsedMs };
+  }
   const check = validateCapacity(result.doc, node.node);
   if (!check.ok) {
-    return { ...result, ok: false, url, error: `capacity document rejected: ${check.reason}` };
+    return {
+      ...result,
+      ok: false,
+      url,
+      retried,
+      firstLatencyMs,
+      elapsedMs,
+      status: result.status,
+      doc: result.doc,
+      state: 'capacity-unreadable',
+      error: `capacity document rejected: ${check.reason}`,
+      reason: check.reason,
+    };
   }
-  return { ...result, url, note: check.note };
+  // SLOW = the first attempt missed our deadline and the second answered. See SLOW_READ_FLOOR_MS
+  // above for why the rule is this simple and what it costs.
+  const slow = retried;
+  const retryWasFast = slow && result.latencyMs < slowRetryFloorMs(timeoutMs);
+  return {
+    ...result,
+    url,
+    retried,
+    firstLatencyMs,
+    elapsedMs,
+    // The validator's note (a labelling disagreement, a null freeMiB) still travels with a
+    // good reading: /nodes surfaces it as `warning`.
+    note: check.note ?? result.note ?? null,
+    state: slow ? 'slow' : 'ok',
+    // Whether the retry came back fast, which distinguishes "missed the deadline once (cold)"
+    // from "still slow on the second attempt (congested)" in the wording of the note.
+    retryWasFast,
+  };
 }

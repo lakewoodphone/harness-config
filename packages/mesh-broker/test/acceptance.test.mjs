@@ -711,6 +711,11 @@ test('a node that accepts the connection and never answers is unreachable within
   // The live run on the authority measured a 3031 ms read against a 1500 ms timeout, because
   // `request.setTimeout()` only counts from socket assignment. This is the regression test
   // for the hard wall-clock deadline that fixed it.
+  //
+  // Since requirement 3 (2026-09-17) a TIMEOUT gets one longer retry, so a node that never
+  // answers at all costs `readTimeoutMs + retryTimeoutMs`. Both are scaled down and named here
+  // so this test still asserts a real bound rather than a slow one: 300 + 600 = 900 ms, inside
+  // the 2000 ms allowance below.
   const sockets = new Set();
   const blackHole = http.createServer((request) => {
     request.on('data', () => {});
@@ -724,16 +729,18 @@ test('a node that accepts the connection and never answers is unreachable within
   const url = `http://127.0.0.1:${blackHole.address().port}`;
   const mesh = await startMesh({
     nodes: [{ node: 'zabz-tech', location: 'office', stub: false, baseUrl: url }],
-    broker: { readTimeoutMs: 300 },
+    broker: { readTimeoutMs: 300, retryTimeoutMs: 600 },
   });
   try {
     const startedAt = Date.now();
     const report = await getNodes(mesh.url);
     const elapsed = Date.now() - startedAt;
     assert.equal(report.status, 200);
-    assert.equal(report.json.nodes[0].unreachable, true);
-    assert.match(report.json.nodes[0].reason, /timed out after 300 ms/);
-    assert.ok(elapsed < 1200, `a 300 ms timeout must not take ${elapsed} ms`);
+    assert.equal(report.json.nodes[0].unreachable, true, 'BOTH attempts timed out, so it is unreachable, not slow');
+    assert.equal(report.json.nodes[0].state, 'unreachable');
+    assert.equal(report.json.nodes[0].retried, true, 'the retry is recorded, so the distinction is auditable');
+    assert.match(report.json.nodes[0].reason, /timed out after 600 ms/, 'the sentence quotes the attempt that ended it');
+    assert.ok(elapsed < 2000, `300 ms + a 600 ms retry must not take ${elapsed} ms`);
 
     const placed = await postPlace(mesh.url, { kind: 'oneShot', children: 1 });
     assertPlacementShape(placed.json, placed.status);
@@ -743,6 +750,181 @@ test('a node that accepts the connection and never answers is unreachable within
     for (const socket of sockets) socket.destroy();
     if (typeof blackHole.closeAllConnections === 'function') blackHole.closeAllConnections();
     await new Promise((resolve) => blackHole.close(() => resolve()));
+  }
+});
+
+test('REQUIREMENT 3 a node that misses the deadline once and answers on the retry is SLOW, not unreachable', async () => {
+  // MEASURED 2026-09-16 23:31:18Z: the deployed broker said `zabz-yoga: unreachable (timed out
+  // after 1500 ms)` while that laptop's own gate was answering in 89-232 ms and it was simply
+  // running the acceptance harness. "Busy" and "gone" call for different actions - a slow node
+  // should be ranked lower, a dead one avoided - so the broker now makes two attempts and says
+  // which happened.
+  //
+  // The server below accepts the first request and never answers it, then answers on the retry
+  // after a real delay: the retry is slow too, which is the "congested" reading of the state.
+  let requests = 0;
+  const slowServer = http.createServer((request, response) => {
+    requests += 1;
+    if (requests === 1) return; // accepted, never answered: the first attempt times out
+    const body = JSON.stringify({
+      schema: 1,
+      node: 'zabz-yoga-1',
+      fqdn: 'zabz-yoga-1.tail93e6e6.ts.net',
+      at: new Date().toISOString(),
+      cpu: { logical: 22, physical: 16, load1: null },
+      mem: { totalMiB: 32373, freeMiB: 14818, swapUsedPct: 0 },
+      disk: { workRoot: 'C:/Users/ezabz/code', freeGiB: 64.1 },
+      agents: { loopsRunning: 7 },
+      governor: { budgetSlots: 24, inUse: 0, queued: 0 },
+      accepts: { oneShot: true, fleet: true, maxChildren: 12, reason: null },
+    });
+    // 700 ms on the retry: past `max(400, 1200/3)` = 400 ms, so this is a genuinely slow node.
+    setTimeout(() => {
+      response.writeHead(200, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) });
+      response.end(body);
+    }, 700);
+  });
+  await new Promise((resolve) => slowServer.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${slowServer.address().port}`;
+  const mesh = await startMesh({
+    nodes: [
+      { node: 'zabz-yoga-1', location: 'home', stub: false, baseUrl: url },
+      { node: 'zabz-tech', location: 'office', freeMiB: freeMiBForSlots(9), inUse: 0, diskGiB: 220, logical: 32, physical: 24 },
+    ],
+    broker: { readTimeoutMs: 300, retryTimeoutMs: 1200 },
+  });
+  try {
+    const report = await getNodes(mesh.url);
+    const yoga = report.json.nodes.find((node) => node.node === 'zabz-yoga-1');
+    assert.equal(yoga.unreachable, false, 'it ANSWERED, so it is not unreachable');
+    assert.equal(yoga.state, 'slow', 'it missed the deadline once and answered on the retry: SLOW');
+    assert.equal(yoga.retried, true);
+    assert.equal(typeof yoga.elapsedMs, 'number');
+    assert.equal(yoga.slotsKnown, true, 'its capacity is real, not zero: a slow node is still a node');
+    assert.equal(yoga.slots, 12, '16 physical cores x 0.75 = 12');
+    assert.match(yoga.note, /still slow on the second attempt/);
+    assert.ok(yoga.elapsedMs >= 1000, `the read really was slow: ${yoga.elapsedMs} ms`);
+    assert.ok(yoga.latencyMs >= 400, `and the retry itself was slow: ${yoga.latencyMs} ms`);
+
+    const { status, json } = await postPlace(mesh.url, { kind: 'oneShot', children: 1 });
+    assertPlacementShape(json, status);
+    assert.equal(json.node, 'zabz-tech', 'the node that answered first time wins, even with fewer effective slots');
+    const slowLine = json.rationale.find((line) => line.startsWith('zabz-yoga-1: ') && line.includes('SLOW'));
+    assert.ok(slowLine !== undefined, `the slow node is explained, not hidden: ${json.rationale.join(' | ')}`);
+    assert.ok(slowLine.includes('still slow on the second attempt'));
+  } finally {
+    await mesh.close();
+    if (typeof slowServer.closeAllConnections === 'function') slowServer.closeAllConnections();
+    await new Promise((resolve) => slowServer.close(() => resolve()));
+  }
+});
+
+test('REQUIREMENT 3 a COLD first read that the retry fixes fast is still reported slow once, then recovers to ok', async () => {
+  // MEASURED on the authority 23:58Z: the broker's first GET to `zabz-yoga-1` missed the 1500 ms
+  // deadline and the retry answered in 455 ms, while three direct curl reads of that same gate
+  // from that same machine took 0.15-0.32 s each. Nothing was busy - the first read paid a
+  // one-off cold cost (resolution + TLS handshake, and no connection is reused).
+  //
+  // An earlier version of this code tried to hide that case by requiring the retry to be slow
+  // too. It was wrong: the read DID miss the deadline, and hiding a miss is the confident-wrong-
+  // number failure this project exists to prevent. So the miss is reported ONCE, with its
+  // numbers - and this test pins the part that makes it acceptable: the next read of the same
+  // warm node is `ok` at full rank, so the cost of the false alarm is one read and one tier.
+  let requests = 0;
+  const coldServer = http.createServer((request, response) => {
+    requests += 1;
+    if (requests === 1) return; // the cold attempt times out
+    const body = JSON.stringify({
+      schema: 1,
+      node: 'zabz-yoga-1',
+      at: new Date().toISOString(),
+      cpu: { logical: 22, physical: 16, load1: null },
+      mem: { totalMiB: 32373, freeMiB: 14818, swapUsedPct: 0 },
+      disk: { workRoot: 'C:/Users/ezabz/code', freeGiB: 64.1 },
+      governor: { budgetSlots: 24, inUse: 0, queued: 0 },
+      accepts: { oneShot: true, fleet: true, maxChildren: 12, reason: null },
+    });
+    response.writeHead(200, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) });
+    response.end(body);
+  });
+  await new Promise((resolve) => coldServer.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${coldServer.address().port}`;
+  const mesh = await startMesh({
+    nodes: [{ node: 'zabz-yoga-1', location: 'home', stub: false, baseUrl: url }],
+    broker: { readTimeoutMs: 300, retryTimeoutMs: 1200, cacheTtlMs: 30 },
+  });
+  try {
+    const first = await getNodes(mesh.url);
+    const cold = first.json.nodes[0];
+    assert.equal(cold.retried, true, 'the first attempt did miss the deadline');
+    assert.equal(cold.state, 'slow', 'so this read is reported slow, with its numbers');
+    assert.equal(cold.unreachable, false, 'but the node is NOT unreachable - it answered');
+    assert.equal(cold.slotsKnown, true, 'and its capacity is real, not zero');
+    assert.equal(cold.slots, 12, '16 physical cores x 0.75 = 12');
+    assert.match(cold.note, /cold-start miss rather than proof of congestion/);
+
+    await sleep(60);
+    const second = await getNodes(mesh.url);
+    const warm = second.json.nodes[0];
+    assert.equal(warm.retried, false, 'the next read did not need a retry');
+    assert.equal(warm.state, 'ok', 'and a warm node comes back at full rank');
+    assert.equal(warm.slots, 12);
+  } finally {
+    await mesh.close();
+    if (typeof coldServer.closeAllConnections === 'function') coldServer.closeAllConnections();
+    await new Promise((resolve) => coldServer.close(() => resolve()));
+  }
+});
+
+test('REQUIREMENT 4 a node whose capacity cannot be read is CAPACITY-UNREADABLE, not unreachable and not dropped', async () => {
+  // The Mac Mini's reader (stream S1's) answers 200 with `mem: { totalMiB: null, freeMiB: null }`,
+  // and other broken readers answer with a wrong schema or a non-numeric field. The node is up;
+  // its READER is broken. Before this such a document was rejected outright, so the node was
+  // invisible - and an invisible node and an offline node look the same at the caller. It is now
+  // its own state, excluded from the ranking and visible in /nodes with the reason it gave, so a
+  // broken reader looks like a broken reader.
+  //
+  // (A document that is usable apart from `mem.freeMiB: null` is a DIFFERENT case and is covered
+  // by "a node that answers with mem.freeMiB null is REACHABLE with unknown slots": it answered
+  // and its memory alone is unread, which is unknown slots rather than an unreadable capacity.)
+  const brokenReader = http.createServer((request, response) => {
+    const body = JSON.stringify({ schema: 2, node: 'lakewooechsmini', fqdn: 'lakewooechsmini.tail93e6e6.ts.net', at: new Date().toISOString(), mem: { totalMiB: null, freeMiB: null } });
+    response.writeHead(200, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) });
+    response.end(body);
+  });
+  await new Promise((resolve) => brokenReader.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${brokenReader.address().port}`;
+  const mesh = await startMesh({
+    nodes: [
+      { node: 'lakewooechsmini', location: 'office', stub: false, baseUrl: url },
+      { node: 'zabz-tech', location: 'office', freeMiB: freeMiBForSlots(9), inUse: 0, diskGiB: 220, logical: 32, physical: 24 },
+    ],
+  });
+  try {
+    const report = await getNodes(mesh.url);
+    assert.equal(report.status, 200);
+    assert.equal(report.json.nodes.length, 2, 'a node with a broken reader is REPORTED, never dropped');
+    const mini = report.json.nodes.find((node) => node.node === 'lakewooechsmini');
+    assert.equal(mini.state, 'capacity-unreadable');
+    assert.equal(mini.unreachable, false, 'it answered, so calling it unreachable would be a false claim');
+    assert.equal(mini.absent, false);
+    assert.equal(mini.capacityUnreadable, true);
+    assert.match(mini.reason, /schema 2 is not 1/, "the reason is the node's OWN, not a broker paraphrase");
+    assert.match(mini.note, /broken reader, not an offline machine/);
+    assert.equal(Object.hasOwn(mini, 'reading'), false, 'it is given no reading');
+    assert.ok(mini.unreadableReading !== undefined, 'but the document it sent is kept, so the reader can be debugged');
+
+    const { status, json } = await postPlace(mesh.url, { kind: 'oneShot', children: 1 });
+    assertPlacementShape(json, status);
+    assert.equal(json.node, 'zabz-tech', 'the unreadable node is excluded from the ranking');
+    assert.equal(json.absent, 0);
+    assert.ok(
+      json.rationale.some((line) => line.startsWith('lakewooechsmini: ') && line.includes('CAPACITY-UNREADABLE')),
+      `the unreadable node is explained in the rationale: ${json.rationale.join(' | ')}`,
+    );
+  } finally {
+    await mesh.close();
+    await new Promise((resolve) => brokenReader.close(() => resolve()));
   }
 });
 

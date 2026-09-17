@@ -119,17 +119,65 @@ Responds `200`:
 ```
 * `position` 0 = start now; >0 = queued behind that many accepted jobs. **Never a refusal.**
 * `rationale` is a list of human-readable lines naming the numbers the decision used. A placement
-  decision that cannot be explained is a bug.
-* Scoring, frozen: `slots = min(floor((freeMiB - reserveMiB) / 160), maxSlots)` where
-  `reserveMiB = 3885` and `maxSlots = 24` — the governor's own derivation — minus `governor.inUse`.
-  A node is eligible iff `slots - children >= 0` **or** it has the highest `slots` on the mesh
-  (so a fleet bigger than every node still places, queued rather than refused). Disk: a node with
-  `freeGiB < 20` is ineligible for `kind=fleet`.
+  decision that cannot be explained is a bug. Every term below is printed, so a caller can re-do the
+  arithmetic rather than trust the answer.
+* Scoring, frozen, **as amended 2026-09-17** (the amendments are owner-approved and are what the
+  broker implements; `76-broker.md` §10 carries each one with its measurement and its test):
+
+  ```
+  memorySlots = min(floor((freeMiB - 3885) / 160), 24) - governor.inUse      // the original term
+  coreSlots   = floor(cpu.physical * 0.75)                                   // physical, else cpu.logical
+  slots       = min(memorySlots, coreSlots)                                  // the score is the SMALLER
+  slots       = mem.swapUsedPct >= 90 ? floor(slots / 2) : slots             // swapping = halved
+  ```
+
+  * **Why the core term.** One actively generating agent turn costs ~1 core (0.81 GB commit + ~1 core,
+    measured 2026-09-15/16) and this laptop pages at 13-14 concurrent turns on 16 physical cores, i.e.
+    `floor(16 × 0.75) = 12`, the measured threshold to within one. A memory-only score rated the
+    4-core authority at 24 slots — a 6x overstatement — and would rate a 2-vCPU rental the same, so
+    the score now says nothing it cannot measure. `cpu.logical` is used **only** when `cpu.physical`
+    is absent, and the rationale names which was used.
+  * **The swap half is a ranking change, never a gate** (owner's rule: queue, never amputate). A node
+    at ≥ 90% swap is still placeable when it is the best or only candidate, and says so.
+  * **90% is a first cut**, to revisit when a node has been read under a real fleet load;
+    `mem.swapUsedPct` is a level, not a rate.
+  * A node is eligible iff `slots - children >= 0` **or** it has the highest `slots` on the mesh
+    (so a fleet bigger than every node still places, queued rather than refused).
+  * Disk, **as amended**: a node with `freeGiB < 20 + worktreeGiB + 0.5 × children` is ineligible for
+    `kind=fleet`. The flat 20 GiB floor did not scale with the fleet: measured 2026-09-16,
+    `zabz-tech-linux` had 20.8 GiB free against it — 0.8 GiB of margin — so one worktree flipped it
+    into a silent overlap. One-shot needs 20.5, a 6-child fleet 23, a 12-child fleet 26.
+  * **Transport ranks, it does not gate.** Each roster node carries
+    `dispatch: {v1, measuredAt, evidence}` — `true` measured to accept `ssh <node> dsh --profile
+    headless`, `false` measured not to, `null` never measured. A `false` node ranks **below every node
+    that can take the work** and is chosen only when nothing else is eligible, when the rationale says
+    `chosen despite transport=unavailable, because nothing else is eligible`. `null` is ranked between
+    the two and printed as *unmeasured*: "measured broken" and "never measured" are different facts.
+    The permanent fix is the v2 HTTP route (§1), which does not depend on ssh.
+  * **A slow node is not a dead one.** A read that times out gets exactly one retry at a longer budget;
+    if that second attempt succeeds the node is `slow` with its elapsed time, ranked below every node
+    that answered first time and never refused. Measured 2026-09-16 23:31:18Z: the broker said
+    `unreachable (timed out after 1500 ms)` about a laptop whose own gate was answering in 89-232 ms
+    while it ran the acceptance harness. `unreachable` is now reserved for a refused connection or two
+    failed attempts. The worst case per re-read stays bounded (`readTimeoutMs + retryTimeoutMs`,
+    1500 + 4000 ms).
 * `POST /done` `{"lease":"...","ok":true}` releases the reservation. A lease older than its TTL is
   reclaimed by the broker itself, so a dead dispatcher cannot wedge the mesh.
 * `GET /nodes` returns every node's last capacity reading plus its age. Cached ≤ 15 s; `?fresh=1`
-  forces a re-read. A node unreachable is reported as `{"node":..., "unreachable":true, "ageSec":n}`
-  — never dropped, never faked.
+  forces a re-read. **A node is in exactly one state, and the states are not interchangeable** —
+  `ok`, `slow`, `unreachable`, `capacity-unreadable`, `absent` — so a node is never dropped and never
+  faked:
+  * `unreachable` — nothing answered: refused, DNS failure, or both attempts timed out.
+    `{"node":..., "unreachable":true, "state":"unreachable", "ageSec":n}`.
+  * `capacity-unreadable` — the node **answered**, but what it sent is not a usable §2.1 document
+    (a wrong schema, a non-numeric field). Its own reason is attached, it is excluded from the
+    ranking, and the document it sent is kept under `unreadableReading`. A broken reader must look
+    like a broken reader, not like an offline machine.
+  * `absent` — in the roster, marked `volatile`, and it has never answered: **not** unreachable, and
+    its `ageSec` is measured from when it was configured (`absentSince`). It is excluded from the
+    ranking, and if every node is absent the whole roster is the pool, because never-refuse holds
+    even then.
+
 
 ### 2.3 `mesh-run` — the dispatcher CLI (stream S6)
 
