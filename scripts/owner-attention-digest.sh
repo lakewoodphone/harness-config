@@ -215,10 +215,10 @@ else
   echo -n "Corpus push gap:   "
   if [ "$cgap" -gt 0 ]; then
     echo "🔴 $cgap record(s) in the hub but NOT in production (measured ${cage}h ago)"
-    echo "                     NOTE: 'would create' is not 'should create'. Records held for a"
-    echo "                     documented reason are counted here too; the record schema has no"
-    echo "                     field in which to say 'held, and why' (operational is"
-    echo "                     additionalProperties:false). Do not read this as $cgap broken jobs."
+    echo "                     CAUTION: 'would create' is not 'should create'. The record schema NOW"
+    echo "                     HAS a field for this — operational.syncHoldReason — and the verifier"
+    echo "                     reports how many records carry one (see the line below). This reporter's"
+    echo "                     own count does NOT yet exclude held records, so read it as an upper bound."
     PROBLEMS=$((PROBLEMS+1))
   else
     echo "✅ none — every hub record has a production order (measured ${cage}h ago)"
@@ -238,16 +238,20 @@ import json, os, time
 p = "/home/zabz/.lpt-verify/four-surface.json"
 try:
     d = json.load(open(p))
-    print("%s|%s|%s|%s|%s" % (d.get("errors"), d.get("warnings"), d.get("unreachable"),
-                              round((time.time() - os.path.getmtime(p)) / 60.0, 1),
-                              d.get("updated", "?")))
+    print("%s|%s|%s|%s|%s|%s|%s|%s" % (d.get("errors"), d.get("warnings"), d.get("unreachable"),
+                                     round((time.time() - os.path.getmtime(p)) / 60.0, 1),
+                                     d.get("updated", "?"), d.get("records_held_total", "?"),
+                                     d.get("schema_invalid", "?"), d.get("records_held_syncable", "?")))
 except Exception:
-    print("-1|-1|-1|?|unreadable")
-' 2>/dev/null || echo "-1|-1|-1|?|unreadable")
+    print("-1|-1|-1|?|unreadable|?|?|?")
+' 2>/dev/null || echo "-1|-1|-1|?|unreadable|?|?|?")
 verr=$(printf '%s' "$vres" | cut -d'|' -f1)
 vwarn=$(printf '%s' "$vres" | cut -d'|' -f2)
 vunreach=$(printf '%s' "$vres" | cut -d'|' -f3)
 vage=$(printf '%s' "$vres" | cut -d'|' -f4)
+vheld=$(printf '%s' "$vres" | cut -d'|' -f6)
+vschema=$(printf '%s' "$vres" | cut -d'|' -f7)
+vheldsync=$(printf '%s' "$vres" | cut -d'|' -f8)
 echo -n "4-surface verify:  "
 if [ "$verr" = "-1" ]; then
   echo "🔴 REPORT UNREADABLE ($VERIFY_REPORT) — the verifier has never run or its output is gone"
@@ -263,6 +267,16 @@ elif [ "$verr" -gt 0 ]; then
   PROBLEMS=$((PROBLEMS+1))
 else
   echo "✅ all four surfaces agree (last run ${vage}m ago)"
+fi
+# Held vs actionable, shown on its own line because the difference is the whole point of the field.
+# "belongs on the website" and "ready to be published" are not the same claim, and a reader who
+# cannot tell them apart will read a constant number as unaddressed drift — which is what happened
+# for 16.5 hours before `operational.syncHoldReason` existed.
+if [ "$vheld" != "?" ] && [ "$vheld" != "-1" ]; then
+  echo "                     $vheld record(s) carry a recorded hold reason (deliberately waiting, not"
+  echo "                     drift); ${vheldsync:-?} of those are also marked should-sync-to-website."
+  echo "                     Schema: $vschema record(s) outside the schema — the recorded baseline;"
+  echo "                     it alerts only if that number GROWS."
 fi
 echo ""
 if [ "$PROBLEMS" -gt 0 ]; then echo "🔴 $PROBLEMS problem(s) — see above"; else echo "✅ All health checks OK"; fi
