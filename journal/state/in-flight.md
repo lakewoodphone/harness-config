@@ -1,12 +1,33 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
+Updated: 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203). Previous: 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
 
 Rewritten, not appended. Earlier sessions still live in this file: **ZABZ-TECH credential session, 2026-09-15 20:05Z**
 (AWS key killed D164, Twilio token rotated D165, H275 - its open work is at the END of this file, do not overwrite it) and
 the comms session (ZABZ-YOGA, 14:05Z).
 *(Corrections: H208 cites "D142" for the digest decision — it is **D146**. H389 addenda 3/4 said the API fix was holding —
 **H390 supersedes that**; it was not a fix.)*
+
+## New since 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203 and `journal/reference/id-collision-20260917.md`)
+
+A. **The journal collides with `origin/master` on ten ids, and the sync keeper is correctly refusing.** This laptop's
+   worktree holds a *different entry* under `D254, H464, H465, H466, L1906, L1907, L1908, L1909, P242, P244` than
+   `origin/master` does; eight more (`D252, D253, H467, H468, L1910, L1911, L1912, P246`) collide with the other
+   machine's unpushed work. `journal.py check` reports **0 errors** and cannot see any of it; `idguard.py` reports 9 of
+   the 10 (its local side is the generated cache, and the other machine committed `D254/H474/L1914/P247` **without
+   regenerating `journal/index/entries.tsv`**). Nine of the colliding entries exist in **no commit anywhere** — do not
+   run `checkout`/`clean`/`pull` in this repo until the map in `journal/reference/id-collision-20260917.md` is applied.
+   WHICH SIDE MOVES IS DECIDED BY WHO PUSHES SECOND, and that reference document says why a one-sided renumber cannot
+   converge.
+B. **`zabz-tech`'s live engine (pid 24556, started 09:32:02) is still pre-placement** and needs one restart in an honest
+   idle window to consult the broker (D247, doc 106 §5). It was NOT restarted by this session, and it should now
+   succeed: the junction is repaired, the provider resolves at `0.2.0` from both reader classes, and `desktop-ts` from
+   its own Interactive logon class returns exit 0 in 402 ms. The same machine's `ssh` from *inside* an ssh session hangs
+   for every destination (measured) — probe it as an Interactive one-shot task, never over ssh.
+C. **Two tool defects, measured, not fixed:** `repair-ids --apply` renumbers a duplicate-id tree but leaves the
+   offending file behind, so the tree still fails `check` (reproduced on a synthetic tree); and `idguard`'s verdict
+   depends on a generated cache that a committing writer must remember to rebuild. The reconcile verb `D191` asked for
+   is still unbuilt.
 
 ## Open right now
 
