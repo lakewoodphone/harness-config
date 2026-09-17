@@ -390,3 +390,12 @@ L1790	lessons	L1778	identity duplicate inside entries/	2026-09-17	zabz-yoga	1763
 L1803	lessons	L1802	identity duplicate inside entries/	2026-09-17	zabz-yoga	5f4bb7ee0d63b7d6	archive/duplicates/lessons/L1803.md
 L221a	lessons	L221	identity duplicate inside entries/	2026-09-17	ZABZ-YOGA	b464b327a5338b6f	archive/duplicates/lessons/L221a.md
 W193	wins	W26b	identity duplicate inside entries/	2026-09-17	legacy	f5cb345d742376c3	archive/duplicates/wins/W193.md
+H64	handoff	H54	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-YOGA	308522abfc6b2a2c	log/handoff/2026-09.2.md:1122
+H79a	handoff	H84	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-YOGA	97f7db25cee2d5d2	log/handoff/2026-09.2.md:2609
+H80a	handoff	H77	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-YOGA	fdf6f7fce50a4586	log/handoff/2026-09.2.md:2688
+H81a	handoff	H78	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-YOGA	24755e5bbbcdfefc	log/handoff/2026-09.2.md:2776
+H82a	handoff	H79	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-YOGA	36574fc93c53f231	log/handoff/2026-09.2.md:2822
+H83a	handoff	H80	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-YOGA	141084f483d8923e	log/handoff/2026-09.2.md:2866
+H84a	handoff	H81	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-YOGA	12b8e66d3de9a049	log/handoff/2026-09.2.md:2912
+H85a	handoff	H82	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-TECH	04950b31f4813149	log/handoff/2026-09.2.md:3004
+H86a	handoff	H83	same entry absorbed by identity, not by bytes	2026-09-17	ZABZ-TECH	e0faad223f59cb6d	log/handoff/2026-09.2.md:3039
