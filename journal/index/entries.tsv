@@ -104,16 +104,21 @@ handoff	H98	98		2026-09-14 21:49 UTC	ZABZ-YOGA	open	## 2026-09-14 21:49 UTC · Z
 handoff	H116	116		2026-09-14 21:55 UTC	ZABZ-YOGA	open	## 2026-09-14 21:55 UTC · ZABZ-YOGA · The filter's website exists and runs: its own service, its own session, and the broker's cookie never leaves the server	entries/handoff/H116.md	1	72	788bf948d34b8fea
 handoff	H99	99		2026-09-14 22:00 UTC	ZABZ-YOGA	open	## 2026-09-14 22:00 UTC · ZABZ-YOGA · Session close: status.json surface added, Tailscale recovered, desktop root-caused, rotation queued as #31	entries/handoff/H99.md	1	25	319ddf3d74802048
 handoff	H197	197		2026-09-14 22:21 UTC	ZABZ-YOGA	open	## 2026-09-14 22:21 UTC · ZABZ-YOGA · Amazon + eBay feeds restored; ledger path fixed; headed downloads via Xvfb	entries/handoff/H197.md	1	51	7dc8b99944300cc6
+handoff	H424	424		2026-09-14 22:41 UTC	SECRATARY	open	## 2026-09-14 22:41 UTC · SECRATARY · ceo-kernel diverged and being edited: sentinel model_failover check is pushed but not applied	entries/handoff/H424.md	1	17	557ae6be2488d4c9
 handoff	H198	198		2026-09-14 22:42 UTC	ZABZ-YOGA	open	## 2026-09-14 22:42 UTC · ZABZ-YOGA · Engine froze: a wedged engine the watchdog could not replace for 100 minutes, plus Tailscale dead since boot	entries/handoff/H198.md	1	72	036a721285d9adcb
 handoff	H199	199		2026-09-14 22:43 UTC	ZABZ-YOGA	open	## 2026-09-14 22:43 UTC · ZABZ-YOGA · Weitman laptop: two-option SMS drafted, awaiting send approval	entries/handoff/H199.md	1	6	a93144a4a36b5f9b
 handoff	H200	200		2026-09-14 22:50 UTC	ZABZ-YOGA	open	## 2026-09-14 22:50 UTC · ZABZ-YOGA · Only 8 of 65 enrolled devices have EVER replied: the DRN fleet is largely not attached to the MDM	entries/handoff/H200.md	1	44	00e1f0f1296f2518
 handoff	H201	201		2026-09-14 22:52 UTC	ZABZ-YOGA	open	## 2026-09-14 22:52 UTC · ZABZ-YOGA · The filter can take money: Checkout built, and the upsert that would have erased every subscription status	entries/handoff/H201.md	1	29	89e2cfa5408c0f32
 handoff	H202	202		2026-09-14 23:01 UTC	ZABZ-YOGA	open	## 2026-09-14 23:01 UTC · ZABZ-YOGA · 2026-09-14 23:05Z ZABZ-YOGA: Dialpad comms end to end -- complete index, scheduled, agent-reachable	entries/handoff/H202.md	1	52	73a187f956f5d522
+handoff	H425	425		2026-09-14 23:04 UTC	SECRATARY	open	## 2026-09-14 23:04 UTC · SECRATARY · Two open supplier money issues documented: Device Parts $70 DHL duty clock, Global Direct Parts $167.96 never shipped	entries/handoff/H425.md	1	30	6333ad01d03d3e11
 handoff	H203	203		2026-09-14 23:05 UTC	ZABZ-YOGA	open	## 2026-09-14 23:05 UTC · ZABZ-YOGA · Engine freeze: a wedged engine the watchdog could not replace for 100 minutes (fixed, pushed as 444c3b3); Tailscale was never down, MagicDNS was	entries/handoff/H203.md	1	64	91d2b29690c1dcb0
 handoff	H204	204		2026-09-14 23:08 UTC	ZABZ-YOGA	open	## 2026-09-14 23:08 UTC · ZABZ-YOGA · Draft backlog closed and the generator fixed; the expiry the table always had is now enforced	entries/handoff/H204.md	1	40	3952523a8908bed8
 handoff	H205	205		2026-09-14 23:18 UTC	ZABZ-YOGA	open	## 2026-09-14 23:18 UTC · ZABZ-YOGA · Journal v2 is live and verified: one file per entry, a self-healing cache, and the record rebuilt from the frozen sources after a concurrent migration corrupted the derived tree	entries/handoff/H205.md	1	33	aef80ff8cfcfcb24
+handoff	H426	426		2026-09-14 23:20 UTC	SECRATARY	open	## 2026-09-14 23:20 UTC · SECRATARY · The question card's question is on screen: anchored to the visual viewport, proved in the live app	entries/handoff/H426.md	1	27	944b55e491dfe5b7
 handoff	H206	206		2026-09-14 23:23 UTC	SECRATARY	open	## 2026-09-14 23:23 UTC · SECRATARY · Fios fiber home install recorded: photos, credentials, ONT serial, and four open items	entries/handoff/H206.md	1	48	3b059bcbce68bb9e
+handoff	H427	427		2026-09-14 23:26 UTC	SECRATARY	open	## 2026-09-14 23:26 UTC · SECRATARY · The missing watchdog is built: a paid supplier order that never ships now has a voice (P132 closed)	entries/handoff/H427.md	1	30	7e98cd420a72d691
 handoff	H207	207		2026-09-14 23:37 UTC	ZABZ-YOGA	open	## 2026-09-14 23:37 UTC · ZABZ-YOGA · Billing is live end to end - and activating it exposed a production database that the documented deploy would have destroyed	entries/handoff/H207.md	1	31	4c85a5bcc3f6ba8b
+handoff	H428	428		2026-09-14 23:37 UTC	SECRATARY	open	## 2026-09-14 23:37 UTC · SECRATARY · The supplier pipeline feeds itself; the real cause of tasks closing while unfixed is found and fixed	entries/handoff/H428.md	1	32	f13a6b5b4796aa9a
 handoff	H208	208		2026-09-14 23:39 UTC	ZABZ-YOGA	open	## 2026-09-14 23:39 UTC · ZABZ-YOGA · 2026-09-14 23:40Z ZABZ-YOGA: full view into customer comms -- identity, email, waiting, agent discovery	entries/handoff/H208.md	1	52	3cae3cbe68562aa7
 handoff	H209	209		2026-09-14 23:39 UTC	ZABZ-YOGA	open	## 2026-09-14 23:39 UTC · ZABZ-YOGA · Weitman laptop: quote SENT, authoritative case updated on ZABZ-TECH	entries/handoff/H209.md	1	10	744ed73eb50c255f
 handoff	H210	210		2026-09-14 23:40 UTC	ZABZ-YOGA	open	## 2026-09-14 23:40 UTC · ZABZ-YOGA · Journal v2 verified on Linux and merged to master: 240 checks, 0 errors, FAIL=0 WARN=0 - and a real id collision (D143) proved P132 during the merge	entries/handoff/H210.md	1	32	d7c64ed1f227eea2
@@ -138,7 +143,6 @@ handoff	H225	225		2026-09-15 14:02 UTC	ZABZ-YOGA	open	## 2026-09-15 14:02 UTC ·
 handoff	H226	226		2026-09-15 14:04 UTC	ZABZ-YOGA	open	## 2026-09-15 14:04 UTC · ZABZ-YOGA · The owner queue forgets now, the badge tells the truth, and a six-month-dead reminder poll exists	entries/handoff/H226.md	1	63	2e816f9a44cdb481
 handoff	H227	227		2026-09-15 14:06 UTC	ZABZ-YOGA	open	## 2026-09-15 14:06 UTC · ZABZ-YOGA · Daily note from ZABZ-YOGA	entries/handoff/H227.md	1	25	e6dd8529383a93e2
 handoff	H228	228		2026-09-15 14:11 UTC	LAKEWOOECHSMINI	open	## 2026-09-15 14:11 UTC · LAKEWOOECHSMINI · Daily note from LakewooechsMini	entries/handoff/H228.md	1	25	8553daded821a6f0
-handoff	H229	229		2026-09-15 14:11 UTC	LAKEWOOECHSMINI	open	## 2026-09-15 14:11 UTC · LAKEWOOECHSMINI · Daily note from LakewooechsMini	entries/handoff/H229.md	1	25	8553daded821a6f0
 handoff	H322	322		2026-09-15 14:11 UTC	ZABZ-YOGA	open	## 2026-09-15 14:11 UTC · ZABZ-YOGA · Verification addendum: the reminder error is gone by observation, and the stale Pesach override is inert	entries/handoff/H322.md	1	27	7ec3c892497cbb35
 handoff	H323	323		2026-09-15 14:26 UTC	ZABZ-YOGA	open	## 2026-09-15 14:26 UTC · ZABZ-YOGA · comms: 1,204 people named from the shop's own records, and one wrong name removed	entries/handoff/H323.md	1	59	aa03be763d0fd11b
 handoff	H324	324		2026-09-15 14:27 UTC	ZABZ-YOGA	open	## 2026-09-15 14:27 UTC · ZABZ-YOGA · correction: H323 cites L1505, the trust-grade lesson is L1638 (and why an entry cannot cite its own sibling)	entries/handoff/H324.md	1	24	a587f18abb0e3328
@@ -208,6 +212,7 @@ handoff	H267	267		2026-09-15 19:31 UTC	ZABZ-TECH	open	## 2026-09-15 19:31 UTC ·
 handoff	H268	268		2026-09-15 19:31 UTC	ZABZ-TECH	open	## 2026-09-15 19:31 UTC · ZABZ-TECH · Waze fleet run: repo is behind production on six auth fixes including a Stripe Terminal exposure; queue residue cleared 8,607->509	entries/handoff/H268.md	1	55	c6f94e7fff84203e
 handoff	H269	269		2026-09-15 19:32 UTC	ZABZ-TECH	open	## 2026-09-15 19:32 UTC · ZABZ-TECH · Round 7: smart-fields and systemLog guarded in SOURCE (131 tests) - and my round-5 syntax check never ran, so those claims are corrected	entries/handoff/H269.md	1	70	ee2af63d7e6512da
 handoff	H270	270		2026-09-15 19:34 UTC	ZABZ-TECH	open	## 2026-09-15 19:34 UTC · ZABZ-TECH · PART-125 done: no customer can recover an account, and the fix is not in recovery - they have no password to recover	entries/handoff/H270.md	1	63	9bd752ec0b11a3cf
+handoff	H429	429		2026-09-15 19:34 UTC	SECRATARY	open	## 2026-09-15 19:34 UTC · SECRATARY · Home Assistant security evidence overhaul - 2026-09-15	entries/handoff/H429.md	1	31	2c226909d960ddb4
 handoff	H271	271		2026-09-15 19:41 UTC	ZABZ-TECH	open	## 2026-09-15 19:41 UTC · ZABZ-TECH · INCIDENT: a compose recreate silently reverted all six guard patches and re-exposed the Stripe token mint - caught only because a battery ran for an unrelated reason	entries/handoff/H271.md	1	84	2f4f8c8c82550048
 handoff	H272	272		2026-09-15 19:46 UTC	ZABZ-TECH	open	## 2026-09-15 19:46 UTC · ZABZ-TECH · CLOSED the guard-revert recurrence: the six guards are baked into an image, verified across TWO forced recreates	entries/handoff/H272.md	1	59	711c924d6a7a0905
 handoff	H273	273		2026-09-15 19:48 UTC	ZABZ-TECH	open	## 2026-09-15 19:48 UTC · ZABZ-TECH · kf2/measures-reader: D39-11 measures reader built, route and report, on branch agent/measures-reader	entries/handoff/H273.md	1	19	8b3d29ff1b0665f4
@@ -216,6 +221,7 @@ handoff	H275	275		2026-09-15 19:49 UTC	ZABZ-TECH	open	## 2026-09-15 19:49 UTC ·
 handoff	H276	276		2026-09-15 19:55 UTC	ZABZ-TECH	open	## 2026-09-15 19:55 UTC · ZABZ-TECH · The account/sign-in audit series is COMPLETE - all fifteen parts 117-131 documented (129 auth drift, 130 filter site, 131 test blind spots)	entries/handoff/H276.md	1	77	6371154c0b097be7
 handoff	H277	277		2026-09-15 19:57 UTC	ZABZ-TECH	open	## 2026-09-15 19:57 UTC · ZABZ-TECH · Family chat / Chip: inbound body was being stored in media_urls and Chip was answering blind - fixed, deployed, 116 rows repaired	entries/handoff/H277.md	1	31	6d429d18f760f93f
 handoff	H278	278		2026-09-15 19:57 UTC	ZABZ-TECH	open	## 2026-09-15 19:57 UTC · ZABZ-TECH · Company audit: 8 workstreams, 2 production fixes landed (restart storm + dropped money alerts), and a concurrent operator on the live tree	entries/handoff/H278.md	1	77	23679904a1af4754
+handoff	H430	430		2026-09-15 20:03 UTC	SECRATARY	open	## 2026-09-15 20:03 UTC · SECRATARY · Shop lights handed over - map, naming, availability, and the dead occupancy block	entries/handoff/H430.md	1	6	b6129932435352ee
 handoff	H279	279		2026-09-15 20:13 UTC	ZABZ-TECH	open	## 2026-09-15 20:13 UTC · ZABZ-TECH · Built the tree-level guard test PART-131 F-1 asked for - 4 tests, 485ms, proven to fail on a new unguarded procedure - and it corrected my own round-7 count	entries/handoff/H279.md	1	71	040906af28c5b583
 handoff	H280	280		2026-09-15 20:15 UTC	ZABZ-TECH	open	## 2026-09-15 20:15 UTC · ZABZ-TECH · 2026-09-15: credential exposure closed, fleet API hardened - what changed and what is left	entries/handoff/H280.md	1	45	192efc58fb764407
 handoff	H281	281		2026-09-15 20:19 UTC	ZABZ-TECH	open	## 2026-09-15 20:19 UTC · ZABZ-TECH · fleet-api silent-failure fixes committed (829a7b97), not pushed, not deployed	entries/handoff/H281.md	1	48	76cfd7e5b0c20b5a
@@ -228,6 +234,8 @@ handoff	H287	287		2026-09-15 20:40 UTC	ZABZ-TECH	open	## 2026-09-15 20:40 UTC ·
 handoff	H288	288		2026-09-15 20:46 UTC	ZABZ-TECH	open	## 2026-09-15 20:46 UTC · ZABZ-TECH · 2026-09-15 20:45 UTC: the portal break I caused is fixed; Heroku is retired; where the live estate actually is	entries/handoff/H288.md	1	41	d436dd253fc71c10
 handoff	H289	289		2026-09-15 20:50 UTC	ZABZ-TECH	open	## 2026-09-15 20:50 UTC · ZABZ-TECH · 2026-09-15 end: 12 commits on master, the base convention closed, one path left unverified	entries/handoff/H289.md	1	28	cf01a81d54f73f9d
 handoff	H290	290		2026-09-15 20:50 UTC	ZABZ-TECH	open	## 2026-09-15 20:50 UTC · ZABZ-TECH · Lakewood Rentals: audited, hardened, deployed, and one human sign-in short of proven	entries/handoff/H290.md	1	42	8e49795696581e0c
+handoff	H431	431		2026-09-15 20:51 UTC	SECRATARY	open	## 2026-09-15 20:51 UTC · SECRATARY · Security audit: a valid code fires a 3-person intrusion alarm, and the live rule is not the owner rule	entries/handoff/H431.md	1	37	1f2654ce9364cb70
+handoff	H432	432		2026-09-15 20:51 UTC	SECRATARY	open	## 2026-09-15 20:51 UTC · SECRATARY · Detection audit: the door sensors were dead for six days, so my alarm-volume number was wrong	entries/handoff/H432.md	1	6	09f9f686b68cb6d3
 handoff	H291	291		2026-09-15 20:58 UTC	ZABZ-TECH	open	## 2026-09-15 20:58 UTC · ZABZ-TECH · W2 applied to live and verified; the residual restart rate is deliberate external restarts, not a fault - and W2's leak effect is suggestive but unproven	entries/handoff/H291.md	1	14	fae3136b169d31e4
 handoff	H292	292		2026-09-15 20:59 UTC	ZABZ-TECH	open	## 2026-09-15 20:59 UTC · ZABZ-TECH · W2-CORE: Tier 1 committed on agent/rentals-core (4 commits); gate green except 2 frozen-test API mismatches	entries/handoff/H292.md	1	43	172fbb51e7f42000
 handoff	H293	293		2026-09-15 21:01 UTC	ZABZ-TECH	open	## 2026-09-15 21:01 UTC · ZABZ-TECH · waze-mdm fleet dashboard gate: hash moved out of the repo Caddyfile into .env (live, verified)	entries/handoff/H293.md	1	23	aff1213cba93fa52
@@ -563,7 +571,6 @@ lessons	L219b	219	b	2026-09-14	imported	open	**L219b · 2026-09-14 · A test who
 lessons	L220	220		2026-09-14	ZABZ-YOGA	open	**L220 · Multi-part research: fan out to subagents, verify only the spine yourself; reddit .rss atom feed is the way in**	entries/lessons/L220.md	1	46	de3a8942b32879d1
 lessons	L220b	220	b	2026-09-14	imported	open	**L220b · 2026-09-14 · One key cannot be both a flag and a count, and `Number(null)` is 0**	entries/lessons/L220b.md	1	15	fd93ca14402ed335
 lessons	L221	221		2026-09-14	ZABZ-YOGA	open	**L221 · 2026-09-14 - Piping a journal body through PowerShell double-encodes it, and the write path never noticed**	entries/lessons/L221.md	1	35	52a0ce9c4cd2f23c
-lessons	L221a	221	a	2026-09-14	ZABZ-YOGA	open	**L221a · 2026-09-14 - Piping a journal body through PowerShell double-encodes it, and the write path never noticed**	entries/lessons/L221a.md	1	35	b464b327a5338b6f
 lessons	L222	222		2026-09-14	ZABZ-YOGA	open	**L222 · eBay SOLD comps are unreachable from this fleet: every automated path is gated; use a logged-in Terapeak session**	entries/lessons/L222.md	1	26	cf25aa4861bf4ed4
 lessons	L223	223		2026-09-14	ZABZ-YOGA	open	**L223 · 2026-09-14 - The journal append path corrupted every non-ASCII body from Windows, and check cannot see it (root cause fixed with an end-to-end proof)**	entries/lessons/L223.md	1	39	ae1e342d19cfbdcb
 lessons	L224	224		2026-09-14	ZABZ-YOGA	open	**L224 · A platform can accept a config rule and silently ignore it; prefer the one that complains**	entries/lessons/L224.md	1	34	7178e124d5d3a627
@@ -672,6 +679,14 @@ lessons	L1683	1683		2026-09-14	ZABZ-YOGA	open	**L223 · 2026-09-14 - The journal
 lessons	L1684	1684		2026-09-14	ZABZ-YOGA	open	**L221a · 2026-09-14 - Piping a journal body through PowerShell double-encodes it, and the write path never noticed**	entries/lessons/L1684.md	1	35	30c568de9f3320da
 lessons	L1776	1776		2026-09-14	ZABZ-YOGA	open	**L221 · 2026-09-14 - Piping a journal body through PowerShell double-encodes it, and the write path never noticed**	entries/lessons/L1776.md	1	35	1a694a7bd7d4f113
 lessons	L1777	1777		2026-09-14	ZABZ-TECH	open	**L263 · There is no cheap hidden channel for used iPhones: the floor is 110-125 for working unlocked stock, the levers are grade and lot size, and buying in person wins on risk not price**	entries/lessons/L1777.md	1	153	b6c7c9e22f3e7cbc
+lessons	L1832	1832		2026-09-14	SECRATARY	open	**L1832 · The company could see 0 customer-case records and a stray directory masked it (fixed: 367)**	entries/lessons/L1832.md	1	26	160e560aea23d365
+lessons	L1833	1833		2026-09-14	SECRATARY	open	**L1833 · Gmail body reads 404 without the account param - search first, then read with account=<mailbox>**	entries/lessons/L1833.md	1	12	f82fe502a8ca5449
+lessons	L1834	1834		2026-09-14	SECRATARY	open	**L1834 · DHL duty demands reach this owner as SMS forwarded from Google Voice - search the AWB, not the word 'duty'**	entries/lessons/L1834.md	1	12	a05f1305a4724224
+lessons	L1835	1835		2026-09-14	SECRATARY	open	**L1835 · The layout viewport is not the visible band on iOS: a fixed sheet's first element is what the keyboard hides**	entries/lessons/L1835.md	1	12	27dcbe59904df202
+lessons	L1844	1844		2026-09-14	SECRATARY	open	**L1844 · The 326 stale-key rows premise is falsified: they are ingested transcripts, and the real leak is elsewhere**	entries/lessons/L1844.md	1	20	e0f0145461388771
+lessons	L1845	1845		2026-09-14	SECRATARY	open	**L1845 · A local commit silently blinds a machine: autosync is fast-forward-only**	entries/lessons/L1845.md	1	23	506c7068b3796298
+lessons	L1846	1846		2026-09-14	SECRATARY	open	**L1846 · Authority DB: the real faults are verbatim transcript ingest, a stuck WAL checkpoint, and connection growth**	entries/lessons/L1846.md	1	19	ee8827f652ecd2f4
+lessons	L1847	1847		2026-09-14	SECRATARY	open	**L1847 · The lpt-hub production sync is lpt-sync-to-production.py with no caller: P82 named the wrong artifact**	entries/lessons/L1847.md	1	25	c67c62fef747c93b
 lessons	L299	299		2026-09-14 05:30	legacy	open	**L158 · 2026-09-14 05:30 · Timestamps come from the clock, and "do we have X?" is answered by the code — memory was wrong twice in one session.**	entries/lessons/L299.md	1	17	ebdf478d9ca24879
 lessons	L300	300		2026-09-14 05:30	legacy	open	**L159 · 2026-09-14 05:30 · An in-place UPDATE of a verdict destroys the audit that would have judged it.**	entries/lessons/L300.md	1	13	ca95825ab3d7cf55
 lessons	L1466	1466		2026-09-15	SECRATARY	open	**L1466 · The Google Voice home-phone trick is dead twice over, and magicJack's cheapest price is not the one on the front page**	entries/lessons/L1466.md	1	31	b2b824b4b5c8d291
@@ -875,6 +890,14 @@ lessons	L1721	1721		2026-09-15	ZABZ-TECH	open	**L1721 · Verified both condition
 lessons	L1722	1722		2026-09-15	ZABZ-TECH	open	**L1722 · A launcher default that is only correct when every caller remembers a parameter is not a default**	entries/lessons/L1722.md	1	59	f5a628f49833e43b
 lessons	L1723	1723		2026-09-15	ZABZ-TECH	open	**L1723 · Settings were being applied faithfully and nothing was delivering them**	entries/lessons/L1723.md	1	52	431446c1d4a019a0
 lessons	L1724	1724		2026-09-15	ZABZ-TECH	open	**L1724 · The id allocator fetched the remote and then never read it - fourteen ids meant two entries**	entries/lessons/L1724.md	1	47	4372f98f8612c1cb
+lessons	L1836	1836		2026-09-15	SECRATARY	open	**L1836 · A Home Assistant shell_command containing Jinja runs without a shell**	entries/lessons/L1836.md	1	24	6954e92828011ffb
+lessons	L1837	1837		2026-09-15	SECRATARY	open	**L1837 · The Dahua NVR numbers channels from 1 while the HA integration stores them 0-based**	entries/lessons/L1837.md	1	25	19ba0217d6e96bf3
+lessons	L1838	1838		2026-09-15	SECRATARY	open	**L1838 · The NVR records H.265 and pcm_alaw audio - transcode or the clips will not play**	entries/lessons/L1838.md	1	22	f8e55e8042470bc6
+lessons	L1839	1839		2026-09-15	SECRATARY	open	**L1839 · Four operations lessons from the HA evidence overhaul**	entries/lessons/L1839.md	1	24	ce4b130cfe945f0e
+lessons	L1840	1840		2026-09-15	SECRATARY	open	**L1840 · Three Zigbee2MQTT facts: renaming keeps the entity_id, Last seen N/A is not absence, and availability is per-device**	entries/lessons/L1840.md	1	24	3e16dc006435bafe
+lessons	L1841	1841		2026-09-15	SECRATARY	open	**L1841 · Events are not states: I said HA had never seen a code entry, and it had - 74 of them**	entries/lessons/L1841.md	1	6	64b6fb06d283d57b
+lessons	L1842	1842		2026-09-15	SECRATARY	open	**L1842 · The intrusion alert reaches nobody - and I said it was verified**	entries/lessons/L1842.md	1	6	2ffadf028258bca6
+lessons	L1843	1843		2026-09-15	SECRATARY	open	**L1843 · The outbound ledger cannot record the security page - so its silence proved nothing**	entries/lessons/L1843.md	1	6	a5109c5137a69664
 lessons	L1700	1700		2026-09-16	ZABZ-YOGA	open	**L1700 · Journal lock: the unlink-based stale-break was a real race - fixed with an OS lock plus an inode check**	entries/lessons/L1700.md	1	53	53603d98720ad8ba
 lessons	L1701	1701		2026-09-16	ZABZ-YOGA	open	**L1701 · MCP servers cost four processes each and their discarded generations were never reaped - direct node plus a reaper**	entries/lessons/L1701.md	1	50	8b87555abee9dec0
 lessons	L1702	1702		2026-09-16	ZABZ-YOGA	open	**L1702 · Journal append: legacy absorption no longer runs on every write**	entries/lessons/L1702.md	1	6	48daf5175a9b5f06
@@ -883,8 +906,6 @@ lessons	L1704	1704		2026-09-16	ZABZ-YOGA	open	**L1704 · Third append timing mea
 lessons	L1705	1705		2026-09-16	ZABZ-YOGA	open	**L1705 · Append path: no more 15,303-file walk, no more pathlib.relative_to**	entries/lessons/L1705.md	1	6	f0ddecc4329b5c27
 lessons	L1706	1706		2026-09-16	ZABZ-YOGA	open	**L1706 · Second timing sample after the append-path fixes**	entries/lessons/L1706.md	1	6	197a486a0beb145d
 lessons	L1707	1707		2026-09-16	ZABZ-YOGA	open	**L1707 · Append steady-state sample 1 after narrowing the legacy-change check**	entries/lessons/L1707.md	1	6	12bf3c4937ce8e5b
-lessons	L1708	1708		2026-09-16	ZABZ-YOGA	open	**L1708 · Append steady-state sample 2 after narrowing the legacy-change check**	entries/lessons/L1708.md	1	6	27e4350dbea6ef22
-lessons	L1709	1709		2026-09-16	ZABZ-YOGA	open	**L1709 · Append steady-state sample 3 after narrowing the legacy-change check**	entries/lessons/L1709.md	1	6	3ae827877d383b9e
 lessons	L1710	1710		2026-09-16	ZABZ-YOGA	open	**L1710 · Journal append was slow because of pre-write work, not the lock: legacy absorption on every write plus 15303 pathlib.relative_to calls**	entries/lessons/L1710.md	1	47	12af89578512598a
 lessons	L1711	1711		2026-09-16	ZABZ-YOGA	open	**L1711 · Count browser memory by private bytes, never WorkingSet - the 8.18 GB window figure was 2.2x inflated, and tabs cannot replace windows**	entries/lessons/L1711.md	1	33	ca655bb277574367
 lessons	L1712	1712		2026-09-16	ZABZ-YOGA	open	**L1712 · DSH money is only in the console export, never in local session logs**	entries/lessons/L1712.md	1	6	a316980e93c365f0
@@ -906,7 +927,6 @@ lessons	L1732	1732		2026-09-16	SECRATARY	open	**L1732 · osTicket-class vendor p
 lessons	L1733	1733		2026-09-16	SECRATARY	open	**L1733 · A helpdesk portal stored a 122-char stub of a 2,900-char message and still reported success - read the body's END, keep posts short, attach long content**	entries/lessons/L1733.md	1	41	c84ad7800d51129f
 lessons	L1734	1734		2026-09-16	SECRATARY	open	**L1734 · SQLite memory is per-connection x per-thread; temp_store=MEMORY made a 10 GB burst that read like a leak - measure the shape first**	entries/lessons/L1734.md	1	19	4f8af284277d09eb
 lessons	L1735	1735		2026-09-16	SECRATARY	open	**L1735 · A flat window shorter than the failure interval is not evidence of a fix - state the bar, mark the claim provisional, and make the next session read the watcher**	entries/lessons/L1735.md	1	29	ca5f243e1b28b9b6
-lessons	L1736	1736		2026-09-16	ZABZ-YOGA	open	**L1736 · Ask the artifact, never the document: three deploy paths, three truths**	entries/lessons/L1736.md	1	15	1bdc366633835637
 lessons	L1737	1737		2026-09-16	ZABZ-YOGA	open	**L1737 · An auth gate written as a substring match on the request path is invisible to a guard census**	entries/lessons/L1737.md	1	26	335f1054d0c15b1d
 lessons	L1738	1738		2026-09-16	ZABZ-YOGA	open	**L1738 · A site unreachable from one line is not "your internet" - prove it with a same-hoster control, a multi-node check and a transit comparison**	entries/lessons/L1738.md	1	18	260a667c4629a189
 lessons	L1739	1739		2026-09-16	ZABZ-YOGA	open	**L1739 · Chromium ignores a file:// PAC on Windows - serve the PAC over http://127.0.0.1; and never verify a proxy with chrome.exe --dump-dom**	entries/lessons/L1739.md	1	16	0b44ce8ed7b6bd9b
@@ -947,18 +967,6 @@ lessons	L1773	1773		2026-09-16	ZABZ-YOGA	open	**L1773 · reminders.recurrence wa
 lessons	L1774	1774		2026-09-16	ZABZ-YOGA	open	**L1774 · OWNER_PHONE_NUMBER is Google Voice; the line he reads is OWNER_NOTIFY_NUMBER**	entries/lessons/L1774.md	1	24	0dfc5822ebada02c
 lessons	L1775	1775		2026-09-16	ZABZ-YOGA	open	**L1775 · ServerAliveInterval does not save you from a hanging REMOTE command - two ssh sessions sat open 24 minutes because the TCP session was alive and the far side was stuck**	entries/lessons/L1775.md	1	13	8e2ad5d0cf9b310d
 lessons	L1778	1778		2026-09-16	zabz-yoga	retracted	**L1778 · timing probe 1**	entries/lessons/L1778.md	1	6	9d9faf23573c4073
-lessons	L1779	1779		2026-09-16	zabz-yoga	retracted	**L1779 · timing probe 2**	entries/lessons/L1779.md	1	6	8a4de7a4681dbe75
-lessons	L1780	1780		2026-09-16	zabz-yoga	retracted	**L1780 · timing probe 3**	entries/lessons/L1780.md	1	6	5854b1853472cb43
-lessons	L1781	1781		2026-09-16	zabz-yoga	retracted	**L1781 · timing probe 4**	entries/lessons/L1781.md	1	6	59c3080b679da475
-lessons	L1782	1782		2026-09-16	zabz-yoga	retracted	**L1782 · timing probe 5**	entries/lessons/L1782.md	1	6	2827e3540aeacb07
-lessons	L1783	1783		2026-09-16	zabz-yoga	retracted	**L1783 · timing probe 6**	entries/lessons/L1783.md	1	6	92c4d23167e2fc82
-lessons	L1784	1784		2026-09-16	zabz-yoga	retracted	**L1784 · timing probe 7**	entries/lessons/L1784.md	1	6	fcd6b5f8cb973ff5
-lessons	L1785	1785		2026-09-16	zabz-yoga	retracted	**L1785 · timing probe 8**	entries/lessons/L1785.md	1	6	53abafa9078d5433
-lessons	L1786	1786		2026-09-16	zabz-yoga	retracted	**L1786 · timing probe 9**	entries/lessons/L1786.md	1	6	53719a3e4ec245ab
-lessons	L1787	1787		2026-09-16	zabz-yoga	retracted	**L1787 · timing probe 10**	entries/lessons/L1787.md	1	6	8d9af406d1845f28
-lessons	L1788	1788		2026-09-16	zabz-yoga	retracted	**L1788 · timing probe default 1**	entries/lessons/L1788.md	1	6	964d9d046c480887
-lessons	L1789	1789		2026-09-16	zabz-yoga	retracted	**L1789 · timing probe default 2**	entries/lessons/L1789.md	1	6	e454b262990c4fa2
-lessons	L1790	1790		2026-09-16	zabz-yoga	retracted	**L1790 · timing probe default 3**	entries/lessons/L1790.md	1	6	1763007e7cb2d9ec
 lessons	L1791	1791		2026-09-16	zabz-yoga	retracted	**L1791 · probe one**	entries/lessons/L1791.md	1	6	07c609c6bd09c389
 lessons	L1792	1792		2026-09-16	zabz-yoga	retracted	**L1792 · probe 2**	entries/lessons/L1792.md	1	6	3f00c05e1f1824b9
 lessons	L1793	1793		2026-09-16	zabz-yoga	retracted	**L1793 · probe 3**	entries/lessons/L1793.md	1	6	c3483fecaa13d92c
@@ -971,7 +979,6 @@ lessons	L1799	1799		2026-09-16	zabz-yoga	retracted	**L1799 · probe 9**	entries/
 lessons	L1800	1800		2026-09-16	zabz-yoga	retracted	**L1800 · probe 10**	entries/lessons/L1800.md	1	6	4783b23029afa728
 lessons	L1801	1801		2026-09-16	zabz-yoga	retracted	**L1801 · probe 11**	entries/lessons/L1801.md	1	6	05793b88210fdf2f
 lessons	L1802	1802		2026-09-16	zabz-yoga	retracted	**L1802 · probe plain(no flag)**	entries/lessons/L1802.md	1	6	8a185b1351b882b2
-lessons	L1803	1803		2026-09-16	zabz-yoga	retracted	**L1803 · probe --no-fetch**	entries/lessons/L1803.md	1	6	5f4bb7ee0d63b7d6
 lessons	L1804	1804		2026-09-16	ZABZ-YOGA	open	**L1804 · A tool call that never returns kills the whole process tree it started**	entries/lessons/L1804.md	1	17	e72d28f69fe5cd44
 lessons	L1805	1805		2026-09-16	ZABZ-YOGA	open	**L1805 · Publishing a loopback engine yields 403, not a working app: tailscale serve preserves Host**	entries/lessons/L1805.md	1	16	38128e0d9718f551
 lessons	L1806	1806		2026-09-16	ZABZ-YOGA	open	**L1806 · 401, 403, 404 and 502 on the same URL mean four different things**	entries/lessons/L1806.md	1	21	d06e4e5a07dd8753
@@ -1103,6 +1110,10 @@ pain	P138	138		2026-09-14	ZABZ-YOGA	done	## P138 — The budget extension triple
 pain	P139	139		2026-09-14	ZABZ-YOGA	superseded	## P139 — The test suite cannot be run green (8 pre-existing failures, 153 order-dependent errors), so it is not a gate	entries/pain/P139.md	1	30	63dc636822e40ef5
 pain	P140	140		2026-09-14	ZABZ-YOGA	superseded	## P140 — personal-secretary-mvp on secratary is 41 ahead / 134 behind origin - nothing can be pushed without merging someone else's history	entries/pain/P140.md	1	6	c62de6b5a44aff16
 pain	P141	141		2026-09-14	ZABZ-YOGA	open	## P141 — Her laptop cannot join Tailscale, so it cannot reach the authority directly (IPv6 fixed, login still stalls)	entries/pain/P141.md	1	30	3239a0f5879e5e71
+pain	P223	223		2026-09-14	SECRATARY	open	## P223 — A paid supplier order has no delivery check: $167.96 sat unshipped for 148 days and the task about it was closed done	entries/pain/P223.md	1	17	a31e5808c7cda680
+pain	P224	224		2026-09-14	SECRATARY	open	## P224 — The journal exists in two lineages that differ byte-for-byte on nearly every shared entry, and nothing reports it	entries/pain/P224.md	1	14	1d5259d8d6ead91a
+pain	P225	225		2026-09-14	SECRATARY	open	## P225 — A task is retired by its session's progress mirror, not by its action (#25106 closed 26 minutes after creation)	entries/pain/P225.md	1	14	575606ee412256d9
+pain	P226	226		2026-09-14	SECRATARY	open	## P226 — P135, measured: 1,807 task closures came from the progress mirror	entries/pain/P226.md	1	10	8c10ab4444d1767d
 pain	P142	142		2026-09-15	ZABZ-YOGA	open	## P142 — Her laptop's Tailscale login cannot complete (IPv6 preferred, and 0xFF broke her engine — do not repeat that)	entries/pain/P142.md	1	33	ed9d07e073a531d7
 pain	P143	143		2026-09-15	ZABZ-YOGA	open	## P143 — The app repo has three lineages and the live one is the least published	entries/pain/P143.md	1	42	db0bfe5bdb74e286
 pain	P144	144		2026-09-15	ZABZ-YOGA	superseded	## P144 — What still rots: agent_questions, a badge that cannot go green, two live writers, reminders sent to a dashboard nobody renders	entries/pain/P144.md	1	36	d3711352fd29f1a6
@@ -1169,6 +1180,8 @@ pain	P204	204		2026-09-15	ZABZ-YOGA	open	## P204 — journal.py check's verdict 
 pain	P205	205		2026-09-15	ZABZ-YOGA	open	## P205 — C-900: live prod credentials printed into a session transcript by an audit agent	entries/pain/P205.md	1	12	e8eb4c4befb67873
 pain	P206	206		2026-09-15	ZABZ-YOGA	open	## P206 — No admin on zabz-yoga blocks Defender exclusions and thermal telemetry	entries/pain/P206.md	1	32	5facf5844d0890f5
 pain	P207	207		2026-09-15	ZABZ-YOGA	open	## P207 — personal-secretary-mvp repo HEAD is older than the deployed code; a merge from HEAD regresses the security roster	entries/pain/P207.md	1	34	a9c7b794f9cb81b9
+pain	P227	227		2026-09-15	SECRATARY	open	## P227 — The installation cannot tell a break-in from the owner, and the cameras' own detection never reaches Home Assistant	entries/pain/P227.md	1	19	3b1c9a8d5abe6da1
+pain	P228	228		2026-09-15	SECRATARY	open	## P228 — Five generations of light-controller automation, four of them dead	entries/pain/P228.md	1	6	5d3aef8b685cf258
 pain	P208	208		2026-09-16	ZABZ-YOGA	open	## P208 — list_agents has no deadline and re-scans every session file serially - ranked pain list for the DSH scale program	entries/pain/P208.md	1	47	11a9f6feb2266823
 pain	P209	209		2026-09-16	ZABZ-YOGA	open	## P209 — No budget, ceiling or alert of any kind guards DSH spend	entries/pain/P209.md	1	6	5f4af46bcdcf470d
 pain	P210	210		2026-09-16	ZABZ-YOGA	open	## P210 — A new bundle cannot hot-mount, so every plugin costs an engine restart and the live sessions with it	entries/pain/P210.md	1	12	3e26ae368346d716
@@ -1295,6 +1308,8 @@ decisions	D147	147		2026-09-14	ZABZ-TECH	open	**D147 · 2026-09-14 · The dead c
 decisions	D148	148		2026-09-14	ZABZ-YOGA	open	**D148 · 2026-09-14 · The parent-facing claim step does not exist, and the right fix was to delete it from the plan rather than build an anti-abuse endpoint.**	entries/decisions/D148.md	1	19	b5566f435b9c7cb5
 decisions	D149	149		2026-09-14	ZABZ-YOGA	open	**D149 · 2026-09-14 · lpt-sync write-back goes to references.websiteOrder; case identity may be established by caseId.**	entries/decisions/D149.md	1	38	4998a464114177ae
 decisions	D150	150		2026-09-14	ZABZ-YOGA	open	**D150 · 2026-09-14 · Her agent's learning: one shared journal, her machines append to it, provenance by host.**	entries/decisions/D150.md	1	18	0420dead7d3b7ae8
+decisions	D234	234		2026-09-14	SECRATARY	open	**D234 · 2026-09-14 · Supplier orders get a ledger row, a contact and a documented record; journal import identity is content-based.**	entries/decisions/D234.md	1	18	e98b34bd4cc031b6
+decisions	D235	235		2026-09-14	SECRATARY	open	**D235 · 2026-09-14 · 2026-09-14 · Supplier orders are ingested before they are watched, and evidence must name its own order.**	entries/decisions/D235.md	1	14	06534e7303da304d
 decisions	D151	151		2026-09-15	ZABZ-YOGA	open	**D151 · 2026-09-15 · One party-resolution helper for search and thread, and it always reports whom it resolved.**	entries/decisions/D151.md	1	31	7907f8a2d32074e0
 decisions	D152	152		2026-09-15	ZABZ-YOGA	open	**D152 · 2026-09-15 · Owner-queue shelf life, alert lifecycle bound to subsystem success, SMS off with the app as the surfaced channel.**	entries/decisions/D152.md	1	33	ceabf57872b398b8
 decisions	D153	153		2026-09-15	ZABZ-TECH	open	**D153 · 2026-09-15 · Sync records get a labEscalation block; Weissman SSD price is 800 not 500.**	entries/decisions/D153.md	1	32	82f2f5e8cb4bacd4
@@ -1349,6 +1364,11 @@ decisions	D201	201		2026-09-15	ZABZ-YOGA	open	**D201 · 2026-09-15 · Owner queu
 decisions	D202	202		2026-09-15	ZABZ-YOGA	open	**D202 · 2026-09-15 · LPT full build: the plan, and the one question that is the owner's.**	entries/decisions/D202.md	1	14	b5b516b46fa7ac32
 decisions	D207	207		2026-09-15	ZABZ-TECH	open	**D207 · 2026-09-15 · Committed AWS keys and JWT secret are STALE, not production's - verified by hash comparison on both sides of the SSH boundary.**	entries/decisions/D207.md	1	45	06e915e15745a90f
 decisions	D208	208		2026-09-15	ZABZ-TECH	open	**D208 · 2026-09-15 · Her desktop launcher has exactly one chain, and the verb is new.**	entries/decisions/D208.md	1	40	b6629ee7b3f54ba8
+decisions	D236	236		2026-09-15	SECRATARY	open	**D236 · 2026-09-15 · Evidence clips now come from the NVR's recording, not the live stream.**	entries/decisions/D236.md	1	22	e32e88220c3bf15d
+decisions	D237	237		2026-09-15	SECRATARY	open	**D237 · 2026-09-15 · Stills for the vanished camera entities come from the NVR channel; the recorder stops journalling presence sensors.**	entries/decisions/D237.md	1	25	b9e9469d3d3caa27
+decisions	D238	238		2026-09-15	SECRATARY	open	**D238 · 2026-09-15 · I own the shop lights - the map, the truthful names, and the dead room-lights automation.**	entries/decisions/D238.md	1	22	55ab38cbd26a8e12
+decisions	D239	239		2026-09-15	SECRATARY	open	**D239 · 2026-09-15 · Owner answered: the desk light joins the room-lights occupancy group.**	entries/decisions/D239.md	1	16	ac0f7f5b90668413
+decisions	D240	240		2026-09-15	SECRATARY	open	**D240 · 2026-09-15 · The owner channel is Google Voice on purpose; his personal mobile joins the security roster.**	entries/decisions/D240.md	1	6	9f1e679deadb4eba
 decisions	D203	203		2026-09-16	ZABZ-YOGA	open	**D203 · 2026-09-16 · Program rule: remove waste first, reduce capability last - so the capability knobs stay untouched.**	entries/decisions/D203.md	1	57	34cbb89e6472fc9e
 decisions	D204	204		2026-09-16	ZABZ-YOGA	open	**D204 · 2026-09-16 · Cost round 3: compaction trigger fixed and pruner tightened (76.7% -> 66.6% kept, measured); MCP un-mounting deferred as a capability call for the owner.**	entries/decisions/D204.md	1	46	77b96e1ac88a522b
 decisions	D205	205		2026-09-16	ZABZ-YOGA	open	**D205 · 2026-09-16 · DSH cost levers chosen: thresholdRatio, MCP trim, pruner bounds, session splitting.**	entries/decisions/D205.md	1	6	9dd0b8bd8a850888
@@ -1524,6 +1544,8 @@ wins	W173	173		2026-09-15	ZABZ-YOGA	open	**W173 · 2026-09-15 · Four parallel r
 wins	W174	174		2026-09-15	ZABZ-TECH	open	**W174 · 2026-09-15 · Closed the anonymous pricing exposure in production with ONE restart and no outage - the node --check gate is what made the difference.**	entries/wins/W174.md	1	47	b41f5c69f22a7b9e
 wins	W175	175		2026-09-15	ZABZ-TECH	open	**W175 · 2026-09-15 · Chumash Timeline: seven parallel workstreams, a live app audited, rebuilt and deployed in one night.**	entries/wins/W175.md	1	67	18c4c36f31d5682b
 wins	W176	176		2026-09-15	ZABZ-TECH	open	**W176 · 2026-09-15 · Her desktop launcher opens her assistant, and the delivery that keeps it fixed proves itself.**	entries/wins/W176.md	1	39	2878d731b730e40a
+wins	W194	194		2026-09-15	SECRATARY	open	**W194 · 2026-09-15 · Pre-event 1440p clips, two restored evidence streams, and silent failure ended.**	entries/wins/W194.md	1	18	f08241445a3c1300
+wins	W195	195		2026-09-15	SECRATARY	open	**W195 · 2026-09-15 · An intrusion now reaches three people - verified without sending anything.**	entries/wins/W195.md	1	6	242989cfc6a6bcb4
 wins	W177	177		2026-09-16	ZABZ-YOGA	open	**W177 · 2026-09-16 · The owner's own console CSV export is the authoritative DSH cost source and settled a 4.7x discrepancy.**	entries/wins/W177.md	1	6	8c637865d34a2e88
 wins	W178	178		2026-09-16	ZABZ-YOGA	open	**W178 · 2026-09-16 · harness-verify.ps1: the program's invariants as an executable check - 9/9 green, and commit went 36-39 GB to 21.8 GB with hard faults 600-2400/s to 18/s.**	entries/wins/W178.md	1	53	6ee37cfaa46f0524
 wins	W179	179		2026-09-16	ZABZ-YOGA	open	**W179 · 2026-09-16 · Both machines now pass the same 10-check verifier.**	entries/wins/W179.md	1	53	4e511249f00f58d4
