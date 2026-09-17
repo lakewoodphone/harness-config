@@ -248,6 +248,39 @@ composes the whole profile exactly as the next start will.
 
 ---
 
+### 2.5 The tip moved twice, so the sync ran twice — and the live layer was reverted between them
+
+`origin/master` advanced while this session ran: `7ea1e85` (this session) → `a446cbb` (a sibling's docs
+commit, 14:36:54Z) → `4d8baa2` (a second docs commit by the same stream, 14:48:04Z, which also swept this
+file into git while it was still being written). The history is **linear and additive** — `git
+merge-base --is-ancestor` confirms `7ea1e85` and `a446cbb` are both ancestors of the tip, and `a446cbb`'s
+parent is `7ea1e85` — so **nothing was rewritten**; the first sync simply landed on the tip of its moment.
+`4d8baa2`'s subject repeats `a446cbb`'s, which is why a `git log` alone reads like an amend; the parent
+lists do not.
+
+**The sync therefore ran a second time**, at 14:49Z, from `a446cbb` to `7fdbbc8`:
+
+```
+leftright_before = 0  2      untracked=2   collide=0   setB_blockers=0
+gate engine_pids=24556 established_on_3099=0 headless_children=0        gate=PASS
+merge_out = Updating a446cbb..7fdbbc8 / Fast-forward        merge_exit=0
+head_after = 7fdbbc8e58f60cdbf1a52cf05d75e00b6223703b      leftright_after = 0  0
+status --porcelain → the same two desktop-only files, still untracked, still present
+```
+
+`collide=0` is the payoff of §2.2: because the package is now **tracked**, there were no untracked
+collisions left to clear, so the second sync needed no backup, no guard and no preservation step.
+
+**And between the two syncs a keeper reverted this session's hand-edit to the live layer.** Read at
+14:49:17Z, `~/.dsh/profiles/web/cordis.patch.yml` was back to **10,928 B / `850734E8…`** — the committed
+row, `targetHosts: ['zabz-tech']` — where the hand-splice (§3.2) had left 12,489 B / `0C754B77…`. That is
+the hazard `scripts/mesh-restart-when-idle.ps1:569` names and `H460`/`P239` record, **measured here rather
+than described**: `sync.py:plan_profile_patches` copies `profiles/web/cordis.patch.yml` over the live layer
+on its own tick, and a hand-drop is not a keeper. It is the whole reason the row's change was **committed**
+rather than only edited (§3.6).
+
+---
+
 ## 3. The row's target configuration — the decision, the set, and the wall
 
 ### 3.1 What the row was, and why the brief's mechanism was slightly off
@@ -290,6 +323,13 @@ The desktop edit was a byte-preserving splice (`ISO-8859-1` round-trip, single-o
 before writing, `pattern_occurrences=1`) plus a seven-line ASCII comment naming this document, so that a
 future session does not "restore" a node name; the shared-row edit used a normal text edit after proving the
 file is valid UTF-8 (`13436 == 13436` bytes on round-trip, 0 replacement characters).
+
+**The desktop's live layer had to be set twice, and that is the finding rather than an accident.** The
+hand-splice above (12,489 B / `0C754B77…`) was reverted by the sync keeper inside five minutes (§2.5). It
+was re-applied at **14:49:17Z from the committed row** — a byte copy of `HEAD`'s `profiles/web/cordis.patch.yml`
+over the live layer, so the live layer is now `D9BB0299…` and `identical_to_repo=True` — and that is the
+setting that survives the next tick, because the next tick copies the same bytes. The layer that was
+replaced is kept at `cordis.patch.yml.bak-103-20260917T144917Z`.
 
 ### 3.3 The composed evidence
 
@@ -360,6 +400,34 @@ compose on ZABZ-YOGA still resolves `targetHosts: ['zabz-tech']` (`dump_exit=0 l
 and it was deliberately not refreshed by this session: propagating the sibling's `placement` keys into a
 machine whose code cannot read them buys nothing and manufactures exactly the inert-config illusion §3.4
 refuses. **The durable fix is that the row's owner commits the file.**
+
+---
+
+### 3.6 Why the row's change had to be committed — and what that commit does not contain
+
+The row's target configuration is committed as **`7fdbbc8`** — *"profiles/web: the provider row's
+targetHosts default names no node"* — **+7 / −1, one file**, and pushed as a fast-forward
+(`4d8baa2..7fdbbc8`, exit 0; `HEAD == origin/master`, `rev-list --left-right --count` = `0 0` afterwards).
+It was made **on top of the committed row only**: the 45 insertions / 14 deletions that file also carries in
+the working tree are another stream's placement keys and are **not** in this commit. That was enforced by
+staging exactly one path and reading it back (`git diff --cached --name-status` → `M
+profiles/web/cordis.patch.yml`; `git show --stat` → 1 file, +7/−1), by restoring that stream's working-tree
+row byte-for-byte immediately afterwards (`restored_ok=True`, sha256 `956A1397…`), and by taking a copy of
+it first. Nothing of theirs was lost, disturbed, or committed.
+
+**Why commit rather than leave it in the working tree where it already was:** because the live layer is
+rewritten from `HEAD` on a keeper's tick (§2.5, measured — the hand-edit was gone within five minutes), so
+an uncommitted row change is *reverted on every machine that composes it*. Committing is the only form that
+survives. `scripts/mesh-restart-when-idle.ps1:569` says it in one line — *"Commit
+'profiles/web/cordis.patch.yml' to make the activation durable"* — and `mesh-provider-install.ps1:23` names
+the mechanism: *"`profiles/web/cordis.patch.yml` in the repo is the source of truth; this copies it to
+`<DSH_HOME>/profiles/web/cordis.patch.yml`"*. The measurement that settles it: without the commit,
+`zabz-tech` would have gone back to naming a node on its own next tick, with nobody touching it.
+
+**What this commit deliberately does not do** is fix §3.4. `placement`/`brokerSsh`/`brokerUrl`/`queueWaitMs`
+are still uncommitted, so the composed row still has no `placement` key, so `zabz-tech` still falls back to
+`fixed` and dispatches to itself. A row committed ahead of the code that reads it would be the inert-config
+illusion this file refuses.
 
 ---
 
@@ -451,7 +519,9 @@ quoting had already destroyed one probe attempt in this program (`99` §7).
    do, no machine is broker-driven, every node still falls back to a named `target`, and §3.4's wall stands.
    `docs/mesh/93-transport-concurrency.md` was in this same position at 14:35Z and a sibling stream
    committed it at 14:36Z as part of `a446cbb` — the same must happen here.
-2. **Carry `targetHosts: []` with it.** The shared row's line 176 is this session's; it is uncommitted in
-   that stream's working tree, and their commit of `profiles/web/cordis.patch.yml` is what makes it durable
-   and fleet-wide. If they regenerate the file from a template, this line reverts, and `zabz-tech`'s row
-   goes back to naming a node it may not be.
+2. **Carry the placement keys with it.** `targetHosts: []` is now **committed** (`7fdbbc8`, §3.6), so the
+   row's *target configuration* is durable and fleet-wide and `zabz-tech`'s live layer is byte-identical to
+   it. The row's `placement`/`brokerSsh`/`brokerUrl`/`queueWaitMs` lines are the **only** part of that file
+   still uncommitted, they are that stream's in-flight work, and this session deliberately did not commit
+   them: the code that reads them (`lib/placement.js`, `lib/nodes.js`, `lib/broker-client.js`) was still
+   being written while this ran. §3.4 is the wall they close.

@@ -367,6 +367,8 @@ handoff	H458	458		2026-09-17 14:26 UTC	ZABZ-YOGA	open	## 2026-09-17 14:26 UTC ·
 handoff	H459	459		2026-09-17 14:27 UTC	ZABZ-YOGA	open	## 2026-09-17 14:27 UTC · ZABZ-YOGA · Fishman two Seagate drives: 300DDR says 85% / 75%, customer answer drafted, not sent	entries/handoff/H459.md	1	23	8a8d5b8a182bd9e9
 handoff	H460	460		2026-09-17 14:35 UTC	ZABZ-YOGA	open	## 2026-09-17 14:35 UTC · ZABZ-YOGA · The idle restart window is armed on ZABZ-YOGA (one restart will land placement + mesh-http v0.2.0), and the live layer is stale for a measured reason	entries/handoff/H460.md	1	57	6a45d5820540aa6c
 handoff	H461	461		2026-09-17 14:47 UTC	ZABZ-YOGA	open	## 2026-09-17 14:47 UTC · ZABZ-YOGA · Spend guard built, tested and demonstrated; NOT yet mounted in the live engine	entries/handoff/H461.md	1	30	d3730d3d971b84f8
+handoff	H462	462		2026-09-17 14:48 UTC	ZABZ-YOGA	open	## 2026-09-17 14:48 UTC · ZABZ-YOGA · 102: the linux node's dispatch is fixed in plugin-remote-fanout; the broker's one-line roster flag is handed over	entries/handoff/H462.md	1	19	f2337c11a75b7075
+handoff	H463	463		2026-09-17 14:51 UTC	ZABZ-YOGA	open	## 2026-09-17 14:51 UTC · ZABZ-YOGA · mesh-http v0.2.0 committed and pushed, zabz-tech synced to the tip, the row committed -- broker placement is still uncommitted	entries/handoff/H463.md	1	41	fc381e11d1b59d8e
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1090,6 +1092,10 @@ lessons	L1898	1898		2026-09-17	ZABZ-YOGA	open	**L1898 · The gateway's 'force th
 lessons	L1899	1899		2026-09-17	ZABZ-YOGA	open	**L1899 · A generated plugin artifact must not carry require(absolute path) - or the building machine's home**	entries/lessons/L1899.md	1	14	f388b2ed1f0e8af8
 lessons	L1900	1900		2026-09-17	ZABZ-YOGA	open	**L1900 · Never rewrite ~/.dsh/profiles/web/cordis.patch.yml as a whole file - it holds !!js expressions**	entries/lessons/L1900.md	1	12	8d8161242a8dd47d
 lessons	L1901	1901		2026-09-17	ZABZ-YOGA	open	**L1901 · To prove a guard refuses BEFORE billing: pre-seed its counter, then read turn/end**	entries/lessons/L1901.md	1	15	61405f1bbf62cb89
+lessons	L1902	1902		2026-09-17	ZABZ-YOGA	open	**L1902 · A node's credential may live only in its login/worker environment — invoke the wrapper by name, never an interpreter path**	entries/lessons/L1902.md	1	18	73fa32686ea8853f
+lessons	L1903	1903		2026-09-17	ZABZ-YOGA	open	**L1903 · git refuses a fast-forward when untracked files collide with incoming tracked paths, even byte-identical**	entries/lessons/L1903.md	1	31	b7f7b0c286f8f47b
+lessons	L1904	1904		2026-09-17	ZABZ-YOGA	open	**L1904 · on zabz-tech an ssh-spawned process cannot traverse the session-created fanout junction, so a remote compose reports a fault that is not there**	entries/lessons/L1904.md	1	32	8faeecb005e7e84d
+lessons	L1905	1905		2026-09-17	ZABZ-YOGA	open	**L1905 · a hand-edit to a profile layer is reverted by the sync keeper within minutes; the durable form is a commit**	entries/lessons/L1905.md	1	24	087bf886789b5c3a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1292,6 +1298,7 @@ pain	P237	237		2026-09-17	ZABZ-YOGA	done	## P237 — install-client-plugin.sh (P
 pain	P238	238		2026-09-17	ZABZ-YOGA	open	## P238 — A measurement brief whose turn budget cannot afford the comparison it asks for	entries/pain/P238.md	1	44	9bc940af58307948
 pain	P239	239		2026-09-17	ZABZ-YOGA	open	## P239 — An installed host-plane row is silently reverted from ~/.dsh every 15 minutes unless it is committed, and nothing says so	entries/pain/P239.md	1	39	c24df9dcb3ecf889
 pain	P240	240		2026-09-17	ZABZ-YOGA	open	## P240 — The spend guard's ceiling is per-engine: two engines on one host share one state file	entries/pain/P240.md	1	12	0aa687fc56a4f321
+pain	P241	241		2026-09-17	ZABZ-YOGA	open	## P241 — broker-driven placement exists in no commit, so every node still falls back to a named target -- and on zabz-tech that target is itself	entries/pain/P241.md	1	22	4c5f6b8b53435e05
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1503,6 +1510,7 @@ decisions	D247	247		2026-09-17	ZABZ-YOGA	open	**D247 · 2026-09-17 · Remote chi
 decisions	D248	248		2026-09-17	ZABZ-YOGA	open	**D248 · 2026-09-17 · The mesh transport order: v2 default for fleets, v1 only for three stated cases; the ceiling is derived.**	entries/decisions/D248.md	1	56	0194c9b0bae38ebe
 decisions	D249	249		2026-09-17	ZABZ-YOGA	open	**D249 · 2026-09-17 · 99: how the POSIX installer, the ZABZ-TECH provider install and the un-synced checkout were decided.**	entries/decisions/D249.md	1	16	95e5a6f0cd759fca
 decisions	D250	250		2026-09-17	ZABZ-YOGA	open	**D250 · 2026-09-17 · 99: how the POSIX installer, the ZABZ-TECH provider install and the un-synced checkout were decided.**	entries/decisions/D250.md	1	16	0518897a56659901
+decisions	D251	251		2026-09-17	ZABZ-YOGA	open	**D251 · 2026-09-17 · the provider row's targetHosts default becomes [] -- no key in the row chooses or validates a node.**	entries/decisions/D251.md	1	32	b34477d3bc2d676b
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1671,3 +1679,4 @@ wins	W196	196		2026-09-17	ZABZ-YOGA	open	**W196 · 2026-09-17 · O1: check 3 gre
 wins	W197	197		2026-09-17	ZABZ-YOGA	open	**W197 · 2026-09-17 · The drift line showed the slide before it happened, and one run undid it (placeable 12 -> 0 -> 12).**	entries/wins/W197.md	1	33	12f65f9c4d8dc9e4
 wins	W198	198		2026-09-17	ZABZ-YOGA	open	**W198 · 2026-09-17 · Placement end to end: a resident engine session's subagent_remote call asked the broker, landed on the named node, and released the lease.**	entries/wins/W198.md	1	6	5d35f2b1a17b3ec0
 wins	W199	199		2026-09-17	ZABZ-YOGA	open	**W199 · 2026-09-17 · Repair 2: the fail-open gate now refuses, proven with seven probes and a far-side hash verification.**	entries/wins/W199.md	1	29	7d9b60bb26dd11bd
+wins	W200	200		2026-09-17	ZABZ-YOGA	open	**W200 · 2026-09-17 · a 30-commit sync with 28 untracked collisions landed with nothing lost and compose exit 0 on both sides.**	entries/wins/W200.md	1	21	321f9a943a80b610
