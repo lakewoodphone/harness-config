@@ -876,6 +876,100 @@ test('REQUIREMENT 3 a COLD first read that the retry fixes fast is still reporte
   }
 });
 
+test('REQUIREMENT 3b a SLOW node with more free slots is still a candidate: an ok node with fewer wins only if it can take the job', async () => {
+  // THE DEFECT THIS PINS (found live 2026-09-17 by the stream that wired dispatch to the broker,
+  // docs/mesh/92-provider-placement.md §5.2-§5.3 and §6.2). `slow` used to remove a node from the
+  // `fits` pool ENTIRELY (`preferred = dispatchable.filter(c => !c.slow)`), not merely rank it
+  // last. The node that alternates ok/slow on consecutive reads is the OWNER'S OWN LAPTOP - the
+  // machine running his engine - so it received no children at all while any other node answered
+  // quickly, even with more free slots than the winner. Measured consequence: eight concurrent
+  // children all landed on the desktop (zabz-tech×8), and a two-child split never happened
+  // (§5.3: the desktop at 11 free slots against the laptop's 12, placed on the desktop).
+  //
+  // The frozen contract is explicit (docs/mesh/71-mesh-program.md §2.2, and docs/mesh/76-broker.md
+  // §10.8): a slow node is "ranked below every node that answered first time and never refused".
+  // Ranked below is not the same as removed, and a node that is merely slow to answer is not a
+  // node that cannot take work.
+  //
+  // The mesh below is the measured §5.3 shape, one job at a time: the fast node has FEWER free
+  // slots than the job needs (4 slots against a 6-child fleet), the slow node has more and fits
+  // (12). Correct ranking therefore places on the slow node; the old code dropped it from the
+  // pool and QUEUED the fleet on the fast node instead - a queue the mesh did not need.
+  let requests = 0;
+  const slowServer = http.createServer((request, response) => {
+    requests += 1;
+    if (requests === 1) return; // accepted, never answered: the first attempt misses the deadline
+    // The laptop's own shape (16 physical / 22 logical), with a free-slot count that fits the
+    // child the fast node cannot take.
+    const body = JSON.stringify({
+      schema: 1,
+      node: 'zabz-yoga-1',
+      fqdn: 'zabz-yoga-1.tail93e6e6.ts.net',
+      at: new Date().toISOString(),
+      cpu: { logical: 22, physical: 16, load1: null },
+      mem: { totalMiB: 32373, freeMiB: freeMiBForSlots(12), swapUsedPct: 0 },
+      disk: { workRoot: 'C:/Users/ezabz/code', freeGiB: 64.1 },
+      agents: { loopsRunning: 7 },
+      governor: { budgetSlots: 24, inUse: 0, queued: 0 },
+      accepts: { oneShot: true, fleet: true, maxChildren: 12, reason: null },
+    });
+    // A real delay on the retry, so this is the "congested" reading of `slow` rather than the
+    // cold-start miss, and the state cannot be confused with a fast recovery.
+    setTimeout(() => {
+      response.writeHead(200, { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) });
+      response.end(body);
+    }, 700);
+  });
+  await new Promise((resolve) => slowServer.listen(0, '127.0.0.1', resolve));
+  const url = `http://127.0.0.1:${slowServer.address().port}`;
+  const mesh = await startMesh({
+    nodes: [
+      { node: 'zabz-yoga-1', location: 'home', stub: false, baseUrl: url },
+      // freeMiBForSlots(4) with 32 physical cores: 4 memory slots, 24 core slots -> effective 4.
+      { node: 'zabz-tech', location: 'office', freeMiB: freeMiBForSlots(4), inUse: 0, diskGiB: 220, logical: 32, physical: 24 },
+    ],
+    broker: { readTimeoutMs: 300, retryTimeoutMs: 1200 },
+  });
+  try {
+    // The FIRST read of that gate is the cold one; prime the cache so the placement below judges
+    // the slow reading itself rather than racing a second cold read.
+    const report = await getNodes(mesh.url);
+    const yoga = report.json.nodes.find((node) => node.node === 'zabz-yoga-1');
+    assert.equal(yoga.state, 'slow', 'the fixture really did produce a slow reading');
+    assert.equal(yoga.slots, 12, 'and the slow node really does have 12 free slots');
+
+    const result = await postPlace(mesh.url, { kind: 'fleet', children: 6 });
+    const { status, json } = result;
+    assertPlacementShape(json, status);
+    assert.equal(
+      json.node,
+      'zabz-yoga-1',
+      `the slow node is still eligible: it is the only candidate that can take the job\n${json.rationale.join('\n')}`,
+    );
+    assert.equal(json.position, 0, 'and the fleet starts now, rather than queueing work the mesh can already run');
+    assert.equal(json.score, 12);
+    assert.equal(json.tier, 'fits', 'it is a normal fits placement, not a fallback tier: a slow node is a candidate');
+
+    const text = json.rationale.join('\n');
+    const slowLine = json.rationale.find((line) => line.startsWith('zabz-yoga-1: ') && line.includes('SLOW'));
+    assert.ok(slowLine !== undefined, `the slow node's classification is printed, not hidden: ${text}`);
+    assert.ok(
+      json.rationale.some((line) => line.includes('classification=slow')),
+      `the classification is printed as a fact of its own: ${text}`,
+    );
+    assert.ok(text.includes('never removed from the pool and never refused'), 'and the rule applied to it is stated');
+    // The losing fast node must still be explained - it lost on capacity, not on being invisible.
+    assert.ok(
+      json.rationale.some((line) => line.startsWith('zabz-tech: ') && line.includes('4 free slot(s)')),
+      `the ok node with fewer slots is still explained: ${text}`,
+    );
+  } finally {
+    await mesh.close();
+    if (typeof slowServer.closeAllConnections === 'function') slowServer.closeAllConnections();
+    await new Promise((resolve) => slowServer.close(() => resolve()));
+  }
+});
+
 test('REQUIREMENT 4 a node whose capacity cannot be read is CAPACITY-UNREADABLE, not unreachable and not dropped', async () => {
   // The Mac Mini's reader (stream S1's) answers 200 with `mem: { totalMiB: null, freeMiB: null }`,
   // and other broken readers answer with a wrong schema or a non-numeric field. The node is up;

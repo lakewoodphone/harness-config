@@ -11,10 +11,11 @@
 
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { MeshAuth, newNonce, sign, signatureMatches } from '../lib/auth.js';
 import { IntakeError, isJsonContentType, parseJsonObject, readBoundedBody } from '../lib/body.js';
@@ -23,6 +24,12 @@ import { deriveConcurrencyLimit } from '../lib/concurrency.js';
 import { createNodeIdentity, labelFromDnsName } from '../lib/node-identity.js';
 import { childArgv, composeTask, OneShotRunner } from '../lib/runner.js';
 import { forgetSecret, loadSecret, parseEnvText } from '../lib/secret.js';
+// THE CLIENT'S OWN TABLE, AND THE ONE TABLE IT MUST EQUAL. `bin/mesh-dispatch.mjs` carried a
+// second copy of the node facts until 2026-09-17 and that copy is what rotted on `zabz-tech-linux`
+// (docs/mesh/102-linux-dispatch.md §1, docs/mesh/104-node-enabled.md). These imports are how the
+// suite reads both sides of that claim.
+import { buildV1Program, NODES as DISPATCH_NODES } from '../bin/mesh-dispatch.mjs';
+import { NODES as SHARED_NODES, resolveNodeInvocation } from '../../plugin-remote-fanout/lib/nodes.js';
 
 const SECRET = 'o2-test-secret-0123456789abcdef';
 const HERE = process.cwd();
@@ -707,4 +714,102 @@ test('the dsh entry point is located from the environment, and absent is reporte
     fs: { existsSync: (p) => p === expected, readdirSync: () => ['abc'] },
   });
   assert.equal(cache, expected);
+});
+
+// ---------------------------------------------------------------------------
+// the dispatcher's node table — ONE table, and the defect it carried
+// ---------------------------------------------------------------------------
+
+test('the dispatcher keeps no node table of its own: its table is a view of the shared one', () => {
+  assert.deepEqual(
+    Object.keys(DISPATCH_NODES).sort(),
+    Object.keys(SHARED_NODES).sort(),
+    'the client must offer exactly the nodes the shared table knows, in the same spelling',
+  );
+  for (const [node, shared] of Object.entries(SHARED_NODES)) {
+    const view = DISPATCH_NODES[node];
+    assert.equal(view.label, node, 'the key IS the tailnet DNS label the broker names - never a second field to drift');
+    assert.equal(view.ssh, shared.ssh, `${node}: v1's destination comes from the shared row`);
+    assert.equal(view.shell, shared.shell, `${node}: the shell comes from the shared row`);
+    assert.equal(view.cwd, shared.cwd, `${node}: the workdir comes from the shared row`);
+    assert.deepEqual(view.hosts, shared.hosts, `${node}: the MESH-HOST allow-list comes from the shared row`);
+    assert.deepEqual(
+      view.invocation,
+      resolveNodeInvocation(shared),
+      `${node}: the invocation is the shared resolver's answer, so the CLI and the provider cannot disagree`,
+    );
+  }
+  // AND THE SECOND COPY IS GONE, as source, not just as behaviour: the fingerprint of the copy that
+  // rotted was a hand-written `nodeExe`/`dshBin` pair per node in this file.
+  const source = readFileSync(fileURLToPath(new URL('../bin/mesh-dispatch.mjs', import.meta.url)), 'utf8');
+  assert.match(source, /from '\.\.\/\.\.\/plugin-remote-fanout\/lib\/nodes\.js'/, 'the table is imported, and the import is the point');
+  assert.doesNotMatch(source, /^\s*(nodeExe|dshBin):/m, 'no row in this file re-declares the two interpreter paths - that is the copy that rotted');
+});
+
+test('no node is launched through a version-stamped interpreter path - the shape that rotted', () => {
+  for (const [node, row] of Object.entries(SHARED_NODES)) {
+    const invocation = resolveNodeInvocation(row);
+    assert.ok(invocation !== undefined, `${node}: a row that cannot resolve an invocation is a node that dies before it runs`);
+    // A version-stamped path is a path with an expiry date on it: `62-worker-runtime.md` §3.2 is the
+    // measurement, and `/home/zabz/.local/node-v24.12.0-linux-x64/bin/node` is what it cost.
+    assert.doesNotMatch(JSON.stringify(invocation), /node-v\d+\./, `${node}: the resolved invocation names no version-stamped runtime`);
+    // Nothing this row would EXECUTE may carry a version stamp. The row's own `verified` string
+    // DOES name the dead path, deliberately: that is the record of what was corrected, and a record
+    // that could not name the thing it corrected would be no record at all (`62-worker-runtime.md` §3.2).
+    const launched = [invocation.command, ...(invocation.argvPrefix ?? []), invocation.driver, invocation.bin].join(' ');
+    assert.doesNotMatch(launched, /node-v\d+\./, `${node}: and neither does anything this row would execute`);
+  }
+  const linux = SHARED_NODES['zabz-tech-linux'];
+  assert.equal(linux.command, 'dsh', 'the node with an executor is invoked BY NAME');
+  assert.equal(linux.driver, '/usr/local/bin/node', 'and its fallback interpreter is the version-FREE symlink its own wrapper uses');
+  assert.deepEqual(linux.credentialEnvFiles, ['/etc/dsh-worker.env'], 'and the credential source is stated, not assumed');
+});
+
+test('the linux node\'s v1 program invokes the executor by name and sources nothing itself', () => {
+  const facts = DISPATCH_NODES['zabz-tech-linux'];
+  assert.equal(facts.invocation.form, 'executor', 'measured 2026-09-17: this node has a `dsh` executor on PATH');
+  assert.equal(facts.invocation.command, 'dsh');
+  assert.equal(facts.invocation.argvPrefix, undefined, 'an executor takes no interpreter+file prefix');
+  assert.deepEqual(facts.invocation.credentialEnvFiles, ['/etc/dsh-worker.env']);
+
+  const built = buildV1Program({ facts, task: 'TASK' });
+  assert.equal(built.script, "exec dsh --profile headless 'TASK'\n", 'the program the target runs, exactly');
+  assert.equal(built.sshArgv.includes('linux-pc-ts'), true, 'and it travels to the ssh destination the shared row names');
+  // The two halves of the measured defect, asserted against the STRING that would have carried them.
+  assert.doesNotMatch(built.script, /node-v24\.12\.0-linux-x64/, 'the rotted interpreter path is gone from the program');
+  assert.doesNotMatch(built.script, /set -a/, 'the executor sources the credential itself - sourcing it twice is one credential path too many');
+  assert.doesNotMatch(built.script, /exec 'dsh'/, 'an executor is a bare name, not a quoted path');
+});
+
+test('the interpreter form sources its credential file first, and a half-pair refuses to spawn', () => {
+  // A POSIX node with an explicit root-owned worker env and no executor: the fallback this file
+  // implements, and the one whose ORDER matters - `set -a` before the source, or the child inherits
+  // nothing and dies `MISSING_CREDENTIAL` with the path correct.
+  const interpreter = resolveNodeInvocation({
+    shell: 'posix', driver: '/usr/local/bin/node', bin: '/dsh/bin.js', credentialEnvFiles: ['/etc/dsh-worker.env'],
+  });
+  assert.equal(interpreter.form, 'interpreter');
+  assert.equal(interpreter.credentialEnvFiles[0], '/etc/dsh-worker.env');
+  const built = buildV1Program({
+    facts: { label: 'x', ssh: 'x-ts', shell: 'posix', cwd: '/tmp', invocation: interpreter },
+    task: 'T',
+  });
+  assert.equal(
+    built.script,
+    "if [ -r '/etc/dsh-worker.env' ]; then set -a; . '/etc/dsh-worker.env'; set +a; fi\nexec /usr/local/bin/node /dsh/bin.js --profile headless 'T'\n",
+  );
+
+  // A WINDOWS ROW keeps the interpreter form and its PowerShell program, and the task is always
+  // quoted whatever it contains (`'` doubled) - it is the one argument whose text comes from a model.
+  const windows = DISPATCH_NODES['zabz-tech'];
+  const ps = buildV1Program({ facts: windows, task: "it's a task" });
+  assert.equal(ps.program, `& '${windows.invocation.command}' '${windows.invocation.argvPrefix[0]}' --profile headless 'it''s a task'`);
+
+  // A HALF-PAIR IS NOT AN INVOCATION: `{ driver }` with no `bin.js` resolves to nothing, and the
+  // client refuses to spawn rather than reporting an exit code for a command that could not work.
+  assert.equal(resolveNodeInvocation({ shell: 'posix', driver: '/usr/local/bin/node' }), undefined);
+  const refused = buildV1Program({ facts: { label: 'half', ssh: 'half-ts', shell: 'posix', invocation: undefined }, task: 'T' });
+  assert.match(refused.refusal, /NO invocation/);
+  assert.equal(refused.script, undefined);
+  assert.equal(refused.sshArgv, undefined);
 });

@@ -52,69 +52,71 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MeshAuth } from '../lib/auth.js';
 import { parseEnvText } from '../lib/secret.js';
+// THE ONE NODE TABLE, READ ACROSS PACKAGES. `packages/plugin-remote-fanout/lib/nodes.js` is the
+// same module the provider and `mesh-run` resolve their invocations from, so this client and the
+// fleet's dispatcher cannot disagree about how a node is launched. Why the import is safe here —
+// including through the `~/.dsh/profiles/*/node_modules` junction — is in the block below.
+import { NODES as SHARED_NODES, resolveNodeInvocation } from '../../plugin-remote-fanout/lib/nodes.js';
 
 /**
- * Per-node facts only the DISPATCHER can know, and the reason this table is in the caller rather
- * than in a profile: a profile boots on whichever node runs the parent, so `process.platform`
- * describes the parent, not the target (`70` §4.5, measured).
+ * THE NODE VIEW: WHAT THIS CLIENT NEEDS FROM THE ONE TABLE, AND NOTHING OF ITS OWN.
  *
- * `url` is how transport v2 reaches the node THROUGH THE GATE: `tailscale serve` publishes
- * `https://<label>.tail<tailnet>.ts.net/` on the node itself and the gate relays everything it does
- * not answer itself to `127.0.0.1:3089`, where the engine and this route live (`71` §1). The gate's
- * device allow-list is in front of the route, and the route's HMAC is on top of it.
+ * UNTIL 2026-09-17 THIS FILE CARRIED A SECOND COPY OF THE NODE TABLE, AND THAT COPY IS WHAT ROTTED.
+ * Its `zabz-tech-linux` row named `/home/zabz/.local/node-v24.12.0-linux-x64/bin/node` — a
+ * version-stamped interpreter that does not exist on that machine — so the v1 fallback here would
+ * have died `sh: 6: …: not found` (exit 127) before any child ran. The same defect was found next
+ * door in `plugin-remote-fanout/lib/nodes.js` and fixed there, and fixing it there also fixed the
+ * half a corrected path does NOT fix: a dispatcher that names an interpreter bypasses the `dsh`
+ * wrapper that sources the credential, and dies `MISSING_CREDENTIAL` even with the right path
+ * (`docs/mesh/102-linux-dispatch.md` §2, §4). Two tables were two chances to rot the same way and
+ * no way for either to notice the other; this file is the second copy, and it is gone.
  *
- * `ssh` is transport v1's destination. `hosts` is every name the node may legitimately report, for
- * the `MESH-HOST:` check — note `zabz-yoga-1` (the tailnet DNS label) beside `ZABZ-YOGA` (the
+ * So the table is IMPORTED, and what is derived here is only the view this CLI's callers need. The
+ * invocation is resolved by `resolveNodeInvocation()` — the SAME function the provider uses — so
+ * the CLI and the fleet cannot disagree about HOW a node is launched, which is precisely the
+ * disagreement that cost this node its roster flag.
+ *
+ * WHY A CROSS-PACKAGE IMPORT IS SAFE HERE. It is a plain relative ESM import between two packages
+ * that live in one checkout, and the precedent is inside this package's own suite:
+ * `test/dead-target-fallback.mjs` has imported `../../plugin-remote-fanout/lib/provider.js` since
+ * 2026-09-17, and nothing here bundles `bin/**` (the bundle mounts `lib/index.js`, which imports no
+ * node table). It is safe through the `~/.dsh/profiles/<profile>/node_modules` junction too,
+ * because Node resolves a module's REAL path by default — there is no `--preserve-symlinks` in play
+ * — so a junctioned `…/dsh-plugin-mesh-http/bin/mesh-dispatch.mjs` resolves its relative imports
+ * against the checkout. MEASURED on ZABZ-YOGA 2026-09-17 with a junction whose two package dirs sat
+ * in a temp tree: `import.meta.url` printed the real path, not the junction path.
+ *
+ * `label` is the table's KEY and is deliberately not a field to duplicate: `nodes.js` is keyed by
+ * the name the BROKER names a node with, whose invariant is `node === fqdn.split('.')[0]` — the
+ * Tailscale DNS label, which is also the name the node's gate answers on (`71` §2.1). Transport
+ * v2's base URL and the destination of v1's `ssh` are therefore both derived from `label`/`ssh`
+ * here and stored nowhere. `hosts` is every name the node may legitimately report, for the
+ * `MESH-HOST:` check — note `zabz-yoga-1` (the tailnet DNS label) beside `ZABZ-YOGA` (the
  * machine's own hostname): a child prints the latter and the broker names the former, and a check
- * that only knew one of them would either fail a good run or pass a wrong one (`70` §2.6).
+ * that knew only one of them would fail a good run or pass a wrong one (`70` §2.6).
  */
-export const NODES = {
-  'zabz-tech': {
-    ssh: 'desktop-ts',
-    label: 'zabz-tech',
-    hosts: ['ZABZ-TECH', 'zabz-tech', 'zabz-tech.tail93e6e6.ts.net'],
-    shell: 'powershell',
-    nodeExe: 'C:/Program Files/nodejs/node.exe',
-    dshBin: 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: 'C:/Users/ezabz',
-  },
-  'zabz-yoga-1': {
-    ssh: 'laptop-ts',
-    label: 'zabz-yoga-1',
-    hosts: ['ZABZ-YOGA', 'zabz-yoga', 'zabz-yoga-1', 'zabz-yoga-1.tail93e6e6.ts.net'],
-    shell: 'powershell',
-    nodeExe: 'C:/Program Files/nodejs/node.exe',
-    dshBin: 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: 'C:/Users/ezabz',
-  },
-  secratary: {
-    ssh: 'secratary-ts',
-    label: 'secratary',
-    hosts: ['secratary', 'secratary.tail93e6e6.ts.net'],
-    shell: 'posix',
-    nodeExe: '/home/zabz/node/bin/node',
-    dshBin: '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: '/home/zabz/code',
-  },
-  'lakewooechsmini': {
-    ssh: 'mac-mini-ts',
-    label: 'lakewooechsmini',
-    hosts: ['LakewooechsMini', 'lakewooechsmini', 'lakewooechsmini.tail93e6e6.ts.net'],
-    shell: 'posix',
-    nodeExe: '/usr/local/bin/node',
-    dshBin: '/Users/lpt/.dsh-install/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: '/Users/lpt/lpt-hub',
-  },
-  'zabz-tech-linux': {
-    ssh: 'linux-pc-ts',
-    label: 'zabz-tech-linux',
-    hosts: ['zabz-tech-linux'],
-    shell: 'posix',
-    nodeExe: '/home/zabz/.local/node-v24.12.0-linux-x64/bin/node',
-    dshBin: '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
-    cwd: '/home/zabz/code',
-  },
-};
+function viewOfNode(node, facts) {
+  const invocation = resolveNodeInvocation(facts);
+  return Object.freeze({
+    ssh: facts.ssh,
+    label: node,
+    hosts: Array.isArray(facts.hosts) && facts.hosts.length > 0 ? facts.hosts : [node],
+    shell: facts.shell,
+    cwd: facts.cwd,
+    /** The resolved invocation: an executor where the node has one, an interpreter pair otherwise. */
+    invocation,
+    /** One line a run record can print, so a dispatch says HOW it launched the child, not only where. */
+    invocationNote: invocation === undefined
+      ? 'NO INVOCATION RESOLVES for this row — the v1 path refuses before it spawns'
+      : invocation.form === 'executor'
+        ? `${invocation.command} (the node's own executor: ${invocation.credentialSource})`
+        : `${invocation.command} ${(invocation.argvPrefix ?? []).join(' ')} (interpreter pair: ${invocation.credentialSource})`,
+  });
+}
+
+export const NODES = Object.freeze(Object.fromEntries(
+  Object.entries(SHARED_NODES).map(([node, facts]) => [node, viewOfNode(node, facts)]),
+));
 
 const TAILNET = process.env.MESH_TAILNET ?? 'tail93e6e6.ts.net';
 /**
@@ -313,12 +315,66 @@ function sshRun(argv, { timeoutMs }) {
 }
 
 /**
- * Transport v1: the exact command `70` proved, on the target's own shell. Kept deliberately
- * identical to `mesh-run`'s so the two cannot drift in what they claim to have run.
+ * THE V1 PROGRAM FOR ONE NODE, AS DATA — so the thing that rotted is a value a test can read.
+ *
+ * The 2026-09-17 defect was not a broken function, it was a broken STRING: the program this file
+ * built named `/home/zabz/.local/node-v24.12.0-linux-x64/bin/node`, a path that does not exist on
+ * the machine. A string built inline inside a spawned promise can only be checked by running it
+ * against a real node; the same string returned from a pure function can be asserted on in the
+ * suite, node by node, for the whole fleet. That is why this is separate from `runOverSsh`.
+ *
+ * The invocation is the SHARED TABLE's (`plugin-remote-fanout/lib/nodes.js`), so this builder,
+ * `mesh-run` and the provider cannot disagree about how a node is launched.
+ *
+ * @returns {{refusal:string}|{sshArgv:string[], script:string}|{sshArgv:string[], encoded:string, program:string}}
  */
+export function buildV1Program({ facts, task }) {
+  const invocation = facts?.invocation;
+  const target = facts?.ssh;
+  if (invocation === undefined) {
+    // A half-pair is not an invocation (`remote-script.js`'s rule, shared). Refusing to spawn is
+    // the honest answer: running a command that cannot work would report an exit code as if it
+    // meant something about the node.
+    return {
+      refusal: `${facts?.label ?? 'this node'}'s row resolves to NO invocation (it needs an executor \`command\`, or both halves of a driver + bin pair) — refusing to spawn`,
+    };
+  }
+  const common = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', target];
+  if (facts.shell === 'posix') {
+    // The script travels on stdin; ssh is handed the SHELL, not a quoted program. `sh -s` needs a
+    // program rather than argv, which is why this path builds one and the argv path is not used.
+    // The TASK is ALWAYS quoted, whatever it contains — it is the one argument whose text comes
+    // from a model, and a word that happens to be shell-safe today must not become a bare word
+    // because of how it read this time (`remote-script.js`'s `taskWord` rule).
+    const command = [
+      ...[invocation.command, ...(invocation.argvPrefix ?? [])].map(shellWord),
+      '--profile', 'headless', shellQuote(task),
+    ].join(' ');
+    // ONLY THE INTERPRETER FORM SOURCES THE CREDENTIAL ITSELF, and it does it exactly as
+    // `remote-script.js` does: `set -a` first, so the assignment is exported to the child, and only
+    // when the file is readable by the worker user. The executor form needs none of this — the
+    // executor sources it already, and sourcing it twice would be one credential path too many.
+    const credentialFile = invocation.form === 'interpreter' ? (invocation.credentialEnvFiles ?? [])[0] : undefined;
+    const sourcing = credentialFile === undefined
+      ? ''
+      : `if [ -r ${shellQuote(credentialFile)} ]; then set -a; . ${shellQuote(credentialFile)}; set +a; fi\n`;
+    return { sshArgv: [...common, 'sh', '-s'], script: `${sourcing}exec ${command}\n` };
+  }
+  const program = [
+    `& ${psWord(invocation.command)}`,
+    ...(invocation.argvPrefix ?? []).map(psWord),
+    '--profile', 'headless', psWord(task),
+  ].join(' ');
+  return {
+    sshArgv: [...common, 'powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(program, 'utf16le').toString('base64')],
+    encoded: Buffer.from(program, 'utf16le').toString('base64'),
+    program,
+  };
+}
+
+/** Transport v1: the shared table's invocation for this node, run on the target's own shell. */
 async function runOverSsh({ node, prompt, timeoutMs, cwd }) {
   const facts = NODES[node];
-  const target = facts.ssh;
   const task = [
     `You are running on the node "${node}".`,
     'Begin your final report with exactly this line: MESH-HOST: <the hostname of the machine you are running on>',
@@ -326,27 +382,32 @@ async function runOverSsh({ node, prompt, timeoutMs, cwd }) {
     '',
     prompt,
   ].join('\n');
-  let argv;
-  if (facts.shell === 'posix') {
-    // The script travels on stdin; ssh is handed the shell, not a quoted program.
-    argv = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', target, 'sh', '-s'];
-  } else {
-    const encoded = Buffer.from(`& '${facts.nodeExe}' '${facts.dshBin}' --profile headless '${task.replace(/'/g, "''")}'`, 'utf16le').toString('base64');
-    argv = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', target, 'powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded];
+  const built = buildV1Program({ facts, task });
+  if (built.refusal !== undefined) {
+    return { ok: false, ms: 0, stdout: '', timedOut: false, exitCode: undefined, spawnError: 'no-invocation', stderr: `mesh-dispatch: ${built.refusal}` };
   }
-  if (facts.shell === 'posix') {
-    // `sh -s` needs the program; spawn cannot be given it here, so write it to a file and use it
-    // as stdin. The v1 path in `mesh-run` passes the task as argv; this one is equivalent and does
-    // not have to survive a shell, which is why it is used for POSIX targets.
-    const script = `exec '${facts.nodeExe}' '${facts.dshBin}' --profile headless ${shellQuote(task)}\n`;
-    const result = await sshRunWithStdin(argv, script, { timeoutMs });
-    return result;
-  }
-  return sshRun(argv, { timeoutMs });
+  return built.script === undefined
+    ? sshRun(built.sshArgv, { timeoutMs })
+    : sshRunWithStdin(built.sshArgv, built.script, { timeoutMs });
+}
+
+/**
+ * Quote for the POSIX program this file generates: a bare word where it is safe, quoted otherwise.
+ * An executor is invoked BY NAME (`dsh --profile …`) for the reason in `nodes.js` — the name is the
+ * machine's own contract, and it is what makes the credential file get sourced.
+ */
+function shellWord(value) {
+  const text = String(value ?? '');
+  return /^[A-Za-z0-9_./@:=+-]+$/.test(text) ? text : shellQuote(text);
 }
 
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
+/** Quote for the PowerShell program: always quoted, and `'` doubled — never a bare word. */
+function psWord(value) {
+  return `'${String(value ?? '').replace(/'/g, "''")}'`;
 }
 
 function sshRunWithStdin(argv, script, { timeoutMs }) {
@@ -433,6 +494,11 @@ async function main() {
     preferredTransport,
     url: `${base}/mesh/run`,
     ssh: facts.ssh,
+    // HOW this dispatch will launch the child, recorded beside WHERE it will launch it. The defect
+    // this file was rebuilt around was a report that named a node while the command it ran could not
+    // have worked there (`docs/mesh/102-linux-dispatch.md` §1), so the form is in the record.
+    invocation: facts.invocationNote,
+    invocationForm: facts.invocation?.form ?? null,
     timeoutSec: options.timeoutSec,
     dispatcherSecret: secret.ok ? { path: secret.path, bytes: secret.secret.length } : { path: secret.path, unavailable: secret.reason },
     logPath,
@@ -563,6 +629,8 @@ async function main() {
     reason: fallbackReason,
     note: 'explicit and logged: this run is NOT the HTTP transport, and the record says so',
     ssh: facts.ssh,
+    invocation: facts.invocationNote,
+    invocationForm: facts.invocation?.form ?? null,
     targetVerified: 'see docs/mesh/70-remote-fanout-proof.md §2.6 for what each node was measured to accept',
   });
   const started = Date.now();

@@ -105,9 +105,21 @@ export function readSecret(file) {
  * the measurement) and `-EncodedCommand` has no quoting surface at all.
  */
 function spawnSshChild({ facts, task, outDir, index, timeoutSec }) {
+  // THIS RIG IS WINDOWS-ONLY, and it says so rather than measuring a node with a program its shell
+  // cannot run: the child travels as a PowerShell `-EncodedCommand` (`70` §4.1's measurement is
+  // about the ssh session). A POSIX node is refused here — the POSIX v1 path is
+  // `bin/mesh-dispatch.mjs`'s, which is proven against the live node in docs/mesh/104-node-enabled.md.
+  if (facts.shell !== 'powershell') {
+    throw new Error(`--transport v1 in this rig is Windows-only: ${facts.label} runs ${facts.shell}`);
+  }
+  // THE INVOCATION COMES FROM THE SHARED TABLE (`plugin-remote-fanout/lib/nodes.js`, via
+  // `bin/mesh-dispatch.mjs`), so this rig runs the same command the dispatcher does instead of a
+  // second copy of the paths that can rot on its own.
+  const { invocation } = facts;
+  const parts = [invocation.command, ...(invocation.argvPrefix ?? [])].map((word) => `'${String(word)}'`);
   const program = [
     '$ErrorActionPreference = "Continue"',
-    `& '${facts.nodeExe}' '${facts.dshBin}' --profile headless '${task.replace(/'/g, "''")}'`,
+    `& ${parts.join(' ')} --profile headless '${task.replace(/'/g, "''")}'`,
     'exit $LASTEXITCODE',
   ].join("\n");
   const encoded = Buffer.from(program, 'utf16le').toString('base64');

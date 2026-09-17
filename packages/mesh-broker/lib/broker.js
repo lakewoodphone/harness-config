@@ -34,6 +34,13 @@
  * and a node with a broken reader is not an offline machine: each calls for a different response,
  * and conflating them is how a mesh quietly loses a node. See docs/mesh/71-mesh-program.md §2.2
  * for the frozen wording and docs/mesh/76-broker.md §10 for the measurements behind it.
+ *
+ * A SLOW NODE IS RANKED, NOT REMOVED (fixed 2026-09-17, docs/mesh/98-broker-fixes.md §1). The
+ * shipped code removed every `slow` node from the `fits` pool whenever any node answered first
+ * time, so a node whose capacity read missed the deadline once received no work at all - measured
+ * on the owner's own laptop, which alternates ok/slow/ok, while the desktop filled up. §10.8's
+ * words were always "ranked below every node that answered first time and never refused"; the code
+ * now does that, and the tiers below are `fits` / `highest-slots` / `transport` / `queued`.
  */
 
 import { capacityUrl, readNodeCapacity, DEFAULT_READ_TIMEOUT_MS, RETRY_READ_TIMEOUT_MS } from './capacity.js';
@@ -453,6 +460,24 @@ export function createBroker(options = {}) {
   }
 
   /**
+   * The chosen node's classification, on its own line, ALWAYS - `ok` as well as `slow`.
+   *
+   * WHY. The classification is the single fact that decides where a node sits in the ranking, and
+   * the defect fixed 2026-09-17 was invisible precisely because a node's `slow` state only ever
+   * appeared inside a sentence about timing: a reader of `rationale` could see `tier=fits` and
+   * "chosen zabz-tech" without ever learning that a whole node had been dropped from the pool for
+   * being slow. `SLOW` is also printed by `slowLine()` when it applies; this line is the one a
+   * caller can match on (`tier=` + `classification=`), and it names the rule that was applied to
+   * it rather than leaving the reader to infer one from the numbers.
+   */
+  function classificationLine(candidate) {
+    const rule = candidate.slow
+      ? 'ranked below every node that answered first time and above nothing, placeable via its own tier - never removed from the pool and never refused'
+      : 'a normal reading: it is ranked on capacity, and no faster node is preferred over it for answering faster than it did';
+    return `${candidate.node}: classification=${candidate.state} - ${rule}`;
+  }
+
+  /**
    * The slow line: a node that missed the deadline once and answered on the longer second
    * attempt. Printed so "busy" is never read as "gone" - MEASURED 2026-09-16 23:31:18Z, the
    * broker used to say `zabz-yoga: unreachable (timed out after 1500 ms)` while that laptop's
@@ -519,14 +544,18 @@ export function createBroker(options = {}) {
   function tierLine(tier, chosen, task, context) {
     switch (tier) {
       case 'highest-slots':
-        return `no node fits ${task.children} child(ren) (every candidate's free slots - ${task.children} < 0); `
+        return `no node can start this now (every candidate's free slots - ${task.children} < 0); `
           + `${chosen.node} has the highest measured slots on the mesh (${chosen.slots}) -> placed there, QUEUED rather than refused `
-          + '(the frozen "a fleet bigger than every node still places" rule, §2.2)';
+          + '(the frozen "a fleet bigger than every node still places" rule, §2.2)'
+          + (chosen.slow ? ' - and it is SLOW, which is a ranking fact and not a reason to leave it out' : '');
       case 'transport':
         return `no node that can take v1 work can start this now; ${chosen.node} is the best of the candidates that cannot `
           + `(transport.v1=${chosen.dispatch.v1 === false ? 'false' : 'unmeasured'}), chosen despite transport=unavailable `
           + 'because nothing else is eligible -> placed there, QUEUED rather than refused (queue, never amputate)';
       case 'slow':
+        // Kept so a persisted `tier` from an older response still reads; the ladder above no longer
+        // PRODUCES it, because a slow node is a candidate in the tier it belongs to and the line
+        // that matters now says `classification=slow` (docs/mesh/98-broker-fixes.md §1).
         return `every node that can start this is SLOW (each missed the ${Math.round(readTimeoutMs)} ms deadline at least once and answered on the longer second attempt); `
           + `${chosen.node} is the best of them (${chosen.elapsedMs ?? 'unknown'} ms door-to-door, state=${chosen.state}) -> placed there, `
           + 'QUEUED rather than refused (a slow node is ranked lower, never amputated; the next read of a warm node returns it to full rank)';
@@ -595,37 +624,41 @@ export function createBroker(options = {}) {
 
     let tier;
     let pool;
-    // AMENDMENT 4, first cut: a node the roster records as UNABLE to take v1 work is not a
-    // "fits now" candidate while any node that can take it is in play. If no node can take it
-    // at all, the pool falls back to every eligible node, so the choice is still a placement -
-    // it is just a visible one, said in as many words in the rationale.
+    // AMENDMENT 4: a node the roster records as UNABLE to take v1 work is not in the pool below
+    // while any node that can take it is. If no node can take it at all, the pool falls back to
+    // every eligible node, so the choice is still a placement - it is just a visible one, said in
+    // as many words in the rationale.
     //
-    // REQUIREMENT 3 (2026-09-17) adds the same shape for a SLOW node: a node that timed out once
-    // and answered on the longer second attempt is ranked below a node that answered first time,
-    // and it is never refused - it is placed on when it is the best or the only candidate, and
-    // the rationale says that is what happened.
+    // A SLOW NODE IS RANKED, NOT REMOVED (defect fixed 2026-09-17, requirement 3 / §10.8).
+    //   The shipped code narrowed the pool with `preferred = dispatchable.filter(c => !c.slow)`
+    //   and used it whenever it was non-empty, so a node whose capacity read missed the deadline
+    //   once and then answered was dropped from the `fits` pool ENTIRELY. Measured consequence
+    //   (docs/mesh/92-provider-placement.md §5.2-§5.3): the owner's own laptop alternates
+    //   ok/slow/ok on consecutive fresh reads, so it received no children at all while the
+    //   desktop answered quickly - including when it had MORE free slots than the winner. Eight
+    //   concurrent children landed on the desktop; a two-child split never happened.
+    //   The contract is "ranked below every node that answered first time and never refused"
+    //   (71-mesh-program.md §2.2, 76-broker.md §10.8), and being ranked below is not the same as
+    //   being removed. So the pool is every node that can take the work, and `compareFallback`
+    //   below puts `ok` before `slow` (after reachability and transport). A slow node wins exactly
+    //   when the nodes that answered first time cannot take the job - which is the case that used
+    //   to become a needless queue: §5.3 measured the desktop at 11 free slots and the laptop at
+    //   12, and the fleet went to the desktop.
     const eligible = withDisk;
     const dispatchable = eligible.filter((candidate) => candidate.dispatchOk);
-    const preferred = dispatchable.filter((candidate) => !candidate.slow);
-    const usable = preferred.length > 0 ? preferred : dispatchable;
-    const withSlow = eligible.filter((candidate) => candidate.dispatchOk || candidate.slow);
-    if (usable.some((candidate) => candidate.fits)) {
+    const canStart = (candidate) => candidate.fits;
+    if (dispatchable.some(canStart)) {
       tier = 'fits';
-      pool = usable.filter((candidate) => candidate.fits);
-    } else if (usable.length > 0) {
+      pool = dispatchable.filter(canStart);
+    } else if (dispatchable.length > 0) {
+      // Nothing that can take the work has room for this job right now (frozen §2.2: "a fleet
+      // bigger than every node still places"). The pool is every node that can take v1 work -
+      // slow ones included, because "cannot start now" is a queue and a node that missed one
+      // deadline is not a safer thing to queue on than a node that answered late.
       tier = 'highest-slots';
-      const highest = Math.max(...usable.map((candidate) => candidate.slots));
-      pool = usable.filter((candidate) => candidate.slots === highest);
-    } else if (withSlow.some((candidate) => candidate.fits)) {
-      // Everything that fits is either transport-blocked or slow (or both). Placed, QUEUED, and
-      // named - a slow node that fits is still a better answer than a refusal.
-      tier = 'slow';
-      pool = withSlow.filter((candidate) => candidate.fits);
-    } else if (withSlow.length > 0) {
-      tier = 'slow';
-      const highest = Math.max(...withSlow.map((candidate) => candidate.slots));
-      pool = withSlow.filter((candidate) => candidate.slots === highest);
-    } else if (eligible.some((candidate) => candidate.fits)) {
+      const highest = Math.max(...dispatchable.map((candidate) => candidate.slots));
+      pool = dispatchable.filter((candidate) => candidate.slots === highest);
+    } else if (eligible.some(canStart)) {
       // Nothing eligible can take v1 work, but something could run it if the transport were
       // not the problem. Queued rather than refused, and the transport is named.
       tier = 'transport';
@@ -646,6 +679,28 @@ export function createBroker(options = {}) {
       pool = arena;
     }
 
+    /**
+     * The order every tier is ranked by, in one place. Ordered by how much each fact tells the
+     * caller about whether the work can actually run there, and never a gate: every candidate in
+     * `pool` is placeable and the first one wins.
+     *
+     *   1. reachable                    - a node we can measure beats one we cannot;
+     *   2. can take v1 work             - a node measured to accept `ssh <node> dsh --profile
+     *                                     headless` beats one measured not to, and an unmeasured
+     *                                     one (`null`) sits between the two facts;
+     *   3. NOT slow                     - a node that answered first time beats one that missed the
+     *                                     deadline once and answered on the longer second attempt
+     *                                     (the defect fixed 2026-09-17: it used to be excluded
+     *                                     outright, so a slow node was unplaceable while any fast
+     *                                     node existed - see the note above the tier ladder);
+     *   4. fits now                     - a node with room for THIS job beats one that will queue it.
+     *                                     This is the last of the three facts that decide the tier,
+     *                                     and it can only split candidates inside `highest-slots`
+     *                                     (inside `fits` every candidate already fits); it never
+     *                                     overrides `slow`, so a slow node is never skipped over in
+     *                                     favour of a fast one that must queue the job;
+     *   5. more effective slots, then load, then roster order.
+     */
     const compareFallback = (a, b) => {
       const ra = a.candidate.reachable ? 1 : 0;
       const rb = b.candidate.reachable ? 1 : 0;
@@ -656,16 +711,21 @@ export function createBroker(options = {}) {
       const va = a.candidate.dispatchOk ? 1 : 0;
       const vb = b.candidate.dispatchOk ? 1 : 0;
       if (va !== vb) return vb - va;
-      // A SLOW node ranks below a fast one, and above nothing: it is still a placement target.
+      // A SLOW node ranks below a fast one and above nothing: it is still a placement target.
       const sa = a.candidate.slow ? 1 : 0;
       const sb = b.candidate.slow ? 1 : 0;
       if (sa !== sb) return sa - sb;
+      // Room for this job before slots: the queue this removes is a real one, and a node that can
+      // start the work now is a better answer than one that cannot, whatever their raw sizes.
+      const fa = a.candidate.fits ? 1 : 0;
+      const fb = b.candidate.fits ? 1 : 0;
+      if (fa !== fb) return fb - fa;
       if (a.candidate.slots !== b.candidate.slots) return b.candidate.slots - a.candidate.slots;
       return compareRanking(a.key, b.key);
     };
     const ranked = pool
       .map((candidate) => ({ candidate, key: rankingKey({ ...candidate, task }) }))
-      .sort(tier === 'fits' ? (a, b) => compareRanking(a.key, b.key) : compareFallback);
+      .sort(compareFallback);
     const chosen = ranked[0].candidate;
     const startNow = tier === 'fits' && chosen.fits;
     const position = startNow ? 0 : (chosen.liveLeases > 0 ? chosen.liveLeases : 1);
@@ -702,6 +762,8 @@ export function createBroker(options = {}) {
     lines.push(coreTermLine(chosen));
     const swap = swapLine(chosen);
     if (swap !== null) lines.push(swap);
+    const classification = classificationLine(chosen);
+    if (classification !== null) lines.push(classification);
     const slow = slowLine(chosen);
     if (slow !== null) lines.push(slow);
     lines.push(transportLine(chosen));

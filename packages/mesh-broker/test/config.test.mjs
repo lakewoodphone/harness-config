@@ -83,7 +83,23 @@ test('the per-node v1 transport capability keeps "measured broken" and "unmeasur
   assert.equal(byName['zabz-yoga-1'].dispatch.v1, true, 'measured working again: S6 fixed the reparse-point trust and a full dispatch to it completed exit 0');
   assert.ok(byName['zabz-yoga-1'].dispatch.evidence.includes('reparse-point'));
   assert.equal(byName['secratary'].dispatch.v1, null, 'unmeasured stays unmeasured - not a claim in either direction');
-  assert.equal(byName['zabz-tech-linux'].dispatch.v1, true, 'measured working: the profile tree loads over its sshd');
+  // RESTORED TO true 2026-09-17 (docs/mesh/104-node-enabled.md). The `false` this assertion
+  // carried from 2026-09-17T14:00Z was correct and is not being quietly flipped: it answered the
+  // question "can a child placed here run, through the invocation the dispatcher ACTUALLY runs",
+  // and then that invocation was corrected - `plugin-remote-fanout/lib/nodes.js` invokes the
+  // node's `dsh` executor by name (which sources `/etc/dsh-worker.env` itself) instead of the
+  // explicit `nodeExe` + `bin.js` pair that named a path which does not exist on the machine.
+  // Both conditions the false row named are therefore met, and the restoring measurement is a
+  // real child through the whole dispatcher: `MESH-HOST: zabz-tech-linux`, exit 0.
+  assert.equal(
+    byName['zabz-tech-linux'].dispatch.v1,
+    true,
+    'measured 2026-09-17: the dispatcher row was corrected to invoke the `dsh` executor by name, and a real child dispatched through `mesh-run` returned MESH-HOST: zabz-tech-linux with childHosts ["zabz-tech-linux"], disagreements [] and exit 0 - where the same command before the fix exited 1 with `sh: 6: /home/zabz/.local/node-v24.12.0-linux-x64/bin/node: not found`. The evidence field carries every command and its result',
+  );
+  assert.ok(byName['zabz-tech-linux'].dispatch.evidence.includes('no Node runtime yet'), 'the evidence names the stale note it corrects');
+  assert.ok(byName['zabz-tech-linux'].dispatch.evidence.includes('MESH-HOST: zabz-tech-linux'), 'and carries the live dispatch that restored the flag');
+  assert.ok(byName['zabz-tech-linux'].dispatch.evidence.includes('SET BACK TO false'), 'and what would revoke it again - a capability is a dated measurement in both directions');
+  assert.ok(byName['zabz-tech-linux'].dispatch.evidence.includes("command: 'dsh'"), 'and names the corrected invocation - the executor by name, not an interpreter pair');
 });
 
 test('an empty roster is refused with a reason, at startup, not at placement time', () => {
