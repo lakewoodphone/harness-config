@@ -60,7 +60,12 @@ F. **Tool defects, and exactly which are fixed.** `repair-ids --apply` wrote the
    upstream, and the right home is **`idguard`**, not `check`, which is on the read path); `idguard` reads the
    generated `journal/index/entries.tsv` and **undercounts** (9 when the answer was 10 — `zabz-tech` committed
    `D254/H474/L1914/P247` without rebuilding it); and `note_git_ceiling()` is **dead code**, so
-   `allocation_ceiling`'s `git_ceiling` field is `{}` on every machine.
+   `allocation_ceiling`'s `git_ceiling` field is `{}` on every machine. **Newly measured:** `questions` and
+   `import-legacy` each leave `journal/.lock` behind **after exiting 0** (reproduced twice, holder pids dead) — that
+   is the single check `selftest` fails (239/240) and it is a real defect, not a flake. `_lock_holder_is_dead()`
+   makes it benign for the tool, but a stale lock makes every later reader ask whether a writer is live. Stale locks
+   left by this session's own runs were found in **both** trees and removed; the exit path that fails to release was
+   not chased.
 
 ## Open right now
 

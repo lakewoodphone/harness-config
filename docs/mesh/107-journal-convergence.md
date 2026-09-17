@@ -276,9 +276,9 @@ The arithmetic is checkable by hand: `1705 (origin) + 13 (ids only this machine 
 lacks) + 10 (this machine's content at the ten live contested ids, renumbered) = 1728`.
 
 **`selftest`: 239 of 240, before and after the tool fix.** The single failure is
-`no lock file was left behind` in the six-way `append` race section. It was reproduced with the
-**unpatched** tool in the owner's working tree, so it is pre-existing and unrelated to the change;
-`cmd_repair_ids` acquires no lock.
+`no lock file was left behind`. It was reproduced with the **unpatched** tool in the owner's working
+tree, so it is pre-existing and unrelated to the change (`cmd_repair_ids` acquires no lock) — and it is
+**not a flake**: §6.6 reproduces the same leak directly, twice, on real trees.
 
 ---
 
@@ -387,6 +387,42 @@ hardcodes `"alias_of": ""` (journal.py:2945). The flag is therefore a silent no-
 *"this file declares itself an alias of … and should not exist"* (journal.py:604-605) — so writing it
 would turn every renumbered entry into a `check` error. The honest choices are to remove the flag or to
 make it refuse loudly; this session did neither, and recorded it.
+
+### 6.6 Two commands leave their `.lock` behind, and the tool's own selftest says so
+
+Found because `doctor` refused to be quiet about it. MEASURED on the converged tree:
+
+```
+lock            HELD by questions 15240@zabz-yoga:1789663316 (206s)
+writable        True
+```
+
+and the owner's working tree's journal held `import-legacy 6296@zabz-yoga:1789662393`. **Both holder
+PIDs were dead** — `Get-Process -Id 15240` and `-Id 6296` return nothing, and neither appears in the
+running Python process list — and both commands had **exited 0**. So this is not a crashed process.
+
+Reproduced directly, one command each, lock file absent beforehand:
+
+```
+$ python journal/tools/journal.py --root <worktree>/journal questions
+state/owner-questions.md: 24 open, 65 closed
+lock before: False        lock after: True        content: questions 12764@zabz-yoga:1789663555
+holder pid 12764 alive: False
+
+$ python journal/tools/journal.py --root <synthetic>/journal import-legacy
+-- dry run: identical 0 · aliased 0 · new 0  (entries/ 1 -> 1); re-run with --apply
+lock before: False        lock after: True        content: import-legacy 23592@zabz-yoga:1789663577
+```
+
+**This is the assertion `selftest` fails** (§5), which means that failure is a real defect and not a
+flake. It is **benign for the tool itself** — `_lock_holder_is_dead()` (journal.py:2538) recognises a
+dead holder, which is why `doctor` printed `writable True` while the lock file was present — but every
+later reader is made to ask whether a writer is live, and the tool's own integrity check fails.
+
+Both stale locks found in this session were **removed** (they were this session's own artefacts, the
+holders were provably dead, and a `.lock` is not data); `doctor` then reported `lock free`. The code
+path that exits without releasing was **not** chased — this is a characterised defect, not a fixed one,
+and it is the reason a fifth item belongs on the list above.
 
 ---
 
