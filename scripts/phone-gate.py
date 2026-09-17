@@ -32,6 +32,7 @@ import os
 import re
 import select
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -123,13 +124,201 @@ def live_token(engine_port: int | None = None) -> str:
     return best
 
 
-def tailnet_name() -> str:
+# --------------------------------------------------------------------------
+# THE TAILNET CLI: RESOLVE IT ABSOLUTELY, LEAD ITS OWN PROCESS GROUP, KILL THE GROUP.
+#
+# WHY THIS IS NOT `subprocess.run(["tailscale", ...], timeout=10)`. Measured 2026-09-16 on the Mac
+# mini (docs/mesh/74-mac-mini.md §4, which is the evidence for all three rules below): on macOS
+# `/usr/local/bin/tailscale` is a 68-byte shim — `#!/bin/sh` then
+# `/Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"` — and that GUI app binary NEVER
+# answers a non-interactive ssh invocation. `timeout=` kills the SHIM; the shim's forked
+# grandchild keeps the stdout pipe open, so `subprocess.run` goes on waiting for EOF — **forever**
+# — while the orphan spins at ~1.4 % of a core. Thirteen of them had accumulated on that machine,
+# one per session that probed it, and between them they pinned Apple's network-extension host
+# `nesessionmanager` at 33.5 % of a core continuously for 32 hours.
+#
+# Three rules, and skipping any one of them brings the leak back:
+#   1. RESOLVE AN ABSOLUTE PATH. On darwin prefer `/opt/homebrew/bin/tailscale` — a real CLI that
+#      talks to the running `tailscaled` and answered in 0.06 s total when measured — over the bare
+#      name, whose meaning depends on the caller's PATH (launchd's PATH, for this gate).
+#   2. LEAD ITS OWN PROCESS GROUP (`start_new_session=True`) AND KILL THE GROUP. A killed shim is
+#      not a killed probe: the grandchild is what holds the pipe.
+#   3. BOUND THE WAIT AND REAP IT. `Popen` + `communicate(timeout=...)`, holding the pid, so a
+#      timeout is one logged, bounded, reaped event — never a blocked caller, never a zombie.
+TAILSCALE_TIMEOUT = 10.0
+_TAILSCALE_LOCK = threading.Lock()
+_TAILSCALE: dict = {"resolved": False, "binary": None}
+# The `Self` block of `tailscale status --json`, cached for the same 60 s the mesh identity cache
+# uses. A node's tailnet name does not change under a running gate, and this is what stops a hung
+# or absent CLI from costing the gate one bounded wait per CALL SITE (there are two: the sign-in
+# path's Host fallback and the capacity route's identity read) instead of one per minute.
+_TAILSCALE_SELF: dict = {"at": None, "value": {}}
+_TAILSCALE_SELF_TTL = 60.0
+
+
+def _tailscale_candidates() -> "list[str]":
+    """Where the CLI may be, best first, with the bare name last on purpose.
+
+    darwin: the Homebrew CLI first, then the other absolute places one gets installed, and only
+    then whatever PATH says — because on this fleet a macOS PATH can point at
+    `/usr/local/bin/tailscale`, the GUI shim rule 1 exists to avoid.
+    `PHONE_GATE_TAILSCALE` pins one path explicitly, for a node laid out differently and for
+    testing the shim path on purpose.
+    """
+    override = os.environ.get("PHONE_GATE_TAILSCALE", "").strip()
+    if override:
+        return [override]
+    if sys.platform == "darwin":
+        return ["/opt/homebrew/bin/tailscale", "/usr/local/bin/tailscale",
+                "/opt/local/bin/tailscale", "/usr/bin/tailscale", "tailscale"]
+    return ["/usr/bin/tailscale", "/usr/local/bin/tailscale", "tailscale"]
+
+
+def _looks_like_gui_shim(path: str) -> bool:
+    """True when this `tailscale` is a shell wrapper around the Tailscale GUI app binary.
+
+    Measured on the Mac mini 2026-09-16 23:51Z: `/usr/local/bin/tailscale` is 68 bytes, `#!/bin/sh`
+    plus `/Applications/Tailscale.app/Contents/MacOS/Tailscale "$@"`, and that app binary does not
+    answer over ssh. It is still USED when it is all a node has (rule 3 makes that safe, bounded
+    and reaped), but the log says which binary was chosen and what it is, so a null `fqdn` has a
+    readable cause instead of a mystery.
+    """
     try:
-        import json
-        raw = subprocess.run(["tailscale", "status", "--json"], capture_output=True, text=True, timeout=10).stdout
-        return str((json.loads(raw).get("Self") or {}).get("DNSName", "")).rstrip(".")
-    except Exception:
-        return ""
+        head = Path(path).read_bytes()[:512]
+    except OSError:
+        return False
+    return head.startswith(b"#!") and b".app/Contents/MacOS/" in head
+
+
+def _tailscale_binary() -> "str | None":
+    """The tailscale CLI to use on this node, resolved once and logged once. None when there is none."""
+    with _TAILSCALE_LOCK:
+        if _TAILSCALE["resolved"]:
+            return _TAILSCALE["binary"]
+    chosen = ""
+    for candidate in _tailscale_candidates():
+        # `which` handles an absolute path (checked directly) and a bare name (searched on PATH,
+        # with PATHEXT on Windows) without a second code path for each.
+        chosen = shutil.which(candidate) or ""
+        if chosen:
+            break
+    with _TAILSCALE_LOCK:
+        _TAILSCALE["resolved"] = True
+        _TAILSCALE["binary"] = chosen or None
+    if not chosen:
+        note("  tailscale: no CLI found on this node (tried "
+             + ", ".join(_tailscale_candidates())
+             + "); the tailnet name will be unavailable")
+    elif _looks_like_gui_shim(chosen):
+        note(f"  tailscale: using {chosen} — a wrapper around the Tailscale GUI app, which does not "
+             f"answer a non-interactive ssh call; the read is bounded at {TAILSCALE_TIMEOUT:.0f}s and "
+             f"process-group-killed, so it fails instead of hanging, and the tailnet name stays "
+             f"unavailable until a real CLI (e.g. the Homebrew one) exists")
+    else:
+        note(f"  tailscale: using {chosen}")
+    return _TAILSCALE["binary"]
+
+
+def _kill_tailscale_group(proc) -> str:
+    """SIGKILL the process GROUP the child leads, falling back to the child alone. Says what died.
+
+    THE GROUP IS THE UNIT, and this is the whole fix for the 32-hour spin (see the block comment
+    above): the process holding the stdout pipe is the shim's GRANDCHILD, so killing only the child
+    leaves the pipe open and the caller waiting for EOF on it. `start_new_session=True` (in
+    `_tailscale_run`) makes the child its own group leader, so its pgid is the group to kill.
+    """
+    pid = proc.pid
+    if proc.poll() is not None:
+        return "nothing (it had already exited and been reaped)"
+    killpg = getattr(os, "killpg", None)          # absent on Windows: there, kill the child
+    sigkill = getattr(signal, "SIGKILL", signal.SIGTERM)
+    if killpg is not None:
+        try:
+            pgid = os.getpgid(pid)
+        except OSError:
+            pgid = None
+        if pgid is not None:
+            try:
+                killpg(pgid, sigkill)
+                return f"process group {pgid}"
+            except OSError:
+                pass
+    try:
+        proc.kill()
+        return f"pid {pid} alone (no process group to kill)"
+    except OSError:
+        return "nothing (it was already gone)"
+
+
+def _tailscale_run(args: "list[str]", timeout: float = TAILSCALE_TIMEOUT) -> "str | None":
+    """Run `<tailscale> args`, bounded, in its own process group. stdout as text, or None.
+
+    NEVER BLOCKS FOREVER AND NEVER LEAVES A SPINNING ORPHAN (see the block comment above for the
+    measurement this exists to prevent). On timeout the whole group is SIGKILLed — that is what
+    closes the stdout pipe, so the second `communicate` returns instead of waiting for EOF on a
+    pipe a grandchild still holds — the child is then REAPED, and one line records both. A child
+    that could not be killed is handed to a waiter thread rather than left as a zombie, and is
+    logged as loudly as this file logs anything.
+    """
+    binary = _tailscale_binary()
+    if not binary:
+        return None
+    try:
+        proc = subprocess.Popen([binary] + list(args), stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                text=True, encoding="utf-8", errors="replace",
+                                start_new_session=True)
+    except OSError as exc:
+        note(f"  tailscale: could not start {binary}: {exc}")
+        return None
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+        return out
+    except subprocess.TimeoutExpired:
+        killed = _kill_tailscale_group(proc)
+        try:
+            proc.communicate(timeout=5)
+            outcome = "reaped it"
+        except subprocess.TimeoutExpired:
+            outcome = f"COULD NOT REAP pid {proc.pid} (handed to a waiter thread)"
+            threading.Thread(target=proc.wait, daemon=True).start()
+        note(f"  tailscale: {' '.join(args)} did not answer within {timeout:.0f}s; killed {killed} "
+             f"and {outcome}; the tailnet identity is unavailable for this lookup and the caller is "
+             f"answered without it")
+        return None
+
+
+def _tailscale_self() -> dict:
+    """The `Self` block of `tailscale status --json`, or {} when it cannot be read.
+
+    Bounded and cached on purpose: with a hung or absent CLI this costs ONE timeout per
+    `_TAILSCALE_SELF_TTL`, and every caller is then answered from the cached failure rather than
+    starting another probe.
+    """
+    now = time.monotonic()
+    with _TAILSCALE_LOCK:
+        at = _TAILSCALE_SELF["at"]
+        if at is not None and (now - at) < _TAILSCALE_SELF_TTL:
+            return _TAILSCALE_SELF["value"]
+    raw = _tailscale_run(["status", "--json"])
+    self_doc: dict = {}
+    if raw:
+        try:
+            document = json.loads(raw)
+        except ValueError:
+            note("  tailscale: `status --json` returned something that is not JSON")
+            document = None
+        if isinstance(document, dict) and isinstance(document.get("Self"), dict):
+            self_doc = document["Self"]
+    with _TAILSCALE_LOCK:
+        _TAILSCALE_SELF["at"] = now
+        _TAILSCALE_SELF["value"] = self_doc
+    return self_doc
+
+
+def tailnet_name() -> str:
+    """This node's tailnet FQDN, or "" when Tailscale cannot name it."""
+    return str(_tailscale_self().get("DNSName", "")).rstrip(".")
 
 
 def relay(a: socket.socket, b: socket.socket) -> None:
@@ -762,8 +951,20 @@ _MESH_LOCK = threading.Lock()
 # `tailscale status` call and, on Windows, one WMI query) and then answered from here. A
 # FAILURE is cached too, but only for a minute, so a node whose tailscale was starting up
 # is not stuck nameless for the life of the gate.
-_MESH_CACHE: dict = {"node": None, "fqdn": None, "physicalCores": None, "identityAt": 0.0,
-                     "physicalAt": 0.0}
+#
+# `identityAt`/`physicalAt` ARE `None` UNTIL THE FIRST ATTEMPT, and that is load-bearing:
+# they used to be `0.0`, which made "never read" indistinguishable from "read 0 seconds ago",
+# so `fresh` was true for the first 60 seconds of the clock's life. On Windows and Linux
+# `time.monotonic()` is time since boot and that window is over before the gate starts, which
+# is why the bug hid there. MEASURED on the Mac mini 2026-09-17 00:09Z (macOS 26.5.2, Apple
+# Python 3.9.6): `time.monotonic()` reads **0.004 in a fresh process** and ticks at exactly
+# 1.0 s/s (4.01 s over a 4.0 s sleep) — the origin is reset per process, so the gate's first
+# minute skipped the tailnet lookup AND the core count entirely: `node`/`fqdn` fell back to
+# the OS hostname and `cpu.physical` was null, with the tailnet CLI never being called at all.
+# That is the `"fqdn": null` recorded in docs/mesh/74-mac-mini.md §7.3, and it is why every
+# macOS gate reported nulls for its first minute after every restart.
+_MESH_CACHE: dict = {"node": None, "fqdn": None, "physicalCores": None, "identityAt": None,
+                     "physicalAt": None}
 _MESH_IDENTITY_RETRY_SECONDS = 60.0
 
 # The cookie the gate mints for ITSELF to read the node's own `/healthz`. Not a visitor's
@@ -782,15 +983,87 @@ def _mesh_powershell() -> "str | None":
     return shutil.which("pwsh") or shutil.which("powershell") or shutil.which("powershell.exe")
 
 
+def _sysctl_int(name: str) -> "int | None":
+    """One integer out of `sysctl -n <name>`, or None. Used by the darwin reads below."""
+    try:
+        out = subprocess.run(["sysctl", "-n", name], capture_output=True, text=True,
+                             timeout=5).stdout.strip()
+        return int(out)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+def _vm_stat_pages(raw: str) -> dict:
+    """`vm_stat`'s counters as {name: pages}. Values are PAGES; the caller applies the page size.
+
+    The output is `Pages free:   3897.` per line after a header that also contains a colon
+    (`Mach Virtual Memory Statistics: (page size of 16384 bytes)`), so the header and any
+    non-integer counter are skipped rather than guessed at.
+    """
+    pages: dict = {}
+    for line in raw.splitlines():
+        key, sep, value = line.partition(":")
+        if not sep or not value.strip():
+            continue
+        token = value.strip().split()[0].rstrip(".")
+        try:
+            pages[key.strip().strip('"')] = int(token)
+        except ValueError:
+            continue
+    return pages
+
+
+def _memory_bytes_darwin() -> "tuple[int, int] | None":
+    """(total, reclaimable free) in bytes on macOS, or None when the OS counters cannot be read."""
+    total = _sysctl_int("hw.memsize")
+    # The page size is NOT assumed: 16384 on Apple Silicon and 4096 on Intel, and a wrong guess
+    # would be a silent 4x error in the one number the broker places work by. No page size, no answer.
+    page = _sysctl_int("hw.pagesize")
+    if not total or not page:
+        return None
+    try:
+        raw = subprocess.run(["vm_stat"], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    pages = _vm_stat_pages(raw)
+    # `Pages free` must be present: without the primary counter this is not a measurement, and a
+    # `0` here would be the confident-wrong-number this route exists to refuse (a node reporting
+    # zero free memory is a node the broker queues for ever).
+    if "Pages free" not in pages:
+        return None
+    reclaimable = sum(pages.get(name, 0) for name in
+                      ("Pages free", "Pages inactive", "Pages speculative", "Pages purgeable"))
+    return total, reclaimable * page
+
+
 def _memory_bytes() -> "tuple[int, int] | None":
     """(total, free) physical memory in bytes, from the OS's own counter, or None.
 
-    Windows uses `GlobalMemoryStatusEx` — the very call node's `os.freemem()` makes, which
-    is what the governor derives its budget from — and Linux uses `/proc/meminfo`'s
-    `MemAvailable` for the same reason. Reporting a different "free" than the governor's own
-    derivation would make this route and `governor.mjs status` disagree on the same machine
-    in the same second, which is exactly the kind of two-sources-one-number bug this program
-    exists to remove.
+    ONE FIELD, ONE MEANING, THREE READINGS — "free" is memory the OS will hand to a new process
+    without paging something out first, and each platform's own best counter for that:
+
+    * Windows — `GlobalMemoryStatusEx`'s `ullAvailPhys`, the very call node's `os.freemem()` makes
+      and therefore what the governor derives its budget from. Not adjusted for standby or cache.
+    * Linux — `/proc/meminfo`'s `MemAvailable` (the kernel's estimate of what is available without
+      swapping), falling back to `SC_AVPHYS_PAGES` only if `meminfo` cannot be read.
+    * macOS — `Pages free + Pages inactive + Pages speculative + Pages purgeable` from `vm_stat`,
+      times `sysctl hw.pagesize`. **NOT `Pages free`**, which was 7,087–9,279 pages (111–148 MB)
+      on a 16 GB machine because macOS keeps essentially all RAM in cache (`74-mac-mini.md` §3.1):
+      a Mac reporting 148 MB free looks memory-dead while it is healthy, and it would not mean the
+      same thing as the other two numbers. **What is NOT counted: `Pages wired down` and the
+      compressor's `Pages occupied by compressor`** — those are in use, not reclaimable, and the
+      compressor held 5.67 GB of real RAM on that machine; `Pages active` is likewise not free.
+      MEASURED on the Mac mini (`vm_stat` + `sysctl hw.pagesize`, by hand at the same moment the
+      gate answered): at 2026-09-16 23:59:07Z free 386,785 + inactive 209,728 + speculative 20,708
+      + purgeable 2,100 pages x 16,384 B = **9,676.9 MiB**, which the gate reported as `freeMiB:
+      9,677` in the same second; at 2026-09-17 00:10:41Z free 5,832 + inactive 313,384 +
+      speculative 155,798 + purgeable 7,369 = **7,536.5 MiB** against `freeMiB: 7536`. `Pages free`
+      ALONE on that machine was 3,897 pages = **60.9 MiB** at 23:50Z — the number that would have
+      declared a healthy 16 GB Mac memory-dead, which is why this branch exists at all.
+
+    Reporting a different "free" than the governor's own derivation would make this route and
+    `governor.mjs status` disagree on the same machine in the same second, which is exactly the
+    kind of two-sources-one-number bug this program exists to remove.
     """
     if sys.platform == "win32":
         class MEMORYSTATUSEX(ctypes.Structure):
@@ -811,6 +1084,8 @@ def _memory_bytes() -> "tuple[int, int] | None":
         except (AttributeError, OSError):
             return None
         return int(status.ullTotalPhys), int(status.ullAvailPhys)
+    if sys.platform == "darwin":
+        return _memory_bytes_darwin()
     try:
         page = int(os.sysconf("SC_PAGE_SIZE"))
         total = int(os.sysconf("SC_PHYS_PAGES")) * page
@@ -979,7 +1254,9 @@ def _physical_cpu_count() -> "int | None":
     with _MESH_LOCK:
         if _MESH_CACHE["physicalCores"] is not None:
             return _MESH_CACHE["physicalCores"]
-        if now - _MESH_CACHE["physicalAt"] < _MESH_IDENTITY_RETRY_SECONDS:
+        attempted = _MESH_CACHE["physicalAt"]
+        # Same None-sentinel rule as `mesh_identity`: an unattempted read is not a recent one.
+        if attempted is not None and (now - attempted) < _MESH_IDENTITY_RETRY_SECONDS:
             return None
         _MESH_CACHE["physicalAt"] = now
     value = _physical_cpu_count_cold()
@@ -1028,16 +1305,13 @@ def mesh_identity() -> "tuple[str, str | None]":
     now = time.monotonic()
     with _MESH_LOCK:
         node, fqdn = _MESH_CACHE["node"], _MESH_CACHE["fqdn"]
-        fresh = (now - _MESH_CACHE["identityAt"]) < _MESH_IDENTITY_RETRY_SECONDS
+        attempted = _MESH_CACHE["identityAt"]
+        # None = never read yet, so read now; a time means an ATTEMPT, successful or not, and
+        # only a recent failed attempt is skipped (`_MESH_CACHE` above records the measurement).
+        fresh = attempted is not None and (now - attempted) < _MESH_IDENTITY_RETRY_SECONDS
     if (node and fqdn) or fresh:
         return (override_node or node or _fallback_node_name(), override_fqdn or fqdn)
-    self_doc: dict = {}
-    try:
-        raw = subprocess.run(["tailscale", "status", "--json"], capture_output=True,
-                             text=True, timeout=10).stdout
-        self_doc = json.loads(raw).get("Self") or {}
-    except (OSError, ValueError, subprocess.SubprocessError):
-        self_doc = {}
+    self_doc = _tailscale_self()
     host = str(self_doc.get("HostName") or "").strip()
     dns = str(self_doc.get("DNSName") or "").strip().rstrip(".")
     # The label first; HostName only when there is no DNS name at all to take one from, and the
@@ -1299,6 +1573,15 @@ def capacity_payload(engine_port: int) -> dict:
         if free_slots == 0:
             blockers.append(f"{governor['inUse']} of {governor['budgetSlots']} governor slots are "
                             f"in use")
+    # A NOTE, NOT A BLOCKER: a node whose tailnet name cannot be read is still a node that can run
+    # a one-shot turn or a fleet. What the caller loses is the resolvable name — `node`/`fqdn` fall
+    # back to the OS hostname, which MagicDNS may not answer to — and that is exactly the kind of
+    # derived-with-a-caveat answer 71 §2.1 says `reason` carries. Measured 2026-09-16 on the Mac
+    # mini: the tailnet read there hangs or fails only when the CLI resolves to the macOS GUI shim,
+    # and the route must say so rather than report a null with no cause (docs/mesh/74-mac-mini.md §4).
+    if not fqdn:
+        notes.append("this node's tailnet identity could not be read, so node/fqdn fall back to the "
+                     "OS hostname and the broker cannot address this node by its tailnet name")
     if free_gib is None:
         blockers.append(f"the free space on {work_root} could not be measured")
     elif free_gib < MESH_FLEET_MIN_FREE_GIB:
@@ -2119,6 +2402,11 @@ def main() -> int:
     # argv carries no secret by construction — the token is read from the engine's log, never passed.
     note(f"phone-gate starting pid={os.getpid()} parent={getattr(os, 'getppid', lambda: '?')()} "
          f"argv={' '.join(sys.argv[1:])}")
+    # WHICH TAILNET CLI THIS PROCESS WILL USE, AT BOOT. `_tailscale_binary` resolves and logs it
+    # once either way; doing it here means a node whose CLI is the macOS GUI shim (§ the block
+    # comment above `_tailscale_candidates`) says so in the log at startup rather than at the first
+    # capacity request, and a node with no CLI at all is readable before anything is dispatched.
+    _tailscale_binary()
 
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # ONE LISTENER PER PORT, ENFORCED BY THE OS. Measured on this host 2026-09-16, because the
