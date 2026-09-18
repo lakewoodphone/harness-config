@@ -1186,8 +1186,25 @@ function Get-WindowCount($slotCfg, $table = $null) {
         if ([int]$originPort -eq $firstOrigin) { return 1 }
     }
 
-    # Last resort, and only reachable per-window (or with the proxy and the process scan both
-    # silent): match this slot's own --user-data-dir.
+    # Last resort, and only reachable PER-WINDOW (or with the proxy and the process scan
+    # both silent): match this slot's own --user-data-dir.
+    #
+    # NEVER IN SHARED-PROFILE MODE. This one missing guard is why the `+`/`⧉` new-window
+    # control did nothing for hours on 2026-09-18 (measured, not inferred). In shared
+    # mode every slot carries the SAME --user-data-dir (`_shared`), so ONE live window
+    # satisfies this match for ALL SIXTEEN slots. Get-WindowCount then answered 1 for
+    # every slot, Invoke-New found no free slot, and it printed "all 16 window slots are
+    # already open" to a console the `dsh-new://` protocol runs HIDDEN (the registry
+    # command passes -WindowStyle Hidden) and exited 0 -- no window, no error, no line in
+    # windows.log. `dshw status` showed it plainly: sixteen rows, each `windows 1`,
+    # 787 MB, `_shared` -- one browser tree counted sixteen times.
+    #
+    # The comment above Get-WindowCount's origin-port test already states the rule this
+    # line broke: in shared-profile mode the PROFILE IS NOT PER-SLOT IDENTITY. The origin
+    # port is, and Get-OpenOriginPorts is the authority for it -- including when the proxy
+    # is silent, because it unions the proxy's per-port count with a process scan.
+    if ($shared) { return 0 }
+
     $profDir = Get-SlotProfileDir $slotCfg
     try {
         $procs = Get-WindowProcs $table

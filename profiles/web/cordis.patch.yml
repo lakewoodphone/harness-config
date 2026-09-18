@@ -175,7 +175,18 @@
       # honest record for a row that names no node. Do not restore a node name here.
       targetHosts: !!js "process.env.MESH_TARGET_HOSTS ? process.env.MESH_TARGET_HOSTS.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : []",
       verifyMeshHost: true,
-      timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 300000",
+      # 300000 (five minutes) WAS THE SHIPPED DEFAULT UNTIL 2026-09-18, and it is the
+      # single number that killed five fleets in one night. Every child that needed
+      # longer than five minutes was severed by the provider with "the remote turn did
+      # not finish within 300000 ms and the ssh client was killed" (lib/provider.js:559)
+      # -- while the transport underneath it declares DEFAULT_TIMEOUT_MS = 900_000
+      # (lib/ssh-transport.js:49), i.e. the provider was three times stricter than its
+      # own transport. The visible symptom was an orchestrator that kept returning with
+      # "not done yet" and then blamed the briefs: a five-minute ceiling makes a
+      # many-hour fleet structurally impossible. Thirty minutes still bounds a runaway
+      # child and lets a real workstream finish inside one turn. Per-host override
+      # unchanged: MESH_CHILD_TIMEOUT_MS.
+      timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 1800000",
       maxOutputBytes: 200000,
     },
   },

@@ -406,6 +406,7 @@ handoff	H554	554		2026-09-18 03:46 UTC	ZABZ-YOGA	open	## 2026-09-18 03:46 UTC ·
 handoff	H555	555		2026-09-18 04:00 UTC	ZABZ-YOGA	open	## 2026-09-18 04:00 UTC · ZABZ-YOGA · fleet/auth landed and verified - and the second fail-closed startup audit in one session: a pinned baseline measured on a branch is not the baseline of what ships	entries/handoff/H555.md	1	22	b3920b0afc4ad475
 handoff	H556	556		2026-09-18 04:25 UTC	ZABZ-YOGA	open	## 2026-09-18 04:25 UTC · ZABZ-YOGA · DSH watchdog re-enabled: liveness on every origin, window recovery, and the open selector collision	entries/handoff/H556.md	1	78	8d3022a30783c56d
 handoff	H557	557		2026-09-18 04:34 UTC	ZABZ-YOGA	open	## 2026-09-18 04:34 UTC · ZABZ-YOGA · DSH watchdog re-enabled: union liveness, window recovery with five guards, and the open-selector collision	entries/handoff/H557.md	1	86	a06c8039605ccdfb
+handoff	H558	558		2026-09-18 14:58 UTC	ZABZ-YOGA	open	## 2026-09-18 14:58 UTC · ZABZ-YOGA · Took over the blocked mesh goal; two silent-failure bugs found and fixed	entries/handoff/H558.md	1	63	1f236784c14d9be1
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1181,6 +1182,8 @@ lessons	L1992	1992		2026-09-17	ZABZ-YOGA	open	**L1992 · PS 5.1 Start-Process re
 lessons	L1993	1993		2026-09-17	ZABZ-YOGA	open	**L1993 · I reported the SMS auto-reply as wrong from the same restamped cache I had just filed a pain entry about - read the live value, not the cache**	entries/lessons/L1993.md	1	17	5d1b737e68cbdd23
 lessons	L1994	1994		2026-09-17	ZABZ-YOGA	open	**L1994 · A demo published to real customers still looks like a demo - render it at phone size and look, and search before building**	entries/lessons/L1994.md	1	44	ee72942f3da1ed61
 lessons	L1995	1995		2026-09-18	ZABZ-YOGA	open	**L1995 · PowerShell is case-insensitive: a local dollar-slot IS the parameter dollar-Slot**	entries/lessons/L1995.md	1	30	a4f8276e6e4a1c37
+lessons	L1996	1996		2026-09-18	ZABZ-YOGA	open	**L1996 · A shared browser profile is not per-slot identity: one window counted sixteen times and the new-window control failed silently**	entries/lessons/L1996.md	1	49	7a0e6d0fae1907f7
+lessons	L1997	1997		2026-09-18	ZABZ-YOGA	open	**L1997 · The mesh provider capped a child turn at 300 s while its own transport allowed 900 s**	entries/lessons/L1997.md	1	49	26920504caf81e76
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1624,6 +1627,7 @@ decisions	D263	263		2026-09-17	ZABZ-YOGA	open	**D263 · 2026-09-17 · Fleet resu
 decisions	D264	264		2026-09-17	ZABZ-YOGA	open	**D264 · 2026-09-17 · P204 RETRACTED: it does not reproduce in 13 runs; the lock error was my own recovery's.**	entries/decisions/D264.md	1	63	96d56930de4a78ba
 decisions	D265	265		2026-09-17	ZABZ-YOGA	open	**D265 · 2026-09-17 · The secretary is the always-on half: a FLAG revives a headless session, and only a registered promise may raise one.**	entries/decisions/D265.md	1	64	18a274153bc9ce30
 decisions	D266	266		2026-09-17	ZABZ-YOGA	open	**D266 · 2026-09-17 · Multi-window model: one shared browser profile + one loopback origin port per window; per-window profiles stay as an escape hatch.**	entries/decisions/D266.md	1	16	9abf92479f428edf
+decisions	D267	267		2026-09-18	ZABZ-YOGA	open	**D267 · 2026-09-18 · Remote child turn cap 300 s -> 1800 s; shared-profile window count no longer uses the profile directory.**	entries/decisions/D267.md	1	36	b6ba0e176545c7c9
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
