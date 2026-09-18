@@ -1843,3 +1843,4 @@ wins	W211	211		2026-09-18	ZABZ-YOGA	open	**W211 · 2026-09-18 · A fleet on the 
 wins	W212	212		2026-09-18	ZABZ-YOGA	open	**W212 · 2026-09-18 · Every node has a measured unit cost except one; the authority can host a child after all; and MESH-HOST is a token the child writes.**	entries/wins/W212.md	1	50	c3d30f45d81e4feb
 wins	W213	213		2026-09-18	ZABZ-YOGA	open	**W213 · 2026-09-18 · The fifth node is calibrated; every node now has a unit cost, and there are three different metrics.**	entries/wins/W213.md	1	58	66e50a1aa4884d33
 wins	W214	214		2026-09-18	ZABZ-YOGA	open	**W214 · 2026-09-18 · The responsiveness probe returned a null result and the null is the finding: the noise exceeds the effect.**	entries/wins/W214.md	1	47	33e7fce94325be94
+wins	W215	215		2026-09-18	ZABZ-YOGA	open	**W215 · 2026-09-18 · prefer-remote is LIVE and verified from a real dispatch, with the raised connect timeout.**	entries/wins/W215.md	1	40	d9e1b83f41aeeb49
