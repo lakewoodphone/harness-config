@@ -1342,6 +1342,7 @@ pain	P248	248		2026-09-17	ZABZ-TECH	open	## P248 — The sync idempotency guard 
 pain	P249	249		2026-09-17	ZABZ-YOGA	open	## P249 — A child that runs on zabz-tech-linux and delegates further dies MISSING_CREDENTIAL (open, same class as 102)	entries/pain/P249.md	1	45	b62fb85e8bf09d14
 pain	P250	250		2026-09-17	ZABZ-YOGA	open	## P250 — zabz-tech boots a 0.1.0 provider plugin behind an untraversable junction, and --dump-config cannot see it	entries/pain/P250.md	1	36	08616c2050d577d3
 pain	P251	251		2026-09-17	ZABZ-YOGA	open	## P251 — zabz-tech cannot ssh to itself, so a child placed on the broker's favourite node dies at 255 in 108ms	entries/pain/P251.md	1	34	ae520cfd987b3daa
+pain	P262	262		2026-09-17	ZABZ-YOGA	open	## P262 — P0: claim-publish commits a tree with zero entries; merging that lineage deleted the journal	entries/pain/P262.md	1	59	7a406bb93c6ace5b
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1733,4 +1734,3 @@ wins	W202	202		2026-09-17	ZABZ-YOGA	open	**W202 · 2026-09-17 · Broker-driven p
 wins	W203	203		2026-09-17	ZABZ-YOGA	open	**W203 · 2026-09-17 · The last wall: zabz-tech's self-ssh fixed with one key line, and the child's MESH-HOST line measured.**	entries/wins/W203.md	1	34	664d211ab5c998c6
 wins	W204	204		2026-09-17	ZABZ-YOGA	open	**W204 · 2026-09-17 · verify-alloc.py is the standing gate for the allocation rule.**	entries/wins/W204.md	1	6	7a74dbdce06532c0
 wins	W205	205		2026-09-17	ZABZ-YOGA	open	**W205 · 2026-09-17 · Append is local-only: it can no longer move any ref.**	entries/wins/W205.md	1	6	5bec35cdbdff5e52
-wins	W206	206		2026-09-17	ZABZ-YOGA	open	**W206 · 2026-09-17 · 2026-09-17 - A cross-tree landing is provable before it is pushed: one hash guard catches the whole class.**	entries/wins/W206.md	1	39	2e85befdce9fef91
