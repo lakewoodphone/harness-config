@@ -408,6 +408,7 @@ handoff	H556	556		2026-09-18 04:25 UTC	ZABZ-YOGA	open	## 2026-09-18 04:25 UTC ·
 handoff	H557	557		2026-09-18 04:34 UTC	ZABZ-YOGA	open	## 2026-09-18 04:34 UTC · ZABZ-YOGA · DSH watchdog re-enabled: union liveness, window recovery with five guards, and the open-selector collision	entries/handoff/H557.md	1	86	a06c8039605ccdfb
 handoff	H558	558		2026-09-18 14:58 UTC	ZABZ-YOGA	open	## 2026-09-18 14:58 UTC · ZABZ-YOGA · Took over the blocked mesh goal; two silent-failure bugs found and fixed	entries/handoff/H558.md	1	63	1f236784c14d9be1
 handoff	H559	559		2026-09-18 18:25 UTC	SECRATARY	open	## 2026-09-18 18:25 UTC · SECRATARY · The car finally has a record: purchase odometer recovered, overdue IVT fluid found, tracker designed	entries/handoff/H559.md	1	67	817e82e30d506cac
+handoff	H601	601		2026-09-18 19:14 UTC	ZABZ-YOGA	open	## 2026-09-18 19:14 UTC · ZABZ-YOGA · Mesh takeover session: three defects fixed and verified, placement design written, one silent mis-placement open	entries/handoff/H601.md	1	65	2440ecb9f02174e7
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a

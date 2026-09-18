@@ -92,6 +92,28 @@ this right too. What the row does say is that it has **never been exercised as a
 next step is not a fix but a TEST: run one real child turn against `lakewooechsmini`. Done when a
 child's own `MESH-HOST:` line names that node, or when the failure names a concrete blocker.
 
+**MEASURED OUTCOME, SAME DAY, AND IT DID NOT PASS.** The test was run correctly this time — a local
+child was told to dispatch exactly one subagent, so that the target actually carried by the environment
+(`MESH_TARGET_NODE=lakewooechsmini`) would be exercised. Result:
+
+- the run itself looked fine: `exitCode 0`, `timedOut false`, `ms 15188`;
+- the dispatched child reported **`MESH-HOST: zabz-yoga`** — the laptop;
+- `mesh-run`'s verify phase scored `childHosts: ["zabz-yoga"]`, `disagreements: ["zabz-yoga"]`,
+  `outcome: "failed"`, `reason: "location disagreement: zabz-yoga not on lakewooechsmini"`, exit 1.
+
+So **a dispatch aimed at the mac mini produced a child that ran on the laptop.** The tool caught it,
+because it verifies the child's own report of where it ran rather than trusting its own intent — that
+verification phase is the reason this was not written down as a success.
+
+The likely cause is consistent with the evidence but is **not proven**: the fixed-target default in
+`profiles/mesh/cordis.patch.yml` is `process.env.MESH_TARGET_NODE ?? 'laptop-ts'`, and `laptop-ts`
+resolves to `zabz-yoga` — exactly the hostname observed. That would mean the environment override was
+not honoured and the row fell back to its default node. The alternative — that the override was honoured
+and the placement still landed locally — has not been excluded. Either way the mac mini remains
+**unproven as a worker**, and there is now a reproducible silent mis-placement to chase. This is the
+same failure class as the `laptop-ts` scare of 2026-09-17 and it deserves to be fixed before any
+twelve-hour fleet is aimed at a node list.
+
 **Phase 1 — calibrate the remote nodes.** Measure commit-per-concurrent-turn on `desktop-ts` the way
 403 MiB was measured on the laptop. Until that exists, "the desktop has more room" is arithmetic on a
 different machine's units.
