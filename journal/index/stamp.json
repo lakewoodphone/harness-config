@@ -1,7 +1,7 @@
 {
  "built": "2026-09-18 21:00 UTC",
  "ceiling": {
-  "decisions": 268,
+  "decisions": 324,
   "handoff": 603,
   "lessons": 2062,
   "pain": 331,
@@ -9,9 +9,9 @@
  },
  "db": "journal.db + fts5",
  "drift_measured": "2026-09-18 21:00 UTC",
- "entries": 1826,
- "entries_count": 1826,
- "entries_sig": "a20d4f3e244514f96a3b860d262087fa5d5d954f",
+ "entries": 1836,
+ "entries_count": 1836,
+ "entries_sig": "a08ae5c87abe919b7d01dad21649f4b20917bdd1",
  "flat_sig": "fbebfc3a7b8e3f2d4f30fd7a2290b1b003d00cc4",
  "git_ceiling": {
   "decisions": 267,

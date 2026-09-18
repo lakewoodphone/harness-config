@@ -408,7 +408,10 @@ handoff	H556	556		2026-09-18 04:25 UTC	ZABZ-YOGA	open	## 2026-09-18 04:25 UTC ·
 handoff	H557	557		2026-09-18 04:34 UTC	ZABZ-YOGA	open	## 2026-09-18 04:34 UTC · ZABZ-YOGA · DSH watchdog re-enabled: union liveness, window recovery with five guards, and the open-selector collision	entries/handoff/H557.md	1	86	a06c8039605ccdfb
 handoff	H558	558		2026-09-18 14:58 UTC	ZABZ-YOGA	open	## 2026-09-18 14:58 UTC · ZABZ-YOGA · Took over the blocked mesh goal; two silent-failure bugs found and fixed	entries/handoff/H558.md	1	63	1f236784c14d9be1
 handoff	H559	559		2026-09-18 18:25 UTC	SECRATARY	open	## 2026-09-18 18:25 UTC · SECRATARY · The car finally has a record: purchase odometer recovered, overdue IVT fluid found, tracker designed	entries/handoff/H559.md	1	67	817e82e30d506cac
-handoff	H601	601		2026-09-18 19:14 UTC	ZABZ-YOGA	open	## 2026-09-18 19:14 UTC · ZABZ-YOGA · Mesh takeover session: three defects fixed and verified, placement design written, one silent mis-placement open	entries/handoff/H601.md	1	65	2440ecb9f02174e7
+handoff	H599	599		2026-09-18 18:52 UTC	SECRATARY	open	## 2026-09-18 18:52 UTC · SECRATARY · Owner health record created; recurrent groin rash documented and both products verified from their labels	entries/handoff/H599.md	1	26	6a5d2383856a4b11
+handoff	H600	600		2026-09-18 18:55 UTC	SECRATARY	open	## 2026-09-18 18:55 UTC · SECRATARY · The car has a monitoring system - store, ingest endpoint and phone dashboard committed, pushed and live	entries/handoff/H600.md	1	89	b9dd5f9823631ca5
+handoff	H601	601		2026-09-18 19:12 UTC	SECRATARY	open	## 2026-09-18 19:12 UTC · SECRATARY · Owner health record delivered and pushed; found the repo divergence and the laptop's dead GitHub token	entries/handoff/H601.md	1	27	5d8dc38a3ddeb4e2
+handoff	H602	602		2026-09-18 19:14 UTC	SECRATARY	open	## 2026-09-18 19:14 UTC · SECRATARY · ZABZ-YOGA git auth repaired and the owner health doc is now reachable from both machines	entries/handoff/H602.md	1	25	c0b8bee926d224e5
 handoff	H603	603		2026-09-18 20:59 UTC	ZABZ-YOGA	open	## 2026-09-18 20:59 UTC · ZABZ-YOGA · ## 2026-09-18 19:14 UTC · ZABZ-YOGA · Mesh takeover session: three defects fixed and verified, placement design written, one silent mis-placement open	entries/handoff/H603.md	1	67	3f15cc0ee39abb61
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
@@ -1193,8 +1196,11 @@ lessons	L2000	2000		2026-09-18	ZABZ-YOGA	open	**L2000 · 'The probe could not se
 lessons	L2001	2001		2026-09-18	ZABZ-YOGA	open	**L2001 · Four probes, four false conclusions, one cause: a check that cannot look is being read as a check that found nothing**	entries/lessons/L2001.md	1	55	3324192815886e3e
 lessons	L2002	2002		2026-09-18	SECRATARY	open	**L2002 · A thing the owner cares about, with no ledger and no milestone task, will be forgotten — the car proves it**	entries/lessons/L2002.md	1	34	4803b58a6b571c25
 lessons	L2003	2003		2026-09-18	SECRATARY	open	**L2003 · kia_uvo advertises DTC-count and next-service-distance sensors that are never populated on a US Hyundai**	entries/lessons/L2003.md	1	34	bd8fcc76c4540021
-lessons	L2056	2056		2026-09-18	ZABZ-YOGA	open	**L2056 · mesh-run -Node does not run the prompt on that node - it runs it locally**	entries/lessons/L2056.md	1	41	bdb32fbc9044074e
-lessons	L2057	2057		2026-09-18	ZABZ-YOGA	open	**L2057 · How to pull up a phone DSH chat: it lives on secratary at ~/phone, session logs are zstd-compressed JSONL**	entries/lessons/L2057.md	1	16	aaa59beccd7c8983
+lessons	L2055	2055		2026-09-18	SECRATARY	open	**L2055 · On CAN, 'I am only reading' is false by default — a filtered node still ACKs, so silence is a firmware choice**	entries/lessons/L2055.md	1	46	6df2ee7cb6933f50
+lessons	L2056	2056		2026-09-18	SECRATARY	open	**L2056 · Owner health facts live in docs/personal/health/, not in the memories table**	entries/lessons/L2056.md	1	10	b5a9f456fee70c58
+lessons	L2057	2057		2026-09-18	SECRATARY	open	**L2057 · vehicle dashboard: the findings payload shape on disk is not the one in the brief**	entries/lessons/L2057.md	1	6	13f52d32246b4663
+lessons	L2058	2058		2026-09-18	SECRATARY	open	**L2058 · A URL-specific credential.https://github.com.helper pointing at gh's git-credential silently breaks git when gh's token rots**	entries/lessons/L2058.md	1	25	2104fda28530f197
+lessons	L2059	2059		2026-09-18	SECRATARY	open	**L2059 · A passing test suite is not a build - 196 green host assertions, and it had never compiled for the chip**	entries/lessons/L2059.md	1	44	4a269fcb90ebbb1d
 lessons	L2060	2060		2026-09-18	ZABZ-YOGA	open	**L2060 · Renumbering a journal entry by hand breaks it in two ways, and the cross-branch id collision is invisible to every tool that exists**	entries/lessons/L2060.md	1	68	85c28cecaf13d4b9
 lessons	L2061	2061		2026-09-18	ZABZ-YOGA	open	**L2061 · L2056 · mesh-run -Node does not run the prompt on that node - it runs it locally**	entries/lessons/L2061.md	1	43	7e21c5d738c3eef1
 lessons	L2062	2062		2026-09-18	ZABZ-YOGA	open	**L2062 · L2057 · How to pull up a phone DSH chat: it lives on secratary at ~/phone, session logs are zstd-compressed JSONL**	entries/lessons/L2062.md	1	18	d16c89b795a74d63
@@ -1420,7 +1426,9 @@ pain	P268	268		2026-09-17	ZABZ-YOGA	open	## P268 — The fleet has been unable t
 pain	P269	269		2026-09-18	ZABZ-YOGA	open	## P269 — The mesh provider never tells the parent it has a child, so the Subagents UI can never show one - structural, not a config flag	entries/pain/P269.md	1	48	ad9b01d0402daddf
 pain	P270	270		2026-09-18	ZABZ-YOGA	open	## P270 — A browser page that survives an engine restart keeps a stale background-job list	entries/pain/P270.md	1	43	53e1329042c6e929
 pain	P326	326		2026-09-18	SECRATARY	open	## P326 — The ask-a-question tool does not render on the owner's phone — plain text instead, until it is verified on his handset	entries/pain/P326.md	1	35	40b80e01d9c54aa5
-pain	P327	327		2026-09-18	ZABZ-YOGA	open	## P327 — Nothing excludes the machine the owner is using, so when the biggest node fills the laptop is next in line	entries/pain/P327.md	1	57	9233c815e79920a7
+pain	P327	327		2026-09-18	SECRATARY	open	## P327 — memories.category='health' is a write-only dumping ground: 44 rows, 0 health facts	entries/pain/P327.md	1	10	866f7789c152c7b1
+pain	P328	328		2026-09-18	SECRATARY	open	## P328 — secratary's personal-secretary-mvp master has diverged from origin/master since 2026-09-07 - 122 local vs 176 remote commits, work stranded on both sides	entries/pain/P328.md	1	24	20b4508170b064bf
+pain	P329	329		2026-09-18	SECRATARY	open	## P329 — ZABZ-YOGA cannot reach GitHub at all - gh token invalid, credential manager interactive-only	entries/pain/P329.md	1	16	e3a491d7c4c919d5
 pain	P330	330		2026-09-18	ZABZ-YOGA	open	## P330 — The journal is measurably divergent on ZABZ-TECH and nine entry ids already mean two different entries	entries/pain/P330.md	1	50	4da6b0eda0bd6fd2
 pain	P331	331		2026-09-18	ZABZ-YOGA	open	## P331 — ## P327 — Nothing excludes the machine the owner is using, so when the biggest node fills the laptop is next in line	entries/pain/P331.md	1	59	534a3338607ee017
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
@@ -1649,6 +1657,8 @@ decisions	D265	265		2026-09-17	ZABZ-YOGA	open	**D265 · 2026-09-17 · The secret
 decisions	D266	266		2026-09-17	ZABZ-YOGA	open	**D266 · 2026-09-17 · Multi-window model: one shared browser profile + one loopback origin port per window; per-window profiles stay as an escape hatch.**	entries/decisions/D266.md	1	16	9abf92479f428edf
 decisions	D267	267		2026-09-18	ZABZ-YOGA	open	**D267 · 2026-09-18 · Remote child turn cap 300 s -> 1800 s; shared-profile window count no longer uses the profile directory.**	entries/decisions/D267.md	1	36	b6ba0e176545c7c9
 decisions	D268	268		2026-09-18	ZABZ-YOGA	open	**D268 · 2026-09-18 · Mesh children stay invisible to the Subagents UI, and the remedy is two core changes - not a plugin patch.**	entries/decisions/D268.md	1	49	881234f6320bfc11
+decisions	D323	323		2026-09-18	SECRATARY	open	**D323 · 2026-09-18 · Owner health record established: repo directory as source of truth, DB rows as indexes.**	entries/decisions/D323.md	1	17	157ae8abbd41e5ab
+decisions	D324	324		2026-09-18	SECRATARY	open	**D324 · 2026-09-18 · Owner declined follow-up on the groin condition - record only, do not re-ask.**	entries/decisions/D324.md	1	10	ebd5b24a21e7b8d6
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
