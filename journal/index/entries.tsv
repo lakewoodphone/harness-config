@@ -407,6 +407,7 @@ handoff	H555	555		2026-09-18 04:00 UTC	ZABZ-YOGA	open	## 2026-09-18 04:00 UTC ·
 handoff	H556	556		2026-09-18 04:25 UTC	ZABZ-YOGA	open	## 2026-09-18 04:25 UTC · ZABZ-YOGA · DSH watchdog re-enabled: liveness on every origin, window recovery, and the open selector collision	entries/handoff/H556.md	1	78	8d3022a30783c56d
 handoff	H557	557		2026-09-18 04:34 UTC	ZABZ-YOGA	open	## 2026-09-18 04:34 UTC · ZABZ-YOGA · DSH watchdog re-enabled: union liveness, window recovery with five guards, and the open-selector collision	entries/handoff/H557.md	1	86	a06c8039605ccdfb
 handoff	H558	558		2026-09-18 14:58 UTC	ZABZ-YOGA	open	## 2026-09-18 14:58 UTC · ZABZ-YOGA · Took over the blocked mesh goal; two silent-failure bugs found and fixed	entries/handoff/H558.md	1	63	1f236784c14d9be1
+handoff	H559	559		2026-09-18 18:25 UTC	SECRATARY	open	## 2026-09-18 18:25 UTC · SECRATARY · The car finally has a record: purchase odometer recovered, overdue IVT fluid found, tracker designed	entries/handoff/H559.md	1	67	817e82e30d506cac
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1188,6 +1189,8 @@ lessons	L1998	1998		2026-09-18	ZABZ-YOGA	open	**L1998 · A node's name is not a 
 lessons	L1999	1999		2026-09-18	ZABZ-YOGA	open	**L1999 · A mesh subagent shows nothing and blocks the turn because backgrounding was off - that is the whole of 'it just sits there'**	entries/lessons/L1999.md	1	41	368485445af5c8f5
 lessons	L2000	2000		2026-09-18	ZABZ-YOGA	open	**L2000 · 'The probe could not see it' is not 'it is not there': two of my own conclusions falsified by the fleet I sent to check them**	entries/lessons/L2000.md	1	61	8f43cc242cdddca3
 lessons	L2001	2001		2026-09-18	ZABZ-YOGA	open	**L2001 · Four probes, four false conclusions, one cause: a check that cannot look is being read as a check that found nothing**	entries/lessons/L2001.md	1	55	3324192815886e3e
+lessons	L2002	2002		2026-09-18	SECRATARY	open	**L2002 · A thing the owner cares about, with no ledger and no milestone task, will be forgotten — the car proves it**	entries/lessons/L2002.md	1	34	4803b58a6b571c25
+lessons	L2003	2003		2026-09-18	SECRATARY	open	**L2003 · kia_uvo advertises DTC-count and next-service-distance sensors that are never populated on a US Hyundai**	entries/lessons/L2003.md	1	34	bd8fcc76c4540021
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1409,6 +1412,7 @@ pain	P267	267		2026-09-17	ZABZ-YOGA	open	## P267 — Built-in web_search returns
 pain	P268	268		2026-09-17	ZABZ-YOGA	open	## P268 — The fleet has been unable to read or write any Dialpad office configuration since 2026-06-14 - the admin tooling replays a three-month-old captured session	entries/pain/P268.md	1	18	09c4ca1e917e0770
 pain	P269	269		2026-09-18	ZABZ-YOGA	open	## P269 — The mesh provider never tells the parent it has a child, so the Subagents UI can never show one - structural, not a config flag	entries/pain/P269.md	1	48	ad9b01d0402daddf
 pain	P270	270		2026-09-18	ZABZ-YOGA	open	## P270 — A browser page that survives an engine restart keeps a stale background-job list	entries/pain/P270.md	1	43	53e1329042c6e929
+pain	P326	326		2026-09-18	SECRATARY	open	## P326 — The ask-a-question tool does not render on the owner's phone — plain text instead, until it is verified on his handset	entries/pain/P326.md	1	35	40b80e01d9c54aa5
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
