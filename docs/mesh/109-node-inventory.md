@@ -16,38 +16,76 @@ so it is a floor on the cost of reaching that node, not a ping.
 | desktop-ts | ZABZ-TECH (office desktop) | yes | 3348 | 32 | 65173 | 38761 | 39504 | 185.5 | v24.19.0 | no | yes | yes |
 | secratary-ts | secratary (Linux authority) | yes | 734 | 4 | 23421 | 15349 | 3369 | 134.8 | v20.20.2 | no | no | yes |
 | linux-pc-ts | zabz-tech-linux | yes | 1018 | 12 | 11673 | 10329 | 4666 | 20.9 | v22.23.2 | yes | yes | yes |
-| mac-mini-ts | LakewooechsMini (macOS) | yes | 764 | 10 | 16384 | — | — | 46.0 | **absent** | no | no | yes |
+| mac-mini-ts | LakewooechsMini (macOS) | yes | 764 | 10 | 16384 | — | — | 46.0 | absent-on-PATH (v24.19.0 present) | no | **yes** | yes |
 
-A dash means the node did not answer that field. It never means zero.
+A dash means the node did not answer that field. It never means zero. **Two cells in the mac-mini row
+were wrong and are corrected below** — the readings were real, the probe could not see the machine.
+
+## Correction, 2026-09-18: the probe was wrong, not the machine
+
+Workstream M3 re-measured `mac-mini-ts` and falsified two conclusions drawn from the row above. Both were
+**probe defects on macOS**, and both have been fixed in `_scratch/mesh-inventory/probe.sh`.
+
+1. **`node: absent` was a false negative.** sshd hands a non-interactive macOS session the PATH
+   `/usr/bin:/bin:/usr/sbin:/sbin`. This machine keeps node in `/usr/local/bin` (`/usr/local/bin/node`
+   → `/usr/local/lib/nodejs/node-v24.19.0-darwin-arm64/bin/node`, **v24.19.0**, Mach-O arm64, `-v`
+   rc=0) and in `~/.local/node-v24.12.0-darwin-arm64/bin/node` (**v24.12.0**), the second added only by
+   `.zshrc`/`.zprofile`, which a non-interactive ssh never reads. **Two working node runtimes exist and
+   nothing needs installing.** The probe now falls back to the absolute locations and reports *which*
+   path answered, so "no runtime" can no longer be confused with "no runtime on this PATH".
+2. **`engine:3099 = no` was a false negative.** The probe asked `ss -ltn || netstat -ltn`; macOS has no
+   `ss`, and BSD `netstat` does not take `-ltn`, so the count was 0 by error. `lsof -nP -iTCP:3099
+   -sTCP:LISTEN` shows **pid 12458 listening on 127.0.0.1:3099** — a DSH engine, running under node
+   v24.12.0, on a box up 45 days with load 1.8 and 46 GB free. The probe now uses `ss`, then `lsof`,
+   then `netstat -an -p tcp`. **A DSH engine is already running on the mac mini.**
+
+So `mac-mini-ts` is a **live, capable node**, not a stale row. It is the fifth compute node, and it is
+already serving someone.
 
 ## What this changes about placement
 
 1. **ZABZ-TECH is the only node with real room.** 32 cores, 38.8 GB free, 39.5 GB commit free, 185 GB
-   disk. It is 2.8x the laptop's free physical memory. The broker already prefers it (measured today:
-   a probe child landed there and returned in 5.787 s while the laptop stayed flat). Nothing in the
-   design should move work back onto the laptop while the desktop is up.
+   disk — 2.8x the laptop's free physical memory. The broker already prefers it (measured: a probe child
+   landed there and returned in 5.787 s while the laptop stayed flat). Nothing in the design should move
+   work back onto the laptop while the desktop is up.
 
-2. **`secratary` cannot absorb agent work — it is nearly out of commit.** 3.4 GB commit free on a
-   22.9 GB box, and it is the authority that every other node queries plus the always-on company
-   engine (18 agents, ~300 ticks/day). It is the *last* place to add a child, not the first. Its
-   4 cores and node v20.20.2 make it a poor compute target as well. This is a constraint the node
-   table in `lib/nodes.js` does not carry, and it is exactly the kind of fact that decides a placement.
-   The knob that would let it participate is a measured, enforced ceiling — not a name in a list.
+2. ~~**`secratary` cannot absorb agent work — it is nearly out of commit.**~~ **OVERSTATED. CORRECTED
+   2026-09-18 by workstream M2.** The headline number was misleading in the direction that mattered.
+   `vm.overcommit_memory = 0`, i.e. **heuristic mode: `CommitLimit`/`Committed_AS` are computed and
+   reported but NOT enforced** — the kernel does not refuse an allocation because commit looks tight.
+   So "3.4 GB commit free" never meant 3.4 GB usable. M2 measured `Committed_AS` at ~10.3–10.4 GB,
+   **about 44 % of RAM**, and ~5.5 GB of *actual* free commit; and `MemAvailable` at 17.7 GB, which is
+   real reclaimable RAM. The binding constraint is something else entirely.
+   **What is actually scarce is SWAP: 4 GiB, 100 % full, 216 kB free.** With `vm.swappiness = 10` and
+   nothing evictable left, there is **no reclaim buffer for anonymous memory** — a spike goes straight
+   to the OOM killer. And the box's biggest tenant is a documented runaway: `secretary-api` (uvicorn)
+   carries a drop-in (`20-memory-guard.conf`) that pins MemoryHigh 5 GB / MemoryMax 8 GB because it
+   previously reached ~20 GB and the kernel's global OOM killer took the victim instead — 8 kills on
+   2026-09-15 and 23 more on 2026-09-16. It was cycling through stop-sigterm/restart **during M2's
+   probes**, which is why M2 could not reproduce this document's 15,349 MiB / 3,369 MiB sample: the
+   numbers moved between readings because the tenant was being killed and restarted underneath them.
+   **M2's verdict: `secratary` CAN host a long-lived agent child** — but it must stay modest (hundreds
+   of MB, not GB), and the machine is one API runaway away from a global OOM. The correct rule is not
+   "never place here" but "place small, watch the swap, and do not co-locate anything large with
+   `secretary-api`". Note also that the 18-agent engine itself (`dsh-engine`, ~347 MB) is **not** the
+   memory problem — the API is.
 
-3. **`mac-mini-ts` cannot host a DSH child at all: node is absent.** Its row in `lib/nodes.js` says the
-   INTERPRETER form was measured working on 2026-09-17 against `/usr/local/bin/node`; today there is no
-   node on PATH. Either the row is stale or the runtime was removed. Until it is resolved the objective's
-   "mac mini" node is a name that cannot run anything — a node that claims capability it does not have,
-   which is the same failure class as the 2026-09-17 `zabz-tech-linux` "no Node runtime yet" note.
+3. **`mac-mini-ts` is usable, and the way it failed is the more valuable lesson.** It has 10 cores,
+   16 GB, 46 GB free, a 45-day uptime — and a working DSH engine on 3099. The only thing standing
+   between it and accepting a child from the mesh is that the non-interactive PATH does not contain the
+   node that already exists. **A node's absence from a list, and a capability's absence from a
+   non-interactive environment, are two different facts; conflating them produced a wrong conclusion in
+   the first version of this document.**
 
 4. **`linux-pc-ts` is the tightest disk on the mesh (20.9 GB free) and the only node with `dsh` on PATH.**
-   The second fact is why its row was re-verified on 2026-09-17 and is the working Linux dispatch path;
-   the first is why it should not be given artifact-heavy work.
+   The second fact is why its row was re-verified on 2026-09-17 and why it is the working Linux dispatch
+   path; the first is why it should not be given artifact-heavy work.
 
-5. **`dshOnPATH` is false on the laptop, the desktop and secratary.** This is expected — those three use
-   the interpreter form (`node <dsh>/lib/bin.js`) with the credential coming from the dispatching
-   process environment — but it means **`dsh` on PATH is not a capability flag and must not be used as
-   one** by any placement logic.
+5. **`dshOnPATH` is false on the laptop, the desktop, secratary and the mac mini.** Those use the
+   interpreter form (`node <dsh>/lib/bin.js`) with the credential coming from the dispatching process
+   environment, so **`dsh` on PATH is not a capability flag and must not be used as one** by any
+   placement logic. M3's finding is the same lesson one layer down: `node` on PATH is not a capability
+   flag either.
 
 6. **The laptop is not currently under memory pressure** (13.7 GB free, 20.8 GB commit free). The
    "0.403 GB per running turn, ~111 turns before it pages" figure is a ceiling for a loaded machine,
@@ -55,8 +93,27 @@ A dash means the node did not answer that field. It never means zero.
 
 ## Still to measure (not in this pass)
 
-- The mesh's own **latency matrix** (node-to-node), which decides whether a child should be placed by
-  capacity or by proximity to the data it needs.
-- **Cost of a child turn per node** measured end to end, not inferred from sshMs.
-- Whether `secratary`'s commit pressure is structural or a leak in the running engine (3.4 GB free is
-  low enough that it should be explained, not merely respected).
+- The mesh's own **latency matrix** (node-to-node). Workstream M1 attempted this from `desktop-ts` and
+  **failed**: its own ssh to another node hung at connect and the child exited 255 with no final
+  message. That is itself a finding — **node-to-node ssh from the desktop is not reliable, while
+  laptop-to-node ssh answered every node in under 3.4 s.** A scheduler cannot assume any node can reach
+  any other; reachability is directed and has to be measured per direction.
+- **Cost of a child turn per node** measured end to end, not inferred from `sshMs`. First datum:
+  449,151 ms (7.5 minutes) for M3's child on `desktop-ts`, exit 0 — and that is past the old 300 s
+  ceiling, which is the timeout fix verified by observation rather than by config.
+- ~~Whether `secratary`'s commit pressure is structural or a leak.~~ **ANSWERED by M2**: neither, as
+  framed. The commit figures are advisory (`vm.overcommit_memory = 0`); the scarce resource is the
+  **fully consumed 4 GiB swap**; and the one tenant with a runaway history is `secretary-api`, bounded
+  by a cgroup drop-in at 5/8 GB. What remains unmeasured: whether `secretary-api` is still leaking —
+  M2 declined to call it a leak from RSS-vs-age alone, since its 3.35 GB sits inside the 1.8–3.6 GB
+  warm footprint its own guard documents. That needs its restart history read, not another snapshot.
+- **Reachability is DIRECTED, and one direction is broken.** M1's child, running on `desktop-ts`,
+  hung at ssh connect to another node and exited 255 with no final message — while the laptop reached
+  all five nodes in under 3.4 s each. M2 hit the same class from the same node and worked around it
+  ("`ssh` itself worked, but the pwsh wrapper never saw it exit", so every probe had to run via
+  `Start-Process -RedirectStandardOutput`). So a scheduler must not assume any node can reach any
+  other, and **a `subagent` brief that asks for node-to-node ssh must bound every hop with a hard
+  timeout**, or the child dies holding the parent's work.
+- **The child-turn ceiling fix is verified by observation, not by config**: M3 ran 449,151 ms and M2
+  ran 503,943 ms, both `exit = 0`, both on `desktop-ts`. Both are past the old 300,000 ms ceiling that
+  killed five fleets on 2026-09-17.
