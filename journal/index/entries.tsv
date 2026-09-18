@@ -1431,6 +1431,7 @@ pain	P328	328		2026-09-18	SECRATARY	open	## P328 — secratary's personal-secret
 pain	P329	329		2026-09-18	SECRATARY	open	## P329 — ZABZ-YOGA cannot reach GitHub at all - gh token invalid, credential manager interactive-only	entries/pain/P329.md	1	16	e3a491d7c4c919d5
 pain	P330	330		2026-09-18	ZABZ-YOGA	open	## P330 — The journal is measurably divergent on ZABZ-TECH and nine entry ids already mean two different entries	entries/pain/P330.md	1	50	4da6b0eda0bd6fd2
 pain	P331	331		2026-09-18	ZABZ-YOGA	open	## P331 — ## P327 — Nothing excludes the machine the owner is using, so when the biggest node fills the laptop is next in line	entries/pain/P331.md	1	59	534a3338607ee017
+pain	P332	332		2026-09-18	ZABZ-YOGA	open	## P332 — Fan-out concentrated on one node costs children: five on zabz-tech pushed its sshd to 8s and one was lost	entries/pain/P332.md	1	47	35d4e682ba4df289
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
