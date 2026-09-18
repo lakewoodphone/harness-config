@@ -409,6 +409,7 @@ handoff	H557	557		2026-09-18 04:34 UTC	ZABZ-YOGA	open	## 2026-09-18 04:34 UTC ·
 handoff	H558	558		2026-09-18 14:58 UTC	ZABZ-YOGA	open	## 2026-09-18 14:58 UTC · ZABZ-YOGA · Took over the blocked mesh goal; two silent-failure bugs found and fixed	entries/handoff/H558.md	1	63	1f236784c14d9be1
 handoff	H559	559		2026-09-18 18:25 UTC	SECRATARY	open	## 2026-09-18 18:25 UTC · SECRATARY · The car finally has a record: purchase odometer recovered, overdue IVT fluid found, tracker designed	entries/handoff/H559.md	1	67	817e82e30d506cac
 handoff	H601	601		2026-09-18 19:14 UTC	ZABZ-YOGA	open	## 2026-09-18 19:14 UTC · ZABZ-YOGA · Mesh takeover session: three defects fixed and verified, placement design written, one silent mis-placement open	entries/handoff/H601.md	1	65	2440ecb9f02174e7
+handoff	H603	603		2026-09-18 20:59 UTC	ZABZ-YOGA	open	## 2026-09-18 20:59 UTC · ZABZ-YOGA · ## 2026-09-18 19:14 UTC · ZABZ-YOGA · Mesh takeover session: three defects fixed and verified, placement design written, one silent mis-placement open	entries/handoff/H603.md	1	67	3f15cc0ee39abb61
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1195,6 +1196,8 @@ lessons	L2003	2003		2026-09-18	SECRATARY	open	**L2003 · kia_uvo advertises DTC-
 lessons	L2056	2056		2026-09-18	ZABZ-YOGA	open	**L2056 · mesh-run -Node does not run the prompt on that node - it runs it locally**	entries/lessons/L2056.md	1	41	bdb32fbc9044074e
 lessons	L2057	2057		2026-09-18	ZABZ-YOGA	open	**L2057 · How to pull up a phone DSH chat: it lives on secratary at ~/phone, session logs are zstd-compressed JSONL**	entries/lessons/L2057.md	1	16	aaa59beccd7c8983
 lessons	L2060	2060		2026-09-18	ZABZ-YOGA	open	**L2060 · Renumbering a journal entry by hand breaks it in two ways, and the cross-branch id collision is invisible to every tool that exists**	entries/lessons/L2060.md	1	68	85c28cecaf13d4b9
+lessons	L2061	2061		2026-09-18	ZABZ-YOGA	open	**L2061 · L2056 · mesh-run -Node does not run the prompt on that node - it runs it locally**	entries/lessons/L2061.md	1	43	7e21c5d738c3eef1
+lessons	L2062	2062		2026-09-18	ZABZ-YOGA	open	**L2062 · L2057 · How to pull up a phone DSH chat: it lives on secratary at ~/phone, session logs are zstd-compressed JSONL**	entries/lessons/L2062.md	1	18	d16c89b795a74d63
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1419,6 +1422,7 @@ pain	P270	270		2026-09-18	ZABZ-YOGA	open	## P270 — A browser page that survive
 pain	P326	326		2026-09-18	SECRATARY	open	## P326 — The ask-a-question tool does not render on the owner's phone — plain text instead, until it is verified on his handset	entries/pain/P326.md	1	35	40b80e01d9c54aa5
 pain	P327	327		2026-09-18	ZABZ-YOGA	open	## P327 — Nothing excludes the machine the owner is using, so when the biggest node fills the laptop is next in line	entries/pain/P327.md	1	57	9233c815e79920a7
 pain	P330	330		2026-09-18	ZABZ-YOGA	open	## P330 — The journal is measurably divergent on ZABZ-TECH and nine entry ids already mean two different entries	entries/pain/P330.md	1	50	4da6b0eda0bd6fd2
+pain	P331	331		2026-09-18	ZABZ-YOGA	open	## P331 — ## P327 — Nothing excludes the machine the owner is using, so when the biggest node fills the laptop is next in line	entries/pain/P331.md	1	59	534a3338607ee017
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
