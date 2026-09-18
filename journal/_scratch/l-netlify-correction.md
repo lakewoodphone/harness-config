@@ -1,0 +1,21 @@
+WHAT I GOT WRONG, 2026-09-16.
+I told the owner production is a manual NETLIFY deploy with no token anywhere, and asked him for a Netlify token. He replied "are you sure we are still running on netlify". He was right and I was wrong.
+
+TRUTH, verified 2026-09-16 02:2x-02:4xZ:
+- `docs/operations/FRONTEND_HOSTING_CLOUDFLARE.md` line 3: "Status: LIVE. Both lakewoodphoneandtech.com and test.lakewoodphoneandtech.com have served from Cloudflare Pages since 2026-09-14. Netlify is retained only as the rollback path."
+- `netlify.toml` its own first lines: "ROLLBACK PATH ONLY as of 2026-09-14. The frontend is served by Cloudflare Pages."
+- `wrangler.jsonc`: "Cloudflare Pages - the frontend's hosting target", with the measured reason: Netlify charged 15 credits per production deploy against a 300-credit allowance, ~37 deploys a month were attempted, the allowance ran out and NO frontend change could ship at all (HTTP 403, "Account credit usage exceeded").
+- Live headers agree: Server: cloudflare, NS aron/patryk.ns.cloudflare.com, A records are Cloudflare anycast.
+- Deploy is `node scripts/deploy-frontend-cloudflare.mjs --env production`, needing CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID.
+
+HOW THE WRONG BELIEF SURVIVED AND SPREAD - this is the transferable part:
+1. A stale comment on line 6 of `.github/workflows/deploy-staging.yml` still says "The frontend is Netlify (origin behind Cloudflare) and deploys MANUALLY via netlify deploy". That comment predates the migration and was never updated.
+2. Older queue rows (70, 54, 38) and the in-flight notes repeated it, so it looked corroborated by three independent places - it was one error echoed.
+3. A triage subagent then read that `netlify.toml` EXISTS and confirmed the belief, because a config file's presence is not evidence of what serves traffic.
+4. I passed it to the owner as fact without one live check. `netlify.toml` sat next to `wrangler.jsonc` in the same commit and I read the row, not the repo.
+
+RULES.
+(1) Hosting, DNS, deployment and credentials are LIVING FACTS: verify against live responses (headers, NS, what actually answers) and against the ops doc of record - never against the existence of a config file.
+(2) When a repo holds configs for two providers, the live one may be the newer one; read the header comment of EACH config. Both of these files state in words which one is live.
+(3) A stale comment in a workflow is actively dangerous: every future session reads it as a statement of fact. Fixing the comment is part of the fix.
+(4) "No token anywhere" is a claim about every machine. State it as searched-where-and-when, never as a fact about the world.

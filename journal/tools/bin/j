@@ -1,0 +1,29 @@
+#!/bin/sh
+# j — run the journal tool from anywhere, on any POSIX host.
+#
+#   j status
+#   j newest handoff 2
+#   j show L173
+#   j search "stale database" --kind lessons
+#
+# The tool infers the journal root from its own location, so this is only a launcher:
+# it finds a python 3 interpreter and hands over every argument unchanged.
+set -eu
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+tool="$here/../journal.py"
+
+if [ ! -f "$tool" ]; then
+    echo "j: cannot find journal.py next to $0" >&2
+    exit 2
+fi
+
+for candidate in "${JOURNAL_PYTHON:-}" python3 python; do
+    [ -n "$candidate" ] || continue
+    if command -v "$candidate" >/dev/null 2>&1; then
+        exec "$candidate" "$tool" "$@"
+    fi
+done
+
+echo "j: no python3 on PATH (set JOURNAL_PYTHON to one)" >&2
+exit 2
