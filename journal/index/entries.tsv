@@ -274,6 +274,7 @@ handoff	H364	364		2026-09-16 00:47 UTC	ZABZ-YOGA	open	## 2026-09-16 00:47 UTC ·
 handoff	H365	365		2026-09-16 00:52 UTC	ZABZ-YOGA	open	## 2026-09-16 00:52 UTC · ZABZ-YOGA · Round 5: indexer identity trio applied - C-007 verified, C-008 applied but unmeasurable, C-009 hit the wrong path for 13 of 14; shared helper took concatenations 14 to 6; canonical surface is now stale	entries/handoff/H365.md	1	64	cc77878ff03ce849
 handoff	H366	366		2026-09-16 01:13 UTC	ZABZ-YOGA	open	## 2026-09-16 01:13 UTC · ZABZ-YOGA · journal.py was mojibake again and corrupting other sessions entries; repaired with the cp1252 inverse (not latin-1) and the writer now refuses to emit mojibake; check 1095 -> 0 errors	entries/handoff/H366.md	1	57	0272921d9423af7e
 handoff	H367	367		2026-09-16 13:33 UTC	DESKTOP-FGV6KMH	open	## 2026-09-16 13:33 UTC · DESKTOP-FGV6KMH · Daily note from DESKTOP-FGV6KMH	entries/handoff/H367.md	1	31	eeb01e73aef92925
+handoff	H368	368		2026-09-17 22:16 UTC	DESKTOP-FGV6KMH	open	## 2026-09-17 22:16 UTC · DESKTOP-FGV6KMH · Daily note from DESKTOP-FGV6KMH	entries/handoff/H368.md	1	20	90fdb2dab0490781
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -798,6 +799,7 @@ lessons	L1680	1680		2026-09-15	ZABZ-YOGA	open	**L1680 · An unanchored .gitignor
 lessons	L1681	1681		2026-09-15	ZABZ-YOGA	open	**L1681 · Applied is not the same claim as had-an-effect (C-008 in place, unmeasurable); and a fix aimed at the wrong layer looks identical to a fix that failed - group the survivors by their provenance field**	entries/lessons/L1681.md	1	41	5e410d021001d543
 lessons	L1682	1682		2026-09-15	ZABZ-YOGA	open	**L1682 · I hung the company API for fifteen minutes by holding a SQLite write transaction from a script with no timeout**	entries/lessons/L1682.md	1	35	4595ac427a0838b7
 lessons	L1685	1685		2026-09-15	ZABZ-YOGA	open	**L1685 · MagicDNS on ZABZ-YOGA blocks one call for ~60s and then heals; retry before blaming the mesh**	entries/lessons/L1685.md	1	9	789cbdade87fe1a6
+lessons	L1686	1686		2026-09-16	DESKTOP-FGV6KMH	open	**L1686 · PDF tooling on DESKTOP-FGV6KMH: pymupdf yes, pdftotext and python-pptx no**	entries/lessons/L1686.md	1	12	0fb171620f52b64e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427

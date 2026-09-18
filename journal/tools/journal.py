@@ -139,7 +139,15 @@ LOCK_STALE_SEC = 600
 # state here — two agent sessions and a build) can exceed 30 s and exit non-zero. The
 # journal refuses loudly rather than writing blind, but a refusal under load is a false
 # alarm: a writer should queue. 240 s covers six fetches and still fails within a turn.
-LOCK_WAIT_SEC = 240.0
+#
+# LOWERED TO 110 s on 2026-09-15: the harness kills a foreground call at 120 s, and the
+# measured critical section on this machine was 41-98 s with 3-4 live sessions. Waiting
+# longer than the caller can live only produced orphaned holders. Safe to keep long now
+# that the wait ends in an OS lock (see acquire_lock): a process killed while waiting or
+# while holding releases the lock in the kernel, so nothing can wedge.
+LOCK_WAIT_SEC = 110.0
+# The fd holding the process-wide OS lock; the kernel drops it when this process dies.
+_LOCK_FD = None
 # Commands that read the tree to decide what to write back. Two of these running at
 # once on one tree is what produced 161 collided ids on 2026-09-14.
 MUTATING_COMMANDS = {"append", "import-legacy", "migrate-v2", "dedupe", "repair-ids",
@@ -245,11 +253,25 @@ def _path_of(rel: str) -> Path:
     return JOURNAL / str(rel).replace("/", os.sep)
 
 
+_JOURNAL_PREFIX = str(JOURNAL) + os.sep
+
+
 def _rel_of(path: Path) -> str:
+    """Path relative to JOURNAL, as a forward-slash string.
+
+    FAST PATH ADDED 2026-09-16. `cProfile` of `append --dry-run` showed 15,303 calls to
+    `pathlib.relative_to` costing **7.2 s** -- more than half the whole append. `str.startswith`
+    over a precomputed prefix returns the identical value for the case that actually occurs
+    (every path this tool passes is already under JOURNAL), and falls back to the old
+    behaviour for anything that is not.
+    """
+    s = str(path)
+    if s.startswith(_JOURNAL_PREFIX):
+        return s[len(_JOURNAL_PREFIX):].replace(os.sep, "/")
     try:
         return str(path.relative_to(JOURNAL)).replace(os.sep, "/")
     except ValueError:
-        return str(path).replace(os.sep, "/")
+        return s.replace(os.sep, "/")
 
 
 def redact(text: str) -> str:
@@ -729,6 +751,35 @@ def tree_signature() -> dict:
     }
 
 
+def legacy_signature() -> dict:
+    """log/flat signature ONLY -- no walk of `entries/`.
+
+    WHY (measured 2026-09-16, cProfile of `append --dry-run`): `tree_signature()` walks
+    `entries/` (15,303 files) to build `entries_sig`, but the one consumer on the WRITE
+    path -- `_legacy_sig()`, the cache key for `legacy_candidates` -- uses only
+    `log_sig`, `log_count` and `flat_sig`. So every append stat'ed 15,303 files it could
+    not possibly need, 8.2 s of a 14.9 s append. The full `tree_signature()` is unchanged
+    and still used where the entries signature is genuinely wanted (cache freshness).
+    """
+    log_h = hashlib.sha1()
+    n_log = 0
+    for p, st in _walk(log_dir()):
+        if p.suffix != ".md":
+            continue
+        log_h.update(("%s\t%d\t%d\n" % (_rel_of(p), st.st_size, st.st_mtime_ns)).encode("utf-8"))
+        n_log += 1
+    flat_h = hashlib.sha1()
+    for name, _kind in FLAT_FILES:
+        p = JOURNAL / (name + ".md")
+        if p.exists():
+            try:
+                st = p.stat()
+                flat_h.update(("%s.md\t%d\t%d\n" % (name, st.st_size, st.st_mtime_ns)).encode("utf-8"))
+            except OSError:
+                pass
+    return {"log_sig": log_h.hexdigest(), "log_count": n_log, "flat_sig": flat_h.hexdigest()}
+
+
 def load_entries():
     """Every entry in the tree, parsed from files. This is the source of truth.
 
@@ -817,11 +868,23 @@ def _maybe_refresh_questions(path: Path, max_age_minutes: float = 60.0) -> float
         return 0.0
     if age_min <= max_age_minutes:
         return age_min
+    # A READ MUST NEVER QUEUE BEHIND A WRITER (measured 2026-09-15, ZABZ-YOGA:
+    # with 3-4 live sessions a `status` page -- the always-read command -- was
+    # spawning `questions`, which takes the journal's GLOBAL write lock and holds
+    # it across `ssh secratary-ts` (45 s). Reads were therefore creating writer
+    # contention on every other session. If the lock is held right now, skip the
+    # refresh entirely and let the page report the mirror's real age: staleness
+    # is already printed on the page, so nothing is hidden by waiting.
+    if not _lock_free_now():
+        return age_min
     try:
+        env = dict(os.environ)
+        env["JOURNAL_LOCK_WAIT"] = "15"  # never hold a reader here for 110 s
         subprocess.run(
             [sys.executable, str(Path(__file__).resolve()), "questions"],
             capture_output=True,
             timeout=45,
+            env=env,
         )
     except Exception:  # noqa: BLE001 - a stale mirror is not a reason to fail the page
         pass
@@ -829,6 +892,17 @@ def _maybe_refresh_questions(path: Path, max_age_minutes: float = 60.0) -> float
         return (time.time() - path.stat().st_mtime) / 60.0
     except OSError:
         return age_min
+
+
+def _lock_free_now() -> bool:
+    """True if the journal lock is free at this instant (taken and dropped at once)."""
+    try:
+        ok, token = acquire_lock("probe", wait=0.0)
+    except Exception:  # noqa: BLE001
+        return False
+    if ok:
+        release_lock(token)
+    return ok
 
 
 def open_entries(entries: list, kind: str | None = None, events=None) -> list:
@@ -2508,65 +2582,147 @@ def acquire_lock(command: str, wait: float = LOCK_WAIT_SEC):
     """Serialise the journal's read-modify-write commands.
 
     Two writers on one tree is what produced 161 collided ids on 2026-09-14, so this
-    refuses rather than proceeds. It breaks a stale lock (a crashed session must not
-    wedge the journal) and it waits briefly for a live one, because six concurrent
+    refuses rather than proceeds. It waits for a live holder, because six concurrent
     appends are a normal thing for the fleet to do and none of them is wrong.
 
-    The path is v1's (`journal/.lock`) and the content is v1's shape — plain text,
-    '<command> <pid>@<host>:<epoch>' — so a v1 and a v2 process exclude each other,
-    and a v1 process reading a v2 lock can still print who holds it.
+    REWRITTEN 2026-09-15 (measured on ZABZ-YOGA with 3-4 live sessions). The previous
+    version was a create-with-O_EXCL file plus a "stale" rule that UNLINKED the path it
+    had judged stale. Two writers that both read the same dead token both judged it
+    stale, both unlinked, and both entered — the release compare-and-swap protected only
+    release, so the loss of mutual exclusion was silent, and that is the mechanism behind
+    the 161-collided-id incident. The same version had a second hole: `age > 600s` broke
+    a LIVE slow writer with no liveness check, and a kill between create and write left a
+    zero-byte lock that was neither dead nor stale, so every waiter burned the full wait.
+
+    It is now an OS lock — `msvcrt.locking(..., LK_NBLCK)` on Windows, `flock` elsewhere —
+    which the kernel releases when the process dies, so "stale" no longer exists as a
+    concept and a killed writer can never wedge the journal. Three details matter:
+
+    1. INODE CHECK. File locks are held on an inode, not a path. After taking the lock the
+       fd's inode must still be the path's inode; if it is not, a v1-style process
+       unlinked-and-recreated the file underneath us and we do NOT own it — back off and
+       retry. This is what makes mixed old/new writers safe.
+    2. TOKEN ON DISK. The content is still v1's shape, '<cmd> <pid>@<host>:<epoch>', so any
+       process (or a human) can see who holds it.
+    3. RELEASE UNLINKS ONLY ITS OWN INODE. Each waiter holds an fd to a possibly-unlinked
+       inode; it re-checks the path, so an unlink can never hand the lock to two writers.
+
+    The lock file therefore has no mtime-based lifetime at all: LOCK_STALE_SEC and
+    _lock_holder_is_dead are retained only for diagnosing a v1-style lock file left on
+    disk by an older copy of this script.
     """
+    global _LOCK_FD
+    # JOURNAL_LOCK_WAIT lets a caller bound its own wait (the read path's mirror
+    # refresh uses 15 s so a page never queues like a writer). Unset = LOCK_WAIT_SEC.
+    try:
+        wait = float(os.environ.get("JOURNAL_LOCK_WAIT", wait))
+    except (TypeError, ValueError):
+        pass
     token = "%s %d@%s:%d" % (command, os.getpid(), _shortname(), int(time.time()))
     lock = JOURNAL / LOCK_NAME
     deadline = time.time() + max(0.0, wait)
+    attempt = 0
     while True:
+        attempt += 1
         try:
-            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
-                fh.write(token + "\n")
-            return True, token
-        except FileExistsError:
-            try:
-                age = time.time() - lock.stat().st_mtime
-                held = _rl(lock).strip()
-            except OSError:
-                age, held = 0.0, "(unreadable)"
-            if age > LOCK_STALE_SEC or _lock_holder_is_dead(held):
-                why = (
-                    "%ds old" % int(age)
-                    if age > LOCK_STALE_SEC
-                    else "its holder is gone"
-                )
-                note("journal lock is stale (%s, held by %s); breaking it" % (why, held))
-                try:
-                    lock.unlink()
-                except OSError:
-                    pass
-                continue
-            if time.time() < deadline and not _lock_is_mine(lock):
-                time.sleep(0.05)
-                continue
-            note("REFUSING: another session holds the journal lock (%s, %ds ago). Two writers is what "
-                 "created 161 collided ids on 2026-09-14. Wait for it to finish, or remove %s if you "
-                 "are certain nothing is running." % (held, int(age), lock))
-            return False, ""
+            fd = os.open(str(lock), os.O_CREAT | os.O_RDWR)
         except OSError as exc:
-            note("REFUSING: could not take the journal lock (%s)" % exc)
+            note("REFUSING: could not open the journal lock file (%s)" % exc)
             return False, ""
+        if _try_os_lock(fd):
+            try:
+                if os.stat(str(lock)).st_ino == os.fstat(fd).st_ino:
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    os.truncate(fd, 0)
+                    os.write(fd, (token + "\n").encode("utf-8"))
+                    _LOCK_FD = fd
+                    return True, token
+                # Someone unlinked and recreated the lock file between our open and our
+                # lock: we hold a lock on a dead inode that nobody else can see.
+                note("journal lock file was replaced while we were taking it; retrying")
+            except OSError:
+                pass
+            _drop_os_lock(fd)
+        else:
+            held = _read_lock_text(lock)
+            if time.time() >= deadline:
+                note("REFUSING: another session holds the journal lock (%s). Two writers is what "
+                     "created 161 collided ids on 2026-09-14. Wait for it to finish; a dead holder "
+                     "is now released by the OS, so this lock cannot be stale." % held)
+                os.close(fd)
+                return False, ""
+            time.sleep(_lock_backoff(attempt))
+            os.close(fd)
+            continue
+        os.close(fd)
+        time.sleep(_lock_backoff(attempt))
+
+
+def _lock_backoff(attempt: int) -> float:
+    """Bounded, jittered wait: six writers must not resynchronise into a thundering herd."""
+    base = min(0.05 * (1.6 ** min(attempt, 8)), 0.6)
+    return base + ((os.getpid() + attempt * 7) % 11) / 100.0
+
+
+def _read_lock_text(lock) -> str:
+    try:
+        return _rl(lock).strip() or "(empty)"
+    except OSError:
+        return "(gone)"
+
+
+def _try_os_lock(fd: int) -> bool:
+    """Non-blocking exclusive byte-range lock. Kernel-released on process death."""
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return True
+    except OSError:
+        return False
+
+
+def _drop_os_lock(fd: int) -> None:
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(fd, fcntl.LOCK_UN)
+    except OSError:
+        pass
 
 
 def release_lock(token: str) -> None:
-    """Remove the lock ONLY if this process still owns it."""
+    """Release the OS lock and remove the lock file only if it is still ours."""
+    global _LOCK_FD
     lock = JOURNAL / LOCK_NAME
+    fd, _LOCK_FD = _LOCK_FD, None
+    if fd is None:
+        return
     try:
         held = _rl(lock)
     except OSError:
-        return
-    if token and token in held:
-        try:
+        held = ""
+    try:
+        if token and token in held and os.stat(str(lock)).st_ino == os.fstat(fd).st_ino:
             lock.unlink()
-        except OSError:
-            pass
+    except OSError:
+        pass
+    _drop_os_lock(fd)
+    try:
+        os.close(fd)
+    except OSError:
+        pass
 
 
 def max_number(kind: str) -> int:
@@ -2688,6 +2844,32 @@ def git_max(kind: str, fetch: bool = False):
             nums.append(int(m.group(1)))
     except Exception:
         pass
+    # AND EVERY REMOTE-TRACKING REF, because the fetch above is otherwise never read.
+    #
+    # MEASURED 2026-09-15, ZABZ-TECH: fourteen ids meant two different entries -- D185, D186,
+    # H322-H328, L1637-L1639, W149, W150 -- and the checkout could not fast-forward because every one
+    # of them was an untracked local file that origin/master also had with different content. The
+    # mechanism is here: `git grep <pattern>` with NO ref greps the WORKING TREE, the second call greps
+    # HEAD, and neither can see a number that exists only on origin. So `cmd_append`'s
+    # `git_max(kind, fetch=True)` fetched, then ignored what it had fetched, and two machines that had
+    # both just fetched still both chose the same next number.
+    #
+    # This is the fix for the cause. The earlier remedy was manual (the "renumbered H234 -> H328"
+    # commentary in the record) and it cost a session every time it happened.
+    #
+    # Bounded on purpose: a writer path must not hang on a hub with hundreds of refs.
+    try:
+        refs = subprocess.run(["git", "-C", str(repo), "for-each-ref", "--format=%(refname)",
+                               "refs/remotes/origin"],
+                              capture_output=True, text=True, timeout=20)
+        remote_refs = [r for r in (refs.stdout or "").split() if r][:25]
+        for ref in remote_refs:
+            out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern, ref],
+                                 capture_output=True, text=True, timeout=60)
+            for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
+                nums.append(int(m.group(1)))
+    except Exception:
+        pass
     return (max(nums) if nums else 0), rev
 
 
@@ -2732,10 +2914,12 @@ def cmd_append(args) -> int:
     tags = [t for t in (getattr(args, "tags", "") or "").split(",") if t]
     refs = [t for t in (getattr(args, "refs", "") or "").split(",") if t]
 
-    # legacy drift is absorbed first, so a v1 append that landed in log/ is not lost
+    # legacy drift is absorbed first, so a v1 append that landed in log/ is not lost --
+    # but only when there is a reason to (see absorb_if_due): this scan cost 12.6 s of a
+    # 14.9 s append when it ran unconditionally.
     absorbed = 0
     try:
-        absorbed = absorb_all(kinds=[kind], apply=True, quiet=True)["added"]
+        absorbed = absorb_if_due(kind, force=bool(getattr(args, "absorb", False)))
     except Exception as exc:
         # A silent skip is a refusal, not health. Absorption is how text in log/** and the
         # flat files enters the record, so a failure here has to be diagnosable rather than
@@ -2932,7 +3116,7 @@ def legacy_candidates(kinds=None) -> list:
 
 
 def _legacy_sig() -> str:
-    sig = tree_signature()
+    sig = legacy_signature()          # log/flat only; see legacy_signature()
     return "%s|%s|%s|%s" % (sig["log_sig"], sig["log_count"], sig["flat_sig"], JOURNAL)
 
 
@@ -2995,6 +3179,78 @@ def scan_tree() -> dict:
     for c in legacy_candidates():
         out.setdefault((c["kind"], c["id_full"]), {}).setdefault(c["hash"], []).append(c["origin"])
     return out
+
+
+# ---------------------------------------------------------------------------
+# Legacy absorption: a MIGRATION task, not per-append work
+# ---------------------------------------------------------------------------
+# Measured 2026-09-16 on ZABZ-YOGA, cProfile of `append --dry-run --no-fetch`:
+# total 14.9 s, of which absorb_all 12.6 s -- legacy_candidates 12.2 s, seven calls to
+# max_number at 11.7 s, 15,303 pathlib relative_to() calls (7.2 s) and 8.2 s inside
+# tree_signature. The append itself is ~0.3 s. So every write paid a full-tree scan
+# on the chance that a v1 process had dropped something into log/**, and under a fleet
+# that multiplied into the 41-98 s appends that were previously blamed on the lock.
+#
+# It now runs only when there is a REASON: no stamp yet, the stamp is older than
+# ABSORB_INTERVAL_SEC, a legacy source changed since the stamp, or the caller forces it
+# (`append --absorb`, or JOURNAL_ABSORB=always). Drift stays bounded and recoverable
+# either way: `import-legacy --apply` absorbs on demand and `check` reports drift.
+ABSORB_INTERVAL_SEC = float(os.environ.get("JOURNAL_ABSORB_INTERVAL_SEC", 6 * 3600))
+ABSORB_STAMP = JOURNAL / "state" / "absorb-stamp.json"
+
+
+def _legacy_touched_since(ts: float) -> bool:
+    """True if any legacy SOURCE is newer than `ts`.
+
+    Deliberately cheap and deliberately narrow. It walks `log/**` and stats the v1 flat
+    files (`FLAT_FILES`) -- and nothing else. An earlier version globbed every top-level
+    file in the journal, which included the tool's OWN output (`aliases.tsv`,
+    `entries.tsv`, ...): every append then looked like "a legacy source changed", so the
+    absorption scan it was meant to skip ran anyway (measured 2.5 s of a 2.7 s dry-run).
+    It never walks `entries/` or `index/`, where the 15,303 `relative_to` calls came from.
+    """
+    sources = [log_dir()]
+    sources += [JOURNAL / (name + ".md") for name, _kind in FLAT_FILES]
+    for src in sources:
+        try:
+            if src.is_dir():
+                for dirpath, _dirs, files in os.walk(src):
+                    for name in files:
+                        try:
+                            if os.path.getmtime(os.path.join(dirpath, name)) > ts:
+                                return True
+                        except OSError:
+                            continue
+            elif src.stat().st_mtime > ts:
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _absorb_stamp_at() -> float:
+    try:
+        return float(json.loads(ABSORB_STAMP.read_text(encoding="utf-8")).get("at", 0))
+    except Exception:  # noqa: BLE001 - a missing or unreadable stamp just means "due"
+        return 0.0
+
+
+def absorb_if_due(kind: str, force: bool = False) -> int:
+    """Absorb legacy drift for `kind` when due; return the number of entries added."""
+    if os.environ.get("JOURNAL_ABSORB") == "always":
+        force = True
+    last = _absorb_stamp_at()
+    if (not force and last > 0 and (time.time() - last) < ABSORB_INTERVAL_SEC
+            and not _legacy_touched_since(last)):
+        return 0
+    added = absorb_all(kinds=[kind], apply=True, quiet=True)["added"]
+    try:
+        ABSORB_STAMP.parent.mkdir(parents=True, exist_ok=True)
+        ABSORB_STAMP.write_text(json.dumps({"at": time.time(), "kind": kind}),
+                                encoding="utf-8")
+    except OSError:
+        pass
+    return added
 
 
 def absorb_all(kinds=None, apply: bool = False, quiet: bool = False) -> dict:
@@ -3669,6 +3925,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--alias-of", dest="alias_of", default="")
     s.add_argument("--dry-run", dest="dry_run", action="store_true")
     s.add_argument("--no-fetch", dest="no_fetch", action="store_true")
+    s.add_argument("--absorb", action="store_true",
+                    help="force the legacy-drift scan before writing (normally only when due)")
     s.set_defaults(func=cmd_append)
 
     s = add("resolve", "record a status change in state/status.tsv (append-only)")
@@ -3730,7 +3988,30 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _root_from_argv(argv):
+    """The value of `--root`, wherever it appears on the command line.
+
+    WHY THIS EXISTS, measured 2026-09-16. `journal.py --root <tmp> append ...` wrote to the REAL
+    journal. Both the top-level parser and every subcommand declare `--root` (the subcommands take
+    `parents=[common]`), and argparse lets the subcommand's own default overwrite the value the
+    top-level parser already stored — so a `--root` written BEFORE the subcommand was accepted and
+    silently discarded. The measured cost: a timing probe meant for a scratch directory wrote 16
+    throwaway entries (L1778-L1803) into the live tree and printed `+ L1791 -> ...` as if all were
+    well. A safety flag that is accepted and ignored produces exactly the outcome it was used to
+    prevent, so the fix is to read it off the raw argv rather than document an ordering rule.
+    """
+    value = None
+    for index, item in enumerate(argv):
+        if item == "--root" and index + 1 < len(argv):
+            value = argv[index + 1]
+        elif item.startswith("--root="):
+            value = item.split("=", 1)[1]
+    return value
+
+
 def main(argv=None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
@@ -3742,11 +4023,17 @@ def main(argv=None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     global JOURNAL
-    root = getattr(args, "root", None)
+    # Both places, because argparse's subcommand default can erase the top-level one: whichever
+    # spelling the caller used, the flag is now honoured.
+    root = getattr(args, "root", None) or _root_from_argv(argv)
     if root:
         JOURNAL = Path(root).expanduser().resolve()
         clear_caches()
     cmd = getattr(args, "cmd", "")
+    if root and cmd in MUTATING_COMMANDS:
+        # An explicit root that is about to WRITE says where it went, out loud. Silence here is
+        # what let a scratch run write into the live journal without anyone noticing.
+        print(f"journal: writing to {JOURNAL}", file=sys.stderr)
     if cmd in MUTATING_COMMANDS:
         acquired, token = acquire_lock(cmd)
         if not acquired:
