@@ -1194,6 +1194,7 @@ lessons	L2002	2002		2026-09-18	SECRATARY	open	**L2002 · A thing the owner cares
 lessons	L2003	2003		2026-09-18	SECRATARY	open	**L2003 · kia_uvo advertises DTC-count and next-service-distance sensors that are never populated on a US Hyundai**	entries/lessons/L2003.md	1	34	bd8fcc76c4540021
 lessons	L2056	2056		2026-09-18	ZABZ-YOGA	open	**L2056 · mesh-run -Node does not run the prompt on that node - it runs it locally**	entries/lessons/L2056.md	1	41	bdb32fbc9044074e
 lessons	L2057	2057		2026-09-18	ZABZ-YOGA	open	**L2057 · How to pull up a phone DSH chat: it lives on secratary at ~/phone, session logs are zstd-compressed JSONL**	entries/lessons/L2057.md	1	16	aaa59beccd7c8983
+lessons	L2060	2060		2026-09-18	ZABZ-YOGA	open	**L2060 · Renumbering a journal entry by hand breaks it in two ways, and the cross-branch id collision is invisible to every tool that exists**	entries/lessons/L2060.md	1	68	85c28cecaf13d4b9
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
