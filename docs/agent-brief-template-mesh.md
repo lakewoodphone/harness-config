@@ -337,6 +337,25 @@ H4. A conclusion is not evidence. Reproduce before you report a negative.
            ssh -o BatchMode=yes -o ConnectTimeout=8 n1 'echo ok'   ->   exit=0, out: ok
     RULE: `ssh` exit 255 is never evidence that a target is down. Two sibling children reached nodes from this same
           machine in the same hour. Any claim with no command + output line goes on the final NOT VERIFIED: line.
+H5. NEVER PRINT A DIFF IN YOUR FINAL MESSAGE. It will be truncated mid-hunk and be unusable.
+    WRONG: pasting a diff block. MEASURED 2026-09-18: `git apply --check` -> "corrupt patch at line 749".
+    RIGHT: write it to a file and print, as the first lines of your report: PATCH_PATH=... / PATCH_BYTES=...
+           / PATCH_LINES=... / PATCH_SHA256=... / BASE_REF=... / APPLY_CHECK_AGAINST_ORIGIN=exit <n>, then let
+           the orchestrator fetch the file and verify the hash itself.
+    RULE: a matching hash proves the file ARRIVED INTACT. It proves nothing about whether it applies.
+
+H6. YOUR WORKING TREE IS NOT THE BASE. origin/master is.
+    WRONG: editing the files in your clone and diffing them. MEASURED 2026-09-18: a patch whose SHA-256 matched
+           EXACTLY, and whose dry run was green IN ITS OWN TREE, failed on the target with "patch failed:
+           packages/plugin-remote-fanout/lib/provider.js:545 / patch does not apply" - because that clone is
+           ~52 commits behind and the receiving tree already carries a different patch to the same files.
+    RIGHT: `git fetch origin`; materialize EVERY file you patch with `git show origin/master:<path>` into a
+           scratch directory; edit THOSE copies; generate the diff against them; then PROVE THE BASE by running
+           `git apply --check -p1` against a pristine copy materialized from origin/master, and report THAT
+           exit code. A green check against your own working tree is not evidence.
+    RULE: `git apply --check` answers a question about ONE tree. So does `repair-ids`. So does `node -v`. Four
+          tools gave four confident green answers about the wrong subject on one day. Ask what a tool was
+          looking at before believing what it said.
 <<< END HAZARDS BLOCK <<<
 ```
 
