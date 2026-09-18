@@ -384,6 +384,13 @@ handoff	H477	477		2026-09-17 16:10 UTC	ZABZ-TECH	open	## 2026-09-17 16:10 UTC ·
 handoff	H478	478		2026-09-17 16:11 UTC	zabz-tech	open	## 2026-09-17 16:11 UTC · zabz-tech · Round 1: the live sync code was rescued off one disk, and the wrong-database exposure is closed at the source	entries/handoff/H478.md	1	122	b02e608f56842a26
 handoff	H479	479		2026-09-17 16:15 UTC	zabz-tech	open	## 2026-09-17 16:15 UTC · zabz-tech · Round 1 close: auto-merge to production is OFF, the digest now covers the corpus, and a false claim I had to correct	entries/handoff/H479.md	1	137	091f2bdd13574dad
 handoff	H535	535		2026-09-18 02:08 UTC	ZABZ-YOGA	open	## 2026-09-18 02:08 UTC · ZABZ-YOGA · Shlock: corpus fully synced from origin + the desktop, queue 80 closed by the owner accepting the retrofit, and the tarp layer rescued off a single unpushed working tree	entries/handoff/H535.md	1	29	18bf2e69ec502ca4
+handoff	H536	536		2026-09-18 02:21 UTC	ZABZ-YOGA	open	## 2026-09-18 02:21 UTC · ZABZ-YOGA · ZABZ-YOGA · The text line is instrumented: 70 inbound SMS that reached Twilio and never reached the app are recovered, and nothing new can be lost silently	entries/handoff/H536.md	1	66	29191bb79d6104de
+handoff	H537	537		2026-09-18 02:25 UTC	ZABZ-YOGA	open	## 2026-09-18 02:25 UTC · ZABZ-YOGA · Shlock buy-now sheet landed, and the build sheet's local subtotal was wrong by a fifth - corrected in both documents	entries/handoff/H537.md	1	22	05a9ffe824b81111
+handoff	H538	538		2026-09-18 02:28 UTC	ZABZ-YOGA	open	## 2026-09-18 02:28 UTC · ZABZ-YOGA · probe-endpoint.py built and merged into fleet/probe-endpoints; the dashboard chain route is broken and /health had a 4-minute ok=false window	entries/handoff/H538.md	1	42	521922c85af77f57
+handoff	H539	539		2026-09-18 02:30 UTC	ZABZ-YOGA	open	## 2026-09-18 02:30 UTC · ZABZ-YOGA · Weitman: she answered 'Would go for 390 one', the  text has no delivery witness, owner deferred to 09-18	entries/handoff/H539.md	1	27	d782741b9d5c2208
+handoff	H540	540		2026-09-18 02:33 UTC	ZABZ-YOGA	open	## 2026-09-18 02:33 UTC · ZABZ-YOGA · Fleet of five launched; one merged; the push was refused because a concurrent session was editing the same files - and I refused to force it	entries/handoff/H540.md	1	29	dd6d465b5da9682b
+handoff	H541	541		2026-09-18 02:37 UTC	ZABZ-YOGA	open	## 2026-09-18 02:37 UTC · ZABZ-YOGA · Cold-boot hardening landed: the cost generator is fixed, the launcher states DSH_HOME, ensure diagnoses a crash-on-boot	entries/handoff/H541.md	1	59	2be38723b07a8759
+handoff	H542	542		2026-09-18 02:43 UTC	ZABZ-YOGA	open	## 2026-09-18 02:43 UTC · ZABZ-YOGA · Fleet round 1: 4 workstreams, 94 tests, 3 real defects - and the HA check's own 9 faults were 8 leftovers	entries/handoff/H542.md	1	80	c7c909043dd99d2c
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1134,6 +1141,14 @@ lessons	L1929	1929		2026-09-17	ZABZ-YOGA	open	**L1929 · A generated file that c
 lessons	L1968	1968		2026-09-17	ZABZ-YOGA	open	**L1968 · A published artifact is not the repository, and a demo page must never carry a real person's number**	entries/lessons/L1968.md	1	53	02686f54542b5a8f
 lessons	L1969	1969		2026-09-17	ZABZ-YOGA	open	**L1969 · secretary-cf Cloudflare tunnel flaps (1 in 3 calls); use secretary-ts Tailscale for the authority**	entries/lessons/L1969.md	1	40	9545c3a4b7a17cf1
 lessons	L1970	1970		2026-09-17	ZABZ-YOGA	open	**L1970 · Owner notification channel went silent at the Twilio to Dialpad cutover - queue depth hid it**	entries/lessons/L1970.md	1	12	82c0fda630e60908
+lessons	L1971	1971		2026-09-17	ZABZ-YOGA	open	**L1971 · The carrier is the log of record: reconcile against it, and count what the app is missing**	entries/lessons/L1971.md	1	40	bdb3e8bd52129389
+lessons	L1972	1972		2026-09-17	ZABZ-YOGA	open	**L1972 · A document's own subtotal is not evidence - re-sum the rows before you spend against it**	entries/lessons/L1972.md	1	14	6a11d773fab08a45
+lessons	L1973	1973		2026-09-17	ZABZ-YOGA	open	**L1973 · Never put a dollar sign in a PowerShell double-quoted commit message - it eats the number**	entries/lessons/L1973.md	1	12	0a9a48df2f06f53b
+lessons	L1974	1974		2026-09-17	ZABZ-YOGA	open	**L1974 · assert the body, not the status: the same /health URL returned ok=true and ok=false under HTTP 200 four minutes apart**	entries/lessons/L1974.md	1	26	0683fec4e1356958
+lessons	L1975	1975		2026-09-17	ZABZ-YOGA	open	**L1975 · A comment asserting a premise is not evidence for it — and "it works" after a rebuild proves nothing until the process restarts**	entries/lessons/L1975.md	1	43	cbcbe69b3b476ba4
+lessons	L1976	1976		2026-09-17	ZABZ-YOGA	open	**L1976 · Everything the secretary sends is signed Daniel - never as Eliyahu, never unsigned**	entries/lessons/L1976.md	1	33	004f848c70c6124b
+lessons	L1977	1977		2026-09-17	ZABZ-YOGA	open	**L1977 · A dead entry point is caught by asserting the wire, not the behaviour**	entries/lessons/L1977.md	1	6	608938a84a4e5ea0
+lessons	L1978	1978		2026-09-17	ZABZ-YOGA	open	**L1978 · Check the thing, not its status field: a dead camera reports state=idle, and 8 of 9 real faults were a rename**	entries/lessons/L1978.md	1	38	9213d2061276534b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1347,6 +1362,10 @@ pain	P249	249		2026-09-17	ZABZ-YOGA	open	## P249 — A child that runs on zabz-t
 pain	P250	250		2026-09-17	ZABZ-YOGA	open	## P250 — zabz-tech boots a 0.1.0 provider plugin behind an untraversable junction, and --dump-config cannot see it	entries/pain/P250.md	1	36	08616c2050d577d3
 pain	P251	251		2026-09-17	ZABZ-YOGA	open	## P251 — zabz-tech cannot ssh to itself, so a child placed on the broker's favourite node dies at 255 in 108ms	entries/pain/P251.md	1	34	ae520cfd987b3daa
 pain	P262	262		2026-09-17	ZABZ-YOGA	open	## P262 — P0: claim-publish commits a tree with zero entries; merging that lineage deleted the journal	entries/pain/P262.md	1	59	7a406bb93c6ace5b
+pain	P263	263		2026-09-17	ZABZ-YOGA	open	## P263 — dialpad_sms_cache rewrites created_at on every re-sync, so old outbound texts read as if sent today	entries/pain/P263.md	1	14	6f3dd102fab7fe9f
+pain	P264	264		2026-09-17	ZABZ-YOGA	open	## P264 — The authority's SQLite refuses writes under contention on the paths that matter - inbound SMS and the owner queue itself	entries/pain/P264.md	1	26	7f660837a452be5a
+pain	P265	265		2026-09-17	ZABZ-YOGA	open	## P265 — Three owner_decision_queue rows lost their amounts in storage (#79, #33, #86): \$+digits eaten before the INSERT	entries/pain/P265.md	1	126	5084cc6815cdcbac
+pain	P266	266		2026-09-17	ZABZ-YOGA	open	## P266 — Android worktrees fail Gradle with 'SDK location not found' because local.properties is gitignored	entries/pain/P266.md	1	6	63a79e61c50f2cdd
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
