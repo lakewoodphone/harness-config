@@ -391,6 +391,17 @@ handoff	H539	539		2026-09-18 02:30 UTC	ZABZ-YOGA	open	## 2026-09-18 02:30 UTC ·
 handoff	H540	540		2026-09-18 02:33 UTC	ZABZ-YOGA	open	## 2026-09-18 02:33 UTC · ZABZ-YOGA · Fleet of five launched; one merged; the push was refused because a concurrent session was editing the same files - and I refused to force it	entries/handoff/H540.md	1	29	dd6d465b5da9682b
 handoff	H541	541		2026-09-18 02:37 UTC	ZABZ-YOGA	open	## 2026-09-18 02:37 UTC · ZABZ-YOGA · Cold-boot hardening landed: the cost generator is fixed, the launcher states DSH_HOME, ensure diagnoses a crash-on-boot	entries/handoff/H541.md	1	59	2be38723b07a8759
 handoff	H542	542		2026-09-18 02:43 UTC	ZABZ-YOGA	open	## 2026-09-18 02:43 UTC · ZABZ-YOGA · Fleet round 1: 4 workstreams, 94 tests, 3 real defects - and the HA check's own 9 faults were 8 leftovers	entries/handoff/H542.md	1	80	c7c909043dd99d2c
+handoff	H543	543		2026-09-18 02:48 UTC	ZABZ-YOGA	open	## 2026-09-18 02:48 UTC · ZABZ-YOGA · Fleet inventory: three of five agents produced real work, two of them left it uncommitted where any cleanup would have destroyed it	entries/handoff/H543.md	1	20	f9f236560e4b14d7
+handoff	H544	544		2026-09-18 02:52 UTC	ZABZ-YOGA	open	## 2026-09-18 02:52 UTC · ZABZ-YOGA · kf-level fleet/level: owner-scoped POST /owner/level delivered (W-BACK-052 stage 4)	entries/handoff/H544.md	1	28	5d9b58f3e7c5166f
+handoff	H545	545		2026-09-18 02:58 UTC	ZABZ-YOGA	open	## 2026-09-18 02:58 UTC · ZABZ-YOGA · Round 1 of the text system: it sees every inbound, decides, answers or asks - and Weinberg has been asked for the three facts	entries/handoff/H545.md	1	93	71781ec8049fc24d
+handoff	H546	546		2026-09-18 03:06 UTC	ZABZ-YOGA	open	## 2026-09-18 03:06 UTC · ZABZ-YOGA · fleet/level landed on main and verified - and the unregistered route did not redden a test, it stopped the app booting	entries/handoff/H546.md	1	20	20353786b9305560
+handoff	H547	547		2026-09-18 03:06 UTC	ZABZ-YOGA	open	## 2026-09-18 03:06 UTC · ZABZ-YOGA · LPT storefront deploy 2: 46 dead tRPC call sites fixed, hours and FAQ truthful, verified live with zero console errors	entries/handoff/H547.md	1	51	aac386c999bf596e
+handoff	H548	548		2026-09-18 03:15 UTC	ZABZ-YOGA	open	## 2026-09-18 03:15 UTC · ZABZ-YOGA · Walking hours fixed at the source on three surfaces; IVR audio generated and waiting on a Dialpad UI upload	entries/handoff/H548.md	1	30	897b8ffd7a77d6e0
+handoff	H549	549		2026-09-18 03:19 UTC	ZABZ-YOGA	open	## 2026-09-18 03:19 UTC · ZABZ-YOGA · The wake chain fired by itself: Weinberg replied, the server released a headless session with nobody in the loop - and it exposed that the session answered nobody	entries/handoff/H549.md	1	74	f25eb352862eecb3
+handoff	H550	550		2026-09-18 03:26 UTC	ZABZ-YOGA	open	## 2026-09-18 03:26 UTC · ZABZ-YOGA · Wake W2 done: the release path is hardened, tested 81/81 in /tmp, and not deployed	entries/handoff/H550.md	1	50	5cb7c069672b928e
+handoff	H551	551		2026-09-18 03:32 UTC	ZABZ-YOGA	open	## 2026-09-18 03:32 UTC · ZABZ-YOGA · 2026-09-18 03:3x UTC ZABZ-YOGA - DSH window memory cut ~9x and the empty-session-list bug fixed; both live, engine untouched	entries/handoff/H551.md	1	34	9c8fe553afab4e98
+handoff	H552	552		2026-09-18 03:39 UTC	ZABZ-YOGA	open	## 2026-09-18 03:39 UTC · ZABZ-YOGA · Wake W2 final: 87/87 + 30/30, three commits, not deployed (HEAD 67171e5)	entries/handoff/H552.md	1	41	e0924a6971c075d8
+handoff	H553	553		2026-09-18 03:43 UTC	ZABZ-YOGA	open	## 2026-09-18 03:43 UTC · ZABZ-YOGA · The wake system is live and proven: a flag raised on the laptop revived a session on the desktop and the answer came back	entries/handoff/H553.md	1	70	5a230564f30caac5
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1149,6 +1160,20 @@ lessons	L1975	1975		2026-09-17	ZABZ-YOGA	open	**L1975 · A comment asserting a p
 lessons	L1976	1976		2026-09-17	ZABZ-YOGA	open	**L1976 · Everything the secretary sends is signed Daniel - never as Eliyahu, never unsigned**	entries/lessons/L1976.md	1	33	004f848c70c6124b
 lessons	L1977	1977		2026-09-17	ZABZ-YOGA	open	**L1977 · A dead entry point is caught by asserting the wire, not the behaviour**	entries/lessons/L1977.md	1	6	608938a84a4e5ea0
 lessons	L1978	1978		2026-09-17	ZABZ-YOGA	open	**L1978 · Check the thing, not its status field: a dead camera reports state=idle, and 8 of 9 real faults were a rename**	entries/lessons/L1978.md	1	38	9213d2061276534b
+lessons	L1979	1979		2026-09-17	ZABZ-YOGA	open	**L1979 · web_search is dead on a DeepSeek 402 — use the Jina/Firecrawl MCP search tools**	entries/lessons/L1979.md	1	18	8277c3226b9c931a
+lessons	L1980	1980		2026-09-17	ZABZ-YOGA	open	**L1980 · A new broker route stops the app booting, not just the route-security audit test**	entries/lessons/L1980.md	1	20	3be0a447226191e3
+lessons	L1981	1981		2026-09-17	ZABZ-YOGA	open	**L1981 · A credential search that filters by file extension will miss the credential store - and a credential row on the owner queue is stale within hours**	entries/lessons/L1981.md	1	14	79a5b0cf866dd555
+lessons	L1982	1982		2026-09-17	ZABZ-YOGA	open	**L1982 · The hooks-client vs vanilla-client bug leaves no HTTP trace, and a plausible fallback plus wholesale module mocks hid 62 dead call sites**	entries/lessons/L1982.md	1	35	640ff5e2b5e2965c
+lessons	L1983	1983		2026-09-17	ZABZ-YOGA	open	**L1983 · Walk-in hours are not office hours - Dialpad's long phone windows are deliberate, and I nearly 'fixed' them**	entries/lessons/L1983.md	1	21	009b08e9f0989ae3
+lessons	L1984	1984		2026-09-17	ZABZ-YOGA	open	**L1984 · Owner's household is kosher - every food decision is a kashrus decision**	entries/lessons/L1984.md	1	6	13dd136c5b91f1e3
+lessons	L1985	1985		2026-09-17	ZABZ-YOGA	open	**L1985 · Wake W2: prompt-as-argv on Windows, inner-vs-outer timeouts, and inherited flock**	entries/lessons/L1985.md	1	38	60253e2cc7760752
+lessons	L1986	1986		2026-09-17	ZABZ-YOGA	open	**L1986 · The DSH session list: real RPC shape, 25-31 s cause, and the empty sidebar**	entries/lessons/L1986.md	1	21	a5e76b72b42ae54f
+lessons	L1987	1987		2026-09-17	ZABZ-YOGA	open	**L1987 · A connection that has become a raw pipe can never be intercepted again (keep-alive defeats a hybrid proxy)**	entries/lessons/L1987.md	1	12	3054c0b5c9fdbac1
+lessons	L1988	1988		2026-09-17	ZABZ-YOGA	open	**L1988 · In a shared browser profile only the FIRST window appears in the process table**	entries/lessons/L1988.md	1	15	83ccc1d70c74df07
+lessons	L1989	1989		2026-09-17	ZABZ-YOGA	open	**L1989 · A memoised probe inside its own wait loop: 60 reads of the first wrong answer**	entries/lessons/L1989.md	1	10	3c57150185c21f49
+lessons	L1990	1990		2026-09-17	ZABZ-YOGA	open	**L1990 · One scheduled source can start your singleton twice: register the task, do not unregister it**	entries/lessons/L1990.md	1	10	684a6f462a43f091
+lessons	L1991	1991		2026-09-17	ZABZ-YOGA	open	**L1991 · state.json held a DEAD launch token and doctor had been reporting it as a blocker nobody read**	entries/lessons/L1991.md	1	14	3d071551a6166e1d
+lessons	L1992	1992		2026-09-17	ZABZ-YOGA	open	**L1992 · PS 5.1 Start-Process reports an EMPTY ExitCode (false success), and fixed staging filenames are shared memory between runs**	entries/lessons/L1992.md	1	34	fe2fd00527b1c648
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1366,6 +1391,8 @@ pain	P263	263		2026-09-17	ZABZ-YOGA	open	## P263 — dialpad_sms_cache rewrites 
 pain	P264	264		2026-09-17	ZABZ-YOGA	open	## P264 — The authority's SQLite refuses writes under contention on the paths that matter - inbound SMS and the owner queue itself	entries/pain/P264.md	1	26	7f660837a452be5a
 pain	P265	265		2026-09-17	ZABZ-YOGA	open	## P265 — Three owner_decision_queue rows lost their amounts in storage (#79, #33, #86): \$+digits eaten before the INSERT	entries/pain/P265.md	1	126	5084cc6815cdcbac
 pain	P266	266		2026-09-17	ZABZ-YOGA	open	## P266 — Android worktrees fail Gradle with 'SDK location not found' because local.properties is gitignored	entries/pain/P266.md	1	6	63a79e61c50f2cdd
+pain	P267	267		2026-09-17	ZABZ-YOGA	open	## P267 — Built-in web_search returns HTTP 402 for every session (DeepSeek balance empty)	entries/pain/P267.md	1	6	1061e724386b8713
+pain	P268	268		2026-09-17	ZABZ-YOGA	open	## P268 — The fleet has been unable to read or write any Dialpad office configuration since 2026-06-14 - the admin tooling replays a three-month-old captured session	entries/pain/P268.md	1	18	09c4ca1e917e0770
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1588,6 +1615,8 @@ decisions	D261	261		2026-09-17	ZABZ-YOGA	open	**D261 · 2026-09-17 · A demo ins
 decisions	D262	262		2026-09-17	ZABZ-YOGA	open	**D262 · 2026-09-17 · Monitor fixed at the source: a dead collector was printing a confident 0.**	entries/decisions/D262.md	1	73	cf69fd9a641a8fd1
 decisions	D263	263		2026-09-17	ZABZ-YOGA	open	**D263 · 2026-09-17 · Fleet results: two briefs corrected by measurement, and the P0 root cause located to a shifted claim tree.**	entries/decisions/D263.md	1	87	8a7f586b4369f0d4
 decisions	D264	264		2026-09-17	ZABZ-YOGA	open	**D264 · 2026-09-17 · P204 RETRACTED: it does not reproduce in 13 runs; the lock error was my own recovery's.**	entries/decisions/D264.md	1	63	96d56930de4a78ba
+decisions	D265	265		2026-09-17	ZABZ-YOGA	open	**D265 · 2026-09-17 · The secretary is the always-on half: a FLAG revives a headless session, and only a registered promise may raise one.**	entries/decisions/D265.md	1	64	18a274153bc9ce30
+decisions	D266	266		2026-09-17	ZABZ-YOGA	open	**D266 · 2026-09-17 · Multi-window model: one shared browser profile + one loopback origin port per window; per-window profiles stay as an escape hatch.**	entries/decisions/D266.md	1	16	9abf92479f428edf
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1762,3 +1791,4 @@ wins	W202	202		2026-09-17	ZABZ-YOGA	open	**W202 · 2026-09-17 · Broker-driven p
 wins	W203	203		2026-09-17	ZABZ-YOGA	open	**W203 · 2026-09-17 · The last wall: zabz-tech's self-ssh fixed with one key line, and the child's MESH-HOST line measured.**	entries/wins/W203.md	1	34	664d211ab5c998c6
 wins	W204	204		2026-09-17	ZABZ-YOGA	open	**W204 · 2026-09-17 · verify-alloc.py is the standing gate for the allocation rule.**	entries/wins/W204.md	1	6	7a74dbdce06532c0
 wins	W205	205		2026-09-17	ZABZ-YOGA	open	**W205 · 2026-09-17 · Append is local-only: it can no longer move any ref.**	entries/wins/W205.md	1	6	5bec35cdbdff5e52
+wins	W207	207		2026-09-17	ZABZ-YOGA	open	**W207 · 2026-09-17 · One browser tree for every DSH window: 9 processes / ~892 MB per window -> 1 process / ~60-296 MB.**	entries/wins/W207.md	1	17	524dc1fe85adebf2

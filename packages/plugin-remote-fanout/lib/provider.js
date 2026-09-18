@@ -73,6 +73,15 @@ import { randomBytes, randomUUID } from 'node:crypto';
 
 import { createFixedPlacer } from './placement.js';
 import {
+  CRITICAL_COMMIT_PHYSICAL_PCT,
+  HIGH_COMMIT_PHYSICAL_PCT,
+  REFUSE_AVAILABLE_FLOOR_BYTES,
+  defaultProbeDir,
+  defaultSnapshotFile,
+  pressureCheckLine,
+  pressureLine,
+} from './pressure.js';
+import {
   buildPosixScript,
   buildPwshScript,
   invocationFor,
@@ -230,12 +239,18 @@ export function placementNote(placement, wait) {
 }
 
 /** The text the parent model sees as the child's result. */
-export function renderReport({ provider, transport, parsed, outcome, remote, meshHost, locationNote, placementLine, leaseNote, invocation }) {
+export function renderReport({ provider, transport, parsed, outcome, remote, meshHost, locationNote, placementLine, leaseNote, pressureNote, pressureCheck, invocation }) {
   const head = [
     `${MESH_HOST_LINE} ${meshHost ?? '(not reported)'}`,
     `[${provider}] child ran on node "${parsed.host ?? 'UNKNOWN'}" via ${transport}`,
     ...(placementLine === undefined ? [] : [`placement      = ${placementLine}`]),
     ...(leaseNote === undefined ? [] : [`lease          = ${leaseNote}`]),
+    // ── WHY THIS NODE (docs/mesh/109-pressure-routing.md §3.2) ───────────────
+    // The line is only present when pressure MOVED the decision, so a healthy
+    // machine's report is byte-for-byte what it was; and it is present whenever
+    // it did move, so a change of behaviour is never silent.
+    ...(pressureNote === undefined ? [] : [`pressure       = ${pressureNote}`]),
+    ...(pressureCheck === undefined ? [] : [`pressure check = ${pressureCheck}`]),
     `transport host = ${parsed.host ?? '(not reported)'}  (recorded by the target shell before the agent started)`,
     `transport cwd  = ${parsed.cwd ?? '(not reported)'}`,
     `target profile = ${remote.profile}${remote.dshHome ? ` (DSH_HOME ${remote.dshHome})` : ''}`,
@@ -342,7 +357,17 @@ export class RemoteOneShotProvider {
 
   /** One line for the boot log: where children will go, and whether that is asked for. */
   describePlacement() {
-    return this.placer.explain?.() ?? this.placer.describe?.() ?? 'unknown placement';
+    const line = this.placer.explain?.() ?? this.placer.describe?.() ?? 'unknown placement';
+    // THE BOOT LINE NAMES THE PRESSURE GATE. A reader of the engine log must be
+    // able to answer "was the local machine looked at at all?" without reading
+    // this package's source (docs/mesh/109-pressure-routing.md §3.2).
+    if (this.placer.kind !== 'broker') {
+      return `${line}; local pressure is NOT consulted on a fixed target — this mode does not choose a node, a human did`;
+    }
+    return `${line}; local pressure IS consulted before every placement: `
+      + `>= ${Math.round(HIGH_COMMIT_PHYSICAL_PCT * 100)} % of physical committed routes the child away from this machine, `
+      + `>= ${Math.round(CRITICAL_COMMIT_PHYSICAL_PCT * 100)} % with less than ${Math.round(REFUSE_AVAILABLE_FLOOR_BYTES / 1048576)} MiB physical available refuses a local child outright `
+      + `(snapshot ${defaultSnapshotFile()}, fallback probe ${defaultProbeDir()})`;
   }
 
   /** Write one placement/run event to the ledger and the log. Never throws. */
@@ -517,6 +542,8 @@ export class RemoteOneShotProvider {
           meshHost,
           locationNote,
           placementLine: placementNote(placement, wait),
+          pressureNote: pressureLine(placement, parsed.host),
+          pressureCheck: pressureCheckLine(placement?.pressure),
           invocation: invocationContext,
         }),
       }];

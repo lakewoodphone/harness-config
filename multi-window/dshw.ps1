@@ -310,6 +310,65 @@ function Get-Mode { [string]$(if ($Cfg.mode) { $Cfg.mode } else { 'single' }) }
 
 function Get-PrimaryPort { return [int]$Cfg.primaryPort }
 
+# ── the two things that decide what a window COSTS ──────────────────────────
+#
+# MEASURED 2026-09-18 (ZABZ-YOGA, 7 windows open, one `--user-data-dir` per window):
+#   profile w1 9 procs 917 MB | w2 9/1027 | w3 9/807 | w4 9/886 | w5 9/692 | w7 9/1064 | w8 9/854
+#   = 74 msedge processes, 6804 MB. Each profile pays its OWN browser, GPU, crashpad, network and
+#   utility processes: ~9 processes and a mean of 892 MB per window, for a UI that renders one page.
+#   The private profile buys exactly one thing - a per-window cookie jar and a per-window
+#   localStorage['dsh.sessions.current'] - and that one thing can be bought far more cheaply by
+#   giving each window its own loopback ORIGIN instead (the key is namespaced by origin, not by
+#   profile), which lets every window share ONE browser process tree.
+#
+# So profileMode 'shared' is the default and 'per-window' is the escape hatch. What the owner
+# keeps either way: separate windows, one per slot, each remembering its own session, all of them
+# restorable after a reboot. What changes: one browser process instead of one per window.
+function Get-ProfileMode {
+    $m = [string](Get-Prop $Cfg.browser 'profileMode')
+    if ($m -ne 'shared' -and $m -ne 'per-window') { $m = 'shared' }
+    return $m
+}
+
+function Get-SharedProfileName {
+    $name = [string](Get-Prop $Cfg.browser 'sharedProfile')
+    if (-not $name) { $name = '_shared' }
+    return $name
+}
+
+# Which --user-data-dir this slot's window uses. In shared mode this is the SAME directory for
+# every slot, and that is the point: it is the one browser tree.
+function Get-SlotProfileDir($slot) {
+    if ((Get-ProfileMode) -eq 'shared') {
+        return (Join-Path $Cfg.browser.profileRoot (Get-SharedProfileName))
+    }
+    return (Join-Path $Cfg.browser.profileRoot $slot.profile)
+}
+
+function Get-OriginsConfig {
+    $p = $Cfg.PSObject.Properties['origins']
+    if (-not $p -or -not $p.Value) { return $null }
+    return $p.Value
+}
+
+# Is the per-window loopback-origin proxy configured AND usable?
+function Test-OriginsEnabled {
+    $o = Get-OriginsConfig
+    if (-not $o) { return $false }
+    if ($o.PSObject.Properties['enabled'] -and $o.enabled -eq $false) { return $false }
+    return $true
+}
+
+# The origin port for one slot: STABLE PER SLOT, because it is what identifies that window's
+# session slot across a reload. Slot i always gets basePort + i, in windows.json order.
+function Get-SlotOriginPort($slot) {
+    if (-not (Test-OriginsEnabled)) { return (Get-PrimaryPort) }
+    $o = Get-OriginsConfig
+    $base = 3200
+    if ($o.PSObject.Properties['basePort'] -and $o.basePort) { $base = [int]$o.basePort }
+    return [int]($base + $slot.index)
+}
+
 function Resolve-SlotPort($slot, [int]$index) {
     if ((Get-Mode) -eq 'multi') {
         $base = 3081
@@ -893,26 +952,89 @@ function Test-LaunchUrl([string]$url, [int]$port) {
     return [regex]::IsMatch($u.Query, '(?:^|[?&])token=[^&]+')
 }
 
-function Resolve-WindowUrl([int]$port, $rec) {
-    $clean = "http://127.0.0.1:$port/"
-    if ($rec) {
-        $recorded = Get-Prop $rec 'url'
-        if (Test-LaunchUrl ([string]$recorded) $port) { return [string]$recorded }
+function Resolve-WindowUrl([int]$port, $rec, [int]$AliasPort = 0) {
+    # $port is the ENGINE port the token must be valid for; $AliasPort is the origin the WINDOW
+    # actually opens. They differ in the shared-profile model, and the rewrite is safe because the
+    # token is a per-PROCESS value: the engine validates it against its own launch token, and the
+    # Host header the browser sends (127.0.0.1:<AliasPort>) is accepted by the /api browser-trust
+    # fence for ANY 127.0.0.1:<port> (measured 2026-09-18: a bare port alias answers 401 = fence
+    # passed, auth missing, where `w1.localhost` answers 403 = fence refused).
+    #
+    # WHY THE TOKEN IS NOW PROBED AND NOT TRUSTED (measured 2026-09-18, and it was live):
+    # `state.json` recorded pid 29116 / startedAt 13:45:30 while the engine actually serving 3099
+    # was pid 4416, started 21:39. Its recorded token answered **401**, and the token in the
+    # engine's own newest log line answered **303**. Test-LaunchUrl only ever checked the SHAPE of a
+    # token, so the launcher would have handed every new window the dead one and landed it on
+    # "dsh web authentication required". `dshw doctor` had been reporting this as a blocker for a
+    # while without anything acting on it. So the recorded URL is now a CANDIDATE, and the one that
+    # survives a real request is the one used.
+    $rewrite = {
+        param($url, $ap)
+        if (-not $ap -or $ap -le 0) { return $url }
+        try {
+            $u = [uri]$url
+            if ($u.Port -eq $ap) { return $url }
+            return ('http://127.0.0.1:{0}/{1}' -f $ap, $u.Query)
+        } catch { return $url }
     }
-    # A stale URL needs a fresh one: the token changes with every engine RESTART, and state.json can
-    # lag it (an adopted engine, or a restart that died before saving). The engine prints its own URL
-    # at startup, so the newest log for this port is the authority -- the LAST match, because a log
+
+    $candidates = @()
+    if ($rec) {
+        $recorded = [string](Get-Prop $rec 'url')
+        if (Test-LaunchUrl $recorded $port) { $candidates += $recorded }
+    }
+    # A token belongs to the process that printed it, and the engine prints its own URL at startup,
+    # so the newest log line for this port is the freshest evidence -- the LAST match, because a log
     # can hold several launches.
+    $fromLog = @()
     foreach ($log in @((Join-Path $LogDir "$port.log"), $(if ($rec) { Get-Prop $rec 'log' }))) {
         if (-not $log -or -not (Test-Path $log)) { continue }
         try { $text = Get-Content -LiteralPath $log -Raw -ErrorAction Stop } catch { continue }
         $m = [regex]::Matches($text, 'dsh web:\s*(\S+)')
         for ($i = $m.Count - 1; $i -ge 0; $i--) {
             $cand = $m[$i].Groups[1].Value
-            if (Test-LaunchUrl $cand $port) { return $cand }
+            if ((Test-LaunchUrl $cand $port) -and ($candidates -notcontains $cand)) {
+                $candidates += $cand
+                $fromLog += $cand
+            }
         }
     }
-    return $clean
+    if ($candidates.Count -eq 0) { return "http://127.0.0.1:$(if ($AliasPort -gt 0) { $AliasPort } else { $port })/" }
+
+    foreach ($cand in $candidates) {
+        if (Test-TokenAccepted $cand $port) { return (& $rewrite $cand $AliasPort) }
+    }
+    # NOTHING answered 303. That is either a dead token or an engine too loaded to answer, and those
+    # want opposite choices: the engine's own log line is the better bet of the two, because a token
+    # that was never current cannot become current, whereas a busy engine will accept a live one in
+    # a moment. The browser retries the origin, so a slow engine is survivable; a wrong token is not.
+    if ($fromLog.Count -gt 0) {
+        Write-Host ("  [WARN] no launch token for port {0} answered a probe; using the engine's own newest log token (a stale recorded token is the usual cause -- `dshw doctor` names it)" -f $port) -ForegroundColor Yellow
+        return (& $rewrite $fromLog[0] $AliasPort)
+    }
+    return (& $rewrite $candidates[0] $AliasPort)
+}
+
+# Does this launch token actually work? The launch URL 303s to "/" on acceptance; 401/403 is a
+# refusal. Any exception is "unknown" and counts as NOT accepted, because the caller has a better
+# candidate to try and a leftover-but-dead token is the failure this exists to prevent.
+function Test-TokenAccepted([string]$url, [int]$port, [int]$TimeoutMs = 6000) {
+    if (-not (Test-LaunchUrl $url $port)) { return $false }
+    $client = $null
+    try {
+        $handler = [System.Net.Http.HttpClientHandler]::new()
+        $handler.AllowAutoRedirect = $false
+        $client = [System.Net.Http.HttpClient]::new($handler)
+        $client.Timeout = [TimeSpan]::FromMilliseconds($TimeoutMs)
+        $resp = $client.SendAsync([System.Net.Http.HttpRequestMessage]::new('GET', $url)).GetAwaiter().GetResult()
+        $code = [int]$resp.StatusCode
+        $resp.Dispose()
+        return ($code -ge 200 -and $code -lt 400)
+    } catch {
+        return $false
+    } finally {
+        if ($client) { $client.Dispose() }
+    }
 }
 
 function Open-SlotWindow($slot, $state) {
@@ -921,21 +1043,52 @@ function Open-SlotWindow($slot, $state) {
 
     # In single mode every window talks to the primary server, but each keeps its
     # own browser profile so its cookie jar and "last session" are its own.
-    $targetPort = if (Get-Mode -eq 'multi') { $slot.port } else { Get-PrimaryPort }
+    #
+    # `Get-Prop`, NOT `$slot.port`, AND THAT WAS A LIVE BREAKAGE (found 2026-09-18 while opening a
+    # test window). `Get-SlotCfgByPortOrLabel` builds its slots from the RAW config rows, which have
+    # no `port` key at all in single mode - and under `Set-StrictMode -Version Latest` merely naming
+    # `$slot.port` on the branch taken throws, so `dshw open <slot>` died with "The property 'port'
+    # cannot be found on this object" before it opened anything. `new`, `restore` and the watchdog
+    # pass RESOLVED slots and were unaffected, which is why this went unnoticed: the single-window
+    # `open` path is the one a person uses by hand.
+    $targetPort = if (Get-Mode -eq 'multi') { [int](Get-Prop $slot 'port') } else { Get-PrimaryPort }
     $rec = Get-SlotRecord $state $targetPort
 
-    $profDir = Join-Path $Cfg.browser.profileRoot $slot.profile
+    # THE TWO LINES THAT DECIDE WHAT A WINDOW COSTS (2026-09-18). The profile is shared, so the
+    # browser process tree is shared; the ORIGIN is per-slot, so the session slot is not.
+    $profDir = Get-SlotProfileDir $slot
     New-Item -ItemType Directory -Force -Path $profDir | Out-Null
+    $originPort = Get-SlotOriginPort $slot
+    if ((Get-ProfileMode) -eq 'shared' -and -not (Test-OriginsEnabled)) {
+        # Shared storage with no per-window origin means every window would share one
+        # localStorage['dsh.sessions.current'] - the exact limitation the per-window profiles used
+        # to avoid. Say so rather than degrading silently.
+        Write-Host "  [WARN] profileMode=shared with origins disabled: all windows will share one session slot" -ForegroundColor Yellow
+    }
+    # A PROXY THAT IS DOWN MUST NOT MEAN A WINDOW THAT CANNOT OPEN. Falling back to the engine port
+    # costs the owner per-window session isolation (every window then shares one session slot) but
+    # it keeps the window usable and the failure visible, which is strictly better than a dead
+    # window. `ensure` picks the proxy back up within the minute.
+    if ($originPort -ne $targetPort -and -not (Test-OriginsProxy -Quiet)) {
+        Write-Host ("  [WARN] origin proxy not answering; opening slot '{0}' directly against :{1} (this window will SHARE the session slot of any other window opened the same way)" -f $slot.label, $targetPort) -ForegroundColor Yellow
+        $originPort = $targetPort
+    }
 
     # The engine's tokenized URL, so a window can never land on the 401 page (see Resolve-WindowUrl
     # above for the measurement that reversed the previous "clean origin" decision). "One window,
     # same session" is unaffected: the 303 to "/" happens inside this window, and the session comes
     # from the profile's own localStorage, not from the URL.
-    $target = Resolve-WindowUrl $targetPort $rec
+    $target = Resolve-WindowUrl $targetPort $rec $originPort
     $label = if ($slot.label) { $slot.label } else { "$targetPort" }
     # NOTE (measured 2026-09-11, Edge 152 on Windows): --window-name is a no-op here and
-    # the window caption is the page <title>. Geometry must be supplied on every launch,
-    # and it only takes effect because each window has its own --user-data-dir.
+    # the window caption is the page <title>.
+    #
+    # NOTE (measured 2026-09-18, and it CONTRADICTS the note that used to sit here). The old comment
+    # claimed geometry "only takes effect because each window has its own --user-data-dir". That is
+    # wrong: a second `--app=` launch into an ALREADY-RUNNING profile is handed to the existing
+    # browser process, and Edge applies --window-size/--window-position to the window it opens.
+    # Verified by launching two windows into the shared profile on two alias origins and reading the
+    # resulting rectangles (see docs/multi-window/MEMORY-AND-SESSION-LIST.md).
     $winArgs = @(
         "--app=$target",
         "--user-data-dir=$profDir",
@@ -978,7 +1131,7 @@ function Open-SlotWindow($slot, $state) {
     Start-Sleep -Milliseconds 250
     # Record every launch: an Edge app window's own process exits immediately after it
     # hands off to its browser process, so a silent failure here is otherwise invisible.
-    $line = "[{0}] open slot={1} profile={2} pid={3} args={4}" -f (Get-Date -Format o), $label, $slot.profile, $proc.Id, ($winArgs -join ' ')
+    $line = "[{0}] open slot={1} profile={2} origin={3} pid={4} args={5}" -f (Get-Date -Format o), $label, $slot.profile, $originPort, $proc.Id, ($winArgs -join ' ')
     Add-Content -LiteralPath (Join-Path $StateDir 'windows.log') -Value $line -Encoding utf8
     return $profDir
 }
@@ -992,17 +1145,51 @@ function Get-WindowProcs($table = $null) {
 }
 
 function Get-WindowCount($slotCfg, $table = $null) {
-    $profDir = Join-Path $Cfg.browser.profileRoot $slotCfg.profile
-    # Count distinct app URLs in this profile, not processes: Edge may hold several window
-    # ROOTS on one profile, and child processes inherit the parent's command line.
+    # Count distinct app URLs, not processes: Edge may hold several window ROOTS on one profile,
+    # and child processes inherit the parent's command line.
+    #
+    # IN SHARED-PROFILE MODE THE PROFILE NO LONGER IDENTIFIES A WINDOW. Every slot has the same
+    # --user-data-dir, so a profile match would report the SAME count for all 16 slots - and `new`,
+    # which picks the first slot with zero windows, would conclude there is no free slot and refuse
+    # to open anything. Measured 2026-09-18 on the one shared-profiled window that existed: it
+    # matched profile `_shared`, which no slot names, so no slot counted it at all.
+    # The ORIGIN PORT is the per-slot identity now, because it is what the window actually opens.
+    #
+    # AND IT IS THE IDENTITY IN *EVERY* MODE - the previous version asked the proxy only in shared
+    # mode and fell back to a profile scan otherwise, which is the shape that read a live
+    # proxy-origin window as "empty" the moment the proxy was unreachable, and read a legacy
+    # 127.0.0.1:3099 window as "empty" always. `Get-OpenOriginPorts` now unions the proxy's own
+    # per-port connection count with a process scan keyed on each window's ORIGIN PORT, so one
+    # answer covers the shared profile, the per-window profiles, the engine port and a dead proxy.
+    $shared = (Get-ProfileMode) -eq 'shared' -and (Test-OriginsEnabled)
+    $originPort = Get-SlotOriginPort $slotCfg
+    try {
+        if (@(Get-OpenOriginPorts) -contains [int]$originPort) { return 1 }
+    } catch { }
+
+    # NOTHING CLAIMS THIS SLOT'S ORIGIN. In shared-profile mode a window opened directly against the
+    # engine port is indistinguishable from its siblings - they are all in ONE browser tree, and
+    # only the first one's URL is in any command line - but "the owner closes every window on 3099
+    # that I am trying to reopen because I could not see any of them" is a catastrophic false
+    # negative (it duplicates the whole fleet), and it is the exact failure `new` hit. So a live
+    # window on the engine port counts for the FIRST slot that asks, which is where the launcher
+    # puts such a window anyway (Open-SlotWindow falls back to the engine port with a warning).
+    if ($shared -and (Get-EnginePortWindowCount) -gt 0) {
+        $firstOrigin = [int](Get-SlotOriginPort (@(Get-Slots) | Select-Object -First 1))
+        if ([int]$originPort -eq $firstOrigin) { return 1 }
+    }
+
+    # Last resort, and only reachable per-window (or with the proxy and the process scan both
+    # silent): match this slot's own --user-data-dir.
+    $profDir = Get-SlotProfileDir $slotCfg
     try {
         $procs = Get-WindowProcs $table
         $urls = @($procs |
             Where-Object {
-                $_.CommandLine -and
-                $_.CommandLine.Contains($profDir) -and
-                $_.CommandLine.Contains('--app=') -and
-                -not $_.CommandLine.Contains('--type=')
+                if (-not $_.CommandLine) { return $false }
+                if (-not $_.CommandLine.Contains('--app=')) { return $false }
+                if ($_.CommandLine.Contains('--type=')) { return $false }
+                return $_.CommandLine.Contains($profDir)
             } | ForEach-Object {
                 if ($_.CommandLine -match '--app=(\S+)') { $Matches[1] }
             } | Select-Object -Unique)
@@ -1011,10 +1198,22 @@ function Get-WindowCount($slotCfg, $table = $null) {
 }
 
 function Get-SlotCfgByPortOrLabel([string]$selector) {
+    # RETURNS A RESOLVED SLOT, AND THAT IS A FIX RATHER THAN A STYLE CHOICE (measured 2026-09-18).
+    # This function used to `return $s` from inside a `foreach`, and what came back was a
+    # `System.String` - the selector itself, "2" - not a slot. Everything downstream then failed
+    # under `Set-StrictMode -Version Latest` with "The property 'index' cannot be found on this
+    # object", which is how `dshw open <slot>` died before opening anything: the entire `open`
+    # command was broken, and so was `stop <slot>`.
+    #
+    # The repair is to enumerate explicitly and return an object from the ONE canonical source
+    # (`Get-Slots`), plus match the profile as well as the port and the label. Verified after the
+    # change: `dshw open 2` returns a slot with props label,profile,workspace,enabled,port,index,
+    # position,size and opens the window on that slot's origin.
     if (-not $selector) { return $null }
-    foreach ($s in (Get-Slots)) {
-        if ("$($s.port)" -eq $selector) { return $s }
-        if ($s.label -eq $selector) { return $s }
+    foreach ($s in @(Get-Slots)) {
+        if ("$($s.port)" -eq $selector -or "$($s.label)" -eq $selector -or "$($s.profile)" -eq $selector) {
+            return $s
+        }
     }
     return $null
 }
@@ -1109,13 +1308,14 @@ function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'no') {
         Invoke-Restore
     }
     elseif ($WindowsMode -in @('yes', 'auto')) {
+        [void](Ensure-OriginsProxy)
         $state = Get-State
         foreach ($slot in $enabledWindows) {
             try { [void](Open-SlotWindow $slot $state) }
             catch { Write-Host ("  [WARN] could not open window '{0}': {1}" -f $slot.label, $_.Exception.Message) -ForegroundColor Yellow }
         }
         $map = Get-WindowRegistry
-        foreach ($slot in $enabledWindows) { Set-WindowRegistryEntry $map $slot.profile $true $slot.port }
+        foreach ($slot in $enabledWindows) { Set-WindowRegistryEntry $map (Get-SlotRegistryKey $slot) $true (Get-SlotOriginPort $slot) }
         Save-WindowRegistry $map
         Write-Host ("  (asked the browser to open {0} window(s))" -f $enabledWindows.Count)
     }
@@ -1153,12 +1353,13 @@ function Invoke-Status {
             server  = $server
             windows = Get-WindowCount $slot $procTable
             mem_mb  = if ($owner) { [math]::Round($owner.WorkingSet64 / 1MB) } else { 0 }
-            profile = $slot.profile
+            profile = if ((Get-ProfileMode) -eq 'shared') { Get-SharedProfileName } else { $slot.profile }
+            origin  = Get-SlotOriginPort $slot
         }
     }
-    if ($Json) { [pscustomobject]@{ mode = (Get-Mode); primaryPort = $primary; slots = $rows } | ConvertTo-Json -Depth 4; return }
-    Write-Host ("mode: {0}{1}" -f (Get-Mode), $(if ($primary) { " (engine on port $primary)" } else { '' }))
-    $rows | Format-Table -AutoSize slot, enabled, engine, server, windows, mem_mb, profile
+    if ($Json) { [pscustomobject]@{ mode = (Get-Mode); primaryPort = $primary; profileMode = (Get-ProfileMode); origins = (Test-OriginsEnabled); slots = $rows } | ConvertTo-Json -Depth 4; return }
+    Write-Host ("mode: {0}{1}, profileMode: {2}" -f (Get-Mode), $(if ($primary) { " (engine on port $primary)" } else { '' }), (Get-ProfileMode))
+    $rows | Format-Table -AutoSize slot, enabled, engine, server, windows, mem_mb, profile, origin
     # count engines once each: every slot in single mode names the same process
     $engineRows = $rows | Where-Object { $_.server -like 'pid*' }
     $enginePids = @($engineRows | ForEach-Object { ($_.server -replace '[^0-9]', '') } | Select-Object -Unique)
@@ -1169,6 +1370,16 @@ function Invoke-Status {
     $procTable = Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId -ErrorAction SilentlyContinue
     foreach ($e in $enginePids) { $tree += Get-TreeMemoryMb ([int]$e) $procTable }
     Write-Host ("{0} engine(s) live, {1} window(s) open, {2} MB engine RSS, {3} MB whole engine tree" -f $enginePids.Count, $win, $mem, $tree)
+    if (Test-OriginsEnabled) {
+        $a = Get-OriginsArgs
+        if (Test-OriginsProxy -Quiet) {
+            $st = Get-OriginsStats
+            Write-Host ("origins: proxy up on :{0}..:{1}; session/list served={2} cold={3} cacheAgeMs={4} rows={5}" -f `
+                $a.basePort, ($a.basePort + $a.count - 1), $st.served, $st.cold, $st.ageMs, $st.rows)
+        } else {
+            Write-Host ("origins: proxy NOT ANSWERING on :{0} - run: dshw ensure" -f $a.basePort) -ForegroundColor Red
+        }
+    }
     $foreign = @(Get-ForeignEngines)
     if ($foreign.Count) {
         Write-Host ("WARNING: {0} other dsh web against this DSH_HOME ({1}) - one writer only" -f `
@@ -1205,6 +1416,16 @@ function Get-TreeMemoryMb([int]$root, $all = $null) {
 # a small registry of the profiles it has opened. `open: true` means "this window is part of
 # the working set"; `open: false` means the owner closed it deliberately and it should not
 # come back. The registry is why the shortcut can restore rather than guess.
+function Get-SlotRegistryKey($slot) {
+    # The registry used to be keyed by browser profile. THAT STOPS WORKING THE MOMENT PROFILES ARE
+    # SHARED: every slot would write the same key (`_shared`) and the last one to open would be the
+    # only window remembered, so a reboot would restore exactly one window. The key is the slot
+    # LABEL instead, which windows.json already requires to be unique, and it is stable across a
+    # profile-mode change - which is the whole point.
+    if ($slot.label) { return [string]$slot.label }
+    return [string]$slot.profile
+}
+
 function Get-WindowRegistry {
     $path = Join-Path $StateDir 'windows-registry.json'
     $map = @{}
@@ -1214,6 +1435,22 @@ function Get-WindowRegistry {
             foreach ($prop in $raw.PSObject.Properties) { $map[$prop.Name] = $prop.Value }
         } catch { Write-Warning "windows-registry.json unreadable; starting a fresh registry" }
     }
+    # LEGACY KEY MIGRATION, ONCE. A registry written before shared profiles names slots by their
+    # profile (`w1`..`w8`). Folding those into the label key is what stops the owner's working set
+    # being forgotten the first time the new model runs: without this, Invoke-Restore finds no
+    # remembered window and opens only the first slot.
+    $changed = $false
+    foreach ($slot in (Get-Slots)) {
+        $key = Get-SlotRegistryKey $slot
+        if ($map.ContainsKey($key)) { continue }
+        $legacy = [string]$slot.profile
+        if ($legacy -and $map.ContainsKey($legacy)) {
+            $map[$key] = $map[$legacy]
+            $map.Remove($legacy)
+            $changed = $true
+        }
+    }
+    if ($changed) { Save-WindowRegistry $map; Write-Host '  [registry] migrated profile keys to slot labels' -ForegroundColor DarkGray }
     return $map
 }
 
@@ -1223,15 +1460,15 @@ function Save-WindowRegistry($map) {
     [System.IO.File]::WriteAllText($path, $json, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-function Set-WindowRegistryEntry($map, [string]$profile, [bool]$open, [string]$port) {
-    $map[$profile] = [pscustomobject]@{
+function Set-WindowRegistryEntry($map, [string]$key, [bool]$open, [string]$port) {
+    $map[$key] = [pscustomobject]@{
         open     = $open
         port     = $port
         at       = (Get-Date).ToString('o')
     }
 }
 
-# Reconcile the registry with reality: a profile recorded as open whose window is gone was
+# Reconcile the registry with reality: a slot recorded as open whose window is gone was
 # closed by the owner, so it stops being part of the working set.
 function Sync-WindowRegistry($state) {
     $map = Get-WindowRegistry
@@ -1239,12 +1476,13 @@ function Sync-WindowRegistry($state) {
     $procTable = Get-WindowProcs
     $changed = $false
     foreach ($slot in $slots) {
-        $entry = $map[$slot.profile]
+        $key = Get-SlotRegistryKey $slot
+        $entry = $map[$key]
         if (-not $entry) { continue }
         if ($entry.open -eq $false) { continue }
         $live = (Get-WindowCount $slot $procTable) -gt 0
         if (-not $live) {
-            Set-WindowRegistryEntry $map $slot.profile $false $slot.port
+            Set-WindowRegistryEntry $map $key $false (Get-SlotOriginPort $slot)
             $changed = $true
         }
     }
@@ -1255,6 +1493,7 @@ function Sync-WindowRegistry($state) {
 function Invoke-Restore {
     # Reopen every window that was open when DSH was last closed, and nothing else. A window
     # the owner closed on purpose stays closed because the registry marks it `open: false`.
+    [void](Ensure-OriginsProxy)
     $state = Get-State
     $slots = Get-Slots
     # NOTE: no reconciliation here. A restore runs at startup, when every window is by
@@ -1262,12 +1501,12 @@ function Invoke-Restore {
     # the restore would find nothing to do (observed 2026-09-11). The registry is the record
     # of the last working set; only an explicit close or a later reconcile changes it.
     $map = Get-WindowRegistry
-    $wanted = @($slots | Where-Object { $map.ContainsKey($_.profile) -and $map[$_.profile].open -eq $true })
+    $wanted = @($slots | Where-Object { $k = Get-SlotRegistryKey $_; $map.ContainsKey($k) -and $map[$k].open -eq $true })
     if ($wanted.Count -eq 0) {
         # nothing remembered: this is a first run, so give the owner one window rather than none
         Write-Host "no remembered windows; opening the first slot"
         $first = $slots | Where-Object { $_.enabled } | Select-Object -First 1
-        if ($first) { [void](Open-SlotWindow $first $state); Set-WindowRegistryEntry $map $first.profile $true $first.port; Save-WindowRegistry $map }
+        if ($first) { [void](Open-SlotWindow $first $state); Set-WindowRegistryEntry $map (Get-SlotRegistryKey $first) $true (Get-SlotOriginPort $first); Save-WindowRegistry $map }
         return
     }
     $procTable = Get-WindowProcs
@@ -1290,10 +1529,11 @@ function Invoke-Restore {
     $procTable = Get-WindowProcs
     $pruned = 0
     foreach ($slot in $slots) {
-        if (-not $map.ContainsKey($slot.profile)) { continue }
-        if ($map[$slot.profile].open -ne $true) { continue }
+        $k = Get-SlotRegistryKey $slot
+        if (-not $map.ContainsKey($k)) { continue }
+        if ($map[$k].open -ne $true) { continue }
         if ((Get-WindowCount $slot $procTable) -gt 0) { continue }
-        Set-WindowRegistryEntry $map $slot.profile $false $slot.port
+        Set-WindowRegistryEntry $map $k $false (Get-SlotOriginPort $slot)
         $pruned++
     }
     if ($pruned -gt 0) { Save-WindowRegistry $map; Write-Host ("restore: forgot {0} window(s) you had closed" -f $pruned) }
@@ -1307,11 +1547,246 @@ function Invoke-Restore {
     $procTable = Get-WindowProcs
     foreach ($slot in $slots) {
         if ((Get-WindowCount $slot $procTable) -gt 0) {
-            Set-WindowRegistryEntry $map $slot.profile $true $slot.port
+            Set-WindowRegistryEntry $map (Get-SlotRegistryKey $slot) $true (Get-SlotOriginPort $slot)
         }
     }
     Save-WindowRegistry $map
 }
+# ── the loopback-origin proxy: launcher-owned, because windows now depend on it ──────────────
+#
+# In shared-profile mode EVERY window opens an alias origin rather than the engine's own port, so
+# this proxy is load-bearing: if it is not running, no window can reach the engine at all. It is
+# therefore started, adopted and health-checked by the launcher exactly like the engine is, and
+# Open-SlotWindow falls back to the engine port (with a warning) if it cannot be reached, so a
+# proxy fault degrades to "all windows share one session slot" instead of "no windows".
+function Get-OriginsPidFile { return (Join-Path $StateDir 'origins.pid') }
+function Get-OriginsLogFile { return (Join-Path $LogDir 'origins.log') }
+
+function Get-OriginsArgs {
+    $o = Get-OriginsConfig
+    $script = Join-Path $PSScriptRoot $(if ($o -and $o.script) { [string]$o.script } else { 'dshw-proxy.mjs' })
+    $base = 3200; $count = 24; $ttl = 15000
+    if ($o) {
+        if ($o.PSObject.Properties['basePort'] -and $o.basePort) { $base = [int]$o.basePort }
+        if ($o.PSObject.Properties['count'] -and $o.count) { $count = [int]$o.count }
+        if ($o.PSObject.Properties['ttlMs'] -and $o.ttlMs) { $ttl = [int]$o.ttlMs }
+    }
+    return [pscustomobject]@{
+        script = $script; basePort = $base; count = $count; ttlMs = $ttl
+        target = (Get-PrimaryPort); pidFile = (Get-OriginsPidFile); log = (Get-OriginsLogFile)
+    }
+}
+
+# Ask the proxy itself, over HTTP, rather than trusting a port or a pid file: a bound port proves
+# nothing about whether the process behind it is working, which is the same trap `ensure` records
+# for the engine. Memoised per command, because Get-WindowCount asks once per slot.
+function Test-OriginsProxy([switch]$Quiet, [switch]$Fresh) {
+    if (-not (Test-OriginsEnabled)) { return $false }
+    if ($Fresh) { $script:OriginsAlive = $null }   # see Start-OriginsProxy: the wait loop must not read a memo
+    if ($null -ne $script:OriginsAlive) { return [bool]$script:OriginsAlive }
+    $a = Get-OriginsArgs
+    $alive = $false
+    try {
+        $client = [System.Net.Http.HttpClient]::new()
+        $client.Timeout = [TimeSpan]::FromSeconds(4)
+        $resp = $client.GetAsync("http://127.0.0.1:$($a.basePort)/__dshw/stats").GetAwaiter().GetResult()
+        $alive = [int]$resp.StatusCode -eq 200
+        $resp.Dispose(); $client.Dispose()
+    } catch {
+        if (-not $Quiet) { Write-Host ("  [origins] proxy not answering on :{0} - {1}" -f $a.basePort, $_.Exception.Message) -ForegroundColor DarkGray }
+    }
+    $script:OriginsAlive = $alive
+    return $alive
+}
+
+# THE PER-SLOT LIVENESS SIGNAL, and the only one that works in shared-profile mode.
+#
+# Measured 2026-09-18: in a shared profile only the FIRST window's URL appears in any process
+# command line. The browser root carried `--app=http://127.0.0.1:3200/`, and the second window -
+# opened into the same profile and therefore handed to the same browser process - existed only as
+# an anonymous `--type=renderer` child with no URL. A process scan can therefore find exactly ONE
+# window per profile, so in shared mode it finds one window in total and reports every other slot as
+# empty: `new` re-opens the same slot forever and `restore` duplicates every window.
+#
+# What IS per-window is the alias ORIGIN. A live window keeps streaming connections open on its own
+# port (`$events` / `session/follow`), and the proxy counts live connections per port. Verified: the
+# two windows opened during this measurement each held 2 established connections on 3200 and 3201.
+# ── LIVENESS, WHICH MUST WORK ON *ANY* ORIGIN THE LAUNCHER USES ──────────────────────────────
+#
+# The one question every window-opening path asks is "does this slot already have a live window?".
+# Getting a FALSE NEGATIVE there reopens a window the owner already has - measured 2026-09-18 in
+# `~/.dsh/multi-window/windows.log`: slots 1 and 2 opened at 23:13:29/23:13:52 and again at
+# 23:21:28/23:21:59, and 229 open events had accumulated. So the answer has to be right in every
+# shape this launcher can produce a window in, and there are THREE of them:
+#
+#   A. a window on a proxy ORIGIN (127.0.0.1:3200..3223) - the current model. Only its port is
+#      per-window; in a shared profile the browser root's command line carries the FIRST window's
+#      URL and every later window is an anonymous `--type=renderer` child with no URL at all, so a
+#      process scan cannot see it. The proxy counts live connections per port and is exact.
+#   B. a window opened DIRECTLY against the engine port (127.0.0.1:3099) - `per-window` mode, or
+#      the documented fallback when the proxy is not answering (Open-SlotWindow warns and falls
+#      back). Several such windows keep SEPARATE browser trees, one per profile directory, so the
+#      `--app=http://127.0.0.1:3099/` command line identifies them.
+#   C. a window opened on an origin whose proxy has since died. The proxy cannot answer, so the
+#      process scan is the only evidence left - and it must look for THIS slot's origin port, not
+#      for the engine port, or the window is invisible for exactly as long as the proxy is down.
+#
+# All three are unioned below. A slot is live if ANY of them says so, and `live` is the union of
+# every slot's origin port plus the engine port, so one answer serves all sixteen slots.
+function Get-WindowOriginPorts($table = $null) {
+    if ($null -ne $script:OriginLiveMap) { return $script:OriginLiveMap }
+    $map = @{}
+    $procs = Get-WindowProcs $table
+    foreach ($p in @($procs)) {
+        if (-not $p.CommandLine) { continue }
+        # Only a window, never a child: `--type=renderer` etc. inherit their parent's command line
+        # and would otherwise be counted as windows of their own.
+        if ($p.CommandLine.Contains('--type=')) { continue }
+        if (-not $p.CommandLine.Contains('--app=')) { continue }
+        $u = ''
+        $m = [regex]::Match($p.CommandLine, '--app=http://127\.0\.0\.1:(\d{1,5})')
+        if ($m.Success) { $u = $m.Groups[1].Value }
+        else {
+            $m2 = [regex]::Match($p.CommandLine, '--app="([^"]+)"')
+            if ($m2.Success) {
+                $mf = [regex]::Match($m2.Groups[1].Value, '127\.0\.0\.1:(\d{1,5})')
+                if ($mf.Success) { $u = $mf.Groups[1].Value }
+            }
+        }
+        if (-not $u) { continue }
+        if ($map.ContainsKey($u)) { $map[$u] = $map[$u] + 1 } else { $map[$u] = 1 }
+    }
+    $script:OriginLiveMap = $map
+    return $map
+}
+
+function Get-EnginePortWindowCount($table = $null) {
+    $map = Get-WindowOriginPorts $table
+    $p = [string](Get-PrimaryPort)
+    return $(if ($map.ContainsKey($p)) { [int]$map[$p] } else { 0 })
+}
+
+function Get-OpenOriginPorts {
+    if ($null -ne $script:OpenOriginCache) { return $script:OpenOriginCache }
+    $found = @()
+
+    # A - ask the proxy. It answers with its own requesting connection excluded, so the probe cannot
+    # report itself as a window (measured previously: `openPorts:[3200]` with every window closed).
+    if ((Test-OriginsEnabled) -and (Test-OriginsProxy -Quiet)) {
+        $a = Get-OriginsArgs
+        $client = $null
+        try {
+            $client = [System.Net.Http.HttpClient]::new()
+            $client.Timeout = [TimeSpan]::FromSeconds(4)
+            $txt = $client.GetStringAsync("http://127.0.0.1:$($a.basePort)/__dshw/open").GetAwaiter().GetResult()
+            $ports = @(($txt | ConvertFrom-Json).ports)
+            if ($ports.Count -gt 0) { $found = @($found + $ports) }
+        } catch { } finally { if ($client) { $client.Dispose() } }
+
+        # THE FIRST SAMPLE CAN MISS A WINDOW THAT IS STILL CONNECTING. A window is only visible
+        # through A once its page has loaded and opened a streaming connection on its origin, which
+        # is one to several seconds after the launch - and `new`/`restore` ask this question
+        # immediately after the previous open returned. Two more samples 600 ms apart close that
+        # window instead of widening the answer with an invented grace period. Only paid when the
+        # first sample is empty, so the settled case stays at one HTTP call.
+        if ($found.Count -eq 0) {
+            foreach ($n in 1..2) {
+                Start-Sleep -Milliseconds 600
+                if (-not (Test-OriginsProxy -Quiet -Fresh)) { break }
+                $c2 = $null
+                try {
+                    $c2 = [System.Net.Http.HttpClient]::new()
+                    $c2.Timeout = [TimeSpan]::FromSeconds(4)
+                    $t2 = $c2.GetStringAsync("http://127.0.0.1:$($a.basePort)/__dshw/open").GetAwaiter().GetResult()
+                    $ports2 = @(($t2 | ConvertFrom-Json).ports)
+                    if ($ports2.Count -gt 0) { $found = @($found + $ports2); break }
+                } catch { } finally { if ($c2) { $c2.Dispose() } }
+            }
+        }
+    }
+
+    # B and C - the process scan. This is also what makes the answer independent of the proxy's
+    # liveness: a window the proxy would have reported is still found here by its own origin port.
+    foreach ($k in (Get-WindowOriginPorts).Keys) { $found = @($found + @([int]$k)) }
+
+    $script:OpenOriginCache = @($found | Sort-Object -Unique)
+    return $script:OpenOriginCache
+}
+
+function Get-OriginsStats {
+    if (-not (Test-OriginsEnabled)) { return $null }
+    $a = Get-OriginsArgs
+    try {
+        $client = [System.Net.Http.HttpClient]::new()
+        $client.Timeout = [TimeSpan]::FromSeconds(4)
+        $txt = $client.GetStringAsync("http://127.0.0.1:$($a.basePort)/__dshw/stats").GetAwaiter().GetResult()
+        $client.Dispose()
+        return ($txt | ConvertFrom-Json)
+    } catch { return $null }
+}
+
+# Launch the proxy through Task Scheduler, for the same reason the engine is launched that way: a
+# child started directly by this script dies with the job object that owns it, and the proxy has to
+# outlive the shell that started it and the session that ran it.
+function Start-OriginsProxy {
+    $a = Get-OriginsArgs
+    if (-not (Test-Path $a.script)) { throw "origins script not found: $($a.script)" }
+    $node = Resolve-NodeExe
+    $taskName = 'DSH Origins Proxy'
+    $args = "`"$($a.script)`" --base $($a.basePort) --count $($a.count) --target $($a.target) --ttl $($a.ttlMs) --pidfile `"$($a.pidFile)`" --log `"$($a.log)`""
+    # THE TASK IS REGISTERED AND LEFT REGISTERED, and that is the fix for a real race rather than a
+    # tidy-up. `ensure` runs every minute as a scheduled task, so a manual `dshw ensure` and the
+    # watchdog can call this at the same moment. Measured 2026-09-18: that produced TWO proxy
+    # instances which SPLIT THE PORT RANGE between them (3200-3215 and 3216-3223) - healthy from any
+    # single port, broken as a whole. The engine launch path can unregister its task because the
+    # engine is a single process the port itself arbitrates; this proxy cannot, because
+    # `-MultipleInstances IgnoreNew` only has anything to ignore while the task still EXISTS. Left
+    # registered, a second Start-ScheduledTask is a no-op while the first instance runs.
+    $action = New-ScheduledTaskAction -Execute $node -Argument $args -WorkingDirectory $PSScriptRoot
+    $principal = New-InteractivePrincipal -Highest:(Test-IsElevated)
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+        -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+    Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+    Start-ScheduledTask -TaskName $taskName
+    $deadline = (Get-Date).AddSeconds(25)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 400
+        # -Fresh IS REQUIRED. Test-OriginsProxy memoises its answer for the whole command, and the
+        # first call in Ensure-OriginsProxy is exactly the FAILING one, so without this the loop read
+        # its own first "no" back 60 times and declared the proxy dead while it was up and serving.
+        if (Test-OriginsProxy -Quiet -Fresh) { break }
+    }
+    if (-not (Test-OriginsProxy -Quiet -Fresh)) {
+        $tail = if (Test-Path $a.log) { (Get-Content -LiteralPath $a.log -Tail 6) -join ' | ' } else { '(no log)' }
+        throw "origins proxy never answered on :$($a.basePort) :: $tail"
+    }
+    Write-Host ("  [origins] proxy up on :{0}..:{1} -> engine :{2}" -f $a.basePort, ($a.basePort + $a.count - 1), $a.target) -ForegroundColor Green
+}
+
+function Ensure-OriginsProxy {
+    if (-not (Test-OriginsEnabled)) { return $true }
+    if (Test-OriginsProxy -Quiet -Fresh) { return $true }
+    Write-Host '  [origins] proxy is not answering - starting it' -ForegroundColor Yellow
+    try { Start-OriginsProxy; return $true }
+    catch { Write-Host ("  [origins] could not start the proxy: {0}" -f $_.Exception.Message) -ForegroundColor Red; return $false }
+}
+
+# Warm the session/list cache, so a window the owner opens renders its session list immediately
+# instead of showing an empty list for the 25-31 s the engine needs to walk 681 session
+# directories. Called from `ensure`, which already runs once a minute, so the cache is essentially
+# always warm and even the first window after a boot is fast.
+function Invoke-OriginsPrewarm {
+    if (-not (Test-OriginsEnabled)) { return $null }
+    $a = Get-OriginsArgs
+    try {
+        $client = [System.Net.Http.HttpClient]::new()
+        $client.Timeout = [TimeSpan]::FromSeconds(120)
+        $txt = $client.GetStringAsync("http://127.0.0.1:$($a.basePort)/__dshw/prewarm").GetAwaiter().GetResult()
+        $client.Dispose()
+        return ($txt | ConvertFrom-Json)
+    } catch { return $null }
+}
+
 # ── the fast loop: one bounded check, restart only after two failures ────────
 function Invoke-Ensure {
     $port = Get-PrimaryPort
@@ -1322,6 +1797,18 @@ function Invoke-Ensure {
     # this run starts is told where its home is, whatever the environment it was launched from.
     # Silent when DSH_HOME is already set, so an ordinary boot is not noisier for this.
     [void](Initialize-DshHome (Join-Path $StateDir 'engine-recovery.log'))
+    # THE ORIGIN PROXY, BEFORE THE ENGINE, because in shared-profile mode it is the door every
+    # window uses. It is also the only thing that keeps the session/list cache warm: this function
+    # already runs once a minute as a scheduled task, so a prewarm here is free and means the owner
+    # essentially never waits for the 681-directory walk. Both calls are silent when healthy.
+    if (Test-OriginsEnabled) {
+        [void](Ensure-OriginsProxy)
+        $warm = Invoke-OriginsPrewarm
+        if ($warm -and -not $warm.ok) {
+            "[{0}] ensure: origins prewarm did not fill the cache: {1}" -f (Get-Date -Format o), $warm.reason |
+                Add-Content -LiteralPath (Join-Path $StateDir 'watchdog.log') -Encoding utf8
+        }
+    }
     # THE PHONE GATE FIRST, AND INDEPENDENTLY OF ENGINE HEALTH.
     #
     # The gate is what makes this node reachable from the owner's phone over the tailnet: the
@@ -1664,6 +2151,7 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
     return $false
 }
 function Invoke-New {
+    [void](Ensure-OriginsProxy)
     $state = Get-State
     $slots = Get-Slots
     # Counting open windows needs a full process-table read, which is the single most
@@ -1703,10 +2191,11 @@ function Invoke-New {
     # was removed 2026-09-16: it was the mechanism by which `new` opened disabled slots, and it
     # is what made the window count a one-way ratchet that only a human could undo.
     [void](Open-SlotWindow $free $state)
-    Write-Host ("new window: slot '{0}' (profile {1}) against port {2}" -f $free.label, $free.profile, $(if (Get-Mode -eq 'multi') { $free.port } else { Get-PrimaryPort })) -ForegroundColor Green
+    Write-Host ("new window: slot '{0}' (profile {1}, origin :{2}) against engine port {3}" -f `
+        $free.label, $(if ((Get-ProfileMode) -eq 'shared') { Get-SharedProfileName } else { $free.profile }),
+        (Get-SlotOriginPort $free), $(if (Get-Mode -eq 'multi') { $free.port } else { Get-PrimaryPort })) -ForegroundColor Green
     $map = Get-WindowRegistry
-    $regPort = if (Get-Mode -eq 'multi') { $free.port } else { Get-PrimaryPort }
-    Set-WindowRegistryEntry $map $free.profile $true $regPort
+    Set-WindowRegistryEntry $map (Get-SlotRegistryKey $free) $true (Get-SlotOriginPort $free)
     Save-WindowRegistry $map
 }
 
@@ -1768,6 +2257,32 @@ function Invoke-Doctor {
     }
     $disabled = @($Cfg.windows | Where-Object { -not $_.enabled }).Count
     Write-Host ("slots       : {0} enabled, {1} disabled" -f @($Cfg.windows | Where-Object { $_.enabled }).Count, $disabled)
+    # WHAT A WINDOW COSTS, AND WHAT ITS SESSION LIST WILL DO. Both are the reason this build exists,
+    # so `doctor` states them instead of leaving them to be inferred from how a window feels.
+    $pMode = Get-ProfileMode
+    if ($pMode -eq 'shared') {
+        Write-Host ("profile mode: shared ({0}) - one browser process tree for every window" -f (Get-SharedProfileName))
+    } else {
+        Write-Host ("profile mode: per-window - one browser process tree PER window (~9 processes, mean 892 MB each measured 2026-09-18)") -ForegroundColor Yellow
+    }
+    if (-not (Test-OriginsEnabled)) {
+        Write-Host "origins     : DISABLED" -ForegroundColor Yellow
+        if ($pMode -eq 'shared') { $problems += 'origins disabled with profileMode=shared: every window will share ONE session slot (localStorage dsh.sessions.current is keyed by origin)' }
+    } else {
+        $a = Get-OriginsArgs
+        if (Test-OriginsProxy -Quiet) {
+            $st = Get-OriginsStats
+            Write-Host ("origins     : proxy up on :{0}..:{1} -> engine :{2}" -f $a.basePort, ($a.basePort + $a.count - 1), $a.target)
+            if ($st) {
+                Write-Host ("session list: served={0} cold={1} cached={2} ageMs={3} rows={4} errors={5}" -f `
+                    $st.served, $st.cold, $st.cached, $st.ageMs, $st.rows, $st.errors)
+                if (-not $st.cached) { Write-Host "session list: cache EMPTY - the next window to load pays the full 25-31 s walk" -ForegroundColor Yellow }
+            }
+        } else {
+            Write-Host ("origins     : NOT ANSWERING on :{0}" -f $a.basePort) -ForegroundColor Red
+            $problems += "the origin proxy is not answering on port $($a.basePort); windows opened now cannot reach the engine (run: dshw ensure)"
+        }
+    }
     # The two things that have actually broken this fleet, checked here so `doctor` names them
     # rather than leaving them to be discovered when an engine refuses to boot.
     $keeper = Join-Path $RepoRoot 'scripts\install-client-plugins.ps1'
@@ -1815,12 +2330,118 @@ function Invoke-Autostart([string]$mode) {
     Write-Host "autostart: '$taskName' registered (at logon, this user, hidden). Test now: Start-ScheduledTask -TaskName '$taskName'"
 }
 
+function Invoke-WindowRecovery($state, [int]$MaxOpens = 2, [switch]$DryRun) {
+    # A WINDOW THAT DIES NO LONGER COMES BACK BY ITSELF. The engine has `ensure` every minute, but
+    # nothing watched the WINDOWS: the registry answers "what was open when DSH was last closed",
+    # and only `restore` consults it, so a window that crashed mid-session stayed gone until the
+    # owner clicked `+`. This is the loop that closes that gap, and it is deliberately the most
+    # conservative thing in the file, because the failure it can cause (opening a window the owner
+    # already has) is worse than the one it fixes.
+    #
+    # FIVE GUARDS, because 229 duplicate open events is what this class of bug already cost:
+    #   1. the registry must say the window was part of the working set (`open: true`);
+    #   2. the origin port the registry RECORDED must equal the origin this slot has now, so a
+    #      pre-shared-profile entry (`port: 3099`, the legacy engine-port windows) is never treated
+    #      as a missing window - those entries cannot be told apart slot by slot, so the honest
+    #      answer for them is "leave them alone";
+    #   3. the origin must have a LISTENER, which is independent evidence that the proxy really
+    #      serves it, so a registry entry naming a port nothing ever served is never acted on;
+    #   4. the origin must not be in the live set that Get-OpenOriginPorts just measured, in any of
+    #      the three shapes a window can be open in;
+    #   5. a per-slot cooldown, so a window that was JUST reopened (and has not connected yet) is
+    #      never reopened again by the next run.
+    # Plus a cap per run: if more than $MaxOpens windows are genuinely missing, the rest are
+    # reported and left for the next run, so a systematic fault can never open sixteen windows at
+    # once.
+    $map = Get-WindowRegistry
+    $slots = Get-Slots
+    $live = @(Get-OpenOriginPorts | ForEach-Object { [int]$_ })
+    $listenTable = Get-ListenTable
+    $cooldown = 600
+    $markerPath = Join-Path $StateDir 'window-recovery.json'
+    $marks = @{}
+    if (Test-Path $markerPath) {
+        try {
+            $raw = Get-Content -Raw -LiteralPath $markerPath | ConvertFrom-Json
+            foreach ($p in $raw.PSObject.Properties) { $marks[$p.Name] = [string]$p.Value }
+        } catch { }
+    }
+
+    $missing = @()
+    foreach ($slot in $slots) {
+        if (-not $slot.enabled) { continue }
+        $key = Get-SlotRegistryKey $slot
+        $entry = $map[$key]
+        if (-not $entry) { continue }
+        if ($entry.open -ne $true) { continue }
+        $origin = [int](Get-SlotOriginPort $slot)
+        $recorded = 0
+        try { $recorded = [int](Get-Prop $entry 'port') } catch { $recorded = 0 }
+        if ($recorded -ne $origin) { continue }                       # guard 2
+        if (-not (Get-PortOwner $origin $listenTable)) { continue }   # guard 3
+        if ($live -contains $origin) { continue }                     # guard 4
+        $missing += [pscustomobject]@{ key = $key; origin = $origin; label = $slot.label }
+    }
+    if ($missing.Count -eq 0) { return [pscustomobject]@{ missing = 0; opened = 0; note = '' } }
+
+    $opened = 0
+    $held = @()
+    $notes = @()
+    foreach ($m in $missing) {
+        if ($opened -ge $MaxOpens) { $held += $m.key; continue }
+        $last = $null
+        if ($marks.ContainsKey($m.key)) { try { $last = [datetime]::Parse($marks[$m.key]) } catch { $last = $null } }
+        if ($last -and ((Get-Date) - $last).TotalSeconds -lt $cooldown) {     # guard 5
+            $held += $m.key
+            continue
+        }
+        if ($DryRun) {
+            Write-Host ("  [recover] would reopen '{0}' (origin :{1}, registry says open)" -f $m.key, $m.origin)
+            $opened++
+            $notes += "dry-run: $($m.key)"
+            continue
+        }
+        $slot = @($slots | Where-Object { (Get-SlotRegistryKey $_) -eq $m.key }) | Select-Object -First 1
+        try {
+            [void](Open-SlotWindow $slot $state)
+            Set-WindowRegistryEntry $map $m.key $true $m.origin
+            $marks[$m.key] = (Get-Date).ToString('o')
+            $opened++
+            $notes += $m.key
+            Write-Host ("  [reopen] {0} (origin :{1}) - its window was gone" -f $m.key, $m.origin) -ForegroundColor Green
+        } catch {
+            $notes += ("{0} FAILED: {1}" -f $m.key, $_.Exception.Message)
+            Write-Host ("  [WARN] could not reopen '{0}': {1}" -f $m.key, $_.Exception.Message) -ForegroundColor Yellow
+        }
+    }
+    if (-not $DryRun) {
+        if ($opened -gt 0) { Save-WindowRegistry $map }
+        try {
+            $json = [pscustomobject]$marks | ConvertTo-Json -Depth 3
+            [System.IO.File]::WriteAllText($markerPath, $json, (New-Object System.Text.UTF8Encoding($false)))
+        } catch { }
+        $line = "[{0}] recovery: missing={1} opened={2} ({3}) held={4}" -f `
+            (Get-Date -Format o), $missing.Count, $opened, ($notes -join ','), ($held -join ',')
+        Add-Content -LiteralPath (Join-Path $StateDir 'health.log') -Encoding utf8 -Value $line
+    }
+    return [pscustomobject]@{ missing = $missing.Count; opened = $opened; note = ($notes -join '; ') }
+}
+
 function Invoke-Health {
     # Designed to be run from a scheduled task every few minutes. It is idempotent and
     # additive: it starts ONLY the servers that should be listening and are not, then
-    # exits. It never stops or restarts a live engine, never opens browser windows, and
-    # appends a line to health.log only when it actually did something, so the log stays
-    # readable. Safe to run twice at once: the port bind itself is the lock, and the
+    # exits. It never stops or restarts a live engine, and it appends a line to health.log
+    # only when it actually did something, so the log stays readable.
+    #
+    # IT ALSO RECOVERS WINDOWS, AND THAT IS NEW (2026-09-18). Until now this command opened
+    # nothing, which is why `DSH Window Fleet Watchdog` - the task that runs it - was the wrong
+    # suspect for the "two windows every ten minutes" report and the wrong thing to disable: the
+    # windows were opened by `new`/`restore`, whose liveness test could not see a window on a proxy
+    # origin and so re-opened one that was already there. The liveness test is fixed
+    # (Get-OpenOriginPorts), and a window that dies is now restored by Invoke-WindowRecovery, which
+    # opens at most two windows per run and never one the live set already reports.
+    #
+    # Safe to run twice at once: the port bind itself is the lock, and the
     # loser of a race fails with EADDRINUSE instead of starting a second writer on the
     # same DSH_HOME (which would corrupt session logs).
     # Transcript so a watchdog run that dies leaves evidence: a scheduled task that does
@@ -1837,6 +2458,7 @@ function Invoke-Health {
     # deleted; the existing per-run files stay exactly where they are.
     Start-Transcript -Path (Join-Path $logDir ("health-{0}.log" -f (Get-Date -Format 'yyyyMMdd'))) -Append -Force | Out-Null
     try {
+    [void](Ensure-OriginsProxy)
     $state = Get-State
     $listenTable = Get-ListenTable
     $slots = Get-Slots
@@ -1886,6 +2508,22 @@ function Invoke-Health {
     }
     Save-State $state
     }
+
+    # ── AND NOW THE WINDOWS, WHICH IS WHY THIS TASK WAS DISABLED AND IS THE GAP BEING CLOSED ────
+    # `health` used to do nothing but engines, so the task named "Window Fleet Watchdog" watched
+    # no windows at all: a window that died stayed dead until the owner clicked `+`. With the
+    # liveness check above now recognising a window on ANY origin the launcher uses, "this slot
+    # has a live window" is finally answerable, which is what makes a recovery pass safe to run.
+    try {
+        $rec = Invoke-WindowRecovery $state
+        if ($rec.missing -gt 0) {
+            Write-Host ("windows: {0} recorded as open but gone; reopened {1}" -f $rec.missing, $rec.opened) -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host ("windows: recovery pass FAILED - " + $_.Exception.Message) -ForegroundColor Red
+        "[{0}] health: window recovery FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message |
+            Add-Content -LiteralPath (Join-Path $StateDir 'health.log') -Encoding utf8
+    }
     } catch {
         Write-Host ("health: FAILED - " + $_.Exception.Message) -ForegroundColor Red
         "[{0}] health: FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message |
@@ -1926,8 +2564,9 @@ function Invoke-Watchdog([string]$mode) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     }
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
-    Write-Host ("watchdog: '{0}' registered - 'dshw {1}' every {2} minute(s), this user, no windows opened." -f $taskName, $verb, $(if ($fast) { 1 } else { 5 }))
-    Write-Host "          It only ever STARTS a missing engine. Live engines are left alone."
+    Write-Host ("watchdog: '{0}' registered - 'dshw {1}' every {2} minute(s), this user." -f $taskName, $verb, $(if ($fast) { 1 } else { 5 }))
+    Write-Host "          It only ever STARTS a missing engine, and reopens a window the registry says was open and the liveness check says is gone."
+    Write-Host "          Live engines and live windows are left alone."
     Write-Host "          Log: $StateDir\health.log"
 }
 
@@ -2002,6 +2641,14 @@ function Restart-OneEngine($slot) {
 # invocation (guarded by elevation + a per-machine daily marker), and it must run here rather
 # than only in `ensure`/`health` so a plain elevated `dshw status` also applies it.
 Invoke-HiddenTaskBootstrap
+
+# Per-command memo for the origin-proxy probes: Get-WindowCount is called once per slot, and a
+# fresh HTTP round trip and a fresh process scan per slot is exactly the mistake `status` already
+# records (12 queries see the process list at 12 different instants). Reset here, so every command
+# starts from the truth.
+$script:OriginsAlive = $null
+$script:OpenOriginCache = $null
+$script:OriginLiveMap = $null
 
 switch ($Command) {
     'up'     { Invoke-Up -WindowsMode $WindowsMode }

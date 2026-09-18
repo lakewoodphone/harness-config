@@ -41,10 +41,48 @@ import path from 'node:path';
 
 import { BrokerError, BROKER_UNREACHABLE } from './broker-client.js';
 import { hostMatchesNode, invocationForNode, isHostToken, NODES, nodeNames } from './nodes.js';
+import {
+  decidePressure,
+  describePressure,
+  localNodeName,
+  sharedPressureReader,
+  HIGH_COMMIT_PHYSICAL_PCT,
+} from './pressure.js';
 import { createSshTransport, DEFAULT_MAX_OUTPUT_BYTES, DEFAULT_TIMEOUT_MS } from './ssh-transport.js';
 
 /** The node the broker named is not one this package can turn into a destination. */
 export const PLACEMENT_NODE_UNKNOWN = 'placement-node-unknown';
+
+/**
+ * THE REFUSAL (`docs/mesh/109-pressure-routing.md` §3).
+ *
+ * The mesh cannot be reached AND this machine is above its critical commit line
+ * — no node to put the child on and no room to keep it. Nothing is dispatched,
+ * and this error says so in as many words.
+ */
+export const MESH_UNAVAILABLE_LOCAL_SATURATED = 'mesh-unavailable-local-saturated';
+
+/**
+ * The mesh IS reachable and this machine is above its critical commit line, so
+ * the child must not run HERE. The message says which node to use instead
+ * wherever the broker named one; it never becomes a fallback dispatch.
+ */
+export const LOCAL_PRESSURE_REFUSED = 'local-pressure-refused';
+
+/** A child could not be placed because this machine has no room for it. */
+export class PressureRefusalError extends Error {
+  /**
+   * @param {string} code `mesh-unavailable-local-saturated` | `local-pressure-refused`
+   * @param {string} message the text a caller reports, naming the reading and the alternative
+   * @param {object} detail evidence: the reading in full, the decision, the intended node
+   */
+  constructor(code, message, detail = {}) {
+    super(message);
+    this.name = 'PressureRefusalError';
+    this.code = code;
+    this.detail = detail;
+  }
+}
 
 /** Where the engine's placement records live, under the home the engine was started with. */
 export function defaultLedgerDir(env = process.env) {
@@ -168,6 +206,23 @@ export function createNodePlacer({
   prefer = null,
   exclude = [],
   now = () => Date.now(),
+  // ── LOCAL PRESSURE (docs/mesh/109-pressure-routing.md) ────────────────────
+  // The reader is injectable so a test can hand the placer a reading, and so a
+  // deployment can point it at another snapshot file. Absent, it is the shared
+  // one-per-process reader, which reads `plugin-health`'s snapshot off disk and
+  // spawns nothing on the normal path.
+  pressureReader = sharedPressureReader(),
+  /** `undefined` derives it from this machine's own hostname. */
+  localNode = undefined,
+  /** What the engine's own session census says. Absent = the count is reported null. */
+  agentsRunning = () => undefined,
+  /**
+   * An optional, BOUNDED probe of whether the mesh can be reached at all. It is
+   * consulted only on the refusal path, where the answer changes the error the
+   * caller sees: "this machine is full and there is nowhere else" is a different
+   * instruction to an agent than "this machine is full".
+   */
+  meshCheck = undefined,
   // NOT unref'd, deliberately, and this was measured: a queue wait is often the
   // only thing a process has left to wait for, and an unref'd timer lets Node
   // exit out of the middle of the wait. Measured 2026-09-17 in
@@ -184,6 +239,23 @@ export function createNodePlacer({
   const transports = new Map();
   const wait = Number.isFinite(queueWaitMs) && queueWaitMs >= 0 ? queueWaitMs : 120_000;
   const poll = Number.isFinite(queuePollMs) && queuePollMs > 0 ? queuePollMs : 5_000;
+  /** This machine's name in the broker's vocabulary — resolved once, at construction. */
+  const thisNode = localNode === undefined ? localNodeName() : localNode;
+  const readPressure = typeof pressureReader?.read === 'function' ? () => pressureReader.read() : () => undefined;
+
+  /** Decorate a reading with the engine's live agent census, if the caller gave one. */
+  function measuredPressure() {
+    const reading = readPressure();
+    if (reading === undefined) return undefined;
+    try {
+      const agents = agentsRunning();
+      if (Number.isFinite(agents)) reading.agentsRunning = agents;
+    } catch {
+      // A census that throws must not turn a reading into a throw; the field
+      // stays null and the report says so.
+    }
+    return reading;
+  }
 
   function transportFor(placement) {
     if (transports.has(placement.node)) return transports.get(placement.node);
@@ -206,10 +278,116 @@ export function createNodePlacer({
     /**
      * Ask where the child should run. Throws `BrokerError` when the broker
      * cannot be asked; never returns a default node.
+     *
+     * AND BEFORE ASKING, READ THIS MACHINE (docs/mesh/109-pressure-routing.md).
+     * A saturated laptop must OFFER its work to the mesh rather than wait to be
+     * asked to: the broker places what it is offered, so a dispatcher that
+     * offers everything while its own machine is full is the reason the mesh sat
+     * idle on 2026-09-17. Three things happen here, in this order:
+     *
+     *   1. The reading is taken and recorded — always, whatever it says.
+     *   2. At or above the high line the local node is added to the broker's
+     *      `exclude` hint, so the mesh is asked to take the child. `exclude` is a
+     *      soft hint by the broker's own rule (`broker.js`: the caller's
+     *      exclusion yields when it is the only option), so this cannot make the
+     *      mesh refuse work it would otherwise take.
+     *   3. Above the critical line — commit at or above 92 % of physical AND less
+     *      than 1.5 GiB physical memory available — a LOCAL placement is refused.
+     *      If the broker cannot be reached at all, the refusal happens instead of
+     *      the call: mesh unreachable plus machine saturated has no good answer,
+     *      and piling the child on is the worst one.
      */
     async acquire({ id, childIndex } = {}) {
       const at = now();
-      const placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude });
+      const reading = measuredPressure();
+      const localIsDispatchable = thisNode !== undefined && NODES[thisNode] !== undefined;
+      // The pre-call verdict has no broker outcome yet, so `brokerReachable` is
+      // left unset: at this point the mesh is presumed available, and the
+      // refusal for "unreachable AND saturated" is decided in the catch below.
+      const preDecision = decidePressure(reading, { localNode: thisNode ?? null });
+      const routeAway = preDecision.routeAwayFromLocal === true && localIsDispatchable;
+      const askedExclude = routeAway ? [...new Set([...exclude, thisNode])] : exclude;
+
+      /**
+       * THE REFUSAL, BEFORE THE BROKER IS ASKED.
+       *
+       * Above the critical line the local option is not available, and a
+       * dispatch that reached the transport would run the child HERE. So it is
+       * refused before `POST /place`: no ssh is spent, and — the part that
+       * matters — no lease is issued that this process would then strand for its
+       * 900 s TTL by not dispatching.
+       *
+       * The message names the reading, both lines it crossed, and what to do
+       * instead. `test/pressure.test.mjs` asserts the broker is never called.
+       */
+      if (preDecision.refuse === true) {
+        let refused = preDecision;
+        // One bounded question, answered only because we are already refusing.
+        // This is the case the brief asks to decide explicitly, so the decision
+        // is stated in the error rather than left implied.
+        if (typeof meshCheck === 'function') {
+          let reachable;
+          let why;
+          try {
+            reachable = await meshCheck();
+          } catch (error) {
+            reachable = false;
+            why = error?.code ?? 'broker-error';
+          }
+          if (reachable === false) {
+            refused = decidePressure(reading, { localNode: thisNode ?? null, brokerReachable: false, brokerError: why });
+          }
+        }
+        ledger?.record(id, {
+          id,
+          state: 'pressure-refused',
+          code: refused.meshUnavailable ? MESH_UNAVAILABLE_LOCAL_SATURATED : LOCAL_PRESSURE_REFUSED,
+          pressure: reading ?? null,
+          pressureDecision: { ...refused, localNode: thisNode ?? null, excludedLocalNode: false, excludeSentToBroker: [], placedLocally: false },
+          pressureLine: describePressure(reading, refused),
+          refusedAt: new Date(at).toISOString(),
+        });
+        logger?.warn?.(`remote-fanout: child ${id} REFUSED before the broker was asked — ${refused.reason}`);
+        throw new PressureRefusalError(
+          refused.meshUnavailable ? MESH_UNAVAILABLE_LOCAL_SATURATED : LOCAL_PRESSURE_REFUSED,
+          `${refused.reason}; nothing was dispatched and no reservation was taken. Retry when this machine is under its high line`
+          + ` (${Math.round(HIGH_COMMIT_PHYSICAL_PCT * 100)} % of physical committed, docs/mesh/109-pressure-routing.md)`,
+          { pressure: reading ?? null, decision: refused },
+        );
+      }
+
+      let placement;
+      try {
+        placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExclude });
+      } catch (error) {
+        // THE CASE WITH NO GOOD ANSWER, DECIDED EXPLICITLY. The mesh cannot be
+        // asked and this machine is over its critical line. Refusing is the
+        // answer: the alternative is to dispatch a child this machine has no
+        // measured room for, which spends a real model turn to make the engine's
+        // own loop lag worse for every window the owner has open. Recorded, then
+        // re-thrown as a refusal that names both halves.
+        if (preDecision.refuse === true && preDecision.decision === 'refuse-local') {
+          const refused = decidePressure(reading, { localNode: thisNode ?? null, brokerReachable: false, brokerError: error?.code ?? 'broker-error' });
+          ledger?.record(id, {
+            id,
+            state: 'pressure-refused',
+            code: MESH_UNAVAILABLE_LOCAL_SATURATED,
+            pressure: reading ?? null,
+            pressureDecision: refused,
+            pressureLine: describePressure(reading, refused),
+            brokerError: String(error?.message ?? error),
+            refusedAt: new Date(at).toISOString(),
+          });
+          logger?.warn?.(`remote-fanout: child ${id} REFUSED — ${refused.reason}`);
+          throw new PressureRefusalError(MESH_UNAVAILABLE_LOCAL_SATURATED, `${refused.reason}; retry when the mesh answers again, or when this machine is under its high line again`, {
+            pressure: reading ?? null,
+            decision: refused,
+            cause: { code: error?.code ?? 'broker-error', message: String(error?.message ?? error) },
+          });
+        }
+        throw error;
+      }
+
       const facts = nodes[placement.node];
       if (facts === undefined) {
         throw new BrokerError(
@@ -218,6 +396,32 @@ export function createNodePlacer({
           { node: placement.node, known: nodeNames() },
         );
       }
+
+      /**
+       * THE BROKER NAMED THIS MACHINE, AND PRESSURE SAYS IT HAS NO ROOM.
+       *
+       * A refusal here would strand the lease the broker just issued (its TTL is
+       * 900 s), so this does not refuse. It dispatches and says so loudly: the
+       * disagreement between the reading and the placement is the fact a reader
+       * needs, and hiding it — either by silently overriding the broker or by
+       * silently obeying it — is the failure this whole seam exists to prevent.
+       * The broker's `rationale` explains why it chose what it chose.
+       */
+      const placedLocally = thisNode !== undefined && placement.node === thisNode;
+      const placedAgainstPressure = placedLocally && reading !== undefined && reading.band !== 'ok';
+      // With a placement in hand the verdict is final: "saturated and
+      // unreachable" cannot apply, because it was reached.
+      const decision = decidePressure(reading, { localNode: thisNode ?? null, brokerReachable: true });
+      const refusal = reading !== undefined && decision.refuse === true && placedLocally;
+      const pressureLine = reading === undefined
+        ? 'pressure NOT MEASURED — no reading was available, so this placement was decided exactly as it was before the check existed'
+        : describePressure(reading, decision);
+      const conflict = refusal
+        ? `LOCAL PLACEMENT AGAINST PRESSURE — the broker named this machine ("${placement.node}") while the machine is above its critical line; the child runs here anyway (the broker's own rule is refuse-never: it placed, and a refused placement would strand the lease), and this line is the record of the disagreement`
+        : placedAgainstPressure
+          ? `the broker placed this child on THIS machine ("${placement.node}") while the machine is in the "${reading.band}" band; the local node was offered to the broker as excluded, and it was chosen anyway`
+          : undefined;
+
       const record = {
         source: 'broker',
         id,
@@ -239,6 +443,17 @@ export function createNodePlacer({
         brokerAt: placement.at,
         brokerCallMs: placement.ms,
         state: placement.position > 0 ? 'queued' : 'placed',
+        // ── THE PRESSURE DECISION, ON THE RECORD ─────────────────────────────
+        // Whatever it decided: the reading, the band, the decision, whether the
+        // local node was offered as excluded, whether the broker chose local
+        // anyway, and one line a human reads. A change of behaviour that is not
+        // in this file did not happen.
+        pressure: reading ?? null,
+        pressureLine,
+        pressureDecision: { ...decision, localNode: thisNode ?? null, excludedLocalNode: routeAway, excludeSentToBroker: askedExclude, placedLocally },
+        excludedLocalNode: routeAway,
+        placedLocally,
+        ...(conflict === undefined ? {} : { pressureConflict: conflict }),
         facts: {
           command: facts.command,
           credentialEnvFiles: facts.credentialEnvFiles,
@@ -261,6 +476,11 @@ export function createNodePlacer({
         `remote-fanout: child ${id} placed on "${placement.node}" (${facts.ssh}) by the broker — `
         + `position ${placement.position}, score ${placement.score ?? '?'}, tier ${placement.tier ?? '?'}, lease ${placement.lease}`,
       );
+      logger?.info?.(`remote-fanout: child ${id} pressure — ${pressureLine}`);
+      if (reading !== undefined && reading.band !== 'ok') {
+        logger?.info?.(`remote-fanout: child ${id} pressure DECISION — ${decision.decision}: ${decision.reason}`);
+      }
+      if (conflict !== undefined) logger?.warn?.(`remote-fanout: child ${id} ${conflict}`);
       return record;
     },
 
