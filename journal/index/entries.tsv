@@ -1129,6 +1129,7 @@ lessons	L1925	1925		2026-09-17	ZABZ-YOGA	open	**L1925 · The untrusted-mount-poi
 lessons	L1926	1926		2026-09-17	ZABZ-YOGA	open	**L1926 · A profile check is evidence only for the logon class that ran it - --dump-config names no class**	entries/lessons/L1926.md	1	31	4e512c3b5c19282d
 lessons	L1927	1927		2026-09-17	ZABZ-YOGA	open	**L1927 · The journal id allocator now requires a reserved window -- and the first journal write on any machine will push**	entries/lessons/L1927.md	1	59	adad205d4b1b8795
 lessons	L1928	1928		2026-09-17	ZABZ-YOGA	open	**L1928 · Never build a commit on a ref you have not just read -- a journal append reverted origin/master by 1249 paths**	entries/lessons/L1928.md	1	68	c16ed71c79ff8431
+lessons	L1929	1929		2026-09-17	ZABZ-YOGA	open	**L1929 · A generated file that conflicts in a cherry-pick is the collision reappearing -- resolve it by regenerating, and prove the generator by diff**	entries/lessons/L1929.md	1	47	4067ec320191d1a7
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1557,6 +1558,7 @@ decisions	D254	254		2026-09-17	ZABZ-TECH	open	**D254 · 2026-09-17 · 82XM00LMUS
 decisions	D256	256		2026-09-17	ZABZ-YOGA	accepted	**D256 · 2026-09-17 · zabz-tech-linux v1 restored to true; the duplicate mesh-dispatch node table replaced by a view of the shared one.**	entries/decisions/D256.md	1	44	5bbbe33d2634bd31
 decisions	D257	257		2026-09-17	ZABZ-YOGA	open	**D257 · 2026-09-17 · Broker-driven placement is committed, and a row may never precede its code.**	entries/decisions/D257.md	1	34	d012c483152987e2
 decisions	D258	258		2026-09-17	ZABZ-YOGA	open	**D258 · 2026-09-17 · Repair the junction from inside ssh; refuse the restart; leave 106 uncommitted.**	entries/decisions/D258.md	1	32	d849d1648e624358
+decisions	D259	259		2026-09-17	ZABZ-YOGA	open	**D259 · 2026-09-17 · Correction: the allocator was replaced, not patched; and the fleet is four workstreams on isolated branches.**	entries/decisions/D259.md	1	63	69322fd90ae07ee0
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1731,3 +1733,4 @@ wins	W202	202		2026-09-17	ZABZ-YOGA	open	**W202 · 2026-09-17 · Broker-driven p
 wins	W203	203		2026-09-17	ZABZ-YOGA	open	**W203 · 2026-09-17 · The last wall: zabz-tech's self-ssh fixed with one key line, and the child's MESH-HOST line measured.**	entries/wins/W203.md	1	34	664d211ab5c998c6
 wins	W204	204		2026-09-17	ZABZ-YOGA	open	**W204 · 2026-09-17 · verify-alloc.py is the standing gate for the allocation rule.**	entries/wins/W204.md	1	6	7a74dbdce06532c0
 wins	W205	205		2026-09-17	ZABZ-YOGA	open	**W205 · 2026-09-17 · Append is local-only: it can no longer move any ref.**	entries/wins/W205.md	1	6	5bec35cdbdff5e52
+wins	W206	206		2026-09-17	ZABZ-YOGA	open	**W206 · 2026-09-17 · 2026-09-17 - A cross-tree landing is provable before it is pushed: one hash guard catches the whole class.**	entries/wins/W206.md	1	39	2e85befdce9fef91
