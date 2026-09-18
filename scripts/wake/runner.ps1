@@ -281,6 +281,15 @@ try {
     $psi.StandardErrorEncoding = New-Object System.Text.UTF8Encoding($false)
     if ($launch.Cwd -and (Test-Path -LiteralPath $launch.Cwd)) { $psi.WorkingDirectory = $launch.Cwd }
 
+    # THE RECURSION GUARD, armed where it counts. A woken session runs the same
+    # wake CLI, so a session that misunderstands its task could file a flag, which
+    # releases another session, which files another - unbounded, spending money,
+    # with only the daily cap between it and a fleet. wake.py refuses every flag
+    # when WAKE_SESSION is set; setting it here is what makes that guard real
+    # rather than theoretical. (Integration addition: the fleet built the refusal
+    # in the store but nothing set the variable for the session.)
+    $psi.EnvironmentVariables['WAKE_SESSION'] = '1'
+
     $proc = New-Object System.Diagnostics.Process
     $proc.StartInfo = $psi
     $null = $proc.Start()

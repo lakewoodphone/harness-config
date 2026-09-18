@@ -80,6 +80,18 @@ SSH_CMD=${WAKE_SSH_CMD:-ssh}
 SCP_CMD=${WAKE_SCP_CMD:-scp}
 CALLSIGN=${WAKE_CALLSIGN:-wake-dispatch@$(hostname -s 2>/dev/null || echo unknown)}
 
+# --- liveness -----------------------------------------------------------------
+# Write a heartbeat on EVERY run, including the quiet ones and including a run
+# that exits early because the queue is empty or the queue is paused. The owner
+# digest reads this file and reports the dispatcher's age, because the dangerous
+# state of an always-on system is not "a flag is pending" - it is the machinery
+# being DEAD, which is indistinguishable from peace unless something records that
+# it ran. (Integration addition: the fleet version took the heartbeat to mean the
+# lease heartbeat only, and deploying it as-is would have made the digest report
+# a healthy dispatcher as dead after 20 minutes - a false alarm is its own harm.)
+HEARTBEAT_FILE=${WAKE_HEARTBEAT_FILE:-$HOME/.sms-inbox/wake-heartbeat}
+date -Is > "$HEARTBEAT_FILE" 2>/dev/null || true
+
 # The desktop runner bounds itself inside our own bound, so a killed ssh cannot
 # leave a dsh session running on the desktop forever. It must stay strictly
 # smaller than the outer bound: with WAKE_TIMEOUT_SEC=30 the naive `-60` clamp
