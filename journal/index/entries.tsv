@@ -383,6 +383,7 @@ handoff	H476	476		2026-09-17 16:09 UTC	zabz-tech	open	## 2026-09-17 16:09 UTC ·
 handoff	H477	477		2026-09-17 16:10 UTC	ZABZ-TECH	open	## 2026-09-17 16:10 UTC · ZABZ-TECH · Unihertz Jelly Max (Moshe Orebin) - case pulled up; screen order reported but unidentified	entries/handoff/H477.md	1	21	3b2af67ca46190d0
 handoff	H478	478		2026-09-17 16:11 UTC	zabz-tech	open	## 2026-09-17 16:11 UTC · zabz-tech · Round 1: the live sync code was rescued off one disk, and the wrong-database exposure is closed at the source	entries/handoff/H478.md	1	122	b02e608f56842a26
 handoff	H479	479		2026-09-17 16:15 UTC	zabz-tech	open	## 2026-09-17 16:15 UTC · zabz-tech · Round 1 close: auto-merge to production is OFF, the digest now covers the corpus, and a false claim I had to correct	entries/handoff/H479.md	1	137	091f2bdd13574dad
+handoff	H535	535		2026-09-18 02:08 UTC	ZABZ-YOGA	open	## 2026-09-18 02:08 UTC · ZABZ-YOGA · Shlock: corpus fully synced from origin + the desktop, queue 80 closed by the owner accepting the retrofit, and the tarp layer rescued off a single unpushed working tree	entries/handoff/H535.md	1	29	18bf2e69ec502ca4
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1130,6 +1131,9 @@ lessons	L1926	1926		2026-09-17	ZABZ-YOGA	open	**L1926 · A profile check is evid
 lessons	L1927	1927		2026-09-17	ZABZ-YOGA	open	**L1927 · The journal id allocator now requires a reserved window -- and the first journal write on any machine will push**	entries/lessons/L1927.md	1	59	adad205d4b1b8795
 lessons	L1928	1928		2026-09-17	ZABZ-YOGA	open	**L1928 · Never build a commit on a ref you have not just read -- a journal append reverted origin/master by 1249 paths**	entries/lessons/L1928.md	1	68	c16ed71c79ff8431
 lessons	L1929	1929		2026-09-17	ZABZ-YOGA	open	**L1929 · A generated file that conflicts in a cherry-pick is the collision reappearing -- resolve it by regenerating, and prove the generator by diff**	entries/lessons/L1929.md	1	47	4067ec320191d1a7
+lessons	L1968	1968		2026-09-17	ZABZ-YOGA	open	**L1968 · A published artifact is not the repository, and a demo page must never carry a real person's number**	entries/lessons/L1968.md	1	53	02686f54542b5a8f
+lessons	L1969	1969		2026-09-17	ZABZ-YOGA	open	**L1969 · secretary-cf Cloudflare tunnel flaps (1 in 3 calls); use secretary-ts Tailscale for the authority**	entries/lessons/L1969.md	1	40	9545c3a4b7a17cf1
+lessons	L1970	1970		2026-09-17	ZABZ-YOGA	open	**L1970 · Owner notification channel went silent at the Twilio to Dialpad cutover - queue depth hid it**	entries/lessons/L1970.md	1	12	82c0fda630e60908
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1560,6 +1564,11 @@ decisions	D256	256		2026-09-17	ZABZ-YOGA	accepted	**D256 · 2026-09-17 · zabz-t
 decisions	D257	257		2026-09-17	ZABZ-YOGA	open	**D257 · 2026-09-17 · Broker-driven placement is committed, and a row may never precede its code.**	entries/decisions/D257.md	1	34	d012c483152987e2
 decisions	D258	258		2026-09-17	ZABZ-YOGA	open	**D258 · 2026-09-17 · Repair the junction from inside ssh; refuse the restart; leave 106 uncommitted.**	entries/decisions/D258.md	1	32	d849d1648e624358
 decisions	D259	259		2026-09-17	ZABZ-YOGA	open	**D259 · 2026-09-17 · Correction: the allocator was replaced, not patched; and the fleet is four workstreams on isolated branches.**	entries/decisions/D259.md	1	63	69322fd90ae07ee0
+decisions	D260	260		2026-09-17	ZABZ-YOGA	open	**D260 · 2026-09-17 · Shlock: the owner accepted the brace-and-through-bolt retrofit with the 40 mph deploy rule (queue 80 closed).**	entries/decisions/D260.md	1	18	d317b9a1df74bfac
+decisions	D261	261		2026-09-17	ZABZ-YOGA	open	**D261 · 2026-09-17 · A demo instance uses a reserved-fiction 555-0100..0199 number, enforced by publish.py --demo.**	entries/decisions/D261.md	1	25	468798a7e787e22a
+decisions	D262	262		2026-09-17	ZABZ-YOGA	open	**D262 · 2026-09-17 · Monitor fixed at the source: a dead collector was printing a confident 0.**	entries/decisions/D262.md	1	73	cf69fd9a641a8fd1
+decisions	D263	263		2026-09-17	ZABZ-YOGA	open	**D263 · 2026-09-17 · Fleet results: two briefs corrected by measurement, and the P0 root cause located to a shifted claim tree.**	entries/decisions/D263.md	1	87	8a7f586b4369f0d4
+decisions	D264	264		2026-09-17	ZABZ-YOGA	open	**D264 · 2026-09-17 · P204 RETRACTED: it does not reproduce in 13 runs; the lock error was my own recovery's.**	entries/decisions/D264.md	1	63	96d56930de4a78ba
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
