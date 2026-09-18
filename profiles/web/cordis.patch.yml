@@ -152,7 +152,17 @@
       # that file's entries are block style; the shape follows the container.
       # The trailing commas in this block are also load-bearing: a flow mapping
       # needs an explicit separator, and one is required after a flow sequence.
-      sshArgs: ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=10'],
+      # ConnectTimeout=10 WAS TOO TIGHT FOR A LOADED NODE. Measured 2026-09-18: with five children
+      # placed on one machine its sshd handshake stretched to 8,041 ms from this laptop, and the next
+      # dispatch hop against a 10 s limit died with `ssh_dispatch_run_fatal: Connection to
+      # 100.85.153.96 port 22: Connection timed out`, taking that child's whole turn with it -- the
+      # third child lost to a transport timeout in one day (journal P332), where the load that
+      # stretched the handshake was the fan-out itself.
+      #
+      # A SLOW HANDSHAKE IS NOT A DEAD NODE. 25 s tolerates the measured worst case with margin while
+      # still failing in bounded time, and it stays far below the 1800 s a child turn is allowed.
+      # Overridable per host with MESH_SSH_CONNECT_TIMEOUT.
+      sshArgs: ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=25'],
       remoteShell: !!js "process.env.MESH_REMOTE_SHELL ?? (process.platform === 'win32' ? 'powershell' : 'posix')",
       # THE EXECUTOR IS NAMED FIRST. A node with a `dsh` wrapper on PATH is
       # invoked BY NAME, because the wrapper is the only thing that sources the
