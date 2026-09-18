@@ -1406,6 +1406,7 @@ pain	P266	266		2026-09-17	ZABZ-YOGA	open	## P266 — Android worktrees fail Grad
 pain	P267	267		2026-09-17	ZABZ-YOGA	open	## P267 — Built-in web_search returns HTTP 402 for every session (DeepSeek balance empty)	entries/pain/P267.md	1	6	1061e724386b8713
 pain	P268	268		2026-09-17	ZABZ-YOGA	open	## P268 — The fleet has been unable to read or write any Dialpad office configuration since 2026-06-14 - the admin tooling replays a three-month-old captured session	entries/pain/P268.md	1	18	09c4ca1e917e0770
 pain	P269	269		2026-09-18	ZABZ-YOGA	open	## P269 — The mesh provider never tells the parent it has a child, so the Subagents UI can never show one - structural, not a config flag	entries/pain/P269.md	1	48	ad9b01d0402daddf
+pain	P270	270		2026-09-18	ZABZ-YOGA	open	## P270 — A browser page that survives an engine restart keeps a stale background-job list	entries/pain/P270.md	1	43	53e1329042c6e929
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
