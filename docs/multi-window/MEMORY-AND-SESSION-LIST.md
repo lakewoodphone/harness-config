@@ -339,8 +339,9 @@ profile mode, on the proxy being up, or on which model opened the window:
 
 Measured on a test window of my own on origin **3201**: 2 live connections sustained for 15 s while
 open, and a stable **0** within 3 s of a graceful `WM_CLOSE` — so `live > 0` is the signal, and a
-closed window does not linger. With the owner's five legacy windows open on `3099`, the union reads
-`3099`.
+closed window does not linger. With a *later* test window on **3202** and the owner's five legacy
+windows open on `3099`, one call read `{"ports":[3202],"live":{"3202":2}}`; the process-scan part of
+the union separately reported `3099` while those legacy windows were up.
 
 ### A window that dies now comes back
 
@@ -353,35 +354,89 @@ not connected yet is not reopened again. At most **2** windows are opened per ru
 for the next run and named in the transcript. `dshw health` now always prints what the pass saw:
 `windows: live origins [...]; registry-open-and-missing N; reopened M; held for the next run: ...`.
 
-Measured, raw counts from `windows.log`:
+Measured, raw counts from `windows.log` (each row is one run of `dshw health`, in order):
 
 | step | open events |
 |---|---|
-| two test windows open, `health` | 230 |
-| after health run 1 (slot 1 recorded open, no window) | **231** |
-| after health run 2 immediately after | **231** |
-| closed slot 2 by hand (`WM_CLOSE`), `health` | 231 → **232**, `[reopen] 2 (origin :3201)` |
-| `health` again immediately after | **232** |
-| after the 600 s cooldown, `health` run C | 232 → **233** (slot 1's cooldown had expired) |
-| `health` run D immediately after | **233** |
+| two test windows open, run 1 | 230 → **231** (slot 1: recorded open, no live window) |
+| run 2, immediately after | **231** (nothing) |
+| slot 2 closed by hand (`WM_CLOSE`), next run | 231 → **232**, `[reopen] 2 (origin :3201)` — exactly one |
+| run immediately after that | **232** (nothing) |
+| run C, after the 600 s cooldown | 232 → **233** (slot 1's cooldown had expired) |
+| run D, immediately after | **233** (nothing) |
+| slot closed with `dshw open -Slot 3` (not in the registry), run E | 233 → **235**, `reopened 2` (slots 1 and 2, both recorded open) |
+| both test windows closed, registry reconciled, after the cooldown: runs F and G | **235 → 235 → 235** (nothing, twice) |
 
-A second consecutive run never opens anything, and the set of open origins is stable across runs.
+A second consecutive run never opens anything, the count is stable across runs, and the set of open
+origins is stable across runs.
 
-### Two defects found while testing, both fixed
+### The re-enabled task, measured on its own schedule
 
-* **`dshw open <slot>` was broken outright.** `Get-SlotCfgByPortOrLabel` returned a `System.String`
-  (the selector itself), not a slot, so `Get-SlotOriginPort` died on `.index` under `Set-StrictMode`.
-  It now enumerates and returns a resolved slot from `Get-Slots`, and matches label, port and profile.
-* **`Open-SlotWindow` named `$slot.port` on the branch not taken**, which `Set-StrictMode` rejects on
-  a raw config row that has no `port` key at all; it uses `Get-Prop` now.
+`Enable-ScheduledTask` (not a re-register, so the action, trigger and settings are the originals it was
+born with: `wscript //B //NoLogo DSH_Window_Fleet_Watchdog.vbs`, interval `PT5M`,
+`MultipleInstances IgnoreNew`, `ExecutionTimeLimit PT15M`). State `Ready`, `LastTaskResult 0`. It had
+missed 9 runs while disabled and fired immediately on re-enable.
+
+Then 12 consecutive samples across three of its own firings — **00:12:14, 00:17:14, 00:22:14**:
+
+```
+00:12:20  opens=235  appWins320x=0  sharedProcs=0  lastTask=00:12:14 res=0  /open={"ports":[],"live":{}}
+00:17:30  opens=235  appWins320x=0  sharedProcs=0  lastTask=00:17:14 res=0  /open={"ports":[],"live":{}}
+00:22:40  opens=235  appWins320x=0  sharedProcs=0  lastTask=00:22:14 res=0  /open={"ports":[],"live":{}}
+```
+
+The open-event count never moved off **235** and no shared-profile browser process was left running —
+which is the outcome that matters most here, because "opens nothing when there is nothing to fix" is
+the half of this that was broken.
+
+### One real defect found while testing, and one false alarm I have to own
+
+* **`dshw open <slot>` was broken outright, and the cause was a NAME COLLISION.** PowerShell variable
+  names are case-INSENSITIVE, so `$slot` and the script's own `$Slot` parameter are the SAME variable.
+  The `'open'` dispatch branch began `$slot = $null` before parsing its selector, which therefore
+  blanked the selector: the next line reported `no slot matches ''` and the command exited 1 having
+  opened nothing. Every command whose job is to act on one named slot was affected when invoked as
+  `dshw open 3` / `dshw open -Slot 3`; `dshw new`, which takes no selector, worked, which is why it
+  went unnoticed. The branch now binds to `$slotCfg`, and `dshw open -Slot 3` was verified end to end:
+  `opened window for slot '3'`, a `windows.log` line `open slot=3 profile=w3 origin=3202 pid=5372`,
+  and `GET /__dshw/open` reading `{"ports":[3202],"live":{"3202":2}}`.
+* **`Open-SlotWindow` named `$slot.port` on the branch that `Set-StrictMode` evaluates even when it is
+  not taken**, and a raw config row has no `port` key at all in single mode, so that call died before
+  opening anything. It uses `Get-Prop` now. This one was reached through `dshw open`'s own path and is
+  a genuine hardening rather than a second bug in the same place.
+* **FALSE ALARM, recorded because it cost an hour and the reasoning is the lesson.** I first reported
+  that `Get-SlotCfgByPortOrLabel` "returned the selector string instead of a slot" and changed it, on
+  the strength of an isolated probe. The probe was wrong: I had loaded the launcher by dot-sourcing a
+  CUT COPY, and a script dot-sourced from inside a script resolves `$PSScriptRoot` to the COPY's
+  directory, so it read a *different* `windows.json` and returned rows for a fleet whose slots did not
+  match the selector. The function was never at fault. A probe that does not reproduce the production
+  call path is not evidence, and the fix for that is to probe the real entry point (which is what
+  finally located the `$slot`/`$Slot` collision) rather than to trust a convenient harness.
 
 ### What is still true, and what is not yet done
 
-* The registry holds **14 entries with `open: true`, 12 of them legacy `port: 3099`** rows that no
+* The registry holds **12 entries with `open: true`, all of them legacy `port: 3099`** rows that no
   single slot can claim. They are not recovered (guard 2) and they are not silently deleted; a
-  `dshw restore` would try to open all 14, and `restore` was deliberately **not** run — see §8.
+  `dshw restore` would try to open all 12, and `restore` was deliberately **not** run — see §8.
 * The owner's five on-screen windows are the legacy engine-port shape. The launcher cannot map them
   to slots, so it neither counts them per slot nor recovers them per slot.
+* **The two registry rows my own test windows created (`1 - main` on 3200, `2` on 3201) were marked
+  `open: false` afterwards**, which is the state those rows were in before the tests in the sense
+  that matters — no live window existed for either — so no later health run reopens a window that
+  belongs to a test rather than to the owner's working set.
+* **Window lifetime and the 23:13/23:21 pairs are still unexplained, and I am not going to guess.**
+  Observed twice: a shared-profile browser the launcher opened was gone within 3-5 minutes with
+  `exit_type = Normal`, no Crashpad dump and no Application-error event — a GRACEFUL close, not a crash.
+  Observed later: three of the owner's five legacy windows closed between 00:22 and 00:25, most likely
+  he closed them himself since he was awake, and the remaining two then held steady for seven minutes
+  with six origin connections on `3099` decaying to four. So some closes are real deaths and some are
+  the owner, and from outside this session I cannot yet tell them apart. Which call path opened the
+  23:13/23:21 pairs is likewise unidentified; `dshw health` is excluded by evidence (one transcript line
+  per run, no open between), and `dshw.exe` on PATH is the older build. The one candidate found in the
+  harness is `scripts/mesh-hygiene.ps1:824`, `CloseMainWindow()` on an explicit target list matched by
+  executable path — I could not confirm whether Edge is on that list. What is settled is the consequence:
+  because the liveness answer is now right in every shape, and because recovery is capped at one window
+  per slot per 600 s and at two per run, a window that dies is restored once instead of stampeding.
 
 ---
 
@@ -390,24 +445,49 @@ A second consecutive run never opens anything, and the set of open origins is st
 No reboot was taken. What was proven instead, with nothing opened:
 
 * **The registry and the restore plan agree.** Computed from `windows-registry.json` and
-  `windows.json` in a scratch copy (the real registry re-read afterwards and unchanged):
-  `restore` would open **14** windows — `1 - main:3200, 2:3201, 3:3202, 4:3203, 5:3204, 6:3205,
-  7:3206, 8:3207, 9:3208, 10:3209, 11:3210, 12:3211, 13 - auto:3212, 14 - auto:3213` — 14 because
-  the registry still remembers the pre-shared-profile working set.
+  `windows.json` in a scratch copy (the real registry re-read afterwards and unchanged), slot by slot
+  with each slot's origin port and profile:
+
+  | slot | origin | registry | recorded port | live? | `restore` would |
+  |---|---|---|---|---|---|
+  | `1 - main` | 3200 | open=true | 3200 | no | OPEN on :3200 |
+  | `2` | 3201 | open=true | 3201 | no | OPEN on :3201 |
+  | `3` … `12` | 3202 … 3211 | open=true | 3099 | no | OPEN on :3202 … :3211 |
+  | `13 - auto` | 3212 | open=true | 3099 | no | OPEN on :3212 |
+  | `14 - auto` | 3213 | open=true | 3099 | no | OPEN on :3213 |
+  | `15 - auto` | 3214 | — | — | no | nothing (not in the registry) |
+  | `16 - auto` | 3215 | — | — | no | nothing (not in the registry) |
+
+  That is the state at the time of the measurement. Afterwards, my two test rows (`1 - main`, `2`) were
+  set to `open: false` — see §7 — so a `restore` from the registry as it stands now would open **12**
+  windows, not 14, all of them in the shared `_shared` profile, all of them legacy rows whose recorded
+  port is `3099`. Every slot's resolved profile is `_shared` and every origin is `3200 + index`, read
+  from `windows.json` rather than assumed.
 * **The decision logic runs in isolation without opening anything.** `Invoke-WindowRecovery -DryRun`
-  against that same copied registry produced a plan and opened nothing (`windows.log` unchanged at
-  231 events, registry unchanged), and separately produced exactly two candidates (`1 - main` and
-  `2`) while skipping the twelve legacy rows on guard 2. That is the difference between the two
-  mechanisms in one number: `restore` opens what the registry remembers, **recovery** opens only what
-  the registry remembers *and* the liveness check confirms is gone.
+  against that same copied registry produced a plan and opened nothing (`windows.log` unchanged,
+  registry unchanged), and separately produced exactly two candidates (`1 - main` and `2`) while
+  skipping the twelve legacy rows on guard 2. That is the difference between the two mechanisms in one
+  number: `restore` opens what the registry remembers (**14** at measurement time), **recovery** opens
+  only what the registry remembers *and* the liveness check confirms is gone (**2**, and at most 2 per
+  run).
 * **`Resolve-WindowUrl` picks a token that answers.** The token the new test window was launched with
   (`--app=http://127.0.0.1:3201/?token=zUobELIIen-...`) is the one `Test-TokenAccepted` accepted
   against the live engine, which is the 303 answer — not the dead recorded token (pid 29116 / 13:45)
   that answered 401 while pid 4416 / 21:39 served the port.
 
+**AND THE ONE THING THAT IS ACTUALLY WRONG AT BOOT, found while answering this.** There is no
+automatic restore at logon, and there never was on this machine: the logon task `DSH Multi-Window
+Launcher` runs `dshw.ps1 up -WindowsMode no`, which starts the ENGINE and stops; `dshw-launch.cmd` — the
+file whose whole job is `ensure` then `restore` — is referenced by no task and no shortcut; and the
+desktop `DSH Windows.lnk` runs `dshw.cmd up`, not that file. So after a reboot the engine comes back and
+the windows do not, until someone runs `dshw restore` or double-clicks the OneDrive "DSH" shortcut.
+Changing it is a one-line change to the logon task's argument (`-WindowsMode no` → `-WindowsMode
+restore`), and it was NOT made here: with 12 stale legacy rows in the registry it would open 12 windows
+at once, and auto-restore-at-logon is a visible behaviour change that is the owner's to choose.
+
 **What a reboot alone would still test:** that Edge comes up with the shared `_shared` profile and
-opens all fourteen origins with the right geometry; that the launcher's restore path is reached with
-no engine running yet (`Get-PortOwner` false → `Ensure-Engine`); and that the browser's own
-`--user-data-dir` lock is free at logon, which is the one condition a running browser cannot be made
-to reproduce. Everything above was proven without one.
+opens the remembered origins with the right geometry; that the restore path is reached with no engine
+running yet (`Get-PortOwner` false → `Ensure-Engine`); and that the browser's own `--user-data-dir` lock
+is free at logon, which is the one condition a running browser cannot be made to reproduce. Everything
+above was proven without one.
 

@@ -15,11 +15,15 @@
       dshw restart            down, then up
       dshw status             per-slot truth: port listening, pid alive, window count
       dshw new                start + open the first unused slot (the "new window" button)
+      dshw restore            reopen exactly the windows that were open when DSH was last closed
+      dshw plan               show what `restore` would open and what the reconcile would forget,
+                              and change nothing (a dry run; no window, no proxy, no registry write)
       dshw open <slot>        open (or focus) a window for an already-running slot
       dshw stop <slot>        stop one slot
       dshw restart <slot>     restart one slot
       dshw logs <slot>        tail that slot's log
-      dshw autostart on|off   register/remove the logon task that runs: dshw up -Windows auto
+      dshw autostart on|off   register/remove the logon task that runs: dshw up -WindowsMode restore
+                              (engine, then the remembered windows - see Invoke-Autostart)
       dshw doctor             verify prerequisites and report exactly what is missing
 
     Exit codes: 0 ok, 1 nothing to do / partial, 2 bad usage, 3 precondition failed.
@@ -27,7 +31,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'restore', 'ensure', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'tasks-export', 'tasks-import', 'doctor', 'help')]
+    [ValidateSet('up', 'down', 'restart', 'status', 'windows', 'new', 'restore', 'plan', 'ensure', 'open', 'stop', 'logs', 'health', 'autostart', 'watchdog', 'tasks-export', 'tasks-import', 'doctor', 'help')]
     [string]$Command = 'status',
 
     [Parameter(Position = 1)]
@@ -44,7 +48,10 @@ param(
     # when starting the fleet from an agent/tool session rather than a real terminal.
     [switch]$Detached,
     [switch]$Json,
-    [switch]$Force
+    [switch]$Force,
+    # `dshw plan` / `dshw restore -DryRun`: report the restore and reconcile plan and change nothing.
+    # It is what makes the logon-restore decision testable without rebooting (WINDOW-KILLER.md 12).
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
@@ -1198,17 +1205,14 @@ function Get-WindowCount($slotCfg, $table = $null) {
 }
 
 function Get-SlotCfgByPortOrLabel([string]$selector) {
-    # RETURNS A RESOLVED SLOT, AND THAT IS A FIX RATHER THAN A STYLE CHOICE (measured 2026-09-18).
-    # This function used to `return $s` from inside a `foreach`, and what came back was a
-    # `System.String` - the selector itself, "2" - not a slot. Everything downstream then failed
-    # under `Set-StrictMode -Version Latest` with "The property 'index' cannot be found on this
-    # object", which is how `dshw open <slot>` died before opening anything: the entire `open`
-    # command was broken, and so was `stop <slot>`.
+    # Matches by port, label OR profile, and always returns a slot from the one canonical source
+    # (`Get-Slots`) - so callers get `index`, which `Get-SlotOriginPort` needs.
     #
-    # The repair is to enumerate explicitly and return an object from the ONE canonical source
-    # (`Get-Slots`), plus match the profile as well as the port and the label. Verified after the
-    # change: `dshw open 2` returns a slot with props label,profile,workspace,enabled,port,index,
-    # position,size and opens the window on that slot's origin.
+    # THE `open` COMMAND USED TO DIE HERE WITH "The property 'index' cannot be found on this
+    # object", and the cause was NOT this function: the dispatch block did `$slot = $null` before
+    # calling it, and PowerShell variable names are case-insensitive, so that assignment cleared the
+    # `$Slot` PARAMETER - the selector was already an empty string by the time it arrived. See the
+    # `'open'` branch. This function is only here to be the single place a selector becomes a slot.
     if (-not $selector) { return $null }
     foreach ($s in @(Get-Slots)) {
         if ("$($s.port)" -eq $selector -or "$($s.label)" -eq $selector -or "$($s.profile)" -eq $selector) {
@@ -1460,89 +1464,326 @@ function Save-WindowRegistry($map) {
     [System.IO.File]::WriteAllText($path, $json, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-function Set-WindowRegistryEntry($map, [string]$key, [bool]$open, [string]$port) {
-    $map[$key] = [pscustomobject]@{
-        open     = $open
-        port     = $port
-        at       = (Get-Date).ToString('o')
+# The interval, in seconds, between the two readings that must BOTH come back negative before the
+# reconciler marks a remembered window closed. Stated once, here, because "two consecutive negatives"
+# means nothing without a number, and the number is written into the row's own evidence.
+$WindowPruneConfirmSeconds = 15
+
+# ── `closedBy`: THE FIELD THAT SEPARATES A GUESS FROM A DECISION (2026-09-18) ────────────────────
+#
+# Before this field, `open: false` meant two incompatible things at once -- "the owner closed this"
+# and "the launcher measured it missing at this instant" -- and no reader could tell which, which is
+# how the 00:01:59 prune (rows `1 - main` and `2`, closed on ONE empty reading, after which
+# Invoke-WindowRecovery's guard 1 short-circuited forever) read exactly like a deliberate decision.
+# The vocabulary is fixed and every closure from now on carries it:
+#
+#   prune     - the launcher's own reconciler. An INFERENCE from two confirmed negative readings, or
+#               from a recorded port the slot can no longer have. NOT a decision: read `evidence`
+#               and `confirmations` before believing it.
+#   reconcile - a person or an agent proved the row dead by a stronger rule and said so in `why`
+#               (the 2026-09-18 window-killer reconcile wrote twelve rows this way).
+#   owner     - the owner closed it deliberately. NOTHING in this script can infer this; the value
+#               is only ever written by an explicit, human-authored edit of the registry.
+#   unknown   - written by an older version, which recorded no provenance. Treat as a guess.
+#
+# AND THE WRITE MERGES RATHER THAN REPLACES. The previous version rebuilt the entry object from
+# scratch on every call, so `why`, `reconciledBy` and `wasOpenAt` -- the fields the reconcile and the
+# hunt wrote by hand -- were silently destroyed the next time the launcher touched that row.
+function Set-WindowRegistryEntry {
+    param(
+        $map, [string]$key, [bool]$open, [string]$port,
+        [string]$ClosedBy = '', [string]$Evidence = '', [int]$Confirmations = 0, [string]$Why = ''
+    )
+    $now = (Get-Date).ToString('o')
+    $prev = $map[$key]
+    $entry = [ordered]@{}
+    if ($prev) { foreach ($p in $prev.PSObject.Properties) { $entry[$p.Name] = $p.Value } }
+    if ($open) {
+        $entry['open'] = $true
+        $entry['port'] = $port
+        $entry['at'] = $now
+        # open again: the closure record describes a past state, so it is not carried forward
+        foreach ($f in 'closedBy', 'closedAt', 'evidence', 'confirmations', 'rule') {
+            if ($entry.Contains($f)) { $entry.Remove($f) }
+        }
+    } else {
+        # keep the timestamp of the state being replaced -- it is the only record of when the window
+        # was last known open, and the old code overwrote it on the way out
+        if ($prev -and -not $entry.Contains('wasOpenAt')) {
+            $wasAt = Get-Prop $prev 'at'
+            if ($wasAt) { $entry['wasOpenAt'] = [string]$wasAt }
+        }
+        $entry['open'] = $false
+        $entry['port'] = $port
+        $entry['at'] = $now
+        $entry['closedAt'] = $now
+        $entry['closedBy'] = if ($ClosedBy) { $ClosedBy } else { 'unknown' }
+        if ($Evidence) { $entry['evidence'] = $Evidence }
+        if ($Confirmations -gt 0) { $entry['confirmations'] = $Confirmations }
+        if ($Why) { $entry['why'] = $Why }
     }
+    # NOTE: build the object from this dictionary and never by assigning a new property afterwards.
+    # A PSCustomObject made this way is not extensible -- `$obj.newField = x` throws "the property
+    # cannot be found" -- so every field a row can ever carry has to be decided here. That is why
+    # `why` is a parameter and not a line in the caller.
+    $map[$key] = [pscustomobject]$entry
 }
 
-# Reconcile the registry with reality: a slot recorded as open whose window is gone was
-# closed by the owner, so it stops being part of the working set.
-function Sync-WindowRegistry($state) {
+# ── THE ONE RECONCILER. IT IS CALLED, NOT DECORATION, AND IT NEEDS MORE THAN ONE NEGATIVE ────────
+#
+# THIS FUNCTION WAS DEAD CODE UNTIL 2026-09-18: nothing called it, while the only reconciliation that
+# ever ran was an inline prune inside `Invoke-Restore` that marked a window closed on a SINGLE empty
+# reading (WINDOW-KILLER.md §7A/§7B). That inline prune is retired and this function is now the only
+# thing in the launcher that ever closes a remembered row: `restore` and `health` both call it, and
+# `dshw plan` prints exactly what it would do without doing it.
+#
+# WHY ONE READING IS NOT ENOUGH. `Get-WindowCount` unions two legs -- the proxy's per-port live
+# connection count, and a process scan keyed on `--app=http://127.0.0.1:<port>`. Measured 2026-09-18
+# (§6C): in a shared profile only the FIRST window of a browser carries that origin in a live command
+# line; every later window is handed off invisibly to the same browser process. So for every origin
+# except a profile's first, the proxy leg is load-bearing, and a live window whose page is momentarily
+# not connected is invisible to BOTH legs. One empty reading is therefore a whole class of false
+# negative, and on 2026-09-18 at 00:01:59 exactly one such reading pruned rows `1 - main` and `2` --
+# after which Invoke-WindowRecovery's guard 1 short-circuited forever and the reopen loop ended
+# because the REGISTRY had been pruned, not because the windows had stopped dying.
+#
+# TWO RULES, EACH REQUIRING THE EVIDENCE IT ACTUALLY NEEDS:
+#
+#   rule=port-mismatch -- NO liveness reading at all. The port recorded in the row is not the origin
+#                         this slot has now, so no window this launcher can open will ever match that
+#                         row again: Invoke-WindowRecovery's guard 2 can never fire on it, and a
+#                         restore would reopen it on an origin it was never opened with. This is the
+#                         class the hunt had to close TWELVE rows of BY HAND on 2026-09-18; it needs
+#                         no inference, so no false negative is possible. Recorded as closedBy
+#                         =reconcile -- a rule, not a guess.
+#
+#   rule=two-confirmed-negatives -- two readings of the same slot separated by at least $ConfirmSeconds,
+#                         the second taken FRESH with every memo dropped (two reads of one cached set
+#                         is ONE reading with extra steps, i.e. the 00:01:59 bug wearing a disguise).
+#                         Both must be negative AND the origins proxy must have answered at both,
+#                         because a negative taken while the proxy is restarting -- measured at
+#                         23:11:48 that night -- is single-legged and proves nothing. Recorded as
+#                         closedBy=prune: an INFERENCE, and it says so in the row.
+#
+# Callers may pass -Skip. A key the current run just opened has had no chance to connect yet, and "it
+# did not connect in the milliseconds since we launched it" is not evidence that it is not there.
+function Sync-WindowRegistry {
+    param($state, [switch]$DryRun, [string[]]$Skip = @(), [int]$ConfirmSeconds = 15)
     $map = Get-WindowRegistry
     $slots = Get-Slots
+    $legs1 = Get-OriginLiveLegs
     $procTable = Get-WindowProcs
-    $changed = $false
+
+    # A census, so the closedBy vocabulary has a reader: how many closed rows are a decision, how many
+    # are this launcher's own inference, and how many predate the field and cannot be attributed.
+    $attrib = [pscustomobject]@{ prune = 0; decision = 0; unattributed = 0 }
+    foreach ($prop in @($map.Keys)) {
+        $e = $map[$prop]
+        if ((Get-Prop $e 'open') -ne $false) { continue }
+        $by = [string](Get-Prop $e 'closedBy')
+        if ($by -eq 'prune') { $attrib.prune++ }
+        elseif ($by -or (Get-Prop $e 'why') -or (Get-Prop $e 'reconciledBy')) { $attrib.decision++ }
+        else { $attrib.unattributed++ }
+    }
+
+    $report = [pscustomobject]@{
+        considered = 0; closed = 0; mismatched = 0; spared = 0; unconfirmed = 0
+        dryRun = [bool]$DryRun; proxyUp = [bool]$legs1.proxyUp
+        intervalSeconds = $ConfirmSeconds; attribution = $attrib; details = @()
+    }
+
+    $candidates = @()
     foreach ($slot in $slots) {
         $key = Get-SlotRegistryKey $slot
         $entry = $map[$key]
         if (-not $entry) { continue }
-        if ($entry.open -eq $false) { continue }
-        $live = (Get-WindowCount $slot $procTable) -gt 0
-        if (-not $live) {
-            Set-WindowRegistryEntry $map $key $false (Get-SlotOriginPort $slot)
-            $changed = $true
+        if ((Get-Prop $entry 'open') -ne $true) { continue }
+        $origin = [int](Get-SlotOriginPort $slot)
+        $recorded = 0
+        try { $recorded = [int](Get-Prop $entry 'port') } catch { $recorded = 0 }
+
+        if ($recorded -ne $origin) {
+            $ev = "rule=port-mismatch; recorded={0}; slot-origin={1}; no liveness reading was used" -f $recorded, $origin
+            $report.closed++; $report.mismatched++
+            $report.details += ("closed: {0} - {1}" -f $key, $ev)
+            if (-not $DryRun) {
+                Set-WindowRegistryEntry $map $key $false ([string]$origin) -ClosedBy 'reconcile' -Evidence $ev `
+                    -Why "recorded port $recorded is not this slot's origin $origin, so no window the launcher can open can ever match this row"
+            }
+            continue
+        }
+
+        if ($Skip -contains $key) { continue }
+        if ((Get-WindowCount $slot $procTable) -gt 0) { continue }
+        $candidates += [pscustomobject]@{
+            key = $key; origin = $origin; slot = $slot
+            proxy1 = [bool]($legs1.proxy -contains $origin)
+            scan1  = [bool]($legs1.scan  -contains $origin)
         }
     }
-    if ($changed) { Save-WindowRegistry $map }
-    return $map
+    $report.considered = $candidates.Count
+
+    if ($candidates.Count -gt 0) {
+        # A NEGATIVE FROM A LEG THAT DID NOT ANSWER IS NOT A NEGATIVE. With origins enabled the proxy
+        # leg is load-bearing (see the header), so if the proxy is not answering then nothing here may
+        # be closed: the row is left exactly as it is and reported, once, as unconfirmed.
+        if ($legs1.originsEnabled -and -not $legs1.proxyUp) {
+            $report.unconfirmed = $candidates.Count
+            $report.details += @($candidates | ForEach-Object {
+                "unconfirmed: {0} origin :{1} - the origins proxy was not answering, so this negative is single-legged and was NOT acted on" -f $_.key, $_.origin })
+        } else {
+            $t1 = Get-Date
+            Start-Sleep -Seconds $ConfirmSeconds
+            $legs2 = Get-OriginLiveLegs -Fresh
+            $t2 = Get-Date
+            $procTable2 = Get-WindowProcs
+            $interval = [int][math]::Round(($t2 - $t1).TotalSeconds)
+            foreach ($c in $candidates) {
+                if (((Get-WindowCount $c.slot $procTable2) -gt 0) -or ($legs2.union -contains $c.origin)) {
+                    # IT WAS THERE AFTER ALL. The single reading that would have forgotten it was a
+                    # false negative, which is precisely what this rule exists to survive.
+                    $report.spared++
+                    $report.details += ("spared: {0} origin :{1} - answered the second reading {2}s later" -f $c.key, $c.origin, $interval)
+                    continue
+                }
+                $a1 = if ($c.proxy1) { 'yes' } else { 'no' }
+                $a2 = if ($legs2.proxy -contains $c.origin) { 'yes' } else { 'no' }
+                $b1 = if ($c.scan1)  { 'yes' } else { 'no' }
+                $b2 = if ($legs2.scan  -contains $c.origin) { 'yes' } else { 'no' }
+                $ev = ("rule=two-confirmed-negatives; confirmations=2; interval={0}s; r1={1}; r2={2}; " +
+                       "legA(proxy)={3}/{4}; legB(procscan)={5}/{6}; proxyAnswered=yes") -f `
+                      $interval, $t1.ToString('o'), $t2.ToString('o'), $a1, $a2, $b1, $b2
+                $report.closed++
+                $report.details += ("closed: {0} origin :{1} - {2}" -f $c.key, $c.origin, $ev)
+                if (-not $DryRun) {
+                    Set-WindowRegistryEntry $map $c.key $false ([string]$c.origin) -ClosedBy 'prune' -Evidence $ev -Confirmations 2
+                }
+            }
+        }
+    }
+
+    if ($report.closed -gt 0 -and -not $DryRun) { Save-WindowRegistry $map }
+    return $report
+}
+
+# One line for the closedBy census, so the field that separates a guess from a decision is READ
+# somewhere instead of merely written. A closure this launcher inferred and a closure a person
+# decided look identical in `open: false`, and telling them apart is the whole point of the field.
+function Format-RegistryCensus($attrib) {
+    if (-not $attrib) { return '' }
+    return ("closed rows: {0} inferred by this launcher (closedBy=prune), {1} recorded as a decision, {2} unattributed (written before the field existed)" -f `
+        $attrib.prune, $attrib.decision, $attrib.unattributed)
 }
 
 function Invoke-Restore {
-    # Reopen every window that was open when DSH was last closed, and nothing else. A window
-    # the owner closed on purpose stays closed because the registry marks it `open: false`.
-    [void](Ensure-OriginsProxy)
+    param([switch]$DryRun)
+    # Reopen every window that was open when DSH was last closed, and nothing else. A window the owner
+    # closed on purpose stays closed because the registry marks it `open: false`.
+    #
+    # -DryRun (added 2026-09-18) REPORTS what this would open and what the reconciler would forget,
+    # and writes nothing, opens nothing, and does not start the origins proxy. It exists because the
+    # LOGON PATH WAS CHANGED TO RESTORE (WINDOW-KILLER.md 12) and the only way to exercise that
+    # decision without rebooting a machine the owner is working on is to ask for the plan. `dshw plan`
+    # is the CLI surface for it; a dry-run path nothing can reach would be this file's own disease.
+    if (-not $DryRun) { [void](Ensure-OriginsProxy) }
     $state = Get-State
     $slots = Get-Slots
-    # NOTE: no reconciliation here. A restore runs at startup, when every window is by
-    # definition closed, so 'the window is gone' would mark the whole working set closed and
-    # the restore would find nothing to do (observed 2026-09-11). The registry is the record
-    # of the last working set; only an explicit close or a later reconcile changes it.
+    # NOTE: no reconciliation BEFORE the reopen. A restore runs at startup, when every window is by
+    # definition closed, so 'the window is gone' would mark the whole working set closed and the
+    # restore would find nothing to do (observed 2026-09-11). The registry is the record of the last
+    # working set; only the CONFIRMED reconcile after the reopen narrows it.
     $map = Get-WindowRegistry
     $wanted = @($slots | Where-Object { $k = Get-SlotRegistryKey $_; $map.ContainsKey($k) -and $map[$k].open -eq $true })
+
     if ($wanted.Count -eq 0) {
+        $first = $slots | Where-Object { $_.enabled } | Select-Object -First 1
+        if ($DryRun) {
+            Write-Host "restore plan: no window is remembered as open, so a restore opens exactly one - the first enabled slot:"
+            if ($first) { Write-Host ("  [would open]  {0} (origin :{1})" -f $first.label, (Get-SlotOriginPort $first)) }
+            else { Write-Host "  [would open]  nothing - no slot is enabled" }
+            $rec = Sync-WindowRegistry $state -DryRun -ConfirmSeconds $WindowPruneConfirmSeconds
+            Write-Host ("  [reconcile]   considered {0} recorded-open slot(s): would forget {1}, spare {2}, unconfirmed {3}" -f `
+                $rec.considered, $rec.closed, $rec.spared, $rec.unconfirmed)
+            Write-Host ("  [registry]    {0}" -f (Format-RegistryCensus $rec.attribution))
+            return
+        }
         # nothing remembered: this is a first run, so give the owner one window rather than none
         Write-Host "no remembered windows; opening the first slot"
-        $first = $slots | Where-Object { $_.enabled } | Select-Object -First 1
         if ($first) { [void](Open-SlotWindow $first $state); Set-WindowRegistryEntry $map (Get-SlotRegistryKey $first) $true (Get-SlotOriginPort $first); Save-WindowRegistry $map }
         return
     }
+
     $procTable = Get-WindowProcs
     $opened = 0
+    $skip = @()
+    $alreadyLive = @()
     foreach ($slot in $wanted) {
-        if ((Get-WindowCount $slot $procTable) -gt 0) { continue }
+        $k = Get-SlotRegistryKey $slot
+        if ((Get-WindowCount $slot $procTable) -gt 0) { $alreadyLive += $k; continue }
+        if ($DryRun) {
+            Write-Host ("  [would open]  {0} (origin :{1})" -f $slot.label, (Get-SlotOriginPort $slot))
+            $opened++; $skip += $k
+            continue
+        }
         try {
             [void](Open-SlotWindow $slot $state)
             $opened++
+            $skip += $k
             Write-Host ("  [open]  {0}" -f $slot.label) -ForegroundColor Green
         } catch {
+            # A FAILED LAUNCH IS NOT EVIDENCE THAT THE OWNER CLOSED THE WINDOW. Keep the row so the
+            # recovery loop retries it: a transient launch fault must not silently forget a window.
+            $skip += $k
             Write-Host ("  [WARN] could not reopen '{0}': {1}" -f $slot.label, $_.Exception.Message) -ForegroundColor Yellow
         }
     }
 
-    # KEEP THE SET TIGHT. This runs after the reopen and marks closed any recorded window that
-    # is not live now, so the next restore reopens only what is actually on screen. Earlier
-    # versions opened first and reconciled afterwards, which is how three closed windows came
-    # back: the reopen happened before the prune could narrow the set.
-    $procTable = Get-WindowProcs
-    $pruned = 0
-    foreach ($slot in $slots) {
-        $k = Get-SlotRegistryKey $slot
-        if (-not $map.ContainsKey($k)) { continue }
-        if ($map[$k].open -ne $true) { continue }
-        if ((Get-WindowCount $slot $procTable) -gt 0) { continue }
-        Set-WindowRegistryEntry $map $k $false (Get-SlotOriginPort $slot)
-        $pruned++
+    if ($DryRun) {
+        Write-Host ("restore plan: {0} remembered window(s) - would open {1}, {2} already live ({3})" -f `
+            $wanted.Count, $opened, $alreadyLive.Count, ($alreadyLive -join ', '))
+        $rec = Sync-WindowRegistry $state -DryRun -Skip $skip -ConfirmSeconds $WindowPruneConfirmSeconds
+        Write-Host ("  [reconcile]   considered {0} recorded-open slot(s): would forget {1} ({2} of them on a port no window can match any more), spare {3}, unconfirmed {4}" -f `
+            $rec.considered, $rec.closed, $rec.mismatched, $rec.spared, $rec.unconfirmed)
+        Write-Host ("  [registry]    {0}" -f (Format-RegistryCensus $rec.attribution))
+        foreach ($d in @($rec.details)) { Write-Host ("    {0}" -f $d) }
+        return
     }
-    if ($pruned -gt 0) { Save-WindowRegistry $map; Write-Host ("restore: forgot {0} window(s) you had closed" -f $pruned) }
+
+    # KEEP THE SET TIGHT, BUT NEVER ON ONE READING. This used to be an inline prune that marked a row
+    # closed whenever a SINGLE liveness measurement came back empty, and at 00:01:59 on 2026-09-18
+    # that is exactly what it did: rows `1 - main` and `2` went to open:false on one false negative,
+    # Invoke-WindowRecovery's guard 1 then short-circuited forever, and the reopen loop ended because
+    # the REGISTRY had been pruned rather than because the windows had stopped dying (7A). The rule
+    # now lives in ONE place - Sync-WindowRegistry - which requires two FRESH negatives
+    # $WindowPruneConfirmSeconds apart with the proxy answering, and which records which reading
+    # closed the row and whether the row's port can even match a window now.
+    #
+    # AND NOTE WHAT THAT LEAVES FOR `restore`, because it is deliberate and it is not dead code:
+    # every slot this run touched is passed as -Skip, and "touched" is every remembered row that was
+    # not already live - which is precisely the whole class rule 2 could ever act on. So in `restore`
+    # rule 2 has no candidates BY CONSTRUCTION, and the only thing it can close is rule 1, the
+    # port-mismatch reconcile, which needs no liveness reading and therefore cannot be a false
+    # negative. That division is the point: the confirmed-negative rule belongs to `health`, which
+    # runs every five minutes over a machine in steady state and can honestly say "it was there last
+    # tick and it is not there now", while `restore` is running three tenths of a second after it
+    # launched the very windows a liveness test would be asked about. A window we could not launch is
+    # a fault to retry, not a window the owner closed.
+    $rec = Sync-WindowRegistry $state -Skip $skip -ConfirmSeconds $WindowPruneConfirmSeconds
+    # the reconciler saved its own copy of the registry; re-read it, or the record pass below would
+    # write the stale map back over the closures it just made
+    $map = Get-WindowRegistry
+    if ($rec.closed -gt 0) {
+        Write-Host ("restore: forgot {0} window(s) - {1} confirmed gone by two readings {2}s apart, {3} on a port no window can match any more" -f `
+            $rec.closed, ($rec.closed - $rec.mismatched), $WindowPruneConfirmSeconds, $rec.mismatched)
+    }
+    if ($rec.spared -gt 0) { Write-Host ("restore: kept {0} window(s) that answered the second reading - one negative would have forgotten them" -f $rec.spared) }
+    if ($rec.unconfirmed -gt 0) { Write-Host ("restore: left {0} row(s) alone - the origins proxy was not answering, so a negative could not be trusted" -f $rec.unconfirmed) -ForegroundColor Yellow }
     Write-Host ("restore: {0} of {1} remembered window(s) reopened" -f $opened, $wanted.Count)
 
-    # Record what is on screen NOW as the working set. Restore is the only moment the set is
-    # known to be complete and correct, so it is where the record is written; a window closed
-    # afterwards is marked closed by the prune on the next restore. Together those two make
-    # "reopen what I had" true without a background watcher.
+    # Record what is on screen NOW as the working set. Restore is the only moment the set is known to
+    # be complete and correct, so it is where the record is written; a window closed afterwards is
+    # caught by the next confirmed reconcile. Together those make "reopen what I had" true without
+    # ever acting on a single negative reading.
     Start-Sleep -Seconds 3
     $procTable = Get-WindowProcs
     foreach ($slot in $slots) {
@@ -1666,40 +1907,61 @@ function Get-EnginePortWindowCount($table = $null) {
     return $(if ($map.ContainsKey($p)) { [int]$map[$p] } else { 0 })
 }
 
-function Get-OpenOriginPorts {
-    if ($null -ne $script:OpenOriginCache) { return $script:OpenOriginCache }
-    $found = @()
+# ── THE LEGS, KEPT SEPARATE, BECAUSE THE RECONCILER HAS TO KNOW WHICH ONE ANSWERED ────────────────
+#
+# Get-OpenOriginPorts answers "is this origin live?", and that is all most callers need. The reconciler
+# needs one thing more: WHICH legs produced the negative, and whether the proxy leg was reachable at
+# all. Measured 2026-09-18 (§6C): only the FIRST window of a shared-profile browser carries
+# `--app=<origin>` in a live command line, so for every other origin the proxy's per-port connection
+# count is load-bearing -- and a negative taken while the proxy is restarting (measured 23:11:48 that
+# night) is single-legged, i.e. it proves nothing at all.
+function Get-OriginLiveLegs {
+    param([switch]$Fresh)
+    if ($Fresh) {
+        # DROP EVERY MEMO. Two reads of one cached set is ONE reading with extra steps, and a
+        # "two consecutive negatives" rule built on the cache would have re-created the 00:01:59 bug
+        # while looking exactly like a safeguard.
+        $script:OriginsAlive = $null
+        $script:OriginLiveMap = $null
+        $script:OpenOriginCache = $null
+        $script:OriginLiveLegsCache = $null
+    }
+    if ($null -ne $script:OriginLiveLegsCache) { return $script:OriginLiveLegsCache }
 
-    # A - ask the proxy. It answers with its own requesting connection excluded, so the probe cannot
-    # report itself as a window (measured previously: `openPorts:[3200]` with every window closed).
-    if ((Test-OriginsEnabled) -and (Test-OriginsProxy -Quiet)) {
+    $originsEnabled = [bool](Test-OriginsEnabled)
+    $proxyUp = $false
+    $proxyPorts = @()
+    if ($originsEnabled -and (Test-OriginsProxy -Quiet)) {
+        $proxyUp = $true
         $a = Get-OriginsArgs
+        # A - ask the proxy. It answers with its own requesting connection excluded, so the probe
+        # cannot report itself as a window (measured previously: `openPorts:[3200]` with every window
+        # closed).
         $client = $null
         try {
             $client = [System.Net.Http.HttpClient]::new()
             $client.Timeout = [TimeSpan]::FromSeconds(4)
             $txt = $client.GetStringAsync("http://127.0.0.1:$($a.basePort)/__dshw/open").GetAwaiter().GetResult()
-            $ports = @(($txt | ConvertFrom-Json).ports)
-            if ($ports.Count -gt 0) { $found = @($found + $ports) }
+            $proxyPorts = @(@(($txt | ConvertFrom-Json).ports) | ForEach-Object { [int]$_ })
         } catch { } finally { if ($client) { $client.Dispose() } }
 
-        # THE FIRST SAMPLE CAN MISS A WINDOW THAT IS STILL CONNECTING. A window is only visible
-        # through A once its page has loaded and opened a streaming connection on its origin, which
-        # is one to several seconds after the launch - and `new`/`restore` ask this question
-        # immediately after the previous open returned. Two more samples 600 ms apart close that
-        # window instead of widening the answer with an invented grace period. Only paid when the
-        # first sample is empty, so the settled case stays at one HTTP call.
-        if ($found.Count -eq 0) {
+        # THE FIRST SAMPLE CAN MISS A WINDOW THAT IS STILL CONNECTING. A window is only visible through
+        # A once its page has loaded and opened a streaming connection on its origin, which is one to
+        # several seconds after the launch - and `new`/`restore` ask this question immediately after
+        # the previous open returned. Two more samples 600 ms apart close that window instead of
+        # widening the answer with an invented grace period. Only paid when the first sample is empty,
+        # so the settled case stays at one HTTP call.
+        if (@($proxyPorts).Count -eq 0) {
             foreach ($n in 1..2) {
                 Start-Sleep -Milliseconds 600
-                if (-not (Test-OriginsProxy -Quiet -Fresh)) { break }
+                if (-not (Test-OriginsProxy -Quiet -Fresh)) { $proxyUp = $false; break }
                 $c2 = $null
                 try {
                     $c2 = [System.Net.Http.HttpClient]::new()
                     $c2.Timeout = [TimeSpan]::FromSeconds(4)
                     $t2 = $c2.GetStringAsync("http://127.0.0.1:$($a.basePort)/__dshw/open").GetAwaiter().GetResult()
-                    $ports2 = @(($t2 | ConvertFrom-Json).ports)
-                    if ($ports2.Count -gt 0) { $found = @($found + $ports2); break }
+                    $ports2 = @(@(($t2 | ConvertFrom-Json).ports) | ForEach-Object { [int]$_ })
+                    if ($ports2.Count -gt 0) { $proxyPorts = @($proxyPorts + $ports2); break }
                 } catch { } finally { if ($c2) { $c2.Dispose() } }
             }
         }
@@ -1707,10 +1969,24 @@ function Get-OpenOriginPorts {
 
     # B and C - the process scan. This is also what makes the answer independent of the proxy's
     # liveness: a window the proxy would have reported is still found here by its own origin port.
-    foreach ($k in (Get-WindowOriginPorts).Keys) { $found = @($found + @([int]$k)) }
+    $scanPorts = @(@(Get-WindowOriginPorts).Keys | ForEach-Object { [int]$_ })
+    $union = @(@($proxyPorts) + @($scanPorts) | Sort-Object -Unique)
+    $script:OpenOriginCache = @($union)
+    $script:OriginLiveLegsCache = [pscustomobject]@{
+        union          = @($union)
+        proxy          = @($proxyPorts | Sort-Object -Unique)
+        scan           = @($scanPorts)
+        proxyUp        = [bool]$proxyUp
+        originsEnabled = $originsEnabled
+    }
+    return $script:OriginLiveLegsCache
+}
 
-    $script:OpenOriginCache = @($found | Sort-Object -Unique)
-    return $script:OpenOriginCache
+function Get-OpenOriginPorts {
+    # The union of both legs. See Get-OriginLiveLegs for the legs themselves and for why the reconciler
+    # insists on knowing which of them actually answered.
+    if ($null -ne $script:OpenOriginCache) { return $script:OpenOriginCache }
+    return @((Get-OriginLiveLegs).union)
 }
 
 function Get-OriginsStats {
@@ -2318,16 +2594,39 @@ function Invoke-Autostart([string]$mode) {
     }
     $ps = (Get-Command pwsh).Source
     $script = Join-Path $PSScriptRoot 'dshw.ps1'
+    # -WindowsMode RESTORE, AND THAT IS FIX 3 OF THE 2026-09-18 WINDOW-KILLER WORK.
+    #
+    # This task registered `-WindowsMode no`, which starts the ENGINE and nothing else: `no` matches
+    # neither the `restore` branch nor the `yes/auto` branch of Invoke-Up, so the registry was never
+    # consulted and no window ever came back. `dshw-launch.cmd` -- the one entry point that does
+    # `ensure` then `restore`, i.e. exactly what a logon wants -- is referenced by no task and no
+    # shortcut, so after a reboot the engine returned and the owner's windows did not, which
+    # contradicts the stated intent of the launcher. `restore` is the right mode here rather than
+    # `yes`: `yes` opens EVERY enabled slot (sixteen), while `restore` opens the remembered working
+    # set and never more than one when nothing is remembered.
+    #
+    # This is safe ONLY because the reconcile that guards the registry no longer acts on a single
+    # false negative (Sync-WindowRegistry) -- the 00:01:59 prune is what made a logon restore
+    # untrustworthy in the first place. See docs/multi-window/WINDOW-KILLER.md 12.
     $action = New-HiddenTaskAction -Execute $ps -TaskName $taskName `
-        -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" up -ConfigPath `"$ConfigPath`" -WindowsMode no"
+        -Argument "-NoProfile -WindowStyle Hidden -File `"$script`" up -ConfigPath `"$ConfigPath`" -WindowsMode restore"
     $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero)
-    $principal = New-InteractivePrincipal -Highest:(Test-IsElevated)
+    # PRESERVE THE RUN LEVEL OF AN EXISTING REGISTRATION. `Test-IsElevated` describes the shell that
+    # happens to run `autostart on`, not the task: re-registering from an elevated session must not
+    # silently escalate a logon task that was registered least-privilege, because that changes what
+    # every process it starts is allowed to do. Measured 2026-09-18: this task is RunLevel=Limited,
+    # and re-registering it from an elevated shell would have made it Highest.
+    $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+    $keepHighest = if ($existing) { "$($existing.Principal.RunLevel)" -eq 'Highest' } else { Test-IsElevated }
+    $principal = New-InteractivePrincipal -Highest:$keepHighest
     if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     }
     Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal | Out-Null
-    Write-Host "autostart: '$taskName' registered (at logon, this user, hidden). Test now: Start-ScheduledTask -TaskName '$taskName'"
+    Write-Host "autostart: '$taskName' registered (at logon, this user, hidden): dshw up -WindowsMode restore"
+    Write-Host "          It starts the engine if it is not listening, then reopens exactly the windows in the registry."
+    Write-Host "          Test the restore decision without opening anything: dshw plan"
 }
 
 function Invoke-WindowRecovery($state, [int]$MaxOpens = 2, [switch]$DryRun) {
@@ -2514,7 +2813,22 @@ function Invoke-Health {
     # no windows at all: a window that died stayed dead until the owner clicked `+`. With the
     # liveness check above now recognising a window on ANY origin the launcher uses, "this slot
     # has a live window" is finally answerable, which is what makes a recovery pass safe to run.
+    #
+    # AND IT RECONCILES FIRST (added 2026-09-18). This is the path the confirmed-negative rule is
+    # really for: `health` runs every five minutes over a machine in steady state, so a row recorded
+    # open whose window has not been live for two readings $WindowPruneConfirmSeconds apart is a
+    # genuine "it was there last tick and is not there now" - which is a different statement from the
+    # one `restore` can make about a window it launched 300 ms ago. Reconciling BEFORE recovery also
+    # means guard 1 stops treating a window the owner closed as a reopen candidate, and recovery
+    # running after means the reconciler never sees a window it just had us open.
     try {
+        $reconcile = Sync-WindowRegistry $state -ConfirmSeconds $WindowPruneConfirmSeconds
+        Write-Host ("windows: reconcile considered {0} recorded-open slot(s) - closed {1} ({2} by port mismatch, {3} by two fresh negatives {4}s apart), spared {5}, unconfirmed {6}" -f `
+            $reconcile.considered, $reconcile.closed, $reconcile.mismatched, ($reconcile.closed - $reconcile.mismatched),
+            $WindowPruneConfirmSeconds, $reconcile.spared, $reconcile.unconfirmed)
+        Write-Host ("windows: {0}" -f (Format-RegistryCensus $reconcile.attribution))
+        foreach ($d in @($reconcile.details)) { Write-Host ("windows:   {0}" -f $d) }
+
         $rec = Invoke-WindowRecovery $state
         # ALWAYS SAY WHAT THE PASS SAW, not only when it opened something. The whole reason this
         # task was switched off by hand on 2026-09-18 is that a window-opening loop was invisible
@@ -2527,8 +2841,8 @@ function Invoke-Health {
             Write-Host ("windows: {0} recorded as open but gone; reopened {1}" -f $rec.missing, $rec.opened) -ForegroundColor Yellow
         }
     } catch {
-        Write-Host ("windows: recovery pass FAILED - " + $_.Exception.Message) -ForegroundColor Red
-        "[{0}] health: window recovery FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message |
+        Write-Host ("windows: reconcile/recovery pass FAILED - " + $_.Exception.Message) -ForegroundColor Red
+        "[{0}] health: window reconcile/recovery FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message |
             Add-Content -LiteralPath (Join-Path $StateDir 'health.log') -Encoding utf8
     }
     } catch {
@@ -2656,6 +2970,7 @@ Invoke-HiddenTaskBootstrap
 $script:OriginsAlive = $null
 $script:OpenOriginCache = $null
 $script:OriginLiveMap = $null
+$script:OriginLiveLegsCache = $null
 
 switch ($Command) {
     'up'     { Invoke-Up -WindowsMode $WindowsMode }
@@ -2686,25 +3001,30 @@ switch ($Command) {
     'ensure' { Invoke-Ensure }
     'restore' {
         # Same rule as `new`: reopening windows must never reclaim a bound port.
-        $enginePort = Get-PrimaryPort
-        if (Get-PortOwner $enginePort) { Invoke-Restore }
-        elseif (Ensure-Engine) { Invoke-Restore }
-        else { Write-Error 'no engine could be started on the primary port'; exit 1 }
-    }
-    'open'   {
-        $slot = $null
-        $all = @(Get-Slots)
-        Write-Host ("DBG4 Slot=[{0}] len={1} slotCount={2} labels=[{3}] ports=[{4}]" -f $Slot, $Slot.Length, $all.Count, (($all | ForEach-Object { $_.label }) -join '/'), (($all | ForEach-Object { $_.port }) -join '/'))
-        try { $slot = Get-SlotCfgByPortOrLabel $Slot }
-        catch {
-            Write-Host ("DBG3 Slot=[{0}] type={1} bound={2}" -f $Slot, $Slot.GetType().Name, ($PSBoundParameters.Keys -join ','))
-            Write-Host ("DBG3 threw: {0}" -f $_.Exception.Message)
-            $_.ScriptStackTrace
-            exit 9
+        if ($DryRun) { Invoke-Restore -DryRun }
+        else {
+            $enginePort = Get-PrimaryPort
+            if (Get-PortOwner $enginePort) { Invoke-Restore }
+            elseif (Ensure-Engine) { Invoke-Restore }
+            else { Write-Error 'no engine could be started on the primary port'; exit 1 }
         }
-        if (-not $slot) { Write-Error "no slot matches '$Slot'"; exit 2 }
-        [void](Open-SlotWindow $slot (Get-State))
-        Write-Host ("opened window for slot '{0}'" -f $slot.label)
+    }
+    # `plan` is the CLI surface for Invoke-Restore -DryRun, and it is the ONLY reason the switch
+    # exists: the logon path now restores (see Invoke-Autostart), and the only way to exercise that
+    # decision without a reboot is to ask what it would do. It opens nothing, starts no proxy and
+    # writes no registry (added 2026-09-18).
+    'plan'   { Invoke-Restore -DryRun }
+    'open'   {
+        # `$slotCfg`, NOT `$slot`, AND THAT IS LOAD-BEARING. PowerShell variable names are
+        # case-INSENSITIVE, so `$slot` and the parameter `$Slot` are THE SAME VARIABLE - a local
+        # `$slot = $null` here silently blanked the selector, and the very next line then reported
+        # "no slot matches ''". Every command whose whole job is to act on one named slot was
+        # therefore broken when invoked as `dshw open 3` / `dshw open -Slot 3`, while `dshw new`
+        # (which takes no selector) worked, which is why it went unnoticed.
+        $slotCfg = Get-SlotCfgByPortOrLabel $Slot
+        if (-not $slotCfg) { Write-Error "no slot matches '$Slot'"; exit 2 }
+        [void](Open-SlotWindow $slotCfg (Get-State))
+        Write-Host ("opened window for slot '{0}'" -f $slotCfg.label)
     }
     'stop'   {
         $engineSlots = if (Get-Mode -eq 'single') {

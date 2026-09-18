@@ -403,6 +403,9 @@ handoff	H551	551		2026-09-18 03:32 UTC	ZABZ-YOGA	open	## 2026-09-18 03:32 UTC ·
 handoff	H552	552		2026-09-18 03:39 UTC	ZABZ-YOGA	open	## 2026-09-18 03:39 UTC · ZABZ-YOGA · Wake W2 final: 87/87 + 30/30, three commits, not deployed (HEAD 67171e5)	entries/handoff/H552.md	1	41	e0924a6971c075d8
 handoff	H553	553		2026-09-18 03:43 UTC	ZABZ-YOGA	open	## 2026-09-18 03:43 UTC · ZABZ-YOGA · The wake system is live and proven: a flag raised on the laptop revived a session on the desktop and the answer came back	entries/handoff/H553.md	1	70	5a230564f30caac5
 handoff	H554	554		2026-09-18 03:46 UTC	ZABZ-YOGA	open	## 2026-09-18 03:46 UTC · ZABZ-YOGA · Dialpad access restored by hand; the SMS auto-reply was already correct and the IVR claim is unproven	entries/handoff/H554.md	1	28	6738b23447265f3d
+handoff	H555	555		2026-09-18 04:00 UTC	ZABZ-YOGA	open	## 2026-09-18 04:00 UTC · ZABZ-YOGA · fleet/auth landed and verified - and the second fail-closed startup audit in one session: a pinned baseline measured on a branch is not the baseline of what ships	entries/handoff/H555.md	1	22	b3920b0afc4ad475
+handoff	H556	556		2026-09-18 04:25 UTC	ZABZ-YOGA	open	## 2026-09-18 04:25 UTC · ZABZ-YOGA · DSH watchdog re-enabled: liveness on every origin, window recovery, and the open selector collision	entries/handoff/H556.md	1	78	8d3022a30783c56d
+handoff	H557	557		2026-09-18 04:34 UTC	ZABZ-YOGA	open	## 2026-09-18 04:34 UTC · ZABZ-YOGA · DSH watchdog re-enabled: union liveness, window recovery with five guards, and the open-selector collision	entries/handoff/H557.md	1	86	a06c8039605ccdfb
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1177,6 +1180,7 @@ lessons	L1991	1991		2026-09-17	ZABZ-YOGA	open	**L1991 · state.json held a DEAD 
 lessons	L1992	1992		2026-09-17	ZABZ-YOGA	open	**L1992 · PS 5.1 Start-Process reports an EMPTY ExitCode (false success), and fixed staging filenames are shared memory between runs**	entries/lessons/L1992.md	1	34	fe2fd00527b1c648
 lessons	L1993	1993		2026-09-17	ZABZ-YOGA	open	**L1993 · I reported the SMS auto-reply as wrong from the same restamped cache I had just filed a pain entry about - read the live value, not the cache**	entries/lessons/L1993.md	1	17	5d1b737e68cbdd23
 lessons	L1994	1994		2026-09-17	ZABZ-YOGA	open	**L1994 · A demo published to real customers still looks like a demo - render it at phone size and look, and search before building**	entries/lessons/L1994.md	1	44	ee72942f3da1ed61
+lessons	L1995	1995		2026-09-18	ZABZ-YOGA	open	**L1995 · PowerShell is case-insensitive: a local dollar-slot IS the parameter dollar-Slot**	entries/lessons/L1995.md	1	30	a4f8276e6e4a1c37
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1795,3 +1799,4 @@ wins	W203	203		2026-09-17	ZABZ-YOGA	open	**W203 · 2026-09-17 · The last wall: 
 wins	W204	204		2026-09-17	ZABZ-YOGA	open	**W204 · 2026-09-17 · verify-alloc.py is the standing gate for the allocation rule.**	entries/wins/W204.md	1	6	7a74dbdce06532c0
 wins	W205	205		2026-09-17	ZABZ-YOGA	open	**W205 · 2026-09-17 · Append is local-only: it can no longer move any ref.**	entries/wins/W205.md	1	6	5bec35cdbdff5e52
 wins	W207	207		2026-09-17	ZABZ-YOGA	open	**W207 · 2026-09-17 · One browser tree for every DSH window: 9 processes / ~892 MB per window -> 1 process / ~60-296 MB.**	entries/wins/W207.md	1	17	524dc1fe85adebf2
+wins	W208	208		2026-09-18	ZABZ-YOGA	open	**W208 · 2026-09-18 · Window liveness as a union of signals, and an auto-restore loop with a rate limit and five guards.**	entries/wins/W208.md	1	27	e93f09b0466e31ba

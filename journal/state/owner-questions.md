@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-09-17
+Updated: 2026-09-18
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 108 row(s) read, 15 pending, generated 2026-09-18 02:59 UTC on ZABZ-YOGA.
+Provenance: 109 row(s) read, 16 pending, generated 2026-09-18 04:03 UTC on ZABZ-YOGA.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -24,6 +24,7 @@ Provenance: 108 row(s) read, 15 pending, generated 2026-09-18 02:59 UTC on ZABZ-
 | 84 | 2026-09-17 | medium | I measured what your 55-agent plan costs and the ceiling you have now would be hit in 44 minutes. Approve the install with new ceilings, or keep 25/35/50? | Install it now with 35/80/150 and a cap of 12 generating agents per machine. The 50 hard stop is 44 minutes at 55 agents, and one hour at 55 is 1.24x your worst day ever (54.92). 150 keeps a normal night alive and still  |
 | 102 | 2026-09-18 | medium | Bachrach (+18453762305) texted your AI line and I have not answered: "Is this the door code for the outside door or it's the door code for the office?". Should I answer them, and may I answer this person directly from now on? | Tell me the one-line answer and I will send it, then set this person to a standing allow so the next text does not need you. |
 | 103 | 2026-09-18 | medium | Totty (father) (+17326747491) texted your AI line and I have not answered: 'I believe you sent this message to the wrong number'. Should I answer them, and may I answer this person directly from now on? | Tell me the one-line answer and I will send it, then set this person to a standing allow so the next text does not need you. |
+| 109 | 2026-09-18 | medium | Yisroel Weinberg (+18482102477) texted your AI line and I have not answered: 'Not sure what you mean with the messages. She wants a way that people can be automatically added to be able to see her status'. Should I answer them, and may I answer this person directly from now on? | Tell me the one-line answer and I will send it, then set this person to a standing allow so the next text does not need you. |
 | 98 | 2026-09-17 | low | For a customer who needs Google search blocked on a Samsung Galaxy AND must not be able to undo it, do we sell the paid GenTech path ($119.99 one-time, Lakewood branch, remote Samsung install), or only offer the free bench fix and lose those jobs? | Ship the free fix now - it answers Moshe today and it is already documented and pushed. Do not become a reseller on the strength of one request; revisit if a second customer asks for the tamper-resistant version. If Mosh |
 
 Closed since the queue opened: 93. Answered questions move to `entries/decisions/` with the owner's own words.
