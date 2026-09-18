@@ -161,6 +161,41 @@ function Add-Content {
     process { Write-LogLine -path $LiteralPath -text $Value }
 }
 
+# ── DSH_HOME: state it, never inherit it ────────────────────────────────────
+#
+# REPORT §7.2 OF THE 2026-09-17 INCIDENT (docs/incidents/2026-09-17-dsh-engine-boot-failure).
+#
+# The engine could not boot with `DSH_HOME` unset, because the module anchor generated into the
+# `plugin-cost` bundle fell back to `USERPROFILE` — one segment short of the real home. The
+# generator is fixed and the fallback is now right, and this is the other half of the same
+# incident: until now the launcher only READ `DSH_HOME`, so the engine depended on inheriting it
+# down Explorer -> cmd -> elevated pwsh -> node. That chain was never proved for the elevated path
+# the desktop shortcut uses (the Copilot session said so explicitly, having declined to kill a
+# healthy engine to find out). Nothing about it is needed: this script knows the home, so it says
+# so, and an unset variable stops being a configuration the engine has to guess.
+#
+# SAME EXPRESSION AS `doctor`, and it is now the ONLY place it is written: `$env:USERPROFILE\.dsh`.
+# A second convention here is how one launcher comes to hold two ideas of where the home is.
+#
+# AN EXISTING VALUE IS NEVER TOUCHED. `DSH_HOME` is documented as the override that gives a test
+# or a second engine its own resolver — overwriting it would break exactly the case it exists for,
+# and would have made the isolated cold-boot test below impossible.
+function Initialize-DshHome([string]$logPath = '') {
+    if ($env:DSH_HOME) { return $env:DSH_HOME }
+    $userHome = $env:USERPROFILE
+    # No profile to derive from (a scheduled task running as another account): leave it alone and
+    # let the engine fall back the way it always did, rather than inventing a home.
+    if (-not $userHome) { return $null }
+    $value = Join-Path $userHome '.dsh'
+    $env:DSH_HOME = $value
+    Write-Host ("DSH_HOME was unset - using {0} explicitly, so the engine does not depend on inheriting it" -f $value) -ForegroundColor Yellow
+    if ($logPath) {
+        "[{0}] DSH_HOME was unset - set to {1} for the engine" -f (Get-Date -Format o), $value |
+            Add-Content -LiteralPath $logPath -Encoding utf8
+    }
+    return $value
+}
+
 function Get-State {
     $slots = @{}
     if (Test-Path $StatePath) {
@@ -342,11 +377,21 @@ function Read-NewLog([string]$path, [long]$offset) {
 # child on Windows here, which made `dshw up` hang until its outer timeout with the engine
 # demonstrably running (measured twice on 2026-09-11, 420 s and 600 s). A dead child fails
 # the timeout anyway, and the caller reports its stderr tail, so nothing is lost.
-function Wait-ServerReady([string]$log, [long]$offset, [int]$timeoutSeconds, [int]$port) {
+#
+# THAT LAST SENTENCE WAS WRONG, AND IT COST TEN MINUTES ON 2026-09-17 (report §7.3). A child that
+# dies during boot does NOT "fail the timeout anyway" in any useful sense: it fails it 180
+# SECONDS later, three times over, because nothing here looks for a death — the engine threw,
+# exited 1, and this loop kept waiting for a URL that could never come. The fix is not
+# `HasExited` (that is the hang recorded above); it is `-ExitPid`, an OPT-IN probe that asks the
+# OS the question that cannot block: does this pid still exist? Only the direct-spawn path passes
+# it, because only there is the pid this process's own child; the detached path keeps the old
+# behaviour untouched.
+function Wait-ServerReady([string]$log, [long]$offset, [int]$timeoutSeconds, [int]$port, [int]$ExitPid = 0) {
     $deadline = (Get-Date).AddSeconds($timeoutSeconds)
     $sawUrl = $null
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Milliseconds 500
+        if ($ExitPid -gt 0 -and -not (Test-PidExists $ExitPid)) { return $null }
         if (-not $sawUrl) {
             $text = Read-NewLog $log $offset
             if ($text) {
@@ -357,6 +402,23 @@ function Wait-ServerReady([string]$log, [long]$offset, [int]$timeoutSeconds, [in
         if ($sawUrl -and (Test-PortInUse $port)) { return $sawUrl }
     }
     return $null
+}
+
+# Is this pid still running? A REFUSAL IS NOT AN ANSWER, so only one exception counts.
+#
+# `Process.GetProcessById` throws ArgumentException when the process is not running — that is a
+# definitive "gone". Any OTHER failure (access denied, a transient) says nothing, so this returns
+# $true and the caller carries on waiting: a probe that can report a live engine dead is worse
+# than no probe, and a false "it died" would have `ensure` retry against a boot that was fine.
+function Test-PidExists([int]$processId) {
+    try {
+        $null = [System.Diagnostics.Process]::GetProcessById($processId)
+        return $true
+    } catch [System.ArgumentException] {
+        return $false
+    } catch {
+        return $true
+    }
 }
 
 # ── port / process helpers ──────────────────────────────────────────────────
@@ -679,8 +741,16 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
     return [pscustomobject]@{ pid = $pid_; url = $url }
 }
 
-function Start-SlotServer($slotCfg) {
-    $inv = Get-ServerInvocation $slotCfg
+function Start-SlotServer($slotCfg, $inv = $null) {
+    # REPORT §7.2 OF THE 2026-09-17 INCIDENT. Every launch path funnels through here — `up`,
+    # `restart`, `ensure`, `new`, `restore`, the watchdog — so this is where the engine's
+    # environment is settled, once, instead of being inherited and hoped for. Idempotent, and
+    # silent when DSH_HOME is already set.
+    [void](Initialize-DshHome)
+    # $inv is passed in by Ensure-Engine, which needs the SAME log paths afterwards to read the
+    # stderr of the attempt that just failed. Re-deriving it here would be wrong: the name is
+    # stamped with the second, so a call made a moment later names a file that does not exist.
+    if (-not $inv) { $inv = Get-ServerInvocation $slotCfg }
     if (Test-PortInUse $inv.port) { throw "port $($inv.port) already in use" }
 
     if ($Detached) {
@@ -699,7 +769,9 @@ function Start-SlotServer($slotCfg) {
             -WorkingDirectory $inv.cwd -WindowStyle Hidden -PassThru `
             -RedirectStandardOutput $inv.log -RedirectStandardError $inv.err
 
-    $url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $inv.port
+    # $p.Id is passed as -ExitPid: this child is ours, so a boot that throws and exits is noticed
+    # in half a second instead of after the whole 180 s budget. See Wait-ServerReady.
+    $url = Wait-ServerReady $inv.log 0 ([int]$Cfg.server.startTimeoutSeconds) $inv.port $p.Id
     if (-not $url) {
         if ($p.HasExited) {
             $tail = if (Test-Path $inv.err) { (Get-Content -LiteralPath $inv.err -Tail 15) -join "`n" } else { '(no stderr)' }
@@ -713,9 +785,10 @@ function Start-SlotServer($slotCfg) {
 }
 
 # Public entry point: launches exactly one slot's server in this process and waits for it.
-function Start-OneSlotServer($slotCfg) {
-    $inv = Get-ServerInvocation $slotCfg
-    $r = Start-SlotServer $slotCfg
+# `$inv` is optional and only Ensure-Engine uses it, to keep the attempt's log paths.
+function Start-OneSlotServer($slotCfg, $inv = $null) {
+    if (-not $inv) { $inv = Get-ServerInvocation $slotCfg }
+    $r = Start-SlotServer $slotCfg $inv
     Update-LatestLog $inv
     return $r
 }
@@ -1242,6 +1315,13 @@ function Invoke-Restore {
 # ── the fast loop: one bounded check, restart only after two failures ────────
 function Invoke-Ensure {
     $port = Get-PrimaryPort
+    # REPORT §7.2, FIRST, BEFORE ANYTHING ELSE: this is the function the desktop shortcut runs, and
+    # the engine it may start must not depend on `DSH_HOME` having been inherited down Explorer ->
+    # cmd -> elevated pwsh -> node. That chain was never proved for the elevated path, and on
+    # 2026-09-17 the engine could not boot without the variable. Setting it here means the engine
+    # this run starts is told where its home is, whatever the environment it was launched from.
+    # Silent when DSH_HOME is already set, so an ordinary boot is not noisier for this.
+    [void](Initialize-DshHome (Join-Path $StateDir 'engine-recovery.log'))
     # THE PHONE GATE FIRST, AND INDEPENDENTLY OF ENGINE HEALTH.
     #
     # The gate is what makes this node reachable from the owner's phone over the tailnet: the
@@ -1378,6 +1458,77 @@ function Test-EngineWedged([int]$port) {
     }
     return $true
 }
+# ── crash on boot: an engine that started and died is not a dead port ────────
+#
+# REPORT §7.3 OF THE 2026-09-17 INCIDENT. `ensure` knew exactly one thing: the port is not
+# answering. So on 2026-09-17 between 21:32 and 21:39 it retried three times, spawning an engine
+# that booted, threw, and exited 1 each time, while the diagnosis — an exit code and a stack trace
+# naming MODULE_NOT_FOUND — sat in engine-recovery.log that nobody had been told to read. The
+# owner lost ten minutes to a question the launcher could have answered in one line.
+#
+# WHY NOT SIMPLY THE LAST LINES OF STDERR. Measured against the incident's own stderr
+# (docs/incidents/2026-09-17-dsh-engine-boot-failure/engine-boot-failure-stderr.log, 63 lines):
+# the last six lines are `      }`, `    }`, `  }`, `}`, ``, `Node.js v24.12.0` — a tail that
+# diagnoses nothing. The fault is at the HEAD: line 5 names the plugin tree and the missing
+# module, line 8 names it again plainly, line 19 is the frame in OUR code that threw
+# (lib/guard.js:22), and line 56 carries the code. This picks DIAGNOSTIC lines wherever they are,
+# and falls back to a genuine tail when none match so nothing is lost for an unfamiliar failure.
+function Get-EngineCrashLines([string]$errPath, [int]$maxLines = 5) {
+    if (-not $errPath -or -not (Test-Path $errPath)) { return @() }
+    $text = Read-NewLog $errPath 0
+    if (-not $text) { return @() }
+    $lines = @($text -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -gt 0 })
+    if ($lines.Count -eq 0) { return @() }
+    $wanted = New-Object System.Collections.ArrayList
+    $take = {
+        param([string]$pattern)
+        foreach ($line in $lines) {
+            if ($line -match $pattern) {
+                if ($wanted.Contains($line)) { continue }
+                [void]$wanted.Add($line)
+                return
+            }
+        }
+    }
+    & $take '^\[?cause\]?:?\s*Error:|^Error:'
+    & $take 'Cannot find module|MODULE_NOT_FOUND|EADDRINUSE|EACCES|ENOENT|EADDRNOTAVAIL|ENOTDIR'
+    & $take 'harness-config'
+    # `code:` first, then the rest: Node prints `errno:` BEFORE `code:`, and `code: 'ENOTDIR'` is
+    # the one a person reads. Two passes so line order does not decide which token survives.
+    & $take 'code:'
+    & $take 'errno:|syscall:|requireStack:'
+    if ($wanted.Count -eq 0) { return @($lines | Select-Object -Last $maxLines) }
+    return @($wanted | Select-Object -First $maxLines)
+}
+
+# The first line of a multi-line exception message, so a log line stays one line.
+function Get-ErrorHeadline([string]$message) {
+    $first = ($message -split "`r?`n")[0]
+    if ($first.Length -gt 300) { return $first.Substring(0, 300) + ' ...' }
+    return $first
+}
+
+# The exit code out of "server on port 3099 exited with code 1. stderr tail:...".
+function Get-EngineExitCode([string]$message) {
+    if ($message -match 'exited with code (-?\d+)') { return [int]$Matches[1] }
+    return $null
+}
+
+# Say it out loud, on the console AND in the log, bounded, at the moment it happens.
+function Write-EngineCrashReport([int]$Port, [string]$ErrPath, [string]$Reason, [string]$LogPath = '') {
+    $lines = @(Get-EngineCrashLines $ErrPath 5)
+    Write-Host ("ensure: the engine on {0} STARTED AND DIED during boot - {1}" -f $Port, $Reason) -ForegroundColor Red
+    Write-Host ("ensure:   this is a CRASH ON BOOT, not a dead port: retrying produces the same exit") -ForegroundColor Red
+    foreach ($line in $lines) { Write-Host ("ensure:   {0}" -f $line) -ForegroundColor Red }
+    if ($ErrPath) { Write-Host ("ensure:   full stderr: {0}" -f $ErrPath) -ForegroundColor Red }
+    if ($LogPath) {
+        $block = @("[{0}] ensure: CRASH ON BOOT on {1} - {2}" -f (Get-Date -Format o), $Port, $Reason)
+        foreach ($line in $lines) { $block += ("  {0}" -f $line) }
+        if ($ErrPath) { $block += ("  full stderr: {0}" -f $ErrPath) }
+        Add-Content -LiteralPath $LogPath -Encoding utf8 -Value $block
+    }
+}
+
 function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
     # ONE place that answers "is there an engine, and if not, start one", so the launcher,
     # `new`, `restore` and the watchdog cannot drift. Every attempt is logged, because the
@@ -1420,8 +1571,17 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
             "[{0}] ensure: port {1} held by {2} (pid {3}), not a node engine - not reclaiming" -f (Get-Date -Format o), $port, $holder.ProcessName, $holder.Id |
                 Add-Content -LiteralPath $recoveryLog -Encoding utf8
         }
+        # Declared OUTSIDE the try because the catch reads it, and a throw from the invocation
+        # itself (no node on PATH, for one) would leave it unset — StrictMode would then turn the
+        # crash report into a second, louder failure.
+        $inv = $null
         try {
-            $r = Start-OneSlotServer $slot
+            # THE ATTEMPT'S OWN LOG PATHS, COMPUTED BEFORE IT RUNS AND PASSED DOWN. The launch
+            # stamps each log with the second it was taken, so asking for "the invocation" again
+            # after a failure can name a file the attempt never wrote — which is how the stderr
+            # that answers "why did it die" would be missed by the very code trying to read it.
+            $inv = Get-ServerInvocation $slot
+            $r = Start-OneSlotServer $slot $inv
             $state = Get-State
             Set-SlotRecord $state $port ([pscustomobject]@{
                 pid = $r.pid; url = $r.url; log = $r.log; workspace = $r.workspace
@@ -1439,6 +1599,16 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
             }
             "[{0}] ensure: engine started (pid {1}) but never answered on {2}" -f (Get-Date -Format o), $r.pid, $port |
                 Add-Content -LiteralPath $recoveryLog -Encoding utf8
+            # DID IT DIE, OR IS IT ONLY SLOW? Two different faults that used to look identical.
+            # A pid that no longer exists cannot answer a later probe, so say so now rather than
+            # spending the next two attempts on it. See Write-EngineCrashReport.
+            $alive = $false
+            if ($r.pid) { $alive = Test-PidExists ([int]$r.pid) }
+            if ($alive) {
+                Write-Host ("ensure: the engine on {0} is still running (pid {1}) but has not answered in {2}s - a slow boot, not a crash; not retrying against it" -f $port, $r.pid, $waitSeconds) -ForegroundColor Yellow
+            } else {
+                Write-EngineCrashReport -Port $port -ErrPath $r.err -Reason ("the process (pid {0}) is gone and nothing is answering on {1}" -f $r.pid, $port) -LogPath $recoveryLog
+            }
         } catch {
             # A competing supervisor may have won the race: if the port answers now, that is a
             # success, not a failure. Same 2026-09-14 incident as the reclaim block above.
@@ -1465,8 +1635,28 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
                     continue
                 }
             }
-            Write-Host ("  start failed: {0}" -f $_.Exception.Message) -ForegroundColor Red
-            "[{0}] ensure: start FAILED - {1}" -f (Get-Date -Format o), $_.Exception.Message |
+            # THE ANSWER, SAID AT THE POINT OF FAILURE INSTEAD OF LEFT IN A LOG (report §7.3).
+            # Two shapes, deliberately: a CRASH gets the bounded report below, and anything else
+            # gets one line. The log no longer receives the whole 15-line stderr dump on a single
+            # line — the incident's own engine-recovery.log shows that dump spread over 15 lines,
+            # where it buried the following attempt instead of naming the fault.
+            $headline = Get-ErrorHeadline $_.Exception.Message
+            $exitCode = Get-EngineExitCode $_.Exception.Message
+            $errPath = if ($inv) { $inv.err } else { $null }
+            if ($exitCode -ne $null -and $errPath) {
+                Write-EngineCrashReport -Port $port -ErrPath $errPath -Reason ("it exited with code {0}" -f $exitCode) -LogPath $recoveryLog
+                # AND STOP. A boot that threw and exited is DETERMINISTIC — same command, same
+                # code, same config, so attempt 2 and attempt 3 produce the same exit. The
+                # incident's three polite attempts (`21:32:09`, `21:33:17`, `21:34:33`) were three
+                # copies of one failure, and each one cost another read of a 180 s budget before
+                # reporting the same thing. Nothing is lost by returning now: the watchdog runs
+                # Ensure-Engine again within the minute, and by then the reason is on screen and in
+                # the log. A NON-crash failure ("did not report a URL within Ns") is not provably
+                # deterministic, so that one still gets its retries.
+                return $false
+            }
+            Write-Host ("  start failed: {0}" -f $headline) -ForegroundColor Red
+            "[{0}] ensure: start FAILED - {1}" -f (Get-Date -Format o), $headline |
                 Add-Content -LiteralPath $recoveryLog -Encoding utf8
         }
         Start-Sleep -Seconds 2
@@ -1565,8 +1755,13 @@ function Invoke-Doctor {
             Write-Host ("auth probe  : failed - {0}" -f $_.Exception.Message) -ForegroundColor Yellow
         } finally { if ($client) { $client.Dispose() } }
     }
-    $home_dsh = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }
-    if (-not (Test-Path $home_dsh)) { $problems += "DSH_HOME missing: $home_dsh" } else { Write-Host "DSH_HOME    : $home_dsh" }
+    # ONE expression, in one place (Initialize-DshHome), because two conventions is how a launcher
+    # comes to hold two ideas of where the home is. It also fills an unset DSH_HOME in, which is
+    # what `ensure` does — doctor just reports what that resolved to.
+    $home_dsh = Initialize-DshHome
+    if (-not $home_dsh) { $problems += 'DSH_HOME could not be derived: USERPROFILE is not set' }
+    elseif (-not (Test-Path $home_dsh)) { $problems += "DSH_HOME missing: $home_dsh" }
+    else { Write-Host "DSH_HOME    : $home_dsh" }
     foreach ($p in @($StateDir, $LogDir, $Cfg.browser.profileRoot)) {
         try { New-Item -ItemType Directory -Force -Path $p | Out-Null; Write-Host "dir ok      : $p" }
         catch { $problems += "cannot create $p" }

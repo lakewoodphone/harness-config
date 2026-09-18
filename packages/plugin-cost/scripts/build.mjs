@@ -44,23 +44,66 @@ function stripImports(source) {
 }
 
 /**
- * Re-declare the collected imports as plain bindings.
+ * Emit the module-scoped `require` used for `node:` builtins.
  *
- * The generated host is one module, so the names the sources imported from each
- * other are already in scope and need no code. Built-in modules do need a binding:
- * `import` cannot be used here, because its statement form needs a line start and it
- * would redeclare the same names, so they are pulled from a module-scoped `require`
- * created with `createRequire`. These are ordinary Node built-ins, so loading them
- * synchronously costs nothing and keeps the plugin's activation synchronous.
+ * WHY IT IS ANCHORED AT THE DSH HOME AND NOT AT THIS FILE. A generated
+ * `lib/*.js` lives inside the checkout (`packages/plugin-cost/lib/`), and the
+ * checkout has no `node_modules` of its own — measured 2026-09-17: the loader
+ * mounts this package through a junction in `~/.dsh/profiles/web/node_modules`,
+ * which is where a bare `@deepseek-ai/*` name resolves.
+ *
+ * THE ANCHOR MUST BE A PATH INSIDE THE DSH HOME, NOT THE USER'S HOME. An earlier
+ * version of this comment claimed the anchor "only has to be a real file" because
+ * `createRequire` was believed to serve only `node:` builtins. That premise was
+ * false and it made the engine unbootable: `importBindings` below binds bare
+ * package specifiers through this same anchor — `@deepseek-ai/schemastery` is one
+ * — so the anchor must be a directory from which bare `@deepseek-ai/*` names
+ * resolve. `USERPROFILE` is the PARENT of `DSH_HOME`; substituting one for the
+ * other produced `<home>/profiles/web/package.json` with the `.dsh` segment
+ * missing, and a cold boot of the engine then died with MODULE_NOT_FOUND and exit
+ * 1 (docs/incidents/2026-09-17-dsh-engine-boot-failure). Do not reintroduce a
+ * fallback that drops `.dsh`, and do not trust a comment — the regression test is
+ * in Appendix B of that incident: load this module with `DSH_HOME` cleared.
+ *
+ * WHY THE ANCHOR IS COMPUTED AT RUN TIME AND NOT BAKED IN. The first version of
+ * this line emitted the absolute path of the machine that ran the build, which
+ * made a committed artifact machine-specific: the same commit would carry
+ * `C:/Users/<one-machine>/.dsh/...` to every other host. This version uses only
+ * `process` and `globalThis`, so it needs nothing imported before it runs, and
+ * `DSH_HOME` still gives a test or a second engine its own resolver.
+ *
+ * An `import` statement for a module cannot be used here: it has no line-start
+ * statement form inside a concatenation (it would redeclare the same names), and
+ * a package name in one would be resolved by Node from this checkout rather than
+ * by the loader. A package dependency therefore stays a STATIC import in the
+ * generated file, which the loader resolves itself — see `stripExports` and the
+ * `Schema` import in `src/guard-entry.mjs`.
  */
+function requireAnchor() {
+  return [
+    'function requireAnchor() {',
+    "  const base = process.env.USERPROFILE || process.env.HOME || '';",
+    "  const home = (process.env.DSH_HOME && process.env.DSH_HOME.length > 0)",
+    "    ? process.env.DSH_HOME",
+    "    : (base ? base + (base.indexOf('\\\\') >= 0 ? '\\\\' : '/') + '.dsh' : '.dsh');",
+    "  const sep = home.indexOf('\\\\') >= 0 ? '\\\\' : '/';",
+    "  return home + sep + 'profiles' + sep + 'web' + sep + 'package.json';",
+    '}',
+    'const require = createRequire(requireAnchor());',
+  ].join('\n');
+}
+
 function importBindings(removed) {
-  const builtins = removed.filter(({ specifier }) => specifier.startsWith('node:'));
-  if (builtins.length === 0) return '';
-  const lines = [
-    `const require = createRequire(import.meta.url);`,
-    ...builtins.map(({ clause, specifier }) => `const ${clause.replace(/\bas\b/g, ':')} = require('${specifier}');`),
-  ];
-  return lines.join('\n');
+  // Relative imports need NO binding: the concatenation has already put those
+  // names in scope. Binding them again would `require('./session-log.mjs')` from
+  // a generated file whose directory is not the source directory, and the
+  // generated module would fail at load with a path that never existed.
+  const external = removed.filter(
+    ({ specifier }) => specifier.startsWith('node:') || (!specifier.startsWith('.') && !specifier.startsWith('/') && !specifier.startsWith('file:') && (specifier.startsWith('@') || !specifier.includes('/'))),
+  );
+  if (external.length === 0) return '';
+  const lines = [requireAnchor(), ...external.map(({ clause, specifier }) => `const ${clause.replace(/\bas\b/g, ':')} = require('${specifier}');`)];
+  return `${lines.join('\n')}\n`;
 }
 
 /** Strip a trailing `export { ... };` or `export default ...` statement. */
@@ -79,11 +122,13 @@ function stripHeaderDocblock(source) {
 const BANNER = `/**
  * GENERATED FILE — do not edit.
  * Built by scripts/build.mjs. The host half is concatenated from
- * src/cost-core.mjs, src/session-log.mjs and src/command.mjs; the browser half is
- * generated from pricing.json. Edit the sources and run \`node scripts/build.mjs\`.
+ * src/cost-core.mjs, src/session-log.mjs and src/command.mjs; the spend guard
+ * from src/cost-core.mjs, src/session-log.mjs and src/guard.mjs plus its entry
+ * src/guard-entry.mjs; the browser half is generated from pricing.json. Edit the
+ * sources and run \`node scripts/build.mjs\`.
  */`;
 
-function buildHost() {
+function buildCost() {
   const core = stripExports(stripHeaderDocblock(read('src/cost-core.mjs')));
   const logStripped = stripImports(stripHeaderDocblock(read('src/session-log.mjs')));
   const commandStripped = stripImports(stripHeaderDocblock(read('src/command.mjs')));
@@ -124,6 +169,40 @@ function apply(ctx) {
 export { name, inject, apply, costReport };
 `;
   return `${BANNER}\nimport { createRequire } from 'node:module';\n${bindings}\n${core}\n${log}\n${command}\n${tail}`;
+}
+
+/**
+ * The spend guard's host entry, mounted as its own loader row
+ * (\`{ id: spend-guard, name: dsh-plugin-cost/guard }\`).
+ *
+ * A SEPARATE generated file, not a second export of \`lib/index.js\`, because a
+ * Cordis loader entry resolves a module and not a named export: two entries
+ * naming one module mount that plugin twice, and a second guard in one process
+ * would count every request twice. The arithmetic is still single-sourced —
+ * \`cost-core.mjs\` and \`session-log.mjs\` are concatenated into both files from
+ * the same text — so what is split is the entry, never the price table.
+ */
+function buildGuard() {
+  const core = stripExports(stripHeaderDocblock(read('src/cost-core.mjs')));
+  const logStripped = stripImports(stripHeaderDocblock(read('src/session-log.mjs')));
+  const guardStripped = stripImports(stripHeaderDocblock(read('src/guard.mjs')));
+  const entryStripped = stripImports(stripHeaderDocblock(read('src/guard-entry.mjs')));
+  const log = stripExports(logStripped.body);
+  const guard = stripExports(guardStripped.body);
+  const entry = stripExports(entryStripped.body);
+
+  const imports = [
+    ...new Set([
+      ...logStripped.removed.map((entry) => `${entry.clause}\u0000${entry.specifier}`),
+      ...guardStripped.removed.map((entry) => `${entry.clause}\u0000${entry.specifier}`),
+      ...entryStripped.removed.map((entry) => `${entry.clause}\u0000${entry.specifier}`),
+    ]),
+  ].map((key) => {
+    const [clause, specifier] = key.split('\u0000');
+    return { clause, specifier };
+  });
+  const bindings = importBindings(imports);
+  return `${BANNER}\nimport { createRequire } from 'node:module';\n${bindings}\n${core}\n${log}\n${guard}\n${entry}\n\nexport { name, inject, apply };\n`;
 }
 
 function buildClient() {
@@ -405,7 +484,8 @@ function apply(ctx) {
 }
 
 const outputs = [
-  ['lib/index.js', buildHost()],
+  ['lib/index.js', buildCost()],
+  ['lib/guard.js', buildGuard()],
   ['lib/client.js', buildClient()],
 ];
 
@@ -428,3 +508,4 @@ for (const [relative, content] of outputs) {
   console.log(`wrote ${relative} (${content.length} bytes)`);
 }
 if (check && dirty > 0) process.exit(1);
+

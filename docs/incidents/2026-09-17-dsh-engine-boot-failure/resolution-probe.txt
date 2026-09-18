@@ -1,0 +1,12 @@
+== createRequire resolution of @deepseek-ai/schemastery (2026-09-17) ==
+RESOLVES  C:\Users\ezabz\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\schemastery\lib\index.cjs
+   anchor: C:/Users/ezabz/.dsh/profiles/web/package.json
+FAILS     MODULE_NOT_FOUND
+   anchor: C:/Users/ezabz/profiles/web/package.json
+== DSH_HOME scopes BEFORE fix ==
+session=[]  User=[]  Machine=[]
+== DSH_HOME scopes AFTER fix ==
+User=[C:\Users\ezabz\.dsh]
+== guard.js module load ==
+DSH_HOME unset  -> FAILED: MODULE_NOT_FOUND
+DSH_HOME set    -> LOADED
