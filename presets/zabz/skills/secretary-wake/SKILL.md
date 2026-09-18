@@ -62,8 +62,14 @@ ssh secratary-ts "python3 ~/bin/wake.py flag \
 - `--subject` is the DEDUP KEY. Make it stable and specific (`thing:date`), never a random string —
   the same issue must never file twice.
 - `flag` **always exits 0**, so a broken flag can never break its caller. Read the printed result:
-  `filed` / `deduped` / `suppressed:<reason>` / `capped`. **`suppressed:error` means it did NOT file** —
-  treat it as a failure and say so, never as quiet.
+  `filed` / `deduped` / `suppressed:<reason>` / `capped`.
+  `suppressed:*` is ALWAYS a real decision (dedup, cooldown, a cap, the pause file, or being inside a
+  woken session) — it is never an error.
+  A **broken store reports `error:<Class>: <message>`** on stdout (and `{"ok": false, …}` with
+  `--json`). **Treat any `error:` as a failure and say so out loud** — never as quiet. A store that
+  reports success while filing nothing is exactly how this system dies looking green.
+- `capped` means the row WAS filed (you get an id) but a cap is in force, so it will not be released
+  yet. That is not a failure.
 - High priority bypasses the night gate. Low priority waits for 13:00–03:00 UTC.
 
 ## Seeing what is pending, and what happened
