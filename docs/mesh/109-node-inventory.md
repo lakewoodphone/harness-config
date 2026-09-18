@@ -107,13 +107,28 @@ already serving someone.
   by a cgroup drop-in at 5/8 GB. What remains unmeasured: whether `secretary-api` is still leaking —
   M2 declined to call it a leak from RSS-vs-age alone, since its 3.35 GB sits inside the 1.8–3.6 GB
   warm footprint its own guard documents. That needs its restart history read, not another snapshot.
-- **Reachability is DIRECTED, and one direction is broken.** M1's child, running on `desktop-ts`,
-  hung at ssh connect to another node and exited 255 with no final message — while the laptop reached
-  all five nodes in under 3.4 s each. M2 hit the same class from the same node and worked around it
-  ("`ssh` itself worked, but the pwsh wrapper never saw it exit", so every probe had to run via
-  `Start-Process -RedirectStandardOutput`). So a scheduler must not assume any node can reach any
-  other, and **a `subagent` brief that asks for node-to-node ssh must bound every hop with a hard
-  timeout**, or the child dies holding the parent's work.
+- **A node is not isolated just because a child could not reach another node from it — and this was
+  nearly written down the wrong way.** A child on `desktop-ts` reported all five aliases HANGing,
+  *including the self-hop*, and concluded "treat `zabz-tech` as isolated over ssh; no node is
+  reachable at any cost". **That is false, and it was falsified by two siblings in the same hour**
+  (one measured `secratary` over ssh, one measured `mac-mini-ts` over ssh, both returning full
+  reports), and then by direct reproduction from the laptop:
+  | from `desktop-ts` to | reported hostname | wall clock |
+  |---|---|---|
+  | `mac-mini-ts` | LakewooechsMini | 205 ms |
+  | `linux-pc-ts` | zabz-tech-linux | 315 ms |
+  | `secratary-ts` | secratary | 522 ms |
+  | `laptop-ts` | zabz-yoga | 1069 ms |
+  All four work, and all four are fast. **The real defect is in how the ssh client's output is
+  captured:** on that node, an ssh whose **stdout is a pipe** — inline `& ssh`, or `Start-Job { & ssh }`
+  — never returns and consumes its whole timeout, while the same command with
+  `Start-Process -RedirectStandardOutput <file>` completes in under 1.1 s. M2 found this independently
+  and routed every probe that way; the child that reported "isolated" used `Start-Job` and read its own
+  wrapper's failure as a property of the network.
+  **For a scheduler:** node-to-node work is available in both directions; what must be avoided is a
+  brief that asks a Windows child to capture another process's stdout through a pipe. And for the
+  record: this is the **fourth** false conclusion this mesh produced from a probe's inability to look,
+  in one session, after `node` on PATH, `engine:3099` on macOS, and `secratary`'s commit figures.
 - **The child-turn ceiling fix is verified by observation, not by config**: M3 ran 449,151 ms and M2
   ran 503,943 ms, both `exit = 0`, both on `desktop-ts`. Both are past the old 300,000 ms ceiling that
   killed five fleets on 2026-09-17.
