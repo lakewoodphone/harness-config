@@ -58,6 +58,13 @@ _spec = importlib.util.spec_from_file_location(
 inbox = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(inbox)
 
+# The wake queue: how a reply becomes a session instead of a notification.
+_wspec = importlib.util.spec_from_file_location(
+    "wake_mod", str(Path(__file__).resolve().parent / "wake.py")
+)
+wake_mod = importlib.util.module_from_spec(_wspec)
+_wspec.loader.exec_module(wake_mod)
+
 STORE = inbox.STORE
 ENV_FILE = inbox.ENV_FILE
 QUEUE = Path.home() / "bin" / "owner-queue.py"
@@ -200,21 +207,39 @@ def send_sms(cfg: dict, to: str, body: str) -> tuple[bool, str]:
         return False, str(exc)
 
 
+def _open_queue_row_for(phone: str) -> bool:
+    """Is there already an unresolved owner-queue row about this person?
+
+    Dedup against the QUEUE ITSELF, not against our own message state. The first
+    version looked for a recently-queued message row in our store, and a one-time
+    reset of that state (to re-decide under a changed policy) wiped the marker and
+    made it raise every row again - six duplicates for three people, observed
+    2026-09-18. The queue is the source of truth about what is already open.
+    """
+    tail = inbox.norm(phone)
+    if not tail:
+        return False
+    try:
+        c = sqlite3.connect(f"file:{inbox.APP_DB}?mode=ro", uri=True, timeout=20)
+        rows = c.execute(
+            "SELECT question FROM owner_decision_queue WHERE status='pending'"
+        ).fetchall()
+        c.close()
+    except Exception as exc:
+        print(f"    (could not read the queue for dedup: {exc})")
+        return False
+    for (q,) in rows:
+        if tail in re.sub(r"\D", "", q or ""):
+            return True
+    return False
+
+
 def queue_for_owner(conn, perm: dict, msg: sqlite3.Row, why: str,
                     suggested: str | None = None) -> bool:
     """Raise ONE owner-queue row for this correspondent, deduped by phone."""
-    tail = inbox.norm(msg["from_number"])
-    recent = conn.execute(
-        """SELECT decided_at FROM messages
-           WHERE state='queued' AND from_number LIKE ? AND decided_at > ?
-           ORDER BY decided_at DESC LIMIT 1""",
-        (f"%{tail}", (datetime.now(timezone.utc)
-                      - timedelta(hours=OWNER_QUEUE_DEDUP_HOURS)).isoformat()),
-    ).fetchone()
-    if recent:
-        print(f"    already queued {recent['decided_at']} - not raising again")
+    if _open_queue_row_for(msg["from_number"]):
+        print("    an owner-queue row for this person is already open - not raising again")
         return False
-
     name = perm.get("name") or msg["from_number"]
     question = (
         f"{name} ({msg['from_number']}) texted your AI line and I have not answered: "
@@ -343,6 +368,40 @@ def cmd_run(args) -> int:
         name = perm.get("name") or r["from_number"]
         allow = perm["allow"]
         print(f"\n<{r['date_sent']}> {name} [{allow}]: {(r['body'] or '')[:90]!r}")
+
+        # FIRST: is this the answer to something we asked for? If so it is WORK,
+        # not a judgement call - it becomes a wake row so a session gets started,
+        # and it does NOT become another owner-decision row.
+        aw = wake_mod.consume_await(conn, r["from_number"])
+        if aw:
+            print(f"    this is the reply we were waiting for: {aw['what'][:70]}")
+            # The session MUST answer the person. Filing work and leaving a human
+            # waiting is the exact failure this whole system exists to prevent -
+            # observed live on 2026-09-18, when Weinberg replied, a session was
+            # correctly released, and it reported back to nobody while he waited.
+            prompt = (
+                f"{aw['name'] or r['from_number']} ({r['from_number']}) has just "
+                f"replied to a message we sent them from the AI line.\n\n"
+                f"DO THE WORK BELOW, AND THEN REPLY TO THE PERSON. A human is "
+                f"waiting on an answer; do not finish without sending one. Reply "
+                f"with:\n"
+                f"    python3 ~/bin/send-from-ai-line.py --to {r['from_number']} "
+                f"--body-file <file> --send\n"
+                f"Short, plain English, and signed '- Daniel' on its own last line.\n\n"
+                f"WORK: {aw['what']}\n\n"
+                f"Their reply: {(r['body'] or '')[:600]}\n\n"
+                f"Full thread: python3 ~/bin/sms-inbox.py show {r['from_number']}"
+            )
+            filed = wake_mod._file_wake(
+                conn,
+                subject=f"await:{inbox.norm(r['from_number'])}:{r['sid']}",
+                prompt=prompt,
+                context=f"awaited since {aw['sent_at']}", kind="sms-await",
+                priority="high")
+            print("    filed a wake row" if filed else "    wake row already filed")
+            _record(conn, r["sid"], "woken", "await",
+                    f"awaited reply -> wake: {aw['what'][:110]}")
+            continue
 
         if allow == "never":
             print("    never - recorded, not answered")
