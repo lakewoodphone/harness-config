@@ -1417,6 +1417,7 @@ pain	P269	269		2026-09-18	ZABZ-YOGA	open	## P269 — The mesh provider never tel
 pain	P270	270		2026-09-18	ZABZ-YOGA	open	## P270 — A browser page that survives an engine restart keeps a stale background-job list	entries/pain/P270.md	1	43	53e1329042c6e929
 pain	P326	326		2026-09-18	SECRATARY	open	## P326 — The ask-a-question tool does not render on the owner's phone — plain text instead, until it is verified on his handset	entries/pain/P326.md	1	35	40b80e01d9c54aa5
 pain	P327	327		2026-09-18	ZABZ-YOGA	open	## P327 — Nothing excludes the machine the owner is using, so when the biggest node fills the laptop is next in line	entries/pain/P327.md	1	57	9233c815e79920a7
+pain	P330	330		2026-09-18	ZABZ-YOGA	open	## P330 — The journal is measurably divergent on ZABZ-TECH and nine entry ids already mean two different entries	entries/pain/P330.md	1	50	4da6b0eda0bd6fd2
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
