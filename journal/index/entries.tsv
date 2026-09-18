@@ -1206,6 +1206,7 @@ lessons	L2061	2061		2026-09-18	ZABZ-YOGA	open	**L2061 · L2056 · mesh-run -Node
 lessons	L2062	2062		2026-09-18	ZABZ-YOGA	open	**L2062 · L2057 · How to pull up a phone DSH chat: it lives on secratary at ~/phone, session logs are zstd-compressed JSONL**	entries/lessons/L2062.md	1	18	d16c89b795a74d63
 lessons	L2063	2063		2026-09-18	ZABZ-YOGA	open	**L2063 · A flow sequence inside !!js breaks the YAML overlay parser, and --dump-config is the check that catches it**	entries/lessons/L2063.md	1	61	a6487a96e6d5cdd5
 lessons	L2064	2064		2026-09-18	ZABZ-YOGA	open	**L2064 · Correcting my own collision numbers, and two tools that answer 'fine' while structurally blind to the fault**	entries/lessons/L2064.md	1	64	ea5b844d4c2a7a2c
+lessons	L2065	2065		2026-09-18	ZABZ-YOGA	open	**L2065 · Hot-holding rule: 140F is the line, not the oven dial**	entries/lessons/L2065.md	1	16	5a7f3dd860753c7a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1846,3 +1847,5 @@ wins	W213	213		2026-09-18	ZABZ-YOGA	open	**W213 · 2026-09-18 · The fifth node 
 wins	W214	214		2026-09-18	ZABZ-YOGA	open	**W214 · 2026-09-18 · The responsiveness probe returned a null result and the null is the finding: the noise exceeds the effect.**	entries/wins/W214.md	1	47	33e7fce94325be94
 wins	W215	215		2026-09-18	ZABZ-YOGA	open	**W215 · 2026-09-18 · prefer-remote is LIVE and verified from a real dispatch, with the raised connect timeout.**	entries/wins/W215.md	1	40	d9e1b83f41aeeb49
 wins	W216	216		2026-09-18	ZABZ-YOGA	open	**W216 · 2026-09-18 · The authority's swap is 4 GiB of swapped-out /tmp, not a leak and not a process - and the prior note about it was wrong.**	entries/wins/W216.md	1	49	ad13e2da5a4eb68a
+wins	W217	217		2026-09-18	ZABZ-YOGA	open	**W217 · 2026-09-18 · The authority's swap went from 0 free to 3152 MB free by deleting 3770 stale tmpfs entries, touching no service.**	entries/wins/W217.md	1	60	7d56940b2b1801bd
+wins	W218	218		2026-09-18	ZABZ-YOGA	open	**W218 · 2026-09-18 · The whole mesh under simultaneous load: only one node's signal beat the noise.**	entries/wins/W218.md	1	51	284c69b8a5d41120
