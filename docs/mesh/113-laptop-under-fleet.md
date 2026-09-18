@@ -80,8 +80,46 @@ cross-condition means from single 60 s windows per condition, not on repeated ru
 brackets came from five runs at each of K=0/2/4/6. Ambient load was not under the child's control (other
 workstreams were running on the desktop throughout), which is exactly why the A2 control was needed.
 
-**The next measurement, and it is the one that answers the owner:** a responsiveness probe on the laptop —
-sample the cost of a fixed local operation (a shell round trip through the engine, or `Measure-Command` on
-a pinned command) at 1 Hz through the same four conditions, and report its p50/p95 against condition A.
-Until that exists, "lagging" remains unquantified, and the honest position is that offloading is proven
-cheap while the *feeling* is not.
+## The responsiveness measurement, taken the same day, and it is NEGATIVE
+
+Built as a second probe on the same four conditions: every tick, before the memory sample, the cost of a
+fixed pinned native operation — `Measure-Command { cmd.exe /c exit }` — was timed. It measures
+**process-creation latency**, one facet of responsiveness, not UI frame latency. Its own baseline cost is
+**p50 28.1 ms / p95 49.0 ms**, present identically in all four conditions, so A↔C is a fair comparison.
+
+| condition | n | p50 ms | p95 ms | max ms | commit delta | proc delta |
+|---|---|---|---|---|---|---|
+| **A** baseline | 90 | 28.1 | 49.0 | 54.7 | 0 (23.606 GiB) | 0 (327.0) |
+| **B** 3 children on the DESKTOP | 90 | 25.7 | 48.2 | 81.4 | −0.07 GiB | +0.9 |
+| **C** 3 children on the LAPTOP | 90 | 25.7 | 42.1 | 66.4 | **+1.05 GiB** | **+25.2** |
+| **A2** baseline again | 90 | 24.2 | 38.4 | 71.8 | +0.33 GiB | −1.7 |
+
+**The A→A2 baseline drift is −3.9 ms (−13.9 %), and it is LARGER than any effect measured.** A→C is
+−2.4 ms and A→B is the same −2.4 ms. The laptop also drifted *within* A (p50 25.2 ms over ticks 1–30,
+31.5 ms over ticks 61–90) while A2 was flat. **So the honest answer is "not distinguished", not "no
+effect": this probe cannot separate load from drift at N=3.**
+
+What that means, stated carefully:
+- **The memory result reproduces exactly** — C is +1.05 GiB commit and +25.2 processes against earlier
+  measurements of +1.081 GiB and +25.9 — and condition C's process delta is precisely 3 children, so no
+  foreign fleet contaminated the windows.
+- **The speed result is null.** Three children on the laptop cost ~1.05 GiB and ~25 processes and produced
+  **no measurable slowdown in process-spawn latency**. The load was three *memory-resident, sleeping*
+  children — not CPU-spinning — on a 31.6 GiB machine with 15.2 GiB still free.
+- **"Lagging" therefore remains unquantified for the case that would actually cause it**: a CPU-active
+  load, or a fleet larger than the 3-child ceiling this workstream was bound to. A null result at N=3
+  says nothing about N=30, and the next probe must raise N or make the children work rather than sleep.
+
+**Consequence for `prefer-remote`:** it is justified on **memory and process count**, which are measured
+and reproduced — ~1.05 GiB and ~25 processes returned to the machine the owner uses whenever an eligible
+alternative exists — and **not** on a measured improvement in speed, which this work does not show.
+
+## An instrument defect worth more than the null result
+
+Driven from Windows PowerShell **5.1**, `Start-AgentFleet.ps1` declared
+`COULD NOT ASK: ssh laptop-ts hostname` with an *empty* exit code on a **healthy** ssh — because 5.1
+returns an empty `Process.ExitCode` for `Start-Process -PassThru` with redirected output, while PS 7
+returns 0. **The instrument must be driven from PS 7.** The failure mode is exactly the class this
+programme keeps finding: a blank read as a negative about the *far end*, when it was a property of the
+*near end*. The tool's own header should say which shell drives it, and the workstream that used it was
+right to say so in its report rather than quietly upgrade.
