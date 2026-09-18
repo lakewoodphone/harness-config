@@ -1184,6 +1184,7 @@ lessons	L1994	1994		2026-09-17	ZABZ-YOGA	open	**L1994 · A demo published to rea
 lessons	L1995	1995		2026-09-18	ZABZ-YOGA	open	**L1995 · PowerShell is case-insensitive: a local dollar-slot IS the parameter dollar-Slot**	entries/lessons/L1995.md	1	30	a4f8276e6e4a1c37
 lessons	L1996	1996		2026-09-18	ZABZ-YOGA	open	**L1996 · A shared browser profile is not per-slot identity: one window counted sixteen times and the new-window control failed silently**	entries/lessons/L1996.md	1	49	7a0e6d0fae1907f7
 lessons	L1997	1997		2026-09-18	ZABZ-YOGA	open	**L1997 · The mesh provider capped a child turn at 300 s while its own transport allowed 900 s**	entries/lessons/L1997.md	1	49	26920504caf81e76
+lessons	L1998	1998		2026-09-18	ZABZ-YOGA	open	**L1998 · A node's name is not a capability: the mesh measured, and three of its five rows do not mean what the table says**	entries/lessons/L1998.md	1	44	024fd33d0031d571
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
