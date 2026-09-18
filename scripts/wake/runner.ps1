@@ -248,10 +248,6 @@ if ($ResolveOnly) {
     exit 0
 }
 
-$tmpOut = Join-Path $env:TEMP "wake-run-$PID.out.txt"
-$tmpErr = Join-Path $env:TEMP "wake-run-$PID.err.txt"
-Remove-Item -LiteralPath $tmpOut, $tmpErr -Force -ErrorAction SilentlyContinue
-
 $argv = @($launch.Args) + @($prompt)
 $argLine = ($argv | ForEach-Object { ConvertTo-CommandLineArg $_ }) -join ' '
 
@@ -266,37 +262,60 @@ $proc = $null
 $timedOut = $false
 $killDetail = ''
 $launchError = $null
+$stdout = ''
+$stderr = ''
 try {
-    $startArgs = @{
-        FilePath               = $launch.Node
-        ArgumentList           = $argLine
-        RedirectStandardOutput = $tmpOut
-        RedirectStandardError  = $tmpErr
-        NoNewWindow            = $true
-        PassThru               = $true
-    }
-    if ($launch.Cwd -and (Test-Path -LiteralPath $launch.Cwd)) { $startArgs['WorkingDirectory'] = $launch.Cwd }
-    $proc = Start-Process @startArgs
+    # System.Diagnostics.Process, not Start-Process: under Windows PowerShell 5.1
+    # the object Start-Process hands back reports an EMPTY ExitCode even after
+    # WaitForExit(), so the runner could not tell a failed session from a
+    # successful one. A Process we construct ourselves reports it correctly on
+    # both 5.1 and 7.
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $launch.Node
+    $psi.Arguments = $argLine
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+    $psi.StandardErrorEncoding = New-Object System.Text.UTF8Encoding($false)
+    if ($launch.Cwd -and (Test-Path -LiteralPath $launch.Cwd)) { $psi.WorkingDirectory = $launch.Cwd }
+
+    $proc = New-Object System.Diagnostics.Process
+    $proc.StartInfo = $psi
+    $null = $proc.Start()
+    # Drain both pipes concurrently: reading them one after the other deadlocks
+    # as soon as one buffer fills, and dsh's reasoning stream is big.
+    $outTask = $proc.StandardOutput.ReadToEndAsync()
+    $errTask = $proc.StandardError.ReadToEndAsync()
+
     if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
         $timedOut = $true
         $killDetail = Stop-ProcessTree -Id $proc.Id
         $null = $proc.WaitForExit(30000)
     }
+    $proc.WaitForExit()
+    try { $stdout = $outTask.Result } catch { $stdout = '' }
+    try { $stderr = $errTask.Result } catch { $stderr = '' }
 } catch {
     $launchError = $_.Exception.Message
 }
 
-$code = 1
+$code = $null
+$codeUnreadable = $false
 if ($launchError) {
     $code = 127
 } elseif ($timedOut) {
     $code = 124
 } elseif ($proc) {
-    try { $code = $proc.ExitCode } catch { $code = 1 }
+    # An empty `exit $code` reports 0, which would turn a FAILED session into a
+    # recorded success, so a value that cannot be read is 1, never 0.
+    try { $code = $proc.ExitCode } catch { $code = $null }
 }
-
-$stdout = if (Test-Path -LiteralPath $tmpOut) { [System.IO.File]::ReadAllText($tmpOut, [System.Text.Encoding]::UTF8) } else { '' }
-$stderr = if (Test-Path -LiteralPath $tmpErr) { [System.IO.File]::ReadAllText($tmpErr, [System.Text.Encoding]::UTF8) } else { '' }
+if ($null -eq $code -or "$code" -eq '') {
+    $code = 1
+    $codeUnreadable = $true
+}
 
 if ($launchError) {
     Write-Out "launch failed: $launchError"
@@ -332,6 +351,9 @@ if ($env:WAKE_COST_USD -and $env:WAKE_COST_USD -match '^[0-9]+(\.[0-9]+)?$') {
 }
 
 $elapsed = [int]((Get-Date) - $started).TotalSeconds
+if ($codeUnreadable) {
+    Write-Out "error: the exit code of the session could not be read; reported as 1 (never as success)"
+}
 Write-Out "=== exit code: $code ==="
 Write-Out "WAKE_EXIT_CODE=$code"
 if ($cost) {
@@ -343,5 +365,4 @@ if ($cost) {
 }
 Write-Out "elapsed: ${elapsed}s"
 
-Remove-Item -LiteralPath $tmpOut, $tmpErr -Force -ErrorAction SilentlyContinue
 exit $code

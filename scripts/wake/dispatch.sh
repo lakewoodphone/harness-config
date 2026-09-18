@@ -76,11 +76,13 @@ CALLSIGN=${WAKE_CALLSIGN:-wake-dispatch@$(hostname -s 2>/dev/null || echo unknow
 # leave a dsh session running on the desktop forever. It must stay strictly
 # smaller than the outer bound: with WAKE_TIMEOUT_SEC=30 the naive `-60` clamp
 # produced a LARGER inner bound (60 > 30) and defeated the whole point, which the
-# verification suite caught (S2).
+# verification suite caught (S2). WAKE_TIMEOUT_SEC itself is never overridden -
+# an explicit setting by the operator is theirs, not ours to "fix".
 RUNNER_TIMEOUT=$((TIMEOUT - 60))
 [ "$RUNNER_TIMEOUT" -lt $((TIMEOUT * 4 / 5)) ] && RUNNER_TIMEOUT=$((TIMEOUT * 4 / 5))
 [ "$RUNNER_TIMEOUT" -lt 5 ] && RUNNER_TIMEOUT=5
-[ "$RUNNER_TIMEOUT" -ge "$TIMEOUT" ] && RUNNER_TIMEOUT=$((TIMEOUT / 2))
+[ "$RUNNER_TIMEOUT" -ge "$TIMEOUT" ] && RUNNER_TIMEOUT=$((TIMEOUT - 1))
+[ "$RUNNER_TIMEOUT" -lt 1 ] && RUNNER_TIMEOUT=1
 # A heartbeat interval at or above the lease is a misconfiguration: halve it.
 if [ "$HEARTBEAT" -ge "$LEASE" ]; then HEARTBEAT=$((LEASE / 2)); [ "$HEARTBEAT" -lt 5 ] && HEARTBEAT=5; fi
 
@@ -132,8 +134,9 @@ $PROG — release ONE wake row as a real headless DSH session on $DESKTOP.
   $PROG [--dry-run] [--help]
 
   --dry-run   run the whole decision path (reap, gates, select, build the exact
-              commands) and print what it would do. No ssh, no scp, no dsh, and
-              no write to the wake store.
+              commands) and print what it would do. No claim, no ssh, no scp, no
+              dsh, no log write. `reap` does run: it is the same maintenance a
+              real tick performs, and it is what makes the rehearsal honest.
 
 Env: WAKE_CLI WAKE_PYTHON WAKE_DESKTOP WAKE_REMOTE_DIR WAKE_REMOTE_RUNNER
      WAKE_REMOTE_PROMPT WAKE_REMOTE_OUT WAKE_LOG WAKE_STAGE_DIR WAKE_LOCK_FILE
@@ -462,11 +465,17 @@ SCP_BACK_RC=0
 
 RUNNER_CODE=""
 COST=""
+RUNNER_CODE_MALFORMED=0
 if [ -f "$LOCAL_OUT" ]; then
   # Machine-readable line written by runner.ps1; the sed fallback keeps this
   # working against the v0 runner if an older copy is still on the desktop.
   RUNNER_CODE=$(grep -o 'WAKE_EXIT_CODE=[0-9-]*' "$LOCAL_OUT" 2>/dev/null | tail -1 | cut -d= -f2)
   [ -n "$RUNNER_CODE" ] || RUNNER_CODE=$(sed -n 's/.*=== *exit code: *\([0-9-]*\) *===.*/\1/p' "$LOCAL_OUT" 2>/dev/null | tail -1)
+  # A present-but-valueless line means the runner failed to report. Fail closed:
+  # "I could not read the verdict" is not "it worked".
+  if [ -z "$RUNNER_CODE" ] && grep -q 'WAKE_EXIT_CODE=' "$LOCAL_OUT" 2>/dev/null; then
+    RUNNER_CODE_MALFORMED=1
+  fi
   COST=$(grep -o 'WAKE_COST_USD=[0-9][0-9.]*' "$LOCAL_OUT" 2>/dev/null | tail -1 | cut -d= -f2)
 fi
 RESULT_TEXT=""
@@ -490,6 +499,9 @@ elif [ "$RELEASE_RC" -ne 0 ]; then
 elif [ "$SCP_BACK_RC" -ne 0 ]; then
   SUCCESS=1
   OUTCOME="session finished but the output file could not be copied back (scp rc=$SCP_BACK_RC) - the result is unverified"
+elif [ "$RUNNER_CODE_MALFORMED" = 1 ]; then
+  SUCCESS=1
+  OUTCOME="the runner's exit-code line was unreadable, so the session's verdict is unknown (failing closed); output: $RESULT_TEXT"
 elif [ -n "$RUNNER_CODE" ] && [ "$RUNNER_CODE" != "0" ]; then
   SUCCESS=1
   OUTCOME="dsh exited $RUNNER_CODE; output: $RESULT_TEXT"
