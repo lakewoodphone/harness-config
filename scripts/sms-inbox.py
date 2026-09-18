@@ -49,6 +49,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -58,9 +59,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HOME = Path.home()
-ENV_FILE = HOME / "personal-secretary-mvp" / ".env"
-APP_DB = HOME / "personal-secretary-mvp" / "data" / "secretary.db"
-STORE = HOME / ".sms-inbox" / "inbox.db"
+ENV_FILE = Path(os.environ.get("SMS_INBOX_ENV", HOME / "personal-secretary-mvp" / ".env"))
+APP_DB = Path(os.environ.get("SMS_INBOX_APP_DB",
+                            HOME / "personal-secretary-mvp" / "data" / "secretary.db"))
+# Overridable so tests never touch the live store. A test that writes the real
+# inbox is a test that can lose a real text.
+STORE = Path(os.environ.get("SMS_INBOX_DB", HOME / ".sms-inbox" / "inbox.db"))
 AI_LINE_DEFAULT = "+17324447361"
 
 SCHEMA = """
