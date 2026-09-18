@@ -1638,6 +1638,7 @@ decisions	D264	264		2026-09-17	ZABZ-YOGA	open	**D264 · 2026-09-17 · P204 RETRA
 decisions	D265	265		2026-09-17	ZABZ-YOGA	open	**D265 · 2026-09-17 · The secretary is the always-on half: a FLAG revives a headless session, and only a registered promise may raise one.**	entries/decisions/D265.md	1	64	18a274153bc9ce30
 decisions	D266	266		2026-09-17	ZABZ-YOGA	open	**D266 · 2026-09-17 · Multi-window model: one shared browser profile + one loopback origin port per window; per-window profiles stay as an escape hatch.**	entries/decisions/D266.md	1	16	9abf92479f428edf
 decisions	D267	267		2026-09-18	ZABZ-YOGA	open	**D267 · 2026-09-18 · Remote child turn cap 300 s -> 1800 s; shared-profile window count no longer uses the profile directory.**	entries/decisions/D267.md	1	36	b6ba0e176545c7c9
+decisions	D268	268		2026-09-18	ZABZ-YOGA	open	**D268 · 2026-09-18 · Mesh children stay invisible to the Subagents UI, and the remedy is two core changes - not a plugin patch.**	entries/decisions/D268.md	1	49	881234f6320bfc11
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
