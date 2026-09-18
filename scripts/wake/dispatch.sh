@@ -6,7 +6,7 @@
 # script, run from cron on secratary, turns exactly ONE flag into a real DSH
 # session on the always-on desktop and brings the result back:
 #
-#   scp  prompt file  ->  ZABZ-TECH:C:\Users\ezabz\bin\wake-prompt.txt
+#   scp  prompt file  ->  ZABZ-TECH:C:\Users\ezabz\bin\wake-prompt-<id>-<run>.txt
 #   ssh  ZABZ-TECH 'powershell -File ...\wake-run.ps1 -PromptFile ... -OutFile ...'
 #        (the desktop runs `dsh --profile headless "<task>"`, answers, exits)
 #   scp  the out-file back
@@ -56,8 +56,16 @@ WAKE_CLI=${WAKE_CLI:-$HOME/bin/wake.py}          # the §5 CLI this codes agains
 DESKTOP=${WAKE_DESKTOP:-zabz-tech-ts}            # always-on desktop, over the mesh
 REMOTE_DIR_WIN=${WAKE_REMOTE_DIR:-'C:\Users\ezabz\bin'}
 REMOTE_RUNNER=${WAKE_RUNNER:-$REMOTE_DIR_WIN'\wake-run.ps1'}
-REMOTE_PROMPT=${WAKE_REMOTE_PROMPT:-$REMOTE_DIR_WIN'\wake-prompt.txt'}
-REMOTE_OUT=${WAKE_REMOTE_OUT:-$REMOTE_DIR_WIN'\wake-out.txt'}
+# One staging name per release (row id + UTC stamp + pid), not the fixed
+# wake-prompt.txt/wake-out.txt of v0. Measured on the authority 2026-09-18: two
+# dispatchers overlapped (wake #2 was still running when #3 was claimed 93 s
+# later) and the shared names let one session read and overwrite the other's
+# bytes - #2's recorded outcome is the task text echoed back, not an answer. The
+# lock below makes that impossible from two dispatchers; unique names make it
+# impossible from anything else too (a hand-run ssh, a dispatcher on another
+# host). WAKE_REMOTE_PROMPT / WAKE_REMOTE_OUT still override verbatim.
+REMOTE_PROMPT_OVERRIDE=${WAKE_REMOTE_PROMPT:-}
+REMOTE_OUT_OVERRIDE=${WAKE_REMOTE_OUT:-}
 LOG=${WAKE_LOG:-$HOME/.sms-inbox/wake-dispatch.log}
 STAGE=${WAKE_STAGE_DIR:-$HOME/.sms-inbox/wake-stage}
 LOCK=${WAKE_LOCK_FILE:-$HOME/.sms-inbox/wake-dispatch.lock}
@@ -356,6 +364,17 @@ fi
 # 5. Build the exact commands. Built identically in both modes, so what a dry
 #    run prints is character-for-character what a release runs.
 # ---------------------------------------------------------------------------
+RUN_TOKEN="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+if [ -n "$REMOTE_PROMPT_OVERRIDE" ]; then
+  REMOTE_PROMPT=$REMOTE_PROMPT_OVERRIDE
+else
+  REMOTE_PROMPT="${REMOTE_DIR_WIN}\\wake-prompt-${ID}-${RUN_TOKEN}.txt"
+fi
+if [ -n "$REMOTE_OUT_OVERRIDE" ]; then
+  REMOTE_OUT=$REMOTE_OUT_OVERRIDE
+else
+  REMOTE_OUT="${REMOTE_DIR_WIN}\\wake-out-${ID}-${RUN_TOKEN}.txt"
+fi
 REMOTE_PROMPT_SCP=$(to_scp "$REMOTE_PROMPT")
 REMOTE_OUT_SCP=$(to_scp "$REMOTE_OUT")
 REMOTE_CMD="powershell -NoProfile -ExecutionPolicy Bypass -File \"$REMOTE_RUNNER\" -PromptFile \"$REMOTE_PROMPT\" -OutFile \"$REMOTE_OUT\" -TimeoutSec $RUNNER_TIMEOUT"
@@ -539,6 +558,7 @@ fi
 log "released $TODAY wake #$ID $STATE exit=${RELEASE_RC} runner_code=${RUNNER_CODE:-?} cost=${COST:-none} dur=${DUR}s subject=\"$(oneline "$SUBJ")\""
 log "  outcome: $OUTCOME"
 [ -n "$COST" ] || log "  cost: not reported by this harness surface (dsh --profile headless prints no cost)"
+log "  staging: $(to_scp "$REMOTE_PROMPT") and $(to_scp "$REMOTE_OUT") (kept on the desktop; names are unique per release, so they cannot collide and need no cleanup)"
 
 if [ "$SUCCESS" -eq 0 ]; then
   exit 0
