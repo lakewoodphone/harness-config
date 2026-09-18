@@ -1,0 +1,28 @@
+{
+  "name": "dsh-plugin-mesh-http",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Transport v2 for the mesh: a plugin-owned POST /mesh/run route on the node itself, HMAC-authenticated with its own shared secret, bounded in every direction, that runs ONE local agent turn and returns its exit code and output. Reached through the gate that already authenticates by device, so dispatch stops depending on ssh.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./auth": { "default": "./lib/auth.js" },
+    "./body": { "default": "./lib/body.js" },
+    "./handler": { "default": "./lib/handler.js" },
+    "./runner": { "default": "./lib/runner.js" },
+    "./node-identity": { "default": "./lib/node-identity.js" },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "mesh-http": "./bin/mesh-http.mjs"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "scripts": {
+    "verify": "node --check lib/index.js && node --check lib/auth.js && node --check lib/body.js && node --check lib/handler.js && node --check lib/runner.js && node --check lib/node-identity.js && node --check lib/secret.js && node --check bin/mesh-http.mjs && node --check bin/install-mesh-http.mjs && node --check bin/mesh-dispatch.mjs && node --check test/dead-target-fallback.mjs && node --test test/mesh-http.test.mjs",
+    "test": "node --test test/mesh-http.test.mjs",
+    "fallback-proof": "node test/dead-target-fallback.mjs"
+  }
+}

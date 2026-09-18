@@ -1,0 +1,5 @@
+' Zabz: keep the rattlebyte.com SSH tunnel alive from logon.
+' rattlebyte.com is unreachable from this line (185.112.144.0/22 blackholed);
+' this tunnels it through the office server. See .dsh-network\rattlebyte-tunnel.ps1
+' To undo: delete this file, then kill the ssh -D process listening on port 11080.
+CreateObject("WScript.Shell").Run """C:\Program Files\PowerShell\7\pwsh.exe"" -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File ""C:\Users\ezabz\.dsh-network\rattlebyte-tunnel.ps1""", 0, False

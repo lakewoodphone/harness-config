@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "_comment": "The broker's roster. It is a CONFIGURATION, not a state store: the broker never writes a reading into it and never keeps a heartbeat. `baseUrl` is the node's gate (docs/mesh/71-mesh-program.md §2.1: the capacity surface lives in the gate, which is what `tailscale serve` publishes), and the broker appends /mesh/capacity. NAMES ARE TAILSCALE DNS LABELS, not host names and not ssh aliases: §2.1's invariant is node == fqdn.split('.')[0], the gate answers that label, and lib/config.js now REFUSES to boot on a roster row that breaks it (see its header). Measured 2026-09-16 23:31Z: the laptop's Self.HostName is `zabz-yoga` but its DNS name is `zabz-yoga-1`, and `zabz-yoga` does not resolve at all.",
+  "_transport_comment": "Every row carries `dispatch`: can this node ACCEPT v1 work (`ssh <alias> dsh --profile headless`)? Three states, never collapsed: true = measured to work, false = measured not to (the evidence says how), null = never measured. The broker ranks false below true, prints the fact in the rationale, and still places there when it is the only candidate (queue, never amputate). docs/mesh/76-broker.md §10.4 has the finding.",
+  "cacheTtlMs": 15000,
+  "readTimeoutMs": 1500,
+  "leaseTtlMs": 900000,
+  "nodes": [
+    {
+      "node": "zabz-tech",
+      "fqdn": "zabz-tech.tail93e6e6.ts.net",
+      "location": "office",
+      "baseUrl": "https://zabz-tech.tail93e6e6.ts.net",
+      "dispatch": {
+        "v1": true,
+        "measuredAt": "2026-09-16",
+        "evidence": "stream S6's parent booted over ssh on this node and loaded the mesh plugin, and three child turns completed through `ssh <node> dsh --profile headless` with their MESH-HOST: lines verified (docs/mesh/70-remote-fanout-proof.md §2)"
+      },
+      "note": "the owner's office desktop, i9-14900 24c/32t, 63.6 GB - the primary worker"
+    },
+    {
+      "node": "zabz-yoga-1",
+      "fqdn": "zabz-yoga-1.tail93e6e6.ts.net",
+      "location": "home",
+      "baseUrl": "https://zabz-yoga-1.tail93e6e6.ts.net",
+      "dispatch": {
+        "v1": true,
+        "measuredAt": "2026-09-16",
+        "evidence": "reparse-point trust fixed by an in-session relink; LAPTOP OK exit 0 in 10.3 s; a full dispatch to this node completed exit 0 (stream S6, 23:44Z)"
+      },
+      "note": "the owner's laptop, 16c/22t. The name is `zabz-yoga-1`, not `zabz-yoga`: Self.HostName is zabz-yoga but Self.DNSName - the only name that resolves - is zabz-yoga-1 (measured 2026-09-16 23:31Z, and the ssh alias prefix `zabz-yoga-1-ts` agrees). Its v1 dispatch was MEASURED BROKEN from 23:27Z until stream S6 relinked its profile junctions in-session at 23:44Z (413 links, 22 s, 0 failed; engine pid 1784 never restarted); it is a dispatch target again, and a dispatcher as well."
+    },
+    {
+      "node": "zabz-tech-linux",
+      "fqdn": "zabz-tech-linux.tail93e6e6.ts.net",
+      "location": "office",
+      "baseUrl": "https://zabz-tech-linux.tail93e6e6.ts.net",
+      "dispatch": {
+        "v1": true,
+        "measuredAt": "2026-09-17",
+        "evidence": "MEASURED WORKING FOR v1 THROUGH THE CORRECTED INVOCATION, 2026-09-17 (14:34-15:05Z) - and the previous `false` was a DISPATCHER defect wearing a node defect's clothes, not a weak machine. Read docs/mesh/102-linux-dispatch.md §4 and docs/mesh/104-node-enabled.md before changing this flag either way. (1) THE INVOCATION IS CORRECTED AND THE ROTTED PATH IS GONE: plugin-remote-fanout/lib/nodes.js now gives this node `command: 'dsh'` - the executor is invoked BY NAME - and its `driver` fallback is the version-free symlink /usr/local/bin/node -> /home/zabz/.local/node/bin/node (v22.23.2). The dead /home/zabz/.local/node-v24.12.0-linux-x64/bin/node no longer appears in the row. The executor (/usr/local/bin/dsh, installed by scripts/provision-mesh-node.sh) resolves the interpreter from $HOME and sources /etc/dsh-worker.env (root:zabz 0640, DEEPSEEK_API_KEY + DEEPINFRA_API_KEY) itself, measured to work even under `env -i` with HOME unset and no key in the environment. The two conditions 98 §4.2 named are therefore BOTH met: the dispatcher table is corrected AND the credential reaches the dispatch process - the second by USING the executor rather than by exporting a key into an ssh session. (2) A REAL CHILD WAS DISPATCHED THROUGH THE WHOLE DISPATCHER AND RETURNED: `node bin/mesh-run.mjs -Prompt '<run hostname and reply with exactly what it printed>' -Node zabz-tech-linux` -> exit 0 in 22.6 s, framed, `MESH-HOST: zabz-tech-linux`, childHosts [\"zabz-tech-linux\"], disagreements [], outcome completed (102 §4 run 2; the child's own stderr shows it ran the command rather than guessing). (3) THE SAME COMMAND BEFORE THE FIX EXITED 1 with `only 0 MESH-HOST lines for 1 children`; the child's own report was `sh: 6: /home/zabz/.local/node-v24.12.0-linux-x64/bin/node: not found` (exit 127, 102 §1). (4) The stale 2026-09-16 note that this node 'has no Node runtime yet' is FALSE and is corrected here: the machine has node v22.23.2, dsh 0.1.5-rc.1, a populated headless profile, and it accepts a real v1 child turn. (5) THE FLAG TAKES EFFECT IN PLACEMENT: a live `POST /place {fleet, 2 children}` puts this node in the eligible pool and places it `tier=fits` with `blockedBy: []` when it is the only candidate, where `v1: false` produced `tier=transport` with `blockedBy: [\"transport\"]` (docs/mesh/104-node-enabled.md). SET BACK TO false if the executor form is replaced by an explicit interpreter pair again, or if /usr/local/bin/dsh or /etc/dsh-worker.env is removed from the node - re-measure, do not re-argue."
+      },
+      "note": "the office Linux box, i5-11400 6c/12t, node v22.23.2 at /usr/local/bin/node, dsh engine at /home/zabz/dsh-engine. Its disk is the tightest on the mesh (20.8 GiB free on /home/zabz/code, measured 23:34Z), which is why the disk floor now scales with the fleet."
+    },
+    {
+      "node": "secratary",
+      "fqdn": "secratary.tail93e6e6.ts.net",
+      "location": "office",
+      "baseUrl": "https://secratary.tail93e6e6.ts.net",
+      "dispatch": {
+        "v1": null,
+        "measuredAt": null,
+        "evidence": "UNMEASURED. Honest state as of 2026-09-16 23:33Z: this node has node v20.20.2 and a dsh engine at /home/zabz/dsh-engine, but its DSH_HOME (~/.dsh/profiles/) holds only `node_modules` and `web` - there is no `headless` profile to load, so a v1 dispatch cannot be shown to succeed or to fail here. Not a claim that it works, and not a claim that it does not."
+      },
+      "note": "the authority: i5-4570 4c/4t, hopeless as a fleet worker (docs/mesh/20-placement.md D4, and 3 core slots under the core term) and a fine control plane. Its swap is at 99.9% (measured repeatedly 2026-09-16), which halves its effective slots for ranking."
+    }
+  ],
+  "_excluded_on_purpose": {
+    "lakewooechsmini": "Tailscale DNS label of the Mac Mini (the ssh alias / host name `LakewooechsMini` is NOT the label, which is exactly the §2.1 naming trap). NOT in the roster: it does not answer GET /mesh/capacity. MEASURED 2026-09-16 23:30Z from the authority - `curl http://lakewooechsmini.tail93e6e6.ts.net/mesh/capacity` exits 7 (connection refused/failed) while the node itself is `active` in tailscale status. So there is no capacity surface there and the broker cannot read it; adding it would only produce an `unreachable` row. Add it to `nodes` the day its gate answers, with `dispatch` measured the same way. The earlier comment here called it \"Yisroel's machine\"; the owner has given free rein on it and it is becoming a worker node, so that reason is out of date - the current reason is measurement, not ownership."
+  }
+}

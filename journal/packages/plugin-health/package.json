@@ -1,0 +1,24 @@
+{
+  "name": "dsh-plugin-health",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Three things this engine lacked: a live health surface (GET /healthz + an engine_health tool), a deadline and short-TTL cache for the expensive list_agents listing, and an admission governor that leases heavy work against measured memory headroom.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./governor": { "default": "./lib/governor.js" },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "gov": "./bin/governor.mjs"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "scripts": {
+    "verify": "node --check lib/index.js && node --check lib/lag.js && node --check lib/sessions.js && node --check lib/processes.js && node --check lib/agents-list.js && node --check lib/governor.js && node --check lib/admission-tool.js && node --check bin/governor.mjs && node --test test/model.test.mjs test/agents-list.test.mjs test/governor.test.mjs",
+    "stress": "node test/governor-stress.mjs --contenders 30 --slots 5",
+    "test": "node --test test/model.test.mjs test/agents-list.test.mjs test/governor.test.mjs"
+  }
+}

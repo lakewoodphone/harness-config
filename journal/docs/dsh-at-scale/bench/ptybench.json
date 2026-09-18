@@ -1,0 +1,168 @@
+{
+  "host": "ZABZ-YOGA",
+  "measuredAt": "2026-09-16T14:32:12.295Z",
+  "node": "v24.12.0",
+  "conpty": true,
+  "spawnMs": {
+    "n": 3,
+    "min": 166.6,
+    "p50": 168.6,
+    "mean": 172.7,
+    "p90": 168.6,
+    "max": 183.1
+  },
+  "roundTripMs": {
+    "n": 24,
+    "min": 18,
+    "p50": 33.8,
+    "mean": 41.6,
+    "p90": 59.7,
+    "max": 81.2
+  },
+  "results": [
+    {
+      "cycle": "0.0",
+      "spawnMs": 168.6,
+      "roundTripMs": 51.6,
+      "sawEnd": true
+    },
+    {
+      "cycle": "0.1",
+      "spawnMs": 168.6,
+      "roundTripMs": 81.2,
+      "sawEnd": true
+    },
+    {
+      "cycle": "0.2",
+      "spawnMs": 168.6,
+      "roundTripMs": 19.3,
+      "sawEnd": true
+    },
+    {
+      "cycle": "0.3",
+      "spawnMs": 168.6,
+      "roundTripMs": 47.2,
+      "sawEnd": true
+    },
+    {
+      "cycle": "0.4",
+      "spawnMs": 168.6,
+      "roundTripMs": 33.4,
+      "sawEnd": true
+    },
+    {
+      "cycle": "0.5",
+      "spawnMs": 168.6,
+      "roundTripMs": 33.6,
+      "sawEnd": true
+    },
+    {
+      "cycle": "0.6",
+      "spawnMs": 168.6,
+      "roundTripMs": 33.1,
+      "sawEnd": true
+    },
+    {
+      "cycle": "0.7",
+      "spawnMs": 168.6,
+      "roundTripMs": 33.8,
+      "sawEnd": true
+    },
+    {
+      "cycle": "1.0",
+      "spawnMs": 166.6,
+      "roundTripMs": 59.7,
+      "sawEnd": true
+    },
+    {
+      "cycle": "1.1",
+      "spawnMs": 166.6,
+      "roundTripMs": 52.4,
+      "sawEnd": true
+    },
+    {
+      "cycle": "1.2",
+      "spawnMs": 166.6,
+      "roundTripMs": 26.7,
+      "sawEnd": true
+    },
+    {
+      "cycle": "1.3",
+      "spawnMs": 166.6,
+      "roundTripMs": 48.1,
+      "sawEnd": true
+    },
+    {
+      "cycle": "1.4",
+      "spawnMs": 166.6,
+      "roundTripMs": 32.6,
+      "sawEnd": true
+    },
+    {
+      "cycle": "1.5",
+      "spawnMs": 166.6,
+      "roundTripMs": 37.6,
+      "sawEnd": true
+    },
+    {
+      "cycle": "1.6",
+      "spawnMs": 166.6,
+      "roundTripMs": 44.5,
+      "sawEnd": true
+    },
+    {
+      "cycle": "1.7",
+      "spawnMs": 166.6,
+      "roundTripMs": 33,
+      "sawEnd": true
+    },
+    {
+      "cycle": "2.0",
+      "spawnMs": 183.1,
+      "roundTripMs": 66.2,
+      "sawEnd": true
+    },
+    {
+      "cycle": "2.1",
+      "spawnMs": 183.1,
+      "roundTripMs": 66.6,
+      "sawEnd": true
+    },
+    {
+      "cycle": "2.2",
+      "spawnMs": 183.1,
+      "roundTripMs": 32.4,
+      "sawEnd": true
+    },
+    {
+      "cycle": "2.3",
+      "spawnMs": 183.1,
+      "roundTripMs": 32.8,
+      "sawEnd": true
+    },
+    {
+      "cycle": "2.4",
+      "spawnMs": 183.1,
+      "roundTripMs": 34.3,
+      "sawEnd": true
+    },
+    {
+      "cycle": "2.5",
+      "spawnMs": 183.1,
+      "roundTripMs": 18,
+      "sawEnd": true
+    },
+    {
+      "cycle": "2.6",
+      "spawnMs": 183.1,
+      "roundTripMs": 47.8,
+      "sawEnd": true
+    },
+    {
+      "cycle": "2.7",
+      "spawnMs": 183.1,
+      "roundTripMs": 33.3,
+      "sawEnd": true
+    }
+  ]
+}

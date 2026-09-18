@@ -1,0 +1,377 @@
+/* phone-layer-version: 2026-09-16.3
+ *
+ * BUMP THIS TOKEN whenever anything in the phone layer changes. It is how an OPEN tab finds
+ * out a fix exists: `dsh-plugin-mobile` reads this token out of the layer the document is
+ * using, compares it with the one the gate is serving, and re-applies (and, when nothing is
+ * being typed, reloads) when they differ. Measured 2026-09-16: the question-card repair had
+ * shipped and verified, and the owner's phone still could not read a question, because his
+ * tab had been open since before the fix and a rewritten document cannot reach a tab that
+ * has already loaded. Without a bump, a CSS change reaches only new tabs.
+ */
+
+/* mobile.css — the phone layer for the harness UI.
+ *
+ * Injected into the document by scripts/phone-gate.py for every document request, so it
+ * reaches a phone without touching the harness package (which npm would overwrite on the
+ * next update) and without a rebuild of the client.
+ *
+ * Every selector below is evidence-based, measured on 2026-09-11 at 393x852 against the
+ * live app:
+ *   - 9 controls smaller than the 44px touch minimum: the rail icons 36x36, the composer's
+ *     Commands and Add-attachment 28x28, Send 34x34, "Choose workspace" 162x28.
+ *   - the composer input computed to 13.33px font: iOS Safari auto-zooms the whole page
+ *     when a field under 16px takes focus, which is the single most "unoptimised" feeling
+ *     a phone user gets.
+ *   - zero rules in the shipped CSS mention safe-area-inset, so the composer and the rail
+ *     sit under the home indicator.
+ *   - the sidebar is `position: static`; opening it on a 393px screen squeezed the content
+ *     column from 337px to 113px.
+ *
+ * Class names are CSS-module hashes (`wSkVaW_composerSeat`), so they are matched on the
+ * readable local-name substring, which CSS modules preserve across rebuilds. Nothing here
+ * is keyed on a full hash or on an nth-child position.
+ *
+ * Scope: max-width 768px only. Desktop is untouched by construction.
+ * Kill switch: set PHONE_MOBILE_CSS=0 for the gate process and this file is not injected.
+ */
+
+@media (max-width: 768px) {
+  html {
+    /* stop iOS inflating text in landscape */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  @supports (height: 100dvh) {
+    html,
+    body,
+    [class*="frame"] {
+      /* the on-screen keyboard shrinks the visual viewport; dvh tracks it */
+      height: 100dvh;
+    }
+  }
+
+  /* ---- touch targets ---------------------------------------------------- */
+
+  /* Icon-only controls carry an aria-label; that is the stable, semantic hook.
+   * Do NOT extend this to `button[aria-label] > *`: measured 2026-09-11, that sized the
+   * icon glyphs themselves to 44px and every icon on the page rendered enormous. The
+   * minimum belongs to the button box, which is what a thumb aims at; the glyph inside
+   * keeps the size its own CSS gives it. */
+  button[aria-label],
+  [role="button"][aria-label] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Two of the measured offenders are labelled only in text. */
+  [class*="workspace"] [role="button"],
+  [class*="workspaceTrigger"],
+  [class*="composer"] button {
+    min-height: 44px;
+  }
+
+  button,
+  [role="button"],
+  a[href],
+  label {
+    /* kill the double-tap zoom delay and the tap highlight */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Navigation-level controls inside a conversation, measured too small on the phone:
+   * the Chat / Trajectory tabs at 27x25 and the "Thought for a while" disclosure at
+   * 206x33. Matched on ARIA semantics, not class names, so it survives a client rebuild. */
+  [role="tab"] {
+    min-height: 44px;
+    min-width: 64px;
+  }
+
+  /* Every button inside a dialog. Measured on the live app at 393x852 on 2026-09-14: the
+   * first-load "Internal Testing Notice" is 345x480 with ONE control — "Continue", 297x36 —
+   * behind a blocking mask, so on a fresh phone the only way past the notice is a button 8px
+   * under the touch minimum. It carries no aria-label, so the icon rule above never reached
+   * it, and it is not inside the composer, so that rule did not either. */
+  [role="dialog"] button,
+  [role="alertdialog"] button {
+    min-height: 44px;
+  }
+
+  [aria-expanded] {
+    min-height: 40px;
+  }
+
+  /* ---- no auto-zoom on focus -------------------------------------------- */
+
+  input,
+  textarea,
+  select,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+    line-height: 1.4;
+  }
+
+  /* ---- the composer: fewer controls, so the row fits on one line ----------
+   *
+   * Measured at 393x852 on 2026-09-14 on a session with usage: the composer occupied **232px of
+   * 852** — 27% of the screen — because its input card WRAPS. The controls stack as
+   * `tools` (Commands, Add attachment, Access mode, cost pill) at y=678 and
+   * `trailing` (model, context meter, Send) at y=734, with the shipped stats strip on a third
+   * band at y=788. Two of those are redundant on this device, and removing them is what makes
+   * the row fit:
+   *
+   *   - **Access mode**, whose label on this phone is literally "Full access, current: Full
+   *     access" — `permission.defaultPreset: danger-full-access` is set on this host, so it is a
+   *     control that cannot change anything here. The owner asked for it gone.
+   *   - **the stats strip** (turns/steps, tokens, cache hit): it restates what the cost pill, the
+   *     trajectory view and the context meter already say, and the owner described the result as
+   *     "the icons turn into 2 layers because there isn't enough space".
+   *
+   * WHAT IS DELIBERATELY NOT DONE: the surviving controls keep their 44px boxes. "Maybe make all
+   * the icons smaller" is a real observation with the wrong lever — the box is the thumb target,
+   * and a smaller one is worse on a phone, which is why the check that every control is >= 44px
+   * exists. The space came from having fewer of them, not from shrinking what is left.
+   */
+  [class*="composer"] button[aria-label^="Access mode"] {
+    display: none;
+  }
+
+  /* The strip's own row would be left as an empty band, so its container goes with it. `:has()`
+   * is already required by the drawer rules below, and a browser without it keeps the strip
+   * rather than losing the card. */
+  [class*="composer"] *:has(> button[aria-label*="Cache hit"]) {
+    display: none;
+  }
+
+  /* ---- the composer row must not wrap (the "two layers" the owner reported) -------------
+   *
+   * Measured 2026-09-14 at 320/358/375/393/430 against the live engine by composing the row
+   * the way a real session renders it (the cost pill from `plugin-cost`, the context meter,
+   * and the stop control of an active turn), then reading every control's bounding box:
+   *
+   *   width  contents                          row height   control bands
+   *   393    pill                              52           2   <- fits
+   *   393    pill + context meter               104          3   <- the second layer
+   *   393    pill + context meter + stop        104          3
+   *   430    pill                              104          3   <- narrower is NOT the trigger
+   *
+   * So the trigger is content, not width: the shipped row is
+   * `uV2eYG_row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px}` with the
+   * trailing group carrying `margin-left:auto`, and the moment `tools + trailing + gap` exceeds
+   * the card's inner width the RIGHT group drops to its own line while the left group keeps the
+   * first one. That is the doubling: it is a wrap, never a stray element.
+   *
+   * What is fixed is the wrap, not the contents. Dropping `flex-wrap` costs nothing at 393 px —
+   * the row is 351 px wide and the widest composition measured (pill + meter + stop) needs
+   * 145 + 214 px of it — and the two shrinkable items are capped so they truncate instead of
+   * pushing the send button off the card at 320 px. The controls keep their 44 px boxes.
+   *
+   * Verified after the change, same probe, same page: row 52 px and 2 bands at EVERY width
+   * above with every composition, and no overlap between the groups (worst case 8 px of slack).
+   */
+  [class*="composer"] [class*="_row"] {
+    flex-wrap: nowrap;
+  }
+
+  [class*="composer"] [class*="_tools"],
+  [class*="composer"] [class*="_trailing"] {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  [class*="composer"] [class*="_tools"] > *,
+  [class*="composer"] [class*="_trailing"] > * {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  /* Send is the one control that must never be crowded out, so it does not shrink. Measured at
+   * 320px and 358px with a stop control, a context meter and the cost pill all present: without
+   * this the row still fitted on one line but Send was pushed outside its group and clipped. */
+  [class*="composer"] button[aria-label^="Send message"] {
+    flex: none;
+  }
+
+  /* At the narrowest widths the context meter is the least load-bearing thing in the row: it
+   * restates a number the session's own trajectory shows, and dropping it keeps the cost pill,
+   * the model seat and Send all inside the card. Measured: 320px with everything present needs
+   * about 40px more than the row has. */
+  @media (max-width: 380px) {
+    [class*="composer"] button[aria-label^="Context"] {
+      display: none;
+    }
+    /* `/` commands are the one composer control that is also a keyboard action, so on the
+     * narrowest phones it costs less to reach than a thumb control does to fit. Measured at
+     * 320px with the cost pill, the context meter and a stop control present: the row has about
+     * 278px and everything asked for more, and the loser was Send. */
+    [class*="composer"] button[aria-label^="Commands"] {
+      display: none;
+    }
+  }
+
+  /* Tighter gaps, so the two remaining groups fit side by side instead of stacking. */
+  [class*="composerStack"] [class*="_row"] {
+    gap: 8px;
+  }
+
+  /* ---- the notch and the home indicator --------------------------------- */
+
+  [class*="frame"] {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  [class*="sidebarCol"],
+  [class*="sidebar"] {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  [class*="composer"],
+  [class*="composerSeat"],
+  [class*="composerStack"] {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  /* ---- the sidebar: an off-canvas drawer, so the conversation gets the width ----
+   *
+   * Researched 2026-09-11 by reading the live CSSOM instead of guessing, after a first
+   * attempt (`display: none` on the rail) collapsed the content column to 56px:
+   *
+   *   .pI_x6G_frame { display: grid; transition: grid-template-columns ... }
+   *   and the app sets the columns INLINE with JavaScript:
+   *     <div class="pI_x6G_frame" style="grid-template-columns: 56px minmax(0px, 1fr) 0px">
+   *
+   * So the rail's width is not a CSS fact, it is three grid tracks the app recomputes. That
+   * is why removing the rail shifted the conversation into the 56px track, and it is why the
+   * override below needs `!important` (inline styles win otherwise) and needs to be paired
+   * with taking the sidebar OUT of the grid rather than deleting it.
+   *
+   * Measured on the live app at 393x852, with the rules below applied:
+   *   closed: centre column 337px -> 393px, sidebar off-canvas at x=-65px, no page scroll
+   *   open:   sidebar overlays at 339px with a scrim, centre column stays 393px
+   *
+   * The whole block is gated on `:has()`. A browser without it keeps today's layout rather
+   * than getting a rail stretched across the screen, because an unsupported `:has()` drops
+   * the rule — the upgrade is fail-safe by construction, not by testing for it.
+   *
+   * The app's own toggle drives all of this: the sidebar carries a `collapsed` class while
+   * the rail is showing, and the header's "Open sidebar" button removes it. Nothing here
+   * invents state.
+   */
+  @supports selector(:has(*)) {
+    [class*="frame"] {
+      /* one track, because the sidebar is no longer in the grid */
+      grid-template-columns: minmax(0, 1fr) !important;
+      /* the app animates this property slowly; on a phone that reads as the page sliding */
+      transition: none !important;
+    }
+
+    /* Closed: the column leaves the grid and sits just off the left edge.
+     *
+     * `left`, deliberately, NOT `transform`. A transformed ancestor becomes the containing
+     * block for its fixed descendants, so `transform: translateX(-100%)` here would carry
+     * the sidebar's own toggle off-screen with it — and that toggle is the ONLY control that
+     * opens the sidebar (verified: it is inside the sidebar, not in the content header).
+     * The first version of this rule did exactly that and would have locked the drawer shut.
+     */
+    [class*="sidebarCol"]:has([class*="collapsed"]) {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: -340px;
+      width: min(86vw, 340px);
+      z-index: 60;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* ...and the toggle comes back to the top-left of the SCREEN, which is where a phone
+     * user looks. Measured on the live app at 393x852: it lands at [10,14] 44x44, fully
+     * visible and clickable, and the conversation header's own row starts at x=54 — tight,
+     * but no overlap. */
+    [class*="sidebarCol"]:has([class*="collapsed"]) [class*="toggle"] {
+      position: fixed !important;
+      left: max(10px, env(safe-area-inset-left)) !important;
+      top: calc(14px + env(safe-area-inset-top)) !important;
+      width: 44px !important;
+      height: 44px !important;
+      z-index: 70 !important;
+      border-radius: 8px;
+      /* the app re-renders this control between its two forms; without this it can be caught
+       * mid-slide, a labelled pill sitting over the conversation title */
+      transition: none !important;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+
+    /* Nothing may sit under the pinned control. Measured: the conversation header's title row
+     * starts at x=20, inside the toggle's 10..54 footprint, so title and control overlapped.
+     * This clears it in every render state, not just the settled one. */
+    [class*="centerCol"] [class*="titleRow"],
+    [class*="centerCol"] [class*="headerRow"] {
+      padding-left: 56px;
+    }
+
+    /* Open: over the conversation, with the scrim a phone user expects to be able to tap.
+     * The app renders its full header in this state, so the toggle sits inside the drawer
+     * where it belongs and no pinning is needed. */
+    [class*="sidebarCol"]:not(:has([class*="collapsed"])) {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: min(86vw, 340px);
+      z-index: 60;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+      box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+      background: var(--dsh-phone-drawer-bg, canvas);
+    }
+  }
+
+  /* ---- content column --------------------------------------------------- */
+
+  [class*="centerCol"] {
+    /* never let a wide child scroll the page sideways */
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* ---- scroll hygiene: one scroller, no rubber-banding ------------------ */
+
+  /* Measured: `html`/`body` compute `overflow-y: visible`, and the app's own scroll areas
+   * sit inside the frame. On iOS that combination lets a drag chain out of the transcript
+   * and move the whole page, which is the "funny scroll" — the panel under the finger stays
+   * put while the page moves. Keeping the page itself unscrollable, and containing momentum
+   * inside the app's scrollers, leaves exactly one thing that scrolls. */
+  html,
+  body {
+    overscroll-behavior: none;
+    overflow: hidden;
+  }
+
+  [class*="scrollBody"],
+  [class*="scrollArea"],
+  [class*="listArea"],
+  [class*="conversation"] {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Messages and tool cards get the full width, with a comfortable gutter. */
+  [class*="scrollBody"],
+  [class*="messageList"],
+  [class*="conversation"] {
+    max-width: 100%;
+  }
+}
+
+/* Narrow-but-not-phone (small tablets, split view): keep the rail, still fix the fingers. */
+@media (min-width: 769px) and (max-width: 1024px) {
+  button[aria-label] {
+    min-height: 40px;
+    min-width: 40px;
+  }
+}

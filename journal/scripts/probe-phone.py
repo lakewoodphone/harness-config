@@ -1,0 +1,658 @@
+#!/usr/bin/env python3
+"""End-to-end probe for the phone stack.
+
+Run this ON the machine that hosts the stack (default: the authority).
+It answers one question: can a cold visitor with nothing but a URL reach a
+working harness, and does the document they land on actually authenticate.
+
+Six checks, in the order a real phone walks them:
+
+  1. cold visitor        GET / with no cookie and no token   -> 302 with a token
+  2. redemption          GET that redirect                   -> 303 + dsh-auth cookie
+  3. document            GET / with the cookie               -> 200, harness HTML
+  4. websocket           upgrade on /api/remote.mux          -> 101
+  5. fence               foreign Host header                 -> not 200
+  6. outside-in          real HTTPS through Tailscale Serve  -> 302 -> 303 -> 200
+
+Check 4 is the one that matters most and is easiest to fake: a page that loads
+but cannot open its socket looks broken on the phone and fine in curl.
+
+Usage:  python3 scripts/probe-phone.py [authority-hostname]
+Exit code 0 only if every check that can run passed.
+"""
+import http.client
+import json
+import socket
+import ssl
+import subprocess
+import sys
+import time
+import urllib.parse
+from pathlib import Path
+
+STATE = Path.home() / ".dsh-phone"
+STATUS_FILE = STATE / "probe.json"
+
+
+def _parse_args():
+    import argparse
+    ap = argparse.ArgumentParser(description="Probe the phone stack end to end.")
+    ap.add_argument("authority", nargs="?",
+                    default="secratary.tail93e6e6.ts.net",
+                    help="the tailnet authority the phone dials")
+    ap.add_argument("--json", nargs="?", const=str(STATUS_FILE), default=None,
+                    help=f"write a machine-readable result (default {STATUS_FILE})")
+    ap.add_argument("--quiet", action="store_true", help="write the file, print nothing")
+    return ap.parse_args()
+
+
+ARGS = _parse_args()
+AUTHORITY = ARGS.authority
+GATE = ("127.0.0.1", 3086)
+REDIRECT = ("127.0.0.1", 3087)
+ENGINE = ("127.0.0.1", 3089)
+
+
+def port_open(host_port, timeout=2.0):
+    try:
+        with socket.create_connection(host_port, timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def wait_for_services(max_wait=90.0):
+    """A booting engine is not a dead one.
+
+    Measured 2026-09-14: the engine prints its token about 18s before it binds the socket. This
+    probe runs every five minutes, so it can land inside that window and write a phone outage
+    that is really a boot in progress — which is how I came to blame a plugin for an outage it
+    had not caused. Waiting here is not leniency: the checks below still fail honestly for a
+    service that never arrives, and the wait itself is recorded in the status file.
+    """
+    started = time.time()
+    while time.time() - started < max_wait:
+        if port_open(GATE) and port_open(ENGINE):
+            break
+        time.sleep(3)
+    return round(time.time() - started, 1)
+
+
+results = []
+
+
+def record(n, name, ok, detail):
+    results.append((n, name, ok, detail))
+    if not ARGS.quiet:
+        print(f"  {n}. {'PASS' if ok else 'FAIL'}  {name}: {detail}")
+
+
+def live_token():
+    """Newest engine log wins. Returns (token, log) or (None, why)."""
+    logs = sorted(STATE.glob("engine-*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not logs:
+        return None, f"no engine-*.log under {STATE}"
+    log = logs[-1]
+    for path in logs:
+        text = path.read_text(errors="replace")
+        idx = text.rfind("?token=")
+        if idx >= 0:
+            token = text[idx + 7:].split()[0].strip()
+            if token:
+                age = int(time.time() - path.stat().st_mtime)
+                return token, f"{path.name} ({age}s old)"
+    return None, f"{log.name} carries no token"
+
+
+def request(host_port, method, path, headers=None, body=None, family=socket.AF_INET):
+    """Never raise. A dead peer is a result, not an exception.
+
+    Learned from a live outage: the engine was stopped for the negative test, this
+    raised RemoteDisconnected, the probe died before writing its status file, and the
+    kernel went on reading the previous green file as if nothing had happened. A probe
+    that cannot report its own failure is worse than no probe.
+    """
+    conn = None
+    try:
+        conn = http.client.HTTPConnection(*host_port, timeout=20)
+        conn.request(method, path, body=body, headers=headers or {})
+        resp = conn.getresponse()
+        payload = resp.read(70000)
+        return {
+            "status": resp.status,
+            "headers": {k.lower(): v for k, v in resp.getheaders()},
+            "body": payload,
+        }
+    except Exception as e:  # noqa: BLE001
+        return {"status": 0, "headers": {}, "body": b"",
+                "error": f"{type(e).__name__}: {e}"}
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def is_harness_document(body):
+    """A real document, not the plain-text refusal iOS offers as a download.
+
+    The served page is ~27 KB with the title and the client bootstrap well past
+    the first read, so match on either marker and explicitly exclude the 401 body.
+    """
+    text = body.decode("utf-8", "replace").lower()
+    if "authentication required" in text:
+        return False, "that is the 401 refusal text"
+    for marker in ("<title>deepseek harness</title>", "__moduleloader__"):
+        if marker in text:
+            return True, marker
+    return False, f"no harness marker in {len(body)} bytes"
+
+
+def signed_in_document(path="/", headers=None):
+    """Fetch the document the way a browser would, and report what came back."""
+    r = request(GATE, "GET", path,
+                {"Host": AUTHORITY, "Accept": "text/html", **(headers or {})})
+    good, why = is_harness_document(r["body"])
+    return r, good, why
+
+
+def check_cold_visitor():
+    """A visitor with nothing gets the page, in one request, with a session.
+
+    The contract changed on 2026-09-11 and the stronger version is the correct one: the
+    gate completes the login itself instead of handing out a link to follow. A link could
+    be looped on forever by a client that keeps a bad cookie; a page cannot.
+    """
+    r, good, why = signed_in_document()
+    cookie = r["headers"].get("set-cookie", "")
+    ok = r["status"] == 200 and good and "dsh-auth-" in cookie
+    record(1, "a cold visitor gets the page and a session", ok,
+           f"{r['status']}, {len(r['body'])} bytes, {why}, "
+           f"cookie={'yes' if 'dsh-auth-' in cookie else 'NO'}, 0 redirects")
+    return None
+
+
+def check_redeem(token):
+    """The engine's own one-time exchange still works under the gate."""
+    if not token:
+        record(2, "the engine's token exchange still works", False, "no live token to try")
+        return None
+    r = request(GATE, "GET", f"/?token={urllib.parse.quote(token)}",
+                {"Host": AUTHORITY, "Accept": "text/html"})
+    cookie = r["headers"].get("set-cookie", "")
+    ok = r["status"] in (302, 303) and "dsh-auth-" in cookie
+    record(2, "the engine's token exchange still works",
+           ok, f"{r['status']}, cookie={'yes' if 'dsh-auth-' in cookie else 'NO'}"
+               f"{', HttpOnly' if 'HttpOnly' in cookie else ''}")
+    return cookie.split(";")[0] if cookie else None
+
+
+def check_document(cookie):
+    if not cookie:
+        record(3, "document loads with the cookie", False, "no cookie from check 2")
+        return
+    r = request(GATE, "GET", "/", {"Host": AUTHORITY, "Cookie": cookie,
+                                   "Accept": "text/html"})
+    text = r["body"].decode("utf-8", "replace")
+    good, why = is_harness_document(r["body"])
+    ok = r["status"] == 200 and good
+    record(3, "document loads with the cookie", ok,
+           f"{r['status']}, {len(r['body'])} bytes, {why}"
+           + (f", title={text.split('<title>')[1].split('</title>')[0]!r}"
+              if "<title>" in text else ""))
+
+
+def check_websocket(cookie):
+    """A raw upgrade handshake. The page loading proves nothing about this."""
+    if not cookie:
+        record(4, "websocket upgrades", False, "no cookie from check 2")
+        return
+    raw = (
+        f"GET /api/remote.mux HTTP/1.1\r\n"
+        f"Host: {AUTHORITY}\r\n"
+        f"Upgrade: websocket\r\n"
+        f"Connection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+        f"Sec-WebSocket-Version: 13\r\n"
+        f"Origin: https://{AUTHORITY}\r\n"
+        f"Cookie: {cookie}\r\n\r\n"
+    ).encode()
+    try:
+        s = socket.create_connection(GATE, timeout=20)
+        s.sendall(raw)
+        s.settimeout(10)
+        head = s.recv(400).decode("latin-1").split("\r\n")[0]
+        s.close()
+        ok = "101" in head
+        record(4, "websocket upgrades", ok, head or "(connection closed, no response)")
+    except Exception as e:  # noqa: BLE001 - a probe reports, it does not raise
+        record(4, "websocket upgrades", False, f"{type(e).__name__}: {e}")
+
+
+def check_stale_cookie():
+    """The visitor who has been here before, holding a cookie that no longer works.
+
+    This is the state of a real phone, and it was invisible to every check that
+    started from a clean client: the gate saw `dsh-auth-` and relayed, the engine
+    said 401, and iOS offered the refusal as a download.
+    """
+    r, good, why = signed_in_document(headers={"Cookie": "dsh-auth-thisisnotavalidcookie"})
+    cookie = r["headers"].get("set-cookie", "")
+    ok = r["status"] == 200 and good and "dsh-auth-" in cookie
+    record(7, "a stale cookie is repaired, not refused", ok,
+           f"{r['status']}, {len(r['body'])} bytes, {why}, "
+           f"fresh cookie={'yes' if 'dsh-auth-' in cookie else 'NO'}")
+
+
+def check_stale_token():
+    """A saved link whose token died at the last engine restart."""
+    r, good, why = signed_in_document("/?token=token-from-an-engine-that-is-gone")
+    ok = r["status"] == 200 and good
+    record(8, "a dead saved link is repaired, not relayed", ok,
+           f"{r['status']}, {len(r['body'])} bytes, {why}")
+
+
+def status_of(response: bytes) -> int:
+    """HTTP status from a raw response head, or 0 if it cannot be read."""
+    try:
+        return int(response.split(b" ", 2)[1])
+    except (IndexError, ValueError):
+        return 0
+
+
+def check_pooling():
+    """A second request on the same connection must not slip past the gate.
+
+    The bug that actually broke the owner's phone: Tailscale Serve pools its upstream
+    connection, and the gate inspected only the first request on a connection, then
+    became a raw pipe. Every later request on that socket went straight to the engine,
+    so a stale cookie or a dead token produced the 401 with no decision logged. Every
+    curl-based check opened a fresh connection and passed. This test reuses one.
+    """
+    name = "a reused connection cannot bypass the gate"
+    try:
+        s = socket.create_connection(GATE, timeout=20)
+        s.sendall(f"GET / HTTP/1.1\r\nHost: {AUTHORITY}\r\n\r\n".encode())
+        s.settimeout(15)
+        first = b""
+        while b"\r\n\r\n" not in first:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            first += chunk
+
+        try:
+            s.sendall(f"GET / HTTP/1.1\r\nHost: {AUTHORITY}\r\n"
+                      f"Cookie: dsh-auth-stale-value\r\n\r\n".encode())
+        except OSError:
+            s.close()
+            record(9, name, True,
+                   "gate closed the connection after one request, so nothing can be pooled")
+            return
+
+        second = b""
+        try:
+            while b"\r\n\r\n" not in second:
+                chunk = s.recv(4096)
+                if not chunk:
+                    break
+                second += chunk
+        except OSError:
+            pass
+        s.close()
+        status = status_of(second)
+        if status == 0:
+            record(9, name, True, "no second response: connection is not reusable")
+        elif status in (301, 302, 303, 307):
+            record(9, name, True, f"second request was inspected and answered {status}")
+        else:
+            record(9, name, False,
+                   f"second request on the reused connection came back {status} - it was relayed uninspected")
+    except Exception as e:  # noqa: BLE001
+        record(9, name, False, f"{type(e).__name__}: {e}")
+
+
+def check_mobile_layer():
+    """The phone layer reaches a phone, and carries the rules that matter.
+
+    The owner's words were "it's a chrome window, it's not optimized for a phone
+    interface". The layer is a stylesheet this gate injects; the checks are that it
+    arrives and that it still contains the two rules that fixed measured defects — the 16px
+    field font that stops iOS auto-zooming the page, and the 44px touch minimum.
+    """
+    name = "the phone layer is served and complete"
+    r = request(GATE, "GET", "/", {
+        "Host": AUTHORITY,
+        "Accept": "text/html",
+        "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                       "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"),
+    })
+    body = r["body"]
+    text = body.decode("utf-8", "replace")
+    has_layer = 'id="dsh-phone-mobile"' in text
+    has_zoom_fix = "font-size: 16px !important" in text
+    has_touch = "min-height: 44px" in text
+    has_safe_area = "safe-area-inset-bottom" in text
+    ok = r["status"] == 200 and has_layer and has_zoom_fix and has_touch and has_safe_area
+    missing = [n for n, v in (("layer", has_layer), ("16px fields", has_zoom_fix),
+                              ("44px targets", has_touch), ("safe area", has_safe_area)) if not v]
+    record(10, name, ok,
+           f"{r['status']}, {len(body)} bytes"
+           + (f", missing: {', '.join(missing)}" if missing else ", all four rules present"))
+
+
+def check_client_plugin():
+    """The behaviour plugin is in the roster the browser is told to load.
+
+    The stylesheet can be served and still leave the phone annoying, because closing the
+    drawer on selection is state and lives in the client plugin. That plugin reaches the
+    browser through the profile's bundle list and a symlink into this checkout, either of
+    which can disappear — an npm operation in the profile, a rebuilt node_modules — without
+    anything else noticing. This is the check that notices.
+    """
+    name = "the mobile client plugin is in the browser roster"
+    r = request(GATE, "GET", "/", {
+        "Host": AUTHORITY,
+        "Accept": "text/html",
+        "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                       "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"),
+    })
+    text = r["body"].decode("utf-8", "replace")
+    ok = r["status"] == 200 and "dsh-plugin-mobile" in text
+    record(11, name, ok,
+           f"{r['status']}, roster entry "
+           + ("present" if ok else "MISSING - the phone keeps the drawer open after a pick"))
+
+
+def check_authenticated_rpc(cookie):
+    """The app's own first call must work, not just the document.
+
+    Added 2026-09-14 after exactly this failure went unseen: the document loaded (200, cookie
+    minted) and every RPC the app makes returned **403 forbidden** — so the phone showed a
+    broken, empty interface while this probe reported 11/12 and the kernel called the phone
+    path proven. A document is the shell; the session list is the application.
+
+    THE METHOD IS `session/list`, and the first version of this check got that wrong in a way
+    worth keeping written down. It called `agentPresets/list` with the same args envelope and
+    got `200` carrying `{"result":{"ok":false,"error":{"code":"gateway/arguments-invalid",
+    "message":"args fields do not match the descriptor: unexpected \"_request\""}}}` — a
+    passing fence, a working gateway, and an assertion that read as a broken phone. The two
+    halves of that envelope are per-method, not universal: `session/list` accepts `_request`
+    (captured verbatim from the live browser: `{"type":"client-request","rpcId":"…","method":
+    "session/list","payload":{"args":{"_request":{}}}}`), `agentPresets/list` does not. So the
+    probe now drives the call the app actually makes on load, and asserts on the response
+    SHAPE the app depends on rather than on a substring of one method's reply.
+    """
+    name = "an authenticated RPC works (the app's first call)"
+    if not cookie:
+        record(12, name, False, "no session cookie to call with")
+        return
+    body = json.dumps({"type": "client-request", "rpcId": "probe-rpc", "method": "session/list",
+                       "payload": {"args": {"_request": {}}}}).encode()
+    r = request(GATE, "POST", "/api/session/list", {
+        "Host": AUTHORITY, "Cookie": cookie, "Content-Type": "application/json",
+        "Content-Length": str(len(body)),
+    }, body)
+    raw = r["body"].decode("utf-8", "replace")
+    ok, detail = False, ""
+    if r["status"] != 200:
+        detail = f"{r['status']}: {raw[:160]}"
+    else:
+        try:
+            reply = json.loads(raw)
+            result = reply.get("result") or {}
+            items = (result.get("value") or {}).get("items")
+            if result.get("ok") is not True:
+                detail = f"200 but the RPC refused: {raw[:200]}"
+            elif not isinstance(items, list):
+                detail = f"200, ok, but no session list in the reply: {raw[:200]}"
+            else:
+                ok, detail = True, f"200, ok, {len(items)} session(s) listed"
+        except Exception as exc:  # a reply that is not JSON is a reply the app cannot use
+            detail = f"200 but unparseable ({exc}): {raw[:160]}"
+    record(12, name, ok, detail)
+
+
+def check_fence():
+    """Ask the ENGINE directly, not the gate.
+
+    The gate sits on loopback and Serve rewrites Host, so a spoiled Host reaching
+    the gate is a local process talking to itself - not an attack surface. What
+    still has to hold is that the engine refuses a foreign Host if anything ever
+    reaches it directly.
+    """
+    try:
+        r = request(("127.0.0.1", 3089), "GET", "/", {"Host": "evil.example.com"})
+        ok = r["status"] != 200
+        record(5, "engine still fences a foreign Host", ok,
+               f"engine answered {r['status']} (a 200 here means the fence is open)")
+    except Exception as e:  # noqa: BLE001
+        record(5, "engine still fences a foreign Host", True,
+               f"connection refused/dropped ({type(e).__name__}) - also acceptable")
+
+
+def check_outside_in():
+    """The only check the phone would actually notice: real HTTPS, real certificate."""
+    url = f"https://{AUTHORITY}/"
+    try:
+        ctx = ssl.create_default_context()
+        conn = http.client.HTTPSConnection(AUTHORITY, 443, timeout=25, context=ctx)
+        conn.request("GET", "/", headers={"User-Agent": "probe-phone/1"})
+        r = conn.getresponse()
+        status = r.status
+        loc = r.getheader("Location") or ""
+        cookie = r.getheader("Set-Cookie") or ""
+        body = r.read(4000).decode("utf-8", "replace")
+        conn.close()
+        if status in (301, 302, 303, 307) and "token=" in loc:
+            # cold over the wire: follow it, as a phone would
+            q = urllib.parse.urlparse(loc).query or urllib.parse.urlparse(url + loc).query
+            conn = http.client.HTTPSConnection(AUTHORITY, 443, timeout=25, context=ctx)
+            conn.request("GET", "/" + ("?" + q if q else ""),
+                         headers={"User-Agent": "probe-phone/1"})
+            r2 = conn.getresponse()
+            cookie = r2.getheader("Set-Cookie") or cookie
+            loc = r2.getheader("Location") or ""
+            r2.read(1000)
+            conn.close()
+        conn = http.client.HTTPSConnection(AUTHORITY, 443, timeout=25, context=ctx)
+        conn.request("GET", "/", headers={"User-Agent": "probe-phone/1",
+                                          "Cookie": cookie.split(";")[0]})
+        r3 = conn.getresponse()
+        status, body = r3.status, r3.read(70000)
+        conn.close()
+        good, why = is_harness_document(body)
+        ok = status == 200 and good
+        record(6, "real HTTPS through Tailscale Serve", ok,
+               f"final {status}, {len(body)} bytes, {why}")
+    except Exception as e:  # noqa: BLE001
+        record(6, "real HTTPS through Tailscale Serve", False,
+               f"{type(e).__name__}: {e} (Serve or the tailnet is down)")
+
+
+def check_redirector():
+    """The public link a human may still have in their hand — followed all the way.
+
+    A redirect status proves nothing about where it lands: the old version handed out a
+    launch token, and a dead one turned the owner's home-screen icon into a 401. So this
+    follows it over real HTTPS, with no cookie of its own, and insists on the document.
+    """
+    try:
+        r = request(REDIRECT, "GET", "/phone", {"Host": "ai.abletelsolutions.com"})
+        loc = r["headers"].get("location", "")
+        if r["status"] not in (301, 302, 303, 307) or not loc:
+            record("6b", "public /phone reaches the harness", False,
+                   f"{r['status']} -> {loc or '(no Location)'}")
+            return
+        try:
+            ctx = ssl.create_default_context()
+            conn = http.client.HTTPSConnection(AUTHORITY, 443, timeout=25, context=ctx)
+            conn.request("GET", "/", headers={"User-Agent": "probe-phone/1"})
+            r2 = conn.getresponse()
+            status, body = r2.status, r2.read(70000)
+            cookie = (r2.getheader("Set-Cookie") or "").split(";")[0]
+            conn.close()
+            good, why = is_harness_document(body)
+            ok = status == 200 and good and "dsh-auth-" in cookie
+            record("6b", "public /phone reaches the harness", ok,
+                   f"302 -> {loc.split('://')[-1][:28]} -> {status}, {len(body)} bytes, {why}, "
+                   f"signed in={'yes' if 'dsh-auth-' in cookie else 'NO'}")
+        except Exception as e:  # noqa: BLE001
+            record("6b", "public /phone reaches the harness", False,
+                   f"redirect ok but the target failed: {type(e).__name__}: {e}")
+    except Exception as e:  # noqa: BLE001
+        record("6b", "public /phone reaches the harness", False,
+               f"{type(e).__name__}: {e}")
+
+
+def check_layer_cannot_be_cached():
+    """A client that may already hold the document still gets the layer, and must not reuse it.
+
+    Added 2026-09-14, and it is the check that explains the owner's own experience. The layer
+    is delivered by REWRITING THE DOCUMENT, so a client that serves the document from its own
+    cache is running a shell with no layer — and every other check here reads the server's
+    answer, which is correct in both cases. Measured the same day: a cold browser at 393x852
+    rendered the layer correctly (`frame` one column of 393px, sidebar off-canvas at -340,
+    toggle pinned 44x44, page scroll locked) while a warm browser in the same session rendered
+    the app with the layer absent, and a fetch of `/` from that warm client returned the
+    engine's un-injected 28,141-byte document. The engine sends its document with no
+    `Cache-Control` at all, which is what a phone is free to reuse without asking.
+
+    Two things are asserted, because they are two halves of one requirement: the answer is
+    `no-store` (a client may not reuse it), and the body carries the layer (it was injected).
+    """
+    name = "the phone layer cannot be lost to a client cache"
+    r = request(GATE, "GET", "/", {
+        "Host": AUTHORITY,
+        "Accept": "text/html",
+        # exactly what a browser sends when it may already hold this document
+        "If-None-Match": '"probe-revalidation"',
+        "If-Modified-Since": "Mon, 01 Jan 2024 00:00:00 GMT",
+        "User-Agent": ("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                       "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"),
+    })
+    text = r["body"].decode("utf-8", "replace")
+    cache_control = (r["headers"].get("cache-control") or "").lower()
+    has_layer = 'id="dsh-phone-mobile"' in text
+    ok = r["status"] == 200 and has_layer and "no-store" in cache_control
+    detail = (f"{r['status']}, {len(r['body'])} bytes, "
+              f"cache-control={cache_control or 'ABSENT'}")
+    if not has_layer:
+        detail += ", and no layer in the body"
+    record(13, name, ok, detail)
+
+
+def check_mobile_stylesheet():
+    """The layer is also served as its own stylesheet, which a client plugin can link.
+
+    The document copy can be lost to a cache or dropped by an app rewriting its `<head>`; a
+    `<link>` the mobile plugin owns cannot. This asserts the route the plugin links actually
+    answers with CSS — an empty 404 would leave the phone with no layer while every other
+    check here stayed green, which is precisely the failure mode 13 exists for.
+    """
+    name = "the layer is also served as its own stylesheet"
+    r = request(GATE, "GET", "/dsh-phone-mobile.css", {"Host": AUTHORITY})
+    content_type = (r["headers"].get("content-type") or "").lower()
+    text = r["body"].decode("utf-8", "replace")
+    rules = {
+        "media block": "max-width: 768px" in text,
+        "16px fields": "font-size: 16px !important" in text,
+        "44px targets": "min-height: 44px" in text,
+        "drawer rules": "sidebarCol" in text,
+    }
+    ok = r["status"] == 200 and "text/css" in content_type and all(rules.values())
+    missing = [n for n, present in rules.items() if not present]
+    record(14, name, ok,
+           f"{r['status']}, {len(r['body'])} bytes, type={content_type or 'ABSENT'}"
+           + (f", missing: {', '.join(missing)}" if missing else ", all four rules present"))
+
+
+def guarded(n, name, fn, *a, **kw):
+    """Run one check so that its own crash is recorded as that check failing."""
+    try:
+        return fn(*a, **kw)
+    except Exception as e:  # noqa: BLE001
+        record(n, name, False, f"probe raised {type(e).__name__}: {e}")
+        return None
+
+
+def run_checks():
+    token, how = live_token()
+    if not ARGS.quiet:
+        print(f"  token source: {how}")
+        if not token:
+            print("  no live token; the gate cannot sign anyone in")
+    guarded(1, "a cold visitor gets the page and a session", check_cold_visitor)
+    # independent of check 1: the engine's own one-time exchange still has to work, since
+    # the gate's in-flight login is built on it.
+    cookie = guarded(2, "the engine's token exchange still works", check_redeem, token)
+    guarded(3, "document loads with the cookie", check_document, cookie)
+    guarded(4, "websocket upgrades", check_websocket, cookie)
+    guarded(5, "engine still fences a foreign Host", check_fence)
+    guarded(6, "real HTTPS through Tailscale Serve", check_outside_in)
+    guarded(7, "a stale cookie is repaired, not refused", check_stale_cookie)
+    guarded(8, "a stale token is replaced, not relayed", check_stale_token)
+    guarded(9, "a reused connection cannot bypass the gate", check_pooling)
+    guarded(10, "the phone layer is served and complete", check_mobile_layer)
+    guarded(11, "the mobile client plugin is in the browser roster", check_client_plugin)
+    guarded(12, "an authenticated RPC works (the app's first call)", check_authenticated_rpc, cookie)
+    # 13 and 14 are about the layer SURVIVING, which is a different question from it being
+    # served: the owner's phone can hold a document this host never injected.
+    guarded(13, "the phone layer cannot be lost to a client cache", check_layer_cannot_be_cached)
+    guarded(14, "the layer is also served as its own stylesheet", check_mobile_stylesheet)
+    guarded("6b", "public /phone reaches the harness", check_redirector)
+    return how
+
+
+def main():
+    if not ARGS.quiet:
+        print(f"probing the phone stack for {AUTHORITY}")
+    boot_wait = wait_for_services()
+    if boot_wait > 3 and not ARGS.quiet:
+        print(f"  waited {boot_wait}s for the gate and engine to accept connections")
+    try:
+        how = run_checks()
+    except Exception as e:  # noqa: BLE001 - the status file must still be written
+        how = "unknown"
+        record(0, "probe completed", False, f"probe itself failed: {type(e).__name__}: {e}")
+
+    bad = [r for r in results if not r[2]]
+    if not ARGS.quiet:
+        print(f"\n  {len(results) - len(bad)}/{len(results)} passed")
+        if bad:
+            print("  failed: " + ", ".join(str(r[0]) for r in bad))
+
+    if ARGS.json:
+        # A reading without a source and an age is not a reading. The kernel reads this
+        # file rather than re-deriving health, so the timestamp is part of the contract.
+        payload = {
+            "ts": time.time(),
+            "iso": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "host": socket.gethostname(),
+            "authority": AUTHORITY,
+            "token_source": how,
+            "boot_wait_seconds": boot_wait,
+            "ok": not bad,
+            "passed": len(results) - len(bad),
+            "total": len(results),
+            "failed": [str(r[0]) for r in bad],
+            "checks": [{"n": r[0], "name": r[1], "ok": r[2], "detail": r[3]}
+                       for r in results],
+        }
+        try:
+            path = Path(ARGS.json)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(path.suffix + ".tmp")
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            tmp.replace(path)      # atomic: a reader never sees a half-written file
+            if not ARGS.quiet:
+                print(f"  wrote {path}")
+        except OSError as e:
+            print(f"  could not write {ARGS.json}: {e}", file=sys.stderr)
+            return 1
+    return 1 if bad else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

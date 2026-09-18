@@ -1,0 +1,48 @@
+# dsh-plugin-remote-fanout — the bundle patch.
+#
+# Two rows, and they are a pair:
+#
+#   remote-fanout         the provider. Registers a second named provider on
+#                         ctx.subagents. It carries NO config here on purpose:
+#                         `target`, `remoteNodeExe` and `remoteDshBin` name a
+#                         machine and two paths on it, which are deployment
+#                         facts, not package facts. A profile that mounts this
+#                         bundle must override this row's config (a patch
+#                         REPLACES the targeted row's whole config, so restate
+#                         every key):
+#
+#                           - id: remote-fanout
+#                             config: { providerName: remote-ssh, target: laptop-ts, ... }
+#
+#                         A profile that mounts the bundle and configures
+#                         nothing fails loudly at boot, which is the intended
+#                         behaviour: a provider that cannot reach a node must
+#                         not pretend to be present.
+#
+#   tool-subagent-remote  the model-facing tool. A second instance of the
+#                         shipped tool bound to the remote provider by name, so
+#                         a parent agent sees `subagent` (local spawn) and
+#                         `subagent_remote` (another node) side by side. Nothing
+#                         about the built-in tool changes.
+#
+# Invariants worth knowing, all from the shipped packages:
+#   * `maxDepth: provider-managed` is REQUIRED. dsh-tool-subagent refuses to
+#     mount a numeric maxDepth on a provider without the depthLimit capability
+#     (lib/index.js:377) — and an out-of-process child advertises no
+#     capabilities at all.
+#   * `enableRunInBackground: false` keeps the call synchronous, so a parent
+#     collects each remote child's result directly instead of polling a job.
+#     Background jobs would also need @deepseek-ai/dsh-jobs mounted.
+#   * The provider name must be identical in both rows; changing `providerName`
+#     means changing the tool row's `provider` too.
+- insert:
+    - id: remote-fanout
+      name: dsh-plugin-remote-fanout
+
+    - id: tool-subagent-remote
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: remote-ssh
+        toolName: subagent_remote
+        enableRunInBackground: false
+        maxDepth: provider-managed

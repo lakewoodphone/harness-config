@@ -1,0 +1,49 @@
+**The stall marker is gone and sessions still do not finish: the fix moved the failure, it did not remove it**
+
+The measurement the previous round said was owed. `work_sessions` since the work-mode fix went
+live (2026-09-14 15:30Z), three sessions:
+
+| | count |
+|---|---|
+| sessions | 3 |
+| `[STALLED_REPEATING_OUTPUT]` | **0** |
+| `[DROPPED-ACTION-TAGS]` | 0 |
+| `[STEP_BUDGET_EXHAUSTED]` | **2** |
+| completed | **0** |
+
+**Read honestly, this is a partial win and a clear next problem.** The repetition-stall mechanism is
+gone — no session reported it, and no session emitted a dead `[ACTION:]` tag, which is what the fix
+targeted and what the deployed-prompt probe predicted. But **two of three sessions still burned the
+5-step budget without completing**, and none completed. So the failure moved from *silent
+repetition* to *budget exhaustion*: better, because a budget exhaustion is an honest statement about
+what happened, and worse in no way — but the company still is not finishing its work.
+
+This is exactly the fork predicted when the fix was deployed, and it landed on the branch that was
+called the more likely one: **the stall was a symptom, not the disease.**
+
+**Three candidates for the disease, none established — do not pick one by preference.**
+1. **The goals do not fit the budget.** Session 75332's task is *"CUT FAILED-GOAL CHURN (16,795
+   failed vs 11,563 completed)"* — an initiative-sized task handed a five-step budget. If most work
+   is shaped like that, no prompt fixes it and the lever is the goal generator, not the loop.
+2. **The work is not reachable from this host.** The sampled failures include Home Assistant sensor
+   checks and CI/PR checks, and HA is on the office LAN reachable from one machine (**P18**). A task
+   whose tools cannot reach its subject fails at any budget.
+3. **The prompt is 41,225 bytes** (~10k tokens) before any conversation — tool summary, owner
+   context and the previous step's output inlined, paid on all five steps of every session. It may be
+   burying the instruction, and it is certainly costing money.
+
+**What would settle it, cheaply, before touching any of them:** classify the last ~200 completed and
+failed sessions by *task shape* and *tool reachability*, the way classifying by marker found the
+stall's cause in one query. If the failed set is dominated by initiative-sized tasks, it is (1); if
+by tasks whose subject lives off-host, it is (2); if failures are spread evenly across shapes, it is
+(3). Guessing between these three would waste a day and produce a confident wrong answer, which is
+the failure this journal exists to prevent.
+
+**Also still open and larger than any of this:** 322 rows sit in `owner_message_queue` as `held`,
+newest 2026-09-14T15:32Z, while its newest `sent_at` remains **2026-07-19T02:32Z**. Among them are
+16 held `urgent_email` rows — a Netlify "action needed" (today), a Deep Infra failed payment, a
+Telnyx low-balance alert — and the two briefing rows that were raw JSON until the fix recorded in
+**W43**. The noise is 144 `sync_breaker` rows for the same two checks (`ebay_sync`, `amazon_sync`,
+72 held each), which is what makes the all-or-nothing switch seem necessary. The prescribed fix is
+still unbuilt: **a dedup plus a rate limit in front of the queue, replacing the switch** (**P51**).
+That, not the stall, is what stands between the company and being heard.

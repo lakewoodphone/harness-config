@@ -1,0 +1,140 @@
+{
+  "host": "ZABZ-YOGA",
+  "measuredAt": "2026-09-16T14:27:01.123Z",
+  "node": "v24.12.0",
+  "n": 14,
+  "cases": {
+    "A. baseline (-NoLogo -NoProfile -NonInteractive -Command exit 0)": {
+      "n": 14,
+      "min": 505.6,
+      "p25": 550.9,
+      "p50": 567.7,
+      "mean": 632.6,
+      "p75": 654.5,
+      "p90": 747.9,
+      "max": 1050.1
+    },
+    "B. same argv, PSModulePath empty": {
+      "n": 14,
+      "min": 460.5,
+      "p25": 496.2,
+      "p50": 528.1,
+      "mean": 582.8,
+      "p75": 585.8,
+      "p90": 639.4,
+      "max": 1066.4
+    },
+    "C. same argv, DSH-style UTF8 preamble + Get-Date": {
+      "n": 14,
+      "min": 603,
+      "p25": 695.6,
+      "p50": 731.1,
+      "mean": 746.9,
+      "p75": 768,
+      "p90": 808.2,
+      "max": 961.9
+    },
+    "D. baseline again (2nd identical pass, image-cache effect)": {
+      "n": 14,
+      "min": 472.7,
+      "p25": 491.2,
+      "p50": 509.7,
+      "mean": 553.7,
+      "p75": 562.9,
+      "p90": 579.9,
+      "max": 922.1
+    },
+    "E. baseline with PSModulePath empty, 2nd pass": {
+      "n": 14,
+      "min": 379.6,
+      "p25": 413,
+      "p50": 462.1,
+      "mean": 482.1,
+      "p75": 525.5,
+      "p90": 580.4,
+      "max": 665
+    }
+  },
+  "series": {
+    "A. baseline (-NoLogo -NoProfile -NonInteractive -Command exit 0)": [
+      519,
+      508,
+      551,
+      553,
+      506,
+      676,
+      615,
+      776,
+      748,
+      570,
+      564,
+      568,
+      655,
+      1050
+    ],
+    "B. same argv, PSModulePath empty": [
+      1066,
+      718,
+      506,
+      496,
+      461,
+      528,
+      500,
+      496,
+      484,
+      639,
+      536,
+      598,
+      545,
+      586
+    ],
+    "C. same argv, DSH-style UTF8 preamble + Get-Date": [
+      962,
+      731,
+      856,
+      740,
+      808,
+      801,
+      708,
+      603,
+      674,
+      715,
+      662,
+      734,
+      768,
+      696
+    ],
+    "D. baseline again (2nd identical pass, image-cache effect)": [
+      579,
+      497,
+      473,
+      495,
+      580,
+      560,
+      563,
+      491,
+      480,
+      518,
+      485,
+      510,
+      598,
+      922
+    ],
+    "E. baseline with PSModulePath empty, 2nd pass": [
+      665,
+      581,
+      412,
+      398,
+      413,
+      465,
+      462,
+      438,
+      429,
+      525,
+      580,
+      530,
+      470,
+      380
+    ]
+  }
+}

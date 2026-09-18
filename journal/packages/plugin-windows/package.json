@@ -1,0 +1,23 @@
+{
+  "name": "dsh-plugin-windows",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Window control for DSH: a + control beside the composer that asks the host to open a new DSH window.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "scripts": {
+    "verify": "node --check lib/client.js"
+  }
+}

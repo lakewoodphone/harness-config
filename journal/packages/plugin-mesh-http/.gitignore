@@ -1,0 +1,4 @@
+# Machine-local artifacts of this package. Nothing here is a deliverable; everything here is
+# written by a proof run on the machine that ran it, and it must never be committed.
+test/dead-target-marker.txt
+*.local.json

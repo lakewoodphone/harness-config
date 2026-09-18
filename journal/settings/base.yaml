@@ -1,0 +1,114 @@
+# Base harness settings -- identical on every machine.
+#
+# Merged with settings/machines/<hostname>.yaml, where the machine file wins.
+# Keep secrets OUT of this file. Reference them by environment variable name
+# (e.g. apiKeyEnv: DEEPINFRA_API_KEY), never by value.
+
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+
+# ---------------------------------------------------------------------------
+# How this file reaches a machine (2026-09-11)
+#
+# `scripts/autosync.ps1` runs on both workstations from Task Scheduler
+# (`PersonalSecretary-HarnessSync`, at logon and every 15 minutes). It
+# fast-forwards the repo to origin, then applies THIS file and the presets into
+# `~/.dsh` — from a snapshot of HEAD, not from the working tree.
+#
+# That distinction matters on a machine where several agent sessions hold files
+# modified: applying the working tree would publish somebody's half-written
+# preset, and refusing to apply would mean committed changes never arrive at all.
+# The snapshot gives both properties — committed changes land, in-flight work is
+# neither published nor lost. A dirty tree is reported in the run record.
+# ---------------------------------------------------------------------------
+
+ui-conversation:
+  busyEnter: steer
+
+permission:
+  defaultPreset: danger-full-access
+
+# ---------------------------------------------------------------------------
+# Which model the owner is actually talking to.
+#
+# CORRECTED 2026-09-11 after the owner caught an error here. I had switched this
+# to `deepseek-v4-pro` on the assumption that "pro" meant more capable. That was
+# wrong, and it cost money for no gain.
+#
+# What the API actually says (probed, not assumed):
+#   GET /models          -> deepseek-flash, deepseek-v4-pro
+#   deepseek-v4.1-flash  -> REJECTED: "The supported API model names are
+#                           deepseek-flash, deepseek-v4-pro"
+#   identical prompt on deepseek-flash and deepseek-v4-pro returned byte-identical
+#   usage (10/2 tokens, cache miss 10), i.e. no observable capability difference
+#   on that probe.
+#
+# The owner's own understanding: 4.1 Flash is better AND cheaper than Pro. He
+# knows this deployment; that belief beats my inference. `deepseek-flash` is the
+# 4.1 Flash tier on this route. It is also what the account was already using
+# before I touched it.
+#
+# Namespace and schema: AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE in
+# @deepseek-ai/dsh-agent-default-model. Selection resolves per request, so a
+# change applies without restarting the process.
+#
+# LESSON (see journal/LESSONS.md L25): do not change the owner's model on
+# inference. Probe it, price it, and ask if it is his money.
+# ---------------------------------------------------------------------------
+agent-default-model:
+  provider: deepseek-official
+  model: deepseek-flash
+
+agent-presets:
+  # `zabz` is the conversational CEO: full toolbelt, the secretary bridge, and a
+  # persona written from the measured analysis of 23,035 owner turns. This is the
+  # thing that replaces Copilot chat.
+  #
+  # It derives from `cordis-bg`, which carries the background-first shell policy
+  # (long commands start as background jobs instead of dying at the 120s
+  # foreground timeout). That policy is retained, so both presets are safe.
+  #
+  # Set 2026-09-11 after mount validation returned "mounted OK: zabz".
+  # NOTE: this is read when a session starts, so a running process keeps its old
+  # preset until restarted.
+  default: zabz
+
+# ---------------------------------------------------------------------------
+# Fail-fast model behaviour (added 2026-09-14, after the DeepSeek flash outage).
+#
+# `streamIdleTimeoutMs` ships at 300000 (five minutes). In that outage a request
+# sat the full five minutes and then retried -- which is exactly what "nothing
+# would go when I type a question" felt like. 60 s bounds ONE dead attempt and
+# still clears DeepSeek's slowest observed first-token latency. `retryPolicy`
+# normal/2 keeps one transient-blip recovery without turning a dead provider
+# into a multi-minute stall. Both schemas were read out of the installed harness
+# (dsh-llm RetryPolicySchema, dsh-llm-deepseek adapter options) before writing.
+# ---------------------------------------------------------------------------
+llm-deepseek:
+  streamIdleTimeoutMs: 60000
+  retryPolicy:
+    mode: normal
+    maxRetries: 2
+    retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT]
+    backoff:
+      initialDelayMs: 500
+      maxDelayMs: 5000
+      jitterRatio: 0.1
+
+# ---------------------------------------------------------------------------
+# The third failover tier, on infrastructure independent of api.deepseek.com.
+# No secret is inlined: `apiKeyEnv` names a ref each machine supplies in
+# ~/.dsh/.credentials.yaml. Machine files may narrow `models`; their array
+# replaces this one (scripts/merge-settings.mjs deep-merges, arrays replace).
+# ---------------------------------------------------------------------------
+llm-pi-ai:
+  providers:
+    deepinfra:
+      apiKeyEnv: DEEPINFRA_API_KEY
+      api: openai-completions
+      baseURL: https://api.deepinfra.com/v1/openai
+      models:
+        - id: deepseek-ai/DeepSeek-V4-Flash-0731
+          name: DeepSeek V4 Flash (0731)
+        - id: deepseek-ai/DeepSeek-V4.1-Flash
+          name: DeepSeek V4.1 Flash

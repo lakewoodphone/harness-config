@@ -1,0 +1,1256 @@
+Process 364647: /home/zabz/personal-secretary-mvp/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8002
+Python v3.14.4 (/usr/bin/python3.14)
+
+Thread 364647 (idle): "MainThread"
+    run (asyncio/runners.py:127)
+        Arguments:
+            self: <Runner at 0x78b8976fe900>
+            coro: <coroutine at 0x78b897736e30>
+        Locals:
+            context: <_contextvars.Context at 0x78b8977dcbc0>
+            task: <_asyncio.Task at 0x78b8977709b0>
+            sigint_handler: <functools.partial at 0x78b897800ac0>
+    run (asyncio/runners.py:204)
+        Arguments:
+            main: <coroutine at 0x78b897736e30>
+        Locals:
+            debug: None
+            loop_factory: None
+            runner: <Runner at 0x78b8976fe900>
+    run (uvicorn/server.py:67)
+        Arguments:
+            self: <Server at 0x78b8976fdbe0>
+            sockets: None
+    run (uvicorn/main.py:580)
+        Arguments:
+            app: "app.main:app"
+        Locals:
+            host: "0.0.0.0"
+            port: 8002
+            uds: None
+            fd: None
+            loop: "auto"
+            http: "auto"
+            ws: "auto"
+            ws_max_size: 16777216
+            ws_max_queue: 32
+            ws_ping_interval: 20
+            ws_ping_timeout: 20
+            ws_per_message_deflate: True
+            lifespan: "auto"
+            interface: "auto"
+            reload: False
+            reload_dirs: None
+            reload_includes: None
+            reload_excludes: None
+            reload_delay: 0.25
+            workers: None
+            env_file: None
+            log_config: {"version": 1, "disable_existing_loggers": False, ...}
+            log_level: None
+            access_log: True
+            proxy_headers: True
+            server_header: True
+            date_header: True
+            forwarded_allow_ips: None
+            root_path: ""
+            limit_concurrency: None
+            backlog: 2048
+            limit_max_requests: None
+            timeout_keep_alive: 5
+            timeout_graceful_shutdown: None
+            ssl_keyfile: None
+            ssl_certfile: None
+            ssl_keyfile_password: None
+            ssl_version: 17
+            ssl_cert_reqs: 0
+            ssl_ca_certs: None
+            ssl_ciphers: "TLSv1"
+            headers: []
+            use_colors: None
+            app_dir: ""
+            factory: False
+            h11_max_incomplete_event_size: None
+            config: <Config at 0x78b8976fd400>
+            server: <Server at 0x78b8976fdbe0>
+    main (uvicorn/main.py:460)
+        Arguments:
+            app: "app.main:app"
+            host: "0.0.0.0"
+            port: 8002
+            uds: None
+            fd: None
+            loop: "auto"
+            http: "auto"
+            ws: "auto"
+            ws_max_size: 16777216
+            ws_max_queue: 32
+            ws_ping_interval: 20
+            ws_ping_timeout: 20
+            ws_per_message_deflate: True
+            lifespan: "auto"
+            interface: "auto"
+            reload: False
+            reload_dirs: ()
+            reload_includes: ()
+            reload_excludes: ()
+            reload_delay: 0.25
+            workers: None
+            env_file: None
+            log_config: None
+            log_level: None
+            access_log: True
+            proxy_headers: True
+            server_header: True
+            date_header: True
+            forwarded_allow_ips: None
+            root_path: ""
+            limit_concurrency: None
+            backlog: 2048
+            limit_max_requests: None
+            timeout_keep_alive: 5
+            timeout_graceful_shutdown: None
+            ssl_keyfile: None
+            ssl_certfile: None
+            ssl_keyfile_password: None
+            ssl_version: 17
+            ssl_cert_reqs: 0
+            ssl_ca_certs: None
+            ssl_ciphers: "TLSv1"
+            headers: ()
+            use_colors: None
+            app_dir: ""
+            h11_max_incomplete_event_size: None
+            factory: False
+    invoke (click/core.py:853)
+        Arguments:
+            self: <Context at 0x78b8976fd160>
+            callback: <function at 0x78b89777b3d0>
+        Locals:
+            args: ()
+            kwargs: {"host": "0.0.0.0", "port": 8002, "app": "app.main:app", "uds": None, "fd": None, "reload": False, "reload_dirs": (), ...}
+            ctx: <Context at 0x78b8976fd160>
+    invoke (click/core.py:1298)
+        Arguments:
+            self: <Command at 0x78b8976fd010>
+            ctx: <Context at 0x78b8976fd160>
+    main (click/core.py:1435)
+        Arguments:
+            self: <Command at 0x78b8976fd010>
+            args: []
+            prog_name: "python -m uvicorn"
+            complete_var: None
+            standalone_mode: True
+            windows_expand_args: True
+        Locals:
+            extra: {}
+            ctx: <Context at 0x78b8976fd160>
+    __call__ (click/core.py:1514)
+        Arguments:
+            self: <Command at 0x78b8976fd010>
+        Locals:
+            args: ()
+            kwargs: {}
+    <module> (uvicorn/__main__.py:4)
+    _run_code (<frozen runpy>:88)
+        Arguments:
+            code: <code at 0x78b897833e10>
+            run_globals: {"__name__": "__main__", "__doc__": None, "__package__": "uvicorn", "__loader__": <SourceFileLoader at 0x78b898db2150>, ...}
+            init_globals: None
+            mod_name: "__main__"
+            mod_spec: <ModuleSpec at 0x78b897751090>
+            pkg_name: "uvicorn"
+            script_name: None
+        Locals:
+            loader: <SourceFileLoader at 0x78b898db2150>
+            fname: "/home/zabz/personal-secretary-mvp/.venv/lib/python3.14/site-packages/uvicorn/__main__.py"
+            cached: "/home/zabz/personal-secretary-mvp/.venv/lib/python3.14/site-packages/uvicorn/__pycache__/__main__.cpython-314.pyc"
+    _run_module_as_main (<frozen runpy>:199)
+        Arguments:
+            mod_name: "uvicorn.__main__"
+            alter_argv: True
+        Locals:
+            mod_spec: <ModuleSpec at 0x78b897751090>
+            code: <code at 0x78b897833e10>
+            main_globals: {"__name__": "__main__", "__doc__": None, "__package__": "uvicorn", "__loader__": <SourceFileLoader at 0x78b898db2150>, ...}
+Thread 365077 (idle): "autopilot"
+    _recent_escalation_logged (escalation_router.py:252)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+            agent_id: "orchestrator"
+            severity: "P2"
+            error_text: "Goal stuck > 12h: Life Domain Maintenance: Review and update life domain memories. Check each domain for stale or missing d..."
+            step_id: None
+            goal_id: "swo_438b518b-2f9c-449f-8856-cfe2a0bb7058_420552d6"
+        Locals:
+            within_seconds: 86400
+            _db_lock: <_thread.RLock at 0x78b895dc80f0>
+            _get_conn: <function at 0x78b895e06a30>
+            conn: <sqlite3.Connection at 0x78b8819dde40>
+            detail: "step=None goal=swo_438b518b-2f9c-449f-8856-cfe2a0bb7058_420552d6 error=Goal stuck > 12h: Life Domain Maintenance: Review an..."
+    route_escalation (escalation_router.py:137)
+        Arguments:
+            severity: "P2"
+            agent_id: "orchestrator"
+            error_text: "Goal stuck > 12h: Life Domain Maintenance: Review and update life domain memories. Check each domain for stale or missing d..."
+            step_id: None
+            goal_id: "swo_438b518b-2f9c-449f-8856-cfe2a0bb7058_420552d6"
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            dedup_key: ("orchestrator", "swo_438b518b-2f9c-449f-8856-cfe2a0bb7058_420552d6")
+            now: 1126750.880984777
+            last: None
+    _detect_stuck_goals (lifecycle_sweep.py:1585)
+        Arguments:
+            conn: <sqlite3.Connection at 0x78b8819dde40>
+            lock: <_thread.RLock at 0x78b895dc80f0>
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            goals: [<sqlite3.Row at 0x78b882226ad0>, <sqlite3.Row at 0x78b882225420>, <sqlite3.Row at 0x78b882224970>, ...]
+            escalated: 0
+            auto_cancelled: 0
+            goal_id: "swo_438b518b-2f9c-449f-8856-cfe2a0bb7058_420552d6"
+            title: "Life Domain Maintenance: Review and update life domain memories. Check each domain for stale or missing data. Health/medica..."
+            agent_id: "orchestrator"
+            _updated_at: "2026-09-15T00:07:54.244563+00:00"
+            route_escalation: <function at 0x78b8842d97a0>
+            severity_for_class: <function at 0x78b8842d9640>
+            prior: 1
+            severity: "P2"
+    run_lifecycle_sweep (lifecycle_sweep.py:347)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            _db_lock: <_thread.RLock at 0x78b895dc80f0>
+            _get_conn: <function at 0x78b895e06a30>
+            ensure_task_lifecycle_metadata: <function at 0x78b895e53530>
+            conn: <sqlite3.Connection at 0x78b8819dde40>
+            summary: {"stale_released": 0, "retries_scheduled": 0, "blocked_reopened": 0, "goals_completed": 0, "stuck_escalated": 0, ...}
+            lifecycle_summary: {"scanned": 40, "updated": 40, "missing_before": 0, "refreshed_at": "2026-09-15T23:06:14.729244+00:00"}
+    _maybe_run_lifecycle_sweep (app/autopilot.py:8943)
+        Arguments:
+            self: <AutopilotController at 0x78b89529f8c0>
+        Locals:
+            interval: 120
+            now: 1126571.598598526
+            last: 0
+            run_lifecycle_sweep: <function at 0x78b88219dfe0>
+    _loop (app/autopilot.py:6233)
+        Arguments:
+            self: <AutopilotController at 0x78b89529f8c0>
+        Locals:
+            next_checkin_at: 1126483.63669938
+            next_reminder_at: 0
+            startup_zombie_sweep: <function at 0x78b894ac64b0>
+            sweep: {"ok": True, "candidates": 0, "deactivated": [], "deactivated_count": 0}
+            deactivated_count: 0
+            enabled: True
+            interval: 300
+            reminder_poll: 30
+            now: 1126478.832202864
+            check_due_reminders: <function at 0x78b894b70880>
+    run (threading.py:1024)
+        Arguments:
+            self: <Thread at 0x78b885270ad0>
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <Thread at 0x78b885270ad0>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <Thread at 0x78b885270ad0>
+Thread 366702 (idle): "apscheduler-boot"
+    _boot_scheduler (app/main.py:1314)
+        Locals:
+            asyncio: <module at 0x78b898dc6ca0>
+            get_scheduler: <function at 0x78b881b647d0>
+            _loop: <Loop at 0x78b824023970>
+            _run: <function at 0x78b881b66770>
+    run (threading.py:1024)
+        Arguments:
+            self: <Thread at 0x78b881b8de50>
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <Thread at 0x78b881b8de50>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <Thread at 0x78b881b8de50>
+Thread 366768 (idle): "AnyIO worker thread"
+    ingest_export (dsh_session_ingest.py:335)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+            export: {"source_machine": "zabz-yoga", "exported_at": "2026-09-15T23:05:45.698Z", "schema_version": 1, ...}
+        Locals:
+            _db_lock: <_thread.RLock at 0x78b895dc80f0>
+            _get_conn: <function at 0x78b895e06a30>
+            conn: <sqlite3.Connection at 0x78b8821871f0>
+            source_machine: "zabz-yoga"
+            sessions: [{"session_id": "f60ee2d4-0c9b-404b-9074-6b415daa008b", "project": "--C-Users-ezabz-code--", ...}, {...}, {...}, {...}, ...]
+            exported_at: "2026-09-15T23:05:45.698Z"
+            now: "2026-09-15T23:06:59.982890+00:00"
+            events_written: 516
+            sessions_created: 1
+            sessions_updated: 0
+            sessions_unchanged: 0
+            reindexed: 1
+            export_id: "zabz-yoga:3b5d5d28290c5e94"
+            payload_bytes: 5256746
+            session: {"session_id": "4db964fb-b407-4a72-b698-5688c776714a", "project": "--C-Users-ezabz-code--", ...}
+            session_id: "4db964fb-b407-4a72-b698-5688c776714a"
+            rows: [{"seq": 5247, "type": "tool/result", ...}, {"seq": 5248, "type": "step/end", ...}, ...]
+            start_row: 5247
+            header: {"type": "session", "version": 3, "id": "session-4db964fb-b407-4a72-b698-5688c776714a", "createdAt": 1789358411873, ...}
+            content_hash: "7cf61c533209f50e2287e62aea14ba1ae37d12b0d33766d404afee9946a7561c"
+            existing: <sqlite3.Row at 0x78b885990910>
+            is_new: False
+            unchanged: False
+            offset: 299
+            row: {"seq": 5546, "type": "tool/result", ...}
+            ordinal: 5546
+    api_owner_dsh_sessions_ingest (app/main.py:22184)
+        Arguments:
+            payload: {"source_machine": "zabz-yoga", "exported_at": "2026-09-15T23:05:45.698Z", "schema_version": 1, ...}
+            request: <Request at 0x78b8810f27b0>
+        Locals:
+            ingest_export: <function at 0x78b88467eae0>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b8820dda90>
+        Locals:
+            item: (<_contextvars.Context at 0x78b81eab4240>, <functools.partial at 0x78b8843335e0>, (), ...)
+            context: <_contextvars.Context at 0x78b81eab4240>
+            func: <functools.partial at 0x78b8843335e0>
+            args: ()
+            future: <_asyncio.Future at 0x78b81eab0730>
+            cancel_scope: <CancelScope at 0x78b88118cb90>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b8820dda90>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b8820dda90>
+Thread 366771 (idle): "ThreadPoolExecutor-1_0"
+    _worker (concurrent/futures/thread.py:116)
+        Arguments:
+            executor_reference: <weakref.ReferenceType at 0x78b884318590>
+            ctx: <WorkerContext at 0x78b8843920d0>
+            work_queue: <_queue.SimpleQueue at 0x78b8842eac80>
+    run (threading.py:1024)
+        Arguments:
+            self: <Thread at 0x78b8820b5cd0>
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <Thread at 0x78b8820b5cd0>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <Thread at 0x78b8820b5cd0>
+Thread 367112 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132732197791424"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b881329210>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323d10>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b8843925d0>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845b44c0>, <functools.partial at 0x78b884332b60>, (), ...)
+            context: <_contextvars.Context at 0x78b8845b44c0>
+            func: <functools.partial at 0x78b884332b60>
+            args: ()
+            future: <_asyncio.Future at 0x78b88467c5d0>
+            cancel_scope: <CancelScope at 0x78b81eaacdd0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b8843925d0>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b8843925d0>
+Thread 367201 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132732183111360"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884618c70>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323d80>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b884392350>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845b5300>, <functools.partial at 0x78b8845c00a0>, (), ...)
+            context: <_contextvars.Context at 0x78b8845b5300>
+            func: <functools.partial at 0x78b8845c00a0>
+            args: ()
+            future: <_asyncio.Future at 0x78b88467da70>
+            cancel_scope: <CancelScope at 0x78b81eaad010>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b884392350>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b884392350>
+Thread 367205 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132732174718656"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88468b2e0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8843220a0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b8820b7820>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845b65c0>, <functools.partial at 0x78b8845c04c0>, (), ...)
+            context: <_contextvars.Context at 0x78b8845b65c0>
+            func: <functools.partial at 0x78b8845c04c0>
+            args: ()
+            future: <_asyncio.Future at 0x78b88467e0a0>
+            cancel_scope: <CancelScope at 0x78b81eaad3d0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b8820b7820>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b8820b7820>
+Thread 367207 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132732166325952"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b8846893f0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323ed0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b8820b76f0>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845b6e00>, <functools.partial at 0x78b8845c0700>, (), ...)
+            context: <_contextvars.Context at 0x78b8845b6e00>
+            func: <functools.partial at 0x78b8845c0700>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cc050>
+            cancel_scope: <CancelScope at 0x78b81eaad790>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b8820b76f0>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b8820b76f0>
+Thread 367268 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132732157933248"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88468b3d0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323680>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88219b770>
+        Locals:
+            item: (<_contextvars.Context at 0x78b81eab50c0>, <functools.partial at 0x78b8845c0880>, (), ...)
+            context: <_contextvars.Context at 0x78b81eab50c0>
+            func: <functools.partial at 0x78b8845c0880>
+            args: ()
+            future: <_asyncio.Future at 0x78b88467dde0>
+            cancel_scope: <CancelScope at 0x78b81eaad310>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88219b770>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88219b770>
+Thread 367331 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132732149540544"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88468a3e0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323ca0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b81ea93680>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845b6d80>, <functools.partial at 0x78b8845c0a60>, (), ...)
+            context: <_contextvars.Context at 0x78b8845b6d80>
+            func: <functools.partial at 0x78b8845c0a60>
+            args: ()
+            future: <_asyncio.Future at 0x78b88467f070>
+            cancel_scope: <CancelScope at 0x78b81eaad910>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b81ea93680>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b81ea93680>
+Thread 367348 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731602204352"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88468a2f0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323df0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b81ea938a0>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845d0240>, <functools.partial at 0x78b8845c0ee0>, (), ...)
+            context: <_contextvars.Context at 0x78b8845d0240>
+            func: <functools.partial at 0x78b8845c0ee0>
+            args: ()
+            future: <_asyncio.Future at 0x78b88467c520>
+            cancel_scope: <CancelScope at 0x78b81eaad0d0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b81ea938a0>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b81ea938a0>
+Thread 367351 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731593811648"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88468b790>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323b50>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463c850>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845b4480>, <functools.partial at 0x78b8845c11e0>, (), ...)
+            context: <_contextvars.Context at 0x78b8845b4480>
+            func: <functools.partial at 0x78b8845c11e0>
+            args: ()
+            future: <_asyncio.Future at 0x78b88467c260>
+            cancel_scope: <CancelScope at 0x78b81eaad550>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463c850>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463c850>
+Thread 367360 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731585418944"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88468b4c0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323a70>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ca50>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845d2ec0>, <functools.partial at 0x78b8845c15a0>, (), ...)
+            context: <_contextvars.Context at 0x78b8845d2ec0>
+            func: <functools.partial at 0x78b8845c15a0>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cc1b0>
+            cancel_scope: <CancelScope at 0x78b81eaad250>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ca50>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ca50>
+Thread 367371 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731577026240"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88468b1f0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323ae0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e450>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845d3700>, <functools.partial at 0x78b8845c1900>, (), ...)
+            context: <_contextvars.Context at 0x78b8845d3700>
+            func: <functools.partial at 0x78b8845c1900>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cc520>
+            cancel_scope: <CancelScope at 0x78b81eaadfd0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e450>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e450>
+Thread 367546 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731568633536"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884689990>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323a00>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e150>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8845d3b40>, <functools.partial at 0x78b8845c1120>, (), ...)
+            context: <_contextvars.Context at 0x78b8845d3b40>
+            func: <functools.partial at 0x78b8845c1120>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cccb0>
+            cancel_scope: <CancelScope at 0x78b81eaad190>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e150>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e150>
+Thread 367557 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731560240832"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88466ba60>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323990>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e550>
+        Locals:
+            item: (<_contextvars.Context at 0x78b884648d40>, <functools.partial at 0x78b8845c1de0>, (), ...)
+            context: <_contextvars.Context at 0x78b884648d40>
+            func: <functools.partial at 0x78b8845c1de0>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cd440>
+            cancel_scope: <CancelScope at 0x78b81eaae2d0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e550>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e550>
+Thread 367692 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731551848128"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884668e50>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323920>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e850>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8846496c0>, <functools.partial at 0x78b8845c2020>, (), ...)
+            context: <_contextvars.Context at 0x78b8846496c0>
+            func: <functools.partial at 0x78b8845c2020>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845ccec0>
+            cancel_scope: <CancelScope at 0x78b81eaae210>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e850>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e850>
+Thread 367695 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731065333440"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88466b2e0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8843238b0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e650>
+        Locals:
+            item: (<_contextvars.Context at 0x78b88464a4c0>, <functools.partial at 0x78b8845c2380>, (), ...)
+            context: <_contextvars.Context at 0x78b88464a4c0>
+            func: <functools.partial at 0x78b8845c2380>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cd650>
+            cancel_scope: <CancelScope at 0x78b81eaae450>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e650>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e650>
+Thread 367751 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731056940736"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88466ae30>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323840>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463c950>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8846a8580>, <functools.partial at 0x78b8845c2560>, (), ...)
+            context: <_contextvars.Context at 0x78b8846a8580>
+            func: <functools.partial at 0x78b8845c2560>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cd9c0>
+            cancel_scope: <CancelScope at 0x78b81eaade50>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463c950>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463c950>
+Thread 367761 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731048548032"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88466b5b0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323760>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ee50>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8846a9140>, <functools.partial at 0x78b8845c2860>, (), ...)
+            context: <_contextvars.Context at 0x78b8846a9140>
+            func: <functools.partial at 0x78b8845c2860>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cdde0>
+            cancel_scope: <CancelScope at 0x78b81eaae090>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ee50>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ee50>
+Thread 367764 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731040155328"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884669120>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8843236f0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e350>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8846a99c0>, <functools.partial at 0x78b8845c2c80>, (), ...)
+            context: <_contextvars.Context at 0x78b8846a99c0>
+            func: <functools.partial at 0x78b8845c2c80>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cdf40>
+            cancel_scope: <CancelScope at 0x78b81eaae8d0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e350>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e350>
+Thread 367768 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731031762624"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88466ab60>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8851ffd80>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e750>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8846aa8c0>, <functools.partial at 0x78b8845c2d40>, (), ...)
+            context: <_contextvars.Context at 0x78b8846aa8c0>
+            func: <functools.partial at 0x78b8845c2d40>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845ce4c0>
+            cancel_scope: <CancelScope at 0x78b81eaae990>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e750>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e750>
+Thread 367786 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731023369920"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b8846697b0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8843237d0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e050>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8846ab7c0>, <functools.partial at 0x78b8845c3100>, (), ...)
+            context: <_contextvars.Context at 0x78b8846ab7c0>
+            func: <functools.partial at 0x78b8845c3100>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845ce8e0>
+            cancel_scope: <CancelScope at 0x78b81eaaeb10>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e050>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463e050>
+Thread 367790 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132731014977216"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884669030>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b884323610>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ec50>
+        Locals:
+            item: (<_contextvars.Context at 0x78b88465c380>, <functools.partial at 0x78b8845c3640>, (), ...)
+            context: <_contextvars.Context at 0x78b88465c380>
+            func: <functools.partial at 0x78b8845c3640>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cec50>
+            cancel_scope: <CancelScope at 0x78b81eaaebd0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ec50>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463ec50>
+Thread 367911 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730796897984"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b89513aa70>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8851fc510>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463eb50>
+        Locals:
+            item: (<_contextvars.Context at 0x78b88465cc00>, <functools.partial at 0x78b8845c38e0>, (), ...)
+            context: <_contextvars.Context at 0x78b88465cc00>
+            func: <functools.partial at 0x78b8845c38e0>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cefc0>
+            cancel_scope: <CancelScope at 0x78b81eaaec90>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463eb50>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463eb50>
+Thread 367975 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730788505280"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b88466a4d0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8852a42e0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f350>
+        Locals:
+            item: (<_contextvars.Context at 0x78b88465e300>, <functools.partial at 0x78b8845c3f40>, (), ...)
+            context: <_contextvars.Context at 0x78b88465e300>
+            func: <functools.partial at 0x78b8845c3f40>
+            args: ()
+            future: <_asyncio.Future at 0x78b884664470>
+            cancel_scope: <CancelScope at 0x78b81eaaea50>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f350>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f350>
+Thread 367977 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730780112576"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884669f30>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8845c54d0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f550>
+        Locals:
+            item: (<_contextvars.Context at 0x78b88465f140>, <functools.partial at 0x78b88466c280>, (), ...)
+            context: <_contextvars.Context at 0x78b88465f140>
+            func: <functools.partial at 0x78b88466c280>
+            args: ()
+            future: <_asyncio.Future at 0x78b8846647e0>
+            cancel_scope: <CancelScope at 0x78b81eaaed50>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f550>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f550>
+Thread 367979 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730771719872"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884669300>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8845c5850>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463db50>
+        Locals:
+            item: (<_contextvars.Context at 0x78b88465dac0>, <functools.partial at 0x78b8845c3ee0>, (), ...)
+            context: <_contextvars.Context at 0x78b88465dac0>
+            func: <functools.partial at 0x78b8845c3ee0>
+            args: ()
+            future: <_asyncio.Future at 0x78b8845cf750>
+            cancel_scope: <CancelScope at 0x78b81eaaeed0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463db50>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463db50>
+Thread 367980 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730763327168"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884668130>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8845c60a0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f750>
+        Locals:
+            item: (<_contextvars.Context at 0x78b884670640>, <functools.partial at 0x78b88466ca60>, (), ...)
+            context: <_contextvars.Context at 0x78b884670640>
+            func: <functools.partial at 0x78b88466ca60>
+            args: ()
+            future: <_asyncio.Future at 0x78b884664ec0>
+            cancel_scope: <CancelScope at 0x78b81eaae750>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f750>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f750>
+Thread 367983 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730754934464"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b8846687c0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8845c6960>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f950>
+        Locals:
+            item: (<_contextvars.Context at 0x78b884671640>, <functools.partial at 0x78b88466cd60>, (), ...)
+            context: <_contextvars.Context at 0x78b884671640>
+            func: <functools.partial at 0x78b88466cd60>
+            args: ()
+            future: <_asyncio.Future at 0x78b884665230>
+            cancel_scope: <CancelScope at 0x78b81eaaef90>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f950>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f950>
+Thread 368129 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730746541760"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884669c60>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8845c69d0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f150>
+        Locals:
+            item: (<_contextvars.Context at 0x78b88465e480>, <functools.partial at 0x78b88466d120>, (), ...)
+            context: <_contextvars.Context at 0x78b88465e480>
+            func: <functools.partial at 0x78b88466d120>
+            args: ()
+            future: <_asyncio.Future at 0x78b8846654f0>
+            cancel_scope: <CancelScope at 0x78b81eaaf4d0>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f150>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463f150>
+Thread 368131 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730662680256"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884669e40>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8845c6500>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463d250>
+        Locals:
+            item: (<_contextvars.Context at 0x78b8846715c0>, <functools.partial at 0x78b88466cdc0>, (), ...)
+            context: <_contextvars.Context at 0x78b8846715c0>
+            func: <functools.partial at 0x78b88466cdc0>
+            args: ()
+            future: <_asyncio.Future at 0x78b884664940>
+            cancel_scope: <CancelScope at 0x78b81eaaf710>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463d250>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463d250>
+Thread 368488 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730654287552"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b8846685e0>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8845c68f0>
+    _db_check (app/main.py:1443)
+        Locals:
+            _get_conn: <function at 0x78b895e06a30>
+    run (anyio/_backends/_asyncio.py:1002)
+        Arguments:
+            self: <WorkerThread at 0x78b88463d350>
+        Locals:
+            item: (<_contextvars.Context at 0x78b88469d5c0>, <functools.partial at 0x78b88466d720>, (), ...)
+            context: <_contextvars.Context at 0x78b88469d5c0>
+            func: <functools.partial at 0x78b88466d720>
+            args: ()
+            future: <_asyncio.Future at 0x78b8846641b0>
+            cancel_scope: <CancelScope at 0x78b81eaaee10>
+            result: None
+            exception: None
+    _bootstrap_inner (threading.py:1082)
+        Arguments:
+            self: <WorkerThread at 0x78b88463d350>
+    _bootstrap (threading.py:1044)
+        Arguments:
+            self: <WorkerThread at 0x78b88463d350>
+Thread 368491 (idle): "AnyIO worker thread"
+    _get_conn (app/database.py:434)
+        Arguments:
+            db_url: "sqlite:///data/secretary.db"
+        Locals:
+            key: "sqlite:///data/secretary.db:132730645894848"
+            acquired: False
+            conn: <sqlite3.Connection at 0x78b884668f40>
+            path: "data/secretary.db"
+            db_path: <PosixPath at 0x78b8845c6a40>

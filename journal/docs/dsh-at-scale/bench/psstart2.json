@@ -1,0 +1,70 @@
+{
+  "host": "ZABZ-YOGA",
+  "measuredAt": "2026-09-16T14:27:53.211Z",
+  "n": 12,
+  "cases": {
+    "exit 0": {
+      "argv": "-Command exit 0",
+      "n": 12,
+      "min": 410.7,
+      "p50": 473.9,
+      "mean": 503.4,
+      "p90": 531.2,
+      "max": 660.8
+    },
+    "ENC + exit 0": {
+      "argv": "-Command [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); exit 0",
+      "n": 12,
+      "min": 463.5,
+      "p50": 532.6,
+      "mean": 565,
+      "p90": 619.7,
+      "max": 756.1
+    },
+    "ENC + Get-Date|Out-Null": {
+      "argv": "-Command [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); Get-Date | Out-Null",
+      "n": 12,
+      "min": 611.5,
+      "p50": 749.6,
+      "mean": 786.3,
+      "p90": 830.2,
+      "max": 1182.6
+    },
+    "Get-Date|Out-Null": {
+      "argv": "-Command Get-Date | Out-Null",
+      "n": 12,
+      "min": 492.8,
+      "p50": 578.1,
+      "mean": 626,
+      "p90": 684.7,
+      "max": 912.7
+    },
+    "exit 0 (with profile)": {
+      "argv": "exit 0",
+      "n": 12,
+      "min": 412.3,
+      "p50": 442.6,
+      "mean": 448.8,
+      "p90": 484.2,
+      "max": 495.9
+    },
+    "ENC + exit 0 (interleaved 2nd)": {
+      "argv": "-Command [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $OutputEncoding = [System.Text.UTF8Encoding]::new($false); exit 0",
+      "n": 12,
+      "min": 428.1,
+      "p50": 484,
+      "mean": 518,
+      "p90": 578.5,
+      "max": 715.8
+    },
+    "[System.Text.UTF8Encoding]::new($false) alone": {
+      "argv": "-Command [System.Text.UTF8Encoding]::new($false) | Out-Null",
+      "n": 12,
+      "min": 490.9,
+      "p50": 600,
+      "mean": 616.3,
+      "p90": 722.4,
+      "max": 745
+    }
+  }
+}

@@ -1,0 +1,198 @@
+[
+  # harness-config profile patch for the `web` profile.
+  #
+  # WHY THIS FILE EXISTS
+  # The composed profile tree is: each bundle's patch (from the installed packages),
+  # then $DSH_HOME/profiles/web/cordis.patch.yml, then $DSH_HOME/cordis.patch.yml.
+  # This file is the layer we own, and scripts/sync.py copies it here from the repo so a
+  # machine rebuilt from harness-config gets it too. Never edit
+  # ~/.dsh/profiles/node_modules/** - that is the shipped packages and an upgrade wipes it.
+
+  # ── WebSocket heartbeat ────────────────────────────────────────────────────
+  # dsh-api-gateway defaults websocketHeartbeatIntervalMs to 2000 ms, and that value is
+  # BOTH the ping cadence and the pong deadline: a peer that does not answer within the
+  # interval is terminated, and only 2 missed heartbeats are tolerated. This machine runs
+  # 8-12 browser windows against one engine, and measured (2026-09-11) a boot burst of 12
+  # windows produces 125 ms median / 193 ms max event-loop lag while two of the six boot
+  # calls cost 145 ms and 98 ms each. A slow EventSource/journal read in one window can
+  # stall the loop long enough to kill every window's socket at once - 12 reconnect storms
+  # from one hiccup. Raising the interval to 15 s makes a stall survivable, at the cost of
+  # slower detection of a genuinely dead peer (irrelevant here: the client is on loopback).
+  #
+  # Verified: this row targets the `typert-gateway` row that dsh-base mounts
+  # (`name: '@deepseek-ai/dsh-api-gateway'`), and the field's schema is
+  # `z.number().step(1).min(1).max(MAX_TIMER_DELAY_MS).default(2000)`.
+  # Takes effect on the next engine start (patchReload applies it at boot for the
+  # host plane), so a running engine keeps its old interval until restarted.
+  {
+    id: 'typert-gateway',
+    config: {
+      websocketHeartbeatIntervalMs: 15000,
+    },
+  },
+  # ── browser reconnect policy ───────────────────────────────────────────────
+  # The owner's complaint: when the engine goes away the page says "disconnected" and
+  # he closes everything and starts over. The client DOES retry, but on its shipped
+  # schedule (500 ms -> 10 s backoff, 15 s readiness deadline), so a window open across
+  # an engine restart can sit dead for many seconds before it tries again.
+  #
+  # Schema verified in dsh-client-connection's README: these fields are accepted on the
+  # Host Connection row, validated there, and injected into every served page. Values
+  # below are half the defaults, so a restarted engine is picked up in ~2 s instead of
+  # ~10+. A page reload is required after changing this (the Host injects it at boot).
+  #
+  # ---------------------------------------------------------------------------
+  # `trustedHosts` BELOW IS NOT DECORATION. DO NOT REMOVE IT WHEN EDITING `recovery`.
+  # ---------------------------------------------------------------------------
+  # A PATCH REPLACES THE TARGETED ROW'S WHOLE `config` — dsh-web-app's own bundle
+  # patch states that rule, and this row is the `/api` browser-trust fence's only
+  # source of trusted authorities. The shipped row reads
+  # `trustedHosts: !!js ctx.webRuntime.trustedHosts`, which is where `--trusted-host`
+  # lands. Restating `config` without that key left the fence with an EMPTY list, so
+  # every request whose Host was not loopback got `403 forbidden` on every `/api`
+  # call and every WebSocket upgrade — while documents kept serving, because the
+  # index route is not fenced. The page loaded and was a shell.
+  #
+  # Invisible on a workstation: its browser always uses a loopback Host, which the
+  # fence trusts by construction. Total on the phone, which reaches the engine
+  # through Tailscale Serve at the authority's name. Measured on secratary
+  # 2026-09-14 — same engine, same flags, only this file changed:
+  #   key absent    → POST /api/agentPresets/list + Host=<authority> → 403 forbidden
+  #   key restated  → POST /api/agentPresets/list + Host=<authority> → 401 unauthorized
+  # (401 is correct: the fence passed, only the cookie is missing.) PAIN P48.
+  {
+    id: 'connection',
+    config: {
+      trustedHosts: !!js ctx.webRuntime.trustedHosts,
+      recovery: {
+        backoffBaseMs: 250,
+        backoffFactor: 2,
+        backoffMaxMs: 2000,
+        generationReadyWarnMs: 2000,
+        generationReadyTimeoutMs: 10000,
+      },
+    },
+  },
+  # ═══════════════════════════════════════════════════════════════════════════
+  # THE REMOTE SUBAGENT PROVIDER — the owner's own sessions delegating to
+  # another node (docs/mesh/90-provider-mount.md).
+  # ═══════════════════════════════════════════════════════════════════════════
+  # >>> mesh-provider-install: BEGIN managed block — remove with
+  # >>> `scripts/mesh-provider-install.ps1 -Rollback` (or restore a .bak from
+  # >>> the same command's output) and restart. Do not edit inside the block by
+  # >>> hand: the installer rewrites it from the repo copy.
+  # ═══════════════════════════════════════════════════════════════════════════
+  # WHAT IS HERE, AND WHY IN THIS FILE. `dsh-plugin-remote-fanout` is a declared
+  # web-profile bundle, and a bundle's own patch supplies its ROWS. What a
+  # package may never carry is a machine fact, so the deployment config is a
+  # LAYER — this one — exactly as `profiles/mesh/cordis.patch.yml` does it for
+  # the `mesh` profile, which is the shape the three-child cross-node proof was
+  # run on (docs/mesh/70-remote-fanout-proof.md §2).
+  #
+  # WHY THE PROVIDER IS HOST-PLANE AND NOT A PRESET ROW. `ctx.subagents` is one
+  # process-wide named-provider registry and `registerProvider` THROWS on a
+  # second registration of the same name
+  # (`dsh-subagent/lib/index.js:3106-3116`, DUPLICATE_PROVIDER). A preset mounts
+  # once per session, so a provider row inside one would work for the first
+  # session and break every session after it. The preset contributes the TOOL
+  # (the row below disables the bundle's own copy, so the tool is granted per
+  # agent); the registry and its backends stay host-side. That is the same rule
+  # the shipped `codex` / `claude-code` product providers follow.
+  #
+  # EVERY EXPRESSION IS `!!js` WITH A LITERAL FALLBACK, all in the
+  # `process.env.X ?? 'literal'` shape `profiles/mesh/cordis.patch.yml` already
+  # uses and the S6 proof ran on, and every one is DOUBLE-QUOTED because a plain
+  # scalar containing ": " is a YAML parse error (70-remote-fanout-proof.md §4.7).
+  # The `??` forms below were substituted with literal values one at a time in
+  # the isolated-home composition test recorded in `90-provider-mount.md` §4;
+  # an expression that cannot evaluate would stop the engine booting, so this is
+  # not a place for cleverness.
+  #
+  # WHERE A CHILD RUNS IS ASKED FOR, NOT CONFIGURED (docs/mesh/92-provider-placement.md).
+  # `placement` defaults to `broker`: before every child the provider asks the
+  # live placement broker on the authority (`POST /place`, over ssh to a
+  # loopback-only service) which node should take it, dispatches there, and
+  # releases the lease with `POST /done` when the child settles. One placement
+  # per child, so the broker's own count of accepted jobs is true.
+  #
+  # `target` and the path keys below are the FIXED-TARGET FALLBACK: they are
+  # used only when `placement` resolves to `fixed`, which happens when
+  # `MESH_TARGET_NODE` is set BY HAND in the engine's environment — never
+  # automatically, and never because the broker could not be reached. A broker
+  # that does not answer is a reported `broker-unreachable` failure; falling back
+  # to one node silently would make a mesh of four look like a mesh of one, which
+  # is the whole defect this row now closes. The row keeps `target:` so the
+  # installer's invariant (a named bundle carries a complete config) still holds
+  # and so a hand-set fallback exists. In BROKER mode the per-node shell, paths
+  # and hostname list come from `packages/plugin-remote-fanout/lib/nodes.js`,
+  # keyed by the name the BROKER uses, because the parent's own platform is not a
+  # fact about the target (measured 2026-09-16: a locally-inferred shell sent
+  # `powershell` to a Linux node, exit 127).
+  {
+    id: 'remote-fanout',
+    config: {
+      providerName: 'remote-ssh',
+      placement: !!js "process.env.MESH_PLACEMENT ?? (process.env.MESH_TARGET_NODE ? 'fixed' : 'broker')",
+      target: !!js "process.env.MESH_TARGET_NODE ?? 'desktop-ts'",
+      brokerSsh: !!js "process.env.MESH_BROKER_SSH ?? 'secratary-ts'",
+      brokerUrl: !!js "process.env.MESH_BROKER_URL ?? 'http://localhost:3091'",
+      brokerTimeoutMs: !!js "process.env.MESH_BROKER_TIMEOUT_MS ? Number(process.env.MESH_BROKER_TIMEOUT_MS) : 30000",
+      # A queued child waits, and the wait is visible: the position is in the
+      # ledger file under <DSH_HOME>/mesh/placements/, in the engine log, and in
+      # the child's own report. When the bound expires the child is dispatched
+      # anyway — the broker's rule is queue, never amputate.
+      queueWaitMs: !!js "process.env.MESH_QUEUE_WAIT_MS ? Number(process.env.MESH_QUEUE_WAIT_MS) : 120000",
+      queuePollMs: 5000,
+      sshExe: !!js "process.platform === 'win32' ? 'C:/Program Files/OpenSSH/ssh.exe' : 'ssh'",
+      # A FLOW sequence, on purpose: this file is one YAML FLOW collection
+      # (`[ { … }, { … } ]`), and a block sequence inside a flow mapping is a
+      # parse error -- "missed comma between flow collection entries", measured
+      # by `dsh --profile web --dump-config` on ZABZ-YOGA 2026-09-17 while
+      # writing this row. The `mesh` profile's patch uses block style because
+      # that file's entries are block style; the shape follows the container.
+      # The trailing commas in this block are also load-bearing: a flow mapping
+      # needs an explicit separator, and one is required after a flow sequence.
+      sshArgs: ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=10'],
+      remoteShell: !!js "process.env.MESH_REMOTE_SHELL ?? (process.platform === 'win32' ? 'powershell' : 'posix')",
+      # THE EXECUTOR IS NAMED FIRST. A node with a `dsh` wrapper on PATH is
+      # invoked BY NAME, because the wrapper is the only thing that sources the
+      # worker credential file — an explicit interpreter pair on such a node dies
+      # with MISSING_CREDENTIAL (measured 2026-09-17 on zabz-tech-linux; see
+      # packages/plugin-remote-fanout/lib/nodes.js and docs/mesh/102-linux-dispatch.md).
+      # An empty value means "this node has no executor" and the interpreter pair
+      # below is used, which is the case for every Windows node.
+      remoteCommand: !!js "process.env.MESH_NODE_COMMAND ? process.env.MESH_NODE_COMMAND : undefined",
+      remoteCredentialEnvFiles: !!js "process.env.MESH_WORKER_ENV_FILES ? process.env.MESH_WORKER_ENV_FILES.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : undefined",
+      remoteNodeExe: !!js "process.env.MESH_NODE_EXE ?? (process.platform === 'win32' ? 'C:/Program Files/nodejs/node.exe' : '/home/zabz/node/bin/node')",
+      remoteDshBin: !!js "process.env.MESH_DSH_BIN ?? (process.platform === 'win32' ? 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js' : '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js')",
+      remoteProfile: 'headless',
+      remoteCwd: !!js "process.env.MESH_REMOTE_CWD ?? (process.platform === 'win32' ? 'C:/Users/ezabz' : '/home/zabz')",
+      # 103 (2026-09-17): this default was a node name (`['zabz-tech']`), which made
+      # the row choose a node -- and on `zabz-tech` itself a self-default. No key in
+      # this row may choose or validate a node: in `broker` mode the placed node's own
+      # host list comes from `lib/nodes.js`, and in the hand-set `fixed` fallback an
+      # empty list means the location check is recorded and not made. That is the
+      # honest record for a row that names no node. Do not restore a node name here.
+      targetHosts: !!js "process.env.MESH_TARGET_HOSTS ? process.env.MESH_TARGET_HOSTS.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : []",
+      verifyMeshHost: true,
+      timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 300000",
+      maxOutputBytes: 200000,
+    },
+  },
+  # The bundle's own tool row, DISABLED on the host plane. The `zabz` preset
+  # grants this tool to the agents the owner actually runs (see
+  # `presets/zabz/agent.cordis.yml`, generated by scripts/make_zabz_preset.py);
+  # left enabled, the bundle would hand `subagent_remote` to every session in the
+  # engine, including sessions on presets that never asked for it. A later layer
+  # disabling a row by id is the documented shape (plugin-mesh-http's own patch
+  # header says so). The preset row is a plain consumer of the host registry and
+  # resolves the provider exactly as the built-in `subagent` tool resolves
+  # `spawn`; if the provider is absent the shipped tool waits for
+  # `subagent/provider-added` and logs "not registered yet" rather than failing,
+  # so a machine without this bundle still mounts the preset.
+  {
+    id: 'tool-subagent-remote',
+    disabled: true,
+  },
+  # <<< mesh-provider-install: END managed block <<<
+]

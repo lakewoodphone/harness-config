@@ -1,0 +1,16 @@
+# secratary — the always-on host. Inherits everything from base.yaml.
+#
+# This file exists for two reasons:
+#
+#  1. `scripts/sync.py` reports "MISSING -- only base will apply" when a machine file is absent, and a
+#     warning that fires every run on every machine is a warning nobody reads. Naming this host makes
+#     the signal meaningful again.
+#
+#  2. It is the place to pin something for THIS host only. Nothing needs pinning yet: the Linux engine
+#     the owner's phone talks to deliberately inherits the same model and the same default preset as the
+#     workstations, because "the same you" is the whole point (DECISIONS D9). If that ever has to
+#     diverge — a cheaper model for phone traffic, say — it diverges here and nowhere else.
+#
+# Applied by `scripts/autosync.sh` (cron, every 15 minutes), which mirrors the Windows
+# `PersonalSecretary-HarnessSync` task: fast-forward, apply the COMMITTED tree to ~/.dsh, prove it
+# converged, record the result.
