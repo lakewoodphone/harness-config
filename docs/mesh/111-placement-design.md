@@ -131,7 +131,46 @@ read back.
 RAM or nodes is not defensible while the only calibrated machine is the one that feels slow — the
 measurement would be recommending hardware to fix a placement problem.
 
-## 6. Hazards that must be in every future brief, because they have each already cost a child
+## 6. Measured after this document was written: where children ACTUALLY land
+
+Three dispatches were run on 2026-09-18 while four fan-out children occupied `zabz-tech`. **All three
+produced a child on the owner's laptop**, and each had been believed to be aimed somewhere else:
+
+| what was asked for | what the child reported |
+|---|---|
+| `mesh-run -Node lakewooechsmini` | `MESH-HOST: zabz-yoga` |
+| `mesh-run -Node secratary` | `MESH-HOST: zabz-yoga` |
+| `--profile mesh` with `MESH_TARGET_NODE=secratary-ts` in the **real** process environment | `MESH-HOST: zabz-yoga` |
+
+`mesh-run`'s verifier caught all three (`location disagreement`, exit 1). Two defects, and they must not
+be conflated:
+
+**(a) The fixed target never takes effect — root cause not established.** The installed
+`~/.dsh/profiles/mesh/cordis.patch.yml:76` is
+`target: !!js "process.env.MESH_TARGET_NODE ?? 'laptop-ts'"`, and every observed result is exactly the
+**fallback** `'laptop-ts'` — the laptop's own alias. Either the `!!js` expression is evaluated somewhere
+that cannot see `process.env`, or `--profile mesh` is not what mounts. Not distinguished; the
+discriminator is the child's own boot log. Established: `-Node` constrains nothing.
+
+**(b) The policy gap, and this is the answer to the owner's complaint.** Even in pure broker mode the
+placement was **correct by the rules as written**: `pressure.js` excludes the local node only at or above
+85 % of physical commit, and the laptop sits far below that. With `zabz-tech` carrying four children the
+broker balanced onto the next node with room, and that node was the laptop. **There is no mechanism at
+all for "the owner is using this machine right now."** A policy that treats his laptop as an ordinary
+worker below the 85 % line will keep putting agents on the machine he is looking at — and adding
+capacity elsewhere does not fix it, because the biggest node fills first.
+
+**The change this demands, and it belongs in `pressure.js`:** a *presence* input. The engine already
+knows when a session is active and already measures its own loop lag; "the owner is present" should raise
+the local machine into the high band regardless of commit, with the reason spelled out in the decision
+line so a placement can be explained afterwards. Everything needed to express this already exists — the
+band vocabulary and `routeAwayFromLocal` — only the input is missing.
+
+**Phase 1 of the plan below is therefore reordered: presence precedes calibration.** Measuring per-turn
+cost on the remote nodes is still needed, but the number will not matter while the local machine can win
+a placement outright.
+
+## 7. Hazards that must be in every future brief, because they have each already cost a child
 
 1. **Piped stdout hangs ssh on a Windows node.** Inline `& ssh` and `Start-Job { & ssh … }` never
    return there; `Start-Process -RedirectStandardOutput <file>` completes in under 1.1 s. Two children

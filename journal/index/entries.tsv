@@ -1193,6 +1193,7 @@ lessons	L2001	2001		2026-09-18	ZABZ-YOGA	open	**L2001 · Four probes, four false
 lessons	L2002	2002		2026-09-18	SECRATARY	open	**L2002 · A thing the owner cares about, with no ledger and no milestone task, will be forgotten — the car proves it**	entries/lessons/L2002.md	1	34	4803b58a6b571c25
 lessons	L2003	2003		2026-09-18	SECRATARY	open	**L2003 · kia_uvo advertises DTC-count and next-service-distance sensors that are never populated on a US Hyundai**	entries/lessons/L2003.md	1	34	bd8fcc76c4540021
 lessons	L2056	2056		2026-09-18	ZABZ-YOGA	open	**L2056 · mesh-run -Node does not run the prompt on that node - it runs it locally**	entries/lessons/L2056.md	1	41	bdb32fbc9044074e
+lessons	L2057	2057		2026-09-18	ZABZ-YOGA	open	**L2057 · How to pull up a phone DSH chat: it lives on secratary at ~/phone, session logs are zstd-compressed JSONL**	entries/lessons/L2057.md	1	16	aaa59beccd7c8983
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1415,6 +1416,7 @@ pain	P268	268		2026-09-17	ZABZ-YOGA	open	## P268 — The fleet has been unable t
 pain	P269	269		2026-09-18	ZABZ-YOGA	open	## P269 — The mesh provider never tells the parent it has a child, so the Subagents UI can never show one - structural, not a config flag	entries/pain/P269.md	1	48	ad9b01d0402daddf
 pain	P270	270		2026-09-18	ZABZ-YOGA	open	## P270 — A browser page that survives an engine restart keeps a stale background-job list	entries/pain/P270.md	1	43	53e1329042c6e929
 pain	P326	326		2026-09-18	SECRATARY	open	## P326 — The ask-a-question tool does not render on the owner's phone — plain text instead, until it is verified on his handset	entries/pain/P326.md	1	35	40b80e01d9c54aa5
+pain	P327	327		2026-09-18	ZABZ-YOGA	open	## P327 — Nothing excludes the machine the owner is using, so when the biggest node fills the laptop is next in line	entries/pain/P327.md	1	57	9233c815e79920a7
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
