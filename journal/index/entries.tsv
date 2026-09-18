@@ -1836,3 +1836,4 @@ wins	W205	205		2026-09-17	ZABZ-YOGA	open	**W205 · 2026-09-17 · Append is local
 wins	W207	207		2026-09-17	ZABZ-YOGA	open	**W207 · 2026-09-17 · One browser tree for every DSH window: 9 processes / ~892 MB per window -> 1 process / ~60-296 MB.**	entries/wins/W207.md	1	17	524dc1fe85adebf2
 wins	W208	208		2026-09-18	ZABZ-YOGA	open	**W208 · 2026-09-18 · Window liveness as a union of signals, and an auto-restore loop with a rate limit and five guards.**	entries/wins/W208.md	1	27	e93f09b0466e31ba
 wins	W209	209		2026-09-18	ZABZ-YOGA	open	**W209 · 2026-09-18 · A wrong scheme kept a 10-core node off the mesh for two days; the broker now reports five nodes.**	entries/wins/W209.md	1	53	461608d0194bbedc
+wins	W210	210		2026-09-18	ZABZ-YOGA	open	**W210 · 2026-09-18 · prefer-remote is implemented and tested green; the local node is excludable when the broker has an alternative.**	entries/wins/W210.md	1	57	c70a341c176dc752

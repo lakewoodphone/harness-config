@@ -47,6 +47,7 @@ import {
   localNodeName,
   sharedPressureReader,
   HIGH_COMMIT_PHYSICAL_PCT,
+  PREFER_REMOTE_DEFAULT,
 } from './pressure.js';
 import { createSshTransport, DEFAULT_MAX_OUTPUT_BYTES, DEFAULT_TIMEOUT_MS } from './ssh-transport.js';
 
@@ -205,6 +206,16 @@ export function createNodePlacer({
   children = 1,
   prefer = null,
   exclude = [],
+  /**
+   * THE `prefer-remote` POLICY, OFF BY DEFAULT (`PREFER_REMOTE_DEFAULT`). When
+   * it is on, a placement that would land on THIS machine is released unspent
+   * and the ask is repeated with this machine excluded - but only when the
+   * broker's own answer shows at least one eligible node other than it. See
+   * `alternativeEligibility` in `lib/pressure.js`. A POLICY and not a sensor:
+   * nothing here measures whether a human is using the machine, because nothing
+   * in this package can.
+   */
+  preferRemote = PREFER_REMOTE_DEFAULT,
   now = () => Date.now(),
   // ── LOCAL PRESSURE (docs/mesh/109-pressure-routing.md) ────────────────────
   // The reader is injectable so a test can hand the placer a reading, and so a
@@ -388,6 +399,59 @@ export function createNodePlacer({
         throw error;
       }
 
+      // ── THE prefer-remote POLICY, EVALUATED ON THE BROKER'S OWN ANSWER ─────
+      // The policy needs the eligible set, and the only source of it is the
+      // answer the broker just gave. So the first ask is exactly the ask this
+      // code made before the policy existed (`askedExclude` carries the
+      // caller's own hint and nothing else below the high line), and the policy
+      // is applied to what came back:
+      //
+      //   * the broker named another node - the policy is already satisfied, no
+      //     second call, and the reason says the exclusion was not needed;
+      //   * the broker named THIS machine while its own eligible set held at
+      //     least one other node - the local reservation is released UNSPENT
+      //     and the ask is repeated with this node excluded, so the child is
+      //     offered to the mesh instead of being kept here.
+      //
+      // When the eligible set cannot be read from the answer (`tier: 'queued'`
+      // builds its pool from every placeable node, and a broker reporting no
+      // `eligible` cannot say either), nothing is re-asked, the answer stands,
+      // and the reason records that the set could not be determined. A reading
+      // that could not be made must never change a decision.
+      let askedExcludeFinal = askedExclude;
+      let supersededLease = null;
+      let policyNote = null;
+      let policyDecision = null;
+      if (preferRemote === true && preDecision.decision === 'ok' && thisNode !== undefined) {
+        const firstDecision = decidePressure(reading, {
+          localNode: thisNode,
+          brokerReachable: true,
+          preferRemote: true,
+          placement,
+        });
+        if (firstDecision.routeAwayFromLocal === true && placement.node === thisNode) {
+          // Give the reservation back BEFORE the second ask: the broker counts
+          // accepted leases on the node it named, and a lease this process will
+          // never dispatch would make the next child's ranking wrong for its
+          // whole TTL. A release that fails is recorded and NOT raised - the
+          // broker reclaims the lease at its TTL anyway.
+          try {
+            const released = await broker.done(placement.lease, false);
+            supersededLease = { lease: placement.lease, node: placement.node, reconsidered: true, released: released?.released ?? null };
+          } catch (error) {
+            supersededLease = { lease: placement.lease, node: placement.node, reconsidered: true, released: false, error: String(error?.message ?? error) };
+            logger?.warn?.(`remote-fanout: the prefer-remote policy could not release the local reservation ${placement.lease} (${error?.code ?? 'broker-error'}: ${String(error?.message ?? error)}); the broker reclaims it at its TTL`);
+          }
+          askedExcludeFinal = [...new Set([...exclude, thisNode])];
+          placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExcludeFinal });
+          policyDecision = firstDecision;
+          policyNote = `prefer-remote: the first answer placed this child on THIS machine while the broker's own eligible set held ${firstDecision.eligible?.alternatives ?? '?'} node(s) other than it; that reservation was released unspent and the local node was excluded from the second ask`;
+          logger?.info?.(`remote-fanout: child ${id} ${policyNote}`);
+        } else {
+          policyNote = `prefer-remote: no exclusion was sent by the policy - ${firstDecision.reason}`;
+        }
+      }
+
       const facts = nodes[placement.node];
       if (facts === undefined) {
         throw new BrokerError(
@@ -408,10 +472,21 @@ export function createNodePlacer({
        * The broker's `rationale` explains why it chose what it chose.
        */
       const placedLocally = thisNode !== undefined && placement.node === thisNode;
+      // WHAT WAS ACTUALLY SENT, not what was intended: the prefer-remote
+      // policy's second ask can add this machine to the exclusion list after
+      // the first answer, and the record must say what the broker was told.
+      const localExcluded = thisNode !== undefined && askedExcludeFinal.includes(thisNode);
       const placedAgainstPressure = placedLocally && reading !== undefined && reading.band !== 'ok';
       // With a placement in hand the verdict is final: "saturated and
-      // unreachable" cannot apply, because it was reached.
-      const decision = decidePressure(reading, { localNode: thisNode ?? null, brokerReachable: true });
+      // unreachable" cannot apply, because it was reached. When the policy
+      // acted, the decision it acted on is the one on the record - it was made
+      // on the FIRST answer, which is where the eligible set was read.
+      const decision = policyDecision ?? decidePressure(reading, {
+        localNode: thisNode ?? null,
+        brokerReachable: true,
+        preferRemote,
+        placement,
+      });
       const refusal = reading !== undefined && decision.refuse === true && placedLocally;
       const pressureLine = reading === undefined
         ? 'pressure NOT MEASURED — no reading was available, so this placement was decided exactly as it was before the check existed'
@@ -420,7 +495,9 @@ export function createNodePlacer({
         ? `LOCAL PLACEMENT AGAINST PRESSURE — the broker named this machine ("${placement.node}") while the machine is above its critical line; the child runs here anyway (the broker's own rule is refuse-never: it placed, and a refused placement would strand the lease), and this line is the record of the disagreement`
         : placedAgainstPressure
           ? `the broker placed this child on THIS machine ("${placement.node}") while the machine is in the "${reading.band}" band; the local node was offered to the broker as excluded, and it was chosen anyway`
-          : undefined;
+          : supersededLease !== null && placedLocally
+            ? `PREFER-REMOTE YIELDED - the policy released the local reservation and asked again with this machine excluded, and the broker named it again ("${placement.node}"): the child runs here anyway, because the broker never refuses a placement, and this line is the record of the override`
+            : undefined;
 
       const record = {
         source: 'broker',
@@ -450,9 +527,13 @@ export function createNodePlacer({
         // in this file did not happen.
         pressure: reading ?? null,
         pressureLine,
-        pressureDecision: { ...decision, localNode: thisNode ?? null, excludedLocalNode: routeAway, excludeSentToBroker: askedExclude, placedLocally },
-        excludedLocalNode: routeAway,
+        preferRemote,
+        pressureDecision: { ...decision, localNode: thisNode ?? null, excludedLocalNode: localExcluded, excludeSentToBroker: askedExcludeFinal, placedLocally },
+        excludedLocalNode: localExcluded,
+        excludeSentToBroker: askedExcludeFinal,
         placedLocally,
+        ...(supersededLease === null ? {} : { supersededLease }),
+        ...(policyNote === null ? {} : { preferRemoteNote: policyNote }),
         ...(conflict === undefined ? {} : { pressureConflict: conflict }),
         facts: {
           command: facts.command,
@@ -477,7 +558,7 @@ export function createNodePlacer({
         + `position ${placement.position}, score ${placement.score ?? '?'}, tier ${placement.tier ?? '?'}, lease ${placement.lease}`,
       );
       logger?.info?.(`remote-fanout: child ${id} pressure — ${pressureLine}`);
-      if (reading !== undefined && reading.band !== 'ok') {
+      if (reading !== undefined && (reading.band !== 'ok' || decision.decision !== 'ok')) {
         logger?.info?.(`remote-fanout: child ${id} pressure DECISION — ${decision.decision}: ${decision.reason}`);
       }
       if (conflict !== undefined) logger?.warn?.(`remote-fanout: child ${id} ${conflict}`);
