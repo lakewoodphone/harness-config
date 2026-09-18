@@ -1837,3 +1837,4 @@ wins	W207	207		2026-09-17	ZABZ-YOGA	open	**W207 · 2026-09-17 · One browser tre
 wins	W208	208		2026-09-18	ZABZ-YOGA	open	**W208 · 2026-09-18 · Window liveness as a union of signals, and an auto-restore loop with a rate limit and five guards.**	entries/wins/W208.md	1	27	e93f09b0466e31ba
 wins	W209	209		2026-09-18	ZABZ-YOGA	open	**W209 · 2026-09-18 · A wrong scheme kept a 10-core node off the mesh for two days; the broker now reports five nodes.**	entries/wins/W209.md	1	53	461608d0194bbedc
 wins	W210	210		2026-09-18	ZABZ-YOGA	open	**W210 · 2026-09-18 · prefer-remote is implemented and tested green; the local node is excludable when the broker has an alternative.**	entries/wins/W210.md	1	57	c70a341c176dc752
+wins	W211	211		2026-09-18	ZABZ-YOGA	open	**W211 · 2026-09-18 · A fleet on the desktop costs the laptop nothing measurable; on the laptop it costs ~1.1 GiB - but 'does it feel slow' is still unmeasured.**	entries/wins/W211.md	1	48	c4920c3d2dfa57f7
