@@ -12,15 +12,21 @@ it has not been measured yet.**
 | `zabz-tech-linux` (12c) | **113 MiB** | 110–117 | 0.9971 | `/proc/meminfo` `Committed_AS`, K∈{0,2,4,6} × 5 runs, same-run anchor | 2026-09-18 |
 | `zabz-yoga-1` (owner's laptop, 22c) | **369–418 MiB** | — | — | independent reproduction by a different instrument (load-generator delta) | 2026-09-18 |
 | `zabz-yoga-1` (earlier figure) | 403 MiB | 270–533 | 0.948 | the original level-mean fit | 2026-09-17 |
-| `lakewooechsmini` (macOS, 10c) | *in flight* | — | — | workstream M, same method as `zabz-tech` | — |
+| `lakewooechsmini` (macOS, 10c) | **159 MiB** commit-analog / **229 MiB** resident | 142–176 / 193–264 | 0.961 / 0.949 | macOS anonymous+wired+compressor pages (swap constant); resident cross-check = child-tree RSS | 2026-09-18 |
 | `secratary` (authority, 4c) | **~181 MiB RSS peak, lower bound** | — | — | one child only, 2 samples caught it alive | 2026-09-18 |
 
 ## 2. Two caveats that change how these numbers must be used
 
-**The metric is not identical across platforms.** The desktop and laptop figures come from Windows
-`GlobalMemoryStatusEx` commit charge; the Linux figure comes from `/proc/meminfo` `Committed_AS`. Those are
-*method-identical* and *metric-comparable*, not metric-identical, and nobody has established that the two
-count the same quantity. Treat cross-platform comparisons as directional.
+**The metric is not identical across platforms — and there are now THREE metrics, not two.** The desktop
+and laptop figures come from Windows `GlobalMemoryStatusEx` commit charge; the Linux figure comes from
+`/proc/meminfo` `Committed_AS`; and the mac mini could use neither, because **`GlobalMemoryStatusEx` does
+not exist on macOS and has no counterpart** — its figure is an *analog* built from anonymous + wired +
+compressor pages, with `swapUsed` pinned at a constant 1,743,582,658.56 B across 1,300+ samples so that it
+cancels in every delta. Those three are *method-identical within a platform* and *suggestive across
+platforms*, and nobody has shown any two of them count the same quantity. **Read every cross-node
+comparison in this document as directional.** The mac mini's own runs carry a second, independent figure
+(child-tree RSS, 229 MiB) that is *higher* than its commit-analog (159 MiB) precisely because the host is
+swap-pressured — so even within one node the answer depends on which quantity you ask about.
 
 **The plateau is a ramp, and the safer number is bigger.** On `zabz-tech-linux` the children were still
 allocating at the last alive sample of every run (alive windows 3.2–4.4 s), so the plateau-median slope
@@ -46,7 +52,7 @@ comparison use 113**, because that is the method-identical figure.
 | `zabz-yoga-1` | **the owner is sitting at it.** Every other quantity is comfortable (25.0 GiB committed against a 43.1 GiB limit) | `113` |
 | `zabz-tech-linux` | **disk: 20.9 GiB free, 96 % used** | workstream L |
 | `secratary` | **swap: 712–716 kB free of 4 GiB — 0.017 %**, already below any sane abort floor *at rest* | workstream S |
-| `lakewooechsmini` | unmeasured | — |
+| `lakewooechsmini` | **swap pressure: 54.1 % of swap already used** at start. Adding children EVICTS other processes' pages, which is why its resident figure (229) exceeds its commit-analog figure (159) | workstream M |
 
 ## 5. What is NOT a limit here, though it looks like one
 
@@ -87,7 +93,6 @@ the dispatcher, which the child never sees — is a design change to the transpo
 
 ## 8. Still in flight
 
-- `lakewooechsmini` unit cost (workstream M).
 - The laptop's **responsiveness** under load (workstream R) — the only measurement that speaks to the
   owner's actual word, *lagging*. Everything in this document is memory and capacity; none of it is speed.
 - The mesh under **simultaneous** load across several nodes (workstream F2, lost once to a transport
