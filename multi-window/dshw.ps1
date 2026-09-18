@@ -2382,7 +2382,7 @@ function Invoke-WindowRecovery($state, [int]$MaxOpens = 2, [switch]$DryRun) {
         if ($live -contains $origin) { continue }                     # guard 4
         $missing += [pscustomobject]@{ key = $key; origin = $origin; label = $slot.label }
     }
-    if ($missing.Count -eq 0) { return [pscustomobject]@{ missing = 0; opened = 0; note = '' } }
+    if ($missing.Count -eq 0) { return [pscustomobject]@{ missing = 0; opened = 0; held = @(); note = '' } }
 
     $opened = 0
     $held = @()
@@ -2424,7 +2424,7 @@ function Invoke-WindowRecovery($state, [int]$MaxOpens = 2, [switch]$DryRun) {
             (Get-Date -Format o), $missing.Count, $opened, ($notes -join ','), ($held -join ',')
         Add-Content -LiteralPath (Join-Path $StateDir 'health.log') -Encoding utf8 -Value $line
     }
-    return [pscustomobject]@{ missing = $missing.Count; opened = $opened; note = ($notes -join '; ') }
+    return [pscustomobject]@{ missing = $missing.Count; opened = $opened; held = $held; note = ($notes -join '; ') }
 }
 
 function Invoke-Health {
@@ -2516,6 +2516,13 @@ function Invoke-Health {
     # has a live window" is finally answerable, which is what makes a recovery pass safe to run.
     try {
         $rec = Invoke-WindowRecovery $state
+        # ALWAYS SAY WHAT THE PASS SAW, not only when it opened something. The whole reason this
+        # task was switched off by hand on 2026-09-18 is that a window-opening loop was invisible
+        # until someone read the raw open log; a recovery pass that does nothing must therefore be
+        # distinguishable in the transcript from one that never ran.
+        Write-Host ("windows: live origins [{0}]; registry-open-and-missing {1}; reopened {2}{3}" -f `
+            ((@(Get-OpenOriginPorts) -join ',')), $rec.missing, $rec.opened,
+            $(if (@($rec.held).Count) { "; held for the next run: " + (@($rec.held) -join ',') } else { '' }))
         if ($rec.missing -gt 0) {
             Write-Host ("windows: {0} recorded as open but gone; reopened {1}" -f $rec.missing, $rec.opened) -ForegroundColor Yellow
         }
@@ -2685,7 +2692,16 @@ switch ($Command) {
         else { Write-Error 'no engine could be started on the primary port'; exit 1 }
     }
     'open'   {
-        $slot = Get-SlotCfgByPortOrLabel $Slot
+        $slot = $null
+        $all = @(Get-Slots)
+        Write-Host ("DBG4 Slot=[{0}] len={1} slotCount={2} labels=[{3}] ports=[{4}]" -f $Slot, $Slot.Length, $all.Count, (($all | ForEach-Object { $_.label }) -join '/'), (($all | ForEach-Object { $_.port }) -join '/'))
+        try { $slot = Get-SlotCfgByPortOrLabel $Slot }
+        catch {
+            Write-Host ("DBG3 Slot=[{0}] type={1} bound={2}" -f $Slot, $Slot.GetType().Name, ($PSBoundParameters.Keys -join ','))
+            Write-Host ("DBG3 threw: {0}" -f $_.Exception.Message)
+            $_.ScriptStackTrace
+            exit 9
+        }
         if (-not $slot) { Write-Error "no slot matches '$Slot'"; exit 2 }
         [void](Open-SlotWindow $slot (Get-State))
         Write-Host ("opened window for slot '{0}'" -f $slot.label)

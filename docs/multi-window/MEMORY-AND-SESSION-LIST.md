@@ -297,3 +297,117 @@ list is computed with the requesting connection excluded.
 * **Both measured windows opened at the configured geometry** (`--window-size=700,440
   --window-position`), which contradicts the old note in `dshw.ps1` claiming geometry only works
   with a private profile. Only two placements were observed; a 4x2 grid of sixteen was not.
+
+---
+
+## 7. Liveness on every origin, and the watchdog that was switched off (2026-09-18, later the same night)
+
+The task **`DSH Window Fleet Watchdog`** (every 5 minutes, `wscript` → `dshw.ps1 health`) was
+disabled by hand as an emergency stop, because a window-opening loop was traced to it: slots 1 and 2
+appeared in `~/.dsh/multi-window/windows.log` at 23:13:29/23:13:52 and **again** at
+23:21:28/23:21:59, with 229 open events accumulated.
+
+### The cause was not the watchdog
+
+`health` opens no windows, and never did — `Invoke-Health` starts missing ENGINES and exits. Every
+one of its runs that night is in `logs/health-20260917.log`, and the 23:17:27 and 23:22:29 runs each
+printed a single line, `healthy: all 1 enabled engine(s) listening`, with no open in between. The
+windows were opened by `new`/`restore`, and the reason they repeated is the liveness test below.
+Re-enabling the task was therefore correct, and it now does the window work it was named for.
+
+### The liveness test could only see one shape of window
+
+`Get-WindowCount` asked the proxy for the origin's live connections **only when
+`profileMode=shared`**, and otherwise fell back to a process scan keyed on the slot's
+`--user-data-dir`. Two shapes fell through it:
+
+| window opened | how it was counted before | why |
+|---|---|---|
+| shared profile, on a proxy origin | proxy, exact | worked |
+| shared profile, on the engine port (the documented fallback when the proxy is down) | profile scan | one shared profile, so every slot matched or none did |
+| any window while the proxy was unreachable | profile scan | the origin port is in the command line, the profile is not |
+
+`Get-OpenOriginPorts` now returns the union of three signals, so the answer no longer depends on the
+profile mode, on the proxy being up, or on which model opened the window:
+
+1. the proxy's own per-port live-connection count (`/__dshw/open`, requesting connection excluded);
+2. a process scan keyed on **each window's `--app=http://127.0.0.1:<port>` origin**, including the
+   engine port, so a window on `3099` is found by the same code path;
+3. if the first sample is empty, two more samples 600 ms apart — a window is only visible through
+   (1) once its page has connected, and `new` asks the question immediately after the previous open
+   returned. Paid only when the first sample is empty.
+
+Measured on a test window of my own on origin **3201**: 2 live connections sustained for 15 s while
+open, and a stable **0** within 3 s of a graceful `WM_CLOSE` — so `live > 0` is the signal, and a
+closed window does not linger. With the owner's five legacy windows open on `3099`, the union reads
+`3099`.
+
+### A window that dies now comes back
+
+Nothing watched the windows, so a crash mid-session left the slot empty until the owner clicked `+`.
+`Invoke-WindowRecovery` (`dshw health`) now does that, under five guards: the registry must say the
+window was open; the port it RECORDED must equal the slot's origin now (a legacy `port: 3099` entry
+cannot be told apart slot by slot, so it is left alone); the origin must have a listener; the origin
+must not be in the live set; and a 600 s per-slot cooldown so a window that was just reopened and has
+not connected yet is not reopened again. At most **2** windows are opened per run, the rest are held
+for the next run and named in the transcript. `dshw health` now always prints what the pass saw:
+`windows: live origins [...]; registry-open-and-missing N; reopened M; held for the next run: ...`.
+
+Measured, raw counts from `windows.log`:
+
+| step | open events |
+|---|---|
+| two test windows open, `health` | 230 |
+| after health run 1 (slot 1 recorded open, no window) | **231** |
+| after health run 2 immediately after | **231** |
+| closed slot 2 by hand (`WM_CLOSE`), `health` | 231 → **232**, `[reopen] 2 (origin :3201)` |
+| `health` again immediately after | **232** |
+| after the 600 s cooldown, `health` run C | 232 → **233** (slot 1's cooldown had expired) |
+| `health` run D immediately after | **233** |
+
+A second consecutive run never opens anything, and the set of open origins is stable across runs.
+
+### Two defects found while testing, both fixed
+
+* **`dshw open <slot>` was broken outright.** `Get-SlotCfgByPortOrLabel` returned a `System.String`
+  (the selector itself), not a slot, so `Get-SlotOriginPort` died on `.index` under `Set-StrictMode`.
+  It now enumerates and returns a resolved slot from `Get-Slots`, and matches label, port and profile.
+* **`Open-SlotWindow` named `$slot.port` on the branch not taken**, which `Set-StrictMode` rejects on
+  a raw config row that has no `port` key at all; it uses `Get-Prop` now.
+
+### What is still true, and what is not yet done
+
+* The registry holds **14 entries with `open: true`, 12 of them legacy `port: 3099`** rows that no
+  single slot can claim. They are not recovered (guard 2) and they are not silently deleted; a
+  `dshw restore` would try to open all 14, and `restore` was deliberately **not** run — see §8.
+* The owner's five on-screen windows are the legacy engine-port shape. The launcher cannot map them
+  to slots, so it neither counts them per slot nor recovers them per slot.
+
+---
+
+## 8. Restore after a reboot: what is proven, and what only a reboot can test
+
+No reboot was taken. What was proven instead, with nothing opened:
+
+* **The registry and the restore plan agree.** Computed from `windows-registry.json` and
+  `windows.json` in a scratch copy (the real registry re-read afterwards and unchanged):
+  `restore` would open **14** windows — `1 - main:3200, 2:3201, 3:3202, 4:3203, 5:3204, 6:3205,
+  7:3206, 8:3207, 9:3208, 10:3209, 11:3210, 12:3211, 13 - auto:3212, 14 - auto:3213` — 14 because
+  the registry still remembers the pre-shared-profile working set.
+* **The decision logic runs in isolation without opening anything.** `Invoke-WindowRecovery -DryRun`
+  against that same copied registry produced a plan and opened nothing (`windows.log` unchanged at
+  231 events, registry unchanged), and separately produced exactly two candidates (`1 - main` and
+  `2`) while skipping the twelve legacy rows on guard 2. That is the difference between the two
+  mechanisms in one number: `restore` opens what the registry remembers, **recovery** opens only what
+  the registry remembers *and* the liveness check confirms is gone.
+* **`Resolve-WindowUrl` picks a token that answers.** The token the new test window was launched with
+  (`--app=http://127.0.0.1:3201/?token=zUobELIIen-...`) is the one `Test-TokenAccepted` accepted
+  against the live engine, which is the 303 answer — not the dead recorded token (pid 29116 / 13:45)
+  that answered 401 while pid 4416 / 21:39 served the port.
+
+**What a reboot alone would still test:** that Edge comes up with the shared `_shared` profile and
+opens all fourteen origins with the right geometry; that the launcher's restore path is reached with
+no engine running yet (`Get-PortOwner` false → `Ensure-Engine`); and that the browser's own
+`--user-data-dir` lock is free at logon, which is the one condition a running browser cannot be made
+to reproduce. Everything above was proven without one.
+
