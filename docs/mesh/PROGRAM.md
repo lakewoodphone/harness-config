@@ -142,5 +142,10 @@ final assistant message, so a child killed mid-turn can never prove where it ran
 | `112-single-source-of-truth.md` | state classification, the unreachable-authority rule, and the reconciliation procedure |
 | `113-laptop-under-fleet.md` | what a fleet costs the owner's laptop, and the responsiveness null |
 | `114-node-capacity.md` | every node's capacity, unit cost, and binding constraint in one table |
+| `115-instruments.md` | how to run the load generator and sampler — and the five ways they lie |
+| `116-runbook.md` | add a node, verify the mesh, recover from the ways it breaks |
+| `117-journal-divergence.md` | the ten cross-machine id collisions on the desktop, two tools that are blind to them, and the reap plan |
+| `118-hardware-plan.md` | the costed plan: $0 of ranked interventions, and the one purchase gated on a demand number nobody has taken |
 | `docs/agent-brief-template-mesh.md` | the brief template built from the four failures of 2026-09-18 |
-| journal | `L2000`, `L2001`, `L2056`, `L2060`, `L2063`, `P330`, `P331`, `P332`, `W209`–`W215` and the handoffs |
+| `preserve/` | preserved artefacts — currently the 113 untracked journal entries rescued off the desktop |
+| journal | `L2000`, `L2001`, `L2056`, `L2060`, `L2063`, `L2064`, `P330`-`P332`, `W209`-`W218` and the handoffs |
