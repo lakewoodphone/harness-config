@@ -1,0 +1,26 @@
+# ZABZ-TECH (office desktop) -- deltas from settings/base.yaml.
+#
+# The desktop's settings.yaml carried no machine-specific blocks at all
+# (169 bytes: onboarding, permission, preset default). Everything else lives in
+# base.yaml. This file exists so the absence is explicit and reviewable rather
+# than an accident of which machine happened to be edited.
+
+# ---------------------------------------------------------------------------
+# agent-loop.maxParallelToolCalls
+#
+# ADDED 2026-09-16 for capability PARITY, not as a limit. Measured: ZABZ-YOGA ran 20
+# (settings/machines/ZABZ-YOGA.yaml) while this machine inherited the code default of 10
+# (`dsh-agent-loop\lib\index.js:1424` -- `value ?? 10`). That had the ordering backwards: the
+# desktop is the stronger machine in every measured dimension (32 logical cores vs 22, 63.6 GB
+# vs 31.6 GB physical, 44 GB commit with ~19 GB headroom, page-ins 1-53/s against the laptop's
+# 600-2400/s before its fixes), and it was the one constrained to half the step fan-out.
+#
+# This is a per-step, per-session fan-out cap, not a machine-wide budget: it does not serialise
+# anything across sessions. Each parallel call costs ~160 MB in flight (a ~57 MB Job-owner runner
+# plus the shell), so 20 concurrent calls is ~3.2 GB worst case against this machine's measured
+# headroom -- comfortably inside it.
+#
+# See docs/dsh-at-scale/PROGRAM.md: the owner's rule is to remove waste first and reduce
+# capability last, so where the two machines disagreed the stronger one wins.
+agent-loop:
+  maxParallelToolCalls: 20

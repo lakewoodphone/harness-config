@@ -1,0 +1,211 @@
+Sep 15 23:00:41 secratary kernel: Purging GPU memory, 0 pages freed, 0 pages still pinned, 2025 pages left available.
+Sep 15 23:00:42 secratary kernel: python3 invoked oom-killer: gfp_mask=0x140cca(GFP_HIGHUSER_MOVABLE|__GFP_COMP), order=0, oom_score_adj=0
+Sep 15 23:00:41 secratary systemd[1]: secretary-api.service: The kernel OOM killer killed some processes in this unit.
+Sep 15 23:00:42 secratary kernel: CPU: 1 UID: 1000 PID: 2515526 Comm: python3 Kdump: loaded Not tainted 7.0.0-30-generic #30-Ubuntu PREEMPT(lazy) 
+Sep 15 23:00:42 secratary systemd[1]: Starting secretary-access-watchdog.service - Personal Secretary access watchdog...
+Sep 15 23:00:42 secratary kernel: Hardware name: Dell Inc. OptiPlex 9020/0XCR8D, BIOS A25 05/30/2019
+Sep 15 23:00:42 secratary kernel: Call Trace:
+Sep 15 23:00:42 secratary kernel:  <TASK>
+Sep 15 23:00:42 secratary kernel:  show_stack+0x49/0x60
+Sep 15 23:00:42 secratary kernel:  dump_stack_lvl+0x5f/0x90
+Sep 15 23:00:42 secratary systemd[1]: secretary-api.service: Main process exited, code=killed, status=9/KILL
+Sep 15 23:00:43 secratary kernel:  dump_stack+0x10/0x18
+Sep 15 23:00:42 secratary systemd[1]: secretary-api.service: Failed with result 'oom-kill'.
+Sep 15 23:00:43 secratary kernel:  dump_header+0x48/0x1c7
+Sep 15 23:00:42 secratary systemd[1]: secretary-api.service: Consumed 18min 12.931s CPU time over 54min 11.938s wall clock time, 19.4G memory peak, 656K memory swap peak.
+Sep 15 23:00:43 secratary kernel:  oom_kill_process.cold+0x8/0xac
+Sep 15 23:00:43 secratary kernel:  out_of_memory+0xff/0x2b0
+Sep 15 23:00:43 secratary kernel:  __alloc_pages_may_oom+0x10a/0x1d0
+Sep 15 23:00:43 secratary kernel:  __alloc_pages_slowpath.constprop.0+0x3e0/0x9b0
+Sep 15 23:00:43 secratary kernel:  __alloc_frozen_pages_noprof+0x327/0x360
+Sep 15 23:00:43 secratary kernel:  alloc_pages_mpol+0x88/0x1b0
+Sep 15 23:00:43 secratary sshd-session[359161]: Received disconnect from 127.0.0.1 port 44276:11: disconnected by user
+Sep 15 23:00:43 secratary kernel:  folio_alloc_noprof+0x62/0x100
+Sep 15 23:00:43 secratary sshd-session[359161]: Disconnected from user zabz 127.0.0.1 port 44276
+Sep 15 23:00:43 secratary kernel:  filemap_alloc_folio_noprof+0x61/0x80
+Sep 15 23:00:43 secratary sshd-session[359105]: pam_unix(sshd:session): session closed for user zabz
+Sep 15 23:00:43 secratary systemd[1]: session-37299.scope: Deactivated successfully.
+Sep 15 23:00:44 secratary kernel:  __filemap_get_folio_mpol+0x201/0x340
+Sep 15 23:00:43 secratary CRON[357663]: pam_unix(cron:session): session closed for user zabz
+Sep 15 23:00:43 secratary systemd-logind[1235]: Session 37299 logged out. Waiting for processes to exit.
+Sep 15 23:00:44 secratary kernel:  filemap_fault+0x112/0xce0
+Sep 15 23:00:43 secratary systemd-logind[1235]: Removed session 37299.
+Sep 15 23:00:44 secratary kernel:  ? filemap_map_pages+0x2f8/0x440
+Sep 15 23:00:44 secratary kernel:  __do_fault+0x3c/0x1e0
+Sep 15 23:00:44 secratary kernel:  do_read_fault+0x12f/0x280
+Sep 15 23:00:44 secratary node[81422]: Failed to proxy http://localhost:8002/health Error: read ECONNRESET
+Sep 15 23:00:44 secratary node[81422]:     at ignore-listed frames {
+Sep 15 23:00:44 secratary node[81422]:   errno: -104,
+Sep 15 23:00:44 secratary node[81422]:   code: 'ECONNRESET',
+Sep 15 23:00:44 secratary node[81422]:   syscall: 'read'
+Sep 15 23:00:44 secratary node[81422]: }
+Sep 15 23:00:44 secratary kernel:  do_fault+0x16c/0x2a0
+Sep 15 23:00:44 secratary sshd-session[359267]: Accepted publickey for zabz from 100.72.162.5 port 12392 ssh2: ED25519 SHA256:l5dDkcKHjGIz1JaT5APz6iONDTuM4McDzYl8Zb7qWtc
+Sep 15 23:00:45 secratary node[81422]: Error: read ECONNRESET
+Sep 15 23:00:45 secratary node[81422]:     at ignore-listed frames {
+Sep 15 23:00:45 secratary node[81422]:   errno: -104,
+Sep 15 23:00:45 secratary node[81422]:   code: 'ECONNRESET',
+Sep 15 23:00:45 secratary node[81422]:   syscall: 'read'
+Sep 15 23:00:45 secratary node[81422]: }
+Sep 15 23:00:45 secratary kernel:  ? pte_offset_map_rw_nolock+0x20/0xa0
+Sep 15 23:00:44 secratary sshd-session[359268]: Accepted publickey for zabz from 100.72.162.5 port 12393 ssh2: ED25519 SHA256:l5dDkcKHjGIz1JaT5APz6iONDTuM4McDzYl8Zb7qWtc
+Sep 15 23:00:45 secratary systemd-logind[1235]: New session '37301' of user 'zabz' with class 'user' and type 'tty'.
+Sep 15 23:00:45 secratary kernel:  handle_pte_fault+0x141/0x1f0
+Sep 15 23:00:44 secratary sshd-session[359269]: Accepted publickey for zabz from 100.72.162.5 port 12395 ssh2: ED25519 SHA256:l5dDkcKHjGIz1JaT5APz6iONDTuM4McDzYl8Zb7qWtc
+Sep 15 23:00:45 secratary systemd[1]: Started session-37301.scope - Session 37301 of User zabz.
+Sep 15 23:00:45 secratary kernel:  __handle_mm_fault+0x493/0x720
+Sep 15 23:00:44 secratary sshd-session[359269]: pam_unix(sshd:session): session opened for user zabz(uid=1000) by zabz(uid=0)
+Sep 15 23:00:45 secratary kernel:  handle_mm_fault+0xee/0x2e0
+Sep 15 23:00:44 secratary sshd-session[359267]: pam_unix(sshd:session): session opened for user zabz(uid=1000) by zabz(uid=0)
+Sep 15 23:00:45 secratary kernel:  do_user_addr_fault+0x2ee/0x830
+Sep 15 23:00:44 secratary sshd-session[359268]: pam_unix(sshd:session): session opened for user zabz(uid=1000) by zabz(uid=0)
+Sep 15 23:00:45 secratary kernel:  exc_page_fault+0x83/0x1e0
+Sep 15 23:00:45 secratary kernel:  asm_exc_page_fault+0x27/0x30
+Sep 15 23:00:45 secratary kernel: RIP: 0033:0x54f5a7
+Sep 15 23:00:45 secratary kernel: Code: Unable to access opcode bytes at 0x54f57d.
+Sep 15 23:00:45 secratary kernel: RSP: 002b:00007ffe4812f3f0 EFLAGS: 00010202
+Sep 15 23:00:45 secratary kernel: RAX: 00000000000000ac RBX: 000000003ef00e9a RCX: 000072a6b5835288
+Sep 15 23:00:45 secratary kernel: RDX: 0000000000000000 RSI: 0000000000000081 RDI: 00000000000007d0
+Sep 15 23:00:45 secratary kernel: RBP: 00007ffe4812f6d0 R08: 000072a6b593c6c0 R09: 000072a6b4f25a80
+Sep 15 23:00:45 secratary kernel: R10: 000072a6b5835290 R11: 0000000000000081 R12: 000072a6b58351f0
+Sep 15 23:00:45 secratary kernel: R13: 0000000000b217c8 R14: 000072a6b4f722a0 R15: 000072a6b5835298
+Sep 15 23:00:45 secratary kernel:  </TASK>
+Sep 15 23:00:45 secratary kernel: Mem-Info:
+Sep 15 23:00:45 secratary kernel: active_anon:1434479 inactive_anon:4347219 isolated_anon:0
+                                   active_file:175 inactive_file:595 isolated_file:0
+                                   unevictable:4276 dirty:0 writeback:0
+                                   slab_reclaimable:77271 slab_unreclaimable:48997
+                                   mapped:1824 shmem:433829 pagetables:14718
+                                   sec_pagetables:745 bounce:0
+                                   kernel_misc_reclaimable:0
+                                   free:45559 free_pcp:0 free_cma:10798
+Sep 15 23:00:45 secratary kernel: Node 0 active_anon:5737916kB inactive_anon:17388876kB active_file:700kB inactive_file:2380kB unevictable:17104kB isolated(anon):0kB isolated(file):0kB mapped:7296kB dirty:0kB writeback:0kB shmem:1735316kB shmem_thp:6144kB shmem_pmdmapped:0kB anon_thp:0kB kernel_stack:6016kB pagetables:58872kB sec_pagetables:2980kB all_unreclaimable? yes Balloon:0kB
+Sep 15 23:00:45 secratary systemd-logind[1235]: New session '37303' of user 'zabz' with class 'user' and type 'tty'.
+Sep 15 23:00:45 secratary kernel: Node 0 DMA free:11264kB boost:0kB min:48kB low:60kB high:72kB reserved_highatomic:0KB free_highatomic:0KB active_anon:0kB inactive_anon:0kB active_file:0kB inactive_file:0kB unevictable:0kB writepending:0kB zspages:0kB present:15984kB managed:15360kB mlocked:0kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
+Sep 15 23:00:45 secratary systemd[1]: Started session-37303.scope - Session 37303 of User zabz.
+Sep 15 23:00:45 secratary kernel: lowmem_reserve[]: 0 2915 23406 23406 23406
+Sep 15 23:00:45 secratary systemd-logind[1235]: New session '37302' of user 'zabz' with class 'user' and type 'tty'.
+Sep 15 23:00:45 secratary kernel: Node 0 DMA32 free:86940kB boost:0kB min:5028kB low:6544kB high:8060kB reserved_highatomic:0KB free_highatomic:0KB active_anon:243528kB inactive_anon:2622128kB active_file:8kB inactive_file:232kB unevictable:0kB writepending:0kB zspages:0kB present:3575564kB managed:2985740kB mlocked:0kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:43192kB
+Sep 15 23:00:45 secratary systemd[1]: Started session-37302.scope - Session 37302 of User zabz.
+Sep 15 23:00:45 secratary kernel: lowmem_reserve[]: 0 0 20491 20491 20491
+Sep 15 23:00:45 secratary kernel: Node 0 Normal free:84032kB boost:30720kB min:93220kB low:112080kB high:130940kB reserved_highatomic:0KB free_highatomic:0KB active_anon:5494388kB inactive_anon:14766748kB active_file:700kB inactive_file:2372kB unevictable:17104kB writepending:0kB zspages:0kB present:21477376kB managed:20982972kB mlocked:8936kB bounce:0kB free_pcp:0kB local_pcp:0kB free_cma:0kB
+Sep 15 23:00:45 secratary kernel: lowmem_reserve[]: 0 0 0 0 0
+Sep 15 23:00:45 secratary kernel: Node 0 DMA: 0*4kB 0*8kB 0*16kB 0*32kB 0*64kB 0*128kB 0*256kB 0*512kB 1*1024kB (U) 1*2048kB (M) 2*4096kB (M) = 11264kB
+Sep 15 23:00:45 secratary kernel: Node 0 DMA32: 82*4kB (UMEC) 62*8kB (UMEC) 68*16kB (UMEC) 40*32kB (UEC) 17*64kB (UMEC) 13*128kB (UEC) 6*256kB (UMEC) 4*512kB (MC) 4*1024kB (UM) 2*2048kB (UM) 17*4096kB (MC) = 87352kB
+Sep 15 23:00:45 secratary kernel: Node 0 Normal: 400*4kB (UME) 23*8kB (UME) 351*16kB (UME) 760*32kB (UME) 563*64kB (UME) 93*128kB (UME) 12*256kB (UME) 1*512kB (M) 1*1024kB (M) 0*2048kB 0*4096kB = 84264kB
+Sep 15 23:00:45 secratary kernel: Node 0 hugepages_total=0 hugepages_free=0 hugepages_surp=0 hugepages_size=1048576kB
+Sep 15 23:00:45 secratary kernel: Node 0 hugepages_total=0 hugepages_free=0 hugepages_surp=0 hugepages_size=2048kB
+Sep 15 23:00:45 secratary kernel: 466121 total pagecache pages
+Sep 15 23:00:45 secratary kernel: 29778 pages in swap cache
+Sep 15 23:00:45 secratary kernel: Free swap  = 184kB
+Sep 15 23:00:45 secratary kernel: Total swap = 4194300kB
+Sep 15 23:00:45 secratary kernel: 6267231 pages RAM
+Sep 15 23:00:45 secratary kernel: 0 pages HighMem/MovableOnly
+Sep 15 23:00:45 secratary kernel: 271213 pages reserved
+Sep 15 23:00:45 secratary kernel: 0 pages cma reserved
+Sep 15 23:00:45 secratary kernel: 0 pages hwpoisoned
+Sep 15 23:00:45 secratary kernel: Memory cgroup min protection 0kB -- low protection 0kB
+Sep 15 23:00:45 secratary kernel: Tasks state (memory values in pages):
+Sep 15 23:00:45 secratary kernel: [  pid  ]   uid  tgid total_vm      rss rss_anon rss_file rss_shmem pgtables_bytes swapents oom_score_adj name
+Sep 15 23:00:45 secratary kernel: [   1221]   996  1221     2317      527      318      209         0    61440       98          -900 dbus-daemon
+Sep 15 23:00:45 secratary kernel: [   1228]     0  1228    11707      445      290      155         0   131072     3530             0 networkd-dispat
+Sep 15 23:00:45 secratary kernel: [   1235]     0  1235     4712      327      264       63         0    86016      211             0 systemd-logind
+Sep 15 23:00:45 secratary kernel: [   1288]     0  1288    31525      280       41      239         0   155648     3612             0 unattended-upgr
+Sep 15 23:00:45 secratary kernel: [   1587]  1000  1587    11982      331      329        2         0   139264     1044             0 code
+Sep 15 23:00:45 secratary kernel: [   1598]     0  1598     2122      104       44       60         0    53248        2             0 agetty
+Sep 15 23:00:46 secratary kernel: [   1608]  1000  1608     1884       37       35        2         0    65536       31             0 heartbeat.sh
+Sep 15 23:00:46 secratary kernel: [2019067]     0 2019067      722      364        1      363         0    45056       29             0 chronyd-starter
+Sep 15 23:00:46 secratary kernel: [2019072]     0 2019072    53554     2259      557     1702         0    73728        0         -1000 multipathd
+Sep 15 23:00:46 secratary kernel: [2019101]   989 2019101     5957     1433      829      604         0    81920      206             0 chronyd
+Sep 15 23:00:46 secratary kernel: [2019103]     0 2019103     2686      530       87      443         0    61440      208         -1000 sshd
+Sep 15 23:00:46 secratary kernel: [2019104]   989 2019104     3024      320       30      290         0    69632      132             0 chronyd
+Sep 15 23:00:46 secratary kernel: [2019113]     0 2019113     2628      760       64      696         0    65536      291             0 smartd
+Sep 15 23:00:46 secratary kernel: [2019115]     0 2019115    36362      925      314      609         2   311296      243          -250 systemd-journal
+Sep 15 23:00:46 secratary kernel: [2019121]     0 2019121    79656      992      165      827         0   131072      316             0 upowerd
+Sep 15 23:00:46 secratary kernel: [2019126]   102 2019126    55137     1373      660      713         0    94208        3             0 rsyslogd
+Sep 15 23:00:46 secratary kernel: [2019129]   990 2019129     5765      863      292      571         0    90112      463             0 systemd-resolve
+Sep 15 23:00:46 secratary kernel: [2019139]     0 2019139   135953     1289      369      920         0   155648      334             0 udisksd
+Sep 15 23:00:46 secratary kernel: [2019142]     0 2019142     9464      910      229      681         0    90112      468         -1000 systemd-udevd
+Sep 15 23:00:46 secratary kernel: [2019157]   988 2019157    95502     1271      412      859         0   114688      229             0 polkitd
+Sep 15 23:00:46 secratary kernel: [2019173]     0 2019173    97903     1011      191      820         0   122880      381             0 ModemManager
+Sep 15 23:00:46 secratary kernel: [2019177]   998 2019177     6123      899       99      800         0    94208      305             0 systemd-network
+Sep 15 23:00:46 secratary kernel: [2019238]     0 2019238    96577      769       88      681         0   126976      107             0 thermald
+Sep 15 23:00:46 secratary kernel: [2019834]     0 2019834   187700     4052     3262      790         0   561152      397             0 fail2ban-server
+Sep 15 23:00:46 secratary kernel: [2020610]     0 2020610   130587     1958     1185      773         0   352256      741             0 fwupd
+Sep 15 23:00:46 secratary kernel: [2252736]  1000 2252736     5704     1199      527      672         0    90112      166           100 systemd
+Sep 15 23:00:46 secratary kernel: [2252739]  1000 2252739     5752      277       77      200         0    81920      426           100 (sd-pam)
+Sep 15 23:00:46 secratary kernel: [2253574]  1000 2253574     1884      420       33      387         0    61440       34             0 bash
+Sep 15 23:00:46 secratary kernel: [2495411]     0 2495411   315523     4200     4198        2         0   204800      548             0 cloudflared
+Sep 15 23:00:46 secratary kernel: [2515526]  1000 2515526    27623     1871     1304      567         0   118784     1844             0 python3
+Sep 15 23:00:46 secratary kernel: [2559536]  1000 2559536     2137      836      103      733         0    61440       10           200 dbus-daemon
+Sep 15 23:00:46 secratary kernel: [2559568]  1000 2559568    95203      744       71      672         1   110592       91           200 at-spi-bus-laun
+Sep 15 23:00:46 secratary kernel: [3279526]     0 3279526   355909     8876     8874        2         0   409600     2251             0 tailscaled
+Sep 15 23:00:46 secratary kernel: [3465602]  1000 3465602  5835334   138508   137798      675        35  6541312    41734             0 node
+Sep 15 23:00:46 secratary kernel: [3465640]  1000 3465640    60975     2330     1715      615         0   237568    11791             0 python
+Sep 15 23:00:46 secratary kernel: [3660824]  1000 3660824   217436     3422     2879      543         0   217088      809             0 python3
+Sep 15 23:00:46 secratary kernel: [3662822]     0 3662822     1765      563       43      520         0    57344       20             0 cron
+Sep 15 23:00:46 secratary kernel: [3681293]  1000 3681293     6084     3152     2437      715         0    94208       70             0 Xvfb
+Sep 15 23:00:46 secratary kernel: [  81422]  1000 81422  3328207    27183    26576      607         0  2699264        0             0 next-server (v1
+Sep 15 23:00:46 secratary kernel: [ 306180]  1000 306180  6392547  5064110  5063439      671         0 41484288       70             0 python
+Sep 15 23:00:46 secratary kernel: [ 319067]     0 319067     4568     1147      478      669         0    81920        0             0 sshd-session
+Sep 15 23:00:46 secratary kernel: [ 319115]  1000 319115     4642      893      552      341         0    81920        0             0 sshd-session
+Sep 15 23:00:46 secratary kernel: [ 319116]  1000 319116    57452    12677    12105      572         0   221184        0             0 python
+Sep 15 23:00:46 secratary kernel: [ 343704]     0 343704     4566     1146      476      670         0    77824        0             0 sshd-session
+Sep 15 23:00:46 secratary kernel: [ 343761]  1000 343761     4641      895      552      343         0    77824        0             0 sshd-session
+Sep 15 23:00:46 secratary kernel: [ 343762]  1000 343762    57451    12667    12103      564         0   217088        0             0 python
+Sep 15 23:00:46 secratary kernel: [ 350969]  1000 350969     4748     3516     3098      418         0    86016        0             0 grep
+Sep 15 23:00:46 secratary kernel: [ 350970]  1000 350970     1712      431       40      391         0    57344        0             0 grep
+Sep 15 23:00:46 secratary kernel: [ 350971]  1000 350971     4076      891      342      549         0    77824        0             0 head
+Sep 15 23:00:46 secratary kernel: [ 354893]     0 354893     4566     1159      476      683         0    77824        0             0 sshd-session
+Sep 15 23:00:46 secratary kernel: [ 354948]  1000 354948     4641      895      552      343         0    73728        0             0 sshd-session
+Sep 15 23:00:46 secratary kernel: [ 354951]  1000 354951    57451    12653    12104      549         0   225280        0             0 python
+Sep 15 23:00:46 secratary kernel: [ 357246]  1000 357246     4028      871      305      566         0    73728        0             0 sleep
+Sep 15 23:00:46 secratary kernel: [ 357655]     0 357655     2815      787      193      594         0    65536        3             0 cron
+Sep 15 23:00:46 secratary kernel: [ 357662]     0 357662     2815      787      193      594         0    65536        3             0 cron
+Sep 15 23:00:46 secratary kernel: [ 357663]     0 357663     2815      787      193      594         0    65536        3             0 cron
+Sep 15 23:00:46 secratary kernel: [ 357688]  1000 357688      722      404       28      376         0    49152        0             0 sh
+Sep 15 23:00:46 secratary kernel: [ 357690]  1000 357690      722      404       28      376         0    45056        0             0 sh
+Sep 15 23:00:46 secratary kernel: [ 357697]  1000 357697      722      402       26      376         0    49152        0             0 sh
+Sep 15 23:00:46 secratary kernel: [ 357708]  1000 357708     1884      464       72      392         0    65536        0             0 dialpad-harvest
+Sep 15 23:00:46 secratary kernel: [ 357713]  1000 357713    10561     4699     4095      604         0   122880        0             0 python
+Sep 15 23:00:46 secratary kernel: [ 357781]  1000 357781     1884      470       78      392         0    61440        0             0 owner-attention
+Sep 15 23:00:46 secratary kernel: [ 357830]  1000 357830     1884      240       72      168         0    57344        0             0 dialpad-harvest
+Sep 15 23:00:46 secratary kernel: [ 357831]  1000 357831     4028      898      312      586         0    73728        0             0 timeout
+Sep 15 23:00:46 secratary kernel: [ 357832]  1000 357832    15293     8179     7543      636         0   163840        0             0 python
+Sep 15 23:00:46 secratary kernel: [ 359105]     0 359105     4568     1146      477      669         0    81920        0             0 sshd-session
+Sep 15 23:00:46 secratary kernel: [ 359125]  1000 359125     6507      838      398      440         0    98304        0             0 curl
+Sep 15 23:00:46 secratary kernel: [ 359126]  1000 359126     5043     1592     1092      500         0    73728        0             0 python3
+Sep 15 23:00:46 secratary kernel: [ 359156]  1000 359156     4028      887      306      581         0    69632        0             0 sleep
+Sep 15 23:00:46 secratary kernel: [ 359161]  1000 359161     4642      886      543      343         0    77824        0             0 sshd-session
+Sep 15 23:00:46 secratary kernel: [ 359162]  1000 359162     1884      455       63      392         0    57344        0             0 bash
+Sep 15 23:00:46 secratary kernel: [ 359176]  1000 359176     5420     1853     1353      500         0    81920        0             0 python3
+Sep 15 23:00:46 secratary kernel: [ 359177]  1000 359177     4076      879      342      537         0    69632        0             0 head
+Sep 15 23:00:46 secratary kernel: [ 359251]  1000 359251     4161      832      328      504         0    77824        0             0 ssh
+Sep 15 23:00:46 secratary kernel: oom-kill:constraint=CONSTRAINT_NONE,nodemask=(null),cpuset=/,mems_allowed=0,global_oom,task_memcg=/system.slice/secretary-api.service,task=python,pid=306180,uid=1000
+Sep 15 23:00:46 secratary kernel: Out of memory: Killed process 306180 (python) total-vm:25570188kB, anon-rss:20253756kB, file-rss:2684kB, shmem-rss:0kB, UID:1000 pgtables:40512kB oom_score_adj:0
+Sep 15 23:00:46 secratary kernel: Purging GPU memory, 0 pages freed, 0 pages still pinned, 2025 pages left available.
+Sep 15 23:00:46 secratary kernel: Purging GPU memory, 0 pages freed, 0 pages still pinned, 2025 pages left available.
+Sep 15 23:00:47 secratary access-watchdog.sh[359351]: curl: (7) Failed to connect to localhost port 8002 after 1 ms: Could not connect to server
+Sep 15 23:00:47 secratary access-watchdog.sh[359425]: 2026-09-15T23:00:47+00:00 API health failed at http://localhost:8002/health (1/3 consecutive)
+Sep 15 23:00:47 secratary access-watchdog.sh[359442]: 2026-09-15T23:00:47+00:00 secretary-api health check failed but the service is still starting; not restarting
+Sep 15 23:00:47 secratary node[81422]: Failed to proxy http://localhost:8002/health Error: connect ECONNREFUSED 127.0.0.1:8002
+Sep 15 23:00:47 secratary node[81422]:     at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:8002) {
+Sep 15 23:00:47 secratary node[81422]:   errno: -111,
+Sep 15 23:00:47 secratary node[81422]:   code: 'ECONNREFUSED',
+Sep 15 23:00:47 secratary node[81422]:   syscall: 'connect',
+Sep 15 23:00:47 secratary node[81422]:   address: '127.0.0.1',
+Sep 15 23:00:47 secratary node[81422]:   port: 8002
+Sep 15 23:00:47 secratary node[81422]: }
+Sep 15 23:00:47 secratary node[81422]: Error: connect ECONNREFUSED 127.0.0.1:8002
+Sep 15 23:00:47 secratary node[81422]:     at <unknown> (Error: connect ECONNREFUSED 127.0.0.1:8002) {
+Sep 15 23:00:47 secratary node[81422]:   errno: -111,
+Sep 15 23:00:47 secratary node[81422]:   code: 'ECONNREFUSED',
+Sep 15 23:00:47 secratary node[81422]:   syscall: 'connect',
+Sep 15 23:00:47 secratary node[81422]:   address: '127.0.0.1',
+Sep 15 23:00:47 secratary node[81422]:   port: 8002
+Sep 15 23:00:47 secratary node[81422]: }
+Sep 15 23:00:47 secratary access-watchdog.sh[359444]: curl: (22) The requested URL returned error: 500
+Sep 15 23:00:47 secratary access-watchdog.sh[359455]: 2026-09-15T23:00:47+00:00 dashboard health failed at http://localhost:3000/health (1/3 consecutive)
+Sep 15 23:00:47 secratary access-watchdog.sh[359472]: 2026-09-15T23:00:47+00:00 secretary-dashboard health check failed (1/3 consecutive); not restarting yet
+Sep 15 23:00:47 secratary access-watchdog.sh[359474]: curl: (7) Failed to connect to localhost port 8002 after 0 ms: Could not connect to server
+Sep 15 23:00:47 secratary sshd-session[359478]: Received disconnect from 100.72.162.5 port 12395:11: disconnected by user

@@ -1,0 +1,12 @@
+# The dsh-plugin-attention bundle patch: mount `/attention`.
+#
+# One host row, which is the whole plugin: the command reads the kernel's findings, the phone
+# probe's verdict and the autosync record, and prints them with the source and age of each.
+# There is no client half — a badge would need the host-call channel, which in this deployment
+# belongs to the dynamic Cordis runner (see lib/index.js for why that was not used).
+#
+# The row is an `insert` without an id target, so it adds a loader entry rather than
+# overriding one, and a later patch layer can still disable it by id.
+- insert:
+    - id: plugin-attention
+      name: dsh-plugin-attention

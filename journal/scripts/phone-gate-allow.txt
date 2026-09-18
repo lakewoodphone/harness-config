@@ -1,0 +1,43 @@
+# phone-gate-allow.txt — the tailnet devices this node is willing to sign in automatically.
+#
+# WHY THIS FILE EXISTS (measured 2026-09-16 21:58Z)
+# A cold `GET /` through a node's tailnet name used to come back 200 with a working session cookie
+# and no credential of any kind, because the gate performs the engine's one-time token exchange on
+# the visitor's behalf. That cookie drives /api and the WebSocket mux: full engine control, a shell
+# as the owner. On `secratary` that is RCE as `zabz` on the company authority.
+#
+# WHY IT IS A DEVICE LIST AND NOT AN IDENTITY CHECK
+# `tailscale serve` forwards the caller's identity, but every device on this tailnet is enrolled
+# under the SAME Google identity (`lakewoodphoneandtech@gmail.com`, user 2701425880688073) — all six
+# peers, the employee's Mac included. So `Tailscale-User-Login` cannot tell the owner's devices from
+# anyone else's, and the check has to be the device address, which Serve reports as
+# `X-Forwarded-For`. The gate reads the LAST entry of that header, because that is the one Serve
+# itself appended and the only one a caller cannot forge.
+#
+# HOW TO USE IT
+#   * one tailnet address per line; anything after `#` is a comment; blank lines are ignored;
+#   * a device that is not listed is refused with a short HTML page that names its address, so the
+#     next person can add one line here and reload;
+#   * changes take effect on the next request — the gate re-reads this file when it changes, and it
+#     does not need to be restarted;
+#   * if this file is missing or lists nothing, the gate signs in EVERY device on the tailnet and
+#     says so once, loudly, in its log. That is the behaviour from before the restriction existed,
+#     and it is deliberately fail-open: an owner locked out of his own node from his phone cannot
+#     open a terminal to fix a typo.
+#
+# LISTED 2026-09-16, read from `tailscale status --json` on ZABZ-YOGA:
+100.72.162.5      # zabz-yoga-1     the owner's laptop (home)
+100.85.105.93     # iphone-15-pro   the owner's iPhone
+100.85.153.96     # zabz-tech       the office desktop
+100.84.72.88      # secratary       the always-on company authority
+100.105.248.90    # zabz-tech-linux
+#
+# DELIBERATELY NOT LISTED — DO NOT ADD IT BACK WITHOUT A REASON THAT IS WRITTEN DOWN HERE:
+#   100.126.146.121   # lakewooechsmini — the employee's Mac.
+# It is enrolled under the same Google identity as every other device, so an identity check cannot
+# exclude it and this list is the only place that can. A device on this list receives a 30-day cookie
+# that is a shell on the owner's engine, on the company's authoritative database and on his mail —
+# that is not a capability to hand to someone else's machine because it happens to be on the tailnet.
+# If the employee ever needs access, the answer is a separate node with its own engine and its own
+# allow-list, not a line here. (Superseded only by a deliberate decision, recorded where decisions
+# live: the journal. The absence of a reason here is how it gets re-added by accident.)

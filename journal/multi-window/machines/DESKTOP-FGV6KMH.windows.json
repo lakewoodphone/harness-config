@@ -1,0 +1,80 @@
+{
+  "_comment": "DSH multi-window launcher configuration for Yocheved's laptop (DESKTOP-FGV6KMH). ONE server, MANY windows. Copied from the owner's fleet config with the paths and the default workspace changed for this machine.",
+  "_modes": {
+    "single": "One DSH server on primaryPort; every window attaches to it. Sessions are independent; the engine is shared. THIS IS THE ONLY SUPPORTED MODE.",
+    "multi": "UNSUPPORTED on a shared DSH_HOME - do not use. Two dsh web processes on one home have been observed writing duplicate sequence numbers into one session log and making the whole history unloadable. It is also ~1.4 GB per engine."
+  },
+  "_notes": {
+    "whyWorkspaceIsLptHub": "The window workspace is the agent's default workspace root. It is set to the shop's records repo rather than the whole C:\\Users\\cheve\\code so that the DEFAULT reach is the job, and the harness configuration the machine itself runs on is never inside a writable workspace root. The other repos (harness-config, personal-secretary-mvp) are still readable and usable from a session that needs them; this only decides what a fresh window opens on.",
+    "nodeTls": "This machine sits behind the Techloq TLS-intercepting filter. Node must be told to trust the filter CA via NODE_EXTRA_CA_CERTS and must avoid IPv6 via NODE_OPTIONS=--dns-result-order=ipv4first. Machine-scope environment variables are NOT reliably inherited by service-spawned processes on this box (measured 2026-09-14), so dshw-launch sets both explicitly."
+  },
+  "mode": "single",
+  "primaryPort": 3099,
+  "primaryWorkspace": "C:\\Users\\cheve\\code\\lpt-hub",
+  "server": {
+    "logDir": "C:\\Users\\cheve\\.dsh\\multi-window\\logs",
+    "stateDir": "C:\\Users\\cheve\\.dsh\\multi-window",
+    "startTimeoutSeconds": 240,
+    "restartDelaySeconds": 5
+  },
+  "browser": {
+    "kind": "edge",
+    "profileRoot": "C:\\Users\\cheve\\.dsh\\multi-window\\browser",
+    "windowSize": "1000,700",
+    "extraArgs": []
+  },
+  "windows": [
+    {
+      "label": "1 - shop",
+      "workspace": "C:\\Users\\cheve\\code\\lpt-hub",
+      "profile": "w1",
+      "enabled": true,
+      "position": "40,40",
+      "size": "1000,700"
+    },
+    {
+      "label": "2",
+      "workspace": "C:\\Users\\cheve\\code\\lpt-hub",
+      "profile": "w2",
+      "enabled": true,
+      "position": "80,80",
+      "size": "1000,700"
+    },
+    {
+      "label": "3",
+      "workspace": "C:\\Users\\cheve\\code\\lpt-hub",
+      "profile": "w3",
+      "enabled": true,
+      "position": "120,120",
+      "size": "1000,700"
+    },
+    {
+      "label": "4",
+      "workspace": "C:\\Users\\cheve\\code\\lpt-hub",
+      "profile": "w4",
+      "enabled": true,
+      "position": "160,160",
+      "size": "1000,700"
+    },
+    {
+      "label": "5",
+      "workspace": "C:\\Users\\cheve\\code\\lpt-hub",
+      "profile": "w5",
+      "enabled": false,
+      "position": "200,200",
+      "size": "1000,700"
+    },
+    {
+      "label": "6",
+      "workspace": "C:\\Users\\cheve\\code\\lpt-hub",
+      "profile": "w6",
+      "enabled": false,
+      "position": "240,240",
+      "size": "1000,700"
+    }
+  ],
+  "_multiPorts": {
+    "_comment": "Only read in mode 'multi'. Ports are assigned from basePort upward, in window order.",
+    "basePort": 3081
+  }
+}

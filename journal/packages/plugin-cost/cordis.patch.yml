@@ -1,0 +1,13 @@
+# The dsh-plugin-cost bundle patch: mount the cost surfaces.
+#
+# One host row. It registers `/cost` and carries no client-side configuration,
+# because the composer cost pill is a `dsh.client` half of the same package and the
+# browser roster is assembled from package manifests, not from this file.
+#
+# The row is an `insert` without an `id` target, so it adds a loader entry rather
+# than overriding one; a later patch layer can still disable it by id if a
+# deployment wants the command gone.
+- insert:
+    # `/cost` — price this session in USD, per turn and in total.
+    - id: plugin-cost
+      name: dsh-plugin-cost

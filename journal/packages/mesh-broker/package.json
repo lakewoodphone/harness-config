@@ -1,0 +1,28 @@
+{
+  "name": "dsh-mesh-broker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The mesh broker (stream S5 of docs/mesh/71-mesh-program.md): POST /place, POST /done, GET /nodes. It reads every node's GET /mesh/capacity directly over the tailnet with a short timeout, caches for at most 15 s, computes a score and a queue position from live measurements only, and NEVER refuses - with every node at zero slots it still names a node and returns position > 0.",
+  "type": "module",
+  "main": "lib/broker.js",
+  "exports": {
+    ".": { "default": "./lib/broker.js" },
+    "./scoring": { "default": "./lib/scoring.js" },
+    "./capacity": { "default": "./lib/capacity.js" },
+    "./config": { "default": "./lib/config.js" },
+    "./leases": { "default": "./lib/leases.js" },
+    "./server": { "default": "./lib/server.js" },
+    "./stub-gate": { "default": "./lib/stub-gate.js" },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "mesh-broker": "./bin/mesh-broker.mjs",
+    "mesh-stub-gate": "./bin/mesh-stub-gate.mjs"
+  },
+  "scripts": {
+    "verify": "node --check lib/capacity.js && node --check lib/scoring.js && node --check lib/config.js && node --check lib/leases.js && node --check lib/broker.js && node --check lib/server.js && node --check lib/stub-gate.js && node --check bin/mesh-broker.mjs && node --check bin/mesh-stub-gate.mjs",
+    "test": "node --test test/scoring.test.mjs test/config.test.mjs test/leases.test.mjs test/acceptance.test.mjs",
+    "start": "node bin/mesh-broker.mjs",
+    "stress": "node --test --test-name-pattern '30 concurrent' test/acceptance.test.mjs"
+  }
+}

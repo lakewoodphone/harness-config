@@ -1,0 +1,18 @@
+{
+  "name": "dsh-plugin-attention",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The company's own findings in the composer: /attention lists kernel, phone-path and config-sync state with the age of every reading.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" }
+  },
+  "scripts": {
+    "verify": "node --check lib/index.js"
+  }
+}
