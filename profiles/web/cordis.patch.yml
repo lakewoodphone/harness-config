@@ -197,6 +197,25 @@
       # child and lets a real workstream finish inside one turn. Per-host override
       # unchanged: MESH_CHILD_TIMEOUT_MS.
       timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 1800000",
+      # prefer-remote IS ON FOR THE OWNER'S LAPTOP AND NOWHERE ELSE, and the justification is a
+      # measurement rather than a preference (journal W210, W214; docs/mesh/113, docs/mesh/114).
+      #
+      # WHAT IT BUYS, MEASURED: three children placed on the laptop cost **+1.05 GiB of commit and
+      # +25.2 processes** (reproduced twice); the same three placed on the desktop cost the laptop
+      # **+0.046 GiB and +2.2 processes**, i.e. indistinguishable from idle. So the policy returns about
+      # a gigabyte and twenty-five processes to the machine the owner is sitting at, whenever the
+      # broker's own eligible set holds another node.
+      #
+      # WHAT IT IS NOT JUSTIFIED BY: speed. A responsiveness probe over the same conditions returned a
+      # NULL result -- the A->A2 baseline drift (-3.9 ms) exceeded every effect measured -- so nothing
+      # here claims DSH will *feel* faster. Enabling it as "this makes DSH fast" would be claiming a
+      # measurement nobody has.
+      #
+      # WHY BY HOSTNAME AND NOT EVERYWHERE: the three office nodes have nobody sitting at them, and the
+      # policy there would trade a local start-now for a remote queue for no benefit. `COMPUTERNAME` is
+      # Windows-only, so this is false on Linux and macOS by construction rather than by a list that
+      # could rot. MESH_PREFER_REMOTE=1/0 overrides it anywhere.
+      preferRemote: !!js "(process.env.MESH_PREFER_REMOTE ?? '') !== '' ? process.env.MESH_PREFER_REMOTE === '1' : process.env.COMPUTERNAME === 'ZABZ-YOGA'",
       maxOutputBytes: 200000,
     },
   },
