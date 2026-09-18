@@ -1,0 +1,129 @@
+# ==========================================================================
+# wake -- the exact cron lines, as commands plus a one-line justification each.
+#
+# NOT INSTALLED BY ANYTHING. deploy.sh prints this file and stops. A silent cron
+# change on the authority is how you lose a machine, so an operator adds these
+# by hand, after backing the crontab up:
+#
+#     crontab -l > ~/crontab-backup-$(date -u +%Y%m%dT%H%M%SZ).txt
+#     crontab -e
+#     crontab -l | cat -A | tail -3    # prove the endings: '$' at EOL, never '^M$'
+#
+# PATH NOTE. cron's PATH is not your login PATH. Every interpreter is called by
+# absolute path for that reason -- measured on secratary 2026-09-18, the live
+# crontab already does this on 40 of its 44 job lines.
+#
+# BEFORE ADDING ANYTHING HERE, READ THIS. The v0 dispatcher is ALREADY on cron on
+# secratary and shares one fixed prompt/out filename between releases:
+#
+#     */5 * * * * /bin/bash /home/zabz/bin/wake-dispatch.sh >> /home/zabz/.sms-inbox/wake-cron.log 2>&1
+#
+# Two dispatchers at once was measured live on 2026-09-18 03:10Z (pids
+# 2661989/2661990, both writing C:/Users/ezabz/bin/wake-prompt.txt). Remove that
+# line BEFORE adding the one below, or you have built the race on purpose.
+# ==========================================================================
+
+
+# --------------------------------------------------------------------------
+# 1. THE RELEASE PATH -- the only line that starts a session.
+# --------------------------------------------------------------------------
+# Cadence */5: the capture and route layer already runs every 5 minutes (measured,
+# crontab line 51), so a flag cannot exist sooner than that; the dispatcher
+# therefore only needs to look as often as flags can appear. Slower adds latency to
+# a live customer reply; faster finds nothing, burns a claim round-trip and makes
+# the overlap below more likely.
+#
+# Why the flock matters: a release is wrapped in `timeout 900` (15 min), which is
+# LONGER than the 5-minute cadence, so overlap is guaranteed on any slow session
+# unless the script is single-instanced. `flock -n` exits immediately rather than
+# stacking a second dispatcher. This is a requirement on W2's dispatch.sh as much
+# as on this line; the line is the belt to the script's braces.
+#
+*/5 * * * * /usr/bin/flock -n /tmp/wake-dispatch.lock /bin/bash /home/zabz/bin/wake-dispatch.sh >> /home/zabz/.sms-inbox/wake-dispatch.log 2>&1
+
+
+# --------------------------------------------------------------------------
+# 2. LIVENESS -- how a human tells "quiet" from "broken". Files NOTHING.
+# --------------------------------------------------------------------------
+# *** /home/zabz/bin/wake-liveness.sh DOES NOT EXIST YET. *** It is not in any of
+# this fleet's four streams (W1 owns wake.py, W2 owns dispatch.sh + runner.ps1, W3
+# owns sources/*.py, W4 -- the audit stream -- owns README.md, deploy.sh and this
+# file only). deploy.sh reports it as MISSING rather than pretending. Add this
+# line only once the script exists; its contract is written out here so whoever
+# writes it can satisfy it:
+#
+#     inputs : the tail of ~/.sms-inbox/wake-dispatch.log
+#     succeeds quietly (prints nothing, exit 0) when the last `tick` line is
+#       younger than 15 minutes
+#     otherwise appends ONE line to ~/secretary-attention-digest/latest.txt of the
+#       form:  HIGH wake_dispatcher  last dispatch tick <age> old -- cron line
+#       removed? host down?  and prints the same to its own log
+#     it MUST NOT call `wake.py flag`. It is the watcher, and a watcher that files
+#       work is the session factory it exists to detect.
+#
+# Cadence */15: three dispatcher ticks (5 min each) of grace before we call it
+# dead, so a single slow run or a transient ssh hiccup cannot raise a false alarm.
+# This is the line that answers the question the whole audit turns on: a wake
+# system that released nothing looks identical to one that had nothing to release.
+#
+# It reads a log the dispatcher writes on EVERY run, including the quiet path
+# (`tick <ts> claim=none new=<n> claimed=<n>`), because "no new log line in 15
+# minutes" is the only unambiguous tell that the cron line vanished, the box went
+# down, or the script is exiting before its first write. That per-run tick line is
+# a REQUIREMENT on W2's dispatch.sh, not a nicety.
+#
+*/15 * * * * /bin/bash /home/zabz/bin/wake-liveness.sh >> /home/zabz/.sms-inbox/wake-liveness.log 2>&1
+
+
+# --------------------------------------------------------------------------
+# 3. FLAG SOURCES (W3 owns these files; substitute the real filenames).
+# --------------------------------------------------------------------------
+# Each source is a standalone script that calls the frozen `flag` CLI, is
+# idempotent, does nothing when its signal is healthy, and prints
+# `flagged <subject>` or `quiet` (CONTRACT.md 7, W3). A source that fires on the
+# normal case IS the session factory the owner asked us to prevent.
+#
+# The ONLY source already wired needs no cron line and must not get one: the
+# responder files its own wake when it consumes an `awaited` row
+# (`sms-responder.py`, inside the existing */5 capture/route line 51). A reply
+# that arrives is work; a timer looking for replies is 288 chances a day to
+# invent it.
+#
+# Cadence for a source, and why: run it at the same */5 as the capture layer only
+# if its signal is genuinely time-critical (a customer reply, a door); otherwise
+# */30, because every tick is a chance to file and every filing is a session.
+# Measured fire rates on this box that set the bar: the failover watcher would
+# have fired 131 times on 2026-09-16 alone; owner_decision_queue grows by ~20
+# rows/day. If a source would have fired more than WAKE_MAX_PER_DAY (8) times last
+# week, it is a monitor, not a flag source -- do not give it a cron line.
+#
+# Template -- replace <source> with the real file, and confirm the fire rate over
+# a full week of real logs in --dry-run BEFORE the first tick:
+#
+# */30 * * * * /usr/bin/python3 /home/zabz/bin/wake-sources/<source>.py >> /home/zabz/.sms-inbox/wake-source-<source>.log 2>&1
+#
+# The one source worth */5 when it lands -- carrier-delivered messages that are
+# absent from our store (the L1572/P165 family-chat class; measured 19 PROBLEM
+# lines in family-chat-watchdog.log) -- because the whole point is to notice a
+# silent break in minutes, not half-hours. The name below is a PLACEHOLDER: W3
+# owns the real filename, so substitute it before adding the line.
+#
+# */5 * * * * /usr/bin/python3 /home/zabz/bin/wake-sources/<await-reply-gap>.py >> /home/zabz/.sms-inbox/wake-source-await.log 2>&1
+
+
+# --------------------------------------------------------------------------
+# 4. WHAT MUST NOT GET A LINE HERE
+# --------------------------------------------------------------------------
+# - wake.py reap on its own cron: CONTRACT.md 7 requires dispatch.sh to call reap
+#   at the START of every run, so a separate line would be a second reaper racing
+#   the first for no benefit.
+# - wake.py claim, finish or heartbeat: those are the dispatcher's job, and a
+#   hand-written claim creates a claim nobody will ever finish (measured live:
+#   wake row #2 has been `claimed` since 2026-09-18T03:08:28 with no lease column
+#   to expire it -- the v0's own bug, and the exact shape to avoid).
+# - owner_decision_queue, error_log, the attention digest, ha-security-absence,
+#   model-failover-watch, lpt-recon-check, stripe-key-watch, box-health: each is
+#   either a human surface, a chronic re-report, or already has its own alerting
+#   path. Measured reasons per source are in README.md section 4.
+# - anything that files work because time passed. CONTRACT.md 2: a dispatcher
+#   releases; it never invents.
