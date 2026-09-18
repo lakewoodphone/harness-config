@@ -1207,6 +1207,7 @@ lessons	L2062	2062		2026-09-18	ZABZ-YOGA	open	**L2062 · L2057 · How to pull up
 lessons	L2063	2063		2026-09-18	ZABZ-YOGA	open	**L2063 · A flow sequence inside !!js breaks the YAML overlay parser, and --dump-config is the check that catches it**	entries/lessons/L2063.md	1	61	a6487a96e6d5cdd5
 lessons	L2064	2064		2026-09-18	ZABZ-YOGA	open	**L2064 · Correcting my own collision numbers, and two tools that answer 'fine' while structurally blind to the fault**	entries/lessons/L2064.md	1	64	ea5b844d4c2a7a2c
 lessons	L2065	2065		2026-09-18	ZABZ-YOGA	open	**L2065 · Hot-holding rule: 140F is the line, not the oven dial**	entries/lessons/L2065.md	1	16	5a7f3dd860753c7a
+lessons	L2066	2066		2026-09-18	ZABZ-YOGA	open	**L2066 · A worker's checkout is not the base: two correct patches failed because they were cut against a stale tree**	entries/lessons/L2066.md	1	50	d17ad1d435e0184a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
