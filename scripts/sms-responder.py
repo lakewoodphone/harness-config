@@ -652,6 +652,12 @@ def cmd_report(args) -> int:
         t = "".join(ch for ch in (r["from_number"] or "") if ch.isdigit())[-10:]
         if not t:
             continue
+        # Our own plumbing is not a person waiting. `probe` excludes it for the same
+        # reason - counting test traffic as correspondence is how a health number
+        # stops meaning anything.
+        if getattr(inbox, "is_test_traffic", None) and \
+                inbox.is_test_traffic(r["from_number"], r["body"]):
+            continue
         mine = _when(r["date_sent"])
         theirs = lastout.get(t)
         if theirs is not None and mine is not None and theirs >= mine:
