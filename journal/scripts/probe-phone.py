@@ -33,6 +33,14 @@ from pathlib import Path
 STATE = Path.home() / ".dsh-phone"
 STATUS_FILE = STATE / "probe.json"
 
+# A reply is not bounded by the transcript we happen to expect. This ceiling exists
+# only to bound memory against a runaway stream; it is deliberately far above any
+# real payload. It was 70000 for every call, and on 2026-09-20 the app's first RPC
+# (session/list, 73 sessions) returned 151181 bytes of perfectly valid JSON -- the
+# cap sliced it mid-string, and the probe reported a healthy endpoint as
+# "200 but unparseable", which the kernel escalated to a HIGH phone outage.
+MAX_BODY = 8 * 1024 * 1024
+
 
 def _parse_args():
     import argparse
@@ -117,11 +125,14 @@ def request(host_port, method, path, headers=None, body=None, family=socket.AF_I
         conn = http.client.HTTPConnection(*host_port, timeout=20)
         conn.request(method, path, body=body, headers=headers or {})
         resp = conn.getresponse()
-        payload = resp.read(70000)
+        payload = resp.read(MAX_BODY)
         return {
             "status": resp.status,
             "headers": {k.lower(): v for k, v in resp.getheaders()},
             "body": payload,
+            # Honest: if the ceiling is ever reached, the probe says the reply was
+            # cut rather than letting a JSON parse error impersonate an outage.
+            "truncated": len(payload) >= MAX_BODY,
         }
     except Exception as e:  # noqa: BLE001
         return {"status": 0, "headers": {}, "body": b"",
@@ -398,6 +409,9 @@ def check_authenticated_rpc(cookie):
     ok, detail = False, ""
     if r["status"] != 200:
         detail = f"{r['status']}: {raw[:160]}"
+    elif r.get("truncated"):
+        detail = (f"200 but the reply hit the probe's {MAX_BODY}-byte read ceiling; "
+                  f"the probe cannot judge it ({len(r['body'])} bytes read)")
     else:
         try:
             reply = json.loads(raw)
