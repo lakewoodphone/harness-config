@@ -223,3 +223,59 @@ def test_dossier_includes_the_person_and_the_thread():
     assert "Yisroel Weinberg" in d
     assert "hi8" in d
     assert "THE JOB" in d
+
+# ------------------------------------------------- batching (measured 2026-09-20)
+def test_decode_json_returns_every_object_in_the_reply():
+    """The gateway returns concatenated bare objects for batched native tool calls."""
+    raw = '{"phone": "+18482102477"}\n{"query": "door code"}'
+    objs = tw._decode_json(raw)
+    assert len(objs) == 2, objs
+
+
+def test_tool_requests_infers_tools_from_bare_argument_objects():
+    reqs = tw._tool_requests([{"phone": "+18482102477"}, {"query": "door code"}])
+    assert reqs == [("contacts", {"phone": "+18482102477"}),
+                    ("memory_search", {"query": "door code"})], reqs
+
+
+def test_tool_requests_accepts_a_single_short_form():
+    reqs = tw._tool_requests([{"tool": "web_search", "args": {"query": "hi8"},
+                              "why": "check"}])
+    assert reqs == [("web_search", {"query": "hi8"})]
+
+
+def test_tool_requests_accepts_a_batch_envelope():
+    reqs = tw._tool_requests([{"tools": [{"tool": "owner_state", "args": {}},
+                                        {"tool": "queue_lookup", "args": {}}]}])
+    assert [r[0] for r in reqs] == ["owner_state", "queue_lookup"]
+
+
+def test_tool_requests_ignores_objects_it_cannot_identify():
+    assert tw._tool_requests([{"nonsense": 1}]) == []
+
+
+def test_a_batched_reply_runs_every_tool_then_answers(monkeypatch):
+    seen = []
+
+    def spy(tool, args):
+        seen.append(tool)
+        return True, f"{tool}-result"
+
+    monkeypatch.setattr(tw, "_invoke", spy)
+    llm = llm_sequence(
+        '{"phone": "+18482102477"}\n{"query": "door code"}',
+        json.dumps({"answer": "The outside door code is the one you have.",
+                    "evidence": "contact + memory"}))
+    r = tw.do("which door code", "check", ctx(), llm=llm)
+    assert seen == ["contacts", "memory_search"], seen
+    assert r.ok is True
+    assert "contacts" in r.evidence and "memory_search" in r.evidence
+
+
+def test_an_answer_wins_over_tools_in_the_same_reply(monkeypatch):
+    monkeypatch.setattr(tw, "_invoke", lambda t, a: (True, "x"))
+    llm = llm_sequence('{"tools": [{"tool": "web_search", "args": {"query": "q"}}],'
+                       ' "answer": "It shipped Tuesday."}')
+    r = tw.do("did it ship", "check", ctx(), llm=llm)
+    assert r.ok is True
+    assert "Tuesday" in r.answer

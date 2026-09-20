@@ -69,12 +69,18 @@ You have these tools, and you may call them by returning JSON:
 
 Return ONE JSON object:
 
-  To use a tool:   {"tool": "<name>", "args": {...}, "why": "one line"}
+  To use tools - ask for SEVERAL at once when you already know everything you need
+  to look up; batching is encouraged, and so is one at a time when you must see a
+  result first:
+      {"tools": [{"tool": "contacts", "args": {"phone": "+1..."}},
+                 {"tool": "memory_search", "args": {"query": "door code"}}]}
   To answer:       {"answer": "the text to send them", "evidence": "what you actually checked"}
   To give up:      {"blocked": "what stopped you"}
 
+A single tool in the short form {"tool": "<name>", "args": {...}} is also accepted.
+
 Rules:
-  * Only `queue_lookup`-verified facts may appear in an answer. Never invent a price,
+  * Only facts you actually retrieved may appear in an answer. Never invent a price,
     a schedule, an order number or anything about Eliyahu's plans. If you could not
     find it, return {"blocked": "..."} - that is a good outcome, not a failure.
   * The answer is a text message: one to three short sentences, plain English, no
@@ -328,18 +334,29 @@ def playbook_titles() -> list:
     ]
 
 
-def _decode_json(raw: str | None) -> dict | None:
+def _decode_json(raw: str | None):
+    """Every JSON object in the reply, as a list. Empty list when there is none.
+
+    A LIST, not one object, because the gateway can hand back several: measured
+    2026-09-20, `secretary-auto` splits batched lookups into multiple native tool
+    calls whose arguments arrive concatenated - `{"phone": "+1..."}\\n{"query":
+    "door code"}` - so a parser that insists on exactly one object throws away a
+    perfectly good plan.
+    """
     if not raw:
-        return None
+        return []
     s = raw.strip()
     s = re.sub(r"^```(?:json)?\s*", "", s)
     s = re.sub(r"\s*```$", "", s)
     try:
         got = json.loads(s)
-        return got if isinstance(got, dict) else None
+        if isinstance(got, dict):
+            return [got]
+        if isinstance(got, list):
+            return [o for o in got if isinstance(o, dict)]
     except Exception:
         pass
-    depth, start = 0, None
+    out, depth, start = [], 0, None
     for i, ch in enumerate(s):
         if ch == "{":
             if depth == 0:
@@ -349,12 +366,50 @@ def _decode_json(raw: str | None) -> dict | None:
             depth -= 1
             if depth == 0 and start is not None:
                 try:
-                    got = json.loads(s[start:i + 1])
-                    if isinstance(got, dict):
-                        return got
+                    obj = json.loads(s[start:i + 1])
+                    if isinstance(obj, dict):
+                        out.append(obj)
                 except Exception:
-                    start = None
-    return None
+                    pass
+                start = None
+    return out
+
+
+def _tool_requests(objects: list) -> list:
+    """Pull (tool, args) pairs out of whatever shape the model returned.
+
+    Accepts `{"tool": ...}`, `{"tools": [...]}`, and bare argument objects - the last
+    because the gateway's native tool-call path delivers only the arguments, with the
+    tool's NAME in `function.name` where `_decode_json` cannot see it. In that case the
+    arguments alone still identify a usable call: a lone `query` is a search, a lone
+    `sql` is a query, a lone `phone` is a contact lookup.
+    """
+    reqs = []
+    for obj in objects or []:
+        if not isinstance(obj, dict):
+            continue
+        if obj.get("tool"):
+            reqs.append((str(obj["tool"]).strip(), obj.get("args") or
+                         {k: v for k, v in obj.items() if k not in ("tool", "args", "why")}))
+            continue
+        if isinstance(obj.get("tools"), list):
+            for t in obj["tools"]:
+                if isinstance(t, dict) and t.get("tool"):
+                    reqs.append((str(t["tool"]).strip(),
+                                 t.get("args") or {k: v for k, v in t.items()
+                                                   if k not in ("tool", "args", "why")}))
+            continue
+        # A bare argument object. Infer the tool from the single key, if we can.
+        keys = set(obj)
+        if keys == {"query"}:
+            reqs.append(("memory_search", {"query": str(obj["query"])}))
+        elif keys == {"sql"}:
+            reqs.append(("app_db_query", {"sql": str(obj["sql"])}))
+        elif keys == {"phone"}:
+            reqs.append(("contacts", {"phone": str(obj["phone"])}))
+        elif keys == {"name"}:
+            reqs.append(("contacts", {"name": str(obj["name"])}))
+    return reqs
 
 
 # --------------------------------------------------------------------------- #
@@ -410,44 +465,58 @@ def do(claim: str, task: str, ctx: dict | None = None, *,
             except Exception as exc:
                 raw = None
                 notes.append(f"model call raised: {exc}")
-        parsed = _decode_json(raw)
+        parsed_list = _decode_json(raw)
 
-        if not parsed:
-            if step == 1:
-                # One retry: models sometimes wrap JSON in prose. A second failure is
-                # a real failure, not something to paper over with a guess.
-                conversation += ("\n\nYour last reply was not a JSON object. Reply with "
-                                 "ONE JSON object and nothing else.")
+        # Any object in the reply that carries an answer or a block ends the job. A
+        # batch that also mentions tools is still an answer - the answer is the point.
+        terminal = next((o for o in parsed_list if o.get("answer") or o.get("blocked")),
+                        None)
+
+        if parsed_list == [] or terminal is None and not _tool_requests(parsed_list):
+            if step == 1 or (step == 2 and not tools_used):
+                # One retry: models wrap JSON in prose, and a first-round miss is
+                # usually formatting. A second failure is a real failure, and must
+                # not be papered over with a guess.
+                conversation += ("\n\nYour last reply was not a JSON object I could use. "
+                                 "Reply with ONE JSON object: {\"tools\": [...]}, "
+                                 "{\"answer\": ...} or {\"blocked\": ...}.")
                 continue
-            return WorkResult(False, blocked="the model returned no usable JSON",
-                              steps=step, tools_used=tools_used, model=model,
-                              evidence=_evidence(tools_used, notes),
-                              elapsed_s=time.monotonic() - started)
+            return WorkResult(False, blocked=(
+                "the model returned no usable JSON"
+                + (f" ({d.last_error})" if (call is None and d.last_error) else "")),
+                steps=step, tools_used=tools_used, model=model,
+                evidence=_evidence(tools_used, notes),
+                elapsed_s=time.monotonic() - started)
 
-        if parsed.get("answer"):
-            answer = str(parsed["answer"]).strip()
+        if terminal is not None and terminal.get("answer"):
+            answer = str(terminal["answer"]).strip()
             if len(answer) > 480:
                 answer = answer[:470].rsplit(" ", 1)[0] + "..."
             # The model's own account of what it read is a CLAIM. The tools it
             # actually called are the PROOF, and both belong in the record - a
             # result whose evidence cannot be traced was the exact failure the
             # audit called out.
-            claimed = str(parsed.get("evidence") or "").strip()
+            claimed = str(terminal.get("evidence") or "").strip()
             real = _evidence(tools_used, notes)
             evidence = f"{claimed} | {real}" if claimed else real
             return WorkResult(True, answer=answer, evidence=evidence,
                               steps=step, tools_used=tools_used, model=model,
                               elapsed_s=time.monotonic() - started)
 
-        if parsed.get("blocked"):
-            reason = str(parsed["blocked"]).strip()[:400]
+        if terminal is not None and terminal.get("blocked"):
+            reason = str(terminal["blocked"]).strip()[:400]
             return _blocked(reason, tools_used, notes, step, model, started, ctx, claim, task)
 
-        tool = str(parsed.get("tool") or "").strip()
-        if not tool:
+        requests = _tool_requests(parsed_list)
+        if not requests:
             conversation += ("\n\nThat was neither a tool call nor an answer. Reply "
-                             "with {'tool': ...} or {'answer': ...} or {'blocked': ...}.")
+                             "with {\"tools\": [...]} or {\"answer\": ...} or "
+                             "{\"blocked\": ...}.")
             continue
+        if len(tools_used) + len(requests) > MAX_TOOL_CALLS:
+            requests = requests[:max(0, MAX_TOOL_CALLS - len(tools_used))]
+            notes.append("dropped tool calls past the budget")
+
         # Priority matters: a job whose clock ran out reports a TIMEOUT even if it also
         # happened to spend its tool budget. Reporting the wrong limit sends the next
         # person looking in the wrong place (journal H609: a killed hop wearing a
@@ -458,18 +527,15 @@ def do(claim: str, task: str, ctx: dict | None = None, *,
                               evidence=_evidence(tools_used, notes),
                               elapsed_s=time.monotonic() - started)
 
-        if len(tools_used) >= MAX_TOOL_CALLS:
-            return WorkResult(False, blocked=f"tool budget exhausted ({MAX_TOOL_CALLS})",
-                              steps=step, tools_used=tools_used, model=model,
-                              evidence=_evidence(tools_used, notes),
-                              elapsed_s=time.monotonic() - started)
-
-        ok, out = _invoke(tool, parsed.get("args") or {})
-        tools_used.append(tool)
-        notes.append(f"{tool}: {'ok' if ok else 'FAILED'}")
-        conversation += (f"\n\n--- result of {tool} ---\n{out[:4000]}\n"
-                         f"--- end {tool} ---\n"
-                         f"Now either call another tool, or give the answer, or say blocked.")
+        bundle = []
+        for tool, targs in requests:
+            ok, out = _invoke(tool, targs)
+            tools_used.append(tool)
+            notes.append(f"{tool}: {'ok' if ok else 'FAILED'}")
+            bundle.append(f"--- result of {tool} ---\n{out[:3000]}\n--- end {tool} ---")
+        conversation += ("\n\n" + "\n".join(bundle)
+                         + "\nNow either call more tools, or give the answer, "
+                           "or say blocked.")
 
     return WorkResult(False, blocked=f"no answer after {MAX_STEPS} steps",
                       steps=MAX_STEPS, tools_used=tools_used, model=model,

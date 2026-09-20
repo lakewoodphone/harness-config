@@ -352,6 +352,7 @@ class Decider:
         self._catalog: list[str] | None = None
         self._model: str | None = None
         self.last_error: str | None = None
+        self.last_finish_reason: str | None = None
 
     def catalog(self) -> list[str]:
         if self._catalog is not None:
@@ -400,10 +401,49 @@ class Decider:
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read().decode())
-            return (data["choices"][0]["message"]["content"] or "").strip()
+            choice = (data.get("choices") or [{}])[0]
+            self.last_finish_reason = choice.get("finish_reason")
+            text = _message_text(choice.get("message") or {})
+            if not text:
+                # Never let an empty body look like an answer. Name what happened.
+                self.last_error = (
+                    f"model returned empty content (finish_reason="
+                    f"{self.last_finish_reason!r}, usage={data.get('usage')})")
+            return text or None
         except Exception as exc:
             self.last_error = f"model call failed: {exc}"
             return None
+
+
+def _message_text(msg: dict) -> str:
+    """The model's answer, wherever the gateway put it.
+
+    Measured 2026-09-20 against `secretary-auto`: when a prompt asks for a JSON
+    object, the route can answer with a NATIVE TOOL CALL instead of content -
+    `finish_reason="tool_calls"`, `content=""`, the arguments inside
+    `message.tool_calls`. Reading only `content` therefore saw an empty string,
+    reported "no usable JSON", and made a working model look broken. Same class of
+    error as the silent fallback in journal L1606: the answer arrived, and the reader
+    was not looking where it landed.
+    """
+    if not isinstance(msg, dict):
+        return ""
+    parts = []
+    content = msg.get("content")
+    if isinstance(content, str) and content.strip():
+        parts.append(content.strip())
+    for key in ("reasoning_content", "reasoning"):
+        val = msg.get(key)
+        if isinstance(val, str) and val.strip():
+            parts.append(val.strip())
+    for call in (msg.get("tool_calls") or []):
+        fn = (call or {}).get("function") or {}
+        args = fn.get("arguments")
+        if isinstance(args, str) and args.strip():
+            parts.append(args.strip())
+        elif isinstance(args, dict):
+            parts.append(json.dumps(args))
+    return "\n".join(parts).strip()
 
 
 def _render_user_prompt(text: str, ctx: dict) -> str:
