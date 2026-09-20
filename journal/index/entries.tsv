@@ -408,6 +408,21 @@ handoff	H556	556		2026-09-18 04:25 UTC	ZABZ-YOGA	open	## 2026-09-18 04:25 UTC ·
 handoff	H557	557		2026-09-18 04:34 UTC	ZABZ-YOGA	open	## 2026-09-18 04:34 UTC · ZABZ-YOGA · DSH watchdog re-enabled: union liveness, window recovery with five guards, and the open-selector collision	entries/handoff/H557.md	1	86	a06c8039605ccdfb
 handoff	H558	558		2026-09-18 14:58 UTC	ZABZ-YOGA	open	## 2026-09-18 14:58 UTC · ZABZ-YOGA · Took over the blocked mesh goal; two silent-failure bugs found and fixed	entries/handoff/H558.md	1	63	1f236784c14d9be1
 handoff	H559	559		2026-09-18 18:25 UTC	SECRATARY	open	## 2026-09-18 18:25 UTC · SECRATARY · The car finally has a record: purchase odometer recovered, overdue IVT fluid found, tracker designed	entries/handoff/H559.md	1	67	817e82e30d506cac
+handoff	H599	599		2026-09-18 18:52 UTC	SECRATARY	open	## 2026-09-18 18:52 UTC · SECRATARY · Owner health record created; recurrent groin rash documented and both products verified from their labels	entries/handoff/H599.md	1	26	6a5d2383856a4b11
+handoff	H600	600		2026-09-18 18:55 UTC	SECRATARY	open	## 2026-09-18 18:55 UTC · SECRATARY · The car has a monitoring system - store, ingest endpoint and phone dashboard committed, pushed and live	entries/handoff/H600.md	1	89	b9dd5f9823631ca5
+handoff	H601	601		2026-09-18 19:12 UTC	SECRATARY	open	## 2026-09-18 19:12 UTC · SECRATARY · Owner health record delivered and pushed; found the repo divergence and the laptop's dead GitHub token	entries/handoff/H601.md	1	27	5d8dc38a3ddeb4e2
+handoff	H602	602		2026-09-18 19:14 UTC	SECRATARY	open	## 2026-09-18 19:14 UTC · SECRATARY · ZABZ-YOGA git auth repaired and the owner health doc is now reachable from both machines	entries/handoff/H602.md	1	25	c0b8bee926d224e5
+handoff	H603	603		2026-09-18 20:29 UTC	SECRATARY	open	## 2026-09-18 20:29 UTC · SECRATARY · live-voice-dialer built and verified; waiting on the consent document and an identity answer	entries/handoff/H603.md	1	55	32f548f26fbf6738
+handoff	H604	604		2026-09-18 20:32 UTC	SECRATARY	open	## 2026-09-18 20:32 UTC · SECRATARY · live-voice-dialer voice-engine.js delivered	entries/handoff/H604.md	1	14	c95ae29508c680a5
+handoff	H605	605		2026-09-18 20:34 UTC	SECRATARY	open	## 2026-09-18 20:34 UTC · SECRATARY · Voice engine complete and wired into the UI; all three suites green; caller still gated on missing consent	entries/handoff/H605.md	1	53	aeadacff665f21bf
+handoff	H606	606		2026-09-18 20:37 UTC	SECRATARY	open	## 2026-09-18 20:37 UTC · SECRATARY · Single-run gag built and gated; only needs the phone number	entries/handoff/H606.md	1	54	22bdbee3d4ef4e23
+handoff	H607	607		2026-09-18 20:39 UTC	SECRATARY	open	## 2026-09-18 20:39 UTC · SECRATARY · Gag message bank: 73 lines, 5 interleaved categories, 18 voices, zero repetition	entries/handoff/H607.md	1	43	8242b6bac0073b51
+handoff	H608	608		2026-09-18 20:43 UTC	SECRATARY	open	## 2026-09-18 20:43 UTC · SECRATARY · Test mode added; two live-call Twilio bugs found and fixed (Url param, &apos; rejection)	entries/handoff/H608.md	1	47	686fcaa813f381ac
+handoff	H609	609		2026-09-18 20:47 UTC	SECRATARY	open	## 2026-09-18 20:47 UTC · SECRATARY · Program committed and pushed to lakewoodphone/live-voice-dialer; real run live to the brother-in-law	entries/handoff/H609.md	1	44	ae6d823a9711b47d
+handoff	H610	610		2026-09-18 20:50 UTC	SECRATARY	open	## 2026-09-18 20:50 UTC · SECRATARY · Gag re-paced to every 15 minutes over 90 minutes; live run to the brother-in-law restarted	entries/handoff/H610.md	1	30	98709e010d9571d3
+handoff	H611	611		2026-09-18 21:57 UTC	SECRATARY	open	## 2026-09-18 21:57 UTC · SECRATARY · Correction: the stopped run reached 4 calls, not 2; headroom and stale tests fixed	entries/handoff/H611.md	1	32	f4cee2ba461fac7d
+handoff	H612	612		2026-09-18 22:06 UTC	SECRATARY	open	## 2026-09-18 22:06 UTC · SECRATARY · Gag run complete: 6 calls, 5 delivered, final call did not connect	entries/handoff/H612.md	1	34	1b3129173dccd40d
+handoff	H2106	2106		2026-09-20 17:50 UTC	SECRATARY	open	## 2026-09-20 17:50 UTC · SECRATARY · Owner health episode 2 (Shabbos febrile illness) recorded; the Yom Kippur fast at 6:39pm tonight is the real risk	entries/handoff/H2106.md	1	33	d5cde61170d77c6c
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1191,6 +1206,20 @@ lessons	L2000	2000		2026-09-18	ZABZ-YOGA	open	**L2000 · 'The probe could not se
 lessons	L2001	2001		2026-09-18	ZABZ-YOGA	open	**L2001 · Four probes, four false conclusions, one cause: a check that cannot look is being read as a check that found nothing**	entries/lessons/L2001.md	1	55	3324192815886e3e
 lessons	L2002	2002		2026-09-18	SECRATARY	open	**L2002 · A thing the owner cares about, with no ledger and no milestone task, will be forgotten — the car proves it**	entries/lessons/L2002.md	1	34	4803b58a6b571c25
 lessons	L2003	2003		2026-09-18	SECRATARY	open	**L2003 · kia_uvo advertises DTC-count and next-service-distance sensors that are never populated on a US Hyundai**	entries/lessons/L2003.md	1	34	bd8fcc76c4540021
+lessons	L2055	2055		2026-09-18	SECRATARY	open	**L2055 · On CAN, 'I am only reading' is false by default — a filtered node still ACKs, so silence is a firmware choice**	entries/lessons/L2055.md	1	46	6df2ee7cb6933f50
+lessons	L2056	2056		2026-09-18	SECRATARY	open	**L2056 · Owner health facts live in docs/personal/health/, not in the memories table**	entries/lessons/L2056.md	1	10	b5a9f456fee70c58
+lessons	L2057	2057		2026-09-18	SECRATARY	open	**L2057 · vehicle dashboard: the findings payload shape on disk is not the one in the brief**	entries/lessons/L2057.md	1	6	13f52d32246b4663
+lessons	L2058	2058		2026-09-18	SECRATARY	open	**L2058 · A URL-specific credential.https://github.com.helper pointing at gh's git-credential silently breaks git when gh's token rots**	entries/lessons/L2058.md	1	25	2104fda28530f197
+lessons	L2059	2059		2026-09-18	SECRATARY	open	**L2059 · A passing test suite is not a build - 196 green host assertions, and it had never compiled for the chip**	entries/lessons/L2059.md	1	44	4a269fcb90ebbb1d
+lessons	L2061	2061		2026-09-18	SECRATARY	open	**L2061 · Twilio browser SDK: use the npm package dist bundle; the CDNs 403 from this host**	entries/lessons/L2061.md	1	32	3a6b3580e9f53447
+lessons	L2062	2062		2026-09-18	SECRATARY	open	**L2062 · Stale first impression: read every row of a generated plan, not its headline**	entries/lessons/L2062.md	1	29	76d93af6e7eae061
+lessons	L2063	2063		2026-09-18	SECRATARY	open	**L2063 · pkill -f matches its own shell; use a pidfile or a DSH background job**	entries/lessons/L2063.md	1	19	74e16980d8a382de
+lessons	L2064	2064		2026-09-18	SECRATARY	open	**L2064 · Granular voice-changer DSP: measured traps (voice-engine.js)**	entries/lessons/L2064.md	1	16	99f0e6b885e6b72c
+lessons	L2065	2065		2026-09-18	SECRATARY	open	**L2065 · When a fleet agent regresses: steer with failing test ids, forbid weakening, offer an honest exit**	entries/lessons/L2065.md	1	30	f65ed08b7dcc7f19
+lessons	L2066	2066		2026-09-18	SECRATARY	open	**L2066 · Bounded act vs reusable capability: match the governance to which one you are building**	entries/lessons/L2066.md	1	41	8433f263a8eca7a9
+lessons	L2067	2067		2026-09-18	SECRATARY	open	**L2067 · Twilio <Say> rejects &apos; (error 13520) - escape apostrophes as &#39;**	entries/lessons/L2067.md	1	37	6d852b63c71af0c5
+lessons	L2184	2184		2026-09-20	SECRATARY	open	**L2184 · On an owner health report, the missing measurement is the finding - write the UNKNOWN into the file**	entries/lessons/L2184.md	1	10	74be0ab444a03051
+lessons	L2185	2185		2026-09-20	SECRATARY	open	**L2185 · Store an owner's dictated health episode verbatim; never resolve a truncated sentence by inference**	entries/lessons/L2185.md	1	10	2d4747901397d90b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1413,6 +1442,9 @@ pain	P268	268		2026-09-17	ZABZ-YOGA	open	## P268 — The fleet has been unable t
 pain	P269	269		2026-09-18	ZABZ-YOGA	open	## P269 — The mesh provider never tells the parent it has a child, so the Subagents UI can never show one - structural, not a config flag	entries/pain/P269.md	1	48	ad9b01d0402daddf
 pain	P270	270		2026-09-18	ZABZ-YOGA	open	## P270 — A browser page that survives an engine restart keeps a stale background-job list	entries/pain/P270.md	1	43	53e1329042c6e929
 pain	P326	326		2026-09-18	SECRATARY	open	## P326 — The ask-a-question tool does not render on the owner's phone — plain text instead, until it is verified on his handset	entries/pain/P326.md	1	35	40b80e01d9c54aa5
+pain	P327	327		2026-09-18	SECRATARY	open	## P327 — memories.category='health' is a write-only dumping ground: 44 rows, 0 health facts	entries/pain/P327.md	1	10	866f7789c152c7b1
+pain	P328	328		2026-09-18	SECRATARY	open	## P328 — secratary's personal-secretary-mvp master has diverged from origin/master since 2026-09-07 - 122 local vs 176 remote commits, work stranded on both sides	entries/pain/P328.md	1	24	20b4508170b064bf
+pain	P329	329		2026-09-18	SECRATARY	done	## P329 — ZABZ-YOGA cannot reach GitHub at all - gh token invalid, credential manager interactive-only	entries/pain/P329.md	1	16	e3a491d7c4c919d5
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1638,6 +1670,9 @@ decisions	D264	264		2026-09-17	ZABZ-YOGA	open	**D264 · 2026-09-17 · P204 RETRA
 decisions	D265	265		2026-09-17	ZABZ-YOGA	open	**D265 · 2026-09-17 · The secretary is the always-on half: a FLAG revives a headless session, and only a registered promise may raise one.**	entries/decisions/D265.md	1	64	18a274153bc9ce30
 decisions	D266	266		2026-09-17	ZABZ-YOGA	open	**D266 · 2026-09-17 · Multi-window model: one shared browser profile + one loopback origin port per window; per-window profiles stay as an escape hatch.**	entries/decisions/D266.md	1	16	9abf92479f428edf
 decisions	D267	267		2026-09-18	ZABZ-YOGA	open	**D267 · 2026-09-18 · Remote child turn cap 300 s -> 1800 s; shared-profile window count no longer uses the profile directory.**	entries/decisions/D267.md	1	36	b6ba0e176545c7c9
+decisions	D323	323		2026-09-18	SECRATARY	open	**D323 · 2026-09-18 · Owner health record established: repo directory as source of truth, DB rows as indexes.**	entries/decisions/D323.md	1	17	157ae8abbd41e5ab
+decisions	D324	324		2026-09-18	SECRATARY	open	**D324 · 2026-09-18 · Owner declined follow-up on the groin condition - record only, do not re-ask.**	entries/decisions/D324.md	1	10	ebd5b24a21e7b8d6
+decisions	D325	325		2026-09-18	SECRATARY	open	**D325 · 2026-09-18 · Built the automated friendly-caller once consent became data, not an assertion.**	entries/decisions/D325.md	1	38	c383dfe57539fb2a
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -1814,3 +1849,4 @@ wins	W204	204		2026-09-17	ZABZ-YOGA	open	**W204 · 2026-09-17 · verify-alloc.py
 wins	W205	205		2026-09-17	ZABZ-YOGA	open	**W205 · 2026-09-17 · Append is local-only: it can no longer move any ref.**	entries/wins/W205.md	1	6	5bec35cdbdff5e52
 wins	W207	207		2026-09-17	ZABZ-YOGA	open	**W207 · 2026-09-17 · One browser tree for every DSH window: 9 processes / ~892 MB per window -> 1 process / ~60-296 MB.**	entries/wins/W207.md	1	17	524dc1fe85adebf2
 wins	W208	208		2026-09-18	ZABZ-YOGA	open	**W208 · 2026-09-18 · Window liveness as a union of signals, and an auto-restore loop with a rate limit and five guards.**	entries/wins/W208.md	1	27	e93f09b0466e31ba
+wins	W268	268		2026-09-18	SECRATARY	open	**W268 · 2026-09-18 · Dry-run renders the whole artefact; test harness tripwires the network.**	entries/wins/W268.md	1	28	9b4ab4d8a376bd70
