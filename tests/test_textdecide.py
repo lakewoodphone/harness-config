@@ -236,3 +236,103 @@ def test_describe_is_one_line():
     d = td.choose("what's up", ctx(), llm=fake(j(action="reply", text="Hi.")))
     line = td.describe(d)
     assert "\n" not in line and "action=" in line
+
+# ------------------------------------------------ catalog patience (measured 2026-09-20)
+def test_a_fresh_cache_is_used_without_touching_the_network(tmp_path, monkeypatch):
+    cache = tmp_path / "catalog.json"
+    cache.write_text(json.dumps({"ids": ["secretary-auto", "secretary-fast"],
+                                 "at": __import__("time").time()}))
+    touched = []
+    monkeypatch.setattr(td.urllib.request, "urlopen",
+                        lambda *a, **k: touched.append(1) or (_ for _ in ()).throw(
+                            AssertionError("network was used despite a fresh cache")))
+    d = td.Decider(cache_path=str(cache), base_url="http://x")
+    assert d.catalog() == ["secretary-auto", "secretary-fast"]
+    assert d.resolve_model() == "secretary-auto"
+    assert "cache" in (d.catalog_source or "")
+    assert touched == []
+
+
+def test_a_stale_cache_beats_no_catalog_when_the_gateway_is_slow(tmp_path, monkeypatch):
+    cache = tmp_path / "catalog.json"
+    cache.write_text(json.dumps({"ids": ["secretary-smart"], "at": 1.0}))  # ancient
+    monkeypatch.setattr(td.urllib.request, "urlopen",
+                        lambda *a, **k: (_ for _ in ()).throw(TimeoutError("timed out")))
+    monkeypatch.setattr(td.time, "sleep", lambda *_: None)
+    d = td.Decider(cache_path=str(cache), base_url="http://x", attempts=2)
+    assert d.catalog() == ["secretary-smart"]
+    assert d.resolve_model() == "secretary-smart"
+    assert "stale cache" in (d.catalog_source or "")
+    assert d.last_error and "timed out" in d.last_error
+
+
+def test_no_cache_and_a_dead_gateway_yields_no_model_and_no_invention(tmp_path, monkeypatch):
+    monkeypatch.setattr(td.urllib.request, "urlopen",
+                        lambda *a, **k: (_ for _ in ()).throw(TimeoutError("timed out")))
+    monkeypatch.setattr(td.time, "sleep", lambda *_: None)
+    d = td.Decider(cache_path=str(tmp_path / "absent.json"), base_url="http://x",
+                   attempts=2)
+    assert d.catalog() == []
+    assert d.resolve_model() is None
+    assert d.catalog_source == "none"
+
+
+def test_a_live_read_writes_the_cache(tmp_path, monkeypatch):
+    cache = tmp_path / "catalog.json"
+
+    class Resp:
+        def read(self):
+            return json.dumps({"data": [{"id": "secretary-auto"}]}).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(td.urllib.request, "urlopen", lambda *a, **k: Resp())
+    d = td.Decider(cache_path=str(cache), base_url="http://x")
+    assert d.catalog() == ["secretary-auto"]
+    assert "live" in (d.catalog_source or "")
+    assert json.loads(cache.read_text())["ids"] == ["secretary-auto"]
+
+
+def test_a_retry_recovers_from_one_slow_read(tmp_path, monkeypatch):
+    cache = tmp_path / "catalog.json"
+    calls = {"n": 0}
+
+    class Resp:
+        def read(self):
+            return json.dumps({"data": [{"id": "secretary-auto"}]}).encode()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def flaky(*a, **k):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise TimeoutError("timed out")
+        return Resp()
+
+    monkeypatch.setattr(td.urllib.request, "urlopen", flaky)
+    monkeypatch.setattr(td.time, "sleep", lambda *_: None)
+    d = td.Decider(cache_path=str(cache), base_url="http://x", attempts=3)
+    assert d.catalog() == ["secretary-auto"]
+    assert calls["n"] == 2
+
+
+def test_the_cache_cannot_smuggle_in_an_unlisted_preference(tmp_path, monkeypatch):
+    """A stale cache names models the gateway listed once; it must not become a
+    back door for a model the operator banned."""
+    cache = tmp_path / "catalog.json"
+    cache.write_text(json.dumps({"ids": ["secretary-genius", "secretary-fast"],
+                                 "at": 1.0}))
+    monkeypatch.setattr(td.urllib.request, "urlopen",
+                        lambda *a, **k: (_ for _ in ()).throw(TimeoutError("x")))
+    monkeypatch.setattr(td.time, "sleep", lambda *_: None)
+    d = td.Decider(cache_path=str(cache), base_url="http://x", attempts=1)
+    assert d.resolve_model() != "secretary-genius"
+    assert d.resolve_model() == "secretary-fast"

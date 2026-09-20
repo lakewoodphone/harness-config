@@ -34,12 +34,18 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+
+def _default_cache_path() -> Path:
+    base = Path(os.environ.get("SMS_INBOX_DB") or (Path.home() / ".sms-inbox" / "inbox.db"))
+    return base.parent / "model-catalog.json"
 
 BASE_DEFAULT = "http://127.0.0.1:8002"
 # Never `secretary-genius`: measured 502 on 2026-09-15 (journal L1606).
@@ -345,28 +351,92 @@ class Decider:
     """
 
     def __init__(self, *, base_url: str | None = None, preferred=PREFERRED,
-                 timeout: int = 30):
+                 timeout: int = 30, cache_path: str | None = None,
+                 cache_ttl: int = 3600, attempts: int = 3):
         self.base_url = (base_url or _base()).rstrip("/")
         self.preferred = tuple(preferred)
         self.timeout = timeout
+        self.cache_path = Path(cache_path) if cache_path else _default_cache_path()
+        self.cache_ttl = int(cache_ttl)
+        self.attempts = max(1, int(attempts))
         self._catalog: list[str] | None = None
         self._model: str | None = None
         self.last_error: str | None = None
         self.last_finish_reason: str | None = None
+        self.catalog_source: str | None = None
 
     def catalog(self) -> list[str]:
+        """The gateway's own list of models, with three layers of patience.
+
+        Measured 2026-09-20 on secratary: `/v1/models` exceeded a 15 s timeout and
+        later a 30 s one while the API server was otherwise healthy (load average
+        ~15). A single slow read made every job report `no model` and do no work at
+        all - correct fail-soft behaviour, and a system that answers nobody.
+
+        So: a fresh disk cache is used outright, a live read is retried, and a stale
+        cache is preferred over no catalog. The cache is only ever a list of model
+        ids and a timestamp - it cannot smuggle an answer into the system, which is
+        what the "never guess" rule protects.
+        """
         if self._catalog is not None:
             return self._catalog
-        try:
-            with urllib.request.urlopen(f"{self.base_url}/v1/models",
-                                        timeout=self.timeout) as r:
-                data = json.loads(r.read().decode())
-            self._catalog = [str(m.get("id")) for m in (data.get("data") or [])
-                             if m.get("id")]
-        except Exception as exc:
-            self.last_error = f"catalog unreadable: {exc}"
-            self._catalog = []
+
+        cached, age = self._read_cache()
+        if cached and age is not None and age < self.cache_ttl:
+            self._catalog = cached
+            self.catalog_source = f"cache ({age}s old)"
+            return self._catalog
+
+        for attempt in range(1, self.attempts + 1):
+            try:
+                with urllib.request.urlopen(f"{self.base_url}/v1/models",
+                                            timeout=self.timeout) as r:
+                    data = json.loads(r.read().decode())
+                ids = [str(m.get("id")) for m in (data.get("data") or []) if m.get("id")]
+                if ids:
+                    self._catalog = ids
+                    self.catalog_source = f"live (attempt {attempt})"
+                    self.last_error = None
+                    self._write_cache(ids)
+                    return self._catalog
+                self.last_error = "catalog returned no models"
+            except Exception as exc:
+                self.last_error = f"catalog unreadable: {exc}"
+            if attempt < self.attempts:
+                time.sleep(min(2 ** attempt, 5))
+
+        if cached:
+            # Stale beats nothing: a run that can name a model can still do its job,
+            # and this cannot invent an answer - only a name that the gateway listed
+            # at some point. `catalog_source` says how stale it is.
+            self._catalog = cached
+            self.catalog_source = f"stale cache ({age}s old)"
+            return self._catalog
+
+        self._catalog = []
+        self.catalog_source = "none"
         return self._catalog
+
+    # -- the cache: a list of ids and a timestamp, nothing else ----------------- #
+    def _read_cache(self):
+        try:
+            raw = json.loads(self.cache_path.read_text())
+            ids = [str(m) for m in (raw.get("ids") or []) if m]
+            ts = float(raw.get("at") or 0)
+            return (ids or None), int(time.time() - ts) if ts else None
+        except Exception:
+            return None, None
+
+    def _write_cache(self, ids: list) -> None:
+        try:
+            self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+            # Atomic: a cron run must never read a half-written cache.
+            tmp = self.cache_path.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"ids": ids, "at": time.time()}))
+            tmp.replace(self.cache_path)
+        except Exception:
+            pass
+
 
     def resolve_model(self) -> str | None:
         """Pick a model that the catalog ACTUALLY lists. Never hardcode a name."""
