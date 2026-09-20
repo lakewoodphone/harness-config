@@ -382,6 +382,26 @@ def cmd_pending(args) -> int:
     return 0
 
 
+def _send_holding(r, ctx, text: str | None, args, label: str = "holding") -> None:
+    """Tell the person something while their thing is being sorted out.
+
+    One path for every branch that leaves a human waiting, so no branch can quietly do
+    nothing: the gate decides whether it goes, and the gate is never bypassed here.
+    """
+    if not text:
+        return
+    allowed, why = safe_can_send(r["from_number"], ctx)
+    if not allowed:
+        print(f"    {label} withheld by the send gate: {why}")
+        return
+    if args.dry_run:
+        print(f"    DRY-RUN - would send {label}: {text!r}")
+        return
+    res = safe_send(r["from_number"], text, dry_run=False)
+    print(f"    {label} {'SENT' if res.get('ok') else 'FAILED'}: "
+          f"{res.get('sid') or res.get('error')}")
+
+
 def _do_work(conn, r, ctx: dict, decision: dict, args, name: str) -> None:
     """action=work: send the holding line, then actually do it and reply."""
     w = decision.get("work") or {}
@@ -588,7 +608,14 @@ def cmd_run(args) -> int:
         # escalate (the default and the safest)
         esc = decision.get("escalation") or {}
         _record(conn, r["sid"], "queued", "decide", decision.get("why") or "escalate")
-        if args.dry_run:
+        # A real person is told something. Escalating to the owner while leaving the
+        # sender in silence is the exact failure this rebuild exists to remove - the
+        # owner's father was told nothing for 11 days after he reported our own mistake
+        # (journal P2123, lesson L2099).
+        holding = decision.get("holding")
+        if holding:
+            _send_holding(r, ctx, holding, args)
+
             print("    DRY-RUN - would raise an owner-queue row")
             continue
         queue_for_owner(conn, perm, r, decision.get("why") or "needs the owner",

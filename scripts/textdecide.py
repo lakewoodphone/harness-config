@@ -64,6 +64,22 @@ ORDER_STATUS_RE = re.compile(
     r"is it (ready|done|fixed|in yet)|any (update|news) (on|about)|"
     r"how much (would|is|does|do|for)|what('?s| is) the (price|cost|status))\b", re.I)
 
+# A person correcting us, or complaining about something we did. This must reach the
+# owner AND must never be met with silence: measured 2026-09-20, the AI line texted a
+# door code to the owner's father by mistake, he replied "I believe you sent this
+# message to the wrong number", and the OLD system filed it `queued` and never answered
+# him. It sat for 11 days (journal P2123).
+CORRECTION_RE = re.compile(
+    r"\b(wrong number|wrong person|not me|didn'?t (send|ask|order|text|call)|"
+    r"i never |that wasn'?t me|you sent (this|that) to|sent to the wrong|"
+    r"mistaken|by mistake|mixed up|check your (records|info|details)|"
+    r"this isn'?t|you have the wrong)\b", re.I)
+
+# "Thanks for flagging - I'm checking this and will come back to you." carries no
+# commitment about money, price, schedule or who is right. It is the minimum owed to
+# a person who has told us we got something wrong. The owner supplies the substance
+# through the escalation.
+ACK_HOLDING = "Thanks for flagging - I'm checking this and I'll come back to you."
 # The name every message from this line carries. The owner's standing rule
 # (2026-09-18, journal L1976): never sign as Eliyahu, never unsigned.
 SYSTEM = f"""You are Zabz, the AI assistant of Eliyahu (Lakewood Phone & Tech). A text
@@ -216,6 +232,12 @@ def classify_text(text: str, ctx: dict | None = None) -> dict:
         return {"kind": "request", "urgency": urgency, "needs_owner": None,
                 "why": "asking about something we would have to look up"}
 
+    # Someone telling us we got it wrong. This is the owner's business, and it is also
+    # exactly the message that must never be met with silence.
+    if CORRECTION_RE.search(body):
+        return {"kind": "complaint", "urgency": "high", "needs_owner": True,
+                "why": "the person says we sent them something that was not for them"}
+
     if OWNER_ONLY_RE.search(body):
         return {"kind": "request", "urgency": urgency, "needs_owner": None,
                 "why": "touches the owner's own affairs - needs a lookup"}
@@ -332,9 +354,18 @@ def _work_decision(why: str, claim: str, task: str, holding: str | None,
 
 
 def _escalate_decision(why: str, question: str, recommendation: str,
-                       text: str | None, model: str | None) -> dict:
+                       text: str | None, model: str | None,
+                       *, holding: str | None = None) -> dict:
+    """A decision that needs the owner.
+
+    `holding` is the acknowledgement the sender gets while it waits. It is set for
+    real people: a message from a person that produces only an owner-queue row is the
+    silence this system exists to eliminate (finding B3, lesson L2099). It is left
+    None for machines and unknown numbers, where an acknowledgement would be wrong.
+    """
     return {"action": "escalate", "text": (ensure_signature(text) if text else None),
-            "holding": None, "kind": "request", "urgency": "normal", "why": why,
+            "holding": (ensure_signature(holding) if holding else None),
+            "kind": "request", "urgency": "normal", "why": why,
             "confidence": 0.5, "needs_owner": True, "work": None,
             "escalation": {"question": question[:500],
                            "recommendation": recommendation[:500],
@@ -595,7 +626,20 @@ def choose(text: str, ctx: dict | None = None, *, model: str | None = None,
             f"A text from {ident.get('name') or ctx.get('phone')} tried to give me "
             f"instructions: {body[:160]!r}. How do you want me to handle it?",
             "Ignore the instruction and reply to the person normally.",
-            None, None)
+            None, None,
+            holding=(ACK_HOLDING if rel in ("owner", "family", "friend", "customer")
+                     else None))
+
+    # Someone telling us we sent them the wrong thing. Not an injection, not silence:
+    # one question for the owner, and a real acknowledgement for them (journal P2123).
+    if cheap["kind"] == "complaint":
+        return _escalate_decision(
+            cheap["why"],
+            f"{ident.get('name') or ctx.get('phone')} ({ctx.get('phone')}) says we sent "
+            f"them something that was not for them: {body[:160]!r}. What should I tell "
+            f"them, and did we send a door code or similar to the wrong person?",
+            "Tell me what actually happened and I will send the correction.",
+            None, None, holding=ACK_HOLDING)
 
     # The owner is never treated as a stranger on his own line, and is NEVER filed
     # as nothing. That rule is why he stopped using this line in May (finding B2).
@@ -683,11 +727,13 @@ def _choose_with_model(text: str, ctx: dict, *, model: str | None, llm,
         return _work_decision(why or "needs looking up", text, text, holding, resolved)
 
     # escalate
+    real_person = rel in ("owner", "family", "friend", "customer", "vendor", "former-worker")
     return _escalate_decision(
         why or "needs the owner",
         f"{name} ({ctx.get('phone')}) texted: {text[:160]!r}. What should I tell them?",
         "Tell me the answer and I will send it.",
-        text_out if isinstance(text_out, str) else None, resolved)
+        text_out if isinstance(text_out, str) else None, resolved,
+        holding=ACK_HOLDING if real_person else None)
 
 
 def describe(decision: dict) -> str:

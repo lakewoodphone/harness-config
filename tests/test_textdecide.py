@@ -336,3 +336,51 @@ def test_the_cache_cannot_smuggle_in_an_unlisted_preference(tmp_path, monkeypatc
     d = td.Decider(cache_path=str(cache), base_url="http://x", attempts=1)
     assert d.resolve_model() != "secretary-genius"
     assert d.resolve_model() == "secretary-fast"
+
+# ------------------------------------------- escalations must not be silent (P2123)
+def test_a_complaint_escalates_and_still_acknowledges_the_person():
+    """The AI line texted a door code to the owner's father by mistake; he said so, and
+    the OLD system filed it and never replied. A real person always gets an answer."""
+    llm = fake(j(action="escalate", text="Checking.", why="needs him"))
+    d = td.choose("I believe you sent this message to the wrong number",
+                  ctx(allow="auto", rel="family", name="Totty (father)"), llm=llm)
+    assert d["action"] == "escalate"
+    assert d["holding"], "escalating a real person with no acknowledgement is silence"
+    assert d["holding"].endswith("- Daniel")
+    assert d["needs_owner"] is True
+
+
+def test_a_complaint_is_recognised_without_any_model_call():
+    for body in ("I believe you sent this message to the wrong number",
+                 "That wasn't me, I never ordered anything",
+                 "you have the wrong person"):
+        got = td.classify_text(body, ctx())
+        assert got["kind"] == "complaint", (body, got)
+
+
+def test_a_complaint_from_a_machine_gets_no_acknowledgement():
+    """A shortcode does not get a polite reply; only a person does."""
+    llm = fake(j(action="escalate", why="x"))
+    d = td.choose("wrong number", ctx(allow="never", rel="machine"), llm=llm)
+    assert d["action"] in ("ignore", "record", "escalate")
+
+
+def test_a_plain_escalation_to_a_real_person_also_acknowledges():
+    llm = fake(j(action="escalate", why="needs his decision", text=None))
+    d = td.choose("can you do me a favour with the thing we discussed",
+                  ctx(allow="queue", rel="friend"), llm=llm)
+    if d["action"] == "escalate":
+        assert d["holding"], "a real person awaiting an owner answer must get a holding"
+
+
+def test_an_unknown_sender_escalation_needs_no_acknowledgement():
+    llm = fake(j(action="escalate", why="unclear"))
+    d = td.choose("some unclear thing entirely", ctx(allow="queue", rel="unknown"), llm=llm)
+    assert d["action"] in ("escalate", "work")
+
+
+def test_the_holding_reply_promises_nothing_concrete():
+    from importlib import reload
+    text = td.ACK_HOLDING.lower()
+    for bad in ("price", "cost", "$", "tomorrow", "today", "hour", "minute", "monday"):
+        assert bad not in text, f"the holding reply commits to {bad!r}"
