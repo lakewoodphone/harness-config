@@ -659,13 +659,16 @@ function New-InteractivePrincipal([switch]$Highest) {
     return New-ScheduledTaskPrincipal -UserId "$env:USERNAME" -LogonType Interactive -RunLevel $runLevel
 }
 
-function New-HiddenTaskAction {
-    # Register a command through wscript so its console is created with SW_HIDE and never
-    # shows a window. `-WindowStyle Hidden` hides only AFTER the console has appeared, so a
-    # 1-minute watchdog task still flashed a PowerShell window and stole focus (the owner's
-    # dictation/typing kept getting clobbered). WScript.Shell.Run cmd, 0, True creates the
-    # process hidden, waits, and returns its exit code, so Task Scheduler's Last Run Result
-    # and ExecutionTimeLimit keep their meaning.
+function New-HiddenLauncherVbs {
+    # Write (and return the path of) a wscript wrapper that runs a command with SW_HIDE, so its
+    # console never shows a window. `-WindowStyle Hidden` hides only AFTER the console has appeared,
+    # so a 1-minute watchdog task still flashed a PowerShell window and stole focus (the owner's
+    # dictation/typing kept getting clobbered). WScript.Shell.Run cmd, 0, True creates the process
+    # hidden, waits, and returns its exit code, so Task Scheduler's Last Run Result and
+    # ExecutionTimeLimit keep their meaning.
+    #
+    # Split out of New-HiddenTaskAction so the origins proxy can reuse the SAME hidden launcher for
+    # its direct (Task-Scheduler-denied) fallback: one wrapper, two independent ways to start it.
     param(
         [Parameter(Mandatory)][string]$Execute,
         [string]$Argument,
@@ -687,6 +690,17 @@ function New-HiddenTaskAction {
     }
     $lines += "WScript.Quit sh.Run(`"$esc`", 0, True)"
     [System.IO.File]::WriteAllText($vbs, ($lines -join "`r`n") + "`r`n", (New-Object System.Text.UTF8Encoding($false)))
+    return $vbs
+}
+
+function New-HiddenTaskAction {
+    param(
+        [Parameter(Mandatory)][string]$Execute,
+        [string]$Argument,
+        [string]$WorkingDirectory,
+        [Parameter(Mandatory)][string]$TaskName
+    )
+    $vbs = New-HiddenLauncherVbs -Execute $Execute -Argument $Argument -WorkingDirectory $WorkingDirectory -TaskName $TaskName
     $wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
     return New-ScheduledTaskAction -Execute $wscript -Argument ('//B //NoLogo "{0}"' -f $vbs)
 }
@@ -1196,8 +1210,10 @@ function Get-WindowCount($slotCfg, $table = $null) {
     # every slot, Invoke-New found no free slot, and it printed "all 16 window slots are
     # already open" to a console the `dsh-new://` protocol runs HIDDEN (the registry
     # command passes -WindowStyle Hidden) and exited 0 -- no window, no error, no line in
-    # windows.log. `dshw status` showed it plainly: sixteen rows, each `windows 1`,
-    # 787 MB, `_shared` -- one browser tree counted sixteen times.
+    # windows.log. `dshw status` showed it plainly: sixteen rows, each `windows 1`, the SAME
+    # memory figure on every row and `_shared` -- one browser tree counted sixteen times. The
+    # figure was 787 MB on ZABZ-YOGA (2026-09-18) and 338 MB on ZABZ-TECH (2026-09-20); the tell
+    # is that it is identical on all sixteen rows, not what the number is.
     #
     # The comment above Get-WindowCount's origin-port test already states the rule this
     # line broke: in shared-profile mode the PROFILE IS NOT PER-SLOT IDENTITY. The origin
@@ -2018,42 +2034,133 @@ function Get-OriginsStats {
     } catch { return $null }
 }
 
-# Launch the proxy through Task Scheduler, for the same reason the engine is launched that way: a
-# child started directly by this script dies with the job object that owns it, and the proxy has to
-# outlive the shell that started it and the session that ran it.
+# The proxy's node argument list, in ONE place: the Task Scheduler action, the hidden wscript
+# wrapper and the direct fallback must all describe exactly the same proxy or `ensure` starts a
+# proxy the launcher cannot find.
+function Get-OriginsNodeArgument($a) {
+    return '"{0}" --base {1} --count {2} --target {3} --ttl {4} --pidfile "{5}" --log "{6}"' -f `
+        $a.script, $a.basePort, $a.count, $a.target, $a.ttlMs, $a.pidFile, $a.log
+}
+
+function Write-OriginsProxyUp($a, $how = '') {
+    $suffix = if ($how) { " ($how)" } else { '' }
+    Write-Host ("  [origins] proxy up on :{0}..:{1} -> engine :{2}{3}" -f `
+        $a.basePort, ($a.basePort + $a.count - 1), $a.target, $suffix) -ForegroundColor Green
+}
+
+# Poll until the proxy answers or the budget runs out. -Fresh is load-bearing: Test-OriginsProxy
+# memoises its answer for the whole command, so without it this loop reads its own first "no" back.
+function Wait-OriginsProxy([int]$TimeoutSeconds = 25) {
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 400
+        if (Test-OriginsProxy -Quiet -Fresh) { return $true }
+    }
+    return [bool](Test-OriginsProxy -Quiet -Fresh)
+}
+
+# Does this registered task already point at the hidden wrapper we would register? If it does, it can
+# be STARTED without writing to Task Scheduler at all - which is what makes a restart safe on a
+# machine where Register-ScheduledTask is denied without elevation (D230, measured on ZABZ-YOGA).
+function Test-OriginsTaskUsesWrapper($task, $vbs) {
+    if (-not $task -or -not $task.Actions -or $task.Actions.Count -lt 1) { return $false }
+    $act = $task.Actions[0]
+    if (-not $act.Execute) { return $false }
+    if ((Split-Path -Leaf $act.Execute) -ne 'wscript.exe') { return $false }
+    return [bool]($act.Arguments -and $act.Arguments.Contains($vbs))
+}
+
+# The escape hatch: detached, hidden and OUTSIDE this process's job object, via WMI - the same
+# mechanism Start-EngineDetached falls back to after Task Scheduler produced nothing. It needs no
+# Task Scheduler permission and no elevation, and a duplicate is harmless: the proxy refuses to bind
+# when the base port already answers and its own lock file is held by a live pid.
+function Start-OriginsProxyDirect($a) {
+    $node = Resolve-NodeExe
+    $vbs = New-HiddenLauncherVbs -Execute $node -Argument (Get-OriginsNodeArgument $a) `
+        -WorkingDirectory $PSScriptRoot -TaskName 'DSH Origins Proxy'
+    $wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
+    $res = ([wmiclass]'Win32_Process').Create("`"$wscript`" //B //NoLogo `"$vbs`"", $PSScriptRoot, $null)
+    if ($res.ReturnValue -ne 0) { throw "WMI Win32_Process.Create returned $($res.ReturnValue) starting '$wscript'" }
+    return [int]$res.ProcessId
+}
+
+# WHY TASK SCHEDULER IS PREFERRED, AND WHY THE TASK IS THEN LEFT REGISTERED. Both were written in the
+# trunk's version of this function and are kept here, because they are the reasons the three paths
+# below are ordered the way they are:
+#   - Task Scheduler, for the same reason the engine is launched that way: a child started directly by
+#     this script dies with the job object that owns it, and the proxy has to outlive the shell that
+#     started it and the session that ran it.
+#   - LEFT REGISTERED, because it is a real race rather than a tidy-up. `ensure` runs every minute as a
+#     scheduled task, so a manual `dshw ensure` and the watchdog can call this at the same moment.
+#     Measured 2026-09-18: that produced TWO proxy instances which SPLIT THE PORT RANGE between them
+#     (3200-3215 and 3216-3223) -- healthy from any single port, broken as a whole.
+#     `-MultipleInstances IgnoreNew` only has anything to ignore while the task still EXISTS, so PATH 1
+#     STARTS the registered task instead of re-registering it, and nothing here ever unregisters it.
+#
+# Launch the proxy. Three independent paths, tried in order, because it is the door every window uses
+# and it MUST come back. `$env:DSHW_ORIGINS_NO_SCHEDULER=1` skips Task Scheduler entirely, which is
+# how the direct path is exercised in a test.
 function Start-OriginsProxy {
     $a = Get-OriginsArgs
     if (-not (Test-Path $a.script)) { throw "origins script not found: $($a.script)" }
-    $node = Resolve-NodeExe
     $taskName = 'DSH Origins Proxy'
-    $args = "`"$($a.script)`" --base $($a.basePort) --count $($a.count) --target $($a.target) --ttl $($a.ttlMs) --pidfile `"$($a.pidFile)`" --log `"$($a.log)`""
-    # THE TASK IS REGISTERED AND LEFT REGISTERED, and that is the fix for a real race rather than a
-    # tidy-up. `ensure` runs every minute as a scheduled task, so a manual `dshw ensure` and the
-    # watchdog can call this at the same moment. Measured 2026-09-18: that produced TWO proxy
-    # instances which SPLIT THE PORT RANGE between them (3200-3215 and 3216-3223) - healthy from any
-    # single port, broken as a whole. The engine launch path can unregister its task because the
-    # engine is a single process the port itself arbitrates; this proxy cannot, because
-    # `-MultipleInstances IgnoreNew` only has anything to ignore while the task still EXISTS. Left
-    # registered, a second Start-ScheduledTask is a no-op while the first instance runs.
-    $action = New-ScheduledTaskAction -Execute $node -Argument $args -WorkingDirectory $PSScriptRoot
-    $principal = New-InteractivePrincipal -Highest:(Test-IsElevated)
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-        -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
-    Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-    Start-ScheduledTask -TaskName $taskName
-    $deadline = (Get-Date).AddSeconds(25)
-    while ((Get-Date) -lt $deadline) {
-        Start-Sleep -Milliseconds 400
-        # -Fresh IS REQUIRED. Test-OriginsProxy memoises its answer for the whole command, and the
-        # first call in Ensure-OriginsProxy is exactly the FAILING one, so without this the loop read
-        # its own first "no" back 60 times and declared the proxy dead while it was up and serving.
-        if (Test-OriginsProxy -Quiet -Fresh) { break }
+    $node = Resolve-NodeExe
+    $nodeArg = Get-OriginsNodeArgument $a
+    $problems = New-Object System.Collections.Generic.List[string]
+    $useScheduler = ($env:DSHW_ORIGINS_NO_SCHEDULER -ne '1')
+
+    # The wrapper is (re)written every time and is what both scheduler paths expect to find. It is
+    # regenerated rather than trusted so a stale file (e.g. an old script path) cannot be started.
+    $vbs = New-HiddenLauncherVbs -Execute $node -Argument $nodeArg -WorkingDirectory $PSScriptRoot -TaskName $taskName
+
+    # PATH 1 - an already-registered task that points at the current wrapper is STARTED, not
+    # re-registered. THIS IS THE FIX for the 2026-09-20 outage: `ensure` called
+    # Register-ScheduledTask -Force unconditionally first, and on a machine where registering
+    # without elevation is denied (D230) that threw "Access is denied" BEFORE it ever tried to start
+    # the proxy that was already registered and working - leaving every window's origin ports dead.
+    # Starting an existing task needs no write access to its definition.
+    $existing = if ($useScheduler) { Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue } else { $null }
+    if ($existing -and (Test-OriginsTaskUsesWrapper $existing $vbs)) {
+        try {
+            if ("$($existing.State)" -eq 'Running') {
+                # A killed proxy can leave the task instance looking Running while wscript still
+                # waits. Clear it, or -MultipleInstances IgnoreNew swallows the Start below.
+                try { Stop-ScheduledTask -TaskName $taskName } catch { }
+                Start-Sleep -Milliseconds 300
+            }
+            Start-ScheduledTask -TaskName $taskName
+            if (Wait-OriginsProxy 15) { Write-OriginsProxyUp $a 'registered task'; return }
+            $problems.Add('the registered task started but the proxy never answered')
+        } catch { $problems.Add("Start-ScheduledTask: $($_.Exception.Message)") }
+    } elseif ($existing) {
+        $problems.Add('the registered task does not point at the current hidden wrapper')
     }
-    if (-not (Test-OriginsProxy -Quiet -Fresh)) {
-        $tail = if (Test-Path $a.log) { (Get-Content -LiteralPath $a.log -Tail 6) -join ' | ' } else { '(no log)' }
-        throw "origins proxy never answered on :$($a.basePort) :: $tail"
+
+    # PATH 2 - register the hidden task, then start it. Needed on a first run (no task yet) or when
+    # the registration drifted. On a machine that denies registration this is where the old code
+    # died; the catch now feeds the direct fallback instead of the console.
+    if ($useScheduler) {
+        try {
+            $action = New-HiddenTaskAction -Execute $node -Argument $nodeArg -WorkingDirectory $PSScriptRoot -TaskName $taskName
+            $principal = New-InteractivePrincipal -Highest:(Test-IsElevated)
+            $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+                -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+            Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+            Start-ScheduledTask -TaskName $taskName
+            if (Wait-OriginsProxy 15) { Write-OriginsProxyUp $a 'registered task'; return }
+            $problems.Add('the task was registered and started but the proxy never answered')
+        } catch { $problems.Add("task-scheduler launch: $($_.Exception.Message)") }
     }
-    Write-Host ("  [origins] proxy up on :{0}..:{1} -> engine :{2}" -f $a.basePort, ($a.basePort + $a.count - 1), $a.target) -ForegroundColor Green
+
+    # PATH 3 - no Task Scheduler at all. Detached via WMI, hidden via the same wscript wrapper.
+    try {
+        $directPid = Start-OriginsProxyDirect $a
+        if (Wait-OriginsProxy 25) { Write-OriginsProxyUp $a "direct, pid $directPid"; return }
+        $problems.Add("the direct launch (pid $directPid) ran but the proxy never answered")
+    } catch { $problems.Add("direct launch: $($_.Exception.Message)") }
+
+    $tail = if (Test-Path $a.log) { (Get-Content -LiteralPath $a.log -Tail 6) -join ' | ' } else { '(no log)' }
+    throw ("origins proxy could not be started on :{0}. attempts: {1} :: {2}" -f $a.basePort, ($problems -join '; '), $tail)
 }
 
 function Ensure-OriginsProxy {
@@ -2061,7 +2168,26 @@ function Ensure-OriginsProxy {
     if (Test-OriginsProxy -Quiet -Fresh) { return $true }
     Write-Host '  [origins] proxy is not answering - starting it' -ForegroundColor Yellow
     try { Start-OriginsProxy; return $true }
-    catch { Write-Host ("  [origins] could not start the proxy: {0}" -f $_.Exception.Message) -ForegroundColor Red; return $false }
+    catch {
+        # RECORD THE REAL ERROR OBJECT, not just its message. The 2026-09-20 outage printed only
+        # "Access is denied", which was not enough to place the fault; the type, HResult, category
+        # and script stack go to a file so the next occurrence is diagnosable without a repro.
+        $e = $_.Exception
+        $detail = @(
+            ("[{0}] Ensure-OriginsProxy failed" -f (Get-Date -Format o)),
+            ("  type    : {0}" -f $e.GetType().FullName),
+            ("  message : {0}" -f $e.Message),
+            ("  hresult : 0x{0:X8}" -f $e.HResult),
+            ("  category: {0}  target: {1}" -f $_.CategoryInfo.Category, $_.CategoryInfo.TargetName),
+            ("  errorId : {0}" -f $_.FullyQualifiedErrorId),
+            ("  stack   : {0}" -f $_.ScriptStackTrace)
+        )
+        if ($e.InnerException) { $detail += ("  inner   : {0}: {1}" -f $e.InnerException.GetType().FullName, $e.InnerException.Message) }
+        try { $detail | Add-Content -LiteralPath (Join-Path $StateDir 'origins-start-errors.log') -Encoding utf8 } catch { }
+        Write-Host ("  [origins] could not start the proxy: {0}" -f $e.Message) -ForegroundColor Red
+        Write-Host ("  [origins] full error object recorded in {0}" -f (Join-Path $StateDir 'origins-start-errors.log')) -ForegroundColor DarkGray
+        return $false
+    }
 }
 
 # Warm the session/list cache, so a window the owner opens renders its session list immediately
@@ -2095,7 +2221,18 @@ function Invoke-Ensure {
     # already runs once a minute as a scheduled task, so a prewarm here is free and means the owner
     # essentially never waits for the 681-directory walk. Both calls are silent when healthy.
     if (Test-OriginsEnabled) {
-        [void](Ensure-OriginsProxy)
+        if (-not (Ensure-OriginsProxy)) {
+            # REFUSE, do not continue as if healthy. In shared-profile mode every window's URL is an
+            # origin port, so an `ensure` that reports success while 3200-3223 are dead is a lie that
+            # leaves the owner with a dead GUI (measured 2026-09-20). Start-OriginsProxy now has three
+            # independent launch paths; reaching here means all three failed. Exit non-zero and say so.
+            $oa = Get-OriginsArgs
+            $why = ("origins proxy is not answering on :{0} and could not be started - REFUSING: every open window uses ports {0}..{1}. See {2}" -f `
+                $oa.basePort, ($oa.basePort + $oa.count - 1), (Join-Path $StateDir 'origins-start-errors.log'))
+            Write-Host ("  [origins] {0}" -f $why) -ForegroundColor Red
+            try { ("[{0}] ensure: {1}" -f (Get-Date -Format o), $why) | Add-Content -LiteralPath (Join-Path $StateDir 'watchdog.log') -Encoding utf8 } catch { }
+            exit 3
+        }
         $warm = Invoke-OriginsPrewarm
         if ($warm -and -not $warm.ok) {
             "[{0}] ensure: origins prewarm did not fill the cache: {1}" -f (Get-Date -Format o), $warm.reason |

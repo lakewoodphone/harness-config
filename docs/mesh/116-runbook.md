@@ -3,6 +3,8 @@
 Written 2026-09-18 from the repairs actually performed that day. Every procedure here was executed at least
 once; the ones that were not are marked `NOT YET DONE`.
 
+Reconciled 2026-09-20: union of the ZABZ-TECH and trunk versions (both written 2026-09-18).
+
 ---
 
 ## 1. Add a node — the full checklist
@@ -82,8 +84,44 @@ For a **config reload** use the verified sequence — stop, up, then poll HTTP o
 `ensure`. **`dshw restart` also reopens every declared window**, which on a shared-profile machine means
 opening the full declared set; use `stop` + `up` when you only want the config reloaded.
 `_scratch/engine-reload.ps1` does this and logs the outcome, **but it hangs after `up`** because the
-engine's stdout keeps its pipeline open — kill the orphan and delete its scheduled task afterwards. That
-bug is unfixed.
+engine's stdout keeps its pipeline open — kill that orphan `pwsh` (and its transient task) afterwards, and
+nothing else. **Do not delete the `DSH Origins Proxy` task**: it is the launcher's own start handle for the
+port proxy every window depends on (next subsection). That `engine-reload.ps1` bug is unfixed. (The trunk
+revision of this step words the same act as "kill the orphan and delete its scheduled task afterwards".)
+
+### The origin ports 3200-3223 are dead (the proxy is not answering)
+
+Every window's URL is an alias origin served by `multi-window/dshw-proxy.mjs`, so if 3200-3223 are not
+listening **every open window is dead with them**. Check, restart, confirm:
+
+```powershell
+Get-NetTCPConnection -LocalPort 3200 -State Listen    # empty = the proxy is down
+pwsh -NoProfile -File multi-window\dshw.ps1 ensure    # restores it; exits 3 if it truly cannot
+Get-NetTCPConnection -LocalPort 3200 -State Listen    # confirm AFTER; expect a listener, and 24 in the range
+```
+
+`ensure` runs three independent start paths in order: **start the already-registered `DSH Origins Proxy`
+task** (no re-registration), else register + start the hidden task, else start the proxy **detached via WMI**
+(no Task Scheduler, no elevation). The ordering is the 2026-09-20 fix: the launcher used to call
+`Register-ScheduledTask -Force` first, and on a machine that denies registration without elevation (`D230`)
+that threw "Access is denied" before it ever started the task that was already registered and working — so a
+proxy restart left all 24 ports dead. If all three paths fail, `ensure` refuses (exit 3) rather than
+reporting success, and writes the full exception object to
+`$env:USERPROFILE\.dsh\multi-window\origins-start-errors.log`.
+
+Last resort — start it by hand; this is exactly what the task's VBS wrapper runs, and the proxy's own lock
+plus its base-port reachability check make a duplicate start harmless:
+
+```powershell
+node C:\Users\ezabz\code\harness-config\multi-window\dshw-proxy.mjs --base 3200 --count 24 --target 3099 `
+  --ttl 15000 --log "$env:USERPROFILE\.dsh\multi-window\logs\origins.log" `
+  --pidfile "$env:USERPROFILE\.dsh\multi-window\origins.pid"
+```
+
+To exercise the WMI path on a machine where Task Scheduler works, set `$env:DSHW_ORIGINS_NO_SCHEDULER=1` and
+run `ensure`; it logs `(direct, pid N)`. **Never `Unregister-ScheduledTask 'DSH Origins Proxy'` as
+cleanup** — deleting it removes path 1, and the task is meant to stay registered because
+`-MultipleInstances IgnoreNew` is what stops a second start from splitting the port range.
 
 ### The new-window control does nothing
 Check `dshw status`. If every slot shows `windows 1` with the same memory figure, one browser tree is being
