@@ -67,6 +67,47 @@ APP_DB = Path(os.environ.get("SMS_INBOX_APP_DB",
 STORE = Path(os.environ.get("SMS_INBOX_DB", HOME / ".sms-inbox" / "inbox.db"))
 AI_LINE_DEFAULT = "+17324447361"
 
+# Our own test traffic. It sits in the same tables as real correspondence, and
+# counting it as correspondence is how a freshness reading lies (audit B10). These
+# are never deleted - they are excluded from the health math and named as test.
+TEST_NUMBERS = {"+15555550199"}
+TEST_BODY_RE = re.compile(
+    r"(DSH realtime delivery check|"
+    r"Lakewood Phone & Tech: Thank you for opting in|"
+    r"Thanks for texting Lakewood Phone & Tech\. We'?re closed)", re.I)
+TEST_OPTIN_NUMBER = "+17326552355"   # the shop's own Dialpad line confirming an opt-in
+
+
+def is_test_traffic(from_number: str, body: str) -> bool:
+    """Is this row our own plumbing rather than a person?"""
+    num = (from_number or "").strip()
+    if num in TEST_NUMBERS:
+        return True
+    if TEST_BODY_RE.search(body or ""):
+        return True
+    return False
+
+
+def parse_dt(value: str):
+    """Twilio sends RFC-2822 dates; some rows are ISO. Parse, never string-compare.
+
+    Sorting `date_sent` as text put 2026 rows before 2025 rows, which made every
+    freshness reading nonsense.
+    """
+    if not value:
+        return None
+    from email.utils import parsedate_to_datetime
+    try:
+        got = parsedate_to_datetime(value)
+    except Exception:
+        try:
+            got = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except Exception:
+            return None
+    if got is not None and got.tzinfo is None:
+        got = got.replace(tzinfo=timezone.utc)
+    return got
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
     sid          TEXT PRIMARY KEY,
@@ -235,6 +276,23 @@ def cmd_sync(args) -> int:
     cfg = env()
     line = cfg.get("TWILIO_PHONE_NUMBER") or AI_LINE_DEFAULT
     conn = connect()
+    # Make sure the v2 tables exist before anything reads them. The responder and
+    # the context resolver both depend on `jobs` and `person`; creating them here
+    # means a fresh machine is coherent after one sync rather than after one
+    # surprised failure inside the responder.
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "textstore", str(Path(__file__).resolve().parent / "textstore.py"))
+        if _spec:
+            _ts = _ilu.module_from_spec(_spec)
+            sys.modules.setdefault("textstore", _ts)
+            _spec.loader.exec_module(_ts)
+            made = _ts.ensure_schema(conn)
+            if made.get("created"):
+                print(f"  schema: created {made['created']}")
+    except Exception as exc:
+        print(f"  schema: textstore unavailable ({exc}) - continuing without it")
     known = app_sids()
     print(f"AI line: {line}   store: {STORE}   app sids known: {len(known)}")
     total_new = 0
@@ -286,6 +344,71 @@ def unanswered(conn: sqlite3.Connection) -> list[sqlite3.Row]:
         ORDER BY m.date_sent DESC
         """
     ).fetchall()
+
+
+def cmd_probe(args) -> int:
+    """Is this line actually alive, and is anyone still waiting?
+
+    Exits non-zero when the line looks dead or when anything is undecided. An empty
+    result here is a refusal to look, not health: the whole reason this exists is
+    that `0 to decide` printed forever while three people waited (audit B1, lesson
+    L2099).
+    """
+    conn = connect()
+    rows = conn.execute("SELECT * FROM messages WHERE direction='inbound'").fetchall()
+    real = [r for r in rows if not is_test_traffic(r["from_number"], r["body"])]
+
+    stamped = [(parse_dt(r["date_sent"]), r) for r in real]
+    stamped = [(d, r) for d, r in stamped if d is not None]
+    stamped.sort(key=lambda p: p[0])
+
+    print(f"store      {STORE}")
+    try:
+        last_sync = conn.execute(
+            "SELECT value FROM sync_state WHERE key='last_sync'").fetchone()
+        print(f"last sync  {last_sync['value'] if last_sync else '(never)'}")
+    except sqlite3.Error:
+        print("last sync  (unreadable)")
+    print(f"inbound    {len(real)} real of {len(rows)} rows "
+          f"({len(rows)-len(real)} test row(s) excluded)")
+    if not stamped:
+        print("VERDICT    no parseable inbound at all - the sensor may be blind")
+        return 2
+
+    newest_d, newest = stamped[-1]
+    hours = (datetime.now(timezone.utc) - newest_d).total_seconds() / 3600
+    print(f"newest     {newest['date_sent']}  ({hours:.1f}h ago)  {newest['from_number']}")
+    if hours < 0:
+        print("           ^ a timestamp in the FUTURE - clock skew or a bad parse")
+    for r in [r for _, r in stamped[-3:]][::-1]:
+        print(f"           {r['from_number']:<15} [{r['state']}] {(r['body'] or '')[:50]!r}")
+
+    undecided = conn.execute(
+        "SELECT COUNT(*) FROM messages WHERE direction='inbound' AND state='new'"
+    ).fetchone()[0]
+    print(f"undecided  {undecided}")
+
+    # Anyone with a real inbound and no reply after it.
+    lastout = {}
+    for r in conn.execute("SELECT to_number, date_sent FROM messages WHERE direction='outbound'"):
+        t = "".join(ch for ch in (r["to_number"] or "") if ch.isdigit())[-10:]
+        d = parse_dt(r["date_sent"])
+        if t and d and (t not in lastout or d > lastout[t]):
+            lastout[t] = d
+    waiting = []
+    for d, r in stamped:
+        t = "".join(ch for ch in (r["from_number"] or "") if ch.isdigit())[-10:]
+        if t and (t not in lastout or lastout[t] < d):
+            waiting.append((d, r))
+    print(f"waiting    {len(waiting)} real text(s) with no reply after them")
+    for d, r in waiting[-10:]:
+        print(f"           {d.isoformat()[:16]}  {r['from_number']:<15} "
+              f"{(r['body'] or '')[:60]!r}")
+
+    verdict_ok = hours <= 72 and undecided == 0
+    print(f"VERDICT    {'alive' if verdict_ok else 'NEEDS ATTENTION'}"
+          + ("" if hours <= 72 else f" - newest real inbound is {hours:.0f}h old"))
+    return 0 if verdict_ok else 1
 
 
 def cmd_report(args) -> int:
@@ -424,6 +547,7 @@ def main() -> int:
     s = sub.add_parser("report"); s.add_argument("--limit", type=int, default=25)
     s.set_defaults(func=cmd_report)
     sub.add_parser("gaps").set_defaults(func=cmd_gaps)
+    sub.add_parser("probe").set_defaults(func=cmd_probe)
     sub.add_parser("threads").set_defaults(func=cmd_threads)
     s = sub.add_parser("show"); s.add_argument("query"); s.set_defaults(func=cmd_show)
     sub.add_parser("permissions").set_defaults(func=cmd_permissions)
