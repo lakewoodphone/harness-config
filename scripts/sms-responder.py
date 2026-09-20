@@ -98,6 +98,17 @@ def have(*mods) -> bool:
 # so a partially-deployed tree still behaves predictably instead of raising.
 # --------------------------------------------------------------------------- #
 def safe_resolve(conn, phone: str) -> dict:
+    """The context, or a safe empty one.
+
+    A partial answer is still an answer: if textctx returns a dict with a usable
+    identity we take it as-is and only backfill keys it left out. Deciding "the
+    module failed" because one optional field is absent is how a single missing
+    table turns into a person we refuse to recognise.
+
+    Observed 2026-09-20 in the smoke test: a store with no `awaited` table made
+    textctx return identity.name=None while `permissions` held the name, and an
+    `if got.get("identity")` test threw the good answer away.
+    """
     fallback = {
         "phone": phone, "e164_ok": True,
         "identity": {"name": None, "relationship": "unknown", "confidence": 0.0,
@@ -113,11 +124,19 @@ def safe_resolve(conn, phone: str) -> dict:
         return fallback
     try:
         got = ctx_mod.resolve(inbox.STORE, phone)
-        if isinstance(got, dict) and got.get("identity"):
-            return got
     except Exception as exc:
         fallback["warnings"].append(f"textctx.resolve raised: {exc}")
-    return fallback
+        return fallback
+    if not isinstance(got, dict):
+        fallback["warnings"].append("textctx.resolve returned a non-dict")
+        return fallback
+    for k, v in fallback.items():
+        got.setdefault(k, v)
+    if not isinstance(got.get("identity"), dict):
+        got["identity"] = fallback["identity"]
+    if "warnings" not in got or got["warnings"] is None:
+        got["warnings"] = []
+    return got
 
 
 def safe_decide(text: str, ctx: dict) -> dict:
@@ -237,20 +256,27 @@ def queue_for_owner(conn, perm: dict, msg, why: str, suggested: str | None = Non
 
 
 # --------------------------------------------------------------------------- #
-def permission_for(conn: sqlite3.Connection, phone: str) -> dict:
-    """The ledger row, or the honest default.
+def ledger_view(ctx: dict, phone: str) -> dict:
+    """The permission shape the queue code expects, taken from an ALREADY-RESOLVED
+    context.
 
-    Delegates to textctx when present so there is exactly ONE definition of what
-    the ledger says about a person (audit B8).
+    Resolving twice per text would double every HTTP and DB read on a hot path
+    that runs every five minutes; more importantly it could produce two different
+    answers about the same person within one decision.
     """
+    ident = (ctx or {}).get("identity") or {}
+    return {"phone": phone,
+            "name": ident.get("name"),
+            "relationship": ident.get("relationship") or "unknown",
+            "allow": (ctx or {}).get("allow") or "queue",
+            "note": "via textctx"}
+
+
+def permission_for(conn: sqlite3.Connection, phone: str) -> dict:
+    """The ledger row, or the honest default. One definition, from textctx."""
     if ctx_mod is not None:
         try:
-            got = safe_resolve(conn, phone)
-            ident = got.get("identity") or {}
-            return {"phone": phone, "name": ident.get("name"),
-                    "relationship": ident.get("relationship") or "unknown",
-                    "allow": got.get("allow") or "queue",
-                    "note": "via textctx"}
+            return ledger_view(safe_resolve(conn, phone), phone)
         except Exception:
             pass
     tail = "".join(ch for ch in (phone or "") if ch.isdigit())[-10:]
@@ -261,6 +287,30 @@ def permission_for(conn: sqlite3.Connection, phone: str) -> dict:
         return dict(row)
     return {"phone": phone, "name": None, "relationship": "unknown",
             "allow": "queue", "note": "no ledger row - absence is not permission"}
+
+
+def cheap_first(body: str, ctx: dict) -> str | None:
+    """Free classification before any token is spent.
+
+    Returns a terminal action ('ignore' | 'record') when the text plainly needs no
+    model, else None. A mailbox full of "ok" and "thanks" must not cost a model
+    call each - and a greeting from a friend must not be mistaken for noise.
+    """
+    if decide_mod is None or not hasattr(decide_mod, "classify_text"):
+        return None
+    try:
+        c = decide_mod.classify_text(body, ctx)
+    except Exception:
+        return None
+    kind = (c or {}).get("kind")
+    if kind == "noise":
+        return "ignore"
+    if kind == "ack":
+        # An acknowledgement from a real person does not need an answer, but it is
+        # still recorded as seen - it is correspondence, not noise.
+        return "record"
+    return None
+
 
 
 def thread_context(conn: sqlite3.Connection, phone: str, limit: int = 6) -> str:
@@ -411,10 +461,12 @@ def cmd_run(args) -> int:
 
     sent = 0
     for r in rows:
-        perm = permission_for(conn, r["from_number"])
+        body = r["body"] or ""
+        # Resolve ONCE per text; the decision and the queue logic both read this.
+        ctx = safe_resolve(conn, r["from_number"])
+        perm = ledger_view(ctx, r["from_number"])
         name = perm.get("name") or r["from_number"]
         allow = perm["allow"]
-        body = r["body"] or ""
         print(f"\n<{r['date_sent']}> {name} [{allow}]: {body[:90]!r}")
 
         # FIRST: is this the answer to something we asked for?
@@ -454,7 +506,19 @@ def cmd_run(args) -> int:
             conn.commit()
             continue
 
-        ctx = safe_resolve(conn, r["from_number"])
+        # Free classification first. Neither "ok" nor a machine shortcode may cost
+        # a model call - this line carries a 5-minute clock. `ctx` was resolved
+        # once at the top of this iteration.
+        terminal = cheap_first(body, ctx)
+        if terminal == "ignore":
+            print("    cheap classify: noise - recorded, not answered")
+            _record(conn, r["sid"], "ignored", "classify", "noise (no model call spent)")
+            continue
+        if terminal == "record":
+            print("    cheap classify: an acknowledgement - recorded as seen")
+            _record(conn, r["sid"], "seen", "classify", "ack (no model call spent)")
+            continue
+
         decision = safe_decide(body, ctx)
         action = decision.get("action")
         print(f"    verdict: {action}  ({decision.get('why')})")
