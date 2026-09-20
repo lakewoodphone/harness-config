@@ -1,245 +1,229 @@
 #!/usr/bin/env python3
-"""The texting responder: read the inbox, decide, answer - or ask the owner.
+"""The texting responder, v2: read the inbox, understand who is talking, decide,
+answer - or do the work and then answer.
 
-Companion to sms-inbox.py (the sensor). That one guarantees the texts are
-*seen*; this one decides what happens to each of them. The rule is the owner's
-own, 2026-09-18:
+Companion to `sms-inbox.py` (the sensor). That one guarantees the texts are *seen*;
+this one decides what happens to each of them.
+
+The owner's rule, 2026-09-18, unchanged:
 
     "...if you know what to respond and you're pretty sure you have permission
      for me to respond right away. If not, send it into the owner queue for
      something that needs attention."
 
-So there are exactly three outcomes per inbound text, and no fourth:
+What changed in v2 (see docs/ai-text-line-audit-2026-09-20.md for the evidence):
 
-    auto   answer it now, from the AI line, and record what was sent
-    queue  raise ONE owner-queue row for that correspondent, and say why
-    never  record it and stop (machines, dealers, anyone opted out)
+  * The line is PERSONAL - owner, family, close friends. Customers are Dialpad, and
+    this system never touches them. (Owner, 2026-09-20.)
+  * A text is never met with silence. `allow=queue` means *do not auto-send to this
+    person*; it no longer means nobody ever answers them (finding B3).
+  * The owner himself is answerable. The old ledger filed his own texts as `queue`,
+    which is why he stopped using the line in May (finding B2).
+  * "I'll look into it" is now real work with a follow-through reply, tracked in the
+    `jobs` table so a promise cannot be lost (finding B4).
+  * The decision sees real context - owner state, availability, contacts, thread,
+    memory, open jobs - not just the ledger (findings B7, B8).
+  * The model returns JSON, and a parse failure is never a reply (finding B9).
 
-Permission comes from the ledger in sms-inbox.py's store - per phone number,
-`allow = auto | queue | never`. **No row means queue**, never auto: absence of a
-decision is not permission. The ledger is the thing the owner widens over time.
-
-SAFETY
-    --dry-run is the default for anything that would send. Never assume: pass
-    --send to actually reply.
-    A hard cap on sends per run (--max-sends, default 3) so a loop cannot run
-    away with the owner's number.
-    The model is resolved at RUNTIME from the gateway's own catalog and falls
-    back to queueing rather than sending if it cannot answer. A model that
-    cannot be reached must never be mistaken for a model that answered.
+MODULES (each fails soft; a missing one degrades, never crashes):
+    textstore.py    schema + every write to the store
+    textctx.py      who is this, and what is going on
+    textdecide.py   what should happen to this text
+    textwork.py     actually do the thing
+    textsend.py     get it to them, and know that it went
+    (sms-inbox.py   the sensor)
 
 USAGE
     python3 ~/bin/sms-responder.py pending            # what is waiting, and why
     python3 ~/bin/sms-responder.py run --dry-run      # decide, send nothing
     python3 ~/bin/sms-responder.py run --send --max-sends 1
+    python3 ~/bin/sms-responder.py report             # does this thing work
+    python3 ~/bin/sms-responder.py jobs               # open promises
     python3 ~/bin/sms-responder.py history --limit 20
+    python3 ~/bin/sms-responder.py learn --apply
 """
 from __future__ import annotations
 
 import argparse
-import base64
+import importlib.util
 import json
 import re
 import sqlite3
 import subprocess
 import sys
-import urllib.error
-import urllib.parse
-import urllib.request
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import importlib.util
+HERE = Path(__file__).resolve().parent
 
-_spec = importlib.util.spec_from_file_location(
-    "sms_inbox", str(Path(__file__).resolve().parent / "sms-inbox.py")
-)
-inbox = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(inbox)
 
-# The wake queue: how a reply becomes a session instead of a notification.
-_wspec = importlib.util.spec_from_file_location(
-    "wake_mod", str(Path(__file__).resolve().parent / "wake.py")
-)
-wake_mod = importlib.util.module_from_spec(_wspec)
-_wspec.loader.exec_module(wake_mod)
+def _load(name: str, filename: str):
+    """Import a sibling module whose filename is not a valid identifier.
 
-STORE = inbox.STORE
-ENV_FILE = inbox.ENV_FILE
+    Returns the module, or None when the file is absent - a missing module must
+    degrade this responder, never stop it. The v2 modules land in stages.
+    """
+    path = HERE / filename
+    if not path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location(name, str(path))
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+inbox = _load("sms_inbox", "sms-inbox.py")
+wake_mod = _load("wake_mod", "wake.py")
+store = _load("textstore", "textstore.py")
+ctx_mod = _load("textctx", "textctx.py")
+decide_mod = _load("textdecide", "textdecide.py")
+work_mod = _load("textwork", "textwork.py")
+send_mod = _load("textsend", "textsend.py")
+
 QUEUE = Path.home() / "bin" / "owner-queue.py"
-GATEWAY = "http://127.0.0.1:8002/v1"
 OWNER_QUEUE_DEDUP_HOURS = 20
-
-SYSTEM = """You are Zabz, the AI assistant of Eliyahu (Lakewood Phone & Tech). You are
-handling a text message that arrived on his personal line. Decide what should go back to the sender
-RIGHT NOW.
-
-There are exactly three possible outputs.
-
-1. A plain answer - when you can genuinely answer it. This covers general knowledge, definitions,
-   how things work, calculations, measurements, troubleshooting and technical advice (cars, phones,
-   computers, appliances), and anything you can say factually and safely. For example, a question
-   about why a car will not start with a suspected starter motor is answerable: say what is worth
-   checking and what the usual cause is. Be useful, not timid.
-   Example output: If the battery is holding charge and it still will not turn over, the starter is
-   the usual suspect. A quick check is whether the lights dim when you turn the key.
-
-2. A holding reply, starting with exactly `HOLD: ` - when you cannot answer the substance (it needs
-   Eliyahu's decision, his money, his customers, his schedule, or a commitment only he can make) but
-   a short human acknowledgement is still far better than silence. Say plainly that you have passed
-   it to him. Never guess, never commit him, never promise a time.
-   Example output: HOLD: I have passed this to Eliyahu - he will come back to you on it.
-
-3. Exactly `QUEUE` and nothing else - only when neither applies: spam, a wrong number, a machine
-   message, or when even an acknowledgement would be wrong or confusing.
-
-Never do these: invent anything about Eliyahu, his schedule, his prices or his customers; mention
-cost, margins, suppliers or marketplace links for anything the shop sells; promise, agree a deadline,
-or speak for him.
-
-Style when you answer: one to three short sentences. A text message, not an email. Plain English, no
-jargon, no greeting, no emoji, no markdown. Finish every message with a new line reading exactly
-`- Daniel`. Everything sent from this line is signed Daniel - that is the owner's standing rule
-(2026-09-18), and it is the only name you ever sign. Never sign as Eliyahu and never sign as Zabz.
-"""
 
 
 def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-# --------------------------------------------------------------------------- #
-def permission_for(conn: sqlite3.Connection, phone: str) -> dict:
-    tail = inbox.norm(phone)
-    row = conn.execute(
-        "SELECT * FROM permissions WHERE substr(replace(replace(replace(phone,'+',''),'-',''),' ',''),-10)=?",
-        (tail,),
-    ).fetchone()
-    if row:
-        return dict(row)
-    return {"phone": phone, "name": None, "relationship": "unknown",
-            "allow": "queue", "note": "no ledger row - absence is not permission"}
-
-
-def thread_context(conn: sqlite3.Connection, phone: str, limit: int = 6) -> str:
-    rows = conn.execute(
-        """SELECT direction, body, date_sent FROM messages
-           WHERE from_number LIKE ? OR to_number LIKE ?
-           ORDER BY date_sent DESC LIMIT ?""",
-        (f"%{inbox.norm(phone)}", f"%{inbox.norm(phone)}", limit),
-    ).fetchall()
-    out = []
-    for r in reversed(rows):
-        who = "them" if r["direction"] == "inbound" else "us"
-        out.append(f"{who}: {(r['body'] or '')[:300]}")
-    return "\n".join(out)
+def have(*mods) -> bool:
+    return all(m is not None for m in mods)
 
 
 # --------------------------------------------------------------------------- #
-def gateway_models() -> list[str]:
-    try:
-        with urllib.request.urlopen(GATEWAY + "/models", timeout=15) as r:
-            data = json.loads(r.read().decode())
-        return [m["id"] for m in data.get("data", [])]
-    except Exception as exc:
-        print(f"  gateway catalog unreadable: {exc}", file=sys.stderr)
-        return []
+# Compatibility shims: each returns something safe when its module is missing,
+# so a partially-deployed tree still behaves predictably instead of raising.
+# --------------------------------------------------------------------------- #
+def safe_resolve(conn, phone: str) -> dict:
+    """The context, or a safe empty one.
 
+    A partial answer is still an answer: if textctx returns a dict with a usable
+    identity we take it as-is and only backfill keys it left out. Deciding "the
+    module failed" because one optional field is absent is how a single missing
+    table turns into a person we refuse to recognise.
 
-def pick_model(preferred=("secretary-fast", "secretary-auto")) -> str | None:
-    """Resolve at runtime and DROP anything the catalog does not list."""
-    known = gateway_models()
-    if not known:
-        return None
-    for want in preferred:
-        if want in known:
-            return want
-    return known[0] if known else None
-
-
-def llm_reply(model: str, thread: str, incoming: str, sender_name: str) -> str | None:
-    body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content":
-                f"Recent messages on this thread (oldest first):\n{thread}\n\n"
-                f"New text from {sender_name or 'this person'}:\n{incoming}\n\n"
-                "Answer it, or reply QUEUE."},
-        ],
-        "temperature": 0.2,
-        "max_tokens": 200,
+    Observed 2026-09-20 in the smoke test: a store with no `awaited` table made
+    textctx return identity.name=None while `permissions` held the name, and an
+    `if got.get("identity")` test threw the good answer away.
+    """
+    fallback = {
+        "phone": phone, "e164_ok": True,
+        "identity": {"name": None, "relationship": "unknown", "confidence": 0.0,
+                     "source": "none", "aliases": []},
+        "allow": "queue", "known": False,
+        "history": {"inbound": 0, "outbound": 0, "last_inbound": None,
+                    "last_outbound": None, "days_since_contact": None,
+                    "first_seen": None, "answered_share": None},
+        "thread": [], "open_jobs": [], "open_owner_rows": [],
+        "sources": {}, "warnings": ["textctx unavailable"], "as_of": now(),
     }
-    req = urllib.request.Request(
-        GATEWAY + "/chat/completions",
-        data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
+    if ctx_mod is None:
+        return fallback
     try:
-        with urllib.request.urlopen(req, timeout=90) as r:
-            data = json.loads(r.read().decode())
-        return (data["choices"][0]["message"]["content"] or "").strip()
+        got = ctx_mod.resolve(inbox.STORE, phone)
     except Exception as exc:
-        print(f"  model call failed ({exc}) - queueing instead of guessing", file=sys.stderr)
-        return None
+        fallback["warnings"].append(f"textctx.resolve raised: {exc}")
+        return fallback
+    if not isinstance(got, dict):
+        fallback["warnings"].append("textctx.resolve returned a non-dict")
+        return fallback
+    for k, v in fallback.items():
+        got.setdefault(k, v)
+    if not isinstance(got.get("identity"), dict):
+        got["identity"] = fallback["identity"]
+    if "warnings" not in got or got["warnings"] is None:
+        got["warnings"] = []
+    return got
 
 
-def send_sms(cfg: dict, to: str, body: str) -> tuple[bool, str]:
-    sid = cfg["TWILIO_ACCOUNT_SID"]
-    tok = cfg["TWILIO_AUTH_TOKEN"]
-    frm = cfg.get("TWILIO_PHONE_NUMBER") or inbox.AI_LINE_DEFAULT
-    data = urllib.parse.urlencode({"From": frm, "To": to, "Body": body}).encode()
-    req = urllib.request.Request(
-        f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
-        data=data, method="POST",
-    )
-    req.add_header("Authorization",
-                   "Basic " + base64.b64encode(f"{sid}:{tok}".encode()).decode())
+def safe_decide(text: str, ctx: dict) -> dict:
+    if decide_mod is None:
+        return {"action": "escalate", "text": None, "holding": None,
+                "kind": "unknown", "urgency": "normal",
+                "why": "textdecide unavailable", "confidence": 0.0, "needs_owner": True,
+                "work": None, "escalation": None, "model": None}
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            res = json.loads(r.read().decode())
-        return True, str(res.get("sid") or "sent")
-    except urllib.error.HTTPError as e:
-        return False, f"HTTP {e.code}: {e.read().decode()[:200]}"
+        return decide_mod.choose(text, ctx)
     except Exception as exc:
-        return False, str(exc)
+        return {"action": "escalate", "text": None, "holding": None,
+                "kind": "unknown", "urgency": "normal",
+                "why": f"textdecide raised: {exc}", "confidence": 0.0, "needs_owner": True,
+                "work": None, "escalation": None, "model": None}
 
 
-def _open_queue_row_for(phone: str) -> bool:
+def safe_can_send(phone: str, ctx: dict):
+    if send_mod is None:
+        return False, "textsend unavailable"
+    try:
+        return send_mod.can_send_to(phone, ctx, None)
+    except Exception as exc:
+        return False, f"gate raised: {exc}"
+
+
+def safe_send(phone: str, body: str, dry_run: bool) -> dict:
+    if send_mod is None:
+        return {"ok": False, "sid": None, "channel": None, "dry_run": dry_run,
+                "error": "textsend unavailable", "detail": ""}
+    try:
+        return send_mod.send(phone, body, dry_run=dry_run)
+    except Exception as exc:
+        return {"ok": False, "sid": None, "channel": None, "dry_run": dry_run,
+                "error": str(exc), "detail": ""}
+
+
+def safe_notify(body: str, dry_run: bool) -> dict:
+    if send_mod is None:
+        return {"ok": False, "channel": "none", "dry_run": dry_run,
+                "error": "textsend unavailable", "detail": ""}
+    try:
+        return send_mod.notify_owner(body, dry_run=dry_run)
+    except Exception as exc:
+        return {"ok": False, "channel": "none", "dry_run": dry_run,
+                "error": str(exc), "detail": ""}
+
+
+# --------------------------------------------------------------------------- #
+# Owner queue - kept from v1, it is the one thing about v1 that worked.
+# --------------------------------------------------------------------------- #
+def _open_queue_row_for(phone: str) -> bool | None:
     """Is there already an unresolved owner-queue row about this person?
 
-    Dedup against the QUEUE ITSELF, not against our own message state. The first
-    version looked for a recently-queued message row in our store, and a one-time
-    reset of that state (to re-decide under a changed policy) wiped the marker and
-    made it raise every row again - six duplicates for three people, observed
-    2026-09-18. The queue is the source of truth about what is already open.
+    Dedup against the QUEUE ITSELF, not against our own message state. Returns
+    True (a row is open), False (none), or None when the queue could not be READ.
+    None is not False: failing open on a read error would silently raise
+    duplicates, and failing closed would silently drop a person's question. The
+    caller raises the row anyway and marks it dedup-unverified, because a
+    duplicate the owner can dismiss is far better than a text nobody answers.
     """
-    tail = inbox.norm(phone)
+    tail = "".join(ch for ch in (phone or "") if ch.isdigit())[-10:]
     if not tail:
         return False
     try:
         c = sqlite3.connect(f"file:{inbox.APP_DB}?mode=ro", uri=True, timeout=20)
         rows = c.execute(
-            "SELECT question FROM owner_decision_queue WHERE status='pending'"
-        ).fetchall()
+            "SELECT question FROM owner_decision_queue WHERE status='pending'").fetchall()
         c.close()
     except Exception as exc:
-        print(f"    (could not read the queue for dedup: {exc})")
-        return False
+        print(f"    (could not read the queue for dedup: {exc}) - "
+              "raising anyway, marked as unverified")
+        return None
     for (q,) in rows:
         if tail in re.sub(r"\D", "", q or ""):
             return True
     return False
 
 
-def queue_for_owner(conn, perm: dict, msg: sqlite3.Row, why: str,
-                    suggested: str | None = None) -> bool:
+def queue_for_owner(conn, perm: dict, msg, why: str, suggested: str | None = None) -> bool:
     """Raise ONE owner-queue row for this correspondent, deduped by phone."""
-    if _open_queue_row_for(msg["from_number"]):
+    open_row = _open_queue_row_for(msg["from_number"])
+    if open_row is True:
         print("    an owner-queue row for this person is already open - not raising again")
         return False
+    if open_row is None:
+        why = why + " (dedup could not be verified - the queue was unreadable)"
     name = perm.get("name") or msg["from_number"]
     question = (
         f"{name} ({msg['from_number']}) texted your AI line and I have not answered: "
@@ -272,70 +256,120 @@ def queue_for_owner(conn, perm: dict, msg: sqlite3.Row, why: str,
 
 
 # --------------------------------------------------------------------------- #
-def worklist(conn: sqlite3.Connection, only: str | None, limit: int) -> list[sqlite3.Row]:
+def ledger_view(ctx: dict, phone: str) -> dict:
+    """The permission shape the queue code expects, taken from an ALREADY-RESOLVED
+    context.
+
+    Resolving twice per text would double every HTTP and DB read on a hot path
+    that runs every five minutes; more importantly it could produce two different
+    answers about the same person within one decision.
+    """
+    ident = (ctx or {}).get("identity") or {}
+    return {"phone": phone,
+            "name": ident.get("name"),
+            "relationship": ident.get("relationship") or "unknown",
+            "allow": (ctx or {}).get("allow") or "queue",
+            "note": "via textctx"}
+
+
+def permission_for(conn: sqlite3.Connection, phone: str) -> dict:
+    """The ledger row, or the honest default. One definition, from textctx."""
+    if ctx_mod is not None:
+        try:
+            return ledger_view(safe_resolve(conn, phone), phone)
+        except Exception:
+            pass
+    tail = "".join(ch for ch in (phone or "") if ch.isdigit())[-10:]
+    row = conn.execute(
+        "SELECT * FROM permissions WHERE substr(replace(replace(replace(phone,'+',''),"
+        "'-',''),' ',''),-10)=?", (tail,)).fetchone()
+    if row:
+        return dict(row)
+    return {"phone": phone, "name": None, "relationship": "unknown",
+            "allow": "queue", "note": "no ledger row - absence is not permission"}
+
+
+def cheap_first(body: str, ctx: dict) -> str | None:
+    """Free classification before any token is spent.
+
+    Returns a terminal action ('ignore' | 'record') when the text plainly needs no
+    model, else None. A mailbox full of "ok" and "thanks" must not cost a model
+    call each - and a greeting from a friend must not be mistaken for noise.
+    """
+    if decide_mod is None or not hasattr(decide_mod, "classify_text"):
+        return None
+    try:
+        c = decide_mod.classify_text(body, ctx)
+    except Exception:
+        return None
+    kind = (c or {}).get("kind")
+    if kind == "noise":
+        return "ignore"
+    if kind == "ack":
+        # An acknowledgement from a real person does not need an answer, but it is
+        # still recorded as seen - it is correspondence, not noise.
+        return "record"
+    return None
+
+
+
+def thread_context(conn: sqlite3.Connection, phone: str, limit: int = 6) -> str:
+    tail = "".join(ch for ch in (phone or "") if ch.isdigit())[-10:]
+    rows = conn.execute(
+        """SELECT direction, body, date_sent FROM messages
+           WHERE from_number LIKE ? OR to_number LIKE ?
+           ORDER BY date_sent DESC LIMIT ?""",
+        (f"%{tail}", f"%{tail}", limit)).fetchall()
+    out = []
+    for r in reversed(rows):
+        who = "them" if r["direction"] == "inbound" else "us"
+        out.append(f"{who}: {(r['body'] or '')[:300]}")
+    return "\n".join(out)
+
+
+def worklist(conn: sqlite3.Connection, only: str | None, limit: int):
+    """Inbound texts awaiting a decision, oldest first.
+
+    NOT `ORDER BY date_sent`. That column is TEXT holding two shapes - Twilio's
+    RFC-2822 ("Fri, 18 Sep 2026 03:29:39 +0000") next to the app's ISO - so SQL sorts
+    it by weekday name and answers people in an order that is not chronological.
+    Measured 2026-09-20: `MAX(date_sent)` on the live store returned "Wed, 29 Jul
+    2026" while the true newest message was "Fri, 18 Sep 2026", making a 2-day-old
+    store look 53 days stale. Sort the parsed value in Python instead.
+    """
+    from email.utils import parsedate_to_datetime
+
+    def when(value):
+        try:
+            got = parsedate_to_datetime(value or "")
+        except Exception:
+            try:
+                got = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+            except Exception:
+                return datetime(1970, 1, 1, tzinfo=timezone.utc)
+        if got is not None and got.tzinfo is None:
+            got = got.replace(tzinfo=timezone.utc)
+        return got or datetime(1970, 1, 1, tzinfo=timezone.utc)
+
     sql = "SELECT * FROM messages WHERE direction='inbound' AND state='new'"
     params: list = []
     if only:
         sql += " AND from_number LIKE ?"
-        params.append(f"%{inbox.norm(only)}")
-    sql += " ORDER BY date_sent ASC LIMIT ?"
-    params.append(limit)
-    return conn.execute(sql, params).fetchall()
-
-
-def classify(draft: str | None) -> tuple[str, str | None]:
-    """Turn the model's raw output into (answer|hold|queue, text-to-send).
-
-    The model does not always obey the format. Observed on 2026-09-18: asked for
-    the bare token QUEUE it returned `**QUEUE**\n\n### Reasoning\n...` followed by
-    two suggested reply drafts. A naive `startswith("QUEUE")` check would have
-    failed on the bold markers and SENT that entire scratch pad to the owner's
-    father. So: normalise, then refuse to send anything that looks like working.
-    """
-    if not draft or not draft.strip():
-        return "queue", None
-
-    lines = [l for l in draft.strip().splitlines()]
-    first = ""
-    for l in lines:
-        s = re.sub(r"^[\s*_`>#\-]+", "", l).strip()
-        s = re.sub(r"[\s*_`]+$", "", s)
-        if s:
-            first = s
-            break
-
-    up = first.upper()
-    if up.startswith("QUEUE"):
-        return "queue", None
-    if up.startswith("HOLD"):
-        rest = first.split(":", 1)[1].strip() if ":" in first else ""
-        if not rest:
-            rest = " ".join(
-                re.sub(r"^[\s*_`>#\-]+", "", l).strip() for l in lines[1:]
-            ).strip()
-        return ("hold", rest) if rest else ("queue", None)
-
-    body = draft.strip()
-    # Refuse to text scratch work: headings, reasoning sections, option lists,
-    # anything that is not a short plain message.
-    if re.search(r"(?m)^\s*#{1,6}\s|^\s*\*\*Option|\bReasoning\b", body):
-        return "queue", None
-    if len(body) > 400:
-        return "queue", None
-    body = "\n".join(l.strip() for l in body.splitlines() if l.strip()).strip()
-    return ("answer", body) if body else ("queue", None)
+        params.append(f"%{''.join(ch for ch in only if ch.isdigit())[-10:]}")
+    rows = conn.execute(sql).fetchall()
+    rows.sort(key=lambda r: when(r["date_sent"]))
+    return rows[:limit]
 
 
 def _record(conn, sid: str, state: str, by: str, reason: str,
             reply_sid: str | None = None) -> None:
     conn.execute(
         "UPDATE messages SET state=?, decided_by=?, decided_at=?, reason=?, reply_sid=? "
-        "WHERE sid=?",
-        (state, by, now(), reason[:400], reply_sid, sid),
-    )
+        "WHERE sid=?", (state, by, now(), reason[:400], reply_sid, sid))
     conn.commit()
 
 
+# --------------------------------------------------------------------------- #
 def cmd_pending(args) -> int:
     conn = inbox.connect()
     rows = worklist(conn, args.only, args.limit)
@@ -348,60 +382,164 @@ def cmd_pending(args) -> int:
     return 0
 
 
+def _send_holding(r, ctx, text: str | None, args, label: str = "holding") -> None:
+    """Tell the person something while their thing is being sorted out.
+
+    One path for every branch that leaves a human waiting, so no branch can quietly do
+    nothing: the gate decides whether it goes, and the gate is never bypassed here.
+    """
+    if not text:
+        return
+    allowed, why = safe_can_send(r["from_number"], ctx)
+    if not allowed:
+        print(f"    {label} withheld by the send gate: {why}")
+        return
+    if args.dry_run:
+        print(f"    DRY-RUN - would send {label}: {text!r}")
+        return
+    res = safe_send(r["from_number"], text, dry_run=False)
+    print(f"    {label} {'SENT' if res.get('ok') else 'FAILED'}: "
+          f"{res.get('sid') or res.get('error')}")
+
+
+def _do_work(conn, r, ctx: dict, decision: dict, args, name: str) -> None:
+    """action=work: send the holding line, then actually do it and reply."""
+    w = decision.get("work") or {}
+    claim = (w.get("claim") or "look into it")[:300]
+    task = w.get("task") or claim
+    job_id = None
+    if store is not None:
+        try:
+            job_id = store.open_job(conn, r["from_number"], r["sid"], claim, task)
+        except Exception as exc:
+            print(f"    could not open a job row: {exc}")
+
+    holding = decision.get("holding")
+    if holding and not args.dry_run:
+        allowed, why = safe_can_send(r["from_number"], ctx)
+        if allowed:
+            res = safe_send(r["from_number"], holding, dry_run=False)
+            print(f"    holding {'SENT' if res.get('ok') else 'FAILED'}: "
+                  f"{res.get('sid') or res.get('error')}")
+        else:
+            print(f"    holding withheld by the send gate: {why}")
+    elif holding:
+        print(f"    DRY-RUN - would send holding: {holding!r}")
+
+    if work_mod is None:
+        print("    textwork unavailable - recording the promise, not resolving it")
+        _record(conn, r["sid"], "working", "work",
+                f"promise recorded; textwork missing. job={job_id}")
+        return
+
+    print(f"    working on it: {task[:100]}")
+    try:
+        result = work_mod.do(claim, task, ctx,
+                             deliverable=w.get("deliverable") or "a text back to them")
+    except Exception as exc:
+        result = None
+        print(f"    textwork raised: {exc}")
+
+    ok = bool(getattr(result, "ok", False))
+    answer = getattr(result, "answer", None)
+    evidence = (getattr(result, "evidence", "") or "")[:800]
+    blocked = getattr(result, "blocked", None)
+
+    if ok and answer:
+        allowed, why = safe_can_send(r["from_number"], ctx)
+        if allowed:
+            res = safe_send(r["from_number"], answer, dry_run=args.dry_run)
+            print(f"    follow-through {'DRY-RUN' if args.dry_run else ('SENT' if res.get('ok') else 'FAILED')}: "
+                  f"{res.get('sid') or res.get('error')}")
+            _record(conn, r["sid"], "answered", "work",
+                    f"worked then answered: {answer[:120]}", res.get("sid"))
+            if store is not None and job_id:
+                store.job_set(conn, job_id, state="done", answer=answer, evidence=evidence)
+        else:
+            _record(conn, r["sid"], "working", "work", f"answer ready, gate closed: {why}")
+            if store is not None and job_id:
+                store.job_set(conn, job_id, state="done", answer=answer, evidence=evidence)
+            queue_for_owner(conn, permission_for(conn, r["from_number"]), r,
+                            f"I did the work but the send gate is closed ({why})",
+                            suggested=answer)
+    else:
+        _record(conn, r["sid"], "blocked", "work", f"blocked: {blocked or 'no answer'}")
+        if store is not None and job_id:
+            store.job_set(conn, job_id, state="blocked", evidence=evidence,
+                          answer=answer)
+        esc = getattr(result, "escalated", None)
+        if esc:
+            try:
+                subprocess.run(
+                    ["python3", str(QUEUE), "add",
+                     "--question", esc.get("question", claim),
+                     "--recommendation", esc.get("recommendation", ""),
+                     "--options", "|".join(esc.get("options") or []) or "Yes|No",
+                     "--context", evidence or task,
+                     "--blocks", f"{name} waiting on the AI text line"],
+                    capture_output=True, text=True, timeout=120)
+                print("    escalated to the owner queue")
+            except Exception as exc:
+                print(f"    escalation failed: {exc}")
+        else:
+            queue_for_owner(conn, permission_for(conn, r["from_number"]), r,
+                            f"I could not resolve it: {blocked or 'no answer'}")
+
+
 def cmd_run(args) -> int:
-    cfg = inbox.env()
     conn = inbox.connect()
+    if store is not None:
+        try:
+            migrated = store.ensure_schema(conn)
+            if migrated.get("created"):
+                print(f"  migrated the store: created {migrated['created']}")
+        except Exception as exc:
+            print(f"  schema ensure failed: {exc}")
+
     rows = worklist(conn, args.only, args.limit)
-    print(f"{len(rows)} to decide   mode={'SEND' if args.send else 'DRY-RUN'}")
+    print(f"{len(rows)} to decide   mode={'SEND' if args.send else 'DRY-RUN'}"
+          f"   modules={_module_banner()}")
     if not rows:
         return 0
 
-    model = pick_model() if any(
-        permission_for(conn, r["from_number"])["allow"] == "auto" for r in rows
-    ) else None
-    if model:
-        print(f"  model (resolved from the catalog): {model}")
-
     sent = 0
     for r in rows:
-        perm = permission_for(conn, r["from_number"])
+        body = r["body"] or ""
+        # Resolve ONCE per text; the decision and the queue logic both read this.
+        ctx = safe_resolve(conn, r["from_number"])
+        perm = ledger_view(ctx, r["from_number"])
         name = perm.get("name") or r["from_number"]
         allow = perm["allow"]
-        print(f"\n<{r['date_sent']}> {name} [{allow}]: {(r['body'] or '')[:90]!r}")
+        print(f"\n<{r['date_sent']}> {name} [{allow}]: {body[:90]!r}")
 
-        # FIRST: is this the answer to something we asked for? If so it is WORK,
-        # not a judgement call - it becomes a wake row so a session gets started,
-        # and it does NOT become another owner-decision row.
-        aw = wake_mod.consume_await(conn, r["from_number"])
-        if aw:
-            print(f"    this is the reply we were waiting for: {aw['what'][:70]}")
-            # The session MUST answer the person. Filing work and leaving a human
-            # waiting is the exact failure this whole system exists to prevent -
-            # observed live on 2026-09-18, when Weinberg replied, a session was
-            # correctly released, and it reported back to nobody while he waited.
-            prompt = (
-                f"{aw['name'] or r['from_number']} ({r['from_number']}) has just "
-                f"replied to a message we sent them from the AI line.\n\n"
-                f"DO THE WORK BELOW, AND THEN REPLY TO THE PERSON. A human is "
-                f"waiting on an answer; do not finish without sending one. Reply "
-                f"with:\n"
-                f"    python3 ~/bin/send-from-ai-line.py --to {r['from_number']} "
-                f"--body-file <file> --send\n"
-                f"Short, plain English, and signed '- Daniel' on its own last line.\n\n"
-                f"WORK: {aw['what']}\n\n"
-                f"Their reply: {(r['body'] or '')[:600]}\n\n"
-                f"Full thread: python3 ~/bin/sms-inbox.py show {r['from_number']}"
-            )
-            filed = wake_mod._file_wake(
-                conn,
-                subject=f"await:{inbox.norm(r['from_number'])}:{r['sid']}",
-                prompt=prompt,
-                context=f"awaited since {aw['sent_at']}", kind="sms-await",
-                priority="high")
-            print("    filed a wake row" if filed else "    wake row already filed")
-            _record(conn, r["sid"], "woken", "await",
-                    f"awaited reply -> wake: {aw['what'][:110]}")
-            continue
+        # FIRST: is this the answer to something we asked for?
+        if wake_mod is not None:
+            try:
+                aw = wake_mod.consume_await(conn, r["from_number"])
+            except Exception:
+                aw = None
+            if aw:
+                print(f"    this is the reply we were waiting for: {aw['what'][:70]}")
+                prompt = (
+                    f"{aw['name'] or r['from_number']} ({r['from_number']}) has just "
+                    f"replied to a message we sent them from the AI line.\n\n"
+                    f"DO THE WORK BELOW, AND THEN REPLY TO THE PERSON. A human is "
+                    f"waiting on an answer; do not finish without sending one. Reply "
+                    f"with:\n"
+                    f"    python3 ~/bin/send-from-ai-line.py --to {r['from_number']} "
+                    f"--body-file <file> --send\n"
+                    f"Short, plain English, and signed '- Daniel' on its own last line.\n\n"
+                    f"WORK: {aw['what']}\n\n"
+                    f"Their reply: {body[:600]}\n\n"
+                    f"Full thread: python3 ~/bin/sms-inbox.py show {r['from_number']}")
+                filed = wake_mod._file_wake(
+                    conn, subject=f"await:{r['from_number']}:{r['sid']}", prompt=prompt,
+                    context=f"awaited since {aw['sent_at']}", kind="sms-await",
+                    priority="high")
+                print("    filed a wake row" if filed else "    wake row already filed")
+                _record(conn, r["sid"], "woken", "await",
+                        f"awaited reply -> wake: {aw['what'][:110]}")
+                continue
 
         if allow == "never":
             print("    never - recorded, not answered")
@@ -411,68 +549,227 @@ def cmd_run(args) -> int:
             conn.commit()
             continue
 
-        # One model call decides the outcome for everyone - including the
-        # queue-permission senders, so the owner-queue row carries a drafted
-        # answer he can just approve instead of a bare notification.
-        draft = llm_reply(model, thread_context(conn, r["from_number"]),
-                          r["body"] or "", name) if model else None
-        verdict, text = classify(draft)
-        print(f"    verdict: {verdict}" + (f" -> {text!r}" if text else ""))
-
-        if allow != "auto":
-            why = ("no ledger row" if perm.get("relationship") == "unknown"
-                   else f"allow={allow} for {perm.get('relationship')}")
-            queue_for_owner(conn, perm, r, why, suggested=text)
-            _record(conn, r["sid"], "queued", "policy", why)
+        # Free classification first. Neither "ok" nor a machine shortcode may cost
+        # a model call - this line carries a 5-minute clock. `ctx` was resolved
+        # once at the top of this iteration.
+        terminal = cheap_first(body, ctx)
+        if terminal == "ignore":
+            print("    cheap classify: noise - recorded, not answered")
+            _record(conn, r["sid"], "ignored", "classify", "noise (no model call spent)")
+            continue
+        if terminal == "record":
+            print("    cheap classify: an acknowledgement - recorded as seen")
+            _record(conn, r["sid"], "seen", "classify", "ack (no model call spent)")
             continue
 
-        # allow == auto
-        if not model:
-            print("    allow=auto but no model resolved - queueing, never guessing")
-            queue_for_owner(conn, perm, r, "model unavailable")
-            _record(conn, r["sid"], "queued", "policy", "model unavailable")
+        decision = safe_decide(body, ctx)
+        action = decision.get("action")
+        print(f"    verdict: {action}  ({decision.get('why')})")
+
+        if action == "ignore":
+            _record(conn, r["sid"], "ignored", "decide", decision.get("why") or "ignore")
             continue
 
-        if verdict == "queue":
-            said = "the model returned QUEUE" if draft else "the model gave no answer"
-            print(f"    {said} - queueing, sending nothing")
-            queue_for_owner(conn, perm, r, said)
-            _record(conn, r["sid"], "queued", "model", f"declined: {said}")
+        if action == "record":
+            _record(conn, r["sid"], "seen", "decide", decision.get("why") or "record")
             continue
 
-        # "answer" sends the answer; "hold" sends an acknowledgement AND still
-        # routes it to the owner, because a hold means it needs him.
-        if not args.send:
-            print(f"    DRY-RUN - would send: {text!r}")
-            if verdict == "hold":
-                print("    (and would raise an owner-queue row: a hold means it needs him)")
-            continue
-        if sent >= args.max_sends:
-            print(f"    send cap ({args.max_sends}) reached - leaving it for the next run")
+        if action == "reply":
+            text = decision.get("text") or ""
+            allowed, why = safe_can_send(r["from_number"], ctx)
+            if not allowed:
+                print(f"    send gate closed ({why}) - drafting for the owner instead")
+                _record(conn, r["sid"], "queued", "policy", f"gate closed: {why}")
+                queue_for_owner(conn, perm, r, why, suggested=text)
+                continue
+            if args.dry_run:
+                print(f"    DRY-RUN - would send: {text!r}")
+                _record(conn, r["sid"], "answered", "decide",
+                        f"dry-run reply: {text[:120]}")
+                continue
+            if sent >= args.max_sends:
+                print(f"    send cap ({args.max_sends}) reached - next run")
+                continue
+            res = safe_send(r["from_number"], text, dry_run=False)
+            print(f"    {'SENT' if res.get('ok') else 'SEND FAILED'}: "
+                  f"{res.get('sid') or res.get('error')}")
+            if not res.get("ok"):
+                _record(conn, r["sid"], "new", "decide", f"send failed: {res.get('error')}")
+                continue
+            sent += 1
+            _record(conn, r["sid"], "answered", "decide", f"reply: {text[:120]}",
+                    reply_sid=res.get("sid"))
             continue
 
-        ok, ref = send_sms(cfg, r["from_number"], text)
-        print(f"    {'SENT' if ok else 'SEND FAILED'}: {ref}")
-        if not ok:
-            _record(conn, r["sid"], "new", "model", f"send failed: {ref}")
+        if action == "work":
+            _do_work(conn, r, ctx, decision, args, name)
             continue
-        sent += 1
-        _record(conn, r["sid"], "answered", "model",
-                f"{verdict}: {text}", reply_sid=ref)
-        conn.execute(
-            """INSERT OR REPLACE INTO messages
-               (sid, direction, from_number, to_number, body, date_sent, status,
-                first_seen, app_has_it, state, decided_by, decided_at, reason)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (ref, "outbound", cfg.get("TWILIO_PHONE_NUMBER"), r["from_number"],
-             text, now(), "sent", now(), None, "answered", "zabz", now(),
-             f"auto-{verdict}"),
-        )
-        conn.commit()
-        if verdict == "hold":
-            queue_for_owner(conn, perm, r, "I sent a holding reply; the substance needs him",
-                            suggested=text)
+
+        # escalate (the default and the safest)
+        esc = decision.get("escalation") or {}
+        _record(conn, r["sid"], "queued", "decide", decision.get("why") or "escalate")
+        # A real person is told something. Escalating to the owner while leaving the
+        # sender in silence is the exact failure this rebuild exists to remove - the
+        # owner's father was told nothing for 11 days after he reported our own mistake
+        # (journal P2123, lesson L2099).
+        holding = decision.get("holding")
+        if holding:
+            _send_holding(r, ctx, holding, args)
+
+            print("    DRY-RUN - would raise an owner-queue row")
+            continue
+        queue_for_owner(conn, perm, r, decision.get("why") or "needs the owner",
+                        suggested=decision.get("text") or esc.get("recommendation"))
+
     print(f"\nsent this run: {sent}")
+    return 0
+
+
+def _module_banner() -> str:
+    names = [("store", store), ("ctx", ctx_mod), ("decide", decide_mod),
+             ("work", work_mod), ("send", send_mod)]
+    return " ".join(f"{n}={'ok' if m else 'MISSING'}" for n, m in names)
+
+
+def cmd_jobs(args) -> int:
+    conn = inbox.connect()
+    if store is None:
+        # A missing module is a degraded deployment, not an error: say so and exit 0
+        # so a cron run never looks like a crash when the tree is only part-deployed.
+        print("textstore unavailable - no job tracking in this deployment")
+        return 0
+    try:
+        store.ensure_schema(conn)
+    except Exception:
+        pass
+    rows = store.jobs_open(conn)
+    print(f"{len(rows)} open job(s)")
+    for r in rows:
+        print("  #%-4s %-16s %-9s %s  %s"
+              % (r["id"], r["phone"], r["state"], (r["created_at"] or "")[:16],
+                 (r["claim"] or "")[:70]))
+    return 0
+
+
+def cmd_report(args) -> int:
+    """Does this thing work? Self-report, so silence is never mistaken for health."""
+    conn = inbox.connect()
+    print(f"== AI text line: {' '.join(_module_banner().split())} ==")
+    print(f"  as of            {now()}")
+
+    q = "SELECT COUNT(*) FROM messages WHERE direction='inbound'"
+    total = conn.execute(q).fetchone()[0]
+    undecided = conn.execute(
+        "SELECT COUNT(*) FROM messages WHERE direction='inbound' AND state='new'"
+    ).fetchone()[0]
+    print(f"  inbound held     {total}")
+    print(f"  awaiting a decision  {undecided}")
+
+    print("\n  replies actually sent, by who decided:")
+    for row in conn.execute(
+        "SELECT decided_by, COUNT(*) FROM messages WHERE direction='inbound' "
+        "AND state IN ('answered','working','woken') GROUP BY decided_by"):
+        print(f"    {row[0] or '-':<12} {row[1]}")
+
+    print("\n  people waiting on us (inbound, no reply after it):")
+    lastout = _last_outbound_by_phone(conn)
+    waiting = []
+    for r in conn.execute("SELECT from_number, date_sent, body, state FROM messages "
+                          "WHERE direction='inbound'"):
+        t = "".join(ch for ch in (r["from_number"] or "") if ch.isdigit())[-10:]
+        if not t:
+            continue
+        # Our own plumbing is not a person waiting. `probe` excludes it for the same
+        # reason - counting test traffic as correspondence is how a health number
+        # stops meaning anything.
+        if getattr(inbox, "is_test_traffic", None) and \
+                inbox.is_test_traffic(r["from_number"], r["body"]):
+            continue
+        mine = _when(r["date_sent"])
+        theirs = lastout.get(t)
+        if theirs is not None and mine is not None and theirs >= mine:
+            continue
+        # Not answered by v1 either? v1 wrote outbound to the app's sms_log, so a
+        # person whose last text was answered that way is NOT waiting. Counting them
+        # as waiting would make this number useless, and this number is the whole
+        # point of the report.
+        if _answered_in_app(t):
+            continue
+        waiting.append((mine, t, (r["body"] or "")[:50], r["state"]))
+    waiting.sort(key=lambda x: (x[0] is None, x[0]))
+    for d, t, b, s in waiting[-12:]:
+        print(f"    {d.isoformat()[:16] if d else '?':<17} {t:<12} [{s}] {b!r}")
+    print(f"  => {len(waiting)} inbound text(s) with no reply recorded anywhere")
+
+
+def _when(value):
+    """Parse a stored date. `date_sent` mixes RFC-2822 and ISO, so never compare it
+    as text (see journal L2123)."""
+    if not value:
+        return None
+    from email.utils import parsedate_to_datetime
+    try:
+        got = parsedate_to_datetime(value)
+    except Exception:
+        try:
+            got = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except Exception:
+            return None
+    if got is not None and got.tzinfo is None:
+        got = got.replace(tzinfo=timezone.utc)
+    return got
+
+
+def _last_outbound_by_phone(conn) -> dict:
+    out: dict = {}
+    for r in conn.execute("SELECT to_number, date_sent FROM messages WHERE direction='outbound'"):
+        t = "".join(ch for ch in (r["to_number"] or "") if ch.isdigit())[-10:]
+        got = _when(r["date_sent"])
+        if t and got and (t not in out or got > out[t]):
+            out[t] = got
+    return out
+
+
+def _answered_in_app(tail10: str) -> bool:
+    """Has the app ever sent an outbound SMS to this number? v1's answered texts live
+    in `sms_log`, not in the store, so the store alone cannot tell."""
+    try:
+        c = sqlite3.connect(f"file:{inbox.APP_DB}?mode=ro", uri=True, timeout=15)
+        row = c.execute(
+            "SELECT 1 FROM sms_log WHERE direction='outbound' "
+            "AND substr(replace(replace(replace(to_number,'+',''),'-',''),' ',''),-10)=? "
+            "LIMIT 1", (tail10,)).fetchone()
+        c.close()
+        return row is not None
+    except Exception:
+        # Unknown is not "waiting": claiming someone is waiting when we cannot check
+        # would make this report cry wolf, which is how a real alert stops being read.
+        return True
+
+
+    if store is not None:
+        try:
+            store.ensure_schema(conn)
+            print("\n  open promises (jobs):")
+            for r in store.jobs_open(conn):
+                print(f"    #{r['id']} {r['phone']} [{r['state']}] "
+                      f"{(r['claim'] or '')[:60]}  since {(r['created_at'] or '')[:16]}")
+            swept = store.job_sweep(conn)
+            if swept.get("requeued") or swept.get("blocked"):
+                print(f"    swept: requeued={swept['requeued']} blocked={swept['blocked']}")
+        except Exception as exc:
+            print(f"  job read failed: {exc}")
+
+    print("\n  ledger:")
+    for r in conn.execute("SELECT allow, COUNT(*) FROM permissions GROUP BY allow"):
+        print(f"    allow={r[0]:<6} {r[1]}")
+
+    print("\n  last real inbound:")
+    rows = conn.execute("SELECT from_number, date_sent, body FROM messages "
+                        "WHERE direction='inbound' ORDER BY first_seen DESC LIMIT 1").fetchall()
+    for r in rows:
+        print(f"    {r['date_sent']}  {r['from_number']}  {(r['body'] or '')[:60]!r}")
+    print("  (a healthy line has a recent real inbound; silence here is the thing to check first)")
     return 0
 
 
@@ -480,8 +777,7 @@ def cmd_history(args) -> int:
     conn = inbox.connect()
     rows = conn.execute(
         "SELECT * FROM messages WHERE direction='inbound' AND state!='new' "
-        "ORDER BY decided_at DESC LIMIT ?", (args.limit,)
-    ).fetchall()
+        "ORDER BY decided_at DESC LIMIT ?", (args.limit,)).fetchall()
     print(f"{len(rows)} decided text(s)")
     for r in rows:
         print("  %-16s %-8s %-9s %s"
@@ -497,8 +793,7 @@ NEGATIVE = re.compile(
     r"\b(no|nope|don'?t|do not|leave it|stop|never|drop it|ignore|deny|refuse)\b", re.I)
 
 
-def _queue_rows(done: set[int]) -> list[sqlite3.Row]:
-    """Read the owner queue out of the APP database, read-only."""
+def _queue_rows(done: set[int]):
     try:
         c = sqlite3.connect(f"file:{inbox.APP_DB}?mode=ro", uri=True, timeout=20)
         c.row_factory = sqlite3.Row
@@ -506,8 +801,7 @@ def _queue_rows(done: set[int]) -> list[sqlite3.Row]:
             """SELECT id, question, answer, status FROM owner_decision_queue
                WHERE answer IS NOT NULL AND answer != ''
                  AND question LIKE '%texted your AI line%'
-               ORDER BY id"""
-        ).fetchall()
+               ORDER BY id""").fetchall()
         c.close()
         return [r for r in rows if r["id"] not in done]
     except Exception as exc:
@@ -518,14 +812,9 @@ def _queue_rows(done: set[int]) -> list[sqlite3.Row]:
 def cmd_learn(args) -> int:
     """Turn the owner's ANSWERS into standing ledger rows.
 
-    The owner's model, 2026-09-18: he should not have to decide the same person
-    twice. So when he answers a queue row this responder raised, read what he
-    actually said and widen or close the ledger for that person.
-
-    It only acts on an UNAMBIGUOUS answer - one matching a positive or a negative
-    pattern and not both. Anything else is printed and left alone, because
-    guessing at a permission is how you send a message the owner would not have
-    sent. The queue lives in the app's database; the ledger lives in ours.
+    Only on an UNAMBIGUOUS answer - one matching a positive or a negative pattern
+    and not both. Guessing at a permission is how you send a message the owner
+    would not have sent.
     """
     conn = inbox.connect()
     conn.executescript(
@@ -533,8 +822,7 @@ def cmd_learn(args) -> int:
                question_id INTEGER PRIMARY KEY,
                phone       TEXT,
                allow       TEXT,
-               learned_at  TEXT)"""
-    )
+               learned_at  TEXT)""")
     done = {r["question_id"] for r in conn.execute("SELECT question_id FROM learned")}
     rows = _queue_rows(done)
     if not rows:
@@ -556,9 +844,7 @@ def cmd_learn(args) -> int:
         allow = "auto" if pos else "never"
         got = conn.execute(
             "SELECT name FROM permissions"
-            " WHERE substr(replace(phone,'+',''),-10)=substr(?,-10)",
-            (phone,),
-        ).fetchone()
+            " WHERE substr(replace(phone,'+',''),-10)=substr(?,-10)", (phone,)).fetchone()
         label = (got["name"] if got and got["name"] else phone)
         print(f"  #{r['id']} {phone} ({label}): -> allow={allow}   from {answer[:70]!r}")
         if args.apply:
@@ -571,8 +857,7 @@ def cmd_learn(args) -> int:
                      updated_at=excluded.updated_at""",
                 (phone, label, allow,
                  f"learned from owner-queue #{r['id']}: {answer[:180]}",
-                 f"owner-answer #{r['id']}", now()),
-            )
+                 f"owner-answer #{r['id']}", now()))
             conn.execute(
                 "INSERT OR REPLACE INTO learned(question_id,phone,allow,learned_at)"
                 " VALUES(?,?,?,?)", (r["id"], phone, allow, now()))
@@ -588,13 +873,16 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd")
-    s = sub.add_parser("pending"); s.add_argument("--only"); s.add_argument("--limit", type=int, default=25)
-    s.set_defaults(func=cmd_pending)
+    s = sub.add_parser("pending"); s.add_argument("--only")
+    s.add_argument("--limit", type=int, default=25); s.set_defaults(func=cmd_pending)
     s = sub.add_parser("run")
     s.add_argument("--only"); s.add_argument("--limit", type=int, default=25)
     s.add_argument("--send", action="store_true", help="actually send (default is dry-run)")
+    s.add_argument("--dry-run", action="store_true", help="explicit dry run (the default)")
     s.add_argument("--max-sends", type=int, default=3)
     s.set_defaults(func=cmd_run)
+    s = sub.add_parser("report"); s.set_defaults(func=cmd_report)
+    s = sub.add_parser("jobs"); s.set_defaults(func=cmd_jobs)
     s = sub.add_parser("history"); s.add_argument("--limit", type=int, default=20)
     s.set_defaults(func=cmd_history)
     s = sub.add_parser("learn")
@@ -604,6 +892,10 @@ def main() -> int:
     args = p.parse_args()
     if not getattr(args, "func", None):
         args = p.parse_args(["pending"])
+    if getattr(args, "send", False):
+        args.dry_run = False
+    else:
+        args.dry_run = True
     return args.func(args)
 
 
