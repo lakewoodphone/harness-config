@@ -1445,6 +1445,7 @@ pain	P326	326		2026-09-18	SECRATARY	open	## P326 — The ask-a-question tool doe
 pain	P327	327		2026-09-18	SECRATARY	open	## P327 — memories.category='health' is a write-only dumping ground: 44 rows, 0 health facts	entries/pain/P327.md	1	10	866f7789c152c7b1
 pain	P328	328		2026-09-18	SECRATARY	open	## P328 — secratary's personal-secretary-mvp master has diverged from origin/master since 2026-09-07 - 122 local vs 176 remote commits, work stranded on both sides	entries/pain/P328.md	1	24	20b4508170b064bf
 pain	P329	329		2026-09-18	SECRATARY	done	## P329 — ZABZ-YOGA cannot reach GitHub at all - gh token invalid, credential manager interactive-only	entries/pain/P329.md	1	16	e3a491d7c4c919d5
+pain	P2185	2185		2026-09-20	SECRATARY	open	## P2185 — The journal on secratary is 91 commits behind origin and its newest entries are unpushed - and the fix is the operation that once deleted the whole log	entries/pain/P2185.md	1	12	0a7dc610e2588df2
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
