@@ -345,7 +345,7 @@ class Decider:
     """
 
     def __init__(self, *, base_url: str | None = None, preferred=PREFERRED,
-                 timeout: int = 15):
+                 timeout: int = 30):
         self.base_url = (base_url or _base()).rstrip("/")
         self.preferred = tuple(preferred)
         self.timeout = timeout
