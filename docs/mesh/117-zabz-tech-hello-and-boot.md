@@ -51,6 +51,23 @@ Source: `Microsoft-Windows-Kernel-Boot/Operational`.
 | 2026-09-17 08:49:36 | `status 0x0`, `BlobFromUefiVariableSize: 723` — **OK** | loaded, `State: Okay` — **survived** |
 | 2026-09-20 12:02:15 | **`Unsealing cached copy status: 0xC0280018`**, blob size 0 | both loads fail → **deleted 12:03:14** |
 
+The 2026-09-20 Kernel-Boot event 85 carries the decisive field, read in full at 16:20 UTC:
+
+```
+Status: The object was not found.
+PrimarySealedBlobName: VsmLocalKey2   SecondaryProtectorVariableName: VsmLocalKeyProtector
+BlobFromUefiVariableSize: 0     UefiContentIsSealed: 0     UnsealedBlobSize: 0
+Pcr7SealingUsed: 0              UefiBlobIsCorrupt: 1
+NeedToResealKeyPkg: 0           NeedToResealBackup: 0     NeedToResealPca2023Backup: 0
+ActivePolicyVersion: 0          LatchedPolicyVersion: 0   UnlatchedPolicyVersion: 0
+```
+
+**`UefiBlobIsCorrupt: 1`** — the VSM key blob stored in its UEFI variable is **corrupt**, not simply
+absent, and `BlobFromUefiVariableSize: 0` says the variable read back empty. That is a UEFI
+variable-store / firmware-level fault, which is why the fix below is a firmware update rather than
+anything inside Windows. On the healthy boot of 2026-09-17 the same event read
+`Unsealing cached copy status: 0x0`.
+
 When the blob is present (723 bytes) the container loads and the PIN survives. When it is absent
 (0 bytes) the container is undecryptable and Windows wipes it.
 
@@ -129,11 +146,27 @@ is not claimed here** — the correlation is measured, the split is not.
 After the change the firmware updates were re-queried and are still offered; BitLocker still
 `Protection On`, 100 % encrypted; `NgcSvc`/`NgcCtnrSvc` running.
 
-## Open decision (owner)
-Install the three pending Lenovo firmware updates — needs a reboot, machine down for ~10–15 min,
-small risk of a failed flash. Recovery path verified (BitLocker recovery key escrowed to the
-Microsoft account; password sign-in still allowed). **Recommendation: yes, at a time you are not
-working.**
+## Open decision — **APPROVED and IN PROGRESS 2026-09-20 16:20 UTC**
+The owner approved installing the pending Lenovo firmware updates. Because installing several
+firmware updates in one session is the pattern Microsoft warns can change multiple PCRs at once, they
+are being applied **one per boot** by a capped, self-stopping startup task
+(`C:\Users\ezabz\Code\_diag\firmware-chain.ps1`, task `ZabzTech-FirmwareChain`, SYSTEM/highest,
+at-startup + 90 s). It verifies the previous boot's Hello state, installs exactly one firmware update,
+logs the result codes, and reboots. It stops on install failure, on no progress, or after 5 attempts.
+
+**Run 1, 2026-09-20 16:20 UTC** — installed `Lenovo Ltd. Firmware Driver Update (1.0.0.92)`
+(`uefi\res_{8a15883b-…}`, driver date 2026-07-08, the newest of the three):
+`download resultCode=2 hresult=0x00000000`, `install resultCode=2 perUpdate=2 rebootRequired=True`, `hresult=0x00000000`.
+Two remain: TPM firmware `15.24.18954.0` and device firmware `16.1.30.2330`.
+
+Progress to date is in `_diag\firmware-chain.log`; a `firmware-chain.DONE` file is written when the
+chain stops, and the task unregisters itself.
+
+Note: the first attempt to reboot from the task did nothing —
+`Start-Process shutdown.exe -NoNewWindow` from a session-0 SYSTEM task returned exit 0, registered no
+restart (no event 1074) and left `LastTaskResult = 0`. The script now calls `shutdown.exe` directly
+and logs its exit code. **Never with `/f`** — force-closing the owner's apps risks unsaved work.
+
 
 ## How to verify the fix afterwards
 On the first boot after the firmware updates, in `Microsoft-Windows-HelloForBusiness/Operational`:
