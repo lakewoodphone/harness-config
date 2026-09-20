@@ -23,8 +23,23 @@
   "browser": {
     "kind": "edge",
     "profileRoot": "C:\\Users\\ezabz\\.dsh\\multi-window\\browser",
+    "profileMode": "shared",
+    "sharedProfile": "_shared",
     "windowSize": "700,440",
     "extraArgs": []
+  },
+  "_memory": {
+    "_comment": "profileMode decides how many browser PROCESS TREES exist. THE NUMBER OF WINDOWS IS UNCHANGED EITHER WAY - what changes is how much of a browser is duplicated per window.",
+    "per-window": "LEGACY. Each window gets its own --user-data-dir, so its own cookie jar - and its own browser, GPU, crashpad, network and utility processes. Measured 2026-09-18 on ZABZ-YOGA: 7 windows on 7 private profiles cost 9 processes and 692-1064 MB each, mean ~892 MB, 6804 MB total for 74 msedge processes.",
+    "shared": "One --user-data-dir for every window, so ONE browser process tree. Per-window session isolation is preserved by giving each window its own loopback ORIGIN instead (see the `origins` block): localStorage['dsh.sessions.current'] is keyed by origin, so a distinct port is a distinct session slot. Measured 2026-09-18: the shared tree costs its ~9 browser processes ONCE and each extra window adds roughly one renderer."
+  },
+  "origins": {
+    "_comment": "One loopback port alias per window slot, served by dshw-proxy.mjs, splicing to the single engine. Required by browser.profileMode='shared': without distinct origins every window would share ONE localStorage['dsh.sessions.current'] and last-writer-wins on reload. The same proxy also caches POST /api/session/list, which measured 25-31 s cold and 29 ms warm.",
+    "enabled": true,
+    "basePort": 3200,
+    "count": 24,
+    "script": "dshw-proxy.mjs",
+    "ttlMs": 15000
   },
   "_geometry": {
     "_comment": "Default layout: a 4x2 grid on the primary 1440x900 display (work area 1440x852), read 2026-09-11. The machine also has three 2560x1440 panels (DISPLAY2/3/4). Per-window size/position here override browser.windowSize and are re-supplied on every launch, because Edge ignores them if an instance is already running.",
