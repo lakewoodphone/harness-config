@@ -1257,6 +1257,7 @@ lessons	L2079	2079		2026-09-20	ZABZ-TECH	open	**L2079 · The vendor's automatic 
 lessons	L2080	2080		2026-09-20	ZABZ-TECH	open	**L2080 · ZABZ-TECH elevated access: ssh localhost with his own key returns a High-integrity token**	entries/lessons/L2080.md	1	28	2bf2c2bf5399b80d
 lessons	L2081	2081		2026-09-20	ZABZ-TECH	open	**L2081 · Windows Hello PIN reset every boot: read 0xD000A002 + UserOOBEBroker, correlate with the VSM key unseal**	entries/lessons/L2081.md	1	43	655da65fc75f7118
 lessons	L2082	2082		2026-09-20	ZABZ-TECH	open	**L2082 · Scope recursive script searches; an unanchored 'PIN' across ~/code matched node_modules noise and timed out**	entries/lessons/L2082.md	1	21	361f2bf583f8f90e
+lessons	L2083	2083		2026-09-20	ZABZ-TECH	open	**L2083 · Session-0 SYSTEM task: Start-Process -NoNewWindow silently failed to reboot the machine - verify side effects, not exit codes**	entries/lessons/L2083.md	1	30	87eb068c04cf6237
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
