@@ -645,21 +645,74 @@ def cmd_report(args) -> int:
         print(f"    {row[0] or '-':<12} {row[1]}")
 
     print("\n  people waiting on us (inbound, no reply after it):")
-    lastout: dict[str, str] = {}
-    for r in conn.execute("SELECT to_number, date_sent FROM messages WHERE direction='outbound'"):
-        t = "".join(ch for ch in (r["to_number"] or "") if ch.isdigit())[-10:]
-        if t and (t not in lastout or (r["date_sent"] or "") > lastout[t]):
-            lastout[t] = r["date_sent"] or ""
+    lastout = _last_outbound_by_phone(conn)
     waiting = []
     for r in conn.execute("SELECT from_number, date_sent, body, state FROM messages "
                           "WHERE direction='inbound'"):
         t = "".join(ch for ch in (r["from_number"] or "") if ch.isdigit())[-10:]
-        if t and (t not in lastout or (r["date_sent"] or "") > lastout[t]):
-            waiting.append((r["date_sent"], t, (r["body"] or "")[:50], r["state"]))
-    waiting.sort()
+        if not t:
+            continue
+        mine = _when(r["date_sent"])
+        theirs = lastout.get(t)
+        if theirs is not None and mine is not None and theirs >= mine:
+            continue
+        # Not answered by v1 either? v1 wrote outbound to the app's sms_log, so a
+        # person whose last text was answered that way is NOT waiting. Counting them
+        # as waiting would make this number useless, and this number is the whole
+        # point of the report.
+        if _answered_in_app(t):
+            continue
+        waiting.append((mine, t, (r["body"] or "")[:50], r["state"]))
+    waiting.sort(key=lambda x: (x[0] is None, x[0]))
     for d, t, b, s in waiting[-12:]:
-        print(f"    {(d or '')[:16]}  {t:<12} [{s}] {b!r}")
-    print(f"  => {len(waiting)} unanswered inbound text(s)")
+        print(f"    {d.isoformat()[:16] if d else '?':<17} {t:<12} [{s}] {b!r}")
+    print(f"  => {len(waiting)} inbound text(s) with no reply recorded anywhere")
+
+
+def _when(value):
+    """Parse a stored date. `date_sent` mixes RFC-2822 and ISO, so never compare it
+    as text (see journal L2123)."""
+    if not value:
+        return None
+    from email.utils import parsedate_to_datetime
+    try:
+        got = parsedate_to_datetime(value)
+    except Exception:
+        try:
+            got = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except Exception:
+            return None
+    if got is not None and got.tzinfo is None:
+        got = got.replace(tzinfo=timezone.utc)
+    return got
+
+
+def _last_outbound_by_phone(conn) -> dict:
+    out: dict = {}
+    for r in conn.execute("SELECT to_number, date_sent FROM messages WHERE direction='outbound'"):
+        t = "".join(ch for ch in (r["to_number"] or "") if ch.isdigit())[-10:]
+        got = _when(r["date_sent"])
+        if t and got and (t not in out or got > out[t]):
+            out[t] = got
+    return out
+
+
+def _answered_in_app(tail10: str) -> bool:
+    """Has the app ever sent an outbound SMS to this number? v1's answered texts live
+    in `sms_log`, not in the store, so the store alone cannot tell."""
+    try:
+        c = sqlite3.connect(f"file:{inbox.APP_DB}?mode=ro", uri=True, timeout=15)
+        row = c.execute(
+            "SELECT 1 FROM sms_log WHERE direction='outbound' "
+            "AND substr(replace(replace(replace(to_number,'+',''),'-',''),' ',''),-10)=? "
+            "LIMIT 1", (tail10,)).fetchone()
+        c.close()
+        return row is not None
+    except Exception:
+        # Unknown is not "waiting": claiming someone is waiting when we cannot check
+        # would make this report cry wolf, which is how a real alert stops being read.
+        return True
+
 
     if store is not None:
         try:
