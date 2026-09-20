@@ -494,6 +494,7 @@ handoff	H609	609		2026-09-20 03:10 UTC	ZABZ-YOGA	open	## 2026-09-20 03:10 UTC ·
 handoff	H610	610		2026-09-20 15:39 UTC	ZABZ-TECH	open	## 2026-09-20 15:39 UTC · ZABZ-TECH · 300DDR responses filed into three cases: Wilner chip-off +250 deposit (margin at risk), Golembick WAS read by the lab (unfixable was wrong), Weissman never arrived (no arrival email)	entries/handoff/H610.md	1	27	fd991e18a897fa82
 handoff	H611	611		2026-09-20 15:58 UTC	ZABZ-TECH	open	## 2026-09-20 15:58 UTC · ZABZ-TECH · Three 300DDR cases fully documented with READ-FIRST decision blocks; all three decisions queued as owner rows 127/128/129 for after Yom Kippur	entries/handoff/H611.md	1	32	d41070bca5fdab39
 handoff	H612	612		2026-09-20 16:18 UTC	ZABZ-TECH	open	## 2026-09-20 16:18 UTC · ZABZ-TECH · ZABZ-TECH slow-boot + PIN-reset diagnosed; firmware decision with the owner	entries/handoff/H612.md	1	51	e0588e13dbd1da9e
+handoff	H2106	2106		2026-09-20 18:38 UTC	ZABZ-TECH	open	## 2026-09-20 18:38 UTC · ZABZ-TECH · ZABZ-TECH: UEFI NVRAM writes not persisting is the unified root cause; firmware staged but never applied; cold boot pending	entries/handoff/H2106.md	1	53	e82c5748c1d1d164
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1371,6 +1372,7 @@ lessons	L2080	2080		2026-09-20	ZABZ-TECH	open	**L2080 · ZABZ-TECH elevated acce
 lessons	L2081	2081		2026-09-20	ZABZ-TECH	open	**L2081 · Windows Hello PIN reset every boot: read 0xD000A002 + UserOOBEBroker, correlate with the VSM key unseal**	entries/lessons/L2081.md	1	43	655da65fc75f7118
 lessons	L2082	2082		2026-09-20	ZABZ-TECH	open	**L2082 · Scope recursive script searches; an unanchored 'PIN' across ~/code matched node_modules noise and timed out**	entries/lessons/L2082.md	1	21	361f2bf583f8f90e
 lessons	L2083	2083		2026-09-20	ZABZ-TECH	open	**L2083 · Session-0 SYSTEM task: Start-Process -NoNewWindow silently failed to reboot the machine - verify side effects, not exit codes**	entries/lessons/L2083.md	1	30	87eb068c04cf6237
+lessons	L2184	2184		2026-09-20	ZABZ-TECH	open	**L2184 · Firmware driver installed != firmware applied: check Get-PnpDevice problem codes and the hardware version, not the Windows Update result code**	entries/lessons/L2184.md	1	6	fd70615c53cec77b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
