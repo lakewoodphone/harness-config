@@ -449,6 +449,9 @@ handoff	H561	561		2026-09-18 16:34 UTC	ZABZ-TECH	open	## 2026-09-18 16:34 UTC ·
 handoff	H562	562		2026-09-18 17:00 UTC	ZABZ-TECH	open	## 2026-09-18 17:00 UTC · ZABZ-TECH · Fishman 347-534-6208: both 300DDR tickets live (74115 2TB / 74114 1TB) - packing-and-shipping job; watch the model field when using pre-filled 300DDR links	entries/handoff/H562.md	1	27	42746fa67ae0cde7
 handoff	H563	563		2026-09-18 17:06 UTC	ZABZ-TECH	open	## 2026-09-18 17:06 UTC · ZABZ-TECH · Transfer drives verified GOOD and blank - both are 2TB 870 EVO; Fishman technical gates clear, packing and shipping remain	entries/handoff/H563.md	1	21	350ed2a268d2542c
 handoff	H564	564		2026-09-18 17:11 UTC	ZABZ-YOGA	open	## 2026-09-18 17:11 UTC · ZABZ-YOGA · Shabbat plug/door automation mapped; dormant on the authority	entries/handoff/H564.md	1	54	945b81d4d2fb94ab
+handoff	H610	610		2026-09-20 15:39 UTC	ZABZ-TECH	open	## 2026-09-20 15:39 UTC · ZABZ-TECH · 300DDR responses filed into three cases: Wilner chip-off +250 deposit (margin at risk), Golembick WAS read by the lab (unfixable was wrong), Weissman never arrived (no arrival email)	entries/handoff/H610.md	1	27	fd991e18a897fa82
+handoff	H611	611		2026-09-20 15:58 UTC	ZABZ-TECH	open	## 2026-09-20 15:58 UTC · ZABZ-TECH · Three 300DDR cases fully documented with READ-FIRST decision blocks; all three decisions queued as owner rows 127/128/129 for after Yom Kippur	entries/handoff/H611.md	1	32	d41070bca5fdab39
+handoff	H612	612		2026-09-20 16:18 UTC	ZABZ-TECH	open	## 2026-09-20 16:18 UTC · ZABZ-TECH · ZABZ-TECH slow-boot + PIN-reset diagnosed; firmware decision with the owner	entries/handoff/H612.md	1	51	e0588e13dbd1da9e
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1250,6 +1253,10 @@ lessons	L2007	2007		2026-09-18	ZABZ-TECH	open	**L2007 · A byte-pattern spot tes
 lessons	L2008	2008		2026-09-18	ZABZ-YOGA	open	**L2008 · The Shabbat door probe measured our own tamper automation, not the relay**	entries/lessons/L2008.md	1	36	ac0b6ce9d6277174
 lessons	L2009	2009		2026-09-18	ZABZ-TECH	open	**L2009 · iPad Pro 11 (A1980) USB-C port is modular - the one iPad port job with no soldering**	entries/lessons/L2009.md	1	18	20be594dbb6a8375
 lessons	L2010	2010		2026-09-18	ZABZ-TECH	open	**L2010 · A1980 port job: the risk is the opening, not the port - screen crack economics**	entries/lessons/L2010.md	1	18	fca5c022ce5dc5a2
+lessons	L2079	2079		2026-09-20	ZABZ-TECH	open	**L2079 · The vendor's automatic arrival email is the shipment's proof of life: a ticket number is not a shipment and a silent inbox is a finding**	entries/lessons/L2079.md	1	19	341c0415f5a00d76
+lessons	L2080	2080		2026-09-20	ZABZ-TECH	open	**L2080 · ZABZ-TECH elevated access: ssh localhost with his own key returns a High-integrity token**	entries/lessons/L2080.md	1	28	2bf2c2bf5399b80d
+lessons	L2081	2081		2026-09-20	ZABZ-TECH	open	**L2081 · Windows Hello PIN reset every boot: read 0xD000A002 + UserOOBEBroker, correlate with the VSM key unseal**	entries/lessons/L2081.md	1	43	655da65fc75f7118
+lessons	L2082	2082		2026-09-20	ZABZ-TECH	open	**L2082 · Scope recursive script searches; an unanchored 'PIN' across ~/code matched node_modules noise and timed out**	entries/lessons/L2082.md	1	21	361f2bf583f8f90e
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1473,6 +1480,7 @@ pain	P260	260		2026-09-17	ZABZ-TECH	open	## P260 — This lpt-hub clone cannot p
 pain	P261	261		2026-09-17	ZABZ-TECH	open	## P261 — lpt-hub is one shared working tree across concurrent sessions, so staged files get swept into another session's commit	entries/pain/P261.md	1	17	8519f3a484792872
 pain	P262	262		2026-09-17	ZABZ-TECH	open	## P262 — The lpt-hub clone drifts tens of commits behind origin while OTHER sessions commit to it, so every push needs a rebase dance that can collide with their uncommitted work	entries/pain/P262.md	1	37	61184c09b7d21033
 pain	P271	271		2026-09-18	ZABZ-YOGA	open	## P271 — lptcase.py new has no filename-length guard and --device is a prefix, not a field	entries/pain/P271.md	1	26	cdc10e30664ea0ab
+pain	P336	336		2026-09-20	ZABZ-TECH	open	## P336 — Lenovo firmware updates are offered by Windows Update on ZABZ-TECH but never installed, and the machine keeps losing its Hello container	entries/pain/P336.md	1	25	a77cd69e8d98c9fb
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1699,6 +1707,7 @@ decisions	D265	265		2026-09-17	ZABZ-TECH	open	**D265 · 2026-09-17 · Shlock as-
 decisions	D266	266		2026-09-17	ZABZ-TECH	open	**D266 · 2026-09-17 · The owner confirmed the frame's geometry: 6 thick posts vertical, 2-piece beams across them, 8 thinner rails running house-to-yard on the fall - which reframes the joint photo and names the one measurement that matters.**	entries/decisions/D266.md	1	16	4958fded9eedd424
 decisions	D267	267		2026-09-17	ZABZ-TECH	open	**D267 · 2026-09-17 · The Shlock session's push went to a branch, not main, because main had diverged and another session held uncommitted work in the overlapping paths.**	entries/decisions/D267.md	1	14	04cec85b754c2fdb
 decisions	D268	268		2026-09-17	ZABZ-TECH	open	**D268 · 2026-09-17 · The Bachrach Galaxy filter case ships as the free EDGE method (ADB disable), and the paid managed-filter tier is queued as owner question #97 rather than decided here.**	entries/decisions/D268.md	1	32	1df8752fe0b3b137
+decisions	D329	329		2026-09-20	ZABZ-TECH	open	**D329 · 2026-09-20 · ZABZ-TECH boot/Hello hardening: 4 reversible changes applied and verified (2026-09-20).**	entries/decisions/D329.md	1	33	7d8ecfe9dd39ae97
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
