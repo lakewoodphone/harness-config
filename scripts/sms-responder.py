@@ -328,14 +328,37 @@ def thread_context(conn: sqlite3.Connection, phone: str, limit: int = 6) -> str:
 
 
 def worklist(conn: sqlite3.Connection, only: str | None, limit: int):
+    """Inbound texts awaiting a decision, oldest first.
+
+    NOT `ORDER BY date_sent`. That column is TEXT holding two shapes - Twilio's
+    RFC-2822 ("Fri, 18 Sep 2026 03:29:39 +0000") next to the app's ISO - so SQL sorts
+    it by weekday name and answers people in an order that is not chronological.
+    Measured 2026-09-20: `MAX(date_sent)` on the live store returned "Wed, 29 Jul
+    2026" while the true newest message was "Fri, 18 Sep 2026", making a 2-day-old
+    store look 53 days stale. Sort the parsed value in Python instead.
+    """
+    from email.utils import parsedate_to_datetime
+
+    def when(value):
+        try:
+            got = parsedate_to_datetime(value or "")
+        except Exception:
+            try:
+                got = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+            except Exception:
+                return datetime(1970, 1, 1, tzinfo=timezone.utc)
+        if got is not None and got.tzinfo is None:
+            got = got.replace(tzinfo=timezone.utc)
+        return got or datetime(1970, 1, 1, tzinfo=timezone.utc)
+
     sql = "SELECT * FROM messages WHERE direction='inbound' AND state='new'"
     params: list = []
     if only:
         sql += " AND from_number LIKE ?"
         params.append(f"%{''.join(ch for ch in only if ch.isdigit())[-10:]}")
-    sql += " ORDER BY date_sent ASC LIMIT ?"
-    params.append(limit)
-    return conn.execute(sql, params).fetchall()
+    rows = conn.execute(sql).fetchall()
+    rows.sort(key=lambda r: when(r["date_sent"]))
+    return rows[:limit]
 
 
 def _record(conn, sid: str, state: str, by: str, reason: str,
