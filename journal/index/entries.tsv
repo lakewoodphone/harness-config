@@ -1225,6 +1225,7 @@ lessons	L2074	2074		2026-09-19	ZABZ-YOGA	open	**L2074 · Dialpad: the public API
 lessons	L2075	2075		2026-09-19	ZABZ-YOGA	open	**L2075 · Restoring a guard rail is not undoing what it guarded, and an ungated fallback executor turns a safe refusal into the disaster it refused**	entries/lessons/L2075.md	1	17	5fcf8f6f23e55b6f
 lessons	L2076	2076		2026-09-19	ZABZ-YOGA	open	**L2076 · A cost meter that prints 0 hides spend: model_usage cannot price a wake release, the release-to-session link does not exist, and an unreadable store must exit non-zero rather than print a number**	entries/lessons/L2076.md	1	65	a2b59e779cdba354
 lessons	L2077	2077		2026-09-19	ZABZ-YOGA	open	**L2077 · A policy number written in two places is enforced by the looser copy, silently (5 releases against a limit of 4); and a mesh child that waits for a cron tick dies at the turn cap with no report**	entries/lessons/L2077.md	1	51	90aed9b08bcd4e5d
+lessons	L2078	2078		2026-09-20	ZABZ-YOGA	open	**L2078 · Ask for the criterion, not the strategy - a queue row the owner never needed to see**	entries/lessons/L2078.md	1	34	1a4b8679bf0c871f
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1687,6 +1688,7 @@ decisions	D324	324		2026-09-18	SECRATARY	open	**D324 · 2026-09-18 · Owner decl
 decisions	D325	325		2026-09-19	ZABZ-YOGA	open	**D325 · 2026-09-19 · Owner answered all six items 2026-09-19: #41 dismissed, #77 already done by him, #100 deferred to Tue 2026-09-22, #17 verified still live (a client's account), #75 authorised, #111 to discuss.**	entries/decisions/D325.md	1	65	3344c0829934cfc3
 decisions	D326	326		2026-09-19	ZABZ-YOGA	open	**D326 · 2026-09-19 · Owner delegated the spend number 2026-09-20: 4 wake releases/day, 1 per project - implemented in wake.py (8 to 4), verified live; queue #84 was already satisfied (35/80/150/12 live); Dialpad AI training now OFF at company level.**	entries/decisions/D326.md	1	57	c233a9ce7817b4b7
 decisions	D327	327		2026-09-20	ZABZ-YOGA	open	**D327 · 2026-09-20 · A bound that severs live work must never be charged to the subject it severed.**	entries/decisions/D327.md	1	47	896d636735ab90a0
+decisions	D328	328		2026-09-20	ZABZ-YOGA	open	**D328 · 2026-09-20 · The AI line stays silent through Yom Kippur; four waiting threads are answered Tuesday.**	entries/decisions/D328.md	1	29	bc31c71023ad48e4
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
