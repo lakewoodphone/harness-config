@@ -352,6 +352,29 @@ function splice(client, req) {
   const upstream = net.connect({ host: '127.0.0.1', port: enginePort })
   const done = () => { client.destroy(); upstream.destroy() }
   upstream.on('error', done)
+  // ── KEEPALIVE ON BOTH LEGS, AND WHY IT IS THE FIX FOR "IT JUST SAYS THINKING" ────────────────
+  // Measured 2026-09-20 from the owner's own description: *"sometimes when I talk to you, it just
+  // says thinking and I have to refresh the page, and I see that really you thought a lot and it
+  // didn't stream in."* The engine had produced the text the whole time — a reload re-reads the
+  // session and renders it — so the failure was in the LIVE STREAM, and this function is the live
+  // stream's only middleman.
+  //
+  // A raw `pipe` pair has no idle detection of any kind: no `setTimeout`, no keepalive, nothing that
+  // notices a path that has stopped forwarding bytes. The laptop's route to the office is a
+  // Tailscale DERP relay (measured; `docs/mesh/113`), and a relay or NAT that drops a flow silently
+  // sends no FIN — so the client's socket stays ESTABLISHED, its WebSocket never closes, no
+  // reconnect is ever attempted, and the UI waits on a stream that will never deliver another byte.
+  // The websocket is spliced byte-for-byte and NEVER rewritten (see `rewriteHead` above), so the
+  // application cannot heartbeat it either; the only layer left that can notice is TCP.
+  //
+  // `setKeepAlive(true, 15000)` makes the kernel probe an idle connection after 15 s and, when the
+  // probes go unanswered, close it — which is what turns a permanently-dead stream into a close
+  // event the client can reconnect from. It changes nothing while bytes are flowing, and it is the
+  // same reason every long-lived ssh hop in this repo carries ServerAliveInterval.
+  for (const s of [client, upstream]) {
+    try { s.setKeepAlive(true, 15000) } catch { /* not a TCP socket: leave it alone */ }
+    try { s.setNoDelay(true) } catch { /* ditto */ }
+  }
   upstream.write(req.parsed ? rewriteHead(req) : req.head)
   client.pipe(upstream)
   upstream.pipe(client)
