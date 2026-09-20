@@ -127,7 +127,13 @@ export const NODES = {
     driver: '/usr/local/bin/node',
     bin: '/Users/lpt/.dsh-install/node_modules/@deepseek-ai/dsh/lib/bin.js',
     cwd: '/Users/lpt/lpt-hub',
-    verified: 'MEASURED 2026-09-16 (62 §3.2) for the two paths; not exercised as a worker. RE-CONFIRMED 2026-09-17 over ssh: INTERPRETER form (`command -v dsh` empty, no worker env file), /usr/local/bin/node -> /usr/local/lib/nodejs/node-v24.19.0-darwin-arm64/bin/node.',
+    // THE CREDENTIAL IS THE NODE'S OWN, and the marker says so rather than saying "none". Measured
+    // 2026-09-18: `/Users/lpt/.dsh/.credentials.yaml` exists (-rw------- 277 B) because this machine
+    // runs its own DSH engine; `/etc/dsh-worker.env` and `~/.dsh-install/.credentials.yaml` are ABSENT.
+    // An empty list here is an unanswered question, which is why the test that caught this row fired
+    // the moment the broker roster began to claim v1 work for this node.
+    credentialEnvFiles: ['!self-store'],
+    verified: 'MEASURED 2026-09-16 (62 §3.2) for the two paths; RE-CONFIRMED 2026-09-17 over ssh: INTERPRETER form (`command -v dsh` empty, no worker env file), /usr/local/bin/node -> /usr/local/lib/nodejs/node-v24.19.0-darwin-arm64/bin/node. EXERCISED AS A WORKER 2026-09-18: `ssh mac-mini-ts "/usr/local/bin/node /Users/lpt/.dsh-install/node_modules/@deepseek-ai/dsh/lib/bin.js --profile headless \'Reply with exactly: MACMINI_OK\'"` -> exit 0 in 2948 ms, stdout exactly MACMINI_OK, and its gate answers https://lakewooechsmini.tail93e6e6.ts.net/mesh/capacity with HTTP 200. The credential is the node\'s own store, above.',
   },
 };
 
@@ -212,6 +218,13 @@ export function resolveNodeInvocation(raw) {
   // unanswered question and the tests below say so.
   const posix = facts.shell === 'posix';
   const checkedNoEnvFile = envFiles.some((file) => file.startsWith('!'));
+  // `!self-store` is the POSITIVE record that this node supplies its OWN credential: it runs a DSH
+  // engine, so it has a `~/.dsh/.credentials.yaml` and there is no worker env file to source. That is
+  // a different fact from "checked and has none", and collapsing the two would print the wrong
+  // sentence about a machine whose credential is real and local. Measured 2026-09-18 on
+  // `lakewooechsmini`: `/Users/lpt/.dsh/.credentials.yaml` exists (mode 600, 277 B) while
+  // `/etc/dsh-worker.env` and `~/.dsh-install/.credentials.yaml` are both absent.
+  const selfStore = envFiles.some((file) => file.startsWith('!self-store'));
   const usable = envFiles.filter((file) => !file.startsWith('!'));
   return {
     form: 'interpreter',
@@ -222,9 +235,11 @@ export function resolveNodeInvocation(raw) {
     credentialEnvFiles: usable,
     credentialSource: usable.length > 0
       ? `the interpreter form sources ${usable.join(', ')} before it runs (the wrapper it bypasses would have)`
-      : checkedNoEnvFile || !posix
-        ? 'the interpreter inherits its credential from the dispatching process environment'
-        : 'UNKNOWN — nothing in this row says where a credential comes from',
+      : selfStore
+        ? 'the node supplies its own credential (a DSH credential store of its own, measured 2026-09-18); there is no worker env file to source and none is needed'
+        : checkedNoEnvFile || !posix
+          ? 'the interpreter inherits its credential from the dispatching process environment'
+          : 'UNKNOWN — nothing in this row says where a credential comes from',
   };
 }
 

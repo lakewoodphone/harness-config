@@ -94,5 +94,8 @@
     remoteCwd: !!js "process.env.MESH_REMOTE_CWD ?? (process.platform === 'win32' ? 'C:/Users/ezabz' : '/home/zabz')"
     targetHosts: !!js "process.env.MESH_TARGET_HOSTS ? process.env.MESH_TARGET_HOSTS.split(',').map((s) => s.trim()).filter((s) => s.length > 0) : []"
     verifyMeshHost: true
-    timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 300000"
+    # Five minutes (300000) until 2026-09-18; raised to thirty for the reason recorded in
+    # profiles/web/cordis.patch.yml beside the same line: a five-minute child-turn ceiling
+    # severed five fleets in one night while the transport below it allowed 900000.
+    timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 1800000"
     maxOutputBytes: 200000

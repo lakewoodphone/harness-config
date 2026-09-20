@@ -1,12 +1,113 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
+Updated: 2026-09-17 17:2xZ (ZABZ-YOGA, id-allocation session — L1928, `docs/mesh/108-id-allocation.md`). Previous: 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — merge `3568d39`, `docs/mesh/107`); 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203); 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
 
 Rewritten, not appended. Earlier sessions still live in this file: **ZABZ-TECH credential session, 2026-09-15 20:05Z**
 (AWS key killed D164, Twilio token rotated D165, H275 - its open work is at the END of this file, do not overwrite it) and
 the comms session (ZABZ-YOGA, 14:05Z).
 *(Corrections: H208 cites "D142" for the digest decision — it is **D146**. H389 addenda 3/4 said the API fix was holding —
 **H390 supersedes that**; it was not a fix.)*
+
+## New since 2026-09-17 17:2xZ — THE JOURNAL ID ALLOCATOR, and a reverted `origin/master`
+
+**A. `journal.py append` now writes LOCALLY ONLY and cannot move any ref. Read this before the
+   next journal write on any machine.** The previous version claimed a window and pushed it
+   inline, and on 2026-09-17 that reverted `origin/master` while recording a lesson:
+   commit `79efb088`, parent `53cf517`, **1249 paths deleted and all 1728 journal entries gone**,
+   exit 0. Cause: the parent COMMIT came from the just-fetched tip but the parent TREE came from
+   the stale local `refs/remotes/origin/master` (13 commits behind), and a commit whose tree is
+   not its parent's tree is a mass deletion. Restored with the owner's explicit authorisation
+   (`--force-with-lease` naming the exact old value), content-verified: 1728 entries, `check`
+   0 errors. Full record and every measurement: `docs/mesh/108-id-allocation.md` §5.
+
+**The workflow from here, once per machine per window (~64 ids per kind):**
+
+```
+journal.py claim lessons     # explicit; reserves and PUBLISHES; refuses if it cannot confirm the ref
+journal.py append ...        # local only; never touches a ref
+```
+
+`claim` with no kind covers all five kinds. `next-id KIND --plan` says whether a write would be
+allowed without performing one. **If `append` exits 4, the machine has no reservation for that
+kind: run `claim`.** Nothing is bricked — inside a window it already holds, a machine keeps
+writing offline, and it only refuses at the window's edge with no reachable ref.
+
+**B. The allocation rule is fixed and proved.** `journal/tools/verify-alloc.py` — 21 checks,
+0 failures. The pre-change tool (from git `622876e`) mints `L2` on **both** machines; the new
+rule has the first claim `L2..L65` and the second fetch that claim and mint `L66`. `selftest`
+239/240 → **240/240**; `check` 0 errors before and after.
+
+**C. Two smaller defects fixed:** every mutating command leaked `journal/.lock` (two causes: the
+ownership test could not read its own lock file on Windows, then the unlink preceded the close),
+and `note_git_ceiling()` is no longer dead code.
+
+**D. Still open, recorded not fixed:** `check` cannot see a cross-tree collision (single-tree by
+contract; the cheap fix is `git hash-object --stdin-paths` locally plus `git ls-tree -r
+origin/master` upstream, and the right home is `idguard`, not `check`), and `idguard` undercounts
+because it reads a generated cache a committing writer must remember to rebuild.
+
+**E. Evidence left in place deliberately.** Local-only branch `broken/alloc-claim-20260917`
+holds the bad commit `79efb088`. `refs/heads/alloc/zabz-yoga` also still points at it. Neither is
+a live ref on the remote; do not build on either.
+
+## New since 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — `docs/mesh/107-journal-convergence.md`)
+
+A. **CLOSED — the journal collision, on this machine, and pushed.** The 18 contested ids were re-derived from source
+   and resolved on `origin/master` at **`3568d39`**: origin keeps its entry at every contested id, this machine's
+   conflicting entry moved to a fresh id allocated by `journal.py append --body-file`. The map —
+   `D252→D256, D253→D257, D254→D258, H464→H480, H465→H481, H466→H482, H467→H483, H468→H484, L1906→L1920,
+   L1907→L1921, L1908→L1922, L1909→L1923, L1910→L1924, L1911→L1925, L1912→L1926, P242→P249, P244→P250,
+   P246→P251` — is a file: `journal/reference/id-collision-20260917-renumber.tsv`. The 8 vacated old-id paths are
+   **moved, not deleted**, to `journal/archive/collided-ids-2026-09-17/`. Gates: `check` **0 errors**,
+   `verify` **FAIL=0 WARN=0**, no-loss **1728 = |L ∪ O| = 1728, delta 0**, selftest 239/240 (the one failure
+   reproduced on the unpatched tool). **The 23 entry files that existed in NO commit anywhere are now committed
+   (`622876e`) and pushed**, so `checkout`/`clean`/`pull` can no longer destroy them. Two corrections to the record
+   this replaces: it was **23** uncommitted entry files, not nine; and a one-sided renumber *does* converge when the
+   mover merges origin first and renumbers above the merged high-water mark **including the other machine's recorded
+   unpushed ids** — which is what happened here, and the laptop pushed first.
+
+B. **STILL OPEN — the defect that generates the next collision. Both machines now mint from the same refs.** After
+   `3568d39` the next free id is **`D259, H485, L1927, P252, W204` on BOTH machines** (measured, and the frozen v1
+   reader agrees: `v1 next-id lessons -> L1927`). The next pair of concurrent writes recreates exactly this defect,
+   and none of `check` / `idguard` / `repair-ids` can see it. **Obligation: `zabz-tech` must merge `origin/master`
+   before its next journal write** — `append` fetches by default, so it will then mint above `L1926` instead of at
+   `L1927`. That is a timing promise, not a mechanism. The real fix is still the **reserved band per machine, or a
+   host suffix on the id**, that `D191`/`D198` asked for and that does not exist. Highest-value follow-up here.
+
+C. **This machine's working tree is `0 ahead / 11 behind` and cannot fast-forward.** `git merge --ff-only
+   origin/master` refuses **atomically** (HEAD and the other file unchanged) on `scripts/lpt-hub-refresh.sh` —
+   another stream's staged, uncommitted work, three different blobs: worktree+index `f458cef…`, `HEAD dc4287e…`,
+   `origin 679e27a…` — and on `journal/state/absorb-stamp.json` (generated, touched by the journal tools as other
+   streams write). **Nothing is at risk while it waits**: `622876e` and `3568d39` are both on `origin`. One
+   `git merge --ff-only origin/master` completes it once that stream commits its file.
+
+D. **`P243` was restored, deliberately.** It existed at `HEAD` and on `origin/master`, had been deleted in this
+   working tree with **no status event, no reference from any entry and no commit** explaining it, and the merge would
+   have honoured that deletion **silently** (delete-local + unchanged-upstream). Origin's copy is back. The deletion
+   is still visible in Git history, so a stream that meant it can repeat it in one command — dropping a unique entry
+   is the more expensive error.
+
+E. **`zabz-tech`'s live engine (pid 24556, started 09:32:02) is still pre-placement** and needs one restart in an honest
+   idle window to consult the broker (D247, doc 106 §5). It was NOT restarted by this session, and it should now
+   succeed: the junction is repaired, the provider resolves at `0.2.0` from both reader classes, and `desktop-ts` from
+   its own Interactive logon class returns exit 0 in 402 ms. The same machine's `ssh` from *inside* an ssh session hangs
+   for every destination (measured) — probe it as an Interactive one-shot task, never over ssh.
+
+F. **Tool defects, and exactly which are fixed.** `repair-ids --apply` wrote the renumbered copy and **left the
+   offending file behind**, so the tree still failed `check` after the "repair" (reproduced on a synthetic tree,
+   `journal.py:3711` pre-fix) — **FIXED and proved** in `3568d39`: it now moves the replaced file to
+   `archive/collided-ids-<date>/<kind>/` and records host/sha/source on the alias row, the way `dedupe` always has
+   (`2 errors → 0 errors`). **Characterised, not fixed:** `check` cannot see a cross-tree collision at all
+   (single-tree by contract — it would take `git hash-object --stdin-paths` locally plus `git ls-tree -r origin/master`
+   upstream, and the right home is **`idguard`**, not `check`, which is on the read path); `idguard` reads the
+   generated `journal/index/entries.tsv` and **undercounts** (9 when the answer was 10 — `zabz-tech` committed
+   `D254/H474/L1914/P247` without rebuilding it); and `note_git_ceiling()` is **dead code**, so
+   `allocation_ceiling`'s `git_ceiling` field is `{}` on every machine. **Newly measured:** `questions` and
+   `import-legacy` each leave `journal/.lock` behind **after exiting 0** (reproduced twice, holder pids dead) — that
+   is the single check `selftest` fails (239/240) and it is a real defect, not a flake. `_lock_holder_is_dead()`
+   makes it benign for the tool, but a stale lock makes every later reader ask whether a writer is live. Stale locks
+   left by this session's own runs were found in **both** trees and removed; the exit path that fails to release was
+   not chased.
 
 ## Open right now
 

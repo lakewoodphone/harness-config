@@ -112,3 +112,46 @@ llm-pi-ai:
           name: DeepSeek V4 Flash (0731)
         - id: deepseek-ai/DeepSeek-V4.1-Flash
           name: DeepSeek V4.1 Flash
+
+# ---------------------------------------------------------------------------
+# DSH daily spend ceiling and per-machine concurrency cap.
+#
+# Added 2026-09-17 for journal pain P209 ("no budget, ceiling or alert of any
+# kind guards DSH spend") — until today there was none, and this block is the
+# shared, synced form of the policy. The guard is
+# packages/plugin-cost/src/guard.mjs, mounted by the `spend-guard` row in
+# packages/plugin-cost/cordis.patch.yml, which registers this as the
+# `spend-guard` settings namespace. Machine files override any key.
+#
+# WHY THESE NUMBERS, and every one of them is measured rather than chosen:
+#
+#   $35 warn        Above the median day ($4-7) and above every legitimate
+#                   single-machine day on record ($35.39, ZABZ-YOGA 09-14), so a
+#                   normal day never sees it.
+#   $80 stop fan-out  ~70 minutes of a 55-agent fleet at the measured $68/hour
+#                   (docs/mesh/96-gateway-at-scale.md §4.1). Long enough to
+#                   notice a fan-out going wrong and finish it.
+#   $150 refuse      ~2.2 hours of that fleet, and 2.7x the worst day the owner
+#                   has ever recorded ($54.92). The old $50 design was 44
+#                   MINUTES of the same fleet — a tripwire laid across the
+#                   situation it was invented to catch, and today's ordinary
+#                   fleet had already spent $12.02 of it by lunchtime.
+#   cap 12 agents    The wallet half is the money; this half protects the
+#                   MACHINES. At 403 MiB commit and 0.62-1.68 logical CPUs per
+#                   turn (docs/mesh/84-calibration.md) a laptop degrades near 14
+#                   turns regardless of money, and the fleet's own historical
+#                   peak is 16-22 requests in flight. 12 matches the measured
+#                   machine ceiling and the measured peak.
+#
+# onInternalError: closed is the money-critical default: if the guard itself
+# fails, the step is REFUSED rather than allowed. The company's llm_budget.py
+# fails OPEN on unexpected error (llm_budget.py:428-432, recorded in P209) and
+# that defect is deliberately not repeated here.
+# ---------------------------------------------------------------------------
+spend-guard:
+  warnUsd: 35
+  fanoutUsd: 80
+  ceilingUsd: 150
+  concurrencyCap: 12
+  onInternalError: closed
+

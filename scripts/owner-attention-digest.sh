@@ -279,5 +279,62 @@ if [ "$vheld" != "?" ] && [ "$vheld" != "-1" ]; then
   echo "                     it alerts only if that number GROWS."
 fi
 echo ""
+echo "── 10. WAKE SYSTEM — can the server still revive a session? ──"
+# WHY THIS SECTION EXISTS (added 2026-09-18)
+# The secretary can raise a FLAG and a dispatcher turns it into a real headless
+# DSH session on the always-on desktop, so work happens with nobody at a keyboard.
+# The dangerous state is not "a flag is pending" - it is the machinery being DEAD,
+# because then nothing can ever be revived and the silence is indistinguishable
+# from "nothing needed doing". That is this operation's oldest failure: reading a
+# live-looking thing as work-happening. So this section reports LIVENESS FIRST and
+# counts the queue second, and says "unmeasured" rather than "fine".
+WAKE_HB="$HOME/.sms-inbox/wake-heartbeat"
+WAKE_DB="$HOME/.sms-inbox/inbox.db"
+if [ -f "$WAKE_HB" ]; then
+  whba=$(date -d "$(cat "$WAKE_HB")" +%s 2>/dev/null || echo 0)
+  if [ "$whba" -gt 0 ]; then
+    whbm=$(( ( $(date +%s) - whba ) / 60 ))
+    if [ "$whbm" -gt 20 ]; then
+      echo "Dispatcher:        🔴 last ran ${whbm}m ago — the wake system is NOT running, so nothing can revive a session"
+      PROBLEMS=$((PROBLEMS+1))
+    else
+      echo "Dispatcher:        ✅ ran ${whbm}m ago"
+    fi
+  else
+    echo "Dispatcher:        🔴 heartbeat unparseable — treating as dead, not as idle"
+    PROBLEMS=$((PROBLEMS+1))
+  fi
+else
+  echo "Dispatcher:        🔴 NEVER RAN — no heartbeat file; treating as dead, not as idle"
+  PROBLEMS=$((PROBLEMS+1))
+fi
+if [ -f "$WAKE_DB" ]; then
+  python3 - "$WAKE_DB" <<'WAKEPY' || { echo "Wake state:        🔴 COULD NOT READ — UNMEASURED, not healthy"; PROBLEMS=$((PROBLEMS+1)); }
+import sqlite3, sys
+c = sqlite3.connect(sys.argv[1])
+def q(sql, default="?"):
+    try:
+        return c.execute(sql).fetchone()[0]
+    except Exception:
+        return default
+rows = q("SELECT COUNT(*) FROM wake WHERE state IN ('new','claimed')", "?")
+rel = q("SELECT COUNT(*) FROM wake WHERE finished_at >= date('now')", "?")
+fail = q("SELECT COUNT(*) FROM wake WHERE state='failed'", "?")
+awaiting = q("SELECT COUNT(*) FROM awaited WHERE state='active'", "?")
+print(f"Flags waiting:     {rows}   released today: {rel}   failed rows: {fail}")
+print(f"Waiting on people: {awaiting}")
+for phone, name, what in c.execute(
+        "SELECT phone, COALESCE(name,'-'), what FROM awaited WHERE state='active'"):
+    print(f"  awaiting {name} ({phone}): {what[:70]}")
+for subj, st, out in c.execute(
+        "SELECT subject, state, COALESCE(outcome,'') FROM wake"
+        " WHERE state IN ('new','claimed') ORDER BY id LIMIT 5"):
+    print(f"  {st:<8} {subj[:50]}")
+WAKEPY
+else
+  echo "Wake store:        🔴 $WAKE_DB MISSING — UNMEASURED, not healthy"
+  PROBLEMS=$((PROBLEMS+1))
+fi
+echo ""
 if [ "$PROBLEMS" -gt 0 ]; then echo "🔴 $PROBLEMS problem(s) — see above"; else echo "✅ All health checks OK"; fi
 echo "=== END DIGEST ==="

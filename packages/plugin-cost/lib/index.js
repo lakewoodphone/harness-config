@@ -1,15 +1,26 @@
 /**
  * GENERATED FILE — do not edit.
  * Built by scripts/build.mjs. The host half is concatenated from
- * src/cost-core.mjs, src/session-log.mjs and src/command.mjs; the browser half is
- * generated from pricing.json. Edit the sources and run `node scripts/build.mjs`.
+ * src/cost-core.mjs, src/session-log.mjs and src/command.mjs; the spend guard
+ * from src/cost-core.mjs, src/session-log.mjs and src/guard.mjs plus its entry
+ * src/guard-entry.mjs; the browser half is generated from pricing.json. Edit the
+ * sources and run `node scripts/build.mjs`.
  */
 import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
+function requireAnchor() {
+  const base = process.env.USERPROFILE || process.env.HOME || '';
+  const home = (process.env.DSH_HOME && process.env.DSH_HOME.length > 0)
+    ? process.env.DSH_HOME
+    : (base ? base + (base.indexOf('\\') >= 0 ? '\\' : '/') + '.dsh' : '.dsh');
+  const sep = home.indexOf('\\') >= 0 ? '\\' : '/';
+  return home + sep + 'profiles' + sep + 'web' + sep + 'package.json';
+}
+const require = createRequire(requireAnchor());
 const { existsSync, readFileSync } = require('node:fs');
 const { homedir } = require('node:os');
 const { join } = require('node:path');
 const { zstdDecompressSync } = require('node:zlib');
+
 /** 1 USD in micro-dollars. */
 var MICRO = 1000000;
 

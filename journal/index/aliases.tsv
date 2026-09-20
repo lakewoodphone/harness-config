@@ -418,3 +418,37 @@ W35	wins	W63	same entry absorbed by identity, not by bytes	2026-09-19	-	102114f5
 W36	wins	W64	same entry absorbed by identity, not by bytes	2026-09-19	-	1866c8c860057c37	WINS.md:516
 W37	wins	W68	same entry absorbed by identity, not by bytes	2026-09-19	-	975af9b3f159b986	WINS.md:537
 W26	wins	W208	same entry absorbed by identity, not by bytes	2026-09-19	-	1857c66cb6bc5081	archive/flat-2026-09-14/WINS.md:443
+P68	pain	P66	same entry absorbed by identity, not by bytes	2026-09-17	imported	acc86873ab3327c7	log/pain/2026-09.md:1833
+P13	pain	P13b	same entry absorbed by identity, not by bytes	2026-09-17	-	e9873c6898194471	PAIN.md:395
+P14	pain	P14b	same entry absorbed by identity, not by bytes	2026-09-17	-	a0204ad9b4d6ac21	PAIN.md:442
+P17	pain	P17b	same entry absorbed by identity, not by bytes	2026-09-17	-	3db818b2351d8e5d	PAIN.md:536
+P18	pain	P18b	same entry absorbed by identity, not by bytes	2026-09-17	-	e87c087c64020625	PAIN.md:597
+P43	pain	P43b	same entry absorbed by identity, not by bytes	2026-09-17	-	5cb804173e25474e	PAIN.md:746
+P44	pain	P44b	same entry absorbed by identity, not by bytes	2026-09-17	-	a4a892a2961850bc	PAIN.md:762
+P45	pain	P45b	same entry absorbed by identity, not by bytes	2026-09-17	-	09594b6b43b79ab2	PAIN.md:774
+P52	pain	P52b	same entry absorbed by identity, not by bytes	2026-09-17	-	f49938dc5795de34	PAIN.md:948
+P47	pain	P47b	same entry absorbed by identity, not by bytes	2026-09-17	-	b3ad4d64ca8523ca	PAIN.md:1006
+P46	pain	P46b	same entry absorbed by identity, not by bytes	2026-09-17	-	bf510c4d7fa42a41	PAIN.md:1019
+P47	pain	P47c	same entry absorbed by identity, not by bytes	2026-09-17	-	6e8bd4fa4a7a40c3	PAIN.md:1025
+P46	pain	P46c	same entry absorbed by identity, not by bytes	2026-09-17	-	44dbb76d36c29342	PAIN.md:1050
+P48	pain	P48b	same entry absorbed by identity, not by bytes	2026-09-17	-	21e5dfd1d480facf	PAIN.md:1068
+P55	pain	P61	same entry absorbed by identity, not by bytes	2026-09-17	-	935817f99a82c518	PAIN.md:1101
+P56	pain	P62	same entry absorbed by identity, not by bytes	2026-09-17	-	6e35ed065d792243	PAIN.md:1160
+P60	pain	P66	same entry absorbed by identity, not by bytes	2026-09-17	-	9a7a9413d7d53288	PAIN.md:1178
+P61	pain	P77	same entry absorbed by identity, not by bytes	2026-09-17	-	5d76c99a4bb36a7c	PAIN.md:1288
+P62	pain	P78	same entry absorbed by identity, not by bytes	2026-09-17	-	b10dd69d0487ccb2	PAIN.md:1316
+P63	pain	P79	same entry absorbed by identity, not by bytes	2026-09-17	-	ff0963d3fe0b8230	PAIN.md:1340
+P64	pain	P80	same entry absorbed by identity, not by bytes	2026-09-17	-	d06c5f47aff5b095	PAIN.md:1361
+P55	pain	P92	same entry absorbed by identity, not by bytes	2026-09-17	-	0f9749c1664d890a	archive/flat-2026-09-14/PAIN.md:1101
+L221	lessons	L1776	same entry absorbed by identity, not by bytes	2026-09-18	ZABZ-YOGA	1a694a7bd7d4f113	log/lessons/2026-09.1.md:3066
+L263	lessons	L1777	same entry absorbed by identity, not by bytes	2026-09-18	ZABZ-TECH	b6c7c9e22f3e7cbc	log/lessons/2026-09.2.md:630
+L1920	lessons	L2079	id collided across machines with different content; the trunk keeps L1920	2026-09-20	zabz-tech	48aab311038bb36d	archive/collided-ids-2026-09-20/lessons/L1920.md
+L1921	lessons	L2080	id collided across machines with different content; the trunk keeps L1921	2026-09-20	zabz-tech	750021d2c76f9174	archive/collided-ids-2026-09-20/lessons/L1921.md
+L1922	lessons	L2081	id collided across machines with different content; the trunk keeps L1922	2026-09-20	ZABZ-TECH	06b9cd1bcd375eca	archive/collided-ids-2026-09-20/lessons/L1922.md
+L1923	lessons	L2082	id collided across machines with different content; the trunk keeps L1923	2026-09-20	ZABZ-TECH	97b627c5e4a2241a	archive/collided-ids-2026-09-20/lessons/L1923.md
+L1924	lessons	L2083	id collided across machines with different content; the trunk keeps L1924	2026-09-20	ZABZ-TECH	beca8161679befed	archive/collided-ids-2026-09-20/lessons/L1924.md
+L1925	lessons	L2084	id collided across machines with different content; the trunk keeps L1925	2026-09-20	zabz-tech	74999b1d3b469ee7	archive/collided-ids-2026-09-20/lessons/L1925.md
+L1926	lessons	L2085	id collided across machines with different content; the trunk keeps L1926	2026-09-20	ZABZ-TECH	3d7ac51bd9a4d487	archive/collided-ids-2026-09-20/lessons/L1926.md
+L1927	lessons	L2086	id collided across machines with different content; the trunk keeps L1927	2026-09-20	zabz-tech	dea76ce8e9b09b5c	archive/collided-ids-2026-09-20/lessons/L1927.md
+L1928	lessons	L2087	id collided across machines with different content; the trunk keeps L1928	2026-09-20	ZABZ-TECH	a948205df8d3b45f	archive/collided-ids-2026-09-20/lessons/L1928.md
+L1929	lessons	L2088	id collided across machines with different content; the trunk keeps L1929	2026-09-20	ZABZ-TECH	92fc03243f7ab3bc	archive/collided-ids-2026-09-20/lessons/L1929.md

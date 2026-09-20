@@ -1,0 +1,167 @@
+{
+  "host": "ZABZ-YOGA",
+  "node": "v24.12.0",
+  "startedAt": "2026-09-16T14:24:06.157Z",
+  "n": 12,
+  "cases": {
+    "cmd-exit": {
+      "cmd": "cmd.exe /d /c exit 0",
+      "spawnReturn": {
+        "n": 12,
+        "min": 5.4,
+        "p50": 6.9,
+        "mean": 7.2,
+        "p90": 8.3,
+        "max": 10
+      },
+      "cycle": {
+        "n": 12,
+        "min": 60.8,
+        "p50": 73.9,
+        "mean": 73.1,
+        "p90": 77.5,
+        "max": 84.6
+      }
+    },
+    "pwsh-noprofile": {
+      "cmd": "C:\\Program Files\\PowerShell\\7\\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command exit 0",
+      "spawnReturn": {
+        "n": 12,
+        "min": 4.8,
+        "p50": 12.6,
+        "mean": 13.3,
+        "p90": 20.6,
+        "max": 21.8
+      },
+      "cycle": {
+        "n": 12,
+        "min": 560.1,
+        "p50": 668.9,
+        "mean": 672.2,
+        "p90": 759.6,
+        "max": 778.4
+      }
+    },
+    "pwsh-with-profile": {
+      "cmd": "C:\\Program Files\\PowerShell\\7\\pwsh.exe -NoLogo -NonInteractive -Command exit 0",
+      "spawnReturn": {
+        "n": 12,
+        "min": 4.9,
+        "p50": 6.3,
+        "mean": 7.1,
+        "p90": 8.8,
+        "max": 12
+      },
+      "cycle": {
+        "n": 12,
+        "min": 463.1,
+        "p50": 504.4,
+        "mean": 551.3,
+        "p90": 623.6,
+        "max": 721.1
+      }
+    },
+    "runner-idle": {
+      "cmd": "C:\\Program Files\\nodejs\\node.exe C:\\Users\\ezabz\\AppData\\Local\\npm-cache\\_npx\\1e7f6d9597241db0\\node_modules\\@deepseek-ai\\dsh-subprocess-local\\lib\\runner.js",
+      "spawnReturn": {
+        "n": 12,
+        "min": 6.2,
+        "p50": 9.5,
+        "mean": 9.3,
+        "p90": 10,
+        "max": 11.9
+      },
+      "cycle": {
+        "n": 12,
+        "min": 145.9,
+        "p50": 152.8,
+        "mean": 161.6,
+        "p90": 172,
+        "max": 196
+      }
+    },
+    "node-e": {
+      "cmd": "node -e process.exit(0)",
+      "spawnReturn": {
+        "n": 12,
+        "min": 6.4,
+        "p50": 8,
+        "mean": 8.1,
+        "p90": 8.8,
+        "max": 9.8
+      },
+      "cycle": {
+        "n": 12,
+        "min": 84.4,
+        "p50": 87.6,
+        "mean": 89.4,
+        "p90": 92.5,
+        "max": 103.3
+      }
+    },
+    "pwsh-work": {
+      "cmd": "C:\\Program Files\\PowerShell\\7\\pwsh.exe -NoLogo -NoProfile -NonInteractive -Command [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); Get-Date | Out-Null",
+      "spawnReturn": {
+        "n": 12,
+        "min": 4.5,
+        "p50": 8,
+        "mean": 9.6,
+        "p90": 9.7,
+        "max": 23.9
+      },
+      "cycle": {
+        "n": 12,
+        "min": 411.8,
+        "p50": 669.2,
+        "mean": 710.4,
+        "p90": 825.3,
+        "max": 979.7
+      }
+    }
+  },
+  "resourceUsage": {
+    "cmd-exit": {
+      "minorFaults": 0,
+      "majorFaults": 3,
+      "userCpuMs": 0,
+      "sysCpuMs": 3,
+      "wallMs": 51.6
+    },
+    "pwsh-noprofile": {
+      "minorFaults": 0,
+      "majorFaults": 0,
+      "userCpuMs": 0,
+      "sysCpuMs": 6.4,
+      "wallMs": 515.2
+    },
+    "pwsh-with-profile": {
+      "minorFaults": 0,
+      "majorFaults": 7,
+      "userCpuMs": 6.2,
+      "sysCpuMs": 3,
+      "wallMs": 733.1
+    },
+    "runner-idle": {
+      "minorFaults": 0,
+      "majorFaults": 2,
+      "userCpuMs": 0,
+      "sysCpuMs": 3.2,
+      "wallMs": 164
+    },
+    "node-e": {
+      "minorFaults": 0,
+      "majorFaults": 3,
+      "userCpuMs": 3.2,
+      "sysCpuMs": 9.4,
+      "wallMs": 109.4
+    },
+    "pwsh-work": {
+      "minorFaults": 0,
+      "majorFaults": 0,
+      "userCpuMs": 0,
+      "sysCpuMs": 3,
+      "wallMs": 631.8
+    }
+  },
+  "finishedAt": "2026-09-16T14:24:49.176Z"
+}

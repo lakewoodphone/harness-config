@@ -1,0 +1,35 @@
+{
+  "host": "ZABZ-YOGA",
+  "node": "v24.12.0",
+  "cpu": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel",
+  "measuredAt": "2026-09-16T14:22:10.229Z",
+  "cases": {
+    "pwsh-nop": {
+      "cmd": "C:\\Program Files\\PowerShell\\7\\pwsh.exe -NoProfile -NonInteractive -Command exit 0",
+      "spawnReturn": {
+        "n": 10,
+        "min": 8.3,
+        "p50": 27.7,
+        "mean": 42.6,
+        "p90": 88.4,
+        "max": 94.1
+      },
+      "exit": {
+        "n": 10,
+        "min": 711,
+        "p50": 739.7,
+        "mean": 850,
+        "p90": 995.6,
+        "max": 1092
+      },
+      "codes": [
+        0
+      ],
+      "minorFaultsPerSpawn": 0,
+      "majorFaultsPerSpawn": 0,
+      "userCpuMsPerSpawn": 0,
+      "sysCpuMsPerSpawn": 0,
+      "wallMsPerSpawn": 768.9
+    }
+  }
+}

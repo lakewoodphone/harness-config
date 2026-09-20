@@ -1210,8 +1210,10 @@ function Get-WindowCount($slotCfg, $table = $null) {
     # every slot, Invoke-New found no free slot, and it printed "all 16 window slots are
     # already open" to a console the `dsh-new://` protocol runs HIDDEN (the registry
     # command passes -WindowStyle Hidden) and exited 0 -- no window, no error, no line in
-    # windows.log. `dshw status` showed it plainly: sixteen rows, each `windows 1`,
-    # 338 MB, `_shared` -- one browser tree counted sixteen times.
+    # windows.log. `dshw status` showed it plainly: sixteen rows, each `windows 1`, the SAME
+    # memory figure on every row and `_shared` -- one browser tree counted sixteen times. The
+    # figure was 787 MB on ZABZ-YOGA (2026-09-18) and 338 MB on ZABZ-TECH (2026-09-20); the tell
+    # is that it is identical on all sixteen rows, not what the number is.
     #
     # The comment above Get-WindowCount's origin-port test already states the rule this
     # line broke: in shared-profile mode the PROFILE IS NOT PER-SLOT IDENTITY. The origin
@@ -2082,6 +2084,19 @@ function Start-OriginsProxyDirect($a) {
     return [int]$res.ProcessId
 }
 
+# WHY TASK SCHEDULER IS PREFERRED, AND WHY THE TASK IS THEN LEFT REGISTERED. Both were written in the
+# trunk's version of this function and are kept here, because they are the reasons the three paths
+# below are ordered the way they are:
+#   - Task Scheduler, for the same reason the engine is launched that way: a child started directly by
+#     this script dies with the job object that owns it, and the proxy has to outlive the shell that
+#     started it and the session that ran it.
+#   - LEFT REGISTERED, because it is a real race rather than a tidy-up. `ensure` runs every minute as a
+#     scheduled task, so a manual `dshw ensure` and the watchdog can call this at the same moment.
+#     Measured 2026-09-18: that produced TWO proxy instances which SPLIT THE PORT RANGE between them
+#     (3200-3215 and 3216-3223) -- healthy from any single port, broken as a whole.
+#     `-MultipleInstances IgnoreNew` only has anything to ignore while the task still EXISTS, so PATH 1
+#     STARTS the registered task instead of re-registering it, and nothing here ever unregisters it.
+#
 # Launch the proxy. Three independent paths, tried in order, because it is the door every window uses
 # and it MUST come back. `$env:DSHW_ORIGINS_NO_SCHEDULER=1` skips Task Scheduler entirely, which is
 # how the direct path is exercised in a test.

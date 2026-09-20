@@ -3,6 +3,8 @@
 Written 2026-09-18 from the repairs actually performed that day. Every procedure here was executed at least
 once; the ones that were not are marked `NOT YET DONE`.
 
+Reconciled 2026-09-20: union of the ZABZ-TECH and trunk versions (both written 2026-09-18).
+
 ---
 
 ## 1. Add a node — the full checklist
@@ -84,7 +86,8 @@ opening the full declared set; use `stop` + `up` when you only want the config r
 `_scratch/engine-reload.ps1` does this and logs the outcome, **but it hangs after `up`** because the
 engine's stdout keeps its pipeline open — kill that orphan `pwsh` (and its transient task) afterwards, and
 nothing else. **Do not delete the `DSH Origins Proxy` task**: it is the launcher's own start handle for the
-port proxy every window depends on (next subsection). That `engine-reload.ps1` bug is unfixed.
+port proxy every window depends on (next subsection). That `engine-reload.ps1` bug is unfixed. (The trunk
+revision of this step words the same act as "kill the orphan and delete its scheduled task afterwards".)
 
 ### The origin ports 3200-3223 are dead (the proxy is not answering)
 

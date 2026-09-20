@@ -1,0 +1,27 @@
+{
+  "host": "ZABZ-YOGA",
+  "measuredAt": "2026-09-16T14:28:05.534Z",
+  "N": 200,
+  "statSmall": {
+    "n": 200,
+    "min": 0.07,
+    "p50": 0.11,
+    "p90": 0.22,
+    "max": 1.21
+  },
+  "statEnginemodules": {
+    "n": 100,
+    "min": 0.06,
+    "p50": 0.11,
+    "p90": 0.2,
+    "max": 0.34
+  },
+  "readFileSmall": {
+    "n": 50,
+    "min": 0.45,
+    "p50": 0.76,
+    "p90": 1.31,
+    "max": 1.57
+  },
+  "note": "typebox import optional; not required for the report"
+}

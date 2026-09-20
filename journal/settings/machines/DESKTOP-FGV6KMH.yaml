@@ -1,0 +1,172 @@
+# DESKTOP-FGV6KMH -- Yocheved's laptop, the Lakewood Phone & Tech manager workstation.
+#
+# This file is merged OVER `settings/base.yaml` by `scripts/sync.py` (machine wins), and
+# reaches the machine through `scripts/autosync.ps1`. It is committed here rather than
+# edited on the box so that her machine's posture is reviewable and cannot drift silently.
+#
+# ---------------------------------------------------------------------------
+# SANDBOX: full access, deliberately. REVERSED 2026-09-15 on the owner's instruction.
+#
+# This file previously overrode `base.yaml` down to `workspace-write`, on an earlier reading of
+# the owner's requirement (~"powerful for the shop, unable to make breaking changes"). He has
+# since stated the boundary explicitly and the override is now WRONG:
+#
+#   "remember to err on the side of giving her system more power and access to the system, not
+#    less, she is to be the full manager for lpt / just make sure things that come from her
+#    machine get documented as such / her agent should have access to our logs systems and
+#    sessions and chat history and more, we don't want to cripple her agent"
+#
+#   "make her agent similar to ours, very powerful and self learning and all, don't cripple it,
+#    just make sure the edits from her machine are labeled and marked, but don't restrict her agent"
+#
+# So the boundary for her machine is VISIBILITY, NOT PERMISSION. She is the full LPT manager; a
+# manager whose assistant cannot write where the work is cannot manage. What replaces the sandbox
+# restriction is ATTRIBUTION, and it is already structural rather than a convention:
+#   * every git commit made on this box carries `Dsh-Actor` / `Dsh-Machine: DESKTOP-FGV6KMH`
+#     trailers, written by the prepare-commit-msg hook installed from this repo;
+#   * every session row that reaches the authority is keyed on `source_machine`, which is this
+#     box's own hostname, in a PRIMARY KEY -- her work and the owner's cannot be confused in the
+#     database even by accident.
+#
+# An earlier version of this comment also claimed the owner must see her changes "first". That is
+# overstated: nothing here gates on review. The guarantee is that a change is traceable to this
+# machine afterwards.
+#
+# Do not narrow this again without a fresh instruction from the owner, in his words, recorded
+# here -- the previous narrowing cost her agent the ability to do the job it was installed for.
+# ---------------------------------------------------------------------------
+permission:
+  defaultPreset: danger-full-access
+
+# ---------------------------------------------------------------------------
+# Model route.
+#
+# WHY NOT `deepseek-official`: this machine sits behind the Techloq filter, which blocks
+# `api.deepseek.com` by URL category. Measured 2026-09-14 from her box: the block page is
+# served as HTML with a *success* status (HTTP 302 via node:https, HTTP 200 via
+# Invoke-WebRequest), so a status check reads the block as a pass. `api.deepinfra.com` is
+# allowed and returns real JSON.
+#
+# Verified through Techloq, from her own machine, at the exact call the harness makes:
+# `deepseek-ai/DeepSeek-V4-Flash-0731` returned `finish_reason: tool_calls`, so the agent
+# loop works. It is also cheaper than the direct route -- $0.06/M in and $0.18/M out against
+# the owner's documented $0.14/$0.28 for `deepseek-flash` -- and DeepSeek describes `-0731`
+# as superseding the preview with substantially enhanced agentic capability.
+#
+# The `llm-pi-ai` adapter re-reads its profiles per request, so switching this route later
+# (e.g. to a Cloudflare Worker fronting api.deepseek.com) is a `baseURL` edit and needs no
+# restart. The deepinfra block below is merged over base.yaml's own deepinfra route, so the
+# older preview ids are replaced rather than left selectable.
+#
+# Network requirements this file cannot express (they live in the launcher): Node must be
+# told to trust the Techloq MITM CA via NODE_EXTRA_CA_CERTS, and IPv6 must be avoided via
+# NODE_OPTIONS=--dns-result-order=ipv4first. Machine-scope environment variables are NOT
+# reliably inherited by service-spawned processes on this box -- measured -- so the launcher
+# sets both explicitly.
+# ---------------------------------------------------------------------------
+agent-default-model:
+  provider: deepseek-proxy
+  # THE VISION MODEL, AND WHY IT IS THE DEFAULT HERE.
+  #
+  # pi-ai's shipped catalog declares exactly one DeepSeek model that accepts images:
+  #   deepseek-v4-flash-vision-exp   input: ["text", "image"]    priced as flash
+  # while `deepseek-flash` and `deepseek-v4-pro` are text-only (`input: ["text"]`). Every route
+  # originally configured here used a text-only model, so attaching an image produced NO error and NO
+  # answer -- HTTP 200 with an empty reply -- which looked like a fault in the pass-through Worker.
+  # It was not: the Worker carries images correctly. Verified by sending a solid green PNG and getting
+  # "Green" back through ds.abletelsolutions.com, and by the same request on a text-only model
+  # returning an empty message. The text-only models stay selectable for speed.
+  model: deepseek-v4-flash-vision-exp
+
+# Her assistant is the shop manager, so a fresh session mounts the `yocheved` preset
+# (presets/yocheved/) rather than the owner's `zabz`. That preset derives from cordis-bg, so the
+# background-first shell policy is retained.
+agent-presets:
+  default: yocheved
+
+ui-conversation:
+  busyEnter: steer
+
+llm-pi-ai:
+  providers:
+    # PRIMARY: DeepSeek direct, reached through our own pass-through Worker
+    # (harness-config/packages/deepseek-proxy). The filter sees only ds.abletelsolutions.com, a
+    # hostname her box is already proven to reach; the Worker makes the upstream call from
+    # Cloudflare's edge, where the filter has no visibility, and streams the SSE response unbuffered.
+    #
+    # WHY THIS REPLACED DEEPINFRA: same model, much slower serving tier. Measured from a neutral
+    # network, same prompt, max_tokens=200, 3 runs each --
+    #     deepseek-flash direct   :  747 ms to first token, 160 tok/s
+    #     DeepInfra V4-Flash-0731 : 1693 ms to first token,  24 tok/s
+    # 2.3x slower to first token and ~6.7x per token, which is exactly what makes an assistant feel
+    # slow. Through the proxy there is no meaningful penalty: six sequential runs showed zero
+    # inter-chunk gaps over 300 ms in steady state, and a 4-run comparison put the proxy at 429 ms
+    # vs direct's 662 ms (noise), against DeepInfra's +900 ms.
+    deepseek-proxy:
+      apiKeyEnv: DEEPSEEK_API_KEY
+      api: openai-completions
+      baseURL: https://ds.abletelsolutions.com/v1
+      # THE ROUTE DECLARES ITS MODALITIES, because a `models` list here REPLACES pi-ai's installed
+      # catalog and the fallback is `["text"]` -- which makes the adapter refuse an attachment. That
+      # fallback, not any model limit, is why images did nothing.
+      #
+      # MEASURED rather than taken from the catalog (same prompt, 3 runs, text vs image):
+      #   direct deepseek-flash      TEXT 3/3 433ms 84tok/s   IMAGE 3/3 381ms 91tok/s "Green"
+      #   direct v4-flash-vision-exp TEXT 3/3 368ms 78tok/s   IMAGE 3/3 400ms 76tok/s "Green"
+      #   proxy  deepseek-flash      TEXT 3/3 429ms 81tok/s   IMAGE 2/3 517ms 87tok/s "Green"
+      #   direct deepseek-v4-pro     TEXT 3/3 386ms 48tok/s   IMAGE 0/3  (genuinely image-blind)
+      # So images cost nothing extra and need no separate "vision" model; only v4-pro cannot read one.
+      # The fix is that the route must not under-claim, because under-claiming refuses the image before
+      # it is ever sent. A per-model `input:` is deliberately NOT used any more: I added it from the
+      # shipped catalog and created the limitation I was trying to describe.
+      defaultInput: [text, image]
+      models:
+        # NO `input:` DECLARATIONS HERE, DELIBERATELY -- I added them and they were wrong.
+        #
+        # `input` tells the pi-ai adapter which modalities a model accepts, and the adapter ENFORCES it:
+        # declaring `input: [text]` makes it refuse an attachment. I set that from pi-ai's own shipped
+        # catalog (which lists only deepseek-v4-flash-vision-exp as accepting images) and labelled the
+        # others "text only, faster". MEASURED 2026-09-14, same prompt, 3 runs each, text vs image:
+        #
+        #   direct  deepseek-flash               TEXT 3/3 433ms 84tok/s   IMAGE 3/3 381ms 91tok/s  "Green"
+        #   direct  deepseek-v4-flash-vision-exp TEXT 3/3 368ms 78tok/s   IMAGE 3/3 400ms 76tok/s  "Green"
+        #   direct  deepseek-v4-pro              TEXT 3/3 386ms 48tok/s   IMAGE 0/3  (genuinely blind)
+        #   proxy   deepseek-flash               TEXT 3/3 429ms 81tok/s   IMAGE 2/3 517ms 87tok/s  "Green"
+        #
+        # So deepseek-flash reads images at the SAME speed as text, and there is no "faster text model"
+        # to prefer. The catalog under-declares; the model is fine. Only deepseek-v4-pro is image-blind.
+        #
+        # Leaving `input` absent means these entries fall back to the route's own declaration rather
+        # than to a claim of mine. Do not re-add a per-model `input` unless it is measured first.
+        - id: deepseek-v4-flash-vision-exp
+          name: DeepSeek Flash Vision (images)
+        - id: deepseek-flash
+          name: DeepSeek Flash (images)
+        - id: deepseek-v4-pro
+          name: DeepSeek V4 Pro (text only)
+    # FALLBACK, kept selectable: an independent provider, so if the Worker, Cloudflare or the zone
+    # breaks, switching back is one `agent-default-model.provider` line and these models already
+    # exist. The Worker holds no key and no state, so there is nothing to rotate or repair there.
+    deepinfra:
+      apiKeyEnv: DEEPINFRA_API_KEY
+      api: openai-completions
+      baseURL: https://api.deepinfra.com/v1/openai
+      models:
+        - id: deepseek-ai/DeepSeek-V4-Flash-0731
+          name: DeepSeek V4 Flash (0731, DeepInfra)
+        - id: deepseek-ai/DeepSeek-V4.1-Flash
+          name: DeepSeek V4.1 Flash (DeepInfra)
+        - id: deepseek-ai/DeepSeek-V3.2
+          name: DeepSeek V3.2
+
+# ---------------------------------------------------------------------------
+# PARITY WITH THE OWNER'S OWN MACHINE (added 2026-09-15).
+#
+# Measured gap before this change, by diffing her merged settings against his: her file pinned
+# `workspace-write` (now fixed above) and was missing this block entirely. `maxParallelToolCalls`
+# is how the owner's sessions run many independent tool calls at once, which is most of the
+# difference between an assistant that answers and one that works. There was no reason for her
+# assistant to have less of it.
+# ---------------------------------------------------------------------------
+agent-loop:
+  maxParallelToolCalls: 20

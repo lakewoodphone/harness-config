@@ -1,0 +1,23 @@
+{
+  "name": "dsh-plugin-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phone behaviour for DSH: on a narrow viewport the sidebar is a drawer, and picking a conversation closes it.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "scripts": {
+    "verify": "node --check lib/client.js && node --check lib/index.js"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "host": "ZABZ-YOGA",
+  "node": "v24.12.0",
+  "cpu": "Intel64 Family 6 Model 170 Stepping 4, GenuineIntel",
+  "measuredAt": "2026-09-16T14:21:54.443Z",
+  "cases": {
+    "npx": {
+      "cmd": "cmd.exe /d /c npx --no-install --version",
+      "spawnReturn": {
+        "n": 6,
+        "min": 5.2,
+        "p50": 6.3,
+        "mean": 6.3,
+        "p90": 7.2,
+        "max": 7.2
+      },
+      "exit": {
+        "n": 6,
+        "min": 514.7,
+        "p50": 517,
+        "mean": 582.7,
+        "p90": 663,
+        "max": 704.1
+      },
+      "codes": [
+        0
+      ],
+      "minorFaultsPerSpawn": 0,
+      "majorFaultsPerSpawn": 45,
+      "userCpuMsPerSpawn": 10.3,
+      "sysCpuMsPerSpawn": 5,
+      "wallMsPerSpawn": 602.8
+    }
+  }
+}

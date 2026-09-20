@@ -1,0 +1,83 @@
+{
+  "$comment": "USD per 1,000,000 tokens, by provider+model, for the /cost command and the composer cost pill. Every rate carries its source and the date it was read. Edit a rate only by also updating effectiveFrom/source/readAt.",
+  "version": 1,
+  "updated": "2026-09-11",
+  "defaultRoute": { "provider": "deepseek-official", "model": "deepseek-flash" },
+  "routes": [
+    {
+      "provider": "deepseek-official",
+      "models": ["deepseek-flash", "deepseek-v4-flash", "deepseek-v4-flash-vision-exp"],
+      "modelVersion": "DeepSeek-V4.1-Flash",
+      "currency": "USD",
+      "unit": "per_1m_tokens",
+      "effectiveFrom": "2026-09-10T04:00:00Z",
+      "readAt": "2026-09-11",
+      "source": "https://api-docs.deepseek.com/quick_start/pricing",
+      "sourceNote": "Footnote 1: the ids deepseek-v4-flash and deepseek-v4-flash-vision-exp are retired names still served by DeepSeek-V4.1-Flash at the Flash price. The provider's live /models endpoint returns exactly deepseek-flash and deepseek-v4-pro (re-read 2026-09-11).",
+      "notes": "The card has three line items and no cache-write row, so cacheWriteTokens is unpriced. Do not charge it at the miss rate.",
+      "rates": { "missPer1M": 0.15, "hitPer1M": 0.003, "writePer1M": 0, "outputPer1M": 0.6 },
+      "tiers": [
+        {
+          "name": "peak",
+          "multiplier": 2,
+          "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+          "windows": [["01:00", "04:00"], ["06:00", "10:00"]],
+          "timezone": "UTC"
+        }
+      ]
+    },
+    {
+      "provider": "deepseek-official",
+      "models": ["deepseek-v4-pro"],
+      "modelVersion": "DeepSeek-V4-Pro-0813",
+      "currency": "USD",
+      "unit": "per_1m_tokens",
+      "effectiveFrom": "2026-09-10T04:00:00Z",
+      "readAt": "2026-09-11",
+      "source": "https://api-docs.deepseek.com/quick_start/pricing",
+      "sourceNote": "Rates as published for V4 Pro; footnote 2 states V4 Pro continues past 2026-09-14 with billing unchanged.",
+      "notes": "Re-read this card after 2026-09-14.",
+      "rates": { "missPer1M": 0.66, "hitPer1M": 0.022, "writePer1M": 0, "outputPer1M": 1.98 },
+      "tiers": [
+        {
+          "name": "peak",
+          "multiplier": 2,
+          "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+          "windows": [["01:00", "04:00"], ["06:00", "10:00"]],
+          "timezone": "UTC"
+        }
+      ]
+    },
+    {
+      "provider": "deepinfra",
+      "models": ["deepseek-ai/DeepSeek-V4.1-Flash"],
+      "modelVersion": "DeepSeek-V4.1-Flash",
+      "currency": "USD",
+      "unit": "per_1m_tokens",
+      "effectiveFrom": "2026-09-11",
+      "readAt": "2026-09-11",
+      "source": "https://deepinfra.com/deepseek-ai/DeepSeek-V4.1-Flash",
+      "sourceNote": "Machine-readable at https://api.deepinfra.com/models/deepseek-ai/DeepSeek-V4.1-Flash.",
+      "notes": "Flat rate, no time-of-day tier. The optional explicit-cache-write premium is null for this id, so writes are unpriced. Priority (1.5x) and Flex (0.8x) service tiers are not enabled by this harness.",
+      "rates": { "missPer1M": 0.2, "hitPer1M": 0.006, "writePer1M": 0, "outputPer1M": 0.6 },
+      "tiers": []
+    },
+    {
+      "provider": "deepinfra",
+      "models": ["deepseek-ai/DeepSeek-V4-Flash-0731"],
+      "modelVersion": "DeepSeek-V4-Flash-0731",
+      "currency": "USD",
+      "unit": "per_1m_tokens",
+      "effectiveFrom": "2026-09-11",
+      "readAt": "2026-09-11",
+      "source": "https://deepinfra.com/deepseek-ai/DeepSeek-V4-Flash-0731",
+      "sourceNote": "Machine-readable at https://api.deepinfra.com/models/deepseek-ai/DeepSeek-V4-Flash-0731.",
+      "notes": "A genuinely different, cheaper model id than deepseek-flash on deepseek-official. Flat rate.",
+      "rates": { "missPer1M": 0.06, "hitPer1M": 0.015, "writePer1M": 0, "outputPer1M": 0.18 },
+      "tiers": []
+    }
+  ],
+  "unpriced": {
+    "deepseek-official/deepseek-reasoner": "Not present in the provider's live model list on 2026-09-11 and absent from the pricing card; deliberately not priced rather than guessed."
+  }
+}

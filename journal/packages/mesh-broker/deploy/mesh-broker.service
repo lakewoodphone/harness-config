@@ -1,0 +1,100 @@
+# The mesh broker (docs/mesh/71-mesh-program.md §2.2) as a SUPERVISED SERVICE on the authority.
+#
+# INSTALLED 2026-09-17 by stream O5 of the overnight program (docs/mesh/86-authority.md §1). It
+# replaced a process an agent had started by hand — `node bin/mesh-broker.mjs --port 3091`, pid in
+# /tmp/mesh-broker.pid, log in /tmp/mesh-broker.log — which had no supervisor, no journal, and no
+# path back after a reboot or a crash.
+#
+#   sudo bash packages/mesh-broker/deploy/install-authority.sh [source-dir]
+#
+# LOOPBACK ONLY, AND HOW IT IS ENFORCED. `--host 127.0.0.1` below is what the code binds, the
+# installed unit is verified against a real `ss -ltnp` after every install, and a request to this
+# host's own LAN and tailnet addresses is measured to fail. The owner's decision is that a placed
+# job must not be requestable by any device on an allow-all tailnet, and a listener bound to
+# 127.0.0.1 cannot be reached from off the machine at all.
+#
+# WHY THERE IS NO IPAddressDeny=/IPAddressAllow= HERE, MEASURED 2026-09-17 03:42-03:47Z BY STREAM
+# O5, AND WHY IT MATTERS MORE THAN THE LINE IT REPLACES. This unit first shipped with
+# `IPAddressDeny=any` + `IPAddressAllow=localhost` to put the loopback rule in the kernel. The
+# filter applies to EGRESS as well as ingress, so the broker could no longer reach a single node:
+# `GET /nodes?fresh=1` reported `unreachable - timed out after 4000 ms` for all four nodes and
+# `readFailures 8/8`, while the install script's other 19 assertions passed. Controlled
+# experiment: a throwaway `systemd-run -p IPAddressDeny=any -p IPAddressAllow=localhost` unit got
+# curl exit 000 against `https://zabz-tech.tail93e6e6.ts.net/mesh/capacity` while the same curl
+# outside the sandbox got HTTP 200, and loopback still got 200. `SocketBindDeny=any` +
+# `SocketBindAllow=127.0.0.1:3091` - the tool that WOULD have restricted the bind without
+# touching traffic - is not usable on this systemd: every documented spelling
+# (`:3091`, `127.0.0.1:3091`, `ipv4:127.0.0.1`, `ipv4:127.0.0.1:3091`) is rejected with
+# "Failed to parse SocketBindAllow= value ...: Invalid argument".
+#
+# A sandbox rule that breaks the service's only job is not hardening. The loopback guarantee is
+# therefore carried by the bind - which is what the owner asked for - and the install script
+# FAILS if the bound address is anything other than 127.0.0.1, if a LAN/tailnet address answers,
+# or if the service cannot read a single node. The one thing this leaves unprotected is a future
+# edit that changes `--host`; that edit fails install-authority.sh step 6 and 8 loudly, by name.
+#
+# IT HOLDS LIVE LEASES IN MEMORY, so a restart forgets them (nothing is on disk to leak, which is
+# also why there is no state directory here). The cost of a restart is at most one lease TTL of
+# over-counted slots, and the never-refuse rule still places every caller.
+
+[Unit]
+Description=mesh broker - placement decisions for the DSH mesh (never refuses; queues instead)
+Documentation=file:///home/zabz/mesh-broker/PROVENANCE.md
+Documentation=file:///home/zabz/code/harness-config/docs/mesh/76-broker.md
+Documentation=file:///home/zabz/code/harness-config/docs/mesh/86-authority.md
+# The broker reads each node through the tailnet, so it is started after the network and after
+# tailscaled. `Wants=` on network-online because the target is not implied by `After=`.
+After=network-online.target tailscaled.service
+Wants=network-online.target
+# The rate limit is DELIBERATELY left at its default (5 starts per 10 s). A single crash - including
+# SIGKILL, which systemd cannot distinguish from a fault - is always restarted; a broker that dies
+# five times in ten seconds is broken code, and on a 4-core authority a bounded stop-and-report beats
+# an unbounded restart loop. `systemctl status mesh-broker` says which one happened.
+
+[Service]
+Type=simple
+User=zabz
+Group=zabz
+WorkingDirectory=/home/zabz/mesh-broker
+# Absolute paths, an explicit loopback host, and an explicit roster: nothing here depends on a
+# shell's cwd, on a default, or on the caller's environment.
+ExecStart=/usr/bin/node /home/zabz/mesh-broker/bin/mesh-broker.mjs \
+  --host 127.0.0.1 --port 3091 --config /home/zabz/mesh-broker/nodes.json
+Restart=always
+RestartSec=2
+Environment=NODE_ENV=production
+Environment=HOME=/home/zabz
+# The journal, not /tmp: /tmp is a tmpfs on this host and a reboot empties it, which is part of
+# why the hand-started broker's log could never have been evidence of anything.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mesh-broker
+
+# Hardening. The broker reads one JSON file and makes TCP requests; it needs nothing else.
+NoNewPrivileges=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RemoveIPC=true
+SystemCallArchitectures=native
+UMask=0027
+
+# NOTE: no IPAddressDeny=/IPAddressAllow= - see the header. They block egress, which is how the
+# broker reaches the nodes it is deciding between.
+
+[Install]
+WantedBy=multi-user.target

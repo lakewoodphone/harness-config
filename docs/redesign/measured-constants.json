@@ -1,0 +1,892 @@
+{
+  "schema": 1,
+  "_what_this_is": "The measured-constants keeper (stream F, seed). One JSON object per constant that a deployed copy of the harness restates. This file is the canonical value; every consumer is either derived from it or compared against it. It exists because a corrected fact did not reach the copies that act on it: the refuted 0.81 GB figure survived two independent refutations in five deployed copies of the skill the default path loads, with no correction marker (A Part 3.1, B section 0, D defect D10).",
+  "_rules": [
+    "NEVER delete a superseded value. Record it in `supersedes` with its value, the figure that carried it, and the document that measured it wrong. A refuted constant that a reader can see refuted is a warning; a refuted constant that was deleted is a constant that comes back.",
+    "Where two live surfaces publish different answers to the same question, record BOTH in `unresolved` with both sources. This keeper makes the disagreement visible; it does not arbitrate it. Arbitration requires a measurement, and a measurement is not a JSON edit.",
+    "`confidence` is either an interval string (the value was measured) or the literal word \"reasoned\" (it was derived from measured inputs). A prediction must be labelled as one. A prediction presented as a measurement is the failure this whole exercise exists to stop.",
+    "`measured_at` is the date the measurement was taken, not the date the document that quotes it was written.",
+    "Provenance: `source` names a document and a section. A value with no source is refused, not stored.",
+    "Values are held in their measured unit. Converting units at this layer is how the 14-slot units error happened (84 section 4.3, D section 3.3.2)."
+  ],
+  "how_to_use": {
+    "intended_enforcement": "A checker that reads this file, resolves each entry's `restate_glob`, and fails (non-zero exit) when a deployed copy restates the constant with a value that is neither (a) the canonical `value`/`value_interval`, nor (b) named inline as superseded. The comparison must be a property of the output text, not a shape test (V3): extract the stated number from the copy and compare it to the canonical number, rather than grepping for the presence of a string. It must also fail when an entry's `supersedes` values are present in a deployed copy WITH NO correction marker - the specific defect that kept 0.81 GB alive - and it must be runnable in every reader class that loads the copy: local Interactive, ssh-spawned, and scheduled task (a profile check is only evidence for the logon class that ran it; 106 section 8). The negative half matters more than the positive half: a keeper that never reds is the same class of object as the sixteen green checks over broken things catalogued in D section 3.7. Per V4, this keeper must be demonstrated failing against a deliberately hand-edited copy before it is trusted.",
+    "does_such_a_checker_exist_today": "NO. Verified 2026-09-18 on ZABZ-YOGA, read-only. What exists and was checked: (1) `scripts/harness-verify.ps1` is a real invariant checker with 11 `Check` blocks and exits non-zero on failure - but it validates GENERATED/deployed ARTEFACTS (preset-in-sync, MCP rows, reaper task, sampler heartbeat, journal lock, bundle resolution, primary-port ownership, commit-vs-physical, stale MCP gens, preset-deployed-to-~/.dsh, bundle declarations) and contains NO check on any measured constant in any document, README or skill file. Its closest text, at line 206, prints 'measured: idle commit floor ~18 GB; ~0.58 GB commit per extra node process' as a STRING inside a check whose actual assertion is commit < physical - it documents the correction in prose and asserts nothing about it. (2) No scheduled task runs it: `Get-ScheduledTask` filtered to pwsh/powershell actions returned exactly one task, `DSH Metrics Sampler Watchdog`, which runs `harness-metrics.ps1` from a %TEMP% snapshot - not harness-verify.ps1 and not any constants check. (3) Grep for `measured-constants` / `constants.json` across all .mjs, .js and .ps1 in the repo: zero consumers. (4) Grep for the refuted literal `0.81` across all .ps1: two hits, both a COMMENT in harness-verify.ps1 line 201 explaining why the string was removed from the guidance text. So: no consumer, no keeper, no clock, no red path. This file is data with no enforcement behind it yet, and that is stated rather than implied."
+  },
+  "constants": [
+    {
+      "name": "commit_per_turn",
+      "value": 403.3,
+      "unit": "MiB per concurrent agent turn",
+      "source": [
+        "docs/mesh/84-calibration.md section 3 (row-level steady-state fit)",
+        "docs/mesh/84-calibration.md section 3 (level-mean fit 402.3 MiB, CI 271.5-533.0, n=6, r2=0.948)"
+      ],
+      "measured_at": "2026-09-17 (03:44-03:51Z)",
+      "measured_on": "ZABZ-TECH",
+      "method": "Row-level least-squares fit of commit against concurrent turns over ~/.dsh/metrics/harness-metrics.csv, steady-state rows, n=63, r=0.8063; cross-checked three independent ways within 2 percent: OS \\Memory\\Available MBytes (-410.4 MiB/turn, CI -471.6..-349.1, r=-0.8617), node process count (+216 MiB/process x 1.74 processes/turn = 376 MiB/turn), and the level-mean fit.",
+      "confidence": "328.3..478.3 (95 percent CI on the row-level fit); 271.5..533.0 (level-mean fit). The number to use against a decision is the union, 270..530 MiB.",
+      "supersedes": [
+        {
+          "value": "0.81 GB (829.4 MiB) per generating turn",
+          "carried_by": "docs/dsh-at-scale/PROGRAM.md:75; docs/mesh/10-inventory.md:668 re-quoted as MEASURED; docs/mesh/40-hardware-costs.md:22; docs/mesh/71-mesh-program.md:156 (frozen); docs/mesh/61-buy-list-verified.md:44 still tags it [CARRIED]; presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135-136 before 2026-09-18; presets/cordis-bg/skills/parallel-agent-orchestration/SKILL.md:135-136 before 2026-09-18; journal/presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135; journal/presets/cordis-bg/skills/parallel-agent-orchestration/SKILL.md:135; journal/docs/dsh-at-scale/PROGRAM.md:75; packages/plugin-mesh-http/README.md:66; journal/packages/plugin-mesh-http/README.md:66; docs/dsh-at-scale/80-windows-and-parity.md:505 (its origin: (28.7-20.65) GB / (10-0) turns, a two-endpoint slope with the idle floor never subtracted as an intercept)",
+          "refuted_by": "docs/mesh/60-verification.md section 2.2 (2026-09-16, first pass: 0.5754 GB per node PROCESS, r=0.937, 477 rows) and docs/mesh/84-calibration.md section 3.1 (2026-09-17, second pass: REFUTED, 2.1x too high)",
+          "note": "This is the canonical example of the propagation failure. It was refuted twice, on two instruments, and five deployed copies of the skill the default path loads still carried it with NO correction marker. The two copies under presets/ now carry 0.403 GB with an inline supersede marker; the four under journal/ and packages/plugin-mesh-http/README.md:66 still do not (verified 2026-09-18 by reading the files)."
+        },
+        {
+          "value": "0.58 GB (0.5754 GB) per node process, r=0.937, 477 rows",
+          "carried_by": "docs/mesh/60-verification.md section 2.2; adopted as the replacement in docs/mesh/40-hardware-costs.md section 1 and docs/mesh/20-placement.md section 1",
+          "refuted_by": "docs/mesh/84-calibration.md section 3.1: re-fitting the SAME file at 1,478 rows gives 0.465 GB (r=0.8545, intercept 16.33 GB, residSd 2.16 GB) - '60-verification's 0.575 GB does not reproduce on the file that produced it'",
+          "note": "Recorded because the value that killed 0.81 was itself replaced. A supersession chain, not a single correction."
+        },
+        {
+          "value": "0.465 GB per node process, r=0.8545, 1,478 rows",
+          "carried_by": "docs/mesh/84-calibration.md section 3.1",
+          "refuted_by": "docs/mesh/84-calibration.md section 5.4 - the UNIT is unusable regardless of the slope: at 8 live turns the node.exe count inside a single level ranged 19..27 non-monotonically. 'Use a turn count or use nothing.'",
+          "note": "Superseded by a unit error, not by a better number."
+        }
+      ],
+      "used_by": [
+        "packages/mesh-broker/lib/scoring.js:22-24 (the wrong halves, both)",
+        "docs/dsh-at-scale/PROGRAM.md:75 (NOT corrected, verified 2026-09-18)",
+        "journal/docs/dsh-at-scale/PROGRAM.md:75 (NOT corrected, verified)",
+        "presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135-136 (CORRECTED to 0.403 GB with supersede marker, file 10,802 B)",
+        "presets/cordis-bg/skills/parallel-agent-orchestration/SKILL.md:135-136 (CORRECTED, file 10,802 B)",
+        "$HOME/.dsh/.agent-presets/zabz/skills/parallel-agent-orchestration/SKILL.md (CORRECTED - the copy every session on this machine actually reads, file 10,802 B)",
+        "journal/presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135-136 (NOT corrected, file 10,458 B)",
+        "journal/presets/cordis-bg/skills/parallel-agent-orchestration/SKILL.md:135-136 (NOT corrected, file 10,458 B)",
+        "packages/plugin-mesh-http/README.md:66 (NOT corrected, verified 2026-09-18)",
+        "journal/packages/plugin-mesh-http/README.md:66 (NOT corrected)",
+        "docs/mesh/61-buy-list-verified.md:44 (still tagged [CARRIED])",
+        "docs/mesh/71-mesh-program.md:156 and journal/docs/mesh/71-mesh-program.md:156 (inside the FROZEN scoring rationale)"
+      ],
+      "status": "measured",
+      "restate_glob": [
+        "docs/**/*.md",
+        "journal/docs/**/*.md",
+        "presets/*/skills/**/*.md",
+        "journal/presets/*/skills/**/*.md",
+        "packages/*/README.md",
+        "journal/packages/*/README.md",
+        "$DSH_HOME/.agent-presets/*/skills/**/*.md"
+      ]
+    },
+    {
+      "name": "laptop_turns_to_paging",
+      "value": 13.5,
+      "unit": "concurrent turns before ZABZ-YOGA pages",
+      "source": "docs/dsh-at-scale/PROGRAM.md:75 as inherited; corrected algebra in docs/mesh/40-hardware-costs.md section 4 (floor((0.75 x RAM_GB - 18) / 0.58))",
+      "measured_at": "2026-09-15/16 (inherited, never measured on the laptop)",
+      "method": "NONE. This is the value carried without a measurement behind it.",
+      "confidence": "reasoned",
+      "supersedes": [],
+      "superseded_by": {
+        "value": "105 resident turns to the commit limit",
+        "unit": "turns",
+        "source": "Arithmetic on A section 2.3 [LIVE] 2026-09-17 23:47: (44,149 MiB commit limit - 27,386 MiB committed) / 403.3 MiB per turn = 41.6 turns to the hard commit limit; and B section 11 measured (44,149 - 27,141) / 403.3 = 42.2 turns on the same machine the same night",
+        "confidence": "reasoned",
+        "note": "PROVENANCE: this replacement is my own division of two A readings. It is a prediction from measured inputs, not itself a measurement. The number it replaces is the one that is dead: 'paging is not a function of concurrency at all' on the node that could be measured - \\Paging File(_Total)\\% Usage was 14.1 percent in all 83 samples and the largest page-in burst in the whole corpus (27,028/s) happened at engines=0 with a healthy 18.03 GB commit (docs/mesh/84-calibration.md section 4.1, docs/mesh/60-verification.md section 2.3). What is NOT settled is where the laptop binds under a real fleet: 84 section 6.1 records the laptop was past the program's own 26 GB stop line before any fleet was dispatched."
+      },
+      "used_by": [
+        "presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135 (historical; the row now reads 0.403 GB and ~111 turns before it pages, CI 93-136 - which is a THIRD value, also not measured on the laptop)",
+        "journal/presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135 (NOT corrected)",
+        "docs/dsh-at-scale/PROGRAM.md:75 (NOT corrected)",
+        "journal/entries/lessons/L1711.md:23",
+        "journal/entries/lessons/L1717.md:40",
+        "journal/entries/handoff/H386.md:16",
+        "journal/entries/handoff/H411.md:35"
+      ],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "Three live values for one question, none of them measured on the machine they describe, and two of them in the same deployed skill file the default path loads.",
+        "values": [
+          {
+            "value": "~13-14 turns",
+            "source": "presets/zabz/skills/.../SKILL.md:135 as originally deployed; docs/dsh-at-scale/PROGRAM.md:75; presets/cordis-bg/...; journal/presets/*/..."
+          },
+          {
+            "value": "~111 turns before it pages, CI 93-136",
+            "source": "presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135 (current), presets/cordis-bg/... , $DSH_HOME/.agent-presets/... - all three carry this today"
+          },
+          {
+            "value": "~42 turns to the commit limit",
+            "source": "my arithmetic on A section 2.3 and B section 11 readings; reasoned, not measured"
+          }
+        ],
+        "resolution_requires": "docs/mesh/84-calibration.md section 6.1 item 1: run the 84 rig FROM ZABZ-TECH AGAINST zabz-yoga-1, N=2..8, ~6 minutes, ~90 turns, after the laptop is back under ~12 GiB of commit. Until that runs, the laptop's own curve does not exist."
+      },
+      "restate_glob": [
+        "docs/**/*.md",
+        "journal/docs/**/*.md",
+        "presets/*/skills/**/*.md",
+        "journal/presets/*/skills/**/*.md",
+        "journal/entries/**/*.md"
+      ]
+    },
+    {
+      "name": "cpu_per_turn_resident",
+      "value": 0.62,
+      "unit": "measured logical CPUs per concurrent model-bound turn, now the DECLARED WEIGHT w_model_bound (same unit as U_cpu)",
+      "source": "docs/mesh/84-calibration.md sections 2.1 and 4.3",
+      "measured_at": "2026-09-17",
+      "measured_on": "ZABZ-TECH",
+      "method": "Delta of mean \\Processor(_Total)\\% Processor Time divided by the measured live turn count, times 32 logical processors, at N=2,4,6,8. Stable at 0.58-0.66 from N=4 on; 0.632 at N=8.",
+      "confidence": "0.575..0.655 (the measured band at N=4..8). The single number 0.62 is the mid-band value the design uses.",
+      "supersedes": [
+        {
+          "value": "~1 core per actively generating agent turn",
+          "carried_by": "packages/mesh-broker/lib/scoring.js:22-24; docs/mesh/71-mesh-program.md:156; docs/mesh/76-broker.md:484; docs/mesh/83-http-transport.md:233",
+          "refuted_by": "docs/mesh/84-calibration.md section 4.3 - the sentence is wrong in BOTH halves and in OPPOSITE directions",
+          "note": "The 0.62 half of 'both halves wrong': the CPU cost was understated for tool-heavy turns and overstated for resident ones."
+        }
+      ],
+      "used_by": [
+        "packages/mesh-broker/lib/scoring.js:22-24",
+        "packages/plugin-mesh-http/lib/concurrency.js (CPU_PER_TURN default 1.68; env MESH_HTTP_CPU_PER_TURN=0.62 moves zabz-tech's limit to 12, measured in docs/mesh/93-transport-concurrency.md section 2.2)",
+        "docs/redesign/D-architecture.md section 3.3.2 (cpuSlots = floor(logicalCpus x 0.42 / CPU_PER_TURN)) - SUPERSEDED 2026-09-18 by docs/redesign/G-architecture-v2.md section 1.2, which deletes that CPU term; retained here as the record of the old use, which WAS THE DEFECT"
+      ],
+      "declared_weight": {
+        "w": 1.0,
+        "label": "model-bound",
+        "source": "docs/redesign/G-architecture-v2.md sections 1.2 and 1.7: 'w(turn) = 1.0 model-bound | 3.0 tool-heavy ... declared by the work, 0.62 / 1.679 measured'",
+        "what_changed": "RE-TYPED 2026-09-18. This entry is no longer a per-turn cost to be multiplied by a constant. It is one of the two weights w that the WORK DECLARES, and its role is to be the divisor in cpuSlots = floor(U_cpu / w), with U_cpu a per-node measurement (entry U_cpu_zabz_tech). The measured 0.62 remains the measurement the weight is declared from; the declared weight is 1.0."
+      },
+      "status_note": "The old USE was the defect, not the number. docs/redesign/G-architecture-v2.md section 1.1: the CPU term that consumed this value, floor(logicalCpus x 0.42 / CPU_PER_TURN), is arithmetically floor(logicalCpus / 4) with the tool-heavy figure and floor(logicalCpus x 0.677) with this one - 'the term D deletes, in another unit, or 2.7x looser' (docs/redesign/E-redteam.md section 7 objection 1). G section 1.2 deletes that term as an original term and replaces it with the weight form. The measured value 0.62 is unchanged and still measured; what changed is that nothing multiplies it into a capacity formula any more. The behaviour change G states and accepts: the resident weight falls from 1.679 to 1.0 for model-bound work, which ADMITS MORE of it than D would have (G section 1.2 property 4).",
+      "status": "measured",
+      "restate_glob": ["packages/**/*.js", "packages/**/*.md", "docs/**/*.md"]
+    },
+    {
+      "name": "cpu_per_turn_tool_heavy",
+      "value": 1.679,
+      "unit": "measured logical CPUs per concurrent tool-heavy turn, now the DECLARED WEIGHT w_tool_heavy (same unit as U_cpu)",
+      "source": "docs/mesh/84-calibration.md sections 2.1 and 4.3",
+      "measured_at": "2026-09-17",
+      "measured_on": "ZABZ-TECH",
+      "method": "Same derivation as cpu_per_turn_resident, at N=8 with a tool-heavy prompt: 1.679 logical CPUs.",
+      "confidence": "single measured point at N=8; 2.7x the resident figure. Not measured at any other N and not measured above N=8.",
+      "supersedes": [],
+      "used_by": [
+        "packages/plugin-mesh-http/lib/concurrency.js (CPU_PER_TURN default)",
+        "docs/redesign/D-architecture.md section 3.3.2 (cpuSlots = floor(logicalCpus x 0.42 / CPU_PER_TURN)) - SUPERSEDED 2026-09-18 by docs/redesign/G-architecture-v2.md section 1.2, which deletes that CPU term; retained here as the record of the old use, which WAS THE DEFECT"
+      ],
+      "declared_weight": {
+        "w": 3.0,
+        "label": "tool-heavy",
+        "source": "docs/redesign/G-architecture-v2.md sections 1.2 and 1.7: 'w(turn) = 1.0 model-bound | 3.0 tool-heavy ... declared by the work, 0.62 / 1.679 measured'",
+        "what_changed": "RE-TYPED 2026-09-18. This entry is no longer a per-turn cost to be multiplied by a constant. It is one of the two weights w that the WORK DECLARES, and its role is to be the divisor in cpuSlots = floor(U_cpu / w), with U_cpu a per-node measurement (entry U_cpu_zabz_tech). The measured 1.679 remains the measurement the weight is declared from; the declared weight is 3.0."
+      },
+      "status_note": "The old USE was the defect, not the number. docs/redesign/G-architecture-v2.md section 1.1: 1.679 is one of the two measured inputs to the identity 0.42 = 8 x 1.679 / 32, so the CPU term that consumed it (floor(logicalCpus x 0.42 / CPU_PER_TURN)) was arithmetically floor(logicalCpus / 4) - the deleted 0.75 x physical in another unit. G section 1.2 deletes that term as an original term and replaces it with the weight form; G section 1.2 property 3 shows what the weight form makes visible that the average hid: 8 tool-heavy turns cost 24 weight-units on a machine whose measured sustained load is 13.28. This entry is the reason the term was deleted, and it is retained rather than removed because the 2.7x spread it carries is now a DECLARED INPUT of the work rather than a two-valued unresolved parameter (G section 1.2 property 6).",
+      "status": "measured",
+      "restate_glob": ["packages/**/*.js", "packages/**/*.md", "docs/**/*.md"]
+    },
+    {
+      "name": "largest_measured_cpu_occupancy_fraction",
+      "value": 0.42,
+      "unit": "fraction of logical CPUs, as PARTITION OCCUPANCY - NOT a formula term",
+      "source": "docs/mesh/84-calibration.md sections 2.1 / 4.4 / 5.2, as corrected by docs/redesign/G-architecture-v2.md section 1.2 property 1",
+      "source_correction": {
+        "previously_stated_as": "docs/mesh/84-calibration.md section 4.1, cited as the D-architecture formula's occupancy term at docs/redesign/D-architecture.md section 3.3.2",
+        "why_corrected": "docs/redesign/E-redteam.md section 6.1 and docs/redesign/G-architecture-v2.md section 5: the 41.5 percent lives at 84 section 2.1 (its CPU table) and is restated at 4.4 and 5.2, and '84 section 4.1 contains no occupancy fraction at all'. The wrong citation is kept here rather than dropped, because the corrected attribution is itself the record of the defect.",
+        "corrected_by": "docs/redesign/G-architecture-v2.md section 1.2 property 1: 'the corrected source is 84 section 2.1/4.4/5.2 as a partition-level occupancy'"
+      },
+      "measured_at": "2026-09-17",
+      "measured_on": "ZABZ-TECH",
+      "method": "The largest measured total CPU occupancy during the calibration levels, at 8 concurrent turns: 41.5 percent of all 32 logical CPUs.",
+      "confidence": "0.415 (one measurement, at N=8, on one node, one prompt class). Refusing to call it a curve.",
+      "supersedes": [],
+      "use": "PARTITION OCCUPANCY, NOT A FORMULA TERM. docs/redesign/G-architecture-v2.md section 1.2 deletes the CPU term this value fed, so it is no longer multiplied into any capacity formula and it is not a term of the admission contract in G section 1.7. What it now does is describe how loaded the measured partition actually was - and it is the reason U_cpu must be RE-MEASURED PER NODE rather than read off one level: the same table's largest single sample is 62.9 percent (G section 5), which is not a value any one level can stand in for.",
+      "used_by": [
+        "docs/redesign/D-architecture.md section 3.3.2 (cpuSlots = floor(logicalCpus x 0.42 / CPU_PER_TURN)) - SUPERSEDED 2026-09-18 by docs/redesign/G-architecture-v2.md section 1.2, which deletes that CPU term; retained here as the record of the deleted use, and no live consumer remains",
+        "docs/redesign/G-architecture-v2.md section 1.1 (as one of the two inputs to the identity 0.42 = 8 x 1.679 / 32)"
+      ],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md", "packages/**/*.js"]
+    },
+    {
+      "name": "U_cpu_zabz_tech",
+      "value": 13.28,
+      "unit": "logical CPUs sustained, the largest measured load at which the node's own work stayed usable",
+      "source": "docs/mesh/84-calibration.md section 2.1 (the CPU table at N=8), via docs/redesign/G-architecture-v2.md section 1.2 property 1",
+      "measured_at": "2026-09-17",
+      "measured_on": "ZABZ-TECH",
+      "method": "NAMED AND SHOWN: 41.5 percent (the measured total CPU occupancy at N=8, 84 section 2.1) x 32 logical CPUs (ZABZ-TECH, A section 1.11) = 13.28 logical CPUs. The 41.5 percent and the 32 are both measured; the product is arithmetic over them, and docs/redesign/G-architecture-v2.md section 7.2 lists it in its ARITHMETIC row.",
+      "confidence": "measured (one measurement, at N=8, on one node, one prompt class). No curve, therefore no interval.",
+      "supersedes": [],
+      "use": "This is the U_cpu of the admission contract, cpuSlots = floor(U_cpu / w) (docs/redesign/G-architecture-v2.md sections 1.2 and 1.7). It REPLACES the deleted floor(logicalCpus x 0.42 / CPU_PER_TURN), whose 0.42 was arithmetically 8 x 1.679 / 32 and reduced that term to floor(logicalCpus / 4) - the deleted 0.75 x physical in another unit (G section 1.1). It is NOT a new capacity claim: G section 1.2 property 1 records that under the identity it reproduces the 8 slots the old term produced, and says so deliberately rather than quietly.",
+      "no_equivalent_exists_for": {
+        "node": "ZABZ-YOGA (the laptop, the machine the owner works at)",
+        "fact": "There is no U_cpu for ZABZ-YOGA. This entry is the desktop's measurement and ONLY the desktop's.",
+        "consequence": "Under docs/redesign/G-architecture-v2.md sections 1.2 (property 5), 1.7 and 7, a node without a measured U_cpu reports calibrated: false and may take remote work only under a conservative bound, disclosed rather than excluded. That is why ZABZ-YOGA reports calibrated: false.",
+        "the_measurement_that_would_produce_it": "docs/mesh/84-calibration.md section 6.1 item 1: run the 84 rig FROM ZABZ-TECH AGAINST zabz-yoga-1, N=2..8, ~6 minutes, ~90 turns, after the laptop is back under ~12 GiB of commit. See the entry laptop_validated_capacity_model."
+      },
+      "used_by": [
+        "docs/redesign/G-architecture-v2.md sections 1.2, 1.5 and 1.7 (the admission contract's U_cpu term, and the node's CPU budget in the scarce-resource table of section 3.1)",
+        "no code consumer exists yet - the slice specified in docs/redesign/F-first-slice.md has not been built"
+      ],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md", "packages/**/*.js"]
+    },
+    {
+      "name": "tool_call_latency_pwsh_trivial",
+      "value": 548.0,
+      "unit": "ms p50 for a trivial pwsh tool call",
+      "source": "docs/dsh-at-scale/70-toolcall-latency.md section 2.1 (table) and section 2.2 (decomposition), n=30 each, interleaved",
+      "measured_at": "2026-09-16 (14:20-14:45 UTC)",
+      "measured_on": "ZABZ-YOGA",
+      "method": "30 interleaved samples of `pwsh ... -Command \"<ENC>; exit 0\"`: min 405.0, p10 414.1, p50 548.0, p90 631.5. Decomposition: probeWindowsJob <1 ms; spawn runner.js ~136 ms; CreateProcessW ~7 ms; pwsh.exe start + encoding preamble ~550 ms; collector+spill+canonicalisation ~10 ms; exit detection 0-10 ms. So ~700 ms typical / ~540 ms best, with pwsh 78 percent, runner 19 percent, everything else under 3 percent.",
+      "confidence": "405.0..631.5 ms (p10..p90, n=30). The design's working figure is '~700 ms typical / ~540 ms best'.",
+      "supersedes": [
+        {
+          "value": "340-406 ms best observed",
+          "carried_by": "docs/dsh-at-scale/70-toolcall-latency.md section 5 line 271",
+          "refuted_by": "the same document's own tables, sections 2.1/2.2: no measured row anywhere shows 340; the minima are 377.3 ms and 405.0 ms, and section 7.1 separately cites an external 386.3 ms",
+          "note": "An in-document contradiction. The 340 appears once and is unsupported by the tables in the same file."
+        }
+      ],
+      "used_by": [
+        "docs/dsh-at-scale/70-toolcall-latency.md section 5 (the 340-406 ms claim)",
+        "the parallel-agent-orchestration skill's brief text ('a shell tool call costs ~700 ms')",
+        "packages/plugin-health/lib/governor.js (160 MiB per-lane constant is justified by the same runner+shell spawn; see slot_cost_tool_call)"
+      ],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md", "presets/*/skills/**/*.md", "journal/presets/*/skills/**/*.md"]
+    },
+    {
+      "name": "tool_call_latency_in_process",
+      "value": {"readFile_60KB_yaml_p50": 0.76, "stat_p50": 0.11},
+      "unit": "ms p50",
+      "source": "docs/dsh-at-scale/70-toolcall-latency.md sections 5 and 6.3, instrument fslat.mjs, n=200",
+      "measured_at": "2026-09-16",
+      "measured_on": "ZABZ-YOGA",
+      "method": "fslat.mjs, 200 samples each: stat p50 0.11 ms; readFile of a 60 KB YAML p50 0.76 ms.",
+      "confidence": "point medians, n=200. The comparison the document draws: 4,000x under the pwsh floor, 'a 700x saving on every call it applies to'.",
+      "supersedes": [],
+      "used_by": [
+        "the harness's own tool policy (prefer in-process file tools)",
+        "presets/*/skills/parallel-agent-orchestration/SKILL.md ('while read is 0.76 ms and stat 0.11 ms')"
+      ],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md", "presets/*/skills/**/*.md", "journal/presets/*/skills/**/*.md"]
+    },
+    {
+      "name": "browser_per_window_private_profile",
+      "value": 892,
+      "unit": "MB per window (private --user-data-dir)",
+      "source": "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 1 (table of 7 profiles, plus the prose figure)",
+      "measured_at": "2026-09-18",
+      "measured_on": "ZABZ-YOGA",
+      "method": "Get-CimInstance Win32_Process -Filter \"Name='msedge.exe'\" grouped by --user-data-dir, 7 windows on 7 private profiles: 6,804 MB total.",
+      "confidence": "692..1,064 MB per window across the 7 measured rows (mean 892).",
+      "supersedes": [],
+      "used_by": [
+        "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 1",
+        "presets/*/skills/parallel-agent-orchestration/SKILL.md ('~892 MB private per window before the shared-profile change')"
+      ],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "The document's own rows and its own summary disagree on the PROCESS count, in the same table. Stated as written, never reconciled.",
+        "values": [
+          {"value": "9 processes per window, 63 total across 7 rows", "source": "the seven table rows in MEMORY-AND-SESSION-LIST.md section 1 (9,9,9,9,9,9,9)"},
+          {"value": "74 processes", "source": "the same section's prose and summary line"}
+        ],
+        "note": "The MB figures are unaffected; the process count is what disagrees."
+      },
+      "restate_glob": ["docs/**/*.md", "presets/*/skills/**/*.md", "journal/presets/*/skills/**/*.md"]
+    },
+    {
+      "name": "browser_per_window_shared_profile_marginal",
+      "value": "60..296",
+      "unit": "MB marginal per additional window (shared --user-data-dir)",
+      "source": "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 1 (two runs)",
+      "measured_at": "2026-09-18",
+      "measured_on": "ZABZ-YOGA",
+      "method": "Two runs of the same process-grouping measurement, opening window A (origin 3200) then window B (origin 3201) into a shared profile. Run 1: 65 procs/6,499 MB baseline, 74/6,941 after A (9 shared procs, 612 MB), 74/7,000 after B (9 shared, 764 MB). Run 2: 66/6,927, 76/7,562 (10 shared, 672 MB), 77/7,858 (11 shared, 926 MB).",
+      "confidence": "The marginal per-window figures are n=2 windows. The 'after' totals are measurements; the 8-window projection (17 processes against 72) is a PROJECTION, per the same document.",
+      "supersedes": [
+        {
+          "value": "~325 MB private per browser window",
+          "carried_by": "docs/dsh-at-scale/PROGRAM.md:75; journal/docs/dsh-at-scale/PROGRAM.md:75; journal/presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135; journal/presets/cordis-bg/skills/parallel-agent-orchestration/SKILL.md:135; journal/entries/handoff/H386.md:16",
+          "refuted_by": "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 1 (2026-09-18): measured 892 MB per private-profile window before the change and 60-296 MB marginal after it. The presets/ copies of the skill were corrected in place to say '60-296 MB after it'; the journal/presets copies and PROGRAM.md were not (verified 2026-09-18).",
+          "note": "Set as the third member of the refuted triple (0.81 GB / 13-14 turns / ~325 MB), which is the group that survived twice-refuted in five deployed copies with no correction marker. The correction and the refutation belong together; separating them is how the third member stayed alive while the first two were being refuted."
+        }
+      ],
+      "used_by": [
+        "docs/dsh-at-scale/PROGRAM.md:75 (NOT corrected)",
+        "journal/docs/dsh-at-scale/PROGRAM.md:75 (NOT corrected)",
+        "presets/zabz/skills/parallel-agent-orchestration/SKILL.md:135 (CORRECTED)",
+        "presets/cordis-bg/skills/parallel-agent-orchestration/SKILL.md:135 (CORRECTED)",
+        "$DSH_HOME/.agent-presets/zabz/skills/parallel-agent-orchestration/SKILL.md (CORRECTED)",
+        "journal/presets/*/skills/parallel-agent-orchestration/SKILL.md:135 (NOT corrected)"
+      ],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md", "journal/docs/**/*.md", "presets/*/skills/**/*.md", "journal/presets/*/skills/**/*.md", "journal/entries/**/*.md"]
+    },
+    {
+      "name": "idle_window_cpu",
+      "value": 2.27,
+      "unit": "logical CPUs for 12 idle windows",
+      "source": "docs/dsh-at-scale/80-windows-and-parity.md section 6.4, quoted in docs/redesign/B-assumptions.md section 9 item 4",
+      "measured_at": "2026-09-14/15 (document date), on ZABZ-YOGA",
+      "method": "Sustained CPU of 12 idle windows measured at 2.27 of 22 logical cores.",
+      "confidence": "measured aggregate (n=12 windows, one reading). The derived per-window figure ~0.19 logical CPU/window is REASONED from it, not measured.",
+      "supersedes": [],
+      "used_by": ["docs/redesign/D-architecture.md section 3.5 limit (b); docs/redesign/B-assumptions.md section 9 item 4"],
+      "status": "measured",
+      "note_idle_culling": "NO measurement exists for the cost of an idle WINDOW CULL, and no cull policy exists to measure. The design's cull policy (D section 3.5 item 2) is specified and unbuilt; A Part 5 item 14 records the launcher's own close/reap behaviour as unexplained ('one live origin against fourteen registry rows'). This entry is seeded as a REFUSAL, not a number.",
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "session_list_walk_cold",
+      "value": 25371,
+      "unit": "ms, full /api/session/list walk on the live engine",
+      "source": "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 2, measured with tools/probe-session-list.ps1",
+      "measured_at": "2026-09-18 (before the proxy cache)",
+      "measured_on": "ZABZ-YOGA",
+      "method": "Three runs against the live engine: HTTP 200 in 25,370.8 / 25,069 / 31,357.1 ms, 1.46 MB of JSON, 679 rows. Root cause reproduced WITHOUT the engine by tools/replicate-list-scan.mjs: project dirs 6 (24 ms), session dirs 681 (26 ms), first-zstd-line read 681 parsed / 40.6 MB read (2,723 ms), stat per artifact 681 (3,127 ms), TOTAL 5,900 ms.",
+      "confidence": "25,069..31,357 ms (n=3).",
+      "supersedes": [],
+      "used_by": [
+        "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 2",
+        "docs/redesign/D-architecture.md section 3.2 item 1",
+        "docs/redesign/D-architecture.md section 3.5"
+      ],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "session_list_walk_raw_filesystem",
+      "value": 5900,
+      "unit": "ms of raw filesystem work for 681 session directories",
+      "source": "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 2, tools/replicate-list-scan.mjs, no engine involved",
+      "measured_at": "2026-09-18",
+      "measured_on": "ZABZ-YOGA",
+      "method": "replicate-list-scan.mjs: 6 project dirs (24 ms) + 681 session dirs (26 ms) + 681 first-zstd-line reads totalling 40.6 MB (2,723 ms) + 681 stats (3,127 ms).",
+      "confidence": "single run, component sum exact. The cost is linear in stored sessions and there is no paging parameter to lean on.",
+      "supersedes": [],
+      "used_by": ["docs/redesign/D-architecture.md section 3.2 item 1", "docs/redesign/D-architecture.md section 6.1 ASSUMPTION A9"],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "session_list_walk_warm_proxy_cache",
+      "value": "29 / 29 / 92",
+      "unit": "ms through the origins proxy, n=3",
+      "source": "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 2 ('Measured through the proxy: 25,371 ms -> 29 / 29 / 92 ms (n=3) with rpcId re-labelled correctly each time, 685 rows, 1,472,207 bytes')",
+      "measured_at": "2026-09-18",
+      "measured_on": "ZABZ-YOGA",
+      "method": "Three calls through dshw-proxy.mjs after the cached POST /api/session/list was added.",
+      "confidence": "29..92 ms (n=3), AS REPORTED. This is the value with the weakest first-party support in the whole set.",
+      "supersedes": [],
+      "used_by": ["docs/redesign/D-architecture.md section 3.5", "docs/multi-window/MEMORY-AND-SESSION-LIST.md section 2"],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "No first-party 29 ms measurement exists, and A's own live reading refused it. Stream A could not confirm the warm figure is being achieved on this machine, and said so.",
+        "values": [
+          {"value": "29 / 29 / 92 ms (n=3)", "source": "MEMORY-AND-SESSION-LIST.md section 2"},
+          {"value": "3,482 / 12,412 / 20,064 ms", "source": "[LIVE] A section 2.5, ~/.dsh/multi-window/origins.log tail at 03:25-03:45Z: 'cache refresh ok rows=685 in 12412 ms', 'rows=686 in 3482 ms', 'rows=694 in 20064 ms'. NOTE these are background stale-while-revalidate REFRESH times, not caller waits - they are the only walk times available on this machine that night, which is exactly why the 29 ms figure is recorded as unconfirmed rather than adopted."}
+        ],
+        "resolution_requires": "a first-party re-measurement of the warm path through the proxy on this machine, from a caller, while the proxy is up."
+      },
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "derived_concurrency_limit_per_node",
+      "value": {"zabz-tech": 8, "zabz-yoga-1": 5, "zabz-tech-linux": 3, "secratary": 1, "lakewooechsmini": 1},
+      "unit": "concurrent dispatches per node",
+      "source": "docs/mesh/93-transport-concurrency.md sections 2.1 and 2.2",
+      "measured_at": "2026-09-17 (13:32-13:56Z) for the inputs",
+      "measured_on": "the five nodes' own /mesh/capacity documents",
+      "method": "limit = max(1, min(cpu, mem, declared, hard)) where cpu = floor(logicalCpus x 0.42 / 1.68), mem = floor((availableMiB - reserveMiB) / 403), declared = the node's own accepts.maxChildren, hard = 24. Inputs measured; the arithmetic is the transport's.",
+      "confidence": "reasoned (the formula is arithmetic over measured inputs). zabz-tech-linux and secratary limits are ARITHMETIC, NOT MEASUREMENT - both answer 404 on /mesh/health (93 section 10.4). The Mac's limit is the only one where the memory term decides, and its memory quantity is unmeasured (93 section 10.6).",
+      "supersedes": [],
+      "used_by": [
+        "packages/plugin-mesh-http/lib/concurrency.js",
+        "docs/redesign/D-architecture.md section 3.3.2 (whose admission replaces this formula and moves it into the node)"
+      ],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "THE most important unresolved conflict in the file. Two live surfaces of the same system publish different answers to 'how much can this node take', simultaneously. A dispatcher asking one gets a different answer from a dispatcher asking the other. Never averaged, never picked.",
+        "values": [
+          {
+            "value": {"zabz-yoga-1": 12, "zabz-tech": 18, "secratary": 3, "zabz-tech-linux": 4, "lakewooechsmini": "~7"},
+            "source": "the mesh broker, docs/mesh/92-provider-placement.md section 5.1 (13:17:42Z) and docs/mesh/109-pressure-routing.md section 1 - 'zabz-tech slots=18 ... coreSlots=18(physical)', 'zabz-yoga-1 slots=12 ... coreSlots=12(physical)', 'zabz-tech-linux slots=4', 'secratary slots=3 free=3 swap=81.2 percent transport=null'; bookended in A Part 4.2 rows B1-B4"
+          },
+          {
+            "value": {"zabz-yoga-1": 5, "zabz-tech": 8, "secratary": 1, "zabz-tech-linux": 3, "lakewooechsmini": 1},
+            "source": "docs/mesh/93-transport-concurrency.md section 2.2 (derived limit, binding term cpu)"
+          }
+        ],
+        "magnitude": "2.4x on the laptop, 2.25x on the desktop, 3x on the authority, 7x on the Mac.",
+        "resolution_requires": "a measured load sweep at each published limit on each node - the region above 8 concurrent turns has never been measured on any node (93 section 10.3), and 55 has never been run (93 section 10.8).",
+        "note": "The broker's number is a core count (the memory term is pinned at its cap on every node in the fleet, so min(memorySlots, coreSlots) is always coreSlots - 84 section 5.3, D defect D1). The transport's number is a capacity budget. They are not two estimates of one thing; they are two different things wearing one name, which is why they cannot be reconciled by picking."
+      },
+      "restate_glob": ["docs/**/*.md", "packages/**/*.js", "packages/**/*.json"]
+    },
+    {
+      "name": "reserve_mib",
+      "value": 3885,
+      "unit": "MiB reserved from commit before any slot is offered",
+      "source": "packages/mesh-broker/lib/scoring.js:70 (RESERVE_MIB = 3885), and 84's arithmetic as quoted in docs/mesh/93-transport-concurrency.md section 2.1",
+      "measured_at": "2026-09-16/17",
+      "measured_on": "ZABZ-YOGA (the 3,885 figure appears in the governor's own printed derivation: '15943 MiB free - 3885 MiB reserved = 12059 MiB usable / 160 MiB per slot = 75 slot(s), capped at maxSlots=24')",
+      "method": "Read out of source, plus one printed derivation. Not derived from a measurement of what a reserve needs to be.",
+      "confidence": "reasoned",
+      "supersedes": [],
+      "used_by": [
+        "packages/mesh-broker/lib/scoring.js:70",
+        "packages/mesh-broker/lib/scoring.js:136 (its own comment: '77173 MiB -> 7821 (frozen 3885 UNDER-reserves by 3936 MiB, ~24 slots)')",
+        "packages/plugin-health/lib/governor.js (uses max(2 GiB, 12 percent) instead)",
+        "docs/mesh/93-transport-concurrency.md section 2.1 (uses max(2048, 12 percent of physical))",
+        "docs/redesign/D-architecture.md section 3.3.2 (ownerReserve)"
+      ],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "ONE NAMED CONSTANT, TWO VALUES 2x APART, ON THE SAME MACHINE, IN CODE THAT IS LIVE AT THE SAME TIME. And a live document attributes the second formula to a source that does not contain it.",
+        "values": [
+          {"value": 3885, "unit": "MiB", "source": "packages/mesh-broker/lib/scoring.js:70, verified live in code by A section 2.2 ('Still live in code: scoring.js:70 RESERVE_MIB = 3885')"},
+          {"value": 7821, "unit": "MiB", "source": "docs/mesh/93-transport-concurrency.md section 2.1: max(2048, 12 percent of physical) evaluated on zabz-tech's 65,173 MiB = 7,821 MiB"}
+        ],
+        "attribution_error": {
+          "claimed_source": "docs/mesh/93-transport-concurrency.md section 2.1 attributes the max(2048, 12 percent) formula to '84 section 4.4'",
+          "what_the_source_actually_says": "docs/mesh/84-calibration.md section 4.4 derives the swapUsedPct field's behaviour and names commit headroom as the replacement quantity. It does NOT state a reserve formula of max(2048, 12 percent) or any other. The formula exists in the governor and the mesh-http concurrency code; it does not exist in the document it is cited from.",
+          "mechanism": "docs/mesh/84-calibration.md section 1.5 and A Part 4.2 row B5 record this exact class: a document attributing a formula to a source that does not contain it. Quoted, not smoothed."
+        },
+        "magnitude": "On zabz-tech, 3,885 UNDER-reserves against 7,821 by 3,936 MiB - about 24 slots at 160 MiB. The under-reserve is the direction that hurts: it advertises room that is not there.",
+        "resolution_requires": "one decision, made once, with the reason recorded: either the reserve is a fixed MiB floor or a fraction of physical, and whichever it is, every consumer reads it from here. This keeper's job is to make the disagreement visible; picking is a design act that belongs in the architecture document, not in this file."
+      },
+      "design_choice_recorded_not_a_resolution": {
+        "chosen": 7821,
+        "formula": "max(2048, 0.12 x physicalMiB)",
+        "chosen_by": "docs/redesign/G-architecture-v2.md section 1.3 - the design act this entry's resolution_requires asked for, taken in the architecture document and deliberately not here",
+        "why_this_direction": "G section 1.3, and it is reasoning rather than preference: of the two errors, UNDER-reserving is the one that hurts, because it advertises room that is not there (D2's failure, 109 section 1: 'A dispatcher that asked the broker and obeyed the answer would have put the child on the laptop ... with no bug anywhere'), whereas over-reserving costs throughput on a machine with no measured demand problem. Cost of choosing this way on ZABZ-TECH, per G section 1.3: 3,936 MiB / 403 MiB = ~9.8 slots of throughput.",
+        "why_status_is_still_unresolved": "A design value is not a resolution of a disagreement. Two live code paths still publish two different answers - 3,885 in packages/mesh-broker/lib/scoring.js:70 and 7,821 from max(2048, 12 percent) - and G section 1.3 itself requires the keeper to keep BOTH entries and both sources: 'the disagreement is still a fact about two live code paths even after the design picks one. Picking belongs here; hiding belongs nowhere.' Nothing in this entry has been removed, averaged or arbitrated, and the status stays unresolved.",
+        "assumption_label": "the 0.12 fraction is G's own [G-ASSUMPTION G2], reasoned rather than measured, and bracketed by the measured near-failure margins (within 410 MiB of a hard allocation failure on the desktop, 1,174 MiB on the laptop, on a 2-4 GiB-wide commit band - 84 section 4.4). Its test is named there: step commit toward the limit on each node under a real fleet and record the largest reserve at which no allocation failure occurs."
+      },
+      "restate_glob": ["packages/**/*.js", "docs/**/*.md"]
+    },
+    {
+      "name": "slot_cost_tool_call",
+      "value": 160,
+      "unit": "MiB per in-flight heavy tool call",
+      "source": "docs/dsh-at-scale/90-plugin-health-governor.md section 3 (runner 57.3 MB + shell 102.7 MB = 160 MiB measured)",
+      "measured_at": "2026-09-16",
+      "measured_on": "ZABZ-YOGA",
+      "method": "Measured cost of one heavy tool call: Job-owner runner 57.3 MB plus shell 102.7 MB.",
+      "confidence": "measured for the tool call. It is NOT the per-turn cost and must not be used as one.",
+      "supersedes": [],
+      "used_by": [
+        "packages/plugin-health/lib/governor.js (the slot cost in (free physical - reserve) / 160)",
+        "docs/dsh-at-scale/90-plugin-health-governor.md",
+        "packages/mesh-broker/lib/scoring.js:55 (PER_SLOT_MIB = 160)"
+      ],
+      "status": "measured",
+      "status_note": "The number is sound; the USE is the defect. docs/mesh/84-calibration.md section 4.2: 160 MiB is 'one in-flight tool call inside' a turn, i.e. 2.5x below the measured per-turn cost, 'and it is not the quantity that limits this node'. D-architecture section 4.3 deletes it as a PLACEMENT constant and keeps it as a tool-call constant. A keeper must not let this entry be read as a turn cost, which is why the unit string is explicit.",
+      "restate_glob": ["packages/**/*.js", "docs/**/*.md"]
+    },
+    {
+      "name": "governor_budget_slots",
+      "value": 24,
+      "unit": "heavy-slot ceiling (advisory)",
+      "source": "docs/dsh-at-scale/90-plugin-health-governor.md section 3: budget = (free physical - reserve) / measured slot cost, capped at 24, floored at 4; reserve = max(2 GiB, 12 percent)",
+      "measured_at": "2026-09-16",
+      "measured_on": "ZABZ-YOGA",
+      "method": "Formula plus a printed derivation. Cross-process proof: governor-stress.mjs --contenders 30 --slots 5 finished 30 concurrent acquires in 549 ms, exactly 5 granted, 25 queued, 15/15 checks pass, one reaper.",
+      "confidence": "reasoned (formula), with a measured concurrency proof that the PROTOCOL works.",
+      "supersedes": [],
+      "used_by": [
+        "packages/plugin-health/lib/governor.js",
+        "the published /mesh/capacity field governor.budgetSlots (24 on all five nodes)"
+      ],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "A field that CANNOT VARY across a population is published as a per-node measurement. The cap binds on every node, so the report says 24 everywhere and is read as 'this machine can take 24'.",
+        "values": [
+          {"value": "24 on all five nodes", "source": "docs/mesh/95-audit-live-mesh.md sections 1.1 and 1.4, verified [LIVE] again by A section 1.5: 'governor: {budgetSlots: 24, inUse: 0, queued: 0}' on ZABZ-YOGA, a node whose own derived limit is 5"},
+          {"value": "clamped by a floor of 4 and a cap of 24, from (free physical - reserve) / 160 MiB, which on this laptop evaluates to 75 before the cap", "source": "the governor's own printed derivation"}
+        ],
+        "resolution_requires": "V7's rule: a field that cannot vary across a population must be REPORTED AS A CONSTANT, not as a measurement (D section 3.7 V7). The keeper cannot make the field vary; it can require that the field say 'constant' when it is one."
+      },
+      "restate_glob": ["packages/**/*.js", "docs/**/*.md"]
+    },
+    {
+      "name": "accepts_max_children",
+      "value": 12,
+      "unit": "published per-node max children",
+      "source": "scripts/phone-gate.py:939 MESH_MAX_CHILDREN = 12",
+      "measured_at": "2026-09-17 (read out of source; the value is a literal)",
+      "measured_on": "all five nodes",
+      "method": "READ. It is not a measurement of anything - it came from a JSON example in a frozen contract.",
+      "confidence": "not applicable - this is a constant, and D section 3.7 row 4 records it as 'a constant published as a measurement'.",
+      "supersedes": [],
+      "used_by": [
+        "scripts/phone-gate.py:939",
+        "the published /mesh/capacity field accepts.maxChildren",
+        "packages/mesh-broker/lib/broker.js (the broker CONSUMES it; docs/mesh/95-audit-live-mesh.md section 1.4 quotes 'accepts.maxChildren=12 < 999 child(ren)')"
+      ],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "Identical on all five nodes including the 4-core authority, whose own derived limit is 1 - so the filter that reads it can never bind and never inform.",
+        "values": [
+          {"value": 12, "source": "phone-gate.py:939, published by all five gates"},
+          {"value": "the node's own derived limit: 8 / 5 / 1 / 3 / 1", "source": "docs/mesh/93-transport-concurrency.md section 2.2"}
+        ],
+        "resolution_requires": "the field becomes a per-node measurement or is deleted as a published measurement (D-architecture section 4.3 deletes it)."
+      },
+      "restate_glob": ["scripts/*.py", "packages/**/*.js", "docs/**/*.md"]
+    },
+    {
+      "name": "commit_limit_zabz_yoga",
+      "value": "44145..48556675072",
+      "unit": "MiB / bytes (see `unresolved` - these are not the same quantity written two ways)",
+      "source": "docs/mesh/84-calibration.md section 4.4 and docs/mesh/109-pressure-routing.md sections 2.1 and 4.1",
+      "measured_at": "2026-09-17 03:54Z and 2026-09-17 22:33Z",
+      "measured_on": "ZABZ-YOGA",
+      "method": "\\Memory\\Commit Limit read directly (84); and the pressure-routing probe's own readings (109).",
+      "confidence": "measured, repeatedly, and the limit legitimately MOVES as the pagefile grows.",
+      "supersedes": [],
+      "used_by": [
+        "docs/mesh/84-calibration.md section 4.4",
+        "docs/mesh/109-pressure-routing.md sections 2.1 and 4.1",
+        "[LIVE] A section 1.11: \\Memory\\Commit Limit = 44,149.4 MB at 23:47 local 2026-09-17"
+      ],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "Four to six live statements of one quantity in one evening, two of them inside a single section, plus an arithmetic error in one of the conversions.",
+        "values": [
+          {"value": "44,145 MiB", "source": "docs/mesh/84-calibration.md section 4.4 (03:54Z)"},
+          {"value": "46.29 GB", "source": "docs/mesh/109-pressure-routing.md section 2.1"},
+          {"value": "43.11 GiB", "source": "docs/mesh/109-pressure-routing.md section 2.1, ONE LINE APART from the 46.29 GB"},
+          {"value": "48,556,675,072 B, stated as 43.28 GiB", "source": "docs/mesh/109-pressure-routing.md section 4.1 (22:33Z)"},
+          {"value": "44,149.4 MB", "source": "[LIVE] A section 1.11, Get-Counter '\\Memory\\Commit Limit', 2026-09-17 23:47 local"}
+        ],
+        "arithmetic_error": "109 section 4.1's own conversion of 48,556,675,072 B to '43.28 GiB' is wrong: 48,556,675,072 / 2^30 = 45.22 GiB. This is separate from the legitimate movement of the limit between 03:54Z and 22:33Z. A number that moved AND was converted wrongly is the hardest kind to un-believe, because both halves look like evidence.",
+        "resolution_requires": "one reading, one instant, one unit, with the reading's timestamp printed beside it - and the honest statement that the limit moves, so a single stored value is a PHOTOGRAPH, not a constant."
+      },
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "committed_to_physical_ratio_zabz_yoga_one_evening",
+      "value": "120..126",
+      "unit": "percent of physical committed",
+      "source": "docs/mesh/109-pressure-routing.md sections 1, 2.1, 4.1, 4.2, 4.3",
+      "measured_at": "2026-09-17 evening",
+      "measured_on": "ZABZ-YOGA",
+      "method": "commitBytes / physical, read repeatedly across one evening of the owner's own working machine under a live fleet.",
+      "confidence": "measured, five times, on one machine, in one evening - and they disagree.",
+      "supersedes": [],
+      "used_by": ["docs/mesh/109-pressure-routing.md", "docs/redesign/D-architecture.md defect D2"],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "Five values for one ratio on one machine in one evening, two of them inside a single section, and one case's ledger carries the OTHER case's pressure line.",
+        "values": [
+          {"value": "126 percent", "source": "109 section 1"},
+          {"value": "120 percent", "source": "109 section 2.1"},
+          {"value": "122.1 percent", "source": "109 section 4.1, probe path"},
+          {"value": "125.6 percent", "source": "109 section 4.1, normal path"},
+          {"value": "124 percent", "source": "109 section 4.2 case A"},
+          {"value": "95 percent", "source": "109 section 4.3 - MARKED SIMULATED, and must never be quoted as a reading of this machine"}
+        ],
+        "contamination": "the section 4.2 case's ledger carries the other case's pressureLine ('40670 MiB (125.6 percent)') while its own commitBytes = 40,136 MiB and commitToPhysicalPct = 124. A reading mislabelled with another reading's provenance is the reader trap this whole file exists to prevent.",
+        "resolution_requires": "one timestamped reading at a time, never a range quoted as if it were one number; and audit any ledger that carries a value in a field whose own arithmetic contradicts it."
+      },
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "memory_term_to_core_term_ratio",
+      "value": 6,
+      "unit": "ratio",
+      "source": "docs/mesh/84-calibration.md section 5.3",
+      "measured_at": "2026-09-17",
+      "measured_on": "the mesh",
+      "method": "Ratio of the memory-derived slot term to the core-derived slot term, computed on the fleet's nodes.",
+      "confidence": "reasoned derivation from measured terms.",
+      "supersedes": [],
+      "used_by": ["docs/mesh/84-calibration.md section 5.3"],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "One document describes another document's measurement differently. Small, but it is the same class as the reserve attribution error and it will be cited by a future reader as if it were the primary.",
+        "values": [
+          {"value": "6x", "source": "docs/mesh/84-calibration.md section 5.3 (the primary)"},
+          {"value": "8x", "source": "docs/mesh/93-transport-concurrency.md section 2.1, described there as a summary of 84 section 5.3"}
+        ],
+        "resolution_requires": "recompute from 84's own table; the primary wins unless the recomputation disagrees with both."
+      },
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "agent_loops_running_blindness",
+      "value": "0 in 83 of 83 samples with 8 real concurrent turns running",
+      "unit": "published count vs reality",
+      "source": "docs/mesh/84-calibration.md section 5.2",
+      "measured_at": "2026-09-17",
+      "measured_on": "ZABZ-TECH",
+      "method": "8 real dispatched children, consuming 3.0 GiB of extra commit and 41.5 percent of all 32 logical CPUs, while the target's /healthz reported sessions.agentLoopsRunning: 0 and sessionsLive: 1 in every one of 83 samples. A `dsh --profile headless` child is a separate process; it never registers in the resident engine's session store and takes no governor lease either.",
+      "confidence": "83 of 83 samples - the strongest negative result in the record.",
+      "supersedes": [
+        {
+          "value": "agentLoopsRunning is 'the real unit of cost - a generation, not a window'",
+          "carried_by": "docs/mesh/20-placement.md:534; and docs/mesh/60-verification.md section 6.3 PROPOSED settling the per-turn constant by regressing commit on it",
+          "refuted_by": "docs/mesh/84-calibration.md section 5.2 - had that regression been run it would have returned 0 at every load level and produced a confident wrong constant",
+          "note": "A falsified METHOD, not a falsified number. Recorded separately for that reason."
+        }
+      ],
+      "used_by": [
+        "scripts/mesh-restart-when-idle.ps1:802 (refuses a restart on agentLoopsRunning === 0, so a node running 8 dispatched children reports itself IDLE to the restart gate)",
+        "scripts/mesh-restart-at-0700.ps1:274 (same)",
+        "packages/mesh-broker/lib/broker.js:407 and :698 (read and printed; consumed NOWHERE in scoring.js)"
+      ],
+      "status": "measured",
+      "status_note": "A field that is reported and never consumed is worse than an absent field, because it reads as instrumentation. D section 3.7 row 6: 'reported, never consumed'.",
+      "restate_glob": ["packages/**/*.js", "scripts/**/*.ps1", "docs/**/*.md"]
+    },
+    {
+      "name": "engine_loop_lag_max",
+      "value": {"zabz_tech_8_tool_heavy_turns": 54, "zabz_tech_baseline": 18, "zabz_yoga_live_engine_2026_09_17": 1412},
+      "unit": "ms, rolling maximum over a 512-sample window at 250 ms (~128 s)",
+      "source": "docs/mesh/84-calibration.md section 4.1 (18 -> 54 ms on ZABZ-TECH, tool-heavy) and A section 2.10 [LIVE] (loop lag p50=4ms p95=171ms max=1412ms, 512 samples @ 250 ms, delegated engine_health read 03:45:24Z)",
+      "measured_at": "2026-09-17",
+      "measured_on": "ZABZ-TECH (18 -> 54) and ZABZ-YOGA (live, 1,412)",
+      "method": "engine_health's own loop-lag counter on both machines. At 8 tool-heavy turns on the desktop, commit, pagefile percent, disk queue and pages-in were all FLAT while this counter moved - which is why it is the recommended first-degradation signal.",
+      "confidence": "the 54 ms is a rolling max and has a long memory: it was still shown two samples after the fleet stopped. Not an instantaneous signal.",
+      "supersedes": [],
+      "used_by": ["docs/redesign/D-architecture.md guarantee G2", "packages/plugin-health (the source of the counter)"],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "Two measurements of the same counter under load on two different machines disagree by 26x, and the record explains the smaller one properly rather than hiding it.",
+        "values": [
+          {"value": "18 -> 54 ms at 8 turns", "source": "docs/mesh/84-calibration.md section 4.1, ZABZ-TECH, TOOL-HEAVY prompt, 2026-09-17 03:4xZ"},
+          {"value": "17 -> 17 ms at 8 concurrent", "source": "docs/mesh/93-transport-concurrency.md section 5.2, same node the next day, TOOL-LIGHT prompt - and 93 names the reason itself: 'my prompt is a tool-light turn ... it does not test the tool-heavy worst case that CPU_PER_TURN = 1.68 is drawn from'"},
+          {"value": "1,412 ms", "source": "[LIVE] A section 2.10, ZABZ-YOGA, 13 agent loops running, a machine at 62 percent of its commit limit"}
+        ],
+        "note": "The 1,412 ms is not a contradiction of the desktop figures - it is the same counter on the owner's loaded machine, and it is the one the owner actually feels. The 18 vs 54 vs 17 pair is the explainable one, and 93's own explanation is why this entry is unresolved rather than wrong: one prompt class was measured and the other was not."
+      },
+      "restate_glob": ["docs/**/*.md", "packages/**/*.md"]
+    },
+    {
+      "name": "browser_origin_port_range",
+      "value": {"basePort": 3200, "count": 24, "range": "3200..3223", "target": 3099, "ttlMs": 15000},
+      "unit": "loopback TCP ports, one per window origin",
+      "source": "multi-window/windows.json (origins block) and [LIVE] A section 1.3",
+      "measured_at": "2026-09-17 23:47 local",
+      "measured_on": "ZABZ-YOGA",
+      "method": "[LIVE] windows.json read: \"origins\":{\"enabled\":true,\"basePort\":3200,\"count\":24,\"script\":\"dshw-proxy.mjs\",\"ttlMs\":15000}, maxWindows 24, 16 slots. [LIVE] the running proxy process command line: `dshw-proxy.mjs --base 3200 --count 24 --target 3099 --ttl 15000`. [LIVE] GET http://127.0.0.1:3200/__dshw/stats returned the cache counters.",
+      "confidence": "exact - read from the live config and the live process command line.",
+      "supersedes": [],
+      "used_by": [
+        "multi-window/dshw-proxy.mjs",
+        "multi-window/dshw.ps1",
+        "docs/redesign/D-architecture.md section 3.1.1 (session placement rides this origin)"
+      ],
+      "status": "measured",
+      "status_note": "The range is exact. What is NOT consistent is how many of those ports carry a live window: [LIVE] GET /__dshw/open returned {\"ports\":[3200],\"live\":{\"3200\":4}} - exactly ONE live window origin - while windows-registry.json still names fourteen slots as open: true, and no launcher log records a close or a reap (incident README open item 4, still true ~2 hours later). A registry that names live windows is a generated cache, and V6 forbids reading it as the source (D section 3.7 V6; the model is the journal's own stale-index failure, 108 section 10.2).",
+      "restate_glob": ["multi-window/*.json", "multi-window/*.mjs", "docs/**/*.md"]
+    },
+    {
+      "name": "mesh_idle_window",
+      "value": "9 hours",
+      "unit": "hours between the broker's last placement and the audit, with every process live",
+      "source": "docs/mesh/95-audit-live-mesh.md section 0",
+      "measured_at": "2026-09-17 (the window 04:12Z -> 13:13Z)",
+      "measured_on": "secratary (broker) and ZABZ-YOGA (dispatcher records)",
+      "method": "The broker's last placement record is 2026-09-17T04:12:42Z ('place -> zabz-tech position=0 tier=fits fleet children=6', released 0.3 s later); the newest dispatcher record on the laptop is ~/.dsh/mesh/logs/2026-09-17T04-14-39-996Z.jsonl, written 00:15 local. Quoted: 'Nine hours of idle. The processes are live; the workload is not.'",
+      "confidence": "measured, from two record timestamps.",
+      "supersedes": [
+        {
+          "value": "zero placements in 80 minutes",
+          "carried_by": "the brief given to streams A, B and D",
+          "refuted_by": "four independent searches (A section 0 item 1, B section 9 item 1, D section 6.3) found no 80-minute placement window anywhere in the repository, in any document, journal entry or log. A's own words: 'if the 80-minute figure exists it is not written down, and this document will not invent it.'",
+          "note": "A REFUSAL, recorded as a refusal. The sourced claim is the nine hours; the unsourced claim is the 80 minutes. The distinction is the whole point of this file - a brief is not a measurement."
+        }
+      ],
+      "used_by": [
+        "docs/redesign/D-architecture.md defect D2 and section 3.8 (the biggest risk)",
+        "docs/redesign/D-architecture.md section 3.7 V9"
+      ],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "cost_per_turn",
+      "value": 0.0042,
+      "unit": "USD per turn (mean)",
+      "source": "docs/mesh/96-gateway-at-scale.md section 4.1",
+      "measured_at": "2026-09-17",
+      "measured_on": "the fleet (local ledger)",
+      "method": "measured $0.001523 per REQUEST x 2.73 requests per turn, at the 09-17 mix of a 196,945-token mean prompt and a 98.5 percent cache hit.",
+      "confidence": "a MEAN over a heavy tail, and the document says so in its own words: 'the mean is the floor'. Do not budget a constant per turn against this - the 395-957 step sessions were 52.5 percent of a $54.92 day.",
+      "supersedes": [],
+      "used_by": ["docs/mesh/96-gateway-at-scale.md section 4.1", "docs/redesign/D-architecture.md section 3.4 item 6"],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "Two live estimates of one quantity, 1.67x apart, and the record already reconciles them - this entry records the reconciliation rather than hiding either number.",
+        "values": [
+          {"value": "~$0.007 per turn", "source": "docs/mesh/84-calibration.md section 1.5, a synthetic headless turn"},
+          {"value": "$0.0042 per turn", "source": "docs/mesh/96-gateway-at-scale.md section 4.1, the logged real fleet carrying full history"}
+        ],
+        "mechanism": "96 states it: '84's figure is a floored estimate and mine is a mean'. Two different rigs, not two errors.",
+        "resolution_requires": "the provider console export, which is the only population that settles it - and it does not exist as an API (60-cost-audit.md section 8.3). It is an artefact only the owner can produce, and D section 6.3 records it as a dependency rather than an owner decision."
+      },
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "cache_hit_share_and_miss_ratio",
+      "value": {"cache_hit_input_share_of_spend_pct": 42.1, "output_share_pct": 33.5, "cache_miss_input_share_pct": 24.4, "cold_to_warm_cost_ratio": 42},
+      "unit": "percent of spend / ratio",
+      "source": "docs/dsh-at-scale/60-cost-audit.md section 1.3 and docs/mesh/96-gateway-at-scale.md sections 2.3 and 8",
+      "measured_at": "2026-09-15/17",
+      "measured_on": "the account ledger",
+      "method": "Share of the DSH pool's spend by input class (cache-hit input 42.1 percent, output 33.5 percent, cache-miss input 24.4 percent); and the cold/warm cost ratio of 42x.",
+      "confidence": "measured shares. The cold/warm ratio of 42x is stated in 96 section 2.3.",
+      "supersedes": [
+        {
+          "value": "82 percent of spend is re-reading context",
+          "carried_by": "docs/dsh-at-scale/PROGRAM.md:119",
+          "refuted_by": "docs/dsh-at-scale/60-cost-audit.md section 1.3 and docs/mesh/96-gateway-at-scale.md section 8 both say 42 percent; the nearest '82' in 60 is a DIFFERENT quantity - 'tool output is 82.5 percent ... of prompt tokens'",
+          "note": "A summary line contradicting the measurement it summarises. Two different quantities collapsed into one number by a rounding of language."
+        },
+        {
+          "value": "cache-hit rate was ~$0.03/M",
+          "carried_by": "60-cost-audit.md section 0.1's own earlier version",
+          "refuted_by": "the same section: '5-10x too high; the real rate is $0.003-0.006/M. That single correction moves the whole cost composition.'",
+          "note": "Self-corrected in the primary document. Recorded because 'the whole cost composition' moved on it."
+        }
+      ],
+      "used_by": [
+        "docs/redesign/D-architecture.md section 3.4 (cache-preserving changes are BUDGET work)",
+        "docs/dsh-at-scale/PROGRAM.md:119 (NOT corrected)"
+      ],
+      "status": "measured",
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "spend_guard_thresholds",
+      "value": {"warn": 35, "fanout": 80, "ceiling": 150, "concurrencyCap": 12},
+      "unit": "USD per day / generating agents per machine",
+      "source": "packages/plugin-cost/cordis.patch.yml, read live at ~/.dsh/spend-guard/day.json limitsUsd",
+      "measured_at": "2026-09-17 (installed 101-spend-guard-installed.md)",
+      "measured_on": "ZABZ-YOGA",
+      "method": "[LIVE] day.json read: limitsUsd {warn:35, fanout:80, ceiling:150, concurrencyCap:12}. Their derivation: warn sits above the median day ($4-7) and above every legitimate single-machine day on record ($35.39 on 09-14); fanout is ~70 minutes of a 55-agent fleet; ceiling is 2.7x the worst day ever recorded, where the old $50 was 44 minutes of that fleet.",
+      "confidence": "reasoned thresholds over measured days. NOT a measurement of what the fleet may spend - a policy.",
+      "supersedes": [
+        {
+          "value": "$50 ceiling",
+          "carried_by": "the plan reviewed before 101",
+          "refuted_by": "docs/redesign/D-architecture.md section 1.2 G3: the $50 tripwire is 44 minutes into a 55-agent plan, and one hour of that plan is 1.24x the worst day he has ever had ($54.92)",
+          "note": "The old ceiling was not wrong as a number; it was wrong as a ratio to the plan it was meant to bound."
+        }
+      ],
+      "used_by": [
+        "packages/plugin-cost/guard (host-plane loader row)",
+        "docs/mesh/96-gateway-at-scale.md section 5.2",
+        "docs/redesign/D-architecture.md section 3.4 item 5 and step M3"
+      ],
+      "status": "measured",
+      "status_note": "TWO known blind spots, both measured: the counter counts THIS HOST ONLY (101 section 8.1 - 'on 2026-09-15, 56.5 percent of the day came from ZABZ-TECH and this machine's logs saw none of it. Until the layer-2 roll-up posts per-host totals into the authority ... the fleet has no ceiling; each host has one'), and two engines on one host SHARE and OVERWRITE one day.json (101 section 8.2). It has never been observed refusing anything live (A Part 5 item 19: lastVerdict ok, no live cap refusal demonstrated).",
+      "restate_glob": ["packages/plugin-cost/**", "docs/**/*.md"]
+    },
+    {
+      "name": "spend_guard_concurrency_cap_vs_historical_peak",
+      "value": {"installed_cap_per_machine": 12, "measured_fleet_peak_requests_in_flight": "16..22", "measured_peak_requests_started_in_one_second": "never above ~12", "mean_request_rate": 0.16},
+      "unit": "concurrent model requests",
+      "source": "docs/mesh/96-gateway-at-scale.md sections 2.4 and 5.2, and packages/plugin-cost limitsUsd.concurrencyCap",
+      "measured_at": "2026-09-17",
+      "measured_on": "the account ledger and the fleet's own session logs",
+      "method": "The fleet's measured in-flight peak has been 16-22 requests; the installed per-machine cap is 12 generating agents, recommended by 96 section 5.2 and independently matching the desktop's 14-39 turns before cores bind (84 section 4.3).",
+      "confidence": "the peak and the rate are measured; the cap is a reasoned policy.",
+      "supersedes": [],
+      "used_by": ["packages/plugin-cost/cordis.patch.yml", "docs/redesign/D-architecture.md section 3.4 item 5"],
+      "status": "unresolved",
+      "unresolved": {
+        "why": "The installed policy is BELOW a level the fleet has already reached, and nobody has stated which of the two is the authority.",
+        "values": [
+          {"value": "12 generating agents per machine (cap)", "source": "limitsUsd.concurrencyCap, from docs/mesh/96-gateway-at-scale.md section 5.2"},
+          {"value": "16..22 requests in flight (measured historical peak)", "source": "docs/mesh/96-gateway-at-scale.md section 2.4"}
+        ],
+        "note": "Defensible readings exist both ways - the measured peak was on a fleet that was also at 0.7 agents' worth of continuous generation, i.e. never sustained. But 'cap below peak already reached' is a fact a reader must see, not resolve by assuming. Recorded, not arbitrated."
+      },
+      "restate_glob": ["docs/**/*.md", "packages/plugin-cost/**"]
+    },
+    {
+      "name": "laptop_commit_trajectory_under_six_loops",
+      "value": "24.88 -> 25.01 -> 25.51 -> 27.11 -> 29.92 -> 34.72",
+      "unit": "GiB committed, six samples across 03:40-04:00Z",
+      "source": "docs/mesh/84-calibration.md section 1.1",
+      "measured_at": "2026-09-17 03:40-04:00Z",
+      "measured_on": "ZABZ-YOGA",
+      "method": "Six commit readings over twenty minutes while six agent loops ran, with 3,408 MiB of physical RAM free and the governor's own budget at its floor of 4 slots.",
+      "confidence": "six samples, an excursion not a fitted curve. Stated as an excursion.",
+      "supersedes": [],
+      "used_by": [
+        "docs/mesh/84-calibration.md section 1.1",
+        "docs/redesign/D-architecture.md section 6.2 item 1 (the laptop's curve does not exist)"
+      ],
+      "status": "measured",
+      "status_note": "This is the single most important open number in the redesign: a machine in visible distress at SIX turns, against the desktop's flat line through EIGHT, and neither is a laptop capacity curve. The laptop crossed the program's own 26 GB stop line before any fleet was dispatched, so the constant production actually used (floor(16 x 0.75) = 12) was never validated on the machine it was used for.",
+      "restate_glob": ["docs/**/*.md"]
+    },
+    {
+      "name": "reserve_mib_governor_formula",
+      "value": 3885,
+      "unit": "MiB (max(2 GiB, 12 percent) evaluated on 32,373 MiB total physical)",
+      "source": "packages/plugin-health/lib/governor.js, printed derivation quoted in docs/dsh-at-scale/90-plugin-health-governor.md section 3",
+      "measured_at": "2026-09-16",
+      "measured_on": "ZABZ-YOGA",
+      "method": "max(2048, 0.12 x 32373) = 3885. Printed verbatim: '15943 MiB free - 3885 MiB reserved = 12059 MiB usable / 160 MiB per slot = 75 slot(s), capped at maxSlots=24'.",
+      "confidence": "reasoned (a formula, evaluated).",
+      "supersedes": [],
+      "used_by": ["packages/plugin-health/lib/governor.js", "docs/mesh/93-transport-concurrency.md section 2.1 (same formula, evaluated on zabz-tech's 65,173 MiB = 7,821 MiB)"],
+      "status": "measured",
+      "note": "This entry is deliberately SEPARATE from reserve_mib (3,885 as a literal in scoring.js). The two files reach the SAME number on this laptop by two different rules and DIFFERENT numbers on the desktop (3,885 vs 7,821). Merging them would hide the conflict that A Part 4.2 row B5 identifies as the one where a document attributes a formula to a source that does not contain it. The keeper's job is to keep them separable.",
+      "restate_glob": ["packages/**/*.js", "docs/**/*.md"]
+    },
+    {
+      "name": "laptop_validated_capacity_model",
+      "value": null,
+      "unit": "no value exists on ZABZ-YOGA - this entry records an ABSENCE, not a number",
+      "source": "docs/redesign/G-architecture-v2.md section 7 (the buildability verdict), whose closing sentence is the fact this entry exists to carry: 'D's CPU term was the deleted term in another unit, and it is deleted here - which means the fleet has NO validated capacity model on the laptop at all, only a validated one on the desktop and a stated bound everywhere else.' The measurement that would produce the model is specified by docs/mesh/84-calibration.md section 6.1 item 1.",
+      "measured_at": "never measured on ZABZ-YOGA",
+      "measured_on": "nowhere - it does not exist on ZABZ-YOGA. The only measured U_cpu in the estate is the desktop's (entry U_cpu_zabz_tech, 13.28 logical CPUs at N=8).",
+      "method": "NONE. No method has been run on this node. docs/mesh/84-calibration.md section 1.1 records the machine 'above that stop line before any fleet was dispatched', and section 6.1 records 'ZABZ-YOGA's own curve - the one the constants were written for' as blocked.",
+      "confidence": "REFUSED - no value, no interval, no prediction. Writing a number here would be the exact failure this file exists to stop (a prediction presented as a measurement).",
+      "supersedes": [],
+      "the_measurement_that_would_retire_this_entry": {
+        "specified_by": "docs/mesh/84-calibration.md section 6.1 item 1",
+        "the_measurement": "run the 84 rig FROM ZABZ-TECH AGAINST zabz-yoga-1, N=2..8, ~6 minutes, ~90 turns, after the laptop is back under ~12 GiB of commit.",
+        "also_named_by": "docs/redesign/G-architecture-v2.md section 1.2 property 5 [G-ASSUMPTION G1] and section 7 ('a six-minute, ~90-turn run that would retire the largest single unknown in the redesign'); docs/redesign/F-first-slice.md section 7 item 4 ('the single highest-value missing measurement in this estate'); the entry laptop_turns_to_paging's own resolution_requires names the same rig."
+      },
+      "what_it_costs_while_it_is_missing": "docs/redesign/G-architecture-v2.md section 7: ZABZ-YOGA reports calibrated: false and may take work only under its conservative bound - a deliberate throughput cost of ~24 percent in memory slots (the 530 divisor instead of the 403.3 point estimate, G section 1.4) and ~40 percent in CPU slots, until the curve exists.",
+      "why_this_is_the_highest_value_missing_measurement_in_the_estate": "It is the only absent measurement that sits under a LOAD-BEARING term: the CPU term of the admission contract is the term that cures D1 and D2, and on the machine those defects are about - the one the owner sits at - that term has no input at all. The nearest substitutes are all refusals: the laptop's commit trajectory under six loops is an excursion rather than a curve (entry laptop_commit_trajectory_under_six_loops), the three turn-count values for the laptop were never measured on the laptop (entry laptop_turns_to_paging), and the constant production actually used for it, floor(16 x 0.75) = 12, was never validated on it (docs/redesign/D-architecture.md section 6.2 item 1). One run, ~6 minutes, names the number.",
+      "used_by": [
+        "docs/redesign/G-architecture-v2.md section 7 (the buildability verdict's 'needs a measurement before it can be claimed' item)",
+        "docs/redesign/G-architecture-v2.md section 1.7 (the calibrated = false state)",
+        "docs/redesign/F-first-slice.md section 3.1 (experiment 1b) and section 7 item 4"
+      ],
+      "status": "unmeasured-on-the-machine-that-matters",
+      "note": "This entry is the replacement for a deleted term, and it is deliberately a HOLE rather than a value: the term it replaces was deleted precisely because it looked like a capacity model while being one division (docs/redesign/G-architecture-v2.md sections 1.1 and 1.2), and seeding its replacement with a number before the measurement exists would reproduce that defect one layer down. It is listed in _refusals item 3 as well, recorded here as a first-class entry because it is now the most important fact in the estate.",
+      "restate_glob": ["docs/**/*.md"]
+    }
+  ],
+  "_refusals": [
+    "NO checker exists today (verified 2026-09-18; see how_to_use.does_such_a_checker_exist_today). This file is data with no enforcement behind it.",
+    "NO measurement of an idle-window CULL cost, because no cull policy exists to measure. Recorded as a refusal rather than seeded with a guess.",
+    "NO laptop capacity curve. Every per-turn figure in this file was measured on ZABZ-TECH, or on ZABZ-YOGA without a fleet. The constant production used for the laptop was never measured on the laptop (84 section 6.1, A Part 5 item 2, D section 6.2 item 1).",
+    "NO first-party confirmation that the warm session-list path achieves 29 ms on this machine tonight (A Part 5 item 3, unresolved entry session_list_walk_warm_proxy_cache).",
+    "NO measurement above 8 concurrent turns on any node, and 55 has never been run (93 sections 10.3, 10.8). Every 'at 55' figure in the redesign is an extrapolation.",
+    "NO transport-to-transport comparison at equal N with the same work (93 section 10.1).",
+    "NO provider-side usage API. The exact bill requires a console export that only the owner can produce (60-cost-audit.md section 8.3).",
+    "NO reading from any machine other than ZABZ-YOGA is first-party in this file or in A. Every non-laptop value carries a document as its source, and the document is named."
+  ],
+  "_provenance_of_this_file": {
+    "written_by": "stream F of the redesign, a delegated session",
+    "written_at": "2026-09-18, reading the tree at C:\\Users\\ezabz\\code\\harness-config",
+    "measured_nothing_itself": "Every value in `constants` is quoted from a named document with its own date and method, EXCEPT the two places marked `reasoned` in my own arithmetic (the turn counts to the commit limit, and the per-window idle CPU derivation) - both of which are labelled, and neither of which is presented as a measurement.",
+    "verified_by_reading_this_session": [
+      "The five deployed skill copies and the two plugin-mesh-http READMEs: file sizes and whether the text contains 0.81 and/or 403, read 2026-09-18. Result: presets/zabz (10,802 B, corrected), presets/cordis-bg (10,802 B, corrected), $DSH_HOME/.agent-presets/zabz (10,802 B, corrected), journal/presets/zabz (10,458 B, NOT corrected), journal/presets/cordis-bg (10,458 B, NOT corrected), packages/plugin-mesh-http/README.md (4,621 B, NOT corrected), journal/packages/plugin-mesh-http/README.md (NOT corrected).",
+      "journal/docs/mesh/ contains NO parallel-agent-orchestration directory - the path D defect D10 and B section 0 name does not exist at that location on this tree. Stated as a correction to the record, not as a refutation of the copies that DO exist.",
+      "scripts/harness-verify.ps1 contents (11 Check blocks; no constants check; line 201 holds the 0.81 correction as a COMMENT, not an assertion).",
+      "Get-ScheduledTask filtered to pwsh/powershell actions: exactly one task, DSH Metrics Sampler Watchdog, running harness-metrics.ps1 from a %TEMP% snapshot. No task runs harness-verify.ps1 or any constants keeper.",
+      "Grep for measured-constants / constants.json / keeper across all .mjs and .js: zero consumers of this file."
+    ],
+    "nothing_was_changed": "No machine state was changed. No process was started, stopped, restarted or killed; the engine pid 4416 on port 3099 was not touched; no service was started; the journal, the gates and the git state were not written to. The only two files written are this one and docs/redesign/F-first-slice.md."
+  }
+}

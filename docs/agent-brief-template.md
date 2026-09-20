@@ -5,6 +5,11 @@ not see the conversation it was spawned from, and each field exists because its 
 specific failure. Rationale: `docs/parallel-agent-orchestration.md`. Operational rules:
 `presets/zabz/skills/parallel-agent-orchestration/SKILL.md`.
 
+**For a child that runs on ANOTHER MACHINE (the mesh), use `docs/agent-brief-template-mesh.md` instead.**
+This file is for children working in a git worktree on this repo. A mesh child shares no filesystem with
+the parent, and the rules that decide whether it survives — bounded ssh, three-state checks, shipping a
+partial matrix rather than hanging — are different enough that mixing the two is how children die.
+
 ---
 
 You are working in an isolated git worktree. **Your repo root is `<ABSOLUTE PATH>`** and your branch is

@@ -1,0 +1,25 @@
+{
+  "_comment": "Per-host local prerequisites that the mesh silently depends on. A stopped Tailscale on one node makes every MagicDNS name fail and reads as 'the other machine is down'; on the desktop, LAN ingress to the secretary API is a netsh portproxy that stops working the moment IP Helper stops. Nothing watched either one until 2026-09-15 (P164).",
+  "defaults": {
+    "tailscale": true,
+    "iphlpsvc": false,
+    "portproxy": []
+  },
+  "hosts": {
+    "ZABZ-TECH": {
+      "tailscale": true,
+      "iphlpsvc": true,
+      "portproxy": [
+        {
+          "listenAddress": "192.168.50.138",
+          "listenPort": 8002,
+          "connectAddress": "127.0.0.1",
+          "connectPort": 8002
+        }
+      ]
+    },
+    "ZABZ-TECH-LAPTOP": { "tailscale": true },
+    "ZABZ-YOGA": { "tailscale": true },
+    "LakewooechsMini": { "tailscale": true }
+  }
+}

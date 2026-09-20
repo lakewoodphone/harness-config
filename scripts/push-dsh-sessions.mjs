@@ -351,10 +351,48 @@ async function postBatch(payload) {
   return JSON.stringify(parsed);
 }
 
+/** Record a contact row on a run that had nothing to ship.
+ *
+ * Measured 2026-09-20 14:51 UTC on secratary: four consecutive scheduled runs each logged
+ * `shipped: 0 session(s), 0 new row(s), 0 KB` and left NO row in `dsh_session_exports`, because
+ * `flush()` returns early on an empty batch and nothing else is ever POSTed. So
+ * `SELECT MAX(received_at) FROM dsh_session_exports` was the only evidence the shipper was alive --
+ * and it does not move when there is nothing new. The kernel check `check_session_archive` therefore
+ * fired HIGH ("no machine has shipped a session in 3.0h": 867 sessions last seen 5.4h ago, 741 at
+ * 5.5h) while the shipping path was perfectly healthy: the owner was offline for Yom Kippur, so no
+ * session file had new rows. Nothing had changed anywhere, so nothing was sent, so nothing was
+ * recorded -- and "idle fleet" became indistinguishable from "dead shipper".
+ *
+ * A run that leaves no trace cannot be told apart from a run that never happened. This posts a
+ * zero-session export so `received_at` advances per machine on every successful run.
+ *
+ * `run_id` is what keeps the row: for a real batch the server derives `id` from the session-id list,
+ * and an empty list hashes to a CONSTANT -- so every heartbeat would land on one row and the run
+ * history would be overwritten rather than appended.
+ */
+async function postHeartbeat() {
+  const now = new Date();
+  await postBatch({
+    source_machine: MACHINE,
+    exported_at: now.toISOString(),
+    schema_version: 1,
+    heartbeat: true,
+    // Unique per run, and STABLE across this run's retries: postBatch reuses one body string, so a
+    // retried heartbeat re-sends the same run_id and replaces its own row instead of adding a second.
+    run_id: `${now.toISOString()}-${process.pid}-${Math.random().toString(16).slice(2, 10)}`,
+    sessions: [],
+  });
+}
+
 async function main() {
   const state = loadState();
   const found = discover();
-  if (found.length === 0) { console.log('no sessions found under ' + SESSIONS_ROOT); return 0; }
+  if (found.length === 0) {
+    console.log('no sessions found under ' + SESSIONS_ROOT);
+    // Still a run, still a contact: a machine whose harness has not written a session yet is alive too.
+    if (!DRY) { await postHeartbeat(); console.log(`heartbeat  : recorded contact for ${MACHINE} (0 sessions, 0 rows)`); }
+    return 0;
+  }
 
   console.log(`machine : ${MACHINE}`);
   console.log(`sessions: ${found.length} on disk`);
@@ -471,6 +509,15 @@ async function main() {
   if (torn) console.log(`torn tail  : ${torn} session(s) ended mid-frame — skipped, which is normal`);
   if (transportNotes.killedAfterReply) {
     console.log(`transport  : ${transportNotes.killedAfterReply} batch(es) ended by killing the child once its reply parsed (this host's transport does not always exit on its own) — see postBatch`);
+  }
+
+  // Nothing to ship is the normal case on a quiet day -- and it used to leave no trace at all. Record
+  // the contact so the archive can tell "the fleet is idle" from "the shipper is dead" (measured
+  // 2026-09-20; see postHeartbeat). A run that DID ship already wrote an export row carrying
+  // received_at, so it needs no heartbeat.
+  if (!DRY && sessionsSent === 0) {
+    await postHeartbeat();
+    console.log(`heartbeat  : recorded contact for ${MACHINE} (0 sessions, 0 rows)`);
   }
   return 0;
 }

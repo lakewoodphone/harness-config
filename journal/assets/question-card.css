@@ -1,0 +1,163 @@
+/* question-card.css — the phone view of an agent's question.
+ *
+ * WHY THIS EXISTS
+ * Measured 2026-09-14 on a reproduction built from the app's own CSSOM and the real
+ * `QuestionComposer` class map (`scripts/question-card-check.py`):
+ *
+ *   viewport     card                  Submit      composer overlap
+ *   393x852      y=194 h=511           OK          no
+ *   393x700      y=194 h=420           OK          no
+ *   393x640      y=194 h=384           OK          YES
+ *   393x560      y=194 h=336           UNREACHABLE tap lands on the composer's own row
+ *
+ * The shipped card caps itself at `max-height: min(60vh, 520px)` and scrolls its OWN body, which
+ * is right on a desktop and wrong on a phone for two reasons:
+ *
+ *   1. `vh` is the LARGE viewport. With iOS Safari's bars showing, and again with the keyboard
+ *      up, the real visible height is far less than `100vh`, so 60vh can exceed the space that
+ *      actually exists. The card's own footer — where Submit lives — is then pushed outside the
+ *      visible area while the page itself has nothing left to scroll.
+ *   2. The card is in the conversation stream and the composer sits under it. Once the card is
+ *      taller than the gap above the composer, the composer's surface covers the footer. A tap
+ *      at Submit's centre lands on the composer instead. That is the owner's report, exactly:
+ *      "only part of it shows up, I can't scroll, and I can't click."
+ *
+ * THE FIX
+ * On a phone the question is a modal demand for an answer, so it is presented as a sheet over
+ * the conversation at most phone widths: the card fills the viewport under the safe area, the
+ * header and footer are pinned (`flex-shrink: 0` from the shipped CSS), and ONLY the option list
+ * scrolls. The composer cannot cover a control that is laid out above it by construction, and
+ * `100dvh` tracks the keyboard, so the Submit button stays where a thumb can reach it.
+ *
+ * THE SECOND FAILURE, AND WHY THE SHEET IS TOP-ANCHORED
+ * Submit appeared and the question did not. The owner, 2026-09-14 23:2x UTC: "I can't scroll up
+ * enough to see the actual question. I just see the options for responses." The first version of
+ * this file anchored the sheet with `inset: 0`, which is the LAYOUT viewport. On iOS the visible
+ * area is the VISUAL viewport, and with the keyboard up it is both shorter and OFFSET — so a
+ * sheet pinned to the layout viewport's top begins above the first visible pixel, and the
+ * question, being the first thing in the card, is what disappears. CSS cannot read
+ * `visualViewport`, so this file supplies the correct no-JS layout (`top: 0`, `height: 100dvh`,
+ * which follows the keyboard) and `dsh-plugin-mobile` asserts it against the real visible band,
+ * in pixels, when the two disagree. Measured with `scripts/question-card-live-probe.py` against
+ * the running app, band 240x420 on a 393x852 screen: before the repair the title sat at y=39
+ * (outside the band), after it at y=279 (inside), with Submit at y=608.
+ *
+ * This is CSS-only: the card is mounted, unmounted and re-rendered by React, so nothing here may
+ * depend on a mount event (lesson L209's shape). It keys off the local-name substrings the CSS
+ * modules preserve across rebuilds, never a full hash, and it is scoped to phones, so the
+ * desktop layout is untouched by construction.
+ *
+ * Kill switch: remove this block. Nothing else reads it — except `plugin-mobile`, which will
+ * then find a card that does not fit and pin it, which is the older, simpler behaviour.
+ */
+
+@media (max-width: 768px) {
+  /* The frame is the card's own wrapper (`Mbwy4a_frame`) and it is the only element that can be
+   * positioned without touching the stream. It is matched as "a frame whose direct child is a
+   * card", NOT by reaching for the options list: measured 2026-09-14, the shipped tree is
+   * frame > card > body > options, so a `> _options` child selector NEVER MATCHED and the first
+   * version of this fix silently did nothing at all (the numbers were identical before and
+   * after — that is what gave it away, and what `question-card-check.py` is for). A card is
+   * unique enough to be the only hook needed.
+   *
+   * TOP-ANCHORED AND BOUNDED, NOT `inset: 0`. The first version anchored the frame with
+   * `inset: 0`, which is the LAYOUT viewport. On iOS the visible area is not the layout
+   * viewport: with the URL bar showing and again with the keyboard up, the visual viewport is
+   * shorter and — this is the part that hid the question — often OFFSET, so a box pinned to the
+   * layout viewport's top starts above the first pixel the reader can see. The options sat in
+   * the visible middle and the question was unreachable above them, which is exactly the
+   * owner's report of 2026-09-14 23:2x: "I can't scroll up enough to see the actual question."
+   * `height: 100dvh` follows the keyboard; `dvh` did NOT follow the offset, so the frame's
+   * height is now also asserted in pixels against the visual viewport by `plugin-mobile`
+   * ("question card: make the question reachable"), which is the only place that can read
+   * `visualViewport`. This rule is the no-JS fallback and is correct whenever there is no
+   * offset. */
+  [class*="_frame"]:has(> [class*="_card"]) {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    /* `dvh` follows the keyboard; `vh` does not */
+    height: 100dvh;
+    max-height: 100dvh;
+    /* Above everything, including the "needing attention" badge, which is `position: fixed`
+     * at z-index 2147483000 and sits over the bottom-right of the screen: measured, that badge
+     * intercepted a tap aimed at this card's Submit button (lesson L217). A question that must
+     * be answered outranks a notification. */
+    z-index: 2147483600;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
+    overflow: hidden;
+    background: var(--dsw-alias-bg-base, #fff);
+    /* the sheet covers the conversation, so the page behind it must not scroll */
+    overscroll-behavior: contain;
+  }
+
+  [class*="_frame"]:has(> [class*="_card"]) > [class*="_card"] {
+    /* measured: the shipped 60vh cap is the thing that hides the footer */
+    max-height: none;
+    height: 100%;
+    max-width: none;
+    border-radius: 0;
+    box-shadow: none;
+    /* the home indicator sits over the bottom of the sheet, and the notch over its top */
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    padding-top: max(8px, env(safe-area-inset-top));
+    /* THE CARD IS THE ONE SCROLLPORT, so the QUESTION ITSELF can be scrolled back into view.
+     *
+     * Measured 2026-09-16, third report from the same surface. With only the option list
+     * scrolling (the shipped layout, and the first version of this file), the question is the
+     * ONE thing that cannot be recovered: the header is `flex-shrink: 0` and sits above the
+     * scrollport, so if the sheet's top lands above the first pixel the reader can see — which
+     * is what a visual-viewport offset does, and what the owner kept hitting — the options are
+     * on screen, the question is not, and there is nothing left to scroll. "I can just see the
+     * options." Exactly.
+     *
+     * With the card as the scrollport, every part of the card is reachable by the gesture a
+     * thumb already knows, whatever the viewport does, and without depending on any script
+     * having measured the offset correctly. The plugin's pixel repair stays (it is what makes
+     * the card land correctly in the first place); this is the floor under it. */
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* One scrollport, not two: the option list grows to its natural height inside the card
+   * instead of scrolling in a box of its own. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_body"] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    min-height: 0;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  /* The strip that names the owner of the question and the pager are fixed chrome; they must
+   * never be squeezed by a long option list. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_strip"],
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_footer"],
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_header"] {
+    flex-shrink: 0;
+  }
+
+  /* Submit stays where a thumb is, even though the card now scrolls as one piece: the footer is
+   * sticky to the bottom of the scrollport, so the question can be scrolled to AND the button is
+   * always on screen. Measured 2026-09-16 without this: with the card as the scrollport, Submit
+   * landed at y=799 on a 393x852 screen — reachable, but only after a scroll the reader has no
+   * reason to expect. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_footer"] {
+    position: sticky;
+    bottom: 0;
+    background: var(--dsw-specific-input-major, var(--dsw-alias-bg-base, #fff));
+  }
+
+  /* Submit is the one control that must always be tappable: give it a real thumb target and keep
+   * it clear of the safe area. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_submit"] {
+    min-height: 44px;
+  }
+}

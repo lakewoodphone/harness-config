@@ -1,0 +1,52 @@
+--- a/app/database.py
++++ b/app/database.py
+@@ -68,6 +68,34 @@
+     else "FILE"
+ )
+ 
++
++# ── Hard per-connection SQLite heap ceiling ──────────────────────────────────
++# cache_size and temp_store=FILE bound the NORMAL paths. They do not bound the
++# burst, and that is now measured rather than assumed: pid 383209 ran WITH those
++# two settings live (8 MB cache, temp_store=FILE verified on a fresh connection)
++# and was still OOM-killed at 23:34:43 at 19.0 GB anon-rss, only 6 min 35 s in.
++# Across that window a 30-second sampler caught RSS 743 MB -> 1071 MB -> 1600 MB,
++# so the remaining ~17-18 GB landed inside a ~35 s band. Sampled directly on the
++# earlier run: one anonymous mapping grew 958 MB -> 7,393 MB in 21 s while the
++# thread count (76) and the DB handles (60) both stayed flat.
++#
++# So the allocator is NOT the per-connection page cache and NOT the temp store.
++# What this pragma buys is not a fixed diagnosis but an ATTRIBUTABLE FAILURE:
++# with a heap ceiling, whichever site is responsible dies with SQLITE_NOMEM that
++# names the connection, instead of growing until the kernel's GLOBAL oom killer
++# takes the process -- which happened eight times on 2026-09-15, every one of them
++# constraint=CONSTRAINT_NONE, and twice inside fifteen minutes.
++# Verified available: PRAGMA hard_heap_limit is honoured by SQLite 3.46.1, which
++# is the version this venv links.
++#
++# TRADEOFF, stated plainly: a legitimate statement needing more than this now
++# fails instead of succeeding slowly. 1 GiB is ~1.5x this app's ENTIRE healthy
++# process RSS (~0.8 GB observed) and far above any index-backed query in it.
++# Set PS_SQLITE_HARD_HEAP_LIMIT_MB=0 to disable without a code change.
++SQLITE_HARD_HEAP_MB = max(
++    0, int(os.environ.get("PS_SQLITE_HARD_HEAP_LIMIT_MB", "1024"))
++)
++
+ # ── Bounded connection cache ─────────────────────────────────────────────────
+ # The per-thread cache exists to avoid paying connection setup on every call.
+ # Connection setup is not free here: ``sqlite3.connect`` plus the eight PRAGMAs
+@@ -451,6 +479,14 @@
+     # FILE, not MEMORY: an in-memory temp store makes a large sort an unbounded RAM
+     # allocation, and that is what OOM-killed this process on 2026-09-15.
+     conn.execute(f"PRAGMA temp_store={SQLITE_TEMP_STORE}")
++    # Ceiling on this connection's total SQLite heap. See SQLITE_HARD_HEAP_MB above:
++    # this turns an unbounded statement into a logged SQLITE_NOMEM instead of a
++    # host-wide OOM kill, which is what makes the responsible site findable.
++    if SQLITE_HARD_HEAP_MB:
++        try:
++            conn.execute(f"PRAGMA hard_heap_limit={SQLITE_HARD_HEAP_MB * 1024 * 1024}")
++        except sqlite3.Error as _exc:  # pragma: no cover - version dependent
++            _log.debug("hard_heap_limit unsupported: %s", _exc)
+     # F2 (2026-08-30): cap the WAL so it can't balloon (was 456MB — corruption vector).
+     # Default wal_autocheckpoint is 1000 pages (4MB): checkpoints fire constantly
+     # but a plain checkpoint never truncates the WAL file. journal_size_limit caps

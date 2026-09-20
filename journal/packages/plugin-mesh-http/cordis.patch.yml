@@ -1,0 +1,23 @@
+# The dsh-plugin-mesh-http bundle patch.  ONE host row, which is the whole plugin.
+#
+# The row is an `insert` without an id target, so it ADDS a loader entry rather than
+# overriding one, and a later patch layer can still disable it by id:
+#
+#   { id: plugin-mesh-http, disabled: true }
+#
+# NO CONFIG HERE, DELIBERATELY. Every default in lib/index.js is a working default, but a
+# node that mounts this bundle without a shared secret answers 503 to every request and says
+# so in its log — it never serves an unauthenticated run. That is the intended failure: the
+# secret is a deployment fact (a machine, a file, a mode-0640 permission), not a package fact.
+#
+# A profile that wants to point at a different secret file restates EVERY key, because a patch
+# REPLACES the targeted row's whole config:
+#
+#   - id: plugin-mesh-http
+#     config: { secretFile: "/etc/dsh-mesh.env" }
+#
+# Keys and defaults live in lib/index.js (Config) and are tabulated in
+# docs/mesh/83-http-transport.md §3.
+- insert:
+    - id: plugin-mesh-http
+      name: dsh-plugin-mesh-http
