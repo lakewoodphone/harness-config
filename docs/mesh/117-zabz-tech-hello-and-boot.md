@@ -18,9 +18,20 @@ Two symptoms, and they are **the same event on the same boots**:
 2. **The slow part is not Windows.** Microsoft's own boot instrumentation puts core boot at
    **12–24 s** and total Windows boot at **30–58 s**. The 63–178 s sits *before* `bootmgr` starts.
 
-**The single highest-value action is installing the three Lenovo firmware updates that Windows
-Update keeps offering and never installs** — including the **Infineon TPM firmware 15.23.17664.0 →
-15.24.18954.0**. That is the owner's call (firmware flash, downtime). See "Open decision".
+**The single highest-value action was installing the three Lenovo firmware updates that Windows
+Update kept offering and never installed** — including the **Infineon TPM firmware 15.23.17664.0 →
+15.24.18954.0**. That was the owner's call (firmware flash, downtime) and he approved it.
+
+> ## ✅ RESOLVED 2026-09-20 ~19:45 UTC. Jump to "SESSION 2 / RESOLUTION" at the end of this file.
+> Firmware went from `M4WKT56A` (2025-06-02) to **`M4WKT5CA`** (2026-07-07) and TPM from
+> `15.23.17664.0` to **`15.24.18954.0`**; Windows Update now offers **zero** firmware. Two
+> consecutive boots then came up with a **healthy VSM blob (`BlobSize=723`, corrupt=0)**, Windows
+> Hello loading **`State: Okay`**, and the pre-bootmgr window down from **166–178 s to 25 s**.
+> The root cause is a **simultaneous Secure Boot DBX + firmware update changing several PCR values
+> at once**, which invalidates VSM's seal and makes Windows wipe the Hello container. It is a
+> **one-time event per firmware change, not a recurring fault** — which is why re-setting the PIN
+> now sticks. It also means the *duration* of the outage scales with how many firmware updates
+> Windows applies across how many boots, all of which wipe the container again.
 
 ## Evidence
 
@@ -38,8 +49,17 @@ Source: `Microsoft-Windows-HelloForBusiness/Operational` (read elevated).
 | 12:03:21 | 5702 | `Windows Hello wrote following protector properties to disk: PIN protector = true` (fresh empty container) |
 
 Same deletion-by-`UserOOBEBroker.exe` on **2026-09-02 16:23, 2026-09-15 10:35, 2026-09-16 12:32,
-2026-09-20 12:03**. `dsregcmd /status` now reports **`NgcSet : NO`** — the account is
-`MicrosoftAccount\ezabz68@gmail.com`, no Entra join, no domain.
+2026-09-20 12:03 and 2026-09-20 15:30**. The account is `MicrosoftAccount\ezabz68@gmail.com`, no
+Entra join, no domain.
+
+> **Correction (SESSION 2, 2026-09-20):** this section originally offered `dsregcmd /status`
+> reporting **`NgcSet : NO`** as further evidence of the wipe. **That is a misreading and it should
+> not be used as evidence.** `NgcSet` is a *workplace/Entra* flag ("has a Windows Hello for
+> Business container been provisioned for the joined identity") and it reads **NO** on this machine
+> because `AzureAdJoined : NO` and `WorkplaceJoined : NO`. It read NO on the healthy boot of
+> 2026-09-17 as well. The authoritative local evidence is the `Microsoft-Windows-HelloForBusiness`
+> log itself: `8002 … State: Okay` with `PIN protector = true` means a usable container exists;
+> `7002 … 0xD000A002` followed by `3611` means it was destroyed. Do not cite `NgcSet` for this.
 
 ### Why the container fails — VSM key absent at early boot
 Source: `Microsoft-Windows-Kernel-Boot/Operational`.
@@ -119,11 +139,17 @@ is not claimed here** — the correlation is measured, the split is not.
 - `C:\$WINDOWS.~BT` exists and `SoftwareDistribution\Download` holds **743.8 MB**.
 
 ### Rule-outs (measured, so they are not re-litigated)
-- **Not a PCR change / Secure Boot DBX problem.** The Microsoft-documented failure
+- ~~**Not a PCR change / Secure Boot DBX problem.**~~ **THIS RULE-OUT WAS WRONG — see
+  "SESSION 2 / RESOLUTION" below.** The reasoning offered here was that BitLocker is bound to the
+  same PCRs (7, 11) and never asks for a recovery key, so PCR 7/11 must be stable. That inference
+  does not hold: the Microsoft-documented failure
   ([jpwinsup, "cannot validate VSM when multiple PCRs changed"](https://jpwinsup.github.io/blog/2025/11/12/ActiveDirectory/WindowsHello/cannot-validate-VSM-when-multiple-PCRs-changed/))
-  is *PCRs changed*, but **BitLocker here is bound to the same PCRs (7, 11) and never asks for a
-  recovery key** — so PCR 7/11 are stable. The VSM failure is a *missing object*
-  (`STATUS_NOT_FOUND 0xC0000225`, blob size 0), not a failed integrity check.
+  *is* this failure, and it was confirmed on this machine by the fix working. BitLocker's TPM
+  protector and VSM's seal are separately evaluated and BitLocker can be released from its own
+  cached copy; "BitLocker did not complain" is therefore not evidence that no measured PCR changed.
+  It remains true that the *observed* VSM symptom is a missing object
+  (`STATUS_NOT_FOUND 0xC0000225`, blob size 0), which is what you see *after* the integrity check
+  has already failed and the blob has been discarded — not a contradiction.
 - **Not the RTC/CMOS battery.** `Kernel-General` id 1 shows RTC time tracking system time with
   0 ms deltas; daily drift corrections are ~1.4–4.6 s (normal).
 - **Not Windows boot itself** — 30–58 s.
@@ -181,3 +207,124 @@ This investigation used an already-configured path: `ssh -i ~/.ssh/id_ed25519 ez
 yields **`Mandatory Label\High Mandatory Level` (S-1-16-12288)** — an elevated token — even though a
 normal DSH `pwsh` call on this machine is only Medium integrity. Useful for any future admin-level
 diagnosis here.
+
+---
+
+# SESSION 2 / RESOLUTION — 2026-09-20, driven from ZABZ-YOGA
+
+**Why it was moved.** The first session ran *on* ZABZ-TECH, so every reboot in the fix killed the
+agent doing the fixing — it could not observe the very boot it had caused. Taken over from ZABZ-YOGA
+over Tailscale (`ssh zabz-tech-ts`), which survives ZABZ-TECH rebooting underneath it. That is the
+pattern to reuse: **drive a rebooting machine from a machine that is not rebooting.**
+
+## Root cause, from Microsoft
+
+Microsoft (Windows Commercial Support, Directory Services) documents this exact failure —
+[cannot validate VSM when multiple PCRs changed](https://jpwinsup.github.io/blog/2025/11/12/ActiveDirectory/WindowsHello/cannot-validate-VSM-when-multiple-PCRs-changed/):
+
+> This problem can occur when a **Secure Boot DBX update and a BIOS/UEFI firmware update are
+> performed at the same time** during Windows Update. […] Windows Hello information is protected by
+> VSM. Retrieving it performs an integrity check using TPM PCRs. If the Secure Boot DBX update and
+> the BIOS/UEFI firmware update happen simultaneously, **several PCR values change at once**, the
+> integrity check fails, the information cannot be retrieved, and this problem occurs.
+
+Microsoft states plainly that (a) nothing in Windows prevents those two updates from landing
+together, and (b) after it has happened, **the remedy is to re-register Windows Hello** — it is not
+a persistent defect. Their stated prevention is to keep password sign-in enabled so a broken Hello
+cannot lock you out of the machine.
+
+That maps exactly onto this box: **each firmware application was itself another PCR/state change, so
+each boot that applied one wiped the container again.** The chain of one-firmware-per-boot adopted in
+session 1 was the right idea for avoiding a multi-PCR change; the mistake was reading the resulting
+*wipes* as evidence that the firmware update had failed.
+
+## What the numbers say — three boots, same firmware
+
+| Boot | VSM blob | VSM cached copy | Windows Hello | off-window |
+|---|---|---|---|---|
+| 12:48 (during chain) | `BlobSize=0`, `corrupt=1` | `0xC0000225` NOT_FOUND | 7002 → container deleted 12:41 | 251 s |
+| 15:02 (first boot after BIOS flash) | `BlobSize=0`, `corrupt=1` | `0xC0280018` FAIL | 7002 `0xD000A002` | 1295 s † |
+| **15:33** | **`BlobSize=723`, `corrupt=0`** | **`0x0` OK** | **8002 `State: Okay`** | **25 s** |
+| **15:38** | **`BlobSize=723`, `corrupt=0`** | **`0x0` OK** | **8002 `State: Okay`** | **25 s** |
+
+† The 1295 s is not a POST measurement — that was a **power-off** the owner started by hand 21 minutes
+later, so it includes the time the machine sat off. It is recorded only to show it is not comparable.
+
+**The 15:02 boot is NOT a valid test and must never be cited as one.** A BIOS flash **erases the UEFI
+variable store**, so `BlobSize=0` on the first boot afterwards is the *expected* consequence of the
+flash, not a recurrence. Reading it as "the firmware update didn't work" is what kept this open.
+The valid test is the **second** boot after a firmware change, once the VSM key has been re-sealed.
+
+Firmware after resolution (all `problem=0`, `firmware still offered: count = 0`):
+`System Firmware 1.0.0.92` / `ME Firmware 16.1.30.2330` / `TPM Firmware 15.24.18954.0` /
+`EC Firmware 1.0.0.19`. BIOS `M4WKT5CA` dated 2026-07-07.
+
+## Confounders eliminated (measured, so they are not re-litigated)
+
+- **Stuck OOBE / half-applied feature upgrade — no.** `HKLM\SYSTEM\Setup` reads
+  `SystemSetupInProgress=0`, `SetupType=0`, `OOBEInProgress=0`. `C:\$WINDOWS.~BT` is **stale from
+  2026-05-07**, not an active upgrade. No `RebootPending`, no `RebootRequired`.
+- **`wsiaccount` is not an OOBE artefact.** It is "a user account managed and used by the system for
+  Web Sign-in scenarios", account **inactive**; its console session is a red herring for OOBE.
+  *(Session 2 raised it as a suspected stuck-OOBE signature and then disproved it — recorded so the
+  next reader does not raise it again.)*
+- **Fast Startup — not implicated.** A *Restart* is always a full boot, and the owner's symptom is
+  about restarts. It was set `HiberbootEnabled 1→0` in session 1 to force a genuine cold boot so a
+  staged capsule would apply; the capsule is gone, so nothing depends on it now.
+- **`NgcSet` — not evidence.** See the correction in the PIN section above.
+
+## Watcher defects found and fixed (both produced *false negatives*)
+
+`C:\Users\ezabz\Code\_diag\boot-watch.ps1` (backup: `boot-watch.ps1.bak-20260920`):
+
+1. **It read the last 40 Hello events with no time filter.** So the container deletion from *before*
+   the reboot was counted against the boot *after* it — a perfectly healthy boot at 15:38:49 was
+   reported `>>> RESULT: HELLO FAILING THIS BOOT`. Now every Hello and Kernel-Boot event is filtered
+   to `TimeCreated >= LastBootUpTime`.
+2. **It treated the stale orphan container `{16596639-EACC-4EB5-8471-FCBA99C18FD4}` as the user's
+   Hello.** That container has been on disk since **2026-02-09**, belongs to no current user, and
+   fails with `0xD000A002` on every single boot. It is now tagged `[STALE-ORPHAN]` and excluded.
+
+It now emits one summary line — `>>> RESULT: HELLO <verdict> | VSM key <verdict>` — driven by an
+`8002 … State: Okay` load of a non-orphan container plus the absence of `3611`/`7002`. Self-tested
+against the live log without rebooting: **`HEALTHY`**. The task runs at startup +90 s as SYSTEM and
+self-unregisters after 8 boots.
+
+**Lesson for any future watcher here: a boot-scoped question needs a boot-scoped query. Reading "the
+last N events" and then judging *this* boot is how a healthy system gets reported broken.**
+
+## Residual / open, honestly
+
+- **The stale orphan container** `{16596639-…}` is still on disk and still logs a `7002` every boot.
+  It is noise, not a fault, and it was left in place rather than deleted because removing a Hello
+  container is a credential-store action with no upside here. If you want a clean log, that is the
+  one thing to remove — deliberately, by hand, not casually.
+- **`Unknown  Storage Firmware Update  driver=1.0.0.4  problem=`** — a *blank* problem code on the
+  Micron `MTFDKBA1T0TGD` NVMe firmware device. Still unimplemented/staged. Not implicated in any
+  symptom measured here; unresolved.
+- **Fast Startup is left OFF** (`HiberbootEnabled=0`). Original value saved at
+  `_diag\hiberboot-enabled.orig` (`1`). It makes every start a true cold boot, which keeps VSM/Hello
+  deterministic on this box. Trade-off: a shutdown→power-on start is slower by the Windows boot
+  time. One command restores it; nothing else depends on it.
+- **The 15:33 and 15:38 boots are two consecutive clean boots, not an infinite series.** The failure
+  was intermittent (it tracked the firmware-update boots), so two consecutive good boots with a
+  healthy VSM blob and a repeatable 25 s POST is strong evidence the churn is over — but if it
+  recurs, the *first* question is "did any firmware or Secure Boot DBX update land recently?", and
+  the answer is in this watcher's log and `Microsoft-Windows-WindowsUpdateClient` history.
+
+## The durable prevention
+
+Windows will apply firmware and Secure Boot DBX updates **unattended** by default, and Microsoft says
+it has no mechanism to stop them landing together. So the recurrence risk is real but bounded: the
+next time Lenovo ships firmware, expect one more PIN reset, and re-registering Hello is the whole
+remedy. `DevicePasswordLessBuildVersion = 0` is what makes that survivable — **verify it stays 0**;
+if it is ever 2, password sign-in is disabled and a broken Hello can lock him out of the machine
+entirely (BitLocker recovery key is on his Microsoft account, so recovery is possible but painful).
+
+## Re-verify in one command
+
+```
+ssh zabz-tech-ts "powershell -NoProfile -File C:\Users\ezabz\Code\_diag\boot-watch.ps1"
+```
+Healthy = `>>> RESULT: HELLO HEALTHY ... | VSM key HEALTHY`. (Running it by hand does not reboot
+anything; it only appends a run to `boot-watch.log`.)
