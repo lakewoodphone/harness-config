@@ -132,16 +132,28 @@ def test_step_budget_is_enforced(monkeypatch):
 
 
 def test_timeout_is_a_value_not_a_hang(monkeypatch):
-    monkeypatch.setattr(tw, "MAX_STEPS", 50)
+    """The wall-clock bound must end the job, deterministically and fast.
 
-    def slow(system, user):
-        return json.dumps({"tool": "web_search", "args": {"query": "q"}})
+    Time is faked rather than slept through: a real sleep would make this test slow
+    and flaky, and the point is which branch runs, not how long it took.
+    """
+    ticks = {"n": 0.0}
 
+    def fake_monotonic():
+        ticks["n"] += 10.0
+        return ticks["n"]
+
+    monkeypatch.setattr(tw.time, "monotonic", fake_monotonic)
+    monkeypatch.setattr(tw, "MAX_STEPS", 500)
     monkeypatch.setattr(tw, "_invoke", lambda tool, args: (True, "x"))
-    r = tw.do("never finishes", "go", ctx(), llm=slow, timeout=0)
+
+    r = tw.do("never finishes", "go", ctx(),
+              llm=lambda s, u: json.dumps({"tool": "web_search", "args": {"query": "q"}}),
+              timeout=30)
     assert r.ok is False
-    assert r.blocked == "timeout"
-    assert r.elapsed_s < 5
+    assert r.blocked == "timeout", r.blocked
+    assert r.answer is None
+    assert len(r.tools_used) < tw.MAX_TOOL_CALLS, "it kept working past its own bound"
 
 
 # ------------------------------------------------------------------ SQL guard

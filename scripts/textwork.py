@@ -363,6 +363,9 @@ def do(claim: str, task: str, ctx: dict | None = None, *,
        decider=None, llm=None) -> WorkResult:
     """Run a bounded investigation and come back with an answer or an honest block."""
     started = time.monotonic()
+    # Never below 1 s. `timeout=0` must mean "as soon as possible", not a job that
+    # slips past its own check because the monotonic clock had not ticked yet.
+    timeout = max(1, int(timeout))
     ctx = ctx or {}
     dossier = _render_dossier(claim, task, ctx, deliverable)
 
