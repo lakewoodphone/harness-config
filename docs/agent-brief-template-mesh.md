@@ -356,6 +356,18 @@ H6. YOUR WORKING TREE IS NOT THE BASE. origin/master is.
     RULE: `git apply --check` answers a question about ONE tree. So does `repair-ids`. So does `node -v`. Four
           tools gave four confident green answers about the wrong subject on one day. Ask what a tool was
           looking at before believing what it said.
+H7. OPEN YOUR FINAL REPORT WITH THE PLACEMENT LINE, or the whole run is thrown away.
+    WRONG: starting with your findings. MEASURED 2026-09-20: a workstream completed its shift and was
+           rejected - "the child did not begin its report with MESH-HOST: <hostname> - its location is
+           unproven, so the run is not reported as complete" - and its output was DISCARDED. The same brief
+           had been handed to four more children.
+    RIGHT: run `hostname` and make the FIRST line of your final message exactly
+               MESH-HOST: <that output>
+           then a blank line, then your report. Nothing before it - not a heading, not a summary.
+    RULE: the transport proves the target shell's identity before the agent starts, and the dispatcher
+          refuses a report it cannot tie to a node. This is not bureaucracy: a child once opened with a
+          FABRICATED `MESH-HOST: ZABZER` before running anything, which is why placement is now checked
+          rather than assumed. Emit the real value; a made-up one is worse than a missing one.
 <<< END HAZARDS BLOCK <<<
 ```
 
