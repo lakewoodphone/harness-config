@@ -214,6 +214,32 @@ function saveState(state) {
 }
 const key = (s) => `${s.project}/${s.session}`;
 
+// ── which STORE an entry was delivered to ───────────────────────────────────────────────────────
+// A cursor entry is evidence of delivery to the store that ACCEPTED the batch -- not proof that
+// secretary.db holds it. Before 2026-09-11 19:16 the default transport was `scp`, which imported
+// into the retired standalone archive (`dsh-archive/dsh-archive.db`); when HTTP became the default
+// the cursor still said those sessions were done, so they were skipped forever.
+//
+// Measured 2026-09-22: `zabz-yoga` has 8 sessions whose cursor `at` is 2026-09-11T19:05Z and which
+// are in the authoritative store's `dsh_sessions` NOT AT ALL (751 rows for 759 cursor entries, 0 of
+// the difference present). They sit only in the retired interim and on one laptop, which is the one
+// thing this pipeline exists to prevent (D42, L158b). `check-dsh-freshness.py` cannot see them: it
+// compares the newest local file against the newest cursor `at`, and the cursor says "delivered".
+//
+// The rule that prevents a repeat: an entry only counts for the transport that is running now.
+// Older entries carry no transport, so they are classified by when they were written relative to the
+// cutover; anything a different store accepted is re-sent (idempotent -- the server upserts on
+// (machine, session, ordinal), so re-delivery is free). No cursor deletion is involved.
+const HTTP_CUTOVER_MS = Date.parse('2026-09-11T19:16:00Z');
+function entryStore(v) {
+  if (!v) return null;
+  if (v.transport) return v.transport;
+  const t = Date.parse(v.at || '');
+  if (Number.isFinite(t)) return t < HTTP_CUTOVER_MS ? 'scp' : 'http';
+  return null;
+}
+const deliveredToCurrentStore = (v) => entryStore(v) === TRANSPORT;
+
 // ── shipping ────────────────────────────────────────────────────────────────────────────────────
 
 /** Run a command whose reply is small and may be followed by an ssh that never exits.
@@ -423,6 +449,8 @@ async function main() {
   // changes is that the sessions behind it in this run still get their chance, and the run exits
   // non-zero so the scheduled task reports failure instead of looking like a quiet success.
   const refusals = [];
+  // Sessions the current transport has never delivered, so they are re-sent whole (see entryStore).
+  const resending = [];
 
   const flush = async () => {
     if (batch.sessions.length === 0) { return; }
@@ -454,9 +482,14 @@ async function main() {
     const decoded = readSession(s.file);
     const k = key(s);
     const prev = state.sessions[k] || { rowsShipped: 0, bytes: 0 };
-    const startRow = ALL ? 0 : prev.rowsShipped;
+    // A session the CURRENT store has never accepted is re-sent whole, even though the cursor holds
+    // a row for it (see entryStore). That is the heal for the scp-era entries and the guard against
+    // any future transport change silently orphaning a conversation.
+    const delivered = deliveredToCurrentStore(prev);
+    if (!delivered && prev.rowsShipped) resending.push(k);
+    const startRow = ALL || !delivered ? 0 : prev.rowsShipped;
 
-    if (!ALL && decoded.rows.length <= startRow && prev.bytes === decoded.bytes) { skipped++; continue; }
+    if (!ALL && delivered && decoded.rows.length <= startRow && prev.bytes === decoded.bytes) { skipped++; continue; }
 
     const newRows = decoded.rows.slice(startRow);
     if (decoded.tornStart !== null) torn++;
@@ -510,6 +543,8 @@ async function main() {
             bytes: decoded.bytes,
             lastRow: newRows.length ? newRows[newRows.length - 1].seq : (prev.lastRow ?? null),
             at: new Date().toISOString(),
+            // Which store accepted this. Without it the next transport change re-orphans sessions.
+            transport: TRANSPORT,
           },
         });
       }
@@ -530,6 +565,10 @@ async function main() {
       `their cursor entries are unchanged, so they are re-sent whole next run`);
   }
   if (skipped) console.log(`unchanged  : ${skipped} session(s) already complete (cursor)`);
+  if (resending.length) {
+    console.log(`re-send    : ${resending.length} session(s) the ${TRANSPORT} store has never accepted ` +
+      `(their cursor rows were written by another store/transport)`);
+  }
   if (torn) console.log(`torn tail  : ${torn} session(s) ended mid-frame — skipped, which is normal`);
   if (transportNotes.killedAfterReply) {
     console.log(`transport  : ${transportNotes.killedAfterReply} batch(es) ended by killing the child once its reply parsed (this host's transport does not always exit on its own) — see postBatch`);
