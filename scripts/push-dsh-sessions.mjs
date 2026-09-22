@@ -411,15 +411,34 @@ async function main() {
   // Cursor updates wait until the batch containing them has been ACCEPTED. Advancing a cursor before
   // the server holds the rows is how a shipper silently loses data it believes it already sent.
   let pendingCursor = [];
+  // A batch the authority refused. Recorded, never fatal: the run continues so one contended
+  // minute cannot hide every later session. Measured 2026-09-21 03:30-08:30Z: the authority answered
+  // `500 {"error":"internal_error"}` (sqlite `database is locked`) for five hours; the old shape let
+  // that exception unwind out of flush(), the process exited, and NOTHING after the failed batch was
+  // even attempted -- a 300-minute hole with the cursor frozen. On 2026-09-18/20 the same shape ran
+  // for 2,424 minutes, and `check-dsh-freshness.py` read it as "the shipper is not sending".
+  //
+  // Nothing is lost either way: the cursor only advances for an accepted batch, so a refused batch
+  // is re-sent whole on the next run (at-least-once delivery + the server's idempotent upsert). What
+  // changes is that the sessions behind it in this run still get their chance, and the run exits
+  // non-zero so the scheduled task reports failure instead of looking like a quiet success.
+  const refusals = [];
 
   const flush = async () => {
     if (batch.sessions.length === 0) { return; }
     if (!DRY) {
       const body = { source_machine: MACHINE, exported_at: new Date().toISOString(), schema_version: 1, sessions: batch.sessions };
-      const reply = await postBatch(body);
-      if (VERBOSE) console.log('   reply:', reply.slice(0, 160));
-      for (const u of pendingCursor) state.sessions[u.k] = u.v;
-      totalBatches++;
+      try {
+        const reply = await postBatch(body);
+        if (VERBOSE) console.log('   reply:', reply.slice(0, 160));
+        for (const u of pendingCursor) state.sessions[u.k] = u.v;
+        totalBatches++;
+      } catch (e) {
+        const msg = String((e && e.message) || e).slice(0, 200);
+        refusals.push(msg);
+        console.log(`   REFUSED  : ${batch.sessions.length} fragment(s) not accepted by the authority — ${msg.slice(0, 140)}`);
+        console.log('   cursor   : NOT advanced for these sessions; they are re-sent whole next run');
+      }
       // Pace the requests. The company writes to this database continuously, and a backfill firing a
       // hundred inserts back-to-back is what pushed it into 'database is locked' -- the WAL was sitting
       // at its 64 MiB limit, which is the signature of checkpoint starvation. Incremental hourly runs
@@ -504,7 +523,12 @@ async function main() {
   if (!DRY) saveState(state);
 
   console.log('');
-  console.log(`${DRY ? 'would ship' : 'shipped'}: ${sessionsSent} session(s), ${rowsSent} new row(s), ${Math.round(bytesSent / 1024)} KB`);
+  const verb = DRY ? 'would ship' : (refusals.length ? 'queued' : 'shipped');
+  console.log(`${verb}: ${sessionsSent} session(s), ${rowsSent} new row(s), ${Math.round(bytesSent / 1024)} KB`);
+  if (refusals.length) {
+    console.log(`refused    : ${refusals.length} batch(es) — the authority did not accept them; ` +
+      `their cursor entries are unchanged, so they are re-sent whole next run`);
+  }
   if (skipped) console.log(`unchanged  : ${skipped} session(s) already complete (cursor)`);
   if (torn) console.log(`torn tail  : ${torn} session(s) ended mid-frame — skipped, which is normal`);
   if (transportNotes.killedAfterReply) {
@@ -519,7 +543,10 @@ async function main() {
     await postHeartbeat();
     console.log(`heartbeat  : recorded contact for ${MACHINE} (0 sessions, 0 rows)`);
   }
-  return 0;
+  // A run that could not deliver everything is NOT a success. It must be visible to whatever
+  // schedules this (a Windows task result, cron's exit status, the ship log), because the whole
+  // failure mode this guards against is a shipper that looks quiet while its work is unarchived.
+  return refusals.length ? 1 : 0;
 }
 
 main().then((c) => process.exit(c)).catch((e) => { console.error('error: ' + e.message); process.exit(1); });
