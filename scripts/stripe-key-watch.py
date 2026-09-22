@@ -24,6 +24,12 @@ Nothing here is destructive and nothing here sends anything outbound.
 
 Usage:  python3 stripe-key-watch.py            # one pass
         python3 stripe-key-watch.py --status   # print the last run
+
+DEPLOYED AS: `~/bin/stripe-key-watch.py` on **secratary only** (it is the host
+holding the Stripe key backups it reads and the queue it writes to). This file is
+the source; that path is the deployment. It also calls `~/bin/owner-queue.py`,
+which is versioned beside this script as scripts/owner-queue.py and deployed to
+the same directory.
 """
 from __future__ import annotations
 
