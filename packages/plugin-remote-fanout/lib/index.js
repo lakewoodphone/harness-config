@@ -38,7 +38,7 @@
 
 import { createBrokerClient } from './broker-client.js';
 import { createPlacementLedger, createNodePlacer } from './placement.js';
-import { createPressureReader, decidePressure, describePressure, localNodeName } from './pressure.js';
+import { createPressureReader, decidePressure, describePressure, localNodeName, PREFER_REMOTE_DEFAULT, PREFER_REMOTE_POLICY } from './pressure.js';
 import { RemoteOneShotProvider } from './provider.js';
 import { createSshTransport } from './ssh-transport.js';
 
@@ -70,6 +70,34 @@ export function resolvePlacementMode(config = {}, env = process.env) {
 }
 
 /**
+ * Whether the `prefer-remote` POLICY is on, decided in ONE place and in the
+ * package rather than in a deployment file, for the same reason
+ * `resolvePlacementMode` is: the rule is about behaviour, not about a machine.
+ *
+ *   `preferRemote: true|false`   an explicit choice, in the row
+ *   `MESH_PREFER_REMOTE`         `1`/`true`/`on` (or `0`/`false`/`off`), from the environment
+ *   nothing at all               -> OFF (`PREFER_REMOTE_DEFAULT`)
+ *
+ * OFF IS THE DEFAULT ON PURPOSE, and the reason is one sentence: today's defect
+ * is that a DEFAULT treated a machine a human is using as an ordinary worker,
+ * and a fix that silently changes placement on every machine - including the
+ * nodes nobody is sitting at, where it trades a local start-now for a remote
+ * queue - without a measurement that the trade is net-positive is the same
+ * mistake in the other direction. A deployment turns it on deliberately.
+ */
+export function resolvePreferRemote(config = {}, env = process.env) {
+  const configured = config.preferRemote ?? env.MESH_PREFER_REMOTE;
+  if (configured === true) return true;
+  if (configured === false) return false;
+  if (typeof configured === 'string') {
+    const value = configured.trim().toLowerCase();
+    if (value === '1' || value === 'true' || value === 'on' || value === 'yes') return true;
+    if (value === '' || value === '0' || value === 'false' || value === 'off' || value === 'no') return false;
+  }
+  return PREFER_REMOTE_DEFAULT;
+}
+
+/**
  * Install the provider.
  *
  * @param config.providerName    registry name (default `remote-ssh`)
@@ -96,6 +124,7 @@ export function resolvePlacementMode(config = {}, env = process.env) {
  * @param config.queuePollMs     how often a queued child re-reads `GET /nodes` (default 5000)
  * @param config.prefer          `home` | `office` | null — passed to the broker, which treats it as a tie-breaker only
  * @param config.exclude         node names to tell the broker to avoid (a caller hint; it yields to never-refuse)
+ * @param config.preferRemote    the `prefer-remote` policy: exclude the local node whenever the broker reports an eligible node other than it (default OFF — `PREFER_REMOTE_DEFAULT`; `MESH_PREFER_REMOTE=1` turns it on)
  * @param config.pressureSnapshotFile    override the `plugin-health` snapshot the pressure reader reads
  * @param config.pressureProbeDir        override where the fallback probe caches its reading
  * @param config.pressureMaxAgeMs        how stale a reading may be before it counts as absent (default 30000)
@@ -106,6 +135,7 @@ function apply(ctx, config = {}) {
     ? config.providerName
     : 'remote-ssh';
   const mode = resolvePlacementMode(config);
+  const preferRemote = resolvePreferRemote(config);
 
   const ledger = createPlacementLedger({ logger: ctx.logger });
 
@@ -196,6 +226,12 @@ function apply(ctx, config = {}) {
   const bootDecision = decidePressure(bootReading, { localNode: localNodeName() ?? null });
   ctx.logger?.info?.(`remote-fanout: local pressure at boot — ${describePressure(bootReading, bootDecision)}`);
   ctx.logger?.info?.(`remote-fanout: pressure routing — ${bootDecision.decision}: ${bootDecision.reason}`);
+  // The policy is stated at boot whether it is on or off: a behaviour change a
+  // reader cannot see is a behaviour change nobody can review.
+  ctx.logger?.info?.(`remote-fanout: ${PREFER_REMOTE_POLICY} is ${preferRemote ? 'ON' : 'OFF'}`
+    + (preferRemote
+      ? ' — the local node is excluded from the ranking whenever the broker reports at least one eligible node other than it, and used exactly as today when it does not'
+      : ` — the default (${PREFER_REMOTE_DEFAULT}): the local node stays a candidate exactly as it was; set preferRemote: true or MESH_PREFER_REMOTE=1 to exclude it whenever the broker reports an eligible node other than it`));
 
   placer = createNodePlacer({
     broker,
@@ -220,6 +256,7 @@ function apply(ctx, config = {}) {
     queuePollMs: config.queuePollMs,
     prefer: config.prefer ?? null,
     exclude: Array.isArray(config.exclude) ? config.exclude : [],
+    preferRemote,
   });
 
   const provider = new RemoteOneShotProvider({

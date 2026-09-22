@@ -19,7 +19,10 @@ import { createNodePlacer, createPlacementLedger, LOCAL_PRESSURE_REFUSED, MESH_U
 import {
   CRITICAL_COMMIT_PHYSICAL_PCT,
   HIGH_COMMIT_PHYSICAL_PCT,
+  PREFER_REMOTE_DEFAULT,
+  PREFER_REMOTE_POLICY,
   REFUSE_AVAILABLE_FLOOR_BYTES,
+  alternativeEligibility,
   createPressureReader,
   decidePressure,
   describePressure,
@@ -50,18 +53,28 @@ function ledgerInTempDir(t) {
   return { dir, ledger: createPlacementLedger({ dir }) };
 }
 
-/** A broker double, with the placement every test wants to control. */
-function fakeBroker({ placement = { node: 'zabz-tech', position: 0, lease: 'L1' }, throw: error } = {}) {
-  const calls = { place: [] };
+/**
+ * A broker double, with the placement every test wants to control.
+ *
+ * `placements` is a QUEUE of answers, for the one case that needs two asks: the
+ * `prefer-remote` policy gives the first reservation back and asks again. A
+ * test that passes `placement` (the older form) gets that one answer every
+ * time, so every existing test is unchanged by the queue existing.
+ */
+function fakeBroker({ placement = { node: 'zabz-tech', position: 0, lease: 'L1' }, placements, throw: error } = {}) {
+  const calls = { place: [], done: [] };
+  const answers = Array.isArray(placements) ? [...placements] : null;
   return {
     calls,
     describe: () => 'broker http://localhost:3091 over ssh secratary-ts',
     async place(task) {
       calls.place.push(task);
       if (error !== undefined) throw error;
-      return { score: 16, eligible: 4, tier: 'fits', blockedBy: [], queue: [], rationale: ['r'], leaseTtlSec: 900, ...placement };
+      const answer = answers !== null && answers.length > 0 ? answers.shift() : placement;
+      return { score: 16, eligible: 4, tier: 'fits', blockedBy: [], queue: [], rationale: ['r'], leaseTtlSec: 900, ...answer };
     },
-    async done() {
+    async done(lease, ok) {
+      calls.done.push({ lease, ok });
       return { ok: true, released: true };
     },
     async nodes() {
@@ -483,4 +496,214 @@ test('the child\'s report names the decision, the numbers, the node, and the dec
   assert.match(pressureCheckLine(undefined), /NOT been sampled/);
   assert.equal(pressureLine({ node: 'zabz-tech' }, 'ZABZ-TECH'), undefined);
   assert.match(describePressure(placement.pressure, placement.pressureDecision), /tool-call runners/);
+});
+
+// ---------------------------------------------------------------------------
+// THE prefer-remote POLICY: a policy, not a sensor
+// ---------------------------------------------------------------------------
+
+test('prefer-remote is OFF by default, and the default changes nothing', async (t) => {
+  assert.equal(PREFER_REMOTE_DEFAULT, false);
+  assert.equal(PREFER_REMOTE_POLICY, 'prefer-remote');
+  const { dir, ledger } = ledgerInTempDir(t);
+  const broker = fakeBroker({ placement: { node: 'zabz-yoga-1', position: 0, lease: 'L-today' } });
+  const placer = createNodePlacer({
+    broker,
+    ledger,
+    localNode: 'zabz-yoga-1',
+    pressureReader: { read: () => reading({ commitPct: 0.4 }) },
+  });
+  const placement = await placer.acquire({ id: 'policy-off' });
+  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [] }]);
+  assert.equal(broker.calls.done.length, 0, 'a policy that is off must not touch a lease');
+  assert.equal(placement.node, 'zabz-yoga-1');
+  assert.equal(placement.excludedLocalNode, false);
+  assert.equal(placement.preferRemote, false);
+  assert.equal(placement.pressureDecision.decision, 'ok');
+  assert.equal(placement.supersededLease, undefined);
+  const written = JSON.parse(readFileSync(path.join(dir, 'policy-off.json'), 'utf8'));
+  assert.equal(written.preferRemote, false);
+  assert.equal(written.pressureDecision.decision, 'ok');
+});
+
+test('alternatives present: the local answer is released unspent, and the local node is excluded from the second ask', async (t) => {
+  const { dir, ledger } = ledgerInTempDir(t);
+  const broker = fakeBroker({
+    placements: [
+      // The first answer is exactly what today's rules produce: the laptop,
+      // because it is far below both lines, from a pool that held other nodes.
+      { node: 'zabz-yoga-1', position: 0, lease: 'L-local', eligible: 3, tier: 'fits' },
+      // The second ask excludes the local node and the broker names the desktop.
+      { node: 'zabz-tech', position: 0, lease: 'L-remote', eligible: 2, tier: 'fits' },
+    ],
+  });
+  const placer = createNodePlacer({
+    broker,
+    ledger,
+    localNode: 'zabz-yoga-1',
+    preferRemote: true,
+    pressureReader: { read: () => reading({ commitPct: 0.4 }) },
+  });
+  const placement = await placer.acquire({ id: 'policy-alt' });
+
+  assert.equal(broker.calls.place.length, 2);
+  assert.deepEqual(broker.calls.place[0].exclude, [], 'the first ask is exactly today\'s ask');
+  assert.deepEqual(broker.calls.place[1].exclude, ['zabz-yoga-1'], 'the second ask excludes the local node');
+  assert.deepEqual(broker.calls.done, [{ lease: 'L-local', ok: false }], 'the local reservation is given back BEFORE the second ask');
+  assert.equal(placement.node, 'zabz-tech');
+  assert.equal(placement.excludedLocalNode, true);
+  assert.equal(placement.placedLocally, false);
+  assert.equal(placement.pressureDecision.decision, 'route-remote');
+  assert.match(placement.pressureDecision.reason, /prefer-remote/);
+  assert.match(placement.pressureDecision.reason, /2 node\(s\) other than this machine/);
+  assert.equal(placement.supersededLease.lease, 'L-local');
+  assert.equal(placement.supersededLease.released, true);
+  assert.match(placement.preferRemoteNote, /released unspent/);
+
+  const written = JSON.parse(readFileSync(path.join(dir, 'policy-alt.json'), 'utf8'));
+  assert.deepEqual(written.pressureDecision.excludeSentToBroker, ['zabz-yoga-1']);
+  assert.equal(written.excludedLocalNode, true);
+  assert.equal(written.preferRemote, true);
+  // The line the child reports says the local option was declined, and why.
+  assert.match(pressureLine(placement, 'ZABZ-TECH'), /the LOCAL option was declined and offered to the mesh as excluded/);
+});
+
+test('no alternatives: the local node is used exactly as today, with no second ask', async (t) => {
+  const { ledger } = ledgerInTempDir(t);
+  const broker = fakeBroker({ placement: { node: 'zabz-yoga-1', position: 0, lease: 'L-only', eligible: 1, tier: 'fits' } });
+  const placer = createNodePlacer({
+    broker,
+    ledger,
+    localNode: 'zabz-yoga-1',
+    preferRemote: true,
+    pressureReader: { read: () => reading({ commitPct: 0.4 }) },
+  });
+  const placement = await placer.acquire({ id: 'policy-only' });
+  assert.equal(broker.calls.place.length, 1, 'no second ssh call when there is nowhere else to put the child');
+  assert.equal(broker.calls.done.length, 0);
+  assert.equal(placement.node, 'zabz-yoga-1');
+  assert.equal(placement.position, 0, 'position 0, not a queue the policy introduced');
+  assert.equal(placement.excludedLocalNode, false);
+  assert.equal(placement.pressureDecision.decision, 'ok');
+  assert.match(placement.pressureDecision.reason, /no eligible node other than this machine/);
+  assert.match(placement.pressureDecision.reason, /exactly as today/);
+});
+
+test('the eligible set cannot be determined: today\'s behaviour, and the reason says so', async (t) => {
+  // `tier: 'queued'` builds the broker's pool from every placeable node, so its
+  // count is not an eligible set; a broker that reports no `eligible` cannot
+  // say either. Both must behave exactly as today and must NOT spend a second
+  // call or release a lease on a set that could not be read.
+  for (const answer of [
+    { node: 'zabz-yoga-1', position: 1, lease: 'L-q', eligible: 4, tier: 'queued' },
+    { node: 'zabz-yoga-1', position: 0, lease: 'L-n', eligible: null, tier: 'fits' },
+  ]) {
+    const { ledger } = ledgerInTempDir(t);
+    const broker = fakeBroker({ placement: answer });
+    const placer = createNodePlacer({
+      broker,
+      ledger,
+      localNode: 'zabz-yoga-1',
+      preferRemote: true,
+      pressureReader: { read: () => reading({ commitPct: 0.4 }) },
+    });
+    const placement = await placer.acquire({ id: `policy-unknown-${answer.lease}` });
+    assert.equal(broker.calls.place.length, 1, 'an unreadable eligible set must not cause a second ask');
+    assert.equal(broker.calls.done.length, 0, 'an unreadable eligible set must not release a lease');
+    assert.equal(placement.node, 'zabz-yoga-1');
+    assert.equal(placement.excludedLocalNode, false);
+    assert.equal(placement.pressureDecision.decision, 'ok');
+    assert.equal(placement.pressureDecision.eligible.known, false);
+    assert.match(placement.pressureDecision.reason, /could not be determined/);
+    assert.match(placement.pressureDecision.reason, /exactly as it was before the policy existed/);
+  }
+});
+
+test('the broker already named another node: the policy adds nothing, and says so', async (t) => {
+  const { ledger } = ledgerInTempDir(t);
+  const broker = fakeBroker({ placement: { node: 'zabz-tech', position: 0, lease: 'L-remote-already', eligible: 4, tier: 'fits' } });
+  const placer = createNodePlacer({
+    broker,
+    ledger,
+    localNode: 'zabz-yoga-1',
+    preferRemote: true,
+    pressureReader: { read: () => reading({ commitPct: 0.4 }) },
+  });
+  const placement = await placer.acquire({ id: 'policy-remote-already' });
+  assert.equal(broker.calls.place.length, 1);
+  assert.equal(broker.calls.done.length, 0);
+  assert.equal(placement.excludedLocalNode, false, 'nothing was sent as excluded, so the record must not claim it was');
+  assert.equal(placement.pressureDecision.decision, 'ok');
+  assert.match(placement.pressureDecision.reason, /needed no exclusion/);
+});
+
+test('mesh unreachable: prefer-remote changes nothing, at both bands', async (t) => {
+  // The policy is evaluated only on an answer, so an ask that fails cannot
+  // reach it: the failure stays the plain broker failure it was before.
+  const { ledger } = ledgerInTempDir(t);
+  const broker = fakeBroker({ throw: new BrokerError(BROKER_UNREACHABLE, 'ssh exited 255') });
+  const placer = createNodePlacer({
+    broker,
+    ledger,
+    localNode: 'zabz-yoga-1',
+    preferRemote: true,
+    pressureReader: { read: () => reading({ commitPct: 0.4 }) },
+  });
+  await assert.rejects(() => placer.acquire({ id: 'policy-unreachable' }), (error) => {
+    assert.equal(error.code, BROKER_UNREACHABLE);
+    assert.equal(error instanceof PressureRefusalError, false);
+    return true;
+  });
+  assert.equal(broker.calls.done.length, 0);
+  // And as a pure decision: unreachable plus the ok band is still 'ok'.
+  const unreachable = decidePressure(reading({ commitPct: 0.4 }), { localNode: 'zabz-yoga-1', brokerReachable: false, preferRemote: true });
+  assert.equal(unreachable.decision, 'ok');
+  assert.equal(unreachable.routeAwayFromLocal, false);
+  // Above the high line AND unreachable, the existing refusal is unchanged.
+  const saturated = decidePressure(reading({ commitPct: 0.97, availableMiB: 400 }), { localNode: 'zabz-yoga-1', brokerReachable: false, preferRemote: true });
+  assert.equal(saturated.decision, 'refuse-local');
+  assert.equal(saturated.refuse, true);
+});
+
+test('the policy decision is pure: it reads the eligible set and refuses to guess one', () => {
+  const local = 'zabz-yoga-1';
+  assert.equal(alternativeEligibility(undefined, { localNode: local }).known, false, 'not asked yet');
+  const elsewhere = alternativeEligibility({ node: 'zabz-tech', eligible: 2, tier: 'fits' }, { localNode: local });
+  assert.equal(elsewhere.known, true);
+  assert.equal(elsewhere.localChosen, false);
+  assert.ok(elsewhere.alternatives >= 1);
+  assert.equal(alternativeEligibility({ node: local, eligible: 3, tier: 'fits' }, { localNode: local }).alternatives, 2);
+  assert.equal(alternativeEligibility({ node: local, eligible: 1, tier: 'fits' }, { localNode: local }).alternatives, 0);
+  assert.equal(alternativeEligibility({ node: local, eligible: 4, tier: 'queued' }, { localNode: local }).known, false, 'the queued tier is not an eligible set');
+  assert.equal(alternativeEligibility({ node: local, tier: 'fits' }, { localNode: local }).known, false, 'no count, no claim');
+  assert.equal(alternativeEligibility({ node: local, eligible: 3 }, { localNode: local }).known, false, 'no tier, no claim');
+
+  const decision = decidePressure(reading({ commitPct: 0.4 }), {
+    localNode: local,
+    brokerReachable: true,
+    preferRemote: true,
+    placement: { node: local, eligible: 3, tier: 'fits' },
+  });
+  assert.equal(decision.decision, 'route-remote');
+  assert.equal(decision.routeAwayFromLocal, true);
+  assert.equal(decision.policy, PREFER_REMOTE_POLICY);
+  assert.match(decision.reason, /2 node\(s\) other than this machine/);
+  assert.match(decision.reason, /under no pressure/);
+  // The thresholds are untouched by the policy: the same reading with the
+  // policy off still decides 'ok'.
+  assert.equal(decidePressure(reading({ commitPct: 0.4 }), { localNode: local }).decision, 'ok');
+});
+
+test('pressureCheckLine renders the policy decision when it is handed one', () => {
+  const calm = reading({ commitPct: 0.4 });
+  const decision = decidePressure(calm, {
+    localNode: 'zabz-yoga-1',
+    brokerReachable: true,
+    preferRemote: true,
+    placement: { node: 'zabz-yoga-1', eligible: 2, tier: 'fits' },
+  });
+  assert.match(pressureCheckLine(calm, decision), /prefer-remote → route-remote/);
+  assert.match(pressureCheckLine(calm, decision), /1 node\(s\) other than this machine/);
+  // One argument still works and renders the numbers as it always did.
+  assert.match(pressureCheckLine(calm), /^local pressure OK — /);
 });

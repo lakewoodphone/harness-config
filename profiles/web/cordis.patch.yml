@@ -152,7 +152,31 @@
       # that file's entries are block style; the shape follows the container.
       # The trailing commas in this block are also load-bearing: a flow mapping
       # needs an explicit separator, and one is required after a flow sequence.
-      sshArgs: ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=10'],
+      # ConnectTimeout=10 WAS TOO TIGHT FOR A LOADED NODE. Measured 2026-09-18: with five children
+      # placed on one machine its sshd handshake stretched to 8,041 ms from this laptop, and the next
+      # dispatch hop against a 10 s limit died with `ssh_dispatch_run_fatal: Connection to
+      # 100.85.153.96 port 22: Connection timed out`, taking that child's whole turn with it -- the
+      # third child lost to a transport timeout in one day (journal P332), where the load that
+      # stretched the handshake was the fan-out itself.
+      #
+      # A SLOW HANDSHAKE IS NOT A DEAD NODE. 25 s tolerates the measured worst case with margin while
+      # still failing in bounded time, and it stays far below the 1800 s a child turn is allowed.
+      #
+      # AND AN IDLE CONNECTION OVER A RELAY DIES WITHOUT SAYING SO, which is why the keepalive pair
+      # below is here and not optional. MEASURED repeatedly: children died with `Read from remote host
+      # zabz-tech.tail93e6e6.ts.net: Connection timed out` / `client_loop: send disconnect: Connection
+      # reset` -- subagent-1, subagent-11, subagent-17, and the project-keepalive workstream on
+      # 2026-09-20. `ConnectTimeout` cannot help: it bounds the HANDSHAKE, and these died minutes in,
+      # while the remote side was thinking. The laptop reaches the office over a Tailscale DERP relay,
+      # and a relay that drops a flow sends NO FIN, so a long and mostly-idle socket is severed with
+      # nothing on either end told. `ServerAliveInterval=15` probes it and `ServerAliveCountMax=4`
+      # gives the path a minute to answer before ssh declares it dead -- which turns a silent severance
+      # into a clean error the provider can report, instead of a turn that never returns.
+      #
+      # This is the SAME fault as the streaming bug fixed in `multi-window/dshw-proxy.mjs` an hour
+      # earlier -- a long-lived connection over a relay path with nothing that notices a silent drop.
+      # There the middleman was a spliced WebSocket; here it is ssh. Same fix, same reason.
+      sshArgs: ['-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'ConnectTimeout=25', '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=4'],
       remoteShell: !!js "process.env.MESH_REMOTE_SHELL ?? (process.platform === 'win32' ? 'powershell' : 'posix')",
       # THE EXECUTOR IS NAMED FIRST. A node with a `dsh` wrapper on PATH is
       # invoked BY NAME, because the wrapper is the only thing that sources the
@@ -187,6 +211,25 @@
       # child and lets a real workstream finish inside one turn. Per-host override
       # unchanged: MESH_CHILD_TIMEOUT_MS.
       timeoutMs: !!js "process.env.MESH_CHILD_TIMEOUT_MS ? Number(process.env.MESH_CHILD_TIMEOUT_MS) : 1800000",
+      # prefer-remote IS ON FOR THE OWNER'S LAPTOP AND NOWHERE ELSE, and the justification is a
+      # measurement rather than a preference (journal W210, W214; docs/mesh/113, docs/mesh/114).
+      #
+      # WHAT IT BUYS, MEASURED: three children placed on the laptop cost **+1.05 GiB of commit and
+      # +25.2 processes** (reproduced twice); the same three placed on the desktop cost the laptop
+      # **+0.046 GiB and +2.2 processes**, i.e. indistinguishable from idle. So the policy returns about
+      # a gigabyte and twenty-five processes to the machine the owner is sitting at, whenever the
+      # broker's own eligible set holds another node.
+      #
+      # WHAT IT IS NOT JUSTIFIED BY: speed. A responsiveness probe over the same conditions returned a
+      # NULL result -- the A->A2 baseline drift (-3.9 ms) exceeded every effect measured -- so nothing
+      # here claims DSH will *feel* faster. Enabling it as "this makes DSH fast" would be claiming a
+      # measurement nobody has.
+      #
+      # WHY BY HOSTNAME AND NOT EVERYWHERE: the three office nodes have nobody sitting at them, and the
+      # policy there would trade a local start-now for a remote queue for no benefit. `COMPUTERNAME` is
+      # Windows-only, so this is false on Linux and macOS by construction rather than by a list that
+      # could rot. MESH_PREFER_REMOTE=1/0 overrides it anywhere.
+      preferRemote: !!js "(process.env.MESH_PREFER_REMOTE ?? '') !== '' ? process.env.MESH_PREFER_REMOTE === '1' : process.env.COMPUTERNAME === 'ZABZ-YOGA'",
       maxOutputBytes: 200000,
     },
   },

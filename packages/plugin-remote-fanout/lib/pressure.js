@@ -599,6 +599,139 @@ export function resetSharedPressureReader() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// THE POLICY: prefer-remote (a policy, not a sensor)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The defect this closes, and what was measured.
+ *
+ * 2026-09-18: three dispatches that each believed they were aimed elsewhere all
+ * produced a child running on the owner's laptop while a 32-core desktop sat
+ * with 38 GiB free. The placement was CORRECT BY THE RULES AS WRITTEN -
+ * `HIGH_COMMIT_PHYSICAL_PCT` is 0.85 and `CRITICAL_COMMIT_PHYSICAL_PCT` is 0.92
+ * behind a 1.5 GiB availability floor - and the laptop sat far below both
+ * lines, so the broker balanced onto it as soon as the bigger node filled.
+ * There was no mechanism anywhere for "the owner is using this machine right
+ * now", and there still is not one; see the next paragraph.
+ *
+ * WHY THIS IS A POLICY AND NOT A SENSOR. No cheap, non-lying signal for "a
+ * human is driving this machine" exists in this package, and none was invented:
+ *
+ *   * `createPressureReader`'s `agentsRunning` census is the ENGINE's own
+ *     session registry (`lib/index.js` passes `ctx.get('agents').list()` and
+ *     counts `status === 'running'`). It counts agent loops EXECUTING, which is
+ *     a fact about this engine and not about a human at the keyboard: an idle
+ *     human with two background loops and a busy human with none are the same
+ *     number to it, in both directions, and the count is `null` whenever the
+ *     census cannot be read.
+ *   * `plugin-health`'s snapshot carries memory counters and a process list and
+ *     nothing else - no input-idle time and no active-session flag. A real
+ *     signal would be `GetLastInputInfo`, which nothing in this tree samples,
+ *     and which would cost a `pwsh` spawn (~540-700 ms measured on this host)
+ *     on the very dispatch path this module exists to keep free.
+ *
+ * THE POLICY, AND THE INPUT IT ALREADY HAS. `/place` answers with the eligible
+ * set it ranked (`eligible`, beside `node`, `tier`, `blockedBy` and
+ * `rationale`). When that answer says there is at least one eligible node other
+ * than this one, there is somewhere else to put the child, and this machine is
+ * excluded from the ranking. When there is nowhere else, this machine is used
+ * exactly as today. When the eligible set cannot be read from the answer,
+ * NOTHING CHANGES and the reason says so: a reading that could not be made
+ * never changes a decision - this module's own rule, and the rule that was
+ * violated four times on this mesh in one day.
+ *
+ * WHERE IT IS EVALUATED, AND WHERE IT IS NOT. The policy is evaluated in the
+ * `ok` band, which is the band the reported defect sits in (the laptop was far
+ * below both lines). At or above the high line the thresholds have ALREADY
+ * excluded the local node, so the policy has nothing to add, and when the
+ * pressure reading is unavailable this module's rule is to behave exactly as
+ * before - which the policy must not override.
+ */
+export const PREFER_REMOTE_POLICY = 'prefer-remote';
+
+/**
+ * IS IT ON BY DEFAULT? NO, and this is a decision rather than an oversight.
+ *
+ * Today's defect is that the DEFAULT treated a machine a human is using as an
+ * ordinary worker. A fix that silently turned that default around on every
+ * machine - including the three nodes nobody is sitting at, where it would
+ * trade a local start-now for a remote queue the moment any other node is
+ * eligible - would be the same mistake pointing the other way, and this change
+ * carries no measurement that the trade is net-positive on any machine but the
+ * one in the report. So it is an explicit opt-in (`preferRemote: true` in the
+ * row, or `MESH_PREFER_REMOTE=1`), logged at boot by `lib/index.js` the same
+ * way `placement: 'fixed'` is logged, and a deployment turns it on on purpose
+ * after the placement ledger shows what it did.
+ */
+export const PREFER_REMOTE_DEFAULT = false;
+
+/**
+ * Read the broker's OWN answer for whether an eligible alternative to
+ * `localNode` existed - or `known: false` when the answer cannot say, which is
+ * never the same thing as "no".
+ *
+ * HOW THE ANSWER IS READ, AND WHERE IT STOPS BEING READABLE. `/place`'s
+ * `eligible` field is the size of the pool the broker ranked for the tier it
+ * chose (`mesh-broker/lib/broker.js`, `decide()`: `eligible: pool.length`).
+ * Every pool except one is built from candidates that are reachable, that
+ * accept the task, and that the CALLER did not exclude - so its size is "how
+ * many nodes were in the ranking with this one", and subtracting this machine
+ * when the broker named it gives the number of alternatives. The exception is
+ * the `queued` tier (and the `internal-fault` last resort), whose pool is the
+ * raw arena of EVERY placeable node: its size is not an eligible set and is
+ * reported as unknown rather than read as evidence. An answer with no
+ * `eligible` field, no `node`, or no local node name to compare against is
+ * unknown for the same reason.
+ *
+ * @param {object|undefined|null} placement the broker's `/place` answer, or nothing when it has not been asked
+ * @param {object} [options]
+ * @param {string|null} [options.localNode] this machine's name in the broker's vocabulary
+ * @returns {{known:boolean, count:number|null, alternatives:number|null, localChosen:boolean|null, why:string}}
+ */
+export function alternativeEligibility(placement, { localNode = null } = {}) {
+  if (placement === null || typeof placement !== 'object') {
+    return { known: false, count: null, alternatives: null, localChosen: null, why: 'the broker has not been asked, so there is no eligible set to read' };
+  }
+  const rawCount = placement.eligible;
+  const count = rawCount === null || rawCount === undefined || rawCount === '' ? Number.NaN : Number(rawCount);
+  if (!Number.isFinite(count) || count < 0) {
+    return { known: false, count: null, alternatives: null, localChosen: null, why: `the broker's answer carried no eligible count (eligible=${JSON.stringify(rawCount ?? null)})` };
+  }
+  const chosen = typeof placement.node === 'string' && placement.node !== '' ? placement.node : null;
+  if (chosen === null) {
+    return { known: false, count, alternatives: null, localChosen: null, why: 'the broker did not name a node, so which machine it ranked cannot be read' };
+  }
+  if (localNode === null || localNode === undefined || localNode === '') {
+    return { known: false, count, alternatives: null, localChosen: null, why: 'this machine could not be translated into the broker\'s node vocabulary, so "a node other than the local one" cannot be evaluated' };
+  }
+  if (placement.tier === 'queued' || placement.tier === 'internal-fault' || placement.tier === null || placement.tier === undefined) {
+    return {
+      known: false,
+      count,
+      alternatives: null,
+      localChosen: chosen === localNode,
+      why: `the broker answered from its "${placement.tier ?? 'unstated'}" tier, whose pool is every placeable node rather than the eligible set, so a count of ${count} cannot say whether an eligible node other than this one existed`,
+    };
+  }
+  if (chosen !== localNode) {
+    return {
+      known: true,
+      count,
+      alternatives: Math.max(1, count),
+      localChosen: false,
+      why: `the broker named "${chosen}", not this machine, so at least one node other than this one was in the pool it ranked`,
+    };
+  }
+  return {
+    known: true,
+    count,
+    alternatives: Math.max(0, count - 1),
+    localChosen: true,
+    why: `the broker named this machine from a pool of ${count}, so ${Math.max(0, count - 1)} other eligible node(s) were ranked against it`,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // THE DECISION
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -609,11 +742,19 @@ export const PRESSURE_BANDS = Object.freeze(['ok', 'high', 'critical', 'unknown'
  * Turn a reading plus the state of the mesh into the decision the placement path
  * acts on. Pure, and the only place the thresholds are applied.
  *
+ * The `prefer-remote` policy is evaluated here and ONLY in the `ok` band, and
+ * only when `mesh.preferRemote` is true. Above the high line the thresholds
+ * have already excluded the local node, so the policy has nothing to add; in
+ * the `unknown` band this module's rule is to behave exactly as before a
+ * reading existed, which the policy must not override.
+ *
  * @param {object} reading a reading from `createPressureReader().read()`
  * @param {object} [mesh]
  * @param {boolean} [mesh.brokerReachable]   set only when the broker was actually asked and failed
  * @param {string}  [mesh.brokerError]       its code
- * @returns {{decision:'ok'|'route-remote'|'refuse-local', reason:string, refuse:boolean, meshUnavailable:boolean, localNode:string|null, routeAwayFromLocal:boolean}}
+ * @param {boolean} [mesh.preferRemote]      the `prefer-remote` policy (off by default: `PREFER_REMOTE_DEFAULT`)
+ * @param {object}  [mesh.placement]         the broker's own `/place` answer, when one has been made; the eligible set is read from it
+ * @returns {{decision:'ok'|'route-remote'|'refuse-local', reason:string, refuse:boolean, meshUnavailable:boolean, localNode:string|null, routeAwayFromLocal:boolean, policy?:string, eligible?:object}}
  */
 export function decidePressure(reading, mesh = {}) {
   const localNode = mesh.localNode ?? null;
@@ -630,6 +771,43 @@ export function decidePressure(reading, mesh = {}) {
     };
   }
   if (band === 'ok') {
+    // THE POLICY, EVALUATED ABOVE THE THRESHOLDS AND NOT AS ONE.
+    // `prefer-remote` is not a fifth line on the commit ratio; it is a
+    // statement about WHERE work goes when there is a choice.
+    if (mesh.preferRemote === true && !meshUnavailable) {
+      const eligibility = alternativeEligibility(mesh.placement, { localNode });
+      const shaped = { refuse: false, meshUnavailable, localNode, policy: PREFER_REMOTE_POLICY, eligible: eligibility };
+      if (!eligibility.known) {
+        return {
+          ...shaped,
+          decision: 'ok',
+          routeAwayFromLocal: false,
+          reason: `under no pressure: ${reading.why}; ${PREFER_REMOTE_POLICY} is ON but the eligible set could not be determined (${eligibility.why}), so the local node is NOT excluded and the placement is decided exactly as it was before the policy existed`,
+        };
+      }
+      if (eligibility.localChosen === false) {
+        return {
+          ...shaped,
+          decision: 'ok',
+          routeAwayFromLocal: false,
+          reason: `under no pressure: ${reading.why}; ${PREFER_REMOTE_POLICY} is ON and needed no exclusion - the broker named "${mesh.placement.node}", not this machine (${eligibility.why})`,
+        };
+      }
+      if (eligibility.alternatives >= 1) {
+        return {
+          ...shaped,
+          decision: 'route-remote',
+          routeAwayFromLocal: true,
+          reason: `under no pressure, but ${PREFER_REMOTE_POLICY} is ON and the broker's own eligible set held ${eligibility.alternatives} node(s) other than this machine (${eligibility.why}): the local node is excluded from the ranking and the child is offered to the mesh`,
+        };
+      }
+      return {
+        ...shaped,
+        decision: 'ok',
+        routeAwayFromLocal: false,
+        reason: `under no pressure: ${reading.why}; ${PREFER_REMOTE_POLICY} is ON but there is no eligible node other than this machine (${eligibility.why}), so the local node is used exactly as today`,
+      };
+    }
     return {
       decision: 'ok',
       reason: `under no pressure: ${reading.why}`,
@@ -746,15 +924,24 @@ export function pressureLine(placement, chosen) {
   return `${head} — ${what}; ${numbers}; ${decision.reason}${conflict}`;
 }
 
-/** The one-line answer to "was the local option even considered?", for any band. */
-export function pressureCheckLine(reading) {
+/**
+ * The one-line answer to "was the local option even considered?", for any band.
+ *
+ * `decision` is optional; when it carries a `policy`, the line names the policy
+ * and its reason, so a placement changed by `prefer-remote` is readable from
+ * the same line as the numbers it was made with.
+ */
+export function pressureCheckLine(reading, decision) {
   if (reading === undefined || reading === null) {
     return `local pressure has NOT been sampled; the local option was not measured, and is neither preferred nor declined (${HIGH_COMMIT_PHYSICAL_PCT} / ${CRITICAL_COMMIT_PHYSICAL_PCT} of physical committed are the lines, docs/mesh/109-pressure-routing.md)`;
   }
   if (reading.band === 'unknown') return `local pressure UNKNOWN — ${reading.why}`;
   const mib = (bytes) => (Number.isFinite(bytes) ? `${Math.round(bytes / 1048576)} MiB` : '?');
-  return `local pressure ${reading.band.toUpperCase()} — ${mib(reading.commitBytes)} of ${mib(reading.physicalBytes)} physical committed`
+  const line = `local pressure ${reading.band.toUpperCase()} — ${mib(reading.commitBytes)} of ${mib(reading.physicalBytes)} physical committed`
     + ` (${reading.commitToPhysicalPct} %; lines: ${Math.round(HIGH_COMMIT_PHYSICAL_PCT * 100)} % to route remote, ${Math.round(CRITICAL_COMMIT_PHYSICAL_PCT * 100)} % to refuse local)`;
+  return decision === undefined || decision === null || decision.policy === undefined
+    ? line
+    : `${line}; ${decision.policy} → ${decision.decision}: ${decision.reason}`;
 }
 
 /** Exported for tests and for `bin/mesh-pressure.mjs`. */

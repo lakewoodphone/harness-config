@@ -543,7 +543,7 @@ export class RemoteOneShotProvider {
           locationNote,
           placementLine: placementNote(placement, wait),
           pressureNote: pressureLine(placement, parsed.host),
-          pressureCheck: pressureCheckLine(placement?.pressure),
+          pressureCheck: pressureCheckLine(placement?.pressure, placement?.pressureDecision),
           invocation: invocationContext,
         }),
       }];

@@ -43,7 +43,7 @@
 
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { homedir, hostname, tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { createBrokerClient } from '../lib/broker-client.js';
@@ -352,6 +352,23 @@ record({
   prompt: options.prompt.slice(0, 200),
   logPath,
 });
+// SAY WHAT -Node ACTUALLY DOES, BEFORE THE RUN, BECAUSE THE OPPOSITE WAS BELIEVED THREE TIMES.
+//
+// Measured 2026-09-18 (journal P327): three runs of this tool -- `-Node lakewooechsmini`,
+// `-Node secratary`, and a headless child with MESH_TARGET_NODE set in the real environment --
+// each produced a child that ran on the DISPATCHER's machine. The verify phase caught all
+// three (`location disagreement`, exit 1), which is the only reason they were not recorded as
+// successes. The run log did not help: it prints `node`, `alias`, `invocation` and
+// `targetVerified`, four lines that all read as "this is where the work goes".
+//
+// So the tool now states the truth out loud. The child below runs HERE, spawned by
+// `sshRunLocal`; -Node travels only as environment for the child's own provider. If a caller
+// wants the child itself to run elsewhere, this command is not the way to ask.
+console.error(
+  `mesh-run: NOTE — this child runs on ${hostname()}, the machine you are invoking this from. `
+  + `-Node ${node} sets the dispatch target the child's own subagents will be aimed at (via MESH_TARGET_NODE="${alias}"); `
+  + 'it does NOT place this child. The verify phase below fails the run if the child\'s own report names a different host.',
+);
 const runResult = await sshRunLocal(dshBin, options.prompt, env, options.timeoutMs);
 writeFileSync(outPath, runResult.stdout, 'utf8');
 record({ phase: 'run-end', node, exitCode: runResult.exitCode, timedOut: runResult.timedOut, ms: Date.now() - started, stdoutBytes: runResult.stdout.length, stderrBytes: runResult.stderr.length, outPath });

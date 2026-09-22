@@ -214,6 +214,32 @@ function saveState(state) {
 }
 const key = (s) => `${s.project}/${s.session}`;
 
+// ── which STORE an entry was delivered to ───────────────────────────────────────────────────────
+// A cursor entry is evidence of delivery to the store that ACCEPTED the batch -- not proof that
+// secretary.db holds it. Before 2026-09-11 19:16 the default transport was `scp`, which imported
+// into the retired standalone archive (`dsh-archive/dsh-archive.db`); when HTTP became the default
+// the cursor still said those sessions were done, so they were skipped forever.
+//
+// Measured 2026-09-22: `zabz-yoga` has 8 sessions whose cursor `at` is 2026-09-11T19:05Z and which
+// are in the authoritative store's `dsh_sessions` NOT AT ALL (751 rows for 759 cursor entries, 0 of
+// the difference present). They sit only in the retired interim and on one laptop, which is the one
+// thing this pipeline exists to prevent (D42, L158b). `check-dsh-freshness.py` cannot see them: it
+// compares the newest local file against the newest cursor `at`, and the cursor says "delivered".
+//
+// The rule that prevents a repeat: an entry only counts for the transport that is running now.
+// Older entries carry no transport, so they are classified by when they were written relative to the
+// cutover; anything a different store accepted is re-sent (idempotent -- the server upserts on
+// (machine, session, ordinal), so re-delivery is free). No cursor deletion is involved.
+const HTTP_CUTOVER_MS = Date.parse('2026-09-11T19:16:00Z');
+function entryStore(v) {
+  if (!v) return null;
+  if (v.transport) return v.transport;
+  const t = Date.parse(v.at || '');
+  if (Number.isFinite(t)) return t < HTTP_CUTOVER_MS ? 'scp' : 'http';
+  return null;
+}
+const deliveredToCurrentStore = (v) => entryStore(v) === TRANSPORT;
+
 // ── shipping ────────────────────────────────────────────────────────────────────────────────────
 
 /** Run a command whose reply is small and may be followed by an ssh that never exits.
@@ -351,10 +377,48 @@ async function postBatch(payload) {
   return JSON.stringify(parsed);
 }
 
+/** Record a contact row on a run that had nothing to ship.
+ *
+ * Measured 2026-09-20 14:51 UTC on secratary: four consecutive scheduled runs each logged
+ * `shipped: 0 session(s), 0 new row(s), 0 KB` and left NO row in `dsh_session_exports`, because
+ * `flush()` returns early on an empty batch and nothing else is ever POSTed. So
+ * `SELECT MAX(received_at) FROM dsh_session_exports` was the only evidence the shipper was alive --
+ * and it does not move when there is nothing new. The kernel check `check_session_archive` therefore
+ * fired HIGH ("no machine has shipped a session in 3.0h": 867 sessions last seen 5.4h ago, 741 at
+ * 5.5h) while the shipping path was perfectly healthy: the owner was offline for Yom Kippur, so no
+ * session file had new rows. Nothing had changed anywhere, so nothing was sent, so nothing was
+ * recorded -- and "idle fleet" became indistinguishable from "dead shipper".
+ *
+ * A run that leaves no trace cannot be told apart from a run that never happened. This posts a
+ * zero-session export so `received_at` advances per machine on every successful run.
+ *
+ * `run_id` is what keeps the row: for a real batch the server derives `id` from the session-id list,
+ * and an empty list hashes to a CONSTANT -- so every heartbeat would land on one row and the run
+ * history would be overwritten rather than appended.
+ */
+async function postHeartbeat() {
+  const now = new Date();
+  await postBatch({
+    source_machine: MACHINE,
+    exported_at: now.toISOString(),
+    schema_version: 1,
+    heartbeat: true,
+    // Unique per run, and STABLE across this run's retries: postBatch reuses one body string, so a
+    // retried heartbeat re-sends the same run_id and replaces its own row instead of adding a second.
+    run_id: `${now.toISOString()}-${process.pid}-${Math.random().toString(16).slice(2, 10)}`,
+    sessions: [],
+  });
+}
+
 async function main() {
   const state = loadState();
   const found = discover();
-  if (found.length === 0) { console.log('no sessions found under ' + SESSIONS_ROOT); return 0; }
+  if (found.length === 0) {
+    console.log('no sessions found under ' + SESSIONS_ROOT);
+    // Still a run, still a contact: a machine whose harness has not written a session yet is alive too.
+    if (!DRY) { await postHeartbeat(); console.log(`heartbeat  : recorded contact for ${MACHINE} (0 sessions, 0 rows)`); }
+    return 0;
+  }
 
   console.log(`machine : ${MACHINE}`);
   console.log(`sessions: ${found.length} on disk`);
@@ -373,15 +437,36 @@ async function main() {
   // Cursor updates wait until the batch containing them has been ACCEPTED. Advancing a cursor before
   // the server holds the rows is how a shipper silently loses data it believes it already sent.
   let pendingCursor = [];
+  // A batch the authority refused. Recorded, never fatal: the run continues so one contended
+  // minute cannot hide every later session. Measured 2026-09-21 03:30-08:30Z: the authority answered
+  // `500 {"error":"internal_error"}` (sqlite `database is locked`) for five hours; the old shape let
+  // that exception unwind out of flush(), the process exited, and NOTHING after the failed batch was
+  // even attempted -- a 300-minute hole with the cursor frozen. On 2026-09-18/20 the same shape ran
+  // for 2,424 minutes, and `check-dsh-freshness.py` read it as "the shipper is not sending".
+  //
+  // Nothing is lost either way: the cursor only advances for an accepted batch, so a refused batch
+  // is re-sent whole on the next run (at-least-once delivery + the server's idempotent upsert). What
+  // changes is that the sessions behind it in this run still get their chance, and the run exits
+  // non-zero so the scheduled task reports failure instead of looking like a quiet success.
+  const refusals = [];
+  // Sessions the current transport has never delivered, so they are re-sent whole (see entryStore).
+  const resending = [];
 
   const flush = async () => {
     if (batch.sessions.length === 0) { return; }
     if (!DRY) {
       const body = { source_machine: MACHINE, exported_at: new Date().toISOString(), schema_version: 1, sessions: batch.sessions };
-      const reply = await postBatch(body);
-      if (VERBOSE) console.log('   reply:', reply.slice(0, 160));
-      for (const u of pendingCursor) state.sessions[u.k] = u.v;
-      totalBatches++;
+      try {
+        const reply = await postBatch(body);
+        if (VERBOSE) console.log('   reply:', reply.slice(0, 160));
+        for (const u of pendingCursor) state.sessions[u.k] = u.v;
+        totalBatches++;
+      } catch (e) {
+        const msg = String((e && e.message) || e).slice(0, 200);
+        refusals.push(msg);
+        console.log(`   REFUSED  : ${batch.sessions.length} fragment(s) not accepted by the authority — ${msg.slice(0, 140)}`);
+        console.log('   cursor   : NOT advanced for these sessions; they are re-sent whole next run');
+      }
       // Pace the requests. The company writes to this database continuously, and a backfill firing a
       // hundred inserts back-to-back is what pushed it into 'database is locked' -- the WAL was sitting
       // at its 64 MiB limit, which is the signature of checkpoint starvation. Incremental hourly runs
@@ -397,9 +482,14 @@ async function main() {
     const decoded = readSession(s.file);
     const k = key(s);
     const prev = state.sessions[k] || { rowsShipped: 0, bytes: 0 };
-    const startRow = ALL ? 0 : prev.rowsShipped;
+    // A session the CURRENT store has never accepted is re-sent whole, even though the cursor holds
+    // a row for it (see entryStore). That is the heal for the scp-era entries and the guard against
+    // any future transport change silently orphaning a conversation.
+    const delivered = deliveredToCurrentStore(prev);
+    if (!delivered && prev.rowsShipped) resending.push(k);
+    const startRow = ALL || !delivered ? 0 : prev.rowsShipped;
 
-    if (!ALL && decoded.rows.length <= startRow && prev.bytes === decoded.bytes) { skipped++; continue; }
+    if (!ALL && delivered && decoded.rows.length <= startRow && prev.bytes === decoded.bytes) { skipped++; continue; }
 
     const newRows = decoded.rows.slice(startRow);
     if (decoded.tornStart !== null) torn++;
@@ -453,6 +543,8 @@ async function main() {
             bytes: decoded.bytes,
             lastRow: newRows.length ? newRows[newRows.length - 1].seq : (prev.lastRow ?? null),
             at: new Date().toISOString(),
+            // Which store accepted this. Without it the next transport change re-orphans sessions.
+            transport: TRANSPORT,
           },
         });
       }
@@ -466,13 +558,34 @@ async function main() {
   if (!DRY) saveState(state);
 
   console.log('');
-  console.log(`${DRY ? 'would ship' : 'shipped'}: ${sessionsSent} session(s), ${rowsSent} new row(s), ${Math.round(bytesSent / 1024)} KB`);
+  const verb = DRY ? 'would ship' : (refusals.length ? 'queued' : 'shipped');
+  console.log(`${verb}: ${sessionsSent} session(s), ${rowsSent} new row(s), ${Math.round(bytesSent / 1024)} KB`);
+  if (refusals.length) {
+    console.log(`refused    : ${refusals.length} batch(es) — the authority did not accept them; ` +
+      `their cursor entries are unchanged, so they are re-sent whole next run`);
+  }
   if (skipped) console.log(`unchanged  : ${skipped} session(s) already complete (cursor)`);
+  if (resending.length) {
+    console.log(`re-send    : ${resending.length} session(s) the ${TRANSPORT} store has never accepted ` +
+      `(their cursor rows were written by another store/transport)`);
+  }
   if (torn) console.log(`torn tail  : ${torn} session(s) ended mid-frame — skipped, which is normal`);
   if (transportNotes.killedAfterReply) {
     console.log(`transport  : ${transportNotes.killedAfterReply} batch(es) ended by killing the child once its reply parsed (this host's transport does not always exit on its own) — see postBatch`);
   }
-  return 0;
+
+  // Nothing to ship is the normal case on a quiet day -- and it used to leave no trace at all. Record
+  // the contact so the archive can tell "the fleet is idle" from "the shipper is dead" (measured
+  // 2026-09-20; see postHeartbeat). A run that DID ship already wrote an export row carrying
+  // received_at, so it needs no heartbeat.
+  if (!DRY && sessionsSent === 0) {
+    await postHeartbeat();
+    console.log(`heartbeat  : recorded contact for ${MACHINE} (0 sessions, 0 rows)`);
+  }
+  // A run that could not deliver everything is NOT a success. It must be visible to whatever
+  // schedules this (a Windows task result, cron's exit status, the ship log), because the whole
+  // failure mode this guards against is a shipper that looks quiet while its work is unarchived.
+  return refusals.length ? 1 : 0;
 }
 
 main().then((c) => process.exit(c)).catch((e) => { console.error('error: ' + e.message); process.exit(1); });
