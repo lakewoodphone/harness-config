@@ -425,6 +425,10 @@ handoff	H612	612		2026-09-18 22:06 UTC	SECRATARY	open	## 2026-09-18 22:06 UTC ·
 handoff	H2106	2106		2026-09-20 17:50 UTC	SECRATARY	open	## 2026-09-20 17:50 UTC · SECRATARY · Owner health episode 2 (Shabbos febrile illness) recorded; the Yom Kippur fast at 6:39pm tonight is the real risk	entries/handoff/H2106.md	1	33	d5cde61170d77c6c
 handoff	H2234	2234		2026-09-20 20:29 UTC	SECRATARY	open	## 2026-09-20 20:29 UTC · SECRATARY · Dialpad webhook delivery stopped 2026-09-20T08:12:43Z - neither subscriber receives; API polling still sees calls	entries/handoff/H2234.md	1	39	39785a81c6e81c2d
 handoff	H2236	2236		2026-09-22 01:25 UTC	SECRATARY	open	## 2026-09-22 01:25 UTC · SECRATARY · Yom Kippur fast broke him: severe dehydration, red flags hit, and no monitoring existed	entries/handoff/H2236.md	1	29	6a58c5da807e55af
+handoff	H2237	2237		2026-09-22 03:02 UTC	SECRATARY	open	## 2026-09-22 03:02 UTC · SECRATARY · Dialpad inbound SMS gap: no UI session on either host, true receive count not measurable	entries/handoff/H2237.md	1	24	1c19da9dda154d12
+handoff	H2238	2238		2026-09-22 03:06 UTC	secratary	open	## 2026-09-22 03:06 UTC · secratary · Owner SMS flood ceilings in the flush; kill switch left exactly as it was	entries/handoff/H2238.md	1	35	9804d74783e31266
+handoff	H2239	2239		2026-09-22 05:32 UTC	SECRATARY	open	## 2026-09-22 05:32 UTC · SECRATARY · GoT historical-accuracy research delivered; ft.py is the web_fetch workaround	entries/handoff/H2239.md	1	23	28853d2c61e56ee1
+handoff	H2240	2240		2026-09-22 08:30 UTC	SECRATARY	open	## 2026-09-22 08:30 UTC · SECRATARY · Weitman row 100 reduced to one forced answer: the 390 source is out of stock, the 265 unit is live at 169 source	entries/handoff/H2240.md	1	42	15739cbc86c957da
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1225,6 +1229,9 @@ lessons	L2185	2185		2026-09-20	SECRATARY	open	**L2185 · Store an owner's dictat
 lessons	L2318	2318		2026-09-22	SECRATARY	open	**L2318 · A time-boxed risk needs a scheduled check, not advice - 'what will notice if this goes wrong tonight?'**	entries/lessons/L2318.md	1	10	b31d6af718c26b5e
 lessons	L2319	2319		2026-09-22	SECRATARY	open	**L2319 · Correction to H2236: the lesson from the Yom Kippur fast is L2318, not L2186**	entries/lessons/L2319.md	1	6	87729b111374f60d
 lessons	L2320	2320		2026-09-22	SECRATARY	open	**L2320 · Ask what a red-flag symptom felt like before treating the label as the finding**	entries/lessons/L2320.md	1	10	af24e3c695d93713
+lessons	L2321	2321		2026-09-22	SECRATARY	open	**L2321 · Harness web_fetch truncates many article sites to their navigation bar; fetch through the shell to verify a quote**	entries/lessons/L2321.md	1	12	da88bc320a6bdb76
+lessons	L2322	2322		2026-09-22	SECRATARY	open	**L2322 · A blocked source is a gap, never a negative finding (westeros.org and Martin's Dothraki claim)**	entries/lessons/L2322.md	1	12	e088668e618431a2
+lessons	L2323	2323		2026-09-22	SECRATARY	open	**L2323 · A quote is perishable: re-read the source listing live before a sourcing number leaves the shop**	entries/lessons/L2323.md	1	34	e53ca5d25702d08a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1452,6 +1459,7 @@ pain	P328	328		2026-09-18	SECRATARY	open	## P328 — secratary's personal-secret
 pain	P329	329		2026-09-18	SECRATARY	done	## P329 — ZABZ-YOGA cannot reach GitHub at all - gh token invalid, credential manager interactive-only	entries/pain/P329.md	1	16	e3a491d7c4c919d5
 pain	P2185	2185		2026-09-20	SECRATARY	open	## P2185 — The journal on secratary is 91 commits behind origin and its newest entries are unpushed - and the fix is the operation that once deleted the whole log	entries/pain/P2185.md	1	12	0a7dc610e2588df2
 pain	P2186	2186		2026-09-22	SECRATARY	open	## P2186 — Nothing can watch a time-boxed owner-health risk overnight - wake.py has no not-before, tasks fire on tick	entries/pain/P2186.md	1	12	96ed37918ec0d452
+pain	P2187	2187		2026-09-22	SECRATARY	open	## P2187 — P266 - A queue row is a days-old photograph of the world, and nothing re-checks it before the owner sees it	entries/pain/P2187.md	1	28	6589467c9e03127a
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -1680,6 +1688,7 @@ decisions	D267	267		2026-09-18	ZABZ-YOGA	open	**D267 · 2026-09-18 · Remote chi
 decisions	D323	323		2026-09-18	SECRATARY	open	**D323 · 2026-09-18 · Owner health record established: repo directory as source of truth, DB rows as indexes.**	entries/decisions/D323.md	1	17	157ae8abbd41e5ab
 decisions	D324	324		2026-09-18	SECRATARY	open	**D324 · 2026-09-18 · Owner declined follow-up on the groin condition - record only, do not re-ask.**	entries/decisions/D324.md	1	10	ebd5b24a21e7b8d6
 decisions	D325	325		2026-09-18	SECRATARY	open	**D325 · 2026-09-18 · Built the automated friendly-caller once consent became data, not an assertion.**	entries/decisions/D325.md	1	38	c383dfe57539fb2a
+decisions	D2160	2160		2026-09-22	secratary	open	**D2160 · 2026-09-22 · Owner queue 22 -> 16: 5 dev rows closed, 16 left for the owner.**	entries/decisions/D2160.md	1	41	4b54dfd6e023f8ec
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
