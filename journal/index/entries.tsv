@@ -423,6 +423,8 @@ handoff	H610	610		2026-09-18 20:50 UTC	SECRATARY	open	## 2026-09-18 20:50 UTC ·
 handoff	H611	611		2026-09-18 21:57 UTC	SECRATARY	open	## 2026-09-18 21:57 UTC · SECRATARY · Correction: the stopped run reached 4 calls, not 2; headroom and stale tests fixed	entries/handoff/H611.md	1	32	f4cee2ba461fac7d
 handoff	H612	612		2026-09-18 22:06 UTC	SECRATARY	open	## 2026-09-18 22:06 UTC · SECRATARY · Gag run complete: 6 calls, 5 delivered, final call did not connect	entries/handoff/H612.md	1	34	1b3129173dccd40d
 handoff	H2106	2106		2026-09-20 17:50 UTC	SECRATARY	open	## 2026-09-20 17:50 UTC · SECRATARY · Owner health episode 2 (Shabbos febrile illness) recorded; the Yom Kippur fast at 6:39pm tonight is the real risk	entries/handoff/H2106.md	1	33	d5cde61170d77c6c
+handoff	H2234	2234		2026-09-20 20:29 UTC	SECRATARY	open	## 2026-09-20 20:29 UTC · SECRATARY · Dialpad webhook delivery stopped 2026-09-20T08:12:43Z - neither subscriber receives; API polling still sees calls	entries/handoff/H2234.md	1	39	39785a81c6e81c2d
+handoff	H2236	2236		2026-09-22 01:25 UTC	SECRATARY	open	## 2026-09-22 01:25 UTC · SECRATARY · Yom Kippur fast broke him: severe dehydration, red flags hit, and no monitoring existed	entries/handoff/H2236.md	1	29	6a58c5da807e55af
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1220,6 +1222,8 @@ lessons	L2066	2066		2026-09-18	SECRATARY	open	**L2066 · Bounded act vs reusable
 lessons	L2067	2067		2026-09-18	SECRATARY	open	**L2067 · Twilio <Say> rejects &apos; (error 13520) - escape apostrophes as &#39;**	entries/lessons/L2067.md	1	37	6d852b63c71af0c5
 lessons	L2184	2184		2026-09-20	SECRATARY	open	**L2184 · On an owner health report, the missing measurement is the finding - write the UNKNOWN into the file**	entries/lessons/L2184.md	1	10	74be0ab444a03051
 lessons	L2185	2185		2026-09-20	SECRATARY	open	**L2185 · Store an owner's dictated health episode verbatim; never resolve a truncated sentence by inference**	entries/lessons/L2185.md	1	10	2d4747901397d90b
+lessons	L2318	2318		2026-09-22	SECRATARY	open	**L2318 · A time-boxed risk needs a scheduled check, not advice - 'what will notice if this goes wrong tonight?'**	entries/lessons/L2318.md	1	10	b31d6af718c26b5e
+lessons	L2319	2319		2026-09-22	SECRATARY	open	**L2319 · Correction to H2236: the lesson from the Yom Kippur fast is L2318, not L2186**	entries/lessons/L2319.md	1	6	87729b111374f60d
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1446,6 +1450,7 @@ pain	P327	327		2026-09-18	SECRATARY	open	## P327 — memories.category='health' 
 pain	P328	328		2026-09-18	SECRATARY	open	## P328 — secratary's personal-secretary-mvp master has diverged from origin/master since 2026-09-07 - 122 local vs 176 remote commits, work stranded on both sides	entries/pain/P328.md	1	24	20b4508170b064bf
 pain	P329	329		2026-09-18	SECRATARY	done	## P329 — ZABZ-YOGA cannot reach GitHub at all - gh token invalid, credential manager interactive-only	entries/pain/P329.md	1	16	e3a491d7c4c919d5
 pain	P2185	2185		2026-09-20	SECRATARY	open	## P2185 — The journal on secratary is 91 commits behind origin and its newest entries are unpushed - and the fix is the operation that once deleted the whole log	entries/pain/P2185.md	1	12	0a7dc610e2588df2
+pain	P2186	2186		2026-09-22	SECRATARY	open	## P2186 — Nothing can watch a time-boxed owner-health risk overnight - wake.py has no not-before, tasks fire on tick	entries/pain/P2186.md	1	12	96ed37918ec0d452
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
