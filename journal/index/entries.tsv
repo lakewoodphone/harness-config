@@ -533,6 +533,7 @@ handoff	H2237	2237		2026-09-22 03:02 UTC	SECRATARY	open	## 2026-09-22 03:02 UTC 
 handoff	H2238	2238		2026-09-22 03:06 UTC	secratary	open	## 2026-09-22 03:06 UTC · secratary · Owner SMS flood ceilings in the flush; kill switch left exactly as it was	entries/handoff/H2238.md	1	35	9804d74783e31266
 handoff	H2239	2239		2026-09-22 05:32 UTC	SECRATARY	open	## 2026-09-22 05:32 UTC · SECRATARY · GoT historical-accuracy research delivered; ft.py is the web_fetch workaround	entries/handoff/H2239.md	1	23	28853d2c61e56ee1
 handoff	H2240	2240		2026-09-22 08:30 UTC	SECRATARY	open	## 2026-09-22 08:30 UTC · SECRATARY · Weitman row 100 reduced to one forced answer: the 390 source is out of stock, the 265 unit is live at 169 source	entries/handoff/H2240.md	1	42	15739cbc86c957da
+handoff	H2337	2337		2026-09-22 08:36 UTC	SECRATARY	open	## 2026-09-22 08:36 UTC · SECRATARY · The journal divergence is closed: 102 commits reconciled, 21 id collisions renumbered, pushed fast-forward	entries/handoff/H2337.md	1	6	db88a868af43fbad
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1742,7 +1743,7 @@ pain	P2131	2131		2026-09-20	ZABZ-YOGA	open	## P2131 — P2138 - lifecycle_sweep 
 pain	P2132	2132		2026-09-20	ZABZ-YOGA	open	## P2132 — P2139 - the wake dispatcher is capped and its last three releases all died in the ssh hop	entries/pain/P2132.md	1	46	8c2e95d0b692a49e
 pain	P2133	2133		2026-09-20	ZABZ-YOGA	open	## P2133 — P2140 - lifecycle_sweep fails 10 times in 3 hours, with TWO distinct causes	entries/pain/P2133.md	1	40	b9eb388a84494b2a
 pain	P2141	2141		2026-09-20	ZABZ-YOGA	open	## P2141 — P2124 - work is queued onto an unreachable mesh node and reported as running: the 30-minute silent black hole	entries/pain/P2141.md	1	76	6f93e5ed61c88849
-pain	P2185	2185		2026-09-20	SECRATARY	open	## P2185 — The journal on secratary is 91 commits behind origin and its newest entries are unpushed - and the fix is the operation that once deleted the whole log	entries/pain/P2185.md	1	12	0a7dc610e2588df2
+pain	P2185	2185		2026-09-20	SECRATARY	done	## P2185 — The journal on secratary is 91 commits behind origin and its newest entries are unpushed - and the fix is the operation that once deleted the whole log	entries/pain/P2185.md	1	12	0a7dc610e2588df2
 pain	P2186	2186		2026-09-22	SECRATARY	open	## P2186 — Nothing can watch a time-boxed owner-health risk overnight - wake.py has no not-before, tasks fire on tick	entries/pain/P2186.md	1	12	96ed37918ec0d452
 pain	P2187	2187		2026-09-22	SECRATARY	open	## P2187 — P266 - A queue row is a days-old photograph of the world, and nothing re-checks it before the owner sees it	entries/pain/P2187.md	1	28	6589467c9e03127a
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
