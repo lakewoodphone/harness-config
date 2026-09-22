@@ -534,6 +534,7 @@ handoff	H2238	2238		2026-09-22 03:06 UTC	secratary	open	## 2026-09-22 03:06 UTC 
 handoff	H2239	2239		2026-09-22 05:32 UTC	SECRATARY	open	## 2026-09-22 05:32 UTC · SECRATARY · GoT historical-accuracy research delivered; ft.py is the web_fetch workaround	entries/handoff/H2239.md	1	23	28853d2c61e56ee1
 handoff	H2240	2240		2026-09-22 08:30 UTC	SECRATARY	open	## 2026-09-22 08:30 UTC · SECRATARY · Weitman row 100 reduced to one forced answer: the 390 source is out of stock, the 265 unit is live at 169 source	entries/handoff/H2240.md	1	42	15739cbc86c957da
 handoff	H2337	2337		2026-09-22 08:36 UTC	SECRATARY	open	## 2026-09-22 08:36 UTC · SECRATARY · The journal divergence is closed: 102 commits reconciled, 21 id collisions renumbered, pushed fast-forward	entries/handoff/H2337.md	1	6	db88a868af43fbad
+handoff	H2338	2338		2026-09-22 08:40 UTC	SECRATARY	open	## 2026-09-22 08:40 UTC · SECRATARY · The journal now publishes itself on secratary: one checkout, a journal-only committer, and the surviving autosync	entries/handoff/H2338.md	1	41	044b82c8ca65b3a3
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1475,6 +1476,7 @@ lessons	L2320	2320		2026-09-22	SECRATARY	open	**L2320 · Ask what a red-flag sym
 lessons	L2321	2321		2026-09-22	SECRATARY	open	**L2321 · Harness web_fetch truncates many article sites to their navigation bar; fetch through the shell to verify a quote**	entries/lessons/L2321.md	1	12	da88bc320a6bdb76
 lessons	L2322	2322		2026-09-22	SECRATARY	open	**L2322 · A blocked source is a gap, never a negative finding (westeros.org and Martin's Dothraki claim)**	entries/lessons/L2322.md	1	12	e088668e618431a2
 lessons	L2323	2323		2026-09-22	SECRATARY	open	**L2323 · A quote is perishable: re-read the source listing live before a sourcing number leaves the shop**	entries/lessons/L2323.md	1	34	e53ca5d25702d08a
+lessons	L2345	2345		2026-09-22	SECRATARY	open	**L2345 · A writer and a watcher on two checkouts of one repo: how the journal diverged 102 commits while its monitor said clean**	entries/lessons/L2345.md	1	45	05de2a280815342a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2213,3 +2215,4 @@ wins	W2137	2137		2026-09-20	ZABZ-YOGA	open	**W2137 · 2026-09-20 · W2149 - the 
 wins	W2138	2138		2026-09-20	ZABZ-YOGA	open	**W2138 · 2026-09-20 · W2154 - run_once now reports its own duration: the timing instrument is live.**	entries/wins/W2138.md	1	48	8e458267cfa7f9a4
 wins	W2139	2139		2026-09-20	ZABZ-YOGA	open	**W2139 · 2026-09-20 · W2155 - the instrument works and the number is decisive: a run takes 648.4s against a 300s interval.**	entries/wins/W2139.md	1	35	58140c58e9622454
 wins	W2156	2156		2026-09-20	ZABZ-YOGA	open	**W2156 · 2026-09-20 · ZABZ-TECH pre-bootmgr 166-178s to 25s, and Hello survives reboots, by bringing firmware current.**	entries/wins/W2156.md	1	23	19af4c77c14a9eaf
+wins	W2187	2187		2026-09-22	SECRATARY	open	**W2187 · 2026-09-22 · Closing a 102-commit journal divergence with zero loss: back up off-host, merge on a scratch branch, let repair-ids renumber, prove no deletions before you commit.**	entries/wins/W2187.md	1	33	887c83ad9291afdb
