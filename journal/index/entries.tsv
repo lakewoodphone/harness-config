@@ -514,6 +514,8 @@ handoff	H2116	2116		2026-09-20 18:17 UTC	ZABZ-YOGA	open	## 2026-09-20 18:17 UTC 
 handoff	H2117	2117		2026-09-20 18:28 UTC	ZABZ-YOGA	open	## 2026-09-20 18:28 UTC · ZABZ-YOGA · H618m - round 15: run_once cadence fully measured (300s interval vs 480-600s run); timing instrument designed and deferred with reasons; objective implementation complete	entries/handoff/H2117.md	1	56	772096b7b1ae36a1
 handoff	H2106	2106		2026-09-20 18:38 UTC	ZABZ-TECH	open	## 2026-09-20 18:38 UTC · ZABZ-TECH · ZABZ-TECH: UEFI NVRAM writes not persisting is the unified root cause; firmware staged but never applied; cold boot pending	entries/handoff/H2106.md	1	53	e82c5748c1d1d164
 handoff	H2170	2170		2026-09-20 19:44 UTC	ZABZ-YOGA	open	## 2026-09-20 19:44 UTC · ZABZ-YOGA · ZABZ-TECH Windows Hello / slow-restart fault RESOLVED and verified from ZABZ-YOGA	entries/handoff/H2170.md	1	58	9b967a5e8fda63e2
+handoff	H2234	2234		2026-09-22 00:36 UTC	SECRATARY	open	## 2026-09-22 00:36 UTC · SECRATARY · Owner queue triage: 22 rows, 7 investigations dispatched, 2 verified branches, alert fragmentation root-caused	entries/handoff/H2234.md	1	37	d1bafb4b86dfcc2e
+handoff	H2235	2235		2026-09-22 01:22 UTC	SECRATARY	open	## 2026-09-22 01:22 UTC · SECRATARY · NJ DOL immediate bill $122.71 — reminder 467 + task 26485 set for Thu 9/24 9am ET, archived photos, and the action path that failed	entries/handoff/H2235.md	1	67	084cd31849d61fb5
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1435,6 +1437,11 @@ lessons	L2249	2249		2026-09-20	ZABZ-YOGA	open	**L2249 · A boot-scoped question 
 lessons	L2250	2250		2026-09-20	ZABZ-YOGA	open	**L2250 · The first boot after a BIOS/firmware flash is never a valid test - a flash erases the UEFI variable store**	entries/lessons/L2250.md	1	16	119c35d4c5729e6d
 lessons	L2251	2251		2026-09-20	ZABZ-YOGA	open	**L2251 · Windows Hello wipes itself when a Secure Boot DBX update and a firmware update land together (Microsoft-documented; remedy is re-registration)**	entries/lessons/L2251.md	1	22	ab976cd00fcc1240
 lessons	L2252	2252		2026-09-20	ZABZ-YOGA	open	**L2252 · dsregcmd NgcSet is a workplace/Entra flag, not evidence about a local Microsoft-account Hello container**	entries/lessons/L2252.md	1	14	e4f9209317f32a91
+lessons	L2313	2313		2026-09-22	SECRATARY	open	**L2313 · A cannot-take-agent-work alert is a transient until the broker says otherwise; subagent provenance on ZABZ-TECH is the mesh placement file**	entries/lessons/L2313.md	1	19	f4f546db4ae434d2
+lessons	L2314	2314		2026-09-22	SECRATARY	open	**L2314 · Alert channels fragment one obligation into N rows, and that fragmentation is the owner-attention debt**	entries/lessons/L2314.md	1	18	131b53ad5e1f71ae
+lessons	L2315	2315		2026-09-22	SECRATARY	open	**L2315 · Owner-queue row 121 premise was false: the 11 dollar Stripe charge is US Mobile service, not the filter - both playbooks would have harmed customers**	entries/lessons/L2315.md	1	21	ddc5c9a4929f52f2
+lessons	L2316	2316		2026-09-22	SECRATARY	open	**L2316 · I recommended cancelling Wilner chip-off on an assumption the lab email refutes, and a subagent reported a replica as the authority**	entries/lessons/L2316.md	1	22	7fa5afce6e01522c
+lessons	L2317	2317		2026-09-22	SECRATARY	open	**L2317 · A reminder/task write through the action registry is lost during a SQLite lock burst — retry directly with a 25s busy_timeout**	entries/lessons/L2317.md	1	39	a5e1966e28e06e0b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
