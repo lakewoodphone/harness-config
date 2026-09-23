@@ -539,6 +539,7 @@ handoff	H2339	2339		2026-09-22 08:43 UTC	SECRATARY	open	## 2026-09-22 08:43 UTC 
 handoff	H2340	2340		2026-09-22 14:40 UTC	SECRATARY	open	## 2026-09-22 14:40 UTC · SECRATARY · Phone question card: detail no longer traps the scroll (2026-09-22)	entries/handoff/H2340.md	1	24	3aa780a38e9b206e
 handoff	H2401	2401		2026-09-22 15:00 UTC	ZABZ-TECH	open	## 2026-09-22 15:00 UTC · ZABZ-TECH · Both kernel badge findings were false -- email triage judged by the poller heartbeat, and a stated deferral is no longer a missed deadline	entries/handoff/H2401.md	1	75	40ce65c044ec52ab
 handoff	H2402	2402		2026-09-22 15:02 UTC	ZABZ-TECH	open	## 2026-09-22 15:02 UTC · ZABZ-TECH · Update to H2401: stripe-key-watch.py versioned, and every bin helper an authority reader needs is now in the repo	entries/handoff/H2402.md	1	67	3d91877276b152ce
+handoff	H2465	2465		2026-09-23 19:19 UTC	SECRATARY	open	## 2026-09-23 19:19 UTC · SECRATARY · Owner health record is current to 2026-09-23, and published: three episodes, labs found, and the two facts only he can supply	entries/handoff/H2465.md	1	28	21e2516c9ff02eed
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
