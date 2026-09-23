@@ -1485,6 +1485,7 @@ lessons	L2345	2345		2026-09-22	SECRATARY	open	**L2345 · A writer and a watcher 
 lessons	L2346	2346		2026-09-22	SECRATARY	open	**L2346 · Verify the sentence you wrote, not just the quotes you fetched (an unsourced inference about aristocratic brides)**	entries/lessons/L2346.md	1	12	08baf55ddd2ed4b5
 lessons	L2347	2347		2026-09-22	SECRATARY	open	**L2347 · The phone question card's real fix lives in the phone layer, not in node_modules**	entries/lessons/L2347.md	1	39	d0f15a7254e110de
 lessons	L2348	2348		2026-09-22	ZABZ-TECH	open	**L2348 · An INSERT-only log's newest row cannot tell a quiet inbox from a dead poller -- the third time this fleet made that mistake**	entries/lessons/L2348.md	1	49	6b0c4a8901bb3341
+lessons	L2349	2349		2026-09-22	SECRATARY	open	**L2349 · secratary has no photo or face identification; family_photo_context_resolver identifies nobody**	entries/lessons/L2349.md	1	17	8012f042fe996a49
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1756,6 +1757,7 @@ pain	P2141	2141		2026-09-20	ZABZ-YOGA	open	## P2141 — P2124 - work is queued o
 pain	P2185	2185		2026-09-20	SECRATARY	done	## P2185 — The journal on secratary is 91 commits behind origin and its newest entries are unpushed - and the fix is the operation that once deleted the whole log	entries/pain/P2185.md	1	12	0a7dc610e2588df2
 pain	P2186	2186		2026-09-22	SECRATARY	open	## P2186 — Nothing can watch a time-boxed owner-health risk overnight - wake.py has no not-before, tasks fire on tick	entries/pain/P2186.md	1	12	96ed37918ec0d452
 pain	P2187	2187		2026-09-22	SECRATARY	open	## P2187 — P266 - A queue row is a days-old photograph of the world, and nothing re-checks it before the owner sees it	entries/pain/P2187.md	1	28	6589467c9e03127a
+pain	P2188	2188		2026-09-22	SECRATARY	open	## P2188 — secratary-ts ssh alias used a key not in secratary's authorized_keys; all mesh ssh to the authority failed	entries/pain/P2188.md	1	18	322e1c4d8c5506bc
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
