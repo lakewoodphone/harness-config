@@ -6,7 +6,7 @@ Updated: 2026-09-23
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 145 row(s) read, 13 pending, generated 2026-09-23 20:19 UTC on SECRATARY.
+Provenance: 147 row(s) read, 15 pending, generated 2026-09-23 21:07 UTC on SECRATARY.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -22,6 +22,8 @@ Provenance: 145 row(s) read, 13 pending, generated 2026-09-23 20:19 UTC on SECRA
 | 124 | 2026-09-20 | medium | Lakewood Phone & Tech's NJ annual report was due about 2026-05-31 and has never been filed - the state's own portal shows 'Registration Status: Missing Annual Reports' on entity 0451285572. It costs $75 to fix and you are the only one who can file it. Do you want to file it yourself, or should we open the portal together once so this seat can do it every year? | Recommended: file it this week. It is $75 and ten minutes against a documented administrative-dissolution risk on the entity that holds the bank accounts and the Stripe account, and it is the cheapest item on this queue  |
 | 131 | 2026-09-20 | medium | Yisroel Weinberg (+18482102477) texted your AI line and I have not answered: 'Is this the door code for the outside door or the inner one?'. Should I answer them, and may I answer this person directly from now on? | Tell me the one-line answer and I will send it, then set this person to a standing allow so the next text does not need you. |
 | 145 | 2026-09-23 | medium | Where does the waste system you named as a project live, or what is it? | Confirm whether the third project you named is the Waze MDM fleet. If yes, I will register /opt/waze-mdm on waze-mdm-01 in projects.json and take the first work items from that system's failed waze-vpn-firewall service.  |
+| 146 | 2026-09-23 | medium | Chips Zebrowski (+18483897895) texted your AI line and I have not answered: "What's up I'm sitting waiting for my X-ray tell me a good joke". Should I answer them, and may I answer this person directly from now on? | Send the draft I prepared, if it reads right to you: Why did the skeleton go to the party alone? Because he had no body to go with him. - Daniel |
+| 147 | 2026-09-23 | medium | Chip now answers whenever a family member talks to him - do you want his monthly SMS budget raised from $5 to $20 so he can actually hold a conversation? | Raise chip_budget to $20/month (about 110 replies) |
 | 98 | 2026-09-17 | low | For a customer who needs Google search blocked on a Samsung Galaxy AND must not be able to undo it, do we sell the paid GenTech path ($119.99 one-time, Lakewood branch, remote Samsung install), or only offer the free bench fix and lose those jobs? | Ship the free fix now - it answers Moshe today and it is already documented and pushed. Do not become a reseller on the strength of one request; revisit if a second customer asks for the tamper-resistant version. If Mosh |
 
 Closed since the queue opened: 132. Answered questions move to `entries/decisions/` with the owner's own words.

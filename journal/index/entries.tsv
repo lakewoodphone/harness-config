@@ -543,6 +543,7 @@ handoff	H2465	2465		2026-09-23 19:19 UTC	SECRATARY	open	## 2026-09-23 19:19 UTC 
 handoff	H2466	2466		2026-09-23 19:37 UTC	SECRATARY	open	## 2026-09-23 19:37 UTC · SECRATARY · Owner health, same evening: the NP visit and the LabCorp draw happened TODAY 2026-09-23 - record s29/s30 written, task 26704 chases the result Friday	entries/handoff/H2466.md	1	27	2bf9ec1644dd4227
 handoff	H2467	2467		2026-09-23 20:24 UTC	secratary	open	## 2026-09-23 20:24 UTC · secratary · Family Chat: hand-authored Chip broadcast sent at the owner's request (Bracha's boy + Yitz -> Chaim Berlin)	entries/handoff/H2467.md	1	27	368fcc08417e475f
 handoff	H2468	2468		2026-09-23 20:25 UTC	SECRATARY	open	## 2026-09-23 20:25 UTC · SECRATARY · Owner SMS thread: status hijack + chopped joke, fixed and deployed	entries/handoff/H2468.md	1	50	4d65cd2e6aa66e40
+handoff	H2469	2469		2026-09-23 21:06 UTC	secratary	open	## 2026-09-23 21:06 UTC · secratary · Family Chat: Chip now answers when spoken to (direct address beats the randomizer); deployed and proven	entries/handoff/H2469.md	1	34	749b57fffbc1e655
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1496,6 +1497,7 @@ lessons	L2352	2352		2026-09-23	SECRATARY	open	**L2352 · One non-GSM-7 character
 lessons	L2353	2353		2026-09-23	SECRATARY	open	**L2353 · Stale tests in the area you are touching hide real regressions: fix or delete them, never leave them red**	entries/lessons/L2353.md	1	10	a4fd74c98b7d3324
 lessons	L2354	2354		2026-09-23	secratary	open	**L2354 · A family-chat simcha broadcast must be checked against EVERY simcha in the same thread - I named a new baby and skipped two existing birthdays**	entries/lessons/L2354.md	1	18	4bbd6a0bb82fc9f7
 lessons	L2355	2355		2026-09-23	SECRATARY	open	**L2355 · L: on this record, a new symptom the owner reports in passing outranks another test result - same-evening append, and the escalation thresholds restated in the same entry**	entries/lessons/L2355.md	1	14	b4bd7fdc170467a1
+lessons	L2356	2356		2026-09-23	secratary	open	**L2356 · L — A classifier is unverified until measured on labelled real cases: the same prompt scored 6/10 with reasoning off and 10/10 on**	entries/lessons/L2356.md	1	28	8bd3922fd3310594
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2031,6 +2033,7 @@ decisions	D2160	2160		2026-09-22	secratary	open	**D2160 · 2026-09-22 · Owner q
 decisions	D2325	2325		2026-09-22	ZABZ-TECH	open	**D2325 · 2026-09-22 · A deferral the owner states must be recorded in the queue, or the kernel counts it as a missed deadline.**	entries/decisions/D2325.md	1	80	1e33b07ef88ae983
 decisions	D2326	2326		2026-09-22	ZABZ-TECH	open	**D2326 · 2026-09-22 · A deferral the owner states must be recorded in the queue, or the kernel counts it as a missed deadline.**	entries/decisions/D2326.md	1	62	709165596c9d7024
 decisions	D2389	2389		2026-09-23	SECRATARY	open	**D2389 · 2026-09-23 · SMS reply path: anchored status shortcut, GSM-7 folding, loud truncation.**	entries/decisions/D2389.md	1	19	fc0be3621d511c0a
+decisions	D2390	2390		2026-09-23	secratary	open	**D2390 · 2026-09-23 · D — When someone speaks to Chip, he answers: direct address outranks the randomizer; the rails that survive it.**	entries/decisions/D2390.md	1	22	796fb89ef75ae6b9
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
