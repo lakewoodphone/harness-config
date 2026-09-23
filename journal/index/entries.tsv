@@ -1495,6 +1495,7 @@ lessons	L2351	2351		2026-09-23	secratary	open	**L2351 · L — The Family Chat s
 lessons	L2352	2352		2026-09-23	SECRATARY	open	**L2352 · One non-GSM-7 character halves the SMS budget and silently chops the message**	entries/lessons/L2352.md	1	32	b6a723575959e7f2
 lessons	L2353	2353		2026-09-23	SECRATARY	open	**L2353 · Stale tests in the area you are touching hide real regressions: fix or delete them, never leave them red**	entries/lessons/L2353.md	1	10	a4fd74c98b7d3324
 lessons	L2354	2354		2026-09-23	secratary	open	**L2354 · A family-chat simcha broadcast must be checked against EVERY simcha in the same thread - I named a new baby and skipped two existing birthdays**	entries/lessons/L2354.md	1	18	4bbd6a0bb82fc9f7
+lessons	L2355	2355		2026-09-23	SECRATARY	open	**L2355 · L: on this record, a new symptom the owner reports in passing outranks another test result - same-evening append, and the escalation thresholds restated in the same entry**	entries/lessons/L2355.md	1	14	b4bd7fdc170467a1
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1770,6 +1771,7 @@ pain	P2188	2188		2026-09-22	SECRATARY	open	## P2188 — secratary-ts ssh alias u
 pain	P2189	2189		2026-09-23	secratary	open	## P2189 — P — The ask_user_question widget is unreadable on the owner's phone, so a rendered question is a dead end	entries/pain/P2189.md	1	20	35038aa35e1500d1
 pain	P2190	2190		2026-09-23	SECRATARY	open	## P2190 — Outbound SMS audit rows are lost to SQLite lock contention (no outbound spool)	entries/pain/P2190.md	1	20	30f0af946e8b1c92
 pain	P2191	2191		2026-09-23	secratary	open	## P2191 — Family-chat ledger keeps saying queued for messages the carrier already delivered, and nothing sweeps it	entries/pain/P2191.md	1	16	254d036ebcf03aa8
+pain	P2192	2192		2026-09-23	secratary	open	## P2192 — sqlite_sequence on the family chat DB overstates message count by 110k, because ignored dedupe inserts burn AUTOINCREMENT ids	entries/pain/P2192.md	1	30	95ce93df37566608
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
