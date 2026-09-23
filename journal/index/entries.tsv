@@ -541,6 +541,8 @@ handoff	H2401	2401		2026-09-22 15:00 UTC	ZABZ-TECH	open	## 2026-09-22 15:00 UTC 
 handoff	H2402	2402		2026-09-22 15:02 UTC	ZABZ-TECH	open	## 2026-09-22 15:02 UTC · ZABZ-TECH · Update to H2401: stripe-key-watch.py versioned, and every bin helper an authority reader needs is now in the repo	entries/handoff/H2402.md	1	67	3d91877276b152ce
 handoff	H2465	2465		2026-09-23 19:19 UTC	SECRATARY	open	## 2026-09-23 19:19 UTC · SECRATARY · Owner health record is current to 2026-09-23, and published: three episodes, labs found, and the two facts only he can supply	entries/handoff/H2465.md	1	28	21e2516c9ff02eed
 handoff	H2466	2466		2026-09-23 19:37 UTC	SECRATARY	open	## 2026-09-23 19:37 UTC · SECRATARY · Owner health, same evening: the NP visit and the LabCorp draw happened TODAY 2026-09-23 - record s29/s30 written, task 26704 chases the result Friday	entries/handoff/H2466.md	1	27	2bf9ec1644dd4227
+handoff	H2467	2467		2026-09-23 20:24 UTC	secratary	open	## 2026-09-23 20:24 UTC · secratary · Family Chat: hand-authored Chip broadcast sent at the owner's request (Bracha's boy + Yitz -> Chaim Berlin)	entries/handoff/H2467.md	1	27	368fcc08417e475f
+handoff	H2468	2468		2026-09-23 20:25 UTC	SECRATARY	open	## 2026-09-23 20:25 UTC · SECRATARY · Owner SMS thread: status hijack + chopped joke, fixed and deployed	entries/handoff/H2468.md	1	50	4d65cd2e6aa66e40
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1488,6 +1490,10 @@ lessons	L2346	2346		2026-09-22	SECRATARY	open	**L2346 · Verify the sentence you
 lessons	L2347	2347		2026-09-22	SECRATARY	open	**L2347 · The phone question card's real fix lives in the phone layer, not in node_modules**	entries/lessons/L2347.md	1	39	d0f15a7254e110de
 lessons	L2348	2348		2026-09-22	ZABZ-TECH	open	**L2348 · An INSERT-only log's newest row cannot tell a quiet inbox from a dead poller -- the third time this fleet made that mistake**	entries/lessons/L2348.md	1	49	6b0c4a8901bb3341
 lessons	L2349	2349		2026-09-22	SECRATARY	open	**L2349 · secratary has no photo or face identification; family_photo_context_resolver identifies nobody**	entries/lessons/L2349.md	1	17	8012f042fe996a49
+lessons	L2350	2350		2026-09-23	SECRATARY	open	**L2350 · An owner-facing shortcut must match the whole message, not a phrase inside it**	entries/lessons/L2350.md	1	27	acb812b105f58ddb
+lessons	L2351	2351		2026-09-23	secratary	open	**L2351 · L — The Family Chat speaks in exactly ONE sendable voice (Chip), through hub._send_to_member; and the owner cannot answer the ask_user_question widget from his phone**	entries/lessons/L2351.md	1	16	39a433f625a52d30
+lessons	L2352	2352		2026-09-23	SECRATARY	open	**L2352 · One non-GSM-7 character halves the SMS budget and silently chops the message**	entries/lessons/L2352.md	1	32	b6a723575959e7f2
+lessons	L2353	2353		2026-09-23	SECRATARY	open	**L2353 · Stale tests in the area you are touching hide real regressions: fix or delete them, never leave them red**	entries/lessons/L2353.md	1	10	a4fd74c98b7d3324
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1760,6 +1766,9 @@ pain	P2185	2185		2026-09-20	SECRATARY	done	## P2185 — The journal on secratary
 pain	P2186	2186		2026-09-22	SECRATARY	open	## P2186 — Nothing can watch a time-boxed owner-health risk overnight - wake.py has no not-before, tasks fire on tick	entries/pain/P2186.md	1	12	96ed37918ec0d452
 pain	P2187	2187		2026-09-22	SECRATARY	open	## P2187 — P266 - A queue row is a days-old photograph of the world, and nothing re-checks it before the owner sees it	entries/pain/P2187.md	1	28	6589467c9e03127a
 pain	P2188	2188		2026-09-22	SECRATARY	open	## P2188 — secratary-ts ssh alias used a key not in secratary's authorized_keys; all mesh ssh to the authority failed	entries/pain/P2188.md	1	18	322e1c4d8c5506bc
+pain	P2189	2189		2026-09-23	secratary	open	## P2189 — P — The ask_user_question widget is unreadable on the owner's phone, so a rendered question is a dead end	entries/pain/P2189.md	1	20	35038aa35e1500d1
+pain	P2190	2190		2026-09-23	SECRATARY	open	## P2190 — Outbound SMS audit rows are lost to SQLite lock contention (no outbound spool)	entries/pain/P2190.md	1	20	30f0af946e8b1c92
+pain	P2191	2191		2026-09-23	secratary	open	## P2191 — Family-chat ledger keeps saying queued for messages the carrier already delivered, and nothing sweeps it	entries/pain/P2191.md	1	16	254d036ebcf03aa8
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -2018,6 +2027,7 @@ decisions	D2096	2096		2026-09-20	ZABZ-YOGA	open	**D2096 · 2026-09-20 · ZABZ-TE
 decisions	D2160	2160		2026-09-22	secratary	open	**D2160 · 2026-09-22 · Owner queue 22 -> 16: 5 dev rows closed, 16 left for the owner.**	entries/decisions/D2160.md	1	41	4b54dfd6e023f8ec
 decisions	D2325	2325		2026-09-22	ZABZ-TECH	open	**D2325 · 2026-09-22 · A deferral the owner states must be recorded in the queue, or the kernel counts it as a missed deadline.**	entries/decisions/D2325.md	1	80	1e33b07ef88ae983
 decisions	D2326	2326		2026-09-22	ZABZ-TECH	open	**D2326 · 2026-09-22 · A deferral the owner states must be recorded in the queue, or the kernel counts it as a missed deadline.**	entries/decisions/D2326.md	1	62	709165596c9d7024
+decisions	D2389	2389		2026-09-23	SECRATARY	open	**D2389 · 2026-09-23 · SMS reply path: anchored status shortcut, GSM-7 folding, loud truncation.**	entries/decisions/D2389.md	1	19	fc0be3621d511c0a
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
