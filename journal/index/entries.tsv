@@ -570,6 +570,8 @@ handoff	H2661	2661		2026-09-24 19:16 UTC	ZABZ-TECH	open	## 2026-09-24 19:16 UTC 
 handoff	H2662	2662		2026-09-24 20:04 UTC	ZABZ-TECH	open	## 2026-09-24 20:04 UTC · ZABZ-TECH · Dialpad closure calendar set fully (64 days to 2028); Yom Tov power-down bug fixed and deployed to secratary	entries/handoff/H2662.md	1	62	8ff15753a81cd700
 handoff	H2663	2663		2026-09-24 20:13 UTC	ZABZ-TECH	open	## 2026-09-24 20:13 UTC · ZABZ-TECH · Goldberg iPad charged on an Apple USB-C-to-Lightning cable - the cheap rung answered it; two confirmations outstanding	entries/handoff/H2663.md	1	53	a81614161f135331
 handoff	H2664	2664		2026-09-24 20:59 UTC	ZABZ-TECH	open	## 2026-09-24 20:59 UTC · ZABZ-TECH · Shlock water: fifteen-angle audit done - the lip is one hanger socket at 12 o'clock; re-clock it to 6 and the pool leaves; and the cover must come OFF before Friday sunset (nor'easter)	entries/handoff/H2664.md	1	51	b85ed31693748015
+handoff	H2665	2665		2026-09-24 21:04 UTC	ZABZ-TECH	open	## 2026-09-24 21:04 UTC · ZABZ-TECH · Goldberg iPad closed as no fault - cable was the cause, customer texted, case ready for pickup	entries/handoff/H2665.md	1	55	2ef5041af239f686
+handoff	H2666	2666		2026-09-24 21:09 UTC	ZABZ-TECH	open	## 2026-09-24 21:09 UTC · ZABZ-TECH · Wilner #73890 SENT: customer text (Dialpad 5216332874555392, cache row 1115458) and the 300DDR terms email (Gmail 1a0d53e9f870eb3c, SENT); price 800 = 160 + 250 now + 390; row 127 resolved; an await is registered on the customer, the lab has no wake path	entries/handoff/H2666.md	1	30	3c8678f772ac2c3d
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1566,6 +1568,8 @@ lessons	L2516	2516		2026-09-24	ZABZ-TECH	open	**L2516 · A Dialpad holiday is tw
 lessons	L2517	2517		2026-09-24	ZABZ-TECH	open	**L2517 · Sukkos was a day early in shalom_zmanim.py and the live power automation ran on it**	entries/lessons/L2517.md	1	42	e1aa5c2a47963588
 lessons	L2518	2518		2026-09-24	ZABZ-TECH	open	**L2518 · Cheap rungs resolve charge complaints - and 'it's charging' off a weak source is not a result**	entries/lessons/L2518.md	1	38	4a84d0260505b8ca
 lessons	L2519	2519		2026-09-24	ZABZ-TECH	open	**L2519 · Two dollar signs in one paragraph render as maths in his GUI: serif, spaces eaten, word-joined - rule 8 now lives in the agent persona so no session relearns it**	entries/lessons/L2519.md	1	22	e02ef42b69362e08
+lessons	L2520	2520		2026-09-24	ZABZ-TECH	open	**L2520 · USB-A Lightning (C89) cannot do USB-PD, and the customer-SMS script blocks links until --force**	entries/lessons/L2520.md	1	48	a82db2c43ea3a51f
+lessons	L2521	2521		2026-09-24	ZABZ-TECH	open	**L2521 · Customer comms: never ask for their charger back, and never explain that their accessory was inferior**	entries/lessons/L2521.md	1	31	4b4eae43e214a491
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
