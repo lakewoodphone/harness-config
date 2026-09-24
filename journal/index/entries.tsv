@@ -556,6 +556,10 @@ handoff	H2469	2469		2026-09-23 21:06 UTC	secratary	open	## 2026-09-23 21:06 UTC 
 handoff	H2470	2470		2026-09-23 21:21 UTC	secratary	open	## 2026-09-23 21:21 UTC · secratary · Family Chat direct address, second pass: the adversary broke four of six claims; all four fixed, re-proven, redeployed	entries/handoff/H2470.md	1	32	5cf595b093ba0c36
 handoff	H2529	2529		2026-09-23 23:10 UTC	ZABZ-TECH	open	## 2026-09-23 23:10 UTC · ZABZ-TECH · Shlock: nine-angle mesh audit - the rope-loop hold-downs are dead on five grounds, the pole tow survives with six fixes; four measurements gate everything	entries/handoff/H2529.md	1	50	49ffc0e3eb58921e
 handoff	H2530	2530		2026-09-23 23:24 UTC	ZABZ-TECH	open	## 2026-09-23 23:24 UTC · ZABZ-TECH · Delivery truth fixed end to end: false CRITICAL cleared, 10 owner questions rescued from a channel that can never send	entries/handoff/H2530.md	1	82	532ac175202e0376
+handoff	H2531	2531		2026-09-23 23:52 UTC	ZABZ-TECH	open	## 2026-09-23 23:52 UTC · ZABZ-TECH · dsh-update pipeline built; 0.1.5-rc.3 examined and SAFE; a false BREAKS found and fixed in both directions	entries/handoff/H2531.md	1	106	883410fe551423a7
+handoff	H2657	2657		2026-09-24 17:25 UTC	ZABZ-YOGA	open	## 2026-09-24 17:25 UTC · ZABZ-YOGA · Halon case pulled up and answered: the unrecorded 9/23 inbound, the sent reply, and the delivery read-back gap	entries/handoff/H2657.md	1	25	3ff51094d674e42c
+handoff	H2658	2658		2026-09-24 17:44 UTC	ZABZ-YOGA	open	## 2026-09-24 17:44 UTC · ZABZ-YOGA · Halon send confirmed at Dialpad; the cache row was lost by our own silent-drop write - P2474 is the real finding	entries/handoff/H2658.md	1	27	530eff7ff62d105d
+handoff	H2659	2659		2026-09-24 18:56 UTC	ZABZ-TECH	open	## 2026-09-24 18:56 UTC · ZABZ-TECH · Wilner SD card (#73890): the lab's own wording settles the deposit question - margin is +160 and row #127's recommendation is corrected to AUTHORISE; nothing paid, cancelled or authorised, and no clock is running	entries/handoff/H2659.md	1	29	64b53dd83787d686
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1525,6 +1529,10 @@ lessons	L2368	2368		2026-09-23	ZABZ-TECH	open	**L2368 · GMAIL_DEFAULT_ACCOUNT=p
 lessons	L2369	2369		2026-09-23	ZABZ-TECH	open	**L2369 · Cite the halachic authority the owner holds by, not the one easiest to find - and 'no hechsher exists' can itself be the finding**	entries/lessons/L2369.md	1	10	bb0e4ab9b1274d6e
 lessons	L2370	2370		2026-09-23	ZABZ-TECH	open	**L2370 · Case-file front matter is an enum: a bare status: parts was unreadable to the index and silently became other**	entries/lessons/L2370.md	1	42	e22b6367f721be28
 lessons	L2371	2371		2026-09-23	ZABZ-TECH	open	**L2371 · PowerShell eats dollar amounts before the program sees them - use a file, never an inline argument**	entries/lessons/L2371.md	1	33	30900b2bfc4ffe35
+lessons	L2372	2372		2026-09-23	ZABZ-TECH	open	**L2372 · A DSH install is a set of versions; dsh --version reports only the launcher**	entries/lessons/L2372.md	1	32	e9842fcc7b76a117
+lessons	L2373	2373		2026-09-23	ZABZ-TECH	open	**L2373 · A detector must be run against a known-GOOD input, or it reports crises that do not exist**	entries/lessons/L2373.md	1	52	316366a16ecd1064
+lessons	L2374	2374		2026-09-23	ZABZ-TECH	open	**L2374 · 0.1.7-rc.1 adds a v3-to-v4 session-format codec and no reverse codec: a one-way door on 1,095 logs**	entries/lessons/L2374.md	1	30	0b0a7ad894c004ae
+lessons	L2446	2446		2026-09-24	ZABZ-YOGA	open	**L2446 · LPT comms live only on secratary: query dialpad_sms_cache over single-hop ssh; created_at is harvest time, not send time**	entries/lessons/L2446.md	1	17	18549bf7874db7f9
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1812,6 +1820,9 @@ pain	P2192	2192		2026-09-23	secratary	open	## P2192 — sqlite_sequence on the f
 pain	P2257	2257		2026-09-23	ZABZ-TECH	open	## P2257 — The CEO asks the owner for data the company should fetch itself (GBP stats, Yelp inbox)	entries/pain/P2257.md	1	43	34a12aed1c8cd036
 pain	P2258	2258		2026-09-23	ZABZ-TECH	open	## P2258 — ~/bin on secratary is unversioned: 50 operator scripts, including the only writer of the owner queue	entries/pain/P2258.md	1	35	d0d04dd20347a2a0
 pain	P2259	2259		2026-09-23	ZABZ-TECH	open	## P2259 — The Shlock cover's middle 6 and side 14 hold-downs are unsolved: every scheme jams, grips, or holds the bunch open, and the owner is unhappy	entries/pain/P2259.md	1	36	50ca0429a7a7592e
+pain	P2260	2260		2026-09-23	ZABZ-TECH	open	## P2260 — The mesh probe calls a live node unable to take agent work, and files that reading as an owner message every 1-2h	entries/pain/P2260.md	1	49	d75b972d41496d75
+pain	P2261	2261		2026-09-23	ZABZ-TECH	open	## P2261 — dsh-update detector produced a false BREAKS on a healthy candidate; six fixes specified but unapplied	entries/pain/P2261.md	1	50	c03a4323d6babc35
+pain	P2474	2474		2026-09-24	ZABZ-YOGA	open	## P2474 — dialpad-sms-ws logs STORED for rows that are not written: the SMS write path swallows every failure and reports success	entries/pain/P2474.md	1	33	5f8e4653ed1659b0
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -2080,6 +2091,9 @@ decisions	D2453	2453		2026-09-23	ZABZ-TECH	open	**D2453 · 2026-09-23 · Shlock 
 decisions	D2454	2454		2026-09-23	ZABZ-TECH	open	**D2454 · 2026-09-23 · Shlock: nothing rides the rails this season; the tow goes through-bolted with pinned joints, a mid-edge point and one continuous line.**	entries/decisions/D2454.md	1	38	1f75166f69fdffe0
 decisions	D2455	2455		2026-09-23	ZABZ-TECH	open	**D2455 · 2026-09-23 · Delivery truth: unreachable vs unrouted; owner questions route via the sweep, not the ask path.**	entries/decisions/D2455.md	1	50	a3cf8dda852df77f
 decisions	D2456	2456		2026-09-23	ZABZ-TECH	open	**D2456 · 2026-09-23 · Shlock 2026-09-23, all decisions: pinned poles, through-bolted tow to the pole ends, one line, 16 points at 25 mph, sides and middle left open.**	entries/decisions/D2456.md	1	46	73f5c2d31ebdbaa9
+decisions	D2457	2457		2026-09-23	ZABZ-TECH	open	**D2457 · 2026-09-23 · Health triage 2026-09-23 answered: milkshake stayed down, no red flags -- escalation stood down (health record section 33).**	entries/decisions/D2457.md	1	43	1f8b013733ca4542
+decisions	D2458	2458		2026-09-23	ZABZ-TECH	open	**D2458 · 2026-09-23 · DSH upgrades gated on composed-tree diff + contract diff + real boot; promotion never restarts the engine.**	entries/decisions/D2458.md	1	42	7227a432bb3e2dc6
+decisions	D2581	2581		2026-09-24	ZABZ-TECH	open	**D2581 · 2026-09-24 · Row #127 Wilner: recommendation corrected from CANCEL to AUTHORISE - the lab's own chip-off wording says the 250 deposit is applied toward the total, so the margin is +160, not -90.**	entries/decisions/D2581.md	1	15	15350a9e8ea169a0
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -2294,3 +2308,4 @@ wins	W2156	2156		2026-09-20	ZABZ-YOGA	open	**W2156 · 2026-09-20 · ZABZ-TECH pr
 wins	W2187	2187		2026-09-22	SECRATARY	open	**W2187 · 2026-09-22 · Closing a 102-commit journal divergence with zero loss: back up off-host, merge on a scratch branch, let repair-ids renumber, prove no deletions before you commit.**	entries/wins/W2187.md	1	33	887c83ad9291afdb
 wins	W2251	2251		2026-09-22	ZABZ-TECH	open	**W2251 · 2026-09-22 · Trend, not a reading: the kernel's history.jsonl shows the two false findings fall one at a time (attention 2 -> 1 -> 0).**	entries/wins/W2251.md	1	51	6635c8cadbe5572e
 wins	W2252	2252		2026-09-23	ZABZ-TECH	open	**W2252 · 2026-09-23 · The delivery check clears: 1 attention item instead of 2, and the questions are on the surface he reads.**	entries/wins/W2252.md	1	36	b53d6742578a0ea9
+wins	W2253	2253		2026-09-23	ZABZ-TECH	open	**W2253 · 2026-09-23 · dsh-update found 2 real, hand-verified BREAKS on 0.1.7-rc.1 that no version comparison would show.**	entries/wins/W2253.md	1	40	ade0aea1b63f52f8
