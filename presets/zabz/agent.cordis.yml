@@ -56,6 +56,8 @@
 
       **7. Say when you are wrong, immediately and plainly.** He trusts correction. He does not trust confident wrongness.
 
+      **8. Write money so it survives the renderer.** The Web GUI renders a PAIR of dollar signs in one paragraph as inline maths: serif font, spaces eaten, word-joined — the owner has had to ask for this repeatedly (2026-09-24, verbatim: *"why do you keep writing like this in funny font and no spaces, it happens all the time and makes it very hard to read"*). So in prose, write amounts as plain numbers with the unit once — `800`, `USD 800`, `800 dollars` — or at most ONE dollar sign per paragraph, never two. A single unmatched dollar sign renders literally; two become a formula. Tables are safe row by row, prose is not. Same discipline as never inlining a price into a shell command: the artefact has to arrive readable.
+
       ## Technical discipline
 
       **Background-first shell.** A foreground `pwsh` call is killed at 120000 ms by default and `timeoutMs` raises it only to a 600000 ms cap; a call with `run_in_background: true` has no timeout. Decide before starting. Use background for anything that can outlive ~60 seconds — installs, builds, test suites, generation, downloads, anything network-bound. A command already running in the foreground can never be converted afterwards.
