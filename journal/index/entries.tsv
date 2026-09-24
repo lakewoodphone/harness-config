@@ -567,6 +567,8 @@ handoff	H2658	2658		2026-09-24 17:44 UTC	ZABZ-YOGA	open	## 2026-09-24 17:44 UTC 
 handoff	H2659	2659		2026-09-24 18:56 UTC	ZABZ-TECH	open	## 2026-09-24 18:56 UTC · ZABZ-TECH · Wilner SD card (#73890): the lab's own wording settles the deposit question - margin is +160 and row #127's recommendation is corrected to AUTHORISE; nothing paid, cancelled or authorised, and no clock is running	entries/handoff/H2659.md	1	29	64b53dd83787d686
 handoff	H2660	2660		2026-09-24 19:06 UTC	ZABZ-TECH	open	## 2026-09-24 19:06 UTC · ZABZ-TECH · Sukkos closed message recorded; a live customer call was briefly recorded by accident	entries/handoff/H2660.md	1	50	974101b34608b903
 handoff	H2661	2661		2026-09-24 19:16 UTC	ZABZ-TECH	open	## 2026-09-24 19:16 UTC · ZABZ-TECH · Goldberg iPad A2602: model recorded, charge-refusal symptom turned into a bench ladder, production WO updated	entries/handoff/H2661.md	1	59	8a4a9b1d2017fdfd
+handoff	H2662	2662		2026-09-24 20:04 UTC	ZABZ-TECH	open	## 2026-09-24 20:04 UTC · ZABZ-TECH · Dialpad closure calendar set fully (64 days to 2028); Yom Tov power-down bug fixed and deployed to secratary	entries/handoff/H2662.md	1	62	8ff15753a81cd700
+handoff	H2663	2663		2026-09-24 20:13 UTC	ZABZ-TECH	open	## 2026-09-24 20:13 UTC · ZABZ-TECH · Goldberg iPad charged on an Apple USB-C-to-Lightning cable - the cheap rung answered it; two confirmations outstanding	entries/handoff/H2663.md	1	53	a81614161f135331
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1559,6 +1561,9 @@ lessons	L2512	2512		2026-09-24	ZABZ-TECH	open	**L2512 · There is no Message Cre
 lessons	L2513	2513		2026-09-24	ZABZ-TECH	open	**L2513 · The LPT Dialpad messages are a deep male voice (median F0 110.7-115.9 Hz) - echo, not the documented nova**	entries/lessons/L2513.md	1	50	99c0ab6256518223
 lessons	L2514	2514		2026-09-24	ZABZ-TECH	open	**L2514 · iPad 9's Lightning port is soldered to the board - a 3-second charge is a refusal, not a port fault**	entries/lessons/L2514.md	1	47	963d04814d29a757
 lessons	L2515	2515		2026-09-24	ZABZ-TECH	open	**L2515 · Find out who pays before deciding what to do: I turned a CUSTOMER's choice (stop and lose 160, or pay more) into a shop decision and drafted a text that priced the job on the owner's behalf**	entries/lessons/L2515.md	1	22	6c089cd5010244b5
+lessons	L2516	2516		2026-09-24	ZABZ-TECH	open	**L2516 · A Dialpad holiday is two objects - creating only the recurringevent changes nothing**	entries/lessons/L2516.md	1	48	7100c947c58077cd
+lessons	L2517	2517		2026-09-24	ZABZ-TECH	open	**L2517 · Sukkos was a day early in shalom_zmanim.py and the live power automation ran on it**	entries/lessons/L2517.md	1	42	e1aa5c2a47963588
+lessons	L2518	2518		2026-09-24	ZABZ-TECH	open	**L2518 · Cheap rungs resolve charge complaints - and 'it's charging' off a weak source is not a result**	entries/lessons/L2518.md	1	38	4a84d0260505b8ca
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2127,6 +2132,7 @@ decisions	D2457	2457		2026-09-23	ZABZ-TECH	open	**D2457 · 2026-09-23 · Health 
 decisions	D2458	2458		2026-09-23	ZABZ-TECH	open	**D2458 · 2026-09-23 · DSH upgrades gated on composed-tree diff + contract diff + real boot; promotion never restarts the engine.**	entries/decisions/D2458.md	1	42	7227a432bb3e2dc6
 decisions	D2517	2517		2026-09-24	SECRATARY	open	**D2517 · 2026-09-24 · Intake-note photos are committed to lpt-hub with a .gitignore exception; device passcodes live in the case file and never in a sync record or a production note.**	entries/decisions/D2517.md	1	29	86309573aeb742ab
 decisions	D2581	2581		2026-09-24	ZABZ-TECH	open	**D2581 · 2026-09-24 · Row #127 Wilner: recommendation corrected from CANCEL to AUTHORISE - the lab's own chip-off wording says the 250 deposit is applied toward the total, so the margin is +160, not -90.**	entries/decisions/D2581.md	1	15	15350a9e8ea169a0
+decisions	D2582	2582		2026-09-24	ZABZ-TECH	open	**D2582 · 2026-09-24 · LPT closes the whole festival period (erev + Yom Tov + Chol HaMoed), and the Dialpad closure calendar is generated, not hand-entered.**	entries/decisions/D2582.md	1	47	c1080588314dc5be
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
