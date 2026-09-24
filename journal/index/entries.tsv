@@ -1541,6 +1541,8 @@ lessons	L2379	2379		2026-09-24	SECRATARY	open	**L2379 · lptcase.py new scaffold
 lessons	L2380	2380		2026-09-24	SECRATARY	open	**L2380 · The website push wrote the same customer note TWICE and a paragraph as the order title — read the production row back after every push**	entries/lessons/L2380.md	1	38	410afaa6252b8df1
 lessons	L2381	2381		2026-09-24	SECRATARY	open	**L2381 · Guard rule 1 short-circuits, so 'matched customers=[none]' in a dry run is NOT evidence the customer is missing**	entries/lessons/L2381.md	1	28	1e61642bac32952b
 lessons	L2382	2382		2026-09-24	SECRATARY	open	**L2382 · Intake photos are the only record of a walk-in customer — commit them, and always match the numbers on the note against production and Dialpad first**	entries/lessons/L2382.md	1	36	a7e05de00098da87
+lessons	L2409	2409		2026-09-24	SECRATARY	open	**L2409 · A hand-maintained version token is a silent-failure generator: derive it from the content it versions**	entries/lessons/L2409.md	1	30	ce07b954943e9603
+lessons	L2410	2410		2026-09-24	SECRATARY	open	**L2410 · Never type a journal id you have not been given: the allocator decides, and two guessed ids were wrong in the same session**	entries/lessons/L2410.md	1	29	48f98716aa71dd34
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1831,6 +1833,7 @@ pain	P2259	2259		2026-09-23	ZABZ-TECH	open	## P2259 — The Shlock cover's middl
 pain	P2313	2313		2026-09-24	SECRATARY	open	## P2313 — A long delegated-agent result can be lost with no error and no complete copy	entries/pain/P2313.md	1	6	55e3d96f85d50707
 pain	P2314	2314		2026-09-24	SECRATARY	open	## P2314 — A 'publish the record' commit silently deleted a section from an unrelated health file, and nothing detected it	entries/pain/P2314.md	1	8	694d394a729715e6
 pain	P2315	2315		2026-09-24	SECRATARY	open	## P2315 — personal-secretary-mvp is ahead 158 / behind 176 with ~55 dirty files, so fixes made on the authority cannot reach the other machines	entries/pain/P2315.md	1	27	1d06b5262d2b7223
+pain	P2410	2410		2026-09-24	SECRATARY	open	## P2410 — The phone question-card has been reported broken FOUR times and declared fixed three times, because every verification used a document that had never cached the layer	entries/pain/P2410.md	1	47	6e6ac668ba319de8
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
