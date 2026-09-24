@@ -1552,6 +1552,7 @@ lessons	L2409	2409		2026-09-24	SECRATARY	open	**L2409 · A hand-maintained versi
 lessons	L2410	2410		2026-09-24	SECRATARY	open	**L2410 · Never type a journal id you have not been given: the allocator decides, and two guessed ids were wrong in the same session**	entries/lessons/L2410.md	1	29	48f98716aa71dd34
 lessons	L2446	2446		2026-09-24	ZABZ-YOGA	open	**L2446 · LPT comms live only on secratary: query dialpad_sms_cache over single-hop ssh; created_at is harvest time, not send time**	entries/lessons/L2446.md	1	17	18549bf7874db7f9
 lessons	L2510	2510		2026-09-24	ZABZ-TECH	open	**L2510 · Three lesson ids meant different entries on ZABZ-TECH and on secratary: the id bands overlap AND this host never pushed, and nothing can see a collision until a merge**	entries/lessons/L2510.md	1	30	f269d998560d9c16
+lessons	L2511	2511		2026-09-24	ZABZ-TECH	open	**L2511 · A message from our own address in a thread is not a reply until you read its labels: an unsent DRAFT read as 'we replied', and an unfit model draft parked on a live vendor thread**	entries/lessons/L2511.md	1	26	af3a14fa84397595
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
