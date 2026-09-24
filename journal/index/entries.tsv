@@ -559,6 +559,8 @@ handoff	H2530	2530		2026-09-23 23:24 UTC	ZABZ-TECH	open	## 2026-09-23 23:24 UTC 
 handoff	H2593	2593		2026-09-24 00:53 UTC	secratary	open	## 2026-09-24 00:53 UTC · secratary · Shlock pulled up on secratary: the 09-23 four-file corpus is the newest, and its one open owner item was already answered	entries/handoff/H2593.md	1	36	4b730230073ba694
 handoff	H2594	2594		2026-09-24 05:01 UTC	SECRATARY	open	## 2026-09-24 05:01 UTC · SECRATARY · Yocheved's Aygestin course: record pulled up, duration question researched and answered from primary sources; owner's one open answer is the prescriber-managed stop date	entries/handoff/H2594.md	1	27	92c2b2459091b160
 handoff	H2595	2595		2026-09-24 09:37 UTC	SECRATARY	open	## 2026-09-24 09:37 UTC · SECRATARY · Yocheved cramping episode (2026-09-24) - triage delivered, pregnancy question open, three research reports on file	entries/handoff/H2595.md	1	20	738552a7d523fe0a
+handoff	H2596	2596		2026-09-24 14:51 UTC	SECRATARY	open	## 2026-09-24 14:51 UTC · SECRATARY · Three 2026-09-24 intake cases from the owner's photos: filed, pushed to the website, and two push-path defects fixed	entries/handoff/H2596.md	1	89	42856df77be20ba8
+handoff	H2597	2597		2026-09-24 14:52 UTC	SECRATARY	open	## 2026-09-24 14:52 UTC · SECRATARY · Correction to H2596: the journal ids for this session's entries are L2379-L2382, P2315, D2517, W2315	entries/handoff/H2597.md	1	22	18d6d66721afe40c
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1535,6 +1537,10 @@ lessons	L2375	2375		2026-09-24	SECRATARY	open	**L2375 · workflow() results are 
 lessons	L2376	2376		2026-09-24	SECRATARY	open	**L2376 · Yeast infection vs jock itch vs intertrigo in a skin fold: what differs, and which products cover which**	entries/lessons/L2376.md	1	14	121b0cc2cc610288
 lessons	L2377	2377		2026-09-24	SECRATARY	open	**L2377 · The 'progesterone slows GI motility 30-50%' figure is unsourced — stop repeating it**	entries/lessons/L2377.md	1	8	1519065df9eb79f8
 lessons	L2378	2378		2026-09-24	SECRATARY	open	**L2378 · Severe colicky cramps then a large 'clot' passed in one piece on continuous norethisterone = think decidual cast (membranous dysmenorrhoea), not a period or a miscarriage**	entries/lessons/L2378.md	1	16	03312ffc55dd734d
+lessons	L2379	2379		2026-09-24	SECRATARY	open	**L2379 · lptcase.py new scaffolded a sync record that FAILED the repo's own schema — every new case was born invalid**	entries/lessons/L2379.md	1	40	1b0572c060291d2a
+lessons	L2380	2380		2026-09-24	SECRATARY	open	**L2380 · The website push wrote the same customer note TWICE and a paragraph as the order title — read the production row back after every push**	entries/lessons/L2380.md	1	38	410afaa6252b8df1
+lessons	L2381	2381		2026-09-24	SECRATARY	open	**L2381 · Guard rule 1 short-circuits, so 'matched customers=[none]' in a dry run is NOT evidence the customer is missing**	entries/lessons/L2381.md	1	28	1e61642bac32952b
+lessons	L2382	2382		2026-09-24	SECRATARY	open	**L2382 · Intake photos are the only record of a walk-in customer — commit them, and always match the numbers on the note against production and Dialpad first**	entries/lessons/L2382.md	1	36	a7e05de00098da87
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1824,6 +1830,7 @@ pain	P2258	2258		2026-09-23	ZABZ-TECH	open	## P2258 — ~/bin on secratary is un
 pain	P2259	2259		2026-09-23	ZABZ-TECH	open	## P2259 — The Shlock cover's middle 6 and side 14 hold-downs are unsolved: every scheme jams, grips, or holds the bunch open, and the owner is unhappy	entries/pain/P2259.md	1	36	50ca0429a7a7592e
 pain	P2313	2313		2026-09-24	SECRATARY	open	## P2313 — A long delegated-agent result can be lost with no error and no complete copy	entries/pain/P2313.md	1	6	55e3d96f85d50707
 pain	P2314	2314		2026-09-24	SECRATARY	open	## P2314 — A 'publish the record' commit silently deleted a section from an unrelated health file, and nothing detected it	entries/pain/P2314.md	1	8	694d394a729715e6
+pain	P2315	2315		2026-09-24	SECRATARY	open	## P2315 — personal-secretary-mvp is ahead 158 / behind 176 with ~55 dirty files, so fixes made on the authority cannot reach the other machines	entries/pain/P2315.md	1	27	1d06b5262d2b7223
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -2092,6 +2099,7 @@ decisions	D2453	2453		2026-09-23	ZABZ-TECH	open	**D2453 · 2026-09-23 · Shlock 
 decisions	D2454	2454		2026-09-23	ZABZ-TECH	open	**D2454 · 2026-09-23 · Shlock: nothing rides the rails this season; the tow goes through-bolted with pinned joints, a mid-edge point and one continuous line.**	entries/decisions/D2454.md	1	38	1f75166f69fdffe0
 decisions	D2455	2455		2026-09-23	ZABZ-TECH	open	**D2455 · 2026-09-23 · Delivery truth: unreachable vs unrouted; owner questions route via the sweep, not the ask path.**	entries/decisions/D2455.md	1	50	a3cf8dda852df77f
 decisions	D2456	2456		2026-09-23	ZABZ-TECH	open	**D2456 · 2026-09-23 · Shlock 2026-09-23, all decisions: pinned poles, through-bolted tow to the pole ends, one line, 16 points at 25 mph, sides and middle left open.**	entries/decisions/D2456.md	1	46	73f5c2d31ebdbaa9
+decisions	D2517	2517		2026-09-24	SECRATARY	open	**D2517 · 2026-09-24 · Intake-note photos are committed to lpt-hub with a .gitignore exception; device passcodes live in the case file and never in a sync record or a production note.**	entries/decisions/D2517.md	1	29	86309573aeb742ab
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -2306,3 +2314,4 @@ wins	W2156	2156		2026-09-20	ZABZ-YOGA	open	**W2156 · 2026-09-20 · ZABZ-TECH pr
 wins	W2187	2187		2026-09-22	SECRATARY	open	**W2187 · 2026-09-22 · Closing a 102-commit journal divergence with zero loss: back up off-host, merge on a scratch branch, let repair-ids renumber, prove no deletions before you commit.**	entries/wins/W2187.md	1	33	887c83ad9291afdb
 wins	W2251	2251		2026-09-22	ZABZ-TECH	open	**W2251 · 2026-09-22 · Trend, not a reading: the kernel's history.jsonl shows the two false findings fall one at a time (attention 2 -> 1 -> 0).**	entries/wins/W2251.md	1	51	6635c8cadbe5572e
 wins	W2252	2252		2026-09-23	ZABZ-TECH	open	**W2252 · 2026-09-23 · The delivery check clears: 1 attention item instead of 2, and the questions are on the surface he reads.**	entries/wins/W2252.md	1	36	b53d6742578a0ea9
+wins	W2315	2315		2026-09-24	SECRATARY	open	**W2315 · 2026-09-24 · Three counter intakes went from a photograph to a live work order in one pass, with every number verified first.**	entries/wins/W2315.md	1	20	6ea6e129e440c10d
