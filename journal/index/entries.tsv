@@ -1527,6 +1527,7 @@ lessons	L2369	2369		2026-09-23	ZABZ-TECH	open	**L2369 · Cite the halachic autho
 lessons	L2370	2370		2026-09-23	ZABZ-TECH	open	**L2370 · Case-file front matter is an enum: a bare status: parts was unreadable to the index and silently became other**	entries/lessons/L2370.md	1	42	e22b6367f721be28
 lessons	L2371	2371		2026-09-23	ZABZ-TECH	open	**L2371 · PowerShell eats dollar amounts before the program sees them - use a file, never an inline argument**	entries/lessons/L2371.md	1	33	30900b2bfc4ffe35
 lessons	L2372	2372		2026-09-24	secratary	open	**L2372 · A document's claim that an owner-queue row is open is a pointer, not a fact - read the row**	entries/lessons/L2372.md	1	20	eafed4177469852d
+lessons	L2373	2373		2026-09-24	SECRATARY	open	**L2373 · Yocheved's health facts live in docs/wedding/, and her Aygestin course status has been UNKNOWN since 2026-08-27**	entries/lessons/L2373.md	1	13	60a7c2171eacea10
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
