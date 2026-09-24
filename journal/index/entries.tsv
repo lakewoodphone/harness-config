@@ -565,6 +565,7 @@ handoff	H2597	2597		2026-09-24 14:52 UTC	SECRATARY	open	## 2026-09-24 14:52 UTC 
 handoff	H2657	2657		2026-09-24 17:25 UTC	ZABZ-YOGA	open	## 2026-09-24 17:25 UTC · ZABZ-YOGA · Halon case pulled up and answered: the unrecorded 9/23 inbound, the sent reply, and the delivery read-back gap	entries/handoff/H2657.md	1	25	3ff51094d674e42c
 handoff	H2658	2658		2026-09-24 17:44 UTC	ZABZ-YOGA	open	## 2026-09-24 17:44 UTC · ZABZ-YOGA · Halon send confirmed at Dialpad; the cache row was lost by our own silent-drop write - P2474 is the real finding	entries/handoff/H2658.md	1	27	530eff7ff62d105d
 handoff	H2659	2659		2026-09-24 18:56 UTC	ZABZ-TECH	open	## 2026-09-24 18:56 UTC · ZABZ-TECH · Wilner SD card (#73890): the lab's own wording settles the deposit question - margin is +160 and row #127's recommendation is corrected to AUTHORISE; nothing paid, cancelled or authorised, and no clock is running	entries/handoff/H2659.md	1	29	64b53dd83787d686
+handoff	H2660	2660		2026-09-24 19:06 UTC	ZABZ-TECH	open	## 2026-09-24 19:06 UTC · ZABZ-TECH · Sukkos closed message recorded; a live customer call was briefly recorded by accident	entries/handoff/H2660.md	1	50	974101b34608b903
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1553,6 +1554,8 @@ lessons	L2410	2410		2026-09-24	SECRATARY	open	**L2410 · Never type a journal id
 lessons	L2446	2446		2026-09-24	ZABZ-YOGA	open	**L2446 · LPT comms live only on secratary: query dialpad_sms_cache over single-hop ssh; created_at is harvest time, not send time**	entries/lessons/L2446.md	1	17	18549bf7874db7f9
 lessons	L2510	2510		2026-09-24	ZABZ-TECH	open	**L2510 · Three lesson ids meant different entries on ZABZ-TECH and on secratary: the id bands overlap AND this host never pushed, and nothing can see a collision until a merge**	entries/lessons/L2510.md	1	30	f269d998560d9c16
 lessons	L2511	2511		2026-09-24	ZABZ-TECH	open	**L2511 · A message from our own address in a thread is not a reply until you read its labels: an unsent DRAFT read as 'we replied', and an unfit model draft parked on a live vendor thread**	entries/lessons/L2511.md	1	26	af3a14fa84397595
+lessons	L2512	2512		2026-09-24	ZABZ-TECH	open	**L2512 · There is no Message Creator in Dialpad, and the real TTS surfaces write to Dialpad, not to disk**	entries/lessons/L2512.md	1	43	95150999fcf7df40
+lessons	L2513	2513		2026-09-24	ZABZ-TECH	open	**L2513 · The LPT Dialpad messages are a deep male voice (median F0 110.7-115.9 Hz) - echo, not the documented nova**	entries/lessons/L2513.md	1	50	99c0ab6256518223
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1847,6 +1850,7 @@ pain	P2314	2314		2026-09-24	SECRATARY	open	## P2314 — A 'publish the record' c
 pain	P2315	2315		2026-09-24	SECRATARY	open	## P2315 — personal-secretary-mvp is ahead 158 / behind 176 with ~55 dirty files, so fixes made on the authority cannot reach the other machines	entries/pain/P2315.md	1	27	1d06b5262d2b7223
 pain	P2410	2410		2026-09-24	SECRATARY	open	## P2410 — The phone question-card has been reported broken FOUR times and declared fixed three times, because every verification used a document that had never cached the layer	entries/pain/P2410.md	1	47	6e6ac668ba319de8
 pain	P2474	2474		2026-09-24	ZABZ-YOGA	open	## P2474 — dialpad-sms-ws logs STORED for rows that are not written: the SMS write path swallows every failure and reports success	entries/pain/P2474.md	1	33	5f8e4653ed1659b0
+pain	P2475	2475		2026-09-24	ZABZ-TECH	open	## P2475 — A customer's question can be answered by the WRONG template message and then sit unanswered for 16 days - nothing represents an unanswered question, and the SMS harvest hides real traffic under 36x duplicates	entries/pain/P2475.md	1	30	6228d94087743f52
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
