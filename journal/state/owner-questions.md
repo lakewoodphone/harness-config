@@ -6,7 +6,7 @@ Updated: 2026-09-24
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 158 row(s) read, 20 pending, generated 2026-09-24 04:26 UTC on SECRATARY.
+Provenance: 159 row(s) read, 21 pending, generated 2026-09-24 14:40 UTC on SECRATARY.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -29,6 +29,7 @@ Provenance: 158 row(s) read, 20 pending, generated 2026-09-24 04:26 UTC on SECRA
 | 151 | 2026-09-23 | medium | Global Direct Parts order #161898 ($167.96, paid 2026-04-19) has no shipping record after 157 days. PayPal dispute window closes 2026-10-16 (23 days). How should I proceed? (A) Draft a tracking-request email to the supplier first, then dispute if no tracking. (B) Open the PayPal dispute now to protect the window. (C) Hold. |  |
 | 157 | 2026-09-23 | medium | What do the LabCorp results from 2026-09-23 say, and what was on the requisition? Also, were ESR/CRP, TB, EBV/mono, HIV, hepatitis ordered? Was your chest examined/imaged? What was your weight and resting pulse? And what was the result of the 2026-09-22 viral swab? |  |
 | 158 | 2026-09-24 | medium | Global Direct Parts order #161898 (USD 167.96, paid 2026-04-19) has NO shipping record after 158 days. PayPal dispute window closes 2026-10-16 (22 days away). Recommended: contact supplier for tracking, and if none, open the payment dispute before the deadline. How should I proceed? |  |
+| 159 | 2026-09-24 | medium | Moishe Bachrach asked whether I confirm with you before sending customer emails or send independently. What's the email autonomy policy for customer correspondence? (He also has two device requests: rename Waze device 'Chicago 2' to 'Baltimore 2', and an MDM access request.) |  |
 | 98 | 2026-09-17 | low | For a customer who needs Google search blocked on a Samsung Galaxy AND must not be able to undo it, do we sell the paid GenTech path ($119.99 one-time, Lakewood branch, remote Samsung install), or only offer the free bench fix and lose those jobs? | Ship the free fix now - it answers Moshe today and it is already documented and pushed. Do not become a reseller on the strength of one request; revisit if a second customer asks for the tamper-resistant version. If Mosh |
 
 Closed since the queue opened: 138. Answered questions move to `entries/decisions/` with the owner's own words.
