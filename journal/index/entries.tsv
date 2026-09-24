@@ -1531,6 +1531,7 @@ lessons	L2372	2372		2026-09-24	secratary	open	**L2372 · A document's claim that
 lessons	L2373	2373		2026-09-24	SECRATARY	open	**L2373 · Yocheved's health facts live in docs/wedding/, and her Aygestin course status has been UNKNOWN since 2026-08-27**	entries/lessons/L2373.md	1	13	60a7c2171eacea10
 lessons	L2374	2374		2026-09-24	SECRATARY	open	**L2374 · Norethisterone/Aygestin duration: no source defines a maximum at 10 mg/day — the supported band is up to ~6 months, and the one measured signal at that dose is reversible transaminitis**	entries/lessons/L2374.md	1	17	99bebf5ad10e3429
 lessons	L2375	2375		2026-09-24	SECRATARY	open	**L2375 · workflow() results are spilled and TRUNCATED at ~50 KB — children that must return a lot of text will be silently lost; make them write files**	entries/lessons/L2375.md	1	10	ac8056838ad5d348
+lessons	L2376	2376		2026-09-24	SECRATARY	open	**L2376 · Yeast infection vs jock itch vs intertrigo in a skin fold: what differs, and which products cover which**	entries/lessons/L2376.md	1	14	121b0cc2cc610288
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1819,6 +1820,7 @@ pain	P2257	2257		2026-09-23	ZABZ-TECH	open	## P2257 — The CEO asks the owner f
 pain	P2258	2258		2026-09-23	ZABZ-TECH	open	## P2258 — ~/bin on secratary is unversioned: 50 operator scripts, including the only writer of the owner queue	entries/pain/P2258.md	1	35	d0d04dd20347a2a0
 pain	P2259	2259		2026-09-23	ZABZ-TECH	open	## P2259 — The Shlock cover's middle 6 and side 14 hold-downs are unsolved: every scheme jams, grips, or holds the bunch open, and the owner is unhappy	entries/pain/P2259.md	1	36	50ca0429a7a7592e
 pain	P2313	2313		2026-09-24	SECRATARY	open	## P2313 — A long delegated-agent result can be lost with no error and no complete copy	entries/pain/P2313.md	1	6	55e3d96f85d50707
+pain	P2314	2314		2026-09-24	SECRATARY	open	## P2314 — A 'publish the record' commit silently deleted a section from an unrelated health file, and nothing detected it	entries/pain/P2314.md	1	8	694d394a729715e6
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
