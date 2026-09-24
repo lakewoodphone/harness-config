@@ -1868,6 +1868,7 @@ pain	P2410	2410		2026-09-24	SECRATARY	open	## P2410 — The phone question-card 
 pain	P2474	2474		2026-09-24	ZABZ-YOGA	open	## P2474 — dialpad-sms-ws logs STORED for rows that are not written: the SMS write path swallows every failure and reports success	entries/pain/P2474.md	1	33	5f8e4653ed1659b0
 pain	P2475	2475		2026-09-24	ZABZ-TECH	open	## P2475 — A customer's question can be answered by the WRONG template message and then sit unanswered for 16 days - nothing represents an unanswered question, and the SMS harvest hides real traffic under 36x duplicates	entries/pain/P2475.md	1	30	6228d94087743f52
 pain	P2476	2476		2026-09-24	ZABZ-TECH	open	## P2476 — P - a production work order keeps saying 'model not recorded' after the model is known	entries/pain/P2476.md	1	37	ad45f9b05e4cf04c
+pain	P2477	2477		2026-09-24	ZABZ-TECH	open	## P2477 — reply_to_message on our OWN sent message addresses the reply to ourselves - ok:true, right thread, label SENT, and the lab got nothing; the To header is the only witness	entries/pain/P2477.md	1	30	5f0f1586922982d6
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
