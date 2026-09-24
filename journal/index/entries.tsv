@@ -558,6 +558,7 @@ handoff	H2529	2529		2026-09-23 23:10 UTC	ZABZ-TECH	open	## 2026-09-23 23:10 UTC 
 handoff	H2530	2530		2026-09-23 23:24 UTC	ZABZ-TECH	open	## 2026-09-23 23:24 UTC · ZABZ-TECH · Delivery truth fixed end to end: false CRITICAL cleared, 10 owner questions rescued from a channel that can never send	entries/handoff/H2530.md	1	82	532ac175202e0376
 handoff	H2593	2593		2026-09-24 00:53 UTC	secratary	open	## 2026-09-24 00:53 UTC · secratary · Shlock pulled up on secratary: the 09-23 four-file corpus is the newest, and its one open owner item was already answered	entries/handoff/H2593.md	1	36	4b730230073ba694
 handoff	H2594	2594		2026-09-24 05:01 UTC	SECRATARY	open	## 2026-09-24 05:01 UTC · SECRATARY · Yocheved's Aygestin course: record pulled up, duration question researched and answered from primary sources; owner's one open answer is the prescriber-managed stop date	entries/handoff/H2594.md	1	27	92c2b2459091b160
+handoff	H2595	2595		2026-09-24 09:37 UTC	SECRATARY	open	## 2026-09-24 09:37 UTC · SECRATARY · Yocheved cramping episode (2026-09-24) - triage delivered, pregnancy question open, three research reports on file	entries/handoff/H2595.md	1	20	738552a7d523fe0a
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1532,6 +1533,7 @@ lessons	L2373	2373		2026-09-24	SECRATARY	open	**L2373 · Yocheved's health facts
 lessons	L2374	2374		2026-09-24	SECRATARY	open	**L2374 · Norethisterone/Aygestin duration: no source defines a maximum at 10 mg/day — the supported band is up to ~6 months, and the one measured signal at that dose is reversible transaminitis**	entries/lessons/L2374.md	1	17	99bebf5ad10e3429
 lessons	L2375	2375		2026-09-24	SECRATARY	open	**L2375 · workflow() results are spilled and TRUNCATED at ~50 KB — children that must return a lot of text will be silently lost; make them write files**	entries/lessons/L2375.md	1	10	ac8056838ad5d348
 lessons	L2376	2376		2026-09-24	SECRATARY	open	**L2376 · Yeast infection vs jock itch vs intertrigo in a skin fold: what differs, and which products cover which**	entries/lessons/L2376.md	1	14	121b0cc2cc610288
+lessons	L2377	2377		2026-09-24	SECRATARY	open	**L2377 · The 'progesterone slows GI motility 30-50%' figure is unsourced — stop repeating it**	entries/lessons/L2377.md	1	8	1519065df9eb79f8
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
