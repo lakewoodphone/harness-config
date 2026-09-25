@@ -580,6 +580,8 @@ handoff	H2671	2671		2026-09-24 23:14 UTC	ZABZ-TECH	open	## 2026-09-24 23:14 UTC 
 handoff	H2721	2721		2026-09-25 15:31 UTC	SECRATARY	open	## 2026-09-25 15:31 UTC · SECRATARY · Weinberg final position measured: arrears still unpaid, and the Sep 24 Gusto reversal took back his last worked day	entries/handoff/H2721.md	1	54	d1f3117a7edb4f1e
 handoff	H2722	2722		2026-09-25 16:31 UTC	SECRATARY	open	## 2026-09-25 16:31 UTC · SECRATARY · Shlock pulled up whole: the record is intact, the design is closed, and the only thing on the clock tonight is the cover coming off before 6pm	entries/handoff/H2722.md	1	58	d19186f980909158
 handoff	H2723	2723		2026-09-25 20:07 UTC	SECRATARY	open	## 2026-09-25 20:07 UTC · SECRATARY · Chip / Family Chat: six audits, two deployed commits, and one defect of my own the family caught first	entries/handoff/H2723.md	1	60	50d7aa3ce5f6a05f
+handoff	H2724	2724		2026-09-25 20:21 UTC	secratary	open	## 2026-09-25 20:21 UTC · secratary · Desk papers 2026-09-25 — 25 documents archived, 8 tasks, 6 reminders, 7 owner decisions	entries/handoff/H2724.md	1	63	58de6481c499e7e8
+handoff	H2725	2725		2026-09-25 20:27 UTC	secratary	open	## 2026-09-25 20:27 UTC · secratary · Owner away for Yom Tov from 2026-09-25 — deck closed out, nothing approved outbound	entries/handoff/H2725.md	1	46	1410110bdff7a607
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1586,6 +1588,9 @@ lessons	L2526	2526		2026-09-24	ZABZ-TECH	open	**L2526 · Search for the conventi
 lessons	L2574	2574		2026-09-25	SECRATARY	open	**L2574 · A payroll debit decomposes exactly: gross + employer taxes, and the employee's withholding never changes what the employer pays**	entries/lessons/L2574.md	1	42	706d417febe5ea69
 lessons	L2575	2575		2026-09-25	SECRATARY	open	**L2575 · Home Depot's website cannot be read from the mesh - source shelf guidance by SPEC, never by SKU or an invented aisle number**	entries/lessons/L2575.md	1	35	56e280e4ffd6b31c
 lessons	L2576	2576		2026-09-25	SECRATARY	open	**L2576 · Never hand-author Chip's lines - the family reads the owner's briefing voice, and Chip mirrors the register of the thread**	entries/lessons/L2576.md	1	36	dddf5e592cf798ee
+lessons	L2577	2577		2026-09-25	secratary	open	**L2577 · Reading paper off a phone photo: never trust the first pass, and re-read at 2x or more**	entries/lessons/L2577.md	1	31	c8cdf9f09a55feee
+lessons	L2578	2578		2026-09-25	secratary	open	**L2578 · Verify a transcription against another document in the same pile, not against itself**	entries/lessons/L2578.md	1	28	15b675d3deee8874
+lessons	L2579	2579		2026-09-25	secratary	open	**L2579 · The owner throwing paper out is an obligation to convert, not to file**	entries/lessons/L2579.md	1	25	3db4bec79d84ae33
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2168,6 +2173,7 @@ decisions	D2588	2588		2026-09-24	ZABZ-TECH	open	**D2588 · 2026-09-24 · Shlock 
 decisions	D2645	2645		2026-09-25	SECRATARY	open	**D2645 · 2026-09-25 · Weinberg Sep 14 is 3 hours, not a day: hours on duty are compensable even when the work was poor and the arrival late.**	entries/decisions/D2645.md	1	66	cb18fdc474820886
 decisions	D2646	2646		2026-09-25	SECRATARY	open	**D2646 · 2026-09-25 · The Shlock awning's physical build is Yisroel Zev's, with Yitz on the last few days - and 'the awning', 'the Family Chat' and 'the chip thing' are one thread.**	entries/decisions/D2646.md	1	25	f029aaf22ba21afe
 decisions	D2647	2647		2026-09-25	SECRATARY	open	**D2647 · 2026-09-25 · The Family Chat is mine to run organically - the owner instigates, Chip holds the voice, no plan to approve.**	entries/decisions/D2647.md	1	32	a06fecfe8323f201
+decisions	D2648	2648		2026-09-25	secratary	open	**D2648 · 2026-09-25 · Inbound paper lives in lpt-books/inbox, and its git remote never leaves the machine.**	entries/decisions/D2648.md	1	30	9e6410bb8724b44b
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
