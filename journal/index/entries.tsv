@@ -582,6 +582,7 @@ handoff	H2722	2722		2026-09-25 16:31 UTC	SECRATARY	open	## 2026-09-25 16:31 UTC 
 handoff	H2723	2723		2026-09-25 20:07 UTC	SECRATARY	open	## 2026-09-25 20:07 UTC · SECRATARY · Chip / Family Chat: six audits, two deployed commits, and one defect of my own the family caught first	entries/handoff/H2723.md	1	60	50d7aa3ce5f6a05f
 handoff	H2724	2724		2026-09-25 20:21 UTC	secratary	open	## 2026-09-25 20:21 UTC · secratary · Desk papers 2026-09-25 — 25 documents archived, 8 tasks, 6 reminders, 7 owner decisions	entries/handoff/H2724.md	1	63	58de6481c499e7e8
 handoff	H2725	2725		2026-09-25 20:27 UTC	secratary	open	## 2026-09-25 20:27 UTC · secratary · Owner away for Yom Tov from 2026-09-25 — deck closed out, nothing approved outbound	entries/handoff/H2725.md	1	46	1410110bdff7a607
+handoff	H2726	2726		2026-09-25 22:23 UTC	SECRATARY	open	## 2026-09-25 22:23 UTC · SECRATARY · The 17:04 power-down was real, the interior door was released and proven, and the weekly HA hard-cut is now fixed	entries/handoff/H2726.md	1	63	2f34a27c738ad12b
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1592,6 +1593,7 @@ lessons	L2577	2577		2026-09-25	secratary	open	**L2577 · Reading paper off a pho
 lessons	L2578	2578		2026-09-25	secratary	open	**L2578 · Verify a transcription against another document in the same pile, not against itself**	entries/lessons/L2578.md	1	28	15b675d3deee8874
 lessons	L2579	2579		2026-09-25	secratary	open	**L2579 · The owner throwing paper out is an obligation to convert, not to file**	entries/lessons/L2579.md	1	25	3db4bec79d84ae33
 lessons	L2580	2580		2026-09-25	SECRATARY	open	**L2580 · Combined oral contraceptive mechanics: daily indefinitely with the break inside the pack — never 'a few weeks then stop', which is what a period-postponement course looks like**	entries/lessons/L2580.md	1	16	06f310f3d8923079
+lessons	L2581	2581		2026-09-25	SECRATARY	open	**L2581 · A step that has never once succeeded is not a working step - and an unreadable sensor is not a negative reading**	entries/lessons/L2581.md	1	33	c0c48014275c7d3b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -1892,6 +1894,7 @@ pain	P2477	2477		2026-09-24	ZABZ-TECH	open	## P2477 — reply_to_message on our 
 pain	P2478	2478		2026-09-24	ZABZ-YOGA	open	## P2478 — The quote-SMS path re-sent the same two customer texts ~50 times in 17 hours (2026-09-20) and nothing in the estate noticed	entries/pain/P2478.md	1	30	ad5b9f5a4752fd15
 pain	P2479	2479		2026-09-24	ZABZ-TECH	open	## P2479 — Lab mail is classified but never filed: the Weissman arrival email sat unread two days while the case file and an owner-queue row asserted the drive had never shipped	entries/pain/P2479.md	1	23	6f79e57a23ce6e06
 pain	P2538	2538		2026-09-25	SECRATARY	open	## P2538 — LPT-BOOKS.md, declared the entry point for every LPT money question, is missing from the authority and from master	entries/pain/P2538.md	1	41	81c1c09f4a3c7fb5
+pain	P2539	2539		2026-09-25	SECRATARY	open	## P2539 — The Shabbat power-down has hard-cut Home Assistant every week - the graceful stop has never worked	entries/pain/P2539.md	1	33	4fc20b6a672aaf54
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -2175,6 +2178,9 @@ decisions	D2645	2645		2026-09-25	SECRATARY	open	**D2645 · 2026-09-25 · Weinber
 decisions	D2646	2646		2026-09-25	SECRATARY	open	**D2646 · 2026-09-25 · The Shlock awning's physical build is Yisroel Zev's, with Yitz on the last few days - and 'the awning', 'the Family Chat' and 'the chip thing' are one thread.**	entries/decisions/D2646.md	1	25	f029aaf22ba21afe
 decisions	D2647	2647		2026-09-25	SECRATARY	open	**D2647 · 2026-09-25 · The Family Chat is mine to run organically - the owner instigates, Chip holds the voice, no plan to approve.**	entries/decisions/D2647.md	1	32	a06fecfe8323f201
 decisions	D2648	2648		2026-09-25	secratary	open	**D2648 · 2026-09-25 · Inbound paper lives in lpt-books/inbox, and its git remote never leaves the machine.**	entries/decisions/D2648.md	1	30	9e6410bb8724b44b
+decisions	D2649	2649		2026-09-25	SECRATARY	open	**D2649 · 2026-09-25 · Two guards on the Shabbat power path: a mid-run power-up needs force, and the door gate cuts on a named basis.**	entries/decisions/D2649.md	1	27	7f09b3b2be392cd6
+decisions	D2650	2650		2026-09-25	SECRATARY	open	**D2650 · 2026-09-25 · The Shabbat power-down moved to sunset-180 on the owner's own instruction and fired the same minute it was applied.**	entries/decisions/D2650.md	1	34	6c9ead6d7ee9797a
+decisions	D2651	2651		2026-09-25	SECRATARY	open	**D2651 · 2026-09-25 · The Shabbat service modules are untracked on the authority, so tonight's fix is preserved by the journal rather than a commit.**	entries/decisions/D2651.md	1	21	3e150a654a7c0517
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
