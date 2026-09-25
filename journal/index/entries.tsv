@@ -1584,6 +1584,7 @@ lessons	L2525	2525		2026-09-24	ZABZ-TECH	open	**L2525 · A case's phone number i
 lessons	L2526	2526		2026-09-24	ZABZ-TECH	open	**L2526 · Search for the convention, not the artifact - and re-run a generator from the branch you committed it to**	entries/lessons/L2526.md	1	56	c6e0a6516f5fda7e
 lessons	L2574	2574		2026-09-25	SECRATARY	open	**L2574 · A payroll debit decomposes exactly: gross + employer taxes, and the employee's withholding never changes what the employer pays**	entries/lessons/L2574.md	1	42	706d417febe5ea69
 lessons	L2575	2575		2026-09-25	SECRATARY	open	**L2575 · Home Depot's website cannot be read from the mesh - source shelf guidance by SPEC, never by SKU or an invented aisle number**	entries/lessons/L2575.md	1	35	56e280e4ffd6b31c
+lessons	L2576	2576		2026-09-25	SECRATARY	open	**L2576 · Never hand-author Chip's lines - the family reads the owner's briefing voice, and Chip mirrors the register of the thread**	entries/lessons/L2576.md	1	36	dddf5e592cf798ee
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
