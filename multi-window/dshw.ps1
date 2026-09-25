@@ -734,8 +734,12 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
     $mustUnregister = $false
     $existing = Get-ScheduledTask -TaskName $inv.taskName -ErrorAction SilentlyContinue
     if (-not $existing) {
-        $action = New-ScheduledTaskAction -Execute $inv.node `
-            -Argument "`"$($inv.bin)`" web --port $($inv.port) --no-open" `
+        # cmd.exe carries the scratch TEMP into the task: a scheduled-task action cannot
+        # express environment variables directly, and without this the detached path would
+        # still hand the engine the OS tmpdir that Windows deletes underneath it.
+        $scratch = Get-EngineScratchDir
+        $action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\cmd.exe" `
+            -Argument "/c set `"TEMP=$scratch`" && set `"TMP=$scratch`" && `"$($inv.node)`" `"$($inv.bin)`" web --port $($inv.port) --no-open" `
             -WorkingDirectory $inv.cwd
         # Keep the engine at the same privilege level as this script: the owner wants DSH
         # running elevated on both machines, and a task is the only way to create an
@@ -765,8 +769,9 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
     } catch { }
     if (-not $boundEarly -and -not (Test-Path $inv.log)) {
         try {
+            $scratch = Get-EngineScratchDir
             $outer = "$env:SystemRoot\System32\cmd.exe"
-            $inner = "/c `"`"$($inv.node)`" `"$($inv.bin)`" web --port $($inv.port) --no-open 1> `"`"$($inv.log)`"`" 2> `"`"$($inv.err)`"`"`""
+            $inner = "/c set `"TEMP=$scratch`" && set `"TMP=$scratch`" && `"`"$($inv.node)`" `"$($inv.bin)`" web --port $($inv.port) --no-open 1> `"`"$($inv.log)`"`" 2> `"`"$($inv.err)`"`"`""
             $res = ([wmiclass]'Win32_Process').Create("$outer $inner", $inv.cwd, $null)
             if ($res.ReturnValue -eq 0) {
                 Write-Host ("start: Task Scheduler produced nothing - engine started via WMI (pid {0})" -f $res.ProcessId) -ForegroundColor Yellow
@@ -821,6 +826,37 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
     return [pscustomobject]@{ pid = $pid_; url = $url }
 }
 
+# ── ENGINE SCRATCH: keep the engine's os.tmpdir() out of Windows' cleanup scope ─────────────
+#
+# THE CRASH THIS PREVENTS, 2026-09-25 on ZABZ-YOGA. The engine spills oversized tool output
+# into a private directory under the OS tmpdir (`mkdtempSync(join(tmpdir(), "dsh-subprocess-"))`,
+# dsh-subprocess-local/lib/runner-launch-*.js:683). Nothing inside the harness removes that
+# directory while the engine lives - the only removal is `process.once("exit")` at :687-692.
+# Windows does. C: had fallen to 8% free, Storage Sense ran (free went 36 GB -> 61 GB in one
+# pass), `%TEMP%\dsh-subprocess-USflM9` was deleted underneath a RUNNING engine, and the
+# collector then tried to open its spill file inside the vanished directory:
+#
+#   Error: ENOENT: no such file or directory, open
+#     '...\Temp\dsh-subprocess-USflM9\dsh-subprocess-12680-1-...-stdout.log'
+#       at OutputCollector.spillAll (runner-launch-COYGu0Dl.js:766)
+#       at OutputCollector.push   (runner-launch-COYGu0Dl.js:742)
+#       at Socket.<anonymous>
+#
+# That throw is unhandled, so the ENGINE DIED - port 3099 stopped answering at 15:36:39 and the
+# watchdog restarted it as pid 21440 by 15:37:08. Everything that felt "slow" followed from that:
+# the dead engine, its cold replacement, and every in-flight turn. The corpus was measured and
+# exonerated for this (a healthy engine walks all 843 sessions in 1,165 ms).
+#
+# A scratch directory inside DSH_HOME is in no cleanup scope, so the trigger cannot recur.
+# `-Environment` is PowerShell 7.4+; this file's parallel-spawn path already depends on it.
+function Get-EngineScratchDir {
+    [void](Initialize-DshHome)
+    $root = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }
+    $dir = Join-Path $root 'tmp'
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    return $dir
+}
+
 function Start-SlotServer($slotCfg, $inv = $null) {
     # REPORT §7.2 OF THE 2026-09-17 INCIDENT. Every launch path funnels through here — `up`,
     # `restart`, `ensure`, `new`, `restore`, the watchdog — so this is where the engine's
@@ -845,8 +881,12 @@ function Start-SlotServer($slotCfg, $inv = $null) {
 
     # Default: a direct spawn with the engine's own log files, which gives the strongest
     # readiness signal - a live process AND a bound port AND a URL line from THIS launch.
+    # TEMP/TMP are routed into DSH_HOME/tmp so Windows' own cleanup cannot delete the
+    # engine's spill directory while it is running. See Get-EngineScratchDir above.
+    $scratch = Get-EngineScratchDir
     $p = Start-Process -FilePath $inv.node -ArgumentList @($inv.bin, 'web', '--port', "$($inv.port)", '--no-open') `
             -WorkingDirectory $inv.cwd -WindowStyle Hidden -PassThru `
+            -Environment @{ TEMP = $scratch; TMP = $scratch } `
             -RedirectStandardOutput $inv.log -RedirectStandardError $inv.err
 
     # $p.Id is passed as -ExitPid: this child is ours, so a boot that throws and exits is noticed
@@ -905,7 +945,7 @@ try {
         $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($child))
         Start-Process -FilePath (Get-Command pwsh).Source -WindowStyle Hidden `
             -ArgumentList @('-NoProfile', '-EncodedCommand', $enc) `
-            -Environment @{ DSHW_PAYLOAD = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($payload)) } | Out-Null
+            -Environment @{ DSHW_PAYLOAD = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($payload)); TEMP = (Get-EngineScratchDir); TMP = (Get-EngineScratchDir) } | Out-Null
     }
 
     $results = @{}
