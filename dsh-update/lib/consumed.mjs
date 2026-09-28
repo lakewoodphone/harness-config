@@ -31,6 +31,67 @@
  *     file must never zero the inventory.
  *   * Every gap that is a real gap is written into `notes`. An empty `notes` with missing data
  *     would be a lie; a populated `notes` is the honest artifact.
+ *
+ * COMMENTS ARE NOT REFERENCES (measured defect, fixed 2026-09-28)
+ * ---------------------------------------------------------------
+ * A name inside a comment cannot be resolved or imported by anything, so every match here is made
+ * against a COMMENT-BLANKED view of the file: comment characters are replaced by spaces IN PLACE,
+ * so the string keeps its exact length and every line number (and column) a finding cites still
+ * points at the byte it came from.
+ *
+ * Why this section exists at all: before this fix, `harness-config/scripts/make-preset-rows.mjs`
+ * produced a FALSE `BREAKS` at AUTHORITATIVE tier. Line 309 of that file is prose held in a string
+ * literal (`'#   gone (`@deepseek-ai/dsh-agent-presets` is removed, …'`) which the generator emits
+ * as a YAML comment header; a `#` inside a quoted string was not treated as a comment, the two
+ * package names in that prose were reported as consumed by a `kind: "script"` line, and `diff.mjs`
+ * concluded that a package this deployment depends on was absent from the candidate. Nothing
+ * consumed it. A false `BREAKS` is the worst possible output of this pipeline — it refuses a valid
+ * upgrade — and this module had already produced exactly that error once before (SPEC C13).
+ *
+ * The comment forms handled, per file family (see `blankComments`):
+ *   * `.js/.mjs/.cjs/.jsx/.ts/.tsx/.mts/.cts` — `//` to end of line, `/* … */` blocks, and the
+ *     `#`-prefixed prose a generator holds in a string literal (the measured defect above);
+ *   * `.py/.sh/.ps1/…` and every other extension — `#` to end of line, `#` inside an open string
+ *     left alone (`"a # b"` is content, not a comment), `<# … #>` in PowerShell and `"""…"""`
+ *     in Python blanked as blocks;
+ *   * `.html`-family only — `<!-- … -->`.
+ *
+ * ITS LIMITS, stated rather than hidden. The string state is tracked per line by counting
+ * unescaped quotes, which is a heuristic and not a parser. It is wrong for a marker that follows a
+ * quote the heuristic considers "open" but which a real parser would have closed (or the reverse),
+ * and it does not model a string that opens on one line and closes on another outside the block
+ * forms listed above. Two consequences that are deliberately preferred to over-blanking: a `#`
+ * inside a string that does NOT begin the string's content is left alone (so a package name in
+ * such prose would still be reported), and a shell heredoc or PowerShell here-string is not
+ * modelled as prose (already noted separately by this module when one is found). Under-blanking
+ * adds a reference nothing can resolve to the unverified list; over-blanking would HIDE a real
+ * dependency, which is the one failure mode this inventory cannot afford.
+ *
+ * `patchRowTargets` — DEDUPLICATED BY (profile, id), AND IT CARRIES THE PATCH'S INTENT
+ * -----------------------------------------------------------------------------------
+ * Three measured defects (2026-09-23, still present 2026-09-28) are fixed in this array:
+ *
+ *   F2. The same target is discovered in up to two files — the live `$DSH_HOME` copy
+ *       (`C:\Users\ezabz\.dsh\profiles\web\cordis.patch.yml`, layer `host`) and the repo copy
+ *       (`profiles/web/cordis.patch.yml`, layer `profile`) — and it used to be recorded once per
+ *       spelling. Ten entries for four logical web targets produced two identical findings
+ *       (F001/F002) in the pipeline's first real run. One entry per `(profile, id)` now survives,
+ *       and every discovered location is a separate item in its `consumers` array.
+ *
+ *   F3. A target belongs to the PROFILE whose layer names it. `remote-fanout` from
+ *       `profiles/mesh/cordis.patch.yml` is a mesh target and must never be checked against the
+ *       web profile's composed tree; the `profile` field is derived from the layer's own directory
+ *       (`profiles/<name>/cordis.patch.yml` → `<name>`). `layer` (`host` vs `profile`) is kept
+ *       beside it rather than folded into it — they answer different questions.
+ *
+ *   F4. `intent` is the LITERAL BODY of the patch entry: `{ config?, disabled? }`, only the keys it
+ *       actually sets. This is load-bearing, not decoration. `{ id: 'tool-subagent-remote',
+ *       disabled: true }` applies perfectly and carries NO "patched by" annotation in the composed
+ *       tree (SPEC C1), so a detector asserting on that annotation fires a false BREAKS on a
+ *       working patch — which is exactly what this pipeline did on its first real run. The
+ *       detector must compare intent against effect, and the effect comparison needs the intent.
+ *       It is read from parsed YAML, never from the raw line, so `!!js <expression>` values survive
+ *       as source text (`{ __js: "<expression>" }`) instead of collapsing to `undefined`.
  */
 import { readdirSync, readFileSync, statSync, existsSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -429,6 +490,8 @@ const settingsKeys = [];
 const cliInvocations = [];
 const pluginImports = [];
 const patchRowTargets = [];
+/** `(profile, id)` → the single entry that survives; every discovered location lands in it. */
+const PATCH_TARGET_INDEX = new Map();
 
 const seenEntry = new Set();
 function pushOnce(bucket, key, obj) {
@@ -515,10 +578,170 @@ function harvestPackageRefs(abs, role) {
   }
 }
 
+// ── patch-entry INTENT (the literal body of one entry in a patch layer) ──────────────────────
+/**
+ * A patch layer entry is { id, config?, disabled? }. Recording only the id is not enough to
+ * check anything: whether the patch still has its intended EFFECT cannot be decided without
+ * knowing what the entry says. Measured on 2026-09-23 (SPEC C1): { id: 'tool-subagent-remote',
+ * disabled: true } applies perfectly and carries NO "patched by" annotation in the composed tree,
+ * so a detector asserting on that annotation fires a false BREAKS on a working disable. The fix is
+ * to compare intent against effect, and this is where the intent comes from.
+ *
+ * The layer is a YAML flow sequence of maps ([ { id: 'x', config: { … } }, … ]) in
+ * profiles/web/cordis.patch.yml, and a block sequence of maps in the mesh layer — so the entry
+ * is located by its id LINE and its full text is then cut out by brace/bracket depth and
+ * parsed on its own. Reading the parsed document as a whole and hoping to map its elements back
+ * to lines would be the fragile version of the same thing.
+ *
+ * !!js expressions MUST survive as source text: the engine evaluates them at boot and nothing here
+ * may. parseYamlSafe applies the module's own jsTag, so they come back as { __js: "<expression>" }
+ * rather than undefined — which is also why the intent is read from parsed YAML, never raw lines.
+ */
+const PATCH_INTENT_CACHE = new Map();
+const PATCH_INTENT_NOTE = new Set();
+
+/** The keys a patch entry sets, in a fixed order. Nothing is invented; absent stays absent. */
+function pickEntryKeys(entry) {
+  const out = {};
+  if (entry && entry.config !== undefined) out.config = entry.config;
+  if (entry && entry.disabled !== undefined) out.disabled = entry.disabled;
+  return out;
+}
+
+/**
+ * The balanced text of one flow entry starting at `start`, located from the raw lines. Depth is
+ * tracked outside quoted scalars only, so a brace inside a !!js double-quoted expression cannot
+ * end the entry early.
+ */
+function sliceFlowEntry(rawLines, start) {
+  let depth = 0;
+  let seenOpen = false;
+  for (let n = start; n <= rawLines.length; n++) {
+    const line = rawLines[n - 1] ?? '';
+    let inS = false, inD = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inS) { if (c === "'") inS = false; continue; }
+      if (inD) { if (c === '\\') { i++; continue; } if (c === '"') inD = false; continue; }
+      if (c === "'") { inS = true; continue; }
+      if (c === '"') { inD = true; continue; }
+      if (c === '{' || c === '[') { depth++; seenOpen = true; continue; }
+      if (c === '}' || c === ']') {
+        if (seenOpen) { depth--; if (depth <= 0) return rawLines.slice(start - 1, n).join('\n'); }
+      }
+    }
+  }
+  return rawLines.slice(start - 1, start).join('\n');
+}
+
+/** The text of one block entry: the "- id:" line plus every deeper line until the next sibling. */
+function sliceBlockEntry(rawLines, start) {
+  const first = rawLines[start - 1] ?? '';
+  const m = /^(\s*)-\s/.exec(first);
+  if (!m) return first;
+  const indent = m[1].length;
+  let end = start;
+  for (let n = start + 1; n <= rawLines.length; n++) {
+    const line = rawLines[n - 1];
+    if (/\S/.test(line) && (/^\s*#/.test(line) === false)) {
+      const ind = /^\s*/.exec(line)[0].length;
+      if (ind <= indent) break;
+    }
+    end = n;
+  }
+  return rawLines.slice(start - 1, end).join('\n');
+}
+
+/**
+ * The intent of the entry whose id was read at `line` of `abs`. Parsed, never guessed: a line that
+ * cannot be cut out and parsed yields {} plus a note, because a wrong intent would make the
+ * downstream effect check assert the wrong thing — and a note is the honest artifact.
+ */
+function patchEntryIntent(abs, id, line, file) {
+  const key = `${file}\u0000${id ?? ''}\u0000${line ?? ''}`;
+  if (PATCH_INTENT_CACHE.has(key)) return PATCH_INTENT_CACHE.get(key);
+  let intent = {};
+  const raw = linesOf(abs);
+  const start = Number(line);
+  if (!Number.isInteger(start) || start < 1 || start > raw.length) {
+    if (!PATCH_INTENT_NOTE.has(file)) {
+      PATCH_INTENT_NOTE.add(file);
+      note(`a patch target in ${file} carries no usable line number, so its "intent" could not be `
+        + 'read from the file (code limitation)');
+    }
+    PATCH_INTENT_CACHE.set(key, intent);
+    return intent;
+  }
+  // A block entry is "- id: x"; a flow entry is a full-line "id: x," inside a { … } mapping, so the
+  // flow form is cut from the line that opens that mapping. Either way the cut text is parsed ON ITS
+  // OWN, which is what keeps the parsed entry and the line-scanned id inseparable. A trailing comma
+  // is a separator from the enclosing flow sequence and has nothing to separate once the entry is
+  // isolated, so it is removed — that is punctuation, never content.
+  let text = null;
+  if (/^\s*-\s/.test(raw[start - 1])) {
+    text = sliceBlockEntry(raw, start);
+  } else {
+    let open = -1;
+    for (let n = start; n >= 1; n--) if (raw[n - 1].includes('{')) { open = n; break; }
+    text = open > 0 ? sliceFlowEntry(raw, open) : raw[start - 1];
+  }
+  text = text.replace(/,\s*$/, '');
+  const { value, error } = parseYamlSafe(text);
+  if (!error) {
+    const list = Array.isArray(value) ? value : [value];
+    const entry = list.find((e) => e && typeof e === 'object' && !Array.isArray(e) && e.id === id) ?? null;
+    if (entry) intent = pickEntryKeys(entry);
+  }
+  if (!Object.keys(intent).length) {
+    const label = error ? `it did not parse (${error})` : 'no entry with that id sets config or disabled';
+    if (!PATCH_INTENT_NOTE.has(file)) {
+      PATCH_INTENT_NOTE.add(file);
+      note(`a patch target in ${file} has an EMPTY intent: ${label}. The entry is still recorded, `
+        + 'but the effect check has nothing to assert against it (code limitation)');
+    }
+  }
+  PATCH_INTENT_CACHE.set(key, intent);
+  return intent;
+}
+
+/** profiles/<name>/cordis.patch.yml → <name>; the layer's own directory names the profile. */
+function profileOfLayer(abs, file) {
+  for (const s of [fwd(abs), fwd(file)]) {
+    const m = /\/profiles\/([^/]+)\/cordis\.patch\.yml$/i.exec(s);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 // ── composition files: row ids, names, isolate services, patch targets ───────────────────────
 const ID_RE = /^(\s*)(?:-\s+)?id\s*:\s*(.+?)\s*$/;
 const NAME_RE = /^(\s*)(?:-\s+)?name\s*:\s*(.+?)\s*$/;
 const ISOLATE_RE = /^(\s*)isolate\s*:\s*(.*?)\s*$/;
+
+/**
+ * The profile a patch layer belongs to, derived from the layer's own directory. A target is an
+ * entry in a layer that belongs to ONE profile: `remote-fanout` from `profiles/mesh/…` is a mesh
+ * target and must never be checked against the web profile's composed tree (SPEC C13/F3).
+ */
+function addPatchTarget(abs, role, file, id, line) {
+  const layer = role === 'host-patch' || role === 'host-composition' ? 'host' : 'profile';
+  const profile = profileOfLayer(abs, file);
+  const key = `${profile}\u0000${id}`;
+  let e = PATCH_TARGET_INDEX.get(key);
+  if (!e) {
+    e = { id, profile, layer, consumers: [], intent: {} };
+    PATCH_TARGET_INDEX.set(key, e);
+    patchRowTargets.push(e);
+  }
+  // A host layer (the live `$DSH_HOME` copy) is the authoritative spelling when both exist.
+  if (layer === 'host') e.layer = 'host';
+  const keyed = `${file}\u0000${line}`;
+  if (!e.consumers.some((c) => `${c.file}\u0000${c.line}` === keyed)) {
+    e.consumers.push({ file, line });
+    const read = patchEntryIntent(abs, id, line, file);
+    for (const [k, v] of Object.entries(read)) if (e.intent[k] === undefined) e.intent[k] = v;
+  }
+}
 
 function scanComposition(abs, role, where) {
   const file = fileFor(abs);
@@ -528,21 +751,35 @@ function scanComposition(abs, role, where) {
 
   const record = (id, line, isTarget) => {
     pushOnce(rowIds, `row:${file}:${line}:${id}:${where}`, { id, file, line, where });
-    if (isTarget) {
-      const layer = role === 'host-patch' || role === 'host-composition' ? 'host' : 'profile';
-      pushOnce(patchRowTargets, `patch:${file}:${line}:${id}:${layer}`, { id, file, line, layer });
-    }
+    if (isTarget) addPatchTarget(abs, role, file, id, line);
   };
 
   if (flow) {
-    // A `[...]` flow document (profiles/*/cordis.patch.yml is exactly this). Flow entries are all
-    // top-level, so every `id:` is an id-targeted patch entry; an `insert:` inside a flow document
-    // would need richer handling and is reported rather than guessed at.
+    // A [...] flow document (profiles/web/cordis.patch.yml is exactly this). Flow entries are all
+    // top-level in every layer seen here, so a full-line-brace "id:" is an id-targeted patch entry.
+    // The two shapes this must NOT misfire on are checked rather than assumed: an insert: list is
+    // nested (its entries are additions, not targets, per SPEC D6), and a deeply indented "id:"
+    // inside a config: body belongs to the config, not to the entry list.
     const hasInsert = view.some((l) => /\binsert\s*:/.test(l.code));
     if (hasInsert) {
-      note(`${file} is a flow-style YAML document that also contains an "insert:" — inserted rows `
-        + 'are being counted as patch targets there, because a flow mapping gives no reliable block '
-        + 'context to distinguish them (code limitation)');
+      const parsed = parseYamlSafe(linesOf(abs).join('\n')).value;
+      const topLevel = Array.isArray(parsed) ? parsed.filter((e) => e && typeof e.id === 'string') : null;
+      if (topLevel) {
+        const inlineIds = new Set(view.filter((l) => l.code)
+          .flatMap((l) => [...l.code.matchAll(/(^|[\s,{])id\s*:\s*('([^']*)'|"([^"]*)"|([^,}\s]+))/g)]
+            .map((m) => unquote(m[2]))));
+        for (const e of topLevel) inlineIds.delete(e.id);
+        if (inlineIds.size) {
+          note(`${file} is flow-style and contains an "insert:"; ${inlineIds.size} id(s) here come `
+            + 'from a shape the parsed top-level list does not reproduce, so those entries could not '
+            + 'be distinguished from inserted rows and may be recorded as patch targets when they '
+            + 'are additions (code limitation)');
+        }
+      } else {
+        note(`${file} is flow-style and contains an "insert:" but did not parse as a top-level `
+          + 'array, so inserted rows there cannot be told apart from patch targets and may both be '
+          + 'recorded as targets (code limitation)');
+      }
     }
     const patchLayer = role === 'host-patch' || role === 'host-composition';
     for (const ln of view) {
@@ -1248,11 +1485,38 @@ if (yamlChecked === 0 && yamlFilesToValidate.length > 0) {
 
 // ── assemble ─────────────────────────────────────────────────────────────────────────────────
 
+/** Every array is location-sorted, so a report can cite a file and line without a lookup. */
 function byLoc(a, b) {
   return a.file < b.file ? -1 : a.file > b.file ? 1 : a.line - b.line;
 }
+
+// `patchRowTargets` is keyed by `(profile, id)`, not by location: one entry per logical target, with
+// every discovered location inside it. `file`/`line` name the first consumer, so the array still
+// sorts and reads like every other one.
+for (const e of patchRowTargets) {
+  e.consumers.sort(byLoc);
+  e.file = e.consumers[0]?.file ?? null;
+  e.line = e.consumers[0]?.line ?? null;
+}
+
 for (const arr of [profileBundles, packageRefs, rowIds, isolateServices, settingsKeys, cliInvocations, pluginImports, patchRowTargets]) {
   arr.sort(byLoc);
+}
+
+{
+  // The dedup is a correctness property, not tidiness: ten entries for four logical web targets
+  // produced two identical findings (F001/F002) in the pipeline's first real run, and a target
+  // attributed to the wrong profile would be checked against another profile's composed tree.
+  const byProfile = {};
+  for (const e of patchRowTargets) byProfile[e.profile] = (byProfile[e.profile] ?? 0) + 1;
+  const shapes = [];
+  if (patchRowTargets.some((e) => e.intent.disabled !== undefined && e.intent.config === undefined)) shapes.push('disabled-only');
+  if (patchRowTargets.some((e) => e.intent.config !== undefined)) shapes.push('config');
+  if (patchRowTargets.some((e) => e.intent.config === undefined && e.intent.disabled === undefined)) shapes.push('EMPTY');
+  note(`patchRowTargets holds ${patchRowTargets.length} distinct (profile, id) target(s) `
+    + `(${Object.entries(byProfile).map(([p, n]) => `${p}:${n}`).join(', ')}), deduplicated from `
+    + `${patchRowTargets.reduce((n, e) => n + e.consumers.length, 0)} discovered location(s); intent `
+    + `shapes present: ${shapes.join(', ') || 'none'}`);
 }
 
 const artifact = {

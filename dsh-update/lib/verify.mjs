@@ -41,6 +41,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { spawn, spawnSync } from 'node:child_process';
 import process from 'node:process';
+import { parseYaml } from './yaml.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');            // dsh-update/
@@ -61,7 +62,32 @@ const GATES = [
   ['G4', 'settings document accepted (boot)'],
   ['G5', 'headless agent turn completes'],
   ['GFULL', 'web profile boots (--full)'],
+  ['G8', 'session-format compatibility (the one-way door)'],
 ];
+
+/**
+ * Where the CREDENTIAL lives, so that a boot inside the isolated home can reach a model without a
+ * secret ever being written anywhere. SPEC C14: resolved from the LIVE home at gate time and
+ * passed into the child process ENVIRONMENT only — never copied into the isolated home, never
+ * written to state/logs/ (plain text, live secret), never printed, never put in verify.json.
+ */
+const CREDENTIAL_KEY = 'DEEPSEEK_API_KEY';
+const CREDENTIAL_BASENAME = '.credentials.yaml';
+
+/** The package that declares the session format version and the physical codec list (SPEC C8). */
+const SESSION_FORMAT_CATALOG_REL = path.join(
+  'node_modules', '@deepseek-ai', 'dsh-session-format-catalog', 'lib', 'index.js',
+);
+/** `@deepseek-ai/*` package directories whose name describes a session-format codec or migration. */
+const SESSION_FORMAT_PKG_RE = /^(@deepseek-ai\/)?dsh-session-format(?:-(v(\d+)-to-v(\d+))|-(v(\d+)))?$/;
+/**
+ * The engine's own canonical raw-log basename rule, quoted from
+ * `@deepseek-ai/dsh-session-format/lib/index.js` (v0.1.5-rc.2):
+ *   `const CANONICAL_LOG_FILENAME = /^session(?:\.v([1-9][0-9]*))?\.jsonl$/u;`
+ * Version zero is the bare `session.jsonl`; every later generation is `session.vN.jsonl`. The
+ * physical artifact on disk carries a compression suffix (`.zstd`), so the suffix is optional here.
+ */
+const SESSION_LOG_RE = /^session(?:\.v([1-9][0-9]*))?\.jsonl(?:\.zst(?:d)?|\.gz|\.br|\.lz4|\.xz)?$/i;
 
 /**
  * The engine's own vocabulary for a settings document it will not accept. Measured on 0.1.5-rc.1
@@ -94,13 +120,26 @@ const MEASURED_SETTINGS_LIMITATION =
 const USAGE = `usage: node lib/verify.mjs --version <ver> [--prefix <installRoot> | --engine <bin.js>]
                           [--out <verify.json>] [--consumed <consumed.json>] [--contract <contract.json>]
                           [--tree <tree.json>] [--diff <diff.json>] [--logs-dir <dir>] [--dsh-home <dir>]
+                          [--baseline-engine <bin.js>] [--sessions-dir <dir>]
                           [--full] [--no-boot] [--turn-timeout <ms>] [--generated-at <ISO-8601>]
 
-Runs the five dsh-update gates against an isolated copy of DSH_HOME (state/candidates/<ver>/home),
+Runs the dsh-update gates against an isolated copy of DSH_HOME (state/candidates/<ver>/home),
 saving the verbatim output of every engine invocation under --logs-dir (default state/logs/).
---no-boot skips G4/G5. --full adds a real web-profile boot on a free port in 3400-3500, killed by
-pid immediately after. Exit 0 when the gates completed (pass tells you whether they were ok);
-non-zero on a usage or infrastructure failure, with the diagnostic on stderr.
+--no-boot skips the two boot gates (G4, G5); it does NOT skip G8. --full adds a real web-profile
+boot on a free port in 3400-3500, killed by pid immediately after. Exit 0 when the gates completed
+(pass tells you whether they were ok); non-zero on a usage or infrastructure failure, with the
+diagnostic on stderr.
+
+G8 reads the session-format version and the physical codec list out of BOTH installs — the pinned
+engine (state/pin.json's enginePath, or --baseline-engine) and the candidate — and compares what
+the candidate would WRITE with the format of the session logs that are already on disk under
+--dsh-home (default the live home). A candidate that writes a newer format with no codec that
+reads it back makes rollback destroy access to the operator's real history.
+
+The model credential for the boot gates (G4/G5/--full) is resolved from the LIVE
+<dsh-home>/.credentials.yaml and passed to the child process ENVIRONMENT only. It is never
+written into the isolated home, never written to state/logs/, never printed and never recorded in
+verify.json. If it cannot be resolved, G4/G5 are ran:false and pass is false.
 
 The dispatcher (lib/cli.mjs) calls this module with --engine/--contract/--tree/--diff/--logs-dir/
 --dsh-home, so those flags are part of the interface: --engine is the candidate bin.js, --contract is
@@ -113,7 +152,7 @@ class UsageError extends Error {}
 
 const VALUED_FLAGS = new Set([
   '--version', '--prefix', '--engine', '--out', '--consumed', '--contract', '--tree', '--diff',
-  '--logs-dir', '--dsh-home', '--turn-timeout', '--generated-at',
+  '--logs-dir', '--dsh-home', '--turn-timeout', '--generated-at', '--baseline-engine', '--sessions-dir',
 ]);
 
 function parseArgs(argv) {
@@ -155,6 +194,331 @@ function readJsonIfPresent(file) {
     if (!fs.existsSync(file)) return null;
     return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch { return null; }
+}
+
+/** Read a YAML text file. Returns {ok:true,text} | {ok:false,reason} — never an empty success. */
+function readYamlTextChecked(file) {
+  if (!fs.existsSync(file)) return { ok: false, reason: `there is no file at ${file}` };
+  try {
+    const text = fs.readFileSync(file, 'utf8');
+    if (text.trim() === '') return { ok: false, reason: `${file} is empty` };
+    return { ok: true, text };
+  } catch (err) {
+    return { ok: false, reason: `${file} could not be read: ${err.message}` };
+  }
+}
+
+/* ------------------------------------------------------------------ the model credential (SPEC C14) */
+
+/**
+ * Walk a parsed YAML document for a key named `DEEPSEEK_API_KEY` and return its value.
+ *
+ * The file is a `records` map and the install on this machine keeps the key at `refs.DEEPSEEK_API_KEY`,
+ * but the path is not assumed: every nested map is searched, deepest-first is not needed because the
+ * first accepted candidate wins and a real key is unambiguously a non-empty string without whitespace
+ * or control characters. A wrapper object (a `{ secret }` payload) is unwrapped one level.
+ *
+ * The VALUE is returned to the caller and never logged, never written, never serialised.
+ */
+function findCredentialValue(doc, keyName) {
+  const wrappers = ['secret', 'value', 'key', 'token', 'apiKey', 'api_key'];
+  const seen = new Set();
+  const visit = (node, depth) => {
+    if (depth > 12 || node === null || typeof node !== 'object') return null;
+    if (seen.has(node)) return null;
+    seen.add(node);
+    if (node instanceof Map) {
+      if (node.has(keyName)) {
+        const v = unwrapCredential(node.get(keyName), wrappers, keyName);
+        if (v) return v;
+      }
+      for (const v of node.values()) { const hit = visit(v, depth + 1); if (hit) return hit; }
+      return null;
+    }
+    if (Array.isArray(node)) {
+      for (const v of node) { const hit = visit(v, depth + 1); if (hit) return hit; }
+      return null;
+    }
+    for (const [k, v] of Object.entries(node)) {
+      if (k === keyName) {
+        const w = unwrapCredential(v, wrappers, keyName);
+        if (w) return w;
+      }
+      const hit = visit(v, depth + 1);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  return visit(doc, 0);
+}
+
+function unwrapCredential(value, wrappers, keyName) {
+  if (typeof value === 'string') return usableCredential(value);
+  if (value === null || typeof value !== 'object') return null;
+  const map = value instanceof Map ? value : (Array.isArray(value) ? null : new Map(Object.entries(value)));
+  if (!map) return null;
+  for (const w of wrappers) {
+    if (!map.has(w)) continue;
+    const inner = map.get(w);
+    const candidate = typeof inner === 'string' ? inner : null;
+    if (candidate !== null) { const u = usableCredential(candidate); if (u) return u; }
+  }
+  if (map.has(keyName)) {
+    const inner = map.get(keyName);
+    if (typeof inner === 'string') return usableCredential(inner);
+  }
+  return null;
+}
+
+/** A credential is usable only when it is a non-empty single token: whitespace here means we misread. */
+function usableCredential(s) {
+  if (typeof s !== 'string') return null;
+  const t = s.trim();
+  if (t === '' || t.length < 8 || t.length > 512) return null;
+  if (/\s/.test(t)) return null;
+  return t;
+}
+
+/**
+ * Resolve the model credential from the LIVE home's `.credentials.yaml`, with the harness's own yaml
+ * implementation (`lib/yaml.mjs`), never a regex.
+ *
+ * Returns `{ ok:true, value, key, file, bytes, sha256 }` or `{ ok:false, reason, file }`. The caller
+ * must never print `value`, never write it, and never serialise it — only its length is reportable.
+ */
+function resolveCredential(home) {
+  const file = path.join(home, CREDENTIAL_BASENAME);
+  const read = readYamlTextChecked(file);
+  if (!read.ok) return { ok: false, file, reason: read.reason };
+  let doc;
+  try {
+    doc = parseYaml(read.text, { logLevel: 'silent' });
+  } catch (err) {
+    return { ok: false, file, reason: `${file} is not parseable YAML: ${String(err.message).slice(0, 200)}` };
+  }
+  if (doc === null || doc === undefined) return { ok: false, file, reason: `${file} parsed to nothing` };
+  const value = findCredentialValue(doc, CREDENTIAL_KEY);
+  if (!value) {
+    return { ok: false, file, reason: `no usable ${CREDENTIAL_KEY} value was found in ${file} (searched every nested map for a key named ${CREDENTIAL_KEY})` };
+  }
+  return {
+    ok: true, value, key: CREDENTIAL_KEY, file,
+    bytes: Buffer.byteLength(read.text),
+    sha256: crypto.createHash('sha256').update(read.text).digest('hex'),
+  };
+}
+
+/* ------------------------------------------------------------------ session formats (SPEC C8) */
+
+/**
+ * Where does `@deepseek-ai` live for this install?
+ *
+ * Accepts an install root, a `node_modules` directory, a scope directory, or an engine path
+ * (`…\@deepseek-ai\dsh\lib\bin.js`), and returns the `…/node_modules/@deepseek-ai` directory that
+ * actually exists — walking up from the path given. Returns a list of candidates that were tried
+ * when none exists, so a failure can name everywhere it looked.
+ */
+function resolveScopeDir(p) {
+  if (!p) return { scope: null, tried: ['(no path given)'] };
+  const tried = [];
+  let cur = path.resolve(p);
+  for (let up = 0; up < 6; up += 1) {
+    const direct = path.join(cur, 'node_modules', '@deepseek-ai');
+    tried.push(direct);
+    if (fs.existsSync(direct)) return { scope: direct, tried };
+    /* `cur` may itself be a `node_modules` directory */
+    const asModules = path.join(cur, '@deepseek-ai');
+    if (path.basename(path.dirname(cur)) === 'node_modules' || path.basename(cur) === 'node_modules') {
+      tried.push(asModules);
+      if (fs.existsSync(asModules)) return { scope: asModules, tried };
+    }
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  /* last resort: the path may itself be inside the scope directory */
+  const inside = path.resolve(p, 'node_modules', '@deepseek-ai');
+  if (!tried.includes(inside)) tried.push(inside);
+  return { scope: null, tried };
+}
+
+/**
+ * Read the session-format version and the physical codec list from ONE install, by reading the real
+ * files under `<installRoot>/node_modules/@deepseek-ai/`:
+ *
+ *   * `dsh-session-format-catalog/lib/index.js` — the generated catalog: `currentVersion: N`,
+ *     `codecs: [releasedV0…, …]`, `currentEncoder: releasedVE…`, `migrations: [sessionFormatVaToVb, …]`;
+ *   * the sibling `dsh-session-format-*` package directories — a package whose name is
+ *     `…-format-vA-to-vB` is a migration edge, `…-format-vN` a codec.
+ *
+ * Nothing is hardcoded: the version is whatever the file declares. A read that cannot be made returns
+ * `{ok:false, reason}` — it never becomes a guess.
+ */
+function readSessionFormatCatalog(installRoot) {
+  const { scope, tried } = resolveScopeDir(installRoot);
+  let catalogFile = null;
+  if (scope) {
+    const f = path.join(scope, 'dsh-session-format-catalog', 'lib', 'index.js');
+    if (fs.existsSync(f)) catalogFile = f;
+  }
+  if (!catalogFile) {
+    return {
+      ok: false, installRoot, lookedIn: tried,
+      reason: `no @deepseek-ai/dsh-session-format-catalog/lib/index.js under ${tried.join(' or ')}`,
+    };
+  }
+
+  let text;
+  try { text = fs.readFileSync(catalogFile, 'utf8'); } catch (err) {
+    return { ok: false, installRoot, catalogFile, reason: `${catalogFile} could not be read: ${err.message}` };
+  }
+  const lines = text.split(/\r?\n/);
+
+  const currentVersion = readCatalogCurrentVersion(text);
+  const codecVersions = codecVersionsFromCatalog(text);
+  const encoderVersion = readCatalogCurrentEncoder(text, lines);
+  /* the codec keys this install can actually READ directly (a header whose generation has a codec) */
+  const codecSet = new Set(codecVersions);
+  /* sidecar packages: a directory is treated as a real codec only when the catalog imports it */
+  const formatPackages = [];
+  try {
+    for (const e of fs.readdirSync(scope, { withFileTypes: true })) {
+      if (!e.isDirectory()) continue;
+      if (!SESSION_FORMAT_PKG_RE.test(e.name)) continue;
+      const pj = readJsonIfPresent(path.join(scope, e.name, 'package.json'));
+      formatPackages.push({ name: e.name, version: pj?.version ?? null });
+    }
+  } catch { /* an unreadable scope is reported by the reason below if the catalog itself was fine */ }
+  const importedSources = new Set();
+  for (const m of text.matchAll(/from\s+"(@deepseek-ai\/dsh-session-format-[\w-]+)"/g)) importedSources.add(m[1]);
+
+  const migrations = migrationEdgesFromCatalog(text);
+  const edgeSet = new Set(migrations.map((m) => `${m.from}->${m.to}`));
+  /* usable for rollback: a real, IMPORTED sibling package whose edge goes from the newer version back */
+  const downMigrations = migrations.filter(
+    (m) => m.from > m.to && importedSources.has(`@deepseek-ai/dsh-session-format-v${m.from}-to-v${m.to}`),
+  );
+
+  const packageVersions = {};
+  for (const p of formatPackages) packageVersions[p.name] = p.version;
+
+  return {
+    ok: true,
+    installRoot, catalogFile, scope,
+    currentVersion,
+    codecs: codecVersions,
+    codecSet,
+    currentEncoder: encoderVersion,
+    /** derived: the higher of the declared currentVersion and the declared codecs — a disagreement is a finding of its own */
+    highestCodec: codecVersions.length > 0 ? Math.max(...codecVersions) : null,
+    migrations,
+    migrationEdges: edgeSet,
+    downMigrations,
+    canRead: (n) => codecSet.has(n),
+    formatPackages, packageVersions, importedSources,
+    manifestVersion: readJsonIfPresent(path.join(scope, 'dsh-session-format-catalog', 'package.json'))?.version ?? null,
+  };
+}
+
+function readCatalogCurrentVersion(text) {
+  const m = /currentVersion\s*:\s*(\d+)\s*[,}]/g;
+  const vals = [...text.matchAll(m)].map((x) => Number(x[1]));
+  if (vals.length === 0) return null;
+  /* the generated catalog is the primary export; the largest declared value is the engine's current */
+  return Math.max(...vals);
+}
+
+function readCatalogCurrentEncoder(text, lines) {
+  for (const line of lines) {
+    const m = /currentEncoder\s*:\s*(releasedV(\d+)SessionFormatCodec)/.exec(line);
+    if (m) return Number(m[2]);
+  }
+  return null;
+}
+
+function codecVersionsFromCatalog(text) {
+  const set = new Set();
+  const block = /codecs\s*:\s*\[([^\]]*)\]/s.exec(text);
+  if (block) {
+    for (const m of block[1].matchAll(/releasedV(\d+)SessionFormatCodec/gi)) set.add(Number(m[1]));
+  }
+  if (set.size === 0) {
+    for (const m of text.matchAll(/releasedV(\d+)SessionFormatCodec/gi)) set.add(Number(m[1]));
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+function migrationEdgesFromCatalog(text) {
+  const edges = [];
+  const block = /migrations\s*:\s*\[([^\]]*)\]/s.exec(text);
+  const add = (a, b) => { if (!edges.some((e) => e.from === a && e.to === b)) edges.push({ from: a, to: b }); };
+  if (block) {
+    for (const m of block[1].matchAll(/sessionFormatV(\d+)ToV(\d+)/gi)) add(Number(m[1]), Number(m[2]));
+  }
+  if (edges.length === 0) {
+    for (const m of text.matchAll(/sessionFormatV(\d+)ToV(\d+)/gi)) add(Number(m[1]), Number(m[2]));
+  }
+  return edges.sort((a, b) => a.from - b.from || a.to - b.to);
+}
+
+/**
+ * Count the session files in a home and say which format each is in, from the NAME only.
+ *
+ * The rule quoted from the engine: `session.jsonl` is generation 0, `session.vN.jsonl` generation N,
+ * and the physical artifact adds a compression suffix. Nothing is opened: a session log is the
+ * operator's history and this gate must never read or touch one.
+ *
+ * `ok:false` when the directory cannot be walked — a partial walk is a wrong count, and a wrong count
+ * is worse than an admission. Never reports 0 as though it had looked.
+ */
+function snapshotSessionFormats(sessionsDir) {
+  const out = {
+    dir: sessionsDir, exists: false, walked: false, ok: false, reason: null, walkErrors: [],
+    total: 0, byVersion: {}, byName: {}, oldestMtime: null, newestMtime: null, maxDepth: 0,
+  };
+  if (!fs.existsSync(sessionsDir)) {
+    out.reason = `there is no sessions directory at ${sessionsDir}`;
+    return out;
+  }
+  out.exists = true;
+  const stack = [[sessionsDir, 0]];
+  const bump = (bag, k) => { bag[k] = (bag[k] ?? 0) + 1; };
+  while (stack.length > 0) {
+    const [dir, depth] = stack.pop();
+    if (depth > out.maxDepth) out.maxDepth = depth;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch (err) {
+      out.walkErrors.push(`${dir}: ${err.code ?? err.message}`);
+      continue;
+    }
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      let st;
+      try { st = fs.lstatSync(p); } catch (err) { out.walkErrors.push(`${p}: ${err.code ?? err.message}`); continue; }
+      if (st.isSymbolicLink()) continue;               // links are never traversed anywhere in this module
+      if (st.isDirectory()) { stack.push([p, depth + 1]); continue; }
+      const m = SESSION_LOG_RE.exec(e.name);
+      if (!m) continue;
+      const version = m[1] === undefined ? 0 : Number(m[1]);
+      out.total += 1;
+      bump(out.byVersion, String(version));
+      bump(out.byName, e.name);
+      const t = st.mtime.toISOString();
+      if (out.oldestMtime === null || t < out.oldestMtime) out.oldestMtime = t;
+      if (out.newestMtime === null || t > out.newestMtime) out.newestMtime = t;
+    }
+  }
+  out.walked = true;
+  out.ok = out.walkErrors.length === 0;
+  if (!out.ok) out.reason = `${out.walkErrors.length} directory/entry read error(s) while walking ${sessionsDir}; the count is partial and is not reported as a reading`;
+  return out;
+}
+
+function formatCounts(map, keyName) {
+  const keys = Object.keys(map).sort((a, b) => Number(a) - Number(b));
+  return keys.map((k) => `${keyName === 'version' ? `v${k}` : k} x${map[k]}`).join(', ');
 }
 
 /** Walk without following links: links are counted, never traversed. Handles a plain file too. */
@@ -409,8 +773,15 @@ function evidenceBody({ command, cwd, env, result, extra }) {
 
 /* ------------------------------------------------------------------ running an engine */
 
-function runEngine({ enginePath, args, home, cwd, timeoutMs, label }) {
-  const env = { ...process.env, DSH_HOME: home };
+/**
+ * Run one engine invocation inside the isolated home.
+ *
+ * `extraEnv` carries the model credential (SPEC C14). It goes into the child process's environment
+ * and NOWHERE else: the evidence file records `DSH_HOME` and the command, never the environment, and
+ * the returned result carries only exit code, streams and timings. Nothing here can write a secret.
+ */
+function runEngine({ enginePath, args, home, cwd, timeoutMs, label, extraEnv }) {
+  const env = { ...process.env, DSH_HOME: home, ...(extraEnv ?? {}) };
   const startedAt = iso();
   const t0 = Date.now();
   const r = spawnSync(process.execPath, [enginePath, ...args], {
@@ -492,10 +863,10 @@ function profileBundles(profile) {
 
 /* ------------------------------------------------------------------ gates G1..G3 */
 
-function gateG1({ version, enginePath, home, cwd, g }) {
+function gateG1({ version, enginePath, home, cwd, g, extraEnv }) {
   const { result, evidence } = runEngine({
     enginePath, args: ['--profile', 'web', '--dump-config'], home, cwd, timeoutMs: 120000,
-    label: `verify-${version}-G1.txt`,
+    label: `verify-${version}-G1.txt`, extraEnv,
   });
   if (result.exitCode !== 0) {
     g('G1', {
@@ -685,11 +1056,21 @@ function scanSettingsDiagnostics(text) {
   return hits;
 }
 
-function gateG4({ version, headlessDump, boot, diagnostics, g }) {
+/** How the model credential reached the child, stated without ever showing it. */
+function credentialProvenance(credential) {
+  if (!credential || !credential.ok) return 'the model credential was NOT available, so this boot could not have reached a model';
+  return `model credential: ${credential.key} passed through the child ENVIRONMENT only ` +
+    `(present: yes, ${credential.valueLength ?? '?'} characters${credential.sha256 ? `, resolved from the live <dsh-home>/${CREDENTIAL_BASENAME}` : ''}` +
+    `; never written into the isolated home, never written to any log, never printed, never recorded in verify.json)`;
+}
+
+function gateG4({ version, headlessDump, boot, diagnostics, g, credential }) {
   const scannedBytes = (headlessDump.result.stdout || '').length + (headlessDump.result.stderr || '').length +
     (boot.result.stdout || '').length + (boot.result.stderr || '').length;
   const evidence = writeEvidence(`verify-${version}-G4.txt`, [
     `settings document scanned: ${path.join(LIVE_HOME, 'settings.yaml')} (copied into the isolated home)`,
+    `${credentialProvenance(credential)}`,
+    credential?.ok ? null : `the credential could not be resolved: ${credential?.reason ?? 'no credential object'}`,
     `headless dump-config: exit ${headlessDump.result.exitCode}, ${headlessDump.result.durationMs} ms, ${(headlessDump.result.stdout || '').length} stdout bytes, ${(headlessDump.result.stderr || '').length} stderr bytes`,
     `headless boot for the settings scan: ${boot.result.command} (exit ${boot.result.exitCode}, ${boot.result.durationMs} ms) — this is the same single process G5 reports`,
     `scanned: ${scannedBytes} bytes of combined engine stdout+stderr from both invocations`,
@@ -701,13 +1082,14 @@ function gateG4({ version, headlessDump, boot, diagnostics, g }) {
     headlessDump.result.stdout || '', headlessDump.result.stderr || '',
     '=== headless boot stdout+stderr (verbatim) ===',
     boot.result.stdout || '', boot.result.stderr || '',
-  ].join('\n') + '\n');
+  ].filter((l) => l !== null).join('\n') + '\n');
   const dumpOk = headlessDump.result.exitCode === 0;
   const bootOk = boot.result.exitCode === 0;
   const ok = dumpOk && bootOk && diagnostics.length === 0;
   const parts = [];
   parts.push(`headless --dump-config exit ${headlessDump.result.exitCode}`);
   parts.push(`boot exit ${boot.result.exitCode}`);
+  parts.push(credentialProvenance(credential));
   parts.push(diagnostics.length === 0
     ? `no unknown-key / unrecognized / schema / validation diagnostics in ${scannedBytes} bytes of combined engine output from both invocations`
     : `${diagnostics.length} diagnostic line(s) matched: ${diagnostics.slice(0, 5).map((d) => `[${d.pattern}] ${d.text.slice(0, 120)}`).join(' | ')}`);
@@ -734,17 +1116,204 @@ function extractAssistantText(stdout) {
   return lines.length > 0 ? lines[lines.length - 1].slice(0, 2000) : null;
 }
 
-function gateG5({ version, boot, g }) {
+function gateG5({ version, boot, g, credential }) {
   const reply = extractAssistantText(boot.result.stdout);
   const ok = boot.result.exitCode === 0 && reply !== null && reply !== '';
   const expected = reply !== null && /\bok\b/i.test(reply);
   const detail = ok
     ? `exit 0, assistant text ${JSON.stringify(reply.slice(0, 200))}, ${boot.result.durationMs} ms` +
-      `; the exact command: ${boot.result.command}` + (expected ? ' (contains the requested token OK)' : ' (does not contain the requested token OK)')
+      `; the exact command: ${boot.result.command}` + (expected ? ' (contains the requested token OK)' : ' (does not contain the requested token OK)') +
+      `; ${credentialProvenance(credential)}`
     : `no assistant text: exit ${boot.result.exitCode}${boot.result.timedOut ? ' (TIMED OUT)' : ''}, ` +
       `${(boot.result.stdout || '').length} stdout bytes, ${(boot.result.stderr || '').length} stderr bytes; ` +
-      `verbatim stderr saved in ${boot.evidence}` + (boot.result.error ? `; spawn error: ${boot.result.error}` : '');
+      `verbatim stderr saved in ${boot.evidence}` + (boot.result.error ? `; spawn error: ${boot.result.error}` : '') +
+      `; ${credentialProvenance(credential)}`;
   g('G5', { ran: true, ok, exitCode: boot.result.exitCode, durationMs: boot.result.durationMs, evidence: boot.evidence, detail });
+}
+
+/* ------------------------------------------------------------------ G8: the session-format one-way door (SPEC C8) */
+
+/** `codecs: [releasedV0SessionFormatCodec, …]` with the line the reading came from. */
+function catalogLines(scope, cat) {
+  const rel = (p) => path.relative(scope, p).split(path.sep).join('/');
+  const lines = [];
+  lines.push(`package: ${rel(path.join(scope, 'dsh-session-format-catalog', 'lib', 'index.js'))}` +
+    (cat.manifestVersion ? ` (@deepseek-ai/dsh-session-format-catalog@${cat.manifestVersion})` : ''));
+  lines.push(`  currentVersion: ${cat.currentVersion ?? '(not declared)'}`);
+  lines.push(`  codecs:        ${cat.codecs.length ? cat.codecs.map((v) => `releasedV${v}SessionFormatCodec`).join(', ') : '(none declared)'}`);
+  lines.push(`  currentEncoder:${cat.currentEncoder === null ? ' (not declared)' : ` releasedV${cat.currentEncoder}SessionFormatCodec`}`);
+  lines.push(`  migrations:    ${cat.migrations.length ? cat.migrations.map((m) => `v${m.from}->v${m.to}`).join(', ') : '(none declared)'}`);
+  const others = cat.formatPackages.filter((p) => p.name !== '@deepseek-ai/dsh-session-format-catalog');
+  lines.push(`  sibling @deepseek-ai/dsh-session-format-* packages (${others.length}): ` +
+    (others.length ? others.map((p) => `${p.name}@${p.version ?? '?'}`).join(', ') : '(none)'));
+  return lines.join('\n');
+}
+
+/** One human line naming an install, used in the gate detail. */
+function nameInstall(cat, fallback) {
+  return cat.ok
+    ? `currentVersion ${cat.currentVersion ?? '(not declared)'} (${cat.scope})`
+    : `${fallback}: NOT INSPECTED — ${cat.reason}`;
+}
+
+/**
+ * Whether a codec version is backed by a sibling `@deepseek-ai/dsh-session-format-vN` package.
+ *
+ * This is deliberately reported as *is a package present for this generation*, not as *this is the
+ * module the catalog imports it from*: the generated catalog imports the codec for gen N from the
+ * `…-format-vN-1-to-vN` migration package, so attributing a codec to a module by name would be a
+ * guess. What matters here is that the codec and its package are really installed.
+ */
+function codecProvenance(cat) {
+  const backed = [];
+  const catalogOnly = [];
+  const installed = new Set((cat.formatPackages ?? []).map((p) => String(p.name).replace(/^@deepseek-ai\//, '')));
+  for (const v of cat.codecs) {
+    if (installed.has(`dsh-session-format-v${v}`) || [...installed].some((n) => n.startsWith(`dsh-session-format-v${v}-to-v`))) backed.push(v);
+    else catalogOnly.push(v);
+  }
+  return { backed, catalogOnly };
+}
+
+function gateG8({ version, base, cand, snap, g }) {
+  const candVersion = cand.ok ? Math.max(cand.currentVersion ?? cand.highestCodec ?? -1, cand.highestCodec ?? -1) : null;
+  const candWrites = cand.ok ? cand.currentEncoder : null;
+  const { backed, catalogOnly } = cand.ok ? codecProvenance(cand) : { backed: [], catalogOnly: [] };
+  const codecAttribution =
+    `codec(s) ${cand.ok && cand.codecs.length ? cand.codecs.map((v) => `v${v}`).join(', ') : '(none declared)'}` +
+    `; generations with a sibling @deepseek-ai/dsh-session-format-* package installed: ${backed.length ? backed.map((v) => `v${v}`).join(', ') : 'none'}` +
+    `; generations with no such package installed: ${catalogOnly.length ? catalogOnly.map((v) => `v${v}`).join(', ') : 'none'}`;
+  const liveVersions = snap.ok ? Object.keys(snap.byVersion).map(Number).sort((a, b) => a - b) : [];
+  const liveFormats = snap.ok ? (snap.total > 0 ? liveVersions : []) : null;
+
+  /* An observed count and an unobserved count are different facts; never print 0 for a walk not made. */
+  const observedAt = snap.newestMtime ?? null;
+  const sessionsLine = snap.ok
+    ? `${snap.total} session file(s) in ${snap.dir} by name: ${formatCounts(snap.byVersion, 'version') || '(none)'}` +
+      `; file names: ${formatCounts(snap.byName, 'name') || '(none)'}` +
+      `; mtime range ${snap.oldestMtime ?? '?'} .. ${snap.newestMtime ?? '?'}` + `; walked ${snap.walked ? 'fully' : 'NOT FULLY'}`
+    : `NOT OBSERVED — ${snap.reason}`;
+
+  const evidence = writeEvidence(`verify-${version}-G8.txt`, [
+    `candidate version argument: ${version}`,
+    `candidate engine root: ${cand.installRoot}`,
+    '',
+    '=== candidate session-format catalog (read from disk, verbatim values) ===',
+    cand.ok ? catalogLines(cand.scope, cand) : `NOT INSPECTED — ${cand.reason}`,
+    '',
+    '=== baseline (pinned) engine session-format catalog ===',
+    base.ok ? `root: ${base.installRoot}\n${catalogLines(base.scope, base)}` : `root: ${base.installRoot}\nNOT INSPECTED — ${base.reason}`,
+    '',
+    '=== live session files (names only; no session file was opened) ===',
+    sessionsLine,
+    snap.ok && snap.walkErrors.length > 0 ? `walk errors: ${snap.walkErrors.slice(0, 20).join(' | ')}` : null,
+    '',
+    'the physical artifacts were counted by NAME only (the engine\'s own canonical rule: `session.jsonl` is',
+    'generation 0, `session.vN.jsonl` is generation N, plus an optional compression suffix).',
+  ].filter((l) => l !== null).join('\n') + '\n');
+
+  if (!cand.ok) {
+    g('G8', {
+      ran: false, ok: false, evidence,
+      detail: `the candidate's session-format catalog could not be read (${cand.reason}), so this gate did not run; ` +
+        `whether ${version} writes a newer session format than the live logs is UNKNOWN. ` +
+        `live session files: ${snap.ok ? `${snap.total} (${formatCounts(snap.byVersion, 'version')})` : `NOT OBSERVED — ${snap.reason}`}`,
+    });
+    return { candVersion: null, candWrites: null, liveVersions, oneWayDoor: null };
+  }
+  if (!snap.ok) {
+    g('G8', {
+      ran: false, ok: false, evidence,
+      detail: `the live session files could not be counted (${snap.reason}), so there is no observed live format to compare ` +
+        `against — this gate did not run. The candidate declares currentVersion ${cand.currentVersion ?? '?'}` +
+        `${cand.currentEncoder !== null ? ` and writes v${cand.currentEncoder}` : ''}; that reading is in the evidence file.`,
+    });
+    return { candVersion, candWrites, liveVersions: null, oneWayDoor: null };
+  }
+
+  const downForTarget = (target) => cand.downMigrations.filter((m) => m.to === target && cand.canRead(m.from));
+  const newerOnDisk = liveFormats.filter((v) => v > candVersion);
+
+  if (liveFormats.length === 0) {
+    g('G8', {
+      ran: true, ok: false, evidence,
+      detail: `no session file was found under ${snap.dir} (${snap.total} name(s) matched the engine's own canonical ` +
+        `session-log rule, walked ${snap.walked ? 'fully' : 'not fully'}), so there is no observed live format to compare ` +
+        `against and this gate cannot pass: an empty result is a refusal, not health. ` +
+        `The candidate declares currentVersion ${cand.currentVersion ?? '?'}` +
+        `${cand.currentEncoder !== null ? `, writes v${cand.currentEncoder}` : ''}, codecs ${cand.codecs.map((v) => `v${v}`).join('/') || '(none)'}.`,
+    });
+    return { candVersion, candWrites, liveVersions, oneWayDoor: null };
+  }
+
+  const sameAsLive = liveFormats.every((v) => v === candVersion);
+  const writesNewer = liveFormats.every((v) => candVersion > v);
+  const canReadAll = liveFormats.every((v) => cand.canRead(v));
+  const unreadable = liveFormats.filter((v) => !cand.canRead(v));
+
+  const reasons = [];
+  let oneWayDoor = false;
+  if (unreadable.length > 0) {
+    reasons.push(`the candidate ships NO codec for session format(s) ${unreadable.map((v) => `v${v}`).join(', ')}, which is ` +
+      `what is on disk in the live home right now: this engine could not read ${snap.total} existing session file(s) at all`);
+  }
+  if (sameAsLive) {
+    reasons.push(`the candidate writes v${candWrites}, the same format as every one of the ${snap.total} live session file(s) — ` +
+      `a rollback finds logs the older engine reads`);
+  } else if (writesNewer) {
+    oneWayDoor = true;
+    /* the codec that would make rolling back *safe* reads back from what the candidate WRITES */
+    const covering = downForTarget(candWrites);
+    const forward = cand.migrations.filter((m) => liveFormats.includes(m.from) && m.to >= candWrites);
+    reasons.push(`the candidate declares currentVersion ${candVersion} and writes v${candWrites}, NEWER than the ` +
+      `${liveFormats.map((v) => `v${v}`).join('/')} on disk: this is a ONE-WAY DOOR. Rolling back to the older engine after ` +
+      `this engine has written logs leaves every session written in the meantime UNREADABLE by the older engine`);
+    if (covering.length > 0) {
+      reasons.push(`NOTE: the candidate also ships ${covering.map((m) => `@deepseek-ai/dsh-session-format-v${m.from}-to-v${m.to}`).join(', ')}, ` +
+        `so a NEWER engine could read the older logs — but the direction that protects a rollback is the reverse one ` +
+        `(v${candWrites} back to v${liveFormats.join('/')}), and that codec is not shipped`);
+    } else if (forward.length > 0) {
+      reasons.push(`the only new-format codec shipped is ${forward.map((m) => `v${m.from}->v${m.to}`).join(', ')}, which ` +
+        `CONSUMES the older logs into the newer format: the same loss read from the other end, since after it runs the older ` +
+        `engine cannot read the result either`);
+    } else {
+      reasons.push(`no new-format codec is shipped at all: the door is one-way in both directions`);
+    }
+  } else {
+    reasons.push(`the candidate declares currentVersion ${candVersion}, which is neither strictly newer than every live ` +
+      `format nor equal to it (live: ${liveFormats.map((v) => `v${v}`).join(', ')}) — this gate does not know this shape and will not guess`);
+  }
+  if (newerOnDisk.length > 0) {
+    reasons.push(`NOTE: ${newerOnDisk.map((v) => `v${v}`).join(', ')} session log(s) already exist on disk and are NEWER than the ` +
+      `candidate's own v${candVersion}: this candidate could not read the newest history`);
+  }
+  reasons.push(canReadAll
+    ? `the candidate CAN read every format present on disk (codecs v${cand.codecs.join(', v')})`
+    : `the candidate CANNOT read every format present on disk`);
+
+  const downMigrationEvidence = cand.downMigrations.length === 0
+    ? `no down-migration codec (vX->vY with Y < X) is shipped by this install, so nothing can convert the candidate's own output back for an older engine`
+    : `down-migration codec(s) shipped: ${cand.downMigrations.map((m) => `v${m.from}->v${m.to}`).join(', ')}`;
+  reasons.push(downMigrationEvidence);
+
+  /* `ok` is exactly the SPEC test: the candidate writes the SAME format as the live logs. That is the only
+   * shape in which a rollback is guaranteed to find readable history. A newer format is `ok:false` even when
+   * a codec covers it, because nothing here proves the older engine would apply it — and the reverse codec
+   * is what is missing. A gate that did not run is `ran:false, ok:false` above. */
+  const ok = sameAsLive && unreadable.length === 0;
+  const detail =
+    `candidate declares currentVersion ${candVersion}` +
+    `${cand.currentEncoder !== null ? `, writes v${candWrites}` : ', writes v?'} ` +
+    `(${codecAttribution})` +
+    `; baseline declares ${base.ok ? `currentVersion ${base.currentVersion ?? '?'}, codecs ${base.codecs.map((v) => `v${v}`).join(', ') || 'none'}` : `UNREADABLE — ${base.reason}`}` +
+    `; live logs: ${snap.total} file(s), ${formatCounts(snap.byVersion, 'version')}` +
+    `. ${reasons.join('; ')}.` +
+    ` (catalog read from ${cand.catalogFile}${observedAt ? `; newest live session file mtime ${observedAt}` : ''})`;
+
+  g('G8', {
+    ran: true, ok, exitCode: null, durationMs: null, evidence, detail,
+  });
+  return { candVersion, candWrites, liveVersions, oneWayDoor };
 }
 
 /* ------------------------------------------------------------------ --full web boot */
@@ -771,7 +1340,7 @@ function portFree(port) {
   });
 }
 
-async function gateFull({ version, enginePath, home, cwd, g }) {
+async function gateFull({ version, enginePath, home, cwd, g, extraEnv }) {
   const others = otherDshWebProcesses();
   let port = null;
   for (let p = 3400; p <= 3500; p++) {
@@ -805,7 +1374,7 @@ async function gateFull({ version, enginePath, home, cwd, g }) {
   const startedAt = iso();
   const t0 = Date.now();
   const child = spawn(process.execPath, [enginePath, 'web', '--port', String(port), '--no-open'], {
-    env: { ...process.env, DSH_HOME: home }, cwd, windowsHide: true, stdio: ['ignore', out, out],
+    env: { ...process.env, DSH_HOME: home, ...(extraEnv ?? {}) }, cwd, windowsHide: true, stdio: ['ignore', out, out],
   });
   const pid = child.pid;
   let exit = null;
@@ -915,11 +1484,32 @@ async function main(argvInput = process.argv.slice(2)) {
   else notes.push(`contractSha256 ${contractSha256} read from ${contractPath}`);
   if (flags['--diff']) notes.push(`the dispatcher also passed --diff ${path.resolve(flags['--diff'])}; the gates do not consume diff.json, it is recorded here so nothing passed in is silently dropped`);
 
+  /* ---- the model credential (SPEC C14) ----------------------------------------------------------
+   * Resolved from the LIVE home at gate time and passed into the child ENVIRONMENT. It is never
+   * copied into the isolated home, never written to state/logs/ (plain text, live secret), never
+   * printed, never serialised into verify.json: only its presence and its length are reportable.
+   * --------------------------------------------------------------------------------------------- */
+  const credential = resolveCredential(LIVE_HOME);
+  const extraEnv = credential.ok ? { [credential.key]: credential.value } : null;
+  if (credential.ok) {
+    /* the value is dropped from the object as soon as the child environment has it: everything that
+     * reports on it downstream can only see its length */
+    credential.valueLength = credential.value.length;
+    delete credential.value;
+  }
+  notes.push(credential.ok
+    ? `model credential: ${credential.key} resolved from the LIVE ${credential.file} and passed to the boot children through the ENVIRONMENT only ` +
+      `(present: yes; ${credential.valueLength} characters; sha256 of the credentials file ${credential.sha256}). It is NEVER written into the isolated home, ` +
+      `NEVER written to state/logs/, NEVER printed and NEVER recorded in verify.json.`
+    : `model credential: could NOT be resolved (${credential.reason}). G4/G5 were not passed a credential, so they are ran:false; nothing was written that contains a secret.`);
+
   /* ---- isolated home ---- */
   const candidateDir = path.join(STATE, 'candidates', version);
   const home = path.join(candidateDir, 'home');
   const cwd = path.join(candidateDir, 'cwd');
-  const srcs = ['settings.yaml', 'profiles', '.agent-presets', '.credentials.yaml'];
+  /* .credentials.yaml is deliberately NOT in this list: it is a live secret and the credential reaches
+   * the engine through the environment instead (SPEC C14). Copying it is what this change removes. */
+  const srcs = ['settings.yaml', 'profiles', '.agent-presets'];
   const liveSize = {};
   for (const s of srcs) liveSize[s] = measure(path.join(LIVE_HOME, s));
   const copyStats = { files: 0, bytes: 0, links: 0, dirs: 0, copiedLinks: 0, replacedLinks: 0, linkTargetsLeftAsDirs: 0 };
@@ -933,13 +1523,21 @@ async function main(argvInput = process.argv.slice(2)) {
   }
   const copyMs = Date.now() - copyStart;
   const homeSize = measure(home);
+  const credInHome = path.join(home, CREDENTIAL_BASENAME);
+  if (fs.existsSync(credInHome)) {
+    /* written by an EARLIER run of this module, before the credential moved to the environment. This
+     * module never deletes anything, so it is reported rather than removed — a human decides. */
+    notes.push(`WARNING: ${credInHome} exists, written by an earlier run that copied it. This run did NOT write it and did not remove it ` +
+      `(nothing in this pipeline deletes anything). Nothing under state/candidates/** is committed today; a human should decide whether to remove it.`);
+  }
   notes.push(`isolated DSH_HOME: ${home}`);
   notes.push(`live source size: ${srcs.map((s) => `${s} ${liveSize[s].files} files/${liveSize[s].bytes} bytes/${liveSize[s].links} links`).join(', ')}`);
   notes.push(`isolated copy: ${copyStats.files} files/${copyStats.bytes} bytes, ${copyStats.links} links preserved (${copyStats.replacedLinks} re-pointed from an earlier run)${copyStats.copiedLinks > 0 ? `, ${copyStats.copiedLinks} file link(s) copied as bytes: no privilege to create file symlinks` : ''}${copyStats.linkTargetsLeftAsDirs > 0 ? `, ${copyStats.linkTargetsLeftAsDirs} destination(s) were already real directories and were left as they are` : ''}, ${copyMs} ms on disk (${homeSize.files} files/${homeSize.bytes} bytes/${homeSize.links} links re-measured)`);
-  notes.push('.credentials.yaml is copied into the isolated home only because a headless turn cannot reach a model without it; state/candidates/** must never be committed (dsh-update/ is untracked in harness-config today).');
+  notes.push(`${CREDENTIAL_BASENAME} is NOT copied into the isolated home and is NOT written anywhere by this module: the model credential reaches the engine ` +
+    `through the child process ENVIRONMENT only (SPEC C14). Nothing this run wrote contains a secret. state/candidates/** must never be committed (dsh-update/ is untracked in harness-config today).`);
 
   /* ---- G1 ---- */
-  const g1 = gateG1({ version, enginePath: engine.enginePath, home, cwd, g: gate });
+  const g1 = gateG1({ version, enginePath: engine.enginePath, home, cwd, g: gate, extraEnv });
 
   /* ---- inputs and G2/G3 ---- */
   const patch = patchTargets(version, flags['--consumed']);
@@ -959,21 +1557,26 @@ async function main(argvInput = process.argv.slice(2)) {
   if (noBoot) {
     gate('G4', { ran: false, ok: false, detail: '--no-boot: the settings document is only read by a real boot, so this gate did not run (--dump-config cannot decide it)' });
     gate('G5', { ran: false, ok: false, detail: '--no-boot: no engine turn was run' });
+  } else if (!extraEnv) {
+    const why = `the model credential could not be resolved from the LIVE ${credential.file} (${credential.reason}), and nothing was written to make it available: an engine booted without it fails with MISSING_CREDENTIAL, so this gate is ran:false rather than a fabricated pass (SPEC C14)`;
+    gate('G4', { ran: false, ok: false, detail: why });
+    gate('G5', { ran: false, ok: false, detail: why });
+    notes.push(`G4/G5 did not run: ${why}`);
   } else {
     const headlessDump = runEngine({
       enginePath: engine.enginePath, args: ['--profile', 'headless', '--dump-config'], home, cwd, timeoutMs: 120000,
-      label: `verify-${version}-G4-dump.txt`,
+      label: `verify-${version}-G4-dump.txt`, extraEnv,
     });
     const boot = runEngine({
       enginePath: engine.enginePath, args: ['--profile', 'headless', 'Reply with the single word OK.'], home, cwd, timeoutMs: turnTimeout,
-      label: `verify-${version}-G5.txt`,
+      label: `verify-${version}-G5.txt`, extraEnv,
     });
     const combined = [
       headlessDump.result.stderr, headlessDump.result.stdout,
       boot.result.stderr, boot.result.stdout,
     ].join('\n');
-    gateG4({ version, headlessDump, boot, diagnostics: scanSettingsDiagnostics(combined), g: gate });
-    gateG5({ version, boot, g: gate });
+    gateG4({ version, headlessDump, boot, diagnostics: scanSettingsDiagnostics(combined), g: gate, credential });
+    gateG5({ version, boot, g: gate, credential });
     notes.push(`G4 limitation: ${MEASURED_SETTINGS_LIMITATION}`);
     if (headlessDump.result.exitCode !== 0) {
       notes.push(`the headless --dump-config used by G4 exited ${headlessDump.result.exitCode}; its verbatim output is in ${headlessDump.evidence}`);
@@ -983,9 +1586,28 @@ async function main(argvInput = process.argv.slice(2)) {
   /* ---- --full ---- */
   if (!full) {
     gate('GFULL', { ran: false, ok: false, detail: 'not requested (pass --full to boot the web profile on a free port in 3400-3500 and kill only the pid this module started)' });
+  } else if (!extraEnv) {
+    gate('GFULL', { ran: false, ok: false, detail: `refused before starting anything: the model credential could not be resolved from ${credential.file} (${credential.reason}), and a web boot without it fails with MISSING_CREDENTIAL` });
   } else {
-    await gateFull({ version, enginePath: engine.enginePath, home, cwd, g: gate });
+    await gateFull({ version, enginePath: engine.enginePath, home, cwd, g: gate, extraEnv });
   }
+
+  /* ---- G8: the session-format one-way door (SPEC C8) ----
+   * Reads the real catalog files from BOTH installs and counts the live session files by name only.
+   * It needs no engine run, so --no-boot does not skip it. */
+  const baselineArg = flags['--baseline-engine']
+    ? path.resolve(flags['--baseline-engine'])
+    : (readJsonIfPresent(path.join(STATE, 'pin.json'))?.enginePath ?? null);
+  const baselineCatalog = baselineArg
+    ? readSessionFormatCatalog(baselineArg)
+    : { ok: false, installRoot: null, reason: 'no pinned engine: state/pin.json carries no enginePath and --baseline-engine was not given' };
+  const candidateCatalog = readSessionFormatCatalog(engine.enginePath);
+  const sessionsDir = flags['--sessions-dir'] ? path.resolve(flags['--sessions-dir']) : path.join(LIVE_HOME, 'sessions');
+  const snap = snapshotSessionFormats(sessionsDir);
+  notes.push(`G8 baseline install: ${baselineArg ?? '(none)'} — ${nameInstall(baselineCatalog, 'baseline session-format catalog')}`);
+  notes.push(`G8 candidate install: ${engine.enginePath} — ${nameInstall(candidateCatalog, 'candidate session-format catalog')}`);
+  notes.push(`G8 live session files: ${snap.ok ? `${snap.total} file(s) under ${snap.dir}, by name ${formatCounts(snap.byVersion, 'version') || '(none)'}` : `NOT COUNTED — ${snap.reason}`}`);
+  gateG8({ version, base: baselineCatalog, cand: candidateCatalog, snap, g: gate });
 
   const gates = finish();
   const ran = gates.filter((g) => g.ran);
@@ -1047,4 +1669,9 @@ async function verifyVersion(options = {}) {
   return main(argv);
 }
 
-export { parseDump, scanSettingsDiagnostics, resolveEngine, copyTree, measure, otherDshWebProcesses, verifyVersion };
+export {
+  parseDump, scanSettingsDiagnostics, resolveEngine, copyTree, measure, otherDshWebProcesses, verifyVersion,
+  /* G8 + credential helpers, exported so a canary can exercise them without running a gate */
+  readSessionFormatCatalog, snapshotSessionFormats, resolveCredential, findCredentialValue,
+};
+

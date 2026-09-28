@@ -16,11 +16,28 @@
 #   @deepseek-ai/dsh-headless       the one-shot runner: one task, one answer, exit
 #   dsh-plugin-remote-fanout        the remote provider and its second tool row
 #
-# `@deepseek-ai/dsh-agent-presets` is a ROW, not a bundle: it declares no
+# `@deepseek-ai/dsh-agent-preset-registry` is a ROW, not a bundle: it declares no
 # `dsh.bundle` in its package.json, and naming it in the bundle list fails the
 # boot with "profile bundle ... declares no dsh.bundle" (measured 2026-09-17).
 # It is inserted below instead — which is what `docs/mesh/62-worker-runtime.md`
 # §4.4 says the right way is: a patch layer, not a bundle list.
+#
+# RENAMED UPSTREAM IN THE 0.1.7 LINE (measured 2026-09-28). The plural
+# `@deepseek-ai/dsh-agent-presets` this row used to name was REMOVED in 0.1.7-rc.1
+# and is absent from 0.1.7-rc.2 and 0.2.0-rc.1; resolving it under the candidate
+# engine returns MODULE_NOT_FOUND. The replacement is the singular
+# `@deepseek-ai/dsh-agent-preset-registry` ("Declarative Agent preset registry"),
+# which is the package that actually PROVIDES the `agentPresets` service —
+# `@deepseek-ai/dsh-agent-preset` (singular, no -registry) is only a CONSUMER
+# (`static inject = ["agentPresets"]`), so pointing this row at that one would
+# inject a service nothing provides.
+#
+# The config is unchanged and verified against the new package's own schema:
+# `static Config = z.object({ default: z.string().required(), selectedDefault: ... })`,
+# so `default` is still a required string on this row.
+#
+# THIS RENAME IS VERSION-COUPLED: the new name does not exist on the 0.1.5 line,
+# so this file must ship WITH the engine bump, not before it.
 #
 # The bundles are named in the profile's `package.json`, which is machine-local
 # and is materialised by `packages/plugin-remote-fanout/bin/install-mesh-profile.mjs`.
@@ -66,7 +83,7 @@
 # transport, `ssh <alias> dsh --profile headless "<prompt>"`.
 - insert:
     - id: agent-presets
-      name: '@deepseek-ai/dsh-agent-presets'
+      name: '@deepseek-ai/dsh-agent-preset-registry'
       config:
         default: standard
 

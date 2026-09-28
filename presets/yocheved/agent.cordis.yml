@@ -366,8 +366,10 @@
         backgroundMode: one-shot
         maxDepth: provider-managed
 
-    - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
+    # Renamed upstream in the 0.1.7 line; see presets/cordis-bg/agent.cordis.yml for the measurement.
+    # Version-coupled: this name does not exist on the 0.1.5 line, so it must ship WITH the engine bump.
+    - id: workflow-ptc
+      name: '@deepseek-ai/dsh-workflow-ptc'
       config:
         provider: spawn
 

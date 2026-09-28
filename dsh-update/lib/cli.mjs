@@ -42,6 +42,8 @@ const VERB_HELP = {
   rollback: 'rollback: restore the predecessor pin and the launcher knob; never restarts the engine',
   report: 'report <ver>: print the report path and the verdict summary',
   'patch-effect': 'patch-effect <ver> [--profile web] [--layer <yml>]: does every patch WE own still have its intended effect on the candidate?',
+  'preset-gate': 'preset-gate <ver>: does every package and subpath our PRESETS name still resolve on the candidate?',
+  preflight: 'preflight <ver>: run EVERY guard in order and print one GO/NO-GO — the triple-check command',
 };
 
 const VERB_OWNER = {
@@ -566,7 +568,12 @@ async function verbAnalyze(argv) {
   // (consumed.mjs), the baseline artifacts, the candidate's contract and composed tree, then the
   // diff. Each producer is invoked through the interface it actually ships.
   const consumedPath = path.join(cp.dir, 'consumed.json');
-  const consumedRun = runModuleCli('consumed.mjs', ['--root', REPO_ROOT, '--dsh-home', PATHS.dshHome, '--out', consumedPath]);
+  // `DSH_HOME` is honoured here on purpose. A version-coupled config change CANNOT be judged against
+  // the live config -- the live config is by definition not migrated yet, so every guard correctly
+  // reports BREAKS and there is no way to tell "the fix is incomplete" from "the fix is not applied".
+  // Pointing `DSH_HOME` at a staged home that carries the MIGRATED copies separates those two, and
+  // that staged run is what `preflight` must judge. Defaults to the live home when unset.
+  const consumedRun = runModuleCli('consumed.mjs', ['--root', REPO_ROOT, '--dsh-home', (process.env.DSH_HOME || PATHS.dshHome), '--out', consumedPath]);
   if (!consumedRun.ok) {
     throw new CliError(
       `lib/consumed.mjs failed (exit ${consumedRun.exitCode}), so there is nothing to cross-reference.\n`
@@ -685,7 +692,10 @@ async function verbVerify(argv) {
     '--diff', cp.diff,
     '--out', cp.verify,
     '--logs-dir', PATHS.logsDir,
-    '--dsh-home', PATHS.dshHome,
+    // Same staging rule as `analyze`: honour `DSH_HOME` so verify can be run against an isolated,
+    // MIGRATED home before anything is applied to the live one. Note verify builds its OWN isolated
+    // copy from this source home, so this names the config under test, not the engine's runtime home.
+    '--dsh-home', (process.env.DSH_HOME || PATHS.dshHome),
   ];
   if (full) args.push('--full');
   const file = path.join(PATHS.libDir, 'verify.mjs');
@@ -816,7 +826,7 @@ async function verbPlan(argv) {
 }
 
 /** The three SPEC conditions for promote, evaluated and reported one by one. */
-function promoteGate(version, eff) {
+function promoteGate(version, eff, opts = {}) {
   const cp = candidatePaths(version);
   const verify = readJson(cp.verify, null);
   const verifyRead = readJsonChecked(cp.verify, null);
@@ -845,18 +855,60 @@ function promoteGate(version, eff) {
 
   const c3detail = `pin is ${pinVersion}, candidate is ${version} (${cmp.classification})`;
 
+  // ── condition 4: the session-format one-way door ─────────────────────────────────────────────
+  //
+  // WHY THIS IS A GATE AND NOT A WARNING. The first boot on a candidate that writes a NEWER session
+  // format makes every log it writes unreadable to the engine being replaced, so `rollback` stops
+  // being a complete undo. Measured 2026-09-28: the live home holds 1,253 session files, all
+  // `session.v3.jsonl.zstd`; `0.1.7-rc.1`/`0.1.7-rc.2`/`0.2.0-rc.1` declare `currentVersion: 4` and
+  // ship only a v3->v4 codec, which CONSUMES the old logs into the new format -- the same loss seen
+  // from the other end. `0.1.5-rc.3` still writes v3.
+  //
+  // It is deliberately possible to proceed anyway, because the owner may WANT the newer engine, and a
+  // gate that cannot be passed is a gate that gets deleted. But it must be a RECORDED decision:
+  // `--accept-session-format-upgrade` writes an acknowledgment into the pin and the history, so the
+  // audit trail says who accepted an irreversible step and when. That is not the same thing as a
+  // bypass: nothing here skips a check, it records a human's answer to the check.
+  const g8 = Array.isArray(verify?.gates) ? verify.gates.find((g) => g && g.id === 'G8') : null;
+  const accepted = opts.acceptSessionFormat === true;
+  let c4ok;
+  let c4detail;
+  if (!verify) {
+    c4ok = false;
+    c4detail = 'no verify.json, so the session-format gate (G8) could not be read — run `verify` first';
+  } else if (!g8) {
+    c4ok = false;
+    c4detail = `verify.json carries no G8 gate (it has ${(verify.gates || []).length} gate(s): ${(verify.gates || []).map((g) => g.id).join(', ') || 'none'}) — re-run \`verify ${version}\` with the current lib/verify.mjs`;
+  } else if (g8.ran !== true) {
+    c4ok = false;
+    c4detail = `G8 did not run (${g8.detail || 'no detail'}) — an unrun gate is not a pass`;
+  } else if (g8.ok === true) {
+    c4ok = true;
+    c4detail = `G8 ok: ${g8.detail}`;
+  } else if (accepted) {
+    c4ok = true;
+    c4detail = `ACCEPTED DELIBERATELY (--accept-session-format-upgrade): ${g8.detail}`;
+  } else {
+    c4ok = false;
+    c4detail = `G8 FAILED and no acknowledgment was given: ${g8.detail}  `
+      + 'If you intend to take the format upgrade anyway, re-run with --accept-session-format-upgrade; '
+      + 'that records the decision in the pin and the history rather than skipping the check.';
+  }
+
   const conditions = [
     { id: 1, name: 'a passing verify exists for this exact contract', ok: Boolean(verify && verify.pass === true && contractSha && verify.contractSha256 === contractSha), detail: c1detail },
     { id: 2, name: 'the diff verdict is not BREAKS', ok: Boolean(diff && diff.verdict !== 'BREAKS'), detail: c2detail },
     { id: 3, name: 'the candidate is strictly newer than the pin', ok: strictlyNewer, detail: c3detail },
+    { id: 4, name: 'the session-format upgrade is either absent or explicitly accepted', ok: c4ok, detail: c4detail },
   ];
-  return { ok: conditions.every((c) => c.ok), conditions, verify, diff };
+  return { ok: conditions.every((c) => c.ok), conditions, verify, diff, sessionFormat: g8 ?? null, sessionFormatAccepted: accepted && g8 != null && g8.ok !== true };
 }
 
 async function verbPromote(argv) {
   const version = requireVersionArg('promote', argv);
+  const acceptSessionFormat = argv.includes('--accept-session-format-upgrade');
   const eff = promotionEffect(version);
-  const gate = promoteGate(version, eff);
+  const gate = promoteGate(version, eff, { acceptSessionFormat });
   if (!gate.ok) {
     const failed = gate.conditions.filter((c) => !c.ok);
     appendHistory({
@@ -867,7 +919,10 @@ async function verbPromote(argv) {
       `dsh-update promote ${version} — REFUSED. Nothing was written.`,
       ...gate.conditions.map((c) => `  ${c.ok ? 'PASS' : 'FAIL'}  condition ${c.id}: ${c.name}\n        ${c.detail}`),
       '',
-      'There is no flag that bypasses condition 1. A deliberate bypass is a code change, not a flag.',
+      'Condition 1 — a passing verify for this exact contract — has NO bypass flag. Skipping it is a',
+      'code change, not a flag. Condition 4 DOES have one, `--accept-session-format-upgrade`, and that',
+      'is not a bypass: it records a deliberate decision in the pin and the history rather than skipping',
+      'the check, because the session-format upgrade is the one step a rollback cannot undo.',
     ].join('\n');
     return { ok: false, exitCode: 8, verb: 'promote', version, refused: true, failedConditions: failed.map((c) => c.id), gates: gate.conditions, text };
   }
@@ -889,12 +944,25 @@ async function verbPromote(argv) {
     contractSha256: gate.verify.contractSha256 ?? eff.candidate.contract.sha256 ?? null,
     treeSha256: gate.verify.treeSha256 ?? fileInfo(candidatePaths(version).tree).sha256 ?? null,
     predecessor: previousPin,
+    // Recorded ONLY when the operator deliberately accepted an irreversible session-format upgrade
+    // (gate 4, `--accept-session-format-upgrade`). null means the candidate writes the same format as
+    // the logs already on disk, or no format gate applied. This exists so the audit trail answers
+    // "who accepted the one-way door, and when" without a human having to read a log line.
+    sessionFormatUpgrade: gate.sessionFormatAccepted
+      ? {
+        accepted: true,
+        at: new Date().toISOString(),
+        by: hostName(),
+        gate: 'G8',
+        detail: gate.sessionFormat?.detail ?? null,
+      }
+      : null,
   };
   writePin(newPin);
 
   appendHistory({
     verb: 'promote', version, fromVersion: previousPin.version, result: 'ok',
-    detail: `dshInstall ${eff.windowsJson.oldPresent ? eff.windowsJson.oldValue : '(absent)'} -> ${eff.windowsJson.newValue}; pin ${previousPin.version} -> ${version}; diff verdict ${kv ?? 'unknown'}; verify contractSha256 ${gate.verify.contractSha256}; backup ${cfgWrite.backup ? rel(cfgWrite.backup) : 'none needed'}; engine NOT restarted`,
+    detail: `dshInstall ${eff.windowsJson.oldPresent ? eff.windowsJson.oldValue : '(absent)'} -> ${eff.windowsJson.newValue}; pin ${previousPin.version} -> ${version}; diff verdict ${kv ?? 'unknown'}; verify contractSha256 ${gate.verify.contractSha256}; backup ${cfgWrite.backup ? rel(cfgWrite.backup) : 'none needed'}; engine NOT restarted${gate.sessionFormatAccepted ? '; SESSION-FORMAT UPGRADE ACCEPTED DELIBERATELY (gate G8) — rolling back past this point cannot recover sessions written by the new engine' : ''}`,
   });
 
   const text = [
@@ -1153,6 +1221,203 @@ async function verbPatchEffect(argv) {
   };
 }
 
+// ── preset-gate ─────────────────────────────────────────────────────────────
+//
+// WHY THIS GATE IS NOT OPTIONAL, all measured 2026-09-28:
+//   * agent presets contribute ZERO rows to `--dump-config`, so the composed-tree diff (G1/G2/G3)
+//     cannot see them at all;
+//   * a HEADLESS run does not load a preset either. Three staged DSH_HOMEs against a candidate
+//     engine, one of which had a preset row naming `@deepseek-ai/dsh-package-that-does-not-exist-xyz`,
+//     ALL exited 0 with empty stderr. The `headless` profile's own composition has no preset-service
+//     row in it (95 rows), so presets are never resolved there — which means gate G5, the pipeline's
+//     strongest end-to-end check, is blind to preset breakage;
+//   * on the 0.1.7 line local preset DIRECTORIES stop being read anywhere in the install, so the
+//     mechanism itself changes.
+//
+// So STATIC resolution of every `name:` in every preset file is the only detector for preset
+// breakage, and it is what stands between an upgrade and a silently missing persona.
+//
+// A note for whoever maintains this: the row count that matters is NOT the root count. A group row
+// (`group: true`) carries its member rows as the elements of its `config:` sequence, and the row that
+// breaks on the 0.1.7 line is nested inside `delegation`. A gate that reads only root rows reports a
+// clean result and misses the very breakage it exists for.
+async function verbPresetGate(argv) {
+  const version = requireVersionArg('preset-gate', argv);
+  const cp = candidatePaths(version);
+  const lines = [];
+  lines.push(`dsh-update preset-gate ${version}`);
+  if (!fs.existsSync(cp.contract)) {
+    throw new CliError(
+      `the candidate contract is absent (${safeRelPath(cp.contract)}).\n  Run \`analyze ${version}\` first — preset names are resolved against that contract.`,
+      { exitCode: 2 },
+    );
+  }
+  const home = process.env.DSH_HOME || path.join(process.env.USERPROFILE || '', '.dsh');
+  const out = path.join(path.dirname(cp.contract), 'preset-gate.json');
+  const args = [
+    path.join(PATHS.libDir, 'preset-gate.mjs'),
+    '--candidate-contract', cp.contract,
+    '--root', REPO_ROOT,
+    '--dsh-home', home,
+    '--out', out,
+  ];
+  if (fs.existsSync(PATHS.baselineContract)) args.push('--baseline-contract', PATHS.baselineContract);
+  const r = spawnSync(process.execPath, args, { encoding: 'utf8', timeout: 180000 });
+  const report = readJson(out, null);
+  if (!report) {
+    throw new CliError(
+      `preset-gate did not produce an artifact (exit ${r.status}).\n  ${(r.stderr || r.stdout || '').trim().split('\n').slice(0, 4).join('\n  ')}`,
+      { exitCode: 2 },
+    );
+  }
+  const counts = report.counts || {};
+  lines.push(line('verdict', `${report.verdict}   ${Object.entries(counts).map(([k, v]) => `${k}=${v}`).join('  ')}`));
+  lines.push(line('preset files', `${Array.isArray(report.presets) ? report.presets.length : 'unknown'}`));
+  for (const f of (report.findings || [])) {
+    lines.push(line(`  [${f.severity}] ${f.class} ${f.subject}`, f.evidence));
+    if (f.suggested) lines.push(line('    do', f.suggested));
+  }
+  const unverified = report.unverified || [];
+  lines.push(line('unverified', unverified.length === 0
+    ? 'nothing — every name in every preset file was resolved'
+    : `${unverified.length} name(s) NOT resolved, which is not a pass: ${unverified.slice(0, 6).map((u) => u.ref || u.name || '?').join(', ')}${unverified.length > 6 ? ', …' : ''}`));
+  lines.push(line('artifact', safeRelPath(out)));
+  appendHistory({
+    verb: 'preset-gate', version, fromVersion: readPin()?.version ?? null, result: report.verdict,
+    detail: Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts',
+  });
+  return {
+    ok: report.verdict !== 'BREAKS',
+    // Non-zero only on a real BREAKS; RISKY is for a human to read, not a stop signal.
+    exitCode: report.verdict === 'BREAKS' ? 1 : 0,
+    verb: 'preset-gate', version,
+    verdict: report.verdict, counts: report.counts,
+    findings: report.findings || [], unverified: report.unverified || [],
+    artifact: out,
+    text: lines.join('\n'),
+  };
+}
+
+// ── preflight ───────────────────────────────────────────────────────────────
+//
+// ONE COMMAND, EVERY GUARD, ONE VERDICT. The owner's condition for this upgrade was that it must be
+// "non breaking and must be double and triple guarded by checks". Seven separate verbs with seven
+// answers is not that — it is a person holding seven booleans in their head. This runs the whole set
+// and refuses to say GO unless every BLOCKING guard is green, naming each one and its evidence.
+//
+// Each guard is a real reading, produced by the module that owns it, not a re-implementation:
+// the verb spawns this same dispatcher for each step so there is exactly one code path per check.
+//
+// BLOCKING (any failure -> NO-GO): baseline freshness, analyze, patch-effect, preset-gate, verify.
+// REPORTED (never blocks, but never hidden): RISKY counts and the unverified/gap counts, because a
+// clean verdict with a silent gap list is a lie.
+async function verbPreflight(argv) {
+  const version = requireVersionArg('preflight', argv);
+  const cp = candidatePaths(version);
+  const cdir = path.dirname(cp.contract);
+  const lines = [];
+  const guards = [];
+  const add = (name, ok, blocking, detail) => { guards.push({ name, ok, blocking, detail }); };
+
+  lines.push(`dsh-update preflight ${version}   (host ${hostName()})`);
+  lines.push('');
+
+  // ── guard 1: is the baseline still describing the engine we actually run? ─────────────────────
+  // A stale baseline makes every downstream comparison meaningless, and it fails quietly: analyze
+  // would compare the candidate against a contract that no longer matches the pin.
+  const pin = readPin();
+  const pinProblems = pin ? (validatePin(pin).problems || []) : ['pin.json is absent'];
+  const cSha = fileInfo(PATHS.baselineContract).sha256;
+  const tSha = fileInfo(PATHS.baselineTree).sha256;
+  const baselineOk = pinProblems.length === 0
+    && Boolean(cSha) && Boolean(tSha)
+    && pin.contractSha256 === cSha && pin.treeSha256 === tSha;
+  add('baseline fresh', baselineOk, true, baselineOk
+    ? `pin ${pin.version} matches state/baseline (contract ${String(cSha).slice(0, 12)}…, tree ${String(tSha).slice(0, 12)}…)`
+    : `pin and state/baseline disagree or are absent (${pinProblems.join('; ') || `pin.contractSha256=${pin?.contractSha256} on disk=${cSha}`}) — run \`snapshot\` first`);
+
+  // ── the engine-backed guards, run through this same dispatcher ────────────────────────────────
+  const run = (verb) => {
+    const r = spawnSync(process.execPath, [path.join(PATHS.libDir, 'cli.mjs'), verb, version], {
+      encoding: 'utf8', timeout: 900000,
+    });
+    return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
+  };
+
+  // analyze -> diff.json
+  run('analyze');
+  const diff = readJson(cp.diff, null);
+  const diffVerdict = diff?.verdict ?? null;
+  add('analyze (contract diff)', diffVerdict !== null && diffVerdict !== 'BREAKS', true,
+    diffVerdict === null ? 'diff.json was not produced — analyze failed' : `verdict ${diffVerdict}${diff?.counts ? ` (${Object.entries(diff.counts).map(([k, v]) => `${k}=${v}`).join(' ')})` : ''}`);
+
+  // patch-effect -> the layer we own still has its intended EFFECT
+  run('patch-effect');
+  const pe = readJson(path.join(cdir, 'patch-effect.json'), null);
+  add('patch-effect (our layers)', pe?.verdict === 'SAFE' || pe?.verdict === 'RISKY', true,
+    pe ? `verdict ${pe.verdict} (${Object.entries(pe.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'})`
+      : 'patch-effect.json was not produced');
+
+  // preset-gate -> every package/subpath our PRESETS name still resolves
+  run('preset-gate');
+  const pg = readJson(path.join(cdir, 'preset-gate.json'), null);
+  add('preset-gate (the only preset detector)', pg?.verdict === 'SAFE' || pg?.verdict === 'RISKY', true,
+    pg ? `verdict ${pg.verdict} (${Object.entries(pg.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'}), ${(pg.unverified || []).length} name(s) unverified`
+      : 'preset-gate.json was not produced');
+
+  // verify -> all gates, including G8 the session-format door
+  run('verify');
+  const v = readJson(cp.verify, null);
+  const g8 = Array.isArray(v?.gates) ? v.gates.find((g) => g && g.id === 'G8') : null;
+  add('verify (gates G1-G8)', v?.pass === true && v?.complete === true, true,
+    v ? `pass=${v.pass} complete=${v.complete}; ${(v.gates || []).filter((g) => g.ran).length} ran, ${(v.gates || []).filter((g) => g.ran && g.ok === false).map((g) => g.id).join(',') || 'none failing'}`
+      : 'verify.json was not produced');
+  add('G8 session-format door', g8 ? g8.ok === true : false, true,
+    g8 ? (g8.ok === true ? `ok — ${String(g8.detail).slice(0, 180)}` : `BLOCKING ONE-WAY DOOR — ${String(g8.detail).slice(0, 300)}  Promote deliberately with --accept-session-format-upgrade once that is the decision.`)
+      : 'no G8 gate in verify.json');
+
+  // ── reported, never blocking ──────────────────────────────────────────────────────────────────
+  const gaps = (diff?.consumed?.unverified || []).length
+    + (pe?.unverified || []).length
+    + (pg?.unverified || []).length;
+  add('gaps (not checked)', gaps === 0, false,
+    gaps === 0 ? 'nothing — every reference these guards could check was checked'
+      : `${gaps} reference(s) could NOT be checked. This is not a pass and not a failure; it is the honest size of the blind spot.`);
+
+  // ── verdict ──────────────────────────────────────────────────────────────────────────────────
+  const blocking = guards.filter((g) => g.blocking);
+  const failed = blocking.filter((g) => !g.ok);
+  const go = failed.length === 0;
+
+  for (const g of guards) {
+    lines.push(`  ${g.ok ? 'PASS' : (g.blocking ? 'FAIL' : 'GAP ')}  ${g.name}${g.blocking ? '' : '  (non-blocking)'}`);
+    lines.push(`          ${g.detail}`);
+  }
+  lines.push('');
+  lines.push(go
+    ? `  VERDICT: GO — ${blocking.length} blocking guard(s) all green.`
+    : `  VERDICT: NO-GO — ${failed.length} of ${blocking.length} blocking guard(s) failed: ${failed.map((g) => g.name).join(', ')}`);
+  if (go) {
+    lines.push('');
+    lines.push('  Remaining out-of-band steps before the engine may change, in order:');
+    lines.push('    1. take and verify a backup:  node dsh-update/tools/backup-state.mjs');
+    lines.push('    2. apply the coupled config and the engine IN ONE STEP (the new package names do');
+    lines.push('       not exist on 0.1.5 and the old ones do not exist on 0.1.7), then');
+    lines.push('    3. verify the first boot on the new engine and confirm rollback is still possible.');
+  }
+
+  appendHistory({
+    verb: 'preflight', version, fromVersion: pin?.version ?? null, result: go ? 'GO' : 'NO-GO',
+    detail: guards.map((g) => `${g.name}=${g.ok ? 'pass' : (g.blocking ? 'FAIL' : 'gap')}`).join(' '),
+  });
+
+  return {
+    ok: go, exitCode: go ? 0 : 8, verb: 'preflight', version, go, guards,
+    blocking: blocking.length, failed: failed.map((g) => g.name),
+    text: lines.join('\n'),
+  };
+}
+
 async function verbHelp() {
   const lines = [];
   lines.push(`dsh-update ${VERSION} — safe DSH harness upgrades (${safeRelPath(ROOT)})`);
@@ -1189,6 +1454,8 @@ const VERBS = {
   analyze: verbAnalyze, plan: verbPlan, verify: verbVerify, promote: verbPromote,
   rollback: verbRollback, report: verbReport, help: verbHelp,
   'patch-effect': verbPatchEffect,
+  'preset-gate': verbPresetGate,
+  preflight: verbPreflight,
 };
 
 async function main() {
