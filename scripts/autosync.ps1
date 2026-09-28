@@ -483,8 +483,17 @@ try {
   $apply = (& $python (Join-Path $snapshot 'scripts\sync.py') 2>&1)
   $applyOk = ($LASTEXITCODE -eq 0)
   # A second, dry run from the same snapshot is the verification: 'WOULD' means it did not converge.
+  #
+  # -cmatch, NOT -match (fixed 2026-09-28). PowerShell's -match is case-INSENSITIVE, so this test also
+  # matched sync.py's two installer lines -- "client plugins: would run install-client-plugins.ps1" and
+  # "metrics sampler: would run Install-MetricsSampler.ps1" -- which are reported on EVERY run, in both
+  # modes, because a dry run cannot know whether an installer is already satisfied. Measured on
+  # ZABZ-TECH: "apply did NOT converge" was reported 290 times between 2026-09-16 and this fix, and the
+  # machine was unable to report `clean` at all after a successful pull. sync.py's own wording
+  # distinguishes the two cases deliberately: an upper-case WOULD CHANGE / WOULD UPDATE / WOULD CREATE
+  # is a pending write; a lower-case "would run <installer>" is an installer it cannot evaluate.
   $verify = (& $python (Join-Path $snapshot 'scripts\sync.py') --dry-run 2>&1)
-  $verifyOk = ($LASTEXITCODE -eq 0) -and -not ($verify -match 'WOULD')
+  $verifyOk = ($LASTEXITCODE -eq 0) -and -not ($verify -cmatch 'WOULD')
   $ErrorActionPreference = $prevEap
 
   if (-not $applyOk) {
