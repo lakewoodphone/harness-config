@@ -6,7 +6,7 @@ Updated: 2026-09-28
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 175 row(s) read, 17 pending, generated 2026-09-28 05:31 UTC on ZABZ-YOGA.
+Provenance: 181 row(s) read, 23 pending, generated 2026-09-28 16:34 UTC on SECRATARY.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -27,5 +27,11 @@ Provenance: 175 row(s) read, 17 pending, generated 2026-09-28 05:31 UTC on ZABZ-
 | 173 | 2026-09-27 | medium | Could you share your LabCorp results (2026-09-23) and the requisition list? I need them to proceed with this task. |  |
 | 174 | 2026-09-27 | medium | Moishe Bachrach (moshbachrach@gmail.com) reported a 'sim failure' on device #36. Since I need explicit approval to send customer-facing emails, how would you like me to respond to him? Should I ask him to bring the device in for a diagnostic, or is there a specific troubleshooting step you'd like him to try first? |  |
 | 175 | 2026-09-27 | medium | NJ DOL Form BC28 (Request for Separation Information) for Yisroel Weinberg is due — the 7-day window (mailed 09/18, due 09/25) has passed. The discharge reason is in no company record and only you can state it. What was the reason for Yisroel Weinberg's discharge on 2026-09-14? I need this to file the response at myunemployment.nj.gov/employerforms. If you'd prefer, I can draft the response with a |  |
+| 176 | 2026-09-28 | medium | I need to pay the overdue T-Mobile bill, but I do not have access to browser tools to process the payment. Could you please provide guidance on how to proceed, or should I delegate this to another department that has browser capabilities? |  |
+| 177 | 2026-09-28 | medium | Work order 'seed_ai_platform_monthly_review' was quarantined after 33 consecutive failed runs: broken prerequisite: the template names a path the worker reports as missing. FIX: check the path in the template against the worker's repo root -- on 2026-09-19 the AI-platform steps claimed scripts/ai_platform/*.py, tests/golden/gateway/run_golden.py and src/vscode-extension do not exist and all of the | FIX: check the path in the template against the worker's repo root -- on 2026-09-19 the AI-platform steps claimed scripts/ai_platform/*.py, tests/golden/gateway/run_golden.py and src/vscode-extension do not exist and all |
+| 178 | 2026-09-28 | medium | iOS needs money and a direction. Do I commit to it properly, or put it down and finish Android first? | Defer iOS. Android is the product with a customer path today and it has real, fixable defects; iOS needs a server that does not exist before its URL layer works at all. Deferring costs nothing that is not already spent - |
+| 179 | 2026-09-28 | medium | Moishe Bachrach (moshbachrach@gmail.com) asked: 'Do you confirm with Eliyahu before sending out your emails, or are you sending them out independently?' How would you like me to respond to this? |  |
+| 180 | 2026-09-28 | medium | Moishe Bachrach emailed about Device #36 displaying a SIM failure. I need your approval and guidance on how to reply. Should I tell him to bring it in for a check/repair? Also, since he previously asked if emails are confirmed with you, how would you like me to frame the response to handle this relationship-sensitively? |  |
+| 181 | 2026-09-28 | medium | Moishe Bachrach asked whether Daniel confirms with Eliyahu before sending out emails or sends independently. I have drafted the following reply: "Hi Moishe, Daniel operates as an autonomous assistant and handles most communications independently based on established guidelines, but he does confirm with Eliyahu for sensitive or high-leverage matters before sending anything out." Does this draft loo |  |
 
 Closed since the queue opened: 158. Answered questions move to `entries/decisions/` with the owner's own words.
