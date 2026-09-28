@@ -53,6 +53,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+import os
 
 HERE = Path(__file__).resolve().parent
 
@@ -541,6 +542,50 @@ def cmd_run(args) -> int:
                         f"awaited reply -> wake: {aw['what'][:110]}")
                 continue
 
+        # ---------------------------------------------------------------------------
+        # THE OWNER'S OWN TEXT IS A WORK ORDER.
+        #
+        # Added 2026-09-28. Before this, an owner text became at best an owner-queue row asking
+        # him about himself - so he still had to open a session to get anything done. Now a
+        # request or question from the owner files a real item in the work ledger and is tagged
+        # with the message sid, so the text and the item point at each other.
+        #
+        # It runs BEFORE the classify/decide path because the classification costs a model call
+        # and the ledger filing does not need one: "the owner asked for something" is not a
+        # judgement call, it is a fact about the sender.
+        # ---------------------------------------------------------------------------
+        if allow == "auto" and _is_owner_number(perm, r["from_number"]):
+            try:
+                filed = _file_owner_request(conn, r, body)
+            except Exception as exc:                      # never break the responder
+                print(f"    owner-request filing failed: {type(exc).__name__}: {exc}")
+                filed = None
+            if filed:
+                print(f"    filed as ledger item {filed['project']}#{filed['id']}")
+                _record(conn, r["sid"], "working", "owner-request",
+                        f"filed as ledger item {filed['project']}#{filed['id']}")
+                # ANSWER HIM. The reply carries the top unasked decision from his own queue,
+                # because he has twice called receipts pointless and 24 decisions sat pending with none
+                # ever asked. Silence when there is nothing to ask. Replaces the old acknowledgement.
+                _reply_with_top_question(conn, r["from_number"])
+                continue
+
+
+        # ---------------------------------------------------------------------------
+        # KEEP THE THREAD: record what we owe him and match his reply to it.
+        #
+        # Owner, 2026-09-28: "you have to really try to monitor that thread for when I respond and
+        # what you last sent out." A request from him that produced a ledger item is a PROMISE, and
+        # `jobs` is this store's record of promises (phone, claim, answer, state, evidence). Closing
+        # the oldest open job for his number with his own words is what turns a pile of texts into a
+        # conversation a future reader can follow.
+        # ---------------------------------------------------------------------------
+        if _is_owner_number(perm, r["from_number"]):
+            try:
+                _track_owner_thread(conn, r, body)
+            except Exception as exc:
+                print(f"    owner thread tracking failed: {type(exc).__name__}: {exc}")
+
         if allow == "never":
             print("    never - recorded, not answered")
             conn.execute("UPDATE messages SET state='ignored', decided_by='policy', "
@@ -868,6 +913,225 @@ def cmd_learn(args) -> int:
         print("(re-run with --apply to write them)")
     return 0
 
+
+
+# --------------------------------------------------------------------------- #
+# THE OWNER'S TEXTS BECOME LEDGER ITEMS
+# --------------------------------------------------------------------------- #
+WORK_CLI = os.environ.get("WORK_CLI") or str(Path.home() / "bin" / "work.py")
+
+
+def _is_owner_number(perm: dict, phone: str) -> bool:
+    """True only for the owner's own numbers. Both sources are deliberate: the ledger's
+    relationship, and OWNER_PHONE_NUMBER. A context that merely SAYS 'owner' is not trusted."""
+    if (perm.get("relationship") or "").lower().startswith("owner"):
+        return True
+    env_owner = os.environ.get("OWNER_PHONE_NUMBER")
+    if env_owner:
+        strip = lambda s: re.sub(r"\D", "", s or "")[-10:]  # noqa: E731
+        if strip(env_owner) and strip(env_owner) == strip(phone):
+            return True
+    return False
+
+
+def _guess_project(body: str) -> tuple:
+    """(project_id, why). A text may name its own project; otherwise the honest default is the
+    project that owns housekeeping, and the reason says so rather than implying a guess was a fact."""
+    b = (body or "").lower()
+    named = [
+        (("website", "lpt website", "www", "portal", "storefront", "homepage"), "lpt-website"),
+        (("filter", "kosher", "content filter", "blocking"), "kosher-ai-filter"),
+        (("sync", "dialpad", "hub", "production db", "database"), "lpt-sync"),
+        (("cfo", "quickbooks", "books", "invoice", "payroll"), "cfo"),
+        (("personality",), "personality-system"),
+        (("rental", "rent"), "rental-system"),
+        (("bible", "chumash", "codes"), "chumash"),
+    ]
+    for words, pid in named:
+        for w in words:
+            if w in b:
+                return pid, f"the text names '{w}'"
+    return "housekeeping", "no project was named in the text, so it defaults to housekeeping"
+
+
+def _one_line(s: str, n: int = 140) -> str:
+    return " ".join((s or "").split())[:n]
+
+
+def _file_owner_request(conn, row, body: str) -> dict | None:
+    """File the owner's request as a ledger item. Returns {'id':..,'project':..} or None.
+
+    DEDUPE IS THE LEDGER'S JOB, not this function's: `work.py add` refuses a second open item with
+    the same title and returns the existing id, which is exactly the "don't do the same work twice"
+    guard the owner asked for. So a repeated text does not create a second shift.
+    """
+    text = _one_line(body, 200)
+    if len(text) < 8:
+        return None                      # "ok", "?" and similar are conversation, not work
+    project, why = _guess_project(body)
+    title = "owner asked by text: %s" % text
+    dod = ("the requester's question is answered with evidence - quote the command, the file or "
+           "the source that settles it - and the answer is written back to the ledger item")
+    cmd = ["python3", WORK_CLI, "add",
+           "--project", project, "--title", title, "--dod", dod,
+           "--why", "%s (message %s from %s at %s)" % (why, row["sid"], row["from_number"], row["date_sent"]),
+           # PRIORITY 1, NOT 3. Measured 2026-09-28: with 3, the owner's own 15:57 text was still unclaimed
+           # seven hours later, behind #8 (p0), #54 and #65 (p1) and a queue of p2 project items - so his
+           # request changed nothing while the log looked like a response. He noticed and said "nothing
+           # responded". An owner request outranks every project and integration item; only the SMS channel's
+           # own repair sits above it. Do not lower this without a measurement.
+           "--priority", "1", "--source", "owner-sms"]
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    out = (p.stdout or "").strip()
+    m = re.search(r'"(?:id|item)":\s*(\d+)', out)
+    if not m:
+        print("    work.py add said: %s" % (out[:160] or p.stderr[:160]))
+        return None
+    return {"id": int(m.group(1)), "project": project, "already": "already-filed" in out}
+
+
+
+def _track_owner_thread(conn, row, body: str) -> None:
+    """Close the oldest open promise for this phone with his reply, or open one from a request.
+
+    NEVER raises into the caller: this is bookkeeping around the conversation, and a bookkeeping
+    failure must not stop a tick that has real work to do.
+    """
+    try:
+        cols = {c[1] for c in conn.execute("PRAGMA table_info(jobs)").fetchall()}
+    except Exception:
+        return                                  # no jobs table: nothing to track, not an error
+    if not cols:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    phone = row["from_number"]
+    try:
+        open_job = conn.execute(
+            "SELECT id, claim FROM jobs WHERE phone=? AND state IN ('open','running') "
+            "ORDER BY id LIMIT 1", (phone,)).fetchone()
+        # A short reply to an open promise is his ANSWER. A long one is new material.
+        if open_job and len((body or "").split()) <= 40:
+            conn.execute("UPDATE jobs SET state='done', answer=?, updated_at=?, "
+                         "evidence=coalesce(evidence,'') || ? WHERE id=?",
+                         (body[:600], now,
+                          "\n[closed by inbound %s at %s]" % (row["sid"], row["date_sent"]),
+                          open_job[0]))
+            conn.commit()
+            print("    closed promise #%s with his reply" % open_job[0])
+            return
+        # Otherwise, if this text produced work, open a promise for it.
+        if len((body or "").strip()) >= 8:
+            claim = "answer this: %s" % " ".join((body or "").split())[:180]
+            conn.execute(
+                "INSERT INTO jobs(phone, inbound_sid, claim, state, created_at, updated_at) "
+                "VALUES(?,?,?,'open',?,?)",
+                (phone, row["sid"], claim, now, now))
+            conn.commit()
+            print("    opened a promise for his request")
+    except Exception as exc:
+        print("    thread bookkeeping skipped: %s: %s" % (type(exc).__name__, exc))
+
+
+def _reply_with_top_question(conn, phone: str) -> bool:
+    """Reply to the owner with the TOP UNASKED decision from his own queue. True if something was sent.
+
+    WHY THIS EXISTS, in his words: he texted "Text me the top question you have for me right now" and, before
+    that, "Are you sure you're even replying to someone?" - while 24 decisions sat pending, the oldest from
+    2026-09-16, and not one had ever been texted. The old acknowledgement said "Got it - filed as
+    housekeeping#76", which is a message he has twice called pointless.
+
+    SO THE REPLY CARRIES THE QUESTION. It is already written, already ranked, and already has a
+    recommendation attached. Every owner text becomes one question and nothing else, which is his stated
+    preference: "ask me one at a time".
+
+    SILENCE WHEN THERE IS NOTHING TO ASK. A reply that carries no question, no warning and no deadline is
+    the thing we were told not to send.
+    """
+    import json as _json
+    import subprocess as _sp
+    import os as _os
+    queue = _os.environ.get("OWNER_QUEUE_CLI") or str(Path.home() / "bin" / "owner-queue.py")
+    try:
+        raw = _sp.run(["python3", queue, "list", "--json"], capture_output=True, text=True,
+                      timeout=60).stdout
+        rows = _json.loads(raw or "[]")
+        if isinstance(rows, dict):
+            rows = rows.get("rows") or rows.get("items") or []
+    except Exception as exc:
+        print(f"    queue read failed: {type(exc).__name__}: {exc}")
+        return False
+
+    # RANK BY DATED CONSEQUENCE, not by recency: a collector and a closing window outrank a fresh idea.
+    SIGNALS = [("collector", 6), ("collections", 6), ("revoked", 6), ("revocation", 6), ("overdue", 5),
+               ("no cover", 5), ("lapsed", 4), ("suspend", 5), ("past the", 4), ("deadline", 5),
+               ("expires", 4), ("penalt", 4), ("owed", 3), ("final", 3)]
+    cands = []
+    for r in rows:
+        if str(r.get("status")) != "pending":
+            continue
+        # NEVER ASK THE SAME QUESTION TWICE.
+        if "asked_by_text" in (r.get("context") or "") or r.get("asked_at_text"):
+            continue
+        q = (r.get("question") or "")
+        low = q.lower()
+        score = sum(w for sig, w in SIGNALS if sig in low)
+        if re.search(r"\b\d{2,}", q):
+            score += 2
+        if not q.strip():
+            continue
+        cands.append((score, -int(r.get("id") or 0), r))
+    if not cands:
+        print("    no unasked owner question - staying silent rather than sending a receipt")
+        return False
+    cands.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    row = cands[0][2]
+
+    question = " ".join((row.get("question") or "").split())
+    rec = " ".join((row.get("recommendation") or "").split())
+    body = question if not rec else f"{question} I recommend: {rec}"
+    if len(body) > 300:
+        body = body[:297].rstrip() + "..."
+
+    try:
+        import importlib.util as _il
+        spec = _il.spec_from_file_location("textsend", str(Path.home() / "bin" / "textsend.py"))
+        ts = _il.module_from_spec(spec)
+        spec.loader.exec_module(ts)
+        res = ts.send(phone, body, dry_run=False)
+        print(f"    replied with queue #{row.get('id')}: {body[:70]}")
+        # STAMP IT ASKED so it is never repeated, and record that the ask happened by text.
+        try:
+            _sp.run(["python3", queue, "defer", str(row.get("id")),
+                     "--note", "asked_by_text %s - put to him by SMS; awaiting his reply"
+                     % datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")],
+                    capture_output=True, text=True, timeout=60)
+        except Exception as exc:
+            print(f"    (asked, but could not stamp it as asked: {type(exc).__name__})")
+        return True
+    except Exception as exc:
+        print(f"    reply failed: {type(exc).__name__}: {exc}")
+        return False
+
+def _ack_owner_request(phone: str, filed: dict, body: str) -> None:
+    """Send the owner a one-line acknowledgement. OFF unless AITEXT_ACK_OWNER_REQUESTS=1.
+
+    WRITTEN BUT NOT ENABLED, deliberately: nothing in this system sends the owner anything until
+    he has approved that behaviour, and he has not. See
+    ~/code/harness-config/docs/outbound-comms-hard-stop.md.
+    """
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("textsend", str(Path.home() / "bin" / "textsend.py"))
+        ts = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ts)
+        if filed.get("already"):
+            body_out = "Already on it (%s#%d)." % (filed["project"], filed["id"])
+        else:
+            body_out = "Got it - filed as %s#%d." % (filed["project"], filed["id"])
+        ts.send(phone, body_out, dry_run=False)
+        print("    acknowledged to the owner")
+    except Exception as exc:
+        print(f"    ack failed: {type(exc).__name__}: {exc}")
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
