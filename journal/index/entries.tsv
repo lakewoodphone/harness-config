@@ -1824,6 +1824,7 @@ lessons	L2912	2912		2026-09-28	ZABZ-YOGA	open	**L2912 · FastAPI's lifespan rebu
 lessons	L2913	2913		2026-09-28	ZABZ-YOGA	open	**L2913 · Measure which rate-limit policy a route resolves to before believing its budget name**	entries/lessons/L2913.md	1	8	39a3b18a1df8d3c2
 lessons	L2976	2976		2026-09-28	ZABZ-TECH	open	**L2976 · For a venue's proprietary mechanics the players are the source, not the marketing - I invented a difficulty system that does not exist**	entries/lessons/L2976.md	1	41	0897f59a4e0b7664
 lessons	L2977	2977		2026-09-28	ZABZ-TECH	open	**L2977 · gh can be logged out of its own account while ~/.git-credentials still holds working tokens - repair in one line**	entries/lessons/L2977.md	1	44	22cac93ac355d32d
+lessons	L3047	3047		2026-09-28	SECRATARY	open	**L3047 · A route under time pressure needs the clock and the live observation, not the forecast**	entries/lessons/L3047.md	1	18	fffa473745f3177b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
