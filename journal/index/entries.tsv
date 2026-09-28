@@ -1,5 +1,4 @@
 kind	id_full	num	suffix	date	host	status	heading	file	line_start	line_end	hash
-handoff		0		-	-	open		entries/handoff/H2778.md	1	161	
 handoff	H1	1		2026-09-11	ZABZ-YOGA	done	## 2026-09-11 · ZABZ-YOGA · Built the conversational CEO and its memory	entries/handoff/H1.md	1	126	03622a1e887387ee
 handoff	H2	2		2026-09-11	ZABZ-YOGA	open	## 2026-09-11 · ZABZ-YOGA · Kosher Waze portal built (customer + staff); staging is a dead target	entries/handoff/H2.md	1	62	86e3f87e042716a6
 handoff	H3	3		2026-09-11	ZABZ-YOGA	done	## 2026-09-11 · ZABZ-YOGA · All three named defects closed; only the staging verification remains	entries/handoff/H3.md	1	53	b3ca780621082381
@@ -673,7 +672,8 @@ handoff	H2773	2773		2026-09-28 04:26 UTC	ZABZ-YOGA	open	## 2026-09-28 04:26 UTC 
 handoff	H2774	2774		2026-09-28 04:47 UTC	ZABZ-YOGA	open	## 2026-09-28 04:47 UTC · ZABZ-YOGA · Yocheved end-to-end: engine revived, and the REAL cause was two unguarded sync writers that re-armed the defect every 15 minutes	entries/handoff/H2774.md	1	53	898557525f2bcd64
 handoff	H2775	2775		2026-09-28 05:00 UTC	ZABZ-YOGA	open	## 2026-09-28 05:00 UTC · ZABZ-YOGA · Company evolution fleet in flight - 10 workstreams LOCAL, live tree preserved, monitor fixed, awaiting integration	entries/handoff/H2775.md	1	82	f256bab22abc8434
 handoff	H2776	2776		2026-09-28 05:39 UTC	ZABZ-YOGA	open	## 2026-09-28 05:39 UTC · ZABZ-YOGA · kosher-filter-ai: ten days frozen on main; integration base cut, five workstreams in flight	entries/handoff/H2776.md	1	66	85c708b1821cfefd
-handoff	H2777b	2777	b	2026-09-28 05:56 UTC	ZABZ-YOGA	open	## 2026-09-28 05:56 UTC Â· ZABZ-YOGA Â· Company evolution - first deploy landed and verified; monitor and owner surface moved, two agent claims falsified	entries/handoff/H2777b.md	1	77	ba5d72e5f3147f76
+handoff	H2777b	2777	b	2026-09-28 05:56 UTC	ZABZ-YOGA	open	## 2026-09-28 05:56 UTC · ZABZ-YOGA · Company evolution - first deploy landed and verified; monitor and owner surface moved, two agent claims falsified	entries/handoff/H2777b.md	1	77	ae8881f529b6031b
+handoff	H2778	2778		2026-09-28 06:17 UTC	ZABZ-YOGA	open	## 2026-09-28 06:17 UTC · ZABZ-YOGA · Staff 'More apps' launcher built and verified live on test as ADMIN; origin/test fast-forwarded to it; two orchestration errors of mine recorded	entries/handoff/H2778.md	1	99	13f271a929edc048
 handoff	H2779	2779		2026-09-28 06:25 UTC	ZABZ-YOGA	open	## 2026-09-28 06:25 UTC · ZABZ-YOGA · kosher-filter-ai: main moved for the first time in ten days, and the guards it depended on were red	entries/handoff/H2779.md	1	89	1df6b97445ce029f
 handoff	H2780	2780		2026-09-28 06:26 UTC	ZABZ-YOGA	open	## 2026-09-28 06:26 UTC · ZABZ-YOGA · Company evolution - deploy 1 LIVE and validated; W1/W6/FU1/FU2 built and merged but held; exact blockers named	entries/handoff/H2780.md	1	83	36088329c2351ba5
 handoff	H2781	2781		2026-09-28 06:27 UTC	ZABZ-YOGA	open	## 2026-09-28 06:27 UTC · ZABZ-YOGA · Company evolution - deploy 1 LIVE and validated; W1/W6/FU1/FU2 built and merged but held; exact blockers named	entries/handoff/H2781.md	1	83	4d18d2448583bd57
@@ -682,14 +682,13 @@ handoff	H2783	2783		2026-09-28 16:46 UTC	ZABZ-YOGA	open	## 2026-09-28 16:46 UTC 
 handoff	H2784	2784		2026-09-28 16:49 UTC	ZABZ-YOGA	open	## 2026-09-28 16:49 UTC · ZABZ-YOGA · The boot gate now runs unattended on Yoga, ZABZ-TECH and secratary - verified by running, not by registering	entries/handoff/H2784.md	1	56	bee10b6864f395ae
 handoff	H2785	2785		2026-09-28 16:51 UTC	ZABZ-YOGA	open	## 2026-09-28 16:51 UTC · ZABZ-YOGA · Post-freeze: More apps live on test, employee tier gone, test DB is an exact prod copy, migration history DIVERGED in both DBs, and two wake-loop defects fixed (426-commit-stale checkout + a 12-day stale git lock)	entries/handoff/H2785.md	1	103	1408d233181cc817
 handoff	H2786	2786		2026-09-28 16:53 UTC	ZABZ-YOGA	open	## 2026-09-28 16:53 UTC · ZABZ-YOGA · Round 3 - the closed-database producer is dead (15/hr to 0, verified); two of my own gates were testing a stale revision	entries/handoff/H2786.md	1	90	f4ce30e9b784101f
-handoff	H2777	2777		2026-09-28 17:01 UTC	SECRATARY	open	## 2026-09-28 17:01 UTC Â· SECRATARY Â· Round: kernel 4 attention -> 2; config_sync and comms_freshness closed, and 51 duplicate journal ids found	entries/handoff/H2777.md	1	69	5afbc91b52601521
+handoff	H2777	2777		2026-09-28 17:01 UTC	SECRATARY	open	## 2026-09-28 17:01 UTC · SECRATARY · Round: kernel 4 attention -> 2; config_sync and comms_freshness closed, and 51 duplicate journal ids found	entries/handoff/H2777.md	1	69	8f3f9749de5555a8
 handoff	H2787	2787		2026-09-28 17:03 UTC	ZABZ-YOGA	open	## 2026-09-28 17:03 UTC · ZABZ-YOGA · Round 4 - every deployed workstream measured: W4 quarantine fired, W6 premium 48.6% to 0.0%, W8 new memories vectorized, locks collapsed	entries/handoff/H2787.md	1	62	670b19d70b238e0f
 handoff	H2788	2788		2026-09-28 17:07 UTC	ZABZ-YOGA	open	## 2026-09-28 17:07 UTC · ZABZ-YOGA · /apps rendered in a real browser as ADMIN - the four-state honesty rule working live; test DB migration divergence closed and verified; production deliberately NOT migrated (would not fix the funnel, not purely additive)	entries/handoff/H2788.md	1	90	3c88390b3c8aad69
 handoff	H2789	2789		2026-09-28 17:09 UTC	ZABZ-YOGA	open	## 2026-09-28 17:09 UTC · ZABZ-YOGA · Contention root cause fixed and measured: unbounded _db_lock acquire leaked threadpool workers; probe timeouts 32% -> 0	entries/handoff/H2789.md	1	76	2178de4d7a25e2e8
 handoff	H2790	2790		2026-09-28 17:12 UTC	ZABZ-YOGA	open	## 2026-09-28 17:12 UTC · ZABZ-YOGA · Contention fix confirmed: probe failures 31.7% -> 0%, 0 lock-contention lines; FTS5 write-lock scan and ANALYZE deferred to a maintenance window	entries/handoff/H2790.md	1	59	60ba5932aae353bb
 handoff	H2791	2791		2026-09-28 17:19 UTC	ZABZ-YOGA	open	## 2026-09-28 17:19 UTC · ZABZ-YOGA · kosher-filter-ai: main moved, both guards repaired, and a P0 that stopped a SQLite boot	entries/handoff/H2791.md	1	101	7afab1aa9a44d7c9
-lessons		0		-	-	open		entries/lessons/L2785.md	1	83	
-lessons		0		-	-	open		entries/lessons/L2786.md	1	63	
+handoff	H2778b	2778	b	2026-09-28 17:31 UTC	SECRATARY	open	## 2026-09-28 17:31 UTC · SECRATARY · checkout-health alarm built, proven four ways, wired and live	entries/handoff/H2778b.md	1	59	33b73fc9e9b95fef
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1774,8 +1773,12 @@ lessons	L2614b	2614	b	2026-09-28	ZABZ-YOGA	open	**L2614b · Existence is not eno
 lessons	L2615	2615		2026-09-28	ZABZ-YOGA	open	**L2615 · The staff console advertises an EMPLOYEE role that cannot exist - and the frontend type is what hides it**	entries/lessons/L2615.md	1	64	e0012a8b31543999
 lessons	L2616	2616		2026-09-28	ZABZ-YOGA	open	**L2616 · output_log LIKE '%[WORK_DONE]%' is a false positive - the failure marker embeds the success marker (693/735 vs the true 376/735)**	entries/lessons/L2616.md	1	45	34cb450caaa1369f
 lessons	L2617	2617		2026-09-28	ZABZ-YOGA	open	**L2617 · A subagent brief naming a machine-local path is a landmine - the broker picks the node, and that node's disk is not yours**	entries/lessons/L2617.md	1	72	af01da6b7bec3f34
-lessons	L2784	2784		2026-09-28	SECRATARY	open	**L2784 Â· A full tmpfs /tmp kills shell heredocs silently: thirteen hours of missed calls, reported as a freshness metric**	entries/lessons/L2784.md	1	47	01083735a540c6b1
-lessons	L2784b	2784	b	2026-09-28	ZABZ-YOGA	open	**L2784 Â· A liveness test must count overlap, never a wall-clock ratio**	entries/lessons/L2784b.md	1	39	7e72e9f807a00d2f
+lessons	L2784	2784		2026-09-28	SECRATARY	open	**L2784 · A full tmpfs /tmp kills shell heredocs silently: thirteen hours of missed calls, reported as a freshness metric**	entries/lessons/L2784.md	1	47	b68ec52a9cbe8953
+lessons	L2784b	2784	b	2026-09-28	ZABZ-YOGA	open	**L2784b · A liveness test must count overlap, never a wall-clock ratio**	entries/lessons/L2784b.md	1	37	bf1d52e0fb00ad70
+lessons	L2785	2785		2026-09-28	ZABZ-YOGA	open	**L2785 · The iOS blocker was never a Mac: the recorded plan and the code are two different products, and the URL layer needs a server the plan says not to build**	entries/lessons/L2785.md	1	46	e2c340aab7e40453
+lessons	L2785b	2785	b	2026-09-28	SECRATARY	open	**L2785b · pgrep -f 'git ' cannot answer 'is this checkout lock held', and /proc can**	entries/lessons/L2785b.md	1	34	b2b54f82a7e993f2
+lessons	L2786	2786		2026-09-28	ZABZ-YOGA	open	**L2786 · A source-scan guard can be satisfied by a comment; scan code lines outside the owning package**	entries/lessons/L2786.md	1	27	3c04a25229144831
+lessons	L2786b	2786	b	2026-09-28	SECRATARY	open	**L2786b · A store-writing test command must carry SMS_INBOX_DB, or it files into the owner's live queue**	entries/lessons/L2786b.md	1	33	e3a93246709229f6
 lessons	L2787	2787		2026-09-28	ZABZ-YOGA	open	**L2787 · A per-branch test gate is a false green - gate on the pre-existing tests that touch the same modules too**	entries/lessons/L2787.md	1	40	8b1c3f9ed3a3e70e
 lessons	L2788	2788		2026-09-28	ZABZ-YOGA	open	**L2788 · State the premise when a time word is ambiguous - solved Sunday night when he meant Monday evening, 2026-09-28**	entries/lessons/L2788.md	1	18	2b543dce5f70d1a2
 lessons	L2789	2789		2026-09-28	ZABZ-YOGA	open	**L2789 · A message must go to the phone the human actually reads: delivery target is not the identity field**	entries/lessons/L2789.md	1	39	31726621719db1d4
@@ -1789,7 +1792,6 @@ lessons	L2796	2796		2026-09-28	ZABZ-YOGA	open	**L2796 · A space-separated time 
 lessons	L2797	2797		2026-09-28	ZABZ-YOGA	open	**L2797 · A duplicate alembic revision id is a P0, not a test failure, and alembic merge cannot repair it**	entries/lessons/L2797.md	1	58	0cb30603b6e72a6b
 lessons	L2798	2798		2026-09-28	ZABZ-YOGA	open	**L2798 · A stale .git/index.lock silently freezes an autonomous checkout, and a frozen checkout looks identical to a healthy project**	entries/lessons/L2798.md	1	60	a0f5fec26c0e4527
 lessons	L2799	2799		2026-09-28	ZABZ-YOGA	open	**L2799 · A guard that walks the loaded alembic ScriptDirectory cannot detect a duplicate revision id - it passes on the broken tree**	entries/lessons/L2799.md	1	28	936bdb74bac6ed85
-pain		0		-	-	open		entries/pain/P2562.md	1	74	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2116,10 +2118,11 @@ pain	P2553	2553		2026-09-27	ZABZ-YOGA	open	## P2553 — P2560-disk-100pct: secra
 pain	P2554	2554		2026-09-28	ZABZ-YOGA	open	## P2554 — The mesh subagent provider fails deterministically - fleets must run LOCAL and say so	entries/pain/P2554.md	1	36	fd546d7570513bba
 pain	P2555	2555		2026-09-28	ZABZ-YOGA	open	## P2555 — The kosher-filter-ai product stopped moving on 2026-09-18 while finished work sat unmerged on branches	entries/pain/P2555.md	1	48	57cc03b956348772
 pain	P2561	2561		2026-09-28	SECRATARY	open	## P2561 â€” Ranked 2026-09-28: unmergeable journal ids, tmpfs /tmp, silent job failure, an owner queue that is partly mine	entries/pain/P2561.md	1	44	0fd78c362f9cd198
-pain	P2561b	2561	b	2026-09-28	ZABZ-YOGA	open	## P2561 â€” The journal's id bands are not exclusive, so two machines minted 37 ids that each mean two different entries	entries/pain/P2561b.md	1	59	0e0f290969cc43f9
+pain	P2561b	2561	b	2026-09-28	ZABZ-YOGA	open	## P2561b - The journal's id bands are not exclusive, so two machines minted 37 ids that each mean two different entries	entries/pain/P2561b.md	1	57	180952569a0216a0
+pain	P2562	2562		2026-09-28	ZABZ-YOGA	open	## P2562 — Frontend package lint is unboundedly slow in a fresh worktree and stalls the agent running it (measured 40+ min, twice)	entries/pain/P2562.md	1	52	d77246732170e702
+pain	P2562b	2562	b	2026-09-28	SECRATARY	open	## P2562b — A misfiled wake row cannot be withdrawn without writing the store by hand	entries/pain/P2562b.md	1	19	376a24ea53d72fe1
 pain	P2563	2563		2026-09-28	ZABZ-YOGA	open	## P2563 — Every automated guard in kosher-filter-ai has been red on main for ten days, and nothing surfaced it	entries/pain/P2563.md	1	52	a3317a038548a76e
 pain	P2564	2564		2026-09-28	ZABZ-YOGA	open	## P2564 — P-two-sessions-one-production-tree: concurrent deploys silently revert each other, and 'anchor missing' reads as 'already applied'	entries/pain/P2564.md	1	15	a47623a09525049d
-decisions		0		-	-	open		entries/decisions/D2658.md	1	75	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -2433,6 +2436,8 @@ decisions	D2654	2654		2026-09-27	zabz-yoga	open	**D2654 · 2026-09-27 · lpt/cf-
 decisions	D2655	2655		2026-09-28	ZABZ-YOGA	open	**D2655 · 2026-09-28 · Withdrawn: age-based pruning of dsh_session_events; exclude the FTS shadow tables from snapshots instead.**	entries/decisions/D2655.md	1	14	378bbe2446f0001e
 decisions	D2656	2656		2026-09-28	ZABZ-YOGA	open	**D2656 · 2026-09-28 · Household bathroom drains: no tub catcher (lift-and-turn plug), cheapest sink catchers, Zip-It for upkeep.**	entries/decisions/D2656.md	1	22	0c8e0c01bb27ba1c
 decisions	D2657	2657		2026-09-28	ZABZ-YOGA	open	**D2657 · 2026-09-28 · Company evolution program 2026-09-28 - ten workstreams, live-code base preserved first, LOCAL fleet, scorecard gates every claim.**	entries/decisions/D2657.md	1	49	5439c23ccf552f0b
+decisions	D2658	2658		2026-09-28	ZABZ-YOGA	open	**D2658 · 2026-09-28 · Contention fix plan: bound _get_conn's second acquire, give the health probe a dedicated connection, separate busy from broken, cap watchdog restarts.**	entries/decisions/D2658.md	1	30	cc5a625fffbd163b
+decisions	D2658b	2658	b	2026-09-28	SECRATARY	open	**D2658b · 2026-09-28 · checkout-health: a new wake source for the project checkouts, with measured thresholds.**	entries/decisions/D2658b.md	1	42	e7a0720de907a0eb
 decisions	D2659	2659		2026-09-28	ZABZ-YOGA	open	**D2659 · 2026-09-28 · Production schema migration is HELD - per-migration classification, and the A2P campaign-sample question that decides it.**	entries/decisions/D2659.md	1	51	30040df75ab13412
 decisions	D2660	2660		2026-09-28	SECRATARY	open	**D2660 · 2026-09-28 · Weinberg: he resigned, the vacation week was unpaid, and the settlement is half a week.**	entries/decisions/D2660.md	1	30	deb729337cffda3c
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
