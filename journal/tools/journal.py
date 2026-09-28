@@ -2866,12 +2866,20 @@ def git_max(kind: str, fetch: bool = False):
     if fetch:
         try:
             subprocess.run(["git", "-C", str(repo), "fetch", "--quiet", "--all"],
-                           capture_output=True, timeout=25)
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=25)
         except Exception:
             pass
     try:
+        # EVERY git call that DECODES TEXT pins utf-8/replace. A git call left on the
+        # locale codec (cp1252 on Windows) dies in its reader thread with
+        # `UnicodeDecodeError: 'charmap' codec ...` while the write itself succeeded --
+        # a visible crash over a silent success, and the natural retry is what minted
+        # duplicate ids (journal P2607). `_git()` and `_git_with_input()` were already
+        # pinned; this `rev-parse` and the `fetch` above were the last two stragglers.
         rc = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
-                            capture_output=True, text=True, timeout=15)
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=15)
         rev = rc.stdout.strip() or "no-git"
     except Exception:
         pass
