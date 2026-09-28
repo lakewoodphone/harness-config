@@ -275,6 +275,7 @@ handoff	H365	365		2026-09-16 00:52 UTC	ZABZ-YOGA	open	## 2026-09-16 00:52 UTC ·
 handoff	H366	366		2026-09-16 01:13 UTC	ZABZ-YOGA	open	## 2026-09-16 01:13 UTC · ZABZ-YOGA · journal.py was mojibake again and corrupting other sessions entries; repaired with the cp1252 inverse (not latin-1) and the writer now refuses to emit mojibake; check 1095 -> 0 errors	entries/handoff/H366.md	1	57	0272921d9423af7e
 handoff	H367	367		2026-09-16 13:33 UTC	DESKTOP-FGV6KMH	open	## 2026-09-16 13:33 UTC · DESKTOP-FGV6KMH · Daily note from DESKTOP-FGV6KMH	entries/handoff/H367.md	1	31	eeb01e73aef92925
 handoff	H368	368		2026-09-17 22:16 UTC	DESKTOP-FGV6KMH	open	## 2026-09-17 22:16 UTC · DESKTOP-FGV6KMH · Daily note from DESKTOP-FGV6KMH	entries/handoff/H368.md	1	20	90fdb2dab0490781
+handoff	H369	369		2026-09-28 16:04 UTC	DESKTOP-FGV6KMH	open	## 2026-09-28 16:04 UTC · DESKTOP-FGV6KMH · Daily note from DESKTOP-FGV6KMH	entries/handoff/H369.md	1	20	6bd3be11b64aabcc
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
