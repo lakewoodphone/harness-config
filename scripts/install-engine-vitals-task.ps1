@@ -72,16 +72,22 @@ $action = New-ScheduledTaskAction -Execute $wscript -Argument "//B //NoLogo `"$l
 # Indefinite repetition: -RepetitionDuration is deliberately omitted. [TimeSpan]::MaxValue
 # is out of range for the task XML ("Duration:P99999999DT23H59M59S" is rejected), and the
 # existing 'DSH Engine Watchdog (1m)' omits it for the same reason.
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes 1 `
+#
+# The parentheses around the -At expression are load-bearing: `-At (Get-Date).AddMinutes 1`
+# is parsed as an argument list containing the METHOD rather than its result, and throws
+# "Cannot convert ... PSMethod ... to type System.DateTime". That bug shipped once here and
+# left the task unregistered, because the unregister above it had already succeeded.
+$trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) `
     -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" `
     -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes ([Math]::Max(2, $IntervalMinutes - 1)))
 
-if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-}
+# -Force replaces an existing task in one step. An explicit Unregister-ScheduledTask
+# FIRST would be a hazard, not tidiness: it opens a window in which no task exists, and a
+# later failure (the -At bug above did exactly this) leaves the machine with no instrument
+# at all. Verified by the uninstall/reinstall round trip in the header comment.
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
     -Principal $principal -Settings $settings -Force | Out-Null
 
