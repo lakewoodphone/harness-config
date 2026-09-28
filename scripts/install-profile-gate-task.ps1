@@ -36,7 +36,7 @@ param(
     [string] $DshHome,
     [string] $Node,
     # S4U by default: runs whether or not the user is logged on (see the note at the principal).
-    [ValidateSet('S4U', 'Interactive', 'Password')]
+    [ValidateSet('S4U', 'Interactive', 'Password', 'ServiceAccount')]
     [string] $LogonType = 'S4U',
     [switch] $Uninstall,
     [switch] $RunNow
@@ -125,6 +125,10 @@ $trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(-1)) `
 # worthless: that is when a silent engine outage goes unnoticed. S4U runs whether or not the user
 # is logged on and needs no stored password. These checks are headless, so they lose nothing.
 $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+# Auto-selected, not passed: an installer driven by the exec API runs as SYSTEM, and asking for S4U
+# on the SYSTEM account is wrong -- a service account needs LogonType ServiceAccount. The caller
+# cannot be expected to know which context it is in, so the script decides.
+if ($identity -ieq 'NT AUTHORITY\SYSTEM') { $LogonType = 'ServiceAccount' }
 $principal = New-ScheduledTaskPrincipal -UserId $identity `
     -LogonType $LogonType -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
