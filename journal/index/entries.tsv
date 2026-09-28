@@ -2352,6 +2352,7 @@ decisions	D2655	2655		2026-09-28	ZABZ-YOGA	open	**D2655 · 2026-09-28 · Withdra
 decisions	D2656	2656		2026-09-28	ZABZ-YOGA	open	**D2656 · 2026-09-28 · Household bathroom drains: no tub catcher (lift-and-turn plug), cheapest sink catchers, Zip-It for upkeep.**	entries/decisions/D2656.md	1	22	0c8e0c01bb27ba1c
 decisions	D2657	2657		2026-09-28	ZABZ-YOGA	open	**D2657 · 2026-09-28 · Company evolution program 2026-09-28 - ten workstreams, live-code base preserved first, LOCAL fleet, scorecard gates every claim.**	entries/decisions/D2657.md	1	49	5439c23ccf552f0b
 decisions	D2658	2658		2026-09-28	SECRATARY	open	**D2658 · 2026-09-28 · checkout-health: a new wake source for the project checkouts, with measured thresholds.**	entries/decisions/D2658.md	1	42	c51e8e9768743010
+decisions	D2660	2660		2026-09-28	SECRATARY	open	**D2660 · 2026-09-28 · Weinberg: he resigned, the vacation week was unpaid, and the settlement is half a week.**	entries/decisions/D2660.md	1	30	deb729337cffda3c
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
