@@ -1,0 +1,22 @@
+# dsh-update runtime state and fetched installs -- never commit.
+#
+# WHY A NESTED .gitignore RATHER THAN LINES IN THE REPO ROOT
+# These two directories are large and machine-local, and the reason each is ignored is specific to
+# this subsystem, so the statement belongs next to the thing it describes.
+#
+#   state/   pin, baseline, per-candidate analysis, the append-only history, engine logs, and -- for
+#            any verify run that booted an engine -- a COPIED .credentials.yaml inside
+#            state/candidates/<ver>/home/. That copy is already excluded by the repo-root
+#            `.credentials.yaml` pattern (verified with `git check-ignore`: matches at any depth),
+#            but it must not rely on that alone: `state/` is ignored wholesale so a secret can never
+#            enter git through a path nobody thought about. `verify.mjs` should stop copying it and
+#            pass the key through the child environment instead -- see SPEC.md section C14. Until
+#            then, this file is the mitigation.
+#
+#   vendor/  a real `npm install` of a candidate, ~215 MB and 25,000 files for one version. It is
+#            reproducible from `fetch <version>` and must never be committed.
+#
+# The pipeline's SOURCE (SPEC.md, README.md, bin/, lib/, tests/) is deliberately NOT ignored: it is
+# the part that must reach every machine.
+state/
+vendor/

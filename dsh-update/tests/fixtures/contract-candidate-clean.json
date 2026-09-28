@@ -1,0 +1,1604 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-23T20:00:00.000Z",
+  "host": "ZABZ-TECH",
+  "installRoot": "C:\\Users\\ezabz\\AppData\\Local\\npm-cache\\_npx\\1e7f6d9597241db0",
+  "dsh": {
+    "name": "@deepseek-ai/dsh",
+    "version": "0.1.7-rc.1",
+    "bin": {
+      "dsh": "lib/bin.js"
+    },
+    "exports": {},
+    "exportSubpaths": [],
+    "repository": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "dsh": {
+      "configTrees": [
+        {
+          "mount": "config/agent-presets",
+          "path": "../../packages/preset/agent-presets/presets",
+          "scanRoster": true
+        }
+      ]
+    },
+    "dependencies": {
+      "commander": "^15.0.0",
+      "js-yaml": "^4.2.0",
+      "node-addon-require-builtin": "^0.1.4",
+      "@deepseek-ai/cordis": "^4.0.2",
+      "@deepseek-ai/cordis-plugin-hmr": "^1.0.17",
+      "@deepseek-ai/cordis-plugin-include": "^1.0.7",
+      "@deepseek-ai/cordis-plugin-loader": "^1.0.3",
+      "@deepseek-ai/cordis-plugin-timer": "^1.1.4",
+      "@deepseek-ai/dsh-acp-app": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-agent-instructions": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-agent-tool-presentation": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-app-boot": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-client-ui-agent-preset": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-base": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-client-ui-cordis": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-command-goal": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-compaction-basic": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-compaction-tool-result-pruner": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-cordis-client-runner": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-fs-local": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-goal": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-goal-round-driver": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-headless": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-home-paths": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-hooks-claude-code": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-hooks-codex": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-launch-environment": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-mcp-client": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-pwsh-local": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-jobs-local": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-pwsh-sandbox": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-schedule": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-sdk-app": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-sdk-minimal": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-session-reference": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-skill": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-skill-filesystem": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-terminal": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-session-projection": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-cmdline": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-command-compact": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tmux-context": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-token-meter": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-ask-user": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-bash": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-cordis": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-present": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-fs": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-fs-search": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-goal": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-jobs": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-pwsh": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-plan-mode": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-persona": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-pwsh-persistent": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-ralph": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-skill": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-str-replace-editor": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-subagent": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-todo": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-web": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-workflow": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-web-app": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-terminal-bash": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-time-context": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-workflow-worker-thread": "^0.1.5-rc.1",
+      "@deepseek-ai/schemastery": "^3.18.2",
+      "@deepseek-ai/dsh-tool-subagent-control": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-http-proxy": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-tool-bash-persistent": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-webhook-github": "^0.1.5-rc.1",
+      "@deepseek-ai/dsh-webhook": "^0.1.5-rc.1"
+    }
+  },
+  "packages": {
+    "@deepseek-ai/cordis": {
+      "version": "4.0.2",
+      "dir": "@deepseek-ai/cordis",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./package.json",
+        "./src/*"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {
+        "@standard-schema/spec": "^1.1.0",
+        "@deepseek-ai/cosmokit": "^1.8.3"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis-plugin-loader": "^1.0.3",
+        "@deepseek-ai/cordis-plugin-include": "^1.0.7"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "Context",
+        "CordisError",
+        "DisposableList",
+        "EventsService",
+        "Fiber",
+        "Inject",
+        "Logger",
+        "LoggerService",
+        "RegistryService",
+        "Service",
+        "ValidationError",
+        "buildOuterStack",
+        "c16",
+        "c256",
+        "composeError",
+        "createCallable",
+        "defaultFormatters",
+        "getPropertyDescriptor",
+        "getTraceable",
+        "isBailed",
+        "isConstructor",
+        "isObject",
+        "joinPrototype",
+        "resolveConfig",
+        "symbols",
+        "withProps"
+      ]
+    },
+    "@deepseek-ai/dsh": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh",
+      "present": true,
+      "exportSubpaths": [],
+      "exportsRaw": {},
+      "dsh": {
+        "configTrees": [
+          {
+            "mount": "config/agent-presets",
+            "path": "../../packages/preset/agent-presets/presets",
+            "scanRoster": true
+          }
+        ]
+      },
+      "dependencies": {
+        "commander": "^15.0.0",
+        "js-yaml": "^4.2.0",
+        "node-addon-require-builtin": "^0.1.4",
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/cordis-plugin-hmr": "^1.0.17",
+        "@deepseek-ai/cordis-plugin-include": "^1.0.7",
+        "@deepseek-ai/cordis-plugin-loader": "^1.0.3",
+        "@deepseek-ai/cordis-plugin-timer": "^1.1.4",
+        "@deepseek-ai/dsh-acp-app": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-agent-instructions": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-agent-tool-presentation": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-app-boot": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-client-ui-agent-preset": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-base": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-client-ui-cordis": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-command-goal": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-compaction-basic": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-compaction-tool-result-pruner": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-cordis-client-runner": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-fs-local": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-goal": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-goal-round-driver": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-headless": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-home-paths": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-hooks-claude-code": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-hooks-codex": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-launch-environment": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-mcp-client": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-pwsh-local": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-jobs-local": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-pwsh-sandbox": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-schedule": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-sdk-app": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-sdk-minimal": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-session-reference": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-skill": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-skill-filesystem": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-terminal": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-session-projection": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-cmdline": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-command-compact": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tmux-context": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-token-meter": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-ask-user": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-bash": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-cordis": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-present": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-fs": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-fs-search": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-goal": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-jobs": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-pwsh": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-plan-mode": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-persona": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-pwsh-persistent": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-ralph": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-skill": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-str-replace-editor": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-subagent": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-todo": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-web": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-workflow": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-web-app": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-terminal-bash": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-time-context": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-workflow-worker-thread": "^0.1.5-rc.1",
+        "@deepseek-ai/schemastery": "^3.18.2",
+        "@deepseek-ai/dsh-tool-subagent-control": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-http-proxy": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-tool-bash-persistent": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-webhook-github": "^0.1.5-rc.1",
+        "@deepseek-ai/dsh-webhook": "^0.1.5-rc.1"
+      },
+      "peerDependencies": {},
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": []
+    },
+    "@deepseek-ai/dsh-agent": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-agent",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./invariant",
+        "./package.json",
+        "./src/*",
+        "./types"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./invariant": {
+          "types": "./lib/types/invariant.d.ts",
+          "default": "./lib/invariant.js"
+        },
+        "./types": {
+          "types": "./lib/types/types.d.ts",
+          "default": "./lib/types/types.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {},
+      "peerDependencies": {
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-invariants": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-projection": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-typert-protocol": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-scope": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "AgentRegistry",
+        "agentCarrier",
+        "agentEvents",
+        "assembleContextFor",
+        "emitAgentEvent",
+        "foldConsumedWork",
+        "installModelSelection"
+      ]
+    },
+    "@deepseek-ai/dsh-agent-presets": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-agent-presets",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./display",
+        "./invariant",
+        "./package.json",
+        "./remote",
+        "./src/*",
+        "./typert",
+        "./types"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./invariant": {
+          "types": "./lib/types/invariant.d.ts",
+          "default": "./lib/invariant.js"
+        },
+        "./types": {
+          "types": "./lib/types/types.d.ts",
+          "default": "./lib/types/types.js"
+        },
+        "./display": {
+          "types": "./lib/types/display.d.ts",
+          "default": "./lib/types/display.js"
+        },
+        "./typert": {
+          "types": "./lib/typert.host.d.ts",
+          "default": "./lib/typert.host.js"
+        },
+        "./remote": {
+          "types": "./lib/typert.remote-client.d.ts",
+          "default": "./lib/typert.remote-client.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {
+        "js-yaml": "^4.1.0",
+        "zod": "^4.4.3",
+        "@deepseek-ai/schemastery": "^3.18.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis-plugin-include": "^1.0.7",
+        "@deepseek-ai/cordis-plugin-loader": "^1.0.3",
+        "@deepseek-ai/dsh-agent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-atomic-write": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-invariants": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-home-paths": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-scope": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-projection": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-settings": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tools": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-typert-protocol": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "AgentPresetSettingsSchema",
+        "AgentPresets",
+        "COMPOSITION_FILE",
+        "METADATA_FILE",
+        "SETTINGS_NAMESPACE",
+        "SHIPPED_PRESET_ROOT",
+        "agentPresetProjectionDefinition",
+        "copyComposition",
+        "deleteComposition",
+        "discoverPresets",
+        "inactiveRows",
+        "leakedServices",
+        "livePresetMounts",
+        "mountPreset",
+        "readComposition",
+        "readPresetMetadata",
+        "renderPresetMetadata",
+        "scanRoot",
+        "serviceForAgent",
+        "standingMountFor",
+        "writableRoot"
+      ]
+    },
+    "@deepseek-ai/dsh-api-gateway": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-api-gateway",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./client",
+        "./package.json",
+        "./src/*",
+        "./types"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./client": {
+          "types": "./lib/types/client/index.d.ts",
+          "default": "./lib/client.js"
+        },
+        "./types": {
+          "types": "./lib/types/types.d.ts",
+          "default": "./lib/types/types.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {
+        "client": {
+          "inject": [
+            "@deepseek-ai/dsh-typert-registry",
+            "@deepseek-ai/dsh-client-connection"
+          ],
+          "platform": "web",
+          "immediately": true
+        }
+      },
+      "dependencies": {
+        "ws": "^8.21.0",
+        "@deepseek-ai/dsh-timeout": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-deque": "^0.1.5-rc.2",
+        "@deepseek-ai/schemastery": "^3.18.2",
+        "@deepseek-ai/dsh-typert-protocol": "^0.1.5-rc.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis": "^4.0.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "TypertGatewayError",
+        "TypertGatewayService"
+      ]
+    },
+    "@deepseek-ai/dsh-base": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-base",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./cordis.patch.yml",
+        "./package.json",
+        "./src/*"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./cordis.patch.yml": "./cordis.patch.yml",
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {
+        "bundle": {
+          "patch": "./cordis.patch.yml"
+        }
+      },
+      "dependencies": {
+        "@deepseek-ai/cordis-plugin-hmr": "^1.0.17",
+        "@deepseek-ai/cordis-plugin-timer": "^1.1.4",
+        "@deepseek-ai/dsh-agent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-agent-default-model": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-shell-env": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-bash-sandbox": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-command-compact": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-command-feedback": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-command-goal": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-commands": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-compaction-basic": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-compaction-tool-result-pruner": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-credentials-local": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-deepseek-llm-api-extensions": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-plugin-package-inventory-deepseek": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-fs-local": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-fs-observation-policy": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-fs-sandbox": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-goal": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-api-gateway": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-goal-round-driver": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm-pi-ai": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm-retry": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-permission-presets": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-plan-mode": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm-deepseek": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-pwsh-sandbox": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-repeat-tool-reminder": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-sandbox-local": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-sandbox-policy": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-log-deepseek": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-persistence-jsonl": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-projection": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-projection-cache": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-checkpoint-policy": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-query-sqlite": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-telemetry-otel": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-title": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-title-first-prompt-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-settings-file": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-skill": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-skill-badge": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-skill-filesystem": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-storage": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-storage-domain": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-spill-policy": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-storage-json": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-subagent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-subagent-fork-in-process": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-subagent-spawn-in-process": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-subprocess-local": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-jobs-local": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-token-meter": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-bash": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-present": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-fs": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-fs-search": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-call-timeout-policy": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-goal": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-pwsh": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-ralph": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-skill": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-subagent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-subagent-control": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-jobs": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-todo": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-web": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-spill-local": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tool-workflow": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tools": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-typert-loader": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-typert-registry": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-user-approval": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-user-questions": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-web-search-deepseek": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-workflow-worker-thread": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-agent-instructions": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-web-fetch-http": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-web": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-agent-loop": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-attachment-local": "^0.1.5-rc.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis": "^4.0.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": []
+    },
+    "@deepseek-ai/dsh-client-connection": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-client-connection",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./client",
+        "./package.json",
+        "./src/*",
+        "./trusted-hosts"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./client": {
+          "types": "./lib/types/client/index.d.ts",
+          "default": "./lib/client.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {
+        "client": {
+          "inject": [],
+          "platform": "web",
+          "immediately": true
+        }
+      },
+      "dependencies": {
+        "zod": "^4.4.3",
+        "@deepseek-ai/schemastery": "^3.18.2",
+        "@deepseek-ai/dsh-credentials": "^0.1.5-rc.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis": "^4.0.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "API_PATH",
+        "Config",
+        "HostConnectionService",
+        "RpcId",
+        "apply",
+        "clientRequestSchema",
+        "inject",
+        "name",
+        "rpcErrorSchema",
+        "rpcIdSchema",
+        "rpcMessageSchema",
+        "rpcResultSchema",
+        "serverResponseSchema",
+        "transportError"
+      ]
+    },
+    "@deepseek-ai/dsh-headless": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-headless",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./cordis.patch.yml",
+        "./package.json",
+        "./src/*",
+        "./startup"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./startup": {
+          "types": "./lib/types/startup.d.ts",
+          "default": "./lib/startup.js"
+        },
+        "./cordis.patch.yml": "./cordis.patch.yml",
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {
+        "bundle": {
+          "patch": "./cordis.patch.yml"
+        }
+      },
+      "dependencies": {
+        "commander": "^15.0.0",
+        "@deepseek-ai/dsh-brand": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-cmdline": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-code-runtime-worker-thread": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2",
+        "@deepseek-ai/schemastery": "^3.18.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis-plugin-loader": "^1.0.3",
+        "@deepseek-ai/dsh-agent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-agent-default-model": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "Config",
+        "apply",
+        "inject",
+        "internals",
+        "name"
+      ]
+    },
+    "@deepseek-ai/dsh-llm": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-llm",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./assistant-stream",
+        "./brand",
+        "./invariant",
+        "./message",
+        "./package.json",
+        "./remote",
+        "./src/*",
+        "./typert",
+        "./types"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./invariant": {
+          "types": "./lib/types/invariant.d.ts",
+          "default": "./lib/invariant.js"
+        },
+        "./types": {
+          "types": "./lib/types/types.d.ts",
+          "default": "./lib/types/types.js"
+        },
+        "./brand": {
+          "types": "./lib/types/brand.d.ts",
+          "default": "./lib/types/brand.js"
+        },
+        "./message": {
+          "types": "./lib/types/message.d.ts",
+          "default": "./lib/types/message.js"
+        },
+        "./assistant-stream": {
+          "types": "./lib/types/assistant-stream.d.ts",
+          "default": "./lib/types/assistant-stream.js"
+        },
+        "./typert": {
+          "types": "./lib/typert.host.d.ts",
+          "default": "./lib/typert.host.js"
+        },
+        "./remote": {
+          "types": "./lib/typert.remote-client.d.ts",
+          "default": "./lib/typert.remote-client.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {
+        "zod": "^4.4.3",
+        "@deepseek-ai/dsh-timeout": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-brand": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-typert-protocol": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-crypto": "^0.1.5-rc.2",
+        "@deepseek-ai/schemastery": "^3.18.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis": "^4.0.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "APP_IDENTITY",
+        "AssistantStreamAccumulator",
+        "BlockAssembler",
+        "CONTEXT_SUMMARY_MAX_CHARS",
+        "CONTEXT_WINDOW_EXCEEDED_CODE",
+        "EMPTY_RESPONSE_CODE",
+        "HarnessError",
+        "INVALID_CREDENTIAL_CODE",
+        "LlmAdapter",
+        "LlmAttemptId",
+        "LlmError",
+        "LlmRuntime",
+        "MessageId",
+        "ProviderRequestId",
+        "QUOTA_EXCEEDED_CODE",
+        "ReasoningEffortId",
+        "RetryPolicySchema",
+        "ToolCallId",
+        "assembleAssistantStream",
+        "assertUsableApiKey",
+        "assistantStreamChunks",
+        "assistantStreamFirstTokenTime",
+        "assistantStreamHasVisibleContent",
+        "assistantStreamHasVisibleText",
+        "attributionHeaders",
+        "boundContextSummary",
+        "callConfigEquals",
+        "chunkHasVisibleText",
+        "contentHasFile",
+        "contentHasImage",
+        "createAssistantMessage",
+        "createMessage",
+        "createSystemMessage",
+        "createToolResultMessage",
+        "createUserMessage",
+        "errorChain",
+        "expandAssistantStream",
+        "fileHandleText",
+        "freezeMessage",
+        "isAgentLoopRequest",
+        "isContextWindowExceededError",
+        "isHarnessError",
+        "isQuotaExceededError",
+        "isTokenDelta",
+        "isVisibleChunk",
+        "joinAssistantStreamText",
+        "lastAssistantStreamChunk",
+        "markAgentLoopRequest",
+        "normalizeApiKey",
+        "offloadRequestImagesWithPolicy",
+        "offloadedImagePrefixCount",
+        "offloadedImageText",
+        "projectFilesToText",
+        "projectImagesForTextModel",
+        "requestImageHandleText",
+        "resolveImageAttachmentAccess",
+        "resolveRetryPolicy",
+        "runFirstTokenTime",
+        "runFirstVisibleTime",
+        "textOnlyImageText",
+        "userAgent"
+      ]
+    },
+    "@deepseek-ai/dsh-llm-deepseek": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-llm-deepseek",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./package.json",
+        "./src/*"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {
+        "streamRetryBudget": 3
+      },
+      "dependencies": {
+        "eventsource-parser": "^3.1.0",
+        "@deepseek-ai/dsh-brand": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2",
+        "@deepseek-ai/schemastery": "^3.18.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-anonymous-user-id": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-attachment": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-deepseek-llm-api-extensions": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-credentials": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-fs": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-home-paths": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-launch-environment": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-timeout": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-atomic-write": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-settings": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [
+        "streamIdleTimeoutMs",
+        "retryPolicy"
+      ],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "Config",
+        "DEFAULT_CONTEXT_WINDOW",
+        "DEFAULT_FILES_API_TIMEOUT_MS",
+        "DEFAULT_FILE_EXPIRY_SECONDS",
+        "DEFAULT_FILE_QUOTA_CLEANUP_BATCH",
+        "DEFAULT_FILE_REFRESH_MARGIN_SECONDS",
+        "DEFAULT_IMAGE_OFFLOAD_BYTE_QUANTUM",
+        "DEFAULT_IMAGE_OFFLOAD_COUNT_QUANTUM",
+        "DEFAULT_INLINE_IMAGE_OFFLOAD_BYTE_QUANTUM",
+        "DEFAULT_LOW_DETAIL_IMAGE_PIXEL_BUDGET",
+        "DEFAULT_MAX_IMAGES_PER_REQUEST",
+        "DEFAULT_MAX_INLINE_REQUEST_IMAGE_BYTES",
+        "DEFAULT_MAX_REQUEST_FILES_BYTES",
+        "DEFAULT_MAX_TOKENS",
+        "DEFAULT_REQUEST_IMAGE_MAX_BYTES",
+        "DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET",
+        "DEFAULT_STREAM_IDLE_TIMEOUT_MS",
+        "DeepSeekAdapter",
+        "DeepSeekFileId",
+        "DeepSeekFileStore",
+        "DeepSeekFilesClient",
+        "DeepSeekUploadIndex",
+        "MAX_CHAT_IMAGE_BYTES",
+        "MAX_FILE_EXPIRY_SECONDS",
+        "MAX_FILE_UPLOAD_BYTES",
+        "MAX_STORED_FILE_BYTES",
+        "MAX_STORED_FILE_COUNT",
+        "MIN_FILE_EXPIRY_SECONDS",
+        "PUBLIC_BASE_URL",
+        "apply",
+        "deepSeekFileScope",
+        "deepSeekImageRequestPricing",
+        "deepSeekImageTokens",
+        "inject",
+        "name",
+        "resolveAdapterOptions",
+        "resolveRequestImagePolicy"
+      ]
+    },
+    "@deepseek-ai/dsh-llm-pi-ai": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-llm-pi-ai",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./package.json",
+        "./src/*"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {
+        "@earendil-works/pi-ai": "^0.85.1",
+        "@deepseek-ai/dsh-brand": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2",
+        "@deepseek-ai/schemastery": "^3.18.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/dsh-attachment": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-authorization": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-credentials": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-launch-environment": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-fs": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-settings": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-timeout": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "Config",
+        "PiAiAdapter",
+        "apply",
+        "inject",
+        "name",
+        "recordKeyFor",
+        "supportedProtocols"
+      ]
+    },
+    "@deepseek-ai/dsh-session": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-session",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./invariant",
+        "./package.json",
+        "./src/*",
+        "./surface",
+        "./types"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./invariant": {
+          "types": "./lib/types/invariant.d.ts",
+          "default": "./lib/invariant.js"
+        },
+        "./types": {
+          "types": "./lib/types/types.d.ts",
+          "default": "./lib/types/types.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json",
+        "./surface": {
+          "types": "./lib/types/surface.d.ts",
+          "default": "./lib/types/surface.js"
+        }
+      },
+      "dsh": {},
+      "dependencies": {
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-brand": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/dsh-scope": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "KNOWN_SESSION_EVENT_TYPES",
+        "SESSION_FORMAT_VERSION",
+        "Session",
+        "SessionForkError",
+        "SessionId",
+        "SessionLogOffset",
+        "SessionPreparation",
+        "SessionSeq",
+        "SessionStore",
+        "TOOL_NOT_STARTED",
+        "TOOL_OUTCOME_UNKNOWN",
+        "adoptSessionEvent",
+        "canonicalHeader",
+        "decodeSeqRanges",
+        "deriveEventMessage",
+        "encodeSeqRanges",
+        "foldRequestHeader",
+        "foldSurface",
+        "headerEquals",
+        "interruptedTurnClosers",
+        "isAppendSurfaceEvent",
+        "isReplacementSurfaceEvent",
+        "isSurfaceEligibleType",
+        "isSurfaceEvent",
+        "snapshotSessionEvent"
+      ]
+    },
+    "@deepseek-ai/dsh-settings-file": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-settings-file",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./package.json",
+        "./src/*"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {
+        "chokidar": "^4.0.3",
+        "yaml": "^2.9.0",
+        "@deepseek-ai/schemastery": "^3.18.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/dsh-atomic-write": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-home-paths": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-settings": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "FileSettingsProvider",
+        "resolveSpec"
+      ]
+    },
+    "@deepseek-ai/dsh-tool-subagent": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-tool-subagent",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./invariant",
+        "./model-selection-settings",
+        "./package.json",
+        "./src/*"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./model-selection-settings": {
+          "types": "./lib/types/model-selection-settings.d.ts",
+          "default": "./lib/model-selection-settings.js"
+        },
+        "./invariant": {
+          "types": "./lib/types/invariant.d.ts",
+          "default": "./lib/invariant.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {
+        "zod": "^4.4.3",
+        "@deepseek-ai/schemastery": "^3.18.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/dsh-invariants": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-projection": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-scope": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-settings": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-subagent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-jobs": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tools": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-agent": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "Config",
+        "apply",
+        "inject",
+        "name"
+      ]
+    },
+    "@deepseek-ai/dsh-tool-subagent-control": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-tool-subagent-control",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./list-agents",
+        "./package.json",
+        "./src/*"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./list-agents": {
+          "types": "./lib/types/list-agents.d.ts",
+          "default": "./lib/types/list-agents.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {
+        "@deepseek-ai/dsh-brand": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-tools": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-subagent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "apply",
+        "inject",
+        "name"
+      ]
+    },
+    "@deepseek-ai/dsh-tools": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-tools",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./invariant",
+        "./package.json",
+        "./presentation",
+        "./src/*",
+        "./types"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./invariant": {
+          "types": "./lib/types/invariant.d.ts",
+          "default": "./lib/invariant.js"
+        },
+        "./types": {
+          "types": "./lib/types/types.d.ts",
+          "default": "./lib/types/types.js"
+        },
+        "./presentation": {
+          "types": "./lib/types/presentation.d.ts",
+          "default": "./lib/types/presentation.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {
+        "@deepseek-ai/dsh-brand": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-util-values": "^0.1.5-rc.2",
+        "@deepseek-ai/schemastery": "^3.18.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/dsh-invariants": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-agent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-code-runtime": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-scope": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-user-approval": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "CodeRunFailedError",
+        "JsonSchemaError",
+        "RUN_CODE_NAME",
+        "TOOL_ABORTED",
+        "TOOL_ABORTED_BEFORE_DISPATCH",
+        "TOOL_RUNTIME_SCHEDULER",
+        "ToolArgsError",
+        "ToolNotFoundError",
+        "ToolOutputError",
+        "ToolRuntime",
+        "assertObjectJsonSchema",
+        "assertSupportedJsonSchema",
+        "defineContentToolFixture",
+        "defineTool",
+        "jsonSchemaToPy",
+        "jsonSchemaToTs",
+        "parameterSchemaSpecToJsonSchema",
+        "renderToolsSdk",
+        "renderToolsSdkPy",
+        "validateArgs",
+        "validateJsonSchemaValue",
+        "valueSchemaSpecToJsonSchema"
+      ]
+    },
+    "@deepseek-ai/dsh-web-app": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-web-app",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./cordis.patch.yml",
+        "./package.json",
+        "./src/*",
+        "./startup"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./startup": {
+          "types": "./lib/types/startup.d.ts",
+          "default": "./lib/startup.js"
+        },
+        "./cordis.patch.yml": "./cordis.patch.yml",
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {
+        "bundle": {
+          "patch": "./cordis.patch.yml"
+        }
+      },
+      "dependencies": {
+        "commander": "^15.0.0",
+        "open": "^11.0.0",
+        "@deepseek-ai/dsh-agent-presets": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-api-remotes": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-api-session-controller": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-api-settings-controller": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-api-workspace-controller": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-api-workspace-files": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-app-boot": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-file-upload": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-hmr": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-locale": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-resources": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-agent-preset": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-modules": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-approval": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-attachment": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-brand-official": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-chat": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-conversation": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-cordis": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-deliverables": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-commands": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-directory-picker-browse": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-directory-picker-native": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-goal": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-jobs": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-layout": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-message-feedback": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-input-trigger": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-open-in-app": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-permission-presets": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-plan": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-reference": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-renderer": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-schedule": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-session": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-settings": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-settings-general": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-settings-models": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-settings-plugin-inventory": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-settings-plugins": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-sidebar": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-connection": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-sidebar-documentpreview": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-sidebar-right": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-skill": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-subagent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-sidebar-files": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-theme": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-tool": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-model-selection": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-trajectory": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-user-questions": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-workflow-run": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-client-ui-workspace": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-cmdline": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-code-runtime-worker-thread": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-cordis-client-runner": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-file-reference": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-file-reference-local": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-cordis-host-runner": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-host-directory-picker-auto": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-host-directory-picker-browse": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-host-directory-picker-native": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-host-plugin-inventory": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-host-webserver": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-launch-environment": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-host-frontend-static": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-message-feedback": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-log-export": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-reference": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-stats": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session-turn-outline": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-subprocess": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-web-frontend": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-workspace": "^0.1.5-rc.2",
+        "@deepseek-ai/schemastery": "^3.18.2",
+        "@deepseek-ai/dsh-tool-subagent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-host-open-in-app": "^0.1.5-rc.2"
+      },
+      "peerDependencies": {
+        "@deepseek-ai/cordis-plugin-loader": "^1.0.3",
+        "@deepseek-ai/cordis": "^4.0.2",
+        "@deepseek-ai/dsh-shell-env": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-system-prompt": "^0.1.5-rc.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "Config",
+        "apply",
+        "inject",
+        "internals",
+        "name",
+        "resolveLanTrust"
+      ]
+    },
+    "@deepseek-ai/dsh-workflow": {
+      "version": "0.1.7-rc.1",
+      "dir": "@deepseek-ai/dsh-workflow",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./invariant",
+        "./package.json",
+        "./src/*",
+        "./types"
+      ],
+      "exportsRaw": {
+        ".": {
+          "types": "./lib/types/index.d.ts",
+          "default": "./lib/index.js"
+        },
+        "./invariant": {
+          "types": "./lib/types/invariant.d.ts",
+          "default": "./lib/invariant.js"
+        },
+        "./types": {
+          "types": "./lib/types/types.d.ts",
+          "default": "./lib/types/types.js"
+        },
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+      },
+      "dsh": {},
+      "dependencies": {},
+      "peerDependencies": {
+        "@deepseek-ai/dsh-agent": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-brand": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-invariants": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-llm": "^0.1.5-rc.2",
+        "@deepseek-ai/dsh-session": "^0.1.5-rc.2",
+        "@deepseek-ai/cordis": "^4.0.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "settingsKeys": "ADVISORY",
+        "serviceNames": "ADVISORY",
+        "toolNames": "ADVISORY",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [],
+      "serviceNames": [],
+      "toolNames": [],
+      "symbols": [
+        "WorkflowEngine",
+        "WorkflowError",
+        "WorkflowRunId",
+        "isFatalWorkflowError"
+      ]
+    },
+    "@deepseek-ai/dsh-tool-browser": {
+      "version": "0.1.7-rc.1",
+      "dir": "node_modules/@deepseek-ai/dsh-tool-browser",
+      "present": true,
+      "exportSubpaths": [
+        ".",
+        "./package.json"
+      ],
+      "exportsRaw": {
+        ".": "./lib/index.js",
+        "./package.json": "./package.json"
+      },
+      "dsh": {
+        "configTrees": [
+          {
+            "mount": "config",
+            "path": "config"
+          }
+        ]
+      },
+      "dependencies": {},
+      "peerDependencies": {
+        "@deepseek-ai/cordis": "^4.0.2"
+      },
+      "provenance": {
+        "manifest": "AUTHORITATIVE",
+        "exportSubpaths": "AUTHORITATIVE",
+        "symbols": "ADVISORY"
+      },
+      "settingsKeys": [
+        "browserPath",
+        "headless"
+      ],
+      "serviceNames": [
+        "browser"
+      ],
+      "toolNames": [
+        "browser"
+      ],
+      "symbols": [
+        "browserTool",
+        "openPage"
+      ]
+    }
+  },
+  "packageCount": 19,
+  "notes": []
+}
