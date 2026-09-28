@@ -288,6 +288,72 @@ def flag(finding: Finding, source: str, dry_run: bool = False) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# the saturation guard
+# --------------------------------------------------------------------------- #
+#: How loaded the control plane may get before a source REFUSES to add work.
+#: Load average per core over 1 minute. MEASURED 2026-09-28: the authority is a
+#: 4-core box whose ordinary load is about 1x (load ~4); the incident this guards
+#: against was 4x (load ~16), and at that point the ssh hop timed out and the
+#: whole wake/dispatch system died silently with it. At 2x the ceiling is 8.0:
+#: high enough that ordinary work is never suppressed, low enough that the next
+#: 4x overload is refused instead of amplified. Tune with
+#: WAKE_SATURATION_LOAD_PER_CORE.
+SATURATION_LOAD_PER_CORE = 2.0
+
+
+def saturation_factor() -> float:
+    try:
+        return float(os.environ.get("WAKE_SATURATION_LOAD_PER_CORE",
+                                    SATURATION_LOAD_PER_CORE))
+    except (TypeError, ValueError):
+        return SATURATION_LOAD_PER_CORE
+
+
+def cores_available() -> int:
+    """Cores this process may actually run on (cgroup-aware where possible)."""
+    try:
+        return len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        return os.cpu_count() or 1
+
+
+def load_one() -> float | None:
+    """The 1-minute load average, or None when it cannot be read at all."""
+    try:
+        return float(os.getloadavg()[0])
+    except (AttributeError, OSError):
+        pass
+    try:
+        return float(Path("/proc/loadavg").read_text(encoding="utf-8").split()[0])
+    except Exception:                                          # noqa: BLE001
+        return None
+
+
+def saturation_reason(load1: float | None = None, cores: int | None = None,
+                      factor: float | None = None) -> str | None:
+    """Why the control plane is too saturated to add work, or None if it is not.
+
+    Deliberately pure: pass the numbers and it answers without touching the
+    machine, which is what makes the threshold testable instead of a belief.
+    An unreadable load is NEVER treated as saturated -- a source that cannot
+    measure must not silently stop the whole system.
+    """
+    if load1 is None:
+        load1 = load_one()
+    if cores is None:
+        cores = cores_available()
+    if factor is None:
+        factor = saturation_factor()
+    if load1 is None or not cores or cores <= 0:
+        return None
+    ceiling = cores * factor
+    if load1 > ceiling:
+        return "saturated load %.2f > %.2f (%d cores x %s)" % (load1, ceiling,
+                                                               cores, factor)
+    return None
+
+
+# --------------------------------------------------------------------------- #
 # the runner every source uses
 # --------------------------------------------------------------------------- #
 def run(source: str, collect) -> int:
@@ -310,6 +376,21 @@ def run(source: str, collect) -> int:
     except Exception as exc:                                   # noqa: BLE001
         print(f"{source}: unexpected {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
+
+    reason = saturation_reason()
+    if reason:
+        # REFUSE, DO NOT AMPLIFY. Adding another session to a saturated control
+        # plane is what made the ssh hop time out on 2026-09-28 and took the whole
+        # wake/dispatch system down with it. The findings are not dropped on the
+        # floor: the reason is on stderr, and stdout still carries the store's word
+        # so a caller cannot mistake this for a source that found nothing.
+        for finding in findings:
+            print(f"({finding.subject}: suppressed {reason})", file=sys.stderr)
+        print(f"{source}: {reason} -- refusing to add work; "
+              f"{len(findings)} finding(s) held back until the control plane "
+              f"recovers", file=sys.stderr)
+        print("quiet")
+        return 0
 
     landed = 0
     for finding in findings:
