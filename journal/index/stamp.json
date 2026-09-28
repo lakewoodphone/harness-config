@@ -8,7 +8,7 @@
   "wins": 2315
  },
  "db": "journal.db + fts5",
- "drift_measured": "2026-09-25 22:24 UTC",
+ "drift_measured": "2026-09-28 16:34 UTC",
  "entries": 2400,
  "entries_count": 2400,
  "entries_sig": "e972ac226f1a8b29a9b485db2d10a477fc38aa18",
