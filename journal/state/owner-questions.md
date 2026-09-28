@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-09-25
+Updated: 2026-09-28
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 170 row(s) read, 12 pending, generated 2026-09-25 22:08 UTC on SECRATARY.
+Provenance: 175 row(s) read, 17 pending, generated 2026-09-28 02:36 UTC on SECRATARY.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -22,5 +22,10 @@ Provenance: 170 row(s) read, 12 pending, generated 2026-09-25 22:08 UTC on SECRA
 | 168 | 2026-09-25 | medium | Ocean County Library says 487.32 is owed on the account and has handed it to a collector. Pay it, or dispute it in writing. | Pay it if the materials never came back. The amount is small, and a collection item carrying the owner's name costs more in time than it saves. If he knows the items were returned, the dispute gets written instead. |
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
 | 170 | 2026-09-25 | medium | The LabCorp results (2026-09-23) are already filed and analyzed — requisition list answered (CBC w/ Diff+Platelet+NLR, CMP14, Venipuncture; no ESR/CRP/EBV/CMV/hepatitis/HIV/TB/pertussis). One loose end: that same visit also produced an X-ray (your 16:15 EDT message), but the X-ray report isn't in your health record. Do you have the X-ray report/result to file, or should I note it as pending? |  |
+| 171 | 2026-09-26 | medium | When may the Windows desktop's DNS be cut over to the filter? The unrestricted udp.DstPort == 53 run needs a short maintenance window, because an interrupted run breaks the host's DNS. | Validate on a spare Windows machine first, not on your desktop. The client path is already proven end to end, so a spare box only has to prove the deployed broker against the real resolvers, and your desktop is never at  |
+| 172 | 2026-09-27 | medium | Could you please provide the current Google Business Profile rating and review count for Lakewood Phone and Tech? I don't have the fetch_url tool to check the local API endpoint, and web search isn't returning the exact current numbers. Also, are there any unanswered reviews? |  |
+| 173 | 2026-09-27 | medium | Could you share your LabCorp results (2026-09-23) and the requisition list? I need them to proceed with this task. |  |
+| 174 | 2026-09-27 | medium | Moishe Bachrach (moshbachrach@gmail.com) reported a 'sim failure' on device #36. Since I need explicit approval to send customer-facing emails, how would you like me to respond to him? Should I ask him to bring the device in for a diagnostic, or is there a specific troubleshooting step you'd like him to try first? |  |
+| 175 | 2026-09-27 | medium | NJ DOL Form BC28 (Request for Separation Information) for Yisroel Weinberg is due — the 7-day window (mailed 09/18, due 09/25) has passed. The discharge reason is in no company record and only you can state it. What was the reason for Yisroel Weinberg's discharge on 2026-09-14? I need this to file the response at myunemployment.nj.gov/employerforms. If you'd prefer, I can draft the response with a |  |
 
 Closed since the queue opened: 158. Answered questions move to `entries/decisions/` with the owner's own words.
