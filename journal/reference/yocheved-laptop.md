@@ -1,7 +1,9 @@
 # Yocheved's laptop (`DESKTOP-FGV6KMH`) — access, filter, and assistant setup
 
 Everything needed to work on her machine without rediscovering it. Verified **2026-09-14**; each
-fact says how it was measured. Update this file rather than re-deriving it.
+fact says how it was measured. **Revised 2026-09-28** — the model route (§6) was corrected from
+DeepInfra to the DeepSeek proxy, and her engine's 10-day outage is recorded in §12. Update this file
+rather than re-deriving it.
 
 ---
 
@@ -190,9 +192,30 @@ Established facts that shape it:
   deep-merged over `settings/base.yaml` (machine wins) by `scripts/sync.py`, delivered by
   `scripts/autosync.ps1`. Her file is `settings/machines/DESKTOP-FGV6KMH.yaml` — written 2026-09-14 — and it
   **must** set `workspace-write` explicitly or she inherits full access.
-* Her model route is **DeepInfra**, not `deepseek-official`, because DeepSeek's API is blocked (§2).
-  Verified capability: all three DeepSeek models on that route return `finish_reason: tool_calls`.
-  `DeepSeek-V4-Flash-0731` = 1,048,576 ctx, **$0.06/M in, $0.18/M out, $0.015/M cache-read**.
+* Her model route is **DeepSeek direct, reached through our own pass-through Worker** —
+  `provider: deepseek-proxy`, `model: deepseek-v4-flash-vision-exp`, `baseURL:
+  https://ds.abletelsolutions.com/v1` (`harness-config/packages/deepseek-proxy`). The Worker makes the
+  upstream call to `api.deepseek.com` from Cloudflare's edge, where the Techloq filter has no
+  visibility, and streams SSE unbuffered.
+
+  **THIS SECTION USED TO SAY "DeepInfra", AND THAT WAS TRUE ONLY UNTIL 2026-09-14.** Corrected
+  2026-09-28 after the owner asked whether the fleet was still on DeepInfra; the answer is no, and
+  this file was the thing that was stale. The machine file's own comment states the reason plainly:
+  *"WHY THIS REPLACED DEEPINFRA: same model, much slower serving tier"* — measured from a neutral
+  network, same prompt, 3 runs each, `deepseek-flash` direct **747 ms to first token / 160 tok/s**
+  against DeepInfra V4-Flash-0731 **1693 ms / 24 tok/s** (2.3x slower to first token, ~6.7x per
+  token). DeepInfra is retained below the proxy block as an independent **fallback**, one
+  `agent-default-model.provider` line away, and is not the default on any machine.
+
+  Fleet context, measured the same day: the base default (`settings/base.yaml`) is
+  `provider: deepseek-official`, `model: deepseek-flash` — the 4.1 Flash tier — which is what
+  ZABZ-TECH, secratary and ZABZ-YOGA resolve to; `LAKEWOOECHSMINI.yaml` is `provider: deepseek-direct`
+  with its own note saying it replaced DeepInfra.
+
+  §2's endpoint verdicts still hold and were re-verified from her box on 2026-09-28:
+  `api.deepseek.com/v1/models` → HTTP **200**, `text/html`, 2498 bytes = **the block page**;
+  `api.deepinfra.com/v1/openai/models` → real JSON. So direct DeepSeek is reachable from that
+  machine *only* through the Worker, and a status check still cannot tell the difference.
 
 ### Install plan (detached)
 
@@ -358,3 +381,73 @@ store, and the model answers. Every earlier blocker in this file is downstream o
 If it answers as the Lakewood Phone & Tech shop manager rather than a coding agent, the preset landed.
 
 
+
+---
+
+## 12. THE 10-DAY OUTAGE (2026-09-18 → 2026-09-28), and the repair
+
+**Her assistant was dead for ten days and nothing said so.** Not "slow", not "flaky" — the engine
+could not start at all, and every attempt failed in under a second.
+
+### What was wrong
+
+`C:\Users\cheve\.dsh\profiles\web\package.json` declared 12 profile bundles, one of which was
+`dsh-mesh-broker`. That package is the broker **service** — it resolves, but its package.json
+declares no `dsh.bundle.patch`, and `dsh-app-boot/lib/index.js:852` throws for any declared bundle
+name that lacks one. A profile's bundle list is a LAYER list, not a dependency list, so one bad name
+stops the whole engine:
+
+```
+Error: dsh: profile bundle "dsh-mesh-broker" declares no dsh.bundle in its package.json
+    at loadProfileDirectory (…/dsh-app-boot/lib/index.js:849)
+    at prepareProfile (…/dsh/lib/profile-boot-Dk-7KqJc.js:208)
+```
+
+**This is the exact defect repaired on ZABZ-YOGA and ZABZ-TECH (`H441`) and on lakewooechsmini
+(`H451`) on 2026-09-17 — and this machine was never on that list.** L1865 had already warned that
+"the machine looked healthy and was one reboot from an engine that could not come back". It rebooted
+on **2026-09-18 18:05**, and it could not come back. The engine reads its profile at START, so a
+running engine proves nothing; and because the failure only appears at start, the machine looked
+idle rather than broken.
+
+### How it presented, and why nobody noticed
+
+| symptom | reading |
+|---|---|
+| `PersonalSecretary-PushDSHSessions` ran hourly, reported success | the task exited 0 while the work silently did nothing (L174's trap) |
+| longest gap in the authority's `dsh_sessions` for this machine | **274 h (11.4 days)** — newest ingest 2026-09-16T17:41Z |
+| `Yocheved Open Assistant` (Logon trigger) last ran 09/18 18:11:10 | result **0**, four minutes after boot — it fired and failed invisibly |
+| her engine log directory | two failed boots in five minutes at 00:04:57 and 00:05:09, each < 1 s |
+
+### The repair, and the proof
+
+Same method as `H441`/`H451`: timestamped backup (`package.json.bak-20260928-041206`), line-level
+removal of the one offending row, then the cheapest real gate — `dsh --profile web --dump-config`,
+which composes the layers, starts nothing and is safe on a machine in use.
+
+* bundles 12 → 11; the gate went **exit 1 / 0 lines → exit 0 / 581 lines**.
+* The engine was then started through the documented chain (task `Yocheved DSH Window`, principal
+  `cheve` / Interactive / Highest, so the window lands in HER session).
+* `3099-20260928-001310.err.log` is **empty** — the first zero-error boot in ten days.
+* `3099-20260928-001310.log` → `dsh web: http://127.0.0.1:3099/?token=…`; `GET /` → **HTTP 200,
+  28800 bytes**; one `msedge --app` window in **session 1** (hers).
+* **Acceptance:** `--profile headless 'Reply with exactly this and nothing else: MANAGER_READY'` →
+  **exit 0, 14 s, `MANAGER_READY`**. That one result re-proves the whole chain: filter traversed, CA
+  trusted, route selected, key resolved, model answers.
+
+### Still broken on this machine (open)
+
+1. **`PersonalSecretary-PushDSHSessions` exits `0xC0000409`** (`3221226505`, STATUS_STACK_BUFFER_OVERRUN)
+   and there is no `~/.dsh-session-ship.log` on the box. So even with the engine up, **her sessions
+   do not reach the authority** — which is why the ingest gap reads as 11 days rather than 10.
+2. **Nothing starts the engine unattended at boot.** The Logon trigger exists and fires, but the
+   intended path remains the desktop shortcut; §10's item 1 is still true.
+3. `YochevedTtyd` last result 1.
+
+### The lesson this cost ten days
+
+A per-machine repair list is not a fleet repair. The three machines that got the fix were the three
+the repairing session was looking at; the fourth was invisible precisely because it was not in front
+of anyone. **Verify a fleet fix by asserting the ABSENCE OF THE DEFECT on every machine, not by
+listing the machines you repaired** — and remember that a profile defect is silent until the next
+engine start, so a machine only reveals it when it reboots.
