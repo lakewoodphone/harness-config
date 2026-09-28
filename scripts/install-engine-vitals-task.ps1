@@ -25,7 +25,11 @@
 param(
     [string] $TaskName = 'DSH Engine Vitals (5m)',
     [int]    $IntervalMinutes = 5,
-    [switch] $Uninstall
+    # S4U by default: runs whether or not the user is logged on (see the note at the principal).
+    [ValidateSet('S4U', 'Interactive', 'Password')]
+    [string] $LogonType = 'S4U',
+    [switch] $Uninstall,
+    [switch] $RunNow
 )
 
 $ErrorActionPreference = 'Stop'
@@ -77,10 +81,29 @@ $action = New-ScheduledTaskAction -Execute $wscript -Argument "//B //NoLogo `"$l
 # is parsed as an argument list containing the METHOD rather than its result, and throws
 # "Cannot convert ... PSMethod ... to type System.DateTime". That bug shipped once here and
 # left the task unregistered, because the unregister above it had already succeeded.
-$trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) `
+#
+# AND THE VALUE IS IN THE PAST, DELIBERATELY. A `-Once` trigger starting in the future leaves the
+# task Queued, and Start-ScheduledTask on a queued task is a NO-OP -- so the task never runs and
+# LastTaskResult stays 267011 (SCHED_S_TASK_HAS_NOT_RUN). Measured on ZABZ-TECH 2026-09-28: both
+# instruments registered "successfully" and neither had ever executed. That is L174's trap.
+$trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(-1)) `
     -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
-$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" `
-    -LogonType Interactive -RunLevel Limited
+# ALWAYS the process identity -- never "$env:USERDOMAIN\$env:USERNAME".
+# Measured on ZABZ-TECH over ssh, 2026-09-28: USERDOMAIN=WORKGROUP and USERNAME=ezabz, so the
+# env-var form builds "WORKGROUP\ezabz", an account that does not exist, and Register-ScheduledTask
+# fails with "No mapping between account names and security IDs was done". Meanwhile
+# WindowsIdentity.GetCurrent().Name is "zabz-tech\ezabz" and translates to a valid SID. A fallback
+# on emptiness is not enough: the variables were present and wrong.
+#
+# LOGON TYPE S4U BY DEFAULT, AND THAT IS THE WHOLE POINT. An Interactive-logon task only runs while
+# that user is logged on at the console. ZABZ-TECH is an office machine with nobody logged on
+# (`qwinsta` showed `console 1 Conn` and NO USERNAME), so the identical installer that works on
+# ZABZ-YOGA produced tasks reporting 267011 (SCHED_S_TASK_HAS_NOT_RUN) forever -- measured
+# 2026-09-28. An instrument that is inert exactly when nobody is present is worthless: that is when
+# a silent engine outage goes unnoticed. S4U needs no stored password and runs regardless.
+$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+$principal = New-ScheduledTaskPrincipal -UserId $identity `
+    -LogonType $LogonType -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes ([Math]::Max(2, $IntervalMinutes - 1)))
 
@@ -93,5 +116,15 @@ Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger `
 
 $t = Get-ScheduledTask -TaskName $TaskName
 Write-Host "registered '$TaskName' state=$($t.State) every $IntervalMinutes min"
+
+# -RunNow exists so a deployment can be VERIFIED rather than assumed. Registering a task proves
+# only that a definition exists; this repo has already been bitten by a task that reported success
+# and did nothing (L174), so the installer can drive one pass and print its result.
+if ($RunNow) {
+    Start-ScheduledTask -TaskName $TaskName
+    Start-Sleep -Seconds 20
+    $i = Get-ScheduledTaskInfo -TaskName $TaskName
+    Write-Host "ran once: last=$($i.LastRunTime) result=$($i.LastTaskResult)  (0 clean / 1 warning / 3 engine unreachable)"
+}
 Write-Host "verify with: Get-ScheduledTaskInfo -TaskName '$TaskName'"
 Write-Host "read the incident log: ~/.dsh/metrics/engine-vitals.log"

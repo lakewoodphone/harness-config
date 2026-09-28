@@ -38,7 +38,7 @@
  *   node scripts/profile-gate.mjs --json --profile web --dsh-bin ... | jq .
  */
 
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync, appendFileSync, mkdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import os from 'node:os';
@@ -226,6 +226,7 @@ for (const name of profiles) {
 const failed = results.filter((r) => !r.ok);
 const payload = {
   host: os.hostname(),
+  ts: new Date().toISOString(),
   home: home(),
   // Provenance: WHICH node and WHICH install produced this verdict. Without these two fields a
   // "CANNOT-BOOT" cannot be told apart from a gate that resolved the wrong copy — which is
@@ -241,6 +242,42 @@ const payload = {
     : `${failed.length} of ${results.length} profile(s) fail to compose — this engine cannot start`,
 };
 
+/**
+ * Record a failure where a HUMAN will see it, not only where a scheduler will.
+ *
+ * The whole reason her laptop stayed dead for ten days is that the failing mechanism reported
+ * success: the logon task returned 0 while the engine died in under a second (L2609). A periodic
+ * gate whose only output is a task's LastTaskResult reproduces that failure exactly -- nobody
+ * opens Task Scheduler. So a failure appends a line here, and the file is written ONLY on failure,
+ * so it stays bounded by the number of incidents rather than by the number of passes.
+ *
+ * Change-gated as well: a machine left broken for a week should restate its condition daily, not
+ * every five minutes. This is the same rule engine-vitals uses for its own incident log.
+ */
+const RESTATE_AFTER_MS = 24 * 3600 * 1000;
+function recordIncident(payload, failed, nodeVersion) {
+  const file = path.join(home(), 'metrics', 'profile-gate.log');
+  const signature = failed.map((f) => `${f.profile}:${f.failure}`).sort().join(' | ');
+  const prior = existsSync(file) ? statSync(file).mtimeMs : 0;
+  const due = prior === 0 || Date.now() - prior > RESTATE_AFTER_MS;
+  // Nothing at all on a repeat inside the window. Writing a one-line "still failing" marker here
+  // would append on every pass -- 288 lines a day -- which is the unbounded pile this file exists
+  // to avoid. One entry per day per machine is enough to make the condition impossible to miss.
+  if (!due) return;
+  try {
+    mkdirSync(path.dirname(file), { recursive: true });
+    appendFileSync(file, [
+      `${payload.ts} CANNOT-BOOT on ${payload.host} (node ${nodeVersion})`,
+      `  via ${payload.dshBin}`,
+      ...failed.map((f) => `  FAIL ${f.profile}: ${f.failure}`),
+      '  this machine\'s engine CANNOT START. A running engine proves nothing: the profile is read at boot.',
+      '  fix: re-run with --json for the composed view; the usual cause is a name in',
+      '       dsh.profile.bundles whose package declares no dsh.bundle.patch (dsh-app-boot:852).',
+      '',
+    ].join('\n'));
+  } catch { /* a diagnostics file must never be the reason a check fails */ }
+}
+
 if (args.flags.includes('json')) {
   console.log(JSON.stringify(payload, null, 2));
 } else {
@@ -254,4 +291,5 @@ if (args.flags.includes('json')) {
     console.log('     -- this engine CANNOT START. A running old engine proves nothing: the profile is read at boot.');
   }
 }
+if (failed.length > 0) recordIncident(payload, failed, payload.nodeVersion);
 process.exitCode = failed.length === 0 ? 0 : 1;
