@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 SECRETARY_DB = "/home/zabz/personal-secretary-mvp/data/secretary.db"
@@ -82,9 +82,24 @@ def main() -> int:
         cur = con.cursor()
         cur.execute("SELECT sync_type, last_synced_at FROM website_sync_cursor")
         cursors = {r[0]: r[1] for r in cur.fetchall()}
-        cur.execute("SELECT MAX(created_at) FROM dialpad_sms_cache "
-                    "WHERE message_id NOT LIKE 'test-%' AND message_id NOT LIKE 'self-%'")
+        # What the push is allowed to deliver. `ptf-comm-%` rows are website-origin copies
+        # the push deliberately never sends back (`_get_dialpad_sms_for_push`), so the local
+        # truth has to use the push's own filter or the check can never catch up to them.
+        _PUSHABLE_SMS = ("message_id NOT LIKE 'test-%' "
+                         "AND message_id NOT LIKE 'self-%' "
+                         "AND message_id NOT LIKE 'ptf-comm-%'")
+        cur.execute(f"SELECT MAX(created_at) FROM dialpad_sms_cache WHERE {_PUSHABLE_SMS}")
         local_sms_newest = cur.fetchone()[0]
+        # The newest message the push has had time to deliver. The website's MAX("createdAt")
+        # is its last INSERT time, so comparing it to an SMS that arrived seconds ago reads the
+        # whole preceding quiet period as lag: on 2026-09-22 a 21.7h SMS lull ended at
+        # 13:44:17Z and the 13:45 check called the website 10.59h behind, although the website
+        # held every message and the next 30-minute push was due at 14:09. Only a message old
+        # enough to have been pushed can prove the website is behind.
+        _due_cutoff = (now() - timedelta(hours=THRESHOLD_HOURS)).isoformat()
+        cur.execute(f"SELECT MAX(created_at) FROM dialpad_sms_cache "
+                    f"WHERE {_PUSHABLE_SMS} AND created_at <= ?", (_due_cutoff,))
+        local_sms_due = cur.fetchone()[0]
         cur.execute("SELECT MAX(date_started_ms) FROM dialpad_call_full")
         local_call_ms = cur.fetchone()[0]
         con.close()
@@ -98,6 +113,8 @@ def main() -> int:
                      if local_call_ms else None)
     report["local_newest_sms"] = local_sms_newest
     report["local_newest_call"] = local_call_dt.isoformat() if local_call_dt else None
+    local_due_dt = parse_ts(local_sms_due)
+    report["local_sms_due"] = local_sms_due
 
     for sync_type, local_dt in (("dialpad_calls", local_call_dt), ("dialpad_sms", local_sms_dt)):
         raw = cursors.get(sync_type)
@@ -131,8 +148,8 @@ def main() -> int:
             dt = parse_ts(newest)
             age_h = round((now() - dt).total_seconds() / 3600, 2) if dt else None
             report["website"] = {"rows": n, "newest": str(newest), "newest_age_hours": age_h}
-            if age_h is not None and age_h > THRESHOLD_HOURS and local_sms_dt is not None:
-                behind = round((local_sms_dt - dt).total_seconds() / 3600, 2)
+            if age_h is not None and age_h > THRESHOLD_HOURS and local_due_dt is not None:
+                behind = round((local_due_dt - dt).total_seconds() / 3600, 2)
                 if behind > THRESHOLD_HOURS:
                     problems.append(
                         f"the website's newest message is {behind}h older than the local store's "

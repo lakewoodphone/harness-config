@@ -1,4 +1,4 @@
-/* phone-layer-version: 2026-09-16.3
+/* phone-layer-version: 2026-09-24.1
  *
  * BUMP THIS TOKEN whenever anything in the phone layer changes. It is how an OPEN tab finds
  * out a fix exists: `dsh-plugin-mobile` reads this token out of the layer the document is
@@ -7,6 +7,19 @@
  * shipped and verified, and the owner's phone still could not read a question, because his
  * tab had been open since before the fix and a rewritten document cannot reach a tab that
  * has already loaded. Without a bump, a CSS change reaches only new tabs.
+ *
+ * THE SAME FAILURE RECURRED, AND THIS BUMP REPAIRS IT. `assets/question-card.css` changed again
+ * on 2026-09-22 (commit 6d6f0a4, "the question detail was its own scrollport, so the sheet did
+ * not move under the thumb") and the token was NOT bumped, so it stayed 2026-09-16.3. Every
+ * phone already holding that layer therefore fetched the served layer, found the SAME token,
+ * concluded it was current, and never applied the 2026-09-22 rule — which is why the owner
+ * reported the same symptom again on 2026-09-24 14:5x UTC: "I can't scroll normally and I
+ * can't see the question, just the options for the response." That is the 09-22 defect exactly
+ * as its own comment describes it ("the reader is scrolling and the screen is not moving").
+ * The layer the gate serves is now correct for a tab that has never loaded it; this token is
+ * what makes a tab that HAS loaded it come and get it. The three prior "fixed" claims on this
+ * surface were each verified against a fresh document, which is precisely the case that a
+ * cache cannot break — see P2410 and L2383.
  */
 
 /* mobile.css — the phone layer for the harness UI.

@@ -3577,16 +3577,28 @@ def cmd_append(args) -> int:
     if not title:
         note("--title is required")
         return 2
-    src = getattr(args, "body_file", None) or getattr(args, "body", None)
-    if src is None:
+    # --body-file and --body are NOT interchangeable when the value points at a path that does
+    # not exist. The old code fell through to `body = src`, so `--body-file missing.md` silently
+    # appended the string "missing.md" as the entry body and exited 0 -- two junk entries were
+    # written on 2026-09-25 (P2545, P2546) before anyone noticed. A named FILE that is absent is
+    # now a hard error; only `--body TEXT` is allowed to be literal text.
+    body_file = getattr(args, "body_file", None)
+    body_text = getattr(args, "body", None)
+    if body_file is not None:
+        if body_file == "-":
+            body = sys.stdin.buffer.read().decode("utf-8", errors="replace")
+        elif os.path.exists(body_file):
+            body = Path(body_file).read_text(encoding="utf-8", errors="replace")
+        else:
+            note("--body-file %r does not exist (refusing to write the path as the body)" % body_file)
+            return 2
+    elif body_text is None:
         note("no body: pass --body TEXT, --body -, or --body-file F")
         return 2
-    if src == "-":
+    elif body_text == "-":
         body = sys.stdin.buffer.read().decode("utf-8", errors="replace")
-    elif os.path.exists(src):
-        body = Path(src).read_text(encoding="utf-8", errors="replace")
     else:
-        body = src
+        body = body_text
     body = norm_body(body)
     stamp = getattr(args, "date", "") or (now_utc() if kind == "handoff" else today())
     host = getattr(args, "host", "") or host_tag()
