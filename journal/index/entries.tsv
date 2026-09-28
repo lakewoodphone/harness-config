@@ -1828,6 +1828,7 @@ lessons	L2977	2977		2026-09-28	ZABZ-TECH	open	**L2977 · gh can be logged out of
 lessons	L3047	3047		2026-09-28	SECRATARY	open	**L3047 · A route under time pressure needs the clock and the live observation, not the forecast**	entries/lessons/L3047.md	1	18	fffa473745f3177b
 lessons	L3048	3048		2026-09-28	SECRATARY	open	**L3048 · Three times in one evening I presented an unverified absences as a finding**	entries/lessons/L3048.md	1	18	a6a267edff312d83
 lessons	L3049	3049		2026-09-28	SECRATARY	open	**L3049 · Directory hours are routed through the wrong branch and will silently kill a time-critical plan**	entries/lessons/L3049.md	1	20	487b592e3d4bdd46
+lessons	L3050	3050		2026-09-28	SECRATARY	open	**L3050 · In RC aircraft the letter code decides whether the box is a gift or a parts kit**	entries/lessons/L3050.md	1	22	9bd00265e7babd8a
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2497,6 +2498,7 @@ decisions	D2713	2713		2026-09-28	ZABZ-TECH	open	**D2713 · 2026-09-28 · Correct
 decisions	D2714	2714		2026-09-28	ZABZ-TECH	open	**D2714 · 2026-09-28 · Names: the OWNER is Eliyahu / Eliyahu Tzvi / Zabz / Boss / Owner / AI God. The AI is Chip / Daniel / AI / Computer / Robot. The two lists are never interchangeable.**	entries/decisions/D2714.md	1	38	10b90637a5aa58c4
 decisions	D2716	2716		2026-09-28	ZABZ-TECH	open	**D2716 · 2026-09-28 · 2026-09-28 - An activity needing a harness, form-fitting clothes or a stranger's hands is out when the sisters are coming - ask the constraint before the research.**	entries/decisions/D2716.md	1	38	7dbdabc54d83a230
 decisions	D2773	2773		2026-09-28	SECRATARY	open	**D2773 · 2026-09-28 · Weinberg: voluntary resignation, the vacation week was unpaid, and the settlement is one half week.**	entries/decisions/D2773.md	1	35	7b2c79fb9b30d306
+decisions	D2774	2774		2026-09-28	SECRATARY	open	**D2774 · 2026-09-28 · Household bought a HobbyZone Sport Cub S 2 RTF trainer, 2026-09-28.**	entries/decisions/D2774.md	1	24	51fcc558d66a6ca9
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
