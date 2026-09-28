@@ -694,6 +694,7 @@ handoff	H2792	2792		2026-09-28 17:22 UTC	ZABZ-YOGA	open	## 2026-09-28 17:22 UTC 
 handoff	H2793	2793		2026-09-28 17:24 UTC	ZABZ-YOGA	open	## 2026-09-28 17:24 UTC · ZABZ-YOGA · Round 4b - the vector backlog repair was itself broken (vec0 loaded after the query); fixed, gated and now draining 20k memories	entries/handoff/H2793.md	1	67	4fe0380eb4b7ae50
 handoff	H2794	2794		2026-09-28 17:25 UTC	ZABZ-YOGA	open	## 2026-09-28 17:25 UTC · ZABZ-YOGA · lpt_prod migration runbook prepared and rehearsed: A2P objection answered and dissolved, enum/code coupling is the real risk, production untouched	entries/handoff/H2794.md	1	91	f2146c6b7a6adfa8
 handoff	H2778b	2778	b	2026-09-28 17:31 UTC	SECRATARY	open	## 2026-09-28 17:31 UTC · SECRATARY · checkout-health alarm built, proven four ways, wired and live	entries/handoff/H2778b.md	1	59	33b73fc9e9b95fef
+handoff	H2795	2795		2026-09-28 18:18 UTC	ZABZ-YOGA	open	## 2026-09-28 18:18 UTC · ZABZ-YOGA · Round 5 - FU4/FU5/FU7 merged (dead-model exit, 49 connection sites, dept_ai_platform had no allow-list); the last gate red retired	entries/handoff/H2795.md	1	90	2a7cf072f7b54384
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
