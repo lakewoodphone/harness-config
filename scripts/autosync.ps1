@@ -319,21 +319,127 @@ if ($ahead -gt 0) {
   }
 }
 
+# --------------------------------------------------------------------------
+# 2c. CLEAR WHAT ONLY *LOOKS* LIKE A DIVERGENCE, THEN PULL (2026-09-28).
+#
+#     Measured on ZABZ-TECH: this machine sat 56 commits behind for days while EVERY tick reported
+#     "histories diverged (55 behind / 0 ahead) and step 2b preserved nothing. Needs a human." There
+#     was no divergence at all. Two locally-modified GENERATED paths -- journal/index/stamp.json and
+#     journal/state/owner-questions.md, both rewritten by ordinary use -- were also modified by the
+#     incoming commits, and git refuses a fast-forward that would overwrite a locally modified file.
+#     The run could not tell that apart from a real divergence, so it froze, said "human", and the
+#     human was not there: 56 commits of configuration never reached this machine.
+#
+#     The old comment above claimed this branch was "unreachable in practice". It was reachable the
+#     whole time; nothing had ever measured which condition reaches it.
+#
+#     So: ask git, read-only, EXACTLY what it would refuse, and clear only the two cases that are
+#     provably not work:
+#       * a modified tracked file under journal/index/ or journal/state/ -- a cache and a generated
+#         mirror, both rebuildable, both never authored by hand. Backed up first, byte for byte.
+#       * an untracked file whose bytes are IDENTICAL to the incoming blob. Nothing unique exists to
+#         lose, and the incoming commit writes the same bytes back.
+#     Everything else -- any other modified file, any untracked file that DIFFERS from the incoming
+#     blob -- is left exactly where it is, named in the report, and the pull is allowed to refuse.
+#     That refusal is then a real signal instead of a permanent alibi.
+#
+#     Nothing is reset, cleaned, stashed or forced. Every byte removed from the working tree is in
+#     <StateDir>\blockers\<UTC stamp>\ first, with a manifest naming its sha256.
+# --------------------------------------------------------------------------
+$blockersCleared = @()
+$blockersKept = @()
+if ($behind -gt 0) {
+  # git read-tree stops at the FIRST blocker it names, so one pass clears one file. Loop until a pass
+  # finds nothing left to clear (measured: two generated files + one untracked-identical file needed
+  # three passes). Bounded, and a pass that clears nothing ends the loop.
+  $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
+  $bkRoot = Join-Path $StateDir ("blockers\" + $stamp)
+  $manifest = New-Object System.Collections.Generic.List[string]
+  $bkRootMade = $false
+
+  for ($pass = 1; $pass -le 25; $pass++) {
+    $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    # -c core.autocrlf=false on purpose: the pull below runs with exactly this config, so the
+    # detector must see the tree the same way. Measured 2026-09-28 on a fixture where the two
+    # configs differed: the detector cleared the tree clean and the pull still refused on the same
+    # paths, because under a different eol config every CRLF file reads as locally modified.
+    $detect = (& git -C $gitDir -c core.autocrlf=false read-tree -n -u -m HEAD "origin/$branch" 2>&1 | Out-String)
+    $ErrorActionPreference = $prevEap
+
+    $named = New-Object System.Collections.Generic.List[string]
+    foreach ($line in ($detect -split "`n")) {
+      $t = $line.Trim()
+      # git prefixes these with "error: "; match the tail, not the start of the line.
+      if ($t -match "Entry '(.+?)' not uptodate") { $named.Add($Matches[1]) }
+      elseif ($t -match "Untracked working tree file '(.+?)' would be overwritten") { $named.Add($Matches[1]) }
+    }
+    if ($named.Count -eq 0) { break }
+
+    $clearedThisPass = 0
+    foreach ($rel in $named) {
+      $abs = Join-Path $gitDir ($rel -replace '/', '\')
+      if (-not (Test-Path $abs)) { if ($blockersKept -notcontains $rel) { $blockersKept += $rel }; continue }
+
+      $tracked = (& git -C $gitDir ls-files --error-unmatch -- $rel 2>$null | Out-String).Trim()
+      $isGenerated = ($rel -like 'journal/index/*') -or ($rel -like 'journal/state/*')
+
+      $diskHash = ((& git -C $gitDir hash-object -- $abs 2>$null) | Out-String).Trim()
+      $incoming = ((& git -C $gitDir rev-parse "origin/$branch`:$rel" 2>$null) | Out-String).Trim()
+
+      $clear = $false
+      if ($tracked -and $isGenerated) { $clear = $true }
+      elseif (-not $tracked -and $incoming -and $diskHash -eq $incoming) { $clear = $true }
+
+      if (-not $clear) {
+        if ($blockersKept -notcontains $rel) { $blockersKept += $rel }
+        continue
+      }
+
+      if (-not $bkRootMade) { New-Item -ItemType Directory -Force -Path $bkRoot | Out-Null; $bkRootMade = $true }
+      $dest = Join-Path $bkRoot ($rel -replace '/', '\')
+      New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
+      Copy-Item $abs $dest -Force
+      $srcHash = (Get-FileHash $abs -Algorithm SHA256).Hash
+      $dstHash = (Get-FileHash $dest -Algorithm SHA256).Hash
+      if ($srcHash -ne $dstHash) { if ($blockersKept -notcontains $rel) { $blockersKept += $rel }; continue }  # backup unproven => do not move it
+
+      $manifest.Add(("{0}`t{1}`tsha256={2}" -f $rel, $(if ($tracked) { 'generated' } else { 'identical-to-incoming' }), $srcHash))
+
+      $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+      if ($tracked) { & git -C $gitDir checkout -- $rel 2>&1 | Out-Null }
+      else { Remove-Item $abs -Force -ErrorAction SilentlyContinue }
+      $ErrorActionPreference = $prevEap
+      if ($blockersCleared -notcontains $rel) { $blockersCleared += $rel }
+      $clearedThisPass++
+    }
+    if ($clearedThisPass -eq 0) { break }
+  }
+
+  if ($manifest.Count -gt 0) {
+    $manifest | Set-Content -Path (Join-Path $bkRoot 'manifest.tsv') -Encoding utf8
+    Log ("  cleared {0} non-work blocker(s); preserved at {1}" -f $manifest.Count, $bkRoot)
+  }
+}
+
 if ($behind -gt 0) {
   $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
   $pull = (& git -C $gitDir -c core.autocrlf=false pull --ff-only 2>&1)
   $pullOk = ($LASTEXITCODE -eq 0)
   $ErrorActionPreference = $prevEap
   if (-not $pullOk) {
-    # Unreachable in practice while step 2b stands: with $ahead -eq 0 a refused pull cannot be a
-    # divergence (there is no local commit to diverge from). Kept as the honest fallback if that
-    # ever changes, worded for the case where nothing was preserved.
+    # A refused pull is now a REAL finding: step 2c already cleared everything git could prove was
+    # not work, so whatever is left is a modified file the incoming commits also touch, or an
+    # untracked file that DIFFERS from the incoming blob. Name them, so the next session does not
+    # have to rediscover the set by hand.
+    $kept = if ($blockersKept.Count -gt 0) { ' Blocking path(s), left untouched: ' + (($blockersKept | Select-Object -First 6) -join ', ') } else { '' }
     Record ([ordered]@{
-        result      = 'attention'
-        detail      = "pull --ff-only refused: histories diverged ($behind behind / $ahead ahead) and step 2b preserved nothing. Needs a human."
-        repo        = $gitDir; branch = $branch
-        behind      = $behind; ahead = $ahead
-        git         = ($pull | Select-Object -Last 3) -join ' | '
+        result          = 'attention'
+        detail          = "pull --ff-only refused with $behind commit(s) to take:$kept"
+        repo            = $gitDir; branch = $branch
+        behind          = $behind; ahead = $ahead
+        blockers_cleared = $blockersCleared.Count
+        blockers_kept    = $blockersKept.Count
+        git             = ($pull | Select-Object -Last 3) -join ' | '
       })
     exit 1
   }
@@ -430,6 +536,10 @@ Record ([ordered]@{
     pushed                  = $pushed
     apply                   = $applied
     converged               = $verifyOk
+    # Added 2026-09-28 with step 2c: a run that removed files from the working tree must say so on
+    # every outcome, not only when the pull happened to fail. 0 means measured and none.
+    blockers_cleared        = @($blockersCleared).Count
+    blockers_kept           = @($blockersKept).Count
     local_commits_preserved = $preserved
     preserved_ref           = $preservedRef
   })
