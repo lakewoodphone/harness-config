@@ -60,43 +60,89 @@ function parseArgs(argv) {
 }
 
 /**
- * Find the harness entry point. Deliberately a search, not a constant: this runs on machines
- * whose install location differs (npm prefix, npx cache, a portable tree, a POSIX home), and a
- * hardcoded path is how a gate silently checks nothing. Every candidate that was tried is
- * reported so a "not found" is diagnosable rather than mysterious.
+ * Find a harness that ACTUALLY RUNS. Deliberately a search, not a constant: install locations
+ * differ per machine (npm prefix, npx cache, a portable tree, `/home/<user>/dsh-engine`, a POSIX
+ * system prefix), and a hardcoded path is how a gate silently checks nothing.
+ *
+ * EXISTENCE IS NOT ENOUGH, AND THAT COST A FALSE ALARM. Measured on secratary 2026-09-28: the
+ * first existing candidate was `~/.dsh/profiles/node_modules/@deepseek-ai/dsh/lib/bin.js` — a
+ * vestigial 9 KB copy — run with `/usr/bin/node` v20. That pair exits **0 with no output for
+ * every argument, including -V** (L173's entry-point-no-op), so a gate that trusted "the file
+ * exists" declared a healthy machine CANNOT-BOOT. The install that machine really uses is
+ * `/home/zabz/dsh-engine/node_modules/...` run with `/home/zabz/node/bin/node` (v24).
+ *
+ * So candidates are PROBED as (node, bin) PAIRS and the first pair that produces output wins.
+ * A node that no-ops is as much a wrong answer as a missing file. Every pair tried is reported.
  */
-function findDshBin(explicit) {
-  const tried = [];
-  const add = (p) => { if (p) tried.push(p); return p; };
-  const candidates = [];
-  if (explicit) candidates.push(add(explicit));
-  if (process.env.DSH_BIN) candidates.push(add(process.env.DSH_BIN));
+function nodeCandidates() {
+  const list = [];
+  if (process.env.DSH_NODE) list.push(process.env.DSH_NODE);
+  list.push(process.execPath);
+  if (process.platform === 'win32') {
+    list.push('C:\\Program Files\\nodejs\\node.exe');
+    list.push(path.join(os.homedir(), 'node', 'node.exe'));
+  } else {
+    list.push(path.join(os.homedir(), 'node', 'bin', 'node'));
+    list.push('/usr/local/bin/node');
+    list.push('/usr/bin/node');
+  }
+  return [...new Set(list)].filter((p) => { try { return existsSync(p); } catch { return false; } });
+}
+
+function binCandidates(explicit) {
+  const out = [];
+  const add = (p) => { if (p && !out.includes(p)) out.push(p); };
+  if (explicit) add(explicit);
+  if (process.env.DSH_BIN) add(process.env.DSH_BIN);
 
   const win = process.platform === 'win32';
-  const sep = win ? '\\' : '/';
-  const suffix = `node_modules${sep}@deepseek-ai${sep}dsh${sep}lib${sep}bin.js`;
+  const sep = win ? path.sep : '/';
+  const suffix = ['node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'].join(sep);
 
-  // 1. the profile-local install (this is where a per-machine install puts it)
-  candidates.push(add(path.join(home(), 'profiles', suffix)));
-  // 2. a sibling of the running node (npm prefix layout)
-  candidates.push(add(path.join(path.dirname(path.dirname(process.execPath)), 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')));
-  // 3. the owner's npx cache and the portable tree her box used
+  add(path.join(home(), 'dsh-engine', suffix));       // secratary's layout
+  add(path.join(home(), 'profiles', suffix));         // profile-local install
+  add(path.join(home(), 'dsh', suffix));              // her laptop's portable install
+  add(path.join(path.dirname(path.dirname(process.execPath)), 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js'));
   if (win) {
-    candidates.push(add(path.join(os.homedir(), 'AppData', 'Local', 'npm-cache', '_npx', '1e7f6d9597241db0', suffix.replace(/\\/g, path.sep))));
-    candidates.push(add(`C:\\Users\\cheve\\dsh\\${suffix}`));
-    candidates.push(add(`C:\\Users\\ezabz\\dsh\\${suffix}`));
+    add(path.join(os.homedir(), 'AppData', 'Local', 'npm-cache', '_npx', '1e7f6d9597241db0', suffix));
+    add(`C:\\Users\\cheve\\dsh\\${suffix}`);
+    add(`C:\\Users\\ezabz\\dsh\\${suffix}`);
     const npxRoot = path.join(os.homedir(), 'AppData', 'Local', 'npm-cache', '_npx');
-    if (existsSync(npxRoot)) {
-      for (const d of readdirSync(npxRoot)) candidates.push(add(path.join(npxRoot, d, suffix)));
-    }
+    if (existsSync(npxRoot)) for (const d of readdirSync(npxRoot)) add(path.join(npxRoot, d, suffix));
   } else {
-    candidates.push(add('/usr/lib/node_modules/@deepseek-ai/dsh/lib/bin.js'));
-    candidates.push(add('/usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js'));
+    add('/usr/lib/node_modules/@deepseek-ai/dsh/lib/bin.js');
+    add('/usr/local/lib/node_modules/@deepseek-ai/dsh/lib/bin.js');
   }
-  for (const c of candidates) {
-    try { if (c && existsSync(c)) return { bin: c, tried }; } catch { /* keep looking */ }
+  return out.filter((p) => { try { return existsSync(p); } catch { return false; } });
+}
+
+/** Does this pair answer at all? -V is the cheapest question that a no-op cannot fake. */
+function pairAnswers(node, bin) {
+  try {
+    const out = execFileSync(node, [bin, '-V'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+    return out.trim().length > 0;
+  } catch { return false; }
+}
+
+/**
+ * The proven pair, or an explicit refusal.
+ *
+ * A machine where NOTHING answers is reported as `no-working-harness` — a refusal — and never as
+ * a bad profile, because "I could not exercise the harness" and "the harness is broken" are
+ * different facts and only one of them is a defect on that machine.
+ */
+function resolveHarness(explicit) {
+  const bins = binCandidates(explicit);
+  const nodes = nodeCandidates();
+  const tried = [];
+  for (const bin of bins) {
+    for (const node of nodes) {
+      const ok = pairAnswers(node, bin);
+      tried.push({ node, bin, answers: ok });
+      if (ok) return { bin, node, tried };
+    }
   }
-  return { bin: undefined, tried: tried.filter(Boolean) };
+  return { bin: undefined, node: undefined, tried };
 }
 
 /** Profiles are directories under DSH_HOME/profiles, excluding the module tree. */
@@ -133,20 +179,22 @@ function extractFailure(text, status) {
 
 const args = parseArgs(process.argv.slice(2));
 const started = Date.now();
-const { bin, tried } = findDshBin(args.vals['dsh-bin']);
+const { bin, node, tried } = resolveHarness(args.vals['dsh-bin']);
 
 if (bin === undefined) {
   const out = {
     host: os.hostname(),
     home: home(),
-    verdict: 'harness-not-found',
+    verdict: 'no-working-harness',
     tried,
-    note: 'the gate could not locate @deepseek-ai/dsh/lib/bin.js, so it checked NOTHING - this is a refusal, not a pass',
+    note: 'no (node, dsh) pair on this machine produced any output — including for -V — so the gate checked'
+      + ' NOTHING. This is a REFUSAL and it is NOT the same as a bad profile: an unexercisable harness'
+      + ' is not a broken machine. Fix the resolution (see `tried`) or pass --dsh-bin.',
   };
   if (args.flags.includes('json')) console.log(JSON.stringify(out, null, 2));
   else {
-    console.error(`FAIL ${os.hostname()}: harness not found, so NOTHING was checked`);
-    for (const t of tried) console.error(`     tried ${t}`);
+    console.error(`FAIL ${os.hostname()}: no working harness, so NOTHING was checked (this is a refusal, not a verdict)`);
+    for (const t of tried) console.error(`     tried node=${t.node} bin=${t.bin} answers=${t.answers}`);
   }
   process.exit(3);
 }
@@ -162,7 +210,7 @@ for (const name of profiles) {
   const t0 = Date.now();
   let ok = false, lines = 0, failure;
   try {
-    const out = execFileSync(process.execPath, [bin, '--profile', name, '--dump-config'], {
+    const out = execFileSync(node, [bin, '--profile', name, '--dump-config'], {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000,
     });
     lines = out.split('\n').filter((l) => l.trim().length > 0).length;
@@ -179,7 +227,12 @@ const failed = results.filter((r) => !r.ok);
 const payload = {
   host: os.hostname(),
   home: home(),
+  // Provenance: WHICH node and WHICH install produced this verdict. Without these two fields a
+  // "CANNOT-BOOT" cannot be told apart from a gate that resolved the wrong copy — which is
+  // exactly the false alarm secratary produced on 2026-09-28.
+  node,
   dshBin: bin,
+  nodeVersion: (() => { try { return execFileSync(node, ['--version'], { encoding: 'utf8' }).trim(); } catch { return 'unknown'; } })(),
   profiles: results,
   verdict: failed.length === 0 ? 'ok' : 'CANNOT-BOOT',
   checkedMs: Date.now() - started,
@@ -192,6 +245,8 @@ if (args.flags.includes('json')) {
   console.log(JSON.stringify(payload, null, 2));
 } else {
   console.log(`${failed.length === 0 ? 'OK  ' : 'FAIL'} ${payload.host}  profiles=${results.length}  ${payload.checkedMs}ms`);
+  console.log(`     via node ${payload.nodeVersion} (${node})`);
+  console.log(`     and ${bin}`);
   for (const r of results) {
     console.log(`     ${r.ok ? 'ok  ' : 'FAIL'} ${r.profile.padEnd(12)} ${r.ok ? `${r.lines} lines in ${r.ms}ms` : r.failure}`);
   }

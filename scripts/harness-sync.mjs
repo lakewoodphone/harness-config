@@ -208,7 +208,12 @@ function main() {
       const manifest = path.join(pkgRoot, e.name, 'package.json');
       if (!fs.existsSync(manifest)) continue;
       let name;
-      try { name = JSON.parse(fs.readFileSync(manifest, 'utf8')).name; } catch { continue; }
+      let declaresBundle = false;
+      try {
+        const parsed = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+        name = parsed.name;
+        declaresBundle = Boolean(parsed.dsh?.bundle?.patch);
+      } catch { continue; }
       if (!name) continue;
       const link = path.join(nm, name);
       let exists = false;
@@ -221,7 +226,16 @@ function main() {
         try { fs.symlinkSync(path.join(pkgRoot, e.name), link, type); record(`plugin ${name}`, 'linked', path.join('packages', e.name)); }
         catch (err) { record(`plugin ${name}`, 'LINK-FAILED', err.message); continue; }
       }
-      bundles.push(name);
+      // LINKING IS NOT NAMING. A name in `dsh.profile.bundles` is mounted as a patch LAYER, and the
+      // loader throws for one whose package declares no `dsh.bundle.patch` — which stops the whole
+      // engine booting, not just that plugin (dsh-app-boot:852). `packages/` contains bundles AND
+      // plain programs with a `bin` (`mesh-broker`, `deepseek-proxy`), and this line used to push
+      // EVERY linked package. That is the regression measured on 2026-09-28: harness-sync rewrites
+      // her profile on a 15-minute task, so it re-armed the exact defect that had just been repaired
+      // by hand, and her engine died again at the next boot. install-client-plugins.ps1 was fixed
+      // for this on 2026-09-17; this file was not.
+      if (declaresBundle) bundles.push(name);
+      else record(`plugin ${name}`, 'linked-not-a-bundle', 'declares no dsh.bundle.patch — naming it in the profile would stop the engine booting');
     }
     const pf = path.join(profile, 'package.json');
     if (fs.existsSync(pf)) {
