@@ -1,7 +1,20 @@
-# THE AUTONOMOUS SYSTEM - STATE AS OF 2026-09-28 23:05 UTC
+# THE AUTONOMOUS SYSTEM - STATE AS OF 2026-09-28 23:10 UTC
 
 Written by the session that built most of it, for whoever wakes up next with no memory of it. Read this
 before `autonomy-status.sh`, or instead of asking anyone.
+
+## THE THREE THINGS TO KNOW FIRST
+
+1. **`~/.sms-inbox/inbox.db` and `~/work/work.db` are DIFFERENT STORES.** The first is the wake store (who
+   gets woken); the second is the ledger (what work exists). Both are needed; neither is a copy of the other.
+2. **`owner_decision_queue` is WRITE-BLOCKED as of 23:09Z.** It lives inside the 13 GB
+   `personal-secretary-mvp/data/secretary.db`, and `uvicorn app.main:app` holds the write lock: reads
+   `ok in 0.00s`, writes `database is locked after 12.02s`, three attempts out of three. So `owner-queue.py
+   add/resolve/defer` CANNOT write. Ledger item **#54** is this fault and its DoD still fails. Anything that
+   needs to record "we already asked him" must NOT depend on that queue - see the offered store below.
+3. **The owner's texts file at priority 1 and outrank every project item.** If you change that, you are
+   undoing a fix whose absence he noticed himself ("nothing responded" - his 15:57 text sat unclaimed for
+   seven hours behind project work).
 
 ## THE ONE COMMAND
 
@@ -14,10 +27,10 @@ depth, last releases, an explicit PROBLEMS list, and an IDLE line that says WHY 
 session. **Its `IDLE: healthy - N row(s) waiting, every one gated by <cap>` line is the single most useful
 reading in the system**, because healthy idleness and a stall look identical from every other angle.
 
-## WHAT IS PROVEN (measured, 2026-09-28 23:04Z)
+## WHAT IS PROVEN (measured, 2026-09-28 23:09Z)
 
 RELEASE COUNTS - the before/after, from the store's own durable counter:
-    2026-09-24: 4 released | 09-25: 4 | 09-26: 4 | 09-27: 4 | **09-28: 46**
+    2026-09-23: 4 released | 09-24: 4 | 09-25: 4 | 09-26: 4 | 09-27: 4 | **09-28: 48**
     backstop 500 (was 4). spend 1.57 of 70.00 USD, metered every 15 min from wake-cost.jsonl.
     Note the FAILED column: 12 today. Failures are real cost; 4 of them were sessions killed at the runner's
     1800s bound before they could write anything down (fixed - see STEP 3b in the contract).
