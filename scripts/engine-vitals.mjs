@@ -54,7 +54,7 @@
  *   node scripts/engine-vitals.mjs --explain       # thresholds and where they came from
  */
 
-import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync, statSync, statfsSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync, statSync, statfsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
@@ -113,15 +113,21 @@ function readEngineSlot() {
 
 /** Bootstrap the auth cookie from the window URL, then read /healthz. */
 async function readHealthz(slot) {
+  // `connection: close` on purpose. This process fetches twice and then exits, and a
+  // keep-alive socket still pooled at exit is what produces Node-on-Windows'
+  // "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76"
+  // — the 0xC0000409 the scheduled task reported on 2026-09-28. Two extra handshakes
+  // remove the whole class of crash.
+  const CLOSE = { connection: 'close' };
   let cookie = '';
   try {
-    const res = await fetch(slot.url, { redirect: 'manual' });
+    const res = await fetch(slot.url, { redirect: 'manual', headers: CLOSE });
     const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
     cookie = setCookies.map((c) => c.split(';')[0]).join('; ');
   } catch { /* fall through with no cookie; /healthz will say 401 */ }
   const started = Date.now();
   const res = await fetch(`http://127.0.0.1:${slot.port}/healthz`, {
-    headers: cookie.length > 0 ? { cookie } : {},
+    headers: cookie.length > 0 ? { ...CLOSE, cookie } : CLOSE,
   });
   const healthzMs = Date.now() - started;
   if (!res.ok) throw new Error(`/healthz returned ${res.status} (auth token may be stale)`);
@@ -188,6 +194,57 @@ function crashSignature(errLogPath) {
   return undefined;
 }
 
+/**
+ * Prune the engine's scratch directory, SAFELY.
+ *
+ * WHY THIS EXISTS. The 2026-09-25 crash was caused by Windows' own cleanup deleting the engine's
+ * spill directory out from under it, and the fix was to route the engine's os.tmpdir() into
+ * DSH_HOME/tmp, which no cleaner touches. The fix works (verified: dsh-spill-* and
+ * dsh-subprocess-* are created there since the restart) and it creates a new duty: that directory
+ * will now NEVER be cleaned by anything, so its spill directories accumulate for the life of the
+ * machine. Leaving it would be the exact unbounded pile this repo already has 900 health-*.log
+ * files from.
+ *
+ * WHAT MAKES THIS DANGEROUS, AND HOW IT IS AVOIDED. Deleting a LIVE spill directory is precisely
+ * what killed the engine on 09-25, so age alone is not a safe test: DSH creates one spill
+ * directory per process and it lives for that process's whole life, which on this box can exceed
+ * a week. The spill FILE names carry the owning pid (`dsh-subprocess-<pid>-<n>-<hex>-<label>.log`),
+ * so a directory is skipped whenever any file inside it belongs to a process that is still
+ * running. Only then is age consulted. Two independent conditions, and the liveness check wins.
+ *
+ * Scope is deliberately narrow: only `dsh-spill-*` and `dsh-subprocess-*` directories directly
+ * under DSH_HOME/tmp, never a file, never a recursive match, never anything else.
+ */
+function pruneScratch(days) {
+  const root = path.join(home(), 'tmp');
+  const report = { removed: [], skippedLive: 0, skippedYoung: 0, bytes: 0 };
+  if (!existsSync(root)) return report;
+  const cutoff = Date.now() - days * 86400000;
+  for (const d of readdirSync(root, { withFileTypes: true })) {
+    if (!d.isDirectory()) continue;
+    if (!/^dsh-(spill|subprocess)-/.test(d.name)) continue;
+    const dir = path.join(root, d.name);
+    let isLive = false, bytes = 0;
+    try {
+      for (const f of readdirSync(dir, { withFileTypes: true })) {
+        if (!f.isFile()) continue;
+        try { bytes += statSync(path.join(dir, f.name)).size; } catch { /* ignore */ }
+        const m = /^dsh-subprocess-(\d+)-/.exec(f.name);
+        if (m !== null) {
+          try { process.kill(Number(m[1]), 0); isLive = true; } catch { /* not running */ }
+        }
+      }
+    } catch { continue; }
+    if (isLive) { report.skippedLive++; continue; }
+    let age;
+    try { age = statSync(dir).mtimeMs; } catch { continue; }
+    if (age > cutoff) { report.skippedYoung++; continue; }
+    try { rmSync(dir, { recursive: true, force: true }); report.removed.push(d.name); report.bytes += bytes; }
+    catch { /* a lock is a reason to skip, never a reason to fail the run */ }
+  }
+  return report;
+}
+
 function newestEngineErrLog() {
   const dir = path.join(home(), 'multi-window', 'logs');
   if (!existsSync(dir)) return undefined;
@@ -247,6 +304,10 @@ const governor = h.governor ?? {};
 const probe = h.probe ?? {};
 const disk = diskFreePct();
 const corpus = corpusSize();
+// The scratch directory is the engine's os.tmpdir() since the 09-25 fix, and nothing else
+// will ever clean it. Pruned here, on the same cadence, because a directory nobody owns is
+// how the 900-file health-log pile happened. Age is only ever consulted after liveness.
+const scratch = args.flags.includes('no-prune') ? { removed: [], skippedLive: 0, skippedYoung: 0, bytes: 0 } : pruneScratch(num(args.vals['prune-tmp-days'], 7));
 
 const prior = existsSync(vitalsStatePath())
   ? (() => { try { return JSON.parse(readFileSync(vitalsStatePath(), 'utf8')); } catch { return undefined; } })()
@@ -299,6 +360,10 @@ if (typeof row.govInUse === 'number' && typeof row.agentLoops === 'number' && ro
 if (prior !== undefined && typeof prior.probeSpawns === 'number' && typeof row.probeSpawns === 'number') {
   const d = row.probeSpawns - prior.probeSpawns;
   if (d > 0) notes.push(`health probe spawned ${d} process(es) since the last pass (${row.probeSpawns} total)`);
+}
+if (scratch.removed.length > 0) {
+  notes.push(`pruned ${scratch.removed.length} stale scratch dir(s), ${(scratch.bytes / 1048576).toFixed(1)} MB`
+    + ` (kept: ${scratch.skippedLive} live, ${scratch.skippedYoung} young)`);
 }
 
 mkdirSync(path.dirname(defaultCsvPath()), { recursive: true });
@@ -360,4 +425,6 @@ if (args.flags.includes('json')) {
   for (const w of warnings) console.log(`     ! ${w}`);
   for (const n of notes) console.log(`     - ${n}`);
 }
-process.exit(warnings.length === 0 ? 0 : 1);
+// process.exitCode, not process.exit(): an abrupt exit with a socket still closing is what
+// produced the 0xC0000409 the scheduled task recorded. Letting the loop drain is free here.
+process.exitCode = warnings.length === 0 ? 0 : 1;
