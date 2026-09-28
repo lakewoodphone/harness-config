@@ -1032,6 +1032,53 @@ def _track_owner_thread(conn, row, body: str) -> None:
         print("    thread bookkeeping skipped: %s: %s" % (type(exc).__name__, exc))
 
 
+
+def _offered_conn():
+    """The record of what we have already put to the owner by text. A store WE own."""
+    import sqlite3 as _s
+    p = Path.home() / ".sms-inbox" / "offered.db"
+    c = _s.connect(str(p), timeout=10)
+    c.execute("CREATE TABLE IF NOT EXISTS offered ("
+              "queue_id INTEGER PRIMARY KEY, body TEXT, offered_at TEXT)")
+    return c
+
+
+def _already_offered(queue_id) -> bool:
+    """True if this question was put to him within the re-ask window. Unreadable store -> False (ask)."""
+    try:
+        c = _offered_conn()
+        row = c.execute("SELECT offered_at FROM offered WHERE queue_id=?", (int(queue_id),)).fetchone()
+        c.close()
+        if not row or not row[0]:
+            return False
+        when = datetime.fromisoformat(str(row[0]).replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        age_days = (datetime.now(timezone.utc) - when).total_seconds() / 86400.0
+        return age_days < 7
+    except Exception as exc:
+        print(f"    (offered-store read failed, will ask: {type(exc).__name__})")
+        return False
+
+
+def _record_offered(queue_id, body) -> None:
+    """Record that this question went out. Unstampable here would mean it repeats - so print loudly."""
+    try:
+        c = _offered_conn()
+        c.execute("INSERT INTO offered (queue_id, body, offered_at) VALUES (?,?,?) "
+                  "ON CONFLICT(queue_id) DO UPDATE SET body=excluded.body, offered_at=excluded.offered_at",
+                  (int(queue_id), (body or "")[:500],
+                   datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")))
+        c.commit()
+        got = c.execute("SELECT offered_at FROM offered WHERE queue_id=?", (int(queue_id),)).fetchone()
+        c.close()
+        if not got:
+            print("    WARNING: could not record the ask - this question WILL repeat")
+        else:
+            print(f"    recorded as offered ({got[0]}); will not re-ask for 7 days")
+    except Exception as exc:
+        print(f"    WARNING: could not record the ask ({type(exc).__name__}: {exc}) - it WILL repeat")
+
 def _reply_with_top_question(conn, phone: str) -> bool:
     """Reply to the owner with the TOP UNASKED decision from his own queue. True if something was sent.
 
@@ -1072,6 +1119,10 @@ def _reply_with_top_question(conn, phone: str) -> bool:
         # NEVER ASK THE SAME QUESTION TWICE.
         if "asked_by_text" in (r.get("context") or "") or r.get("asked_at_text"):
             continue
+        # AND THE GUARD THAT ACTUALLY WORKS: the owner queue is write-blocked by the app's 13 GB handle, so a
+        # stamp there can silently fail. This one lives in a store we own and cannot be blocked.
+        if _already_offered(r.get("id")):
+            continue
         q = (r.get("question") or "")
         low = q.lower()
         score = sum(w for sig, w in SIGNALS if sig in low)
@@ -1101,12 +1152,28 @@ def _reply_with_top_question(conn, phone: str) -> bool:
         print(f"    replied with queue #{row.get('id')}: {body[:70]}")
         # STAMP IT ASKED so it is never repeated, and record that the ask happened by text.
         try:
-            _sp.run(["python3", queue, "defer", str(row.get("id")),
-                     "--note", "asked_by_text %s - put to him by SMS; awaiting his reply"
-                     % datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")],
-                    capture_output=True, text=True, timeout=60)
+            # --until IS REQUIRED by `owner-queue.py defer`. Without it the call exits with a usage
+            # error, `capture_output=True` swallows the message, nothing is recorded and the row stays
+            # eligible - so the SAME question goes out again on his next text. Measured 2026-09-28: the
+            # stamp silently failed and the selector picked #164 again. Seven days is long enough that a
+            # repeat follows only a genuine silence, and short enough that an unanswered question returns.
+            _stamp = _sp.run(["python3", queue, "defer", str(row.get("id")),
+                              "--until", "+7d",
+                              "--note", "asked_by_text %s - put to him by SMS; awaiting his reply"
+                              % datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")],
+                             capture_output=True, text=True, timeout=60)
+            # AND READ THE RESULT. A stamp whose effect is never checked is not a stamp: the identical
+            # defect is what let a supposedly-intercepted test send the owner two duplicate texts.
+            _err = (_stamp.stderr or "").strip()
+            if _stamp.returncode != 0 or _err:
+                print(f"    WARNING: the asked-stamp did NOT take (rc={_stamp.returncode}): "
+                      f"{(_err or _stamp.stdout or '')[:160]}")
+                print("    -> this question WILL repeat on his next text until it is stamped")
+            else:
+                print(f"    stamped #{row.get('id')} as asked (re-askable in 7 days)")
         except Exception as exc:
             print(f"    (asked, but could not stamp it as asked: {type(exc).__name__})")
+        _record_offered(row.get("id"), body)
         return True
     except Exception as exc:
         print(f"    reply failed: {type(exc).__name__}: {exc}")
