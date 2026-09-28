@@ -696,6 +696,7 @@ handoff	H2794	2794		2026-09-28 17:25 UTC	ZABZ-YOGA	open	## 2026-09-28 17:25 UTC 
 handoff	H2778b	2778	b	2026-09-28 17:31 UTC	SECRATARY	open	## 2026-09-28 17:31 UTC · SECRATARY · checkout-health alarm built, proven four ways, wired and live	entries/handoff/H2778b.md	1	59	33b73fc9e9b95fef
 handoff	H2849	2849		2026-09-28 18:38 UTC	ZABZ-TECH	open	## 2026-09-28 18:38 UTC · ZABZ-TECH · Chol Hamoed 5787 - the trip record is in the home repo and pushed; tonight is Mon 9/28 with an 8pm constraint	entries/handoff/H2849.md	1	74	11869ddb38984a36
 handoff	H2850	2850		2026-09-28 18:39 UTC	ZABZ-TECH	open	## 2026-09-28 18:39 UTC · ZABZ-TECH · three-machine git sync: harness-config converged everywhere, secratary journal 34 errors -> 0, and the two defects that froze ZABZ-TECH fixed	entries/handoff/H2850.md	1	94	79b942116ed010be
+handoff	H2851	2851		2026-09-28 18:43 UTC	ZABZ-TECH	open	## 2026-09-28 18:43 UTC · ZABZ-TECH · addendum to H2850: the final repo state, the five repos closed after it, and what is still open with numbers	entries/handoff/H2851.md	1	48	30ad3130fe54ff5a
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1810,6 +1811,7 @@ lessons	L2850	2850		2026-09-28	ZABZ-TECH	open	**L2850 · A scraper's summarized 
 lessons	L2851	2851		2026-09-28	ZABZ-TECH	open	**L2851 · Put the MESH-HOST line in the brief yourself - a mesh child is not steerable once dispatched**	entries/lessons/L2851.md	1	37	2f90601d8e73521d
 lessons	L2852	2852		2026-09-28	ZABZ-TECH	open	**L2852 · A branch nothing has measured is a branch that is always "unreachable in practice"**	entries/lessons/L2852.md	1	34	34e11b5be70e4202
 lessons	L2853	2853		2026-09-28	ZABZ-TECH	open	**L2853 · PowerShell -match is case-insensitive, so a convergence check greping WOULD matched "would run <installer>" and could never go green**	entries/lessons/L2853.md	1	26	bf0081e34b182c8c
+lessons	L2854	2854		2026-09-28	ZABZ-TECH	open	**L2854 · The owner's own phone number was in the permissions table as a friend set to NEVER, so the system refused to answer him; Zabrowsky is the correct surname and Chip Zabrowsky is the AI**	entries/lessons/L2854.md	1	38	1cf252fac5bc8096
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2473,6 +2475,9 @@ decisions	D2661	2661		2026-09-28	ZABZ-YOGA	open	**D2661 · 2026-09-28 · Android
 decisions	D2709	2709		2026-09-28	ZABZ-TECH	open	**D2709 · 2026-09-28 · The owner's texting channel: short texts on +18483897895, no briefings, parked questions, follow-ups, rejectable questions.**	entries/decisions/D2709.md	1	43	2634ace2bff04ad4
 decisions	D2710	2710		2026-09-28	ZABZ-TECH	open	**D2710 · 2026-09-28 · 2026-09-28 - The household record is a remote-backed repo, and trip records live in home/trips/.**	entries/decisions/D2710.md	1	35	e76de31249e2bdce
 decisions	D2711	2711		2026-09-28	ZABZ-TECH	open	**D2711 · 2026-09-28 · sync policy: origin wins only where the local side is a measured regression; preserve to three places before moving; never auto-resolve a divergence.**	entries/decisions/D2711.md	1	29	399445dd0b2b637e
+decisions	D2712	2712		2026-09-28	ZABZ-TECH	open	**D2712 · 2026-09-28 · The owner's three numbers and his name: 848-389-7895 is the only one he reads, 732-569-1594 is monitor-only Google Voice, and the permissions row plus OWNER_PHONE_NUMBER both named the wrong number.**	entries/decisions/D2712.md	1	41	4904616df6807fcb
+decisions	D2713	2713		2026-09-28	ZABZ-TECH	open	**D2713 · 2026-09-28 · Correction: 'Zabz' is the OWNER's nickname (his friends call him that). It is not the AI's name and must never be recorded as one.**	entries/decisions/D2713.md	1	28	3a95cbed4ce28fab
+decisions	D2714	2714		2026-09-28	ZABZ-TECH	open	**D2714 · 2026-09-28 · Names: the OWNER is Eliyahu / Eliyahu Tzvi / Zabz / Boss / Owner / AI God. The AI is Chip / Daniel / AI / Computer / Robot. The two lists are never interchangeable.**	entries/decisions/D2714.md	1	38	10b90637a5aa58c4
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
