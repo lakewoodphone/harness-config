@@ -212,33 +212,57 @@ function crashSignature(errLogPath) {
  * so a directory is skipped whenever any file inside it belongs to a process that is still
  * running. Only then is age consulted. Two independent conditions, and the liveness check wins.
  *
- * Scope is deliberately narrow: only `dsh-spill-*` and `dsh-subprocess-*` directories directly
- * under DSH_HOME/tmp, never a file, never a recursive match, never anything else.
+ * Scope was ORIGINALLY narrow (only `dsh-spill-*` / `dsh-subprocess-*`), and that was WRONG.
+ * Measured 2026-09-28 on ZABZ-YOGA, after the redirect had been live a few hours: DSH_HOME/tmp
+ * held HUNDREDS of directories belonging to tools that have nothing to do with DSH --
+ * `MSBuildTemp`, `NuGetScratch`, `VBCSCompiler`, `robolectric-*`, `pytest-of-ezabz`,
+ * `NativeImage-*`, `hsperfdata_ezabz`, `WinGet`, and dozens of bare `tmp*`. They are there
+ * because the engine is the ANCESTOR of every build and test the agent runs, and children
+ * inherit TEMP. So the redirect did not move one spill directory; it moved the temp of the
+ * whole toolchain, and a pruner that only matched the `dsh-` prefix left all of it to accumulate
+ * forever -- the exact pile this function exists to prevent.
+ *
+ * So the rule is now "anything directly under DSH_HOME/tmp", which is honest about what that
+ * directory became. Everything else about the safety analysis still holds, and is why this is
+ * not simply `rm -rf`:
+ *   * never a file, never recursive, never anything outside DSH_HOME/tmp;
+ *   * a directory is kept while ANY directory inside it was modified recently, because a live
+ *     tool touching its temp is the strongest available signal that it is still in use;
+ *   * a directory holding a file whose name embeds a LIVE pid is kept unconditionally --
+ *     deleting a live spill directory is exactly what killed the engine on 09-25;
+ *   * age is only consulted after both of those.
  */
 function pruneScratch(days) {
   const root = path.join(home(), 'tmp');
   const report = { removed: [], skippedLive: 0, skippedYoung: 0, bytes: 0 };
   if (!existsSync(root)) return report;
   const cutoff = Date.now() - days * 86400000;
+  // A tool mid-work touches its temp constantly; treat recent METADATA activity anywhere inside
+  // as "in use", which catches the tools whose filenames carry no pid.
+  const TOUCHED_MS = 12 * 3600 * 1000;
+  const touchedAfter = Date.now() - TOUCHED_MS;
+
   for (const d of readdirSync(root, { withFileTypes: true })) {
     if (!d.isDirectory()) continue;
-    if (!/^dsh-(spill|subprocess)-/.test(d.name)) continue;
     const dir = path.join(root, d.name);
-    let isLive = false, bytes = 0;
-    try {
-      for (const f of readdirSync(dir, { withFileTypes: true })) {
-        if (!f.isFile()) continue;
-        try { bytes += statSync(path.join(dir, f.name)).size; } catch { /* ignore */ }
-        const m = /^dsh-subprocess-(\d+)-/.exec(f.name);
-        if (m !== null) {
-          try { process.kill(Number(m[1]), 0); isLive = true; } catch { /* not running */ }
-        }
+    let isLive = false, recentlyTouched = false, bytes = 0, entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const f of entries) {
+      try {
+        const st = statSync(path.join(dir, f.name));
+        if (f.isFile()) bytes += st.size;
+        if (st.mtimeMs > touchedAfter) recentlyTouched = true;
+      } catch { /* unreadable entry: ignore for size, the age test still applies */ }
+      const m = /^dsh-subprocess-(\d+)-/.exec(f.name);
+      if (m !== null) {
+        try { process.kill(Number(m[1]), 0); isLive = true; } catch { /* not running */ }
       }
-    } catch { continue; }
+    }
     if (isLive) { report.skippedLive++; continue; }
-    let age;
-    try { age = statSync(dir).mtimeMs; } catch { continue; }
-    if (age > cutoff) { report.skippedYoung++; continue; }
+    if (recentlyTouched) { report.skippedYoung++; continue; }
+    let mtime;
+    try { mtime = statSync(dir).mtimeMs; } catch { continue; }
+    if (mtime > cutoff) { report.skippedYoung++; continue; }
     try { rmSync(dir, { recursive: true, force: true }); report.removed.push(d.name); report.bytes += bytes; }
     catch { /* a lock is a reason to skip, never a reason to fail the run */ }
   }
@@ -307,7 +331,7 @@ const corpus = corpusSize();
 // The scratch directory is the engine's os.tmpdir() since the 09-25 fix, and nothing else
 // will ever clean it. Pruned here, on the same cadence, because a directory nobody owns is
 // how the 900-file health-log pile happened. Age is only ever consulted after liveness.
-const scratch = args.flags.includes('no-prune') ? { removed: [], skippedLive: 0, skippedYoung: 0, bytes: 0 } : pruneScratch(num(args.vals['prune-tmp-days'], 7));
+const scratch = args.flags.includes('no-prune') ? { removed: [], skippedLive: 0, skippedYoung: 0, bytes: 0 } : pruneScratch(num(args.vals['prune-tmp-days'], 3));
 
 const prior = existsSync(vitalsStatePath())
   ? (() => { try { return JSON.parse(readFileSync(vitalsStatePath(), 'utf8')); } catch { return undefined; } })()
