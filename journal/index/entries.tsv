@@ -700,6 +700,8 @@ handoff	H2850	2850		2026-09-28 18:39 UTC	ZABZ-TECH	open	## 2026-09-28 18:39 UTC 
 handoff	H2851	2851		2026-09-28 18:43 UTC	ZABZ-TECH	open	## 2026-09-28 18:43 UTC · ZABZ-TECH · addendum to H2850: the final repo state, the five repos closed after it, and what is still open with numbers	entries/handoff/H2851.md	1	48	30ad3130fe54ff5a
 handoff	H2852	2852		2026-09-28 18:49 UTC	ZABZ-TECH	open	## 2026-09-28 18:49 UTC · ZABZ-TECH · Autonomy build round 2: durable work ledger live, shift contract ledger-driven, release cap 4->12, owner identity corrected	entries/handoff/H2852.md	1	64	79de1ecd135d0a1a
 handoff	H2853	2853		2026-09-28 18:49 UTC	ZABZ-TECH	open	## 2026-09-28 18:49 UTC · ZABZ-TECH · addendum 2 to H2850: the fleet tooling is now in the repo, and the company's newest line is off the single disk	entries/handoff/H2853.md	1	22	17b9630e0611d7ea
+handoff	H2913	2913		2026-09-28 18:51 UTC	ZABZ-YOGA	open	## 2026-09-28 18:51 UTC · ZABZ-YOGA · Round 5b - deployed 6168f366d; the live allow-list audit reads TOTAL_GAPS=0; reindex fd leak worked around	entries/handoff/H2913.md	1	67	645ff5f542def9bd
+handoff	H2914	2914		2026-09-28 19:08 UTC	ZABZ-YOGA	open	## 2026-09-28 19:08 UTC · ZABZ-YOGA · kf0928/server-tests-green: both Server CI reds fixed on the branch, full-suite proof in flight	entries/handoff/H2914.md	1	14	3ac91aabab2b9208
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1815,6 +1817,10 @@ lessons	L2851	2851		2026-09-28	ZABZ-TECH	open	**L2851 · Put the MESH-HOST line 
 lessons	L2852	2852		2026-09-28	ZABZ-TECH	open	**L2852 · A branch nothing has measured is a branch that is always "unreachable in practice"**	entries/lessons/L2852.md	1	34	34e11b5be70e4202
 lessons	L2853	2853		2026-09-28	ZABZ-TECH	open	**L2853 · PowerShell -match is case-insensitive, so a convergence check greping WOULD matched "would run <installer>" and could never go green**	entries/lessons/L2853.md	1	26	bf0081e34b182c8c
 lessons	L2854	2854		2026-09-28	ZABZ-TECH	open	**L2854 · The owner's own phone number was in the permissions table as a friend set to NEVER, so the system refused to answer him; Zabrowsky is the correct surname and Chip Zabrowsky is the AI**	entries/lessons/L2854.md	1	38	1cf252fac5bc8096
+lessons	L2855	2855		2026-09-28	ZABZ-TECH	open	**L2855 · The Voice of Lakewood's live Chol Hamoed guide, and how to search a 580-page issue instead of squinting at it**	entries/lessons/L2855.md	1	36	f678b38502ea26bc
+lessons	L2856	2856		2026-09-28	ZABZ-TECH	open	**L2856 · For this household, an event whose seating is not published is excluded - check seating before recommending any concert**	entries/lessons/L2856.md	1	34	b05fbaa4389b2da2
+lessons	L2912	2912		2026-09-28	ZABZ-YOGA	open	**L2912 · FastAPI's lifespan rebuilds app.state.limiter, so a test fixture cannot reset it**	entries/lessons/L2912.md	1	12	4c338a9e0d8d0060
+lessons	L2913	2913		2026-09-28	ZABZ-YOGA	open	**L2913 · Measure which rate-limit policy a route resolves to before believing its budget name**	entries/lessons/L2913.md	1	8	39a3b18a1df8d3c2
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2156,6 +2162,7 @@ pain	P2606	2606		2026-09-28	ZABZ-TECH	open	## P2606 — The authority is 4x over
 pain	P2607	2607		2026-09-28	ZABZ-TECH	open	## P2607 — journal.py append crashes visibly on Windows cp1252 while succeeding silently - the tool's own write path corrupts the operator's trust in it	entries/pain/P2607.md	1	32	3a78755dcca80879
 pain	P2608	2608		2026-09-28	ZABZ-TECH	open	## P2608 — personal-secretary-mvp is a three-way fork and its GitHub mirror has been dead since 2026-09-17	entries/pain/P2608.md	1	35	d15b70c8dd0c4fde
 pain	P2609	2609		2026-09-28	ZABZ-TECH	open	## P2609 — journal/index/* is generated state that is tracked in git: every host goes dirty by using the journal, and that is what blocked the fast-forward	entries/pain/P2609.md	1	29	d7f735dfc90716e1
+pain	P2666	2666		2026-09-28	ZABZ-YOGA	open	## P2666 — A fleet worktree has no server/.venv, and pytest --basetemp=./_pt trips the frames write-guard	entries/pain/P2666.md	1	12	2ee85812f12f123b
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
