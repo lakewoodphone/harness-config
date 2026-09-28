@@ -437,12 +437,30 @@ which composes the layers, starts nothing and is safe on a machine in use.
 
 ### Still broken on this machine (open)
 
-1. **`PersonalSecretary-PushDSHSessions` exits `0xC0000409`** (`3221226505`, STATUS_STACK_BUFFER_OVERRUN)
-   and there is no `~/.dsh-session-ship.log` on the box. So even with the engine up, **her sessions
-   do not reach the authority** — which is why the ingest gap reads as 11 days rather than 10.
-2. **Nothing starts the engine unattended at boot.** The Logon trigger exists and fires, but the
+1. **`PersonalSecretary-PushDSHSessions` exits `0xC0000409`, but the shipping itself WORKS.** An earlier
+   draft of this section said her sessions "do not reach the authority" — that was wrong, and the
+   correction matters because it came from reading the wrong file. Her log is
+   `C:\Users\cheve\.dsh\logs\session-sync.log` (NOT the owner's `~/.dsh-session-ship.log`), and every
+   run shows:
+
+   ```
+   unchanged  : 21 session(s) already complete (cursor)
+   heartbeat  : recorded contact for desktop-fgv6kmh (0 sessions, 0 rows)
+   Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76
+   ```
+
+   So all 21 sessions are shipped, the cursor is current, and the heartbeat is recorded. The
+   `0xC0000409` is a **libuv assertion on Node-on-Windows at process teardown** — it fires *after* the
+   work completes, and its only real cost is that Task Scheduler shows the task as failed. Genuinely
+   broken once: `retry 1/3 … 3/3 — ingest 500: {"ok":false,"error":"internal_error"}`, i.e. the
+   authority answered 500 to an ingest. That is server-side and separate.
+2. **THE INGEST GAP WAS THE DEAD ENGINE, NOT THE SHIPPER.** `dsh_sessions.updated_at` for this machine
+   read 274 h stale; that is an age of *new rows*, and no new sessions existed because the engine
+   could not start. A heartbeat was arriving the whole time. **`updated_at` age measures new work, not
+   contact**, and reading it as "no contact" points at the wrong subsystem.
+3. **Nothing starts the engine unattended at boot.** The Logon trigger exists and fires, but the
    intended path remains the desktop shortcut; §10's item 1 is still true.
-3. `YochevedTtyd` last result 1.
+4. `YochevedTtyd` last result 1.
 
 ### The lesson this cost ten days
 
