@@ -86,6 +86,33 @@ age, flags waiting, released today, who we are waiting on. If it says the dispat
 ago, nothing can revive you and **that is not peace, it is death** — the operation's oldest failure is
 reading a live-looking thing as work-happening.
 
+## The project loop — where its work actually lives
+
+`project-keepalive` (a source in `run-wake-sources.sh`, every 15 min) files **one flag per project per
+day** for `kosher-ai-filter`, `waste-system` and `lpt-website`. Each release is a real shift, headless,
+on ZABZ-TECH. Two things you must know before you judge a project idle:
+
+- **A project's state is NOT in the journal.** The woken shift writes its plan, its evidence and the next
+  worker's instructions to `/home/zabz/.wake-projects/<project>.json` on the authority, and the flag's
+  outcome line lands in `~/.sms-inbox/wake-dispatch.log`. **Read both before saying a project has
+  stalled.** Measured 2026-09-23: a full website shift (wake #26, 1426 s, exit 0) had run that morning
+  and fixed three source defects, while the journal showed nothing — which is exactly how a live project
+  reads as a dead one, and it produced a wrong answer to the owner.
+- **A `new` project flag is queued, not lost.** The daily cap (owner's: 4 releases/day, one per project)
+  means today's project flags wait behind earlier releases and go out after 00:00Z. `stats --json`
+  showing `caps_in_force: ["daily_cap: 4/4 releases today"]` all afternoon is the normal state of a
+  healthy system, not a fault.
+
+```bash
+ssh secratary-ts "cat ~/.wake-projects/lpt-website.json"          # the project's real state
+ssh secratary-ts "grep -v 'daily cap reached' ~/.sms-inbox/wake-dispatch.log | tail -30"   # what ran
+```
+
+The standing failure of this loop is not waking up — it is **integration**. A shift ends with a pushed
+branch and a "the next worker must merge this" line, and nothing merges it, so daily progress accumulates
+as unmerged branches. When you are woken for a project, the first item of its state file is usually an
+unmerged branch, and that IS the work.
+
 ## The safety envelope (know what protects you)
 
 Dedup by subject · cooldown per subject · daily release cap · per-source hourly cap · night gate ·
