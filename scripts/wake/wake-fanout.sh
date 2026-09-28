@@ -1,42 +1,42 @@
 #!/bin/bash
-# wake-fanout.sh - keep SEVERAL shifts in flight, each in its own isolated state.
+# wake-fanout.sh - keep N shifts in flight, counted by PROCESS, within an explicit ceiling.
 #
-# WHY THIS EXISTS. The owner, 2026-09-28: "There's no reason to limit how much you could do per day
-# ... if there's legitimate reasons to wake more than 12 times, then why not? I want to be really
-# powerful and autonomous and able to actually finish projects really fast and move on."
+# WHAT WENT WRONG IN MY FIRST TWO VERSIONS, measured 2026-09-28 19:54Z:
+#   * SIX `wake-dispatch.sh` processes were alive against WAKE_FANOUT_TARGET=5. Two had been running
+#     15.5 minutes; four more had started in the previous 30 seconds.
+#   * `wake.py claim` answered **`database is locked`** while four dispatchers polled and heartbeated the
+#     same sqlite store every 60 s, and one heartbeat process sat in uninterruptible sleep.
+# THE CAUSE: the loop counted a row as "in flight" only once the STORE said `claimed`. Between launching
+# a dispatcher and its claim landing there is a window of seconds, and every pass of the loop that
+# landed inside that window concluded there was room and launched another. Polling to close the window
+# was not enough - a slow claim, a gated claim, or a claim taken by a different dispatcher all let it
+# through. Counting the STORE is not the same as counting the PROCESSES, and the PROCESSES are what
+# consume the machine and contend for the database.
 #
-# THE MEASURED BOTTLENECK WAS NEVER POLICY. `wake-dispatch.sh` named these files FIXED and shared:
-#     STAGE=/home/zabz/.sms-inbox/wake-stage      (claim.json, prompt.txt, wake-out.txt, wake-ssh.log)
-#     LOCK=/home/zabz/.sms-inbox/wake-dispatch.lock
-# so it held a single-instance lock for the WHOLE length of a shift (a measured 6-13 minutes), cron
-# fired it every 5 minutes, and every tick in between logged "another dispatcher holds ... skipping
-# this tick". Measured 2026-09-28 19:26Z: 13 rows waiting, 1 in flight, 3 fan-out attempts all
-# released instantly with in_flight still 1. The cap on throughput was an accident of two filenames.
+# THE FIX: count our own live dispatch processes, take the LARGER of that and the store's claimed count,
+# and never start more than (target - that). Plus an absolute ceiling on processes. A store count alone
+# can never again authorise an overshoot.
 #
-# FIRST ATTEMPT WAS WRONG, and the log proved it: three shifts were launched and all three exited in
-# a second. Reading the child log showed why - each call saw its own lock held, because one lock
-# serves one shift. So this version gives every concurrent shift WHAT THE DISPATCHER ALREADY SUPPORTS:
-#     WAKE_STAGE_DIR   per-instance staging (the dispatcher uses $STAGE for claim.json, prompt.txt,
-#                      wake-out.txt, wake-ssh.log - all FIXED names inside it)
-#     WAKE_LOCK_FILE   per-instance single-instance guard (so one shift cannot collide with another,
-#                      while still preventing two shifts for the same row)
-#     WAKE_LOG         deliberately SHARED, so the day's release count the caps are computed from
-#                      stays one file. Appends of a few hundred bytes are atomic enough on Linux.
-# The worker side needs nothing: the dispatcher already names the remote prompt and output files
-# `wake-prompt-<id>-<token>.txt` / `wake-out-<id>-<token>.txt` with a per-run token, so concurrent
-# shifts cannot overwrite each other on the desktop.
+# WHY EACH CONCURRENT SHIFT NEEDS ITS OWN STATE (unchanged, and still true): `wake-dispatch.sh` names
+# its staging dir and its lock FIXED and shared - `~/.sms-inbox/wake-stage/{claim.json,prompt.txt,
+# wake-out.txt,wake-ssh.log}` and `wake-dispatch.lock` - so one lock serves one shift and a second call
+# held the lock, saw it held, and exited in a second (measured: three launches, all three gone in under
+# a second). The dispatcher ALREADY supports:
+#     WAKE_STAGE_DIR   per-instance staging
+#     WAKE_LOCK_FILE   per-instance single-instance guard
+#     WAKE_LOG         deliberately SHARED, so the day's release count the caps are computed from stays
+#                      one file (appends of a few hundred bytes are atomic enough on Linux)
+# and the worker needs nothing: the dispatcher already names the remote prompt and output files
+# `wake-prompt-<id>-<token>.txt` / `wake-out-<id>-<token>.txt` with a per-run token.
 #
 # EVERY EXISTING GUARD STILL APPLIES, because the dispatcher itself is unmodified: one row per claim,
-# the store's lease, the daily backstop, the spend ceiling, the pause file, and the refusal to raise
-# a flag from inside a woken session.
+# the store's lease, the daily backstop, the spend ceiling, the pause file, and the refusal to raise a
+# flag from inside a woken session.
 #
-# CONCURRENCY IS BOUNDED ON PURPOSE - integration is the real ceiling on a fleet, so the default is
-# small and it is one line to change.
-#
-# USAGE   wake-fanout.sh [--target N] [--max N] [--dry-run]
-# ENV     WAKE_FANOUT_TARGET (3)  shifts to keep in flight
-#         WAKE_FANOUT_MAX    (5)  hard ceiling for one run
-#         WAKE_DISPATCH      (/home/zabz/bin/wake-dispatch.sh)
+# Usage: wake-fanout.sh [--target N] [--max N] [--dry-run]
+# Env:   WAKE_FANOUT_TARGET (3) shifts to keep in flight
+#        WAKE_FANOUT_MAX    (5) hard ceiling on dispatch processes
+#        WAKE_DISPATCH      (/home/zabz/bin/wake-dispatch.sh)
 
 set -u
 PROG=$(basename "$0")
@@ -62,16 +62,38 @@ done
 say() { printf '%s\n' "$*"; }
 note() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$FANOUT_LOG" 2>/dev/null || true; }
 
+# A LOCKED STORE IS NOT AN EMPTY STORE. Retry, and return -1 for "could not read" - never 0, because a
+# zero from an unreadable store is how a full queue looks idle.
 count_state() {
-  python3 - "$WAKE_CLI" "$1" <<'PY' 2>/dev/null || echo 0
+  python3 - "$WAKE_CLI" "$1" <<'PY' 2>/dev/null || echo -1
 import json, subprocess, sys
-try:
-    out = subprocess.run(["python3", sys.argv[1], "stats", "--json"],
-                         capture_output=True, text=True, timeout=60).stdout
-    print(int((json.loads(out).get("states") or {}).get(sys.argv[2]) or 0))
-except Exception:
-    print(0)
+last = None
+for _ in range(3):
+    try:
+        out = subprocess.run(["python3", sys.argv[1], "stats", "--json"],
+                             capture_output=True, text=True, timeout=90).stdout
+        d = json.loads(out)
+        if not d.get("ok", True):
+            last = "not-ok"
+            continue
+        print(int((d.get("states") or {}).get(sys.argv[2]) or 0))
+        raise SystemExit(0)
+    except SystemExit:
+        raise
+    except Exception as exc:
+        last = type(exc).__name__
+print(-1)
 PY
+}
+
+# COUNT ONLY REAL DISPATCHERS. `pgrep -f "wake-dispatch.sh"` matches any command line CONTAINING that
+# string - including the ssh probe that asked the question, and including a fan-out whose own argument
+# list mentions it. Measured 2026-09-28: a dry run reported "processes 1" with no dispatcher running,
+# and the live probe reported 2 with one. An inflated count is not harmless: it makes the loop believe
+# shifts are in flight that are not, so it never reaches its target - a stall in the opposite
+# direction. So match the ARGUMENT SHAPE instead: a bash process whose first argument is the dispatcher.
+count_procs() {
+  ps -eo args= 2>/dev/null | grep -c '^bash /home/zabz/bin/wake-dispatch.sh' || true
 }
 
 if [ -e "$PAUSE_FILE" ]; then
@@ -79,24 +101,46 @@ if [ -e "$PAUSE_FILE" ]; then
   [ "$DRY_RUN" = 1 ] && say "dry-run: paused"
   exit 0
 fi
-
 mkdir -p "$INST_ROOT" 2>/dev/null || true
 
-BEFORE=$(count_state claimed)
+STORED=$(count_state claimed)
+PROCS=$(count_procs)
 QUEUED=$(count_state new)
-say "fanout: in flight $BEFORE, target $TARGET, ceiling $MAX, waiting $QUEUED"
-note "start in_flight=$BEFORE target=$TARGET max=$MAX waiting=$QUEUED"
+if [ "$STORED" -lt 0 ] || [ "$QUEUED" -lt 0 ]; then
+  say "fanout: the store could not be read (locked?) - starting nothing this tick"
+  note "abort: store unreadable (claimed=$STORED new=$QUEUED procs=$PROCS)"
+  exit 0
+fi
+
+IN_FLIGHT=$STORED
+[ "$PROCS" -gt "$IN_FLIGHT" ] && IN_FLIGHT=$PROCS
+
+say "fanout: in flight $IN_FLIGHT (store $STORED, processes $PROCS), target $TARGET, ceiling $MAX, waiting $QUEUED"
+note "start in_flight=$IN_FLIGHT store=$STORED procs=$PROCS target=$TARGET max=$MAX waiting=$QUEUED"
 
 started=0
 while :; do
-  CUR=$(count_state claimed)
-  LEFT=$(count_state new)
-  if [ "$CUR" -ge "$TARGET" ]; then
-    say "fanout: $CUR shift(s) in flight, at target - starting nothing more"
-    note "stop at target (in_flight=$CUR)"
+  STORED=$(count_state claimed)
+  PROCS=$(count_procs)
+  QUEUED=$(count_state new)
+  if [ "$STORED" -lt 0 ] || [ "$QUEUED" -lt 0 ]; then
+    note "stop: store unreadable mid-run (claimed=$STORED new=$QUEUED)"
     break
   fi
-  if [ "$LEFT" -le 0 ]; then
+  CUR=$STORED
+  [ "$PROCS" -gt "$CUR" ] && CUR=$PROCS
+
+  if [ "$CUR" -ge "$TARGET" ]; then
+    say "fanout: $CUR in flight, at target - starting nothing more"
+    note "stop at target (in_flight=$CUR procs=$PROCS)"
+    break
+  fi
+  if [ "$PROCS" -ge "$MAX" ]; then
+    say "fanout: $PROCS dispatch process(es) alive, at ceiling $MAX - starting nothing more"
+    note "stop at process ceiling (procs=$PROCS)"
+    break
+  fi
+  if [ "$QUEUED" -le 0 ]; then
     say "fanout: nothing waiting - nothing to start"
     note "stop: queue empty"
     break
@@ -108,13 +152,11 @@ while :; do
   fi
 
   if [ "$DRY_RUN" = 1 ]; then
-    say "dry-run: would start a shift (in flight $CUR, waiting $LEFT)"
+    say "dry-run: would start a shift (in flight $CUR, waiting $QUEUED)"
     started=$((started + 1))
     continue
   fi
 
-  # ONE INSTANCE = ONE DIRECTORY + ONE LOCK. The shift writes its intermediates there and nowhere
-  # else, so two shifts cannot read each other's claim or prompt.
   INST="$INST_ROOT/inst-$$-$started"
   mkdir -p "$INST" 2>/dev/null || true
   (
@@ -126,26 +168,26 @@ while :; do
   pid=$!
   started=$((started + 1))
 
-  # Wait for this shift to actually CLAIM something before counting it, so the loop is driven by the
-  # store rather than by optimism. A dispatcher that finds nothing to release exits at once.
+  # Wait for the CLAIM to land or for the child to exit. Both endings are informative, and the in-flight
+  # count now includes this new process, so a slow claim can never authorise a second start.
   claimed=0
-  for _ in $(seq 1 25); do
+  for _ in $(seq 1 30); do
     sleep 1
-    if [ "$(count_state claimed)" -gt "$CUR" ]; then claimed=1; break; fi
+    NOW_STORED=$(count_state claimed)
+    if [ "$NOW_STORED" -gt "$STORED" ]; then claimed=1; break; fi
     if ! kill -0 "$pid" 2>/dev/null; then break; fi
   done
   if [ "$claimed" = 1 ]; then
-    say "fanout: shift #$started (pid $pid) CLAIMED a row; in flight now $(count_state claimed)"
-    note "started shift #$started pid=$pid claimed=yes in_flight=$(count_state claimed)"
+    say "fanout: shift #$started (pid $pid) CLAIMED; processes now $(count_procs)"
+    note "started shift #$started pid=$pid claimed=yes procs=$(count_procs)"
   else
-    say "fanout: shift #$started (pid $pid) did not claim (nothing eligible, or gated) - stopping"
+    say "fanout: shift #$started (pid $pid) did not claim - stopping this run"
     note "started shift #$started pid=$pid claimed=no; stopping"
     rm -rf "$INST" 2>/dev/null
     break
   fi
 done
 
-AFTER=$(count_state claimed)
-say "fanout: started $started this run; in flight $AFTER"
-note "end started=$started in_flight=$AFTER"
+say "fanout: started $started this run; processes $(count_procs)"
+note "end started=$started procs=$(count_procs)"
 exit 0
