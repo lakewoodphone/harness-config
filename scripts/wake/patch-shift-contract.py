@@ -113,21 +113,34 @@ NEW_FUNC = '''def standing_contract(project: dict, state: dict, items: list[str]
         "  Keep `work_remaining` true only if real work remains, and describe it in terms the",
         "  ledger agrees with. If the two disagree, THE LEDGER IS RIGHT.",
         "",
-        "STEP 7 - TELL HIM, IF YOU ASKED HIM ANYTHING. If you filed an owner-queue row (step",
-        "  (b) below), the owner will NOT see it until something reaches his phone, and a",
-        "  question he never sees is a question he never answers. So after filing it, send him",
-        "  ONE short text with the question and your recommendation. This is the only outbound",
-        "  message a shift may send, it may go ONLY to the owner, and it must be short:",
+        "STEP 7 - THE ONLY REASONS TO TEXT HIM, AND THE REASON NOT TO.",
+        "  A text to the owner that carries anything else WASTES HIS ATTENTION, and he said so",
+        "  sharply on 2026-09-28. Asked why he would receive a completion report, he answered:",
+        "  whats the point, is there a question or clarification you need from me, or a warning",
+        "  you need to give me? There was none. Do not repeat that.",
         "",
-        "    printf '%s' 'THE QUESTION IN ONE LINE. I recommend <what you would do>.' > /tmp/reply.txt",
+        "  TEXT HIM ONLY IF THE MESSAGE IS ONE OF THESE THREE:",
+        "    (1) A QUESTION ONLY HE CAN ANSWER, with your recommendation on the same line.",
+        "    (2) A WARNING HE MUST ACT ON TODAY - something about to break, be lost, or cost",
+        "        money, where waiting for him to look would be too late.",
+        "    (3) A DECISION WITH A DEADLINE - a reply is genuinely needed before time runs out.",
+        "",
+        "  DO NOT TEXT HIM: that a job started, that a job finished, that tests passed, that a",
+        "  branch was pushed, that you filed a queue row, or to prove the channel works. A",
+        "  FINISHED JOB IS RECORDED IN THE LEDGER, which is where it is useful. It finished is",
+        "  not a reason to text.",
+        "",
+        "  If it IS one of the three: file the owner-queue row FIRST (step (b) below), so the",
+        "  question exists somewhere durable, and then send ONE short message naming it. Write",
+        "  the body into a file first; never put quotes or newlines on a command line:",
+        "",
+        "    printf %s 'YOUR ONE-LINE QUESTION. I recommend X.' > /tmp/reply.txt",
         "    python3 ~/bin/textsend.py send --to +18483897895 --body-file /tmp/reply.txt --send",
         "",
-        "  (Create the file with a heredoc or printf, then send it - never put a body with",
-        "  quotes or newlines on the command line.) The send is gated: the owner's own number",
-        "  is OPEN by construction, and anything else is refused. Read the result line back and",
-        "  quote it. Never write a price, a date, a commitment or a legal posture into it.",
-        "",
-        "STOPPING. Stop for exactly one of three reasons, and say which:",
+        "  The recipient is gated to the owner alone and may go NOWHERE ELSE. Quote the result",
+        "  line back. Never write a price, a date, a commitment or a legal posture into it, and",
+        "  never send anything outbound to a customer, vendor or colleague.",
+        "",        "STOPPING. Stop for exactly one of three reasons, and say which:",
         "  (a) DONE - quote the proving command and its output, and name what is next.",
         "  (b) BLOCKED-ON-OWNER - it needs a decision only a person can make. File ONE row",
         "      and only one, then MOVE ON to the next item in this same shift:",
@@ -187,7 +200,12 @@ def main() -> int:
     bak = p.with_suffix(".py.bak-ledger-contract-%s" % stamp)
     shutil.copy2(p, bak)
     new = src[:start] + NEW_FUNC + src[end:]
-    compile(new, str(p), "exec")          # never write a file that cannot even parse
+    # GENERATED SOURCE MUST COMPILE BEFORE IT IS WRITTEN. The deployed file is what wakes EVERY
+    # project, so publishing a file that cannot parse stops the whole operation, not one shift.
+    try:
+        compile(new, str(p), "exec")
+    except SyntaxError as exc:
+        raise SystemExit("REFUSING TO WRITE: generated source does not compile: %s" % exc)
     if a.apply:
         p.write_text(new, encoding="utf-8")
         print("patched %s (backup %s)" % (p, bak.name))

@@ -125,6 +125,38 @@ def candidate_refs(repo: Path) -> list:
     return refs
 
 
+
+def sync_clone(repo: Path) -> tuple:
+    """(state, detail) - make the checkout current before judging any branch.
+
+    A stale clone makes "unmerged" a fact about the cache. Measured 2026-09-28: kosher-filter-ai was
+    19 commits behind, and a diff across that gap reported 39 deleted files that were really the
+    base's own additions.
+    Returns state in: current | fast-forwarded | diverged | dirty | no-upstream | error
+    """
+    rc, out, err = git(repo, "status", "--porcelain")
+    dirty = bool((out or "").strip())
+    rc, counts, _ = git(repo, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
+    if rc != 0 or not (counts or "").strip():
+        return ("no-upstream" if dirty is False else "dirty"), "no upstream tracking branch"
+    try:
+        ahead, behind = (int(x) for x in counts.split()[:2])
+    except Exception:
+        return "error", "could not parse %r" % counts
+    if ahead and behind:
+        return "diverged", "ahead %d, behind %d - not touching a divergent checkout" % (ahead, behind)
+    if ahead:
+        return "current", "ahead %d (local commits, not behind)" % ahead
+    if behind == 0:
+        return "current", ("clean" if not dirty else "clean but %d uncommitted file(s)" % len(out.splitlines()))
+    if dirty:
+        return "dirty", "behind %d but %d file(s) uncommitted - not fast-forwarding over local work" % (
+            behind, len(out.splitlines()))
+    rc, out2, err2 = git(repo, "merge", "--ff-only", "@{upstream}", timeout=300)
+    if rc != 0:
+        return "error", "fast-forward failed: %s" % (err2 or out2)[:120]
+    return "fast-forwarded", "was behind %d" % behind
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -158,6 +190,16 @@ def main() -> int:
             continue
         seen_repos.add(real)
         base = pick_base(repo, row)
+        state, detail = sync_clone(repo)
+        if state in ("diverged", "dirty", "error"):
+            # EVERY KEY THE PRINTER READS MUST BE PRESENT. The first version of this record lacked
+            # recent_unmerged/older_unmerged/merged, so the summary loop raised KeyError and dumped a
+            # traceback into the report - the one output a human reads.
+            report.append({"project": pid, "repo": real, "skipped": state, "why": detail,
+                           "base": None, "recent_unmerged": 0, "older_unmerged": 0, "merged": 0,
+                           "filed": [], "older_sample": []})
+            print("%-18s SKIPPED (%s): %s" % (pid, state, detail), file=sys.stderr)
+            continue
         git(repo, "fetch", "--quiet", "--prune", "origin", timeout=300)
         recent, old, merged = [], [], []
         inc = None if a.all_branches else re.compile(a.include)
