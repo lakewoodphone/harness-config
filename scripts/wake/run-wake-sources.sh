@@ -38,5 +38,11 @@ done
 # Idempotent: it only files when the project has NO items at all. Measured 2026-09-28:
 # personality-system, rental-system and chumash were all in that state.
 timeout 120 /usr/bin/python3 /home/zabz/bin/seed-discovery-items.py --apply >>"$LOG" 2>&1 || true
+# THE LEDGER REAPS ITS OWN LEASES. The wake store does this inside the dispatcher; the ledger is
+# a separate store with its own lease, and NOTHING was reaping it (measured 2026-09-28). A session
+# that dies mid-shift would otherwise leave its item `running` for ever - neither done nor
+# available - which is silent work loss with no symptom except a backlog that stops moving.
+# Idempotent and cheap: it only touches leases that have already expired.
+timeout 60 /usr/bin/python3 /home/zabz/bin/work.py reap >>"$LOG" 2>&1 || true
 date -Is > /home/zabz/.sms-inbox/sources-heartbeat
 exit 0
