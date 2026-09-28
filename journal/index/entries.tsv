@@ -603,6 +603,7 @@ handoff	H2773	2773		2026-09-28 04:26 UTC	ZABZ-YOGA	open	## 2026-09-28 04:26 UTC 
 handoff	H2774	2774		2026-09-28 04:47 UTC	ZABZ-YOGA	open	## 2026-09-28 04:47 UTC · ZABZ-YOGA · Yocheved end-to-end: engine revived, and the REAL cause was two unguarded sync writers that re-armed the defect every 15 minutes	entries/handoff/H2774.md	1	53	898557525f2bcd64
 handoff	H2775	2775		2026-09-28 05:00 UTC	ZABZ-YOGA	open	## 2026-09-28 05:00 UTC · ZABZ-YOGA · Company evolution fleet in flight - 10 workstreams LOCAL, live tree preserved, monitor fixed, awaiting integration	entries/handoff/H2775.md	1	82	f256bab22abc8434
 handoff	H2776	2776		2026-09-28 05:39 UTC	ZABZ-YOGA	open	## 2026-09-28 05:39 UTC · ZABZ-YOGA · kosher-filter-ai: ten days frozen on main; integration base cut, five workstreams in flight	entries/handoff/H2776.md	1	66	85c708b1821cfefd
+handoff	H2777	2777		2026-09-28 05:56 UTC	ZABZ-YOGA	open	## 2026-09-28 05:56 UTC · ZABZ-YOGA · Company evolution - first deploy landed and verified; monitor and owner surface moved, two agent claims falsified	entries/handoff/H2777.md	1	77	ef68f8bdb8e9b175
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
