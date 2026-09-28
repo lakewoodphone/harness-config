@@ -432,11 +432,23 @@ async function main() {
   console.log('');
 
   let sessionsSent = 0, rowsSent = 0, skipped = 0, torn = 0, bytesSent = 0, totalBatches = 0;
-  let batch = { sessions: [] };
+  // `keys` runs parallel to `sessions`: one cursor key per queued fragment, so an accepted batch can
+  // credit exactly the fragments it carried (see fragTotal/fragAccepted below).
+  let batch = { sessions: [], keys: [] };
   let batchBytes = 0;
-  // Cursor updates wait until the batch containing them has been ACCEPTED. Advancing a cursor before
-  // the server holds the rows is how a shipper silently loses data it believes it already sent.
-  let pendingCursor = [];
+  // Cursor updates wait until EVERY fragment of a session has been ACCEPTED -- not merely the batch
+  // that happened to carry the LAST fragment. Advancing a cursor before the server holds the rows is
+  // how a shipper silently loses data it believes it already sent; advancing it when only the TAIL of
+  // a session landed is how the store keeps a permanent hole that no later run re-sends.
+  //
+  // Measured 2026-09-25 on zabz-yoga: 13 sessions whose head ordinals were missing while
+  // `dsh_sessions.event_count` claimed the whole file. The old code pushed the cursor with the
+  // session's last fragment and applied it when THAT fragment's batch was accepted, whatever had
+  // happened to the earlier batches. Re-sending is free (the server upserts on ordinal), so the safe
+  // rule is: a session's cursor advances only when all of its fragments were accepted in this run.
+  const fragTotal = {};     // key -> fragments queued for this session this run
+  const fragAccepted = {};  // key -> fragments of it the authority has accepted
+  const cursorFor = {};     // key -> the cursor row to write once all fragments are accepted
   // A batch the authority refused. Recorded, never fatal: the run continues so one contended
   // minute cannot hide every later session. Measured 2026-09-21 03:30-08:30Z: the authority answered
   // `500 {"error":"internal_error"}` (sqlite `database is locked`) for five hours; the old shape let
@@ -459,7 +471,13 @@ async function main() {
       try {
         const reply = await postBatch(body);
         if (VERBOSE) console.log('   reply:', reply.slice(0, 160));
-        for (const u of pendingCursor) state.sessions[u.k] = u.v;
+        // Credit only the fragments this accepted batch actually carried. A session's cursor is
+        // written only when the count reaches the number queued for it, so a refused head batch
+        // leaves the cursor behind and the whole session is re-sent (idempotently) next run.
+        for (const k of batch.keys) {
+          fragAccepted[k] = (fragAccepted[k] || 0) + 1;
+          if (fragAccepted[k] === fragTotal[k]) state.sessions[k] = cursorFor[k];
+        }
         totalBatches++;
       } catch (e) {
         const msg = String((e && e.message) || e).slice(0, 200);
@@ -475,7 +493,7 @@ async function main() {
         await new Promise((r) => setTimeout(r, PACE_MS));
       }
     }
-    batch = { sessions: [] }; batchBytes = 0; pendingCursor = [];
+    batch = { sessions: [], keys: [] }; batchBytes = 0;
   };
 
   for (const s of found) {
@@ -506,6 +524,7 @@ async function main() {
       fragments.push({ startIndex: startRow + offset, rows: newRows.slice(offset, offset + BATCH_ROWS) });
     }
     if (fragments.length === 0) fragments.push({ startIndex: startRow, rows: [] });
+    fragTotal[k] = fragments.length;
 
     for (let fi = 0; fi < fragments.length; fi++) {
       const frag = fragments[fi];
@@ -529,6 +548,7 @@ async function main() {
           `${decoded.frames} frames${decoded.tornStart !== null ? ', TORN TAIL' : ''}, ${Math.round(size / 1024)} KB`);
       }
       batch.sessions.push(payload);
+      batch.keys.push(k);
       batchBytes += size;
       rowsSent += frag.rows.length;
       bytesSent += size;
@@ -536,17 +556,14 @@ async function main() {
       // The cursor advances only with the session's LAST fragment, so a session interrupted between
       // fragments is re-sent whole next run rather than being marked done with a hole in it.
       if (fi === fragments.length - 1) {
-        pendingCursor.push({
-          k,
-          v: {
-            rowsShipped: decoded.rows.length,
-            bytes: decoded.bytes,
-            lastRow: newRows.length ? newRows[newRows.length - 1].seq : (prev.lastRow ?? null),
-            at: new Date().toISOString(),
-            // Which store accepted this. Without it the next transport change re-orphans sessions.
-            transport: TRANSPORT,
-          },
-        });
+        cursorFor[k] = {
+          rowsShipped: decoded.rows.length,
+          bytes: decoded.bytes,
+          lastRow: newRows.length ? newRows[newRows.length - 1].seq : (prev.lastRow ?? null),
+          at: new Date().toISOString(),
+          // Which store accepted this. Without it the next transport change re-orphans sessions.
+          transport: TRANSPORT,
+        };
       }
 
       if (batch.sessions.length >= BATCH_SESSIONS || batchBytes >= BATCH_BYTES) await flush();
@@ -588,4 +605,10 @@ async function main() {
   return refusals.length ? 1 : 0;
 }
 
-main().then((c) => process.exit(c)).catch((e) => { console.error('error: ' + e.message); process.exit(1); });
+// Do NOT call process.exit() from here. On Windows, Node can abort with
+// `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76`
+// (STATUS_STACK_BUFFER_OVERRUN, 0xC0000409) when process.exit() runs while the undici HTTP handle
+// is still closing. Every scheduled run then reported a crash even though it had shipped and
+// heartbeated successfully -- a false "the shipper is dead" alarm, the exact failure this pipeline
+// exists to make impossible. Setting exitCode lets the event loop drain and the handle close first.
+main().then((c) => { process.exitCode = c; }).catch((e) => { console.error('error: ' + e.message); process.exitCode = 1; });
