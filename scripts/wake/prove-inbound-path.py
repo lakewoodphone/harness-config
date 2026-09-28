@@ -63,9 +63,12 @@ def main() -> int:
     before = subprocess.run(["python3", WORK, "list", "--json", "--limit", "300"],
                             capture_output=True, text=True, timeout=120)
     try:
-        n_before = len(json.loads(before.stdout or "[]"))
+        before_rows = json.loads(before.stdout or "[]")
+        n_before = len(before_rows)
+        before_ids = {r.get("id") for r in before_rows}
     except Exception:
         n_before = -1
+        before_ids = set()
     print("  items: %s" % n_before)
 
     print("\n=== drive the REAL responder against the copy, in dry-run ===")
@@ -87,6 +90,29 @@ def main() -> int:
         print("  responder raised: %s: %s" % (type(exc).__name__, exc))
         rc = -1
     print("  cmd_run rc=%s" % rc)
+
+    # THE PROOF MUST NOT LEAVE ITS OWN ITEM BEHIND. Measured 2026-09-28: running this three times filed
+    # three separate `owner asked by text:` items (#42, #49, ...) into the REAL ledger, because work.py
+    # writes production while the responder was pointed at the throwaway copy. A proof that pollutes the
+    # backlog it is verifying is worse than no proof: it manufactures exactly the duplicate work this
+    # system exists to prevent. So any item this run created is closed as `dropped` before returning.
+    try:
+        bl = subprocess.run(["python3", WORK, "list", "--json", "--limit", "400"],
+                            capture_output=True, text=True, timeout=120)
+        created_ids = [r.get("id") for r in json.loads(bl.stdout or "[]")
+                       if r.get("id") not in before_ids
+                       and (r.get("title") or "").startswith("owner asked by text:")]
+        for cid in created_ids:
+            subprocess.run(["python3", WORK, "close", str(cid), "--by", "inbound-path-proof",
+                            "--did", "Filed by prove-inbound-path.py from a SIMULATED text on a "
+                                     "throwaway store copy - not real work.",
+                            "--proof", "python3 /home/zabz/bin/prove-inbound-path.py",
+                            "--result", "the owner-text routing path worked",
+                            "--state", "dropped"], capture_output=True, text=True, timeout=120)
+        if created_ids:
+            print("  cleaned up: closed the proof's own item(s) as dropped: %s" % created_ids)
+    except Exception as exc:
+        print("  could not clean up the proof's item: %s: %s" % (type(exc).__name__, exc))
 
     print("\n=== did the text become a ledger item? ===")
     after = subprocess.run(["python3", WORK, "list", "--json", "--limit", "300"],
