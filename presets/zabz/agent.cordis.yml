@@ -452,8 +452,8 @@
     # 2026-09-28: regenerating removed 33 lines including those blocks, and the deletion was only
     # caught because the diff was read before committing. `--check` reports DRIFT for this file
     # and that is the correct, expected state until the generator is brought up to date.
-    - id: workflow-ptc
-      name: '@deepseek-ai/dsh-workflow-ptc'
+    - id: workflow-worker-thread
+      name: '@deepseek-ai/dsh-workflow-worker-thread'
       config:
         provider: spawn
 

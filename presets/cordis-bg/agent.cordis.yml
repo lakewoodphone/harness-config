@@ -285,8 +285,8 @@
     # so this file and the engine version must change together: applying it while an 0.1.5 engine is
     # running breaks preset mounting, and running 0.1.7 with the OLD name does the same. `dsh-update`
     # promotes the engine and the config in one step for exactly this reason.
-    - id: workflow-ptc
-      name: '@deepseek-ai/dsh-workflow-ptc'
+    - id: workflow-worker-thread
+      name: '@deepseek-ai/dsh-workflow-worker-thread'
       config:
         provider: spawn
 
