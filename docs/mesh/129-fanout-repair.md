@@ -203,14 +203,21 @@ hardening), `127` (child identity and mailbox).
    a prompt with two double-quotes exited 0 and came back verbatim. The mechanism the symptom really
    belongs to is the command-line ceiling in R6. `L3060` is superseded by `L3064`, and it is **not**
    edited: the record of having been wrong is worth more than a tidy log.
-2. **A new open hazard, filed as pain `P2670`.** From `zabz-tech`, every attempt at a **remote** child
-   turn returned nothing at 180 s, 45 s and 25 s bounds, while a plain ssh over the same descriptor shape
-   exited 0 in 309 ms — and the identical `sh -s` stdin shape completed real turns from ZABZ-YOGA to
-   `zabz-tech-linux` (5176 ms) and `secratary` (5080 ms) on the same day and the same code. So the defect
-   is a property of the *dispatching client*, not of the target, the generated program, or any quote
-   character. The cause is **not established** and the experiment says so itself; the next step is to
-   reproduce it from `zabz-tech` with the package's own `createSshTransport` rather than a hand-rolled
-   probe, and if it reproduces, deliver the POSIX program from a file on the target so stdin leaves the
-   path entirely. Three of five nodes are POSIX, so this is half the mesh as seen from the desktop.
+2. **A new open hazard, filed as pain `P2670` and CONFIRMED before this session closed.** From
+   `zabz-tech`, dispatching a POSIX child returned nothing at 180 s, 45 s and 25 s bounds, while a plain
+   ssh over the same descriptor shape exited 0 in 309 ms. That was a hand-rolled probe, so it was
+   re-run with the package's **own** `createSshTransport` and `buildPosixScript`: both Linux targets
+   (`zabz-tech-linux`, `secratary`) hung to the **full 300 s bound with empty stderr**, while from
+   ZABZ-YOGA the identical shape completed real turns to both of the same targets (5176 ms, 5080 ms).
+   **The client-version hypothesis is refuted** — both Windows machines run
+   `OpenSSH_for_Windows_10.0p2 ... LibreSSL 4.2.0` from the same path — so the difference is the client
+   machine, and the shape is consistent with the client not closing the stdin pipe it was handed, so the
+   remote `sh -s` never sees EOF. **Not fixed.** The fix is to deliver the POSIX program without stdin —
+   a file on the target, executed — which also removes the same class of hazard from the Windows path.
+   Until then, a fan-out *from the office desktop* to the three POSIX nodes is dead. Lesson `L3101`.
+   **The wider rule this proves:** every proof in this programme ran from ZABZ-YOGA, and this defect
+   lived behind that single vantage point — a transport proven from one machine is proven from one
+   machine, and a proof should name its client.
+
 
 
