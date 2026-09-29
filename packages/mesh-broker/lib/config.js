@@ -24,6 +24,17 @@ import { readFileSync } from 'node:fs';
 export const DEFAULT_CACHE_TTL_MS = 15_000;
 export const DEFAULT_READ_TIMEOUT_MS = 1_500;
 export const DEFAULT_LEASE_TTL_MS = 900_000;
+/**
+ * The SECOND read attempt's budget when the first misses the deadline (see
+ * `capacity.js:RETRY_READ_TIMEOUT_MS`). It is a roster key so a deployment can tighten or
+ * lengthen the retry without a code change; the broker's own default scales from the read
+ * timeout when this is absent.
+ */
+export const DEFAULT_RETRY_READ_TIMEOUT_MS = 4_000;
+/** I1: how long a `requestId` -> placement mapping is replayable (`broker.js:REQUEST_ID_TTL_MS`). */
+export const DEFAULT_REQUEST_ID_TTL_MS = 300_000;
+/** I6: max concurrent FLEET leases the broker will hand one node (`scoring.js:FLEET_CONCURRENT_LEASE_CAP`). */
+export const DEFAULT_FLEET_CONCURRENT_LEASE_CAP = 4;
 
 const positiveNumber = (value, fallback) => (Number.isFinite(value) && value > 0 ? value : fallback);
 
@@ -107,7 +118,10 @@ export function validateConfig(raw, source = 'config') {
     nodes,
     cacheTtlMs: positiveNumber(raw.cacheTtlMs, DEFAULT_CACHE_TTL_MS),
     readTimeoutMs: positiveNumber(raw.readTimeoutMs, DEFAULT_READ_TIMEOUT_MS),
+    retryTimeoutMs: positiveNumber(raw.retryTimeoutMs, DEFAULT_RETRY_READ_TIMEOUT_MS),
     leaseTtlMs: positiveNumber(raw.leaseTtlMs, DEFAULT_LEASE_TTL_MS),
+    requestIdTtlMs: positiveNumber(raw.requestIdTtlMs, DEFAULT_REQUEST_ID_TTL_MS),
+    fleetConcurrentLeaseCap: positiveNumber(raw.fleetConcurrentLeaseCap, DEFAULT_FLEET_CONCURRENT_LEASE_CAP),
     source,
   };
 }

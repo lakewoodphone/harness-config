@@ -74,6 +74,35 @@ export const RESERVE_MIN_MIB = 2048;
 export const RESERVE_FRACTION = 0.12;
 /** The governor's ceiling (governor.js:61). */
 export const MAX_SLOTS = 24;
+
+/**
+ * THE FLEET CONCURRENCY CAP (I6, `docs/mesh/126-placement-hardening.md`).
+ *
+ * Pain P2538b measured four simultaneous install-heavy children on ONE desktop starving its
+ * own sshd until two died with `client_loop: send disconnect: Connection reset`. The broker
+ * already counts its own live leases per node (`evaluate`), so the number of concurrent
+ * FLEET placements it hands one node can be capped without storing anything new.
+ *
+ * FOUR is the measured pain threshold, so the default cap is 4: the fifth concurrent fleet
+ * lease on one node is queued rather than started (queue, never amputate), and the rationale
+ * names the cap. A node's own `accepts.maxChildren` is honoured when it is SMALLER than this
+ * cap (`fleetLeaseCap`), but it can NOT raise it: `maxChildren` is a memory-derived budget
+ * (the gate's own `accepts`), not a measurement of how many install-heavy fleets one sshd
+ * survives, and P2538b is the measurement that says the two are not the same number.
+ */
+export const FLEET_CONCURRENT_LEASE_CAP = 4;
+
+/**
+ * The effective fleet-lease cap for one node: `min(cap, accepts.maxChildren)`.
+ * A node that declares no maximum (unmeasured, or <= 0) gets `cap`; a node that declares a
+ * smaller one is obeyed. `cap` defaults to `FLEET_CONCURRENT_LEASE_CAP`.
+ */
+export function fleetLeaseCap(maxChildren, cap = FLEET_CONCURRENT_LEASE_CAP) {
+  const limit = finiteNumber(cap) !== null && cap > 0 ? Math.floor(cap) : FLEET_CONCURRENT_LEASE_CAP;
+  const declared = finiteNumber(maxChildren);
+  if (declared === null || declared <= 0) return limit;
+  return Math.min(limit, Math.floor(declared));
+}
 /** §2.2: a node with freeGiB < 20 is ineligible for kind=fleet. */
 export const FLEET_DISK_FLOOR_GIB = 20;
 /**

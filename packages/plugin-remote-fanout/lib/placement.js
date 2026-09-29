@@ -320,6 +320,21 @@ export function createNodePlacer({
       const askedExclude = routeAway ? [...new Set([...exclude, thisNode])] : exclude;
 
       /**
+       * ONE CHILD ID IS ONE IDEMPOTENCY KEY (I1). A caller-level retry of the same child
+       * (not the transport retry inside broker-client.js) must not leak a second lease: the
+       * broker memoizes the requestId and returns the SAME lease and node. The prefer-remote
+       * policy's second ask is a DIFFERENT request - it carries a different exclude list -
+       * so it gets its own key (`<id>:prefer-remote`) and a different lease on purpose.
+       */
+      const childRequestId = typeof id === 'string' && id.trim() !== '' ? id.trim() : null;
+      const ask = (excludeList, suffix) => broker.place(
+        { kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: excludeList },
+        childRequestId === null
+          ? undefined
+          : { requestId: suffix === undefined ? childRequestId : `${childRequestId}:${suffix}` },
+      );
+
+      /**
        * THE REFUSAL, BEFORE THE BROKER IS ASKED.
        *
        * Above the critical line the local option is not available, and a
@@ -369,7 +384,7 @@ export function createNodePlacer({
 
       let placement;
       try {
-        placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExclude });
+        placement = await ask(askedExclude);
       } catch (error) {
         // THE CASE WITH NO GOOD ANSWER, DECIDED EXPLICITLY. The mesh cannot be
         // asked and this machine is over its critical line. Refusing is the
@@ -443,7 +458,7 @@ export function createNodePlacer({
             logger?.warn?.(`remote-fanout: the prefer-remote policy could not release the local reservation ${placement.lease} (${error?.code ?? 'broker-error'}: ${String(error?.message ?? error)}); the broker reclaims it at its TTL`);
           }
           askedExcludeFinal = [...new Set([...exclude, thisNode])];
-          placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExcludeFinal });
+          placement = await ask(askedExcludeFinal, 'prefer-remote');
           policyDecision = firstDecision;
           policyNote = `prefer-remote: the first answer placed this child on THIS machine while the broker's own eligible set held ${firstDecision.eligible?.alternatives ?? '?'} node(s) other than it; that reservation was released unspent and the local node was excluded from the second ask`;
           logger?.info?.(`remote-fanout: child ${id} ${policyNote}`);
@@ -503,6 +518,8 @@ export function createNodePlacer({
         source: 'broker',
         id,
         childIndex,
+        // I1: the idempotency key this placement was made under, so a replay is auditable.
+        requestId: placement.requestId ?? childRequestId ?? null,
         node: placement.node,
         ssh: facts.ssh,
         hosts: facts.hosts,

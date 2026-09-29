@@ -290,3 +290,52 @@ test('placement mode defaults to broker, and fixed only when a human asked for i
   assert.equal(resolvePlacementMode({}, { MESH_PLACEMENT: 'broker', MESH_TARGET_NODE: 'desktop-ts' }), 'broker');
   assert.equal(resolvePlacementMode({ placement: 'broker' }, { MESH_TARGET_NODE: 'desktop-ts' }), 'broker');
 });
+
+// ---------------------------------------------------------------------------
+// I1 / I7 — the child's id is the idempotency key, and the local preference is
+// recorded when it cannot be honoured (docs/mesh/126-placement-hardening.md)
+// ---------------------------------------------------------------------------
+
+test('I1 acquire() keys the broker request on the child id, and the prefer-remote re-ask gets its OWN key', async (t) => {
+  const { ledger } = ledgerInTempDir(t);
+  const requests = [];
+  let call = 0;
+  const broker = {
+    describe: () => 'broker double',
+    async place(task, options) {
+      requests.push({ task, requestId: options?.requestId ?? null });
+      call += 1;
+      const node = call === 1 ? 'zabz-yoga-1' : 'zabz-tech';
+      return { node, position: 0, lease: call === 1 ? 'L-local' : 'L-remote', score: 9, eligible: 2, tier: 'fits', blockedBy: [], queue: [], rationale: ['r'], leaseTtlSec: 900 };
+    },
+    async done(lease) {
+      return { ok: true, released: true, lease, node: 'zabz-yoga-1', state: 'running', heldMs: 1 };
+    },
+    async nodes() {
+      return { nodes: [] };
+    },
+  };
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger, preferRemote: true });
+  const placement = await placer.acquire({ id: 'child-77' });
+
+  assert.equal(placement.node, 'zabz-tech', 'the prefer-remote policy offered the child to the mesh');
+  assert.deepEqual(
+    requests.map((entry) => entry.requestId),
+    ['child-77', 'child-77:prefer-remote'],
+    'one idempotency key per child, and a distinct key for the policy\'s different second ask',
+  );
+  assert.equal(ledger.get('child-77').requestId, 'child-77');
+});
+
+test('I7 when this machine is the only eligible node the record says the local preference could NOT be honoured', async (t) => {
+  const { ledger } = ledgerInTempDir(t);
+  const broker = fakeBroker({ placement: { node: 'zabz-yoga-1', position: 0, lease: 'L-only', eligible: 1 } });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger, preferRemote: true });
+  const placement = await placer.acquire({ id: 'only' });
+
+  assert.equal(placement.node, 'zabz-yoga-1');
+  assert.equal(broker.calls.place.length, 1, 'no second ask when there is nowhere else to put the child');
+  assert.equal(placement.excludedLocalNode, false, 'nothing was sent as excluded, so the record must not claim it was');
+  assert.match(placement.preferRemoteNote, /prefer-remote: no exclusion was sent by the policy/);
+  assert.match(placement.preferRemoteNote, /no eligible node other than this machine/);
+});

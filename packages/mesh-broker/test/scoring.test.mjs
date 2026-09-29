@@ -12,6 +12,7 @@
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
 
+import { createBroker } from '../lib/broker.js';
 import {
   CORE_SLOT_FRACTION,
   MAX_SLOTS,
@@ -307,5 +308,164 @@ test('AMENDMENT 3 effective slots are never negative - 0 is the floor, and 0 slo
   assert.equal(zero.effective.coreSlots, 0);
   assert.equal(zero.slots, 0);
   assert.ok(zero.slots >= 0, 'a negative count is not a number of slots');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLACEMENT HARDENING (docs/mesh/126-placement-hardening.md)
+//
+// These exercise the DECISION with an injected capacity reader, so they are
+// hermetic: no socket, no port, no clock. They are written against behaviour
+// (the node the broker names, the rationale text, the lease ids) and not against
+// any new export, so the same file fails on the unfixed broker for the right
+// reason rather than on a missing symbol.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A roster row good enough for `createBroker` (which does not validate - `config.js` does). */
+const row = (node, dispatch, index = 0) => ({
+  node,
+  baseUrl: 'http://127.0.0.1:1',
+  fqdn: `${node}.tail93e6e6.ts.net`,
+  location: null,
+  excluded: false,
+  dispatch,
+  index,
+});
+
+/**
+ * A §2.1 document whose EFFECTIVE slots are `floor(physical * 0.75)`: free memory is
+ * deliberately far above the 24-slot cap, so `physical` is the only lever the test needs.
+ */
+function capacityDoc(node, { physical = 16, diskGiB = 100, accepts = { oneShot: true, fleet: true, maxChildren: 12 }, swapUsedPct = 0 } = {}) {
+  return {
+    schema: 1,
+    node,
+    mem: { totalMiB: 60000, freeMiB: 100000, swapUsedPct },
+    cpu: { logical: physical, physical },
+    disk: { freeGiB: diskGiB, workRoot: '/tmp/work' },
+    governor: { budgetSlots: 24, inUse: 0, queued: 0 },
+    accepts,
+  };
+}
+
+/** An injected reader driven by a per-node spec, so no network is touched. */
+function readerFor(specs) {
+  return async ({ node }) => {
+    const spec = specs[node.node];
+    if (spec === undefined) {
+      return { ok: false, state: 'unreachable', error: 'not in this test\'s mesh', errorKind: 'refused', retried: false };
+    }
+    return {
+      ok: true,
+      state: spec.state ?? 'ok',
+      retryWasFast: spec.retryWasFast === true,
+      retried: spec.retried === true,
+      doc: spec.doc,
+      latencyMs: spec.latencyMs ?? 5,
+      elapsedMs: spec.elapsedMs ?? 5,
+    };
+  };
+}
+
+const place = (broker, task, extra = {}) => broker.place({ task, ...extra });
+
+test('I1 the same requestId twice returns the SAME lease and node; a different requestId issues a new lease', async () => {
+  const broker = createBroker({
+    nodes: [row('solo', { v1: true, measuredAt: '2026-09-29', evidence: 'measured' })],
+    now: () => 1_000,
+    readCapacity: readerFor({ solo: { doc: capacityDoc('solo') } }),
+  });
+  const first = await place(broker, { kind: 'oneShot', children: 1 }, { requestId: 'req-A' });
+  const replay = await place(broker, { kind: 'oneShot', children: 1 }, { requestId: 'req-A' });
+
+  assert.equal(replay.lease, first.lease, 'a repeated requestId must NOT issue a second lease');
+  assert.equal(replay.node, first.node);
+  assert.equal(replay.requestId, 'req-A');
+  assert.equal(replay.idempotentReplay, true);
+  assert.ok(replay.rationale.some((line) => line.includes('NO second lease was issued')), 'the replay is stated, not silent');
+  assert.equal(broker.leases.size(), 1, 'exactly one lease exists after a replay');
+
+  const other = await place(broker, { kind: 'oneShot', children: 1 }, { requestId: 'req-B' });
+  assert.notEqual(other.lease, first.lease, 'two different requestIds must still produce two leases');
+  assert.equal(other.idempotentReplay, undefined);
+  assert.equal(broker.leases.size(), 2);
+});
+
+test('I4 a node that missed the read deadline (a cold-start miss) is not ranked below a node that cannot take the work', async () => {
+  const broker = createBroker({
+    nodes: [
+      // A: the measured zabz-tech shape - plenty of slots, but the FLEET disk gate fails, so it
+      // is only reachable through the `queued` arena. Its first read missed the deadline and the
+      // retry answered fast: a COLD-START miss, which must NOT demote it.
+      row('cold-but-capable', { v1: true, measuredAt: '2026-09-29', evidence: 'measured' }, 0),
+      // B: cannot take the work at all - the gate declares accepts.fleet=false.
+      row('cannot-take-fleets', { v1: true, measuredAt: '2026-09-29', evidence: 'measured' }, 1),
+    ],
+    now: () => 0,
+    readCapacity: readerFor({
+      'cold-but-capable': { state: 'slow', retryWasFast: true, retried: true, latencyMs: 120, elapsedMs: 1887, doc: capacityDoc('cold-but-capable', { physical: 16, diskGiB: 5, accepts: { oneShot: true, fleet: true, maxChildren: 12 } }) },
+      'cannot-take-fleets': { doc: capacityDoc('cannot-take-fleets', { physical: 8, diskGiB: 100, accepts: { oneShot: true, fleet: false, maxChildren: 12, reason: 'no governor lease directory on this node' } }) },
+    }),
+  });
+  const response = await place(broker, { kind: 'fleet', children: 1 });
+  assert.equal(response.node, 'cold-but-capable', 'a cold-start latency miss is not a reason to lose to a node that cannot take the work');
+  assert.equal(response.blockedBy.includes('accepts'), false);
+  assert.ok(response.rationale.some((line) => line.startsWith('cold-but-capable: ') && line.includes('COLD-START')), `the cold miss is named as the non-reason it is: ${response.rationale.join(' | ')}`);
+});
+
+test('I5 an unmeasured-transport node loses to a measured-working node even with more slots', async () => {
+  const broker = createBroker({
+    nodes: [
+      row('measured-working', { v1: true, measuredAt: '2026-09-29', evidence: 'a child completed' }, 0),
+      row('never-measured', { v1: null, measuredAt: null, evidence: null }, 1),
+    ],
+    now: () => 0,
+    readCapacity: readerFor({
+      'measured-working': { doc: capacityDoc('measured-working', { physical: 8 }) },
+      'never-measured': { doc: capacityDoc('never-measured', { physical: 16 }) },
+    }),
+  });
+  const response = await place(broker, { kind: 'oneShot', children: 1 });
+  assert.equal(response.node, 'measured-working', 'measured-working outranks unmeasured even with fewer slots');
+  assert.ok(response.rationale.some((line) => line.startsWith('never-measured: ') && line.includes('transport v1 unmeasured')), `the loser is named as unmeasured: ${response.rationale.join(' | ')}`);
+});
+
+test('I6 the per-node fleet cap blocks another fleet and the rationale says so', async () => {
+  const broker = createBroker({
+    nodes: [row('fleet-node', { v1: true, measuredAt: '2026-09-29', evidence: 'measured' })],
+    now: () => 0,
+    readCapacity: readerFor({ 'fleet-node': { doc: capacityDoc('fleet-node', { physical: 16, accepts: { oneShot: true, fleet: true, maxChildren: 12 } }) } }),
+  });
+  const firstFour = [];
+  for (let index = 0; index < 4; index += 1) {
+    firstFour.push(await place(broker, { kind: 'fleet', children: 1 }));
+  }
+  assert.equal(firstFour.every((response) => response.position === 0), true, 'the first four fleets fit and start');
+
+  const fifth = await place(broker, { kind: 'fleet', children: 1 });
+  assert.equal(fifth.node, 'fleet-node', 'the cap queues, it never amputates');
+  assert.ok(fifth.position > 0, 'the fifth concurrent fleet lease is queued, not started');
+  assert.equal(fifth.blockedBy.includes('fleet-cap'), true, `blockedBy names the cap: ${JSON.stringify(fifth.blockedBy)}`);
+  assert.ok(fifth.rationale.some((line) => line.includes('fleet concurrency cap')), `the cap is legible in the rationale: ${fifth.rationale.join(' | ')}`);
+});
+
+test('I7 a caller-excluded node ranks below a node the caller did not exclude, in the queued fallback', async () => {
+  const broker = createBroker({
+    nodes: [
+      row('local-and-excluded', { v1: true, measuredAt: '2026-09-29', evidence: 'measured' }, 0),
+      row('remote-and-allowed', { v1: true, measuredAt: '2026-09-29', evidence: 'measured' }, 1),
+    ],
+    now: () => 0,
+    readCapacity: readerFor({
+      // Neither can take a fleet (accepts.fleet=false), so both are in the `queued` arena and
+      // the ordering term is what decides. The excluded node has MORE slots; the caller's
+      // exclusion must still win, because that is the caller's expressed preference.
+      'local-and-excluded': { doc: capacityDoc('local-and-excluded', { physical: 16, accepts: { oneShot: true, fleet: false, maxChildren: 12 } }) },
+      'remote-and-allowed': { doc: capacityDoc('remote-and-allowed', { physical: 8, accepts: { oneShot: true, fleet: false, maxChildren: 12 } }) },
+    }),
+  });
+  const response = await place(broker, { kind: 'fleet', children: 1, exclude: ['local-and-excluded'] });
+  assert.equal(response.node, 'remote-and-allowed', 'the caller\'s exclusion orders the result instead of being a comment');
+  assert.equal(response.excluded >= 1, true);
+  assert.ok(response.rationale.some((line) => line.startsWith('local-and-excluded: ') && line.includes('excluded by the caller')), `the excluded node still explains itself: ${response.rationale.join(' | ')}`);
 });
 
