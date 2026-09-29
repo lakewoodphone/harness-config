@@ -51,11 +51,13 @@ import {
   PER_SLOT_MIB,
   RESERVE_MIB,
   FLEET_DISK_FLOOR_GIB,
+  FLEET_CONCURRENT_LEASE_CAP,
   PREFERENCE_BONUS,
   compareRanking,
   diskFreeGiB,
   diskRequirementGiB,
   effectiveSlots,
+  fleetLeaseCap,
   normalizeChildren,
   normalizeExclude,
   normalizeKind,
@@ -67,6 +69,27 @@ import {
 export const DEFAULT_CACHE_TTL_MS = 15_000;
 /** Cap on the response's rationale lines; the chosen node's arithmetic is always inside it. */
 export const MAX_RATIONALE_LINES = 32;
+
+/**
+ * REQUEST IDEMPOTENCY (I1, `docs/mesh/126-placement-hardening.md`).
+ *
+ * `POST /place` issues a lease, so a client that retries a call whose answer was lost can
+ * issue a SECOND lease for work that was already leased - the first lease is then leaked and
+ * holds a node slot until its 900 s TTL. A `requestId` in the place body removes that: the
+ * broker keeps a bounded, TTL-limited map from requestId to the placement response it
+ * already made, and a repeat of the same requestId returns the SAME lease and node.
+ *
+ * WHY 300 s. It must comfortably outlive the client's own retry budget: `broker-client.js`
+ * bounds a place call at 3 attempts x a 30 s ssh timeout plus a few seconds of backoff, so a
+ * torn answer can be replayed for at most ~95 s. 300 s is >3x that, and it is exactly one
+ * third of the 900 s lease TTL, so a replayed response always names a lease that is still at
+ * least two thirds of its TTL away from expiry - a replay cannot hand back a lease that was
+ * already reclaimed. Entries are also capped (`MAX_REQUEST_ID_ENTRIES`) so an abusive client
+ * cannot grow the map without bound.
+ */
+export const REQUEST_ID_TTL_MS = 300_000;
+/** Bound on the requestId -> response map. Oldest entry is evicted first. */
+export const MAX_REQUEST_ID_ENTRIES = 256;
 
 const finite = (value) => (typeof value === 'number' && Number.isFinite(value) ? value : null);
 /** A GiB number as a reader expects it: 17 GiB, 20.8 GiB, 220.4 GiB - never `17.0 GiB`. */
@@ -121,7 +144,17 @@ export function normalizeTask(body) {
     notes.push('task.exclude entries that were not non-empty strings were ignored');
   }
   const worktreeGiB = finite(raw.worktreeGiB);
-  return { task: { kind, children, prefer, exclude, worktreeGiB }, notes };
+  // I1: an OPTIONAL idempotency key. It travels at the TOP level of the body, beside `task`
+  // (`{"task":{...},"requestId":"..."}`), because it identifies the REQUEST and not the work.
+  // Anything that is not a non-empty string of at most 200 characters is ignored, with a note.
+  const rawRequestId = source !== null && typeof source === 'object' && !Array.isArray(source) ? source.requestId : undefined;
+  const requestId = typeof rawRequestId === 'string' && rawRequestId.trim() !== '' && rawRequestId.length <= 200
+    ? rawRequestId
+    : null;
+  if (rawRequestId !== undefined && rawRequestId !== null && requestId === null) {
+    notes.push(`requestId ${JSON.stringify(rawRequestId)} is not a non-empty string of at most 200 characters; ignored (a repeat of this request will issue a second lease)`);
+  }
+  return { task: { kind, children, prefer, exclude, worktreeGiB }, requestId, notes };
 }
 
 /**
@@ -151,6 +184,10 @@ export function createBroker(options = {}) {
     ? options.retryTimeoutMs
     : Math.min(RETRY_READ_TIMEOUT_MS, Math.max(1000, Math.round(readTimeoutMs * 4)));
   const leaseTtlMs = Number.isFinite(options.leaseTtlMs) && options.leaseTtlMs > 0 ? options.leaseTtlMs : DEFAULT_LEASE_TTL_MS;
+  const requestIdTtlMs = Number.isFinite(options.requestIdTtlMs) && options.requestIdTtlMs > 0 ? options.requestIdTtlMs : REQUEST_ID_TTL_MS;
+  const fleetConcurrentLeaseCap = Number.isFinite(options.fleetConcurrentLeaseCap) && options.fleetConcurrentLeaseCap > 0
+    ? Math.floor(options.fleetConcurrentLeaseCap)
+    : FLEET_CONCURRENT_LEASE_CAP;
   const now = typeof options.now === 'function' ? options.now : () => Date.now();
   const readCapacity = typeof options.readCapacity === 'function' ? options.readCapacity : readNodeCapacity;
   const leases = createLeaseTable({ ttlMs: leaseTtlMs, now });
@@ -160,6 +197,11 @@ export function createBroker(options = {}) {
   const readings = new Map();
   /** @type {Map<string, Promise<object>>} single-flight, so 30 concurrent calls cost 1 read per node */
   const inflight = new Map();
+  /** @type {Map<string, {at:number, response:object}>} I1: requestId -> the placement it produced (TTL'd, bounded) */
+  const requestResponses = new Map();
+  /** @type {Map<string, Promise<object>>} I1: two concurrent calls with one requestId share one placement */
+  const requestInflight = new Map();
+  let requestIdReplays = 0;
   let reads = 0;
   let readFailures = 0;
   /**
@@ -177,6 +219,40 @@ export function createBroker(options = {}) {
 
   function ageOf(entry, at) {
     return entry === undefined ? null : Math.max(0, Math.round((at - entry.at) / 1000));
+  }
+
+  /** Drop every requestId whose response is older than its TTL. Called on every lookup. */
+  function reapRequestResponses(at) {
+    for (const [key, entry] of requestResponses) {
+      if (entry.at + requestIdTtlMs <= at) requestResponses.delete(key);
+    }
+  }
+
+  /** Remember one placement under one requestId, bounded by `MAX_REQUEST_ID_ENTRIES`. */
+  function rememberRequest(key, response, at) {
+    reapRequestResponses(at);
+    requestResponses.set(key, { at, response });
+    while (requestResponses.size > MAX_REQUEST_ID_ENTRIES) {
+      const oldest = requestResponses.keys().next().value;
+      requestResponses.delete(oldest);
+    }
+  }
+
+  /**
+   * A replay: the SAME node and the SAME lease, with the replay itself written into the
+   * rationale so a reader can never mistake a replay for a second, independent placement.
+   */
+  function replayRequest(key, entry, at) {
+    requestIdReplays += 1;
+    return {
+      ...entry.response,
+      idempotentReplay: true,
+      replayedAt: iso(at),
+      rationale: [
+        ...entry.response.rationale,
+        `requestId ${JSON.stringify(key)} replayed: this is the SAME placement (${entry.response.node}) and the SAME lease ${entry.response.lease} as the first request at ${entry.response.at}; NO second lease was issued (request-idempotency TTL ${seconds(requestIdTtlMs)} s, docs/mesh/126-placement-hardening.md I1)`,
+      ],
+    };
   }
 
   /** First sighting of a node's CURRENT configuration (a changed baseUrl is a different node). */
@@ -307,6 +383,16 @@ export function createBroker(options = {}) {
             ? 'capacity-unreadable'
             : 'unreachable';
     const slow = reachable && entry?.state === 'slow';
+    // I4 (docs/mesh/126-placement-hardening.md): a read that missed the deadline and was
+    // answered FAST by the retry is a COLD-START miss, not congestion - the measured
+    // 1732-1887 ms first read of a healthy Windows node against a 1500 ms deadline is the
+    // case that made the broker rank `zabz-tech` (10 free slots, transport measured working)
+    // below `secratary` (1 free slot, swap 100%, transport never measured). Such a node keeps
+    // its measured capacity at FULL rank; only a read that is STILL slow on the second attempt
+    // is a ranking penalty. This is not "hide the miss": `state` stays `slow` and the miss is
+    // printed in the rationale - it simply stops being a DEMOTION.
+    const coldMiss = slow && entry?.retryWasFast === true;
+    const rankSlow = slow && coldMiss !== true;
     const doc = reachable ? entry.doc : null;
     const arith = slotArithmetic(doc);
     // The score is the EFFECTIVE slot count: the memory term capped by the core term, then
@@ -320,6 +406,13 @@ export function createBroker(options = {}) {
     const disk = diskFreeGiB(doc);
     const requirement = diskRequirementGiB(task);
     const accepts = reachable ? (doc?.accepts ?? null) : null;
+    // I6: the per-node FLEET concurrency cap. The broker counts its OWN live fleet leases on
+    // the node (nothing new is stored), and `accepts.maxChildren` is honoured when it is
+    // smaller than the fixed cap. Over the cap is a QUEUE, never a refusal.
+    const liveFleetLeases = onNode.filter((lease) => lease.kind === 'fleet').length;
+    const effectiveFleetCap = fleetLeaseCap(accepts?.maxChildren, fleetConcurrentLeaseCap);
+    const fleetCapOk = task.kind !== 'fleet' || liveFleetLeases < effectiveFleetCap;
+    const fleetCapReason = fleetCapOk ? null : `fleet concurrency cap: ${liveFleetLeases} live fleet lease(s) already on this node and the cap is ${effectiveFleetCap} (min of fleetConcurrentLeaseCap=${fleetConcurrentLeaseCap} and accepts.maxChildren=${accepts?.maxChildren ?? 'not measured'}); starting another fleet here is the P2538b shape (four install-heavy children starved sshd), so it is QUEUED rather than refused`;
     // Two different kinds of exclusion, deliberately not the same thing:
     //   * the roster's own `excluded: true` is the OPERATOR's switch - it is hard, and no
     //     placement will land there;
@@ -359,6 +452,11 @@ export function createBroker(options = {}) {
     // it is the only candidate, because the owner's rule is queue-never-amputate.
     const dispatch = node.dispatch ?? { v1: null, measuredAt: null, evidence: null };
     const dispatchOk = dispatch.v1 !== false;
+    // I5: the three transport facts are RANKED, not just gated. `true` (measured working) beats
+    // `null` (never measured) beats `false` (measured broken). An unmeasured node must not
+    // outrank a measured-working one on capacity alone unless capacity makes it the only option
+    // (the tier ladder already removes a node that cannot take the work at all).
+    const transportRank = dispatch.v1 === true ? 2 : (dispatch.v1 === false ? 0 : 1);
 
     return {
       node: node.node,
@@ -371,6 +469,8 @@ export function createBroker(options = {}) {
       unreachable: state === 'unreachable',
       state,
       slow,
+      coldMiss,
+      rankSlow,
       capacityUnreadable: state === 'capacity-unreadable',
       capacityReason: state === 'capacity-unreadable' ? (entry?.error ?? 'the capacity document could not be read') : null,
       elapsedMs: entry?.elapsedMs ?? null,
@@ -403,8 +503,13 @@ export function createBroker(options = {}) {
       diskOk,
       acceptsOk,
       acceptsReason,
+      liveFleetLeases,
+      fleetCap: effectiveFleetCap,
+      fleetCapOk,
+      fleetCapReason,
       dispatch,
       dispatchOk,
+      transportRank,
       excluded: excludes,
       excludedByConfig,
       excludedByCaller,
@@ -471,9 +576,11 @@ export function createBroker(options = {}) {
    * it rather than leaving the reader to infer one from the numbers.
    */
   function classificationLine(candidate) {
-    const rule = candidate.slow
-      ? 'ranked below every node that answered first time and above nothing, placeable via its own tier - never removed from the pool and never refused'
-      : 'a normal reading: it is ranked on capacity, and no faster node is preferred over it for answering faster than it did';
+    const rule = candidate.coldMiss
+      ? 'a COLD-START miss: the first read missed the deadline and the retry answered fast, so the measured capacity is real and this node is ranked at FULL capacity - a miss to re-check is not congestion and must not demote it below a node that cannot take the work (docs/mesh/126-placement-hardening.md I4)'
+      : candidate.slow
+        ? 'ranked below every node that answered first time and above nothing, placeable via its own tier - never removed from the pool and never refused'
+        : 'a normal reading: it is ranked on capacity, and no faster node is preferred over it for answering faster than it did';
     return `${candidate.node}: classification=${candidate.state} - ${rule}`;
   }
 
@@ -507,12 +614,12 @@ export function createBroker(options = {}) {
     const evidence = dispatch.evidence === null ? '' : `: ${dispatch.evidence}`;
     const when = dispatch.measuredAt === null ? '' : ` (measured ${dispatch.measuredAt})`;
     if (dispatch.v1 === true) {
-      return `${node}: transport v1 (ssh --profile headless) MEASURED to work${when}${evidence} - work dispatched here can actually run`;
+      return `${node}: transport v1 (ssh --profile headless) MEASURED to work${when}${evidence} - work dispatched here can actually run, so this node ranks above one whose transport was never measured`;
     }
     if (dispatch.v1 === false) {
       return `${node}: transport v1 (ssh --profile headless) MEASURED BROKEN${when}${evidence} - ranked below every node that can take the work, never refused`;
     }
-    return `${node}: transport v1 (ssh --profile headless) UNMEASURED - not a claim that it works and not a claim that it does not; ranked below a node measured to work, above one measured broken`;
+    return `${node}: transport v1 (ssh --profile headless) UNMEASURED - not a claim that it works and not a claim that it does not; ranked BELOW a node measured to work and above one measured broken, so it is chosen only when capacity makes it the only option`;
   }
 
   function otherLine(candidate, task) {
@@ -531,10 +638,11 @@ export function createBroker(options = {}) {
       candidate.effective.summary,
       `${candidate.freeSlots - task.children} after ${task.children} child(ren)`,
     ];
-    if (candidate.slow) bits.push(`SLOW (${candidate.elapsedMs ?? '?'} ms door-to-door, first attempt missed the deadline): ${candidate.entry?.retryWasFast ? 'a cold-start miss, not proof of congestion' : 'still slow on the second attempt'}`);
+    if (candidate.slow) bits.push(`SLOW (${candidate.elapsedMs ?? '?'} ms door-to-door, first attempt missed the deadline): ${candidate.entry?.retryWasFast ? 'a cold-start miss, not proof of congestion, so it keeps full rank' : 'still slow on the second attempt, so it ranks below a node that answered first time'}`);
     if (candidate.swapApplied) bits.push(`swap ${candidate.swapUsedPct}% used: effective slots halved`);
     if (!candidate.dispatchOk) bits.push('transport v1 MEASURED BROKEN');
-    else if (candidate.dispatch.v1 === null) bits.push('transport v1 unmeasured');
+    else if (candidate.dispatch.v1 === null) bits.push('transport v1 unmeasured (loses to a node measured working)');
+    if (!candidate.fleetCapOk) bits.push(candidate.fleetCapReason);
     if (candidate.excluded) bits.push('excluded by the caller');
     if (!candidate.diskOk && task.kind === 'fleet') bits.push(`disk ${gib(candidate.disk ?? -1)} GiB < ${candidate.requirement.requiredGiB} GiB required`);
     if (!candidate.acceptsOk) bits.push(candidate.acceptsReason);
@@ -566,6 +674,7 @@ export function createBroker(options = {}) {
           why.push(`its ${chosen.disk === null ? 'unmeasured' : `${Math.round(chosen.disk)} GiB`} free is under the ${chosen.requirement.requiredGiB} GiB fleet requirement`);
         }
         if (!chosen.acceptsOk) why.push(chosen.acceptsReason);
+        if (!chosen.fleetCapOk) why.push(chosen.fleetCapReason);
         if (chosen.excludedByCaller) why.push('the caller excluded it');
         const everyNodeExcluded = context.excludedCount === context.total;
         return `no node can start this now (${why.join('; ') || 'no free slots anywhere'}); ${chosen.node} is the best candidate `
@@ -613,7 +722,10 @@ export function createBroker(options = {}) {
     // must not become a refusal.
     const placeable = candidates.filter((candidate) => !candidate.excludedByConfig);
     const arena = placeable.length > 0 ? placeable : candidates;
-    const base = arena.filter((candidate) => !candidate.excludedByCaller && candidate.acceptsOk);
+    // I6: a node already at its fleet-lease cap is not in the eligible pool for another
+    // FLEET, but it is still in `arena`, so the fallback tiers can queue the work there
+    // rather than refusing it.
+    const base = arena.filter((candidate) => !candidate.excludedByCaller && candidate.acceptsOk && candidate.fleetCapOk);
     const withDisk = base.filter((candidate) => candidate.diskOk);
     const unreachableCount = candidates.filter((candidate) => candidate.unreachable).length;
     const excludedCount = candidates.filter((candidate) => candidate.excludedByCaller).length;
@@ -685,41 +797,53 @@ export function createBroker(options = {}) {
      * `pool` is placeable and the first one wins.
      *
      *   1. reachable                    - a node we can measure beats one we cannot;
-     *   2. can take v1 work             - a node measured to accept `ssh <node> dsh --profile
-     *                                     headless` beats one measured not to, and an unmeasured
-     *                                     one (`null`) sits between the two facts;
-     *   3. NOT slow                     - a node that answered first time beats one that missed the
-     *                                     deadline once and answered on the longer second attempt
-     *                                     (the defect fixed 2026-09-17: it used to be excluded
-     *                                     outright, so a slow node was unplaceable while any fast
-     *                                     node existed - see the note above the tier ladder);
-     *   4. fits now                     - a node with room for THIS job beats one that will queue it.
-     *                                     This is the last of the three facts that decide the tier,
-     *                                     and it can only split candidates inside `highest-slots`
-     *                                     (inside `fits` every candidate already fits); it never
-     *                                     overrides `slow`, so a slow node is never skipped over in
-     *                                     favour of a fast one that must queue the job;
-     *   5. more effective slots, then load, then roster order.
+     *   2. transport measured working   - I5: `true` (measured to accept `ssh <node> dsh --profile
+     *                                     headless`) beats `null` (never measured) beats `false`
+     *                                     (measured broken). An unmeasured node is not refused; it
+     *                                     loses to a measurement unless capacity makes it the only
+     *                                     option;
+     *   3. NOT still-slow               - I4: a node that answered first time beats one that was
+     *                                     STILL slow on the second attempt. A COLD-START miss (the
+     *                                     first read missed the deadline and the retry answered
+     *                                     fast) keeps full rank and is not a demotion;
+     *   4. fits now                     - a node with room for THIS job beats one that will queue it;
+     *   5. not caller-excluded          - I7: in the `queued` arena fallback a node the caller
+     *                                     excluded loses to one they did not, so the preference
+     *                                     actually orders the result. It is below `fits`, so
+     *                                     capacity still wins when the allowed node cannot take the
+     *                                     work;
+     *   6. more effective slots, then load, then roster order.
      */
     const compareFallback = (a, b) => {
       const ra = a.candidate.reachable ? 1 : 0;
       const rb = b.candidate.reachable ? 1 : 0;
       if (ra !== rb) return rb - ra;
-      // A node measured to be unable to take v1 work ranks below one that can or might.
-      // `null` (unmeasured) sits between the two: it may work, and it is not a measured
-      // refusal, but it is not a measurement either.
-      const va = a.candidate.dispatchOk ? 1 : 0;
-      const vb = b.candidate.dispatchOk ? 1 : 0;
+      // I5: a node MEASURED to take v1 work ranks above one that was never measured, which
+      // ranks above one measured unable. The unmeasured node is not refused and not a claim -
+      // it simply loses to a measurement, unless capacity makes it the only option.
+      const va = a.candidate.transportRank;
+      const vb = b.candidate.transportRank;
       if (va !== vb) return vb - va;
-      // A SLOW node ranks below a fast one and above nothing: it is still a placement target.
-      const sa = a.candidate.slow ? 1 : 0;
-      const sb = b.candidate.slow ? 1 : 0;
+      // I4: a read that is STILL slow on the second attempt ranks below a fast one; a
+      // COLD-START miss (rankSlow false, state still `slow`) keeps full rank, so a healthy
+      // node is never demoted below a nearly-full one for a one-off cold read.
+      const sa = a.candidate.rankSlow ? 1 : 0;
+      const sb = b.candidate.rankSlow ? 1 : 0;
       if (sa !== sb) return sa - sb;
       // Room for this job before slots: the queue this removes is a real one, and a node that can
       // start the work now is a better answer than one that cannot, whatever their raw sizes.
       const fa = a.candidate.fits ? 1 : 0;
       const fb = b.candidate.fits ? 1 : 0;
       if (fa !== fb) return fb - fa;
+      // I7: the CALLER's own preference, expressed as `task.exclude`. In the `queued` arena
+      // fallback every placeable node is a candidate again, and this term is what makes the
+      // exclusion actually order the result instead of being a comment: a node the caller
+      // excluded loses to one they did not, and is chosen only when capacity left no other
+      // candidate (the `fits` term above already ran, so a node that can take the work beats
+      // an excluded one that cannot).
+      const xa = a.candidate.excludedByCaller ? 0 : 1;
+      const xb = b.candidate.excludedByCaller ? 0 : 1;
+      if (xa !== xb) return xb - xa;
       if (a.candidate.slots !== b.candidate.slots) return b.candidate.slots - a.candidate.slots;
       return compareRanking(a.key, b.key);
     };
@@ -743,6 +867,7 @@ export function createBroker(options = {}) {
       ...(chosen.reachable ? [] : ['unreachable']),
       ...(chosen.diskOk || task.kind !== 'fleet' ? [] : ['disk']),
       ...(chosen.acceptsOk ? [] : ['accepts']),
+      ...(chosen.fleetCapOk ? [] : ['fleet-cap']),
       ...(chosen.dispatchOk ? [] : ['transport']),
       ...(chosen.excludedByCaller ? ['caller-excluded'] : []),
       ...(chosen.freeSlots - task.children >= 0 ? [] : ['no-free-slots']),
@@ -770,6 +895,7 @@ export function createBroker(options = {}) {
     lines.push(`${chosen.node}: ${chosen.freeSlots} free slot(s) - ${task.children} child(ren) = ${chosen.freeSlots - task.children} `
       + `${chosen.freeSlots - task.children >= 0 ? '>= 0 -> fits now' : '< 0 -> does not fit now'}`);
     if (!chosen.acceptsOk) lines.push(`${chosen.node}: ${chosen.acceptsReason}`);
+    if (!chosen.fleetCapOk) lines.push(`${chosen.node}: ${chosen.fleetCapReason}`);
     const explain = tierLine(tier, chosen, task, { excludedCount, total: candidates.length });
     if (explain !== null) lines.push(explain);
     lines.push(positionLine(chosen, task, position, startNow, blockedBy));
@@ -859,17 +985,45 @@ export function createBroker(options = {}) {
     };
   }
 
-  /** `POST /place`. Async only because it may need to read; the decision itself is synchronous. */
+  /**
+   * `POST /place`. Async only because it may need to read; the decision itself is synchronous.
+   *
+   * I1: when the body carries a `requestId`, the response is memoized for `requestIdTtlMs`
+   * and a repeat returns the SAME lease and node without touching the lease table. Two
+   * concurrent calls with one requestId share one promise, so a race cannot issue two leases
+   * either. A request without a requestId behaves exactly as before.
+   */
   async function place(body) {
-    const { task, notes } = normalizeTask(body);
-    const at = now();
-    await refresh({ fresh: false }).catch(() => undefined);
-    const decisionAt = now();
-    try {
-      return decide({ task, notes, at: decisionAt });
-    } catch (error) {
-      return emergencyPlacement({ task, notes, at: decisionAt, error });
+    const { task, requestId, notes } = normalizeTask(body);
+    if (requestId !== null) {
+      const at = now();
+      reapRequestResponses(at);
+      const remembered = requestResponses.get(requestId);
+      if (remembered !== undefined) return replayRequest(requestId, remembered, at);
+      const pending = requestInflight.get(requestId);
+      if (pending !== undefined) return pending;
     }
+
+    const run = (async () => {
+      const at = now();
+      await refresh({ fresh: false }).catch(() => undefined);
+      const decisionAt = now();
+      let response;
+      try {
+        response = decide({ task, notes, at: decisionAt });
+      } catch (error) {
+        response = emergencyPlacement({ task, notes, at: decisionAt, error });
+      }
+      if (requestId === null) return { ...response, requestId: null };
+      const stamped = { ...response, requestId };
+      rememberRequest(requestId, stamped, decisionAt);
+      return stamped;
+    })();
+
+    if (requestId === null) return run;
+    const tracked = run.finally(() => requestInflight.delete(requestId));
+    requestInflight.set(requestId, tracked);
+    return tracked;
   }
 
   /** `POST /done`. Always answers 200; an unknown lease is a fact, not an error. */
@@ -1001,6 +1155,7 @@ export function createBroker(options = {}) {
       leaseTtlSec: seconds(leaseTtlMs),
       reads,
       readFailures,
+      requestIds: { cached: requestResponses.size, ttlSec: seconds(requestIdTtlMs), maxEntries: MAX_REQUEST_ID_ENTRIES, replayed: requestIdReplays },
       nodes: nodes.map((node) => nodeView(node, at)),
       leases: leases.stats(at),
     };
@@ -1019,6 +1174,7 @@ export function createBroker(options = {}) {
       cacheTtlSec: seconds(cacheTtlMs),
       readTimeoutMs,
       leaseTtlSec: seconds(leaseTtlMs),
+      requestIds: { cached: requestResponses.size, ttlSec: seconds(requestIdTtlMs), maxEntries: MAX_REQUEST_ID_ENTRIES, replayed: requestIdReplays },
       leases: leases.stats(at),
     };
   }
@@ -1044,6 +1200,6 @@ export function createBroker(options = {}) {
       perNode: true,
       fallbackMiB: RESERVE_MIB,
     },
-    config: { nodes, cacheTtlMs, readTimeoutMs, retryTimeoutMs, leaseTtlMs, perSlotMiB: PER_SLOT_MIB, maxSlots: MAX_SLOTS },
+    config: { nodes, cacheTtlMs, readTimeoutMs, retryTimeoutMs, leaseTtlMs, requestIdTtlMs, fleetConcurrentLeaseCap, perSlotMiB: PER_SLOT_MIB, maxSlots: MAX_SLOTS },
   };
 }

@@ -17,7 +17,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { DEFAULT_CACHE_TTL_MS, DEFAULT_READ_TIMEOUT_MS, dnsLabel, loadConfig, normalizeDispatch, validateConfig } from '../lib/config.js';
+import { DEFAULT_CACHE_TTL_MS, DEFAULT_FLEET_CONCURRENT_LEASE_CAP, DEFAULT_READ_TIMEOUT_MS, DEFAULT_REQUEST_ID_TTL_MS, DEFAULT_RETRY_READ_TIMEOUT_MS, dnsLabel, loadConfig, normalizeDispatch, validateConfig } from '../lib/config.js';
+import { MAX_REQUEST_ID_ENTRIES, REQUEST_ID_TTL_MS } from '../lib/broker.js';
+import { FLEET_CONCURRENT_LEASE_CAP } from '../lib/scoring.js';
 
 const scratchFile = (contents) => {
   const dir = mkdtempSync(path.join(tmpdir(), 'mesh-broker-config-'));
@@ -28,12 +30,16 @@ const scratchFile = (contents) => {
 
 const node = (over = {}) => ({ node: 'zabz-tech', baseUrl: 'https://zabz-tech.tail93e6e6.ts.net', fqdn: 'zabz-tech.tail93e6e6.ts.net', ...over });
 
-test('the shipped roster is valid, names four nodes, and reads like the program describes them', () => {
+test('the shipped roster is valid, names five nodes, and reads like the program describes them', () => {
   const config = loadConfig(fileURLToPath(new URL('../nodes.json', import.meta.url)));
-  assert.equal(config.nodes.length, 4);
+  // FIVE, not four: `lakewooechsmini` was added 2026-09-18 (nodes.json carries the
+  // measurement that restored it), and this assertion had gone stale against the roster it
+  // claims to check. A roster-count test that is not updated when the roster changes is a
+  // test that fails for the wrong reason, so it is repaired here rather than worked around.
+  assert.equal(config.nodes.length, 5);
   assert.deepEqual(
     config.nodes.map((entry) => entry.node).sort(),
-    ['secratary', 'zabz-tech', 'zabz-tech-linux', 'zabz-yoga-1'].sort(),
+    ['lakewooechsmini', 'secratary', 'zabz-tech', 'zabz-tech-linux', 'zabz-yoga-1'].sort(),
   );
   const laptop = config.nodes.find((entry) => entry.node === 'zabz-yoga-1');
   assert.equal(laptop.baseUrl, 'https://zabz-yoga-1.tail93e6e6.ts.net', 'the DNS label really is zabz-yoga-1');
@@ -41,6 +47,26 @@ test('the shipped roster is valid, names four nodes, and reads like the program 
   assert.equal(laptop.location, 'home');
   assert.equal(config.cacheTtlMs, DEFAULT_CACHE_TTL_MS);
   assert.equal(config.readTimeoutMs, DEFAULT_READ_TIMEOUT_MS);
+});
+
+test('I1/I6 the roster carries the retry, requestId and fleet-cap keys, and their defaults match the broker constants', () => {
+  const config = loadConfig(fileURLToPath(new URL('../nodes.json', import.meta.url)));
+  assert.equal(config.retryTimeoutMs, DEFAULT_RETRY_READ_TIMEOUT_MS);
+  assert.equal(config.requestIdTtlMs, DEFAULT_REQUEST_ID_TTL_MS);
+  assert.equal(config.fleetConcurrentLeaseCap, DEFAULT_FLEET_CONCURRENT_LEASE_CAP);
+  // No drift between the roster defaults and the numbers the broker actually applies.
+  assert.equal(config.requestIdTtlMs, REQUEST_ID_TTL_MS);
+  assert.equal(config.fleetConcurrentLeaseCap, FLEET_CONCURRENT_LEASE_CAP);
+  assert.equal(MAX_REQUEST_ID_ENTRIES, 256);
+
+  const overridden = validateConfig({ nodes: [node()], retryTimeoutMs: 9000, requestIdTtlMs: 60_000, fleetConcurrentLeaseCap: 2 });
+  assert.equal(overridden.retryTimeoutMs, 9000);
+  assert.equal(overridden.requestIdTtlMs, 60_000);
+  assert.equal(overridden.fleetConcurrentLeaseCap, 2);
+  const junk = validateConfig({ nodes: [node()], retryTimeoutMs: -1, requestIdTtlMs: 'soon', fleetConcurrentLeaseCap: 0 });
+  assert.equal(junk.retryTimeoutMs, DEFAULT_RETRY_READ_TIMEOUT_MS, 'a non-positive retry budget falls back to the default');
+  assert.equal(junk.requestIdTtlMs, DEFAULT_REQUEST_ID_TTL_MS);
+  assert.equal(junk.fleetConcurrentLeaseCap, DEFAULT_FLEET_CONCURRENT_LEASE_CAP);
 });
 
 test('§2.1 naming: the shipped roster obeys node == fqdn.split(".")[0] on every row', () => {
