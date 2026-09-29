@@ -37,6 +37,8 @@
  */
 
 import { createBrokerClient } from './broker-client.js';
+import { createChildRegistry, defaultChildRegistryDir } from './child-registry.js';
+import { registerMeshTools } from './mesh-tools.js';
 import { createPlacementLedger, createNodePlacer } from './placement.js';
 import { createPressureReader, decidePressure, describePressure, localNodeName, PREFER_REMOTE_DEFAULT, PREFER_REMOTE_POLICY } from './pressure.js';
 import { RemoteOneShotProvider } from './provider.js';
@@ -44,6 +46,21 @@ import { createSshTransport } from './ssh-transport.js';
 
 const name = 'remote-fanout';
 const inject = ['subagents'];
+
+/**
+ * Run `body` once `deps` are available, WITHOUT making them hard dependencies.
+ * Copied in spirit from `plugin-health`: a bare `ctx.get('tools')` inside `apply`
+ * can be undefined because activation order is not tree order, while declaring
+ * `inject: ['tools']` would make the tool service a HARD dependency and let a
+ * headless profile fail to boot. A child fiber that waits is neither.
+ */
+function withServices(ctx, deps, body) {
+  if (typeof ctx.inject === 'function') {
+    ctx.inject(deps, (scoped) => body(scoped));
+    return;
+  }
+  if (deps.every((service) => ctx.get(service) !== undefined)) body(ctx);
+}
 
 /**
  * Which placement a row means, decided in ONE place and in the package rather
@@ -139,6 +156,45 @@ function apply(ctx, config = {}) {
 
   const ledger = createPlacementLedger({ logger: ctx.logger });
 
+  // ── THE DURABLE CHILD REGISTRY (R3/R4/R5) ─────────────────────────────────
+  // ONE registry for the whole engine, under the engine's own DSH_HOME, because
+  // the children it describes outlive the transports that ran them. Its records
+  // are what `mesh_children`/`mesh_message`/`mesh_interrupt`/`mesh_collect`
+  // read; the provider only ever patches it through `#record`, so there is no
+  // second event model to reconcile.
+  const childRegistry = createChildRegistry({
+    dir: config.childRegistryDir ?? defaultChildRegistryDir(process.env.DSH_HOME),
+    logger: ctx.logger,
+  });
+
+  // The four parent tools are registered from the tool plane, exactly once, in
+  // either placement mode: they describe children, not a placement policy.
+  const installMeshTools = () => {
+    withServices(ctx, ['tools'], (toolCtx) => {
+      try {
+        // `effect` keeps the four registrations alive with the scope and
+        // disposes them together; a context without it (a test double) still
+        // gets the tools.
+        if (typeof toolCtx.effect === 'function') toolCtx.effect(() => registerMeshTools(toolCtx, {
+          registry: childRegistry,
+          sshExe: config.sshExe,
+          sshArgs: config.sshArgs,
+          timeoutMs: Number.isFinite(config.toolTimeoutMs) && config.toolTimeoutMs > 0 ? config.toolTimeoutMs : 30000,
+          logger: ctx.logger,
+        }));
+        else registerMeshTools(toolCtx, {
+          registry: childRegistry,
+          sshExe: config.sshExe,
+          sshArgs: config.sshArgs,
+          timeoutMs: 30000,
+          logger: ctx.logger,
+        });
+      } catch (error) {
+        ctx.logger?.warn?.(`remote-fanout: could not register the mesh child tools: ${String(error?.message ?? error)}`);
+      }
+    });
+  };
+
   let placer;
   if (mode === 'fixed') {
     const transport = createSshTransport({
@@ -171,9 +227,11 @@ function apply(ctx, config = {}) {
       verifyMeshHost: config.verifyMeshHost,
       targetHosts: config.targetHosts,
       ledger,
+      childRegistry,
     });
     placer = provider.placer;
     ctx.subagents.registerProvider(provider);
+    installMeshTools();
     ctx.logger?.info?.(
       `remote-fanout: provider "${providerName}" registered in FIXED-TARGET mode → ${transport.describe()} `
       + `(profile ${config.remoteProfile ?? 'headless'}${config.remoteHome ? `, DSH_HOME ${config.remoteHome}` : ''}; `
@@ -268,9 +326,11 @@ function apply(ctx, config = {}) {
     verifyMeshHost: config.verifyMeshHost,
     targetHosts: config.targetHosts,
     ledger,
+    childRegistry,
   });
 
   ctx.subagents.registerProvider(provider);
+  installMeshTools();
   ctx.logger?.info?.(
     `remote-fanout: provider "${providerName}" registered in BROKER mode → ${placer.describe()} `
     + `(one placement per child; profile ${config.remoteProfile ?? 'headless'}${config.remoteHome ? `, DSH_HOME ${config.remoteHome}` : ''}; `

@@ -150,16 +150,17 @@ test('the advertisement is honest: no capabilities, no parent context, one-shot 
   assert.equal(provider.name, 'remote-ssh');
 });
 
-test('a multi-line prompt is collapsed to one argv word on the target', async () => {
-  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1 });
+// R7: the task used to be flattened to one line AND base64'd into argv. It still
+// reaches the child as ONE quoted argv word, but its newlines are preserved now —
+// the delivery channel (stdin) is what removed the size ceiling, not flattening.
+test('a multi-line prompt is preserved as one quoted argv word on the target', async () => {
+  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1, host: 'ZABZ-YOGA', answer: 'MESH-HOST: ZABZ-YOGA\nCHILD_OK' });
   const provider = new RemoteOneShotProvider({ name: 'remote-ssh', transport, remote: REMOTE });
   const run = await provider.start({ prompt: [{ type: 'text', text: 'line one\r\nline two' }], signal: signal() });
   await run.result;
   const script = transport.seen[0].script;
-  const taskLine = script.split('\n').find((line) => line.includes('--profile'));
-  assert.match(taskLine, /'--profile' 'headless' /);
-  assert.match(taskLine, /line one line two'$/);
-  assert.equal(/[\r\n]/.test(taskLine), false);
+  assert.match(script, /line one\r?\nline two'/, 'the task is one quoted string literal, newlines intact');
+  assert.doesNotMatch(script, /line one line two/, 'the old singleLine() flattening must be gone');
   await run.dispose();
 });
 
@@ -315,13 +316,114 @@ test('a child that reports the wrong host fails the run', async () => {
   await run.dispose();
 });
 
-test('a child that omits MESH-HOST is an unproven location, not a success', async () => {
-  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1, answer: 'CHILD_OK' });
+// ── R1 LOCATION POLICY ───────────────────────────────────────────────────────
+// The transport records the target host BEFORE the child runs and the broker's
+// node named the target; that is the strong evidence. The model's own line is
+// corroboration. A missing line must NOT discard a child that provably ran on
+// the named node (pains P2667/P269, lesson L3059). A DISAGREEING line is still a
+// hard failure, and a recorded host outside the placement is still refused.
+test('a child that omits MESH-HOST still completes on the transport evidence, answer preserved', async () => {
+  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1, host: 'ZABZ-YOGA', answer: 'CHILD_OK\nTOKEN=REMOTE-CHILD-1' });
   const provider = new RemoteOneShotProvider({ name: 'remote-ssh', transport, remote: REMOTE, targetHosts: ['ZABZ-YOGA'] });
   const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
   const result = await run.result;
+  assert.equal(result.stopReason, 'completed');
+  assert.equal(result.diagnostic, undefined);
+  assert.match(textOf(result), /location check = transport recorded ZABZ-YOGA, matched the configured fixed target; the child's own MESH-HOST line was absent, so provenance rests on the transport, not the model/);
+  assert.match(textOf(result), /CHILD_OK/);
+  assert.match(textOf(result), /TOKEN=REMOTE-CHILD-1/);
+  await run.dispose();
+});
+
+test('a missing MESH-HOST on a BROKER placement names the node the broker named', async () => {
+  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1, host: 'ZABZ-TECH', answer: 'CHILD_OK' });
+  const placer = fakePlacer({ transport });
+  const provider = new RemoteOneShotProvider({ name: 'remote-ssh', placer });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  const result = await run.result;
+  assert.equal(result.stopReason, 'completed');
+  assert.match(textOf(result), /location check = transport recorded ZABZ-TECH, matched the node the broker named \(zabz-tech\); the child's own MESH-HOST line was absent/);
+  await run.dispose();
+});
+
+test('a disagreeing MESH-HOST line is still a hard failure (corroboration that contradicts)', async () => {
+  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1, host: 'ZABZ-TECH', answer: 'MESH-HOST: ZABZ-YOGA\nCHILD_OK' });
+  const provider = new RemoteOneShotProvider({ name: 'remote-ssh', transport, remote: { ...REMOTE, cwd: 'C:/Users/ezabz' }, targetHosts: ['ZABZ-TECH'] });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  const result = await run.result;
   assert.equal(result.stopReason, 'error');
-  assert.match(result.diagnostic, /did not begin its report with "MESH-HOST: <hostname>"/);
+  assert.match(result.diagnostic, /location disagreement: the child claims MESH-HOST ZABZ-YOGA but the target shell recorded ZABZ-TECH/);
+  await run.dispose();
+});
+
+// ── R2 NOTHING IS DISCARDED ──────────────────────────────────────────────────
+test('a failing run carries the child text in BOTH the diagnostic and the output blocks', async () => {
+  const answer = 'MESH-HOST: ZABZ-TECH\nPARTIAL_WORK=SWEPT-THE-LOG\nCHILD_FAILED=1';
+  const transport = fakeTransport({ ok: false, exitCode: 1, ms: 40, host: 'ZABZ-TECH', answer, stderr: 'dsh: provider route died' });
+  const placer = fakePlacer({ transport });
+  const provider = new RemoteOneShotProvider({ name: 'remote-ssh', placer });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  const result = await run.result;
+  assert.equal(result.stopReason, 'error');
+  assert.match(result.diagnostic, /exited 1/);
+  assert.match(result.diagnostic, /PARTIAL_WORK=SWEPT-THE-LOG/, 'the answer survives in the diagnostic even if the job store drops the blocks');
+  assert.match(result.diagnostic, /--- child final message ---/);
+  assert.match(textOf(result), /PARTIAL_WORK=SWEPT-THE-LOG/);
+  await run.dispose();
+});
+
+test('an unframed run puts the raw child stdout in the diagnostic too', async () => {
+  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 9, stdout: 'Error: dsh: cannot resolve profile bundle "x"\nHALF_A_REPORT=yes\n' });
+  const provider = new RemoteOneShotProvider({ name: 'remote-ssh', transport, remote: REMOTE });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  const result = await run.result;
+  assert.equal(result.stopReason, 'error');
+  assert.match(result.diagnostic, /printed no completion frame/);
+  assert.match(result.diagnostic, /HALF_A_REPORT=yes/);
+  await run.dispose();
+});
+
+// ── R4 DURABLE CHILD RECORD ──────────────────────────────────────────────────
+test('every internal record the provider writes is forwarded to the child registry', async () => {
+  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1, host: 'ZABZ-TECH', answer: 'MESH-HOST: ZABZ-TECH\nCHILD_OK' });
+  const placer = fakePlacer({ transport });
+  const patches = [];
+  const creates = [];
+  const childRegistry = {
+    create: (id, patch) => { creates.push({ id, ...patch }); return { id, ...patch }; },
+    patch: (id, patch) => { patches.push({ id, ...patch }); return { id, ...patch }; },
+    get: () => undefined,
+  };
+  const provider = new RemoteOneShotProvider({ name: 'remote-ssh', placer, childRegistry });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  await run.result;
+
+  const states = patches.map((p) => p.state).filter(Boolean);
+  assert.deepEqual(states, ['dispatching', 'settled'], 'the registry sees the same states the ledger does');
+  assert.equal(creates.length, 1);
+  assert.equal(creates[0].node, 'zabz-tech');
+  assert.equal(creates[0].ssh, 'desktop-ts');
+  assert.equal(creates[0].lease, 'mu4q576o-lease');
+  assert.match(creates[0].inbox, /mesh[\\/]children[\\/]remote-[0-9a-f-]+[\\/]inbox\.jsonl/);
+  assert.match(creates[0].outbox, /outbox\.jsonl$/);
+  const settled = patches.find((p) => p.state === 'settled');
+  assert.equal(settled.stopReason, 'completed');
+  assert.equal(settled.host, 'ZABZ-TECH');
+  await run.dispose();
+});
+
+test('a child registry that throws cannot change the child outcome', async () => {
+  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1, host: 'ZABZ-TECH', answer: 'MESH-HOST: ZABZ-TECH\nCHILD_OK' });
+  const placer = fakePlacer({ transport });
+  const childRegistry = {
+    create: () => { throw new Error('registry disk gone'); },
+    patch: () => { throw new Error('registry disk gone'); },
+    get: () => { throw new Error('registry disk gone'); },
+  };
+  const provider = new RemoteOneShotProvider({ name: 'remote-ssh', placer, childRegistry });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  const result = await run.result;
+  assert.equal(result.stopReason, 'completed');
   await run.dispose();
 });
 
@@ -539,4 +641,44 @@ test('the fixed-target opt-in still works, and says loudly that the broker was n
   assert.equal(result.stopReason, 'completed');
   assert.match(textOf(result), /placement      = FIXED TARGET — "ZABZ-YOGA" from configuration, the broker was NOT consulted/);
   await run.dispose();
+});
+
+// ── R4/R5 WIRING: THE PLUGIN ENTRY ITSELF ────────────────────────────────────
+test('apply() constructs the child registry, gives it to the provider, and registers the four tools', async () => {
+  const { mkdtempSync } = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const { apply } = await import('../lib/index.js');
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'fanout-index-'));
+
+  const providers = [];
+  const tools = [];
+  const effects = [];
+  const makeScoped = () => ({
+    get: (service) => (service === 'tools' ? { register: (definition) => { tools.push(definition); return () => {}; } } : undefined),
+    tools: { register: (definition) => { tools.push(definition); return () => {}; } },
+    effect: (fn) => { effects.push(fn); },
+  });
+  const ctx = {
+    logger: { info() {}, warn() {} },
+    subagents: { registerProvider: (provider) => providers.push(provider) },
+    get: (service) => (service === 'tools' ? makeScoped().tools : undefined),
+    effect: (fn) => { effects.push(fn); },
+    inject: (_deps, body) => body(makeScoped()),
+  };
+
+  apply(ctx, {
+    placement: 'fixed',
+    target: 'laptop-ts',
+    remoteCommand: 'dsh',
+    providerName: 'remote-ssh',
+    childRegistryDir: dir,
+    verifyMeshHost: true,
+  });
+
+  assert.equal(providers.length, 1);
+  assert.equal(providers[0].childRegistry.dir, dir, 'the provider must be handed the engine registry');
+  // `effect` defers the tool registrations; run them the way the scope would.
+  for (const effect of effects) effect();
+  assert.deepEqual(tools.map((definition) => definition.name).sort(), ['mesh_children', 'mesh_collect', 'mesh_interrupt', 'mesh_message']);
 });

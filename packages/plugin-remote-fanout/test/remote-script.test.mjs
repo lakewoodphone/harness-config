@@ -230,3 +230,62 @@ test('the generated posix program really produces a non-empty host under this ma
   assert.ok(typeof parsed.host === 'string' && parsed.host.length > 0, 'the transport host must be a real name');
 });
 
+// ── R7 THE DELIVERY CEILING (D4) ─────────────────────────────────────────────
+// MEASURED on ZABZ-TECH: a 12000-character task produced an ssh argv of 33859
+// (the task word becomes base64 through -EncodedCommand at ~2.67 chars/char on
+// Windows) and spawn failed with ENAMETOOLONG before the child started. The old
+// ceiling was ~11400 characters of task, and the fleet's own 8-part brief
+// standard routinely exceeds it. The fix: the whole program travels on stdin,
+// the task keeps its newlines, and an absurd payload is REFUSED, never cut.
+test('the task keeps its newlines instead of being flattened to one argv word', () => {
+  const task = 'line one\nline two\n\nline four';
+  const pwsh = buildPwshScript({ command: 'dsh', profile: 'headless', task, nonce: 'ml1' });
+  const posix = buildPosixScript({ command: 'dsh', profile: 'headless', task, nonce: 'ml2' });
+  assert.match(pwsh, /line one\nline two\n\nline four'$/m, 'the pwsh program must carry the task verbatim');
+  assert.match(posix, /line one\nline two\n\nline four'$/m, 'the posix program must carry the task verbatim');
+});
+
+test('a 12000-character task is accepted — far past the old ~11400-character ceiling', async () => {
+  const { MAX_TASK_BYTES, taskBytes } = await import('../lib/remote-script.js');
+  const task = 'T'.repeat(12000);
+  assert.equal(typeof MAX_TASK_BYTES, 'number');
+  assert.ok(MAX_TASK_BYTES > 12000, `the documented limit ${MAX_TASK_BYTES} must clear the measured fleet brief size`);
+  // The builders must not throw for a task the old transport could not deliver.
+  const script = buildPosixScript({ command: 'dsh', profile: 'headless', task, nonce: 'big1' });
+  assert.match(script, /T{12000}/);
+  assert.equal(taskBytes(task), 12000);
+});
+
+test('an over-limit task is REFUSED with a legible diagnostic, never truncated', async () => {
+  const { MAX_TASK_BYTES, assertTaskSize } = await import('../lib/remote-script.js');
+  assert.equal(typeof assertTaskSize, 'function', 'the builder needs an explicit, documented refusal');
+  const huge = 'X'.repeat(MAX_TASK_BYTES + 1);
+  assert.throws(
+    () => assertTaskSize(huge),
+    (error) => {
+      assert.match(error.message, /too large for the transport/);
+      assert.match(error.message, /documented limit is \d+ bytes/);
+      assert.match(error.message, /nothing was truncated and no child was started/);
+      return true;
+    },
+  );
+  assert.throws(
+    () => buildPosixScript({ command: 'dsh', profile: 'headless', task: huge, nonce: 'big2' }),
+    /too large for the transport/,
+  );
+});
+
+// ── R3/R6 MAILBOX PATHS ──────────────────────────────────────────────────────
+test('meshChildPaths gives per-child inbox and outbox paths in the target shell\'s shape', async () => {
+  const { meshChildPaths } = await import('../lib/remote-script.js');
+  const posix = meshChildPaths({ dshHome: '/home/zabz/.dsh-worker', id: 'remote-abc', shell: 'posix' });
+  assert.equal(posix.inbox, '/home/zabz/.dsh-worker/mesh/children/remote-abc/inbox.jsonl');
+  assert.equal(posix.outbox, '/home/zabz/.dsh-worker/mesh/children/remote-abc/outbox.jsonl');
+  const win = meshChildPaths({ dshHome: 'C:\\tmp\\child-home', id: 'remote-abc', shell: 'powershell' });
+  assert.equal(win.inbox, 'C:\\tmp\\child-home\\mesh\\children\\remote-abc\\inbox.jsonl');
+  // With no configured DSH_HOME the path stays an expression the target shell
+  // expands, because the parent must not guess another machine's home.
+  const fallback = meshChildPaths({ id: 'remote-abc', shell: 'posix' });
+  assert.equal(fallback.inbox, '$HOME/.dsh/mesh/children/remote-abc/inbox.jsonl');
+});
+
