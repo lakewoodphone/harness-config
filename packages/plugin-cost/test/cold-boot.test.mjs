@@ -33,12 +33,31 @@
  * from the real profile anchor at all (no DSH profile here). A skip is printed loudly with the
  * path it looked at; it is never silent, because an empty result is not evidence of health.
  *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * AND A THIRD HALF, ADDED 2026-09-28: THE GUARD MUST RESOLVE NO PACKAGE AT LOAD.
+ *
+ * The 2026-09-17 incident was one anchor being wrong. This one is worse in kind: the guard row
+ * had a STATIC `import Schema from '@deepseek-ai/schemastery'` bound at module scope through that
+ * anchor, so if `<DSH_HOME>/profiles/node_modules` was not there at the instant the entry was
+ * imported — and on a candidate engine it was there only about half the time, four consecutive
+ * boots of ONE unchanged home failing twice — the row failed to import, the engine reported the
+ * bare string `failed to import`, and the money ceiling was silently absent. A protective plugin
+ * may not have a load-time dependency on a directory it does not own, so the guard now resolves
+ * `node:` builtins only while loading and probes for the schema class lazily at mount.
+ *
+ *   PACKAGES — every specifier the generated file requires at load is a `node:` builtin. This is
+ *     machine-independent and goes red the moment someone reintroduces a bare import.
+ *   BARREN — `lib/guard.js` is imported in a child whose `DSH_HOME` is an EMPTY directory: no
+ *     profile, no `profiles/node_modules`, nothing. `LOADED` is the assertion, and against the
+ *     2026-09-28 shape this is `FAILED: MODULE_NOT_FOUND` for `@deepseek-ai/schemastery` — the
+ *     engine's own death, reproduced on demand.
+ *
  * Usage: node test/cold-boot.test.mjs
  */
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -110,6 +129,43 @@ function loadWithoutDshHome(relative) {
     out: `${run.stdout ?? ''}${run.stderr ?? ''}`.trim(),
     status: run.status,
   };
+}
+
+/**
+ * Import one artifact in a child whose `DSH_HOME` is an EMPTY directory.
+ *
+ * This is the load-path regression test: a module that resolves a bare package at load dies here
+ * with `MODULE_NOT_FOUND`, which is exactly what the engine reported as
+ * `spend-guard (dsh-plugin-cost/guard): failed to import`.
+ */
+function loadInBarrenHome(relative, home) {
+  const url = pathToFileURL(join(ROOT, relative)).href;
+  const script = `import(${JSON.stringify(url)}).then(() => console.log('LOADED')).catch((e) => console.log('FAILED: ' + e.code + ' ' + String(e.message).split('\\n')[0]));`;
+  const env = { ...process.env, DSH_HOME: home };
+  const run = spawnSync(process.execPath, ['--input-type=module', '-e', script], {
+    env,
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  return {
+    url,
+    command: `$env:DSH_HOME='${home}'; node --input-type=module -e "import('${url}').then(()=>console.log('LOADED')).catch(e=>console.log('FAILED: '+e.code))"`,
+    out: `${run.stdout ?? ''}${run.stderr ?? ''}`.trim(),
+    status: run.status,
+  };
+}
+
+/** Every `require('...')` specifier in a generated artifact. */
+function requiredSpecifiers(relative) {
+  const source = readFileSync(join(ROOT, relative), 'utf8');
+  const found = [];
+  const pattern = /require\('([^']+)'\)/g;
+  let match = pattern.exec(source);
+  while (match !== null) {
+    found.push(match[1]);
+    match = pattern.exec(source);
+  }
+  return found;
 }
 
 console.log('');
@@ -189,6 +245,35 @@ if (resolvable === undefined) {
     console.log(`        ${run.command}`);
     console.log(`        -> ${run.out.split('\n').slice(-3).join(' | ')}`);
   }
+}
+
+// ── PACKAGES: nothing but `node:` builtins is resolved while these files load ───
+console.log('');
+console.log('load path: the guard must resolve no package while it is being imported');
+for (const artifact of ARTIFACTS) {
+  const specifiers = requiredSpecifiers(artifact);
+  const bare = specifiers.filter((specifier) => !specifier.startsWith('node:'));
+  check(
+    `${artifact}: every require() is a node: builtin (${specifiers.length} found)`,
+    bare.length === 0,
+    `bare specifier(s) resolved at load: ${bare.join(', ')} — this is the 2026-09-28 failure mode: the row cannot import when <DSH_HOME>/profiles/node_modules is not there yet`,
+  );
+}
+
+// ── BARREN: import in a child whose DSH_HOME cannot provide anything ───────────
+const barrenHome = mkdtempSync(join(tmpdir(), 'dsh-cold-boot-barren-'));
+try {
+  console.log(`  barren home: ${barrenHome} (no profile, no node_modules, nothing)`);
+  const run = loadInBarrenHome(DISCRIMINATOR, barrenHome);
+  check(
+    `${DISCRIMINATOR}: loads with DSH_HOME an empty directory (the 2026-09-28 failure mode)`,
+    run.out.includes('LOADED'),
+    `child said: ${run.out.split('\n').slice(-3).join(' | ')}`,
+  );
+  console.log(`        ${run.command}`);
+  console.log(`        -> ${run.out.split('\n').slice(-3).join(' | ')}`);
+} finally {
+  rmSync(barrenHome, { recursive: true, force: true });
 }
 
 console.log('');

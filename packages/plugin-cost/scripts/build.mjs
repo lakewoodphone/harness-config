@@ -76,8 +76,17 @@ function stripImports(source) {
  * statement form inside a concatenation (it would redeclare the same names), and
  * a package name in one would be resolved by Node from this checkout rather than
  * by the loader. A package dependency therefore stays a STATIC import in the
- * generated file, which the loader resolves itself — see `stripExports` and the
- * `Schema` import in `src/guard-entry.mjs`.
+ * generated file, which the loader resolves itself.
+ *
+ * AND SINCE 2026-09-28 THE GUARD HAS NO PACKAGE DEPENDENCY AT ALL — see
+ * `buildGuard()` below. `src/guard-entry.mjs` stopped importing
+ * `@deepseek-ai/schemastery` at module scope, because that binding was the only
+ * reason `lib/guard.js` needed this anchor to point somewhere useful at LOAD
+ * time: the row could fail to import whenever `<DSH_HOME>/profiles/node_modules`
+ * was not there yet, and an absent money guard is worse than no money guard. The
+ * generated guard now binds `node:` builtins only (they resolve from any anchor)
+ * and resolves the schema class lazily inside `apply()`, from several candidate
+ * roots with shape validation (`src/guard-entry.mjs`).
  */
 function requireAnchor() {
   return [
@@ -181,6 +190,16 @@ export { name, inject, apply, costReport };
  * would count every request twice. The arithmetic is still single-sourced —
  * \`cost-core.mjs\` and \`session-log.mjs\` are concatenated into both files from
  * the same text — so what is split is the entry, never the price table.
+ *
+ * THE GUARD'S GENERATED FILE RESOLVES NO PACKAGE (2026-09-28). Its only imports
+ * are \`node:\` builtins, so whether it can LOAD does not depend on any directory
+ * this plugin does not own. \`@deepseek-ai/schemastery\` — needed only to register
+ * the settings namespace — is resolved lazily inside \`apply()\`. Do not
+ * reintroduce a static import of a bare package here: measured 2026-09-28, this
+ * row failed to import on roughly half of four consecutive boots of one unchanged
+ * staged home while the engine reported only \`failed to import\`, and a money
+ * guard that does not activate while the operator believes he is protected is the
+ * worst state this package can be in. See \`docs/2026-09-28-guard-activation.md\`.
  */
 function buildGuard() {
   const core = stripExports(stripHeaderDocblock(read('src/cost-core.mjs')));
