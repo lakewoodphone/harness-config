@@ -705,6 +705,7 @@ handoff	H2914	2914		2026-09-28 19:08 UTC	ZABZ-YOGA	open	## 2026-09-28 19:08 UTC 
 handoff	H2977	2977		2026-09-28 19:18 UTC	ZABZ-TECH	open	## 2026-09-28 19:18 UTC · ZABZ-TECH · Household repo is on GitHub (private) plus the authority; Chol Hamoed 5787 outing decided - Activate Woodbridge	entries/handoff/H2977.md	1	58	6f17def5be9f2853
 handoff	H3050	3050		2026-09-28 20:01 UTC	SECRATARY	open	## 2026-09-28 20:01 UTC · SECRATARY · Chol Hamoed kite run: Toms River options delivered, Activate Woodbridge still the open collision	entries/handoff/H3050.md	1	69	7bc2598bd5badf03
 handoff	H3051	3051		2026-09-28 21:57 UTC	SECRATARY	open	## 2026-09-28 21:57 UTC · SECRATARY · Chol Hamoed kite run and the Sport Cub purchase: three records written, aircraft unflown	entries/handoff/H3051.md	1	55	0965cf98526bc7a4
+handoff	H3052	3052		2026-09-29 03:46 UTC	SECRATARY	open	## 2026-09-29 03:46 UTC · SECRATARY · Family Chat: why Shabsi did not get Mommy's siyum text - our side was clean, our ledger was not	entries/handoff/H3052.md	1	45	c33f4f1421fe3599
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1831,6 +1832,7 @@ lessons	L3048	3048		2026-09-28	SECRATARY	open	**L3048 · Three times in one even
 lessons	L3049	3049		2026-09-28	SECRATARY	open	**L3049 · Directory hours are routed through the wrong branch and will silently kill a time-critical plan**	entries/lessons/L3049.md	1	20	487b592e3d4bdd46
 lessons	L3050	3050		2026-09-28	SECRATARY	open	**L3050 · In RC aircraft the letter code decides whether the box is a gift or a parts kit**	entries/lessons/L3050.md	1	22	9bd00265e7babd8a
 lessons	L3051	3051		2026-09-28	SECRATARY	open	**L3051 · For an RC aircraft, the manual's order of operations is the safety device**	entries/lessons/L3051.md	1	18	744f30f57a3b8f49
+lessons	L3052	3052		2026-09-29	SECRATARY	open	**L3052 · A carrier receipt is not a read receipt, and our own status column was wrong**	entries/lessons/L3052.md	1	43	36f7a49537790317
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2501,6 +2503,7 @@ decisions	D2714	2714		2026-09-28	ZABZ-TECH	open	**D2714 · 2026-09-28 · Names: 
 decisions	D2716	2716		2026-09-28	ZABZ-TECH	open	**D2716 · 2026-09-28 · 2026-09-28 - An activity needing a harness, form-fitting clothes or a stranger's hands is out when the sisters are coming - ask the constraint before the research.**	entries/decisions/D2716.md	1	38	7dbdabc54d83a230
 decisions	D2773	2773		2026-09-28	SECRATARY	open	**D2773 · 2026-09-28 · Weinberg: voluntary resignation, the vacation week was unpaid, and the settlement is one half week.**	entries/decisions/D2773.md	1	35	7b2c79fb9b30d306
 decisions	D2774	2774		2026-09-28	SECRATARY	open	**D2774 · 2026-09-28 · Household bought a HobbyZone Sport Cub S 2 RTF trainer, 2026-09-28.**	entries/decisions/D2774.md	1	24	51fcc558d66a6ca9
+decisions	D2775	2775		2026-09-29	SECRATARY	open	**D2775 · 2026-09-29 · Chip's facts now say who lives where - he got the household wrong in front of the family.**	entries/decisions/D2775.md	1	25	1c008a2344df9c47
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
