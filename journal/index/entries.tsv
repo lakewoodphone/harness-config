@@ -1833,6 +1833,8 @@ lessons	L3049	3049		2026-09-28	SECRATARY	open	**L3049 · Directory hours are rou
 lessons	L3050	3050		2026-09-28	SECRATARY	open	**L3050 · In RC aircraft the letter code decides whether the box is a gift or a parts kit**	entries/lessons/L3050.md	1	22	9bd00265e7babd8a
 lessons	L3051	3051		2026-09-28	SECRATARY	open	**L3051 · For an RC aircraft, the manual's order of operations is the safety device**	entries/lessons/L3051.md	1	18	744f30f57a3b8f49
 lessons	L3052	3052		2026-09-29	SECRATARY	open	**L3052 · A carrier receipt is not a read receipt, and our own status column was wrong**	entries/lessons/L3052.md	1	43	36f7a49537790317
+lessons	L3053	3053		2026-09-29	SECRATARY	open	**L3053 · A chat is measured in utterances: one fan-out of 11 rows is one turn, and interleaving breaks contiguous grouping**	entries/lessons/L3053.md	1	30	a34947dece8f0fde
+lessons	L3054	3054		2026-09-29	SECRATARY	open	**L3054 · The mood string is the real register control - a prompt-level ban loses to the line that asks for emoji**	entries/lessons/L3054.md	1	25	33d19033e949b74c
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2504,6 +2506,7 @@ decisions	D2716	2716		2026-09-28	ZABZ-TECH	open	**D2716 · 2026-09-28 · 2026-09
 decisions	D2773	2773		2026-09-28	SECRATARY	open	**D2773 · 2026-09-28 · Weinberg: voluntary resignation, the vacation week was unpaid, and the settlement is one half week.**	entries/decisions/D2773.md	1	35	7b2c79fb9b30d306
 decisions	D2774	2774		2026-09-28	SECRATARY	open	**D2774 · 2026-09-28 · Household bought a HobbyZone Sport Cub S 2 RTF trainer, 2026-09-28.**	entries/decisions/D2774.md	1	24	51fcc558d66a6ca9
 decisions	D2775	2775		2026-09-29	SECRATARY	open	**D2775 · 2026-09-29 · Chip's facts now say who lives where - he got the household wrong in front of the family.**	entries/decisions/D2775.md	1	25	1c008a2344df9c47
+decisions	D2776	2776		2026-09-29	SECRATARY	open	**D2776 · 2026-09-29 · Chip: a ceiling on his share of the room, a register rewrite, and a carrier reconciliation sweep.**	entries/decisions/D2776.md	1	49	58afdabaeba7833e
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
