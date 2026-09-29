@@ -1,0 +1,385 @@
+#!/usr/bin/env node
+/**
+ * tests/settings-effective/run.mjs — the check for lib/settings-effective.mjs.
+ *
+ * Three parts, each independently runnable so a slow part can be skipped deliberately:
+ *
+ *   unit      pure functions only, no engine, no boot (~50 ms)
+ *   dry       every "cannot run" path: it must report ran:false and NEVER a passing verdict
+ *   boot      two REAL boots against an isolated home: the live settings document (every key must
+ *             come back) and a tampered one that silently loses a key (the gate MUST fire)
+ *   determinism  two pinned runs, compared after removing exactly the fields the module itself
+ *             lists as volatile
+ *
+ * Usage: node tests/settings-effective/run.mjs [unit|dry|boot|determinism|all]
+ * Env:   DSH_ENGINE (defaults to the well-known npx install), DSH_HOME (defaults to ~/.dsh)
+ *
+ * Nothing here deletes anything: every temporary file lives under the OS temp directory and is left
+ * where it is. The engine boots only against that isolated home and only on a port in 3400-3500.
+ */
+
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import process from 'node:process';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const MODULE = path.resolve(HERE, '..', '..', 'lib', 'settings-effective.mjs');
+const ROOT = path.resolve(HERE, '..', '..');
+const LIVE_HOME = process.env.DSH_HOME && process.env.DSH_HOME.trim() !== ''
+  ? path.resolve(process.env.DSH_HOME)
+  : path.join(process.env.USERPROFILE ?? os.homedir(), '.dsh');
+const ENGINE = process.env.DSH_ENGINE && process.env.DSH_ENGINE.trim() !== ''
+  ? path.resolve(process.env.DSH_ENGINE)
+  : path.join(process.env.LOCALAPPDATA ?? path.join(process.env.USERPROFILE ?? '.', 'AppData', 'Local'),
+    'npm-cache', '_npx', '1e7f6d9597241db0', 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js');
+const WORK = path.join(os.tmpdir(), 'settings-effective-tests');
+
+/** The module under test, imported once (also proves it is importable, not only runnable). */
+const m = await import(`file://${MODULE.split(path.sep).join('/')}`);
+
+let failures = 0;
+let checks = 0;
+const fails = [];
+
+function check(name, condition, detail) {
+  checks += 1;
+  if (condition) { process.stdout.write(`  ok   ${name}\n`); return true; }
+  failures += 1;
+  fails.push(name);
+  process.stdout.write(`  FAIL ${name}${detail === undefined ? '' : ` — ${detail}`}\n`);
+  return false;
+}
+
+function runModule(args) {
+  const argv = [MODULE, ...args];
+  const r = spawnSync(process.execPath, argv, { encoding: 'utf8', timeout: 600000, windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '', error: r.error ? String(r.error.message ?? r.error) : null, argv };
+}
+
+/**
+ * A boot run, retried exactly once when it produces no artifact.
+ *
+ * WHY A RETRY IS HONEST HERE AND NOT A COVER-UP. This module boots a server on a port in 3400-3500
+ * and refuses to start if one is already taken — that refusal is the safety property, not a bug. On a
+ * machine where other workstreams are also booting `dsh web` (this pipeline's own `verify --full` does
+ * it, and did so during this module's development), a single attempt can lose the port race and
+ * correctly report `ran: false`. Retrying once distinguishes "the port was taken for a moment" from
+ * "this gate cannot run here", and the retry count is printed so a run that needed one is visible.
+ */
+function runModuleExpectingArtifact(args, label) {
+  const first = runModule(args);
+  let parsed = null;
+  try { parsed = JSON.parse(first.stdout); } catch { parsed = null; }
+  if (parsed?.ran === true) return { ok: true, artifact: parsed, attempts: 1, first };
+  process.stdout.write(`  [note] ${label}: attempt 1 produced no artifact (exit ${first.status}, ${first.stdout.length} bytes${parsed ? `, ran=${parsed.ran}` : ', stdout did not parse'}); retrying once\n`);
+  const second = runModule(args);
+  try { parsed = JSON.parse(second.stdout); } catch { parsed = null; }
+  return { ok: parsed?.ran === true, artifact: parsed ?? {}, attempts: 2, first, second };
+}
+
+/* ==================================================================== unit */
+
+async function unit() {
+  process.stdout.write('unit: pure functions\n');
+
+  const doc = [
+    'top:',
+    '  a: 1',
+    '  b: "two"',
+    "  c: 'three'",
+    '  d: true',
+    '  e: null',
+    'seq:',
+    '  - x',
+    '  - y',
+    'indentless:',
+    '  - id: one',
+    '    name: first',
+    '  - id: two',
+    '    name: second',
+    'nested:',
+    '  list:',
+    '  - id: a',
+    '  - id: b',
+    'after: 7',
+  ].join('\n');
+  const parsed = m.parseSimpleYaml(doc);
+  check('yaml: document parses', parsed.ok, parsed.reason);
+  const d = parsed.doc ?? {};
+  check('yaml: integers', d.top?.a === 1, JSON.stringify(d.top?.a));
+  check('yaml: double-quoted scalar', d.top?.b === 'two', JSON.stringify(d.top?.b));
+  check('yaml: single-quoted scalar', d.top?.c === 'three', JSON.stringify(d.top?.c));
+  check('yaml: literal true', d.top?.d === true, JSON.stringify(d.top?.d));
+  check('yaml: literal null', d.top?.e === null, JSON.stringify(d.top?.e));
+  check('yaml: indented sequence', JSON.stringify(d.seq) === '["x","y"]', JSON.stringify(d.seq));
+  check('yaml: indentationless sequence of maps', d.indentless?.length === 2 && d.indentless[1].id === 'two' && d.indentless[1].name === 'second', JSON.stringify(d.indentless));
+  check('yaml: sequence nested under a sub-key', d.nested?.list?.length === 2 && d.nested.list[1].id === 'b', JSON.stringify(d.nested));
+  check('yaml: the key after an indentationless sequence is still top-level', d.after === 7, JSON.stringify(d.after));
+  const doc2 = m.parseSimpleYaml('a:\n  - id: one\n    name: 1\na2:\n  - id: two\n');
+  check('yaml: two sibling indentationless sequences', doc2.ok && doc2.doc.a.length === 1 && doc2.doc.a2.length === 1 && doc2.doc.a[0].name === 1, JSON.stringify(doc2.doc));
+  check('yaml: a sequence item at the root is refused honestly', m.parseSimpleYaml('- x\n').ok === false);
+  check('yaml: a mapping entry inside a sequence is refused honestly', m.parseSimpleYaml('a:\n  - 1\n  b: 2\n').ok === false);
+
+  const engineValue = { a: { models: [{ id: 'x', name: 'X' }, { id: 'y', name: 'Y' }], n: 3 } };
+  check('walkAll: plain path', m.walkAll(engineValue, ['a', 'n'])[0]?.value === 3);
+  const arr = m.walkAll(engineValue, ['a', 'models[]', 'id']);
+  check('walkAll: array-element path returns every element', arr.length === 2 && arr.map((h) => h.value).join(',') === 'x,y', JSON.stringify(arr));
+  check('walkAll: a path whose parent is missing yields nothing', m.walkAll(engineValue, ['nope', 'x']).length === 0);
+  check('walkAll: remaining segments are reported', m.walkAll(engineValue, ['a', 'models[]', 'id'])[0].remaining.length === 0);
+  check('canonical: key order does not matter', m.canonical({ b: 1, a: 2 }) === m.canonical({ a: 2, b: 1 }));
+  check('equalJson: nested equality', m.equalJson({ a: [1, { b: 2 }] }, { a: [1, { b: 2 }] }));
+  check('equalJson: a string and a number are different', m.equalJson('20', 20) === false);
+  check('describeValue: truncates with a length note', m.describeValue({ a: 'x'.repeat(500) }).includes('chars'));
+
+  const url = m.extractLaunchUrl('dsh web: http://127.0.0.1:3450/?token=abcDEF123 (LAN: http://10.0.0.5:3450/?token=abcDEF123)\n');
+  check('extractLaunchUrl: takes the token from the engine\'s own line', url?.token === 'abcDEF123', JSON.stringify(url?.token));
+  check('extractLaunchUrl: no line means no token', m.extractLaunchUrl('nothing here') === null);
+  check('redactToken: removes every occurrence', m.redactToken('a TOK b TOK', 'TOK') === 'a <redacted-launch-token> b <redacted-launch-token>');
+
+  const credSource = fs.readFileSync(path.join(LIVE_HOME, '.credentials.yaml'), 'utf8');
+  const cred = m.resolveCredential(LIVE_HOME, 'DEEPSEEK_API_KEY');
+  check('resolveCredential: present or explicitly absent, never guessed', cred.present === true || cred.present === false);
+  if (cred.present) {
+    check('resolveCredential: the value is not the raw line and has no quotes', !cred.value.includes(':') && !cred.value.startsWith('"'), 'value shape');
+    check('resolveCredential: the value really is in the file', credSource.includes(cred.value));
+    check('resolveCredential: reports a length and no value in the artifact fields', cred.length === cred.value.length);
+  }
+  const missing = m.resolveCredential(path.join(os.tmpdir(), 'definitely-not-here-xyz'), 'DEEPSEEK_API_KEY');
+  check('resolveCredential: a missing home is absent with a reason', missing.present === false && typeof missing.reason === 'string' && missing.reason.length > 0);
+
+  check('parseArgs: rejects an unknown flag', (() => { try { m.parseArgs(['--nope']); return false; } catch { return true; } })());
+  check('parseArgs: accepts the documented flags', (() => { const f = m.parseArgs(['--engine', 'x', '--port', '3401', '--out=y']).flags; return f['--engine'] === 'x' && f['--port'] === '3401' && f['--out'] === 'y'; })());
+  check('generatedAt: an epoch is read as seconds', m.generatedAt({ '--generated-at': '1700000000' }) === new Date(1700000000000).toISOString());
+  check('generatedAt: an empty value means "now", not a usage error', !Number.isNaN(Date.parse(m.generatedAt({ '--generated-at': '' }))));
+  check('generatedAt: SOURCE_DATE_EPOCH is honoured', (() => {
+    const had = Object.prototype.hasOwnProperty.call(process.env, 'SOURCE_DATE_EPOCH');
+    const prev = process.env.SOURCE_DATE_EPOCH;
+    process.env.SOURCE_DATE_EPOCH = '1700000000';
+    let got;
+    try { got = m.generatedAt({}); }
+    finally { if (had) process.env.SOURCE_DATE_EPOCH = prev; else delete process.env.SOURCE_DATE_EPOCH; }
+    return got === new Date(1700000000000).toISOString();
+  })());
+
+  const consumed = m.loadConsumedKeys(m.defaultConsumedPath('0.1.7-rc.1'));
+  check('consumed: a real consumed.json yields settingsKeys', consumed.ok && consumed.keys.length > 0, consumed.reason);
+  check('consumed: a missing file is a refusal with a reason', m.loadConsumedKeys(path.join(os.tmpdir(), 'nope-xyz.json')).ok === false);
+}
+
+/* ==================================================================== dry (never a passing verdict) */
+
+function dry() {
+  process.stdout.write('dry: paths that must never look like health\n');
+  fs.mkdirSync(WORK, { recursive: true });
+  const empty = path.join(WORK, 'empty-consumed.json');
+  fs.writeFileSync(empty, JSON.stringify({ settingsKeyCount: 0 }));
+
+  const noConsumed = runModule(['--engine', ENGINE, '--version', '0.1.5-rc.1', '--consumed', path.join(WORK, 'absent.json')]);
+  let a = {};
+  try { a = JSON.parse(noConsumed.stdout || '{}'); }
+  catch (e) { process.stdout.write(`  [note] dry stdout did not parse: ${e.message}; bytes=${noConsumed.stdout?.length}; status=${noConsumed.status}; stderr=${JSON.stringify((noConsumed.stderr ?? '').slice(0, 400))}\n`); }
+  check('dry: a missing consumed.json is ran:false', a.ran === false, `status=${noConsumed.status} bytes=${noConsumed.stdout?.length} error=${noConsumed.error ?? 'none'} stderr=${JSON.stringify(noConsumed.stderr.slice(0, 300))}`);
+  check('dry: a missing consumed.json has no verdict', a.verdict === null, JSON.stringify(a.verdict));
+  check('dry: a missing consumed.json is not ok', a.ok !== true);
+  check('dry: the reason is verbatim and non-empty', Array.isArray(a.notes) && a.notes.some((n) => /ran:false/.test(n) && /is absent or does not parse/.test(n)), JSON.stringify(a.notes));
+
+  const emptyConsumed = runModule(['--engine', ENGINE, '--version', '0.1.5-rc.1', '--consumed', empty]);
+  const b = JSON.parse(emptyConsumed.stdout || '{}');
+  check('dry: an empty settingsKeys array is ran:false, not an empty success', b.ran === false && b.verdict === null, JSON.stringify(b.counts));
+
+  const noEngine = runModule(['--engine', path.join(WORK, 'not-an-engine.js'), '--version', '0.1.5-rc.1']);
+  check('dry: a missing engine exits non-zero with a usage error', noEngine.status === 2, `exit ${noEngine.status}`);
+
+  const badPort = runModule(['--engine', ENGINE, '--version', '0.1.5-rc.1', '--port', '3099']);
+  const c = JSON.parse(badPort.stdout || '{}');
+  check('dry: --port 3099 is refused outright', badPort.status === 2 && /never binds it/.test(badPort.stderr), `exit ${badPort.status} ${badPort.stderr.slice(0, 160)}`);
+  const outOfRange = runModule(['--engine', ENGINE, '--version', '0.1.5-rc.1', '--port', '4000']);
+  check('dry: an out-of-range --port is refused', outOfRange.status === 2, `exit ${outOfRange.status}`);
+  void c;
+}
+
+/* ==================================================================== boot (the real thing) */
+
+function writeConsumed(dest, keys) {
+  const doc = {
+    schemaVersion: 1,
+    generatedAt: '2026-09-23T00:00:00.000Z',
+    settingsKeys: keys.map((k) => ({ key: k.key, value: k.value, file: k.file, line: k.line })),
+  };
+  fs.writeFileSync(dest, `${JSON.stringify(doc, null, 2)}\n`);
+  return doc;
+}
+
+function boot() {
+  process.stdout.write('boot: the real gate, twice\n');
+  if (!fs.existsSync(ENGINE)) {
+    check('boot: the engine exists', false, `${ENGINE} is not present; set DSH_ENGINE`);
+    return;
+  }
+  fs.mkdirSync(WORK, { recursive: true });
+  const liveSettings = path.join(LIVE_HOME, 'settings.yaml');
+  const consumedSource = path.join(ROOT, 'state', 'candidates', '0.1.7-rc.1', 'consumed.json');
+  if (!fs.existsSync(liveSettings) || !fs.existsSync(consumedSource)) {
+    check('boot: the live settings document and a real consumed.json exist', false, `${liveSettings} / ${consumedSource}`);
+    return;
+  }
+
+  /* ---- run 1: the honest document ---- */
+  const goodJson = path.join(WORK, 'good.json');
+  const first = runModuleExpectingArtifact(['--engine', ENGINE, '--version', '0.1.5-rc.1', '--dsh-home', LIVE_HOME,
+    '--settings', liveSettings, '--consumed', consumedSource, '--out', goodJson, '--generated-at', '2026-09-23T00:00:00.000Z'], 'honest run');
+  const A = first.artifact;
+  const r1 = first.second ?? first.first;
+  check('boot: the run produced an artifact', A.ran === true, `exit ${r1.status} stderr=${r1.stderr.slice(0, 300)}`);
+  if (A.ran !== true) return;
+  check('boot: every key in the live document came back', A.counts.present > 0 && A.counts.absent === 0 && A.counts.different === 0,
+    `counts=${JSON.stringify(A.counts)}`);
+  check('boot: the verdict is not BREAKS for the honest document', A.verdict !== 'BREAKS', A.verdict);
+  check('boot: a port in 3400-3500 was used', Number(A.run.port) >= 3400 && Number(A.run.port) <= 3500, String(A.run.port));
+  check('boot: a pid was started and killed', Number.isInteger(A.run.pid) && /taskkill \/PID \d+ \/T \/F/.test(String(A.run.kill)), A.run.kill);
+  check('boot: the kill reported success', A.run.killExitCode === 0, String(A.run.killExitCode));
+  check('boot: the port was free again afterwards', A.run.portFreeAfter === true);
+  check('boot: the boot took a real, non-zero time', Number(A.run.bootDurationMs) > 0, String(A.run.bootDurationMs));
+  check('boot: the live engine on 3099 was observed and left alone', A.liveEngineUnchanged === true, JSON.stringify(A.liveEngineAfter));
+  check('boot: the isolated home is not the live home', path.resolve(A.isolatedHome.path) !== path.resolve(LIVE_HOME));
+  check('boot: the isolated home stayed small (the shared node_modules was excluded)', A.isolatedHome.copied.files < 400, `${A.isolatedHome.copied.files} files`);
+  check('boot: no live credential was copied in', A.isolatedHome.liveCredentialsCopied === false);
+  check('boot: no secret appears anywhere this run wrote', A.secretHygiene.matches === 0 && A.secretHygiene.credentialsFileCarriesDeploymentKey === false, JSON.stringify(A.secretHygiene));
+  check('boot: the engine\'s own output was not empty', A.run.namespaceCount > 0, String(A.run.namespaceCount));
+  check('boot: every finding carries AUTHORITATIVE evidence and an S1 class', A.findings.every((f) => f.evidenceTier === 'AUTHORITATIVE' && f.class === 'S1'));
+
+  /* ---- run 2: a key the engine will accept but silently drop ----
+   *
+   * THE HONEST WAY TO MAKE THE GATE FIRE, and the only one that tests the assertion rather than the
+   * harness: take the REAL document, keep the value in it, and rename the key so the engine's schema
+   * has nowhere to put it. The document still parses and still boots (SPEC §C2: that is exactly the
+   * silent-loss shape), the key name `consumed.json` asserts is the ORIGINAL one with the ORIGINAL
+   * value, and the engine's own resolved settings must therefore no longer carry it.
+   */
+  const tamperedDir = path.join(WORK, 'tampered');
+  fs.mkdirSync(tamperedDir, { recursive: true });
+  const original = fs.readFileSync(liveSettings, 'utf8');
+  /*
+   * The key chosen to be lost, and why this one: for the loss to be VISIBLE at all, the value this
+   * deployment sets must differ from what the namespace resolves WITHOUT it. Several of our keys
+   * happen to equal their schema default or their composition `base`, and for those a dropped key is
+   * genuinely indistinguishable from an honoured one — the gate correctly reports no problem, and a
+   * test built on them would be asserting a property of the engine rather than of the gate.
+   * `llm-pi-ai.providers.deepinfra.baseURL` has no schema default (measured: the namespace's `base`
+   * is `{providers:{}}`), so dropping it makes the engine report `undefined`.
+   */
+  const LOST_KEY = 'llm-pi-ai.providers.deepinfra.baseURL';
+  const renamed = original.replace('baseURL:', 'baseURLWeRenamed:');
+  if (renamed === original) {
+    check('fire: the tampered document was actually changed', false, 'the key to rename was not found in the live document');
+    return;
+  }
+  const tamperedSettings = path.join(tamperedDir, 'settings.yaml');
+  fs.writeFileSync(tamperedSettings, renamed);
+  check('fire: the tampered document still carries the VALUE, under a name the engine does not know',
+    renamed.includes('baseURLWeRenamed: https://api.deepinfra.com/v1/openai'));
+
+  // the key inventory consumed.json gave us, but pointing at the document that was booted, so every
+  // key is in scope. `permission.defaultPreset` is listed with the original value even though the
+  // document no longer spells it that way — that IS the silent loss the gate must report.
+  const consumedDoc = JSON.parse(fs.readFileSync(consumedSource, 'utf8'));
+  const liveKeyNames = new Set(m.leafPaths(m.parseSimpleYaml(original).doc ?? {}).map((l) => l.key));
+  const tamperedConsumed = path.join(tamperedDir, 'consumed.json');
+  const kept = consumedDoc.settingsKeys.filter((e) => liveKeyNames.has(e.key));
+  writeConsumed(tamperedConsumed, kept.map((e) => ({ ...e, file: tamperedSettings })));
+  check('fire: the tampered consumed.json asserts the original key name', kept.some((e) => e.key === LOST_KEY), `kept ${kept.length} of ${consumedDoc.settingsKeys.length}`);
+
+  const fireJson = path.join(WORK, 'fire.json');
+  const second = runModuleExpectingArtifact(['--engine', ENGINE, '--version', '0.1.5-rc.1', '--dsh-home', LIVE_HOME,
+    '--settings', tamperedSettings, '--consumed', tamperedConsumed, '--out', fireJson, '--generated-at', '2026-09-23T00:00:00.000Z'], 'tampered run');
+  const B = second.artifact;
+  const r2 = second.second ?? second.first;
+  check('fire: the tampered run produced an artifact', B.ran === true, `exit ${r2.status} stderr=${r2.stderr.slice(0, 300)}`);
+  if (B.ran !== true) return;
+  const row = (B.keys ?? []).find((k) => k.key === LOST_KEY);
+  check('fire: the lost key is reported as absent or different — never as present',
+    row?.status === 'absent' || row?.status === 'present-with-a-different-value',
+    JSON.stringify({ status: row?.status, note: row?.note, actual: row?.actual }));
+  const f = (B.findings ?? []).find((x) => x.subject === LOST_KEY);
+  check('fire: the lost key carries an S1 BREAKS finding', f?.class === 'S1' && f?.severity === 'BREAKS', JSON.stringify({ class: f?.class, severity: f?.severity, id: f?.id }));
+  check('fire: the finding names OUR value', typeof f?.evidence === 'string' && f.evidence.includes('= "https://api.deepinfra.com/v1/openai"'), f?.evidence);
+  check('fire: the finding names what the engine ACTUALLY resolved', typeof f?.evidence === 'string' && /resolved [\w.[\]-]*baseURL to \(absent/.test(f.evidence), f?.evidence);
+  check('fire: the verdict is BREAKS', B.verdict === 'BREAKS', B.verdict);
+  check('fire: ok is false', B.ok === false);
+  check('fire: every OTHER live key still matched, so the gate fired on the ONE that was lost',
+    B.counts.present === A.counts.present - 1 && B.counts.absent + B.counts.different === 1,
+    `before present=${A.counts.present} absent=${A.counts.absent} different=${A.counts.different}; after present=${B.counts.present} absent=${B.counts.absent} different=${B.counts.different}`);
+
+  fs.writeFileSync(path.join(WORK, 'RESULT.txt'), [
+    `honest run : ran=${A.ran} verdict=${A.verdict} present=${A.counts.present} absent=${A.counts.absent} different=${A.counts.different} port=${A.run.port} pid=${A.run.pid} bootMs=${A.run.bootDurationMs}`,
+    `tampered   : ran=${B.ran} verdict=${B.verdict} present=${B.counts.present} absent=${B.counts.absent} different=${B.counts.different} port=${B.run.port} pid=${B.run.pid} bootMs=${B.run.bootDurationMs}`,
+    `lost key   : ${LOST_KEY} -> ${row?.status} (${f?.id ?? 'no finding'})`,
+    '',
+  ].join('\n'));
+}
+
+/* ==================================================================== determinism */
+
+const VOLATILE_PATHS = [
+  ['isolatedHome', 'path'], ['isolatedHome', 'copied', 'durationMs'], ['isolatedHome', 'durationMs'],
+  ['isolatedHome', 'copied', 'linkFailures'], ['isolatedHome', 'copied', 'linkFailureDetail'],
+  ['isolatedHome', 'credentialsPlaceholder', 'file'],
+  ['isolatedHome', 'credentialsPlaceholder', 'bytesBeforeBoot'],
+  ['isolatedHome', 'credentialsPlaceholder', 'bytesAfterBoot'],
+  ['run', 'port'], ['run', 'pid'], ['run', 'kill'], ['run', 'killExitCode'], ['run', 'bootDurationMs'],
+  ['run', 'startedAt'], ['run', 'finishedAt'], ['run', 'wallClockMs'], ['run', 'engineLog'], ['run', 'rpcEvidence'],
+  ['run', 'otherWebProcessesBefore'], ['liveEngineBefore'], ['liveEngineAfter'], ['liveEngineUnchanged'],
+  ['secretHygiene', 'examinedBytes'], ['notes'],
+];
+
+function stripVolatile(doc) {
+  const copy = JSON.parse(JSON.stringify(doc));
+  for (const p of VOLATILE_PATHS) {
+    let node = copy;
+    for (let i = 0; i < p.length - 1; i++) node = node?.[p[i]];
+    if (node && typeof node === 'object') delete node[p[p.length - 1]];
+  }
+  return copy;
+}
+
+async function determinism() {
+  process.stdout.write('determinism: two pinned runs, volatile fields removed\n');
+  if (!fs.existsSync(ENGINE)) { check('determinism: the engine exists', false, ENGINE); return; }
+  fs.mkdirSync(WORK, { recursive: true });
+  const liveSettings = path.join(LIVE_HOME, 'settings.yaml');
+  const consumedSource = path.join(ROOT, 'state', 'candidates', '0.1.7-rc.1', 'consumed.json');
+  const args = ['--engine', ENGINE, '--version', '0.1.5-rc.1', '--dsh-home', LIVE_HOME, '--settings', liveSettings,
+    '--consumed', consumedSource, '--generated-at', '2026-09-23T00:00:00.000Z'];
+  const a = await runModuleExpectingArtifact([...args, '--out', path.join(WORK, 'det-a.json')], 'determinism run A');
+  const b = await runModuleExpectingArtifact([...args, '--out', path.join(WORK, 'det-b.json')], 'determinism run B');
+  const A = a.artifact; const B = b.artifact;
+  check('determinism: both runs produced artifacts', a.ok && b.ok, `status ${a.first?.status}/${b.first?.status}`);
+  const declared = new Set(A.volatile ?? []);
+  const expected = new Set(VOLATILE_PATHS.map((p) => p.join('.')));
+  const undeclared = [...expected].filter((p) => !declared.has(p) && !declared.has(p.replace(/\.copied\./, '.')));
+  check('determinism: the module declares the volatile fields this test removes', undeclared.length === 0, undeclared.join(', '));
+  const sa = JSON.stringify(stripVolatile(A), null, 2);
+  const sb = JSON.stringify(stripVolatile(B), null, 2);
+  check('determinism: everything outside the volatile fields is byte-identical', sa === sb,
+    sa === sb ? '' : `first difference at char ${[...sa].findIndex((c, i) => c !== sb[i])}`);
+}
+
+/* ==================================================================== main */
+
+const which = (process.argv[2] ?? 'all').toLowerCase();
+const run = { unit, dry, boot, determinism };
+const order = which === 'all' ? ['unit', 'dry', 'boot', 'determinism'] : which.split(',').filter((p) => run[p]);
+if (which !== 'all' && !run[which]) {
+  process.stderr.write(`run.mjs: unknown part "${which}" (unit|dry|boot|determinism|all)\n`);
+  process.exit(2);
+}
+for (const name of order) {
+  process.stdout.write(`\n== ${name} ==\n`);
+  await run[name]();
+}
+process.stdout.write(`\n${checks - failures}/${checks} checks passed\n`);
+if (failures > 0) process.stdout.write(`FAILED: ${fails.join('; ')}\n`);
+process.exitCode = failures === 0 ? 0 : 1;

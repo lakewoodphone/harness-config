@@ -1337,8 +1337,8 @@ async function verbPreflight(argv) {
     : `pin and state/baseline disagree or are absent (${pinProblems.join('; ') || `pin.contractSha256=${pin?.contractSha256} on disk=${cSha}`}) — run \`snapshot\` first`);
 
   // ── the engine-backed guards, run through this same dispatcher ────────────────────────────────
-  const run = (verb) => {
-    const r = spawnSync(process.execPath, [path.join(PATHS.libDir, 'cli.mjs'), verb, version], {
+  const run = (verb, extra = []) => {
+    const r = spawnSync(process.execPath, [path.join(PATHS.libDir, 'cli.mjs'), verb, version, ...extra], {
       encoding: 'utf8', timeout: 900000,
     });
     return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
@@ -1365,15 +1365,43 @@ async function verbPreflight(argv) {
     pg ? `verdict ${pg.verdict} (${Object.entries(pg.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'}), ${(pg.unverified || []).length} name(s) unverified`
       : 'preset-gate.json was not produced');
 
+  const acceptSessionFormat = argv.includes('--accept-session-format-upgrade');
+
   // verify -> all gates, including G8 the session-format door
-  run('verify');
+  // `--full` is forwarded so the opt-in web-profile boot can be part of the verdict when wanted.
+  // Without it, GFULL legitimately does not run and is reported as such rather than as a gap.
+  run('verify', argv.includes('--full') ? ['--full'] : []);
   const v = readJson(cp.verify, null);
   const g8 = Array.isArray(v?.gates) ? v.gates.find((g) => g && g.id === 'G8') : null;
-  add('verify (gates G1-G8)', v?.pass === true && v?.complete === true, true,
-    v ? `pass=${v.pass} complete=${v.complete}; ${(v.gates || []).filter((g) => g.ran).length} ran, ${(v.gates || []).filter((g) => g.ran && g.ok === false).map((g) => g.id).join(',') || 'none failing'}`
+  // `verify.pass` requires EVERY gate ok, and G8 is deliberately NOT ok for a candidate that writes a
+  // newer session format. So a truthful reading has to separate "G8 is the one-way door" from
+  // "something else is broken". Without that separation G8 is reported TWICE -- once inside the verify
+  // guard and once by its own guard -- and this command can never reach GO for a v4 candidate, which
+  // would make the whole GO/NO-GO shape useless on precisely the upgrade it exists for.
+  //
+  // `verify.complete` means EVERY gate ran, so it is false whenever an opt-in gate is not requested
+  // (GFULL boots the whole web profile and is not cheap). That is "not asked for", not "could not be
+  // checked", and the two must not be conflated: a gate that legitimately did not run is listed, and
+  // only a NON-opt-in gate that did not run blocks.
+  const OPT_IN_GATES = new Set(['GFULL']);
+  const failingGates = (v?.gates || []).filter((g) => g.ran === true && g.ok === false).map((g) => g.id);
+  const notRun = (v?.gates || []).filter((g) => g.ran !== true).map((g) => g.id);
+  const unexpectedNotRun = notRun.filter((id) => !OPT_IN_GATES.has(id));
+  const onlyG8Fails = failingGates.length === 1 && failingGates[0] === 'G8';
+  const verifyOk = (v?.pass === true && v?.complete === true)
+    || (v != null && onlyG8Fails && unexpectedNotRun.length === 0 && (acceptSessionFormat || g8?.ok === true));
+  add('verify (gates G1-G8)', verifyOk, true,
+    v ? (verifyOk && (onlyG8Fails || notRun.length > 0)
+      ? `${(v.gates || []).filter((g) => g.ran).length} gate(s) ran and passed; not run: ${notRun.join(',') || 'none'}${onlyG8Fails ? '; the only failure is G8, the session-format one-way door, and it was explicitly accepted' : ''}`
+      : `pass=${v.pass} complete=${v.complete}; ${(v.gates || []).filter((g) => g.ran).length} ran, failing: ${failingGates.join(',') || 'none'}, not run: ${notRun.join(',') || 'none'}`)
       : 'verify.json was not produced');
-  add('G8 session-format door', g8 ? g8.ok === true : false, true,
-    g8 ? (g8.ok === true ? `ok — ${String(g8.detail).slice(0, 180)}` : `BLOCKING ONE-WAY DOOR — ${String(g8.detail).slice(0, 300)}  Promote deliberately with --accept-session-format-upgrade once that is the decision.`)
+  const g8Ok = g8 ? (g8.ok === true || (g8.ran === true && acceptSessionFormat)) : false;
+  add('G8 session-format door', g8Ok, true,
+    g8 ? (g8.ok === true
+      ? `ok — ${String(g8.detail).slice(0, 180)}`
+      : (acceptSessionFormat && g8.ran === true
+        ? `ACCEPTED DELIBERATELY — ${String(g8.detail).slice(0, 240)}`
+        : `BLOCKING ONE-WAY DOOR — ${String(g8.detail).slice(0, 300)}  Re-run with --accept-session-format-upgrade once taking it deliberately is the decision.`))
       : 'no G8 gate in verify.json');
 
   // ── reported, never blocking ──────────────────────────────────────────────────────────────────

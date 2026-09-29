@@ -1,0 +1,45 @@
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+ui-conversation:
+  busyEnter: steer
+permission:
+  defaultPreset: danger-full-access
+agent-default-model:
+  provider: deepseek-official
+  model: deepseek-flash
+agent-presets:
+  default: zabz
+llm-deepseek:
+  streamIdleTimeoutMs: 60000
+  retryPolicy:
+    mode: normal
+    maxRetries: 2
+    retryableCodes:
+    - EMPTY_RESPONSE
+    - RATE_LIMIT
+    - SERVER
+    - TIMEOUT
+    - TRANSPORT
+    backoff:
+      initialDelayMs: 500
+      maxDelayMs: 5000
+      jitterRatio: 0.1
+llm-pi-ai:
+  providers:
+    deepinfra:
+      apiKeyEnv: DEEPINFRA_API_KEY
+      api: openai-completions
+      baseURL: https://api.deepinfra.com/v1/openai
+      models:
+      - id: deepseek-ai/DeepSeek-V4-Flash-0731
+        name: DeepSeek V4 Flash (0731)
+      - id: deepseek-ai/DeepSeek-V4.1-Flash
+        name: DeepSeek V4.1 Flash
+spend-guard:
+  warnUsd: 35
+  fanoutUsd: 80
+  ceilingUsd: 150
+  concurrencyCap: 12
+  onInternalError: closed
+agent-loop:
+  maxParallelToolCalls: 20

@@ -49,7 +49,7 @@
  * upgrade — and this module had already produced exactly that error once before (SPEC C13).
  *
  * The comment forms handled, per file family (see `blankComments`):
- *   * `.js/.mjs/.cjs/.jsx/.ts/.tsx/.mts/.cts` — `//` to end of line, `/* … */` blocks, and the
+ *   * `.js/.mjs/.cjs/.jsx/.ts/.tsx/.mts/.cts` — `//` to end of line, `/* … *\/` blocks, and the
  *     `#`-prefixed prose a generator holds in a string literal (the measured defect above);
  *   * `.py/.sh/.ps1/…` and every other extension — `#` to end of line, `#` inside an open string
  *     left alone (`"a # b"` is content, not a comment), `<# … #>` in PowerShell and `"""…"""`
@@ -355,43 +355,42 @@ function linesOf(abs) {
 }
 
 /**
- * Remove a trailing comment from a line without touching quoted strings, so a `#` inside a quoted
- * scalar survives and a documented example inside a comment does not become a reference.
- * PowerShell/shell/Python/YAML use `#`; JS/TS uses `//`.
+ * Which files are script-like, and which comment forms each family uses. `.ts` is in the JS family
+ * because the SPEC names it as a script-like file and `//` is its comment marker; before
+ * 2026-09-28 `//` was only stripped from `.js/.mjs/.cjs`.
  */
-function stripComment(line, ext) {
-  const js = ext === '.js' || ext === '.mjs' || ext === '.cjs';
-  let inS = false, inD = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (inS) { if (c === "'") { if (line[i + 1] === "'" && ext !== '.py') { i++; continue; } inS = false; } continue; }
-    if (inD) { if (c === '\\' && ext !== '.ps1') { i++; continue; } if (c === '"') inD = false; continue; }
-    if (c === "'") { inS = true; continue; }
-    if (c === '"') { inD = true; continue; }
-    if (c === '#' && ext !== '.py') return line.slice(0, i);
-    if (c === '#' && ext === '.py') return line.slice(0, i);
-    if (js && c === '/' && line[i + 1] === '/') return line.slice(0, i);
-  }
-  return line;
-}
-
-/** A `-` prefix at the same indent as a sequence item, and the item's inline `key: value`. */
-const SEQ_ITEM = /^(\s*)-\s+(\S.*)$/;
-const MAP_KEY = /^(\s*)([A-Za-z_][\w.-]*)\s*:\s*(.*)$/;
-const BLOCK_SCALAR = /^(\s*)(?:-\s+)?[A-Za-z_][\w.-]*\s*:\s*[|>][-+]?\d*\s*$/;
+const JS_EXTS = new Set(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx', '.mts', '.cts']);
+const HTML_EXTS = new Set(['.html', '.htm', '.xhtml']);
+const PS_EXTS = new Set(['.ps1', '.psm1', '.psd1']);
+const PY_EXTS = new Set(['.py', '.pyw']);
 
 /**
- * Blank out block comments and docstrings before anything else. Without this, prose in a
- * `<# … #>` help block or a `/** … *\/` doc comment ("prove it with: dsh --profile web
- * --dump-config") reads exactly like an invocation. Content is replaced with spaces so column
- * positions and indentation are unchanged.
+ * Blank every comment character on ONE line, IN PLACE. The returned string is exactly as long as
+ * the input, because every finding in this inventory cites `file:line` and a reference recovered
+ * from a shortened line would point at the wrong place. `st.delim` carries an open block comment
+ * across lines (`/* … *\/`, PowerShell `<# … #>`, Python `"""…"""`, HTML `<!-- … -->`).
+ *
+ * The rules, and why each one is here:
+ *   * JS family — `//` and `/* … *\/`, but only outside an open `'`, `"` or backtick string.
+ *   * JS family, and only the JS family — a `#` that BEGINS a string literal's content. That is the
+ *     measured defect this pass exists for: a generator that emits a YAML `#` comment header holds
+ *     each line of it in a JS string, and prose there named two packages that nothing consumes. A
+ *     `#` anywhere else in JS (`this.#x`, `"a # b"`) is left alone.
+ *   * Every other extension — `#` to end of line, but not inside an open `'`/`"` string, so a
+ *     literal `"a # b"` survives. A `#!` shebang is therefore blanked too; a shebang names no
+ *     package and no CLI verb, so nothing is lost.
+ *   * Bounded to the `'`/`"`/backtick state ON THE SAME LINE: a heuristic, not a parser (the module
+ *     header lists the two ways it is deliberately wrong, both of which under-blank, never over).
  */
-function maskBlocks(line, st, ext) {
-  const js = ext === '.js' || ext === '.mjs' || ext === '.cjs';
-  const ps = ext === '.ps1';
-  const py = ext === '.py';
+function blankComments(line, st, ext) {
+  const js = JS_EXTS.has(ext);
+  const ps = PS_EXTS.has(ext);
+  const py = PY_EXTS.has(ext);
+  const html = HTML_EXTS.has(ext);
   let out = '';
   let i = 0;
+  let quote = null;
+  let contentStart = 0;
   while (i < line.length) {
     if (st.delim) {
       const end = line.indexOf(st.delim, i);
@@ -401,21 +400,58 @@ function maskBlocks(line, st, ext) {
       st.delim = null;
       continue;
     }
-    if (js && line.startsWith('/*', i)) { st.delim = '*/'; out += '  '; i += 2; continue; }
-    if (ps && line.startsWith('<#', i)) { st.delim = '#>'; out += '  '; i += 2; continue; }
-    if (py && (line.startsWith('"""', i) || line.startsWith("'''", i))) {
-      st.delim = line.slice(i, i + 3); out += '   '; i += 3; continue;
+    const c = line[i];
+    if (quote === null) {
+      if (js && line.startsWith('/*', i)) { st.delim = '*/'; out += '  '; i += 2; continue; }
+      if (ps && line.startsWith('<#', i)) { st.delim = '#>'; out += '  '; i += 2; continue; }
+      if (py && (line.startsWith('"""', i) || line.startsWith("'''", i))) {
+        st.delim = line.slice(i, i + 3); out += '   '; i += 3; continue;
+      }
+      if (html && line.startsWith('<!--', i)) { st.delim = '-->'; out += '    '; i += 4; continue; }
+      if (c === "'" || c === '"' || (js && c === '`')) {
+        quote = c; contentStart = i + 1; out += c; i += 1; continue;
+      }
+      if (js) {
+        if (c === '/' && line[i + 1] === '/') { out += ' '.repeat(line.length - i); i = line.length; continue; }
+      } else if (c === '#') {
+        out += ' '.repeat(line.length - i); i = line.length; continue;
+      }
+      out += c; i += 1; continue;
     }
-    out += line[i];
-    i++;
+    // inside a string literal on this line
+    if (c === '\\' && !ps && i + 1 < line.length) { out += c + line[i + 1]; i += 2; continue; }
+    if (c === quote) {
+      if (quote === "'" && !py && line[i + 1] === "'") { out += "''"; i += 2; continue; }
+      quote = null; out += c; i += 1; continue;
+    }
+    if (js && c === '#' && line.slice(contentStart, i).trim() === '') {
+      out += ' '.repeat(line.length - i); i = line.length; continue;
+    }
+    out += c; i += 1;
   }
   return out;
 }
 
 /**
+ * Remove a trailing comment from a single line, with no cross-line block state. That is enough for
+ * the one call site that needs it (the skill-markdown measurement), because markdown has no block
+ * comment form to carry.
+ */
+function stripComment(line, ext) {
+  return blankComments(line, { delim: null }, ext).replace(/[ \t]+$/, '');
+}
+
+/** A `-` prefix at the same indent as a sequence item, and the item's inline `key: value`. */
+const SEQ_ITEM = /^(\s*)-\s+(\S.*)$/;
+const MAP_KEY = /^(\s*)([A-Za-z_][\w.-]*)\s*:\s*(.*)$/;
+const BLOCK_SCALAR = /^(\s*)(?:-\s+)?[A-Za-z_][\w.-]*\s*:\s*[|>][-+]?\d*\s*$/;
+
+/**
  * The code view of a file: per line, the comment-stripped text, its indent, and whether the line
  * is inside a block scalar (block-scalar content is prose — the personas here are thousands of
- * words of it — and must never be read as YAML keys).
+ * words of it — and must never be read as YAML keys). Every comment form is blanked in place by
+ * `blankComments` before anything on the line is read, so a name that appears only in a comment is
+ * never a reference.
  */
 function codeView(abs) {
   const raw = linesOf(abs);
@@ -425,8 +461,7 @@ function codeView(abs) {
   let blockIndent = -1;
   for (let i = 0; i < raw.length; i++) {
     const line = raw[i];
-    const masked = maskBlocks(line, block, ext);
-    const code = stripComment(masked, ext).replace(/[ \t]+$/, '');
+    const code = blankComments(line, block, ext).replace(/[ \t]+$/, '');
     const indent = code.length ? code.match(/^\s*/)[0].length : line.match(/^\s*/)[0].length;
     if (blockIndent >= 0) {
       if (code.trim() === '' || indent > blockIndent) {
@@ -489,6 +524,11 @@ const isolateServices = [];
 const settingsKeys = [];
 const cliInvocations = [];
 const pluginImports = [];
+/**
+ * `(file, line, name)` triples that appear in a file's RAW text and NOT in its comment-blanked
+ * view — i.e. names that live inside a comment. Measured during the scan, then reported in `notes`.
+ */
+const COMMENT_SUPPRESSED = new Set();
 const patchRowTargets = [];
 /** `(profile, id)` → the single entry that survives; every discovered location lands in it. */
 const PATCH_TARGET_INDEX = new Map();
@@ -549,6 +589,17 @@ function kindForRef(abs, role, lineText) {
   return 'other';
 }
 
+/**
+ * Upstream and own package names matched in one piece of text, for the comment-suppression
+ * measurement below. Never used to build an entry — only to count what blanking removed.
+ */
+function namesIn(text) {
+  const out = new Set();
+  for (const m of text.matchAll(/@deepseek-ai[\\/]([a-z0-9][a-z0-9.-]*)/g)) out.add(`@deepseek-ai/${m[1]}`);
+  for (const m of text.matchAll(/(^|[^A-Za-z0-9_-])(dsh-plugin-[a-z0-9]+(?:-[a-z0-9]+)*)/g)) out.add(m[2]);
+  return out;
+}
+
 function harvestPackageRefs(abs, role) {
   const file = fileFor(abs);
   const view = codeView(abs);
@@ -574,6 +625,19 @@ function harvestPackageRefs(abs, role) {
       pushOnce(packageRefs, `${file}:${ln.n}:${name}:${subpath}:own-plugin`, {
         name, subpath, kind: 'own-plugin', file, line: ln.n,
       });
+    }
+  }
+  /* Measured, not claimed: which package names this file mentions in RAW text that the
+   * comment-blanked view does not contain. Those are the matches that were inside a comment, and
+   * they are counted here so the note below is evidence from this run rather than a promise about
+   * the code. Two different names, or two occurrences of one name, are one entry each; the count is
+   * of (file, line, name) triples so `file:line` remains the unit every finding cites. */
+  for (const ln of view) {
+    const namesRaw = namesIn(ln.raw ?? '');
+    if (namesRaw.size === 0) continue;
+    const namesCode = namesIn(ln.code);
+    for (const name of namesRaw) {
+      if (!namesCode.has(name)) COMMENT_SUPPRESSED.add(`${file}:${ln.n}:${name}`);
     }
   }
 }
@@ -650,6 +714,41 @@ function sliceBlockEntry(rawLines, start) {
     end = n;
   }
   return rawLines.slice(start - 1, end).join('\n');
+}
+
+/**
+ * The line range of ONE `insert:` block in a flow document: from the line the key appears on to the
+ * line on which its bracket closes. Bracket depth is counted OUTSIDE quoted scalars (and a `#`
+ * comment ends the line), which is the same rule `sliceFlowEntry` uses, so a `[` inside a !!js
+ * expression or inside the persona prose cannot end the block early.
+ *
+ * `insert:` may be written `{ insert: [ … ] }` on one line or as a bare key with its list on the
+ * next; both are handled because the scan starts at the key's own line and simply waits for depth
+ * to leave zero after it has opened something. A block that never closes runs to the end of the
+ * file, which is the safe direction: too LARGE a range can only keep an id out of the target list,
+ * and the parsed-document cross-check in `scanComposition` reports exactly that case.
+ */
+function insertBlockRange(rawLines, start) {
+  let depth = 0;
+  let opened = false;
+  for (let n = start; n <= rawLines.length; n++) {
+    const line = rawLines[n - 1] ?? '';
+    let inS = false, inD = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (inS) { if (c === "'") inS = false; continue; }
+      if (inD) { if (c === '\\') { i++; continue; } if (c === '"') inD = false; continue; }
+      if (c === "'") { inS = true; continue; }
+      if (c === '"') { inD = true; continue; }
+      if (c === '#') break;
+      if (c === '{' || c === '[') { depth++; opened = true; continue; }
+      if (c === '}' || c === ']') {
+        depth--;
+        if (opened && depth <= 0) return { start, end: n };
+      }
+    }
+  }
+  return { start, end: rawLines.length };
 }
 
 /**
@@ -755,39 +854,39 @@ function scanComposition(abs, role, where) {
   };
 
   if (flow) {
-    // A [...] flow document (profiles/web/cordis.patch.yml is exactly this). Flow entries are all
-    // top-level in every layer seen here, so a full-line-brace "id:" is an id-targeted patch entry.
-    // The two shapes this must NOT misfire on are checked rather than assumed: an insert: list is
-    // nested (its entries are additions, not targets, per SPEC D6), and a deeply indented "id:"
-    // inside a config: body belongs to the config, not to the entry list.
-    const hasInsert = view.some((l) => /\binsert\s*:/.test(l.code));
-    if (hasInsert) {
-      const parsed = parseYamlSafe(linesOf(abs).join('\n')).value;
-      const topLevel = Array.isArray(parsed) ? parsed.filter((e) => e && typeof e.id === 'string') : null;
-      if (topLevel) {
-        const inlineIds = new Set(view.filter((l) => l.code)
-          .flatMap((l) => [...l.code.matchAll(/(^|[\s,{])id\s*:\s*('([^']*)'|"([^"]*)"|([^,}\s]+))/g)]
-            .map((m) => unquote(m[2]))));
-        for (const e of topLevel) inlineIds.delete(e.id);
-        if (inlineIds.size) {
-          note(`${file} is flow-style and contains an "insert:"; ${inlineIds.size} id(s) here come `
-            + 'from a shape the parsed top-level list does not reproduce, so those entries could not '
-            + 'be distinguished from inserted rows and may be recorded as patch targets when they '
-            + 'are additions (code limitation)');
-        }
-      } else {
-        note(`${file} is flow-style and contains an "insert:" but did not parse as a top-level `
-          + 'array, so inserted rows there cannot be told apart from patch targets and may both be '
-          + 'recorded as targets (code limitation)');
-      }
-    }
+    // A [...] flow document (profiles/web/cordis.patch.yml is exactly this). The shape this must NOT
+    // misfire on is an `insert:` list: a row inside one is an ADDITION, so nothing can "stop
+    // applying" to it and it must never become a patch target (SPEC D6). This is enforced here, not
+    // noted: `insert:` is located by its key line and its extent is found by bracket depth, so every
+    // id between them is an insertion.
+    //
+    // Measured 2026-09-28: that patch file is `{ insert: [ … ] }` three times over, holding 46
+    // nested ids. While those were recorded as targets, verify's G2 — "every patch target still
+    // applies", which asserts on the composed tree's `patched by` attribution — reported all 46 as
+    // LOST, i.e. our patch had silently stopped applying 46 times, not one of which had stopped
+    // applying anything. The five real top-level entries are exactly the five rows the dump
+    // attributes to us, so a false alarm of that size is worse than useless: it is the noise that
+    // makes a real LOST unreadable.
     const patchLayer = role === 'host-patch' || role === 'host-composition';
+    const rawLines = linesOf(abs);
+    const insertRanges = [];
+    for (const ln of view) {
+      if (!ln.code) continue;
+      if (!/(^|[\s,{])(?:-\s+)?insert\s*:/.test(ln.code)) continue;
+      insertRanges.push(insertBlockRange(rawLines, ln.n));
+    }
+    const insideInsert = (lineNo) => insertRanges.some((r) => lineNo >= r.start && lineNo <= r.end);
+    const targetIds = new Set();
+    let insertedIds = 0;
     for (const ln of view) {
       if (!ln.code) continue;
       for (const m of ln.code.matchAll(/(^|[\s,{])id\s*:\s*('([^']*)'|"([^"]*)"|([^,}\s]+))/g)) {
         const id = unquote(m[2]);
         if (!id) continue;
-        const isTarget = patchLayer || role === 'profile-patch';
+        const nested = insideInsert(ln.n);
+        const isTarget = !nested && (patchLayer || role === 'profile-patch');
+        if (isTarget) targetIds.add(id);
+        else if (nested) insertedIds++;
         record(id, ln.n, isTarget);
       }
       for (const m of ln.code.matchAll(/(^|[\s,{])name\s*:\s*('([^']*)'|"([^"]*)"|([^,}\s]+))/g)) {
@@ -803,6 +902,38 @@ function scanComposition(abs, role, where) {
         for (const part of m[1].split(',')) {
           const km = /^\s*([A-Za-z_][\w-]*)\s*:/.exec(part);
           if (km) pushOnce(isolateServices, `iso:${file}:${ln.n}:${km[1]}`, { service: km[1], file, line: ln.n });
+        }
+      }
+    }
+    if (insertRanges.length) {
+      // Independent cross-check against the PARSED document, because the failure direction that
+      // matters is over-exclusion: a real top-level target treated as an insertion would make G2
+      // blind to its loss, which is exactly the silent-loss class this pipeline exists for. Every
+      // top-level element carrying a string `id` must therefore still be a target, and a
+      // disagreement is reported rather than swallowed.
+      const { value, error } = parseYamlSafe(rawLines.join('\n'));
+      const topLevel = !error && Array.isArray(value)
+        ? value.filter((e) => e && typeof e === 'object' && !Array.isArray(e) && typeof e.id === 'string' && e.id)
+        : null;
+      if (topLevel === null) {
+        note(`${file} is flow-style and contains ${insertRanges.length} "insert:" block(s) but did not `
+          + `parse as a top-level array, so which ids are insertions and which are patch targets was `
+          + `decided by bracket depth alone: ${insertedIds} id(s) were kept in rowIds and left out of `
+          + 'patchRowTargets on that basis (code limitation)');
+      } else {
+        const topIds = topLevel.map((e) => e.id);
+        const missed = [...new Set(topIds)].filter((id) => !targetIds.has(id));
+        if (missed.length) {
+          note(`${file}: the parsed document reads ${topIds.length} top-level element(s) with an id, but `
+            + `the bracket-depth rule recorded ${targetIds.size} patch target(s) — NOT recorded as a `
+            + `target: ${missed.slice(0, 8).join(', ')}. A real patch target excluded here would make `
+            + 'verify\'s G2 blind to its loss (code limitation; the bracket-depth rule is the weaker '
+            + 'of the two signals)');
+        } else {
+          note(`${file}: ${insertRanges.length} "insert:" block(s) hold ${insertedIds} nested id(s), which `
+            + `are recorded in rowIds only and NOT as patchRowTargets (SPEC D6); the parsed document and `
+            + `the bracket-depth rule agree on the ${new Set(topIds).size} top-level target(s)`
+            + `${topIds.length ? `: ${[...new Set(topIds)].join(', ')}` : ''}`);
         }
       }
     }
@@ -1418,6 +1549,38 @@ if (yamlChecked === 0 && yamlFilesToValidate.length > 0) {
       + 'resolve, but it also means the plugin a patch row actually carries is documented only in '
       + 'prose here, so B4 (patch target changed plugin) gets no advisory input from this artifact '
       + '(deliberate code choice, with a real coverage cost)');
+  }
+}
+
+{
+  // The measured counterpart of the note above, for EVERY file this module scans rather than only
+  // patch layers: package names that are present in a file's raw text and absent from its
+  // comment-blanked view. This is what makes "matches inside comments are no longer reported" a
+  // reading from this run instead of a claim about the code. Before the 2026-09-28 fix, the
+  // `#`-prose in scripts/make-preset-rows.mjs was IN packageRefs and produced a false BREAKS.
+  const suppressed = [...COMMENT_SUPPRESSED].sort();
+  const byFile = new Map();
+  for (const s of suppressed) {
+    const i = s.lastIndexOf(':');
+    const j = s.lastIndexOf(':', i - 1);
+    const key = s.slice(0, j);
+    if (!byFile.has(key)) byFile.set(key, []);
+    byFile.get(key).push(s.slice(j + 1));
+  }
+  if (suppressed.length) {
+    const top = [...byFile.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 2)
+      .map(([f, names]) => `${f} (${names.slice(0, 6).join(', ')}${names.length > 6 ? `, +${names.length - 6} more` : ''})`);
+    note(`${suppressed.length} package name mention(s) in ${byFile.size} file(s) are INSIDE A COMMENT `
+      + 'and are deliberately NOT in packageRefs (measured in this run by comparing each line\'s raw '
+      + `text with its comment-blanked text). Most affected: ${top.join('; ')}. A name in a comment `
+      + 'cannot be resolved or imported by anything, so recording it would put an entry nothing can '
+      + 'satisfy into the cross-reference — and on 2026-09-28 exactly that produced a FALSE BREAKS at '
+      + 'AUTHORITATIVE tier for @deepseek-ai/dsh-agent-presets from the generated comment header held '
+      + 'in scripts/make-preset-rows.mjs. The cost is the same one recorded above: prose is sometimes '
+      + 'the only place a patch row\'s real plugin is named (deliberate code choice)');
+  } else {
+    note('no package name mention was found inside a comment during this scan: nothing was blanked '
+      + 'away from packageRefs (measured in this run, not assumed)');
   }
 }
 

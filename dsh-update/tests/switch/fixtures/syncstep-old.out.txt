@@ -1,0 +1,15 @@
+harness-config sync
+  repo     : C:\Users\ezabz\Code\harness-config
+  DSH_HOME : C:\Users\ezabz\Code\harness-config\dsh-update\tests\switch\fixtures\syncstep-old
+  hostname : ZABZ-TECH
+  mode     : APPLY
+  protected: .anonymous-user-id, .credentials.yaml, profiles, sessions, storages
+
+machine settings: ZABZ-TECH.yaml (found)
+ settings.yaml: already up to date
+ presets: SKIPPED -- the repo config names @deepseek-ai/dsh-workflow-ptc, which the running engine (0.1.5-rc.1) does not provide; the live copies are left untouched
+ profiles: SKIPPED -- the repo config names @deepseek-ai/dsh-agent-preset-registry, @deepseek-ai/dsh-agent-preset, @deepseek-ai/dsh-workflow-ptc, which the running engine (0.1.5-rc.1) does not provide; the live copies are left untouched
+ client plugins: PROBLEM --      | no profile manifest at |      | C:\Users\ezabz\Code\harness-config\dsh-update\tests\switch\fixtures\syncstep-old\profiles\web\package.json -- is |      | DSH installed and is the profile name right?
+ metrics sampler: task present and a sampler is reachable
+
+sync complete. Restart the DSH profile for a settings change to take effect.
