@@ -706,6 +706,7 @@ handoff	H2977	2977		2026-09-28 19:18 UTC	ZABZ-TECH	open	## 2026-09-28 19:18 UTC 
 handoff	H3050	3050		2026-09-28 20:01 UTC	SECRATARY	open	## 2026-09-28 20:01 UTC · SECRATARY · Chol Hamoed kite run: Toms River options delivered, Activate Woodbridge still the open collision	entries/handoff/H3050.md	1	69	7bc2598bd5badf03
 handoff	H3051	3051		2026-09-28 21:57 UTC	SECRATARY	open	## 2026-09-28 21:57 UTC · SECRATARY · Chol Hamoed kite run and the Sport Cub purchase: three records written, aircraft unflown	entries/handoff/H3051.md	1	55	0965cf98526bc7a4
 handoff	H3052	3052		2026-09-29 03:46 UTC	SECRATARY	open	## 2026-09-29 03:46 UTC · SECRATARY · Family Chat: why Shabsi did not get Mommy's siyum text - our side was clean, our ledger was not	entries/handoff/H3052.md	1	45	c33f4f1421fe3599
+handoff	H3053	3053		2026-09-29 04:24 UTC	SECRATARY	open	## 2026-09-29 04:24 UTC · SECRATARY · Chip: turn-taking ceiling, register rewrite, delivery sweep - deployed, pushed to a branch, master is diverged	entries/handoff/H3053.md	1	63	e833d267d0838973
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1835,6 +1836,8 @@ lessons	L3051	3051		2026-09-28	SECRATARY	open	**L3051 · For an RC aircraft, the
 lessons	L3052	3052		2026-09-29	SECRATARY	open	**L3052 · A carrier receipt is not a read receipt, and our own status column was wrong**	entries/lessons/L3052.md	1	43	36f7a49537790317
 lessons	L3053	3053		2026-09-29	SECRATARY	open	**L3053 · A chat is measured in utterances: one fan-out of 11 rows is one turn, and interleaving breaks contiguous grouping**	entries/lessons/L3053.md	1	30	a34947dece8f0fde
 lessons	L3054	3054		2026-09-29	SECRATARY	open	**L3054 · The mood string is the real register control - a prompt-level ban loses to the line that asks for emoji**	entries/lessons/L3054.md	1	25	33d19033e949b74c
+lessons	L3055	3055		2026-09-29	ZABZ-TECH	open	**L3055 · The archive's own index maintenance was the lock that stopped the archive: an UNINDEXED FTS5 DELETE held the SQLite write lock for 63 s**	entries/lessons/L3055.md	1	45	0a561be419c87ced
+lessons	L3056	3056		2026-09-29	SECRATARY	open	**L3056 · The Chip eval harness has a 10-66 point per-case noise floor: do not gate a small prompt change on one run**	entries/lessons/L3056.md	1	41	cd7874b499dad720
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2730,3 +2733,4 @@ wins	W2412	2412		2026-09-27	ZABZ-YOGA	open	**W2412 · 2026-09-27 · The engine n
 wins	W2413	2413		2026-09-28	ZABZ-YOGA	open	**W2413 · 2026-09-28 · The outcome monitor was starving itself on IOSchedulingClass=idle - fixed via drop-in, ran in 5s instead of timing out at 6m40s.**	entries/wins/W2413.md	1	73	06f5e7ed9eaf6221
 wins	W2474	2474		2026-09-28	SECRATARY	open	**W2474 · 2026-09-28 · The checkout-health flag's own STEP 0-4 sequence, run verbatim, produced a healthy checkout.**	entries/wins/W2474.md	1	33	988752ab95f768a2
 wins	W2538	2538		2026-09-28	ZABZ-TECH	open	**W2538 · 2026-09-28 · the frozen machine now reports clean and converges unattended: 56 commits taken, 34 journal errors to 0, proven by fixture and by live run.**	entries/wins/W2538.md	1	16	3ca32c3041fc138b
+wins	W2602	2602		2026-09-29	SECRATARY	open	**W2602 · 2026-09-29 · Deterministic tell-counting proved the register change the judged score called a regression.**	entries/wins/W2602.md	1	30	dab430266f2553f2
