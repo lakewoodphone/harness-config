@@ -709,6 +709,7 @@ handoff	H3052	3052		2026-09-29 03:46 UTC	SECRATARY	open	## 2026-09-29 03:46 UTC 
 handoff	H3053	3053		2026-09-29 04:24 UTC	SECRATARY	open	## 2026-09-29 04:24 UTC · SECRATARY · Chip: turn-taking ceiling, register rewrite, delivery sweep - deployed, pushed to a branch, master is diverged	entries/handoff/H3053.md	1	63	e833d267d0838973
 handoff	H3054	3054		2026-09-29 12:57 UTC	SECRATARY	open	## 2026-09-29 12:57 UTC · SECRATARY · NJ hiking research for Chol Hamoed Tuesday 2026-09-29 delivered; the Kittatinny Ridge is outside the owner's 2.5-hour cap	entries/handoff/H3054.md	1	35	d2403e473664363a
 handoff	H3055	3055		2026-09-29 17:39 UTC	SECRATARY	open	## 2026-09-29 17:39 UTC · SECRATARY · Chol Hamoed day-trip doc committed; the parallel research sweep failed and is recorded as failed	entries/handoff/H3055.md	1	66	1ae62e939027adca
+handoff	H3056	3056		2026-09-29 18:26 UTC	SECRATARY	open	## 2026-09-29 18:26 UTC · SECRATARY · Autonomy check-up and the owner-text path: four defects fixed live, WS-A deployed, WS-B/WS-C in flight	entries/handoff/H3056.md	1	131	d78d38212c50906f
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1842,6 +1843,7 @@ lessons	L3055	3055		2026-09-29	ZABZ-TECH	open	**L3055 · The archive's own index
 lessons	L3056	3056		2026-09-29	SECRATARY	open	**L3056 · The Chip eval harness has a 10-66 point per-case noise floor: do not gate a small prompt change on one run**	entries/lessons/L3056.md	1	41	cd7874b499dad720
 lessons	L3057	3057		2026-09-29	SECRATARY	open	**L3057 · The NJ state park site blocks scraping but r.jina.ai reads it - and that unlocked the whole state fee and hours layer**	entries/lessons/L3057.md	1	21	55458e1f1631b35c
 lessons	L3058	3058		2026-09-29	SECRATARY	open	**L3058 · A fan-out whose output I never collect is worth less than doing it myself**	entries/lessons/L3058.md	1	21	6f33e422450e52a2
+lessons	L3059	3059		2026-09-29	SECRATARY	open	**L3059 · A mode that claims to change nothing must leave the RECORD unchanged too: three defects on the owner text path**	entries/lessons/L3059.md	1	48	3cf7fb9b9cbb0f24
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
