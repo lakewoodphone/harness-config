@@ -1844,6 +1844,7 @@ lessons	L3062	3062		2026-09-29	ZABZ-YOGA	open	**L3062 · A mesh child has no dur
 lessons	L3063	3063		2026-09-29	ZABZ-YOGA	open	**L3063 · A mesh brief longer than about 11400 characters cannot be dispatched at all on a Windows target - spawn ENAMETOOLONG**	entries/lessons/L3063.md	1	51	d6b1476ac5b0ee8e
 lessons	L3064	3064		2026-09-29	ZABZ-YOGA	open	**L3064 · The double-quote claim is dead (refuted twice) and the real open hazard is that sh -s plus stdin hangs when dispatched from the windows desktop**	entries/lessons/L3064.md	1	51	5c877f24dc744951
 lessons	L3100	3100		2026-09-29	ZABZ-YOGA	open	**L3100 · A double-quote in a mesh subagent prompt kills the remote one-shot: exit 1, no output, no error**	entries/lessons/L3100.md	1	23	2ba75b332d769cff
+lessons	L3101	3101		2026-09-29	ZABZ-YOGA	open	**L3101 · Confirmed with the package own transport: sh -s stdin delivery hangs from the office desktop, and it is not the client version**	entries/lessons/L3101.md	1	43	651a0cf7394614de
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
