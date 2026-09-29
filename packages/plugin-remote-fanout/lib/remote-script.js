@@ -249,7 +249,19 @@ export function buildPosixScript({ invocation, profile, task, dshHome, cwd, nonc
   if (dshHome) lines.push(`export DSH_HOME=${shQuote(dshHome)}`);
   if (cwd) lines.push(`cd ${shQuote(cwd)}`);
   lines.push(
-    `printf -v fanout_host '%s' "$(hostname)"`,
+    // THE HOST IS CAPTURED PORTABLY, AND THIS IS NOT COSMETIC.
+    // `sh -s` means POSIX `sh`, which is `dash` on Debian and Ubuntu — the shell
+    // of two nodes in this mesh. `dash` has no `printf -v` (measured 2026-09-29:
+    // `sh: 1: printf: Illegal option -v`), so the previous form left `fanout_host`
+    // EMPTY, the transport recorded host "", and `provider.js` refused the run at
+    // the location check — AFTER the child had already done its work. Every child
+    // placed on a Linux node was discarded this way: 19 of 19 placements on
+    // `secratary` in the 48 h to 2026-09-29 ended with
+    // `the transport reported host "", which is not one of the hostnames the
+    // placement named`. A command substitution is POSIX and works in every shell
+    // this mesh runs; `uname -n` is the fallback for a target whose
+    // non-interactive PATH has no `hostname`. Do not "simplify" this back.
+    `fanout_host=$(hostname 2>/dev/null || uname -n)`,
     `printf '%s\\n' "${m.host}$fanout_host"`,
     `printf '%s\\n' "${m.cwd}$(pwd)"`,
     `printf '%s\\n' "${m.begin}"`,

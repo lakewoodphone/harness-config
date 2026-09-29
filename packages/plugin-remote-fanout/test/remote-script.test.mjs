@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 import {
   buildPosixScript,
@@ -187,3 +189,44 @@ test('a child that prints the marker words itself cannot truncate the frame', ()
   const parsed = parseFanout(stdout, nonce);
   assert.equal(parsed.answer, 'FANOUT_END\nstill inside');
 });
+
+// ── THE GENERATED POSIX PROGRAM MUST BE POSIX ────────────────────────────────
+// Measured 2026-09-29: `printf -v` is a bashism, `sh -s` is `dash` on Debian and
+// Ubuntu, and `dash` answered `printf: Illegal option -v`. The variable stayed
+// empty, the transport recorded host "", and the provider refused the run AFTER
+// the child had done its work — 19 of 19 placements on `secratary` in 48 h. See
+// journal L3061. Two guards, because they catch it on different machines: the
+// first is static and runs everywhere, the second actually executes the program
+// under the real `sh` and only runs where a POSIX shell exists.
+test('the generated posix program contains no bashism in its host capture', () => {
+  const script = buildPosixScript({
+    invocation: { form: 'executor', command: 'dsh', argvPrefix: [], credentialSource: 'test' },
+    profile: 'headless',
+    task: 'x',
+    nonce: 'aa11',
+  });
+  assert.doesNotMatch(script, /printf\s+-v/, 'printf -v does not exist in dash and silently yields an empty host');
+  assert.match(script, /^fanout_host=\$\(hostname 2>\/dev\/null \|\| uname -n\)$/m, 'the host must be captured by a portable command substitution, with a fallback');
+});
+
+test('the generated posix program really produces a non-empty host under this machine\'s sh', (t) => {
+  if (process.platform === 'win32' || !existsSync('/bin/sh')) {
+    t.skip('no POSIX sh on this machine — this guard runs where the defect lives (Linux nodes)');
+    return;
+  }
+  // `command: 'true'` launches nothing but a success, so the whole generated
+  // program executes end to end and only the frame is under test.
+  const script = buildPosixScript({
+    invocation: { form: 'executor', command: 'true', argvPrefix: [], credentialSource: 'test' },
+    profile: 'headless',
+    task: 'x',
+    nonce: 'bb22',
+  });
+  const run = spawnSync('/bin/sh', ['-s'], { input: script, encoding: 'utf8', timeout: 30000 });
+  assert.equal(run.status, 0, `the generated program must run cleanly under /bin/sh: ${run.stderr}`);
+  const parsed = parseFanout(run.stdout, 'bb22');
+  assert.equal(parsed.framed, true, 'the frame must close under a POSIX shell');
+  assert.notEqual(parsed.host, '', 'an EMPTY host is what made the provider refuse every Linux child');
+  assert.ok(typeof parsed.host === 'string' && parsed.host.length > 0, 'the transport host must be a real name');
+});
+
