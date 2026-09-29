@@ -49,6 +49,15 @@ import path from 'node:path';
 export const DEFAULT_TIMEOUT_MS = 900_000;
 /** Maximum bytes retained from each remote stream. */
 export const DEFAULT_MAX_OUTPUT_BYTES = 200_000;
+/**
+ * The Windows command-line cap, and the ceiling the old delivery hit (D4).
+ * MEASURED: a 12000-character task became an argv of 33859 through
+ * `-EncodedCommand` and `spawn` failed with ENAMETOOLONG before the child ran.
+ * With the default STDIN delivery the argv is constant; this bound is kept for
+ * the explicit `delivery: 'encoded'` fallback, which REFUSES an over-long
+ * command line rather than letting the OS fail obscurely.
+ */
+export const MAX_WINDOWS_COMMAND_LINE = 32767;
 
 /** Encode a PowerShell program for `-EncodedCommand` (base64 of UTF-16LE). */
 export function encodePwshCommand(script) {
@@ -56,13 +65,35 @@ export function encodePwshCommand(script) {
 }
 
 /**
- * The argv ssh receives after the target: either an encoded PowerShell program
- * (nothing left for cmd.exe or PowerShell to re-parse) or `sh -s` with the
- * program on stdin.
+ * The argv ssh receives after the target.
+ *
+ * DEFAULT DELIVERY IS STDIN FOR BOTH SHELLS. It was already stdin for POSIX
+ * (`sh -s`); PowerShell now uses `-Command -`, which reads the program from
+ * stdin. That is what removes the ceiling: argv is a constant five words no
+ * matter how large the brief is, so a 12000-character task can no longer produce
+ * a 33859-character command line and ENAMETOOLONG. The measured hazard was an
+ * ssh client whose STDOUT is a pipe (see the module header); stdin is a different
+ * handle and the same shape the POSIX path has always used.
+ *
+ * `delivery: 'encoded'` preserves the old `-EncodedCommand` argv form for a
+ * caller that needs it. It refuses an over-long command line by THROWING a named
+ * error instead of truncating.
  */
-export function remoteArgv(shell, script) {
+export function remoteArgv(shell, script, { delivery = 'stdin' } = {}) {
   if (shell === 'posix') return ['sh', '-s'];
-  return ['powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand', encodePwshCommand(script)];
+  if (delivery === 'encoded') {
+    const encoded = encodePwshCommand(script);
+    const argv = ['powershell', '-NoProfile', '-NonInteractive', '-EncodedCommand', encoded];
+    if (argv.join(' ').length > MAX_WINDOWS_COMMAND_LINE) {
+      throw new Error(
+        `remote-fanout: the program is too large for the transport — the encoded command line is ${argv.join(' ').length} characters `
+        + `and the documented Windows limit is ${MAX_WINDOWS_COMMAND_LINE}; nothing was truncated and no child was started. `
+        + 'Use the default stdin delivery, or split the brief.',
+      );
+    }
+    return argv;
+  }
+  return ['powershell', '-NoProfile', '-NonInteractive', '-Command', '-'];
 }
 
 /** Kill a process tree, best effort, on the platform we are on. */
@@ -120,9 +151,44 @@ export function createSshTransport(config = {}) {
      *
      * @returns {{done: Promise<object>, kill: (reason?: string) => void}}
      */
-    start({ shell = 'powershell', script, timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS, maxOutputBytes = config.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES, completeMarker } = {}) {
-      const argv = [...sshArgs, target, ...remoteArgv(shell, script)];
+    start({ shell = 'powershell', script, timeoutMs = config.timeoutMs ?? DEFAULT_TIMEOUT_MS, maxOutputBytes = config.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES, completeMarker, delivery = config.delivery ?? 'stdin' } = {}) {
       const startedAt = Date.now();
+      // The program travels on stdin for POSIX always and for PowerShell unless
+      // the caller explicitly asks for the legacy encoded argv form.
+      const useStdin = shell === 'posix' || delivery !== 'encoded';
+      let argv;
+      try {
+        argv = [...sshArgs, target, ...remoteArgv(shell, script, { delivery: useStdin ? 'stdin' : 'encoded' })];
+      } catch (error) {
+        // A pre-spawn refusal, shaped like a spawn failure so the provider
+        // reports it as "could not launch the ssh transport" with a legible why.
+        return {
+          done: Promise.resolve({
+            ok: false,
+            spawnError: String(error?.message ?? error),
+            ms: Date.now() - startedAt,
+            stdout: '',
+            stderr: '',
+            truncated: false,
+            argv: [],
+          }),
+          kill() {},
+        };
+      }
+      if (process.platform === 'win32' && argv.join(' ').length > MAX_WINDOWS_COMMAND_LINE) {
+        return {
+          done: Promise.resolve({
+            ok: false,
+            spawnError: `remote-fanout: the ssh command line is ${argv.join(' ').length} characters, past the documented Windows limit of ${MAX_WINDOWS_COMMAND_LINE}; nothing was truncated and no child was started`,
+            ms: Date.now() - startedAt,
+            stdout: '',
+            stderr: '',
+            truncated: false,
+            argv,
+          }),
+          kill() {},
+        };
+      }
       const tag = randomBytes(6).toString('hex');
       const outPath = path.join(os.tmpdir(), `fanout-${tag}.out`);
       const errPath = path.join(os.tmpdir(), `fanout-${tag}.err`);
@@ -191,10 +257,11 @@ export function createSshTransport(config = {}) {
         outFd = openSync(outPath, 'w');
         errFd = openSync(errPath, 'w');
         child = spawn(sshExe, argv, {
-          // stdin: 'ignore' for PowerShell (`-EncodedCommand` needs no stdin) and
-          // a pipe for POSIX, where the script itself is delivered on stdin.
+          // stdin: a pipe whenever the program itself is delivered there (POSIX
+          // always; PowerShell with the default `-Command -`), 'ignore' only for
+          // the legacy encoded argv form, which needs no stdin.
           // stdout/stderr: files, never pipes — see the module header.
-          stdio: [shell === 'posix' ? 'pipe' : 'ignore', outFd, errFd],
+          stdio: [useStdin ? 'pipe' : 'ignore', outFd, errFd],
           windowsHide: true,
         });
       } catch (error) {
@@ -213,7 +280,7 @@ export function createSshTransport(config = {}) {
         timedOut: killed === 'timeout',
       }));
 
-      if (shell === 'posix' && child.stdin) {
+      if (useStdin && child.stdin) {
         child.stdin.on('error', () => {});
         child.stdin.end(script);
       }

@@ -86,6 +86,7 @@ import {
   buildPwshScript,
   invocationFor,
   markers,
+  meshChildPaths,
   parseFanout,
   shouldRetryWithFallback,
 } from './remote-script.js';
@@ -110,15 +111,41 @@ const MAX_DIAGNOSTIC_BYTES = 4096;
 /** The frozen location-proof line every child is told to open with (`71` §2.4). */
 export const MESH_HOST_LINE = 'MESH-HOST:';
 
-/** The instruction this wrapper prepends to every child task. */
+/**
+ * The instruction this wrapper prepends to every child task.
+ *
+ * IT CARRIES THE PER-RUN MAILBOX (R6). `{{inbox}}` and `{{outbox}}` are
+ * substituted with the child's own target-side paths by
+ * {@link renderTaskPreamble}. The contract is explicit because the outbox is the
+ * ONLY copy that survives a severed ssh transport (P2538b, D3): the child must
+ * write its final answer there before it finishes, and the parent may collect it
+ * with `mesh_collect` long after the transport that ran the child has died.
+ */
 export const DEFAULT_TASK_PREAMBLE = [
   'Report where you ran, first, before anything else.',
   'Your reply MUST begin with one line of exactly this form:',
   'MESH-HOST: <the hostname of the machine you are running on>',
   'Get that name from your own shell tool (run `hostname`, or read $env:COMPUTERNAME on Windows) — never guess it and never copy it from this instruction.',
   'Then do the task below, and do not repeat these instructions in your reply.',
+  '',
+  'YOUR MAILBOX AND YOUR OUTBOX — this is how work survives a severed connection:',
+  '- Your parent writes messages to this inbox: {{inbox}}',
+  '- Check that inbox before each major step. If it holds a stop request, stop as soon as it is safe to stop and say so.',
+  '- Append short progress lines to this outbox: {{outbox}}',
+  '- ALWAYS write your final answer to the outbox before you finish. The outbox is what survives a severed connection:',
+  '  the parent can collect it even if the transport that started you has died, and this is the only copy guaranteed to arrive.',
+  '- If you need a decision mid-flight you may raise a wake flag through the flag store under scripts/wake',
+  '  (scripts/wake-flag.py on the authority), naming the subject you need decided.',
+  'Be honest about the limit: a one-shot child reads its inbox only at the checkpoints it actually reaches.',
   '--- task ---',
 ].join('\n');
+
+/** Substitute the per-run mailbox paths into a preamble template. */
+export function renderTaskPreamble(template, { inbox, outbox } = {}) {
+  return String(template ?? '')
+    .split('{{inbox}}').join(inbox ?? '(not recorded for this run)')
+    .split('{{outbox}}').join(outbox ?? '(not recorded for this run)');
+}
 
 /** Flatten a prompt's text blocks (the tool always sends one text block). */
 export function promptText(prompt) {
@@ -305,6 +332,7 @@ export class RemoteOneShotProvider {
     targetHosts = [],
     placer,
     ledger,
+    childRegistry,
   } = {}) {
     if (typeof name !== 'string' || name.trim() === '') throw new Error('remote-fanout: provider `name` is required');
     // WHAT IS REQUIRED OF A FIXED TARGET, AND WHY IT IS NOT TWO PATHS ANY MORE.
@@ -333,6 +361,16 @@ export class RemoteOneShotProvider {
     this.inheritsParentContext = false;
     this.transport = transport;
     this.ledger = ledger;
+    /**
+     * THE DURABLE CHILD IDENTITY (R3/R4). The engine gives an out-of-process
+     * child no `localAgent`, so it has no session the seam can address; this
+     * registry is the plugin's own durable record of the child — where it runs,
+     * its lease, its remote mailbox — so a parent can list, message, interrupt
+     * and collect it even after the transport has died (D2, docs/mesh/120).
+     * Absent in unit tests that do not care; every write is best-effort and can
+     * never change the child's outcome.
+     */
+    this.childRegistry = childRegistry;
     this.remote = {
       command: remote.command,
       credentialEnvFiles: Array.isArray(remote.credentialEnvFiles) ? remote.credentialEnvFiles : undefined,
@@ -370,13 +408,48 @@ export class RemoteOneShotProvider {
       + `(snapshot ${defaultSnapshotFile()}, fallback probe ${defaultProbeDir()})`;
   }
 
-  /** Write one placement/run event to the ledger and the log. Never throws. */
+  /**
+   * Write one placement/run event to the LEDGER, the LOG, and the CHILD
+   * REGISTRY. Never throws, and never lets any of the three change the child's
+   * outcome (R4): every sink is wrapped, and the registry's own rejection is a
+   * warning rather than a fault. There is deliberately no second event model —
+   * this method is the provider's single record of a child's life, and the
+   * registry is simply a durable projection of it.
+   */
   #record(id, patch) {
+    try {
+      this.childRegistry?.patch?.(id, patch);
+    } catch (error) {
+      this.logger?.warn?.(`remote-fanout: the child registry rejected a patch for ${id}: ${String(error?.message ?? error)}`);
+    }
     try {
       return this.ledger?.record(id, patch) ?? { ok: false, file: undefined };
     } catch (error) {
       this.logger?.warn?.(`remote-fanout: the placement ledger rejected a record for ${id}: ${String(error?.message ?? error)}`);
       return { ok: false, file: undefined };
+    }
+  }
+
+  /**
+   * The two explicit registry primitives, both best-effort. `create` seeds the
+   * child's durable identity; `patch` carries the invocation the moment it is
+   * decided. Neither can throw, and neither can change the child's outcome.
+   */
+  #registryCreate(id, patch) {
+    try {
+      return this.childRegistry?.create?.(id, patch);
+    } catch (error) {
+      this.logger?.warn?.(`remote-fanout: the child registry rejected a create for ${id}: ${String(error?.message ?? error)}`);
+      return undefined;
+    }
+  }
+
+  #registryPatch(id, patch) {
+    try {
+      return this.childRegistry?.patch?.(id, patch);
+    } catch (error) {
+      this.logger?.warn?.(`remote-fanout: the child registry rejected a patch for ${id}: ${String(error?.message ?? error)}`);
+      return undefined;
     }
   }
 
@@ -395,7 +468,6 @@ export class RemoteOneShotProvider {
     // The seam's rule for a pre-publication cancellation: reject and leave
     // nothing running, rather than publish a run the caller already gave up on.
     if (request?.signal?.aborted) throw new Error(`${this.name}: delegation was cancelled before the remote child started`);
-    const childTask = this.taskPreamble === '' ? task : `${this.taskPreamble}\n${task}`;
     const nonce = randomBytes(4).toString('hex');
     const id = `remote-${randomUUID()}`;
 
@@ -436,6 +508,32 @@ export class RemoteOneShotProvider {
     this.counters.placed += 1;
     const placementHosts = placement.hosts?.length > 0 ? placement.hosts : this.targetHosts;
     const remoteFacts = placement.facts;
+    const shell = remoteFacts.shell === 'posix' ? 'posix' : 'powershell';
+
+    // ── THE PER-RUN MAILBOX AND THE TASK (R3/R6) ─────────────────────────────
+    // The inbox/outbox live ON THE TARGET and are fixed BEFORE the script is
+    // built, because the preamble the child reads must name them. They are the
+    // durable half of the child: the ssh transport can die, and the child's own
+    // answer still lands in the outbox, which `mesh_collect` reads later.
+    const childPaths = meshChildPaths({ dshHome: remoteFacts.dshHome, id, shell });
+    const parentSessionId = request?.parent?.session?.id ?? request?.parent?.id ?? null;
+    const childTask = this.taskPreamble === ''
+      ? task
+      : `${renderTaskPreamble(this.taskPreamble, childPaths)}\n${task}`;
+    this.#registryCreate(id, {
+      id,
+      parentSessionId,
+      node: placement.node,
+      ssh: placement.ssh ?? null,
+      shell,
+      dshHome: remoteFacts.dshHome ?? null,
+      lease: placement.lease ?? null,
+      invocation: null,
+      inbox: childPaths.inbox,
+      outbox: childPaths.outbox,
+      state: 'placed',
+      host: null,
+    });
 
     // ── THE QUEUE ────────────────────────────────────────────────────────────
     const wait = await this.placer.waitForSlot(placement, {
@@ -463,7 +561,6 @@ export class RemoteOneShotProvider {
       dispatchedAt: new Date().toISOString(),
     });
 
-    const shell = remoteFacts.shell === 'posix' ? 'posix' : 'powershell';
     const transport = this.placer.transportFor(placement);
 
     /**
@@ -504,6 +601,10 @@ export class RemoteOneShotProvider {
       invocationContext = { command: describeInvocation(primary), form: primary.form, credentialSource: primary.credentialSource, attempts: [primary.form] };
       outcome = run.outcome;
       parsed = run.parsed;
+      // The durable record learns WHICH invocation ran as soon as it is known —
+      // the fact whose absence once let a broken command look like a broken node
+      // (docs/mesh/102-linux-dispatch.md §1).
+      this.#registryPatch(id, { invocation: invocationContext.command, invocationForm: primary.form });
       this.logger?.info?.(`${this.name}: ${id} invoked on "${placement.node}" as ${invocationContext.command} (${primary.form}: ${primary.credentialSource})`);
 
       // THE FALLBACK, AND WHEN IT IS ALLOWED TO RUN. A wrapper that is present
@@ -530,7 +631,8 @@ export class RemoteOneShotProvider {
       }
       handle = run.handle;
 
-      const meshHost = this.verifyMeshHost ? extractMeshHost(parsed.answer) : undefined;      const locationNote = this.#locationNote(parsed.host, placement, placementHosts);
+      const meshHost = this.verifyMeshHost ? extractMeshHost(parsed.answer) : undefined;
+      const locationNote = this.#locationNote(parsed.host, placement, placementHosts, meshHost);
       blocks = [{
         type: 'text',
         text: renderReport({
@@ -548,42 +650,54 @@ export class RemoteOneShotProvider {
         }),
       }];
       this.logger?.info?.(`${this.name}: run ${id} on "${parsed.host ?? 'unknown'}" (placed on "${placement.node}") mesh-host="${meshHost ?? 'unreported'}" exit=${outcome.exitCode ?? 'none'}${outcome.timedOut ? ' timeout' : ''} in ${outcome.ms} ms`);
+      // ── R2: NOTHING IS DISCARDED ───────────────────────────────────────────
+      // Every failure path below returns through this helper, so the child's own
+      // text rides INLINE in the diagnostic as well as in the output blocks. The
+      // diagnostic is what survives a job store that drops the blocks of an
+      // errored run, so the answer cannot depend on the blocks being kept.
+      const failure = (text) => {
+        const body = parsed.framed ? parsed.answer : String(outcome?.stdout ?? '');
+        const inline = body.trim() === '' ? text : `${text}\n--- child final message ---\n${body}`;
+        return { output: blocks, diagnostic: limitDiagnostic(inline), stopReason: 'error' };
+      };
       // Cancellation that settled locally wins over whatever the process said:
       // the seam's rule for an out-of-process run.
       if (controller.signal.aborted) return { output: blocks, stopReason: 'aborted' };
       if (outcome.spawnError) {
-        diagnostic = `could not launch the ssh transport (${transport.describe()}): ${outcome.spawnError}`;
-        return { output: blocks, diagnostic, stopReason: 'error' };
+        return failure(`could not launch the ssh transport (${transport.describe()}): ${outcome.spawnError}`);
       }
       if (outcome.timedOut) {
-        diagnostic = `the remote turn did not finish within ${this.timeoutMs ?? 'the configured'} ms and the ssh client was killed`
-          + (outcome.stderr.trim() === '' ? '' : `; remote stderr tail: ${outcome.stderr.trim().slice(-900)}`);
-        return { output: blocks, diagnostic, stopReason: 'error' };
+        return failure(
+          `the remote turn did not finish within ${this.timeoutMs ?? 'the configured'} ms and the ssh client was killed`
+          + (outcome.stderr.trim() === '' ? '' : `; remote stderr tail: ${outcome.stderr.trim().slice(-900)}`),
+        );
       }
       if (outcome.exitCode !== 0) {
-        diagnostic = `the remote one-shot exited ${outcome.exitCode ?? 'without a code'}${parsed.answer ? '' : ' and produced no final message'}; stderr tail: ${outcome.stderr.trim().slice(-600)}`;
-        return { output: blocks, diagnostic, stopReason: 'error' };
+        return failure(
+          `the remote one-shot exited ${outcome.exitCode ?? 'without a code'}${parsed.answer ? '' : ' and produced no final message'}; stderr tail: ${outcome.stderr.trim().slice(-600)}`,
+        );
       }
       if (!parsed.framed) {
-        diagnostic = `the remote process exited 0 but printed no completion frame — the target profile did not run (stderr tail: ${outcome.stderr.trim().slice(-600)})`;
-        return { output: blocks, diagnostic, stopReason: 'error' };
+        return failure(`the remote process exited 0 but printed no completion frame — the target profile did not run (stderr tail: ${outcome.stderr.trim().slice(-600)})`);
       }
 
-      // Proof of location (`71` §2.4), now against the node the BROKER named.
-      // Both checks fail the run loudly.
+      // ── R1: LOCATION POLICY ────────────────────────────────────────────────
+      // The TRANSPORT is the primary proof: the target's own shell wrote its
+      // hostname before the child ran, and no model can influence it. First, the
+      // recorded host must be one of the hostnames the placement named — that is
+      // the check that proves the broker's answer was honoured, and it stays a
+      // hard failure.
       if (placementHosts.length > 0 && !placementHosts.some((host) => sameNode(host, parsed.host))) {
-        diagnostic = `the transport reported host "${parsed.host ?? 'unknown'}", which is not one of the hostnames the placement named ("${placement.node}" may be ${placementHosts.join(', ')}) — refusing to report work from a node the broker did not name`;
-        return { output: blocks, diagnostic, stopReason: 'error' };
+        return failure(`the transport reported host "${parsed.host ?? 'unknown'}", which is not one of the hostnames the placement named ("${placement.node}" may be ${placementHosts.join(', ')}) — refusing to report work from a node the broker did not name`);
       }
-      if (this.verifyMeshHost) {
-        if (meshHost === undefined) {
-          diagnostic = `the child did not begin its report with "${MESH_HOST_LINE} <hostname>" — its location is unproven, so the run is not reported as complete`;
-          return { output: blocks, diagnostic, stopReason: 'error' };
-        }
-        if (parsed.host !== undefined && !sameNode(meshHost, parsed.host)) {
-          diagnostic = `location disagreement: the child claims MESH-HOST ${meshHost} but the target shell recorded ${parsed.host}`;
-          return { output: blocks, diagnostic, stopReason: 'error' };
-        }
+      // Then the model's own MESH-HOST line is CORROBORATION. A MISSING line is
+      // no longer a failure: the run completes on the transport evidence and the
+      // report says plainly which evidence carried it (pains P2667/P269, lesson
+      // L3059 — the whole answer used to be discarded here). A DISAGREEING line
+      // means the two independent records contradict each other, and that stays a
+      // hard failure: corroboration that contradicts is not corroboration.
+      if (this.verifyMeshHost && meshHost !== undefined && parsed.host !== undefined && !sameNode(meshHost, parsed.host)) {
+        return failure(`location disagreement: the child claims MESH-HOST ${meshHost} but the target shell recorded ${parsed.host}`);
       }
       if (parsed.answer === '') {
         diagnostic = 'the remote child finished with an empty final message';
@@ -623,6 +737,8 @@ export class RemoteOneShotProvider {
         leaseReleaseSkipped: release?.skipped ?? null,
         leaseReleaseError: release?.ok === false ? (release.error ?? 'unknown') : null,
         reportedHost: parsed.host ?? null,
+        // The registry's own field name for the last host the transport proved.
+        host: parsed.host ?? null,
         meshHost: this.verifyMeshHost ? extractMeshHost(parsed.answer) ?? null : null,
         invocation: invocationContext.command ?? null,
         invocationForm: invocationContext.form ?? null,
@@ -655,12 +771,25 @@ export class RemoteOneShotProvider {
   /**
    * One line describing whether the recorded host could be checked at all, and
    * against which node's allowed names it was checked.
+   *
+   * R1: the transport's recorded host is the authoritative evidence. When the
+   * child wrote its own `MESH-HOST:` line, the note says it corroborated; when it
+   * did not, the note says the provenance rests on the transport alone, so the
+   * parent can see exactly how strong the proof is. The mismatch case is a hard
+   * failure in `attempt()` and never reaches here as anything but `MISMATCH`.
    */
-  #locationNote(host, placement, hosts) {
+  #locationNote(host, placement, hosts, meshHost) {
     const named = placement?.source === 'fixed' ? 'the configured fixed target' : `the node the broker named (${placement?.node ?? 'unknown'})`;
-    if (hosts.length === 0) return `not verified against a host list (host recorded: ${host ?? 'unknown'}; ${named})`;
-    return hosts.some((candidate) => sameNode(candidate, host))
-      ? `matched ${named} — ${hosts.join(', ')}`
-      : 'MISMATCH';
+    if (hosts.length === 0) {
+      return `not verified against a host list (host recorded: ${host ?? 'unknown'}; ${named})`
+        + (meshHost === undefined
+          ? "; the child's own MESH-HOST line was absent, so provenance rests on the transport, not the model"
+          : '');
+    }
+    if (!hosts.some((candidate) => sameNode(candidate, host))) return 'MISMATCH';
+    if (meshHost === undefined) {
+      return `transport recorded ${host ?? 'unknown'}, matched ${named}; the child's own MESH-HOST line was absent, so provenance rests on the transport, not the model`;
+    }
+    return `matched ${named} — ${hosts.join(', ')} (corroborated by the child's own MESH-HOST ${meshHost})`;
   }
 }
