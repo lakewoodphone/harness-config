@@ -469,9 +469,22 @@ export function createNodePlacer({
 
       const facts = nodes[placement.node];
       if (facts === undefined) {
+        // A LEASE ALREADY EXISTS AT THIS POINT — `broker.place()` ran above — so
+        // throwing without giving it back strands that node's slot for the whole
+        // TTL (900 s). Recorded as defect C1 in docs/mesh/121-dispatch-failure-taxonomy.md.
+        // The pressure branch below documents the same hazard and avoids it by
+        // not refusing; this branch must refuse (the node is not dispatchable), so
+        // it releases first and says so. A failed release is reported and never
+        // raised: the broker reclaims the lease at its TTL anyway, and failing the
+        // refusal because the cleanup failed would hide the real reason.
+        try {
+          await broker.done(placement.lease, false);
+        } catch (error) {
+          logger?.warn?.(`remote-fanout: the lease ${placement.lease} for the unknown node "${placement.node}" could not be released (${error?.code ?? 'broker-error'}: ${String(error?.message ?? error)}); the broker reclaims it at its TTL`);
+        }
         throw new BrokerError(
           PLACEMENT_NODE_UNKNOWN,
-          `the broker named node "${placement.node}", which is not in this package's node table (${nodeNames().join(', ')}) — refusing to dispatch into a lookup miss`,
+          `the broker named node "${placement.node}", which is not in this package's node table (${nodeNames().join(', ')}) — refusing to dispatch into a lookup miss (its lease ${placement.lease} was released)`,
           { node: placement.node, known: nodeNames() },
         );
       }

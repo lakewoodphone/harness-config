@@ -20,8 +20,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createBroker, DEFAULT_CACHE_TTL_MS } from '../lib/broker.js';
-import { loadConfig, DEFAULT_READ_TIMEOUT_MS, DEFAULT_LEASE_TTL_MS } from '../lib/config.js';
+import { createBroker, DEFAULT_CACHE_TTL_MS, REQUEST_ID_TTL_MS } from '../lib/broker.js';
+import { loadConfig, DEFAULT_READ_TIMEOUT_MS, DEFAULT_LEASE_TTL_MS, DEFAULT_RETRY_READ_TIMEOUT_MS, DEFAULT_REQUEST_ID_TTL_MS, DEFAULT_FLEET_CONCURRENT_LEASE_CAP } from '../lib/config.js';
 import { createBrokerServer, listen, DEFAULT_PORT, DEFAULT_HOST } from '../lib/server.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -88,11 +88,23 @@ async function main() {
   const readTimeoutMs = number(flags['timeout-ms'] ?? process.env.MESH_BROKER_READ_TIMEOUT_MS, config.readTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS);
   const cacheTtlMs = number(flags['cache-ttl-ms'] ?? process.env.MESH_BROKER_CACHE_TTL_MS, config.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS);
   const leaseTtlMs = number(flags['lease-ttl-ms'] ?? process.env.MESH_BROKER_LEASE_TTL_MS, config.leaseTtlMs ?? DEFAULT_LEASE_TTL_MS);
+  // EVERY CONFIG KEY `loadConfig` PARSES MUST BE THREADED HERE, or the file's value is
+  // silently ignored and the deployed binary runs on code defaults while the config
+  // says otherwise — a drift that is invisible from both ends (pain P8). Measured
+  // 2026-09-29: these three were parsed by `lib/config.js` and never passed, so
+  // `nodes.json` could not change the retry budget, the request-id memo TTL or the
+  // per-node fleet cap. Recorded in `docs/mesh/126-placement-hardening.md`.
+  const retryTimeoutMs = number(flags['retry-ms'] ?? process.env.MESH_BROKER_RETRY_TIMEOUT_MS, config.retryTimeoutMs ?? DEFAULT_RETRY_READ_TIMEOUT_MS);
+  const requestIdTtlMs = number(flags['request-id-ttl-ms'] ?? process.env.MESH_BROKER_REQUEST_ID_TTL_MS, config.requestIdTtlMs ?? DEFAULT_REQUEST_ID_TTL_MS);
+  const fleetConcurrentLeaseCap = number(flags['fleet-cap'] ?? process.env.MESH_BROKER_FLEET_CAP, config.fleetConcurrentLeaseCap ?? DEFAULT_FLEET_CONCURRENT_LEASE_CAP);
 
   const broker = createBroker({
     nodes: config.nodes,
     cacheTtlMs,
     readTimeoutMs,
+    retryTimeoutMs,
+    requestIdTtlMs,
+    fleetConcurrentLeaseCap,
     leaseTtlMs,
   });
   const log = (line) => process.stdout.write(`${new Date().toISOString()} ${line}\n`);
@@ -112,6 +124,9 @@ async function main() {
   }
   log(`  cache        capacity readings are reused for at most ${Math.round(cacheTtlMs / 1000)} s`);
   log(`  timeout      ${readTimeoutMs} ms per node read`);
+  log(`  retry        ${retryTimeoutMs} ms for the ONE retry when a read misses the deadline`);
+  log(`  request id   a replayed place request returns the same lease for ${Math.round(requestIdTtlMs / 1000)} s`);
+  log(`  fleet cap    at most ${fleetConcurrentLeaseCap} concurrent fleet lease(s) per node, or the node's own accepts.maxChildren if smaller`);
   log(`  lease ttl    ${Math.round(leaseTtlMs / 1000)} s (a dead dispatcher is outlived, not waited for)`);
   log('  verbs        POST /place   POST /done   GET /nodes[?fresh=1]   GET /healthz');
   log('  state        none on disk: live leases and 15-second readings in memory only');

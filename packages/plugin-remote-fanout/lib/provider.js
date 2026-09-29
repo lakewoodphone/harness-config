@@ -561,7 +561,29 @@ export class RemoteOneShotProvider {
       dispatchedAt: new Date().toISOString(),
     });
 
-    const transport = this.placer.transportFor(placement);
+    // A LEASE EXISTS AT THIS POINT, AND `transportFor` CAN THROW:
+    // `createSshTransport` refuses a placed row that carries no ssh destination
+    // (`ssh-transport.js`). The `release()` that owns every other path lives inside
+    // the `result` IIFE below, which has not been created yet — so a throw here used
+    // to strand the lease for its whole TTL. Recorded as defect C2 in
+    // docs/mesh/121-dispatch-failure-taxonomy.md. Rejecting before publication is
+    // still the correct shape; leaking the reservation is not.
+    let transport;
+    try {
+      transport = this.placer.transportFor(placement);
+    } catch (error) {
+      const release = await this.placer.release(placement, false).catch(() => undefined);
+      this.#record(id, {
+        id,
+        state: 'settled',
+        stopReason: 'error',
+        settledAt: new Date().toISOString(),
+        leaseReleased: release?.released === true,
+        prePublishFailure: `the transport for the placed node could not be built: ${String(error?.message ?? error)}`,
+      });
+      this.logger?.warn?.(`remote-fanout: child ${id} could not build a transport for the placed node "${placement.node}" — its lease ${placement.lease} was released unspent`);
+      throw error;
+    }
 
     /**
      * THE INVOCATION IS DECIDED HERE, PER RUN, FROM THE PLACED NODE'S OWN FACTS.
@@ -649,6 +671,12 @@ export class RemoteOneShotProvider {
           invocation: invocationContext,
         }),
       }];
+      // D1 of docs/mesh/121: the transport sets `truncated` when the retained bytes
+      // hit `maxOutputBytes`, and nothing read it — so an answer CUT at the cap was
+      // reported as a complete one. Say so where a reader will see it.
+      if (outcome.truncated === true) {
+        blocks[0].text += '\ntruncation     = the transport hit its retained-byte cap and the child output above is CUT, not complete; the child may have written more';
+      }
       this.logger?.info?.(`${this.name}: run ${id} on "${parsed.host ?? 'unknown'}" (placed on "${placement.node}") mesh-host="${meshHost ?? 'unreported'}" exit=${outcome.exitCode ?? 'none'}${outcome.timedOut ? ' timeout' : ''} in ${outcome.ms} ms`);
       // ── R2: NOTHING IS DISCARDED ───────────────────────────────────────────
       // Every failure path below returns through this helper, so the child's own

@@ -14,13 +14,15 @@
     "./pressure": { "default": "./lib/pressure.js" },
     "./broker-client": { "default": "./lib/broker-client.js" },
     "./nodes": { "default": "./lib/nodes.js" },
+    "./child-registry": { "default": "./lib/child-registry.js" },
+    "./mesh-tools": { "default": "./lib/mesh-tools.js" },
     "./package.json": "./package.json"
   },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" }
   },
   "scripts": {
-    "verify": "node --check lib/index.js && node --check lib/remote-script.js && node --check lib/ssh-transport.js && node --check lib/provider.js && node --check lib/placement.js && node --check lib/broker-client.js && node --check lib/nodes.js && node --check lib/pressure.js && node --check bin/mesh-run.mjs && node --check bin/mesh-pressure.mjs && node --check bin/mesh-pressure-proof.mjs && node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/placement.test.mjs test/broker-client.test.mjs test/pressure.test.mjs",
-    "test": "node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/placement.test.mjs test/broker-client.test.mjs test/pressure.test.mjs"
+    "verify": "node --check lib/index.js && node --check lib/remote-script.js && node --check lib/ssh-transport.js && node --check lib/provider.js && node --check lib/placement.js && node --check lib/broker-client.js && node --check lib/nodes.js && node --check lib/pressure.js && node --check lib/child-registry.js && node --check lib/mesh-tools.js && node --check bin/mesh-run.mjs && node --check bin/mesh-pressure.mjs && node --check bin/mesh-pressure-proof.mjs && node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/placement.test.mjs test/broker-client.test.mjs test/pressure.test.mjs test/child-registry.test.mjs test/mesh-tools.test.mjs",
+    "test": "node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/placement.test.mjs test/broker-client.test.mjs test/pressure.test.mjs test/child-registry.test.mjs test/mesh-tools.test.mjs"
   }
 }
