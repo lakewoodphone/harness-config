@@ -430,12 +430,18 @@ if (runResult.timedOut) {
   record({ phase: 'result', outcome: 'failed', reason: 'timeout' });
   process.exit(EXIT_FAILED);
 }
+// EVERY FAILURE RECORD NAMES WHERE THE CHILD'S TEXT SURVIVED. The bytes are written to
+// `outPath` (line 373) and printed before any of these exits, so nothing is discarded —
+// but a record that says only `failed` forces a reader to guess, and a reader of the
+// 2026-09-18 logs concluded the answer had been thrown away
+// (docs/mesh/122-crash-and-loss-evidence.md). Name the file. `outPath` is in the
+// `run-end` record too; repeating it here means the failure is self-contained.
 if ((runResult.exitCode ?? 1) !== 0) {
-  record({ phase: 'result', outcome: 'failed', reason: `parent exit ${runResult.exitCode}` });
+  record({ phase: 'result', outcome: 'failed', reason: `parent exit ${runResult.exitCode}`, outPath, childTextBytes: runResult.stdout.length });
   process.exit(EXIT_FAILED);
 }
 if (disagreements.length > 0) {
-  record({ phase: 'result', outcome: 'failed', reason: `location disagreement: ${disagreements.join(', ')} not on ${node}` });
+  record({ phase: 'result', outcome: 'failed', reason: `location disagreement: ${disagreements.join(', ')} not on ${node}`, outPath, childTextBytes: runResult.stdout.length });
   process.exit(EXIT_FAILED);
 }
 // The exit gate tests the SAME quantity `verify` recorded. Measured 2026-09-17T03:47:54Z: the
@@ -444,7 +450,7 @@ if (disagreements.length > 0) {
 // MESH-HOST lines for 6 children" - a green verification and a red exit in the same second, which
 // is worse than either alone because the log contradicts itself.
 if (reportedHosts.length < options.children) {
-  record({ phase: 'result', outcome: 'failed', reason: `only ${reportedHosts.length} MESH-HOST lines for ${options.children} children (${meshHosts.length} literal, ${summarised.length} summarised)` });
+  record({ phase: 'result', outcome: 'failed', reason: `only ${reportedHosts.length} MESH-HOST lines for ${options.children} children (${meshHosts.length} literal, ${summarised.length} summarised)`, outPath, childTextBytes: runResult.stdout.length });
   process.exit(EXIT_FAILED);
 }
 record({ phase: 'result', outcome: 'completed', node, childHosts });
