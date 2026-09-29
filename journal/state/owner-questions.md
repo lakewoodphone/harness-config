@@ -6,7 +6,7 @@ Updated: 2026-09-29
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 199 row(s) read, 32 pending, generated 2026-09-29 18:04 UTC on SECRATARY.
+Provenance: 200 row(s) read, 33 pending, generated 2026-09-29 19:38 UTC on SECRATARY.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -42,5 +42,6 @@ Provenance: 199 row(s) read, 32 pending, generated 2026-09-29 18:04 UTC on SECRA
 | 197 | 2026-09-29 | medium | Authorize deleting dsh_session_events older than 7 days after a verified archive, reclaiming about 7.1 GB of the 13.4 GB production DB? | Approve: archive and verify first, then prune in day-sized batches in a maintenance window with a backup; this is operational telemetry, not customer data. |
 | 198 | 2026-09-29 | medium | Land the rentals SQLite race fix on master: origin/fix/rentals-origin-master-race-90 (0b15b498) is green through the real build gate on the origin/master base, but a shift may not commit to main - do you want it landed, and should the gate default REF be pinned to origin/master? | I recommend landing 0b15b498 on master (clean merge, 1 file, gate BUILD_EXIT=0) and pinning the gate default REF to origin/master, so the gate stops measuring whichever branch the shared checkout happens to be on. |
 | 199 | 2026-09-29 | medium | Authorize putting the tracked sms-responder.py source on origin/master (one fast-forward commit a268a74)? | Approve it: it is a pure fast-forward of origin/master by 1 commit that adds only scripts/sms-responder.py, byte-identical (sha256 dda17809...) to the deployed /home/zabz/bin/sms-responder.py. Without it a rebuild from G |
+| 200 | 2026-09-29 | medium | The owner (personal iPhone) (+18483897895) texted: 'Can you check whether the NY toll bill actually got paid and tell me what it says?'. needs the owner: I can't verify whether the NY toll bill was paid or read what it says. The only record I have is open question #166, which shows it as two months overdue at $52.36 and still unpaid as | Tell me the answer and I will send it as a text. |
 
 Closed since the queue opened: 167. Answered questions move to `entries/decisions/` with the owner's own words.
