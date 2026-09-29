@@ -1839,11 +1839,11 @@ lessons	L3047	3047		2026-09-28	ZABZ-YOGA	open	**L3047 · Session completion unde
 lessons	L3048	3048		2026-09-28	ZABZ-YOGA	open	**L3048 · I claimed task completion was the better denominator - sampling showed 20 of 20 done tasks have no goal plan behind them**	entries/lessons/L3048.md	1	75	bcd16113fcfc85a6
 lessons	L3058	3058		2026-09-29	ZABZ-YOGA	open	**L3058 · A version-coupled plugin rename applied ahead of the engine promotion broke every new session, and it arrived as HTTP 200**	entries/lessons/L3058.md	1	62	c5a98a05a3bcb15c
 lessons	L3059	3059		2026-09-29	ZABZ-YOGA	open	**L3059 · Put the MESH-HOST first-line instruction in every mesh subagent brief, or the lane output is thrown away**	entries/lessons/L3059.md	1	10	feb7e48c7db4b8aa
-lessons	L3060	3060		2026-09-29	ZABZ-YOGA	open	**L3060 · A double-quote in a mesh subagent prompt kills the remote one-shot: exit 1, no output, no error**	entries/lessons/L3060.md	1	23	4ea80f9a1b35c9e4
 lessons	L3061	3061		2026-09-29	ZABZ-YOGA	open	**L3061 · A bashism in the POSIX child script made every mesh child placed on a Linux node fail and be thrown away**	entries/lessons/L3061.md	1	60	5121961e8e67a8d9
 lessons	L3062	3062		2026-09-29	ZABZ-YOGA	open	**L3062 · A mesh child has no durable identity, so it cannot be seen or steered: reproduced live with four running children**	entries/lessons/L3062.md	1	47	4ee4dade395648bb
 lessons	L3063	3063		2026-09-29	ZABZ-YOGA	open	**L3063 · A mesh brief longer than about 11400 characters cannot be dispatched at all on a Windows target - spawn ENAMETOOLONG**	entries/lessons/L3063.md	1	51	d6b1476ac5b0ee8e
 lessons	L3064	3064		2026-09-29	ZABZ-YOGA	open	**L3064 · The double-quote claim is dead (refuted twice) and the real open hazard is that sh -s plus stdin hangs when dispatched from the windows desktop**	entries/lessons/L3064.md	1	51	5c877f24dc744951
+lessons	L3100	3100		2026-09-29	ZABZ-YOGA	open	**L3100 · A double-quote in a mesh subagent prompt kills the remote one-shot: exit 1, no output, no error**	entries/lessons/L3100.md	1	23	2ba75b332d769cff
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
