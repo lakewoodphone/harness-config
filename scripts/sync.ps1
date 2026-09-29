@@ -98,6 +98,22 @@ if (-not (Test-Path $merger)) {
 }
 
 # --- 2. presets --------------------------------------------------------------------------------
+# GATE FIRST, and refuse to deliver rather than deliver something the engine cannot mount.
+# Measured 2026-09-29: the presets and profile patches were moved to the 0.1.7-era plugin names
+# while this machine's engine was still 0.1.5-rc.1, so every row naming `dsh-workflow-ptc` /
+# `dsh-agent-preset` / `dsh-agent-preset-registry` failed to resolve. `session/create` then
+# answered HTTP 200 with `agent-preset/invalid` in the RPC body, the client swallowed it, and the
+# user-visible result was "a new DSH window cannot choose a workspace". This script reported
+# success throughout. A rename is version-coupled; the check belongs here, before the copy.
+$gate = Join-Path $PSScriptRoot 'preset-package-gate.ps1'
+if (Test-Path $gate) {
+  & pwsh -NoProfile -File $gate -Root $repo -DshHome $DshHome -Quiet
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "sync: REFUSING to apply presets - the package gate failed (exit $LASTEXITCODE)." -ForegroundColor Red
+    Write-Host "sync: pin the rows to the engine actually installed, or promote the engine first." -ForegroundColor Red
+    exit 1
+  }
+}
 $presetRoot = Join-Path $DshHome '.agent-presets'
 $srcRoot = Join-Path $repo 'presets'
 if (Test-Path $srcRoot) {
