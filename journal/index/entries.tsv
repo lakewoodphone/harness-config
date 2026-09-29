@@ -1843,6 +1843,7 @@ lessons	L3060	3060		2026-09-29	ZABZ-YOGA	open	**L3060 · A double-quote in a mes
 lessons	L3061	3061		2026-09-29	ZABZ-YOGA	open	**L3061 · A bashism in the POSIX child script made every mesh child placed on a Linux node fail and be thrown away**	entries/lessons/L3061.md	1	60	5121961e8e67a8d9
 lessons	L3062	3062		2026-09-29	ZABZ-YOGA	open	**L3062 · A mesh child has no durable identity, so it cannot be seen or steered: reproduced live with four running children**	entries/lessons/L3062.md	1	47	4ee4dade395648bb
 lessons	L3063	3063		2026-09-29	ZABZ-YOGA	open	**L3063 · A mesh brief longer than about 11400 characters cannot be dispatched at all on a Windows target - spawn ENAMETOOLONG**	entries/lessons/L3063.md	1	51	d6b1476ac5b0ee8e
+lessons	L3064	3064		2026-09-29	ZABZ-YOGA	open	**L3064 · The double-quote claim is dead (refuted twice) and the real open hazard is that sh -s plus stdin hangs when dispatched from the windows desktop**	entries/lessons/L3064.md	1	51	5c877f24dc744951
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2188,6 +2189,7 @@ pain	P2666	2666		2026-09-28	ZABZ-YOGA	open	## P2666 — A fleet worktree has no 
 pain	P2667	2667		2026-09-29	ZABZ-YOGA	open	## P2667 — Mesh subagent runs are rejected and their output discarded when the child omits the MESH-HOST marker	entries/pain/P2667.md	1	6	33732858467001fa
 pain	P2668	2668		2026-09-29	ZABZ-YOGA	open	## P2668 — Mesh placement returns broker-unreachable on a transient timeout, and it reads exactly like a real outage	entries/pain/P2668.md	1	18	fa525bc878cbb2d5
 pain	P2669	2669		2026-09-29	ZABZ-YOGA	open	## P2669 — Mesh fan-out succeeds 23 percent of the time and the losses decompose into three named mechanisms	entries/pain/P2669.md	1	106	c204441507898469
+pain	P2670	2670		2026-09-29	ZABZ-YOGA	open	## P2670 — sh -s with the script on stdin hangs when dispatched from zabz-tech, while the same shape works from ZABZ-YOGA - unproven cause, and it would kill half the mesh from the desktop	entries/pain/P2670.md	1	6	efd19fdf548e8e51
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270

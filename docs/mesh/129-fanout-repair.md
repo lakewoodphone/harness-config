@@ -193,12 +193,24 @@ name the file, which is why a reader concluded it had been thrown away. The reco
 - `packages/plugin-remote-fanout/bin/mesh-run.mjs` — failure records name where the child's text is.
 
 The audits behind all of it: `docs/mesh/120` (the seam), `121` (41 exit paths, severity-classed),
-`122` (the evidence, with its one corrected claim), `126` (placement hardening), `127` (child identity
-and mailbox).
+`122` (the evidence, with its one corrected claim), `123` (the load experiment), `126` (placement
+hardening), `127` (child identity and mailbox).
 
-**One lane had not landed when this was written.** A fourth audit lane was measuring batch dispatch
-reliability under load and probing the quote characters in a prompt; it had not pushed a document at
-2026-09-29 18:50Z, so `docs/mesh/123-load-experiment.md` does not exist yet and nothing in this
-document rests on it. The reliability numbers in §1 come from the placement ledger and the wrapper's
-own run logs, read directly, and not from that lane.
+**Two things the load experiment (`docs/mesh/123`) changed, both recorded rather than folded in.**
+
+1. **`L3060` is refuted, twice.** That lesson said a double-quote in a prompt kills the remote one-shot;
+   the taxonomy lane refuted it from source and the load lane refuted it by running a controlled probe —
+   a prompt with two double-quotes exited 0 and came back verbatim. The mechanism the symptom really
+   belongs to is the command-line ceiling in R6. `L3060` is superseded by `L3064`, and it is **not**
+   edited: the record of having been wrong is worth more than a tidy log.
+2. **A new open hazard, filed as pain `P2670`.** From `zabz-tech`, every attempt at a **remote** child
+   turn returned nothing at 180 s, 45 s and 25 s bounds, while a plain ssh over the same descriptor shape
+   exited 0 in 309 ms — and the identical `sh -s` stdin shape completed real turns from ZABZ-YOGA to
+   `zabz-tech-linux` (5176 ms) and `secratary` (5080 ms) on the same day and the same code. So the defect
+   is a property of the *dispatching client*, not of the target, the generated program, or any quote
+   character. The cause is **not established** and the experiment says so itself; the next step is to
+   reproduce it from `zabz-tech` with the package's own `createSshTransport` rather than a hand-rolled
+   probe, and if it reproduces, deliver the POSIX program from a file on the target so stdin leaves the
+   path entirely. Three of five nodes are POSIX, so this is half the mesh as seen from the desktop.
+
 
