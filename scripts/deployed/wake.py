@@ -62,7 +62,9 @@ case. This lives in `file_wake()` rather than in the CLI so that every caller -
 ENVIRONMENT (all read AT CALL TIME, never at import, so tests can set them):
     SMS_INBOX_DB, SMS_INBOX_APP_DB, SMS_INBOX_ENV   - the store (sms-inbox.py)
     WAKE_COOLDOWN_SEC           (1800) guard 2
-    WAKE_MAX_PER_DAY           (12)    guard 3
+    WAKE_MAX_PER_DAY          (500)    guard 3  (NOT the limiting guard - see
+                                        DEFAULT_MAX_PER_DAY: the real limit is the
+                                        70 USD/day spend cap, below)
     WAKE_MAX_PER_SOURCE_PER_HOUR(3)    guard 4
     WAKE_NIGHT_QUIET            (1)    guard 5
     WAKE_PAUSE_FILE             (~/.sms-inbox/WAKE_PAUSED) guard 6
@@ -421,6 +423,15 @@ def caps_now() -> dict:
 
 
 def released_today(conn: sqlite3.Connection) -> int:
+    """RELEASES TODAY - sessions STARTED, not pieces of work.
+
+    `wake_budget.released` is incremented once per release, and a single wake row can be
+    released many times in one day: `file_wake` revives a terminal row in place because
+    `subject` is UNIQUE, and each source re-files after its own cooldown. Measured
+    2026-09-29: 133 releases across 41 distinct wake ids; the subject
+    `project:lpt-website:20260929` went out 20 times, all exit=0. For work DONE read the
+    ledger (work.py), never this number.
+    """
     r = conn.execute("SELECT released FROM wake_budget WHERE day=?", (today_utc(),)).fetchone()
     return int(r["released"]) if r else 0
 
@@ -1008,6 +1019,13 @@ def stats_payload(conn: sqlite3.Connection) -> dict:
         "day": today_utc(),
         "states": counts,
         "released_today": released_today(conn),
+        # A caller that reads only this key must not be able to turn it into throughput.
+        "released_today_means": (
+            "sessions started, NOT pieces of work: one wake row can be released many"
+            " times in a day (file_wake revives a terminal row in place and each source"
+            " re-files after its own cooldown). Measured 2026-09-29: 133 releases over 41"
+            " distinct ids, the most-re-released subject 20 times. For work done read the"
+            " ledger."),
         "failed_today": failed_today(conn),
         "spend_today_usd": spend_today(conn),
         "source_releases_last_hour": source_releases(conn),
@@ -1028,6 +1046,7 @@ def cmd_stats(args) -> int:
     sys.stdout.write("wake rows: " + " ".join(f"{s}={counts[s]}" for s in STATES) + "\n")
     sys.stdout.write(
         f"released today: {payload['released_today']}/{caps['max_per_day']}"
+        f" [SESSIONS started, not work done - one row can be released many times]"
         f"   failed today: {payload['failed_today']}"
         f"   spend today: ${payload['spend_today_usd']:.4f}/${caps['max_usd_per_day']:.2f}\n")
     per_source = payload["source_releases_last_hour"]
