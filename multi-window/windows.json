@@ -182,5 +182,7 @@
     "_comment": "Only read in mode 'multi'. Ports are assigned from basePort upward, in window order.",
     "basePort": 3081
   },
-  "maxWindows": 24
+  "maxWindows": 24,
+  "dshInstall": "C:\\Users\\ezabz\\.dsh\\engine",
+  "_dshInstall_note": "FROZEN ENGINE PIN (2026-09-30). The npx cache is not a pin: a stray `npx @deepseek-ai/dsh web` re-resolved the floating range and changed the running engine, which is how ZABZ-YOGA broke. This path holds an exact version (0.2.0-rc.2) that nothing upgrades by accident; Resolve-DshBin probes it first."
 }
