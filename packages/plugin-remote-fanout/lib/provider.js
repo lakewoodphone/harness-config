@@ -493,7 +493,7 @@ export class RemoteOneShotProvider {
     // started is the failure mode.
     let placement;
     try {
-      placement = await this.placer.acquire({ id, childIndex: this.counters.placed });
+      placement = await this.placer.acquire({ id, childIndex: this.counters.placed, excludeNodes: [] });
     } catch (error) {
       const code = error?.code ?? 'placement-failed';
       this.counters.placementFailed += 1;
@@ -820,7 +820,17 @@ export class RemoteOneShotProvider {
           leasesToRelease.push([finalPlacement, `superseded by attempt ${index + 2}`]);
           let nextPlacement;
           try {
-            nextPlacement = await this.placer.acquire({ id: `${id}#${index + 2}`, childIndex: this.counters.placed });
+            // ── THE REROUTE NAMES THE NODES IT MUST NOT RETURN TO ──────────────
+            // Every node already tried is passed as an exclusion, so the broker — not
+            // this loop — is responsible for choosing somewhere else. Measured
+            // 2026-09-30: the placer re-offered the node that had just failed, and this
+            // loop had to notice and skip it. Hoping is not a reroute; asking for the
+            // exclusion and checking the answer is.
+            nextPlacement = await this.placer.acquire({
+              id: `${id}#${index + 2}`,
+              childIndex: this.counters.placed,
+              excludeNodes: [...new Set(distinctNodes)],
+            });
           } catch (error) {
             harness = {
               ...harness,
@@ -830,10 +840,12 @@ export class RemoteOneShotProvider {
             };
             break;
           }
-          if (wantsDifferentNode && distinctNodes.includes(nextPlacement.node) && distinctNodes.length < (policy.maxDistinctNodes ?? 2)) {
-            // The placer offered a node we have already used. Say so rather than
-            // pretend a reroute happened.
-            attemptLines.push(`note: the placer re-offered "${nextPlacement.node}", which was already tried — the reroute could not reach a different node`);
+          if (plan.action === 'reroute' && distinctNodes.includes(nextPlacement.node) && distinctNodeCount < (policy.maxDistinctNodes ?? 2)) {
+            // The placer offered a node we have already used, DESPITE the exclusion. That
+            // means the broker could not honour it (the exclusion named every node in the
+            // roster, or the only remaining candidate was the excluded one). Say so plainly
+            // rather than let the report read as if the reroute reached a fresh node.
+            attemptLines.push(`note: the placer re-offered "${nextPlacement.node}" even though the reroute excluded ${[...new Set(distinctNodes)].join(', ')} — the mesh had nowhere else to send this child`);
           }
           finalPlacement = nextPlacement;
           distinctNodes.push(nextPlacement.node);

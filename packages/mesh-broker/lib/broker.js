@@ -120,8 +120,27 @@ export function normalizeTask(body) {
   if (raw.exclude !== undefined && exclude.length !== (Array.isArray(raw.exclude) ? raw.exclude.length : 0)) {
     notes.push('task.exclude entries that were not non-empty strings were ignored');
   }
+  /**
+   * ── `excludeNodes` / `excludeLease`: A DISPATCHER THAT MUST NOT LAND WHERE IT JUST DID
+   * `exclude` is a soft hint, and the header above says why: a caller's list must yield
+   * to "never refuse" when it names every node. But a caller that has just lost a child
+   * ON A NODE has a stronger requirement than a preference, and re-asking the broker and
+   * hoping it picks differently is not a reroute — measured 2026-09-30, the placer
+   * re-offered the node that had just failed and the provider had to notice and skip it
+   * itself.
+   *
+   * So `excludeNodes` is accepted as a distinct field with the same soft semantics as
+   * `exclude` (it cannot empty the mesh — queue, never amputate) but its own name, so a
+   * caller's INTENT is legible in the request and in the rationale. `excludeLease`
+   * names a lease to treat as spent, for a caller whose node name it no longer trusts.
+   */
+  const excludeNodes = normalizeExclude(raw.excludeNodes);
+  if (raw.excludeNodes !== undefined && excludeNodes.length !== (Array.isArray(raw.excludeNodes) ? raw.excludeNodes.length : 0)) {
+    notes.push('task.excludeNodes entries that were not non-empty strings were ignored');
+  }
+  const excludeLease = typeof raw.excludeLease === 'string' && raw.excludeLease.trim() !== '' ? raw.excludeLease.trim() : null;
   const worktreeGiB = finite(raw.worktreeGiB);
-  return { task: { kind, children, prefer, exclude, worktreeGiB }, notes };
+  return { task: { kind, children, prefer, exclude, excludeNodes, excludeLease, worktreeGiB }, notes };
 }
 
 /**
@@ -344,8 +363,13 @@ export function createBroker(options = {}) {
     //   * `task.exclude` is the CALLER's hint - it is soft, because the caller's list must
     //     yield to "never refuse" when it names every node.
     const excludedByConfig = node.excluded === true;
+    // `exclude` (the historical caller hint) and `excludeNodes` (a reroute's explicit
+    // list) are both soft and both honoured. They are kept as separate fields so the
+    // rationale can say WHICH one excluded a node, which is the difference between
+    // "the operator switched this off" and "the dispatcher has already been burned here".
     const excludedByCaller = task.exclude.includes(node.node);
-    const excludes = excludedByConfig || excludedByCaller;
+    const excludedByReroute = (task.excludeNodes ?? []).includes(node.node);
+    const excludes = excludedByConfig || excludedByCaller || excludedByReroute;
 
     let acceptsOk = true;
     let acceptsReason = null;
@@ -431,6 +455,7 @@ export function createBroker(options = {}) {
       excluded: excludes,
       excludedByConfig,
       excludedByCaller,
+      excludedByReroute,
       fits,
       load1: finite(doc?.cpu?.load1),
       logical: finite(doc?.cpu?.logical),
@@ -564,7 +589,9 @@ export function createBroker(options = {}) {
     if (candidate.swapApplied) bits.push(`swap ${candidate.swapUsedPct}% used: effective slots halved`);
     if (!candidate.dispatchOk) bits.push('transport v1 MEASURED BROKEN');
     else if (candidate.dispatch.v1 === null) bits.push('transport v1 unmeasured');
-    if (candidate.excluded) bits.push('excluded by the caller');
+    if (candidate.excludedByReroute) bits.push('excluded by the REROUTE (a dispatcher that must not land here again)');
+    else if (candidate.excludedByCaller) bits.push('excluded by the caller');
+    else if (candidate.excludedByConfig) bits.push('switched off in the roster');
     if (!candidate.diskOk && task.kind === 'fleet') bits.push(`disk ${gib(candidate.disk ?? -1)} GiB < ${candidate.requirement.requiredGiB} GiB required`);
     if (!candidate.acceptsOk) bits.push(candidate.acceptsReason);
     return `${candidate.node}: ${bits.join(', ')}`;
@@ -595,10 +622,19 @@ export function createBroker(options = {}) {
           why.push(`its ${chosen.disk === null ? 'unmeasured' : `${Math.round(chosen.disk)} GiB`} free is under the ${chosen.requirement.requiredGiB} GiB fleet requirement`);
         }
         if (!chosen.acceptsOk) why.push(chosen.acceptsReason);
-        if (chosen.excludedByCaller) why.push('the caller excluded it');
+        // WHICH KIND OF EXCLUSION WAS OVERRIDDEN — and it is the whole point of the rule
+        // that the caller is TOLD. A dispatcher in the middle of a reroute that named
+        // every node gets its exclusion overridden, and it must be able to see that the
+        // node it was sent back to is one it had ruled out, rather than believe the
+        // reroute succeeded.
+        if (chosen.excludedByReroute) why.push('the REROUTE excluded it (the dispatcher named this node as one it must not return to)');
+        else if (chosen.excludedByCaller) why.push('the caller excluded it');
+        else if (chosen.excludedByConfig) why.push('it is switched off in the roster');
         const everyNodeExcluded = context.excludedCount === context.total;
+        const rerouteOverridden = chosen.excludedByReroute;
         return `no node can start this now (${why.join('; ') || 'no free slots anywhere'}); ${chosen.node} is the best candidate `
-          + `(${chosen.reachable ? `measured, ${chosen.slots} slot(s)` : 'unreachable'}${everyNodeExcluded ? ', and the caller excluded every node' : ''}) `
+          + `(${chosen.reachable ? `measured, ${chosen.slots} slot(s)` : 'unreachable'}${everyNodeExcluded ? ', and the caller excluded every node' : ''}`
+          + `${rerouteOverridden ? ', so the reroute\'s exclusion could NOT be honoured — expect the same node to fail the same way' : ''}) `
           + '-> placed there, QUEUED rather than refused (the broker never refuses a placement)';
       }
       default:
@@ -642,13 +678,22 @@ export function createBroker(options = {}) {
     // must not become a refusal.
     const placeable = candidates.filter((candidate) => !candidate.excludedByConfig);
     const arena = placeable.length > 0 ? placeable : candidates;
-    const base = arena.filter((candidate) => !candidate.excludedByCaller && candidate.acceptsOk);
+    // BOTH KINDS OF CALLER EXCLUSION KEEP A NODE OUT OF THE FIRST-CLASS POOL. Missing
+    // `excludedByReroute` here is exactly the bug this whole field exists to fix: the
+    // node was marked excluded and then offered anyway, because only `exclude` was
+    // consulted. Both are soft — `arena` still contains them — so an exclusion that
+    // names every node yields to "queue, never amputate" rather than refusing.
+    const excludedByCallerAtAll = (candidate) => candidate.excludedByCaller || candidate.excludedByReroute;
+    const base = arena.filter((candidate) => !excludedByCallerAtAll(candidate) && candidate.acceptsOk);
     const withDisk = base.filter((candidate) => candidate.diskOk);
     const unreachableCount = candidates.filter((candidate) => candidate.unreachable).length;
-    const excludedCount = candidates.filter((candidate) => candidate.excludedByCaller).length;
+    const excludedCount = candidates.filter(excludedByCallerAtAll).length;
+    const rerouteExcludedCount = candidates.filter((candidate) => candidate.excludedByReroute).length;
     const configExcluded = candidates.length - placeable.length;
     const head = `chosen from ${candidates.length} configured node(s): ${unreachableCount} unreachable, `
-      + `${excludedCount} excluded by the caller, ${configExcluded} switched off in the roster`
+      + `${excludedCount} excluded by the caller`
+      + (rerouteExcludedCount > 0 ? ` (${rerouteExcludedCount} of them by a REROUTE)` : '')
+      + `, ${configExcluded} switched off in the roster`
       + (absentCount > 0 ? `, ${absentCount} absent (configured, never answered, not ranked)` : '');
 
     let tier;
@@ -773,7 +818,11 @@ export function createBroker(options = {}) {
       ...(chosen.diskOk || task.kind !== 'fleet' ? [] : ['disk']),
       ...(chosen.acceptsOk ? [] : ['accepts']),
       ...(chosen.dispatchOk ? [] : ['transport']),
-      ...(chosen.excludedByCaller ? ['caller-excluded'] : []),
+      ...(chosen.excludedByCaller || chosen.excludedByReroute ? ['caller-excluded'] : []),
+      // A machine-readable marker for the case that matters to a runtime: the placement
+      // landed somewhere the dispatcher had ruled out, so the same node is likely to
+      // fail the same way and the caller should not treat this as a clean reroute.
+      ...(chosen.excludedByReroute ? ['reroute-exclusion-overridden'] : []),
       ...(chosen.freeSlots - task.children >= 0 ? [] : ['no-free-slots']),
     ];
     lines.push(`${head}; tier=${tier}; chosen ${chosen.node}`);

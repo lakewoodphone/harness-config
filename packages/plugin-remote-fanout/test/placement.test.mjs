@@ -60,7 +60,11 @@ function ledgerInTempDir(t) {
   return { dir, ledger: createPlacementLedger({ dir }) };
 }
 
-const ONESHOT = { kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [] };
+// The exact task the placer asks the broker for on a FIRST placement. `excludeNodes`
+// joined the request on 2026-09-30: it is a reroute's explicit "do not send this child
+// back to a node that already failed it" list, kept separate from the `exclude`
+// preference hint, and empty on a first ask because nothing has failed yet.
+const ONESHOT = { kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [], excludeNodes: [] };
 
 // ---------------------------------------------------------------------------
 // acquire

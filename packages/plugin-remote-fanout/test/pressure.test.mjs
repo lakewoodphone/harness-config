@@ -316,7 +316,7 @@ test('under the high line nothing changes: the broker is asked with the caller\'
   });
   const placement = await placer.acquire({ id: 'remote-ok' });
 
-  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [] }]);
+  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [], excludeNodes: [] }]);
   assert.equal(placement.node, 'zabz-tech');
   assert.equal(placement.excludedLocalNode, false);
   assert.equal(placement.pressureDecision.decision, 'ok');
@@ -514,7 +514,7 @@ test('prefer-remote is OFF by default, and the default changes nothing', async (
     pressureReader: { read: () => reading({ commitPct: 0.4 }) },
   });
   const placement = await placer.acquire({ id: 'policy-off' });
-  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [] }]);
+  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [], excludeNodes: [] }]);
   assert.equal(broker.calls.done.length, 0, 'a policy that is off must not touch a lease');
   assert.equal(placement.node, 'zabz-yoga-1');
   assert.equal(placement.excludedLocalNode, false);

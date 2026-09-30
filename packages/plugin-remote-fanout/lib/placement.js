@@ -308,8 +308,16 @@ export function createNodePlacer({
      *      the call: mesh unreachable plus machine saturated has no good answer,
      *      and piling the child on is the worst one.
      */
-    async acquire({ id, childIndex } = {}) {
+    async acquire({ id, childIndex, excludeNodes = [] } = {}) {
       const at = now();
+      // Nodes this dispatch must not be sent to again — a reroute's explicit list. It is
+      // SEPARATE from the `exclude` hint on purpose: `exclude` expresses a preference,
+      // while `excludeNodes` says "this node already failed this child". Both are SOFT at
+      // the broker (see `mesh-broker/lib/broker.js`), so a list naming every node still
+      // yields to queue-never-amputate rather than refusing to place at all.
+      const rerouteExclude = Array.isArray(excludeNodes)
+        ? excludeNodes.filter((name) => typeof name === 'string' && name !== '')
+        : [];
       const reading = measuredPressure();
       const localIsDispatchable = thisNode !== undefined && NODES[thisNode] !== undefined;
       // The pre-call verdict has no broker outcome yet, so `brokerReachable` is
@@ -369,7 +377,7 @@ export function createNodePlacer({
 
       let placement;
       try {
-        placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExclude });
+        placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExclude, excludeNodes: rerouteExclude });
       } catch (error) {
         // THE CASE WITH NO GOOD ANSWER, DECIDED EXPLICITLY. The mesh cannot be
         // asked and this machine is over its critical line. Refusing is the
@@ -443,7 +451,7 @@ export function createNodePlacer({
             logger?.warn?.(`remote-fanout: the prefer-remote policy could not release the local reservation ${placement.lease} (${error?.code ?? 'broker-error'}: ${String(error?.message ?? error)}); the broker reclaims it at its TTL`);
           }
           askedExcludeFinal = [...new Set([...exclude, thisNode])];
-          placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExcludeFinal });
+          placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExcludeFinal, excludeNodes: rerouteExclude });
           policyDecision = firstDecision;
           policyNote = `prefer-remote: the first answer placed this child on THIS machine while the broker's own eligible set held ${firstDecision.eligible?.alternatives ?? '?'} node(s) other than it; that reservation was released unspent and the local node was excluded from the second ask`;
           logger?.info?.(`remote-fanout: child ${id} ${policyNote}`);
