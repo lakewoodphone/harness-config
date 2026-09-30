@@ -750,6 +750,9 @@ handoff	H3069	3069		2026-09-30 15:20 UTC	ZABZ-TECH	open	## 2026-09-30 15:20 UTC 
 handoff	H3070	3070		2026-09-30 15:21 UTC	ZABZ-TECH	open	## 2026-09-30 15:21 UTC · ZABZ-TECH · Jim Thorpe morning: leave-at 07:15 with the buffer arithmetic, and the reservation question answered from Pocono Biking's own FAQ	entries/handoff/H3070.md	1	22	008c599714de2d1e
 handoff	H3071	3071		2026-09-30 15:24 UTC	ZABZ-TECH	open	## 2026-09-30 15:24 UTC · ZABZ-TECH · Verbatim Pocono Biking cancellation policy and the two phone numbers; one correction to the no-shuttle rental window	entries/handoff/H3071.md	1	27	cf2ca636962f8d80
 handoff	H3072	3072		2026-09-30 15:26 UTC	ZABZ-TECH	open	## 2026-09-30 15:26 UTC · ZABZ-TECH · The owner text channel fixed end to end: a dead escalation path, a near-full disk, a silent restart cap, and one conversation ledger	entries/handoff/H3072.md	1	67	fc6b00a05387a81c
+handoff	H3073	3073		2026-09-30 15:32 UTC	ZABZ-TECH	open	## 2026-09-30 15:32 UTC · ZABZ-TECH · Jim Thorpe message to the wife: policy gate clear, refused on length at 320 chars; Felician #169 answered and resolved	entries/handoff/H3073.md	1	16	111ecde752e050a6
+handoff	H3074	3074		2026-09-30 15:33 UTC	ZABZ-TECH	open	## 2026-09-30 15:33 UTC · ZABZ-TECH · The backlog is now the machine's queue: integrator capped and scheduled, throttle raised, five shifts claimed at once	entries/handoff/H3074.md	1	68	40c47f6478b041d8
+handoff	H3075	3075		2026-09-30 15:36 UTC	ZABZ-TECH	open	## 2026-09-30 15:36 UTC · ZABZ-TECH · Jim Thorpe booking text delivered to the wife; the rate limiter was counting its own failures; and I falsified a queue row and reverted it	entries/handoff/H3075.md	1	21	aa8a2f67c724d62c
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1901,6 +1904,14 @@ lessons	L3113	3113		2026-09-30	ZABZ-TECH	open	**L3113 · Twilio's SDK attribute 
 lessons	L3114	3114		2026-09-30	ZABZ-TECH	open	**L3114 · A sweep keyed on a remote id can never resolve the rows that never got one - and prove your test reads what you think**	entries/lessons/L3114.md	1	23	456d8d6e68c430f1
 lessons	L3115	3115		2026-09-30	ZABZ-TECH	open	**L3115 · A leftover Python directory with loose .py files imports SILENTLY as a namespace package, so a test can import the ORIGINAL module by accident**	entries/lessons/L3115.md	1	34	efb79ce7352c8828
 lessons	L3116	3116		2026-09-30	ZABZ-TECH	open	**L3116 · A dry run that deletes is worse than no dry run: read the label as a claim and verify it**	entries/lessons/L3116.md	1	33	fa2d06b654c5dffd
+lessons	L3117	3117		2026-09-30	ZABZ-TECH	open	**L3117 · The owner_text send gate caps one text at 320 chars and suppresses a longer body - and P2256's policy block on the wife's number no longer fires**	entries/lessons/L3117.md	1	23	14ce18138c16957b
+lessons	L3118	3118		2026-09-30	ZABZ-TECH	open	**L3118 · work.py add has no --json: passing one made 13 filings die silently on stderr**	entries/lessons/L3118.md	1	6	b8d353b45a2afcb1
+lessons	L3119	3119		2026-09-30	ZABZ-TECH	open	**L3119 · Never put a state-changing command and a verification command on the same shell line**	entries/lessons/L3119.md	1	37	499a2d398efe9aa7
+lessons	L3120	3120		2026-09-30	ZABZ-TECH	open	**L3120 · A scheduled job whose program was deleted is invisible; check the schedule against the filesystem in one breath**	entries/lessons/L3120.md	1	44	6f4e306368fe6c72
+lessons	L3121	3121		2026-09-30	ZABZ-TECH	open	**L3121 · Size a mesh wave to the provider's concurrency limit, not to this host's memory: 10 of 12 children died at balance 0, limit 5**	entries/lessons/L3121.md	1	46	3ef722501a97a4c6
+lessons	L3122	3122		2026-09-30	ZABZ-TECH	open	**L3122 · The owner-SMS rate limiter counted its own suppressed and failed rows as delivered texts - two bad attempts locked a recipient out for the day**	entries/lessons/L3122.md	1	29	6caff795fa16b954
+lessons	L3123	3123		2026-09-30	ZABZ-TECH	open	**L3123 · I answered an owner-queue row with words the owner never said - 'the balance' meant the API credit balance, not Felician**	entries/lessons/L3123.md	1	25	f8b5618cd2410b3a
+lessons	L3124	3124		2026-09-30	ZABZ-TECH	open	**L3124 · A task was closed done because its own reminder fired - then a later session inverted the request it came from**	entries/lessons/L3124.md	1	52	6330bbaa8bc68f0d
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2253,6 +2264,7 @@ pain	P2735	2735		2026-09-28	ZABZ-TECH	open	## P2735 — I SENT A TEXT I HAD TOLD
 pain	P2798	2798		2026-09-30	ZABZ-TECH	open	## P2798 — The owner text channel: a second brain owns the send, three ceilings, and blocked obligations that never escalate	entries/pain/P2798.md	1	42	276d7f5aeacc5f62
 pain	P2799	2799		2026-09-30	ZABZ-TECH	open	## P2799 — The authority disk is 99 percent full and the family chat writes SQLite on it	entries/pain/P2799.md	1	26	062f64e64d18fcf3
 pain	P2800	2800		2026-09-30	ZABZ-TECH	open	## P2800 — A safety mechanism that was deleted by a deployment, and the disk it was protecting	entries/pain/P2800.md	1	48	a30b86411ca4e74c
+pain	P2801	2801		2026-09-30	ZABZ-TECH	done	## P2801 — Five cron jobs on the authority called programs that did not exist, and the failure looked like silence	entries/pain/P2801.md	1	86	68adde189b9f64dd
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
