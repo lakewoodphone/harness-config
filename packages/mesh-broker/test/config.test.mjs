@@ -28,12 +28,19 @@ const scratchFile = (contents) => {
 
 const node = (over = {}) => ({ node: 'zabz-tech', baseUrl: 'https://zabz-tech.tail93e6e6.ts.net', fqdn: 'zabz-tech.tail93e6e6.ts.net', ...over });
 
-test('the shipped roster is valid, names four nodes, and reads like the program describes them', () => {
+test('the shipped roster is valid, names five nodes, and reads like the program describes them', () => {
   const config = loadConfig(fileURLToPath(new URL('../nodes.json', import.meta.url)));
-  assert.equal(config.nodes.length, 4);
+  // CHANGED 2026-09-30: four -> five. This assertion was stale, not broken: commit
+  // 3d13a7c ("add lakewooechsmini to the roster") added the fifth node and this test,
+  // which was last touched before it, kept asserting four — so it failed at HEAD
+  // independently of any change in flight. Verified by reading the committed roster,
+  // which carries all five rows. The reason this matters rather than being cosmetic:
+  // a test that is already red for an unrelated reason is a test nobody reads, and
+  // this suite is the only thing standing between a placement defect and the fleets.
+  assert.equal(config.nodes.length, 5);
   assert.deepEqual(
     config.nodes.map((entry) => entry.node).sort(),
-    ['secratary', 'zabz-tech', 'zabz-tech-linux', 'zabz-yoga-1'].sort(),
+    ['lakewooechsmini', 'secratary', 'zabz-tech', 'zabz-tech-linux', 'zabz-yoga-1'].sort(),
   );
   const laptop = config.nodes.find((entry) => entry.node === 'zabz-yoga-1');
   assert.equal(laptop.baseUrl, 'https://zabz-yoga-1.tail93e6e6.ts.net', 'the DNS label really is zabz-yoga-1');

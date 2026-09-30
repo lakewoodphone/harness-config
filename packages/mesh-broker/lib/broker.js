@@ -316,7 +316,25 @@ export function createBroker(options = {}) {
     const onNode = leases.onNode(node.node, at);
     const running = onNode.filter((lease) => lease.state === 'running').length;
     const queued = onNode.filter((lease) => lease.state === 'queued').length;
-    const freeSlots = Math.max(0, arith.slots - running);
+    /**
+     * ── THE PER-NODE CHILDREN CAP (measured, 2026-09-18) ──────────────────────
+     * The machine's own slot arithmetic says what it could compute; it says nothing
+     * about how many children it should carry at once. A five-child fan-out was placed
+     * entirely on one node, its sshd handshake stretched from ~1.5 s to 8 s against a
+     * 10 s dispatch timeout, and one child was lost to a `Connection timed out` — the
+     * load that broke it was the fleet we had just sent.
+     *
+     * So capacity is the MINIMUM of what the machine reports and what its roster row
+     * allows, and the fact that the cap bound is named separately from the arithmetic
+     * bound. A reader must be able to tell "this node is full of children" from "this
+     * node has no memory left", because the first is our own scheduling and the second
+     * is the machine.
+     */
+    const machineSlots = Math.max(0, arith.slots - running);
+    const rowCap = Number.isInteger(node.maxChildren) && node.maxChildren > 0 ? node.maxChildren : null;
+    const capSlots = rowCap === null ? machineSlots : Math.max(0, rowCap - onNode.length);
+    const cappedByChildrenCap = capSlots < machineSlots;
+    const freeSlots = cappedByChildrenCap ? capSlots : machineSlots;
     const disk = diskFreeGiB(doc);
     const requirement = diskRequirementGiB(task);
     const accepts = reachable ? (doc?.accepts ?? null) : null;
@@ -397,6 +415,11 @@ export function createBroker(options = {}) {
       running,
       queued,
       liveLeases: running + queued,
+      // The cap, and WHICH bound produced freeSlots. Named separately so a reader can
+      // tell "full of children" (our scheduling) from "out of memory" (the machine).
+      maxChildren: rowCap,
+      machineSlots,
+      cappedByChildrenCap,
       onNode,
       disk,
       requirement,
@@ -531,6 +554,12 @@ export function createBroker(options = {}) {
       candidate.effective.summary,
       `${candidate.freeSlots - task.children} after ${task.children} child(ren)`,
     ];
+    // WHEN OUR OWN CAP IS WHAT LIMITS A NODE, SAY SO. Otherwise a reader sees "0 free
+    // slots" and concludes the machine is exhausted, when in fact it is carrying as many
+    // children as its row allows and would take more if the row said so.
+    if (candidate.cappedByChildrenCap) {
+      bits.push(`limited by this row's children cap (${candidate.maxChildren} at once; ${candidate.machineSlots - candidate.freeSlots} slot(s) still unused on the machine)`);
+    }
     if (candidate.slow) bits.push(`SLOW (${candidate.elapsedMs ?? '?'} ms door-to-door, first attempt missed the deadline): ${candidate.entry?.retryWasFast ? 'a cold-start miss, not proof of congestion' : 'still slow on the second attempt'}`);
     if (candidate.swapApplied) bits.push(`swap ${candidate.swapUsedPct}% used: effective slots halved`);
     if (!candidate.dispatchOk) bits.push('transport v1 MEASURED BROKEN');
@@ -751,6 +780,16 @@ export function createBroker(options = {}) {
     lines.push(`${chosen.node}: ${chosen.arith.line}`);
     lines.push(`${chosen.node}: ${chosen.freeSlots} free slot(s) of ${MAX_SLOTS} `
       + `(slots ${chosen.arith.slots} = ${chosen.arith.raw} raw - see above, minus ${chosen.running} broker lease(s) running here; ${chosen.queued} queued)`);
+    // ── WHERE "0 FREE SLOTS" CAME FROM ────────────────────────────────────────
+    // The line above derives free slots from the MACHINE's arithmetic. When this node's
+    // roster row caps how many children it may carry, the machine may still have room and
+    // the honest answer is different: our own scheduling bound it, not the box. A reader
+    // who sees "0 free slots" must not conclude the machine is exhausted (P332: five
+    // children on one node, its sshd to 8 s, one child lost).
+    if (chosen.cappedByChildrenCap) {
+      lines.push(`${chosen.node}: capacity is capped by its ROSTER ROW at ${chosen.maxChildren} concurrent child(ren), not by the machine - `
+        + `${chosen.machineSlots} slot(s) of machine capacity are left unused here, and the row is the reason a further child queues`);
+    }
     if (!chosen.reachable) {
       lines.push(`${chosen.node}: UNREACHABLE (last attempt ${chosen.ageSec} s ago: ${chosen.reason}) - no live measurement, so it is treated as 0 free slot(s) and the answer is a queue position, not a claim that it will start`);
     }
@@ -945,6 +984,14 @@ export function createBroker(options = {}) {
       retried: entry?.retried === true,
       firstLatencyMs: entry?.firstLatencyMs ?? null,
       elapsedMs: entry?.elapsedMs ?? null,
+      // ── THE PER-NODE CHILDREN CAP, READABLE FROM THE SURFACE ────────────────
+      // `maxChildren` is how many children this row may carry AT ONCE, and
+      // `childrenCapReached` says whether it is what limits this node right now.
+      // An operator asking "why did my fleet queue when the machine looks idle?"
+      // must be able to answer it from GET /nodes without reading nodes.json.
+      maxChildren: Number.isInteger(node.maxChildren) && node.maxChildren > 0 ? node.maxChildren : null,
+      childrenRunning: running,
+      childrenCapReached: Number.isInteger(node.maxChildren) && node.maxChildren > 0 && running >= node.maxChildren,
     };
     if (absent) {
       view.note = 'configured in the roster and never answered: this is the ABSENT state, not unreachable - the node has no network history to be either, and it is excluded from the ranking. Measured by this broker, not a claim about the far side.';

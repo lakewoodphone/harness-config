@@ -27,6 +27,23 @@ export const DEFAULT_LEASE_TTL_MS = 900_000;
 
 const positiveNumber = (value, fallback) => (Number.isFinite(value) && value > 0 ? value : fallback);
 
+/**
+ * The default ceiling on how many children one node may carry at once.
+ *
+ * FOUR, and the number is chosen from a measurement rather than taste: on 2026-09-18
+ * five children on one node pushed that node's sshd handshake to 8 s (against a 10 s
+ * dispatch timeout) and lost a child. Four leaves that handshake the headroom it needs
+ * on the weakest machine in the roster, and the placement broker still spreads work when
+ * other nodes have room. A row may raise or lower it; a row that sets 0 or nonsense gets
+ * the default, never "unlimited", because "unlimited" is the defect this exists to fix.
+ */
+export const DEFAULT_MAX_CHILDREN_PER_NODE = 4;
+
+/** Read a per-node children cap. Absent or nonsense means the default, never unlimited. */
+export const childrenCap = (value, fallback = DEFAULT_MAX_CHILDREN_PER_NODE) => (
+  Number.isInteger(value) && value > 0 ? value : fallback
+);
+
 /** The Tailscale DNS label of an fqdn: the part the gate names itself with. */
 export function dnsLabel(fqdn) {
   return typeof fqdn === 'string' && fqdn.length > 0 ? fqdn.split('.')[0] : null;
@@ -94,6 +111,18 @@ export function validateConfig(raw, source = 'config') {
       // A node can be switched off in the roster without being deleted from it, so its
       // absence from placement is a configuration fact rather than a network accident.
       excluded: entry.excluded === true,
+      // ── HOW MANY CHILDREN THIS NODE MAY CARRY AT ONCE ─────────────────────────
+      // MEASURED 2026-09-18: five children were placed on one node because the broker
+      // ranks by capacity and nothing capped how many a single node could be given.
+      // That node's sshd handshake stretched from ~1.5 s to 8 s and one child was lost
+      // to a connection timeout — the load that caused the loss was our own fan-out.
+      //
+      // The node's own `/mesh/capacity` document carries `accepts.maxChildren`, but the
+      // broker only consults it to check that ONE task's children fit; it never limits
+      // the SUM of what is already running there. And a capacity document can be stale
+      // while the leases are not. So the cap is configuration, alongside `excluded`, and
+      // it is enforced against the live lease count.
+      maxChildren: childrenCap(entry.maxChildren, DEFAULT_MAX_CHILDREN_PER_NODE),
       dispatch: normalizeDispatch(entry.dispatch),
       // Amendment 5: an entry whose node may not exist yet — a configured-but-not-provisioned
       // elastic row. It is what lets `GET /nodes` tell `absent` from `unreachable`; the LIVE
