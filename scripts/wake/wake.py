@@ -887,6 +887,28 @@ def cmd_heartbeat(args) -> int:
     return 0
 
 
+
+# A TRANSIENT REFUSAL IS NOT A FAILED SUBJECT. The attempt is spent at CLAIM time, so without this a flake
+# that kills a session consumes one of max_attempts and, on the second, ends the subject for good with its
+# work silently lost. Measured 2026-09-30: five releases in one twelve-second burst died in about 21 seconds
+# with "dsh: QUOTA: Insufficient Balance" while the account answered is_available true, balance 48.94.
+_RETRY_AFTER_SEC = 600
+_RETRYABLE_SIGNATURES = (
+    "quota", "insufficient balance", "rate_limit", "rate limit", "too many requests",
+    "429", "502", "503", "service unavailable", "overloaded",
+    "timeout", "timed out", "transport", "connection reset", "broken pipe", "connection refused",
+)
+
+
+def _retryable_reason(outcome: str):
+    """The matched transient signature, or None when this looks like a genuine failure."""
+    low = (outcome or "").lower()
+    for sig in _RETRYABLE_SIGNATURES:
+        if sig in low:
+            return sig
+    return None
+
+
 def cmd_finish(args) -> int:
     conn = connect()
     state = "failed" if args.failed else "done"
@@ -896,13 +918,27 @@ def cmd_finish(args) -> int:
         if row is None:
             print(f"wake: no wake row #{args.id}", file=sys.stderr)
             return 2
-        conn.execute(
-            """UPDATE wake SET state=?, finished_at=?, outcome=?,
-                   cost_usd=COALESCE(?, cost_usd), lease_until=NULL WHERE id=?""",
-            (state, now(), args.outcome or "", cost, args.id),
-        )
-        if state == "failed" and row["state"] != "failed":
-            _bump_budget(conn, failed=1)
+        why = _retryable_reason(args.outcome or "") if state == "failed" else None
+        if why:
+            retry_at = (now_dt() + timedelta(seconds=_RETRY_AFTER_SEC)).isoformat(timespec="seconds")
+            conn.execute(
+                """UPDATE wake SET state='new', claimed_by=NULL, claimed_at=NULL, lease_until=NULL,
+                       attempts=MAX(0, attempts-1), not_before=?, outcome=?
+                   WHERE id=?""",
+                (retry_at, "retryable: %s - attempt refunded, retrying after %ss" %
+                 (why, _RETRY_AFTER_SEC), args.id),
+            )
+            state = "retry"
+            sys.stderr.write("wake: #%s transient (%s) - back to new, attempt refunded, retry after %ss\n"
+                             % (args.id, why, _RETRY_AFTER_SEC))
+        else:
+            conn.execute(
+                """UPDATE wake SET state=?, finished_at=?, outcome=?,
+                       cost_usd=COALESCE(?, cost_usd), lease_until=NULL WHERE id=?""",
+                (state, now(), args.outcome or "", cost, args.id),
+            )
+            if state == "failed" and row["state"] != "failed":
+                _bump_budget(conn, failed=1)
     if getattr(args, "json", False):
         sys.stdout.write(json.dumps(
             {"ok": True, "id": args.id, "state": state, "cost_usd": cost}) + "\n")
