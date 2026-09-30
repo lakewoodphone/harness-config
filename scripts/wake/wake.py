@@ -70,7 +70,7 @@ ENVIRONMENT (all read AT CALL TIME, never at import, so tests can set them):
     WAKE_PAUSE_FILE             (~/.sms-inbox/WAKE_PAUSED) guard 6
     WAKE_LEASE_SEC              (1200) guard 7
     WAKE_MAX_ATTEMPTS           (2)    guard 9
-    WAKE_MAX_USD_PER_DAY        (70.0)  guard 10
+    WAKE_MAX_USD_PER_DAY        (25.0)  guard 10
     WAKE_SESSION                - set inside a woken session; refuses every flag
                                   (guard 11, always on)
     WAKE_CLOCK_ISO      - test/ops override for "now" (ISO8601). A time gate
@@ -266,7 +266,7 @@ DEFAULT_MAX_PER_DAY = 500
 # ~/.sms-inbox/wake-cost.jsonl) that is roughly 1,029 shifts/day, so this binds only when
 # something is pathological - which is precisely what it is for. Volume is not the limit;
 # waste is.
-DEFAULT_MAX_USD_PER_DAY = 70.0
+DEFAULT_MAX_USD_PER_DAY = 25.0
 
 def _env_int(name: str, default: int) -> int:
     try:
