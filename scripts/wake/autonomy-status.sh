@@ -238,4 +238,7 @@ if not in_flight and not out["problems"]:
         print("  IDLE          : healthy - %d row(s) waiting, NONE claimable now; earliest %s (%s)"
               % (waiting, nc.get("earliest") or "unknown", (nc.get("earliest_subject") or "")[:40]))
 PY
+# VALUE AND BUDGET, in one read. Items closed today, dollars per closed item, and the spend against
+# the ceiling the queue itself enforces - so a reader can never be shown a cap no process honours.
+python3 "${WAKE_VALUE:-/home/zabz/bin/wake-value.py}" 2>/dev/null || true
 exit 0
