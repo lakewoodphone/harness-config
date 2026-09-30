@@ -18,6 +18,7 @@ live authority to show what it does when nothing is wrong.
 | **`decision-queue-stale.py`** | `owner_decision_queue WHERE status='pending' AND asked_at < now-7d`. | **>7 days pending.** Measured over all 18 rows the queue has ever answered: lag min 0.10 h, **median 1.70 h, worst 57.31 h**. 168 h is 2.9× his worst and 99× his median, so the row is not "he has not got to it yet" — it is either an engineering fault mis-filed as his decision, a question that is now moot, or genuinely his. | Triage: fix and `resolve` (a), `resolve` with the superseding evidence (b), or **leave it exactly as it is** (c). Never answer on his behalf. | treat a pending row as agent work on the strength of its age; `answer` a row; `resolve`/`dismiss` a row that is genuinely his (that hides his question from him, which is worse than the nag). |
 | **`decision-answer-unconsumed.py`** | `owner_decision_queue WHERE status='answered' AND resolved_at IS NULL AND answered_at < now-6h`. | **≥1 older than 6 h.** The healthy resting state is closed: 2 of the 8 answered rows have `resolved_at` **equal to** `answered_at` to the second. The other 6 sat at 52.3, 52.3, 50.7, 50.1, 9.2 and 1.4 h and their `answer` text orders real work ("Dismiss him in Gusto", "fix only the spoken message", "tell the customer straight"). The zero-second healthy figure is only n=2 and that is thin evidence, so the threshold is deliberately generous rather than tight. | Per row: verify whether the action was done (i) and close it, do it (ii), or — if it needs a person — write what should be said and leave it (iii). **Verify before acting**: re-doing a finished action is worse than doing nothing. | fire when every answered row is resolved; re-do work that is already done; **contact any customer or vendor** (outbound needs the owner's explicit per-message instruction, without exception); use `answer`. |
 | **`comms-freshness.py`** | `~/.lpt-recon/production-comms-freshness.json` — the verdict written every 15 min by `~/bin/production-comms-freshness.py`. | **A: `problems` non-empty on a verdict checked_at <45 min ago. B: no fresh verdict in 45 min.** Measured healthy 2026-09-18 03:15 UTC: `ok: true, problems: []`, cursors 0.6 h / 0.59 h, website newest 0.03 h. A `problems` entry means a measured clock is behind its own 2 h gate — the shape that hid an 11.5-hour customer-comms silence on 2026-09-15. 45 min = three missed 15-min runs; one miss can be transient, three cannot. | Run the check by hand (`rc=1` stale, `rc=2` could-not-measure). Find which clock moved: the push (`website-comms-push-cron.sh`, crontab 9,39) or the site ingest (`comms-refresh.py`, 7,37). Fix, then confirm `rc=0` and the website's newest message age back under 2 h. | fire off a stale verdict (that is finding B, a different job); fire while the verdict is ok and current; run the monitor or repair anything itself. |
+| **`checkout-health.py`** | each ENABLED project's `repo` in `projects.json`: whether `.git/index.lock` is owned by a live git process, how many commits HEAD is behind its upstream (after a bounded `git fetch`), and the age of the oldest uncommitted file. | **A lock no live git process owns; >=50 commits behind; or uncommitted work older than 24 h.** Measured 2026-09-28: both project checkouts were crippled the same way -- `lpt-website` `/home/zabz/repos/phone-and-tech-full` at `057cea451` with a 0-byte `.git/index.lock` dated 2026-09-16 and **426** commits behind, `kosher-ai-filter` `/home/zabz/repos/kosher-filter-ai` at `d225385` with a lock dated 2026-09-20 and **222** behind -- so every git write failed and the checkout never advanced, while `project-keepalive` reported `project-daily-cap 1/1` and looked perfectly healthy. Healthy values measured the same day: behind 0 and 2, dirty 0; the one live condition at 17:14Z was `lpt-website` dirty=1 whose oldest file was 186 h old, which is exactly the shape it is meant to catch. Liveness is `/proc` comm plus the open descriptor on the lock, never `pgrep -f 'git '` (measured: 3 matches, 0 of them git). 50 is ~2 days of drift at that repo's measured merge rate (340 commits in 14 days) and 4.4x below the smaller real incident. | Move the lock ASIDE into `/home/zabz/checkout-health-preserved/` (never delete), preserve the uncommitted work first, `git fetch`, `git merge --ff-only`, put the work back -- all spelled out in the flag's own prompt, which also forbids `git reset --hard`, force and discarding work. | fire on a HELD lock (a live `git commit` is normal), fire on a tree that is merely dirty from a run happening now, fire on a checkout that is AHEAD of its upstream, fire when the signal is unmeasurable (a failed fetch is reported, never turned into a flag), or write anything into the checkout -- it only reads and runs `git fetch`. |
 
 ### How they stay quiet, and what bounds a bad day
 
@@ -90,9 +91,12 @@ live authority to show what it does when nothing is wrong.
 
 ## Files, deployment and verification
 
-These five files are one unit — `_flag.py` is imported by all four sources, so they must be
-copied together, and they read their signals with **`sqlite3` in read-only mode** and
-`journalctl` only. They write nothing anywhere except through the frozen `flag` CLI.
+These files are one unit — `_flag.py` is imported by every source, so they must be copied
+together, and they read their signals with **`sqlite3` in read-only mode**, `journalctl`, and
+`git` (read-only except for `git fetch`). They write nothing anywhere except through the frozen
+`flag` CLI. `checkout-health.py` is the one source that reads a working tree instead of a
+database, so it never takes an optional lock (`GIT_OPTIONAL_LOCKS=0`) and never writes to the
+checkout it watches.
 
 ```
 sources/_flag.py                        shared plumbing (paths, read-only reads,
@@ -102,6 +106,8 @@ sources/txt-stranded-inbound.py         source 2
 sources/decision-queue-stale.py         source 3
 sources/decision-answer-unconsumed.py   source 5
 sources/comms-freshness.py              source 4
+sources/checkout-health.py              the project checkouts: lock ownership,
+                                        staleness, uncommitted age
 ```
 
 Every source: `python3 sources/<name>.py [--dry-run]`. Run them at a modest interval — each
@@ -128,4 +134,11 @@ python3 sources/comms-freshness.py
 cp ~/.sms-inbox/inbox.db /tmp/t.db        # never the live store
 SMS_INBOX_DB=/tmp/t.db python3 sources/txt-lost-webhook.py   # flagged …
 SMS_INBOX_DB=/tmp/t.db python3 sources/txt-lost-webhook.py   # (…: deduped)
+
+# checkout-health: rehearsal against a throwaway clone, never a real checkout
+git clone /home/zabz/repos/kosher-filter-ai /home/zabz/checkout-health-test
+#   registry copy -> CHECKOUT_HEALTH_REGISTRY=~/checkout-health-test-registry.json
+#   store copy    -> SMS_INBOX_DB=/tmp/ch-test-store.db
+CHECKOUT_HEALTH_REGISTRY=~/checkout-health-test-registry.json \
+  SMS_INBOX_DB=/tmp/ch-test-store.db python3 sources/checkout-health.py
 ```

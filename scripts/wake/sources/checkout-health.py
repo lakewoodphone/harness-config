@@ -52,6 +52,14 @@ A. STALE LOCK -- `.git/index.lock` exists AND no live git process owns it.
    LOCK_GRACE_SEC=300: an index write is sub-second (measured `git fetch` 0.54 s
    and 0.95 s on these two repos), and 300 s is three orders of magnitude above
    it, so a lock still present after five minutes with no owner is debris.
+   A LINKED WORKTREE has its OWN index.lock at
+   <gitdir>/worktrees/<name>/index.lock, and every one of them is judged by the
+   same grace and the same /proc test, with the broad cwd test run against that
+   worktree's path. Measured 2026-09-28T22:05Z on secratary: a 0 B lock there
+   (mtime 18:22:03Z, age 3.7 h, no git process holding it) had stranded
+   /home/zabz/_verify_co_20260928 while the source read only <gitdir>/index.lock,
+   found nothing and printed lock=none -- a green reading on a tree that could
+   not be written. One worktree of the production checkout is enough.
 
 B. STALENESS -- `git fetch` (bounded), then the commit count between HEAD and
    the upstream (`@{u}`, else `origin/HEAD`, else `origin/<branch>`, else
@@ -437,17 +445,33 @@ def check_project(project: dict, now: datetime, opts: dict) -> dict[str, Any]:
     }
 
     # --- A. the lock ------------------------------------------------------- #
-    lock = gitdir / "index.lock"
-    lock_info: dict[str, Any] = {"path": lock, "exists": lock.exists()}
-    if lock_info["exists"]:
+    def _read_lock(lock: Path, repo_for_owner: Path, label: str,
+                   strict: bool = False) -> dict[str, Any]:
+        """Classify one index.lock and append its reasons/notes to `report`.
+
+        Factored out of the main-checkout path so a LINKED WORKTREE's lock gets
+        exactly the same liveness test. The broad "cwd inside the repo" probe is
+        run against `repo_for_owner` (the worktree's own path for a worktree
+        lock), because a git process holding a worktree lock is working there.
+        """
+        info: dict[str, Any] = {"path": lock, "exists": lock.exists()}
+        if not info["exists"]:
+            info["state"] = "none"
+            return info
         procs, trustworthy = scan_processes()
         try:
             st = lock.stat()
         except OSError as exc:
-            raise Unreadable(f"project {pid!r}: cannot stat {lock}: {exc}") from exc
+            if strict:
+                raise Unreadable(
+                    f"project {pid!r}: cannot stat {lock}: {exc}") from exc
+            info["state"] = "unstattable"
+            report["notes"].append(
+                f"{label}lock {lock}: cannot stat it ({exc}) -- lock NOT judged")
+            return info
         age = (now - datetime.fromtimestamp(st.st_mtime, timezone.utc)).total_seconds()
-        owner = lock_owner(lock, repo, procs)
-        lock_info.update({
+        owner = lock_owner(lock, repo_for_owner, procs)
+        info.update({
             "age_sec": age,
             "size": st.st_size,
             "mtime": datetime.fromtimestamp(st.st_mtime, timezone.utc),
@@ -458,26 +482,61 @@ def check_project(project: dict, now: datetime, opts: dict) -> dict[str, Any]:
         grace = opts["lock_grace_sec"]
         young = -grace < age < grace           # a future mtime counts as young
         if owner:
-            lock_info["state"] = "held"
+            info["state"] = "held"
             report["notes"].append(
-                f"lock held by {owner} -- a live git operation, normal, not a fault")
+                f"{label}lock held by {owner} -- a live git operation, normal, not a fault")
         elif young:
-            lock_info["state"] = "young"
+            info["state"] = "young"
             report["notes"].append(
-                f"lock is {age:.0f}s old, inside the {grace}s grace, and no git "
+                f"{label}lock is {age:.0f}s old, inside the {grace}s grace, and no git "
                 f"process owns it -- not called stale yet")
         elif not trustworthy:
-            lock_info["state"] = "unverified"
+            info["state"] = "unverified"
             report["notes"].append(
-                f"lock is {age:.0f}s old and no git process owns it, but /proc could "
-                f"not be scanned -- liveness NOT verified")
+                f"{label}lock is {age:.0f}s old and no git process owns it, but /proc "
+                f"could not be scanned -- liveness NOT verified")
             report["reasons"].append("lock-stale-unverified")
         else:
-            lock_info["state"] = "stale"
+            info["state"] = "stale"
             report["reasons"].append("lock-stale")
-    else:
-        lock_info["state"] = "none"
-    report["lock"] = lock_info
+        return info
+
+    lock = gitdir / "index.lock"
+    report["lock"] = _read_lock(lock, repo, "", strict=True)
+
+    # A linked worktree keeps its own index and index.lock under
+    # <gitdir>/worktrees/<name>/index.lock. Those are the locks of the OTHER
+    # trees a shift may be working in; a stale one strands that worktree while
+    # <gitdir>/index.lock is perfectly absent. Judge each by the same rule.
+    report["worktree_locks"] = []
+    try:
+        wt_root = gitdir / "worktrees"
+        wt_dirs = (sorted(p for p in wt_root.glob("*") if p.is_dir())
+                   if wt_root.is_dir() else [])
+    except OSError as exc:
+        report["notes"].append(
+            f"cannot list worktrees under {gitdir}/worktrees: {exc}")
+        wt_dirs = []
+    for wt_gitdir in wt_dirs:
+        wt_lock = wt_gitdir / "index.lock"
+        if not wt_lock.is_file():
+            continue
+        wt_repo = repo
+        try:
+            raw_gitdir = (wt_gitdir / "gitdir").read_text(
+                encoding="utf-8", errors="replace").strip()
+            if raw_gitdir:
+                wt_repo = Path(raw_gitdir).parent
+        except OSError:
+            pass
+        info = _read_lock(wt_lock, wt_repo, f"worktree {wt_gitdir.name}: ")
+        info["worktree"] = str(wt_repo)
+        info["worktree_name"] = wt_gitdir.name
+        if info["state"] in ("stale", "unverified"):
+            report["notes"].append(
+                f"stale lock in WORKTREE {wt_repo} -- it strands that worktree, "
+                f"not the main checkout")
+        report["worktree_locks"].append(info)
 
     # --- B. fetch, then staleness ------------------------------------------ #
     fetch = run_git(repo, ["fetch", "--quiet", "origin"],
@@ -666,6 +725,16 @@ def worker_prompt(project: dict, report: dict, now: datetime) -> str:
     else:
         lines.append(f"  lock         none at {lock['path']}")
 
+    for w in report.get("worktree_locks", []):
+        when = w.get("mtime")
+        lines.append(
+            f"  lock(wt)     {w['path']} EXISTS, {w.get('size', '?')} bytes, "
+            f"written {when.strftime('%Y-%m-%d %H:%M:%SZ') if when else '?'}, "
+            f"age {_fmt_age(w.get('age_sec'))}, worktree {w.get('worktree', '?')}")
+        lines.append(
+            "               owner: " + (w.get("owner") or
+                                      "NO live git process owns it (measured via /proc)"))
+
     if dirty["counted"]:
         lines.append(
             f"  dirty        {dirty['counted']} uncommitted path(s), oldest "
@@ -701,6 +770,10 @@ def worker_prompt(project: dict, report: dict, now: datetime) -> str:
         "    TS=$(date -u +%Y%m%dT%H%M%SZ)",
         f"    mkdir -p {preserve}",
         f"    mv {lock['path']} {preserve}/{pid}-index.lock.$TS",
+        *[f"    mv {w['path']} {preserve}/{pid}-wt-"
+          f"{w.get('worktree_name', 'wt')}-index.lock.$TS"
+          for w in report.get("worktree_locks", [])
+          if w.get("state") in ("stale", "young", "unverified")],
         f"  ({preserve} is under /home/zabz. /root is NOT writable as zabz, and",
         "   nothing may be deleted: a moved-aside lock is evidence, a deleted one is not.)",
         "",
@@ -855,9 +928,18 @@ def collect(args) -> list[Finding]:
         stale = report["staleness"]
         lock = report["lock"]
         dirty = report["dirty"]
-        lock_state = "none" if not lock["exists"] else lock.get("state", "unknown")
-        if lock_state not in ("none", "held"):
-            lock_state = f"{lock_state} {_fmt_age(lock.get('age_sec'))}"
+        lock_bits: list[str] = []
+        if lock["exists"]:
+            main_state = lock.get("state", "unknown")
+            if main_state not in ("none", "held"):
+                main_state = f"{main_state} {_fmt_age(lock.get('age_sec'))}"
+            lock_bits.append(main_state)
+        for wt in report.get("worktree_locks", []):
+            wt_state = wt.get("state", "unknown")
+            if wt_state not in ("none", "held"):
+                wt_state = f"{wt_state} {_fmt_age(wt.get('age_sec'))}"
+            lock_bits.append(f"wt:{wt.get('worktree_name', '?')}:{wt_state}")
+        lock_state = ",".join(lock_bits) if lock_bits else "none"
         dirty_txt = f"dirty={dirty['counted']}"
         if dirty["ignored"]:
             # Declared-and-excluded is still REPORTED: a project that declared a

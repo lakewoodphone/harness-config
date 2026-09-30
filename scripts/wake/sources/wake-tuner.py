@@ -394,6 +394,23 @@ def log_event_empty(event: dict, costs: dict[int, dict]) -> tuple[bool, str]:
                        f"(runner_code=124, {len(outcome)} char(s) of output) - not evidence "
                        "about the subject, so holding instead of raising")
 
+    # THE DISPATCHER'S OWN SELF-KILL IS ALSO NOT A VERDICT ABOUT THE SUBJECT.
+    # Measured 2026-09-28 (release #77, project:rental-system:20260928): the
+    # dispatcher's lease heartbeat failed three times on `database is locked`
+    # contention, so wake-dispatch.sh killed the session itself and recorded
+    # `exit=124 runner_code=?`. The RUNNER never returned a code, so the
+    # runner_code=124 exemption above cannot see it, and the release was charged
+    # as empty -- doubling the subject's cooldown for the dispatcher's fault.
+    # The session was alive at 211s when it was killed and the spend record was
+    # unmapped (AMBIGUOUS, 4 candidate sessions), which is a cost-mapping
+    # failure, not evidence about the subject. Same doctrine as rc=124 above:
+    # never charge the bound -- here the dispatcher's own lease -- to the subject.
+    # The outcome text is wake-dispatch.sh's own self-kill verdict.
+    if "lease heartbeat" in outcome.lower() and "killed" in outcome.lower():
+        return False, ("COULD NOT ASK: the dispatcher's own lease heartbeat was lost "
+                       f"and it killed the session ({len(outcome)} char(s) of output) - "
+                       "not evidence about the subject, so holding instead of raising")
+
     if exit_code != 0:
         return True, (f"exit={event.get('exit')} (runner_code="
                       f"{event.get('runner_code')}), outcome {len(outcome)} char(s)")
