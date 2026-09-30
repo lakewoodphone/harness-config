@@ -45,6 +45,9 @@ async function startMesh({ nodes: specs, broker: brokerOptions = {} }) {
         fqdn: spec.fqdn ?? null,
         location: spec.location ?? null,
         excluded: spec.excluded === true,
+        // A row-level configuration fact, like `excluded` — carried through so a test can
+        // exercise the per-node children cap without reaching into the broker's internals.
+        maxChildren: spec.maxChildren,
         dispatch: spec.dispatch,
         volatile: spec.volatile === true,
         index,
@@ -59,6 +62,7 @@ async function startMesh({ nodes: specs, broker: brokerOptions = {} }) {
       fqdn: spec.fqdn ?? null,
       location: spec.location ?? null,
       excluded: spec.excluded === true,
+      maxChildren: spec.maxChildren,
       dispatch: spec.dispatch,
       index,
     });
@@ -1046,3 +1050,4 @@ test('GET /nodes reuses a reading for its cache TTL and ?fresh=1 forces a re-rea
     await mesh.close();
   }
 });
+
