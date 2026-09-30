@@ -244,3 +244,62 @@ corpus has been asking for since `P4`: **a check per mechanism, with a route int
   designed and now has its raw material: ~300 `CMD`/`OUT` pairs in the verdict files. It is not built.
   Three of its members exist as of today (`cron-target-guard`, `disk-guard`, `db-integrity`), each
   wired to a source so a failure becomes ledger work.
+
+---
+
+## 8. Round two, same day — the readers
+
+Round one fixed eight things. Most of what it found, though, was one shape repeating: a thing that was
+supposed to happen did not, and **nothing could tell**. Round two built the readers. Every mechanism
+below is wired to cron or to the wake sources, so it runs without a session.
+
+**8.1 The control plane is versioned and, at last, backed up.**
+`~/bin` — 176 operator scripts, the only writer of the owner decision queue, every cron target, the
+journal commit path — **had no history at all**. It is now a git repository (`d52a2dc`, 271 files
+tracked, bare remote `/home/zabz/bin.git`). And the hourly backup collected **zero** files from it:
+`tar tzf personal-secretary-code.tgz | grep -cE '(^|/)bin/'` → 0. A `control-plane.tgz` is now written
+alongside (322 MB, 172 scripts, 2,762 journal entry files) and the backup script **verifies its own
+archive** and exits 3 when the journal is missing. That verification immediately earned its place: the
+first version named `/home/zabz/harness-config`, which is a symlink, so the archive contained the link
+and no journal at all. Off-box replication of these 322 MB is **not** done and is recorded as open.
+
+**8.2 Every cron job's outcome is a record (`cron-wrap.sh`).**
+cron's only output is a line in a per-job log nobody opens, and the host has no `mail` binary, so a job
+that fails every run is indistinguishable from one with nothing to do. All 59 jobs now run through a
+wrapper that records `<time> <name> <rc> <seconds> <stderr tail>`. Commands are passed
+**base64-encoded** — for quoting, not security: these lines contain single quotes, backticks, `$` and
+nested quotes, and the installer verifies every payload decodes to the original line byte-for-byte
+before touching anything. It found five failing jobs within ten minutes (§8.4).
+
+**8.3 The open pain list is a measurement (`pain-check.py`).**
+166 of the audit's verified entries were rewritten by a fleet as executable checks, each printing
+`<id> TAB FIXED|LIVE|UNKNOWN TAB reason`. First full run, 16:30Z:
+**FIXED 30 · LIVE 133 · UNKNOWN 3**, of which **30 were proven fixed and still filed open** — the debt
+that grew to 52 in one afternoon — and **27 of those 30 were closed from the checks' own evidence**.
+Daily at 06:20 through the wrapper; `sources/pain-checks.py` files ledger work when the debt is
+non-zero or a check file breaks.
+
+**8.4 What the new readers found in their first hour.**
+`converge-authority` exiting 1 every 15 minutes with `[diverged] behind=38 ahead=26`;
+`dialpad-recording-gap` with its own JSON reporting `errors: 4`; `mesh-placement-monitor` still turning
+`lakewooechsmini`'s unreachability into owner messages (P2260), some of which are answered `HTTP 500` by
+the notify endpoint; `journal-commit` failing on its autosync half; the `sync` chain returning 1 after
+189 s. Not one of those was visible an hour earlier.
+
+**8.5 The authority's journal lineage converged — verified, on a branch, not yet live.**
+Merge-tree named exactly seven conflicting paths: three generated index files, `alloc/bands.tsv`, and
+three real wake-source mirrors. Resolution rules, each with a check: the generated paths take
+origin/master (they rebuild); `bands.tsv` is **unioned** because it records which host claimed which id
+range; the mirrors take the authority's copy and are then **diffed against the live files they mirror**
+— which caught that the mirror in git was a 2026-09-29 snapshot, 15 KB behind `checkout-health.py`
+alone. Result: **2,760 entries (more than either side), `check` 0 errors, `idguard` 0 collisions**,
+pushed as `integrate/authority-master-20260930T161751Z` (`afbe6eb`, `3cd9f81`). **The live checkout was
+not moved**: advancing the trunk is a separate decision, and the branch is the deliverable.
+
+**8.6 The queue from here, in order.**
+1. Land the integration branch (or decide not to).
+2. The five failing jobs in `runs.tsv`, each with a recorded exit code and duration.
+3. The 133 checks that report LIVE and open — the `## FIX NOW` lists name the edit and the proving
+   command for every one.
+4. 136 open entries still without a check; write one each.
+5. Off-box replication of the control plane.
