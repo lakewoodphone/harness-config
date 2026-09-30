@@ -181,9 +181,20 @@ while :; do
     say "fanout: shift #$started (pid $pid) CLAIMED; processes now $(count_procs)"
     note "started shift #$started pid=$pid claimed=yes procs=$(count_procs)"
   else
-    say "fanout: shift #$started (pid $pid) did not claim - stopping this run"
-    note "started shift #$started pid=$pid claimed=no; stopping"
-    rm -rf "$INST" 2>/dev/null
+    # KEEP THE EVIDENCE, AND SAY WHY IT FAILED. This used to be `rm -rf "$INST"`, which deleted
+    # wake-ssh.log, claim.json and prompt.txt - the only record of WHY a claim failed. Measured
+    # 2026-09-30: eleven consecutive ticks failed to claim over 55 minutes and left nothing behind.
+    # A failed instance is now MOVED ASIDE, never deleted here; cleanup is by age, separately.
+    FAILED_DIR="$INST_ROOT/../wake-failed"
+    mkdir -p "$FAILED_DIR" 2>/dev/null || true
+    kept="left in place"
+    if mv "$INST" "$FAILED_DIR/$(basename "$INST")-$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null; then
+      kept="kept in $FAILED_DIR"
+    fi
+    gate=$(python3 "${WAKE_NEXTCLAIM:-/home/zabz/bin/wake-nextclaim.py}" --json 2>/dev/null || true)
+    say "fanout: shift #$started (pid $pid) did not claim - stopping this run ($kept)"
+    say "fanout: gate: ${gate:-unknown}"
+    note "started shift #$started pid=$pid claimed=no; stopping; evidence=$kept; gate=${gate:-unknown}"
     break
   fi
 done

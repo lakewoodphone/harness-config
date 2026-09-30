@@ -213,13 +213,29 @@ st = (w.get("states") or {})
 in_flight = out.get("liveness", {}).get("dispatch_processes") or 0
 if not in_flight and not out["problems"]:
     waiting = st.get("new") or 0
-    if waiting and w.get("caps_in_force"):
-        print("  IDLE          : healthy - %d row(s) waiting, every one gated by %s"
-              % (waiting, "; ".join(w["caps_in_force"])))
-    elif waiting:
-        print("  IDLE          : %d row(s) waiting and no cap in force - the next cron tick should claim"
-              % waiting)
-    else:
+    # A WAITING COUNT CANNOT DISTINGUISH GATED FROM STALLED. Measured 2026-09-30: seven rows waiting,
+    # every one gated days into the future (two by 28 days), while this line said "the next cron tick
+    # should claim" - so a healthy gated queue and a 55-minute stall printed the same sentence. Ask the
+    # store when anything could ACTUALLY be claimed, and say that instead.
+    nc = None
+    try:
+        raw_nc = subprocess.run(
+            ["python3", os.environ.get("WAKE_NEXTCLAIM", "/home/zabz/bin/wake-nextclaim.py"), "--json"],
+            capture_output=True, text=True, timeout=60).stdout
+        d_nc = json.loads(raw_nc)
+        if d_nc.get("ok"):
+            nc = d_nc
+    except Exception:
+        nc = None
+    if not waiting:
         print("  IDLE          : healthy - the queue is EMPTY (no new rows)")
+    elif nc is None:
+        print("  IDLE          : %d row(s) waiting; the claim gate could NOT be read" % waiting)
+    elif nc.get("claimable_now"):
+        print("  IDLE          : %d row(s) CLAIMABLE NOW (ids %s) and nothing running - the next cron tick should claim"
+              % (nc["claimable_now"], ",".join(str(i) for i in nc.get("claimable_ids", [])[:6])))
+    else:
+        print("  IDLE          : healthy - %d row(s) waiting, NONE claimable now; earliest %s (%s)"
+              % (waiting, nc.get("earliest") or "unknown", (nc.get("earliest_subject") or "")[:40]))
 PY
 exit 0
