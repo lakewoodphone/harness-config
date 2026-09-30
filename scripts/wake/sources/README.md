@@ -59,13 +59,22 @@ live authority to show what it does when nothing is wrong.
   events — a 27× undercount, so there is no trustworthy population to threshold against.
   The one consequence worth a session is the SMS webhook, and `txt-lost-webhook.py` reads
   exactly that signal instead.
-* **The family-chat watchdog (`~/family-chat-watchdog.log`) — REJECTED (permanently red,
-  so it cannot be a trigger).** 19 of 19 runs from 2026-09-16 00:00 to 09-18 03:00 report
-  `PROBLEM`, moving from "19 of 41 missing" to "41 of 41 missing" to "11 of 11 missing".
-  A source that fires on this fires every 30 minutes forever. It is a real defect (the
-  family-chat hub stopped matching the carrier) but it needs a *fix by the workstream that
-  owns the hub*, not a session factory. The general rule: **a monitor that has never once
-  been green is not a signal, it is a queue item.**
+* **The family-chat watchdog (`~/family-chat-watchdog.log`) — rejection STALE as of
+  2026-09-30; not yet re-registered.** The original verdict was right when written: 19 of
+  19 runs reported `PROBLEM`, because the instrument compared a whole day of carrier
+  messages against a six-hour window (Twilio's `DateSent` filter is DATE-granular and its
+  date-only upper bound reads as 00:00 of that day). Measured 2026-09-30: the alarm that
+  said `179 of 179 messages missing` was **100% false** — every row it named was in our
+  own table, marked delivered. That is fixed: ISO bounds plus a client-side check against
+  the carrier's own `date_sent`, and a **healthy run now prints one `quiet` line** (it used
+  to print nothing at all, which made "quiet" indistinguishable from a dead cron). It also
+  gained a check for outbound rows stuck in `queued`/`sent` past 20 minutes — the shape
+  that hid 18 phantom rows for six weeks.
+  So the source's own rule now says it is *eligible*: it has a healthy state to return to,
+  it exits non-zero only on a real finding (`1` drift/stuck, `2` webhook wrong, `3` could
+  not check), and it never sends anything to anyone. **Re-registering it is a deliberate
+  change, not a side effect of the fix** — an adapter must treat a non-zero exit or a
+  missing `quiet` line as the signal, and must not fire per row. Not done on 2026-09-30.
 * **`~/.lpt-recon/check.log` and `~/.lpt-verify/*` — REJECTED (already notifying).**
   `lpt-recon` logged `1 FAIL`/`2 FAIL` on 9 of 21 runs, and `~/.lpt-verify/four-surface.json`
   is chronically at 6 errors against a baseline that keeps drifting (315→317 schema-invalid
