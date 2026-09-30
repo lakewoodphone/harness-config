@@ -85,6 +85,20 @@ class SecretGuard:
 GUARD = SecretGuard()
 
 
+def _force_utf8(stream):
+    """A vendor response may contain characters the console codepage cannot
+    encode (this bit the Firecrawl probe on cp1252). Never let that become a
+    traceback: the registry must be able to report any provider's answer."""
+    try:
+        stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+_force_utf8(sys.stdout)
+_force_utf8(sys.stderr)
+
+
 def emit(text=""):
     sys.stdout.write(GUARD.scrub(text) + "\n")
 
@@ -101,7 +115,12 @@ def load_data(path=DATA_FILE):
 def expand(p):
     if p is None:
         return None
-    return os.path.expanduser(str(p))
+    raw = os.path.expanduser(str(p))
+    # A POSIX absolute path (e.g. /home/zabz/bin) must be reported verbatim even
+    # when the registry runs on Windows; normpath would turn it into \home\...
+    if raw.startswith("/"):
+        return raw
+    return os.path.normpath(raw)
 
 
 def read_dotenv(path):
@@ -128,6 +147,13 @@ class Credentials:
     def __init__(self, data, env_file_override=None):
         self.sources = []
         self.file_values = {}
+        # Names that this registry is allowed to treat as secrets. Everything
+        # else in the environment (HOME, PATH, COMPUTERNAME...) is left alone so
+        # that searched PATHS stay readable in the output - which the brief
+        # requires, and which over-redaction would destroy.
+        declared = set()
+        for prov in data.get("providers", []):
+            declared.update(prov.get("cred_env") or [])
         for src in data.get("credential_sources", []):
             if src.get("format") == "environ":
                 self.sources.append({
@@ -140,17 +166,19 @@ class Credentials:
             present_file = values is not None
             if values:
                 self.file_values.update(values)
+                # Every value in a credential file is guarded: it lives in a
+                # secret file, so it does not get printed by accident either.
+                for name, value in values.items():
+                    GUARD.add(name, value)
             self.sources.append({
                 "id": src.get("id"), "label": src.get("label"),
                 "path": path, "read": present_file, "kind": "dotenv",
                 "names": len(values) if values else 0,
             })
-            if values:
-                for name, value in values.items():
-                    GUARD.add(name, value)
-        # the process environment, guarded by the names we care about
-        for name, value in os.environ.items():
-            GUARD.add(name, value)
+        # From the ambient environment, guard only the declared credential names.
+        for name in sorted(declared):
+            if name in os.environ:
+                GUARD.add(name, os.environ[name])
 
     def status(self, names):
         """(present, present_names, empty_names, missing_names) - never values."""
@@ -221,6 +249,7 @@ def scan_for_wiring(data, providers):
     scan = data.get("scan", {})
     extensions = [e.lower() for e in scan.get("extensions", [])]
     skip_basenames = set(scan.get("skip_basenames", []))
+    global_skip_dirs = set(scan.get("skip_dir_names", []))
     max_bytes = int(scan.get("max_file_bytes", 2 * 1024 * 1024))
     max_files = int(scan.get("max_files_per_root", 40000))
 
@@ -247,7 +276,7 @@ def scan_for_wiring(data, providers):
             roots_report.append(entry)
             continue
 
-        prune = set(root.get("prune_dirs", []))
+        prune = set(root.get("prune_dirs", [])) | global_skip_dirs
         prune_prefixes = list(root.get("prune_prefixes", []))
         prune_paths = [p.replace("\\", "/").strip("/") for p in root.get("prune_paths", [])]
         for full in _iter_files(resolved, extensions, skip_basenames, prune,
@@ -273,48 +302,59 @@ def scan_for_wiring(data, providers):
     return roots_report, matches
 
 
-def find_mounts(providers):
-    """Which MCP server ids are named in a preset/profile that exists on disk.
+def find_mounts(data, providers):
+    """Which MCP server ids are declared as a real row (`- id: <mcp-id>`) in a
+    preset/profile that exists on disk.
 
     This is evidence for REACHABLE, not the flag itself: a row can be mounted in
-    a preset that this seat's profile never loads.
+    a preset that this seat's profile never loads. Comment lines are ignored, so
+    a row that was REMOVED and survives only in a comment (mcp-context7 and
+    mcp-fetch were removed on 2026-09-30) is not reported as mounted.
     """
-    homes = [expand("~/Code/harness-config"), expand("~/.dsh")]
-    subs = [
-        ("repo-presets", "presets"),
-        ("repo-profiles", "profiles"),
-        ("dsh-agent-presets", ".agent-presets"),
-        ("dsh-profiles", "profiles"),
-    ]
     prune = {"node_modules", ".git", "__pycache__", "sessions", "storages",
-             "attachments", "tools", "tmp", "metrics"}
+             "attachments", "tools", "tmp", "metrics", "multi-window"}
     mounts = {}
-    for home in homes:
-        if not home or not os.path.isdir(home):
+    seen = set()
+    for root in data.get("mount_roots", []):
+        base = expand(root.get("path"))
+        where = root.get("where")
+        if not base or not os.path.isdir(base):
             continue
-        for kind, sub in subs:
-            base = os.path.join(home, sub)
-            if not os.path.isdir(base):
-                continue
-            for dirpath, dirnames, filenames in os.walk(base, topdown=True,
-                                                        onerror=_skip_walk_error):
-                dirnames[:] = sorted(d for d in dirnames if d not in prune)
-                for fn in sorted(filenames):
-                    if not fn.lower().endswith((".yml", ".yaml")):
-                        continue
-                    path = os.path.join(dirpath, fn)
-                    try:
-                        with open(path, "r", encoding="utf-8", errors="replace") as fh:
-                            body = fh.read()
-                    except OSError:
-                        continue
-                    for prov in providers:
-                        for mcp_id in prov.get("mcp_ids") or []:
-                            if mcp_id in body:
-                                mounts.setdefault(prov["id"], []).append({
-                                    "mcp_id": mcp_id, "where": kind,
-                                    "file": os.path.relpath(path, home),
-                                })
+        for dirpath, dirnames, filenames in os.walk(base, topdown=True,
+                                                    onerror=_skip_walk_error):
+            dirnames[:] = sorted(d for d in dirnames if d not in prune)
+            for fn in sorted(filenames):
+                if not fn.lower().endswith((".yml", ".yaml")):
+                    continue
+                path = os.path.join(dirpath, fn)
+                try:
+                    with open(path, "r", encoding="utf-8", errors="replace") as fh:
+                        lines = fh.read().splitlines()
+                except OSError:
+                    continue
+                rel = os.path.relpath(path, base)
+                for prov in providers:
+                    for mcp_id in prov.get("mcp_ids") or []:
+                        row = re.compile(
+                            r"^\s*-?\s*id:\s*['\"]?%s['\"]?\s*,?\s*$"
+                            % re.escape(mcp_id))
+                        matched = False
+                        for line in lines:
+                            if line.lstrip().startswith("#"):
+                                continue
+                            code = line.split(" #", 1)[0]
+                            if row.match(code):
+                                matched = True
+                                break
+                        if not matched:
+                            continue
+                        key = (prov["id"], mcp_id, where, rel)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        mounts.setdefault(prov["id"], []).append({
+                            "mcp_id": mcp_id, "where": where, "file": rel,
+                        })
     return mounts
 
 
@@ -322,14 +362,25 @@ def find_mounts(providers):
 # the two derived flags
 # --------------------------------------------------------------------------
 
-def derive(provider, matches, seat, mounts):
-    wired_by_root = matches.get(provider["id"], {})
-    examples = []
-    total = 0
-    for root_id, rels in sorted(wired_by_root.items()):
+def derive(provider, matches, seat, mounts, role_by_root):
+    """The two flags. WIRED follows the brief's definition exactly: a reference
+    in this repo or in /home/zabz/bin (roots whose role is 'primary'). The
+    application and ~/.dsh references are reported as provenance in
+    `referenced_by` but do not make a capability wired into the fleet."""
+    by_root = matches.get(provider["id"], {})
+    referenced_by = {k: len(v) for k, v in sorted(by_root.items())}
+    primary_ids = [rid for rid, role in role_by_root.items() if role == "primary"]
+
+    examples, total = [], 0
+    for root_id in primary_ids:
+        rels = by_root.get(root_id) or []
         total += len(rels)
         for rel in rels[:2]:
             examples.append("%s:%s" % (root_id, rel))
+    examples_all = []
+    for root_id, rels in sorted(by_root.items()):
+        for rel in rels[:2]:
+            examples_all.append("%s:%s" % (root_id, rel))
     wired = total > 0
 
     basis, near_misses = [], []
@@ -354,14 +405,20 @@ def derive(provider, matches, seat, mounts):
     if reachable:
         detail = "; ".join(basis)
     elif near_misses:
-        detail = "no path in this seat; " + "; ".join(near_misses)
+        shown = near_misses[:3]
+        extra = len(near_misses) - len(shown)
+        detail = "no path in this seat; " + "; ".join(shown)
+        if extra > 0:
+            detail += "; (+%d more mounted-but-not-here locations)" % extra
     else:
         detail = "no wired invocation path for this seat"
 
     return {
         "wired": {"value": wired, "files": total,
-                  "by_root": {k: len(v) for k, v in sorted(wired_by_root.items())},
+                  "roots_that_count": primary_ids,
+                  "by_root": {k: len(v) for k, v in sorted(by_root.items()) if k in primary_ids},
                   "examples": examples},
+        "referenced_by": {"by_root": referenced_by, "examples": examples_all},
         "reachable": {"value": reachable, "basis": basis,
                       "near_misses": near_misses, "detail": detail},
     }
@@ -371,30 +428,32 @@ def registry(data, env_file=None):
     providers = data.get("providers", [])
     creds = Credentials(data, env_file_override=env_file)
     roots, matches = scan_for_wiring(data, providers)
-    mounts = find_mounts(providers)
+    mounts = find_mounts(data, providers)
     seat = data.get("seat", {})
+    role_by_root = {r.get("id"): r.get("role") for r in data.get("search_roots", [])}
 
     rows = []
     for prov in providers:
         names = prov.get("cred_env") or []
         present, present_names, empty_names, missing_names = creds.status(names)
-        flags = derive(prov, matches, seat, mounts)
+        flags = derive(prov, matches, seat, mounts, role_by_root)
         rows.append({
             "id": prov["id"],
             "name": prov["name"],
             "category": prov.get("category", "other"),
             "credential": {
                 "env": names,
+                "config_env": prov.get("config_env") or [],
                 "present": present,
                 "present_names": present_names,
                 "empty_names": empty_names,
                 "missing_names": missing_names,
             },
             "wired": flags["wired"],
+            "referenced_by": flags["referenced_by"],
             "reachable": flags["reachable"],
             "cost": prov.get("cost", ""),
             "billable": bool(prov.get("billable", False)),
-            "alias": prov.get("alias", ""),
             "notes": prov.get("notes", ""),
             "mcp_ids": prov.get("mcp_ids") or [],
             "native_tool": prov.get("native_tool"),
@@ -412,6 +471,13 @@ def registry(data, env_file=None):
             "sources": creds.sources,
             "values_guarded": GUARD.count,
             "values_are_never_printed": True,
+            "guard_rule": "every non-empty value read from the credential file is "
+                          "loaded into the redactor, and every declared credential "
+                          "env var present in the process environment with it. "
+                          "Every byte this program emits passes through that "
+                          "redactor. Values shorter than %d characters are not "
+                          "guarded, because they would redact the document."
+                          % MIN_SECRET_LEN,
         },
         "providers": rows,
     }
@@ -430,6 +496,8 @@ def yn(flag, count=None):
 
 
 def render_list(reg):
+    """Return the human table as text. Builders return; only main() emits."""
+    out = []
     rows = reg["providers"]
     w_name = max([len("PROVIDER")] + [len(r["name"]) for r in rows]) + 1
     w_cat = max([len("CATEGORY")] + [len(r["category"]) for r in rows]) + 1
@@ -438,55 +506,88 @@ def render_list(reg):
     head = "%-*s %-*s %-*s %-5s %-9s %-5s %s" % (
         w_name, "PROVIDER", w_cat, "CATEGORY", w_cred, "CREDENTIAL (env var NAME)",
         "CRED", "WIRED", "REACH", "COST")
-    emit(head)
-    emit("-" * len(head))
-    for r in sorted(rows, key=lambda x: (x["category"], x["name"].lower())):
+    out.append(head)
+    out.append("-" * len(head))
+    for r in sorted(rows, key=lambda x: (_cat_key(x["category"]), x["name"].lower())):
         cred = ",".join(r["credential"]["env"]) or "-"
-        emit("%-*s %-*s %-*s %-5s %-9s %-5s %s" % (
+        out.append("%-*s %-*s %-*s %-5s %-9s %-5s %s" % (
             w_name, r["name"], w_cat, r["category"], w_cred, cred,
             "yes" if r["credential"]["present"] else "NO",
             yn(r["wired"]["value"], r["wired"]["files"]),
             "yes" if r["reachable"]["value"] else "no",
             r["cost"]))
 
-    emit("")
-    emit("WIRED = some scanned code/config references it (alias or env var name). "
-         "REACHABLE = a path that exists in THIS seat's tool plane today; it is "
-         "not the same as 'we hold a key'.")
-    emit("")
-    emit("PATHS SEARCHED (the flags above are derived from these, so they are auditable):")
+    out.append("")
+    out.append("WIRED = some code in this repo or in /home/zabz/bin references it (the "
+               "brief's definition; role=primary roots only), derived by searching, "
+               "never asserted.")
+    out.append("REACHABLE = a first-class invocation path (a native seat tool or a mounted "
+               "MCP row) exists in THIS seat's observed tool plane today. It is not the "
+               "same as 'we hold a key'.")
+    out.append("REFERENCED BY shows every scanned root, including the application and "
+               "~/.dsh, because 'the app uses it' and 'the fleet is wired to it' are "
+               "different facts.")
+    out.append("")
+    out.append("PATHS SEARCHED (the flags above are derived from these, so they are auditable):")
     for root in reg["searched"]:
         state = "scanned %d files" % root["files_scanned"] if root["exists"] else "ABSENT on this node"
         role = root["role"] or "?"
         note = ("  [%s]" % root["note"]) if root.get("note") else ""
-        emit("  - %-16s %-9s %-34s %s%s" % (root["id"], role, root["path"], state, note))
-    emit("")
-    emit("SEAT: %s" % reg["seat"].get("name", "?"))
-    emit("  observed %s via %s" % (reg["seat"].get("observed_at", "?"),
-                                   reg["seat"].get("how_observed", "?")))
-    emit("  native tools seen: %d;  mcp__* tools seen: %d"
-         % (len(reg["seat"].get("observed_tools") or []),
-            len(reg["seat"].get("observed_mcp_tools") or [])))
-    emit("  credentials read for the CRED column: %s"
-         % ", ".join(s["label"] for s in reg["credentials"]["sources"]))
-    emit("  %d credential values loaded into the redactor; 0 are ever printed."
-         % reg["credentials"]["values_guarded"])
-    emit("")
-    emit("WIRED evidence per provider (first 2 files per root):")
+        out.append("  - %-16s %-11s %-34s %s%s" % (root["id"], role, root["path"], state, note))
+    out.append("")
+    out.append("SEAT: %s" % reg["seat"].get("name", "?"))
+    out.append("  observed %s via %s" % (reg["seat"].get("observed_at", "?"),
+                                         reg["seat"].get("how_observed", "?")))
+    out.append("  native tools seen: %d;  mcp__* tools seen: %d"
+               % (len(reg["seat"].get("observed_tools") or []),
+                  len(reg["seat"].get("observed_mcp_tools") or [])))
+    out.append("  credentials read for the CRED column: %s"
+               % ", ".join(s["label"] for s in reg["credentials"]["sources"]))
+    out.append("  %d credential values loaded into the redactor; 0 are ever printed."
+               % reg["credentials"]["values_guarded"])
+    out.append("")
+    out.append("WIRED evidence per provider (role=primary roots, first 2 files each):")
+    any_wired = False
     for r in rows:
         if not r["wired"]["value"]:
             continue
-        emit("  - %s: %s" % (r["name"], ", ".join(r["wired"]["examples"])))
-    emit("")
-    emit("REACH evidence per provider:")
+        any_wired = True
+        out.append("  - %s: %s" % (r["name"], ", ".join(r["wired"]["examples"])))
+    if not any_wired:
+        out.append("  - none")
+    out.append("")
+    out.append("REFERENCED BY per provider (all roots; app=application, dsh=harness config):")
     for r in rows:
-        emit("  - %-22s %s" % (r["name"], r["reachable"]["detail"]))
+        by_root = r["referenced_by"]["by_root"]
+        prov = ", ".join("%s:%d" % (k, v) for k, v in sorted(by_root.items())) or "nowhere"
+        out.append("  - %-40s %s" % (r["name"], prov))
+    out.append("")
+    out.append("REACH evidence per provider:")
+    for r in rows:
+        out.append("  - %-40s %s" % (r["name"], r["reachable"]["detail"]))
+    return "\n".join(out)
+
+
+CATEGORY_ORDER = ["search", "scrape", "browser", "model", "comms", "db", "storage", "other"]
+
+
+def _cat_key(cat):
+    return (CATEGORY_ORDER.index(cat) if cat in CATEGORY_ORDER else 99, cat)
+
+
+def _group_by_category(rows):
+    groups = {}
+    for r in rows:
+        groups.setdefault(r["category"], []).append(r)
+    return sorted(groups.items(), key=lambda kv: _cat_key(kv[0]))
 
 
 def render_report(reg):
     rows = reg["providers"]
-    present_unreachable = [r for r in rows if r["credential"]["present"] and not r["reachable"]["value"]]
-    reachable_nocred = [r for r in rows if r["reachable"]["value"] and not r["credential"]["present"]]
+    present_unreachable = [r for r in rows
+                           if r["credential"]["present"] and not r["reachable"]["value"]]
+    reachable_nocred = [r for r in rows
+                        if r["reachable"]["value"] and not r["credential"]["present"]]
     billable = [r for r in rows if r["billable"]]
     hand_only = [r for r in present_unreachable if r["probe_available"]]
 
@@ -497,7 +598,9 @@ def render_report(reg):
                % (reg["host"],
                   " | ".join("%s(%s)" % (s["id"], "scanned" if s["exists"] else "ABSENT")
                              for s in reg["searched"])))
-    out.append("Seat: %s - %d native tools, %d mounted MCP tools."
+    out.append("Seat: %s - %d native tools, %d mounted MCP tools. REACHABLE means an "
+               "agent in THIS seat can call it as a tool; it does not mean the "
+               "application or the harness cannot use the vendor."
                % (reg["seat"].get("name", "?"),
                   len(reg["seat"].get("observed_tools") or []),
                   len(reg["seat"].get("observed_mcp_tools") or [])))
@@ -505,11 +608,16 @@ def render_report(reg):
     out.append("**Present but unreachable (%d)** - we hold a credential and an agent "
                "in this seat still cannot call it:" % len(present_unreachable))
     if present_unreachable:
-        for r in present_unreachable:
-            out.append("- **%s** (%s) - key `%s` - %s"
-                       % (r["name"], r["category"],
-                          ",".join(r["credential"]["present_names"]),
-                          r["reachable"]["detail"]))
+        for cat, group in _group_by_category(present_unreachable):
+            out.append("- %s (%d): %s"
+                       % (cat, len(group), ", ".join(r["name"] for r in group)))
+        mounted = [r for r in present_unreachable if r["reachable"]["near_misses"]]
+        if mounted:
+            out.append("")
+            out.append("  Of these, %d have an MCP row mounted somewhere that this "
+                       "seat's profile does not load: %s. Mounting a row is not the "
+                       "same as reaching it." %
+                       (len(mounted), ", ".join(r["name"] for r in mounted)))
     else:
         out.append("- none")
     out.append("")
@@ -522,20 +630,27 @@ def render_report(reg):
         out.append("- none")
     out.append("")
     out.append("**Costs money (%d of %d providers)** - every billable row, whether or "
-               "not it is reachable:" % (len(billable), len(rows)))
-    shown = 0
-    for r in billable:
-        if shown >= 12:
-            out.append("- ... and %d more (see `list`)" % (len(billable) - shown))
-            break
-        out.append("- %s - %s%s"
-                   % (r["name"], r["cost"],
+               "not it is reachable. Metered search/scrape first, because that is "
+               "the bill that moves:" % (len(billable), len(rows)))
+    metered = [r for r in billable if r["category"] in ("search", "scrape")]
+    rest = [r for r in billable if r["category"] not in ("search", "scrape")]
+    for r in sorted(metered, key=lambda x: _cat_key(x["category"])):
+        out.append("- %s (%s) - %s%s"
+                   % (r["name"], r["category"], r["cost"],
                       "" if r["credential"]["present"] else "  **[no credential]**"))
-        shown += 1
+    for cat, group in _group_by_category(rest):
+        out.append("- %s (%d, per-token/subscription): %s"
+                   % (cat, len(group), ", ".join(r["name"] for r in group)))
     out.append("")
     out.append("Callable only by hand (credential present, no mounted tool, but a "
                "registry probe recipe exists): %s."
                % (", ".join(r["name"] for r in hand_only) if hand_only else "none"))
+    app_only = [r for r in present_unreachable
+                if set(r["referenced_by"]["by_root"].keys()) <= {"app"}]
+    out.append("")
+    out.append("Credentialled, unreachable AND referenced by the application alone "
+               "(no harness and no fleet wiring anywhere we searched): %s."
+               % (", ".join(r["name"] for r in app_only) if app_only else "none"))
     return "\n".join(out)
 
 
@@ -576,7 +691,10 @@ def _detail(spec, payload, raw, text):
             return "%s=absent" % label
         if isinstance(node, (dict, list)):
             return "%s=present" % label
-        return "%s=%s" % (label, node)
+        text = " ".join(str(node).split())
+        if len(text) > 48:
+            text = text[:45] + "..."
+        return "%s=%s" % (label, text)
     if kind == "text_len":
         return "%s=%d" % (label, len(text or raw or ""))
     return str(label)
@@ -660,7 +778,19 @@ def do_probe(provider, creds, seat_tools):
     secret = None
     if env_name:
         secret = os.environ.get(env_name) or creds.file_values.get(env_name)
-    if auth.get("type") and auth.get("type") != "none" and not auth.get("optional") and not secret:
+    atype = auth.get("type")
+    basic_user = basic_pass = None
+    if atype == "basic":
+        basic_user = (os.environ.get(auth.get("user_env"))
+                      or creds.file_values.get(auth.get("user_env")))
+        basic_pass = (os.environ.get(auth.get("pass_env"))
+                      or creds.file_values.get(auth.get("pass_env")))
+        if not auth.get("optional") and not (basic_user and basic_pass):
+            return {"provider": provider["id"], "name": name, "status": "NOT PROBED",
+                    "latency_ms": None,
+                    "result": "needs both %s and %s; at least one is unset or empty"
+                              % (auth.get("user_env"), auth.get("pass_env"))}
+    elif atype and atype != "none" and not auth.get("optional") and not secret:
         return {"provider": provider["id"], "name": name, "status": "NOT PROBED",
                 "latency_ms": None,
                 "result": "no credential in %s, so nothing to authenticate with" % env_name}
@@ -668,17 +798,14 @@ def do_probe(provider, creds, seat_tools):
     headers = {"User-Agent": "cap-registry/%s" % VERSION, "Accept": "*/*"}
     headers.update(spec.get("headers") or {})
     data = None
-    atype = auth.get("type")
     if atype == "bearer" and secret:
         headers["Authorization"] = "Bearer " + secret
     elif atype == "header" and secret:
         headers[auth.get("name", "Authorization")] = secret
     elif atype == "basic":
         import base64
-        user = os.environ.get(auth.get("user_env")) or creds.file_values.get(auth.get("user_env")) or ""
-        pwd = os.environ.get(auth.get("pass_env")) or creds.file_values.get(auth.get("pass_env")) or ""
         headers["Authorization"] = "Basic " + base64.b64encode(
-            ("%s:%s" % (user, pwd)).encode()).decode()
+            ("%s:%s" % (basic_user or "", basic_pass or "")).encode()).decode()
     elif atype == "query" and secret:
         sep = "&" if "?" in url else "?"
         url = "%s%s%s=%s" % (url, sep, auth.get("param", "key"),
@@ -802,22 +929,24 @@ def main(argv=None):
         return 1 if any(r["status"] == "FAIL" for r in results) else 0
 
     if args.command == "selftest":
-        # Prove the redactor works: take every guarded value, run it through the
-        # renderers, and assert none survives.
-        blob = render_list(reg) + render_report(reg) + json.dumps(
-            {k: v for k, v in reg.items()})
-        leaks = GUARD.leaked(blob)
+        # Prove the redactor works on what is actually EMITTED: render every mode,
+        # push it through the same scrub() that emit() uses, then assert that no
+        # guarded credential value survives.
+        blob = render_list(reg) + render_report(reg) + json.dumps(dict(reg))
+        emitted = GUARD.scrub(blob)
+        leaks = GUARD.leaked(emitted)
         if leaks:
             emit("REDACTION FAILURE: %s visible" % ", ".join(leaks))
             return 2
-        emit("ok: %d credential values loaded, 0 leaked into list/report/json"
-             % GUARD.count)
+        emit("ok: %d credential values loaded from the credential file and the "
+             "declared credential names; 0 survive into list/report/json output "
+             "(checked on the emitted text, not the raw text)" % GUARD.count)
         return 0
 
     if args.json:
         emit(json.dumps(reg, indent=2))
     else:
-        render_list(reg)
+        emit(render_list(reg))
     return 0
 
 

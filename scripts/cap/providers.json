@@ -86,9 +86,37 @@
     ],
     "skip_basenames": [".env", ".credentials.yaml", "settings.yaml.bak"],
     "skip_basenames_reason": "a key NAME defined in a credential file is not a use of the provider; only code and config wiring count.",
+    "skip_dir_names": [
+      "node_modules", ".git", "__pycache__", ".venv", "venv", ".mypy_cache",
+      ".pytest_cache", "dist", "build", "coverage", "state", "tmp"
+    ],
+    "skip_dir_names_reason": "applied to every root in addition to that root's prune_dirs. State, caches and build output record what a probe returned or what a test produced; they are evidence of a run, not wiring. A captured API response naming a provider must not make that provider look wired.",
     "max_file_bytes": 2097152,
     "max_files_per_root": 40000
   },
+
+  "mount_roots": [
+    {
+      "where": "repo-presets",
+      "path": "~/Code/harness-config/presets",
+      "why": "presets tracked in this repo"
+    },
+    {
+      "where": "repo-profiles",
+      "path": "~/Code/harness-config/profiles",
+      "why": "profiles tracked in this repo"
+    },
+    {
+      "where": "dsh-agent-presets",
+      "path": "~/.dsh/.agent-presets",
+      "why": "the presets the running harness actually loads (read-only)"
+    },
+    {
+      "where": "dsh-profiles",
+      "path": "~/.dsh/profiles",
+      "why": "the profiles the running harness actually loads (read-only)"
+    }
+  ],
 
   "seat": {
     "name": "mesh child on zabz-yoga (this session)",
@@ -491,7 +519,7 @@
         "url": "https://api.together.xyz/v1/models",
         "auth": {"type": "bearer", "env": "TOGETHER_API_KEY"},
         "ok_status": [200],
-        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+        "detail": {"kind": "list_len", "path": "", "label": "models"}
       }
     },
     {
@@ -618,7 +646,8 @@
       "id": "azure-openai",
       "name": "Azure OpenAI",
       "category": "model",
-      "cred_env": ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
+      "cred_env": ["AZURE_OPENAI_API_KEY"],
+      "config_env": ["AZURE_OPENAI_ENDPOINT"],
       "billable": true,
       "cost": "per token; price not verified this session",
       "refs": ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
@@ -873,7 +902,8 @@
       "id": "nanomdm",
       "name": "NanoMDM",
       "category": "other",
-      "cred_env": ["NANOMDM_API_KEY", "NANOMDM_BASE_URL"],
+      "cred_env": ["NANOMDM_API_KEY"],
+      "config_env": ["NANOMDM_BASE_URL"],
       "billable": false,
       "cost": "$0 (self-hosted OSS)",
       "alias": "Apple device management",
@@ -909,7 +939,8 @@
       "id": "langfuse",
       "name": "Langfuse",
       "category": "other",
-      "cred_env": ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"],
+      "cred_env": ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY"],
+      "config_env": ["LANGFUSE_HOST"],
       "billable": false,
       "cost": "$0 self-hosted (LANGFUSE_HOST points at our own instance)",
       "alias": "LLM tracing",
