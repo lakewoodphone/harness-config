@@ -746,6 +746,10 @@ handoff	H3065	3065		2026-09-30 15:04 UTC	ZABZ-TECH	open	## 2026-09-30 15:04 UTC 
 handoff	H3066	3066		2026-09-30 15:04 UTC	ZABZ-TECH	open	## 2026-09-30 15:04 UTC · ZABZ-TECH · Family chat: three defects found by pulling it up, all three fixed, deployed and falsified	entries/handoff/H3066.md	1	39	04013e51a87014ad
 handoff	H3067	3067		2026-09-30 15:05 UTC	ZABZ-TECH	open	## 2026-09-30 15:05 UTC · ZABZ-TECH · Autonomy audited end to end, 32-item backlog written, and the trigger proven live	entries/handoff/H3067.md	1	57	ceab50a97eb2ddda
 handoff	H3068	3068		2026-09-30 15:15 UTC	ZABZ-TECH	open	## 2026-09-30 15:15 UTC · ZABZ-TECH · Latest-slot analysis: 12PM is both the last Thursday shuttle a couple can book and the cheapest all-in - and the mesh failed a fourth time	entries/handoff/H3068.md	1	21	fd18fb2686917951
+handoff	H3069	3069		2026-09-30 15:20 UTC	ZABZ-TECH	open	## 2026-09-30 15:20 UTC · ZABZ-TECH · Family chat: renames live, and a four-agent fleet auditing the subsystem for robustness	entries/handoff/H3069.md	1	41	0be59f9970189117
+handoff	H3070	3070		2026-09-30 15:21 UTC	ZABZ-TECH	open	## 2026-09-30 15:21 UTC · ZABZ-TECH · Jim Thorpe morning: leave-at 07:15 with the buffer arithmetic, and the reservation question answered from Pocono Biking's own FAQ	entries/handoff/H3070.md	1	22	008c599714de2d1e
+handoff	H3071	3071		2026-09-30 15:24 UTC	ZABZ-TECH	open	## 2026-09-30 15:24 UTC · ZABZ-TECH · Verbatim Pocono Biking cancellation policy and the two phone numbers; one correction to the no-shuttle rental window	entries/handoff/H3071.md	1	27	cf2ca636962f8d80
+handoff	H3072	3072		2026-09-30 15:26 UTC	ZABZ-TECH	open	## 2026-09-30 15:26 UTC · ZABZ-TECH · The owner text channel fixed end to end: a dead escalation path, a near-full disk, a silent restart cap, and one conversation ledger	entries/handoff/H3072.md	1	67	fc6b00a05387a81c
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1894,6 +1898,9 @@ lessons	L3110	3110		2026-09-30	ZABZ-TECH	open	**L3110 · A mesh subagent brief c
 lessons	L3111	3111		2026-09-30	ZABZ-TECH	open	**L3111 · Twilio DateSent is date-granular: a coarse remote filter feeds 100%-false alarms into our own timestamps**	entries/lessons/L3111.md	1	23	5be19b942886ea89
 lessons	L3112	3112		2026-09-30	ZABZ-TECH	open	**L3112 · A mesh child cannot ssh: the client prints the remote output and then never exits; the manager must collect and hand over files**	entries/lessons/L3112.md	1	33	885a7692065493ae
 lessons	L3113	3113		2026-09-30	ZABZ-TECH	open	**L3113 · Twilio's SDK attribute is from_ — getattr(m,'from') returns nothing, so the catch-up path stored a blank sender on every row**	entries/lessons/L3113.md	1	24	a0c3f0ef2fac676b
+lessons	L3114	3114		2026-09-30	ZABZ-TECH	open	**L3114 · A sweep keyed on a remote id can never resolve the rows that never got one - and prove your test reads what you think**	entries/lessons/L3114.md	1	23	456d8d6e68c430f1
+lessons	L3115	3115		2026-09-30	ZABZ-TECH	open	**L3115 · A leftover Python directory with loose .py files imports SILENTLY as a namespace package, so a test can import the ORIGINAL module by accident**	entries/lessons/L3115.md	1	34	efb79ce7352c8828
+lessons	L3116	3116		2026-09-30	ZABZ-TECH	open	**L3116 · A dry run that deletes is worse than no dry run: read the label as a claim and verify it**	entries/lessons/L3116.md	1	33	fa2d06b654c5dffd
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2244,6 +2251,8 @@ pain	P2733	2733		2026-09-28	ZABZ-TECH	open	## P2733 — LIVE INCIDENT: version-c
 pain	P2734	2734		2026-09-28	ZABZ-TECH	open	## P2734 — LIVE RECURRENCE: the sync timer re-applies the committed migrated config every 15 min; sync task DISABLED to stop it; durable fix is committing the guard or reverting HEAD	entries/pain/P2734.md	1	62	bd1d6ca981cc900d
 pain	P2735	2735		2026-09-28	ZABZ-TECH	open	## P2735 — I SENT A TEXT I HAD TOLD THE RECORD I WAS NOT SENDING - my 'intercepted' test printed 'NOT SENT' before establishing it, and the socket was never intercepted	entries/pain/P2735.md	1	54	7a49de610c98f9d4
 pain	P2798	2798		2026-09-30	ZABZ-TECH	open	## P2798 — The owner text channel: a second brain owns the send, three ceilings, and blocked obligations that never escalate	entries/pain/P2798.md	1	42	276d7f5aeacc5f62
+pain	P2799	2799		2026-09-30	ZABZ-TECH	open	## P2799 — The authority disk is 99 percent full and the family chat writes SQLite on it	entries/pain/P2799.md	1	26	062f64e64d18fcf3
+pain	P2800	2800		2026-09-30	ZABZ-TECH	open	## P2800 — A safety mechanism that was deleted by a deployment, and the disk it was protecting	entries/pain/P2800.md	1	48	a30b86411ca4e74c
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -2577,6 +2586,8 @@ decisions	D2838	2838		2026-09-28	ZABZ-TECH	open	**D2838 · 2026-09-28 · Version
 decisions	D2839	2839		2026-09-30	ZABZ-TECH	open	**D2839 · 2026-09-30 · The gateway resolves a short model id and the catalogue lists it; an unknown id is served loudly, never silently.**	entries/decisions/D2839.md	1	34	54218ee277f54de7
 decisions	D2840	2840		2026-09-30	ZABZ-TECH	open	**D2840 · 2026-09-30 · BC28 separation reason: voluntary quit, confirmed by the owner - and the seat may not take a decision whose cost is a false statement by him to a state agency.**	entries/decisions/D2840.md	1	43	09a9a4e743657710
 decisions	D2841	2841		2026-09-30	ZABZ-TECH	open	**D2841 · 2026-09-30 · An integrator shift may merge reviewed work to main: scoped, logged, revertible - and the source stays unscheduled until it has a per-run cap.**	entries/decisions/D2841.md	1	58	178e9e54da312680
+decisions	D2842	2842		2026-09-30	ZABZ-TECH	open	**D2842 · 2026-09-30 · The two family-chat names change: Dr. Cheved and Mrs. Yo, and the message history is never rewritten.**	entries/decisions/D2842.md	1	38	2a299a1de3772566
+decisions	D2843	2843		2026-09-30	ZABZ-TECH	open	**D2843 · 2026-09-30 · Chip pacing retuned: one self-chosen line a day max, room share 0.20, addressed path more generous.**	entries/decisions/D2843.md	1	40	518f231f9e54eec1
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
