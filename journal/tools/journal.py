@@ -2518,13 +2518,15 @@ def _git_note() -> str:
     repo = JOURNAL.parent
     try:
         rc = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
-                            capture_output=True, text=True, timeout=15)
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=15)
         rev = rc.stdout.strip() or "no-git"
     except Exception as exc:
         return "git unavailable (%s)" % exc
     try:
         rc = subprocess.run(["git", "-C", str(repo), "ls-remote", "--exit-code", "origin", "HEAD"],
-                            capture_output=True, text=True, timeout=20)
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=20)
         reach = "origin reachable" if rc.returncode == 0 else "origin unreachable (rc=%d)" % rc.returncode
     except Exception as exc:
         reach = "origin unreachable (%s)" % type(exc).__name__
@@ -2864,26 +2866,36 @@ def git_max(kind: str, fetch: bool = False):
     if fetch:
         try:
             subprocess.run(["git", "-C", str(repo), "fetch", "--quiet", "--all"],
-                           capture_output=True, timeout=25)
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=25)
         except Exception:
             pass
     try:
+        # EVERY git call that DECODES TEXT pins utf-8/replace. A git call left on the
+        # locale codec (cp1252 on Windows) dies in its reader thread with
+        # `UnicodeDecodeError: 'charmap' codec ...` while the write itself succeeded --
+        # a visible crash over a silent success, and the natural retry is what minted
+        # duplicate ids (journal P2607). `_git()` and `_git_with_input()` were already
+        # pinned; this `rev-parse` and the `fetch` above were the last two stragglers.
         rc = subprocess.run(["git", "-C", str(repo), "rev-parse", "--short", "HEAD"],
-                            capture_output=True, text=True, timeout=15)
+                            capture_output=True, text=True, encoding="utf-8",
+                            errors="replace", timeout=15)
         rev = rc.stdout.strip() or "no-git"
     except Exception:
         pass
     pattern = "^## %s[0-9]+ |^\\*\\*%s[0-9]+ |^<!-- e:%s\\|%s[0-9]+" % (letter, letter, kind, letter)
     try:
         out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern],
-                             capture_output=True, text=True, timeout=60)
+                             capture_output=True, text=True, encoding="utf-8",
+                             errors="replace", timeout=60)
         for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
             nums.append(int(m.group(1)))
     except Exception:
         pass
     try:
         out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern, "HEAD"],
-                             capture_output=True, text=True, timeout=60)
+                             capture_output=True, text=True, encoding="utf-8",
+                             errors="replace", timeout=60)
         for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
             nums.append(int(m.group(1)))
     except Exception:
@@ -2905,11 +2917,13 @@ def git_max(kind: str, fetch: bool = False):
     try:
         refs = subprocess.run(["git", "-C", str(repo), "for-each-ref", "--format=%(refname)",
                                "refs/remotes/origin"],
-                              capture_output=True, text=True, timeout=20)
+                              capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=20)
         remote_refs = [r for r in (refs.stdout or "").split() if r][:25]
         for ref in remote_refs:
             out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern, ref],
-                                 capture_output=True, text=True, timeout=60)
+                                 capture_output=True, text=True, encoding="utf-8",
+                                 errors="replace", timeout=60)
             for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
                 nums.append(int(m.group(1)))
     except Exception:
@@ -2971,7 +2985,8 @@ def _git_repo() -> Path:
     """
     try:
         top = subprocess.run(["git", "-C", str(JOURNAL), "rev-parse", "--show-toplevel"],
-                             capture_output=True, text=True, timeout=20)
+                             capture_output=True, text=True, encoding="utf-8",
+                             errors="replace", timeout=20)
         if top.returncode == 0 and top.stdout.strip():
             return Path(top.stdout.strip())
     except Exception:
@@ -2980,10 +2995,26 @@ def _git_repo() -> Path:
 
 
 def _git(*argv, repo=None, text=True):
-    """Run git and return (rc, stdout). Never raises; a missing git is exit 127."""
+    """Run git and return (rc, stdout). Never raises; a missing git is exit 127.
+
+    ENCODING IS NOT OPTIONAL HERE. Measured 2026-09-28 on ZABZ-TECH (Python 3.13,
+    Windows): with a bare `text=True` Python decodes git's output with the LOCALE codec
+    (cp1252), and the journal tree legitimately contains UTF-8 bytes cp1252 cannot map.
+    The reader thread then dies with
+        UnicodeDecodeError: 'charmap' codec can't decode byte 0x9d in position 46363
+    while the main thread carries on - so three `append pain` calls printed a traceback
+    and no success line, and the operator (me) reasonably believed the entry was lost
+    when it had in fact been written (journal P2607). A visible crash over a silent
+    success is a trust defect in an append-only id-allocating store: the natural
+    response is to retry, and retrying is how duplicate ids are born.
+    `errors="replace"` rather than "strict" on purpose: a git call that returns an
+    undecodable byte is still a git call that returned, and `journal.py check` - not a
+    crash inside a reader thread - is what decides whether the tree is healthy.
+    """
     try:
         p = subprocess.run(["git", "-C", str(repo or _git_repo())] + list(argv),
-                           capture_output=True, text=True, timeout=45)
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=45)
         return p.returncode, (p.stdout or "")
     except Exception:
         return 127, ""
