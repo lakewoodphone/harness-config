@@ -2495,6 +2495,68 @@ function Ensure-Engine([int]$maxAttempts = 3, [int]$waitSeconds = 40) {
     $recoveryLog = Join-Path $StateDir 'engine-recovery.log'
     $slot = @(Get-Slots | Where-Object { $_.enabled } | Select-Object -First 1)
     if (-not $slot) { throw 'no enabled slot in windows.json' }
+
+    # ONE BOOT AT A TIME, FLEET-WIDE (added 2026-09-30, owner's ZABZ-YOGA outage).
+    #
+    # WHAT WENT WRONG. Four independent supervisors call `ensure` on a timer -- the 1-minute
+    # engine watchdog, the 5-minute vitals, the window fleet watchdog and the desktop
+    # shortcut -- and none of them knew about the others. When the engine was down, two of
+    # them would each decide to start one, each waited the same 40 s, and the loser died with
+    # `EADDRINUSE 127.0.0.1:3099`. Because the loser is a child of the owner's shortcut,
+    # a raw 20-line Node stack trace about "address already in use" was dumped in front of
+    # him. Measured on ZABZ-YOGA: six consecutive failed boots between 19:08:31 and 19:13:21,
+    # each one a stack trace, while the port flip-flopped between a slow-loading engine and
+    # the next attempt. The engine was never actually broken -- it was being started twice.
+    #
+    # THE FIX. A machine-wide named mutex, so "is there an engine, and if not, start one"
+    # is one atomic decision instead of a race. The loser does NOT give up: it waits for the
+    # winner to finish and then re-probes (see below), so a supervisor that arrived second
+    # reports success rather than a crash. A mutex (not a lock FILE) because it is released
+    # by the kernel if a holder is killed, so a wedged supervisor cannot wedge the fleet.
+    $ensureMutex = New-Object System.Threading.Mutex($false, 'Global\dsh-engine-ensure')
+    $held = $false
+    try {
+        try { $held = $ensureMutex.WaitOne([TimeSpan]::FromSeconds($waitSeconds)) }
+        catch [System.Threading.AbandonedMutexException] {
+            # The previous holder died mid-boot. The kernel hands us ownership: take it and
+            # carry on rather than treating an abandoned boot as a permanent failure.
+            $held = $true
+            "[{0}] ensure: took over an ABANDONED ensure lock (a previous supervisor died mid-boot)" -f (Get-Date -Format o) |
+                Add-Content -LiteralPath $recoveryLog -Encoding utf8
+        }
+        if (-not $held) {
+            # Someone else is already booting. Do not start a second engine -- that is the
+            # exact fault this guard exists for. Wait, then report whether they succeeded.
+            "[{0}] ensure: another supervisor is starting the engine - waiting instead of racing it" -f (Get-Date -Format o) |
+                Add-Content -LiteralPath $recoveryLog -Encoding utf8
+            Write-Host ("engine on {0} is being started by another supervisor - waiting for it" -f $port) -ForegroundColor Yellow
+            $waitUntil = (Get-Date).AddSeconds($waitSeconds)
+            while ((Get-Date) -lt $waitUntil) {
+                if (Test-EngineAlive $port) { return $true }
+                Start-Sleep -Milliseconds 750
+            }
+            return $false
+        }
+        # RE-PROBE UNDER THE LOCK. Between the caller's decision to start and this line, the
+        # other supervisor may have already brought the engine up; starting a second one now
+        # would be the EADDRINUSE we came to prevent.
+        if (Test-EngineAlive $port) { return $true }
+        return (Invoke-EngineBoot -Port $port -MaxAttempts $maxAttempts -WaitSeconds $waitSeconds -Slot $slot)
+    } finally {
+        if ($held) { try { $ensureMutex.ReleaseMutex() } catch { } }
+        try { $ensureMutex.Dispose() } catch { }
+    }
+}
+
+function Invoke-EngineBoot([int]$Port, [int]$MaxAttempts, [int]$WaitSeconds, $Slot) {
+    # The boot loop itself, split out 2026-09-30 so Ensure-Engine can own the mutex and the
+    # loop can `return` from inside it (a `return` in a child function must not release a
+    # lock the parent still holds). Behaviour here is unchanged from the original loop.
+    $port = $Port
+    $maxAttempts = $MaxAttempts
+    $waitSeconds = $WaitSeconds
+    $slot = $Slot
+    $recoveryLog = Join-Path $StateDir 'engine-recovery.log'
     for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         if (Test-EngineAlive $port) { return $true }
         Write-Host ("engine on {0} is not answering (attempt {1}/{2}) - starting it" -f $port, $attempt, $maxAttempts) -ForegroundColor Yellow
