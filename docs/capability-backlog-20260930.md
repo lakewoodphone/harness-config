@@ -1,4 +1,4 @@
-# Capability backlog — 32 things to change, one topic each
+# Capability backlog — 38 things to change, one topic each
 
 **Date:** 2026-09-30 · **Author:** Zabz seat (DSH) · **Companion documents:**
 `autonomy-audit-20260930.md` (what is broken and why) and `tooling-audit-20260930.md` (the 2026
@@ -213,14 +213,66 @@ drive a logged-in browser and cannot query the company database is doing half th
 *Gain:* children become real researchers; every request gets cheaper. *First step:* disable the two dead
 families and prove the token drop, then define a headless profile that carries search and `ps_*`.
 
-**32. Grow a self-improvement loop that does not rot.** Convert incidents into checked guardrails, promote
-a procedure only after an outcome check passes on held-out items, cap the active set, and retire on
-measured contribution. *Why:* the one technique with reproducible evidence — GEPA-style reflective prompt
-evolution — reports +6 points over GRPO with up to 35 times fewer rollouts, and the governance study
-measures LLM-authored skills at +0.0 points against curated at +16.2, with a bounded, retired set lifting
-pass@1 from 0.258 to 0.584. *Effort* M. *Gain:* this is the only mechanism that makes shift N+1 better than
-shift N, which is the thing you actually asked for. *First step:* freeze a 30-item held-out set with its
-verification commands, and record an outcome for every closed item.
+## F. Self-improvement — the half that compounds
+
+The research pass on this found the important thing, and it is not flattering: **the reason improvements
+piled up is an enforcement failure, not a learning failure.** Writing a lesson is cheap and closing one is
+not, and the literature on self-admitted technical debt shows the same collapse — prose does not enforce
+itself. Everything below is mechanical for that reason.
+
+**32. Every incident must produce one executable check.** A pain entry cannot close without a proving
+command, and a job scaffolds the failing check. *Why:* the measured baseline is that 3.4% of removals in the
+technical-debt study added a targeted test, and this tree has 304 open pain entries. *Effort* M. *Gain:*
+recurrence stops being re-discovered; the metric is incidents with a passing reproducer within 48 hours,
+and the recurrence rate. *First step:* make `proof_command` a required field and reject entries without one.
+
+**33. A proposal backlog with a work-in-progress cap, an expiry, and a failing metric.** A `proposals`
+table with owner, state and `expires_at`, one nightly job that applies at most one, and a **non-zero exit
+when more than five are open or the oldest passes 21 days.** *Why:* 55 improvements accumulated because
+nothing failed when the list grew. *Effort* S. *Gain:* the class becomes bounded and visible. *First step:*
+create the table and add the count gate to the nightly job.
+
+**34. An outcome table per unit of work, reported as pass^k.** One row per item with exit code, proof
+command and proof result; the weekly report repeats identical tasks and reports pass^4 to pass^8, not a
+single success rate. *Why:* single-run success rates lie — the reference benchmark shows pass^8 under 25%
+for agents that look much better on one attempt — and a rising success rate with a flat pass^k is the
+signature of automation gaming its own task. *Effort* S-M. *Gain:* a fitness signal that is not an
+opinion. *First step:* add the two columns and backfill one project.
+
+**35. A frozen fitness set, and keep-only-on-a-win.** 20 to 40 already-solved tasks with deterministic
+proof commands; every prompt or config change is scored before and after and reverted unless it wins with
+no regression. *Why:* this is the affordable core of the self-modification research — the parts that need a
+GPU or an expensive benchmark are not transferable, but "never keep a change that did not beat a fixed
+task set" is. *Effort* M. *Gain:* stops silent regressions shipped as improvements. *First step:* pick 20
+historical tasks and record their current pass or fail.
+
+**36. A guard registry checked by a different process.** A short list of the guards that matter with their
+check commands, a separate checker that exits non-zero when one is missing or failing, and an owner
+approval record required for any change that touches a guard. *Why:* the failure mode to design against is
+a self-modification that silently disables a safety check — the published evidence is that agents attempt
+exactly that — and a guard checked by the same process that could disable it is not a guard. *Effort* S.
+*Gain:* makes the one unthinkable failure detectable. *First step:* write the three most important guards
+in, with their commands.
+
+**37. Retry only against a verifier.** One reflect-and-retry cycle is allowed only where a compiler, test
+or database check can tell you it failed, and the verifier's output is fed back. *Why:* the evidence is
+direct — self-correction without external feedback can make things worse, and the gains attributed to
+reflection came from tasks with reliable external feedback. *Effort* S. *Gain:* fewer wasted retries and a
+higher fix rate on checked work. *First step:* one rule in the shift contract: retry only if a verifier
+failed.
+
+**38. A change budget, a canary, and a rehearsed rollback.** Three changes a week, one config path made a
+file with a canary flag, a pinned previous version, and a rollback that has been run in dry-run. *Why:*
+mean time to recover, not change volume, is what makes an autonomous system trustworthy over a long
+horizon. *Effort* S. *Gain:* a bad change costs minutes. *First step:* convert one hardcoded path to a file
+plus one rollback script.
+
+**What NOT to adopt, and I would hold this line.** Evolutionary self-modification of our own code
+(Darwin-Gödel-Machine and AlphaEvolve style), weight-level self-adaptation, intrinsic self-critique loops
+with no verifier, LLM-as-judge as the primary gate, and — most importantly — **a nightly session that
+reads the entire journal and "improves itself".** That last one is the most expensive way to learn the
+least: 2,800 entries as one context is exactly the configuration the curation research shows collapsing.
+And no mechanism that lets the agent weaken, disable or self-approve a change to its own guards.
 
 ---
 
@@ -238,5 +290,8 @@ scheduled role, and a per-shift record worth reading.
 
 **Then the efficiency half:** 22, 23, 24, 25, 26, 27 — the measured 30-60% input-cost reductions and the
 tenfold context cut.
+
+**Then the half that makes it get better on its own:** 32, 33, 34, 35, 36, 37, 38 — all mechanical, none of
+them needing a model to rewrite itself.
 
 **And exactly one item needs you:** item 6, the merge authorization. Everything else is mine.
