@@ -98,6 +98,14 @@ import {
   planFor,
   resolveHarvest,
 } from './retry-plan.js';
+import {
+  collectThread,
+  defaultMailboxRoot,
+  mailboxPaths,
+  mergeThread,
+  renderThread,
+  withMailbox,
+} from './mailbox.js';
 
 /**
  * An out-of-process child cannot honour parent-enforced start features
@@ -248,7 +256,7 @@ export function placementNote(placement, wait) {
 }
 
 /** The text the parent model sees as the child's result. */
-export function renderReport({ provider, transport, parsed, outcome, remote, meshHost, locationNote, placementLine, leaseNote, pressureNote, pressureCheck, invocation, attemptLines, retryBudget, unprovenNote, harvest, diagnostic }) {
+export function renderReport({ provider, transport, parsed, outcome, remote, meshHost, locationNote, placementLine, leaseNote, pressureNote, pressureCheck, invocation, attemptLines, retryBudget, unprovenNote, harvest, mailbox, mailboxDir, diagnostic }) {
   const head = [
     `${MESH_HOST_LINE} ${meshHost ?? '(not reported)'}`,
     `[${provider}] child ran on node "${parsed.host ?? 'UNKNOWN'}" via ${transport}`,
@@ -258,6 +266,10 @@ export function renderReport({ provider, transport, parsed, outcome, remote, mes
     ...(attemptLines === undefined || attemptLines.length === 0 ? [] : attemptLines),
     ...(retryBudget === undefined ? [] : [`retry budget   = ${retryBudget}`]),
     ...(unprovenNote === undefined ? [] : [`⚠ ${unprovenNote}`]),
+    // ── THE CONVERSATION ─────────────────────────────────────────────────────
+    // The count is on its own line so a reader can tell, at a glance, whether the
+    // child said anything the final message did not contain.
+    ...(mailboxDir === undefined ? [] : [`mailbox        = ${mailbox?.count ?? 0} message(s) in the thread at ${mailboxDir}`]),
     ...(placementLine === undefined ? [] : [`placement      = ${placementLine}`]),
     ...(leaseNote === undefined ? [] : [`lease          = ${leaseNote}`]),
     // ── WHY THIS NODE (docs/mesh/109-pressure-routing.md §3.2) ───────────────
@@ -292,7 +304,17 @@ export function renderReport({ provider, transport, parsed, outcome, remote, mes
   const harvestSection = harvest === undefined || harvest?.text === undefined || harvest.text === ''
     ? ''
     : `\n--- recovered from a failed attempt (${harvest.complete === true ? 'complete' : 'partial'}) ---\n${harvest.text}\n--- end recovered output ---`;
-  return `${head.join('\n')}\n--- child final message ---\n${body}${harvestSection}`;
+  // ── THE THREAD IS PART OF THE RESULT ──────────────────────────────────────
+  // Only rendered when there is something in it, so a healthy machine's report is
+  // unchanged; and rendered whenever there IS something, so a message the child
+  // wrote early is never invisible to its parent.
+  const threadSection = mailbox === undefined || mailbox.count === 0
+    ? ''
+    : `\n--- conversation thread (${mailbox.count} message(s); the child wrote as it worked) ---\n${mailbox.text}\n--- end conversation thread ---`;
+  const threadWarnings = mailbox !== undefined && mailbox.warnings?.length > 0
+    ? `\n--- mailbox warnings ---\n${mailbox.warnings.join('\n')}\n--- end mailbox warnings ---`
+    : '';
+  return `${head.join('\n')}\n--- child final message ---\n${body}${threadSection}${threadWarnings}${harvestSection}`;
 }
 
 /** The seam's rule for a provider diagnostic, reused for the release note. */
@@ -330,6 +352,8 @@ export class RemoteOneShotProvider {
     placer,
     ledger,
     retryPolicy,
+    mailboxRoot,
+    threadId,
   } = {}) {
     if (typeof name !== 'string' || name.trim() === '') throw new Error('remote-fanout: provider `name` is required');
     // WHAT IS REQUIRED OF A FIXED TARGET, AND WHY IT IS NOT TWO PATHS ANY MORE.
@@ -380,6 +404,19 @@ export class RemoteOneShotProvider {
      * a child which STARTED is never re-dispatched is not configurable.
      */
     this.retryPolicy = { ...DEFAULT_RETRY_POLICY, ...(retryPolicy ?? {}) };
+    /**
+     * Where the conversation thread's mailbox lives ON THE CHILD'S NODE.
+     *
+     *   undefined  derive it from the placed node's own working directory (default)
+     *   a string   use that directory (an operator override)
+     *   false      no mailbox — the child is told nothing and the report has no thread
+     *
+     * `threadId` names the conversation: pass the same one on a second dispatch and
+     * the child reads everything said so far, which is what makes a multi-turn
+     * conversation possible across processes.
+     */
+    this.mailboxRoot = mailboxRoot;
+    this.threadId = typeof threadId === 'string' && threadId !== '' ? threadId : undefined;
     /** Which kind of placer this provider runs on — `broker` or `fixed`. Reported at registration. */
     this.placementKind = this.placer.kind ?? 'unknown';
     /** How many children this provider has placed, queued and released — read by the proof scripts. */
@@ -426,9 +463,15 @@ export class RemoteOneShotProvider {
     // The seam's rule for a pre-publication cancellation: reject and leave
     // nothing running, rather than publish a run the caller already gave up on.
     if (request?.signal?.aborted) throw new Error(`${this.name}: delegation was cancelled before the remote child started`);
-    const childTask = this.taskPreamble === '' ? task : `${this.taskPreamble}\n${task}`;
     const nonce = randomBytes(4).toString('hex');
     const id = `remote-${randomUUID()}`;
+    // ── THE CONVERSATION THREAD ───────────────────────────────────────────────
+    // A remote child cannot be a continuable child and cannot be resumed, so the
+    // conversation is carried by files on the child's node (see lib/mailbox.js for
+    // both measurements). The thread id is derived from the run id unless the
+    // caller names one, so a caller that wants a second dispatch to CONTINUE a
+    // thread passes the same id and the child reads everything said so far.
+    const threadId = typeof this.threadId === 'string' && this.threadId !== '' ? this.threadId : id;
 
     const controller = new AbortController();
     const parentSignal = request.signal;
@@ -495,6 +538,72 @@ export class RemoteOneShotProvider {
     });
 
     const shell = remoteFacts.shell === 'posix' ? 'posix' : 'powershell';
+    /**
+     * ── THE MAILBOX IS RESOLVED HERE, AFTER PLACEMENT ─────────────────────────
+     * The path is on the CHILD's node, so it can only be computed once the broker
+     * has named that node — and it is derived from that node's own recorded working
+     * directory, never from this machine's, which would name a path that does not
+     * exist there. The child is told to create it, so no extra round trip is needed
+     * before the dispatch.
+     */
+    // `false` is a deliberate OFF switch, so it must be distinguished from `undefined`
+    // (which means "derive one"). A `??` here would treat the OFF switch as absent and
+    // silently re-enable the mailbox — measured, because that is exactly what happened.
+    const mailboxRoot = this.mailboxRoot === false
+      ? false
+      : (this.mailboxRoot ?? defaultMailboxRoot(remoteFacts.cwd ?? remoteFacts.dshHome));
+    let mailbox;
+    if (mailboxRoot !== false) {
+      mailbox = mailboxPaths({ root: String(mailboxRoot), thread: threadId });
+    }
+
+    const baseTask = this.taskPreamble === '' ? task : `${this.taskPreamble}\n${task}`;
+    const childTask = mailbox === undefined ? baseTask : withMailbox(baseTask, mailbox, { thread: threadId });
+
+    /**
+     * ── READ THE THREAD AFTER THE RUN, AND MAKE IT DURABLE ────────────────────
+     * The child's own messages are read back and rendered into the report, so a child
+     * that said something the parent needs BEFORE it finished is heard even when its
+     * final message never arrives. That is the case this exists for: the transport can
+     * kill a child after its work is done (journal L3188), and a message written early
+     * survives, while one written only at the very end does not.
+     *
+     * They are then PROMOTED INTO THE TRANSCRIPT. Without this, a multi-turn thread
+     * loses its history: the parent's inbox and the child's outbox are each rewritten
+     * by the next turn, so turn one's outbox was overwritten by turn two's and the
+     * earlier child's words disappeared from the conversation. Measured exactly that
+     * before this promotion existed (2 messages where 3 were expected).
+     *
+     * The transcript is the durable, append-only file that both directions are merged
+     * into; the inbox and outbox stay as the two writers' own files, so nothing is
+     * lost if this step never runs.
+     *
+     * A read failure is reported as a warning, never thrown: the run's outcome is
+     * already decided by this point, and a missing transcript must not turn a
+     * finished child into an error.
+     */
+    const readMailbox = () => {
+      if (mailbox === undefined) return undefined;
+      try {
+        mergeThread(mailbox);
+      } catch (error) {
+        // A failed promotion costs durability, not the report: fall through and read
+        // whatever the two writer files hold right now.
+        this.logger?.warn?.(`remote-fanout: could not promote the mailbox at ${mailbox.dir} into its transcript: ${String(error?.message ?? error)}`);
+      }
+      try {
+        const collected = collectThread(mailbox);
+        return { ...renderThread(collected), warnings: collected.warnings, messages: collected.messages };
+      } catch (error) {
+        return {
+          text: `the mailbox could not be read (${String(error?.message ?? error)}); any messages the child wrote are still on "${mailbox.dir}"`,
+          count: 0,
+          warnings: [String(error?.message ?? error)],
+          messages: [],
+        };
+      }
+    };
+
     /**
      * The transport and node facts for the placement IN FORCE. Both are refreshed
      * by `settleAttempt` on every attempt, so a reroute dispatches through the new
@@ -738,6 +847,7 @@ export class RemoteOneShotProvider {
           const retryBudget = `${index + 1} of ${policy.maxAttempts ?? DEFAULT_RETRY_POLICY.maxAttempts} transport attempt(s), `
             + `${distinctNodeCount} of ${policy.maxDistinctNodes ?? DEFAULT_RETRY_POLICY.maxDistinctNodes} distinct node(s), `
             + `${Math.round((Date.now() - startedAt) / 1000)} s elapsed — ${describeRetryPolicy(policy)}`;
+          const mailboxView = readMailbox();
           const orphaned = harness.classification === 'child-ran-transport-fault'
             ? 'ORPHANED — the child started and was NOT re-dispatched; its work may exist on the node and only its report was lost'
             : undefined;
@@ -759,6 +869,8 @@ export class RemoteOneShotProvider {
               retryBudget,
               unprovenNote: harness.unproven,
               harvest: harness.harvest,
+              mailbox: mailboxView,
+              mailboxDir: mailbox?.dir,
               diagnostic: orphaned === undefined
                 ? harness.diagnostic
                 : (harness.diagnostic === undefined ? orphaned : `${orphaned} — ${harness.diagnostic}`),

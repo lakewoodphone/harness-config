@@ -173,6 +173,8 @@ function apply(ctx, config = {}) {
       targetHosts: config.targetHosts,
       ledger,
       retryPolicy: config.retryPolicy,
+      mailboxRoot: config.mailboxRoot,
+      threadId: config.threadId,
     });
     placer = provider.placer;
     ctx.subagents.registerProvider(provider);
@@ -274,6 +276,8 @@ function apply(ctx, config = {}) {
     targetHosts: config.targetHosts,
     ledger,
     retryPolicy: config.retryPolicy,
+    mailboxRoot: config.mailboxRoot,
+    threadId: config.threadId,
   });
 
   ctx.subagents.registerProvider(provider);
@@ -285,6 +289,12 @@ function apply(ctx, config = {}) {
   ctx.logger?.info?.(`remote-fanout: ${provider.describePlacement()}`);
   // What happens after a failure is now policy, not chance. Print it at boot.
   ctx.logger?.info?.(`remote-fanout: retry policy — ${describeRetryPolicy(provider.retryPolicy)}`);
+  // And say whether the child gets a mailbox, since that decides whether a follow-up
+  // dispatch on the same thread can read what the child said.
+  ctx.logger?.info?.(provider.mailboxRoot === false
+    ? 'remote-fanout: child mailbox DISABLED (mailboxRoot=false) — a child can only report through its final message'
+    : `remote-fanout: child mailbox ON — each dispatch carries a conversation thread under ${provider.mailboxRoot ?? 'the placed node\'s own working directory'}/<thread>`);
 }
 
 export { name, inject, apply };
+
