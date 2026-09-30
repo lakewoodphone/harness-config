@@ -84,11 +84,20 @@ import {
 import {
   buildPosixScript,
   buildPwshScript,
+  harvestOutput as transportHarvestOutput,
   invocationFor,
   markers,
   parseFanout,
   shouldRetryWithFallback,
 } from './remote-script.js';
+import {
+  DEFAULT_RETRY_POLICY,
+  classifyFailure,
+  describeAttempt,
+  describeRetryPolicy,
+  planFor,
+  resolveHarvest,
+} from './retry-plan.js';
 
 /**
  * An out-of-process child cannot honour parent-enforced start features
@@ -239,10 +248,16 @@ export function placementNote(placement, wait) {
 }
 
 /** The text the parent model sees as the child's result. */
-export function renderReport({ provider, transport, parsed, outcome, remote, meshHost, locationNote, placementLine, leaseNote, pressureNote, pressureCheck, invocation }) {
+export function renderReport({ provider, transport, parsed, outcome, remote, meshHost, locationNote, placementLine, leaseNote, pressureNote, pressureCheck, invocation, attemptLines, retryBudget, unprovenNote, harvest, diagnostic }) {
   const head = [
     `${MESH_HOST_LINE} ${meshHost ?? '(not reported)'}`,
     `[${provider}] child ran on node "${parsed.host ?? 'UNKNOWN'}" via ${transport}`,
+    // ── THE ATTEMPT LEDGER ───────────────────────────────────────────────────
+    // A reader must be able to tell exactly what was tried, on which node, and
+    // why it was tried again — without reading a log file.
+    ...(attemptLines === undefined || attemptLines.length === 0 ? [] : attemptLines),
+    ...(retryBudget === undefined ? [] : [`retry budget   = ${retryBudget}`]),
+    ...(unprovenNote === undefined ? [] : [`⚠ ${unprovenNote}`]),
     ...(placementLine === undefined ? [] : [`placement      = ${placementLine}`]),
     ...(leaseNote === undefined ? [] : [`lease          = ${leaseNote}`]),
     // ── WHY THIS NODE (docs/mesh/109-pressure-routing.md §3.2) ───────────────
@@ -264,11 +279,20 @@ export function renderReport({ provider, transport, parsed, outcome, remote, mes
       : [`credential     = ${invocation.credentialSource}`]),
     ...(locationNote === undefined ? [] : [`location check = ${locationNote}`]),
     `exit = ${outcome.exitCode ?? 'none'}${outcome.timedOut ? ' (timed out)' : ''} in ${outcome.ms} ms${outcome.markerSettled ? ' (ssh client terminated after the completion frame)' : ''}`,
+    ...(diagnostic === undefined ? [] : [`diagnostic     = ${diagnostic}`]),
   ];
   const body = parsed.framed
     ? parsed.answer
     : `(the child produced no framed output; raw stdout follows)\n${outcome.stdout}`;
-  return `${head.join('\n')}\n--- child final message ---\n${body}`;
+  // ── THE SALVAGE IS PART OF THE RESULT, NOT A CONSOLATION PRIZE ────────────
+  // On 2026-09-30 a child was discarded for an empty host string even though it
+  // had produced its report: the refusal was right about *not claiming success*
+  // and wrong about *throwing the work away*. Whenever a run is not a plain
+  // success, whatever came back is attached here.
+  const harvestSection = harvest === undefined || harvest?.text === undefined || harvest.text === ''
+    ? ''
+    : `\n--- recovered from a failed attempt (${harvest.complete === true ? 'complete' : 'partial'}) ---\n${harvest.text}\n--- end recovered output ---`;
+  return `${head.join('\n')}\n--- child final message ---\n${body}${harvestSection}`;
 }
 
 /** The seam's rule for a provider diagnostic, reused for the release note. */
@@ -305,6 +329,7 @@ export class RemoteOneShotProvider {
     targetHosts = [],
     placer,
     ledger,
+    retryPolicy,
   } = {}) {
     if (typeof name !== 'string' || name.trim() === '') throw new Error('remote-fanout: provider `name` is required');
     // WHAT IS REQUIRED OF A FIXED TARGET, AND WHY IT IS NOT TWO PATHS ANY MORE.
@@ -349,6 +374,12 @@ export class RemoteOneShotProvider {
     this.verifyMeshHost = verifyMeshHost !== false;
     this.targetHosts = (Array.isArray(targetHosts) ? targetHosts : []).map(String).filter((value) => value !== '');
     this.placer = placer ?? createFixedPlacer({ transport, remote: this.remote, targetHosts: this.targetHosts });
+    /**
+     * How far a failed dispatch may be retried. The default is the measured
+     * policy in `retry-plan.js` — an operator may override it, but the rule that
+     * a child which STARTED is never re-dispatched is not configurable.
+     */
+    this.retryPolicy = { ...DEFAULT_RETRY_POLICY, ...(retryPolicy ?? {}) };
     /** Which kind of placer this provider runs on — `broker` or `fixed`. Reported at registration. */
     this.placementKind = this.placer.kind ?? 'unknown';
     /** How many children this provider has placed, queued and released — read by the proof scripts. */
@@ -464,24 +495,28 @@ export class RemoteOneShotProvider {
     });
 
     const shell = remoteFacts.shell === 'posix' ? 'posix' : 'powershell';
-    const transport = this.placer.transportFor(placement);
+    /**
+     * The transport and node facts for the placement IN FORCE. Both are refreshed
+     * by `settleAttempt` on every attempt, so a reroute dispatches through the new
+     * node's own transport rather than the one it replaced.
+     */
+    let activeTransport;
+    let activeShell = shell;
+    let activeFacts = remoteFacts;
+
+    let invocationContext = {};
 
     /**
-     * THE INVOCATION IS DECIDED HERE, PER RUN, FROM THE PLACED NODE'S OWN FACTS.
-     *
-     * `dsh --profile headless <task>` when the node has an executor — the mesh
-     * wrapper, which resolves the interpreter AND sources the worker credential
-     * file — and `node <bin.js> --profile headless <task>` only when it has no
-     * executor. See `nodes.js` for the measurements behind that order and
-     * `docs/mesh/102-linux-dispatch.md` for the per-node table.
+     * ONE place attempt, on the placement currently in force. Returns evidence,
+     * never a verdict — deciding what the evidence means is `settleAttempt`'s job,
+     * and deciding whether to try again is the loop's.
      */
-    let invocationContext = {};
     const runOnce = async (spec) => {
-      const script = (shell === 'posix' ? buildPosixScript : buildPwshScript)({ ...spec, task: childTask, nonce });
+      const script = (activeShell === 'posix' ? buildPosixScript : buildPwshScript)({ ...spec, task: childTask, nonce });
       // `handle` is assigned SYNCHRONOUSLY, before the first await: `dispose()`
       // may be called before the transport settles, and a run the caller has
       // disposed must not be left running because the handle was still undefined.
-      const started = transport.start({ shell, script, timeoutMs: this.timeoutMs, completeMarker: markers(nonce).exit });
+      const started = activeTransport.start({ shell: activeShell, script, timeoutMs: this.timeoutMs, completeMarker: markers(nonce).exit });
       handle = started;
       const onAbort = () => started.kill('aborted');
       if (controller.signal.aborted) onAbort();
@@ -495,16 +530,30 @@ export class RemoteOneShotProvider {
       return { handle: started, outcome, script, parsed: parseFanout(outcome.stdout, nonce) };
     };
 
-    const attempt = async () => {
-      const primary = invocationFor(remoteFacts);
+    /**
+     * Run one attempt on the placement in force and judge it.
+     *
+     * The judgement is the half that used to lose work: an empty host string or a
+     * missing `MESH-HOST:` line discarded a run whose answer was sitting right
+     * there. Now, on every non-success outcome, whatever came back is recovered
+     * and attached, and the evidence is returned so the caller can decide whether
+     * another attempt is honest.
+     */
+    const settleAttempt = async (attemptPlacement) => {
+      activeFacts = attemptPlacement.facts ?? activeFacts;
+      activeShell = activeFacts.shell === 'posix' ? 'posix' : 'powershell';
+      activeTransport = this.placer.transportFor(attemptPlacement);
+      const placementHosts = attemptPlacement.hosts?.length > 0 ? attemptPlacement.hosts : this.targetHosts;
+
+      const primary = invocationFor(activeFacts);
       if (primary === undefined) {
-        throw new Error(`remote-fanout: no invocation is recorded for node "${placement.node}" — it needs either an executor (\`command\`) or both a \`driver\` and a \`bin\``);
+        throw new Error(`remote-fanout: no invocation is recorded for node "${attemptPlacement.node}" — it needs either an executor (\`command\`) or both a \`driver\` and a \`bin\``);
       }
       let run = await runOnce({ invocation: primary });
       invocationContext = { command: describeInvocation(primary), form: primary.form, credentialSource: primary.credentialSource, attempts: [primary.form] };
       outcome = run.outcome;
       parsed = run.parsed;
-      this.logger?.info?.(`${this.name}: ${id} invoked on "${placement.node}" as ${invocationContext.command} (${primary.form}: ${primary.credentialSource})`);
+      this.logger?.info?.(`${this.name}: ${id} invoked on "${attemptPlacement.node}" as ${invocationContext.command} (${primary.form}: ${primary.credentialSource})`);
 
       // THE FALLBACK, AND WHEN IT IS ALLOWED TO RUN. A wrapper that is present
       // is right, but a wrapper that has been removed — or a node provisioned
@@ -513,11 +562,11 @@ export class RemoteOneShotProvider {
       // "this invocation could not be launched" qualifies (`shouldRetryWithFallback`),
       // so a wrong answer, a credential error or a timeout is never silently
       // re-run. The second run's evidence replaces nothing: both are reported.
-      const fallback = fallbackInvocation(remoteFacts, primary);
-      if (fallback !== undefined && shouldRetryWithFallback(outcome, parsed)) {
+      const fallback = fallbackInvocation(activeFacts, primary);
+      if (fallback !== undefined && shouldRetryWithFallback(run.outcome, run.parsed)) {
         this.logger?.warn?.(
-          `${this.name}: ${id} could not launch ${invocationContext.command} on "${placement.node}" `
-          + `(exit ${outcome.exitCode ?? 'none'}${outcome.spawnError ? `, ${outcome.spawnError}` : ''}) — retrying once with the interpreter fallback ${describeInvocation(fallback)}`,
+          `${this.name}: ${id} could not launch ${invocationContext.command} on "${attemptPlacement.node}" `
+          + `(exit ${run.outcome.exitCode ?? 'none'}${run.outcome.spawnError ? `, ${run.outcome.spawnError}` : ''}) — retrying once with the interpreter fallback ${describeInvocation(fallback)}`,
         );
         run = await runOnce({ invocation: fallback });
         invocationContext.command = describeInvocation(fallback);
@@ -525,83 +574,202 @@ export class RemoteOneShotProvider {
         invocationContext.credentialSource = fallback.credentialSource;
         invocationContext.fallbackFrom = primary.form;
         invocationContext.attempts.push(fallback.form);
-        outcome = run.outcome;
-        parsed = run.parsed;
       }
       handle = run.handle;
+      outcome = run.outcome;
+      parsed = run.parsed;
 
-      const meshHost = this.verifyMeshHost ? extractMeshHost(parsed.answer) : undefined;      const locationNote = this.#locationNote(parsed.host, placement, placementHosts);
-      blocks = [{
-        type: 'text',
-        text: renderReport({
-          provider: this.name,
-          transport: transport.describe(),
-          parsed,
-          outcome,
-          remote: remoteFacts,
-          meshHost,
-          locationNote,
-          placementLine: placementNote(placement, wait),
-          pressureNote: pressureLine(placement, parsed.host),
-          pressureCheck: pressureCheckLine(placement?.pressure, placement?.pressureDecision),
-          invocation: invocationContext,
-        }),
-      }];
-      this.logger?.info?.(`${this.name}: run ${id} on "${parsed.host ?? 'unknown'}" (placed on "${placement.node}") mesh-host="${meshHost ?? 'unreported'}" exit=${outcome.exitCode ?? 'none'}${outcome.timedOut ? ' timeout' : ''} in ${outcome.ms} ms`);
-      // Cancellation that settled locally wins over whatever the process said:
-      // the seam's rule for an out-of-process run.
-      if (controller.signal.aborted) return { output: blocks, stopReason: 'aborted' };
-      if (outcome.spawnError) {
-        diagnostic = `could not launch the ssh transport (${transport.describe()}): ${outcome.spawnError}`;
-        return { output: blocks, diagnostic, stopReason: 'error' };
+      // ── EVIDENCE, THEN JUDGEMENT ──────────────────────────────────────────
+      const meshHost = this.verifyMeshHost ? extractMeshHost(parsed.answer) : undefined;
+      const hostRecorded = typeof parsed.host === 'string' && parsed.host.trim() !== '';
+      const hostMismatch = hostRecorded && placementHosts.length > 0 && !placementHosts.some((host) => sameNode(host, parsed.host));
+      const locationNote = this.#locationNote(parsed.host, attemptPlacement, placementHosts);
+
+      // AN EMPTY HOST IS UNPROVEN, NOT WRONG. The measured cause is a target
+      // shell whose host emission did not run — a property of the shell, not
+      // evidence that the child ran somewhere else. Treating it as a
+      // contradiction discarded two completed children on 2026-09-30.
+      const unproven = !hostRecorded && this.verifyMeshHost
+        ? `location UNPROVEN — the target shell recorded no host, so the placement's node ("${attemptPlacement.node}") could not be confirmed by the transport`
+        : undefined;
+
+      let meshHostNote;
+      if (this.verifyMeshHost && meshHost === undefined && parsed.framed) {
+        meshHostNote = `the child did not open its report with "${MESH_HOST_LINE} <hostname>" (recorded host: ${parsed.host ?? 'none'}) — the child's location is unproven`;
       }
-      if (outcome.timedOut) {
+
+      let diagnostic;
+      let stopReason = 'completed';
+      if (controller.signal.aborted) {
+        stopReason = 'aborted';
+      } else if (outcome.spawnError) {
+        diagnostic = `could not launch the ssh transport (${activeTransport.describe()}): ${outcome.spawnError}`;
+        stopReason = 'error';
+      } else if (outcome.timedOut) {
         diagnostic = `the remote turn did not finish within ${this.timeoutMs ?? 'the configured'} ms and the ssh client was killed`
           + (outcome.stderr.trim() === '' ? '' : `; remote stderr tail: ${outcome.stderr.trim().slice(-900)}`);
-        return { output: blocks, diagnostic, stopReason: 'error' };
-      }
-      if (outcome.exitCode !== 0) {
+        stopReason = 'error';
+      } else if (outcome.exitCode !== 0) {
         diagnostic = `the remote one-shot exited ${outcome.exitCode ?? 'without a code'}${parsed.answer ? '' : ' and produced no final message'}; stderr tail: ${outcome.stderr.trim().slice(-600)}`;
-        return { output: blocks, diagnostic, stopReason: 'error' };
-      }
-      if (!parsed.framed) {
+        stopReason = 'error';
+      } else if (!parsed.framed && !(this.verifyMeshHost && meshHost !== undefined)) {
         diagnostic = `the remote process exited 0 but printed no completion frame — the target profile did not run (stderr tail: ${outcome.stderr.trim().slice(-600)})`;
-        return { output: blocks, diagnostic, stopReason: 'error' };
+        stopReason = 'error';
+      } else if (hostMismatch) {
+        // A PRESENT host that contradicts the placement is a genuinely wrong
+        // machine. That stays a failure — but the child's work is still attached,
+        // because refusing to *claim success* is not a reason to *discard work*.
+        diagnostic = `the transport reported host "${parsed.host}", which is not one of the hostnames the placement named ("${attemptPlacement.node}" may be ${placementHosts.join(', ')}) — refusing to report work from a node the broker did not name; the child's own message is NOT discarded: it is attached below and recorded in the ledger`;
+        stopReason = 'error';
+      } else if (this.verifyMeshHost && meshHost !== undefined && parsed.host !== undefined && !sameNode(meshHost, parsed.host)) {
+        diagnostic = `location disagreement: the child claims MESH-HOST ${meshHost} but the target shell recorded ${parsed.host}`;
+        stopReason = 'error';
+      } else if (parsed.answer === '' && !parsed.framed) {
+        diagnostic = 'the remote child finished with an empty final message and no frame — there is nothing to report';
+        stopReason = 'error';
+      } else if (parsed.answer === '') {
+        diagnostic = `the remote child finished with an empty final message${hostRecorded ? '' : ' and its location is unproven'}`;
       }
 
-      // Proof of location (`71` §2.4), now against the node the BROKER named.
-      // Both checks fail the run loudly.
-      if (placementHosts.length > 0 && !placementHosts.some((host) => sameNode(host, parsed.host))) {
-        diagnostic = `the transport reported host "${parsed.host ?? 'unknown'}", which is not one of the hostnames the placement named ("${placement.node}" may be ${placementHosts.join(', ')}) — refusing to report work from a node the broker did not name`;
-        return { output: blocks, diagnostic, stopReason: 'error' };
-      }
-      if (this.verifyMeshHost) {
-        if (meshHost === undefined) {
-          diagnostic = `the child did not begin its report with "${MESH_HOST_LINE} <hostname>" — its location is unproven, so the run is not reported as complete`;
-          return { output: blocks, diagnostic, stopReason: 'error' };
-        }
-        if (parsed.host !== undefined && !sameNode(meshHost, parsed.host)) {
-          diagnostic = `location disagreement: the child claims MESH-HOST ${meshHost} but the target shell recorded ${parsed.host}`;
-          return { output: blocks, diagnostic, stopReason: 'error' };
-        }
-      }
-      if (parsed.answer === '') {
-        diagnostic = 'the remote child finished with an empty final message';
-        return { output: blocks, stopReason: 'completed' };
-      }
-      return { output: blocks, stopReason: 'completed' };
+      const classification = stopReason === 'completed'
+        ? 'none'
+        : classifyFailure({ outcome, parsed, aborted: controller.signal.aborted === true, hostMismatch });
+
+      // Any non-clean outcome gets its salvage attached, always. This is the
+      // change that stops a failure from costing the work as well as the run.
+      const harvest = classification === 'none' ? undefined : resolveHarvest(transportHarvestOutput)(outcome, parsed, { maxBytes: 12000 });
+
+      return { classification, diagnostic, stopReason, harvest, meshHost, unproven: unproven ?? meshHostNote, locationNote, hostMismatch, attemptPlacement };
     };
 
     // Publication boundary. After this resolves the result NEVER rejects: a
     // transport fault is flattened into `stopReason: 'error'` with a diagnostic.
-    // The lease is released on EVERY path — a completed child, a failed child, an
-    // aborted child — because a reservation nobody gives back is a slot the mesh
-    // has lost until its TTL. The release is recorded, and its own failure never
-    // changes the child's outcome.
+    //
+    // ── RETRY, REROUTE, AND THE ONE THING THAT MAY NEVER BE RETRIED ──────────
+    // A dispatch used to be a single shot: any failure was terminal and ten
+    // minutes of a fleet bought nothing. Now a failure is classified first, and
+    // only a failure that PROVES the child never launched is ever re-dispatched.
+    // A child that started — or that might have started — is never re-run,
+    // because it may already have committed a branch, written a file, or spent
+    // money, and duplicating that is the most expensive mistake this system can
+    // make. Such a run is reported as ORPHANED with its salvage attached.
     const result = (async () => {
       let settled;
+      let finalPlacement = placement;
+      const leasesToRelease = [];
+      const attemptLines = [];
+      const distinctNodes = [];
+      const startedAt = Date.now();
+      let harness;
+      const policy = this.retryPolicy ?? {};
+
       try {
-        settled = await attempt();
+        let index = 0;
+        let distinctNodeCount = 1;
+        // ── ONE ATTEMPT, THEN A DECISION ──────────────────────────────────────
+        // The order matters and was got wrong once: judge the attempt FIRST, then
+        // plan from its verdict. Planning before the attempt had run made a
+        // successful run look like something to repeat (measured: every provider
+        // test looped and the heap reached 4 GB in 50 s).
+        for (;;) {
+          harness = await settleAttempt(finalPlacement);
+          distinctNodes.push(finalPlacement.node);
+          distinctNodeCount = new Set(distinctNodes).size;
+          const plan = planFor(harness.classification, index, {
+            policy,
+            elapsedMs: Date.now() - startedAt,
+            distinctNodes: distinctNodeCount,
+          });
+
+          attemptLines.push(describeAttempt(index + 1, {
+            node: finalPlacement.node,
+            classification: harness.classification,
+            action: plan.action,
+            detail: plan.reason,
+            delayMs: plan.delayMs,
+            startedEvidence: harness.classification === 'child-ran-transport-fault' ? true : undefined,
+          }));
+          this.#record(id, {
+            id,
+            attempt: index + 1,
+            attemptNode: finalPlacement.node,
+            classification: harness.classification,
+            planAction: plan.action,
+            planReason: plan.reason,
+            at: new Date().toISOString(),
+          });
+
+          if (plan.action === 'accept' || plan.action === 'fail' || plan.action === 'harvest') break;
+
+          // A delay is a real one; the plan justified it.
+          if (plan.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, plan.delayMs));
+
+          // A reroute may only go somewhere else, and the placer is the only
+          // party that can choose. Release the lease we are walking away from
+          // before asking again, or the mesh loses the slot until its TTL.
+          const wantsDifferentNode = plan.action === 'reroute';
+          leasesToRelease.push([finalPlacement, `superseded by attempt ${index + 2}`]);
+          let nextPlacement;
+          try {
+            nextPlacement = await this.placer.acquire({ id: `${id}#${index + 2}`, childIndex: this.counters.placed });
+          } catch (error) {
+            harness = {
+              ...harness,
+              classification: 'structural',
+              diagnostic: `attempts stopped: the ${plan.action} could not be made — ${error?.code ?? 'placement-failed'}: ${String(error?.message ?? error)}`,
+              stopReason: 'error',
+            };
+            break;
+          }
+          if (wantsDifferentNode && distinctNodes.includes(nextPlacement.node) && distinctNodes.length < (policy.maxDistinctNodes ?? 2)) {
+            // The placer offered a node we have already used. Say so rather than
+            // pretend a reroute happened.
+            attemptLines.push(`note: the placer re-offered "${nextPlacement.node}", which was already tried — the reroute could not reach a different node`);
+          }
+          finalPlacement = nextPlacement;
+          distinctNodes.push(nextPlacement.node);
+          this.counters.placed += 1;
+          index += 1;
+          settled = undefined;
+          harness = await settleAttempt(finalPlacement);
+        }
+
+        if (settled === undefined) {
+          const retryBudget = `${index + 1} of ${policy.maxAttempts ?? DEFAULT_RETRY_POLICY.maxAttempts} transport attempt(s), `
+            + `${distinctNodeCount} of ${policy.maxDistinctNodes ?? DEFAULT_RETRY_POLICY.maxDistinctNodes} distinct node(s), `
+            + `${Math.round((Date.now() - startedAt) / 1000)} s elapsed — ${describeRetryPolicy(policy)}`;
+          const orphaned = harness.classification === 'child-ran-transport-fault'
+            ? 'ORPHANED — the child started and was NOT re-dispatched; its work may exist on the node and only its report was lost'
+            : undefined;
+          blocks = [{
+            type: 'text',
+            text: renderReport({
+              provider: this.name,
+              transport: activeTransport.describe(),
+              parsed,
+              outcome,
+              remote: activeFacts,
+              meshHost: harness.meshHost,
+              locationNote: harness.locationNote,
+              placementLine: placementNote(finalPlacement, finalPlacement === placement ? wait : undefined),
+              pressureNote: pressureLine(finalPlacement, parsed.host),
+              pressureCheck: pressureCheckLine(finalPlacement?.pressure, finalPlacement?.pressureDecision),
+              invocation: invocationContext,
+              attemptLines,
+              retryBudget,
+              unprovenNote: harness.unproven,
+              harvest: harness.harvest,
+              diagnostic: orphaned === undefined
+                ? harness.diagnostic
+                : (harness.diagnostic === undefined ? orphaned : `${orphaned} — ${harness.diagnostic}`),
+            }),
+          }];
+          settled = {
+            output: blocks,
+            ...(harness.diagnostic === undefined && orphaned === undefined ? {} : { diagnostic: limitDiagnostic([harness.diagnostic, orphaned].filter(Boolean).join(' — ')) }),
+            stopReason: harness.stopReason,
+          };
+        }
       } catch (error) {
         if (controller.signal.aborted) settled = { output: blocks, stopReason: 'aborted' };
         else {
@@ -609,16 +777,30 @@ export class RemoteOneShotProvider {
           settled = { output: blocks, diagnostic: limitDiagnostic(error?.message ?? error), stopReason: 'error' };
         }
       }
-      const release = await this.placer.release(placement, settled.stopReason === 'completed');
+
+      // Every lease acquired for a superseded attempt is given back exactly once,
+      // then the one in force is released. A reservation nobody returns is a slot
+      // the mesh has lost until its TTL.
+      for (const [superseded, why] of leasesToRelease) {
+        try {
+          const r = await this.placer.release(superseded, false);
+          this.#record(id, { id, state: 'lease-superseded', lease: superseded?.lease ?? null, why, released: r?.released === true });
+        } catch (error) {
+          this.#record(id, { id, state: 'lease-superseded', lease: superseded?.lease ?? null, why, error: String(error?.message ?? error) });
+        }
+      }
+      const release = await this.placer.release(finalPlacement, settled.stopReason === 'completed');
       if (release?.released === true) this.counters.released += 1;
       if (blocks.length > 0 && typeof blocks[0].text === 'string') {
-        blocks[0].text = withLeaseNote(blocks[0].text, leaseNoteFor(placement, release));
+        blocks[0].text = withLeaseNote(blocks[0].text, leaseNoteFor(finalPlacement, release));
       }
       this.#record(id, {
         id,
         state: 'settled',
         stopReason: settled.stopReason,
         settledAt: new Date().toISOString(),
+        attempts: attemptLines,
+        nodesTried: distinctNodes,
         leaseReleased: release?.released === true,
         leaseReleaseSkipped: release?.skipped ?? null,
         leaseReleaseError: release?.ok === false ? (release.error ?? 'unknown') : null,

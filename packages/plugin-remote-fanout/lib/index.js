@@ -40,6 +40,7 @@ import { createBrokerClient } from './broker-client.js';
 import { createPlacementLedger, createNodePlacer } from './placement.js';
 import { createPressureReader, decidePressure, describePressure, localNodeName, PREFER_REMOTE_DEFAULT, PREFER_REMOTE_POLICY } from './pressure.js';
 import { RemoteOneShotProvider } from './provider.js';
+import { describeRetryPolicy } from './retry-plan.js';
 import { createSshTransport } from './ssh-transport.js';
 
 const name = 'remote-fanout';
@@ -171,6 +172,7 @@ function apply(ctx, config = {}) {
       verifyMeshHost: config.verifyMeshHost,
       targetHosts: config.targetHosts,
       ledger,
+      retryPolicy: config.retryPolicy,
     });
     placer = provider.placer;
     ctx.subagents.registerProvider(provider);
@@ -179,6 +181,9 @@ function apply(ctx, config = {}) {
       + `(profile ${config.remoteProfile ?? 'headless'}${config.remoteHome ? `, DSH_HOME ${config.remoteHome}` : ''}; `
       + `target hosts ${provider.targetHosts.length > 0 ? provider.targetHosts.join(', ') : 'NOT CHECKED'})`,
     );
+    // A FAILED CHILD IS NO LONGER THE END OF THE DISPATCH — say so at boot, so a
+    // reader of the engine log can tell what will happen without reading source.
+    ctx.logger?.info?.(`remote-fanout: retry policy — ${describeRetryPolicy(provider.retryPolicy)}`);
     return;
   }
 
@@ -268,6 +273,7 @@ function apply(ctx, config = {}) {
     verifyMeshHost: config.verifyMeshHost,
     targetHosts: config.targetHosts,
     ledger,
+    retryPolicy: config.retryPolicy,
   });
 
   ctx.subagents.registerProvider(provider);
@@ -277,6 +283,8 @@ function apply(ctx, config = {}) {
     + `queue wait ${config.queueWaitMs ?? 120000} ms; ledger ${ledger.dir})`,
   );
   ctx.logger?.info?.(`remote-fanout: ${provider.describePlacement()}`);
+  // What happens after a failure is now policy, not chance. Print it at boot.
+  ctx.logger?.info?.(`remote-fanout: retry policy — ${describeRetryPolicy(provider.retryPolicy)}`);
 }
 
 export { name, inject, apply };

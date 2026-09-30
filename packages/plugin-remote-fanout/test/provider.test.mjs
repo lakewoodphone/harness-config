@@ -315,13 +315,35 @@ test('a child that reports the wrong host fails the run', async () => {
   await run.dispose();
 });
 
-test('a child that omits MESH-HOST is an unproven location, not a success', async () => {
+/**
+ * CHANGED 2026-09-30, deliberately, with the reason on the record.
+ *
+ * This used to be `stopReason: 'error'`: a child that omitted its `MESH-HOST:`
+ * line had its whole run discarded. That was measured discarding real work — a
+ * child whose answer was sitting in the transcript and which the transport had
+ * independently located. The rule now distinguishes two different things:
+ *
+ *   a MISSING line        the child's location is unproven  -> warn, keep the work
+ *   a DISAGREEING line    the child ran somewhere else      -> fail (see below)
+ *
+ * The unproven case is still reported loudly, in the report header and in the
+ * diagnostic; what it no longer does is throw the child's message away. The
+ * neighbouring test ('a child that reports the right node but a different
+ * MESH-HOST still disagrees') proves the real disagreement still fails.
+ */
+test('a child that omits MESH-HOST is unproven and warned about — its work is NOT discarded', async () => {
   const transport = fakeTransport({ ok: true, exitCode: 0, ms: 1, answer: 'CHILD_OK' });
   const provider = new RemoteOneShotProvider({ name: 'remote-ssh', transport, remote: REMOTE, targetHosts: ['ZABZ-YOGA'] });
   const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
   const result = await run.result;
-  assert.equal(result.stopReason, 'error');
-  assert.match(result.diagnostic, /did not begin its report with "MESH-HOST: <hostname>"/);
+  const text = result.output.map((b) => b.text).join('\n');
+  // 1. the run is not thrown away
+  assert.equal(result.stopReason, 'completed');
+  // 2. the child's own message survives
+  assert.match(text, /CHILD_OK/);
+  // 3. the unproven location is stated unmistakably, not buried
+  assert.match(text, /did not open its report with "MESH-HOST: <hostname>"/);
+  assert.match(text, /location is unproven/);
   await run.dispose();
 });
 
@@ -538,5 +560,85 @@ test('the fixed-target opt-in still works, and says loudly that the broker was n
   const result = await run.result;
   assert.equal(result.stopReason, 'completed');
   assert.match(textOf(result), /placement      = FIXED TARGET — "ZABZ-YOGA" from configuration, the broker was NOT consulted/);
+  await run.dispose();
+});
+
+// ── RETRY AND THE ANTI-DUPLICATION RULE, END TO END ─────────────────────────
+// The unit tests in retry-plan.test.mjs prove the CLASSIFIER. These two prove the
+// provider actually acts on it, which is the part that failed in production.
+
+/** A transport whose Nth call answers with the Nth scripted outcome. */
+function sequencedTransport(outcomes, hooks = {}) {
+  let calls = 0;
+  const transport = {
+    calls: () => calls,
+    describe: () => 'sequenced transport to nowhere',
+    start(request) {
+      calls += 1;
+      hooks.onStart?.(request, calls);
+      const outcome = outcomes[Math.min(calls - 1, outcomes.length - 1)];
+      const stdout = outcome.stdout !== undefined ? outcome.stdout : (outcome.spawnError ? '' : frame(request.script, outcome));
+      return {
+        done: Promise.resolve({ ms: 1, stderr: '', ...outcome, stdout }),
+        kill: () => {},
+      };
+    },
+  };
+  return transport;
+}
+
+test('END TO END: a child that never launched is retried, and the retry is what the caller sees', async () => {
+  const transport = sequencedTransport([
+    // attempt 1: the ssh client could not even be spawned — provably nothing ran.
+    { spawnError: 'spawn ssh ENOENT', exitCode: undefined },
+    // attempt 2: a real child turn.
+    { ok: true, exitCode: 0, answer: 'MESH-HOST: ZABZ-YOGA\nSECOND ATTEMPT DID THE WORK' },
+  ]);
+  let waitedMs = 0;
+  const provider = new RemoteOneShotProvider({
+    name: 'remote-ssh',
+    transport,
+    remote: REMOTE,
+    // A test must not wait out the real backoff; the policy's NUMBERS are asserted
+    // in retry-plan.test.mjs, and this test is about the wiring.
+    retryPolicy: { backoffMs: 1, rerouteBackoffMs: 1 },
+  });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  const result = await run.result;
+  const text = textOf(result);
+  // Count LOGICAL attempts from the report, not raw transport deliveries: one
+  // attempt may legitimately deliver twice, because the executor is tried first
+  // and the interpreter fallback re-delivers when the executor cannot launch.
+  const logicalAttempts = (text.match(/^attempt \d+ = node/gm) ?? []).length;
+  assert.equal(logicalAttempts, 2, 'the failed attempt must be followed by exactly one retry');
+  assert.equal(result.stopReason, 'completed');
+  assert.match(text, /SECOND ATTEMPT DID THE WORK/, 'the retry\'s answer is the result');
+  // The attempt ledger must be readable without a log file.
+  assert.match(text, /attempt 1 = node "[^"]*" — transient-same-node/);
+  assert.match(text, /RETRYING IN \d+ ms/);
+  assert.match(text, /attempt 2 = node/);
+  assert.match(text, /retry budget\s+= 2 of 3 transport attempt\(s\), 1 of 2 distinct node\(s\)/, 'a retry on the SAME node must not be counted as a second node');
+  await run.dispose();
+});
+
+test('END TO END: a child that STARTED is harvested, never re-dispatched', async () => {
+  // The exact production shape measured on 2026-09-30: the opening frame AND its
+  // host line were written, the child then worked, and the process died with -1
+  // having written no answer and no closing frame. Re-running this would duplicate
+  // whatever it already did, so the provider must harvest instead.
+  const transport = sequencedTransport([{
+    ok: false,
+    exitCode: -1,
+    stdout: 'FANOUT_TRANSPORT_HOST=ZABZ-YOGA\nFANOUT_TRANSPORT_CWD=C:\\work\nFANOUT_BEGIN\nPARTIAL REASONING THAT SURVIVED',
+  }]);
+  const provider = new RemoteOneShotProvider({ name: 'remote-ssh', transport, remote: REMOTE, retryPolicy: { backoffMs: 1, rerouteBackoffMs: 1 } });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  const result = await run.result;
+  const text = textOf(result);
+  assert.equal(transport.calls(), 1, 'a started child must NEVER be re-dispatched — this is the duplicate-work guard');
+  assert.match(text, /ORPHANED/, 'the report must say the child may have done work');
+  assert.match(text, /PARTIAL REASONING THAT SURVIVED/, 'the salvage must carry what the child produced');
+  assert.match(text, /child-ran-transport-fault/);
+  assert.match(text, /harvesting, not re-dispatching/i);
   await run.dispose();
 });
