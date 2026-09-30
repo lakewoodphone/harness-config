@@ -714,6 +714,7 @@ handoff	H3057	3057		2026-09-29 18:55 UTC	SECRATARY	open	## 2026-09-29 18:55 UTC 
 handoff	H3058	3058		2026-09-29 18:58 UTC	SECRATARY	open	## 2026-09-29 18:58 UTC · SECRATARY · Wake loop honesty: one release per day instead of per subject (14 -> 1), the cap docstring corrected 12 -> 500, released_today labelled as sessions, and the cost authority named	entries/handoff/H3058.md	1	92	6ff8e8a0778c40b9
 handoff	H3059	3059		2026-09-29 19:52 UTC	SECRATARY	open	## 2026-09-29 19:52 UTC · SECRATARY · Aladdin tonight: the field plan, and the two numbers that decide it	entries/handoff/H3059.md	1	10	6be8cfec8b482283
 handoff	H3060	3060		2026-09-30 03:25 UTC	SECRATARY	open	## 2026-09-30 03:25 UTC · SECRATARY · Aladdin night documented end to end: the record, the two-ferry trap, and the 50 St platform trap	entries/handoff/H3060.md	1	10	1755136d20b0b8c7
+handoff	H3061	3061		2026-09-30 16:08 UTC	SECRATARY	open	## 2026-09-30 16:08 UTC · SECRATARY · The CFO audit fleet: the money plane is not running, and the fix is queue design not a rebuild	entries/handoff/H3061.md	1	96	8a9d34a8d810e43f
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1852,6 +1853,7 @@ lessons	L3060	3060		2026-09-29	SECRATARY	open	**L3060 · A compiled file is not 
 lessons	L3102	3102		2026-09-30	SECRATARY	open	**L3102 · A ferry instruction that names only the destination sends the owner to the wrong boat when two operators share one waterfront**	entries/lessons/L3102.md	1	10	71f94e232d43647f
 lessons	L3103	3103		2026-09-30	SECRATARY	open	**L3103 · Write down the parking level the moment you park — ten seconds at the start, half an hour at midnight**	entries/lessons/L3103.md	1	8	16255e2e2a15bbab
 lessons	L3104	3104		2026-09-30	SECRATARY	open	**L3104 · PDFs and Israeli gov stats: web_fetch fails, curl+pypdf works; idf.il/media FOI responses are the primary source**	entries/lessons/L3104.md	1	31	a6d8a625b0a0f606
+lessons	L3105	3105		2026-09-30	SECRATARY	open	**L3105 · The mesh fleet: four mechanics that cost real time, measured 2026-09-30**	entries/lessons/L3105.md	1	43	f272422320212026
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2196,6 +2198,8 @@ pain	P2609	2609		2026-09-28	ZABZ-TECH	open	## P2609 — journal/index/* is gener
 pain	P2666	2666		2026-09-28	ZABZ-YOGA	open	## P2666 — A fleet worktree has no server/.venv, and pytest --basetemp=./_pt trips the frames write-guard	entries/pain/P2666.md	1	12	2ee85812f12f123b
 pain	P2796	2796		2026-09-29	SECRATARY	open	## P2796 — The journal id allocator is LOCAL-ONLY: two machines handed out L3060 the same hour, and check cannot see it	entries/pain/P2796.md	1	47	e6d2194251a2b392
 pain	P2797	2797		2026-09-30	SECRATARY	open	## P2797 — Live traffic is unmeasurable from the authority, so every drive-time estimate is a guess with an honest label	entries/pain/P2797.md	1	10	477eabb3a8ec5d68
+pain	P2798	2798		2026-09-30	SECRATARY	open	## P2798 — The money plane: the CFO the owner asked for is idle, and the pull that feeds it is broken half the time	entries/pain/P2798.md	1	74	4d1068b58ad10bcb
+pain	P2799	2799		2026-09-30	SECRATARY	open	## P2799 — The money plane: the CFO the owner asked for is idle, and the pull that feeds it is broken half the time	entries/pain/P2799.md	1	74	6d787f483f6baa06
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -2526,6 +2530,7 @@ decisions	D2773	2773		2026-09-28	SECRATARY	open	**D2773 · 2026-09-28 · Weinber
 decisions	D2774	2774		2026-09-28	SECRATARY	open	**D2774 · 2026-09-28 · Household bought a HobbyZone Sport Cub S 2 RTF trainer, 2026-09-28.**	entries/decisions/D2774.md	1	24	51fcc558d66a6ca9
 decisions	D2775	2775		2026-09-29	SECRATARY	open	**D2775 · 2026-09-29 · Chip's facts now say who lives where - he got the household wrong in front of the family.**	entries/decisions/D2775.md	1	25	1c008a2344df9c47
 decisions	D2776	2776		2026-09-29	SECRATARY	open	**D2776 · 2026-09-29 · Chip: a ceiling on his share of the room, a register rewrite, and a carrier reconciliation sweep.**	entries/decisions/D2776.md	1	49	58afdabaeba7833e
+decisions	D2777	2777		2026-09-30	SECRATARY	open	**D2777 · 2026-09-30 · CFO money plane: the decisions taken after the 2026-09-30 audit.**	entries/decisions/D2777.md	1	59	7eac0bfdf335a25b
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
