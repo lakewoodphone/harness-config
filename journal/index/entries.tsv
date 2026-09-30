@@ -740,6 +740,11 @@ handoff	H3009	3009		2026-09-28 23:04 UTC	ZABZ-TECH	open	## 2026-09-28 23:04 UTC 
 handoff	H3010	3010		2026-09-28 23:08 UTC	ZABZ-TECH	open	## 2026-09-28 23:08 UTC · ZABZ-TECH · Round 39: refused to restore sending until the anti-repeat guard was proven - it was broken twice (missing --until, silently swallowed) AND living in a write-locked store; moved the guard to a store we own and restored sending	entries/handoff/H3010.md	1	42	26d53fda9b10f9be
 handoff	H3061	3061		2026-09-30 14:50 UTC	ZABZ-TECH	open	## 2026-09-30 14:50 UTC · ZABZ-TECH · Chol Hamoed 5787 pulled up whole: one index over 20 docs, the done/planned split, and the rejected list	entries/handoff/H3061.md	1	16	604620e7546996dd
 handoff	H3062	3062		2026-09-30 14:54 UTC	ZABZ-TECH	open	## 2026-09-30 14:54 UTC · ZABZ-TECH · The owner text channel audited end to end; the dead-model gateway fixed live; the responder still runs its own conversation	entries/handoff/H3062.md	1	48	95347815e85baa89
+handoff	H3063	3063		2026-09-30 15:00 UTC	ZABZ-TECH	open	## 2026-09-30 15:00 UTC · ZABZ-TECH · Family chat pulled up live (healthy); its drift watchdog's 100%-false alarm fixed and proven	entries/handoff/H3063.md	1	35	cc65f63181066c66
+handoff	H3064	3064		2026-09-30 15:01 UTC	ZABZ-TECH	open	## 2026-09-30 15:01 UTC · ZABZ-TECH · Thursday Chol Hamoed Jim Thorpe bike day planned end to end; three mesh lanes died at settlement and all research was done locally	entries/handoff/H3064.md	1	23	8dd5a60904f03bf6
+handoff	H3065	3065		2026-09-30 15:04 UTC	ZABZ-TECH	open	## 2026-09-30 15:04 UTC · ZABZ-TECH · NJ DOL BC28 for Weinberg: reason confirmed by the owner, Employer Access created, form filled and at the submit button	entries/handoff/H3065.md	1	91	4d3d1806bbda1704
+handoff	H3066	3066		2026-09-30 15:04 UTC	ZABZ-TECH	open	## 2026-09-30 15:04 UTC · ZABZ-TECH · Family chat: three defects found by pulling it up, all three fixed, deployed and falsified	entries/handoff/H3066.md	1	39	04013e51a87014ad
+handoff	H3067	3067		2026-09-30 15:05 UTC	ZABZ-TECH	open	## 2026-09-30 15:05 UTC · ZABZ-TECH · Autonomy audited end to end, 32-item backlog written, and the trigger proven live	entries/handoff/H3067.md	1	57	ceab50a97eb2ddda
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1885,6 +1890,9 @@ lessons	L3107	3107		2026-09-30	ZABZ-TECH	open	**L3107 · A wake row gated by not
 lessons	L3108	3108		2026-09-30	ZABZ-TECH	open	**L3108 · CORRECTION of L3106: the apostrophe mechanism was not supported; check a failed child for its output file first**	entries/lessons/L3108.md	1	38	45a5ccf556eadae2
 lessons	L3109	3109		2026-09-30	ZABZ-TECH	open	**L3109 · A model id the gateway does not recognise is served by a DIFFERENT model, with HTTP 200 and no warning**	entries/lessons/L3109.md	1	49	119b3c4de6c9ba27
 lessons	L3110	3110		2026-09-30	ZABZ-TECH	open	**L3110 · A mesh subagent brief containing an apostrophe or a quote dies before it does any work**	entries/lessons/L3110.md	1	27	97acd1aff7310dfa
+lessons	L3111	3111		2026-09-30	ZABZ-TECH	open	**L3111 · Twilio DateSent is date-granular: a coarse remote filter feeds 100%-false alarms into our own timestamps**	entries/lessons/L3111.md	1	23	5be19b942886ea89
+lessons	L3112	3112		2026-09-30	ZABZ-TECH	open	**L3112 · A mesh child cannot ssh: the client prints the remote output and then never exits; the manager must collect and hand over files**	entries/lessons/L3112.md	1	33	885a7692065493ae
+lessons	L3113	3113		2026-09-30	ZABZ-TECH	open	**L3113 · Twilio's SDK attribute is from_ — getattr(m,'from') returns nothing, so the catch-up path stored a blank sender on every row**	entries/lessons/L3113.md	1	24	a0c3f0ef2fac676b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2566,6 +2574,7 @@ decisions	D2773	2773		2026-09-28	SECRATARY	open	**D2773 · 2026-09-28 · Weinber
 decisions	D2837	2837		2026-09-28	ZABZ-TECH	open	**D2837 · 2026-09-28 · The phone is for questions, warnings and deadlines only. A finished job is recorded in the ledger; 'it finished' is never a reason to text the owner.**	entries/decisions/D2837.md	1	33	9ffeeff830d80e9c
 decisions	D2838	2838		2026-09-28	ZABZ-TECH	open	**D2838 · 2026-09-28 · Version-coupled config gets a SYNC-TIME precondition, not discipline; sync skips only the coupled steps and fails open.**	entries/decisions/D2838.md	1	47	a347bb5db88c8f29
 decisions	D2839	2839		2026-09-30	ZABZ-TECH	open	**D2839 · 2026-09-30 · The gateway resolves a short model id and the catalogue lists it; an unknown id is served loudly, never silently.**	entries/decisions/D2839.md	1	34	54218ee277f54de7
+decisions	D2840	2840		2026-09-30	ZABZ-TECH	open	**D2840 · 2026-09-30 · BC28 separation reason: voluntary quit, confirmed by the owner - and the seat may not take a decision whose cost is a false statement by him to a state agency.**	entries/decisions/D2840.md	1	43	09a9a4e743657710
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
