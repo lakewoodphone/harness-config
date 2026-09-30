@@ -122,11 +122,31 @@ The first attempt died with the mesh link (`Connection timed out`, twice: `scp: 
 
 ## 4. The other machines
 
-| Machine | Root | Found | State |
-|---|---|---|---|
-| **zabz-yoga** (laptop) | `C:\Users\ezabz\Code` | **99 top-level directories** | recon in progress (fetch-free pass - the fetching pass was killed after 40 minutes without an answer). Its `Code` is far larger than this desktop's; results to follow and to be appended here |
-| **zabz-tech-linux** (macOS mini, Yisroel) | `/home/zabz` | 4 repos | **snapshotted.** `harness-config` 675 behind (3 dirty, 2 untracked); `personal-secretary-mvp` 230 behind, **1 stash** (now pinned); `mtkclient` 20 behind, 193 untracked; `edl_case/edl` 70 dirty, 3 untracked. All stale; none asserted unique |
-| **hetzner** (`waze-mdm-01`) | `/root` (depth 5), `/opt`, `/srv`, `/var/www` | **one checkout**: `/opt/personal-secretary-mvp` | Clean tree, 1 branch (`master`), **0 stashes**, HEAD `26f256c` (2026-07-28) — and **that commit exists in the desktop clone**, so it is not unique work. Its fetch fails (exit 128) because there is **no GitHub credential on that box**; it is a stale deploy copy, not an at-risk one. `/root` holds no repositories |
+| Machine | Root | Working trees found | Backup root | State |
+|---|---|---|---|---|
+| **zabz-yoga** (laptop) | `C:\Users\ezabz\Code` | 101 top-level dirs → **34 git working trees = 23 distinct repos** | `C:\Users\ezabz\_git-backup-20260930\` | **FROZEN** — 14 MB of refs, reflogs and patches; **24 stashes in 4 repos, all pinned** |
+| **zabz-tech-linux** (macOS mini, Yisroel) | `/home/zabz` | 4 | `/home/zabz/_git-backup-20260930/` | **FROZEN** — all 4 captured. `harness-config` 675 behind (3 dirty, 2 untracked); `personal-secretary-mvp` 230 behind, 1 stash (pinned); `mtkclient` 20 behind, 193 untracked; `edl_case/edl` 70 dirty, 3 untracked |
+| **hetzner** (`waze-mdm-01`) | `/root` (depth 5), `/opt`, `/srv`, `/var/www` | 1 checkout | n/a | **NOTHING AT RISK.** `/opt/personal-secretary-mvp`: clean, 1 branch, **0 stashes**, HEAD `26f256c` (2026-07-28) — and that commit **exists in the desktop clone**, so it is not unique work. Its fetch fails (exit 128): there is **no GitHub credential on that box**. `/root` holds no repositories |
+
+**Every reachable machine is now frozen.** Nothing was merged, rebased, pushed, checked out, dropped or
+deleted anywhere.
+
+**Yoga's own at-risk list (different repos from this desktop — it is not a copy of it):**
+
+| Repo | Branch | State |
+|---|---|---|
+| `phone-and-tech` | `docs/ux-simplification-v2-decisions` | **15 stashes** — the largest single stash pile on the whole mesh |
+| `personal-secretary-mvp` | `feat/owner-text-gate` | 38 dirty, 66 untracked, 3 stashes |
+| `research` | `master` | 26 dirty, **505 untracked** |
+| `lpt-schematics` | `main` | 17 dirty, 5 untracked |
+| `lpt-hub` | `main` | 7 dirty, 17 untracked, **3 stashes** (this clone's stashes are not the desktop's) |
+| `harness-config` | `agent/capability-registry-20260930` | 18 dirty, 14 untracked, 3 stashes |
+| `phone-and-tech-full` | `fix/hours-walkin-20260916` | 13 dirty, 13 untracked — plus a worktree with **1,124 untracked** |
+| `_lpt-w6-wt`, `_yoga-merge-wt` | **detached HEAD** | `_yoga-merge-wt` also holds 3 stashes |
+
+Yoga also carries repos that do not exist on this desktop (`lpt-schematics`, `phone-and-tech`, `research`,
+`tutor`, `yocheved-staging`, `ceo-kernel`, `unified-search`, `_njpa-photo-review`), so its work cannot be
+assumed to be a copy of anything here.
 
 ---
 

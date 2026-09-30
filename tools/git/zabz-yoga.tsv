@@ -1,0 +1,35 @@
+path	branch	head	headDate	upstream	dirty	untracked	stashes	branches	common
+C:\Users\ezabz\Code\book	main	a09f4d7	2026-05-06T03:41:57-04:00	origin/main	0	0	0	1	.git
+C:\Users\ezabz\Code\ceo-kernel	main	51dc851	2026-09-28T14:42:32-04:00	origin/main	0	0	0	1	.git
+C:\Users\ezabz\Code\chumash-timeline	main	7bdfff9	2026-09-30T12:09:03-04:00	origin/main	0	0	0	1	.git
+C:\Users\ezabz\Code\ha-config	main	39f1369	2026-09-17T09:47:58-04:00	origin/main	0	0	0	7	.git
+C:\Users\ezabz\Code\harness-config	agent/capability-registry-20260930	d5b8822	2026-09-30T13:23:45-04:00	origin/agent/capability-registry-20260930	4	14	3	30	.git
+C:\Users\ezabz\Code\harness-config-mfx	meshfix/mfx-broker	1b921d7	2026-09-30T17:04:13Z		0	0	3	30	C:/Users/ezabz/code/harness-config/.git
+C:\Users\ezabz\Code\home	main	1782efb	2026-09-29T15:01:50-04:00	origin/main	0	0	0	1	.git
+C:\Users\ezabz\Code\kosher-filter-ai	main	5afd6e3	2026-09-28T14:58:39-04:00	origin/main	0	0	0	22	.git
+C:\Users\ezabz\Code\lpt-books	master	2b63bc5	2026-09-20T11:48:00-04:00		0	0	0	12	.git
+C:\Users\ezabz\Code\lpt-flip-phone	main	b831f5e0	2026-09-18T12:34:31-04:00	origin/main	0	0	0	1	.git
+C:\Users\ezabz\Code\lpt-hub	main	8d6ef4e1a	2026-09-30T12:29:18-04:00	origin/main	0	7	3	2	.git
+C:\Users\ezabz\Code\lpt-schematics	main	8db2773	2026-05-18T13:53:48-04:00	origin/main	12	5	0	1	.git
+C:\Users\ezabz\Code\personal-secretary-mvp	feat/owner-text-gate	a137f0599	2026-09-29T14:23:22-04:00		8	30	3	43	.git
+C:\Users\ezabz\Code\personality test	main	43bcf28	2026-09-15T18:19:34-04:00	origin/main	0	0	0	1	.git
+C:\Users\ezabz\Code\personality-test-db-backups	main	93a13d8	2026-04-09T21:25:04-04:00	origin/main	0	0	0	1	.git
+C:\Users\ezabz\Code\phone-and-tech	docs/ux-simplification-v2-decisions	50e33fd17	2026-03-16T16:33:29-04:00	origin/docs/ux-simplification-v2-decisions	0	0	15	284	.git
+C:\Users\ezabz\Code\phone-and-tech-full	fix/hours-walkin-20260916	6b94038c4	2026-09-15T22:38:35-04:00	origin/fix/walkin-hours-20260916	5	8	0	81	.git
+C:\Users\ezabz\Code\quickbooks-agent	main	f80b05e	2026-08-24T13:03:42-04:00	origin/main	0	2	0	1	.git
+C:\Users\ezabz\Code\research	master	7c3e7a4	2026-02-25T13:59:35-05:00	origin/master	0	26	0	1	.git
+C:\Users\ezabz\Code\tesla-lin-chip	master	f41d405	2026-07-03T14:52:31-04:00	origin/master	0	0	0	1	.git
+C:\Users\ezabz\Code\tutor	main	3c6c021	2026-05-06T14:39:40-04:00	origin/main	0	0	0	2	.git
+C:\Users\ezabz\Code\unified-search	main	15ab15c	2026-09-17T09:21:30-04:00		0	0	0	9	.git
+C:\Users\ezabz\Code\xiao-lin-bench	master	f41d405	2026-07-03T14:52:31-04:00	origin/master	0	0	0	1	.git
+C:\Users\ezabz\Code\yocheved-staging	master	db1bac8	2026-09-15T23:18:03-04:00	origin/master	0	0	0	1	.git
+C:\Users\ezabz\Code\_health-wt	docs/owner-health-2026-09-25	57e042a1a	2026-09-25T01:01:39-04:00	origin/docs/owner-health-2026-09-25	0	8	3	43	C:/Users/ezabz/code/personal-secretary-mvp/.git
+C:\Users\ezabz\Code\_lpt-w6-wt	HEAD	89e5ff81d	2026-09-15T18:44:38-04:00		0	1	0	81	C:/Users/ezabz/code/phone-and-tech-full/.git
+C:\Users\ezabz\Code\_njpa-photo-review	main	c5c36c1	2026-09-28T00:07:05-04:00	origin/main	0	0	0	1	.git
+C:\Users\ezabz\Code\_pt_clients	fix/trpc-client-callsites-20260917	33f20c157	2026-09-17T23:03:33-04:00	origin/test	0	0	0	81	C:/Users/ezabz/code/phone-and-tech-full/.git
+C:\Users\ezabz\Code\_pt_deploy	deploy/lpt-site-truthful-20260916	59f1763d5	2026-09-17T23:03:49-04:00	origin/test	0	0	0	81	C:/Users/ezabz/code/phone-and-tech-full/.git
+C:\Users\ezabz\Code\_pt_faqfix	fix/faq-and-google-link-20260916	a3fa5cdbc	2026-09-16T14:50:43-04:00	origin/test	0	0	0	81	C:/Users/ezabz/code/phone-and-tech-full/.git
+C:\Users\ezabz\Code\_pt_holiday	fix/holiday-closure-notice	6c20d6e0a	2026-09-20T04:37:26-04:00	origin/fix/holiday-closure-notice	0	0	0	81	C:/Users/ezabz/code/phone-and-tech-full/.git
+C:\Users\ezabz\Code\_pt_hours	fix/hours-truthful-20260916	6d9fa9b04	2026-09-16T14:52:29-04:00	origin/test	0	0	0	81	C:/Users/ezabz/code/phone-and-tech-full/.git
+C:\Users\ezabz\Code\_pt_w6_base	HEAD	89e5ff81d	2026-09-15T18:44:38-04:00		0	0	0	81	C:/Users/ezabz/code/phone-and-tech-full/.git
+C:\Users\ezabz\Code\_yoga-merge-wt	HEAD	9009dd1	2026-09-28T12:53:54-04:00		3	0	3	30	C:/Users/ezabz/code/harness-config/.git
