@@ -34,9 +34,10 @@ it authorises a destructive step.
 
 | Machine | Backup root | Contents |
 |---|---|---|
-| **zabz-tech** (this desktop) | `C:\Users\ezabz\_git-backup-20260930\` | 21 repo dirs, **77 worktree captures**, 1.55 GB, 8 stash patches |
-| **secratary** (authority) | `/home/zabz/_git-backup-20260930/` | partial - see §3 |
-| **zabz-tech-linux** (macOS mini) | *not yet* | 4 repos, all clean or stale-behind |
+| **zabz-tech** (this desktop) | `C:\Users\ezabz\_git-backup-20260930\` | **DONE** — 21 repo dirs, **77 worktree captures**, 1.55 GB, 8 stash patches |
+| **secratary** (authority) | `/home/zabz/_git-backup-20260930/` | **DONE** — 33 repo dirs, **23 worktree captures**, **50 stash patches**, 4.8 GB; `personal-secretary-mvp`'s **16 stashes pinned** as `refs/lpt-backup/stash/*` and **all 16 still listed** (nothing dropped). Tools and path lists in `_tools/` |
+| **zabz-tech-linux** (macOS mini) | `/home/zabz/_git-backup-20260930/` | **DONE** — all 4 repos captured |
+| **hetzner** | n/a | one clean stale checkout, nothing at risk — see §4 |
 
 Each repo dir contains:
 
@@ -91,12 +92,13 @@ captured as patches.
 
 ---
 
-## 3. secratary (the authority) — 50 working trees found, snapshot **partial**
+## 3. secratary (the authority) — 50 working trees found, snapshot **complete**
 
-Recon complete; the snapshot pass is **incomplete because the mesh link dropped mid-run** (`Connection
-timed out` / `client_loop: send disconnect: Connection reset`, twice). The first pass snapshotted **26**
-repos; the remaining **24** working trees (mostly worktrees and `_verify*`/`_converge*` trees) are queued
-to re-run detached when the link is back.
+The first attempt died with the mesh link (`Connection timed out`, twice: `scp: Connection closed` then
+`client_loop: send disconnect: Connection reset`). It was completed by running it **detached on the server**
+(`setsid nohup … < /dev/null &`) and polling the log, so a dropped connection can no longer lose the run.
+**Verified after the fact:** 33 repo dirs, 23 worktree captures, 50 stash patches, 4.8 GB, and
+`personal-secretary-mvp`'s **16 stashes both pinned and still present**.
 
 **The at-risk items there, by name:**
 
@@ -122,9 +124,9 @@ to re-run detached when the link is back.
 
 | Machine | Root | Found | State |
 |---|---|---|---|
-| **zabz-yoga** (laptop) | `C:\Users\ezabz\Code` | **99 top-level directories** | recon pending - the laptop's `Code` is much bigger than this desktop's; results to follow |
-| **zabz-tech-linux** (macOS mini, Yisroel) | `/home/zabz` | 4 repos | `harness-config` **675 behind** (dirty 1, untracked 2); `personal-secretary-mvp` **230 behind**; `mtkclient` 20 behind; `edl_case/edl` **67 dirty** - all stale, nothing unique suspected, nothing asserted yet |
-| **hetzner** (`waze-mdm-01`) | `/root`, `/opt`, `/srv` | **no git repositories** at depth 3 | deploys by copy; nothing to reconcile, to be re-checked at depth 5 |
+| **zabz-yoga** (laptop) | `C:\Users\ezabz\Code` | **99 top-level directories** | recon in progress (fetch-free pass - the fetching pass was killed after 40 minutes without an answer). Its `Code` is far larger than this desktop's; results to follow and to be appended here |
+| **zabz-tech-linux** (macOS mini, Yisroel) | `/home/zabz` | 4 repos | **snapshotted.** `harness-config` 675 behind (3 dirty, 2 untracked); `personal-secretary-mvp` 230 behind, **1 stash** (now pinned); `mtkclient` 20 behind, 193 untracked; `edl_case/edl` 70 dirty, 3 untracked. All stale; none asserted unique |
+| **hetzner** (`waze-mdm-01`) | `/root` (depth 5), `/opt`, `/srv`, `/var/www` | **one checkout**: `/opt/personal-secretary-mvp` | Clean tree, 1 branch (`master`), **0 stashes**, HEAD `26f256c` (2026-07-28) — and **that commit exists in the desktop clone**, so it is not unique work. Its fetch fails (exit 128) because there is **no GitHub credential on that box**; it is a stale deploy copy, not an at-risk one. `/root` holds no repositories |
 
 ---
 
