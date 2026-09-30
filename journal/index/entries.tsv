@@ -713,6 +713,7 @@ handoff	H3056	3056		2026-09-29 18:26 UTC	SECRATARY	open	## 2026-09-29 18:26 UTC 
 handoff	H3057	3057		2026-09-29 18:55 UTC	SECRATARY	open	## 2026-09-29 18:55 UTC · SECRATARY · Owner text path fully verified end to end; I shipped and fixed a live crash; deployed truth is now in git; two of three workers died on the 30-minute cap	entries/handoff/H3057.md	1	106	9da19e43511078b3
 handoff	H3058	3058		2026-09-29 18:58 UTC	SECRATARY	open	## 2026-09-29 18:58 UTC · SECRATARY · Wake loop honesty: one release per day instead of per subject (14 -> 1), the cap docstring corrected 12 -> 500, released_today labelled as sessions, and the cost authority named	entries/handoff/H3058.md	1	92	6ff8e8a0778c40b9
 handoff	H3059	3059		2026-09-29 19:52 UTC	SECRATARY	open	## 2026-09-29 19:52 UTC · SECRATARY · Aladdin tonight: the field plan, and the two numbers that decide it	entries/handoff/H3059.md	1	10	6be8cfec8b482283
+handoff	H3060	3060		2026-09-30 03:25 UTC	SECRATARY	open	## 2026-09-30 03:25 UTC · SECRATARY · Aladdin night documented end to end: the record, the two-ferry trap, and the 50 St platform trap	entries/handoff/H3060.md	1	10	1755136d20b0b8c7
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1848,6 +1849,7 @@ lessons	L3057	3057		2026-09-29	SECRATARY	open	**L3057 · The NJ state park site 
 lessons	L3058	3058		2026-09-29	SECRATARY	open	**L3058 · A fan-out whose output I never collect is worth less than doing it myself**	entries/lessons/L3058.md	1	21	6f33e422450e52a2
 lessons	L3059	3059		2026-09-29	SECRATARY	open	**L3059 · A mode that claims to change nothing must leave the RECORD unchanged too: three defects on the owner text path**	entries/lessons/L3059.md	1	48	3cf7fb9b9cbb0f24
 lessons	L3060	3060		2026-09-29	SECRATARY	open	**L3060 · A compiled file is not a running file: I crash-looped the live owner path, and only an end-to-end test on an isolated copy found it**	entries/lessons/L3060.md	1	76	f86f0d02cf1ce8fc
+lessons	L3102	3102		2026-09-30	SECRATARY	open	**L3102 · A ferry instruction that names only the destination sends the owner to the wrong boat when two operators share one waterfront**	entries/lessons/L3102.md	1	10	71f94e232d43647f
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2191,6 +2193,7 @@ pain	P2608	2608		2026-09-28	ZABZ-TECH	open	## P2608 — personal-secretary-mvp i
 pain	P2609	2609		2026-09-28	ZABZ-TECH	open	## P2609 — journal/index/* is generated state that is tracked in git: every host goes dirty by using the journal, and that is what blocked the fast-forward	entries/pain/P2609.md	1	29	d7f735dfc90716e1
 pain	P2666	2666		2026-09-28	ZABZ-YOGA	open	## P2666 — A fleet worktree has no server/.venv, and pytest --basetemp=./_pt trips the frames write-guard	entries/pain/P2666.md	1	12	2ee85812f12f123b
 pain	P2796	2796		2026-09-29	SECRATARY	open	## P2796 — The journal id allocator is LOCAL-ONLY: two machines handed out L3060 the same hour, and check cannot see it	entries/pain/P2796.md	1	47	e6d2194251a2b392
+pain	P2797	2797		2026-09-30	SECRATARY	open	## P2797 — Live traffic is unmeasurable from the authority, so every drive-time estimate is a guess with an honest label	entries/pain/P2797.md	1	10	477eabb3a8ec5d68
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
