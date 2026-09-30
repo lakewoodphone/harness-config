@@ -303,3 +303,65 @@ not moved**: advancing the trunk is a separate decision, and the branch is the d
    command for every one.
 4. 136 open entries still without a check; write one each.
 5. Off-box replication of the control plane.
+
+---
+
+## 9. Round three, same day — the mechanisms get a home, and three lineages become one
+
+**9.1 A three-state health gate (P170, P66).** Every gate that decided whether production was up used
+`curl -fsS`, and `-f` fails on an HTTP error status while this API answers **HTTP 200 with `ok:false`**
+when degraded. `scripts/server/health-gate.sh` now decides HEALTHY / DEGRADED / DOWN with exit codes
+0/2/1 and an explicit rule that an unparseable or absent `ok` is DEGRADED, because an unknown health is
+not health. `restart.sh`, `verify-production.sh` and `status.sh` ask it. Landed as the same anchored
+edit on both sides of the app divergence (authority `9780dd8f`, repo `37a8ae6e`), scripts normalised to
+LF.
+
+**9.2 The API watchdog now judges health, not just liveness (P66).** It printed
+`ok: secretary-api.service is active` every five minutes through twenty minutes of `ok:false`
+("db check timed out (lock contention)"). It now counts consecutive bad observations, records the
+third and tells the owner once, and recovers once at the sixth under the existing hourly cooldown.
+Falsified on all three branches — and my own first version used `|| echo DOWN` on a command that exits
+2 for DEGRADED, so a DEGRADED reading became `"DEGRADED\nDOWN"`: the exact defect class the gate exists
+to catch, written twenty minutes later.
+
+**9.3 The owner-message flood (P2260): 81 messages a day, from one line.** Measured from
+`owner_message_queue`: 100 `proactive_update` rows in 24 hours, **81 identical** about one node, at
+15–60 minute intervals against a 7200 s cooldown. Cause: `if ok: alerts.clear()` — `ok` is the
+AGGREGATE, so a flapping node wiped every node's cooldown on each healthy pass. A node is now cleared
+only when that node is good twice in a row, and repeats back off 2/4/8/16/24 h. Proven with a
+closed-port notify sink: alert, quiet, quiet at 2 h, alert at 4 h, **3.0/day steady state**. The
+reading half stays open (the probe still reports healthy nodes as unable to take work).
+
+**9.4 Every guard has a home that reaches every machine.** `harness-config/scripts/guards/` is now the
+source of truth for seven guards and four flag sources, with `install.sh` (sha-verified, CR-stripping,
+dry-run) and the cron lines listed as notes rather than applied. Plus CRLF detection in the
+cron-target guard for both crontab targets and critical paths.
+
+**9.5 THE THREE JOURNAL LINEAGES ARE ONE, AND MASTER IS LANDED.**
+The record existed in three lineages that could not see each other: origin/master 2,721 entries, the
+authority's checkout 2,760 (38 behind / 26 ahead), ZABZ-TECH's branch 2,885. Merged in a throwaway
+clone with a stated rule per conflict — and **five ids each named two different entries** (P2798,
+P2799, H3061, L3052, L3105): the CFO/money-plane entries on the authority, the owner-text-channel and
+disk-full entries on ZABZ-TECH. A live instance of P212/P184/P233 on the two newest lineages. The
+newer entry was renumbered above every fetched ref and above the host band reservation
+(H3061→H3088, L3052→L3142, L3105→L3143, P2798→P2812, P2799→P2813).
+
+    entries              : 2932   (sides were 2760 / 2721 / 2885 — no entry lost)
+    journal.py check     : 0 error(s)
+    idguard              : collisions 0, divergences 0, uncomparable 0
+    duplicate ids        : 0
+    tracked journal/index: README.md alone
+
+Landed as `1b921d7`, a **fast-forward of 109 commits**, with the old tip still an ancestor — nothing
+dropped, no history rewritten, confirmed by reading it back from a second machine.
+
+**Two of my own mistakes are on the record, both caught by checks rather than by me:** the first
+resolver's id allocation used the local ceiling (which returned ids that already existed and
+overwrote a real entry — `check` reported 4 errors and the clone was discarded), and renumbering
+rewrote a heading without recomputing the `sha=` trailer (`check` reported it on all four; recomputed
+with the tool's own `entry_hash`). Corrupting the record is the one thing this work must never do, and
+the record's own integrity checks are what stopped it.
+
+**Not done, deliberately:** the authority's LIVE checkout was not moved onto master. A
+`git checkout -B master origin/master` returned nothing and exited non-zero; the branch and tree are
+unchanged and intact. The trunk has converged; the host has not yet moved onto it.
