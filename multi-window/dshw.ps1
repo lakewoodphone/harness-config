@@ -268,6 +268,19 @@ function Resolve-DshBin {
         if ($root) { $candidates += (Join-Path $root 'node_modules\@deepseek-ai\dsh\lib\bin.js') }
     }
     $candidates += @(
+        # THE FROZEN ENGINE COMES BEFORE THE npx CACHE (2026-09-30, owner's ZABZ-YOGA outage).
+        #
+        # The npx cache is NOT a pin. On 2026-09-30 the owner ran `npx @deepseek-ai/dsh web` by
+        # hand, npx re-resolved the floating `@deepseek-ai/dsh` range, and the engine in the cache
+        # changed from 0.1.5-rc.1 to 0.2.0-rc.2 underneath a running launcher that had no idea.
+        # 0.2.0 had renamed packages the live profile still named, so the next boot died on
+        # ERR_MODULE_NOT_FOUND; six failed boots and a raw stack trace later he was looking at a
+        # broken machine that was never broken. A version that a stray `npx` can change is not
+        # pinned. `~/.dsh/engine` is ours, is installed at an exact version, and nothing upgrades
+        # it by accident -- so it is probed FIRST, and `dshInstall` in windows.json names it
+        # explicitly on every machine. The npx paths stay only as a fallback for a machine that
+        # has not been migrated yet.
+        (Join-Path $env:USERPROFILE '.dsh\engine\node_modules\@deepseek-ai\dsh\lib\bin.js'),
         (Join-Path $env:LOCALAPPDATA 'npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh\lib\bin.js'),
         (Join-Path $env:USERPROFILE '.dsh\profiles\node_modules\@deepseek-ai\dsh\lib\bin.js')
     )
