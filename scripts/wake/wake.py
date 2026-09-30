@@ -62,13 +62,15 @@ case. This lives in `file_wake()` rather than in the CLI so that every caller -
 ENVIRONMENT (all read AT CALL TIME, never at import, so tests can set them):
     SMS_INBOX_DB, SMS_INBOX_APP_DB, SMS_INBOX_ENV   - the store (sms-inbox.py)
     WAKE_COOLDOWN_SEC           (1800) guard 2
-    WAKE_MAX_PER_DAY            (8)    guard 3
-    WAKE_MAX_PER_SOURCE_PER_HOUR(3)    guard 4
+    WAKE_MAX_PER_DAY          (500)    guard 3  (NOT the limiting guard - see
+                                        DEFAULT_MAX_PER_DAY: the real limit is the
+                                        70 USD/day spend cap, below)
+    WAKE_MAX_PER_SOURCE_PER_HOUR(12)   guard 4 - raised 2026-09-30: one number, every reader
     WAKE_NIGHT_QUIET            (1)    guard 5
     WAKE_PAUSE_FILE             (~/.sms-inbox/WAKE_PAUSED) guard 6
     WAKE_LEASE_SEC              (1200) guard 7
     WAKE_MAX_ATTEMPTS           (2)    guard 9
-    WAKE_MAX_USD_PER_DAY        (3.0)  guard 10
+    WAKE_MAX_USD_PER_DAY        (70.0)  guard 10
     WAKE_SESSION                - set inside a woken session; refuses every flag
                                   (guard 11, always on)
     WAKE_CLOCK_ISO      - test/ops override for "now" (ISO8601). A time gate
@@ -255,6 +257,17 @@ def _env_str(name: str, default: str) -> str:
     return default if val is None or val == "" else val
 
 
+DEFAULT_MAX_PER_DAY = 500
+
+# THE ACTUAL LIMIT: the owner's 70 USD/day of DeepSeek API spend.
+# He set the ceiling himself on 2026-09-28: "obviously we can't have overall more than $70 of
+# spending, let's say, on the deepseek API daily. But it's not like how many times."
+# At the MEASURED 0.068 USD per autonomous shift (38 priced releases, 2.5825 USD total in
+# ~/.sms-inbox/wake-cost.jsonl) that is roughly 1,029 shifts/day, so this binds only when
+# something is pathological - which is precisely what it is for. Volume is not the limit;
+# waste is.
+DEFAULT_MAX_USD_PER_DAY = 70.0
+
 def _env_int(name: str, default: int) -> int:
     try:
         return int(str(_env_str(name, str(default))).strip())
@@ -396,9 +409,9 @@ def row_dict(row) -> dict | None:
 # --------------------------------------------------------------------------- #
 def caps_now() -> dict:
     return {
-        "max_per_day": _env_int("WAKE_MAX_PER_DAY", 8),
-        "max_per_source_per_hour": _env_int("WAKE_MAX_PER_SOURCE_PER_HOUR", 3),
-        "max_usd_per_day": _env_float("WAKE_MAX_USD_PER_DAY", 3.0),
+        "max_per_day": _env_int("WAKE_MAX_PER_DAY", DEFAULT_MAX_PER_DAY),
+        "max_per_source_per_hour": _env_int("WAKE_MAX_PER_SOURCE_PER_HOUR", 12),
+        "max_usd_per_day": _env_float("WAKE_MAX_USD_PER_DAY", DEFAULT_MAX_USD_PER_DAY),
         "cooldown_sec": _env_int("WAKE_COOLDOWN_SEC", 1800),
         "lease_sec": _env_int("WAKE_LEASE_SEC", 1200),
         "max_attempts": _env_int("WAKE_MAX_ATTEMPTS", 2),
@@ -410,6 +423,15 @@ def caps_now() -> dict:
 
 
 def released_today(conn: sqlite3.Connection) -> int:
+    """RELEASES TODAY - sessions STARTED, not pieces of work.
+
+    `wake_budget.released` is incremented once per release, and a single wake row can be
+    released many times in one day: `file_wake` revives a terminal row in place because
+    `subject` is UNIQUE, and each source re-files after its own cooldown. Measured
+    2026-09-29: 133 releases across 41 distinct wake ids; the subject
+    `project:lpt-website:20260929` went out 20 times, all exit=0. For work DONE read the
+    ledger (work.py), never this number.
+    """
     r = conn.execute("SELECT released FROM wake_budget WHERE day=?", (today_utc(),)).fetchone()
     return int(r["released"]) if r else 0
 
@@ -419,13 +441,62 @@ def failed_today(conn: sqlite3.Connection) -> int:
     return int(r["failed"]) if r else 0
 
 
-def spend_today(conn: sqlite3.Connection) -> float:
-    r = conn.execute(
-        """SELECT COALESCE(SUM(cost_usd), 0) AS s FROM wake
-           WHERE cost_usd IS NOT NULL AND substr(finished_at, 1, 10)=?""",
-        (today_utc(),),
-    ).fetchone()
-    return round(float(r["s"] or 0.0), 6)
+def spend_today(conn: sqlite3.Connection) -> float | None:
+    """The day's autonomous spend in USD, MEASURED, or None when it cannot be measured.
+
+    Reads `~/.sms-inbox/wake-cost.jsonl`, which `wake-cost.py` writes per release and which is
+    the only place a real per-shift cost exists: `wake.cost_usd` is null on every row because
+    `dsh --profile headless` reports no cost, so the store-based sum this replaced could only
+    ever return 0.0 (measured 2026-09-28).
+
+    RELEASED SESSIONS ONLY. The owner's own interactive sessions are not an autonomous cost and
+    must not consume the autonomous budget.
+
+    Returns None - never 0.0 - when the measurement is unreadable. An unreadable measurement is
+    not a measurement of zero, and reporting it as zero is exactly how a money guard lies.
+    """
+    path = Path(os.path.expanduser(os.environ.get("WAKE_COST_JSONL")
+                                   or "~/.sms-inbox/wake-cost.jsonl"))
+    day = today_utc()
+    try:
+        if not path.exists():
+            return None
+        total = 0.0
+        seen = 0
+        with path.open("r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or '"type": "release"' not in line.replace("'", '"'):
+                    continue
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if row.get("type") != "release":
+                    continue
+                if str(row.get("started_day") or "")[:10] != day:
+                    continue
+                v = row.get("cost_usd_or_unsourced")
+                if isinstance(v, (int, float)):
+                    total += float(v)
+                    seen += 1
+                elif isinstance(v, str) and v not in ("unsourced", ""):
+                    try:
+                        total += float(v)
+                        seen += 1
+                    except ValueError:
+                        pass
+        if seen == 0:
+            # No priced release yet today is a real (zero) reading for the autonomous budget.
+            return 0.0
+        return round(total, 6)
+    except Exception:
+        return None
+
+
+# With no measurement, unlimited volume is the runaway the ceiling exists to stop. Below this
+# many releases a day the operator's "unmeasured" is acceptable; above it, refuse.
+UNMEASURED_REFUSE_ABOVE = 40
 
 
 def source_releases_last_hour(conn: sqlite3.Connection, source: str) -> int:
@@ -452,9 +523,15 @@ def release_block(conn: sqlite3.Connection) -> str | None:
     """The whole-queue guards checked before anything may be released."""
     if paused():
         return "paused"
-    if released_today(conn) >= _env_int("WAKE_MAX_PER_DAY", 8):
+    if released_today(conn) >= _env_int("WAKE_MAX_PER_DAY", DEFAULT_MAX_PER_DAY):
         return "daily-cap"
-    if spend_today(conn) >= _env_float("WAKE_MAX_USD_PER_DAY", 3.0):
+    spent = spend_today(conn)
+    if spent is None:
+        # NO MEASUREMENT IS NOT ZERO. Refuse only once volume means the risk is real, so an
+        # unreadable cost file cannot silently stop the operation either.
+        if released_today(conn) > UNMEASURED_REFUSE_ABOVE:
+            return "spend-unmeasured"
+    elif spent >= _env_float("WAKE_MAX_USD_PER_DAY", DEFAULT_MAX_USD_PER_DAY):
         return "cost-cap"
     return None
 
@@ -683,7 +760,7 @@ def _file_wake(conn: sqlite3.Connection, *, subject: str, prompt: str, context: 
 def _candidates(conn: sqlite3.Connection):
     """New rows that are past their not_before and inside every per-row gate."""
     quiet = night_quiet_active()
-    per_source = _env_int("WAKE_MAX_PER_SOURCE_PER_HOUR", 3)
+    per_source = _env_int("WAKE_MAX_PER_SOURCE_PER_HOUR", 12)
     when = now_dt()
     seen: dict[str, int] = {}
     out = []
@@ -706,6 +783,43 @@ def _candidates(conn: sqlite3.Connection):
     return out
 
 
+def _candidates_gated(conn: sqlite3.Connection) -> dict:
+    """Why `_candidates` returned nothing, counted per reason. Never raises.
+
+    Exists because the claim path used to answer `blocked_by: null` when the queue was FULL of rows
+    that were merely gated - a reading that cannot distinguish "no work" from "work is gated".
+    """
+    quiet = night_quiet_active()
+    per_source = _env_int("WAKE_MAX_PER_SOURCE_PER_HOUR", 12)
+    when = now_dt()
+    out = {"not_before": 0, "night_quiet": 0, "source_hourly_cap": 0,
+           "by_source": {}, "new_rows": 0}
+    try:
+        rows = conn.execute(
+            "SELECT * FROM wake WHERE state='new' AND attempts < max_attempts").fetchall()
+        out["new_rows"] = len(rows)
+        seen: dict[str, int] = {}
+        for r in rows:
+            nb = parse_dt(r["not_before"])
+            if nb is not None and nb > when:
+                out["not_before"] += 1
+                continue
+            if r["priority"] == "low" and quiet:
+                out["night_quiet"] += 1
+                continue
+            if per_source > 0:
+                src = r["source"] or "manual"
+                if src not in seen:
+                    seen[src] = source_releases_last_hour(conn, src)
+                if seen[src] >= per_source:
+                    out["source_hourly_cap"] += 1
+                    out["by_source"][src] = out["by_source"].get(src, 0) + 1
+                    continue
+    except Exception as exc:
+        out["error"] = "%s: %s" % (type(exc).__name__, exc)
+    return out
+
+
 def cmd_claim(args) -> int:
     conn = connect()
     with _tx(conn):
@@ -716,13 +830,19 @@ def cmd_claim(args) -> int:
             return 0
         cands = _candidates(conn)
         if not cands:
-            low_only = conn.execute(
-                "SELECT COUNT(*) FROM wake WHERE state='new' AND attempts < max_attempts"
-            ).fetchone()[0]
+            # NOTHING CLAIMABLE IS NOT THE SAME AS NOTHING GATED. Measured 2026-09-28 19:56Z: with 15
+            # rows waiting the claim path answered `blocked_by: null`, which reads as "the queue is
+            # empty" - while in truth every row was refused by the per-source hourly cap or a
+            # not-before cooldown. A caller that cannot tell those two states apart either burns
+            # context investigating or concludes the system is idle.
+            gated = _candidates_gated(conn)
             payload = {
                 "ok": True,
                 "row": None,
-                "blocked_by": "night-quiet" if (low_only and night_quiet_active()) else None,
+                "blocked_by": "night-quiet" if (gated.get("new_rows") and night_quiet_active()
+                                                and not gated.get("source_hourly_cap"))
+                             else ("row-gates" if gated.get("new_rows") else None),
+                "gated": gated,
             }
             sys.stdout.write(json.dumps(payload) + "\n")
             return 0
@@ -899,6 +1019,13 @@ def stats_payload(conn: sqlite3.Connection) -> dict:
         "day": today_utc(),
         "states": counts,
         "released_today": released_today(conn),
+        # A caller that reads only this key must not be able to turn it into throughput.
+        "released_today_means": (
+            "sessions started, NOT pieces of work: one wake row can be released many"
+            " times in a day (file_wake revives a terminal row in place and each source"
+            " re-files after its own cooldown). Measured 2026-09-29: 133 releases over 41"
+            " distinct ids, the most-re-released subject 20 times. For work done read the"
+            " ledger."),
         "failed_today": failed_today(conn),
         "spend_today_usd": spend_today(conn),
         "source_releases_last_hour": source_releases(conn),
@@ -919,6 +1046,7 @@ def cmd_stats(args) -> int:
     sys.stdout.write("wake rows: " + " ".join(f"{s}={counts[s]}" for s in STATES) + "\n")
     sys.stdout.write(
         f"released today: {payload['released_today']}/{caps['max_per_day']}"
+        f" [SESSIONS started, not work done - one row can be released many times]"
         f"   failed today: {payload['failed_today']}"
         f"   spend today: ${payload['spend_today_usd']:.4f}/${caps['max_usd_per_day']:.2f}\n")
     per_source = payload["source_releases_last_hour"]

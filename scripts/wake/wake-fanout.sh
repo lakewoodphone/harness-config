@@ -112,6 +112,27 @@ if [ "$STORED" -lt 0 ] || [ "$QUEUED" -lt 0 ]; then
   exit 0
 fi
 
+# DO NOT START A DISPATCHER WHEN NOTHING CAN BE CLAIMED. Measured 2026-09-30: the fan-out started a
+# dispatcher every five minutes through a 55-minute stretch in which no row was claimable, and each time
+# the dispatcher correctly exited having done nothing. The preserved evidence from one of those ticks:
+#   {"ok": true, "row": null, "blocked_by": "row-gates",
+#    "gated": {"not_before": 10, "night_quiet": 0, "source_hourly_cap": 4, "new_rows": 14}}
+# Ask before starting, and say which gate is in force. Covers the not_before gate; a tick gated only by a
+# source cap still costs one start - a known gap, recorded rather than ignored.
+if [ "$DRY_RUN" != 1 ]; then
+  NCOUT=$(python3 "${WAKE_NEXTCLAIM:-/home/zabz/bin/wake-nextclaim.py}" --json 2>/dev/null || true)
+  NCZERO=$(printf '%s' "$NCOUT" | python3 -c 'import json,sys
+try:
+    print(1 if json.load(sys.stdin).get("claimable_now", 0) == 0 else 0)
+except Exception:
+    print("")' 2>/dev/null)
+  if [ "$NCZERO" = "1" ]; then
+    say "fanout: nothing claimable now - starting nothing this tick"
+    note "skip: nothing claimable; procs=$PROCS gate=$NCOUT"
+    exit 0
+  fi
+fi
+
 IN_FLIGHT=$STORED
 [ "$PROCS" -gt "$IN_FLIGHT" ] && IN_FLIGHT=$PROCS
 
