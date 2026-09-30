@@ -88,7 +88,7 @@ deepseek-v4-flash -> deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731
 
 Backup: `/home/zabz/ai_gateway.py.bak-precatalog-20260930T1450Z`.
 
-### 2.2 The responder does not honour the one-at-a-time turn ledger (OPEN)
+### 2.2 The responder does not honour the one-at-a-time turn ledger
 
 `app/owner_text.py` is the contract, and its docstring quotes the owner's own ruling: *"you
 send me one text at a time ... You have to respond back or address what I say."* It has one
@@ -139,7 +139,7 @@ and the day is marked unconditionally.
 channel is still 117 outbound rows over 7 days for 28 distinct bodies — but that is history,
 not a live fault.
 
-### 2.5 Blocked obligations never escalate (OPEN)
+### 2.5 Blocked obligations never escalate
 
 Seven `owner_message_queue` rows sit `held`/`queued`, several with hundreds of recorded send
 attempts (id 1991: **676**, id 2034: **266**). Each is a real obligation — a car inspection, a
@@ -175,48 +175,146 @@ Definition of done: one recorded session exists that began as a text and used a 
 
 ---
 
-## 4. The instrument
+## 4. The instrument, and its own bugs
 
 `~/bin/text-health.py` — read-only, exit 1 on any failure, no arguments.
 Twelve invariants over the gateway, the model tiers, the ceiling, the turn ledger, duplicate
-sends, queue rot and channel liveness. It is what measured every defect above, and it caught
-three bugs in itself on the way (two timestamp formats in `inbox.db`; adjacent string literals
-breaking a phrase match; an assertion strict enough to stay red after the fix).
+sends, queue rot and channel liveness. It is what measured every defect in this document, and
+it caught **five bugs in itself** on the way. Each is kept here, because each one looked like
+a pass:
 
-Current reading:
+* `inbox.db.date_sent` holds **two formats** — RFC 2822 from `textsend` and ISO 8601 from the
+  mirror. Comparing them against an ISO string with `>=` sorts them as text: it reported 258
+  rows where the truth was 118, and turned 88 repeats inside a window into "49 duplicates
+  across weeks".
+* A phrase spanning **adjacent Python string literals** was not found, because the source
+  keeps the quote characters — so a working fix was reported broken.
+* An assertion strict enough to **stay red after the fix**.
+* A verification script that fed an already-fitted body back through `inspect_body` at the
+  **default** 320 limit, and so reported a correct 900-character pass as a failure.
+* A test that set `DATABASE_URL` in the environment to point at a throwaway ledger, and was
+  served the production database instead — because it read the merged config, which is the
+  app's `.env` and always names production. It wrote a test turn into the live ledger, which
+  was then closed as a test artefact.
+
+Current reading: **12 checks, 0 FAIL** — `A3` and `D1` are both green. It read 6 FAIL before
+the work in this session.
 
 ```
-RESULT: 12 check(s), 2 FAIL
-  A3  the responder's model cache is 4 ids stale until its next cron tick
-  D1  the text responder does not obey the owner turn ledger   <- S1
+RESULT: 12 check(s), 0 FAIL
 ```
-
-It read 6 FAIL before the work in this session.
 
 ---
 
-## 5. Decisions taken in this session
+## 5. Round two: what the channel audit was NOT looking at
 
-* The gateway **resolves** a short id, and the **catalog lists** it. A catalogue that disagrees
+The audit in section 1 found the channel. Widening it to the systems the channel depends on
+found four more faults, and the largest of them was the reason a five-day-old insurance
+obligation had never reached him.
+
+### 5.1 The escalation path was mechanically dead (FIXED)
+
+The owner's car has had no fire, theft or collision cover since **19 May 2026**, because
+Plymouth Rock never received proof of a Carco inspection. The system knew. Row 2034 of
+`owner_message_queue` held it with **277 recorded send attempts**, every one refused with
+"urgency 'normal' is below the send threshold 'urgent'".
+
+There is an escalation for exactly this case, and it could never fire. Four independent
+reasons, each measured, each sufficient alone:
+
+1. **The age clock reset itself.** The age was read from `last_seen_at`, which
+   `enqueue_owner_message` moved to `now` on every repeat. A reminder that fires every four
+   hours was therefore permanently zero hours old.
+2. **One obligation became five rows.** Dedup keyed on `(reason, body)`, and the dispatcher
+   stamps a fresh reason per fire (`reminder:504`, `reminder:521` … `reminder:524`). Even a
+   fixed clock would have had five rows to age, each brand new.
+3. **The escalated body was too long to send.** Row 2060 escalated to `urgent` and was then
+   refused by `app/owner_text.py`: "too_long: is 455 chars, over the 320-char limit",
+   3 attempts. Nothing shortened it.
+4. **The subject did not survive the 320.** Trimming cut row 2060 at "proof of a Carco
+   inspection" — discarding the policy number, the suspension and the place to book. Its
+   first sentence alone runs 238 characters.
+
+Fixed in `app/database.py` (`owner_obligation_key`, body-keyed dedup, an age clock repeats
+no longer move), `app/autopilot.py` (age from `created_at`; structural escalation) and
+`app/owner_text.py` (`fit_for_one_text`, and a gate that accepts a caller ceiling). An
+escalated obligation gets textsend's own 900-character SOFT_LIMIT; everything else keeps the
+320 default. The live queue was consolidated 5 rows → 1 with a full SQL backup first.
+
+### 5.2 The backup volume was two hours from a full disk (FIXED)
+
+`/` was at **99%, 7.6 GB free**, with `/home/zabz/secretary-backups` holding 21 directories
+and **298 GB**, and an 18 GB backup due at 18:00.
+
+`scripts/server/prune-backups.sh` did not exist. `backup-data.sh` looks for that exact path
+and, when it is missing, prints `WARN: prune-backups.sh missing; skipping pre-backup
+retention` and carries on. The file was untracked, so `git status` never showed it missing.
+The mechanism is in that script's own comment, from 2026-09-10:
+
+> Incident: retention used to live at the END of this script. With the disk full, the backup
+> step failed, the script exited non-zero, retention ran -> disk stayed 100% full -> SQLite
+> SIGBUS core-dumps every …
+
+Restored from its documented policy (all < 1 day, one per day for 1–7 days, one per week for
+7–30 days, nothing older than 30). Removing 6 backups freed **82 GB**: 99% → 80%, 15
+backups kept with a full month of history. Committed, so a deploy cannot delete it again.
+
+### 5.3 The API unit's restart cap trips silently (FIXED)
+
+`secretary-api.service` caps itself at 3 starts per 15 minutes — deliberately, installed
+2026-09-28 after 27.9 minutes of downtime in one day, so a service that cannot become healthy
+is not restarted forever. The reasoning is sound; the failure mode is not. When the burst is
+exhausted the unit goes to `failed` and **nothing notices**. A session deploying several
+fixes in one afternoon hit it, and the company was down until a human ran
+`systemctl reset-failed`.
+
+`api-watchdog.sh` + a 5-minute timer now recover a failed unit at most once an hour, append
+every incident to `/home/zabz/.api-watchdog-incidents.log`, and tell the owner through the
+app's own queue. It acts only on a unit systemd itself gave up on — `inactive` is a unit
+stopped on purpose. The cap is untouched.
+
+### 5.4 The responder now obeys the same conversation ledger (FIXED - was 2.2)
+
+`textsend.py` gained `open_owner_turn()` and `record_owner_turn()`, reading and writing the
+**same** `owner_text_turn` table the app's `gate()` uses. One unanswered text now holds the
+channel from either side. `direct_request=True` is the single way past it and is set in
+exactly one place: the owner-queue question. `textdecide.py` gained `--refresh-catalog`
+(cron, every 5 minutes) so the model list cannot go stale again.
+
+---
+
+## 6. Decisions taken in this session
+
+* The gateway **resolves** a short id and the **catalog lists** it. A catalogue that disagrees
   with the endpoint is the defect, not the caller.
 * An id nobody recognises is served on the **settings' own default route, loudly** — never on
   whichever model the router preferred. The status stays 200 for compatibility; the honest
   record is the log and `model_usage`.
 * The autonomous owner-SMS ceiling is **the setting**, read from the environment. One number,
-  one place. This ceiling governs the app's autonomous path only; a direct request is excused
-  by the caller, and the conversation gate is what enforces one-at-a-time.
-* A repeat check must be **scoped to the last 24 hours**. A check that stays red for a week
-  after a fix is a check nobody reads.
-* Mesh child failures: a brief with apostrophes or quotes is fed to the remote one-shot as
-  shell arguments and dies before doing any work. **Put the brief in a file and make the prompt
-  one argument-safe sentence** — proven twice, after two hours lost to it.
+  one place.
+* An **escalated obligation gets a longer text than an unasked-for one.** 320 characters is
+  right for a message he did not ask for; an obligation he did ask to be reminded about gets
+  up to textsend's 900-character SOFT_LIMIT, because its first sentence can be 238 characters.
+* A reminder that **cannot fit** in one text at all is escalated **immediately**, not after
+  24 hours: it is undeliverable, and waiting does not change that.
+* A **repeat does not move a row's age.** `repeat_count` counts repeats; age means age.
+* A repeat check is scoped to the **last 24 hours**. A check that stays red for a week after
+  a fix is a check nobody reads.
+* A service's **restart cap is a safety control and is not to be weakened by a session that
+  wants to restart it.** The right response to a silent trip is a watchdog, not a larger cap.
+* **Never edit `/etc/systemd/system/<unit>.service` when a drop-in owns the key.** `30-contention.conf`
+  already set `StartLimitBurst`, and editing the base file only looked effective.
+* Mesh subagent briefs: **put the brief in a file**, and make the prompt one argument-safe
+  sentence — an apostrophe or quote reaches the remote one-shot as a shell argument and kills
+  the child before it does any work. Two dispatches, four children, two hours, zero findings.
 
-## 6. Open, and next
+## 7. Open, and next
 
 | # | What | Where |
 |---|---|---|
-| 1 | S1 — one gate, one conversation | `~/bin/sms-responder.py`, `~/bin/textsend.py`, `app/sms_service.py` |
-| 2 | S2 — one model resolution | `~/bin/textdecide.py` |
-| 3 | `owner_sms_min_urgency = "urgent"` vs obligations queued at `normal` | `app/config.py` |
-| 4 | Escalate an obligation refused N times into one question | `app/services/owner_sms_flood_guard.py` |
-| 5 | S3 — one tool surface | `~/bin/textwork.py` |
+| 1 | S3 — one tool surface: `textwork.py`'s nine tools become calls into the app's registry | `~/bin/textwork.py` |
+| 2 | `owner_sms_min_urgency = "urgent"` and the machine-facing `comms_freshness` notice | `app/config.py` |
+| 3 | `~/bin` is still not a git repo; 60 `.bak-*` siblings of six live scripts | `/home/zabz/bin` |
+| 4 | Unknown but nearby: the memory ceiling the contention drop-in describes | `30-contention.conf` |
+
+
