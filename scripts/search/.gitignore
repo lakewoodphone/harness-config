@@ -1,0 +1,5 @@
+# Runtime state: raw provider responses and the usage log. Local to each node
+# so concurrent mesh children never collide and no page text is committed.
+state/
+__pycache__/
+*.pyc

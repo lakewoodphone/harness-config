@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "updated": "2026-09-30",
+  "note": "The durable part of the agent search path. Routing intent -> provider lives HERE, in data, not in code. search.py reads this file; edit it to change behaviour. Credential VARIABLE NAMES (never values) also live here, matching the application env file.",
+  "env_file_candidates": [
+    "{HOME}/Code/personal-secretary-mvp/.env",
+    "{HOME}/code/personal-secretary-mvp/.env",
+    "{REPO_PARENT}/personal-secretary-mvp/.env"
+  ],
+  "providers": {
+    "tavily": {
+      "kind": "answer",
+      "cred_env": "TAVILY_API_KEY",
+      "cred_required": true,
+      "endpoint": "https://api.tavily.com/search",
+      "method": "POST",
+      "auth": { "type": "bearer", "header": "Authorization" },
+      "best_at": "answering a question from the index",
+      "why": "Tavily synthesises a direct answer with sources, which is what an answer-shaped question wants."
+    },
+    "exa": {
+      "kind": "discovery",
+      "cred_env": "EXA_API_KEY",
+      "cred_required": true,
+      "endpoint": "https://api.exa.ai/search",
+      "method": "POST",
+      "auth": { "type": "header", "header": "x-api-key" },
+      "best_at": "finding pages nobody has named yet",
+      "why": "Exa is neural search over page content: it discovers supplier/vendor/source pages and returns their text."
+    },
+    "spider": {
+      "kind": "fetch",
+      "cred_env": "SPIDER_API_KEY",
+      "cred_required": false,
+      "endpoint": "https://api.spider.cloud/scrape",
+      "method": "POST",
+      "auth": { "type": "bearer", "header": "Authorization" },
+      "best_at": "reading a known URL that may be bot-walled or JS-rendered",
+      "why": "Spider renders and unblocks a known URL; it fetched an eBay page that Jina could only see as a 403 wall."
+    }
+  },
+  "rules": [
+    {
+      "id": "known-url",
+      "match": "url",
+      "provider": "spider",
+      "why": "a caller-supplied URL is a fetch, not a search: Spider renders and unblocks it"
+    },
+    {
+      "id": "discovery",
+      "match": "discovery",
+      "provider": "exa",
+      "why": "query carries discovery intent (find/search/suppliers/sources): Exa finds pages nobody has named"
+    },
+    {
+      "id": "answer-shaped",
+      "match": "answer",
+      "provider": "tavily",
+      "why": "query is answer-shaped (question word, trailing '?', price/compare): Tavily synthesises an answer"
+    },
+    {
+      "id": "default-discovery",
+      "match": "default",
+      "provider": "exa",
+      "why": "a bare noun phrase is a discovery query by default"
+    }
+  ],
+  "discovery_patterns": [
+    "\\b(find|search|discover|lookup|look up|list|collect|gather)\\b",
+    "\\b(suppliers?|vendors?|sellers?|distributors?|wholesalers?|manufacturers?)\\b",
+    "\\b(sources?|pages?|articles?|listings?|directories|directory|catalogs?|catalogues?)\\b",
+    "\\b(companies|stores|shops|marketplaces?|options?|alternatives?|candidates?|examples?)\\b",
+    "\\bwho\\s+sells\\b",
+    "\\bwhere\\s+to\\s+buy\\b"
+  ],
+  "answer_patterns": [
+    "^\\s*(what|how|why|when|where|which|who|whose|whom|is|are|was|were|do|does|did|can|could|should|would|will|has|have)\\b",
+    "\\?\\s*$",
+    "\\b(price|prices|pricing|cost|costs|how much|compare|comparison|difference|vs\\.?|better|worth|cheapest|most expensive)\\b"
+  ]
+}
