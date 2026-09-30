@@ -1,0 +1,950 @@
+{
+  "_meta": {
+    "name": "capability registry data",
+    "version": 1,
+    "updated": "2026-09-30",
+    "why": "The provider knowledge lives here, not in cap.py. Adding a provider, retiring one, or changing a price/category/credential name is an edit to THIS FILE ONLY. cap.py reads it and never hard-codes a provider.",
+    "owner": "the seat that owns scripts/cap/ and docs/capability-registry.md",
+    "never": "No credential VALUE may ever be written into this file or any file under scripts/cap/. Only env var NAMES."
+  },
+
+  "credential_sources": [
+    {
+      "id": "app-env",
+      "label": "personal-secretary-mvp/.env (the one env file that holds the provider keys)",
+      "path": "~/code/personal-secretary-mvp/.env",
+      "format": "dotenv",
+      "values_used_for_redaction_only": true
+    },
+    {
+      "id": "process-env",
+      "label": "the running process environment ($env:NAME)",
+      "path": null,
+      "format": "environ",
+      "values_used_for_redaction_only": true
+    }
+  ],
+
+  "search_roots": [
+    {
+      "id": "harness-config",
+      "label": "this repo (harness-config)",
+      "path": "~/Code/harness-config",
+      "role": "primary",
+      "why": "the brief's 'some code in this repo'. scripts/deployed/ inside it is a tracked mirror of /home/zabz/bin. Only role=primary roots decide the WIRED flag.",
+      "prune_dirs": [
+        ".git", "node_modules", "__pycache__", "journal", "_scratch", ".venv"
+      ],
+      "prune_paths": [
+        "scripts/cap"
+      ],
+      "prune_reason": "journal/ and _scratch/ are prose, not wiring: a name mentioned in a lesson is not a call site. scripts/cap is pruned because it is this registry itself: counting the registry's own provider table as evidence that a provider is wired would be circular."
+    },
+    {
+      "id": "authority-bin",
+      "label": "/home/zabz/bin (authority node deployments)",
+      "path": "/home/zabz/bin",
+      "role": "primary",
+      "absent_ok": true,
+      "why": "the brief's second path. It is a Linux path on the authority node; on a Windows laptop seat it does not exist and the registry must say so rather than silently skip it. scripts/deployed/ is its tracked mirror."
+    },
+    {
+      "id": "app",
+      "label": "personal-secretary-mvp (the application)",
+      "path": "~/code/personal-secretary-mvp",
+      "role": "application",
+      "why": "the problem statement says some keys are used by the application. An application reference is reported as provenance but does NOT set WIRED, which the brief defines as this repo or /home/zabz/bin. That is the difference between 'the app uses it' and 'the harness or the fleet is wired to it'.",
+      "prune_dirs": [
+        ".git", ".venv", "node_modules", "__pycache__", "data", "backups", "dist",
+        "output", "indexes", ".pytest_cache", ".deepeval", "_scratch", "knowledge",
+        "memories", "audit-logs", "journey", ".runtime", "equipment"
+      ],
+      "prune_prefixes": [
+        ".pytest-tmp", ".ptmp-"
+      ],
+      "prune_reason": "vendored libraries, generated test artefacts, caches and runtime state are not our wiring."
+    },
+    {
+      "id": "dsh",
+      "label": "~/.dsh harness config (read-only)",
+      "path": "~/.dsh",
+      "role": "harness",
+      "why": "the harness wires model providers here (llm-* apiKeyEnv, agent presets, profiles). Reported as provenance for the same reason as the app. Read only; cap.py never writes under ~/.dsh.",
+      "prune_dirs": [
+        "sessions", "storages", "tmp", "attachments", "tools", "metrics",
+        "multi-window", "node_modules", "governor", "spend-guard", "llm-deepseek",
+        "mesh", "health"
+      ],
+      "prune_reason": "session transcripts and caches mention everything and wire nothing."
+    }
+  ],
+
+  "scan": {
+    "extensions": [
+      ".py", ".js", ".mjs", ".cjs", ".ts", ".tsx", ".sh", ".bash", ".ps1",
+      ".cmd", ".bat", ".yml", ".yaml", ".json", ".toml", ".ini", ".cfg"
+    ],
+    "skip_basenames": [".env", ".credentials.yaml", "settings.yaml.bak"],
+    "skip_basenames_reason": "a key NAME defined in a credential file is not a use of the provider; only code and config wiring count.",
+    "max_file_bytes": 2097152,
+    "max_files_per_root": 40000
+  },
+
+  "seat": {
+    "name": "mesh child on zabz-yoga (this session)",
+    "profile": "headless (as reported by the brief: 'a mesh child writes to whichever machine the broker picked')",
+    "preset": null,
+    "observed_at": "2026-09-30",
+    "how_observed": "the agent's own tool plane, listed in its runtime context for this session. It is NOT machine-readable from a subprocess, so it is recorded here by hand, with the date, and must be re-observed when the profile changes.",
+    "reobserve_with": "re-read the seat's tool list and replace observed_tools / observed_mcp_tools here; no code change is needed.",
+    "observed_tools": [
+      "create_goal", "edit", "exit_plan_mode", "get_goal", "glob", "grep",
+      "interrupt_agent", "job_kill", "job_list", "job_output", "list_agents",
+      "pwsh", "ralph", "read", "read_image", "send_message", "skill", "subagent",
+      "subagent_fork", "todo_write", "update_goal", "web_fetch", "web_search",
+      "workflow", "write"
+    ],
+    "observed_mcp_tools": [],
+    "mcp_note": "no mcp__* tool is present in this seat's plane. The zabz preset mounts mcp-firecrawl, mcp-jina, mcp-playwright, mcp-secretary (presets/zabz/agent.cordis.yml), but a preset is only loaded by a profile that carries it, and this seat does not. That difference is exactly what the REACHABLE flag is for."
+  },
+
+  "providers": [
+    {
+      "id": "harness-web-search",
+      "name": "harness web_search",
+      "category": "search",
+      "cred_env": [],
+      "billable": false,
+      "cost": "$0 marginal (bundled with the harness)",
+      "alias": "the harness's own search tool",
+      "refs": ["web_search"],
+      "native_tool": "web_search",
+      "mcp_ids": [],
+      "notes": "The default search path: 193 of 1,611 session projections mention it, the most-used search family. Needs no vendor key.",
+      "probe": {"kind": "none", "reason": "native seat tool: there is no URL to health-check. Reachability is proved by the seat's tool plane, and health by use."}
+    },
+    {
+      "id": "harness-web-fetch",
+      "name": "harness web_fetch",
+      "category": "scrape",
+      "cred_env": [],
+      "billable": false,
+      "cost": "$0 marginal (bundled with the harness)",
+      "alias": "the harness's own fetch tool",
+      "refs": ["web_fetch"],
+      "native_tool": "web_fetch",
+      "mcp_ids": [],
+      "notes": "186 of 1,611 session projections. JS-blind on commerce pages.",
+      "probe": {"kind": "none", "reason": "native seat tool: no URL to health-check."}
+    },
+    {
+      "id": "tavily",
+      "name": "Tavily",
+      "category": "search",
+      "cred_env": ["TAVILY_API_KEY"],
+      "billable": true,
+      "cost": "free 1,000 credits/mo; PAYG $0.008/credit; $30/4k (help.tavily.com, read 2026-09-30)",
+      "alias": "agent-native search + extract",
+      "refs": ["TAVILY_API_KEY", "tavily"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Credential present but no mounted tool in any seat observed so far.",
+      "probe": {
+        "kind": "http",
+        "method": "POST",
+        "url": "https://api.tavily.com/search",
+        "auth": {"type": "bearer", "env": "TAVILY_API_KEY"},
+        "body": {"query": "capability registry health check", "max_results": 1},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "results", "label": "results"}
+      }
+    },
+    {
+      "id": "brave-search",
+      "name": "Brave Search API",
+      "category": "search",
+      "cred_env": ["BRAVE_SEARCH_API_KEY"],
+      "billable": true,
+      "cost": "$5/1k requests; $5 free/mo (brave.com/search/api, read 2026-09-30)",
+      "alias": "cheapest quality SERP",
+      "refs": ["BRAVE_SEARCH_API_KEY", "brave_search", "api.search.brave.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Index + LLM context. No scraping or JS.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.search.brave.com/res/v1/web/search?q=capability+registry+health+check&count=1",
+        "auth": {"type": "header", "env": "BRAVE_SEARCH_API_KEY", "name": "X-Subscription-Token"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "web.results", "label": "web results"}
+      }
+    },
+    {
+      "id": "serpapi",
+      "name": "SerpAPI",
+      "category": "search",
+      "cred_env": ["SERPAPI_API_KEY"],
+      "billable": true,
+      "cost": "free 250/mo; $25/1k; $75/5k (serpapi.com/pricing, read 2026-09-30)",
+      "alias": "multi-engine SERP",
+      "refs": ["SERPAPI_API_KEY", "serpapi"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Priciest per search; engine coverage is the reason it exists.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://serpapi.com/account",
+        "auth": {"type": "query", "env": "SERPAPI_API_KEY", "param": "api_key"},
+        "ok_status": [200],
+        "detail": {"kind": "key_present", "path": "plan_name", "label": "account plan"}
+      }
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "category": "search",
+      "cred_env": ["PERPLEXITY_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not read this session",
+      "alias": "answer engine / search-model hybrid",
+      "refs": ["PERPLEXITY_API_KEY", "perplexity"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "The app's provider baseline lists perplexity as one of its 6 live providers.",
+      "probe": {
+        "kind": "http",
+        "method": "POST",
+        "url": "https://api.perplexity.ai/chat/completions",
+        "auth": {"type": "bearer", "env": "PERPLEXITY_API_KEY"},
+        "body": {
+          "model": "__cap_registry_probe_invalid_model__",
+          "messages": [{"role": "user", "content": "x"}],
+          "max_tokens": 1
+        },
+        "ok_status": [400],
+        "ok_note": "auth accepted; the deliberate invalid model was rejected before any token was generated",
+        "detail": {"kind": "static", "label": "no tokens generated"}
+      }
+    },
+    {
+      "id": "firecrawl",
+      "name": "Firecrawl",
+      "category": "scrape",
+      "cred_env": ["FIRECRAWL_API_KEY"],
+      "billable": true,
+      "cost": "free $0; Hobby $16/mo; Standard $83/mo yearly; 1k extra credits/$5",
+      "alias": "unblocking / JS scrape, crawl, extract",
+      "refs": ["FIRECRAWL_API_KEY", "firecrawl", "api.firecrawl.dev"],
+      "native_tool": null,
+      "mcp_ids": ["mcp-firecrawl"],
+      "notes": "34% of the MCP schema and the second-least-used big family. Mounted as mcp-firecrawl in the zabz preset; the launcher resolves FIRECRAWL_API_KEY from the app .env.",
+      "probe": {
+        "kind": "http",
+        "method": "POST",
+        "url": "https://api.firecrawl.dev/v2/scrape",
+        "auth": {"type": "bearer", "env": "FIRECRAWL_API_KEY"},
+        "body": {"url": "https://example.com", "formats": ["markdown"]},
+        "ok_status": [200],
+        "detail": {"kind": "key_present", "path": "data.markdown", "label": "markdown returned"}
+      }
+    },
+    {
+      "id": "jina",
+      "name": "Jina Reader",
+      "category": "scrape",
+      "cred_env": ["JINA_API_KEY"],
+      "billable": true,
+      "cost": "NOT PUBLISHED (jina.ai/pricing 404; Elastic-owned) - an unverified bill",
+      "alias": "cheap everyday reader; r.jina.ai",
+      "refs": ["JINA_API_KEY", "jina.ai", "r.jina.ai", "mcp-jina"],
+      "native_tool": null,
+      "mcp_ids": ["mcp-jina"],
+      "notes": "Mounted as mcp-jina. r.jina.ai also answers without a key (free tier), which is why it can be REACHABLE with no credential.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://r.jina.ai/https://example.com",
+        "auth": {"type": "bearer", "env": "JINA_API_KEY", "optional": true},
+        "ok_status": [200],
+        "detail": {"kind": "text_len", "label": "reader returned chars"}
+      }
+    },
+    {
+      "id": "exa",
+      "name": "Exa",
+      "category": "search",
+      "cred_env": ["EXA_API_KEY"],
+      "billable": true,
+      "cost": "search $4/1k instant - $15/1k deep; contents $1/1k pages; $10 free/mo (exa.ai/pricing)",
+      "alias": "neural search + cheap contents",
+      "refs": ["EXA_API_KEY", "exa.ai", "api.exa.ai"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Named in the brief's probe list. The app's provider baseline lists exa as supported. NO Exa key exists in the env file, so today this is a paid capability that is not even credentialled here.",
+      "probe": {
+        "kind": "http",
+        "method": "POST",
+        "url": "https://api.exa.ai/search",
+        "auth": {"type": "header", "env": "EXA_API_KEY", "name": "x-api-key"},
+        "body": {"query": "capability registry health check", "numResults": 1},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "results", "label": "results"}
+      }
+    },
+    {
+      "id": "spider",
+      "name": "Spider",
+      "category": "scrape",
+      "cred_env": ["SPIDER_API_KEY"],
+      "billable": true,
+      "cost": "PAYG $1/GB + $0.0001/min; /scrape ~$0.0001; credits never expire (spider.cloud)",
+      "alias": "cheapest metered reads; spider.cloud",
+      "refs": ["SPIDER_API_KEY", "spider.cloud", "api.spider.cloud"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Named in the brief's probe list. NO Spider key exists in the env file. Its /scrape endpoint answered keylessly in testing, so the probe needs no credential - a live example of 'reachable but has no credential'.",
+      "probe": {
+        "kind": "http",
+        "method": "POST",
+        "url": "https://api.spider.cloud/scrape",
+        "auth": {"type": "bearer", "env": "SPIDER_API_KEY", "optional": true},
+        "body": {"url": "https://example.com"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "", "label": "documents returned"}
+      }
+    },
+    {
+      "id": "context7",
+      "name": "Context7",
+      "category": "other",
+      "cred_env": ["CONTEXT7_API_KEY"],
+      "billable": true,
+      "cost": "not read this session",
+      "alias": "library/API docs lookup",
+      "refs": ["CONTEXT7_API_KEY", "context7"],
+      "native_tool": null,
+      "mcp_ids": ["mcp-context7"],
+      "notes": "REMOVED from the zabz preset on 2026-09-30 (2 tools / 4,665 schema chars against 1 mention in 1,611 sessions). Its mcp id is kept here so the registry still knows the capability exists in the retirement list. mcp_launcher.py still defines a context7 server.",
+      "probe": {"kind": "none", "reason": "Context7 is reached over MCP (stdio/SSE), not a plain authenticated HTTP health endpoint, so a plain request cannot prove it."}
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "category": "model",
+      "cred_env": ["DEEPSEEK_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "alias": "the harness's default model provider",
+      "refs": ["DEEPSEEK_API_KEY", "api.deepseek.com", "deepseek"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "provider: deepseek-official / model: deepseek-flash in ~/.dsh/settings.yaml - the seat's own model.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.deepseek.com/models",
+        "auth": {"type": "bearer", "env": "DEEPSEEK_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "category": "model",
+      "cred_env": ["OPENAI_API_KEY", "OPENAI_ORG_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "alias": "GPT models",
+      "refs": ["OPENAI_API_KEY", "api.openai.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.openai.com/v1/models",
+        "auth": {"type": "bearer", "env": "OPENAI_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "category": "model",
+      "cred_env": ["ANTHROPIC_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "alias": "Claude models",
+      "refs": ["ANTHROPIC_API_KEY", "api.anthropic.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.anthropic.com/v1/models",
+        "auth": {"type": "header", "env": "ANTHROPIC_API_KEY", "name": "x-api-key"},
+        "headers": {"anthropic-version": "2023-06-01"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "google-gemini",
+      "name": "Google Gemini",
+      "category": "model",
+      "cred_env": ["GOOGLE_API_KEY"],
+      "billable": true,
+      "cost": "per token; free tier exists; price not verified this session",
+      "alias": "Gemini / generative language API",
+      "refs": ["GOOGLE_API_KEY", "generativelanguage.googleapis.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models",
+        "auth": {"type": "query", "env": "GOOGLE_API_KEY", "param": "key"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "models", "label": "models"}
+      }
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "category": "model",
+      "cred_env": ["GROQ_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["GROQ_API_KEY", "api.groq.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.groq.com/openai/v1/models",
+        "auth": {"type": "bearer", "env": "GROQ_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral",
+      "category": "model",
+      "cred_env": ["MISTRAL_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["MISTRAL_API_KEY", "api.mistral.ai"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Key present in the env file but EMPTY.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.mistral.ai/v1/models",
+        "auth": {"type": "bearer", "env": "MISTRAL_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "category": "model",
+      "cred_env": ["COHERE_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["COHERE_API_KEY", "api.cohere.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.cohere.com/v1/models",
+        "auth": {"type": "bearer", "env": "COHERE_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "models", "label": "models"}
+      }
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "category": "model",
+      "cred_env": ["TOGETHER_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["TOGETHER_API_KEY", "api.together.xyz"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.together.xyz/v1/models",
+        "auth": {"type": "bearer", "env": "TOGETHER_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "category": "model",
+      "cred_env": ["OPENROUTER_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["OPENROUTER_API_KEY", "openrouter.ai"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Key present in the env file but EMPTY.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://openrouter.ai/api/v1/key",
+        "auth": {"type": "bearer", "env": "OPENROUTER_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "key_present", "path": "data.label", "label": "key label"}
+      }
+    },
+    {
+      "id": "xai",
+      "name": "xAI (Grok)",
+      "category": "model",
+      "cred_env": ["XAI_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["XAI_API_KEY", "api.x.ai"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "One of the app's 6 live providers.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.x.ai/v1/models",
+        "auth": {"type": "bearer", "env": "XAI_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "deepinfra",
+      "name": "DeepInfra",
+      "category": "model",
+      "cred_env": ["DEEPINFRA_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["DEEPINFRA_API_KEY", "api.deepinfra.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "The ONE model provider explicitly wired in the harness: ~/.dsh/settings.yaml llm-pi-ai.providers.deepinfra.apiKeyEnv = DEEPINFRA_API_KEY. Its /v1/openai/models endpoint also answered keylessly, so probe status is informational.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.deepinfra.com/v1/openai/models",
+        "auth": {"type": "bearer", "env": "DEEPINFRA_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "fireworks",
+      "name": "Fireworks AI",
+      "category": "model",
+      "cred_env": ["FIREWORKS_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["FIREWORKS_API_KEY", "api.fireworks.ai"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "One of the app's 6 live providers.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.fireworks.ai/inference/v1/models",
+        "auth": {"type": "bearer", "env": "FIREWORKS_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "minimax",
+      "name": "MiniMax",
+      "category": "model",
+      "cred_env": ["MINIMAX_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["MINIMAX_API_KEY", "minimax"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "One of the app's 6 live providers.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.minimax.io/v1/models",
+        "auth": {"type": "bearer", "env": "MINIMAX_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "qwen-dashscope",
+      "name": "Qwen (DashScope)",
+      "category": "model",
+      "cred_env": ["QWEN_API_KEY"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["QWEN_API_KEY", "dashscope.aliyuncs.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
+        "auth": {"type": "bearer", "env": "QWEN_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "data", "label": "models"}
+      }
+    },
+    {
+      "id": "azure-openai",
+      "name": "Azure OpenAI",
+      "category": "model",
+      "cred_env": ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
+      "billable": true,
+      "cost": "per token; price not verified this session",
+      "refs": ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Key present in the env file but EMPTY, and no endpoint variable is set, so there is nothing to probe.",
+      "probe": {"kind": "none", "reason": "no endpoint configured: AZURE_OPENAI_API_KEY is empty and AZURE_OPENAI_ENDPOINT is unset."}
+    },
+    {
+      "id": "copilot",
+      "name": "GitHub Copilot",
+      "category": "model",
+      "cred_env": ["COPILOT_GITHUB_TOKEN"],
+      "billable": true,
+      "cost": "subscription per seat; price not verified this session",
+      "refs": ["COPILOT_GITHUB_TOKEN", "copilot"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "One of the app's 6 live providers. The probe validates the GitHub token, not the Copilot entitlement.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.github.com/user",
+        "auth": {"type": "bearer", "env": "COPILOT_GITHUB_TOKEN"},
+        "ok_status": [200],
+        "detail": {"kind": "key_present", "path": "login", "label": "token identifies as"}
+      }
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright MCP (browser)",
+      "category": "browser",
+      "cred_env": [],
+      "billable": false,
+      "cost": "$0 (OSS, installed locally)",
+      "alias": "the only real browser driver",
+      "refs": ["mcp-playwright", "playwright"],
+      "native_tool": null,
+      "mcp_ids": ["mcp-playwright"],
+      "notes": "Mounted in the zabz preset with a pinned user-data-dir. No credential: the capability is a local process plus a browser binary.",
+      "probe": {
+        "kind": "file",
+        "require": "all",
+        "paths": [
+          "~/.dsh/tools/mcp/node_modules/@playwright/mcp/cli.js",
+          "~/AppData/Local/ms-playwright-mcp/mcp-chrome-32dbea4"
+        ],
+        "label": "playwright cli + browser profile"
+      }
+    },
+    {
+      "id": "secretary-ps",
+      "name": "secretary ps_* (company API/db over MCP)",
+      "category": "db",
+      "cred_env": [],
+      "billable": false,
+      "cost": "internal $0",
+      "alias": "company database and API (status, db_query, ceo_chat, action)",
+      "refs": ["mcp-secretary", "ps_mcp_server.py"],
+      "native_tool": null,
+      "mcp_ids": ["mcp-secretary", "mcp-secretary-linux"],
+      "notes": "14 ps_* tools. Authenticated by ssh to secretary-ts, not by an env key, so it has no credential row - which is why it shows as REACHABLE-but-no-credential only if a seat ever mounts it.",
+      "probe": {
+        "kind": "file",
+        "paths": [
+          "~/code/personal-secretary-mvp/scripts/ps_mcp_server.py",
+          "/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py"
+        ],
+        "label": "ps_mcp_server.py"
+      }
+    },
+    {
+      "id": "twilio",
+      "name": "Twilio",
+      "category": "comms",
+      "cred_env": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN"],
+      "billable": true,
+      "cost": "per SMS/voice minute + number rental",
+      "alias": "SMS and voice",
+      "refs": ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "twilio"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Used by the application and by the family-chat subsystem.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.twilio.com/2010-04-01/Accounts.json?PageSize=1",
+        "auth": {"type": "basic", "user_env": "TWILIO_ACCOUNT_SID", "pass_env": "TWILIO_AUTH_TOKEN"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "accounts", "label": "accounts"}
+      }
+    },
+    {
+      "id": "dialpad",
+      "name": "Dialpad",
+      "category": "comms",
+      "cred_env": ["DIALPAD_API_KEY"],
+      "billable": true,
+      "cost": "per-seat subscription",
+      "alias": "business phone / SMS",
+      "refs": ["DIALPAD_API_KEY", "DIALPAD_WEBHOOK_SECRET", "dialpad.com/api/v2"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Base URL is https://dialpad.com/api/v2; api.dialpad.com does not resolve (checked 2026-09-30).",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://dialpad.com/api/v2/users?limit=1",
+        "auth": {"type": "bearer", "env": "DIALPAD_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "items", "label": "users"}
+      }
+    },
+    {
+      "id": "github",
+      "name": "GitHub API",
+      "category": "comms",
+      "cred_env": ["GITHUB_PAT"],
+      "billable": false,
+      "cost": "$0 (PAT, rate-limited)",
+      "alias": "repos, PRs, issues",
+      "refs": ["GITHUB_PAT", "api.github.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "There is no GitHub MCP server mounted; the only path today is a hand-rolled HTTP call.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.github.com/user",
+        "auth": {"type": "bearer", "env": "GITHUB_PAT"},
+        "ok_status": [200],
+        "detail": {"kind": "key_present", "path": "login", "label": "token identifies as"}
+      }
+    },
+    {
+      "id": "fleet-pg",
+      "name": "Fleet Postgres",
+      "category": "db",
+      "cred_env": ["FLEET_PG_DSN"],
+      "billable": false,
+      "cost": "owned compute",
+      "alias": "fleet control-plane database",
+      "refs": ["FLEET_PG_DSN", "FLEET_API_URL"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "A DSN, not an HTTP API, so the probe is a TCP connect to the host:port inside the DSN. The DSN value is never printed.",
+      "probe": {
+        "kind": "tcp_from_dsn",
+        "dsn_env": "FLEET_PG_DSN",
+        "default_port": 5432
+      }
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare API",
+      "category": "storage",
+      "cred_env": ["CF_API_TOKEN", "CLOUDFLARE_API_TOKEN"],
+      "billable": true,
+      "cost": "usage-based (R2/Tunnel/Zero Trust); price not verified this session",
+      "alias": "tunnel, R2, Zero Trust, DNS",
+      "refs": ["CF_API_TOKEN", "CLOUDFLARE_API_TOKEN", "CF_ACCOUNT_ID", "api.cloudflare.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Several tokens exist (CF_API_TOKEN, CLOUDFLARE_API_TOKEN, CF_ZERO_TRUST_TOKEN, CF_API_TOKEN_LAKEWOOD_PAGES); the probe verifies the primary one.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.cloudflare.com/client/v4/user/tokens/verify",
+        "auth": {"type": "bearer", "env": "CF_API_TOKEN"},
+        "ok_status": [200],
+        "detail": {"kind": "key_present", "path": "result.status", "label": "token status"}
+      }
+    },
+    {
+      "id": "hetzner",
+      "name": "Hetzner Cloud",
+      "category": "other",
+      "cred_env": ["HETZNER_API_TOKEN"],
+      "billable": true,
+      "cost": "per-server hourly",
+      "alias": "cloud servers",
+      "refs": ["HETZNER_API_TOKEN", "api.hetzner.cloud"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.hetzner.cloud/v1/servers",
+        "auth": {"type": "bearer", "env": "HETZNER_API_TOKEN"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "servers", "label": "servers"}
+      }
+    },
+    {
+      "id": "tailscale",
+      "name": "Tailscale",
+      "category": "other",
+      "cred_env": ["TAILSCALE_AUTH_KEY"],
+      "billable": true,
+      "cost": "free tier; paid plans; price not verified this session",
+      "alias": "mesh VPN",
+      "refs": ["TAILSCALE_AUTH_KEY", "api.tailscale.com", "tailscale"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "TAILSCALE_AUTH_KEY is an auth key (for enrolling nodes), not an API token; the API probe may therefore fail even though the key is real. Noted rather than hidden.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.tailscale.com/api/v2/tailnet/-/devices",
+        "auth": {"type": "bearer", "env": "TAILSCALE_AUTH_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "list_len", "path": "devices", "label": "devices"}
+      }
+    },
+    {
+      "id": "stripe",
+      "name": "Stripe",
+      "category": "other",
+      "cred_env": ["STRIPE_SECRET_KEY"],
+      "billable": true,
+      "cost": "per-transaction fee",
+      "alias": "payments",
+      "refs": ["STRIPE_SECRET_KEY", "api.stripe.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url": "https://api.stripe.com/v1/balance",
+        "auth": {"type": "bearer", "env": "STRIPE_SECRET_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "key_present", "path": "object", "label": "balance object"}
+      }
+    },
+    {
+      "id": "plaid",
+      "name": "Plaid",
+      "category": "other",
+      "cred_env": ["PLAID_CLIENT_ID", "PLAID_SECRET"],
+      "billable": true,
+      "cost": "per-item monthly",
+      "alias": "bank feeds",
+      "refs": ["PLAID_CLIENT_ID", "PLAID_SECRET", "plaid.com"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "",
+      "probe": {"kind": "none", "reason": "every Plaid endpoint needs a linked access_token as well as the client id/secret; a health check would have to touch a real bank item, so the registry declines to probe."}
+    },
+    {
+      "id": "nanomdm",
+      "name": "NanoMDM",
+      "category": "other",
+      "cred_env": ["NANOMDM_API_KEY", "NANOMDM_BASE_URL"],
+      "billable": false,
+      "cost": "$0 (self-hosted OSS)",
+      "alias": "Apple device management",
+      "refs": ["NANOMDM_API_KEY", "NANOMDM_BASE_URL", "nanomdm"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Self-hosted, so the endpoint is deployment-specific and comes from NANOMDM_BASE_URL (never printed). Probe is skipped when that variable is unset.",
+      "probe": {
+        "kind": "http",
+        "method": "GET",
+        "url_from_env": "NANOMDM_BASE_URL",
+        "url_suffix": "/version",
+        "auth": {"type": "bearer", "env": "NANOMDM_API_KEY"},
+        "ok_status": [200],
+        "detail": {"kind": "text_len", "label": "version body chars"}
+      }
+    },
+    {
+      "id": "mosyle",
+      "name": "Mosyle",
+      "category": "other",
+      "cred_env": ["MOSYLE_API_TOKEN"],
+      "billable": true,
+      "cost": "per-device subscription",
+      "alias": "Apple MDM SaaS",
+      "refs": ["MOSYLE_API_TOKEN", "MOSYLE_ORG", "mosyle"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Mosyle's API is a POST-with-JWT flow whose exact host was not established from this repo or its public docs in this session, so the registry says so instead of guessing a URL.",
+      "probe": {"kind": "none", "reason": "no endpoint established from the repo or public docs this session; see docs/capability-registry.md 'not verified'."}
+    },
+    {
+      "id": "langfuse",
+      "name": "Langfuse",
+      "category": "other",
+      "cred_env": ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"],
+      "billable": false,
+      "cost": "$0 self-hosted (LANGFUSE_HOST points at our own instance)",
+      "alias": "LLM tracing",
+      "refs": ["LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "LANGFUSE_ENABLED is a setting, and both keys are EMPTY in the env file. Host is our own instance.",
+      "probe": {"kind": "none", "reason": "both Langfuse keys are empty, so there is nothing to authenticate with; and the host is self-hosted, from the env."}
+    },
+    {
+      "id": "ai-gateway",
+      "name": "AI Gateway",
+      "category": "model",
+      "cred_env": ["AI_GATEWAY_API_KEY"],
+      "billable": true,
+      "cost": "pass-through model spend + gateway",
+      "alias": "internal model-routing gateway",
+      "refs": ["AI_GATEWAY_API_KEY", "AI_GATEWAY_PROVIDER_PREFS_JSON"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "FLEET_API_URL (set) names the gateway host, but that variable is an app URL, not an endpoint this registry established a health route for.",
+      "probe": {"kind": "none", "reason": "no health endpoint established this session; FLEET_API_URL is the only host hint and it was not confirmed to be the gateway's public route."}
+    },
+    {
+      "id": "nanodep",
+      "name": "NanoDep",
+      "category": "other",
+      "cred_env": ["NANODEP_API_KEY"],
+      "billable": false,
+      "cost": "not established",
+      "refs": ["NANODEP_API_KEY", "nanodep"],
+      "native_tool": null,
+      "mcp_ids": [],
+      "notes": "Only the key name exists in this tree; no endpoint, no caller found this session.",
+      "probe": {"kind": "none", "reason": "no endpoint established from the repo or public docs this session."}
+    }
+  ]
+}
