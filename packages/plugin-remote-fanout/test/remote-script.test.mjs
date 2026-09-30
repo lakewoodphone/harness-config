@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 import {
   buildPosixScript,
   buildPwshScript,
+  harvestOutput,
   invocationFor,
   markers,
   parseFanout,
+  parseProgress,
   psQuote,
   shQuote,
   shellWord,
@@ -14,6 +20,9 @@ import {
   singleLine,
 } from '../lib/remote-script.js';
 import { NODES, resolveNodeInvocation } from '../lib/nodes.js';
+
+// The brief's own temp area; a test that needs a temp dir creates it here.
+const TEST_TMP = process.env.MESHFIX_TRANSPORT_TMP ?? path.join(os.homedir(), 'code', '_meshfix', 'tmp', 'transport');
 
 test('psQuote doubles single quotes and never leaves a bare one', () => {
   assert.equal(psQuote("it's"), "'it''s'");
@@ -186,4 +195,243 @@ test('a child that prints the marker words itself cannot truncate the frame', ()
   const stdout = [m.begin, 'FANOUT_END', 'still inside', m.end, `${m.exit}0`].join('\n');
   const parsed = parseFanout(stdout, nonce);
   assert.equal(parsed.answer, 'FANOUT_END\nstill inside');
+});
+
+// ---------------------------------------------------------------------------
+// harvestOutput — the salvage half of a failed run (F1/F2).
+// ---------------------------------------------------------------------------
+
+test('harvestOutput salvages the answer, both stream tails and the outcome, in that order', () => {
+  const nonce = 'feed';
+  const m = markers(nonce);
+  const stdout = [m.begin, 'THE CHILD ANSWER', m.end, `${m.exit}0`].join('\n');
+  const parsed = parseFanout(stdout, nonce);
+  const outcome = { exitCode: 0, signal: undefined, timedOut: false, ms: 1234, stdout, stderr: 'some noise' };
+  const harvested = harvestOutput(outcome, parsed);
+  assert.equal(harvested.complete, true);
+  assert.deepEqual(harvested.parts.map((part) => part.source), ['answer', 'stdout-tail', 'stderr-tail', 'outcome']);
+  assert.match(harvested.text, /THE CHILD ANSWER/);
+  assert.match(harvested.text, /raw stdout tail/);
+  assert.match(harvested.text, /some noise/);
+  assert.match(harvested.text, /exit=0, signal=none, timedOut=false, ms=1234/);
+  const answerAt = harvested.text.indexOf('THE CHILD ANSWER');
+  const stdoutAt = harvested.text.indexOf('--- raw stdout tail ---');
+  const stderrAt = harvested.text.indexOf('--- raw stderr tail ---');
+  const outcomeAt = harvested.text.indexOf('outcome: exit=');
+  assert.ok(answerAt < stdoutAt && stdoutAt < stderrAt && stderrAt < outcomeAt, 'the parts must be ordered answer, stdout, stderr, summary');
+});
+
+test('harvestOutput with everything empty returns a non-empty explanation, not an empty string', () => {
+  const harvested = harvestOutput({}, { framed: false });
+  assert.equal(harvested.complete, false);
+  assert.notEqual(harvested.text, '');
+  assert.match(harvested.text, /no output was recovered/);
+  assert.match(harvested.text, /exit=none/);
+  assert.equal(harvested.parts.length, 1);
+  assert.equal(harvested.parts[0].source, 'outcome');
+});
+
+test('harvestOutput is complete only when the child frame closed', () => {
+  const unframed = harvestOutput({ stdout: 'raw bytes with no frame' }, { framed: false, answer: '' });
+  assert.equal(unframed.complete, false);
+  assert.match(unframed.text, /raw bytes with no frame/);
+  const framed = harvestOutput({}, { framed: true, answer: 'ok' });
+  assert.equal(framed.complete, true);
+});
+
+test('harvestOutput bounds each recovered tail to maxBytes', () => {
+  const stdout = 'H'.repeat(100) + 'TAIL';
+  const stderr = 'E'.repeat(100) + 'ERRTAIL';
+  const harvested = harvestOutput({ stdout, stderr, exitCode: 255 }, { framed: false }, { maxBytes: 8 });
+  const stdoutPart = harvested.parts.find((part) => part.source === 'stdout-tail');
+  const stderrPart = harvested.parts.find((part) => part.source === 'stderr-tail');
+  assert.equal(stdoutPart.text, 'HHHHTAIL');
+  assert.equal(stdoutPart.truncated, true);
+  assert.equal(stderrPart.text, 'EERRTAIL');
+  assert.ok(
+    harvested.parts.filter((part) => part.source.endsWith('-tail')).every((part) => Buffer.byteLength(part.text, 'utf8') <= 8),
+    'no recovered stream tail may exceed maxBytes',
+  );
+});
+
+test('harvestOutput never throws on undefined fields, bad options, or invalid UTF-8 boundaries', () => {
+  for (const args of [
+    [],
+    [undefined, undefined],
+    [null, null, null],
+    [{}, {}, { maxBytes: 0 }],
+    [{ exitCode: 255, stdout: Buffer.from([0x41, 0xc3]) }, { framed: false }, { maxBytes: 1 }],
+    [{ stdout: Buffer.from('é', 'utf8').subarray(1) }, { framed: true, answer: Buffer.from('x') }],
+  ]) {
+    const harvested = harvestOutput(...args);
+    assert.equal(typeof harvested.text, 'string');
+    assert.ok(harvested.text.length > 0);
+    assert.equal(typeof harvested.complete, 'boolean');
+    assert.ok(Array.isArray(harvested.parts));
+  }
+  // A split multibyte sequence becomes a replacement character, not a throw.
+  const split = harvestOutput({ stdout: Buffer.from([0x41, 0xc3]) }, { framed: false }, { maxBytes: 1 });
+  assert.match(split.text, /\uFFFD|A/);
+});
+
+// ---------------------------------------------------------------------------
+// THE PROGRESS LOG — the parent can tell a silent child from a working one.
+// ---------------------------------------------------------------------------
+
+test('the framed pwsh stdout is byte-identical when progressFile is not supplied', () => {
+  const invocation = { form: 'executor', command: 'dsh', credentialSource: 'the wrapper sources the credential' };
+  const expected = [
+    '# generated by dsh-plugin-remote-fanout — one remote one-shot subagent turn',
+    '# invocation form: executor — the wrapper sources the credential',
+    "$ErrorActionPreference = 'Continue'",
+    "$ProgressPreference = 'SilentlyContinue'",
+    "[Console]::Out.WriteLine('FANOUT_TRANSPORT_HOST_n=' + $env:COMPUTERNAME)",
+    "[Console]::Out.WriteLine('FANOUT_TRANSPORT_CWD_n=' + (Get-Location).Path)",
+    "[Console]::Out.WriteLine('FANOUT_BEGIN_n')",
+    "& 'dsh' '--profile' 'headless' 'x'",
+    '$fanoutExit = $LASTEXITCODE',
+    "[Console]::Out.WriteLine('FANOUT_END_n')",
+    "[Console]::Out.WriteLine('FANOUT_EXIT_n=' + $fanoutExit)",
+    '[Environment]::Exit($fanoutExit)',
+  ].join('\n');
+  const spec = { invocation, profile: 'headless', task: 'x', nonce: 'n' };
+  assert.equal(buildPwshScript(spec), expected);
+  assert.equal(buildPwshScript({ ...spec, progressFile: undefined }), expected);
+  assert.doesNotMatch(expected, /FANOUT_PROGRESS|Tee-Object|fanoutProgress/);
+});
+
+test('the framed posix stdout is byte-identical when progressFile is not supplied', () => {
+  const invocation = { form: 'executor', command: 'dsh', credentialSource: 'the wrapper' };
+  const expected = [
+    '# generated by dsh-plugin-remote-fanout — one remote one-shot subagent turn',
+    '# invocation form: executor — the wrapper',
+    `printf -v fanout_host '%s' "$(hostname)"`,
+    `printf '%s\\n' "FANOUT_TRANSPORT_HOST_n=$fanout_host"`,
+    `printf '%s\\n' "FANOUT_TRANSPORT_CWD_n=$(pwd)"`,
+    `printf '%s\\n' "FANOUT_BEGIN_n"`,
+    `dsh --profile headless 'x'`,
+    'fanout_exit=$?',
+    `printf '%s\\n' "FANOUT_END_n"`,
+    `printf '%s\\n' "FANOUT_EXIT_n=$fanout_exit"`,
+    'exit $fanout_exit',
+  ].join('\n');
+  const spec = { invocation, profile: 'headless', task: 'x', nonce: 'n' };
+  assert.equal(buildPosixScript(spec), expected);
+  assert.equal(buildPosixScript({ ...spec, progressFile: undefined }), expected);
+  assert.doesNotMatch(expected, /FANOUT_PROGRESS|tee -a|fanout_progress/);
+});
+
+test('the pwsh script starts, tees and closes the progress log when asked', () => {
+  const progressPath = 'C:\\tmp\\fanout-progress.log';
+  const script = buildPwshScript({ command: 'dsh', profile: 'headless', task: 'x', nonce: 'p1', progressFile: progressPath });
+  assert.equal(script.includes(`$fanoutProgress = ${psQuote(progressPath)}`), true);
+  assert.match(script, /FANOUT_PROGRESS:START host=/);
+  assert.match(script, /FANOUT_PROGRESS:EXIT code=/);
+  assert.match(script, /Add-Content -LiteralPath \$fanoutProgress/);
+  assert.match(script, /Tee-Object -FilePath \$fanoutProgress -Append/);
+  assert.match(script, /2>> \$fanoutProgress/);
+  // The start line is written before the child, and the exit line after it.
+  const startAt = script.indexOf('FANOUT_PROGRESS:START');
+  const childAt = script.indexOf("& 'dsh'");
+  const exitAt = script.indexOf('FANOUT_PROGRESS:EXIT');
+  assert.ok(startAt < childAt && childAt < exitAt, 'start < child < exit in the generated program');
+});
+
+test('the posix script starts, tees both streams and closes the progress log when asked', () => {
+  const progressPath = '/tmp/fanout-progress.log';
+  const script = buildPosixScript({ command: 'dsh', profile: 'headless', task: 'x', nonce: 'p2', progressFile: progressPath });
+  assert.equal(script.includes(`fanout_progress=${shQuote(progressPath)}`), true);
+  assert.match(script, /FANOUT_PROGRESS:START host=/);
+  assert.match(script, /FANOUT_PROGRESS:EXIT code=/);
+  assert.match(script, /tee -a "\$fanout_progress"/);
+  assert.match(script, /2>&1 1>&3/);
+  const startAt = script.indexOf('FANOUT_PROGRESS:START');
+  const childAt = script.indexOf('dsh --profile headless');
+  const exitAt = script.indexOf('FANOUT_PROGRESS:EXIT');
+  assert.ok(startAt < childAt && childAt < exitAt, 'start < child < exit in the generated program');
+});
+
+test('parseProgress reads the control lines and keeps only the child output as lines', () => {
+  const log = [
+    'FANOUT_PROGRESS:START host=ZABZ-YOGA pid=1234 at=2026-09-30T18:00:00Z',
+    'child answer line 1',
+    'child stderr line',
+    'FANOUT_PROGRESS:EXIT code=0 at=2026-09-30T18:00:05Z',
+  ].join('\r\n');
+  const progress = parseProgress(log);
+  assert.equal(progress.startedAt, '2026-09-30T18:00:00Z');
+  assert.equal(progress.host, 'ZABZ-YOGA');
+  assert.equal(progress.pid, 1234);
+  assert.equal(progress.lastAt, '2026-09-30T18:00:05Z');
+  assert.equal(progress.exit, 0);
+  assert.deepEqual(progress.lines, ['child answer line 1', 'child stderr line']);
+});
+
+test('parseProgress never throws on an empty, partial or unknown log', () => {
+  for (const input of [undefined, null, '', 'FANOUT_PROGRESS:START host=x', 'FANOUT_PROGRESS:UNKNOWN foo=bar\nchild']) {
+    const progress = parseProgress(input);
+    assert.ok(Array.isArray(progress.lines));
+  }
+  const partial = parseProgress('FANOUT_PROGRESS:START host=x pid=notanumber\nchild still talking');
+  assert.equal(partial.host, 'x');
+  assert.equal(partial.pid, 'notanumber');
+  assert.deepEqual(partial.lines, ['child still talking']);
+});
+
+test('the generated posix program writes a parseable progress log and keeps the frame', { skip: process.platform === 'win32' }, () => {
+  mkdirSync(TEST_TMP, { recursive: true });
+  const dir = mkdtempSync(path.join(TEST_TMP, 'progress-'));
+  try {
+    const progressPath = path.join(dir, 'progress.log');
+    const nonce = 'run1';
+    const script = buildPosixScript({
+      invocation: {
+        form: 'interpreter',
+        command: 'sh',
+        argvPrefix: ['-c', 'printf "CHILD_LINE\\n"; printf "CHILD_ERR\\n" >&2; exit 4'],
+        credentialSource: 'test',
+      },
+      profile: 'headless',
+      task: 'hello',
+      nonce,
+      progressFile: progressPath,
+    });
+    const run = spawnSync('sh', ['-s'], { input: script, encoding: 'utf8', timeout: 15000 });
+    assert.equal(run.status, 4, `expected the child's exit code, got ${run.status}: ${run.stderr}`);
+
+    // The framed stdout contract still holds, and stdout still reaches the frame.
+    const parsed = parseFanout(run.stdout, nonce);
+    assert.equal(parsed.framed, true);
+    assert.equal(parsed.exitCode, 4);
+    assert.match(parsed.answer, /CHILD_LINE/);
+    // stderr was tee'd, so it still reaches the transport too.
+    assert.match(run.stderr, /CHILD_ERR/);
+
+    // And the progress log carries the start, both streams, and the exit.
+    const progress = parseProgress(readFileSync(progressPath, 'utf8'));
+    assert.equal(progress.host, os.hostname());
+    assert.equal(progress.exit, 4);
+    assert.ok(progress.startedAt, 'the start line must carry a timestamp');
+    assert.ok(progress.lastAt, 'the exit line must carry a timestamp');
+    assert.ok(progress.lines.some((line) => line.includes('CHILD_LINE')), 'child stdout must be in the log');
+    assert.ok(progress.lines.some((line) => line.includes('CHILD_ERR')), 'child stderr must be in the log');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('an unwritable progress log never fails the run', { skip: process.platform === 'win32' }, () => {
+  const nonce = 'p3';
+  const script = buildPosixScript({
+    invocation: { form: 'interpreter', command: 'echo', credentialSource: 'test' },
+    profile: 'headless',
+    task: 'x',
+    nonce,
+    progressFile: '/proc/definitely-not-writable/progress.log',
+  });
+  const run = spawnSync('sh', ['-s'], { input: script, encoding: 'utf8', timeout: 15000 });
+  assert.equal(run.status, 0, `the child must still run: ${run.stderr}`);
+  const parsed = parseFanout(run.stdout, nonce);
+  assert.equal(parsed.framed, true, 'the frame must still close when the log cannot be written');
+  assert.equal(parsed.exitCode, 0);
 });

@@ -37,6 +37,15 @@
  * POSIX) and reads them after the client exits, and it unlinks them in a
  * finally. Without this the parent's delegation would sit until its own timeout
  * and report a timeout for work that had actually succeeded.
+ *
+ * WHY A CAP KEEPS BOTH ENDS (2026-09-30)
+ * The frame lives at the END of stdout, so a head-only `maxOutputBytes` cap
+ * silently discarded the closing markers for any answer larger than the budget —
+ * measured live: typical answers are 60-150 KB against a 200000-byte default, so
+ * the bug fired on real runs, not just in theory. `capStreamText` now retains
+ * `head + sentinel + tail`, where the tail half holds the markers, the in-band
+ * sentinel records the dropped byte count, and neither cut may split a
+ * frame-marker line. A truncated frame parses; a head-only frame did not.
  */
 
 import { spawn } from 'node:child_process';
@@ -49,6 +58,81 @@ import path from 'node:path';
 export const DEFAULT_TIMEOUT_MS = 900_000;
 /** Maximum bytes retained from each remote stream. */
 export const DEFAULT_MAX_OUTPUT_BYTES = 200_000;
+/**
+ * The in-band marker that stands where a capped stream dropped bytes. It is
+ * deliberately not a `FANOUT_*` frame word, so it can never be mistaken for one.
+ */
+export const TRUNCATION_SENTINEL_TAG = 'FANOUT_TRUNCATED';
+
+/** Does this line carry a frame marker? A cap must never split one. */
+function isFrameMarkerLine(line) {
+  return /^FANOUT_(TRANSPORT_(HOST|CWD)|BEGIN|END|EXIT)([_=]|$)/.test(String(line).replace(/\r$/, ''));
+}
+
+/**
+ * Cap one stream while KEEPING BOTH ENDS.
+ *
+ * Why not just keep the head (the pre-2026-09-30 behaviour): the closing marker
+ * is the LAST line the remote program writes, so a head-only cap on any answer
+ * larger than the budget threw the frame away. The transport then failed a run
+ * whose frame it had itself observed, and the child's final message — which was
+ * sitting in the tail — was lost even though the bytes were on disk.
+ *
+ * The retained text is `head + sentinel + tail`, bounded by `maxOutputBytes`
+ * whenever neither cut splits a frame-marker line. The tail gets half the budget
+ * (the opening markers are always in the first few hundred bytes, so the head
+ * half is enough to see them), and the sentinel records how many bytes were
+ * dropped. A cut that would land inside a line carrying a frame marker is moved
+ * to the line boundary that keeps the whole marker line, even if that makes the
+ * result a little larger than the budget: a frame that does not parse is worse
+ * than a bound that is off by one line.
+ *
+ * @returns {{text: string, truncated: boolean}}
+ */
+export function capStreamText(text, maxOutputBytes) {
+  const source = typeof text === 'string' ? text : String(text ?? '');
+  const cap = Number.isFinite(maxOutputBytes) && maxOutputBytes > 0
+    ? Math.floor(maxOutputBytes)
+    : DEFAULT_MAX_OUTPUT_BYTES;
+  if (source.length <= cap) return { text: source, truncated: false };
+
+  // A fixed-width count keeps the sentinel the same length no matter how large
+  // the omitted number is, so the head/tail budget can be solved in one pass.
+  const width = String(source.length).length;
+  const sentinelFor = (omitted) => `\n<<<${TRUNCATION_SENTINEL_TAG} ${String(omitted).padStart(width, '0')} chars omitted>>>\n`;
+  const sentinelLength = sentinelFor(0).length;
+
+  let tailLength = Math.min(Math.floor(cap / 2), Math.max(0, cap - sentinelLength));
+  let headLength = cap - sentinelLength - tailLength;
+  if (headLength < 0) {
+    headLength = 0;
+    tailLength = Math.max(0, cap - sentinelLength);
+  }
+
+  let head = source.slice(0, headLength);
+  let tailStart = source.length - tailLength;
+  let tail = source.slice(tailStart);
+
+  // Never cut a line that carries a frame marker.
+  if (headLength > 0 && headLength < source.length && source[headLength - 1] !== '\n') {
+    const lineStart = source.lastIndexOf('\n', headLength - 1) + 1;
+    const newlineAt = source.indexOf('\n', headLength);
+    const lineEnd = newlineAt === -1 ? source.length : newlineAt;
+    if (isFrameMarkerLine(source.slice(lineStart, lineEnd))) head = source.slice(0, lineEnd);
+  }
+  if (tailStart > 0 && source[tailStart - 1] !== '\n') {
+    const lineStart = source.lastIndexOf('\n', tailStart - 1) + 1;
+    const newlineAt = source.indexOf('\n', tailStart);
+    const lineEnd = newlineAt === -1 ? source.length : newlineAt;
+    if (isFrameMarkerLine(source.slice(lineStart, lineEnd))) {
+      tailStart = lineStart;
+      tail = source.slice(tailStart);
+    }
+  }
+
+  const omitted = Math.max(0, source.length - head.length - tail.length);
+  return { text: `${head}${sentinelFor(omitted)}${tail}`, truncated: true };
+}
 
 /** Encode a PowerShell program for `-EncodedCommand` (base64 of UTF-16LE). */
 export function encodePwshCommand(script) {
@@ -151,10 +235,7 @@ export function createSshTransport(config = {}) {
 
       const readCapped = (file) => {
         try {
-          const text = readFileSync(file, 'utf8');
-          return text.length > maxOutputBytes
-            ? { text: text.slice(0, maxOutputBytes), truncated: true }
-            : { text, truncated: false };
+          return capStreamText(readFileSync(file, 'utf8'), maxOutputBytes);
         } catch {
           return { text: '', truncated: false };
         }

@@ -4,7 +4,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { createSshTransport, encodePwshCommand, remoteArgv } from '../lib/ssh-transport.js';
+import { createSshTransport, capStreamText, encodePwshCommand, remoteArgv } from '../lib/ssh-transport.js';
+import { markers, parseFanout } from '../lib/remote-script.js';
 
 const tmpDir = os.tmpdir();
 const leftoverStreamFiles = () => readdirSync(tmpDir).filter((name) => /^fanout-[0-9a-f]{12}\.(out|err)$/.test(name));
@@ -117,4 +118,77 @@ test('the transport never hands ssh a stdout PIPE — the measured hazard stays 
   const source = readFileSync(new URL('../lib/ssh-transport.js', import.meta.url), 'utf8');
   assert.match(source, /stdio: \[shell === 'posix' \? 'pipe' : 'ignore', outFd, errFd\]/);
   assert.equal(source.includes("'ignore', 'pipe', 'pipe'"), false);
+});
+
+// ---------------------------------------------------------------------------
+// THE OUTPUT CAP KEEPS THE TAIL (the frame lives at the end of stdout).
+// ---------------------------------------------------------------------------
+
+test('capStreamText leaves a stream at or under the cap untouched', () => {
+  const capped = capStreamText('short enough', 40);
+  assert.equal(capped.text, 'short enough');
+  assert.equal(capped.truncated, false);
+});
+
+test('a capped stream keeps the tail, so the completion frame still parses', () => {
+  const nonce = 'c0ffee';
+  const m = markers(nonce);
+  const filler = 'A'.repeat(5000);
+  const stdout = [m.begin, filler, m.end, `${m.exit}0`].join('\n');
+  const capped = capStreamText(stdout, 1000);
+  assert.equal(capped.truncated, true);
+  assert.match(capped.text, /FANOUT_TRUNCATED/);
+  // The opening markers are in the head and the closing markers in the tail, so
+  // the frame the cap used to destroy now survives it.
+  const parsed = parseFanout(capped.text, nonce);
+  assert.equal(parsed.framed, true);
+  assert.equal(parsed.exitCode, 0);
+  assert.equal(parsed.host, undefined, 'this fixture carries no host marker');
+});
+
+test('a capped stream still ends with its closing marker line', () => {
+  const nonce = 'beef';
+  const m = markers(nonce);
+  const stdout = [m.host + 'FAKE-NODE', m.begin, 'x'.repeat(4000), m.end, `${m.exit}7`].join('\n');
+  const capped = capStreamText(stdout, 800);
+  const lastLine = capped.text.split(/\r?\n/).filter((line) => line !== '').at(-1);
+  assert.equal(lastLine, `${m.exit}7`);
+  const parsed = parseFanout(capped.text, nonce);
+  assert.equal(parsed.framed, true);
+  assert.equal(parsed.exitCode, 7);
+  assert.equal(parsed.host, 'FAKE-NODE');
+});
+
+test('the cap never splits a line that carries a frame marker', () => {
+  const nonce = 'abc123';
+  const m = markers(nonce);
+  const filler = 'Q'.repeat(2000);
+  const stdout = [
+    `${m.host}FAKE-NODE`,
+    `${m.cwd}/tmp`,
+    m.begin,
+    filler,
+    m.end,
+    `${m.exit}5`,
+  ].join('\n');
+  const completeMarkers = [m.host, m.cwd, m.begin, m.end, m.exit];
+  for (let cap = 150; cap <= 900; cap += 7) {
+    const capped = capStreamText(stdout, cap);
+    if (!capped.truncated) continue;
+    for (const line of capped.text.split(/\r?\n/)) {
+      if (!line.startsWith('FANOUT_') || line.startsWith('FANOUT_TRUNCATED')) continue;
+      assert.ok(
+        completeMarkers.some((marker) => line === marker || line.startsWith(marker)),
+        `cap ${cap} left a partial marker line: ${JSON.stringify(line)}`,
+      );
+    }
+    // Once the budget can hold the opening frame in its head and the closing
+    // frame in its tail, the frame must survive untouched in meaning.
+    if (cap >= 400) {
+      const parsed = parseFanout(capped.text, nonce);
+      assert.equal(parsed.framed, true, `cap ${cap} must keep the frame`);
+      assert.equal(parsed.exitCode, 5, `cap ${cap} must keep the exit marker`);
+      assert.equal(parsed.host, 'FAKE-NODE', `cap ${cap} must keep the host marker`);
+    }
+  }
 });
