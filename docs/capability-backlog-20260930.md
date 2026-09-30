@@ -29,6 +29,28 @@ by theme.
 
 Items 1-5, 6's implementation, 8 and 11-38 remain as written below.
 
+### Update, 2026-09-30 15:33Z — the list is now the machine's queue, and it is moving
+
+- **Items 1, 3, 4, 8-11, 15-21, 26-29 and 32-38 were filed into the work ledger** as 13 items (#143-155)
+  with command-shaped definitions of done, so a woken shift claims one and proves it. Items whose finish
+  line is a judgement (a vendor pilot, a sandbox decision) were deliberately NOT filed: a ledger without a
+  proving command fills with things that can never be closed.
+- **The throttle that made that pointless is raised.** Per project it was 3 flags/day with a 6-hour
+  cooldown: housekeeping had used its three by 14:50Z, so ten items filed at 15:24Z could not be woken
+  again until 20:50Z. Now 12/day with a 30-minute cooldown, and the sources timer carries
+  `WAKE_MAX_PER_SOURCE_PER_HOUR=12`. The store's global backstop (500/day) and the spend ceiling
+  (70 USD/day, against a measured 0.036-0.068 per shift) are untouched and remain the real limits.
+  Backups: `projects.json.bak-throttle-20260930T152850Z` and a timestamped crontab copy.
+- **Verified live at 15:30:13Z:** `fanout: end started=5 procs=5` — five shifts claimed and running
+  concurrently, the fan-out's target reached for the first time today, and one of the new items is
+  `running`. Before this session the same loop spent 55 minutes starting shifts that could not claim.
+- **Item 5 DONE.** The integrator has a `--limit` (default 3) and is scheduled hourly at :23; verified by
+  a dry run that defers everything past the cap. Backups and the repo copy updated in the same commit.
+- **Still broken, and it is now the top of the list:** two more releases failed at 15:30Z
+  (`project:lpt-website:20260930#3`, `project:personality-system:20260930`), so the answer-loss class is
+  live right now. That is items 1 and 3 — the local runner and result-before-acknowledgement — and they
+  are the highest-priority items in the ledger.
+
 Numbers in USD, written plainly. Where a figure comes from a vendor's own page the source document names
 it; where it is my arithmetic it says so.
 
