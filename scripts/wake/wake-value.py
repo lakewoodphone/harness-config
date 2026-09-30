@@ -42,6 +42,14 @@ def main():
         closed = con.execute("select count(*) from work_item where state='done' and done_at >= ?",
                              (today,)).fetchone()[0]
         oldest = con.execute("select min(created_at) from work_item where state='blocked'").fetchone()[0]
+        # A FIELD THAT NO LONGER DESCRIBES THE WORLD. blocked_on set while the state is NOT blocked means the
+        # row was moved without the sanctioned tool (work.py attempt --state todo clears the field), and the
+        # ledger then asserts a reason for parking an item that is not parked - read as though it still
+        # applied. Measured 2026-09-30: one row, and 0 blocked rows missing a reason. It is a one-line check
+        # rather than a new command precisely because the command was already correct.
+        _stale = con.execute("select count(*), group_concat(id) from work_item "
+                             "where coalesce(blocked_on,'')<>'' and state<>'blocked'").fetchone()
+        stale_n, stale_ids = int(_stale[0] or 0), (_stale[1] or "")
         con.close()
         blocked_age = "?"
         if oldest:
@@ -87,9 +95,14 @@ def main():
     if spend is not None and closed:
         per_item = " | %.3f USD per closed item" % (spend / closed)
 
-    print("  VALUE         : %d item(s) closed today%s | todo %s running %s blocked %s (oldest blocked %s)"
+    stale_note = ""
+    if stale_n:
+        stale_note = (" | STALE BLOCKERS %d (%s): state is not blocked but blocked_on is still set, so the "
+                      "ledger is asserting a reason that no longer applies" % (stale_n, stale_ids))
+    print("  VALUE         : %d item(s) closed today%s | todo %s running %s blocked %s (oldest blocked %s)%s"
           % (closed, per_item,
-             states.get("todo", 0), states.get("running", 0), states.get("blocked", 0), blocked_age))
+             states.get("todo", 0), states.get("running", 0), states.get("blocked", 0), blocked_age,
+             stale_note))
     print("  BUDGET        : %s | harness guard is separate - see the digest" % money)
     return 0
 
