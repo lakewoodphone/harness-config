@@ -1,0 +1,16 @@
+{
+  "problems": [
+    "sessions: 3 file(s) could not be copied faithfully"
+  ],
+  "ok": false,
+  "finishedAt": "2026-09-28T19:28:47.8798560Z",
+  "destination": "C:\\Users\\ezabz\\Code\\harness-config\\dsh-update\\tests\\switch\\fixtures\\backup-bad",
+  "totalFiles": 3,
+  "stores": [
+    {
+      "store": "sessions",
+      "ok": false,
+      "verified": 0
+    }
+  ]
+}

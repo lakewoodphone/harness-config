@@ -35,6 +35,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import net from 'node:net';
 import crypto from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -47,13 +48,107 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');            // dsh-update/
 const STATE = path.join(ROOT, 'state');
 const DEFAULT_LOGS = path.join(STATE, 'logs');
+const DEFAULT_REAL_HOME = path.join(process.env.USERPROFILE ?? process.env.HOME ?? '.', '.dsh');
 const DEFAULT_LIVE_HOME = process.env.DSH_HOME && process.env.DSH_HOME.trim() !== ''
   ? process.env.DSH_HOME
-  : path.join(process.env.USERPROFILE ?? process.env.HOME ?? '.', '.dsh');
+  : DEFAULT_REAL_HOME;
 
-/* resolved per run in main(): --dsh-home / --logs-dir override them */
+/* resolved per run in main(). THE TWO HOMES ARE DIFFERENT THINGS:
+ *
+ *   LIVE_HOME  (--dsh-home)   the CONFIG UNDER TEST — the settings, profiles and .agent-presets the
+ *                             candidate engine composes. Under staging this is a migrated copy
+ *                             under %TEMP%, which is by definition NOT where runtime state lives.
+ *   STATE_HOME (--state-home) where RUNTIME STATE lives: the model credential
+ *                             (<state-home>/.credentials.yaml) and the session logs
+ *                             (<state-home>/sessions). Under staging this stays the operator's real
+ *                             home, so G4/G5 still have a credential and G8 still counts the real
+ *                             session files instead of a staged directory that may not exist.
+ *
+ * Conflating them was a measured defect (2026-09-28). Against a staged home, `--dsh-home` meant both
+ * things at once, so G4/G5 could not resolve a credential (a staged home has none by design — it is
+ * deliberately never copied) and G8 read `<staged>/sessions`: it refused to run at all ("there is no
+ * sessions directory at %TEMP%\dsh-staged-migrated\sessions"), and once the staged home did carry a
+ * partial sessions directory it compared the candidate against 20 staged files while the operator's
+ * real history is 1,258 — a gate reading the wrong directory is not a gate. `--state-home` defaults
+ * to the operator's real home and names itself in `verify.json` and in every gate detail, because a
+ * reading that does not say where it came from is not a reading.
+ */
 let LIVE_HOME = DEFAULT_LIVE_HOME;
+let STATE_HOME = DEFAULT_REAL_HOME;
+let STATE_HOME_SOURCE = 'unresolved (main() has not run yet)';
 let LOGS = DEFAULT_LOGS;
+
+function envPath(name) {
+  const v = process.env[name];
+  return v && String(v).trim() !== '' ? String(v) : null;
+}
+
+/** Why `p` looks like a staged/isolated config home rather than where runtime state lives. */
+function stagedHomeReason(p) {
+  const c = path.resolve(p).toLowerCase();
+  const roots = [
+    ['the system temp directory', os.tmpdir()],
+    ['dsh-update/state (the isolated home this module builds)', path.join(ROOT, 'state')],
+  ];
+  for (const [label, root] of roots) {
+    const r = path.resolve(root).toLowerCase();
+    if (c === r || c.startsWith(r + path.sep)) return `which is under ${label}`;
+  }
+  return null;
+}
+
+/**
+ * Resolve WHERE RUNTIME STATE LIVES, separately from the config under test.
+ *
+ * Order: `--state-home`, then `$DSH_STATE_HOME`, then `$DSH_HOME` when that is not a staged
+ * location, then the operator's real home (`%USERPROFILE%\.dsh`). The staged-location test exists
+ * because the documented default is "`$env:DSH_HOME` if set, else `%USERPROFILE%\.dsh`" and the one
+ * case where that is wrong is exactly the case this split exists for: a staged run sets `DSH_HOME`
+ * to a migrated config copy under %TEMP% / `dsh-update/state`, and reading runtime state from there
+ * is what made G4/G5/G8 go dark. When `--dsh-home` and `--state-home` resolve to the same
+ * directory, behaviour is exactly what it was before this option existed.
+ *
+ * Returns `{ home, source }` and NEVER throws: an absent state home is reported by the gates as
+ * `ran:false` with the reason, exactly as an unresolvable credential already is.
+ */
+function resolveStateHome(explicit, dshHome) {
+  if (explicit) return { home: path.resolve(explicit), source: `--state-home ${explicit}` };
+  const fromStateEnv = envPath('DSH_STATE_HOME');
+  if (fromStateEnv) return { home: path.resolve(fromStateEnv), source: '$env:DSH_STATE_HOME' };
+  const real = path.resolve(DEFAULT_REAL_HOME);
+  const fromDsh = envPath('DSH_HOME');
+  if (fromDsh) {
+    const a = path.resolve(fromDsh);
+    const staged = stagedHomeReason(a);
+    if (!staged) return { home: a, source: `$env:DSH_HOME (${a}, not a staged/isolated location)` };
+    if (a !== real && fs.existsSync(real)) {
+      return {
+        home: real,
+        source: `the operator's real home ${real} — $env:DSH_HOME points at ${a}, ${staged} and is `
+          + 'therefore treated as the config under test, not as where runtime state lives',
+      };
+    }
+    return {
+      home: a,
+      source: `$env:DSH_HOME (${a}) — ${staged}; ${real} does not exist either, so this staged home `
+        + 'is the only candidate and the gates that need runtime state will say so if it has none',
+    };
+  }
+  return { home: real, source: `the operator's real home ${real} (no $env:DSH_HOME set)` };
+}
+
+/** One line naming where runtime state was read, for a gate detail or a note. */
+function stateHomeLabel() {
+  const present = fs.existsSync(STATE_HOME);
+  return `${STATE_HOME}${present ? '' : ' (ABSENT)'} (source: ${STATE_HOME_SOURCE})`;
+}
+
+/**
+ * The profile G1 composes — and therefore the only profile whose composed tree G2's patch targets
+ * may be judged against. A target from another profile's layer (`mesh`'s `remote-fanout`, say) is a
+ * category error here, not a lost patch (SPEC C13/F3).
+ */
+const COMPOSED_PROFILE = 'web';
 
 const GATES = [
   ['G1', 'dump-config composes'],
@@ -120,31 +215,47 @@ const MEASURED_SETTINGS_LIMITATION =
 const USAGE = `usage: node lib/verify.mjs --version <ver> [--prefix <installRoot> | --engine <bin.js>]
                           [--out <verify.json>] [--consumed <consumed.json>] [--contract <contract.json>]
                           [--tree <tree.json>] [--diff <diff.json>] [--logs-dir <dir>] [--dsh-home <dir>]
-                          [--baseline-engine <bin.js>] [--sessions-dir <dir>]
+                          [--state-home <dir>] [--baseline-engine <bin.js>] [--sessions-dir <dir>]
                           [--full] [--no-boot] [--turn-timeout <ms>] [--generated-at <ISO-8601>]
 
-Runs the dsh-update gates against an isolated copy of DSH_HOME (state/candidates/<ver>/home),
-saving the verbatim output of every engine invocation under --logs-dir (default state/logs/).
+Runs the dsh-update gates against an isolated copy of the --dsh-home config (state/candidates/<ver>/
+home), saving the verbatim output of every engine invocation under --logs-dir (default state/logs/).
 --no-boot skips the two boot gates (G4, G5); it does NOT skip G8. --full adds a real web-profile
 boot on a free port in 3400-3500, killed by pid immediately after. Exit 0 when the gates completed
 (pass tells you whether they were ok); non-zero on a usage or infrastructure failure, with the
 diagnostic on stderr.
 
+TWO HOMES, AND THEY ARE NOT THE SAME HOME.
+  --dsh-home   is the CONFIG UNDER TEST: the settings document, profiles and presets the candidate
+               engine composes. For a staged run it is the migrated copy, not the live one — a
+               version-coupled change cannot be judged against config that is by definition not
+               migrated yet.
+  --state-home is where RUNTIME STATE lives, and defaults to the operator's real home
+               ($env:DSH_STATE_HOME, else $env:DSH_HOME when that is not a staged location under
+               the system temp directory or dsh-update/state, else %USERPROFILE%\\.dsh):
+                 * G4/G5 resolve the model credential from <state-home>/.credentials.yaml;
+                 * G8 counts the live session files under <state-home>/sessions.
+               When --dsh-home and --state-home are the same directory, this behaves exactly as it
+               did before --state-home existed. Every gate says which home it read state from, and
+               an ABSENT state home makes the affected gates ran:false with the reason — never a
+               fabricated pass.
+
 G8 reads the session-format version and the physical codec list out of BOTH installs — the pinned
 engine (state/pin.json's enginePath, or --baseline-engine) and the candidate — and compares what
 the candidate would WRITE with the format of the session logs that are already on disk under
---dsh-home (default the live home). A candidate that writes a newer format with no codec that
-reads it back makes rollback destroy access to the operator's real history.
+<state-home>/sessions (default the operator's real home). A candidate that writes a newer format
+with no codec that reads it back makes rollback destroy access to the operator's real history.
 
-The model credential for the boot gates (G4/G5/--full) is resolved from the LIVE
-<dsh-home>/.credentials.yaml and passed to the child process ENVIRONMENT only. It is never
-written into the isolated home, never written to state/logs/, never printed and never recorded in
-verify.json. If it cannot be resolved, G4/G5 are ran:false and pass is false.
+The model credential for the boot gates (G4/G5/--full) is resolved from the STATE home's
+.credentials.yaml and passed to the child process ENVIRONMENT only. It is never written into the
+isolated home, never written to state/logs/, never printed and never recorded in verify.json. If it
+cannot be resolved, G4/G5 are ran:false and pass is false.
 
 The dispatcher (lib/cli.mjs) calls this module with --engine/--contract/--tree/--diff/--logs-dir/
 --dsh-home, so those flags are part of the interface: --engine is the candidate bin.js, --contract is
 the artifact its sha256 is recorded from, and --tree is the candidate tree used for G2/G3 (the dump
-G1 just produced is always parsed too and any disagreement is reported).`;
+G1 just produced is always parsed too and any disagreement is reported). --state-home is optional
+and defaults as described above, so an existing caller keeps working unchanged.`;
 
 class UsageError extends Error {}
 
@@ -152,7 +263,8 @@ class UsageError extends Error {}
 
 const VALUED_FLAGS = new Set([
   '--version', '--prefix', '--engine', '--out', '--consumed', '--contract', '--tree', '--diff',
-  '--logs-dir', '--dsh-home', '--turn-timeout', '--generated-at', '--baseline-engine', '--sessions-dir',
+  '--logs-dir', '--dsh-home', '--state-home', '--turn-timeout', '--generated-at',
+  '--baseline-engine', '--sessions-dir',
 ]);
 
 function parseArgs(argv) {
@@ -804,6 +916,22 @@ function runEngine({ enginePath, args, home, cwd, timeoutMs, label, extraEnv }) 
 
 /* ------------------------------------------------------------------ gate collection */
 
+/**
+ * EVERY GATE SAYS WHICH HOME IT READ STATE FROM. This is applied in one place so no gate can be
+ * added later without it: the suffix names the config under test (`--dsh-home`) for all of them and
+ * says explicitly whether the gate touched runtime state. G4/G5/G8 do read the state home and their
+ * own detail already names it; the suffix is the same sentence for them, so the two never disagree.
+ * An empty suffix while `main()` is resolving (STATE_HOME_SOURCE starts with "unresolved") would
+ * hide the fact that the gates never ran, which is why it is only suppressed in that window.
+ */
+function homeNote(id) {
+  if (STATE_HOME_SOURCE.startsWith('unresolved')) return '';
+  const readsState = id === 'G4' || id === 'G5' || id === 'G8' || id === 'GFULL';
+  return `; homes: config under test (--dsh-home) ${LIVE_HOME}; `
+    + `${readsState ? 'runtime state' : 'runtime state NOT read by this gate'} (--state-home) `
+    + `${STATE_HOME}${fs.existsSync(STATE_HOME) ? '' : ' (ABSENT)'} (source: ${STATE_HOME_SOURCE})`;
+}
+
 function makeGates() {
   const recorded = new Map();
   function gate(id, fields) {
@@ -815,7 +943,7 @@ function makeGates() {
       ok: Boolean(fields.ok),
       exitCode: fields.exitCode === undefined ? null : fields.exitCode,
       durationMs: fields.durationMs === undefined ? null : fields.durationMs,
-      detail: fields.detail ?? '',
+      detail: `${fields.detail ?? ''}${homeNote(id)}`,
       evidence: fields.evidence ?? null,
     });
   }
@@ -828,16 +956,37 @@ function makeGates() {
 
 /* ------------------------------------------------------------------ inputs for G2/G3 */
 
+/**
+ * The patch targets to check, as ENTRIES rather than bare ids, because an id alone cannot say which
+ * profile's composed tree it belongs to. SPEC C13/F3: `remote-fanout` is patched by
+ * `profiles/mesh/cordis.patch.yml` — a layer belonging to the MESH profile — and checking it against
+ * the `web` tree is a category error. `consumed.json` carries `profile` and `intent` per target
+ * (F3/F4); older artifacts that carry only ids are still accepted, with `profile: null`, which means
+ * "unknown profile" and is checked against the tree under test exactly as before.
+ */
+function normalizeTargets(list, source) {
+  const targets = (Array.isArray(list) ? list : []).map((t) => (typeof t === 'string'
+    ? { id: t, profile: null, intent: null, file: null, line: null }
+    : {
+      id: t && t.id !== undefined && t.id !== null ? String(t.id) : null,
+      profile: t && t.profile !== undefined && t.profile !== null ? String(t.profile) : null,
+      intent: t && t.intent && typeof t.intent === 'object' ? t.intent : null,
+      file: t?.file ?? null,
+      line: t?.line ?? null,
+    })).filter((t) => t.id !== null && t.id !== '');
+  return { targets, source };
+}
+
 function patchTargets(version, consumedFlag) {
   if (consumedFlag) {
     const j = readJsonIfPresent(path.resolve(consumedFlag));
     if (!j) throw new UsageError(`--consumed "${consumedFlag}" is not readable JSON`);
-    return { targets: (j.patchRowTargets ?? []).map((t) => String(t.id)), source: `--consumed ${consumedFlag}` };
+    return normalizeTargets(j.patchRowTargets, `--consumed ${consumedFlag}`);
   }
   for (const p of [path.join(STATE, 'candidates', version, 'consumed.json'), path.join(STATE, 'consumed.json')]) {
     const j = readJsonIfPresent(p);
     if (j && Array.isArray(j.patchRowTargets)) {
-      return { targets: j.patchRowTargets.map((t) => String(t.id)), source: path.relative(ROOT, p).split(path.sep).join('/') };
+      return normalizeTargets(j.patchRowTargets, path.relative(ROOT, p).split(path.sep).join('/'));
     }
   }
   const patchFile = path.join(LIVE_HOME, 'profiles', 'web', 'cordis.patch.yml');
@@ -850,7 +999,7 @@ function patchTargets(version, consumedFlag) {
     const m = /^\s*\{?\s*id:\s*(.+?)\s*,?\s*$/.exec(line);
     if (m) targets.push(stripScalar(m[1]));
   }
-  return { targets: [...new Set(targets)], source: `${patchFile} (parsed directly; no consumed.json available)` };
+  return normalizeTargets([...new Set(targets)], `${patchFile} (parsed directly; no consumed.json available)`);
 }
 
 function profileBundles(profile) {
@@ -865,7 +1014,7 @@ function profileBundles(profile) {
 
 function gateG1({ version, enginePath, home, cwd, g, extraEnv }) {
   const { result, evidence } = runEngine({
-    enginePath, args: ['--profile', 'web', '--dump-config'], home, cwd, timeoutMs: 120000,
+    enginePath, args: ['--profile', COMPOSED_PROFILE, '--dump-config'], home, cwd, timeoutMs: 120000,
     label: `verify-${version}-G1.txt`, extraEnv,
   });
   if (result.exitCode !== 0) {
@@ -957,9 +1106,23 @@ function treeForGates({ g1, artifact, artifactPath }) {
 
 function gateG2({ version, tree, targets, patchSource, treeNote, g }) {
   const ourPatchRows = tree?.oursPatchedRowIds ?? tree?.patchedRowIds ?? null;
+  /* A target belongs to ONE profile's layer and may only be judged against that profile's composed
+   * tree (SPEC C13/F3). `profile === null` means the artifact did not say, which is the pre-F3
+   * behaviour and is still checked — dropping an unknown-profile target would be the silent-loss
+   * direction this gate exists to prevent. */
+  const inScope = targets.filter((t) => t.profile === null || t.profile === COMPOSED_PROFILE);
+  const offProfile = targets.filter((t) => !(t.profile === null || t.profile === COMPOSED_PROFILE));
+  const targetIds = [...new Set(inScope.map((t) => t.id))];
+  const offProfileNote = offProfile.length
+    ? `; ${offProfile.length} target(s) belong to another profile's layer and were NOT judged against the `
+      + `${COMPOSED_PROFILE} tree (SPEC C13/F3): ${offProfile.map((t) => `${t.id}[${t.profile}]`).join(', ')}`
+    : '';
   const evidence = writeEvidence(`verify-${version}-G2.txt`, [
     `patch targets source: ${patchSource}`,
-    `targets: ${JSON.stringify(targets)}`,
+    `profile composed by G1: ${COMPOSED_PROFILE}`,
+    `targets in scope for this profile (${targetIds.length}): ${JSON.stringify(targetIds)}`,
+    `targets excluded as another profile's (${offProfile.length}): ${JSON.stringify(offProfile.map((t) => ({ id: t.id, profile: t.profile, file: t.file, line: t.line })))}`,
+    `target intents (from consumed.json, F4): ${JSON.stringify(inScope.map((t) => ({ id: t.id, intent: t.intent })))}`,
     `tree source: ${tree?.source ?? '(none)'}`,
     treeNote ? `note: ${treeNote}` : null,
     `tree.patchedRowIds: ${JSON.stringify(tree?.patchedRowIds ?? null)}`,
@@ -969,16 +1132,16 @@ function gateG2({ version, tree, targets, patchSource, treeNote, g }) {
     g('G2', { ran: false, ok: false, evidence, detail: 'no usable tree was produced (G1 did not compose and no tree artifact was supplied), so no patch target could be checked' });
     return;
   }
-  if (targets.length === 0) {
+  if (targetIds.length === 0) {
     g('G2', {
       ran: true, ok: false, exitCode: null, durationMs: tree.durationMs, evidence,
-      detail: `no patch row targets were available (${patchSource ?? 'no source'}); with nothing to check this gate cannot pass`,
+      detail: `no patch row targets for the ${COMPOSED_PROFILE} profile were available (${patchSource ?? 'no source'}${offProfile.length ? `; ${offProfile.length} target(s) exist for other profiles` : ''}); with nothing to check this gate cannot pass`,
     });
     return;
   }
   const our = new Set(ourPatchRows);
   const any = new Set(tree.patchedRowIds);
-  const lost = targets.filter((t) => !our.has(t));
+  const lost = targetIds.filter((t) => !our.has(t));
   const lostNotAnywhere = lost.filter((t) => !any.has(t));
   const ok = lost.length === 0;
   const attributionNote = tree.oursPatchedRowIds === null
@@ -992,10 +1155,10 @@ function gateG2({ version, tree, targets, patchSource, treeNote, g }) {
     ? `; the supplied artifact's patchedRowIds contains ${artifactOnly.length} id(s) the fresh dump does not attribute to our layer (${artifactOnly.slice(0, 6).join(', ') || 'none'}) and omits ${dumpOnly.length} the fresh dump does (${dumpOnly.slice(0, 6).join(', ') || 'none'})`
     : '';
   const detail = ok
-    ? `all ${targets.length} patch target(s) still carry our patch attribution: ${targets.join(', ')}${attributionNote}${disagreement}`
+    ? `all ${targetIds.length} ${COMPOSED_PROFILE}-profile patch target(s) still carry our patch attribution: ${targetIds.join(', ')}${attributionNote}${disagreement}${offProfileNote}`
     : `LOST (our patch silently stopped applying): ${lost.join(', ')}` +
       (lostNotAnywhere.length > 0 ? ` — of those, ${lostNotAnywhere.join(', ')} carry no patch attribution from ANY layer` : '') +
-      `; our-layer patched rows in this tree: ${ourPatchRows.join(', ') || '(none)'}${attributionNote}${disagreement}`;
+      `; our-layer patched rows in this tree: ${ourPatchRows.join(', ') || '(none)'}${attributionNote}${disagreement}${offProfileNote}`;
   g('G2', { ran: true, ok, exitCode: null, durationMs: tree.durationMs, evidence, detail });
 }
 
@@ -1056,18 +1219,27 @@ function scanSettingsDiagnostics(text) {
   return hits;
 }
 
-/** How the model credential reached the child, stated without ever showing it. */
+/**
+ * How the model credential reached the child, stated without ever showing it. Reports ONLY its
+ * presence, its length and the path it came from — never the value, and the home it came from is
+ * named explicitly, because a reading that does not say where it came from is not a reading.
+ */
 function credentialProvenance(credential) {
-  if (!credential || !credential.ok) return 'the model credential was NOT available, so this boot could not have reached a model';
-  return `model credential: ${credential.key} passed through the child ENVIRONMENT only ` +
-    `(present: yes, ${credential.valueLength ?? '?'} characters${credential.sha256 ? `, resolved from the live <dsh-home>/${CREDENTIAL_BASENAME}` : ''}` +
-    `; never written into the isolated home, never written to any log, never printed, never recorded in verify.json)`;
+  const where = `state home ${stateHomeLabel()}`;
+  if (!credential || !credential.ok) {
+    return `the model credential was NOT available (looked in ${path.join(STATE_HOME, CREDENTIAL_BASENAME)}; ${where}), `
+      + 'so this boot could not have reached a model';
+  }
+  return `model credential: ${credential.key} resolved from ${credential.file} (${where}); passed through `
+    + `the child ENVIRONMENT only (present: yes, ${credential.valueLength ?? '?'} characters; never written `
+    + 'into the isolated home, never written to any log, never printed, never recorded in verify.json)';
 }
 
 function gateG4({ version, headlessDump, boot, diagnostics, g, credential }) {
   const scannedBytes = (headlessDump.result.stdout || '').length + (headlessDump.result.stderr || '').length +
     (boot.result.stdout || '').length + (boot.result.stderr || '').length;
   const evidence = writeEvidence(`verify-${version}-G4.txt`, [
+    `config under test (--dsh-home): ${LIVE_HOME}`,
     `settings document scanned: ${path.join(LIVE_HOME, 'settings.yaml')} (copied into the isolated home)`,
     `${credentialProvenance(credential)}`,
     credential?.ok ? null : `the credential could not be resolved: ${credential?.reason ?? 'no credential object'}`,
@@ -1087,6 +1259,7 @@ function gateG4({ version, headlessDump, boot, diagnostics, g, credential }) {
   const bootOk = boot.result.exitCode === 0;
   const ok = dumpOk && bootOk && diagnostics.length === 0;
   const parts = [];
+  parts.push(`config under test (--dsh-home) ${LIVE_HOME}`);
   parts.push(`headless --dump-config exit ${headlessDump.result.exitCode}`);
   parts.push(`boot exit ${boot.result.exitCode}`);
   parts.push(credentialProvenance(credential));
@@ -1123,11 +1296,11 @@ function gateG5({ version, boot, g, credential }) {
   const detail = ok
     ? `exit 0, assistant text ${JSON.stringify(reply.slice(0, 200))}, ${boot.result.durationMs} ms` +
       `; the exact command: ${boot.result.command}` + (expected ? ' (contains the requested token OK)' : ' (does not contain the requested token OK)') +
-      `; ${credentialProvenance(credential)}`
+      `; config under test (--dsh-home) ${LIVE_HOME}; ${credentialProvenance(credential)}`
     : `no assistant text: exit ${boot.result.exitCode}${boot.result.timedOut ? ' (TIMED OUT)' : ''}, ` +
       `${(boot.result.stdout || '').length} stdout bytes, ${(boot.result.stderr || '').length} stderr bytes; ` +
       `verbatim stderr saved in ${boot.evidence}` + (boot.result.error ? `; spawn error: ${boot.result.error}` : '') +
-      `; ${credentialProvenance(credential)}`;
+      `; config under test (--dsh-home) ${LIVE_HOME}; ${credentialProvenance(credential)}`;
   g('G5', { ran: true, ok, exitCode: boot.result.exitCode, durationMs: boot.result.durationMs, evidence: boot.evidence, detail });
 }
 
@@ -1197,6 +1370,8 @@ function gateG8({ version, base, cand, snap, g }) {
   const evidence = writeEvidence(`verify-${version}-G8.txt`, [
     `candidate version argument: ${version}`,
     `candidate engine root: ${cand.installRoot}`,
+    `config under test (--dsh-home): ${LIVE_HOME}`,
+    `runtime state read from (--state-home): ${STATE_HOME} (source: ${STATE_HOME_SOURCE})`,
     '',
     '=== candidate session-format catalog (read from disk, verbatim values) ===',
     cand.ok ? catalogLines(cand.scope, cand) : `NOT INSPECTED — ${cand.reason}`,
@@ -1225,7 +1400,9 @@ function gateG8({ version, base, cand, snap, g }) {
     g('G8', {
       ran: false, ok: false, evidence,
       detail: `the live session files could not be counted (${snap.reason}), so there is no observed live format to compare ` +
-        `against — this gate did not run. The candidate declares currentVersion ${cand.currentVersion ?? '?'}` +
+        `against — this gate did not run. Runtime state was read from the state home ${stateHomeLabel()}, NOT from the ` +
+        `config under test (--dsh-home ${LIVE_HOME}), because those are different directories in a staged run. ` +
+        `The candidate declares currentVersion ${cand.currentVersion ?? '?'}` +
         `${cand.currentEncoder !== null ? ` and writes v${cand.currentEncoder}` : ''}; that reading is in the evidence file.`,
     });
     return { candVersion, candWrites, liveVersions: null, oneWayDoor: null };
@@ -1240,6 +1417,7 @@ function gateG8({ version, base, cand, snap, g }) {
       detail: `no session file was found under ${snap.dir} (${snap.total} name(s) matched the engine's own canonical ` +
         `session-log rule, walked ${snap.walked ? 'fully' : 'not fully'}), so there is no observed live format to compare ` +
         `against and this gate cannot pass: an empty result is a refusal, not health. ` +
+        `Runtime state was read from the state home ${stateHomeLabel()}. ` +
         `The candidate declares currentVersion ${cand.currentVersion ?? '?'}` +
         `${cand.currentEncoder !== null ? `, writes v${cand.currentEncoder}` : ''}, codecs ${cand.codecs.map((v) => `v${v}`).join('/') || '(none)'}.`,
     });
@@ -1306,8 +1484,9 @@ function gateG8({ version, base, cand, snap, g }) {
     `${cand.currentEncoder !== null ? `, writes v${candWrites}` : ', writes v?'} ` +
     `(${codecAttribution})` +
     `; baseline declares ${base.ok ? `currentVersion ${base.currentVersion ?? '?'}, codecs ${base.codecs.map((v) => `v${v}`).join(', ') || 'none'}` : `UNREADABLE — ${base.reason}`}` +
-    `; live logs: ${snap.total} file(s), ${formatCounts(snap.byVersion, 'version')}` +
-    `. ${reasons.join('; ')}.` +
+    `; live logs: ${snap.total} file(s), ${formatCounts(snap.byVersion, 'version')} read from the state home ${STATE_HOME} ` +
+    `(source: ${STATE_HOME_SOURCE})`
+    + `. ${reasons.join('; ')}.` +
     ` (catalog read from ${cand.catalogFile}${observedAt ? `; newest live session file mtime ${observedAt}` : ''})`;
 
   g('G8', {
@@ -1349,7 +1528,9 @@ async function gateFull({ version, enginePath, home, cwd, g, extraEnv }) {
   const preflight = [
     `other dsh web processes: ${others.checked ? (others.lines.length === 0 ? '(none)' : `\n${others.lines.join('\n')}`) : `CHECK FAILED: ${others.reason}`}`,
     `port chosen: ${port ?? '(none free in 3400-3500)'}`,
-    `isolated home: ${home}`,
+    `isolated home (config under test copied here): ${home}`,
+    `config under test (--dsh-home): ${LIVE_HOME}`,
+    `runtime state (--state-home): ${stateHomeLabel()}`,
   ].join('\n');
   if (port === null) {
     const evidence = writeEvidence(`verify-${version}-GFULL.txt`, `${preflight}\n\nno free port, nothing started\n`);
@@ -1456,6 +1637,32 @@ async function main(argvInput = process.argv.slice(2)) {
   }
   if (flags['--logs-dir']) LOGS = path.resolve(flags['--logs-dir']);
 
+  /* ---- the TWO homes -------------------------------------------------------------------------
+   * `--dsh-home` is the config under test; `--state-home` is where runtime state lives. They are
+   * resolved BEFORE any gate runs because every gate reports them, and the boot gates cannot decide
+   * anything without the credential or the session logs they name. A missing `--state-home` is NOT a
+   * usage error: the gates that need it become `ran:false` with the reason, which is how this module
+   * already handles an unresolvable credential — the one thing it must never do is fabricate a pass.
+   * ------------------------------------------------------------------------------------------- */
+  const stateHome = resolveStateHome(flags['--state-home'], flags['--dsh-home']);
+  STATE_HOME = stateHome.home;
+  STATE_HOME_SOURCE = stateHome.source;
+  const stateHomePresent = fs.existsSync(STATE_HOME);
+  notes.push(`homes: config under test (--dsh-home) ${LIVE_HOME}; runtime state (--state-home) ${STATE_HOME}` +
+    `${stateHomePresent ? '' : ' — ABSENT'} (source: ${STATE_HOME_SOURCE})`);
+  if (!stateHomePresent) {
+    notes.push(`the state home ${STATE_HOME} does not exist, so it holds neither ${CREDENTIAL_BASENAME} nor `
+      + 'sessions/: G4/G5 cannot resolve a model credential and G8 has no live session files to count. '
+      + 'Those gates report ran:false with that reason; pass --state-home <dir> to name the home that '
+      + 'does hold them.');
+  }
+  if (flags['--dsh-home'] && path.resolve(flags['--dsh-home']) !== STATE_HOME) {
+    notes.push(`STAGED RUN: the config under test (${LIVE_HOME}) is NOT the state home (${STATE_HOME}). `
+      + 'This is the supported shape for a version-coupled change: the migrated config is judged against '
+      + 'the candidate engine while the credential and the live session logs are still read from the '
+      + `operator's own home. ${CREDENTIAL_BASENAME} is still never copied into the isolated home.`);
+  }
+
   let engine;
   try {
     engine = resolveEngine(version, flags['--prefix'], flags['--engine']);
@@ -1489,7 +1696,7 @@ async function main(argvInput = process.argv.slice(2)) {
    * copied into the isolated home, never written to state/logs/ (plain text, live secret), never
    * printed, never serialised into verify.json: only its presence and its length are reportable.
    * --------------------------------------------------------------------------------------------- */
-  const credential = resolveCredential(LIVE_HOME);
+  const credential = resolveCredential(STATE_HOME);
   const extraEnv = credential.ok ? { [credential.key]: credential.value } : null;
   if (credential.ok) {
     /* the value is dropped from the object as soon as the child environment has it: everything that
@@ -1498,10 +1705,10 @@ async function main(argvInput = process.argv.slice(2)) {
     delete credential.value;
   }
   notes.push(credential.ok
-    ? `model credential: ${credential.key} resolved from the LIVE ${credential.file} and passed to the boot children through the ENVIRONMENT only ` +
-      `(present: yes; ${credential.valueLength} characters; sha256 of the credentials file ${credential.sha256}). It is NEVER written into the isolated home, ` +
-      `NEVER written to state/logs/, NEVER printed and NEVER recorded in verify.json.`
-    : `model credential: could NOT be resolved (${credential.reason}). G4/G5 were not passed a credential, so they are ran:false; nothing was written that contains a secret.`);
+    ? `model credential: ${credential.key} resolved from ${credential.file} (state home ${STATE_HOME}, source: ${STATE_HOME_SOURCE}) and passed to the boot children through the ENVIRONMENT only ` +
+      `(present: yes; ${credential.valueLength} characters; sha256 of the credentials file ${credential.sha256}). It is NEVER written into the isolated home ` +
+      `(state/candidates/${version}/home), NEVER written to state/logs/, NEVER printed and NEVER recorded in verify.json.`
+    : `model credential: could NOT be resolved from the state home ${STATE_HOME} (source: ${STATE_HOME_SOURCE}) — ${credential.reason}. G4/G5 were not passed a credential, so they are ran:false; nothing was written that contains a secret.`);
 
   /* ---- isolated home ---- */
   const candidateDir = path.join(STATE, 'candidates', version);
@@ -1541,7 +1748,7 @@ async function main(argvInput = process.argv.slice(2)) {
 
   /* ---- inputs and G2/G3 ---- */
   const patch = patchTargets(version, flags['--consumed']);
-  const bundleInfo = profileBundles('web');
+  const bundleInfo = profileBundles(COMPOSED_PROFILE);
   const treeArtifactPath = treeArgPath ?? path.join(candidateDir, 'tree.json');
   const treeArtifact = readJsonIfPresent(treeArtifactPath);
   if (!treeArtifact) notes.push(`no tree artifact was supplied or found at ${treeArtifactPath}; G2/G3 read the dump G1 just produced`);
@@ -1558,7 +1765,8 @@ async function main(argvInput = process.argv.slice(2)) {
     gate('G4', { ran: false, ok: false, detail: '--no-boot: the settings document is only read by a real boot, so this gate did not run (--dump-config cannot decide it)' });
     gate('G5', { ran: false, ok: false, detail: '--no-boot: no engine turn was run' });
   } else if (!extraEnv) {
-    const why = `the model credential could not be resolved from the LIVE ${credential.file} (${credential.reason}), and nothing was written to make it available: an engine booted without it fails with MISSING_CREDENTIAL, so this gate is ran:false rather than a fabricated pass (SPEC C14)`;
+    const why = `the model credential could not be resolved from the state home ${STATE_HOME} (source: ${STATE_HOME_SOURCE}) — ${credential.file}: ${credential.reason}, `
+      + 'and nothing was written to make it available: an engine booted without it fails with MISSING_CREDENTIAL, so this gate is ran:false rather than a fabricated pass (SPEC C14)';
     gate('G4', { ran: false, ok: false, detail: why });
     gate('G5', { ran: false, ok: false, detail: why });
     notes.push(`G4/G5 did not run: ${why}`);
@@ -1587,7 +1795,7 @@ async function main(argvInput = process.argv.slice(2)) {
   if (!full) {
     gate('GFULL', { ran: false, ok: false, detail: 'not requested (pass --full to boot the web profile on a free port in 3400-3500 and kill only the pid this module started)' });
   } else if (!extraEnv) {
-    gate('GFULL', { ran: false, ok: false, detail: `refused before starting anything: the model credential could not be resolved from ${credential.file} (${credential.reason}), and a web boot without it fails with MISSING_CREDENTIAL` });
+    gate('GFULL', { ran: false, ok: false, detail: `refused before starting anything: the model credential could not be resolved from ${credential.file} (state home ${STATE_HOME}, source: ${STATE_HOME_SOURCE}; ${credential.reason}), and a web boot without it fails with MISSING_CREDENTIAL` });
   } else {
     await gateFull({ version, enginePath: engine.enginePath, home, cwd, g: gate, extraEnv });
   }
@@ -1602,11 +1810,14 @@ async function main(argvInput = process.argv.slice(2)) {
     ? readSessionFormatCatalog(baselineArg)
     : { ok: false, installRoot: null, reason: 'no pinned engine: state/pin.json carries no enginePath and --baseline-engine was not given' };
   const candidateCatalog = readSessionFormatCatalog(engine.enginePath);
-  const sessionsDir = flags['--sessions-dir'] ? path.resolve(flags['--sessions-dir']) : path.join(LIVE_HOME, 'sessions');
+  const sessionsDir = flags['--sessions-dir']
+    ? path.resolve(flags['--sessions-dir'])
+    : path.join(STATE_HOME, 'sessions');
   const snap = snapshotSessionFormats(sessionsDir);
   notes.push(`G8 baseline install: ${baselineArg ?? '(none)'} — ${nameInstall(baselineCatalog, 'baseline session-format catalog')}`);
   notes.push(`G8 candidate install: ${engine.enginePath} — ${nameInstall(candidateCatalog, 'candidate session-format catalog')}`);
-  notes.push(`G8 live session files: ${snap.ok ? `${snap.total} file(s) under ${snap.dir}, by name ${formatCounts(snap.byVersion, 'version') || '(none)'}` : `NOT COUNTED — ${snap.reason}`}`);
+  notes.push(`G8 live session files: ${snap.ok ? `${snap.total} file(s) under ${snap.dir}, by name ${formatCounts(snap.byVersion, 'version') || '(none)'}` : `NOT COUNTED — ${snap.reason}`}`
+    + `${flags['--sessions-dir'] ? ` [--sessions-dir override]` : ` [read from the state home ${STATE_HOME}, source: ${STATE_HOME_SOURCE}]`}`);
   gateG8({ version, base: baselineCatalog, cand: candidateCatalog, snap, g: gate });
 
   const gates = finish();
@@ -1649,16 +1860,19 @@ if (isMain) {
  * Dispatcher-friendly entry point, for a caller that would rather import than spawn:
  *
  *   verifyVersion({ version, engine, prefix, out, consumed, contract, tree, diff, logsDir, dshHome,
- *                   full, noBoot, turnTimeoutMs, generatedAt })
+ *                   stateHome, sessionsDir, baselineEngine, full, noBoot, turnTimeoutMs, generatedAt })
  *
  * The standalone CLI stays primary (SPEC: every lib module runs standalone); this maps one options
- * object onto the same code path so `lib/cli.mjs` can use either style.
+ * object onto the same code path so `lib/cli.mjs` can use either style. `stateHome` is optional: when
+ * it is omitted the same default resolution the CLI uses applies (see `resolveStateHome`), so an
+ * existing caller that passes only `dshHome` keeps working unchanged.
  */
 async function verifyVersion(options = {}) {
   const flags = {};
   const map = {
     version: '--version', engine: '--engine', prefix: '--prefix', out: '--out', consumed: '--consumed',
     contract: '--contract', tree: '--tree', diff: '--diff', logsDir: '--logs-dir', dshHome: '--dsh-home',
+    stateHome: '--state-home', sessionsDir: '--sessions-dir', baselineEngine: '--baseline-engine',
     turnTimeoutMs: '--turn-timeout', generatedAt: '--generated-at',
   };
   for (const [key, flag] of Object.entries(map)) if (options[key] !== undefined && options[key] !== null) flags[flag] = String(options[key]);
@@ -1673,5 +1887,7 @@ export {
   parseDump, scanSettingsDiagnostics, resolveEngine, copyTree, measure, otherDshWebProcesses, verifyVersion,
   /* G8 + credential helpers, exported so a canary can exercise them without running a gate */
   readSessionFormatCatalog, snapshotSessionFormats, resolveCredential, findCredentialValue,
+  /* the two-homes split, exported so a guard can prove it without booting an engine */
+  resolveStateHome, stagedHomeReason, COMPOSED_PROFILE,
 };
 

@@ -47,8 +47,19 @@
  *     the guard never pretends everything is $0.00;
  *   * an unreadable state file is treated as an unknown day and re-seeded from
  *     the logs, labelled a lower bound.
+ *
+ * HOW IT FAILS TO ACTIVATE. It does not. `lib/guard.js` resolves only `node:`
+ * builtins while it is being IMPORTED — `@deepseek-ai/schemastery`, needed only
+ * to register the settings namespace, is resolved lazily at mount, from several
+ * candidate roots with shape validation, and a failure there is a reported
+ * DEGRADED mode rather than an absent guard (`src/guard-entry.mjs` carries the
+ * measurement that made this structural). Two surfaces say which mode is in
+ * force: a `warn`-level line on the engine's own log, and
+ * `<DSH_HOME>/health/spend-guard.json`, written at mount with `degraded`, the
+ * attempts, and the effective limits. See `docs/2026-09-28-guard-activation.md`.
  */
 
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { dshHome, readSessionLog } from './session-log.mjs';
@@ -77,13 +88,14 @@ const DEFAULTS = {
   seedLookbackHours: 24,
   stateFile: '', // '' -> <dshHome>/spend-guard/day.json
   sessionsRoot: '', // '' -> <dshHome>/sessions
+  healthFile: '', // '' -> <dshHome>/health/spend-guard.json — the activation record
 };
 
 /** The money limits, in USD. */
 const MONEY_KEYS = ['warnUsd', 'fanoutUsd', 'ceilingUsd'];
 
 /** Every key the guard understands; anything else is named and ignored. */
-const KNOWN_KEYS = [...MONEY_KEYS, 'concurrencyCap', 'onInternalError', 'seedFromLogs', 'seedLookbackHours', 'stateFile', 'sessionsRoot'];
+const KNOWN_KEYS = [...MONEY_KEYS, 'concurrencyCap', 'onInternalError', 'seedFromLogs', 'seedLookbackHours', 'stateFile', 'sessionsRoot', 'healthFile'];
 
 /** Namespace of the shared settings block this guard owns. */
 const SETTINGS_NAMESPACE = 'spend-guard';
@@ -108,6 +120,7 @@ function resolveLimits(config) {
     seedFromLogs: source.seedFromLogs !== false,
     stateFile: typeof source.stateFile === 'string' ? source.stateFile : DEFAULTS.stateFile,
     sessionsRoot: typeof source.sessionsRoot === 'string' ? source.sessionsRoot : DEFAULTS.sessionsRoot,
+    healthFile: typeof source.healthFile === 'string' ? source.healthFile : DEFAULTS.healthFile,
     concurrencyCap: Number.isInteger(source.concurrencyCap) && source.concurrencyCap >= 0 ? source.concurrencyCap : DEFAULTS.concurrencyCap,
     seedLookbackHours: isLimit(source.seedLookbackHours) ? source.seedLookbackHours : DEFAULTS.seedLookbackHours,
   };
@@ -211,6 +224,12 @@ function notice(text) {
  * package's own sources; a test passes the same ones explicitly, which is what
  * makes the test test the shipped arithmetic.
  *
+ * The OPTIONAL dependency is `Schema` — the settings schema class, resolved
+ * lazily by the entry (`deps.schemaResolution` carries what the probe did). It is
+ * optional because a guard that cannot register a settings namespace must still
+ * enforce the ceilings, and because needing it at import time is what made this
+ * row fail to load (2026-09-28).
+ *
  * @param {object} deps the price core, plus optional I/O and clock overrides
  * @returns {{name:string, apply:Function, decide:Function, resolveLimits:Function, dearestRates:Function, guardState:Function}}
  */
@@ -227,6 +246,23 @@ function createGuard(deps = {}) {
   const clock = deps.now || (() => Date.now());
   const dearest = dearestRates(pricing);
   const dearestZero = dearest.missPer1M === 0 && dearest.hitPer1M === 0 && dearest.outputPer1M === 0;
+
+  /**
+   * What the lazy schema resolution did at mount. `unavailable` is a DEGRADED
+   * mode, not a failure: the ceilings still come from the row config and the
+   * coded DEFAULTS above. It is reported in the engine log and on disk.
+   */
+  const schemaInfo =
+    deps.schemaResolution === undefined
+      ? {
+          Schema: deps.Schema,
+          mode: deps.Schema === undefined ? 'unavailable' : 'loaded',
+          package: '@deepseek-ai/schemastery',
+          root: '',
+          roots: [],
+          attempts: deps.Schema === undefined ? ['none: no resolver was passed to createGuard()'] : [],
+        }
+      : deps.schemaResolution;
 
   /** The mounted guard's own state. One per engine; never shared with a test. */
   const state = {
@@ -248,6 +284,13 @@ function createGuard(deps = {}) {
     file: '',
     started: false,
     persistError: '',
+    healthFile: '',
+    healthError: '',
+    schemaMode: schemaInfo.mode,
+    schemaRoot: schemaInfo.root,
+    schemaAttempts: schemaInfo.attempts.slice(),
+    mountedAt: '',
+    healthWrites: 0,
   };
 
   /**
@@ -415,6 +458,96 @@ function createGuard(deps = {}) {
     });
   }
 
+  /**
+   * The ACTIVATION RECORD: what this guard is, which mode it mounted in, and
+   * which ceilings are in force right now.
+   *
+   * WHY A FILE AND NOT ONLY A LOG LINE. The engine's own words for an entry that
+   * does not activate are one line with no reason, and a plugin that fails to
+   * import cannot write anything at all — so the record has to be written by the
+   * guard that DID mount, in a place a health check already looks. `<DSH_HOME>/health/`
+   * is this deployment's health surface (`plugin-health` writes `processes.json`
+   * and `list-agents.json` there, `scripts/engine-vitals.mjs` writes
+   * `engine-vitals.json`), and this file is the guard's row in it. A missing or
+   * stale `spend-guard.json` on a live engine is itself the finding.
+   * @returns {object} the record, as JSON-ready data
+   */
+  function healthPayload() {
+    const limits = state.limits;
+    const loaded = state.schemaMode === 'loaded';
+    return {
+      plugin: 'spend-guard',
+      row: 'dsh-plugin-cost/guard',
+      mounted: true,
+      mountedAt: state.mountedAt,
+      writtenAt: new Date(clock()).toISOString(),
+      pid: typeof process === 'undefined' ? 0 : process.pid,
+      home: home(),
+      degraded: !loaded,
+      reason: loaded
+        ? ''
+        : `could not resolve ${schemaInfo.package}, so a "spend-guard:" block in settings.yaml is NOT applied; the row config and the coded DEFAULTS are in force and the ceilings ARE enforced`,
+      schema: {
+        package: schemaInfo.package,
+        mode: state.schemaMode,
+        root: state.schemaRoot,
+        roots: schemaInfo.roots,
+        attempts: state.schemaAttempts,
+      },
+      limits:
+        limits === undefined
+          ? {}
+          : {
+              warnUsd: limits.warnUsd,
+              fanoutUsd: limits.fanoutUsd,
+              ceilingUsd: limits.ceilingUsd,
+              concurrencyCap: limits.concurrencyCap,
+              onInternalError: limits.onInternalError,
+              source: loaded
+                ? 'settings namespace "spend-guard" over the row config over coded DEFAULTS'
+                : 'row config over coded DEFAULTS (the settings namespace was NOT registered)',
+            },
+      counter: {
+        day: state.day === 0 ? '' : new Date(state.day).toISOString(),
+        usd: Number((state.micro / micro).toFixed(6)),
+        requests: state.requests,
+        unpriced: state.unpriced,
+        seeding: state.seeding,
+        lastVerdict: state.lastVerdict,
+        lastReason: state.lastReason,
+      },
+      stateFile: state.file,
+      healthWrites: state.healthWrites + 1,
+      gaps: state.gaps.slice(0, 8),
+    };
+  }
+
+  /**
+   * Write the activation record. Synchronous, best-effort, never fatal: it exists
+   * for a health check that may read it the instant the engine answers, so it
+   * cannot be a promise nobody awaited, and the guard's enforcement does not
+   * depend on it in any direction.
+   * @param {Function} log the guard's info sink
+   */
+  function writeHealth(log) {
+    if (state.healthFile.length === 0) return;
+    try {
+      mkdirSync(state.healthFile.replace(/[\\/][^\\/]+$/, ''), { recursive: true });
+      writeFileSync(state.healthFile, `${JSON.stringify(healthPayload(), null, 2)}\n`);
+      state.healthWrites += 1;
+      state.healthError = '';
+    } catch (error) {
+      state.healthError = error instanceof Error ? error.message : String(error);
+      const line = `spend-guard: WARNING could not write the activation record to ${state.healthFile}: ${state.healthError}`;
+      try {
+        log(line);
+      } catch {
+        // A logger that throws must not turn a reporting failure into an
+        // enforcement failure. The ceilings are already in force.
+      }
+    }
+  }
+
   /** How many agents are generating right now, and whether this step's agent is one of them. */
   function countGenerating(ctx, agent) {
     const agents = typeof ctx.get === 'function' ? ctx.get('agents') : undefined;
@@ -459,6 +592,8 @@ function createGuard(deps = {}) {
     state.limits = limits;
     state.cap = limits.concurrencyCap;
     state.file = limits.stateFile.length > 0 ? limits.stateFile : join(home(), 'spend-guard', 'day.json');
+    state.healthFile = limits.healthFile.length > 0 ? limits.healthFile : join(home(), 'health', 'spend-guard.json');
+    state.mountedAt = new Date(clock()).toISOString();
     state.day = utcDayStart(clock());
     state.seeding = limits.seedFromLogs;
 
@@ -493,6 +628,14 @@ function createGuard(deps = {}) {
       } catch (error) {
         warn(`spend-guard: could not register the "${SETTINGS_NAMESPACE}" settings namespace (${error instanceof Error ? error.message : String(error)}); the row config is in force`);
       }
+    } else if (settings !== undefined && Schema === undefined) {
+      // The entry says this too, and says it with the resolution attempts. Said
+      // again here because a caller that builds the guard directly (a test, or a
+      // future second entry) must not be able to lose the settings block quietly.
+      warn(
+        `spend-guard: DEGRADED — the settings provider is mounted but ${schemaInfo.package} is unavailable, so the "${SETTINGS_NAMESPACE}" namespace is NOT registered ` +
+          `and a "spend-guard:" block in settings.yaml is IGNORED. The row config and the coded DEFAULTS are in force and the ceilings ARE enforced.`,
+      );
     }
     if (limits.unknownKeys.length > 0) warn(`spend-guard: ignoring unknown config key(s): ${limits.unknownKeys.join(', ')}`);
 
@@ -549,6 +692,7 @@ function createGuard(deps = {}) {
             : `concurrency cap reached: ${counts.generating} agent(s) generating, cap ${state.cap}`;
         warn(`spend-guard: ${detail}; refusing step ${step}. Nothing is billed for the refused step and the turn closes blocked.`);
         persist(log);
+        writeHealth(log);
         return { kind: 'reject' };
       }
 
@@ -574,6 +718,7 @@ function createGuard(deps = {}) {
         state.unpriced > 0 ? ` (${state.unpriced} request(s) had no published rate and were charged at the dearest card rate)` : '',
       ].join('');
       warn(text);
+      writeHealth(log);
       return { ...downstream, messages: [...downstream.messages, notice(text)] };
     });
 
@@ -581,8 +726,13 @@ function createGuard(deps = {}) {
     log(
       `spend-guard: mounted. warn $${limits.warnUsd} / fan-out $${limits.fanoutUsd} / ceiling $${limits.ceilingUsd} per UTC day, ` +
         `concurrency cap ${limits.concurrencyCap} generating agent(s), fail ${limits.onInternalError}, state ${state.file}, ` +
+        `settings schema ${state.schemaMode}${state.schemaRoot === '' ? '' : ` from ${state.schemaRoot}`}, ` +
         `dearest card rate ${dearest.provider}/${dearest.model} at ${dearest.multiplier}x is what bounds an unpriced route`,
     );
+    // The activation record goes on disk BEFORE the asynchronous seed, so a health
+    // check that reads it the moment the engine answers finds the guard, not its
+    // absence. `started` is the async work; `mounted` here is the ceiling.
+    writeHealth(log);
     (async () => {
       await restore(log);
       roll(clock());
@@ -599,8 +749,12 @@ function createGuard(deps = {}) {
       }
       state.started = true;
       persist(log);
+      writeHealth(log);
     })();
-    ctx.effect(() => () => persist(log));
+    ctx.effect(() => () => {
+      persist(log);
+      writeHealth(log);
+    });
   }
 
   return {
@@ -636,6 +790,7 @@ function policySchema(Schema) {
     seedLookbackHours: money('How far back the one seed scan may look'),
     stateFile: Schema.string().description('Empty means <DSH_HOME>/spend-guard/day.json'),
     sessionsRoot: Schema.string().description('Empty means <DSH_HOME>/sessions'),
+    healthFile: Schema.string().description('Empty means <DSH_HOME>/health/spend-guard.json — the activation record'),
   });
 }
 

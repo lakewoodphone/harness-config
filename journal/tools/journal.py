@@ -123,9 +123,16 @@ FLAT_FILES = (("HANDOFF", "handoff"), ("LESSONS", "lessons"), ("PAIN", "pain"),
               ("DECISIONS", "decisions"), ("WINS", "wins"))
 META_KEYS = ("tags", "refs", "alias_of", "legacy_id", "sha")
 
+# Bump this whenever the SHAPE of index/entries.tsv changes, so every host rebuilds once instead of
+# reading a cache written by an older tool. Added 2026-09-30 with the tags/refs columns (journal
+# P168): without it, a host that already had a 12-column entries.tsv would keep reading it and keep
+# reporting that `--tag` matches nothing, which is the defect being fixed.
+CACHE_VERSION = 2
+
 DEFAULT_BUDGET = 12000
 STATUS_BUDGET = 6000
-INDEX_HEADER = "kind\tid_full\tnum\tsuffix\tdate\thost\tstatus\theading\tfile\tline_start\tline_end\thash"
+INDEX_HEADER = ("kind\tid_full\tnum\tsuffix\tdate\thost\tstatus\theading\tfile\tline_start\tline_end"
+                "\thash\ttags\trefs")
 ALIAS_HEADER = "alias_id\tkind\tcanonical_id\treason\tdate"
 STATUS_HEADER = "kind\tid\tstatus\tdate\thost\twhy"
 FORMAT_CONTENT = "2\n"
@@ -827,6 +834,18 @@ def load_aliases() -> list:
     return rows
 
 
+def _one_line(text: str) -> str:
+    """Fold a free-text field onto one line: a TSV row cannot survive an embedded newline.
+
+    Measured 2026-09-30: a batch of 42 `resolve --why` calls carried multi-line reasons and left
+    fragmented rows in `state/status.tsv`, which then crashed every reader with
+    `ValueError: not enough values to unpack (expected 6, got 4)`. Folding at the writer is the only
+    place the invariant can be guaranteed; the reader is made tolerant as well, but a tolerant reader
+    is not a licence to write a broken row.
+    """
+    return " ".join((text or "").replace("\t", " ").split())
+
+
 def load_status_events() -> dict:
     """Append-only status corrections, last row per (kind, id) wins.
 
@@ -840,7 +859,7 @@ def load_status_events() -> dict:
     for ln in _rl(path).split("\n"):
         if not ln.strip() or ln.startswith("kind\t"):
             continue
-        parts = (ln.split("\t") + ["", "", ""])[:6]
+        parts = (ln.split("\t") + [""] * 6)[:6]
         kind, id_full, status, date, host, why = parts
         if kind and id_full:
             out[(kind, id_full)] = (status, date, why)
@@ -987,6 +1006,11 @@ def _entries_tsv_rows(entries: list, events: dict) -> list:
             effective_status(e["kind"], e["id_full"], e.get("status", ""), events),
             e["heading"], e["file"], str(e["line_start"]), str(e["line_end"]),
             e["hash"],
+            # Appended 2026-09-30 (journal P168). The trailer already held these and the cache
+            # dropped them, so `--tag` could never match and `backlinks` could not see a citation.
+            # Appended rather than inserted: idguard.py indexes columns 4, 5, 7 and 11 by number.
+            ",".join(e.get("tags") or []),
+            ",".join(e.get("refs") or []),
         ]))
     return rows
 
@@ -1078,6 +1102,7 @@ def rebuild_cache(compute_drift: bool = False) -> dict:
     git_ceiling = prev.get("git_ceiling") or {}
     stamp.update({
         "built": now_utc(),
+        "cache_version": CACHE_VERSION,
         "entries": len(entries),
         "db": db_note,
         "parse_problems": len(problems),
@@ -1118,6 +1143,10 @@ def read_stamp() -> dict:
 def cache_fresh() -> bool:
     stamp = read_stamp()
     if not stamp:
+        return False
+    if stamp.get("cache_version") != CACHE_VERSION:
+        # Written by a tool that did not carry the tags/refs columns. Rebuild rather than read a
+        # cache whose shape is older than the reader.
         return False
     sig = tree_signature()
     for key in ("entries_sig", "entries_count", "log_sig", "log_count", "flat_sig"):
@@ -1190,10 +1219,12 @@ def _from_tsv(path: Path) -> list:
         if len(parts) < 12:
             continue
         (kind, id_full, num, suffix, date, host, status, heading, file, ls, le, h) = parts[:12]
+        tags = [t for t in (parts[12] if len(parts) > 12 else "").split(",") if t]
+        refs = [r for r in (parts[13] if len(parts) > 13 else "").split(",") if r]
         try:
             out.append(Entry(kind=kind, id_full=id_full, num=int(num or 0), suffix=suffix,
                              date="" if date == "-" else date, host="" if host == "-" else host,
-                             status=status, heading=heading, body="", tags=[], refs=[],
+                             status=status, heading=heading, body="", tags=tags, refs=refs,
                              alias_of="", sha="", file=file, line_start=int(ls or 1),
                              line_end=int(le or 1), hash=h, problems=[], meta={}))
         except ValueError:
@@ -1233,6 +1264,7 @@ class EntryTexts:
         self._fresh = fresh
         self._bodies = None
         self._cache = {}
+        self._meta = {}
         self.unreadable = []
 
     def text(self, e: dict) -> str:
@@ -1240,6 +1272,36 @@ class EntryTexts:
         if got is None:
             got = "%s\n%s" % (e["heading"], self._body(e))
             self._cache[e["id_full"]] = got
+        return got
+
+    def meta(self, e: dict):
+        """(tags, refs) for one entry, parsed from its own text.
+
+        WHY THIS EXISTS (journal P168, verified 2026-09-30). `_from_tsv()` builds every Entry from
+        the 12-column cache with `tags=[], refs=[]`, and the TSV has no tags or refs columns at all
+        -- so `search --tag X` could never match anything and `backlinks` could never see a prose
+        citation, even though both were asked for. Measured before this fix: 640 cached entries
+        carry the tag `legacy-import` and `search journal --tag legacy-import` returned 0 hits;
+        `backlinks W136` listed only W136 while P163 cites it twice.
+
+        The trailer already holds the truth and `text()` already loads it: `<!-- j2 tags=a,b refs=W136,P12 -->`.
+        Where the trailer names no refs, the body is scanned with the same REF_RE `check` uses, so a
+        prose citation counts. Cached per entry: `text()` is already memoised, and this parses a
+        string, never a file.
+        """
+        got = self._meta.get(e["id_full"])
+        if got is None:
+            text = self.text(e)
+            tags, refs = [], set()
+            m = META_RE.search(text or "")
+            if m:
+                tm = re.search(r"tags=(\S*)", m.group("body"))
+                if tm:
+                    tags = [t for t in tm.group(1).split(",") if t]
+            for r in REF_RE.finditer(text or ""):
+                refs.add("%s%s" % (r.group(1), r.group(2)))
+            got = (tags, sorted(refs))
+            self._meta[e["id_full"]] = got
         return got
 
     def _body(self, e: dict) -> str:
@@ -1576,7 +1638,7 @@ def cheap_check(entries: list):
 # Commands: list / newest / show / search / backlinks / pairs
 # ---------------------------------------------------------------------------
 
-def _matches(e: dict, args) -> bool:
+def _matches(e: dict, args, texts=None) -> bool:
     kinds = getattr(args, "kind", None)
     if kinds:
         if e["kind"] not in [str(x).lower() for x in kinds if x]:
@@ -1591,8 +1653,15 @@ def _matches(e: dict, args) -> bool:
     if until and ((e.get("date") or "9999")[:10] or "9999") > until:
         return False
     tag = getattr(args, "tag", None)
-    if tag and tag not in (e.get("tags") or []):
-        return False
+    if tag:
+        # Tags live in the entry's `<!-- j2 tags=... -->` trailer. They arrive with the entry when
+        # the catalog was built from `entries/`, and from the tags column when it was built from
+        # the cache; `texts` is the third route, for a cache written before that column existed.
+        tags = list(e.get("tags") or [])
+        if not tags and texts is not None:
+            tags = texts.meta(e)[0]
+        if tag not in tags:
+            return False
     host = getattr(args, "host", None)
     if host and host.upper() not in (e.get("host") or "").upper():
         return False
@@ -1601,7 +1670,8 @@ def _matches(e: dict, args) -> bool:
 
 def cmd_list(args) -> int:
     entries, source, _fresh = catalog()
-    rows = [e for e in entries if _matches(e, args)]
+    texts = EntryTexts(entries, _fresh) if getattr(args, "tag", None) else None
+    rows = [e for e in entries if _matches(e, args, texts)]
     if getattr(args, "sort", "newest") == "id":
         rows.sort(key=lambda e: (KIND_ORDER.get(e["kind"], 9), e.get("num") or 0, e.get("suffix") or ""))
     else:
@@ -1794,8 +1864,8 @@ def cmd_search(args) -> int:
     ctx_n = max(0, getattr(args, "context", 0) or 0)
     hits = []
     total_hits = 0
-    cands = [e for e in entries if _matches(e, args)]
     texts = EntryTexts(entries, fresh)
+    cands = [e for e in entries if _matches(e, args, texts)]
     for e in cands:
         text = texts.text(e)
         matches = []
@@ -1852,10 +1922,14 @@ def cmd_search(args) -> int:
 def cmd_backlinks(args) -> int:
     want = args.id.strip().upper()
     entries, _s, _f = catalog()
+    texts = EntryTexts(entries, _f)
     hits = []
     for e in entries:
-        refs = set(e.get("refs") or [])
-        refs |= {"%s%s" % (m.group(1), m.group(2)) for m in REF_RE.finditer("%s\n%s" % (e["heading"], e["body"]))}
+        # refs come from BOTH routes: the trailer (carried in the entry, and in the cache's refs
+        # column) and the prose (any `L2`-shaped citation in the text). The cache alone missed
+        # prose and the text alone missed the trailer -- journal P168: `backlinks W136` listed only
+        # W136 while P163 cites it twice.
+        refs = set(e.get("refs") or []) | set(texts.meta(e)[1])
         if want in refs:
             hits.append(e)
     if getattr(args, "json", False):
@@ -3786,7 +3860,14 @@ def cmd_resolve(args) -> int:
     if not path.exists():
         atomic_write(path, STATUS_HEADER + "\n")
     line = "\t".join([e["kind"], e["id_full"], args.status, today(), host_tag(),
-                      (args.why or "").replace("\t", " ")])
+                      # ONE LINE, ALWAYS. A `why` containing a newline splits the row and every
+                      # reader then has to guess which lines are rows -- measured 2026-09-30, when a
+                      # batch of 42 `resolve` calls passed multi-line reasons and left 45 fragmented
+                      # rows in state/status.tsv. Tabs AND newlines are folded here, at the writer,
+                      # because a record that can be malformed by an ordinary argument is not a
+                      # record. (The reader was also wrong: it padded by three and then truncated to
+                      # six, so a one-field line crashed the whole read -- both halves are fixed.)
+                      _one_line(args.why or "")])
     with open(path, "a", encoding="utf-8", newline="\n") as fh:
         fh.write(line + "\n")
     if getattr(args, "alias_of", ""):

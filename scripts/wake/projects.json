@@ -1,0 +1,183 @@
+{
+  "caps": {
+    "global_max_flags_per_day": 500,
+    "owner_decision": "2026-09-20: the owner was asked how many autonomous wake-ups per day to allow and answered 'whatever you think'. 2026-09-28 he corrected the whole framing: 'There's no reason to limit how much you could do per day... obviously we can't have overall more than $70 of spending, let's say, on the deepseek API daily. But it's not like how many times... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' So the count is a runaway backstop (500) and the SPEND CEILING (70.00 USD/day) is the limit. Measured cost of one shift: 0.068 USD (38 priced releases, 2.5825 USD total).",
+    "enforcement": "The count and the ceiling both live in wake.py as DEFAULT_MAX_PER_DAY / DEFAULT_MAX_USD_PER_DAY and are read from there by every other file; nothing restates the number. The measured 0.068 USD/shift is from ~/.sms-inbox/wake-cost.jsonl.",
+    "measured_from": "wake_budget.released for the current UTC day in the wake store (~/.sms-inbox/inbox.db) - the same counter wake.py's daily-cap guard uses.",
+    "global_max_usd_per_day": 70.0,
+    "per_project_raised": "2026-09-30: per-project 12 flags/day with a 1800s cooldown (was 3/day and 21600s). The real limits are the store's max_per_source_per_hour, the 500/day backstop and the 70 USD/day ceiling."
+  },
+  "projects": [
+    {
+      "id": "kosher-ai-filter",
+      "title": "Kosher AI Filter (LP&T Filter AI - Android/iOS/Windows content filtering)",
+      "enabled": true,
+      "repo": "/home/zabz/repos/kosher-filter-ai",
+      "case": "kosher-filter-ai",
+      "state_file": "/home/zabz/.wake-projects/kosher-ai-filter.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "REAL PATH, discovered 2026-09-20: /home/zabz/repos/kosher-filter-ai (git remote https://github.com/lakewoodphone/kosher-filter-ai.git, HEAD d225385 2026-09-06). Work-remaining evidence is the project's own checked-box roadmap in docs/cross-platform-filter-master.md, section 7 'Implementation Roadmap', whose first unchecked items are at lines 358-361: the Windows Phase 1 foundation. This is a development project with no production service on this host, so a shift is repo work proven by tests/builds.",
+      "integration_branch": "origin/main"
+    },
+    {
+      "id": "waste-system",
+      "title": "Waste System (owner-named 2026-09-20; owner disclaimed it 2026-09-25 - phantom, no codebase exists)",
+      "enabled": false,
+      "repo": "NONE - no such project exists; owner-queue #145 answered 2026-09-25: don't know what you are referring to",
+      "case": "NONE - no such project exists (owner-queue #145)",
+      "state_file": "/home/zabz/.wake-projects/waste-system.json",
+      "cooldown_seconds": 43200,
+      "max_flags_per_day": 1,
+      "budget_note": "Owner decision 2026-09-20: 4 autonomous releases/day system-wide, 1 per project per day. Kept for the record only - the project is DISABLED and consumes none of that budget.",
+      "notes": "DISABLED 2026-09-26 by the waste-system keepalive worker, consuming owner-queue row #145 (asked 2026-09-23, answered 2026-09-25T04:16:44Z, resolved 2026-09-26). The owner's answer to 'Where does the waste system you named as a project live, or what is it?' was: don't know what you are referring to. Discovery on 2026-09-23 and 2026-09-25 found no codebase, repo, host or file named waste anywhere reachable; the phrase exists only in the keepalive seed that created this loop. The one near-match, the Waze MDM fleet on waze-mdm-01 (/opt/waze-mdm), was never confirmed by the owner, so it is NOT registered here and must not be. Per the work order the UNKNOWN was never replaced with a guess. enabled=false is the honest end: the project the owner named does not exist. Re-enable only if the owner supplies a real path - see resume_condition in /home/zabz/.wake-projects/waste-system.json."
+    },
+    {
+      "id": "lpt-website",
+      "title": "LPT Website (Lakewood Phone & Tech customer site + staff platform)",
+      "enabled": true,
+      "repo": "/home/zabz/repos/phone-and-tech-full",
+      "case": "phone-and-tech-full",
+      "state_file": "/home/zabz/.wake-projects/lpt-website.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "REAL PATH: /home/zabz/repos/phone-and-tech-full (git remote https://github.com/lakewoodphone/phone-and-tech-full.git) - monorepo with frontend/ (React) and backend/ (Node+Prisma). This is the LPT website; owner-queue rows about the customer portal and the website redo point at it. CORRECTED 2026-09-28: this note used to record 'HEAD 057cea451 2026-08-24' as if that were current. It was not - the checkout had been sitting on an August commit, 426 commits behind origin/test, with a stale .git/index.lock dated 2026-09-16 silently blocking every git write. The lock was moved aside and the tree fast-forwarded; it is now a3111f29a (2026-09-28). Work-remaining evidence is the project state file /home/zabz/.wake-projects/lpt-website.json, which is the authority and is kept current by each shift. A shift may now deploy to the TEST environment ONLY (see that file's authority_changed_2026_09_28); it must never deploy to production, never contact a customer, and anything customer-visible goes to the owner queue. If the repo ever looks stale again, CHECK FOR A STALE LOCK FIRST.",
+      "dirty_ignore": [
+        "reconciliation_plan.json"
+      ],
+      "dirty_ignore_note": "DECLARED 2026-09-28 by checkout-health: reconciliation_plan.json is a GENERATED data snapshot, not a shift's work. Its own header names the tool (personal-secretary-mvp.open_work_order_reconciliation) and its generatedAt (2026-09-20T23:15:20); that tool's default --output is _scratch/open-work-order-reconciliation/plan-latest.json, and personal-secretary-mvp/docs/system-inventory/current-repos.json already records \" M reconciliation_plan.json\" as a known state of this checkout (the 2026-08-14 website audit lists it at the repo root as a duplicate to dedupe). It had been modified in place for 186 h when the source was built, which is what fired on the first live run -- flagging it would have claimed 'work that never landed' about a tool's output. checkout-health's per-project stderr line still prints it as dirty_ignore/declared, so the state is visible and never alarming. Remove this key if the file ever becomes hand-edited work.",
+      "integration_branch": "origin/test"
+    },
+    {
+      "id": "lpt-sync",
+      "title": "LPT sync chain: Dialpad -> LPT hub -> production database -> website",
+      "enabled": true,
+      "repo": "/home/zabz/repos/lpt-hub",
+      "case": "lpt-sync",
+      "state_file": "/home/zabz/.wake-projects/lpt-sync.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "The owner names this repeatedly ('the LPT syncing system between dialpad, LPT hub, the production database and more needs to be constantly worked on and actually synced'). Ledger-driven: its items live in ~/bin/work.py under project 'lpt-sync'. No per-project state file - the ledger is the state.",
+      "ledger_only": true,
+      "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
+      "integration_branch": "origin/main",
+      "dirty_ignore": [
+        "_scratch/receipt-email-heichal-2026-09-22.txt",
+        "_scratch/receipt-heichal-2026-09-22.html",
+        "_scratch/receipt-heichal-2026-09-22.txt",
+        "_scratch/receipt-heichal-full.html",
+        "_scratch/receipt-heichal-full.txt",
+        "_scratch/stripe-webhook-diagnosis-2026-09-22.md"
+      ],
+      "dirty_ignore_note": "DECLARED 2026-09-28 by checkout-health: these six _scratch/ files are a woken session's scratch OUTPUT, not source changes. Five are one-off customer receipt artefacts for Heichal Hatorah (email body, plain-text receipt, HTML receipt and 'full' variants) and one is a read-only 'Stripe -> production: why the shop's own system has no September payments' diagnosis report. All are dated 2026-09-22, all are unreferenced by any tracked file, and none belongs in git history: the receipts carry a customer's name and address and this repo is pushed to GitHub. They sat untracked for 6.1 days, which is what fired the dirty-old flag. Preserved verbatim (with sha256 and a stash patch) under /home/zabz/checkout-health-preserved/lpt-sync-work-20260928T193857Z/. Declared here so the sensor stops reading a scratch output as work that never landed. Remove an entry if one of these ever becomes hand-edited work that must be committed."
+    },
+    {
+      "id": "cfo",
+      "title": "CFO / QuickBooks: the books, the close, and the finance audits",
+      "enabled": true,
+      "repo": "/home/zabz/repos/quickbooks-agent",
+      "case": "cfo",
+      "state_file": "/home/zabz/.wake-projects/cfo.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "Owner: 'let's say there's a CFO that has to be run'. quickbooks-agent is the real repo (/home/zabz/repos/quickbooks-agent). Ledger-driven.",
+      "ledger_only": true,
+      "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
+      "integration_branch": "origin/main"
+    },
+    {
+      "id": "personality-system",
+      "title": "Personality test system",
+      "enabled": true,
+      "repo": "/home/zabz/repos/personality-test",
+      "case": "personality-system",
+      "state_file": "/home/zabz/.wake-projects/personality-system.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "REAL PATH, discovered 2026-09-28 by keepalive-personality-system: /home/zabz/repos/personality-test (cloned from https://github.com/lakewoodphone/personality-test.git, HEAD 43bcf286a0755c5e90bd1522686f656807ffd3b8; live https://personality.abletelsolutions.com -> personality-test:3000; owner working copy C:\\Users\\ezabz\\Code\\personality-system). Owner: 'the personality test system that we were doing needs to be constantly worked on'. The live AI calls in this system failed for over a week on a hardcoded model name (docs/dsh-at-scale/60-cost-audit.md and the models-resolve-at-runtime rule), so the standing item is that a model is resolved from the gateway catalog at runtime. Ledger-driven.",
+      "ledger_only": true,
+      "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
+    },
+    {
+      "id": "rental-system",
+      "title": "Rental system",
+      "enabled": true,
+      "repo": "/home/zabz/personal-secretary-mvp/apps/rentals",
+      "case": "rental-system",
+      "state_file": "/home/zabz/.wake-projects/rental-system.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "Owner named it. CODEBASE FOUND 2026-09-28 by the first shift: /home/zabz/personal-secretary-mvp/apps/rentals - the Lakewood Rentals marketplace app (workspace personal-secretary-mvp, remote https://github.com/lakewoodphone/personal-secretary-mvp.git, HEAD 7d8dd160, last rentals commit 26a54597), live at https://rentals.lakewoodphoneandtech.com. Registered in the work ledger; ledger item 39 closed 2026-09-28.",
+      "ledger_only": true,
+      "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
+    },
+    {
+      "id": "chumash",
+      "title": "Bible codes / chumash timeline",
+      "enabled": true,
+      "repo": "/home/zabz/repos/chumash-timeline",
+      "case": "chumash",
+      "state_file": "/home/zabz/.wake-projects/chumash.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "Owner: 'the Bible codes that we were writing, that whole project needs to be worked on'. Repo not established (candidates exist on this machine); first shift finds it. Ledger-driven.",
+      "ledger_only": true,
+      "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
+    },
+    {
+      "id": "prod-db-sync",
+      "title": "Production database: truth, syncing and freshness",
+      "enabled": true,
+      "repo": "/home/zabz/personal-secretary-mvp",
+      "case": "prod-db-sync",
+      "state_file": "/home/zabz/.wake-projects/prod-db-sync.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "Owner: 'the production database and more needs to be constantly worked on and actually synced and set up'. The authoritative DB is 12.37 GB with a 128 MB WAL on a control plane - size, truth and freshness are all open. Ledger-driven.",
+      "ledger_only": true,
+      "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
+      "integration_branch": "origin/master",
+      "dirty_ignore": [
+        "firmware/",
+        "*.db-wal",
+        "*.db-shm"
+      ],
+      "dirty_ignore_note": "DECLARED 2026-09-29 by checkout-health (prod-db-sync). firmware/ is a GENERATED PlatformIO build cache (firmware/vehicle-logger/.pio/{build,libdeps}, 26 MB, mtime 2026-09-18 19:20Z = 10.9 d), untracked, and it is the single path that fired dirty-old on this project. The SAME directory is already declared for the housekeeping project, which shares this exact repo path (both point at /home/zabz/personal-secretary-mvp) and reports quiet as a result; without this entry the identical generated path raised the same flag twice. VERIFIED: `git ls-files firmware/` is empty (0 tracked paths) and the tree contains no real source outside .pio, so this hides no work. The directory is preserved in stash@{0} (db6bef82, untracked parent carries 84 firmware/ entries) and in /home/zabz/checkout-health-preserved/prod-db-sync-work-20260929T173154Z/. REMOVE this entry if hand-written firmware source ever appears under firmware/. ADDED 2026-09-30T13:53Z by checkout-health: the *.db-wal and *.db-shm patterns are SQLite runtime sidecars of the live checkout databases (data/phone_chat_history.db, data/vehicle.db). They are untracked and tool-generated, and the SAME four paths are already declared for the housekeeping project, which shares this exact repo path. VERIFIED: `git ls-files` matches 0 tracked paths for all four; the four counted paths were 18.4 h old (inside the 24 h window) at declaration time, so this only stops the imminent re-flag and hides no work. REMOVE the *.db-wal/*.db-shm patterns if such a name ever becomes real, tracked work."
+    },
+    {
+      "id": "housekeeping",
+      "title": "AI company housekeeping and evolution",
+      "enabled": true,
+      "repo": "/home/zabz/personal-secretary-mvp",
+      "case": "housekeeping",
+      "state_file": "/home/zabz/.wake-projects/housekeeping.json",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
+      "notes": "Owner: 'a lot of times they're a unique standard housekeeping and evolution for the AI company to begin with'. This is the project the wake/tuner/authority items belong to.",
+      "integration_branch": "origin/master",
+      "dirty_ignore": [
+        "*.bak-*",
+        "*.ownergate-*",
+        "*.contentionfix-*",
+        "*.ingestfix-*",
+        "*.tmpnew",
+        "*.db-wal",
+        "*.db-shm",
+        "_pt_*",
+        "_scratch_*",
+        "backup-evidence-*",
+        "firmware/"
+      ],
+      "dirty_ignore_note": "DECLARED 2026-09-29 by checkout-health (housekeeping). These are untracked, tool-generated artefacts of a live checkout: ownergate/bak/contentionfix/ingestfix backups, scratch probe dirs (_pt_*), _scratch_* scripts, SQLite -wal/-shm sidecars, and backup-evidence-* dirs. VERIFIED: zero TRACKED paths match any pattern (the 128 paths removed from the dirty count are all untracked); the 87 tracked modifications and the remaining real untracked work stay counted. The oldest counted path had been tests/test_personal_ops.py.ownergate-20260928-161107 (an untracked backup, 115.7 d) which is what fired dirty-old. Remove a pattern if such a name ever becomes real work. ADDED 2026-09-29T134119Z: \"firmware/\" is the PlatformIO GENERATED package/build cache firmware/vehicle-logger/.pio (26 MB, mtime 2026-09-18 19:20Z; this 10.8 d path is what fired dirty-old on the 2026-09-29 re-measure). It is untracked and git collapses it to the single porcelain path \"firmware/\". The vehicle-logger firmware SOURCE is NOT present in this worktree (it is tracked on origin/co/merged and preserved in stash@{1}'s untracked parent), so this pattern hides no source today. REMOVE this pattern if real, hand-written firmware files ever appear untracked under firmware/ - the pattern only matches the whole-directory entry, so any tracked firmware file makes git list real untracked paths individually and they will count again."
+    }
+  ]
+}

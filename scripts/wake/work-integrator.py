@@ -168,11 +168,16 @@ def main() -> int:
     ap.add_argument("--all-branches", action="store_true",
                     help="ignore the prefix filter and consider every branch (expect noise)")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--limit", type=int, default=3,
+                    help="file at most N integration items in one run (default 3). A backlog nobody "
+                         "can read is worse than filing none - cold dry run 2026-09-30 found 12 "
+                         "unmerged branches for kosher-ai-filter, 9 for lpt-website, 5 for lpt-sync.")
     a = ap.parse_args()
 
     doc = json.loads(Path(REGISTRY).read_text(encoding="utf-8"))
     report = []
     seen_repos = set()
+    filed_run = 0
     for row in doc.get("projects", []):
         pid = row.get("id")
         if not row.get("enabled") or (a.project and pid != a.project):
@@ -214,6 +219,9 @@ def main() -> int:
         filed = []
         have = open_titles(pid)
         for ref, age in sorted(recent):
+            if filed_run >= a.limit:
+                filed.append({"branch": ref, "age_days": age, "item": "deferred (per-run limit)"})
+                continue
             title = "Integrate %s into %s" % (ref, base)
             if title.strip().lower() in have:
                 filed.append({"branch": ref, "age_days": age, "item": "already tracked"})
@@ -225,12 +233,14 @@ def main() -> int:
                    "branch is work that will be redone by the next shift (measured: three lpt-website "
                    "shifts on one unmerged fix; agent/windows-broker-channel unmerged 2026-09-28)" % age)
             if a.dry_run:
+                filed_run += 1
                 filed.append({"branch": ref, "age_days": age, "item": "would-file"})
                 continue
             rc2, out2 = work("add", "--project", pid, "--title", title, "--dod", dod,
                              "--why", why, "--priority", str(PRIORITY), "--source", AUTHOR)
             m = re.search(r'"id":\s*(\d+)', out2 or "")
             if "item-filed" in (out2 or "") and m:
+                filed_run += 1
                 filed.append({"branch": ref, "age_days": age, "item": int(m.group(1))})
             elif "already-filed" in (out2 or ""):
                 filed.append({"branch": ref, "age_days": age, "item": "already tracked"})

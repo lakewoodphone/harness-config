@@ -16,19 +16,24 @@
  *   `dsh-agent-loop/lib/index.js:937-947` (reject returns before `step/start`)
  *   and of the live demonstration recorded in docs/mesh/101-spend-guard-installed.md.
  *
- * Every check uses an isolated state file and an isolated sessions root: this
- * test CANNOT touch the owner's counters, and it does not read a real session
- * log.
+ * Every check uses an isolated state file, an isolated sessions root and an
+ * isolated activation record: this test CANNOT touch the owner's counters, and it
+ * does not read a real session log. (`healthFile` is passed explicitly for the
+ * same reason `stateFile` is: the default for both is inside the DSH home, and a
+ * test that forgets one would write into a live engine's home.)
  *
  * Usage: node test/guard.test.mjs
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { PRICING, MICRO, indexRoutes, costOf, normalizeUsage } from '../src/cost-core.mjs';
 import { readSessionLog, dshHome } from '../src/session-log.mjs';
 import { createGuard, decide, resolveLimits, dearestRates, utcDayStart, DEFAULTS } from '../src/guard.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 let checks = 0;
 let failures = 0;
@@ -104,6 +109,17 @@ async function settle(guard) {
 
 const scratch = mkdtempSync(join(tmpdir(), 'spend-guard-test-'));
 const emptySessions = mkdtempSync(join(tmpdir(), 'spend-guard-sessions-'));
+/** A directory that cannot provide the schema package — the forced-degraded root. */
+const barren = mkdtempSync(join(tmpdir(), 'spend-guard-barren-'));
+
+/**
+ * The activation record this guard writes, in the scratch dir.
+ *
+ * It is a REQUIRED argument at every mount here for the same reason `stateFile`
+ * is: both default to a path inside the DSH home, and this suite must not touch
+ * a live engine's home.
+ */
+const healthFor = (name) => join(scratch, `health-${name}.json`);
 
 try {
   console.log('spend-guard: the policy');
@@ -180,6 +196,7 @@ try {
     seedFromLogs: false,
     stateFile: join(scratch, 'day.json'),
     sessionsRoot: emptySessions,
+    healthFile: healthFor('wiring'),
   });
   check('the guard finished starting (restore + seed) in the test harness', await settle(guard));
   check('the guard registered one session/event listener', ctx.listeners['session/event'].length === 1);
@@ -222,7 +239,7 @@ try {
   };
   const ctx2 = fakeCtx({ agents: { list: () => running2 } });
   const guard2 = createGuard({ core: { PRICING, MICRO, indexRoutes, costOf, normalizeUsage, readSessionLog, dshHome } });
-  guard2.apply(ctx2, { ceilingUsd: 150, warnUsd: 35, fanoutUsd: 80, concurrencyCap: 3, seedFromLogs: false, stateFile: join(scratch, 'day2.json'), sessionsRoot: emptySessions });
+  guard2.apply(ctx2, { ceilingUsd: 150, warnUsd: 35, fanoutUsd: 80, concurrencyCap: 3, seedFromLogs: false, stateFile: join(scratch, 'day2.json'), sessionsRoot: emptySessions, healthFile: healthFor('cap') });
   await settle(guard2);
   setAgents(3);
   fired = await firePreStep(ctx2, { agent: { id: 'new-agent' } });
@@ -246,7 +263,7 @@ try {
   console.log('spend-guard: fail closed');
   const ctx3 = fakeCtx({ agents: { list: () => { throw new Error('the agents service is broken'); } } });
   const guard3 = createGuard({ core: { PRICING, MICRO, indexRoutes, costOf, normalizeUsage, readSessionLog, dshHome } });
-  guard3.apply(ctx3, { seedFromLogs: false, stateFile: join(scratch, 'day3.json'), sessionsRoot: emptySessions });
+  guard3.apply(ctx3, { seedFromLogs: false, stateFile: join(scratch, 'day3.json'), sessionsRoot: emptySessions, healthFile: healthFor('closed') });
   await settle(guard3);
   fired = await firePreStep(ctx3);
   check('an internal error REJECTS the step when onInternalError is closed (the default)', fired.decision.kind === 'reject', JSON.stringify(fired.decision));
@@ -255,7 +272,7 @@ try {
 
   const ctx4 = fakeCtx({ agents: { list: () => { throw new Error('the agents service is broken'); } } });
   const guard4 = createGuard({ core: { PRICING, MICRO, indexRoutes, costOf, normalizeUsage, readSessionLog, dshHome } });
-  guard4.apply(ctx4, { seedFromLogs: false, onInternalError: 'open', stateFile: join(scratch, 'day4.json'), sessionsRoot: emptySessions });
+  guard4.apply(ctx4, { seedFromLogs: false, onInternalError: 'open', stateFile: join(scratch, 'day4.json'), sessionsRoot: emptySessions, healthFile: healthFor('open') });
   await settle(guard4);
   fired = await firePreStep(ctx4);
   check('fail-open allows the step only when it was asked for by name', fired.decision.kind === 'enter' && fired.handed === 1, JSON.stringify(fired.decision));
@@ -275,7 +292,7 @@ try {
       return [{ type: 'assistant/message', time: Date.now(), data: { usage: { inputTokens: 0, cacheReadTokens: 100000, outputTokens: 0, totalTokens: 100000 }, message: { source: { provider: 'deepseek-official', model: 'deepseek-flash' } } } }];
     },
   });
-  guard5.apply(ctx5, { seedFromLogs: true, stateFile: join(scratch, 'day5.json'), sessionsRoot: join(scratch, 'sessions') });
+  guard5.apply(ctx5, { seedFromLogs: true, stateFile: join(scratch, 'day5.json'), sessionsRoot: join(scratch, 'sessions'), healthFile: healthFor('seed') });
   await settle(guard5);
   const seeded = guard5.guardState();
   check('the seed read the durable log exactly once', seedCalls.length === 1, `${seedCalls.length} read(s)`);
@@ -287,14 +304,14 @@ try {
   const dayPath = join(scratch, 'day6.json');
   const ctx6 = fakeCtx({ agents: { list: () => [] } });
   const guard6 = createGuard({ core: { PRICING, MICRO, indexRoutes, costOf, normalizeUsage, readSessionLog, dshHome }, readdir: async () => [], stat: async () => ({ mtimeMs: 0 }) });
-  guard6.apply(ctx6, { seedFromLogs: false, stateFile: dayPath, sessionsRoot: emptySessions });
+  guard6.apply(ctx6, { seedFromLogs: false, stateFile: dayPath, sessionsRoot: emptySessions, healthFile: healthFor('restart') });
   await settle(guard6);
   emitUsage(ctx6, usageForUsd(0.004), { at: Date.now() });
   await new Promise((resolve) => setTimeout(resolve, 60));
   const before = guard6.guardState().micro;
   const ctx7 = fakeCtx({ agents: { list: () => [] } });
   const guard7 = createGuard({ core: { PRICING, MICRO, indexRoutes, costOf, normalizeUsage, readSessionLog, dshHome }, readdir: async () => [], stat: async () => ({ mtimeMs: 0 }) });
-  guard7.apply(ctx7, { seedFromLogs: false, stateFile: dayPath, sessionsRoot: emptySessions });
+  guard7.apply(ctx7, { seedFromLogs: false, stateFile: dayPath, sessionsRoot: emptySessions, healthFile: healthFor('restart2') });
   await settle(guard7);
   check('a restart resumes the day from the state file', guard7.guardState().micro === before, `${guard7.guardState().micro} vs ${before}`);
   check('the resumed watermark stops the same request being counted twice', guard7.guardState().watermarkMs === guard6.guardState().watermarkMs);
@@ -305,9 +322,107 @@ try {
   const noCard = createGuard({ core: { PRICING: { routes: [] }, MICRO, indexRoutes, costOf, normalizeUsage, readSessionLog, dshHome } });
   const ctx8 = fakeCtx({});
   check('a card with no routes refuses to mount rather than pricing everything at zero', (() => { try { noCard.apply(ctx8, {}); return false; } catch { return true; } })());
+
+  // ── ACTIVATION: the generated row must mount with the schema path broken ──
+  //
+  // The failure this section exists for (2026-09-28): the row's module scope used
+  // to `require('@deepseek-ai/schemastery')` through a hand-rolled anchor, so
+  // whether the guard LOADED depended on `<DSH_HOME>/profiles/node_modules`
+  // existing at that instant. It did not, on roughly half of four consecutive
+  // boots, and the engine's only words were `spend-guard (dsh-plugin-cost/guard):
+  // failed to import`. The guard is the money ceiling, so that is the one failure
+  // this plugin may not have.
+  //
+  // WHAT IS CHECKED HERE, and why it is the artifact and not the source: the
+  // artifact is what the engine imports. It is mounted with the resolution path
+  // DELIBERATELY BROKEN (DSH_SPEND_GUARD_SCHEMA_ROOTS points at an empty
+  // directory, through the resolution path — the generated file is not edited),
+  // and then it must (a) mount, (b) say DEGRADED out loud, (c) still refuse a step
+  // at a ceiling, and (d) leave the activation record on disk saying which mode it
+  // is in.
+  console.log('spend-guard: ACTIVATION with the schema library unresolvable (degraded mode)');
+  const savedRoots = process.env.DSH_SPEND_GUARD_SCHEMA_ROOTS;
+  const artifact = await import(pathToFileURL(join(ROOT, 'lib', 'guard.js')).href);
+  check('lib/guard.js imports (the module the engine loads)', typeof artifact.apply === 'function' && artifact.name === 'spend-guard');
+  check('lib/guard.js injects nothing, so no missing service can hold it pending', Array.isArray(artifact.inject) && artifact.inject.length === 0);
+
+  const installs = [];
+  const healthPath = healthFor('degraded');
+  const artifactCtx = fakeCtx({ settings: { installSection: (...args) => installs.push(args) }, agents: { list: () => [] } });
+  try {
+    process.env.DSH_SPEND_GUARD_SCHEMA_ROOTS = barren;
+    artifact.apply(artifactCtx, {
+      warnUsd: 0.01,
+      fanoutUsd: 0.02,
+      ceilingUsd: 0.03,
+      concurrencyCap: 12,
+      seedFromLogs: false,
+      stateFile: join(scratch, 'day-degraded.json'),
+      sessionsRoot: emptySessions,
+      healthFile: healthPath,
+    });
+  } finally {
+    if (savedRoots === undefined) delete process.env.DSH_SPEND_GUARD_SCHEMA_ROOTS;
+    else process.env.DSH_SPEND_GUARD_SCHEMA_ROOTS = savedRoots;
+  }
+  check('the row MOUNTS with no schema library available', artifactCtx.listeners['agent/pre-step'].length === 1 && artifactCtx.listeners['session/event'].length === 1);
+  check('the settings namespace is NOT registered when the schema class is unavailable', installs.length === 0, `${installs.length} installSection call(s)`);
+  check('it says DEGRADED out loud, naming what it tried', artifactCtx.logger.lines.some((line) => /DEGRADED/.test(line) && /could not resolve @deepseek-ai\/schemastery/.test(line) && line.includes(barren)), artifactCtx.logger.lines.join(' | '));
+  check('it says the ceilings are still enforced', artifactCtx.logger.lines.some((line) => /ceilings ARE enforced/.test(line)));
+  check('it says which limits are in force', artifactCtx.logger.lines.some((line) => /mounted\. warn \$0\.01 \/ fan-out \$0\.02 \/ ceiling \$0\.03/.test(line)), artifactCtx.logger.lines.join(' | '));
+
+  // A ceiling of 3 cents, enforced with nothing but the row config and DEFAULTS.
+  // The event carries NOW, not the pinned clock above: the guard rolls its day on
+  // the wall clock at each pre-step, so an event dated in the past would be rolled
+  // away before the decision and the assertion would be vacuous.
+  emitUsage(artifactCtx, usageForUsd(0.05));
+  const degradedStep = await firePreStep(artifactCtx);
+  check('it still REFUSES a step at the ceiling in degraded mode', degradedStep.decision.kind === 'reject', JSON.stringify(degradedStep.decision));
+  check('the refused step never calls next()', degradedStep.handed === 0);
+
+  let health;
+  try {
+    health = JSON.parse(readFileSync(healthPath, 'utf8'));
+  } catch (error) {
+    health = undefined;
+    check('the activation record was written', false, String(error));
+  }
+  if (health !== undefined) {
+    check('the activation record was written to the configured path', true);
+    check('the record marks the guard mounted', health.mounted === true && health.plugin === 'spend-guard');
+    check('the record says DEGRADED, with the reason', health.degraded === true && /settings\.yaml/.test(health.reason));
+    check('the record carries the schema mode and the roots tried', health.schema.mode === 'unavailable' && health.schema.attempts.length >= 1 && health.schema.attempts[0].includes(barren));
+    check('the record carries the limits that ARE in force', health.limits.ceilingUsd === 0.03 && health.limits.warnUsd === 0.01 && health.limits.concurrencyCap === 12);
+    check('the record names the defaults as the source when the namespace is absent', /row config over coded DEFAULTS/.test(health.limits.source));
+    check('the record says when it was written and by which pid', typeof health.writtenAt === 'string' && health.writtenAt.length > 0 && health.pid === process.pid);
+  }
+
+  // And the same artifact with the schema path INTACT: the probe is not broken for
+  // the ordinary case, and the settings namespace is registered again.
+  console.log('spend-guard: ACTIVATION with the schema library resolvable (the ordinary case)');
+  const installs2 = [];
+  const ctxLoaded = fakeCtx({ settings: { installSection: (...args) => installs2.push(args) }, agents: { list: () => [] } });
+  const healthLoaded = healthFor('loaded');
+  const artifact2 = await import(`${pathToFileURL(join(ROOT, 'lib', 'guard.js')).href}?second=1`);
+  artifact2.apply(ctxLoaded, {
+    warnUsd: 35,
+    fanoutUsd: 80,
+    ceilingUsd: 150,
+    concurrencyCap: 12,
+    seedFromLogs: false,
+    stateFile: join(scratch, 'day-loaded.json'),
+    sessionsRoot: emptySessions,
+    healthFile: healthLoaded,
+  });
+  check('the row mounts with the schema library available', ctxLoaded.listeners['agent/pre-step'].length === 1);
+  check('the settings namespace IS registered when the schema class resolves', installs2.length === 1, `${installs2.length} installSection call(s)`);
+  const loadedHealth = JSON.parse(readFileSync(healthLoaded, 'utf8'));
+  check('the record says which root the schema came from', loadedHealth.degraded === false && loadedHealth.schema.mode === 'loaded' && loadedHealth.schema.root.length > 0, JSON.stringify(loadedHealth.schema));
+  check('the record names the settings namespace as the limit source when loaded', /settings namespace "spend-guard"/.test(loadedHealth.limits.source));
 } finally {
   rmSync(scratch, { recursive: true, force: true });
   rmSync(emptySessions, { recursive: true, force: true });
+  rmSync(barren, { recursive: true, force: true });
 }
 
 console.log('');

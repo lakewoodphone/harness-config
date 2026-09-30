@@ -1,0 +1,22 @@
+The mesh `subagent` tool (the remote provider) wraps the task string in SINGLE QUOTES before passing it
+over ssh. Therefore a single apostrophe anywhere in an inline prompt terminates the quoted argument and
+leaks the remainder to the remote shell. The child then either exits 1 with no result, or — worse —
+runs with a truncated or fragmented brief.
+
+Measured 2026-09-30 from ZABZ-TECH, three children lost in one wave:
+- stderr `error: unknown option '--profile'` — the `--profile` was inside my prompt text, not on the
+  transport command line.
+- stderr tail was the last character of my prompt, a single quote.
+- stderr tail was a fragment from the MIDDLE of my prompt.
+
+Controlled probe, same tool, same node, 852-char prompt with NO apostrophe: clean round trip, and every
+planted metacharacter (`$HOME`, backticks, `|`, angle brackets, and a single quote inside a sentence of
+double-quoted prose) arrived intact. The apostrophe in my own prose was the only variable.
+
+RULE: never dispatch a mesh child with a long inline prompt. Write the brief to a file and dispatch a
+filename-only prompt, e.g. "Read the brief file at C:/path/brief.md ... Follow it exactly." That prompt
+contains no apostrophe, no quote, no `$`, no backtick, no angle bracket, so nothing can be mangled. All
+11 children in the retry wave started successfully and the briefs also survive as an audit trail.
+
+Corollary: if a `subagent` call fails, read its stderr tail before concluding anything about the target
+node. A mangled prompt and an unreachable node look identical from the job status alone.

@@ -1,0 +1,19 @@
+{
+  "problems": [],
+  "ok": true,
+  "finishedAt": "2026-09-28T19:28:47.8798560Z",
+  "destination": "C:\\Users\\ezabz\\Code\\harness-config\\dsh-update\\tests\\switch\\fixtures\\backup-ok",
+  "totalFiles": 3,
+  "stores": [
+    {
+      "store": "sessions",
+      "ok": true,
+      "verified": 2
+    },
+    {
+      "store": "settings.yaml",
+      "ok": true,
+      "verified": 1
+    }
+  ]
+}

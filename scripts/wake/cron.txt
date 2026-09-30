@@ -127,3 +127,8 @@
 #   path. Measured reasons per source are in README.md section 4.
 # - anything that files work because time passed. CONTRACT.md 2: a dispatcher
 #   releases; it never invents.
+
+# integration source, installed 2026-09-30 (backlog item 5). Files reviewed branches that are not on the
+# integration base as ledger items; --limit 3 per run because a cold dry run found 12+9+5 unmerged branches
+# and a backlog nobody can read is worse than filing none.
+23 * * * * cd /home/zabz && /usr/bin/python3 /home/zabz/bin/work-integrator.py --days 3 --limit 3 >> /home/zabz/.sms-inbox/integrator.log 2>&1
