@@ -1,0 +1,6 @@
+path	branch	head	headDate	upstream	ahead	behind	dirty	untracked	stashes	branches	remotes	fetchExit
+/home/zabz/code/harness-config	master	f14bfde	2026-09-15T15:15:28-04:00	origin/master	0	675	1	2	0	1	origin,	0
+/home/zabz/edl_case/edl	master	51e1102	2026-05-13T18:38:02+02:00	origin/master			67	3	0	1	origin,	1
+/home/zabz/mtkclient	main	a6a7147	2026-06-27T10:37:41+02:00	origin/main	0	20	0	1	0	1	origin,	0
+/home/zabz/personal-secretary-mvp	master	696e5e252	2026-09-04T13:44:34-04:00	origin/master	0	230	0	0	1	1	origin,	0
+bash: line 30: $'\r': command not found
