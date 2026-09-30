@@ -184,11 +184,19 @@ def sha8(path: Path) -> str:
 
 
 def candidate_roots() -> list[Path]:
-    """Every place this runtime could be installed, in preference order."""
+    """Every place this runtime could be installed, in preference order.
+
+    The list is deliberately wider than the npx cache. Measured 2026-09-30: the
+    mesh worker node `zabz-tech-linux` runs children from
+    `/home/zabz/dsh-engine/node_modules/@deepseek-ai`, which no npx-only search
+    would ever find — so that machine kept the crash while the fix "shipped".
+    A patch that only covers the machine it was written on is not a fix.
+    """
     roots: list[Path] = []
     env = os.environ.get("MESHFIX_DSH_ROOT")
     if env:
         roots.append(Path(env))
+    home = Path.home()
     # the npx cache (the live install on the Windows machines)
     local = os.environ.get("LOCALAPPDATA")
     if local:
@@ -199,16 +207,34 @@ def candidate_roots() -> list[Path]:
     appdata = os.environ.get("APPDATA")
     if appdata:
         roots.append(Path(appdata) / "npm" / "node_modules" / "@deepseek-ai")
-    home = Path.home()
+    # a dedicated engine directory or a source checkout (the mesh worker layout)
+    for rel in (
+        "dsh-engine/node_modules/@deepseek-ai",
+        "code/dsh-engine/node_modules/@deepseek-ai",
+        ".dsh/node_modules/@deepseek-ai",
+        "code/deepseek-harness/node_modules/@deepseek-ai",
+        "deepseek-harness/node_modules/@deepseek-ai",
+        "node_modules/@deepseek-ai",
+    ):
+        roots.append(home / rel)
     roots.extend(
         [
-            home / ".dsh" / "node_modules" / "@deepseek-ai",
-            home / "code" / "deepseek-harness" / "node_modules" / "@deepseek-ai",
             Path("/usr/lib/node_modules/@deepseek-ai"),
             Path("/usr/local/lib/node_modules/@deepseek-ai"),
+            Path("/opt/dsh-engine/node_modules/@deepseek-ai"),
         ]
     )
-    return [r for r in roots if r.is_dir()]
+    # dedupe, keep order
+    seen = set()
+    out = []
+    for r in roots:
+        key = str(r)
+        if key in seen:
+            continue
+        seen.add(key)
+        if r.is_dir():
+            out.append(r)
+    return out
 
 
 def apply(path: Path, edits, check: bool) -> str:

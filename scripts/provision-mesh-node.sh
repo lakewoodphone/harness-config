@@ -802,6 +802,50 @@ EOF
   run df -Pk "$HOME"
   run tailscale serve status || true
 
+  # ------------------------------------------------- 8d. the settlement-crash fix
+  # WHY THIS IS A PROVISIONING STEP AND NOT A ONE-OFF EDIT.
+  # A child agent that has FINISHED its work can still kill its own process and lose
+  # its report: the settlement watcher is a detached async IIFE with no `.catch`, and
+  # the inbox getter it calls throws once the child's own scope has released the
+  # projection registration (full chain: journal L3188). The runtime is an npm
+  # install, so a version bump replaces the patched file and the crash comes back
+  # silently — on a worker node nobody is looking at.
+  #
+  # The script is idempotent and sentinel-marked, and `--check` exits non-zero the
+  # moment it cannot find its anchor. So a bump that invalidates the patch makes
+  # PROVISIONING FAIL LOUDLY instead of quietly un-fixing the mesh.
+  say "8d. settlement-crash fix on the DSH runtime"
+  local patcher="${HARNESS_CONFIG_DIR:-$HOME/code/harness-config}/scripts/patch-dsh-settlement-crash.py"
+  if [ ! -f "$patcher" ]; then
+    warn "no patch script at $patcher — cannot guarantee a finished child's report survives its own teardown"
+    failures+=("settlement-crash fix NOT verified: $patcher is absent (journal L3188)")
+    rc=21
+  elif ! command -v python3 >/dev/null 2>&1; then
+    warn "python3 is absent, so the settlement-crash fix cannot be checked or applied on this node"
+    failures+=("settlement-crash fix NOT verified: no python3 (journal L3188)")
+    rc=21
+  else
+    # `--check` first: only edit the vendor tree when the fix is actually missing.
+    if python3 "$patcher" --check --root "$deploy_root/node_modules/@deepseek-ai" >/dev/null 2>&1; then
+      note "ACCEPT the DSH runtime is already patched against the settlement crash"
+    else
+      note "applying the settlement-crash fix to $deploy_root/node_modules/@deepseek-ai"
+      if run python3 "$patcher" --root "$deploy_root/node_modules/@deepseek-ai"; then
+        if python3 "$patcher" --check --root "$deploy_root/node_modules/@deepseek-ai" >/dev/null 2>&1; then
+          note "ACCEPT applied and re-verified"
+        else
+          warn "the settlement-crash fix did NOT verify after applying — a finished child can still lose its report here"
+          failures+=("settlement-crash fix applied but failed verification (journal L3188)")
+          rc=21
+        fi
+      else
+        warn "the settlement-crash fix could not be applied — the runtime changed underneath it"
+        failures+=("settlement-crash fix NOT applied: the anchor moved (journal L3188) — re-derive the patch for this version")
+        rc=21
+      fi
+    fi
+  fi
+
   # ---------------------------------------------------------------- 9. worktree root
   say "9. fleet worktree root"
   local wr_ok=0 wr_reason=""
