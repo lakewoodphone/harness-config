@@ -1,0 +1,142 @@
+# profiles/mesh-browse/cordis.patch.yml
+#
+# TS-4 (docs/autonomy-fleet-20260930/b2-tool-stack.md §9): give mesh/headless
+# children a browse path.
+#
+# WHY THIS FILE EXISTS
+# `subagent` on the live seat is `provider: remote-ssh, remoteProfile: 'headless'`
+# (profiles/web/cordis.patch.yml:192). The child boots THIS machine's `headless`
+# profile, whose bundle list is `dsh-base + dsh-headless` and whose own patch is
+# the shipped empty `[]`. `dsh-base` supplies the base tool plane (pwsh, fs,
+# jobs, goal, subagent, workflow, ralph, todo, **tool-web**, skill), but the
+# MCP bridge rows live only in `presets/zabz/agent.cordis.yml`, which a headless
+# surface never mounts. So every child has no `firecrawl`, no `jina`, no
+# `playwright`, and -- the real loss -- no `ps_*` company reach.
+#
+# WHAT THIS IS
+# A NEW, ADDITIVE profile: `dsh-base + dsh-headless` plus the MCP client rows
+# below. It changes no existing profile. `headless` keeps its empty patch;
+# `web` keeps its own layer. Nothing here edits a bundle (docs/mesh/
+# 62-worker-runtime.md §2.4: a bundle edit to a non-web surface is silently
+# reverted; a patch layer is the documented shape).
+#
+# WHY NOT A PRESET
+# §2 of the audit and 62-worker-runtime.md §2.3: the non-web surfaces carry the
+# base tools but not the preset composition, and `headless` is a job runner
+# (`patchReload: startup`), not an engine. Adding the web bundle to headless is
+# the historical trap §2.4 records. A profile with its own patch is the scoped fix.
+#
+# DELIBERATELY NOT CARRIED
+# `mcp-context7` and `mcp-fetch` are omitted on purpose: TS-1/TS-2 (§9) mark
+# both for removal (10.0% of MCP schema bytes, 5 and 1 mentions of 1,611
+# projections). Only the browse/company families are re-inserted here.
+# The persona, realm and orchestration skill of `zabz` are NOT copied -- this is
+# a capability profile, not a persona.
+#
+# RISK, NAMED HONESTLY (§9 TS-4): these four families are 87 of 95 MCP tools,
+# 78,991 of 87,777 schema chars (~20k tokens) added to every child request.
+# The dump below proves composition only; it does not prove a child turn.
+#
+# Every row sets failOnStartupError: false so one dead server cannot block a
+# child from booting. The platform gate keeps Windows-only paths off other hosts.
+#
+# SECURITY NOTES (from the audit, not decoration):
+#   * `ps_action` can send SMS. It is a wide pipe. Never probe with it.
+#   * Tool-level failures arrive as `{"error": ...}` text with `isError: false`,
+#     so a client must NOT trust isError to detect failure.
+#   * `ps_health` returns ~90 KB in one result and will poison a context window.
+#     Prefer `ps_company_status` for routine checks.
+
+# The company. 14 tools: ps_company_status, ps_db_query, ps_memory_search,
+# ps_ceo_chat, ps_action, ps_log_tail, ps_circuit_breakers, and more. Runs on the
+# authority over ssh stdio so a child queries the REAL database, not a replica
+# (PAIN P22 / LESSONS L51).
+- insert:
+    - id: mcp-secretary
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        serverName: secretary
+        transport: stdio
+        command: ssh
+        args:
+          - '-T'
+          - '-o'
+          - 'BatchMode=yes'
+          - '-o'
+          - 'LogLevel=ERROR'
+          - '-o'
+          - 'ConnectTimeout=10'
+          - '-o'
+          - 'ServerAliveInterval=30'
+          - '-o'
+          - 'ServerAliveCountMax=3'
+          - 'secretary-ts'
+          - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
+          - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+
+    # LINUX ONLY -- the same 14 tools as a local child where the data lives. On
+    # the authority a child needs no ssh hop at all.
+    - id: mcp-secretary-linux
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'linux'
+      config:
+        serverName: secretary
+        transport: stdio
+        command: /home/zabz/personal-secretary-mvp/.venv/bin/python
+        args:
+          - /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+
+    # Scrape/search on bot-walled or JS pages. Launcher reads API keys from .env
+    # at spawn time (a patch file cannot resolve ${env:...}).
+    - id: mcp-firecrawl
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        serverName: firecrawl
+        transport: stdio
+        command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+        args:
+          - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+          - firecrawl
+        cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+        toolCallTimeoutMs: 180000
+        failOnStartupError: false
+
+    # The cheap reader: read_url + question/topk passages; PDFs, arxiv/ssrn.
+    - id: mcp-jina
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        serverName: jina
+        transport: stdio
+        command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+        args:
+          - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+          - jina
+        cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+
+    # The only real browser driver. Direct node, no npx: `@playwright/mcp@latest`
+    # forced a registry hit per start and left layered processes behind.
+    - id: mcp-playwright
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        serverName: playwright
+        transport: stdio
+        command: 'C:\\Program Files\\nodejs\\node.exe'
+        args:
+          - 'C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\@playwright\\mcp\\cli.js'
+          - '--headless'
+          - '--no-sandbox'
+          - '--output-dir'
+          - 'C:\\Users\\ezabz\\code\\personal-secretary-mvp\\data\\browser\\mcp-output'
+        cwd: 'C:\\Users\\ezabz\\code\\personal-secretary-mvp'
+        toolCallTimeoutMs: 180000
+        failOnStartupError: false
