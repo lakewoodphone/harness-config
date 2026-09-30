@@ -132,6 +132,7 @@ WHAT THE FLAG HANDS THE WORKER
 
 RUN
     python3 sources/checkout-health.py [--dry-run]
+    python3 sources/checkout-health.py --selftest   # assert the lock detector
 
 ENVIRONMENT (all read at call time)
     CHECKOUT_HEALTH_REGISTRY        default <this dir>/projects.json
@@ -161,8 +162,10 @@ from __future__ import annotations
 import fnmatch
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -604,7 +607,7 @@ def check_project(project: dict, now: datetime, opts: dict) -> dict[str, Any]:
                 f"(the fetch failed) -- reported, not flagged")
 
     # --- C. dirty, and for how long ---------------------------------------- #
-    status = run_git(repo, ["status", "--porcelain"])
+    status = run_git(repo, ["status", "--porcelain", "--", "."])
     if not status.ok:
         raise Unreadable(
             f"project {pid!r}: cannot read the working tree of {repo}: "
@@ -664,6 +667,173 @@ def resolve_upstream(repo: Path, branch: str) -> tuple[str | None, str]:
         if run_git(repo, ["rev-parse", "--verify", "--quiet", ref]).ok:
             return ref, how
     return None, "none"
+
+
+# --------------------------------------------------------------------------- #
+# --selftest: the lock detector, exercised on throwaway repos
+# --------------------------------------------------------------------------- #
+def _selftest_git_env() -> dict:
+    """An isolated git environment: no user config, a fixed identity, no prompts.
+
+    The fixture commits, so it needs an author; and the host's global git config
+    must not be able to change what is measured.
+    """
+    return {**os.environ, **_GIT_ENV,
+            "GIT_AUTHOR_NAME": "checkout-health selftest",
+            "GIT_AUTHOR_EMAIL": "selftest@example.invalid",
+            "GIT_COMMITTER_NAME": "checkout-health selftest",
+            "GIT_COMMITTER_EMAIL": "selftest@example.invalid",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull}
+
+
+def _selftest_git(args: list[str], cwd: Path, env: dict) -> None:
+    """Run one fixture git command; a failure aborts the fixture loudly."""
+    proc = subprocess.run(["git", *args], cwd=str(cwd), env=env,
+                          capture_output=True, text=True, errors="replace")
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"selftest fixture: git {' '.join(args)} rc={proc.returncode}: "
+            f"{(proc.stderr or proc.stdout).strip()}")
+
+
+def _selftest_repo(root: Path, env: dict) -> Path:
+    """A throwaway clone with a local bare origin and one LINKED WORKTREE.
+
+    The origin is a local path so `fetch` and upstream resolution succeed with no
+    network, which is what makes the lock assertions reachable.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    origin = root / "origin.git"
+    _selftest_git(["init", "--bare", "-b", "main", str(origin)], root, env)
+    seed = root / "seed"
+    _selftest_git(["init", "-b", "main", str(seed)], root, env)
+    (seed / "README").write_text("checkout-health selftest seed\n", encoding="utf-8")
+    _selftest_git(["add", "README"], seed, env)
+    _selftest_git(["commit", "-m", "seed"], seed, env)
+    _selftest_git(["remote", "add", "origin", str(origin)], seed, env)
+    _selftest_git(["push", "-q", "-u", "origin", "main"], seed, env)
+    repo = root / "repo"
+    _selftest_git(["clone", "-q", str(origin), str(repo)], root, env)
+    # A linked worktree keeps its OWN index.lock at
+    # <gitdir>/worktrees/<name>/index.lock -- the branch item 34 added and the
+    # one this test exists to stop regressing.
+    _selftest_git(["worktree", "add", "-q", "-b", "wt-branch",
+                   str(root / "linked-wt")], repo, env)
+    return repo
+
+
+def _selftest_write_lock(path: Path, age_sec: float) -> None:
+    """Create a zero-byte index.lock whose mtime is `age_sec` in the past."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("", encoding="utf-8")
+    when = datetime.now(timezone.utc).timestamp() - age_sec
+    os.utime(path, (when, when))
+
+
+def selftest() -> int:
+    """Exercise the index.lock detector (main + linked worktree) on throwaway repos.
+
+    The lock signal is load-bearing: a stale lock strands a checkout and makes
+    every git write in it fail, and the linked-worktree half was added for item 34
+    with no test behind it, so a refactor could delete it unnoticed. This builds
+    real git repositories under a temp dir and asserts the four states the detector
+    claims. It reads no registry, touches no wake store and makes no network call;
+    any failed assertion is a nonzero exit.
+
+        python3 checkout-health.py --selftest
+    """
+    checks: list[tuple[bool, str]] = []
+
+    def expect(ok: object, label: str, detail: str = "") -> None:
+        passed = bool(ok)
+        checks.append((passed, label))
+        suffix = "" if passed else (f"  [got: {detail}]" if detail else "")
+        print(f"  [{'ok' if passed else 'FAIL'}] {label}{suffix}")
+
+    def measure(where: Path) -> dict | None:
+        try:
+            return check_project(
+                {"id": "selftest", "title": "selftest", "repo": str(where),
+                 "enabled": True, "dirty_ignore": []},
+                datetime.now(timezone.utc), opts)
+        except Exception as exc:                    # noqa: BLE001 - report, never crash
+            expect(False, "check_project completed", f"{type(exc).__name__}: {exc}")
+            return None
+
+    opts = {"fetch_timeout": 10, "behind_min": DEFAULT_BEHIND_MIN,
+            "dirty_hours": DEFAULT_DIRTY_HOURS, "lock_grace_sec": 120,
+            "cooldown": 0, "ignores": []}
+    env = _selftest_git_env()
+    root = Path(tempfile.mkdtemp(prefix="checkout-health-selftest-"))
+    print(f"checkout-health --selftest (fixture in {root})")
+    try:
+        repo = _selftest_repo(root, env)
+        gitdir = repo / ".git"
+        main_lock = gitdir / "index.lock"
+        wt_lock = gitdir / "worktrees" / "linked-wt" / "index.lock"
+
+        # 1. no lock -> state none, and never lock-stale.
+        rep = measure(repo)
+        if rep is not None:
+            expect(rep["lock"]["state"] == "none",
+                   "no lock -> state none", repr(rep["lock"]))
+            expect("lock-stale" not in rep["reasons"],
+                   "no lock -> no lock-stale reason", repr(rep["reasons"]))
+
+        # 2. a fresh lock is inside the grace -> young, never lock-stale.
+        _selftest_write_lock(main_lock, 5)
+        rep = measure(repo)
+        if rep is not None:
+            expect(rep["lock"].get("state") == "young",
+                   "fresh lock -> young", repr(rep["lock"]))
+            expect("lock-stale" not in rep["reasons"],
+                   "fresh lock -> no lock-stale reason", repr(rep["reasons"]))
+        main_lock.unlink(missing_ok=True)
+
+        # 3. an old lock with no owner -> lock-stale.
+        _selftest_write_lock(main_lock, 3600)
+        rep = measure(repo)
+        if rep is not None:
+            expect(rep["lock"].get("state") == "stale",
+                   "old unowned lock -> state stale", repr(rep["lock"]))
+            expect("lock-stale" in rep["reasons"],
+                   "old unowned lock -> lock-stale reason", repr(rep["reasons"]))
+        main_lock.unlink(missing_ok=True)
+
+        # 4. a stale lock in a LINKED WORKTREE is found and NAMED, while the
+        #    main checkout's own lock is still none.
+        _selftest_write_lock(wt_lock, 3600)
+        rep = measure(repo)
+        if rep is not None:
+            expect(rep["lock"].get("state") == "none",
+                   "worktree case -> main lock still none", repr(rep["lock"]))
+            entries = {e.get("worktree_name"): e
+                       for e in rep.get("worktree_locks", [])}
+            entry = entries.get("linked-wt")
+            expect(entry is not None and entry.get("state") == "stale",
+                   "stale linked-worktree lock -> state stale", repr(entries))
+            expect("lock-stale" in rep["reasons"],
+                   "stale linked-worktree lock -> lock-stale reason",
+                   repr(rep["reasons"]))
+            expect(any("linked-wt" in n and "WORKTREE" in n
+                       for n in rep.get("notes", [])),
+                   "stale linked-worktree lock names the worktree",
+                   repr(rep.get("notes")))
+        wt_lock.unlink(missing_ok=True)
+    except Exception as exc:                        # noqa: BLE001 - report, never crash
+        expect(False, "selftest fixture built", f"{type(exc).__name__}: {exc}")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    failed = [label for ok, label in checks if not ok]
+    if failed:
+        print(f"SELFTEST FAILED: {len(failed)}/{len(checks)} check(s) failed: "
+              f"{'; '.join(failed)}")
+        return 1
+    print(f"SELFTEST OK ({len(checks)} checks: main lock none/young/stale + "
+          f"linked-worktree stale)")
+    return 0
 
 
 # --------------------------------------------------------------------------- #
@@ -1013,7 +1183,11 @@ def main() -> int:
     `_flag.run` files what was readable and returns 0, so unreadable projects are
     turned into exit 1 here, AFTER the readable ones have been filed. One missing
     directory must not blind the other project's checkout.
+
+    `--selftest` runs before anything else and never reaches the store.
     """
+    if "--selftest" in sys.argv[1:]:
+        return selftest()
     rc = _flag.run(SOURCE, collect)
     if _UNREADABLE:
         return 1

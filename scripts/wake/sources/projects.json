@@ -5,7 +5,7 @@
     "enforcement": "The count and the ceiling both live in wake.py as DEFAULT_MAX_PER_DAY / DEFAULT_MAX_USD_PER_DAY and are read from there by every other file; nothing restates the number. The measured 0.068 USD/shift is from ~/.sms-inbox/wake-cost.jsonl.",
     "measured_from": "wake_budget.released for the current UTC day in the wake store (~/.sms-inbox/inbox.db) - the same counter wake.py's daily-cap guard uses.",
     "global_max_usd_per_day": 70.0,
-    "per_project_raised": "2026-09-28: per-project max_flags_per_day 3, cooldown 21600s. The binding guard is the store's max_per_source_per_hour=3; the daily backstop is 500 and the spend ceiling 70 USD/day."
+    "per_project_raised": "2026-09-30: per-project 12 flags/day with a 1800s cooldown (was 3/day and 21600s). The real limits are the store's max_per_source_per_hour, the 500/day backstop and the 70 USD/day ceiling."
   },
   "projects": [
     {
@@ -15,9 +15,9 @@
       "repo": "/home/zabz/repos/kosher-filter-ai",
       "case": "kosher-filter-ai",
       "state_file": "/home/zabz/.wake-projects/kosher-ai-filter.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "REAL PATH, discovered 2026-09-20: /home/zabz/repos/kosher-filter-ai (git remote https://github.com/lakewoodphone/kosher-filter-ai.git, HEAD d225385 2026-09-06). Work-remaining evidence is the project's own checked-box roadmap in docs/cross-platform-filter-master.md, section 7 'Implementation Roadmap', whose first unchecked items are at lines 358-361: the Windows Phase 1 foundation. This is a development project with no production service on this host, so a shift is repo work proven by tests/builds.",
       "integration_branch": "origin/main"
     },
@@ -40,9 +40,9 @@
       "repo": "/home/zabz/repos/phone-and-tech-full",
       "case": "phone-and-tech-full",
       "state_file": "/home/zabz/.wake-projects/lpt-website.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "REAL PATH: /home/zabz/repos/phone-and-tech-full (git remote https://github.com/lakewoodphone/phone-and-tech-full.git) - monorepo with frontend/ (React) and backend/ (Node+Prisma). This is the LPT website; owner-queue rows about the customer portal and the website redo point at it. CORRECTED 2026-09-28: this note used to record 'HEAD 057cea451 2026-08-24' as if that were current. It was not - the checkout had been sitting on an August commit, 426 commits behind origin/test, with a stale .git/index.lock dated 2026-09-16 silently blocking every git write. The lock was moved aside and the tree fast-forwarded; it is now a3111f29a (2026-09-28). Work-remaining evidence is the project state file /home/zabz/.wake-projects/lpt-website.json, which is the authority and is kept current by each shift. A shift may now deploy to the TEST environment ONLY (see that file's authority_changed_2026_09_28); it must never deploy to production, never contact a customer, and anything customer-visible goes to the owner queue. If the repo ever looks stale again, CHECK FOR A STALE LOCK FIRST.",
       "dirty_ignore": [
         "reconciliation_plan.json"
@@ -57,9 +57,9 @@
       "repo": "/home/zabz/repos/lpt-hub",
       "case": "lpt-sync",
       "state_file": "/home/zabz/.wake-projects/lpt-sync.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "The owner names this repeatedly ('the LPT syncing system between dialpad, LPT hub, the production database and more needs to be constantly worked on and actually synced'). Ledger-driven: its items live in ~/bin/work.py under project 'lpt-sync'. No per-project state file - the ledger is the state.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
@@ -81,9 +81,9 @@
       "repo": "/home/zabz/repos/quickbooks-agent",
       "case": "cfo",
       "state_file": "/home/zabz/.wake-projects/cfo.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "Owner: 'let's say there's a CFO that has to be run'. quickbooks-agent is the real repo (/home/zabz/repos/quickbooks-agent). Ledger-driven.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
@@ -96,9 +96,9 @@
       "repo": "/home/zabz/repos/personality-test",
       "case": "personality-system",
       "state_file": "/home/zabz/.wake-projects/personality-system.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "REAL PATH, discovered 2026-09-28 by keepalive-personality-system: /home/zabz/repos/personality-test (cloned from https://github.com/lakewoodphone/personality-test.git, HEAD 43bcf286a0755c5e90bd1522686f656807ffd3b8; live https://personality.abletelsolutions.com -> personality-test:3000; owner working copy C:\\Users\\ezabz\\Code\\personality-system). Owner: 'the personality test system that we were doing needs to be constantly worked on'. The live AI calls in this system failed for over a week on a hardcoded model name (docs/dsh-at-scale/60-cost-audit.md and the models-resolve-at-runtime rule), so the standing item is that a model is resolved from the gateway catalog at runtime. Ledger-driven.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
@@ -110,9 +110,9 @@
       "repo": "/home/zabz/personal-secretary-mvp/apps/rentals",
       "case": "rental-system",
       "state_file": "/home/zabz/.wake-projects/rental-system.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "Owner named it. CODEBASE FOUND 2026-09-28 by the first shift: /home/zabz/personal-secretary-mvp/apps/rentals - the Lakewood Rentals marketplace app (workspace personal-secretary-mvp, remote https://github.com/lakewoodphone/personal-secretary-mvp.git, HEAD 7d8dd160, last rentals commit 26a54597), live at https://rentals.lakewoodphoneandtech.com. Registered in the work ledger; ledger item 39 closed 2026-09-28.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
@@ -124,9 +124,9 @@
       "repo": "/home/zabz/repos/chumash-timeline",
       "case": "chumash",
       "state_file": "/home/zabz/.wake-projects/chumash.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "Owner: 'the Bible codes that we were writing, that whole project needs to be worked on'. Repo not established (candidates exist on this machine); first shift finds it. Ledger-driven.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
@@ -138,13 +138,19 @@
       "repo": "/home/zabz/personal-secretary-mvp",
       "case": "prod-db-sync",
       "state_file": "/home/zabz/.wake-projects/prod-db-sync.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "Owner: 'the production database and more needs to be constantly worked on and actually synced and set up'. The authoritative DB is 12.37 GB with a 128 MB WAL on a control plane - size, truth and freshness are all open. Ledger-driven.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
-      "integration_branch": "origin/master"
+      "integration_branch": "origin/master",
+      "dirty_ignore": [
+        "firmware/",
+        "*.db-wal",
+        "*.db-shm"
+      ],
+      "dirty_ignore_note": "DECLARED 2026-09-29 by checkout-health (prod-db-sync). firmware/ is a GENERATED PlatformIO build cache (firmware/vehicle-logger/.pio/{build,libdeps}, 26 MB, mtime 2026-09-18 19:20Z = 10.9 d), untracked, and it is the single path that fired dirty-old on this project. The SAME directory is already declared for the housekeeping project, which shares this exact repo path (both point at /home/zabz/personal-secretary-mvp) and reports quiet as a result; without this entry the identical generated path raised the same flag twice. VERIFIED: `git ls-files firmware/` is empty (0 tracked paths) and the tree contains no real source outside .pio, so this hides no work. The directory is preserved in stash@{0} (db6bef82, untracked parent carries 84 firmware/ entries) and in /home/zabz/checkout-health-preserved/prod-db-sync-work-20260929T173154Z/. REMOVE this entry if hand-written firmware source ever appears under firmware/. ADDED 2026-09-30T13:53Z by checkout-health: the *.db-wal and *.db-shm patterns are SQLite runtime sidecars of the live checkout databases (data/phone_chat_history.db, data/vehicle.db). They are untracked and tool-generated, and the SAME four paths are already declared for the housekeeping project, which shares this exact repo path. VERIFIED: `git ls-files` matches 0 tracked paths for all four; the four counted paths were 18.4 h old (inside the 24 h window) at declaration time, so this only stops the imminent re-flag and hides no work. REMOVE the *.db-wal/*.db-shm patterns if such a name ever becomes real, tracked work."
     },
     {
       "id": "housekeeping",
@@ -153,11 +159,25 @@
       "repo": "/home/zabz/personal-secretary-mvp",
       "case": "housekeeping",
       "state_file": "/home/zabz/.wake-projects/housekeeping.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 12,
+      "budget_note": "RAISED 2026-09-30 by the dev seat, on the owner's standing instruction that volume is not the constraint and that the point of stopping is not to do less work but to avoid stupid, repeated or wasteful work. Was 3/day with a 21600s cooldown, which meant a project that had used its three by midday could not be woken again until the evening: measured 2026-09-30, ten housekeeping ledger items filed at 15:24Z were unreachable until 20:50Z and the backlog would have taken days. Now 12/day with a 1800s cooldown. The limits that remain are the ones that mean something: the store's per-source hourly cap, the 500/day global backstop, and the 70 USD/day spend ceiling against a measured 0.036-0.068 USD per shift.",
       "notes": "Owner: 'a lot of times they're a unique standard housekeeping and evolution for the AI company to begin with'. This is the project the wake/tuner/authority items belong to.",
-      "integration_branch": "origin/master"
+      "integration_branch": "origin/master",
+      "dirty_ignore": [
+        "*.bak-*",
+        "*.ownergate-*",
+        "*.contentionfix-*",
+        "*.ingestfix-*",
+        "*.tmpnew",
+        "*.db-wal",
+        "*.db-shm",
+        "_pt_*",
+        "_scratch_*",
+        "backup-evidence-*",
+        "firmware/"
+      ],
+      "dirty_ignore_note": "DECLARED 2026-09-29 by checkout-health (housekeeping). These are untracked, tool-generated artefacts of a live checkout: ownergate/bak/contentionfix/ingestfix backups, scratch probe dirs (_pt_*), _scratch_* scripts, SQLite -wal/-shm sidecars, and backup-evidence-* dirs. VERIFIED: zero TRACKED paths match any pattern (the 128 paths removed from the dirty count are all untracked); the 87 tracked modifications and the remaining real untracked work stay counted. The oldest counted path had been tests/test_personal_ops.py.ownergate-20260928-161107 (an untracked backup, 115.7 d) which is what fired dirty-old. Remove a pattern if such a name ever becomes real work. ADDED 2026-09-29T134119Z: \"firmware/\" is the PlatformIO GENERATED package/build cache firmware/vehicle-logger/.pio (26 MB, mtime 2026-09-18 19:20Z; this 10.8 d path is what fired dirty-old on the 2026-09-29 re-measure). It is untracked and git collapses it to the single porcelain path \"firmware/\". The vehicle-logger firmware SOURCE is NOT present in this worktree (it is tracked on origin/co/merged and preserved in stash@{1}'s untracked parent), so this pattern hides no source today. REMOVE this pattern if real, hand-written firmware files ever appear untracked under firmware/ - the pattern only matches the whole-directory entry, so any tracked firmware file makes git list real untracked paths individually and they will count again."
     }
   ]
 }

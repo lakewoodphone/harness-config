@@ -577,6 +577,48 @@ def changed_subjects(judgement: dict, previous: dict) -> list[dict]:
     return out
 
 
+def _merge_changes(carried: list, current: list) -> list:
+    """Every change that has not yet been reported, oldest first, ONE entry per subject.
+
+    A subject that moved twice before either movement was reported is reported once, with its
+    LATEST state - reporting the intermediate step would be noise, and reporting both would be the
+    same mistake this fix exists to end.
+    """
+    out: dict = {}
+    for change in list(carried) + list(current):
+        if isinstance(change, dict) and change.get("subject"):
+            out[change["subject"]] = change
+    return [out[k] for k in sorted(out)]
+
+
+def _changes_section(changes: list) -> str:
+    """The carried changes, rendered for the ONE daily digest instead of N separate sessions."""
+    if not changes:
+        return ""
+    lines = ["", "", "THRESHOLD CHANGES SINCE THE LAST DIGEST", "-" * 40,
+             f"{len(changes)} subject(s) moved. Each is applied through the state file; this is",
+             "the review, not the change:"]
+    for c in changes:
+        lines += [
+            "",
+            f"  {c['subject']}",
+            f"    rule ............... {c.get('rule')}",
+            f"    action ............. {c.get('from')} -> {c.get('to')}",
+            f"    proposed cooldown .. {c.get('proposed_cooldown_sec')}s",
+            f"    why ................ {c.get('reason')}",
+        ]
+    lines += [
+        "",
+        "FOR EACH: confirm it against `~/.sms-inbox/wake-cost.jsonl` and the `wake` table",
+        "(`sqlite3 -readonly ~/.sms-inbox/inbox.db \"select id,subject,state,claimed_at,",
+        "substr(outcome,1,80) from wake\"`). If a DISABLE is correct, say so in one line and",
+        "leave the record; if the emptiness was the DISPATCHER's fault rather than the subject's,",
+        "say that instead and do not mute the subject.",
+        "Do NOT edit wake.py / wake-dispatch.sh / run-wake-sources.sh / cron.",
+    ]
+    return "\n".join(lines)
+
+
 def digest_text(judgement: dict, changes: list[dict], caps: dict, gaps: list[str]) -> str:
     lines = [f"WAKE COST DIGEST — {judgement['day']} (UTC)",
              "=" * 58,
@@ -589,6 +631,16 @@ def digest_text(judgement: dict, changes: list[dict], caps: dict, gaps: list[str
                 else f"${judgement['cost_today']:.6f}")
              + f"  ({judgement['priced_today']} priced, "
                f"{judgement['unsourced_today']} unsourced)"]
+    # WHICH COST IS WHICH. Two numbers for one day existed on 2026-09-29 and nothing said
+    # which to believe: this digest read its own periodic snapshot (0.997373 over 37 priced
+    # releases) while the live sum over the per-release rows read 1.224594 over 41. The gap
+    # is staleness, not arithmetic - and two independent sums of one file is how they drifted
+    # apart, so the fix is to NAME THE AUTHORITY rather than add a third sum here.
+    lines.append("cost source ....... the wake-cost.py snapshot row for this day, AS OF when that"
+                 " row was last written - a periodic snapshot, not a live figure")
+    lines.append("AUTHORITATIVE ..... the live sum over the per-release rows is what the 70"
+                 " USD/day cap enforces: `python3 ~/bin/wake.py stats --json` ->"
+                 " spend_today_usd. Never quote either without naming which.")
     if gaps:
         lines.append("MISSING SIGNAL ...... " + "; ".join(gaps))
     if judgement.get("unreadable_log_lines"):
@@ -671,6 +723,11 @@ def collect(args) -> list[Finding]:
     force = bool(getattr(args, "force", False))
     already = (previous or {}).get("digest_day")
     changes = changed_subjects(judgement, previous)
+    # EVERYTHING UNREPORTED, not just this run: see _merge_changes. The tuner runs every 15
+    # minutes and persist() absorbs each movement immediately, so a movement is visible to
+    # exactly one run - without this carry, anything moving after the day's digest would
+    # never be reported at all.
+    pending = _merge_changes((previous or {}).get("changes_unreported") or [], changes)
 
     if getattr(args, "print_digest", False) or force or already != judgement["day"]:
         text = digest_text(judgement, changes, caps, gaps)
@@ -679,7 +736,12 @@ def collect(args) -> list[Finding]:
         print(f"wake-tuner: digest for {judgement['day']} already emitted "
               f"(state {state_path()})", file=sys.stderr)
 
-    if not force and already == judgement["day"] and not changes:
+    if not force and already == judgement["day"]:
+        # ONE RELEASE PER DAY. This used to still emit one flag per changed subject, which
+        # is how one day cost 13 sessions. If the day's digest has gone out, this run emits
+        # nothing; whatever moved is carried in the state file and reported in tomorrow's
+        # digest. Nothing is lost, because the change itself is already applied through the
+        # state file - the flag is only the REVIEW.
         return []
 
     findings: list[Finding] = []
@@ -716,7 +778,7 @@ def collect(args) -> list[Finding]:
             "cron from that session. Do NOT contact the owner or any customer.",
             "Report at the end: what the record shows, what you changed, what is",
             "still unpriced.",
-        ]),
+        ]) + _changes_section(pending),
         context=(f"{SOURCE}: {judgement['releases_today']} release(s) today, "
                  f"{judgement['tokens_today']} token(s), "
                  f"cost={'unsourced' if judgement['cost_today'] == 'unsourced' else judgement['cost_today']}, "
@@ -727,36 +789,9 @@ def collect(args) -> list[Finding]:
         cooldown_seconds=_int("WAKE_TUNER_MAX_COOLDOWN_SEC", 604800),
     ))
 
-    for change in changes:
-        findings.append(Finding(
-            subject=f"wake-cost-tune:{change['subject']}",
-            prompt="\n".join([
-                f"The wake tuner changed the release threshold for **{change['subject']}**.",
-                "",
-                f"  rule ............... {change['rule']}",
-                f"  action ............. {change['from']} -> {change['to']}",
-                f"  proposed cooldown .. {change['proposed_cooldown_sec']}s",
-                f"  why ................ {change['reason']}",
-                "",
-                "The tuner writes no store state (sources may only write through the",
-                "frozen `flag` CLI). The change is recorded in",
-                f"{state_path()} and delivered as this finding's cooldown.",
-                "",
-                "WHAT TO DO",
-                "1. Confirm the change against `~/.sms-inbox/wake-cost.jsonl` and the",
-                "   `wake` table (`sqlite3 -readonly ~/.sms-inbox/inbox.db \"select",
-                "   id,subject,state,claimed_at,substr(outcome,1,80) from wake\"`).",
-                "2. If a DISABLE is correct, say so in one line and leave the record;",
-                "   if the emptiness was the dispatcher's fault, say that instead and",
-                "   do not mute the subject.",
-                "Do NOT edit wake.py / wake-dispatch.sh / run-wake-sources.sh / cron.",
-            ]),
-            context=(f"{SOURCE}: {change['subject']} {change['from']}->{change['to']} "
-                     f"by {change['rule']}: {change['reason']}"),
-            priority="low",
-            kind="repair",
-            cooldown_seconds=_int("WAKE_TUNER_MAX_COOLDOWN_SEC", 604800),
-        ))
+    # NO PER-SUBJECT FINDINGS. This loop used to emit one `wake-cost-tune:<subject>` flag per
+    # changed subject, and a flag is a whole headless session: 12 of them on 2026-09-29. The
+    # changes are carried into the single daily digest by _changes_section(pending) above.
     return findings
 
 
@@ -779,7 +814,8 @@ def _caps() -> dict:
         return {"readable": False, "why": f"{type(exc).__name__}: {exc}"}
 
 
-def persist(judgement: dict, changes: list[dict], dry_run: bool) -> Path | None:
+def persist(judgement: dict, changes: list[dict], dry_run: bool,
+            unreported: list | None = None) -> Path | None:
     """Remember the day and the last judgement, so a re-run changes nothing."""
     if dry_run:
         return None
@@ -794,6 +830,9 @@ def persist(judgement: dict, changes: list[dict], dry_run: bool) -> Path | None:
         "releases_total": judgement["releases_total"],
         "subjects": judgement["subjects"],
         "changes_this_run": changes,
+        # What the digest has NOT yet told anyone. Reported in the next digest rather than
+        # in a session of its own.
+        "changes_unreported": list(unreported or []),
         "history": (previous.get("history") or [])[-30:] + [{
             "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "day": judgement["day"],
@@ -861,8 +900,16 @@ def main(argv=None) -> int:
         events = read_dispatch_log()
         costs, _gaps = cost_index()
         judgement = judge(releases, costs, events)
-        changes = changed_subjects(judgement, read_json(state_path(), {}))
-        written = persist(judgement, changes, args.dry_run)
+        previous = read_json(state_path(), {})
+        changes = changed_subjects(judgement, previous)
+        # The same decision collect() makes, recomputed here because main() re-derives the
+        # judgement independently: if the digest went out this run, its carried set is spent;
+        # if it did not, everything unreported stays carried for tomorrow.
+        _pending = _merge_changes(previous.get("changes_unreported") or [], changes)
+        _emitted = (bool(getattr(args, "force", False))
+                    or previous.get("digest_day") != judgement["day"])
+        written = persist(judgement, changes, args.dry_run,
+                          unreported=[] if _emitted else _pending)
         if written:
             print(f"state: {written}", file=sys.stderr)
     except Unreadable as exc:
