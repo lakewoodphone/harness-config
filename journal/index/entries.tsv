@@ -745,6 +745,7 @@ handoff	H3064	3064		2026-09-30 15:01 UTC	ZABZ-TECH	open	## 2026-09-30 15:01 UTC 
 handoff	H3065	3065		2026-09-30 15:04 UTC	ZABZ-TECH	open	## 2026-09-30 15:04 UTC · ZABZ-TECH · NJ DOL BC28 for Weinberg: reason confirmed by the owner, Employer Access created, form filled and at the submit button	entries/handoff/H3065.md	1	91	4d3d1806bbda1704
 handoff	H3066	3066		2026-09-30 15:04 UTC	ZABZ-TECH	open	## 2026-09-30 15:04 UTC · ZABZ-TECH · Family chat: three defects found by pulling it up, all three fixed, deployed and falsified	entries/handoff/H3066.md	1	39	04013e51a87014ad
 handoff	H3067	3067		2026-09-30 15:05 UTC	ZABZ-TECH	open	## 2026-09-30 15:05 UTC · ZABZ-TECH · Autonomy audited end to end, 32-item backlog written, and the trigger proven live	entries/handoff/H3067.md	1	57	ceab50a97eb2ddda
+handoff	H3068	3068		2026-09-30 15:15 UTC	ZABZ-TECH	open	## 2026-09-30 15:15 UTC · ZABZ-TECH · Latest-slot analysis: 12PM is both the last Thursday shuttle a couple can book and the cheapest all-in - and the mesh failed a fourth time	entries/handoff/H3068.md	1	21	fd18fb2686917951
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -2575,6 +2576,7 @@ decisions	D2837	2837		2026-09-28	ZABZ-TECH	open	**D2837 · 2026-09-28 · The pho
 decisions	D2838	2838		2026-09-28	ZABZ-TECH	open	**D2838 · 2026-09-28 · Version-coupled config gets a SYNC-TIME precondition, not discipline; sync skips only the coupled steps and fails open.**	entries/decisions/D2838.md	1	47	a347bb5db88c8f29
 decisions	D2839	2839		2026-09-30	ZABZ-TECH	open	**D2839 · 2026-09-30 · The gateway resolves a short model id and the catalogue lists it; an unknown id is served loudly, never silently.**	entries/decisions/D2839.md	1	34	54218ee277f54de7
 decisions	D2840	2840		2026-09-30	ZABZ-TECH	open	**D2840 · 2026-09-30 · BC28 separation reason: voluntary quit, confirmed by the owner - and the seat may not take a decision whose cost is a false statement by him to a state agency.**	entries/decisions/D2840.md	1	43	09a9a4e743657710
+decisions	D2841	2841		2026-09-30	ZABZ-TECH	open	**D2841 · 2026-09-30 · An integrator shift may merge reviewed work to main: scoped, logged, revertible - and the source stays unscheduled until it has a per-run cap.**	entries/decisions/D2841.md	1	58	178e9e54da312680
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e

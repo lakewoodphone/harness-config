@@ -6,7 +6,28 @@ landscape and our stack).
 
 Each item is a self-contained topic: what to do, why it is worth doing with the measurement behind it, how
 much effort, what it buys, and the first concrete step. They are ordered by leverage within each group, not
-by theme. Nothing here has been implemented — no live script was changed by this audit.
+by theme.
+
+## Status — what is already done (updated 2026-09-30 15:25Z)
+
+- **Item 7, DONE and verified live.** A read-only reader, `scripts/wake/wake-nextclaim.py`, answers
+  "can anything be claimed right now, and if not, when" from the `not_before` gate. `autonomy-status.sh`
+  now prints three distinct states instead of one. Live output at 15:13Z:
+  `IDLE: healthy - 8 row(s) waiting, NONE claimable now; earliest 2026-10-01T19:44:24+00:00 (dormant-archive:20260928)`
+  — where an hour earlier the same queue read "no cap in force - the next cron tick should claim".
+- **Items 9 and 10, DONE and verified live.** A failed claim no longer runs `rm -rf` on its own evidence:
+  it is moved to `~/.sms-inbox/wake-failed/` and the tick now records the gate reason. Confirmed on the
+  15:15Z tick: `claimed=no; stopping; evidence=kept in .../wake-failed; gate={"claimable_now": 0, "gated": 8,
+  "earliest": "2026-10-01T19:44:24+00:00"}`.
+- **Item 6, DECIDED.** An integrator shift may merge reviewed, test-green, conflict-free branches to main —
+  logged, revertible, no force-pushes. Recorded as decision **D2841**.
+- **Item 5, blocked on one measured thing.** `work-integrator.py` never merges (it files integration items),
+  but it has no per-run limit and a cold dry run finds 12 unmerged branches for kosher-ai-filter, 9 for
+  lpt-website and 5 for lpt-sync. Scheduling it as-is would file dozens at once. It gets a `--limit` first.
+- Backups of both changed live scripts exist beside them on the authority, and the repo copies in
+  `scripts/wake/` were updated in the same commit so the next deploy cannot silently revert the fix.
+
+Items 1-5, 6's implementation, 8 and 11-38 remain as written below.
 
 Numbers in USD, written plainly. Where a figure comes from a vendor's own page the source document names
 it; where it is my arithmetic it says so.
@@ -45,7 +66,11 @@ add the two columns and a source that lists blockers whose revisit time has pass
 crontab. Schedule it, with an integration item type, so reviewed branches land. *Why:* four items are
 blocked on merges a shift is forbidden to do; item 82 is review-complete with a clean merge tree and has
 sat since 2026-09-29. *Effort* S. *Gain:* work stops accumulating as unmerged branches — the standing
-failure of this whole loop. *First step:* one cron line and one dry run that merges nothing.
+failure of this whole loop. *First step, updated:* it needs a `--limit N` argument first. A cold dry run
+found 12 unmerged branches for kosher-ai-filter, 9 for lpt-website and 5 for lpt-sync, and the script has
+only `--days` and `--project`, so one scheduled run would file dozens of items at once, many of them stale
+`origin/agent/*` and `origin/integrate/*` refs. Add the cap, verify with a dry run that files nothing,
+then schedule it hourly.
 
 **6. Authorize the integrator to merge to main, scoped and audited.** *This is the one item that is
 genuinely yours.* Two blocked items say, in their own words, "a person with main-branch access" and "only
