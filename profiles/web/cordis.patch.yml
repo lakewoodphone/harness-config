@@ -290,15 +290,15 @@
   # Written by `node scripts/make-preset-rows.mjs --install`; `--check` fails when
   # this block and presets/*/agent.cordis.yml disagree. The standalone artifact for
   # composing with `--patch` is profiles/web/presets.generated.patch.yml.
-  #   presets/cordis-bg/agent.cordis.yml  rows=19  order=10  sha256=ed3e9b11ece1b3bbe77e7ee60ef48e5318b207c245217081e65ec72064d3ea84
-  #   presets/yocheved/agent.cordis.yml  rows=20  order=11  sha256=44efaeefd6508622171114b72021ef7f7e77c71db2ca16ccdeb0ca41f18e281b
-  #   presets/zabz/agent.cordis.yml  rows=26  order=12  sha256=8e04dd8ea20c65499669d70512bd79a347785d205b8ef33e31ce844a19f11f01
+  #   presets/cordis-bg/agent.cordis.yml  rows=19  order=10  sha256=f02d46899516c7b0f0866f635ed607fd90ff87de302bcee3ae7af1d5abc6f445
+  #   presets/yocheved/agent.cordis.yml  rows=20  order=11  sha256=259425bd923b645740269639e231a85251155a4060ff2655fcccad072a6ae587
+  #   presets/zabz/agent.cordis.yml  rows=24  order=12  sha256=be03aa75bd3a9fc7a70b0a7c6748fee3eaf5e8adbbb13cbd5acc70305116e354
   {
     insert:
       [
         {
             id: preset-cordis-bg,
-            name: "@deepseek-ai/dsh-agent-presets",
+            name: "@deepseek-ai/dsh-agent-preset",
             config:
               {
                 id: cordis-bg,
@@ -482,7 +482,7 @@
       [
         {
             id: preset-yocheved,
-            name: "@deepseek-ai/dsh-agent-presets",
+            name: "@deepseek-ai/dsh-agent-preset",
             config:
               {
                 id: yocheved,
@@ -977,7 +977,7 @@
       [
         {
             id: preset-zabz,
-            name: "@deepseek-ai/dsh-agent-presets",
+            name: "@deepseek-ai/dsh-agent-preset",
             config:
               {
                 id: zabz,
@@ -1561,35 +1561,6 @@
                             args: [ C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py, jina ],
                             cwd: C:\Users\ezabz\code\personal-secretary-mvp,
                             toolCallTimeoutMs: 120000,
-                            failOnStartupError: false
-                          }
-                      },
-                    {
-                        id: mcp-context7,
-                        name: "@deepseek-ai/dsh-mcp-client",
-                        disabled: !!js process.platform !== 'win32',
-                        config:
-                          {
-                            serverName: context7,
-                            transport: stdio,
-                            command: C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe,
-                            args: [ C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py, context7 ],
-                            cwd: C:\Users\ezabz\code\personal-secretary-mvp,
-                            toolCallTimeoutMs: 120000,
-                            failOnStartupError: false
-                          }
-                      },
-                    {
-                        id: mcp-fetch,
-                        name: "@deepseek-ai/dsh-mcp-client",
-                        disabled: !!js process.platform !== 'win32',
-                        config:
-                          {
-                            serverName: fetch,
-                            transport: stdio,
-                            command: C:\\Program Files\\nodejs\\node.exe,
-                            args: [ C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\mcp-fetch-server\\dist\\index.js ],
-                            toolCallTimeoutMs: 90000,
                             failOnStartupError: false
                           }
                       },

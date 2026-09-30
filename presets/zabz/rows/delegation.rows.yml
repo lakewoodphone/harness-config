@@ -1,0 +1,56 @@
+    # `subagent` IS THE MESH (2026-09-17). Its children are real agent turns on
+    # another node (`packages/plugin-remote-fanout`, provider `remote-ssh`,
+    # configured in profiles/web/cordis.patch.yml) — not on this machine. No
+    # prompt has to say so: the tool an agent reaches for by reflex is the
+    # remote one.
+    - id: tool-subagent
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: remote-ssh
+        toolName: subagent
+        # WAS `false`, AND THAT IS THE WHOLE REASON A FAN-OUT LOOKS LIKE A FREEZE.
+        #
+        # A mesh child is a real agent turn on ANOTHER machine and it produces no local
+        # process and no local session, so there is nothing for the UI to show while it
+        # runs. With backgrounding off, the parent's tool call also BLOCKS for the child's
+        # entire life: the owner sees the composer sitting on "subagent", nothing in the
+        # job list, and no way to tell working from hung (his exact words, 2026-09-18:
+        # "it is supposed to take a second to call and then i see it here on the top left").
+        # It is also what made the previous night's fleets impossible: a five-child fan-out
+        # held the parent turn open for the full remote turn timeout and then died with it.
+        #
+        # With it on, `subagent(..., run_in_background: true)` returns a durable child id at
+        # once, the child keeps working on its node, and it appears in the job list the owner
+        # is looking at. The prompt section the shipped row emits for a background-enabled
+        # row ("use it in the background by default") is the behaviour we want here; the
+        # local fallback row below stays one-shot and stays quiet on purpose.
+        enableRunInBackground: true
+        maxDepth: provider-managed
+
+    # The mesh under its old name, for the scripts and prompts that already say
+    # it. Same provider, same behaviour, same node.
+    - id: tool-subagent-remote
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: remote-ssh
+        toolName: subagent_remote
+        enableRunInBackground: true
+        maxDepth: provider-managed
+
+    # THE FALLBACK, NAMED SO IT CANNOT BE MISTAKEN FOR THE MESH: the child runs
+    # on THIS machine. Reach for it only when the mesh is unreachable or the
+    # owner asked for local work, and label its results LOCAL.
+    #
+    # `backgroundMode: one-shot`, NOT `continuable`, on purpose: the shipped row
+    # emits a system-prompt section reading "Use <toolName> in the background by
+    # default" whenever it is both background-enabled and continuable
+    # (`lib/index.js:576-580`) — for the local fallback that is a prompt telling
+    # the agent to prefer it. One-shot silences that section and keeps
+    # `run_in_background: true` available for a parent that wants a job id.
+    - id: tool-subagent-local
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: subagent_local
+        modelSelectionSettings: true
+        backgroundMode: one-shot

@@ -1,0 +1,168 @@
+
+# ── MCP bridges ─────────────────────────────────────────────────────────────
+#
+# These existed in the owner's VS Code setup (personal-secretary-mvp/.vscode/
+# mcp.json) and their absence here was a real capability regression. Carried over
+# deliberately, not invented.
+#
+# Every row sets failOnStartupError: false so one dead server can never block the
+# preset from mounting. The platform gate keeps Windows-only paths off other
+# hosts.
+#
+# SECURITY NOTES (from the audit, not decoration):
+#   * `ps_action` can send SMS. It is a wide pipe. Never probe with it.
+#   * Tool-level failures arrive as `{"error": ...}` text with `isError: false`,
+#     so a client must NOT trust isError to detect failure.
+#   * Handler results are JSON-encoded strings and need a second parse.
+#   * `ps_health` returns ~90 KB in one result and will poison a context window.
+#     Prefer `ps_company_status` for routine checks.
+#   * MCP tool definitions can change under a client and the spec has no
+#     re-approval mechanism. Review `tools/list` after upgrades.
+
+# The company. 14 tools: ps_company_status, ps_db_query, ps_memory_search,
+# ps_ceo_chat, ps_action, ps_log_tail, ps_circuit_breakers, and more.
+#
+# RUNS ON THE AUTHORITY HOST, over SSH stdio -- deliberately, and this is the fix
+# for a live defect rather than a preference.
+#
+# As a local command this server reads `ROOT/data/secretary.db`, i.e. whatever copy
+# sits beside the script. On a workstation that is a **replica**: 173 tables and up
+# to a day stale, against the authority's 203 tables and 2.4 GB. On 2026-09-11 the
+# phone path answered "13 ticks today, nothing logged between 08-21 and 09-10" from
+# that replica while the authority said 197 ticks and no gaps -- confidently wrong,
+# with a plausible explanation invented for the artefact (PAIN P22, LESSONS L51).
+#
+# Running it here means one copy, and the real one: same database as the kernel,
+# and the API tools (`ps_ceo_chat`, `ps_action`) hit the authority's own localhost
+# API instead of a workstation's. Verified over SSH: 14 tools, protocol
+# 2025-11-25, `ps_db_query` for today's ticks returns 197.
+#
+# Transport notes: no TTY (`-T`) so nothing but JSON-RPC reaches stdout, BatchMode
+# so it can never sit at a password prompt, and keepalives so a long-lived session
+# does not hang on a dropped network. `ps_open_loops` is the one tool whose meaning
+# changes here -- it mines *local* VS Code conversations, and on the server there
+# are none. It is a VS Code-era tool; expect it to return nothing rather than
+# something wrong.
+#
+# WINDOWS ONLY. On the authority itself the bridge must be a LOCAL child -- see the
+# next row. Two rows, two platforms, one serverName; the gates are exclusive so
+# exactly one is ever active.
+- id: mcp-secretary
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: secretary
+    transport: stdio
+    command: ssh
+    args:
+      - '-T'
+      - '-o'
+      - 'BatchMode=yes'
+      - '-o'
+      - 'LogLevel=ERROR'
+      - '-o'
+      - 'ConnectTimeout=10'
+      - '-o'
+      - 'ServerAliveInterval=30'
+      - '-o'
+      - 'ServerAliveCountMax=3'
+      - 'secretary-ts'
+      - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
+      - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+
+# LINUX ONLY -- the same 14 tools, run where the data is, as a plain local child.
+#
+# This is the row the always-on engine uses (the one the owner's phone talks to). Because that engine
+# runs *on* the authority, there is no ssh, no network hop, and therefore no way for a network blip to
+# spawn processes on the company host -- which is what PAIN P23 recorded when workstation engines ran
+# the ssh row through a flaky path. It also removes the last dependency on a laptop being awake.
+#
+# Same reasoning as the row above for *why* it runs here; the difference is that here it needs no
+# transport at all.
+- id: mcp-secretary-linux
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'linux'
+  config:
+    serverName: secretary
+    transport: stdio
+    command: /home/zabz/personal-secretary-mvp/.venv/bin/python
+    args:
+      - /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+
+# The launcher scripts read API keys from .env at spawn time. VS Code cannot
+# resolve ${env:...} in its mcp.json and neither can this file -- that is exactly
+# why those launchers exist.
+- id: mcp-firecrawl
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: firecrawl
+    transport: stdio
+    command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+    args:
+      - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+      - firecrawl
+    cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+    toolCallTimeoutMs: 180000
+    failOnStartupError: false
+
+- id: mcp-jina
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: jina
+    transport: stdio
+    command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+    args:
+      - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+      - jina
+    cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+
+# TS-1 / TS-2 REMOVED 2026-09-30 (`docs/autonomy-fleet-20260930/b2-tool-stack.md` §8/§9).
+# `mcp-context7` (2 tools / 4,665 schema chars) and `mcp-fetch` (6 / 4,121) are gone:
+# measured saving 8 tools and 8,786 of 87,777 MCP schema chars (10.0 %), ~2,196 tokens
+# on every request at 4 chars/token, against 0/983 and 6/983 stored-session mentions
+# (a mention count, not a call count). Both were duplicates of the builtin
+# `web_search`/`web_fetch` path plus jina/firecrawl. Evidence and method:
+# `docs/mcp-schema-cost-20260930.md`. To restore or add a row, edit THIS FILE
+# (`presets/zabz/rows/mcp.rows.yml`) and re-run the two generators named in
+# `docs/generated-config-20260930.md`; `profiles/web/cordis.patch.yml` carries a
+# GENERATED copy of these rows (written by `scripts/make-preset-rows.mjs`), so a
+# hand edit there is drift, never the fix.
+
+# Deterministic accessibility-tree browser automation. Playwright downloads and
+# browser profiles are the most likely thing to be slow or missing on a fresh
+# machine, hence failOnStartupError false.
+#
+# `--user-data-dir` IS PINNED (TS-5, 2026-09-30): the browser keeps a persistent
+# profile so a logged-in portal session survives the child that opened it. The
+# path is a fixed local directory, not a temp one; without it every Playwright
+# start is anonymous and every login is lost.
+#
+# DIRECT node, no npx.cmd (2026-09-16) -- same reasoning as mcp-fetch, and this row
+# was the worst offender because `@playwright/mcp@latest` forced a registry hit for
+# the `latest` tag on every single start.
+- id: mcp-playwright
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: playwright
+    transport: stdio
+    command: 'C:\\Program Files\\nodejs\\node.exe'
+    args:
+      - 'C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\@playwright\\mcp\\cli.js'
+      - '--headless'
+      - '--no-sandbox'
+      - '--user-data-dir'
+      - 'C:\\Users\\ezabz\\AppData\\Local\\ms-playwright-mcp\\mcp-chrome-32dbea4'
+      - '--output-dir'
+      - 'C:\\Users\\ezabz\\code\\personal-secretary-mvp\\data\\browser\\mcp-output'
+    cwd: 'C:\\Users\\ezabz\\code\\personal-secretary-mvp'
+    toolCallTimeoutMs: 180000
+    failOnStartupError: false

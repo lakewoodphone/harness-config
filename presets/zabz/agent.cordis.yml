@@ -440,18 +440,19 @@
         backgroundMode: one-shot
         maxDepth: provider-managed
 
-    # Renamed upstream in the 0.1.7 line (measured 2026-09-28); see
-    # presets/cordis-bg/agent.cordis.yml for the full measurement. Version-coupled: the new name
-    # does not exist on the 0.1.5 line, so it must ship WITH the engine bump.
+    # RENAMED UPSTREAM IN THE 0.1.7 LINE (measured 2026-09-28). `@deepseek-ai/dsh-workflow-worker-thread`
+    # was REMOVED in 0.1.7-rc.1 and does not exist in 0.1.7-rc.2 or 0.2.0-rc.1; `@deepseek-ai/dsh-workflow-ptc`
+    # is its replacement (declared in upstream's own dependencies, and the row id upstream mounts is
+    # `workflow-ptc`). Both the row id and the package name move together so this file matches upstream.
+    # The config carries over unchanged and is not a guess: the new package's schema is
+    # `z.object({ provider: z.string().default("spawn"), maxConcurrentAgents, maxTotalAgents,
+    # maxItemsPerCall, syncTimeoutMs })`, and upstream's own mounted row is
+    # `id=workflow-ptc name=@deepseek-ai/dsh-workflow-ptc config={"provider":"spawn"}`.
     #
-    # EDITED BY HAND, DELIBERATELY, AND THIS FILE MUST NOT BE REGENERATED until
-    # `scripts/make_zabz_preset.py` is fixed. That generator rewrites this file wholesale from
-    # `presets/cordis-bg/agent.cordis.yml`, and cordis-bg does NOT contain this preset's owner
-    # rules 8 and 9, the outbound-communication hard-stops, or the "ask him before a counterparty"
-    # rule. Running it therefore DELETES them -- silently, from the agent's own persona. Measured
-    # 2026-09-28: regenerating removed 33 lines including those blocks, and the deletion was only
-    # caught because the diff was read before committing. `--check` reports DRIFT for this file
-    # and that is the correct, expected state until the generator is brought up to date.
+    # THIS RENAME IS VERSION-COUPLED. `@deepseek-ai/dsh-workflow-ptc` does NOT exist on the 0.1.5 line,
+    # so this file and the engine version must change together: applying it while an 0.1.5 engine is
+    # running breaks preset mounting, and running 0.1.7 with the OLD name does the same. `dsh-update`
+    # promotes the engine and the config in one step for exactly this reason.
     - id: workflow-worker-thread
       name: '@deepseek-ai/dsh-workflow-worker-thread'
       config:
@@ -642,13 +643,20 @@
 # on every request at 4 chars/token, against 0/983 and 6/983 stored-session mentions
 # (a mention count, not a call count). Both were duplicates of the builtin
 # `web_search`/`web_fetch` path plus jina/firecrawl. Evidence and method:
-# `docs/mcp-schema-cost-20260930.md`. To restore one, copy its row from
-# `scripts/make_zabz_preset.py` and re-measure that file -- and remember
-# `profiles/web/cordis.patch.yml` carries a managed copy of these rows.
+# `docs/mcp-schema-cost-20260930.md`. To restore or add a row, edit THIS FILE
+# (`presets/zabz/rows/mcp.rows.yml`) and re-run the two generators named in
+# `docs/generated-config-20260930.md`; `profiles/web/cordis.patch.yml` carries a
+# GENERATED copy of these rows (written by `scripts/make-preset-rows.mjs`), so a
+# hand edit there is drift, never the fix.
 
 # Deterministic accessibility-tree browser automation. Playwright downloads and
 # browser profiles are the most likely thing to be slow or missing on a fresh
 # machine, hence failOnStartupError false.
+#
+# `--user-data-dir` IS PINNED (TS-5, 2026-09-30): the browser keeps a persistent
+# profile so a logged-in portal session survives the child that opened it. The
+# path is a fixed local directory, not a temp one; without it every Playwright
+# start is anonymous and every login is lost.
 #
 # DIRECT node, no npx.cmd (2026-09-16) -- same reasoning as mcp-fetch, and this row
 # was the worst offender because `@playwright/mcp@latest` forced a registry hit for
