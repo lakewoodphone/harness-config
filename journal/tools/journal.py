@@ -834,6 +834,18 @@ def load_aliases() -> list:
     return rows
 
 
+def _one_line(text: str) -> str:
+    """Fold a free-text field onto one line: a TSV row cannot survive an embedded newline.
+
+    Measured 2026-09-30: a batch of 42 `resolve --why` calls carried multi-line reasons and left
+    fragmented rows in `state/status.tsv`, which then crashed every reader with
+    `ValueError: not enough values to unpack (expected 6, got 4)`. Folding at the writer is the only
+    place the invariant can be guaranteed; the reader is made tolerant as well, but a tolerant reader
+    is not a licence to write a broken row.
+    """
+    return " ".join((text or "").replace("\t", " ").split())
+
+
 def load_status_events() -> dict:
     """Append-only status corrections, last row per (kind, id) wins.
 
@@ -847,7 +859,7 @@ def load_status_events() -> dict:
     for ln in _rl(path).split("\n"):
         if not ln.strip() or ln.startswith("kind\t"):
             continue
-        parts = (ln.split("\t") + ["", "", ""])[:6]
+        parts = (ln.split("\t") + [""] * 6)[:6]
         kind, id_full, status, date, host, why = parts
         if kind and id_full:
             out[(kind, id_full)] = (status, date, why)
@@ -3848,7 +3860,14 @@ def cmd_resolve(args) -> int:
     if not path.exists():
         atomic_write(path, STATUS_HEADER + "\n")
     line = "\t".join([e["kind"], e["id_full"], args.status, today(), host_tag(),
-                      (args.why or "").replace("\t", " ")])
+                      # ONE LINE, ALWAYS. A `why` containing a newline splits the row and every
+                      # reader then has to guess which lines are rows -- measured 2026-09-30, when a
+                      # batch of 42 `resolve` calls passed multi-line reasons and left 45 fragmented
+                      # rows in state/status.tsv. Tabs AND newlines are folded here, at the writer,
+                      # because a record that can be malformed by an ordinary argument is not a
+                      # record. (The reader was also wrong: it padded by three and then truncated to
+                      # six, so a one-field line crashed the whole read -- both halves are fixed.)
+                      _one_line(args.why or "")])
     with open(path, "a", encoding="utf-8", newline="\n") as fh:
         fh.write(line + "\n")
     if getattr(args, "alias_of", ""):
