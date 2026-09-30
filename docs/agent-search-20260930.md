@@ -126,7 +126,7 @@ are accepted; only a valid key is missing. Put `EXA_API_KEY` in the app env file
 and the same command returns Exa results with no code change.
 
 Also not done: no Brave/SerpAPI/Perplexity adapter (the brief scoped the command
-to Tavily/Exa/Spider), and no AutoTavily fallback of any kind — by design.
+to Tavily/Exa/Spider), and no automatic fallback to another provider of any kind — by design.
 
 ## Usage log
 
