@@ -1850,6 +1850,7 @@ lessons	L3058	3058		2026-09-29	SECRATARY	open	**L3058 · A fan-out whose output 
 lessons	L3059	3059		2026-09-29	SECRATARY	open	**L3059 · A mode that claims to change nothing must leave the RECORD unchanged too: three defects on the owner text path**	entries/lessons/L3059.md	1	48	3cf7fb9b9cbb0f24
 lessons	L3060	3060		2026-09-29	SECRATARY	open	**L3060 · A compiled file is not a running file: I crash-looped the live owner path, and only an end-to-end test on an isolated copy found it**	entries/lessons/L3060.md	1	76	f86f0d02cf1ce8fc
 lessons	L3102	3102		2026-09-30	SECRATARY	open	**L3102 · A ferry instruction that names only the destination sends the owner to the wrong boat when two operators share one waterfront**	entries/lessons/L3102.md	1	10	71f94e232d43647f
+lessons	L3103	3103		2026-09-30	SECRATARY	open	**L3103 · Write down the parking level the moment you park — ten seconds at the start, half an hour at midnight**	entries/lessons/L3103.md	1	8	16255e2e2a15bbab
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
