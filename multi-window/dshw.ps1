@@ -743,6 +743,23 @@ function Invoke-HiddenTaskBootstrap {
     } catch { }
 }
 
+function Set-LiveEngineUrl($url) {
+    # THE ONE THING THE LAUNCHER ALREADY KNOWS AND THE OWNER STILL HAS TO BE TOLD (added 2026-09-30).
+    #
+    # The launch token is single-use and per-process: every engine boot mints a new one, and an
+    # already-open window that reloads WITHOUT the token lands on "dsh web authentication required".
+    # That is exactly what the owner hit on ZABZ-YOGA -- and it is also why a window looks broken
+    # after a supervisor restarts the engine for its own reasons. Until this existed the only places
+    # the token lived were the engine's stdout (thrown away on a detached boot) and `state.json`.
+    # One small file, rewritten on every successful start, is what makes "open this URL" answerable
+    # by anyone -- a person, a script, or another agent over SSH.
+    if (-not $url) { return }
+    try {
+        $p = Join-Path $StateDir 'live-url.txt'
+        [System.IO.File]::WriteAllText($p, [string]$url, (New-Object System.Text.UTF8Encoding($false)))
+    } catch { }
+}
+
 function Start-EngineDetached($inv, [int]$timeoutSeconds) {
     $mustUnregister = $false
     $existing = Get-ScheduledTask -TaskName $inv.taskName -ErrorAction SilentlyContinue
@@ -811,7 +828,7 @@ function Start-EngineDetached($inv, [int]$timeoutSeconds) {
             $text = Read-NewLog $inv.log 0
             if ($text) {
                 $m = [regex]::Match($text, 'dsh web:\s*(\S+)')
-                if ($m.Success) { $url = $m.Groups[1].Value }
+                if ($m.Success) { $url = $m.Groups[1].Value; Set-LiveEngineUrl $url }
             }
         }
         $bound = $false
@@ -1076,7 +1093,11 @@ function Resolve-WindowUrl([int]$port, $rec, [int]$AliasPort = 0) {
     if ($candidates.Count -eq 0) { return "http://127.0.0.1:$(if ($AliasPort -gt 0) { $AliasPort } else { $port })/" }
 
     foreach ($cand in $candidates) {
-        if (Test-TokenAccepted $cand $port) { return (& $rewrite $cand $AliasPort) }
+        if (Test-TokenAccepted $cand $port) {
+            $chosen = (& $rewrite $cand $AliasPort)
+            Set-LiveEngineUrl $chosen
+            return $chosen
+        }
     }
     # NOTHING answered 303. That is either a dead token or an engine too loaded to answer, and those
     # want opposite choices: the engine's own log line is the better bet of the two, because a token
