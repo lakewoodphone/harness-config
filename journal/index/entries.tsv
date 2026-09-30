@@ -1884,6 +1884,7 @@ lessons	L3106	3106		2026-09-30	ZABZ-TECH	open	**L3106 · The mesh subagent trans
 lessons	L3107	3107		2026-09-30	ZABZ-TECH	open	**L3107 · A wake row gated by not_before is invisible to every reading; report next-claimable time, not waiting count**	entries/lessons/L3107.md	1	26	6fd5260e82b5e59a
 lessons	L3108	3108		2026-09-30	ZABZ-TECH	open	**L3108 · CORRECTION of L3106: the apostrophe mechanism was not supported; check a failed child for its output file first**	entries/lessons/L3108.md	1	38	45a5ccf556eadae2
 lessons	L3109	3109		2026-09-30	ZABZ-TECH	open	**L3109 · A model id the gateway does not recognise is served by a DIFFERENT model, with HTTP 200 and no warning**	entries/lessons/L3109.md	1	49	119b3c4de6c9ba27
+lessons	L3110	3110		2026-09-30	ZABZ-TECH	open	**L3110 · A mesh subagent brief containing an apostrophe or a quote dies before it does any work**	entries/lessons/L3110.md	1	27	97acd1aff7310dfa
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2564,6 +2565,7 @@ decisions	D2716	2716		2026-09-28	ZABZ-TECH	open	**D2716 · 2026-09-28 · 2026-09
 decisions	D2773	2773		2026-09-28	SECRATARY	open	**D2773 · 2026-09-28 · Weinberg: voluntary resignation, the vacation week was unpaid, and the settlement is one half week.**	entries/decisions/D2773.md	1	35	7b2c79fb9b30d306
 decisions	D2837	2837		2026-09-28	ZABZ-TECH	open	**D2837 · 2026-09-28 · The phone is for questions, warnings and deadlines only. A finished job is recorded in the ledger; 'it finished' is never a reason to text the owner.**	entries/decisions/D2837.md	1	33	9ffeeff830d80e9c
 decisions	D2838	2838		2026-09-28	ZABZ-TECH	open	**D2838 · 2026-09-28 · Version-coupled config gets a SYNC-TIME precondition, not discipline; sync skips only the coupled steps and fails open.**	entries/decisions/D2838.md	1	47	a347bb5db88c8f29
+decisions	D2839	2839		2026-09-30	ZABZ-TECH	open	**D2839 · 2026-09-30 · The gateway resolves a short model id and the catalogue lists it; an unknown id is served loudly, never silently.**	entries/decisions/D2839.md	1	34	54218ee277f54de7
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
@@ -2798,3 +2800,4 @@ wins	W2546	2546		2026-09-28	ZABZ-TECH	open	**W2546 · 2026-09-28 · The ledger i
 wins	W2547	2547		2026-09-28	ZABZ-TECH	open	**W2547 · 2026-09-28 · Build the text-channel bridge: the owner's live texts are now mirrored into the store the responder reads, scheduled every 5 minutes - nothing is missing but a real text.**	entries/wins/W2547.md	1	43	a9207175fb27c9af
 wins	W2548	2548		2026-09-28	ZABZ-TECH	open	**W2548 · 2026-09-28 · Corrected the secretary-wake skill, which was telling every fresh session that cost was unmeasured, naming a project the owner disclaimed, and omitting the ledger entirely.**	entries/wins/W2548.md	1	50	f4746f1c9eaa45a9
 wins	W2549	2549		2026-09-28	ZABZ-TECH	open	**W2549 · 2026-09-28 · Closed a live hole in the shift contract: it told woken sessions to text the owner with an ungated --send, and nothing referenced the gated tool built for it.**	entries/wins/W2549.md	1	51	dbfb0422fe815d87
+wins	W2604	2604		2026-09-30	ZABZ-TECH	open	**W2604 · 2026-09-30 · The owner-text flood was already fixed, and the evidence now says so.**	entries/wins/W2604.md	1	28	84c5adc6c2524cc3
