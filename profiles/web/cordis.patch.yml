@@ -1607,6 +1607,8 @@
                                 C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\@playwright\\mcp\\cli.js,
                                 --headless,
                                 --no-sandbox,
+                                --user-data-dir,
+                                C:\\Users\\ezabz\\AppData\\Local\\ms-playwright-mcp\\mcp-chrome-32dbea4,
                                 --output-dir,
                                 C:\\Users\\ezabz\\code\\personal-secretary-mvp\\data\\browser\\mcp-output
                               ],

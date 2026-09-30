@@ -636,38 +636,15 @@
     toolCallTimeoutMs: 120000
     failOnStartupError: false
 
-- id: mcp-context7
-  name: '@deepseek-ai/dsh-mcp-client'
-  disabled: !!js process.platform !== 'win32'
-  config:
-    serverName: context7
-    transport: stdio
-    command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
-    args:
-      - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
-      - context7
-    cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
-    toolCallTimeoutMs: 120000
-    failOnStartupError: false
-
-- id: mcp-fetch
-  name: '@deepseek-ai/dsh-mcp-client'
-  disabled: !!js process.platform !== 'win32'
-  config:
-    serverName: fetch
-    transport: stdio
-    # DIRECT node, no npx.cmd (2026-09-16). Was: command npx.cmd, args [-y, mcp-fetch-server].
-    # On Windows that shape cost four OS processes per server -- cmd.exe -> npx-cli.js ->
-    # cmd.exe -> server -- and `npx -y <pkg>` only reuses a cached install when the name AND
-    # version match, so every start hit the npm registry (~3-4 s measured). The chain layers
-    # also survived a kill, which is how the engine ended up holding THREE complete
-    # generations of every MCP server at once. One process now, and the child DSH spawns IS
-    # the server, so killing it kills the server.
-    command: 'C:\\Program Files\\nodejs\\node.exe'
-    args:
-      - 'C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\mcp-fetch-server\\dist\\index.js'
-    toolCallTimeoutMs: 90000
-    failOnStartupError: false
+# TS-1 / TS-2 REMOVED 2026-09-30 (`docs/autonomy-fleet-20260930/b2-tool-stack.md` §8/§9).
+# `mcp-context7` (2 tools / 4,665 schema chars) and `mcp-fetch` (6 / 4,121) are gone:
+# measured saving 8 tools and 8,786 of 87,777 MCP schema chars (10.0 %), ~2,196 tokens
+# on every request at 4 chars/token, against 0/983 and 6/983 stored-session mentions
+# (a mention count, not a call count). Both were duplicates of the builtin
+# `web_search`/`web_fetch` path plus jina/firecrawl. Evidence and method:
+# `docs/mcp-schema-cost-20260930.md`. To restore one, copy its row from
+# `scripts/make_zabz_preset.py` and re-measure that file -- and remember
+# `profiles/web/cordis.patch.yml` carries a managed copy of these rows.
 
 # Deterministic accessibility-tree browser automation. Playwright downloads and
 # browser profiles are the most likely thing to be slow or missing on a fresh
@@ -687,6 +664,8 @@
       - 'C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\@playwright\\mcp\\cli.js'
       - '--headless'
       - '--no-sandbox'
+      - '--user-data-dir'
+      - 'C:\\Users\\ezabz\\AppData\\Local\\ms-playwright-mcp\\mcp-chrome-32dbea4'
       - '--output-dir'
       - 'C:\\Users\\ezabz\\code\\personal-secretary-mvp\\data\\browser\\mcp-output'
     cwd: 'C:\\Users\\ezabz\\code\\personal-secretary-mvp'
