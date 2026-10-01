@@ -754,6 +754,12 @@ function Set-LiveEngineUrl($url) {
     # One small file, rewritten on every successful start, is what makes "open this URL" answerable
     # by anyone -- a person, a script, or another agent over SSH.
     if (-not $url) { return }
+    # ONLY THE ENGINE'S OWN URL. The launcher also resolves per-window URLs on the origin ports
+    # (3200..3223); writing one of those here produced a file that said :3214 and sent the next
+    # reader to a proxy alias instead of the engine (measured 2026-10-01 00:39). The engine port is
+    # the only one this file may name.
+    $maybe = [regex]::Match([string]$url, '127\.0\.0\.1:(\d{1,5})')
+    if ($maybe.Success -and [int]$maybe.Groups[1].Value -ne [int](Get-PrimaryPort)) { return }
     try {
         $p = Join-Path $StateDir 'live-url.txt'
         [System.IO.File]::WriteAllText($p, [string]$url, (New-Object System.Text.UTF8Encoding($false)))

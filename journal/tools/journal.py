@@ -2906,16 +2906,43 @@ def git_max(kind: str, fetch: bool = False):
     # commentary in the record) and it cost a session every time it happened.
     #
     # Bounded on purpose: a writer path must not hang on a hub with hundreds of refs.
+    #
+    # CHANGED 2026-10-01, ZABZ-YOGA. The form below used to take the FIRST 25 refs and run a
+    # separate `git grep` per ref, each with its own 60 s timeout. That produced two failures,
+    # both measured, both of which cost a session:
+    #
+    #   (1) IT WAS INCOMPLETE, AND SILENTLY SO. `refs/remotes/origin/hk/20260928-journal-utf8-complete`
+    #       sorts outside the first 25, so the branch carrying the newest journal contributed
+    #       nothing to the ceiling. `append` then allocated L3196 -- a number that already meant
+    #       "the Hyper-V lab lessons" on that branch. EVIDENCE: `git cat-file -e
+    #       origin/hk/20260928-journal-utf8-complete:journal/entries/lessons/L3196.md` succeeds.
+    #       A window that does not say what it skipped is not a bound, it is a hole, and refname
+    #       order is arbitrary with respect to what is inside the ref.
+    #
+    #   (2) IT COULD HANG THE WRITER. 25 refs x 60 s is a 25-minute worst case. During that same
+    #       session an `append` had to be killed by hand because of it.
+    #
+    # One `git grep` over EVERY origin ref fixes both: complete coverage, one process, one timeout.
+    # The two calls above are left in place deliberately -- if this call fails or returns non-zero,
+    # the working tree and HEAD have already been recorded and the ceiling degrades to exactly what
+    # it was before this change rather than to nothing.
+    #
+    # `git grep --all` WAS TRIED FIRST AND IS WRONG HERE. MEASURED 2026-10-01 on git 2.52.0.windows.1:
+    # `git grep -h -E --all <pattern>` over this repo returned a maximum of L3101, while
+    # `git grep -h -E <pattern> refs/remotes/origin/hk/20260928-journal-utf8-complete` returned
+    # L3200 from 3397 matching lines. `--all` did not cover the remote-tracking refs, so it would
+    # have preserved the exact hole it was meant to close. Passing the refs explicitly is the
+    # version that works, and it is still ONE subprocess rather than twenty-five.
     try:
         refs = subprocess.run(["git", "-C", str(repo), "for-each-ref", "--format=%(refname)",
                                "refs/remotes/origin"],
                               capture_output=True, text=True, encoding="utf-8",
                               errors="replace", timeout=20)
-        remote_refs = [r for r in (refs.stdout or "").split() if r][:25]
-        for ref in remote_refs:
-            out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern, ref],
+        remote_refs = [r for r in (refs.stdout or "").split() if r]
+        if remote_refs:
+            out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern] + remote_refs,
                                  capture_output=True, text=True, encoding="utf-8",
-                                 errors="replace", timeout=60)
+                                 errors="replace", timeout=300)
             for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
                 nums.append(int(m.group(1)))
     except Exception:
