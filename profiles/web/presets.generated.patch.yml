@@ -24,13 +24,13 @@
 #   renumbers a preset.
 #
 # SOURCES (sha256 of the exact bytes each row list was read from)
-#   presets/cordis-bg/agent.cordis.yml  rows=19  sha256=f02d46899516c7b0f0866f635ed607fd90ff87de302bcee3ae7af1d5abc6f445
-#   presets/yocheved/agent.cordis.yml  rows=20  sha256=259425bd923b645740269639e231a85251155a4060ff2655fcccad072a6ae587
-#   presets/zabz/agent.cordis.yml  rows=24  sha256=be03aa75bd3a9fc7a70b0a7c6748fee3eaf5e8adbbb13cbd5acc70305116e354
+#   presets/cordis-bg/agent.cordis.yml  rows=19  sha256=ed3e9b11ece1b3bbe77e7ee60ef48e5318b207c245217081e65ec72064d3ea84
+#   presets/yocheved/agent.cordis.yml  rows=20  sha256=44efaeefd6508622171114b72021ef7f7e77c71db2ca16ccdeb0ca41f18e281b
+#   presets/zabz/agent.cordis.yml  rows=24  sha256=b361922c7dec0879f937ca846a676cf5ce2c47a484394f0bf2fc4ddee58e2a5b
 #
 # `!!js` expressions carried: 17 (source text preserved; see the converter for why
 #   `YAML.stringify` + `customTags` cannot be used for this).
-# yaml 2.9.0 from C:\Users\ezabz\.dsh\profiles\node_modules\yaml
+# yaml 2.9.1 from C:\Users\ezabz\.dsh\profiles\node_modules\yaml
 # tag: tag:yaml.org,2002:js
 # No timestamp is recorded deliberately: the output must be byte-stable for `--check`.
 #
@@ -171,8 +171,8 @@
                   toolName: subagent_claude_code
                   backgroundMode: one-shot
                   maxDepth: provider-managed
-              - id: workflow-worker-thread
-                name: "@deepseek-ai/dsh-workflow-worker-thread"
+              - id: workflow-ptc
+                name: "@deepseek-ai/dsh-workflow-ptc"
                 config:
                   provider: spawn
               - id: tool-workflow
@@ -478,8 +478,8 @@
                   toolName: subagent_claude_code
                   backgroundMode: one-shot
                   maxDepth: provider-managed
-              - id: workflow-worker-thread
-                name: "@deepseek-ai/dsh-workflow-worker-thread"
+              - id: workflow-ptc
+                name: "@deepseek-ai/dsh-workflow-ptc"
                 config:
                   provider: spawn
               - id: tool-workflow
@@ -806,8 +806,8 @@
                   toolName: subagent_claude_code
                   backgroundMode: one-shot
                   maxDepth: provider-managed
-              - id: workflow-worker-thread
-                name: "@deepseek-ai/dsh-workflow-worker-thread"
+              - id: workflow-ptc
+                name: "@deepseek-ai/dsh-workflow-ptc"
                 config:
                   provider: spawn
               - id: tool-workflow
