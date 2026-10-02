@@ -38,7 +38,13 @@
 #                               are only ever added, never renamed or removed.
 #   * ~/.dsh-sync-status/status.json  machine-readable health for a monitor, mirroring the model-watch
 #                               idiom: updated, result, detail, behind, ahead, branch,
-#                               local_commits_preserved (+ host, diverge_refs, check_failed).
+#                               local_commits_preserved, synced_via (+ host, diverge_refs, check_failed).
+#
+# MIRROR FALLBACK (2026-10-02, item 367): origin lives on secratary, so on the night the secratary
+# HOST is the machine that is down this consumer could not fetch and sat frozen on the dead model.
+# When `git fetch origin` fails, a non-secratary mirror remote is tried and used for the counts and
+# the fast-forward. `synced_via` records which remote actually carried the sync. HARNESS_MIRROR_REMOTE
+# names the remote (default `mirror`); empty disables the fallback and restores origin-only behaviour.
 #
 # FOLLOW-UP (deliberately NOT done here — it belongs in the kernel, not in the deploy path): another
 # session holds ~/ceo-kernel dirty and mid-deploy, so this script only WRITES the status. When that
@@ -52,6 +58,9 @@ REPO="${HARNESS_REPO:-$HOME/harness-config}"
 STATE="${HARNESS_STATE:-$HOME/.harness-config-autosync}"
 SYNC_STATUS_DIR="${HARNESS_SYNC_STATUS_DIR:-$HOME/.dsh-sync-status}"
 PY="${HARNESS_PYTHON:-python3}"
+# Item 367: origin lives on secratary. A mirror remote on a host that is NOT secratary lets this
+# consumer fast-forward on the night secratary is the machine that is dark. Empty disables it.
+MIRROR_REMOTE="${HARNESS_MIRROR_REMOTE:-mirror}"
 LOG="$STATE/autosync.log"
 STATUS="$STATE/status.json"
 SYNC_STATUS="$SYNC_STATUS_DIR/status.json"
@@ -76,8 +85,9 @@ write_sync_status() {
   [ -n "$BRANCH" ] || BRANCH=unknown
   local at; at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   mkdir -p "$SYNC_STATUS_DIR" 2>/dev/null
-  printf '{"updated":"%s","result":"%s","detail":"%s","behind":%s,"ahead":%s,"branch":"%s","local_commits_preserved":%s%s}\n' \
+  printf '{"updated":"%s","result":"%s","detail":"%s","behind":%s,"ahead":%s,"branch":"%s","local_commits_preserved":%s,"synced_via":"%s"%s}\n' \
     "$at" "$result" "$(json_str "$detail")" "$behind" "$ahead" "$(json_str "$BRANCH")" "$preserved" \
+    "$(json_str "${SYNC_REMOTE:-origin}")" \
     "${extra:+,$extra}" > "$SYNC_STATUS" 2>/dev/null
 }
 
@@ -98,14 +108,27 @@ command -v git >/dev/null 2>&1 || { record cannot-run "git not on PATH"; write_s
 cd "$REPO" || { record cannot-run "cannot cd $REPO"; write_sync_status cannot-run "cannot cd $REPO" 0 0 false; exit 2; }
 
 # ── 1. fetch, and report a dirty tree without letting it block ──────────────────────────────────────
-git fetch --quiet --prune 2>/dev/null || {
-  record attention "git fetch failed (offline or remote down)"
-  write_sync_status attention "git fetch failed (offline or remote down)" 0 0 false
-  exit 1
-}
+#  Origin first (the normal night). If origin is unreachable -- the secratary-dark case item 367
+#  exists for -- fall back to a non-secratary mirror so this consumer still receives a flip instead
+#  of freezing on the dead model. SYNC_REMOTE names whichever remote actually carried the fetch.
+SYNC_REMOTE="origin"
+if ! git fetch --quiet --prune 2>/dev/null; then
+  SYNC_REMOTE=""
+  if [ -n "$MIRROR_REMOTE" ] && git remote | grep -qx -- "$MIRROR_REMOTE"; then
+    if git fetch --quiet --prune "$MIRROR_REMOTE" 2>/dev/null; then
+      SYNC_REMOTE="$MIRROR_REMOTE"
+      log "    origin fetch failed; carrying on via the non-secratary mirror '$MIRROR_REMOTE' (item 367)"
+    fi
+  fi
+  if [ -z "$SYNC_REMOTE" ]; then
+    record attention "git fetch failed (offline or remote down); tried origin and mirror '$MIRROR_REMOTE'"
+    write_sync_status attention "git fetch failed (offline or remote down); tried origin and mirror '$MIRROR_REMOTE'" 0 0 false
+    exit 1
+  fi
+fi
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo master)"
-COUNTS="$(git rev-list --left-right --count "origin/$BRANCH...HEAD" 2>/dev/null || echo '0 0')"
+COUNTS="$(git rev-list --left-right --count "$SYNC_REMOTE/$BRANCH...HEAD" 2>/dev/null || echo '0 0')"
 BEHIND="$(echo "$COUNTS" | awk '{print $1}')"
 AHEAD="$(echo "$COUNTS" | awk '{print $2}')"
 [ -n "$BEHIND" ] || BEHIND=0
@@ -150,10 +173,17 @@ fi
 
 # ── 2b. fast-forward; never merge ───────────────────────────────────────────────────────────────────
 if [ "$BEHIND" -gt 0 ]; then
-  if ! git -c core.autocrlf=false pull --ff-only --quiet 2>/dev/null; then
+  # Origin first (the normal case); when the mirror carried the fetch, fast-forward onto the mirror
+  # explicitly rather than consulting the host that is down (item 367).
+  if [ "$SYNC_REMOTE" = "origin" ]; then
+    FF="$(git -c core.autocrlf=false pull --ff-only --quiet 2>&1)"; FF_RC=$?
+  else
+    FF="$(git -c core.autocrlf=false merge --ff-only "$SYNC_REMOTE/$BRANCH" 2>&1)"; FF_RC=$?
+  fi
+  if [ "$FF_RC" -ne 0 ]; then
     # Unreachable in practice while the block above stands: with AHEAD=0 a refused pull cannot be a
     # divergence. Kept as the honest fallback if that ever changes.
-    DETAIL="pull --ff-only refused: histories diverged ($BEHIND behind / $AHEAD ahead) and nothing was preserved. Needs a human."
+    DETAIL="fast-forward from $SYNC_REMOTE/$BRANCH refused: histories diverged ($BEHIND behind / $AHEAD ahead) and nothing was preserved. Needs a human."
     record attention "$DETAIL" "\"behind\":$BEHIND,\"ahead\":$AHEAD"
     write_sync_status attention "$DETAIL" "$BEHIND" "$AHEAD" false
     exit 1

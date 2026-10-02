@@ -49,6 +49,17 @@
   that still needs a consumer. Note for whoever writes it: the side ref lives on the REMOTE, so
   `git ls-remote origin refs/heads/diverged-*` lists every commit this ever had to rescue.
 
+  MIRROR FALLBACK - A CONSUMER THAT SURVIVES A SECRATARY-DARK NIGHT (2026-10-02, item 367)
+  -----------------------------------------------------------------------------------------
+  origin lives on secratary. Every step above fetched `origin` and nothing else, so on the one
+  night that matters -- the night the secratary HOST is the machine that is down -- this consumer
+  could not fetch, ended 'attention'/1, and stayed pinned to the dead model. The model-failover
+  mover can now push a flip to a non-secratary mirror (item 367), but a consumer that never reads
+  the mirror makes that durability useless. So: when `git fetch origin` fails AND a mirror remote
+  exists, this script fetches the mirror instead, takes its counts and fast-forwards from it, and
+  records `synced_via`. The mirror remote name is `mirror` (override with HARNESS_MIRROR_REMOTE;
+  empty disables the fallback). Origin is still tried first, so nothing changes on a normal night.
+
   Exit codes: 0 clean (synced, or nothing to do) - 1 attention (dirty tree, divergence, apply failed)
               - 2 cannot run (no repo, no python, git missing)
 
@@ -70,6 +81,10 @@ param(
   [switch]$Status,
   [switch]$Quiet
 )
+
+# Item 367: the remote that carries a failover when origin (secratary) is the host that is down.
+# Empty disables the fallback and restores origin-only behaviour.
+$MirrorRemote = if ($env:HARNESS_MIRROR_REMOTE) { $env:HARNESS_MIRROR_REMOTE } else { 'mirror' }
 
 $ErrorActionPreference = 'Stop'
 # This file lives in <repo>/scripts, so the repo is the parent of the script directory.
@@ -119,6 +134,10 @@ function Write-SyncStatus($obj) {
       repo                    = $(if ($null -eq $obj.repo) { '' } else { $obj.repo })
       commit                  = $(if ($null -eq $obj.commit) { '' } else { $obj.commit })
       preserved_ref           = $(if ($null -eq $obj.preserved_ref) { '' } else { $obj.preserved_ref })
+      # Added 2026-10-02 with the mirror fallback (item 367): which remote actually
+      # carried this sync. 'origin' on a normal night; the mirror name when origin was
+      # down. Added, never renamed -- an older reader can ignore it.
+      synced_via              = $(if ($null -eq $obj.synced_via) { '' } else { $obj.synced_via })
       # Added 2026-09-15: -1 = not measured, 0 = measured and none. Never a null.
       id_collisions           = $(if ($null -eq $obj.id_collisions) { -1 } else { $obj.id_collisions })
     }
@@ -203,17 +222,29 @@ $untracked = @(& git -C $gitDir status --porcelain --untracked-files=all | Where
 $dirtyNames = ($dirty | ForEach-Object { $_.Substring(3) } | Select-Object -First 8) -join ', '
 
 # --------------------------------------------------------------------------
-# 2. Fetch, then take the counts.
+# 2. Fetch, then take the counts. Origin first; a non-secratary mirror as the
+#    fallback when origin is unreachable (item 367). $syncRemote names whichever
+#    remote actually carried the fetch, and every later origin/<branch> reference
+#    goes through it.
 # --------------------------------------------------------------------------
+$syncRemote = 'origin'
 $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
 & git -C $gitDir fetch --quiet --prune 2>&1 | Out-Null
 $fetchOk = ($LASTEXITCODE -eq 0)
+if (-not $fetchOk -and $MirrorRemote) {
+  $remotes = @(& git -C $gitDir remote 2>$null)
+  if ($remotes -contains $MirrorRemote) {
+    Log "  origin fetch failed; trying the non-secratary mirror '$MirrorRemote' (item 367)"
+    & git -C $gitDir fetch --quiet --prune $MirrorRemote 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) { $fetchOk = $true; $syncRemote = $MirrorRemote }
+  }
+}
 $branch = (& git -C $gitDir rev-parse --abbrev-ref HEAD 2>$null)
-$counts = (& git -C $gitDir rev-list --left-right --count "origin/$branch...HEAD" 2>$null)
+$counts = (& git -C $gitDir rev-list --left-right --count "$syncRemote/$branch...HEAD" 2>$null)
 $ErrorActionPreference = $prevEap
 
 if (-not $fetchOk) {
-  Record ([ordered]@{ result = 'attention'; detail = 'git fetch failed - offline, or the remote is down'; repo = $gitDir; branch = $branch })
+  Record ([ordered]@{ result = 'attention'; detail = "git fetch failed - offline, or the remote is down (tried origin and mirror '$MirrorRemote')"; repo = $gitDir; branch = $branch; synced_via = $syncRemote })
   exit 1
 }
 
@@ -363,7 +394,7 @@ if ($behind -gt 0) {
     # detector must see the tree the same way. Measured 2026-09-28 on a fixture where the two
     # configs differed: the detector cleared the tree clean and the pull still refused on the same
     # paths, because under a different eol config every CRLF file reads as locally modified.
-    $detect = (& git -C $gitDir -c core.autocrlf=false read-tree -n -u -m HEAD "origin/$branch" 2>&1 | Out-String)
+    $detect = (& git -C $gitDir -c core.autocrlf=false read-tree -n -u -m HEAD "$syncRemote/$branch" 2>&1 | Out-String)
     $ErrorActionPreference = $prevEap
 
     $named = New-Object System.Collections.Generic.List[string]
@@ -384,7 +415,7 @@ if ($behind -gt 0) {
       $isGenerated = ($rel -like 'journal/index/*') -or ($rel -like 'journal/state/*')
 
       $diskHash = ((& git -C $gitDir hash-object -- $abs 2>$null) | Out-String).Trim()
-      $incoming = ((& git -C $gitDir rev-parse "origin/$branch`:$rel" 2>$null) | Out-String).Trim()
+      $incoming = ((& git -C $gitDir rev-parse "$syncRemote/$branch`:$rel" 2>$null) | Out-String).Trim()
 
       $clear = $false
       if ($tracked -and $isGenerated) { $clear = $true }
@@ -423,7 +454,13 @@ if ($behind -gt 0) {
 
 if ($behind -gt 0) {
   $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-  $pull = (& git -C $gitDir -c core.autocrlf=false pull --ff-only 2>&1)
+  if ($syncRemote -eq 'origin') {
+    $pull = (& git -C $gitDir -c core.autocrlf=false pull --ff-only 2>&1)
+  } else {
+    # Already fetched from the mirror; fast-forward explicitly onto it. Origin is NOT
+    # consulted here, because origin is the host that is down (item 367).
+    $pull = (& git -C $gitDir -c core.autocrlf=false merge --ff-only "$syncRemote/$branch" 2>&1)
+  }
   $pullOk = ($LASTEXITCODE -eq 0)
   $ErrorActionPreference = $prevEap
   if (-not $pullOk) {
@@ -533,9 +570,10 @@ if ($verifyOk -and $ahead -gt 0) {
 
 $commit = (& git -C $gitDir rev-parse --short HEAD 2>$null)
 $result = if ($verifyOk) { 'clean' } else { 'attention' }
+$viaNote = if ($syncRemote -ne 'origin') { "; synced via non-secratary mirror '$syncRemote' (origin down)" } else { '' }
 Record ([ordered]@{
     result                  = $result
-    detail                  = if ($verifyOk) { "at $commit; $applied; pushed=$pushed" }
+    detail                  = if ($verifyOk) { "at $commit; $applied; pushed=$pushed$viaNote" }
                               else { "apply did NOT converge - a second run still reports pending changes" }
     repo                    = $gitDir
     branch                  = $branch
@@ -545,6 +583,7 @@ Record ([ordered]@{
     pushed                  = $pushed
     apply                   = $applied
     converged               = $verifyOk
+    synced_via              = $syncRemote
     # Added 2026-09-28 with step 2c: a run that removed files from the working tree must say so on
     # every outcome, not only when the pull happened to fail. 0 means measured and none.
     blockers_cleared        = @($blockersCleared).Count
