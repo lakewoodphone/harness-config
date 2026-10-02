@@ -964,7 +964,23 @@
                                 /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
                               ],
                             toolCallTimeoutMs: 120000,
-                            failOnStartupError: false
+                            failOnStartupError: false,
+                            # RECONNECT POLICY - added 2026-10-02 after a laptop restart cost the owner
+                            # all 14 secretary tools for the life of an engine. dsh-mcp-client defaults
+                            # to 10 consecutive attempts with delays 0.5/1/2/4/8/16/30/30/30 s, i.e.
+                            # ~121 s of trouble and then it DISPOSES every tool it registered and stops;
+                            # only an HMR reload or a Host restart brings them back, and because these
+                            # rows carry failOnStartupError: false nothing is reported to the owner
+                            # except a "Tools updated / N removed" line in the GUI.
+                            # A machine reboot loses the transport for far longer than 121 s, so the
+                            # default turns an ordinary restart into a silent loss of the company
+                            # interface. 60 attempts with a 30 s cap tolerates roughly half an hour
+                            # while still recovering a two-minute blip in seconds (delays ramp, so the
+                            # first reconnects are 0.5/1/2 s). Exit after giving up is unchanged: the
+                            # last attempt is followed by unregistration, just 30 minutes later.
+                            # Verified against the schema in @deepseek-ai/dsh-mcp-client (reconnect:
+                            # { enabled, initialDelayMs, maxDelayMs, maxAttempts }, unknown keys throw).
+                            reconnect: { maxAttempts: 60, maxDelayMs: 30000 }
                           }
                       }
                   ]
@@ -1517,7 +1533,23 @@
                                 /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
                               ],
                             toolCallTimeoutMs: 120000,
-                            failOnStartupError: false
+                            failOnStartupError: false,
+                            # RECONNECT POLICY - added 2026-10-02 after a laptop restart cost the owner
+                            # all 14 secretary tools for the life of an engine. dsh-mcp-client defaults
+                            # to 10 consecutive attempts with delays 0.5/1/2/4/8/16/30/30/30 s, i.e.
+                            # ~121 s of trouble and then it DISPOSES every tool it registered and stops;
+                            # only an HMR reload or a Host restart brings them back, and because these
+                            # rows carry failOnStartupError: false nothing is reported to the owner
+                            # except a "Tools updated / N removed" line in the GUI.
+                            # A machine reboot loses the transport for far longer than 121 s, so the
+                            # default turns an ordinary restart into a silent loss of the company
+                            # interface. 60 attempts with a 30 s cap tolerates roughly half an hour
+                            # while still recovering a two-minute blip in seconds (delays ramp, so the
+                            # first reconnects are 0.5/1/2 s). Exit after giving up is unchanged: the
+                            # last attempt is followed by unregistration, just 30 minutes later.
+                            # Verified against the schema in @deepseek-ai/dsh-mcp-client (reconnect:
+                            # { enabled, initialDelayMs, maxDelayMs, maxAttempts }, unknown keys throw).
+                            reconnect: { maxAttempts: 60, maxDelayMs: 30000 }
                           }
                       },
                     {
@@ -1531,7 +1563,23 @@
                             command: /home/zabz/personal-secretary-mvp/.venv/bin/python,
                             args: [ /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py ],
                             toolCallTimeoutMs: 120000,
-                            failOnStartupError: false
+                            failOnStartupError: false,
+                            # RECONNECT POLICY - added 2026-10-02 after a laptop restart cost the owner
+                            # all 14 secretary tools for the life of an engine. dsh-mcp-client defaults
+                            # to 10 consecutive attempts with delays 0.5/1/2/4/8/16/30/30/30 s, i.e.
+                            # ~121 s of trouble and then it DISPOSES every tool it registered and stops;
+                            # only an HMR reload or a Host restart brings them back, and because these
+                            # rows carry failOnStartupError: false nothing is reported to the owner
+                            # except a "Tools updated / N removed" line in the GUI.
+                            # A machine reboot loses the transport for far longer than 121 s, so the
+                            # default turns an ordinary restart into a silent loss of the company
+                            # interface. 60 attempts with a 30 s cap tolerates roughly half an hour
+                            # while still recovering a two-minute blip in seconds (delays ramp, so the
+                            # first reconnects are 0.5/1/2 s). Exit after giving up is unchanged: the
+                            # last attempt is followed by unregistration, just 30 minutes later.
+                            # Verified against the schema in @deepseek-ai/dsh-mcp-client (reconnect:
+                            # { enabled, initialDelayMs, maxDelayMs, maxAttempts }, unknown keys throw).
+                            reconnect: { maxAttempts: 60, maxDelayMs: 30000 }
                           }
                       },
                     {
@@ -1546,7 +1594,23 @@
                             args: [ C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py, firecrawl ],
                             cwd: C:\Users\ezabz\code\personal-secretary-mvp,
                             toolCallTimeoutMs: 180000,
-                            failOnStartupError: false
+                            failOnStartupError: false,
+                            # RECONNECT POLICY - added 2026-10-02 after a laptop restart cost the owner
+                            # all 14 secretary tools for the life of an engine. dsh-mcp-client defaults
+                            # to 10 consecutive attempts with delays 0.5/1/2/4/8/16/30/30/30 s, i.e.
+                            # ~121 s of trouble and then it DISPOSES every tool it registered and stops;
+                            # only an HMR reload or a Host restart brings them back, and because these
+                            # rows carry failOnStartupError: false nothing is reported to the owner
+                            # except a "Tools updated / N removed" line in the GUI.
+                            # A machine reboot loses the transport for far longer than 121 s, so the
+                            # default turns an ordinary restart into a silent loss of the company
+                            # interface. 60 attempts with a 30 s cap tolerates roughly half an hour
+                            # while still recovering a two-minute blip in seconds (delays ramp, so the
+                            # first reconnects are 0.5/1/2 s). Exit after giving up is unchanged: the
+                            # last attempt is followed by unregistration, just 30 minutes later.
+                            # Verified against the schema in @deepseek-ai/dsh-mcp-client (reconnect:
+                            # { enabled, initialDelayMs, maxDelayMs, maxAttempts }, unknown keys throw).
+                            reconnect: { maxAttempts: 60, maxDelayMs: 30000 }
                           }
                       },
                     {
@@ -1561,7 +1625,23 @@
                             args: [ C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py, jina ],
                             cwd: C:\Users\ezabz\code\personal-secretary-mvp,
                             toolCallTimeoutMs: 120000,
-                            failOnStartupError: false
+                            failOnStartupError: false,
+                            # RECONNECT POLICY - added 2026-10-02 after a laptop restart cost the owner
+                            # all 14 secretary tools for the life of an engine. dsh-mcp-client defaults
+                            # to 10 consecutive attempts with delays 0.5/1/2/4/8/16/30/30/30 s, i.e.
+                            # ~121 s of trouble and then it DISPOSES every tool it registered and stops;
+                            # only an HMR reload or a Host restart brings them back, and because these
+                            # rows carry failOnStartupError: false nothing is reported to the owner
+                            # except a "Tools updated / N removed" line in the GUI.
+                            # A machine reboot loses the transport for far longer than 121 s, so the
+                            # default turns an ordinary restart into a silent loss of the company
+                            # interface. 60 attempts with a 30 s cap tolerates roughly half an hour
+                            # while still recovering a two-minute blip in seconds (delays ramp, so the
+                            # first reconnects are 0.5/1/2 s). Exit after giving up is unchanged: the
+                            # last attempt is followed by unregistration, just 30 minutes later.
+                            # Verified against the schema in @deepseek-ai/dsh-mcp-client (reconnect:
+                            # { enabled, initialDelayMs, maxDelayMs, maxAttempts }, unknown keys throw).
+                            reconnect: { maxAttempts: 60, maxDelayMs: 30000 }
                           }
                       },
                     {
@@ -1585,7 +1665,23 @@
                               ],
                             cwd: C:\\Users\\ezabz\\code\\personal-secretary-mvp,
                             toolCallTimeoutMs: 180000,
-                            failOnStartupError: false
+                            failOnStartupError: false,
+                            # RECONNECT POLICY - added 2026-10-02 after a laptop restart cost the owner
+                            # all 14 secretary tools for the life of an engine. dsh-mcp-client defaults
+                            # to 10 consecutive attempts with delays 0.5/1/2/4/8/16/30/30/30 s, i.e.
+                            # ~121 s of trouble and then it DISPOSES every tool it registered and stops;
+                            # only an HMR reload or a Host restart brings them back, and because these
+                            # rows carry failOnStartupError: false nothing is reported to the owner
+                            # except a "Tools updated / N removed" line in the GUI.
+                            # A machine reboot loses the transport for far longer than 121 s, so the
+                            # default turns an ordinary restart into a silent loss of the company
+                            # interface. 60 attempts with a 30 s cap tolerates roughly half an hour
+                            # while still recovering a two-minute blip in seconds (delays ramp, so the
+                            # first reconnects are 0.5/1/2 s). Exit after giving up is unchanged: the
+                            # last attempt is followed by unregistration, just 30 minutes later.
+                            # Verified against the schema in @deepseek-ai/dsh-mcp-client (reconnect:
+                            # { enabled, initialDelayMs, maxDelayMs, maxAttempts }, unknown keys throw).
+                            reconnect: { maxAttempts: 60, maxDelayMs: 30000 }
                           }
                       }
                   ]
