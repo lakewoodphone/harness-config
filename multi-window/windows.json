@@ -36,7 +36,8 @@
   "origins": {
     "_comment": "One loopback port alias per window slot, served by dshw-proxy.mjs, splicing to the single engine. Required by browser.profileMode='shared': without distinct origins every window would share ONE localStorage['dsh.sessions.current'] and last-writer-wins on reload. The same proxy also caches POST /api/session/list, which measured 25-31 s cold and 29 ms warm.",
     "enabled": true,
-    "basePort": 3200,
+    "_basePortWhy": "2026-10-02: moved 3200 -> 3300. The block 3200..3223 included port 3216, which is the port the EA App's in-game-overlay IPC server binds. Our proxy held it permanently, so the EA App showed 'Communication error / couldn't connect to port 3216 / EC:10701' and warned it might block game launches. Measured: the proxy held 127.0.0.1:3200-3223 with `Get-NetTCPConnection`, and EA's own log recorded `IGOIPCClient ... Origin not found IGOIPC Server3216` from 2026-10-01 onward. Do NOT renumber this back into the low 3200s; EA's IPC also uses 5249 and 7544.",
+    "basePort": 3300,
     "count": 24,
     "script": "dshw-proxy.mjs",
     "ttlMs": 15000

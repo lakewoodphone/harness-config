@@ -384,7 +384,9 @@ function Test-OriginsEnabled {
 function Get-SlotOriginPort($slot) {
     if (-not (Test-OriginsEnabled)) { return (Get-PrimaryPort) }
     $o = Get-OriginsConfig
-    $base = 3200
+    # 3300, not 3200: the old 3200..3223 block swallowed port 3216, which the EA App's
+    # in-game-overlay IPC server binds - see the _basePortWhy note in windows.json.
+    $base = 3300
     if ($o.PSObject.Properties['basePort'] -and $o.basePort) { $base = [int]$o.basePort }
     return [int]($base + $slot.index)
 }
@@ -1919,7 +1921,7 @@ function Get-OriginsLogFile { return (Join-Path $LogDir 'origins.log') }
 function Get-OriginsArgs {
     $o = Get-OriginsConfig
     $script = Join-Path $PSScriptRoot $(if ($o -and $o.script) { [string]$o.script } else { 'dshw-proxy.mjs' })
-    $base = 3200; $count = 24; $ttl = 15000
+    $base = 3300; $count = 24; $ttl = 15000   # 3300 not 3200 - see windows.json _basePortWhy
     if ($o) {
         if ($o.PSObject.Properties['basePort'] -and $o.basePort) { $base = [int]$o.basePort }
         if ($o.PSObject.Properties['count'] -and $o.count) { $count = [int]$o.count }
