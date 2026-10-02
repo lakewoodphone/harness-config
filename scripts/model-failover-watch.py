@@ -53,6 +53,18 @@ STATE_DIR = os.path.expanduser("~/.dsh-model-watch")
 STATE_FILE = os.path.join(STATE_DIR, "state.json")
 STATUS_FILE = os.path.join(STATE_DIR, "status.json")
 LOG_FILE = os.path.join(STATE_DIR, "watch.log")
+# A flip that could not be pushed is queued here and retried every run, so a
+# local-only move is RECOVERABLE rather than lost (2026-10-02, item 367).
+PENDING_FILE = os.path.join(STATE_DIR, "pending-flip.json")
+
+# Durability must not run solely through secratary. origin lives on secratary; on
+# the night the secratary HOST is the machine that is dark, persist() could only
+# ever return NOT DURABLE, so the second mover on ZABZ-TECH flipped one node and
+# the rest of the fleet stayed pinned to the dead tier -- the exact outage shape
+# the second mover exists to end. A mirror remote on any host that is NOT
+# secratary gives the scratch-worktree commit a push target the fleet can still
+# fetch. MFW_MIRROR_REMOTE="" disables the fallback.
+MIRROR_REMOTE = os.environ.get("MFW_MIRROR_REMOTE", "mirror")
 
 N = 2          # consecutive same-state probes before a move
 TIMEOUT = 20   # seconds per probe; a hang counts as unhealthy
@@ -188,46 +200,52 @@ def write_local(target):
     return True
 
 
-def _scratch_worktree_persist(target, why, dest_ref="HEAD:master", marker=None):
-    """Commit the ONE file onto origin/master from a scratch worktree and push.
+def _scratch_worktree_persist(target, why, dest_ref="HEAD:master", marker=None,
+                              remote="origin"):
+    """Commit the ONE file onto <remote>/master from a scratch worktree and push.
 
     Used when the main checkout cannot carry the commit (diverged, or a dirty
     tree that is not ours to commit). This is what makes the flip reach the
-    Windows nodes, whose engines read their own settings via autosync from
-    origin/master. Nothing is merged, rebased, reset or forced: a scratch tree
-    at origin/master, one file written, one commit, `git push origin HEAD:master`
-    - which fails loudly rather than rewriting anything if it is not a
-    fast-forward.
+    Windows nodes, whose engines read their own settings via autosync. Nothing
+    is merged, rebased, reset or forced: a scratch tree at <remote>/master, one
+    file written, one commit, `git push <remote> HEAD:master` - which fails
+    loudly rather than rewriting anything if it is not a fast-forward.
+
+    `remote` is normally origin (secratary). Item 367 added the same mechanism
+    against a mirror remote that is NOT secratary, so durability does not die
+    with the origin host.
     """
     import shutil
     import tempfile
+    base_ref = "%s/master" % remote
     tmpdir = tempfile.mkdtemp(prefix="mfw-")
     try:
-        if git("worktree", "add", "--detach", tmpdir, "origin/master").returncode != 0:
-            return False, "scratch worktree could not be created from origin/master"
+        git("fetch", remote)
+        if git("worktree", "add", "--detach", tmpdir, base_ref).returncode != 0:
+            return False, "scratch worktree could not be created from %s" % base_ref
         target_file = os.path.join(tmpdir, "settings", "base.yaml")
         try:
             text = open(target_file).read()
         except OSError as exc:
-            return False, "cannot read origin/master settings/base.yaml: %s" % exc
+            return False, "cannot read %s settings/base.yaml: %s" % (base_ref, exc)
         new_text = render(text, target)
         if marker:
             new_text = new_text.rstrip("\n") + "\n" + marker + "\n"
         if new_text == text:
-            # origin/master already names the target: durability is trivially true
-            # and there is nothing to push. Said out loud rather than silently
-            # treating a no-op as a successful commit.
-            return True, "origin/master already carries %s; nothing to push" % TIERS[target][1]
+            # <remote>/master already names the target: durability is trivially
+            # true and there is nothing to push. Said out loud rather than
+            # silently treating a no-op as a successful commit.
+            return True, "%s already carries %s; nothing to push" % (base_ref, TIERS[target][1])
         with open(target_file, "w") as f:
             f.write(new_text)
         for args in (["add", "settings/base.yaml"],
                      ["commit", "-m", "model: failover -- %s by model-failover-watch.py" % why],
-                     ["push", "origin", dest_ref]):
+                     ["push", remote, dest_ref]):
             r = subprocess.run(["git", "-C", tmpdir] + args, capture_output=True, text=True)
             if r.returncode != 0:
                 tail = (r.stderr.strip().splitlines() or ["(no stderr)"])[-1]
                 return False, "git %s failed in the scratch worktree: %s" % (args[0], tail)
-        return True, "committed onto origin/master from a scratch worktree"
+        return True, "committed onto %s from a scratch worktree" % base_ref
     finally:
         subprocess.run(["git", "-C", REPO, "worktree", "remove", "--force", tmpdir],
                        capture_output=True, text=True)
@@ -235,19 +253,87 @@ def _scratch_worktree_persist(target, why, dest_ref="HEAD:master", marker=None):
 
 
 def persist(target, why):
-    """Best-effort durability. Returns (durable, detail). Never raises."""
+    """Best-effort durability. Returns (durable, detail). Never raises.
+
+    Tries origin first (secratary). If origin cannot carry the commit -- because
+    the origin HOST is the machine that is down, or the checkout diverged past a
+    clean scratch push -- it tries MIRROR_REMOTE, a second remote that is not
+    secratary, so a flip still reaches the fleet on the one night that matters
+    (item 367).
+    """
+    origin_detail = None
     if git("fetch", "origin").returncode != 0:
-        return False, "git fetch failed (offline or remote down)"
-    if git("merge-base", "--is-ancestor", "origin/master", "HEAD").returncode == 0:
+        origin_detail = "git fetch failed (offline or remote down)"
+    elif git("merge-base", "--is-ancestor", "origin/master", "HEAD").returncode == 0:
         git("add", "settings/base.yaml")
         r = git("commit", "-m", "model: failover -- %s by model-failover-watch.py" % why)
         if r.returncode != 0:
-            return False, "commit failed: %s" % (r.stderr.strip() or "already committed")
-        r = git("push", "origin", "HEAD:master")
-        if r.returncode == 0:
-            return True, "committed and pushed from the main checkout"
-        return False, "push failed: %s" % (r.stderr.strip().splitlines() or ["?"])[-1]
-    return _scratch_worktree_persist(target, why)
+            origin_detail = "commit failed: %s" % (r.stderr.strip() or "already committed")
+        else:
+            r = git("push", "origin", "HEAD:master")
+            if r.returncode == 0:
+                return True, "committed and pushed from the main checkout"
+            origin_detail = "push failed: %s" % (r.stderr.strip().splitlines() or ["?"])[-1]
+    else:
+        ok, detail = _scratch_worktree_persist(target, why)
+        if ok:
+            return True, detail
+        origin_detail = detail
+
+    if MIRROR_REMOTE:
+        ok, detail = _scratch_worktree_persist(target, why, remote=MIRROR_REMOTE)
+        if ok:
+            return True, ("origin could not carry it (%s); durability went via the "
+                          "non-secratary mirror '%s': %s"
+                          % (origin_detail, MIRROR_REMOTE, detail))
+        return False, ("%s; mirror '%s' also failed: %s"
+                       % (origin_detail, MIRROR_REMOTE, detail))
+    return False, origin_detail
+
+
+def write_pending(target, why):
+    """Queue a flip that is on disk but not yet durable, to retry every run."""
+    try:
+        with open(PENDING_FILE, "w") as f:
+            json.dump({"target": target, "why": why,
+                       "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f)
+    except OSError:
+        pass
+
+
+def pending_flip():
+    """The queued flip as a dict, or None."""
+    try:
+        return json.load(open(PENDING_FILE))
+    except Exception:
+        return None
+
+
+def clear_pending():
+    try:
+        os.unlink(PENDING_FILE)
+    except OSError:
+        pass
+
+
+def flush_pending():
+    """Retry a queued flip before this run probes. Returns a detail line or None.
+
+    This is the other half of item 367: if neither origin nor the mirror answered
+    when the flip was applied, the move is not lost -- it is retried on every
+    subsequent run and delivered the moment a durable remote answers.
+    """
+    p = pending_flip()
+    if not p:
+        return None
+    durable, detail = persist(p["target"], p.get("why", "queued flip"))
+    if durable:
+        clear_pending()
+        log("QUEUED FLIP DELIVERED: %s -> %s (%s)"
+            % (p.get("why", "?"), TIERS[p["target"]][1], detail))
+        return detail
+    log("queued flip still not deliverable: %s" % detail)
+    return None
 
 
 def move_to(target, why):
@@ -255,16 +341,20 @@ def move_to(target, why):
 
     Returns "durable" | "local-only" | False; the caller treats any truthy value
     as the move having happened, because it has: the file on disk is flipped.
+    A move that is not durable is QUEUED, not dropped (item 367).
     """
     if not write_local(target):
         return False
     durable, detail = persist(target, why)
     if durable:
+        clear_pending()
         log("persisted: %s" % detail)
         return "durable"
+    write_pending(target, why)
     log("NOT DURABLE: %s -- settings/base.yaml was still flipped locally, so this "
         "node is on %s, but the other machines will not receive it until a push "
-        "succeeds" % (detail, TIERS[target][1]))
+        "succeeds. QUEUED as a pending flip and retried every run (item 367)."
+        % (detail, TIERS[target][1]))
     return "local-only"
 
 
@@ -278,6 +368,9 @@ def main():
             pass
     ok = state.get("ok", {})
     bad = state.get("bad", {})
+
+    # Deliver a flip a previous run could not push (origin host was down).
+    flush_pending()
 
     creds = credentials()
     health = [probe(t, creds) for t in TIERS]
@@ -351,6 +444,9 @@ def main():
         # exact outage shape this script exists to end - so it is a first-class field
         # a monitor can alarm on, not a line in a log nobody reads.
         "not_durable": bool(state.get("not_durable")),
+        # A queued flip is local-only but RECOVERABLE: it is retried on every run
+        # and delivered when origin or the mirror answers (item 367).
+        "pending_flip": pending_flip(),
     }
     with open(STATUS_FILE, "w") as f:
         json.dump(status, f, indent=1)
