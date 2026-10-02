@@ -84,8 +84,28 @@ agent-presets:
 # into a multi-minute stall. Both schemas were read out of the installed harness
 # (dsh-llm RetryPolicySchema, dsh-llm-deepseek adapter options) before writing.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Per-request output bound (added 2026-10-02, housekeeping item 342).
+#
+# The adapter ships DEFAULT_MAX_TOKENS = 256000
+# (dsh-llm-deepseek/lib/index.js:1394) and this fleet had never set it, so every
+# model request inherited a 256k-token output ceiling -- a cap so high it bounds
+# nothing. `maxTokens` is the adapter's only per-request bound that reaches the
+# wire, and the path is proven from the installed code:
+#   settings llm-deepseek.maxTokens
+#     -> connection.maxTokens            (dsh-llm-deepseek/lib/index.js:1998)
+#     -> defaultMaxTokens                (dsh-llm-deepseek/lib/index.js:1589)
+#     -> per-request maxTokens           (dsh-llm/lib/index.js:2112-2114)
+#     -> `max_tokens` on the request     (dsh-llm-deepseek/lib/index.js:246)
+# 65536 is 4x tighter than the shipped default and still above any single
+# response this fleet has produced (the largest COMPLETE shift output ever
+# recorded is ~510 KB of stdout, and that is the sum of every call in the run,
+# not one call). Hitting the bound is recoverable -- the agent loop continues --
+# whereas the 256k default lets one call run effectively unbounded.
+# ---------------------------------------------------------------------------
 llm-deepseek:
   streamIdleTimeoutMs: 60000
+  maxTokens: 65536
   retryPolicy:
     mode: normal
     maxRetries: 2
