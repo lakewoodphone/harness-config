@@ -40,7 +40,14 @@ import sys
 import time
 import urllib.request
 
-REPO = "/home/zabz/harness-config"
+# Node-portable (2026-10-02, item 349). The old literal pinned this script to
+# secratary's checkout, so a copy on ZABZ-TECH (C:\Users\ezabz\Code\harness-config)
+# or linux-pc could not find settings/base.yaml and would crash before it could
+# move anything. The default is now the repo this file lives in; a deployment may
+# still override with HARNESS_CONFIG_REPO.
+REPO = os.environ.get("HARNESS_CONFIG_REPO") or os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)
 BASE = os.path.join(REPO, "settings", "base.yaml")
 STATE_DIR = os.path.expanduser("~/.dsh-model-watch")
 STATE_FILE = os.path.join(STATE_DIR, "state.json")
@@ -152,35 +159,113 @@ def git(*args):
     return subprocess.run(["git", "-C", REPO] + list(args), capture_output=True, text=True)
 
 
-def safe_to_commit():
-    """Local master must not be behind origin, or the flip cannot be pushed."""
-    if git("push", "origin", "master").returncode != 0:
-        pass  # could be behind; the ancestor check decides
-    if git("fetch", "origin").returncode != 0:
-        log("git fetch failed; skipping this run")
-        return False
-    if git("merge-base", "--is-ancestor", "origin/master", "HEAD").returncode != 0:
-        log("checkout is behind or diverged from origin/master; skipping this run")
-        return False
+def write_local(target):
+    """Write settings/base.yaml atomically. THIS is the fix; git is only durability.
+
+    Rewritten 2026-10-02 after the outage it did not prevent. The old move_to()
+    refused to do anything unless the checkout was a clean ancestor of
+    origin/master, because the flip is useless until it is pushed. On the
+    authority the checkout is a long-lived feature branch (measured 2026-10-02:
+    branch hk/176-headless-resume, 121 behind / 48 ahead of origin/master), so
+    the precondition was PERMANENTLY false: between 2026-10-01T19:30Z, when
+    deepseek-official/deepseek-flash stopped answering at the provider, and
+    ~22:30Z when it recovered, this script decided to fail over 264 times and
+    wrote "checkout is behind or diverged from origin/master; skipping this run"
+    263 times. Every node's engine was pinned to that dead id through the whole
+    window - the owner texted 'DSH ... is down on the yoga laptop on the tech
+    computer and on the iPhone and on the secretary server this is an emergency'.
+
+    A guard that can name the fix must never let a bookkeeping precondition stop
+    it. So: the local file is written FIRST and unconditionally, then the commit
+    and push are attempted as durability, and a push that fails is reported as
+    NOT DURABLE rather than undoing the thing that keeps the fleet alive.
+    """
+    new_text = render(read_base(), target)
+    tmp = BASE + ".tmp-failover"
+    with open(tmp, "w") as f:
+        f.write(new_text)
+    os.replace(tmp, BASE)
     return True
+
+
+def _scratch_worktree_persist(target, why, dest_ref="HEAD:master", marker=None):
+    """Commit the ONE file onto origin/master from a scratch worktree and push.
+
+    Used when the main checkout cannot carry the commit (diverged, or a dirty
+    tree that is not ours to commit). This is what makes the flip reach the
+    Windows nodes, whose engines read their own settings via autosync from
+    origin/master. Nothing is merged, rebased, reset or forced: a scratch tree
+    at origin/master, one file written, one commit, `git push origin HEAD:master`
+    - which fails loudly rather than rewriting anything if it is not a
+    fast-forward.
+    """
+    import shutil
+    import tempfile
+    tmpdir = tempfile.mkdtemp(prefix="mfw-")
+    try:
+        if git("worktree", "add", "--detach", tmpdir, "origin/master").returncode != 0:
+            return False, "scratch worktree could not be created from origin/master"
+        target_file = os.path.join(tmpdir, "settings", "base.yaml")
+        try:
+            text = open(target_file).read()
+        except OSError as exc:
+            return False, "cannot read origin/master settings/base.yaml: %s" % exc
+        new_text = render(text, target)
+        if marker:
+            new_text = new_text.rstrip("\n") + "\n" + marker + "\n"
+        if new_text == text:
+            # origin/master already names the target: durability is trivially true
+            # and there is nothing to push. Said out loud rather than silently
+            # treating a no-op as a successful commit.
+            return True, "origin/master already carries %s; nothing to push" % TIERS[target][1]
+        with open(target_file, "w") as f:
+            f.write(new_text)
+        for args in (["add", "settings/base.yaml"],
+                     ["commit", "-m", "model: failover -- %s by model-failover-watch.py" % why],
+                     ["push", "origin", dest_ref]):
+            r = subprocess.run(["git", "-C", tmpdir] + args, capture_output=True, text=True)
+            if r.returncode != 0:
+                tail = (r.stderr.strip().splitlines() or ["(no stderr)"])[-1]
+                return False, "git %s failed in the scratch worktree: %s" % (args[0], tail)
+        return True, "committed onto origin/master from a scratch worktree"
+    finally:
+        subprocess.run(["git", "-C", REPO, "worktree", "remove", "--force", tmpdir],
+                       capture_output=True, text=True)
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def persist(target, why):
+    """Best-effort durability. Returns (durable, detail). Never raises."""
+    if git("fetch", "origin").returncode != 0:
+        return False, "git fetch failed (offline or remote down)"
+    if git("merge-base", "--is-ancestor", "origin/master", "HEAD").returncode == 0:
+        git("add", "settings/base.yaml")
+        r = git("commit", "-m", "model: failover -- %s by model-failover-watch.py" % why)
+        if r.returncode != 0:
+            return False, "commit failed: %s" % (r.stderr.strip() or "already committed")
+        r = git("push", "origin", "HEAD:master")
+        if r.returncode == 0:
+            return True, "committed and pushed from the main checkout"
+        return False, "push failed: %s" % (r.stderr.strip().splitlines() or ["?"])[-1]
+    return _scratch_worktree_persist(target, why)
 
 
 def move_to(target, why):
-    if not safe_to_commit():
+    """Apply locally, then try to make it survive. The local apply is the move.
+
+    Returns "durable" | "local-only" | False; the caller treats any truthy value
+    as the move having happened, because it has: the file on disk is flipped.
+    """
+    if not write_local(target):
         return False
-    new_text = render(read_base(), target)
-    with open(BASE, "w") as f:
-        f.write(new_text)
-    git("add", "settings/base.yaml")
-    r = git("commit", "-m", "model: failover -- %s by model-failover-watch.py" % why)
-    if r.returncode != 0:
-        log("commit failed: %s" % r.stderr.strip())
-        return False
-    r = git("push", "origin", "master")
-    if r.returncode != 0:
-        log("push failed: %s" % (r.stderr.strip().splitlines() or ['?'])[-1])
-        return False
-    return True
+    durable, detail = persist(target, why)
+    if durable:
+        log("persisted: %s" % detail)
+        return "durable"
+    log("NOT DURABLE: %s -- settings/base.yaml was still flipped locally, so this "
+        "node is on %s, but the other machines will not receive it until a push "
+        "succeeds" % (detail, TIERS[target][1]))
+    return "local-only"
 
 
 def main():
@@ -220,10 +305,13 @@ def main():
         if down:
             target = down[0]
             log("FAILOVER %s -> %s (failed %d probes)" % (names[cur], names[target], bad[str(cur)]))
-            if move_to(target, "failover to %s (%s down)" % (names[target], names[cur])):
-                log("failover committed")
+            outcome = move_to(target, "failover to %s (%s down)" % (names[target], names[cur]))
+            if outcome:
+                log("failover applied (%s)" % outcome)
                 state["last_move"] = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                                      "from": names[cur], "to": names[target], "kind": "failover"}
+                                      "from": names[cur], "to": names[target], "kind": "failover",
+                                      "durable": outcome == "durable"}
+                state["not_durable"] = outcome != "durable"
                 bad[str(cur)] = 0
         else:
             log("current tier is down but no lower tier is answering; holding")
@@ -232,10 +320,13 @@ def main():
         if up:
             target = up[0]
             log("RECOVERY %s -> %s (healthy %d probes)" % (names[cur], names[target], ok[str(target)]))
-            if move_to(target, "recovery to %s" % names[target]):
-                log("recovery committed")
+            outcome = move_to(target, "recovery to %s" % names[target])
+            if outcome:
+                log("recovery applied (%s)" % outcome)
                 state["last_move"] = {"at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                                      "from": names[cur], "to": names[target], "kind": "recovery"}
+                                      "from": names[cur], "to": names[target], "kind": "recovery",
+                                      "durable": outcome == "durable"}
+                state["not_durable"] = outcome != "durable"
                 ok[str(target)] = 0
 
     state["ok"] = ok
@@ -255,11 +346,64 @@ def main():
         "healthy": [names[i] for i in range(len(TIERS)) if health[i]],
         "unhealthy": [names[i] for i in range(len(TIERS)) if not health[i]],
         "last_move": state.get("last_move"),
+        # LOCAL-ONLY MOVES ARE NOT A SUCCESS (2026-10-02). A flip this node applied but
+        # could not push leaves every other machine on the dead model, which is the
+        # exact outage shape this script exists to end - so it is a first-class field
+        # a monitor can alarm on, not a line in a log nobody reads.
+        "not_durable": bool(state.get("not_durable")),
     }
     with open(STATUS_FILE, "w") as f:
         json.dump(status, f, indent=1)
         f.write("\n")
 
 
+def doctor(prove_push=False):
+    """Say whether a failover could actually be applied and made durable HERE.
+
+    Added 2026-10-02: the script spent three hours telling a log nobody reads that
+    it could not act. This prints the two facts that decide it - which tier is
+    answering, and whether this checkout can carry the commit - and, with
+    --prove-push, proves the fallback path end to end by pushing a throwaway ref
+    (never master). Exit 0 when the fleet could be moved, 1 when it could not.
+    """
+    creds = credentials()
+    names = ["%s/%s" % (t[0], t[1]) for t in TIERS]
+    health = [probe(t, creds) for t in TIERS]
+    text = read_base()
+    cur = current_index(text)
+    print("current:  %s" % ("?" if cur is None else names[cur]))
+    print("answering: %s" % ", ".join(names[i] for i in range(len(TIERS)) if health[i]) or "none")
+    print("dead:      %s" % (", ".join(names[i] for i in range(len(TIERS)) if not health[i]) or "none"))
+    ancestry_ok = (git("fetch", "origin").returncode == 0
+                   and git("merge-base", "--is-ancestor", "origin/master", "HEAD").returncode == 0)
+    print("main checkout can carry the commit: %s" % ("yes" if ancestry_ok else "no"))
+    print("path that would be used:             %s"
+          % ("main checkout + push" if ancestry_ok else "scratch worktree + push origin HEAD:master"))
+    if cur is not None and not health[cur] and any(health[cur + 1:]):
+        print("VERDICT: failover is REQUIRED and CAN be applied" +
+              ("" if ancestry_ok else " (local flip always works; durability goes via the scratch worktree)"))
+        rc = 0
+    elif cur is not None and health[cur]:
+        print("VERDICT: nothing to do, the current tier answers")
+        rc = 0
+    else:
+        print("VERDICT: the tier in force is dead and no lower tier answers -- HOLDING")
+        rc = 1
+    if prove_push:
+        # PROVES THE MECHANISM WITHOUT TOUCHING master: same worktree, same commit,
+        # pushed to a throwaway ref. Delete it afterwards:
+        #   git push origin --delete refs/heads/mfw-selftest
+        ok, detail = _scratch_worktree_persist(
+            cur if cur is not None else 0,
+            "selftest (throwaway ref, nothing to see here)",
+            dest_ref="HEAD:refs/heads/mfw-selftest",
+            marker="# mfw-selftest %s" % time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
+        print("prove-push (throwaway ref mfw-selftest, master untouched): %s -- %s"
+              % ("OK" if ok else "FAILED", detail))
+    return rc
+
+
 if __name__ == "__main__":
+    if "--doctor" in sys.argv:
+        sys.exit(doctor(prove_push="--prove-push" in sys.argv))
     main()
