@@ -534,6 +534,27 @@ export function spliceManagedBlock(text, bodyLines, entryCount = null) {
       oldCount = null;
     }
   }
+  // REFUSE TO DELETE COMMITTED ROWS (added 2026-10-02). Measured: the committed block in
+  // profiles/web/cordis.patch.yml carried seven rows this converter does not emit (permission,
+  // ui-settings-general, ui-conversation, llm-deepseek, llm-pi-ai, deepseek-ai, agent-loop), and
+  // one `--install` would have deleted all seven without naming them -- `--check` said only
+  // "drift". An id present before and absent after is never benign. This sits BEFORE the parse
+  // verdict is honoured because in that same file the block does not parse either, and the shape
+  // complaint would have hidden the deletion.
+  const topLevelIds = (body) => [...new Set(body
+    .map((line) => /^\s*- id: ([A-Za-z0-9_.'-]+)/.exec(line))
+    .filter(Boolean)
+    .map((m) => m[1].replace(/^'|'$/g, '')))];
+  const generatedIds = new Set(topLevelIds(bodyLines));
+  const wouldDelete = topLevelIds(oldBody).filter((id) => !generatedIds.has(id));
+  if (wouldDelete.length > 0) {
+    return {
+      problems: [`REFUSING to write: ${wouldDelete.length} row(s) live inside the \`${BLOCK_ID}\` block `
+        + `but are not in what this converter generates, so writing would delete them: `
+        + `${wouldDelete.join(', ')}. This block is a generated region, so a row authored by hand `
+        + 'must sit OUTSIDE the markers. Move it out, then run again. Nothing was written.'],
+    };
+  }
   if (oldBegin !== null && oldCount === null) {
     return {
       problems: ['the lines between the markers do not parse as a flow sequence of patch entries. '
