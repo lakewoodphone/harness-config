@@ -161,6 +161,29 @@ ${i}}`,
   },
 ]
 
+/**
+ * Statement-level patches: literal replacements, each with a guard string so a changed engine build
+ * is REFUSED rather than mis-patched.
+ *
+ * F1 of docs/dsh-at-scale/96-engine-per-event-cost.md (19 % of the measured per-event synchronous
+ * cost). SAFETY, established by reading the consumer rather than assuming it:
+ *   * `drainBuffered` hands every batch to `materializeAppendBatch`, which IS `snapshotJsonValue(events)`
+ *     (dsh-session-persistence/lib/index.js:218-222) — it makes its own detached copy and throws if the
+ *     batch is not losslessly JSON-serialisable. The persisted bytes are therefore protected by the
+ *     drain, not by the clone at enqueue.
+ *   * the event is deep-frozen before publication (`deepFreeze(event.data)`, dsh-session:1089 and
+ *     :1095), so nothing can mutate it between enqueue and drain.
+ *   * and the guard keeps today's behaviour EXACTLY whenever the event is not frozen, so the worst
+ *     case is the status quo rather than a regression.
+ */
+const STATEMENTS = [
+  {
+    name: 'enqueueLive-redundant-clone',
+    guard: 'this.buffered.push(structuredClone(event));',
+    replace: '/* harness-patch:per-event-no-redundant-clone */ this.buffered.push(Object.isFrozen(event) ? event : structuredClone(event));',
+  },
+]
+
 const src = fs.readFileSync(TARGET, 'utf8')
 const alreadyPatched = src.includes(MARKER)
 
@@ -169,13 +192,25 @@ function build() {
   for (const method of METHODS) {
     const found = locate(out, method.name)
     if (!found.ok) return { ok: false, reason: found.reason }
+    // ALREADY-PATCHED FIRST, GUARDS SECOND. The guard strings describe the ORIGINAL body, so a method
+    // this run has already replaced can never match them. Checking guards first made the tool refuse
+    // its own earlier work as a "version change" the first time a second patch was added alongside it
+    // (measured 2026-10-05, applying F1 on top of the walk patch) — the tool must be verified in the
+    // MIXED state, not only from fresh.
+    if (found.old.includes(MARKER)) continue
     for (const guard of method.guards) {
       if (!found.old.includes(guard)) {
         return { ok: false, reason: `${method.name}: guard string not found — this engine version differs from the one the patch was written for (expected: ${guard})` }
       }
     }
-    if (found.old.includes(MARKER)) continue // this method is already patched
     out = out.slice(0, found.start) + method.body(found.indent) + out.slice(found.end)
+  }
+  for (const stmt of STATEMENTS) {
+    if (out.includes(stmt.replace)) continue
+    if (!out.includes(stmt.guard)) {
+      return { ok: false, reason: `${stmt.name}: guard string not found — this engine version differs from the one the patch was written for (expected: ${stmt.guard})` }
+    }
+    out = out.replace(stmt.guard, stmt.replace)
   }
   return { ok: true, text: out }
 }
@@ -196,6 +231,10 @@ if (mode === 'check') {
   console.log(`bytes     : ${src.length}`)
   console.log(`marker    : ${alreadyPatched ? 'PRESENT (patched)' : 'absent'}`)
   console.log(`patchable : ${unpatched.length ? unpatched.join(', ') : '(none)'}`)
+  const stmtPending = STATEMENTS.filter((s) => !src.includes(s.replace)).map((s) => s.name)
+  const stmtMissing = STATEMENTS.filter((s) => !src.includes(s.guard) && !src.includes(s.replace)).map((s) => s.name)
+  console.log(`statements: ${stmtPending.length ? 'pending: ' + stmtPending.join(', ') : 'all applied'}`)
+  if (stmtMissing.length) { console.log(`  MISSING GUARD: ${stmtMissing.join(', ')} — engine build changed`); process.exit(3) }
   console.log(`not found : ${missing.length ? missing.join(', ') : '(none)'}`)
   if (missing.length) { console.log('VERDICT   : UNPATCHABLE — engine version changed; re-derive the patch'); process.exit(3) }
   if (alreadyPatched && !unpatched.length) { console.log('VERDICT   : ALREADY PATCHED'); process.exit(2) }
@@ -217,8 +256,9 @@ if (mode === 'restore') {
 // --apply
 if (alreadyPatched) {
   const stillUnpatched = METHODS.filter((m) => { const f = locate(src, m.name); return f.ok && !f.old.includes(MARKER) })
-  if (!stillUnpatched.length) { console.log('ALREADY PATCHED — nothing to do'); process.exit(0) }
-  console.log(`partial: patching ${stillUnpatched.map((m) => m.name).join(', ')}`)
+  const stmtsLeft = STATEMENTS.filter((s) => !src.includes(s.replace))
+  if (!stillUnpatched.length && !stmtsLeft.length) { console.log('ALREADY PATCHED — nothing to do'); process.exit(0) }
+  console.log(`partial: patching ${[...stillUnpatched.map((m) => m.name), ...stmtsLeft.map((s) => s.name)].join(', ')}`)
 }
 const built = build()
 if (!built.ok) { console.error(`REFUSING: ${built.reason}`); process.exit(3) }
@@ -243,6 +283,6 @@ console.log(`backup    : ${backup}`)
 console.log(`patched   : ${TARGET}`)
 console.log(`bytes     : ${src.length} -> ${built.text.length}`)
 console.log(`parse     : ${after.ok ? 'OK (node --check)' : 'FAILED: ' + after.detail}`)
-console.log(`marker x  : ${(built.text.match(/harness-patch:session-list-pool/g) || []).length}`)
+console.log(`markers   : ${(built.text.match(/harness-patch:[a-z-]+/g) || []).length} total (${(built.text.match(/harness-patch:session-list-pool/g) || []).length} walk, ${(built.text.match(/harness-patch:per-event-no-redundant-clone/g) || []).length} per-event)`)
 console.log('NOTE      : the running engine keeps the old code; this applies at the next engine start.')
 process.exit(after.ok ? 0 : 5)
