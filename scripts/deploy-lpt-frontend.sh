@@ -19,6 +19,13 @@
 # It NEVER deploys to production. Production is a separate, deliberate act by the owner.
 set -euo pipefail
 
+# HOME may be absent in a stripped environment (cron, `env -i`, some ssh modes). Do not assume it:
+# a credential path that only works for a human is the exact failure this script exists to fix.
+if [ -z "${HOME:-}" ]; then
+  HOME="$(getent passwd "$(id -u)" 2>/dev/null | cut -d: -f6)"
+  HOME="${HOME:-/home/$(id -un)}"
+  export HOME
+fi
 SECRETS="${LPT_CLOUDFLARE_SECRETS:-$HOME/.secrets/cloudflare.env}"
 REPO_DEFAULT="/home/zabz/repos/phone-and-tech-full"
 ENV_NAME="test"
@@ -67,6 +74,6 @@ echo "token: active"
 
 # 3. the deploy itself
 cd "$REPO"
-export PATH="/home/zabz/node/bin:/usr/lib/node_modules/corepack/shims:$PATH"
+export PATH="${NODE_BIN:-/home/zabz/node/bin}:/usr/lib/node_modules/corepack/shims:${PATH:-/usr/bin:/bin}"
 echo "deploying from $REPO ($(git rev-parse --short HEAD)) to --env $ENV_NAME"
 exec node scripts/deploy-frontend-cloudflare.mjs --env "$ENV_NAME" "${EXTRA[@]}"
