@@ -92,7 +92,7 @@ carries the microphone:
 
 ```
 full address:s:zabz-tech.tail93e6e6.ts.net
-username:s:ezabz
+username:s:MicrosoftAccount\ezabz68@gmail.com
 audiocapturemode:i:1      <- record audio from THIS computer and deliver it to the remote session
 audiomode:i:0             <- play remote audio back on this computer
 redirectclipboard:i:1
@@ -105,7 +105,7 @@ dynamic resolution:i:1
 `mstsc.exe` is present on ZABZ-YOGA (Windows 11 Home carries the RDP *client*; only the host side needs Pro,
 and ZABZ-TECH is Pro).
 
-### 4.2 Why it is not live yet — and the exact evidence
+### 4.2 Why it was not live at first — the evidence (resolved 2026-10-05 00:22 by the owner's reboot)
 
 **ZABZ-TECH's RDP listener never bound.** After the change above, all three services report Running and the
 Remote Connection Manager issued a fresh self-signed RD certificate (Event 1056, 23:03:36), but:
@@ -138,6 +138,47 @@ Get-PnpDevice -Class AudioEndpoint -Status OK | Select-Object -ExpandProperty Fr
 If after the reboot 3389 is *still* dead, the next diagnosis is the RD Session Host event log
 (`Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational`) — but that log is the one place a
 fix must be *observed*, not assumed.
+
+### 4.4 The credential trap that is left (2026-10-05 01:24)
+
+The owner rebooted ZABZ-TECH himself at **00:22:59**. The listener came up exactly as predicted: `qwinsta`
+shows `rdp-tcp ... Listen`, `netstat` shows 3389 bound, and from ZABZ-YOGA `Test-NetConnection
+zabz-tech.tail93e6e6.ts.net -Port 3389` is **True** (raw TCP connect succeeded). The saved .rdp then failed at
+authentication: *"Your credentials did not work … The logon attempt failed"*.
+
+ZABZ-TECH's own Security log names the failure exactly — event **4625 at 01:24:15**, workstation ZABZ-YOGA,
+source 100.72.162.5: Account Name `ezabz68@gmail.com`, Account Domain `MicrosoftAccount`, Logon Type 3,
+Status `0xC000006D`, Sub Status **`0xC000006A` — "Unknown user name or bad password"**. The account *resolved*
+(a bad username is `0xC0000064`), so **the username was right and the password was wrong**. Not a lockout: the
+threshold is 10 with a 10-minute duration and the log holds no 4740 events.
+
+Why every password failed is written in the account's own dates:
+
+| machine | account | PrincipalSource | Password last set |
+|---|---|---|---|
+| ZABZ-TECH | `ezabz` | **MicrosoftAccount** | **22 Jul 2025 14:21:54** |
+| ZABZ-YOGA | `ezabz` | **MicrosoftAccount** (same address) | **18 Dec 2025 16:16:14** |
+
+The Microsoft account's password changed in December 2025 and ZABZ-TECH has not re-cached it since — its
+console session is reached with a **PIN**, which never revalidates the cloud password. RDP's NLA/CredSSP
+validates against the stored credential, so a freshly changed Microsoft-account password can fail on exactly
+this machine while working everywhere else. That is why "no matter what password" is the expected symptom
+rather than a surprise.
+
+The order that fixes it:
+
+1. **At ZABZ-TECH's own lock screen** (reachable through CRD), choose the **password** sign-in option and sign
+   in once. That is the same credential RDP asks for, and a successful online sign-in re-caches it.
+2. If the current password is refused there too, reset it at account.microsoft.com and repeat step 1.
+3. A dedicated local account sidesteps the Microsoft account entirely, but it is a *different profile* — none
+   of his files, none of his DSH sessions — so it is a fallback, never the fix.
+
+Checked rather than assumed, so it is not blamed wrongly: `DevicePasswordLessBuildVersion = 0` on ZABZ-TECH,
+i.e. the "Require Windows Hello sign-in for Microsoft accounts" block is **off** and password sign-in is
+permitted.
+
+The client file now carries `username:s:MicrosoftAccount\ezabz68@gmail.com` and `prompt for credentials:i:1`,
+so the dialog arrives already naming the right identity and only the password has to be typed.
 
 ## 5. Routes checked and rejected (so nobody re-walks them)
 
