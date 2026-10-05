@@ -352,14 +352,31 @@ The next lever is desktop composition, which is what the AVC pipeline captures:
 rule** — if event 162 still reports profile 2 on the next connection, the value is a no-op on Windows 11 and
 should be removed rather than left in place pretending to work.
 
-**(d) The values do keep going missing, and the honest state of that is: unresolved.** The enforcement log
-records `(missing)` for them on every run so far (03:01, 03:02, 10:57, 10:59), yet a direct read in *both*
-contexts — a one-off SYSTEM task and the ssh user session — showed all four present and stable, and a marker
-value written at 11:00 survived its first check. So either something transiently removes them (a scheduled
-policy refresh has the right shape, but the local `Registry.pol` is 330 bytes and names none of these values,
-and `gpupdate /force` does not reproduce it), or the enforcer's own read is at fault. Its next runs settle it:
-if it keeps reporting re-applications while direct reads say present, the *read* is the bug, and that is what
-gets fixed.
+**(d) The "values keep going missing" was MY OWN GUARD, and it was the third self-inflicted regression of the
+night.** For an hour this document recorded a mystery: the enforcement log reported `(missing)` on every run
+(03:01, 03:02, 10:57, 10:59, 11:02, 11:07, 11:17) while direct reads showed the values present, and two marker
+values I planted vanished. There was never another deleter. The enforcer's own second line was
+`New-Item -Path $key -Force`, and **`New-Item -Force` on an already-existing registry key deletes every value in
+it** — measured directly, twice:
+
+```
+before:  AVC444ModePreferred=0   ZabzMarker3=99
+after `New-Item -Path <key> -Force`:   both GONE
+```
+
+So the guard wiped the four policies at the start of every run and immediately re-added them, which is exactly
+why every run said `(missing)` and why the markers died. **And the damage was not cosmetic:** for a window on
+every run the key was bare, so any session created in that window got *none* of the policies — the guard was
+actively breaking the thing it guarded, every five minutes, all night.
+
+Fixed: the key is created only when absent, and nothing else touches it. Proven: with a marker value planted,
+two consecutive enforcer runs left it at `123` and the log stayed silent. The interval is now 2 minutes, since
+the point of the task is that a session can never start in a gap.
+
+**The lesson to carry, and it is not about RDP:** when a value you set keeps disappearing, suspect *your own
+tooling* before a phantom adversary — and prove a repair by planting a value the tool does not know about and
+watching it survive. Two of tonight's three regressions were in the guards themselves (the wrapper that looped,
+the enforcer that wiped), not in the thing they were guarding.
 
 
 

@@ -17,13 +17,19 @@ New-Item -ItemType Directory -Force -Path (Split-Path $log) | Out-Null
 if ((Test-Path $log) -and ((Get-Item $log).Length -gt 1MB)) { Get-Content $log -Tail 300 | Set-Content $log }
 
 $key = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services'
-New-Item -Path $key -Force | Out-Null
+# NEVER `New-Item -Force` HERE. MEASURED 2026-10-05 on this machine: `New-Item -Path <existing key> -Force`
+# DELETES EVERY VALUE IN THAT KEY. This script used it, so the guard was itself wiping the four policies at the
+# start of every run and re-adding them - which is why every run reported "(missing)", why two marker values
+# vanished, and why there seemed to be a mystery process deleting them. Worse, the key sat bare for a window on
+# every run, so a session starting in that window got none of the policies. Create it only when absent.
+if (-not (Test-Path $key)) { New-Item -Path $key | Out-Null }
 
 # The intended config, and why each value is here. 1 and 0 are the only accepted values.
 $want = @(
   @{ name = 'SelectTransport';           value = 1; why = 'RDP over TCP only: the tailnet path changes under this link and RDP-UDP dies when it does' },
   @{ name = 'AVC444ModePreferred';       value = 0; why = 'AVC444 is the video codec: chroma-subsampled text looked wrong, and its pipeline logged 0x80004005 at the moment sessions died' },
-  @{ name = 'AVCHardwareEncodePreferred';value = 0; why = 'keep the hardware H.264 encoder out of the text path on this machine' }
+  @{ name = 'AVCHardwareEncodePreferred';value = 0; why = 'keep the hardware H.264 encoder out of the text path on this machine' },
+  @{ name = 'fAllowDesktopCompositionOnServer'; value = 0; why = 'TEST 2026-10-05: AVC444ModePreferred=0 did NOT change the negotiated profile (still Initial profile: 2), and the AVC pipeline is what DWM composition feeds. Turning composition off in the session is the remaining documented lever for a text-optimised graphics path; if event 162 still reports profile 2 afterwards, this value is a no-op on Windows 11 and should be removed rather than left in' }
 )
 
 foreach ($w in $want) {
