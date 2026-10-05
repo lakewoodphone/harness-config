@@ -576,3 +576,81 @@ flow style. Both files' markers are balanced (BEGIN 1 / END 1 each) and the top-
 intact, so this is not a malformed file — `spliceManagedBlock`'s invariant has never been exercised on a
 patch file that carries two managed blocks at once. It must be fixed with a test that reproduces exactly
 this shape, because it decides which configuration the switch installs.
+
+
+### 2026-10-05 (round 3) — PREFLIGHT IS GO, and the settings gate immediately found 15 real silent losses
+
+```
+VERDICT: GO — 7 blocking guard(s) all green.
+  PASS baseline fresh / analyze (RISKY, BREAKS=0) / patch-effect SAFE / preset-gate SAFE
+  PASS verify (7 gates ran, only G8 failed and it was explicitly accepted)
+  PASS G8 door / PASS artifact provenance
+  GAP  settings-effective  BREAKS: absent=11 different=4 of 108 keys
+```
+
+This is the first time this pipeline has reached GO for a session-format candidate. It is the direct
+result of the promote/preflight deadlock fix: `verify` now reports "7 gate(s) ran and passed; not run:
+none; the only failure is G8 ... and it was explicitly accepted", which is exactly the reading
+`promote-reading.mjs` exists to produce.
+
+Three more defects were fixed to get here, all in `lib/stage-home.mjs`:
+
+* **`spliceManagedBlock` could not handle a patch file carrying TWO managed blocks.** The repo's web
+  patch holds `mesh-provider-install` (80-251) and `preset-rows` (284-END) together. The `replace` branch
+  dropped every element matching the NEW generated entries in order and called the remainder "outside" —
+  which cannot work, because `YAML.parse` groups a flow-style block body differently from the way a human
+  names its entries (the code already recorded a correct splice refused as "7 vs 1331" for that reason).
+  Then, after that fix, `outside` derived from `oldCount` produced the same class of FALSE refusal
+  ("would lose 1 entry(ies) ... (preset-cordis-bg)") because the count is smaller than the number of
+  entries a reader would name. "Outside" is now computed from the OLD BLOCK BODY itself — parse the body
+  between the markers, remove those entries, require the rest to survive — with no count and no
+  grouping assumption. Guarded by `tests/stage-home/two-block-splice.mjs`, 11/11, which reproduces the
+  exact two-block shape; `tests/stage-home/run.mjs` is still 109/109.
+* **The converter spells its provenance line two ways and the tool accepted one**, so it refused to
+  splice over the repo's own converter-generated block (see the round-2 section).
+* **`--profiles-from <dir>`** added, so the staged home carries the repo's authoritative layers (45 patch
+  entries) instead of the stale live copy (4), restricted to profiles this machine has — the rule
+  `sync.py` itself applies.
+
+### WHY THE ENGINE HAS NOT BEEN FLIPPED: the settings losses are not cosmetic
+
+The 15 breaks name, in the words of the engine's own `POST /api/settings/describe` report:
+
+| key | what the engine resolved |
+|---|---|
+| `llm-pi-ai.providers.deepinfra.api` | absent — our value `"openai-completions"` is discarded |
+| `llm-pi-ai.providers.deepinfra.apiKeyEnv` | absent |
+| `llm-pi-ai.providers.deepinfra.baseURL` | absent |
+| `llm-pi-ai.providers.deepinfra.models[].id` / `.name` | absent — **an entire model provider's configuration** |
+| `llm-deepseek.retryPolicy.mode` / `.maxRetries` | absent — retry semantics revert to schema defaults |
+| `llm-deepseek.retryPolicy.backoff.initialDelayMs` / `.jitterRatio` / `.maxDelayMs` | absent |
+| `permission.defaultPreset` | absent — **the permission posture silently reverts to a schema default** |
+| `agent-loop.maxParallelToolCalls` | present with a DIFFERENT value |
+| `llm-deepseek.maxTokens` | present with a DIFFERENT value |
+| `llm-deepseek.streamIdleTimeoutMs` | present with a DIFFERENT value |
+| `ui-conversation.busyEnter` | present with a DIFFERENT value |
+
+The consumers are our own layered settings — `settings/base.yaml:128` and
+`settings/machines/{DESKTOP-FGV6KMH,LAKEWOOECHSMINI,ZABZ-YOGA}.yaml` — so these are OUR values, declared
+in the repo, that 0.2.0-rc.2 no longer honours at those paths. Promoting on this evidence would silently
+change model-provider routing, the permission preset, retry behaviour and the tool-concurrency and
+call-bound limits on the machinery that runs the company. That is a loss, and "without breaking
+anything" rules it out.
+
+**This gate is non-blocking only because its false-failure rate was unmeasured when it was wired.** It has
+now earned its keep on its first real run, and the next session should make `absent == 0 for keys this
+deployment sets` a BLOCKING condition — otherwise the one guard that can see this class of loss is the
+one guard that cannot stop a promote.
+
+### The remaining work, in order
+
+1. For each absent key, find where 0.2.0-rc.2 moved it — the artifact carries the engine's resolved
+   namespaces, so this is a mechanical diff of our key paths against the engine's own shape, not a guess.
+   Likely a rename or a restructure of `providers` in `llm-pi-ai` and of `retryPolicy` in `llm-deepseek`.
+2. Update `settings/base.yaml` and the three `settings/machines/*.yaml` layers to the new paths.
+3. Re-run `verify` + `settings-effective` until `absent == 0` for keys we set; then re-run preflight.
+4. `node dsh-update/tools/backup-state.mjs` -> a `BACKUP-REPORT.json` younger than 12 h.
+5. `switch-engine.ps1 -Version 0.2.0-rc.2 -StagedHome C:\Users\ezabz\.dsh-staged\0.2.0-rc.2 -BackupDir <dir>
+   -AcceptSessionFormatUpgrade -IUnderstandThisWritesTheLiveHome`.
+6. After the next boot: the new version serves, a NEW session mounts each preset, an existing session
+   opens. Still unproven: whether `skills/` inside our presets resolves under 0.1.7+ (FINDINGS item 3).
