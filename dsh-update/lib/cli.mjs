@@ -26,9 +26,46 @@ import {
 import {
   ENGINE_REL, classify, detectInstalledEngine, fetchCandidate, newerThan, registryPicture,
 } from './versions.mjs';
+// The single reading of verify.json shared by `preflight` and `promote`. See the module header: the two
+// verbs once carried private readings that disagreed, and it deadlocked every session-format candidate.
+import { DECISION_GATES, verifyPromotable } from './promote-reading.mjs';
+// Every verdict this pipeline writes must name the config home it judged. See the module header: on
+// 2026-09-28 a test fixture's staged home overwrote the authoritative artifacts and every later reading
+// described a config that does not exist on this machine.
+import {
+  candidateProvenanceProblem, configIdentity, liveConfigHome, stampCandidateArtifacts,
+} from './artifact-provenance.mjs';
 
 const VERSION = '1';
 const ARGV = process.argv.slice(2);
+
+/** The verbs that WRITE a verdict about a config, and therefore must stamp what they judged. */
+const STAMPING_VERBS = new Set(['analyze', 'verify', 'patch-effect', 'preset-gate']);
+
+/** The profile whose composition a candidate's verdict is about. */
+const CANDIDATE_PROFILE = 'web';
+
+/**
+ * Record, into state/candidates/<version>/*.json, the config home those verdicts were computed against.
+ *
+ * A stamp that cannot be written is reported and does NOT fail the verb: the verdict itself was
+ * produced and is useful, and turning a stamping failure into a refused verb would be worse than an
+ * artifact that is honestly unstamped — `candidateProvenanceProblem` refuses to treat an unstamped
+ * artifact as evidence, so an unstamped artifact is already inert for gating.
+ */
+function stampCandidateProvenance(version) {
+  const cp = candidatePaths(version);
+  const identity = configIdentity({ dshHome: PATHS.dshHome, profile: CANDIDATE_PROFILE, host: hostName() });
+  return stampCandidateArtifacts(path.dirname(cp.contract), identity);
+}
+
+/** The provenance picture for a candidate, read fresh from disk. */
+function candidateProvenance(version, opts = {}) {
+  const cp = candidatePaths(version);
+  return candidateProvenanceProblem(path.dirname(cp.contract), {
+    expectedHome: opts.expectedHome ?? PATHS.dshHome,
+  });
+}
 
 const VERB_HELP = {
   status: 'print the pin, the real engine path and version, available versions, analysis state',
@@ -361,7 +398,21 @@ async function verbStatus() {
     lines.push('');
     lines.push('CANDIDATE STATE  state/candidates/');
     for (const c of candidates) {
-      lines.push(line(c.version, `contract=${c.contract.exists ? 'yes' : 'no'} diff=${c.diff ? c.diff.verdict || 'present' : 'no'} verify=${c.verify ? (c.verify.pass ? 'pass' : 'FAIL') : 'no'} report=${c.report ? 'yes' : 'no'} prefix=${c.prefix ? 'yes' : 'no'}`));
+      // A verify whose ONLY failing gate is a decision gate is not a defect — it is the one-way door,
+      // and it becomes promotable once the operator accepts it. Showing it as a bare `FAIL` next to a
+      // real failure is how a working upgrade reads as a broken one. (This is the display half of the
+      // `verifyPromotable` fix; the gate half is in promote condition 1.)
+      const cg = c.verify ? (c.verify.gates || []) : [];
+      const cFail = cg.filter((g) => g.ran && !g.ok).map((g) => g.id);
+      const cDoorOnly = Boolean(c.verify) && !c.verify.pass && cFail.length > 0 && cFail.every((id) => DECISION_GATES.has(id));
+      const verifyCell = !c.verify
+        ? 'no'
+        : c.verify.pass
+          ? 'pass'
+          : cDoorOnly
+            ? `door[${cFail.join(',')}] -- promotable with --accept-session-format-upgrade`
+            : 'FAIL';
+      lines.push(line(c.version, `contract=${c.contract.exists ? 'yes' : 'no'} diff=${c.diff ? c.diff.verdict || 'present' : 'no'} verify=${verifyCell} report=${c.report ? 'yes' : 'no'} prefix=${c.prefix ? 'yes' : 'no'}`));
     }
   }
   const badPinSchema = pinned.present && !pinned.schemaOk;
@@ -825,6 +876,12 @@ async function verbPlan(argv) {
   };
 }
 
+// `verifyPromotable`, `OPT_IN_GATES` and `DECISION_GATES` live in lib/promote-reading.mjs, imported at
+// the top of this file. They are deliberately NOT defined here: `preflight` and `promote` each grew a
+// private reading of verify.json once, the two disagreed on exactly the upgrade this pipeline exists
+// for, and the disagreement deadlocked every v4 candidate. The module carries that history and the
+// strictness contract. Read it before changing how a promote decides.
+
 /** The three SPEC conditions for promote, evaluated and reported one by one. */
 function promoteGate(version, eff, opts = {}) {
   const cp = candidatePaths(version);
@@ -837,15 +894,20 @@ function promoteGate(version, eff, opts = {}) {
   const cmp = classify(pinVersion, version, []);
   const strictlyNewer = cmp.newerThanPin === true;
 
+  // Condition 1 rides on the SAME reading preflight uses, so the two verbs cannot disagree.
+  const vp = verifyPromotable(verify, { acceptSessionFormat: opts.acceptSessionFormat === true });
+  const contractMatches = Boolean(contractSha) && verify?.contractSha256 === contractSha;
   const c1detail = !verify
     ? `state/candidates/${version}/verify.json is absent (${verifyRead.reason}) — run \`verify ${version}\` first`
-    : verify.pass !== true
-      ? `verify.json exists but pass=${JSON.stringify(verify.pass)}`
-      : !contractSha
-        ? `verify.json has contractSha256=${verify.contractSha256} but state/candidates/${version}/contract.json is absent, so the hashes cannot be compared`
-        : verify.contractSha256 !== contractSha
-          ? `verify.json was produced for contractSha256=${verify.contractSha256} but the candidate contract on disk is ${contractSha} — the contract changed after verification, so that verify is stale`
-          : `verify.json pass=true and contractSha256=${contractSha} matches the candidate contract on disk`;
+    : !contractSha
+      ? `verify.json has contractSha256=${verify.contractSha256} but state/candidates/${version}/contract.json is absent, so the hashes cannot be compared`
+      : !contractMatches
+        ? `verify.json was produced for contractSha256=${verify.contractSha256} but the candidate contract on disk is ${contractSha} — the contract changed after verification, so that verify is stale`
+        : vp.mode === 'pass'
+          ? `verify.json pass=true and contractSha256=${contractSha} matches the candidate contract on disk`
+          : vp.mode === 'door-accepted'
+            ? `verify.json pass=${JSON.stringify(verify.pass)} because the decision gate(s) ${vp.failing.join(', ')} failed — that is the session-format one-way door, which --accept-session-format-upgrade records as accepted; every other required gate ran and passed, and contractSha256=${contractSha} matches the candidate contract on disk`
+            : `verify.json is not promotable: pass=${JSON.stringify(verify.pass)}, failing gate(s) ${vp.failing.join(',') || 'none'}, required gate(s) that did not run ${vp.unexpectedNotRun.join(',') || 'none'}`;
 
   const c2detail = !diff
     ? `state/candidates/${version}/diff.json is absent (${diffRead.reason}) — run \`analyze ${version}\` first`
@@ -895,13 +957,30 @@ function promoteGate(version, eff, opts = {}) {
       + 'that records the decision in the pin and the history rather than skipping the check.';
   }
 
+  // ── condition 5: do the artifacts say WHICH config they judged, and do they agree? ────────────
+  //
+  // Without this, the gates above can all pass on verdicts computed about a different config. That is
+  // not hypothetical: on 2026-09-28 a test suite pointed DSH_HOME at %TEMP%\switch-rework-<stamp>\
+  // staged-home and overwrote state/candidates/0.1.7-rc.2/*.json with findings about a synthetic home,
+  // and `status`/`preflight` then reported those fixture verdicts as this machine's state.
+  //
+  // Deliberately NOT compared against the live home here: the switch's whole design is to judge a
+  // STAGED config and then install it, so a named staged home is a legitimate subject. A home under
+  // the OS temp directory is not — that is a fixture by construction — and artifacts that disagree
+  // with each other are the seam the 15:32:08 incident happened through.
+  const prov = candidateProvenanceProblem(path.dirname(cp.contract), {});
+  const c5detail = prov.ok
+    ? `all ${prov.stamped.length} artifact(s) name the same config home (${prov.homes[0] ? safeRelPath(prov.homes[0]) : 'none'}) and it is not a test fixture`
+    : (prov.reason ?? 'artifact provenance could not be established');
+
   const conditions = [
-    { id: 1, name: 'a passing verify exists for this exact contract', ok: Boolean(verify && verify.pass === true && contractSha && verify.contractSha256 === contractSha), detail: c1detail },
+    { id: 1, name: 'a passing verify exists for this exact contract', ok: Boolean(vp.ok && contractMatches), detail: c1detail },
     { id: 2, name: 'the diff verdict is not BREAKS', ok: Boolean(diff && diff.verdict !== 'BREAKS'), detail: c2detail },
     { id: 3, name: 'the candidate is strictly newer than the pin', ok: strictlyNewer, detail: c3detail },
     { id: 4, name: 'the session-format upgrade is either absent or explicitly accepted', ok: c4ok, detail: c4detail },
+    { id: 5, name: 'the artifacts name the config home they judged, agree, and are not a test fixture', ok: prov.ok, detail: c5detail },
   ];
-  return { ok: conditions.every((c) => c.ok), conditions, verify, diff, sessionFormat: g8 ?? null, sessionFormatAccepted: accepted && g8 != null && g8.ok !== true };
+  return { ok: conditions.every((c) => c.ok), conditions, verify, diff, sessionFormat: g8 ?? null, sessionFormatAccepted: accepted && g8 != null && g8.ok !== true, verifyReading: vp.mode, verifyFailing: vp.failing, verifyUnexpectedNotRun: vp.unexpectedNotRun, provenance: prov };
 }
 
 async function verbPromote(argv) {
@@ -919,10 +998,13 @@ async function verbPromote(argv) {
       `dsh-update promote ${version} — REFUSED. Nothing was written.`,
       ...gate.conditions.map((c) => `  ${c.ok ? 'PASS' : 'FAIL'}  condition ${c.id}: ${c.name}\n        ${c.detail}`),
       '',
-      'Condition 1 — a passing verify for this exact contract — has NO bypass flag. Skipping it is a',
-      'code change, not a flag. Condition 4 DOES have one, `--accept-session-format-upgrade`, and that',
-      'is not a bypass: it records a deliberate decision in the pin and the history rather than skipping',
-      'the check, because the session-format upgrade is the one step a rollback cannot undo.',
+      'Condition 1 — a verify that is good enough for this exact contract — has NO runtime bypass flag.',
+      'It is satisfied either by `verify.pass === true`, or by the door reading: every required gate ran,',
+      'EXACTLY the decision gate(s) G8 failed, and that door was accepted with',
+      '`--accept-session-format-upgrade`. That flag is not a bypass of condition 1 either — it records a',
+      'deliberate decision in the pin and the history rather than skipping the check, because the',
+      'session-format upgrade is the one step a rollback cannot undo. It cannot carry a second failure:',
+      'any other failing or unrun gate refuses exactly as before.',
     ].join('\n');
     return { ok: false, exitCode: 8, verb: 'promote', version, refused: true, failedConditions: failed.map((c) => c.id), gates: gate.conditions, text };
   }
@@ -944,6 +1026,13 @@ async function verbPromote(argv) {
     contractSha256: gate.verify.contractSha256 ?? eff.candidate.contract.sha256 ?? null,
     treeSha256: gate.verify.treeSha256 ?? fileInfo(candidatePaths(version).tree).sha256 ?? null,
     predecessor: previousPin,
+    // HOW condition 1 was satisfied: 'pass' (verify.pass was true) or 'door-accepted' (verify.pass was
+    // false because G8 -- the only decision gate -- failed, every other required gate ran and passed,
+    // and the operator accepted the door). Recorded so the audit trail never has to re-derive which
+    // reading let an irreversible step through. The long note on `verifyPromotable` says why this is
+    // published rather than inferred.
+    verifyReading: gate.verifyReading ?? null,
+    verifyFailingGates: Array.isArray(gate.verifyFailing) ? gate.verifyFailing : [],
     // Recorded ONLY when the operator deliberately accepted an irreversible session-format upgrade
     // (gate 4, `--accept-session-format-upgrade`). null means the candidate writes the same format as
     // the logs already on disk, or no format gate applied. This exists so the audit trail answers
@@ -962,14 +1051,14 @@ async function verbPromote(argv) {
 
   appendHistory({
     verb: 'promote', version, fromVersion: previousPin.version, result: 'ok',
-    detail: `dshInstall ${eff.windowsJson.oldPresent ? eff.windowsJson.oldValue : '(absent)'} -> ${eff.windowsJson.newValue}; pin ${previousPin.version} -> ${version}; diff verdict ${kv ?? 'unknown'}; verify contractSha256 ${gate.verify.contractSha256}; backup ${cfgWrite.backup ? rel(cfgWrite.backup) : 'none needed'}; engine NOT restarted${gate.sessionFormatAccepted ? '; SESSION-FORMAT UPGRADE ACCEPTED DELIBERATELY (gate G8) — rolling back past this point cannot recover sessions written by the new engine' : ''}`,
+    detail: `dshInstall ${eff.windowsJson.oldPresent ? eff.windowsJson.oldValue : '(absent)'} -> ${eff.windowsJson.newValue}; pin ${previousPin.version} -> ${version}; diff verdict ${kv ?? 'unknown'}; verify contractSha256 ${gate.verify.contractSha256}; verify reading ${gate.verifyReading ?? 'unknown'}${gate.verifyReading === 'door-accepted' ? ` (decision gate(s) accepted: ${(gate.verifyFailing || []).join(',')})` : ''}; backup ${cfgWrite.backup ? rel(cfgWrite.backup) : 'none needed'}; engine NOT restarted${gate.sessionFormatAccepted ? '; SESSION-FORMAT UPGRADE ACCEPTED DELIBERATELY (gate G8) — rolling back past this point cannot recover sessions written by the new engine' : ''}`,
   });
 
   const text = [
     `dsh-update promote ${version} — DONE.`,
-    line('gate 1', gate.conditions[0].detail),
-    line('gate 2', gate.conditions[1].detail),
-    line('gate 3', gate.conditions[2].detail),
+    // Every condition, printed from the array rather than by index: naming gates 1-3 explicitly is how
+    // a 4th and 5th condition came to be evaluated but never shown.
+    ...gate.conditions.map((c) => line(`gate ${c.id}`, c.detail)),
     `  diff verdict: ${kv ?? 'unknown'}${kv === 'RISKY' ? '  <-- RISKY: the analysis found non-blocking risk, read the report' : ''}`,
     '',
     line('windows.json', `${rel(eff.windowsJson.path)}  dshInstall ${eff.windowsJson.oldPresent ? eff.windowsJson.oldValue : '(absent)'} -> ${eff.windowsJson.newValue}`),
@@ -1383,13 +1472,15 @@ async function verbPreflight(argv) {
   // (GFULL boots the whole web profile and is not cheap). That is "not asked for", not "could not be
   // checked", and the two must not be conflated: a gate that legitimately did not run is listed, and
   // only a NON-opt-in gate that did not run blocks.
-  const OPT_IN_GATES = new Set(['GFULL']);
-  const failingGates = (v?.gates || []).filter((g) => g.ran === true && g.ok === false).map((g) => g.id);
-  const notRun = (v?.gates || []).filter((g) => g.ran !== true).map((g) => g.id);
-  const unexpectedNotRun = notRun.filter((id) => !OPT_IN_GATES.has(id));
+  // The reading itself now lives in `verifyPromotable`, shared with `promote` condition 1, so these
+  // two verbs cannot drift apart again (they did, and it deadlocked every v4 candidate -- see the
+  // long note on that function). This block only renders its answer.
+  const vp = verifyPromotable(v, { acceptSessionFormat });
+  const failingGates = vp.failing;
+  const notRun = vp.notRun;
+  const unexpectedNotRun = vp.unexpectedNotRun;
   const onlyG8Fails = failingGates.length === 1 && failingGates[0] === 'G8';
-  const verifyOk = (v?.pass === true && v?.complete === true)
-    || (v != null && onlyG8Fails && unexpectedNotRun.length === 0 && (acceptSessionFormat || g8?.ok === true));
+  const verifyOk = vp.ok;
   add('verify (gates G1-G8)', verifyOk, true,
     v ? (verifyOk && (onlyG8Fails || notRun.length > 0)
       ? `${(v.gates || []).filter((g) => g.ran).length} gate(s) ran and passed; not run: ${notRun.join(',') || 'none'}${onlyG8Fails ? '; the only failure is G8, the session-format one-way door, and it was explicitly accepted' : ''}`
@@ -1403,6 +1494,18 @@ async function verbPreflight(argv) {
         ? `ACCEPTED DELIBERATELY — ${String(g8.detail).slice(0, 240)}`
         : `BLOCKING ONE-WAY DOOR — ${String(g8.detail).slice(0, 300)}  Re-run with --accept-session-format-upgrade once taking it deliberately is the decision.`))
       : 'no G8 gate in verify.json');
+
+  // ── guard: every artifact stamped with the config home it judged, and that home is THIS one ────
+  //
+  // Blocking, and deliberately checked here rather than left to promote. `preflight` is the verb whose
+  // verdict drives a switch, and on 2026-09-28 a fixture run's artifacts were read as this machine's
+  // state: the repository's own preflight reported NO-GO "for reasons that have nothing to do with the
+  // switch", and the switch suite's README had to say so in writing. A GO about a %TEMP% fixture is
+  // precisely the reading that must not exist, so the guard refuses it rather than annotating it.
+  const prov = candidateProvenance(version, { expectedHome: PATHS.dshHome });
+  add('artifact provenance', prov.ok, true, prov.ok
+    ? `${prov.stamped.length} artifact(s) name this config home (${safeRelPath(PATHS.dshHome)}) and agree: ${prov.stamped.join(', ')}`
+    : `${prov.reason ?? 'not established'}${prov.homes.length ? ` — artifact home(s): ${prov.homes.map((h) => safeRelPath(h)).join(', ')}` : ''}. preflight re-runs every judging verb, so a survivor here did NOT get refreshed by this run.`);
 
   // ── reported, never blocking ──────────────────────────────────────────────────────────────────
   const gaps = (diff?.consumed?.unverified || []).length
@@ -1505,6 +1608,19 @@ async function main() {
   const rest = ARGV.filter((a) => a !== verb);
   try {
     const result = await fn(rest);
+    // Stamp every artifact a JUDGING verb just wrote with the config home it judged. Done here, in one
+    // place, so a new verb cannot be added without it and a fixture run cannot produce an anonymous
+    // verdict: on 2026-09-28 a test home overwrote the authoritative artifacts and every later reading
+    // described a config that does not exist on this machine. See lib/artifact-provenance.mjs.
+    // Not gated on the exit code: `verify` exits non-zero for a candidate that fails a gate, and its
+    // artifact is exactly the one that most needs to say what it judged.
+    if (STAMPING_VERBS.has(result?.verb) && result?.version) {
+      try {
+        stampCandidateProvenance(result.version);
+      } catch (stampErr) {
+        process.stderr.write(`dsh-update ${verb}: WARNING — could not record artifact provenance: ${stampErr.message}\n`);
+      }
+    }
     emit(result, result.text || '');
     return result.exitCode ?? 0;
   } catch (err) {
