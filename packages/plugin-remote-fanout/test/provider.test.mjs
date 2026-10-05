@@ -109,6 +109,26 @@ test('exit 0 without the completion frame is an error, not an empty success', as
   assert.equal(result.stopReason, 'error');
   assert.match(result.diagnostic, /printed no completion frame/);
   assert.match(textOf(result), /raw stdout follows/);
+  // THE CHILD'S OWN LAST WORDS, IN THE DIAGNOSTIC ITSELF (P2826 #1). stderr was
+  // empty for every recorded instance of this failure and the reason was on
+  // stdout all along; the diagnostic said only "no frame" for a week.
+  assert.match(result.diagnostic, /stdout tail: Error: dsh: cannot resolve profile bundle "x"/);
+  assert.match(result.diagnostic, /stderr tail: \(empty\)/);
+  await run.dispose();
+});
+
+test('a run that loses its frame is NOT reported to the broker as a success', async () => {
+  // P2826 #2. The lease still comes back — a reservation nobody gives back is a
+  // slot the mesh has lost — but `ok` must be false, because `POST /done
+  // (ok=true)` is what made five lost children invisible to the broker.
+  const transport = fakeTransport({ ok: true, exitCode: 0, ms: 9, stdout: 'FANOUT_BEGIN_abc\n' });
+  const placer = fakePlacer({ transport });
+  const provider = new RemoteOneShotProvider({ name: 'remote-ssh', placer });
+  const run = await provider.start({ prompt: [{ type: 'text', text: 'x' }], signal: signal() });
+  const result = await run.result;
+  assert.equal(result.stopReason, 'error');
+  assert.deepEqual(placer.released, [{ lease: 'mu4q576o-lease', ok: false }]);
+  assert.match(textOf(result), /released to the broker with POST \/done at settle \(ok=false\)/);
   await run.dispose();
 });
 

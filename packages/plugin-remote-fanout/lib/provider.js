@@ -299,12 +299,16 @@ export function renderReport({ provider, transport, parsed, outcome, remote, mes
 }
 
 /** The seam's rule for a provider diagnostic, reused for the release note. */
-function leaseNoteFor(placement, release) {
+function leaseNoteFor(placement, release, childOk) {
   if (placement?.lease === undefined || placement?.lease === null || placement.lease === '') {
     return undefined;
   }
   if (release?.released === true) {
-    return `${placement.lease} released to the broker with POST /done at settle (ok=${release.ok === false ? 'false' : 'true'})`;
+    // `release.ok` IS THE BROKER'S REPLY TO THE POST, NOT WHAT WE TOLD IT. The
+    // two were conflated, so the note printed `ok=true` on a run that had just
+    // been released as a failure — the same "looks like it worked" shape this
+    // whole defect was made of (P2826 #2).
+    return `${placement.lease} released to the broker with POST /done at settle (ok=${childOk === false ? 'false' : 'true'})`;
   }
   if (release?.skipped !== undefined && release?.skipped !== null) {
     return `${placement.lease} not released: ${release.skipped}`;
@@ -686,7 +690,10 @@ export class RemoteOneShotProvider {
       const failure = (text) => {
         const body = parsed.framed ? parsed.answer : String(outcome?.stdout ?? '');
         const inline = body.trim() === '' ? text : `${text}\n--- child final message ---\n${body}`;
-        return { output: blocks, diagnostic: limitDiagnostic(inline), stopReason: 'error' };
+        // `ok: false` is the broker's own flag: the reservation is still given
+        // back (handled below), but nothing produced this run, so releasing it
+        // as a SUCCESS is a claim about work that did not happen (P2826 #2).
+        return { output: blocks, diagnostic: limitDiagnostic(inline), stopReason: 'error', ok: false };
       };
       // Cancellation that settled locally wins over whatever the process said:
       // the seam's rule for an out-of-process run.
@@ -742,9 +749,9 @@ export class RemoteOneShotProvider {
       }
       if (parsed.answer === '') {
         diagnostic = 'the remote child finished with an empty final message';
-        return { output: blocks, stopReason: 'completed' };
+        return { output: blocks, stopReason: 'completed', ok: true };
       }
-      return { output: blocks, stopReason: 'completed' };
+      return { output: blocks, stopReason: 'completed', ok: true };
     };
 
     // Publication boundary. After this resolves the result NEVER rejects: a
@@ -753,21 +760,28 @@ export class RemoteOneShotProvider {
     // aborted child — because a reservation nobody gives back is a slot the mesh
     // has lost until its TTL. The release is recorded, and its own failure never
     // changes the child's outcome.
+    //
+    // WHAT THE BROKER IS TOLD IS A SEPARATE FACT FROM WHETHER THE SLOT COMES
+    // BACK. `ok` says "this run produced work"; returning the slot is
+    // unconditional. They used to be the same expression (`stopReason ===
+    // 'completed'`), so a child that died before it could frame an answer was
+    // reported to the broker as a SUCCESS and the failure was invisible from the
+    // broker's own count (P2826 #2, measured 5/5 dispatches on 2026-10-02).
     const result = (async () => {
       let settled;
       try {
         settled = await attempt();
       } catch (error) {
-        if (controller.signal.aborted) settled = { output: blocks, stopReason: 'aborted' };
+        if (controller.signal.aborted) settled = { output: blocks, stopReason: 'aborted', ok: false };
         else {
           blocks = blocks.length > 0 ? blocks : [{ type: 'text', text: String(error?.message ?? error) }];
-          settled = { output: blocks, diagnostic: limitDiagnostic(error?.message ?? error), stopReason: 'error' };
+          settled = { output: blocks, diagnostic: limitDiagnostic(error?.message ?? error), stopReason: 'error', ok: false };
         }
       }
-      const release = await this.placer.release(placement, settled.stopReason === 'completed');
+      const release = await this.placer.release(placement, settled.ok === true);
       if (release?.released === true) this.counters.released += 1;
       if (blocks.length > 0 && typeof blocks[0].text === 'string') {
-        blocks[0].text = withLeaseNote(blocks[0].text, leaseNoteFor(placement, release));
+        blocks[0].text = withLeaseNote(blocks[0].text, leaseNoteFor(placement, release, settled.ok === true));
       }
       this.#record(id, {
         id,
