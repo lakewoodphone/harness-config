@@ -54,7 +54,7 @@
  *   node scripts/engine-vitals.mjs --explain       # thresholds and where they came from
  */
 
-import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync, statSync, statfsSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync, readdirSync, statSync, statfsSync, rmSync, renameSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
@@ -178,6 +178,36 @@ async function readHealthz(slot) {
     return { body, healthzMs, authFrom: candidate.from };
   }
   throw new Error(`/healthz did not answer 200 with any known token (${tried.join('; ')})`);
+}
+
+/**
+ * Walk health, read from the ORIGIN PROXY's log.
+ *
+ * The session-store walk is the single most expensive path this engine has and it is invisible in
+ * `/healthz`: it is the proxy's cache that times it. MEASURED 2026-10-05 on ZABZ-YOGA — one walk
+ * (`POST /api/session/list`, ~1068 sessions) took 23.4 s, then 219.2 s, then **641.5 s** under load,
+ * against 6.8 s for the identical disk work with no engine; and 21 of 109 refreshes FAILED, six of
+ * them with the engine's own `gateway/service-unavailable: session/list: active Service
+ * "sessionController…"`, i.e. the engine refusing a concurrent walk. At ~12 walks/hour of ~80 s each
+ * that was ~27 % of the engine's time. Without a recorded number, the only symptom of a regression is
+ * "the machine feels slow again", which is exactly what this file exists to replace.
+ *
+ * A tail of the log is parsed, not the whole file: it grows forever and only the newest events matter.
+ */
+function walkHealth() {
+  const out = { walkMs: null, walkRows: null, cacheAgeS: null, refreshFails: null };
+  try {
+    const p = path.join(home(), 'multi-window', 'logs', 'origins.log');
+    if (!existsSync(p)) return out;
+    const all = readFileSync(p, 'utf8');
+    const tail = all.length > 262144 ? all.slice(-262144) : all;
+    const ok = [...tail.matchAll(/cache refresh ok rows=(\d+) in (\d+) ms/g)];
+    if (ok.length > 0) { out.walkRows = Number(ok[ok.length - 1][1]); out.walkMs = Number(ok[ok.length - 1][2]); }
+    out.refreshFails = (tail.match(/cache refresh FAILED/g) ?? []).length;
+    const age = [...tail.matchAll(/cacheAgeMs=(\d+)/g)];
+    if (age.length > 0) out.cacheAgeS = Math.round(Number(age[age.length - 1][1]) / 1000);
+  } catch { /* unreadable log: null, which is a refusal, not a zero */ }
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -374,6 +404,7 @@ const governor = h.governor ?? {};
 const probe = h.probe ?? {};
 const disk = diskFreePct();
 const corpus = corpusSize();
+const walk = walkHealth();
 // The scratch directory is the engine's os.tmpdir() since the 09-25 fix, and nothing else
 // will ever clean it. Pruned here, on the same cadence, because a directory nobody owns is
 // how the 900-file health-log pile happened. Age is only ever consulted after liveness.
@@ -398,10 +429,23 @@ const row = {
   diskFreePct: disk.freePct,
   corpusDirs: corpus.dirs,
   corpusMB: +(corpus.bytes / 1048576).toFixed(1),
+  walkMs: walk.walkMs,
+  walkRows: walk.walkRows,
+  cacheAgeS: walk.cacheAgeS,
+  refreshFails: walk.refreshFails,
 };
 
 const warnings = [];
 const notes = [];
+
+// 0. the walk. Its regression is the one that made this machine feel broken for hours at a time, and
+// nothing else in this row can see it: /healthz has no walk metric, and a slow walk leaves no error.
+if (walk.walkMs !== null && walk.walkMs > 60000) {
+  warnings.push(`the session/list walk took ${walk.walkMs} ms for ${walk.walkRows} session(s) — the identical disk work with no engine is ~6.8 s (docs/dsh-at-scale/95-session-list-pool.md)`);
+}
+if (walk.refreshFails !== null && walk.refreshFails >= 5 && (walk.walkMs === null || walk.walkMs > 60000)) {
+  notes.push(`${walk.refreshFails} cache refresh failure(s) in the proxy log tail — the engine refuses concurrent walks (gateway/service-unavailable), which is what a slow walk causes`);
+}
 
 // 1. did the engine change identity since the last pass?
 const restarted = prior !== undefined && prior.pid !== undefined && prior.pid !== row.pid;
@@ -438,12 +482,33 @@ if (scratch.removed.length > 0) {
 
 mkdirSync(path.dirname(defaultCsvPath()), { recursive: true });
 const csvPath = args.vals.csv ?? defaultCsvPath();
-const header = 'ts,pid,uptime_s,healthz_ms,loop_p50_ms,loop_p95_ms,loop_max_ms,sessions_root,agent_loops,heap_used_mb,heap_total_mb,rss_mb,gov_in_use,gov_budget,probe_spawns,disk_free_pct,corpus_dirs,corpus_mb';
+const header = 'ts,pid,uptime_s,healthz_ms,loop_p50_ms,loop_p95_ms,loop_max_ms,sessions_root,agent_loops,heap_used_mb,heap_total_mb,rss_mb,gov_in_use,gov_budget,probe_spawns,disk_free_pct,corpus_dirs,corpus_mb,walk_ms,walk_rows,cache_age_s,refresh_fails';
+// A COLUMN-SET CHANGE MUST NOT CORRUPT THE FILE. If the CSV on disk was written with a different
+// header, move it aside — never delete a record — and start a new one, so every row inside one file
+// has the same columns. The old rows keep their own name instead of being silently reinterpreted.
+if (existsSync(csvPath)) {
+  let firstLine = '';
+  try { firstLine = readFileSync(csvPath, 'utf8').split('\n', 1)[0].trim(); } catch { firstLine = '' }
+  const oldCols = firstLine === '' ? 0 : firstLine.split(',').length;
+  if (oldCols !== 0 && oldCols !== header.split(',').length) {
+    const rotated = `${csvPath}.${oldCols}cols-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    try {
+      renameSync(csvPath, rotated);
+      notes.push(`csv columns changed ${oldCols} -> ${header.split(',').length}; the previous rows are kept at ${rotated}`);
+    } catch (error) {
+      notes.push(`csv columns changed ${oldCols} -> ${header.split(',').length} and the old file could not be rotated (${error.message}) — NOT appending, to avoid writing rows into a file whose header does not describe them`);
+      writeFileSync(vitalsStatePath(), JSON.stringify(row, null, 2));
+      process.exitCode = 1;
+      throw new Error('csv column set mismatch and rotation failed');
+    }
+  }
+}
 if (!existsSync(csvPath)) writeFileSync(csvPath, header + '\n');
 appendFileSync(csvPath, [
   row.ts, row.pid, row.uptimeS, row.healthzMs, row.loopP50, row.loopP95, row.loopMax,
   row.sessionsRoot, row.agentLoops, row.heapUsedMB, row.heapTotalMB, row.rssMB,
   row.govInUse, row.govBudget, row.probeSpawns, row.diskFreePct, row.corpusDirs, row.corpusMB,
+  row.walkMs, row.walkRows, row.cacheAgeS, row.refreshFails,
 ].join(',') + '\n');
 
 mkdirSync(path.dirname(vitalsStatePath()), { recursive: true });
