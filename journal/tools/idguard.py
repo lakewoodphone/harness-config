@@ -52,12 +52,27 @@ def _repo_root(start: str) -> str:
 
 
 def _git(repo: str, *args: str, timeout: int = 30):
+    """Run git and return stdout, or None on a non-zero exit.
+
+    ENCODING IS NOT OPTIONAL (journal P2607, measured 2026-09-30). With a bare `text=True`
+    Python decodes git's output with the LOCALE codec -- cp1252 on Windows -- and the journal
+    tree legitimately contains UTF-8 bytes cp1252 cannot map. The reader thread then dies with
+    `UnicodeDecodeError: 'charmap' codec can't decode byte ...` while the main thread carries on,
+    so a correct answer is reported as a crash. `errors="replace"` on purpose: a git call that
+    returned is still a git call that returned, and it is `collisions()` -- not a reader thread --
+    that decides whether an id means two things.
+    """
     try:
         p = subprocess.run(["git", "-C", repo] + list(args), capture_output=True, text=True,
-                           timeout=timeout)
+                           encoding="utf-8", errors="replace", timeout=timeout)
     except Exception:
         return None
     return p.stdout if p.returncode == 0 else None
+
+
+def ref_exists(repo: str, ref: str) -> bool:
+    """Does `ref` name a commit in this repo? Distinct from 'does it carry an index blob'."""
+    return _git(repo, "rev-parse", "--verify", "--quiet", "%s^{commit}" % ref) is not None
 
 
 def upstream_ref(repo: str):
@@ -98,18 +113,33 @@ def index_on_disk(repo: str) -> dict:
 
 
 def collisions(repo: str, local=None, refs=None):
-    """(collisions, divergences) between `local` and each ref.
+    """(collisions, divergences, uncomparable) between `local` and each ref.
 
     collision  : same id, different host OR date OR heading -> two different entries wearing
                  one id. Renumber one of them.
     divergence : same id, same host/date/heading, content differs -> one entry edited on both
                  sides. Merge it; do NOT renumber.
+    uncomparable: the ref EXISTS but carries no readable `journal/index/entries.tsv`, so nothing
+                 was compared. This is the dangerous third state and it used to be invisible:
+                 `index_at()` returns `{}` for a missing blob, an unreadable one and a genuine
+                 empty index alike, so the loop below compared nothing and `main()` printed
+                 `collisions: 0` (journal P262 -- "zero collisions" was reported for a pair of
+                 trees that had never been read). The index is a GENERATED cache that a host may
+                 legitimately not have committed, so the honest answer is "cannot say", and under
+                 `--strict` it must not exit 0.
     """
     local = index_on_disk(repo) if local is None else local
     refs = ([upstream_ref(repo)] if refs is None else refs)
-    coll, div = [], []
+    coll, div, uncomparable = [], [], []
     for ref in [r for r in refs if r]:
         rows = index_at(repo, ref)
+        if not rows:
+            if ref_exists(repo, ref):
+                uncomparable.append({
+                    "ref": ref,
+                    "why": "the ref exists but carries no readable %s" % INDEX_RELPATH.replace(os.sep, "/"),
+                })
+            continue
         for id_full, theirs in rows.items():
             mine = local.get(id_full)
             if not mine or mine["hash"] == theirs["hash"]:
@@ -119,7 +149,7 @@ def collisions(repo: str, local=None, refs=None):
                 coll.append({"id": id_full, "ref": ref, "mine": mine, "theirs": theirs})
             else:
                 div.append({"id": id_full, "ref": ref, "mine": mine, "theirs": theirs})
-    return coll, div
+    return coll, div, uncomparable
 
 
 def mint_floor(repo: str, refs=None):
@@ -158,9 +188,10 @@ def main(argv=None) -> int:
         return 0
 
     local = index_at(repo, a.local_rev) if a.local_rev else None
-    coll, div = collisions(repo, local=local, refs=refs)
+    coll, div, uncomparable = collisions(repo, local=local, refs=refs)
     if a.json:
-        print(json.dumps({"collisions": coll, "divergences": div}, indent=1))
+        print(json.dumps({"collisions": coll, "divergences": div,
+                          "uncomparable": uncomparable}, indent=1))
     else:
         for c in coll[:20]:
             print("COLLISION  %s on %s: host %s vs %s, heading %r vs %r"
@@ -169,8 +200,14 @@ def main(argv=None) -> int:
         for d in div[:20]:
             print("divergence %s on %s: same host/date/heading, content differs -- merge, do not "
                   "renumber" % (d["id"], d["ref"]))
-        print("collisions: %d   divergences: %d" % (len(coll), len(div)))
-    if a.strict and coll:
+        for u in uncomparable[:20]:
+            print("UNCOMPARABLE %s: %s -- nothing was compared against this ref"
+                  % (u["ref"], u["why"]))
+        print("collisions: %d   divergences: %d   uncomparable: %d"
+              % (len(coll), len(div), len(uncomparable)))
+    # A tree that was never read is not a clean tree. Under --strict, "cannot say" fails, because
+    # the answer it used to give -- zero collisions -- is the one that cost a session on 2026-09-15.
+    if a.strict and (coll or uncomparable):
         return 1
     return 0
 
