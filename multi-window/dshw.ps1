@@ -2315,10 +2315,37 @@ function Invoke-Ensure {
             try { ("[{0}] ensure: {1}" -f (Get-Date -Format o), $why) | Add-Content -LiteralPath (Join-Path $StateDir 'watchdog.log') -Encoding utf8 } catch { }
             exit 3
         }
-        $warm = Invoke-OriginsPrewarm
-        if ($warm -and -not $warm.ok) {
-            "[{0}] ensure: origins prewarm did not fill the cache: {1}" -f (Get-Date -Format o), $warm.reason |
-                Add-Content -LiteralPath (Join-Path $StateDir 'watchdog.log') -Encoding utf8
+        # ── PREWARM IS GATED ON CACHE AGE (2026-10-05, ZABZ-YOGA) ───────────────────────────────
+        # It used to run unconditionally, on the reasoning above that `ensure` runs once a minute and
+        # therefore "the cache is essentially always warm". That reasoning expired with the session
+        # store. MEASURED 2026-10-05: 1059 session directories. The raw disk work for ONE walk - read
+        # the first 64 KB of every session's newest generation file, decompress it, and stat it - is
+        # 6797 ms in plain Node with no engine involved (tools/replicate-list-scan.mjs: 1059 dirs,
+        # 62.8 MB read, 2582 ms + 4161 ms). The ENGINE took 219223 ms for the same walk
+        # (multi-window/logs/origins.log, 01:44:27Z), ~32x the disk cost, because its single event
+        # loop is shared with the owner's live generations; probed directly, POST /api/session/list
+        # did not answer within 300 s while every other RPC answered in 14-330 ms. So an
+        # unconditional prewarm every 60 s keeps a multi-minute engine-wide walk running
+        # *permanently* - it is now a cause of the sluggishness it was written to prevent.
+        # The proxy serves this list stale-while-revalidate (dshw-proxy.mjs), so a window never waits
+        # for the refresh anyway; only a cold or old cache is worth the walk. Unreachable stats means
+        # prewarm as before. Restore the 60 s cadence once the walk is cheap again - i.e. once the
+        # local session store is pruned or the engine's list path is indexed.
+        $cacheAgeMs = $null
+        try {
+            $oaPrewarm = Get-OriginsArgs
+            $probe = [System.Net.Http.HttpClient]::new()
+            $probe.Timeout = [TimeSpan]::FromSeconds(5)
+            $statsJson = $probe.GetStringAsync("http://127.0.0.1:$($oaPrewarm.basePort)/__dshw/stats").GetAwaiter().GetResult()
+            $probe.Dispose()
+            $cacheAgeMs = ($statsJson | ConvertFrom-Json).ageMs
+        } catch { $cacheAgeMs = $null }
+        if ($null -eq $cacheAgeMs -or $cacheAgeMs -gt 1200000) {
+            $warm = Invoke-OriginsPrewarm
+            if ($warm -and -not $warm.ok) {
+                "[{0}] ensure: origins prewarm did not fill the cache: {1}" -f (Get-Date -Format o), $warm.reason |
+                    Add-Content -LiteralPath (Join-Path $StateDir 'watchdog.log') -Encoding utf8
+            }
         }
     }
     # THE PHONE GATE FIRST, AND INDEPENDENTLY OF ENGINE HEALTH.
