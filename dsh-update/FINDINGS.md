@@ -129,6 +129,86 @@ exists to prove is a gate that gets ignored. The first version also flagged a co
 **Still not proven:** the codec is not executed here, and whether `skills/` inside our presets still
 resolves under 0.1.7+ (`baseUrl`/`customSkillDirs`, the item below) still needs a real session mount.
 
+### 2026-10-05 (second session) — preflight went from 4 blocking failures to 1, and the last one is real
+
+`preflight 0.2.0-rc.2 --full --accept-session-format-upgrade` with `DSH_HOME=<staged>` and
+`DSH_STATE_HOME=<live>`:
+
+```
+PASS  baseline fresh
+PASS  analyze (contract diff)      verdict RISKY  (BREAKS=0 RISKY=4 CAPABILITY=75 INFO=55)
+PASS  patch-effect (our layers)    verdict SAFE
+PASS  preset-gate                  verdict SAFE
+FAIL  verify (gates G1-G8)         pass=false; failing: G2, G8
+PASS  G8 session-format door       ACCEPTED DELIBERATELY — v4, live corpus counted
+GAP   settings-effective           verdict BREAKS (absent=11 different=4 of 108 keys)
+PASS  artifact provenance          5 artifacts agree on the staged home
+VERDICT: NO-GO — 1 of 7 blocking guard(s) failed: verify
+```
+
+Three separate defects were diagnosed and fixed to get there.
+
+**1. `analyze` scanned the repo, which was standing on the version seam.** The repo's
+`profiles/web/cordis.patch.yml` was already on the 0.1.7 names while `presets/*/agent.cordis.yml` and
+`profiles/mesh/cordis.patch.yml:93` were still on the 0.1.5 names, so `analyze` reported BREAKS for
+**every** candidate. Fixed by migrating those four repo files — taken byte-for-byte from a staged home
+built by `lib/stage-home.mjs`, so the rewrite is the proven quote-aware one. Safe on the running 0.1.5
+engine, verified not assumed: `scripts/check-version-coupled-config.py` resolves the engine from the
+RUNNING process and reports the modern names missing, so `sync.py` SKIPS both coupled scopes.
+
+**2. The switch named the config home but not the state home.** `switch-engine.ps1` ran preflight with
+only `DSH_HOME` staged, so for a deliberately-named staged home G4/G5 did not run (no credential), G8
+refused because it looked for `<staged>\sessions`, and `settings-effective` refused for the same reason.
+Three symptoms, one mistake: asking a config question of a directory that holds no state. `verify`
+already supports `--state-home`; the call simply never passed it. G8 now counts the real corpus.
+
+**3. `stage-home.mjs` generated the preset ROWS from the un-rewritten source.** It rewrote the staged
+`.agent-presets` copies and then ran the converter against `join(opts.from, …)` — the LIVE, pre-rewrite
+directory. Every emitted `preset-*` row therefore carried a `workflow` row naming
+`@deepseek-ai/dsh-workflow-worker-thread`, which 0.1.7+ does not provide. **A composition row naming an
+absent package fails at MOUNT, and inside a preset that breaks new session creation** — the 2026-10-04
+incident. Nothing in the module or in `switch-engine.ps1` precondition 2 noticed, because every existing
+assertion counts occurrences in the `.agent-presets/*/agent.cordis.yml` FILES, and on 0.1.7+ that
+directory is **not read at all**; the rows the engine mounts live in the profile patch. `dsh-update
+analyze` is what caught it. Fixed, with a hard refusal added so it cannot return: the converter now reads
+the staged copy, and the staged web patch holds **0** occurrences of the old name and **3** of the new one.
+
+### The one remaining blocker is a REAL silent loss, not a flaky gate — and it is a config discrepancy
+
+`verify` fails **G2** and **G8**. G8 is the accepted one-way door and is handled by
+`promote-reading.mjs`. **G2 is a genuine finding**, checked by hand rather than taken on faith:
+
+```
+our 5 web-profile targets: typert-gateway, connection, remote-fanout, tool-subagent-remote,
+                           agent-preset-registry            intent {config:{default:"zabz"}}
+the composed staged tree:  row agent-preset-registry exists, name @deepseek-ai/dsh-agent-preset-registry,
+                           config {"default":"standard"}
+```
+
+So the entry that makes **`zabz` the default preset does not apply.** The cause is a discrepancy between
+two copies of the web profile patch:
+
+| file | lines | declares the `agent-preset-registry` target |
+|---|---|---|
+| `profiles/web/cordis.patch.yml` (repo) | 1624 | **yes**, at line 278 |
+| `~/.dsh/profiles/web/cordis.patch.yml` (live) | 252 | **no** |
+
+`consumed.json` reads patch targets from the repo AND the home, so G2 knows about the target; the composed
+tree is the STAGED home's composition, built from the live 252-line file, which never declares it. Hence
+"carries no patch attribution from ANY layer". The commit that pinned the presets back to the 0.1.5 names
+on 2026-10-04 said the same thing in its own message: the profiles scope "is NOT pinned here: publishing it
+would replace the live" file.
+
+**This is the same finding `settings-effective` makes from the other end**: of 108 settings keys this
+deployment sets, 0.2.0-rc.2 reports **11 ABSENT and 4 with a different value** (against 0.1.5-rc.3's
+`absent=0 different=0`). One of them is the default-preset key. So an upgrade taken today would silently
+change which preset a new session uses and drop eleven settings keys — behaviour changes, not crashes, and
+exactly what the owner meant by "without breaking anything".
+
+**Do not promote 0.2.0-rc.2 until the live/repo web-patch discrepancy is resolved and the 15 settings
+BREAKS are read one by one.** Neither is a pipeline defect; both are configuration questions about which
+of two divergent copies is authoritative.
+
 ### What is still missing before this can be promoted
 
 * **`switch-engine.ps1` precondition 2 is a GREP, not a proof.** It checks that
