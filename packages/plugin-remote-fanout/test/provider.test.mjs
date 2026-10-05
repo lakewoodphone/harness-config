@@ -3,7 +3,20 @@ import test from 'node:test';
 
 import { BrokerError, BROKER_UNREACHABLE } from '../lib/broker-client.js';
 import { NO_START_CAPABILITIES, RemoteOneShotProvider, extractMeshHost, sameNode } from '../lib/provider.js';
-import { markers } from '../lib/remote-script.js';
+import { markers, unwrapPwshProgram } from '../lib/remote-script.js';
+
+/**
+ * The program the target will actually run.
+ *
+ * A PowerShell program is delivered as a ONE-LINE launcher carrying a base64
+ * payload (`wrapPwshProgram`, the 2026-10-05 fix for the child eating the unread
+ * remainder of the program out of the shared stdin pipe), so anything that wants
+ * to read the invocation — or find the frame nonce — has to unwrap it first. A
+ * POSIX program is delivered verbatim and comes back unchanged.
+ */
+const programOf = (script) => {
+  try { return unwrapPwshProgram(script); } catch { return script; }
+};
 
 const REMOTE = {
   nodeExe: 'C:\\Program Files\\nodejs\\node.exe',
@@ -16,7 +29,7 @@ const REMOTE = {
 
 /** Frame `answer` with the nonce the provider actually put in the script. */
 function frame(script, { host = 'ZABZ-YOGA', cwd = 'C:\\Users\\ezabz', answer = 'CHILD_OK', exit = 0 } = {}) {
-  const nonce = /FANOUT_BEGIN_([0-9a-f]+)/.exec(script)?.[1] ?? '';
+  const nonce = /FANOUT_BEGIN_([0-9a-f]+)/.exec(programOf(script))?.[1] ?? '';
   const m = markers(nonce);
   return [`${m.host}${host}`, `${m.cwd}${cwd}`, m.begin, answer, m.end, `${m.exit}${exit}`].join('\n');
 }
@@ -62,8 +75,8 @@ test('a completed run reports the node the TARGET shell recorded, and the child 
   assert.match(textOf(result), /TOKEN=REMOTE-CHILD-1/);
   assert.equal(transport.seen.length, 1);
   assert.equal(transport.seen[0].shell, 'powershell');
-  assert.match(transport.seen[0].script, /--profile'? '?headless'? '/);
-  assert.match(transport.seen[0].script, /hostname/);
+  assert.match(programOf(transport.seen[0].script), /--profile'? '?headless'? '/);
+  assert.match(programOf(transport.seen[0].script), /hostname/);
   await run.dispose();
 });
 
@@ -158,9 +171,10 @@ test('a multi-line prompt is preserved as one quoted argv word on the target', a
   const provider = new RemoteOneShotProvider({ name: 'remote-ssh', transport, remote: REMOTE });
   const run = await provider.start({ prompt: [{ type: 'text', text: 'line one\r\nline two' }], signal: signal() });
   await run.result;
-  const script = transport.seen[0].script;
+  const script = programOf(transport.seen[0].script);
   assert.match(script, /line one\r?\nline two'/, 'the task is one quoted string literal, newlines intact');
   assert.doesNotMatch(script, /line one line two/, 'the old singleLine() flattening must be gone');
+  assert.equal(transport.seen[0].script.split('\n').length, 1, 'and the launcher itself is one line, so the child cannot inherit the rest of the program');
   await run.dispose();
 });
 
@@ -300,8 +314,8 @@ test('the child task carries the MESH-HOST instruction and the original prompt',
   const run = await provider.start({ prompt: [{ type: 'text', text: 'Do the thing.' }], signal: signal() });
   const result = await run.result;
   assert.equal(result.stopReason, 'completed');
-  assert.match(transport.seen[0].script, /MESH-HOST:/);
-  assert.match(transport.seen[0].script, /Do the thing\./);
+  assert.match(programOf(transport.seen[0].script), /MESH-HOST:/);
+  assert.match(programOf(transport.seen[0].script), /Do the thing\./);
   assert.match(textOf(result), /^MESH-HOST: ZABZ-YOGA/);
   await run.dispose();
 });

@@ -270,7 +270,66 @@ export function buildPwshScript({ invocation, profile, task, dshHome, cwd, nonce
     // The transport settles on the frame, so this is belt and braces.
     '[Environment]::Exit($fanoutExit)',
   );
-  return lines.join('\n');
+  return wrapPwshProgram(lines.join('\n'));
+}
+
+/**
+ * DELIVER THE PROGRAM AS ONE LINE, WITH THE REAL PROGRAM INSIDE IT.
+ *
+ * MEASURED 2026-10-05 on ZABZ-YOGA → ZABZ-TECH, through this transport's own
+ * code path (`createSshTransport` + this builder), one variable at a time:
+ *
+ *   task `Reply with exactly: TECH_OK`                 (1 line)  → framed, answer OK
+ *   task `Line one.\nReply with exactly: TWOLINE_OK`   (2 lines) → NO frame, exit 0, 1.0 s
+ *   8-line brief, 130 chars                                       → NO frame, exit 0, 1.7 s
+ *   1242 chars in 3 lines                                         → NO frame, exit 0, 1.2 s
+ *   1232 chars in ONE line, 2019-byte program                     → framed, answer OK
+ *
+ * So the trigger is a NEWLINE ANYWHERE IN THE TASK, not its size: the transport
+ * delivers the program on the target's STDIN (`ssh <node> powershell -Command -`,
+ * the D4 fix that removed the argv ceiling), PowerShell reads that program
+ * LAZILY — statement by statement — and the moment the child is launched it
+ * inherits the same pipe with the REST OF THE PROGRAM still unread in it. The
+ * child's own stdio users (DSH starts its MCP servers over stdin, and the target
+ * logged `mcp_launcher.py firecrawl/jina` on every run) then swallow those
+ * remaining lines. PowerShell reaches EOF, prints no closing frame, never sets
+ * `$fanoutExit`, and the client exits 0 — which is exactly the field report:
+ * *"the remote process exited 0 but printed no completion frame — the target
+ * profile did not run"*, with `FANOUT_TRANSPORT_HOST/CWD/BEGIN` and nothing
+ * after. It is why every real brief failed and every one-line probe passed
+ * (pains P2826, P2835; handoff H3188).
+ *
+ * THE FIX KEEPS STDIN DELIVERY AND REMOVES THE HAZARD. The launcher is a SINGLE
+ * line, so PowerShell must read it to its end before executing anything and
+ * nothing is left in the pipe for the child to consume. The real program travels
+ * inside it as base64 — no newline of the program and no character of the task
+ * ever reaches a parser, so the task can also no longer be re-quoted, re-split or
+ * truncated by any shell between here and the child.
+ *
+ * The alternative measured in the same session — `-EncodedCommand` (argv) — also
+ * framed correctly, but it puts the program back into the Windows command line
+ * and caps the task near 11 KB, which is the ceiling D4 removed. This shape has
+ * no ceiling on stdin and no parse surface at all.
+ */
+export function wrapPwshProgram(program) {
+  const payload = Buffer.from(String(program ?? ''), 'utf16le').toString('base64');
+  return "$ErrorActionPreference = 'Continue'; try { Invoke-Expression ([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('"
+    + payload
+    + "'))) } catch { [Console]::Error.WriteLine('dsh-plugin-remote-fanout: the remote program could not be decoded or started: ' + $_.Exception.Message); [Environment]::Exit(91) }";
+}
+
+/**
+ * The inverse of `wrapPwshProgram`, for tests, for reading a captured script by
+ * eye, and for anything that has to inspect what the target will actually run.
+ * Throws when the input is not a wrapped program — a silent empty string here
+ * would hide the very defect the wrapper exists to fix.
+ */
+export function unwrapPwshProgram(launcher) {
+  const match = /FromBase64String\('([A-Za-z0-9+/=]*)'\)/.exec(String(launcher ?? ''));
+  if (match === null) {
+    throw new Error('remote-fanout: this is not a wrapped pwsh program — no base64 payload found (see wrapPwshProgram)');
+  }
+  return Buffer.from(match[1], 'base64').toString('utf16le');
 }
 
 /**
@@ -326,11 +385,18 @@ export function buildPosixScript({ invocation, profile, task, dshHome, cwd, nonc
     `printf '%s\\n' "${m.host}$fanout_host"`,
     `printf '%s\\n' "${m.cwd}$(pwd)"`,
     `printf '%s\\n' "${m.begin}"`,
+    // THE CHILD GETS ITS OWN STDIN, and this is the POSIX half of the same
+    // defect the PowerShell wrapper fixes (see `wrapPwshProgram`): the program is
+    // delivered to `sh -s` on stdin, so a child that inherits that pipe can eat
+    // the rest of the program — every line after the child, including the closing
+    // frame. `/dev/null` is portable, costs one word, and leaves the parent's
+    // stdin untouched for the shell that is still reading it.
     [
       ...[resolved.command, ...(resolved.argvPrefix ?? [])].map(shellWord),
       '--profile',
       shellWord(profileWord),
       taskWord(task),
+      '< /dev/null',
     ].join(' '),
     'fanout_exit=$?',
     `printf '%s\\n' "${m.end}"`,

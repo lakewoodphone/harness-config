@@ -706,7 +706,20 @@ export class RemoteOneShotProvider {
         );
       }
       if (!parsed.framed) {
-        return failure(`the remote process exited 0 but printed no completion frame — the target profile did not run (stderr tail: ${outcome.stderr.trim().slice(-600)})`);
+        // A CHILD THAT DIES BEFORE IT CAN FRAME ITS ANSWER USUALLY SAYS WHY ON
+        // THE STREAM NOBODY WAS READING. The target shell's own frames are on
+        // stdout, and a Node or PowerShell boot failure lands immediately after
+        // them; stderr was empty for every one of these (pains P2826, P2835,
+        // handoff H3188), so the reason stayed invisible for a week. Both tails
+        // are printed now, whitespace-collapsed so a 600-character tail survives
+        // one line of a report.
+        const outTail = outcome.stdout.trim().slice(-600).replace(/\s+/g, ' ');
+        const errTail = outcome.stderr.trim().slice(-400).replace(/\s+/g, ' ');
+        return failure(
+          'the remote process exited 0 but printed no completion frame — the target profile did not run'
+          + ` (stdout tail: ${outTail === '' ? '(empty)' : outTail}`
+          + `; stderr tail: ${errTail === '' ? '(empty)' : errTail})`,
+        );
       }
 
       // ── R1: LOCATION POLICY ────────────────────────────────────────────────

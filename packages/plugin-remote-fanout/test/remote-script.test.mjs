@@ -14,6 +14,8 @@ import {
   shellWord,
   shouldRetryWithFallback,
   singleLine,
+  unwrapPwshProgram,
+  wrapPwshProgram,
 } from '../lib/remote-script.js';
 import { NODES, resolveNodeInvocation } from '../lib/nodes.js';
 
@@ -40,18 +42,42 @@ test('the pwsh script sets DSH_HOME, frames the answer, and propagates the exit 
     task: "read it's file",
     nonce: 'abcd1234',
   });
-  assert.match(script, /\$env:DSH_HOME = 'C:\\tmp\\child-home'/);
-  assert.match(script, /Set-Location -LiteralPath 'C:\\Users\\ezabz'/);
-  assert.match(script, /FANOUT_TRANSPORT_HOST_abcd1234=/);
-  assert.match(script, /FANOUT_BEGIN_abcd1234/);
-  assert.match(script, /^& 'C:\\Program Files\\nodejs\\node\.exe' 'C:\\cache\\dsh\\lib\\bin\.js' '--profile' 'headless' 'read it''s file'$/m);
-  assert.match(script, /\[Environment\]::Exit\(\$fanoutExit\)/);
+  assert.equal(script.split('\n').length, 1, 'the launcher is ONE line — see wrapPwshProgram for the measurement');
+  const program = unwrapPwshProgram(script);
+  assert.match(program, /\$env:DSH_HOME = 'C:\\tmp\\child-home'/);
+  assert.match(program, /Set-Location -LiteralPath 'C:\\Users\\ezabz'/);
+  assert.match(program, /FANOUT_TRANSPORT_HOST_abcd1234=/);
+  assert.match(program, /FANOUT_BEGIN_abcd1234/);
+  assert.match(program, /^& 'C:\\Program Files\\nodejs\\node\.exe' 'C:\\cache\\dsh\\lib\\bin\.js' '--profile' 'headless' 'read it''s file'$/m);
+  assert.match(program, /\[Environment\]::Exit\(\$fanoutExit\)/);
+});
+
+// ── THE ONE-LINE DELIVERY (the 2026-10-05 defect) ────────────────────────────
+// MEASURED on ZABZ-TECH through this transport: a task containing a newline
+// produced no closing frame and exit 0 in ~1 s, while the same task on one line
+// framed correctly — because `powershell -Command -` reads the program lazily
+// from stdin and the child inherits the unread remainder. These two guards are
+// what stop that from coming back: the launcher is one line, and the task text is
+// not in it to be read by anything.
+test('the pwsh launcher is one line and hides the task inside the payload', () => {
+  const task = 'line one\nline two\n\nline four';
+  const script = buildPwshScript({ command: 'dsh', profile: 'headless', task, nonce: 'one1' });
+  assert.equal(script.split('\n').length, 1, 'a multi-line program is read lazily by `powershell -Command -` and the child eats the rest of it');
+  assert.doesNotMatch(script, /line one/, 'the task must not appear literally in the launcher — anything that can read it can re-parse it');
+  assert.match(unwrapPwshProgram(script), /line one\nline two\n\nline four'/m, 'and it must survive intact inside the payload');
+});
+
+test('unwrapPwshProgram refuses anything that is not a wrapped program', () => {
+  assert.throws(() => unwrapPwshProgram('# a bare script\n& node x'), /not a wrapped pwsh program/);
+  const program = "Write-Output 'héllo'\nWrite-Output 'second line'";
+  assert.equal(unwrapPwshProgram(wrapPwshProgram(program)), program, 'the round trip must be byte-exact, non-ASCII included');
 });
 
 test('the pwsh script can invoke an executor by name too — a Windows node that grows one is not special-cased', () => {
   const script = buildPwshScript({ command: 'dsh.cmd', profile: 'headless', task: 'x', nonce: 'w1' });
-  assert.match(script, /^& 'dsh\.cmd' '--profile' 'headless' 'x'$/m);
-  assert.match(script, /# invocation form: executor/);
+  const program = unwrapPwshProgram(script);
+  assert.match(program, /^& 'dsh\.cmd' '--profile' 'headless' 'x'$/m);
+  assert.match(program, /# invocation form: executor/);
 });
 
 test('the posix script is a sh program with the same frame', () => {
@@ -82,7 +108,7 @@ test('the pre-2026-09-17 field names still build: `nodeExe`/`dshBin` are read, n
     task: 'x',
     nonce: 'n1',
   });
-  assert.match(script, /^& 'C:\\Program Files\\nodejs\\node\.exe' 'C:\\cache\\dsh\\lib\\bin\.js' '--profile' 'headless' 'x'$/m);
+  assert.match(unwrapPwshProgram(script), /^& 'C:\\Program Files\\nodejs\\node\.exe' 'C:\\cache\\dsh\\lib\\bin\.js' '--profile' 'headless' 'x'$/m);
 });
 
 // ---------------------------------------------------------------------------
@@ -93,7 +119,7 @@ test('the pre-2026-09-17 field names still build: `nodeExe`/`dshBin` are read, n
 test('a node with an executor is invoked by name, and carries its credential source', () => {
   const spec = { command: 'dsh', credentialEnvFiles: ['/etc/dsh-worker.env'], shell: 'posix', cwd: '/home/zabz/code' };
   const script = buildPosixScript({ ...spec, profile: 'headless', task: 'hostname', nonce: 'e1' });
-  assert.match(script, /^dsh --profile headless 'hostname'$/m, 'the wrapper is invoked by name, with no interpreter path in front of it');
+  assert.match(script, /^dsh --profile headless 'hostname' < \/dev\/null$/m, 'the wrapper is invoked by name, with no interpreter path in front of it, and the child does not inherit the program pipe');
   assert.match(script, /# invocation form: executor/);
   // The wrapper sources the env file itself, so the script must NOT source it
   // again — one credential path, not two.
@@ -241,8 +267,8 @@ test('the task keeps its newlines instead of being flattened to one argv word', 
   const task = 'line one\nline two\n\nline four';
   const pwsh = buildPwshScript({ command: 'dsh', profile: 'headless', task, nonce: 'ml1' });
   const posix = buildPosixScript({ command: 'dsh', profile: 'headless', task, nonce: 'ml2' });
-  assert.match(pwsh, /line one\nline two\n\nline four'$/m, 'the pwsh program must carry the task verbatim');
-  assert.match(posix, /line one\nline two\n\nline four'$/m, 'the posix program must carry the task verbatim');
+  assert.match(unwrapPwshProgram(pwsh), /line one\nline two\n\nline four'$/m, 'the pwsh program must carry the task verbatim (inside the one-line payload)');
+  assert.match(posix, /line one\nline two\n\nline four' < \/dev\/null$/m, 'the posix program must carry the task verbatim, with the child\'s stdin pinned to /dev/null');
 });
 
 test('a 12000-character task is accepted — far past the old ~11400-character ceiling', async () => {
