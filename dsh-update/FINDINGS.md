@@ -97,6 +97,38 @@ larger than at 0.1.5-rc.3, so treat this candidate as less well covered, not bet
    from the array instead of indices 1-3 — which is how conditions 4 and 5 came to be evaluated but
    never shown.
 
+### The no-data-loss proof, measured on 0.2.0-rc.2 (2026-10-05)
+
+`tools/session-format-audit.mjs` — NEW, and re-runnable before **any** format-changing upgrade. It exists
+because STATE-COMPAT.md named this exact work as its own item 1: *"I did not execute the v3→v4 codec
+against a live log … What would settle it: in a throwaway DSH_HOME under %TEMP% (never the live home),
+copy one session directory and call prepareJsonlMigration on it."* A conclusion that lives in a
+hand-written document does not re-check itself, and the corpus has grown from 1,256 files to 2,250.
+
+| arm | result |
+|---|---|
+| the formats in play | candidate declares `currentVersion: 4`; codecs v0→v1, v1→v2, v2→v3, **v3→v4**; **no down-migration codec exists**, so going back means removing the new sibling, never restoring an original |
+| **source protection** (static, on the candidate's own persistence module) | 3,528 lines, exactly **two** removal calls: `rm(path)` inside `removeTemporary` (:2012) and `removeCommittedTemporary` (:2020), both staged temps. **No code path in the candidate unlinks a source log.** A v3 file is never the file it removes — which is what makes the move recoverable rather than final |
+| **corpus admissibility** (read-only, frame by frame) | **2,250 live logs, all v3** by name AND by first-frame header; **328,864 zstd frames decoded, 0 decode errors, 0 unparseable lines**; **0 refused constructs** of all three kinds (`code-dispatch`, `request-header-system`, `tool-result-block`); 647.9 MB read read-only |
+
+**No session in this corpus would be refused by the v3→v4 migration**, and the candidate cannot unlink an
+original. That is the no-data-loss basis, and it is now a command rather than a paragraph:
+
+```
+node dsh-update/tools/session-format-audit.mjs --candidate dsh-update/vendor/prefix/<ver> --out <path>
+```
+
+Two notes for whoever runs it next. First, it reports the **frame count** on purpose: a whole-buffer
+`zstdDecompressSync` returns ONE frame per file, so a naive scan produces the same clean zero for the
+wrong reason — STATE-COMPAT.md records that its own first two scans failed exactly that way, and the
+control is the frame count. Second, the source-protection arm resolves the **enclosing function** of each
+removal call rather than pattern-matching the line: its first version flagged `rm(path)` as unsafe
+because it could not see that `path` was a staged temp, and a gate that cries wolf on the one property it
+exists to prove is a gate that gets ignored. The first version also flagged a comment.
+
+**Still not proven:** the codec is not executed here, and whether `skills/` inside our presets still
+resolves under 0.1.7+ (`baseUrl`/`customSkillDirs`, the item below) still needs a real session mount.
+
 ### What is still missing before this can be promoted
 
 * **`switch-engine.ps1` precondition 2 is a GREP, not a proof.** It checks that
