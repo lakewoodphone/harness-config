@@ -1630,7 +1630,7 @@
   { id: permission, config: { defaultPreset: danger-full-access } },
   { id: agent-default-model, config: { provider: deepseek-official, model: deepseek-flash } },
   { id: agent-preset-registry, config: { default: zabz } },
-  { id: llm-deepseek, config: { streamIdleTimeoutMs: 60000, maxTokens: 65536, retryPolicy: { mode: normal, maxRetries: 2, retryableCodes: [ EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, STREAM_CLOSED ], backoff: { initialDelayMs: 500, maxDelayMs: 5000, jitterRatio: 0.1 } } } },
+  { id: llm-deepseek, config: { streamIdleTimeoutMs: 60000, maxTokens: 65536, retryPolicy: { mode: normal, maxRetries: 2, retryableCodes: [ EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, STREAM_CLOSED, MALFORMED_RESPONSE ], backoff: { initialDelayMs: 500, maxDelayMs: 5000, jitterRatio: 0.1 } } } },
   { id: llm-pi-ai, config: { providers: { deepinfra: { apiKeyEnv: DEEPINFRA_API_KEY, api: openai-completions, baseURL: https://api.deepinfra.com/v1/openai, models: [ { id: deepseek-ai/DeepSeek-V4-Flash-0731, name: DeepSeek V4 Flash (0731) }, { id: deepseek-ai/DeepSeek-V4.1-Flash, name: DeepSeek V4.1 Flash } ] } } } },
   { id: spend-guard, config: { warnUsd: 35, fanoutUsd: 80, ceilingUsd: 150, concurrencyCap: 12, onInternalError: closed } },
   { id: agent-loop, config: { maxParallelToolCalls: 20 } },

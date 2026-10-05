@@ -103,13 +103,30 @@ agent-presets:
 # not one call). Hitting the bound is recoverable -- the agent loop continues --
 # whereas the 256k default lets one call run effectively unbounded.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Why MALFORMED_RESPONSE is in this list (added 2026-10-05)
+#
+# The DeepSeek Messages adapter validates every tool-call block at `message_stop`
+# with a bare `JSON.parse` and reports a failure as MALFORMED_RESPONSE, which by
+# default is NOT retryable -- so one malformed tool call ends the whole turn and
+# every tool call in it is discarded. Measured over 30 days of this machine's own
+# session ledger: 86 malformed tool-call argument sets, across `write`, `edit`,
+# `send_message`, `read`, `pwsh`, `web_search`, `subagent` and the MCP tools.
+# The model recovers on its own when asked again, so one retry costs a model
+# round-trip and saves the turn.
+#
+# This is the second layer. The first is
+# `scripts/patch-dsh-malformed-tool-input.py`, which repairs the argument JSON in
+# the adapter (34 of those 86 cases are one missing quote or brace) and turns the
+# rest into a tool result the model can read, so the retry rarely has to happen.
+# ---------------------------------------------------------------------------
 llm-deepseek:
   streamIdleTimeoutMs: 60000
   maxTokens: 65536
   retryPolicy:
     mode: normal
     maxRetries: 2
-    retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, STREAM_CLOSED]
+    retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, STREAM_CLOSED, MALFORMED_RESPONSE]
     backoff:
       initialDelayMs: 500
       maxDelayMs: 5000
