@@ -6,11 +6,10 @@ Updated: 2026-10-05
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 281 row(s) read, 34 pending, generated 2026-10-05 21:16 UTC on ZABZ-TECH.
+Provenance: 281 row(s) read, 33 pending, generated 2026-10-05 21:32 UTC on ZABZ-TECH.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
-| 162 | 2026-09-25 | high | Weinberg's final pay: you confirmed the week of Aug 17-23 was unpaid vacation (he did not come in at all) and that the $2,208.32 Gusto run was canceled and never paid, so the settlement is one half week -- $597.29 net, in cash. Do you want it paid now, or later? | Pay the $597.29 in cash at your convenience. It nets the half week he worked that was never paid against the $597.29 you paid on 2026-08-27 for the vacation week, and it closes him out. No Gusto off-cycle: that would cre |
 | 207 | 2026-09-30 | high | T-Mobile home internet was never cancelled - it is still live and still billing 85 a month, with the next debit around 19 October. Do you still have the T-Mobile gateway/router, or is it gone? | You still have it, so cancel by phone this week and hand the gateway back with a receipt. The next debit is about 19 October, which gives you three weeks - but the September dispute is unresolved, and a clean cancellatio |
 | 228 | 2026-10-01 | high | The business is taking roughly 4,500 a month out of your personal accounts and you are now out of personal money. At what point do you stop funding Lakewood Phone & Tech out of your own balance sheet? | Set the 90-day test. The subsidy has already roughly halved without a decision being made, so zero by 1 January is credible rather than hopeful, and it converts an open-ended bleed into a date you can hold me to. |
 | 243 | 2026-10-02 | high | kosher-filter-ai Windows DNS cutover: the guard's 20-minute console-idle condition is unmeasurable from every wake session (query user IDLE TIME none; WTS LastInputTime=0), so items 12/13/169 can never be completed unattended - cut over on presence=not_office alone, or keep the idle requirement? | Allow the cutover when presence reads not_office alone: the guard already refuses when presence reads office, and it auto-restores the resolver configuration if DNS breaks, so the blast radius is bounded. Presence is mea |
@@ -45,4 +44,4 @@ Provenance: 281 row(s) read, 34 pending, generated 2026-10-05 21:16 UTC on ZABZ-
 | 259 | 2026-10-05 | low | Kosher Waze mid-period return: is the period base plan fee prorated by days, or charged in full? | Prorate by days. Charging a full month for four days of use is the complaint that costs the relationship, and the metered usage is billed either way. |
 | 262 | 2026-10-05 | low | ZABZ-TECH's RDP service is wedged and only a reboot will activate microphone passthrough (your Yoga mic appearing as a real recording device inside ZABZ-TECH). Reboot that machine, or stay on Chrome Remote Desktop and dictate on the Yoga side instead? | Dictate on the Yoga side first: it needs no reboot, and installing Handy with local Whisper and one toggle hotkey turns speech into text and pastes it, which is exactly what crosses Chrome Remote Desktop. Reach for the R |
 
-Closed since the queue opened: 247. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 248. Answered questions move to `entries/decisions/` with the owner's own words.
