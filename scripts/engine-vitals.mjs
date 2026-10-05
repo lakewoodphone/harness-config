@@ -203,7 +203,18 @@ function walkHealth() {
     const tail = all.length > 262144 ? all.slice(-262144) : all;
     const ok = [...tail.matchAll(/cache refresh ok rows=(\d+) in (\d+) ms/g)];
     if (ok.length > 0) { out.walkRows = Number(ok[ok.length - 1][1]); out.walkMs = Number(ok[ok.length - 1][2]); }
-    out.refreshFails = (tail.match(/cache refresh FAILED/g) ?? []).length;
+    // FAILURES IN THE LAST HOUR — not a raw count over the parsed byte window. A raw count drifts
+    // upward as the log grows and can be read as a rate: MEASURED 2026-10-05, this instrument
+    // reported 18, 24, 25, 28, 30 and 34 refresh failures on six consecutive passes while the machine
+    // was getting QUIETER (loops 9 -> 7, lag p50 17 -> 16 ms). A number that rises as conditions
+    // improve is worse than no number, which is the failure this file exists to prevent.
+    const now = Date.now();
+    let fails = 0;
+    for (const m of tail.matchAll(/\[([0-9T:.\-]+Z)\] cache refresh FAILED/g)) {
+      const at = Date.parse(m[1]);
+      if (!Number.isNaN(at) && now - at <= 3600000) fails++;
+    }
+    out.refreshFails = fails;
     const age = [...tail.matchAll(/cacheAgeMs=(\d+)/g)];
     if (age.length > 0) out.cacheAgeS = Math.round(Number(age[age.length - 1][1]) / 1000);
   } catch { /* unreadable log: null, which is a refusal, not a zero */ }
@@ -444,7 +455,7 @@ if (walk.walkMs !== null && walk.walkMs > 60000) {
   warnings.push(`the session/list walk took ${walk.walkMs} ms for ${walk.walkRows} session(s) — the identical disk work with no engine is ~6.8 s (docs/dsh-at-scale/95-session-list-pool.md)`);
 }
 if (walk.refreshFails !== null && walk.refreshFails >= 5 && (walk.walkMs === null || walk.walkMs > 60000)) {
-  notes.push(`${walk.refreshFails} cache refresh failure(s) in the proxy log tail — the engine refuses concurrent walks (gateway/service-unavailable), which is what a slow walk causes`);
+  notes.push(`${walk.refreshFails} cache refresh failure(s) IN THE LAST HOUR — the engine refuses concurrent walks (gateway/service-unavailable), which is what a slow walk causes`);
 }
 
 // 1. did the engine change identity since the last pass?
