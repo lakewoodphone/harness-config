@@ -531,3 +531,48 @@ compose, so about 0.5 s). Node start-up dominates every one of them.
 `multi-window/windows.json` is byte-identical to before this work
 (sha256 `765B8F65CFFEA6F277C99E7C4DE45147C13CE5ED17B9454E1A21E112D7798E1A`, no `dshInstall` key), and
 the live engine on port 3099 was never started, stopped or restarted.
+
+
+### 2026-10-05 (round 2) — the repo web patch is on the CRITICAL PATH, and the live profile layer is two weeks stale
+
+Two facts discovered by chasing the G2 failure, both measured:
+
+1. **The live profile layer is stale, and the guard did it on purpose.** The repo's
+   `profiles/web/cordis.patch.yml` is 1624 lines with 45 patch entries; the live
+   `~/.dsh/profiles/web/cordis.patch.yml` is 252 lines with **4** entries and has not been written since
+   **2026-09-20 12:32:31**. `scripts/check-version-coupled-config.py` refuses to publish the profiles
+   scope while the running engine lacks the 0.1.7 names, and this repo's web patch has named them since
+   about then — so every repo-side profile change in that fortnight (mesh placement, prefer-remote, the
+   dispatch-hop timeouts, the provider `targetHosts` default) was correctly SKIPPED and never reached
+   this machine. The guard did its job; the consequence is that the live web profile is 41 entries
+   behind the repo.
+
+2. **The repo web patch cannot be avoided, because the switch requires it.** `switch-engine.ps1` FIX 3
+   treats `presets: SKIPPED` / `profiles: SKIPPED` as a FAILURE OF THE SWITCH and rolls back — its own
+   reasoning being that a half-applied switch is the state it exists to prevent. So the switch only
+   succeeds if `scripts/sync.py` reports `version check passed` for BOTH coupled scopes, which means
+   **sync publishes the repo's web patch during the switch**. Staging the profile layers from the live
+   home therefore produces a composed tree that is not the post-switch state — which is the true reason
+   G2 says our `agent-preset-registry` entry is lost.
+
+Two fixes landed in `lib/stage-home.mjs`, both correct and both verified not to regress the proven path
+(its own suite is still 109/109, and staging from live still builds):
+
+* **The converter spells its provenance line two ways and the tool accepted one.** `--install` mode emits
+  ``# Written by `node scripts/make-preset-rows.mjs --install` ``; file mode emits
+  ``# Written by `scripts/make-preset-rows.mjs` ``. The old constant was the second verbatim, so the
+  `node ` inside the backticks made the tool REFUSE to splice over the repo's own generated block, with
+  the message "a block without that line was hand-edited, and installing over it would hide that" —
+  true of neither. That was a guard rejecting the tool's own output.
+* **`--profiles-from <dir>`** so the staged home can take its profile layers from the repo (the
+  authoritative copy) instead of the stale live one, taking only profiles this machine already has —
+  the same rule `sync.py` applies when it reports `profile <name>: not present on this machine -- skipped`.
+
+**IT IS NOT YET USABLE, and that is the next piece of work.** Staging from the repo now fails on a real
+limitation of the splicing code: `internal check failed: the entries outside the block are not the same
+entries, in the same order, after the splice`. The repo's web patch holds **two** managed blocks
+(`mesh-provider-install` at lines 80-251 and `preset-rows` at 284-END) and its entries are written in
+flow style. Both files' markers are balanced (BEGIN 1 / END 1 each) and the top-level closing bracket is
+intact, so this is not a malformed file — `spliceManagedBlock`'s invariant has never been exercised on a
+patch file that carries two managed blocks at once. It must be fixed with a test that reproduces exactly
+this shape, because it decides which configuration the switch installs.
