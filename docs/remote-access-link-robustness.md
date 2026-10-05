@@ -244,10 +244,68 @@ failures reports itself as *"possibly due to network connectivity problems"*: **
 the Desktop and in the Start Menu, hotkey **Ctrl+Alt+L**. It prints the current path, the round trip, whether
 3389 answers, and a plain verdict, and it reminds him that a CRD session to that machine must be evicted first.
 
-**Deliberately not built:** an "auto-retry until it works" wrapper. The failure dialog for a lost session is
-**modal**, so a relaunching wrapper would stack dialogs nobody clicks. What actually covers the outage is
-already in place: `autoreconnection enabled:i:1` on the client, and `MaxDisconnectionTime=0` on the host — a
-retry returns to the *same* session with everything still running.
+## 10. The 03:00 round: the freezes were the graphics pipeline, and what "not sharp" actually was
+
+The owner's second report: *"it froze and crashed again and the font looks funny, the display is not showing
+sharp words, get this actually fixed for real."*
+
+**His side of the link was fine the whole time.** The client probe the previous round installed recorded
+`path=direct, rtt 30-53 ms, tcp3389=True, internet=True, secratary=True` straight through the freeze, with a
+single `path=UNREACHABLE` blip at 02:54:13. So this was **not** the network, and blaming the carrier again
+would have been wrong.
+
+**The host's own logs named two real causes.**
+
+*The graphics pipeline was failing.* `RdpCoreTS` recorded, at the exact moments the sessions died:
+
+```
+02:39:18  id=67  The RemoteFX protocol connection RDP-Tcp#0 encountered an error (0x80004005)
+02:49:25  id=67  The RemoteFX protocol connection RDP-Tcp#0 encountered an error (0x80004005)
+02:54:06  id=162 The client supports version 0xA0600 ... AVC available: 1, Initial profile: 2
+```
+
+`Initial profile: 2` is **AVC444** — H.264, chroma-subsampled, designed for video. That is the "funny, not
+sharp" text: it is a lossy video codec rendering glyphs. And it was erroring out under load.
+
+*The session was enormous.* `id=168` records what the client asked for: `(3840, 2160)` and `(2880, 1800)` —
+up to **8.3 megapixels** of desktop, on a client whose own display runs at 150 % scaling.
+
+*And every connection in that window came from 100.72.162.5 — the Yoga itself.* No other client, and Chrome
+Remote Desktop's last viewer was 01:40. The `reason code 5` evictions are his own client reconnecting after
+each of those failures, not a competing door.
+
+**Changed, and why each one follows from the evidence:**
+
+| change | where | value | evidence it addresses |
+|---|---|---|---|
+| AVC444 off | ZABZ-TECH policy | `AVC444ModePreferred = 0` | `Initial profile: 2` + text that reads as video-compressed |
+| hardware H.264 encode off | ZABZ-TECH policy | `AVCHardwareEncodePreferred = 0` | the T1000's encoder is the thing that logged `0x80004005` |
+| session scale | the `.rdp` | `desktopscalefactor:i:150` | 8.3 MP session on a 150 % client: ~3.7 MP, and text at the size he actually sees |
+| video playback mode off | the `.rdp` | `videoplaybackmode:i:0` | removes the one feature whose whole purpose is to keep the AVC path engaged |
+| policy enforcement | ZABZ-TECH task | `Zabz RDP policy`, every 5 min | see below |
+
+**The values vanished twice, unexplained — so they are now enforced rather than set.** `SelectTransport = 1`
+was written and read back at 02:36; by 03:00 it was gone. The local GPO is innocent (`Registry.pol` is 330
+bytes and mentions none of these names), and `gpupdate /force` does not reproduce the removal. So the fix is
+not "set it again": `scripts/Enforce-RdpPolicies.ps1` — deployed as the task **`Zabz RDP policy`**, every 5
+minutes, as SYSTEM — re-applies all three values and **logs every re-application with the reason**, plus one
+config line a day proving they are still in place. Its repair path was proven by deleting `SelectTransport`
+by hand and watching the next run restore it and say so. (First version of that script wrote to
+`$env:USERPROFILE` under SYSTEM — the *system* profile, i.e. a log nobody would ever read; the paths are
+absolute now.)
+
+**Deliberately not built, again, and for a measured reason:** an "auto-retry" wrapper was ruled out last round
+because the failure dialog is modal. This round it *is* built — `scripts/rdp-session.ps1`, shortcut
+**Ctrl+Alt+K** — but only because the modal problem has a safe solution: the wrapper closes that dialog itself
+**only when the link is down**, since the normal "connecting" window carries the same title, and it re-opens
+the session when the link is healthy again (bounded attempts, every step logged to `.dsh\logs\rdp-session.log`).
+A session that ran more than five minutes and then closed is treated as him finishing, not a drop.
+
+**What to expect on the next connection.** Policies are read when a session is created, so nothing above
+affects a session already open. The next connect should show, in `RdpCoreTS` event 162, a *different*
+graphics profile than 2, and event 168 a resolution near 2560x1440 rather than 3840x2160. Both are checkable
+after the fact, and that is the test of this round.
+
 
 
 
