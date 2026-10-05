@@ -1498,7 +1498,29 @@ export function buildStagedHome(opts) {
     return out;
   }
   const generated = opts.generatedPath ?? join(target, 'profiles', opts.profile, 'presets.generated.patch.yml');
-  const conv = runConverter(opts, presetsSrc, generated);
+  // THE CONVERTER MUST READ THE **STAGED, REWRITTEN** PRESETS — NOT THE SOURCE THEY WERE COPIED FROM.
+  //
+  // DEFECT (measured 2026-10-05, found by `dsh-update analyze 0.2.0-rc.2`, not by any test here).
+  // This passed `presetsSrc` — `--from`'s `.agent-presets`, i.e. the LIVE directory, still carrying the
+  // pre-rewrite names — while the rewrite above had already been applied to the staged copies. So the
+  // emitted `preset-*` rows carried a `workflow` row naming `@deepseek-ai/dsh-workflow-worker-thread`,
+  // a package 0.1.7+ does not provide.
+  //
+  // WHY THAT WAS DANGEROUS AND WHY THE EXISTING ASSERTIONS MISSED IT. A composition row naming a package
+  // that is not installed FAILS AT MOUNT, and inside a preset that breaks NEW SESSION CREATION — the
+  // 2026-10-04 incident, whose symptom is the workspace picker bouncing back with
+  // `agent-preset/invalid`. Nothing here noticed, because every assertion in this module that mentions
+  // the preset rows counts occurrences in the `.agent-presets/*/agent.cordis.yml` FILES (which the
+  // rewrite does fix, and which `switch-engine.ps1` precondition 2 also greps). The ROWS that the
+  // candidate actually mounts live in the profile patch, and no assertion read them for a stale name.
+  // On 0.1.7+ the `.agent-presets` directory is not read at all, so the files being correct proves
+  // nothing about the rows — the grep was a proxy, and the proxy was green while the real thing was
+  // broken.
+  //
+  // The staged copy is the rewritten one, and it is also what the switch installs, so reading it is both
+  // the fix and the more honest subject.
+  const stagedPresets = join(target, PRESET_DIR_NAME);
+  const conv = runConverter(opts, stagedPresets, generated);
   out.converter = conv.summary;
   if (!conv.ok) {
     out.problems.push(...conv.problems);
@@ -1510,6 +1532,27 @@ export function buildStagedHome(opts) {
     return out;
   }
   out.block = { entries: block.entries.length, rowIds: block.rowIds, lines: block.lines.length, origin: 'make-preset-rows.mjs' };
+
+  // THE ASSERTION THAT WOULD HAVE CAUGHT THE DEFECT ABOVE, so it cannot come back. Every generated row
+  // must name only packages this candidate actually provides: a row naming an absent package fails to
+  // MOUNT, and inside a preset that breaks new session creation. This reads the ROWS, which is what the
+  // engine mounts — not the `.agent-presets` files, which on 0.1.7+ are not read at all.
+  const blockText = block.lines.join('\n');
+  const staleInRows = [];
+  for (const decision of slots.decisions) {
+    for (const from of decision.candidates) {
+      if (from === modernOf[decision.id]) continue;
+      const hits = countRefs(blockText, from).code;
+      if (hits > 0) staleInRows.push(`${from} (${hits} row reference(s))`);
+    }
+  }
+  if (staleInRows.length > 0) {
+    out.problems.push(`the generated preset rows name a package this candidate does NOT provide: `
+      + `${staleInRows.join(', ')}. A composition row naming an absent package fails at mount, and inside a `
+      + 'preset that breaks new session creation. Refusing to splice them.');
+    return out;
+  }
+  out.notes.push(`generated preset rows: ${block.entries.length} entr(ies) [${block.rowIds.join(', ')}]; no row names a package this candidate lacks`);
 
   const spliced = spliceManagedBlock(readFileSync(profilePatch, 'utf8'), block.lines);
   if (spliced.problems) {
