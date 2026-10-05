@@ -40,7 +40,7 @@ const VERSION = '1';
 const ARGV = process.argv.slice(2);
 
 /** The verbs that WRITE a verdict about a config, and therefore must stamp what they judged. */
-const STAMPING_VERBS = new Set(['analyze', 'verify', 'patch-effect', 'preset-gate']);
+const STAMPING_VERBS = new Set(['analyze', 'verify', 'patch-effect', 'preset-gate', 'settings-effective']);
 
 /** The profile whose composition a candidate's verdict is about. */
 const CANDIDATE_PROFILE = 'web';
@@ -80,6 +80,7 @@ const VERB_HELP = {
   report: 'report <ver>: print the report path and the verdict summary',
   'patch-effect': 'patch-effect <ver> [--profile web] [--layer <yml>]: does every patch WE own still have its intended effect on the candidate?',
   'preset-gate': 'preset-gate <ver>: does every package and subpath our PRESETS name still resolve on the candidate?',
+  'settings-effective': 'settings-effective <ver>: does the candidate engine actually HONOUR every settings key we set? Boots it against an isolated home and reads its own effective settings back',
   preflight: 'preflight <ver>: run EVERY guard in order and print one GO/NO-GO — the triple-check command',
 };
 
@@ -1400,6 +1401,94 @@ async function verbPresetGate(argv) {
 // BLOCKING (any failure -> NO-GO): baseline freshness, analyze, patch-effect, preset-gate, verify.
 // REPORTED (never blocks, but never hidden): RISKY counts and the unverified/gap counts, because a
 // clean verdict with a silent gap list is a lie.
+/**
+ * `settings-effective` — does the candidate engine actually HONOUR the settings we set?
+ *
+ * WHY THIS IS A VERB AND NOT JUST A MODULE. `lib/settings-effective.mjs` has existed since 2026-09-28
+ * and implements exactly what the README's own gap list calls for: it boots the candidate's web profile
+ * against an isolated home, reads the engine's OWN effective settings back through the settings
+ * controller, and asserts that every settings key this deployment sets is present with the value it
+ * set. NOTHING EVER RAN IT — a grep for its name across `lib/`, `tools/`, `bin/` and `scripts/` found
+ * only the module itself and its own test. Measured 2026-10-23 settings: an unknown top-level key, an
+ * unknown key inside a known section, a wrong value type, an out-of-range number and an invalid enum
+ * value ALL boot with exit 0 and print no diagnostic. So without this verb, a settings key the
+ * candidate quietly stopped honouring is invisible to every gate in this pipeline. A detector no verb
+ * can reach is not a gate; it is a document.
+ *
+ * IT IS A NON-BLOCKING READING IN `preflight`, DELIBERATELY. Its failure modes against a real candidate
+ * have not been calibrated here, and making it blocking would change the GO criteria for every future
+ * candidate on the strength of a reading nobody has measured. What changes today is that the reading
+ * exists, is runnable by name, is stamped with the config it judged, and lands in the record — instead
+ * of being invisible.
+ */
+async function verbSettingsEffective(argv) {
+  const version = requireVersionArg('settings-effective', argv);
+  const cp = candidatePaths(version);
+  const out = path.join(cp.dir, 'settings-effective.json');
+  const engine = path.join(vendorPrefixPath(version), ENGINE_REL);
+  const identity = configIdentity({ dshHome: PATHS.dshHome, profile: CANDIDATE_PROFILE, host: hostName() });
+  const lines = [`dsh-update settings-effective ${version}   (host ${hostName()})`, ''];
+
+  // A refusal still writes an artifact — one that records "did not run, and why", stamped with the
+  // config it is about. An absent file and an anonymous file are both unreadable, and this pipeline
+  // refuses to treat unreadable as health.
+  const refuse = (reason, code) => {
+    try {
+      writeJsonAtomic(out, {
+        schemaVersion: 1, version, ran: false, verdict: null, reason,
+        generatedAt: new Date().toISOString(), configIdentity: identity,
+      });
+    } catch { /* the refusal text below is the reading that matters */ }
+    lines.push(`  REFUSED — ${reason}`);
+    return { ok: false, exitCode: code, verb: 'settings-effective', version, ran: false, reason, path: out, text: lines.join('\n') };
+  };
+
+  if (!fileInfo(engine).exists) {
+    return refuse(`the candidate engine is not fetched: ${safeRelPath(engine)} — run \`fetch ${version}\` first.`, 2);
+  }
+  const consumed = path.join(cp.dir, 'consumed.json');
+  const args = [
+    path.join(PATHS.libDir, 'settings-effective.mjs'),
+    '--engine', engine,
+    '--version', version,
+    '--dsh-home', PATHS.dshHome,
+    '--out', out,
+    '--logs-dir', PATHS.logsDir,
+    '--generated-at', new Date().toISOString(),
+  ];
+  if (fileInfo(consumed).exists) args.push('--consumed', consumed);
+  const pinEngine = readPin()?.enginePath;
+  if (pinEngine) args.push('--baseline-engine', pinEngine);
+
+  lines.push(`  command: node ${args.map((a) => (a.includes(' ') ? JSON.stringify(a) : a)).join(' ')}`);
+  const r = spawnSync(process.execPath, args, { encoding: 'utf8', timeout: 600000 });
+  const report = readJson(out, null);
+  if (!report || report.ran === false) {
+    const why = report?.reason
+      ?? (r.stderr || r.stdout || '').trim().split('\n').filter(Boolean).slice(0, 3).join(' | ')
+      ?? `exit ${r.status} with no output`;
+    return refuse(`the module produced no usable artifact (exit ${r.status}): ${why || '(no diagnostic at all)'}`, 7);
+  }
+
+  const counts = report.counts ?? {};
+  const verdict = report.verdict ?? 'UNKNOWN';
+  lines.push(line('artifact', `${safeRelPath(out)}  verdict ${verdict}`));
+  lines.push(line('counts', Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'));
+  for (const n of (report.notes || []).slice(-2)) lines.push(`  ${n}`);
+  if (verdict === 'BREAKS') {
+    lines.push('');
+    lines.push('  A key this deployment sets is NOT in the engine\'s own effective-settings report, or is there');
+    lines.push('  with a different value. That is the engine telling you it is not running the configuration we');
+    lines.push('  think it is — read the artifact before promoting.');
+  }
+  return {
+    ok: verdict !== 'BREAKS',
+    exitCode: verdict === 'BREAKS' ? 7 : 0,
+    verb: 'settings-effective', version, ran: true, verdict, counts,
+    path: out, text: lines.join('\n'),
+  };
+}
+
 async function verbPreflight(argv) {
   const version = requireVersionArg('preflight', argv);
   const cp = candidatePaths(version);
@@ -1495,6 +1584,21 @@ async function verbPreflight(argv) {
         : `BLOCKING ONE-WAY DOOR — ${String(g8.detail).slice(0, 300)}  Re-run with --accept-session-format-upgrade once taking it deliberately is the decision.`))
       : 'no G8 gate in verify.json');
 
+  // settings-effective -> the candidate's OWN report of what settings it is actually running with.
+  //
+  // NON-BLOCKING ON PURPOSE. This is the first time a verb can run this detector at all (see the note on
+  // `verbSettingsEffective`), and its false-failure rate against a real candidate has not been measured.
+  // Making it blocking would change the GO criteria for every future candidate on the strength of a
+  // reading nobody has calibrated. It is reported so that the reading exists in the record — and a
+  // BREAKS there is the engine saying it is not running the configuration we think it is.
+  run('settings-effective');
+  const se = readJson(path.join(cdir, 'settings-effective.json'), null);
+  add('settings-effective (the engine\'s own report)', se?.verdict === 'SAFE' || se?.verdict === 'RISKY', false,
+    se ? (se.ran === false
+      ? `did not run — ${se.reason ?? 'no reason recorded'} (this is a gap, not a pass)`
+      : `verdict ${se.verdict} (${Object.entries(se.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'})`)
+      : 'settings-effective.json was not produced');
+
   // ── guard: every artifact stamped with the config home it judged, and that home is THIS one ────
   //
   // Blocking, and deliberately checked here rather than left to promote. `preflight` is the verb whose
@@ -1586,6 +1690,7 @@ const VERBS = {
   rollback: verbRollback, report: verbReport, help: verbHelp,
   'patch-effect': verbPatchEffect,
   'preset-gate': verbPresetGate,
+  'settings-effective': verbSettingsEffective,
   preflight: verbPreflight,
 };
 

@@ -9,7 +9,110 @@ Written by hand from the pipeline's own artifacts, with every claim re-checked a
 install. Relative to the pin `0.1.5-rc.1` (the `@deepseek-ai/dsh` launcher version; 230 of the 240
 installed packages are `0.1.5-rc.2` — see `SPEC.md`, "The version is a set, not a number").
 
+## 2026-10-05 — the pipeline was fixed, the pin could not move, and the reason is the repo itself
+
+This section is the honest state after a full session on the update system. Read it before trusting any
+verdict above it: two of the entries above are now stale, and the reason nothing has been promoted
+since 2026-09-23 is not in this file at all.
+
+### The pin is stuck because `harness-config` stands on the version seam
+
+`analyze` scans the **repo**, and the repo is half-migrated:
+
+| surface | state | evidence |
+|---|---|---|
+| `profiles/web/cordis.patch.yml` (repo) | **0.1.7 names** — `@deepseek-ai/dsh-agent-preset` at 301, 485, 980; `@deepseek-ai/dsh-workflow-ptc` at 463, 928, 1481; 1624 lines | measured 2026-10-05 |
+| `scripts/make-preset-rows.mjs` | **0.1.7 name** — `dsh.profile.bundles` names `@deepseek-ai/dsh-agent-preset` at :121 | measured 2026-10-05 |
+| `presets/*/agent.cordis.yml` (all three) | **0.1.5 names** — `@deepseek-ai/dsh-workflow-worker-thread`, restored deliberately by commit `60b3724` on 2026-10-04 | measured 2026-10-05 |
+| `~/.dsh/profiles/web/cordis.patch.yml` (live) | **neither** — 252 lines, no coupled name at all | measured 2026-10-05 |
+
+`sync.py`'s version guard does its job and SKIPS both coupled scopes, so production is safe. But
+`analyze` therefore reports BREAKS for **every** candidate:
+
+```
+0.1.5-rc.3   BREAKS=3   dsh-agent-preset (repo profile row), dsh-agent-preset (bundle decl), dsh-workflow-ptc
+0.2.0-rc.2   BREAKS=2   dsh-agent-presets at profiles/mesh/cordis.patch.yml:93, dsh-workflow-worker-thread in all three presets
+0.1.7-rc.2   BREAKS=1, and patch-effect BREAKS=2
+```
+
+and `verify` fails **G2** with `LOST (our patch silently stopped applying): agent-preset-registry`.
+There is no candidate for which `promote` can pass condition 2. `check-version-coupled-config.py` names
+this exact state in its own header: *"the machine is standing on the seam"*. It was invisible from
+`status` because each half looks reasonable on its own.
+
+### Two entries above are stale — the pipeline now catches them, which is the point
+
+* **0.1.5-rc.3 is no longer demonstrably SAFE.** Its stored `verify.json` was produced for
+  `contractSha256=3de3956a…` while the contract on disk is `48d47a8c…`, and it carries **six** gates —
+  G1, G2, G3, G4, G5, GFULL, with **no G8 at all** — i.e. it was written by an older `verify.mjs`. A
+  verdict can be invalidated by a change to the pipeline that produced it, and nothing could see that
+  before the `verifyReading`/contract checks added on 2026-10-05.
+* **`state/candidates/0.1.7-rc.2/*` still holds verdicts computed against a `%TEMP%` test fixture.**
+  The stored `patch-effect.json` names
+  `C:\Users\ezabz\AppData\Local\Temp\switch-rework-20260928T203232Z\staged-home\profiles\web\cordis.patch.yml`
+  as the layer that broke. Re-run before reading anything in that directory.
+
+### 0.2.0-rc.2 — fetched and analyzed. BREAKS=2, both mechanical.
+
+`npm install` 107,761 ms into `vendor/prefix/0.2.0-rc.2` (453.6 MB / 26,622 files), the only npm install
+in the pipeline; the npx cache was untouched. 288 packages, 194 composed rows (vs 163 at the pin).
+
+| finding | what |
+|---|---|
+| `F001` B1 BREAKS | `@deepseek-ai/dsh-agent-presets` is ABSENT — named by `profiles/mesh/cordis.patch.yml:93` and the live `~/.dsh` copy |
+| `F002` B1 BREAKS | `@deepseek-ai/dsh-workflow-worker-thread` is ABSENT — named by all three presets (`cordis-bg:287`, `yocheved:381`, `zabz:464`, repo and live) |
+
+Both are the two renames already documented above, and both are mechanically resolvable. The rest is
+`RISKY=4` (the `@deepseek-ai/dsh` `configTrees` block emptied, `dsh-tool-cordis` gained `./host`,
+`dsh-web-app`'s `dsh.bundle.patch` became an array of five, the CLI surface moved), `CAPABILITY=75`
+including `dsh-plugin-manager`, `dsh-config-editor` and the voice-input group, and `INFO=55`.
+**345 consumed references could not be resolved** — that is the honest size of the blind spot and it is
+larger than at 0.1.5-rc.3, so treat this candidate as less well covered, not better.
+
+### The pipeline itself was repaired on 2026-10-05 — four defects
+
+1. **`preflight` and `promote` disagreed about `verify.json`, and the disagreement deadlocked the whole
+   write path.** `verify.pass` is false whenever any gate that ran failed, and G8 is deliberately not ok
+   for every candidate that writes session format v4. Preflight could reach GO with
+   `--accept-session-format-upgrade`; promote condition 1 still demanded `pass === true`. So preflight
+   said GO, promote refused, and `switch-engine.ps1` rolled the switch back — with the flag threaded to
+   promote by `switch-engine.ps1:1334` and structurally impossible to honour. Both verbs now call
+   `verifyPromotable()` in `lib/promote-reading.mjs`. Held by `tests/guards/promote-door.mjs` (16/16).
+2. **No verdict recorded which config it judged.** `state/candidates/<ver>/*.json` is written by a real
+   run *and* a test run, and on 2026-09-28 a fixture's staged home overwrote the authoritative
+   artifacts while `status`/`preflight` presented them as this machine's state. `lib/artifact-provenance.mjs`
+   now stamps a derived `configIdentity` into every artifact; re-stamping with a different home throws;
+   `promote` gained condition 5 and `preflight` a blocking `artifact provenance` guard. Held by
+   `tests/guards/provenance.mjs` (28/28).
+3. **`lib/settings-effective.mjs` existed and no verb ran it.** The README's own gap #1 — "a settings
+   key the candidate has quietly stopped honouring is invisible to every gate" — was detected but
+   unreachable. There is now a `settings-effective <ver>` verb, reported non-blocking by `preflight`
+   (its false-failure rate against a real candidate is not yet measured, so it does not change GO).
+   **First real reading ever taken, 0.1.5-rc.3, 2026-10-05: `absent=0 different=0`** out of 108 keys /
+   34 distinct, 19 present with our value, 15 not assertable on this machine — every settings key this
+   deployment sets *is* present in the engine's own effective-settings report. The run also verified the
+   live engine on :3099 was unchanged, and that the resolved API key appeared 0 times across the written
+   files.
+4. `status` no longer renders a door-only verify as a bare `FAIL`, and `promote` prints every condition
+   from the array instead of indices 1-3 — which is how conditions 4 and 5 came to be evaluated but
+   never shown.
+
+### What is still missing before this can be promoted
+
+* **`switch-engine.ps1` precondition 2 is a GREP, not a proof.** It checks that
+  `.agent-presets/*/agent.cordis.yml` names `@deepseek-ai/dsh-workflow-ptc` — but on 0.1.7+ that
+  directory is **not read at all**. A staged home can pass that check while the presets are dead on the
+  target engine, and dead presets break **new session creation** — the 2026-10-04 incident, whose
+  symptom is the workspace picker bouncing back with `agent-preset/invalid`. The check has to become a
+  composed-tree assertion: the candidate must compose our presets as rows with their plugins.
+* **Nothing in the repo builds the staged home** that precondition 2 requires. It was assembled by hand
+  and by test fixtures. A builder is in flight on branch `fleet/dsh-stagehome`.
+
 ## 0.1.5-rc.3 — SAFE. Nothing breaks.
+
+*(SUPERSEDED for the `verify` row — see the 2026-10-05 section above. The stored `verify.json` is stale
+and carries no G8; `analyze` now reports BREAKS=3 because of the repo's half-migrated profile patch.)*
+
 
 | step | result |
 |---|---|
