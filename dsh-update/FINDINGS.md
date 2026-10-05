@@ -654,3 +654,58 @@ one guard that cannot stop a promote.
    -AcceptSessionFormatUpgrade -IUnderstandThisWritesTheLiveHome`.
 6. After the next boot: the new version serves, a NEW session mounts each preset, an existing session
    opens. Still unproven: whether `skills/` inside our presets resolves under 0.1.7+ (FINDINGS item 3).
+
+
+### 2026-10-05 (round 4) — THE SETTINGS ARE NOT READ ON 0.2.0-rc.2 AT ALL, and that closes STATE-COMPAT §3.5
+
+The 15 `settings-effective` breaks are not renamed keys. **Every path our settings use is valid on
+0.2.0-rc.2; the READER moved.** Measured:
+
+| | 0.1.5 line | 0.2.0-rc.2 |
+|---|---|---|
+| `@deepseek-ai/dsh-settings-file` | **present** — `lib/index.js:32` reads `resolveDshHome(config.dshHome)/settings.yaml` | **ABSENT** |
+| `@deepseek-ai/dsh-settings` | — | `lib/index.js:339-348` only has `importLegacyDocument()`, reading `join(profile.home, "settings.yaml")` — the ACTIVE PROFILE's home |
+
+This deployment has no `profiles/*/settings.yaml` and its settings live in `~/.dsh/settings.yaml`, the
+harness home. On 0.2.0-rc.2 nothing opens that file. **So all 108 keys revert to schema defaults or
+disappear** — which is exactly the shape of the two findings: keys WITH a schema default resolve to the
+default (`maxTokens` 256000 vs our 65536, `streamIdleTimeoutMs` 300000 vs our 60000,
+`maxParallelToolCalls` 10, `busyEnter` `"queue"`), and keys with NO schema default come back ABSENT
+(`retryPolicy`, `permission.defaultPreset`, and the five `llm-pi-ai.providers.deepinfra.*`).
+
+STATE-COMPAT.md §3.5 asked this question and left it open in its own words: *"settings.yaml is SAFE as a
+file, but the reader moved … Whether the values still take effect is a separate question and is not
+answered here."* It is answered now: **they do not.**
+
+**The paths are fine.** Verified against the candidate's own `--dump-config-schema`:
+`llm-deepseek.retryPolicy` accepts `mode`/`maxRetries`/`retryableCodes`/`backoff`; `permission` accepts
+`defaultPreset`; `agent-loop` accepts `maxParallelToolCalls`; `ui-conversation` accepts `busyEnter`;
+`llm-pi-ai.providers` is an open `additionalProperties` map whose entries accept
+`apiKeyEnv`/`api`/`baseURL`/`models`/`retryPolicy`/`streamIdleTimeoutMs`. `deepinfra` does not appear
+literally in the schema because providers are an open map — that is expected, and it is NOT evidence that
+the provider is unsupported.
+
+**Two structural changes worth knowing:**
+1. The single `@deepseek-ai/dsh-llm-deepseek` row became **two**:
+   `@deepseek-ai/dsh-llm-deepseek-api-key` (row id `llm-deepseek`, `/92`) and
+   `@deepseek-ai/dsh-llm-deepseek-account` (row id `llm-deepseek-account`, `/93`), both declaring
+   `llm-deepseek` settings. Our `settings/base.yaml` comments cite `dsh-llm-deepseek/lib/index.js` line
+   numbers that no longer describe what runs.
+2. `dsh-llm-retry` is its own row (`/18`) and `lib/index.js:28` throws
+   *"llm-retry: retryPolicy belongs under each provider configuration"* — so a top-level `retryPolicy` is
+   rejected by that package's own guard even though `llm-deepseek`'s schema still declares one.
+
+**The fix, therefore, is not a rename.** Our settings must be delivered where 0.2.0 reads them: a
+**profile-scoped** settings document (the settings row's own `config`, reached through the profile's patch
+layer), not the harness-home `settings.yaml`. That is the work item, and it is a real migration rather
+than a find-and-replace.
+
+**New tool, so this is mechanical next time:** `dsh-update/tools/settings-map.mjs` — reads a candidate's
+`--dump-config-schema`, and prints, per key, the owning NAMESPACE, the owning PACKAGE, the row path, and
+the candidate schema's own DEFAULT. The schema's top-level `x-cordis.entries` is the roster that maps
+every `#/$defs/configN` back to `{path, id, name, status, configRef}`, which is what makes "which row owns
+this key" answerable at all. Read-only; starts nothing.
+
+```
+node dsh-update/tools/settings-map.mjs <schema.json> [--keys a,b,c] [--namespace <id>] [--json]
+```
