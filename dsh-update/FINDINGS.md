@@ -709,3 +709,71 @@ this key" answerable at all. Read-only; starts nothing.
 ```
 node dsh-update/tools/settings-map.mjs <schema.json> [--keys a,b,c] [--namespace <id>] [--json]
 ```
+
+
+### 2026-10-05 (round 5) — WHERE SETTINGS ACTUALLY LIVE ON 0.1.7+, and the row each of our sections belongs to
+
+**The mechanism, read from the candidate's own code.** On 0.1.7+ the settings document is
+`configEditor.documentPath`, and that getter is
+
+    dsh-config-editor/lib/index.js:24-26
+      get documentPath() { return this.ownerContext.profileContext.patchPath; }
+
+— i.e. **the profile's own `cordis.patch.yml`**. `dsh-settings`'s one other path,
+`importLegacyDocument()` (`lib/index.js:346-363`), is a ONE-SHOT migration: it reads
+`join(profile.home, 'settings.yaml')`, RENAMES it to `.imported`, then calls `update(section, values)` per
+section. So a `settings.yaml` is not a store on this line; it is an input to a one-time import, and the
+store is the profile patch.
+
+**Refuted first, so it is not believed by accident.** Dropping the merged document at
+`profiles/web/settings.yaml` and re-running `settings-effective` changed NOTHING — identical
+`absent=11 different=4 present=2`. That path is not the mechanism.
+
+**Our nine sections, and the row each belongs on.** Seven of the nine namespaces are already rows in the
+composed 0.2.0-rc.2 web tree; the other two are renames upstream states in its own
+`LEGACY_SECTION_ENTRIES` (`dsh-settings/lib/index.js:302-308`):
+
+| settings.yaml section | row id | |
+|---|---|---|
+| `ui-onboarding` | `ui-settings-general` | renamed, upstream's own table |
+| `ui-conversation` | `ui-conversation` | direct |
+| `permission` | `permission` | direct |
+| `agent-default-model` | `agent-default-model` | direct |
+| `agent-presets` | `agent-preset-registry` | `config.default`; the repo patch already declares it |
+| `llm-deepseek` | `llm-deepseek` | direct |
+| `llm-pi-ai` | `llm-pi-ai` | direct |
+| `spend-guard` | `spend-guard` | direct — OUR plugin, and it carries the spend ceilings |
+| `agent-loop` | `agent-loop` | direct |
+
+The document is small (1,087 bytes) but it is not cosmetic: `permission.defaultPreset:
+danger-full-access`, `agent-presets.default: zabz`, and `spend-guard` `warnUsd 35 / fanoutUsd 80 /
+ceilingUsd 150 / concurrencyCap 12 / onInternalError closed`. Money controls and the permission posture.
+
+**The constraint that stopped this round, measured rather than assumed.** A profile patch is a **FLOW
+collection** — it opens `[`, closes `]`, and its entries are flow mappings with TRAILING COMMAS:
+
+    {
+      id: 'agent-preset-registry',
+      config: {
+        default: 'zabz',
+      },
+    },
+
+Emitting block-style entries (`- id: 'x'` plus an indented `config:`) is invalid inside a flow sequence,
+and the engine rejects the whole overlay:
+
+    dsh: failed to parse overlay .../profiles/web/cordis.patch.yml
+         YAMLException: missed comma between flow collection entries (1622:3)
+
+`dsh-update/tools/settings-to-entries.mjs` is NEW and its `--print` mode is correct and useful — it
+performs exactly the section→row mapping in the table above, which is the analysis that was missing — but
+`--install` is **fail-closed** until the emitter emits flow style. It is not a string tweak: nested
+content (`llm-deepseek.retryPolicy.backoff`, `llm-pi-ai.providers.deepinfra.models[]`) cannot be block
+style inside a flow mapping at all, so the block body needs a real YAML stringifier with `{flow: true}` on
+every node. `scripts/make-preset-rows.mjs` already solved that exact problem for the preset rows and its
+emitter is the thing to reuse rather than re-invent.
+
+**Damage contained, and said plainly.** Installing the block-style entries into the STAGED home's web
+patch broke its composition; `compose.mjs` caught it immediately (`exit 1`, 0-byte dump). The staged home
+was re-staged from the repo and composes cleanly again — **197 rows, exit 0**. No live path was written at
+any point; the live profile patch still carries its 2026-09-20 mtime.
