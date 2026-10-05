@@ -378,6 +378,51 @@ tooling* before a phantom adversary — and prove a repair by planting a value t
 watching it survive. Two of tonight's three regressions were in the guards themselves (the wrapper that looped,
 the enforcer that wiped), not in the thing they were guarding.
 
+## 12. "Not full screen any more" and "it signed me in with the apps closed" (2026-10-05 11:30)
+
+**(a) The full-screen regression was the previous round's fix.** Setting `dynamic resolution:i:0` in order to
+make `desktopscalefactor:i:150` stick also stopped mstsc from re-sizing the session to the monitor — so the
+session came up at ~2560x1440 in a window on a 3840x2160 panel, which is exactly the "not taking up a full
+screen" the owner reported (and the same complaint as round one, from the opposite cause). **Reverted:**
+`dynamic resolution:i:1` back on, scale factor removed. The session fills the panel at native resolution again.
+The text-size idea behind the scale factor was sound; the .rdp file is simply the wrong place to apply it,
+because full screen always re-requests native.
+
+**(b) Why his apps were closed, and it is the single-session rule again — with a trap.** The session facts at
+11:28:
+
+```
+console   2  Conn            <- a session sitting at the LOCK SCREEN, no user on it
+rdp-tcp#0 ezabz  5  Active   <- a fresh session, created for this login
+11:19:24  session logon succeeded
+11:19:29  session 6 disconnected, reason code 12     <- 12 is LOG OFF, not disconnect
+MaxDisconnectionTime = 0   fSingleSessionPerUser = 1   AutoAdminLogon = (unset)
+```
+
+A client Windows allows **one** interactive session per user, and the prompt mstsc shows when another session
+is in the way offers to **sign it out** — `reason code 12`. Signing out ends the session and every process in
+it; disconnecting keeps both. So the answer to "close the other session?" cost him his apps. And because the
+console session sits at a lock screen with no user on it, RDP does not merge with it: a new session is created,
+so the desktop he lands in is not the one his apps were in.
+
+**The rules that follow, and they are behavioural as much as technical:**
+
+1. **Close the window (X) — that is a disconnect.** The session and every app in it survive, and the next login
+   reconnects into them. Never choose an option that *signs the session out*.
+2. **For RDP and the physical PC to share one session, the console session must be the owner's.** After a
+   reboot it sits at a lock screen, so one sign-in at the machine (or through Chrome Remote Desktop) makes both
+   doors land in the same place with the same apps. Nothing in Windows merges a lock screen with an RDP login.
+3. **`Ctrl+Alt+L` now reports this before he connects** — it reads the desktop's session list and says which of
+   the three states he is in: the console is his ("a new RDP login takes over that same session, so your apps
+   survive"), at a lock screen ("sign in once … and both doors then share one session"), or he already has a
+   session ("reconnecting lands in it").
+
+**Considered and recommended against: autologon.** `AutoAdminLogon` would make the console session his after
+every boot with no manual step, but it stores the account password in the registry on a machine reachable over
+the tailnet. The recommendation is the one-line manual sign-in after a reboot instead; if the owner prefers it
+fully hands-off, it is one registry write and his decision.
+
+
 
 
 

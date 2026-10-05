@@ -2,8 +2,7 @@ full address:s:zabz-tech.tail93e6e6.ts.net
 username:s:MicrosoftAccount\ezabz68@gmail.com
 screen mode id:i:2
 use multimon:i:0
-dynamic resolution:i:0
-desktopscalefactor:i:150
+dynamic resolution:i:1
 session bpp:i:32
 connection type:i:6
 networkautodetect:i:0
