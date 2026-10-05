@@ -777,3 +777,67 @@ emitter is the thing to reuse rather than re-invent.
 patch broke its composition; `compose.mjs` caught it immediately (`exit 1`, 0-byte dump). The staged home
 was re-staged from the repo and composes cleanly again — **197 rows, exit 0**. No live path was written at
 any point; the live profile patch still carries its 2026-09-20 mtime.
+
+
+### 2026-10-05 (round 6) — THE SETTINGS MIGRATION WORKS, and G2 is now the only blocker
+
+**The settings story is closed.** Delivered as `config:` entries in the profile patch (round 5's finding),
+installed into `profiles/web/cordis.patch.yml` and `profiles/mesh/cordis.patch.yml` by the new
+`dsh-update/tools/settings-to-entries.mjs`. Measured before/after on the engine's own
+`POST /api/settings/describe` report, against a staged home rebuilt FROM THE REPO:
+
+```
+before:  present=2  absent=11  different=4  BREAKS=15
+after :  present=17 absent=0   different=0  BREAKS=0
+```
+
+and the composed tree carries them: `permission.defaultPreset danger-full-access`,
+`agent-preset-registry.default zabz`, `llm-deepseek.maxTokens 65536` / `streamIdleTimeoutMs 60000`,
+`spend-guard.ceilingUsd 150` / `concurrencyCap 12`, `agent-loop.maxParallelToolCalls 20`,
+`ui-conversation.busyEnter steer`, `agent-default-model.model deepseek-flash`,
+`llm-pi-ai.providers.deepinfra.baseURL https://api.deepinfra.com/v1/openai`.
+
+**The style constraint, measured twice.** `profiles/web/cordis.patch.yml` is a FLOW collection (`[`…`]`,
+flow mappings, trailing commas) and `profiles/mesh/cordis.patch.yml` is a BLOCK sequence (no brackets,
+`- id: x`). Block entries inside the flow file make the engine reject the whole overlay
+(`YAMLException: missed comma between flow collection entries`), so the emitter DETECTS the style from the
+target and emits accordingly. The `config` body is always stringified FLOW, because nested content
+(`retryPolicy.backoff`, `providers.deepinfra.models[]`) cannot be block style inside a flow mapping.
+
+**The `settings-effective` guard is now blocking** whenever it ran and found a loss — the rationale being
+that a gate which can see this class of loss and cannot stop a promote turns a refusal into a footnote.
+It stays non-blocking when it could not reach a verdict (`ran === false`), so the pipeline cannot become
+unpassable for reasons unrelated to the candidate. On this run it PASSES, and its detail now reads
+"every settings key this deployment sets is present in the engine's own report with our value".
+
+### G2 is the last blocker, it is newly caused by the settings entries, and its LOST reading is suspect
+
+```
+G2: LOST (our patch silently stopped applying): agent-default-model,
+    deepseek-ai/DeepSeek-V4-Flash-0731, deepseek-ai/DeepSeek-V4.1-Flash, spend-guard
+    — of those, all four carry no patch attribution from ANY layer
+    our-layer patched rows in this tree: typert-gateway, llm-pi-ai, permission, agent-loop,
+    llm-deepseek, connection, ui-settings-general, ui-conversation, agent-preset-registry,
+    remote-fanout, tool-subagent-remote
+```
+
+Three reasons to treat this as a G2 defect rather than a real loss, and they are all measured:
+
+1. **The values are provably in force.** `spend-guard.ceilingUsd = 150`, `spend-guard.concurrencyCap = 12`
+   and `agent-default-model.model = "deepseek-flash"` are read straight out of the composed tree
+   (`tree.json`), and the engine's own describe report shows `absent=0 different=0`. A row whose resolved
+   config IS our value has not "silently stopped applying".
+2. **Two of the four "targets" are not rows at all.** `deepseek-ai/DeepSeek-V4-Flash-0731` and
+   `deepseek-ai/DeepSeek-V4.1-Flash` are MODEL IDS out of `llm-pi-ai.providers.deepinfra.models[]`.
+   `consumed.json` classified them as patch targets; no patch entry can ever target a model id.
+3. **G2 keys its verdict on attribution**, and this pipeline's own README records that attribution is
+   unstable between runs and must never key a verdict — the same run reports "the supplied artifact's
+   patchedRowIds contains 12 id(s) the fresh dump does not attribute to our layer".
+
+**The fix, for the next session, and it is a real one.** G2 should fail on the two things that are
+checkable without attribution: a target ROW that is ABSENT from the composed tree, and a row whose
+resolved value does not carry the intent recorded in `consumed.json`. Attribution becomes a reported
+reading, not a verdict. It needs a test that reproduces this exact case — our-value-equals-the-row's-default
+— because that is the shape that makes attribution blind while the configuration is perfectly in force.
+`G8` in the same run is the accepted one-way door (2,258 live v3 logs, all counted), so it is not a
+blocker once `verify`'s `pass` is read through `promote-reading.mjs`.
