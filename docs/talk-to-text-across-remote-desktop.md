@@ -180,6 +180,36 @@ permitted.
 The client file now carries `username:s:MicrosoftAccount\ezabz68@gmail.com` and `prompt for credentials:i:1`,
 so the dialog arrives already naming the right identity and only the password has to be typed.
 
+### 4.5 One-click access, and making the credential stick (2026-10-05)
+
+Two independent things have to be true: ZABZ-TECH must hold a password it accepts (§4.4), and the Yoga must
+have been told to remember that password.
+
+Client side — done:
+
+- Shortcut **`ZABZ-TECH (RDP + mic)`** exists on the Yoga Desktop *and* in the Start Menu. Both run
+  `mstsc.exe "…\zabz-tech - mic.rdp"`, both are verified by reading them back, and both carry the hotkey
+  **Ctrl+Alt+Z**. Nothing else has to be clicked.
+- The .rdp carries `username:s:MicrosoftAccount\ezabz68@gmail.com`, `prompt for credentials:i:0` and
+  `promptcredentialonce:i:1`, so once a credential is stored there is **no dialog at all**.
+- Storing it is the **Remember me** tick in the sign-in dialog; it becomes a
+  `TERMSRV/zabz-tech.tail93e6e6.ts.net` entry in Credential Manager. Tick it only with a password already
+  known to work: with prompting switched off, a *wrong* stored credential fails every later attempt with no
+  dialog to correct it. Clear one with
+  `cmdkey /delete:TERMSRV/zabz-tech.tail93e6e6.ts.net`.
+- The first connect can raise the certificate warning, because the host's self-signed RD certificate is named
+  `zabz-tech` while the connection uses the tailnet FQDN. Tick *"Don't ask me again for connections to this
+  computer"* once and it is gone for good.
+
+### 4.6 If the Microsoft-account route keeps refusing
+
+Convert that account to a local account: **Settings → Accounts → Your info → "Sign in with a local account
+instead"**. The existing profile, files and settings are kept — only the sign-in identity changes — and RDP
+then uses a plain local password with **no cloud cache anywhere in the path**, so it cannot go stale behind
+his back. It is reversible (add the Microsoft account back afterwards); the cost is the Microsoft-account
+hooks on that machine, and OneDrive and the Store can still be signed in separately. This is the choice to
+make if the password question has already burned an evening once.
+
 ## 5. Routes checked and rejected (so nobody re-walks them)
 
 - **Reaching ZABZ-TECH's DSH web GUI directly from the Yoga over an ssh tunnel** — the transport works
