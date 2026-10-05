@@ -119,6 +119,9 @@ survive this laptop or reach the other machine.
 | `60-cost-audit.md` | The money, from the provider's own console export: $54.92 on 09-15 split across two machines, 99.1 % cache hit, 82 % of spend re-reading context. |
 | `70-toolcall-latency.md` | Per-call cost decomposed; the persistent-shell diff table and why it was refused; the measurement method and the bench scripts. |
 | `80-windows-and-parity.md` | Browser-window cost and the `Invoke-New` ratchet; the counter-discipline correction. |
+| `95-session-list-pool.md` | The session-store walk: three sequential await chains, 219-641 s measured against 6.8 s of raw disk work, the pooling patch and its 16.1x interleaved A/B (identical artifact id set). |
+| `96-engine-per-event-cost.md` | What the engine does **synchronously per session event**, measured: 407 ms of un-yieldable main-thread work per MB of events (`snapshotJsonValue` 60 %, redundant `structuredClone` 19 %, `deepFreeze` 12 %), a ~38 ms projection checkpoint on every `turn/end`, one extra JSON serialisation per attached window, and the ranked capability-preserving fixes F1-F8. |
+| `tools/loop-lag-probe.ps1` | 10 s engine-loop sampler: lag bucketed by concurrent agent loops and by heap direction. Produced the "+8-15 ms per concurrent loop, not GC" result. |
 | `50-implementation.md` | The dated log of what was changed, round by round. |
 | `tools/`, `bench/`, `research/`, `notes/` | The measurement and reproduction tooling. |
 
