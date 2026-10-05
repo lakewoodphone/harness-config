@@ -71,6 +71,29 @@ agent-presets:
   # Set 2026-09-11 after mount validation returned "mounted OK: zabz".
   # NOTE: this is read when a session starts, so a running process keeps its old
   # preset until restarted.
+  #
+  # !!! ON DSH 0.2.0 THIS KEY IS A SILENT NO-OP. MEASURED 2026-10-05. !!!
+  # 0.2.0 replaced the settings-file reader with a composition ROW. The default
+  # preset is now `config.default` on the `agent-preset-registry` row in
+  # $DSH_HOME/profiles/web/cordis.patch.yml, which ships `standard`; without an
+  # override there, a session starts on the shipped preset and the persona below
+  # silently does not apply. Renaming this key to `agent-preset-registry:` in the
+  # settings file was TRIED and MEASURED NOT TO WORK either -- `importLegacyDocument`
+  # maps a section to an entry of the same id, `agent-presets` is not an entry id,
+  # so the whole section is rejected and a non-entry id is rejected in the same way.
+  # The switch is the row config. Nothing warns: it boots with exit 0 and prints
+  # nothing. (This is the class `dsh-update/README.md` calls out as invisible to
+  # every gate it has.)
+  #
+  # DO NOT DELETE THIS KEY YET. It is still the live mechanism on the 0.1.5 line,
+  # and the fleet is mixed: secratary, ZABZ-TECH and ZABZ-YOGA are on 0.2.0, while
+  # zabz-tech-linux and Yisroel's mac mini are not. Removing it would silently
+  # revert the default preset on those hosts. Delete it in the same change that
+  # moves the LAST 0.1.5 machine, and not before.
+  #
+  # To verify on a 0.2.0 host, do not read this file -- read the row:
+  #   grep -A3 agent-preset-registry $DSH_HOME/profiles/web/cordis.patch.yml
+  #   and confirm `default:` there is the preset you expect.
   default: zabz
 
 # ---------------------------------------------------------------------------
