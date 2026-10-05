@@ -281,3 +281,23 @@ test('a corrupt transcript is reported with its damage, never as an empty conver
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// ---------------------------------------------------------------------------
+// WHOSE SEPARATOR — 2026-10-05. The mailbox is on the CHILD's node, so a Windows
+// dispatcher must not derive a POSIX node's path with `path.join`.
+// ---------------------------------------------------------------------------
+
+test('a POSIX target gets POSIX paths even when the dispatcher is Windows', async () => {
+  const { defaultMailboxRoot, mailboxPaths } = await import('../lib/mailbox.js');
+  const root = defaultMailboxRoot('/home/zabz', '/');
+  assert.equal(root, '/home/zabz/.dsh-mesh-mailboxes');
+  const paths = mailboxPaths({ root, thread: 't1', separator: '/' });
+  assert.equal(paths.dir, '/home/zabz/.dsh-mesh-mailboxes/t1');
+  assert.equal(paths.outbox, '/home/zabz/.dsh-mesh-mailboxes/t1/outbox.jsonl');
+  assert.equal(paths.dir.includes('\\'), false);
+  // A Windows target keeps backslashes...
+  const win = mailboxPaths({ root: 'C:\\Users\\ezabz', thread: 't1', separator: '\\' });
+  assert.equal(win.dir, 'C:\\Users\\ezabz\\t1');
+  // ...and with no separator named, nothing changes from what it always was.
+  assert.equal(defaultMailboxRoot('/home/zabz'), path.join('/home/zabz', '.dsh-mesh-mailboxes'));
+});

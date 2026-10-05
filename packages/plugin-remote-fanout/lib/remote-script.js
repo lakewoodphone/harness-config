@@ -29,6 +29,66 @@
 
 import { normalizeNodeFacts, resolveNodeInvocation as defaultResolveNodeInvocation } from './nodes.js';
 
+/**
+ * The word that ends option parsing, emitted TWICE between the flags and the task.
+ *
+ * ── WHY THIS EXISTS, AND EVERY MEASUREMENT THAT PUT IT HERE ─────────────────
+ *
+ * 1. THE FAILURE. The task is the last positional argument, and
+ *    `dsh --profile headless <task>` parsed it as an OPTION whenever its first
+ *    character was `-`. Everything the mailbox feature prepends starts with
+ *    `--- mesh mailbox … ---`, so on every mailbox dispatch the child never ran.
+ *    Measured on ZABZ-TECH 2026-10-05 over the real transport, task = the real
+ *    mailbox preamble:
+ *
+ *      exit = 1 in 4164 ms, markerSettled = true, framed = true, answer = ""
+ *      stderr: error: unknown option '--- mesh mailbox (read this before the task) --- …'
+ *
+ *    The frame closed and the exit code was honest; only the answer was missing.
+ *    That is exactly the shape the parent reports as "the remote one-shot exited
+ *    1 and produced no final message", so it looked like a transport fault while
+ *    it was an argument-parsing one.
+ *
+ * 2. WHY ONE `--` IS NOT ENOUGH, WHICH WAS MEASURED AND IS NOT OBVIOUS.
+ *    `dsh` is a LAUNCHER, and the task is parsed by a DIFFERENT program:
+ *      · `@deepseek-ai/dsh/lib/bin.js:85` declares the launcher with
+ *        `.allowUnknownOption().passThroughOptions().enablePositionalOptions()`
+ *        and forwards the leftover args to the booted profile;
+ *      · `@deepseek-ai/dsh-headless/lib/startup.js:21` is the program that
+ *        actually reads the task, with `.argument("[task...]")` and no
+ *        `allowUnknownOption`.
+ *    commander consumes a `--` as the LAUNCHER's own end-of-options marker, so a
+ *    single `--` never reaches the app that needs it. Measured, real dispatches
+ *    to ZABZ-TECH 2026-10-05 (`x` is the control that proves the transport and
+ *    the node are healthy):
+ *
+ *      `… headless '--- x'`      -> exit 1  error: unknown option '--- x'
+ *      `… headless -- '--- x'`   -> exit 1  error: unknown option '--- x'   (eaten by the launcher)
+ *      `… headless -- -- '--- x'`-> exit 0  the child answered about `--- x`
+ *      `… headless ' --- x'`     -> exit 0  (a leading space also defeats the `-` test)
+ *      `… headless 'x'`          -> exit 0  (control)
+ *
+ *    TWO `--`, therefore: the launcher eats one and the app receives the other,
+ *    which puts every following word — whatever it starts with — into
+ *    `program.args` where the task is read from. The task text itself is not
+ *    touched, which is why this is preferred over the leading-space variant above.
+ *
+ * 3. WHY THIS IS NOT JUST ABOUT THE MAILBOX. A task is caller text. A bulleted
+ *    list, a diff, a `--flag`, a `---` heading, a negative number — each is a
+ *    dispatch that would have died the same silent way. `mailbox.js` also opens
+ *    its preamble with `=` now, but the separator is the general fix: it makes
+ *    ANY task a positional, including one this package did not write.
+ *
+ * `-- --` is legal, ordinary use of both parsers, not a trick played on either.
+ */
+export const END_OF_OPTIONS = '--';
+
+/**
+ * The words emitted between the flags and the task: two end-of-options markers,
+ * for the launcher/app split measured above. Spread into the argv in order.
+ */
+export const TASK_SEPARATOR_WORDS = Object.freeze([END_OF_OPTIONS, END_OF_OPTIONS]);
+
 /** A marker namespace: `FANOUT_<suffix>_<nonce>`. */
 export function markers(nonce = '') {
   const tail = nonce ? `_${nonce}` : '';
@@ -118,9 +178,60 @@ export function invocationFor(spec = {}, { resolveNodeInvocation } = {}) {
     : undefined;
 }
 
+/**
+ * Escape one value so that a native Windows program's own parser reads back the
+ * EXACT bytes it was given. Paired with `psQuote` for the PowerShell literal.
+ *
+ * ── WHY, MEASURED, 2026-10-05 ON ZABZ-TECH ──────────────────────────────────
+ * Windows PowerShell 5.1 (`ssh-transport.js` boots the target with `powershell`,
+ * and `-EncodedCommand` protects the SCRIPT but not the native call inside it)
+ * passes an argument to a native `.exe` by splicing its value into a command
+ * line that the C runtime then re-parses. A `"` in the value is consumed as a
+ * quote-toggle and disappears. Measured through the real transport, node -e
+ * echoing `process.argv`:
+ *
+ *   value `has "double" quotes`                 -> child got `has double quotes`
+ *   value `MESH_MAILBOX={"dir":"C:/x"}`          -> child got `MESH_MAILBOX={dir:C:/x}`
+ *
+ * That second line is the mailbox manifest — the machine-readable line
+ * `parseMailboxManifest` exists to recover — so on every Windows node the child
+ * was handed invalid JSON and told to reply with a JSON example that had itself
+ * lost its quotes. And the first line is worse than a mailbox defect: the task
+ * is model text, so EVERY dispatch to a Windows node silently lost every double
+ * quote in the prompt. Silent, because the child still runs and still answers.
+ *
+ * The escaping below is the documented MSVCRT rule (backslashes are literal
+ * unless they precede a `"`; `2n` backslashes before a `"` become `n` plus a
+ * quote-toggle), applied so that `\"` appears in the value PS builds the command
+ * line from. Verified by the same probe: the escaped forms came back as
+ * `has "double" quotes` and `MESH_MAILBOX={"dir":"C:/x"}` — intact.
+ */
+export function escapeForNativeArgv(value) {
+  const text = String(value ?? '');
+  let out = '';
+  let backslashes = 0;
+  for (const ch of text) {
+    if (ch === '\\') {
+      backslashes += 1;
+      continue;
+    }
+    if (ch === '"') {
+      // Double the pending run, then escape the quote itself.
+      out += `${'\\'.repeat(backslashes * 2)}\\"`;
+      backslashes = 0;
+      continue;
+    }
+    out += `${'\\'.repeat(backslashes)}${ch}`;
+    backslashes = 0;
+  }
+  // A trailing run sits immediately before the closing quote the runtime adds, so
+  // it is doubled for the same reason.
+  return out + '\\'.repeat(backslashes * 2);
+}
+
 /** Build a `-EncodedCommand` program out of argv-style parts, quoting each word. */
 function psCommandLine(parts) {
-  return parts.map((part) => psQuote(part)).join(' ');
+  return parts.map((part) => psQuote(escapeForNativeArgv(part))).join(' ');
 }
 
 /**
@@ -193,7 +304,7 @@ export function buildPwshScript({ invocation, profile, task, dshHome, cwd, nonce
   const m = markers(nonce);
   const resolved = requiredInvocation({ invocation, ...rest });
   const profileWord = profile ?? 'headless';
-  const argv = [resolved.command, ...(resolved.argvPrefix ?? []), '--profile', profileWord, singleLine(task)];
+  const argv = [resolved.command, ...(resolved.argvPrefix ?? []), '--profile', profileWord, ...TASK_SEPARATOR_WORDS, singleLine(task)];
   const lines = [
     '# generated by dsh-plugin-remote-fanout — one remote one-shot subagent turn',
     `# invocation form: ${resolved.form} — ${resolved.credentialSource}`,
@@ -282,6 +393,9 @@ export function buildPosixScript({ invocation, profile, task, dshHome, cwd, nonc
     ...[resolved.command, ...(resolved.argvPrefix ?? [])].map(shellWord),
     '--profile',
     shellWord(profileWord),
+    // The same end-of-options pair as the PowerShell twin, for the same measured
+    // reason. `shellWord` leaves each `--` bare, which is what it must be.
+    ...TASK_SEPARATOR_WORDS.map(shellWord),
     taskWord(singleLine(task)),
   ].join(' ');
   const lines = [
@@ -306,7 +420,17 @@ export function buildPosixScript({ invocation, profile, task, dshHome, cwd, nonc
   if (dshHome) lines.push(`export DSH_HOME=${shQuote(dshHome)}`);
   if (cwd) lines.push(`cd ${shQuote(cwd)}`);
   lines.push(
-    `printf -v fanout_host '%s' "$(hostname)"`,
+    // `fanout_host=$(hostname)`, NOT `printf -v fanout_host …`. `printf -v` is a
+    // BASH builtin; this program is delivered to `sh -s`, and on a node whose
+    // `/bin/sh` is dash (Ubuntu's default, and the case on `zabz-tech-linux`)
+    // the whole line fails with `sh: N: printf: Illegal option -v` and the
+    // FANOUT_TRANSPORT_HOST line is written EMPTY. Measured 2026-10-05 on that
+    // node through the real transport: exit 0, framed true, answer correct, and
+    // `transport host = ` (blank). That blank is the transport's OWN evidence of
+    // which machine ran the child — the one part a model cannot author
+    // (`116-runbook.md` §2) — so a bashism here silently voids the placement
+    // proof on every dash node while the child still succeeds.
+    'fanout_host=$(hostname)',
     `printf '%s\\n' "${m.host}$fanout_host"`,
     `printf '%s\\n' "${m.cwd}$(pwd)"`,
     `printf '%s\\n' "${m.begin}"`,

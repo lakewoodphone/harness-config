@@ -549,12 +549,17 @@ export class RemoteOneShotProvider {
     // `false` is a deliberate OFF switch, so it must be distinguished from `undefined`
     // (which means "derive one"). A `??` here would treat the OFF switch as absent and
     // silently re-enable the mailbox — measured, because that is exactly what happened.
+    // The separator is the CHILD's, not this machine's: a Windows dispatcher that
+    // derives a POSIX node's mailbox with `path.join` produces `\home\zabz\…`,
+    // which does not exist on that node (measured 2026-10-05 — the child reported
+    // the paths as "Windows-style" and could not have written to them).
+    const mailboxSeparator = shell === 'posix' ? '/' : '\\';
     const mailboxRoot = this.mailboxRoot === false
       ? false
-      : (this.mailboxRoot ?? defaultMailboxRoot(remoteFacts.cwd ?? remoteFacts.dshHome));
+      : (this.mailboxRoot ?? defaultMailboxRoot(remoteFacts.cwd ?? remoteFacts.dshHome, mailboxSeparator));
     let mailbox;
     if (mailboxRoot !== false) {
-      mailbox = mailboxPaths({ root: String(mailboxRoot), thread: threadId });
+      mailbox = mailboxPaths({ root: String(mailboxRoot), thread: threadId, separator: mailboxSeparator });
     }
 
     const baseTask = this.taskPreamble === '' ? task : `${this.taskPreamble}\n${task}`;

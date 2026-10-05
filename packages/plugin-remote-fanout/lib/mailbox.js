@@ -79,10 +79,17 @@ export const MAILBOX_DIR_ENV = 'MESH_MAILBOX_DIR';
 /** The kinds a record may carry. A closed set, so a reader can trust the field. */
 export const MESSAGE_KINDS = Object.freeze(['brief', 'note', 'question', 'answer', 'progress', 'report']);
 
+/** The joiner for the path flavour the CHILD's node uses, not this process's. */
+function joinerFor(separator) {
+  if (separator === '/') return path.posix.join;
+  if (separator === '\\') return path.win32.join;
+  return path.join;
+}
+
 /** Default location when the caller names none: under the child's own work root. */
-export function defaultMailboxRoot(cwd) {
+export function defaultMailboxRoot(cwd, separator) {
   const base = typeof cwd === 'string' && cwd.trim() !== '' ? cwd : '.';
-  return path.join(base, '.dsh-mesh-mailboxes');
+  return joinerFor(separator)(base, '.dsh-mesh-mailboxes');
 }
 
 /**
@@ -92,13 +99,25 @@ export function defaultMailboxRoot(cwd) {
  * @param {{ dir?: string, root?: string, thread?: string }} spec
  */
 export function mailboxPaths(spec = {}) {
+  /**
+   * ── WHOSE SEPARATOR ────────────────────────────────────────────────────────
+   * The mailbox is on the CHILD's node, so its separator has to be the child's,
+   * not this process's. Before this, a Windows dispatcher derived the path with
+   * `path.join`, which on Windows turns a POSIX node's `/home/zabz` into
+   * `\home\zabz` — a path that does not exist on that node and that the child
+   * would have created as a literal backslash-named directory in its cwd.
+   * `spec.separator` is how a caller that KNOWS the target platform says so; when
+   * it is absent the behaviour is exactly what it always was, so nothing changes
+   * for a dispatcher and a child on the same platform.
+   */
+  const join = joinerFor(spec.separator);
   if (typeof spec.dir === 'string' && spec.dir.trim() !== '') {
     const dir = spec.dir;
     return {
       dir,
-      inbox: path.join(dir, INBOX_NAME),
-      outbox: path.join(dir, OUTBOX_NAME),
-      transcript: path.join(dir, TRANSCRIPT_NAME),
+      inbox: join(dir, INBOX_NAME),
+      outbox: join(dir, OUTBOX_NAME),
+      transcript: join(dir, TRANSCRIPT_NAME),
     };
   }
   if (typeof spec.root !== 'string' || spec.root.trim() === '') {
@@ -120,12 +139,12 @@ export function mailboxPaths(spec = {}) {
   if (spec.thread.includes('..')) {
     throw new Error(`remote-fanout mailbox: thread name ${JSON.stringify(spec.thread)} contains ".." — a thread can name a conversation but never a different directory`);
   }
-  const dir = path.join(spec.root, spec.thread);
+  const dir = join(spec.root, spec.thread);
   return {
     dir,
-    inbox: path.join(dir, INBOX_NAME),
-    outbox: path.join(dir, OUTBOX_NAME),
-    transcript: path.join(dir, TRANSCRIPT_NAME),
+    inbox: join(dir, INBOX_NAME),
+    outbox: join(dir, OUTBOX_NAME),
+    transcript: join(dir, TRANSCRIPT_NAME),
   };
 }
 
@@ -303,6 +322,37 @@ function recordKey(message) {
   return `${message.at ?? ''}|${message.from}|${message.kind}|${message.text}`;
 }
 
+/** The prefix of the quote-free machine-readable manifest line. */
+export const MANIFEST_B64_PREFIX = 'MESH_MAILBOX_B64=';
+
+/**
+ * The quote-free spelling of the same manifest.
+ *
+ * ── WHY THERE ARE NOW TWO, AND THE MEASUREMENT THAT FORCED THE SECOND ───────
+ * The JSON manifest is the machine-readable line, and JSON is made of `"`. The
+ * child reaches the node through a shell that gets a vote on the bytes: on a
+ * Windows node the target runs Windows PowerShell 5.1, which splices a native
+ * argument into a command line the C runtime re-parses, and a bare `"` is
+ * consumed as a quote-toggle. Measured through the real transport on ZABZ-TECH
+ * 2026-10-05 (`node -e` echoing `process.argv`):
+ *
+ *   handed  MESH_MAILBOX={"dir":"C:/x"}      child received MESH_MAILBOX={dir:C:/x}
+ *
+ * i.e. invalid JSON, on every dispatch to every Windows node — this line was
+ * never readable by the child it was written for, and the child was
+ * simultaneously told to reply with a JSON example that had lost its own quotes.
+ *
+ * `remote-script.js` now escapes native arguments, which fixes the JSON line too.
+ * This second spelling exists so the manifest does not DEPEND on that fix, or on
+ * any future change to how a shell quotes: the base64url alphabet is
+ * `A-Z a-z 0-9 - _`, which contains no quote, no backslash and no whitespace, so
+ * it is byte-identical in the generated program, in the child's argv, and in this
+ * file. `parseMailboxManifest` reads it first and the JSON form as a fallback.
+ */
+export function encodeManifestToken(manifest) {
+  return `${MANIFEST_B64_PREFIX}${Buffer.from(JSON.stringify(manifest), 'utf8').toString('base64url')}`;
+}
+
 /**
  * The instructions the child is given, as text appended to its task.
  *
@@ -316,19 +366,32 @@ function recordKey(message) {
 export function childInstructions(paths, { thread } = {}) {
   // ── THE MACHINE-READABLE LINE ─────────────────────────────────────────────
   // The task text is flattened to ONE line before it reaches the child, so a reader
-  // (or a test) cannot reliably find the mailbox by parsing the prose around it. This
+  // (or a test) cannot reliably find the mailbox by parsing the prose around it. The
   // single JSON line is self-delimiting and survives that flattening, so the path can
-  // be recovered from the exact bytes the child was handed.
-  const manifest = `MESH_MAILBOX=${JSON.stringify({
+  // be recovered from the exact bytes the child was handed — and the base64url line
+  // beside it survives the shell as well, for the reason recorded above.
+  const manifest = {
     dir: paths.dir,
     inbox: paths.inbox,
     outbox: paths.outbox,
     transcript: paths.transcript,
     ...(typeof thread === 'string' && thread !== '' ? { thread } : {}),
-  })}`;
+  };
   const lines = [
-    '--- mesh mailbox (read this before the task) ---',
-    manifest,
+    // OPENS WITH `=`, NOT `---`. It opened with `---` until 2026-10-05, and that
+    // single character was the whole of a live outage: `dsh --profile headless`
+    // parses its task with commander, a value starting with `-` is classified as
+    // an OPTION, and every mailbox dispatch therefore died with
+    //   error: unknown option '--- mesh mailbox (read this before the task) --- …'
+    // exit 1 and no final message, which the parent reports as "the remote
+    // one-shot exited 1 and produced no final message". The transport now emits a
+    // double `--` separator so ANY task is a positional (`remote-script.js`), and
+    // this header is the second layer: a dispatcher that ever loses that
+    // separator still cannot hand the CLI an option-shaped task, because the
+    // first byte of every mailbox brief is this line.
+    '=== mesh mailbox (read this before the task) ===',
+    `MESH_MAILBOX=${JSON.stringify(manifest)}`,
+    encodeManifestToken(manifest),
     'You are a child agent on a separate machine. Your parent is not reachable in-process:',
     'to say anything to it, WRITE TO FILES. The mailbox for this conversation is:',
     `  directory: ${paths.dir}`,
@@ -372,7 +435,22 @@ export function withMailbox(task, paths, options = {}) {
  * dispatch with the mailbox switched off), not an error.
  */
 export function parseMailboxManifest(text) {
-  const match = /MESH_MAILBOX=(\{.*?\})(?=\s|$)/s.exec(String(text ?? ''));
+  const source = String(text ?? '');
+  // The quote-free spelling is tried FIRST: it is the one that survives a shell
+  // that mangles quotes (see `encodeManifestToken`), so preferring it means a
+  // reader gets the same answer from the generated program, from the child's argv,
+  // and from a transcript that has been through both.
+  const b64 = new RegExp(`${MANIFEST_B64_PREFIX}([A-Za-z0-9_-]+)`).exec(source);
+  if (b64 !== null) {
+    let parsed;
+    try {
+      parsed = JSON.parse(Buffer.from(b64[1], 'base64url').toString('utf8'));
+    } catch {
+      parsed = undefined;
+    }
+    if (isUsableManifest(parsed)) return normalizeManifest(parsed);
+  }
+  const match = /MESH_MAILBOX=(\{.*?\})(?=\s|$)/s.exec(source);
   if (match === null) return null;
   let parsed;
   try {
@@ -380,8 +458,18 @@ export function parseMailboxManifest(text) {
   } catch {
     return null;
   }
-  if (parsed === null || typeof parsed !== 'object') return null;
-  if (typeof parsed.dir !== 'string' || typeof parsed.outbox !== 'string' || typeof parsed.inbox !== 'string') return null;
+  return isUsableManifest(parsed) ? normalizeManifest(parsed) : null;
+}
+
+/** A manifest is usable when it names the three files a thread is made of. */
+function isUsableManifest(parsed) {
+  return parsed !== null && typeof parsed === 'object'
+    && typeof parsed.dir === 'string'
+    && typeof parsed.outbox === 'string'
+    && typeof parsed.inbox === 'string';
+}
+
+function normalizeManifest(parsed) {
   return {
     dir: parsed.dir,
     inbox: parsed.inbox,
