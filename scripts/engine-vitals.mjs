@@ -111,7 +111,46 @@ function readEngineSlot() {
   return { port, pid: slot.pid, url: slot.url, log: slot.log, startedAt: slot.startedAt };
 }
 
-/** Bootstrap the auth cookie from the window URL, then read /healthz. */
+/**
+ * Candidate launch URLs, most-likely-live first.
+ *
+ * `state.json` is written by the launcher's START path. When the engine is later replaced by the
+ * recovery path, the file keeps the DEAD pid and token, and NOTHING rewrites it. MEASURED
+ * 2026-10-05 on ZABZ-YOGA: `state.json` named pid 11176 while the live engine was pid 25228, so
+ * every `/healthz` answered 401 — and this task's 5-minute run failed or crashed (0xC0000409) for
+ * two and a half days while the file it feeds stayed frozen at 2026-10-02. The launcher LOG is the
+ * surface that follows the live engine, so its newest tokens are tried first, exactly as
+ * `scripts/mesh-restart-at-0700.ps1` does. The recorded URL is kept last rather than dropped, so a
+ * machine whose logs have rotated away still works.
+ */
+function candidateUrls(slot) {
+  const urls = [];
+  try {
+    const dir = path.join(home(), 'multi-window', 'logs');
+    if (existsSync(dir)) {
+      const names = [`${slot.port}.log`, ...readdirSync(dir).filter((f) => f.startsWith(`${slot.port}-`) && f.endsWith('.log'))];
+      const files = names.map((n) => path.join(dir, n)).filter((f) => existsSync(f))
+        .map((f) => ({ f, m: statSync(f).mtimeMs })).sort((a, b) => b.m - a.m);
+      const tokens = [];
+      for (const { f } of files) {
+        const text = readFileSync(f, 'utf8');
+        const found = [...text.matchAll(/token=([A-Za-z0-9_-]+)/g)];
+        for (let i = found.length - 1; i >= 0 && tokens.length < 4; i--) {
+          if (!tokens.includes(found[i][1])) tokens.push(found[i][1]);
+        }
+        if (tokens.length >= 4) break;
+      }
+      for (const t of tokens) urls.push({ url: `http://127.0.0.1:${slot.port}/?token=${t}`, from: `log token ${t.slice(0, 6)}…` });
+    }
+  } catch { /* no readable logs: fall through to the recorded URL */ }
+  if (slot.url) urls.push({ url: slot.url, from: 'state.json' });
+  return urls;
+}
+
+/**
+ * Bootstrap the auth cookie from a window URL, then read /healthz.
+ * Tries every candidate token until one authenticates, and reports which one did.
+ */
 async function readHealthz(slot) {
   // `connection: close` on purpose. This process fetches twice and then exits, and a
   // keep-alive socket still pooled at exit is what produces Node-on-Windows'
@@ -119,19 +158,26 @@ async function readHealthz(slot) {
   // — the 0xC0000409 the scheduled task reported on 2026-09-28. Two extra handshakes
   // remove the whole class of crash.
   const CLOSE = { connection: 'close' };
-  let cookie = '';
-  try {
-    const res = await fetch(slot.url, { redirect: 'manual', headers: CLOSE });
-    const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
-    cookie = setCookies.map((c) => c.split(';')[0]).join('; ');
-  } catch { /* fall through with no cookie; /healthz will say 401 */ }
-  const started = Date.now();
-  const res = await fetch(`http://127.0.0.1:${slot.port}/healthz`, {
-    headers: cookie.length > 0 ? { ...CLOSE, cookie } : CLOSE,
-  });
-  const healthzMs = Date.now() - started;
-  if (!res.ok) throw new Error(`/healthz returned ${res.status} (auth token may be stale)`);
-  return { body: await res.json(), healthzMs };
+  const candidates = candidateUrls(slot);
+  if (candidates.length === 0) throw new Error('no engine URL recorded in state.json and no readable launcher log');
+  const tried = [];
+  for (const candidate of candidates) {
+    let cookie = '';
+    try {
+      const res = await fetch(candidate.url, { redirect: 'manual', headers: CLOSE });
+      const setCookies = typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [];
+      cookie = setCookies.map((c) => c.split(';')[0]).join('; ');
+      try { await res.body?.cancel(); } catch { /* body already consumed */ }
+    } catch { /* fall through with no cookie; /healthz will say 401 */ }
+    if (cookie.length === 0) { tried.push(`${candidate.from}: no cookie`); continue }
+    const started = Date.now();
+    const res = await fetch(`http://127.0.0.1:${slot.port}/healthz`, { headers: { ...CLOSE, cookie } });
+    const healthzMs = Date.now() - started;
+    if (!res.ok) { tried.push(`${candidate.from}: /healthz ${res.status}`); try { await res.body?.cancel(); } catch { } continue }
+    const body = await res.json();
+    return { body, healthzMs, authFrom: candidate.from };
+  }
+  throw new Error(`/healthz did not answer 200 with any known token (${tried.join('; ')})`);
 }
 
 // ---------------------------------------------------------------------------

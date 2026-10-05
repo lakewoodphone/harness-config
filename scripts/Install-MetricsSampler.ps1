@@ -59,6 +59,19 @@ $taskName = 'DSH Metrics Sampler'
 $watchdogName = 'DSH Metrics Sampler Watchdog'
 $script = Join-Path $Repo 'scripts\harness-metrics.ps1'
 
+# ── REFUSE TO BAKE A TEMPORARY PATH INTO A PERSISTENT TASK ─────────────────────────────────────
+# MEASURED 2026-10-05 on ZABZ-YOGA: the registered 'DSH Metrics Sampler Watchdog' task pointed at
+# `C:\Users\ezabz\AppData\Local\Temp\harness-config-snap-20261004-230209\scripts\harness-metrics.ps1`.
+# That snapshot was later cleaned, so from 2026-10-04 23:01:01 the task failed EVERY FIVE MINUTES with
+# ERROR_FILE_NOT_FOUND (LastTaskResult 2147942667 = 0x80070002), and the machine recorded nothing: the
+# metrics CSV's last row was 2026-09-30 18:42 and no surface anywhere reported the silence. This
+# installer was not at fault — it always uses $Repo, and the same is true of
+# install-engine-vitals-task.ps1. The damage is done by running either installer FROM a snapshot
+# checkout, whose path is then frozen into a task that outlives the snapshot. Refuse loudly here.
+if ($script -like "$env:TEMP*" -or $Repo -like "$env:TEMP*") {
+    throw ("refusing to register '{0}': the target is under TEMP ({1}). A task pointed into a temp snapshot dies the moment the snapshot is cleaned, silently and without a single failed row to show for it. Run this installer from the real checkout." -f $taskName, $script)
+}
+
 function Say($m) { if (-not $Quiet) { Write-Host $m } }
 
 if ($Remove) {
