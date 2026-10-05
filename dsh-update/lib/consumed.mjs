@@ -935,6 +935,37 @@ function scanComposition(abs, role, where) {
             + `the bracket-depth rule agree on the ${new Set(topIds).size} top-level target(s)`
             + `${topIds.length ? `: ${[...new Set(topIds)].join(', ')}` : ''}`);
         }
+
+        // AND THE PARSE CORRECTS THE SCANNER IN THE OTHER DIRECTION TOO (measured 2026-10-05).
+        //
+        // The bracket-depth rule records every `id:` it finds at what it believes is entry depth. A patch
+        // entry whose CONFIG carries its own nested `id:` — `llm-pi-ai.providers.deepinfra.models[]` is a
+        // list of `{ id, name }` — therefore puts MODEL IDS into patchRowTargets. Measured on
+        // `profiles/web/cordis.patch.yml` after the settings migration: patchRowTargets held
+        // `deepseek-ai/DeepSeek-V4-Flash-0731` and `deepseek-ai/DeepSeek-V4.1-Flash`.
+        //
+        // That is not cosmetic. verify's G2 asks "does every target still carry our patch attribution",
+        // so a model id that is not a row can only ever answer NO — a FALSE `LOST (our patch silently
+        // stopped applying)`, naming things that were never patchable, while the configuration is in
+        // force. A gate that manufactures false losses gets ignored, and this one guards real ones.
+        //
+        // When the document parses, its top-level elements are authoritative about which ids are targets:
+        // anything recorded as a target that is NOT a top-level element id is demoted to rowIds with a
+        // note, never silently dropped.
+        const overreach = [...targetIds].filter((id) => !topIds.includes(id));
+        if (overreach.length) {
+          for (let i = patchRowTargets.length - 1; i >= 0; i -= 1) {
+            const e = patchRowTargets[i];
+            if (e.id && overreach.includes(e.id)) patchRowTargets.splice(i, 1);
+          }
+          for (const id of overreach) {
+            pushOnce(rowIds, `row:${file}:overreach:${id}`, { id, file, line: null, where: 'recorded by the bracket-depth rule but NOT a top-level element of the parsed document' });
+          }
+          note(`${file}: ${overreach.length} id(s) were recorded as patch targets by bracket depth but are `
+            + `NOT top-level elements of the parsed document, so they are NOT targets and were moved to `
+            + `rowIds: ${overreach.slice(0, 8).join(', ')}. A nested value that happens to use the key "id" `
+            + '(a model id, for instance) is not a patchable row.');
+        }
       }
     }
     return;

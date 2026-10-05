@@ -1085,6 +1085,13 @@ function treeForGates({ g1, artifact, artifactPath }) {
     rowIds: Array.isArray(artifact.rowIds) ? artifact.rowIds : rows.map((r) => r?.id).filter(Boolean),
     names: [...new Set((Array.isArray(artifact.names) ? artifact.names : rows.map((r) => r?.name)).filter(Boolean))],
     patchedRowIds: Array.isArray(artifact.patchedRowIds) ? artifact.patchedRowIds : [],
+    // THE ROW OBJECTS, not only their ids. G2 compares each patch target's recorded intent against the
+    // row's RESOLVED config, and that is the only check that survives attribution being blind — which it
+    // is whenever the value our patch sets is already the row's own default. Without `rows` here that
+    // comparison had nothing to read and G2 silently fell back to attribution; measured 2026-10-05, that
+    // fallback then reported `spend-guard` and `agent-default-model` as LOST while their resolved configs
+    // were our values.
+    rows: Array.isArray(artifact.rows) ? artifact.rows : rows,
     // Layer attribution comes from the engine's own comment lineage in the fresh dump whenever it
     // exists: a tree artifact built by another module may mark only the first row after a patch
     // comment, which would make G2 report a lost patch target that was never lost.
@@ -1141,9 +1148,6 @@ function gateG2({ version, tree, targets, patchSource, treeNote, g }) {
   }
   const our = new Set(ourPatchRows);
   const any = new Set(tree.patchedRowIds);
-  const lost = targetIds.filter((t) => !our.has(t));
-  const lostNotAnywhere = lost.filter((t) => !any.has(t));
-  const ok = lost.length === 0;
   const attributionNote = tree.oursPatchedRowIds === null
     ? ' (no fresh dump was available, so the supplied artifact\'s patchedRowIds was used as-is)'
     : (tree.source.startsWith('the dump') ? '' : ' (layer attribution read from the fresh dump, not from the supplied artifact)');
@@ -1154,11 +1158,81 @@ function gateG2({ version, tree, targets, patchSource, treeNote, g }) {
   const disagreement = tree.oursPatchedRowIds !== null && artifactOnly.length + dumpOnly.length > 0
     ? `; the supplied artifact's patchedRowIds contains ${artifactOnly.length} id(s) the fresh dump does not attribute to our layer (${artifactOnly.slice(0, 6).join(', ') || 'none'}) and omits ${dumpOnly.length} the fresh dump does (${dumpOnly.slice(0, 6).join(', ') || 'none'})`
     : '';
+
+  // ── WHAT G2 FAILS ON, and why it is no longer attribution ──────────────────────────────────────
+  //
+  // CHANGED 2026-10-05, for a MEASURED false failure. The rule was `ok = every target carries our patch
+  // attribution`, and attribution is blind in exactly one case that is not a defect: when the value our
+  // patch sets is ALREADY the row's own default, the patched and unpatched arms are identical and the
+  // layer has nothing to attribute. Measured on the composed 0.2.0-rc.2 web tree after the settings
+  // migration: `spend-guard` and `agent-default-model` carried no attribution from ANY layer while their
+  // resolved config WAS our value (`ceilingUsd 150`, `concurrencyCap 12`, `model "deepseek-flash"`), read
+  // straight out of the same tree artifact — and G2 reported them as "our patch silently stopped
+  // applying". The pipeline's own FINDINGS records that this attribution is unstable between runs and
+  // must never key a verdict; it was keying this one.
+  //
+  // What is checked instead is what can be checked without it, on the tree artifact itself:
+  //   * a target that is not a ROW in the composed tree at all      -> the row was removed upstream, or
+  //     the target was never a row (a nested value using the key "id") -> a real finding;
+  //   * a target that IS a row whose resolved value does not carry the intent recorded in consumed.json
+  //     -> the patch is not in effect -> a real finding.
+  // Attribution is still computed and still REPORTED, in full, as a reading rather than a verdict.
+  //
+  // A `!!js` intent is an EXPRESSION and cannot be compared statically, so it is skipped rather than
+  // compared against its unevaluated source — pretending otherwise would manufacture the very false
+  // failures this change removes. And if the tree artifact carries no rows to compare against, the gate
+  // falls back to the old attribution rule rather than passing on data it does not have: this must not
+  // be able to become weaker when it cannot check.
+  const rowsById = new Map((Array.isArray(tree.rows) ? tree.rows : [])
+    .filter((r) => r && typeof r.id === 'string').map((r) => [r.id, r]));
+  const canCompareValues = rowsById.size > 0;
+  const hasJsIntent = (v) => {
+    if (v === null || typeof v !== 'object') return false;
+    if (!Array.isArray(v) && Object.prototype.hasOwnProperty.call(v, '__js')) return true;
+    return Object.values(v).some(hasJsIntent);
+  };
+  let absentRows = [];
+  let mismatched = [];
+  let comparedKeys = 0;
+  let lost;
+  if (canCompareValues) {
+    absentRows = targetIds.filter((id) => !rowsById.has(id));
+    for (const t of inScope) {
+      const row = rowsById.get(t.id);
+      if (!row) continue;
+      const intent = t.intent ?? {};
+      if (intent.disabled !== undefined && (row.disabled === true) !== (intent.disabled === true)) {
+        mismatched.push(`${t.id}.disabled (intent ${JSON.stringify(intent.disabled)}, resolved ${JSON.stringify(row.disabled ?? null)})`);
+      }
+      for (const [k, want] of Object.entries(intent.config ?? {})) {
+        if (hasJsIntent(want)) continue;
+        comparedKeys += 1;
+        const got = row.config?.[k];
+        if (JSON.stringify(got) !== JSON.stringify(want)) {
+          mismatched.push(`${t.id}.${k} (intent ${JSON.stringify(want).slice(0, 60)}, resolved ${JSON.stringify(got ?? null).slice(0, 60)})`);
+        }
+      }
+    }
+    lost = [...absentRows];
+  } else {
+    lost = targetIds.filter((id) => !our.has(id));
+    comparedKeys = 0;
+  }
+  const unattributed = canCompareValues ? targetIds.filter((id) => rowsById.has(id) && !our.has(id)) : [];
+  const ok = lost.length === 0 && mismatched.length === 0;
   const detail = ok
-    ? `all ${targetIds.length} ${COMPOSED_PROFILE}-profile patch target(s) still carry our patch attribution: ${targetIds.join(', ')}${attributionNote}${disagreement}${offProfileNote}`
-    : `LOST (our patch silently stopped applying): ${lost.join(', ')}` +
-      (lostNotAnywhere.length > 0 ? ` — of those, ${lostNotAnywhere.join(', ')} carry no patch attribution from ANY layer` : '') +
-      `; our-layer patched rows in this tree: ${ourPatchRows.join(', ') || '(none)'}${attributionNote}${disagreement}${offProfileNote}`;
+    ? (canCompareValues
+      ? `all ${targetIds.length} ${COMPOSED_PROFILE}-profile patch target(s) are present rows and carry the recorded intent `
+        + `(${comparedKeys} value(s) compared): ${targetIds.join(', ')}`
+        + `${unattributed.length ? `; ${unattributed.length} carry no patch attribution (reported, not a failure — a value that equals the row's own default has nothing to attribute): ${unattributed.join(', ')}` : ''}`
+      : `all ${targetIds.length} ${COMPOSED_PROFILE}-profile patch target(s) still carry our patch attribution: ${targetIds.join(', ')}${attributionNote}`)
+      + `${disagreement}${offProfileNote}`
+    : (lost.length > 0
+      ? (canCompareValues
+        ? `LOST (a patch target is not a row in the composed tree): ${lost.join(', ')}`
+        : `LOST BY ATTRIBUTION ONLY (the tree artifact carries no rows to compare values against, so this is the weaker reading): ${lost.join(', ')}`)
+      : `NOT APPLIED (our patch is not in effect): ${mismatched.join(', ')}`)
+      + `; our-layer patched rows in this tree: ${ourPatchRows.join(', ') || '(none)'}${attributionNote}${disagreement}${offProfileNote}`;
   g('G2', { ran: true, ok, exitCode: null, durationMs: tree.durationMs, evidence, detail });
 }
 
