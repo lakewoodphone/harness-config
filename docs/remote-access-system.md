@@ -109,8 +109,13 @@ Expected: `direct` or `RELAY` (both work), `True`, `rdp-tcp … Listen`, `Select
 
 ## 6. Open items
 
-1. **Engine restart** to load the mesh fan-out fix (`e35d1237`) — kills live sessions, so it is the owner's
-   timing. Until then, `subagent` from an already-running engine behaves as before.
+1. **Engine restart** to load the mesh fan-out fix — kills live sessions, so it is the owner's timing. Until
+   then, `subagent` from an already-running engine behaves as before. **The fix is two commits on two
+   branches:** `e35d1237` (the transport: the child program is delivered as one base64 launcher line, so
+   PowerShell cannot lose the unread tail of a multi-line program to the child's stdin — `land/mesh-one-line-program`)
+   and `abfff255` (a second session's follow-on: a child that loses its completion frame is now a failure to
+   the broker rather than a success, with a `repro-mesh-dispatch.mjs` — `fix/mesh-provider-dispatch`). The
+   second explicitly builds on the first, so they must land **together**.
 2. **Owner queue #277** — buy Windows 11 Pro for the Yoga so control works identically in both directions
    (the desktop → Yoga direction is Chrome Remote Desktop today, which does not lock that screen).
 3. **Owner queue #262** — reboot timing / the microphone route (RDP `audiocapturemode` is prepared; the
