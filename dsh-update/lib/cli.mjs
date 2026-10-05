@@ -1593,11 +1593,29 @@ async function verbPreflight(argv) {
   // BREAKS there is the engine saying it is not running the configuration we think it is.
   run('settings-effective');
   const se = readJson(path.join(cdir, 'settings-effective.json'), null);
-  add('settings-effective (the engine\'s own report)', se?.verdict === 'SAFE' || se?.verdict === 'RISKY', false,
-    se ? (se.ran === false
-      ? `did not run — ${se.reason ?? 'no reason recorded'} (this is a gap, not a pass)`
-      : `verdict ${se.verdict} (${Object.entries(se.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'})`)
-      : 'settings-effective.json was not produced');
+  // BLOCKING WHENEVER IT RAN AND FOUND A LOSS — and non-blocking only when it could not run.
+  //
+  // WHY THIS CHANGED (measured 2026-10-05). This guard was wired non-blocking because its false-failure
+  // rate was unmeasured, and on its FIRST real run it found the biggest defect of the whole upgrade: 15
+  // settings breaks, including an entire model provider, the permission posture, the default preset and
+  // the spend ceilings — because `@deepseek-ai/dsh-settings-file` is gone on 0.1.7+ and nothing read
+  // `~/.dsh/settings.yaml` any more. A gate that can see that class of loss and cannot stop a promote is
+  // the wrong shape: it turns a refusal into a footnote.
+  //
+  // The `ran !== false` condition is what keeps it honest in the other direction. A gate that never
+  // reached a verdict — no credential, a boot that failed, a module that refused — must NOT block, or the
+  // pipeline becomes unpassable for reasons that have nothing to do with the candidate. It is reported as
+  // a gap instead, with its own reason, and never as a pass.
+  const seRan = se != null && se.ran !== false;
+  const seBlocking = seRan;
+  const seOk = se == null ? false : (seRan ? se.verdict !== 'BREAKS' : true);
+  add('settings-effective (the engine\'s own report)', seOk, seBlocking,
+    se == null ? 'settings-effective.json was not produced'
+      : (se.ran === false
+        ? `did not run — ${se.reason ?? 'no reason recorded'}. Reported as a GAP, not a pass, and it does not block: a gate that never reached a verdict must not make the pipeline unpassable.`
+        : (se.verdict === 'BREAKS'
+          ? `verdict BREAKS — the engine does not honour settings this deployment sets (${Object.entries(se.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'}). Read the artifact before promoting: this is a silent behaviour change, not a crash.`
+          : `verdict ${se.verdict} — every settings key this deployment sets is present in the engine's own report with our value (${Object.entries(se.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'})`)));
 
   // ── guard: every artifact stamped with the config home it judged, and that home is THIS one ────
   //
