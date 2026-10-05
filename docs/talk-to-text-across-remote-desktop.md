@@ -210,6 +210,33 @@ his back. It is reversible (add the Microsoft account back afterwards); the cost
 hooks on that machine, and OneDrive and the Store can still be signed in separately. This is the choice to
 make if the password question has already burned an evening once.
 
+### 4.7 Display: why the first connection looked wrong (2026-10-05 01:43)
+
+Owner's words: *"why isn't the screen size and resolution matching up normally and why does clicking maximize
+to full window only take up like a quarter of the screen still"*.
+
+**Cause — nothing to do with the remote machine.** The first .rdp used `screen mode id:i:1` (windowed) and
+named no `desktopwidth`/`desktopheight`, so the session opened at mstsc's default *window* resolution.
+**Maximizing grows the mstsc window, not the remote session**, and `smart sizing:i:1` then scales that
+fixed-size session to fit — which is exactly what produces a desktop filling part of the screen with black
+bands beside it, and no amount of clicking Maximize changes the session's own resolution.
+
+**Fix applied:** `screen mode id:i:2` (full screen) with `dynamic resolution:i:1`; `smart sizing` and
+`desktopscalefactor` removed so the client behaves like a default mstsc connection. In full screen the session
+adopts the monitor's native resolution, and dynamic resolution re-negotiates it if the session is moved
+between monitors. `Ctrl+Alt+Break` toggles full screen ↔ windowed without disconnecting.
+
+**The one knob left, and why it may be needed:** ZABZ-YOGA has mixed-DPI displays — the built-in Lenovo panel
+is 2880x1800 at **200%** scaling, while the Dell monitors report 2560x1440 to a DPI-unaware query (either 4K
+at 150% or QHD at 100%; the client side could not settle which — see the honesty note in §8). If text in the
+remote session comes out too small or too large, the setting is mstsc's **Display → Scale**, which is written
+into the file as `desktopscalefactor`, and it must match the scaling of *the monitor the session is on*, not the
+remote machine.
+
+**Multi-monitor RDP is deliberately not offered** (`use multimon:i:0`): an RDP session spanning monitors needs
+a uniform DPI across all of them, and this client's monitors are 200% and 150%/100% mixed. One monitor, full
+screen, is the configuration that behaves.
+
 ## 5. Routes checked and rejected (so nobody re-walks them)
 
 - **Reaching ZABZ-TECH's DSH web GUI directly from the Yoga over an ssh tunnel** — the transport works
