@@ -140,6 +140,7 @@ Test-NetConnection zabz-tech.tail93e6e6.ts.net -Port 3389 -InformationLevel Quie
 
 ## 8. Verification, 2026-10-05 02:08 (an hour after the changes)
 
+
 Everything below is an observed result, not a configuration claim.
 
 - **The client probe (30 s cadence) ran 20 ticks: 0 failures.** TCP 3389 reachable on every tick, round trip
@@ -169,4 +170,57 @@ Everything below is an observed result, not a configuration claim.
   purpose. That wedge costs a reboot if the repair fails, and this machine is the owner's only door. The
   detection and translation halves of the watchdog are proven on real events; the repair half is proven from
   its earlier behaviour (the same restart sequence is what the reboot accomplished) but not by simulation.
+
+## 9. The 02:30 drop, the wrong colours, and "the session is in use" (2026-10-05 02:35)
+
+The owner's report: *"It took a few tries to get it to turn on, and then it said the session is in use and I had
+to try again. And then after I finally connected, it froze a few times and a minute later, it just
+disconnected. Also, the colours seem to be very off."* All three are visible in the watchdog's own trail, which
+is the first time this system could explain a drop it had not watched happen.
+
+**(a) The tailnet path is FLAPPING, and RDP's UDP transport cannot survive that.** The host watchdog records
+the path only when it changes, and it changed every two minutes:
+`02:06 direct · 02:10 RELAY · 02:12 direct · 02:22 RELAY · 02:24 direct · 02:26 RELAY · 02:28 direct · 02:30 RELAY · 02:32 direct`.
+RDP uses two transports at once: TCP, which WireGuard re-routes transparently when the path changes, and
+**RDP-UDP (multitransport)**, which is a separate UDP flow that simply dies when the path changes — freeze,
+then disconnect. That is the mechanism behind "it froze a few times and a minute later it disconnected", and it
+is not the TCP transport failing (no `ERROR_NETNAME_DELETED` this time).
+
+**(b) The colours were being downgraded on purpose.** The `.rdp` carried `connection type:i:7` with
+`networkautodetect:i:1` and `bandwidthautodetect:i:1` — i.e. "adapt the experience to the bandwidth you think
+you have", which lowers colour depth and drops visual features. Over a path that is flapping constantly, RDP
+re-decides constantly. Fixed by pinning the session: `session bpp:i:32`, `connection type:i:6` (LAN),
+`networkautodetect:i:0`, `bandwidthautodetect:i:0`, plus `bitmapcachepersistenable:i:1` so a reconnect repaints
+from cache instead of redrawing everything.
+
+**(c) "The session is in use" is the single-session rule again, not a fault.** `qwinsta` shows
+`console 2 Conn` — the console session is *connected* (Chrome Remote Desktop holds it; LogonType 2 sessions at
+00:23, 01:40 and 01:53), and a client Windows allows one interactive session, so an RDP login has to take it
+over. Retrying works; the events show it: `reason code 5` ("another user connected") then `id=25 Session
+reconnection succeeded`. The rule stands: **one door per machine at a time** — a CRD session to ZABZ-TECH and
+an RDP session to it cannot coexist, and whichever connects last evicts the other.
+
+**Changes made, each reverting to a default-shaped config:**
+
+| change | where | value | why |
+|---|---|---|---|
+| RDP transport | ZABZ-TECH policy | `SelectTransport = 1` ("Use only TCP") | a path change cannot kill a TCP flow; UDP is the transport that was dying |
+| RDP-UDP off | ZABZ-YOGA client registry | `fClientDisableUDP = 1` (HKLM + HKCU) | belt and braces: the client never offers UDP at all |
+| Colour/quality | the `.rdp` | `session bpp:i:32`, LAN profile, autodetect off | stop RDP downgrading the picture |
+| Keep-warm | ZABZ-YOGA task | **paused** | experiment: it may be the *cause* of the two-minute flapping; the host watchdog still logs the path every two minutes, so the next readings decide it |
+
+The keep-warm was added earlier tonight because it restored a direct path within a minute. If the flapping
+stops while it is paused, the honest conclusion is that a once-a-minute ping *provokes* re-evaluation on this
+link, and the trade is direct-but-flapping against relayed-but-stable — a different answer from the one §8
+recorded, and one to write down rather than argue about.
+
+**Experiment result, 02:45 — the keep-warm was very likely the cause, not the cure.** Paused at 02:36. Between
+02:36 and 02:45 the watchdog recorded **no path change at all**, and the link is still `direct`
+(`pong from zabz-yoga-1 via 172.59.215.103:24958 in 40 ms`), where the half hour before it flipped every two
+minutes. Host load is not implicated: CPU **5 %**, **46 GB** physical free, commit 23.5 of 69 GB, 11 node
+processes, and the top consumers are Defender and SearchIndexer. Everything else kept running, including the
+host's own two-minute path check, so the Yoga's once-a-minute `tailscale ping` is the leading suspect. It stays
+**disabled**; the watchdog keeps recording, so if the flapping returns with it still disabled then the carrier
+is the cause and this paragraph is wrong — written down either way.
+
 
