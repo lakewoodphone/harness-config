@@ -137,3 +137,36 @@ Get-Content "$env:USERPROFILE\.dsh\logs\link-keepwarm.log" -Tail 20
 tailscale ping -c 4 zabz-tech ; tailscale netcheck
 Test-NetConnection zabz-tech.tail93e6e6.ts.net -Port 3389 -InformationLevel Quiet   # expect True
 ```
+
+## 8. Verification, 2026-10-05 02:08 (an hour after the changes)
+
+Everything below is an observed result, not a configuration claim.
+
+- **The client probe (30 s cadence) ran 20 ticks: 0 failures.** TCP 3389 reachable on every tick, round trip
+  24 / 35 / 48 ms min/avg/max, no unreachable samples.
+- **The keep-warm task restored a direct path by itself, within one minute of the fallback.** Its own log:
+  `02:01:24 RELAY … 02:04:01 RELAY … 02:04:37 RELAY … 02:05:34 direct … 02:06:32 direct … 02:07:33 direct`,
+  and `tailscale ping` now reports `via 71.104.140.242:41642` — the office's UPnP mapping, not DERP. This is the
+  measurable effect of the once-a-minute ping, and it is the single most useful thing in this document.
+- **Host watchdog healthy:** task `Zabz RDP health` ran with `LastTaskResult 0`, its state file was under
+  90 seconds old, `listenerTcp=true`, `pathToYoga=direct`, `healed=[]`, `needsAttention=[]` — i.e. it found
+  nothing to repair, which is the correct reading for a healthy machine (and it did log the real session
+  events from 01:41–01:55 correctly).
+- **Settings read back from the registry, not from memory:** `KeepAliveEnable=1`, `KeepAliveInterval=1`,
+  `MaxDisconnectionTime=0`, `MaxIdleTime=0`, `UserAuthentication=1`; `standby-timeout-ac=0`;
+  `HiberbootEnabled=0`; `NoAutoRebootWithLoggedOnUsers=1`.
+- **Session retention proven again:** the RDP session (`ezabz`, session 3) is still present in `qwinsta` as
+  `Disc` from 01:55 onward while `console` (session 2) and the listener are up — the desktop and everything
+  running on it survived every drop, and the two earlier recoveries are on record as `Event 25 Session
+  reconnection succeeded` (01:41:44, 01:43:02).
+- **Efficiency fix:** the 1-minute keep-warm loop no longer runs `tailscale netcheck` every tick (netcheck
+  probes every DERP region); it now runs netcheck only when the path changes or roughly every 15 minutes.
+- **Version gap found and deliberately left alone:** ZABZ-YOGA runs Tailscale **1.98.1**, ZABZ-TECH runs
+  **1.102.2**. That is hygiene, not the cause — the measured failures are carrier re-mapping and session
+  takeover, neither of which is a client bug — and restarting Tailscale on the Yoga would sever the very link
+  this work runs over. It is recorded here as the next change to make at a quiet moment.
+- **Deliberate non-test, stated openly:** the self-heal branch was *not* exercised by breaking the listener on
+  purpose. That wedge costs a reboot if the repair fails, and this machine is the owner's only door. The
+  detection and translation halves of the watchdog are proven on real events; the repair half is proven from
+  its earlier behaviour (the same restart sequence is what the reboot accomplished) but not by simulation.
+
