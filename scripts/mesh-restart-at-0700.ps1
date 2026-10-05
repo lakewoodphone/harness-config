@@ -563,6 +563,44 @@ if (-not $SkipInstall) {
     $report.steps.composition = [ordered]@{ exit = $LASTEXITCODE; lines = (($dump -join "`n").Split("`n").Count) }
     if ($LASTEXITCODE -ne 0) { Problem "dsh --profile web --dump-config exits $LASTEXITCODE -- THE ENGINE WOULD NOT COME BACK" }
     else { Log "composition: dump-config exit 0, $($report.steps.composition.lines) lines" }
+
+    # ── STEP 4b: THE ENGINE PATCH MUST BE IN PLACE BEFORE THE ENGINE COMES BACK ────────────────
+    # `DSH Engine Pin Install` runs `npm install` in ~/.dsh/engine, which re-extracts the package and
+    # silently reverts any patch to it. This is therefore checked and re-applied HERE, immediately
+    # before the one restart that would put it into effect -- it costs no extra process and it cannot
+    # be lost to an install that happens between two 07:00 windows.
+    #
+    # MEASURED 2026-10-05: `POST /api/session/list` over 1068 sessions took 219223 ms (and 641532 ms
+    # in a later refresh) while every other RPC answered in 14-330 ms; the same filesystem work with
+    # no engine is 6797 ms. The walk was three STRICTLY SEQUENTIAL await chains of ~1068 iterations
+    # and the engine's median event-loop lag is 73 ms (p95 1258 ms), which is ~500 s of arithmetic
+    # and matches the observation. Pooling them measured 21185 ms -> 1320 ms (16.1x, interleaved A/B)
+    # with an IDENTICAL artifact id set (sha256 6f4bc3b71ef630c3, 1068 artifacts) -- see
+    # docs/dsh-at-scale/95-session-list-pool.md and scripts/patch-engine-session-list.mjs.
+    #
+    # A version change is a WARNING, not a blocker: the engine is fine, the walk is merely slow again,
+    # and refusing the restart over that would be a misattributed blocker. It IS recorded, because
+    # otherwise it is invisible.
+    $patcher = Join-Path $REPO 'scripts\patch-engine-session-list.mjs'
+    if (Test-Path -LiteralPath $patcher) {
+        $patchLines = @(& node $patcher --check 2>&1)
+        $patchExit = $LASTEXITCODE
+        $report.steps.enginePatch = [ordered]@{ checkExit = $patchExit; lines = @($patchLines | Select-Object -Last 6) }
+        if ($patchExit -eq 2) {
+            Log 'engine patch: session-list pooling already applied'
+        } elseif ($patchExit -eq 3) {
+            Log "WARNING: the session-list pooling patch cannot be applied to this engine build (check exited 3): $(($patchLines | Select-Object -Last 1))"
+            Log 'WARNING: the engine will start UNPATCHED -- the sidebar walk stays sequential until the patch is re-derived for this version'
+        } else {
+            $applied = @(& node $patcher --apply 2>&1)
+            $report.steps.enginePatch.applyExit = $LASTEXITCODE
+            $report.steps.enginePatch.applyLines = @($applied | Select-Object -Last 8)
+            if ($LASTEXITCODE -ne 0) {
+                Log "WARNING: applying the session-list patch failed (exit $LASTEXITCODE): $(($applied | Select-Object -Last 1))"
+                Log 'WARNING: the engine will start UNPATCHED, which is slower but not broken'
+            } else { Change "applied the pooled session-list engine patch before the restart: $(($applied | Where-Object { $_ -match '^bytes' }) -join '')" }
+        }
+    } else { Log "no $patcher -- the session-list patch is not carried by this checkout" }
 } else { Log 'STEP 4 skipped (-SkipInstall)' }
 
 if ($failures.Count -gt 0 -and -not $ForceGate) {
