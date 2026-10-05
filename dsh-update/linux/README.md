@@ -165,3 +165,37 @@ promoted here — it hardcodes this host's paths).
   patch-effect analysis and a full boot gate; this does not. This moves a Linux engine
   safely; `dsh-update` decides whether the move is SAFE. They are complementary, and
   neither has been run as a step of the other.
+
+## The two halves, and what has actually been run where
+
+**`../bin/dsh-update.ps1` is a shim with no logic in it** — it resolves node and execs
+`../lib/cli.mjs` with the arguments unchanged. That is why the pipeline's analysis half is
+usable on Linux. Measured 2026-10-05 on secratary, node v22.23.2:
+
+```bash
+export DSH_UPDATE_WINDOWS_JSON=/tmp/scratch/windows.json   # any JSON; promote writes here
+export DSH_INSTALL=/home/zabz/dsh-install/0.2.0-rc.2       # the engine prefix to inspect
+node dsh-update/lib/cli.mjs status
+```
+
+exit 0, and it reported the real engine (`0.2.0-rc.2`, version read by *running*
+`bin.js --version`), the npm dist-tags via a live registry query, and a newer candidate.
+The only degraded reading was:
+
+```
+note  could not read the live dsh command line: process command lines can only be read
+      on win32; this host has no reader installed
+```
+
+which costs one line of the report and nothing else.
+
+**So the split is:** the analysis verbs are portable today (`DSH_UPDATE_WINDOWS_JSON`
+redirects the launcher knob so `promote`/`rollback` cannot touch a launcher that does not
+exist), and `cutover.sh` here is what a Linux **promotion** actually is. `MESH_DSH_BIN`-style
+env overrides are the intended seam: `status`/`check`/`analyze`/`patch-effect`/`verify` are
+read-only against the live install.
+
+**What has NOT been run on Linux:** `analyze`, `patch-effect`, `verify`, `fetch` and
+`plan` have never been executed on a Linux host — only `status` has. Do not read the
+paragraph above as "the analysis half is verified on Linux"; it is *demonstrated to
+boot and to do real work*, which is a smaller claim.
