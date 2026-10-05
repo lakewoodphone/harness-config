@@ -214,13 +214,40 @@ stops while it is paused, the honest conclusion is that a once-a-minute ping *pr
 link, and the trade is direct-but-flapping against relayed-but-stable — a different answer from the one §8
 recorded, and one to write down rather than argue about.
 
-**Experiment result, 02:45 — the keep-warm was very likely the cause, not the cure.** Paused at 02:36. Between
-02:36 and 02:45 the watchdog recorded **no path change at all**, and the link is still `direct`
-(`pong from zabz-yoga-1 via 172.59.215.103:24958 in 40 ms`), where the half hour before it flipped every two
-minutes. Host load is not implicated: CPU **5 %**, **46 GB** physical free, commit 23.5 of 69 GB, 11 node
-processes, and the top consumers are Defender and SearchIndexer. Everything else kept running, including the
-host's own two-minute path check, so the Yoga's once-a-minute `tailscale ping` is the leading suspect. It stays
-**disabled**; the watchdog keeps recording, so if the flapping returns with it still disabled then the carrier
-is the cause and this paragraph is wrong — written down either way.
+**Experiment result, 02:45 — and then the correction, 02:50.** Paused at 02:36; by 02:45 the watchdog had
+recorded **no path change at all** and the link was still `direct` at 40 ms, where the half hour before flipped
+every two minutes. Host load is not implicated: CPU **5 %**, **46 GB** physical free, commit 23.5 of 69 GB,
+11 node processes.
+
+That looked like a verdict, and it was written here as one. **It was premature.** With the keep-warm still
+disabled, the host log then recorded `path=unreachable` at **02:38:26** and further session events at 02:40:23 —
+so the link drops on its own, carrier-side, and thirteen quiet minutes were not evidence that the task caused
+the flapping. The keep-warm stays **disabled** for now, not because it was proven harmful but because it is
+unproven either way, and the simplest configuration that still carries keep-alive traffic (the host's own
+two-minute path probe) is the one to measure first. Nothing in this section should be quoted as settled.
+
+**What did hold up from the same evidence:** Chrome Remote Desktop is *not* the thief — its own log shows the
+last viewer attached 01:20:32 and disconnected 01:40:57, with nothing attached during the 02:29–02:40 failures.
+The `reason code 5` evictions are the nameless, connected `console` session fighting the RDP login: the
+single-session rule, unchanged.
+
+**Now measured from both sides, permanently.**
+
+- Host: `Zabz RDP health`, every 2 minutes — services, listener, path, and every session event translated.
+- Client: `Zabz link probe`, every 10 minutes, 5 samples 30 s apart, appending to `.dsh\logs\link-probe.log`
+  with `path`, `rtt`, `tcp3389` **and a third-node reference** (`secratary`), so a future "unreachable" says
+  whether this side's internet was up at the time. First readings: `02:41:36 direct 36 ms tcp=True
+  secratary=True`, `02:42:07 direct 31 ms tcp=True secratary=True`.
+
+**And a tool for the owner**, because none of this is visible from an RDP error dialog — every one of these
+failures reports itself as *"possibly due to network connectivity problems"*: **`ZABZ-TECH link status`** on
+the Desktop and in the Start Menu, hotkey **Ctrl+Alt+L**. It prints the current path, the round trip, whether
+3389 answers, and a plain verdict, and it reminds him that a CRD session to that machine must be evicted first.
+
+**Deliberately not built:** an "auto-retry until it works" wrapper. The failure dialog for a lost session is
+**modal**, so a relaunching wrapper would stack dialogs nobody clicks. What actually covers the outage is
+already in place: `autoreconnection enabled:i:1` on the client, and `MaxDisconnectionTime=0` on the host — a
+retry returns to the *same* session with everything still running.
+
 
 
