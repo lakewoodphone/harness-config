@@ -60,11 +60,19 @@ ssh secratary-ts '~/code/harness-config/scripts/deploy-lpt-frontend.sh --env tes
 
 ## Creating another one
 
-The token **creator** is the same User API token mechanism (a Cloudflare User API token with the
-`User API Tokens:Edit` permission). There is **no separate super-token file for it** — if a new
-scoped token is needed and this one cannot create it, the owner creates it in the Cloudflare
-dashboard and it is written back to `~/.secrets/cloudflare.env`. **Do not ask the owner for a token
-that already exists on two machines.**
+**The creator is this same token.** Verified 2026-10-05, not assumed:
+
+- `GET /user/tokens/permission_groups` → **200, 413 permission groups visible**. A token scoped to one
+  zone's Pages could not list permission groups at all, so this is an **account-level user token**.
+- `GET /user/tokens` → **200** — it can read the token collection, which is the permission that mints
+  more tokens.
+- The account resolves as **"Abletelsolutions@gmail.com's Account"**, id `3fe00f424ec43810af16b55df54200a3`.
+
+So there is **no separate super-token to hunt for**. If a new scoped token is needed, this one can
+create it; that is what the owner meant by "the token that creates tokens".
+
+**Do not ask the owner for a token that already exists on two machines.** Check
+`~/.secrets/cloudflare.env` first — that mistake cost weeks.
 
 ## Machines and reachability
 
