@@ -841,3 +841,64 @@ reading, not a verdict. It needs a test that reproduces this exact case — our-
 — because that is the shape that makes attribution blind while the configuration is perfectly in force.
 `G8` in the same run is the accepted one-way door (2,258 live v3 logs, all counted), so it is not a
 blocker once `verify`'s `pass` is read through `promote-reading.mjs`.
+
+
+### 2026-10-05 (round 7) — PREFLIGHT IS GO ON ALL EIGHT BLOCKING GUARDS, and G2 is now a stronger gate
+
+```
+VERDICT: GO — 8 blocking guard(s) all green.
+  PASS baseline fresh / analyze (RISKY, BREAKS=0) / patch-effect SAFE / preset-gate SAFE
+  PASS verify (7 gates ran; only G8 failed and it was explicitly accepted)
+  PASS G8 door (accepted) / PASS settings-effective (blocking, absent=0) / PASS artifact provenance
+  GAP  gaps (353 references could not be checked — the honest size of the blind spot, non-blocking)
+```
+
+The settings gate is the one that changed the outcome: it is now blocking, it RUNS, and it reports
+`absent=0 different=0 BREAKS=0` — every settings key this deployment sets is present in the engine's own
+report with our value.
+
+**Two more defects fixed, both of which manufactured FALSE "our patch silently stopped applying" findings,
+and both introduced by the settings migration itself:**
+
+1. `lib/consumed.mjs` recorded a MODEL ID as a patch target. The bracket-depth rule records every `id:` at
+   what it believes is entry depth, so a patch entry whose CONFIG nests its own `id:` leaks those values in
+   — measured: `deepseek-ai/DeepSeek-V4-Flash-0731` and `…V4.1-Flash`, from
+   `llm-pi-ai.providers.deepinfra.models[]`. G2 asks whether every target still carries our attribution, so
+   a model id can only ever answer NO. Fixed by making the PARSED document's top-level elements
+   authoritative: a target that is not a top-level element id is demoted to `rowIds` with a note. The code
+   already computed that list and only used it to warn.
+
+2. `lib/verify.mjs` G2 keyed its verdict on attribution, which this file's own earlier entry records as
+   unstable and unfit to key a verdict. It is blind in exactly one non-defective case: when the value our
+   patch sets is ALREADY the row's own default, the patched and unpatched arms are identical and there is
+   nothing to attribute — measured on `spend-guard` and `agent-default-model`, whose resolved configs were
+   our values (`ceilingUsd 150`, `concurrencyCap 12`, `model "deepseek-flash"`). G2 now fails on what is
+   checkable without attribution — a target that is not a ROW in the composed tree, and a target whose
+   resolved value does not carry the intent in `consumed.json` — skips `!!js` intents rather than comparing
+   them against their unevaluated source, and FALLS BACK to the old attribution rule when the tree carries
+   no rows to compare, so it cannot become weaker when it cannot check. `pickTree` now passes the row
+   OBJECTS through. Attribution is reported as a reading.
+
+   The new reading is stronger than the old verdict ever was:
+   `all 13 web-profile patch target(s) are present rows and carry the recorded intent (24 value(s) compared)
+    … 2 carry no patch attribution (reported, not a failure)`.
+
+**A hazard the provenance guard caught in my own hands.** Running `analyze` without `DSH_HOME` judged the
+LIVE config, and the stamp then refused to re-stamp — correctly warning that a staged artifact must not be
+relabelled — but the artifact kept its OLD identity with NEW contents: a live verdict under a staged label,
+which is precisely the failure mode the guard exists to prevent. `diff.json` was restored by re-running
+with the staged home. **OUTSTANDING DEFECT: the stamp-failure path must leave the artifact unusable rather
+than mislabelled.**
+
+**OUTSTANDING: no test yet holds the new G2 rule.** It needs one that reproduces the shape that blinds
+attribution — our value equal to the row's default — plus the nested-`id:` case from consumed.mjs.
+
+**Then, and this is now the whole of what remains:**
+1. `node dsh-update/tools/backup-state.mjs` -> a `BACKUP-REPORT.json` younger than 12 h; read its ok and
+   verified counts rather than assuming.
+2. `pwsh -File dsh-update/tools/switch-engine.ps1 -Version 0.2.0-rc.2 -StagedHome
+   C:\Users\ezabz\.dsh-staged\0.2.0-rc.2 -BackupDir <dir> -AcceptSessionFormatUpgrade
+   -IUnderstandThisWritesTheLiveHome`. It refuses on a sync tick inside 180 s, holds a lock, writes the
+   pre-state, promotes, runs sync.py, and rolls everything back if either coupled scope reports SKIPPED.
+3. After the NEXT boot: the new version serves, a NEW session mounts each preset, an existing session opens.
+   Unproven: whether `skills/` inside our presets resolves under 0.1.7+.
