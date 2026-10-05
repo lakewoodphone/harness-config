@@ -272,18 +272,22 @@
         backgroundMode: one-shot
         maxDepth: provider-managed
 
-    # VERSION-COUPLED PAIR: ROW ID AND PACKAGE NAME MUST MATCH THE INSTALLED ENGINE.
-    # The engine this machine RUNS provides `@deepseek-ai/dsh-workflow-ptc`; that is
-    # what its own presets and `dsh-base/cordis.patch.yml` mount, as `id: workflow-worker-thread`
-    # (measured 2026-10-04 on ZABZ-TECH, engine 0.1.5-rc.1).
-    # The later 0.1.7/0.2.0 line renamed the package to `@deepseek-ai/dsh-workflow-ptc` and the
-    # row to `workflow-ptc`. Naming the other line here does NOT fail loudly: preset mounting
-    # fails, `session/create` still answers HTTP 200 with `agent-preset/invalid`, the client
-    # swallows it, and the workspace picker bounces back to "Choose a workspace". That is how
-    # ZABZ-TECH was unusable on 2026-10-04 with no error anywhere in the GUI.
-    # sync.py detects this and SKIPS publishing presets/profiles -- so a mismatch freezes this
-    # file rather than breaking it. Keep this row and this machine's engine on the SAME line.
-    - id: workflow-worker-thread
+    # VERSION-COUPLED PAIR: THE ROW ID AND THE PACKAGE NAME MOVE TOGETHER, AND BOTH MUST NAME THE
+    # ENGINE THIS MACHINE ACTUALLY RUNS. On the 0.2.0 line the installed engine's own layers mount
+    # this pair: `dsh-base/cordis.patch.yml` says `id: workflow-ptc` /
+    # `name: '@deepseek-ai/dsh-workflow-ptc'`, and `dsh-web-app/presets/cordis.patch.yml` mounts
+    # the same pair in a preset layer. `@deepseek-ai/dsh-workflow-worker-thread` exists ONLY on the
+    # 0.1.5 line and was removed in 0.1.7-rc.1.
+    # A mismatch does NOT fail loudly: preset mounting fails, `session/create` still answers HTTP 200
+    # with `agent-preset/invalid`, the client swallows it and the workspace picker bounces back to
+    # "Choose a workspace" -- no error anywhere in the GUI. Measured 2026-09-29 (ZABZ-YOGA) and
+    # 2026-10-04 (ZABZ-TECH).
+    # HISTORY 2026-10-04..05: this file carried a HALF-MIGRATED pair -- the package name had moved
+    # to `@deepseek-ai/dsh-workflow-ptc` while the row id stayed `workflow-worker-thread` (commit
+    # 92f933f substituted the package string only). It still mounted, so nothing failed, but it
+    # mounted the new plugin a second time under a stale id. Fixed 2026-10-05. `preset-package-gate.ps1`
+    # and `sync.py` check the NAME only; that is how the half-migration survived.
+    - id: workflow-ptc
       name: '@deepseek-ai/dsh-workflow-ptc'
       config:
         provider: spawn
