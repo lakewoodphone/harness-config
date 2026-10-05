@@ -725,9 +725,27 @@ function Restore-FromRecord {
 # ── preflight ────────────────────────────────────────────────────────────────────────────────────
 function Invoke-Preflight {
   param([string]$OutFile, [string]$ErrFile)
+  # TWO HOMES, NOT ONE. `DSH_HOME` is the CONFIG home under test — here, the staged one, because a
+  # version-coupled config change cannot be judged against the live config. `DSH_STATE_HOME` is where
+  # RUNTIME STATE lives — the model credential G4/G5 boot with, and the `sessions\` corpus G8 counts.
+  #
+  # WHY THIS IS SET EXPLICITLY (measured 2026-10-05). It was not, so preflight ran with only DSH_HOME
+  # staged, and verify's staged-home detection did not fire for a deliberately-named staged home
+  # (`C:\Users\ezabz\.dsh-staged\0.2.0-rc.2` is not under a temp root, which is exactly why it is a good
+  # place to stage). The result was a NO-GO that said nothing about the candidate:
+  #   * G4/G5 did not run at all — no credential could be resolved from the staged home;
+  #   * G8 refused outright: "the live session files could not be counted (there is no sessions
+  #     directory at <staged>\sessions), so there is no observed live format to compare against";
+  #   * `settings-effective` could not find a credential and refused.
+  # All three are the same mistake: asking a config question of a directory that deliberately holds no
+  # state. G8 in particular exists to compare the candidate's format against the LIVE corpus, so reading
+  # the staged home for it was never right.
+  # `verify` already supports this (`--state-home`, default `$env:DSH_STATE_HOME`); this call simply
+  # never passed it. See dsh-update/tests/guards/README.md for the same two-homes fix inside verify.mjs.
   $code = Invoke-Captured -Exe 'node' `
     -Arguments @((Join-Path $UpdRoot 'lib\cli.mjs'), 'preflight', $Version, '--json') `
-    -OutFile $OutFile -ErrFile $ErrFile -SetEnv @{ DSH_HOME = $StagedHome }
+    -OutFile $OutFile -ErrFile $ErrFile `
+    -SetEnv @{ DSH_HOME = $StagedHome; DSH_STATE_HOME = $TargetHome }
   return [pscustomobject]@{ exitCode = $code; json = (Read-Json $OutFile) }
 }
 

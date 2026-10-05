@@ -367,7 +367,7 @@
         maxDepth: provider-managed
 
     # VERSION-COUPLED PAIR: ROW ID AND PACKAGE NAME MUST MATCH THE INSTALLED ENGINE.
-    # The engine this machine RUNS provides `@deepseek-ai/dsh-workflow-worker-thread`; that is
+    # The engine this machine RUNS provides `@deepseek-ai/dsh-workflow-ptc`; that is
     # what its own presets and `dsh-base/cordis.patch.yml` mount, as `id: workflow-worker-thread`
     # (measured 2026-10-04 on ZABZ-TECH, engine 0.1.5-rc.1).
     # The later 0.1.7/0.2.0 line renamed the package to `@deepseek-ai/dsh-workflow-ptc` and the
@@ -378,7 +378,7 @@
     # sync.py detects this and SKIPS publishing presets/profiles -- so a mismatch freezes this
     # file rather than breaking it. Keep this row and this machine's engine on the SAME line.
     - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
+      name: '@deepseek-ai/dsh-workflow-ptc'
       config:
         provider: spawn
 

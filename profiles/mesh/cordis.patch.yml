@@ -23,7 +23,7 @@
 # §4.4 says the right way is: a patch layer, not a bundle list.
 #
 # RENAMED UPSTREAM IN THE 0.1.7 LINE (measured 2026-09-28). The plural
-# `@deepseek-ai/dsh-agent-presets` this row used to name was REMOVED in 0.1.7-rc.1
+# `@deepseek-ai/dsh-agent-preset-registry` this row used to name was REMOVED in 0.1.7-rc.1
 # and is absent from 0.1.7-rc.2 and 0.2.0-rc.1; resolving it under the candidate
 # engine returns MODULE_NOT_FOUND. The replacement is the singular
 # `@deepseek-ai/dsh-agent-preset-registry` ("Declarative Agent preset registry"),
@@ -83,14 +83,14 @@
 # transport, `ssh <alias> dsh --profile headless "<prompt>"`.
 - insert:
     # VERSION-COUPLED NAME: MUST MATCH THE INSTALLED ENGINE.
-    # The engine this machine RUNS provides `@deepseek-ai/dsh-agent-presets` (measured
+    # The engine this machine RUNS provides `@deepseek-ai/dsh-agent-preset-registry` (measured
     # 2026-10-04 on ZABZ-TECH, engine 0.1.5-rc.1); that is the same row its own
     # `dsh-web-app/cordis.patch.yml` mounts, as `id: agent-presets`.
     # The later 0.1.7/0.2.0 line replaced it with `@deepseek-ai/dsh-agent-preset-registry`.
     # Naming the other line makes the row unresolvable and sync.py SKIPS the whole profiles
     # step -- silently, while reporting the run as clean.
     - id: agent-presets
-      name: '@deepseek-ai/dsh-agent-presets'
+      name: '@deepseek-ai/dsh-agent-preset-registry'
       config:
         default: standard
 
