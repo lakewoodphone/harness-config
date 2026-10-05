@@ -1062,22 +1062,55 @@ export function spliceManagedBlock(text, bodyLines) {
       };
     }
   } else {
-    // `replace` mode: the block's own lines are the only thing that moved, so compare everything
-    // ELSE. The block contributes `generatedEntries.length` top-level entries wherever the parser
-    // chooses to group them, which is exactly why the comparison is done on the parsed data.
-    const outsideEntries = [];
-    for (let i = 0, j = 0; i < composed.length; i += 1) {
-      if (j < generatedEntries.length && sameEntry(composed[i], generatedEntries[j])) {
-        j += 1;
-        continue;
+    // `replace` mode. The text outside the block is ALREADY proved byte-identical by sha256 above, so this
+    // is a second, data-level check — and the version that used to live here refused CORRECT splices.
+    //
+    // MEASURED 2026-10-05, on the repo's own `profiles/web/cordis.patch.yml`:
+    //   "internal check failed: the entries outside the block are not the same entries, in the same
+    //    order, after the splice; nothing was written"
+    // The old code walked `composed` and dropped every element that matched the NEW generated entries in
+    // order, calling the remainder "outside". That cannot work. `YAML.parse` groups a flow-style block body
+    // differently from the way a human names its entries — the comment above records a correct splice
+    // already being refused as "7 vs 1331" for exactly this reason — so the greedy matcher consumes the
+    // wrong elements and the remainder is not the outside set. On a patch file carrying TWO managed blocks
+    // it fails every time, which is what happened here: the repo's web patch holds `mesh-provider-install`
+    // (80-251) and `preset-rows` (284-END) together.
+    //
+    // What is checked instead can be checked honestly, with no dependence on how the parser groups the
+    // block or on entry order: every entry that was OUTSIDE the old block must still be PRESENT in the
+    // result, compared as data. It cannot pass by accident — a lost entry is simply missing — and it cannot
+    // fail because the grouping changed.
+    // "Outside" is computed from the OLD BLOCK BODY, not from a count of how many top-level entries the
+    // parser decided that body contained. MEASURED 2026-10-05: keying it on `oldCount` produced
+    //   "the splice would lose 1 entry(ies) that were already in the file (preset-cordis-bg)"
+    // on the repo's real web patch — a FALSE finding, because the flow-style body groups in a way that
+    // makes the count smaller than the number of entries a reader would name, so an entry that is inside
+    // the block was classified as outside and then "not found" in the result. Removing the old body's own
+    // entries from the old parse needs no count and no assumption about grouping.
+    let oldEntries = [];
+    try {
+      if (oldBegin !== null && oldEnd !== null && oldEnd > oldBegin + 1) {
+        oldEntries = YAML.parse(`[\n${lines.slice(oldBegin + 1, oldEnd).join(eol)}\n]\n`, PARSE_OPTIONS);
       }
-      outsideEntries.push(composed[i]);
+    } catch { oldEntries = []; }
+    if (!Array.isArray(oldEntries)) oldEntries = [];
+
+    const poolOld = [...current];
+    for (const o of oldEntries) {
+      const at = poolOld.findIndex((c) => sameEntry(c, o));
+      if (at !== -1) poolOld.splice(at, 1);
     }
-    const expectedOutside = current.slice(0, current.length - (oldCount ?? 0));
-    if (!sameEntry(outsideEntries, expectedOutside)) {
+    const pool = [...composed];
+    const missing = [];
+    for (const want of poolOld) {
+      const at = pool.findIndex((c) => sameEntry(c, want));
+      if (at === -1) missing.push(want?.id ?? want?.insert?.[0]?.id ?? '(unnameable entry)');
+      else pool.splice(at, 1);
+    }
+    if (missing.length > 0) {
       return {
-        problems: ['internal check failed: the entries outside the block are not the same entries, '
-          + 'in the same order, after the splice; nothing was written'],
+        problems: [`internal check failed: the splice would lose ${missing.length} entry(ies) that were `
+          + `already in the file (${missing.slice(0, 6).join(', ')}); nothing was written`],
       };
     }
   }
