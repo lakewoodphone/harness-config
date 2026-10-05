@@ -366,10 +366,19 @@
         backgroundMode: one-shot
         maxDepth: provider-managed
 
-    # Renamed upstream in the 0.1.7 line; see presets/cordis-bg/agent.cordis.yml for the measurement.
-    # Version-coupled: this name does not exist on the 0.1.5 line, so it must ship WITH the engine bump.
-    - id: workflow-ptc
-      name: '@deepseek-ai/dsh-workflow-ptc'
+    # VERSION-COUPLED PAIR: ROW ID AND PACKAGE NAME MUST MATCH THE INSTALLED ENGINE.
+    # The engine this machine RUNS provides `@deepseek-ai/dsh-workflow-worker-thread`; that is
+    # what its own presets and `dsh-base/cordis.patch.yml` mount, as `id: workflow-worker-thread`
+    # (measured 2026-10-04 on ZABZ-TECH, engine 0.1.5-rc.1).
+    # The later 0.1.7/0.2.0 line renamed the package to `@deepseek-ai/dsh-workflow-ptc` and the
+    # row to `workflow-ptc`. Naming the other line here does NOT fail loudly: preset mounting
+    # fails, `session/create` still answers HTTP 200 with `agent-preset/invalid`, the client
+    # swallows it, and the workspace picker bounces back to "Choose a workspace". That is how
+    # ZABZ-TECH was unusable on 2026-10-04 with no error anywhere in the GUI.
+    # sync.py detects this and SKIPS publishing presets/profiles -- so a mismatch freezes this
+    # file rather than breaking it. Keep this row and this machine's engine on the SAME line.
+    - id: workflow-worker-thread
+      name: '@deepseek-ai/dsh-workflow-worker-thread'
       config:
         provider: spawn
 

@@ -82,8 +82,15 @@
 # `headless` profile against the target's own DSH_HOME — `71` §2.3's frozen v1
 # transport, `ssh <alias> dsh --profile headless "<prompt>"`.
 - insert:
+    # VERSION-COUPLED NAME: MUST MATCH THE INSTALLED ENGINE.
+    # The engine this machine RUNS provides `@deepseek-ai/dsh-agent-presets` (measured
+    # 2026-10-04 on ZABZ-TECH, engine 0.1.5-rc.1); that is the same row its own
+    # `dsh-web-app/cordis.patch.yml` mounts, as `id: agent-presets`.
+    # The later 0.1.7/0.2.0 line replaced it with `@deepseek-ai/dsh-agent-preset-registry`.
+    # Naming the other line makes the row unresolvable and sync.py SKIPS the whole profiles
+    # step -- silently, while reporting the run as clean.
     - id: agent-presets
-      name: '@deepseek-ai/dsh-agent-preset-registry'
+      name: '@deepseek-ai/dsh-agent-presets'
       config:
         default: standard
 
