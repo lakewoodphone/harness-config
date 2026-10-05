@@ -422,6 +422,56 @@ every boot with no manual step, but it stores the account password in the regist
 the tailnet. The recommendation is the one-line manual sign-in after a reboot instead; if the owner prefers it
 fully hands-off, it is one registry write and his decision.
 
+## 13. Full screen, second attempt: the `/v:` launcher was the bug, and the policies were never loaded
+
+**(a) Why the screen still did not fill — and it was the previous fix.** The host's own record, side by side:
+
+```
+10:54:55  id=168  resolution requested: (3840, 2160)     <- launched from the .rdp FILE: fills the 4K panel
+11:19:00  id=168  resolution requested: (2880, 1800)     <- launched with `mstsc /v:`: the LAPTOP panel's size
+11:23:44  id=168  (2880, 1800)
+11:30:38  id=168  (2880, 1800)
+11:35:12  id=168  (2880, 1800)
+```
+
+`mstsc /v:` does **not** read `Documents\Default.rdp`; it uses mstsc's own saved defaults, and those produced a
+session sized to the primary laptop panel (2880x1800), which then sat *inside* the 3840x2160 monitor — exactly
+"not taking up the whole screen". The file path is what makes mstsc use the monitor it opens on.
+**Reverted:** both shortcuts and the wrapper launch the `.rdp` file again. The file keeps `screen mode id:i:2`
+(full screen) + `dynamic resolution:i:1`, so the session matches whichever monitor it opens on.
+
+**And to keep the file launch click-free without the April-2026 prompt:**
+`HKLM\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services\Client\RedirectionWarningDialogVersion = 1`
+plus the already-set `RdpLaunchConsentAccepted = 1`. The tradeoff is recorded rather than hidden: that dialog
+exists to warn about a *hostile* `.rdp` file's resource redirection, and this disables it on the owner's laptop.
+The file it opens is his own, on his own desktop, pointing at his own machine; signing the file would keep a
+publisher warning but does **not** remove the redirection prompt, so suppression is the only click-free path.
+One command reverses it.
+
+**(b) Why every policy change had been doing nothing: the service predates them.**
+
+```
+TermService pid 16248 started 00:23:13
+SelectTransport / AVC444ModePreferred / AVCHardwareEncodePreferred / fAllowDesktopCompositionOnServer written 11:0x
+sessions at 11:19, 11:23, 11:30, 11:35 all still: "AVC available: 1, Initial profile: 2"
+```
+
+The RDP listener reads its policies when the service starts, so **none** of the graphics or transport policies
+were ever in force — which also means the earlier conclusion "that policy is a no-op" was not yet a fair test of
+it. One restart of the stack is required.
+
+Doing that while he works would end his session and every app in it — the exact complaint from §12 — so it is
+now **deferred and automatic**: `scripts/Activate-RdpPolicies.ps1`, task **`Zabz RDP activate`** (every 10 min,
+SYSTEM), armed by a pending flag. It acts only when **no RDP session is Active and no session event has
+occurred for 15 minutes**, restarts `SessionEnv` → `UmRdpService` → `TermService`, then verifies the listener
+and all four values; on success it clears the flag and logs what to expect, on failure it logs that a **reboot**
+is needed instead and leaves the flag set — it never reboots on its own, because that also costs the console
+session its sign-in. First run, correct behaviour: `11:38:21 deferred: last session event was 0 min ago`.
+
+**The test after it fires:** `id=162` should stop reporting `Initial profile: 2`. If it still does, the AVC
+policy is genuinely a no-op for a client OS and comes out rather than staying in place looking effective.
+
+
 
 
 

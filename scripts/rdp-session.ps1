@@ -22,6 +22,7 @@ param(
   [switch]$CheckOnly
 )
 $ErrorActionPreference = 'Continue'
+$rdpFile = Join-Path $env:USERPROFILE 'OneDrive\Desktop\zabz-tech - mic.rdp'
 $host_ = 'zabz-tech.tail93e6e6.ts.net'
 $log = 'C:\Users\ezabz\.dsh\logs\rdp-session.log'
 $lock = 'C:\Users\ezabz\.dsh\logs\rdp-session.lock'
@@ -45,7 +46,7 @@ function Test-Link {
 
 if ($CheckOnly) {
   $l = Test-Link
-  "path=$($l.path) tcp3389=$($l.tcp)  (would launch: mstsc /v:$host_)"
+  "path=$($l.path) tcp3389=$($l.tcp)  (would launch: mstsc `"$rdpFile`")"
   exit 0
 }
 
@@ -69,7 +70,7 @@ try {
     if (-not $l.tcp) { Note "attempt ${attempt}: giving up, 3389 never answered"; break }
 
     Note "attempt ${attempt}: opening the session (path=$($l.path))"
-    $proc = Start-Process -FilePath "$env:WINDIR\System32\mstsc.exe" -ArgumentList ('/v:' + $host_) -PassThru
+    $proc = Start-Process -FilePath "$env:WINDIR\System32\mstsc.exe" -ArgumentList ('"' + $rdpFile + '"') -PassThru
     $started = Get-Date
     while (-not $proc.HasExited) { Start-Sleep -Seconds 3; if ($proc.HasExited) { break }; $proc.Refresh() }
     $ran = (New-TimeSpan -Start $started -End (Get-Date)).TotalSeconds
