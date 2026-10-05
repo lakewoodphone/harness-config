@@ -16,8 +16,8 @@ measurement, round by round) · [`talk-to-text-across-remote-desktop.md`](talk-t
 
 | Component | Lives on | Runs | What it does |
 |---|---|---|---|
-| `zabz-tech - mic.rdp` | Yoga Desktop | on demand | The session file: full screen, 32 bpp, `desktopscalefactor:i:150`, TCP-only-friendly, mic redirected, credentials remembered |
-| **`ZABZ-TECH (RDP + mic).lnk`** | Yoga Desktop + Start Menu | **Ctrl+Alt+Z** | Plain connect |
+| `Documents\Default.rdp` | Yoga | read by every launch | The settings: full screen, 32 bpp, `desktopscalefactor:i:150` with **`dynamic resolution:i:0`** (with it at 1 the client re-requests the native 3840x2160 and the scale factor is ignored), mic redirected, TCP-only transport |
+| **`ZABZ-TECH (RDP + mic).lnk`** | Yoga Desktop + Start Menu | **Ctrl+Alt+Z** | Runs **`mstsc /v:<host>`** — *not* the `.rdp` file, because since the **April 2026 cumulative updates** opening a saved `.rdp` shows the "Caution: Unknown remote connection" warning **every time** and makes you re-tick clipboard/mic. With `/v:` there is no warning ([source](https://woshub.com/security-warnings-opening-rdp-files-windows/)) |
 | **`ZABZ-TECH session (auto-reconnect).lnk`** | Yoga Desktop + Start Menu | **Ctrl+Alt+K** | Connect, and **re-open the session after a drop**; closes the failure dialog itself when the link is down (every step logged) |
 | **`ZABZ-TECH link status.lnk`** | Yoga Desktop + Start Menu | **Ctrl+Alt+L** | Says whether the link is usable *before* you try: path, round trip, 3389 reachable, plain verdict |
 | `scripts/rdp-session.ps1` | Yoga `~/.dsh/tools` | via Ctrl+Alt+K | The wrapper above |
@@ -75,6 +75,7 @@ Expected: `direct` or `RELAY` (both work), `True`, `rdp-tcp … Listen`, `Select
 | `RdpCoreTS id=162 … Initial profile: N` | graphics profile negotiated | **2 = AVC444** (bad for text). After the 03:00 change it should not be 2 |
 | `RdpCoreTS id=168 … resolution requested` | session geometry | should be near 2560x1440, not 3840x2160 |
 | `path=UNREACHABLE` in the trail | the tailnet path to the Yoga is gone | carrier-side; the client probe on the Yoga says whether *its* internet was up |
+| a **popup every half minute** while connected | almost always a **relaunch loop**, not Windows: something is opening a new session repeatedly, and each launch evicts the last (`reason code 5`). Check `~\.dsh\logs\rdp-session.log` on the Yoga for attempts seconds apart, and confirm the `.rdp` file is not being opened directly (the April-2026 redirection warning needs a click every launch; `/v:` avoids it) |
 
 3. **`Zabz link probe`'s log** (`~\.dsh\logs\link-probe.log` on the Yoga) is the other half: `internet=False`
    means this side is offline; `internet=True` with `tcp3389=False` means the office side or the path.

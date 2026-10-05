@@ -306,6 +306,61 @@ affects a session already open. The next connect should show, in `RdpCoreTS` eve
 graphics profile than 2, and event 168 a resolution near 2560x1440 rather than 3840x2160. Both are checkable
 after the fact, and that is the test of this round.
 
+## 11. The 11:00 round: the popup every half minute was MINE, and the scaling was being ignored
+
+The owner's report: *"keep working, now every half an minute even while connected i get this popup on the yoga
+for some reason. also the screen and words do not look nice."*
+
+**(a) The popup was my auto-reconnect wrapper, and its own log convicted it:**
+
+```
+10:54:34 attempt 1: opening (direct)   10:54:53 ended after 19 s
+10:54:58 attempt 2 ... 4 s   10:55:07 attempt 3 ... 3 s   10:55:16 attempt 4 ... 3 s
+10:55:25 attempt 5 ... 6 s   10:55:37 attempt 6 ... 3 s   10:55:45 attempt 7 ... 4 s
+```
+
+Eight launches in ninety seconds, each one evicting the session it had just opened (host log: `reason code 5`
+at 10:54:37, exactly on cue). The rule it was missing: **a session that ends in under a minute is not a drop**
+— it is a cancelled dialog, a refusal, or a failed connect — and it was relaunching on every one of them.
+
+**And the dialog itself is a Windows change, not a fault.** Since the **April 2026 cumulative updates**, opening
+a saved `.rdp` file shows *"Caution: Unknown remote connection"* **every time**, ignores the file's own
+redirection settings, and makes the user re-tick clipboard/microphone before connecting. The same documentation
+states the warning does **not** appear when the connection is started with `mstsc /v:<host>` instead of a file
+([Windows OS Hub](https://woshub.com/security-warnings-opening-rdp-files-windows/)), which also gives the two
+suppression keys: `HKCU\Software\Microsoft\Terminal Server Client\RdpLaunchConsentAccepted = 1` for the one-time
+consent, and `HKLM\Software\Policies\Microsoft\Windows NT\Terminal Services\Client\RedirectionWarningDialogVersion = 1`
+for the per-launch warning — the second is documented as *"not secure"* and was **not** used here.
+
+**Changed:** the shortcuts now launch **`mstsc /v:zabz-tech.tail93e6e6.ts.net`** with the settings in
+`Documents\Default.rdp` — no file, so no warning, and the saved `TERMSRV` credential means no prompt. The
+one-time consent key is set. The wrapper was rewritten with two rules (single instance via a lock file; nothing
+under 60 s is treated as a drop) and now also uses `/v:`.
+
+**(b) `desktopscalefactor:i:150` was being ignored — and the reason is visible in the host log.** The client
+asked for `(3840, 2160)` and `(2880, 1800)`, i.e. always the monitor's native size, despite the scale factor in
+the file. The likely cause is `dynamic resolution:i:1`, which re-requests the native size on every change.
+`Documents\Default.rdp` therefore sets **`dynamic resolution:i:0`** together with the scale factor, so the
+session can actually be created at ~2560x1440 and scaled 1.5x — 3.7 MP instead of 8.3, text at the size he sees.
+**The test is `RdpCoreTS id=168` on the next connection: ~2560x1440 means it worked; 3840x2160 means it did not.**
+
+**(c) AVC444 is still negotiated despite the policy.** At 10:54:44 the host still logged `Initial profile: 2`
+with `AVC444ModePreferred = 0` and `AVCHardwareEncodePreferred = 0` in place and live. So for a *client* OS those
+two values do not control the chosen profile — the client advertises `AVC available: 1` and the server takes it.
+The next lever is desktop composition, which is what the AVC pipeline captures:
+`fAllowDesktopCompositionOnServer = 0` is now enforced as well, **labelled a test with its own falsification
+rule** — if event 162 still reports profile 2 on the next connection, the value is a no-op on Windows 11 and
+should be removed rather than left in place pretending to work.
+
+**(d) The values do keep going missing, and the honest state of that is: unresolved.** The enforcement log
+records `(missing)` for them on every run so far (03:01, 03:02, 10:57, 10:59), yet a direct read in *both*
+contexts — a one-off SYSTEM task and the ssh user session — showed all four present and stable, and a marker
+value written at 11:00 survived its first check. So either something transiently removes them (a scheduled
+policy refresh has the right shape, but the local `Registry.pol` is 330 bytes and names none of these values,
+and `gpupdate /force` does not reproduce it), or the enforcer's own read is at fault. Its next runs settle it:
+if it keeps reporting re-applications while direct reads say present, the *read* is the bug, and that is what
+gets fixed.
+
 
 
 
