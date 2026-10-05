@@ -1,6 +1,27 @@
 # IN FLIGHT — work that is open right now
 
-Updated: 2026-09-17 17:2xZ (ZABZ-YOGA, id-allocation session — L1928, `docs/mesh/108-id-allocation.md`). Previous: 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — merge `3568d39`, `docs/mesh/107`); 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203); 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
+Updated: 2026-10-05 21:5xZ (ZABZ-TECH, Weinberg settlement session — H3215). Previous: 2026-09-17 17:2xZ (ZABZ-YOGA, id-allocation session — L1928, `docs/mesh/108-id-allocation.md`); 2026-09-17 16:45Z (ZABZ-YOGA, journal convergence — merge `3568d39`, `docs/mesh/107`); 2026-09-17 16:40Z (ZABZ-YOGA, mesh closing session — W203); 2026-09-16 16:05Z (SECRATARY, containment + documentation session - H390)
+
+## New since 2026-10-05 21:5xZ — two branches waiting on an integrator, and one payment waiting on the owner
+
+**A. `personal-secretary-mvp` — branch `docs/weinberg-arrears-banner` (commit `cb6cc664`) is pushed and
+unmerged.** It banners the two finance docs that still quote the retracted 2,208.31 Weinberg arrears
+(`payroll-arrears-2026-09-10.md`, and the SEE ALSO line in `lpt-profitability-problem-2026-09-04.md`) and
+points them at the settled figure. It was cherry-picked onto `origin/master` rather than pushing local
+`master`, which is 118 ahead of `origin/master` while `origin/master` is 279 ahead of it — **do not
+`git pull --rebase` local master onto origin/master to "fix" this; hand the branch to the integrator.**
+A duplicate of the same content also sits as local `master` commit `7caf8314`; blobs are identical, so a
+merge will not conflict.
+
+**B. `lpt-hub` — nothing unmerged.** All five Weinberg commits are on `origin/main` (`420fb7336`,
+`45e7e17e5`, `fa28d7d71`, `7ec51b5f0`, `1bc13d20a`).
+
+**C. Waiting on the owner, not on an agent:** he pays Yisroel Weinberg **663.46 in cash** (gross basis;
+597.29 net) and will say when. On that word: record the date and amount in
+`lpt-hub/docs/operations/payroll/Weinberg-2026-09-28/` (`RECEIPT-2026-10-05.md` is the receipt to get
+signed), append to the payroll log, resolve owner-queue #162, close task 27207, and clear the ten held
+duplicate reminders in `owner_message_queue` that still read 597.29 (task 27673 owns the fan-out bug, and
+its text requires the owner's yes before a bulk send or delete).
 
 Rewritten, not appended. Earlier sessions still live in this file: **ZABZ-TECH credential session, 2026-09-15 20:05Z**
 (AWS key killed D164, Twilio token rotated D165, H275 - its open work is at the END of this file, do not overwrite it) and
