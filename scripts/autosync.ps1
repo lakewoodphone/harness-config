@@ -551,6 +551,18 @@ try {
 }
 
 $changedLines = @($apply | Where-Object { $_ -match 'written|applied' })
+
+# A step that SKIPPED is NOT a converged step. sync.py's version-coupling guard skips the
+# presets and the profiles steps, on purpose, when the repo names a plugin the running engine
+# does not provide - and until this line existed, a machine whose whole preset pipeline was
+# skipped reported exactly what a healthy machine reports: `clean / nothing to apply`.
+# Measured 2026-10-04 on ZABZ-TECH: presets and profiles had been skipped for six days while
+# every tick said clean, and new-session creation was broken the whole time.
+# Deliberately NOT part of the convergence test: sync.py avoids the word WOULD in a skip
+# message because autosync treats WOULD as did-not-converge and would stall every tick.
+$skippedLines = @($apply | Where-Object { $_ -match 'SKIPPED' } | ForEach-Object { ($_ -replace '^\s+', '').Trim() })
+$skipped = if ($skippedLines.Count -gt 0) { ($skippedLines -join ' | ') } else { '' }
+$skipNote = if ($skipped) { "; SKIPPED (not applied): $skipped" } else { '' }
 $applied = if ($changedLines.Count -gt 0) { ($changedLines -join ' | ').Trim() } else { 'nothing to apply' }
 
 # --------------------------------------------------------------------------
@@ -573,7 +585,7 @@ $result = if ($verifyOk) { 'clean' } else { 'attention' }
 $viaNote = if ($syncRemote -ne 'origin') { "; synced via non-secratary mirror '$syncRemote' (origin down)" } else { '' }
 Record ([ordered]@{
     result                  = $result
-    detail                  = if ($verifyOk) { "at $commit; $applied; pushed=$pushed$viaNote" }
+    detail                  = if ($verifyOk) { "at $commit; $applied; pushed=$pushed$viaNote$skipNote" }
                               else { "apply did NOT converge - a second run still reports pending changes" }
     repo                    = $gitDir
     branch                  = $branch
@@ -583,6 +595,9 @@ Record ([ordered]@{
     pushed                  = $pushed
     apply                   = $applied
     converged               = $verifyOk
+    # Added 2026-10-05 with $skipNote: a skipped step is named on every outcome, so a frozen
+    # pipeline cannot read as a healthy one. '' means measured and none.
+    skipped                 = $skipped
     synced_via              = $syncRemote
     # Added 2026-09-28 with step 2c: a run that removed files from the working tree must say so on
     # every outcome, not only when the pull happened to fail. 0 means measured and none.
