@@ -1986,6 +1986,7 @@ lessons	L3365	3365		2026-10-06	ZABZ-YOGA	open	**L3365 · Gating the transport is
 lessons	L3366	3366		2026-10-06	ZABZ-YOGA	open	**L3366 · A protection that lives in a launch flag and not in code is an invisible dependency - measure it or lose it**	entries/lessons/L3366.md	1	6	9523ba1de13652e4
 lessons	L3367	3367		2026-10-06	ZABZ-YOGA	open	**L3367 · A monitor cannot alert on a switch it cannot read - and test it on the platform it runs on**	entries/lessons/L3367.md	1	6	f2e65e15f4527e09
 lessons	L3368	3368		2026-10-06	ZABZ-YOGA	open	**L3368 · A parameter added to the source is not a parameter the running system has - and the repair that matters is the monitor's truthfulness**	entries/lessons/L3368.md	1	6	dba8ce3f6f6fe82f
+lessons	L3369	3369		2026-10-06	ZABZ-YOGA	open	**L3369 · A false green is worse than the red it replaced: repair the SIGNAL, then re-verify the signal - twice, because the state file was a second layer**	entries/lessons/L3369.md	1	6	f4d0fe2fc2d10325
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
