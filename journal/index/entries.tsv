@@ -785,6 +785,7 @@ handoff	H3261	3261		2026-10-06 04:44 UTC	ZABZ-YOGA	open	## 2026-10-06 04:44 UTC 
 handoff	H3262	3262		2026-10-06 04:47 UTC	ZABZ-YOGA	open	## 2026-10-06 04:47 UTC · ZABZ-YOGA · Survivor proven INERT by outcome (14/15 work tables flat); mesh broker parked with its design constraint recorded	entries/handoff/H3262.md	1	6	2c34135d24e11deb
 handoff	H3263	3263		2026-10-06 04:49 UTC	ZABZ-YOGA	open	## 2026-10-06 04:49 UTC · ZABZ-YOGA · Broker relocation answered: it reads the tailnet, not ssh; laptop-hosted fallback verified placing on the only live node	entries/handoff/H3263.md	1	6	1bb20edf07d68951
 handoff	H3264	3264		2026-10-06 04:52 UTC	ZABZ-YOGA	open	## 2026-10-06 04:52 UTC · ZABZ-YOGA · Survivor cannot page the family: the security-alert roster is held and queued, proven on the real path; live webhook deliberately NOT fired	entries/handoff/H3264.md	1	6	3e1d92c21ab2da46
+handoff	H3265	3265		2026-10-06 04:55 UTC	ZABZ-YOGA	open	## 2026-10-06 04:55 UTC · ZABZ-YOGA · Promotion orchestrator built and its refusal verified; 403 misattribution corrected in both tool and annex	entries/handoff/H3265.md	1	6	105d6a2b776d9406
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1973,6 +1974,7 @@ lessons	L3359	3359		2026-10-06	ZABZ-YOGA	open	**L3359 · Boot the thing: a confi
 lessons	L3360	3360		2026-10-06	ZABZ-YOGA	open	**L3360 · Prove a degraded mode is inert by measuring what it DID, table by table - not by listing the flags you set**	entries/lessons/L3360.md	1	6	3440a12983169587
 lessons	L3361	3361		2026-10-06	ZABZ-YOGA	open	**L3361 · To relocate a service, find what it READS - not what it is called: the broker needed the tailnet, not ssh to the nodes**	entries/lessons/L3361.md	1	6	f02b2df4a69ada65
 lessons	L3362	3362		2026-10-06	ZABZ-YOGA	open	**L3362 · Do not fire the thing that pages the family to test a guard - read the call chain, then test the exact path**	entries/lessons/L3362.md	1	6	8d1e56ae67cae1b5
+lessons	L3363	3363		2026-10-06	ZABZ-YOGA	open	**L3363 · A probe without a User-Agent is evidence of nothing: Cloudflare 403s Python-urllib, and I recorded the artifact as a finding**	entries/lessons/L3363.md	1	6	a10e8c92bc7acd73
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
