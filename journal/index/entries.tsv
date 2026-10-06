@@ -799,6 +799,7 @@ handoff	H3275	3275		2026-10-06 05:55 UTC	ZABZ-YOGA	open	## 2026-10-06 05:55 UTC 
 handoff	H3276	3276		2026-10-06 05:58 UTC	ZABZ-YOGA	open	## 2026-10-06 05:58 UTC · ZABZ-YOGA · Watcher-of-the-watcher CLOSED: the two Hetzner boxes now check each other; one Twilio channel is the only named residual left in (b)	entries/handoff/H3276.md	1	6	1fba3c7b0bb7722f
 handoff	H3277	3277		2026-10-06 06:04 UTC	ZABZ-YOGA	open	## 2026-10-06 06:04 UTC · ZABZ-YOGA · Survivor: readiness is now a tested preflight (both existing boxes fail on disk); provisioning needs one owner decision; hetzner token is dead	entries/handoff/H3277.md	1	6	c3bfa1bc9e0519bc
 handoff	H3278	3278		2026-10-06 06:09 UTC	ZABZ-YOGA	open	## 2026-10-06 06:09 UTC · ZABZ-YOGA · The DR work and the journal now have offsite copies; a survivor can clone the right code and recover .env from the backup	entries/handoff/H3278.md	1	6	4c4516856ad59980
+handoff	H3279	3279		2026-10-06 06:24 UTC	ZABZ-YOGA	open	## 2026-10-06 06:24 UTC · ZABZ-YOGA · The connector was the missing link; the promotion SUCCESS path is verified in dry-run; bootstrap now installs the tunnel	entries/handoff/H3279.md	1	6	424ac4d61ad9bd8f
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -2003,6 +2004,7 @@ lessons	L3375	3375		2026-10-06	ZABZ-YOGA	open	**L3375 · The disaster-recovery w
 lessons	L3376	3376		2026-10-06	ZABZ-YOGA	open	**L3376 · GitHub's push protection caught a leak of my own: a 16MB GENERATED cache was versioned and carried Twilio identifiers into every push**	entries/lessons/L3376.md	1	6	20c1fbbe3ddaa2f4
 lessons	L3377	3377		2026-10-06	ZABZ-YOGA	open	**L3377 · Rehearse the DR path you cannot test in anger - the seed script failed twice in ten minutes, both times in ways only a real snapshot would reveal**	entries/lessons/L3377.md	1	6	513329a6179138b0
 lessons	L3378	3378		2026-10-06	ZABZ-YOGA	open	**L3378 · An idempotence claim that was never tested is not a claim: the second import sent the customer the same message twice**	entries/lessons/L3378.md	1	6	ccbde452275ca815
+lessons	L3379	3379		2026-10-06	ZABZ-YOGA	open	**L3379 · Every refusal test can pass while the success path is impossible: the promotion was verified four ways to fail and had no way to succeed**	entries/lessons/L3379.md	1	6	6fec587fb3eb8e35
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
