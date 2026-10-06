@@ -1952,6 +1952,7 @@ lessons	L3349	3349		2026-10-05	ZABZ-YOGA	open	**L3349 · An iOS app allow-list h
 lessons	L3350	3350		2026-10-05	ZABZ-YOGA	open	**L3350 · A claimed offsite backup is a job, an object and a size - a plan is none of the three**	entries/lessons/L3350.md	1	49	2afb0e7fa9ee0686
 lessons	L3351	3351		2026-10-05	ZABZ-YOGA	open	**L3351 · Two records disagreeing about a physical safety mechanism means unknown - read the device**	entries/lessons/L3351.md	1	30	a30f58eb52734cf7
 lessons	L3352	3352		2026-10-05	ZABZ-YOGA	open	**L3352 · iOS com.apple.webcontent-filter: PermittedURLs is an exception list, not a whitelist; AllowListBookmarks is the whitelist**	entries/lessons/L3352.md	1	56	5a36114fa0a7f690
+lessons	L3353	3353		2026-10-05	ZABZ-YOGA	open	**L3353 · Correction: the fleet-collision lesson is L3351 (not L3349)**	entries/lessons/L3353.md	1	6	de20ef5cebf20fd2
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
