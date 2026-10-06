@@ -80,17 +80,62 @@ while ((Get-Date) -lt $deadline) {
     try {
       $h = Invoke-RestMethod -Uri 'https://ai.abletelsolutions.com/health' -TimeoutSec 20
       Write-Log "verify: /health     -> $(($h | ConvertTo-Json -Compress -Depth 4))"
+      Write-Log "verify: mode        -> $($h.mode)  (the primary must NOT report survivor)"
     } catch { Write-Log "verify: /health     -> FAILED $($_.Exception.Message)" }
     foreach ($alias in 'secratary-ts') {
-      $out = & ssh -o ConnectTimeout=10 -o BatchMode=yes $alias 'hostname; uptime; date -u; systemctl is-active secretary-api 2>/dev/null; systemctl is-active cloudflared 2>/dev/null' 2>&1
+      $out = & ssh -o ConnectTimeout=10 -o BatchMode=yes $alias 'hostname; uptime; date -u; systemctl is-active secretary-api 2>/dev/null; systemctl is-cloudflared-active 2>/dev/null' 2>&1
       Write-Log "verify: ssh $alias  -> $($out -join ' | ')"
     }
+    # The work-loop probe: liveness is not the thing that broke for 13 days in July.
+    try {
+      $ready = Invoke-RestMethod -Uri 'https://ai.abletelsolutions.com/ready' -TimeoutSec 20
+      Write-Log "verify: loop_running_ok -> $($ready.autopilot.loop_running_ok)"
+    } catch { Write-Log "verify: /ready      -> FAILED $($_.Exception.Message)" }
+
+    # ---------------------------------------------------------------------
+    # CLOSE THE OFFSITE GAP AUTOMATICALLY. The company had no offsite copy at
+    # all until 2026-10-06; the pipeline is built and proven but the office must
+    # PUSH (it sits behind NAT; Box 2 cannot reach in). So the moment the office
+    # returns - even at 4am with nobody watching - install the push and start it.
+    # Every step is additive and idempotent, and the ingest refuses to tag a
+    # snapshot as trusted unless the byte count matches, so a failure here cannot
+    # produce a false "we have a backup".
+    # ---------------------------------------------------------------------
+    $pushLocal = 'C:\Users\ezabz\code\personal-secretary-mvp\deploy\hosting-migration\scripts\company-offsite-push.sh'
+    try {
+      # NOTE the redirect form: `tr -d '\r' > "$FILE"`. An earlier version of
+      # this line used `tr -d '\r' | cat > "$FILE"` with the variable assigned
+      # on the same line, and the shell parsed `tr | REPO=/path` as a pipeline
+      # whose second element is an assignment - so REPO was EMPTY, the path
+      # became /scripts/server/ at the filesystem ROOT, the file was written
+      # empty, chmod'd, and the command still echoed INSTALLED. Caught on
+      # 2026-10-06 by testing the template against a live host before trusting
+      # it. That is why this version (a) redirects instead of relying on stdin,
+      # and (b) VERIFIES the installed copy (non-empty + valid bash) before it
+      # touches cron, rather than announcing success.
+      $file = '/home/zabz/personal-secretary-mvp/scripts/server/company-offsite-push.sh'
+      $remote = "mkdir -p `$(dirname $file) && tr -d '\r' > $file && chmod 755 $file && " +
+                "if [ ! -s $file ]; then echo 'VERIFY FAILED: installed copy is empty'; exit 3; fi && " +
+                "if ! bash -n $file; then echo 'VERIFY FAILED: installed copy is not valid bash'; exit 4; fi && " +
+                "echo `"VERIFIED bytes=`$(wc -c < $file)`" && " +
+                "(crontab -l 2>/dev/null | grep -q company-offsite-push || (crontab -l 2>/dev/null; echo `"*/15 * * * * $file >> /var/log/company-offsite-push.log 2>&1`") | crontab -) && echo CRON_READY"
+      $installOut = Get-Content -Raw $pushLocal | & ssh -o ConnectTimeout=20 -o BatchMode=yes secratary-ts $remote 2>&1
+      Write-Log "offsite: install    -> $(($installOut -join ' | '))"
+      # Kick the first push off in the background: ~16 GB takes a while, and the
+      # watcher must not block on it. The every-15-minute cron makes the lag after
+      # each new local snapshot at most 15 minutes, and re-runs are no-ops because
+      # the push asks the receiver first (CHECK_ONLY) before sending anything.
+      $kick = & ssh -o ConnectTimeout=20 -o BatchMode=yes secratary-ts "nohup $file > /var/log/company-offsite-push-first.log 2>&1 & echo STARTED" 2>&1
+      Write-Log "offsite: first push -> $(($kick -join ' | '))"
+    } catch { Write-Log "offsite: install/push -> FAILED $($_.Exception.Message)" }
+
     Write-Log "verify: peers       -> $((tailscale status 2>&1 | Select-String 'secratary|zabz-tech' | ForEach-Object { $_.Line.Trim() }) -join ' ; ')"
     @{
       recoveredAt = (Get-Date).ToUniversalTime().ToString('o')
       from        = $env:COMPUTERNAME
       tailscale   = if ($ts) { $ts.online } else { $null }
       tunnel      = $tn.detail
+      offsite     = 'push installed and started; confirm with company-offsite-status.sh on Box 2'
     } | ConvertTo-Json | Set-Content -Path $StatePath -Encoding UTF8
     exit 0
   }
