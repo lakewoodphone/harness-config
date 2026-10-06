@@ -797,6 +797,7 @@ handoff	H3273	3273		2026-10-06 05:46 UTC	ZABZ-YOGA	open	## 2026-10-06 05:46 UTC 
 handoff	H3274	3274		2026-10-06 05:51 UTC	ZABZ-YOGA	open	## 2026-10-06 05:51 UTC · ZABZ-YOGA · Every remote path into the office is closed (by design) - the recovery agent now lives on the one host that survives, HA; office still dark	entries/handoff/H3274.md	1	6	deea98f855d3014e
 handoff	H3275	3275		2026-10-06 05:55 UTC	ZABZ-YOGA	open	## 2026-10-06 05:55 UTC · ZABZ-YOGA · Fence hardened: leadership now requires an actively renewed lease (2-hour-stale lease used to report may_send=True); 44 tests pass; NTP verified on both boxes	entries/handoff/H3275.md	1	6	25a39b439a7e860f
 handoff	H3276	3276		2026-10-06 05:58 UTC	ZABZ-YOGA	open	## 2026-10-06 05:58 UTC · ZABZ-YOGA · Watcher-of-the-watcher CLOSED: the two Hetzner boxes now check each other; one Twilio channel is the only named residual left in (b)	entries/handoff/H3276.md	1	6	1fba3c7b0bb7722f
+handoff	H3277	3277		2026-10-06 06:04 UTC	ZABZ-YOGA	open	## 2026-10-06 06:04 UTC · ZABZ-YOGA · Survivor: readiness is now a tested preflight (both existing boxes fail on disk); provisioning needs one owner decision; hetzner token is dead	entries/handoff/H3277.md	1	6	c3bfa1bc9e0519bc
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1996,6 +1997,7 @@ lessons	L3370	3370		2026-10-06	ZABZ-YOGA	open	**L3370 · A monitor that can be s
 lessons	L3371	3371		2026-10-06	ZABZ-YOGA	open	**L3371 · A test that passes without exercising the new path is worth the same as no test - my two-node simulation never fired the hysteresis I had just written**	entries/lessons/L3371.md	1	6	996a751940a7d508
 lessons	L3372	3372		2026-10-06	ZABZ-YOGA	open	**L3372 · The recovery agent must live where the surviving host is, not where the monitoring is - and the way in was closed by design, not by accident**	entries/lessons/L3372.md	1	6	35dcbc426c7968b6
 lessons	L3373	3373		2026-10-06	ZABZ-YOGA	open	**L3373 · The fence asked 'does this file claim validity' when the question was 'is this host still being renewed' - a lease untouched for two hours still made me a leader**	entries/lessons/L3373.md	1	6	16f129ac3694a4cd
+lessons	L3374	3374		2026-10-06	ZABZ-YOGA	open	**L3374 · Readiness that lives in a document is readiness you have not tested - the first run of the preflight disqualified both candidate hosts**	entries/lessons/L3374.md	1	6	b4d980f1563b51e1
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
