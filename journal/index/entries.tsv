@@ -773,6 +773,7 @@ handoff	H3249	3249		2026-10-06 02:40 UTC	ZABZ-YOGA	open	## 2026-10-06 02:40 UTC 
 handoff	H3250	3250		2026-10-06 02:48 UTC	ZABZ-YOGA	open	## 2026-10-06 02:48 UTC · ZABZ-YOGA · Office outage 2026-10-05 22:57Z: the shop kept power and internet; four machines lost the world at once	entries/handoff/H3250.md	1	55	5a264cc7848fda0b
 handoff	H3251	3251		2026-10-06 03:00 UTC	ZABZ-YOGA	open	## 2026-10-06 03:00 UTC · ZABZ-YOGA · DRN 39 is the owner's wife's phone: family-filtered profile installed and proven on the device (no erase needed)	entries/handoff/H3251.md	1	81	f06a764ab6886ef8
 handoff	H3252	3252		2026-10-06 03:05 UTC	ZABZ-YOGA	open	## 2026-10-06 03:05 UTC · ZABZ-YOGA · Never-offline design: the authority has NO offsite copy (annex B corrected); detection is the first fix	entries/handoff/H3252.md	1	52	8b8ce427554bdb8d
+handoff	H3253	3253		2026-10-06 03:06 UTC	ZABZ-YOGA	open	## 2026-10-06 03:06 UTC · ZABZ-YOGA · Resilience design written; a Friday door window has a fuse on it; the fleet's broker died with the box	entries/handoff/H3253.md	1	56	af16350996dc6cc7
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1948,6 +1949,9 @@ lessons	L3337	3337		2026-10-05	ZABZ-YOGA	open	**L3337 · correction to P2856: no
 lessons	L3347	3347		2026-10-05	ZABZ-YOGA	open	**L3347 · The plain <port>.log is written once, at the first start of that port - read the newest log, not the plainest name**	entries/lessons/L3347.md	1	23	bd6007fdd53ab2e4
 lessons	L3348	3348		2026-10-05	ZABZ-YOGA	open	**L3348 · Tunnel liveness is an out-of-band sensor; an empty Access list is a refusal**	entries/lessons/L3348.md	1	41	2947f1f2cb751088
 lessons	L3349	3349		2026-10-05	ZABZ-YOGA	open	**L3349 · An iOS app allow-list hides everything except Phone and Settings - including Safari and the Web Clip itself - and the kiosk template ships allowMicrophone=false**	entries/lessons/L3349.md	1	36	1f7347c28a8cd5da
+lessons	L3350	3350		2026-10-05	ZABZ-YOGA	open	**L3350 · A claimed offsite backup is a job, an object and a size - a plan is none of the three**	entries/lessons/L3350.md	1	49	2afb0e7fa9ee0686
+lessons	L3351	3351		2026-10-05	ZABZ-YOGA	open	**L3351 · Two records disagreeing about a physical safety mechanism means unknown - read the device**	entries/lessons/L3351.md	1	30	a30f58eb52734cf7
+lessons	L3352	3352		2026-10-05	ZABZ-YOGA	open	**L3352 · iOS com.apple.webcontent-filter: PermittedURLs is an exception list, not a whitelist; AllowListBookmarks is the whitelist**	entries/lessons/L3352.md	1	56	5a36114fa0a7f690
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
@@ -2312,6 +2316,9 @@ pain	P2854	2854		2026-10-05	ZABZ-YOGA	open	## P2854 — A worktree flagged for a
 pain	P2855	2855		2026-10-05	ZABZ-YOGA	done	## P2855 — the broker fail-closed startup check can fail transiently, needing a Docker restart to boot	entries/pain/P2855.md	1	38	41e583f49a96993f
 pain	P2856	2856		2026-10-05	ZABZ-YOGA	superseded	## P2856 — CI cancels whichever job crosses about 15 minutes, and nothing declares a 15-minute limit	entries/pain/P2856.md	1	41	6f4b7eac962aa84c
 pain	P2857	2857		2026-10-05	ZABZ-YOGA	open	## P2857 — No out-of-band path to the office LAN - the shop can only be fixed by walking in	entries/pain/P2857.md	1	39	c81368a71d542676
+pain	P2858	2858		2026-10-05	ZABZ-YOGA	open	## P2858 — The interior door's only actuator is the dead server, and two docs disagree about whether it locks on Friday	entries/pain/P2858.md	1	44	d58e5d14a3d18cfd
+pain	P2859	2859		2026-10-05	ZABZ-YOGA	open	## P2859 — A session's in-flight subagent fleet can be re-keyed away mid-flight and its results become unreadable	entries/pain/P2859.md	1	39	ab4bfdd694fa9b49
+pain	P2860	2860		2026-10-05	ZABZ-YOGA	open	## P2860 — No offsite copy of the authority exists - one disk holds the only copy of the company's memory	entries/pain/P2860.md	1	30	81fadbe3e58101eb
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270
@@ -2644,6 +2651,7 @@ decisions	D2838	2838		2026-10-01	ZABZ-YOGA	open	**D2838 · 2026-10-01 · Yoga ga
 decisions	D2936	2936		2026-10-05	ZABZ-YOGA	open	**D2936 · 2026-10-05 · The question card owns ONE progress display and the save chip moves fine-grained, but the card does NOT claim account storage from a view it cannot see.**	entries/decisions/D2936.md	1	50	eb2db904f925287d
 decisions	D2937	2937		2026-10-05	ZABZ-YOGA	open	**D2937 · 2026-10-05 · Android release signing is fail-closed by default; keystore at ~/.lpt-keys/lpt-release.jks and its custody is the owner's.**	entries/decisions/D2937.md	1	53	220f815c710935fc
 decisions	D2938	2938		2026-10-05	ZABZ-YOGA	open	**D2938 · 2026-10-05 · leave the remaining two audit fsyncs in place: the next latency budget is not worth a durability trade.**	entries/decisions/D2938.md	1	53	f56127f063ff6407
+decisions	D2939	2939		2026-10-05	ZABZ-YOGA	open	**D2939 · 2026-10-05 · Never-offline design: package verified, offsite copy is step 2, survivor needs an 80 GB-class disk.**	entries/decisions/D2939.md	1	33	76bde24d7e3f572b
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e
