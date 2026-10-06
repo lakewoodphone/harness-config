@@ -802,6 +802,7 @@ handoff	H3278	3278		2026-10-06 06:09 UTC	ZABZ-YOGA	open	## 2026-10-06 06:09 UTC 
 handoff	H3279	3279		2026-10-06 06:24 UTC	ZABZ-YOGA	open	## 2026-10-06 06:24 UTC · ZABZ-YOGA · The connector was the missing link; the promotion SUCCESS path is verified in dry-run; bootstrap now installs the tunnel	entries/handoff/H3279.md	1	6	424ac4d61ad9bd8f
 handoff	H3280	3280		2026-10-06 11:10 UTC	ZABZ-YOGA	open	## 2026-10-06 11:10 UTC · ZABZ-YOGA · THE SURVIVOR EXISTS: lpt-survivor-01 (cx33/fsn1, EUR 9.99/mo) - preflight passed, code+DB seeded by sha256; bootstrap bugs found only by running it	entries/handoff/H3280.md	1	6	0d26fa905d4c77fa
 handoff	H3281	3281		2026-10-06 11:14 UTC	ZABZ-YOGA	open	## 2026-10-06 11:14 UTC · ZABZ-YOGA · SURVIVOR IS LIVE: lpt-survivor-01 verified end to end - only a real seed and the dashboard's env stand between it and promotion	entries/handoff/H3281.md	1	6	d2d32817c034e843
+handoff	H3282	3282		2026-10-06 11:34 UTC	ZABZ-YOGA	open	## 2026-10-06 11:34 UTC · ZABZ-YOGA · Primary down-alert was dead for ~6h (self-inflicted, now fixed + guarded by an 18-check self-test); standby monitor added; survivor healthy	entries/handoff/H3282.md	1	6	be4518d4d7d41ae5
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
