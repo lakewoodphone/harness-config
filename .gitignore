@@ -33,3 +33,9 @@ scripts/hidden-tasks/
 # affect tracked paths); force-add a future scratch artifact with `git add -f` only if another machine
 # genuinely needs it, and prefer docs/ or scripts/ if it does.
 _scratch/
+
+# A 16MB GENERATED cache. It rebuilds itself when stale, so tracking it bought
+# nothing and cost this: on 2026-10-06 GitHub's push protection refused the whole
+# push because the binary cache carried Twilio identifiers that the entry files
+# had introduced long ago. Do not re-add it.
+journal/index/journal.db
