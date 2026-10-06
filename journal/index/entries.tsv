@@ -789,6 +789,7 @@ handoff	H3265	3265		2026-10-06 04:55 UTC	ZABZ-YOGA	open	## 2026-10-06 04:55 UTC 
 handoff	H3266	3266		2026-10-06 04:59 UTC	ZABZ-YOGA	open	## 2026-10-06 04:59 UTC · ZABZ-YOGA · Recovery now closes the offsite gap by itself; installer bug caught by testing the template on a live host; partition at 196 tables	entries/handoff/H3266.md	1	6	ebf1ff7d70d6cc3b
 handoff	H3267	3267		2026-10-06 05:06 UTC	ZABZ-YOGA	open	## 2026-10-06 05:06 UTC · ZABZ-YOGA · Survivor inbound proven: captures, answers nothing, logs truthfully - after two real bugs found by firing a signed inbound	entries/handoff/H3267.md	1	6	7e8e0d5b73f6da88
 handoff	H3268	3268		2026-10-06 05:09 UTC	ZABZ-YOGA	open	## 2026-10-06 05:09 UTC · ZABZ-YOGA · Survivor ingress fixed so a promotion is VISIBLE to its owner; Dialpad sibling channel checked (clean); queue-outbound semantics reconciled	entries/handoff/H3268.md	1	6	c62c364784504670
+handoff	H3269	3269		2026-10-06 05:17 UTC	ZABZ-YOGA	open	## 2026-10-06 05:17 UTC · ZABZ-YOGA · SECURITY: the API guard is a launch flag; pinned + monitored; two probes pending the office	entries/handoff/H3269.md	1	6	b636552d6b3da1f6
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1980,6 +1981,7 @@ lessons	L3362	3362		2026-10-06	ZABZ-YOGA	open	**L3362 · Do not fire the thing t
 lessons	L3363	3363		2026-10-06	ZABZ-YOGA	open	**L3363 · A probe without a User-Agent is evidence of nothing: Cloudflare 403s Python-urllib, and I recorded the artifact as a finding**	entries/lessons/L3363.md	1	6	a10e8c92bc7acd73
 lessons	L3364	3364		2026-10-06	ZABZ-YOGA	open	**L3364 · An installer that announces success without verifying what it wrote: the pipeline ate my variable and it wrote an empty script to /**	entries/lessons/L3364.md	1	6	74ff725cd4da33c5
 lessons	L3365	3365		2026-10-06	ZABZ-YOGA	open	**L3365 · Gating the transport is not gating the channel: TwiML is a second delivery path, and the record of a reply is a third place to be wrong**	entries/lessons/L3365.md	1	6	42892e2178b341f3
+lessons	L3366	3366		2026-10-06	ZABZ-YOGA	open	**L3366 · A protection that lives in a launch flag and not in code is an invisible dependency - measure it or lose it**	entries/lessons/L3366.md	1	6	9523ba1de13652e4
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
