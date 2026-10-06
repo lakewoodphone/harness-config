@@ -2000,6 +2000,7 @@ lessons	L3372	3372		2026-10-06	ZABZ-YOGA	open	**L3372 · The recovery agent must
 lessons	L3373	3373		2026-10-06	ZABZ-YOGA	open	**L3373 · The fence asked 'does this file claim validity' when the question was 'is this host still being renewed' - a lease untouched for two hours still made me a leader**	entries/lessons/L3373.md	1	6	16f129ac3694a4cd
 lessons	L3374	3374		2026-10-06	ZABZ-YOGA	open	**L3374 · Readiness that lives in a document is readiness you have not tested - the first run of the preflight disqualified both candidate hosts**	entries/lessons/L3374.md	1	6	b4d980f1563b51e1
 lessons	L3375	3375		2026-10-06	ZABZ-YOGA	open	**L3375 · The disaster-recovery work was itself a single point of failure: 30 commits of it existed only on one laptop, and the journal's only remote was the dark office**	entries/lessons/L3375.md	1	6	e6aed505c9946018
+lessons	L3376	3376		2026-10-06	ZABZ-YOGA	open	**L3376 · GitHub's push protection caught a leak of my own: a 16MB GENERATED cache was versioned and carried Twilio identifiers into every push**	entries/lessons/L3376.md	1	6	20c1fbbe3ddaa2f4
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
