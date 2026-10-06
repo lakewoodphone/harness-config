@@ -788,6 +788,7 @@ handoff	H3264	3264		2026-10-06 04:52 UTC	ZABZ-YOGA	open	## 2026-10-06 04:52 UTC 
 handoff	H3265	3265		2026-10-06 04:55 UTC	ZABZ-YOGA	open	## 2026-10-06 04:55 UTC · ZABZ-YOGA · Promotion orchestrator built and its refusal verified; 403 misattribution corrected in both tool and annex	entries/handoff/H3265.md	1	6	105d6a2b776d9406
 handoff	H3266	3266		2026-10-06 04:59 UTC	ZABZ-YOGA	open	## 2026-10-06 04:59 UTC · ZABZ-YOGA · Recovery now closes the offsite gap by itself; installer bug caught by testing the template on a live host; partition at 196 tables	entries/handoff/H3266.md	1	6	ebf1ff7d70d6cc3b
 handoff	H3267	3267		2026-10-06 05:06 UTC	ZABZ-YOGA	open	## 2026-10-06 05:06 UTC · ZABZ-YOGA · Survivor inbound proven: captures, answers nothing, logs truthfully - after two real bugs found by firing a signed inbound	entries/handoff/H3267.md	1	6	7e8e0d5b73f6da88
+handoff	H3268	3268		2026-10-06 05:09 UTC	ZABZ-YOGA	open	## 2026-10-06 05:09 UTC · ZABZ-YOGA · Survivor ingress fixed so a promotion is VISIBLE to its owner; Dialpad sibling channel checked (clean); queue-outbound semantics reconciled	entries/handoff/H3268.md	1	6	c62c364784504670
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
