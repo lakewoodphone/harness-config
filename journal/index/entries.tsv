@@ -774,6 +774,10 @@ handoff	H3250	3250		2026-10-06 02:48 UTC	ZABZ-YOGA	open	## 2026-10-06 02:48 UTC 
 handoff	H3251	3251		2026-10-06 03:00 UTC	ZABZ-YOGA	open	## 2026-10-06 03:00 UTC · ZABZ-YOGA · DRN 39 is the owner's wife's phone: family-filtered profile installed and proven on the device (no erase needed)	entries/handoff/H3251.md	1	81	f06a764ab6886ef8
 handoff	H3252	3252		2026-10-06 03:05 UTC	ZABZ-YOGA	open	## 2026-10-06 03:05 UTC · ZABZ-YOGA · Never-offline design: the authority has NO offsite copy (annex B corrected); detection is the first fix	entries/handoff/H3252.md	1	52	8b8ce427554bdb8d
 handoff	H3253	3253		2026-10-06 03:06 UTC	ZABZ-YOGA	open	## 2026-10-06 03:06 UTC · ZABZ-YOGA · Resilience design written; a Friday door window has a fuse on it; the fleet's broker died with the box	entries/handoff/H3253.md	1	56	af16350996dc6cc7
+handoff	H3254	3254		2026-10-06 03:12 UTC	ZABZ-YOGA	open	## 2026-10-06 03:12 UTC · ZABZ-YOGA · Offsite gap closed in evidence, external heartbeat deployed, restore drilled, Friday door resolved to one unverified thing	entries/handoff/H3254.md	1	6	50733e2e937db9e8
+handoff	H3255	3255		2026-10-06 04:13 UTC	ZABZ-YOGA	open	## 2026-10-06 04:13 UTC · ZABZ-YOGA · Offsite copy BUILT and proven end to end; the alarm now says CRITICAL because the office has not pushed yet	entries/handoff/H3255.md	1	6	29bd5c9eaec6163c
+handoff	H3256	3256		2026-10-06 04:18 UTC	ZABZ-YOGA	open	## 2026-10-06 04:18 UTC · ZABZ-YOGA · Alerting live and proven; arbiter + fence built and tested 15/15; DNS failover scripted; the shop visit written as commands	entries/handoff/H3256.md	1	6	1b280c73048084ab
+handoff	H3257	3257		2026-10-06 04:25 UTC	ZABZ-YOGA	open	## 2026-10-06 04:25 UTC · ZABZ-YOGA · Survivor mode built and tested (19 checks); it found a latent message-loss bug in the outbound queue	entries/handoff/H3257.md	1	6	8243461ab0b1fd99
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1953,6 +1957,7 @@ lessons	L3350	3350		2026-10-05	ZABZ-YOGA	open	**L3350 · A claimed offsite backu
 lessons	L3351	3351		2026-10-05	ZABZ-YOGA	open	**L3351 · Two records disagreeing about a physical safety mechanism means unknown - read the device**	entries/lessons/L3351.md	1	30	a30f58eb52734cf7
 lessons	L3352	3352		2026-10-05	ZABZ-YOGA	open	**L3352 · iOS com.apple.webcontent-filter: PermittedURLs is an exception list, not a whitelist; AllowListBookmarks is the whitelist**	entries/lessons/L3352.md	1	56	5a36114fa0a7f690
 lessons	L3353	3353		2026-10-05	ZABZ-YOGA	open	**L3353 · Correction: the fleet-collision lesson is L3351 (not L3349)**	entries/lessons/L3353.md	1	6	de20ef5cebf20fd2
+lessons	L3354	3354		2026-10-05	ZABZ-YOGA	open	**L3354 · A backup is evidence only for the asset you can show a job reading**	entries/lessons/L3354.md	1	28	6b235dbbe84acf25
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
