@@ -793,6 +793,7 @@ handoff	H3269	3269		2026-10-06 05:17 UTC	ZABZ-YOGA	open	## 2026-10-06 05:17 UTC 
 handoff	H3270	3270		2026-10-06 05:21 UTC	ZABZ-YOGA	open	## 2026-10-06 05:21 UTC · ZABZ-YOGA · Silent-switch class swept: outbound_mock exposed on /health and monitored; four monitor cases verified two-sided on Linux	entries/handoff/H3270.md	1	6	d71ddaaacf6a9094
 handoff	H3271	3271		2026-10-06 05:35 UTC	ZABZ-YOGA	open	## 2026-10-06 05:35 UTC · ZABZ-YOGA · Offsite round trip REHEARSED at scale: sha256 identical through R2, booted as a company; drill repo added; one self-inflicted pollution found and repaired	entries/handoff/H3271.md	1	6	b5bb943dfacdeb8a
 handoff	H3272	3272		2026-10-06 05:42 UTC	ZABZ-YOGA	open	## 2026-10-06 05:42 UTC · ZABZ-YOGA · Alerting layer: per-condition independence fixed, offsite/backup staleness now alerts the owner; 8 conditions, 5 cases verified	entries/handoff/H3272.md	1	6	cc41924811e298c2
+handoff	H3273	3273		2026-10-06 05:46 UTC	ZABZ-YOGA	open	## 2026-10-06 05:46 UTC · ZABZ-YOGA · (d) hysteresis implemented and the two-node scenario simulated against the real arbiter; app fence and fail-closed verified	entries/handoff/H3273.md	1	6	48fae12098fbb87e
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1989,6 +1990,7 @@ lessons	L3367	3367		2026-10-06	ZABZ-YOGA	open	**L3367 · A monitor cannot alert 
 lessons	L3368	3368		2026-10-06	ZABZ-YOGA	open	**L3368 · A parameter added to the source is not a parameter the running system has - and the repair that matters is the monitor's truthfulness**	entries/lessons/L3368.md	1	6	dba8ce3f6f6fe82f
 lessons	L3369	3369		2026-10-06	ZABZ-YOGA	open	**L3369 · A false green is worse than the red it replaced: repair the SIGNAL, then re-verify the signal - twice, because the state file was a second layer**	entries/lessons/L3369.md	1	6	f4d0fe2fc2d10325
 lessons	L3370	3370		2026-10-06	ZABZ-YOGA	open	**L3370 · A monitor that can be silenced by an unrelated monitor is not a monitor: one shared rate-limit mark suppressed every other condition**	entries/lessons/L3370.md	1	6	e9816692bd040aeb
+lessons	L3371	3371		2026-10-06	ZABZ-YOGA	open	**L3371 · A test that passes without exercising the new path is worth the same as no test - my two-node simulation never fired the hysteresis I had just written**	entries/lessons/L3371.md	1	6	996a751940a7d508
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
