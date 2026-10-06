@@ -780,6 +780,7 @@ handoff	H3256	3256		2026-10-06 04:18 UTC	ZABZ-YOGA	open	## 2026-10-06 04:18 UTC 
 handoff	H3257	3257		2026-10-06 04:25 UTC	ZABZ-YOGA	open	## 2026-10-06 04:25 UTC · ZABZ-YOGA · Survivor mode built and tested (19 checks); it found a latent message-loss bug in the outbound queue	entries/handoff/H3257.md	1	6	8243461ab0b1fd99
 handoff	H3258	3258		2026-10-06 04:31 UTC	ZABZ-YOGA	open	## 2026-10-06 04:31 UTC · ZABZ-YOGA · Outcome probe closes the 13-day-silence detection gap; heartbeat promoted to source of truth	entries/handoff/H3258.md	1	6	1894ca6f4ebff7c4
 handoff	H3259	3259		2026-10-06 04:36 UTC	ZABZ-YOGA	open	## 2026-10-06 04:36 UTC · ZABZ-YOGA · Leadership fence + renewer verified end to end (arbiter -> file -> fence); ownership partition done; two of my own claims corrected	entries/handoff/H3259.md	1	6	a491f5d1c42779ac
+handoff	H3260	3260		2026-10-06 04:40 UTC	ZABZ-YOGA	open	## 2026-10-06 04:40 UTC · ZABZ-YOGA · Standby tunnel exists and the failover switch is proven against the live zone; offsite ingest scale-tested at 1GB	entries/handoff/H3260.md	1	6	a7a2d00f35a1910d
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
