@@ -808,6 +808,7 @@ handoff	H3284	3284		2026-10-06 12:14 UTC	ZABZ-YOGA	open	## 2026-10-06 12:14 UTC 
 handoff	H3285	3285		2026-10-06 13:10 UTC	ZABZ-YOGA	open	## 2026-10-06 13:10 UTC · ZABZ-YOGA · Staff intake rounds 5-8: the passcode bug is fixed structurally, the measured cut list, and the 66-feature inventory of the page being replaced	entries/handoff/H3285.md	1	50	d52cf9312f7c6cd4
 handoff	H3286	3286		2026-10-06 13:21 UTC	ZABZ-YOGA	open	## 2026-10-06 13:21 UTC · ZABZ-YOGA · Goal round 12 cap: main is promoted to test, the fixed frontend is live, and idempotency was built but never read or deployed	entries/handoff/H3286.md	1	30	72fccd05878fb621
 handoff	H3287	3287		2026-10-06 14:48 UTC	ZABZ-YOGA	open	## 2026-10-06 14:48 UTC · ZABZ-YOGA · Office is back: serving, offsite copy refreshed to 5.5GB, two of my false alarms corrected, watcher worked unassisted	entries/handoff/H3287.md	1	31	f22f7c0cf578f399
+handoff	H3288	3288		2026-10-06 15:10 UTC	ZABZ-YOGA	open	## 2026-10-06 15:10 UTC · ZABZ-YOGA · Three shop devices: control plane verified live, wallpaper pushed and OCR-proven, shop-counter profile built/proven/rolled back	entries/handoff/H3288.md	1	64	7e47689040d876bd
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -2018,6 +2019,8 @@ lessons	L3381	3381		2026-10-06	ZABZ-YOGA	open	**L3381 · I killed the harness th
 lessons	L3382	3382		2026-10-06	ZABZ-YOGA	open	**L3382 · I killed the primary alert while making the alerts independent, and only an unrelated test found it**	entries/lessons/L3382.md	1	18	2c0558962ffabd1f
 lessons	L3383	3383		2026-10-06	ZABZ-YOGA	open	**L3383 · A fix that lives in an uncommitted working tree on a deploy host is a fix with an expiry date**	entries/lessons/L3383.md	1	38	30e4b9c8d06723b7
 lessons	L3384	3384		2026-10-06	ZABZ-YOGA	open	**L3384 · The office came back and corrected me twice: it never lost power, and the offsite copy I alarmed about was never the real one**	entries/lessons/L3384.md	1	14	45d8ef6a4a225c11
+lessons	L3385	3385		2026-10-06	ZABZ-YOGA	open	**L3385 · Worktree brief constraints can contradict their own definition of done — do the reachable part and say which half is unreachable**	entries/lessons/L3385.md	1	14	85c5bf06c53fb1fb
+lessons	L3386	3386		2026-10-06	ZABZ-YOGA	open	**L3386 · Three of my monitors were reporting 'unknown' and I read it as silence: a probe validated against its own mock, an endpoint that never published the field, and a recovery alert that cried flap**	entries/lessons/L3386.md	1	12	752ad6ff1492daf8
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427

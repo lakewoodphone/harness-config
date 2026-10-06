@@ -39,3 +39,5 @@ _scratch/
 # push because the binary cache carried Twilio identifiers that the entry files
 # had introduced long ago. Do not re-add it.
 journal/index/journal.db
+# journal.py takes a runtime lock while writing; it is not content and it blocks "git add -A".
+journal/.lock
