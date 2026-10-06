@@ -40,6 +40,19 @@
 # phone is ever handed to someone else (employee, customer, fleet), this line comes OUT first.
 100.73.102.5      # iphone-se-gen-2  the owner's iPhone SE (joined the tailnet 2026-10-05T22:45Z)
 #
+# ADDED 2026-10-06 - LPT STORE 1 / LPT STORE 2, the shop-counter iPhones. Both are on the owner's
+# tailnet under his own Google identity and both carry the DSH web clip, so both are owner devices in
+# the sense this file means. ONLY THE ONE THAT HAS JOINED IS LISTED: a tailnet address is assigned at
+# join and cannot be predicted, so the second unit cannot be listed until its own tap happens.
+100.118.10.22     # iphone-11        first LPT store unit to join (node created 2026-10-06T18:55:28Z)
+#
+# NOT LISTED YET - AND NOT TO BE COVERED BY WIDENING THIS FILE: LPT STORE 2 (`FFXGT23HN72J`, MDM
+# DRN 2002). Measured 2026-10-06T19:07Z on secratary: `tailscale status --json` lists 7 peers and
+# exactly one of them is a store unit, so the second has never joined and has no address to list.
+# When its tap happens the gate refuses it once and its refusal page names the one address to add
+# here; that is the intended path. Do NOT add a CIDR or a range: this file is exact addresses, and
+# one line here is a 30-day cookie that is a shell on the company authority and on the owner's mail.
+#
 # DELIBERATELY NOT LISTED — DO NOT ADD IT BACK WITHOUT A REASON THAT IS WRITTEN DOWN HERE:
 #   100.126.146.121   # lakewooechsmini — the employee's Mac.
 # It is enrolled under the same Google identity as every other device, so an identity check cannot
