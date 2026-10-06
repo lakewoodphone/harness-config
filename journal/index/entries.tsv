@@ -809,6 +809,7 @@ handoff	H3285	3285		2026-10-06 13:10 UTC	ZABZ-YOGA	open	## 2026-10-06 13:10 UTC 
 handoff	H3286	3286		2026-10-06 13:21 UTC	ZABZ-YOGA	open	## 2026-10-06 13:21 UTC · ZABZ-YOGA · Goal round 12 cap: main is promoted to test, the fixed frontend is live, and idempotency was built but never read or deployed	entries/handoff/H3286.md	1	30	72fccd05878fb621
 handoff	H3287	3287		2026-10-06 14:48 UTC	ZABZ-YOGA	open	## 2026-10-06 14:48 UTC · ZABZ-YOGA · Office is back: serving, offsite copy refreshed to 5.5GB, two of my false alarms corrected, watcher worked unassisted	entries/handoff/H3287.md	1	31	f22f7c0cf578f399
 handoff	H3288	3288		2026-10-06 15:10 UTC	ZABZ-YOGA	open	## 2026-10-06 15:10 UTC · ZABZ-YOGA · Three shop devices: control plane verified live, wallpaper pushed and OCR-proven, shop-counter profile built/proven/rolled back	entries/handoff/H3288.md	1	64	7e47689040d876bd
+handoff	H3289	3289		2026-10-06 15:24 UTC	ZABZ-YOGA	open	## 2026-10-06 15:24 UTC · ZABZ-YOGA · HANDOFF for tomorrow: company up when the link works, offsite copy current and now properly monitored, survivor healthy but rehearsal-seeded, /ready fix pending deploy	entries/handoff/H3289.md	1	36	4c1b5359e611e310
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -2021,6 +2022,7 @@ lessons	L3383	3383		2026-10-06	ZABZ-YOGA	open	**L3383 · A fix that lives in an 
 lessons	L3384	3384		2026-10-06	ZABZ-YOGA	open	**L3384 · The office came back and corrected me twice: it never lost power, and the offsite copy I alarmed about was never the real one**	entries/lessons/L3384.md	1	14	45d8ef6a4a225c11
 lessons	L3385	3385		2026-10-06	ZABZ-YOGA	open	**L3385 · Worktree brief constraints can contradict their own definition of done — do the reachable part and say which half is unreachable**	entries/lessons/L3385.md	1	14	85c5bf06c53fb1fb
 lessons	L3386	3386		2026-10-06	ZABZ-YOGA	open	**L3386 · Three of my monitors were reporting 'unknown' and I read it as silence: a probe validated against its own mock, an endpoint that never published the field, and a recovery alert that cried flap**	entries/lessons/L3386.md	1	12	752ad6ff1492daf8
+lessons	L3387	3387		2026-10-06	ZABZ-YOGA	open	**L3387 · Waze MDM push path: device truth beats DB truth, baked /srv, and the iOS keys that decide a rollout**	entries/lessons/L3387.md	1	60	e387aee8bb155b6b
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
