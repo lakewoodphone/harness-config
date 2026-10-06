@@ -2010,6 +2010,7 @@ lessons	L3378	3378		2026-10-06	ZABZ-YOGA	open	**L3378 · An idempotence claim th
 lessons	L3379	3379		2026-10-06	ZABZ-YOGA	open	**L3379 · Every refusal test can pass while the success path is impossible: the promotion was verified four ways to fail and had no way to succeed**	entries/lessons/L3379.md	1	6	6fec587fb3eb8e35
 lessons	L3380	3380		2026-10-06	ZABZ-YOGA	open	**L3380 · A fence that is never armed is not a fence: the survivor bootstrapped fine and would have written without proving leadership**	entries/lessons/L3380.md	1	6	c8bed492033bb066
 lessons	L3381	3381		2026-10-06	ZABZ-YOGA	open	**L3381 · I killed the harness three times with 'Get-Process node | Stop-Process': a cleanup by process NAME takes out the engine serving the conversation**	entries/lessons/L3381.md	1	6	730bac27055cedb5
+lessons	L3382	3382		2026-10-06	ZABZ-YOGA	open	**L3382 · I killed the primary alert while making the alerts independent, and only an unrelated test found it**	entries/lessons/L3382.md	1	18	2c0558962ffabd1f
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
