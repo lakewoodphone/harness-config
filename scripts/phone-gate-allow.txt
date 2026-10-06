@@ -32,6 +32,14 @@
 100.84.72.88      # secratary       the always-on company authority
 100.105.248.90    # zabz-tech-linux
 #
+# ADDED 2026-10-06 (ZABZ-YOGA) — a second owner iPhone. The owner added `iphone-se-gen-2` to the
+# tailnet on 2026-10-05T22:45:33Z (`tailscale status --json`, `Created`; node 100.73.102.5, iOS)
+# and to Apple Business Manager the same day, so it stands on the same footing as `iphone-15-pro`:
+# it is his device, on his tailnet, and it is the one the phone UI is being set up on. Written down
+# because the reason is the only thing that keeps an entry from being re-litigated later. If that
+# phone is ever handed to someone else (employee, customer, fleet), this line comes OUT first.
+100.73.102.5      # iphone-se-gen-2  the owner's iPhone SE (joined the tailnet 2026-10-05T22:45Z)
+#
 # DELIBERATELY NOT LISTED — DO NOT ADD IT BACK WITHOUT A REASON THAT IS WRITTEN DOWN HERE:
 #   100.126.146.121   # lakewooechsmini — the employee's Mac.
 # It is enrolled under the same Google identity as every other device, so an identity check cannot

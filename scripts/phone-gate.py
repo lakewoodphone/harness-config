@@ -97,20 +97,35 @@ def live_token(engine_port: int | None = None) -> str:
     measured 2026-09-16, `~/.dsh/multi-window/logs/3099-20260916-154910.log`.
     """
     if engine_port is not None:
+        # MEASURED 2026-10-06 on ZABZ-YOGA — this ordering is the bug it fixes. The plain
+        # `<port>.log` is written by the FIRST start of that port and then never again, while every
+        # later start writes its own timestamped `<port>-<date>.log`. Reading the plain name first
+        # therefore returned a token from an engine dead since 2026-10-02 (`3099.log`, token
+        # `1E1S…`, GET /?token=… -> **401**) while the live engine's token sat in
+        # `3099-20261005-011920.log` (same GET -> **303 + Set-Cookie**). Consequence: the exchange
+        # answered 401 and *every* phone sign-in on this node failed — the owner's already-listed
+        # iPhone 15 Pro exactly as much as a newly added device.
+        # Newest mtime first is guaranteed rather than heuristic here: the running engine keeps
+        # writing its own stdout log, so its file is the freshest in the set.
+        candidates: "list[Path]" = []
         for directory in ENGINE_LOG_DIRS:
             for name in (f"engine-{engine_port}.log", f"{engine_port}.log"):
-                found = token_in(directory / name)
-                if found:
-                    return found
+                candidates.append(directory / name)
             try:
-                candidates = sorted(directory.glob(f"{engine_port}-*.log"),
-                                    key=lambda p: p.stat().st_mtime, reverse=True)
+                candidates.extend(directory.glob(f"{engine_port}-*.log"))
             except OSError:
-                candidates = []
-            for path in candidates:
-                found = token_in(path)
-                if found:
-                    return found
+                pass
+
+        def _mtime(path: Path) -> float:
+            try:
+                return path.stat().st_mtime
+            except OSError:
+                return 0.0
+
+        for path in sorted(candidates, key=_mtime, reverse=True):
+            found = token_in(path)
+            if found:
+                return found
     best = ""
     for directory in ENGINE_LOG_DIRS:
         try:
