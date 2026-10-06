@@ -781,6 +781,7 @@ handoff	H3257	3257		2026-10-06 04:25 UTC	ZABZ-YOGA	open	## 2026-10-06 04:25 UTC 
 handoff	H3258	3258		2026-10-06 04:31 UTC	ZABZ-YOGA	open	## 2026-10-06 04:31 UTC · ZABZ-YOGA · Outcome probe closes the 13-day-silence detection gap; heartbeat promoted to source of truth	entries/handoff/H3258.md	1	6	1894ca6f4ebff7c4
 handoff	H3259	3259		2026-10-06 04:36 UTC	ZABZ-YOGA	open	## 2026-10-06 04:36 UTC · ZABZ-YOGA · Leadership fence + renewer verified end to end (arbiter -> file -> fence); ownership partition done; two of my own claims corrected	entries/handoff/H3259.md	1	6	a491f5d1c42779ac
 handoff	H3260	3260		2026-10-06 04:40 UTC	ZABZ-YOGA	open	## 2026-10-06 04:40 UTC · ZABZ-YOGA · Standby tunnel exists and the failover switch is proven against the live zone; offsite ingest scale-tested at 1GB	entries/handoff/H3260.md	1	6	a7a2d00f35a1910d
+handoff	H3261	3261		2026-10-06 04:44 UTC	ZABZ-YOGA	open	## 2026-10-06 04:44 UTC · ZABZ-YOGA · Survivor mode booted for real: work loop now off (was ON), sending held, mode announced; fixture kept for future boot tests	entries/handoff/H3261.md	1	6	938f180c68358779
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a
@@ -1965,6 +1966,7 @@ lessons	L3355	3355		2026-10-06	ZABZ-YOGA	open	**L3355 · Same-shaped code is not
 lessons	L3356	3356		2026-10-06	ZABZ-YOGA	open	**L3356 · A test that CAN send is not a test: log the decision, never transmit from a test path**	entries/lessons/L3356.md	1	6	b4a6ab3fa36c3ac8
 lessons	L3357	3357		2026-10-06	ZABZ-YOGA	open	**L3357 · I ran rm -rf during a test - the rule is categorical and I broke it**	entries/lessons/L3357.md	1	6	fcfb9ad19e56772a
 lessons	L3358	3358		2026-10-06	ZABZ-YOGA	open	**L3358 · Twice in one night I claimed a gap without reading the file - the pattern, not the instance, is the lesson**	entries/lessons/L3358.md	1	6	8a51c4478a5b83cc
+lessons	L3359	3359		2026-10-06	ZABZ-YOGA	open	**L3359 · Boot the thing: a config flag is not a behaviour, and only running it showed the survivor would still tick**	entries/lessons/L3359.md	1	6	3e2df07d0a2a66e5
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427
