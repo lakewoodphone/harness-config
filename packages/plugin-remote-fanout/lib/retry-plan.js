@@ -123,6 +123,29 @@ export function classifyFailure({ outcome, parsed, startedEvidence, aborted, hos
     return sshRefused ? 'node-specific' : 'transient-same-node';
   }
 
+  // ── A PROCESS THAT EXITED, HAVING PRODUCED NOTHING, IS DEAD AND THE NODE IS AT FAULT ──
+  //
+  // The shape: a non-zero exit, no frame, no answer, NOTHING on stdout, no transport
+  // fault — and the child's own error on stderr. It started, its own code raised, and
+  // it is gone. Nothing is still running, so "it may have done work" protects nothing.
+  //
+  // Measured 2026-10-08: ZABZ-TECH's MCP launcher raised PermissionError and the
+  // one-shot exited 1 on EVERY dispatch, with that traceback on stderr. All eight
+  // children died on that single node, nothing rerouted, and every session silently
+  // fell back to doing its work on the laptop the owner was trying to work on.
+  //
+  // THE ANTI-DUPLICATION GUARD IS PRESERVED, and that is what the stdout test is for:
+  // a child that emitted ANY of its own markers (the transport block, FANOUT_BEGIN,
+  // a MESH-HOST line) may already have done work, and the very next branch harvests
+  // it instead. Only a child that produced *nothing whatsoever* is re-routed, so this
+  // never duplicates an effect — it recovers from a node that cannot start one.
+  const emittedMarkers = /FANOUT_BEGIN|FANOUT_TRANSPORT_HOST=|MESH-HOST:/.test(String(outcome.stdout ?? ''));
+  if (!emittedMarkers && startedEvidence !== true
+      && outcome.exitCode !== undefined && outcome.exitCode !== 0
+      && !framed && !producedAnswer && !transportFault && !sshRefused) {
+    return 'node-specific';
+  }
+
   // The child started. Whatever happened next, the work may exist — retrying it
   // would duplicate side effects, so this is harvest-or-report territory, never
   // re-dispatch.
@@ -134,11 +157,10 @@ export function classifyFailure({ outcome, parsed, startedEvidence, aborted, hos
   // child reasoned, that is its answer and it is structural.
   if (outcome.exitCode !== 0 && outcome.exitCode !== undefined) {
     if (framed || producedAnswer) return 'structural';
-    // NO FRAME, NO ANSWER, NOTHING IN STDERR — and this is the measured
-    // production shape: the transport died before the closing frame was written,
-    // so the child's last moment was never captured. It may have done work, so
-    // the honest reading is "harvest, do not re-run". A retry here is the
-    // duplicate-side-effect risk the whole policy exists to avoid.
+    // NO FRAME, NO ANSWER, and the transport faulted: the child's last moment was
+    // never captured and it may still be running, so this is harvest-or-report and
+    // never a re-dispatch. (A non-zero exit with NO transport fault was already
+    // claimed above, because in that shape the process is provably gone.)
     return 'child-ran-transport-fault';
   }
 

@@ -68,6 +68,26 @@ test('a node-specific fault reroutes instead of retrying into the same wall', ()
   assert.ok(plan.delayMs >= 10_000, `reroute delay ${plan.delayMs} ms does not outlive the broker cache`);
 });
 
+test('a child that started and then DIED reroutes to another node; only a transport fault is harvested', () => {
+  // The shape that cost a night (2026-10-08). The child started, its own code
+  // raised, and it exited 1 with no frame and NO transport fault. The process is
+  // gone, so "it may have done work, harvest it" protected nothing — and because
+  // that was the answer, one broken node absorbed every dispatch in the fleet
+  // while a verified-good node sat idle, and every session silently went local.
+  const diedOnItsOwn = outcome({
+    exitCode: 1,
+    stderr: "PermissionError: [Errno 13] Permission denied: 'C:\\\\x\\\\mcp-launcher.log'\n  sys.exit(main())",
+  });
+  assert.equal(classifyFailure({ outcome: diedOnItsOwn, parsed: { framed: false } }), 'node-specific');
+  assert.equal(planFor('node-specific', 0, { random: () => 0.5 }).action, 'reroute');
+
+  // The other shape, and it must NOT move: the transport died mid-run, so the
+  // child's last moment was never captured and it may still be working.
+  const transportDied = outcome({ exitCode: 255, stderr: 'Read from remote host x: Connection reset' });
+  assert.equal(classifyFailure({ outcome: transportDied, parsed: { framed: false } }), 'child-ran-transport-fault');
+  assert.equal(planFor('child-ran-transport-fault', 0, {}).action, 'harvest');
+});
+
 test('the budget is bounded and says why it stopped', () => {
   const exhausted = planFor('transient-same-node', DEFAULT_RETRY_POLICY.maxAttempts - 1, {});
   assert.equal(exhausted.action, 'fail');
