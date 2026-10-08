@@ -875,6 +875,8 @@ handoff	H3380	3380		2026-10-08 18:37 UTC	SECRATARY	open	## 2026-10-08 18:37 UTC 
 handoff	H3381	3381		2026-10-08 18:40 UTC	ZABZ-YOGA	open	## 2026-10-08 18:40 UTC · ZABZ-YOGA · Gestetner SX740 screen hinge: pulled, and it is a 5-week comeback on WO2609010002	entries/handoff/H3381.md	1	42	36de126221ecaaec	gestetner,lpt,comeback,sx740	
 handoff	H3382	3382		2026-10-08 18:43 UTC	SECRATARY	open	## 2026-10-08 18:43 UTC · SECRATARY · Schreiber Dell Inspiron 15 3520: note, Dialpad trail, case and WO26100812737	entries/handoff/H3382.md	1	49	abf933d0b87391a1		
 handoff	H3383	3383		2026-10-08 18:45 UTC	ZABZ-YOGA	open	## 2026-10-08 18:45 UTC · ZABZ-YOGA · Gestetner SX740 hinge: owner quoted 200, paid job not a redo - part ceiling 96 landed	entries/handoff/H3383.md	1	37	3da4e87aac037110	gestetner,lpt,quote,sx740	
+handoff	H3384	3384		2026-10-08 19:09 UTC	SECRATARY	open	## 2026-10-08 19:09 UTC · SECRATARY · The intake photographs and the phone traffic are in production - and lpt-photo now puts them there	entries/handoff/H3384.md	1	70	3552142c9a088f2c		
+handoff	H3385	3385		2026-10-08 19:12 UTC	SECRATARY	open	## 2026-10-08 19:12 UTC · SECRATARY · Correction to H3384: the comms push is NOT broken - I ran it from the wrong directory	entries/handoff/H3385.md	1	42	5b6fd37ce6b9979a		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2168,6 +2170,8 @@ lessons	L3399	3399		2026-10-08	SECRATARY	open	**L3399 · A blank crop is not a b
 lessons	L3400	3400		2026-10-08	ZABZ-YOGA	open	**L3400 · lpt sql cannot carry a double-quoted identifier from a Windows shell**	entries/lessons/L3400.md	1	27	0e611e5a01a8a4e1	lpt,sql,tooling,windows	
 lessons	L3401	3401		2026-10-08	ZABZ-YOGA	open	**L3401 · In the operational store a note that says paid is not a payment row**	entries/lessons/L3401.md	1	26	356b63bc7eb57ca2	lpt,money,payments,production	
 lessons	L3402	3402		2026-10-08	SECRATARY	open	**L3402 · Regenerate-record must work when nothing else changed - and a canary that asserts the world, not the test**	entries/lessons/L3402.md	1	31	14eae0878e84b5d3		
+lessons	L3403	3403		2026-10-08	SECRATARY	open	**L3403 · Check the running container before believing a capability is missing - and drive the service, not the table**	entries/lessons/L3403.md	1	31	70352c84c56ad44f		
+lessons	L3404	3404		2026-10-08	SECRATARY	open	**L3404 · Read the path before believing 'file is not a database'**	entries/lessons/L3404.md	1	23	1333861e2234b228		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
