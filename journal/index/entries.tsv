@@ -879,6 +879,7 @@ handoff	H3384	3384		2026-10-08 19:09 UTC	SECRATARY	open	## 2026-10-08 19:09 UTC 
 handoff	H3385	3385		2026-10-08 19:12 UTC	SECRATARY	open	## 2026-10-08 19:12 UTC · SECRATARY · Correction to H3384: the comms push is NOT broken - I ran it from the wrong directory	entries/handoff/H3385.md	1	42	5b6fd37ce6b9979a		
 handoff	H3386	3386		2026-10-08 19:34 UTC	ZABZ-YOGA	open	## 2026-10-08 19:34 UTC · ZABZ-YOGA · Gestetner SX740: 200 quote texted to her; hinge CY1-9941-000 lands 87.60, inside the 96 ceiling	entries/handoff/H3386.md	1	47	92719c52d95634a1	gestetner,lpt,quote,sms,sourcing	
 handoff	H3387	3387		2026-10-08 20:06 UTC	SECRATARY	open	## 2026-10-08 20:06 UTC · SECRATARY · IRIS Easy Flip deleted video (WO26100812738): the platform was not what the label suggested, and the correction changes the odds	entries/handoff/H3387.md	1	64	80ee58be86bc381e		
+handoff	H3388	3388		2026-10-08 20:20 UTC	SECRATARY	open	## 2026-10-08 20:20 UTC · SECRATARY · Weinreb HP Pavilion 24-b227c: WO26100812739 - the customer came from the Dialpad trail, the machine from its own labels	entries/handoff/H3388.md	1	70	a04deca37e8de38c		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2175,6 +2176,8 @@ lessons	L3402	3402		2026-10-08	SECRATARY	open	**L3402 · Regenerate-record must 
 lessons	L3403	3403		2026-10-08	SECRATARY	open	**L3403 · Check the running container before believing a capability is missing - and drive the service, not the table**	entries/lessons/L3403.md	1	31	70352c84c56ad44f		
 lessons	L3404	3404		2026-10-08	SECRATARY	open	**L3404 · Read the path before believing 'file is not a database'**	entries/lessons/L3404.md	1	23	1333861e2234b228		
 lessons	L3405	3405		2026-10-08	SECRATARY	open	**L3405 · Identify the platform (FCC ID -> manual -> chipset) before assessing any recovery**	entries/lessons/L3405.md	1	35	0f0248f41d1736d0		
+lessons	L3406	3406		2026-10-08	SECRATARY	open	**L3406 · Retry belongs in the tool when the path is idempotent - and name what makes it safe first**	entries/lessons/L3406.md	1	31	47f6bb4f57ce0653		
+lessons	L3407	3407		2026-10-08	SECRATARY	open	**L3407 · An aggregate mismatch is a question, not a finding - check the specific item**	entries/lessons/L3407.md	1	25	156c2b615984f544		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
