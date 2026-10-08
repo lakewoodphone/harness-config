@@ -2153,6 +2153,7 @@ lessons	L3390	3390		2026-10-07	ZABZ-YOGA	open	**L3390 · A truncated scan is not
 lessons	L3391	3391		2026-10-07	ZABZ-YOGA	open	**L3391 · Win32-OpenSSH multiplexing is broken here - root cause of P2251**	entries/lessons/L3391.md	1	34	2680e3809200da76		
 lessons	L3392	3392		2026-10-07	ZABZ-YOGA	open	**L3392 · A tool that cannot tell 'nothing found' from 'the query failed' will confidently report the wrong world: my own audit did it twice in ten minutes**	entries/lessons/L3392.md	1	6	1fe3b7da8f56024f	audit,provenance,tooling	
 lessons	L3376	3376		2026-10-08	SECRATARY	open	**L3376 · A region test disc is a hypothesis until one is proven locked - the cover B mark and the eBay Region Code field are not proof**	entries/lessons/L3376.md	1	28	3f4069fb76b647c3		
+lessons	L3393	3393		2026-10-08	secratary	open	**L3393 · journal-commit's ten red rows were a real divergence, not a broken job - and the empty stderr column hid it**	entries/lessons/L3393.md	1	48	6390fb97c14f796c		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
