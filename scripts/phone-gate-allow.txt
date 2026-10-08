@@ -32,6 +32,28 @@
 100.84.72.88      # secratary       the always-on company authority
 100.105.248.90    # zabz-tech-linux
 #
+# ADDED 2026-10-08. Every address below was read from `tailscale status` ON `secratary` in the same
+# hour it was written here — never copied from a doc and never guessed.
+#
+# WHY: the shop's counter devices carry the managed "DSH" web clip
+# (`com.abletel.lpt.shopstore.webclip.dsh` -> https://secratary.tail93e6e6.ts.net/), and every one of
+# them was being refused by name. The owner's report, 2026-10-08: "the dsh keeps not working and
+# saying to add the ip address or whatever to the allow list." They are the same devices the shop
+# runbook names — `personal-secretary-mvp/deploy/waze-mdm/docs/lpt-shop-device-runbook.md` §7 lists
+# them as members of this file — but the file itself had drifted and never carried them, so the web
+# clip was installed and unusable. The iPhone SE is the owner's own spare, registered in
+# `mdm_fleet_devices` as `owner_personal_phone` on 2026-10-05.
+100.73.102.5      # iphone-se-gen-2        the owner's own spare iPhone
+100.118.10.22     # iphone-11              LPT STORE 1 — DRN 2001, shop counter
+100.119.73.69     # iphone-11-1            LPT STORE 2 — DRN 2002, shop counter
+100.76.204.64     # ipad-air-5th-gen-wifi  LPT STORE 3 — DRN 2003, the shop iPad
+#
+# ACCEPTED EXPOSURE, WRITTEN DOWN ON PURPOSE. The three LPT STORE devices live on a counter customers
+# can reach, and a listed device receives a 30-day cookie that is a shell on this authority. They are
+# staff devices, locked to a ten-app allowlist by their MDM profile, and they were added because the
+# counter has to be able to open DSH at all. If one of them ever becomes a customer-facing kiosk
+# rather than a staff device, its line comes out of this file that day.
+#
 # DELIBERATELY NOT LISTED — DO NOT ADD IT BACK WITHOUT A REASON THAT IS WRITTEN DOWN HERE:
 #   100.126.146.121   # lakewooechsmini — the employee's Mac.
 # It is enrolled under the same Google identity as every other device, so an identity check cannot
