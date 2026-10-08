@@ -2133,6 +2133,7 @@ lessons	L3379	3379		2026-10-07	ZABZ-YOGA	open	**L3379 · The preset's own skill 
 lessons	L3380	3380		2026-10-07	ZABZ-YOGA	open	**L3380 · A generator that can delete a hand edit needs a guard, not a warning**	entries/lessons/L3380.md	1	29	0d29544d5ecf7bf9	generators,guardrails,persona	
 lessons	L3381	3381		2026-10-07	ZABZ-YOGA	open	**L3381 · For a content index freshness is content, not file mtime - measured wrong in both directions**	entries/lessons/L3381.md	1	31	0f17f792f50721e8	provenance,freshness,indexes,fa	
 lessons	L3382	3382		2026-10-07	ZABZ-YOGA	open	**L3382 · Three measurement traps: parent-relative width, what max-file-lines counts, and Select-String on a minified bundle**	entries/lessons/L3382.md	1	16	8063698931c95b4a	measurement,lint,bundles,frontend	
+lessons	L3383	3383		2026-10-07	ZABZ-YOGA	open	**L3383 · An MCP tool added to the server appears in a LIVE session's tool list - a new tool does not need a new session**	entries/lessons/L3383.md	1	23	bb80108f8e5d7f1e	mcp,skills,wiring,discovery	
 lessons	L3376	3376		2026-10-08	SECRATARY	open	**L3376 · A region test disc is a hypothesis until one is proven locked - the cover B mark and the eBay Region Code field are not proof**	entries/lessons/L3376.md	1	28	3f4069fb76b647c3		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
@@ -2524,6 +2525,8 @@ pain	P2863	2863		2026-10-07	ZABZ-YOGA	open	## P2863 — concurrent sessions shar
 pain	P2864	2864		2026-10-07	ZABZ-YOGA	open	## P2864 — git push origin main in harness-config can land on the authority and be rejected by GitHub in the same command, while the local ref reads as success	entries/pain/P2864.md	1	30	970b0e1c90aac52a	git,harness-config,provenance,push	
 pain	P2865	2865		2026-10-07	ZABZ-YOGA	open	## P2865 — The mesh cannot start any child: a sandbox denial kills the MCP launcher before the agent turn begins	entries/pain/P2865.md	1	58	37eb9b7dff7ac639	mesh,dispatch,sandbox,zabz-tech,fleet	
 pain	P2866	2866		2026-10-07	ZABZ-YOGA	open	## P2866 — ssh -n with the payload on stdin writes an EMPTY file - I did it to three nodes at once	entries/pain/P2866.md	1	30	f270b30bfc53fa48	ssh,deploy,verification	
+pain	P2867	2867		2026-10-07	ZABZ-YOGA	open	## P2867 — No working PRODUCTION staff login: every signed-in UI check on the live site is blind	entries/pain/P2867.md	1	6	b7c338caaceb1371	lpt,verification,credentials	
+pain	P2868	2868		2026-10-07	ZABZ-YOGA	open	## P2868 — ps_search was committed on whatever branch the production checkout happened to be on	entries/pain/P2868.md	1	23	e7fed6d39331b9fa	mcp,ps_search,deploy,trunk	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
