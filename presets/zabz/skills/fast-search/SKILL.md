@@ -64,26 +64,47 @@ fa stats                           # how searching is actually going
 `fa look database.py` and `fa find create_task` do what they look like. (Before 2026-10-08 they were
 advertised but not implemented: each fell through to a live *code* search for the literal words.)
 
+**A mode name is only a mode in the first position.** `fa code journal` searches the code for the word
+`journal`; it does not switch to journal mode. Before 2026-10-08 every argument equal to a mode name was
+consumed wherever it appeared, so `fa code journal --all` ran a *journal* search with an empty query and
+exited 2, and `fa code files` did the same.
+
 ## The flags, and what they mean
 
 | flag | effect |
 |---|---|
 | `--limit N` | max hits (default 8) |
-| `--json` | machine-readable, includes `source`, `ms`, `index_age_s`, `stale` |
+| `--json` | one machine-readable object. Honoured by **every** mode since 2026-10-08 (`code`, `symbol` and `symbols` used to ignore it and emit raw text, so a caller's parse failed silently). `files` emits one object **per line**; the rest emit a single object |
 | `--fresh` | bypass every index — **use when you are about to edit the file** |
-| `--max-age SEC` | refuse an index older than SEC (default 1200 — the path and ctags indexes are rebuilt every 15 min and the comms index every 30 min, so a 300 s ceiling marked every indexed answer stale and taught readers to ignore the banner). A stale index answers with exit **3** and `"stale":true` |
-| `--scope DIR` | add a search root |
+| `--max-age SEC` | refuse an index older than SEC. **Leave it unset unless you mean it.** Each index carries its own ceiling (path/ctags 1200 s, comms 2100 s) and, crucially, an unset ceiling lets `fa journal` answer from **content coverage** instead of age. Passing it forces an age test on the journal, and since that index is rewritten only when the journal changes, a healthy but quiet index then reports STALE — measured 2026-10-08: a forced 1200 returned `stale:true` ("the index is behind") for an index holding 3157 of 3157 entries. A stale index answers with exit **3** and `"stale":true` |
+| `--scope DIR` | replace the curated roots with DIR |
 | `--all` | opt OUT of the curated scope. **This is the slow one and it is logged. You almost never want it.** |
 
-**Read the exit code, not just the text.** `0` = hits, `1` = no match (a real negative), `3` = answered
-but the index may be stale, `4` = nothing was searched (no index on this node), `5` = the index failed
-or timed out. A `1` that actually meant `4` is how a search tool lies.
+**Read the exit code, not just the text.** `0` = hits, `1` = no match (a real negative), `2` = bad usage,
+`3` = answered but the index may be stale, `4` = **nothing was searched** (no index on this node, or a
+root was cut off by the per-root time budget), `5` = the index failed. A `1` that actually meant `4` is how
+a search tool lies.
+
+Before 2026-10-08, `code`, `symbol` and `files` exited **0 on a genuine no-match**, so an empty result read
+as success in three of the eight modes — including `symbol`, the one mode that must never lie. All modes
+carry the documented codes now.
+
+**A truncated scan is not a negative.** The live scan gives each root `FIND_ANYTHING_ROOT_TIMEOUT`
+(default 25 s). If a root is cut off, `fa` says so on stderr and exits **4** when nothing was found,
+rather than reporting a clean miss. This is reachable in normal use: on the authority a **cold** `~/code`
+takes 29.8 s while warm it takes 0.2 s, so the first search after a cache eviction is the one that hits
+the budget. If you get exit 4, re-run — the second pass is warm and fast.
 
 **Provenance is on every indexed answer.** `fa journal` reports the index's age *and* the newest entry it
 covers (`covers_through`, `index_entries`): measured 2026-10-08, a 29-minute-old index on a checkout that
 was behind still read as "minutes fresh" while silently stopping at September. If `covers_through` is not
 today, the answer may be missing today's entries — check `git -C ~/code/harness-config log --oneline -1`
 before believing a "no match".
+
+**Through the MCP tool, the exit code is now visible.** `ps_action("search", …)` returns `exit_code` and
+`searched` alongside `result`. `searched:false` means **nothing was searched** — a refusal, not a
+negative. Before 2026-10-08 the wrapper read only exit 3 and returned `ok:true, "(no hits)"` for exits 1,
+2, 4 and 5 alike, so a refusal was indistinguishable from an empty result.
 
 **`data` needs the comms index, which lives on `secratary` only.** On any other node `fa data` refuses
 with exit 4 and says so, rather than answering "no match" from an index that is not there; from a laptop,
@@ -110,6 +131,18 @@ before you *write*.
 `dist`, `build`, `.next`, `.nuxt`, `.svelte-kit`, `target`, `.gradle`, `coverage` and `vendor` are
 excluded by the `glob` and `grep` tools too, at the engine level. If you genuinely need to search inside
 one, name it explicitly in the path.
+
+Backups are excluded too (`*.bak`, `*.bak-*`, `*.orig`, `*.rej`, `*.save`, `*.old`, `*.tmp`). Added
+2026-10-08: `fa-estate` on `hetzner` and `lpt-apps-01` was returning nothing but
+`/root/bin/find-anything.bak-<ts>` — the search tool's own backups — and counting them as code hits on
+those nodes, so "4 nodes with hits" was really 2.
+
+## The estate-wide search
+
+`fa-estate <mode> <query>` runs the same query on every node concurrently and distinguishes three
+outcomes that must never be confused: **found**, **none** (a real negative), and **unavailable** (the node
+did not answer, which is NOT a negative). Since 2026-10-08 those map to exit `0` / `1` / `4`, and a bad
+subcommand exits `2`; before that, hits, a clean miss and a bad subcommand all exited 0.
 
 ## If a search is slow anyway
 
