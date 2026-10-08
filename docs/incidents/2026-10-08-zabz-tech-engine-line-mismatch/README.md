@@ -142,3 +142,31 @@ Note also for whoever picks this up: `check-version-coupled-config.py` reads `--
 of `<repo>/multi-window/windows.json` and `$DSH_HOME/multi-window/windows.json`, while `dshw.ps1`
 reads `multi-window/machines/<COMPUTERNAME>.windows.json` when present — so a `dshInstall` written for
 the launcher is not necessarily the knob the guard sees.
+
+### Additional facts measured after the first draft, all pointing the same way
+
+- `profile-gate.mjs` on `zabz-tech`, run by hand: `OK zabz-tech profiles=3 287ms / via node v24.19.0 /
+  and C:\Users\ezabz\.dsh\profiles\node_modules\@deepseek-ai\dsh\lib\bin.js`. That is the **farm
+  junction**, which resolves to the npx cache — i.e. the gate does its profile checks with the
+  **0.1.5-rc.1** engine on a machine that runs 0.2.0-rc.2, and it spawns it on the same 15-minute
+  cadence as the sync. `binCandidates()` (line 92) tries `~/dsh-engine`, then
+  `home()/profiles` (the farm), then `~/dsh`, then the execPath-relative path, then the npx cache:
+  `~/.dsh/engine` is not in the list at all, and neither is `~/dsh-current` on POSIX.
+- There is a second way the guard can skip **without printing its warning**, and it does not need a
+  race: sync.py only appends a `WARNING --` when the checker reports a `conflictDetail` or
+  `engineResolvedBy == "config"`. A run that resolves a *running process* while `configured` is
+  **empty** (no `$DSH_HOME/profiles`, no `DSH_INSTALL`/`DSH_BIN`, no `dshInstall`) produces exactly
+  the observed line: `SKIPPED -- ... which the running engine (0.1.5-rc.1) does not provide`, with no
+  suffix at all.
+- A 7-minute poll (2 s sampling) of every `node.exe` on the machine, recording each new pid with its
+  full command line, saw **only** pid 30396 (the pin). The gate's individual probes last 64-89 ms, so
+  a sampling poll cannot refute the hypothesis; it only shows the window is short.
+
+**The decisive experiment for the next session** is therefore not more code reading: register a
+one-shot scheduled task that runs, in the same context the VBS uses
+(`pwsh -NoProfile -NonInteractive -File`), the guard with `--json`, `$env:DSH_HOME`, `$env:PATH` and
+`shutil.which('pwsh')` written to a file — and read the JSON it produces. Whichever branch it lands
+in (`running-process` with a farm-rooted pid, or `config` with an empty configured set) names the
+fix precisely, and both fixes are local: add `~/.dsh/engine` / `~/dsh-current` to
+`profile-gate.mjs`'s `binCandidates()` first, and give the guard an unambiguous engine root rather
+than letting it infer one.
