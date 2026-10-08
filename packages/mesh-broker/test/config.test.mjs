@@ -87,8 +87,9 @@ test('the per-node v1 transport capability keeps "measured broken" and "unmeasur
   const config = loadConfig(fileURLToPath(new URL('../nodes.json', import.meta.url)));
   const byName = Object.fromEntries(config.nodes.map((entry) => [entry.node, entry]));
   assert.equal(byName['zabz-tech'].dispatch.v1, true, 'measured working: S6 ran children there');
-  assert.equal(byName['zabz-yoga-1'].dispatch.v1, true, 'measured working again: S6 fixed the reparse-point trust and a full dispatch to it completed exit 0');
-  assert.ok(byName['zabz-yoga-1'].dispatch.evidence.includes('reparse-point'));
+  assert.equal(byName['zabz-yoga-1'].dispatch.v1, true, 'measured working again 2026-10-08: a corrupted credential store (stray top-level keys) killed every headless turn on this node, the keys were moved under `refs:`, and the same headless child turn then returned MESH-PROBE-OK exit 0 in 17 s');
+  assert.ok(byName['zabz-yoga-1'].dispatch.evidence.includes('reparse-point'), 'the evidence names the stale reparse-point note it corrects');
+  assert.ok(byName['zabz-yoga-1'].dispatch.evidence.includes('SET BACK TO false'), 'and what would revoke the flag again - a capability is a dated measurement in both directions');
   assert.equal(byName['secratary'].dispatch.v1, null, 'unmeasured stays unmeasured - not a claim in either direction');
   // RESTORED TO true 2026-09-17 (docs/mesh/104-node-enabled.md). The `false` this assertion
   // carried from 2026-09-17T14:00Z was correct and is not being quietly flipped: it answered the
