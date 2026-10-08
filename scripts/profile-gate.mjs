@@ -151,7 +151,14 @@ function listProfiles(only) {
   if (only) return [only];
   if (!existsSync(root)) return [];
   return readdirSync(root, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && d.name !== 'node_modules')
+    // The module tree is `node_modules`; an engine upgrade also leaves SNAPSHOTS of it beside
+    // the tree as `node_modules.<stamp>`, and neither is a profile. Measured 2026-10-05: a 0.2.0
+    // rollback left `node_modules.pre-020-<stamp>` and `node_modules.post-rollback-<stamp>` under
+    // profiles/, this filter admitted them as profiles, each lacks a package.json, and the gate
+    // reported CANNOT-BOOT for 35 consecutive runs while every real profile (web, headless,
+    // headless-resume) composed cleanly. Exclude the module tree by PREFIX, not by exact name, so
+    // a later rollback cannot redden the gate the same way.
+    .filter((d) => d.isDirectory() && !d.name.startsWith('node_modules'))
     .map((d) => d.name)
     .sort();
 }
