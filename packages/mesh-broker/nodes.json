@@ -13,10 +13,10 @@
       "baseUrl": "https://zabz-tech.tail93e6e6.ts.net",
       "dispatch": {
         "v1": true,
-        "measuredAt": "2026-09-16",
-        "evidence": "stream S6's parent booted over ssh on this node and loaded the mesh plugin, and three child turns completed through `ssh <node> dsh --profile headless` with their MESH-HOST: lines verified (docs/mesh/70-remote-fanout-proof.md §2)"
+        "measuredAt": "2026-10-08",
+        "evidence": "RE-MEASURED WORKING 2026-10-08, after the defect in this row's previous revision was found and fixed. THE DEFECT: scripts/vscode-update/mcp_launcher.py opened data/logs/mcp-launcher.log UNCONDITIONALLY after computing `missing = [keys absent from the repo .env]`; under the mesh child's execution context that open raised PermissionError, the one-shot exited 1 with no completion frame, and because the retry classifier read ANY non-zero exit with no frame as `child-ran-transport-fault` (harvest, never re-dispatch) NOTHING EVER REROUTED. Eight of eight children died here while zabz-tech-linux sat idle, and every session silently went local. THE FIX, in two halves, both committed: (1) the launcher now routes every log open through `_open_log()`, which returns a write-nothing stand-in instead of raising, because a server must not depend on being able to log (the node's copy is backed up as mcp_launcher.py.bak-prelogfix); (2) plugin-remote-fanout/lib/retry-plan.js now answers `node-specific` - i.e. reroute - for a non-zero exit that produced NOTHING AT ALL, while keeping the anti-duplication guard intact for any child that emitted its own markers. VERIFIED AFTER THE FIX, over ssh: `node <bin.js> --profile headless 'Reply with exactly MESH-OK-ZABZTECH and nothing else.'` -> MESH-OK-ZABZTECH, exit 0. Interpreter form and credential source unchanged."
       },
-      "note": "the owner's office desktop, i9-14900 24c/32t, 63.6 GB - the primary worker"
+      "note": "the owner's office desktop, i9-14900 24c/32t, 63.6 GB - the primary worker and the strongest machine on the mesh. Its 2026-10-08 dispatch outage was a crashing MCP launcher in a DIFFERENT repo's checkout, never the box. Re-measure before changing this flag: ~/bin/mesh-node-probe.sh runs a real child turn against every node and flags any disagreement with this roster."
     },
     {
       "node": "zabz-yoga-1",
