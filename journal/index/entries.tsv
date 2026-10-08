@@ -871,6 +871,9 @@ handoff	H3332	3332		2026-10-08 03:25 UTC	ZABZ-YOGA	open	## 2026-10-08 03:25 UTC 
 handoff	H3333	3333		2026-10-08 03:51 UTC	ZABZ-YOGA	open	## 2026-10-08 03:51 UTC · ZABZ-YOGA · Stripe audit: 127 of 129 settled charges have no order attached - but the board's own payment state is mostly right, and my first two readings of this were wrong	entries/handoff/H3333.md	1	56	778efe30f18476bc	lpt,money,stripe,audit	
 handoff	H3334	3334		2026-10-08 03:53 UTC	ZABZ-YOGA	open	## 2026-10-08 03:53 UTC · ZABZ-YOGA · fast-search v3: seven defects found, fixed, deployed to four nodes	entries/handoff/H3334.md	1	64	c21f1f56a0c9077a		
 handoff	H3335	3335		2026-10-08 03:55 UTC	ZABZ-YOGA	open	## 2026-10-08 03:55 UTC · ZABZ-YOGA · Root cause of the unlinked card payments: the order IS threaded into the Stripe intent, but the counter never selects one - and the webhook that should settle the row never does	entries/handoff/H3335.md	1	57	b8e4b9e93662c6b9	lpt,money,stripe,rootcause	
+handoff	H3380	3380		2026-10-08 18:37 UTC	SECRATARY	open	## 2026-10-08 18:37 UTC · SECRATARY · Senzer HP EliteBook 840 G3: the device that was sitting with only a sticky note, now case + WO26100812736	entries/handoff/H3380.md	1	61	89afc6ccd29a42e4		
+handoff	H3381	3381		2026-10-08 18:40 UTC	ZABZ-YOGA	open	## 2026-10-08 18:40 UTC · ZABZ-YOGA · Gestetner SX740 screen hinge: pulled, and it is a 5-week comeback on WO2609010002	entries/handoff/H3381.md	1	42	36de126221ecaaec	gestetner,lpt,comeback,sx740	
+handoff	H3382	3382		2026-10-08 18:43 UTC	SECRATARY	open	## 2026-10-08 18:43 UTC · SECRATARY · Schreiber Dell Inspiron 15 3520: note, Dialpad trail, case and WO26100812737	entries/handoff/H3382.md	1	49	abf933d0b87391a1		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2159,6 +2162,10 @@ lessons	L3376	3376		2026-10-08	SECRATARY	open	**L3376 · A region test disc is a
 lessons	L3393	3393		2026-10-08	secratary	open	**L3393 · journal-commit's ten red rows were a real divergence, not a broken job - and the empty stderr column hid it**	entries/lessons/L3393.md	1	48	6390fb97c14f796c		
 lessons	L3394	3394		2026-10-08	SECRATARY	open	**L3394 · Haiku 5.5 vs DeepSeek V4.1 Flash: Haiku wins intelligence, DeepSeek wins long cache-heavy loops**	entries/lessons/L3394.md	1	58	a7e352cd14bf5621	cost,models,benchmarks	L1898
 lessons	L3395	3395		2026-10-08	SECRATARY	open	**L3395 · Our measured token shape: 99.5% cache hits, 217k avg prompt - the 100k cliff, not the cache rate, is what makes DeepSeek cheaper**	entries/lessons/L3395.md	1	50	3840e1fb436ca14b	cost,models,measurement	L3394
+lessons	L3398	3398		2026-10-08	SECRATARY	open	**L3398 · Read the tool's --help before its README, and fix the README in the same session**	entries/lessons/L3398.md	1	22	9ecd3b2ecd6ba11a		
+lessons	L3399	3399		2026-10-08	SECRATARY	open	**L3399 · A blank crop is not a blank line: prove a handwriting line is absent before recording it**	entries/lessons/L3399.md	1	24	8d523859ad033390		
+lessons	L3400	3400		2026-10-08	ZABZ-YOGA	open	**L3400 · lpt sql cannot carry a double-quoted identifier from a Windows shell**	entries/lessons/L3400.md	1	27	0e611e5a01a8a4e1	lpt,sql,tooling,windows	
+lessons	L3401	3401		2026-10-08	ZABZ-YOGA	open	**L3401 · In the operational store a note that says paid is not a payment row**	entries/lessons/L3401.md	1	26	356b63bc7eb57ca2	lpt,money,payments,production	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
