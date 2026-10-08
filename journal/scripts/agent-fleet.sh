@@ -71,6 +71,25 @@ slugify() { printf '%s' "$1" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9._-]/-/g'; }
 
 git_ok() { git -C "$1" "${@:2}" >/dev/null 2>&1; }
 
+# Gitignored build prerequisites a fresh worktree needs but cannot inherit. They are not in the
+# commit, so `git worktree add` cannot bring them, and their absence fails the build minutes later
+# with an error that does not name the cause. Measured 2026-09-17 on kosher-filter-ai (journal P266):
+# every worktree of the Android repo died after ~2 minutes with
+#   'Could not determine the dependencies of task :app:testDebugUnitTest > SDK location not found'
+# costing one wasted Gradle run per agent, per fleet. Copying from the base checkout is safe
+# precisely because the base IS this machine's working copy: the value is machine-local, which is
+# why it is gitignored in the first place.
+copy_build_prereqs() {
+  local rp="$1" wt="$2" rel src dst
+  for rel in android/local.properties; do
+    src="$rp/$rel"; dst="$wt/$rel"
+    if [ -f "$src" ] && [ ! -f "$dst" ]; then
+      mkdir -p "$(dirname "$dst")"
+      cp "$src" "$dst" && echo "      seeded $rel"
+    fi
+  done
+}
+
 # Print "path<TAB>branch" per agent/* worktree.
 agent_worktrees() {
   local rp="$1"
@@ -173,8 +192,7 @@ cmd_new() {
 
   local made=0
   local IFS=','
-  for raw in $NAMES; do
-    unset IFS
+  for raw in $NAMES; do    unset IFS
     local slug; slug="$(slugify "$(printf '%s' "$raw" | sed 's/^ *//; s/ *$//')")"
     [ -n "$slug" ] || continue
     local path branch
@@ -186,6 +204,7 @@ cmd_new() {
       # Attach to an existing branch so an interrupted run can be resumed.
       if git -C "$rp" worktree add --quiet "$path" "$branch" 2>/dev/null; then
         echo "OK    $slug  ->  $path  [$branch]  (existing branch)"
+        copy_build_prereqs "$rp" "$path"
         made=$((made + 1))
       else
         echo "FAIL  $slug"
@@ -193,6 +212,7 @@ cmd_new() {
     else
       if git -C "$rp" worktree add --quiet -b "$branch" "$path" "$BASE" 2>/dev/null; then
         echo "OK    $slug  ->  $path  [$branch]"
+        copy_build_prereqs "$rp" "$path"
         made=$((made + 1))
       else
         echo "FAIL  $slug"

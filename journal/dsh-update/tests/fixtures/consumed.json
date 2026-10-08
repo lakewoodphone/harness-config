@@ -1,0 +1,226 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-23T20:00:00.000Z",
+  "configRoot": "C:\\Users\\ezabz\\Code\\harness-config",
+  "dshHome": "C:\\Users\\ezabz\\.dsh",
+  "profileBundles": [
+    {
+      "name": "@deepseek-ai/dsh-base",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 9
+    },
+    {
+      "name": "@deepseek-ai/dsh-web-app",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 10
+    },
+    {
+      "name": "dsh-plugin-attention",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 11
+    },
+    {
+      "name": "dsh-plugin-attention-badge",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 12
+    },
+    {
+      "name": "dsh-plugin-cost",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 13
+    },
+    {
+      "name": "dsh-plugin-mobile",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 14
+    },
+    {
+      "name": "dsh-plugin-windows",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 15
+    },
+    {
+      "name": "dsh-plugin-health",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 16
+    },
+    {
+      "name": "dsh-plugin-mesh-http",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 17
+    },
+    {
+      "name": "dsh-plugin-remote-fanout",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 18
+    },
+    {
+      "name": "dsh-plugin-session-link",
+      "source": "profile",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\package.json",
+      "line": 19
+    }
+  ],
+  "packageRefs": [
+    {
+      "name": "@deepseek-ai/dsh-tool-subagent-control",
+      "subpath": ".",
+      "kind": "preset-row",
+      "file": "presets/zabz/agent.cordis.yml",
+      "line": 304
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-subagent-control/list-agents",
+      "subpath": "./list-agents",
+      "kind": "preset-row",
+      "file": "presets/zabz/agent.cordis.yml",
+      "line": 338
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-subagent-control/list-agents",
+      "subpath": "./list-agents",
+      "kind": "preset-row",
+      "file": "presets/cordis-bg/agent.cordis.yml",
+      "line": 231
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-subagent-control/list-agents",
+      "subpath": "./list-agents",
+      "kind": "preset-row",
+      "file": "presets/yocheved/agent.cordis.yml",
+      "line": 326
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-subagent",
+      "subpath": ".",
+      "kind": "preset-row",
+      "file": "presets/zabz/agent.cordis.yml",
+      "line": 372
+    },
+    {
+      "name": "dsh-plugin-cost",
+      "subpath": "./guard",
+      "kind": "preset-row",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\node_modules\\dsh-plugin-cost\\cordis.patch.yml",
+      "line": 3
+    }
+  ],
+  "rowIds": [
+    {
+      "id": "tool-subagent-list-agents",
+      "file": "presets/zabz/agent.cordis.yml",
+      "line": 337,
+      "where": "preset"
+    },
+    {
+      "id": "tool-subagent-remote",
+      "file": "presets/zabz/agent.cordis.yml",
+      "line": 372,
+      "where": "preset"
+    }
+  ],
+  "isolateServices": [
+    {
+      "service": "workflowEngine",
+      "file": "presets/zabz/agent.cordis.yml",
+      "line": 301
+    }
+  ],
+  "settingsKeys": [
+    {
+      "key": "spend-guard.ceilingUsd",
+      "value": 150,
+      "file": "settings/base.yaml",
+      "line": 41
+    },
+    {
+      "key": "llm-deepseek.streamIdleTimeoutMs",
+      "value": 60000,
+      "file": "settings/base.yaml",
+      "line": 13
+    },
+    {
+      "key": "ui-onboarding.welcomeNoticeVersion",
+      "value": "2026-08-13.1",
+      "file": "settings/base.yaml",
+      "line": 1
+    }
+  ],
+  "cliInvocations": [
+    {
+      "argv": [
+        "plugin",
+        "add"
+      ],
+      "file": "scripts/dsh-plugin-sync.py",
+      "line": 12
+    },
+    {
+      "argv": [
+        "web",
+        "--port"
+      ],
+      "file": "multi-window/dshw.ps1",
+      "line": 249
+    }
+  ],
+  "pluginImports": [
+    {
+      "package": "dsh-plugin-health",
+      "module": "@deepseek-ai/cordis",
+      "symbols": [
+        "Context"
+      ],
+      "file": "packages/plugin-health/src/index.ts",
+      "line": 3
+    },
+    {
+      "package": "dsh-plugin-remote-fanout",
+      "module": "@deepseek-ai/dsh-tool-subagent",
+      "symbols": [
+        "Config"
+      ],
+      "file": "packages/plugin-remote-fanout/src/index.ts",
+      "line": 11
+    }
+  ],
+  "patchRowTargets": [
+    {
+      "id": "typert-gateway",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\cordis.patch.yml",
+      "line": 28,
+      "layer": "host"
+    },
+    {
+      "id": "connection",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\cordis.patch.yml",
+      "line": 64,
+      "layer": "host"
+    },
+    {
+      "id": "remote-fanout",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\cordis.patch.yml",
+      "line": 132,
+      "layer": "host"
+    },
+    {
+      "id": "tool-subagent-remote",
+      "file": "C:\\Users\\ezabz\\.dsh\\profiles\\web\\cordis.patch.yml",
+      "line": 248,
+      "layer": "host"
+    }
+  ],
+  "notes": [
+    "fixture: file/line pairs are the real lines in this deployment (verified 2026-09-23)"
+  ]
+}

@@ -8,8 +8,13 @@ What changes:
   * a new persona, written from the measured analysis of 23,035 owner turns
   * an MCP row giving the agent the secretary's 14 live tools
   * display metadata
-  * the mesh delegation tool (`subagent_remote`), added 2026-09-17 — see
-    REMOTE_DELEGATION_ROW below and docs/mesh/90-provider-mount.md
+  * the mesh as the DEFAULT delegation route (2026-09-17). The tool named
+    `subagent` — the name an agent reaches for when told to "spawn subagents" —
+    is bound to the `remote-ssh` provider, so its children are real agent turns
+    on ANOTHER node. The local `spawn` tool survives under its own name
+    (`subagent_local`), and `subagent_remote` is kept as an alias of the mesh so
+    that every prompt and script that already names it still routes to the mesh.
+    See DELEGATION_ROWS below and docs/mesh/94-routing-default.md
 
 Run from the harness-config repo root:
     python scripts/make_zabz_preset.py
@@ -61,6 +66,8 @@ These are not style preferences. Every one is measured from months of transcript
 **1. Do not stop to ask permission you already have.** 9.9% of his messages were "keep going", "get to work", "fully solve it" — 2,283 turns spent restarting an agent that had halted to report. Finish the job. A turn may end only for one of four reasons: the task is complete with evidence; you are genuinely blocked; the decision is his to make; or the action is irreversible. Never ask "shall I proceed?" for work already inside your mandate. Long work goes to a background job so the turn is not idled.
 
 **1b. On any larger job, orchestrate — do not grind serially.** His words, 2026-09-15: *"meaning on any larger job, you should default to orchestraotr and give out jobs to subagents. the harness sholuld know this and defualt to this on jobs instead of constant single thread iterations."* When a job has more than one genuinely independent piece — a backlog, several repos, a build-out, many files, "everything that needs doing" — **default to fanning it out across subagents**, each isolated in its own git worktree and branch, and then manage them rather than build. Partition by file so no two agents touch the same path, write each brief as a contract with a checkable definition of done, integrate serially in risk order, and reproduce every claim yourself before believing it. **Single-thread iteration is the fallback for genuinely sequential work, not the default.** A serial agent stops after each increment and needs restarting; a fleet finishes the job while you integrate. The capability, both scripts and the brief template are in `presets/*/skills/parallel-agent-orchestration/` and `docs/parallel-agent-orchestration.md` — read them before a machine's first fleet, and run `agent-fleet doctor` there first.
+
+**1c. The fleet runs on the MESH — `subagent` is a child on another machine.** Fan-out is not local any more, and it needs no special wording in a prompt: the tool named `subagent` is bound to the remote provider, so a child it starts is a real agent turn on another node while this machine stays flat (measured 2026-09-17: zero new node processes locally during a dispatch — `docs/mesh/91-resident-dispatch-proof.md`). `subagent_remote` is the same provider under its old name; either tool is the mesh, and neither is local. The local ones say so in their own names: `subagent_local` runs the child on THIS machine, and `subagent_fork` runs it in this engine's own process with this conversation's history. **Never fan out locally while the mesh is reachable.** When a `subagent` call fails — ssh, the target node, the provider — quote the provider's own diagnostic, say in one line that the mesh was unreachable, and then choose explicitly: do the work yourself, or fall back and mark every result that came from `subagent_local` or `subagent_fork` as LOCAL in your report. A fallback nobody can see is a claim about where work ran that is not true. If your tool list has no `subagent` at all, the mesh provider is not mounted on this machine: say so in one line and carry on with what you have.
 
 
 **2. Ask rarely, ask well, ask one at a time, and always recommend.** 4.2% of his messages were "one at a time" and 2.2% were "give me options with a recommendation". When something truly belongs to him, ask exactly one question, in plain language, with the options laid out and one of them marked as your recommendation. Never a menu of five. Never two questions at once. Never a wall of text before the question.
@@ -174,59 +181,96 @@ You are expected to get better on your own, not to wait to be improved.
 Read `~/code/personal-secretary-mvp/docs/secretary-replacement-audit/` — the full audit of how he works, what has broken, and what he needs. It is the evidence base for your own behaviour. Prefer it over guessing.
 """
 
-# ── the mesh delegation row, inserted into the delegation group ──────────────
+# ── the mesh IS `subagent`: the routing default, and the fallback ────────────
 #
-# WHAT IT IS. `packages/plugin-remote-fanout` registers a second named provider
-# on the process-wide `ctx.subagents` registry whose children are real DSH agent
-# turns on ANOTHER node. The provider row lives in the HOST plane (the `web`
-# profile's own patch layer, profiles/web/cordis.patch.yml) because
-# `ctx.subagents.registerProvider` THROWS when one name is registered twice
-# (`dsh-subagent/lib/index.js:3106-3116`, DUPLICATE_PROVIDER) and a preset mounts
-# once per session — a provider row here would work for the first session and
-# break every session after it.
+# WHAT CHANGED, AND WHY IT HAD TO. Until 2026-09-17 the mesh was mounted as a
+# SEPARATE tool (`subagent_remote`) beside the built-in local one, so an agent
+# told to "fan the work out" chose the LOCAL tool and every child ran on this
+# laptop. That was measured, not feared: `scripts/mesh-e2e.ps1` carries the
+# workaround it was forced into ("The parent MUST be told to call
+# `subagent_remote` by name"), `docs/mesh/82-e2e-run.md` says why ("the parent
+# choosing the LOCAL subagent tool was the cause, not the transport"), and
+# `journal/entries/wins/W196.md` records 0-of-1 -> 6-of-6 three times over once
+# the prompt named the remote tool.
 #
-# THIS ROW IS THE TOOL, which is the half a preset owns. It resolves the host
-# registry exactly as the built-in `subagent` row above resolves `spawn`, and it
-# is the shape the shipped `codex` / `claude-code` rows below use: a host-plane
-# provider, a preset-level tool.
+# A prompt-level norm is not an implementation: a tool is chosen by NAME. So the
+# NAME is what changes — the row that used to grant the local `spawn` provider
+# as `subagent` now binds that same tool name to `remote-ssh`. Fan-out is the
+# mesh by default, with no new wording in any prompt and nothing for the owner
+# to remember.
 #
-# `maxDepth: provider-managed` IS REQUIRED, NOT A PREFERENCE. An out-of-process
-# child advertises no capabilities, and `dsh-tool-subagent` refuses a numeric
-# maxDepth on a provider without the `depthLimit` capability
-# (`dsh-tool-subagent/lib/index.js:377`). `enableRunInBackground: false` keeps a
-# call synchronous, so a parent collects each remote child's result directly
-# instead of polling a job.
+# CAN THE LOCAL TOOL BE DISABLED HERE? Yes. The mechanism is already exercised
+# twice inside this very group: `disabled: true` on the `codex`/`claude-code`
+# rows below, and `disabled: !!js ...` on `tool-subagent-list-agents`. A group's
+# `config:` list is an ordinary loader entry tree (`cordis-plugin-group` ->
+# `EntryGroup.update` -> `Entry.create`) and the loader honours `disabled` per
+# entry, including the `!!js` form (`cordis-plugin-loader/src/config/entry.ts`
+# lines 19 and 88-108: "a `!!js` expression evaluates against the loader
+# context"). The `web` profile's own patch layer already disables the HOST copy
+# of this row for the same reason — `dsh --profile web --dump-config` prints
+# `- id: tool-subagent ... disabled: true` — because `web` grants delegation
+# tools per AGENT, from the preset.
+#
+# WHY THE LOCAL TOOL IS RENAMED RATHER THAN DELETED. Deleting it would make one
+# machine — or one unreachable office desktop — a single point of failure for
+# every fleet in the house, and a point of failure is worse than local
+# execution. It is renamed instead: `subagent_local` is the same `spawn`
+# provider under a name that carries its own warning. A fallback taken under a
+# DIFFERENT tool name is visible in the transcript by construction; a fallback
+# taken under the SAME name would be invisible, and that is the one outcome this
+# design refuses.
+#
+# ONE-SHOT, BOTH WAYS. `maxDepth: provider-managed` IS REQUIRED, NOT A
+# PREFERENCE: an out-of-process child advertises no capabilities, and
+# `dsh-tool-subagent` refuses a numeric maxDepth on a provider without the
+# `depthLimit` capability (`dsh-tool-subagent/lib/index.js:377`). The remote
+# provider has no `prepareContinuable`, so its `backgroundMode` must never be
+# `continuable` — that fails the mount-time assertion at `lib/index.js:380` and
+# takes the whole preset down with it. `enableRunInBackground: false` keeps a
+# remote call synchronous, so a parent collects each child's result directly
+# instead of polling a job — and it costs no parallelism, because the tool
+# declares `isConcurrencySafe: () => true` (`lib/index.js:489`), so several
+# `subagent` calls in one assistant message are dispatched together.
+#
+# WHY THE ALIAS. `subagent_remote` is kept, bound to the same provider, because
+# three scripts this generator does not own assert on that string
+# (`mesh-provider-install.ps1:239`, `mesh-restart-at-0700.ps1:706`,
+# `mesh-e2e.ps1:1457`) and because every prompt written before today that says
+# "call subagent_remote" still means the mesh. It is redundant on purpose; its
+# retirement belongs to whoever updates those three callers.
 #
 # THE TOOL APPEARS ONLY WHEN THE PROVIDER DOES, and it degrades quietly rather
 # than breaking the preset: the shipped tool row logs "subagent provider
-# \"remote-ssh\" not registered yet; the \"subagent_remote\" tool will register
-# when it appears" (`lib/index.js:565-575`) and waits for
-# `subagent/provider-added`. So a machine where the bundle is not installed still
-# mounts this preset and simply has no `subagent_remote` — the same reasoning the
-# MCP rows use for `failOnStartupError: false`.
-REMOTE_ANCHOR = """    - id: tool-subagent-fork
+# \"remote-ssh\" not registered yet; the \"subagent\" tool will register when it
+# appears" (`lib/index.js:565-575`) and waits for `subagent/provider-added`. So a
+# machine where the bundle is not mounted still mounts this preset — it simply
+# has no `subagent` tool, which is the state the persona tells the agent to
+# report in one line and work around.
+LOCAL_SUBAGENT_ANCHOR = """    - id: tool-subagent
       name: '@deepseek-ai/dsh-tool-subagent'
       config:
-        provider: fork
-        toolName: subagent_fork
+        provider: spawn
+        toolName: subagent
+        modelSelectionSettings: true
         backgroundMode: continuable
 """
 
-REMOTE_DELEGATION_ROW = """\
-    # The mesh: delegation whose children are real agent turns on ANOTHER node
-    # (`packages/plugin-remote-fanout`, provider `remote-ssh`, configured in
-    # profiles/web/cordis.patch.yml). `subagent` above stays local; the choice is
-    # visible in which tool the agent calls, and the child's own first line is its
-    # hostname, so where the work ran is measured rather than asserted.
-    #
-    # ONE-SHOT ONLY, by construction: the provider has no `prepareContinuable`, so
-    # a follow-up message to a remote child is rejected by the seam. One-shot
-    # fan-out is what a fleet is; continuation needs the Activation ownership
-    # contract dsh-subagent's README names as missing.
-    #
-    # The provider is a HOST-plane row registered once per process — a provider
-    # inside a preset would collide on the second session (DUPLICATE_PROVIDER).
-    # This row is the TOOL, the half a preset owns.
+DELEGATION_ROWS = """\
+    # `subagent` IS THE MESH (2026-09-17). Its children are real agent turns on
+    # another node (`packages/plugin-remote-fanout`, provider `remote-ssh`,
+    # configured in profiles/web/cordis.patch.yml) — not on this machine. No
+    # prompt has to say so: the tool an agent reaches for by reflex is the
+    # remote one.
+    - id: tool-subagent
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: remote-ssh
+        toolName: subagent
+        enableRunInBackground: false
+        maxDepth: provider-managed
+
+    # The mesh under its old name, for the scripts and prompts that already say
+    # it. Same provider, same behaviour, same node.
     - id: tool-subagent-remote
       name: '@deepseek-ai/dsh-tool-subagent'
       config:
@@ -234,6 +278,24 @@ REMOTE_DELEGATION_ROW = """\
         toolName: subagent_remote
         enableRunInBackground: false
         maxDepth: provider-managed
+
+    # THE FALLBACK, NAMED SO IT CANNOT BE MISTAKEN FOR THE MESH: the child runs
+    # on THIS machine. Reach for it only when the mesh is unreachable or the
+    # owner asked for local work, and label its results LOCAL.
+    #
+    # `backgroundMode: one-shot`, NOT `continuable`, on purpose: the shipped row
+    # emits a system-prompt section reading "Use <toolName> in the background by
+    # default" whenever it is both background-enabled and continuable
+    # (`lib/index.js:576-580`) — for the local fallback that is a prompt telling
+    # the agent to prefer it. One-shot silences that section and keeps
+    # `run_in_background: true` available for a parent that wants a job id.
+    - id: tool-subagent-local
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: subagent_local
+        modelSelectionSettings: true
+        backgroundMode: one-shot
 """
 
 MCP_ROWS = r"""
@@ -461,28 +523,28 @@ def main() -> int:
     # Strip the original cordis self-authoring prose paragraph if it survived
     # (it lives inside the persona we just replaced, so nothing to do here).
 
-    # ── the mesh delegation row ──────────────────────────────────────────────
+    # ── the mesh routing default ─────────────────────────────────────────────
     #
-    # WHY IT IS INSERTED AND NOT CARRIED IN presets/cordis-bg/agent.cordis.yml:
-    # that file is the SOURCE for two presets, and this capability is granted to
+    # WHY IT IS REWRITTEN HERE AND NOT IN presets/cordis-bg/agent.cordis.yml:
+    # that file is the SOURCE for two presets, and the mesh route is granted to
     # one of them on purpose — the owner's own `zabz` sessions. `cordis-bg` keeps
     # delegating locally.
     #
-    # THE ANCHOR IS CHECKED, NOT ASSUMED. If the fork row is ever rewritten the
+    # THE ANCHOR IS CHECKED, NOT ASSUMED. If the local row is ever rewritten the
     # count is not 1 and this exits 2 rather than silently generating a preset
-    # without the tool — a silent no-op is how a capability disappears while
-    # `--check` stays green.
-    if "tool-subagent-remote" not in text:
-        occurrences = text.count(REMOTE_ANCHOR)
+    # whose `subagent` tool is still local — a silent no-op is how a capability
+    # change disappears while `--check` stays green.
+    if "tool-subagent-local" not in text:
+        occurrences = text.count(LOCAL_SUBAGENT_ANCHOR)
         if occurrences != 1:
             print(
-                f"could not locate the tool-subagent-fork anchor "
+                f"could not locate the local tool-subagent row "
                 f"(found {occurrences}, want exactly 1) — refusing to generate a preset "
-                f"silently missing the mesh delegation tool",
+                f"whose `subagent` tool would still run its children on this machine",
                 file=sys.stderr,
             )
             return 2
-        text = text.replace(REMOTE_ANCHOR, REMOTE_ANCHOR + "\n" + REMOTE_DELEGATION_ROW + "\n", 1)
+        text = text.replace(LOCAL_SUBAGENT_ANCHOR, DELEGATION_ROWS, 1)
 
     if "mcp-secretary" not in text:
         text = text.rstrip("\n") + "\n" + MCP_ROWS

@@ -9,6 +9,17 @@ import { resolvePlacementMode } from '../lib/index.js';
 import { hostMatchesNode, isHostToken, NODES } from '../lib/nodes.js';
 import { createNodePlacer, createPlacementLedger, PLACEMENT_NODE_UNKNOWN } from '../lib/placement.js';
 
+/**
+ * A pressure reader double. Every placement test injects one, and it defaults to
+ * a machine under NO pressure, so these tests keep asserting what they were
+ * written to assert — the broker contract and the node table — rather than
+ * whatever this laptop happened to be doing when the suite ran. Pressure's own
+ * behaviour is tested in `pressure.test.mjs`, where the numbers are controlled.
+ */
+function calmPressure(reading = { band: 'ok', why: 'test double: under no pressure', commitToPhysicalPct: 40, commitBytes: 13 * 1024 ** 3, physicalBytes: 33 * 1024 ** 3, availableBytes: 8 * 1024 ** 3, commitAvailableBytes: 20 * 1024 ** 3, commitAvailablePct: 60, agentsRunning: 1, nodeProcesses: 12, toolRunnerProcesses: 2, ageMs: 100, source: 'test double', at: new Date().toISOString() }) {
+  return { read: () => reading };
+}
+
 /** A broker double that answers /place, /done and /nodes from a script. */
 function fakeBroker({ placement, nodes = () => ({ nodes: [] }), done } = {}) {
   const calls = { place: [], done: [], nodes: [] };
@@ -58,7 +69,7 @@ const ONESHOT = { kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, ex
 test('acquire() asks the broker once and turns its node name into an ssh destination', async (t) => {
   const { ledger } = ledgerInTempDir(t);
   const broker = fakeBroker({ placement: { node: 'zabz-tech', position: 0, lease: 'L1' } });
-  const placer = createNodePlacer({ broker, ledger });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger });
   const placement = await placer.acquire({ id: 'remote-1' });
 
   assert.equal(broker.calls.place.length, 1);
@@ -79,7 +90,7 @@ test('acquire() asks the broker once and turns its node name into an ssh destina
 test('a POSIX node with an executor is placed with the executor form on the record', async (t) => {
   const { ledger } = ledgerInTempDir(t);
   const broker = fakeBroker({ placement: { node: 'zabz-tech-linux', position: 0, lease: 'L2b' } });
-  const placer = createNodePlacer({ broker, ledger });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger });
   const placement = await placer.acquire({ id: 'remote-2b' });
   assert.equal(placement.facts.command, 'dsh');
   assert.deepEqual(placement.facts.credentialEnvFiles, ['/etc/dsh-worker.env']);
@@ -91,7 +102,7 @@ test('a POSIX node with an executor is placed with the executor form on the reco
 test('acquire() carries the placed node\'s own shell, not the parent platform', async (t) => {
   const { ledger } = ledgerInTempDir(t);
   const broker = fakeBroker({ placement: { node: 'zabz-tech-linux', position: 0, lease: 'L2' } });
-  const placer = createNodePlacer({ broker, ledger });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger });
   const placement = await placer.acquire({ id: 'remote-2' });
   assert.equal(placement.facts.shell, 'posix');
   assert.equal(placement.facts.cwd, '/home/zabz/code');
@@ -100,7 +111,7 @@ test('acquire() carries the placed node\'s own shell, not the parent platform', 
 test('a broker answer naming a node this package cannot dispatch to is refused, not guessed', async (t) => {
   const { ledger } = ledgerInTempDir(t);
   const broker = fakeBroker({ placement: { node: 'someone-elses-laptop', position: 0, lease: 'L3' } });
-  const placer = createNodePlacer({ broker, ledger });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger });
   await assert.rejects(
     () => placer.acquire({ id: 'remote-3' }),
     (error) => {
@@ -113,7 +124,7 @@ test('a broker answer naming a node this package cannot dispatch to is refused, 
 
 test('a broker that cannot be asked throws, and no node is invented', async () => {
   const broker = fakeBroker({ placement: new BrokerError(BROKER_UNREACHABLE, 'the placement broker could not be reached at secratary-ts:http://localhost:3091/place — ssh exited 255') });
-  const placer = createNodePlacer({ broker });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1' });
   await assert.rejects(() => placer.acquire({ id: 'remote-4' }), /could not be reached at secratary-ts/);
 });
 
@@ -123,7 +134,7 @@ test('a broker that cannot be asked throws, and no node is invented', async () =
 
 test('position 0 does not wait and does not poll', async () => {
   const broker = fakeBroker({ placement: { node: 'zabz-tech', position: 0, lease: 'L' } });
-  const placer = createNodePlacer({ broker });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1' });
   const placement = await placer.acquire({ id: 'r' });
   const wait = await placer.waitForSlot(placement, {});
   assert.deepEqual(wait, { waited: false, waitedMs: 0, polls: [] });
@@ -138,7 +149,7 @@ test('position > 0 is surfaced with its position, the child waits, and a freed s
     nodes: (n) => ({ nodes: [{ node: 'zabz-yoga-1', state: 'ok', freeSlots: n < 3 ? 0 : 1 }] }),
   });
   const events = [];
-  const placer = createNodePlacer({ broker, queueWaitMs: 60_000, queuePollMs: 5_000, now: time.now, sleep: time.sleep });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', queueWaitMs: 60_000, queuePollMs: 5_000, now: time.now, sleep: time.sleep });
   const placement = await placer.acquire({ id: 'r9' });
   const wait = await placer.waitForSlot(placement, { onWait: (event) => events.push(event) });
 
@@ -162,7 +173,7 @@ test('a wait that expires says so and dispatches anyway — queue, never amputat
     nodes: () => ({ nodes: [{ node: 'zabz-tech', state: 'ok', freeSlots: 0 }] }),
   });
   const events = [];
-  const placer = createNodePlacer({ broker, queueWaitMs: 12_000, queuePollMs: 5_000, now: time.now, sleep: time.sleep });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', queueWaitMs: 12_000, queuePollMs: 5_000, now: time.now, sleep: time.sleep });
   const placement = await placer.acquire({ id: 'r10' });
   const wait = await placer.waitForSlot(placement, { onWait: (event) => events.push(event) });
   assert.equal(wait.timedOut, true);
@@ -180,7 +191,7 @@ test('a broker read that fails during the wait is recorded and the wait continue
     return { nodes: [{ node: 'zabz-tech', state: 'ok', freeSlots: 1 }] };
   };
   const events = [];
-  const placer = createNodePlacer({ broker, queueWaitMs: 60_000, queuePollMs: 1_000, now: time.now, sleep: time.sleep });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', queueWaitMs: 60_000, queuePollMs: 1_000, now: time.now, sleep: time.sleep });
   const placement = await placer.acquire({ id: 'r11' });
   const wait = await placer.waitForSlot(placement, { onWait: (event) => events.push(event) });
   assert.equal(wait.timedOut, false);
@@ -195,7 +206,7 @@ test('a broker read that fails during the wait is recorded and the wait continue
 test('release() gives the lease back and reports what the broker said', async (t) => {
   const { ledger } = ledgerInTempDir(t);
   const broker = fakeBroker({ placement: { node: 'zabz-tech', position: 0, lease: 'L12' } });
-  const placer = createNodePlacer({ broker, ledger });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger });
   const placement = await placer.acquire({ id: 'r12' });
   const released = await placer.release(placement, true);
   assert.deepEqual(broker.calls.done, [{ lease: 'L12', ok: true }]);
@@ -208,7 +219,7 @@ test('a lease that will not release is reported, never thrown: the broker reclai
     placement: { node: 'zabz-tech', position: 0, lease: 'L13' },
     done: new BrokerError(BROKER_UNREACHABLE, 'ssh exited 255'),
   });
-  const placer = createNodePlacer({ broker, ledger });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger });
   const placement = await placer.acquire({ id: 'r13' });
   const released = await placer.release(placement, false);
   assert.equal(released.ok, false);
@@ -218,7 +229,7 @@ test('a lease that will not release is reported, never thrown: the broker reclai
 test('the ledger writes one file per placement, carrying the position the broker gave', async (t) => {
   const { dir, ledger } = ledgerInTempDir(t);
   const broker = fakeBroker({ placement: { node: 'zabz-yoga-1', position: 2, lease: 'L14' } });
-  const placer = createNodePlacer({ broker, ledger });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger });
   const placement = await placer.acquire({ id: 'remote-abc' });
   assert.equal(placement.position, 2);
   ledger.record('remote-abc', { state: 'dispatching', waitedMs: 5000 });
@@ -238,7 +249,7 @@ test('a ledger that cannot be written is reported and never breaks the placement
     fs: { mkdirSync: () => { throw new Error('EACCES'); }, writeFileSync: () => {} },
   });
   const broker = fakeBroker({ placement: { node: 'zabz-tech', position: 0, lease: 'L15' } });
-  const placer = createNodePlacer({ broker, ledger });
+  const placer = createNodePlacer({ broker, pressureReader: calmPressure(), localNode: 'zabz-yoga-1', ledger });
   const placement = await placer.acquire({ id: 'r15' });
   assert.equal(placement.node, 'zabz-tech');
   assert.equal(warnings.length, 1);

@@ -4,7 +4,9 @@
  * Each check answers a different question, and a passing build does not imply any
  * of the others:
  *   build      — the generated files match the sources they are generated from
+ *   coldboot   — the generated files still load with DSH_HOME UNSET (2026-09-17)
  *   cost       — the rates, the tier arithmetic, and the fold against real logs
+ *   guard      — the spend guard's thresholds, its fail-closed paths and its wiring
  *   client     — the browser half registers and renders under the module loader
  *   profile    — the profile loader can resolve the package by name and use its manifest
  *
@@ -18,7 +20,12 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const checks = [
   ['build', ['scripts/build.mjs', '--check'], 'the generated files are current'],
+  // Immediately after `build`, because it tests the artifacts `build` just vouched for. A build
+  // that is in sync with a generator that emits a bad anchor is still an engine that cannot
+  // boot — that is the whole of 2026-09-17 (docs/incidents/2026-09-17-dsh-engine-boot-failure).
+  ['coldboot', ['test/cold-boot.test.mjs'], 'the generated files load with DSH_HOME unset'],
   ['cost', ['test/cost.test.mjs'], 'rates, tier arithmetic, and the fold on real logs'],
+  ['guard', ['test/guard.test.mjs'], 'the spend guard: thresholds, fail-closed, wiring'],
   ['client', ['test/client-smoke.mjs'], 'the browser half registers and renders'],
   ['profile', ['test/profile-resolution.manual.mjs'], 'the profile loader can resolve the package'],
 ];

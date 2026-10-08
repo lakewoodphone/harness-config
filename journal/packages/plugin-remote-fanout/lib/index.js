@@ -38,6 +38,7 @@
 
 import { createBrokerClient } from './broker-client.js';
 import { createPlacementLedger, createNodePlacer } from './placement.js';
+import { createPressureReader, decidePressure, describePressure, localNodeName, PREFER_REMOTE_DEFAULT, PREFER_REMOTE_POLICY } from './pressure.js';
 import { RemoteOneShotProvider } from './provider.js';
 import { createSshTransport } from './ssh-transport.js';
 
@@ -69,6 +70,34 @@ export function resolvePlacementMode(config = {}, env = process.env) {
 }
 
 /**
+ * Whether the `prefer-remote` POLICY is on, decided in ONE place and in the
+ * package rather than in a deployment file, for the same reason
+ * `resolvePlacementMode` is: the rule is about behaviour, not about a machine.
+ *
+ *   `preferRemote: true|false`   an explicit choice, in the row
+ *   `MESH_PREFER_REMOTE`         `1`/`true`/`on` (or `0`/`false`/`off`), from the environment
+ *   nothing at all               -> OFF (`PREFER_REMOTE_DEFAULT`)
+ *
+ * OFF IS THE DEFAULT ON PURPOSE, and the reason is one sentence: today's defect
+ * is that a DEFAULT treated a machine a human is using as an ordinary worker,
+ * and a fix that silently changes placement on every machine - including the
+ * nodes nobody is sitting at, where it trades a local start-now for a remote
+ * queue - without a measurement that the trade is net-positive is the same
+ * mistake in the other direction. A deployment turns it on deliberately.
+ */
+export function resolvePreferRemote(config = {}, env = process.env) {
+  const configured = config.preferRemote ?? env.MESH_PREFER_REMOTE;
+  if (configured === true) return true;
+  if (configured === false) return false;
+  if (typeof configured === 'string') {
+    const value = configured.trim().toLowerCase();
+    if (value === '1' || value === 'true' || value === 'on' || value === 'yes') return true;
+    if (value === '' || value === '0' || value === 'false' || value === 'off' || value === 'no') return false;
+  }
+  return PREFER_REMOTE_DEFAULT;
+}
+
+/**
  * Install the provider.
  *
  * @param config.providerName    registry name (default `remote-ssh`)
@@ -95,12 +124,18 @@ export function resolvePlacementMode(config = {}, env = process.env) {
  * @param config.queuePollMs     how often a queued child re-reads `GET /nodes` (default 5000)
  * @param config.prefer          `home` | `office` | null — passed to the broker, which treats it as a tie-breaker only
  * @param config.exclude         node names to tell the broker to avoid (a caller hint; it yields to never-refuse)
+ * @param config.preferRemote    the `prefer-remote` policy: exclude the local node whenever the broker reports an eligible node other than it (default OFF — `PREFER_REMOTE_DEFAULT`; `MESH_PREFER_REMOTE=1` turns it on)
+ * @param config.pressureSnapshotFile    override the `plugin-health` snapshot the pressure reader reads
+ * @param config.pressureProbeDir        override where the fallback probe caches its reading
+ * @param config.pressureMaxAgeMs        how stale a reading may be before it counts as absent (default 30000)
+ * @param config.pressureProbeIntervalMs how often the fallback probe may run at all (default 5000)
  */
 function apply(ctx, config = {}) {
   const providerName = typeof config.providerName === 'string' && config.providerName !== ''
     ? config.providerName
     : 'remote-ssh';
   const mode = resolvePlacementMode(config);
+  const preferRemote = resolvePreferRemote(config);
 
   const ledger = createPlacementLedger({ logger: ctx.logger });
 
@@ -155,10 +190,62 @@ function apply(ctx, config = {}) {
     timeoutMs: config.brokerTimeoutMs,
     logger: ctx.logger,
   });
+
+  // ── LOCAL PRESSURE (docs/mesh/109-pressure-routing.md) ────────────────────
+  // ONE reader for the whole engine, so every dispatch in every session shares
+  // one cache and one probe budget. Its normal path is a read of
+  // `plugin-health`'s snapshot — the same `GlobalMemoryStatusEx` numbers the
+  // health surface publishes, read from disk rather than spawned for.
+  //
+  // THE AGENT CENSUS IS READ FROM THE LIVE SERVICE, not from the snapshot: a
+  // remote child is a process on ANOTHER machine, so `processes.json` cannot
+  // see it, while `ctx.agents.list()` is the engine's own registry — the same
+  // census `plugin-health` publishes as `agentLoopsRunning` (`/healthz` §5.2
+  // measured that this field does NOT count mesh-dispatched children, which is
+  // the opposite reading and is why the count travels with its own label).
+  const agentsService = ctx.get('agents');
+  const agentsRunning = typeof agentsService?.list === 'function'
+    ? () => {
+      const live = agentsService.list();
+      return Array.isArray(live) ? live.filter((agent) => agent?.status === 'running').length : undefined;
+    }
+    : () => undefined;
+
+  const pressureReader = createPressureReader({
+    snapshotFile: config.pressureSnapshotFile,
+    probeDir: config.pressureProbeDir,
+    maxAgeMs: Number.isFinite(config.pressureMaxAgeMs) ? config.pressureMaxAgeMs : undefined,
+    probeIntervalMs: Number.isFinite(config.pressureProbeIntervalMs) ? config.pressureProbeIntervalMs : undefined,
+    agentsRunning,
+    logger: ctx.logger,
+  });
+
+  // The boot line, with the reading already taken: whatever this engine is about
+  // to do, the log says what the machine looked like when it started.
+  const bootReading = pressureReader.read();
+  const bootDecision = decidePressure(bootReading, { localNode: localNodeName() ?? null });
+  ctx.logger?.info?.(`remote-fanout: local pressure at boot — ${describePressure(bootReading, bootDecision)}`);
+  ctx.logger?.info?.(`remote-fanout: pressure routing — ${bootDecision.decision}: ${bootDecision.reason}`);
+  // The policy is stated at boot whether it is on or off: a behaviour change a
+  // reader cannot see is a behaviour change nobody can review.
+  ctx.logger?.info?.(`remote-fanout: ${PREFER_REMOTE_POLICY} is ${preferRemote ? 'ON' : 'OFF'}`
+    + (preferRemote
+      ? ' — the local node is excluded from the ranking whenever the broker reports at least one eligible node other than it, and used exactly as today when it does not'
+      : ` — the default (${PREFER_REMOTE_DEFAULT}): the local node stays a candidate exactly as it was; set preferRemote: true or MESH_PREFER_REMOTE=1 to exclude it whenever the broker reports an eligible node other than it`));
+
   placer = createNodePlacer({
     broker,
     logger: ctx.logger,
     ledger,
+    pressureReader,
+    agentsRunning,
+    // Asked ONLY on the pressure-refusal path, where the answer changes the
+    // error the caller sees: "this machine is full AND there is nowhere else" is
+    // a different instruction than "this machine is full, use the mesh".
+    meshCheck: async () => {
+      await broker.healthz();
+      return true;
+    },
     remoteProfile: config.remoteProfile,
     remoteHome: config.remoteHome,
     timeoutMs: config.timeoutMs,
@@ -169,6 +256,7 @@ function apply(ctx, config = {}) {
     queuePollMs: config.queuePollMs,
     prefer: config.prefer ?? null,
     exclude: Array.isArray(config.exclude) ? config.exclude : [],
+    preferRemote,
   });
 
   const provider = new RemoteOneShotProvider({
@@ -188,6 +276,7 @@ function apply(ctx, config = {}) {
     + `(one placement per child; profile ${config.remoteProfile ?? 'headless'}${config.remoteHome ? `, DSH_HOME ${config.remoteHome}` : ''}; `
     + `queue wait ${config.queueWaitMs ?? 120000} ms; ledger ${ledger.dir})`,
   );
+  ctx.logger?.info?.(`remote-fanout: ${provider.describePlacement()}`);
 }
 
 export { name, inject, apply };

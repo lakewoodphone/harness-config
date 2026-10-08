@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-23T20:00:00.000Z",
+  "enginePath": "C:\\Users\\ezabz\\AppData\\Local\\npm-cache\\_npx\\1e7f6d9597241db0\\node_modules\\@deepseek-ai\\dsh\\lib\\bin.js",
+  "engineVersion": "0.1.7-rc.1",
+  "dshHome": "C:\\Users\\ezabz\\.dsh",
+  "profile": "web",
+  "isolatedHome": "C:\\Users\\ezabz\\Code\\harness-config\\dsh-update\\state\\candidates\\0.1.7-rc.1\\home",
+  "invocation": "node <bin.js> --profile web --dump-config",
+  "exitCode": 1,
+  "durationMs": 210,
+  "stderr": "dsh: plugin tree failed to load: failed to apply loader entry include (cordis:include)",
+  "failure": "exit 1: dsh: plugin tree failed to load: failed to apply loader entry include (cordis:include)",
+  "rows": [],
+  "rowIds": [],
+  "names": [],
+  "layerComments": [],
+  "patchedRowIds": [],
+  "disabledRowIds": [],
+  "stdoutRef": "state/logs/verify-0.1.7-rc.1-G1.txt",
+  "notes": [
+    "fixture: a real failure shape (exit code plus verbatim engine words), rows deliberately empty"
+  ]
+}

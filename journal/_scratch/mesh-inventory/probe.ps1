@@ -1,0 +1,29 @@
+$ErrorActionPreference = 'SilentlyContinue'
+$cs   = Get-CimInstance Win32_ComputerSystem
+$os   = Get-CimInstance Win32_OperatingSystem
+$cpu  = Get-CimInstance Win32_Processor | Select-Object -First 1
+$disk = Get-PSDrive C
+$dsh  = Get-Command dsh -ErrorAction SilentlyContinue
+$node = Get-Command node -ErrorAction SilentlyContinue
+$eng  = Get-NetTCPConnection -LocalPort 3099 -State Listen
+$cfg  = Test-Path (Join-Path $env:USERPROFILE 'code\harness-config')
+$v    = ''
+if ($node) { $v = (& $node.Source -v) 2>$null }
+$o = [ordered]@{
+  reachable       = $true
+  host            = $env:COMPUTERNAME
+  os              = "$($os.Caption) $($os.Version)"
+  cores           = [int]$cpu.NumberOfLogicalProcessors
+  memTotalMiB     = [int]($cs.TotalPhysicalMemory / 1MB)
+  memFreeMiB      = [int]($os.FreePhysicalMemory / 1KB)
+  commitLimitMiB  = [int]($os.TotalVirtualMemorySize / 1KB)
+  commitFreeMiB   = [int]($os.FreeVirtualMemory / 1KB)
+  cFreeGiB        = if ($disk) { [math]::Round($disk.Free / 1GB, 1) } else { $null }
+  nodeVersion     = if ($v) { $v.Trim() } else { 'absent' }
+  dshOnPath       = [bool]$dsh
+  engineOn3099    = [bool]$eng
+  harnessConfig   = $cfg
+  procTotal       = (Get-Process).Count
+  shell           = 'powershell'
+}
+$o | ConvertTo-Json -Compress

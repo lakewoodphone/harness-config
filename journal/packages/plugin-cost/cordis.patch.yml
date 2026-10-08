@@ -1,13 +1,59 @@
-# The dsh-plugin-cost bundle patch: mount the cost surfaces.
+# The dsh-plugin-cost bundle patch: mount the cost surfaces and the spend guard.
 #
-# One host row. It registers `/cost` and carries no client-side configuration,
-# because the composer cost pill is a `dsh.client` half of the same package and the
-# browser roster is assembled from package manifests, not from this file.
+# TWO host rows, and the split is deliberate:
 #
-# The row is an `insert` without an `id` target, so it adds a loader entry rather
-# than overriding one; a later patch layer can still disable it by id if a
-# deployment wants the command gone.
+#   plugin-cost    `/cost` — price this session, from its own durable log, per
+#                  turn and in total. Carries no client-side configuration: the
+#                  composer cost pill is this package's `dsh.client` half and the
+#                  browser roster is assembled from package manifests, not from
+#                  this file.
+#
+#   spend-guard    the ceiling. One daily counter fed by `session/event`, one
+#                  decision taken at `agent/pre-step` — BEFORE `step/start`, so a
+#                  refused step is never billed and its turn closes `blocked` —
+#                  plus a cap on how many agents may be generating at once on
+#                  this machine.
+#
+# WHY THE GUARD IS A SECOND `insert` AND ITS OWN MODULE. A Cordis loader entry
+# resolves a MODULE, not a named export of one, so two entries pointing at
+# `dsh-plugin-cost` would mount that plugin twice — and a second guard in one
+# process would count every request twice. `dsh-plugin-cost/guard` is therefore
+# its own generated file (`lib/guard.js`) which is concatenated by
+# `scripts/build.mjs` from the SAME `src/cost-core.mjs` and `src/session-log.mjs`
+# that `lib/index.js` uses, so there is still exactly one price table in the
+# system. `packages/plugin-cost/test/guard.test.mjs` proves the guard's
+# arithmetic, and `docs/mesh/101-spend-guard-installed.md` records the live
+# demonstration of each threshold.
+#
+# NO CONFIG HERE, DELIBERATELY. The limits are policy, and policy lives in
+# `settings/base.yaml` (shared, synced) and `settings/machines/<host>.yaml`
+# (per-machine override), which the guard registers as the `spend-guard` settings
+# namespace. An operator changes a ceiling in one line of YAML and it reaches
+# every machine through the sync that already runs every 15 minutes — no
+# rebuild, no restart, no code. The protective defaults are coded in
+# `src/guard.mjs` (DEFAULTS) so that a machine with no settings file still
+# enforces the ceiling rather than mounting unprotected.
+#
+# A later patch layer can still disable either row by id without touching this
+# file:
+#
+#   { id: 'spend-guard', disabled: true }
+#
+# `insert` without an `id` target ADDS loader entries rather than overriding one.
 - insert:
     # `/cost` — price this session in USD, per turn and in total.
     - id: plugin-cost
       name: dsh-plugin-cost
+
+    # The spend guard. warn / stop-new-fan-out / refuse-a-step, plus the
+    # per-machine concurrency cap. Both defaults below are the same numbers
+    # `settings/base.yaml` states, so the row is safe on a machine whose
+    # settings have not synced yet.
+    - id: spend-guard
+      name: dsh-plugin-cost/guard
+      config:
+        warnUsd: 35
+        fanoutUsd: 80
+        ceilingUsd: 150
+        concurrencyCap: 12
+        onInternalError: closed

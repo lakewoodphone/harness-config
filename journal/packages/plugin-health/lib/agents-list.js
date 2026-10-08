@@ -54,6 +54,30 @@ const DEFAULT_DEADLINE_MS = 8000;
 const DEFAULT_MAX_DEADLINE_MS = 25000;
 
 /**
+ * THE DEFECT A FIXED 3 s TTL CANNOT AVOID - MEASURED 2026-09-25
+ *
+ * A TTL shorter than the scan it is caching delivers ZERO amortisation: by the
+ * time the next caller arrives the entry has expired, so every call re-pays the
+ * whole walk. On ZABZ-YOGA the scan is no longer the ~600-4300 ms it was on
+ * 2026-09-16, when this TTL was chosen: the corpus has grown from 389 session
+ * dirs / ~320 MB to **837 dirs / 440 MB**, and the live engine reports
+ * `lastScanMs = 6623` with **0 cache hits**. A 3 s TTL behind a 6.6 s scan can
+ * only ever miss - and the walk runs on the shared event loop, so every miss is
+ * a multi-second freeze for every other session in that engine. That is the
+ * freeze, not a symptom of it.
+ *
+ * So the TTL is derived from the measurement that matters instead of being
+ * fixed: never below the configured floor, never below MULTIPLIER x the last
+ * observed scan, and capped so a newly spawned child is still visible promptly.
+ * The floor stays 3 s (a burst of concurrent callers still coalesces, which is
+ * what the original TTL was for); the cap bounds the one real cost of a longer
+ * TTL. The deeper fix is to invalidate on spawn rather than lean on a TTL at
+ * all - deliberately not attempted here.
+ */
+const DEFAULT_TTL_MULTIPLIER = 5;
+const DEFAULT_MAX_TTL_MS = 30000;
+
+/**
  * Process-local statistics, shared by every plugin instance in this process.
  *
  * A module-scope object is the right home for this: the counters describe one
@@ -134,15 +158,34 @@ export class ListingCache {
   #entries = new Map();
   #inflight = new Map();
 
-  constructor({ ttlMs = DEFAULT_CACHE_MS } = {}) {
+  constructor({ ttlMs = DEFAULT_CACHE_MS, ttlMultiplier = DEFAULT_TTL_MULTIPLIER, maxTtlMs = DEFAULT_MAX_TTL_MS } = {}) {
     this.ttlMs = ttlMs;
+    this.ttlMultiplier = ttlMultiplier;
+    this.maxTtlMs = maxTtlMs;
+    /** The last measured scan, which is what the TTL has to beat to earn a hit. */
+    this.lastScanMs = null;
+  }
+
+  /**
+   * The TTL actually applied.
+   *
+   * `ttlMs` is the FLOOR, not the answer: a fixed floor shorter than the scan
+   * guarantees a miss on every call (see the note at `DEFAULT_TTL_MULTIPLIER`).
+   * Above the floor the TTL scales with the walk this cache exists to amortise,
+   * and is capped so staleness stays bounded. A floor of 0 still disables.
+   */
+  effectiveTtlMs() {
+    if (!(this.ttlMs > 0)) return 0;
+    if (!(this.lastScanMs > 0)) return this.ttlMs;
+    return Math.min(this.maxTtlMs, Math.max(this.ttlMs, this.ttlMultiplier * this.lastScanMs));
   }
 
   /** Cached value for a scope, with its age, or undefined when cold. */
   peek(scope) {
     const hit = this.#entries.get(scope);
     if (hit === undefined) return undefined;
-    return { value: hit.value, ageMs: Date.now() - hit.at, fresh: Date.now() - hit.at < this.ttlMs };
+    const ageMs = Date.now() - hit.at;
+    return { value: hit.value, ageMs, fresh: ageMs < this.effectiveTtlMs() };
   }
 
   /**
@@ -184,6 +227,9 @@ export class ListingCache {
       if (this.#inflight.get(scope) === flight) this.#inflight.delete(scope);
     }
     this.#entries.set(scope, { at: outcome.at, value: outcome.value });
+    // The scan just measured IS the TTL's input, so record it before any later
+    // caller asks whether the entry is still fresh.
+    this.lastScanMs = outcome.scanMs;
     return { value: outcome.value, cached: false, coalesced: false, ageMs: 0, scanMs: outcome.scanMs };
   }
 
@@ -352,12 +398,18 @@ export function registerListAgents(ctx, options = {}) {
   const rawDeadline = Number.isFinite(options.deadlineMs) && options.deadlineMs > 0 ? options.deadlineMs : DEFAULT_DEADLINE_MS;
   const maxDeadlineMs = Number.isFinite(options.maxDeadlineMs) && options.maxDeadlineMs > 0 ? options.maxDeadlineMs : DEFAULT_MAX_DEADLINE_MS;
   const deadlineMs = Math.min(rawDeadline, maxDeadlineMs);
+  const ttlMultiplier = Number.isFinite(options.ttlMultiplier) && options.ttlMultiplier > 0 ? options.ttlMultiplier : DEFAULT_TTL_MULTIPLIER;
+  const maxTtlMs = Number.isFinite(options.maxTtlMs) && options.maxTtlMs > 0 ? options.maxTtlMs : DEFAULT_MAX_TTL_MS;
   const statsFile = options.statsFile;
   const toolName = options.toolName || LIST_AGENTS;
 
-  const cache = new ListingCache({ ttlMs: cacheMs });
+  const cache = new ListingCache({ ttlMs: cacheMs, ttlMultiplier, maxTtlMs });
   listingStats.cacheMs = cacheMs;
   listingStats.deadlineMs = deadlineMs;
+  // Publish the TTL policy alongside the counters, because "0 hits" is only
+  // diagnosable if a reader can see the TTL the misses were measured against.
+  listingStats.ttlMultiplier = ttlMultiplier;
+  listingStats.maxTtlMs = maxTtlMs;
 
   const definition = {
     name: toolName,
@@ -456,6 +508,7 @@ export function registerListAgents(ctx, options = {}) {
         throw error;
       } finally {
         clearTimeout(timer);
+        listingStats.lastEffectiveTtlMs = cache.effectiveTtlMs();
         publishListingStats(statsFile);
       }
 

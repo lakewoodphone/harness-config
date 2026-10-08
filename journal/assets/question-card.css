@@ -136,6 +136,29 @@
     overflow: visible;
   }
 
+  /* THE QUESTION TEXT MUST NOT BE ITS OWN SCROLLPORT.
+   *
+   * Measured 2026-09-22 from the module bundle the engine ships (v0.1.5-rc.2), in the real stack
+   * order — module CSS first, this file second — at 390x844:
+   *
+   *   `_detail` computed `max-height: 132px; overflow-y: auto` while its content was 180px tall
+   *   (and 216px for a typical long brief).
+   *
+   * `_body` is `overflow: visible` here (above), so nothing between the finger and the card
+   * scrolls — but the detail box swallows the gesture in its own 132px scroll area instead of
+   * letting it reach the card. A thumb dragging on the question text moves the text inside that
+   * box and the sheet stays put, so the rest of the question and the choices below it do not come
+   * up: the reader is scrolling and the screen is not moving. That is the meaning of the report
+   * "the answers are not scrollable with the question".
+   *
+   * One scrollport is the whole design of the sheet above, so the detail grows to its natural
+   * height here and the card — which already scrolls — carries it. This is the only rule that
+   * needs to exist for it: the cap is the module's, and it is a desktop nicety. */
+  [class*="_frame"]:has(> [class*="_card"]) [class*="_detail"] {
+    max-height: none;
+    overflow: visible;
+  }
+
   /* The strip that names the owner of the question and the pager are fixed chrome; they must
    * never be squeezed by a long option list. */
   [class*="_frame"]:has(> [class*="_card"]) [class*="_strip"],

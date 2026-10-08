@@ -17,7 +17,13 @@
  *   node merge-settings.mjs <base.yaml> <machine.yaml|-> <out.yaml> [--check]
  * `--check` prints whether the output would change and writes nothing.
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+// `readdirSync` MUST be imported: loadYaml() below scans every directory under
+// %LOCALAPPDATA%\npm-cache\_npx. It was missing here until 2026-09-23, so that branch threw
+// `ReferenceError: readdirSync is not defined`, the surrounding `try` swallowed it, and every
+// `_npx\*` candidate was silently skipped -- a fallback that looked like it worked and never ran.
+// It went unnoticed because an earlier candidate in the probe order resolves first on this machine.
+// Found while building dsh-update; see harness-config/dsh-update/SPEC.md (corrections, C11 note).
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 

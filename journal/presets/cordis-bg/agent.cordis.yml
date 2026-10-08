@@ -272,8 +272,21 @@
         backgroundMode: one-shot
         maxDepth: provider-managed
 
-    - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
+    # RENAMED UPSTREAM IN THE 0.1.7 LINE (measured 2026-09-28). `@deepseek-ai/dsh-workflow-worker-thread`
+    # was REMOVED in 0.1.7-rc.1 and does not exist in 0.1.7-rc.2 or 0.2.0-rc.1; `@deepseek-ai/dsh-workflow-ptc`
+    # is its replacement (declared in upstream's own dependencies, and the row id upstream mounts is
+    # `workflow-ptc`). Both the row id and the package name move together so this file matches upstream.
+    # The config carries over unchanged and is not a guess: the new package's schema is
+    # `z.object({ provider: z.string().default("spawn"), maxConcurrentAgents, maxTotalAgents,
+    # maxItemsPerCall, syncTimeoutMs })`, and upstream's own mounted row is
+    # `id=workflow-ptc name=@deepseek-ai/dsh-workflow-ptc config={"provider":"spawn"}`.
+    #
+    # THIS RENAME IS VERSION-COUPLED. `@deepseek-ai/dsh-workflow-ptc` does NOT exist on the 0.1.5 line,
+    # so this file and the engine version must change together: applying it while an 0.1.5 engine is
+    # running breaks preset mounting, and running 0.1.7 with the OLD name does the same. `dsh-update`
+    # promotes the engine and the config in one step for exactly this reason.
+    - id: workflow-ptc
+      name: '@deepseek-ai/dsh-workflow-ptc'
       config:
         provider: spawn
 

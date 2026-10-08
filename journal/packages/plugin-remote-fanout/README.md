@@ -27,6 +27,27 @@ The end-to-end proof — three children on another node, `MESH-HOST` verified fr
 each child's own report, the parent's node flat, nothing restarted — is
 `docs/mesh/70-remote-fanout-proof.md`.
 
+## Local pressure changes where a child goes
+
+A dispatcher that offers everything while its own machine is full is why the mesh sat idle
+on 2026-09-17, so `acquire()` reads this machine before it asks the broker
+(`docs/mesh/109-pressure-routing.md`):
+
+| this machine, committed vs physical | what happens |
+|---|---|
+| below **85 %** | nothing changes; the broker is asked exactly what it was asked before |
+| at or above **85 %** | the local node is added to the broker's `exclude` hint — the mesh is *asked* to take the child |
+| at or above **92 %** AND less than **1.5 GiB** physical available | a local child is REFUSED before the broker is asked, with the reading in the error |
+| no reading | behaves exactly as before; unknown is not pressure |
+
+The reading is `\Memory\Committed Bytes` against physical RAM (the quantity
+`84-calibration.md` §3 fits its 403 MiB/turn cost in), taken from `plugin-health`'s
+snapshot — **one file read, no process** — with a self-probe fallback for a node that has
+no plugin-health. Every decision is recorded in the placement ledger, in the engine log,
+and in the child's own report, including the case where the broker placed locally anyway.
+`bin/mesh-pressure.mjs` reads it from a shell; `bin/mesh-pressure-proof.mjs` reproduces
+the three proofs in `109` §4. It takes effect at the next engine start.
+
 ## What it is not
 
 - **Not a scheduler.** One plugin row names one `target`. Which node *should* run

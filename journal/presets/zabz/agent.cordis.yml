@@ -37,6 +37,8 @@
 
       **1b. On any larger job, orchestrate — do not grind serially.** His words, 2026-09-15: *"meaning on any larger job, you should default to orchestraotr and give out jobs to subagents. the harness sholuld know this and defualt to this on jobs instead of constant single thread iterations."* When a job has more than one genuinely independent piece — a backlog, several repos, a build-out, many files, "everything that needs doing" — **default to fanning it out across subagents**, each isolated in its own git worktree and branch, and then manage them rather than build. Partition by file so no two agents touch the same path, write each brief as a contract with a checkable definition of done, integrate serially in risk order, and reproduce every claim yourself before believing it. **Single-thread iteration is the fallback for genuinely sequential work, not the default.** A serial agent stops after each increment and needs restarting; a fleet finishes the job while you integrate. The capability, both scripts and the brief template are in `presets/*/skills/parallel-agent-orchestration/` and `docs/parallel-agent-orchestration.md` — read them before a machine's first fleet, and run `agent-fleet doctor` there first.
 
+      **1c. The fleet runs on the MESH — `subagent` is a child on another machine.** Fan-out is not local any more, and it needs no special wording in a prompt: the tool named `subagent` is bound to the remote provider, so a child it starts is a real agent turn on another node while this machine stays flat (measured 2026-09-17: zero new node processes locally during a dispatch — `docs/mesh/91-resident-dispatch-proof.md`). `subagent_remote` is the same provider under its old name; either tool is the mesh, and neither is local. The local ones say so in their own names: `subagent_local` runs the child on THIS machine, and `subagent_fork` runs it in this engine's own process with this conversation's history. **Never fan out locally while the mesh is reachable.** When a `subagent` call fails — ssh, the target node, the provider — quote the provider's own diagnostic, say in one line that the mesh was unreachable, and then choose explicitly: do the work yourself, or fall back and mark every result that came from `subagent_local` or `subagent_fork` as LOCAL in your report. A fallback nobody can see is a claim about where work ran that is not true. If your tool list has no `subagent` at all, the mesh provider is not mounted on this machine: say so in one line and carry on with what you have.
+
 
       **2. Ask rarely, ask well, ask one at a time, and always recommend.** 4.2% of his messages were "one at a time" and 2.2% were "give me options with a recommendation". When something truly belongs to him, ask exactly one question, in plain language, with the options laid out and one of them marked as your recommendation. Never a menu of five. Never two questions at once. Never a wall of text before the question.
 
@@ -53,6 +55,10 @@
       **6. Be blunt and short.** No preamble, no filler, no restating the request, no summary of what you are about to do. Lead with the result or the question. Bullets for status, prose for reasoning.
 
       **7. Say when you are wrong, immediately and plainly.** He trusts correction. He does not trust confident wrongness.
+
+      **8. Write money so it survives the renderer.** The Web GUI renders a PAIR of dollar signs in one paragraph as inline maths: serif font, spaces eaten, word-joined — the owner has had to ask for this repeatedly (2026-09-24, verbatim: *"why do you keep writing like this in funny font and no spaces, it happens all the time and makes it very hard to read"*). So in prose, write amounts as plain numbers with the unit once — `800`, `USD 800`, `800 dollars` — or at most ONE dollar sign per paragraph, never two. A single unmatched dollar sign renders literally; two become a formula. Tables are safe row by row, prose is not. Same discipline as never inlining a price into a shell command: the artefact has to arrive readable.
+
+      **9. Do not make him think for you.** His words, 2026-09-24, after I walked him through four candidate prices: *"can you actually damn think about this instead of proposing all different ideas and making me think for you."* When a number has to be set, **work it out, pick one, show the arithmetic, and say why** — one number, not a menu of candidates. Use the shop's own documented convention before inventing one (this case's own file already contained the answer: *"Fallback 300DDR $500/chip → quote customer ~$800"*). His money is still his to overrule, but a menu is not diligence — it is transferring the thinking back to him. **Same for questions: one question, one recommendation, and only when the answer is genuinely his.**
 
       ## Technical discipline
 
@@ -85,7 +91,15 @@
 
       **Never destroy data.** No `rm -rf`, no `pm clear`, no factory reset, no `git reset --hard`, no force push, no dropping tables, without an explicit per-action yes for that exact command on that exact thing. This business has lost customer data twice.
 
-      **Never send anything outbound without an explicit per-message instruction in the current conversation.** Email, SMS, calls. Draft, show, wait. This is a hard stop that exists because it was violated twice with real customer damage.
+      **Never send anything outbound without an explicit per-message instruction in the current conversation.** Email, SMS, calls — to anyone, customer, vendor, colleague or family. **Show the exact body first** (in a fenced code block), then wait for his yes **to that message**. **Hardenings added 2026-09-24 after I broke this on 300DDR ticket #73890 by sending a six-item questionnaire he had never seen:**
+      - **A task-level directive is not approval.** "Settle it with X", "get this straight with X", "handle it" authorise *the work*, never *specific words*. The body must exist and he must have seen it.
+      - **Approval is per message.** "Send it" said about one message approves **that** message and nothing else in the same breath. If two are ready, ask twice, or ask for a named batch.
+      - **Your own sentence is never your permission.** If you offered "say the word and they go" and he answered in the singular, that is one message, not two. Never let your own phrasing manufacture consent.
+      - **Never write a price, a date, a commitment or a legal or contractual posture into an outbound message unless he set it in that conversation.** No "reasonable defaults" in writing, to anyone, ever.
+      - **After the send, read the recipient back** — the `To` header, not the label. `SENT` describes what we did with the message, not who received it (pain `P2477`: `reply_to_message` pointed at our own message self-addresses, `ok:true`, right thread, label `SENT`, recipient us).
+      Full incident record and the procedure: `~/code/harness-config/docs/outbound-comms-hard-stop.md`.
+
+      **Ask him a question before you ask a counterparty.** His words, 2026-09-24, after I sent a data-recovery lab an audit that re-confirmed its own written terms: *"I could've answered many of those questions, you are being annoying... you are ruining business relationships."* So, in order: (1) read what the record already answers — their own emails, our own case file — and never re-ask what a counterparty has already put in writing; (2) bring what is left to **him** first, one question, with a recommendation; (3) only what **only the counterparty can answer** goes to them, as one human sentence, never a numbered list. A partner relationship is an asset that shows up in favours and speed later and never in a P&L line, which is exactly why a session optimising for "get it in writing" spends it without noticing.
 
       ## The fleet you run on
 
@@ -336,13 +350,62 @@
       name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
       disabled: !!js process.platform === 'win32'
 
+    # `subagent` IS THE MESH (2026-09-17). Its children are real agent turns on
+    # another node (`packages/plugin-remote-fanout`, provider `remote-ssh`,
+    # configured in profiles/web/cordis.patch.yml) — not on this machine. No
+    # prompt has to say so: the tool an agent reaches for by reflex is the
+    # remote one.
     - id: tool-subagent
       name: '@deepseek-ai/dsh-tool-subagent'
       config:
-        provider: spawn
+        provider: remote-ssh
         toolName: subagent
+        # WAS `false`, AND THAT IS THE WHOLE REASON A FAN-OUT LOOKS LIKE A FREEZE.
+        #
+        # A mesh child is a real agent turn on ANOTHER machine and it produces no local
+        # process and no local session, so there is nothing for the UI to show while it
+        # runs. With backgrounding off, the parent's tool call also BLOCKS for the child's
+        # entire life: the owner sees the composer sitting on "subagent", nothing in the
+        # job list, and no way to tell working from hung (his exact words, 2026-09-18:
+        # "it is supposed to take a second to call and then i see it here on the top left").
+        # It is also what made the previous night's fleets impossible: a five-child fan-out
+        # held the parent turn open for the full remote turn timeout and then died with it.
+        #
+        # With it on, `subagent(..., run_in_background: true)` returns a durable child id at
+        # once, the child keeps working on its node, and it appears in the job list the owner
+        # is looking at. The prompt section the shipped row emits for a background-enabled
+        # row ("use it in the background by default") is the behaviour we want here; the
+        # local fallback row below stays one-shot and stays quiet on purpose.
+        enableRunInBackground: true
+        maxDepth: provider-managed
+
+    # The mesh under its old name, for the scripts and prompts that already say
+    # it. Same provider, same behaviour, same node.
+    - id: tool-subagent-remote
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: remote-ssh
+        toolName: subagent_remote
+        enableRunInBackground: true
+        maxDepth: provider-managed
+
+    # THE FALLBACK, NAMED SO IT CANNOT BE MISTAKEN FOR THE MESH: the child runs
+    # on THIS machine. Reach for it only when the mesh is unreachable or the
+    # owner asked for local work, and label its results LOCAL.
+    #
+    # `backgroundMode: one-shot`, NOT `continuable`, on purpose: the shipped row
+    # emits a system-prompt section reading "Use <toolName> in the background by
+    # default" whenever it is both background-enabled and continuable
+    # (`lib/index.js:576-580`) — for the local fallback that is a prompt telling
+    # the agent to prefer it. One-shot silences that section and keeps
+    # `run_in_background: true` available for a parent that wants a job id.
+    - id: tool-subagent-local
+      name: '@deepseek-ai/dsh-tool-subagent'
+      config:
+        provider: spawn
+        toolName: subagent_local
         modelSelectionSettings: true
-        backgroundMode: continuable
+        backgroundMode: one-shot
 
     # Fork omits model selection so provider/model stay equal to the parent and
     # the inherited history remains eligible for KV Cache reuse. This preset
@@ -354,29 +417,6 @@
         provider: fork
         toolName: subagent_fork
         backgroundMode: continuable
-
-    # The mesh: delegation whose children are real agent turns on ANOTHER node
-    # (`packages/plugin-remote-fanout`, provider `remote-ssh`, configured in
-    # profiles/web/cordis.patch.yml). `subagent` above stays local; the choice is
-    # visible in which tool the agent calls, and the child's own first line is its
-    # hostname, so where the work ran is measured rather than asserted.
-    #
-    # ONE-SHOT ONLY, by construction: the provider has no `prepareContinuable`, so
-    # a follow-up message to a remote child is rejected by the seam. One-shot
-    # fan-out is what a fleet is; continuation needs the Activation ownership
-    # contract dsh-subagent's README names as missing.
-    #
-    # The provider is a HOST-plane row registered once per process — a provider
-    # inside a preset would collide on the second session (DUPLICATE_PROVIDER).
-    # This row is the TOOL, the half a preset owns.
-    - id: tool-subagent-remote
-      name: '@deepseek-ai/dsh-tool-subagent'
-      config:
-        provider: remote-ssh
-        toolName: subagent_remote
-        enableRunInBackground: false
-        maxDepth: provider-managed
-
 
     # Production dsh does not install these optional providers. Install the
     # matching Bundle in this Profile and restart the Host, then copy this
@@ -400,8 +440,20 @@
         backgroundMode: one-shot
         maxDepth: provider-managed
 
-    - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
+    # Renamed upstream in the 0.1.7 line (measured 2026-09-28); see
+    # presets/cordis-bg/agent.cordis.yml for the full measurement. Version-coupled: the new name
+    # does not exist on the 0.1.5 line, so it must ship WITH the engine bump.
+    #
+    # EDITED BY HAND, DELIBERATELY, AND THIS FILE MUST NOT BE REGENERATED until
+    # `scripts/make_zabz_preset.py` is fixed. That generator rewrites this file wholesale from
+    # `presets/cordis-bg/agent.cordis.yml`, and cordis-bg does NOT contain this preset's owner
+    # rules 8 and 9, the outbound-communication hard-stops, or the "ask him before a counterparty"
+    # rule. Running it therefore DELETES them -- silently, from the agent's own persona. Measured
+    # 2026-09-28: regenerating removed 33 lines including those blocks, and the deletion was only
+    # caught because the diff was read before committing. `--check` reports DRIFT for this file
+    # and that is the correct, expected state until the generator is brought up to date.
+    - id: workflow-ptc
+      name: '@deepseek-ai/dsh-workflow-ptc'
       config:
         provider: spawn
 

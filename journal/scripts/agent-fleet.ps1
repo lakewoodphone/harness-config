@@ -100,6 +100,28 @@ function Get-AgentWorktrees([string]$RepoPath) {
     return $trees | Where-Object { $_.branch -like 'agent/*' }
 }
 
+# Gitignored build prerequisites a fresh worktree needs but cannot inherit. They are not in the
+# commit, so `git worktree add` cannot bring them, and their absence fails the build minutes later
+# with an error that does not name the cause. Measured 2026-09-17 on kosher-filter-ai (journal P266):
+# every worktree of the Android repo died after ~2 minutes with
+#   'Could not determine the dependencies of task :app:testDebugUnitTest > SDK location not found'
+# costing one wasted Gradle run per agent, per fleet. Copying from the base checkout is safe
+# precisely because the base IS this machine's working copy: the value is machine-local, which is
+# why it is gitignored in the first place.
+function Copy-BuildPrereqs([string]$RepoPath, [string]$WorktreePath) {
+    $prereqs = @('android/local.properties')
+    foreach ($rel in $prereqs) {
+        $src = Join-Path $RepoPath $rel
+        $dst = Join-Path $WorktreePath $rel
+        if ((Test-Path -LiteralPath $src) -and -not (Test-Path -LiteralPath $dst)) {
+            $dir = Split-Path -Parent $dst
+            if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+            Copy-Item -LiteralPath $src -Destination $dst -Force
+            Write-Host "      seeded $rel"
+        }
+    }
+}
+
 function Get-DirSizeMB([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) { return 0 }
     $sum = (Get-ChildItem -LiteralPath $Path -Recurse -File -Force -ErrorAction SilentlyContinue |
@@ -197,6 +219,7 @@ switch ($Action) {
             }
             if ($r.ok -and (Test-Path -LiteralPath $path)) {
                 Write-Host "OK    $slug  ->  $path  [$branch]"
+                Copy-BuildPrereqs $repoPath $path
                 $created++
             }
             else {

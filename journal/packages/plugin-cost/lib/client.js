@@ -1,8 +1,10 @@
 /**
  * GENERATED FILE — do not edit.
  * Built by scripts/build.mjs. The host half is concatenated from
- * src/cost-core.mjs, src/session-log.mjs and src/command.mjs; the browser half is
- * generated from pricing.json. Edit the sources and run `node scripts/build.mjs`.
+ * src/cost-core.mjs, src/session-log.mjs and src/command.mjs; the spend guard
+ * from src/cost-core.mjs, src/session-log.mjs and src/guard.mjs plus its entry
+ * src/guard-entry.mjs; the browser half is generated from pricing.json. Edit the
+ * sources and run `node scripts/build.mjs`.
  */
 
 /**

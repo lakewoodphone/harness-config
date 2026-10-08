@@ -535,6 +535,49 @@ def complete_login(engine_port: int, first: bytes, token: str, path: str, author
         return None
 
 
+LAYER_TOKEN_RE = re.compile(rb"phone-layer-version:\s*([^\s*]+)")
+
+
+def layer_token(served: bytes) -> str | None:
+    """The version token carried inside a served layer, or None when it has none."""
+    found = LAYER_TOKEN_RE.search(served)
+    return found.group(1).decode() if found else None
+
+
+def with_derived_layer_token(layer: bytes) -> bytes:
+    """Replace the layer's hand-maintained version token with a digest of the layer itself.
+
+    WHY THIS IS DERIVED RATHER THAN TYPED. The token is how a tab that is ALREADY OPEN learns
+    that the layer changed: `dsh-plugin-mobile` compares the token in the document it is
+    rendering with the token the gate is serving, and re-applies the newer bytes when they
+    differ. That makes the token load-bearing, and a hand-maintained load-bearing value gets
+    forgotten — twice, on this same surface:
+
+      * 2026-09-16 — the question-card repair had shipped and been verified, and the owner's
+        phone still could not read a question, because his tab predated the fix and a rewritten
+        document cannot reach a tab that has already loaded. The token was introduced to fix it.
+      * 2026-09-22 — `assets/question-card.css` was changed again (commit 6d6f0a4) and the token
+        was NOT bumped; it stayed `2026-09-16.3`. Every phone on that layer then compared equal,
+        concluded it was current, and never received the 09-22 rule. The owner reported the same
+        symptom a third time on 2026-09-24 14:5x UTC.
+
+    Deriving it removes the human step: any change to any file in LAYER_FILES changes the served
+    token by construction, so a cached document can never compare equal to a changed layer. The
+    literal value in `assets/mobile.css` stays — it is the fallback for a reader of the file, and
+    the seed for the digest — but what the browser sees is the digest.
+
+    The token line is normalized out before hashing so that the digest is not a function of
+    itself, and only the FIRST token (the one at the top of `mobile.css`) is replaced.
+    """
+    if not layer:
+        return layer
+    normalized = LAYER_TOKEN_RE.sub(b"phone-layer-version: <derived>", layer)
+    digest = hashlib.sha256(normalized).hexdigest()[:12]
+    return LAYER_TOKEN_RE.sub(
+        lambda _m: b"phone-layer-version: " + digest.encode(), layer, count=1
+    )
+
+
 def mobile_css_bytes() -> bytes:
     """The phone layer source, or b"" when it is unavailable or switched off.
 
@@ -554,7 +597,7 @@ def mobile_css_bytes() -> bytes:
         if body.strip():
             # a marker per file, so a served layer can say which files produced it
             parts.append(b"/* " + path.name.encode() + b" */\n" + body)
-    return b"\n".join(parts)
+    return with_derived_layer_token(b"\n".join(parts))
 
 
 def layer_report() -> str:

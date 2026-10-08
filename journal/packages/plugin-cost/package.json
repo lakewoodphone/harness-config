@@ -9,6 +9,9 @@
     ".": {
       "default": "./lib/index.js"
     },
+    "./guard": {
+      "default": "./lib/guard.js"
+    },
     "./client": {
       "default": "./lib/client.js"
     },
@@ -27,5 +30,4 @@
     "build": "node scripts/build.mjs",
     "test": "node test/cost.test.mjs",
     "verify": "node scripts/build.mjs --check"
-  }
-}
+  }}

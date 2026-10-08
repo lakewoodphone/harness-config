@@ -8,6 +8,16 @@ Two surfaces, one price table:
 |---|---|---|
 | `/cost [turns]` | Exact session total plus a per-turn table, priced from the durable log with the real provider/model and the real call time | Host half: `lib/index.js` |
 | Composer cost pill | A `$0.00` figure beside the shipped stats pill in the chat footer; click for the bucket breakdown and the rate card it used | Browser half: `lib/client.js` |
+| `spend-guard` | The money ceilings: a notice at 35 USD, no new fan-out past 80, a refused step at 150, and a cap of 12 generating agents | Host half: `lib/guard.js`, its own loader row |
+
+The guard is a separate row (`dsh-plugin-cost/guard`, `cordis.patch.yml`) because a Cordis entry
+resolves a module, not a named export: two entries naming one module would mount the guard twice and
+count every request twice. Its arithmetic is the same `src/cost-core.mjs` the price table uses.
+
+**An absent guard is worse than no guard**, because the operator believes he is protected — so the
+guard resolves nothing that it does not own while it loads (`node:` builtins only) and reports the
+mode it mounted in, at mount, on the engine's log and in `<DSH_HOME>/health/spend-guard.json`. Read
+`docs/2026-09-28-guard-activation.md` before touching its import list.
 
 ## Why this exists
 
@@ -86,12 +96,18 @@ mount.
 node test/verify.mjs
 ```
 
-Runs four independent checks, because a passing build implies none of the others:
+Runs six independent checks, because a passing build implies none of the others:
 
 - **build** — `lib/` matches the sources it is generated from.
+- **coldboot** — the generated files load with `DSH_HOME` unset, they resolve no package at load, and
+  `lib/guard.js` still imports when `DSH_HOME` is an empty directory (the 2026-09-28 failure mode: the
+  money ceiling silently absent because the row could not be imported).
 - **cost** — the rates, the peak/off-peak arithmetic, sample validation, and the fold
   run against real session logs; asserts that a session total equals the sum of its
   turns and that the peak bound is never below the actual cost.
+- **guard** — the thresholds, the fail-closed paths, the wiring, and the ACTIVATION section: the
+  generated artifact is mounted with its schema resolution forced to fail, and must still refuse a
+  step at a ceiling while saying `DEGRADED`.
 - **client** — the browser half is evaluated the way the module system does it: a fake
   `window.__ModuleLoader__` captures the registration, the factory is materialized with
   a stub React, and the registered cell is rendered with fake projection props.
@@ -105,12 +121,15 @@ session proves that.
 
 ```
 pricing.json          the authoritative rate card (source of truth; the build inlines it)
-cordis.patch.yml      the bundle patch that mounts the host row
+cordis.patch.yml      the bundle patch that mounts the two host rows (/cost and the spend guard)
 src/cost-core.mjs     rates, tiers, money arithmetic, the usage fold, the text report
 src/session-log.mjs   locate and decode a session's .jsonl.zstd log
 src/command.mjs       the /cost command definition and handler
-scripts/build.mjs     generates lib/index.js and lib/client.js from the sources
-test/                 the four checks above
+src/guard.mjs         the spend guard: the counter, the three thresholds, the step refusal, the cap
+src/guard-entry.mjs   the guard's loader entry, and the lazy settings-schema resolution
+scripts/build.mjs     generates lib/index.js, lib/guard.js and lib/client.js from the sources
+docs/                 the record of what has gone wrong here and what it cost
+test/                 the six checks above
 lib/                  GENERATED — do not edit
 ```
 

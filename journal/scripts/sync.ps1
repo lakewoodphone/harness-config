@@ -126,10 +126,12 @@ if (Test-Path $pkgRoot) {
   $nm = Join-Path $profile 'node_modules'
   if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $nm | Out-Null }
   $installed = @()
+  $bundleNames = @()
   foreach ($pkg in (Get-ChildItem $pkgRoot -Directory)) {
     $manifest = Join-Path $pkg.FullName 'package.json'
     if (-not (Test-Path $manifest)) { continue }
-    $name = (Get-Content $manifest -Raw | ConvertFrom-Json).name
+    $parsed = Get-Content $manifest -Raw | ConvertFrom-Json
+    $name = $parsed.name
     if (-not $name) { continue }
     $link = Join-Path $nm $name
     if (Test-Path $link) { Say "plugin $name : already linked" }
@@ -139,14 +141,25 @@ if (Test-Path $pkgRoot) {
       Say "plugin $name : linked"
     }
     $installed += $name
+    # NAMING IS NOT LINKING. Only a package that declares `dsh.bundle.patch` may go in the bundle
+    # list: the loader mounts every declared name as a patch LAYER and throws for one lacking the
+    # marker (dsh-app-boot:852), which stops the whole engine booting. `packages/` holds bundles
+    # AND plain programs with a `bin` (`mesh-broker`, `deepseek-proxy`), and this script used to
+    # name every package it linked -- so each sync re-armed every machine. Measured 2026-09-28 on
+    # Yocheved's laptop: harness-sync rewrote its profile with `dsh-mesh-broker` named and the
+    # engine could not start. install-client-plugins.ps1 was repaired for this on 2026-09-17; this
+    # file and harness-sync.mjs were not, which is why the defect came back after every repair.
+    if ($parsed.dsh -and $parsed.dsh.bundle -and $parsed.dsh.bundle.patch) { $bundleNames += $name }
+    else { Say "plugin $name : linked but NOT named as a bundle (declares no dsh.bundle.patch)" }
   }
-  # Bundle list: base + web app + every resolvable local plugin. Writing an unresolvable name
-  # makes the engine refuse to boot (observed 2026-09-11 and again 2026-09-14), so the list is
-  # built from what is actually present.
+  # Bundle list: base + web app + every local package that DECLARES a bundle. Writing a name whose
+  # package lacks `dsh.bundle.patch` makes the engine refuse to boot (measured 2026-09-11, and
+  # again as a recurring regression on 2026-09-28), so the list is built only from packages that
+  # carry the marker -- never from "everything we managed to link".
   $pf = Join-Path $profile 'package.json'
   if ((Test-Path $pf) -and $installed.Count -ge 0) {
     $pj = Get-Content $pf -Raw | ConvertFrom-Json
-    $bundles = @('@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app') + $installed
+    $bundles = @('@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app') + $bundleNames
     if ($DryRun) { Say "bundles: WOULD SET -> $($bundles -join ', ')" }
     else {
       $pj.dsh.profile.bundles = $bundles

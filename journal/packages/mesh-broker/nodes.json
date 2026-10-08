@@ -53,9 +53,18 @@
         "evidence": "UNMEASURED. Honest state as of 2026-09-16 23:33Z: this node has node v20.20.2 and a dsh engine at /home/zabz/dsh-engine, but its DSH_HOME (~/.dsh/profiles/) holds only `node_modules` and `web` - there is no `headless` profile to load, so a v1 dispatch cannot be shown to succeed or to fail here. Not a claim that it works, and not a claim that it does not."
       },
       "note": "the authority: i5-4570 4c/4t, hopeless as a fleet worker (docs/mesh/20-placement.md D4, and 3 core slots under the core term) and a fine control plane. Its swap is at 99.9% (measured repeatedly 2026-09-16), which halves its effective slots for ranking."
+    },
+    {
+      "node": "lakewooechsmini",
+      "fqdn": "lakewooechsmini.tail93e6e6.ts.net",
+      "baseUrl": "https://lakewooechsmini.tail93e6e6.ts.net",
+      "dispatch": {
+        "v1": true,
+        "measuredAt": "2026-09-18",
+        "evidence": "MEASURED 2026-09-18, both halves. (1) THE GATE: `curl.exe -sS -m 8 https://lakewooechsmini.tail93e6e6.ts.net/mesh/capacity` -> HTTP 200, curl exit 0, schema-1 body reporting cpu.logical 10, mem.totalMiB 16384, mem.freeMiB 6566, disk.freeGiB 45.7, governor.budgetSlots 24 with inUse 0, and accepts {oneShot true, fleet true, maxChildren 12}. Repeat with -i: HTTP/1.1 200 OK, Content-Type application/json, Content-Length 448. Pinned to the tailnet IP 100.126.146.121 -> also 200. (2) THE TURN: over ssh, `/usr/local/bin/node /Users/lpt/.dsh-install/node_modules/@deepseek-ai/dsh/lib/bin.js --profile headless 'Reply with exactly: MACMINI_OK'` -> exit 0 in 2948 ms, stdout exactly MACMINI_OK. (3) WHY IT WAS MISSING, AND IT WAS NEVER THE MACHINE: the 2026-09-16 exclusion probed `curl http://lakewooechsmini.tail93e6e6.ts.net/mesh/capacity` - PORT 80, which has no listener - while every other row in this roster is https://. Port 80 exits 7; the gate has been answering 200 the entire time. One wrong scheme, one node off the mesh for two days. The lesson is the roster's own: probe the URL you mean, and when a node is excluded for not answering, ask which URL was asked."
+      },
+      "note": "Yisroel's macOS mini (host name LakewooechsMini), 10 cores, 16 GB, 45.7 GiB free on /Users/lpt/code, gate answering 200, a headless agent turn in 2.9 s. Added 2026-09-18 after the exclusion that kept it out was falsified. NOT recorded here: `location`, because its physical position was never measured and lib/config.js maps an unrecognised value to null - a guessed location would silently mis-apply the preference bonus for any task that prefers home or office. Record it when someone measures it."
     }
   ],
-  "_excluded_on_purpose": {
-    "lakewooechsmini": "Tailscale DNS label of the Mac Mini (the ssh alias / host name `LakewooechsMini` is NOT the label, which is exactly the §2.1 naming trap). NOT in the roster: it does not answer GET /mesh/capacity. MEASURED 2026-09-16 23:30Z from the authority - `curl http://lakewooechsmini.tail93e6e6.ts.net/mesh/capacity` exits 7 (connection refused/failed) while the node itself is `active` in tailscale status. So there is no capacity surface there and the broker cannot read it; adding it would only produce an `unreachable` row. Add it to `nodes` the day its gate answers, with `dispatch` measured the same way. The earlier comment here called it \"Yisroel's machine\"; the owner has given free rein on it and it is becoming a worker node, so that reason is out of date - the current reason is measurement, not ownership."
-  }
+  "_excluded_on_purpose": {}
 }
