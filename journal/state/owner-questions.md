@@ -6,7 +6,7 @@ Updated: 2026-10-08
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 331 row(s) read, 53 pending, generated 2026-10-08 14:37 UTC on SECRATARY.
+Provenance: 333 row(s) read, 55 pending, generated 2026-10-08 15:45 UTC on SECRATARY.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -57,6 +57,8 @@ Provenance: 331 row(s) read, 53 pending, generated 2026-10-08 14:37 UTC on SECRA
 | 327 | 2026-10-08 | medium | Eli Green's 120 was never recorded as received and his phone is already back with him - collected or written off? | Carry it as owed unless someone remembers taking the money: marking it collected with no evidence is how a record starts lying, and 120 is small enough to chase politely. |
 | 328 | 2026-10-08 | medium | Ribowsky: was the 69.31 card charge captured against this order? | Leave it owed until the charge is matched: 69.31 is not 65, so the two may not be the same transaction at all. |
 | 330 | 2026-10-08 | medium | hirschberg: what do we charge for the battery? | Give me one battery figure and the row is complete: 65 wifi plus that number, with the touchpad left off because she never approved it. |
+| 333 | 2026-10-08 | medium | Paste the LIVE Stripe publishable key so production can take a card. It is <redacted>... and it exists in no file, env or store I can reach - not on the app servers, not in any repo, not in the Cloudflare Pages project env, and Stripe will not disclose it over its API or on any hosted page. Only the Stripe Dashboard (LIVE mode, Developers -> API keys) has it, behind your login. Production secret k | Open dashboard.stripe.com in LIVE mode, Developers -> API keys, copy the Publishable key and send it here. I add it to BASE_ENV.production, deploy the frontend, and cards work. Three servers and one build are already fix |
+| 334 | 2026-10-08 | medium | The prepaid AI balance is low. Top it up so the autonomous work does not stop? | Top up at https://platform.deepseek.com/top_up - the provider has NO auto-recharge to turn on (its own API FAQ documents PayPal, bank card, Alipay and WeChat Pay and nothing automatic), so this cannot be made to run itse |
 | 259 | 2026-10-05 | low | Kosher Waze mid-period return: is the period base plan fee prorated by days, or charged in full? | Prorate by days. Charging a full month for four days of use is the complaint that costs the relationship, and the metered usage is billed either way. |
 | 262 | 2026-10-05 | low | ZABZ-TECH's RDP service is wedged and only a reboot will activate microphone passthrough (your Yoga mic appearing as a real recording device inside ZABZ-TECH). Reboot that machine, or stay on Chrome Remote Desktop and dictate on the Yoga side instead? | Dictate on the Yoga side first: it needs no reboot, and installing Handy with local Whisper and one toggle hotkey turns speech into text and pastes it, which is exactly what crosses Chrome Remote Desktop. Reach for the R |
 | 306 | 2026-10-07 | low | What was the 127.95 charge at US MOBILE on 20 Sep (card ending 3929) - no live charge in this ledger carries the merchant 'desc mobile'? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
