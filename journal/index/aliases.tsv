@@ -503,3 +503,6 @@ L2065	lessons	L2341	id collided with different content; L2065 keeps L2065	2026-0
 L2066	lessons	L2342	id collided with different content; L2066 keeps L2066	2026-09-22	ZABZ-YOGA	d17ad1d435e0184a	archive/collided-ids-2026-09-22/lessons/L2066.md
 L2067	lessons	L2343	id collided with different content; L2067 keeps L2067	2026-09-22	ZABZ-YOGA	01e2e036249800c9	archive/collided-ids-2026-09-22/lessons/L2067.md
 L2184	lessons	L2344	id collided with different content; L2184 keeps L2184	2026-09-22	ZABZ-TECH	fd70615c53cec77b	archive/collided-ids-2026-09-22/lessons/L2184.md
+H3061	handoff	H3379	id collided across machines with different content (journal P2811); the AUTHORITY side was renumbered to H3379 and the live file keeps H3061	2026-10-08	SECRATARY	8a9d34a8d810e43f	entries/handoff/H3379.md
+L3052	lessons	L3396	id collided across machines with different content (journal P2811); the AUTHORITY side was renumbered to L3396 and the live file keeps L3052	2026-10-08	SECRATARY	c3add72ef5807025	entries/lessons/L3396.md
+L3105	lessons	L3397	id collided across machines with different content (journal P2811); the AUTHORITY side was renumbered to L3397 and the live file keeps L3105	2026-10-08	SECRATARY	3cf758aa096c7660	entries/lessons/L3397.md
