@@ -112,6 +112,17 @@ def _same(a: Path, b: Path) -> bool:
         return False
 
 
+def _ship(f: Path) -> bool:
+    """Files that must never be copied into the live preset dir.
+
+    Editor and git backups (`*.bak-*`, `*before-*`, `*~`) sat in presets/ and were being installed
+    as if they were configuration: a `.bak` of a composition is not a composition, and the live
+    preset directory is read by the engine on every session start.
+    """
+    name = f.name
+    return not (name.endswith("~") or ".bak" in name or ".before" in name or name.startswith("."))
+
+
 def plan_presets(dry: bool) -> list[str]:
     msgs: list[str] = []
     src_root = REPO / "presets"
@@ -122,7 +133,7 @@ def plan_presets(dry: bool) -> list[str]:
         dest = PRESET_ROOT / preset.name
         changed: list[str] = []
         for f in sorted(preset.rglob("*")):
-            if f.is_dir():
+            if f.is_dir() or not _ship(f):
                 continue
             rel = f.relative_to(preset)
             target = dest / rel
@@ -140,7 +151,7 @@ def plan_presets(dry: bool) -> list[str]:
                 if f.is_dir():
                     (dest / f.relative_to(preset)).mkdir(parents=True, exist_ok=True)
             for f in sorted(preset.rglob("*")):
-                if f.is_file():
+                if f.is_file() and _ship(f):
                     target = dest / f.relative_to(preset)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     # write LF explicitly: the source of truth is LF, and the
@@ -153,6 +164,152 @@ def plan_presets(dry: bool) -> list[str]:
     for local in sorted(p for p in PRESET_ROOT.iterdir() if p.is_dir()):
         if local.name not in known:
             msgs.append(f"preset {local.name}: local-only (not in repo -- left alone)")
+    return msgs
+
+
+SKILL_ROOT = DSH_HOME / "skills"
+SKILL_MANIFEST = SKILL_ROOT / ".installed-by-harness-config.json"
+# Precedence when two presets ship the same skill name: the default preset first.
+SKILL_PRESET_ORDER = ("zabz", "cordis-bg", "yocheved")
+_TEXT_SUFFIXES = {".md", ".markdown", ".txt", ".py", ".sh", ".ps1", ".js", ".mjs", ".cjs",
+                  ".ts", ".json", ".yml", ".yaml", ".tsv", ".csv", ".toml", ".cfg", ".ini"}
+
+
+def _skill_sources() -> list[tuple[str, Path]]:
+    """(preset, skills dir) for every preset that ships skills, in precedence order."""
+    root = REPO / "presets"
+    if not root.is_dir():
+        return []
+    dirs = [p for p in sorted(root.iterdir()) if p.is_dir() and (p / "skills").is_dir()]
+    order = {name: i for i, name in enumerate(SKILL_PRESET_ORDER)}
+    dirs.sort(key=lambda p: (order.get(p.name, len(order)), p.name))
+    return [(p.name, p / "skills") for p in dirs]
+
+
+def _skill_entries(skills_dir: Path) -> dict[str, Path]:
+    """name -> source, for each bundle (a directory holding SKILL.md) and each flat .md file."""
+    out: dict[str, Path] = {}
+    for entry in sorted(skills_dir.iterdir()):
+        if entry.name.startswith("."):
+            continue
+        if entry.is_dir() and (entry / "SKILL.md").is_file():
+            out[entry.name] = entry
+        elif entry.is_file() and entry.suffix in {".md", ".markdown"}:
+            out[entry.stem] = entry
+    return out
+
+
+def _skill_files(src: Path) -> list[Path]:
+    if src.is_file():
+        return [src]
+    return sorted(f for f in src.rglob("*") if f.is_file() and f.name != ".DS_Store")
+
+
+def _copy_skill(src: Path, dest: Path) -> None:
+    """Copy one skill, normalising line endings on text and never touching anything else."""
+    if dest.exists():
+        shutil.rmtree(dest)
+    for f in _skill_files(src):
+        rel = Path(f.name) if src.is_file() else f.relative_to(src)
+        if src.is_file():  # flat markdown skill -> <name>/SKILL.md
+            rel = Path("SKILL.md")
+        target = dest / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        raw = f.read_bytes()
+        if f.suffix.lower() in _TEXT_SUFFIXES:
+            raw = _norm(raw)
+        target.write_bytes(raw)
+
+
+def plan_skills(dry: bool) -> list[str]:
+    """Mirror the estate's skills into $DSH_HOME/skills -- the root an agent actually reads.
+
+    WHY THIS EXISTS (measured 2026-10-08 on ZABZ-YOGA). The presets ship their skills in
+    `<preset>/skills/` and the composition registers that directory with the skill provider
+    (`customSkillDirs`). In this deployment that registration does nothing: a probe skill placed
+    only in `~/.dsh/.agent-presets/zabz/skills/` never reached a fresh agent's catalog -- neither
+    with the stock `!!js` expression nor with a literal absolute path -- while the same file
+    dropped into `~/.dsh/skills/` appeared in the catalog within seconds (that root is watched
+    live). The consequence was real: `fast-search`, the skill that tells every agent to use the
+    indexed search instead of a recursive grep, was in the repo and in no agent's catalog, so a
+    session had to go looking for a tool it already had.
+
+    So the user root becomes a generated install target, exactly like ~/.dsh/.agent-presets:
+    `presets/*/skills` stays the source of truth, and this step mirrors it. Skills are additive:
+    a skill we did not install is never deleted (reported instead).
+    """
+    msgs: list[str] = []
+    sources = _skill_sources()
+    if not sources:
+        return ["skills/: no preset ships a skills/ directory"]
+
+    desired: dict[str, tuple[Path, str]] = {}
+    conflicts: list[str] = []
+    for preset, skills_dir in sources:
+        for name, src in _skill_entries(skills_dir).items():
+            if name in desired:
+                prev_src, prev_preset = desired[name]
+                if _same(src / "SKILL.md" if src.is_dir() else src,
+                         prev_src / "SKILL.md" if prev_src.is_dir() else prev_src):
+                    continue  # identical copy in two presets: one skill, no noise
+                conflicts.append(f"{name} ({prev_preset} vs {preset} -- kept {prev_preset})")
+                continue
+            desired[name] = (src, preset)
+    if conflicts:
+        msgs.append("skills/: CONFLICT, same name different content -> " + "; ".join(conflicts))
+
+    try:
+        manifest = json.loads(SKILL_MANIFEST.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        manifest = {}
+    installed: dict[str, str] = manifest.get("installed", {})
+
+    add, update = [], []
+    for name, (src, preset) in sorted(desired.items()):
+        dest = SKILL_ROOT / name
+        wanted = _skill_files(src)
+        if not dest.exists():
+            add.append(name)
+            continue
+        for f in wanted:
+            rel = Path("SKILL.md") if src.is_file() else f.relative_to(src)
+            target = dest / rel
+            if not target.exists():
+                update.append(f"{name}/{rel}")
+            elif not _same(f, target):
+                update.append(f"{name}/{rel}")
+    removed = sorted(n for n in installed if n not in desired)
+    local_only = sorted(p.name for p in SKILL_ROOT.iterdir()
+                        if p.is_dir() and p.name not in desired and p.name not in installed) \
+        if SKILL_ROOT.is_dir() else []
+
+    if dry:
+        msgs.append(f"skills/: {len(desired)} to install "
+                    f"(+{len(add)} new, ~{len(update)} file(s) changed, -{len(removed)} removed)"
+                    if (add or update or removed) else f"skills/: up to date ({len(desired)} present)")
+        for n in add:
+            msgs.append(f"  + {n}  (from {desired[n][1]})")
+        for f in update[:20]:
+            msgs.append(f"  ~ {f}")
+        if len(update) > 20:
+            msgs.append(f"  ~ ... and {len(update) - 20} more file(s)")
+        for n in removed:
+            msgs.append(f"  - {n}  (was installed from {installed.get(n)}, gone from the repo)")
+    else:
+        SKILL_ROOT.mkdir(parents=True, exist_ok=True)
+        for name, (src, preset) in sorted(desired.items()):
+            _copy_skill(src, SKILL_ROOT / name)
+        for name in removed:
+            shutil.rmtree(SKILL_ROOT / name, ignore_errors=True)
+        SKILL_MANIFEST.write_text(json.dumps({
+            "note": "generated by harness-config/scripts/sync.py -- do not edit by hand",
+            "installed": {n: p for n, (_, p) in sorted(desired.items())},
+        }, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+        msgs.append(f"skills/: {len(desired)} skill(s) mirrored to {SKILL_ROOT} "
+                    f"({len(add)} new, {len(update)} file(s) written, {len(removed)} removed)")
+
+    if local_only:
+        msgs.append("skills/: local-only, left alone -> " + ", ".join(local_only))
     return msgs
 
 
@@ -436,6 +593,10 @@ def main() -> int:
     # the sync. Same decision in --dry-run: the point is to report it, not to write it.
     if report_step("presets", *check_version_coupled("presets", args.engine_root)):
         for m in plan_presets(args.dry_run):
+            print(" " + m)
+        # The preset's own skill root is not enough (see plan_skills): mirror the estate's skills
+        # into the user root, which is the one an agent provably reads.
+        for m in plan_skills(args.dry_run):
             print(" " + m)
 
     if report_step("profiles", *check_version_coupled("profiles", args.engine_root)):

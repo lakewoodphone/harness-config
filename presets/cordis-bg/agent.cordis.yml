@@ -334,6 +334,13 @@
 # Both rows register into THIS preset's layer of the host skill registry, so
 # they need no realm; the agent's merged catalog also carries whatever the
 # deployment registered globally (repository plugins).
+#
+# DO NOT RELY ON THIS ROW. Measured 2026-10-08: it registers nothing in this
+# deployment -- a probe skill placed only in the preset's skills/ was absent from
+# a fresh agent's catalog both with this expression and with a literal absolute
+# path, while the same file in $DSH_HOME/skills appeared within seconds. The real
+# install path is scripts/sync.py -> plan_skills(), which mirrors presets/*/skills
+# into $DSH_HOME/skills. Evidence and the check that proves it: docs/skill-wiring.md.
 - id: skill-filesystem
   name: '@deepseek-ai/dsh-skill-filesystem'
   config:

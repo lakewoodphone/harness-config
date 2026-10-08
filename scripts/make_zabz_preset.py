@@ -92,6 +92,8 @@ These are not style preferences. Every one is measured from months of transcript
 
 **Prefer the in-process file tools to a shell for reading, searching and editing.** Measured on ZABZ-YOGA 2026-09-16 (n=30, interleaved, same machine load): a *trivial* `pwsh` tool call costs **~540 ms best / ~700 ms typical**, and the split is pwsh's own start-up 78 %, the Job-owner runner process 19 %, everything else under 3 % (the kernel spawn itself is 6-7 ms). The in-process tools are not in that league: `read` p50 **0.76 ms**, `stat` **0.11 ms**. So `pwsh` is for what only a shell can do — running a program, git, a package manager, inspecting processes — and `read`/`grep`/`glob`/`edit` are for bytes. Reaching for `Get-Content` or `Select-String` on a file the `read`/`grep` tools already cover is a ~700x latency tax on that call, and because every shipped tool is declared exclusive, parallel calls in one step run *in series*, so N shell calls cost N x ~700 ms. When a shell genuinely is needed, batch the work into one call rather than many, and use `run_in_background` for anything slow instead of a long foreground chain.
 
+**Search with the estate's indexed surface, never a recursive walk.** Before any file or content search — and whenever a search feels slow — use the fast-search surface, documented in the `fast-search` skill that ships with your catalog (if it is missing from the catalog, that is a wiring fault to fix, not an absence to work around). Two doors to the same engine: `ps_action("search", {{"what": "code|data|journal|files|symbol", "query": …}})` from any OS, and `fa <mode> <query>` on a Linux node. Measured on `secratary` 2026-10-08, same query, cold caches: `rg -uuu` over one home directory **100,075 ms** against **20 ms** scoped to `app/` and **317-544 ms** for the indexed journal path — a search that takes a minute is aimed at files that cannot hold the answer. Every indexed answer carries its provenance (`source`, `ms`, `index_age_s`, and for the journal `covers_through`, the newest entry it holds — a file age is not content freshness). Symbols, and anything you are about to edit, must never come from an index: use the live `symbol` mode or `--fresh`. And a search tool must never confuse "no match" with "nothing was searched": `fa` exits 1 for a real negative, 3 for a possibly-stale index, 4 when nothing was searched, 5 on failure.
+
 **Heavy work asks the governor for a slot first.** Before starting a fleet, a burst of parallel jobs, or anything that spawns many processes, acquire a slot — the `admission_governor` tool, or `node packages/plugin-health/bin/governor.mjs acquire --kind <what> --note <why>`. It answers **GRANTED or QUEUED with a position, never a refusal**, and its budget is derived at call time from this host's own free memory (measured ~160 MB per in-flight tool call, clamped 4-24, so it cannot refuse on a healthy machine). Renew while the work runs, release when it finishes; `... governor.mjs status` is read-only and never reaps. This exists because **nothing else caps how much work runs at once**, and that is measured rather than theoretical: on 2026-09-16 seventeen sessions were generating simultaneously against a measured ceiling of ~13-14 on this 22-core / 31.6 GB laptop, and the result was commit at 37 GB against 31.6 GB physical, page-ins at 3,000-6,000/s, disk time at 111-574 %, and a machine that felt broken while no single process was to blame. A queued second is the fix; the alternative is a crawl. Queue, never amputate: the budget shrinks by itself when memory is tight, which is what makes many parallel sessions *safe* rather than merely possible.
 
 **Keep working sessions short, and hand off through the journal.** Cost scales as *steps x mean
@@ -490,6 +492,12 @@ def main() -> int:
         action="store_true",
         help="report whether the committed preset matches this generator; write nothing.",
     )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite even when the destination holds persona rules this generator does not "
+             "produce (they are deleted; the default is to refuse and list them).",
+    )
     args = ap.parse_args()
 
     if not SRC.exists():
@@ -585,6 +593,48 @@ def main() -> int:
         return 0
 
     DST_DIR.mkdir(parents=True, exist_ok=True)
+
+    # ── the overwrite guard ──────────────────────────────────────────────────
+    #
+    # 2026-10-08: this generator was run without --check and overwrote the committed preset,
+    # silently deleting persona paragraphs that had been added by hand after the last
+    # generation (rules 8 and 9 on money rendering and on not making the owner think, the
+    # outbound-comms hardening bullets, the "ask him before a counterparty" rule) plus two
+    # zabz-only skills. `--check` had reported that drift -- as one line, naming only the
+    # file -- and the message told the operator to move the hand edit first, but nothing
+    # stopped the destructive run. A warning that cannot stop the damage is not a guard.
+    #
+    # So: when the destination holds a rule paragraph this generator does not produce,
+    # refuse and print exactly which ones, unless the operator passes --force.
+    if DST.exists() and not args.force:
+        def rule_paragraphs(blob: str) -> dict[str, str]:
+            out: dict[str, str] = {}
+            for line in blob.splitlines():
+                stripped = line.strip()
+                # rule paragraphs are bold-led; bullets inside a rule start with "- **"
+                if stripped.startswith("**") or stripped.startswith("- **"):
+                    if len(stripped) > 60:
+                        out[stripped[:80]] = stripped
+            return out
+
+        existing, generated = rule_paragraphs(DST.read_text(encoding="utf-8")), rule_paragraphs(text)
+        lost = [v for k, v in existing.items() if k not in generated]
+        if lost:
+            print(
+                f"REFUSING to overwrite {DST.relative_to(REPO)}: it holds "
+                f"{len(lost)} persona rule(s) this generator does not produce, and writing "
+                f"would delete them.",
+                file=sys.stderr,
+            )
+            for para in lost:
+                print(f"  - {para[:160]}…", file=sys.stderr)
+            print(
+                "Move those paragraphs into PERSONA in this file, then re-run. "
+                "To discard them deliberately, pass --force.",
+                file=sys.stderr,
+            )
+            return 3
+
     # Write LF explicitly. `.gitattributes` forces `eol=lf` and the live presets under
     # ~/.dsh are LF, but Python's text mode translates "\n" to os.linesep -- so on Windows
     # every generation produced a whole-file CRLF diff and left `preset.yml` permanently
@@ -593,15 +643,34 @@ def main() -> int:
     DST.write_text(text, encoding="utf-8", newline="\n")
     (DST_DIR / "preset.yml").write_text(preset_yml, encoding="utf-8", newline="\n")
 
-    # Carry the skills across so the preset is self-contained.
+    # Carry the skills across so the preset is self-contained -- MERGE, never replace.
+    #
+    # 2026-10-08: this used to `rmtree(dst_skills)` and copy the source preset's skills over the
+    # top. That silently DESTROYED skills that only the target preset had: one run deleted
+    # `presets/zabz/skills/fast-search/SKILL.md` and `secretary-wake/SKILL.md` -- the skill that
+    # tells every agent to use the indexed search surface, and the one that explains how work
+    # happens while no session is open. They were recoverable only because git still had them,
+    # and a session that had not noticed would have shipped a preset without them.
+    # A preset's skills are its own; the source preset's copies are defaults, not a replacement set.
     src_skills = SRC.parent / "skills"
     if src_skills.is_dir():
         import shutil
 
         dst_skills = DST_DIR / "skills"
-        if dst_skills.exists():
-            shutil.rmtree(dst_skills)
-        shutil.copytree(src_skills, dst_skills)
+        dst_skills.mkdir(parents=True, exist_ok=True)
+        copied, kept = [], []
+        for skill in sorted(p for p in src_skills.iterdir() if p.is_dir()):
+            target = dst_skills / skill.name
+            if target.exists():
+                shutil.rmtree(target)
+            shutil.copytree(skill, target)
+            copied.append(skill.name)
+        for skill in sorted(p for p in dst_skills.iterdir() if p.is_dir()):
+            if skill.name not in copied:
+                kept.append(skill.name)
+        print(f"  skills from source: {', '.join(copied) or 'none'}")
+        if kept:
+            print(f"  skills kept (this preset only): {', '.join(kept)}")
 
     rows = re.findall(r"^- id: (\S+)", text, re.MULTILINE)
     print(f"wrote {DST}")
