@@ -881,6 +881,7 @@ handoff	H3386	3386		2026-10-08 19:34 UTC	ZABZ-YOGA	open	## 2026-10-08 19:34 UTC 
 handoff	H3387	3387		2026-10-08 20:06 UTC	SECRATARY	open	## 2026-10-08 20:06 UTC · SECRATARY · IRIS Easy Flip deleted video (WO26100812738): the platform was not what the label suggested, and the correction changes the odds	entries/handoff/H3387.md	1	64	80ee58be86bc381e		
 handoff	H3388	3388		2026-10-08 20:20 UTC	SECRATARY	open	## 2026-10-08 20:20 UTC · SECRATARY · Weinreb HP Pavilion 24-b227c: WO26100812739 - the customer came from the Dialpad trail, the machine from its own labels	entries/handoff/H3388.md	1	70	a04deca37e8de38c		
 handoff	H3389	3389		2026-10-08 21:37 UTC	SECRATARY	open	## 2026-10-08 21:37 UTC · SECRATARY · Bucket closed as a non-issue (the 30-day rule is prefix-scoped) and Pearl's 840 G5 filed with a 165 quote worked out	entries/handoff/H3389.md	1	54	e9f05169557369b1		
+handoff	H3390	3390		2026-10-08 22:42 UTC	secratary	open	## 2026-10-08 22:42 UTC · secratary · The shop's money & customer reporting: found, audited, repaired, and run for today	entries/handoff/H3390.md	1	82	0c1389d7b7936fac	lpt,money,customers,reporting,scripts,cron	
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2179,6 +2180,7 @@ lessons	L3404	3404		2026-10-08	SECRATARY	open	**L3404 · Read the path before be
 lessons	L3405	3405		2026-10-08	SECRATARY	open	**L3405 · Identify the platform (FCC ID -> manual -> chipset) before assessing any recovery**	entries/lessons/L3405.md	1	35	0f0248f41d1736d0		
 lessons	L3406	3406		2026-10-08	SECRATARY	open	**L3406 · Retry belongs in the tool when the path is idempotent - and name what makes it safe first**	entries/lessons/L3406.md	1	31	47f6bb4f57ce0653		
 lessons	L3407	3407		2026-10-08	SECRATARY	open	**L3407 · An aggregate mismatch is a question, not a finding - check the specific item**	entries/lessons/L3407.md	1	25	156c2b615984f544		
+lessons	L3408	3408		2026-10-08	secratary	open	**L3408 · A literal in code is a time bomb — this time the bomb was a Postgres enum value**	entries/lessons/L3408.md	1	42	2d3d84e252fec19f	enum,hardcoded,postgres,reporting,money	P13,P3
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2575,6 +2577,7 @@ pain	P2868	2868		2026-10-07	ZABZ-YOGA	open	## P2868 — ps_search was committed 
 pain	P2869	2869		2026-10-07	ZABZ-YOGA	open	## P2869 — A mesh node with no working DNS is found by spending a real child on it	entries/pain/P2869.md	1	18	2ba1540de7331b31	mesh,dns	
 pain	P2870	2870		2026-10-07	ZABZ-YOGA	open	## P2870 — The GitHub mirror of harness-config diverges and rejects push	entries/pain/P2870.md	1	20	b4a048e330ccfb9c		
 pain	P2927	2927		2026-10-08	SECRATARY	open	## P2927 — model_usage records 0 cached tokens for every DeepSeek flash call, overstating flash cost ~14x	entries/pain/P2927.md	1	36	62a1280dc6be5ea4	cost,telemetry,deepseek	
+pain	P2928	2928		2026-10-08	secratary	open	## P2928 — The live production store lost a month of card receipts, and neither store is trustworthy alone	entries/pain/P2928.md	1	46	4998b6ad88fe0104	lpt,production,payments,data-loss,reconcile	P3
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -2943,6 +2946,8 @@ decisions	D2968	2968		2026-10-07	ZABZ-YOGA	open	**D2968 · 2026-10-07 · P2881 F
 decisions	D2969	2969		2026-10-07	ZABZ-YOGA	open	**D2969 · 2026-10-07 · CORRECTION to H3316: Golembick was answered at 2026-10-07 17:04:43Z - the open item is the pickup choice, not the money.**	entries/decisions/D2969.md	1	28	2425fb8c666753be		H3316
 decisions	D2970	2970		2026-10-07	ZABZ-YOGA	open	**D2970 · 2026-10-07 · Gusto account cancelled 2026-10-07 - owner chose to file everything himself, and the refund proves the exposure is 41.99.**	entries/decisions/D2970.md	1	6	53c0ff94336afe15		
 decisions	D2971	2971		2026-10-07	ZABZ-YOGA	open	**D2971 · 2026-10-07 · The search exit code is part of the contract.**	entries/decisions/D2971.md	1	22	78cfe8a00e5c4b0c		
+decisions	D3032	3032		2026-10-08	secratary	open	**D3032 · 2026-10-08 · Three decisions taken while repairing the shop's money & customer reporting.**	entries/decisions/D3032.md	1	54	f9b204c718e82aa0	lpt,reporting,definition-of-done,cron	
+decisions	D3033	3033		2026-10-08	secratary	open	**D3033 · 2026-10-08 · The bank ledger is the authoritative record of money received — do not repair the production payment table blind.**	entries/decisions/D3033.md	1	51	c92529b1ea9ed75b	lpt,money,production,authoritative-source	P2928
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
