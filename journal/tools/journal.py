@@ -35,6 +35,7 @@ Write path (all under the mutation lock, all atomic temp+replace):
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as _dt
 import hashlib
 import json
@@ -153,12 +154,40 @@ LOCK_STALE_SEC = 600
 # that the wait ends in an OS lock (see acquire_lock): a process killed while waiting or
 # while holding releases the lock in the kernel, so nothing can wedge.
 LOCK_WAIT_SEC = 110.0
+# A CHAT-PATH WRITE MUST NOT QUEUE BEHIND A MAINTENANCE COMMAND FOR TWO MINUTES.
+#
+# MEASURED 2026-10-07 on ZABZ-TECH, four concurrent `append pain` (default fetch) on a
+# copy of this tree: worst critical section 8.2 s, worst waiter queued 24.3 s behind it
+# (40 failed take attempts), wall 32.2 s for four writers -- and the FIRST append after
+# the tree was rewritten by a copy (what a `git pull` that touches thousands of entries
+# does) held the lock for 30.5 s. The holder is not bounded: `git_max` inside the old
+# critical section ran `git fetch --all` plus up to 25 `git grep <ref>` calls, each with
+# `timeout=60`, so a single hold could in principle reach 25*60+25 = 1525 s. Because
+# LOCK_WAIT_SEC was 110 s, a session that hit that refused, and the natural retry --
+# which is what an agent does -- cost another 110 s. Five retries is the ten minutes the
+# owner reported.
+#
+# The real fix is that the critical section is now mint+write only (see write_section and
+# cmd_append). This constant is the second half: an interactive write waits a SHORT
+# bounded time and then DEFERS with a message naming the holder, instead of spinning.
+# 20 s is >20x the measured critical section, so it queues every ordinary collision and
+# still fails inside one harness call rather than inside a chat turn's patience.
+LOCK_WAIT_SHORT_SEC = 20.0
 # The fd holding the process-wide OS lock; the kernel drops it when this process dies.
 _LOCK_FD = None
 # Commands that read the tree to decide what to write back. Two of these running at
 # once on one tree is what produced 161 collided ids on 2026-09-14.
 MUTATING_COMMANDS = {"append", "import-legacy", "migrate-v2", "dedupe", "repair-ids",
                      "resolve", "state", "questions", "gc-legacy", "index", "claim"}
+# Commands whose ENTIRE body is the critical section. They are the maintenance commands:
+# each rewrites ids, moves files or renumbers the whole store, so the tree must stand
+# still for all of it. They are not on a chat turn's path, so the long wait is right.
+BLANKET_LOCK_COMMANDS = {"import-legacy", "migrate-v2", "dedupe", "repair-ids",
+                         "gc-legacy", "index", "claim"}
+# Commands that take the lock THEMSELVES, around the mint + one file write only. Their
+# expensive half (git measurement, absorption, cache rebuild, the authority call behind
+# `questions`) now runs outside it. Added 2026-10-07; see cmd_append's comment.
+SELF_LOCK_COMMANDS = MUTATING_COMMANDS - BLANKET_LOCK_COMMANDS
 
 
 # ---------------------------------------------------------------------------
@@ -246,14 +275,27 @@ def atomic_write(path: Path, text: str) -> None:
     tmp = path.parent / (path.name + ".tmp" + str(os.getpid()))
     with open(tmp, "wb") as fh:
         fh.write(text.encode("utf-8"))
-    try:
-        os.replace(str(tmp), str(path))
-    except OSError:
+    # os.replace CAN FAIL TRANSIENTLY ON WINDOWS, AND A RETRY IS THE CORRECT ANSWER.
+    # MEASURED 2026-10-07: six concurrent appends on one tree, each rebuilding the index
+    # cache after its own write, produced `PermissionError(13, 'Access is denied')` from
+    # `os.replace` -- Windows refuses to replace a file another handle has open, and a
+    # concurrent reader of index/entries.tsv, or a concurrent writer's replace, is exactly
+    # that. Both candidates hold equivalent derived content, so re-trying the same replace
+    # is safe and idempotent; only a failure that survives the whole backoff is a real
+    # error, and that still raises exactly as before.
+    _last: OSError | None = None
+    for _attempt in range(5):
         try:
-            tmp.unlink()
-        except OSError:
-            pass
-        raise
+            os.replace(str(tmp), str(path))
+            return
+        except OSError as exc:
+            _last = exc
+            time.sleep(0.02 * (2 ** _attempt))
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
+    raise _last if _last is not None else OSError("atomic_write failed")
 
 
 def _path_of(rel: str) -> Path:
@@ -914,14 +956,35 @@ def _maybe_refresh_questions(path: Path, max_age_minutes: float = 60.0) -> float
 
 
 def _lock_free_now() -> bool:
-    """True if the journal lock is free at this instant (taken and dropped at once)."""
+    """True if the journal lock is free at this instant.
+
+    A READ MUST NOT CREATE THE LOCK FILE (added 2026-10-07). The old version called
+    `acquire_lock("probe", wait=0.0)`, which OPENS THE LOCK WITH O_CREAT and, on success,
+    TRUNCATES it, writes its own token and unlinks it again. A reader therefore mutated
+    the lock path on every `status` call, and a second reader's `ensure_cache()` could see
+    the file the first reader had just created and conclude "locked by another session --
+    answering from entries/" (the exact false alarm the 2026-09-15 note was written to
+    avoid). This version opens the existing file read-write WITHOUT creating it and only
+    ever takes and drops a byte-range lock on a descriptor no one else can see.
+    """
+    lock = JOURNAL / LOCK_NAME
     try:
-        ok, token = acquire_lock("probe", wait=0.0)
-    except Exception:  # noqa: BLE001
-        return False
-    if ok:
-        release_lock(token)
-    return ok
+        fd = os.open(str(lock), os.O_RDWR)
+    except FileNotFoundError:
+        return True          # no lock file at all -> nobody holds it
+    except OSError:
+        return False         # cannot inspect it -> assume busy and skip the refresh
+    got = False
+    try:
+        got = _try_os_lock(fd)
+        return got
+    finally:
+        if got:
+            _drop_os_lock(fd)
+        try:
+            os.close(fd)
+        except OSError:
+            pass
 
 
 def open_entries(entries: list, kind: str | None = None, events=None) -> list:
@@ -1128,6 +1191,26 @@ def rebuild_cache(compute_drift: bool = False) -> dict:
             stamp["unabsorbed_error"] = str(exc)
     atomic_write(idir / "stamp.json", json.dumps(stamp, indent=1, sort_keys=True) + "\n")
     return stamp
+
+
+def _rebuild_cache_after_write() -> dict:
+    """Rebuild the index cache, and NEVER raise: the caller's entry is already on disk.
+
+    Added 2026-10-07 with the short critical section. The cache rebuild moved OUT of the
+    lock, so two writers can now rebuild at once -- and on Windows a concurrent
+    `os.replace` of index/entries.tsv can fail transiently. That failure used to escape as
+    a non-zero exit AFTER the entry file had been written, which is the exact "visible
+    crash over a silent success" failure P2607 describes: the operator retries, and
+    retrying an append is how a duplicate id is born. The cache is regenerable derived
+    data and `ensure_cache()` rebuilds it on the next read, so a failure here is reported
+    and swallowed. Returns a stamp dict for the success line either way.
+    """
+    try:
+        return rebuild_cache()
+    except Exception as exc:  # noqa: BLE001
+        note("journal: the entry IS written; the index cache could not be rebuilt (%s: %s). "
+             "The next reader rebuilds it." % (type(exc).__name__, exc))
+        return read_stamp()
 
 
 def read_stamp() -> dict:
@@ -2063,7 +2146,12 @@ def _field(body: str, name: str) -> str:
 
 
 def cmd_state(args) -> int:
-    """Regenerate state/open-pain.md — bounded, ranked, with counts."""
+    """Regenerate state/open-pain.md — bounded, ranked, with counts.
+
+    2026-10-07: the catalog read and the ranking run OUTSIDE the lock; the lock covers the
+    one generated-file write. This is the command the always-read page's helper runs, so
+    anything it holds the global lock across is latency every other session pays.
+    """
     rows, source, _f = catalog()
     pains = [e for e in rows if e["kind"] == "pain"]
     pains.sort(key=lambda e: (e.get("num") or 0, e.get("suffix") or ""))
@@ -2093,7 +2181,13 @@ def cmd_state(args) -> int:
         out.append("| %s | %s | %s | %s |" % (e["id_full"], redact(title).replace("|", "/"),
                                               redact(cost).replace("|", "/"),
                                               redact(fix).replace("|", "/")))
-    atomic_write(JOURNAL / "state" / "open-pain.md", "\n".join(out).rstrip() + "\n")
+    with write_section("state") as locked:
+        if not locked:
+            note("DEFERRED: another session held the journal lock for more than %.0f s (holder: "
+                 "%s). state/open-pain.md was NOT rewritten; nothing is lost, it is regenerated "
+                 "from entries/." % (LOCK_WAIT_SHORT_SEC, _read_lock_text(JOURNAL / LOCK_NAME)))
+            return 5
+        atomic_write(JOURNAL / "state" / "open-pain.md", "\n".join(out).rstrip() + "\n")
     print("state/open-pain.md: %d open of %d (%d closed)" % (len(opens), len(pains), len(pains) - len(opens)))
     return 0
 
@@ -2153,7 +2247,19 @@ def cmd_questions(args) -> int:
     closed = [r for r in rows if (r.get("status") or "") != "pending"]
     out += ["", "Closed since the queue opened: %d. Answered questions move to `entries/decisions/` "
                 "with the owner's own words." % len(closed)]
-    atomic_write(path, "\n".join(out).rstrip() + "\n")
+    # 2026-10-07: THE AUTHORITY CALL IS NOT THE CRITICAL SECTION. `_queue_from_authority()`
+    # above is `ssh secratary-ts`, timeout 45 s, and it used to run while this command held
+    # the journal's GLOBAL write lock -- so one `status` page on a machine with no direct
+    # queue route blocked every append on every session for the length of an ssh round trip.
+    # The rows are now read and rendered outside the lock and only the mirror WRITE is
+    # serialised. It is still a write, so it still takes the lock -- for milliseconds.
+    with write_section("questions") as locked:
+        if not locked:
+            note("DEFERRED: another session held the journal lock for more than %.0f s. "
+                 "state/owner-questions.md was NOT rewritten; the previous mirror is intact and "
+                 "the queue itself is unchanged." % LOCK_WAIT_SHORT_SEC)
+            return 5
+        atomic_write(path, "\n".join(out).rstrip() + "\n")
     print("state/owner-questions.md: %d open, %d closed" % (len(pending), len(closed)))
     return 0
 
@@ -2722,9 +2828,27 @@ def acquire_lock(command: str, wait: float = LOCK_WAIT_SEC):
         else:
             held = _read_lock_text(lock)
             if time.time() >= deadline:
-                note("REFUSING: another session holds the journal lock (%s). Two writers is what "
-                     "created 161 collided ids on 2026-09-14. Wait for it to finish; a dead holder "
-                     "is now released by the OS, so this lock cannot be stale." % held)
+                # The holder's token is unreadable from another process on Windows while the
+                # lock is held (msvcrt makes the locked byte range unreadable from a second
+                # handle), so the file's AGE is reported as well: it names nothing but it
+                # distinguishes "someone is a second into a file write" from "a maintenance
+                # command has had this for minutes".
+                try:
+                    age = int(max(0.0, time.time() - lock.stat().st_mtime))
+                except OSError:
+                    age = -1
+                # A caller that asked for wait=0 did not want to queue at all (the optional
+                # absorption pass): "busy" is an answer, not a refusal, so it is not printed as
+                # one. `create=False` callers get no noise; a real waiter always does.
+                if wait > 0:
+                    note("REFUSING: another session holds the journal lock (%s; held for ~%s s). Two "
+                         "writers is what created 161 collided ids on 2026-09-14. Waited %.0f s of a "
+                         "%.0f s budget (%d attempt(s)) and gave up rather than spin: a dead holder is "
+                         "released by the OS, so this lock cannot be stale, and a holder this slow is a "
+                         "maintenance command rather than another append."
+                         % (held, age if age >= 0 else "?",
+                            max(0.0, time.time() - (deadline - max(0.0, wait))),
+                            max(0.0, wait), attempt))
                 os.close(fd)
                 return False, ""
             time.sleep(_lock_backoff(attempt))
@@ -2843,6 +2967,71 @@ def release_lock(token: str) -> None:
             lock.unlink()
         except OSError:
             pass
+
+
+@contextlib.contextmanager
+def write_section(command: str, wait: float = LOCK_WAIT_SHORT_SEC):
+    """THE critical section of a writing command: mint a number, write one file.
+
+    Added 2026-10-07. `main()` used to take this lock around the WHOLE command, so a
+    chat-path `append` held it across `git fetch --all`, up to 25 `git grep <ref>` calls,
+    legacy absorption and a full index rebuild -- measured 8.2 s warm and 30.5 s cold on
+    ZABZ-TECH, and every other session queued behind all of it. A command that needs the
+    lock for a smaller part of itself now takes it here instead, and `main()` leaves it
+    alone (see BLANKET_LOCK_COMMANDS).
+
+    Yields True when the lock was taken: the body must then be as short as a file write.
+    Yields False when another session held it past `wait`. False is a DEFERRAL, not a
+    failure: the caller must say so and exit non-zero, because nothing was written and
+    therefore re-running the command cannot mint a second id.
+    """
+    acquired, token = acquire_lock(command, wait=wait)
+    try:
+        yield acquired
+    finally:
+        if acquired:
+            release_lock(token)
+
+
+def _local_kind_top(kind: str) -> int:
+    """The highest number in `entries/<kind>/` RIGHT NOW. One directory read.
+
+    This is the in-lock half of id allocation. `max_number()` is the right answer to
+    "what is the ceiling" OUTSIDE the lock (it reads the index, log/** and the flats --
+    MEASURED 0.478 s), but inside the lock the only source that can have moved since that
+    read is another local writer's file in `entries/<kind>/`, and a listing answers it in
+    milliseconds (MEASURED 0.002 s). Both are used: the outside number picks the
+    candidate, this one stops a collision between the read and the write.
+    """
+    best = 0
+    try:
+        names = os.listdir(entries_dir() / kind)
+    except OSError:
+        return 0
+    for name in names:
+        if name.endswith(".md"):
+            best = max(best, num_of(name[:-3]))
+    return best
+
+
+def _mint_allowed(kind: str, number: int, shared: bool | None = None) -> bool:
+    """May THIS host mint this exact number? False means "another machine may want it".
+
+    Mirrors `ensure_reservation`'s branches, and exists so the bump loop cannot walk out
+    of the window it was granted: the old loop incremented the number on a collision and
+    never re-checked the reservation, so a tree that collided at the top of its window
+    could write the first number of the NEXT window -- which belongs to whoever claims it.
+
+    `shared` is `has_shared_ref()` measured by the caller. It is a git subprocess
+    (MEASURED 0.138 s) and it CANNOT change while an append runs -- it asks whether any
+    remote-tracking ref exists -- so the caller reads it once, outside the lock, instead
+    of paying for it inside the critical section.
+    """
+    if shared is None:
+        shared = has_shared_ref()
+    if not shared:
+        return (not ledger_exists()) or is_reserved(kind, number)
+    return is_reserved(kind, number)
 
 
 def max_number(kind: str) -> int:
@@ -3711,12 +3900,45 @@ def cmd_append(args) -> int:
     tags = [t for t in (getattr(args, "tags", "") or "").split(",") if t]
     refs = [t for t in (getattr(args, "refs", "") or "").split(",") if t]
 
+    # ---------------------------------------------------------------------
+    # WHY THIS FUNCTION IS SHAPED THIS WAY (2026-10-07)
+    #
+    # It used to run entirely inside the journal's GLOBAL write lock, because `main()`
+    # took the lock and then called it. Everything below -- absorption, `git fetch --all`,
+    # a `git grep` over up to 25 remote refs, a full index rebuild -- therefore ran while
+    # every other session waited. MEASURED on ZABZ-TECH: 8.2 s critical section, 24.3 s
+    # worst waiter, 32.2 s for four concurrent appends, 30.5 s for the first append after
+    # the tree was rewritten by a copy.
+    #
+    # The lock is now taken twice, by `write_section`, around the only two parts that
+    # need it: absorption (which writes entries) and the mint (read the local ceiling,
+    # verify the reservation, write one file). The measurement, the network, the cache
+    # rebuild and all output happen outside. The ID IS STILL CHOSEN INSIDE THE LOCK and
+    # still verified against this host's reserved window, so nothing about the 161-collided-
+    # ids guarantee is relaxed.
+    # ---------------------------------------------------------------------
+
     # legacy drift is absorbed first, so a v1 append that landed in log/ is not lost --
     # but only when there is a reason to (see absorb_if_due): this scan cost 12.6 s of a
-    # 14.9 s append when it ran unconditionally.
+    # 14.9 s append when it ran unconditionally. It writes entries, so it is still
+    # serialised -- in its OWN short section, so it cannot extend the mint's.
     absorbed = 0
+    _force_absorb = bool(getattr(args, "absorb", False))
     try:
-        absorbed = absorb_if_due(kind, force=bool(getattr(args, "absorb", False)))
+        # wait=0.0 for the ordinary case: absorption is throttled to once per 6 h and is
+        # idempotent, so if the lock is busy it is simply skipped and taken next time. An
+        # explicit `--absorb` asked for it, so that path waits the full budget.
+        with write_section("append-absorb",
+                           wait=LOCK_WAIT_SEC if _force_absorb else 0.0) as locked:
+            if locked:
+                absorbed = absorb_if_due(kind, force=_force_absorb)
+            elif _force_absorb:
+                note("REFUSING: --absorb asked for legacy absorption and another session holds "
+                     "the journal lock; nothing was absorbed and nothing was written. Re-run it.")
+                return 5
+            else:
+                note("journal: legacy absorption skipped this run (another session holds the "
+                     "lock) -- nothing is lost, the next append or `import-legacy` takes it")
     except Exception as exc:
         # A silent skip is a refusal, not health. Absorption is how text in log/** and the
         # flat files enters the record, so a failure here has to be diagnosable rather than
@@ -3728,79 +3950,124 @@ def cmd_append(args) -> int:
         note("journal: legacy absorption skipped (%s: %s) at %s"
              % (type(exc).__name__, exc, _where))
         absorbed = 0
+
+    # ---- MEASUREMENT, OUTSIDE THE LOCK ------------------------------------------------
+    # `git_max` is the expensive part (a fetch plus a grep per remote ref) and it is a
+    # READING of refs no local writer can move, so it does not need the lock. It writes
+    # only the cached ceiling in index/stamp.json, which is a monotone hint.
     remote = 0
     if not getattr(args, "no_fetch", False):
         remote, _rev = git_max(kind, fetch=True)
     # never below the ceiling of ANY source: log/**, the flats, the index, or a git ref
     base = max(max_number(kind), allocation_ceiling(kind), remote)
     letter = KINDS[kind]["letter"]
+    want_number_hint = next_writable(kind)
+
+    if getattr(args, "dry_run", False):
+        # A dry run mints nothing, so it needs no authority and takes no lock -- but it must
+        # SAY whether the number it would use is one this host is allowed to write, because
+        # that is the whole question a dry run is being asked.
+        dry_n = max(base, want_number_hint - 1) + 1
+        dry = "%s%d" % (letter, dry_n)
+        dry_path = entries_dir() / kind / (dry + ".md")
+        dry_heading = build_heading(kind, dry, title, stamp, host)
+        dry_entry = {
+            "kind": kind, "id_full": dry, "date": stamp, "host": host, "status": status,
+            "heading": dry_heading, "body": body, "tags": tags, "refs": refs,
+            "alias_of": "", "sha": entry_hash(dry_heading, body),
+        }
+        if not is_reserved(kind, dry_n) and has_shared_ref():
+            note("(dry-run) %s is not inside a window reserved for %s; a real append would "
+                 "claim one first, and would refuse if it could not push the claim." % (dry, host))
+        print("(dry-run) would write " + _rel_of(dry_path))
+        print(entry_bytes(dry_entry))
+        return 0
+
+    # ---- THE MINT: allocate + write, and nothing else --------------------------------
     # THE MINT NEEDS AUTHORITY, and the id is decided BY the reservation rather than checked
     # against it afterwards. `append` allocates `max(everything it can see) + 1`, and it cannot
     # see another machine's uncommitted work -- the measured cause of the four cross-machine
     # collisions of 2026-09-16/17 (41 orphaned ids on the authority, 13 in the 107 commit, 8 on
-    # the desktop, 18 on 09-17). Ordering matters and was wrong on the first attempt here:
-    # checking a number and then writing a DIFFERENT one is worse than not checking at all.
-    reserved_ok, want_number, reserve_detail = ensure_reservation(
-        kind, next_writable(kind), fetch=not getattr(args, "no_fetch", False))
-    if not reserved_ok:
-        note("REFUSING to write %s%d: %s." % (letter, base + 1, reserve_detail))
-        note("Every id this machine can see is already inside another machine's window, or the "
-             "claim could not be pushed so no other machine would know about it. A number that "
-             "is not reserved is a number another machine may be about to use: the four "
-             "collisions of 2026-09-16/17 were all minted exactly this way. Nothing was written. "
-             "Reconnect to origin and run `journal.py claim %s`." % kind)
-        return 4
-    # The reservation may have moved the number upwards (the other machine's window was in the
-    # way), and the bump loop below may move it again if the file is somehow taken.
-    base = max(base, want_number - 1)
-    want = "%s%d" % (letter, base + 1)
-    path = entries_dir() / kind / (want + ".md")
-    entry = {
-        "kind": kind, "id_full": want, "date": stamp, "host": host, "status": status,
-        "heading": build_heading(kind, want, title, stamp, host), "body": body,
-        "tags": tags, "refs": refs, "alias_of": "", "sha": "",
-    }
-    entry["sha"] = entry_hash(entry["heading"], entry["body"])
+    # the desktop, 18 on 09-17). Ordering matters and was wrong on the first attempt: checking
+    # a number and then writing a DIFFERENT one is worse than not checking at all. The
+    # reservation is therefore taken and re-verified HERE, inside the lock.
     bumped_from = ""
-    if path.exists():
-        existing = parse_entry(path, kind)
-        if existing.get("hash") == entry["sha"]:
-            record_alias(want, kind, want, "identical content re-appended; alias written instead of a second file")
-            if getattr(args, "json", False):
-                print(json.dumps({"id": want, "file": _rel_of(path), "written": False,
-                                  "reason": "identical content already present"}, indent=1))
-            else:
-                print("= %s already exists with identical content — alias recorded, nothing written" % want)
-            return 0
-        n = base + 1
+    reserve_detail = ""
+    # A read of "is there any remote-tracking ref at all": 0.138 s of git subprocess, and it
+    # cannot change while this append runs, so it is measured here rather than in the lock.
+    shared_ref = has_shared_ref()
+    with write_section("append") as locked:
+        if not locked:
+            # A DEFERRAL, out loud. Nothing was written, so re-running is safe and cannot
+            # mint a second id -- which is exactly why this is reported rather than retried
+            # in a loop for two minutes.
+            note("DEFERRED: another session held the journal lock for more than %.0f s (holder: "
+                 "%s). NOTHING was written and no id was minted, so it is safe to run the same "
+                 "append again. The critical section is now a file write, so this means a "
+                 "maintenance command (import-legacy/migrate-v2/dedupe) is running -- wait for it, "
+                 "or run that command's work outside the chat turn."
+                 % (LOCK_WAIT_SHORT_SEC, _read_lock_text(JOURNAL / LOCK_NAME)))
+            return 5
+        # the only thing that can have moved since the measurement above is another LOCAL
+        # writer's file in entries/<kind>/; a directory listing answers that in milliseconds.
+        cand = max(base, want_number_hint - 1, _local_kind_top(kind)) + 1
+        reserved_ok, want_number, reserve_detail = ensure_reservation(kind, cand, fetch=False)
+        if not reserved_ok:
+            note("REFUSING to write %s%d: %s." % (letter, cand, reserve_detail))
+            note("Every id this machine can see is already inside another machine's window, or the "
+                 "claim could not be pushed so no other machine would know about it. A number that "
+                 "is not reserved is a number another machine may be about to use: the four "
+                 "collisions of 2026-09-16/17 were all minted exactly this way. Nothing was written. "
+                 "Reconnect to origin and run `journal.py claim %s`." % kind)
+            return 4
+        n = max(cand, want_number)
+        want, path, heading = "", None, ""
         while True:
-            n += 1
-            cand = "%s%d" % (letter, n)
-            p2 = entries_dir() / kind / (cand + ".md")
-            if not p2.exists():
-                bumped_from = want
-                want = cand
-                path = p2
+            candidate = "%s%d" % (letter, n)
+            path = entries_dir() / kind / (candidate + ".md")
+            heading = build_heading(kind, candidate, title, stamp, host)
+            if not path.exists():
+                # The bump loop must not walk out of the window it was granted: a collided
+                # number is only usable if it is still reserved for this host.
+                if not _mint_allowed(kind, n, shared_ref):
+                    ok2, n2, detail2 = ensure_reservation(kind, n, fetch=False)
+                    if not ok2 or n2 <= n or not _mint_allowed(kind, n, shared_ref):
+                        note("REFUSING to write %s: %s. It is outside this host's reserved window "
+                             "and no new window could be taken, so writing it could collide with "
+                             "another machine. Nothing was written." % (candidate, detail2))
+                        return 4
+                    n = n2
+                    continue
+                want = candidate
                 break
-        entry["id_full"] = want
-        entry["heading"] = build_heading(kind, want, title, stamp, host)
-        entry["sha"] = entry_hash(entry["heading"], entry["body"])
-    if getattr(args, "dry_run", False):
-        # A dry run mints nothing, so it needs no authority -- but it must SAY whether the
-        # number it would use is one this host is allowed to write, because that is the whole
-        # question a dry run is being asked.
-        if not is_reserved(kind, num_of(want)) and has_shared_ref():
-            note("(dry-run) %s is not inside a window reserved for %s; a real append would "
-                 "claim one first, and would refuse if it could not push the claim." % (want, host))
-        print("(dry-run) would write " + _rel_of(path))
-        print(entry_bytes(entry))
-        return 0
+            existing = parse_entry(path, kind)
+            if existing.get("hash") == entry_hash(heading, body):
+                record_alias(candidate, kind, candidate,
+                             "identical content re-appended; alias written instead of a second file")
+                if getattr(args, "json", False):
+                    print(json.dumps({"id": candidate, "file": _rel_of(path), "written": False,
+                                      "reason": "identical content already present"}, indent=1))
+                else:
+                    print("= %s already exists with identical content — alias recorded, nothing written"
+                          % candidate)
+                return 0
+            bumped_from = bumped_from or candidate
+            n += 1
+        entry = {
+            "kind": kind, "id_full": want, "date": stamp, "host": host, "status": status,
+            "heading": heading, "body": body, "tags": tags, "refs": refs,
+            "alias_of": "", "sha": entry_hash(heading, body),
+        }
+        atomic_write(path, entry_bytes(entry))
+        if bumped_from:
+            record_alias(bumped_from, kind, want, "id collision avoided on append")
+    # ---- end critical section: the id exists on disk and is this host's --------------
+
     if reserve_detail.startswith("granted") or "window now through" in reserve_detail:
         note("journal: reserved a new id window for %s -- %s" % (host_tag(), reserve_detail))
-    atomic_write(path, entry_bytes(entry))
-    if bumped_from:
-        record_alias(bumped_from, kind, want, "id collision avoided on append")
-    stamp_now = rebuild_cache()
+    # Derived data. The entry file is already written, so a concurrent rebuild in another
+    # session sees the same tree; the cache is a convenience the readers self-heal from.
+    stamp_now = _rebuild_cache_after_write()
     if getattr(args, "json", False):
         print(json.dumps({"id": want, "file": _rel_of(path), "kind": kind,
                           "heading": entry["heading"], "bumped_from": bumped_from,
@@ -3857,22 +4124,30 @@ def cmd_resolve(args) -> int:
         note("no entry %s" % args.id)
         return 2
     path = JOURNAL / "state" / "status.tsv"
-    if not path.exists():
-        atomic_write(path, STATUS_HEADER + "\n")
-    line = "\t".join([e["kind"], e["id_full"], args.status, today(), host_tag(),
-                      # ONE LINE, ALWAYS. A `why` containing a newline splits the row and every
-                      # reader then has to guess which lines are rows -- measured 2026-09-30, when a
-                      # batch of 42 `resolve` calls passed multi-line reasons and left 45 fragmented
-                      # rows in state/status.tsv. Tabs AND newlines are folded here, at the writer,
-                      # because a record that can be malformed by an ordinary argument is not a
-                      # record. (The reader was also wrong: it padded by three and then truncated to
-                      # six, so a one-field line crashed the whole read -- both halves are fixed.)
-                      _one_line(args.why or "")])
-    with open(path, "a", encoding="utf-8", newline="\n") as fh:
-        fh.write(line + "\n")
-    if getattr(args, "alias_of", ""):
-        record_alias(e["id_full"], e["kind"], args.alias_of, args.why or "duplicate")
-    rebuild_cache()
+    # 2026-10-07: the row append and its alias are the critical section (a read-modify-write
+    # of status.tsv); `load_one` above and the cache rebuild below are not.
+    with write_section("resolve") as locked:
+        if not locked:
+            note("DEFERRED: another session held the journal lock for more than %.0f s (holder: "
+                 "%s). %s was NOT resolved; re-run the same command, it is safe to repeat."
+                 % (LOCK_WAIT_SHORT_SEC, _read_lock_text(JOURNAL / LOCK_NAME), e["id_full"]))
+            return 5
+        if not path.exists():
+            atomic_write(path, STATUS_HEADER + "\n")
+        line = "\t".join([e["kind"], e["id_full"], args.status, today(), host_tag(),
+                          # ONE LINE, ALWAYS. A `why` containing a newline splits the row and every
+                          # reader then has to guess which lines are rows -- measured 2026-09-30, when a
+                          # batch of 42 `resolve` calls passed multi-line reasons and left 45 fragmented
+                          # rows in state/status.tsv. Tabs AND newlines are folded here, at the writer,
+                          # because a record that can be malformed by an ordinary argument is not a
+                          # record. (The reader was also wrong: it padded by three and then truncated to
+                          # six, so a one-field line crashed the whole read -- both halves are fixed.)
+                          _one_line(args.why or "")])
+        with open(path, "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(line + "\n")
+        if getattr(args, "alias_of", ""):
+            record_alias(e["id_full"], e["kind"], args.alias_of, args.why or "duplicate")
+    _rebuild_cache_after_write()
     print("= %s -> %s (%s)" % (e["id_full"], args.status, args.why or "no reason given"))
     return 0
 
@@ -4892,7 +5167,11 @@ def main(argv=None) -> int:
         # An explicit root that is about to WRITE says where it went, out loud. Silence here is
         # what let a scratch run write into the live journal without anyone noticing.
         print(f"journal: writing to {JOURNAL}", file=sys.stderr)
-    if cmd in MUTATING_COMMANDS:
+    if cmd in BLANKET_LOCK_COMMANDS:
+        # Only the maintenance commands hold the lock across their whole body. The four in
+        # SELF_LOCK_COMMANDS (append, resolve, state, questions) take it themselves, around
+        # the mint + one file write, so a chat-path write does not queue behind a fetch, an
+        # absorption or an index rebuild. See write_section and cmd_append.
         acquired, token = acquire_lock(cmd)
         if not acquired:
             return 3
