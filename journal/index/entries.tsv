@@ -2106,6 +2106,7 @@ lessons	L3347	3347		2026-10-06	ZABZ-TECH	open	**L3347 · Shop tooling: MECHANIC 
 lessons	L3348	3348		2026-10-06	ZABZ-TECH	open	**L3348 · NY's pre-insurance photo inspection still exists; the 2024 relief act made it waivable per-insurer, not repealed**	entries/lessons/L3348.md	1	45	0b4dffa21619145a	insurance,new-york,process	
 lessons	L3349	3349		2026-10-06	ZABZ-TECH	open	**L3349 · A LOCAL research child cannot fan out further, and a background child's job id is not a messageable agent id**	entries/lessons/L3349.md	1	40	bb013e377ed1ea21	subagent,mesh,fleet,orchestration	
 lessons	L3350	3350		2026-10-06	ZABZ-TECH	open	**L3350 · Correction to L3347: heat-press PTFE sheets are not all 0.1 mm - the thermal loss is a range, 1 degC to 8 degC, so quote the range and tell the owner to dial up**	entries/lessons/L3350.md	1	10	81ae5380ba7368e1	shop,phone-repair,tools	
+lessons	L3376	3376		2026-10-08	SECRATARY	open	**L3376 · A region test disc is a hypothesis until one is proven locked - the cover B mark and the eBay Region Code field are not proof**	entries/lessons/L3376.md	1	28	3f4069fb76b647c3		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
