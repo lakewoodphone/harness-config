@@ -74,9 +74,16 @@ export const NODES = {
     hosts: ['ZABZ-TECH', 'zabz-tech', 'zabz-tech.tail93e6e6.ts.net'],
     shell: 'powershell',
     driver: 'C:/Program Files/nodejs/node.exe',
-    bin: 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js',
+    // THE FROZEN PIN, NOT THE npx CACHE (2026-10-08). This row named the npx path and the
+    // npx cache on THIS node still holds 0.1.5-rc.1 while the synced profile patches name
+    // 0.1.7-line packages (`@deepseek-ai/dsh-agent-preset`, `-registry`, `dsh-workflow-ptc`),
+    // so a row that dispatches here was pointing at an engine that cannot load the config
+    // this fleet ships. The owner's machine spent 2026-10-07/08 in a boot crash loop on
+    // exactly that mismatch and was fixed the same day by installing `~/.dsh/engine` at
+    // 0.2.0-rc.2. The lesson is dshw.ps1's own: a path a stray `npx` can rewrite is not a pin.
+    bin: 'C:/Users/ezabz/.dsh/engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
     cwd: 'C:/Users/ezabz',
-    verified: '2026-09-17: node v24.19.0, dsh 0.1.5-rc.1, a child turn completed over ssh. Windows has no `dsh` executor on PATH, so this node uses the INTERPRETER form and the credential comes from the engine\'s own environment (`env` is measured: the parent engine is already running with its key).',
+    verified: 'RE-MEASURED 2026-10-08: node v24.19.0, dsh 0.2.0-rc.2 from the frozen pin `~/.dsh/engine`, and a live child turn through this row (`--profile headless "Reply with exactly: TECH_OK"`) answered exactly TECH_OK, exit 0. The npx cache on this node is STILL 0.1.5-rc.1 -- do not point this row back at it. Historic note (2026-09-17): node v24.19.0, dsh 0.1.5-rc.1, a child turn completed over ssh. Windows has no `dsh` executor on PATH, so this node uses the INTERPRETER form and the credential comes from the engine\'s own environment (`env` is measured: the parent engine is already running with its key).',
   },
   // Keyed on the Tailscale DNS label: the capacity contract's invariant is
   // `node === fqdn.split(".")[0]`, so this label is what a broker answer names.
@@ -85,9 +92,12 @@ export const NODES = {
     hosts: ['ZABZ-YOGA', 'zabz-yoga', 'zabz-yoga-1', 'zabz-yoga-1.tail93e6e6.ts.net'],
     shell: 'powershell',
     driver: 'C:/Program Files/nodejs/node.exe',
-    bin: 'C:/Users/ezabz/AppData/Local/npm-cache/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh/lib/bin.js',
+    // THE SAME PIN AS `zabz-tech`, SAME REASON (2026-10-08): the npx cache is not a pin on
+    // either Windows node. Here it happens to hold 0.2.0-rc.2 today, which is exactly the
+    // problem -- the row would be correct by luck and the luck is revocable by any `npx`.
+    bin: 'C:/Users/ezabz/.dsh/engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
     cwd: 'C:/Users/ezabz',
-    verified: 'MEASURED 2026-09-17: node v24.12.0, dsh 0.1.5-rc.1. INTERPRETER form (no `dsh` executor on PATH). ACCEPTED v1 ssh work after its module links were recreated INSIDE an ssh session (413 links, 22 s): `ssh <laptop> dsh --profile headless "Reply with exactly: LAPTOP OK"` -> LAPTOP OK, exit 0, 10.3 s. Before that relink it refused every reparse point as UNTRUSTED (70-remote-fanout-proof.md §4.4)',
+    verified: 'RE-MEASURED 2026-10-08: dsh 0.2.0-rc.2 from the frozen pin `~/.dsh/engine`, which is also the engine this host runs and which composes the web profile cleanly (`--profile web --dump-config` exit 0, 133,893 B, empty stderr). HISTORIC: MEASURED 2026-09-17: node v24.12.0, dsh 0.1.5-rc.1. INTERPRETER form (no `dsh` executor on PATH). ACCEPTED v1 ssh work after its module links were recreated INSIDE an ssh session (413 links, 22 s): `ssh <laptop> dsh --profile headless "Reply with exactly: LAPTOP OK"` -> LAPTOP OK, exit 0, 10.3 s. Before that relink it refused every reparse point as UNTRUSTED (70-remote-fanout-proof.md §4.4)',
   },
   // THE EXECUTOR FORM, AND THE MEASUREMENT THAT PUT IT HERE. Read `§4` of
   // docs/mesh/102-linux-dispatch.md before changing this row.
@@ -107,18 +117,31 @@ export const NODES = {
     // does not exist on the machine (exit 127) and the install that would have
     // created it was never run in that form (62-worker-runtime.md §3.1).
     driver: '/usr/local/bin/node',
+    // MEASURED 2026-10-08 AND LEFT ALONE ON PURPOSE: this node's ONLY install is the
+    // 0.1.5-rc.1 `~/dsh-engine` (no `dsh-current`, and it lacks the three 0.1.7-line
+    // packages). The `command: 'dsh'` executor above is what actually runs children here,
+    // and this `bin` is the fallback, so nothing is broken today -- the headless profile a
+    // child loads was measured to compose cleanly under 0.1.5. But this row now names a
+    // DIFFERENT engine line from the one the profile patches ship, which is the exact seam
+    // that took `zabz-tech` down on 2026-10-07/08. Provision this node at 0.2.0-rc.2 (and
+    // repoint the executor wrapper) before relying on its fallback path.
     bin: '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
     cwd: '/home/zabz/code',
-    verified: 'MEASURED 2026-09-17T14:34-14:40Z from a Windows dispatcher: `command -v dsh` -> /usr/local/bin/dsh; `command -v node` -> /usr/local/bin/node -> /home/zabz/.local/node/bin/node (v22.23.2); /etc/dsh-worker.env readable by the worker; /home/zabz/.local/node-v24.12.0-linux-x64/bin/node ABSENT (the old row, exit 127). A real v1 child turn through this row completed over ssh (`MESH-HOST: zabz-tech-linux`, exit 0) once the executor was used. The 2026-09-16 note "no Node runtime yet" is STALE.',
+    verified: 'MEASURED 2026-10-08: `/home/zabz/dsh-engine` = dsh 0.1.5-rc.1, MISSING @deepseek-ai/dsh-agent-preset, -preset-registry and dsh-workflow-ptc; there is no `~/dsh-current` on this node. The 2026-09-17 note below still stands for the mechanism. HISTORIC: MEASURED 2026-09-17T14:34-14:40Z from a Windows dispatcher: `command -v dsh` -> /usr/local/bin/dsh; `command -v node` -> /usr/local/bin/node -> /home/zabz/.local/node/bin/node (v22.23.2); /etc/dsh-worker.env readable by the worker; /home/zabz/.local/node-v24.12.0-linux-x64/bin/node ABSENT (the old row, exit 127). A real v1 child turn through this row completed over ssh (`MESH-HOST: zabz-tech-linux`, exit 0) once the executor was used. The 2026-09-16 note "no Node runtime yet" is STALE.',
   },
   secratary: {
     ssh: 'secratary-ts',
     hosts: ['secratary'],
     shell: 'posix',
     driver: '/home/zabz/node/bin/node',
-    bin: '/home/zabz/dsh-engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
+    // `~dsh-current`, NOT `~/dsh-engine` (2026-10-08). `dsh-current` is the version-FREE
+    // symlink this host's own engine runs from (`-> /home/zabz/dsh-install/0.2.0-rc.2`), so
+    // it follows a promotion instead of pinning this row to a version. `~/dsh-engine` is a
+    // 0.1.5-rc.1 leftover MEASURED to lack every 0.1.7-line package the fleet's profiles
+    // name (`dsh-agent-preset`, `-registry`, `dsh-workflow-ptc`).
+    bin: '/home/zabz/dsh-current/node_modules/@deepseek-ai/dsh/lib/bin.js',
     cwd: '/home/zabz/code',
-    verified: 'MEASURED 2026-09-16 (62 §1.2): node v22.23.2 at /home/zabz/node/bin/node; the dsh install is the one the systemd engine runs from. RE-CONFIRMED 2026-09-17 over ssh: INTERPRETER form — `command -v dsh` answers NOTHING and there is no /etc/dsh-worker.env, so this row has no executor and carries no credential env file; its long-lived dsh processes inherit the key from the service environment.',
+    verified: 'RE-MEASURED 2026-10-08: `dsh-current -> /home/zabz/dsh-install/0.2.0-rc.2`; a live child turn through this row (`--profile headless "Reply with exactly: SEC_OK"`) answered exactly SEC_OK, exit 0. HISTORIC: MEASURED 2026-09-16 (62 §1.2): node v22.23.2 at /home/zabz/node/bin/node; the dsh install is the one the systemd engine runs from. RE-CONFIRMED 2026-09-17 over ssh: INTERPRETER form — `command -v dsh` answers NOTHING and there is no /etc/dsh-worker.env, so this row has no executor and carries no credential env file; its long-lived dsh processes inherit the key from the service environment.',
   },
   lakewooechsmini: {
     ssh: 'mac-mini-ts',
