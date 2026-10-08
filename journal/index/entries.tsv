@@ -2181,6 +2181,7 @@ lessons	L3405	3405		2026-10-08	SECRATARY	open	**L3405 · Identify the platform (
 lessons	L3406	3406		2026-10-08	SECRATARY	open	**L3406 · Retry belongs in the tool when the path is idempotent - and name what makes it safe first**	entries/lessons/L3406.md	1	31	47f6bb4f57ce0653		
 lessons	L3407	3407		2026-10-08	SECRATARY	open	**L3407 · An aggregate mismatch is a question, not a finding - check the specific item**	entries/lessons/L3407.md	1	25	156c2b615984f544		
 lessons	L3408	3408		2026-10-08	secratary	open	**L3408 · A literal in code is a time bomb — this time the bomb was a Postgres enum value**	entries/lessons/L3408.md	1	42	2d3d84e252fec19f	enum,hardcoded,postgres,reporting,money	P13,P3
+lessons	L3409	3409		2026-10-08	secratary	open	**L3409 · A second source derived from the first is not a second source — the comms index is built from secretary.db**	entries/lessons/L3409.md	1	40	f1d791b5da6a16c1	verification,provenance,dialpad,measurement	P3,P12
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2578,6 +2579,7 @@ pain	P2869	2869		2026-10-07	ZABZ-YOGA	open	## P2869 — A mesh node with no work
 pain	P2870	2870		2026-10-07	ZABZ-YOGA	open	## P2870 — The GitHub mirror of harness-config diverges and rejects push	entries/pain/P2870.md	1	20	b4a048e330ccfb9c		
 pain	P2927	2927		2026-10-08	SECRATARY	open	## P2927 — model_usage records 0 cached tokens for every DeepSeek flash call, overstating flash cost ~14x	entries/pain/P2927.md	1	36	62a1280dc6be5ea4	cost,telemetry,deepseek	
 pain	P2928	2928		2026-10-08	secratary	open	## P2928 — The live production store lost a month of card receipts, and neither store is trustworthy alone	entries/pain/P2928.md	1	46	4998b6ad88fe0104	lpt,production,payments,data-loss,reconcile	P3
+pain	P2929	2929		2026-10-08	secratary	open	## P2929 — Today's card takings are invisible to every internal record for up to a day	entries/pain/P2929.md	1	41	76dfec95c9b1646c	lpt,money,stripe,reporting,today-view	H3335
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3215,3 +3217,4 @@ wins	W2635	2635		2026-10-05	ZABZ-YOGA	open	**W2635 · 2026-10-05 · 86 of 86 pre
 wins	W2668	2668		2026-10-07	ZABZ-YOGA	open	**W2668 · 2026-10-07 · Fast search verified end to end 2026-10-08: the scope claim reproduces, 100 s unscoped vs 20 ms scoped.**	entries/wins/W2668.md	1	30	9c3201200c5c65e8	search,fa,measurement,wins	
 wins	W2669	2669		2026-10-07	ZABZ-YOGA	open	**W2669 · 2026-10-07 · Eight mesh analysts classified 40 work orders in ~6 minutes each, on three different nodes, after the mesh fix - and one of them found a false note that would have caused a second 92.84 purchase.**	entries/wins/W2669.md	1	6	ea578fdc0e9b0da1	lpt,mesh,wins	
 wins	W2670	2670		2026-10-07	ZABZ-YOGA	open	**W2670 · 2026-10-07 · Retiring a false STALE banner, and JSON for free on the fast path.**	entries/wins/W2670.md	1	16	3c2234bb29df2504		
+wins	W2732	2732		2026-10-08	secratary	open	**W2732 · 2026-10-08 · Triangulating report numbers against independent lineages — and the live card takings line it produced.**	entries/wins/W2732.md	1	40	37e6379c08786d03	verification,stripe,dialpad,reporting	
