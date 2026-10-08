@@ -12,11 +12,11 @@
       "location": "office",
       "baseUrl": "https://zabz-tech.tail93e6e6.ts.net",
       "dispatch": {
-        "v1": true,
-        "measuredAt": "2026-09-16",
-        "evidence": "stream S6's parent booted over ssh on this node and loaded the mesh plugin, and three child turns completed through `ssh <node> dsh --profile headless` with their MESH-HOST: lines verified (docs/mesh/70-remote-fanout-proof.md §2)"
+        "v1": false,
+        "measuredAt": "2026-10-08",
+        "evidence": "MEASURED BROKEN FOR v1, 2026-10-08 ~02:45Z, and it is the LAUNCHER, not the machine. `ssh <node> 'C:/Program Files/nodejs/node.exe <bin.js> --profile headless \"...\"'` loads DSH on the node (its MCP server answers ListToolsRequest) and then EXITS 1 on every invocation with `PermissionError: [Errno 13] Permission denied: 'C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\data\\logs\\mcp-launcher.log'`, thrown from scripts/vscode-update/mcp_launcher.py (line 148 in the copy on that node), which opens the log UNCONDITIONALLY after computing `missing = [keys absent from the repo .env]`. All eight mesh dispatches that night failed this way: the broker log shows eight `place -> zabz-tech` leases at 02:42:31-02:42:36Z, every one released within seconds, and the children's own stderr carries that traceback and `dsh: TRANSPORT: DeepSeek API request failed`. THE FILE ITSELF IS WRITABLE - a plain ssh session appended to it successfully, and its ACL grants the user FullControl - so the failure is in the child's context, not the ACL. The checkout on that node is on branch `integrate/dialpad-reconcile-20261007` at e35a4c98 with 43 dirty files, so do NOT repair it in place while that session is live. TO RESTORE: make mcp_launcher.py never die on a log write (a logging failure must not abort a server), and pull the node's checkout forward. Meanwhile `zabz-tech-linux` was re-verified working the same night (`dsh --profile headless 'Reply with exactly LINUX-MESH-OK'` -> LINUX-MESH-OK), so this flag moves placements to a node that works instead of letting every dispatch die here and be redone on the laptop."
       },
-      "note": "the owner's office desktop, i9-14900 24c/32t, 63.6 GB - the primary worker"
+      "note": "the owner's office desktop, i9-14900 24c/32t, 63.6 GB - the primary worker, and the strongest machine on the mesh. It is NOT weak; its v1 dispatch is broken by a crashing MCP launcher in a DIFFERENT repo's checkout, and this flag is the honest state of the dispatch path, not a judgement about the box. Flip it back the moment a child turn completes here."
     },
     {
       "node": "zabz-yoga-1",
