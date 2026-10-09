@@ -36,6 +36,7 @@
   "origins": {
     "_comment": "One loopback port alias per window slot, served by dshw-proxy.mjs, splicing to the single engine. Required by browser.profileMode='shared': without distinct origins every window would share ONE localStorage['dsh.sessions.current'] and last-writer-wins on reload. The same proxy also caches POST /api/session/list, which measured 25-31 s cold and 29 ms warm.",
     "enabled": true,
+    "_basePort_note": "MUST equal the base the RUNNING proxy serves: the proxy is a long-lived detached process, so changing this number does not move it. 3200 is the shared value on every machine. What broke on ZABZ-YOGA (fixed 2026-10-08) was not this number but the lock that guards it: dshw-proxy-3200.lock named a pid Windows had since reused, so every restart refused to bind on a range nothing was serving, while a stray proxy sat on 3300 from an old --base 3300 override. The mismatched pair made every new window fall back to the engine port, and a relaunch of that same --app URL opens NO window - the owner's + control did nothing, fifteen times.",
     "basePort": 3200,
     "count": 24,
     "script": "dshw-proxy.mjs",
