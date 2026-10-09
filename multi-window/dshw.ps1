@@ -1138,7 +1138,7 @@ function Test-TokenAccepted([string]$url, [int]$port, [int]$TimeoutMs = 6000) {
     }
 }
 
-function Open-SlotWindow($slot, $state) {
+function Open-SlotWindow($slot, $state, [switch]$Verify) {
     $exe = Get-EdgePath
     if (-not $exe) { throw 'no Edge/Chrome binary found' }
 
@@ -1266,7 +1266,25 @@ function Open-SlotWindow($slot, $state) {
     Start-Sleep -Milliseconds 250
     # Record every launch: an Edge app window's own process exits immediately after it
     # hands off to its browser process, so a silent failure here is otherwise invisible.
-    $line = "[{0}] open slot={1} profile={2} origin={3} pid={4} args={5}" -f (Get-Date -Format o), $label, $slot.profile, $originPort, $proc.Id, ($winArgs -join ' ')
+    #
+    # AND, WHEN ASKED, VERIFY IT (added 2026-10-08). This line used to be a statement about
+    # Start-Process returning, not about a window existing: fifteen consecutive no-op clicks are on
+    # record here as successful opens, and the owner's report was "i just tried to open another
+    # window ... nothing opens". The check is the proxy's per-origin live count, because in a shared
+    # profile that is the only per-window signal there is (only the FIRST window of the browser tree
+    # carries --app=<url> in any command line, measured 2026-09-18) and it is the same signal `new`
+    # already trusts when it picks a free slot. A window opened DIRECTLY against the engine port
+    # bypasses the proxy, so there is nothing to ask and the check is skipped rather than guessed.
+    $verdict = ' verify=skipped-direct-to-engine'
+    if ($Verify -and $originPort -ne $targetPort) {
+        if (Test-OriginWindowLive $originPort) {
+            $verdict = (" verify=origin:{0}:live" -f $originPort)
+        } else {
+            $verdict = (" verify=origin:{0}:NEVER-CONNECTED" -f $originPort)
+            Write-Host ("  [WARN] slot '{0}' was launched but no window ever connected to origin :{1} - an identical --app URL already open in this shared profile opens NOTHING (measured 2026-10-08)" -f $slot.label, $originPort) -ForegroundColor Yellow
+        }
+    }
+    $line = "[{0}] open slot={1} profile={2} origin={3} pid={4} args={5}{6}" -f (Get-Date -Format o), $label, $slot.profile, $originPort, $proc.Id, ($winArgs -join ' '), $verdict
     Add-Content -LiteralPath (Join-Path $StateDir 'windows.log') -Value $line -Encoding utf8
     return $profDir
 }
@@ -2148,6 +2166,24 @@ function Get-OriginsStats {
     } catch { return $null }
 }
 
+# DID A WINDOW ACTUALLY APPEAR ON THIS ORIGIN? Asked of the proxy, because in a shared profile the
+# proxy's per-origin connection count is the only per-window signal that exists (see Get-WindowCount)
+# and a bound origin port proves nothing on its own. A window that loads a page connects to its own
+# origin within a second or two, so this polls until the browser CONNECTS to that port; a launch that
+# opened no window never produces a connection, which is exactly the difference this exists to tell.
+# Written 2026-10-08 for the fault that made fifteen no-op clicks look like successes (P2879): the
+# caller logs `verify=origin:N:live` or `:NEVER-CONNECTED` instead of logging that Start-Process ran.
+function Test-OriginWindowLive([int]$OriginPort, [int]$TimeoutSeconds = 6) {
+    if ($OriginPort -le 0) { return $false }
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ($true) {
+        $s = Get-OriginsStats
+        if ($s -and $s.PSObject.Properties['openPorts'] -and $s.openPorts -and (@($s.openPorts) -contains $OriginPort)) { return $true }
+        if ((Get-Date) -ge $deadline) { return $false }
+        Start-Sleep -Milliseconds 500
+    }
+}
+
 # The proxy's node argument list, in ONE place: the Task Scheduler action, the hidden wscript
 # wrapper and the direct fallback must all describe exactly the same proxy or `ensure` starts a
 # proxy the launcher cannot find.
@@ -2796,7 +2832,7 @@ function Invoke-New {
     # The force-enable that used to sit here (`foreach ($slot in $slots) { $slot.enabled = $true }`)
     # was removed 2026-09-16: it was the mechanism by which `new` opened disabled slots, and it
     # is what made the window count a one-way ratchet that only a human could undo.
-    [void](Open-SlotWindow $free $state)
+    [void](Open-SlotWindow $free $state -Verify)
     Write-Host ("new window: slot '{0}' (profile {1}, origin :{2}) against engine port {3}" -f `
         $free.label, $(if ((Get-ProfileMode) -eq 'shared') { Get-SharedProfileName } else { $free.profile }),
         (Get-SlotOriginPort $free), $(if (Get-Mode -eq 'multi') { $free.port } else { Get-PrimaryPort })) -ForegroundColor Green
@@ -3032,7 +3068,7 @@ function Invoke-WindowRecovery($state, [int]$MaxOpens = 2, [switch]$DryRun) {
         }
         $slot = @($slots | Where-Object { (Get-SlotRegistryKey $_) -eq $m.key }) | Select-Object -First 1
         try {
-            [void](Open-SlotWindow $slot $state)
+            [void](Open-SlotWindow $slot $state -Verify)
             Set-WindowRegistryEntry $map $m.key $true $m.origin
             $marks[$m.key] = (Get-Date).ToString('o')
             $opened++
@@ -3353,7 +3389,7 @@ switch ($Command) {
         # (which takes no selector) worked, which is why it went unnoticed.
         $slotCfg = Get-SlotCfgByPortOrLabel $Slot
         if (-not $slotCfg) { Write-Error "no slot matches '$Slot'"; exit 2 }
-        [void](Open-SlotWindow $slotCfg (Get-State))
+        [void](Open-SlotWindow $slotCfg (Get-State) -Verify)
         Write-Host ("opened window for slot '{0}'" -f $slotCfg.label)
     }
     'stop'   {
