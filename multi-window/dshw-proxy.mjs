@@ -148,6 +148,22 @@ function alreadyRunning() {
  * forever, which is a worse failure than the one this prevents.
  */
 function acquireLock(lockPath) {
+  // A LIVE PID IS NOT THE SAME THING AS A LIVE PROXY, and confusing the two killed the origin door
+  // for six days (measured 2026-10-08, ZABZ-YOGA). The lock `dshw-proxy-3200.lock` was written
+  // 2026-10-02 by the proxy that was then serving the range, pid 21464. The machine rebooted; Windows
+  // handed pid 21464 to Intel's DSATray.exe; `process.kill(21464, 0)` therefore answered "alive"
+  // forever. Every later start logged "another proxy holds ... and is alive - exiting without binding"
+  // while NOTHING at all listened on 3200. The consequence was not a local one: with the base port
+  // dead, every window fell back to the engine port, all slots collapsed onto one URL, and a relaunch
+  // of an --app URL that is already open creates NO window - so the owner's "+ new window" click did
+  // nothing, fifteen times, each one recorded in windows.log as a successful open.
+  //
+  // So the test is now two-legged, and it needs no extra probe: this function is only ever reached
+  // after `alreadyRunning()` has already said that NOTHING answers on the base port. A lock is
+  // therefore honoured only while it is young enough that its owner may still be binding (which
+  // keeps the original start-race protection); once it is older than that, an "alive" pid that is
+  // not serving the range is a reused pid, and the lock gets taken over with a line in the log.
+  const LOCK_GRACE_MS = 30000
   const alive = (pid) => { try { process.kill(pid, 0); return true } catch { return false } }
   try {
     fs.writeFileSync(lockPath, String(process.pid), { flag: 'wx' })
@@ -156,7 +172,14 @@ function acquireLock(lockPath) {
     if (e.code !== 'EEXIST') return true
     let owner = NaN
     try { owner = Number(fs.readFileSync(lockPath, 'utf8').trim()) } catch { }
-    if (Number.isFinite(owner) && owner > 0 && alive(owner)) return false
+    let ageMs = Infinity
+    try { ageMs = Date.now() - fs.statSync(lockPath).mtimeMs } catch { }
+    const ownerAlive = Number.isFinite(owner) && owner > 0 && alive(owner)
+    if (ownerAlive && ageMs < LOCK_GRACE_MS) return false
+    if (ownerAlive) {
+      log(`lock ${lockPath} names pid ${owner}, which is alive but does NOT serve :${base} (nothing answers there) - ` +
+          `that pid has been reused by another program; taking the lock over (age=${Math.round(ageMs / 1000)}s)`)
+    }
     try { fs.unlinkSync(lockPath); fs.writeFileSync(lockPath, String(process.pid), { flag: 'wx' }); return true } catch { return false }
   }
 }
@@ -549,21 +572,25 @@ for (let i = 0; i < count; i++) {
 }
 }
 
-if (pidFile) { try { fs.writeFileSync(pidFile, String(process.pid)) } catch { } }
-
 // SINGLE INSTANCE, DECIDED BY REACHABILITY RATHER THAN BY A LOCK FILE. Measured 2026-09-18: two
 // instances came up together and SPLIT THE RANGE between them (one held 3200-3215, the other
 // 3216-3223), which looks healthy from any single port and is not. A proxy that can already answer
 // on the base port means the range is served, so this one exits 0 rather than binding half of it.
+//
+// THE PID FILE IS WRITTEN *AFTER* THE LOCK, NOT BEFORE (moved 2026-10-08). It used to be written at
+// the top of this file, so every start that then refused to bind still overwrote origins.pid with its
+// own pid -- measured: `origins.pid` read 14488, a process that answered nothing and exited. Anything
+// that trusts that file to say "the proxy is pid N" was being handed the pid of a failed attempt.
 alreadyRunning().then((busy) => {
   if (busy) {
     log(`another proxy already answers on :${base} - exiting without binding (single instance)`)
     process.exit(0)
   }
   if (!acquireLock(lockPath)) {
-    log(`another proxy holds ${lockPath} and is alive - exiting without binding (single instance)`)
+    log(`another proxy is starting and holds ${lockPath} - exiting without binding (single instance)`)
     process.exit(0)
   }
+  if (pidFile) { try { fs.writeFileSync(pidFile, String(process.pid)) } catch { } }
   log(`lock acquired: ${lockPath}`)
   startAll()
 })

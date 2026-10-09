@@ -1170,7 +1170,41 @@ function Open-SlotWindow($slot, $state) {
     # costs the owner per-window session isolation (every window then shares one session slot) but
     # it keeps the window usable and the failure visible, which is strictly better than a dead
     # window. `ensure` picks the proxy back up within the minute.
+    #
+    # EXCEPT WHEN IT OPENS NOTHING AT ALL, WHICH IS THE SAME THING AS SILENCE (measured 2026-10-08,
+    # and this is the owner's "+ new window does nothing" fault). With the proxy down EVERY slot
+    # collapses to ONE URL - the engine port - and in a shared profile a relaunch of an --app URL that
+    # is already open creates NO window: Chromium hands it to the running browser process and focuses
+    # the window that is already there. Measured that night on ZABZ-YOGA: launching the identical
+    # `--app=http://127.0.0.1:3099/?token=...` into `_shared` while one was open left the
+    # titled-window count at 1 (22 msedge processes before, 23 after - the extra one was the stub).
+    # The old code opened it anyway, windows.log recorded a successful `open`, and fifteen clicks that
+    # did nothing accumulated as fifteen successes. So: if a window already exists on the engine port,
+    # REFUSE and say what to run. The FIRST window of a cold start still falls back - there is nothing
+    # to collide with then, and refusing there would be the opposite fault.
     if ($originPort -ne $targetPort -and -not (Test-OriginsProxy -Quiet)) {
+        $alreadyOnEngine = 0
+        try { $alreadyOnEngine = Get-EnginePortWindowCount } catch { }
+        if ($alreadyOnEngine -gt 0) {
+            $base = (Get-OriginsArgs).basePort
+            $why = (@(
+                "cannot open slot '{0}': the origin proxy is not answering on :{1}, and a window is already open on the engine port :{2}."
+                "Every slot then collapses to that one URL, and an identical --app URL in the shared profile opens NO new window - the click would do nothing."
+                "Fix the door first: {3} ensure"
+            ) -join ' ') -f $slot.label, $base, $targetPort, (Join-Path $PSScriptRoot 'dshw.cmd')
+            # Windows.log as well as the console, because this path is normally run by a HIDDEN
+            # shortcut: a refusal nobody can read is the fault it is refusing to repeat.
+            try {
+                ("[{0}] refused slot={1} origin={2} reason=proxy-down-and-engine-port-occupied :: {3}" -f `
+                    (Get-Date -Format o), $slot.label, $originPort, $why) |
+                    Add-Content -LiteralPath (Join-Path $StateDir 'windows.log') -Encoding utf8
+            } catch { }
+            try {
+                ("[{0}] new: {1}" -f (Get-Date -Format o), $why) |
+                    Add-Content -LiteralPath (Join-Path $StateDir 'watchdog.log') -Encoding utf8
+            } catch { }
+            throw $why
+        }
         Write-Host ("  [WARN] origin proxy not answering; opening slot '{0}' directly against :{1} (this window will SHARE the session slot of any other window opened the same way)" -f $slot.label, $targetPort) -ForegroundColor Yellow
         $originPort = $targetPort
     }
