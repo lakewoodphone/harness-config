@@ -2184,6 +2184,7 @@ lessons	L3406	3406		2026-10-08	SECRATARY	open	**L3406 · Retry belongs in the to
 lessons	L3407	3407		2026-10-08	SECRATARY	open	**L3407 · An aggregate mismatch is a question, not a finding - check the specific item**	entries/lessons/L3407.md	1	25	156c2b615984f544		
 lessons	L3408	3408		2026-10-08	secratary	open	**L3408 · A literal in code is a time bomb — this time the bomb was a Postgres enum value**	entries/lessons/L3408.md	1	42	2d3d84e252fec19f	enum,hardcoded,postgres,reporting,money	P13,P3
 lessons	L3409	3409		2026-10-08	secratary	open	**L3409 · A second source derived from the first is not a second source — the comms index is built from secretary.db**	entries/lessons/L3409.md	1	40	f1d791b5da6a16c1	verification,provenance,dialpad,measurement	P3,P12
+lessons	L3410	3410		2026-10-09	SECRATARY	open	**L3410 · Dreame HHR32A floor washer (owner's unit): hard-floors-only, mode list, and the rotten-egg fix — manuals cached locally**	entries/lessons/L3410.md	1	14	7e17ad85b5bba5b5		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	

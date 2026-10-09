@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-10-08
+Updated: 2026-10-09
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 336 row(s) read, 58 pending, generated 2026-10-08 23:16 UTC on SECRATARY.
+Provenance: 336 row(s) read, 57 pending, generated 2026-10-09 00:18 UTC on SECRATARY.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -61,7 +61,6 @@ Provenance: 336 row(s) read, 58 pending, generated 2026-10-08 23:16 UTC on SECRA
 | 334 | 2026-10-08 | medium | The prepaid AI balance is low. Top it up so the autonomous work does not stop? | Top up at https://platform.deepseek.com/top_up - the provider has NO auto-recharge to turn on (its own API FAQ documents PayPal, bank card, Alipay and WeChat Pay and nothing automatic), so this cannot be made to run itse |
 | 335 | 2026-10-08 | medium | The money plane is finished except one piece that needs your say-so: today every money question to you is held by a blanket outbound block, and the fix would let money alerts go out at normal urgency with a hard cap on how many per day. Do you want that, or leave the block as it is? | I recommend leaving the block as it is for now, because your decision queue already holds 55 unanswered rows and no customer or legal deadline is blocked by it. |
 | 336 | 2026-10-08 | medium | The counter iPad and both store iPhones have NO real web restriction today: Apple ignores a URL whitelist whenever automatic filtering is switched on, so the web-content filter installed on 7 Oct restricts nothing and those devices can reach the whole internet. Lock the counter devices to the shop ' s own sites, or leave them able to browse everything? | Lock them. That is what you asked for on 7 Oct, and it is one key (AutoFilterEnabled false) plus the host list the site needs - api.lakewoodphoneandtech.com, fonts.googleapis.com, fonts.gstatic.com, js.stripe.com, m.stri |
-| 337 | 2026-10-08 | medium | How many library books are on account 637680? The Unique Management collection letter (8 Sep 2026, $487.32) does not itemize the items, and no store we hold has a count. Send me the Ocean County Library barcode and password and I will pull the exact item list and count from the account, or tell me you would rather get it at the branch. | Send the barcode and password. It is the only route to the exact item list and count without a phone call, it takes a minute, and it also lets me confirm the account reads $0 after the drop-off - which is the one part of |
 | 259 | 2026-10-05 | low | Kosher Waze mid-period return: is the period base plan fee prorated by days, or charged in full? | Prorate by days. Charging a full month for four days of use is the complaint that costs the relationship, and the metered usage is billed either way. |
 | 262 | 2026-10-05 | low | ZABZ-TECH's RDP service is wedged and only a reboot will activate microphone passthrough (your Yoga mic appearing as a real recording device inside ZABZ-TECH). Reboot that machine, or stay on Chrome Remote Desktop and dictate on the Yoga side instead? | Dictate on the Yoga side first: it needs no reboot, and installing Handy with local Whisper and one toggle hotkey turns speech into text and pastes it, which is exactly what crosses Chrome Remote Desktop. Reach for the R |
 | 306 | 2026-10-07 | low | What was the 127.95 charge at US MOBILE on 20 Sep (card ending 3929) - no live charge in this ledger carries the merchant 'desc mobile'? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
@@ -69,4 +68,4 @@ Provenance: 336 row(s) read, 58 pending, generated 2026-10-08 23:16 UTC on SECRA
 | 331 | 2026-10-08 | low | Three stale leads: chase or let them go? | One follow-up each, then cancel: they cost nothing to chase once and they are the only thing that can revive them. I would draft all three for your approval rather than send blind. |
 | 332 | 2026-10-08 | low | Two finished jobs carry no price anywhere: what do we charge? | Give me the two numbers and both rows close cleanly; the standard price is fine if that is what the counter would say anyway. |
 
-Closed since the queue opened: 278. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 279. Answered questions move to `entries/decisions/` with the owner's own words.
