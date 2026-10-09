@@ -238,9 +238,17 @@ function withGrace(promise, ms) {
  */
 export function placementNote(placement, wait) {
   if (placement === undefined || placement === null) return undefined;
+  // THE HEAD MUST NAME WHAT ACTUALLY DECIDED. A placement made by this machine
+  // reading each node directly is NOT a broker placement, and calling it one
+  // would be the exact defect this whole seam exists to prevent: a record that
+  // says "the broker chose this" when the broker was unreachable. Measured
+  // 2026-10-09: the first direct-probe proof printed `broker → node "zabz-tech"`
+  // for a placement the broker never saw.
   const head = placement.source === 'fixed'
     ? `FIXED TARGET — "${placement.node}" from configuration, the broker was NOT consulted`
-    : `broker → node "${placement.node}"`;
+    : placement.source === 'direct-probe'
+      ? `DIRECT PROBE → node "${placement.node}" (the broker could NOT be reached; this machine read every node's own /mesh/health and ranked the answers itself)`
+      : `broker → node "${placement.node}"`;
   const parts = [head];
   if (placement.source !== 'fixed') {
     parts.push(`position ${placement.position}${placement.tier === null ? '' : ` (tier ${placement.tier})`}`);

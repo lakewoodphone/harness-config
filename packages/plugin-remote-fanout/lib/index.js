@@ -37,6 +37,7 @@
  */
 
 import { createBrokerClient } from './broker-client.js';
+import { createFailoverPlacer } from './failover-placer.js';
 import { createPlacementLedger, createNodePlacer } from './placement.js';
 import { createPressureReader, decidePressure, describePressure, localNodeName, PREFER_REMOTE_DEFAULT, PREFER_REMOTE_POLICY } from './pressure.js';
 import { RemoteOneShotProvider } from './provider.js';
@@ -240,7 +241,7 @@ function apply(ctx, config = {}) {
       ? ' — the local node is excluded from the ranking whenever the broker reports at least one eligible node other than it, and used exactly as today when it does not'
       : ` — the default (${PREFER_REMOTE_DEFAULT}): the local node stays a candidate exactly as it was; set preferRemote: true or MESH_PREFER_REMOTE=1 to exclude it whenever the broker reports an eligible node other than it`));
 
-  placer = createNodePlacer({
+  const brokerPlacer = createNodePlacer({
     broker,
     logger: ctx.logger,
     ledger,
@@ -266,6 +267,41 @@ function apply(ctx, config = {}) {
     preferRemote,
   });
 
+  // ── THE BROKER IS AN OPTIMISATION, NOT A VETO ──────────────────────────────
+  // Measured 2026-10-09: `secratary` — the only machine the broker runs on — was
+  // offline, and `subagent` could not start a single child while `zabz-yoga-1`
+  // and `zabz-tech` both answered `/mesh/health` in under 0.25 s with room to
+  // spare. The fan-out plane's availability was one process on one machine.
+  //
+  // `createFailoverPlacer` wraps the broker placer above and changes exactly one
+  // thing: a broker that cannot be REACHED (`broker-unreachable`) stops being a
+  // dead end. This machine then reads every node's own `/mesh/health` directly
+  // and ranks the answers itself (`lib/failover-placement.js`, 17 unit tests).
+  // The broker is still asked first and its answer is still used as-is, because
+  // only the broker holds a cross-node lease ledger; a broker that answers BADLY
+  // still throws rather than being routed around, because a live broker whose
+  // answer does not parse is a bug and hiding it behind a fallback is the same
+  // mistake as silently defaulting to a node.
+  //
+  // Turn it off with `placementFailover: false` for a deliberate broker-only
+  // deployment; the boot line then says so.
+  const failoverEnabled = config.placementFailover !== false;
+  placer = failoverEnabled
+    ? createFailoverPlacer({
+      inner: brokerPlacer,
+      logger: ctx.logger,
+      probeTimeoutMs: config.probeTimeoutMs,
+      nodes: Array.isArray(config.failoverNodes) && config.failoverNodes.length > 0 ? config.failoverNodes : undefined,
+      tailnet: config.tailnet,
+      children: 1,
+      exclude: Array.isArray(config.exclude) ? config.exclude : [],
+      thisNode: localNodeName() ?? null,
+      preferRemote,
+      remoteProfile: config.remoteProfile,
+      remoteHome: config.remoteHome,
+    })
+    : brokerPlacer;
+
   const provider = new RemoteOneShotProvider({
     name: providerName,
     placer,
@@ -286,6 +322,12 @@ function apply(ctx, config = {}) {
     + `(one placement per child; profile ${config.remoteProfile ?? 'headless'}${config.remoteHome ? `, DSH_HOME ${config.remoteHome}` : ''}; `
     + `queue wait ${config.queueWaitMs ?? 120000} ms; ledger ${ledger.dir})`,
   );
+  // Say whether a broker outage can stop a dispatch, because that is the defect
+  // the owner reported twice in one day and a reader of the log must be able to
+  // tell which behaviour this engine is running.
+  ctx.logger?.info?.(failoverEnabled
+    ? 'remote-fanout: PLACEMENT FAILOVER is ON — the broker is asked first, and a broker that cannot be REACHED is replaced by this machine reading every node\'s own /mesh/health directly (lib/failover-placer.js). Set placementFailover: false for broker-only.'
+    : 'remote-fanout: PLACEMENT FAILOVER is OFF (placementFailover: false) — a broker that cannot be reached will fail every dispatch, exactly as before');
   ctx.logger?.info?.(`remote-fanout: ${provider.describePlacement()}`);
   // What happens after a failure is now policy, not chance. Print it at boot.
   ctx.logger?.info?.(`remote-fanout: retry policy — ${describeRetryPolicy(provider.retryPolicy)}`);
