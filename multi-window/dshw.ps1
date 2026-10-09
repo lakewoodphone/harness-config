@@ -2086,6 +2086,24 @@ function Test-OriginsProxy([switch]$Quiet, [switch]$Fresh) {
 # All three are unioned below. A slot is live if ANY of them says so, and `live` is the union of
 # every slot's origin port plus the engine port, so one answer serves all sixteen slots.
 function Get-WindowOriginPorts($table = $null) {
+    # SKIP THE WMI SCAN WHEN THE PROXY IS ALREADY ANSWERING (2026-10-09, and this is the owner's
+    # "+ takes 20 seconds" -- see the markers in windows.log). Measured on this machine:
+    # `Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'"` costs 2.7-3.2 s
+    # cold, and it does not merely cost time: two runs went `new: begin` -> `new: edge-launch` in
+    # 13.2 s and 342 s, which is WMI hanging on a loaded box, not a slow script. That is the only
+    # thing in the click path that can take minutes, and the owner waits through it.
+    #
+    # The scan exists for two cases the PROXY CANNOT see, and neither needs it while the proxy is up:
+    #   (a) a window opened directly against the engine port (`--app=http://127.0.0.1:3099/`), which
+    #       bypasses the proxy entirely. In shared-profile mode Get-WindowCount credits such a window
+    #       to the first slot; without the scan it does not, so `new` may pick slot 1 and open a
+    #       DISTINCT window on its own origin. That is what the owner asked for by clicking +, and it
+    #       cannot duplicate anything: the URLs differ.
+    #   (b) a window whose origin the proxy no longer serves (it was restarted on another base). That
+    #       is a reason to keep the scan for `status`, `health`, `restore` and the reconciler, which
+    #       run every five minutes and can afford it -- and it is EXACTLY why this is a switch rather
+    #       than a deletion: the interactive paths set it, they are the ones a person waits on.
+    if ($script:SkipProcessScan -and (Test-OriginsEnabled) -and (Get-ProfileMode) -eq 'shared' -and (Test-OriginsProxy -Quiet)) { return @{} }
     if ($null -ne $script:OriginLiveMap) { return $script:OriginLiveMap }
     $map = @{}
     $procs = Get-WindowProcs $table
@@ -2842,11 +2860,18 @@ function Invoke-New {
     [void](Ensure-OriginsProxy)
     $state = Get-State
     $slots = Get-Slots
-    # Counting open windows needs a full process-table read, which is the single most
-    # expensive thing in this script on a loaded machine (measured 15-35 s, and it is what
-    # made `up` appear to hang). It runs here only because `new` must pick a free slot;
-    # `up` never pays for it.
-    $procTable = Get-WindowProcs
+    # Counting open windows normally needs a full process-table read, which is the most expensive
+    # thing in this script on a loaded machine (measured 15-35 s, and it is what made `up` appear to
+    # hang). It runs here only because `new` must pick a free slot; `up` never pays for it.
+    #
+    # AND IT IS NOW SKIPPED WHEN THE PROXY ANSWERS (2026-10-09). The proxy counts live connections
+    # per origin port, which in shared-profile mode is the per-window truth; the WMI scan is the
+    # expensive second opinion, and it is the only step in a click that has been measured taking
+    # minutes (342 s between `new: begin` and `new: edge-launch`). `new` is the path a person waits
+    # on, so it takes the cheap authoritative leg; `status`, `health` and `restore` keep both legs.
+    $script:SkipProcessScan = ((Get-ProfileMode) -eq 'shared') -and (Test-OriginsEnabled) -and (Test-OriginsProxy -Quiet)
+    $procTable = if ($script:SkipProcessScan) { @() } else { Get-WindowProcs }
+    if ($script:SkipProcessScan) { Write-Host '  [new] origin proxy is answering: slot liveness from the proxy, no WMI process scan' -ForegroundColor DarkGray }
     # `$_.enabled -and` added 2026-09-16. Without it the pick considered ALL TWELVE rows,
     # and the line below force-enabled whichever one it chose -- so `new` opened slots that
     # windows.json says must never open (w9-w12), and never wrote the file back, leaving
