@@ -501,23 +501,49 @@ function Test-PidExists([int]$processId) {
 }
 
 # ── port / process helpers ──────────────────────────────────────────────────
-# One TCP connection table per call, not per lookup: an unfiltered
-# Get-NetTCPConnection is the single most expensive thing this script does.
+# One TCP connection table per call, not per lookup. THE TABLE IS READ FROM `netstat`, NOT FROM
+# Get-NetTCPConnection, and that is the whole of the owner's "clicking + takes 25 seconds".
+#
+# Measured cold on ZABZ-YOGA 2026-10-08, same information both ways:
+#   Get-NetTCPConnection -State Listen : 3,462 ms once (5,893 ms inside this function with its
+#                                        retries), and it drags the whole NetTCPIP module into
+#                                        every single `new` before anything else can happen.
+#   netstat -ano -p tcp + parse        :   275 ms
+# Parity checked row by row against the slow call on the listening ports that matter (3099 -> pid
+# 10668, 3200 and 3201 -> pid 4056): identical, pids included.
+#
+# A row is a LISTENER when its FOREIGN PORT IS 0, not when it says "LISTENING" -- that word is
+# translated on a non-English Windows and this file is shared by every machine. The endpoints are
+# matched by shape (dotted quad or bracketed IPv6) so the port group cannot swallow the wrong digits.
+#
+# WHAT THIS TABLE DOES NOT SEE, measured 2026-10-08: an IPv6-ONLY listener. `netstat -p tcp` listed
+# 52 listening ports against Get-NetTCPConnection's 53, and the one it missed was tailscaled holding
+# `fd7a:115c:a1e0::7a2e:a206:51622` -- netstat's IPv6 table is incomplete on this build. That is
+# deliberately accepted rather than papered over: every port this launcher asks about is `127.0.0.1`
+# (IPv4), and for all 52 IPv4 ports netstat was checked row by row against the slow call and matched
+# exactly, pids included. If this launcher is ever made to care about an IPv6 listener, add the
+# complete-but-pidless .NET read (IPGlobalProperties.GetActiveTcpListeners(), measured 73 ms) as a
+# union for the liveness question only.
+#
+# AN EMPTY LISTEN TABLE IS A FAILED READ, NOT A QUIET MACHINE (2026-09-14). There is no state in
+# which a live Windows box has zero listening sockets -- RPC, SMB and the like always listen -- so a
+# null/empty result means the read failed, which on this machine happens under load. The consequence
+# used to be silent and severe: Get-PortOwner returned $null, so `Ensure-Engine` concluded the port
+# was free, never reclaimed the wedged engine that really owned 3099, and died with "address already
+# in use" instead. That is the whole of engine-recovery.log 17:49:33 -> 17:49:38, and why the owner
+# had a wedged engine for 100 minutes while the 1-minute watchdog logged a failure a minute. Retry
+# before believing an empty answer -- retry netstat, then fall back to the slow reader.
 function Get-ListenTable {
     $age = Get-Variable -Name ListenTableAge -Scope Script -ValueOnly -ErrorAction SilentlyContinue
     if ($age -and ((Get-Date) - $age).TotalSeconds -lt 5) { return $script:ListenTable }
-    # AN EMPTY LISTEN TABLE IS A FAILED READ, NOT A QUIET MACHINE (2026-09-14).
-    #
-    # There is no state in which a live Windows box has zero listening sockets -- RPC, SMB and
-    # the like always listen -- so a null/empty result means the read failed, which on this
-    # machine happens under load. The consequence used to be silent and severe: Get-PortOwner
-    # returned $null, so `Ensure-Engine` concluded the port was free, never reclaimed the wedged
-    # engine that really owned 3099, and died with "address already in use" instead. That is the
-    # whole of engine-recovery.log 17:49:33 -> 17:49:38, and why the owner had a wedged engine
-    # for 100 minutes while the 1-minute watchdog logged a failure a minute. Retry before
-    # believing an empty answer.
     $table = $null
     for ($i = 1; $i -le 3; $i++) {
+        $table = @(foreach ($line in (& netstat -ano -p tcp 2>$null)) {
+            if ($line -match '^\s*TCP\s+(?:[\d\.]+|\[[0-9a-fA-F:\.]+\]):(\d+)\s+(?:[\d\.]+|\[[0-9a-fA-F:\.]+\]):(\d+)\s+\S+\s+(\d+)\s*$' -and $matches[2] -eq '0') {
+                [pscustomobject]@{ LocalPort = [int]$matches[1]; State = 'Listen'; OwningProcess = [int]$matches[3] }
+            }
+        })
+        if ($table.Count -gt 0) { break }
         $table = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
         if ($table -and @($table).Count -gt 0) { break }
         Start-Sleep -Milliseconds 400
