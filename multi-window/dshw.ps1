@@ -1285,6 +1285,12 @@ function Open-SlotWindow($slot, $state, [switch]$Verify) {
     $extra = Get-Prop $Cfg.browser 'extraArgs'
     if ($extra) { $winArgs += $extra }
 
+    if ($Verify) {
+        try {
+            ("[{0}] new: edge-launch slot={1} origin={2}" -f (Get-Date -Format o), $label, $originPort) |
+                Add-Content -LiteralPath (Join-Path $StateDir 'windows.log') -Encoding utf8
+        } catch { }
+    }
     $proc = Start-Process -FilePath $exe -ArgumentList $winArgs -PassThru -ErrorAction Stop
     # Measured 2026-09-11: 12 fresh windows booting at once cost the engine ~0.45 s of
     # end-to-end work (72 calls, all 2xx, event-loop ping 208 ms worst case) while one
@@ -1316,11 +1322,25 @@ function Open-SlotWindow($slot, $state, [switch]$Verify) {
 }
 
 function Get-WindowProcs($table = $null) {
-    # One process table for the whole status call. Querying CIM per slot was slow AND
+    # One process table for the whole command. Querying CIM per slot was slow AND
     # unstable: 12 separate queries see the process list at 12 different instants, which
     # produced changing counts for the same window (measured 2026-09-11).
-    if (-not $table) { $table = Get-CimInstance Win32_Process -Property ProcessId, Name, CommandLine -Filter "Name='msedge.exe' OR Name='chrome.exe'" -ErrorAction SilentlyContinue }
-    return $table
+    #
+    # AND ONE PROCESS TABLE PER *COMMAND*, NOT PER CALLER (fixed 2026-10-08). Two callers ask for
+    # it in every `new`: Invoke-New builds a table to pick a free slot, then Get-WindowOriginPorts
+    # asks for its own with no argument -- so a cold click paid the WMI read TWICE. Measured cold
+    # on ZABZ-YOGA: `Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'"`
+    # 2,755 ms with the module load, and the second read is not free either. The owner's complaint
+    # is "clicking + takes 25 seconds", so this memo is not tidiness: it is a second of that.
+    # 10 s is longer than any single command takes to decide, and shorter than the gap between the
+    # 1-minute watchdog runs, so nothing is decided on a stale window set.
+    if ($table) { return $table }
+    $age = Get-Variable -Name WindowProcsAge -Scope Script -ValueOnly -ErrorAction SilentlyContinue
+    if ($age -and ((Get-Date) - $age).TotalSeconds -lt 10 -and $script:WindowProcs) { return $script:WindowProcs }
+    $script:WindowProcs = Get-CimInstance Win32_Process -Property ProcessId, Name, CommandLine `
+        -Filter "Name='msedge.exe' OR Name='chrome.exe'" -ErrorAction SilentlyContinue
+    $script:WindowProcsAge = Get-Date
+    return $script:WindowProcs
 }
 
 function Get-WindowCount($slotCfg, $table = $null) {
@@ -3385,6 +3405,17 @@ switch ($Command) {
         # dead one. 2026-09-14 18:27: this path reclaimed a live engine (pid 19556) and froze
         # every window on the machine, because the probe budget was shorter than this machine's
         # normal worst-case response time. See Test-EngineWedged.
+        #
+        # TIMED FROM HERE (2026-10-08). The owner's complaint was "clicking + takes 25 seconds", and
+        # the launcher's own log recorded only the END of a launch, so there was no way to tell his
+        # 20-25 s from the launcher's work. Three markers now bracket it: `new: begin` here,
+        # `new: edge-launch` immediately before the browser is started, and the existing `open ...`
+        # line with its `verify=` verdict. Anything between his click and `begin` is the shell's
+        # hop, not this script's.
+        try {
+            ("[{0}] new: begin" -f (Get-Date -Format o)) |
+                Add-Content -LiteralPath (Join-Path $StateDir 'windows.log') -Encoding utf8
+        } catch { }
         $enginePort = Get-PrimaryPort
         if (Get-PortOwner $enginePort) { Invoke-New }
         elseif (Ensure-Engine) { Invoke-New }
