@@ -68,9 +68,44 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
 SCP_OPTS = [*SSH_OPTS, "-O"]
 
 
+def norm_scp(p: str) -> str:
+    """`host:path` with the path's backslashes turned into forward slashes.
+
+    Measured 2026-10-09: `scp -O` to a Windows target is fine with `C:/Windows/Temp/x.tar` and
+    fails with `protocol error: filename does not match request` on `C:\\Windows\\Temp\\x.tar` —
+    the remote echoes a normalised name and the client refuses the mismatch.
+    """
+    if ":" in p:
+        host, _, path = p.partition(":")
+        return f"{host}:{path.replace(chr(92), '/')}"
+    return p
+
+
+def remote_size(alias: str, path: str, windows: bool, timeout: int = 60) -> int:
+    """Byte size of a file on the target, or -1. Used to decide whether a transfer completed
+    even though the transport never exited (see copy_from_remote)."""
+    p = path.replace(chr(92), "/")
+    if windows:
+        cmd = f'powershell -NoProfile -Command "(Get-Item \'{p}\').Length"'
+    else:
+        cmd = f'stat -c %s "{p}"'
+    rc, out, _ = run(["ssh", *SSH_OPTS, alias, cmd], timeout=timeout)
+    for token in reversed((out or "").strip().split()):
+        if token.isdigit():
+            return int(token)
+    return -1
+
+
 def scp(src: str, dst: str, timeout: int) -> tuple[int, str, str]:
     """Prefers `-O`. When both fail, report BOTH errors — the legacy attempt's message is the
-    informative one and silently returning only the fallback's made a real failure invisible."""
+    informative one and silently returning only the fallback's made a real failure invisible.
+
+    Remote paths are normalised to forward slashes. Measured 2026-10-09: `scp -O` to a Windows
+    target is fine with `C:/Windows/Temp/x.tar` and fails with `protocol error: filename does not
+    match request` on `C:\\Windows\\Temp\\x.tar` — the remote echoes a normalised name and the
+    client refuses the mismatch.
+    """
+    src, dst = norm_scp(src), norm_scp(dst)
     rc1, out1, err1 = run(["scp", *SCP_OPTS, src, dst], timeout=timeout)
     if rc1 == 0:
         return rc1, out1, err1
@@ -203,6 +238,16 @@ def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
         return scp(local_path, f"{alias}:{remote_path}", 600)
 
     def copy_from_remote(remote_path: str, local_path: str) -> tuple[int, str, str]:
+        """Copy down, then VERIFY THE BYTES rather than trusting the exit code.
+
+        Measured 2026-10-09 on secratary -> ZABZ-YOGA: `scp -O` moved a 384 MB tar correctly
+        (764 members, valid) and then **never exited** — it was still running at 900 s. That is the
+        same pathology push-dsh-sessions.mjs already documents ("ssh does not reliably exit after
+        the remote command completes, seen on both workstations") and it solves it by killing the
+        child the moment its reply parses. The equivalent here: bound the transfer, then compare
+        the local byte count against the remote's. Equal and non-empty means it arrived, whatever
+        the transport says about itself.
+        """
         if is_local:
             import shutil
             try:
@@ -210,7 +255,53 @@ def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
                 return 0, "copied", ""
             except OSError as exc:
                 return 1, "", str(exc)
-        return scp(f"{alias}:{remote_path}", local_path, timeout)
+        if os.path.exists(local_path):
+            os.remove(local_path)
+        want = remote_size(alias, remote_path, cfg["os"] == "windows")
+
+        # Poll the destination and END THE TRANSFER AS SOON AS THE BYTES ARE THERE, instead of
+        # waiting for a process that never returns. `scp -O` does not exit on this fleet once a
+        # transfer completes (measured 2026-10-09: still running 900 s after a complete 384 MB
+        # copy). Waiting out that timeout costs the full wall-clock on every round, and with tens
+        # of gigabytes to backfill that is the difference between an afternoon and a week. The
+        # arrived file IS the reply — the same rule push-dsh-sessions.mjs applies to ssh.
+        if want > 0:
+            src_s, dst_s = f"{alias}:{remote_path}", local_path
+            proc = subprocess.Popen(["scp", *SCP_OPTS, norm_scp(src_s), dst_s],
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            deadline = time.time() + timeout
+            got = 0
+            while time.time() < deadline:
+                if proc.poll() is not None:
+                    break
+                got = os.path.getsize(local_path) if os.path.exists(local_path) else 0
+                if got >= want:
+                    break
+                time.sleep(1.0)
+            if proc.poll() is None:
+                proc.kill()
+                try:
+                    proc.wait(timeout=30)
+                except Exception:
+                    pass
+            got = os.path.getsize(local_path) if os.path.exists(local_path) else 0
+            if got == want:
+                return 0, "", (f"{got} bytes verified; the transfer was ended by the poller "
+                               f"because scp does not exit reliably on this fleet")
+            if got == 0 and os.path.exists(local_path):
+                os.remove(local_path)
+            if got:
+                return 1, "", f"[verify] remote={want} local={got} after {timeout}s"
+            # the polled attempt moved nothing: fall back to the plain path so a wrong guess about
+            # the destination cannot lose the round
+        rc, out, err = scp(f"{alias}:{remote_path}", local_path, timeout)
+        if rc == 0:
+            return rc, out, err
+        got = os.path.getsize(local_path) if os.path.exists(local_path) else 0
+        if want > 0 and got == want:
+            return 0, "", (f"transfer of {got} bytes completed; the transport never exited and was "
+                           f"ended by its timeout — bytes verified against the remote size")
+        return rc, out, (err + f"\n[verify] remote={want} local={got}")[-800:]
 
     def run_remote(cmd: str, argv: list[str]) -> tuple[int, str, str]:
         if is_local:
