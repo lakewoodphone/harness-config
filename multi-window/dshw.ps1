@@ -2103,7 +2103,12 @@ function Get-WindowOriginPorts($table = $null) {
     #       is a reason to keep the scan for `status`, `health`, `restore` and the reconciler, which
     #       run every five minutes and can afford it -- and it is EXACTLY why this is a switch rather
     #       than a deletion: the interactive paths set it, they are the ones a person waits on.
-    if ($script:SkipProcessScan -and (Test-OriginsEnabled) -and (Get-ProfileMode) -eq 'shared' -and (Test-OriginsProxy -Quiet)) { return @{} }
+    # THE FLAG IS READ DEFENSIVELY, because this file runs under `Set-StrictMode -Version Latest`:
+    # naming an unset variable THROWS, and the switch only exists while `new`/`open` are running.
+    # Measured the hard way at 02:25 the moment it was added: `dshw status` died with
+    # "The variable '$script:SkipProcessScan' cannot be retrieved because it has not been set."
+    $skipScan = Get-Variable -Name SkipProcessScan -Scope Script -ValueOnly -ErrorAction SilentlyContinue
+    if ($skipScan -and (Test-OriginsEnabled) -and (Get-ProfileMode) -eq 'shared' -and (Test-OriginsProxy -Quiet)) { return @{} }
     if ($null -ne $script:OriginLiveMap) { return $script:OriginLiveMap }
     $map = @{}
     $procs = Get-WindowProcs $table
