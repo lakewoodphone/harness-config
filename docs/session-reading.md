@@ -195,5 +195,9 @@ Measured on 2026-10-09 (ZABZ-YOGA): 5 nodes, 5,553 session files, full doctor ch
 **all passed**, one inventory per node, `list` 37 ms from cache, a 107-candidate
 whole-host content search in **46 s over one connection per host**.
 
-Recorded in the journal: the tool's own failures are entries `L*` (session reading)
-and the pain it closes is the one that made this file necessary.
+Recorded in the journal alongside this file: **L3429** and **L3430** (the store /
+decoder facts, and the transport facts, each with its measurements) and **W2674**
+(the verified build). The tool exists because the owner said, on 2026-10-09:
+*"when i ask you to read sessions you many times have problems, that is not good at
+all, you should anywyas build robust tooling and docs for this to be set up
+properly."*
