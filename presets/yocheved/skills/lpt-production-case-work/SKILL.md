@@ -94,3 +94,60 @@ store named explicitly) live in `lpt-ops/docs/writes.md`.
 A decision about a case goes in the case's own record: the production note (above), the
 `lpt-hub` case file when there is one, and — if it is a rule rather than a case — the harness
 journal. Never leave a decision living only in a conversation.
+
+## 7. "Fully synced" is not one write — the link lives in six homes and each verifier reads a different one
+
+Measured 2026-10-11 on WO26100812739 (Elimelech Weinreb). This is the defect that makes a fully
+linked case still read as missing.
+
+| where the case→order link lives | who actually reads it |
+|---|---|
+| `workflow.orderNumber` | `tools/customer/audit.py` C11 **and** `scripts/sync-health-audit.py` |
+| `references.orderNumber` | `audit.py` C11 **only** — `sync-health-audit.py` ignores it |
+| `references.productionOrder.orderNumber` | `audit.py` C11 **and** `sync-health-audit.py` |
+| `references.websiteOrder.orderId` | the push tool's duplicate guard (`lpt-sync-to-production.py`, `doubles.py`) |
+| `references.workOrderId` + `ticketNumber` | the sync contract's matcher order; `tools/case-index/doubles.py` |
+| the case file's front-matter `work_order:` | `lptcase`, the case index, every human |
+
+**Consequence, measured.** The Weinreb case had a case file, a live production order, a valid
+schema-passing sync record, three photographs and two notes on the order — and
+`sync-health-audit.py` still listed `WO26100812739` as *"recent active prod order with NO lpt-hub
+case"*, because the record carried none of the fields that verifier reads. Writing
+`workflow.orderNumber` and `references.productionOrder` moved the reverse-gap count from 16 to 15.
+Its older sibling `WO26100812731` (Gestetner) has `references.websiteOrder` and every matcher and
+is still counted, for the same reason.
+
+**Why the whole 2026-10-08 intake batch is in this state:** the push tool writes the order id
+back into a sync record **only for an order it created itself**. Orders created the other way —
+`lpt-write order create`, as all of that day's were — write nothing back, so the record is born
+unlinked and stays that way until someone does it by hand.
+
+**So, after touching a case, do all of this, in this order:**
+
+1. Write the order link in *every* home above, not one of them. The cheap version is four fields:
+   `workflow.orderNumber` + `workflow.orderId`, `references.orderNumber` + `references.workOrderId`
+   + `references.ticketNumber`, `references.productionOrder`, `references.websiteOrder`, and the
+   front-matter `work_order:`. Set `references.productionOrder.linkedBy` honestly — say it was a
+   hand backfill and why, so the next reader knows it was not the push tool.
+2. Validate the record against `docs/customer-operations/CUSTOMER_CASE_SYNC_RECORD.schema.json`.
+3. Read it back and run the three readings, leaving each count no worse:
+
+```
+python scripts/sync-health-audit.py --days 21             # personal-secretary-mvp: three-way drift + the reverse gap
+python scripts/lpt-sync-to-production.py --dry-run-all    # the AUTHORITATIVE per-record push decision (read-only)
+ssh secratary-ts '/home/zabz/personal-secretary-mvp/.venv/bin/python3 \
+    /home/zabz/repos/lpt-hub/tools/customer/audit.py'     # the four-surface verifier; exits non-zero on real drift
+```
+
+`audit.py` must run on the authority — the only host that reaches all four surfaces (hub clone,
+production Postgres, the secretary SQLite, the website). Its C11 count is a **proxy that
+over-reports**, and the sync tool's own verdict outranks it: `--dry-run-all` is what decides.
+4. Commit and push `lpt-hub`. Unpushed case work cannot be seen by any other machine, and
+   `lptcase check` prints that warning on every run until it is pushed.
+
+Two traps in this area, both hit for real: the identifier `createdAt` is camelCase, and PowerShell
+strips embedded double quotes when handing an argument to a native command, so
+`lpt sql --store operational 'select max("createdAt") from orders'` comes back as
+`column "createdat" does not exist` — use `to_jsonb(orders)->>'createdAt'`, or run the SQL from a
+file. And a sync record can be perfectly valid JSON that a strict reader still cannot open; read a
+whole directory with `utf-8-sig` when you are checking a batch.
