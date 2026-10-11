@@ -6,6 +6,35 @@ discovered the hard way that it existed only in the owner's head, or in a chat n
 
 ---
 
+## 0. BEFORE YOU DESIGN ANYTHING: prove it does not already exist.
+
+**Read `docs/mesh/000-SYSTEMS-REGISTER.md` first.** It lists every machine and its role, every system
+and where it lives, what is authoritative for what, and the traps that have already cost this estate.
+
+**This rule exists because of two failures in 48 hours, both the same shape — an agent proposed to
+build something that was already built:**
+
+1. An agent recommended buying a **Hetzner Storage Box** for backups. The estate already had
+   **Cloudflare R2** holding the offsite database copy, with a bucket-scoped token. The purchase was
+   unnecessary.
+2. An agent designed and began a **hand-rolled Cloudflare DNS cutover**, and the owner spent
+   **$51.59/month and hours of work** on it, before discovering that `company-promote.py` had
+   performed exactly that promotion since **2026-10-06** — with five pre-flight refusals, including
+   the "two writers on one database" hazard the agent had "independently derived".
+
+The owner's words: *"It didn't even plan out properly what you were even doing. This was just in the
+wind."*
+
+**So: before the first design sentence, spend ten minutes proving the thing does not exist.** Read the
+register, `grep` the repos, read `~/bin` and `/opt/company/deploy/hosting-migration/scripts`, run
+`journal.py search "<the thing>"`, and check what is RUNNING on the hosts (`systemctl list-units`,
+`crontab -l`) — much of this estate's machinery is deployed rather than committed.
+
+**If it exists, USE IT. If it exists but is broken, FIX IT. Do not build a parallel one.** The
+`estate-systems` skill carries the full survey procedure.
+
+---
+
 ## 1. Every DSH session and every VS Code Copilot chat is archived forever. A copy must always exist.
 
 **The owner's words, 2026-10-09:**
