@@ -2198,6 +2198,7 @@ lessons	L3445	3445		2026-10-09	ZABZ-YOGA	open	**L3445 · The mesh's availability
 lessons	L3446	3446		2026-10-09	ZABZ-YOGA	open	**L3446 · A kernel DNS capture with a dead upstream makes a node a non-worker, and it re-arms itself three ways**	entries/lessons/L3446.md	1	42	4ed88e646d7268fc		
 lessons	L3447	3447		2026-10-09	ZABZ-YOGA	open	**L3447 · A remote child can never be continuable or messaged - engine invariant, choose the delegation path per job**	entries/lessons/L3447.md	1	40	c67cb1f23f6954ff		
 lessons	L3504	3504		2026-10-11	SECRATARY-CLOUD	open	**L3504 · Invalid user root: three reports named the wrong cause and the answer was one line in the remote log**	entries/lessons/L3504.md	1	48	c92123db4abddaf9		
+lessons	L3505	3505		2026-10-11	SECRATARY-CLOUD	open	**L3505 · The blind guard, the guard whose flags differ from its twin, and the anchor that measurement would destroy**	entries/lessons/L3505.md	1	63	b69d2efc5f809c40		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
