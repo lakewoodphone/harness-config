@@ -44,6 +44,11 @@ LOG_DIR = os.path.join(ARCHIVE_ROOT, "logs")
 
 # Client-side script locations, tried in order. harness-config is synced to every node.
 CLIENT_CANDIDATES = [
+    # THE AUTHORITY'S OWN PATH, and it is not `~/code/...`: this host is a root-owned server whose
+    # canonical checkout is /root/code/harness-config. Measured 2026-10-11: the local machine was
+    # reported as "no working (python, client) pair" because the candidate list only knew the
+    # laptop and office layouts.
+    "/root/code/harness-config/scripts/archive-transcripts.py",
     "~/code/harness-config/scripts/archive-transcripts.py",
     "~/harness-config/scripts/archive-transcripts.py",
     "C:/Users/ezabz/code/harness-config/scripts/archive-transcripts.py",
