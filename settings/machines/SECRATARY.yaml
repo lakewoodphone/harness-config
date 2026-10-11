@@ -1,4 +1,24 @@
-# secratary — the always-on host. Inherits everything from base.yaml.
+# secratary — FROZEN. It is the rollback anchor, not the always-on host any more.
+#
+# !! SERVICE STATE IS FROZEN BY DECISION. DO NOT START, STOP, MASK, UNMASK, ENABLE,
+# !! DISABLE OR RESTART ANYTHING ON THIS BOX. `cron` IS MASKED ON PURPOSE.
+#
+# On 2026-10-11 at 05:43:36Z the company's authority was deliberately cut over from
+# this box to `secratary-cloud` and this box was left as the FROZEN ROLLBACK ANCHOR.
+# At 19:04Z an agent found `cron.service` masked, read it as damage, unmasked and
+# started it plus four writer units, and wrote 5,129 `dsh_session_events` rows into
+# the anchor. Governing documents: `docs/mesh/131-MIGRATION-BRIEF.md` (Rule 1: the
+# office box is READ-ONLY; Rule 2: only ONE writer may exist for the company
+# database, and it is `/root/authority.db` on the cloud box) and
+# `docs/mesh/142-ANCHOR-WRITE-NOTICE.md`. Standing rule: `AGENTS.md` §5.
+#
+# THE DESIGNATION LIVES IN ONE FILE: `settings/machines/host-posture.tsv`. Check it
+# before you touch any host's service state:
+#     bash scripts/mesh/guard-service-state.sh --host secratary --op <verb>
+# which refuses with exit 2. The anchor carries its own copy of this mission at
+# `secratary:/home/zabz/MISSION-READ-FIRST.md`.
+#
+# — the original note follows —
 #
 # This file exists for two reasons:
 #
@@ -14,3 +34,15 @@
 # Applied by `scripts/autosync.sh` (cron, every 15 minutes), which mirrors the Windows
 # `PersonalSecretary-HarnessSync` task: fast-forward, apply the COMMITTED tree to ~/.dsh, prove it
 # converged, record the result.
+#
+# !! NOTE (2026-10-11): this box's checkout is DIVERGED (dozens of commits ahead of and
+# !! behind origin/main), so `autosync.sh` cannot fast-forward it and this file — like the
+# !! rest of harness-config — is NOT arriving here. That is exactly why the rule was put on
+# !! the machine directly, at /home/zabz/MISSION-READ-FIRST.md. Do not "fix" the divergence
+# !! by rebasing: it conflicts on journal/index/* and has already broken this checkout once.
+#
+# The posture is deliberately NOT a key in this file. This file is merged into the DSH
+# engine's `~/.dsh/settings.yaml`, and a non-harness key there is a settings-namespace
+# mistake. Host posture lives in `settings/machines/host-posture.tsv`, and the guard reads
+# that file. This comment is the pointer, nothing more.
+
