@@ -568,7 +568,12 @@ def cmd_cursor(conn, machine: str, out_path: str) -> int:
         (machine,),
     ).fetchall()
     payload = {"schema": 1, "machine": machine, "generated_at": now_iso(),
-               "held": [[r["kind"], r["rel_path"], r["sha256"]] for r in rows]}
+               # THE ALIAS MUST BE READ BACK BY ITS ALIAS. Measured 2026-10-11: this line read
+               # r["sha256"] while the query selected it as `s`, so EVERY call raised IndexError - and
+               # `--cursor-out` is step one of every pull on every machine, so the archive pulled
+               # nothing from 2026-10-10 until this was found. A fix for it was written once before and
+               # never reached the corpus; that is why the lesson is in the code, not only in a note.
+               "held": [[r["kind"], r["rel_path"], r["s"]] for r in rows]}
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh)
     print(json.dumps({"ok": True, "cursor": out_path, "held": len(payload["held"])}))

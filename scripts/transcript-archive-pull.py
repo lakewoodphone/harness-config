@@ -193,8 +193,17 @@ def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
 
     probed = probe_client_and_python(machine, cfg, python_bin, client_path)
     if not probed:
+        # NAME BOTH CAUSES, because this message used to send a reader to the wrong machine.
+        # Measured 2026-10-11 from the cloud authority: every machine reported this while
+        # harness-config WAS synced on all of them. The real cause was that the AUTHORITY IS
+        # NOT ON THE TAILNET, so `ssh <alias>` died with "Could not resolve hostname" - a
+        # network gap wearing a missing-checkout's clothes. Distinguish them by hand:
+        #     ssh <alias> echo ok    -> a name-resolution error means the network, not the checkout.
         result.update(ok=False, error="no working (python, archive-transcripts.py) pair on that "
-                                      "machine — is harness-config synced there?")
+                                      "machine - EITHER harness-config is not synced there, OR this "
+                                      "host has no network path to it (the authority is not on the "
+                                      "tailnet, so every alias fails to resolve; owner question 445). "
+                                      "Run `ssh <alias> echo ok` by hand to tell them apart.")
         return result
     py, client = probed
     result["client"] = client
