@@ -166,7 +166,7 @@ as one: the verdict was about the office literals, and the literals are what I c
 
 ## §4 — PORTED AND PROVEN (evidence quoted verbatim; all from `secratary-cloud`, 2026-10-11T06:32–06:35Z)
 
-| # | job | cloud path | cron line (intended) | evidence of the first real run |
+| # | job | cloud path | cron line (in the artifact below) | evidence of the first real run |
 |---|---|---|---|---|
 | — | `cron-wrap.sh` (shared) | `/usr/local/bin/cron-wrap.sh` 755 | — | `sha256sum` = `8db5fe43…ffa14`, byte-identical to the office file |
 | 1 | `site-uptime-check-cron` | `/root/port135/site-uptime-check-cron.sh` 755 | `7 * * * * /usr/local/bin/cron-wrap.sh site-uptime-check-cron <b64>` | 4/4 up; ledger row below |
@@ -447,18 +447,36 @@ cannot deliver their alerts.**
 laptop's key (`C:\Users\ezabz\.ssh\id_ed25519_hetzner`, fingerprint
 `SHA256:91iMQc2AFg+sSA1oscDHF9pz7jClBMynfHtRL4rmAKg`, which `ssh -vv` shows being offered and refused)
 after a burst of ~20 short ssh invocations in ~10 minutes. `ssh -vv` confirms the offer and a
-`publickey`-only refusal, i.e. sshd is up and answering. It was still refusing at 06:49Z. I stopped
+`publickey`-only refusal, i.e. sshd is up and answering. It was still refusing at 07:06Z. I stopped
 retrying deliberately: this estate has already had one incident (`PersSourcePenaltyExemptList`,
 2026-10-07) caused by exactly this kind of connection burst, and hammering a rate limiter makes the ban
-longer. The most likely mechanism is fail2ban (installed, `141`/`137` both record it) and/or sshd's
-`MaxStartups 10:30:100`. **This is a transport block against one source address, not a fault on the
-box** — `company-api` was serving `http://127.0.0.1:8002/health` HTTP 200 at 06:32Z and nothing of mine
-touched a service.
+longer.
+
+**This is a per-source block, not a key change, and that is measured rather than assumed.**
+`135-PARITY-AND-ROBUSTNESS.md` (same workstream family, written 06:2xZ) records
+`ssh-keygen -l -f /root/.ssh/authorized_keys` on this box → **one** key,
+`SHA256:91iMQc2AFg+sSA1oscDHF9pz7jClBMynfHtRL4rmAKg mesh-hetzner-2026-08-31` — the same key now being
+refused, and the same one that was working at 06:33Z. `PasswordAuthentication no` is provision-by-design
+so `PreferredAuthentications=password` returns the identical line, which rules nothing out. The remaining
+candidates are fail2ban (installed; the burst produced `kex_exchange_identification: read: Unknown error`
+before the denials) and sshd's `MaxStartups 10:30:100`. **`company-api` was serving
+`http://127.0.0.1:8002/health` HTTP 200 at 06:32Z, so the box is healthy** — this is a transport block
+against one source address, not a fault on the machine.
+
+**The specific mistake that made it last, recorded so nobody repeats it:** I retried every 1–3 minutes.
+Every denied connection restarts the fail2ban window, so the ban kept renewing itself. The correct
+behaviour is to back off for 15 minutes or more with **no** connection attempts inside the window, then
+read `/etc/fail2ban/jail.local` and `sshd -T | grep -i maxstartups` on the first successful reconnect
+and note the numbers in `135-work/RECON.md`.
 
 ### (a) NOT DONE — the crontab is still empty. `crontab -l` → `no crontab for root` as of 06:27Z.
 
-The seven lines, ready to install (names kept identical to the office jobs, as the brief requires;
-every cloud path and every environment variable visible in the line):
+**The six lines are already generated and payload-verified** in this repo at
+`docs/mesh/135-work/port/135-crontab.txt` (2,824 B) — every base64 payload round-trips back to the exact
+command (`roundtrip-ok=True` for all six), so finishing this is one `scp` and one
+`cat 135-crontab.txt | crontab -` after a `crontab -l > /root/crontab.before-135`. They are reproduced
+here so this report stands alone (names identical to the office jobs, as the brief requires; every cloud
+path and every environment variable visible in the line):
 
 ```
 7 * * * * /usr/local/bin/cron-wrap.sh site-uptime-check-cron <b64 of: SITE_UPTIME_LOG=/var/log/site-uptime-check.log bash /usr/local/bin/site-uptime-check-cron.sh>
@@ -469,9 +487,9 @@ every cloud path and every environment variable visible in the line):
 17 * * * * /usr/local/bin/cron-wrap.sh lpt-deploy-drift <b64 of: env LPT_REPO=/opt/company LPT_DEPLOY_SERVICES=company-api.service,secretary-dashboard.service LPT_DEPLOY_STATE=/root/.lpt-ops/dialpad/deploy-state.json /usr/bin/python3 /usr/local/bin/lpt-deploy-drift.py >> /var/log/lpt-deploy-drift.log 2>&1>
 ```
 
-`lpt-report-freshness` is **deliberately absent** (§6a). Base64 via
-`printf '%s' "<command>" | base64 -w0`, as the port brief specifies; the `.sh` files are installed at
-`/usr/local/bin/` (the brief's path mapping) rather than left in `/root/port135/`.
+The five scripts the first five lines call must be copied from `/root/port135/` to `/usr/local/bin/`
+first (`install -m 755 /root/port135/<f> /usr/local/bin/<f>`), per the brief's path mapping. Base64 via
+`printf '%s' "<command>" | base64 -w0`, as the port brief specifies.
 
 **The two staged files not yet on the box** — `port/ai-gateway-health.py` (the
 `tier-collapse`-promotion revision; the cloud copy at `/root/port135/ai-gateway-health.py` predates it,
