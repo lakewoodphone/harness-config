@@ -64,7 +64,15 @@ function ledgerInTempDir(t) {
 // joined the request on 2026-09-30: it is a reroute's explicit "do not send this child
 // back to a node that already failed it" list, kept separate from the `exclude`
 // preference hint, and empty on a first ask because nothing has failed yet.
-const ONESHOT = { kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [], excludeNodes: [] };
+//
+// `secratary` joined `exclude` on 2026-10-11, and it belongs in this constant rather
+// than in a comment: the placer now reads `settings/machines/host-posture.tsv` and
+// offers every host whose posture is not writable to the broker as an exclusion —
+// `secratary` is the FROZEN office box, the other four nodes are `writable`. This
+// test deliberately runs against the REAL file (like `nodes.test.mjs` reads the real
+// roster): if a host's posture changes, the request the broker is asked for changes
+// too, and that is the fact worth failing on.
+const ONESHOT = { kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: ['secratary'], excludeNodes: [] };
 
 // ---------------------------------------------------------------------------
 // acquire
@@ -89,6 +97,16 @@ test('acquire() asks the broker once and turns its node name into an ssh destina
   assert.equal(placement.invocation.form, 'interpreter');
   assert.equal(placement.state, 'placed');
   assert.equal(ledger.get('remote-1').lease, 'L1');
+  // ── THE POSTURE READING IS ON THE PLACEMENT AND ON THE LEDGER ─────────────
+  // A placement whose posture is not recorded is a placement nobody can audit.
+  assert.equal(placement.posture.posture, 'writable');
+  assert.equal(placement.posture.matchedBy, 'zabz-tech');
+  assert.match(placement.posture.file, /host-posture\.tsv$/);
+  assert.equal(ledger.get('remote-1').posture.posture, 'writable');
+  // And the frozen node was OFFERED to the broker as excluded. `exclude` is a hint
+  // the broker may overrule (queue-never-amputate); the guarantee is the check on
+  // its answer, which `posture.test.mjs` proves by making the broker name it.
+  assert.deepEqual(ledger.get('remote-1').excludeSentToBroker, ['secratary']);
 });
 
 test('a POSIX node with an executor is placed with the executor form on the record', async (t) => {

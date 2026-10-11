@@ -316,11 +316,15 @@ test('under the high line nothing changes: the broker is asked with the caller\'
   });
   const placement = await placer.acquire({ id: 'remote-ok' });
 
-  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [], excludeNodes: [] }]);
+  // `secratary` joins the `exclude` hint on 2026-10-11 and is not a pressure decision:
+  // the placer reads `settings/machines/host-posture.tsv` and offers every host whose
+  // posture is not writable to the broker (see `posture.test.mjs`). The frozen anchor
+  // is the only such host.
+  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: ['secratary'], excludeNodes: [] }]);
   assert.equal(placement.node, 'zabz-tech');
   assert.equal(placement.excludedLocalNode, false);
   assert.equal(placement.pressureDecision.decision, 'ok');
-  assert.equal(placement.pressureDecision.excludeSentToBroker.length, 0);
+  assert.deepEqual(placement.pressureDecision.excludeSentToBroker, ['secratary'], 'pressure contributed NO exclusion here');
   assert.equal(placement.pressureConflict, undefined);
   // The reading is on the record even when it changed nothing.
   const written = JSON.parse(readFileSync(path.join(dir, 'remote-ok.json'), 'utf8'));
@@ -343,7 +347,7 @@ test('at or above the high line the local node is offered to the broker as exclu
   });
   const placement = await placer.acquire({ id: 'remote-high' });
 
-  assert.deepEqual(broker.calls.place[0].exclude, ['lakewooechsmini', 'zabz-yoga-1']);
+  assert.deepEqual(broker.calls.place[0].exclude, ['lakewooechsmini', 'secratary', 'zabz-yoga-1']);
   assert.equal(placement.node, 'zabz-tech');
   assert.equal(placement.excludedLocalNode, true);
   assert.equal(placement.pressureDecision.decision, 'route-remote');
@@ -351,7 +355,7 @@ test('at or above the high line the local node is offered to the broker as exclu
 
   const written = JSON.parse(readFileSync(path.join(dir, 'remote-high.json'), 'utf8'));
   assert.equal(written.excludedLocalNode, true);
-  assert.deepEqual(written.pressureDecision.excludeSentToBroker, ['lakewooechsmini', 'zabz-yoga-1']);
+  assert.deepEqual(written.pressureDecision.excludeSentToBroker, ['lakewooechsmini', 'secratary', 'zabz-yoga-1']);
   assert.match(written.pressureDecision.reason, /the local node is excluded from the ranking/);
   assert.equal(written.pressure.band, 'high');
   assert.deepEqual(written.pressureDecision.localNode, 'zabz-yoga-1');
@@ -514,7 +518,7 @@ test('prefer-remote is OFF by default, and the default changes nothing', async (
     pressureReader: { read: () => reading({ commitPct: 0.4 }) },
   });
   const placement = await placer.acquire({ id: 'policy-off' });
-  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: [], excludeNodes: [] }]);
+  assert.deepEqual(broker.calls.place, [{ kind: 'oneShot', children: 1, worktreeGiB: 0, prefer: null, exclude: ['secratary'], excludeNodes: [] }]);
   assert.equal(broker.calls.done.length, 0, 'a policy that is off must not touch a lease');
   assert.equal(placement.node, 'zabz-yoga-1');
   assert.equal(placement.excludedLocalNode, false);
@@ -547,8 +551,8 @@ test('alternatives present: the local answer is released unspent, and the local 
   const placement = await placer.acquire({ id: 'policy-alt' });
 
   assert.equal(broker.calls.place.length, 2);
-  assert.deepEqual(broker.calls.place[0].exclude, [], 'the first ask is exactly today\'s ask');
-  assert.deepEqual(broker.calls.place[1].exclude, ['zabz-yoga-1'], 'the second ask excludes the local node');
+  assert.deepEqual(broker.calls.place[0].exclude, ['secratary'], 'the first ask is today\'s ask plus the posture exclusion');
+  assert.deepEqual(broker.calls.place[1].exclude, ['secratary', 'zabz-yoga-1'], 'the second ask excludes the local node, and keeps the posture exclusion');
   assert.deepEqual(broker.calls.done, [{ lease: 'L-local', ok: false }], 'the local reservation is given back BEFORE the second ask');
   assert.equal(placement.node, 'zabz-tech');
   assert.equal(placement.excludedLocalNode, true);
@@ -561,7 +565,7 @@ test('alternatives present: the local answer is released unspent, and the local 
   assert.match(placement.preferRemoteNote, /released unspent/);
 
   const written = JSON.parse(readFileSync(path.join(dir, 'policy-alt.json'), 'utf8'));
-  assert.deepEqual(written.pressureDecision.excludeSentToBroker, ['zabz-yoga-1']);
+  assert.deepEqual(written.pressureDecision.excludeSentToBroker, ['secratary', 'zabz-yoga-1']);
   assert.equal(written.excludedLocalNode, true);
   assert.equal(written.preferRemote, true);
   // The line the child reports says the local option was declined, and why.

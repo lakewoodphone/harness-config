@@ -11,6 +11,10 @@ Safety rules, deliberately enforced:
   * never publishes a preset or a profile patch layer whose @deepseek-ai package
     names the RUNNING engine does not provide, and skips those two steps -- never the
     whole sync -- when the version check cannot run (see check_version_coupled)
+  * never publishes a profile patch layer whose GENERATED preset rows are stale, and
+    skips that step -- never the whole sync -- when the generator check cannot run
+    (see check_generated_preset_rows; the drift it exists to catch is recorded in
+    docs/mesh/166-web-profile-office-references.md)
   * --dry-run changes nothing
 
 Usage:
@@ -468,6 +472,89 @@ def report_step(scope: str, status: int, missing: list[str], engine: str, note: 
     return False
 
 
+GENERATOR = REPO / "scripts" / "make-preset-rows.mjs"
+
+
+def check_generated_preset_rows() -> tuple[int, str]:
+    """Are the COMMITTED generated preset rows still what `presets/` would produce?
+
+    Returns (status, note): 0 = up to date, publish the profile patches as usual;
+    1 = DRIFT, SKIP the profile step; 2 = the check itself could not run, SKIP the
+    profile step (see `report_generated_step`).
+
+    WHY THIS IS PART OF SYNC (2026-10-11). `profiles/web/presets.generated.patch.yml`
+    and the `preset-rows` managed block inside `profiles/web/cordis.patch.yml` are
+    DERIVED: `scripts/make-preset-rows.mjs` writes both from `presets/*/agent.cordis.yml`.
+    `make-preset-rows.mjs` documents its own `--check` as living "in CI rather than a
+    one-off" — and nothing ran it. `.github/workflows/` is empty, there is no root
+    `package.json`, and the only caller was a test a human has to remember to run. So
+    the committed artefact sat ONE GENERATION BEHIND its source, and it did real damage:
+    a corrected row (`brokerSsh` pointing at the frozen office box) was fixed in the
+    source, regenerated in nobody's checkout, and the stale copy is what a later sync
+    published. A generated artefact one generation behind its source is how a fixed row
+    comes back; the full record is `docs/mesh/166-web-profile-office-references.md` §3.
+
+    WHY IT GATES ONLY THE PROFILE STEP. The drift is in the PROFILE files. The presets
+    themselves are the SOURCE and are correct, so publishing them is right and is not
+    skipped. The blast radius is one step, never the sync — the same rule
+    `check_version_coupled` follows, and for the same reason: a sync that stops
+    converging has frozen machines on this deployment before (PAIN P8).
+
+    WHY status 2 SKIPS RATHER THAN PUBLISHES. A generated file whose generation cannot be
+    reproduced is not a file to install on every machine. This mirrors `report_step`'s
+    reasoning about the version check exactly: failing open here is how the stale copy
+    reached the fleet in the first place. The remedy is one command and it is named in
+    the message.
+    """
+    if not GENERATOR.exists():
+        return 2, f"{GENERATOR.name} is absent from {GENERATOR.parent}"
+    node = shutil.which("node")
+    if not node:
+        return 2, "node is not on PATH, so the generator could not be asked"
+    try:
+        proc = subprocess.run(
+            [node, str(GENERATOR), "--check"],
+            cwd=str(REPO), capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return 2, f"could not run {GENERATOR.name} ({exc})"
+    lines = [ln.strip() for ln in ((proc.stdout or "") + (proc.stderr or "")).splitlines() if ln.strip()]
+    if proc.returncode == 0:
+        return 0, lines[-1] if lines else "--check reported no output"
+    # The generator prints one `--check:` line per artefact, and the DRIFT line for the
+    # standalone artefact goes to stderr while the managed-block verdict goes to stdout --
+    # reading only the first `--check:` line therefore reported a cheerful "managed block
+    # UP TO DATE" as the reason a step was skipped. So: report the lines that said DRIFT,
+    # which is the only thing a reader can act on, and fall back to whatever there is.
+    verdicts = [ln for ln in lines if ln.startswith("--check:")]
+    drift = [ln for ln in verdicts if "DRIFT" in ln.upper()]
+    detail = " | ".join(drift or verdicts or lines or [f"--check exited {proc.returncode} with no output"])
+    return 1, detail
+
+
+def report_generated_step(status: int, note: str) -> bool:
+    """Print the generated-rows precondition's decision for the profile step.
+
+    True means: apply the profile patches now. One deliberate consequence, the same one
+    `report_step` has: neither skip message contains the word "WOULD". `autosync.ps1`
+    verifies convergence with `-not ($verify -cmatch 'WOULD')` and records "did NOT
+    converge" when it is false, so a "WOULD" here would stall the whole job every tick
+    instead of reporting one honest skip.
+    """
+    if status == 0:
+        print(f" profiles: generated preset rows UP TO DATE ({note})")
+        return True
+    if status == 1:
+        print(f" profiles: SKIPPED -- the committed generated preset rows are STALE: {note}")
+        print(" profiles:           regenerate and commit them with "
+              "`node scripts/make-preset-rows.mjs --install`; the live profile patch is left untouched")
+        return False
+    print(f" profiles: SKIPPED -- the generated-rows check did NOT run ({note}), so a generated "
+          "artefact that cannot be verified was not published; every other step of this sync still applies")
+    return False
+
+
 def ensure_client_plugins(dry_run: bool) -> tuple[int, str]:
     """Every name in the profile's bundle list must resolve. Returns (status, message).
 
@@ -599,9 +686,15 @@ def main() -> int:
         for m in plan_skills(args.dry_run):
             print(" " + m)
 
-    if report_step("profiles", *check_version_coupled("profiles", args.engine_root)):
-        for m in plan_profile_patches(args.dry_run):
-            print(" " + m)
+    # BOTH preconditions must pass for the profile step, and each reports its own answer:
+    # the version check (can this engine mount these rows?) and the generator check (is the
+    # committed generated copy still what the source would produce?). The second one is the
+    # 2026-10-11 repair -- it is what would have caught the stale `brokerSsh` row before a
+    # sync published it (docs/mesh/166-web-profile-office-references.md §3, §7).
+    if report_generated_step(*check_generated_preset_rows()):
+        if report_step("profiles", *check_version_coupled("profiles", args.engine_root)):
+            for m in plan_profile_patches(args.dry_run):
+                print(" " + m)
 
     plugin_status, plugin_msg = ensure_client_plugins(args.dry_run)
     print(" " + plugin_msg)

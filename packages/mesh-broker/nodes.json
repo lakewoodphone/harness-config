@@ -47,12 +47,13 @@
       "fqdn": "secratary.tail93e6e6.ts.net",
       "location": "office",
       "baseUrl": "https://secratary.tail93e6e6.ts.net",
+      "excluded": true,
       "dispatch": {
         "v1": null,
         "measuredAt": null,
-        "evidence": "UNMEASURED. Honest state as of 2026-09-16 23:33Z: this node has node v20.20.2 and a dsh engine at /home/zabz/dsh-engine, but its DSH_HOME (~/.dsh/profiles/) holds only `node_modules` and `web` - there is no `headless` profile to load, so a v1 dispatch cannot be shown to succeed or to fail here. Not a claim that it works, and not a claim that it does not."
+        "evidence": "UNMEASURED. Honest state as of 2026-09-16 23:33Z: this node has node v20.20.2 and a dsh engine at /home/zabz/dsh-engine, but its DSH_HOME (~/.dsh/profiles/) holds only `node_modules` and `web` - there is no `headless` profile to load, so a v1 dispatch cannot be shown to succeed or to fail here. Not a claim that it works, and not a claim that it does not. STILL TRUE AND NOW DECISIVE 2026-10-11: at 05:43:36Z the authority moved to secratary-cloud and this box was left FROZEN as the rollback anchor (settings/machines/host-posture.tsv), every writer stopped and disabled. An unmeasured transport on a box that is deliberately not running is not a candidate for anything."
       },
-      "note": "the authority: i5-4570 4c/4t, hopeless as a fleet worker (docs/mesh/20-placement.md D4, and 3 core slots under the core term) and a fine control plane. Its swap is at 99.9% (measured repeatedly 2026-09-16), which halves its effective slots for ranking."
+      "note": "the authority UNTIL 2026-10-11T05:43:36Z: i5-4570 4c/4t, hopeless as a fleet worker (docs/mesh/20-placement.md D4, and 3 core slots under the core term) and a fine control plane. Its swap is at 99.9% (measured repeatedly 2026-09-16), which halves its effective slots for ranking. SWITCHED OFF IN THE ROSTER on 2026-10-11 (see _excluded_on_purpose) and kept as a row rather than deleted, because the row is the record of a machine that exists. The row stays here as history; the AUTHORITY for whether anything may run on it is settings/machines/host-posture.tsv, and the dispatcher refuses a placement on a frozen host even if a roster (this one, a test fixture, or a hand-set target) names it (packages/plugin-remote-fanout/lib/posture.js)."
     },
     {
       "node": "lakewooechsmini",
@@ -66,5 +67,7 @@
       "note": "Yisroel's macOS mini (host name LakewooechsMini), 10 cores, 16 GB, 45.7 GiB free on /Users/lpt/code, gate answering 200, a headless agent turn in 2.9 s. Added 2026-09-18 after the exclusion that kept it out was falsified. NOT recorded here: `location`, because its physical position was never measured and lib/config.js maps an unrecognised value to null - a guessed location would silently mis-apply the preference bonus for any task that prefers home or office. Record it when someone measures it."
     }
   ],
-  "_excluded_on_purpose": {}
+  "_excluded_on_purpose": {
+    "secratary": "FROZEN 2026-10-11T05:43:36Z: the office box is the rollback anchor, read-only by decision, its writers stopped and disabled (docs/mesh/131-MIGRATION-BRIEF.md Rule 1, docs/mesh/142-ANCHOR-WRITE-NOTICE.md). Its v1 transport was NEVER MEASURED (dispatch.v1 = null above: no `headless` profile on that box) and it cannot dispatch while frozen, so `excluded: true` is a configuration fact rather than a network accident. THIS IS NOT THE DECISION: the designation is settings/machines/host-posture.tsv, read by packages/plugin-remote-fanout/lib/posture.js, and the dispatcher REFUSES a placement on a frozen host even when a roster names one. This entry only stops the broker from spending a lease on a node the dispatcher will refuse. Precedent for the reverse defect (an excluded node that was actually working - wasted capacity): journal W209, which emptied the previous entry in this object."
+  }
 }

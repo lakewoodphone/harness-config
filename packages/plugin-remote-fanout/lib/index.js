@@ -100,6 +100,28 @@ export function resolvePreferRemote(config = {}, env = process.env) {
 }
 
 /**
+ * Is this deployment allowed to place a child on a `read-only` host?
+ *
+ * OFF, always, unless it is turned on deliberately — and it can NEVER unlock a
+ * `frozen` host. This is the placement analogue of `--owner-confirmed` in
+ * `scripts/mesh/guard-service-state.sh`, which allows exactly the same thing and
+ * refuses `frozen` regardless: a child writes a working directory, a mailbox and
+ * its engine's own footprint, so running one on a host whose posture says "the
+ * tree is not to be written" needs the owner's yes, not a default. Nothing in the
+ * `web` profile sets it; a deployment that needs it says so in its own layer.
+ */
+export function resolveAllowReadOnly(config = {}, env = process.env) {
+  const configured = config.placementAllowReadOnly ?? env.MESH_PLACEMENT_ALLOW_READONLY;
+  if (configured === true) return true;
+  if (configured === false) return false;
+  if (typeof configured === 'string') {
+    const value = configured.trim().toLowerCase();
+    return value === '1' || value === 'true' || value === 'on' || value === 'yes';
+  }
+  return false;
+}
+
+/**
  * Install the provider.
  *
  * @param config.providerName    registry name (default `remote-ssh`)
@@ -127,6 +149,8 @@ export function resolvePreferRemote(config = {}, env = process.env) {
  * @param config.prefer          `home` | `office` | null — passed to the broker, which treats it as a tie-breaker only
  * @param config.exclude         node names to tell the broker to avoid (a caller hint; it yields to never-refuse)
  * @param config.preferRemote    the `prefer-remote` policy: exclude the local node whenever the broker reports an eligible node other than it (default OFF — `PREFER_REMOTE_DEFAULT`; `MESH_PREFER_REMOTE=1` turns it on)
+ * @param config.posture         the machine-posture table, injectable for tests; absent, `lib/posture.js` reads `settings/machines/host-posture.tsv` on EVERY placement (never cached — a cached freeze is a freeze a later decision does not reach)
+ * @param config.placementAllowReadOnly  allow a child on a `read-only` host (default OFF; `MESH_PLACEMENT_ALLOW_READONLY=1`). It NEVER unlocks a `frozen` host, on any setting
  * @param config.pressureSnapshotFile    override the `plugin-health` snapshot the pressure reader reads
  * @param config.pressureProbeDir        override where the fallback probe caches its reading
  * @param config.pressureMaxAgeMs        how stale a reading may be before it counts as absent (default 30000)
@@ -138,6 +162,7 @@ function apply(ctx, config = {}) {
     : 'remote-ssh';
   const mode = resolvePlacementMode(config);
   const preferRemote = resolvePreferRemote(config);
+  const allowReadOnly = resolveAllowReadOnly(config);
 
   const ledger = createPlacementLedger({ logger: ctx.logger });
 
@@ -176,6 +201,13 @@ function apply(ctx, config = {}) {
       retryPolicy: config.retryPolicy,
       mailboxRoot: config.mailboxRoot,
       threadId: config.threadId,
+      // THE FIXED TARGET IS A PLACEMENT TOO. `target` is the ssh destination a
+      // human set by hand, and it is a spelling the posture file carries rows for
+      // (`secratary-ts` is one of them) — so it is checked before the child is
+      // built, not after it has run on the frozen box.
+      target: config.target,
+      posture: config.posture,
+      allowReadOnly,
     });
     placer = provider.placer;
     ctx.subagents.registerProvider(provider);
@@ -265,6 +297,8 @@ function apply(ctx, config = {}) {
     prefer: config.prefer ?? null,
     exclude: Array.isArray(config.exclude) ? config.exclude : [],
     preferRemote,
+    posture: config.posture,
+    allowReadOnly,
   });
 
   // ── THE BROKER IS AN OPTIMISATION, NOT A VETO ──────────────────────────────
@@ -299,6 +333,8 @@ function apply(ctx, config = {}) {
       preferRemote,
       remoteProfile: config.remoteProfile,
       remoteHome: config.remoteHome,
+      posture: config.posture,
+      allowReadOnly,
     })
     : brokerPlacer;
 

@@ -20,13 +20,14 @@
     "./pressure": { "default": "./lib/pressure.js" },
     "./broker-client": { "default": "./lib/broker-client.js" },
     "./nodes": { "default": "./lib/nodes.js" },
+    "./posture": { "default": "./lib/posture.js" },
     "./package.json": "./package.json"
   },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" }
   },
   "scripts": {
-    "verify": "node --check lib/index.js && node --check lib/remote-script.js && node --check lib/ssh-transport.js && node --check lib/provider.js && node --check lib/retry-plan.js && node --check lib/mailbox.js && node --check lib/circuit-breaker.js && node --check lib/placement.js && node --check lib/failover-placement.js && node --check lib/failover-placer.js && node --check lib/node-probes.js && node --check lib/broker-client.js && node --check lib/nodes.js && node --check lib/pressure.js && node --check bin/mesh-run.mjs && node --check bin/mesh-pressure.mjs && node --check bin/mesh-pressure-proof.mjs && node --check bin/failover-place.mjs && node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/retry-plan.test.mjs test/mailbox.test.mjs test/conversation.test.mjs test/child-can-spawn.test.mjs test/reroute-provider.test.mjs test/circuit-breaker.test.mjs test/placement.test.mjs test/broker-client.test.mjs test/pressure.test.mjs test/failover-placement.test.mjs",
-    "test": "node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/retry-plan.test.mjs test/mailbox.test.mjs test/conversation.test.mjs test/child-can-spawn.test.mjs test/reroute-provider.test.mjs test/circuit-breaker.test.mjs test/placement.test.mjs test/broker-client.test.mjs test/pressure.test.mjs test/failover-placement.test.mjs"
+    "verify": "node --check lib/index.js && node --check lib/remote-script.js && node --check lib/ssh-transport.js && node --check lib/provider.js && node --check lib/retry-plan.js && node --check lib/mailbox.js && node --check lib/circuit-breaker.js && node --check lib/placement.js && node --check lib/failover-placement.js && node --check lib/failover-placer.js && node --check lib/node-probes.js && node --check lib/broker-client.js && node --check lib/nodes.js && node --check lib/pressure.js && node --check lib/posture.js && node --check bin/mesh-run.mjs && node --check bin/mesh-pressure.mjs && node --check bin/mesh-pressure-proof.mjs && node --check bin/failover-place.mjs && node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/retry-plan.test.mjs test/mailbox.test.mjs test/conversation.test.mjs test/child-can-spawn.test.mjs test/reroute-provider.test.mjs test/circuit-breaker.test.mjs test/placement.test.mjs test/posture.test.mjs test/broker-client.test.mjs test/pressure.test.mjs test/failover-placement.test.mjs test/failover-placer.test.mjs",
+    "test": "node --test test/nodes.test.mjs test/remote-script.test.mjs test/ssh-transport.test.mjs test/provider.test.mjs test/retry-plan.test.mjs test/mailbox.test.mjs test/conversation.test.mjs test/child-can-spawn.test.mjs test/reroute-provider.test.mjs test/circuit-breaker.test.mjs test/placement.test.mjs test/posture.test.mjs test/broker-client.test.mjs test/pressure.test.mjs test/failover-placement.test.mjs test/failover-placer.test.mjs"
   }
 }

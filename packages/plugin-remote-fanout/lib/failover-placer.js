@@ -50,6 +50,13 @@ import { BrokerError, BROKER_UNREACHABLE } from './broker-client.js';
 import { chooseFailoverPlacement, NO_CANDIDATE } from './failover-placement.js';
 import { probeMesh } from './node-probes.js';
 import { factsForNode, invocationForNode, NODES, nodeNames } from './nodes.js';
+import {
+  barredNodeNames,
+  loadPosture,
+  placementRefusal,
+  postureForNode,
+  PostureRefusalError,
+} from './posture.js';
 
 /** The placement was made by reading the nodes directly, because the broker could not be asked. */
 export const SOURCE_DIRECT_PROBE = 'direct-probe';
@@ -94,10 +101,24 @@ export function createFailoverPlacer(config = {}) {
   const probe = typeof config.probeMeshImpl === 'function' ? config.probeMeshImpl : probeMesh;
   const nodes = Array.isArray(config.nodes) && config.nodes.length > 0 ? config.nodes : Object.keys(NODES);
   const children = Number.isFinite(config.children) && config.children > 0 ? config.children : 1;
+  /**
+   * THE MACHINE-POSTURE GATE, SHARED WITH THE BROKER PLACER.
+   *
+   * This placer has TWO ways to name a node: the inner broker placer (which gates
+   * its own answer) and this machine's own probe, which is the whole point of the
+   * file. The probe path is a placement too — it turns a node name into an ssh
+   * destination and runs a child — so it answers the same question, from the same
+   * file, through the same module. Absent an injected table it is re-read on every
+   * acquisition, for the reason `placement.js` gives: a cached freeze is a freeze
+   * that a later decision does not reach.
+   */
+  const posture = config.posture;
+  const postureLoader = typeof config.postureLoader === 'function' ? config.postureLoader : loadPosture;
+  const allowReadOnly = config.allowReadOnly === true;
   /** The last reason the broker could not be asked — carried on every probe placement. */
   let lastBrokerFailure = null;
 
-  function placementFromProbe(decision, { id, childIndex, at }) {
+  function placementFromProbe(decision, { id, childIndex, at, designation }) {
     const node = decision.node;
     const facts = factsForNode(node);
     if (facts === undefined) {
@@ -105,6 +126,23 @@ export function createFailoverPlacer(config = {}) {
         'placement-node-unknown',
         `this dispatcher's own probe named node "${node}", which is not in this package's node table (${nodeNames().join(', ')}) — refusing to dispatch into a lookup miss`,
         { node, known: nodeNames() },
+      );
+    }
+    // THE SAME GATE AS THE BROKER PLACER'S, on the path that does not ask anyone.
+    const refused = placementRefusal(node, {
+      designations: designation.designations,
+      nodes: NODES,
+      file: designation.file,
+      allowReadOnly,
+    });
+    if (refused !== null) {
+      throw new PostureRefusalError(
+        refused.code,
+        `${refused.message}\n`
+        + `  PLACEMENT MODE : direct probe (the broker could not be asked: ${lastBrokerFailure?.message ?? 'unreachable'}) — this machine`
+        + ` ranked every node itself, and the winner is not placeable.\n`
+        + `  NOTHING WAS DISPATCHED, and no child ran on "${node}". No lease was taken either: a probe placement holds a LOCAL lease.`,
+        refused.detail,
       );
     }
     return {
@@ -152,6 +190,7 @@ export function createFailoverPlacer(config = {}) {
         shell: facts.shell,
       },
       invocation: invocationForNode(node),
+      posture: { ...postureForNode(node, { designations: designation.designations, nodes: NODES }), file: designation.file },
       pressureLine: `pressure was NOT re-evaluated by the direct probe: this placement exists because the broker could not be asked, and the probe's own ranking is the decision (${decision.rationale[decision.rationale.length - 1] ?? 'no rationale'})`,
       note: decision.rationale.join(' | '),
     };
@@ -180,6 +219,12 @@ export function createFailoverPlacer(config = {}) {
 
     async acquire(options = {}) {
       const { id, childIndex } = options;
+      // THE DESIGNATION IS READ FIRST, before the broker is asked and before this
+      // machine probes anything. If it cannot be read the whole acquisition
+      // refuses: a probe is a placement, and a placement decided without the
+      // posture file is a placement decided by guesswork.
+      const designation = posture !== undefined ? posture : postureLoader();
+      const barred = barredNodeNames({ designations: designation.designations, nodes: NODES, allowReadOnly });
       try {
         const placement = await inner.acquire(options);
         lastBrokerFailure = null;
@@ -203,7 +248,10 @@ export function createFailoverPlacer(config = {}) {
 
       const probed = await probe({ nodes, tailnet: config.tailnet, timeoutMs: config.probeTimeoutMs });
       const decision = chooseFailoverPlacement(probed.observations, {
-        exclude: Array.isArray(config.exclude) ? config.exclude : [],
+        // A host whose posture is not writable is offered to the ranking as an
+        // exclusion — a preference, never the guarantee. The guarantee is the
+        // check on the winner, in `placementFromProbe`.
+        exclude: [...new Set([...(Array.isArray(config.exclude) ? config.exclude : []), ...barred])],
         thisNode: config.thisNode ?? null,
         children,
         preferRemote: config.preferRemote === true,
@@ -222,7 +270,7 @@ export function createFailoverPlacer(config = {}) {
         );
       }
 
-      const placement = placementFromProbe(decision, { id, childIndex, at: Date.now() });
+      const placement = placementFromProbe(decision, { id, childIndex, at: Date.now(), designation });
       logger?.info?.(
         `remote-fanout: child ${id} placed on "${placement.node}" by DIRECT PROBE (broker unreachable) — `
         + `${decision.freeSlots ?? 'unmeasured'} free slot(s), position ${decision.position}, transports ${decision.transports.join('>') || 'none'}`,

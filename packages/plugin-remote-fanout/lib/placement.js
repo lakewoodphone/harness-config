@@ -42,6 +42,13 @@ import path from 'node:path';
 import { BrokerError, BROKER_UNREACHABLE } from './broker-client.js';
 import { hostMatchesNode, invocationForNode, isHostToken, NODES, nodeNames } from './nodes.js';
 import {
+  barredNodeNames,
+  loadPosture,
+  placementRefusal,
+  postureForNode,
+  PostureRefusalError,
+} from './posture.js';
+import {
   decidePressure,
   describePressure,
   localNodeName,
@@ -148,14 +155,79 @@ export function createPlacementLedger({ dir = defaultLedgerDir(), logger, fs = {
 }
 
 /** A placer for an explicit, hand-set fixed target — the opt-in fallback, never the default. */
-export function createFixedPlacer({ transport, remote = {}, targetHosts = [], node, reason = 'MESH_TARGET_NODE was set by hand' } = {}) {
+export function createFixedPlacer({
+  transport,
+  remote = {},
+  targetHosts = [],
+  node,
+  target,
+  reason = 'MESH_TARGET_NODE was set by hand',
+  /** Where an unreadable posture is reported. A placement that was not checked says so out loud. */
+  logger = undefined,
+  /** The posture source, injectable for tests. Absent, it is read from disk on every acquisition. */
+  posture,
+  postureLoader = loadPosture,
+  /** See `createNodePlacer`: the read-only analogue of the guard's `--owner-confirmed`. */
+  allowReadOnly = false,
+} = {}) {
   const hosts = (Array.isArray(targetHosts) ? targetHosts : []).map(String).filter((value) => value !== '');
   const label = node ?? targetHosts[0] ?? 'the configured target';
+  /**
+   * THE FIXED TARGET IS A PLACEMENT TOO, and it is the one a human sets by hand
+   * (`MESH_TARGET_NODE=secratary-ts`). `createNodePlacer` asks the broker; this one
+   * does not choose at all — but it still puts a child on a machine, so it still has
+   * to answer the same question.
+   *
+   * WHAT ITS SUBJECT IS, AND WHY NOT `targetHosts`. The subject is the ssh
+   * DESTINATION (`target`) or the node label (`node`) — those are the two things a
+   * caller uses to say *which machine this is aimed at*, and both are spellings
+   * `host-posture.tsv` carries rows for. `targetHosts` is deliberately NOT used: it
+   * is the list of hostnames the child is allowed to REPORT (`71` §2.4), so it is a
+   * verification list, and in the deployments that set it, it carries host names the
+   * posture file does not key on (`ZABZ-YOGA` where the file has `zabz-yoga-1`).
+   * Treating a verification list as a destination would refuse placements that are
+   * perfectly legal, which is how a guard gets turned off.
+   *
+   * WHEN NEITHER IS NAMED the placer cannot read a posture for a machine it cannot
+   * name. That case is REPORTED (`posture.posture === 'unreadable'`) and warned
+   * about, and it is not a refusal — it would refuse every embedding that passes
+   * only a transport, and the deployment path (`index.js`) always names its target
+   * (`target: !!js "process.env.MESH_TARGET_NODE ?? 'desktop-ts'"` in
+   * `profiles/web/cordis.patch.yml`). The rule that matters is unchanged: a host
+   * that CAN be named and is frozen is refused, always.
+   */
+  const held = {
+    node: typeof node === 'string' && node !== '' ? node : undefined,
+    target: typeof target === 'string' && target !== '' ? target : undefined,
+    hosts,
+  };
   return {
     kind: 'fixed',
     describe: () => transport.describe(),
     explain: () => `FIXED TARGET "${label}" — the placement broker was NOT consulted (${reason})`,
     async acquire() {
+      const subject = held.target ?? held.node;
+      const { file, designations } = posture !== undefined ? posture : postureLoader();
+      if (subject !== undefined) {
+        const refusal = placementRefusal(subject, {
+          designations,
+          nodes: { [subject]: { ssh: held.target ?? subject, hosts: held.hosts } },
+          file,
+          allowReadOnly,
+        });
+        if (refusal !== null) {
+          throw new PostureRefusalError(
+            refusal.code,
+            `${refusal.message}\n  PLACEMENT MODE : fixed target — the broker was not consulted, so nothing re-routed this child`,
+            refusal.detail,
+          );
+        }
+      } else {
+        logger?.warn?.(
+          'remote-fanout: FIXED-TARGET mode names no ssh destination (`target`) and no node, so the machine-posture '
+          + `designation (${file}) could not be read for it. This placement is NOT posture-checked. Name the target.`,
+        );
+      }
       return {
         source: 'fixed',
         node: label,
@@ -167,6 +239,9 @@ export function createFixedPlacer({ transport, remote = {}, targetHosts = [], no
         score: null,
         rationale: [],
         at: new Date().toISOString(),
+        posture: subject === undefined
+          ? { posture: 'unreadable', matchedBy: null, tokens: [], row: null, file, reason: 'the fixed target names no machine' }
+          : { ...postureForNode(subject, { designations }), file },
         facts: {
           command: remote.command,
           credentialEnvFiles: remote.credentialEnvFiles,
@@ -243,6 +318,24 @@ export function createNodePlacer({
   // is the exact silent-wait failure this feature exists to remove.
   sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); }),
   createTransport = createSshTransport,
+  /**
+   * ── THE MACHINE-POSTURE GATE (lib/posture.js) ─────────────────────────────
+   *
+   * `posture` is the designation table, injectable so a test can hand the placer a
+   * frozen host without depending on the estate's real one. Absent, it is READ
+   * FROM `settings/machines/host-posture.tsv` on EVERY acquisition — deliberately
+   * not cached. The file is the one place a cutover or a freeze is written down;
+   * a cached copy is a copy a later freeze does not reach, which is the drift that
+   * let this defect survive a claimed fix once already.
+   */
+  posture = undefined,
+  postureLoader = loadPosture,
+  /**
+   * The analogue of `guard-service-state.sh --owner-confirmed`, for a `read-only`
+   * host only: it never unlocks a `frozen` one. Set it once the owner has said yes
+   * in the current conversation, never to get a child moving.
+   */
+  allowReadOnly = false,
 } = {}) {
   if (broker === undefined || typeof broker.place !== 'function') {
     throw new Error('remote-fanout: a node placer needs a broker client with place()');
@@ -318,6 +411,27 @@ export function createNodePlacer({
       const rerouteExclude = Array.isArray(excludeNodes)
         ? excludeNodes.filter((name) => typeof name === 'string' && name !== '')
         : [];
+      /**
+       * THE MACHINE-POSTURE GATE, READ BEFORE THE BROKER IS ASKED.
+       *
+       * A host whose posture is not writable must not receive a child, and the set
+       * of those hosts is `settings/machines/host-posture.tsv` — not a list here.
+       * Three things happen, in this order:
+       *
+       *   1. the designation is READ. If it cannot be read, this REFUSES (nothing
+       *      can be shown to be placeable) and the broker is never asked, so no
+       *      lease is issued for a child that will not be dispatched;
+       *   2. the barred nodes are added to the broker's `exclude` hint, so the
+       *      ordinary case does not spend a lease on a host that would be refused.
+       *      `exclude` is SOFT (mesh-broker's rule is queue-never-amputate), so it
+       *      is a preference and NOT the guarantee;
+       *   3. the guarantee is the check on the answer, below — whatever the broker
+       *      NAMES is refused if its posture is not writable. A hint that hid the
+       *      refusal would be a silent default, which is the failure this whole
+       *      seam exists to remove.
+       */
+      const { file: postureFile, designations } = posture !== undefined ? posture : postureLoader();
+      const barred = barredNodeNames({ designations, nodes, allowReadOnly });
       const reading = measuredPressure();
       const localIsDispatchable = thisNode !== undefined && NODES[thisNode] !== undefined;
       // The pre-call verdict has no broker outcome yet, so `brokerReachable` is
@@ -325,7 +439,8 @@ export function createNodePlacer({
       // refusal for "unreachable AND saturated" is decided in the catch below.
       const preDecision = decidePressure(reading, { localNode: thisNode ?? null });
       const routeAway = preDecision.routeAwayFromLocal === true && localIsDispatchable;
-      const askedExclude = routeAway ? [...new Set([...exclude, thisNode])] : exclude;
+      const preferredExclude = barred.length === 0 ? exclude : [...new Set([...exclude, ...barred])];
+      const askedExclude = routeAway ? [...new Set([...preferredExclude, thisNode])] : preferredExclude;
 
       /**
        * THE REFUSAL, BEFORE THE BROKER IS ASKED.
@@ -450,7 +565,7 @@ export function createNodePlacer({
             supersededLease = { lease: placement.lease, node: placement.node, reconsidered: true, released: false, error: String(error?.message ?? error) };
             logger?.warn?.(`remote-fanout: the prefer-remote policy could not release the local reservation ${placement.lease} (${error?.code ?? 'broker-error'}: ${String(error?.message ?? error)}); the broker reclaims it at its TTL`);
           }
-          askedExcludeFinal = [...new Set([...exclude, thisNode])];
+          askedExcludeFinal = [...new Set([...preferredExclude, thisNode])];
           placement = await broker.place({ kind: 'oneShot', children, worktreeGiB: 0, prefer, exclude: askedExcludeFinal, excludeNodes: rerouteExclude });
           policyDecision = firstDecision;
           policyNote = `prefer-remote: the first answer placed this child on THIS machine while the broker's own eligible set held ${firstDecision.eligible?.alternatives ?? '?'} node(s) other than it; that reservation was released unspent and the local node was excluded from the second ask`;
@@ -466,6 +581,64 @@ export function createNodePlacer({
           PLACEMENT_NODE_UNKNOWN,
           `the broker named node "${placement.node}", which is not in this package's node table (${nodeNames().join(', ')}) — refusing to dispatch into a lookup miss`,
           { node: placement.node, known: nodeNames() },
+        );
+      }
+
+      /**
+       * ── THE GUARANTEE: THE ANSWER IS CHECKED, NOT TRUSTED ─────────────────
+       *
+       * The exclusion above is a HINT the broker is allowed to overrule (its own
+       * rule is queue-never-amputate, so an exclusion that names every node yields
+       * rather than refusing). This is not a hint. Whatever the broker NAMED —
+       * including a name produced by the prefer-remote policy's second ask — is
+       * refused here if its posture is not writable, and the refusal says what the
+       * host is FOR, who decided it and what to read, in the same shape as
+       * `scripts/mesh/guard-service-state.sh`.
+       *
+       * IT IS REFUSED EVEN THOUGH A LEASE IS ALREADY HELD, and the lease is handed
+       * back first. Dispatching anyway "because the lease exists" is exactly the
+       * argument that put a child on the frozen anchor; leaving the lease to expire
+       * would instead hold a slot on a host nobody may use. So: release, record,
+       * refuse — and the release failing is recorded, never raised, because the
+       * broker reclaims it at its TTL.
+       */
+      const postureRefusalForNode = placementRefusal(placement.node, {
+        designations,
+        nodes,
+        file: postureFile,
+        allowReadOnly,
+      });
+      if (postureRefusalForNode !== null) {
+        let released = null;
+        if (placement.lease !== undefined && placement.lease !== null && placement.lease !== '') {
+          try {
+            const answer = await broker.done(placement.lease, false);
+            released = { lease: placement.lease, node: placement.node, released: answer?.released ?? null };
+          } catch (error) {
+            released = { lease: placement.lease, node: placement.node, released: false, error: String(error?.message ?? error) };
+            logger?.warn?.(`remote-fanout: the reservation ${placement.lease} on the REFUSED node "${placement.node}" could not be released (${error?.code ?? 'broker-error'}: ${String(error?.message ?? error)}); the broker reclaims it at its TTL`);
+          }
+        }
+        ledger?.record(id, {
+          id,
+          state: 'posture-refused',
+          code: postureRefusalForNode.code,
+          error: postureRefusalForNode.message,
+          posture: { ...postureRefusalForNode.detail, file: postureFile },
+          brokerAnswer: { node: placement.node, position: placement.position, lease: placement.lease, tier: placement.tier, rationale: placement.rationale },
+          releasedLease: released,
+          excludeSentToBroker: askedExcludeFinal,
+          refusedAt: new Date(at).toISOString(),
+        });
+        logger?.warn?.(`remote-fanout: child ${id} REFUSED AFTER PLACEMENT — ${postureRefusalForNode.code}: ${postureRefusalForNode.message.split('\n')[0]}`);
+        throw new PostureRefusalError(
+          postureRefusalForNode.code,
+          `${postureRefusalForNode.message}\n`
+          + `  BROKER SAID    : "${placement.node}" (position ${placement.position}, tier ${placement.tier ?? '?'}) — the exclusion sent was `
+          + `[${askedExcludeFinal.join(', ') || 'none'}] and a soft exclusion yields to the broker's own queue-never-amputate rule, so this had to be checked on the answer.\n`
+          + `  LEASE          : ${released === null ? 'none was held' : (released.released === false ? `NOT released (${released.error ?? 'reported'}); it expires at its TTL` : 'released unspent')}\n`
+          + `  NOTHING WAS DISPATCHED, and no child ran on "${placement.node}".`,
+          postureRefusalForNode.detail,
         );
       }
 
@@ -559,6 +732,11 @@ export function createNodePlacer({
         // (docs/mesh/102-linux-dispatch.md §1).
         invocation: invocationForNode(placement.node),
         nodeVerified: facts.verified,
+        // ── THE POSTURE READING, ON THE RECORD ───────────────────────────────
+        // Which posture this host was found to have, the token that decided it and
+        // the file it was read from. A placement whose posture is not on the record
+        // is a placement a reader cannot audit.
+        posture: { ...postureForNode(placement.node, { designations, nodes }), file: postureFile },
       };
       ledger?.record(id, record);
       logger?.info?.(

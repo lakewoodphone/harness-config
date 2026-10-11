@@ -12,7 +12,7 @@
 
 import { strict as assert } from 'node:assert';
 import test from 'node:test';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +48,30 @@ test('the shipped roster is valid, names five nodes, and reads like the program 
   assert.equal(laptop.location, 'home');
   assert.equal(config.cacheTtlMs, DEFAULT_CACHE_TTL_MS);
   assert.equal(config.readTimeoutMs, DEFAULT_READ_TIMEOUT_MS);
+});
+
+test('the shipped roster SWITCHES OFF the frozen office box, and says why in one place a reader finds', () => {
+  // THE DECISION THIS PINS (2026-10-11): `secratary` is no longer a placement target.
+  // The authority for that is `settings/machines/host-posture.tsv` and the dispatcher
+  // enforces it (`packages/plugin-remote-fanout/lib/posture.js` refuses a placement on
+  // a frozen host even when a roster names one). This roster flag is the BROKER's half:
+  // without it the broker would spend a lease on a node the dispatcher must refuse.
+  //
+  // The row is kept rather than deleted, because it is the record of a machine that
+  // exists, and the reason is recorded in `_excluded_on_purpose` — the same slot
+  // journal W209 emptied when its last entry turned out to be a WORKING node that was
+  // excluded for no reason. That precedent is why this assertion also checks the
+  // reason EXISTS: an exclusion with no stated reason is the defect W209 names.
+  const raw = JSON.parse(readFileSync(fileURLToPath(new URL('../nodes.json', import.meta.url)), 'utf8'));
+  const config = loadConfig(fileURLToPath(new URL('../nodes.json', import.meta.url)));
+  const byName = Object.fromEntries(config.nodes.map((entry) => [entry.node, entry]));
+  assert.equal(byName['secratary'].excluded, true, 'the frozen office box must not be a placement target');
+  for (const other of ['zabz-tech', 'zabz-yoga-1', 'zabz-tech-linux', 'lakewooechsmini']) {
+    assert.equal(byName[other].excluded, false, `${other} must stay a normal candidate`);
+  }
+  const reason = raw._excluded_on_purpose?.secratary;
+  assert.equal(typeof reason, 'string', 'an exclusion with no stated reason is the defect journal W209 names');
+  assert.match(reason, /host-posture\.tsv/, 'the reason points at the file that IS the decision, so the two cannot be read as two decisions');
 });
 
 test('§2.1 naming: the shipped roster obeys node == fqdn.split(".")[0] on every row', () => {

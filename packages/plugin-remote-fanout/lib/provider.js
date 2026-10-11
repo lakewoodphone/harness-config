@@ -362,6 +362,13 @@ export class RemoteOneShotProvider {
     retryPolicy,
     mailboxRoot,
     threadId,
+    /** The ssh destination of a FIXED target — a spelling `host-posture.tsv` carries rows for. */
+    target,
+    /** The posture table, injectable for tests; absent, `lib/posture.js` reads it from disk. */
+    posture,
+    postureLoader,
+    /** The read-only analogue of the guard's `--owner-confirmed`; never unlocks a frozen host. */
+    allowReadOnly = false,
   } = {}) {
     if (typeof name !== 'string' || name.trim() === '') throw new Error('remote-fanout: provider `name` is required');
     // WHAT IS REQUIRED OF A FIXED TARGET, AND WHY IT IS NOT TWO PATHS ANY MORE.
@@ -405,7 +412,16 @@ export class RemoteOneShotProvider {
     this.taskPreamble = typeof taskPreamble === 'string' ? taskPreamble : '';
     this.verifyMeshHost = verifyMeshHost !== false;
     this.targetHosts = (Array.isArray(targetHosts) ? targetHosts : []).map(String).filter((value) => value !== '');
-    this.placer = placer ?? createFixedPlacer({ transport, remote: this.remote, targetHosts: this.targetHosts });
+    this.placer = placer ?? createFixedPlacer({
+      transport,
+      remote: this.remote,
+      targetHosts: this.targetHosts,
+      target: typeof target === 'string' ? target : undefined,
+      posture,
+      postureLoader,
+      allowReadOnly,
+      logger: this.logger,
+    });
     /**
      * How far a failed dispatch may be retried. The default is the measured
      * policy in `retry-plan.js` — an operator may override it, but the rule that
