@@ -290,9 +290,9 @@
   # Written by `node scripts/make-preset-rows.mjs --install`; `--check` fails when
   # this block and presets/*/agent.cordis.yml disagree. The standalone artifact for
   # composing with `--patch` is profiles/web/presets.generated.patch.yml.
-  #   presets/cordis-bg/agent.cordis.yml  rows=19  order=10  sha256=ed3e9b11ece1b3bbe77e7ee60ef48e5318b207c245217081e65ec72064d3ea84
-  #   presets/yocheved/agent.cordis.yml  rows=20  order=11  sha256=44efaeefd6508622171114b72021ef7f7e77c71db2ca16ccdeb0ca41f18e281b
-  #   presets/zabz/agent.cordis.yml  rows=26  order=12  sha256=8e04dd8ea20c65499669d70512bd79a347785d205b8ef33e31ce844a19f11f01
+  #   presets/cordis-bg/agent.cordis.yml  rows=19  order=10  sha256=b06a1edd4ec87a09168d278c6fe592876e0423e7f325d19eb96fb4e569e3732f
+  #   presets/yocheved/agent.cordis.yml  rows=20  order=11  sha256=ee9fd507ab13fd3ab946c75e4fc1b1286b35817bad5efbbae0dbd5a86ec6bd72
+  #   presets/zabz/agent.cordis.yml  rows=26  order=12  sha256=c6d0121d70621bebb9ef056ad4a502338772eeabe45b5c8afe90e40168c9c380
   {
     insert:
       [
@@ -959,9 +959,9 @@
                                 ServerAliveInterval=30,
                                 -o,
                                 ServerAliveCountMax=3,
-                                secratary-ts,
-                                /home/zabz/personal-secretary-mvp/.venv/bin/python,
-                                /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
+                                secratary-cloud,
+                                /opt/company/.venv/bin/python,
+                                /opt/company/scripts/ps_mcp_server.py
                               ],
                             toolCallTimeoutMs: 120000,
                             failOnStartupError: false
@@ -1128,6 +1128,18 @@
                               is declared exclusive, parallel calls in one step run *in series*, so N shell calls cost N x ~700 ms. When a shell genuinely is
                               needed, batch the work into one call rather than many, and use `run_in_background` for anything slow instead of a long foreground
                               chain.
+
+
+                              **Search with the estate's indexed surface, never a recursive walk.** Before any file or content search — and whenever a search
+                              feels slow — use the fast-search surface, documented in the `fast-search` skill that ships with your catalog (if it is missing from
+                              the catalog, that is a wiring fault to fix, not an absence to work around). Two doors to the same engine: `ps_action(\"search\",
+                              {\"what\": \"code|data|journal|files|symbol\", \"query\": …})` from any OS, and `fa <mode> <query>` on a Linux node. Measured on
+                              `secratary` 2026-10-08, same query, cold caches: `rg -uuu` over one home directory **100,075 ms** against **20 ms** scoped to `app/`
+                              and **317-544 ms** for the indexed journal path — a search that takes a minute is aimed at files that cannot hold the answer. Every
+                              indexed answer carries its provenance (`source`, `ms`, `index_age_s`, and for the journal `covers_through`, the newest entry it
+                              holds — a file age is not content freshness). Symbols, and anything you are about to edit, must never come from an index: use the
+                              live `symbol` mode or `--fresh`. And a search tool must never confuse \"no match\" with \"nothing was searched\": `fa` exits 1 for a
+                              real negative, 3 for a possibly-stale index, 4 when nothing was searched, 5 on failure.
 
 
                               **Heavy work asks the governor for a slot first.** Before starting a fleet, a burst of parallel jobs, or anything that spawns many
@@ -1512,9 +1524,9 @@
                                 ServerAliveInterval=30,
                                 -o,
                                 ServerAliveCountMax=3,
-                                secretary-ts,
-                                /home/zabz/personal-secretary-mvp/.venv/bin/python,
-                                /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
+                                secratary-cloud,
+                                /opt/company/.venv/bin/python,
+                                /opt/company/scripts/ps_mcp_server.py
                               ],
                             toolCallTimeoutMs: 120000,
                             failOnStartupError: false
@@ -1528,8 +1540,8 @@
                           {
                             serverName: secretary,
                             transport: stdio,
-                            command: /home/zabz/personal-secretary-mvp/.venv/bin/python,
-                            args: [ /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py ],
+                            command: /opt/company/.venv/bin/python,
+                            args: [ /opt/company/scripts/ps_mcp_server.py ],
                             toolCallTimeoutMs: 120000,
                             failOnStartupError: false
                           }

@@ -146,7 +146,7 @@
 
       He said it plainly on 2026-09-11: *"you work on all of them as they come up, and the ones that absolutely need me and you can't solve you bring up with me one at a time throughout different conversation sessions, they should be in a queue you read from when we have time."*
 
-      That queue exists and is the single source of truth: table `owner_decision_queue` on the authority. It lives at `~/bin/owner-queue.py` **on `secratary` only** — from any other machine read it as `ssh secratary-ts "python3 ~/bin/owner-queue.py next"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable. **Read it at the start of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with one recommendation per row and never a menu of five.
+      That queue exists and is the single source of truth: table `owner_decision_queue` on the authority. It lives at `~/bin/owner-queue.py` **on the authority only** — from any other machine read it as `ssh secratary-cloud "python3 ~/bin/owner-queue.py next"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable. **Read it at the start of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with one recommendation per row and never a menu of five.
 
       - If something in it is actually solvable by you, it is in the wrong place: solve it, then `resolve` the row.
       - When he answers one, record it with `answer`, then get straight back to the work.
@@ -585,6 +585,16 @@
 # WINDOWS ONLY. On the authority itself the bridge must be a LOCAL child -- see the
 # next row. Two rows, two platforms, one serverName; the gates are exclusive so
 # exactly one is ever active.
+#
+# 🛑 EDITING THIS FILE DOES NOTHING ON THE 0.1.7 LINE, AND THAT COST THIS SESSION AN HOUR.
+# Local preset-directory discovery was removed: `~/.dsh/.agent-presets/<name>/agent.cordis.yml`
+# is no longer read at all. What runs is the `preset-rows` managed block inside
+# `profiles/web/cordis.patch.yml`, generated from THIS file by
+# `node scripts/make-preset-rows.mjs --install`. Measured 2026-10-11: after editing and
+# deploying this preset, a restarted engine on the authority still spawned the OLD row
+# (`ssh secratary-ts ...`) because the live patch had not been regenerated. Edit here,
+# then regenerate the block, then apply it to the live patch -- and verify the live file,
+# not this one.
 - id: mcp-secretary
   name: '@deepseek-ai/dsh-mcp-client'
   disabled: !!js process.platform !== 'win32'
