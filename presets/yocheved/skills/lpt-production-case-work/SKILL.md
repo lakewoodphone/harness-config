@@ -71,11 +71,17 @@ store named explicitly) live in `lpt-ops/docs/writes.md`.
 
 ## 5. Things that are true today and will bite you if you assume otherwise
 
-- **There are ZERO photographs in either database.** `customer_notes.attachments` is non-null on
-  976 rows and every value is an empty array; `orders.attachments` is null everywhere; the 21
-  rows in `issue_intake_screenshots` are all soft-deleted and their storage path does not exist
-  on the server. If someone asks for the pictures, say there are none and say why — do not
-  promise to fetch what is not there.
+- **Intake photographs DO exist — in R2, not in the database.** `repair_intake_case_photos` holds
+  one row per photograph (measured 2026-10-11: 16 rows on `operational`, 1 on `app`) and the bytes
+  are in Cloudflare R2 under `repair-intake/<case uuid>/<position>.<ext>`, written BEFORE the row
+  so a row implies an object; `bin/lpt-storage-audit.sh` on `lpt-apps` re-checks that in both
+  directions afterwards. `lpt photos <key>` prints each row with its sha256 and key. What holds
+  nothing is the OLDER path: the 21 `issue_intake_screenshots` rows are all soft-deleted with no
+  storage path on the server, and `customer_notes.attachments` (non-null on 976 rows) and
+  `orders.attachments` are empty or null everywhere. So never say "there are no pictures" — say
+  which table you looked in. (Corrected 2026-10-11: this bullet used to read "ZERO photographs in
+  either database", and `lpt photos` printed "no photograph exists in this store" for
+  WO26100812738, which has four.)
 - **`devices` is a 1-row dead end.** Device truth is `orders."deviceInfo"` (a jsonb, populated on
   358 of 595 orders). `imei` is populated on 1 order and `serial` on 1. Do not promise an IMEI
   lookup.
