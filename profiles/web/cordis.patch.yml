@@ -134,7 +134,16 @@
       providerName: 'remote-ssh',
       placement: !!js "process.env.MESH_PLACEMENT ?? (process.env.MESH_TARGET_NODE ? 'fixed' : 'broker')",
       target: !!js "process.env.MESH_TARGET_NODE ?? 'desktop-ts'",
-      brokerSsh: !!js "process.env.MESH_BROKER_SSH ?? 'secratary-ts'",
+      # RETARGETED 2026-10-11 (second time): this default read `secratary-ts`, the FROZEN
+      # office box (`settings/machines/host-posture.tsv` marks secratary / secratary-ts
+      # `frozen`). The broker ssh destination is where mesh children are RUN, so an unfixed
+      # default sends a child to the rollback anchor. H3416 claimed this was changed to
+      # `secratary-cloud` at 06:29Z; the repo, the working tree and the live
+      # ~/.dsh/profiles/web/cordis.patch.yml all still read `secratary-ts`, so the change
+      # never reached a commit and a later sync restored the office value. Fixing it in the
+      # repo is the only fix that survives a re-apply. The authority is `secratary-cloud`
+      # (posture `writable`, sole writer of /root/authority.db).
+      brokerSsh: !!js "process.env.MESH_BROKER_SSH ?? 'secratary-cloud'",
       brokerUrl: !!js "process.env.MESH_BROKER_URL ?? 'http://localhost:3091'",
       brokerTimeoutMs: !!js "process.env.MESH_BROKER_TIMEOUT_MS ? Number(process.env.MESH_BROKER_TIMEOUT_MS) : 30000",
       # A queued child waits, and the wait is visible: the position is in the
@@ -292,7 +301,7 @@
   # composing with `--patch` is profiles/web/presets.generated.patch.yml.
   #   presets/cordis-bg/agent.cordis.yml  rows=19  order=10  sha256=b06a1edd4ec87a09168d278c6fe592876e0423e7f325d19eb96fb4e569e3732f
   #   presets/yocheved/agent.cordis.yml  rows=20  order=11  sha256=ee9fd507ab13fd3ab946c75e4fc1b1286b35817bad5efbbae0dbd5a86ec6bd72
-  #   presets/zabz/agent.cordis.yml  rows=26  order=12  sha256=c6d0121d70621bebb9ef056ad4a502338772eeabe45b5c8afe90e40168c9c380
+  #   presets/zabz/agent.cordis.yml  rows=26  order=12  sha256=7c79b04f237aac4f2a87640157a862a43b178ed6f83496f4a4a25aab5dc47cf2
   {
     insert:
       [
@@ -1347,10 +1356,10 @@
 
 
                               That queue exists and is the single source of truth: table `owner_decision_queue` on the authority. It lives at
-                              `~/bin/owner-queue.py` **on `secratary` only** — from any other machine read it as `ssh secratary-ts \"python3 ~/bin/owner-queue.py
-                              next\"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable. **Read it at the start
-                              of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with
-                              one recommendation per row and never a menu of five.
+                              `~/bin/owner-queue.py` **on the authority only** — from any other machine read it as `ssh secratary-cloud \"python3
+                              ~/bin/owner-queue.py next\"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable.
+                              **Read it at the start of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible
+                              things, real taste — with one recommendation per row and never a menu of five.
 
 
                               - If something in it is actually solvable by you, it is in the wrong place: solve it, then `resolve` the row.

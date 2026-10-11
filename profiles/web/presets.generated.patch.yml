@@ -26,7 +26,7 @@
 # SOURCES (sha256 of the exact bytes each row list was read from)
 #   presets/cordis-bg/agent.cordis.yml  rows=19  sha256=b06a1edd4ec87a09168d278c6fe592876e0423e7f325d19eb96fb4e569e3732f
 #   presets/yocheved/agent.cordis.yml  rows=20  sha256=ee9fd507ab13fd3ab946c75e4fc1b1286b35817bad5efbbae0dbd5a86ec6bd72
-#   presets/zabz/agent.cordis.yml  rows=26  sha256=c6d0121d70621bebb9ef056ad4a502338772eeabe45b5c8afe90e40168c9c380
+#   presets/zabz/agent.cordis.yml  rows=26  sha256=7c79b04f237aac4f2a87640157a862a43b178ed6f83496f4a4a25aab5dc47cf2
 #
 # `!!js` expressions carried: 19 (source text preserved; see the converter for why
 #   `YAML.stringify` + `customTags` cannot be used for this).
@@ -675,7 +675,7 @@
 
                 He said it plainly on 2026-09-11: *"you work on all of them as they come up, and the ones that absolutely need me and you can't solve you bring up with me one at a time throughout different conversation sessions, they should be in a queue you read from when we have time."*
 
-                That queue exists and is the single source of truth: table `owner_decision_queue` on the authority. It lives at `~/bin/owner-queue.py` **on `secratary` only** — from any other machine read it as `ssh secratary-ts "python3 ~/bin/owner-queue.py next"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable. **Read it at the start of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with one recommendation per row and never a menu of five.
+                That queue exists and is the single source of truth: table `owner_decision_queue` on the authority. It lives at `~/bin/owner-queue.py` **on the authority only** — from any other machine read it as `ssh secratary-cloud "python3 ~/bin/owner-queue.py next"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable. **Read it at the start of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with one recommendation per row and never a menu of five.
 
                 - If something in it is actually solvable by you, it is in the wrong place: solve it, then `resolve` the row.
                 - When he answers one, record it with `answer`, then get straight back to the work.
