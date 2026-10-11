@@ -1,0 +1,26 @@
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# == the cloud authority crontab, written by the 2026-10-11 cutover port ========================
+# Every job runs through the estate's own wrapper, so each run appends one row to
+# /root/.cron-status/runs.tsv: <ISO-8601 UTC>\t<name>\t<rc>\t<seconds>\t<first 160 chars of stderr>.
+# The NAME is the office job's name wherever the job is the same job, so the ledger and any monitor
+# that keyed on it still read true. The payload is the command, base64-encoded, so nothing in it can
+# be re-quoted wrongly by cron.
+#
+# SCHEDULING, and why these times: the offsite backup (systemd, authority-offsite-backup.timer) runs
+# at 05:20 and is the one heavy disk job on this box. prune-backups sits at 05:45 -- after the
+# backup has finished and before anything else -- and db-integrity-check is weekly at 04:17 Sunday,
+# far from both. Nothing here may overlap the backup: one disk, 75 GB, a 23.7 GB live database.
+
+*/5 * * *     /usr/local/bin/cron-wrap.sh cron-target-guard L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9jcm9uLXRhcmdldC1ndWFyZC5weSAtLXdyaXRlLXN0YXR1cyA+PiAvcm9vdC8uY3Jvbi10YXJnZXRzL2d1YXJkLmxvZyAyPiYx
+*/5 * * *     /usr/local/bin/cron-wrap.sh cron-script-guard L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9jcm9uLXNjcmlwdC1ndWFyZC5weSA+PiAvcm9vdC8uY3Jvbi1zY3JpcHRzL2d1YXJkLmxvZyAyPiYx
+*/5 * * *     /usr/local/bin/cron-wrap.sh store-write-check L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9zdG9yZS13cml0ZS1jaGVjay5weSAtLWRiIC9yb290Ly5zdG9yZS13cml0ZS1jaGVjay9zY3JhdGNoLmRiIC0tc2xvdy1zZWNvbmRzIDUgPj4gL3Jvb3QvLnN0b3JlLXdyaXRlLWNoZWNrL2d1YXJkLmxvZyAyPiYx
+*/5 * * *     /usr/local/bin/cron-wrap.sh deadman L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9kZWFkbWFuLnB5ID4+IC9yb290Ly5zbXMtaW5ib3gvZGVhZG1hbi5sb2cgMj4mMQ==
+*/15 * * *    /usr/local/bin/cron-wrap.sh guard-registry L3Vzci9iaW4vcHl0aG9uMyAvdXNyL2xvY2FsL2Jpbi9ndWFyZC1yZWdpc3RyeS1jaGVjay5weSAtLXdyaXRlLXN0YXR1cyA+PiAvcm9vdC8uZ3VhcmQtcmVnaXN0cnkvY3Jvbi5sb2cgMj4mMQ==
+*/15 * * *    /usr/local/bin/cron-wrap.sh journal-commit L3Vzci9sb2NhbC9iaW4vam91cm5hbC1jb21taXQuc2g=
+*/15 * * *    /usr/local/bin/cron-wrap.sh text-channel-check L2Jpbi9iYXNoIC91c3IvbG9jYWwvYmluL3RleHQtY2hhbm5lbC1jaGVjay5zaCA+L2Rldi9udWxsIDI+JjE=
+*/20 * * *    /usr/local/bin/cron-wrap.sh tmpfs-reaper bWtkaXIgLXAgL3Jvb3QvdG1wLXJlc2N1ZSAmJiBNSU5fRlJFRV9NQj02MDAgVEFSR0VUX0ZSRUVfTUI9MTUwMCBSRVNDVUVfUk9PVD0vcm9vdC90bXAtcmVzY3VlIC9iaW4vYmFzaCAvdXNyL2xvY2FsL2Jpbi90bXBmcy1yZWFwZXIuc2ggPi9kZXYvbnVsbCAyPiYx
+*/30 * * *    /usr/local/bin/cron-wrap.sh tree-integrity-check VFJFRV9JTlRFR1JJVFlfRFJZX1JVTj0xIC9iaW4vYmFzaCAvdXNyL2xvY2FsL2Jpbi90cmVlLWludGVncml0eS1jaGVjay5zaCA+L2Rldi9udWxsIDI+JjE=
+*/30 * * *    /usr/local/bin/cron-wrap.sh report-offsite-age L3Vzci9sb2NhbC9iaW4vcmVwb3J0LW9mZnNpdGUtYWdlLnNoID4+IC9yb290L3JlcG9ydC1vZmZzaXRlLWFnZS5sb2cgMj4mMQ==
+45 5 * * *    /usr/local/bin/cron-wrap.sh prune-backups L3Vzci9sb2NhbC9iaW4vcHJ1bmUtYmFja3Vwcy5zaCAvdmFyL2xpYi9hdXRob3JpdHktc25hcHNob3RzID4+IC92YXIvbG9nL2F1dGhvcml0eS1iYWNrdXAtcHJ1bmUubG9nIDI+JjE=
+17 4 * * 0    /usr/local/bin/cron-wrap.sh db-integrity-check U0VDUkVUQVJZX0RCPS9yb290L2F1dGhvcml0eS5kYiBEQl9JTlRFR1JJVFlfQkFDS1VQX1JPT1Q9L3Zhci9saWIvYXV0aG9yaXR5LXNuYXBzaG90cyAvdXNyL2Jpbi9weXRob24zIC91c3IvbG9jYWwvYmluL2RiLWludGVncml0eS1jaGVjay5weSAtLXdyaXRlLXN0YXR1cyA+PiAvcm9vdC8uZGItaW50ZWdyaXR5L2Nyb24ubG9nIDI+JjE=

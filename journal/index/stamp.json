@@ -1,25 +1,25 @@
 {
- "built": "2026-10-11 06:54 UTC",
+ "built": "2026-10-11 06:59 UTC",
  "cache_version": 2,
  "ceiling": {
-  "decisions": 3045,
-  "handoff": 3420,
-  "lessons": 3468,
-  "pain": 2948,
-  "wins": 2733
+  "decisions": 3046,
+  "handoff": 3423,
+  "lessons": 3604,
+  "pain": 3007,
+  "wins": 2734
  },
- "db": "journal.db + fts5",
- "drift_measured": "2026-10-11 06:54 UTC",
- "entries": 3420,
- "entries_count": 3421,
- "entries_sig": "4b0efd6662fbf8b2ca7b881adc35f1be6d3e1bd4",
+ "db": "journal.db not written ([WinError 5] Access is denied: 'C:\\\\Users\\\\ezabz\\\\code\\\\harness-config\\\\journal\\\\index\\\\.journal.db.tmp33832' -> 'C:\\\\Users\\\\ezabz\\\\code\\\\harness-config\\\\journal\\\\index\\\\journal.db')",
+ "drift_measured": "2026-10-11 07:00 UTC",
+ "entries": 3435,
+ "entries_count": 3438,
+ "entries_sig": "f72fbe66d7a97b341f6bb1229b6b138a424777f1",
  "flat_sig": "fbebfc3a7b8e3f2d4f30fd7a2290b1b003d00cc4",
  "git_ceiling": {
-  "decisions": 3038,
-  "handoff": 3400,
-  "lessons": 3447,
-  "pain": 2933,
-  "wins": 2732
+  "decisions": 3045,
+  "handoff": 3420,
+  "lessons": 3601,
+  "pain": 3001,
+  "wins": 2733
  },
  "log_count": 9,
  "log_sig": "b3990b53ecb4ee05a54fd63c6a8c7790ae1fee84",
