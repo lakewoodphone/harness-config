@@ -57,9 +57,15 @@ CLIENT_CANDIDATES = [
 ]
 
 # alias = the ssh alias ON THIS HOST. `local` means run the client here.
+# `push: True` marks a machine that SHIPS ITS OWN ARCHIVE rather than being pulled. Measured
+# 2026-10-11: a laptop that sleeps, roams networks and is sometimes shut cannot be a reliable pull
+# target, and its key was refused from the authority anyway - while the PUSH direction (the one the
+# estate already uses for DSH sessions) worked on its first run and shipped 5,357 files. Marking it
+# here means the pull stops reporting a failure it can never fix and says why instead. The pusher is
+# `scripts/archive-push-laptop.ps1` + the `PersonalSecretary-ArchivePush` task on that machine.
 MACHINES = {
     "secratary":       {"alias": "local",        "os": "linux"},
-    "zabz-yoga":       {"alias": "zabz-yoga-1",  "os": "windows"},
+    "zabz-yoga":       {"alias": None,           "os": "windows", "push": True},
     "zabz-tech":       {"alias": "zabz-tech",    "os": "windows"},
     "zabz-tech-linux": {"alias": "linux-pc-ts",  "os": "linux"},
     "lakewooechsmini": {"alias": "mac-mini-ts",  "os": "mac"},
@@ -193,6 +199,11 @@ def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
              python_bin: str | None, client_path: str | None, timeout: int) -> dict:
     started = time.time()
     alias = cfg["alias"]
+    if cfg.get("push"):
+        return {"machine": machine, "alias": None, "started_at": time.time(), "ok": True,
+                "skipped": "push",
+                "note": "this machine SHIPS its own archive (archive-push-laptop.ps1); the pull does "
+                        "not reach it by design. Nothing is wrong when this line appears."}
     is_local = alias == "local"
     result: dict = {"machine": machine, "alias": alias, "started_at": started}
 
