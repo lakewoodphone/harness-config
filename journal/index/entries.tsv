@@ -886,6 +886,7 @@ handoff	H3391	3391		2026-10-09 00:09 UTC	SECRATARY	open	## 2026-10-09 00:09 UTC 
 handoff	H3392	3392		2026-10-09 00:13 UTC	SECRATARY	open	## 2026-10-09 00:13 UTC · SECRATARY · Owner's floor machine ID'd from its rating plate: Dreame Cordless Floor Washer HHR32A (= Aero Pro / T12 Pro), made 01/2026	entries/handoff/H3392.md	1	10	b799fb3d5ca869fd		
 handoff	H3378	3378		2026-10-09 16:10 UTC	ZABZ-YOGA	open	## 2026-10-09 16:10 UTC · ZABZ-YOGA · Mesh fan-out rebuilt for redundancy; DNS black-hole on ZABZ-TECH found and removed	entries/handoff/H3378.md	1	34	d6a7b9f304de933a		
 handoff	H3443	3443		2026-10-11 08:35 UTC	SECRATARY-CLOUD	open	## 2026-10-11 08:35 UTC · SECRATARY-CLOUD · The authority publishes its own journal to the vault	entries/handoff/H3443.md	1	24	3bc74a3d1f476cf2		
+handoff	H3444	3444		2026-10-11 09:31 UTC	SECRATARY-CLOUD	open	## 2026-10-11 09:31 UTC · SECRATARY-CLOUD · The cutover is finished: ssh restored with its cause known, 22 jobs running, the mesh fan-out proven on a real child, family chat merged, non-database state offsite	entries/handoff/H3444.md	1	94	e806c7098e7f8992		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
