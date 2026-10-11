@@ -451,11 +451,17 @@
 # tools. It runs as a plain local child process on the AUTHORITY (reached over ssh from here), so it
 # needs no Python environment on her Mac and cannot be broken by anything installed locally.
 #
-# VERIFIED REACHABLE from this Mac before wiring: `ssh secratary-ts` answers, and the server file and
+# VERIFIED REACHABLE from this Mac before wiring: the ssh alias answers, and the server file and
 # its interpreter both exist on the far side. It is gated to non-Windows because her *laptop* has no
 # route to the authority at all (its Tailscale is logged out and the two sites are separate networks);
 # a row that cannot start would only add noise there. The laptop reads the company through
 # scripts/ps-system.mjs over HTTPS instead, which works from anywhere.
+#
+# RETARGETED 2026-10-11: the authority moved from the office box (`secratary-ts`) to
+# `secratary-cloud`. The old target was still answering -- it runs a whole shadow copy of the
+# company -- so a stale row here would have kept working perfectly while answering from a forked
+# database. The alias is `secratary-cloud` (root@100.73.176.126, the Hetzner key; there is no
+# `zabz` account on that box) and the deployment root there is `/opt/company`.
 #
 # `failOnStartupError: false` is deliberate: if the tunnel to the authority is down, her assistant must
 # still work on everything local rather than refusing to mount.
@@ -478,8 +484,8 @@
       - 'ServerAliveInterval=30'
       - '-o'
       - 'ServerAliveCountMax=3'
-      - 'secratary-ts'
-      - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
-      - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
+      - 'secratary-cloud'
+      - '/opt/company/.venv/bin/python'
+      - '/opt/company/scripts/ps_mcp_server.py'
     toolCallTimeoutMs: 120000
     failOnStartupError: false

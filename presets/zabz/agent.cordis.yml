@@ -551,12 +551,24 @@
 # RUNS ON THE AUTHORITY HOST, over SSH stdio -- deliberately, and this is the fix
 # for a live defect rather than a preference.
 #
+# MEASURED 2026-10-11, AND THE TARGET IS NO LONGER THE OFFICE BOX. The company moved
+# to `secratary-cloud` that day (Cloudflare CNAME `api.abletelsolutions.com` ->
+# tunnel 3e62916c, which is that box). This row still said `secretary-ts`, so every
+# DSH session on Windows ran the company bridge against the OFFICE box, which was by
+# then a SHADOW COPY of the company: same jobs, same Dialpad harvest, its own
+# database, and nothing public served from it. `ps_db_query` returned the office's
+# 135,455 SMS rows where the authority held 135,486. Read the wrong copy and believe
+# it is this estate's single worst recorded failure (PAIN P3), and this row was it.
+#
 # As a local command this server reads `ROOT/data/secretary.db`, i.e. whatever copy
 # sits beside the script. On a workstation that is a **replica**: 173 tables and up
 # to a day stale, against the authority's 203 tables and 2.4 GB. On 2026-09-11 the
 # phone path answered "13 ticks today, nothing logged between 08-21 and 09-10" from
 # that replica while the authority said 197 ticks and no gaps -- confidently wrong,
 # with a plausible explanation invented for the artefact (PAIN P22, LESSONS L51).
+# On the cloud box the same trap has a second edge: the repo-relative path there is a
+# 1.8 MB stale leftover, so `ps_mcp_server.py` now resolves `SECRETARY_DB`, then a
+# sqlite `DATABASE_URL`, then the local default -- see the comment in that file.
 #
 # Running it here means one copy, and the real one: same database as the kernel,
 # and the API tools (`ps_ceo_chat`, `ps_action`) hit the authority's own localhost
@@ -592,9 +604,9 @@
       - 'ServerAliveInterval=30'
       - '-o'
       - 'ServerAliveCountMax=3'
-      - 'secretary-ts'
-      - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
-      - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
+      - 'secratary-cloud'
+      - '/opt/company/.venv/bin/python'
+      - '/opt/company/scripts/ps_mcp_server.py'
     toolCallTimeoutMs: 120000
     failOnStartupError: false
 
@@ -613,9 +625,9 @@
   config:
     serverName: secretary
     transport: stdio
-    command: /home/zabz/personal-secretary-mvp/.venv/bin/python
+    command: /opt/company/.venv/bin/python
     args:
-      - /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
+      - /opt/company/scripts/ps_mcp_server.py
     toolCallTimeoutMs: 120000
     failOnStartupError: false
 
