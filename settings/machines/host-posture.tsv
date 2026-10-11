@@ -1,0 +1,50 @@
+# =============================================================================
+# host-posture.tsv — THE SINGLE PLACE A MACHINE'S SERVICE-STATE POSTURE IS DECIDED
+#
+# THIS FILE IS THE AUTHORITY FOR `scripts/mesh/guard-service-state.sh`.
+# The guard reads the designation from HERE, never from a hardcoded list, so the
+# next cutover (or the next freeze) only has to update this one file.
+#
+# FORMAT — one host per line, FIVE fields separated by a PIPE `|` (not whitespace:
+# whitespace does not survive an editor and a lost tab silently moves every field):
+#   1  host      the hostname, or ANY ssh alias / tailnet name that resolves to it.
+#                An agent may arrive as `secratary`, `secratary-ts`, `secratary-lan`
+#                or `192.168.50.77`; every one of those names must be present.
+#   2  posture   one of:  frozen | read-only | writable
+#                  frozen    — service state is FROZEN BY DECISION. Do not start,
+#                              stop, mask, unmask, enable, disable or restart
+#                              anything. A masked unit on a frozen host is
+#                              DELIBERATE. Refused.
+#                  read-only — the tree/database is not to be written, and service
+#                              state is refused unless --owner-confirmed.
+#                  writable  — normal host; service changes permitted.
+#   3  since     ISO-8601 UTC of the decision (why the state looks as it does).
+#   4  decided   who or what decided it, and where the decision is written down.
+#   5  reason    one plain-language sentence. This is the text an agent reads when
+#                the guard refuses it, so it must say WHY, not just WHAT.
+#
+# Lines beginning with `#` and blank lines are ignored. The header line below is a
+# comment, deliberately, so a blank or dotted column can never parse as a posture.
+# =============================================================================
+# host | posture | since | decided | reason
+secratary|frozen|2026-10-11T05:43:36Z|docs/mesh/131-MIGRATION-BRIEF.md Rule 1 + Rule 2|Office box. Authority moved to secratary-cloud at the 05:43:36Z cutover; this box is the FROZEN ROLLBACK ANCHOR. cron is masked ON PURPOSE. Do not start, stop, mask, unmask, enable, disable or restart anything on it, and never create a second writer for the company database.
+secratary-ts|frozen|2026-10-11T05:43:36Z|docs/mesh/131-MIGRATION-BRIEF.md Rule 1 + Rule 2|Office box (tailnet alias of `secratary`). FROZEN rollback anchor. READ-ONLY.
+secratary-lan|frozen|2026-10-11T05:43:36Z|docs/mesh/131-MIGRATION-BRIEF.md Rule 1 + Rule 2|Office box (LAN alias). FROZEN rollback anchor. READ-ONLY.
+192.168.50.77|frozen|2026-10-11T05:43:36Z|docs/mesh/131-MIGRATION-BRIEF.md Rule 1 + Rule 2|Office box by address. FROZEN rollback anchor. READ-ONLY.
+secratary-cloud|writable|2026-10-11T05:43:36Z|docs/mesh/131-MIGRATION-BRIEF.md Rule 2 + docs/mesh/000-SYSTEMS-REGISTER.md §1|THE AUTHORITY. Sole writer of the company database at /root/authority.db. Service state may be changed here — deliberately, and recorded.
+178.156.194.1|writable|2026-10-11T05:43:36Z|docs/mesh/131-MIGRATION-BRIEF.md Rule 2 + docs/mesh/000-SYSTEMS-REGISTER.md §1|secratary-cloud by address. THE AUTHORITY; sole writer of /root/authority.db.
+root@178.156.194.1|writable|2026-10-11T05:43:36Z|docs/mesh/131-MIGRATION-BRIEF.md Rule 2 + docs/mesh/000-SYSTEMS-REGISTER.md §1|secratary-cloud as an ssh target. THE AUTHORITY; sole writer of /root/authority.db.
+zabz-tech|writable|2026-09-11T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|The workhorse workstation and the mesh landfall for children. Normal host.
+desktop-ts|writable|2026-09-11T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|zabz-tech over the tailnet. Normal host.
+zabz-tech-linux|writable|2026-09-11T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|Compute worker and vault. Normal host.
+linux-pc-ts|writable|2026-09-11T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|zabz-tech-linux over the tailnet. Normal host.
+zabz-yoga-1|writable|2026-09-11T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|The owner's laptop: dispatcher and worker. Normal host.
+laptop-ts|writable|2026-09-11T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|zabz-yoga-1 over the tailnet. Normal host.
+lakewooechsmini|writable|2026-09-11T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|Yisroel's Mac mini: compute worker, one-shot children only. Normal host.
+mac-mini-ts|writable|2026-09-11T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|lakewooechsmini over the tailnet. Normal host.
+lpt-apps-01|read-only|2026-10-06T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1 + §2.2|Falkenstein CX33: Caddy front door, R2 backup credential holder, restic vault. 14 containers, ~90% disk. Do NOT add load; service changes here need the owner.
+lpt-apps|read-only|2026-10-06T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1 + §2.2|lpt-apps-01 by ssh alias. Vault — do NOT add load.
+waze-mdm-01|read-only|2026-10-06T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|Waze MDM production. Not the company's box to reconfigure.
+hetzner|read-only|2026-10-06T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1|waze-mdm-01 by ssh alias. Production MDM.
+lpt-survivor-01|read-only|2026-10-06T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1 + §2.1|THE STANDBY, and the failover tooling lives here. It has its OWN promotion mechanism (company-promote.py, five pre-flight refusals). Never hand-drive its service state; promote through the tool.
+survivor|read-only|2026-10-06T00:00:00Z|docs/mesh/000-SYSTEMS-REGISTER.md §1 + §2.1|lpt-survivor-01 by ssh alias. THE STANDBY. Use company-promote.py, never a manual service verb.

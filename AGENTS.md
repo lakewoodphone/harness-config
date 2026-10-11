@@ -151,3 +151,83 @@ Email, SMS, calls, to anyone. Show the exact body first. A task-level directive 
 "settle it with X") authorises the work, never specific words. After a send, read the `To` header
 back — `SENT` describes what we did, not who received it. Full procedure:
 `docs/outbound-comms-hard-stop.md`.
+
+## 5. Before you change ANY machine's service state, find out what that machine is FOR.
+
+**The rule:**
+
+> Before starting, stopping, masking, unmasking, enabling, disabling or restarting anything on
+> any machine, find out what that machine is for and **who decided its current state**. A
+> stopped, masked or disabled unit is a *decision* until you have read otherwise. "Nothing on
+> this host explains it" is a reason to STOP AND ASK — never a reason to act.
+
+### The worked example — 2026-10-11, the office box, and it was us
+
+At **05:43:36Z** the company's authority was deliberately cut over from the office box
+`secratary` to the cloud box `secratary-cloud`. The office box was left **FROZEN as the
+rollback anchor**: `cron` masked, every writer stopped and disabled, the database untouched.
+
+At **19:04Z** an agent session — the one that wrote this rule — found `cron.service` **masked**,
+read a masked unit as "something broke", concluded the company had been down 15 hours, and
+"restored" it: `systemctl unmask cron.service cron.socket`, `systemctl enable --now cron`, then
+`start secretary-api`, `dialpad-sms-ws`, `secretary-dashboard`, `phone-engine`. It then pushed a
+Dialpad SMS harvest and session data into that box's database.
+
+**The measured damage**, counted read-only on the anchor's own
+`/home/zabz/personal-secretary-mvp/data/secretary.db`:
+
+| rows created | 19:00Z–20:26Z (the agent's window) | 04:29Z–19:00Z (the frozen window) |
+|---|---|---|
+| `dsh_session_events` | **5,129** | **0** |
+| `dsh_sessions` updated | 30 | — |
+| Dialpad SMS rows | ~31 | — |
+
+The right-hand column is the point: the anchor had received **nothing** between the cutover and
+the mistake. The left-hand column is what one agent's "fix" cost, and a rollback to that anchor
+now returns the cutover-point state *plus 5,129 rows the authority does not have*.
+
+**The two rules that were broken** — `docs/mesh/131-MIGRATION-BRIEF.md`:
+
+* **Rule 1:** the office box is READ-ONLY. Do not enable, start, unmask, disable or restart
+  anything on it.
+* **Rule 2:** only ONE writer may exist for the company database, and it is `/root/authority.db`
+  on the cloud box.
+
+**Why it was possible at all, which is the part to fix.** The migration's six governing documents
+— **`122`, `126`, `127`, `128`, `131`, `141` in `docs/mesh/`** — existed **only on ZABZ-YOGA**.
+The machine they governed carried **none of them**. An agent that lands on a host sees a masked
+unit and, on that host, no explanation. So: **put the mission on the machine it governs.**
+
+Full record: **`docs/mesh/142-ANCHOR-WRITE-NOTICE.md`**. The anchor's own copy of this rule is
+`secratary:/home/zabz/MISSION-READ-FIRST.md`.
+
+### The mechanism — a file decides, not a hardcoded list
+
+* **`settings/machines/host-posture.tsv`** — the ONE place a machine's posture is decided.
+  Fields: `host | posture | since | decided | reason`, `posture` ∈
+  `frozen` / `read-only` / `writable`. Every alias an agent might arrive as is a row, because
+  `secratary` is a prefix of `secratary-cloud` and confusing those two is the whole incident.
+* **`scripts/mesh/guard-service-state.sh`** — refuses and explains:
+
+```
+$ bash scripts/mesh/guard-service-state.sh --host secratary --op unmask
+REFUSED — 'secratary' IS FROZEN. (you were about to: systemctl unmask secratary)
+  WHAT IT IS FOR : Office box. ... FROZEN ROLLBACK ANCHOR. cron is masked ON PURPOSE. ...
+  WHO DECIDED    : docs/mesh/131-MIGRATION-BRIEF.md Rule 1 + Rule 2
+  SINCE          : 2026-10-11T05:43:36Z
+  READ FIRST: docs/mesh/131-MIGRATION-BRIEF.md (Rule 1 and Rule 2),
+              docs/mesh/142-ANCHOR-WRITE-NOTICE.md, AGENTS.md §5.
+$ echo $?   # 2
+
+$ bash scripts/mesh/guard-service-state.sh --host secratary-cloud --op restart
+ALLOW: secratary-cloud is WRITABLE. THE AUTHORITY. Sole writer of the company database ...
+$ echo $?   # 0
+```
+
+Exit contract, so a dispatcher can gate on it: **0** allow · **1** usage/environment ·
+**2** frozen, REFUSED · **3** read-only, REFUSED (needs `--owner-confirmed`) ·
+**4** host not designated, REFUSED — *an unrecognised host is not permission*.
+
+**The next cutover updates `host-posture.tsv` and nothing else.** If you ever find yourself
+writing a hostname into a script to decide whether it may be touched, you are rebuilding the
+defect this rule exists to prevent.
