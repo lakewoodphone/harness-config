@@ -49,3 +49,37 @@ NAS. The policy must not pretend otherwise.
    hardcoded default.
 4. Be safe to run from any machine, including one that is on neither the LAN nor the tailnet.
 5. Carry this policy's precedence, in one place, so a cutover or a new node changes one file.
+---
+## RESOLVED 2026-10-11 ~20:50Z - the authority now HAS a private path
+The gap above is closed, using the mechanism already on the box. Measured, not proposed:
+```
+tailscale serve --bg --https=8443 http://127.0.0.1:8002      # run on secratary-cloud
+```
+`tailscale serve status` afterwards:
+```
+https://secratary-cloud.tail93e6e6.ts.net (tailnet only)
+|-- / proxy http://127.0.0.1:3086          <- pre-existing, the DSH web GUI, UNTOUCHED
+https://secratary-cloud.tail93e6e6.ts.net:8443 (tailnet only)
+|-- / proxy http://127.0.0.1:8002          <- the company authority, added here
+```
+**Verified from ZABZ-TECH:** `https://secratary-cloud.tail93e6e6.ts.net:8443/health` -> **HTTP 200,
+`ok=True`, `db_ok=True`**. The public door still answers 200. `company-api` was **not restarted** -
+its `ActiveEnterTimestamp` is unchanged at 2026-10-11 15:17:41Z.
+**Honest timings, over 6 SUCCESSFUL calls each:** tailnet avg **0.058s** (min 0.054s) against public
+avg **0.067s** (min 0.054s). At this distance the transport is not the bottleneck; the real gain is
+that the private path does not depend on Cloudflare, public DNS or the tunnel process.
+**Reversible with:** `tailscale serve --https=8443 off`
+## Two measurement traps this exercise produced, worth keeping
+1. **A fast failure is not a fast path.** An earlier timing run reported "tailnet avg 0.044s" for a
+   route that was returning HTTP 000. Failed connections are fast. **Time only successful calls, and
+   say how many succeeded.**
+2. **`Test-NetConnection` said TCP 443 was open on `100.73.176.126` and it was** - but a request to
+   `https://100.73.176.126/health` still fails, because the tailnet listener presents a certificate
+   for `secratary-cloud.tail93e6e6.ts.net` and there is no route for a bare tailnet IP with a foreign
+   SNI. **Test the name, not the address.**
+## What the routing scripts should now implement
+| consumer | first | second | third |
+|---|---|---|---|
+| on the office LAN, reaching on-prem resources | **LAN** | Tailscale | Cloudflare |
+| any tailnet machine reaching the authority | **tailnet `:8443`** | public HTTPS | - |
+| an off-tailnet or public consumer | **public HTTPS** | - | - |
