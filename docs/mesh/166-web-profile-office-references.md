@@ -1,4 +1,8 @@
-# 165 — the web profile's last office-box reference: the real generator, and the row the generator does not own
+# 166 — the web profile's last office-box reference: the real generator, and the row the generator does not own
+
+> Renumbered from 165: a sibling child had already published `165-PRODUCTION-COMMS-FRESHNESS-DIAGNOSIS-AND-PROOF.md`
+> in `/root/out/migration-review/` at 22:47Z. The commit that introduced this file is `d143fb7`; this is a rename,
+> not a rewrite.
 
 **Machine:** ZABZ-TECH · **Worktree:** `_officefix-web` @ `origin/main` = `074bac9` · **Author:** child on the
 mesh thread, dispatched after L3668. Read-only against `secratary`; no service was restarted anywhere.
@@ -173,4 +177,4 @@ artefact was free to sit one generation behind the source indefinitely — which
 back. Wiring `node scripts/make-preset-rows.mjs --check` into whatever runs the estate's gates would have
 caught this on 2026-10-11 and will catch the next one.
 
-<!-- tags=generator,web-profile,office-row,brokerSsh,three-layer-drift,host-posture refs=L3668,L3511,H3416,bb73261,e51de44,165 -->
+<!-- tags=generator,web-profile,office-row,brokerSsh,three-layer-drift,host-posture refs=L3668,L3511,H3416,bb73261,e51de44,166 -->
