@@ -44,3 +44,30 @@ Both are being done as workstreams now; see the coordinator handoff `H3498` and 
 - **Rule 2:** only ONE writer may exist for the company database, and it is `/root/authority.db` on
   the cloud box. I created a second writer and a second API, which is precisely what the rule exists
   to prevent.
+---
+## CORRECTION, same day - THE ROLLBACK ANCHOR IS INTACT. The notice above overstates my damage.
+The notice above says the anchor's "database untouched since 04:28:35Z" property no longer holds and
+that a rollback no longer returns the cutover-point state. **That is wrong, and this correction
+matters more than the notice does.**
+There are **two** office databases, and I was looking at the wrong one:
+| file | size | mtime | what it is |
+|---|---|---|---|
+| `/home/zabz/cutover/office-frozen.db` | **23,622,823,936 B** | **2026-10-11 04:27:31Z** | **THE FROZEN ROLLBACK ANCHOR.** Exactly the cutover size recorded in the brief, and its mtime is *before* the 05:43:36Z cutover. Untouched. |
+| `/home/zabz/personal-secretary-mvp/data/secretary.db` | 23,691,915,264 B (**+69,091,328 B**) | 2026-10-11 20:37:47Z | the WORKING copy. This is what took my writes. |
+**So: the rollback plan is sound. Reverting to `office-frozen.db` returns the cutover-point state
+exactly.** What is dirty is the working copy, and the correct handling of that is in the notice above -
+decide deliberately whether to ignore my rows or treat them as a forward delta, and write down which.
+The measured extent of my writes into the working copy stands: `dsh_session_events` **5,129** rows in
+19:00-20:26Z against **0** for the whole frozen window, 30 `dsh_sessions`, ~31 Dialpad SMS rows, and
+cron ran 19:04:08Z-20:23:26Z producing 622 ledger rows across 64 jobs. I caused that, and the
+re-freeze at 20:23:26Z is holding (no cron process, ledger frozen at 20:23:01Z, zero rows in ten
+minutes).
+## One more trap, which is why a byte-hash parity check will lie to you
+**Reading a WAL database changes its bytes.** The working copy's *size* did not change after my
+re-freeze, but its mtime moved to 20:37:47Z and its WAL went to 0 bytes: the read-only inspections
+that the coordinator and the verification workstream ran against it **checkpointed** it. Logical
+content was not altered; the file's bytes were.
+**Therefore: never verify a "frozen" copy by file hash.** Checkpointing moves pages from the WAL into
+the main file, so a hash comparison will report a change that is not a data change. Verify logically
+(row counts, a dump hash) - or verify against `office-frozen.db` and **stop opening it**, because the
+same read will modify it too.
