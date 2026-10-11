@@ -59,6 +59,21 @@ MACHINES = {
     "zabz-tech-linux": {"alias": "linux-pc-ts",  "os": "linux"},
     "lakewooechsmini": {"alias": "mac-mini-ts",  "os": "mac"},
 }
+
+# The Alias is where the machine is FROM HERE, and "here" moved. `secratary` is `local` only on the
+# office box, because that box WAS the archive host; on the authority (which owns the archive from
+# 2026-10-11) it is a remote tailnet host. Measured 2026-10-11 on secratary-cloud: with the hardcoded
+# `local`, the first scheduled pass ran archive-transcripts.py against the CLOUD BOX and wrote a
+# contact row of `secratary, files_seen=0, newest_source_mtime=0.0`. That row is worse than a
+# failure: `--check` compares the newest source mtime against the newest archived mtime, so a source
+# mtime of ZERO is older than everything and the office box -- which is exactly the machine holding
+# the only copy of the raw archive -- would have shown as perfectly current forever. Each machine's
+# alias is therefore overridable per host, by name, with no change to the machine's identity in the
+# manifest (so every existing cursor still matches and nothing is re-sent).
+for _name, _cfg in MACHINES.items():
+    _env = "TRANSCRIPT_ALIAS_" + _name.upper().replace("-", "_")
+    if os.environ.get(_env):
+        _cfg["alias"] = os.environ[_env]
 DEFAULT_MAX_BYTES = 2_000_000_000
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
             "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4"]
@@ -171,17 +186,20 @@ def probe_client_and_python(machine: str, cfg: dict, python_bin: str | None,
         c for c in CLIENT_CANDIDATES
         if alias == "local" or not windows or c[1:3] == ":/" or c.startswith("C:")
     ]
+    last_error = ""
     for py in pythons:
         for cand in clients:
             if alias == "local":
                 argv = [*py.split(), os.path.expanduser(cand), "--list", "--json"]
             else:
                 argv = ["ssh", *SSH_OPTS, alias, f'{py} "{cand}" --list --json']
-            rc, out, _ = run(argv, timeout=300)
+            rc, out, err = run(argv, timeout=300)
             summary = last_json(out)
             if summary and summary.get("ok"):
-                return py, os.path.expanduser(cand) if alias == "local" else cand
-    return None
+                return (py, os.path.expanduser(cand) if alias == "local" else cand), ""
+            blob = (err or out or "").strip()
+            last_error = blob.splitlines()[-1].strip() if blob else f"rc={rc}, no output"
+    return None, last_error
 
 
 def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
@@ -191,10 +209,17 @@ def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
     is_local = alias == "local"
     result: dict = {"machine": machine, "alias": alias, "started_at": started}
 
-    probed = probe_client_and_python(machine, cfg, python_bin, client_path)
+    probed, why = probe_client_and_python(machine, cfg, python_bin, client_path)
     if not probed:
-        result.update(ok=False, error="no working (python, archive-transcripts.py) pair on that "
-                                      "machine — is harness-config synced there?")
+        # SAY WHY, NOT WHAT IT LOOKS LIKE. This message used to read "no working (python,
+        # archive-transcripts.py) pair ... is harness-config synced there?" for every failure,
+        # including an ssh that could not resolve the hostname at all. Measured 2026-10-11 on
+        # secratary-cloud: every machine failed with that sentence, which sends the reader to the
+        # wrong machine and the wrong fix, while the actual line was
+        # `ssh: Could not resolve hostname secratary.tail93e6e6.ts.net`. A wrong diagnosis is worse
+        # than no diagnosis, so the transport's own last line is carried through.
+        result.update(ok=False, error="could not run the client on that machine — the probe's own "
+                                      "last output was: " + (why or "(no output)"))
         return result
     py, client = probed
     result["client"] = client

@@ -563,12 +563,27 @@ def cmd_cursor(conn, machine: str, out_path: str) -> int:
     The sha handed back is the SOURCE sha (bytes as they sat on the machine), because that is the
     one the client can recompute from its own disk without re-reading every file every run.
     """
+    # The selected column MUST be read back by its alias. Measured 2026-10-11: the SELECT said
+    # `COALESCE(source_sha256, sha256) AS s` while the payload read `r["sha256"]`, which is not a
+    # column of that result set, so sqlite3.Row raised `IndexError: No item with that key` on every
+    # call. `--cursor-out` is step 1 of every pull, so the hourly archive job failed on every
+    # machine from 2026-10-10 (first bad log line) until it was found, and the pull never ran
+    # again. AGENTS.md §1 trap 4 is the reason the column is the SOURCE sha: redaction changes the
+    # stored bytes, so keying the cursor on the stored hash would re-send every redacted file
+    # forever. Keep the alias and the read in one place so they cannot drift apart again.
     rows = conn.execute(
-        "SELECT kind, rel_path, COALESCE(source_sha256, sha256) AS s FROM arrival WHERE machine=?",
+        "SELECT kind, rel_path, COALESCE(source_sha256, sha256) AS source_sha FROM arrival "
+        "WHERE machine=?",
         (machine,),
     ).fetchall()
-    payload = {"schema": 1, "machine": machine, "generated_at": now_iso(),
-               "held": [[r["kind"], r["rel_path"], r["sha256"]] for r in rows]}
+    held = []
+    for r in rows:
+        keys = r.keys()
+        if "source_sha" not in keys:
+            raise SystemExit("cursor: query/read alias drift — expected column 'source_sha', got "
+                             f"{sorted(keys)}")
+        held.append([r["kind"], r["rel_path"], r["source_sha"]])
+    payload = {"schema": 1, "machine": machine, "generated_at": now_iso(), "held": held}
     with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh)
     print(json.dumps({"ok": True, "cursor": out_path, "held": len(payload["held"])}))
@@ -645,6 +660,20 @@ def main() -> int:
     ap.add_argument("--out", help="where --read writes")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args()
+
+    # REFUSE TO REPORT AN EMPTY ARCHIVE AS HEALTH. `connect()` creates the database when it is
+    # missing, which is right for an ingest and wrong for every read: measured 2026-10-11 on
+    # secratary-cloud, `--stats` with the default path (the office box's, which does not exist here)
+    # created a 4096-byte manifest and printed `ok: true, objects: 0, arrivals: 0` -- a clean bill of
+    # health for a path that holds nothing. `--check` did the same, and `--cursor-out` handed back an
+    # EMPTY cursor, which would make the client re-send the entire corpus. A read must never be the
+    # thing that invents the archive it reads.
+    if (args.stats or args.check or args.read or args.cursor_out) and not os.path.exists(args.db):
+        msg = (f"archive database does not exist at {args.db} - refusing to report an empty archive "
+               f"as health (pass --db, or set TRANSCRIPT_ARCHIVE_ROOT)")
+        print(json.dumps({"ok": False, "error": msg, "db": args.db}))
+        print(f"TRANSCRIPT ARCHIVE: {msg}", file=sys.stderr)
+        return 3
 
     conn = connect(args.db)
     try:

@@ -21,6 +21,7 @@ set -uo pipefail
 
 ARCHIVE="${TRANSCRIPT_ARCHIVE_ROOT:-/home/zabz/lpt-transcripts}"
 SCRIPTS="${TRANSCRIPT_SCRIPTS:-/home/zabz/code/harness-config/scripts}"
+JOURNAL="${TRANSCRIPT_JOURNAL:-$HOME/code/harness-config/journal/tools/journal.py}"
 STATE_DIR="${TRANSCRIPT_STATE_DIR:-$HOME/.transcript-archive}"
 MAX_BYTES="${TRANSCRIPT_MAX_BYTES:-3000000000}"
 ROUNDS="${TRANSCRIPT_ROUNDS:-3}"
@@ -69,27 +70,56 @@ with open(path, "w") as fh:
 PY
 
 alarm="$STATE_DIR/ALARM"
+alarm_text=""
+alarm_title=""
+alarm_exit=0
+
 if [ "$check_rc" -eq 1 ]; then
-  printf '%s TRANSCRIPT ARCHIVE GAP — data exists on a machine the archive does not hold\n%s\n' \
-    "$STAMP" "$check_out" > "$alarm"
+  alarm_text="$(printf '%s TRANSCRIPT ARCHIVE GAP — data exists on a machine the archive does not hold\n%s\n' \
+    "$STAMP" "$check_out")"
+  alarm_title="The transcript archive is behind: a machine holds transcripts the archive does not"
+  alarm_exit=1
+fi
+
+# A PULL THAT FAILED IS ALSO AN ALARM. This branch is why the 2026-10-10 stall went unseen: the pull
+# died on every machine with `cursor generation failed` and the runner exited 3, but only a GAP
+# (check_rc 1) ever raised ALARM or filed a journal entry. Nothing was watching the thing that
+# actually broke, for two days, while `~/.cron-status/runs.tsv` recorded rc=3 every hour and nobody
+# read it. Exit code alone is not a monitor (AGENTS.md §1 trap 2, in a different costume).
+if [ "$alarm_text" = "" ] && [ "$pull_rc" -ne 0 ]; then
+  alarm_text="$(printf '%s TRANSCRIPT ARCHIVE PULL FAILED — machines could not be pulled, so nothing was archived this pass\n%s\n' \
+    "$STAMP" "$(tail -c 2000 "$LOG")")"
+  alarm_title="The transcript archive pull is failing: nothing is being archived from any machine"
+  alarm_exit=3
+fi
+
+# An exit code the check does not define (anything but 0/1/2) means the check itself could not run --
+# a wrong --db path, a missing script, an unreadable archive. Without this branch the script fell
+# through to "transcript archive current" and exited 0 on a check that never happened, which is the
+# same defect as the one above wearing a different hat.
+if [ "$alarm_text" = "" ] && [ "$check_rc" -ne 0 ] && [ "$check_rc" -ne 1 ] && [ "$check_rc" -ne 2 ]; then
+  alarm_text="$(printf '%s TRANSCRIPT ARCHIVE CHECK FAILED — the staleness check itself did not run (rc=%s)\n%s\n' \
+    "$STAMP" "$check_rc" "$check_out")"
+  alarm_title="The transcript archive check cannot run: the freshness monitor is itself broken"
+  alarm_exit=3
+fi
+
+if [ -n "$alarm_text" ]; then
+  printf '%s\n' "$alarm_text" > "$alarm"
   # tell the journal once per distinct alarm, not once per hour
-  sig="$(printf '%s' "$check_out" | md5sum | cut -c1-16)"
+  sig="$(printf '%s' "$alarm_text" | md5sum | cut -c1-16)"
   if [ "$(cat "$STATE_DIR/.last-alarm-sig" 2>/dev/null)" != "$sig" ]; then
     printf '%s' "$sig" > "$STATE_DIR/.last-alarm-sig"
-    python3 "$HOME/code/harness-config/journal/tools/journal.py" append pain --no-fetch \
-      --title "The transcript archive is behind: a machine holds transcripts the archive does not" \
+    python3 "$JOURNAL" append pain --no-fetch \
+      --title "$alarm_title" \
       --body "$(printf 'Filed automatically by transcript-archive-run.sh at %s.\n\n%s\n\nFix: read %s, then pull that machine. Check with:\n  python3 %s/transcript-archive-server.py --check' \
-        "$STAMP" "$check_out" "$STATE_DIR/status.json" "$SCRIPTS")" >/dev/null 2>&1 || true
+        "$STAMP" "$alarm_text" "$STATE_DIR/status.json" "$SCRIPTS")" >/dev/null 2>&1 || true
   fi
   cat "$alarm" >&2
-  exit 1
+  exit "$alarm_exit"
 fi
 
 rm -f "$alarm"
-if [ "$pull_rc" -ne 0 ]; then
-  printf '%s one or more machines could not be pulled — see %s\n' "$STAMP" "$LOG" >&2
-  exit 3
-fi
 if [ "$check_rc" -eq 2 ]; then
   printf '%s archive holds no gap; a machine is silent (idle or unreachable — cannot be told apart here)\n' \
     "$STAMP" >&2
