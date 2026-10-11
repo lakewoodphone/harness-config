@@ -19,7 +19,7 @@
 
 | machine | ssh | role | notes |
 |---|---|---|---|
-| **`secratary-cloud`** | `ssh -i ~/.ssh/id_ed25519_hetzner root@178.156.194.1` | **THE AUTHORITY (primary)** — company DB, API, dashboard, broker | Hetzner CCX13, Ashburn VA, 2 vCPU, 7.7 GB, 75 GB NVMe (~1.1 GB/s). No tailnet yet. |
+| **`secratary-cloud`** | `ssh -i ~/.ssh/id_ed25519_hetzner root@178.156.194.1` | **THE AUTHORITY (primary)** — company DB, API, dashboard (**not the broker** - see the placement-broker row) | Hetzner CCX13, Ashburn VA, 2 vCPU, 7.7 GB, 75 GB NVMe (~1.1 GB/s). **ON the tailnet since before 21:35Z 2026-10-11**: `100.73.176.126`, `active; direct 178.156.194.1:41641`, seen in the office box's own `tailscale status`. A private API path exists and works - `tailscale serve --bg --https=8443 http://127.0.0.1:8002`, giving `https://secratary-cloud.tail93e6e6.ts.net:8443/health` -> 200 `ok=True db_ok=True`, and `scripts/mesh/route.sh` chooses it FIRST. **Any 'blocked on a Tailscale auth key' note is stale - no owner action is needed for this.**  |
 | **`secratary`** | `secratary-ts` | office box — was the authority until the cutover; becomes a compute worker and the **rollback anchor** | i5-4570 (2013), 4c/4t, 23 GB, 467 GB SATA+LUKS. **Unreliable: goes off, and its NIC CANNOT wake it** (`ethtool eno1` reports no `Wake-on:` line at all; `ethtool -s eno1 wol g` is a silent no-op). |
 | **`zabz-tech`** | `desktop-ts` | the workhorse: agent compute, 32c, 52 GB free | also the fleet's landfall for mesh children |
 | **`zabz-yoga-1`** | `laptop-ts` (this laptop's tailnet name) | the owner's machine; a dispatcher and a worker | |
@@ -56,7 +56,7 @@
 | what | where / how |
 |---|---|
 | **fan out to another machine** | the `subagent` tool = the mesh provider (`remote-ssh`). `subagent_local` runs HERE; `subagent_fork` runs in this process WITH this history. **Never fan out locally while the mesh is reachable.** |
-| placement broker | `mesh-broker.service` on the authority, loopback `:3091` |
+| placement broker | **`mesh-broker.service` on the OFFICE box `secratary`, loopback `:3091`** (measured 2026-10-11 21:35Z: `ss -ltnp` shows `node` pid 105841 on `127.0.0.1:3091` there, and the cloud's `mesh-broker.service` is `inactive`/`disabled` with **nothing** on `:3091`). Staged but NOT started on the authority: `/opt/mesh-broker/{bin/mesh-broker.mjs,nodes.json}` exist and its unit is already rewritten for that box (`WorkingDirectory=/opt/mesh-broker`, `HOME=/root`). **Moving it needs the office copy stopped, which is a state change on a frozen host and therefore the owner's call** - see `154-MESH-BROKER-MOVE.md`. |
 | **placement failover** | `packages/plugin-remote-fanout/lib/failover-placer.js` — if the broker is UNREACHABLE, the dispatcher reads every node's `/mesh/health` directly and ranks. The broker is an optimisation, not a veto. |
 | per-node surface | `GET /mesh/health` (unauthenticated, rich) and `POST /mesh/run` (HMAC) — `packages/plugin-mesh-http` |
 | **run a long child** | `run_in_background: true`. **`subagent` defaults to FOREGROUND and blocks the turn.** `subagent_fork` defaults to background. |
