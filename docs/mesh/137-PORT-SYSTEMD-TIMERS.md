@@ -708,6 +708,15 @@ unmasked, disabled, masked or restarted there, and no file on it was written.
 | `secratary-cloud:/root/out/migration-review/137-patch-company-outcome-monitor.{py,diff}` | the re-runnable patch and its 109-line diff |
 | `ZABZ-YOGA:C:\Users\ezabz\code\_mig137\` | the local staging copies this report was written from |
 
+**Commit provenance, stated because it was not clean.** Six migration workstreams were committing to the
+same `harness-config` working tree concurrently. This workstream staged its ten files and, before it
+could commit them, another workstream's commit swept them in: this report and its nine journal entries
+first landed inside **`9931edd1` ("134: port families 1/2/10/14 …")**. Nothing was lost and no history
+was rewritten — but `git log -- docs/mesh/137-PORT-SYSTEMD-TIMERS.md` will show an unrelated message
+first, and this note is here so the next session is not confused by it. **If several sessions share one
+checkout, `git add <exact paths>` followed immediately by `git commit` is not atomic, and a concurrent
+`git add -A` will take your files.**
+
 ---
 
 ## 11. BLOCKER, RAISED DURING THIS WORK: the authority stopped accepting its only SSH key
@@ -737,7 +746,9 @@ root@178.156.194.1: Permission denied (publickey).
 **It is not a client problem and not a source-IP problem.** The office box `secratary-ts` holds the
 **same keypair** — `ssh-keygen -lf /home/zabz/.ssh/id_ed25519_hetzner.pub` →
 `256 SHA256:91iMQc2AFg+sSA1oscDHF9pz7jClBMynfHtRL4rmAKg mesh-hetzner-2026-08-31 (ED25519)`, the same
-fingerprint — and **the same key is refused from the office box too**:
+fingerprint — and **the same key is refused from the office box too**. It was still refused on a single
+further attempt at **07:02Z, after a deliberate 15-minute quiet period with no connection attempts at
+all** — which is the test that would have cleared a fail2ban ban:
 
 ```
 secratary-ts$ timeout 25 ssh -i /home/zabz/.ssh/id_ed25519_hetzner -o BatchMode=yes root@178.156.194.1 hostname
