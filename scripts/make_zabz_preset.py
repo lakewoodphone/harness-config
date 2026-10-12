@@ -164,7 +164,7 @@ Read `~/code/personal-secretary-mvp/docs/secretary-replacement-audit/` — the f
 
 He said it plainly on 2026-09-11: *"you work on all of them as they come up, and the ones that absolutely need me and you can't solve you bring up with me one at a time throughout different conversation sessions, they should be in a queue you read from when we have time."*
 
-That queue exists and is the single source of truth: table `owner_decision_queue` on the authority. It lives at `~/bin/owner-queue.py` **on `secratary` only** — from any other machine read it as `ssh secratary-ts "python3 ~/bin/owner-queue.py next"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable. **Read it at the start of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with one recommendation per row and never a menu of five.
+That queue exists and is the single source of truth: table `owner_decision_queue` on the authority. It lives at `~/bin/owner-queue.py` **on the authority only** — from any other machine read it as `ssh secratary-cloud "python3 ~/bin/owner-queue.py next"`, and read the mirrored copy at `journal/state/owner-questions.md` when the authority is unreachable. **Read it at the start of substantial work.** It holds only what is genuinely his — money, customers, legal, family, irreversible things, real taste — with one recommendation per row and never a menu of five.
 
 - If something in it is actually solvable by you, it is in the wrong place: solve it, then `resolve` the row.
 - When he answers one, record it with `answer`, then get straight back to the work.
