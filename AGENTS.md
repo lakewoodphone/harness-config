@@ -142,7 +142,7 @@ conversation. Development decisions are not his: decide, record, move on.
 ## 3. Standing rules that are actually his to be asked about live in `owner_decision_queue`
 
 Table `owner_decision_queue` on the authority; read it at the start of substantial work.
-`~/bin/owner-queue.py next` on `secratary`, or `ssh secratary-ts "python3 ~/bin/owner-queue.py next"`.
+`~/bin/owner-queue.py next` on the authority, or `ssh secratary-cloud "python3 ~/bin/owner-queue.py next"`.
 Anything solvable without him does not belong there.
 
 ## 4. Nothing outbound without a per-message yes in the current conversation
