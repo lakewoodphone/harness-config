@@ -2212,6 +2212,7 @@ lessons	L3617	3617		2026-10-12	secratary-cloud	open	**L3617 · Lane below the ca
 lessons	L3618	3618		2026-10-12	SECRATARY-CLOUD	open	**L3618 · A monitor that reads the app over HTTP inherits the app inner lock**	entries/lessons/L3618.md	1	6	eea0392db320746d	authority,monitor,lock-contention	
 lessons	L3619	3619		2026-10-12	SECRATARY-CLOUD	open	**L3619 · On this estate the DEPLOYED script can be newer than the committed one, so a fix applied only to /opt is a fix scheduled to be reverted**	entries/lessons/L3619.md	1	6	e2c297e278febed2		
 lessons	L3620	3620		2026-10-12	SECRATARY-CLOUD	open	**L3620 · a divergence check that samples an instant fires HIGH on a healthy repo two sessions are pushing to**	entries/lessons/L3620.md	1	39	a5537ab5af05c309		
+lessons	L3621	3621		2026-10-12	SECRATARY-CLOUD	open	**L3621 · Yanofsky's 'more truths than proofs' argument: the refutation is answer 4726030, not the accepted one**	entries/lessons/L3621.md	1	19	0a31d396605ef1f5	yanofsky,logic,research	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2618,6 +2619,7 @@ pain	P2934	2934		2026-10-12	SECRATARY-CLOUD	open	## P2934 — The archive pull b
 pain	P2935	2935		2026-10-12	SECRATARY-CLOUD	open	## P2935 — --check passes while 19.8 GB of one machine's Copilot chats are unarchived	entries/pain/P2935.md	1	6	f2308f7f07c794c5		
 pain	P2936	2936		2026-10-12	SECRATARY-CLOUD	open	## P2936 — 73 percent of the owner decision queue is three automated generators, one of which asked the same question six times	entries/pain/P2936.md	1	49	5552d2f717bf4d57		
 pain	P2937	2937		2026-10-12	SECRATARY-CLOUD	open	## P2937 — the journal has two disjoint id namespaces: 276 entries, including every id the master records cite, exist on one machine only	entries/pain/P2937.md	1	52	0edde3928c974689		
+pain	P2938	2938		2026-10-12	SECRATARY-CLOUD	open	## P2938 — Curl 403 on Cloudflare-fronted academic PDFs (philpapers, philsci-archive) blocks primary-source quotes	entries/pain/P2938.md	1	6	049df733943f9aac	research,fetch	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
