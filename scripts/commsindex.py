@@ -359,6 +359,30 @@ def _digits10(value: object) -> str:
     return d if len(d) >= 10 else ""
 
 
+def _split_phone_tokens(raw: object) -> list[str]:
+    """Split one field that may hold several numbers; keep only plausible single numbers.
+
+    WHY THIS EXISTS (measured 2026-09-16). Two different sources wrote several numbers into a
+    single string and the person layer turned each into ONE node with up to 26 digits:
+
+        contacts.phone          -> '17127758888011972799707732'   (11 of 13 cases, owner's book)
+        dialpad_ui_contact_row  -> '17325691594134741856382'      (1 case)
+
+    A 26-digit "phone" is not a person, it is a formatting accident, and it carried a real
+    customer's name onto it. Both call sites now use this one function so the rule cannot
+    drift between them - which is exactly how it drifted before.
+
+    Kept deliberately conservative: a token is accepted only if its digits number 10 or 11,
+    so a genuine international number ('011972799255388') is still rejected rather than
+    silently truncated into a false US number.
+    """
+    out: list[str] = []
+    for tok in re.split(r"[,;]|\s{2,}", str(raw or "")):
+        if 10 <= len(re.sub(r"\D", "", tok)) <= 11:
+            out.append(tok.strip())
+    return out
+
+
 _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 # US state / territory codes as a trailing token: carrier caller-ID labels look like
 # "Keyport NJ", "Pt Plsnt Bch Nj", "Atlntic Hlds Nj" -- and those are the names that
@@ -371,8 +395,10 @@ _STATE_TOKENS = {
 }
 _NOT_A_PERSON = {
     "unknown", "unknown caller", "wireless caller", "toll free", "tollfree",
-    "spam risk", "spam likely", "no caller id", "private", "restricted",
-    "unavailable", "voicemail", "do not answer",
+    "spam risk", "spam likely", "no caller id", "private", "private name",
+    "private caller", "private number", "restricted", "anonymous",
+    "unavailable", "voicemail", "do not answer", "local", "caller wireless",
+    "unknown name", "no name",
 }
 # A person does not have ten phone numbers. Everything above this is a shared label
 # (a city, an employer, a call centre), so it is allowed to name a person but never
@@ -440,6 +466,17 @@ def person_like_name(name: object) -> str:
         return ""
     tokens = [t.strip(",.") for t in low.split()]
     if tokens and tokens[-1] in _STATE_TOKENS:
+        return ""
+    # 2026-09-16 (axis C, C-007): a two-word privacy or carrier string is not a name.
+    # "private name" was absent from _NOT_A_PERSON, which held only "private", so three
+    # strangers were fused into one person row by a carrier label.
+    if len(tokens) == 2 and tokens[0] in {
+        "private", "unknown", "local", "caller", "wireless"
+    }:
+        return ""
+    # A company or institution is not a person. Axis C measured "Merck Co Inc" (4 phones)
+    # and "Inc Nitto" (2) being admitted as people.
+    if re.search(r"\b(inc|llc|corp|ltd|company|bank|pharmacy|insurance)\b", low):
         return ""
     if len(tokens) > 4:
         return ""
@@ -619,7 +656,12 @@ def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
                 # best evidence there is, and a mechanically discovered address is the
                 # same grade as a caller-ID label.
                 src_name = str(v.get("source") or "contacts")
-                add_contact(v.get("name"), [v.get("phone")], [v.get("email")], src_name,
+                # 2026-09-16: `contacts.phone` can hold several numbers, or an
+                # international one. Passing it as a single-element list made the
+                # person layer invent a 26-digit number and hang a real customer's
+                # name on it (11 of the 13 concatenated people rows).
+                add_contact(v.get("name"), _split_phone_tokens(v.get("phone")),
+                            [v.get("email")], src_name,
                             trust=2 if ("auto_discovered" in src_name
                                         or "thread_state" in src_name) else 0)
     if _has_table(src, "dialpad_ui_contact_row"):
@@ -630,8 +672,13 @@ def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
             # the 295 unnamed people had basis=address_book:dialpad_contacts), because
             # Dialpad stores a phone number in the name field when it has no name. It also
             # stores caller-ID strings there -- "Microsoft Word" lives here.
-            add_contact(r["display_name"],
-                        re.findall(r"\d[\d\s().\-]{8,}\d", r["phone_numbers"] or ""),
+            # 2026-09-16 (axis C, C-009): the old regex swallowed a whole run as one number,
+            # creating 14 people rows whose "phone" was two or more real numbers glued
+            # together (e.g. 'Margulies Chaim (SMS)' -> 17325691594134741856382). Split on
+            # the separators Dialpad actually writes, then keep only tokens that normalise to
+            # a plausible single number. NOTE: axis C's diff as written omitted the closing
+            # parenthesis of this call and would not have compiled; closed here.
+            add_contact(r["display_name"], _split_phone_tokens(r["phone_numbers"]),
                         _EMAIL_RE.findall(r["emails"] or ""), "dialpad_contacts", trust=2)
 
     # 1b. the shop's own case records: a name and a number that belong together by
@@ -681,8 +728,14 @@ def build_people(con: sqlite3.Connection, src: sqlite3.Connection) -> dict:
             union.union("phone:" + d, "name:" + best)
             observed += 1
         else:
-            # Too many numbers share this string; keep it as a non-merging label.
-            pass
+            # Too many numbers share this string, so it must not MERGE them - but the
+            # number is real and carries traffic, so it must still exist as its OWN person.
+            # 2026-09-16 (axis C, C-008): this branch used to `pass`, leaving the phone node
+            # out of the union entirely, so 1,463 of 2,506 ten-digit comms addresses (58%)
+            # got no person row and no alias - including the four busiest numbers in the
+            # corpus. Honest limit: 1,457 of those 1,463 have no person-like label at all, so
+            # this recovers the 14 whose label is merely shared; the rest need a naming source.
+            union.find("phone:" + d)
 
     # ── materialise clusters ────────────────────────────────────────────────
     con.execute("DELETE FROM people")
