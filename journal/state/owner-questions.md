@@ -6,7 +6,7 @@ Updated: 2026-10-12
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 449 row(s) read, 162 pending, generated 2026-10-12 19:23 UTC on SECRATARY-CLOUD.
+Provenance: 450 row(s) read, 162 pending, generated 2026-10-12 20:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -173,4 +173,4 @@ Provenance: 449 row(s) read, 162 pending, generated 2026-10-12 19:23 UTC on SECR
 | 436 | 2026-10-10 | low | What was the 69.68 charge at NPGS- MAIN ST on 9 Sep (card ending 9650) - the closest answer we hold for 'desc npgs main' is 'Groceries' but entity '' has no category named 'Groceries' and none of its categories means the same thing? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 | 443 | 2026-10-11 | low | What was the 52.13 charge at PURCHASE INTEREST CHARGE on 28 Sep (card ending 7542) - the closest answer we hold for 'desc purchase interest charge' is 'Financial Fees' but entity '' has no category named 'Financial Fees' and none of its categories means the same thing? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 
-Closed since the queue opened: 287. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 288. Answered questions move to `entries/decisions/` with the owner's own words.
