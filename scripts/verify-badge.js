@@ -554,6 +554,117 @@ function openedCard(b) {
   check('the script tag wins over the document when both exist', String(script3.seen.url).startsWith('https://from-script.example/'), String(script3.seen.url));
 }
 
+// 9b. MORE THAN ONE SOURCE: a reachable-but-frozen source must never shadow a live one.
+//
+// This is the 2026-10-12 failure, as a test. The company's authority was cut over from the office box
+// `secratary` to the cloud box `secratary-cloud`, and the office box was left as a frozen rollback
+// anchor. One hardcoded origin kept every desktop badge reading the OFFICE box, whose sentinel had
+// stopped: the pill said `6 needing attention · stale 6h ago` and the age grew forever, honestly,
+// while the live authority answered one hostname away that nothing asked. The owner's question was
+// "why does it say stale? why is everything stable?" - stable meant stopped.
+{
+  const HOUR = 3600 * 1000;
+  const iso = (msAgo) => new Date(Date.now() - msAgo).toISOString();
+  const frozen = () => payload({ at: iso(6 * HOUR), host: 'secratary', attention: 6, healthy: 13 });
+  const older = () => payload({ at: iso(2 * HOUR), host: 'also-frozen', attention: 5, healthy: 14 });
+  const live = () => payload({
+    at: iso(3000),
+    host: 'secratary-cloud',
+    attention: 1,
+    healthy: 18,
+    checks: [{ check: 'db_writable', severity: 'high', summary: 'locked', needs_attention: true }],
+  });
+  const okBody = (body) => ({ respond: { status: 200, body: JSON.stringify(body) } });
+
+  let asks = [];
+  /** Answer per origin, the way two different hosts would, and record who was asked. */
+  const sources = (byOrigin) => ({
+    answer: (req) => {
+      const origin = String(req.url).split('/dsh-attention.json')[0];
+      asks.push(origin);
+      if (!Object.prototype.hasOwnProperty.call(byOrigin, origin)) return { error: true };
+      return byOrigin[origin];
+    },
+  });
+  const bootFrom = (byOrigin, declared) => {
+    asks = [];
+    return boot({ xhr: fakeXhr(sources(byOrigin)), loader: { 'data-attention-json': declared } });
+  };
+
+  // (a) The frozen authority first, the live one second: the live reading must be the one shown.
+  const b = bootFrom({
+    'https://frozen.example': okBody(frozen()),
+    'https://live.example': okBody(live()),
+  }, 'https://frozen.example https://live.example');
+  check('every declared source is a candidate', b.internals.origins.length === 2, b.internals.origins.join(' '));
+  check('a frozen first source is not accepted as current',
+    asks.length === 2 && asks[1] === 'https://live.example', asks.join(' '));
+  check('the freshest source wins over a frozen one',
+    b.internals.state.data && b.internals.state.data.host === 'secratary-cloud',
+    b.internals.state.data && b.internals.state.data.host);
+  check('the reading that won is not labelled stale', !/stale/.test(b.internals.html()));
+  check('the source that answered is recorded', b.internals.state.source === 'https://live.example',
+    String(b.internals.state.source));
+  check('the card names the host the numbers came from', /secratary-cloud/.test(openedCard(b)));
+
+  // (b) A fresh first source stops the search: this is a fallback chain, not a poll of everything.
+  const bFresh = bootFrom({
+    'https://live.example': okBody(live()),
+    'https://frozen.example': okBody(frozen()),
+  }, 'https://live.example,https://frozen.example');
+  check('a fresh first source ends the search after one request', asks.length === 1, asks.join(' '));
+  check('a comma separates sources as well as a space', bFresh.internals.origins.length === 2,
+    bFresh.internals.origins.join(' '));
+
+  // (c) Everything stale: the reading is still shown, with its age, rather than nothing.
+  const bStale = bootFrom({
+    'https://frozen.example': okBody(frozen()),
+    'https://also-frozen.example': okBody(older()),
+  }, 'https://frozen.example,https://also-frozen.example');
+  check('a stale reading is kept when nothing fresh answers',
+    bStale.internals.state.data !== null && bStale.internals.state.data.host === 'secratary',
+    bStale.internals.state.data && bStale.internals.state.data.host);
+  check('and it is labelled stale with its age', /· stale/.test(bStale.internals.html()),
+    bStale.internals.html().slice(0, 90));
+  check('the card marks a stale reading too', /\(stale\)/.test(openedCard(bStale)));
+
+  // (d) A refusal is not a reading: `read:false` must fall through to the next source.
+  const bRefused = bootFrom({
+    'https://refusing.example': okBody({ read: false, error: 'cannot read /root/ceo-kernel-var/latest.json: No such file or directory' }),
+    'https://live.example': okBody(live()),
+  }, 'https://refusing.example,https://live.example');
+  check('a refusal falls through to the next source',
+    bRefused.internals.state.data && bRefused.internals.state.data.host === 'secratary-cloud',
+    bRefused.internals.state.data && bRefused.internals.state.data.host);
+
+  // (e) An unreachable source is not the end of the chain either.
+  const bDown = bootFrom({
+    'https://live.example': okBody(live()),
+  }, 'https://down.example,https://live.example');
+  check('an unreachable source does not stop the next one',
+    bDown.internals.state.data && bDown.internals.state.data.host === 'secratary-cloud',
+    bDown.internals.state.data && bDown.internals.state.data.host);
+
+  // (f) Nothing declared at all: one candidate, this document's own origin - the phone's case.
+  asks = [];
+  const bRelative = boot({ xhr: fakeXhr(sources({ 'http://127.0.0.1:3099': okBody(live()) })) });
+  check('with nothing declared the badge reads its own document',
+    asks.length === 1 && asks[0] === 'http://127.0.0.1:3099', asks.join(' '));
+  check('a relative source still renders its reading',
+    bRelative.internals.state.data && bRelative.internals.state.data.host === 'secratary-cloud');
+
+  // (g) Everything down: a refusal with a reason, and never an invented zero.
+  asks = [];
+  const bAllDown = boot({ xhr: fakeXhr(sources({})), loader: { 'data-attention-json': 'https://a.example' } });
+  check('every source failing is a refusal, not an all-clear',
+    /findings unavailable/.test(bAllDown.internals.html())
+    && !/\d+ needing attention/.test(bAllDown.internals.html()), bAllDown.internals.html().slice(0, 70));
+  check('the refusal carries a reason', /could not reach the findings/.test(openedCard(bAllDown)),
+    openedCard(bAllDown).slice(0, 200));
+  check('a refusal with no previous reading claims no last good',
+    !/last good/.test(bAllDown.internals.html()), bAllDown.internals.html().slice(0, 90));
+}
+
 // 10. the render loop must not fight the reader
 {
   const script = { opened() {}, respond: { status: 200, body: JSON.stringify(payload()) } };
@@ -620,8 +731,9 @@ console.log('== the plugin never lets the badge vanish silently (the 2026-09-14 
   check('it injects the badge script', tag !== undefined);
   check('the script points at the authority badge',
     tag && tag.src === p.api.authority + '/dsh-attention.js', tag && String(tag.src));
-  check('the script names the authority as the data origin',
-    tag && tag.getAttribute('data-attention-json') === p.api.authority);
+  check('the script names the authorities as the data origin',
+    tag && tag.getAttribute('data-attention-json') === p.api.authorities.join(' '),
+    tag && tag.getAttribute('data-attention-json'));
   check('the script is marked as plugin-injected', tag && tag.getAttribute('data-badge-source') === 'plugin');
 
   check('a grace timer is armed', p.timeouts.length === 1 && p.timeouts[0].ms === p.api.graceMs);
