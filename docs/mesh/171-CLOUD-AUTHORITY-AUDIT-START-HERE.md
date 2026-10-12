@@ -222,6 +222,17 @@ is 24 GB on a 75 GB disk.
 `secratary-ts:/home/zabz/audit/{host-metrics.sh,storage-bench.py,db-metrics.py}`,
 local `C:\Users\ezabz\code\.audit\`.
 
+**Companion master record — the SEARCH subsystem, `172-MASTER-RECORD-SEARCH-SYSTEM.md`**
+A concurrent session (same night, 03:05–04:10Z) audited the *search* half of this same migration and
+found it **was not a win at all: it was dead on arrival.** `ps_search` — the tool the `fast-search` skill
+tells every agent to use — returned `Tool search not found` to every caller, because `data/tools/` is
+gitignored and **599 of 607 registered tool bodies never made the crossing**; `find-anything`, `rg` and
+`ctags` were installed nowhere on the authority; and `journal.py` answered multi-word queries with a
+confident false negative. All of it is fixed, guarded and clocked. **This page's "three real wins" do not
+cover search, and should not be read as covering it.** Search's own state, root causes, evidence and
+open items are in `172`; it is summarised here in one line because a reader of *this* page would
+otherwise reasonably assume search was audited and fine.
+
 ---
 
 ## 9. WHAT THIS PAGE DOES NOT CLAIM

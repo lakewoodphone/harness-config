@@ -2032,7 +2032,7 @@ def cmd_search(args) -> int:
                 if rx.search(ln):
                     matches.append((i + 1, ln.strip()))
         else:
-            # SEMANTICS, and why they changed -- measured 2026-10-12 on the authority (journal H3568).
+            # SEMANTICS, and why they changed -- measured 2026-10-12 on the authority (journal H3571).
             # A query arrives as ONE argv element from `ps_search` / `fa journal` (`search.py` passes
             # the whole query as a single argument) and as MANY from a shell. Both must mean the same
             # thing, so every pattern is split on whitespace into TERMS, and the terms are the unit of

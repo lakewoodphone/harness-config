@@ -72,7 +72,7 @@
 `show <id>`, `search`, `newest handoff`. **Never read the tree end to end.** `append lessons|handoff|pain|decisions|wins`.
 
 ### 2.5 Search the estate — **ALREADY EXISTS. ONE engine. Do not grep -r, do not build a second one.**
-Added 2026-10-12 (journal H3568). This section exists because the search surface was **not** in this
+Added 2026-10-12 (journal **H3571**). This section exists because the search surface was **not** in this
 register, and so the cloud cutover carried none of it: `ps_search` — the tool the `fast-search` skill
 tells every agent to use — answered `Tool search not found` on the authority for a full day.
 
