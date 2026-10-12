@@ -2,6 +2,19 @@
 
 **Author:** coordinator session (ZABZ-TECH), 2026-10-11 ~21:35Z. **Facts measured, nothing changed.**
 
+> **EXECUTED IN PART 2026-10-12 — read this banner before acting on anything below.**
+> The move was done: `mesh-broker` on `secratary-cloud` is **enabled and running** (03:18Z), with the
+> repo roster copied over the staged one (which failed to exclude the frozen box — an error worth
+> remembering in itself). And it was made to **actually work**: the authority had to be added to every
+> node's `scripts/phone-gate-allow.txt`, because until then it read **0 of 5 nodes** (`HTTP 403` on
+> every route of every node) and answered every placement blind — a broker that reads nothing still
+> returns a well-formed `position 1, blockedBy ["unreachable","no-free-slots"]`.
+> **The one item below that is still open is decision option 1 — stopping the office copy.** It is
+> owner question **#447**; until it is answered the office broker is still `active/enabled` and there
+> are two brokers for one mesh (two lease ledgers, §"THE ONE DECISION" below).
+> Every measurement, and the things that are still open besides this one:
+> `159-MESH-POST-MIGRATION.md`.
+
 ## Why this matters
 
 `docs/mesh/000-SYSTEMS-REGISTER.md` declares the placement broker as running on the authority. **It does

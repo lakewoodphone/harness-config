@@ -19,8 +19,8 @@
 
 | machine | ssh | role | notes |
 |---|---|---|---|
-| **`secratary-cloud`** | `ssh -i ~/.ssh/id_ed25519_hetzner root@178.156.194.1` | **THE AUTHORITY (primary)** — company DB, API, dashboard (**not the broker** - see the placement-broker row) | Hetzner CCX13, Ashburn VA, 2 vCPU, 7.7 GB, 75 GB NVMe (~1.1 GB/s). **ON the tailnet since before 21:35Z 2026-10-11**: `100.73.176.126`, `active; direct 178.156.194.1:41641`, seen in the office box's own `tailscale status`. A private API path exists and works - `tailscale serve --bg --https=8443 http://127.0.0.1:8002`, giving `https://secratary-cloud.tail93e6e6.ts.net:8443/health` -> 200 `ok=True db_ok=True`, and `scripts/mesh/route.sh` chooses it FIRST. **Any 'blocked on a Tailscale auth key' note is stale - no owner action is needed for this.**  |
-| **`secratary`** | `secratary-ts` | office box — was the authority until the cutover; becomes a compute worker and the **rollback anchor** | i5-4570 (2013), 4c/4t, 23 GB, 467 GB SATA+LUKS. **Unreliable: goes off, and its NIC CANNOT wake it** (`ethtool eno1` reports no `Wake-on:` line at all; `ethtool -s eno1 wol g` is a silent no-op). |
+| **`secratary-cloud`** | `ssh -i ~/.ssh/id_ed25519_hetzner root@178.156.194.1` | **THE AUTHORITY (primary)** — company DB, API, dashboard, **and since 2026-10-12 the mesh placement broker** (`mesh-broker`, loopback `:3091`, enabled) | Hetzner CCX13, Ashburn VA, 2 vCPU, 7.7 GB, 75 GB NVMe (~1.1 GB/s). **ON the tailnet since before 21:35Z 2026-10-11**: `100.73.176.126`, `active; direct 178.156.194.1:41641`, seen in the office box's own `tailscale status`. A private API path exists and works - `tailscale serve --bg --https=8443 http://127.0.0.1:8002`, giving `https://secratary-cloud.tail93e6e6.ts.net:8443/health` -> 200 `ok=True db_ok=True`, and `scripts/mesh/route.sh` chooses it FIRST. **Any 'blocked on a Tailscale auth key' note is stale - no owner action is needed for this.**  |
+| **`secratary`** | `secratary-ts` | office box — was the authority until the cutover; becomes a compute worker and the **rollback anchor** | i5-4570 (2013), 4c/4t, 23 GB, 467 GB SATA+LUKS. **Unreliable: goes off, and its NIC CANNOT wake it** (`ethtool eno1` reports no `Wake-on:` line at all; `ethtool -s eno1 wol g` is a silent no-op). **Its `mesh-broker` is STILL ACTIVE/ENABLED** (measured 2026-10-12) — the last live dependency on a frozen box, pending owner question #447. |
 | **`zabz-tech`** | `desktop-ts` | the workhorse: agent compute, 32c, 52 GB free | also the fleet's landfall for mesh children |
 | **`zabz-yoga-1`** | `laptop-ts` (this laptop's tailnet name) | the owner's machine; a dispatcher and a worker | |
 | **`zabz-tech-linux`** | `linux-pc-ts` | compute worker + a **vault** | office Linux PC |
@@ -56,14 +56,49 @@
 | what | where / how |
 |---|---|
 | **fan out to another machine** | the `subagent` tool = the mesh provider (`remote-ssh`). `subagent_local` runs HERE; `subagent_fork` runs in this process WITH this history. **Never fan out locally while the mesh is reachable.** |
-| placement broker | **`mesh-broker.service` on the OFFICE box `secratary`, loopback `:3091`** (measured 2026-10-11 21:35Z: `ss -ltnp` shows `node` pid 105841 on `127.0.0.1:3091` there, and the cloud's `mesh-broker.service` is `inactive`/`disabled` with **nothing** on `:3091`). Staged but NOT started on the authority: `/opt/mesh-broker/{bin/mesh-broker.mjs,nodes.json}` exist and its unit is already rewritten for that box (`WorkingDirectory=/opt/mesh-broker`, `HOME=/root`). **Moving it needs the office copy stopped, which is a state change on a frozen host and therefore the owner's call** - see `154-MESH-BROKER-MOVE.md`. |
-| **placement failover** | `packages/plugin-remote-fanout/lib/failover-placer.js` — if the broker is UNREACHABLE, the dispatcher reads every node's `/mesh/health` directly and ranks. The broker is an optimisation, not a veto. |
-| per-node surface | `GET /mesh/health` (unauthenticated, rich) and `POST /mesh/run` (HMAC) — `packages/plugin-mesh-http` |
+| placement broker | **`mesh-broker.service` on the AUTHORITY `secratary-cloud`, loopback `:3091`** — enabled and started 2026-10-12 03:18Z, roster `/opt/mesh-broker/nodes.json` (a copy of `packages/mesh-broker/nodes.json`, in which the frozen box is `excluded: true`). Reached by every dispatcher as `ssh secratary-cloud curl … localhost:3091/…` (`MESH_BROKER_SSH`, default in both `profiles/web/cordis.patch.yml` and `bin/mesh-run.mjs`). **The office box's copy is STILL RUNNING and enabled** — the one remaining step of the move, and it is the owner's (question #447): two brokers for one mesh keep two lease ledgers, so two dispatches could both fill one machine. See `159-MESH-POST-MIGRATION.md`. |
+| **the broker can only read nodes whose gate allows it** | `scripts/phone-gate.py` refuses any tailnet device not listed in `phone-gate-allow.txt`, and that check runs BEFORE the mesh routes. **A broker whose host is not listed reads NOTHING and still answers** (measured 2026-10-12: 5/5 nodes `HTTP 403`, and `/place` returned a well-formed, blind `position 1 blockedBy ["unreachable","no-free-slots"]`). The authority is now listed; check with `curl -s http://127.0.0.1:3091/nodes?fresh=1` and never let "unreachable" be the answer for every node. The list is read per node from whichever checkout that node's gate was started from, so it must be deployed per node, not once. |
+| **placement failover** | `packages/plugin-remote-fanout/lib/failover-placer.js` — if the broker is UNREACHABLE, the dispatcher reads every node's own surface directly and ranks. The broker is an optimisation, not a veto. **A node whose `/mesh/health` is missing is NOT dead**: since 2026-10-12 `lib/node-probes.js` falls back to `/mesh/capacity` and the node stays usable over v1 with slots UNMEASURED (`zabz-tech-linux` answers 404 on health and 200 on capacity; the office box 502/200). |
+| per-node surface | `GET /mesh/health` (unauthenticated, rich) and `POST /mesh/run` (HMAC) — `packages/plugin-mesh-http`. **Not every node serves `/mesh/health`**: a node behind `phone-gate.py` may answer `/mesh/capacity` only. `secratary-cloud` answers 200 but advertises `auth.secretConfigured:false` (`/etc/dsh-mesh.env` absent), so it cannot sign a v2 run. |
+| **parent ↔ child while a child works** | **Does not exist for a mesh child.** Measured 2026-10-12: `list_agents` → `(no subagents)` and `send_message` → `subagent "…" is unavailable` while the child was mid-turn. Parent → child is the dispatch; child → parent is the final report, plus the mailbox thread — and the thread directory is **not created for the child**, so it silently reports `0 message(s)` unless the child improvises it. |
 | **run a long child** | `run_in_background: true`. **`subagent` defaults to FOREGROUND and blocks the turn.** `subagent_fork` defaults to background. |
 
 ### 2.4 The journal (continuity)
 `python ~/code/harness-config/journal/tools/journal.py status` — then `list --kind pain --status open`,
 `show <id>`, `search`, `newest handoff`. **Never read the tree end to end.** `append lessons|handoff|pain|decisions|wins`.
+
+### 2.5 Search the estate — **ALREADY EXISTS. ONE engine. Do not grep -r, do not build a second one.**
+Added 2026-10-12 (journal H3568). This section exists because the search surface was **not** in this
+register, and so the cloud cutover carried none of it: `ps_search` — the tool the `fast-search` skill
+tells every agent to use — answered `Tool search not found` on the authority for a full day.
+
+| what | where / how |
+|---|---|
+| **the surface agents call** | `ps_search(query, what, limit, fresh)`, or `ps_action("search", {…})`. `what` ∈ `code` `data` `journal` `files` `symbol` `auto`. Returns `ok`, `source`, `ms`, `stale`, `exit_code`, `searched`. **`searched:false` is a REFUSAL, not a negative.** |
+| **the engine** | `find-anything` (`fa` on PATH). Canonical source: `harness-config/scripts/find-anything/find-anything`. Installed by `scripts/find-anything/install.sh` to `/usr/local/bin/find-anything` + `fa` symlink. On Linux a node may also run `fa <mode> <query>` directly. |
+| **the tool body** | `<checkout>/data/tools/search.py`, canonical at `scripts/find-anything/search-tool.py`. It shells out to the engine and translates exit codes; it adds **no second grammar**. Resolves the engine via `FIND_ANYTHING_BIN` → `fa` on PATH → two legacy paths. |
+| **exit codes are the contract** | `0` hits · `1` a real negative · `2` bad usage · `3` answered but possibly stale · `4` **NOTHING was searched** · `5` the index failed. Only `3` used to be read, so `4`/`5` reached agents as `ok:true "(no hits)"` — the exact lie the tool exists to prevent. |
+| **the indexes** | `~/.faindex/paths.txt` (filenames), `~/.faindex/tags` (ctags symbols), `~/.fsearch/comms.db` (business comms FTS), and the journal index at `harness-config/journal/index`. Built by `find-anything-build-indexes`; the journal index too, because nothing else owned "keep the indexes fresh". |
+| **`symbol` is NEVER indexed** | you are about to edit that file. `fa symbol` is always a live scan. `fa symbols` is the browse-only ctags index. |
+| **the clocks** | `*/15` `fa-index-refresh`, `22 * * * *` `fa-index-freshness`, `37 * * * *` `tool-body-guard`. Generated by `scripts/find-anything/make-crontab-fragment.sh`, installed with `install-crontab-fragment.sh`. |
+| **the guard for tool loss** | `scripts/guards/tool-body-guard.py` — every ACTIVE registered tool must have a body at `data/tools/<name>.py`. `run_tool()` answers `Tool <name> not found` from a single `if not tool_path.exists()`, so a registered-but-absent tool is indistinguishable from a tool that does not exist. Exit `0` ok, `1` missing bodies, `2` could not check (never a pass). |
+
+**THE THREE TRAPS THIS REGISTER ENTRY EXISTS TO PREVENT.**
+
+1. **`data/tools/` IS GITIGNORED** (`.gitignore:58`). 599 of 607 registered tool bodies were lost at
+   the cutover because no deploy from any branch could carry them and the only copy was on the box
+   being frozen. Registering a tool does not create it, and nothing asserted that a registered tool
+   had a body until `tool-body-guard.py` existed.
+2. **A refresh job cannot report that it has stopped running.** This estate has shipped a silently
+   dead search clock at least three times: journal **P2899 D2** (a trigger whose repetition pattern
+   expired after one day), **H3376** (21 days stale, `NextRunTime` empty), and `zabz-tech`'s
+   `DSH search index refresh` (`LastTaskResult=1`, measured 2026-10-12). Every one of them still
+   described itself as "scheduled". Hence the freshness *guard* job, which exits non-zero.
+3. **A hardcoded path is a fork waiting to happen.** Two separate hardcodings broke at the cutover:
+   the engine resolved its code roots as `$HOME/personal-secretary-mvp` (the checkout is `/opt/company`
+   on the authority) and the tool body hardcoded `/home/zabz/bin/find-anything` (a path no cloud node
+   has). Both now resolve by probe with an env override. **Never write a node's absolute layout into a
+   shared script.**
 
 ---
 
@@ -90,6 +125,9 @@
 6. **A guard whose failure has never been seen cannot be trusted.** `cron-target-guard.py` reports `ok / 0 missing` because it never decodes the base64 in the crontab; ~60 of its "checked" targets are the one wrapper.
 7. **Byte-count verification proves the TRANSPORT, never the CONTENT.** A corrupt source uploads faithfully and reports OK. Open the artifact.
 8. **An interrupted backup leaves a directory that looks like a backup.** Hence the `COMPLETE` marker.
+9. **A half-applied retarget is more dangerous than no retarget.** After the 2026-10-11 cutover the provider row already named `secratary-cloud` while `bin/mesh-run.mjs` still named `secratary-ts` — two dispatch paths, two brokers, one of them on a box declared inert. When a default moves, grep for **every** place that names the old one and move them in the same commit (`grep -rn '<old-host>' --include=*.yml --include=*.mjs`).
+10. **A control plane that reads nothing still gives a well-formed answer.** The mesh broker is built never to refuse, so with every node unreadable it answered `position 1, blockedBy ["unreachable","no-free-slots"]` — correct-looking and blind. Measured 2026-10-12: the node gates (`scripts/phone-gate.py` + `phone-gate-allow.txt`) refuse any tailnet device not listed, so the authority could not read a single node. **Never accept "the service is active" as evidence it works: make it read one real thing.**
+11. **A pinned comment is not a fix.** `docs/mesh/154-MESH-BROKER-MOVE.md` said the move was staged and needed one owner decision; the broker was then started without anyone proving it could read a node. Verify the *new* path end to end before you retire the old one.
 
 ---
 
