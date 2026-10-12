@@ -53,6 +53,10 @@
 | **completeness** | **`COMPLETE` marker** written LAST by `backup-data.sh`; both pushers REQUIRE it and refuse a directory without one. Added 2026-10-10 (P2931). |
 
 ### 2.3 The mesh (fan-out + orchestration)
+> **Read first: `docs/mesh/160-MESH-STATE-AND-NEXT.md`** — one page with the mesh's measured state,
+> what was done in the 2026-10-12 post-cutover audit, what to do next, and a reference to every other
+> document. The rows below are the durable facts; 160 is the map.
+
 | what | where / how |
 |---|---|
 | **fan out to another machine** | the `subagent` tool = the mesh provider (`remote-ssh`). `subagent_local` runs HERE; `subagent_fork` runs in this process WITH this history. **Never fan out locally while the mesh is reachable.** |
@@ -68,7 +72,7 @@
 `show <id>`, `search`, `newest handoff`. **Never read the tree end to end.** `append lessons|handoff|pain|decisions|wins`.
 
 ### 2.5 Search the estate — **ALREADY EXISTS. ONE engine. Do not grep -r, do not build a second one.**
-Added 2026-10-12 (journal H3568). This section exists because the search surface was **not** in this
+Added 2026-10-12 (journal **H3571**). This section exists because the search surface was **not** in this
 register, and so the cloud cutover carried none of it: `ps_search` — the tool the `fast-search` skill
 tells every agent to use — answered `Tool search not found` on the authority for a full day.
 

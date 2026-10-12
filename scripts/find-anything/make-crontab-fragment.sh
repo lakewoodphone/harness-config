@@ -20,7 +20,7 @@ GUARD_CMD='/root/bin/tool-body-guard.py --write-status'
 # congruent to 8 mod 15 and are not multiples of 5, 20 or 30, so they collide with nothing on this
 # crontab.
 cat <<EOF
-# Search subsystem clocks. Installed 2026-10-12 by the search audit (journal H3568).
+# Search subsystem clocks. Installed 2026-10-12 by the search audit (journal H3571).
 # WHY TWO JOBS AND NOT ONE. This estate shipped a silently dead search refresh twice: P2899 D2 (a
 # trigger whose repetition pattern expired after one day) and H3376 (21 days stale, NextRunTime
 # empty). A refresh job cannot report that it stopped running; only a job that MEASURES the index
