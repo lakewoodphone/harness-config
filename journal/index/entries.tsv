@@ -898,6 +898,9 @@ handoff	H3575	3575		2026-10-12 05:09 UTC	ZABZ-YOGA	open	## 2026-10-12 05:09 UTC 
 handoff	H3576	3576		2026-10-12 05:20 UTC	SECRATARY-CLOUD	open	## 2026-10-12 05:20 UTC · SECRATARY-CLOUD · estate state 2026-10-12: 175 written and pushed; 49 migration docs are single-copy; the queue triaged 162 to 9-10	entries/handoff/H3576.md	1	70	95e8a966ae3a5896		
 handoff	H3577	3577		2026-10-12 05:22 UTC	SECRATARY-CLOUD	open	## 2026-10-12 05:22 UTC · SECRATARY-CLOUD · Yanofsky profile: two sessions, one tree, and the tree now has a verified second copy	entries/handoff/H3577.md	1	23	666c20a0fedc4935		
 handoff	H3578	3578		2026-10-12 12:07 UTC	SECRATARY-CLOUD	open	## 2026-10-12 12:07 UTC · SECRATARY-CLOUD · CHALLENGE-2026 delivered: Noson Yanofsky's limits tested against current mathematics	entries/handoff/H3578.md	1	28	e2d7971583dd5166		
+handoff	H3579	3579		2026-10-12 13:46 UTC	SECRATARY-CLOUD	open	## 2026-10-12 13:46 UTC · SECRATARY-CLOUD · The Yanofsky profile is now a git repository, pushed to the authority	entries/handoff/H3579.md	1	22	1b15e7e0a4179bf4		
+handoff	H3580	3580		2026-10-12 13:48 UTC	SECRATARY-CLOUD	open	## 2026-10-12 13:48 UTC · SECRATARY-CLOUD · four mesh children: 180/181/183 landed and pushed; the 16 truly single-copy docs rescued to the vault; the mesh ceiling is a constant of 4, not the hardware	entries/handoff/H3580.md	1	73	ada63b0e98674155		
+handoff	H3581	3581		2026-10-12 13:55 UTC	SECRATARY-CLOUD	open	## 2026-10-12 13:55 UTC · SECRATARY-CLOUD · the database forensic child produced no artefact in 40 minutes - stopping it; the answer is architectural and the code settles it	entries/handoff/H3581.md	1	42	0b3b22f097a0ec71		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2220,6 +2223,7 @@ lessons	L3624	3624		2026-10-12	SECRATARY-CLOUD	open	**L3624 · A fleet's output 
 lessons	L3625	3625		2026-10-12	SECRATARY-CLOUD	open	**L3625 · never raise a worker count before reading the startup hook - the authority would have started N copies of the autonomous company**	entries/lessons/L3625.md	1	43	7a5471b237445515		
 lessons	L3626	3626		2026-10-12	SECRATARY-CLOUD	open	**L3626 · the per-node children cap is already built and live at 4 - PROGRAM.md and 118 both still say nothing caps it**	entries/lessons/L3626.md	1	47	699aee1198df4e9b		
 lessons	L3627	3627		2026-10-12	SECRATARY-CLOUD	open	**L3627 · Hardware spec comparison: use PassMark CPU Mark + G3D, then price the soldered-vs-SO-DIMM difference**	entries/lessons/L3627.md	1	11	482f8171b5bdbc2b		
+lessons	L3628	3628		2026-10-12	SECRATARY-CLOUD	open	**L3628 · 'Solvable by machines but not by humans' is incoherent for the formal results, and lands squarely on the practical ones**	entries/lessons/L3628.md	1	16	f2443afe1f7c0aff		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
