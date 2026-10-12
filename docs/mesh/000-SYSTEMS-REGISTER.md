@@ -65,6 +65,22 @@
 `python ~/code/harness-config/journal/tools/journal.py status` — then `list --kind pain --status open`,
 `show <id>`, `search`, `newest handoff`. **Never read the tree end to end.** `append lessons|handoff|pain|decisions|wins`.
 
+### 2.5 Labels — the shop's tape printer — **ALREADY EXISTS: `lpt-label`**
+| what | where / how |
+|---|---|
+| the printer | **Brother QL-820NWB**, serial `H3G354844`, on the OFFICE LAN. DHCP — `192.168.50.60` at the time of writing and **never trusted**: `lpt-label find` re-verifies the device identifies itself by model before printing. Loaded roll: **DK-2210 endless, 29 mm**. |
+| **print a label** | **on the authority**: `ssh secratary-ts 'lpt-label …'`; the safe form for shop names (they contain apostrophes) is `echo '<json>' \| ssh secratary-ts "lpt-label print -"`. Installed `/usr/local/bin/lpt-label` → `~/.local/bin/lpt-label`; source `lpt-ops/bin/lpt-label` + `lpt-ops/lpt_ops/label_printer.py`; doc `lpt-ops/docs/label-printer.md`; lesson **L3534**. |
+| the ONLY honest proof tape came out | the printer's own status page, read back with `lpt-label find`, going `READY → PRINTING → READY`. **`brother_ql`'s `did_print` is `false` by construction on this model** — it reads a status register over 9100 that this printer never answers (**L3484**). |
+| always first | `lpt-label print - --dry-run --out /tmp/x.png`, copy the PNG back and **look at it** before spending tape (**L3486**). |
+| the website's "Print Label" button | **still dead** — it posts to `PRINT_SERVICE_URL=http://localhost:8080` and the device does not answer IPP. Do not "fix" printing by wiring that path. |
+
+**Do NOT print a shop label through a Windows printer driver.** The QL is driven as raw Brother
+raster over **TCP 9100 from the authority**. A Windows queue reaches the same device over WSD, where
+the driver's default page size is the **die-cut 28 × 90 mm** (`1.1" x 3.5"`) while the loaded roll is
+29 mm **endless** — and sending it raised the printer's own media error and **froze the printer hard
+enough that the owner had to power-cycle it** (measured 2026-10-12: 11 tool calls and a frozen
+printer for a job `lpt-label` does in one).
+
 ---
 
 ## 3. Which system is authoritative for what
@@ -90,6 +106,7 @@
 6. **A guard whose failure has never been seen cannot be trusted.** `cron-target-guard.py` reports `ok / 0 missing` because it never decodes the base64 in the crontab; ~60 of its "checked" targets are the one wrapper.
 7. **Byte-count verification proves the TRANSPORT, never the CONTENT.** A corrupt source uploads faithfully and reports OK. Open the artifact.
 8. **An interrupted backup leaves a directory that looks like a backup.** Hence the `COMPLETE` marker.
+9. **A media mismatch on the QL-820NWB surfaces through Windows as "No Paper".** `Win32_Printer.DetectedErrorState=4` on that device means the job's page size does not match the loaded roll at least as often as it means an empty printer — and a wrong-size job can freeze the device until it is power-cycled. Ask the device (`lpt-label find`), not Windows. (2026-10-12.)
 
 ---
 
