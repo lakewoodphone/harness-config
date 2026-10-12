@@ -48,6 +48,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -164,6 +165,46 @@ def file_alarm(journal_repo: str, verdict: str, detail: str, rows: int | None, a
     return line[-1] if line else f"filed (rc={done.returncode})"
 
 
+def missing_cron_jobs(names: list[str]) -> list[str]:
+    """Which of these job names are NOT scheduled anywhere we can see.
+
+    WHY THIS IS PART OF AN ABSENCE MONITOR, measured 2026-10-12, twice in one night:
+    `run-sentinel`'s crontab line is a **read-modify-write on a shared file**. Three sessions edited
+    root's crontab within half an hour of each other (`crontab -l | ... | crontab -`), and the line
+    installed at 03:15 was gone by 03:44 while every individual edit looked correct and verified its
+    own addition. A lost schedule is indistinguishable from a stopped producer by the time you look at
+    the producer -- so the same monitor that measures the producer's age also asserts that the
+    schedule still exists. `/etc/cron.d/` is read too, because a drop-in file cannot be clobbered by
+    someone else's `crontab -l` pipeline.
+    """
+    if not names:
+        return []
+    text = ""
+    seen = False
+    try:
+        out = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=60)
+        text += out.stdout or ""
+        seen = True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        for entry in sorted(Path("/etc/cron.d").glob("*")):
+            try:
+                text += entry.read_text()
+                seen = True
+            except OSError:
+                continue
+    except OSError:
+        pass
+    if not seen:
+        return list(names)   # a schedule we cannot read is a refusal, not health
+    missing = []
+    for name in names:
+        if re.search(r"(?<![\w-])" + re.escape(name) + r"(?![\w-])", text) is None:
+            missing.append(name)
+    return missing
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--state", default=os.environ.get("CEO_KERNEL_STATE", "/root/ceo-kernel-var"),
@@ -176,6 +217,9 @@ def main() -> int:
                     default=float(os.environ.get("SENTINEL_ALARM_EVERY", DEFAULT_ALARM_EVERY)))
     ap.add_argument("--journal-repo", default=os.environ.get("JOURNAL_REPO", DEFAULT_JOURNAL_REPO))
     ap.add_argument("--no-alarm", action="store_true", help="measure and write status only")
+    ap.add_argument("--expect-cron", action="append", default=[],
+                    help="a job name that MUST still be scheduled (repeatable); its absence is an "
+                         "absence finding, not a separate alarm")
     args = ap.parse_args()
 
     now = dt.datetime.now(dt.timezone.utc)
@@ -206,6 +250,17 @@ def main() -> int:
                   f"(threshold {args.stale_seconds / 60:.0f} min) — the sentinel has stopped writing")
     else:
         state_name, verdict, detail = "ok", "writing", f"newest row {age:.0f}s old"
+
+    # The schedule itself, checked before the age is believed: a lost crontab line and a stopped
+    # sentinel look identical from the producer's side, and the line is the more volatile of the two.
+    missing_jobs = missing_cron_jobs(args.expect_cron)
+    if missing_jobs and state_name == "ok":
+        state_name, verdict = "unscheduled", "unscheduled"
+        detail = (f"the sentinel is writing but its schedule is GONE: no crontab entry for "
+                  f"{', '.join(missing_jobs)} — it will stop within one staleness window. "
+                  f"This is what a concurrent `crontab -l | ... | crontab -` costs.")
+    elif missing_jobs:
+        detail += f" | ALSO unscheduled: {', '.join(missing_jobs)}"
 
     alarm = "not needed"
     if state_name != "ok" and not args.no_alarm:

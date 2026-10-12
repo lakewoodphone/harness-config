@@ -86,7 +86,8 @@ API once, and it must lose every race with the company. The root crontab was bac
 `/root/crontab.before-sentinel-port-20261012T031536Z` (53 lines) before the one line was added.
 
 **Recovery, if this is ever re-done or reverted.** The idempotent install script is
-`_mig140/port-kernel-to-cloud.sh` in the session's staging directory, and the bundle it needs
+`scripts/mesh/168-port-sentinel-to-authority.sh` in this repo (it was written into a session staging
+directory first, which is not durable — moved here 2026-10-12), and the bundle it needs
 (`kernel.bundle`, 137,884 B, created with `git bundle create --all` from HEAD `7be7fde`) plus the
 seeded state are on the authority at `/root/`. Reverting is: `crontab -l | grep -v run-sentinel |
 crontab -`, restore `/root/crontab.before-sentinel-port-*.`, and leave the state dir in place (it is
@@ -284,7 +285,50 @@ on purpose, so every alert from it is noise. That lands in `attention_debt` as h
 (7 held, none critical, oldest ~8 days). Named here, not fixed: pausing a check on an external account
 is not a change to make at the end of an incident.
 
-## §8 — Lessons, for whichever session reads this next
+### 7.3 The schedule was silently lost, and the monitor now detects that too
+
+**Found by a mesh child at 03:44Z, and it was my own line.** `run-sentinel` was installed in root's
+crontab at 03:15:36Z and was **gone by 03:44Z**. Measured: `crontab -l | grep -c run-sentinel` → **0**,
+`/etc/cron.d/` → no sentinel entry, no systemd timer, and the ledger's only `run-sentinel` row was the
+one my own manual wrapper test wrote (`03:15:36Z run-sentinel 0 9`) — **so the cron path had never
+actually fired**, and nothing said so.
+
+**Cause: a shared file with three writers.** Three separate sessions edited root's crontab within
+half an hour (`… | crontab -`): mine at 03:15:36, another session's spool write at **03:15:47**, and
+another at 03:44:10. Each edit read the crontab, changed one line, and wrote the whole file back; a
+write based on a read that predates someone else's addition deletes that addition, and every
+individual edit looks correct to the session that made it. The `cron-wrap.sh` error message points the
+operator at `~/bin/wrap-crontab.py`; that tool exists on the **office** box (`/home/zabz/bin/
+wrap-crontab.py`, 177 lines, a one-shot *wrapper* with byte-exact verification and a backup) and is
+**absent on the authority**, so the one tool named here does not exist where the error is printed.
+
+**What I did about it, in this order:**
+
+1. Re-installed the line and **read all three job names back** (`run-sentinel`, `sentinel-freshness`,
+   `config-sync-status` → 1 each). The first install was "verified" by tailing three lines, which is
+   exactly the check that cannot see a lost line — the honest check is a count per name you care about.
+2. Proved the schedule by *running it through the wrapper* and reading the ledger, not by trusting the
+   file: `2026-10-12T03:45:22Z  run-sentinel  0  17`.
+3. **Taught the absence monitor to check the schedule itself** (`--expect-cron NAME`, repeatable). It
+   reads root's crontab **and** `/etc/cron.d/`, and a job name that is not scheduled is an absence
+   finding on the same path as a stopped sentinel. Demonstrated against the real state before the
+   re-install:
+
+```
+$ python3 /usr/local/bin/sentinel-freshness-check.py --expect-cron run-sentinel --no-alarm
+sentinel-freshness: unscheduled — the sentinel is writing but its schedule is GONE: no crontab entry
+for run-sentinel — it will stop within one staleness window. This is what a concurrent
+`crontab -l | ... | crontab -` costs. (bytes=1781949, rows=8523, alarm=not needed)
+rc=2
+```
+
+That is the point of the whole monitor restated: **the producer was writing and healthy, and the thing
+that was actually broken was three feet to the left of it.** A monitor that only measures the producer
+would have caught this twenty minutes later, as a stale reading, and blamed the wrong layer.
+
+**Third instance of the same class tonight.** A stale badge (a producer that had moved), a `config_sync`
+check that could not see (a writer that had not), and now a schedule that evaporated (a line that was
+never there). All three were "the thing on the left", and none of them produced an error anywhere.
 
 1. **A moved authority moves its producers, not just its data.** The cutover moved the database, the
    API and the dashboard, and left one cron job behind. Everything downstream of that job kept
