@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import datetime as _dt
 import hashlib
 import json
@@ -336,16 +337,35 @@ def redact(text: str) -> str:
 # Identity keys — copied from v1, because they encode two real bugs
 # ---------------------------------------------------------------------------
 
+_NORM_BODY_CACHE: dict = {}
+
+
 def norm_body(text: str) -> str:
-    """Whitespace-collapsed body, used as the identity of an entry."""
-    lines = [ln.rstrip() for ln in (text or "").replace("\r\n", "\n").split("\n")]
+    """Whitespace-collapsed body, used as the identity of an entry.
+
+    MEMOISED, and memoising is safe here because this is a PURE function of its argument:
+    no filesystem, no clock, nothing to invalidate, so a cached value can never be stale.
+
+    WHY. Measured 2026-10-12 on ZABZ-YOGA with
+    `python -m cProfile -s cumtime journal.py check`: this function was called **34,140
+    times for 3,464 entries** -- about ten times per entry -- and cost **17.6 s of a 48.7 s
+    profile**. `check` runs after every append, so that was 17.6 s of repeated work per
+    session, on the machine the owner works on.
+    """
+    key = text or ""
+    hit = _NORM_BODY_CACHE.get(key)
+    if hit is not None:
+        return hit
+    lines = [ln.rstrip() for ln in key.replace("\r\n", "\n").split("\n")]
     while lines and not lines[-1].strip():
         lines.pop()
     while lines and lines[-1].strip() in {"---", "***"}:
         lines.pop()
         while lines and not lines[-1].strip():
             lines.pop()
-    return re.sub(r"[ \t]+", " ", "\n".join(lines)).strip()
+    result = re.sub(r"[ \t]+", " ", "\n".join(lines)).strip()
+    _NORM_BODY_CACHE[key] = result
+    return result
 
 
 def body_hash(body: str) -> str:
@@ -829,12 +849,58 @@ def legacy_signature() -> dict:
     return {"log_sig": log_h.hexdigest(), "log_count": n_log, "flat_sig": flat_h.hexdigest()}
 
 
+_ENTRIES_CACHE: dict = {}
+
+
+def _entries_freshness():
+    """A cheap key that changes whenever the entry tree changes.
+
+    The cache is keyed on the TREE'S OWN STATE -- how many entry files there are and the
+    newest mtime among them -- rather than on an invalidation call somebody has to remember
+    to make. A write changes the count or the mtime, so the key changes, so the next read
+    re-parses. There is no "remember to clear it" step for a future session to forget.
+
+    A tree that cannot be walked returns a unique key, which means "never cache" -- the
+    cheap path must never be the one that serves an unverifiable answer.
+    """
+    root = entries_dir()
+    if not root.exists():
+        return ("absent",)
+    count = 0
+    newest = 0
+    try:
+        for kind_dir in root.iterdir():
+            if not kind_dir.is_dir():
+                continue
+            for f in os.scandir(kind_dir):
+                if f.is_file() and f.name.endswith(".md"):
+                    count += 1
+                    m = f.stat().st_mtime_ns
+                    if m > newest:
+                        newest = m
+    except OSError:
+        return ("unwalkable", time.time_ns())
+    return (count, newest)
+
+
 def load_entries():
     """Every entry in the tree, parsed from files. This is the source of truth.
 
     Returns (entries, problems). An entry's own `problems` are errors; its `notes` are
     explanations (a heading that carries a legacy id, say) that `check` reports as INFO.
+
+    MEMOISED on the tree's own freshness key (see `_entries_freshness`). WHY. Measured
+    2026-10-12 on ZABZ-YOGA with `python -m cProfile -s cumtime journal.py check`: a single
+    `check` called this **three times**, re-parsing all 3,464 entries each time -- 10,392
+    `parse_entry` calls and **37.5 s of a 48.7 s profile** for one pass over the same 3,464
+    files. Callers receive deep copies, so a caller that edits a returned entry cannot
+    corrupt the cache; the entries are strings and ints, so a deep copy is a structural
+    copy and costs a small fraction of re-parsing.
     """
+    key = _entries_freshness()
+    cached = _ENTRIES_CACHE.get(key)
+    if cached is not None:
+        return copy.deepcopy(cached[0]), copy.deepcopy(cached[1])
     out = []
     problems = []
     root = entries_dir()
@@ -858,6 +924,8 @@ def load_entries():
             for p in e.get("problems") or []:
                 problems.append("%s: %s" % (_rel_of(f), p))
             out.append(e)
+    _ENTRIES_CACHE.clear()          # keep exactly one generation, never a growing map
+    _ENTRIES_CACHE[key] = (out, problems)
     return out, problems
 
 
@@ -1945,8 +2013,15 @@ def cmd_search(args) -> int:
             return 2
     limit = args.limit or 40
     ctx_n = max(0, getattr(args, "context", 0) or 0)
+    all_words = bool(getattr(args, "all_words", False))
+    # The unit of matching is the TERM, not the argv element: `ps_search what=journal` hands the whole
+    # query over as one argument while a shell hands it over as several, and both must mean the same
+    # thing. See the long note in the match loop.
+    terms = [t for p in pats for t in p.split() if t] or list(pats)
+    terms_l = [t.lower() for t in terms]
+    need = set(terms_l)
     hits = []
-    total_hits = 0
+    total_entries = 0
     texts = EntryTexts(entries, fresh)
     cands = [e for e in entries if _matches(e, args, texts)]
     for e in cands:
@@ -1957,12 +2032,58 @@ def cmd_search(args) -> int:
                 if rx.search(ln):
                     matches.append((i + 1, ln.strip()))
         else:
+            # SEMANTICS, and why they changed -- measured 2026-10-12 on the authority (journal H3568).
+            # A query arrives as ONE argv element from `ps_search` / `fa journal` (`search.py` passes
+            # the whole query as a single argument) and as MANY from a shell. Both must mean the same
+            # thing, so every pattern is split on whitespace into TERMS, and the terms are the unit of
+            # matching -- what any search box does.
+            #
+            # What this replaces. The old rule was `all(p.lower() in ln for p in pats)`, which for a
+            # one-argument query demanded the whole phrase VERBATIM on ONE LINE, and for a multi-arg
+            # query demanded every word on ONE LINE. Measured: `journal.py search "cloud migration
+            # secretary"` exited 1 and printed "an empty result is a refusal, not health" for a journal
+            # whose own handoffs carry those three words a few lines apart; `fa journal` and
+            # `ps_search what=journal` passed that exit 1 straight through to the agent as
+            # "NO MATCH (exit 1: the scope was searched and holds nothing)". D2983 recorded the same
+            # pair on 2026-10-09 -- `lpt website` found entries, `lpt website deploy` found none -- and
+            # cited it as a reason to stop telling agents this surface was primary. It was never fixed.
+            # A search that manufactures a confident negative on an ordinary two-word query is worse
+            # than a slow one, and it is exactly what the owner's "complete answers under 5 s" criterion
+            # cannot tolerate.
+            #
+            # The default is now ENTRY-level AND over TERMS: every term must appear somewhere in the
+            # entry, and the lines shown are those carrying at least one term, so the reader sees the
+            # evidence rather than only a verdict. `--all-words` keeps the strict line-level reading,
+            # and `--regex` remains the tool for adjacency and patterns.
+            #
+            # ONE PASS, and BOUNDED. The terms seen while scanning the lines ARE the entry-level test,
+            # so there is no second full-text scan. The collected lines are capped at what can be
+            # shown (`1 + --context`), and the scan stops as soon as both the term test is satisfied
+            # and that many lines are in hand -- otherwise a 3,000-entry journal builds a list of
+            # hundreds of matching lines per entry to print one of them. Measured 2026-10-12:
+            # `ps_search what=journal` was 4.7-5.8 s uncapped against the owner's 5 s budget.
+            cap = 1 + ctx_n
+            seen = set()
             for i, ln in enumerate(text.split("\n")):
                 low = ln.lower()
-                if all(p.lower() in low for p in pats):
-                    matches.append((i + 1, ln.strip()))
+                here = {t for t in terms_l if t in low}
+                if not here:
+                    continue
+                if all_words:
+                    if need <= here and len(matches) < cap:
+                        matches.append((i + 1, ln.strip()))
+                else:
+                    seen |= here
+                    if len(matches) < cap:
+                        matches.append((i + 1, ln.strip()))
+                    if need <= seen and len(matches) >= cap:
+                        break
+            if not all_words and not (need <= seen):
+                matches = []
         if matches:
-            total_hits += len(matches)
+            # Count ENTRIES, not lines. With entry-level AND a single entry can carry many matching
+            # lines, so a line count reported as "hits" read as "(+391 more)" for a 3-entry answer.
+            total_entries += 1
             if len(hits) < limit:
                 hits.append((e, matches[:1 + ctx_n]))
     if texts.unreadable:
@@ -1975,11 +2096,11 @@ def cmd_search(args) -> int:
                 lines = ("%s\n%s" % (e["heading"], e["body"])).split("\n")
                 mm = [(i + 1, lines[i].strip()) for i in range(len(lines)) if pat_re.search(lines[i])]
                 if mm:
-                    total_hits += len(mm)
+                    total_entries += 1
                     if len(hits) < limit:
                         hits.append((e, mm[:1 + ctx_n]))
     if getattr(args, "json", False):
-        print(json.dumps({"root": str(JOURNAL), "source": source, "total_matches": total_hits,
+        print(json.dumps({"root": str(JOURNAL), "source": source, "total_matches": total_entries,
                           "hits": [{"id": e["id_full"], "kind": e["kind"], "heading": redact(e["heading"]),
                                     "file": e["file"],
                                     "lines": [{"line": a, "text": redact(t)} for a, t in mm]}
@@ -1994,7 +2115,7 @@ def cmd_search(args) -> int:
         for _ln_no, txt in mm:
             if not b.line("    " + txt[:200]):
                 break
-    b.marker(max(0, total_hits - len(hits)))
+    b.marker(max(0, total_entries - len(hits)))
     b.emit()
     if not hits:
         note("no match for %s — an empty result is a refusal, not health" % " ".join(pats))
@@ -4996,7 +5117,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--context", type=int, default=0)
     s.add_argument("--regex", action="store_true")
     s.add_argument("--all-words", dest="all_words", action="store_true",
-                   help="every pattern must be present in the same line (the default)")
+                   help="require every query term on the SAME LINE (strict, single-line reading). "
+                        "Without it, every term must appear somewhere in the ENTRY")
     s.add_argument("--legacy", action="store_true", help="also scan the frozen shards")
     s.add_argument("--sort", choices=["relevance", "newest"], default="relevance")
     s.set_defaults(func=cmd_search)
