@@ -6,10 +6,12 @@
 **Access:** `ssh -i ~/.ssh/id_ed25519_hetzner root@178.156.194.1`. The estate mesh key
 (`id_ed25519_mesh`) is refused by the authority for every user tried (`root`, `zabz`,
 `ezabz`, `ubuntu`) — the same shape as journal `P2944`/`P2946`/`P3003`/`P3005`.
-**Window:** 2026-10-12 16:20–16:55Z.
+**Window:** 2026-10-12 16:20–16:55Z. **Continued 16:35–16:52Z** by a second
+dispatch on the same thread, from the same seat, which re-verified every fix below and
+landed one more (F10, the `db_contention` borrowed-connection defect); see §4 and §6.
 **Constraints honoured:** no service state, crontab line, timer or host configuration was
 changed; `company-api` was not restarted; `/root/authority.db` was opened only as
-`file:…?mode=ro`; scratch files are under `/tmp`.
+`file:…?mode=ro` (or through the app's own `connect_db`); scratch files are under `/tmp`.
 
 > **Honesty note on "you are on secratary-cloud".** The brief placed this audit on
 > `secratary-cloud`. The shell I was given ran on **`zabz-tech-linux`**; I did not
@@ -22,18 +24,33 @@ changed; `company-api` was not restarted; `/root/authority.db` was opened only a
 
 | | |
 |---|---|
-| **findings** | **14** (F1–F14) |
-| **fixed and verified** | **3**: `liveness` (F1), `db_writable` (F2), identity-store unbounded growth (F8) |
+| **findings** | **15** (F1–F15) |
+| **fixed and verified** | **4**: `liveness` (F1), `db_writable` (F2), identity-store unbounded growth (F8), `db_contention` closed-on-handout (F10, landed in the continuation) |
 | **already fixed before this session** | 4: the two dialpad jobs, `cron-script-guard`'s blind decode, `report-offsite-age`'s exit-0-while-broken duplicate |
-| **not fixable by code alone** | `guard-registry` (F5, owner approval + crontab), `owner_queue`/`attention_debt` (owner), `config_sync` divergence (F4, publish decision), `phone_endpoint` (F6, missing probe), `_db_lock` contention (F11) |
-| **worst single defect** | `personality.narrative` held **277,712** entries / **22.6 MB** with no cap — 68 % of a 33.4 MB store; a stat-keyed cache added the same day hid the read cost but nothing bounded the growth (F8) |
-| **biggest live error source** | `db_contention` "closed on handout": **461 rows in 24 h**, every one auto-resolved by reconnect (F10) |
+| **not fixable by code alone** | `guard-registry` (F5, owner approval + crontab), `owner_queue`/`attention_debt` (owner), `config_sync` divergence (F4, publish decision), `phone_endpoint` (F6, missing probe), FTS `_content` duplication (F15, schema migration) |
+| **worst single defect** | `personality.narrative` held **277,734** entries / **22.6 MB** with no cap — 68 % of a 33.4 MB store; a stat-keyed cache added the same day hid the read cost but nothing bounded the growth (F8) |
+| **biggest live error source** | `db_contention` "closed on handout": **469 rows in 48 h**, but **415 of them are one 2-minute burst** at 2026-10-12T13:57Z from `GET /api/v1/comms/active-phones` — not a steady rate (F10) |
+| **biggest measured reclaimable space** | the FTS5 **`dsh_session_events_fts_content` table is 8.79 GB of duplicated `raw` text** — 36 % of the 22.95 GB database (F15) |
 
 The two checks the brief names as broken (`liveness`, `db_writable`) were **already fixed in
 the working tree** of `/root/ceo-kernel` when this session arrived, uncommitted. I verified
 them against live data, ran the kernel's own tests, and **committed** them
 (`/root/ceo-kernel` @ `91c6f2e`). I did not re-implement them; rule 0 of this estate is
 *prove it does not already exist*.
+
+**Continuation re-verification (16:35Z).** Independently re-read on the authority:
+`ck/sentinel.py:448` `LIVENESS_MAX_AGE_SECONDS = 4 * 3600.0` and the real
+`_age_seconds(pkt.value)` at `:491` (no `or 0`); `ck/sentinel.py:2323/2328`
+`DB_WRITE_PROBE_SECONDS = 6.0` / `DB_WRITE_CONFIRM_SECONDS = 60.0` with the confirming
+re-probe at `:2392`; `app/identity_store.py:5428-5432` carries the five history caps and
+`_enforce_history_caps` is called from the write path at `:2123`. The live
+`latest.json` (16:35:04Z) reports **4 non-ok** (`agent_dead_weight`, `attention_debt`,
+`owner_queue` HIGH; `phone_endpoint` MEDIUM) — `liveness` and `db_writable` are green
+because they now measure the right thing.
+
+The continuation's own new fix is **F10**, §4: the `db_contention` "closed on handout"
+noise is a real defect — `unified_comms._conn()` handed back the cached per-thread
+connection to three callers that close it. It is fixed in `/opt/company` @ `98c0595b`.
 
 ---
 
@@ -111,27 +128,30 @@ queue by construction. **Not fixed** (not an engineering defect).
 
 ## 2. CRON AND TIMER HEALTH
 
-Source: `/root/.cron-status/runs.tsv`, 5,896 rows, 2026-10-11T06:32Z → 2026-10-12T16:24Z.
+Source: `/root/.cron-status/runs.tsv`, re-read in the continuation: **5,947 rows**,
+2026-10-11T06:32Z → 2026-10-12T16:39Z.
 
-| metric | value |
-|---|---|
-| non-zero rows, whole ledger | **720 / 5,896 = 12.2 %** |
-| non-zero rows, last 24 h | **515 / 4,574 = 11.3 %** |
-| wrapped cron lines (`cron-target-guard` decodes) | 33 |
-| custom systemd timers | all `Result=success`; `systemctl --failed` empty |
+| metric | first pass (16:24Z) | continuation (16:39Z) |
+|---|---|---|
+| non-zero rows, whole ledger | 720 / 5,896 = 12.2 % | **722 / 5,947 = 12.1 %** |
+| non-zero rows, last 24 h | 515 / 4,574 = 11.3 % | **512 / 4,595 = 11.1 %** |
+| non-zero, since 2026-10-12T00:00Z | — | **314 / 3,398 = 9.2 %** |
+| wrapped cron lines (`cron-target-guard` decodes) | 33 | 33 |
+| custom systemd timers | all `Result=success`; `systemctl --failed` empty | unchanged |
 
 **Worst offenders (last 24 h):**
 
 | job | non-zero / runs | rc now | cause, from the ledger / own log |
 |---|---|---|---|
-| `cron-target-guard` | 228 / 287 | 0 | now clean (28 targets, 12 critical paths, `ok:true`); the mass failure was a transient **FAIL with every finding list empty** (§3, F12) |
-| `guard-registry` | **96 / 96** | **2** | `/root/bin/guards.yaml` missing (F5) |
-| `dialpad-recording-gap` | 62 / 287 | 0 | **0 / 197 failures since 00:00Z** — already fixed by moving `SECRETARY_DB=` into the job's environment (doc `156`) |
+| `cron-target-guard` | 228 / 287 | **0** | last FAIL 16:10Z; **clean 16:15→16:35Z** (28 targets, 12 critical paths, `ok:true`). The mass failure was a transient **FAIL with every finding list empty** (§3, F12) |
+| `guard-registry` | **96 / 96** | **2** | `/root/bin/guards.yaml` missing (F5); still 100 % every run |
+| `dialpad-recording-gap` | 60 / 24 h | 0 | **0 failures since 00:00Z** (the 60 are all before midnight) — fixed by moving `SECRETARY_DB=` into the job's environment (doc `156`) |
 | `ai-gateway-health` | 48 / 48 | **3** | by design: all findings are CONDITIONs; `tier-collapse` + `unattributed-calls` (`app/code_self_edit.py` logs `model=unknown`). rc=3 is the checker's "condition, not fault" code |
-| `dialpad-transcript-gap` | 31 / 143 | 0 | **0 / 98 failures since 00:00Z** — same fix |
+| `dialpad-transcript-gap` | 30 / 24 h | 0 | **0 failures since 00:00Z** — same fix |
 | `production-comms-freshness` | 22 / 96 | 0 | intermittent during the harvest window; latest runs `fresh` |
 | `website-comms-push-cron` | 10 / 37 | 0 | intermittent; own log empty, reason on stdout |
-| `authority-repo-push` | 2 / 5 | 0 | `cron-wrap REFUSED: payload … is not valid base64` — a **crontab line that is not wrapped**; a crontab defect, out of scope, reported |
+| `authority-repo-push` | 2 / all-time | **0** | **F13 WITHDRAWN** — crontab line 52 is base64-wrapped
+(`L3Vzci9sb2NhbC9iaW4vYXV0aG9yaXR5LXJlcG8tcHVzaC5zaA==` → `/usr/local/bin/authority-repo-push.sh`) and the last run 06:00Z was rc=0; the two rc=2 rows predate the fix |
 
 **Timers (18):** `authority-offsite-backup`, `authority-data-offsite`, `authority-deadman`,
 `authority-report-offsite-age`, `estate-monitor`, `company-outcome-monitor`,
@@ -144,51 +164,92 @@ Source: `/root/.cron-status/runs.tsv`, 5,896 rows, 2026-10-11T06:32Z → 2026-10
 
 ### 3.1 Disk — not immediately critical, but trending down
 
-| reading | value |
-|---|---|
-| `df -h /` | 75 G total, **56 G used, 16 G avail, 79 %** |
-| `disk-guard` (used/total, 16:30Z) | **74.9 %**, 15.7 GB free; warn 90 %, crit 95 % |
-| growth, full guard window (31.9 h) | **+13.7 pts / −10.2 GB free ≈ 7.7 GB/day** |
-| growth, **last 6 h** | **+0.5 pts / −0.40 GB free ≈ 1.6 GB/day** |
-| `/root` | 27.2 GB (the 24.6 GB DB dominates) |
-| `/opt/company` | 21 GB — `data` 12.7 (google_voice_profiles 6.8, chromadb 2.9, mem0 1.1), `archive/lpt-transcripts` 6.3, `.venv` 1.5 |
-| DB growth | register baseline 24,232,910,848 B (03:47Z) → 24,608,387,072 B (16:30Z): **≈ 0.7 GB/day**; a 5-minute sample gives ≈ 1.0 GB/day |
-| archive growth | 4.1 GB (`151`, 2026-10-11 20:39Z) → **6.3 GB** now; `transcript-archive-pull.timer` writes hourly (newest 16:27Z) |
+| reading | first pass (16:30Z) | continuation (16:42Z) |
+|---|---|---|
+| `df -h /` | 75 G total, **56 G used, 16 G avail, 79 %** | 75 G total, **63 G used, 9.1 G avail, 88 %** |
+| `disk-guard` | 74.9 %, 15.7 GB free; warn 90 %, crit 95 % | (guard not re-run; `df` says 88 %) |
+| growth, full guard window (31.9 h) | **+13.7 pts / −10.2 GB free ≈ 7.7 GB/day** | — |
+| growth, **last 6 h** | **+0.5 pts / −0.40 GB free ≈ 1.6 GB/day** | 50 s sample: 64,336 → 64,360 → 64,183 MB used (**fell 180 MB**) |
+| `/root` | 27.2 GB (the 24.6 GB DB dominates) | **31 GB** (DB 24.6, `work/lpt-hub` 3.6 incl. a 1.6 GB pack written 16:40Z, `.fsearch` 0.2) |
+| `/opt/company` | 21 GB — `data` 12.7 (google_voice_profiles 6.8, chromadb 2.9, mem0 1.1), `archive/lpt-transcripts` 6.3, `.venv` 1.5 | **25 GB** — `data` 13 (chromadb 2.4, mem0 1.1, google_voice_profiles), `archive/lpt-transcripts` **9.0** (`objects` 6.2, `incoming` 2.8 staging), `.venv` 1.5 |
+| DB growth | 24,232,910,848 B (03:47Z) → 24,608,387,072 B (16:30Z): **≈ 0.7 GB/day** | 24,638,205,952 B (16:34Z) |
+| archive growth | 4.1 GB (`151`, 2026-10-11 20:39Z) → 6.3 GB | → **9.0 GB**, hourly `transcript-archive-pull` |
 
-At the recent ~1.6 GB/day the 15.7 GB free lasts ~10 days; the 31.9-hour average would
-say ~2 days. Nothing is unbounded in the *filesystem* sense — the driver is the DB and the
-actively-draining transcript archive, both by design — but the headroom is thin enough that
-the 90 % warn is reachable within the week if the archive backfill accelerates.
+The 79 % → 88 % move in ~12 minutes is **not** a runaway writer: it is the hourly
+transcript-archive pull (archive `objects` +2.7 GB) plus a 1.6 GB `lpt-hub` git pack another
+actor wrote at 16:40Z, and the archive's `incoming/` staging tarball
+(`zabz-tech.tar`, 2.89 GB) is deleted after ingest — the 50-second sample shows used space
+*falling* as staging is reaped. The trend is still the concern: **9.1 GB free is ~6 days at
+1.6 GB/day and ~1 day at the 7.7 GB/day guard-window average**, so the 90 % warn is
+reachable today. `incoming/.unpack-*` leftovers are 9 empty 4 KB dirs (harmless); no stale
+bulk data was found in `incoming` beyond the active staging tarball.
 
 ### F9 — disk and DB growth trend (open, no code fix)
 
 The two consumers that move the needle are the **database (~0.7–1.0 GB/day)** and
-**`archive/lpt-transcripts` (4.1 GB → 6.3 GB in ~20 h)**. There is no retention defect to
-repair: `disk-guard` reports `backup_dirs: 0` and the offsite backup streams without staging
-a local copy. The finding is simply that 15.7 GB free is ~10 days at the recent rate, and
-the 90 % warn threshold is within reach — measured, not inferred.
+**`archive/lpt-transcripts` (6.3 GB → 9.0 GB in ~15 min of ingest)**. There is no retention
+defect to repair: `disk-guard` reports `backup_dirs: 0` and the offsite backup streams
+without staging a local copy. The finding is that **only 9.1 GB is free** and the 90 % warn
+is reachable today — measured, not inferred.
 
-### 3.2 The database — **~0 % is reclaimable by `VACUUM`** (measured, not guessed)
+### 3.2 The database — **`VACUUM` reclaims ~0.0 %; `dbstat` measured** (not guessed)
 
 ```
 page_size=4096  page_count=6,007,004  freelist_count=119  auto_vacuum=0
-db bytes           = 24,604,688,384
+db bytes           = 24,604,688,384  (16:30Z)
 free (reclaimable) = 119 * 4096 = 487,424 B  =  0.0 %
 WAL                = 67,108,864 B (auto-checkpoint 1000)
 ```
 
 So there is **no free-page bloat to vacuum away**; `VACUUM` would free ~0.5 MB and needs
-~24 GB scratch (we have 15.7 GB) — it must not be run. A per-table `dbstat` breakdown was
-started but did **not finish** (killed after 187 s); it is not claimed.
+~24 GB scratch (we have ~9 GB) — it must not be run.
+
+**The `dbstat` breakdown the first pass could not finish (F15).** A second, `nice -n 19
+ionice -c3` run completed in ~6 minutes over the 24.6 GB file. `dbstat` reports **637
+b-trees, 22.95 GB total**; the distribution is extraordinarily concentrated:
+
+| b-tree | bytes | share | rows/cells |
+|---|---|---|---|
+| `dsh_session_events` (base table) | **8,890,896,384** | 36.1 % | 1,955,013 rows |
+| `dsh_session_events_fts_content` | **8,790,097,920** | 35.7 % | 2,515,338 |
+| `dsh_session_events_fts_data` (FTS index) | **3,609,485,312** | 14.6 % | 1,772,103 |
+| `sqlite_autoindex_dsh_session_events_1` | 129,482,752 | 0.5 % | 1,955,013 |
+| `idx_dsh_session_events_seq` | 129,384,448 | 0.5 % | 1,955,013 |
+| `procedural_experiences` | 606,044,160 | 2.5 % | 37,007 |
+| `dialpad_stats_record` | 367,304,704 | 1.5 % | 268,342 |
+| `memory_vectors_vector_chunks00` | 302,387,200 | 1.2 % | 95 |
+| `gateway_trace_span` | 162,217,984 | 0.7 % | 617,076 |
+| `work_sessions` | 148,635,648 | 0.6 % | 106,066 |
+| **all other 627 b-trees** | **~1.36 GB** | 5.9 % | — |
+
+**F15 — the single largest reclaimable object is a duplicated FTS copy, not stale rows.**
+
+* The FTS table is default-content: `CREATE VIRTUAL TABLE dsh_session_events_fts USING
+  fts5(source_machine UNINDEXED, session_id UNINDEXED, ordinal UNINDEXED, raw)`. FTS5 with
+  no `content=` option materialises a **second full copy of every `raw` value** in
+  `dsh_session_events_fts_content`. The base table's own `raw TEXT NOT NULL` column already
+  holds it (`SELECT length(raw)` and `SELECT length(c3)` both returned 96 for the first row).
+* **8.79 GB (35.7 % of the database) is therefore pure duplication**; rebuilding the FTS as
+  an external-content index (`content='dsh_session_events'`) would remove it, leaving the
+  index in `_fts_data` (3.61 GB). The base table + FTS is **~21.3 GB = 93 % of the database**.
+* **Not applied.** It is a schema migration that rebuilds a 12 GB index on the live sole
+  writer — owner/change-window territory, not a safe in-place fix. It is the measured answer
+  to "how much could be pruned", and the answer is *the duplication, not dead rows*.
+* Retention is a second, separate lever: `dsh_session_events` is the archive projection
+  (AGENTS.md §1 says sessions are kept forever) and no retention defect was proven, so no
+  row was deleted. Row count **1,955,013**.
+
 
 ### F8 — `data/agent_identities.json`: one record is growing without bound  ✅ FIXED in source (not live)
 
 * **Measured:** file **39,354,486 B / 126 agents**, `updated_at` rewritten every few minutes.
   `orchestrator` alone is **5,477,592 B**; across all 126 agents the field sizes are:
-  * `personality.narrative` — **277,712 entries, 22,584,929 B (22.6 MB)** ← the growth
-  * `identity_proposals` — **11,526 entries, 2,950,687 B**, *every one* `pending_owner_input`
-  * `personality` (name/personality payloads) — 1.9 MB
-  * `identity_notes` — 1,159; `voice_history` — 1,831; `name_history` — 562
+  * `personality.narrative` — **277,734 entries, 22,586,727 B (22.6 MB)** ← the growth
+  * `memory` — 11,799 entries, 3,897,861 B (already capped at 300/agent)
+  * `identity_proposals` — **11,528 entries, 2,951,451 B**, *every one* `pending_owner_input`
+  * `identity_notes` — **18,836 entries, 2,238,320 B**
+  * `hierarchy.stewardship.notes` — 6,988 entries, 459,185 B
+  * `voice_history` — 1,957 entries, 37,523 B; `name_history` — 693 entries, 9,289 B
 * **The cache that hid it:** commit `17febcd5` (2026-10-12) added a stat-keyed `_load` cache
   ("a 37.5 MB JSON file was re-read and re-parsed on every request"), taking p50 from
   972 ms → 857 ms. It removes the *read cost*; **nothing bounds the file itself**.
@@ -201,10 +262,13 @@ started but did **not finish** (killed after 187 s); it is not claimed.
   `voice_history` at 100, `name_history` at 100 — keeping the **newest** entries — and is
   called from the single write path `_save()` so it holds on every persistence pass.
   `sha256 f326a285… → 8a7defa6…`, `py_compile OK`.
-* **Verified on a copy of the live store:** with the caps applied, **231,922 narrative +
-  11,026 proposal + 3,207 note + 1,731 voice + 462 name entries** would be pruned, freeing
-  **22,119,113 B = 21.09 MB (66.3 %)**; a second pass prunes 0 (idempotent); a malformed
-  agent returns `{}` rather than raising inside `_save`.
+* **Verified on a copy of the live store** (first pass), and **independently re-run in the
+  continuation at 16:39Z** by importing the shipped `_enforce_history_caps` and applying it
+  to the then-live file: **231,944 narrative + 11,028 proposal + 3,207 note + 1,732 voice +
+  462 name entries** pruned, freeing **22,121,308 B = 21.10 MB (66.3 %)** of the 33,389,854 B
+  serialised store; a second pass prunes 0 (idempotent). The live file was 39,354,636 B on
+  disk with `personality.narrative` = **277,734 entries / 22,586,727 B** across 126 agents
+  (recursive field measurement).
 * **Not yet live:** `identity_store.py` is loaded by `company-api`; the cap only executes on
   the service's next write after a restart. **`company-api` was not restarted** (per the
   brief), so the live file is still 39.35 MB. The fix is applied, compiled and tested, not
@@ -223,30 +287,48 @@ effectively untouched. Memory is **not** a current finding.
 
 Source: `error_log` (2,494 rows, 1,196 unresolved all-time) and the journal.
 
-**Last 24 h: 479 rows**, dominated by one:
+**The `db_contention` line, re-measured by minute (continuation).** The first pass read
+"461 in 24 h" as a steady rate. It is not: per-hour grouping of all 1,034 `db_contention`
+rows shows **417 in the 13:00Z hour**, of which **415 are at 13:57:45–13:58:xxZ**; every
+other hour in the 2-day window holds 1–4. The background rate is **~1/hour**, and the
+"loudest error in the log" was one incident.
 
-| n | type | message | resolution |
-|---|---|---|---|
-| **461** | `db_contention` | `Cannot operate on a closed database (detected on handout and reconnected; closed by explicit cache eviction)` | auto-resolved (reconnect) |
-| 7 | `sms_reply_timeout` | `Timed out after 10.0s` | 3 unresolved |
-| 3 | `wo_failure_streak` | `seed_browser_session_health` failed 4 consecutive runs | unresolved |
-| 2 | `unhandled_exception` | `database is locked` | unresolved |
+| window | rows |
+|---|---|
+| all-time `db_contention` | 1,034 (`closed_on_handout` 845, `other` 156, `leaked_transaction` 31, `closed_in_use` 2) |
+| 48 h ending 16:39Z | 469 |
+| 2026-10-12T13:00Z hour | 417 |
+| 2026-10-12T13:57–13:58Z | **415** |
+| any other hour, last 48 h | 1–4 |
+| last 30 min before the fix (16:12–16:39Z) | **1** (16:23:42Z) |
 
-All-time, the largest unresolved cluster is **406 `unhandled_exception: database is locked`**
-(2026-08-23 → 2026-10-11, median burst size), historically the app's global `_db_lock`
-(`170 §5.4`, `P3139`). In the last 24 h only **2** fresh lock errors appeared — the
-contention is materially quieter than at the time of `170`.
+### F10 — `unified_comms._conn()` closed the cached per-thread connection  ✅ FIXED (not live)
 
-### F10 — the connection cache evicts connections live threads still hold
-
-`app/database.py:_prune_connection_cache_locked()` closes a cached connection when its
-owning thread is gone **or** it has been idle longer than `CONN_CACHE_IDLE_TTL_S`. Because
-`_get_conn()` hands out a bare connection the caller keeps using after the call returns, a
-long statement can outlive the idle TTL; the cache then closes it, and the next `_get_conn`
-records `closed_on_handout` and reconnects. **461/day** is that path. It is instrumented and
-recovers, so no customer work is lost — but it is the loudest error in the log and it is a
-defect in the cache's liveness assumption. **Not fixed:** tightening it safely needs a
-usage/lease signal the cache does not have, and the fix-shape was not proven in this window.
+* **Root cause (new).** Every `closed_on_handout` row in the burst is
+  `site=app/database.py:_get_conn` / `closed by explicit_close_by_owner`. The journal for
+  the burst names the source: `company-api` (pid 1084) logged ~415 `DB connection for
+  sqlite:////root/authority.db:128919727059456 was closed by explicit_close_by_owner;
+  reconnecting` lines interleaved with ~415 `GET /api/v1/comms/active-phones` (127.0.0.1)
+  200s. `app/services/unified_comms.py:_conn()` returned `app.database._get_conn(...)` —
+  the cached per-thread connection that callers MUST NOT close (`database.py:1090`) — but
+  all three callers close it in a `finally` (`:1831`, `:2093`, `:2343`, including
+  `list_active_customer_phones`, which that endpoint calls). Each request closed its
+  thread's connection; the next request on that thread reconnected and logged a row.
+  The first pass's diagnosis (idle-TTL vs. live owner) was the wrong path: the live TTL
+  loop already skips live owners (`database.py:1276`); the closer was the caller.
+* **Fix.** `_conn()` now returns an **owned** `app.database.connect_db(...)` connection —
+  the documented precedent from `owner_attention_sweep.py:42`. `/opt/company` @
+  **`98c0595b`**, backup `/tmp/unified_comms.py.bak-188-20261012T163708Z`,
+  `sha256 4ea779c1… → e8a16a2f…`, `py_compile OK`.
+* **Measured before/after** (live `/root/authority.db`, two calls on one thread, the app's
+  own `_record_contention` captured):
+  * **before:** `call2 events=['closed_on_handout']`
+  * **after:**  `call2 events=[]`, rows identical (`5/5`, first phone `8456712943`)
+* **Not yet live:** the running process started 14:14:39Z and loaded the old module;
+  `company-api` was **not** restarted. Cron jobs importing `unified_comms` pick it up on
+  their next run. Until a restart the endpoint keeps churning.
+* The *load* side — ~3.5 req/s of a heavy 60-day `GROUP BY` from localhost — is a client
+  polling loop; only the server closing a borrowed handle is fixed here.
 
 Secondary genuine defects in the log, unfixed and reported: **stripe package not installed**
 (1), **ghost_agent** (tasks assigned to ids absent from the identity store, 5 in 24 h),
@@ -260,6 +342,8 @@ Secondary genuine defects in the log, unfixed and reported: **stripe package not
 |---|---|---|---|
 | `liveness` | "ticking" at any age | age forced to 0 by `or 0` | **was green, fixed (F1)** |
 | `db_writable` | "refuses writes" (HIGH) | 30/30 acquired at 25 s | **was red, fixed (F2)** |
+| **`db_contention` / `error_log`** | the unresolved-error view is quiet (every row is written `resolved=1`, `resolution='…auto-reconnect'`) | 415 rows in one 2-minute burst were a real caller defect that the resolution field pre-labels as "handled" | **green because it resolves itself, not because it is fixed** — root-caused and fixed (F10) |
+| **`authority-repo-push`** | (was reported red) | crontab line 52 *is* base64-wrapped now (`…L3Vzci9sb2NhbC9iaW4vYXV0aG9yaXR5LXJlcG8tcHVzaC5zaA==` → `/usr/local/bin/authority-repo-push.sh`); latest run 06:00Z rc=0 | **not a current defect** — the earlier rc=2 rows were pre-fix; F13 withdrawn |
 | **`lpt-deploy-drift`** | `VERDICT: IN SYNC`, fetch `True` | simultaneously prints `dirty files: 137 <-- unpushed local edits` — the running API is not any committed revision | **green ignoring the thing that matters**; verdict logic tracks only ahead/behind, deliberately (its own docstring). Reported, not changed |
 | **`agent_identities.json` cache** | requests are fast | the file grew to 39.35 MB / 22.6 MB of it a single unbounded list | **cost hidden, growth unexplained**; fixed (F8) |
 | **`cron-target-guard`** | `FAIL` with `missing=[] unreadable=[] not_executable=[] crit=[]` (15:50–16:10Z) | a failure verdict carrying **no finding at all** | observed transient, self-resolved to `ok`. Reported; not reproducible to fix |
@@ -275,7 +359,8 @@ Secondary genuine defects in the log, unfixed and reported: **stripe package not
 |---|---|---|---|---|
 | F1 | `liveness` real age + measured 240-min threshold | `/root/ceo-kernel` commit **`91c6f2e`** | `age=0` (always) → `age=2462 s`, `max=14400 s` | **yes** (cron reads the working tree) |
 | F2 | `db_writable` 60 s confirming re-probe | same commit | 6 s miss → HIGH; now 6 s + 60 s confirm, MEDIUM if acquired | **yes** |
-| F8 | identity-store history caps | `/opt/company/app/identity_store.py`, commit **`4d6a606c`** (backup `/tmp/identity_store.py.bak-20261012T162944Z`) | 33,386,951 B → **11,267,838 B** projected (−21.09 MB, −66.3 %) | **no — needs a `company-api` restart, which was not performed** |
+| F8 | identity-store history caps | `/opt/company/app/identity_store.py`, commit **`4d6a606c`** (backup `/tmp/identity_store.py.bak-20261012T162944Z`) | 33,389,854 B → **11,268,546 B** projected (−22.12 MB, −66.3 %) | **no — needs a `company-api` restart, which was not performed** |
+| **F10** | `unified_comms._conn()` returns the cached per-thread connection to three callers that close it → `closed_on_handout` burst | `/opt/company/app/services/unified_comms.py`, commit **`98c0595b`** (backup `/tmp/unified_comms.py.bak-188-20261012T163708Z`) | 2-call test: `events=['closed_on_handout']` → `events=[]`; 415-row burst was the live form | **no — same restart; cron importers pick it up next run** |
 
 **Already fixed before this session** (verified, left alone): `dialpad-recording-gap` /
 `dialpad-transcript-gap` (0 failures since 00:00Z; the fix was moving `SECRETARY_DB=` into
@@ -295,26 +380,33 @@ the job environment, doc `156`), `cron-script-guard`'s blind decode (now
 * **F3 `agent_dead_weight`** — retire or repair `frontier_risk_board`; a product call.
 * **F6 `phone_endpoint`** — no probe exists to repair; one must be written.
 * **F7 `attention_debt`/`owner_queue`** — the owner's queue.
-* **F10 `db_contention`** — the cache's liveness assumption needs a lease/usage signal and a
-  proof not obtained here.
-* **F11 `_db_lock` serialisation** (`170 §5.4`) — the maker of the contention; a stack dump
-  inside a stalled request is still the next measurement, not a fix.
-* **F12 `cron-target-guard` FAIL-with-empty-lists** — transient; not reproducible now.
-* **F13 `authority-repo-push` unwrapped crontab line** (`not valid base64`) — a crontab
-  defect; crontab is out of scope.
+* **F11 `_db_lock` serialisation** (`170 §5.4`) — the maker of the *background* contention
+  (1–4 rows/hour); a stack dump inside a stalled request is still the next measurement, not
+  a fix. The 2026-10-12T13:57Z burst is F10, now fixed.
+* **F12 `cron-target-guard` FAIL-with-empty-lists** — transient; last FAIL 16:10Z, clean
+  since 16:15Z; not reproducible now.
 * **F14 `lpt-deploy-drift` verdict** — `IN SYNC` while dirty is the script's documented
   design; changing a monitor's contract without the owner was not done.
-* **Disk / DB per-table size** — `VACUUM` free space is measured (0.0 %); the `dbstat`
-  per-table breakdown was still running when this was written and is not claimed.
+* **F15 FTS `_content` duplication** — 8.79 GB of duplicated `raw` text; the migration to an
+  external-content FTS5 index rebuilds a 12 GB index on the live sole writer, so it is a
+  change-window/owner decision, not a safe in-place fix. Measured, not applied.
+* **F13 WITHDRAWN** — `authority-repo-push`'s crontab line is correctly wrapped and its
+  latest run is rc=0; the two rc=2 rows predate the fix.
 
 ## 8. WHAT I COULD NOT ESTABLISH
 
-* Per-table byte sizes in the 24.6 GB database (`dbstat` did not finish in the window).
 * Whether `frontier_risk_board` is repairable or should be retired.
 * Which actor, if any, is concurrently editing the same repositories; `identity_store.py`
   was last touched 14:14Z and `ceo-kernel/ck/sentinel.py` 16:02Z, and both changes were
-  landed/preserved rather than overwritten.
-* The effect of the identity cap on the live process (restart not performed).
+  landed/preserved rather than overwritten. In the continuation `unified_comms.py` mtime was
+  2026-10-07 and no other editor touched it.
+* The effect of the identity cap on the live process (restart not performed) and of the F10
+  fix on the live endpoint (same). Both are verified in-process only.
+* The row/date range of `dsh_session_events` (a `MIN/MAX(created_at)` scan over 8.9 GB of
+  text timed out; row count 1,955,013 is measured) — so whether *rows* (as opposed to the
+  FTS copy) are prunable is not established.
+* Who or what polls `GET /api/v1/comms/active-phones` at ~3.5 req/s from localhost during
+  the burst; the web proxy is `web/app/api/comms/unified/active-phones/route.ts`.
 
 ---
 
@@ -346,4 +438,30 @@ sqlite3 'file:/root/authority.db?mode=ro' \
 # identity growth
 python3 -c 'import json;d=json.load(open("/opt/company/data/agent_identities.json"))["agents"];
 o=d["orchestrator"];print(len(o["personality"]["narrative"]),len(o["identity_proposals"]))'
+
+# F10 — the defect and the fix, two calls on one thread, on a throwaway DB
+#   /tmp/test_borrowed_close.py sets DATABASE_URL=sqlite:////tmp/t188.db, calls
+#   unified_comms._conn() twice, and captures app.database._record_contention:
+cd /opt/company && DATABASE_URL=sqlite:////tmp/t188.db ./.venv/bin/python /tmp/test_borrowed_close.py
+#   before (backup module): uc._conn() is the cached connection: True  -> events=['closed_on_handout']
+#   after  (98c0595b):      uc._conn() is the cached connection: False -> events=[]
+
+# F15 — per-table sizes (ran ~6 min under nice/ionice; 637 b-trees, 22.95 GB)
+nice -n 19 ionice -c3 sqlite3 -readonly 'file:/root/authority.db?mode=ro' \
+  'SELECT name, SUM(pgsize) bytes, SUM(ncell) cells FROM dbstat GROUP BY name ORDER BY bytes DESC;'
+
+# F15 — the FTS holds its own copy of raw (default content), so _fts_content duplicates it
+sqlite3 -readonly 'file:/root/authority.db?mode=ro' \
+  "SELECT sql FROM sqlite_master WHERE name='dsh_session_events_fts';"
 ```
+
+## 10. CONTINUATION ACCESS AND COMMITS
+
+* **Seat:** `zabz-tech-linux` (the shell this session was given), reached `secratary-cloud`
+  over `ssh -i ~/.ssh/id_ed25519_hetzner root@178.156.194.1`; the estate mesh key is still
+  refused for every user tried. This is the same access shape the first pass recorded.
+* **Application fix:** `secratary-cloud:/opt/company` @ **`98c0595b`** (F10), on top of
+  `4d6a606c` (F8).
+* **Kernel fixes:** `secratary-cloud:/root/ceo-kernel` @ **`91c6f2e`** (F1, F2, unchanged).
+* **This report:** `secratary-cloud:/root/code/harness-config/docs/mesh/188-SYSTEM-AUDIT-AND-FIXES.md`
+  and the mirror `zabz-tech-linux:/home/zabz/code/harness-config/docs/mesh/188-SYSTEM-AUDIT-AND-FIXES.md`.
