@@ -22,7 +22,7 @@ sessions. Each is excellent and each is partial, and **they disagree with each o
 |---|---|
 | **the estate's real state** | **Working, and better than it was 48 hours ago.** The authority is live (3 h 55 m up, one boot ever), the badge reads a live sentinel, search works in every mode, the database is backed up offsite and sha-verified at both ends, the deadman pings healthchecks.io every 5 min and gets 200, three of five mesh nodes answer in 73–195 ms, and the frozen office box can no longer fire a single company job (0 real crontab lines). |
 | **the one thing that will bite** | **Memory on the authority.** 7.7 GB box, `company-api` at 4.5 GB RSS / 5.7 GB peak, 2.0 GB of 4.0 GB **swap in use**, `MemoryMax=infinity`, and one kernel OOM kill in the last 24 h. This is the only recurring failure that is *not* engineering — it is a 20–30 USD/month instance resize, and it is the owner's. |
-| **the biggest real defect found tonight** | **The migration's own governing documents exist on one laptop only.** 49 files in `docs/mesh/` — `131-MIGRATION-BRIEF`, `142-ANCHOR-WRITE-NOTICE`, `132`, `135`–`160`, `174` — are in this laptop's clone and in the bare repo on the **frozen** office box, and in **no other copy anywhere**. The authority's own repo has 83 mesh docs; this laptop has 131. §4.1. |
+| **the biggest real defect found tonight** | **The record is single-copy and its citations only resolve on one machine.** 49 files in `docs/mesh/` exist on this laptop and nowhere else (the authority has 83, this laptop 131) — and **276 journal entries**, including every one the master records cite, exist only here too; all five ids tested (`H3568`, `L3736`, `P3139`, `W2738`, `D3050`) are ABSENT on the authority, whose own ids sit in a different range. §4.1, §4.3. |
 | **the queue is the other defect** | `owner_decision_queue` holds **162 pending**. **118 of them (73 %) come from three automated generators** — 90 from one night's work-order sweep, 10 from a board walk, 6 asking the same low-balance question six times. Triage in §5 finds **9–10 items that are genuinely his.** He said "you are being annoying"; this is the mechanism. |
 | **what is mine to do next** | 12 items, ordered, in §6 — led by the durability of those 49 docs, the mesh's two dead roster rows, and the two kernel checks that still measure the wrong thing. |
 | **what is his** | **One question tonight** (§5.1): the authority's memory — resize the instance, or keep it and cap the app. |
@@ -204,7 +204,40 @@ genuinely concurrent — **but a 15-minute cache plus an instant-sampled compari
 will periodically report HIGH**, and a HIGH that is usually wrong is worse than no check. Fix shape:
 require the disagreement to persist across two consecutive samples before it escalates (§6.3).
 
-### 4.3 The broker's own counters say what the documents do not
+### 4.3 The journal's ids mean different things on different machines — so the master records' own citations do not resolve
+
+**Measured by hashing every entry on both machines** (`journal/entries/**/*.md`, sha256, both sides):
+
+| reading | value |
+|---|---|
+| entries on this laptop | **3,511** |
+| entries on the authority | **3,262** |
+| filenames present on **both** | **3,235** — and **every one of them has an identical heading and different bytes** |
+| **on this laptop only** | **276** |
+| **on the authority only** | **27** |
+
+**What that means, precisely, and what it does not.** The bytes differ because the two trees were
+written by different paths (240 of this laptop's entries carry CRLF; the authority's are LF). The
+content is the *same content* — `P1` on both machines is the same `P1`. **This is not the two-entries-
+one-id catastrophe the check exists to prevent**, and the laptop's `journal.py check` reports 0 errors.
+
+**The part that does hurt.** The 276 laptop-only entries are precisely **the entries every master
+record from tonight cites**: `journal.py show H3568` (173), `L3736` / `D3050` / `P3139` (170, 171),
+`L3743`–`L3746` / `W2739` / `P3138` (172) — **all five I tested are ABSENT on the authority**, whose own
+counter sits in a different range (`L3620`, `P2936` for entries I wrote an hour ago). So:
+
+- every `docs/mesh/*` record written on this laptop cites ids a reader on the authority cannot open;
+- the authority's own fast-search index covers its 3,259 entries — **not** the 276 that carry tonight's
+  reasoning;
+- and the same document reads differently depending on which machine you are standing on.
+
+**It is a known class with tooling already built for it** — `journal.py repair-ids --apply`,
+`dedupe --apply`, `import-legacy --apply`, and the cross-machine repair record in `163`. **What is
+missing is the convergence itself**, and a decision only the estate can make: *which machine is the
+one allocator of journal ids.* Every machine currently allocates its own, which is why the two spaces
+drifted apart while both stayed internally consistent.
+
+### 4.4 The broker's own counters say what the documents do not
 
 `reads: 40, readFailures: 25` — a **62 % read-failure rate** — while three of five nodes answer in
 under 200 ms. The failures are the two unreadable rows (§2.3) multiplied by retries, and they are
@@ -258,8 +291,11 @@ else here should be read to him before §5.1 is answered.
 
 1. Get this laptop's 49 missing mesh docs **into the vault and the authority**, from a machine that
    holds the credential. Verify by counting files, not by reading a push's exit code (§7.2).
-2. Make `config_sync` measure content coverage, not HEAD equality (§4.2), so a document that exists
-   on one machine is a finding, not silence.
+1b. **Converge the journal (§4.3)** — the 276 laptop-only entries onto the authority, with the
+   cross-machine alias/repair tooling `163` describes, and then decide the one allocator of journal
+   ids. **This is the item that makes every other document's evidence readable.**
+2. Make `config_sync` measure content coverage, not HEAD equality (§4.2), so a document or an entry
+   that exists on one machine is a finding, not silence.
 3. Track `data/tools/` (`172` §5.2) — the guard catches a loss; nothing prevents one.
 4. The Mac's push mechanism (`170` §6.2) — needs the owner to name a credential on an employee's box.
 
