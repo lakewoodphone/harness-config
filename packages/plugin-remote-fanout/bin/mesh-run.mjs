@@ -24,11 +24,20 @@
  * WHY THE BROKER IS REACHED OVER SSH
  * The broker is loopback-only on the authority, deliberately: a placed job must
  * not be requestable by every device on a tailnet whose ACL is allow-all. The
- * caller already has ssh to the authority, so `ssh secratary-ts curl -s
+ * caller already has ssh to the authority, so `ssh <authority> curl -s
  * -XPOST localhost:3091/...` is the transport. If that is ever reconsidered, the
  * argument for publishing it would have to come with an authenticated path in
  * front of it — the same argument `66-dsh-remote-capability.md` makes for the
  * plugin route, and it is not obviously won.
+ *
+ * AND THE AUTHORITY IS NOW `secratary-cloud`, NOT THE OFFICE BOX (2026-10-12).
+ * This default was `secratary-ts` — the machine the 2026-10-11 cutover FROZE as
+ * the rollback anchor — while the provider row in
+ * `profiles/web/cordis.patch.yml` had already been retargeted to
+ * `secratary-cloud` (commit d143fb7a). Two dispatch paths, two different
+ * brokers, one of them on a read-only box: the two now name the same machine, as
+ * they should have in the first place. See docs/mesh/159-MESH-POST-MIGRATION.md.
+ * `MESH_BROKER_SSH` still overrides it.
  *
  * WHY THE JSON GOES IN argv AND NOT ON STDIN
  * Measured 2026-09-17: Win32-OpenSSH's client does not exit when its STDOUT is a
@@ -49,7 +58,7 @@ import path from 'node:path';
 import { createBrokerClient } from '../lib/broker-client.js';
 import { hostMatchesNode, invocationForNode, isHostToken, NODES } from '../lib/nodes.js';
 
-const BROKER_SSH = process.env.MESH_BROKER_SSH ?? 'secratary-ts';
+const BROKER_SSH = process.env.MESH_BROKER_SSH ?? 'secratary-cloud';
 const BROKER_URL = process.env.MESH_BROKER_URL ?? 'http://localhost:3091';
 
 /**

@@ -174,6 +174,103 @@ export function assessNode(health, { wantV2 = true, wantSsh = true } = {}) {
   return { ok: true, node, transports, freeSlots, busy, reason: null, evidence };
 }
 
+/**
+ * Say what a node can take when its HEALTH route is missing but its CAPACITY
+ * route answered.
+ *
+ * WHY THIS EXISTS (measured 2026-10-12, after the cloud cutover). Two live nodes
+ * of this mesh — `zabz-tech-linux` and the office box — reach their engine
+ * through a local gate that forwards `/mesh/capacity` and answers 404 / 502 for
+ * `/mesh/health`. Before this function, the broker-unreachable fallback asked
+ * only for health, so it threw those two nodes away and could see two of four
+ * working machines. A fallback that sees half the mesh is worse than no
+ * fallback, because it looks like a decision.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DO: invent slots. `freeSlots` is null, and it
+ * stays null, because the only place this estate's slot arithmetic is allowed to
+ * live is the broker (`packages/mesh-broker/lib/scoring.js`). A second
+ * implementation of that arithmetic on the dispatcher is the defect class this
+ * whole programme exists to kill. An unmeasured node therefore scores 0 and
+ * ranks BELOW every measured node — usable, never preferred, and honest about
+ * which it is. `position` stays 0 because "unknown" is not "short": a node whose
+ * slots nobody measured must not make a child wait two minutes for a slot that
+ * may well be free.
+ *
+ * v2 is NOT offered: the v2 route's usability is advertised in the health
+ * document (`auth.secretConfigured`), and this document does not carry it. Only
+ * v1 ssh is claimed here, and only when the caller offers it.
+ *
+ * Total by construction, like `assessNode`: nothing throws.
+ *
+ * @param {object|null|undefined} capacity the parsed `GET /mesh/capacity` body, or nothing
+ * @param {{wantSsh?: boolean}} [options]
+ * @returns {{ok: boolean, node: string|null, transports: string[], freeSlots: number|null,
+ *            busy: boolean, reason: string|null, evidence: object}}
+ */
+export function assessCapacityOnly(capacity, { wantSsh = true } = {}) {
+  let doc;
+  try {
+    doc = capacity !== null && typeof capacity === 'object' ? capacity : null;
+  } catch {
+    doc = null;
+  }
+  if (doc === null) {
+    return {
+      ok: false,
+      node: null,
+      transports: [],
+      freeSlots: null,
+      busy: false,
+      reason: 'no capacity document — this node did not answer',
+      evidence: { answered: false },
+    };
+  }
+  let node = null;
+  let evidence;
+  try {
+    node = typeof doc.node === 'string' && doc.node.trim() !== '' ? doc.node : null;
+    evidence = {
+      answered: true,
+      source: 'capacity-only',
+      ok: true,
+      node,
+      fqdn: doc.fqdn ?? null,
+      logicalCpus: doc.cpu?.logical ?? null,
+      physicalCpus: doc.cpu?.physical ?? null,
+      freeMiB: doc.mem?.freeMiB ?? null,
+      freeGiB: doc.disk?.freeGiB ?? null,
+      agents: doc.agents ?? null,
+      governor: doc.governor ?? null,
+      healthRouteMissing: true,
+      freeSlots: null,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      node: null,
+      transports: [],
+      freeSlots: null,
+      busy: false,
+      reason: `the capacity document could not be read (${String(error?.message ?? error)}) — treated as "this node did not answer"`,
+      evidence: { answered: true, unreadable: true },
+    };
+  }
+
+  if (wantSsh !== true) {
+    return {
+      ok: false,
+      node,
+      transports: [],
+      freeSlots: null,
+      busy: false,
+      reason: 'this node\'s health route did not answer, so its v2 route cannot be judged, and ssh was not offered',
+      evidence,
+    };
+  }
+
+  return { ok: true, node, transports: ['v1'], freeSlots: null, busy: false, reason: null, evidence };
+}
+
 /** The first line of a rationale for one candidate, in the harness's own units. */
 function describeTerm(name, value) {
   return `${name}: ${value === null || value === undefined ? 'not measured' : value}`;
@@ -268,7 +365,9 @@ export function rankCandidates(candidates, { exclude = [], thisNode = null, chil
   for (const entry of ranked) {
     entry.rationale = [
       `${entry.node ?? '(unnamed)'}: ${describeTerm('freeSlots', entry.freeSlots)} vs ${wanted} child(ren) — `
-      + (Number.isFinite(entry.freeSlots) && entry.freeSlots >= wanted ? 'fits' : 'short, so this will QUEUE rather than be refused'),
+      + (!Number.isFinite(entry.freeSlots)
+        ? 'slots UNMEASURED (its health route did not answer), so it ranks below every measured node and is NOT treated as short: position stays 0'
+        : (entry.freeSlots >= wanted ? 'fits' : 'short, so this will QUEUE rather than be refused')),
       `transports ${entry.transports.join('>') || 'none'}`,
     ];
   }
@@ -304,9 +403,19 @@ export function chooseFailoverPlacement(observations, options = {}) {
       rationale.push(`unreachable: ${name ?? '(unnamed)'} — ${String(observation.error)}`);
       continue;
     }
-    const verdict = assessNode(observation.health ?? null, { wantV2, wantSsh });
+    const verdict = observation.health != null
+      ? assessNode(observation.health, { wantV2, wantSsh })
+      : (observation.capacity != null
+        ? assessCapacityOnly(observation.capacity, { wantSsh })
+        : assessNode(null, { wantV2, wantSsh }));
     assessed.push({ ...verdict, node: verdict.node ?? name });
     if (verdict.ok !== true) rationale.push(`not usable: ${verdict.node ?? name ?? '(unnamed)'} — ${verdict.reason}`);
+    else if (observation.health == null) {
+      rationale.push(
+        `${verdict.node ?? name ?? '(unnamed)'}: its /mesh/health route did not answer (${String(observation.healthError ?? 'no reason recorded')}), `
+        + 'but its /mesh/capacity route did — the node is USABLE over v1 ssh and its slots are UNMEASURED, so it ranks below every measured node rather than being thrown away',
+      );
+    }
   }
 
   const { ranked, chosen, rationale: rankRationale } = rankCandidates(assessed, {

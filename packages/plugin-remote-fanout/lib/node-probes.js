@@ -77,6 +77,49 @@ export async function probeNode(node, {
   const base = nodeBaseUrl(node, { tailnet });
   const health = await readJson(`${base}/mesh/health`, { timeoutMs, fetchImpl });
   if (health.ok !== true) {
+    // A MISSING ROUTE IS NOT A DEAD MACHINE (measured 2026-10-12, post-migration).
+    // Two live nodes of this mesh — `zabz-tech-linux` and the office box — reach
+    // their engine through a local gate (`scripts/phone-gate.py`) that forwards
+    // `/mesh/capacity` and answers 404 / 502 for `/mesh/health`. Reading only
+    // health therefore threw two working nodes away and left the broker-unreachable
+    // fallback with half a mesh, which is the same "one machine wearing the costume
+    // of five" defect this module exists to remove.
+    //
+    // The second read is attempted ONLY when the gate answered at all: if the
+    // health read timed out or never connected, the machine is genuinely
+    // unreachable and a second full-length wait would only double the cost of a
+    // dead node (the mac mini is off most nights).
+    if (Number.isFinite(health.status)) {
+      const retry = await readJson(`${base}/mesh/capacity`, { timeoutMs, fetchImpl });
+      if (retry.ok === true) {
+        return {
+          node,
+          base,
+          health: null,
+          healthStatus: health.status,
+          healthError: health.error ?? `health answered HTTP ${health.status}`,
+          capacity: retry.doc,
+          capacityError: null,
+          error: null,
+          healthRouteMissing: true,
+          ms: health.ms + retry.ms,
+          status: health.status,
+        };
+      }
+      return {
+        node,
+        base,
+        health: null,
+        healthStatus: health.status,
+        healthError: health.error ?? `health answered HTTP ${health.status}`,
+        capacity: null,
+        capacityError: retry.error ?? 'capacity did not answer',
+        error: retry.error ?? health.error ?? 'no mesh route answered',
+        healthRouteMissing: false,
+        ms: health.ms + retry.ms,
+        status: health.status,
+      };
+    }
     return { node, base, health: null, error: health.error ?? 'health did not answer', ms: health.ms, status: health.status ?? null };
   }
   let capacity = null;

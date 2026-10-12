@@ -48,6 +48,25 @@
 100.119.73.69     # iphone-11-1            LPT STORE 2 — DRN 2002, shop counter
 100.76.204.64     # ipad-air-5th-gen-wifi  LPT STORE 3 — DRN 2003, the shop iPad
 #
+# ADDED 2026-10-12 — THE MESH BROKER'S OWN HOST, AND IT IS NOT A PERSON'S DEVICE.
+# `secratary-cloud` is the authority, and it runs `mesh-broker` — the placement service every
+# dispatcher asks before it fans a child out to the mesh. That broker reads each node's
+# `GET /mesh/capacity` through THIS gate, so without a line here it cannot read a single node.
+# MEASURED, 2026-10-12 03:18Z, before this line existed: from the cloud every node answered
+# `HTTP/2 403` ("Not signed in"), and the broker's own `GET /nodes?fresh=1` reported 5 of 5 nodes
+# `unreachable` (`reason: HTTP 403`) with 0 free slots. Its answer to `POST /place` was therefore a
+# blind one — `zabz-tech, position 1, blockedBy ["unreachable","no-free-slots"]` — so every child
+# queued and piled onto one machine while four others sat idle. That is the exact defect the broker
+# exists to prevent, which is why the address is here.
+#
+# WHAT IT COSTS, SAID PLAINLY. A listed device is signed in automatically, so a compromise of the
+# authority now also buys a 30-day session — a shell — on every machine listed above it, on top of
+# the company database, the API and the offsite credentials that box already holds. The narrow
+# reason it is here is the broker's READ path, not "the authority is trusted". Two reverts, both one
+# line: delete this line to refuse the cloud again; stop `mesh-broker` on the cloud and put the
+# broker back where it was to undo the move. Recorded in docs/mesh/159-MESH-POST-MIGRATION.md.
+100.73.176.126    # secratary-cloud  THE AUTHORITY — runs mesh-broker, which must read every node
+#
 # ACCEPTED EXPOSURE, WRITTEN DOWN ON PURPOSE. The three LPT STORE devices live on a counter customers
 # can reach, and a listed device receives a 30-day cookie that is a shell on this authority. They are
 # staff devices, locked to a ten-app allowlist by their MDM profile, and they were added because the
