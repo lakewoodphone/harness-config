@@ -240,7 +240,7 @@ freeMiB 7059) to a listed device. Its own allow-list does not list the authority
 broker cannot read it and pays the **4,000 ms wall-clock deadline** on every cold placement — the
 single largest term in the cold numbers in §3. Fix: one line in that machine's
 `phone-gate-allow.txt` (it needs shell access, which is not available while ssh is timing out), or
-take its row out of the roster. Recorded as `P3133`.
+take its row out of the roster. Recorded as `P3134`.
 
 ### 5.3 The mailbox directory is never created for the child
 See §4.2. The provider computes the thread path and tells the child to read it, but nothing creates

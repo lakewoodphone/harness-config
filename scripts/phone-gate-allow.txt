@@ -64,7 +64,8 @@
 # the company database, the API and the offsite credentials that box already holds. The narrow
 # reason it is here is the broker's READ path, not "the authority is trusted". Two reverts, both one
 # line: delete this line to refuse the cloud again; stop `mesh-broker` on the cloud and put the
-# broker back where it was to undo the move. Recorded in docs/mesh/159-MESH-POST-MIGRATION.md.
+# broker back where it was to undo the move. Recorded in docs/mesh/159-MESH-POST-MIGRATION.md, journal
+D3050 (decision), L3737 and L3738 (lessons), H3570 (handoff).
 100.73.176.126    # secratary-cloud  THE AUTHORITY — runs mesh-broker, which must read every node
 #
 # ACCEPTED EXPOSURE, WRITTEN DOWN ON PURPOSE. The three LPT STORE devices live on a counter customers
