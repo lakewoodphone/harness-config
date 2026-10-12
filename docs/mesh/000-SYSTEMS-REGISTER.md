@@ -45,10 +45,10 @@
 ### 2.2 Backups — **ALREADY EXISTS. R2 and restic. NO STORAGE BOX IS NEEDED.**
 | what | where / how |
 |---|---|
-| **raw DB → R2** | `secratary-ts:~/bin/push-db-offsite.sh` → `authority/secretary.db.gz` in bucket `lakewood-rentals-media`, plus a `.sha256` sidecar. Creds `~/.lpt-r2.env` (mode 600, token scoped to ONE bucket). |
-| **6-hourly snapshot tarball → restic → R2** | `secratary-ts:~/bin/company-offsite-push.sh` → streams to Box 2, written into **`psm-backups/company-offsite`** by `/root/company-offsite-backup.sh` on `lpt-apps`. |
+| **raw DB → R2 — THE LIVE ONE** | **`secratary-cloud`**: `authority-offsite-backup.timer` (daily `05:20 UTC` + 600 s jitter, `Persistent=true`, enabled) → `authority-offsite-backup.service` → `/usr/local/bin/authority-offsite-backup.sh` (source: `harness-config/scripts/mesh/authority-offsite-backup.sh`). It streams `/root/authority.db` → `lpt-authority-backups/authority/secretary.db.gz` as a page-stream | gzip -6 | multipart 64 MiB with **no intermediate file**, then **streams the object back and sha256-compares both ends** before writing the `.sha256` sidecar. Evidence `/var/lib/authority-backup/last-run`, log `/var/log/authority-offsite.log`; `authority-data-offsite.timer` covers `/opt/company/data`; creds `/root/.lpt-r2.env` (643 B, 600 root). Verified 2026-10-12: 24,232,910,848 B in → 6,437,638,766 B out, `sqlite_magic=ok`. |
+| **FROZEN — do not treat these as the mechanism** | `secratary-ts:~/bin/push-db-offsite.sh` (bucket `lakewood-rentals-media`) and `~/bin/company-offsite-push.sh` (→ restic `psm-backups/company-offsite`) both source **frozen office state** (`/home/zabz/secretary-backups`). Their cron lines were removed on 2026-10-12 and the office crontab is now empty; the box has been the rollback anchor, not the authority, since the 2026-10-11 cutover. See `173-MASTER-RECORD-AUTHORITY-DURABILITY-AND-CHIP.md` §1.4 and `172-CRON-PORT-INVENTORY.md`. |
 | **NEVER MERGE THE TWO RESTIC REPOS** | the nightly `lpt-apps` job runs `restic forget` with no tag filter and would evict the company's copy |
-| **freshness monitor** | `~/bin/report-offsite-age.sh` (every 30 min) → reports newest TRUSTED copy to the vault |
+| **freshness monitor** | **`authority-report-offsite-age.timer` on `secratary-cloud`** (every 30 min) → reports the newest remote object to the vault. The office copy of `report-offsite-age.sh` is frozen. |
 | **local snapshots** | `secratary-ts:/home/zabz/secretary-backups/<stamp>/`, pruned by `prune-backups.sh` |
 | **completeness** | **`COMPLETE` marker** written LAST by `backup-data.sh`; both pushers REQUIRE it and refuse a directory without one. Added 2026-10-10 (P2931). |
 
