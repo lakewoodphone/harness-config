@@ -2213,6 +2213,8 @@ lessons	L3618	3618		2026-10-12	SECRATARY-CLOUD	open	**L3618 · A monitor that re
 lessons	L3619	3619		2026-10-12	SECRATARY-CLOUD	open	**L3619 · On this estate the DEPLOYED script can be newer than the committed one, so a fix applied only to /opt is a fix scheduled to be reverted**	entries/lessons/L3619.md	1	6	e2c297e278febed2		
 lessons	L3620	3620		2026-10-12	SECRATARY-CLOUD	open	**L3620 · a divergence check that samples an instant fires HIGH on a healthy repo two sessions are pushing to**	entries/lessons/L3620.md	1	39	a5537ab5af05c309		
 lessons	L3621	3621		2026-10-12	SECRATARY-CLOUD	open	**L3621 · Yanofsky's 'more truths than proofs' argument: the refutation is answer 4726030, not the accepted one**	entries/lessons/L3621.md	1	19	0a31d396605ef1f5	yanofsky,logic,research	
+lessons	L3622	3622		2026-10-12	SECRATARY-CLOUD	open	**L3622 · AI mathematics 2026: one peer-reviewed anchor, and IMO-perfect-score claims that are company-only**	entries/lessons/L3622.md	1	14	682ab3f573d62abe	ai-mathematics,imo,yanofsky,mesh,provenance	
+lessons	L3623	3623		2026-10-12	SECRATARY-CLOUD	open	**L3623 · 2026 OpenAI Navier-Stokes claim: two forensic corrections from the primary record**	entries/lessons/L3623.md	1	6	e4249c607a2e8ebd		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
