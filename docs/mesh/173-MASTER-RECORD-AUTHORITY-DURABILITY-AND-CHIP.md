@@ -25,7 +25,7 @@ wrong, and the corrections are §1.3 and §1.4.**
 | **the authority** | `git push` had **no credential** — 15 commits on one NVMe. Now pushes, and a daily job keeps it current; that job **refuses on divergence and has no force path**. |
 | **the offsite backup** | **Not missing — it was already built, scheduled and verified.** I repeated a stale finding. Corrected in §1.3, evidence in §4. |
 | **the office box** | `cron.service` was masked but **93 jobs were loaded, and they demonstrably ran for 1 h 19 m** when a session unmasked it on 11 October. Crontab now saved and emptied; the duplicate company timer disabled. |
-| **still open** | **24 jobs that did real work and were never ported** (inventoried, `172-CRON-PORT-INVENTORY.md`); the office box's still-running `mesh-broker` vs the authority's (owner question **#447**); a `report-offsite-age` boto3 flake. §5. |
+| **still open** | **24 jobs that did real work and were never ported** (inventoried, `174-CRON-PORT-INVENTORY.md`); the office box's still-running `mesh-broker` vs the authority's (owner question **#447**); a `report-offsite-age` boto3 flake. §5. |
 | **what you do** | Nothing tonight. One decision is already in your queue and is **not** mine to take: **#447**, two mesh brokers for one mesh. §5.3. |
 
 ---
@@ -280,7 +280,7 @@ Read-only proven: main DB sha256 identical before and after.
 ## 4. WHAT TO DO NEXT
 
 ### 4.1 Mine, and small
-1. **Port the 24 `STILL-NEEDED-UNPORTED` jobs**, smallest and least dangerous first, from `172-CRON-PORT-INVENTORY.md`. Four
+1. **Port the 24 `STILL-NEEDED-UNPORTED` jobs**, smallest and least dangerous first, from `174-CRON-PORT-INVENTORY.md`. Four
    of them (`wake-fanout`, `cfo-ask`, `owner-ask`, `deadman`) **spend money or contact a human** and
    must be ported one family at a time with their guard decided on the authority first — never in a
    sweep, and never by unmasking the office crontab.
@@ -303,7 +303,14 @@ Read-only proven: main DB sha256 identical before and after.
 **This session's primary record**
 
 - **`/root/code/harness-config/docs/mesh/173-MASTER-RECORD-AUTHORITY-DURABILITY-AND-CHIP.md`** — this file.
-- `/root/code/harness-config/docs/mesh/172-CRON-PORT-INVENTORY.md` — the job-by-job inventory of the 93
+- `/root/code/harness-config/docs/mesh/171-CLOUD-AUTHORITY-AUDIT-START-HERE.md` — **the other half of this
+  session's estate work, written by a different session at 04:00–04:30Z.** It answers a different owner
+  question — *"is the cloud authority an order of magnitude faster and more robust"* — with the
+  throughput harness, the `database is locked` counts, the 139 MB/s verified backup, and the **memory
+  regression that is now the binding constraint** (7.7 GB box, 3 OOM kills of `company-api` on 11 October,
+  `MemoryMax=infinity`). Read it for the authority's *performance*; read this file for the family chat and
+  the authority's *durability*. Where the two overlap they agree, except for one count — see §8.8.
+- `/root/code/harness-config/docs/mesh/174-CRON-PORT-INVENTORY.md` — the job-by-job inventory of the 93
   office cron jobs with the port plan. Recovered from `/root/cron-port-inventory.md` on the authority,
   where it existed in no repository.
 - `/opt/company/docs/family-chat/2026-10-12-chip-too-mean-too-loud.md` — the family-chat half in full:
@@ -337,7 +344,7 @@ Read-only proven: main DB sha256 identical before and after.
   sentinel, and its §9 lists what it could not verify.
 - `/root/code/harness-config/docs/mesh/159-MESH-POST-MIGRATION.md` — the two-broker question (#447).
 - `/root/code/harness-config/docs/mesh/139-PORT-OWNER-CHANNEL.md` — the port that installed the
-  authority's read-only `sms-inbox`; relevant to `172-CRON-PORT-INVENTORY.md`'s hazard list.
+  authority's read-only `sms-inbox`; relevant to `174-CRON-PORT-INVENTORY.md`'s hazard list.
 
 **Scripts installed by this session**
 
@@ -425,6 +432,13 @@ ssh secratary-ts "ls -la /home/zabz/cutover/crontab.frozen-* /home/zabz/cutover/
 6. **The office box's remaining live role is unresolved**: `phone-gate.service` and `mesh-broker.service`
    both still run there. `mesh-broker` is question #447. `phone-gate` relays to a local engine port and
    was not investigated.
+8. **Two different counts of the same thing, and one of them should win.** `171` §1.4 says **59 of 93**
+   office cron jobs have no cloud counterpart. `174` §A classifies all 93 as PORTED 27 /
+   MUST-NEVER-RUN-AGAIN 27 / STILL-NEEDED-UNPORTED 24 / HAZARD-IF-UNMASKED 13 / DEAD 2 — so **64 are
+   neither ported nor provably dead**. The two figures were produced independently from the same crontab by
+   two sessions within an hour of each other. This is a method difference (a job-name match versus reading
+   each script), not a disagreement about any individual job: **`174` carries the per-row evidence and its
+   classification governs.** A future session should reconcile the headline number rather than quote either.
 7. **The `-wal` file of the family chat's SQLite was touched during my read-only inspection** (normal
    SQLite reader behaviour); the main `.db` file's sha256 was identical before and after every read I
    took, and the message count did not change.
