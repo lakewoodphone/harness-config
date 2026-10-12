@@ -2230,6 +2230,7 @@ lessons	L3628	3628		2026-10-12	SECRATARY-CLOUD	open	**L3628 · 'Solvable by mach
 lessons	L3629	3629		2026-10-12	SECRATARY-CLOUD	open	**L3629 · MEASURED: the company API queues 13x from concurrency 1 to 32, and /health proves the queue is the single PROCESS, not the database lock**	entries/lessons/L3629.md	1	58	c78827a33aaf1061		
 lessons	L3630	3630		2026-10-12	SECRATARY-CLOUD	open	**L3630 · the API slowness was a 37.5 MB JSON identity file re-parsed twice per request - not the database, and Postgres would not have fixed it**	entries/lessons/L3630.md	1	62	a8a9b15d4fea3897		
 lessons	L3631	3631		2026-10-12	SECRATARY-CLOUD	open	**L3631 · ssh multiplexing is live and 10x on the Linux node - and the ssh latency was pwsh.exe starting, not the network; ssh -O check is not a health check**	entries/lessons/L3631.md	1	43	0ad63ba840787082		
+lessons	L3632	3632		2026-10-12	SECRATARY-CLOUD	open	**L3632 · Windows ssh cannot multiplex (Win32-OpenSSH, open since 2016) - but an MSYS2 ssh is already on the machine; and the mesh has exactly one transport with the fallback built and unwired**	entries/lessons/L3632.md	1	74	927c1903783843f4		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
