@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import datetime as _dt
 import hashlib
 import json
@@ -336,16 +337,35 @@ def redact(text: str) -> str:
 # Identity keys — copied from v1, because they encode two real bugs
 # ---------------------------------------------------------------------------
 
+_NORM_BODY_CACHE: dict = {}
+
+
 def norm_body(text: str) -> str:
-    """Whitespace-collapsed body, used as the identity of an entry."""
-    lines = [ln.rstrip() for ln in (text or "").replace("\r\n", "\n").split("\n")]
+    """Whitespace-collapsed body, used as the identity of an entry.
+
+    MEMOISED, and memoising is safe here because this is a PURE function of its argument:
+    no filesystem, no clock, nothing to invalidate, so a cached value can never be stale.
+
+    WHY. Measured 2026-10-12 on ZABZ-YOGA with
+    `python -m cProfile -s cumtime journal.py check`: this function was called **34,140
+    times for 3,464 entries** -- about ten times per entry -- and cost **17.6 s of a 48.7 s
+    profile**. `check` runs after every append, so that was 17.6 s of repeated work per
+    session, on the machine the owner works on.
+    """
+    key = text or ""
+    hit = _NORM_BODY_CACHE.get(key)
+    if hit is not None:
+        return hit
+    lines = [ln.rstrip() for ln in key.replace("\r\n", "\n").split("\n")]
     while lines and not lines[-1].strip():
         lines.pop()
     while lines and lines[-1].strip() in {"---", "***"}:
         lines.pop()
         while lines and not lines[-1].strip():
             lines.pop()
-    return re.sub(r"[ \t]+", " ", "\n".join(lines)).strip()
+    result = re.sub(r"[ \t]+", " ", "\n".join(lines)).strip()
+    _NORM_BODY_CACHE[key] = result
+    return result
 
 
 def body_hash(body: str) -> str:
@@ -829,12 +849,58 @@ def legacy_signature() -> dict:
     return {"log_sig": log_h.hexdigest(), "log_count": n_log, "flat_sig": flat_h.hexdigest()}
 
 
+_ENTRIES_CACHE: dict = {}
+
+
+def _entries_freshness():
+    """A cheap key that changes whenever the entry tree changes.
+
+    The cache is keyed on the TREE'S OWN STATE -- how many entry files there are and the
+    newest mtime among them -- rather than on an invalidation call somebody has to remember
+    to make. A write changes the count or the mtime, so the key changes, so the next read
+    re-parses. There is no "remember to clear it" step for a future session to forget.
+
+    A tree that cannot be walked returns a unique key, which means "never cache" -- the
+    cheap path must never be the one that serves an unverifiable answer.
+    """
+    root = entries_dir()
+    if not root.exists():
+        return ("absent",)
+    count = 0
+    newest = 0
+    try:
+        for kind_dir in root.iterdir():
+            if not kind_dir.is_dir():
+                continue
+            for f in os.scandir(kind_dir):
+                if f.is_file() and f.name.endswith(".md"):
+                    count += 1
+                    m = f.stat().st_mtime_ns
+                    if m > newest:
+                        newest = m
+    except OSError:
+        return ("unwalkable", time.time_ns())
+    return (count, newest)
+
+
 def load_entries():
     """Every entry in the tree, parsed from files. This is the source of truth.
 
     Returns (entries, problems). An entry's own `problems` are errors; its `notes` are
     explanations (a heading that carries a legacy id, say) that `check` reports as INFO.
+
+    MEMOISED on the tree's own freshness key (see `_entries_freshness`). WHY. Measured
+    2026-10-12 on ZABZ-YOGA with `python -m cProfile -s cumtime journal.py check`: a single
+    `check` called this **three times**, re-parsing all 3,464 entries each time -- 10,392
+    `parse_entry` calls and **37.5 s of a 48.7 s profile** for one pass over the same 3,464
+    files. Callers receive deep copies, so a caller that edits a returned entry cannot
+    corrupt the cache; the entries are strings and ints, so a deep copy is a structural
+    copy and costs a small fraction of re-parsing.
     """
+    key = _entries_freshness()
+    cached = _ENTRIES_CACHE.get(key)
+    if cached is not None:
+        return copy.deepcopy(cached[0]), copy.deepcopy(cached[1])
     out = []
     problems = []
     root = entries_dir()
@@ -858,6 +924,8 @@ def load_entries():
             for p in e.get("problems") or []:
                 problems.append("%s: %s" % (_rel_of(f), p))
             out.append(e)
+    _ENTRIES_CACHE.clear()          # keep exactly one generation, never a growing map
+    _ENTRIES_CACHE[key] = (out, problems)
     return out, problems
 
 
