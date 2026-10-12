@@ -53,6 +53,10 @@
 | **completeness** | **`COMPLETE` marker** written LAST by `backup-data.sh`; both pushers REQUIRE it and refuse a directory without one. Added 2026-10-10 (P2931). |
 
 ### 2.3 The mesh (fan-out + orchestration)
+> **Read first: `docs/mesh/160-MESH-STATE-AND-NEXT.md`** — one page with the mesh's measured state,
+> what was done in the 2026-10-12 post-cutover audit, what to do next, and a reference to every other
+> document. The rows below are the durable facts; 160 is the map.
+
 | what | where / how |
 |---|---|
 | **fan out to another machine** | the `subagent` tool = the mesh provider (`remote-ssh`). `subagent_local` runs HERE; `subagent_fork` runs in this process WITH this history. **Never fan out locally while the mesh is reachable.** |
