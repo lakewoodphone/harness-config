@@ -65,7 +65,16 @@ CLIENT_CANDIDATES = [
 # `scripts/archive-push-laptop.ps1` + the `PersonalSecretary-ArchivePush` task on that machine.
 MACHINES = {
     "secratary":       {"alias": "local",        "os": "linux"},
-    "zabz-yoga":       {"alias": None,           "os": "windows", "push": True},
+    # WAS: {"alias": None, "os": "windows", "push": True}. The repo marked the laptop push-fed
+    # (commit aba858d, 2026-10-11) because the pull flapped on it, and that push half IS deployed on
+    # ZABZ-YOGA (`archive-push-laptop.ps1` present, task PersonalSecretary-ArchivePush LastTaskResult
+    # 0). But the PULL is the path that is verifiably working right now: the 03:23 pass on
+    # 2026-10-12 pulled files_new=5 from it and the archive holds its arrivals up to 03:40. Switching
+    # the pull OFF is not this workstream's to do, and doing it in the same change as an exit-code
+    # fix means nobody could tell which one moved the archive. So the pull stays an explicit target;
+    # if it genuinely becomes unreachable the patched runner reports it honestly instead of failing
+    # the unit. Revisit only with the push proven to deliver on its own.
+    "zabz-yoga":       {"alias": "zabz-yoga-1",  "os": "windows"},
     "zabz-tech":       {"alias": "zabz-tech",    "os": "windows"},
     "zabz-tech-linux": {"alias": "linux-pc-ts",  "os": "linux"},
     "lakewooechsmini": {"alias": "mac-mini-ts",  "os": "mac"},
