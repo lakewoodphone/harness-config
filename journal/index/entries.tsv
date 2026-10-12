@@ -1056,6 +1056,7 @@ handoff	H3545	3545		2026-10-12 17:40 UTC	ZABZ-YOGA	open	## 2026-10-12 17:40 UTC 
 handoff	H3546	3546		2026-10-12 17:44 UTC	ZABZ-TECH	open	## 2026-10-12 17:44 UTC · ZABZ-TECH · Mintz WO2609010004 disposal notice sent + label printed; the wake loop that would catch his reply is dark	entries/handoff/H3546.md	1	48	c1a3ab62914f0a37	lpt,mintz,disposal,wake	
 handoff	H3547	3547		2026-10-12 17:45 UTC	ZABZ-TECH	open	## 2026-10-12 17:45 UTC · ZABZ-TECH · Halon 8482217775 (Qin battery): case file 18 days stale, inbound 5.8 days unanswered, production order CANCELLED - case file + production note written, reply awaiting the owner's go	entries/handoff/H3547.md	1	33	e34270e5a27ff220	lpt,halon,qin,battery,production	
 handoff	H3548	3548		2026-10-12 17:47 UTC	ZABZ-TECH	open	## 2026-10-12 17:47 UTC · ZABZ-TECH · Rahimi/Mizrachi OnePlus Nord N30 third return: case pulled, production written back, money question queued as #448	entries/handoff/H3548.md	1	32	6585b49bc28e2591		
+handoff	H3549	3549		2026-10-12 17:50 UTC	ZABZ-TECH	open	## 2026-10-12 17:50 UTC · ZABZ-TECH · Halon 8482217775: the reply WENT OUT (Dialpad 5886422138265600, 35 fitting) - supersedes the 'drafted NOT sent' line in H3547	entries/handoff/H3549.md	1	27	6a06f5b287511f9e	lpt,halon,qin,sent	H3547
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2532,6 +2533,7 @@ lessons	L3687	3687		2026-10-12	ZABZ-TECH	open	**L3687 · A customer's newest inb
 lessons	L3688	3688		2026-10-12	ZABZ-TECH	open	**L3688 · Pricing a job where the customer supplies the part: our fitted quote minus the part's street value, then check it against the labour-only precedent.**	entries/lessons/L3688.md	1	26	175da79d20c6e1c8	lpt,pricing,PRICING-RULE,customer-supplied	
 lessons	L3689	3689		2026-10-12	ZABZ-TECH	open	**L3689 · The call recording is the only record of a free rework - read the calls before believing a case history is complete**	entries/lessons/L3689.md	1	25	cd1c2dbbd5ce61c7		
 lessons	L3690	3690		2026-10-12	ZABZ-TECH	open	**L3690 · lpt sql from PowerShell splits on escaped quotes - express camelCase columns through to_jsonb() instead**	entries/lessons/L3690.md	1	23	7ecd31ae7819944d		
+lessons	L3691	3691		2026-10-12	ZABZ-TECH	open	**L3691 · A push that fails silently forks the journal - the BOM in .ssh/config, six stranded commits, and 19 ids that mean two different entries**	entries/lessons/L3691.md	1	45	f036a687140340c5		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3020,7 +3022,7 @@ pain	P3133	3133		2026-10-12	ZABZ-TECH	open	## P3133 — The vendor mailbox has n
 pain	P3134	3134		2026-10-12	ZABZ-TECH	open	## P3134 — The agent SMS path is policy-blocked, and the approved script path leaves no audit row	entries/pain/P3134.md	1	37	8f9a29f946a20fdb		
 pain	P3135	3135		2026-10-12	ZABZ-YOGA	open	## P3135 — An lpt-hub case file can sit seven weeks behind production on a CLOSED job and no verifier notices	entries/pain/P3135.md	1	35	5cd8014a09d00344	lpt,case-files,drift	WO2608170001,WO26091512708
 pain	P3136	3136		2026-10-12	ZABZ-TECH	open	## P3136 — The wake loop went dark at the 2026-10-11 authority cutover: no dispatcher, no sources, on either box	entries/pain/P3136.md	1	49	f5232a87b71eb746	wake,authority-cutover,autonomy	
-pain	P3137	3137		2026-10-12	ZABZ-TECH	open	## P3137 — No agent can create a work order, and none can record a settled payment - an after-hours drop-off stays invisible until a human types it in	entries/pain/P3137.md	1	24	c8c63481bedb689f		
+pain	P3142	3142		2026-10-12	ZABZ-TECH	open	## P3142 — No agent can create a work order, and none can record a settled payment - an after-hours drop-off stays invisible until a human types it in	entries/pain/P3142.md	1	28	c512aeef80619d49		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
