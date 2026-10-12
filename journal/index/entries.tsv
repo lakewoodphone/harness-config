@@ -895,6 +895,8 @@ handoff	H3449	3449		2026-10-11 16:13 UTC	SECRATARY-CLOUD	open	## 2026-10-11 16:1
 handoff	H3450	3450		2026-10-11 23:42 UTC	SECRATARY-CLOUD	open	## 2026-10-11 23:42 UTC · SECRATARY-CLOUD · Caught up: the anchor is intact (and reading it changes it), the mesh was blind and is fixed, and the money monitor that lied 2,859 times	entries/handoff/H3450.md	1	92	4638b4fb5dce62df		
 handoff	H3574	3574		2026-10-12 03:58 UTC	ZABZ-YOGA	open	## 2026-10-12 03:58 UTC · ZABZ-YOGA · zabz-tech search index: the cause is NOT established - here is what is ruled out and the exact next step	entries/handoff/H3574.md	1	81	3514fc2eefbaf6cd	search,find-anything,zabz-tech,open-item,unestablished	H3571,P3138,P2899
 handoff	H3575	3575		2026-10-12 05:09 UTC	ZABZ-YOGA	open	## 2026-10-12 05:09 UTC · ZABZ-YOGA · the search audit's record is ONE document - docs/mesh/172-MASTER-RECORD-SEARCH-SYSTEM.md - committed and pushed; here is where	entries/handoff/H3575.md	1	58	49d9469fe3b88181	search,documentation,handoff,push,git	H3571,H3574,L3748,P3135,D3052
+handoff	H3576	3576		2026-10-12 05:20 UTC	SECRATARY-CLOUD	open	## 2026-10-12 05:20 UTC · SECRATARY-CLOUD · estate state 2026-10-12: 175 written and pushed; 49 migration docs are single-copy; the queue triaged 162 to 9-10	entries/handoff/H3576.md	1	70	95e8a966ae3a5896		
+handoff	H3577	3577		2026-10-12 05:22 UTC	SECRATARY-CLOUD	open	## 2026-10-12 05:22 UTC · SECRATARY-CLOUD · Yanofsky profile: two sessions, one tree, and the tree now has a verified second copy	entries/handoff/H3577.md	1	23	666c20a0fedc4935		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2209,6 +2211,7 @@ lessons	L3616	3616		2026-10-12	SECRATARY-CLOUD	open	**L3616 · Finding a session
 lessons	L3617	3617		2026-10-12	secratary-cloud	open	**L3617 · Lane below the call floor and outside the catalogue survives when its provider has no catalogue entries**	entries/lessons/L3617.md	1	6	39cdf49b30e6555b		
 lessons	L3618	3618		2026-10-12	SECRATARY-CLOUD	open	**L3618 · A monitor that reads the app over HTTP inherits the app inner lock**	entries/lessons/L3618.md	1	6	eea0392db320746d	authority,monitor,lock-contention	
 lessons	L3619	3619		2026-10-12	SECRATARY-CLOUD	open	**L3619 · On this estate the DEPLOYED script can be newer than the committed one, so a fix applied only to /opt is a fix scheduled to be reverted**	entries/lessons/L3619.md	1	6	e2c297e278febed2		
+lessons	L3620	3620		2026-10-12	SECRATARY-CLOUD	open	**L3620 · a divergence check that samples an instant fires HIGH on a healthy repo two sessions are pushing to**	entries/lessons/L3620.md	1	39	a5537ab5af05c309		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2613,6 +2616,8 @@ pain	P2932	2932		2026-10-12	SECRATARY-CLOUD	open	## P2932 — db_writable HIGH o
 pain	P2933	2933		2026-10-12	SECRATARY-CLOUD	open	## P2933 — The SMS gate does not see MMS media: five voice clips arrived and the mirror recorded num_media=0 / ignored	entries/pain/P2933.md	1	17	f19d4be0fe9d2921		
 pain	P2934	2934		2026-10-12	SECRATARY-CLOUD	open	## P2934 — The archive pull blamed a machine's harness-config for its own thrown-away error	entries/pain/P2934.md	1	6	3ba7faf94d23fd9c		
 pain	P2935	2935		2026-10-12	SECRATARY-CLOUD	open	## P2935 — --check passes while 19.8 GB of one machine's Copilot chats are unarchived	entries/pain/P2935.md	1	6	f2308f7f07c794c5		
+pain	P2936	2936		2026-10-12	SECRATARY-CLOUD	open	## P2936 — 73 percent of the owner decision queue is three automated generators, one of which asked the same question six times	entries/pain/P2936.md	1	49	5552d2f717bf4d57		
+pain	P2937	2937		2026-10-12	SECRATARY-CLOUD	open	## P2937 — the journal has two disjoint id namespaces: 276 entries, including every id the master records cite, exist on one machine only	entries/pain/P2937.md	1	52	0edde3928c974689		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
