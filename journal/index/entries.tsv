@@ -2199,6 +2199,7 @@ lessons	L3446	3446		2026-10-09	ZABZ-YOGA	open	**L3446 · A kernel DNS capture wi
 lessons	L3447	3447		2026-10-09	ZABZ-YOGA	open	**L3447 · A remote child can never be continuable or messaged - engine invariant, choose the delegation path per job**	entries/lessons/L3447.md	1	40	c67cb1f23f6954ff		
 lessons	L3504	3504		2026-10-11	SECRATARY-CLOUD	open	**L3504 · Invalid user root: three reports named the wrong cause and the answer was one line in the remote log**	entries/lessons/L3504.md	1	48	c92123db4abddaf9		
 lessons	L3505	3505		2026-10-11	SECRATARY-CLOUD	open	**L3505 · The blind guard, the guard whose flags differ from its twin, and the anchor that measurement would destroy**	entries/lessons/L3505.md	1	63	b69d2efc5f809c40		
+lessons	L3506	3506		2026-10-12	SECRATARY-CLOUD	open	**L3506 · On the authority config_sync is measured, not ported from autosync.sh**	entries/lessons/L3506.md	1	17	ae26bc3e9f7722f1		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2597,6 +2598,7 @@ pain	P2870	2870		2026-10-07	ZABZ-YOGA	open	## P2870 — The GitHub mirror of har
 pain	P2927	2927		2026-10-08	SECRATARY	open	## P2927 — model_usage records 0 cached tokens for every DeepSeek flash call, overstating flash cost ~14x	entries/pain/P2927.md	1	36	62a1280dc6be5ea4	cost,telemetry,deepseek	
 pain	P2928	2928		2026-10-08	secratary	open	## P2928 — The live production store lost a month of card receipts, and neither store is trustworthy alone	entries/pain/P2928.md	1	46	4998b6ad88fe0104	lpt,production,payments,data-loss,reconcile	P3
 pain	P2929	2929		2026-10-08	secratary	open	## P2929 — Today's card takings are invisible to every internal record for up to a day	entries/pain/P2929.md	1	41	76dfec95c9b1646c	lpt,money,stripe,reporting,today-view	H3335
+pain	P2930	2930		2026-10-12	SECRATARY-CLOUD	open	## P2930 — vault harness-config.git HEAD points at refs/heads/master (missing) - fresh clone checks out nothing	entries/pain/P2930.md	1	10	5a48a1992a23f5ea		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -2967,6 +2969,7 @@ decisions	D2970	2970		2026-10-07	ZABZ-YOGA	open	**D2970 · 2026-10-07 · Gusto a
 decisions	D2971	2971		2026-10-07	ZABZ-YOGA	open	**D2971 · 2026-10-07 · The search exit code is part of the contract.**	entries/decisions/D2971.md	1	22	78cfe8a00e5c4b0c		
 decisions	D3032	3032		2026-10-08	secratary	open	**D3032 · 2026-10-08 · Three decisions taken while repairing the shop's money & customer reporting.**	entries/decisions/D3032.md	1	54	f9b204c718e82aa0	lpt,reporting,definition-of-done,cron	
 decisions	D3033	3033		2026-10-08	secratary	open	**D3033 · 2026-10-08 · The bank ledger is the authoritative record of money received — do not repair the production payment table blind.**	entries/decisions/D3033.md	1	51	c92529b1ea9ed75b	lpt,money,production,authoritative-source	P2928
+decisions	D3034	3034		2026-10-12	SECRATARY-CLOUD	open	**D3034 · 2026-10-12 · harness-config canonical remote is the vault, and the authority writes its own config_sync record.**	entries/decisions/D3034.md	1	23	8c66bcea7a7a0d59		
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
@@ -3235,3 +3238,4 @@ wins	W2668	2668		2026-10-07	ZABZ-YOGA	open	**W2668 · 2026-10-07 · Fast search 
 wins	W2669	2669		2026-10-07	ZABZ-YOGA	open	**W2669 · 2026-10-07 · Eight mesh analysts classified 40 work orders in ~6 minutes each, on three different nodes, after the mesh fix - and one of them found a false note that would have caused a second 92.84 purchase.**	entries/wins/W2669.md	1	6	ea578fdc0e9b0da1	lpt,mesh,wins	
 wins	W2670	2670		2026-10-07	ZABZ-YOGA	open	**W2670 · 2026-10-07 · Retiring a false STALE banner, and JSON for free on the fast path.**	entries/wins/W2670.md	1	16	3c2234bb29df2504		
 wins	W2732	2732		2026-10-08	secratary	open	**W2732 · 2026-10-08 · Triangulating report numbers against independent lineages — and the live card takings line it produced.**	entries/wins/W2732.md	1	40	37e6379c08786d03	verification,stripe,dialpad,reporting	
+wins	W2733	2733		2026-10-12	secratary-cloud	open	**W2733 · 2026-10-12 · Phone currency-math: the bundle check 18 names is NOT the bundle the phone serves.**	entries/wins/W2733.md	1	22	d911e2173a462567	dollar,rendering,katex,currency,web_currency_math	L2581b,H2738
