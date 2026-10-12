@@ -2013,8 +2013,15 @@ def cmd_search(args) -> int:
             return 2
     limit = args.limit or 40
     ctx_n = max(0, getattr(args, "context", 0) or 0)
+    all_words = bool(getattr(args, "all_words", False))
+    # The unit of matching is the TERM, not the argv element: `ps_search what=journal` hands the whole
+    # query over as one argument while a shell hands it over as several, and both must mean the same
+    # thing. See the long note in the match loop.
+    terms = [t for p in pats for t in p.split() if t] or list(pats)
+    terms_l = [t.lower() for t in terms]
+    need = set(terms_l)
     hits = []
-    total_hits = 0
+    total_entries = 0
     texts = EntryTexts(entries, fresh)
     cands = [e for e in entries if _matches(e, args, texts)]
     for e in cands:
@@ -2025,12 +2032,58 @@ def cmd_search(args) -> int:
                 if rx.search(ln):
                     matches.append((i + 1, ln.strip()))
         else:
+            # SEMANTICS, and why they changed -- measured 2026-10-12 on the authority (journal H3568).
+            # A query arrives as ONE argv element from `ps_search` / `fa journal` (`search.py` passes
+            # the whole query as a single argument) and as MANY from a shell. Both must mean the same
+            # thing, so every pattern is split on whitespace into TERMS, and the terms are the unit of
+            # matching -- what any search box does.
+            #
+            # What this replaces. The old rule was `all(p.lower() in ln for p in pats)`, which for a
+            # one-argument query demanded the whole phrase VERBATIM on ONE LINE, and for a multi-arg
+            # query demanded every word on ONE LINE. Measured: `journal.py search "cloud migration
+            # secretary"` exited 1 and printed "an empty result is a refusal, not health" for a journal
+            # whose own handoffs carry those three words a few lines apart; `fa journal` and
+            # `ps_search what=journal` passed that exit 1 straight through to the agent as
+            # "NO MATCH (exit 1: the scope was searched and holds nothing)". D2983 recorded the same
+            # pair on 2026-10-09 -- `lpt website` found entries, `lpt website deploy` found none -- and
+            # cited it as a reason to stop telling agents this surface was primary. It was never fixed.
+            # A search that manufactures a confident negative on an ordinary two-word query is worse
+            # than a slow one, and it is exactly what the owner's "complete answers under 5 s" criterion
+            # cannot tolerate.
+            #
+            # The default is now ENTRY-level AND over TERMS: every term must appear somewhere in the
+            # entry, and the lines shown are those carrying at least one term, so the reader sees the
+            # evidence rather than only a verdict. `--all-words` keeps the strict line-level reading,
+            # and `--regex` remains the tool for adjacency and patterns.
+            #
+            # ONE PASS, and BOUNDED. The terms seen while scanning the lines ARE the entry-level test,
+            # so there is no second full-text scan. The collected lines are capped at what can be
+            # shown (`1 + --context`), and the scan stops as soon as both the term test is satisfied
+            # and that many lines are in hand -- otherwise a 3,000-entry journal builds a list of
+            # hundreds of matching lines per entry to print one of them. Measured 2026-10-12:
+            # `ps_search what=journal` was 4.7-5.8 s uncapped against the owner's 5 s budget.
+            cap = 1 + ctx_n
+            seen = set()
             for i, ln in enumerate(text.split("\n")):
                 low = ln.lower()
-                if all(p.lower() in low for p in pats):
-                    matches.append((i + 1, ln.strip()))
+                here = {t for t in terms_l if t in low}
+                if not here:
+                    continue
+                if all_words:
+                    if need <= here and len(matches) < cap:
+                        matches.append((i + 1, ln.strip()))
+                else:
+                    seen |= here
+                    if len(matches) < cap:
+                        matches.append((i + 1, ln.strip()))
+                    if need <= seen and len(matches) >= cap:
+                        break
+            if not all_words and not (need <= seen):
+                matches = []
         if matches:
-            total_hits += len(matches)
+            # Count ENTRIES, not lines. With entry-level AND a single entry can carry many matching
+            # lines, so a line count reported as "hits" read as "(+391 more)" for a 3-entry answer.
+            total_entries += 1
             if len(hits) < limit:
                 hits.append((e, matches[:1 + ctx_n]))
     if texts.unreadable:
@@ -2043,11 +2096,11 @@ def cmd_search(args) -> int:
                 lines = ("%s\n%s" % (e["heading"], e["body"])).split("\n")
                 mm = [(i + 1, lines[i].strip()) for i in range(len(lines)) if pat_re.search(lines[i])]
                 if mm:
-                    total_hits += len(mm)
+                    total_entries += 1
                     if len(hits) < limit:
                         hits.append((e, mm[:1 + ctx_n]))
     if getattr(args, "json", False):
-        print(json.dumps({"root": str(JOURNAL), "source": source, "total_matches": total_hits,
+        print(json.dumps({"root": str(JOURNAL), "source": source, "total_matches": total_entries,
                           "hits": [{"id": e["id_full"], "kind": e["kind"], "heading": redact(e["heading"]),
                                     "file": e["file"],
                                     "lines": [{"line": a, "text": redact(t)} for a, t in mm]}
@@ -2062,7 +2115,7 @@ def cmd_search(args) -> int:
         for _ln_no, txt in mm:
             if not b.line("    " + txt[:200]):
                 break
-    b.marker(max(0, total_hits - len(hits)))
+    b.marker(max(0, total_entries - len(hits)))
     b.emit()
     if not hits:
         note("no match for %s — an empty result is a refusal, not health" % " ".join(pats))
@@ -5064,7 +5117,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--context", type=int, default=0)
     s.add_argument("--regex", action="store_true")
     s.add_argument("--all-words", dest="all_words", action="store_true",
-                   help="every pattern must be present in the same line (the default)")
+                   help="require every query term on the SAME LINE (strict, single-line reading). "
+                        "Without it, every term must appear somewhere in the ENTRY")
     s.add_argument("--legacy", action="store_true", help="also scan the frozen shards")
     s.add_argument("--sort", choices=["relevance", "newest"], default="relevance")
     s.set_defaults(func=cmd_search)
