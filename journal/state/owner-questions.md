@@ -6,7 +6,7 @@ Updated: 2026-10-12
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 445 row(s) read, 161 pending, generated 2026-10-12 03:24 UTC on SECRATARY-CLOUD.
+Provenance: 446 row(s) read, 162 pending, generated 2026-10-12 04:38 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -162,6 +162,7 @@ Provenance: 445 row(s) read, 161 pending, generated 2026-10-12 03:24 UTC on SECR
 | 440 | 2026-10-10 | medium | The prepaid AI balance is low. Top it up so the autonomous work does not stop? | Top up at https://platform.deepseek.com/top_up - the provider has NO auto-recharge to turn on (its own API FAQ documents PayPal, bank card, Alipay and WeChat Pay and nothing automatic), so this cannot be made to run itse |
 | 441 | 2026-10-10 | medium | origin/main for kosher-ai-filter is still frozen at 2d9585d while the integrate/main-611, -623, -626, -630, -631 and -632 merges sit unpromoted - do you want those promoted to main, and by whom? | I recommend promoting them: each is already merged, tree-checked and green on its own integrate/* branch, and every hour main stays frozen the integrator detector re-files the same branch as a fresh item, which costs a s |
 | 446 | 2026-10-11 | medium | dialer.abletelsolutions.com is dead weight - delete the record, or do you want the dialer built? | Delete the record. The program was never installed, nothing has ever answered on 8899, and keeping a public hostname permanently pointed at a closed port on the office box buys nothing while it keeps the ssh escape hatch |
+| 447 | 2026-10-12 | medium | The mesh's placement broker still runs on the office server you froze. Now that the cloud runs one too, should I stop it there? | Stop and disable mesh-broker on the office box. The freeze is meant to make that box inert, and leaving a live broker on it keeps the mesh's control plane on a machine that goes off and cannot be woken remotely. Nothing  |
 | 259 | 2026-10-05 | low | Kosher Waze mid-period return: is the period base plan fee prorated by days, or charged in full? | Prorate by days. Charging a full month for four days of use is the complaint that costs the relationship, and the metered usage is billed either way. |
 | 262 | 2026-10-05 | low | ZABZ-TECH's RDP service is wedged and only a reboot will activate microphone passthrough (your Yoga mic appearing as a real recording device inside ZABZ-TECH). Reboot that machine, or stay on Chrome Remote Desktop and dictate on the Yoga side instead? | Dictate on the Yoga side first: it needs no reboot, and installing Handy with local Whisper and one toggle hotkey turns speech into text and pastes it, which is exactly what crosses Chrome Remote Desktop. Reach for the R |
 | 306 | 2026-10-07 | low | What was the 127.95 charge at US MOBILE on 20 Sep (card ending 3929) - no live charge in this ledger carries the merchant 'desc mobile'? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
