@@ -3,9 +3,11 @@
 > **This file.** `harness-config/docs/mesh/172-MASTER-RECORD-SEARCH-SYSTEM.md`
 > — on `ZABZ-YOGA`: `C:\Users\ezabz\code\harness-config\docs\mesh\172-MASTER-RECORD-SEARCH-SYSTEM.md`
 > — on `secratary-cloud`: `/root/code/harness-config/docs/mesh/172-MASTER-RECORD-SEARCH-SYSTEM.md`
-> Committed as `aeebd479` (ZABZ-YOGA) and `82e1f66` (the authority); pushed to the config authority and
-> to GitHub branch `search-audit-2026-10-12`. §5.3 records exactly what landed where and why the mirror's
-> `main` was left alone. It is the *only* document you need for the search system; everything else it
+> Committed on both clones and pushed — the config authority's `main` and the GitHub branch
+> `search-audit-2026-10-12`. **The shas below are the ones this document was written at; anything later
+> on the same line is a descendant, so search for the paths, not the shas.** First commits: `aeebd479`
+> and `141db446` (ZABZ-YOGA), `82e1f66` and `62e0b56` (the authority); GitHub's `main` was deliberately
+> left untouched. §5.3 records exactly what landed where and why. It is the *only* document you need for the search system; everything else it
 > cites is either its evidence or its context.
 
 **Session:** 2026-10-12, 03:05Z–04:10Z. **Author:** Zabz, `ZABZ-YOGA`, with one mesh child (the fleet
