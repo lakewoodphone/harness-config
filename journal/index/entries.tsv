@@ -2226,6 +2226,7 @@ lessons	L3626	3626		2026-10-12	SECRATARY-CLOUD	open	**L3626 · the per-node chil
 lessons	L3627	3627		2026-10-12	SECRATARY-CLOUD	open	**L3627 · Hardware spec comparison: use PassMark CPU Mark + G3D, then price the soldered-vs-SO-DIMM difference**	entries/lessons/L3627.md	1	11	482f8171b5bdbc2b		
 lessons	L3628	3628		2026-10-12	SECRATARY-CLOUD	open	**L3628 · 'Solvable by machines but not by humans' is incoherent for the formal results, and lands squarely on the practical ones**	entries/lessons/L3628.md	1	16	f2443afe1f7c0aff		
 lessons	L3629	3629		2026-10-12	SECRATARY-CLOUD	open	**L3629 · MEASURED: the company API queues 13x from concurrency 1 to 32, and /health proves the queue is the single PROCESS, not the database lock**	entries/lessons/L3629.md	1	58	c78827a33aaf1061		
+lessons	L3630	3630		2026-10-12	SECRATARY-CLOUD	open	**L3630 · the API slowness was a 37.5 MB JSON identity file re-parsed twice per request - not the database, and Postgres would not have fixed it**	entries/lessons/L3630.md	1	62	a8a9b15d4fea3897		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
