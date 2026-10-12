@@ -54,16 +54,43 @@ _LOCALAPPDATA = os.environ.get("LOCALAPPDATA")
 if _LOCALAPPDATA:
     # what serve-phone.ps1 used, kept so an engine started by the old path is still readable
     ENGINE_LOG_DIRS.append(Path(_LOCALAPPDATA) / "dsh-phone")
-MOBILE_CSS = Path(__file__).resolve().parent.parent / "assets" / "mobile.css"
+def resolve_asset(name: str) -> Path:
+    """The first existing `<dir>/assets/<name>`, searched where this gate is actually deployed.
+
+    WHY THIS IS SEARCHED RATHER THAN COMPUTED. `Path(__file__).parent.parent / "assets"` is only
+    correct when the gate sits inside a checkout (`<repo>/scripts/phone-gate.py`). Deployed as
+    `/usr/local/bin/phone-gate.py` — which is how every Linux node runs it — that expression
+    resolves to `/usr/local/assets/`, a directory the install step has to remember to create.
+
+    Measured on secratary-cloud 2026-10-12, the morning after the cutover to the cloud: the
+    directory did not exist there, `mobile_css_bytes()` found nothing, and the gate served the
+    phone layer as **0 bytes**. Every symptom the owner reported followed from that one absence —
+    no drawer, no 44px controls, no safe-area insets, "the interface is not optimized for the
+    iPhone". The engine was healthy and the CSS is 28 KB in the repo; nothing delivered it.
+
+    So: look beside the checkout first, then beside the deployed script, then under /usr/local.
+    Returns the first candidate that exists, and the primary candidate when none do (so the
+    caller's existing per-file OSError handling still reports the real path it wanted).
+    """
+    here = Path(__file__).resolve()
+    bases = [here.parent.parent, here.parent, Path("/usr/local"), Path("/usr/local/lib")]
+    candidates = [base / "assets" / name for base in bases]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
+MOBILE_CSS = resolve_asset("mobile.css")
 # The phone layer is these files concatenated, in this order: `mobile.css` is the base layer and
 # the others are scoped additions. One URL, one injected tag and one client-plugin link, so adding
 # a rule to the phone never means adding a delivery path (the composer's own fix and the question
 # card's live here — see the comments in each file for what they measured).
 LAYER_FILES = [
     MOBILE_CSS,
-    Path(__file__).resolve().parent.parent / "assets" / "question-card.css",
+    resolve_asset("question-card.css"),
 ]
-BADGE_JS = Path(__file__).resolve().parent.parent / "assets" / "phone-badge.js"
+BADGE_JS = resolve_asset("phone-badge.js")
 BADGE_STATE = Path(os.environ.get("CEO_KERNEL_STATE", str(Path.home() / "ceo-kernel-var"))) / "latest.json"
 COOKIE_PREFIX = b"dsh-auth-"
 BUF = 65536
