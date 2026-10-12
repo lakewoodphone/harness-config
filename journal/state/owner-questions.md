@@ -6,7 +6,7 @@ Updated: 2026-10-12
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 447 row(s) read, 162 pending, generated 2026-10-12 12:23 UTC on SECRATARY-CLOUD.
+Provenance: 447 row(s) read, 162 pending, generated 2026-10-12 13:33 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
