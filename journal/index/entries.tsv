@@ -2200,6 +2200,9 @@ lessons	L3447	3447		2026-10-09	ZABZ-YOGA	open	**L3447 · A remote child can neve
 lessons	L3504	3504		2026-10-11	SECRATARY-CLOUD	open	**L3504 · Invalid user root: three reports named the wrong cause and the answer was one line in the remote log**	entries/lessons/L3504.md	1	48	c92123db4abddaf9		
 lessons	L3505	3505		2026-10-11	SECRATARY-CLOUD	open	**L3505 · The blind guard, the guard whose flags differ from its twin, and the anchor that measurement would destroy**	entries/lessons/L3505.md	1	63	b69d2efc5f809c40		
 lessons	L3506	3506		2026-10-12	SECRATARY-CLOUD	open	**L3506 · On the authority config_sync is measured, not ported from autosync.sh**	entries/lessons/L3506.md	1	17	ae26bc3e9f7722f1		
+lessons	L3613	3613		2026-10-12	SECRATARY-CLOUD	open	**L3613 · An unknown that never clears because of a porting error teaches the reader to ignore unknown**	entries/lessons/L3613.md	1	6	a40ece9c4c56201d		
+lessons	L3614	3614		2026-10-12	SECRATARY-CLOUD	open	**L3614 · Never render an unknown age as 0 (liveness printed age_seconds=0 for a 51-minute-old tick); and a long read transaction freezes the WAL checkpoint horizon**	entries/lessons/L3614.md	1	43	46a9ad89400d13fb		
+lessons	L3615	3615		2026-10-12	SECRATARY-CLOUD	open	**L3615 · Never render an unknown age as 0 (liveness printed age_seconds=0 for a 51-minute-old tick); and a long read transaction freezes the WAL checkpoint horizon**	entries/lessons/L3615.md	1	43	6b535a2a770abd89		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2599,6 +2602,8 @@ pain	P2927	2927		2026-10-08	SECRATARY	open	## P2927 — model_usage records 0 ca
 pain	P2928	2928		2026-10-08	secratary	open	## P2928 — The live production store lost a month of card receipts, and neither store is trustworthy alone	entries/pain/P2928.md	1	46	4998b6ad88fe0104	lpt,production,payments,data-loss,reconcile	P3
 pain	P2929	2929		2026-10-08	secratary	open	## P2929 — Today's card takings are invisible to every internal record for up to a day	entries/pain/P2929.md	1	41	76dfec95c9b1646c	lpt,money,stripe,reporting,today-view	H3335
 pain	P2930	2930		2026-10-12	SECRATARY-CLOUD	open	## P2930 — vault harness-config.git HEAD points at refs/heads/master (missing) - fresh clone checks out nothing	entries/pain/P2930.md	1	10	5a48a1992a23f5ea		
+pain	P2931	2931		2026-10-12	SECRATARY-CLOUD	open	## P2931 — db_writable HIGH on the authority is writer queueing, not a stuck lock (2026-10-12): company-api holds WAL_WRITE_LOCK at shm byte 120 in multi-second bursts	entries/pain/P2931.md	1	57	3e8da319461f8f60		
+pain	P2932	2932		2026-10-12	SECRATARY-CLOUD	open	## P2932 — db_writable HIGH on the authority is writer queueing, not a stuck lock (2026-10-12): company-api holds WAL_WRITE_LOCK at shm byte 120 in multi-second bursts	entries/pain/P2932.md	1	57	a8b15f854f1fb319		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -2970,6 +2975,8 @@ decisions	D2971	2971		2026-10-07	ZABZ-YOGA	open	**D2971 · 2026-10-07 · The sea
 decisions	D3032	3032		2026-10-08	secratary	open	**D3032 · 2026-10-08 · Three decisions taken while repairing the shop's money & customer reporting.**	entries/decisions/D3032.md	1	54	f9b204c718e82aa0	lpt,reporting,definition-of-done,cron	
 decisions	D3033	3033		2026-10-08	secratary	open	**D3033 · 2026-10-08 · The bank ledger is the authoritative record of money received — do not repair the production payment table blind.**	entries/decisions/D3033.md	1	51	c92529b1ea9ed75b	lpt,money,production,authoritative-source	P2928
 decisions	D3034	3034		2026-10-12	SECRATARY-CLOUD	open	**D3034 · 2026-10-12 · harness-config canonical remote is the vault, and the authority writes its own config_sync record.**	entries/decisions/D3034.md	1	23	8c66bcea7a7a0d59		
+decisions	D3035	3035		2026-10-12	SECRATARY-CLOUD	open	**D3035 · 2026-10-12 · app_voice: resolve the API unit by ExecStart, never by a literal.**	entries/decisions/D3035.md	1	6	49973fb9a10dcd25		
+decisions	D3036	3036		2026-10-12	SECRATARY-CLOUD	open	**D3036 · 2026-10-12 · model_failover: port the watch to the authority and read its queued-flip field.**	entries/decisions/D3036.md	1	6	9c19b66d3d396aef		
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
