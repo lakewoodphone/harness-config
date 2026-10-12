@@ -1,5 +1,13 @@
 # 172 — MASTER RECORD: the search system — what the cloud cutover silently lost, how it was found, and how it is now guarded
 
+> **This file.** `harness-config/docs/mesh/172-MASTER-RECORD-SEARCH-SYSTEM.md`
+> — on `ZABZ-YOGA`: `C:\Users\ezabz\code\harness-config\docs\mesh\172-MASTER-RECORD-SEARCH-SYSTEM.md`
+> — on `secratary-cloud`: `/root/code/harness-config/docs/mesh/172-MASTER-RECORD-SEARCH-SYSTEM.md`
+> Committed as `aeebd479` (ZABZ-YOGA) and `82e1f66` (the authority); pushed to the config authority and
+> to GitHub branch `search-audit-2026-10-12`. §5.3 records exactly what landed where and why the mirror's
+> `main` was left alone. It is the *only* document you need for the search system; everything else it
+> cites is either its evidence or its context.
+
 **Session:** 2026-10-12, 03:05Z–04:10Z. **Author:** Zabz, `ZABZ-YOGA`, with one mesh child (the fleet
 inventory, dispatched to `ZABZ-TECH` — it did **not** run locally).
 **Machines touched:** `secratary-cloud` (THE AUTHORITY, `writable` — where all repairs were made);
@@ -190,10 +198,23 @@ text line.
 
 ### 5.3 The harness-config mirror divergence — **already known, not new**
 
-Measured: 95 commits on the authority vs 2 on GitHub; `vault` unreachable; neither push a fast-forward.
-I committed to **both** working trees and **refused to force anything**. **This is `P3135`**, filed
-2026-10-11 — I found it as if it were news and it is not. Treat §5.3 as confirmation plus one datum:
-both clones now carry the search subsystem, so convergence is content-safe, if anyone chooses to.
+Measured: 95→107 commits on the authority vs 2 on GitHub; neither a fast-forward; the `vault` remote
+unreachable. I committed to **both** working trees and **refused to force anything**. **This is `P3135`**,
+filed 2026-10-11 — I found it as if it were news and it is not.
+
+**What I did about the push, measured rather than assumed, and verified by reading the remotes back:**
+
+| remote | before | after | how |
+|---|---|---|---|
+| `origin` = `secretary-ts:/home/zabz/harness-config.git` (the config authority, on the frozen anchor's *bare repo* — not its tree, database or services) | `f4f093d5` | **`aeebd479`** | `git push origin main` — fast-forward, `f4f093d5..aeebd479`. **This is the push that matters: it is the repo other clones fetch config from.** |
+| `offsite` = GitHub `main` | `f38366fc` | `f38366fc` (**unchanged**) | **Rejected, by design.** `origin` carries TWO pushurls and the GitHub half always fails non-fast-forward — `journal L3748`, measured the same night. The push's exit code is `1` for that reason alone. |
+| GitHub, branch `search-audit-2026-10-12` | — | **`aeebd479`** | `git push offsite HEAD:refs/heads/…`. **A branch, never a force, never `main`.** The work is on the mirror; the mirror's `main` is untouched. |
+
+**So: read the exit code of `git push origin` as "the GitHub half failed", never as "the push failed".**
+The tempting repairs are all wrong — a force push rewrites 2 commits other people may hold, and a merge
+of the 120-commit divergence conflicts in `presets/zabz/skills/fast-search/SKILL.md` **and in
+`journal/index/*`, which regenerates on every write and is a permanent conflict generator.** L3748 has the
+one-time reconciliation for whoever owns the mirror; it is a deliberate job, not a step in this one.
 
 ### 5.4 The cold first touch is still unmeasured
 
