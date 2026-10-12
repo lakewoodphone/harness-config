@@ -51,6 +51,13 @@ status page going `READY → PRINTING → READY` — is not usable:**
 - The printer's only counter is **`Total Print Length(m)`** on `information.html` — an **integer
   metre** (`11` at the time of writing). A 33 mm label cannot move it, so it cannot prove one label
   either. `lpt-label find` therefore reports nothing about tape.
+- **BUT the tool's own device report can catch `PRINTING` — added 2026-10-12, measured.** The bullet
+  above is about the status *page* and its 60 s refresh; it is not about the identification each
+  `lpt-label` run performs. Printing the two Greenfeld labels back to back, **the second job's own
+  report read `state PRINTING`** four seconds after the first was sent — the state the device holds
+  while feeding. So a **long** job, or simply the **next** job's report, can observe it. Worth
+  knowing, and worth not over-reading: `PRINTING` means *feeding*, not that a label was cut and
+  delivered. **It is still not proof of tape** — that remains the roll or a person.
 
 So the honest report after sending a job is exactly this, and no more: **the printer was identified
 by model and serial, it was `READY` with the 29 mm roll loaded, and the transport accepted the job
