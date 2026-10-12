@@ -12,7 +12,13 @@ power-cycle it** — for a job that takes one command. Read this before the firs
 
 ## 1. The one command
 
-Run it **on the authority**, which is the only always-on box on the office LAN:
+Run it on **`secratary`** (the ssh alias `secratary-ts` resolves to the same box), the only
+always-on machine on the office LAN. **That box is the FROZEN ROLLBACK ANCHOR — posture
+`read-only` in `harness-config/settings/machines/host-posture.tsv`** (the authority moved to
+`secratary-cloud` at the 2026-10-11 cutover). Printing from it is legitimate: the tool reads its
+own code and speaks TCP to the printer, and it writes nothing but `/tmp`. **Writing to that box is
+not** — no deploy, no edit, no `git pull`, no service verb. A session on 2026-10-12 deployed a
+fixed `label_printer.py` into `~/lpt-ops` there and had to revert it by sha256 (§6).
 
 ```bash
 ssh secratary-ts 'lpt-label --ticket 2652 --customer "Reifman" --device "Kyocera Cadence" --issue "charging port fixed"'
@@ -33,19 +39,30 @@ echo '<json>' | ssh secratary-ts "lpt-label print -"
 | source | `lpt-ops/bin/lpt-label`, `lpt-ops/lpt_ops/label_printer.py`, `lpt-ops/docs/label-printer.md` |
 | the laptop | **cannot print locally** — it has pillow but not `python-barcode`/`brother-ql`, and `render()` calls `_require()` even for a dry run |
 
-## 2. The only honest proof that tape came out
+## 2. What you can honestly claim after a print
 
-`lpt-label find` reads the **printer's own status page**. A print is proven by that page going
-`READY → PRINTING → READY` with the roll still loaded:
+**Corrected 2026-10-12, measured on this printer. The old claim here — that a print is proven by the
+status page going `READY → PRINTING → READY` — is not usable:**
 
-```bash
-cat /tmp/x.json | lpt-label print -
-for i in $(seq 1 12); do lpt-label find 2>/dev/null | grep -E "^  state|^  media"; sleep 0.7; done
-```
+- The status page's own `Auto Refresh Interval` is **60000 ms**, and the page read `READY`
+  immediately before and after a 33 mm job. A poll loop run concurrently with the job (60 samples,
+  150 ms apart) saw **`READY` in every single sample**. A small label is fed faster than the page can
+  be re-read, so the transition is simply not observable. Do not spend calls on it.
+- The printer's only counter is **`Total Print Length(m)`** on `information.html` — an **integer
+  metre** (`11` at the time of writing). A 33 mm label cannot move it, so it cannot prove one label
+  either. `lpt-label find` therefore reports nothing about tape.
+
+So the honest report after sending a job is exactly this, and no more: **the printer was identified
+by model and serial, it was `READY` with the 29 mm roll loaded, and the transport accepted the job
+(`instructions_sent: true`)**. Tape is proven by the tape — the roll in the printer, or the person
+standing next to it. Say which of those you have; if you have neither, say the print is unproven.
 
 **`brother_ql`'s `did_print` is `false` by construction on this model** — it reads a status register
 over 9100 that this printer never answers. It is `false` even when the tape comes out. Do not report
 a print from the tool's word alone, and do not report a failure from `did_print`.
+
+One more, for the record: a print is 33 mm of tape at 25.6 mm of image, and the job is over in about
+a second — so a job cannot be caught mid-flight by a page that refreshes once a minute.
 
 ## 3. Before you spend tape
 
@@ -76,6 +93,10 @@ The JSON keys the stdin path accepts: `title`, `heading`, `ticket`, `customer`, 
   she needs this info."* A label has to let someone find the job and know what to hand over and what
   to collect. That means **ticket number and a device/job identity** — a name, a phone and a price
   alone is unusable.
+- **A line starting with `!` is drawn as a HEADLINE** (bold, sized to the tape, never wrapped) — but
+  **only by the newer renderer**. The copy deployed on `secratary` is the older one, where `!` prints
+  literally and each line is sized on its own (so a short line blows up). Either use the §6 route, or
+  design without `!` in the house style the shop's existing labels already use.
 - **When the shop has already printed the thing you are about to design, print it again — do not
   design it.** Previously printed labels are on disk under `~/code/_labelprinter/out/`.
 
@@ -98,3 +119,29 @@ driver's list (`1.1"` = 29 mm, `2.4"` = 62 mm) and the names carrying a length (
 PowerShell trap hit while failing at this, worth one line: **variable names are case-insensitive**,
 so a local `$paper` and a `[string]`-typed parameter `$Paper` are the same variable, and every object
 assigned to it is silently stringified.
+
+## 6. The renderer on the anchor is a revision behind — run the new one read-only
+
+Measured 2026-10-12. `~/lpt-ops` on `secratary` is a plain copy, not a checkout, and the commit that
+added uniform body size, DP word wrap, `!` headline lines and `--roll-mm` (`f40f0e6` in
+`lakewoodphone/lpt-ops`) was **never deployed to it**. The symptom, seen on the first dry run of that
+day: the `!` marker printed literally, and short lines were sized per-line, so `discarded.` came out
+as a headline next to 15 px body text.
+
+Do not fix that by writing to the anchor. The newer code already sits on that box in the git checkout
+`~/code/lpt-ops`; run the entry script straight out of it with the venv the wrapper already uses, and
+stop Python writing bytecode into the checkout:
+
+```bash
+ssh secratary-ts 'PYTHONDONTWRITEBYTECODE=1 /home/zabz/.local/lib/lpt-label/venv/bin/python \
+  /home/zabz/code/lpt-ops/bin/lpt-label print - --dry-run --out /tmp/x.png' < /tmp/x.json
+```
+
+Verified: byte-identical output to the temporarily-deployed file (sha256 `0483d786…`, 33.2 mm of
+tape), and nothing written outside `/tmp`.
+
+`secratary-cloud`, the authority, **cannot** print: the office LAN is not routed to it
+(`curl http://192.168.50.60/…` → `000`) and it has no `lpt-label`. The printer is an office-LAN
+device, so the office box is the only print host there is — which is why printing there is accepted
+despite the freeze. Moving the labeler off the anchor is a decision about the anchor: bring it, do
+not improvise it.
