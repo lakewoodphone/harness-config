@@ -24,12 +24,31 @@
  *      machine (which runs its own engine on loopback and has nothing rewriting its document)
  *   3. a cached document carries no injection, so this file re-asserts itself - and refuses to run twice
  *
- * THE DATA ORIGIN IS READ FROM THE SCRIPT TAG, NOT GUESSED
+ * THE DATA ORIGIN(S) ARE READ FROM THE SCRIPT TAG, NOT GUESSED
  * The injected tag carries `data-attention-json`. The badge resolves its fetch against that, falling
  * back to `document.baseURI`. This matters: on a desktop the script comes from the authority while the
  * page is `http://127.0.0.1:3099`, so a relative fetch would ask the local engine for a route it does
  * not have. Guessing the origin worked only while the phone and the authority happened to share a
  * hostname - an invisible coupling that would have broken the day either changed.
+ *
+ * THAT ATTRIBUTE IS A LIST, AND THE FRESHEST SOURCE WINS - added 2026-10-12, measured
+ * The company's authority was cut over from the office box `secratary` to the cloud box
+ * `secratary-cloud` on 2026-10-11T05:43Z, and the office box was left as a frozen rollback anchor.
+ * Every desktop badge kept reading the OFFICE box, because one origin was written into the plugin as
+ * a string: the pill showed a reading of "6 needing attention" whose newest sample was 20:20Z the
+ * previous evening, said `stale 6h ago` and grew forever. Nothing was wrong with the badge's
+ * arithmetic - it was reading a stopped clock and saying so, while the live authority was one
+ * hostname away. The owner's question was the right one: "why does it say stale? why is everything
+ * stable?" - stable meant stopped.
+ *
+ * So the attribute is now a whitespace- or comma-separated list of origins. They are asked in order
+ * and the FRESHEST readable reading is used, so a source that is reachable but frozen can never
+ * shadow a live one. A stale reading is kept only until a fresher one answers, and is still rendered
+ * - marked `(stale)`, with the host and the age the kernel stamped - when it is all there is. The card
+ * names the host that produced each reading, so where the numbers came from is never a guess.
+ *
+ * A single origin (the phone gate's own injection, and every deployment before this change) is a list
+ * of one and behaves exactly as it did.
  *
  * IT IS HONEST ABOUT WHAT IT CANNOT SEE. Four states are rendered distinctly, and three of them are
  * deliberately not green:
@@ -52,7 +71,7 @@
   window.__dshAttentionBadge = true;
 
   /** Bumped by hand when the rendering or the fetch changes, and shown in the card footer. */
-  var VERSION = '3';
+  var VERSION = '4';
   var STYLE_ID = 'dsh-attention-badge-style';
   var ROOT_ID = 'dsh-attention-badge';
   var LOADER_ID = 'dsh-attention-badge-loader';
@@ -81,17 +100,29 @@
    * assuming otherwise is how the "findings unavailable" path would have shipped untested.
    */
   var SELF = document.currentScript;
-  var DATA_ORIGIN = (function () {
+  var DATA_ORIGINS = (function () {
+    var declared = '';
     try {
-      var declared = SELF && SELF.getAttribute && SELF.getAttribute('data-attention-json');
-      if (declared) return declared;
-      var loader = document.getElementById(LOADER_ID);
-      if (loader && loader.getAttribute) {
-        var fromLoader = loader.getAttribute('data-attention-json');
-        if (fromLoader) return fromLoader;
+      var attr = SELF && SELF.getAttribute && SELF.getAttribute('data-attention-json');
+      if (attr) {
+        declared = attr;
+      } else {
+        var loader = document.getElementById(LOADER_ID);
+        if (loader && loader.getAttribute) {
+          var fromLoader = loader.getAttribute('data-attention-json');
+          if (fromLoader) declared = fromLoader;
+        }
       }
     } catch (error) { /* fall through to the document's own base */ }
-    return '';
+    // Whitespace or commas, so one attribute can carry the authority and its stand-in. An empty
+    // attribute (the phone gate's own injection) means "relative": one candidate, this document's
+    // own base, which is how a phone whose page came from the authority keeps reading it.
+    var parts = String(declared || '').split(/[\s,]+/);
+    var out = [];
+    for (var i = 0; i < parts.length; i += 1) {
+      if (parts[i]) out.push(parts[i]);
+    }
+    return out;
   })();
 
   var state = {
@@ -111,7 +142,9 @@
     html: function () { return html(state); },
     reset: function () { state.lastHtml = null; },
     version: VERSION,
-    staleMs: STALE_MS
+    staleMs: STALE_MS,
+    origins: DATA_ORIGINS,
+    request: function (origin, cb) { request(origin, cb); }
   };
 
   /**
@@ -277,7 +310,9 @@
     else if (count === null && findings.length === 0) label = 'findings incomplete';
     else if (shown === 0) label = 'nothing needs attention';
     else label = shown + ' needing attention';
-    var flag = stale ? '· stale ' + humanAge(ageMs) : (state.error ? '· last good' : '');
+    // "· last good" is claimed only when there IS a previous good reading to be showing. Over a
+    // refusal that has never received one it would be the same lie as a confident zero, one layer up.
+    var flag = stale ? '· stale ' + humanAge(ageMs) : (state.error && state.data ? '· last good' : '');
 
     out += '<div class="' + pillClass + '" data-role="toggle">';
     out += '<span class="dot" style="background:' + dotColor + '"></span>';
@@ -360,16 +395,20 @@
     render();
   }
 
-  function load() {
-    if (state.inFlight) return;
-    state.inFlight = true;
+  /**
+   * Ask ONE origin. Calls back exactly once, with a reading or with a reason.
+   *
+   * One callback per request, whichever handler fires first: a browser can deliver
+   * readystatechange AND onerror for the same failed request, and advancing twice would silently
+   * skip a candidate - i.e. fall back past the source that would have answered.
+   */
+  function request(origin, cb) {
     var url;
     try {
-      url = new URL('/dsh-attention.json?t=' + Date.now(), DATA_ORIGIN || document.baseURI
+      url = new URL('/dsh-attention.json?t=' + Date.now(), origin || document.baseURI
         || (window.location && window.location.href) || '/').href;
     } catch (error) {
-      state.inFlight = false;
-      fail('could not build a URL for the findings');
+      cb(null, 'could not build a URL for the findings');
       return;
     }
 
@@ -379,67 +418,112 @@
     try {
       req.open('GET', url, true);
     } catch (error) {
-      state.inFlight = false;
-      fail('could not open a request for the findings');
+      cb(null, 'could not open a request for the findings');
       return;
     }
     req.timeout = 12000;
 
-    function done() {
-      state.inFlight = false;
+    var done = false;
+    function once(data, reason) {
+      if (done) return;
+      done = true;
+      cb(data, reason);
     }
 
     req.onreadystatechange = function () {
       if (req.readyState !== 4) return;
-      done();
       if (req.status >= 200 && req.status < 300) {
         var parsed;
         try {
           parsed = JSON.parse(req.responseText);
         } catch (error) {
-          fail(state.data === null
-            ? 'the report did not parse'
-            : 'the latest report did not parse; showing the last good reading');
+          once(null, 'the report did not parse');
           return;
         }
         // The gate answers 200 with `read:false` when it cannot read the kernel's file. That is a
         // refusal carrying its reason, not a reading: storing it would make the badge claim it has
         // data while showing an empty list.
         if (parsed && parsed.read === false) {
-          fail(parsed.error || 'the findings are not readable on the host');
+          once(null, parsed.error || 'the findings are not readable on the host');
           return;
         }
-        state.data = parsed;
+        once(parsed, null);
+        return;
+      }
+      once(null, 'the findings answered HTTP ' + req.status);
+    };
+    // A timeout and a network error do NOT go through onreadystatechange in every browser: without
+    // these two handlers a hung or unreachable gate produced no error at all, and the badge simply
+    // sat on its last reading with nothing said.
+    req.ontimeout = function () { once(null, 'the findings timed out'); };
+    req.onerror = function () { once(null, 'could not reach the findings'); };
+
+    try {
+      req.send();
+    } catch (error) {
+      once(null, 'could not send the request for the findings');
+    }
+  }
+
+  /**
+   * Read the findings from the best source available: candidates in order, FRESHEST reading wins.
+   *
+   * A source that answers but is frozen must never shadow a live one, and a stale reading must still
+   * be shown - labelled, with the host and age the kernel stamped - when it is all there is. Both
+   * halves of that matter: preferring freshness fixes the stale badge, and still rendering a stale
+   * reading is what keeps "I could not get a current number" from looking like "nothing to report".
+   */
+  function load() {
+    if (state.inFlight) return;
+    state.inFlight = true;
+
+    var candidates = DATA_ORIGINS.length ? DATA_ORIGINS : [''];
+    var best = null;
+    var bestOrigin = null;
+    var reasons = [];
+
+    function settle() {
+      state.inFlight = false;
+      if (best !== null) {
+        state.data = best;
+        state.source = bestOrigin;
         state.error = null;
         render();
         return;
       }
       // Keep the last good reading rather than flashing empty, but say so out loud - and because the
       // pill then shows a reading that is not current, the age check marks it stale as time passes.
-      fail(state.data === null
-        ? 'the findings answered HTTP ' + req.status
-        : 'HTTP ' + req.status + ' on the last attempt');
-    };
-    // A timeout and a network error do NOT go through onreadystatechange in every browser: without
-    // these two handlers a hung or unreachable gate produced no error at all, and the badge simply
-    // sat on its last reading with nothing said.
-    req.ontimeout = function () {
-      done();
-      fail(state.data === null ? 'the findings timed out' : 'the last attempt timed out');
-    };
-    req.onerror = function () {
-      done();
-      fail(state.data === null
-        ? 'could not reach the findings'
-        : 'could not reach the findings on the last attempt');
-    };
-
-    try {
-      req.send();
-    } catch (error) {
-      done();
-      fail('could not send the request for the findings');
+      fail(reasons.length ? reasons[0]
+        : (state.data === null
+          ? 'could not reach the findings'
+          : 'could not reach the findings on the last attempt'));
     }
+
+    function attempt(index) {
+      if (index >= candidates.length) {
+        settle();
+        return;
+      }
+      var origin = candidates[index];
+      request(origin, function (data, reason) {
+        if (data !== null) {
+          var fresh = !isStale(data);
+          if (best === null || (fresh && isStale(best))) {
+            best = data;
+            bestOrigin = origin || null;
+          }
+          if (fresh) {
+            settle();
+            return;
+          }
+        } else if (reason) {
+          reasons.push(reason);
+        }
+        attempt(index + 1);
+      });
+    }
+
+    attempt(0);
   }
 
   /** Poll only while the page is visible: a backgrounded tab does not need 60 reads an hour. */
