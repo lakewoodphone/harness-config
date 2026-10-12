@@ -1,0 +1,129 @@
+### CRON-ROWS
+295:2026-10-11T10:00:01Z	ai-gateway-health	1	3	
+377:2026-10-11T10:30:01Z	ai-gateway-health	1	4	
+457:2026-10-11T11:00:01Z	ai-gateway-health	1	4	
+538:2026-10-11T11:30:01Z	ai-gateway-health	1	4	
+618:2026-10-11T12:00:01Z	ai-gateway-health	1	4	
+699:2026-10-11T12:30:02Z	ai-gateway-health	1	3	
+779:2026-10-11T13:00:01Z	ai-gateway-health	1	4	
+860:2026-10-11T13:30:01Z	ai-gateway-health	1	4	
+940:2026-10-11T14:00:02Z	ai-gateway-health	1	4	
+1021:2026-10-11T14:30:02Z	ai-gateway-health	1	12	
+1101:2026-10-11T15:00:01Z	ai-gateway-health	1	4	
+1184:2026-10-11T15:30:01Z	ai-gateway-health	1	6	
+1262:2026-10-11T16:00:01Z	ai-gateway-health	1	5	
+1345:2026-10-11T16:30:01Z	ai-gateway-health	1	8	
+1425:2026-10-11T17:00:01Z	ai-gateway-health	1	4	
+1506:2026-10-11T17:30:02Z	ai-gateway-health	1	8	
+1586:2026-10-11T18:00:02Z	ai-gateway-health	1	4	
+1669:2026-10-11T18:30:01Z	ai-gateway-health	1	17	
+1747:2026-10-11T19:00:01Z	ai-gateway-health	1	5	
+1831:2026-10-11T19:30:02Z	ai-gateway-health	1	104	
+1910:2026-10-11T20:00:01Z	ai-gateway-health	1	7	
+1991:2026-10-11T20:30:01Z	ai-gateway-health	1	95	
+2067:2026-10-11T21:00:01Z	ai-gateway-health	1	3	
+2153:2026-10-11T21:30:02Z	ai-gateway-health	3	7	
+2233:2026-10-11T22:00:02Z	ai-gateway-health	3	4	
+### CRON-COUNT
+27
+### DIAG-SIZE
+584 /root/out/migration-review/157-DIAGNOSIS-TWO-FAILING-JOBS.md
+### GREP-UNKNOWN
+360:            # behaves TODAY is unknown rather than implying it is still broken
+### GREP-PATTERNS
+109:CONDITION_ERROR_PATTERNS = (
+126:    return any(p.search(msg) for p in CONDITION_ERROR_PATTERNS)
+### GREP-URL
+12:broken. The standing instruction was written for exactly this shape: *"ai models change very often, can
+61:# this reads what the GATEWAY says, from its own catalogue (`GET $GATEWAY_BASE/v1/models`), so
+67:GATEWAY_BASE = os.environ.get("AI_GATEWAY_HEALTH_BASE", "http://127.0.0.1:8002")
+68:# MEASURED on the cloud authority 2026-10-11: the FIRST call to GET /v1/models after the API has
+219:        retired_models = {
+225:        retired_models = set()
+245:        "models": [
+254:             "retired": r[0] in retired_models}
+260:        "retired": sorted(retired_models),
+269:    models = data["models"]
+271:    seen = {m["model"] for m in models}
+315:    # 1. failing models — judged on the RECENT window, or on live traffic if there is any
+316:    for m in models:
+374:    # 2. configured models that have NOT been called in the window
+377:                         "detail": "cannot read the tier config, so whether the configured models are "
+485:    """What the GATEWAY ITSELF says it serves, from `GET <base>/v1/models`.
+494:    out: dict = {"enabled": True, "url": GATEWAY_BASE.rstrip("/") + "/v1/models"}
+511:    for item in (payload.get("data") or payload.get("models") or []):
+532:                    help="also read the gateway's own catalogue (GET <base>/v1/models)")
+573:                          "models_measured": len(data["models"]),
+578:              % (args.days, len(data["models"])))
+634:          kinds({"models": [_m("bad", 100, 74, recent_calls=10, recent_failed=8)],
+640:          kinds({"models": [_m("quiet-bad", 100, 74)],
+645:    v = evaluate({"models": [_m("recovered", 894, 655, recent_calls=4, recent_failed=0)],
+653:          kinds({"models": [_m("good", 100, 0, recent_calls=50, recent_failed=0)],
+659:          kinds({"models": [_m("tiny", 3, 3)], "min_calls": 20, "days": 7, "recent_hours": 6}),
+664:          kinds({"models": [_m("fresh-bad", 3, 3, recent_calls=3, recent_failed=3)],
+672:          kinds({"models": [_m("transient", 21, 2, recent_calls=3, recent_failed=1)],
+678:          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6},
+687:          kinds({"models": [_m("deepseek-v4-flash", 3659, 252, recent_calls=200, recent_failed=5)],
+696:    v = evaluate({"models": [dict(_m("dead-but-retired", 160, 160, recent_calls=36,
+706:          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6,
+714:          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6, "retired": ["prov-gone"],
+721:          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6}, {"_error": "boom"}),
+725:    v = evaluate({"models": [_m("m", 100, 0, recent_calls=50)],
+734:    cond = evaluate({"models": [_m("balance-dead", 100, 100, recent_calls=10, recent_failed=10,
+741:    mixed = evaluate({"models": [_m("half-broken", 100, 100, recent_calls=10, recent_failed=10,
+747:    fault = evaluate({"models": [_m("no-error-evidence", 100, 100, recent_calls=10,
+758:    hist_cond = evaluate({"models": [_m("minimax-m3", 390, 84, condition=77)],
+765:    hist_fault = evaluate({"models": [_m("ours-really-broken", 100, 74, condition=30)],
+### GREP-INVALID
+117:               r"not deployed|no such model|invalid model id", re.I),
+### TAIL-50
+    check("absent error evidence is a FAULT, not a condition", verdict_of(fault["problems"]), 1)
+
+    # ── HISTORICAL lanes: no live traffic, so grade the WEEK, not the unanimity ─────────────────────
+    # MEASURED 2026-10-07. MiniMax-M3: 77 of 84 failures were DeepInfra `http_402 positive balance`;
+    # the other 7 were 429 retries, one timeout, one markup event and one client-side truncation.
+    # gemini-2.5-pro: 12 of 15 were name-resolution failures, 3 were truncations. Nothing in the repo
+    # could clear either, yet both were FAULTS (rc=1) for 29+ runs. A handful of incidental, sub-
+    # threshold failures must not relabel a provider outage as our code fault.
+    hist_cond = evaluate({"models": [_m("minimax-m3", 390, 84, condition=77)],
+                          "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("a historical lane dominated by external conditions grades as CONDITION",
+          verdict_of(hist_cond["problems"]), CONDITION_EXIT)
+
+    # MUST STILL BE A FAULT: our failures alone DO cross the limit. This is the guard that stops the
+    # rule above from becoming a way to wave any red job green.
+    hist_fault = evaluate({"models": [_m("ours-really-broken", 100, 74, condition=30)],
+                           "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("a historical lane whose OWN failures cross the limit stays a FAULT",
+          verdict_of(hist_fault["problems"]), 1)
+
+    # MUST STILL BE A FAULT: no error evidence in the history is not evidence of a condition.
+    hist_blind = evaluate({"models": [_m("hist-no-evidence", 100, 74)],
+                           "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("a historical lane with no error evidence stays a FAULT",
+          verdict_of(hist_blind["problems"]), 1)
+
+    # Healthy -> 0.
+    check("healthy grades as rc=0",
+          verdict_of(evaluate({"models": [_m("ok", 100, 0, recent_calls=50)],
+                               "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)["problems"]),
+          0)
+
+    # The classifier itself, on strings measured 2026-10-05.
+    check("402 'positive balance' is a condition",
+          _is_condition_error("Error code: 402 - {'message': 'You need positive balance to do "
+                              "inference'}"), True)
+    check("the 'http_402:' prefix alone is a condition too",
+          _is_condition_error("http_402: {}"), True)
+    check("404 'not deployed' is a condition",
+          _is_condition_error("Error code: 404 - Model not found, inaccessible, and/or not deployed"),
+          True)
+    check("empty_response is a FAULT", _is_condition_error("empty_response"), False)
+
+    print()
+    print("SELF-TEST %s" % ("PASSED" if ok else "FAILED"))
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

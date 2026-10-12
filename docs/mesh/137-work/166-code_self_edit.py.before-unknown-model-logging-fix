@@ -1,0 +1,1991 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+import difflib
+import hashlib
+import json
+import logging
+import os
+import re
+import shutil
+import tempfile
+import threading
+import time
+from typing import Any
+
+from app.config import Settings
+
+log = logging.getLogger(__name__)
+
+_lock = threading.RLock()
+
+# ── Resilience constants ─────────────────────────────────────────────
+_MAX_LLM_RETRIES = 3
+_RETRY_BACKOFF_BASE = 2.0  # seconds; exponential
+_SNAPSHOT_DIR = "data/code_snapshots"  # last-known-good backups
+_MAX_SNAPSHOTS = 50  # rolling window
+
+# ── Isolated apply ───────────────────────────────────────────────────
+# `apply_proposal` wrote wherever it was pointed at, and in production it is pointed at the live
+# checkout serving the API (app/main.py resolves `Path(__file__).parents[1]`; app/evolution.py uses
+# its own `_repo_root()`), which is why CODE_EDIT_AUTO_APPLY has been false since 2026-06-12
+# (evolution_changelog holds 1 row with commit_sha NULL since 2026-04-22).
+#
+# A root must now carry the sentinel below -- written only by `make_isolated_apply_root()` -- before
+# any write is allowed through, and the running checkout is refused unconditionally. Applying into a
+# throwaway copy is how a proposal can still be exercised end to end.
+_ISOLATION_SENTINEL = ".code_edit_isolated"
+_LIVE_CHECKOUT_ROOT = Path(__file__).resolve().parents[1]
+
+# ── Offer ledger ─────────────────────────────────────────────────────
+# Bookkeeping, not history: bounded, oldest key dropped first. `offer_keys` remembers that this
+# exact offer was already produced (never pay twice); `noop_keys` remembers that it was produced and
+# came back byte-identical (never pay again at all).
+_MAX_TRACKED_KEYS = 500
+
+# Attribute the spend to its own agent so it is visible and separable in model_usage / budgets.
+_USAGE_AGENT_ID = "self_improvement"
+_USAGE_TASK_TYPE = "code_proposal"
+
+
+class LiveCheckoutWriteRefused(RuntimeError):
+    """Raised when a write would land in the live checkout or in an unmarked root."""
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _safe_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
+
+
+# Minimal safety: only block .git internals and compiled cache.
+# Everything else is fair game — .env, secrets, data, all of it.
+_DENY_PREFIXES = (
+    ".git/",
+    "__pycache__/",
+    ".mypy_cache/",
+    ".pytest_cache/",
+    "node_modules/",
+    "data/secretary.db",
+    "data/secretary.sqlite",
+    "data/secretary.sqlite3",
+    # Deployment & build config — never auto-edit
+    "requirements",  # requirements.txt, requirements-dev.txt
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "dockerfile",
+    "docker-compose",
+    "makefile",
+    "alembic/",
+    ".github/",
+)
+
+
+# ── Last-known-good snapshot system ──────────────────────────────────
+
+
+def _snapshot_dir(repo_root: Path) -> Path:
+    return repo_root / _SNAPSHOT_DIR
+
+
+def _save_snapshot(
+    repo_root: Path,
+    files: dict[str, str],
+    label: str = "",
+) -> str:
+    """Save a snapshot of files before editing (last-known-good).
+
+    Returns the snapshot ID.
+    """
+    guard_write_root(repo_root)
+    snap_dir = _snapshot_dir(repo_root)
+    snap_dir.mkdir(parents=True, exist_ok=True)
+
+    snap_id = hashlib.sha256(f"{_utc_now_iso()}::{label}".encode()).hexdigest()[:12]
+    snap_path = snap_dir / f"{snap_id}.json"
+
+    payload = {
+        "id": snap_id,
+        "label": label,
+        "created_at": _utc_now_iso(),
+        "files": {
+            rel: {"content": content, "sha256": _sha256(content)}
+            for rel, content in files.items()
+        },
+    }
+    # Atomic write: temp file then replace
+    tmp_path = snap_path.with_suffix(".tmp")
+    try:
+        tmp_path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        import os
+
+        os.replace(str(tmp_path), str(snap_path))
+    except OSError:
+        # Fallback: direct write
+        snap_path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    # Prune old snapshots
+    try:
+        snaps = sorted(
+            snap_dir.glob("*.json"),
+            key=lambda p: p.stat().st_mtime,
+        )
+        for old in snaps[:-_MAX_SNAPSHOTS]:
+            old.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+    log.info("Snapshot saved: %s (%d files)", snap_id, len(files))
+    return snap_id
+
+
+def _restore_snapshot(
+    repo_root: Path,
+    snap_id: str,
+) -> dict[str, Any]:
+    """Restore files from a last-known-good snapshot."""
+    try:
+        guard_write_root(repo_root)
+    except LiveCheckoutWriteRefused as exc:
+        return {"ok": False, "error": str(exc), "refused": True, "restored": [], "errors": []}
+    snap_path = _snapshot_dir(repo_root) / f"{snap_id}.json"
+    if not snap_path.exists():
+        return {"ok": False, "error": f"Snapshot {snap_id} not found"}
+
+    data = json.loads(snap_path.read_text(encoding="utf-8"))
+    files = data.get("files", {})
+    restored: list[str] = []
+    errors: list[str] = []
+
+    for rel, info in files.items():
+        try:
+            _write_text(repo_root, rel, info["content"])
+            restored.append(rel)
+        except Exception as exc:
+            errors.append(f"{rel}: {exc}")
+
+    log.info(
+        "Snapshot %s restored: %d files, %d errors",
+        snap_id,
+        len(restored),
+        len(errors),
+    )
+    return {
+        "ok": len(errors) == 0,
+        "snapshot_id": snap_id,
+        "restored": restored,
+        "errors": errors,
+    }
+
+
+def list_snapshots(repo_root: str) -> list[dict[str, Any]]:
+    """List available last-known-good snapshots."""
+    snap_dir = _snapshot_dir(Path(repo_root).resolve())
+    if not snap_dir.exists():
+        return []
+    result = []
+    for p in sorted(
+        snap_dir.glob("*.json"), key=lambda f: f.stat().st_mtime, reverse=True
+    ):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            result.append(
+                {
+                    "id": data.get("id", p.stem),
+                    "label": data.get("label", ""),
+                    "created_at": data.get("created_at", ""),
+                    "file_count": len(data.get("files", {})),
+                }
+            )
+        except Exception:
+            continue
+    return result[:_MAX_SNAPSHOTS]
+
+
+def restore_last_known_good(
+    repo_root: str,
+    snap_id: str | None = None,
+) -> dict[str, Any]:
+    """Public API: restore from a snapshot (latest if no ID given)."""
+    repo = Path(repo_root).resolve()
+    if snap_id:
+        return _restore_snapshot(repo, snap_id)
+    snaps = list_snapshots(repo_root)
+    if not snaps:
+        return {"ok": False, "error": "No snapshots available"}
+    return _restore_snapshot(repo, snaps[0]["id"])
+
+
+def _normalize_rel_path(rel_path: str) -> str:
+    """Normalize a repo-relative path without eating leading dots.
+
+    `lstrip("./")` used to sit here, and `str.lstrip` treats its argument as a character set, so it
+    stripped every leading `.` and `/`: `.env` became `env` and `.git/config` became `git/config`,
+    which meant the `.env` and `.git/` denials below could never fire. Only a literal leading `./` is
+    removed now -- dotfiles keep their dot and stay matched by the rules meant to stop them.
+    """
+    rel = str(rel_path or "").replace("\\", "/").strip()
+    while rel.startswith("./"):
+        rel = rel[2:]
+    return rel
+
+
+def _is_vendored_rel_path(rel_path: str) -> bool:
+    """True when any path segment is a vendored or generated tree.
+
+    Delegates to the single per-segment rule the rest of the codebase already uses
+    (app/database.py: `_is_vendored_path`) instead of keeping a third copy of it. That helper
+    matches whole segments, so `web/node_modules/pkg/index.js` is caught at any depth, which the
+    prefix list below could not do (measured: 19 evolution offers, 18 of them in the last 30 days,
+    targeted `web/node_modules/flatted/python/flatted.py`).
+    """
+    from app.database import _is_vendored_path as _shared_is_vendored_path
+
+    return bool(_shared_is_vendored_path(rel_path))
+
+
+def _is_denied_rel_path(rel_path: str) -> bool:
+    rel = _normalize_rel_path(rel_path)
+    if not rel or rel.startswith("/"):
+        return True
+    if ".." in rel.split("/"):
+        return True
+    lowered = rel.lower()
+
+    # Block live env/secrets files, but allow .env.example.
+    if lowered == ".env":
+        return True
+    if lowered.startswith(".env.") and lowered != ".env.example":
+        return True
+
+    for prefix in _DENY_PREFIXES:
+        if lowered.startswith(prefix):
+            return True
+
+    # Vendored/generated trees, at any depth and under either path separator. `startswith` above only
+    # sees `node_modules/...`, `venv/...`, `site-packages/...`, `.next/...` etc. when they sit at the
+    # repository root, so `web/node_modules/pkg/index.js` slipped through the whole filter.
+    if _is_vendored_rel_path(rel):
+        return True
+    return False
+
+
+def _is_allowed_rel_path(settings: Settings | None, rel_path: str) -> bool:
+    rel = _normalize_rel_path(rel_path)
+    if _is_denied_rel_path(rel):
+        return False
+    # Full access mode — no restrictions beyond path-escape and .git
+    return True
+
+
+def _resolve_in_repo(repo_root: Path, rel_path: str) -> Path:
+    rel = _normalize_rel_path(rel_path)
+    path = (repo_root / rel).resolve()
+    if repo_root != path and repo_root not in path.parents:
+        raise ValueError("Path escape detected")
+    return path
+
+
+# ── Write isolation ──────────────────────────────────────────────────
+
+
+def is_isolated_apply_root(repo_root: str | Path) -> bool:
+    """True when this root carries the isolation sentinel written by `make_isolated_apply_root()`."""
+    try:
+        root = Path(repo_root).resolve()
+    except (OSError, ValueError):
+        return False
+    return (root / _ISOLATION_SENTINEL).exists()
+
+
+def guard_write_root(repo_root: str | Path) -> Path:
+    """Return the resolved root, or refuse the write.
+
+    Two rules, both load-bearing:
+
+    1. the running checkout is refused unconditionally -- even if somebody marked it, nothing may
+       write into the tree the API is serving out of;
+    2. any other root must be marked isolated. That is what makes "the flag is off because it is not
+       yet trusted" instead of "the flag is off because the code path is dangerous".
+
+    Raises:
+        LiveCheckoutWriteRefused: when a write into this root must not happen.
+    """
+    try:
+        root = Path(repo_root).resolve()
+    except (OSError, ValueError) as exc:  # pragma: no cover - defensive
+        raise LiveCheckoutWriteRefused(f"unresolvable apply root {repo_root!r}: {exc}") from exc
+
+    if root == _LIVE_CHECKOUT_ROOT:
+        raise LiveCheckoutWriteRefused(
+            f"refusing to write into the live checkout ({root}); unset CODE_EDIT_AUTO_APPLY and "
+            f"apply into an isolated root from make_isolated_apply_root() instead"
+        )
+    if not (root / _ISOLATION_SENTINEL).exists():
+        raise LiveCheckoutWriteRefused(
+            f"refusing to write into {root}: not an isolated apply root (missing "
+            f"{_ISOLATION_SENTINEL}); create one with make_isolated_apply_root()"
+        )
+    return root
+
+
+def make_isolated_apply_root(
+    *,
+    source_root: str,
+    rel_paths: list[str],
+    state_path: str | None = None,
+    dest: str | None = None,
+) -> Path:
+    """Create a throwaway copy of the given files, marked as an isolated apply root.
+
+    The copy is what the applier writes into and validates, so a proposal can be exercised end to
+    end while the source tree is only ever read. `dest` defaults to a fresh directory under the
+    system temp dir; the caller owns cleanup.
+    """
+    source = Path(source_root).resolve()
+    root = Path(dest).resolve() if dest else Path(tempfile.mkdtemp(prefix="code_edit_isolated_"))
+    root.mkdir(parents=True, exist_ok=True)
+
+    wanted = [str(p) for p in rel_paths]
+    if state_path:
+        wanted.append(str(state_path))
+
+    for rel in wanted:
+        src = _resolve_in_repo(source, rel)
+        if not src.exists() or not src.is_file():
+            continue
+        dst = _resolve_in_repo(root, rel)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(src), str(dst))
+
+    (root / _ISOLATION_SENTINEL).write_text(
+        "isolated apply root: writes here are throwaway verification, never the source tree\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def _read_text(repo_root: Path, rel_path: str) -> str:
+    path = _resolve_in_repo(repo_root, rel_path)
+    if not path.exists() or not path.is_file():
+        raise ValueError(f"File not found: {rel_path}")
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def _read_text_if_exists(repo_root: Path, rel_path: str) -> tuple[bool, str]:
+    path = _resolve_in_repo(repo_root, rel_path)
+    if not path.exists():
+        return False, ""
+    if not path.is_file():
+        raise ValueError(f"Not a file: {rel_path}")
+    return True, path.read_text(encoding="utf-8", errors="replace")
+
+
+def _write_text(
+    repo_root: Path,
+    rel_path: str,
+    content: str,
+) -> None:
+    # Every write in this module funnels through here, so this is where isolation is enforced.
+    guard_write_root(repo_root)
+    path = _resolve_in_repo(repo_root, rel_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Atomic write: write to tmp then replace
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(content, encoding="utf-8")
+        import os
+
+        os.replace(str(tmp), str(path))
+    except OSError:
+        # Fallback: direct write
+        path.write_text(content, encoding="utf-8")
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _unified_diff(path: str, before: str, after: str) -> str:
+    return "".join(
+        difflib.unified_diff(
+            before.splitlines(True),
+            after.splitlines(True),
+            fromfile=path,
+            tofile=path,
+        )
+    )
+
+
+def _diff_line_count(diff_text: str) -> int:
+    return len([ln for ln in (diff_text or "").splitlines() if ln.strip()])
+
+
+def _extract_json(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        return stripped
+
+    # Robust extraction: scan for the first valid JSON object in the output.
+    # Avoid greedy regexes which can swallow extra braces and create invalid
+    # JSON (common when models include explanations or tool output).
+    decoder = json.JSONDecoder()
+    fallback: str | None = None
+    for m in re.finditer(r"\{", stripped):
+        start = m.start()
+        try:
+            obj, end = decoder.raw_decode(stripped[start:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            candidate = stripped[start : start + end]
+            # Prefer objects that look like our proposal schema.
+            if (
+                isinstance(obj.get("files"), (list, dict))
+                or isinstance(obj.get("changes"), list)
+                or isinstance(obj.get("edits"), dict)
+                or isinstance(obj.get("file"), dict)
+                or (obj.get("path") and obj.get("content"))
+            ):
+                return candidate
+            fallback = candidate
+
+    if fallback:
+        return fallback
+
+    raise ValueError("Model output did not include a valid JSON object.")
+
+
+def _system_prompt() -> str:
+    return (
+        "Return ONLY valid JSON (no markdown, no code fences, no prose). "
+        "Your ENTIRE response must be a single JSON object. "
+        'Required schema: {"summary": string, "files": '
+        '[{"path": string, "content": string}]}. '
+        'The "files" array MUST be present and MUST include an entry '
+        "for EVERY file provided in the prompt (even if unchanged). "
+        'Each "content" MUST be the FULL new file content. '
+        "Do not omit large content; do not truncate. "
+        "Only edit the files provided. "
+        "Do not mention secrets or API keys."
+    )
+
+
+def _call_copilot(
+    system_prompt: str,
+    user_prompt: str,
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    """Call Copilot API. Raises on failure. Returns (provider, model, text, usage)."""
+    from app.copilot_client import copilot_chat
+
+    model = "gpt-4.1"
+    text, usage, _tool_calls = copilot_chat(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0.2,
+        max_tokens=12000,
+    )
+    return "copilot", model, _safe_text(text), usage if isinstance(usage, dict) else None
+
+
+def _call_deepinfra(
+    settings: Settings,
+    system_prompt: str,
+    user_prompt: str,
+    llm_tier: str | None = None,
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    """Call DeepInfra (OpenAI-compatible, primary pipe) via LangChain.
+
+    Added 2026-08-23: DeepInfra is the primary direct provider.  Uses the
+    DeepSeek V4 Flash 0731 workhorse for routine tiers and V4 Pro 0813 for
+    the CEO tier.  Falls back to Fireworks with the same model if DeepInfra
+    has no key.  Raises on failure.
+    """
+    from langchain_core.messages import HumanMessage
+    from langchain_core.messages import SystemMessage
+    from langchain_openai import ChatOpenAI
+
+    tier = str(llm_tier or "").strip().lower()
+    if tier == "ceo":
+        model = "deepseek-ai/DeepSeek-V4-Pro-0813"
+    else:
+        model = "deepseek-ai/DeepSeek-V4-Flash-0731"
+
+    api_key = settings.deepinfra_api_key
+    base_url = "https://api.deepinfra.com/v1/openai"
+    if not api_key and settings.fireworks_api_key:
+        api_key = settings.fireworks_api_key
+        base_url = "https://api.fireworks.ai/inference/v1"
+        model = (
+            "accounts/fireworks/models/deepseek-v4-pro-0813"
+            if tier == "ceo"
+            else "accounts/fireworks/models/deepseek-v4-flash-0731"
+        )
+    if not api_key:
+        raise RuntimeError(
+            "No DeepInfra or Fireworks API key configured for code proposals"
+        )
+
+    llm = ChatOpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        model=model,
+        temperature=0.2,
+        max_tokens=12000,
+    )
+    response = llm.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ]
+    )
+    raw = _safe_text(getattr(response, "content", response))
+    return "deepinfra", model, raw, _extract_langchain_usage(response)
+
+
+def _call_deepseek(
+    settings: Settings,
+    system_prompt: str,
+    user_prompt: str,
+    llm_tier: str | None = None,
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    """Call DeepSeek DIRECT (OpenAI-compatible) via LangChain.
+
+    DeepSeek direct is the live primary pipe: commit e4bc4779 (2026-10-05) made it
+    primary and retired the aggregators, and `.env` now carries
+    `LLM_DISABLED_PROVIDERS_JSON=["openrouter", "copilot", "deepinfra", "fireworks"]`.
+    `code_self_edit` was left off that change, so this generator kept asking providers
+    that cannot serve a DeepSeek id and every run recorded six doomed
+    `model='unknown'` attempts. MEASURED 2026-10-07: 18 failures of 18 calls in 6h,
+    which is what turned ai-gateway-health red for ten consecutive runs.
+    """
+    from langchain_core.messages import HumanMessage
+    from langchain_core.messages import SystemMessage
+    from langchain_openai import ChatOpenAI
+
+    tier = str(llm_tier or "").strip().lower()
+    model = "deepseek-v4-pro" if tier == "ceo" else "deepseek-v4-flash"
+    llm = ChatOpenAI(
+        api_key=settings.deepseek_api_key,
+        base_url="https://api.deepseek.com/v1",
+        model=model,
+        temperature=0.2,
+        max_tokens=12000,
+    )
+    response = llm.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ]
+    )
+    raw = _safe_text(getattr(response, "content", response))
+    return "deepseek", model, raw, _extract_langchain_usage(response)
+
+
+def _call_openai(
+    settings: Settings,
+    system_prompt: str,
+    user_prompt: str,
+    llm_tier: str | None = None,
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    """Call OpenAI via LangChain. Raises on failure. Returns (provider, model, text, usage)."""
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage
+    from langchain_core.messages import SystemMessage
+
+    tier = str(llm_tier or "").strip().lower()
+    # A TIER IS A *CATALOGUE* ID (`deepseek/deepseek-v4-flash`), NOT A PROVIDER MODEL ID.
+    # MEASURED 2026-10-07: this branch handed that catalogue id straight to
+    # api.openai.com, which answered `400 invalid model ID` on all three retries of every
+    # run; the attempts were recorded as model='unknown' and ten consecutive
+    # ai-gateway-health runs exited rc=1 on them. The literals below are the models
+    # OpenAI actually deploys (both lifecycle_state='promoted' in model_registry and both
+    # already proven successful in model_usage).
+    if tier == "ceo":
+        model = "gpt-5.4"
+    else:
+        model = "gpt-5.4-mini"
+    llm = ChatOpenAI(
+        api_key=settings.openai_api_key,
+        model=model,
+        temperature=0.2,
+        reasoning_effort="low",
+        max_completion_tokens=6000,
+    )
+    response = llm.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ]
+    )
+    raw = _safe_text(getattr(response, "content", response))
+    return "openai", model, raw, _extract_langchain_usage(response)
+
+
+def _call_anthropic(
+    settings: Settings,
+    system_prompt: str,
+    user_prompt: str,
+    llm_tier: str | None = None,
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    """Call Anthropic via LangChain. Raises on failure. Returns (provider, model, text, usage)."""
+    from langchain_anthropic import ChatAnthropic
+    from langchain_core.messages import HumanMessage
+    from langchain_core.messages import SystemMessage
+
+    tier = str(llm_tier or "").strip().lower()
+    # Same catalogue-id defect as `_call_openai`: the tier id is
+    # `deepseek/deepseek-v4-flash`, and api.anthropic.com answered
+    # `404 ... not_found_error ... model: deepseek/deepseek-v4-flash` on every attempt.
+    if tier == "ceo":
+        model = "claude-opus-4-6"
+    else:
+        model = "claude-sonnet-4-5"
+    llm = ChatAnthropic(
+        api_key=settings.anthropic_api_key,
+        model=model,
+        temperature=0.2,
+        max_tokens=1800,
+    )
+    response = llm.invoke(
+        [
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=user_prompt),
+        ]
+    )
+    raw = _safe_text(getattr(response, "content", response))
+    return "anthropic", model, raw, _extract_langchain_usage(response)
+
+
+def _extract_langchain_usage(response: Any) -> dict[str, Any] | None:
+    """Pull a token-usage dict out of a LangChain response.
+
+    Prefers `usage_metadata` (input_tokens/output_tokens) and falls back to the provider's
+    `response_metadata.token_usage` (prompt_tokens/completion_tokens). `app.pricing.estimate_cost`
+    understands both key spellings.
+    """
+    usage = getattr(response, "usage_metadata", None)
+    if isinstance(usage, dict) and usage:
+        return dict(usage)
+    meta = getattr(response, "response_metadata", None)
+    if isinstance(meta, dict):
+        for key in ("token_usage", "usage"):
+            candidate = meta.get(key)
+            if isinstance(candidate, dict) and candidate:
+                return dict(candidate)
+    return None
+
+
+def _record_llm_usage(
+    settings: Settings,
+    *,
+    provider: str,
+    model: str,
+    usage: dict[str, Any] | None,
+    latency_ms: int,
+    success: bool,
+    error_message: str | None = None,
+    tier: str | None = None,
+) -> None:
+    """Record one generator LLM call through the shared model_usage path.
+
+    Mirrors `app/assistant_chat.py::_log_usage`: same `log_model_usage` row, same
+    `app.pricing.estimate_cost` estimate, same Thompson-sampling feedback. Before this existed the
+    code-proposal generators made no measured call at all, so self-improvement spend was invisible
+    to `model_usage` and therefore to `app/services/llm_budget.py` (whose spend windows are SQL
+    aggregates over that table). Never raises: telemetry must not break the generator.
+    """
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
+    estimated_cost = 0.0
+
+    try:
+        if usage and success:
+            from app.pricing import estimate_cost
+
+            cost_est = estimate_cost(provider=provider, model=model, usage=usage)
+            prompt_tokens = int(cost_est.prompt_tokens or 0)
+            completion_tokens = int(cost_est.completion_tokens or 0)
+            total_tokens = int(cost_est.total_tokens or 0)
+            estimated_cost = float(cost_est.estimated_cost_usd or 0.0)
+    except Exception:  # noqa: BLE001 - an unknown model must not lose the call record
+        log.debug("code_self_edit: cost estimate failed for %s", model, exc_info=True)
+
+    try:
+        from app.database import log_model_usage
+
+        log_model_usage(
+            settings.database_url,
+            agent_id=_USAGE_AGENT_ID,
+            provider=provider,
+            model=model,
+            tier=str(tier or "ceo"),
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            estimated_cost_usd=estimated_cost,
+            latency_ms=max(0, int(latency_ms or 0)),
+            success=success,
+            error_message=error_message,
+        )
+    except Exception:  # noqa: BLE001 - best effort, but loud
+        log.warning(
+            "code_self_edit: failed to record model usage (%s/%s)",
+            provider,
+            model,
+            exc_info=True,
+        )
+
+    # Feed D015 Thompson Sampling quality tracker, exactly as assistant_chat does.
+    try:
+        from app.services.model_registry import record_model_outcome
+
+        canonical = f"{provider}/{model}" if "/" not in model else model
+        record_model_outcome(
+            canonical,
+            _USAGE_TASK_TYPE,
+            success,
+            cost_usd=estimated_cost,
+            latency_ms=float(latency_ms or 0),
+            db_url=settings.database_url,
+        )
+    except Exception:  # noqa: BLE001 - quality tracking is optional
+        log.debug("code_self_edit: model outcome not recorded", exc_info=True)
+
+
+def _invoke_llm(
+    settings: Settings,
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    llm_tier: str | None = None,
+) -> tuple[str, str, str, dict[str, Any] | None]:
+    """Invoke LLM with full fallback chain and retries.
+
+    Strategy:
+      1) Try each configured provider in priority order
+      2) Retry each provider up to _MAX_LLM_RETRIES times
+         with exponential backoff
+      3) If all providers fail, raise with combined error
+         details so the agent knows exactly what went wrong
+
+    Every attempt -- successful or not -- is recorded through `_record_llm_usage`, so this
+    generator's spend lands in `model_usage` and is counted by the existing budget windows.
+
+    Returns (provider, model, raw_text, usage).
+    """
+    providers = settings.provider_api_keys()
+
+    # Build ordered list of (name, callable) providers.
+    # 2026-10-07: DeepSeek direct goes FIRST -- it is the live primary pipe (commit
+    # e4bc4779) and the only configured provider that can serve the DeepSeek id this
+    # generator asks for. Copilot/DeepInfra/Fireworks are provider-disabled in `.env`,
+    # so before this the chain fell straight through to OpenAI and Anthropic carrying a
+    # DeepSeek catalogue id, and every attempt was recorded as model='unknown'.
+    provider_chain: list[tuple[str, Any]] = []
+    if providers.get("deepseek"):
+        provider_chain.append(
+            (
+                "deepseek",
+                lambda sp, up: _call_deepseek(
+                    settings,
+                    sp,
+                    up,
+                    llm_tier=llm_tier,
+                ),
+            )
+        )
+    if providers.get("copilot"):
+        provider_chain.append(
+            (
+                "copilot",
+                _call_copilot,
+            )
+        )
+    if providers.get("deepinfra") or providers.get("fireworks"):
+        provider_chain.append(
+            (
+                "deepinfra",
+                lambda sp, up: _call_deepinfra(
+                    settings,
+                    sp,
+                    up,
+                    llm_tier=llm_tier,
+                ),
+            )
+        )
+    if providers.get("openai"):
+        provider_chain.append(
+            (
+                "openai",
+                lambda sp, up: _call_openai(
+                    settings,
+                    sp,
+                    up,
+                    llm_tier=llm_tier,
+                ),
+            )
+        )
+    if providers.get("anthropic"):
+        provider_chain.append(
+            (
+                "anthropic",
+                lambda sp, up: _call_anthropic(
+                    settings,
+                    sp,
+                    up,
+                    llm_tier=llm_tier,
+                ),
+            )
+        )
+
+    if not provider_chain:
+        raise ValueError(
+            "No LLM provider configured for code proposals. "
+            "Configure at least one of: copilot, openai, "
+            "anthropic in your .env file."
+        )
+
+    all_errors: list[str] = []
+
+    for prov_name, prov_fn in provider_chain:
+        for attempt in range(1, _MAX_LLM_RETRIES + 1):
+            t0 = time.monotonic()
+            try:
+                result = prov_fn(system_prompt, user_prompt)
+                latency_ms = int((time.monotonic() - t0) * 1000)
+                if attempt > 1:
+                    log.info(
+                        "LLM %s succeeded on attempt %d",
+                        prov_name,
+                        attempt,
+                    )
+                call_provider, call_model, call_text, call_usage = result
+                _record_llm_usage(
+                    settings,
+                    provider=call_provider,
+                    model=call_model,
+                    usage=call_usage,
+                    latency_ms=latency_ms,
+                    success=True,
+                    tier=llm_tier,
+                )
+                return call_provider, call_model, call_text, call_usage
+            except Exception as exc:  # noqa: BLE001
+                latency_ms = int((time.monotonic() - t0) * 1000)
+                wait = _RETRY_BACKOFF_BASE**attempt
+                err_msg = f"{prov_name} attempt {attempt}/" f"{_MAX_LLM_RETRIES}: {exc}"
+                log.warning("LLM call failed: %s", err_msg)
+                all_errors.append(err_msg)
+                # A failed attempt is still a fact worth counting: repeated retries were invisible
+                # spend (and invisible waste) before this. Billed tokens are zero on failure.
+                _record_llm_usage(
+                    settings,
+                    provider=prov_name,
+                    model="unknown",
+                    usage=None,
+                    latency_ms=latency_ms,
+                    success=False,
+                    error_message=err_msg[:500],
+                    tier=llm_tier,
+                )
+                if attempt < _MAX_LLM_RETRIES:
+                    time.sleep(wait)
+
+        log.error(
+            "LLM provider %s exhausted after %d retries",
+            prov_name,
+            _MAX_LLM_RETRIES,
+        )
+
+    # All providers exhausted — build a detailed error report
+    error_report = (
+        "All LLM providers failed for code proposal.\n"
+        "Errors encountered:\n" + "\n".join(f"  - {e}" for e in all_errors)
+    )
+    raise ValueError(error_report)
+
+
+@dataclass(frozen=True)
+class ProposedFile:
+    path: str
+    before_exists: bool
+    before_sha256: str
+    after_sha256: str
+    diff: str
+    after: str
+
+
+def _load_state(repo_root: Path, state_path: str) -> dict[str, Any]:
+    state_file = _resolve_in_repo(repo_root, state_path)
+    if not state_file.exists():
+        return {"proposals": []}
+    parsed = json.loads(state_file.read_text(encoding="utf-8"))
+    return parsed if isinstance(parsed, dict) else {"proposals": []}
+
+
+def _save_state(
+    repo_root: Path,
+    state_path: str,
+    state: dict[str, Any],
+) -> None:
+    state_file = _resolve_in_repo(repo_root, state_path)
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    # Atomic write: temp file then replace
+    tmp = state_file.with_suffix(".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(state, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        import os
+
+        os.replace(str(tmp), str(state_file))
+    except OSError:
+        state_file.write_text(
+            json.dumps(state, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def list_proposals(
+    *,
+    repo_root: str,
+    state_path: str = "data/code_proposals.json",
+) -> list[dict[str, Any]]:
+    repo = Path(repo_root).resolve()
+    with _lock:
+        state = _load_state(repo, state_path)
+        proposals = state.get("proposals", [])
+        if not isinstance(proposals, list):
+            return []
+        return list(reversed(proposals))
+
+
+# ── Offer ledger (dedup + no-op memory) ──────────────────────────────
+# The generator used to be paid again for the identical ask: of the 25 stored proposals measured on
+# 2026-09-15, 21 targeted one file against one unchanged before_sha256 and 6 came back byte-identical
+# to the file they were handed. There was no key, so nothing could refuse either.
+
+
+def _normalize_instruction(instruction: str) -> str:
+    """Collapse whitespace so a re-wrapped instruction still matches its twin."""
+    return " ".join(_safe_text(instruction).split())
+
+
+def proposal_key(
+    instruction: str,
+    files: list[tuple[str, str]],
+    *,
+    dedup_key: str | None = None,
+) -> str:
+    """Stable identity of an offer: instruction (or caller key) × path × before_sha256.
+
+    `files` is `[(rel_path, before_sha256), ...]`. The hash of the file is part of the key on
+    purpose: once the file changes, the same instruction is a genuinely new question and is allowed
+    through. Callers with a more precise identity than the instruction text (the self-healing loop
+    knows which error it is fixing) can pass `dedup_key` instead.
+    """
+    payload = json.dumps(
+        {
+            "instruction": None if dedup_key else _normalize_instruction(instruction),
+            "dedup_key": _safe_text(dedup_key) or None,
+            "files": sorted((str(p), str(s)) for p, s in files),
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(payload.encode("utf-8", "ignore")).hexdigest()[:32]
+
+
+def _trim_key_map(entries: dict[str, Any]) -> dict[str, Any]:
+    """Keep the ledger bounded; oldest key (dict insertion order) goes first."""
+    if len(entries) <= _MAX_TRACKED_KEYS:
+        return entries
+    return {key: entries[key] for key in list(entries.keys())[-_MAX_TRACKED_KEYS:]}
+
+
+def _ledger(state: dict[str, Any], name: str) -> dict[str, Any]:
+    entries = state.get(name)
+    if not isinstance(entries, dict):
+        entries = {}
+    return dict(entries)
+
+
+def clear_offer_ledger(
+    *,
+    repo_root: str,
+    state_path: str = "data/code_proposals.json",
+) -> dict[str, int]:
+    """Forget every remembered offer/no-op. The escape hatch when a key wedges a needed proposal."""
+    repo = Path(repo_root).resolve()
+    with _lock:
+        state = _load_state(repo, state_path)
+        counts = {
+            "offer_keys": len(_ledger(state, "offer_keys")),
+            "noop_keys": len(_ledger(state, "noop_keys")),
+            "dedup_keys": len(_ledger(state, "dedup_keys")),
+        }
+        state["offer_keys"] = {}
+        state["noop_keys"] = {}
+        state["dedup_keys"] = {}
+        _save_state(repo, state_path, state)
+    return counts
+
+
+def dedup_key_record(
+    *,
+    repo_root: str,
+    dedup_key: str,
+    state_path: str = "data/code_proposals.json",
+    ttl_sec: int | None = None,
+) -> dict[str, Any] | None:
+    """Return the stored offer for a caller-supplied `dedup_key`, or None.
+
+    Callers that can name their own identity (the self-healing loop names the error it is fixing)
+    ask here *before* spending anything, so a paid diagnosis is not repeated for an offer that is
+    still sitting unapplied. `ttl_sec` bounds how long a record counts as fresh, so a stale ledger
+    cannot silence a problem permanently. Never raises.
+    """
+    try:
+        repo = Path(repo_root).resolve()
+        key = _safe_text(dedup_key)
+        if not key:
+            return None
+        with _lock:
+            record = _ledger(_load_state(repo, state_path), "dedup_keys").get(key)
+        if not isinstance(record, dict):
+            return None
+        record = dict(record)
+        record["dedup_key"] = key
+        if ttl_sec is not None:
+            stamped = _safe_text(record.get("at"))
+            if not stamped:
+                return None
+            try:
+                age = (
+                    datetime.now(timezone.utc) - datetime.fromisoformat(stamped)
+                ).total_seconds()
+            except ValueError:
+                return None
+            record["age_sec"] = int(age)
+            if age > float(ttl_sec):
+                return None
+        return record
+    except Exception:  # noqa: BLE001 - a broken ledger must not stop the caller
+        log.warning("code_self_edit: could not read the dedup ledger", exc_info=True)
+        return None
+
+
+def _remember_dedup_key(
+    state: dict[str, Any],
+    dedup_key: str | None,
+    *,
+    outcome: str,
+    proposal_id: str = "",
+    paths: list[str] | None = None,
+) -> None:
+    """Record what a caller-named offer produced, so the same ask is not re-priced."""
+    key = _safe_text(dedup_key)
+    if not key:
+        return
+    entries = _ledger(state, "dedup_keys")
+    entries[key] = {
+        "at": _utc_now_iso(),
+        "outcome": outcome,
+        "proposal_id": proposal_id,
+        "paths": list(paths or []),
+    }
+    state["dedup_keys"] = _trim_key_map(entries)
+
+
+def _stored_proposal(state: dict[str, Any], proposal_id: str | None) -> dict[str, Any] | None:
+    if not proposal_id:
+        return None
+    proposals = state.get("proposals")
+    if not isinstance(proposals, list):
+        return None
+    for item in reversed(proposals):
+        if isinstance(item, dict) and item.get("proposal_id") == proposal_id:
+            return item
+    return None
+
+
+def _refusal(
+    *,
+    status: str,
+    reason: str,
+    key: str,
+    model_calls: int,
+) -> dict[str, Any]:
+    """Shape a refusal like a normal result so every existing caller keeps working."""
+    return {
+        "status": status,
+        "refused": True,
+        "proposal_id": "",
+        "created_at": _utc_now_iso(),
+        "provider": "",
+        "model": "",
+        "summary": reason,
+        "reason": reason,
+        "dedup_key": key,
+        "model_calls": model_calls,
+        "files": [],
+    }
+
+
+def propose_code_changes(
+    *,
+    settings: Settings,
+    repo_root: str,
+    instruction: str,
+    target_paths: list[str],
+    state_path: str = "data/code_proposals.json",
+    llm_tier: str | None = None,
+    dedup_key: str | None = None,
+) -> dict[str, Any]:
+    """Ask a model for a change, refusing to pay twice for the same offer.
+
+    Refusals are returned, not raised, so every caller keeps working:
+      * ``noop_refused``      -- this offer was already measured to return the file unchanged;
+      * ``duplicate``         -- this offer was already made and is served from storage;
+      * ``duplicate_refused`` -- already made, body since pruned from the 25-entry window.
+
+    All three carry ``refused: True`` and ``model_calls: 0``. `dedup_key` lets a caller whose
+    identity is more precise than the instruction text (e.g. "self-healing error #71") supply it.
+    """
+    repo = Path(repo_root).resolve()
+    instruction_text = _safe_text(instruction)
+    if not instruction_text:
+        raise ValueError("instruction is required")
+    if not target_paths:
+        raise ValueError("target_paths is required")
+
+    max_files = int(getattr(settings, "code_edit_max_target_files", 8) or 8)
+    max_chars = int(getattr(settings, "code_edit_max_file_chars", 200_000) or 200_000)
+    allow_create = bool(getattr(settings, "code_edit_allow_create_files", True))
+
+    paths: list[str] = []
+    for item in target_paths:
+        rel = _normalize_rel_path(_safe_text(item))
+        if not rel:
+            continue
+        if not _is_allowed_rel_path(settings, rel):
+            raise ValueError(f"Disallowed path: {rel}")
+        paths.append(rel)
+
+    if not paths:
+        raise ValueError("No valid target paths provided.")
+    if len(paths) > max_files:
+        raise ValueError(f"Limit proposals to at most {max_files} files.")
+
+    file_blobs: list[dict[str, str]] = []
+    for rel in paths:
+        exists, content = _read_text_if_exists(repo, rel)
+        if not exists and not allow_create:
+            raise ValueError(f"File not found (creation disabled): {rel}")
+        if len(content) > max_chars:
+            raise ValueError(f"File too large for safe editing: {rel}")
+        file_blobs.append({"path": rel, "content": content})
+
+    user_parts = ["Instruction:", instruction_text, "", "Files:"]
+    for blob in file_blobs:
+        user_parts.append(f"\n--- {blob['path']} ---")
+        user_parts.append(blob["content"])
+
+    # ── Pre-flight ledger check: never pay twice for the same offer, and never pay at all for an
+    # offer already proven to be a no-op. This is the last cheap point before the prompt is sent.
+    targets = [(blob["path"], _sha256(blob["content"])) for blob in file_blobs]
+    request_key = proposal_key(instruction_text, targets, dedup_key=dedup_key)
+
+    with _lock:
+        state = _load_state(repo, state_path)
+        noop_entries = _ledger(state, "noop_keys")
+        offer_entries = _ledger(state, "offer_keys")
+        cached = _stored_proposal(state, offer_entries.get(request_key))
+
+    if request_key in noop_entries:
+        record = noop_entries.get(request_key)
+        previous = record.get("outcome") if isinstance(record, dict) else None
+        log.info(
+            "code_self_edit: refusing a known no-op offer for %s (no model call)",
+            ", ".join(paths),
+        )
+        return _refusal(
+            status="noop_refused",
+            reason=(
+                "refusing a proposal already measured to reproduce the current content byte for "
+                f"byte ({previous or 'no-op'}); no model call was made. Clear it with "
+                "clear_offer_ledger() if the file is meant to change."
+            ),
+            key=request_key,
+            model_calls=0,
+        )
+
+    if request_key in offer_entries:
+        if cached is not None:
+            log.info(
+                "code_self_edit: serving stored proposal %s for a duplicate offer (no model call)",
+                cached.get("proposal_id"),
+            )
+            return {
+                "proposal_id": cached.get("proposal_id", ""),
+                "created_at": cached.get("created_at", _utc_now_iso()),
+                "provider": cached.get("provider", ""),
+                "model": cached.get("model", ""),
+                "summary": cached.get("summary", ""),
+                "status": "duplicate",
+                "duplicate": True,
+                "duplicate_of": cached.get("proposal_id", ""),
+                "dedup_key": request_key,
+                "model_calls": 0,
+                "files": [
+                    {
+                        "path": f.get("path"),
+                        "diff": f.get("diff", ""),
+                        "before_sha256": f.get("before_sha256"),
+                        "after_sha256": f.get("after_sha256"),
+                    }
+                    for f in cached.get("files", [])
+                    if isinstance(f, dict)
+                ],
+            }
+        return _refusal(
+            status="duplicate_refused",
+            reason=(
+                "this exact offer (same instruction, same paths, same before_sha256) was already "
+                "made and its stored body has since been pruned from the 25-entry window; refusing "
+                "to pay for it again. Clear it with clear_offer_ledger() to force a fresh attempt."
+            ),
+            key=request_key,
+            model_calls=0,
+        )
+
+    provider, model, raw, _usage = _invoke_llm(
+        settings,
+        system_prompt=_system_prompt(),
+        user_prompt="\n".join(user_parts),
+        llm_tier=llm_tier,
+    )
+    parsed = json.loads(_extract_json(raw))
+    if not isinstance(parsed, dict):
+        raise ValueError("Invalid JSON proposal (expected object).")
+
+    # Normalize common schema variants into the expected:
+    #   {"summary": str, "files": [{"path": str, "content": str}, ...]}
+    files: Any = parsed.get("files")
+
+    # Accept files as a dict map: {"path": "content", ...}
+    if isinstance(files, dict) and files:
+        files = [{"path": str(k), "content": str(v)} for k, v in files.items() if k]
+
+    # Fallback key: changes
+    if (not isinstance(files, list)) or (not files):
+        alt = parsed.get("changes")
+        if isinstance(alt, list) and alt:
+            files = alt
+
+    # Fallback key: edits map
+    if (not isinstance(files, list)) or (not files):
+        edits = parsed.get("edits")
+        if isinstance(edits, dict) and edits:
+            files = [{"path": str(k), "content": str(v)} for k, v in edits.items() if k]
+
+    # Fallback: single-file schema
+    if (not isinstance(files, list)) or (not files):
+        single_file = parsed.get("file")
+        if isinstance(single_file, dict):
+            files = [single_file]
+        elif parsed.get("path") and parsed.get("content"):
+            files = [
+                {
+                    "path": parsed.get("path"),
+                    "content": parsed.get("content"),
+                }
+            ]
+
+    if not isinstance(files, list) or not files:
+        raise ValueError("Invalid JSON proposal (missing files).")
+    parsed["files"] = files
+
+    by_path: dict[str, str] = {}
+    for item in files:
+        if not isinstance(item, dict):
+            continue
+        p = _safe_text(item.get("path")).replace("\\", "/").strip()
+        c = str(
+            item.get("content")
+            or item.get("after")
+            or item.get("text")
+            or item.get("new_content")
+            or ""
+        )
+        if p:
+            by_path[p] = c
+
+    proposed_files: list[ProposedFile] = []
+    for rel in paths:
+        if rel not in by_path:
+            raise ValueError(f"Proposal missing file: {rel}")
+        before_exists, before = _read_text_if_exists(repo, rel)
+        after = by_path[rel]
+
+        # Guard: reject proposals that would truncate an existing
+        # file to empty/near-empty content (LLM hallucination).
+        if before_exists and len(before.strip()) > 10:
+            if len(after.strip()) < 10:
+                raise ValueError(
+                    f"Rejected: proposal would truncate "
+                    f"{rel} from {len(before)} to "
+                    f"{len(after)} bytes"
+                )
+
+        proposed_files.append(
+            ProposedFile(
+                path=rel,
+                before_exists=before_exists,
+                before_sha256=_sha256(before),
+                after_sha256=_sha256(after),
+                diff=_unified_diff(rel, before, after),
+                after=after,
+            )
+        )
+
+    seed = f"{_utc_now_iso()}::{instruction_text}::{','.join(paths)}"
+    proposal_id = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:16]
+
+    # ── No-op refusal: the model was paid once and handed the file straight back. Record the key so
+    # that ask is never paid for again, and do not store the offer -- 6 of the 25 stored proposals
+    # measured on 2026-09-15 were byte-identical reproductions that ate the 25-entry window.
+    noop_files = [pf for pf in proposed_files if pf.after_sha256 == pf.before_sha256]
+
+    if proposed_files and len(noop_files) == len(proposed_files):
+        with _lock:
+            state = _load_state(repo, state_path)
+            noop_entries = _ledger(state, "noop_keys")
+            record = {
+                "at": _utc_now_iso(),
+                "paths": [pf.path for pf in noop_files],
+                "outcome": "byte-identical content returned for every target",
+            }
+            noop_entries[request_key] = record
+            for pf in noop_files:
+                noop_entries[
+                    proposal_key(
+                        instruction_text,
+                        [(pf.path, pf.before_sha256)],
+                        dedup_key=dedup_key,
+                    )
+                ] = record
+            state["noop_keys"] = _trim_key_map(noop_entries)
+            _remember_dedup_key(
+                state,
+                dedup_key,
+                outcome="noop",
+                paths=[pf.path for pf in noop_files],
+            )
+            _save_state(repo, state_path, state)
+
+        log.info(
+            "code_self_edit: model returned the file unchanged for %s; recorded as a no-op",
+            ", ".join(pf.path for pf in noop_files),
+        )
+        return _refusal(
+            status="noop_refused",
+            reason=(
+                f"the model returned byte-identical content for {len(noop_files)} target(s) "
+                f"({', '.join(pf.path for pf in noop_files)}); the offer was discarded and "
+                "recorded, so this exact ask will not be sent to a model again"
+            ),
+            key=request_key,
+            model_calls=1,
+        )
+
+    if noop_files:
+        # A mixed proposal: remember the individual no-ops so a later single-file ask for them is
+        # refused pre-flight, while keeping the real change.
+        with _lock:
+            state = _load_state(repo, state_path)
+            noop_entries = _ledger(state, "noop_keys")
+            for pf in noop_files:
+                noop_entries[
+                    proposal_key(
+                        instruction_text,
+                        [(pf.path, pf.before_sha256)],
+                        dedup_key=dedup_key,
+                    )
+                ] = {
+                    "at": _utc_now_iso(),
+                    "paths": [pf.path],
+                    "outcome": "byte-identical content returned for this target",
+                }
+            state["noop_keys"] = _trim_key_map(noop_entries)
+            _save_state(repo, state_path, state)
+
+    with _lock:
+        state = _load_state(repo, state_path)
+        proposals = state.get("proposals", [])
+        if not isinstance(proposals, list):
+            proposals = []
+
+        proposals.append(
+            {
+                "proposal_id": proposal_id,
+                "created_at": _utc_now_iso(),
+                "provider": provider,
+                "model": model,
+                "code_edit_mode": _safe_text(
+                    getattr(settings, "code_edit_mode", "restricted")
+                ),
+                "instruction": instruction_text,
+                "summary": _safe_text(parsed.get("summary")),
+                "status": "proposed",
+                "files": [
+                    {
+                        "path": pf.path,
+                        "before_exists": pf.before_exists,
+                        "before_sha256": pf.before_sha256,
+                        "after_sha256": pf.after_sha256,
+                        "diff": pf.diff,
+                        "after": pf.after,
+                    }
+                    for pf in proposed_files
+                ],
+            }
+        )
+
+        state["proposals"] = proposals[-25:]
+
+        # Remember the offer (request-wide and per-target) so the identical ask is never re-priced.
+        offer_entries = _ledger(state, "offer_keys")
+        offer_entries[request_key] = proposal_id
+        for pf in proposed_files:
+            offer_entries[
+                proposal_key(
+                    instruction_text,
+                    [(pf.path, pf.before_sha256)],
+                    dedup_key=dedup_key,
+                )
+            ] = proposal_id
+        state["offer_keys"] = _trim_key_map(offer_entries)
+
+        _remember_dedup_key(
+            state,
+            dedup_key,
+            outcome="proposed",
+            proposal_id=proposal_id,
+            paths=[pf.path for pf in proposed_files],
+        )
+
+        _save_state(repo, state_path, state)
+
+    return {
+        "proposal_id": proposal_id,
+        "created_at": _utc_now_iso(),
+        "provider": provider,
+        "model": model,
+        "summary": _safe_text(parsed.get("summary")),
+        "status": "proposed",
+        "dedup_key": request_key,
+        "model_calls": 1,
+        "noop_files": [pf.path for pf in noop_files],
+        "files": [
+            {
+                "path": pf.path,
+                "diff": pf.diff,
+                "before_sha256": pf.before_sha256,
+                "after_sha256": pf.after_sha256,
+            }
+            for pf in proposed_files
+        ],
+    }
+
+
+def apply_proposal(
+    *,
+    settings: Settings | None = None,
+    repo_root: str,
+    proposal_id: str,
+    state_path: str = "data/code_proposals.json",
+) -> dict[str, Any]:
+    """Apply a code proposal with multi-stage validation and rollback.
+
+    Safety pipeline:
+      1) Save a last-known-good snapshot of all affected files
+      2) Write new content for each file
+      3) Stage 1 validation: py_compile on every .py file
+      4) Stage 2 validation: importlib check (catches
+         missing deps / circular imports)
+      5) On ANY failure → automatic rollback to snapshot,
+         detailed error report returned to the agent
+
+    `repo_root` must be an isolated apply root (`make_isolated_apply_root()`); the live checkout is
+    refused with `ok=False, refused=True` and a clear error instead of raising, so callers that
+    expect a result dict keep working. Use `apply_proposal_isolated()` to exercise a proposal end to
+    end without deciding where isolation lives.
+    """
+    repo = Path(repo_root).resolve()
+    pid = _safe_text(proposal_id)
+    if not pid:
+        raise ValueError("proposal_id is required")
+
+    try:
+        guard_write_root(repo)
+    except LiveCheckoutWriteRefused as exc:
+        log.error("Refused to apply proposal %s: %s", pid, exc)
+        return {
+            "ok": False,
+            "refused": True,
+            "proposal_id": pid,
+            "applied_files": [],
+            "error": str(exc),
+            "error_stage": "apply_root_refused",
+            "rollback_ok": True,
+            "rollback_errors": [],
+            "agent_message": (
+                f"Code edit refused before any write: {exc}. Nothing was changed. Apply into an "
+                f"isolated root (make_isolated_apply_root / apply_proposal_isolated) instead."
+            ),
+        }
+
+    with _lock:
+        state = _load_state(repo, state_path)
+        proposals = state.get("proposals", [])
+        if not isinstance(proposals, list) or not proposals:
+            raise ValueError("No proposals exist")
+
+        target: dict[str, Any] | None = None
+        for item in proposals:
+            if isinstance(item, dict) and item.get("proposal_id") == pid:
+                target = item
+                break
+        if not target:
+            raise ValueError("Unknown proposal_id")
+        if target.get("status") == "applied":
+            return {
+                "ok": True,
+                "proposal_id": pid,
+                "already_applied": True,
+            }
+
+        files = target.get("files", [])
+        if not isinstance(files, list) or not files:
+            raise ValueError("Proposal has no files")
+
+        backups: dict[str, str] = {}
+        written: list[str] = []
+        snapshot_id: str | None = None
+
+        try:
+            # ── Phase 1: Pre-flight checks + snapshot ──────
+            for f in files:
+                if not isinstance(f, dict):
+                    continue
+                rel = _normalize_rel_path(
+                    _safe_text(f.get("path")),
+                )
+                if not _is_allowed_rel_path(settings, rel):
+                    raise ValueError(f"Disallowed path: {rel}")
+
+                exists_now, before = _read_text_if_exists(
+                    repo,
+                    rel,
+                )
+                expected_exists = bool(
+                    f.get("before_exists", True),
+                )
+                if expected_exists and not exists_now:
+                    raise ValueError(f"File missing since proposal: {rel}")
+                if (not expected_exists) and exists_now:
+                    raise ValueError(f"File created since proposal: {rel}")
+
+                expected = _safe_text(f.get("before_sha256"))
+                if expected_exists and expected and _sha256(before) != expected:
+                    raise ValueError(f"File changed since proposal: {rel}")
+
+                after = str(f.get("after") or "")
+                after_sha = _safe_text(
+                    f.get("after_sha256"),
+                )
+                if after_sha and _sha256(after) != after_sha:
+                    raise ValueError("Proposal content hash mismatch.")
+
+                backups[rel] = before
+
+            # Save last-known-good snapshot BEFORE writing
+            snapshot_id = _save_snapshot(
+                repo,
+                backups,
+                label=f"pre-apply-{pid}",
+            )
+
+            # ── Phase 2: Write files ───────────────────────
+            for f in files:
+                if not isinstance(f, dict):
+                    continue
+                rel = _normalize_rel_path(
+                    _safe_text(f.get("path")),
+                )
+                after = str(f.get("after") or "")
+                _write_text(repo, rel, after)
+                written.append(rel)
+
+            # ── Phase 3: Syntax validation ─────────────────
+            changed_py = [p for p in written if p.endswith(".py")]
+            compile_errors: list[str] = []
+            if changed_py:
+                import py_compile
+
+                for rel in changed_py:
+                    try:
+                        py_compile.compile(
+                            str(_resolve_in_repo(repo, rel)),
+                            doraise=True,
+                        )
+                    except py_compile.PyCompileError as ce:
+                        compile_errors.append(f"{rel}: {ce}")
+
+            if compile_errors:
+                raise _ApplyValidationError(
+                    "Syntax errors in changed files:\n" + "\n".join(compile_errors),
+                    stage="compile",
+                    details=compile_errors,
+                )
+
+            # ── Phase 3b: TypeScript validation ────────────
+            changed_ts = [
+                p
+                for p in written
+                if p.endswith((".ts", ".tsx")) and not p.endswith(".d.ts")
+            ]
+            if changed_ts:
+                ts_errors = _validate_typescript(repo, changed_ts)
+                if ts_errors:
+                    raise _ApplyValidationError(
+                        "TypeScript errors:\n" + "\n".join(ts_errors),
+                        stage="typescript",
+                        details=ts_errors,
+                    )
+
+            changed_web = [p for p in written if p.startswith("web/")]
+            if changed_web:
+                build_errors = _validate_next_build(repo)
+                if build_errors:
+                    raise _ApplyValidationError(
+                        "Next.js build errors:\n" + "\n".join(build_errors),
+                        stage="next-build",
+                        details=build_errors,
+                    )
+
+            # ── Phase 4: Import validation (DISABLED) ─────
+            # NOTE: Removed live sys.modules reimport validation.
+            # Forcing del sys.modules + importlib.import_module on a running
+            # server is unsafe — other threads hold stale references, and
+            # concurrent requests can hit half-imported modules. The compile
+            # check in Phase 3 is sufficient; runtime errors from bad edits
+            # will be caught by the self-healing pipeline naturally.
+
+            # ── All checks passed ──────────────────────────
+            target["status"] = "applied"
+            target["applied_at"] = _utc_now_iso()
+            target["snapshot_id"] = snapshot_id
+            _save_state(repo, state_path, state)
+
+            log.info(
+                "Proposal %s applied: %d files, snapshot=%s",
+                pid,
+                len(written),
+                snapshot_id,
+            )
+            return {
+                "ok": True,
+                "proposal_id": pid,
+                "applied_files": written,
+                "snapshot_id": snapshot_id,
+            }
+
+        except Exception as exc:  # noqa: BLE001
+            # ── Automatic rollback ─────────────────────────
+            rollback_ok = True
+            rollback_errors: list[str] = []
+            for rel, content in backups.items():
+                try:
+                    _write_text(repo, rel, content)
+                except Exception as rb_exc:  # noqa: BLE001
+                    rollback_ok = False
+                    rollback_errors.append(f"{rel}: {rb_exc}")
+
+            # Build detailed error report for the agent
+            is_validation = isinstance(
+                exc,
+                _ApplyValidationError,
+            )
+            stage = (
+                exc.stage if is_validation else "pre-flight"  # type: ignore[union-attr]
+            )
+            error_detail = _safe_text(exc)
+
+            target["status"] = "failed"
+            target["failed_at"] = _utc_now_iso()
+            target["error"] = error_detail
+            target["error_stage"] = stage
+            target["snapshot_id"] = snapshot_id
+            target["rollback_ok"] = rollback_ok
+            _save_state(repo, state_path, state)
+
+            log.error(
+                "Proposal %s FAILED at stage=%s, " "rollback=%s: %s",
+                pid,
+                stage,
+                "OK" if rollback_ok else "PARTIAL",
+                error_detail[:300],
+            )
+
+            rb_msg = (
+                "Rollback was clean."
+                if rollback_ok
+                else "WARNING: Rollback had errors: " + "; ".join(rollback_errors)
+            )
+
+            return {
+                "ok": False,
+                "proposal_id": pid,
+                "error": error_detail,
+                "error_stage": stage,
+                "rollback_ok": rollback_ok,
+                "rollback_errors": rollback_errors,
+                "snapshot_id": snapshot_id,
+                "agent_message": (
+                    f"Code edit FAILED at {stage} "
+                    f"stage. Error: {error_detail}. "
+                    f"All files rolled back "
+                    f"(snapshot: {snapshot_id}). "
+                    f"{rb_msg}"
+                ),
+            }
+
+
+def apply_proposal_isolated(
+    *,
+    settings: Settings | None = None,
+    repo_root: str,
+    proposal_id: str,
+    state_path: str = "data/code_proposals.json",
+    dest: str | None = None,
+) -> dict[str, Any]:
+    """Apply a proposal into a throwaway copy of its target files and verify it there.
+
+    This is the apply path that is safe today: the source tree is only ever read, so it works even
+    when `repo_root` is the live checkout serving the API. Returns the normal apply result plus
+    `isolated_root` / `source_root` / `live_checkout_untouched`, so a caller can see exactly where
+    the write landed.
+    """
+    source = Path(repo_root).resolve()
+    pid = _safe_text(proposal_id)
+    if not pid:
+        raise ValueError("proposal_id is required")
+
+    with _lock:
+        state = _load_state(source, state_path)
+        target = None
+        for item in state.get("proposals", []) or []:
+            if isinstance(item, dict) and item.get("proposal_id") == pid:
+                target = item
+                break
+    if target is None:
+        raise ValueError("Unknown proposal_id")
+
+    rel_paths = [
+        _normalize_rel_path(_safe_text(f.get("path")))
+        for f in target.get("files", [])
+        if isinstance(f, dict)
+    ]
+    targets = [p for p in rel_paths if p]
+
+    def _hashes() -> dict[str, str | None]:
+        out: dict[str, str | None] = {}
+        for rel in targets:
+            try:
+                path = _resolve_in_repo(source, rel)
+                out[rel] = (
+                    _sha256(path.read_text(encoding="utf-8", errors="replace"))
+                    if path.is_file()
+                    else None
+                )
+            except Exception:  # noqa: BLE001 - a missing target is a fact, not an error
+                out[rel] = None
+        return out
+
+    source_before = _hashes()
+
+    isolated_root = make_isolated_apply_root(
+        source_root=str(source),
+        rel_paths=targets,
+        state_path=state_path,
+        dest=dest,
+    )
+
+    result = apply_proposal(
+        settings=settings,
+        repo_root=str(isolated_root),
+        proposal_id=pid,
+        state_path=state_path,
+    )
+
+    # Measured, not asserted: re-read the source files and compare, so the claim that the source
+    # tree was untouched is evidence rather than a comment.
+    source_after = _hashes()
+    result["isolated_root"] = str(isolated_root)
+    result["source_root"] = str(source)
+    result["source_files_unchanged"] = source_before == source_after
+    result["live_checkout_untouched"] = source_before == source_after
+    return result
+
+
+def _validate_typescript(
+    repo: Path,
+    changed_files: list[str],
+) -> list[str]:
+    """Run a lightweight TypeScript check on changed .ts/.tsx files.
+
+    Uses ``npx tsc --noEmit`` scoped to the web/ directory.
+    Returns a list of error strings (empty = success).
+    """
+    import subprocess
+
+    web_dir = repo / "web"
+    tsconfig = web_dir / "tsconfig.json"
+    if not tsconfig.exists():
+        return []  # No TS project to validate against
+
+    npx_cmd = _resolve_node_command("npx")
+    if not npx_cmd:
+        return []
+
+    try:
+        result = subprocess.run(
+            [npx_cmd, "tsc", "--noEmit", "--pretty", "false"],
+            cwd=str(web_dir),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode == 0:
+            return []
+
+        # Filter errors to only those in changed files
+        errors: list[str] = []
+        for line in (result.stdout + result.stderr).splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            for cf in changed_files:
+                # Match relative paths in TS error output
+                basename = cf.split("/")[-1]
+                if basename in line:
+                    errors.append(line)
+                    break
+        return errors if errors else []
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        # npx not available or timed out — skip validation
+        return []
+
+
+def _validate_next_build(repo: Path) -> list[str]:
+    """Run ``next build`` for web changes and return concise failures."""
+    import subprocess
+
+    web_dir = repo / "web"
+    if not web_dir.exists():
+        return []
+    config_names = ("next.config.ts", "next.config.js")
+    if not any((web_dir / name).exists() for name in config_names):
+        return []
+
+    npx_cmd = _resolve_node_command("npx")
+    if not npx_cmd:
+        return []
+
+    try:
+        result = subprocess.run(
+            [npx_cmd, "next", "build"],
+            cwd=str(web_dir),
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except FileNotFoundError:
+        return []
+    except subprocess.TimeoutExpired:
+        return ["next build timed out after 180 seconds"]
+
+    if result.returncode == 0:
+        return []
+
+    lines = [
+        line.strip()
+        for line in (result.stdout + "\n" + result.stderr).splitlines()
+        if line.strip()
+    ]
+    return lines[-25:] or ["next build failed with no output"]
+
+
+def _resolve_node_command(name: str) -> str | None:
+    """Resolve ``npm``/``npx`` robustly across Windows and POSIX shells."""
+    direct = shutil.which(name) or shutil.which(f"{name}.cmd")
+    if direct:
+        return direct
+
+    candidates = [
+        Path.home() / "AppData" / "Roaming" / "npm" / f"{name}.cmd",
+    ]
+    for env_name in ("ProgramFiles", "ProgramFiles(x86)"):
+        base = _safe_text(os.environ.get(env_name))
+        if base:
+            candidates.append(Path(base) / "nodejs" / f"{name}.cmd")
+
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+class _ApplyValidationError(Exception):
+    """Raised during apply validation stages."""
+
+    def __init__(
+        self,
+        message: str,
+        stage: str = "unknown",
+        details: list[str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.details = details or []

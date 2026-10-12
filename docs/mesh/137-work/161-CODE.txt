@@ -1,0 +1,184 @@
+### 300-400
+        """
+        if _all_conditions(m, recent=False):
+            return True
+        calls = m.get("calls", 0)
+        fault = m.get("window_fault", 0)
+        return calls > 0 and (fault / calls) <= fail_rate_limit
+
+    # A configured tier names the CATALOGUE id (`deepseek/deepseek-v4-flash`); usage records the
+    # PROVIDER id (`deepseek-v4-flash`). The registry row carries both, so a tier counts as serving if
+    # EITHER id has traffic. A tier the registry does not know is still judged on its own literal.
+    _canon = data.get("canonical_to_provider") or {}
+
+    def _served_as(model: str) -> set:
+        return {model} | ({_canon[model]} if model in _canon else set())
+
+    # 1. failing models — judged on the RECENT window, or on live traffic if there is any
+    for m in models:
+        # A retired lane is the record of a fix, not a fault. It is reported as a note so the history
+        # stays visible and the detector can go green the moment the retirement lands.
+        if m.get("retired"):
+            if m["calls"] >= min_calls and m["fail_rate"] > fail_rate_limit:
+                notes.append({
+                    "kind": "retired-lane",
+                    "model": m["model"],
+                    "detail": "%d of %d calls failed (%.0f%%) over %dd and it is RETIRED in the model "
+                              "registry, so no candidate list offers it any more. Recorded, not current."
+                              % (m["failed"], m["calls"], 100 * m["fail_rate"], data["days"]),
+                })
+            continue
+        recent_calls = m.get("recent_calls", 0)
+        recent_failed = m.get("recent_failed", 0)
+        if recent_calls > 0:
+            # there is traffic NOW, so it is the honest judge
+            recent_rate = recent_failed / recent_calls
+            if (recent_failed >= MIN_RECENT_FAILURES and recent_rate > fail_rate_limit
+                    and recent_calls >= 3):
+                condition = _all_conditions(m, recent=True)
+                problems.append({
+                    "kind": "failing-now",
+                    "model": m["model"],
+                    "condition": condition,
+                    "detail": "%d of the last %d calls failed (%.0f%%) in the last %dh — this model is "
+                              "failing NOW%s"
+                              % (recent_failed, recent_calls, 100 * recent_rate,
+                                 data["recent_hours"],
+                                 " [CONDITION: provider account/deployment error]"
+                                 if condition else ""),
+                })
+            elif m["calls"] >= min_calls and m["fail_rate"] > fail_rate_limit:
+                notes.append({
+                    "kind": "recovered",
+                    "model": m["model"],
+                    "detail": "%d of %d failed (%.0f%%) over %dd, but the last %dh are CLEAN (%d/%d). "
+                              "Historical, not current — reported so the history is visible without "
+                              "reading as an active fault."
+                              % (m["failed"], m["calls"], 100 * m["fail_rate"], data["days"],
+                                 data["recent_hours"], recent_calls - recent_failed, recent_calls),
+                })
+        elif m["calls"] >= min_calls and m["fail_rate"] > fail_rate_limit:
+            # no traffic in the recent window at all: report the history, but say plainly that how it
+            # behaves TODAY is unknown rather than implying it is still broken
+            condition = _condition_not_ours(m)
+            problems.append({
+                "kind": "failing-historical",
+                "model": m["model"],
+                "condition": condition,
+                "detail": "%d of %d calls failed (%.0f%%) over %dd, and it has had NO traffic in %dh, so "
+                          "whether it works NOW is unmeasured. Last seen %s.%s"
+                          % (m["failed"], m["calls"], 100 * m["fail_rate"], data["days"],
+                             data["recent_hours"], m["last_seen"],
+                             " [CONDITION: provider account/deployment error]"
+                             if condition else ""),
+            })
+
+    # 2. configured models that have NOT been called in the window
+    if tiers.get("_error"):
+        problems.append({"kind": "unmeasured", "model": "-",
+                         "detail": "cannot read the tier config, so whether the configured models are "
+                                   "serving is UNMEASURED: %s" % tiers["_error"]})
+    else:
+        for tier, model in sorted(tiers.items()):
+            if not model:
+                continue
+            ids = _served_as(model)
+            if ids & set(data.get("retired") or ()):
+                # A tier pinned to a retired id cannot serve at all, and the config still names it:
+                # that is a real fault, and a different one from "silent".
+                problems.append({
+                    "kind": "tier-on-retired-model",
+                    "model": model,
+                    "detail": "tier %s is configured with `%s`, which is RETIRED in the model registry "
+                              "(a provider refused it). That tier cannot serve; the config has to name "
+                              "a live model." % (tier, model),
+                })
+            elif not (ids & seen):
+                problems.append({
+                    "kind": "configured-but-silent",
+                    "model": model,
+                    "detail": "tier %s is configured with `%s`, which has ZERO calls in %d days — either "
+                              "it is broken or that tier is never used, and both are worth knowing"
+                              % (tier, model, data["days"]),
+### 620-700
+    """
+    ok = True
+
+    def check(label, got, want):
+        nonlocal ok
+        good = got == want
+        ok = ok and good
+        print("  %s %-56s got=%s" % ("✅" if good else "🔴", label, got))
+
+    def kinds(data, tiers=None):
+        return [f["kind"] for f in evaluate(data, tiers or {}, 0.20)["problems"]]
+
+    # MUST FIRE: failing right now
+    check("failures in the RECENT window fire",
+          kinds({"models": [_m("bad", 100, 74, recent_calls=10, recent_failed=8)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          ["failing-now"])
+
+    # MUST FIRE, but as history: bad week, no traffic recently
+    check("bad week with NO recent traffic fires as historical",
+          kinds({"models": [_m("quiet-bad", 100, 74)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          ["failing-historical"])
+
+    # MUST NOT FIRE: this is the bug the first version had
+    v = evaluate({"models": [_m("recovered", 894, 655, recent_calls=4, recent_failed=0)],
+                  "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("bad week but CLEAN recent traffic does NOT fire", v["problems"], [])
+    check("...and is reported as a note instead",
+          [n["kind"] for n in v["notes"]], ["recovered"])
+
+    # MUST NOT FIRE: healthy
+    check("healthy model stays quiet",
+          kinds({"models": [_m("good", 100, 0, recent_calls=50, recent_failed=0)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          [])
+
+    # MUST NOT FIRE: too few calls to judge, even at 100% failure
+    check("3 calls below the threshold stays quiet",
+          kinds({"models": [_m("tiny", 3, 3)], "min_calls": 20, "days": 7, "recent_hours": 6}),
+          [])
+
+    # MUST FIRE: a small recent sample that is entirely failing
+    check("a small but fully-failing recent sample fires",
+          kinds({"models": [_m("fresh-bad", 3, 3, recent_calls=3, recent_failed=3)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          ["failing-now"])
+
+    # MUST NOT FIRE: ONE transient failure in a tiny recent sample is a single EVENT, not a pattern.
+    # MEASURED 2026-10-05: this exact state (3 calls, 1 `finish_reason_length` truncation) kept the
+    # job at rc=1 for 138 runs in a row and filed a repair wake every 30 minutes.
+    check("one failure in a tiny recent sample does NOT fire",
+          kinds({"models": [_m("transient", 21, 2, recent_calls=3, recent_failed=1)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          [])
+
+    # MUST FIRE: configured tier with no traffic at all
+    check("configured-but-silent fires",
+          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6},
+                {"model_tier1": "ghost"}),
+          ["configured-but-silent"])
+
+    # MUST NOT FIRE: the tier names the CATALOGUE id while `model_usage` records the PROVIDER id.
+    # MEASURED 2026-10-07: commit 0e0225a2 aligned model_tier1/2/3 with `deepseek/deepseek-v4-flash`;
+    # usage stores `deepseek-v4-flash`, so all three tiers read "ZERO calls in 7 days" while the
+    # busiest lane on the box served 3,659 calls. The registry row is the translation that was missing.
+    check("a tier naming the catalogue id of a SERVING model does not fire",
+          kinds({"models": [_m("deepseek-v4-flash", 3659, 252, recent_calls=200, recent_failed=5)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6,
+                 "canonical_to_provider": {"deepseek/deepseek-v4-flash": "deepseek-v4-flash"}},
+                {"model_tier1": "deepseek/deepseek-v4-flash"}),
+          [])
+
+    # MUST NOT FIRE: a retired lane. Measured 2026-10-02 — two fireworks lanes took 180 calls in 7 days
+    # and never succeeded; after they were retired, this detector kept firing "failing-now" for the
+    # whole 6-hour recent window, which is an alarm that cannot go green.
+    v = evaluate({"models": [dict(_m("dead-but-retired", 160, 160, recent_calls=36,
+                                     recent_failed=36), retired=True)],
+                  "min_calls": 20, "days": 7, "recent_hours": 6, "retired": ["dead-but-retired"]},
+                 {}, 0.20)
+    check("a RETIRED dead lane does not fire as a fault", v["problems"], [])

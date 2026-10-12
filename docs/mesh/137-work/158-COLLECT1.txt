@@ -1,0 +1,81 @@
+### HOST
+secratary-cloud
+2026-10-11T22:25:58+00:00
+ 22:25:58 up 14:01,  9 users,  load average: 2.95, 1.43, 0.88
+### LS
+131-MIGRATION-BRIEF.md
+132-CRON-INVENTORY.md
+133-PORT-BRIEF.md
+135-PARITY-AND-ROBUSTNESS.md
+136-ESTATE-INVENTORY.md
+137-patch-company-outcome-monitor.diff
+137-patch-company-outcome-monitor.py
+141-MIGRATION-STATUS.md
+145-AUDIT-SERVICES.md
+146-AUDIT-SURFACES.md
+147-AUDIT-INTEGRATIONS.md
+148-AUDIT-STATE.md
+149-AUDIT-REFERENCES.md
+150-AUDIT-AUTONOMY.md
+151-VERIFY-CLOUD-AUTHORITY.md
+152-OWNERSHIP-MAP-AND-PORT.md
+153-LOST-JOBS-WORKLIST.md
+154-MESH-BROKER-MOVE.md
+155-PRODUCTION-COMMS-FRESHNESS-DIAGNOSIS.md
+155-ai-gateway-health.py.orig
+156-DIALPAD-GAP-TWO-JOBS.md
+157-DIAGNOSIS-TWO-FAILING-JOBS.md
+158-COLLECT1.txt
+158-WEBSITE-COMMS-PUSH-VERIFICATION.md
+159-DIALPAD-GAP-FINAL-STATE.md
+160-DIALPAD-GAP-INDEPENDENT-VERIFICATION.md
+_listing.txt
+### HASH-LIVE
+69900cdb4ff0c2502f4257c0cfc9f53a119b1ce625aad3dd0b51a9a81fa3ec2f  /usr/local/bin/ai-gateway-health.py
+### SIZE
+-rwxr-xr-x 1 root root 46192 Oct 11 21:28 /usr/local/bin/ai-gateway-health.py
+### HASH-ORIG
+bc4a3637cb9d2927025f69b502a9ea90213040a8d89a508022a32bac89040286  /root/out/migration-review/155-ai-gateway-health.py.orig
+### CRON-STATUS-HEAD
+2026-10-11T06:32:33Z	site-uptime-check-cron	0	1	
+### CRON-STATUS-TAIL
+2026-10-11T22:09:02Z	website-comms-push-cron	1	90	
+2026-10-11T22:11:01Z	lpt-freshness-watchdog	0	0	
+2026-10-11T22:12:01Z	lpt-freshness-watchdog	0	1	
+2026-10-11T22:13:01Z	lpt-freshness-watchdog	0	1	
+2026-10-11T22:14:01Z	lpt-freshness-watchdog	0	0	
+2026-10-11T22:15:02Z	cron-target-guard	1	1	
+2026-10-11T22:15:02Z	disk-guard	0	1	
+2026-10-11T22:15:02Z	mirror-owner-sms	0	1	
+2026-10-11T22:15:02Z	guard-registry	2	1	
+2026-10-11T22:15:02Z	production-comms-freshness	1	2	
+2026-10-11T22:15:02Z	lpt-freshness-watchdog	0	2	
+2026-10-11T22:15:02Z	journal-commit	0	3	
+2026-10-11T22:15:02Z	dialpad-sms-harvest-cron	0	4	
+2026-10-11T22:15:02Z	sms-inbox	0	5	
+2026-10-11T22:15:02Z	dialpad-recording-gap	0	5	
+2026-10-11T22:15:02Z	cron-script-guard	0	6	
+2026-10-11T22:16:01Z	lpt-freshness-watchdog	0	0	
+2026-10-11T22:17:01Z	lpt-deploy-drift	0	1	
+2026-10-11T22:17:01Z	lpt-freshness-watchdog	0	1	
+2026-10-11T22:18:01Z	lpt-freshness-watchdog	0	1	
+2026-10-11T22:19:01Z	lpt-freshness-watchdog	0	0	
+2026-10-11T22:20:01Z	tmpfs-reaper	0	1	
+2026-10-11T22:20:01Z	cron-target-guard	1	0	
+2026-10-11T22:20:01Z	mirror-owner-sms	0	1	
+2026-10-11T22:20:01Z	reconcile-sent-status	0	0	
+2026-10-11T22:20:01Z	lpt-freshness-watchdog	0	2	
+2026-10-11T22:20:01Z	dialpad-recording-gap	0	4	
+2026-10-11T22:20:02Z	sms-inbox	0	3	
+2026-10-11T22:20:01Z	cron-script-guard	0	5	
+2026-10-11T22:20:01Z	dialpad-transcript-gap	0	11	  (74 files skipped: not audio) 
+2026-10-11T22:21:01Z	lpt-freshness-watchdog	0	1	
+2026-10-11T22:22:01Z	lpt-freshness-watchdog	0	1	
+2026-10-11T22:23:01Z	lpt-freshness-watchdog	0	1	
+2026-10-11T22:24:01Z	lpt-freshness-watchdog	0	0	
+2026-10-11T22:25:02Z	cron-target-guard	1	1	
+2026-10-11T22:25:02Z	mirror-owner-sms	0	1	
+2026-10-11T22:25:02Z	lpt-freshness-watchdog	0	3	
+2026-10-11T22:25:02Z	sms-inbox	0	6	
+2026-10-11T22:25:02Z	cron-script-guard	0	8	
+2026-10-11T22:25:02Z	dialpad-recording-gap	0	10	

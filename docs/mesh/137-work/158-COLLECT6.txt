@@ -1,0 +1,164 @@
+### WC
+5663 /opt/company/app/services/ai_gateway.py
+### GREP-UNKNOWN
+2081:            _unknown = requested_model
+2088:                _unknown,
+2673:    original_name = fn.get("name", "unknown_tool") if isinstance(fn, dict) else "unknown_tool"
+3049:                name = func.get("name") or "unknown_tool"
+3069:            name = name or "unknown_tool"
+3470:        role = str(msg.get("role") or "unknown")
+3643:        # through to the $5/M unknown-model default) while
+4259:    "unknown model",
+4302:    return f"http_{status or 'unknown'}"
+4567:                        "unknown, state it briefly and give your best "
+4937:                # is stale rather than unknown. Record it at WARNING so the
+5588:                    "reason_code": failure_entry.get("reason_code") if failure_entry else "unknown",
+### GREP-ATTEMPT
+3392:    attempt: dict[str, Any],
+3395:    if not _vision_confidence_escalation_enabled(settings, attempt):
+3409:    info = sr._CAPABILITY_DB.get(str(attempt.get("canonical_id") or ""), {})
+3411:    task_type = str(attempt.get("task_type") or "").strip().lower()
+4165:    attempt: dict[str, Any],
+4180:        attempt.get("trace_id"),
+4183:        agent_id=str(attempt.get("agent_id") or "vscode_gateway"),
+4184:        public_alias=attempt.get("public_alias"),
+4185:        canonical_id=attempt.get("canonical_id"),
+4186:        provider=attempt.get("provider"),
+4361:def _nonstream_attempts(settings: Settings, prepared: dict[str, Any]):
+4377:    # a 402 (payment required / out of credits) will exhaust every attempt.
+4381:    # Trigger when ANY attempt in the chain uses OpenRouter, not just primary.
+4676:    attempts = list(_nonstream_attempts(settings, prepared))
+4685:    for attempt_index, attempt in enumerate(attempts):
+4686:        attempt_provider = str(attempt.get("provider") or "")
+4687:        if attempt_provider and attempt_provider in payment_failed_providers:
+4690:                attempt.get("canonical_id"),
+4691:                attempt_provider,
+4694:        attempt = dict(attempt)
+4695:        upstream_body = dict(attempt["upstream_body"])
+4698:        attempt["upstream_body"] = upstream_body
+4699:        url = f"{attempt['base_url']}/chat/completions"
+4701:            "Authorization": f"Bearer {attempt['api_key']}",
+4703:            **_trace_headers(attempt),
+4705:        if "openrouter.ai" in attempt["base_url"]:
+4712:            resp = client.post(url, headers=headers, json=attempt["upstream_body"])
+4724:            if _should_sanitize_visible_text(attempt):
+4729:                # finish_reason=length on the FINAL attempt with real text is
+4733:                # attempts still retry on a bigger model.
+4736:                    and attempt_index >= len(attempts) - 1
+4740:                        "Gateway accepting truncated final-attempt response (model=%s)",
+4741:                        attempt.get("canonical_id"),
+4749:            _emit_tool_validation_span(settings, attempt, data, db_url=db_url)
+4750:            attempt = dict(attempt)
+4751:            attempt["served_by"] = _served_by_from_payload(data)
+4757:                    attempt,
+4765:                        "attempt": attempt_index + 1,
+4766:                        "model": attempt.get("canonical_id"),
+4767:                        "provider": attempt.get("provider"),
+### GREP-MODELUSAGE
+26:  and token usage to ``model_usage`` so the AI Model Operations department can
+88:    into ``model_usage``. Cost must be estimated from the same name, otherwise
+455:        fast, mid and ceo to the literal `deepseek/deepseek-v4-flash`. `model_usage` records that model
+1204:def _model_usage_spend_since(
+1211:    """Return model_usage estimated spend since a UTC timestamp."""
+1217:        columns = _sqlite_columns(conn, "model_usage")
+1231:            FROM model_usage
+1315:        columns = _sqlite_columns(conn, "model_usage")
+1331:            FROM model_usage WHERE {clauses}
+1343:            FROM model_usage WHERE {clauses}
+1356:            FROM model_usage WHERE {clauses}
+1366:            FROM model_usage WHERE {clauses}
+1577:        spent = _model_usage_spend_since(
+1613:            gateway_spend = _model_usage_spend_since(db_url, day_start, agent_id=agent_id)
+1624:            gateway_spend = _model_usage_spend_since(db_url, day_start, agent_id=agent_id)
+1635:        gateway_monthly_spend = _model_usage_spend_since(db_url, month_start, agent_id=agent_id)
+2068:    # `model_usage`, and the correction is the caller's -- but a wrong model that
+3632:    ``model_usage`` and billed upstream. When it differs from ``canonical_id``
+3695:    ``_record`` writes this exact string into ``model_usage.model`` and
+3728:        session_day = _model_usage_spend_since(
+3733:        gateway_hour = _model_usage_spend_since(
+3738:        gateway_day = _model_usage_spend_since(
+3743:        gateway_week = _model_usage_spend_since(
+3854:        gateway_hour = _model_usage_spend_since(db_url, hour_start, agent_id="vscode_gateway")
+3866:            session_hour = _model_usage_spend_since(db_url, hour_start, session_id=session_id)
+3954:    # Billing and hard-budget enforcement need model_usage to be visible before
+3958:        from app.database import log_model_usage
+3960:        log_model_usage(
+### GREP-CANON
+63:    build_canonical_chat_request,
+82:def billing_model_id(canonical_id: str) -> str:
+83:    """Return the model id that is actually billed and recorded for ``canonical_id``.
+96:    key = str(canonical_id or "").strip()
+546:                str(prepared.get("canonical_id") or ""),
+655:                "model": prepared.get("canonical_id"),
+1182:    provider_model_id: str,
+1183:    canonical_id: str,
+1187:    Explicit translations handle aliases where the local canonical id differs
+1189:    provider/model canonical id, the canonical id is the OpenRouter slug. This
+1193:    mapped = _OPENROUTER_TRANSLATE.get(canonical_id)
+1197:        if "/" in canonical_id:
+1198:            return canonical_id
+1199:        if provider_model_id:
+1200:            return f"{provider}/{provider_model_id}"
+1679:    provider_model_id: str,
+1680:    canonical_id: str,
+1696:                provider_model_id = _GOOGLE_MODEL_RENAME.get(
+1697:                    provider_model_id, provider_model_id
+1699:            return base_url, api_key, provider_model_id
+1705:    # Last resort: if the canonical id is already an OpenRouter slug — DISABLED.
+1709:        f"No reachable upstream for {canonical_id} (provider={provider})"
+1757:    # Pass-through of individually selectable canonical models.
+1758:    for canonical_id, info in sr._CAPABILITY_DB.items():
+1764:        registry_meta = _catalog_registry_metadata(settings, canonical_id)
+1776:                    "id": canonical_id,
+1782:                    "canonical_model_id": canonical_id,
+1800:                "id": canonical_id,
+1805:                "canonical_model_id": canonical_id,
+1807:                "provider_model_id": canonical_id.split("/", 1)[1]
+### GREP-CONFIG-TIER
+    # Least-privilege scoped keys for the HA->secretary webhook paths (2026-09-06).
+    # `security_api_key` authenticates ONLY the /webhook/ha/security-alert surface
+    # (can send security SMS/MMS to the alert roster). `ha_ptt_key` authenticates
+    # ONLY the /webhook/ha/push-to-talk surface (local attention-digest speaker).
+    # HA should hold ONLY its own scoped key, never the dashboard key.
+    security_api_key: str | None = Field(default=None, validation_alias=AliasChoices("HA_SECURITY_API_KEY"))
+    ha_ptt_key: str | None = Field(default=None, validation_alias=AliasChoices("HA_PTT_API_KEY"))
+    # Comma-separated extra phone numbers to notify on a security alert, in addition
+    # to the owner. (H4b 2026-09-06: owner, mom, wife.) Empty = owner only.
+    security_alert_extra_recipients: str | None = Field(default=None, validation_alias=AliasChoices("HA_SECURITY_EXTRA_RECIPIENTS"))
+
+    model_tier1: str = "deepseek/deepseek-v4-flash"
+    model_tier2: str = "deepseek/deepseek-v4-flash"
+    model_tier3: str = "deepseek/deepseek-v4-flash"
+
+    # D015: Dynamic model registry is the default routing mode.
+    # Disable only if you explicitly need to fall back to static routing.
+    use_dynamic_registry: bool = True
+    # Local/runtime provider kill switch for model calls. Useful when a
+    # provider key exists but the current machine/network cannot use that
+    # provider reliably. Accepts JSON array or comma-separated provider names.
+    # OpenRouter disabled 2026-06-30 — proxy tax adds cost, direct providers preferred.
+    llm_disabled_providers_json: str = '["openrouter"]'
+
+    # CEO-level models — DeepInfra DeepSeek V4 Flash 0731 primary.
+    # Switched 2026-08-21: DeepInfra $0.08/$0.18 (cache $0.016) is 5.5x cheaper
+### GREP-PROVIDER-KEYS
+161:_VISIBLE_TEXT_SANITIZE_SOURCES = {"vscode", "openai_chat"}
+681:    return source in {"vscode", "openai_chat"}
+1018:    "openai": ("https://api.openai.com/v1", "openai_api_key"),
+1022:    "deepinfra": ("https://api.deepinfra.com/v1/openai", "deepinfra_api_key"),
+1025:    "groq": ("https://api.groq.com/openai/v1", "groq_api_key"),
+1031:    "anthropic": ("https://api.anthropic.com/v1", "anthropic_api_key"),
+1032:    "google": ("https://generativelanguage.googleapis.com/v1beta/openai", "google_api_key"),
+1038:    "anthropic/claude-haiku-4-5": "anthropic/claude-haiku-4.5",
+1039:    "anthropic/claude-sonnet-4-5": "anthropic/claude-sonnet-4.5",
+1040:    "anthropic/claude-opus-4-6": "anthropic/claude-opus-4.6",
+1041:    "anthropic/claude-opus-4-8": "anthropic/claude-opus-4.8",
+2030:    source: str = "openai_chat",
+2276:    return provider == "openai" and model.startswith(_OPENAI_MAX_COMPLETION_TOKEN_PREFIXES)
+2279:def _is_anthropic_upstream(provider: str, upstream_model: str) -> bool:
+2281:    return provider == "anthropic" or model.startswith("anthropic/")
+2343:def _apply_anthropic_cache_control(body: dict[str, Any]) -> None:
+3206:    body = canonical_request.to_openai_chat_body(model=upstream_model)
+3259:        and getattr(settings, "ai_gateway_anthropic_cache_control_enabled", False)
+3260:        and _is_anthropic_upstream(provider, upstream_model)
+3262:        _apply_anthropic_cache_control(body)

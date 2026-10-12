@@ -1,0 +1,194 @@
+### 2040-2120
+
+    # ── A NAMED MODEL MUST SERVE THE MODEL IT NAMED ─────────────────────────
+    # Measured 2026-09-30, against the live gateway on the authority:
+    #   deepseek-v4-flash -> deepinfra/.../DeepSeek-V4-Flash-0731   (correct by luck)
+    #   deepseek-v4-pro   -> deepinfra/.../DeepSeek-V4-Flash-0731   (WRONG, silently)
+    #   deepseek-v3.2     -> deepinfra/.../DeepSeek-V4-Flash-0731   (WRONG, silently)
+    #   deepseek-r1-0528  -> deepinfra/.../DeepSeek-V4-Flash-0731   (WRONG, silently)
+    #   secretary-smart   -> deepseek/deepseek-v4-pro               (correct)
+    # Cause: these short ids are absent from `sr._CAPABILITY_DB`, so the
+    # `if requested_model in sr._CAPABILITY_DB` pin at the bottom of this
+    # function fell through to smart routing, which selected the cheapest
+    # capable model for the task and did so WITHOUT telling anyone. Every
+    # request therefore answered HTTP 200, named a model, and ran on
+    # DeepSeek V4 Flash -- and the app's own `model_tier1/2/3` and the
+    # authority `.env` name exactly those ids, which is why the app's three
+    # tiers have never been three different models.
+    #
+    # The same defect in the other direction is why the catalogue had to change
+    # too (see `_LEGACY_SHORT_MODEL_IDS`): `GET /v1/models` did not list the ids
+    # that `/v1/chat/completions` accepted, so a caller obeying the rule
+    # "validate every configured id against the catalog and drop what is not
+    # listed" would drop a model that works.
+    #
+    # Resolution order: exact canonical id, then the short alias table. A name we
+    # cannot resolve is never served silently on whichever model smart routing
+    # felt like: it is served by the SETTINGS' OWN default route and the
+    # substitution is logged at WARNING. The status code stays 200 for
+    # compatibility, so the honest record of what happened is the log and
+    # `model_usage`, and the correction is the caller's -- but a wrong model that
+    # looks right is the failure this whole rule exists to prevent.
+    if requested_model not in sr._CAPABILITY_DB:
+        _alias = _LEGACY_SHORT_MODEL_IDS.get(requested_model)
+        if _alias and _alias in sr._CAPABILITY_DB:
+            log.info(
+                "gateway: resolved short model id %r -> %r (source=%s)",
+                requested_model,
+                _alias,
+                source,
+            )
+            requested_model = _alias
+        elif requested_model not in _META_MODELS:
+            _unknown = requested_model
+            requested_model = _resolve_route_model(settings, "")
+            log.warning(
+                "gateway: model %r is not a canonical id and not a route alias; serving it "
+                "on the default route %r instead (source=%s, agent=%s). This used to be "
+                "silent: the caller asked for one model and got whichever model smart "
+                "routing picked for the task, with HTTP 200 and no indication anywhere.",
+                _unknown,
+                requested_model,
+                source,
+                agent_id,
+            )
+
+
+    # Per-slot routing profile (O13): a slot can pin fast/smart/experimental.
+    # Only overrides the default auto alias; explicit pins pass through.
+    slot_profile = slot_profiles.resolve_slot_profile(slot_id, settings=settings)
+    requested_model = slot_profiles.apply_slot_profile(requested_model, slot_profile)
+    if canonical_request is None:
+        canonical_request = build_canonical_chat_request(
+            body,
+            requested_model=requested_model,
+            trace_id=trace_id,
+            source=source,
+            agent_id=agent_id,
+            budget_tier="cost_aware",
+        )
+    trace_id = canonical_request.trace_id
+    requested_model = canonical_request.requested_model
+    session_id = _conversation_session_id(canonical_request)
+    session_envelope: dict[str, Any] | None = None
+
+    if (
+        getattr(settings, "ai_gateway_session_envelopes_enabled", False)
+        and agent_id == "vscode_gateway"
+        and requested_model == "secretary-auto"
+    ):
+        session_envelope = _session_envelope_state(settings, session_id)
+        if session_envelope.get("over_cap"):
+            body = dict(body)
+### 3610-3720
+                    return nested.strip()
+    return None
+
+
+def _auto_task_type(text: str, has_tools: bool) -> tuple[str, str]:
+    """Pick a routing task_type + complexity for ``secretary-auto``."""
+    return infer_task_class(text, has_tools=has_tools, requested_model="secretary-auto")
+
+
+# ── Cost + usage accounting ────────────────────────────────
+
+
+def _estimate_cost(
+    canonical_id: str,
+    usage: dict[str, Any],
+    *,
+    cache_aware_enabled: bool = False,
+    priced_model_id: str | None = None,
+) -> float:
+    """Estimate the USD cost of one call.
+
+    ``priced_model_id`` is the model name that will be recorded in
+    ``model_usage`` and billed upstream. When it differs from ``canonical_id``
+    (Google catalog renames — see :func:`billing_model_id`) the price must come
+    from the billed name, or the ledger prices a model we never called.
+    """
+    price_id = canonical_id
+    if priced_model_id:
+        price_id = billing_model_id(priced_model_id)
+        # Some providers key the catalog with the provider prefix (the router's
+        # canonical ids) and some without (the raw upstream model names). Prefer
+        # whichever form the price table knows, so a bare upstream name like
+        # ``gemini-3.5-flash`` cannot silently price at $0 (or, worse, fall
+        # through to the $5/M unknown-model default) while
+        # ``google/gemini-3.5-flash`` is rated at $9/M output.
+        if price_id not in sr._CAPABILITY_DB:
+            candidates = [price_id]
+            # Provider hint from whichever id the caller actually gave us.
+            for source in (priced_model_id, canonical_id):
+                hint = str(source or "").partition("/")[0]
+                if hint and hint != price_id:
+                    candidates.append(f"{hint}/{price_id}")
+            caller_hint = str(priced_model_id or canonical_id or "").partition("/")[0]
+            if caller_hint:
+                bare = price_id.rsplit("/", 1)[-1]
+                candidates.append(f"{caller_hint}/{bare}")
+            for candidate in candidates:
+                if candidate in sr._CAPABILITY_DB:
+                    price_id = candidate
+                    break
+    info = sr._CAPABILITY_DB.get(price_id, {})
+    pin = float(info.get("cost_per_mtok_input", 0) or 0)
+    pout = float(info.get("cost_per_mtok_output", 0) or 0)
+    pcache = float(info.get("cost_per_mtok_cache_read", pin) or pin)
+    prompt = float(usage.get("prompt_tokens", 0) or 0)
+    completion = float(usage.get("completion_tokens", 0) or 0)
+    cached = float(extract_cached_tokens(usage)) if cache_aware_enabled else 0.0
+    cached = min(max(cached, 0.0), prompt)
+    uncached = max(prompt - cached, 0.0)
+
+    # If _CAPABILITY_DB returned zero pricing (e.g. Copilot models not in DB),
+    # fall back to pricing.py which has per-token rates for all providers.
+    if pin == 0 and pout == 0 and (prompt > 0 or completion > 0):
+        try:
+            from app.pricing import estimate_cost as pricing_estimate
+
+            provider = price_id.split("/", 1)[0] if "/" in price_id else ""
+            model = price_id.split("/", 1)[1] if "/" in price_id else price_id
+            est = pricing_estimate(
+                provider=provider,
+                model=model,
+                prompt_tokens=int(prompt),
+                completion_tokens=int(completion),
+            )
+            if est.estimated_cost_usd > 0:
+                return est.estimated_cost_usd
+        except Exception:
+            pass
+
+    return (uncached * pin + cached * pcache + completion * pout) / 1_000_000.0
+
+
+def _billed_model_for(prepared: dict[str, Any]) -> str:
+    """The single name that is both priced and recorded for a prepared request.
+
+    ``_record`` writes this exact string into ``model_usage.model`` and
+    ``_estimate_cost`` prices with it, so a recorded row can always be
+    recomputed from its own model name.
+    """
+    upstream = str((prepared or {}).get("upstream_model") or "").strip()
+    if upstream:
+        return upstream
+    return str((prepared or {}).get("canonical_id") or "")
+
+
+def _cost_metadata(
+    settings: Settings,
+    prepared: dict[str, Any],
+    usage: dict[str, Any],
+) -> dict[str, Any]:
+    canonical_id = str(prepared.get("canonical_id") or "")
+    billed_model = _billed_model_for(prepared)
+    prompt = int(usage.get("prompt_tokens", 0) or 0)
+    completion = int(usage.get("completion_tokens", 0) or 0)
+    cached = extract_cached_tokens(usage)
+    cost = _estimate_cost(
+        canonical_id,
+        usage,
+        cache_aware_enabled=bool(
+            getattr(settings, "ai_gateway_cache_aware_costs_enabled", False)
+        ),

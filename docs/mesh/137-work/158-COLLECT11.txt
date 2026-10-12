@@ -1,0 +1,197 @@
+### WC
+1991 /opt/company/app/code_self_edit.py
+### GREP-MODEL
+497:    """Call Copilot API. Raises on failure. Returns (provider, model, text, usage)."""
+500:    model = "gpt-4.1"
+502:        model=model,
+510:    return "copilot", model, _safe_text(text), usage if isinstance(usage, dict) else None
+523:    the CEO tier.  Falls back to Fireworks with the same model if DeepInfra
+532:        model = "deepseek-ai/DeepSeek-V4-Pro-0813"
+534:        model = "deepseek-ai/DeepSeek-V4-Flash-0731"
+541:        model = (
+554:        model=model,
+565:    return "deepinfra", model, raw, _extract_langchain_usage(response)
+581:    `model='unknown'` attempts. MEASURED 2026-10-07: 18 failures of 18 calls in 6h,
+589:    model = "deepseek-v4-pro" if tier == "ceo" else "deepseek-v4-flash"
+593:        model=model,
+604:    return "deepseek", model, raw, _extract_langchain_usage(response)
+613:    """Call OpenAI via LangChain. Raises on failure. Returns (provider, model, text, usage)."""
+621:    # api.openai.com, which answered `400 invalid model ID` on all three retries of every
+622:    # run; the attempts were recorded as model='unknown' and ten consecutive
+627:        model = "gpt-5.4"
+629:        model = "gpt-5.4-mini"
+632:        model=model,
+644:    return "openai", model, raw, _extract_langchain_usage(response)
+653:    """Call Anthropic via LangChain. Raises on failure. Returns (provider, model, text, usage)."""
+661:    # `404 ... not_found_error ... model: deepseek/deepseek-v4-flash` on every attempt.
+663:        model = "claude-opus-4-6"
+665:        model = "claude-sonnet-4-5"
+668:        model=model,
+679:    return "anthropic", model, raw, _extract_langchain_usage(response)
+705:    model: str,
+729:            cost_est = estimate_cost(provider=provider, model=model, usage=usage)
+734:    except Exception:  # noqa: BLE001 - an unknown model must not lose the call record
+735:        log.debug("code_self_edit: cost estimate failed for %s", model, exc_info=True)
+744:            model=model,
+756:            "code_self_edit: failed to record model usage (%s/%s)",
+758:            model,
+766:        canonical = f"{provider}/{model}" if "/" not in model else model
+776:        log.debug("code_self_edit: model outcome not recorded", exc_info=True)
+798:    Returns (provider, model, raw_text, usage).
+807:    # DeepSeek catalogue id, and every attempt was recorded as model='unknown'.
+886:                call_provider, call_model, call_text, call_usage = result
+890:                    model=call_model,
+896:                return call_provider, call_model, call_text, call_usage
+908:                    model="unknown",
+1155:        "model": "",
+1174:    """Ask a model for a change, refusing to pay twice for the same offer.
+1238:            "code_self_edit: refusing a known no-op offer for %s (no model call)",
+1245:                f"byte ({previous or 'no-op'}); no model call was made. Clear it with "
+1255:                "code_self_edit: serving stored proposal %s for a duplicate offer (no model call)",
+1262:                "model": cached.get("model", ""),
+1291:    provider, model, raw, _usage = _invoke_llm(
+1384:    # ── No-op refusal: the model was paid once and handed the file straight back. Record the key so
+### GREP-PROVIDERS
+532:        model = "deepseek-ai/DeepSeek-V4-Pro-0813"
+534:        model = "deepseek-ai/DeepSeek-V4-Flash-0731"
+542:            "accounts/fireworks/models/deepseek-v4-pro-0813"
+544:            else "accounts/fireworks/models/deepseek-v4-flash-0731"
+568:def _call_deepseek(
+578:    `LLM_DISABLED_PROVIDERS_JSON=["openrouter", "copilot", "deepinfra", "fireworks"]`.
+589:    model = "deepseek-v4-pro" if tier == "ceo" else "deepseek-v4-flash"
+591:        api_key=settings.deepseek_api_key,
+592:        base_url="https://api.deepseek.com/v1",
+604:    return "deepseek", model, raw, _extract_langchain_usage(response)
+619:    # A TIER IS A *CATALOGUE* ID (`deepseek/deepseek-v4-flash`), NOT A PROVIDER MODEL ID.
+660:    # `deepseek/deepseek-v4-flash`, and api.anthropic.com answered
+661:    # `404 ... not_found_error ... model: deepseek/deepseek-v4-flash` on every attempt.
+809:    if providers.get("deepseek"):
+812:                "deepseek",
+813:                lambda sp, up: _call_deepseek(
+874:    for prov_name, prov_fn in provider_chain:
+883:                        prov_name,
+900:                err_msg = f"{prov_name} attempt {attempt}/" f"{_MAX_LLM_RETRIES}: {exc}"
+907:                    provider=prov_name,
+920:            prov_name,
+### 840-960
+    if providers.get("openai"):
+        provider_chain.append(
+            (
+                "openai",
+                lambda sp, up: _call_openai(
+                    settings,
+                    sp,
+                    up,
+                    llm_tier=llm_tier,
+                ),
+            )
+        )
+    if providers.get("anthropic"):
+        provider_chain.append(
+            (
+                "anthropic",
+                lambda sp, up: _call_anthropic(
+                    settings,
+                    sp,
+                    up,
+                    llm_tier=llm_tier,
+                ),
+            )
+        )
+
+    if not provider_chain:
+        raise ValueError(
+            "No LLM provider configured for code proposals. "
+            "Configure at least one of: copilot, openai, "
+            "anthropic in your .env file."
+        )
+
+    all_errors: list[str] = []
+
+    for prov_name, prov_fn in provider_chain:
+        for attempt in range(1, _MAX_LLM_RETRIES + 1):
+            t0 = time.monotonic()
+            try:
+                result = prov_fn(system_prompt, user_prompt)
+                latency_ms = int((time.monotonic() - t0) * 1000)
+                if attempt > 1:
+                    log.info(
+                        "LLM %s succeeded on attempt %d",
+                        prov_name,
+                        attempt,
+                    )
+                call_provider, call_model, call_text, call_usage = result
+                _record_llm_usage(
+                    settings,
+                    provider=call_provider,
+                    model=call_model,
+                    usage=call_usage,
+                    latency_ms=latency_ms,
+                    success=True,
+                    tier=llm_tier,
+                )
+                return call_provider, call_model, call_text, call_usage
+            except Exception as exc:  # noqa: BLE001
+                latency_ms = int((time.monotonic() - t0) * 1000)
+                wait = _RETRY_BACKOFF_BASE**attempt
+                err_msg = f"{prov_name} attempt {attempt}/" f"{_MAX_LLM_RETRIES}: {exc}"
+                log.warning("LLM call failed: %s", err_msg)
+                all_errors.append(err_msg)
+                # A failed attempt is still a fact worth counting: repeated retries were invisible
+                # spend (and invisible waste) before this. Billed tokens are zero on failure.
+                _record_llm_usage(
+                    settings,
+                    provider=prov_name,
+                    model="unknown",
+                    usage=None,
+                    latency_ms=latency_ms,
+                    success=False,
+                    error_message=err_msg[:500],
+                    tier=llm_tier,
+                )
+                if attempt < _MAX_LLM_RETRIES:
+                    time.sleep(wait)
+
+        log.error(
+            "LLM provider %s exhausted after %d retries",
+            prov_name,
+            _MAX_LLM_RETRIES,
+        )
+
+    # All providers exhausted — build a detailed error report
+    error_report = (
+        "All LLM providers failed for code proposal.\n"
+        "Errors encountered:\n" + "\n".join(f"  - {e}" for e in all_errors)
+    )
+    raise ValueError(error_report)
+
+
+@dataclass(frozen=True)
+class ProposedFile:
+    path: str
+    before_exists: bool
+    before_sha256: str
+    after_sha256: str
+    diff: str
+    after: str
+
+
+def _load_state(repo_root: Path, state_path: str) -> dict[str, Any]:
+    state_file = _resolve_in_repo(repo_root, state_path)
+    if not state_file.exists():
+        return {"proposals": []}
+    parsed = json.loads(state_file.read_text(encoding="utf-8"))
+    return parsed if isinstance(parsed, dict) else {"proposals": []}
+
+
+def _save_state(
+    repo_root: Path,
+    state_path: str,
+    state: dict[str, Any],
+) -> None:
+    state_file = _resolve_in_repo(repo_root, state_path)
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    # Atomic write: temp file then replace
+    tmp = state_file.with_suffix(".tmp")
+    try:
+        tmp.write_text(

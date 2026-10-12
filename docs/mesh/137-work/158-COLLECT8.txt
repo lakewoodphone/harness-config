@@ -1,0 +1,297 @@
+### GREP-RECORD
+2213:    base_url, api_key, upstream_model = _resolve_upstream(
+2225:        upstream_model=upstream_model,
+3470:        role = str(msg.get("role") or "unknown")
+3913:def _record(
+3935:    upstream_model = str(prepared.get("upstream_model") or "")
+4027:    def _record_secondary() -> None:
+4333:    base_url, api_key, upstream_model = _resolve_upstream(
+4343:        upstream_model=upstream_model,
+4432:def _record_fallback_chain(
+4755:                _record(
+4810:                _record(
+4865:                _record(
+4899:            _record(
+4964:            _record(
+4990:            _record(
+5003:            _record(
+5565:            _record(
+5588:                    "reason_code": failure_entry.get("reason_code") if failure_entry else "unknown",
+### GREP-LOGMODELUSAGE-DEF
+4052:def log_model_usage(
+### LOGMODELUSAGE-DEF-BODY
+def log_model_usage(
+    db_url: str,
+    *,
+    agent_id: str = "orchestrator",
+    provider: str,
+    model: str,
+    tier: str = "ceo",
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    total_tokens: int = 0,
+    cached_tokens: int = 0,
+    prompt_prefix_hash: str | None = None,
+    served_by: str | None = None,
+    session_id: str | None = None,
+    estimated_cost_usd: float = 0.0,
+    latency_ms: int = 0,
+    success: bool = True,
+    error_message: str | None = None,
+) -> int:
+    """Record a single LLM call for cost/performance tracking."""
+    now = _now_iso()
+    conn = _get_conn(db_url)
+    with _db_lock:
+        cur = conn.execute(
+            """
+            INSERT INTO model_usage (
+                agent_id,
+                provider, model, tier,
+                prompt_tokens, completion_tokens, total_tokens,
+                cached_tokens, prompt_prefix_hash, served_by, session_id,
+                estimated_cost_usd, latency_ms,
+                success, error_message, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                agent_id,
+                provider,
+                model,
+                tier,
+                prompt_tokens,
+                completion_tokens,
+                total_tokens,
+                cached_tokens,
+                prompt_prefix_hash,
+                served_by,
+                session_id,
+                estimated_cost_usd,
+                latency_ms,
+                1 if success else 0,
+                error_message,
+                now,
+            ),
+        )
+        conn.commit()
+        return cur.lastrowid  # type: ignore[return-value]
+
+
+def get_model_usage_stats_by_agent(
+    db_url: str,
+    *,
+    days: int = 30,
+### 3940-4010
+    db_url = str(getattr(settings, "database_url", "") or "") or None
+    prompt = int(usage.get("prompt_tokens", 0) or 0)
+    completion = int(usage.get("completion_tokens", 0) or 0)
+    cached = extract_cached_tokens(usage)
+    served_by = str(prepared.get("served_by") or "").strip() or None
+    session_id = str(prepared.get("session_id") or "").strip() or None
+    prefix_hash: str | None = None
+    canonical_request = prepared.get("canonical_request")
+    if canonical_request is not None:
+        try:
+            prefix_hash = canonical_request.prompt_prefix_hash()
+        except Exception:  # noqa: BLE001
+            prefix_hash = None
+
+    # Billing and hard-budget enforcement need model_usage to be visible before
+    # the request returns. Slower adaptive telemetry is recorded below on a
+    # small background worker so VS Code sessions do not wait on extra DB writes.
+    try:
+        from app.database import log_model_usage
+
+        log_model_usage(
+            settings.database_url,
+            agent_id=agent,
+            provider=provider,
+            model=upstream_model,
+            tier=tier,
+            prompt_tokens=prompt,
+            completion_tokens=completion,
+            total_tokens=prompt + completion,
+            estimated_cost_usd=cost_usd,
+            latency_ms=latency_ms,
+            success=success,
+            error_message=error,
+            cached_tokens=cached,
+            prompt_prefix_hash=prefix_hash,
+            served_by=served_by,
+            session_id=session_id,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.debug("gateway usage log failed: %s", exc)
+
+    if trace_id:
+        _enqueue_span(
+            settings,
+            trace_id,
+            gateway_trace.SPAN_PROVIDER,
+            status="ok" if success else "error",
+            agent_id=agent,
+            source=source,
+            public_alias=alias,
+            canonical_id=canonical_id,
+            provider=provider,
+            latency_ms=int(latency_ms or 0),
+            detail={"upstream_model": upstream_model, "error": error},
+            db_url=db_url,
+        )
+        _enqueue_span(
+            settings,
+            trace_id,
+            gateway_trace.SPAN_USAGE,
+            status="ok" if success else "error",
+            agent_id=agent,
+            public_alias=alias,
+            canonical_id=canonical_id,
+            provider=provider,
+            detail={
+                "prompt_tokens": prompt,
+                "completion_tokens": completion,
+                "cached_tokens": cached,
+                "estimated_cost_usd": cost_usd,
+            },
+### 4230-4370
+        ) from exc
+    if not isinstance(chunk, dict):
+        raise GatewayResponseError(
+            "malformed_stream_chunk",
+            "upstream returned malformed SSE chunk",
+        )
+    usage = chunk.get("usage") if isinstance(chunk.get("usage"), dict) else None
+    chunk["model"] = prepared["canonical_id"]
+    chunk["secretary_trace_id"] = prepared.get("trace_id")
+    return chunk, usage, False
+
+
+# ── Forwarding (non-streaming) ─────────────────────────────
+
+
+#: Provider error text that means *this route does not exist any more*, as
+#: opposed to "the request was bad". Measured 2026-10-01 on the authority:
+#: Fireworks answered `HTTP 404 {"code":"NOT_FOUND","message":"Model not found,
+#: inaccessible, and/or not deployed"}` for
+#: `fireworks/accounts/fireworks/models/deepseek-v4-pro-0813` — a model the live
+#: catalogue (`GET /v1/models`) still lists — and because 404 was not in the
+#: fallback-eligible set, the gateway stopped on the first candidate and every
+#: step of four standing work orders died on the same call.
+_MODEL_UNAVAILABLE_MARKERS = (
+    "model not found",
+    "not deployed",
+    "inaccessible",
+    "model_not_found",
+    "invalid_model",
+    "unknown model",
+    "does not exist",
+    "no such model",
+)
+
+
+def _looks_like_model_unavailable(payload: Any) -> bool:
+    """True when a provider error body names a model it cannot serve."""
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if isinstance(error, dict):
+        code = str(error.get("code") or "").strip().lower()
+        message = str(error.get("message") or "").strip().lower()
+    elif isinstance(error, str):
+        code, message = "", error.strip().lower()
+    else:
+        code, message = "", ""
+    if code in {"model_not_found", "invalid_model", "not_found", "model_unavailable"}:
+        return True
+    blob = f"{code} {message}"
+    return any(marker in blob for marker in _MODEL_UNAVAILABLE_MARKERS)
+
+
+def _http_reason_code(exc: httpx.HTTPStatusError) -> str:
+    status = exc.response.status_code if exc.response is not None else 0
+    if status in (400, 404, 410) and exc.response is not None:
+        try:
+            payload = exc.response.json()
+            error = payload.get("error") if isinstance(payload, dict) else None
+            if isinstance(error, dict):
+                code = str(error.get("code") or "").lower()
+                message = str(error.get("message") or "").lower()
+                if code == "unsupported_parameter" or "unsupported parameter" in message:
+                    return "http_400_unsupported_parameter"
+            if _looks_like_model_unavailable(payload):
+                # One meaning -- "the pinned route is dead" -- whatever status the
+                # provider chose to report it with (400 model_not_found, 404
+                # NOT_FOUND, 410 gone). Both codes are fallback-eligible; the
+                # name keeps the provider's own status so the log stays honest.
+                if status == 400:
+                    return "http_400_model_unavailable"
+                return "http_404_model_unavailable"
+        except Exception:
+            pass
+    return f"http_{status or 'unknown'}"
+
+
+def _should_try_fallback(reason_code: str) -> bool:
+    if reason_code.startswith("vision_"):
+        return True
+    if reason_code in _BAD_SUCCESS_FALLBACK_REASONS:
+        return True
+    if reason_code in {"http_400_unsupported_parameter", "http_400_model_unavailable"}:
+        return True
+    if reason_code.startswith("http_"):
+        match = re.match(r"http_(\d{3})", reason_code)
+        if not match:
+            return False
+        status = int(match.group(1))
+        # 402 = payment required / out of credits (OpenRouter balance exhausted)
+        # 404/410 = the routed URL or model is not there any more: a dead route
+        # is exactly what the escalation chain exists for, so it must be
+        # retried on the next candidate rather than ending the request.
+        return status in {402, 404, 408, 409, 410, 425, 429} or status >= 500
+    return False
+
+
+def _alternate_prepared(
+    settings: Settings,
+    prepared: dict[str, Any],
+    candidate: sr.ModelCandidate,
+) -> dict[str, Any]:
+    canonical_request = prepared.get("canonical_request")
+    if not isinstance(canonical_request, CanonicalLLMRequest):
+        raise RuntimeError("missing canonical request for fallback")
+    base_url, api_key, upstream_model = _resolve_upstream(
+        settings,
+        provider=candidate.provider,
+        provider_model_id=candidate.provider_model_id,
+        canonical_id=candidate.canonical_id,
+    )
+    upstream_body = _build_upstream_body(
+        canonical_request,
+        settings=settings,
+        provider=candidate.provider,
+        upstream_model=upstream_model,
+        session_id=str(prepared.get("session_id") or ""),
+    )
+    updated = dict(prepared)
+    updated.update(
+        {
+            "canonical_id": candidate.canonical_id,
+            "provider": candidate.provider,
+            "base_url": base_url,
+            "api_key": api_key,
+            "upstream_model": upstream_model,
+            "tier": candidate.tier,
+            "upstream_body": upstream_body,
+        }
+    )
+    return updated
+
+
+def _nonstream_attempts(settings: Settings, prepared: dict[str, Any]):
+    yield prepared
+    decision = prepared.get("decision")
+    for candidate in getattr(decision, "escalation_chain", []) or []:
+        try:
+            yield _alternate_prepared(settings, prepared, candidate)
+        except RuntimeError as exc:
+            log.warning(
+                "Skipping unroutable gateway fallback model %s (provider=%s): %s",
+                getattr(candidate, "canonical_id", "?"),

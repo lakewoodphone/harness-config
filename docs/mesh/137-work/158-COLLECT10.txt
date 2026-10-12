@@ -1,0 +1,138 @@
+### GREP-ATTEMPT-FMT
+/opt/company/app/services/agent_worker.py:1742:            f"(attempt {attempts}/{max_retries}): {tool_list}."
+/opt/company/app/services/agent_worker.py:1749:            f"(attempt {attempts}/{max_retries}): {tool_list}."
+/opt/company/app/code_self_edit.py:900:                err_msg = f"{prov_name} attempt {attempt}/" f"{_MAX_LLM_RETRIES}: {exc}"
+### GREP-ATTEMPT-PCT
+/opt/company/app/chat_action_runtime.py:1610:                        "Action %s failed (attempt %d), " "retrying in %.1fs: %s",
+/opt/company/app/chat_action_runtime.py:1620:                    "Action %s raised (attempt %d/%d): %s",
+/opt/company/app/family_chat/twilio_client.py:393:                    "Family Chat: send to %s outcome UNKNOWN (attempt %d/%d, "
+/opt/company/app/family_chat/twilio_client.py:402:                "Family Chat: send to %s not accepted (attempt %d/%d, token %s): %s",
+/opt/company/app/family_chat/personality.py:1471:            log.warning("Family Chat: Chip LLM call failed (attempt %d): %s", attempt, exc)
+/opt/company/app/family_chat/personality.py:1515:        log.warning("Family Chat: Chip LLM returned empty content (attempt %d)", attempt)
+/opt/company/app/family_chat/routes.py:124:                "Family Chat: media fetch %s/%s HTTP %s (attempt %d) — retrying",
+/opt/company/app/services/shabbat_orchestrator.py:756:                "Shabbat reprogram: plug unreachable (attempt %d/%d): %s",
+/opt/company/app/services/home_assistant.py:790:                "Interior maglock verified UNLOCKED (relay=%s) on attempt %d",
+/opt/company/app/services/home_assistant.py:796:            "Interior maglock NOT verified unlocked on attempt %d/%d (relay=%s, read_ok=%s)",
+/opt/company/app/services/workflow_engine.py:318:                        "Step %d of goal %s failed (attempt %d/%d): %s",
+/opt/company/app/services/dialpad_webcrawler.py:821:                "launch_persistent_context attempt %d failed: %s",
+/opt/company/app/services/dialpad_webcrawler.py:3989:                "message thread open failed (attempt %d/3) for %s, retrying in %ds: %s",
+/opt/company/app/services/dialpad_webcrawler.py:4199:                        "feed api request failed (attempt %d/3) for %s, retrying in %ds: %s",
+/opt/company/app/services/website_db.py:154:                    "website_db: connection attempt %d/%d failed: %s",
+/opt/company/app/evolution.py:905:                "Transient failure in %s (attempt %d/%d): %s; retrying in %.2fs",
+/opt/company/app/self_healing.py:839:                "Diagnosis attempt %d/%d returned empty diagnosis for error %s",
+/opt/company/app/self_healing.py:847:                "Diagnosis attempt %d/%d failed for error %s: %s",
+/opt/company/app/self_healing.py:1097:            "Self-healing sweep: processing error %s " "(attempt %d/%d)",
+/opt/company/app/sms_service.py:795:                "SMS failed (attempt %d/%d, retry in %ds): %s",
+### GREP-UNKNOWN-MODEL
+/opt/company/app/services/owner_model.py:366:        "timezone": _coerce_text(override.get("timezone"), default="unknown"),
+/opt/company/app/main.py:503:    provider: str = "unknown"
+/opt/company/app/main.py:524:    provider = str(payload.provider or "unknown")[:50]
+/opt/company/app/identity_store.py:1055:                unavailable_providers.add(provider or "unknown")
+/opt/company/app/pricing.py:484:        if provider in ("", "unknown") or provider is None:
+/opt/company/app/code_self_edit.py:908:                    model="unknown",
+### GREP-MODELCANDIDATE
+2542:            ModelCandidate(
+2669:            ModelCandidate(
+2724:                ModelCandidate(
+### SR-3100-3200
+            alerts.append(
+                f"premium_lane_forced:no_lane_at_or_below_{premium_threshold}"
+            )
+        if premium_excluded:
+            alerts.append(f"premium_lanes_excluded:{len(premium_excluded)}")
+    policy_rejections = {**premium_excluded, **policy_rejections}
+
+    # Re-sort
+    candidates.sort(key=lambda c: c.composite_score, reverse=True)
+
+    # ── Operator tier pin (W6) ─────────────────────────────
+    # Applied after scoring so an explicit operator chain wins over the ranking,
+    # and validated against the catalogue so a retired id cannot be pinned in.
+    pinned = _apply_tier_pin(candidates, caps, catalogue, policy_rejections, alerts)
+    if pinned is not None:
+        # A pin moves the model to the front without lying about its score.
+        candidates.remove(pinned)
+        candidates.insert(0, pinned)
+        alerts.append(f"tier_pin_applied:{pinned.canonical_id}")
+
+    # Stable partition: keep breaker-open models, but push them behind every
+    # healthy candidate so a model mid-outage is never picked as primary while
+    # a healthy alternative exists. (Computed once; cheap O(n).)
+    if outage_excluded:
+        candidates.sort(key=lambda c: 1 if model_circuit_open(c.canonical_id) else 0)
+    if pinned is not None and candidates and candidates[0] is not pinned:
+        # A pinned model that is mid-outage must not be forced in: the breaker
+        # exists precisely to route around a known-bad lane.
+        alerts.append(f"tier_pin_overridden_by_outage:{pinned.canonical_id}")
+
+    # ── Primary: best composite score ──
+    primary = candidates[0]
+
+    # ── Escalation chain: next two distinct tiers above primary ──
+    escalation: list[ModelCandidate] = []
+    seen_tiers = {primary.tier}
+    for c in candidates[1:]:
+        if c.tier not in seen_tiers and _TIER_RANK[c.tier] > _TIER_RANK[primary.tier]:
+            escalation.append(c)
+            seen_tiers.add(c.tier)
+        if len(escalation) >= 2:
+            break
+
+    # ── Consultant: best mid/ceo tier model for sub-problem help ──
+    consultant = None
+    for c in candidates:
+        if c.tier in ("mid", "ceo") and c.quality_class in ("high", "highest"):
+            consultant = c
+            break
+
+    decision_id = hashlib.sha256(
+        f"{task_type}|{primary.canonical_id}|{time.time()}".encode()
+    ).hexdigest()[:12]
+
+    reason_parts = [
+        f"primary={primary.canonical_id}",
+        f"tier={primary.tier}",
+        f"cost=${primary.cost_per_mtok_output}/M",
+        f"quality={primary.quality_class}",
+        f"score={primary.composite_score:.3f}",
+        f"caps=min_{caps.min_quality}/{caps.min_tier}",
+    ]
+    if caps.needs_tools:
+        reason_parts.append("needs_tools")
+    if caps.owner_facing:
+        reason_parts.append("owner_facing")
+    if abs(primary.adaptive_factor - 1.0) > 1e-6:
+        reason_parts.append(f"adaptive={primary.adaptive_factor:.2f}")
+    if direct_deepseek_preferred and primary.provider == "deepseek":
+        reason_parts.append("direct_deepseek_preferred")
+    if cost_efficiency_adjusted:
+        reason_parts.append("cost_efficiency_guard")
+    if longctx_gemini_active:
+        reason_parts.append("longctx_gemini")
+    if pinned is not None:
+        reason_parts.append(f"tier_pin={pinned.canonical_id}")
+    billed_id = billing_model_id(primary.canonical_id)
+    if billed_id and billed_id != primary.canonical_id:
+        reason_parts.append(f"billed_as={billed_id}")
+    if escalation:
+        reason_parts.append(
+            f"escalation={','.join(e.canonical_id for e in escalation)}"
+        )
+
+    decision = RouteDecision(
+        primary=primary,
+        primary_provider=primary.provider,
+        primary_model=primary.provider_model_id,
+        public_alias=policy.public_alias,
+        route_policy=policy,
+        escalation_chain=escalation,
+        consultant=consultant,
+        reason=" | ".join(reason_parts),
+        capabilities=caps,
+        candidates_considered=len(candidates) + len(policy_rejections),
+        candidates_eligible=len(candidates),
+        policy_rejections={**health_excluded, **budget_excluded, **outage_excluded, **policy_rejections},
+        budget_tier=budget_tier,
+        cost_weight=cost_weight,
+        timestamp=time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
+        decision_id=decision_id,

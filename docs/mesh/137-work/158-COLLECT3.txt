@@ -1,0 +1,241 @@
+### MONITOR-HEAD
+#!/usr/bin/env python3
+"""ai-gateway-health — does any model we actually call or configure look broken?
+
+WHY THIS EXISTS
+2026-09-17: `model_tier1`, `model_tier2` and `model_tier3` all pointed at the literal
+`deepseek/deepseek-v4-flash`, which failed **655 of 890 calls in 7 days — every failure `empty_response`**
+— and stopped being called entirely on 2026-09-15T21:26Z. Nothing raised it. It was found only because an
+unrelated owner-queue row was investigated and the numbers were read by hand.
+
+An `empty_response` is the worst failure mode to leave unmonitored: a caller sees a model with nothing to
+say, not an error, so a fallback answers and the output stays *plausible* while the configured model is
+broken. The standing instruction was written for exactly this shape: *"ai models change very often, can
+never be hardcoded... we need robust easy flows for that."*
+
+WHAT IT CHECKS
+  1. FAILING MODELS   a model with enough calls to judge whose failure rate exceeds a threshold
+  2. SILENT MODELS    a model with ZERO calls in the window while being configured for a tier — the
+                      "configured but not actually serving" case, which lookups alone cannot see
+  3. TIER COLLAPSE    tier1, tier2 and tier3 resolving to the SAME model, which removes the redundancy
+                      that would otherwise surface a bad one
+
+EXIT  0 healthy · 3 a CONDITION found (external, not ours to fix) · 1 a FAULT found · 2 could not measure
+Tri-state, the same shape as `text-ledger-audit.py`: `cron-wrap.sh` records the code, so runs.tsv
+carries the distinction instead of every finding looking like the same red. A FAULT ALWAYS WINS over a
+condition — rc=3 is returned only when EVERY finding is an external provider condition (a provider
+account out of balance, or a provider that no longer deploys the id), and rc=1 the moment anything is
+ours to fix. An UNMEASURED check is reported as a failure, never as health — an empty result is not evidence.
+
+USAGE
+  ai-gateway-health.py                 # human summary
+  ai-gateway-health.py --json          # machine
+  ai-gateway-health.py --days 7        # widen the window
+  ai-gateway-health.py --min-calls 20  # how many calls before a rate is judgeable
+  ai-gateway-health.py --self-test     # run the built-in negative control and exit
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sqlite3
+import sys
+
+# PORTED TO THE CLOUD AUTHORITY 2026-10-11 (workstream 135). The office copy named two literals;
+# both are now environment-overridable with the OFFICE value as the default, so the office
+# behaviour of this file is unchanged. On the cloud box the cron line sets both explicitly:
+#   AI_GATEWAY_HEALTH_DB=/root/authority.db  AI_GATEWAY_HEALTH_CONFIG=/opt/company/app/config.py
+# The default for DB must NOT be trusted on the cloud box: `/opt/company/data/secretary.db` exists
+# there as a 1.8 MB cutover stub against a 23.7 GB authority, and a monitor that measures a dead
+# copy reports a confident wrong number -- the worst outcome in this estate's history.
+DB = os.environ.get("AI_GATEWAY_HEALTH_DB",
+                    "/home/zabz/personal-secretary-mvp/data/secretary.db")
+CONFIG = os.environ.get("AI_GATEWAY_HEALTH_CONFIG",
+                        "/home/zabz/personal-secretary-mvp/app/config.py")
+
+# ── THE GATEWAY'S OWN CATALOGUE ────────────────────────────────────────────────────────────────────
+# The thing this monitor exists to catch is a model id that is configured, catalogued, and NOT
+# WORKING -- on 2026-09-17 `model_tier1/2/3` all pointed at one literal that had stopped existing
+# and the fleet fell back silently for a week. `_configured_tiers()` reads what the CONFIG says;
+# this reads what the GATEWAY says, from its own catalogue (`GET $GATEWAY_BASE/v1/models`), so
+# "configured" and "served" are compared instead of assumed.
+#
+# It is OPT-IN by design: the office box does not need it and a network call in a */30 job is a new
+# failure mode. Set AI_GATEWAY_HEALTH_CATALOGUE=1 (the cloud cron line does) to enable it.
+CATALOGUE_ENABLED = os.environ.get("AI_GATEWAY_HEALTH_CATALOGUE", "0") == "1"
+GATEWAY_BASE = os.environ.get("AI_GATEWAY_HEALTH_BASE", "http://127.0.0.1:8002")
+# MEASURED on the cloud authority 2026-10-11: the FIRST call to GET /v1/models after the API has
+# been idle took >90 s (it builds the catalogue and, on a cache miss, refreshes the model registry);
+# the immediately following call took 10.2 s. A 20 s timeout therefore made this probe report
+# "unreadable" on its first scheduled run after every quiet period - a false negative in the one
+# place the second opinion matters. 90 s it is, and a slow catalogue is reported as unreadable
+# rather than being allowed to fail the job.
+CATALOGUE_TIMEOUT = float(os.environ.get("AI_GATEWAY_HEALTH_TIMEOUT", "90"))
+# The bearer the gateway itself accepts. NEVER printed, never logged.
+CATALOGUE_KEY_ENV = os.environ.get("AI_GATEWAY_HEALTH_KEY_ENV", "AI_GATEWAY_API_KEY")
+CATALOGUE_KEY_FILE = os.environ.get("AI_GATEWAY_HEALTH_KEY_FILE", "/opt/company/.env")
+
+# A rate below this is normal provider noise. MEASURED context for the threshold: the model this was
+# written for sat at 74%, the healthy DeepInfra route at 0%, and the busiest normal model at 0%.
+FAIL_RATE_LIMIT = 0.20
+
+# ── ONE FAILURE IS AN EVENT, NOT A PATTERN ──────────────────────────────────────────────────────────────────────────────────────────────
+# MEASURED 2026-10-05: this job was red for 138 consecutive runs because a lane with 3 calls in the
+# recent window and ONE `finish_reason_length` truncation produced recent_rate=33% > FAIL_RATE_LIMIT
+# and was graded a FAULT (rc=1). The same truncation hit four unrelated lanes in twelve hours
+# (gemini-3.5-flash, gemini-3.1-pro-preview, deepseek-v4-pro, gemini-2.5-pro) and each lane's next
+# call succeeded. `finish_reason_length` is the CLIENT's max_tokens cap being hit, which the gateway
+# itself accepts on the final attempt ("the client's own max_tokens cap was hit", ai_gateway.py) --
+# response-shape noise, not a broken model. Two is the smallest count that can be a pattern; a
+# fully-failing recent sample still fires, because that is >= 2 failures.
+MIN_RECENT_FAILURES = 2
+
+# ── CONDITION vs FAULT ──────────────────────────────────────────────────────────────────────────────
+# A model that fails because a PROVIDER ACCOUNT is out of balance, or because the provider no longer
+# deploys the id, is not broken: nothing in this repo can fix it, and the finding is already escalated
+# (the 2026-10-03 Deep Infra post-mortem and standing-order tasks #27454/#27456). Reporting that as a
+# FAULT (rc=1) every 30 minutes is what made this job red 104 runs in a row and hid any real fault in
+# the same colour — the exact failure mode `text-ledger-audit.py` solved with exit 3. MEASURED
+# 2026-10-05: all four "failing-now" lanes were 402 "You need positive balance" / 404 "Model not found,
+# inaccessible, and/or not deployed", and the matching Deep Infra payment failure was already known.
+#
+# This repo's word for it is exit 3 = "condition, not fault" (order-feed-refresh, mesh-hygiene,
+# serve-phone all use it; `sources/cron-failures.py` reads a known rc as a signal, not a fault).
+CONDITION_EXIT = 3
+
+#: Provider-side failure text meaning "the ACCOUNT or DEPLOYMENT is the problem", not "the model is
+#: broken". Matched case-insensitively against `model_usage.error_message`.
+CONDITION_ERROR_PATTERNS = (
+    # `(?<!\d)402(?!\d)` and NOT `\b402\b`: Deep Infra records `http_402: {...}`, and '_' is a word
+    # character, so there is no \b between '_' and '4' and the bare prefix would not match. MEASURED
+    # 2026-10-05 01:30: a lane whose only new failure was `http_402:` read as a FAULT and flipped the
+    # whole run from rc=3 to rc=1 for one tick.
+    re.compile(r"(?<!\d)402(?!\d)|positive balance|insufficient balance|insufficient credit|"
+               r"quota exceeded", re.I),
+    re.compile(r"model not found|not_found_error|does not exist or you do not have access|"
+               r"not deployed|no such model|invalid model id", re.I),
+    re.compile(r"temporary failure in name resolution", re.I),
+)
+
+
+def _is_condition_error(msg: str) -> bool:
+    """True when this failure text names a provider ACCOUNT/DEPLOYMENT condition, not a broken model."""
+    if not msg:
+        return False
+    return any(p.search(msg) for p in CONDITION_ERROR_PATTERNS)
+
+
+def _connect(db: str) -> sqlite3.Connection:
+    con = sqlite3.connect("file:%s?mode=ro" % db, uri=True)
+    con.execute("PRAGMA query_only=1")
+    return con
+
+
+def _configured_tiers(path: str) -> dict:
+### DIAG-157-KEY
+16-`guard-registry` is correctly refusing to run because a *config artifact* was dropped in the
+17-cutover while its checker and its cron line were ported. `ai-gateway-health` is pointed at the
+18-**correct, live, fast** endpoint — the "dead route" hypothesis is false — and its rc=1 has a
+19:different, single cause: a bucket whose `model` column literally reads `unknown`.
+20-
+21----
+22-
+23-## 1 — `guard-registry` — every 15 min, rc=2
+24-
+25-### 1.1 What rc=2 is
+26-
+27-```
+--
+235-
+236-### 2.4 What actually makes it rc=1 — one finding, one bucket
+237-
+238:The only 🔴 (fault-graded) finding is a **bucket whose `model` column literally reads `unknown`.**
+239-True 7-day window, using `julianday()` exactly as the script does (a naive
+240-`created_at >= datetime('now','-7 days')` silently over-counts here, because `created_at` carries a
+241-`T` while `datetime()` returns a space — the script documents that bug itself):
+242-
+243-```
+244-unknown   24 calls   24 failed (100%)   last seen 2026-10-07T16:52:10Z   0 calls in 6h   not retired
+245-```
+246-
+247-Its 24 failures split, by the script's own `CONDITION_ERROR_PATTERNS`:
+248-
+249-* **15 condition-class** — `402 "You need positive balance"`, `404 "does not exist or you do not have access"`, anthropic `not_found_error`, `not deployed`.
+250:* **9 fault-class** — `openai attempt N/3: Error code: 400 … 'invalid model ID'`.
+251-
+252-Grading path, traced through the source:
+253-
+254-1. `recent_calls == 0` → the **historical** branch (no live traffic to judge).
+255-2. `_all_conditions(m, recent=False)` needs `window_condition == failed` → `15 != 24` → **False**.
+256-3. Falls through to `fault / calls <= fail_rate_limit` → `9 / 24 = 0.375 > 0.20` → **False**.
+257-4. So `_condition_not_ours()` is False → `condition=False` → 🔴 → `verdict_of()` → **rc=1**.
+258-
+259:**`invalid model ID` is the whole reason this job is red.** It is the *same family* of text the
+260-pattern list already treats as an external condition (`model not found`, `not_found_error`,
+261-`does not exist or you do not have access`, `not deployed`) — it is simply not in the list. Nine
+262-OpenAI rejections of an id the provider does not serve hold a 24-call bucket, and that bucket holds
+263-the job.
+264-
+265-Everything else is graded correctly and honestly: `tier-collapse` is promoted to a **CONDITION** (🟠)
+266-on this box, and I confirmed it is real — `/opt/company/app/config.py` L131–133:
+267-
+--
+282-
+283-### 2.6 What it needs — two small, separable decisions
+284-
+285:1. **Add `invalid model id` to `CONDITION_ERROR_PATTERNS`** — one line, in the same class as the
+286-   patterns already listed. This is the actual repair.
+287-2. **Decide whether `unknown` should be graded as a lane at all.** The gateway records `unknown` when
+288-   it cannot attribute a call to a model (its journal at 19:37:50 shows
+289-   *"Department model resolution dropped 3 id(s) not in the live gateway catalogue"*). That is a
+290-   **data-quality bucket, not a model**. Reporting it as a failing model is the *"an empty result is
+291-   not evidence"* family: the honest form is its own note — *the gateway could not attribute N calls*
+292-   — because that is a signal about the gateway, not about a lane.
+293-
+--
+321-1. **Authorise the `guards.yaml` port?** Approve the installed registry (Appendix B) and the
+322-   approval record citing owner row 227, and set `--ledger-db /root/authority.db` on the cron line.
+323-   Expected result: rc=3, and it must be read as success.
+324:2. **`ai-gateway-health`** — approve the one-line `invalid model id` pattern addition, and decide
+325-   whether `unknown` is a lane or a gateway note. Without a decision the job clears itself by
+326-   accident on ~2026-10-14 and nobody learns anything.
+327-3. **`/root/bin/guards.yaml` vs `/root/bin/guards.approval.json`** — if the owner prefers *not* to
+328-   own a registry that must be re-approved on every future change, the alternative is to **retire**
+329-   the check on this box (remove the cron line, and record that the office registry is office-only).
+330-   That is a legitimate answer, but it is a deliberate retirement, not the accident we have now, and
+331-   it must be recorded as such — `132` currently says PORT-ADAPT.
+332-
+--
+469-
+470-```diff
+471--               r"not deployed|no such model", re.I),
+472:+               r"not deployed|no such model|invalid model id", re.I),
+473-```
+474-
+475-| | |
+476-|---|---|
+477-| file | `/usr/local/bin/ai-gateway-health.py` (46175 bytes) |
+478-| before | sha256 `bc4a3637cb9d2927025f69b502a9ea90213040a8d89a508022a32bac89040286` |
+479-| after | sha256 `69900cdb4ff0c2502f4257c0cfc9f53a119b1ce625aad3dd0b51a9a81fa3ec2f` |
+480-| pristine copy | `/root/out/migration-review/155-ai-gateway-health.py.orig` (byte-identical to *before*) |
+--
+487-finding stays visible; the job stops claiming a code fault it cannot attribute to a lane.
+488-
+489-**The reading that could make this wrong — stated plainly.** The nine rows read
+490:`openai attempt N/3: Error code: 400 … 'invalid model ID'`. I read that as the same class as the
+491-`404 The model … does not exist or you do not have access` rows sitting beside it — a provider
+492-rejecting an id it does not serve — which is exactly what `CONDITION_ERROR_PATTERNS` already treats
+493-`model not found`, `not_found_error`, `does not exist or you do not have access`, `not deployed` and
+494-`no such model` as. On that reading the omission is an oversight.
+495-
+496:**The opposite reading is available and I cannot settle it from the record:** a `400 invalid model ID`
+497-may be *our* gateway offering a DeepSeek id to an OpenAI-shaped endpoint that will never accept it —
+498-a genuine routing defect that is ours to fix, in which case the monitor was RIGHT and the repair
+499-belongs in the gateway, not in the pattern list. What would distinguish the two is whether the gateway
+500-*intends* to try that id on that provider; that is a routing question this artifact does not answer and
+501-I have not guessed at it. So this change is a **hypothesis made visible**, not a closure: it makes the
+502-job's own record readable (rc=3, conditions named) instead of leaving one unattributable bucket
+503-holding the whole job at rc=1. **It should be checked, not assumed.**
+504-

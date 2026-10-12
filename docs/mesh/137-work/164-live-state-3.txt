@@ -1,0 +1,169 @@
+=== captured ===
+2026-10-11T22:43:55Z
+=== newest files in /root/out/migration-review ===
+total 972
+-rw-r--r-- 1 root root    89 Oct 11 22:43 164-live-state-3.txt
+-rw-r--r-- 1 root root  5848 Oct 11 22:43 164-FROZEN-OFFICE-LAST-WRITER-AND-THE-CONFIG-THAT-FACED-THE-OLD-WORLD.md
+-rw-r--r-- 1 root root 19027 Oct 11 22:43 161-AI-GATEWAY-HEALTH-ROUTING-TRUTH.md
+-rw-r--r-- 1 root root  3170 Oct 11 22:43 164-live-state-2.txt
+-rw-r--r-- 1 root root  2599 Oct 11 22:41 164-live-state.txt
+-rw-r--r-- 1 root root 15961 Oct 11 22:38 164-PRODUCTION-COMMS-FRESHNESS-LOST-WRITER.md
+-rw-r--r-- 1 root root 16952 Oct 11 22:36 163-OFFICE-BOX-DEMOTION.md
+-rw-r--r-- 1 root root 17788 Oct 11 22:31 161-CRON-WRAP-ERRTAIL-FIX.md
+-rw-r--r-- 1 root root  5393 Oct 11 22:30 161-patch.py
+-rw-r--r-- 1 root root 10075 Oct 11 22:30 161-CODE.txt
+-rw-r--r-- 1 root root  2422 Oct 11 22:29 161-VERIFY.txt
+-rw-r--r-- 1 root root  8027 Oct 11 22:28 161-cron-wrap.sh.fixed
+-rw-r--r-- 1 root root  8557 Oct 11 22:28 158-COLLECT11.txt
+=== newest files under /root/out ===
+total 4
+drwxr-xr-x 2 root root 4096 Oct 11 22:43 migration-review
+=== /root/bin newest ===
+total 1332
+drwxr-xr-x 2 root root   4096 Oct 11 22:16 __pycache__
+-rw-r--r-- 1 root root  15788 Oct 11 22:16 website-comms-push.py
+-rwxr-xr-x 1 root root   4187 Oct 11 21:41 website-comms-push-cron.sh
+-rwxr-xr-x 1 root root   1737 Oct 11 21:34 verify-website-comms-push.sh
+-rwxr-xr-x 1 root root  30714 Oct 11 06:38 owner-ask.py
+-rwxr-xr-x 1 root root  40628 Oct 11 06:38 owner-queue.py
+-rwxr-xr-x 1 root root  38372 Oct 11 06:37 merchant_resolve.py
+-rwxr-xr-x 1 root root  85274 Oct 11 06:37 cfo-balances.py
+-rwxr-xr-x 1 root root  87235 Oct 11 06:37 cfo-resolve.py
+=== the installed pusher, first 75 lines ===
+#!/usr/bin/env python3
+"""website-comms-push.py — give the production website a clock.
+
+WHY THIS EXISTS (axis G, 2026-09-15)
+    The production website's customer-message history stopped at 2026-09-15T11:34:24.649Z and
+    stayed stopped for 11.5 hours, unnoticed, because the writer has NO SCHEDULE:
+
+        sync_dialpad_calls_to_website / sync_dialpad_sms_to_website (app/services/website_db.py)
+        are called only from app/services/daily_reconciliation.py:1582/:1591, which runs only when
+        app/autopilot.py:_maybe_check_comms_freshness() decides dialpad_sms is stale - behind a 24 h
+        per-source alert backoff and reconciliation_interval_hours=24. Both triggers were spent, so
+        nothing ran. The only Dialpad cron harvests into secretary.db and never touches the website.
+
+    Worse, the staleness check that gates it reads `MAX(dialpad_sms_cache.fetched_at)` - the LOCAL
+    receive clock, which the live webhook keeps fresh - so it reported healthy while the website
+    received nothing. The watchdog was watching the wrong clock.
+
+WHAT THIS DOES
+    Runs exactly the three existing, idempotent functions with exactly the windows and limits the
+    reconciliation uses (`_get_dialpad_calls_for_push`: 7 days / 500; `_get_dialpad_sms_for_push`:
+    7 days / 1000; `_get_dialpad_voicemails_for_push`: 7 days / 500). It invents no matching
+    logic and writes no SQL of its own: the dedup, the customer match and the `external_ref`
+    guard are the application's own.
+
+VOICEMAILS (gap A4, added 2026-09-16) - and the duplicate this clock must not create
+    `sync_dialpad_voicemails_to_website` had no caller anywhere in the tree, so no row with
+    `external_ref LIKE 'dialpad:voicemail:%'` has ever reached the website. It is wired in here
+    as a third block.
+
+    But voicemails are ALREADY on the website: `sync_dialpad_calls_to_website` does not filter
+    them out of `dialpad_call_full`, and `_build_call_body` appends a `[Voicemail]:` section,
+    so every voicemail is stored as `dialpad:call:<call_id>`. Measured 2026-09-16: 24 of 24
+    in-window voicemails present as call rows, all 24 carrying `[Voicemail]` in the content.
+    Neither sync function can see the other's ref, so a naive wiring would insert a SECOND row
+    per voicemail - the A2/A3 duplicate class, on the surface customers read.
+
+    So this clock only passes voicemails the website does not already hold under EITHER ref
+    (`_voicemails_not_yet_on_website`), and the vm_id it sends is the Dialpad `call_id`, so the
+    voicemail row and the call row share one identity. A run reporting `voicemails synced 0`
+    while `already-on-website` is non-zero is the guard working, not the push failing.
+
+    This is a REPORTER + a clock. It sends nothing outbound (no SMS, no email) - it inserts rows into
+    the website's own `communications` table, which is the customer-facing record of record.
+
+PCI EXCLUSION - deliberately withheld, for the owner to decide (queue item 67)
+    `dialpad_sms_cache` message_id 6252044111880192 carries a full card number, expiry, CVV and ZIP.
+    Axis G flagged it, and the owner has been asked how to handle it. Until he answers it is NOT
+    copied into production by this script. Everything else in the window is pushed. Pass
+    --include-pci to override, and only do that once he has answered.
+
+USAGE
+    python3 website-comms-push.py --dry-run     # count candidates, write nothing
+    python3 website-comms-push.py               # push
+    python3 website-comms-push.py --json        # machine-readable result
+
+EXIT    0 pushed (or nothing to do) · 1 a sync reported not-ok · 2 could not even build the payload
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+sys.path.insert(0, "/opt/company")
+
+# The message the owner has not ruled on yet. Not a secret-scanner guess: axis G read it.
+PCI_HOLD_MESSAGE_IDS = {"6252044111880192"}
+
+ENV_FILE = "/opt/company/.env"
+
+
+def _get_dialpad_voicemails_for_push(settings) -> list[dict]:
+    """Fetch recent Dialpad voicemails to push to the website. Added 2026-09-16 (gap A4).
+=== paths named in the installed pusher ===
+66:sys.path.insert(0, "/opt/company")
+71:ENV_FILE = "/opt/company/.env"
+203:        with open(ENV_FILE, encoding="utf-8", errors="replace") as fh:
+=== paths named in the installed cron wrapper ===
+34:REPO="/opt/company"
+35:PY="$REPO/.venv/bin/python3"
+37:PUSH="/root/bin/website-comms-push.py"
+38:STATE_DIR="/root/.lpt-recon"
+39:LOG="$STATE_DIR/website-push.log"
+50:  sqlite3 "file:$REPO/data/secretary.db?mode=ro" "
+=== ledger tail ===
+2026-10-11T21:00:02Z	production-comms-freshness	1	2	
+2026-10-11T21:15:01Z	production-comms-freshness	1	1	
+2026-10-11T21:30:02Z	production-comms-freshness	1	4	
+2026-10-11T21:39:01Z	website-comms-push-cron	1	90	
+2026-10-11T21:45:01Z	production-comms-freshness	1	2	
+2026-10-11T22:00:02Z	production-comms-freshness	1	3	
+2026-10-11T22:09:02Z	website-comms-push-cron	1	90	
+2026-10-11T22:15:02Z	production-comms-freshness	1	2	
+2026-10-11T22:30:01Z	production-comms-freshness	1	3	[no stderr; rc=1 -- reason is on stdout or in the job's own log]
+2026-10-11T22:39:01Z	website-comms-push-cron	0	9	
+=== freshness state ===
+{
+ "checked_at": "2026-10-11T22:30:02+00:00",
+ "threshold_hours": 2.0,
+ "db": "/root/authority.db",
+ "env_file": "/opt/company/.env",
+ "local_newest_sms": "2026-10-11T21:29:21.719000+00:00",
+ "local_newest_call": "2026-10-11T21:58:32.366000+00:00",
+ "local_sms_due": "2026-10-11T20:23:25.848000+00:00",
+ "dialpad_calls": {
+  "cursor": "2026-10-11T15:11:48.403398+00:00",
+  "cursor_age_hours": 7.3,
+  "behind_local_hours": 6.78,
+  "harvest_heartbeat_age_hours": 0.48
+ },
+ "dialpad_sms": {
+  "cursor": "2026-10-11T15:11:53.128402+00:00",
+  "cursor_age_hours": 7.3,
+  "behind_local_hours": 6.29,
+  "harvest_heartbeat_age_hours": 0.25
+ },
+ "website": {
+  "rows": 126117,
+  "newest": "2026-10-11 21:29:21.719000",
+  "newest_age_hours": 1.01
+ },
+ "problems": [
+  "dialpad_calls: the website is 6.78h behind the local store (cursor 7.3h old) - this is the 2026-09-15 failure shape",
+  "dialpad_sms: the website is 6.29h behind the local store (cursor 7.3h old) - this is the 2026-09-15 failure shape"
+ ],
+ "ok": false
+}
+=== crontab lines for the two jobs ===
+*/15 * * * * /usr/local/bin/cron-wrap.sh production-comms-freshness RlJFU0hORVNTX1NFQ1JFVEFSWV9EQj0vcm9vdC9hdXRob3JpdHkuZGIgRlJFU0hORVNTX0VOVl9GSUxFPS9vcHQvY29tcGFueS8uZW52IEZSRVNITkVTU19TVEFURT0vcm9vdC8ubHB0LXJlY29uL3Byb2R1Y3Rpb24tY29tbXMtZnJlc2huZXNzLmpzb24gL29wdC9jb21wYW55Ly52ZW52L2Jpbi9weXRob24gL3Vzci9sb2NhbC9iaW4vcHJvZHVjdGlvbi1jb21tcy1mcmVzaG5lc3MucHkgPj4gL3Zhci9sb2cvcHJvZHVjdGlvbi1jb21tcy1mcmVzaG5lc3MubG9nIDI+JjE=
+# >>> coordinator-port website-comms-push-cron (installed 20261011T212901Z by the coordinator session)
+# /root/bin/website-comms-push-cron.sh >> /var/log/website-comms-push.log 2>&1
+9,39 * * * * /usr/local/bin/cron-wrap.sh website-comms-push-cron L3Jvb3QvYmluL3dlYnNpdGUtY29tbXMtcHVzaC1jcm9uLnNoID4+IC92YXIvbG9nL3dlYnNpdGUtY29tbXMtcHVzaC5sb2cgMj4mMQ==
+# >>> one-shot verification of the website-comms-push port (self-removing)
+45 22 * * * /root/bin/verify-website-comms-push.sh
+=== END ===

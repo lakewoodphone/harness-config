@@ -1,0 +1,66 @@
+=== captured ===
+2026-10-11T22:43:23Z
+=== pusher script identities (size + sha256) ===
+-rwxr-xr-x 1 root root  4187 Oct 11 21:41 /root/bin/website-comms-push-cron.sh
+-rw-r--r-- 1 root root 15788 Oct 11 22:16 /root/bin/website-comms-push.py
+0bca268febecdb9630f4469b23bf19dee88e1202eff0b8f614a08eb78376fca9  /root/bin/website-comms-push.py
+adc3bfe64c40bdd962cef421b9797f4fb046f30084e1faf8bfe89d788e0da776  /root/bin/website-comms-push-cron.sh
+a780fc7a52cc72664a16b9f90c62edc15c85a58b4bbeb67237c2154850411953  /root/code/harness-config/scripts/website-comms-push.py
+a9de61eb7f8e81494bad92e48bf94d68aeed34a45c7a28c2f1e0fefd1d05bce6  /root/code/harness-config/scripts/website-comms-push-cron.sh
+=== CURSOR NOW (read-only) ===
+('dialpad_calls', '2026-10-11T22:39:05.830259+00:00', '5741682130984960', 14950)
+('dialpad_sms', '2026-10-11T22:39:10.245467+00:00', '6506957436657664', 58945)
+('dialpad_voicemails', '2026-10-11T22:39:10.334696+00:00', '6064974154473472', 48)
+=== freshness state (last scheduled check) ===
+{
+ "checked_at": "2026-10-11T22:30:02+00:00",
+ "threshold_hours": 2.0,
+ "db": "/root/authority.db",
+ "env_file": "/opt/company/.env",
+ "local_newest_sms": "2026-10-11T21:29:21.719000+00:00",
+ "local_newest_call": "2026-10-11T21:58:32.366000+00:00",
+ "local_sms_due": "2026-10-11T20:23:25.848000+00:00",
+ "dialpad_calls": {
+  "cursor": "2026-10-11T15:11:48.403398+00:00",
+  "cursor_age_hours": 7.3,
+  "behind_local_hours": 6.78,
+  "harvest_heartbeat_age_hours": 0.48
+ },
+ "dialpad_sms": {
+  "cursor": "2026-10-11T15:11:53.128402+00:00",
+  "cursor_age_hours": 7.3,
+  "behind_local_hours": 6.29,
+  "harvest_heartbeat_age_hours": 0.25
+ },
+ "website": {
+  "rows": 126117,
+  "newest": "2026-10-11 21:29:21.719000",
+  "newest_age_hours": 1.01
+ },
+ "problems": [
+  "dialpad_calls: the website is 6.78h behind the local store (cursor 7.3h old) - this is the 2026-09-15 failure shape",
+  "dialpad_sms: the website is 6.29h behind the local store (cursor 7.3h old) - this is the 2026-09-15 failure shape"
+ ],
+ "ok": false
+}
+=== ledger tail, both jobs ===
+2026-10-11T20:00:01Z	production-comms-freshness	1	3	
+2026-10-11T20:15:02Z	production-comms-freshness	1	1	
+2026-10-11T20:30:01Z	production-comms-freshness	1	2	
+2026-10-11T20:45:01Z	production-comms-freshness	1	2	
+2026-10-11T21:00:02Z	production-comms-freshness	1	2	
+2026-10-11T21:15:01Z	production-comms-freshness	1	1	
+2026-10-11T21:30:02Z	production-comms-freshness	1	4	
+2026-10-11T21:39:01Z	website-comms-push-cron	1	90	
+2026-10-11T21:45:01Z	production-comms-freshness	1	2	
+2026-10-11T22:00:02Z	production-comms-freshness	1	3	
+2026-10-11T22:09:02Z	website-comms-push-cron	1	90	
+2026-10-11T22:15:02Z	production-comms-freshness	1	2	
+2026-10-11T22:30:01Z	production-comms-freshness	1	3	[no stderr; rc=1 -- reason is on stdout or in the job's own log]
+2026-10-11T22:39:01Z	website-comms-push-cron	0	9	
+=== website-push.log: lines mentioning the 22:39 window ===
+9:[2026-10-11T22:39:10Z] ok website_db: batch customer lookup failed: list index out of range
+13: "at": "2026-10-11T22:39:01+00:00",
+=== website-push.log size/mtime ===
+-rw-r--r-- 1 root root 2083 Oct 11 22:39 /root/.lpt-recon/website-push.log
+=== END ===

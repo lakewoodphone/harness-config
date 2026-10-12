@@ -1,0 +1,848 @@
+#!/usr/bin/env python3
+"""ai-gateway-health — does any model we actually call or configure look broken?
+
+WHY THIS EXISTS
+2026-09-17: `model_tier1`, `model_tier2` and `model_tier3` all pointed at the literal
+`deepseek/deepseek-v4-flash`, which failed **655 of 890 calls in 7 days — every failure `empty_response`**
+— and stopped being called entirely on 2026-09-15T21:26Z. Nothing raised it. It was found only because an
+unrelated owner-queue row was investigated and the numbers were read by hand.
+
+An `empty_response` is the worst failure mode to leave unmonitored: a caller sees a model with nothing to
+say, not an error, so a fallback answers and the output stays *plausible* while the configured model is
+broken. The standing instruction was written for exactly this shape: *"ai models change very often, can
+never be hardcoded... we need robust easy flows for that."*
+
+WHAT IT CHECKS
+  1. FAILING MODELS   a model with enough calls to judge whose failure rate exceeds a threshold
+  2. SILENT MODELS    a model with ZERO calls in the window while being configured for a tier — the
+                      "configured but not actually serving" case, which lookups alone cannot see
+  3. TIER COLLAPSE    tier1, tier2 and tier3 resolving to the SAME model, which removes the redundancy
+                      that would otherwise surface a bad one
+
+EXIT  0 healthy · 3 a CONDITION found (external, not ours to fix) · 1 a FAULT found · 2 could not measure
+Tri-state, the same shape as `text-ledger-audit.py`: `cron-wrap.sh` records the code, so runs.tsv
+carries the distinction instead of every finding looking like the same red. A FAULT ALWAYS WINS over a
+condition — rc=3 is returned only when EVERY finding is an external provider condition (a provider
+account out of balance, or a provider that no longer deploys the id), and rc=1 the moment anything is
+ours to fix. An UNMEASURED check is reported as a failure, never as health — an empty result is not evidence.
+
+USAGE
+  ai-gateway-health.py                 # human summary
+  ai-gateway-health.py --json          # machine
+  ai-gateway-health.py --days 7        # widen the window
+  ai-gateway-health.py --min-calls 20  # how many calls before a rate is judgeable
+  ai-gateway-health.py --self-test     # run the built-in negative control and exit
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sqlite3
+import sys
+
+# PORTED TO THE CLOUD AUTHORITY 2026-10-11 (workstream 135). The office copy named two literals;
+# both are now environment-overridable with the OFFICE value as the default, so the office
+# behaviour of this file is unchanged. On the cloud box the cron line sets both explicitly:
+#   AI_GATEWAY_HEALTH_DB=/root/authority.db  AI_GATEWAY_HEALTH_CONFIG=/opt/company/app/config.py
+# The default for DB must NOT be trusted on the cloud box: `/opt/company/data/secretary.db` exists
+# there as a 1.8 MB cutover stub against a 23.7 GB authority, and a monitor that measures a dead
+# copy reports a confident wrong number -- the worst outcome in this estate's history.
+DB = os.environ.get("AI_GATEWAY_HEALTH_DB",
+                    "/home/zabz/personal-secretary-mvp/data/secretary.db")
+CONFIG = os.environ.get("AI_GATEWAY_HEALTH_CONFIG",
+                        "/home/zabz/personal-secretary-mvp/app/config.py")
+
+# ── THE GATEWAY'S OWN CATALOGUE ────────────────────────────────────────────────────────────────────
+# The thing this monitor exists to catch is a model id that is configured, catalogued, and NOT
+# WORKING -- on 2026-09-17 `model_tier1/2/3` all pointed at one literal that had stopped existing
+# and the fleet fell back silently for a week. `_configured_tiers()` reads what the CONFIG says;
+# this reads what the GATEWAY says, from its own catalogue (`GET $GATEWAY_BASE/v1/models`), so
+# "configured" and "served" are compared instead of assumed.
+#
+# It is OPT-IN by design: the office box does not need it and a network call in a */30 job is a new
+# failure mode. Set AI_GATEWAY_HEALTH_CATALOGUE=1 (the cloud cron line does) to enable it.
+CATALOGUE_ENABLED = os.environ.get("AI_GATEWAY_HEALTH_CATALOGUE", "0") == "1"
+GATEWAY_BASE = os.environ.get("AI_GATEWAY_HEALTH_BASE", "http://127.0.0.1:8002")
+# MEASURED on the cloud authority 2026-10-11: the FIRST call to GET /v1/models after the API has
+# been idle took >90 s (it builds the catalogue and, on a cache miss, refreshes the model registry);
+# the immediately following call took 10.2 s. A 20 s timeout therefore made this probe report
+# "unreadable" on its first scheduled run after every quiet period - a false negative in the one
+# place the second opinion matters. 90 s it is, and a slow catalogue is reported as unreadable
+# rather than being allowed to fail the job.
+CATALOGUE_TIMEOUT = float(os.environ.get("AI_GATEWAY_HEALTH_TIMEOUT", "90"))
+# The bearer the gateway itself accepts. NEVER printed, never logged.
+CATALOGUE_KEY_ENV = os.environ.get("AI_GATEWAY_HEALTH_KEY_ENV", "AI_GATEWAY_API_KEY")
+CATALOGUE_KEY_FILE = os.environ.get("AI_GATEWAY_HEALTH_KEY_FILE", "/opt/company/.env")
+
+# A rate below this is normal provider noise. MEASURED context for the threshold: the model this was
+# written for sat at 74%, the healthy DeepInfra route at 0%, and the busiest normal model at 0%.
+FAIL_RATE_LIMIT = 0.20
+
+# ── ONE FAILURE IS AN EVENT, NOT A PATTERN ──────────────────────────────────────────────────────────────────────────────────────────────
+# MEASURED 2026-10-05: this job was red for 138 consecutive runs because a lane with 3 calls in the
+# recent window and ONE `finish_reason_length` truncation produced recent_rate=33% > FAIL_RATE_LIMIT
+# and was graded a FAULT (rc=1). The same truncation hit four unrelated lanes in twelve hours
+# (gemini-3.5-flash, gemini-3.1-pro-preview, deepseek-v4-pro, gemini-2.5-pro) and each lane's next
+# call succeeded. `finish_reason_length` is the CLIENT's max_tokens cap being hit, which the gateway
+# itself accepts on the final attempt ("the client's own max_tokens cap was hit", ai_gateway.py) --
+# response-shape noise, not a broken model. Two is the smallest count that can be a pattern; a
+# fully-failing recent sample still fires, because that is >= 2 failures.
+MIN_RECENT_FAILURES = 2
+
+# ── CONDITION vs FAULT ──────────────────────────────────────────────────────────────────────────────
+# A model that fails because a PROVIDER ACCOUNT is out of balance, or because the provider no longer
+# deploys the id, is not broken: nothing in this repo can fix it, and the finding is already escalated
+# (the 2026-10-03 Deep Infra post-mortem and standing-order tasks #27454/#27456). Reporting that as a
+# FAULT (rc=1) every 30 minutes is what made this job red 104 runs in a row and hid any real fault in
+# the same colour — the exact failure mode `text-ledger-audit.py` solved with exit 3. MEASURED
+# 2026-10-05: all four "failing-now" lanes were 402 "You need positive balance" / 404 "Model not found,
+# inaccessible, and/or not deployed", and the matching Deep Infra payment failure was already known.
+#
+# This repo's word for it is exit 3 = "condition, not fault" (order-feed-refresh, mesh-hygiene,
+# serve-phone all use it; `sources/cron-failures.py` reads a known rc as a signal, not a fault).
+CONDITION_EXIT = 3
+
+#: The literal a CALLER writes into `model_usage.model` when its own failure path cannot name the
+#: model it tried (`app/code_self_edit.py`: `_record_llm_usage(..., model="unknown", success=False)`).
+#: It is the ABSENCE of an attribution, not a model id, so grading it as a failing lane asserts more
+#: than the row can support. MEASURED 2026-10-11: the whole bucket was `agent_id=self_improvement`
+#: rows naming OUR ids offered to the wrong provider (openai `400 invalid model ID` for
+#: `deepseek/deepseek-v4-flash`, anthropic `404 model: deepseek-v4-flash`); the caller defect behind
+#: them was repaired 2026-10-07T20:06Z and no such row has been written since 2026-10-07T16:52Z.
+#: A bucket with NO traffic in the recent window is an ATTRIBUTION note; one WITH recent failures
+#: keeps the normal grading, so a recurrence is still a FAULT within a single run. See 161-.
+UNATTRIBUTED_MODEL = "unknown"
+
+#: Provider-side failure text meaning "the ACCOUNT or DEPLOYMENT is the problem", not "the model is
+#: broken". Matched case-insensitively against `model_usage.error_message`.
+CONDITION_ERROR_PATTERNS = (
+    # `(?<!\d)402(?!\d)` and NOT `\b402\b`: Deep Infra records `http_402: {...}`, and '_' is a word
+    # character, so there is no \b between '_' and '4' and the bare prefix would not match. MEASURED
+    # 2026-10-05 01:30: a lane whose only new failure was `http_402:` read as a FAULT and flipped the
+    # whole run from rc=3 to rc=1 for one tick.
+    re.compile(r"(?<!\d)402(?!\d)|positive balance|insufficient balance|insufficient credit|"
+               r"quota exceeded", re.I),
+    re.compile(r"model not found|not_found_error|does not exist or you do not have access|"
+               r"not deployed|no such model", re.I),
+    re.compile(r"temporary failure in name resolution", re.I),
+)
+
+
+def _is_condition_error(msg: str) -> bool:
+    """True when this failure text names a provider ACCOUNT/DEPLOYMENT condition, not a broken model."""
+    if not msg:
+        return False
+    return any(p.search(msg) for p in CONDITION_ERROR_PATTERNS)
+
+
+def _connect(db: str) -> sqlite3.Connection:
+    con = sqlite3.connect("file:%s?mode=ro" % db, uri=True)
+    con.execute("PRAGMA query_only=1")
+    return con
+
+
+def _configured_tiers(path: str) -> dict:
+    """The literal model each tier is configured with. A missing key is reported, not assumed."""
+    out: dict = {}
+    try:
+        txt = open(path, encoding="utf-8", errors="replace").read()
+    except OSError as exc:
+        return {"_error": "%s: %s" % (type(exc).__name__, exc)}
+    # The annotation-tolerant form is REQUIRED: this repo's config is a Pydantic settings class, so a
+    # tier reads `model_tier1: str = "deepseek-v4-flash"`. MEASURED 2026-10-05: the `[:=]`-only pattern
+    # matched NONE of the three, `tiers` came back {} and checks 2 and 3 silently did not run — the
+    # exact "an empty result is not evidence" failure this file warns about. The optional group swallows
+    # a `: <type>` annotation; plain `name = "x"` and `name: "x"` still match.
+    for m in re.finditer(
+            r"^\s*(model_tier\d|model_fast|model_smart|model_default)\s*(?::\s*[^=\n]+)?[:=]\s*[\"']([^\"']+)[\"']",
+            txt, re.M):
+        out[m.group(1)] = m.group(2)
+    return out
+
+
+def measure(db: str, days: int, min_calls: int, recent_hours: int = 6) -> dict:
+    con = _connect(db)
+    rows = list(con.execute(
+        """
+        SELECT model,
+               COUNT(*)                                    AS calls,
+               SUM(CASE WHEN success THEN 0 ELSE 1 END)     AS failed,
+               ROUND(SUM(COALESCE(estimated_cost_usd, 0)), 4) AS cost,
+               MAX(created_at)                              AS last_seen
+          FROM model_usage
+         WHERE julianday(created_at) >= julianday('now', ?)
+         GROUP BY 1
+         ORDER BY 2 DESC
+        """, ("-%d days" % days,)))
+
+    # ── THE RECENT WINDOW, AND WHY IT IS NOT OPTIONAL ────────────────────────────────────────────────
+    # The first version judged a model on the WINDOW AGGREGATE alone, and that is the same
+    # history-vs-now confusion this project has already paid for three times (C07's pre-corpus
+    # "revoked promises", C13's walk-ins, C14's naming). MEASURED the day this was written: the
+    # detector fired "73% failure" on `deepseek-v4-flash` — while its last four calls were ALL successes
+    # and its last failure was 2026-09-15T21:26Z, two days earlier. **A model that was broken and is now
+    # fixed must stop alarming**, or the alarm teaches people to ignore it.
+    #
+    # `failed` and `calls` stay as the window totals because they are the honest context; `recent_failed`
+    # in a short window is what decides whether a model is a problem NOW.
+    recents = {r[0]: (r[1], r[2] or 0) for r in con.execute(
+        """
+        SELECT model,
+               COUNT(*),
+               SUM(CASE WHEN success THEN 0 ELSE 1 END)
+          FROM model_usage
+         WHERE julianday(created_at) >= julianday('now', ?)
+         GROUP BY 1
+        """, ("-%d hours" % recent_hours,))}
+
+    # ── WHY julianday() AND NOT `created_at >= datetime('now', ?)` ───────────────────────────────────
+    # `created_at` is written as '2026-10-04T00:04:27+00:00' -- with a 'T'. `datetime('now')` returns
+    # '2026-10-04 19:18:18' -- with a SPACE. In a TEXT comparison 'T' (0x54) > ' ' (0x20), so every row
+    # from the previous calendar day compared GREATER and the "6h" recent window silently measured ~25h.
+    # MEASURED 2026-10-05: a lane whose last failure was 15h old was still reported "failing NOW".
+    # julianday() parses the 'T', the fractional seconds and the +00:00 offset, so the window is the
+    # window — which is the whole point of the recent-vs-window design described above.
+
+    def _error_classes(where: str, arg: str) -> dict:
+        """{model: (condition_failures, fault_failures)} over the failed rows matching `where`."""
+        out: dict = {}
+        for model, msg in con.execute(
+                "SELECT model, COALESCE(error_message, '') FROM model_usage "
+                "WHERE success = 0 AND " + where, (arg,)):
+            cond, fault = out.get(model, (0, 0))
+            out[model] = (cond + 1, fault) if _is_condition_error(msg) else (cond, fault + 1)
+        return out
+
+    recent_errors = _error_classes("julianday(created_at) >= julianday('now', ?)",
+                                   "-%d hours" % recent_hours)
+    window_errors = _error_classes("julianday(created_at) >= julianday('now', ?)",
+                                   "-%d days" % days)
+    # ── RETIRED LANES ARE NOT CURRENT FAULTS ────────────────────────────────────────────────────────
+    # Measured 2026-10-02. Two `fireworks/...` lanes took 180 calls in 7 days and never once
+    # succeeded; they are dead, and they are now RETIRED in `model_registry`, so no routing candidate
+    # list (the gateway catalogue, the router, the worker's model chain) offers them any more. Without
+    # this distinction the detector keeps firing "failing-now" for the whole 6-hour recent window after
+    # the repair -- the "an alarm that cannot go green is an alarm that gets ignored" failure this file
+    # already warns about elsewhere. Retired means: still shown as history, no longer a problem.
+    try:
+        retired_models = {
+            r[0] for r in con.execute(
+                "SELECT DISTINCT provider_model_id FROM model_registry "
+                "WHERE lifecycle_state = 'retired'")
+        }
+    except sqlite3.Error:
+        retired_models = set()
+
+    # ── A TIER NAMES A CATALOGUE ID; `model_usage` RECORDS THE PROVIDER'S OWN ID ────────────────────
+    # MEASURED 2026-10-07: commit 0e0225a2 aligned `model_tier1/2/3` with the CATALOGUE id
+    # `deepseek/deepseek-v4-flash`. `model_usage` stores the PROVIDER id (`deepseek-v4-flash`) — that
+    # split is the whole point of the registry row (canonical_id `deepseek/deepseek-v4-flash`,
+    # provider_model_id `deepseek-v4-flash`). The silent-tier check compared the two literals directly,
+    # so a tier whose model was serving 3,659 calls in 7 days — the busiest lane on the box — read as
+    # "ZERO calls in 7 days". Those three findings (tier1/2/3) held this job at rc=1 from 2026-10-06
+    # 15:48 and buried the real provider condition underneath them. The registry IS the translation the
+    # check was missing; a tier we cannot translate is still judged on its own literal.
+    try:
+        canonical_to_provider = {
+            r[0]: r[1] for r in con.execute(
+                "SELECT canonical_id, provider_model_id FROM model_registry")
+        }
+    except sqlite3.Error:
+        canonical_to_provider = {}
+
+    return {
+        "models": [
+            {"model": r[0], "calls": r[1], "failed": r[2] or 0, "cost": r[3] or 0.0,
+             "last_seen": r[4], "fail_rate": round((r[2] or 0) / r[1], 4) if r[1] else 0.0,
+             "recent_calls": recents.get(r[0], (0, 0))[0],
+             "recent_failed": recents.get(r[0], (0, 0))[1],
+             "recent_condition": recent_errors.get(r[0], (0, 0))[0],
+             "recent_fault": recent_errors.get(r[0], (0, 0))[1],
+             "window_condition": window_errors.get(r[0], (0, 0))[0],
+             "window_fault": window_errors.get(r[0], (0, 0))[1],
+             "retired": r[0] in retired_models}
+            for r in rows
+        ],
+        "min_calls": min_calls,
+        "days": days,
+        "recent_hours": recent_hours,
+        "retired": sorted(retired_models),
+        "canonical_to_provider": canonical_to_provider,
+    }
+
+
+def evaluate(data: dict, tiers: dict, fail_rate_limit: float = FAIL_RATE_LIMIT) -> dict:
+    """Pure: takes measurements, returns findings. Separated so it can be tested with fake input."""
+    problems: list = []
+    notes: list = []
+    models = data["models"]
+    min_calls = data["min_calls"]
+    seen = {m["model"] for m in models}
+
+    def _all_conditions(m: dict, recent: bool) -> bool:
+        """True only when EVERY failure that triggered this finding is an external condition.
+
+        Deliberately strict: an ABSENT error breakdown is a FAULT, not a condition (`0 == 0` is not
+        allowed to pass) — "an empty result is not evidence" applies to this decision too.
+        """
+        if recent:
+            n = m.get("recent_failed", 0)
+            return n > 0 and m.get("recent_condition", 0) == n
+        n = m.get("failed", 0)
+        return n > 0 and m.get("window_condition", 0) == n
+
+    def _condition_not_ours(m: dict) -> bool:
+        """Historical verdict: was this lane's week a CONDITION, rather than a fault of ours?
+
+        `_all_conditions` is the right rule for a lane with LIVE traffic: if it is failing now and any
+        failure is ours, that is actionable, so a fault always wins. It is the wrong rule for a lane
+        with NO traffic in the recent window, where nothing can be acted on. MEASURED 2026-10-07:
+        `MiniMaxAI/MiniMax-M3` had 84 failures in 390 calls — 77 of them DeepInfra `http_402: You need
+        positive balance` — and was graded a FAULT because four `429 Model busy` retries, one read
+        timeout, one control-markup event and one client-side truncation were not condition text.
+        `gemini-2.5-pro` was the same shape: 12 of 15 failures were `Temporary failure in name
+        resolution`, and three client-side truncations (which this file already calls response-shape
+        noise, not a broken model) made it a "fault". Neither is ours to clear. So with no live traffic,
+        ask the question the threshold already asks: would the failures that ARE ours have tripped the
+        detector on their own? Below the limit this file itself calls "normal provider noise", they
+        would not — and the finding is the external condition it always was.
+        """
+        if _all_conditions(m, recent=False):
+            return True
+        calls = m.get("calls", 0)
+        fault = m.get("window_fault", 0)
+        return calls > 0 and (fault / calls) <= fail_rate_limit
+
+    # A configured tier names the CATALOGUE id (`deepseek/deepseek-v4-flash`); usage records the
+    # PROVIDER id (`deepseek-v4-flash`). The registry row carries both, so a tier counts as serving if
+    # EITHER id has traffic. A tier the registry does not know is still judged on its own literal.
+    _canon = data.get("canonical_to_provider") or {}
+
+    def _served_as(model: str) -> set:
+        return {model} | ({_canon[model]} if model in _canon else set())
+
+    # 1. failing models — judged on the RECENT window, or on live traffic if there is any
+    for m in models:
+        # A retired lane is the record of a fix, not a fault. It is reported as a note so the history
+        # stays visible and the detector can go green the moment the retirement lands.
+        if m.get("retired"):
+            if m["calls"] >= min_calls and m["fail_rate"] > fail_rate_limit:
+                notes.append({
+                    "kind": "retired-lane",
+                    "model": m["model"],
+                    "detail": "%d of %d calls failed (%.0f%%) over %dd and it is RETIRED in the model "
+                              "registry, so no candidate list offers it any more. Recorded, not current."
+                              % (m["failed"], m["calls"], 100 * m["fail_rate"], data["days"]),
+                })
+            continue
+        # AN UNATTRIBUTABLE BUCKET IS NOT A LANE. `unknown` is not a model id: it is the literal
+        # the CALLER writes when its failure path cannot name the model it tried, so the bucket is
+        # the absence of an attribution and a finding about it is a finding about the LOGGER. It is
+        # reported as a note (history stays visible) and only while there is no live traffic; the
+        # recent-traffic path below is untouched, so a recurrence is still a FAULT.
+        if m["model"] == UNATTRIBUTED_MODEL and m.get("recent_calls", 0) == 0:
+            if m["failed"]:
+                notes.append({
+                    "kind": "unattributed-calls",
+                    "model": m["model"],
+                    "detail": "%d of %d calls over %dd were recorded as `%s` by the caller, so they "
+                              "name no lane at all; last seen %s. %d of the failures match OUR error "
+                              "text rather than a provider condition. This is NOT a failing model: it "
+                              "is the caller logging a failure without the model it tried "
+                              "(app/code_self_edit.py records model=unknown on its failure path)."
+                              % (m["failed"], m["calls"], data["days"], UNATTRIBUTED_MODEL,
+                                 m["last_seen"], m.get("window_fault", 0))})
+            continue
+        recent_calls = m.get("recent_calls", 0)
+        recent_failed = m.get("recent_failed", 0)
+        if recent_calls > 0:
+            # there is traffic NOW, so it is the honest judge
+            recent_rate = recent_failed / recent_calls
+            if (recent_failed >= MIN_RECENT_FAILURES and recent_rate > fail_rate_limit
+                    and recent_calls >= 3):
+                condition = _all_conditions(m, recent=True)
+                problems.append({
+                    "kind": "failing-now",
+                    "model": m["model"],
+                    "condition": condition,
+                    "detail": "%d of the last %d calls failed (%.0f%%) in the last %dh — this model is "
+                              "failing NOW%s"
+                              % (recent_failed, recent_calls, 100 * recent_rate,
+                                 data["recent_hours"],
+                                 " [CONDITION: provider account/deployment error]"
+                                 if condition else ""),
+                })
+            elif m["calls"] >= min_calls and m["fail_rate"] > fail_rate_limit:
+                notes.append({
+                    "kind": "recovered",
+                    "model": m["model"],
+                    "detail": "%d of %d failed (%.0f%%) over %dd, but the last %dh are CLEAN (%d/%d). "
+                              "Historical, not current — reported so the history is visible without "
+                              "reading as an active fault."
+                              % (m["failed"], m["calls"], 100 * m["fail_rate"], data["days"],
+                                 data["recent_hours"], recent_calls - recent_failed, recent_calls),
+                })
+        elif m["calls"] >= min_calls and m["fail_rate"] > fail_rate_limit:
+            # no traffic in the recent window at all: report the history, but say plainly that how it
+            # behaves TODAY is unknown rather than implying it is still broken
+            condition = _condition_not_ours(m)
+            problems.append({
+                "kind": "failing-historical",
+                "model": m["model"],
+                "condition": condition,
+                "detail": "%d of %d calls failed (%.0f%%) over %dd, and it has had NO traffic in %dh, so "
+                          "whether it works NOW is unmeasured. Last seen %s.%s"
+                          % (m["failed"], m["calls"], 100 * m["fail_rate"], data["days"],
+                             data["recent_hours"], m["last_seen"],
+                             " [CONDITION: provider account/deployment error]"
+                             if condition else ""),
+            })
+
+    # 2. configured models that have NOT been called in the window
+    if tiers.get("_error"):
+        problems.append({"kind": "unmeasured", "model": "-",
+                         "detail": "cannot read the tier config, so whether the configured models are "
+                                   "serving is UNMEASURED: %s" % tiers["_error"]})
+    else:
+        for tier, model in sorted(tiers.items()):
+            if not model:
+                continue
+            ids = _served_as(model)
+            if ids & set(data.get("retired") or ()):
+                # A tier pinned to a retired id cannot serve at all, and the config still names it:
+                # that is a real fault, and a different one from "silent".
+                problems.append({
+                    "kind": "tier-on-retired-model",
+                    "model": model,
+                    "detail": "tier %s is configured with `%s`, which is RETIRED in the model registry "
+                              "(a provider refused it). That tier cannot serve; the config has to name "
+                              "a live model." % (tier, model),
+                })
+            elif not (ids & seen):
+                problems.append({
+                    "kind": "configured-but-silent",
+                    "model": model,
+                    "detail": "tier %s is configured with `%s`, which has ZERO calls in %d days — either "
+                              "it is broken or that tier is never used, and both are worth knowing"
+                              % (tier, model, data["days"]),
+                })
+
+    # 3. tier collapse — the redundancy that would catch a bad model is gone
+    if not tiers.get("_error"):
+        by_model: dict = {}
+        for tier, model in tiers.items():
+            if model:
+                by_model.setdefault(model, []).append(tier)
+        for model, tlist in sorted(by_model.items()):
+            if len(tlist) > 1:
+                notes.append({
+                    "kind": "tier-collapse",
+                    "model": model,
+                    "detail": "%s all point at `%s`. Three tiers exist to give three behaviours; one "
+                              "literal removes the redundancy that surfaces a bad model."
+                              % (", ".join(sorted(tlist)), model),
+                })
+    for p in problems:
+        p.setdefault("condition", False)
+    return {"problems": problems, "notes": notes}
+
+
+def verdict_of(problems: list) -> int:
+    """0 healthy · CONDITION_EXIT when every finding is an external condition · 1 for any fault.
+
+    A FAULT ALWAYS WINS. This is the whole point of the tri-state exit: a job that is red for a
+    condition it cannot clear teaches its reader to ignore the record.
+    """
+    if not problems:
+        return 0
+    if any(not p.get("condition") for p in problems):
+        return 1
+    return CONDITION_EXIT
+
+
+def promote_tier_collapse(verdict: dict) -> dict:
+    """Move a `tier-collapse` NOTE up into the problems list, as a CONDITION.
+
+    WHY THIS IS A PROMOTION AND NOT THE DEFAULT. The office version deliberately records a tier
+    collapse as a note ("recorded, not current") so the job does not go red for something the
+    config file chose. That was defensible when the office box was the authority and a human was
+    watching the output. It is NOT defensible now, and the measured reason is in this file's own
+    history: on 2026-09-17 `model_tier1/2/3` all pointed at one literal that had stopped existing,
+    every live AI call fell through to a silent deterministic fallback for OVER A WEEK, and the one
+    monitor that could see it recorded the condition as a NOTE that changed no exit code and that
+    nothing read. A monitor whose finding does not reach the ledger is a monitor that reports
+    success while measuring nothing -- the exact defect this estate has paid for twice.
+
+    So the cloud authority runs with AI_GATEWAY_HEALTH_TIER_COLLAPSE_IS_CONDITION=1, which turns
+    the note into exit 3: "condition, not fault", the same tri-state every other job in this estate
+    uses for a real finding that is not a code repair. It stays OFF by default so the office copy's
+    behaviour is unchanged, and it is never a FAULT (rc=1) because re-pointing the tiers is a
+    configuration decision, not a bug in this file.
+    """
+    if os.environ.get("AI_GATEWAY_HEALTH_TIER_COLLAPSE_IS_CONDITION", "0") != "1":
+        return verdict
+    promoted = [n for n in verdict["notes"] if n.get("kind") == "tier-collapse"]
+    if not promoted:
+        return verdict
+    verdict["notes"] = [n for n in verdict["notes"] if n.get("kind") != "tier-collapse"]
+    for n in promoted:
+        n["condition"] = True
+        n["detail"] = (n["detail"] + " GRADED AS A CONDITION (exit 3) on the cloud authority: three "
+                                     "tiers on one literal is how the 2026-09-17 outage ran for a "
+                                     "week with nothing red.")
+        verdict["problems"].append(n)
+    return verdict
+
+
+def _read_key() -> str:
+    """The gateway bearer, read from its own env file. NEVER printed by any caller."""
+    key = os.environ.get(CATALOGUE_KEY_ENV)
+    if key:
+        return key.strip()
+    try:
+        for line in open(CATALOGUE_KEY_FILE, encoding="utf-8", errors="replace"):
+            if line.startswith(CATALOGUE_KEY_ENV + "="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
+def catalogue_report() -> dict:
+    """What the GATEWAY ITSELF says it serves, from `GET <base>/v1/models`.
+
+    A failure here is a NOTE, never a fault: the catalogue is a second reading, and a monitor that
+    turns its own optional probe into a red job is a monitor that gets ignored. `ok: False` plus the
+    error text is the honest answer. The bearer is never included in the payload.
+    """
+    import urllib.error
+    import urllib.request
+
+    out: dict = {"enabled": True, "url": GATEWAY_BASE.rstrip("/") + "/v1/models"}
+    key = _read_key()
+    if not key:
+        out.update({"ok": False,
+                    "error": "no %s available to authenticate the catalogue read" % CATALOGUE_KEY_ENV})
+        return out
+    req = urllib.request.Request(out["url"], headers={"Authorization": "Bearer " + key})
+    try:
+        with urllib.request.urlopen(req, timeout=CATALOGUE_TIMEOUT) as r:
+            payload = json.loads(r.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as exc:
+        out.update({"ok": False, "error": "HTTP %s" % exc.code})
+        return out
+    except Exception as exc:  # noqa: BLE001
+        out.update({"ok": False, "error": "%s: %s" % (type(exc).__name__, exc)})
+        return out
+    ids = []
+    for item in (payload.get("data") or payload.get("models") or []):
+        if isinstance(item, dict):
+            ids.append(str(item.get("id") or item.get("name") or ""))
+        elif isinstance(item, str):
+            ids.append(item)
+    out.update({"ok": True, "count": len(ids), "ids": sorted(i for i in ids if i)[:80],
+                "catalog_version": payload.get("secretary_catalog_version"),
+                "default_model": payload.get("default_model")})
+    return out
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="is any model we call or configure broken?")
+    ap.add_argument("--db", default=DB)
+    ap.add_argument("--config", default=CONFIG)
+    ap.add_argument("--days", type=int, default=7)
+    ap.add_argument("--min-calls", type=int, default=20,
+                    help="calls needed before a failure rate is judgeable")
+    ap.add_argument("--fail-rate", type=float, default=FAIL_RATE_LIMIT)
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--catalogue", action="store_true",
+                    help="also read the gateway's own catalogue (GET <base>/v1/models)")
+    ap.add_argument("--self-test", action="store_true", help="run the negative control and exit")
+    args = ap.parse_args(argv)
+
+    if args.self_test:
+        return self_test()
+
+    try:
+        data = measure(args.db, args.days, args.min_calls)
+    except Exception as exc:  # noqa: BLE001
+        print("COULD NOT MEASURE model_usage: %s: %s" % (type(exc).__name__, exc), file=sys.stderr)
+        return 2
+    tiers = _configured_tiers(args.config)
+    verdict = evaluate(data, tiers, args.fail_rate)
+
+    # The gateway's own view. Opt-in via --catalogue or AI_GATEWAY_HEALTH_CATALOGUE=1.
+    cat = catalogue_report() if (args.catalogue or CATALOGUE_ENABLED) else {"enabled": False}
+    if cat.get("enabled") and not cat.get("ok"):
+        verdict["notes"].append({
+            "kind": "catalogue-unreadable",
+            "detail": "could not read the gateway catalogue at %s: %s (the config-file reading "
+                      "above is still valid; the second opinion is the part that is missing)"
+                      % (cat.get("url"), cat.get("error"))})
+    elif cat.get("ok"):
+        # A tier whose configured model is not in the gateway's own catalogue is the 2026-09-17
+        # shape: configured, catalogued nowhere, silently falling back.
+        known = set(cat.get("ids") or [])
+        if known and not tiers.get("_error"):
+            for tier, model in sorted(tiers.items()):
+                if model and model not in known:
+                    verdict["notes"].append({
+                        "kind": "tier-not-in-catalogue",
+                        "detail": "tier %s is configured with `%s`, which the gateway's own catalogue "
+                                  "does not list (%d route(s) advertised). MEASURED 2026-09-17: this "
+                                  "is how a hardcoded id that stopped existing ran unnoticed for a "
+                                  "week." % (tier, model, cat.get("count", 0))})
+
+    verdict = promote_tier_collapse(verdict)
+    rc = verdict_of(verdict["problems"])
+    if args.json:
+        print(json.dumps({"window_days": args.days, "min_calls": args.min_calls,
+                          "models_measured": len(data["models"]),
+                          "tiers": tiers, "catalogue": cat, "rc": rc, **verdict},
+                         indent=2, default=str))
+    else:
+        print("=== AI GATEWAY HEALTH (%d-day window, %d model(s) measured) ==="
+              % (args.days, len(data["models"])))
+        if cat.get("enabled"):
+            print("  gateway catalogue: %s" % (
+                ("unreadable - %s" % cat.get("error")) if not cat.get("ok")
+                else "%d route(s) advertised" % cat.get("count", 0)))
+        for f in verdict["problems"]:
+            print("  %s %-22s %s — %s"
+                  % ("🟠" if f.get("condition") else "🔴", f["kind"], f.get("model", "-"),
+                     f["detail"]))
+        for n in verdict["notes"]:
+            print("  ⚠️  %-22s %s" % (n["kind"], n["detail"]))
+        if not verdict["problems"] and not verdict["notes"]:
+            print("  ✅ no failing model, no configured-but-silent tier, no tier collapse")
+        elif rc == CONDITION_EXIT:
+            print("  → CONDITION, not fault (exit %d): every finding above is an external provider "
+                  "account/deployment condition (billing, or an id the provider no longer deploys). "
+                  "Nothing here is ours to fix; runs.tsv records rc=%d so this cannot be mistaken for "
+                  "a code fault." % (CONDITION_EXIT, CONDITION_EXIT))
+    return rc
+
+
+def _m(model, calls, failed, recent_calls=0, recent_failed=0, last_seen="x",
+       condition=0, recent_condition=0):
+    """A synthetic model row, with every field `evaluate` reads.
+
+    `condition` / `recent_condition` are the counts of failures whose error text is an external
+    condition; the remainder are faults. Omitted (0) means "no error evidence" -> a FAULT.
+    """
+    return {"model": model, "calls": calls, "failed": failed,
+            "fail_rate": (failed / calls) if calls else 0.0, "cost": 0.0,
+            "last_seen": last_seen, "recent_calls": recent_calls, "recent_failed": recent_failed,
+            "recent_condition": recent_condition,
+            "recent_fault": max(0, recent_failed - recent_condition),
+            "window_condition": condition,
+            "window_fault": max(0, failed - condition)}
+
+
+def self_test() -> int:
+    """NEGATIVE CONTROL. A detector that has only ever passed is untested.
+
+    Every state that MUST fire and every state that must stay QUIET, including the one this detector got
+    wrong on its first run: a model whose week was bad but whose recent traffic is clean must NOT alarm.
+    """
+    ok = True
+
+    def check(label, got, want):
+        nonlocal ok
+        good = got == want
+        ok = ok and good
+        print("  %s %-56s got=%s" % ("✅" if good else "🔴", label, got))
+
+    def kinds(data, tiers=None):
+        return [f["kind"] for f in evaluate(data, tiers or {}, 0.20)["problems"]]
+
+    # MUST FIRE: failing right now
+    check("failures in the RECENT window fire",
+          kinds({"models": [_m("bad", 100, 74, recent_calls=10, recent_failed=8)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          ["failing-now"])
+
+    # MUST FIRE, but as history: bad week, no traffic recently
+    check("bad week with NO recent traffic fires as historical",
+          kinds({"models": [_m("quiet-bad", 100, 74)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          ["failing-historical"])
+
+    # MUST NOT FIRE: this is the bug the first version had
+    v = evaluate({"models": [_m("recovered", 894, 655, recent_calls=4, recent_failed=0)],
+                  "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("bad week but CLEAN recent traffic does NOT fire", v["problems"], [])
+    check("...and is reported as a note instead",
+          [n["kind"] for n in v["notes"]], ["recovered"])
+
+    # MUST NOT FIRE: healthy
+    check("healthy model stays quiet",
+          kinds({"models": [_m("good", 100, 0, recent_calls=50, recent_failed=0)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          [])
+
+    # MUST NOT FIRE: too few calls to judge, even at 100% failure
+    check("3 calls below the threshold stays quiet",
+          kinds({"models": [_m("tiny", 3, 3)], "min_calls": 20, "days": 7, "recent_hours": 6}),
+          [])
+
+    # MUST FIRE: a small recent sample that is entirely failing
+    check("a small but fully-failing recent sample fires",
+          kinds({"models": [_m("fresh-bad", 3, 3, recent_calls=3, recent_failed=3)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          ["failing-now"])
+
+    # MUST NOT FIRE: ONE transient failure in a tiny recent sample is a single EVENT, not a pattern.
+    # MEASURED 2026-10-05: this exact state (3 calls, 1 `finish_reason_length` truncation) kept the
+    # job at rc=1 for 138 runs in a row and filed a repair wake every 30 minutes.
+    check("one failure in a tiny recent sample does NOT fire",
+          kinds({"models": [_m("transient", 21, 2, recent_calls=3, recent_failed=1)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          [])
+
+    # MUST NOT FIRE: an unattributable bucket is the ABSENCE of a model, not a failing one.
+    # MEASURED 2026-10-11: `model=unknown` held this job at rc=1 for a whole day, and every row in
+    # it was the caller own failure-path literal naming ids of ours offered to the wrong provider.
+    v = evaluate({"models": [_m("unknown", 24, 24)], "min_calls": 20, "days": 7,
+                  "recent_hours": 6}, {}, 0.20)
+    check("an unattributable `unknown` bucket does NOT fire as a lane", v["problems"], [])
+    check("...and is reported as an unattributed-calls note",
+          [n["kind"] for n in v["notes"]], ["unattributed-calls"])
+
+    # MUST STILL FIRE: the same bucket with LIVE failures is a fault, not a note.
+    check("a LIVE unattributable bucket still fires",
+          kinds({"models": [_m("unknown", 24, 24, recent_calls=3, recent_failed=3)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6}),
+          ["failing-now"])
+
+    # The restored rule, as a negative control on the pattern list itself: a 400 that names OUR
+    # malformed id must NOT be waved through as an external condition.
+    check("`invalid model ID` is NOT a condition (it was measured to be OUR id)",
+          _is_condition_error("openai attempt 1/3: Error code: 400 - invalid model ID"), False)
+
+    # MUST FIRE: configured tier with no traffic at all
+    check("configured-but-silent fires",
+          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6},
+                {"model_tier1": "ghost"}),
+          ["configured-but-silent"])
+
+    # MUST NOT FIRE: the tier names the CATALOGUE id while `model_usage` records the PROVIDER id.
+    # MEASURED 2026-10-07: commit 0e0225a2 aligned model_tier1/2/3 with `deepseek/deepseek-v4-flash`;
+    # usage stores `deepseek-v4-flash`, so all three tiers read "ZERO calls in 7 days" while the
+    # busiest lane on the box served 3,659 calls. The registry row is the translation that was missing.
+    check("a tier naming the catalogue id of a SERVING model does not fire",
+          kinds({"models": [_m("deepseek-v4-flash", 3659, 252, recent_calls=200, recent_failed=5)],
+                 "min_calls": 20, "days": 7, "recent_hours": 6,
+                 "canonical_to_provider": {"deepseek/deepseek-v4-flash": "deepseek-v4-flash"}},
+                {"model_tier1": "deepseek/deepseek-v4-flash"}),
+          [])
+
+    # MUST NOT FIRE: a retired lane. Measured 2026-10-02 — two fireworks lanes took 180 calls in 7 days
+    # and never succeeded; after they were retired, this detector kept firing "failing-now" for the
+    # whole 6-hour recent window, which is an alarm that cannot go green.
+    v = evaluate({"models": [dict(_m("dead-but-retired", 160, 160, recent_calls=36,
+                                     recent_failed=36), retired=True)],
+                  "min_calls": 20, "days": 7, "recent_hours": 6, "retired": ["dead-but-retired"]},
+                 {}, 0.20)
+    check("a RETIRED dead lane does not fire as a fault", v["problems"], [])
+    check("...and is still reported, as a note",
+          [n["kind"] for n in v["notes"]], ["retired-lane"])
+
+    # MUST FIRE: a tier pinned to a retired model cannot serve, and the config still names it.
+    check("a tier configured with a RETIRED model fires",
+          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6,
+                 "retired": ["gone"]},
+                {"model_tier1": "gone"}),
+          ["tier-on-retired-model"])
+
+    # MUST FIRE: the same, when the tier names the CATALOGUE id of the retired provider id. Without the
+    # registry translation this check silently MISSED a tier pinned to a dead model.
+    check("a tier naming the catalogue id of a RETIRED model fires",
+          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6, "retired": ["prov-gone"],
+                 "canonical_to_provider": {"cat/gone": "prov-gone"}},
+                {"model_tier1": "cat/gone"}),
+          ["tier-on-retired-model"])
+
+    # MUST FIRE: unreadable config is UNMEASURED, never silently healthy
+    check("unreadable config fires as unmeasured",
+          kinds({"models": [], "min_calls": 20, "days": 7, "recent_hours": 6}, {"_error": "boom"}),
+          ["unmeasured"])
+
+    # NOTE, not problem: three tiers on one model
+    v = evaluate({"models": [_m("m", 100, 0, recent_calls=50)],
+                  "min_calls": 20, "days": 7, "recent_hours": 6},
+                 {"model_tier1": "m", "model_tier2": "m", "model_tier3": "m"}, 0.20)
+    check("tier collapse is a note, not a failure", (v["problems"], len(v["notes"])), ([], 1))
+
+    # ── CONDITION vs FAULT (the 2026-10-05 fix) ─────────────────────────────────────────────────────
+    # MUST FIRE, but grade as a CONDITION: every failure is a provider billing/deployment error.
+    # Measured 2026-10-05: this is what kept the job red 104 runs in a row while nothing in the repo
+    # was broken.
+    cond = evaluate({"models": [_m("balance-dead", 100, 100, recent_calls=10, recent_failed=10,
+                                   recent_condition=10, condition=100)],
+                     "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("all-condition failures still fire", [p["kind"] for p in cond["problems"]], ["failing-now"])
+    check("...and grade as CONDITION, not fault", verdict_of(cond["problems"]), CONDITION_EXIT)
+
+    # MUST grade as a FAULT: one non-condition failure wins.
+    mixed = evaluate({"models": [_m("half-broken", 100, 100, recent_calls=10, recent_failed=10,
+                                    recent_condition=9, condition=99)],
+                      "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("a mixed failure set is a FAULT (fault always wins)", verdict_of(mixed["problems"]), 1)
+
+    # MUST NOT turn a genuine fault into a condition: no error evidence at all -> fault.
+    fault = evaluate({"models": [_m("no-error-evidence", 100, 100, recent_calls=10,
+                                    recent_failed=10)],
+                      "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("absent error evidence is a FAULT, not a condition", verdict_of(fault["problems"]), 1)
+
+    # ── HISTORICAL lanes: no live traffic, so grade the WEEK, not the unanimity ─────────────────────
+    # MEASURED 2026-10-07. MiniMax-M3: 77 of 84 failures were DeepInfra `http_402 positive balance`;
+    # the other 7 were 429 retries, one timeout, one markup event and one client-side truncation.
+    # gemini-2.5-pro: 12 of 15 were name-resolution failures, 3 were truncations. Nothing in the repo
+    # could clear either, yet both were FAULTS (rc=1) for 29+ runs. A handful of incidental, sub-
+    # threshold failures must not relabel a provider outage as our code fault.
+    hist_cond = evaluate({"models": [_m("minimax-m3", 390, 84, condition=77)],
+                          "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("a historical lane dominated by external conditions grades as CONDITION",
+          verdict_of(hist_cond["problems"]), CONDITION_EXIT)
+
+    # MUST STILL BE A FAULT: our failures alone DO cross the limit. This is the guard that stops the
+    # rule above from becoming a way to wave any red job green.
+    hist_fault = evaluate({"models": [_m("ours-really-broken", 100, 74, condition=30)],
+                           "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("a historical lane whose OWN failures cross the limit stays a FAULT",
+          verdict_of(hist_fault["problems"]), 1)
+
+    # MUST STILL BE A FAULT: no error evidence in the history is not evidence of a condition.
+    hist_blind = evaluate({"models": [_m("hist-no-evidence", 100, 74)],
+                           "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)
+    check("a historical lane with no error evidence stays a FAULT",
+          verdict_of(hist_blind["problems"]), 1)
+
+    # Healthy -> 0.
+    check("healthy grades as rc=0",
+          verdict_of(evaluate({"models": [_m("ok", 100, 0, recent_calls=50)],
+                               "min_calls": 20, "days": 7, "recent_hours": 6}, {}, 0.20)["problems"]),
+          0)
+
+    # The classifier itself, on strings measured 2026-10-05.
+    check("402 'positive balance' is a condition",
+          _is_condition_error("Error code: 402 - {'message': 'You need positive balance to do "
+                              "inference'}"), True)
+    check("the 'http_402:' prefix alone is a condition too",
+          _is_condition_error("http_402: {}"), True)
+    check("404 'not deployed' is a condition",
+          _is_condition_error("Error code: 404 - Model not found, inaccessible, and/or not deployed"),
+          True)
+    check("empty_response is a FAULT", _is_condition_error("empty_response"), False)
+
+    print()
+    print("SELF-TEST %s" % ("PASSED" if ok else "FAILED"))
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

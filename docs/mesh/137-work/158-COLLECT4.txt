@@ -1,0 +1,228 @@
+### MONITOR-SQL
+        for model, msg in con.execute(
+                "SELECT model, COALESCE(error_message, '') FROM model_usage "
+                "WHERE success = 0 AND " + where, (arg,)):
+            cond, fault = out.get(model, (0, 0))
+            out[model] = (cond + 1, fault) if _is_condition_error(msg) else (cond, fault + 1)
+        return out
+
+    recent_errors = _error_classes("julianday(created_at) >= julianday('now', ?)",
+                                   "-%d hours" % recent_hours)
+    window_errors = _error_classes("julianday(created_at) >= julianday('now', ?)",
+                                   "-%d days" % days)
+    # ── RETIRED LANES ARE NOT CURRENT FAULTS ────────────────────────────────────────────────────────
+    # Measured 2026-10-02. Two `fireworks/...` lanes took 180 calls in 7 days and never once
+    # succeeded; they are dead, and they are now RETIRED in `model_registry`, so no routing candidate
+    # list (the gateway catalogue, the router, the worker's model chain) offers them any more. Without
+    # this distinction the detector keeps firing "failing-now" for the whole 6-hour recent window after
+    # the repair -- the "an alarm that cannot go green is an alarm that gets ignored" failure this file
+    # already warns about elsewhere. Retired means: still shown as history, no longer a problem.
+    try:
+        retired_models = {
+            r[0] for r in con.execute(
+                "SELECT DISTINCT provider_model_id FROM model_registry "
+                "WHERE lifecycle_state = 'retired'")
+        }
+    except sqlite3.Error:
+        retired_models = set()
+
+    # ── A TIER NAMES A CATALOGUE ID; `model_usage` RECORDS THE PROVIDER'S OWN ID ────────────────────
+    # MEASURED 2026-10-07: commit 0e0225a2 aligned `model_tier1/2/3` with the CATALOGUE id
+    # `deepseek/deepseek-v4-flash`. `model_usage` stores the PROVIDER id (`deepseek-v4-flash`) — that
+    # split is the whole point of the registry row (canonical_id `deepseek/deepseek-v4-flash`,
+    # provider_model_id `deepseek-v4-flash`). The silent-tier check compared the two literals directly,
+    # so a tier whose model was serving 3,659 calls in 7 days — the busiest lane on the box — read as
+    # "ZERO calls in 7 days". Those three findings (tier1/2/3) held this job at rc=1 from 2026-10-06
+    # 15:48 and buried the real provider condition underneath them. The registry IS the translation the
+    # check was missing; a tier we cannot translate is still judged on its own literal.
+    try:
+        canonical_to_provider = {
+            r[0]: r[1] for r in con.execute(
+                "SELECT canonical_id, provider_model_id FROM model_registry")
+        }
+    except sqlite3.Error:
+        canonical_to_provider = {}
+
+    return {
+        "models": [
+            {"model": r[0], "calls": r[1], "failed": r[2] or 0, "cost": r[3] or 0.0,
+             "last_seen": r[4], "fail_rate": round((r[2] or 0) / r[1], 4) if r[1] else 0.0,
+             "recent_calls": recents.get(r[0], (0, 0))[0],
+             "recent_failed": recents.get(r[0], (0, 0))[1],
+             "recent_condition": recent_errors.get(r[0], (0, 0))[0],
+             "recent_fault": recent_errors.get(r[0], (0, 0))[1],
+             "window_condition": window_errors.get(r[0], (0, 0))[0],
+             "window_fault": window_errors.get(r[0], (0, 0))[1],
+             "retired": r[0] in retired_models}
+            for r in rows
+        ],
+        "min_calls": min_calls,
+        "days": days,
+        "recent_hours": recent_hours,
+        "retired": sorted(retired_models),
+        "canonical_to_provider": canonical_to_provider,
+    }
+
+
+def evaluate(data: dict, tiers: dict, fail_rate_limit: float = FAIL_RATE_LIMIT) -> dict:
+    """Pure: takes measurements, returns findings. Separated so it can be tested with fake input."""
+    problems: list = []
+    notes: list = []
+    models = data["models"]
+    min_calls = data["min_calls"]
+    seen = {m["model"] for m in models}
+
+    def _all_conditions(m: dict, recent: bool) -> bool:
+        """True only when EVERY failure that triggered this finding is an external condition.
+
+        Deliberately strict: an ABSENT error breakdown is a FAULT, not a condition (`0 == 0` is not
+        allowed to pass) — "an empty result is not evidence" applies to this decision too.
+        """
+        if recent:
+            n = m.get("recent_failed", 0)
+            return n > 0 and m.get("recent_condition", 0) == n
+        n = m.get("failed", 0)
+        return n > 0 and m.get("window_condition", 0) == n
+
+    def _condition_not_ours(m: dict) -> bool:
+        """Historical verdict: was this lane's week a CONDITION, rather than a fault of ours?
+
+        `_all_conditions` is the right rule for a lane with LIVE traffic: if it is failing now and any
+        failure is ours, that is actionable, so a fault always wins. It is the wrong rule for a lane
+        with NO traffic in the recent window, where nothing can be acted on. MEASURED 2026-10-07:
+        `MiniMaxAI/MiniMax-M3` had 84 failures in 390 calls — 77 of them DeepInfra `http_402: You need
+        positive balance` — and was graded a FAULT because four `429 Model busy` retries, one read
+        timeout, one control-markup event and one client-side truncation were not condition text.
+        `gemini-2.5-pro` was the same shape: 12 of 15 failures were `Temporary failure in name
+        resolution`, and three client-side truncations (which this file already calls response-shape
+        noise, not a broken model) made it a "fault". Neither is ours to clear. So with no live traffic,
+        ask the question the threshold already asks: would the failures that ARE ours have tripped the
+        detector on their own? Below the limit this file itself calls "normal provider noise", they
+        would not — and the finding is the external condition it always was.
+        """
+        if _all_conditions(m, recent=False):
+            return True
+        calls = m.get("calls", 0)
+        fault = m.get("window_fault", 0)
+        return calls > 0 and (fault / calls) <= fail_rate_limit
+
+    # A configured tier names the CATALOGUE id (`deepseek/deepseek-v4-flash`); usage records the
+    # PROVIDER id (`deepseek-v4-flash`). The registry row carries both, so a tier counts as serving if
+    # EITHER id has traffic. A tier the registry does not know is still judged on its own literal.
+    _canon = data.get("canonical_to_provider") or {}
+
+    def _served_as(model: str) -> set:
+        return {model} | ({_canon[model]} if model in _canon else set())
+
+    # 1. failing models — judged on the RECENT window, or on live traffic if there is any
+    for m in models:
+        # A retired lane is the record of a fix, not a fault. It is reported as a note so the history
+        # stays visible and the detector can go green the moment the retirement lands.
+        if m.get("retired"):
+            if m["calls"] >= min_calls and m["fail_rate"] > fail_rate_limit:
+### APP-LS
+AGENTS.md
+__init__.py
+__pycache__
+_hc_dryrun.log
+_hc_final.log
+_hc_last.log
+_hc_probe.log
+_hc_probe2.log
+_hc_proof.log
+_hc_risk.log
+_hc_step3.log
+_qtest.db-shm
+_qtest.db-wal
+_qtest2.db-shm
+_qtest2.db-wal
+action_contract.py
+agent_bus.py
+agent_bus.py.bak-shabbat5h7-20261009T204745Z
+api
+assistant_chat.py
+assistant_contract.py
+assistant_loop.py
+authority-copy.log
+autopilot.py
+autopilot_auxiliary_contract.py
+autopilot_contract.py
+box-health-check.log
+chat_action_agents.py
+chat_action_browser.py
+chat_action_calendar.py
+chat_action_code_edit.py
+chat_action_dynamic_tools.py
+chat_action_gmail.py
+chat_action_home_assistant.py
+chat_action_linux_pc.py
+chat_action_managed_workflows.py
+chat_action_memory.py
+chat_action_notifications.py
+chat_action_owner.py
+chat_action_parsing.py
+chat_action_phone_tech.py
+chat_action_policy.py
+chat_action_quickbooks.py
+chat_action_repos.py
+chat_action_resilience.py
+chat_action_runtime.py
+chat_action_scheduling.py
+chat_action_skills.py
+chat_action_system.py
+chat_action_tasks.py
+chat_actions.py
+chip-resume.log
+cli.py
+code_self_edit.py
+code_self_edit.py.bak-agwprovider-20261007T200602Z
+communications_contract.py
+company_blueprint.py
+company_contract.py
+config.py
+config.py.bak-shabbat5h-20261009T191513Z
+### WHICH-SQLITE
+/usr/bin/sqlite3
+### SCHEMA
+CREATE TABLE model_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL,
+                tier TEXT NOT NULL DEFAULT 'ceo',
+                prompt_tokens INTEGER DEFAULT 0,
+                completion_tokens INTEGER DEFAULT 0,
+                total_tokens INTEGER DEFAULT 0,
+                estimated_cost_usd REAL DEFAULT 0.0,
+                latency_ms INTEGER DEFAULT 0,
+                success INTEGER DEFAULT 1,
+                error_message TEXT,
+                created_at TEXT NOT NULL
+            , agent_id TEXT NOT NULL DEFAULT 'orchestrator', cached_tokens INTEGER DEFAULT 0, prompt_prefix_hash TEXT, served_by TEXT, session_id TEXT);
+CREATE INDEX idx_model_usage_provider
+                ON model_usage(provider, model, created_at DESC);
+CREATE INDEX idx_model_usage_tier
+                ON model_usage(tier, created_at DESC);
+CREATE INDEX idx_model_usage_agent ON model_usage(agent_id, created_at DESC);
+CREATE INDEX idx_usage_velocity
+            ON model_usage(agent_id, created_at, estimated_cost_usd);
+CREATE INDEX idx_model_usage_prefix_hash ON model_usage(prompt_prefix_hash, created_at DESC);
+CREATE INDEX idx_model_usage_session ON model_usage(session_id, created_at DESC);
+CREATE INDEX idx_mu_created_at on model_usage (created_at);
+CREATE INDEX idx_mu_agent_created on model_usage (agent_id, created_at);
+### GREP-UNKNOWN-WRITER
+grep: /opt/company/app/ai_gateway.py: No such file or directory
+### GREP-DEPT-RES
+/opt/company/app/pytest-563.log:1620:2026-10-07T17:21:39+0000 WARNING app.services.agent_worker: Department model resolution: model registry unavailable: no such table: model_registry
+/opt/company/app/pytest-563.log:1661:WARNING  app.services.agent_worker:agent_worker.py:3542 Department model resolution: model registry unavailable: no such table: model_registry
+/opt/company/app/pytest-562.log:1620:2026-10-07T16:34:02+0000 WARNING app.services.agent_worker: Department model resolution: model registry unavailable: no such table: model_registry
+/opt/company/app/pytest-562.log:1661:WARNING  app.services.agent_worker:agent_worker.py:3542 Department model resolution: model registry unavailable: no such table: model_registry
+/opt/company/app/services/agent_worker.py:3481:        log.warning("Department model resolution: gateway catalogue unavailable: %s", exc)
+/opt/company/app/services/agent_worker.py:3542:        log.warning("Department model resolution: model registry unavailable: %s", exc)
+/opt/company/app/services/agent_worker.py:3546:            "Department model resolution dropped %d id(s) not in the live "
+/opt/company/app/services/agent_worker.py:3558:        "Department model resolution: no catalogue-validated model; "
+/opt/company/app/services/agent_worker.py:3604:            log.warning("Department model resolution failed: %s", exc)
+grep: /opt/company/app/services/__pycache__/agent_worker.cpython-314.pyc: binary file matches
+### TIERS
+131:    model_tier1: str = "deepseek/deepseek-v4-flash"
+132:    model_tier2: str = "deepseek/deepseek-v4-flash"
+133:    model_tier3: str = "deepseek/deepseek-v4-flash"

@@ -1,0 +1,202 @@
+### ROWS-UNKNOWN
+openai|fast|self_improvement|2026-10-05T20:18:44.545768+00:00|openai attempt 1/3: Error code: 404 - {'error': {'message': 'The model `deepseek-v4-flash` does not exist or you do not have access to it.', 'type': 'invalid_request_error', 'param': None, 'code': 'model_not_found'}}
+openai|fast|self_improvement|2026-10-05T20:18:46.851695+00:00|openai attempt 2/3: Error code: 404 - {'error': {'message': 'The model `deepseek-v4-flash` does not exist or you do not have access to it.', 'type': 'invalid_request_error', 'param': None, 'code': 'model_not_found'}}
+openai|fast|self_improvement|2026-10-05T20:19:02.876838+00:00|openai attempt 3/3: Error code: 404 - {'error': {'message': 'The model `deepseek-v4-flash` does not exist or you do not have access to it.', 'type': 'invalid_request_error', 'param': None, 'code': 'model_not_found'}}
+anthropic|fast|self_improvement|2026-10-05T20:19:04.038789+00:00|anthropic attempt 1/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek-v4-flash'}, 'request_id': 'req_011Cfji5Xx1hpnKhRPSnUUCb'}
+anthropic|fast|self_improvement|2026-10-05T20:19:06.222350+00:00|anthropic attempt 2/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek-v4-flash'}, 'request_id': 'req_011Cfji5hnMGDuZKRAWfZqrK'}
+anthropic|fast|self_improvement|2026-10-05T20:19:10.359819+00:00|anthropic attempt 3/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek-v4-flash'}, 'request_id': 'req_011Cfji61VxKoiyayzZCTWXh'}
+openai|fast|self_improvement|2026-10-07T15:17:11.127797+00:00|openai attempt 1/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+openai|fast|self_improvement|2026-10-07T15:17:13.422441+00:00|openai attempt 2/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+openai|fast|self_improvement|2026-10-07T15:17:17.803161+00:00|openai attempt 3/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+anthropic|fast|self_improvement|2026-10-07T15:17:18.613062+00:00|anthropic attempt 1/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011Cfo6gjdmbjkvjtjMDruvg'}
+anthropic|fast|self_improvement|2026-10-07T15:17:20.760101+00:00|anthropic attempt 2/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011Cfo6guQtmEuL8fjFBLkQJ'}
+anthropic|fast|self_improvement|2026-10-07T15:17:24.903895+00:00|anthropic attempt 3/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011Cfo6hD9kCUatGYh3rHJvF'}
+openai|fast|self_improvement|2026-10-07T16:04:44.222723+00:00|openai attempt 1/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+openai|fast|self_improvement|2026-10-07T16:04:46.515891+00:00|openai attempt 2/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+openai|fast|self_improvement|2026-10-07T16:04:50.793523+00:00|openai attempt 3/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+anthropic|fast|self_improvement|2026-10-07T16:04:51.137577+00:00|anthropic attempt 1/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011CfoAK1PQwUvoxXAxsS6yr'}
+anthropic|fast|self_improvement|2026-10-07T16:04:53.278244+00:00|anthropic attempt 2/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011CfoAKBAmtbhQik1D6z2zA'}
+anthropic|fast|self_improvement|2026-10-07T16:04:57.426188+00:00|anthropic attempt 3/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011CfoAKUt8prrwgvwuNmWFw'}
+openai|fast|self_improvement|2026-10-07T16:51:57.284850+00:00|openai attempt 1/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+openai|fast|self_improvement|2026-10-07T16:51:59.590450+00:00|openai attempt 2/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+openai|fast|self_improvement|2026-10-07T16:52:03.849161+00:00|openai attempt 3/3: Error code: 400 - {'error': {'message': 'invalid model ID', 'type': 'invalid_request_error', 'param': None, 'code': None}}
+anthropic|fast|self_improvement|2026-10-07T16:52:04.686784+00:00|anthropic attempt 1/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011CfoDut3iMdVSxu7QJktwg'}
+anthropic|fast|self_improvement|2026-10-07T16:52:06.821655+00:00|anthropic attempt 2/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011CfoDv3nMAwDSwATSfhuPn'}
+anthropic|fast|self_improvement|2026-10-07T16:52:10.953310+00:00|anthropic attempt 3/3: Error code: 404 - {'type': 'error', 'error': {'type': 'not_found_error', 'message': 'model: deepseek/deepseek-v4-flash'}, 'request_id': 'req_011CfoDvMTzCJhtxDmFe4z8Q'}
+### GROUP-INVALID-MODEL-ID
+openai|unknown|9|2026-10-07T15:17:11.127797+00:00|2026-10-07T16:52:03.849161+00:00
+### SERVICES-GATEWAY
+ai_gateway.py
+ai_gateway_cache.py
+cognitive_router.py
+escalation_router.py
+event_router.py
+gateway_trace.py
+model_discovery.py
+model_ops_monitor.py
+model_registry.py
+owner_model.py
+provider_health.py
+smart_router.py
+### AGENT-WORKER-3460-3620
+        for part in raw.split(","):
+            model_id = part.strip()
+            if model_id and model_id not in chain:
+                chain.append(model_id)
+    return chain
+
+
+def _dept_model_catalogue():
+    """The live gateway catalogue, or None when it cannot be read.
+
+    `smart_router.gateway_catalogue()` is the same source `GET /v1/models`
+    serves: it fetches the gateway's own list, caches it under its own TTL, and
+    never raises (a failure keeps the last good list and records the error on
+    the snapshot). Fail-soft is therefore already its contract -- this wrapper
+    only has to survive an import failure.
+    """
+    try:
+        from app.services.smart_router import gateway_catalogue
+
+        return gateway_catalogue()
+    except Exception as exc:  # noqa: BLE001 - resolution must never raise
+        log.warning("Department model resolution: gateway catalogue unavailable: %s", exc)
+        return None
+
+
+def _resolve_department_models() -> tuple[list[str], str]:
+    """Build the department model chain: (chain, source).
+
+    Precedence, then validation, exactly as the standing rule requires:
+      1. operator env override (`SECRETARY_DEPT_MODEL`, ...) -- comma chain;
+      2. the route aliases in `DEPT_MODEL_CANDIDATES` that the catalogue lists;
+      3. the model registry's non-copilot tiers, for compatibility;
+    and the catalogue is the gate on ALL of them: every id that the live
+    catalogue does not list is dropped with a warning, so a configured id that
+    stopped existing can never be pinned silently again.
+    """
+    catalogue = _dept_model_catalogue()
+    listed = getattr(catalogue, "ids", None)
+    dropped: list[str] = []
+
+    def _keep(ids: list[str]) -> list[str]:
+        if listed is None:
+            # Catalogue unknown: we cannot validate, so we do not pretend to.
+            return list(ids)
+        out: list[str] = []
+        for model_id in ids:
+            if model_id in listed:
+                out.append(model_id)
+            else:
+                dropped.append(model_id)
+        return out
+
+    alias_ids = [a for a in DEPT_ROUTE_ALIASES]
+    env_ids = _keep(_dept_model_env_chain())
+    alias_kept = _keep(alias_ids)
+    preferred = _keep([m for m in DEPT_MODEL_CANDIDATES])
+
+    chain = env_ids + [m for m in alias_kept if m not in env_ids]
+    chain += [m for m in preferred if m not in chain]
+
+    source = "env" if env_ids else "catalogue_alias"
+
+    # Compatibility tail: the registry's direct-provider ids, still validated.
+    try:
+        from app.services.model_registry import get_models_for_tier
+
+        registry_models = []
+        for tier in ("fast", "mid", "ceo"):
+            registry_models.extend(get_models_for_tier(tier, verified_only=True))
+        direct = _keep(
+            [
+                m["canonical_id"]
+                for m in registry_models
+                if m.get("provider") != "copilot" and not m.get("is_deprecated")
+            ]
+        )
+        for model_id in direct:
+            if model_id not in chain:
+                chain.append(model_id)
+        if not env_ids and not alias_kept and direct:
+            source = "registry"
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Department model resolution: model registry unavailable: %s", exc)
+
+    if dropped:
+        log.warning(
+            "Department model resolution dropped %d id(s) not in the live "
+            "gateway catalogue: %s",
+            len(dropped),
+            ", ".join(dropped),
+        )
+
+    if chain:
+        return chain, source
+
+    # Fail soft, and say so. A bare Copilot list is the last resort; it is
+    # explicit that the catalogue could not be validated.
+    log.error(
+        "Department model resolution: no catalogue-validated model; "
+        "falling back to DEPT_MODEL_CANDIDATES (%s)",
+        ", ".join(DEPT_MODEL_CANDIDATES),
+    )
+    return list(DEPT_MODEL_CANDIDATES), "fallback_unvalidated"
+
+
+def _reset_department_model_cache() -> None:
+    """Invalidate the resolved chain (tests; operator model swap)."""
+    with _DEPT_MODEL_LOCK:
+        _DEPT_MODEL_CACHE.update(
+            {"resolved_at": 0.0, "chain": (), "source": "unresolved", "error": ""}
+        )
+
+
+def _select_department_model() -> str:
+    """Choose the model a department agent's steps run on."""
+    return _available_department_models()[0]
+
+
+def _available_department_models() -> list[str]:
+    """Return the department model chain, resolved at runtime and cached.
+
+    Single-flight: one resolution at a time, and the concurrent callers read the
+    same chain. Never raises and never returns an empty list -- a resolution
+    failure is logged and degrades to the alias list rather than taking the
+    agent's tick down with it.
+
+    Copilot-first is deliberately gone. The chain's ids are gateway ids, and the
+    Copilot tier is attempted independently by `_execute_llm_step` (which skips
+    any id that is not in `COPILOT_MODELS`), so nothing here can strand a tick.
+    """
+    now = time.monotonic()
+    cached = _DEPT_MODEL_CACHE.get("chain") or ()
+    if cached and (now - float(_DEPT_MODEL_CACHE.get("resolved_at") or 0.0)) < DEPT_MODEL_CACHE_TTL_SEC:
+        return list(cached)
+
+    with _DEPT_MODEL_LOCK:
+        # Re-check under the lock: the single flight happens here.
+        now = time.monotonic()
+        cached = _DEPT_MODEL_CACHE.get("chain") or ()
+        if cached and (now - float(_DEPT_MODEL_CACHE.get("resolved_at") or 0.0)) < DEPT_MODEL_CACHE_TTL_SEC:
+            return list(cached)
+        try:
+            chain, source = _resolve_department_models()
+        except Exception as exc:  # noqa: BLE001 - resolution must never raise
+            log.warning("Department model resolution failed: %s", exc)
+            chain, source = list(DEPT_MODEL_CANDIDATES), "fallback_exception"
+        chain = [m for m in chain if m] or list(DEPT_MODEL_CANDIDATES)
+        _DEPT_MODEL_CACHE.update(
+            {
+                "resolved_at": time.monotonic(),
+                "chain": tuple(chain),
+                "source": source,
+                "error": "",
+            }
+        )
+        log.info(
+            "Department model chain resolved (source=%s): %s",
+            source,
+            ", ".join(chain),
+        )
+        return list(chain)

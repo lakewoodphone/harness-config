@@ -1,0 +1,97 @@
+### RESOLVE-UPSTREAM
+                    "Gateway pressure %s: $%.2f spent (soft cap $%.0f) — "
+                    "throttle advisory only",
+                    decision.band, decision.spend, decision.soft_cap,
+                )
+        except Exception:
+            log.debug("gateway pressure signal skipped", exc_info=True)
+
+
+# ── Upstream resolution ────────────────────────────────────
+
+# NOTE: ``_GOOGLE_MODEL_RENAME`` and ``billing_model_id`` live at the top of
+# this module so every cost path (including the usage aggregation helpers)
+# can resolve the billed model name without depending on definition order.
+
+
+def _resolve_upstream(
+    settings: Settings,
+    *,
+    provider: str,
+    provider_model_id: str,
+    canonical_id: str,
+) -> tuple[str, str, str]:
+    """Return (base_url, api_key, upstream_model) for a routed model.
+
+    Raises ``RuntimeError`` if no reachable upstream exists.
+    """
+    keys = settings.provider_api_keys()
+
+    # Native OpenAI-compatible providers.
+    if provider in _OPENAI_COMPAT_UPSTREAM:
+        base_url, key_attr = _OPENAI_COMPAT_UPSTREAM[provider]
+        api_key = str(getattr(settings, key_attr, None) or keys.get(provider) or "")
+        if api_key:
+            if provider == "google":
+                # Map stale catalog names to live Google models (see
+                # _GOOGLE_MODEL_RENAME) so auto-routed picks don't 404.
+                provider_model_id = _GOOGLE_MODEL_RENAME.get(
+                    provider_model_id, provider_model_id
+                )
+            return base_url, api_key, provider_model_id
+
+    # Anthropic / Google via OpenRouter translation — DISABLED June 2026.
+    # Both now have native OpenAI-compatible endpoints in _OPENAI_COMPAT_UPSTREAM.
+    # _OPENROUTER_TRANSLATABLE_PROVIDERS is empty; this branch is dead code.
+
+    # Last resort: if the canonical id is already an OpenRouter slug — DISABLED.
+    # OpenRouter removed June 2026 (too expensive).
+
+    raise RuntimeError(
+        f"No reachable upstream for {canonical_id} (provider={provider})"
+    )
+
+
+# ── Catalog (/v1/models) ───────────────────────────────────
+
+# Short names inference accepts but the catalogue did not list. See the block in
+# build_models_payload for the measurement that put them here. Add an entry here
+# whenever a configured id resolves at /v1/chat/completions but is absent from
+# this payload: the two must not disagree, and the catalogue is the one that has
+# to change, because the working id is already written into settings on disk.
+_LEGACY_SHORT_MODEL_IDS: dict[str, str] = {
+    "deepseek-v4-flash": "deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731",
+    "deepseek-v4-pro": "deepinfra/deepseek-ai/DeepSeek-V4-Pro-0813",
+    "deepseek-v3.2": "deepseek/deepseek-v3.2",
+    "deepseek-r1-0528": "deepseek/deepseek-r1-0528",
+}
+### SR-UNKNOWN
+963:    """Return the utility-role policy for a role name, or None if unknown.
+1069:    catalogue_source: str = "unknown"
+1186:    "source": "unknown",
+1204:    source: str = "unknown"
+1366:        source=str(_catalogue_state.get("source") or "unknown"),
+1530:                "source": "unknown",
+1881:        alerts.append(f"unknown_route_alias:{requested}->{alias}")
+2113:      - reliability == prior mean  → 1.0   (neutral, == an unknown model)
+3458:    confidence = req.get("confidence", "unknown")
+3492:    confidence = escalation_request.get("confidence", "unknown")
+3693:                    catalogue_source TEXT DEFAULT 'unknown',
+3715:                ("catalogue_source", "TEXT DEFAULT 'unknown'"),
+### SR-ESCALATION
+1052:    escalation_chain: list[ModelCandidate] = field(default_factory=list)
+3190:        escalation_chain=escalation,
+3398:    escalation_models = [e.canonical_id for e in decision.escalation_chain]
+3683:                    escalation_chain_json TEXT DEFAULT '[]',
+3758:                    complexity, escalation_chain_json,
+3781:                        [{"id": e.canonical_id, "tier": e.tier} for e in decision.escalation_chain]
+### REGISTRY-UNKNOWN-ROWS
+### REGISTRY-CHEAPEST-FOR-DEEPSEEK
+deepseek|deepseek-r1|deepseek/deepseek-r1|promoted
+deepseek|deepseek-chat|deepseek/deepseek-chat|promoted
+deepseek|deepseek-v4-pro|deepseek/deepseek-v4-pro|promoted
+deepseek|deepseek-v4-flash|deepseek/deepseek-v4-flash|promoted
+deepinfra|deepseek-ai/DeepSeek-V4-Pro-0813|deepinfra/deepseek-ai/DeepSeek-V4-Pro-0813|promoted
+fireworks|accounts/fireworks/models/deepseek-v4-pro-0813|fireworks/accounts/fireworks/models/deepseek-v4-pro-0813|retired
+deepinfra|deepseek-ai/DeepSeek-V4-Flash-0731|deepinfra/deepseek-ai/DeepSeek-V4-Flash-0731|promoted
+fireworks|accounts/fireworks/models/deepseek-v4-flash-0731|fireworks/accounts/fireworks/models/deepseek-v4-flash-0731|retired

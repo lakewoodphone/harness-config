@@ -1,0 +1,45 @@
+=== captured ===
+2026-10-11T22:46:40Z
+=== does the stub exist, and does it have the dialpad tables? ===
+-rw-r--r-- 1 root root 1826816 Oct 11 01:18 /opt/company/data/secretary.db
+stub has dialpad_call_full: False
+stub has dialpad_sms_cache: True
+stub has website_sync_cursor: False
+stub table count: 145
+=== the gate in the INSTALLED wrapper, exactly ===
+for attempt in $(seq 1 "$ATTEMPTS"); do
+  OUT="$("$PY" "$PUSH" --json 2>&1)"; RC=$?
+
+  if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '"ok": true'; then
+    # push reported success - now check it was not a disguised empty read
+    cand=$(printf '%s' "$OUT" | "$PY" -c '
+import json,sys
+try: d=json.load(sys.stdin)
+except Exception: print("?"); raise SystemExit
+c=d.get("candidates") or {}
+print((c.get("calls",0) or 0)+(c.get("sms",0) or 0))' 2>/dev/null)
+    have="$(local_window_count)"
+    if [ "$cand" = "0" ] && [ "${have:-0}" -gt 0 ]; then
+      log "SUSPECT attempt $attempt/$ATTEMPTS: 0 candidates reported while the local store holds $have rows in the window (read likely failed, not a quiet shop)"
+      [ "$attempt" -eq "$ATTEMPTS" ] && { log "FAILED: refusing to report success on an empty read"; exit 1; }
+      sleep "$BACKOFF"; continue
+    fi
+    log "ok $OUT"
+    exit 0
+  fi
+
+  log "FAILED rc=$RC attempt $attempt/$ATTEMPTS: $OUT"
+  [ "$attempt" -eq "$ATTEMPTS" ] && { log "GAVE UP after $ATTEMPTS attempts"; exit 1; }
+  sleep "$BACKOFF"
+done
+
+exit 1
+=== what the gate's sqlite call returns on this box ===
+rc + output of the wrapper's own local_window_count query against the stub:
+Error: in prepare, no such table: dialpad_call_full
+sqlite3 rc=1
+=== same query against the AUTHORITY (what it should read) ===
+1610
+=== queue item 67 (the PCI hold) ===
+owner_decision_queue rows(sample): [(1, '2026-09-11T22:35:56.923746+00:00', 'Two Google security alerts sat unread in the held queue: lakewoodphoneandtech@gmail.com and ezabz68@gmail.com, both dated 2026-09-09. I will investigate both and report what they were before asking you anything, unless they turn out to be a real account compromise.', None, None, 'Let me investigate first; I am only asking because an account-security event on the two business Google accounts is yours to know about, not mine to quietly close.', 'high', None, 'owner_message_queue #1460, #1465 (reason=urgent_email)', None, 'dismissed', None, None, '2026-09-11T22:41:18.775678+00:00', 'Replaced by one consolidated item: the raw email rows carried no decision, and six near-duplicate rows is the same failure as asking nothing.', None, None, None), (2, '2026-09-11T22:38:07.134583+00:00', 'URGENT EMAIL From: portal@telnyx.com Subj: [Telnyx] Low Balance Alert Acct: lakewoodphoneandtech@gmail.com', 'This sat undelivered in owner_message_queue #1471 (status held) for 2 days because the SMS gate is `owner_sms_min_urgency=urgent` and nothing below that threshold is ever delivered.', None, 'Read it and decide: it is either a decision of yours that has been rotting, or it is now obsolete and I should close it.', 'high', None, 'owner_message_queue #1471', 2, 'dismissed', None, None, '2026-09-11T22:41:18.837333+00:00', 'Replaced by one consolidated item: the raw email rows carried no decision, and six near-duplicate rows is the same failure as asking nothing.', None, None, None), (3, '2026-09-11T22:38:07.134583+00:00', 'URGENT EMAIL From: Google <no-reply@accounts.google.com> Subj: Critical security alert Acct: ezabz68@gmail.com', 'This sat undelivered in owner_message_queue #1465 (status held) for 2 days because the SMS gate is `owner_sms_min_urgency=urgent` and nothing below that threshold is ever delivered.', None, 'Read it and decide: it is either a decision of yours that has been rotting, or it is now obsolete and I should close it.', 'critical', None, 'owner_message_queue #1465', 2, 'dismissed', None, None, '2026-09-11T22:41:18.649580+00:00', 'Replaced by one consolidated item: the raw email rows carried no decision, and six near-duplicate rows is the same failure as asking nothing.', None, None, None), (4, '2026-09-11T22:38:07.134583+00:00', 'URGENT EMAIL From: Gusto <gustonoreply@gusto.com> Subj: Payroll on AutoPilot® may be blocked due to insufficient funds for LAKEWOOD PHON Acct: lakewoodphoneandtech@gmail.com', 'This sat undelivered in owner_message_queue #1464 (status held) for 2 days because the SMS gate is `owner_sms_min_urgency=urgent` and nothing below that threshold is ever delivered.', None, 'Read it and decide: it is either a decision of yours that has been rotting, or it is now obsolete and I should close it.', 'high', None, 'owner_message_queue #1464', 2, 'dismissed', None, None, '2026-09-11T22:41:22.545372+00:00', 'Covered in full by #9, which has the amounts, the dates and the live evidence.', None, None, None), (5, '2026-09-11T22:38:07.134583+00:00', 'URGENT EMAIL From: Google <no-reply@accounts.google.com> Subj: Critical security alert Acct: lakewoodphoneandtech@gmail.com', 'This sat undelivered in owner_message_queue #1460 (status held) for 2 days because the SMS gate is `owner_sms_min_urgency=urgent` and nothing below that threshold is ever delivered.', None, 'Read it and decide: it is either a decision of yours that has been rotting, or it is now obsolete and I should close it.', 'critical', None, 'owner_message_queue #1460', 2, 'dismissed', None, None, '2026-09-11T22:41:18.714085+00:00', 'Replaced by one consolidated item: the raw email rows carried no decision, and six near-duplicate rows is the same failure as asking nothing.', None, None, None)]
+=== END ===

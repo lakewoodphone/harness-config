@@ -1,0 +1,109 @@
+--- /opt/company/app/services/company_outcome_monitor.py.before-137	2026-10-07 16:07:16.985441760 +0000
++++ /opt/company/app/services/company_outcome_monitor.py	2026-10-11 06:34:26.057380244 +0000
+@@ -144,8 +144,15 @@
+ # The journal is the only place the true `database is locked` count lives; `error_log`
+ # holds unhandled exceptions only and undercounts it by more than an order of magnitude
+ # (measured 2026-09-28: 36 rows in SQL vs 1,846 journal events in 7 days — 51x).
++# PATCHED 2026-10-11 (workstream 137). The unit name used to be the literal
++# `secretary-api`, which exists on the office box and NOT on the authority, where the
++# company runs as `company-api.service`. Measured on secratary-cloud before this patch:
++# `journal_events = 0`, `undercount_factor = 0.0` while 2,499 journal lines sat in
++# company-api. The unit is now resolved at runtime and never assumed, because a monitor
++# that reports a zero it never read is worse than one that reports that it could not look.
++JOURNAL_LOCK_UNIT_CANDIDATES = ("secretary-api", "company-api")
+ JOURNAL_LOCK_COMMAND = (
+-    "journalctl -u secretary-api --since '{days} days ago' --no-pager -o cat"
++    "journalctl -u {unit} --since '{days} days ago' --no-pager -o cat"
+ )
+ JOURNAL_LOCK_PATTERN = "database is locked"
+ JOURNAL_TIMEOUT_SECONDS = 60
+@@ -322,8 +329,41 @@
+ # ── The systemd journal: the only honest source for lock contention ──────────
+ 
+ 
+-def journal_lock_command(days: int) -> str:
+-    return JOURNAL_LOCK_COMMAND.format(days=int(days))
++def journal_lock_unit() -> tuple[str | None, str]:
++    """The systemd unit whose journal holds the true `database is locked` count.
++
++    PATCHED 2026-10-11 (workstream 137). Resolution order: the
++    `COMPANY_OUTCOME_JOURNAL_UNIT` environment variable, then
++    JOURNAL_LOCK_UNIT_CANDIDATES in order, and the first that systemd can actually
++    show. `None` means none of them exists on this host, which the caller reports as
++    UNREADABLE — deliberately never as zero.
++    """
++    import shutil
++    import subprocess
++
++    override = (os.environ.get("COMPANY_OUTCOME_JOURNAL_UNIT") or "").strip()
++    candidates = ([override] if override else []) + [
++        u for u in JOURNAL_LOCK_UNIT_CANDIDATES if u != override]
++    if not candidates:
++        return None, "no candidate journal unit configured"
++    if shutil.which("systemctl") is None:
++        # No systemd to ask. Attempt the first candidate anyway and let its own
++        # failure be reported honestly rather than pre-empting it with a zero.
++        return candidates[0], "no systemctl on this host; guessing the first candidate"
++    for unit in candidates:
++        try:
++            proc = subprocess.run(["systemctl", "cat", unit], capture_output=True,
++                                  text=True, timeout=10, check=False)
++        except Exception:
++            continue
++        if proc.returncode == 0 and (proc.stdout or "").strip():
++            return unit, f"resolved by `systemctl cat {unit}`"
++    return None, ("none of the candidate journal units exists on this host: "
++                  + ", ".join(candidates))
++
++
++def journal_lock_command(days: int, unit: str = "secretary-api") -> str:
++    return JOURNAL_LOCK_COMMAND.format(days=int(days), unit=unit)
+ 
+ 
+ def _journal_lock_events(days: int) -> tuple[int | None, str]:
+@@ -342,7 +382,11 @@
+     import shutil
+     import subprocess
+ 
+-    cmd = journal_lock_command(days)
++    unit, unit_provenance = journal_lock_unit()
++    if unit is None:
++        # UNREADABLE, and reported as unreadable. Never a fabricated zero.
++        return None, unit_provenance
++    cmd = journal_lock_command(days, unit)
+     if shutil.which("journalctl") is None:
+         return None, f"journalctl not present on this host; would run: {cmd}"
+     try:
+@@ -365,7 +409,7 @@
+             f"{(proc.stderr or '').strip()[:200]}"
+         )
+     hits = sum(1 for line in (proc.stdout or "").splitlines() if JOURNAL_LOCK_PATTERN in line)
+-    return hits, f"`{cmd}` -> {hits} matching lines"
++    return hits, f"`{cmd}` -> {hits} matching lines ({unit_provenance})"
+ 
+ 
+ def _wo_streak_threshold() -> tuple[int, str]:
+@@ -823,8 +867,10 @@
+     between "contention was zero" and "we could not look".
+     """
+     err_newest = db.newest("error_log", "created_at")
++    _unit, _unit_provenance = journal_lock_unit()
+     sec = _section(f"lock_contention_{days}d",
+-                   "systemd journal (secretary-api) + error_log floor", err_newest)
++                   f"systemd journal ({_unit or 'NO CANDIDATE UNIT ON THIS HOST'}) "
++                   f"+ error_log floor", err_newest)
+     sec["stale"] = _stale(err_newest)
+     try:
+         sec["sql_floor_rows"] = db.count(
+@@ -841,8 +887,9 @@
+ 
+     events, provenance = _journal_lock_events(days)
+     sec["journal_window_days"] = days
+-    sec["journal_source"] = "systemd journal: secretary-api unit"
+-    sec["journal_command"] = journal_lock_command(days)
++    sec["journal_source"] = f"systemd journal: {_unit or 'NO CANDIDATE UNIT'} unit"
++    sec["journal_unit_provenance"] = _unit_provenance
++    sec["journal_command"] = journal_lock_command(days, _unit or "secretary-api")
+     sec["journal_provenance"] = provenance
+     if events is None:
+         # UNREADABLE. Deliberately not 0, and deliberately a finding: build_verdict turns
