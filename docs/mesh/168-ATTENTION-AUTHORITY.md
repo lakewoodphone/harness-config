@@ -175,10 +175,32 @@ are recorded in the workstream's journal entry.)
 4. **The office box is still a live badge source**, serving a v3 badge and a six-hour-stale reading to
    anything that asks it (`115,737` requests in its log). With the list + freshest-wins it is a
    stand-in rather than a trap; retire the entry in `BADGE_AUTHORITIES` when the box is decommissioned.
-5. **`converge-authority` was never ported** (v3's verdict: DEAD — 999 runs, 310 exit-3, target
-   checkout gone). The authority's config publishing runs as `authority-repo-push`, which was found
-   refusing every run (`cron-wrap REFUSED: payload … is not valid base64`) — owned by the config
-   workstream, named here because `config_sync` cannot be judged until it works.
+5. **`config_sync` is now judgeable, and the canonical remote has a name.**
+   - The check was blind because nothing on the authority wrote `/root/.harness-config-autosync/
+     status.json`. It is now written every 15 minutes by `harness-config-sync-status.sh` (installed
+     `/usr/local/bin/`, repo copy `scripts/mesh/`, cron-wrapped as `config-sync-status`), which
+     **measures** local HEAD against `vault refs/heads/main` and writes `converged: true|false` with
+     the two hashes. It reads the remote; it never fetches, merges, rebases, resets or pushes. The
+     kernel's own check went from `unknown — "cannot tell whether config converges"` to
+     `info — "config converged 53s ago at 8343af8"`, proven both by hand and by a real cron tick
+     (`config-sync-status 0 6` in the ledger).
+   - `autosync.sh` was **deliberately not ported**: the authority is the *source*, not a consumer, this
+     checkout's `origin` is a same-disk bundle, and `140 §A2` already verdicts `converge-authority` DEAD.
+     Decided and recorded as `D3034`/`L3506`.
+   - **The canonical remote is the vault** — `root@2.28.33.58:/srv/git/harness-config.git` — already
+     decided by `162-MESH-SYNC-WHAT-MOVED-AND-WHAT-COULD-NOT.md` §60–65 and acted on by
+     `journal-commit.sh`'s default. Measured: every machine can read it; authority, bench and the frozen
+     office box can push to it. **The machines' `origin` still points at the frozen office box**, which
+     is the same defect class as this incident (config facing the old world) and is a migration with its
+     own risks (four HEADs disagree; journal-id collisions are unresolved), not a hostname swap.
+   - **Correction to an earlier claim in this session.** I reported that `authority-repo-push` was
+     "refusing every run" on the strength of two ledger rows. That was wrong as stated: the whole
+     ledger for that job is four rows, the refusals were `03:15:20Z–03:15:59Z` — about **39 seconds**,
+     during another session's own repair — and it has run clean since. The stale-finding trap this
+     incident is about caught me once in miniature, which is the honest way to record it.
+   - **The vault's own bare repo could not be cloned**: its `HEAD` said `refs/heads/master` while its
+     only branch was `refs/heads/main`, so a fresh `git clone` of the canonical remote checked out
+     nothing. Fixed and verified (§7.1).
 6. **A v3 badge in the browser still works**, because the *list* lives in the plugin's attribute and a
    v3 badge reads the first entry it is given. That is luck, not design: the deployment still needs a
    page reload per machine, and the record should not pretend the roll-out is automatic.
@@ -194,7 +216,75 @@ are recorded in the workstream's journal entry.)
    greps for a hostname, a constant or a script finds the real one and not this shadow — and so whoever
    does decide gets the measured shape of it: same names, one generation behind, committed as a block.
 
-## §7 — Lessons, for whichever session reads this next
+## §7 — The two follow-on fixes this incident exposed
+
+### 7.1 The canonical harness-config remote could not be cloned
+
+`162-MESH-SYNC-WHAT-MOVED-AND-WHAT-COULD-NOT.md` §60–65 already decided that the canonical remote is
+the **vault** (`root@2.28.33.58:/srv/git/harness-config.git`), and `journal-commit.sh` already
+publishes there and reads the remote's HEAD back to prove it. Measured while confirming that: the
+bare repo's `HEAD` said `refs/heads/master` while its only branch was `refs/heads/main`, so **a fresh
+`git clone` of the estate's canonical remote checked out nothing** — the remote every future machine
+is supposed to come from could not bootstrap one. Repaired from the authority (the only writer-side
+host this session could reach; the laptop has no vault access at all — `Permission denied
+(publickey)`), one reversible line, before/after read back over the wire:
+
+```
+$ ssh … root@2.28.33.58 'git -C /srv/git/harness-config.git symbolic-ref HEAD'
+BEFORE: refs/heads/master
+AFTER : refs/heads/main          # branch refs/heads/main 8343af8 exists
+$ (authority) git ls-remote --symref vault HEAD
+ref: refs/heads/main    HEAD
+8343af83226fba4d502c430f18a74372d2df4c0f        HEAD
+```
+
+**The consumers' `origin` is still the frozen office box** (`laptop origin=secretary-ts:`,
+`bench origin=secretary:`) while their publish target is the vault. That is the same defect class as
+this whole incident — config facing the old world — and repointing four machines with four different
+HEADs is a migration with its own risks, not a hostname edit. Named, decided (`D3034`), not done here.
+
+### 7.2 The absence monitor: `sentinel-freshness-check.py`
+
+The fix for §6.1, and the estate's own standard for this migration — the owner's words in
+`131-MIGRATION-BRIEF.md` §"The standard of success": *"a monitor that reports absence instead of
+silence."* `scripts/mesh/sentinel-freshness-check.py`, installed to `/usr/local/bin/`, run every 5
+minutes through `cron-wrap.sh` as `sentinel-freshness`:
+
+| | |
+|---|---|
+| measures | the age of the newest row in `$CEO_KERNEL_STATE/history.jsonl` — the one thing that distinguishes a quiet sentinel from a dead one, because `run-sentinel.sh` exits 0 on purpose and its ledger row cannot tell them apart |
+| threshold | 20 min (four missed writes) — the badge's own staleness rule, so the pill and the alarm agree |
+| on stale or unreadable | writes `/root/.sentinel-freshness/status.json`, files **one** journal `pain` entry naming the sentinel and what to check, rate-limited to one per 6 h, and **exits 2** ("cannot see") so the ledger row is itself a signal |
+| never | exits 1: this measures absence, and conflating "the sentinel has a finding" with "the sentinel has stopped" would recreate the defect |
+
+**Tested on the authority, every path, with the observed output:**
+
+```
+real state dir        -> ok      newest row 75s old (bytes=1781491, rows=8521)          rc=0
+synthetic stale       -> stale   "the newest row is 155.1 min old (threshold 20 min)"    rc=2
+  … with a stub journal (no real entry filed)      -> alarm=+ P9999 stub
+  … immediately again                              -> alarm=rate-limited (already alarmed recently)
+  … --alarm-every 0                                -> alarm fires again
+a broken journal tool -> rate-limited, not retried every five minutes
+history.jsonl > 8 MiB -> rows=not counted (the count is bounded: the file grows ~62 MB a year and a
+                         monitor must not become a growing disk load)
+state dir absent      -> missing  "no history file at …"                                  rc=2
+cron path end to end  -> /root/.cron-status/runs.tsv:  2026-10-12T03:35:07Z  sentinel-freshness  0  0
+```
+
+Two bugs were found by those tests and fixed before the schedule was installed, which is the point of
+running them: the rate-limit marker was keyed on the *wording* of the alarm message (a stub with
+different wording fired on every run — an alarm loop that would have buried the journal it writes to),
+and the row counter read the whole history file on every run.
+
+**Its honest limit.** It runs from cron, so it cannot report that **cron itself** has died — the exact
+mode the office box failed in. The off-box path for that is the estate's external dead-man switch
+(healthchecks.io), and it is currently *firing*: its heartbeat was left armed on a host that is frozen
+on purpose, so every alert from it is noise. That lands in `attention_debt` as held, non-urgent mail
+(7 held, none critical, oldest ~8 days). Named here, not fixed: pausing a check on an external account
+is not a change to make at the end of an incident.
+
+## §8 — Lessons, for whichever session reads this next
 
 1. **A moved authority moves its producers, not just its data.** The cutover moved the database, the
    API and the dashboard, and left one cron job behind. Everything downstream of that job kept
