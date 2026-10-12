@@ -182,17 +182,23 @@ def probe_client_and_python(machine: str, cfg: dict, python_bin: str | None,
         c for c in CLIENT_CANDIDATES
         if alias == "local" or not windows or c[1:3] == ":/" or c.startswith("C:")
     ]
+    last_error = ""
     for py in pythons:
         for cand in clients:
             if alias == "local":
                 argv = [*py.split(), os.path.expanduser(cand), "--list", "--json"]
             else:
                 argv = ["ssh", *SSH_OPTS, alias, f'{py} "{cand}" --list --json']
-            rc, out, _ = run(argv, timeout=300)
+            rc, out, err = run(argv, timeout=300)
             summary = last_json(out)
             if summary and summary.get("ok"):
                 return py, os.path.expanduser(cand) if alias == "local" else cand
-    return None
+            # KEEP the real reason. Measured 2026-10-12 on lakewooechsmini: this probe threw
+            # stderr away, so "Permission denied (publickey)" and a genuinely missing client
+            # file both printed one sentence and the reader was sent to the wrong machine.
+            blob = (err or out or "").strip()
+            last_error = blob.splitlines()[-1].strip() if blob else f"rc={rc}, no output"
+    return None, last_error
 
 
 def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
@@ -208,18 +214,21 @@ def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
     result: dict = {"machine": machine, "alias": alias, "started_at": started}
 
     probed = probe_client_and_python(machine, cfg, python_bin, client_path)
-    if not probed:
-        # NAME BOTH CAUSES, because this message used to send a reader to the wrong machine.
-        # Measured 2026-10-11 from the cloud authority: every machine reported this while
-        # harness-config WAS synced on all of them. The real cause was that the AUTHORITY IS
-        # NOT ON THE TAILNET, so `ssh <alias>` died with "Could not resolve hostname" - a
-        # network gap wearing a missing-checkout's clothes. Distinguish them by hand:
-        #     ssh <alias> echo ok    -> a name-resolution error means the network, not the checkout.
-        result.update(ok=False, error="no working (python, archive-transcripts.py) pair on that "
-                                      "machine - EITHER harness-config is not synced there, OR this "
-                                      "host has no network path to it (the authority is not on the "
-                                      "tailnet, so every alias fails to resolve; owner question 445). "
-                                      "Run `ssh <alias> echo ok` by hand to tell them apart.")
+    if not probed or not probed[0]:
+        # REPORT WHAT THE PROBE ACTUALLY SAW. The old text named only two causes, one of them
+        # ("the authority is not on the tailnet", owner question 445) is no longer true -
+        # measured 2026-10-12 every alias resolves from the authority. What a reader needs is
+        # the probe's own last error, because each one means a different thing:
+        #   "Permission denied (publickey)"  -> permissions on THAT machine, not the checkout
+        #   "No such file or directory"      -> stale/missing harness-config checkout there
+        #   "Could not resolve hostname"     -> a network path gap (silence, not a gap)
+        last_error = (probed[1] if probed else "") or "the probe produced no output"
+        result.update(ok=False, error="no working (python, archive-transcripts.py) pair on "
+                                      f"that machine. The probe's own last error was: "
+                                      f"{last_error!r}. Read that string rather than guessing: "
+                                      "a permission failure and a missing checkout are "
+                                      "different faults on different machines, and a host that "
+                                      "will not resolve is SILENCE, not a GAP.")
         return result
     py, client = probed
     result["client"] = client
