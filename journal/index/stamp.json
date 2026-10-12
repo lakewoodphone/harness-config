@@ -1,19 +1,19 @@
 {
- "built": "2026-10-12 18:26 UTC",
+ "built": "2026-10-12 18:33 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 3123,
   "handoff": 3578,
   "lessons": 3753,
-  "pain": 3144,
+  "pain": 3145,
   "wins": 2742
  },
  "db": "journal.db + fts5",
- "drift_measured": "2026-10-12 18:26 UTC",
- "entries": 3543,
- "entries_count": 3543,
- "entries_sig": "2dc6ab727a3dce9afc5dec03558856b39b4c6b32",
- "flat_sig": "de61cea846812a3beb275cc343234a3f1b4804c2",
+ "drift_measured": "2026-10-12 18:33 UTC",
+ "entries": 3545,
+ "entries_count": 3545,
+ "entries_sig": "130cba92049c092c883d6b3ca882ce32b0d7da84",
+ "flat_sig": "a1690cd3fed4a761adcea3b4273a3dc1828f8c21",
  "git_ceiling": {
   "decisions": 3051,
   "handoff": 3573,
@@ -22,7 +22,7 @@
   "wins": 2738
  },
  "log_count": 9,
- "log_sig": "7014ca245937e6dea20bb9c9aad669c4e64b82ff",
+ "log_sig": "de5760620b0c27cc4fe096f0bf27a7c0e8be415f",
  "parse_problems": 0,
  "unabsorbed": {},
  "unabsorbed_error": null,
