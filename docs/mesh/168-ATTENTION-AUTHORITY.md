@@ -86,7 +86,8 @@ API once, and it must lose every race with the company. The root crontab was bac
 `/root/crontab.before-sentinel-port-20261012T031536Z` (53 lines) before the one line was added.
 
 **Recovery, if this is ever re-done or reverted.** The idempotent install script is
-`_mig140/port-kernel-to-cloud.sh` in the session's staging directory, and the bundle it needs
+`scripts/mesh/168-port-sentinel-to-authority.sh` in this repo (it was written into a session staging
+directory first, which is not durable — moved here 2026-10-12), and the bundle it needs
 (`kernel.bundle`, 137,884 B, created with `git bundle create --all` from HEAD `7be7fde`) plus the
 seeded state are on the authority at `/root/`. Reverting is: `crontab -l | grep -v run-sentinel |
 crontab -`, restore `/root/crontab.before-sentinel-port-*.`, and leave the state dir in place (it is
