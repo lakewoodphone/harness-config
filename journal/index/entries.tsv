@@ -897,6 +897,7 @@ handoff	H3574	3574		2026-10-12 03:58 UTC	ZABZ-YOGA	open	## 2026-10-12 03:58 UTC 
 handoff	H3575	3575		2026-10-12 05:09 UTC	ZABZ-YOGA	open	## 2026-10-12 05:09 UTC · ZABZ-YOGA · the search audit's record is ONE document - docs/mesh/172-MASTER-RECORD-SEARCH-SYSTEM.md - committed and pushed; here is where	entries/handoff/H3575.md	1	58	49d9469fe3b88181	search,documentation,handoff,push,git	H3571,H3574,L3748,P3135,D3052
 handoff	H3576	3576		2026-10-12 05:20 UTC	SECRATARY-CLOUD	open	## 2026-10-12 05:20 UTC · SECRATARY-CLOUD · estate state 2026-10-12: 175 written and pushed; 49 migration docs are single-copy; the queue triaged 162 to 9-10	entries/handoff/H3576.md	1	70	95e8a966ae3a5896		
 handoff	H3577	3577		2026-10-12 05:22 UTC	SECRATARY-CLOUD	open	## 2026-10-12 05:22 UTC · SECRATARY-CLOUD · Yanofsky profile: two sessions, one tree, and the tree now has a verified second copy	entries/handoff/H3577.md	1	23	666c20a0fedc4935		
+handoff	H3578	3578		2026-10-12 12:07 UTC	SECRATARY-CLOUD	open	## 2026-10-12 12:07 UTC · SECRATARY-CLOUD · CHALLENGE-2026 delivered: Noson Yanofsky's limits tested against current mathematics	entries/handoff/H3578.md	1	28	e2d7971583dd5166		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2215,6 +2216,7 @@ lessons	L3620	3620		2026-10-12	SECRATARY-CLOUD	open	**L3620 · a divergence chec
 lessons	L3621	3621		2026-10-12	SECRATARY-CLOUD	open	**L3621 · Yanofsky's 'more truths than proofs' argument: the refutation is answer 4726030, not the accepted one**	entries/lessons/L3621.md	1	19	0a31d396605ef1f5	yanofsky,logic,research	
 lessons	L3622	3622		2026-10-12	SECRATARY-CLOUD	open	**L3622 · AI mathematics 2026: one peer-reviewed anchor, and IMO-perfect-score claims that are company-only**	entries/lessons/L3622.md	1	14	682ab3f573d62abe	ai-mathematics,imo,yanofsky,mesh,provenance	
 lessons	L3623	3623		2026-10-12	SECRATARY-CLOUD	open	**L3623 · 2026 OpenAI Navier-Stokes claim: two forensic corrections from the primary record**	entries/lessons/L3623.md	1	6	e4249c607a2e8ebd		
+lessons	L3624	3624		2026-10-12	SECRATARY-CLOUD	open	**L3624 · A fleet's output is only as collectable as the contract you gave it: one file, one path, six lines back, hash checked**	entries/lessons/L3624.md	1	20	26c6188e99754a6d		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
