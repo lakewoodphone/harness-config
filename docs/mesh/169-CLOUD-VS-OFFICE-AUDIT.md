@@ -1,5 +1,9 @@
 # 169 — CLOUD vs OFFICE: the honest audit
 
+> **START HERE INSTEAD: `171-CLOUD-AUTHORITY-AUDIT-START-HERE.md`.** That page is the map — what was done, the
+> state of things, what to do next, and references to every other document. This file is the measurement record it
+> points at.
+
 *(Number 158 was already taken twice — `158-WEBSITE-COMMS-PUSH-VERIFICATION.md`. This file was written as 158 on
 disk and renamed before it was committed; nothing was overwritten.)*
 
