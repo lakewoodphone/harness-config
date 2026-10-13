@@ -2259,6 +2259,7 @@ lessons	L3647	3647		2026-10-13	SECRATARY-CLOUD	open	**L3647 · A duplicate rule 
 lessons	L3648	3648		2026-10-13	SECRATARY-CLOUD	open	**L3648 · I installed a timer whose ExecStart pointed at a file I never installed**	entries/lessons/L3648.md	1	44	fce735cd7b0c9ad9	fleet,deployment,systemd,verification,lessons	
 lessons	L3649	3649		2026-10-13	SECRATARY-CLOUD	open	**L3649 · When two different subjects yield the SAME extracted number, the number is not from the subject**	entries/lessons/L3649.md	1	52	2cdcf8995457065d	marketplace,scraping,false-positive,lessons,abandoned	
 lessons	L3650	3650		2026-10-13	SECRATARY-CLOUD	open	**L3650 · Three marketplace suspicions, three clean measurements - and one decision I re-derived that was already documented**	entries/lessons/L3650.md	1	41	c752a9ff0b79fa1c		
+lessons	L3651	3651		2026-10-13	SECRATARY-CLOUD	open	**L3651 · Four dead ends on the ST-50 basis, and one false alarm that was right to check**	entries/lessons/L3651.md	1	47	cf15c94b6b16d68b		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2678,6 +2679,8 @@ pain	P2999	2999		2026-10-13	SECRATARY-CLOUD	done	## P2999 — The owner's iPhone
 pain	P3000	3000		2026-10-13	SECRATARY-CLOUD	open	## P3000 — The CFO program's second condition - reconciliation - was never measured at all	entries/pain/P3000.md	1	41	2b9579701439c833	cfo,reconciliation,measurement	
 pain	P3001	3001		2026-10-13	SECRATARY-CLOUD	open	## P3001 — Twenty-one account-months still do not reconcile, and they fall into two diagnosable classes	entries/pain/P3001.md	1	40	839b291321212578	finance,reconciliation,balance-snapshots	
 pain	P3002	3002		2026-10-13	SECRATARY-CLOUD	open	## P3002 — eBay sends ONE confirmation for several order numbers, and the store models one row per order	entries/pain/P3002.md	1	45	690dfa0e9771a53c		
+pain	P3003	3003		2026-10-13	SECRATARY-CLOUD	open	## P3003 — Nothing watched the tax calendar; it found five obligations inside 21 days, two already past	entries/pain/P3003.md	1	55	1d08bfd3603da0bf		
+pain	P3004	3004		2026-10-13	SECRATARY-CLOUD	open	## P3004 — The LLC has a dissolution risk sitting in a JSON file since August, and 148 queue rows never mentioned it	entries/pain/P3004.md	1	48	3f43fd16101b4a76		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3337,3 +3340,5 @@ wins	W2743	2743		2026-10-13	SECRATARY-CLOUD	open	**W2743 · 2026-10-13 · The du
 wins	W2744	2744		2026-10-13	SECRATARY-CLOUD	open	**W2744 · 2026-10-13 · The sign repair did not move a single reported number, and that was checked not assumed.**	entries/wins/W2744.md	1	33	f759499182089bc1	finance,forward-view,verification,win	
 wins	W2745	2745		2026-10-13	SECRATARY-CLOUD	open	**W2745 · 2026-10-13 · Reconciliation was solving half the problem it could see, because the fast path skipped the mail.**	entries/wins/W2745.md	1	32	c04e9594413b02cb	finance,reconciliation,measurement,win	
 wins	W2746	2746		2026-10-13	SECRATARY-CLOUD	open	**W2746 · 2026-10-13 · The orders with no total: 19 were already on the box, 125 are a source limit worth naming.**	entries/wins/W2746.md	1	36	2a71f15ff01924a8	finance,marketplace,recovery,win	
+wins	W2747	2747		2026-10-13	SECRATARY-CLOUD	open	**W2747 · 2026-10-13 · 90 of the 671 orders were shipping notices, and the parser's docstring said they could not be.**	entries/wins/W2747.md	1	41	54ab1efc5896ac7e		
+wins	W2748	2748		2026-10-13	SECRATARY-CLOUD	open	**W2748 · 2026-10-13 · The tax tool said no payments were made; it had never opened the book.**	entries/wins/W2748.md	1	50	acfde25cec9e4de8		
