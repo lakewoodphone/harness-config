@@ -914,6 +914,7 @@ handoff	H3589	3589		2026-10-13 01:27 UTC	SECRATARY-CLOUD	open	## 2026-10-13 01:2
 handoff	H3591	3591		2026-10-13 01:40 UTC	SECRATARY-CLOUD	open	## 2026-10-13 01:40 UTC · SECRATARY-CLOUD · pain-check restored on the authority: the port dropped it, the cron line was never broken	entries/handoff/H3591.md	1	75	1f6f69807541f757	pain-check,cron,port	H3084,W2617,P4,P58,P2819
 handoff	H3590	3590		2026-10-13 01:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 01:42 UTC · SECRATARY-CLOUD · The owner-text channel has a flag source and no consumer	entries/handoff/H3590.md	1	57	bc59054b20d4686b		
 handoff	H3594	3594		2026-10-13 03:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 03:42 UTC · SECRATARY-CLOUD · The CFO is built, clocked and verified; one owner reply stands between it and done	entries/handoff/H3594.md	1	70	dfdede695101b74b		
+handoff	H3595	3595		2026-10-13 05:04 UTC	SECRATARY-CLOUD	open	## 2026-10-13 05:04 UTC · SECRATARY-CLOUD · Authoritative state at round 39: objective verified but for the owner's reply; disk is the live risk	entries/handoff/H3595.md	1	77	3b7de9e41e1592b0		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2264,6 +2265,9 @@ lessons	L3652	3652		2026-10-13	SECRATARY-CLOUD	open	**L3652 · 49 was 20: the co
 lessons	L3653	3653		2026-10-13	SECRATARY-CLOUD	open	**L3653 · There is no back-link: 74 per cent of orders have no total, and name matching invents identities**	entries/lessons/L3653.md	1	42	3b3f825b6378404f		
 lessons	L3654	3654		2026-10-13	SECRATARY-CLOUD	open	**L3654 · I marked a queue row answered when the owner had not spoken**	entries/lessons/L3654.md	1	31	1578e9f04a28ce41		
 lessons	L3655	3655		2026-10-13	SECRATARY-CLOUD	open	**L3655 · No payment row is not missing money: this shop takes cash and cheques**	entries/lessons/L3655.md	1	50	69083e7b83b1e8ca		
+lessons	L3656	3656		2026-10-13	SECRATARY-CLOUD	open	**L3656 · D2655's exclusion does not work: zeroed FTS pages cannot be rebuilt, measured on a copy**	entries/lessons/L3656.md	1	49	4f385886defda8ca		
+lessons	L3657	3657		2026-10-13	SECRATARY-CLOUD	open	**L3657 · Correction to H3595: there is no owner row #474**	entries/lessons/L3657.md	1	16	81139b872077ecd3		
+lessons	L3658	3658		2026-10-13	SECRATARY-CLOUD	open	**L3658 · Correcting P3007: the rule path works, the resolver works, and my harness was the bug**	entries/lessons/L3658.md	1	44	527158f3fa3bad41		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2686,6 +2690,8 @@ pain	P3002	3002		2026-10-13	SECRATARY-CLOUD	open	## P3002 — eBay sends ONE con
 pain	P3003	3003		2026-10-13	SECRATARY-CLOUD	open	## P3003 — Nothing watched the tax calendar; it found five obligations inside 21 days, two already past	entries/pain/P3003.md	1	55	1d08bfd3603da0bf		
 pain	P3004	3004		2026-10-13	SECRATARY-CLOUD	open	## P3004 — The LLC has a dissolution risk sitting in a JSON file since August, and 148 queue rows never mentioned it	entries/pain/P3004.md	1	48	3f43fd16101b4a76		
 pain	P3005	3005		2026-10-13	SECRATARY-CLOUD	open	## P3005 — The owner's notification gate was silently swallowing deadlines and DOWN alerts	entries/pain/P3005.md	1	48	3fa35f5ebe6fff13	owner-notifications,deadlines,classifier,finance-adjacent,pain	
+pain	P3006	3006		2026-10-13	SECRATARY-CLOUD	open	## P3006 — The integrity check cannot run on the authority, and D2655 already decided what not to do about it	entries/pain/P3006.md	1	55	0fe626eaa4e85e9e		
+pain	P3007	3007		2026-10-13	SECRATARY-CLOUD	open	## P3007 — His answer cannot teach anything: the guess the question carries is not a category that exists	entries/pain/P3007.md	1	49	38b506badd9c5634		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3356,3 +3362,5 @@ wins	W2754	2754		2026-10-13	SECRATARY-CLOUD	open	**W2754 · 2026-10-13 · PayPal
 wins	W2755	2755		2026-10-13	SECRATARY-CLOUD	open	**W2755 · 2026-10-13 · Five tools imported a module that was never copied to the authority.**	entries/wins/W2755.md	1	46	e5f92e1b7e0c3266		
 wins	W2756	2756		2026-10-13	SECRATARY-CLOUD	open	**W2756 · 2026-10-13 · Swept every silent fallback, and verified the one-at-a-time rule actually fires.**	entries/wins/W2756.md	1	39	aa20afb0f6b0fa1c		
 wins	W2757	2757		2026-10-13	SECRATARY-CLOUD	open	**W2757 · 2026-10-13 · Tier-collapse fixed: three tiers pointed at one literal, 88 times reported.**	entries/wins/W2757.md	1	47	4ba9a9c62b049543		
+wins	W2758	2758		2026-10-13	SECRATARY-CLOUD	open	**W2758 · 2026-10-13 · One at a time was not holding: the CFO's question was ranked as machine noise.**	entries/wins/W2758.md	1	45	67305244cd72a0a6		
+wins	W2759	2759		2026-10-13	SECRATARY-CLOUD	open	**W2759 · 2026-10-13 · His reply would have been filed against the wrong merchant: the matcher never read the merchant.**	entries/wins/W2759.md	1	40	5f721699b01765d5		
