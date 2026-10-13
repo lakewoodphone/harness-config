@@ -60,6 +60,19 @@ customer-only key), the status history, charges, `SUCCEEDED` payments only, dedu
 and texts, the intake case, and the customer's other orders. Read it before you act; the notes
 routinely contain the constraint that decides the job.
 
+**When the owner names a customer out loud, do not hand-roll a name search — his spelling is
+usually not the record's.** Measured 2026-10-13: asked to pull up *"reitman cadence phone that
+isn't charging"*, a session built its own regex families over `customers` (`reit|rait|reyt|ryt|
+ritm|eism…`) and found nothing, twice, in both stores; the customer is **reifman**, and
+`lpt-hub/tools/case-index/lptcase.py find "reifman"` answered in 84 ms. That index does fuzzy and
+skeleton matching, phone normalisation to the last ten digits, and it searches the case body, so a
+second number or a phonetic miss still lands. Order of operations for a spoken name:
+`lptcase find "<name>"` first; `ps_comms_search` with `exact=True` and a *short* stem second (it
+says plainly that an empty result is a refusal, not health); hand-written SQL regexes last, and
+never as the only attempt. A real negative needs the store and the query that produced it, not
+"no match" — and the shop's own record of the *fault* ("Cadence … does not charge") often finds the
+order when the name does not.
+
 ## 3. Three number spaces. A number from one never matches another.
 
 - **work order** — `WO` + YYMMDD + sequence, e.g. `WO26092412722`.
@@ -205,3 +218,39 @@ one USB stick produced four different "speeds" and three were wrong:
 appears), remount read-only, then compare file count, byte total **and per-file sha256** against the
 verified source. **A copy with no PASS lines is not a delivered copy** — and do not tell the owner a
 device is slow until `ps` and `fuser` say the device is idle.
+
+**Buying the media is part of this job too.** Before recommending, approving or ordering any purchase
+for a case, read `lpt-hub/docs/procurement/README.md`. The standing rule is that a purchase is judged
+on **the spec the work actually consumes** — for handoff media, **sustained write over ≥50 GB**, never
+a burst and never the read figure — and a vendor that does not publish that spec is **not a
+candidate**. The price includes the bench hours: the same work is 427 hours per 100 handoffs at
+10 MB/s against 12–17 hours at 253–370 MB/s. The failure this comes from is the shape to avoid
+everywhere: a 2026-04-23 directive chose the shop's handoff media on **price per unit** with no write
+requirement in it at all, and the drives it recommended measure **8.7–24.9 MB/s**.
+
+## The customer's words are governed by a second document — read it before you draft any of them
+
+Everything above is about the record. The moment the case work reaches the customer as text or
+email, **`lpt-hub/docs/customer-operations/CUSTOMER-SMS-RUNBOOK.md` is the authority**, and it is
+not optional reading — it is where the shop's voice, the signature and the send path live. Measured
+2026-10-13 on WO26100812732: a session that had touched production correctly still had two customer
+drafts rejected in a row, each for a rule that is written down in that runbook and nowhere else in
+the case trail:
+
+- **No `Hi <FirstName>` opener.** `Hi,` at most, or start straight in. He rejects the draft.
+- **Sign `- Daniel`.** It is the shipped `agent_sms_signature` default; the send script appends it.
+  Pass **no** signature flag. `--no-signature` only on an explicit per-message instruction, and
+  never write a *different* name in the body than the signature carries.
+- **Shorter than you think, and cut, not re-explained.** His corrections are usually "too long" and
+  "don't mention X to him" — when he cuts something, it is cut, not moved down the message.
+- **Send through `scripts/send-lpt-sms.py --to … --message-file _scratch/sms-<customer>-<date>.txt`**,
+  preview first (no `--send`), keep **one file per customer** across revisions, and never inline the
+  body on a command line.
+- **Its validator has two documented false positives** — *"mentions money but contains no numbers"*
+  (triggered by "there is no charge") and *"has numbers but no dollar signs"* (triggered by walk-in
+  hours). Send those with `--force` **and say in the conversation why**; never delete correct text
+  to silence a warning.
+- **That path writes no `sms_log` row**, so witnessing the send and recording it in the case file is
+  part of the job: quote the `dialpad_sms_cache` row with `created_at` and `fetched_at` (a live
+  capture is seconds apart; a backfill shares one `fetched_at`), and say delivery to the handset is
+  **not** confirmed, because no Dialpad API exposes it.
