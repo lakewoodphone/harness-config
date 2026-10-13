@@ -182,6 +182,8 @@ that was correct in one place and wrong where it counted.**
 python journal/tools/journal.py status|check|list
 python journal/tools/reconcile-owner-answers.py          # dry run by default
 python journal/tools/test_mirror_freshness.py
+python journal/tools/journal-union.py --remote secratary-cloud          # dry run
+python journal/tools/journal-union.py --remote secratary-cloud --apply  # union both ways
 
 # the loaded instruction surface, on any machine
 python scripts/preset-drift.py
@@ -218,3 +220,94 @@ python scripts/test_sync_alarm.py
 | **the desktop's engine version mismatch** | its sync reports "the RUNNING engine is 0.2.0-rc.2 but configuration names 0.1.5-rc.1" | re-pin or regenerate; found on the way |
 | **the queue's ~137 engineering rows** | they demote the rows that are genuinely his; no regex can separate them (measured) | a reader decides per row, at the moment it is written |
 | **capacity** | the authority is at 91–92% with ~7 GB free above a 25.9 GB database growing ~2.3 MB/h | **row #473 — his to decide**, one question, with a recommendation |
+
+---
+
+## 8. Third pass — the corrections to this document's own claims
+
+Everything here is a case of a claim in an earlier section turning out to be half-true, and the
+correction being worth more than the original.
+
+### 8.1 "the journal is one record" — it was not, twice over
+
+Section 7 said the journal was unioned to one record at 3,819 entries with a set difference of 0, and
+that was measured and true *at the moment it was measured*. Two things broke it:
+
+1. **It is not self-maintaining.** Both trees write; nothing moves entries between them. Hours later
+   they were 13 apart again — this checkout 3,839, the authority 3,826. `journal-union.py` now does
+   the union in both directions (`H3623`).
+2. **It was incomplete when declared, and the number quoted as proof could not show it.** The union
+   added 149 authority-only entries and 341 that existed only here, checking for each that its base
+   id was absent. **That is a guarantee about the entries *added*. The ~3,300 ids present on BOTH
+   sides were never compared** — and 122 of them meant **two entirely different entries**:
+
+   ```
+   handoff/H3393.md
+     here     2026-10-09 19:00 UTC  ZABZ-YOGA  "New always-on box provisioned; offsite chain repaired"
+     authority 2026-10-09 00:52 UTC  secratary  "The shop's money & customer tracking is now a system"
+   ```
+
+   A session opening `H3393` learned one story or the other depending on which checkout it landed on.
+   `journal.py check` cannot see this **at all**: it validates one tree, and reported 0 errors on both
+   — correctly. Nothing in the estate compared two trees until `journal-union.py` did, and refused.
+
+**Repaired** (`H3625`): all 122 classified before touching them — **122 TWO-ENTRIES, 0 competing
+edits** — so the fix was a renumbering with no "which version wins" judgement. Each keeps the
+earlier-dated entry under the original id; the later moves to `<id>b` with an alias row. Both trees
+now: **3,965 entries, 0 errors, 0 collisions, 0 zero-byte files.**
+
+### 8.2 The incident, kept because the mechanism is the useful part
+
+**I blanked 122 journal entries while doing that repair, and recovered them.**
+
+The first attempt changed the **marker** id but not the **heading** id — `check` requires those to
+agree, so 0 errors became 88. Fixing that with a PowerShell `-replace` whose replacement string
+PowerShell rejected, the error was *non-terminating*: the assignment never happened, the variable
+stayed `$null`, and the next line **wrote `$null` over all 122 files**. They survived only because the
+repair had written the same files on both trees, so the remote still held every one.
+
+Two rules, and they are the transferable part:
+
+* **A write must be derived from a value that SUCCEEDED, never from a variable that may simply not
+  have been assigned.** 122 files were destroyed by one line whose error scrolled past in a wall of
+  red. Nothing would have caught it except that `journal.py check` is run at the end of every session.
+* **When a format has an owner, edit through the owner.** Two hand-edits produced 88 then 176 errors
+  (the second introduced CRLF and left the stored `sha` describing the old heading). One call to
+  `journal.parse_entry` → `entry_bytes` → `atomic_write` — which recomputes the sha and writes LF in
+  one place — produced **0**.
+
+### 8.3 `sync.py` now verifies what it deployed
+
+Every step reported what it **did**; none reported what the machine now **loads**, and those are
+different questions — which is how the corrected instructions sat in git for two days while every
+machine loaded the old ones. `verify_loaded_surface()` runs at the end of every sync: a match is
+reported, a drift files a journal entry once per distinct drift, a repo disagreeing with itself is
+reported but **not** alarmed, and a missing tool says **UNVERIFIED, never clean**. It rides on
+`PersonalSecretary-HarnessSync`, which already runs everywhere (`W2803`).
+
+### 8.4 The script half has a check, and it is scheduled
+
+`deployed-drift-check.sh` + a systemd timer on the authority (00/06/12/18:47). It found that
+**52 of 61 files in `/usr/local/bin` were in no repository** — capturing 41 brought that to 14, the
+rest being host debris and a vendor binary. It also **recovered two scripts whose only newer copy was
+the running one** — the direction nobody looks for, because the running copy works. And scheduling it
+turned up two bugs in my own checker, found by *running* it: `raise SystemExit("message")` exits 1,
+not the 2 its own error message promised, so a caller read "could not reach the host" as
+"there is drift" (`W2801`, `W2804`).
+
+### 8.5 Two designs measured and rejected
+
+The owner queue's filing doctrine still has no enforcement, and now it has a **measurement** behind
+that: a refusal keyed on the recommendation's verb would have refused **0 of 161** rows, and one keyed
+on the subject fires on 5 of 162 — about 3 of the ~137 the triage judged engineering, with one false
+positive. The mis-filed rows and the legitimate ones use the same phrasing (*"I recommend merging PR
+#1"* vs *"I recommend adding disk"*). **The doctrine is a judgement, not a pattern**, and shipping
+either design would have made it look solved (`L3779`).
+
+### 8.6 And one thing left alone on purpose
+
+`phone-gate-allow.txt` differs from the running copy by **exactly one address** (`100.73.176.126`,
+secratary-cloud). The authority's copies were written **three minutes before I looked**, by a session
+still committing to that repo, with `phone-gate.py` dirty beside it. `AGENTS.md` §6.1 supplies the
+tiebreak — *the host is right* — and writing my tenth address over a live edit would have been this
+program's own defect applied to someone else's work. Recorded as `H3619`.
