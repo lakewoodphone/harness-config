@@ -921,6 +921,7 @@ handoff	H3598	3598		2026-10-13 06:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 06:4
 handoff	H3599	3599		2026-10-13 07:08 UTC	SECRATARY-CLOUD	open	## 2026-10-13 07:08 UTC · SECRATARY-CLOUD · State at round 92: ten silent failures fixed, five clauses verified, #475 due in two days	entries/handoff/H3599.md	1	94	5cb182bc65b2677f		
 handoff	H3600	3600		2026-10-13 07:15 UTC	SECRATARY-CLOUD	open	## 2026-10-13 07:15 UTC · SECRATARY-CLOUD · State at round 97: 65 real defects, five clauses verified, #475 due in two days, session should continue fresh	entries/handoff/H3600.md	1	74	8b50a858ab35155c		
 handoff	H3601	3601		2026-10-13 07:25 UTC	SECRATARY-CLOUD	open	## 2026-10-13 07:25 UTC · SECRATARY-CLOUD · State at round 109: every clause verified or bounded, business split landed, #475 still due in two days	entries/handoff/H3601.md	1	68	2e5f64c0cd1768d0		
+handoff	H3602	3602		2026-10-13 07:50 UTC	SECRATARY-CLOUD	open	## 2026-10-13 07:50 UTC · SECRATARY-CLOUD · State at round 118: parser and full-pass gains, 19 modules tracked, silent-failure questions on main	entries/handoff/H3602.md	1	55	325df2883abb4216		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2312,6 +2313,8 @@ lessons	L3693	3693		2026-10-13	SECRATARY-CLOUD	open	**L3693 · PayPal IS in the 
 lessons	L3694	3694		2026-10-13	SECRATARY-CLOUD	open	**L3694 · D01-2770781-9853015 is an Amazon digital order, not a broken join**	entries/lessons/L3694.md	1	33	0c9702b339a274a7		
 lessons	L3695	3695		2026-10-13	SECRATARY-CLOUD	open	**L3695 · Clause 3's bound is confirmed by the tool itself: no in-ledger source reaches before 2026-07-01**	entries/lessons/L3695.md	1	39	98768382a8bfb6b0		
 lessons	L3696	3696		2026-10-13	SECRATARY-CLOUD	open	**L3696 · The full pass found 44 more purchases and exposed a parser gap: 80 unitemised, none backfillable**	entries/lessons/L3696.md	1	36	89f6f59932f0c4b1		
+lessons	L3697	3697		2026-10-13	SECRATARY-CLOUD	open	**L3697 · The 52 remaining split into 24 unrecoverable and 28 recoverable - and the recoverable half has a trap**	entries/lessons/L3697.md	1	36	f89d262a24e4be33		
+lessons	L3698	3698		2026-10-13	SECRATARY-CLOUD	open	**L3698 · Clause 2's match split: 351 to cards, 130 to Amazon's own feed - and the second is better evidence**	entries/lessons/L3698.md	1	38	710f1caeecaedf39		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2741,6 +2744,7 @@ pain	P3009	3009		2026-10-13	SECRATARY-CLOUD	open	## P3009 — The duplicate mark
 pain	P3010	3010		2026-10-13	SECRATARY-CLOUD	open	## P3010 — The tax calendar was computed daily and read by nobody: six obligations past due, three never queued	entries/pain/P3010.md	1	42	7c6bf3a0e141631f		
 pain	P3011	3011		2026-10-13	SECRATARY-CLOUD	open	## P3011 — A fifth Chase card (9680) has statement mail and no account: four unusable balances	entries/pain/P3011.md	1	41	4e657c513c4d4208		
 pain	P3012	3012		2026-10-13	SECRATARY-CLOUD	open	## P3012 — 'Unidentified' is 183 rows and 45,737.48, holds deposits in a spending bucket, and names its own source	entries/pain/P3012.md	1	42	4731786110fdc24b		
+pain	P3013	3013		2026-10-13	SECRATARY-CLOUD	open	## P3013 — The marketplace sync module was UNTRACKED: 2,310 lines of money-critical code existing only as working-tree state	entries/pain/P3013.md	1	38	7bf5f8ec211048f2		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3443,3 +3447,5 @@ wins	W2786	2786		2026-10-13	SECRATARY-CLOUD	open	**W2786 · 2026-10-13 · Clause
 wins	W2787	2787		2026-10-13	SECRATARY-CLOUD	open	**W2787 · 2026-10-13 · Marketplace: the 90-day window needed a monthly full pass behind it, and now has one.**	entries/wins/W2787.md	1	27	1a00aa37abd02b3c		
 wins	W2788	2788		2026-10-13	SECRATARY-CLOUD	open	**W2788 · 2026-10-13 · The monthly full pass gained 30 matches on its first run: matched 484 -> 514.**	entries/wins/W2788.md	1	32	7efc180b4521f132		
 wins	W2789	2789		2026-10-13	SECRATARY-CLOUD	open	**W2789 · 2026-10-13 · Amazon item parser fixed: two missing layouts, 28 purchases recovered, items sum to the total to the cent.**	entries/wins/W2789.md	1	52	066d6b17400d6cdb		
+wins	W2790	2790		2026-10-13	SECRATARY-CLOUD	open	**W2790 · 2026-10-13 · Nineteen modules and 9,175 lines had no history: forward-view.py and the freshness module among them.**	entries/wins/W2790.md	1	47	b9e5ae164ba33d5c		
+wins	W2791	2791		2026-10-13	SECRATARY-CLOUD	open	**W2791 · 2026-10-13 · The three silent-failure questions are now a doc on main, and landing it found a fourth instance.**	entries/wins/W2791.md	1	42	85ae283c6e29d82d		
