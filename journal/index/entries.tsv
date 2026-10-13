@@ -2294,6 +2294,8 @@ lessons	L3678	3678		2026-10-13	SECRATARY-CLOUD	open	**L3678 · Clause 3 consolid
 lessons	L3679	3679		2026-10-13	SECRATARY-CLOUD	open	**L3679 · The 95 unitemised purchases are Amazon's own layout change, not a parser bug: 98 per cent became 2 in 40**	entries/lessons/L3679.md	1	41	7685fabb950d7634		
 lessons	L3680	3680		2026-10-13	SECRATARY-CLOUD	open	**L3680 · The business/personal Amazon split exists in a column that means something else elsewhere**	entries/lessons/L3680.md	1	40	4c9d3fda4189c261		
 lessons	L3681	3681		2026-10-13	SECRATARY-CLOUD	open	**L3681 · The CFO's ears were not on a clock: registered an await so his reply is processed**	entries/lessons/L3681.md	1	47	d7bfa92a6d7abfbc		
+lessons	L3682	3682		2026-10-13	SECRATARY-CLOUD	open	**L3682 · I broke the one-question-per-subject rule twice; the tax tool now enforces it**	entries/lessons/L3682.md	1	42	956323aab30a727e		
+lessons	L3683	3683		2026-10-13	SECRATARY-CLOUD	open	**L3683 · The 29 small disagreements are not fees: a savings account with 22 negative months**	entries/lessons/L3683.md	1	39	345d45ac5a20cbc8		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2720,6 +2722,9 @@ pain	P3006	3006		2026-10-13	SECRATARY-CLOUD	open	## P3006 — The integrity chec
 pain	P3007	3007		2026-10-13	SECRATARY-CLOUD	open	## P3007 — His answer cannot teach anything: the guess the question carries is not a category that exists	entries/pain/P3007.md	1	49	38b506badd9c5634		
 pain	P3008	3008		2026-10-13	SECRATARY-CLOUD	open	## P3008 — What fills the authority's disk: 760 MB of it is dead weight, and only 9.0 GB is free	entries/pain/P3008.md	1	37	6a90217308a7ed37		
 pain	P3009	3009		2026-10-13	SECRATARY-CLOUD	open	## P3009 — The duplicate marker is not on this box: 2,099 marks with no reviewable rule behind them	entries/pain/P3009.md	1	45	fd012aa0cbf3b1ab		
+pain	P3010	3010		2026-10-13	SECRATARY-CLOUD	open	## P3010 — The tax calendar was computed daily and read by nobody: six obligations past due, three never queued	entries/pain/P3010.md	1	42	7c6bf3a0e141631f		
+pain	P3011	3011		2026-10-13	SECRATARY-CLOUD	open	## P3011 — A fifth Chase card (9680) has statement mail and no account: four unusable balances	entries/pain/P3011.md	1	41	4e657c513c4d4208		
+pain	P3012	3012		2026-10-13	SECRATARY-CLOUD	open	## P3012 — 'Unidentified' is 183 rows and 45,737.48, holds deposits in a spending bucket, and names its own source	entries/pain/P3012.md	1	42	4731786110fdc24b		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3408,3 +3413,6 @@ wins	W2772	2772		2026-10-13	SECRATARY-CLOUD	open	**W2772 · 2026-10-13 · The on
 wins	W2773	2773		2026-10-13	SECRATARY-CLOUD	open	**W2773 · 2026-10-13 · Two item stores: 55 of the 95 unitemised purchases are itemised one table away.**	entries/wins/W2773.md	1	46	725306baac18204a		
 wins	W2774	2774		2026-10-13	SECRATARY-CLOUD	open	**W2774 · 2026-10-13 · Merged the two item stores: 55 orders and 83 item rows, past a gate that reported success while adding nothing.**	entries/wins/W2774.md	1	36	22250842deb7b8c8		
 wins	W2775	2775		2026-10-13	SECRATARY-CLOUD	open	**W2775 · 2026-10-13 · Card 9650's Amazon spend is not business: 0 of 37 linked orders, answering a question parked on 2026-09-10.**	entries/wins/W2775.md	1	35	95138f4fdf61edfc		
+wins	W2776	2776		2026-10-13	SECRATARY-CLOUD	open	**W2776 · 2026-10-13 · Swept the CFO's artifacts: the tax calendar was the only real orphan; the rest have readers.**	entries/wins/W2776.md	1	33	ab19d727463712b9		
+wins	W2777	2777		2026-10-13	SECRATARY-CLOUD	open	**W2777 · 2026-10-13 · R4: a deposit account cannot be negative - and one savings account reconciles as a result.**	entries/wins/W2777.md	1	43	9b7b47ce373e4489		
+wins	W2778	2778		2026-10-13	SECRATARY-CLOUD	open	**W2778 · 2026-10-13 · The forward view had never been run: 7 months of runway, LPT cash 291.61, now on a clock.**	entries/wins/W2778.md	1	42	d82c43ed803f0465		
