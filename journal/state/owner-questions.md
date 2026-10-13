@@ -6,7 +6,7 @@ Updated: 2026-10-13
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 493 row(s) read, 158 pending, generated 2026-10-13 19:53 UTC on SECRATARY-CLOUD.
+Provenance: 493 row(s) read, 157 pending, generated 2026-10-13 20:53 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -167,6 +167,5 @@ Provenance: 493 row(s) read, 158 pending, generated 2026-10-13 19:53 UTC on SECR
 | 457 | 2026-10-13 | low | What was the 92.84 charge at lcd screen on 17 Sep (card ending 3929) - the closest answer we hold for 'Lcd Screen' is 'Electronics & Devices' but entity 'lpt' has no category named 'Electronics & Devices' and none of its categories means the same thing? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 | 460 | 2026-10-13 | low | The OpenAI spend feed cannot be read with the current key: it has no api.usage.read scope. Create an admin key so the CFO can track OpenAI spend, or drop that feed? | Option 1, and it is small: an admin key with api.usage.read is a read-only scope and the script already works end to end - it fetched PayPal's 759 records and Twilio's 38 usage lines on the same loader today. Option 2 is |
 | 489 | 2026-10-13 | low | The text channel's 15-minute safety check that ran on our old server is not running on the new one. Should I restore it? | I recommend restoring it on a 15-minute schedule: it is read-only, it never sends, and it is the last remaining piece of the only open housekeeping item. If you would rather that schedule stay under your own control, tel |
-| 494 | 2026-10-13 | low | What should a sold LPT NAVIGATION unit be called on the device itself? The fleet API can stamp a canonical name on it, but the name is immutable -- there is no API path to change or remove it afterwards. | Leave them unnamed for now. The wallpaper already carries the LPT branding, the name is irreversible, and no customer has met the product yet -- so there is no cost to waiting and a real cost to guessing. |
 
-Closed since the queue opened: 335. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 336. Answered questions move to `entries/decisions/` with the owner's own words.
