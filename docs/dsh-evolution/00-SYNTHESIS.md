@@ -49,11 +49,20 @@ sessions complete. 17.6% carry a correcting or frustrated tone.
 
 ## 3. What is broken, and it is three things more than anyone knew
 
-**a. The transcript archive has been dead since the cutover.** Last ingest **2026-10-11T20:23Z**; the
-store lives on the box that was frozen at 05:43Z that morning; the authority has no archive at all;
-**this laptop's sessions have been unarchived since 09-Oct.** The owner's own standing rule — *"a copy
-always needs to exist"* — is false right now, and the only thing that would have reported it is the
-check, which runs on the box that stopped. `P3162`. Repair dispatched.
+**a. The transcript archive is alive, and it flaps — and I first reported it as dead.** It was
+re-hosted on the authority on **2026-10-12** at `/opt/company/archive/lpt-transcripts` (6.6 GB,
+`manifest.sqlite`, 258 object dirs), driven by the systemd timer `transcript-archive-pull.timer`
+hourly at `*:23`; the pass at **2026-10-13T13:39:56Z succeeded** and ingested from five machines. I
+checked two guessed paths, found neither, and told the owner it had been dead since the cutover —
+**one command, `systemctl list-timers`, would have answered it**, and I skipped it on a system I was
+about to declare broken. Corrected in `AGENTS.md`, in the `yocheved` preset, and in the journal
+(`P3162` retracted; `L3774` is the lesson: *absence at a guessed path is not absence*).
+
+**The real defect underneath is smaller and real:** the archive **fails intermittently and cannot say
+why**. The 13:23Z pass failed exit 3 with the message `TRANSCRIPT ARCHIVE PULL FAILED — cannot reach , which
+this archive has pulled before` — **with an empty machine name** — and the 12:28Z pass failed the same
+way at a **6 GB memory peak** on a 15 GB box. An alarm that cannot name what it could not reach is the
+*"silent failure has no transport"* class again, in a new costume.
 
 **b. The authority is one hourly job from a full disk.** 6.1 GB free, an hourly archive temporary of
 ~6.27 GB, swap at 93.5%, 11 OOM kills in 24 h — and `estate-monitor` computes `CRITICAL crit=4` every
