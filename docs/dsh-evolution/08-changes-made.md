@@ -163,7 +163,7 @@ that was correct in one place and wrong where it counted.**
 
 | item | why it matters | next action |
 |---|---|---|
-| **the authority's checkout is on a feature branch** (`hk/28-refresh-deployed-sources-20261013`) | anything merged to `main` since that branch was cut is not on the always-on machine | converge it onto `main`; the union made this a fast-forward question, not a merge |
+| **the authority's checkout is on a feature branch** (`hk/28-refresh-deployed-sources-20261013`) | anything merged to `main` since that branch was cut is not on the always-on machine | converge it onto `main`. **CORRECTED:** this row first said the union "made this a fast-forward question, not a merge" — that was wrong, and it was inferred from the journal being converged rather than from the repositories. Measured: **104 / 117**, neither side a superset. See §7 and `H3622` |
 | **`preset-drift.py` is not scheduled** | the class it detects can recur silently; `sync.py`'s guard is now audible, but a machine whose *checkout* is stale has no detector | fold `--check` into an existing job, or add a timer |
 | **the queue's filing guard** | ~137 of 162 pending rows are engineering; the queue's own doctrine says a row is "an admission that I could not", and nothing enforces it | a check at `add`, not a mass-close |
 | **the desktop's engine version mismatch** | its sync reports "the RUNNING engine is 0.2.0-rc.2 but configuration names 0.1.5-rc.1" | re-pin or regenerate; found on the way, not part of this job |
