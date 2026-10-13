@@ -1108,6 +1108,7 @@ handoff	H3597	3597		2026-10-13 19:48 UTC	ZABZ-TECH	open	## 2026-10-13 19:48 UTC 
 handoff	H3598	3598		2026-10-13 19:54 UTC	ZABZ-TECH	open	## 2026-10-13 19:54 UTC · ZABZ-TECH · Kramer WhatsApp REOPENED: root cause measured, tool fixed and repair validated on a copy; her phone has NOT been touched	entries/handoff/H3598.md	1	36	977ae27afbcbfa31	lpt,kramer,whatsapp	
 handoff	H3599	3599		2026-10-13 19:54 UTC	ZABZ-TECH	open	## 2026-10-13 19:54 UTC · ZABZ-TECH · Weinreb stick copy running (~25 h, contending with a lab-return job) and handoff media decided: buy nothing, rule fixed in docs/procurement/README.md	entries/handoff/H3599.md	1	31	10e98f04bf8502bd		
 handoff	H3600	3600		2026-10-13 20:08 UTC	ZABZ-TECH	open	## 2026-10-13 20:08 UTC · ZABZ-TECH · Kramer WhatsApp: the allocator fault is DESTROYING her messages, and the reply-pointer guess is dead	entries/handoff/H3600.md	1	36	19f6a5caf9cc6349	lpt,kramer,whatsapp	
+handoff	H3601	3601		2026-10-13 20:13 UTC	ZABZ-TECH	open	## 2026-10-13 20:13 UTC · ZABZ-TECH · Round 3: onboard.py cannot render the gemach wallpaper onto an LPT unit any more; all six verified live	entries/handoff/H3601.md	1	44	c5783a4f1f2b557b		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2663,6 +2664,10 @@ lessons	L3766	3766		2026-10-13	ZABZ-TECH	open	**L3766 · Concurrent sessions in 
 lessons	L3767	3767		2026-10-13	ZABZ-TECH	open	**L3767 · A mis-pointed Core Data object-id allocator does not raise an error - it silently REPLACES the customer's rows**	entries/lessons/L3767.md	1	43	42dd11783a692050	lpt,kramer,ios,whatsapp,core-data,migration	
 lessons	L3768	3768		2026-10-13	ZABZ-TECH	open	**L3768 · Not-rendered-yet meant your file was just deleted; one device_class caused three wrong answers**	entries/lessons/L3768.md	1	58	d88b0a9ddae033d0		
 lessons	L3769	3769		2026-10-13	ZABZ-TECH	open	**L3769 · Two plausible mechanisms died on measurement in one evening - both were the one that explained the words**	entries/lessons/L3769.md	1	32	4559805bdf0e059a	lpt,kramer,verification,wrong-data	
+lessons	L3770	3770		2026-10-13	ZABZ-TECH	open	**L3770 · A reading without a named ground is not a measurement - I built a pack conclusion on an unstated test condition**	entries/lessons/L3770.md	1	51	9fb096d90634ae89	wrong-data,measurement,lpt,bench	lpt-hub:docs/customer-operations/cases/dell-latitude-5420-laptop-klein-2167894450-2026-10-13.md
+lessons	L3771	3771		2026-10-13	ZABZ-TECH	open	**L3771 · Telnyx 2FA backup codes: where they are, and the transcript exposure they carry**	entries/lessons/L3771.md	1	25	45813f7921548ea9		
+lessons	L3772	3772		2026-10-13	ZABZ-TECH	open	**L3772 · Correction to L3770: available current never bounds a converter's output voltage - a rail is real when it holds under a load**	entries/lessons/L3772.md	1	37	2b8134605b9d371b	wrong-data,measurement,electronics,lpt	L3770
+lessons	L3773	3773		2026-10-13	ZABZ-TECH	open	**L3773 · A repair script must classify before it fixes - 39 broken chats were really 10, and 29 of them were not broken**	entries/lessons/L3773.md	1	37	33419398c4bfefc1	lpt,kramer,verification,wrong-data	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3177,6 +3182,7 @@ pain	P3164	3164		2026-10-13	ZABZ-TECH	open	## P3164 — Telnyx arrears killed th
 pain	P3165	3165		2026-10-13	ZABZ-TECH	open	## P3165 — lpt-hub AGENTS.md names a flows-index builder that does not exist; lptcase new silently doubles your slug	entries/pain/P3165.md	1	26	0a47bb17361b5767	lpt,lpt-hub,journal,tooling,doc-defect	
 pain	P3166	3166		2026-10-13	ZABZ-TECH	open	## P3166 — Our completion signal for a data-landing job is a row count, so a store that loses the customer's messages still reports LANDED	entries/pain/P3166.md	1	21	3d864ed5ea673c53	lpt,kramer,verification	
 pain	P3167	3167		2026-10-13	ZABZ-TECH	open	## P3167 — I put the gemach fleet's wallpaper on six units for sale	entries/pain/P3167.md	1	58	91ef2ab29db78b34		
+pain	P3168	3168		2026-10-13	ZABZ-TECH	open	## P3168 — The Telnyx APN profile never worked, and the runbook blamed the SIM	entries/pain/P3168.md	1	61	a4fdbee7acc5e5a1		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
