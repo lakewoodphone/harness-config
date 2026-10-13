@@ -1077,6 +1077,7 @@ handoff	H3623	3623		2026-10-13 15:07 UTC	ZABZ-YOGA	open	## 2026-10-13 15:07 UTC 
 handoff	H3624	3624		2026-10-13 15:12 UTC	ZABZ-YOGA	open	## 2026-10-13 15:12 UTC · ZABZ-YOGA · 122 journal ids mean TWO DIFFERENT ENTRIES -- and my union could not have caught it	entries/handoff/H3624.md	1	46	a6ef631cc62c39fb	journal,collision,overclaim,handoff	H3623,W2799
 handoff	H3625	3625		2026-10-13 15:20 UTC	ZABZ-YOGA	open	## 2026-10-13 15:20 UTC · ZABZ-YOGA · 122 cross-tree id collisions repaired; I blanked 122 files doing it and recovered them	entries/handoff/H3625.md	1	47	5cd10600e873a201	journal,collision,incident,recovery,handoff	H3624,H3623,P13
 handoff	H3626	3626		2026-10-13 17:39 UTC	SECRATARY-CLOUD	open	## 2026-10-13 17:39 UTC · SECRATARY-CLOUD · Ullman Lenovo IdeaPad 3 (NM-D471) - case filed from nothing, board identified from the schematic, one price set; bench trace is the next physical act	entries/handoff/H3626.md	1	27	a8705e9951656138	lpt,ullman,handoff	
+handoff	H3627	3627		2026-10-13 18:20 UTC	SECRATARY-CLOUD	open	## 2026-10-13 18:20 UTC · SECRATARY-CLOUD · Ullman WO26101312747: two false photograph claims withdrawn, production note 4 added, the bench trace still not done	entries/handoff/H3627.md	1	40	b8671ee22ed5f8da		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2616,6 +2617,7 @@ lessons	L3778b	3778	b	2026-10-13	SECRATARY-CLOUD	open	**L3778b · The stale-data
 lessons	L3779	3779		2026-10-13	ZABZ-YOGA	open	**L3779 · The owner queue's filing doctrine cannot be enforced by a regex; two designs measured 0/161 and 3/137**	entries/lessons/L3779.md	1	49	0438028e09cefdf5	owner-queue,negative-result,measurement,design	docs/dsh-evolution/07-pain-register.md,P2942
 lessons	L3779b	3779	b	2026-10-13	SECRATARY-CLOUD	open	**L3779b · A quiet SMS log is not a healthy channel - the machine got quieter while his experience got worse**	entries/lessons/L3779b.md	1	21	3171c5f8b852c78e		
 lessons	L3780	3780		2026-10-13	SECRATARY-CLOUD	open	**L3780 · The NM-D471 ITL6 board: BQ24780S, no input fuse, N-channel input FETs, and where its no-power fault lives**	entries/lessons/L3780.md	1	26	98963168c83da329	lpt,hardware,board-level,diagnosis	
+lessons	L3781	3781		2026-10-13	SECRATARY-CLOUD	open	**L3781 · Verify a production claim with the reader, not with intent - attached as order evidence was never true**	entries/lessons/L3781.md	1	23	44c7c801996cc8a3		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3160,6 +3162,8 @@ pain	P3168	3168		2026-10-13	SECRATARY-CLOUD	open	## P3168 — Estate monitor: di
 pain	P3169	3169		2026-10-13	SECRATARY-CLOUD	open	## P3169 — Estate monitor: swap_used_pct is critical (77.26 %) across 6 consecutive runs	entries/pain/P3169.md	1	23	c3cde4ec55515af9	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 pain	P3170	3170		2026-10-13	SECRATARY-CLOUD	open	## P3170 — A device can sit in the shop for a day with no production record, and nothing detects it	entries/pain/P3170.md	1	14	716e1a7c5e86b49b	lpt,intake,production,data-loss	
 pain	P3171	3171		2026-10-13	SECRATARY-CLOUD	open	## P3171 — Estate monitor: api_rss_gib is critical (6.185 GiB) across 4 consecutive runs	entries/pain/P3171.md	1	23	f30f74b64ad14d48	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
+pain	P3172	3172		2026-10-13	SECRATARY-CLOUD	open	## P3172 — The shop cannot attach a photograph to a work order - every case photo lives only in git	entries/pain/P3172.md	1	22	5d776e3002e4114f		
+pain	P3173	3173		2026-10-13	SECRATARY-CLOUD	open	## P3173 — Two lpt-hub clones disagree about what the repo contains and neither says which one answered	entries/pain/P3173.md	1	21	65959aeeeef9487c		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
