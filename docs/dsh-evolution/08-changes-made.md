@@ -111,7 +111,55 @@ in `AGENTS.md` §6.1 and a checker in `scripts/preset-drift.py`.
 
 ---
 
+## 4b. The second pass — eight more rounds, and the theme became the finding
+
+Everything below was found *by* the work above, and every one of them is the same defect: **a thing
+that was correct in one place and wrong where it counted.**
+
+| # | what was wrong | fixed by | how it was checked |
+|---|---|---|---|
+| 10 | the corrected presets were on **no machine** — the authority loaded a two-day-old file still shipping the `{cwd}` bug, and `/root/.dsh/skills/` **did not exist** | `scripts/preset-drift.py`, then deployed | read back per machine: `cwd_bug=0`, rule present, 9 skills, on ZABZ-YOGA / ZABZ-TECH / secratary-cloud / the Mac mini |
+| 11 | `sync.py` was **refusing correctly** and printing one line nobody reads | `make-preset-rows.mjs --install`; refusal now files a journal entry | isolated test, 4 branches; real journal entry count asserted unchanged |
+| 12 | the **journal was two records** that disagreed (three sessions quoted three different open-pain counts, all correctly) | union in both directions, 149 + 341 entries + 6 status rows | both trees now: 3,819 entries, 401 open pain, status set difference **0**, `check` exit 0 |
+| 13 | the authority ran a **`journal.py` without the fixes**, called by four deployed tools | deployed and committed (`8375e5f`) | diffed first — the only thing unique to the old copy was the bug it fixed; `questions` → 162/326 |
+| 14 | **52 of 61 files in `/usr/local/bin` were in no repository** — `cron-wrap.sh` (58 cron uses), `estate-monitor.py`, `db-integrity-check.py` | captured 41 byte-exact + `MANIFEST.json` | `deployed-drift`: 8 → **47 compared**, 52 → **14 only-deployed** |
+| 15 | two scripts were **ahead in the running location** — real work only on the host | recovered into the repo | neither deployed copy lacked a function the repo had |
+| 16 | **two drift checkers, neither scheduled** | `sync.py` now ends by verifying what it deployed | 5 branches in a throwaway repo; rides on the existing `PersonalSecretary-HarnessSync` |
+| 17 | the queue's filing doctrine had **no enforcement** | *nothing* — two designs measured and rejected | 0/161 and 3/137 recall; a regex cannot carry a judgement |
+| 18 | `phone-gate-allow.txt` drifted by one address | *nothing* — it is **another session's in-flight edit** | `AGENTS.md` §6.1: the host is right; recorded as `H3619` |
+
+**The numbers that were measured rather than asserted:**
+
+| | before | after |
+|---|---:|---:|
+| machines loading the corrected preset | 0 | **4 of 4** |
+| files in `/usr/local/bin` with no repo path | 52 of 61 | **14 of 62** |
+| journal entries (both trees) | 3,478 / 3,663, disagreeing | **identical** |
+| open pain (both trees) | 402 / 405, neither authoritative | **401 both** |
+| drift detected per `sync` run | none | **every run, alarmed** |
+
+**And the honest entries — things that were measured and then abandoned, which is the part a
+"what changed" document usually omits:**
+
+- **The queue filing guard was not built.** Two designs, both run against the live 162 rows: one
+  would have refused **0**, the other caught **3 of ~137**. The mis-filed rows and the legitimate ones
+  use the same phrasing ("I recommend merging PR #1" vs "I recommend adding disk"). A judgement had
+  been mistaken for a pattern, twice, until it was measured.
+- **The phone-gate allow-list was not deployed.** It differs from the running copy by exactly one
+  address, and that copy was written three minutes before I looked by a session still committing.
+  Writing over it would have been this program's own defect, applied to a live session.
+- **Three checkers were found to have a scope limit of their own** — `preset-drift.py` compares bytes
+  where `sync.py` normalises line endings; `assert-bin-matches-repo.py` hardcodes its authority alias;
+  `deployed-drift.py`'s verdict depends on which checkout runs it. All three now say so in their own
+  docstrings, because a checker that lies is worse than no checker.
+
+---
+
 ## 5. What is still open, and none of it is blocked on information
+
+> **Superseded by §7, which is current.** This table is the round-10 snapshot, kept because what a
+> session believed at the time is part of the record — notably, it lists `preset-drift.py` as
+> "not scheduled" as a *finding*, which is exactly the defect §4b then went and fixed.
 
 | item | why it matters | next action |
 |---|---|---|
@@ -138,8 +186,35 @@ python journal/tools/test_mirror_freshness.py
 # the loaded instruction surface, on any machine
 python scripts/preset-drift.py
 
+# the deployed script surface (needs ssh to the host)
+python scripts/deployed-drift.py
+python scripts/assert-bin-matches-repo.py \
+    --manifest scripts/deployed/authority-bin/MANIFEST.json
+
 # the deploy path
 python scripts/sync.py --dry-run
 node scripts/make-preset-rows.mjs --check
 python scripts/test_sync_alarm.py
 ```
+
+---
+
+## 7. Assessment against the four deliverables
+
+| deliverable | state | evidence |
+|---|---|---|
+| (1) an evidence-based audit doc set | **done** | 11 documents, ~120 KB under `docs/dsh-evolution/`; every corpus number from one streaming pass, recomputable by `finalize_corpus.py` |
+| (2) changed instructions and identities | **done** | presets, 3 skills, `AGENTS.md` §6–7, 9 journal-proven rules; **verified loaded on all four machines that load one**, read back per box |
+| (3) built, verified fixes for the top-ranked pains | **done** | 8 fixes; 6 running in production with proofs; 3 checkers built and committed; 2 designs measured and rejected |
+| (4) a refreshed memory/continuity system | **done** | journal unioned to **one record both trees** (3,819 entries, 401 open pain, set difference 0); 14 stranded owner answers recovered; mirror freshness fixed; the answer path writes its own copy |
+
+**What is *not* done — follow-on work the audit surfaced, not unfinished pieces of the ask:**
+
+| item | why it matters | next action |
+|---|---|---|
+| **the authority's checkout is on a feature branch** (`hk/28-refresh-deployed-sources-20261013`) | its `scripts/` are an old lineage; the journal it carries is converged, the repository is not | converge onto `main` — the journal union made this a fast-forward question, not a merge |
+| **`deployed-drift.py` is not scheduled** | the script half can drift silently; `sync.py` now covers the *instruction* half only | a timer on the authority, or fold into an existing job |
+| **`phone-gate-allow.txt`, one address** | the running copy lacks the authority's own entry; a session is actively editing it | whoever owns that work decides; recorded as `H3619` |
+| **the desktop's engine version mismatch** | its sync reports "the RUNNING engine is 0.2.0-rc.2 but configuration names 0.1.5-rc.1" | re-pin or regenerate; found on the way |
+| **the queue's ~137 engineering rows** | they demote the rows that are genuinely his; no regex can separate them (measured) | a reader decides per row, at the moment it is written |
+| **capacity** | the authority is at 91–92% with ~7 GB free above a 25.9 GB database growing ~2.3 MB/h | **row #473 — his to decide**, one question, with a recommendation |
