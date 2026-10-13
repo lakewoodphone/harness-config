@@ -919,6 +919,8 @@ handoff	H3596	3596		2026-10-13 05:46 UTC	SECRATARY-CLOUD	open	## 2026-10-13 05:4
 handoff	H3597	3597		2026-10-13 06:17 UTC	SECRATARY-CLOUD	open	## 2026-10-13 06:17 UTC · SECRATARY-CLOUD · State at round 70: five clauses verified, clause 3 audited and scoped, clause 5 awaits his reply	entries/handoff/H3597.md	1	87	c66a05ef89b29157		
 handoff	H3598	3598		2026-10-13 06:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 06:42 UTC · SECRATARY-CLOUD · The session's findings are now ledger items 66-68; the cfo project had an empty queue	entries/handoff/H3598.md	1	36	08932a69703dc2bf		
 handoff	H3599	3599		2026-10-13 07:08 UTC	SECRATARY-CLOUD	open	## 2026-10-13 07:08 UTC · SECRATARY-CLOUD · State at round 92: ten silent failures fixed, five clauses verified, #475 due in two days	entries/handoff/H3599.md	1	94	5cb182bc65b2677f		
+handoff	H3600	3600		2026-10-13 07:15 UTC	SECRATARY-CLOUD	open	## 2026-10-13 07:15 UTC · SECRATARY-CLOUD · State at round 97: 65 real defects, five clauses verified, #475 due in two days, session should continue fresh	entries/handoff/H3600.md	1	74	8b50a858ab35155c		
+handoff	H3601	3601		2026-10-13 07:25 UTC	SECRATARY-CLOUD	open	## 2026-10-13 07:25 UTC · SECRATARY-CLOUD · State at round 109: every clause verified or bounded, business split landed, #475 still due in two days	entries/handoff/H3601.md	1	68	2e5f64c0cd1768d0		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2303,6 +2305,12 @@ lessons	L3686	3686		2026-10-13	SECRATARY-CLOUD	open	**L3686 · Nothing is asked 
 lessons	L3687	3687		2026-10-13	SECRATARY-CLOUD	open	**L3687 · Two adjacent months disagree by equal and opposite amounts: one defect counted twice**	entries/lessons/L3687.md	1	37	7e5c5398b2aa871c		
 lessons	L3688	3688		2026-10-13	SECRATARY-CLOUD	open	**L3688 · Three compensating pairs: six disagreements are three defects worth 1,802.48**	entries/lessons/L3688.md	1	34	e1fb113ca47ec711		
 lessons	L3689	3689		2026-10-13	SECRATARY-CLOUD	open	**L3689 · 66 of the 68 disagreements sit between two AUTHORITATIVE readings: my bad-reading story was wrong**	entries/lessons/L3689.md	1	42	518eda60e3558adb		
+lessons	L3690	3690		2026-10-13	SECRATARY-CLOUD	open	**L3690 · personal-checking 2026-08: the duplicates are right, so 3,053.08 of OUTFLOW is missing**	entries/lessons/L3690.md	1	40	61090bcfabeca8d7		
+lessons	L3691	3691		2026-10-13	SECRATARY-CLOUD	open	**L3691 · The provenance 'anomaly' is a frozen enum by design, and it validates the census**	entries/lessons/L3691.md	1	36	68d815358b2b4b5a		
+lessons	L3692	3692		2026-10-13	SECRATARY-CLOUD	open	**L3692 · The two open questions are accurate and cannot be answered from the ledger**	entries/lessons/L3692.md	1	33	0e315493c2db2f80		
+lessons	L3693	3693		2026-10-13	SECRATARY-CLOUD	open	**L3693 · PayPal IS in the matcher's scope (607 rows); and 130 of the 484 matches are to a feed, not a card**	entries/lessons/L3693.md	1	35	13da236479ea8a03		
+lessons	L3694	3694		2026-10-13	SECRATARY-CLOUD	open	**L3694 · D01-2770781-9853015 is an Amazon digital order, not a broken join**	entries/lessons/L3694.md	1	33	0c9702b339a274a7		
+lessons	L3695	3695		2026-10-13	SECRATARY-CLOUD	open	**L3695 · Clause 3's bound is confirmed by the tool itself: no in-ledger source reaches before 2026-07-01**	entries/lessons/L3695.md	1	39	98768382a8bfb6b0		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3426,3 +3434,9 @@ wins	W2778	2778		2026-10-13	SECRATARY-CLOUD	open	**W2778 · 2026-10-13 · The fo
 wins	W2779	2779		2026-10-13	SECRATARY-CLOUD	open	**W2779 · 2026-10-13 · The marketplace sync had no clock, and scheduling it would have erased the item merge.**	entries/wins/W2779.md	1	42	909d315c1a6d9edf		
 wins	W2780	2780		2026-10-13	SECRATARY-CLOUD	open	**W2780 · 2026-10-13 · cron-liveness.py: the check that finds a job which never ran.**	entries/wins/W2780.md	1	38	0ea6ccd11358c122		
 wins	W2781	2781		2026-10-13	SECRATARY-CLOUD	open	**W2781 · 2026-10-13 · R5: six of the 68 disagreements are three defects, and the reconciliation now says so.**	entries/wins/W2781.md	1	38	8fd59b93abe285a4		
+wins	W2782	2782		2026-10-13	SECRATARY-CLOUD	open	**W2782 · 2026-10-13 · owner-queue amend: the queue can now keep its rows true, and #228 carries the measured runway.**	entries/wins/W2782.md	1	47	c877b50d125010c0		
+wins	W2783	2783		2026-10-13	SECRATARY-CLOUD	open	**W2783 · 2026-10-13 · The fleet took item 66, proved it on a copy, withheld the live write and found a gap I missed.**	entries/wins/W2783.md	1	46	67cad5e9892b1190		
+wins	W2784	2784		2026-10-13	SECRATARY-CLOUD	open	**W2784 · 2026-10-13 · Business/personal split applied to the live ledger, and #483 came out of the owner queue.**	entries/wins/W2784.md	1	46	9ae630d91629e1fc		
+wins	W2785	2785		2026-10-13	SECRATARY-CLOUD	open	**W2785 · 2026-10-13 · Clause 1 is already durable: finance-freshness is a wake source that alarms on what FEEDS each source.**	entries/wins/W2785.md	1	40	7d548931c9aef8b6		
+wins	W2786	2786		2026-10-13	SECRATARY-CLOUD	open	**W2786 · 2026-10-13 · Clause 5's machinery is exercised both ways: one ask auto-resolved, 54 rules learned.**	entries/wins/W2786.md	1	42	6e1a7e4d1f6b5641		
+wins	W2787	2787		2026-10-13	SECRATARY-CLOUD	open	**W2787 · 2026-10-13 · Marketplace: the 90-day window needed a monthly full pass behind it, and now has one.**	entries/wins/W2787.md	1	27	1a00aa37abd02b3c		
