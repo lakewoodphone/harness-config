@@ -93,6 +93,11 @@ The JSON keys the stdin path accepts: `title`, `heading`, `ticket`, `customer`, 
   she needs this info."* A label has to let someone find the job and know what to hand over and what
   to collect. That means **ticket number and a device/job identity** — a name, a phone and a price
   alone is unusable.
+- **Shop property gets no masthead and no customer identifiers.** Owner, 2026-10-12, on a note for a
+  phone the shop owns: *"don't include the phone number, this is shop property and just a note so the
+  next tech knows the parts of this phone."* So an internal parts note is `no_title: true` with the
+  facts only — e.g. `NEW TOP` / `MOTHERBOARD HAS A BAD FUSE`, 11 mm of tape. Customer identifiers
+  belong on a customer's own device, not on stock.
 - **A line starting with `!` is drawn as a HEADLINE** (bold, sized to the tape, never wrapped) — but
   **only by the newer renderer**. The copy deployed on `secratary` is the older one, where `!` prints
   literally and each line is sized on its own (so a short line blows up). Either use the §6 route, or
