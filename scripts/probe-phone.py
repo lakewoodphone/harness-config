@@ -46,16 +46,39 @@ def _parse_args():
     import argparse
     ap = argparse.ArgumentParser(description="Probe the phone stack end to end.")
     ap.add_argument("authority", nargs="?",
-                    default="secratary.tail93e6e6.ts.net",
-                    help="the tailnet authority the phone dials")
+                    default=None,
+                    help="the tailnet authority the phone dials "
+                         "(default: this node's own tailnet name)")
     ap.add_argument("--json", nargs="?", const=str(STATUS_FILE), default=None,
                     help=f"write a machine-readable result (default {STATUS_FILE})")
     ap.add_argument("--quiet", action="store_true", help="write the file, print nothing")
     return ap.parse_args()
 
 
+def _self_tailnet_name() -> str:
+    """This node's own tailnet name, because the door a phone dials is the node serving it.
+
+    The literal this carried until 2026-10-13 (`secratary.tail93e6e6.ts.net`) named the OFFICE
+    box. After the 2026-10-11 authority cutover that box is the frozen rollback anchor with no
+    phone stack on it, so the default would have probed a door that no longer exists and failed
+    honestly against the wrong machine. Resolved at run time instead, so a node that serves a
+    phone door probes its own.
+    """
+    try:
+        raw = subprocess.run(["tailscale", "status", "--json"], capture_output=True,
+                             timeout=10).stdout
+        self_name = json.loads(raw).get("Self", {}).get("DNSName", "").rstrip(".")
+        if self_name:
+            return self_name
+    except Exception:  # noqa: BLE001 - an unresolved name is answered below, not raised
+        pass
+    # Last resort: the node `/phone` lands on since the cutover (a literal here is a fallback,
+    # never the first answer — docs/mesh/131).
+    return "secratary-cloud.tail93e6e6.ts.net"
+
+
 ARGS = _parse_args()
-AUTHORITY = ARGS.authority
+AUTHORITY = ARGS.authority or _self_tailnet_name()
 GATE = ("127.0.0.1", 3086)
 REDIRECT = ("127.0.0.1", 3087)
 ENGINE = ("127.0.0.1", 3089)

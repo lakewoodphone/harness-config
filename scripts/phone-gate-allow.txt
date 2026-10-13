@@ -36,7 +36,7 @@
 # hour it was written here — never copied from a doc and never guessed.
 #
 # WHY: the shop's counter devices carry the managed "DSH" web clip
-# (`com.abletel.lpt.shopstore.webclip.dsh` -> https://secratary.tail93e6e6.ts.net/), and every one of
+# (`com.abletel.lpt.shopstore.webclip.dsh` -> https://secratary-cloud.tail93e6e6.ts.net/), and every one of
 # them was being refused by name. The owner's report, 2026-10-08: "the dsh keeps not working and
 # saying to add the ip address or whatever to the allow list." They are the same devices the shop
 # runbook names — `personal-secretary-mvp/deploy/waze-mdm/docs/lpt-shop-device-runbook.md` §7 lists

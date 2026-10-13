@@ -411,7 +411,7 @@ title, and the bundle tags.
 |---|---|---|
 | `display: "fullscreen"` | not `standalone` | Apple's documented iOS mode is **`standalone`**; `fullscreen` is a manifest mode whose iOS behaviour I did **not** verify. If iOS ignores it, the home-screen icon opens **with** Safari chrome — still usable, just not app-like |
 | no `apple-mobile-web-app-capable` meta | absent | the legacy switch that made icon-opens-chromeless on older iOS is not set; there is no fallback path |
-| no `apple-touch-icon` | absent | iOS uses a screenshot of the page as the icon |
+| no `apple-touch-icon` | absent | iOS uses a screenshot of the page as the icon. **RECTIFIED 2026-10-13** — the gate now serves a 180×180 PNG at `/apple-touch-icon.png` and injects the link (§9.1) |
 | no `theme-color`, no `background_color` | absent | white/unspecified splash and status bar; cosmetic only |
 | one **SVG** icon, `sizes: any`, `purpose: any` | SVG only | iOS home-screen icons want a PNG (180×180 is the usual size); an SVG may be ignored → screenshot icon |
 | `start_url: "/"`, `scope: "/"` | correct | the whole app is in scope, so links stay inside the Web App |
@@ -621,11 +621,26 @@ In-process checks on the same file: injection is **byte-identical on a second pa
 already carries its own `theme-color` keeps exactly one; a document with no `</head>` is returned
 unchanged; `PHONE_HEAD=0` returns the document and the manifest untouched.
 
-**Two things deliberately NOT done, with the reason in the code:** no `apple-touch-icon` (iOS rejects an
-SVG for that rel and this repo's only PNGs are app screenshots — the real fix is a PNG upstream), and no
-`theme_color`/`background_color` in the manifest (iOS ignores both; its splash comes from
-`apple-touch-startup-image`, and a single-valued manifest field cannot track the OS colour scheme the way
-the two `<meta>` tags do).
+**One of the two things deliberately NOT done then was done on 2026-10-13.** `apple-touch-icon`
+is now delivered: `scripts/phone-gate.py` serves `/apple-touch-icon.png` (and its
+`-precomposed` alias, which some iOS versions probe first) from `assets/apple-touch-icon.png`, a
+180×180 PNG, and injects `<link rel="apple-touch-icon" sizes="180x180">` into the document.
+Measured through the tailnet the same hour: **200, `image/png`, 5580 bytes**, byte-identical to the
+asset, with the link tag present in the served document and the layer report naming the icon;
+`scripts/verify-phone-icon.py` **23/23**. The reason it was absent stands, and is exactly why the
+fix needed a PNG: **iOS rejects an SVG for that rel**, and this repo's only PNGs were app
+screenshots — so the icon had to be authored, not referenced. Kill switch `PHONE_TOUCH_ICON=0`.
+Still not done, deliberately: `theme_color`/`background_color` in the manifest (iOS ignores both;
+its splash comes from `apple-touch-startup-image`, and a single-valued manifest field cannot track
+the OS colour scheme the way the two `<meta>` tags do).
+
+**The managed-web-clip case is a different mechanism, and it bit the shop devices.** An
+MDM-installed web clip does **not** read `apple-touch-icon` from the page — it takes its icon from
+the profile payload's `Icon` key, and Apple's WebClip reference says of that key, verbatim: *"If
+not set, the system displays a white square."* The three LPT shop counter devices carried two
+clips with no `Icon`, which is the grey square the owner reported on 2026-10-13. Fixed in the
+profile, not on the page: `deploy/waze-mdm/profiles/shop-store.mobileconfig`,
+`docs/lpt-shop-device-runbook.md` §8.
 
 **`apple-mobile-web-app-status-bar-style` is `default`, not `black-translucent`, and that is a refusal to
 guess.** `black-translucent` is what makes `env(safe-area-inset-top)` non-zero — and it draws the status

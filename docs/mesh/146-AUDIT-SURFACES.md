@@ -10,6 +10,16 @@ serving machine's own log for the request.
 
 **A reading I did not take says so. Anything I could not test end to end is marked UNKNOWN, never healthy.**
 
+**SUPERSEDED IN PART, 2026-10-13 — the table below is the record of 2026-10-11, not a status page.**
+The two rows that were defects have since been fixed, and reading them as current is how a stale
+reading becomes a false report: **#4** (`https://secratary-cloud.tail93e6e6.ts.net/`) answers, because
+`tailscale serve` on the authority publishes `3086` under that name; **#3**'s "WRONG MACHINE" is
+resolved — `/etc/cloudflared/phone-redirector.env` now names the cloud, and
+`https://ai.abletelsolutions.com/phone` → `302` → `https://secratary-cloud.tail93e6e6.ts.net/` → `200`
+(re-measured 2026-10-13 14:30Z from ZABZ-YOGA). The shop counter devices' web clip, which this
+document did not cover, was repointed at that same name on 2026-10-13 —
+`deploy/waze-mdm/docs/lpt-shop-device-runbook.md` §8.
+
 | # | surface | verdict |
 |---|---|---|
 | 1 | `api.abletelsolutions.com` (company API) | **WORKING** |
