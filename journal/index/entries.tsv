@@ -1107,6 +1107,7 @@ handoff	H3596	3596		2026-10-13 19:45 UTC	ZABZ-TECH	open	## 2026-10-13 19:45 UTC 
 handoff	H3597	3597		2026-10-13 19:48 UTC	ZABZ-TECH	open	## 2026-10-13 19:48 UTC · ZABZ-TECH · LPT NAVIGATION delta: Waze proved installed on all six, QC worksheet created, Telnyx still unfunded	entries/handoff/H3597.md	1	41	5149011a49269afc		
 handoff	H3598	3598		2026-10-13 19:54 UTC	ZABZ-TECH	open	## 2026-10-13 19:54 UTC · ZABZ-TECH · Kramer WhatsApp REOPENED: root cause measured, tool fixed and repair validated on a copy; her phone has NOT been touched	entries/handoff/H3598.md	1	36	977ae27afbcbfa31	lpt,kramer,whatsapp	
 handoff	H3599	3599		2026-10-13 19:54 UTC	ZABZ-TECH	open	## 2026-10-13 19:54 UTC · ZABZ-TECH · Weinreb stick copy running (~25 h, contending with a lab-return job) and handoff media decided: buy nothing, rule fixed in docs/procurement/README.md	entries/handoff/H3599.md	1	31	10e98f04bf8502bd		
+handoff	H3600	3600		2026-10-13 20:08 UTC	ZABZ-TECH	open	## 2026-10-13 20:08 UTC · ZABZ-TECH · Kramer WhatsApp: the allocator fault is DESTROYING her messages, and the reply-pointer guess is dead	entries/handoff/H3600.md	1	36	19f6a5caf9cc6349	lpt,kramer,whatsapp	
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2659,6 +2660,7 @@ lessons	L3763	3763		2026-10-13	ZABZ-TECH	open	**L3763 · Apple ID sign-out block
 lessons	L3764	3764		2026-10-13	ZABZ-TECH	open	**L3764 · A hand-merged Core Data store is verified by its allocator and its per-chat ordering counters, never by its row counts**	entries/lessons/L3764.md	1	47	9be64839dd3cc6f3	lpt,kramer,ios,whatsapp,core-data,migration	
 lessons	L3765	3765		2026-10-13	ZABZ-TECH	open	**L3765 · A MacBook screen complaint is three different jobs wearing one sentence - diagnose before quoting**	entries/lessons/L3765.md	1	62	4fa24b8412da3868	lpt,diagnostics,procedure	
 lessons	L3766	3766		2026-10-13	ZABZ-TECH	open	**L3766 · Concurrent sessions in one clone: path-scoped-add-then-commit is two calls, and the gap loses the commit message**	entries/lessons/L3766.md	1	55	041c1034bdb09574	git,concurrency,lpt-hub	P13
+lessons	L3767	3767		2026-10-13	ZABZ-TECH	open	**L3767 · A mis-pointed Core Data object-id allocator does not raise an error - it silently REPLACES the customer's rows**	entries/lessons/L3767.md	1	43	42dd11783a692050	lpt,kramer,ios,whatsapp,core-data,migration	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
