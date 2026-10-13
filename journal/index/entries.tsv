@@ -2661,6 +2661,8 @@ lessons	L3764	3764		2026-10-13	ZABZ-TECH	open	**L3764 · A hand-merged Core Data
 lessons	L3765	3765		2026-10-13	ZABZ-TECH	open	**L3765 · A MacBook screen complaint is three different jobs wearing one sentence - diagnose before quoting**	entries/lessons/L3765.md	1	62	4fa24b8412da3868	lpt,diagnostics,procedure	
 lessons	L3766	3766		2026-10-13	ZABZ-TECH	open	**L3766 · Concurrent sessions in one clone: path-scoped-add-then-commit is two calls, and the gap loses the commit message**	entries/lessons/L3766.md	1	55	041c1034bdb09574	git,concurrency,lpt-hub	P13
 lessons	L3767	3767		2026-10-13	ZABZ-TECH	open	**L3767 · A mis-pointed Core Data object-id allocator does not raise an error - it silently REPLACES the customer's rows**	entries/lessons/L3767.md	1	43	42dd11783a692050	lpt,kramer,ios,whatsapp,core-data,migration	
+lessons	L3768	3768		2026-10-13	ZABZ-TECH	open	**L3768 · Not-rendered-yet meant your file was just deleted; one device_class caused three wrong answers**	entries/lessons/L3768.md	1	58	d88b0a9ddae033d0		
+lessons	L3769	3769		2026-10-13	ZABZ-TECH	open	**L3769 · Two plausible mechanisms died on measurement in one evening - both were the one that explained the words**	entries/lessons/L3769.md	1	32	4559805bdf0e059a	lpt,kramer,verification,wrong-data	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
