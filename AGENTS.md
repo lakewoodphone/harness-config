@@ -49,20 +49,32 @@ same way.
 
 ### Where the archive is
 
-| What | Where | Held by |
+> **CORRECTED 2026-10-13, measured.** Every row below named the office box, which was FROZEN on
+> 2026-10-11T05:43:36Z; the archive has ingested nothing since **2026-10-11T20:23Z** and the
+> authority holds no archive at all. Status and evidence: journal `P3162`. **The archive must be
+> re-hosted on `secratary-cloud`** — this table is the intended state, not the current one, until
+> that lands.
+
+| What | Where (intended) | Held by |
 |---|---|---|
-| **Raw transcript archive** (NEW, 2026-10-09) | `secratary:/home/zabz/lpt-transcripts/` | this rule |
-| DSH sessions, parsed, in the company database | `secratary:/home/zabz/personal-secretary-mvp/data/secretary.db` → `dsh_sessions`, `dsh_session_events` | `scripts/push-dsh-sessions.mjs`, hourly |
-| Copilot chats, parsed, in the company database | same DB → `vscode_chat_sessions`, `vscode_chat_messages` | `scripts/push_vscode_chats.py`, hourly |
+| **Raw transcript archive** | `secratary-cloud:/root/lpt-transcripts/` — **moved off the frozen box**; the historical copy is still `secratary:/home/zabz/lpt-transcripts/` (5.5 GB, last written 2026-10-11 20:23Z) | this rule |
+| DSH sessions, parsed, in the company database | `secratary-cloud:/root/authority.db` → `dsh_sessions`, `dsh_session_events` | `scripts/push-dsh-sessions.mjs`, hourly |
+| Copilot chats, parsed, in the company database | the same database → `vscode_chat_sessions`, `vscode_chat_messages` (**measured 2026-10-13: 1,608 sessions / 4,373 messages, newest 2026-09-18 — 25 days stale**) | `personal-secretary-mvp/scripts/push_vscode_chats.py`, hourly |
 | **DEPRECATED — do not read to decide freshness** | `secratary:/home/zabz/dsh-archive/dsh-archive.db` | frozen 2026-09-11 by design; see its `RETIRED.md` |
 
-The parsed stores in `secretary.db` are a **projection**: they keep messages and an indexed
-summary, not the bytes. The raw archive below keeps the bytes, including files the parser never
-read. Both matter; the raw one is the one that cannot be reconstructed.
+**Note on the script paths:** the two Copilot-side scripts live in
+`personal-secretary-mvp/scripts/`, **not** this repo's `scripts/`. An audit on 2026-10-13 reported
+them as nonexistent because it looked only in `harness-config/`; both are present
+(`push_vscode_chats.py` 24,934 B, `vscode_chat_extractor.py` 35,494 B). Correct the path, not the name.
+
+The parsed stores are a **projection**: they keep messages and an indexed summary, not the bytes.
+The raw archive keeps the bytes, including files the parser never read. Both matter; the raw one is
+the one that cannot be reconstructed.
 
 ### How it stays current
 
-One scheduler, on the machine that is always on. `cron` on `secratary`, hourly, via
+One scheduler, on the machine that is always on. **`cron` on `secratary-cloud`** (the authority
+since 2026-10-11; this said `secratary`, the box that was frozen), hourly, via
 `cron-wrap.sh` (the estate's convention — it records every run's exit code in
 `~/.cron-status/runs.tsv`) running `~/bin/transcript-archive-run.sh`, which:
 
@@ -78,8 +90,8 @@ The scripts are in `scripts/`, and are synced to every node with the rest of `ha
 ### How to tell whether it is current — and the check that fails when it is not
 
 ```
-ssh secratary-ts 'python3 ~/code/harness-config/scripts/transcript-archive-server.py --stats'
-ssh secratary-ts 'python3 ~/code/harness-config/scripts/transcript-archive-server.py --check'
+ssh secratary-cloud 'python3 ~/code/harness-config/scripts/transcript-archive-server.py --stats'
+ssh secratary-cloud 'python3 ~/code/harness-config/scripts/transcript-archive-server.py --check'
 cat ~/.transcript-archive/status.json        # last run, from the cron job
 ```
 

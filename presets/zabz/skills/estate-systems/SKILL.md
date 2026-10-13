@@ -36,7 +36,8 @@ grep -ril "<the thing>" ~/code/harness-config ~/code/personal-secretary-mvp 2>/d
 ls ~/bin /opt/company/deploy/hosting-migration/scripts 2>/dev/null
 ```
 Also look on the hosts, because much of this estate's machinery is deployed rather than committed:
-`lpt-survivor-01` holds the failover tooling, `secratary-cloud` and `secratary` hold the authority,
+`lpt-survivor-01` holds the failover tooling, **`secratary-cloud` holds the authority** (the office box
+`secratary` is the FROZEN rollback anchor — read `settings/machines/host-posture.tsv`, never touch it),
 `lpt-apps` is the vault and the Caddy front door.
 
 **3. Search the journal** — the estate's own memory, which records what was built and what it cost:
