@@ -1,0 +1,50 @@
+--- a/ck/sentinel.py
++++ b/ck/sentinel.py
+@@ -1,6 +1,23 @@
++    # Two-sample rule: a single non-clean sample is the 15-minute cache talking, not a
++    # divergence. Escalate HIGH only when the SAME non-clean result is seen twice running.
++    prev = _load_config_sync_state()
++    _save_config_sync_state({"result": result, "at": doc.get("at")})
+     if result != "clean":
++        if prev is not None and str(prev.get("result")) == result:
++            return Finding(
++                check="config_sync", severity=HIGH, ok=False,
++                summary=(f"config sync was '{result}' on two consecutive samples "
++                         f"{_human(age)} apart: {doc.get('detail')}"),
++                metrics=metrics,
++            )
+         return Finding(
+-            check="config_sync", severity=HIGH, ok=False,
+-            summary=f"last config sync was '{result}' {_human(age)} ago: {doc.get('detail')}",
++            check="config_sync", severity=MEDIUM, ok=False,
++            summary=(f"first non-clean config sync ('{result}') {_human(age)} ago -- "
++                     f"awaiting a second sample before escalating: {doc.get('detail')}"),
+             metrics=metrics,
+         )
++    return Finding(
++        check="config_sync", severity=INFO, ok=True,
++        summary=f"config converged {_human(age)} ago at {doc.get('commit')}",
++        metrics=metrics,
++    )
+
+--- a/ck/sentinel.py
++++ b/ck/sentinel.py
+@@ module level (add near AUTOSYNC_STATUS) @@
++#: The two-sample memory for check_config_sync. A single non-clean sample is the
++#: 15-minute autosync cache, not a divergence; HIGH needs two consecutive samples.
++CONFIG_SYNC_STATE = Path(os.environ.get(
++    "CONFIG_SYNC_STATE", "/var/lib/ceo-kernel/config-sync-state.json"))
++
++
++def _load_config_sync_state():
++    try:
++        return json.loads(CONFIG_SYNC_STATE.read_text(encoding="utf-8"))
++    except Exception:  # missing or unreadable state is "no previous sample"
++        return None
++
++
++def _save_config_sync_state(obj):
++    CONFIG_SYNC_STATE.parent.mkdir(parents=True, exist_ok=True)
++    tmp = CONFIG_SYNC_STATE.with_suffix(".tmp")
++    tmp.write_text(json.dumps(obj), encoding="utf-8")
++    tmp.replace(CONFIG_SYNC_STATE)
