@@ -94,6 +94,30 @@ if ($repo -like "$env:TEMP*" -and (Test-Path (Join-Path $checkout 'packages'))) 
     Write-Host "      linking to the checkout instead ($checkout) -- a junction into %TEMP% dangles"
     $repo = $checkout
 }
+# INSTALLING FROM AN OLD CHECKOUT IS SILENT, AND IT REACHES THE OWNER'S SCREEN. Measured 2026-10-13
+# on ZABZ-TECH: this script installs the client bundles from the WORKING TREE, so a session that ran
+# it from a branch 89 commits behind origin/main installed the PRE-FIX attention badge -- one whose
+# findings origin was the frozen office box -- and the owner's harness read "6 needing attention -
+# stale 45h ago" for a day, with no error anywhere, while origin/main and ZABZ-YOGA already carried
+# the fix (8c00270d, docs/mesh/168-ATTENTION-AUTHORITY.md). Client bundles are served IMMUTABLE, so a
+# stale install survives every reload until the bytes change.
+#
+# This reads the LOCAL remote-tracking ref: no network, no fetch, no refusal. A session legitimately
+# installs its own in-progress work from a working tree; it just says what it is about to publish.
+try {
+    if (Test-Path (Join-Path $repo '.git')) {
+        $branch = (& git -C $repo rev-parse --abbrev-ref HEAD 2>$null)
+        $behind = (& git -C $repo rev-list --count 'HEAD..origin/main' 2>$null)
+        if ($LASTEXITCODE -eq 0 -and "$behind" -match '^\d+$' -and [int]$behind -gt 0) {
+            Write-Warning ("installing client bundles from '{0}', {1} commit(s) behind origin/main" -f $branch, $behind)
+            Write-Warning "  origin/main may already fix these bundles; because the bundles are cached immutably, a stale one is served as if it were current."
+            Write-Warning ("  what is missing: git -C `"{0}`" log --oneline HEAD..origin/main" -f $repo)
+        }
+    }
+} catch {
+    # A missing git, no origin/main, or a detached HEAD is not a reason to stop an install.
+}
+
 $dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $HOME '.dsh' }
 if (-not $ProfileDir) { $ProfileDir = Join-Path $dshHome 'profiles\web' }
 

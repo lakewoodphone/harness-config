@@ -53,6 +53,26 @@ PROFILE="${2:-${DSH_HOME:-$HOME/.dsh}/profiles/web}"
 
 [ -n "$PKG_DIR" ] || { echo "usage: $(basename "$0") <package-dir> [profile-dir]" >&2; exit 2; }
 [ -d "$PKG_DIR" ] || { echo "no package directory at $PKG_DIR" >&2; exit 2; }
+
+# INSTALLING FROM AN OLD CHECKOUT IS SILENT, AND IT REACHES THE OPERATOR'S SCREEN. The package is
+# linked straight out of the working tree, so a checkout that is behind origin/main publishes a
+# stale client bundle with no error anywhere: measured 2026-10-13 on ZABZ-TECH, where a branch 89
+# commits behind origin/main served a pre-fix badge whose findings origin was the frozen office box
+# (docs/mesh/168-ATTENTION-AUTHORITY.md). Bundles are cached immutably, so a stale one is served as
+# if it were current until the bytes change.
+#
+# This reads the LOCAL remote-tracking ref: no fetch, and it never refuses -- a session installs its
+# own in-progress work on purpose. It just says what it is about to publish.
+REPO_TOP="$(git -C "$(dirname "$PKG_DIR")" rev-parse --show-toplevel 2>/dev/null || true)"
+BEHIND="$(git -C "$REPO_TOP" rev-list --count HEAD..origin/main 2>/dev/null || true)"
+case "${BEHIND:-}" in
+  ''|0) ;;
+  *)
+    echo "warning: installing from '$(git -C "$REPO_TOP" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)' -- $BEHIND commit(s) behind origin/main" >&2
+    echo "         origin/main may already fix this bundle, and client bundles are cached immutably." >&2
+    echo "         what is missing: git -C $REPO_TOP log --oneline HEAD..origin/main" >&2
+    ;;
+esac
 [ -f "$PKG_DIR/package.json" ] || { echo "no package.json in $PKG_DIR" >&2; exit 2; }
 [ -d "$PROFILE" ] || { echo "no profile at $PROFILE" >&2; exit 1; }
 
