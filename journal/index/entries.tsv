@@ -1081,6 +1081,7 @@ handoff	H3627	3627		2026-10-13 18:20 UTC	SECRATARY-CLOUD	open	## 2026-10-13 18:2
 handoff	H3628	3628		2026-10-13 20:18 UTC	SECRATARY-CLOUD	open	## 2026-10-13 20:18 UTC · SECRATARY-CLOUD · Telnyx portal 2FA identified (SMS to a phone number on the account); account still unfunded	entries/handoff/H3628.md	1	43	775a6c4710198cfb	telnyx,waze,owner-blocked	
 handoff	H3629	3629		2026-10-13 22:03 UTC	SECRATARY-CLOUD	superseded	## 2026-10-13 22:03 UTC · SECRATARY-CLOUD · Charger sourcing answered and recorded: PhoneLCDParts supply, import rejected, resale price picked	entries/handoff/H3629.md	1	34	616fa5484bc64a36		
 handoff	H3630	3630		2026-10-13 22:47 UTC	SECRATARY-CLOUD	open	## 2026-10-13 22:47 UTC · SECRATARY-CLOUD · Charger record published at docs/procurement/ revision 2, with the folder index; procurement README left to its author	entries/handoff/H3630.md	1	38	6153f3f31ee3e14b		
+handoff	H3631	3631		2026-10-13 23:12 UTC	SECRATARY-CLOUD	open	## 2026-10-13 23:12 UTC · SECRATARY-CLOUD · Mendelowitz iPhone: new Apple ID recorded (his credentials + six photos, pushed); job closed by the owner; one open question about the second slip	entries/handoff/H3631.md	1	30	c1d993c58120b0e5	lpt-hub,mendelowitz	
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2625,6 +2626,7 @@ lessons	L3782	3782		2026-10-13	SECRATARY-CLOUD	open	**L3782 · A no-draw fault c
 lessons	L3783	3783		2026-10-13	SECRATARY-CLOUD	open	**L3783 · Telnyx portal: the 2FA code goes to a phone number, and Camoufox is what gets past Turnstile**	entries/lessons/L3783.md	1	58	7164d86d77e495f9	telnyx,waze,browser,2fa	
 lessons	L3784	3784		2026-10-13	SECRATARY-CLOUD	open	**L3784 · Shop-purchase questions: do not open with the comms archive or a repo-wide grep**	entries/lessons/L3784.md	1	24	f1516d904b4ba7da		
 lessons	L3785	3785		2026-10-13	SECRATARY-CLOUD	open	**L3785 · Before writing a conventional filename in a shared repo, read the authority copy - a stale clone nearly overwrote the procurement standing rules**	entries/lessons/L3785.md	1	25	8b1edb8b87079f7c		
+lessons	L3786	3786		2026-10-13	SECRATARY-CLOUD	open	**L3786 · Customer credentials, extended: Apple IDs are in scope, the photos need a .gitignore whitelist, and the trusted number is the shop's own line**	entries/lessons/L3786.md	1	36	6aae1f6fde074b3a	lpt-hub,credentials,customer-cases	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
