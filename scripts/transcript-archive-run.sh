@@ -20,16 +20,67 @@
 set -uo pipefail
 
 ARCHIVE="${TRANSCRIPT_ARCHIVE_ROOT:-/home/zabz/lpt-transcripts}"
-SCRIPTS="${TRANSCRIPT_SCRIPTS:-/home/zabz/code/harness-config/scripts}"
-JOURNAL="${TRANSCRIPT_JOURNAL:-$HOME/code/harness-config/journal/tools/journal.py}"
 STATE_DIR="${TRANSCRIPT_STATE_DIR:-$HOME/.transcript-archive}"
 MAX_BYTES="${TRANSCRIPT_MAX_BYTES:-3000000000}"
 ROUNDS="${TRANSCRIPT_ROUNDS:-3}"
 MACHINES="${TRANSCRIPT_MACHINES:---all}"
 STAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
+# WHERE THE SCRIPTS ARE. This used to default to /home/zabz/code/harness-config/scripts, which is
+# right on the office box and WRONG on the authority, where the checkout is /root/code/harness-config.
+# A cron entry that inherits a wrong default fails with "no such file" and records rc=127 in the
+# ledger -- which nobody reads. Resolve it, and take the first that exists.
+if [ -n "${TRANSCRIPT_SCRIPTS:-}" ]; then
+  SCRIPTS="$TRANSCRIPT_SCRIPTS"
+else
+  SCRIPTS=""
+  for cand in "$HOME/code/harness-config/scripts" "$HOME/harness-config/scripts" \
+              "$(dirname "$(readlink -f "$0")")"; do
+    [ -f "$cand/transcript-archive-pull.py" ] && { SCRIPTS="$cand"; break; }
+  done
+fi
+JOURNAL="${TRANSCRIPT_JOURNAL:-$(dirname "${SCRIPTS:-/root/code/harness-config/scripts}")/journal/tools/journal.py}"
+
+# ── THE FREE-SPACE FLOOR ────────────────────────────────────────────────────────────────────────
+# WHY THIS EXISTS, MEASURED 2026-10-13. `transcript-archive-pull.py` stages every machine's tar in
+# SPOOL = <archive root>/incoming -- the SAME filesystem as the company database -- and this script
+# runs up to $ROUNDS rounds of up to $MAX_BYTES each, so one pass can write up to
+# $((MAX_BYTES * ROUNDS)) bytes with NO free-space check anywhere in either file.
+#
+# The consequence was not theoretical. On 2026-10-13 the authority's disk swung from 92% / 6.1 GB
+# free (measured) to 98.7% / 0.0 GB free (`disk-guard` CRITICAL at 13:00:03Z) in the same hour, and
+# `prune-backups` logged `FLOOR BREACHED ... Pruned NOTHING; investigate what filled the disk.` A
+# 3 GB pass against 6 GB free is the whole explanation, and the box that fills is the sole writer of
+# the company database. Journal P3161.
+#
+# The floor is the budget for THIS pass plus headroom for everything else that is running, and it is
+# re-checked before every round, because the first round's own tar is what consumes the space the
+# second would spend.
+FREE_RESERVE_BYTES="${TRANSCRIPT_FREE_RESERVE_BYTES:-2000000000}"
+need_bytes=$((MAX_BYTES + FREE_RESERVE_BYTES))
+
+free_bytes() {
+  # POSIX `df -Pk` field 4 is "available", in 1K blocks. No --output (GNU-only), no parse of the
+  # human-readable column.
+  df -Pk "$1" 2>/dev/null | awk 'NR==2 {print $4 * 1024}'
+}
+
 mkdir -p "$STATE_DIR" "$ARCHIVE/logs" "$ARCHIVE/incoming"
 LOG="$ARCHIVE/logs/pull-$(date -u '+%Y%m%d').jsonl"
+
+have_bytes="$(free_bytes "$ARCHIVE")"
+if [ -z "$have_bytes" ] || [ "$have_bytes" -lt "$need_bytes" ]; then
+  {
+    printf '%s TRANSCRIPT ARCHIVE REFUSED TO START — not enough free space to stage a pull\n' "$STAMP"
+    printf '  archive   : %s\n' "$ARCHIVE"
+    printf '  free      : %s bytes\n' "${have_bytes:-unknown}"
+    printf '  needs     : %s bytes (max-bytes %s + reserve %s)\n' "$need_bytes" "$MAX_BYTES" "$FREE_RESERVE_BYTES"
+    printf '  These tars stage inside the archive root, on the same filesystem as the company database.\n'
+    printf '  Lower TRANSCRIPT_MAX_BYTES, free space, or raise the floor deliberately. Do not widen the\n'
+    printf '  budget to make this pass — that is how the disk filled on 2026-10-13.\n'
+  } | tee "$STATE_DIR/ALARM" >&2
+  exit 3
+fi
 
 # One pass at a time: an hourly job that outlives its hour must not stack up on itself.
 exec 9>"$STATE_DIR/.lock"
@@ -43,6 +94,15 @@ pull_out=""
 round=0
 while [ "$round" -lt "$ROUNDS" ]; do
   round=$((round + 1))
+  # Re-check the floor before every round: the previous round's tar is what ate the space.
+  have_bytes="$(free_bytes "$ARCHIVE")"
+  if [ -z "$have_bytes" ] || [ "$have_bytes" -lt "$need_bytes" ]; then
+    printf '%s round %d: STOPPED on the free-space floor (%s bytes free, %s needed)\n' \
+      "$STAMP" "$round" "${have_bytes:-unknown}" "$need_bytes" >> "$ARCHIVE/logs/run.log"
+    printf '{"at":"%s","round":%d,"stopped_on_free_space":true,"free":%s,"need":%s}\n' \
+      "$STAMP" "$round" "${have_bytes:-0}" "$need_bytes" >> "$LOG"
+    break
+  fi
   # shellcheck disable=SC2086
   pull_out="$(python3 "$SCRIPTS/transcript-archive-pull.py" $MACHINES --max-bytes "$MAX_BYTES" 2>&1)"
   printf '{"at":"%s","round":%d,"out":%s}\n' "$STAMP" "$round" \
