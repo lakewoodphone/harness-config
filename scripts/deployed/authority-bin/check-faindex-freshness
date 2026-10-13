@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# check-faindex-freshness -- the CLOCK GUARD for the estate's file/symbol/journal search indexes.
+#
+# WHY A CLOCK GUARD AND NOT JUST A REFRESH JOB. This estate has shipped a silently dead search
+# refresh twice, and both times every surface still described the index as "scheduled":
+#
+#   * journal P2899 D2 (2026-10-09) -- the refresh task's trigger was `Duration=P1D, Interval=PT30M`,
+#     so it fired every 30 minutes for one day and then the repetition pattern EXPIRED.
+#     `NextRunTime` was empty, `LastTaskResult=1`, and the index had been dead for 21 days.
+#   * H3376 (2026-10-09) -- the same clock, re-registered; the index read 21 days stale.
+#
+# A refresh job cannot report that it has stopped running. Only a second job that measures the index
+# can. This is that job, and it exits non-zero so `cron-wrap.sh` records the failure in
+# ~/.cron-status/runs.tsv rather than leaving a line in a log nobody opens.
+#
+# EXIT STATUS
+#   0  every index present and inside its ceiling
+#   1  an index is MISSING or STALE                 <- the thing this exists to catch
+#   2  could not check (no index dir at all, or the index dir is not readable)
+#
+#   2 is not 0. "I could not check" is never "it is fine".
+set -uo pipefail
+
+H="${HOME:-/root}"
+IDX="${FAINDEX:-$H/.faindex}"
+# The refresh runs every 15 minutes. A ceiling of 30 minutes allows exactly one missed run before
+# this alarms -- tight enough to catch a dead clock within a half hour, loose enough not to fire on
+# a single slow tick. Shorter than the refresh interval would alarm on a healthy index, which is how
+# readers are taught to ignore a banner (measured 2026-10-08 in find-anything's own --max-age note).
+CEILING="${FAINDEX_CEILING:-1800}"
+JC="${FA_HARNESS_CONFIG:-$H/code/harness-config}"
+[ -d "$JC" ] || JC="$H/harness-config"
+
+rc=0
+checked=0
+
+report() { # label path ceiling
+  local label="$1" path="$2" ceiling="$3"
+  if [ ! -e "$path" ]; then
+    printf 'MISSING  %-14s %s\n' "$label" "$path"
+    return 1
+  fi
+  local age=$(( $(date +%s) - $(stat -c %Y "$path" 2>/dev/null || echo 0) ))
+  if [ "$age" -gt "$ceiling" ]; then
+    printf 'STALE    %-14s age %ss > ceiling %ss  (%s)\n' "$label" "$age" "$ceiling" "$path"
+    return 1
+  fi
+  printf 'fresh    %-14s age %ss            (%s)\n' "$label" "$age" "$path"
+  return 0
+}
+
+if [ ! -d "$IDX" ]; then
+  echo "check-faindex-freshness: no index directory at $IDX -- NOTHING was checked." >&2
+  echo "  The search engine is installed but never built here: run find-anything-build-indexes." >&2
+  exit 2
+fi
+[ -r "$IDX" ] || { echo "check-faindex-freshness: $IDX is not readable -- NOTHING was checked." >&2; exit 2; }
+
+echo "index dir: $IDX   (from $(hostname) at $(date -u +%Y-%m-%dT%H:%M:%SZ))"
+report "paths"  "$IDX/paths.txt" "$CEILING" || rc=1
+checked=$((checked+1))
+if [ -e "$IDX/tags" ]; then
+  report "tags" "$IDX/tags" "$CEILING" || rc=1
+  checked=$((checked+1))
+else
+  echo "absent   tags           (ctags not installed; 'fa symbols' refuses with exit 4, 'fa symbol' is live and unaffected)"
+fi
+
+# The journal index is part of the same builder, but it is rebuilt only when the journal CHANGES, so
+# an age test on it is meaningless on a quiet day -- find-anything's own note says so. Check COVERAGE
+# instead: how many entries the index holds against how many are on disk.
+JIDX="$JC/journal/index"
+if [ -f "$JIDX/entries.tsv" ]; then
+  nidx=$(( $(wc -l < "$JIDX/entries.tsv") - 1 ))
+  ntree=$(find "$JC/journal/entries" -name '*.md' 2>/dev/null | wc -l)
+  if [ "$nidx" -lt "$ntree" ]; then
+    printf 'BEHIND   %-14s %s entries indexed vs %s on disk  (%s)\n' "journal" "$nidx" "$ntree" "$JIDX"
+    rc=1
+  else
+    printf 'current  %-14s %s entries indexed, %s on disk  (%s)\n' "journal" "$nidx" "$ntree" "$JIDX"
+  fi
+  checked=$((checked+1))
+else
+  echo "MISSING  journal        no entries.tsv at $JIDX"
+  rc=1
+fi
+
+echo
+if [ "$rc" = 0 ]; then
+  echo "verdict: OK -- $checked index(es) present and current."
+else
+  echo "verdict: FAIL -- at least one index is missing, stale or behind. Searches will answer from a"
+  echo "         stale index or refuse (exit 4). Run: find-anything-build-indexes"
+fi
+exit "$rc"

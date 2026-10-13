@@ -126,6 +126,15 @@ def main() -> int:
             continue
         src = repo / "scripts" / name
         if not src.is_file():
+            # A captured copy counts as a repo path. `scripts/deployed/authority-bin/` holds
+            # byte-exact captures of files the authority runs and no repository described; without
+            # this, those files read as ONLY-DEPLOYED forever and the capture bought nothing.
+            for alt in (repo / "scripts" / "deployed" / "bin" / name,
+                        repo / "scripts" / "deployed" / "authority-bin" / name):
+                if alt.is_file():
+                    src = alt
+                    break
+        if not src.is_file():
             only_deployed.append(name)
             rows.append({"name": name, "state": "ONLY-DEPLOYED",
                          "deployed_sha": inv[name]["sha"][:12],

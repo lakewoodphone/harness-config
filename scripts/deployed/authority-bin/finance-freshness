@@ -1,0 +1,16 @@
+#!/bin/sh
+# /usr/local/bin/finance-freshness -- the one command that answers "is the money current?"
+#
+# WHY A LAUNCHER RATHER THAN A SYMLINK
+#   The estate's rule is "copy files, never link them", and a symlink into the
+#   production checkout is exactly the kind of thing that survives a deploy with the
+#   wrong target. This is four lines of shell that name one interpreter and one
+#   script, both by absolute path.
+#
+# WHY THE VENV INTERPRETER
+#   scripts/finance-freshness.py imports app.services.finance_source_registry, so it
+#   needs the app's own environment. The system python3 on this host does not have it.
+#
+# Usage: finance-freshness [--json] [--verbose] [--strict] [--now ISO8601]
+#        Exit 0 everything inside its window, 3 a CONDITION, 1 this job crashed.
+exec /opt/company/.venv/bin/python /opt/company/scripts/finance-freshness.py "$@"

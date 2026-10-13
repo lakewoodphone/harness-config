@@ -1,0 +1,460 @@
+#!/usr/bin/env bash
+# find-anything v2 — ONE search surface for the whole estate.
+#
+# WHY (measured 2026-10-07, secratary, same query):
+#   journal index (pre-built) ........     6 ms
+#   grep scoped to app/ ..............   110 ms
+#   grep over the whole tree ......... 100,890 ms   (101 SECONDS)
+# Indexed is 16,800x faster than unscoped. Most of the win is SCOPE, not the index.
+# RE-MEASURED 2026-10-08 on the same host, by the same seat, cold caches:
+#   fa journal "journal lock" ........ 317-419 ms   (the index is real; 6 ms was a warm bench)
+#   rg scoped to app/ ................    20 ms
+#   rg -uuu over /home/zabz .......... 100,075 ms   (100 s, 49 files)
+#
+# THE SURFACE (three short aliases: ask, look, find)
+#   find-anything <query>              auto: journal -> code
+#   find-anything ask  <query>         alias of the bare form
+#   find-anything look <pattern>       alias of files
+#   find-anything find <name>          alias of symbol (live, never indexed)
+#   find-anything code    <query>      source code (ripgrep, scope-bound)
+#   find-anything data    <query>      business data: texts, calls, voicemails, email (comms FTS)
+#   find-anything journal <query>      the journal; reports the newest entry it covers
+#   find-anything files   <pattern>    find files by name
+#   find-anything symbol  <name>       definition sites; ALWAYS live, never indexed
+#   find-anything symbols <name>       browse every definition from the ctags index
+#   find-anything stats                how the estate actually searches
+#
+# UNIFORM FLAGS (identical on every subcommand)
+#   --limit N        max hits (default 8)
+#   --json           machine-readable, includes provenance + age
+#   --fresh          bypass every index; live scan only
+#   --max-age SEC    staleness ceiling for indexed answers (default 1200 s, and 2100 s for the
+#                    comms and journal indexes, which refresh on 30- and 15-minute clocks; the
+#                    path and ctags indexes refresh every 15 min). An explicit value always wins.
+#                    A ceiling shorter than the refresh interval marks a healthy index stale and
+#                    teaches readers to ignore the banner - measured 2026-10-08 with 300 s.
+#   --all            opt OUT of the curated scope (prints warning, times itself)
+#   -h, --help
+#
+# STALENESS: every indexed answer says which index answered, how old it is, and - for the
+# journal - the newest entry it covers, because a file mtime is not content freshness: an
+# index rebuilt every 10 minutes on a checkout weeks behind still looks minutes old.
+# Exit 3 = answered but possibly stale. 4 = nothing was searched. 5 = the index failed. 1 = no match.
+# A refusal is never silence: "no match", "stale" and "could not search" are three answers.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOME_DIR="${HOME:-/home/zabz}"
+
+# WHERE THE ESTATE LIVES ON *THIS* NODE, resolved rather than assumed.
+# The cutover to secratary-cloud moved the checkout from $HOME/personal-secretary-mvp to /opt/company
+# and harness-config from $HOME/harness-config to $HOME/code/harness-config. Because both were
+# hardcoded, this tool resolved NO roots on the authority: every `code`, `files` and `symbol` call
+# there scanned an empty list. Measured 2026-10-12 -- `fa files database.py` on secratary-cloud
+# matched nothing while the same name sits in /opt/company/scripts. Resolved once, here, and
+# overridable per node so the next layout change is an env var and not a fork.
+CO="${FA_CHECKOUT:-$HOME_DIR/personal-secretary-mvp}"; [ -d "$CO" ] || CO=/opt/company
+HC="${FA_HARNESS_CONFIG:-$HOME_DIR/code/harness-config}"; [ -d "$HC" ] || HC="$HOME_DIR/harness-config"
+JOURNAL_TOOL="$HC/journal/tools/journal.py"
+FA_LOG="${FIND_ANYTHING_LOG:-$HOME_DIR/.find-anything.log}"
+FA_TRIPWIRE_MS="${FIND_ANYTHING_SLOW_MS:-2000}"
+# Per-root wall clock for the live ripgrep scan. Overridable so the truncation path can be
+# tested without waiting for a real cold cache. A root that hits this is reported, never
+# silently turned into "no match".
+ROOT_TIMEOUT="${FIND_ANYTHING_ROOT_TIMEOUT:-25}"
+
+# Directories that must NEVER be walked. This list IS the performance story.
+EXCLUDES=(
+  --glob '!.git/**' --glob '!node_modules/**' --glob '!.venv/**' --glob '!venv/**'
+  --glob '!__pycache__/**' --glob '!*.pyc' --glob '!dist/**' --glob '!build/**'
+  --glob '!.next/**' --glob '!target/**' --glob '!coverage/**' --glob '!.gradle/**'
+  --glob '!*.db' --glob '!*.db-wal' --glob '!*.db-shm' --glob '!*.sqlite*'
+  --glob '!*.log' --glob '!*.tar*' --glob '!*.gz' --glob '!*.zst' --glob '!*.zip'
+  # Backups are not source. Measured 2026-10-08: fa-estate on hetzner and lpt-apps-01 returned
+  # nothing but /root/bin/find-anything.bak-<ts> - this tool's own backups - and counted them as
+  # code hits on those nodes.
+  --glob '!*.bak' --glob '!*.bak-*' --glob '!*.bak.*' --glob '!*.orig' --glob '!*.rej'
+  --glob '!*.save' --glob '!*.old' --glob '!*.tmp'
+  --glob '!data/**' --glob '!backups/**' --glob '!secretary-backups/**'
+  --glob '!.runtime/**' --glob '!audit-logs/**'
+  --glob '!*.png' --glob '!*.jpg' --glob '!*.pdf' --glob '!*.mp4' --glob '!*.mp3'
+  --glob '!*.woff*' --glob '!*.ttf'
+)
+# The curated scope: every root an agent actually needs, and nothing else.
+ROOTS=(
+  "$CO/app"
+  "$CO/data/tools"
+  "$CO/scripts"
+  "$CO/tests"
+  "$HC/scripts"
+  "$HC/journal/tools"
+  "$HC/presets"
+  "$HOME_DIR/bin"
+  "$HOME_DIR/code"
+)
+DATA_DB="$CO/data/secretary.db"
+
+sub=auto; limit=8; json=0; fresh=0; maxage=1200; maxage_set=0; all=0; extra_roots=(); subset=0
+args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    ask|look|find|code|data|journal|files|symbol|symbols|stats)
+      # Take the subcommand ONLY when it is the first non-flag word. Before this, every argument
+      # equal to a subcommand name was consumed as one wherever it appeared, so the query was
+      # eaten: measured 2026-10-08, `fa code journal --all` ran a *journal* search with an empty
+      # query and exited 2, and `fa code files` did the same. A word you are searching for is not
+      # a mode.
+      if [ "$subset" = 0 ] && [ "${#args[@]}" = 0 ]; then
+        case "$1" in
+          ask)  sub="auto" ;;
+          look) sub="files" ;;
+          find) sub="symbol" ;;
+          *)    sub="$1" ;;
+        esac
+        subset=1; shift; continue
+      fi
+      args+=("$1"); shift ;;
+    --limit) limit="${2:-8}"; shift 2 ;;
+    --limit=*) limit="${1#*=}"; shift ;;
+    --json) json=1; shift ;;
+    --fresh) fresh=1; shift ;;
+    --max-age) maxage="${2:-1200}"; maxage_set=1; shift 2 ;;
+    --max-age=*) maxage="${1#*=}"; maxage_set=1; shift ;;
+    --all) all=1; shift ;;
+    --scope) extra_roots+=("${2:-}"); shift 2 ;;
+    --scope=*) extra_roots+=("${1#*=}"); shift ;;
+    -h|--help) awk 'NR>1 { if ($0 ~ /^set -/) exit; sub(/^# ?/,""); print }' "$0"; exit 0 ;;
+    -*) echo "find-anything: unknown flag $1 (try --help)" >&2; exit 2 ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+Q="${args[*]:-}"
+
+if [ "$sub" != stats ] && [ -z "$Q" ]; then
+  echo "usage: find-anything [ask|look|find|code|data|journal|files|symbol|symbols|stats] <query> [--limit N] [--json] [--fresh] [--max-age SEC] [--scope DIR] [--all]" >&2
+  exit 2
+fi
+[ "$all" = 1 ] && ROOTS=("$HOME_DIR")
+[ "${#extra_roots[@]}" -gt 0 ] && ROOTS=("${extra_roots[@]}")
+
+T0=$(date +%s%N)
+log_hit() { # subcmd ms n source age
+  printf '{"ts":"%s","sub":"%s","ms":%s,"n":%s,"source":"%s","age":%s,"slow":%s,"q":"%s"}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" "$3" "$4" "$5" \
+    "$([ "$2" -gt "$FA_TRIPWIRE_MS" ] && echo true || echo false)" \
+    "$(printf '%s' "$Q" | tr '"' "'" | cut -c1-80)" >> "$FA_LOG" 2>/dev/null
+}
+elapsed_ms() { echo $(( ($(date +%s%N) - T0) / 1000000 )); }
+hr() { printf '%s\n' "---- $* ----"; }
+age_of() { # seconds since mtime
+  [ -e "$1" ] || { echo 999999; return; }
+  echo $(( $(date +%s) - $(stat -c %Y "$1" 2>/dev/null || echo 0) ))
+}
+stale_note() { # path label
+  local a; a=$(age_of "$1")
+  if [ "$fresh" = 1 ]; then echo "live (--fresh)"; return; fi
+  if [ "$a" -gt "$maxage" ]; then echo "STALE: $2 age ${a}s > max-age ${maxage}s"; else echo "$2 age ${a}s"; fi
+}
+
+# ---------------------------------------------------------------- stats
+if [ "$sub" = stats ]; then
+  if [ ! -s "$FA_LOG" ]; then echo "no searches logged yet ($FA_LOG)"; exit 0; fi
+  python3 - "$FA_LOG" <<'PY'
+import json,sys,statistics as st
+rows=[]
+for line in open(sys.argv[1],encoding="utf-8",errors="replace"):
+    try: rows.append(json.loads(line))
+    except Exception: pass
+if not rows: print("no searches logged"); raise SystemExit(0)
+ms=sorted(r.get("ms",0) for r in rows)
+def pct(p): return ms[min(len(ms)-1,int(len(ms)*p))]
+print(f"searches logged .......... {len(rows)}")
+print(f"median latency ........... {int(st.median(ms))} ms")
+print(f"p90 latency .............. {pct(0.90)} ms")
+print(f"over {2000} ms (tripwire) ....... {sum(1 for m in ms if m>2000)}")
+print(f"over 10 s ................ {sum(1 for m in ms if m>10000)}")
+print(f"unbounded (--all) ........ {sum(1 for r in rows if r.get('source')=='all')}")
+print(f"served by index .......... {sum(1 for r in rows if 'FTS' in str(r.get('source','')))}")
+slow=[r for r in rows if r.get('ms',0)>10000]
+if slow:
+    print("\nslowest searches (>10 s) — these are the habit we are killing:")
+    for r in sorted(slow,key=lambda r:-r.get('ms',0))[:5]:
+        print(f"  {r.get('ms')} ms  {r.get('sub')}  {r.get('q','')[:60]}")
+PY
+  exit 0
+fi
+
+FAINDEX="${FAINDEX:-$HOME_DIR/.faindex}"
+rc=0; n=0; src=""; found=0
+
+# ---------------------------------------------------------------- data
+# Business data = the communications index (texts, calls, voicemails, email), the estate's
+# only full-text index over customer contact. Until 2026-10-08 this mode was a STUB: it was
+# advertised in the help, matched no branch, printed nothing and exited 0 -- indistinguishable
+# to a reading agent from "there is no such record". It now answers, or it says nothing was searched.
+if [ "$sub" = data ]; then
+  CS="$HOME_DIR/.fsearch/comms-search.py"
+  cidx="$HOME_DIR/.fsearch/comms.db"
+  if [ ! -f "$CS" ] || [ ! -f "$cidx" ]; then
+    echo "find-anything data: no business-data index on this node ($cidx absent) — NOTHING was searched, this is not 'no match'. The comms index is built and refreshed by comms-refresh.py; on the node that holds it, it lives at ~/.fsearch/comms.db. Do not fall back to a text scan of the comms tables." >&2
+    log_hit data "$(elapsed_ms)" 0 "none" 0
+    exit 4
+  fi
+  # The comms index is rebuilt by a 30-minute cron, so a 20-minute ceiling would mark a healthy
+  # index stale for a third of every cycle. A threshold shorter than the refresh interval is a
+  # false-alarm machine: measured 2026-10-08, a 300 s default put STALE on every business-data
+  # answer and taught readers to ignore the banner. Per-source ceilings unless the caller says.
+  [ "$maxage_set" = 0 ] && maxage=2100
+  note=$(stale_note "$cidx" "comms index")
+  case "$note" in STALE*) rc=3 ;; esac
+  cout=$(timeout 40 python3 "$CS" --json search "$Q" --limit "$limit" 2>/dev/null)
+  if [ -z "$cout" ]; then
+    echo "find-anything data: the comms index did not answer (timeout or error) — NOTHING was searched, this is not 'no match'" >&2
+    log_hit data "$(elapsed_ms)" 0 "comms-FTS-failed" "$(age_of "$cidx")"
+    exit 5
+  fi
+  python3 - "$json" "$cout" "$note" "$(age_of "$cidx")" <<'PY'
+import json, sys
+jflag, raw, note, age = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+try:
+    d = json.loads(raw)
+except Exception as exc:  # noqa: BLE001
+    print(f"find-anything data: unparseable answer from the comms index: {exc}", file=sys.stderr)
+    raise SystemExit(5)
+rs = d.get("results") or []
+if jflag == "1":
+    print(json.dumps({"source": "comms-FTS", "n": len(rs), "index_age_s": int(age),
+                      "note": note, "indexed_total": d.get("indexed_total"), "results": rs}))
+else:
+    print(f"---- {note} ----")
+    if not rs:
+        print(f"  no business-data record matched {d.get('query')!r} — a real negative across "
+              f"{d.get('indexed_total')} indexed communications")
+    for r in rs:
+        text = " ".join(str(r.get("text") or "").split())
+        print(f"  {r.get('day')}  {str(r.get('kind') or ''):9s} {str(r.get('direction') or ''):8s} "
+              f"{str(r.get('who') or ''):22s} {text[:110]}")
+PY
+  drc=$?
+  n=$(printf '%s' "$cout" | python3 -c 'import json,sys;print(len(json.load(sys.stdin).get("results") or []))' 2>/dev/null || echo 0)
+  log_hit data "$(elapsed_ms)" "$n" "comms-FTS" "$(age_of "$cidx")"
+  [ "$drc" != 0 ] && exit "$drc"
+  [ "${n:-0}" -gt 0 ] 2>/dev/null && found=1
+  [ "$n" = 0 ] && [ "$rc" = 0 ] && rc=1
+  exit $rc
+fi
+
+# ------------------------------------------------------- journal
+if [ "$sub" = journal ] || [ "$sub" = auto ]; then
+  if [ -f "$JOURNAL_TOOL" ]; then
+    JIDX="$HOME_DIR/code/harness-config/journal/index"
+    idx="$JIDX/journal.db"
+    # CONTENT freshness, not file mtime. Both failure directions were measured on 2026-10-08: a
+    # September-stale corpus reported "29 minutes old" (mtime fresh, content wrong), and a current
+    # corpus reported "STALE at 66 minutes" (mtime old, content right) because this index is
+    # written when the journal CHANGES and is otherwise left alone. Count both sides instead.
+    covers=$(tail -n +2 "$JIDX/entries.tsv" 2>/dev/null | cut -f5 | sort | tail -1)
+    nidx=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("entries","?"))' "$JIDX/stamp.json" 2>/dev/null || echo "?")
+    tree_n=$(find "$HOME_DIR/code/harness-config/journal/entries" -name '*.md' 2>/dev/null | wc -l)
+    tree_n=${tree_n// /}
+    if [ "$maxage_set" = 1 ]; then
+      note=$(stale_note "$idx" "journal index")     # an explicit --max-age asks for the age test
+    elif [ -n "$tree_n" ] && [ "$nidx" != "?" ] && [ "$tree_n" != "$nidx" ]; then
+      note="INDEX BEHIND: ${nidx} entries in the index vs ${tree_n} on disk"
+    else
+      note="journal index current (${nidx} entries)"
+    fi
+    [ -n "$covers" ] && note="$note, entries through $covers"
+    src="journal-index"
+    case "$note" in STALE*|INDEX\ BEHIND*) rc=3 ;; esac
+    errf=$(mktemp)
+    out=$(timeout 25 python3 "$JOURNAL_TOOL" search "$Q" --limit "$limit" --budget 4000 2>"$errf")
+    jrc=$?
+    jerr=$(head -c 300 "$errf" 2>/dev/null); rm -f "$errf"
+    if [ "$jrc" = 124 ]; then
+      echo "find-anything journal: the journal search timed out after 25s — NOTHING was searched, this is not 'no match'" >&2
+      log_hit journal "$(elapsed_ms)" 0 "journal-timeout" "$(age_of "$idx")"
+      exit 5
+    fi
+    if [ "$jrc" = 1 ]; then
+      # journal.py distinguishes a refusal from health; never swallow that into silence
+      [ -n "$jerr" ] && printf '%s\n' "$jerr" >&2
+      n=0; [ "$rc" = 0 ] && rc=1
+    elif [ -n "$out" ]; then
+      n=$(printf '%s\n' "$out" | grep -c . || true)
+    fi
+    [ "${n:-0}" -gt 0 ] 2>/dev/null && found=1
+    if [ "$sub" = journal ]; then
+      if [ "$json" = 1 ]; then
+        printf '{"source":"%s","n":%s,"ms":%s,"index_age_s":%s,"index_entries":"%s","covers_through":"%s","stale":%s,"results":%s}\n' \
+          "$src" "$n" "$(elapsed_ms)" "$(age_of "$idx")" "$nidx" "$covers" \
+          "$([ "$rc" = 3 ] && echo true || echo false)" \
+          "$(printf '%s' "$out" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo '""')"
+      else
+        hr "$note"
+        printf '%s\n' "$out" | head -30
+      fi
+      log_hit journal "$(elapsed_ms)" "$n" "$src" "$(age_of "$idx")"
+      exit $rc
+    fi
+    if [ "$json" = 0 ] && [ -n "$out" ]; then hr "$note"; printf '%s\n' "$out" | head -30; fi
+  fi
+fi
+
+# ---------------------------------------------------------------- files
+if [ "$sub" = files ]; then
+  # Index-backed when fresh (measured: 8 ms on the index vs 57 ms re-walking this tree, and a full
+  # naive re-walk of the estate measured 6,412 ms). Falls back to a live scoped find, so a missing or
+  # stale index degrades in speed but never in correctness.
+  if [ -s "$FAINDEX/paths.txt" ]; then
+    a=$(age_of "$FAINDEX/paths.txt")
+    if [ "$a" -le "$maxage" ]; then
+      src="path-index"
+      [ "$json" = 1 ] || hr "files matching $Q  [path index, age ${a}s]"
+      c=0
+      while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        c=$((c+1)); [ "$c" -gt "$limit" ] && break
+        if [ "$json" = 1 ]; then printf '{"file":%s,"source":"%s","index_age_s":%s}\n' "$(printf '%s' "$f" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read().strip()))')" "$src" "$a"
+        else printf '%s\n' "$f"; fi
+      done < <(grep -i -- "$Q" "$FAINDEX/paths.txt" 2>/dev/null | awk '{ if ($0 ~ /\/_worktrees\//) w[++k]=$0; else print } END { for (i=1;i<=k;i++) print w[i] }')
+      # A miss must exit 1. Measured 2026-10-08: `fa files <absent>` exited 0, so an empty
+      # result was indistinguishable from success.
+      [ "$c" -gt 0 ] && found=1
+      log_hit files "$(elapsed_ms)" "$c" "$src" "$a"
+      [ "$found" = 0 ] && rc=1
+      exit $rc
+    fi
+    [ "$json" = 1 ] || echo "  (path index is ${a}s old > max-age ${maxage}s - scanning live)"
+  fi
+  src="find-live"
+  [ "$json" = 1 ] || hr "files matching $Q (never walks .git/node_modules/.venv/data)"
+  c=0
+  for r in "${ROOTS[@]}"; do
+    [ -d "$r" ] || continue
+    while IFS= read -r f; do
+      [ -z "$f" ] && continue
+      c=$((c+1)); [ "$c" -gt "$limit" ] && break
+      if [ "$json" = 1 ]; then printf '{"file":%s,"source":"%s"}\n' "$(printf '%s' "$f" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read().strip()))')" "$src"
+      else printf '%s\n' "$f"; fi
+    done < <(timeout 20 find "$r" -type f -name "$Q" -not -path '*/.git/*' -not -path '*/node_modules/*' \
+      -not -path '*/.venv/*' -not -path '*/data/*' -not -path '*/.runtime/*' -not -path '*/__pycache__/*' 2>/dev/null)
+    [ "$c" -gt "$limit" ] && break
+  done
+  [ "$c" -gt 0 ] && found=1
+  log_hit files "$(elapsed_ms)" "$c" "$src" 0
+  [ "$found" = 0 ] && rc=1
+  exit $rc
+fi
+
+# ------------------------------------- symbols (OPT-IN, index-backed browse only)
+if [ "$sub" = symbols ]; then
+  [ "$json" = 1 ] || hr "symbols matching $Q  [ctags index - browse only; use 'symbol' for the live answer]"
+  if [ -s "$FAINDEX/tags" ]; then
+    a=$(age_of "$FAINDEX/tags")
+    # ctags puts the NAME in field 1 (`name<TAB>file<TAB>pattern`). The old match
+    # (\tQ|\tQ$) required a tab BEFORE the name, so it answered "nothing" for every symbol
+    # that exists: measured 2026-10-08, create_task is in the tags index twice and `fa symbols
+    # create_task` printed zero hits. Match the first field.
+    tmpf=$(mktemp)
+    awk -F'\t' -v q="$Q" '!/^!_TAG_/ && $1==q { print $1"\t"$2"\t"$3 }' "$FAINDEX/tags" 2>/dev/null > "$tmpf"
+    n=$(wc -l < "$tmpf" 2>/dev/null || echo 0); n=${n// /}
+    if [ "$json" = 1 ]; then
+      hits_json=$(python3 -c 'import json,sys;rows=[l.rstrip("\n").split("\t") for l in open(sys.argv[1],encoding="utf-8",errors="replace") if l.strip()][:int(sys.argv[2])];print(json.dumps([{"name":r[0],"file":r[1] if len(r)>1 else "","pattern":r[2] if len(r)>2 else ""} for r in rows]))' "$tmpf" "$limit")
+      printf '{"source":"ctags-index","n":%s,"index_age_s":%s,"hits":%s}\n' "${n:-0}" "$a" "${hits_json:-[]}"
+    else
+      head -"$limit" "$tmpf"
+    fi
+    rm -f "$tmpf"
+    log_hit symbols "$(elapsed_ms)" "$n" "ctags-index" "$a"
+    if [ "$n" = 0 ]; then
+      echo "  no definition of $Q in the ctags index (0 hits) — run 'find-anything symbol $Q' for the live answer" >&2
+      [ "$a" -gt "$maxage" ] && { echo "  index age ${a}s" >&2; exit 3; }
+      exit 1
+    fi
+    [ "$a" -gt "$maxage" ] && { echo "  index age ${a}s"; exit 3; }
+    exit 0
+  fi
+  echo "  no symbol index yet (run: find-anything-build-indexes) — NOTHING was searched" >&2
+  exit 4
+fi
+
+# ------------------------------------------------- code + symbol (ripgrep live)
+if [ "$sub" = code ] || [ "$sub" = symbol ] || [ "$sub" = auto ]; then
+  src="rg-live"
+  pat="$Q"
+  rgflags=(--line-number --no-heading --max-columns 200 --max-count 2 -i)
+  if [ "$sub" = symbol ]; then
+    # symbol lookups are NEVER indexed: you are about to edit this.
+    rgflags=(--line-number --no-heading --max-columns 200 --max-count 3)
+    pat="(def|class|function|const|let|var|func|fn)[[:space:]]+$Q\\b|^$Q[[:space:]]*[:=(]"
+    [ "$json" = 1 ] || hr "symbol $Q — LIVE scan (never served from an index)"
+  else
+    [ "$json" = 1 ] || hr "code (ripgrep live, .gitignore-aware, hard excludes)"
+  fi
+  c=0
+  truncated=0
+  # Collect hits, then render once: --json has to emit one JSON object, and spawning a JSON
+  # encoder per hit would cost more than the search itself.
+  hitf=$(mktemp)
+  if command -v rg >/dev/null 2>&1; then
+    for r in "${ROOTS[@]}"; do
+      [ -d "$r" ] || continue
+      # rg writes to a file rather than a process substitution so its exit status is visible. A
+      # root killed by the budget is an INCOMPLETE scan, and an incomplete scan must never be
+      # reported as a clean negative. Measured 2026-10-08 on the authority: a cold ~/code takes
+      # 29.8 s against this 25 s budget (warm, 0.2 s), so the first search after a cache
+      # eviction was silently cut off and answered "no match".
+      rf=$(mktemp)
+      timeout "$ROOT_TIMEOUT" rg "${rgflags[@]}" "${EXCLUDES[@]}" -e "$pat" "$r" > "$rf" 2>/dev/null
+      rrc=$?
+      if [ "$rrc" = 124 ]; then
+        truncated=1
+        echo "find-anything: scanning $r exceeded ${ROOT_TIMEOUT}s and was cut off - that root was NOT searched in full" >&2
+      fi
+      while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        c=$((c+1)); [ "$c" -gt "$limit" ] && break
+        printf '%s\n' "$line" >> "$hitf"
+      done < "$rf"
+      rm -f "$rf"
+      [ "$c" -gt "$limit" ] && break
+    done
+  else
+    echo "ripgrep absent — falling back to scoped grep (slower)" >&2
+    src="grep-live"
+    for r in "${ROOTS[@]}"; do
+      [ -d "$r" ] || continue
+      timeout 40 grep -rIn --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.venv \
+        --exclude-dir=__pycache__ --exclude-dir=data --exclude-dir=.runtime --exclude-dir=backups \
+        --exclude='*.db' --exclude='*.log' -- "$Q" "$r" 2>/dev/null | head -"$limit" >> "$hitf"
+      c=$(grep -c . "$hitf" 2>/dev/null || echo 0); c=${c// /}
+      break
+    done
+  fi
+  # --json was advertised as a uniform flag but this branch ignored it: measured 2026-10-08,
+  # `fa code x --json` emitted raw ripgrep lines, so every caller's JSON parse failed silently
+  # and the MCP wrapper fell back to reporting source="code" with no age or hit metadata.
+  if [ "$json" = 1 ]; then
+    python3 -c 'import json,sys;rows=[l.rstrip("\n") for l in open(sys.argv[1],encoding="utf-8",errors="replace") if l.strip()];print(json.dumps({"source":sys.argv[2],"n":len(rows),"hits":rows}))' "$hitf" "$src"
+  else
+    cat "$hitf" 2>/dev/null
+  fi
+  rm -f "$hitf"
+  # A live hit beats an earlier journal miss (an auto search that found code must not exit 1);
+  # and the reverse must hold too - a real miss must exit 1, or an empty result reads as success.
+  # Measured 2026-10-08: `fa code <absent>` and `fa symbol <absent>` both exited 0.
+  [ "$c" -gt 0 ] && { rc=0; found=1; n="$c"; }
+  if [ "$sub" = auto ] || [ "$sub" = symbol ]; then
+    [ "$truncated" = 1 ] && [ "$found" = 0 ] && rc=4
+    [ "$found" = 0 ] && [ "$rc" = 0 ] && rc=1
+    log_hit "$sub" "$(elapsed_ms)" "$c" "$src" 0
+    exit $rc
+  fi
+fi
+
+[ "$truncated" = 1 ] && [ "$found" = 0 ] && rc=4
+[ "$found" = 0 ] && [ "$rc" = 0 ] && rc=1
+log_hit "$sub" "$(elapsed_ms)" "$n" "$src" 0
+exit $rc
+
