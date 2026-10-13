@@ -3159,6 +3159,7 @@ pain	P3167b	3167	b	2026-10-13	SECRATARY-CLOUD	open	## P3167b — a script this h
 pain	P3168	3168		2026-10-13	SECRATARY-CLOUD	open	## P3168 — Estate monitor: disk_free_deficit_gb is critical (5.546 GiB) across 303 consecutive runs	entries/pain/P3168.md	1	23	130ec989dc7b57ce	estate-monitor,auto-filed,not-the-owners	metrics/disk_free_deficit_gb
 pain	P3169	3169		2026-10-13	SECRATARY-CLOUD	open	## P3169 — Estate monitor: swap_used_pct is critical (77.26 %) across 6 consecutive runs	entries/pain/P3169.md	1	23	c3cde4ec55515af9	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 pain	P3170	3170		2026-10-13	SECRATARY-CLOUD	open	## P3170 — A device can sit in the shop for a day with no production record, and nothing detects it	entries/pain/P3170.md	1	14	716e1a7c5e86b49b	lpt,intake,production,data-loss	
+pain	P3171	3171		2026-10-13	SECRATARY-CLOUD	open	## P3171 — Estate monitor: api_rss_gib is critical (6.185 GiB) across 4 consecutive runs	entries/pain/P3171.md	1	23	f30f74b64ad14d48	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
