@@ -2389,17 +2389,29 @@ def _queue_from_authority() -> str:
     """The live owner queue: spoken for directly on the authority, else over ssh.
 
     `~/bin/owner-queue.py` exists only on the authority (P47), so every other machine has to
-    ask over ssh — and that is the route the operating instructions already document
-    (`ssh secratary-ts "python3 ~/bin/owner-queue.py next"`). This function used to return ""
-    whenever `os.name == "nt"`, which meant the mirror could never refresh on Windows: the
-    owner's own laptop showed a stale count forever and `status` reported it as if it were
-    current. Silent staleness is the failure this journal exists to prevent, so the ssh route
-    is tried rather than skipped.
+    ask over ssh. This function used to return "" whenever `os.name == "nt"`, which meant the
+    mirror could never refresh on Windows: the owner's own laptop showed a stale count forever
+    and `status` reported it as if it were current. Silent staleness is the failure this journal
+    exists to prevent, so the ssh route is tried rather than skipped.
+
+    MEASURED 2026-10-13, AND IT WAS WRONG: the ssh route hardcoded `secratary-ts`, the OFFICE
+    box. That box was the authority until 2026-10-11T05:43:36Z and has been FROZEN since
+    (`settings/machines/host-posture.tsv`); the authority is `secratary-cloud`. So every machine
+    except the authority itself read the owner queue from a server that stopped at the cutover
+    and reported the result as current: the mirror printed **143 open where the authority holds
+    162**, and 11 rows it showed as waiting on him were already answered. The frozen box is
+    still tried, LAST, so a machine that can only reach it degrades rather than losing the queue
+    entirely -- but a reading taken from it is a reading from a stopped server, and the caller
+    cannot tell.
     """
     direct = os.path.expanduser("~/bin/owner-queue.py")
     tries = []
     if os.path.exists(direct):
         tries.append(["python3", direct, "list", "--all", "--json"])
+    # The authority first. This is the only source whose answer is current.
+    tries.append(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "secratary-cloud",
+                  "python3 ~/bin/owner-queue.py list --all --json"])
+    # Then the frozen office box, which is where this used to go first and alone.
     tries.append(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "secratary-ts",
                   "python3 ~/bin/owner-queue.py list --all --json"])
     for cmd in tries:

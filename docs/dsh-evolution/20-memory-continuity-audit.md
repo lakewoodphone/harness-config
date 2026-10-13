@@ -204,3 +204,39 @@ cluster was a bulk filing; that the Mac's pain ledger stopped on 2026-09-24.
 so the estate's newest state could not be fetched — only what the 2026-10-07 fetch preserved. The
 child ran no write command, so it cannot report the live `owner_decision_queue` contents, the live wake
 store, or whether the deployed authority `journal.py` matches the copy in git.
+
+---
+
+## 8. FIXED AND VERIFIED, 2026-10-13 — the owner-question mirror was reading a stopped server
+
+The finding in §4(c) — *"the mirror is per-machine: 161 on the authority, 19 locally"* — had a cause
+nobody had looked for, and it was one line.
+
+`journal/tools/journal.py`, `_queue_from_authority()`, hardcoded the ssh fallback to **`secratary-ts`**,
+the **office box**. That box was the authority until 2026-10-11T05:43:36Z and has been **frozen**
+since; the authority is `secratary-cloud`. So **every machine except the authority itself read the
+owner's live question queue from a server that stopped at the cutover, and reported it as current.**
+
+**Measured before and after, same command, same minute:**
+
+| | open | closed |
+|---|---:|---:|
+| before the fix (`journal.py questions`) | 143 | 307 |
+| after the fix | **162** | **326** |
+| ground truth, `/root/authority.db` on `secratary-cloud` | **162 pending** | 326 (218 resolved + 71 dismissed + 37 answered) |
+
+**The mirror now agrees with the authority exactly.** The difference is not a rounding: 19 rows were
+invisible and **11 rows it showed as "waiting on him" were already answered** — so an agent on any
+machine could have re-asked the owner a question he had already closed. That is §5(b), the "never
+re-ask an answered question" gap, happening live.
+
+**What changed:** the authority is tried first; the frozen box is tried **last**, so a machine that can
+only reach it degrades rather than losing the queue — but the comment now says plainly that a reading
+taken from the frozen box is a reading from a stopped server. Verified by running `journal.py questions`
+and comparing its counts to a read-only `SELECT status, COUNT(*)` on the authority.
+
+**The general defect, because it will recur:** a hardcoded fallback host is a *time bomb keyed to a
+migration*. When a service moves, every script that reaches it by name keeps working — against the old
+copy — and nothing fails loudly. `secratary` is a prefix of `secratary-cloud`, so a grep does not catch
+it either. **When a host moves, grep every script for the old name and check what each one is for;
+"it still works" is exactly what reading the frozen box looks like.**
