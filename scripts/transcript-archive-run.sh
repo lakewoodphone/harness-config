@@ -67,13 +67,30 @@ done
 #   * a machine that HAS contacted us before and is now unreachable is a mechanism fault -- exactly
 #     the 2026-10-10 stall this exit code exists to catch. That stays exit 3.
 # The manifest is read directly: it needs no network and no rescan of any machine.
-new_machines=$(python3 - "$ARCHIVE/manifest.sqlite" "$pull_out" <<'PY'
+# Two counts, not one, because "there were no failures at all" and "the failures were all
+# machines we have never reached" are DIFFERENT states and only the first is success.
+#
+# WAS: a single `new_machines` count with `if new_machines > 0 ... else pull_rc=3`. Measured on
+# secratary-cloud 2026-10-13 (pass 13:23Z): that pair printed `failed: []`, ingested ok=1 from
+# all five machines, and then took the `else` branch -- so a PERFECT pass set pull_rc=3, failed
+# transcript-archive-pull.service every hour, and wrote an ALARM reading
+#   "TRANSCRIPT ARCHIVE PULL FAILED -- cannot reach , which this archive has pulled before"
+# with an EMPTY machine name (the .failed-machines file held one newline). The check itself said
+# gaps: [] and silent: []. A monitor that cries wolf on every healthy run is not a monitor: the
+# one pass that really is behind would arrive in a journal already full of this.
+counts=$(python3 - "$ARCHIVE/manifest.sqlite" "$pull_out" <<'PY'
 import json, sqlite3, sys
 db = sys.argv[1]
 try:
     d = json.loads(sys.argv[2])
+    if not isinstance(d, dict) or "ok" not in d:
+        raise ValueError("not a pull report")
 except Exception:
-    d = {}
+    # No parsable pull report: an empty failure list and a dead pull look identical here, so this
+    # must NOT read as success. Report one known failure so the caller fails the unit, exactly as
+    # an unreachable machine we have pulled before does.
+    print(0, 1)
+    sys.exit(0)
 failed = d.get("failed") or []
 try:                                     # the primary key IS the column, so a read-only URI needs
     c = sqlite3.connect(db)              # no -wal/-shm access; the same DB --check reads.
@@ -83,20 +100,25 @@ try:                                     # the primary key IS the column, so a r
 except Exception:                        # cannot judge -> treat as joined, do NOT suppress the alarm
     seen, judged = set(), False
 if not failed:
-    print(0)
+    print(0, 0)                          # a clean pass: no silence, no mechanism fault
 elif not judged:
-    print(len(failed))
+    print(len(failed), len(failed))
 else:
-    print(sum(1 for m in failed if m not in seen))
+    new = sum(1 for m in failed if m not in seen)
+    print(new, len(failed) - new)        # <never contacted> <contacted before = mechanism fault>
 PY
 )
+new_machines="${counts%% *}"
+known_failures="${counts##* }"
 printf '%s' "$pull_out" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(", ".join(d.get("failed") or []))' \
   > "$STATE_DIR/.failed-machines" 2>/dev/null || printf 'unknown' > "$STATE_DIR/.failed-machines"
-if [ "${new_machines:-0}" -gt 0 ]; then
+# A machine that HAS contacted this archive before and is now unreachable is the mechanism fault
+# exit 3 exists to catch. It is tested FIRST so a pass that fails on both kinds still fails loudly.
+if [ "${known_failures:-0}" -gt 0 ]; then
+  pull_rc=3
+elif [ "${new_machines:-0}" -gt 0 ]; then
   printf 'transcript-archive-pass: %s machine(s) failed and have NEVER contacted this archive; that is SILENCE (a machine the pull has never reached), not a broken pull -- --check decides it from the manifest\n' "$new_machines" >&2
   rm -f "$STATE_DIR/ALARM"
-else
-  pull_rc=3
 fi
 
 # The check. This is the part that has to fail loudly -- journal H340 is why: a stale archive was
