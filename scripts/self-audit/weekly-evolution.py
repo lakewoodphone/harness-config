@@ -86,6 +86,46 @@ def iso_week_subject(now: datetime | None = None) -> str:
     return f"self-audit:{y}-W{w:02d}"
 
 
+def iso_week_of(generated_at) -> str | None:
+    """The 'YYYY-Www' of a record's generated_at, or None if unparseable."""
+    try:
+        dt = datetime.strptime(str(generated_at), "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+    y, w, _ = dt.isocalendar()
+    return f"{y}-W{w:02d}"
+
+
+def latest_record() -> dict | None:
+    p = STATE_DIR / "latest.json"
+    if not p.is_file():
+        return None
+    try:
+        return json.loads(p.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def already_measured_this_week() -> bool:
+    """True when latest.json is a record from the current ISO week.
+
+    THE CADENCE IS THE POINT. `run-wake-sources.sh` calls this source every 30
+    minutes (cron :07/:37), and collect() used to measure on every call. That
+    wrote a run-*.json every 30 minutes, so `load_previous()` always diffed
+    against a half-hour-old record and the "weekly" audit was really a
+    30-minute audit reading a directory filling at ~48 files/day. Measured
+    2026-10-13 (item self-audit:2026-W42): the baseline and the corrected run
+    are 23 minutes apart. The week's measurement is taken once; later passes in
+    the same ISO week are quiet without touching the store, so the next diff is
+    a real week against the last real measurement.
+    """
+    prev = latest_record()
+    if prev is None:
+        return False
+    return iso_week_of(prev.get("generated_at")) == iso_week_subject().split(":", 1)[1]
+
+
 def measure() -> dict:
     """Run the measurement into STATE_DIR and return its record. Read-only: the
     measurement only ever reads the estate's stores; it writes its own JSON.
@@ -150,6 +190,9 @@ def collect(args, flagmod):
             previous = json.loads(previous_path.read_text())
         except (OSError, ValueError):
             previous = None
+
+    if already_measured_this_week():
+        return []          # this ISO week already has its measurement
 
     record = measure()
     now = numeric(record)

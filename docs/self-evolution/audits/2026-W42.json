@@ -423,8 +423,10 @@
  "proof_commands": [
   "python3 /root/bin/sources/weekly-evolution-audit.py --repo /root/bin/sources --out /tmp/self-audit-probe --quiet   # after fix: capabilities.* COULD NOT ASK",
   "SELF_AUDIT_OUT=/tmp/self-audit-probe2 python3 /root/bin/sources/weekly-evolution.py --dry-run   # repo.path=/root/code/harness-config, commits measured 175, 0 broken",
+  "SELF_AUDIT_OUT=/root/.self-audit/runs python3 /root/bin/sources/weekly-evolution.py --dry-run   # same ISO week -> quiet, run-file count unchanged",
+  "SELF_AUDIT_OUT=/tmp/self-audit-gate python3 /root/bin/sources/weekly-evolution.py --dry-run   # previous ISO week -> measures and writes run-20261013T020507Z.json",
   "sha256sum /root/bin/sources/weekly-evolution-audit.py  # 290f96abc271109f515de2b358bca74aeb07b7231c065a2d12e2d93158db88c4",
-  "sha256sum /root/bin/sources/weekly-evolution.py  # 381e79e40d152a8c0b4b7d7518866602b6316e4179e97c53c36e69bd3cbdf97d"
+  "sha256sum /root/bin/sources/weekly-evolution.py  # 82b56944ad7d10e6efea04267bc8078cf3baadceb8a04172e8efdf8a0bd8fc02"
  ],
  "records": {
   "baseline": "run-20261013T013707Z",
@@ -466,6 +468,11 @@
     "dsh_dir_entries": 17,
     "wake_instances": 87
    }
+  },
+  {
+   "cell": "measurement-cadence",
+   "defect": "collect() measured on every 30-minute sources pass (cron :07/:37), writing a run-*.json each time, so load_previous() always diffed against a half-hour-old record: the 'weekly' audit was a 30-minute audit and runs/ filled at ~48 files/day. The baseline and the corrected run in this very audit are 23 minutes apart because of it. Fixed: a second pass in the same ISO week is now quiet without measuring.",
+   "evidence": "baseline 2026-10-13T01:37:07Z, corrected 2026-10-13T02:00:06Z, cron '7,37 * * * *'"
   },
   {
    "cell": "journal.open_pain",
