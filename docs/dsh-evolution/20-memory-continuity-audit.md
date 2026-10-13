@@ -240,3 +240,39 @@ migration*. When a service moves, every script that reaches it by name keeps wor
 copy — and nothing fails loudly. `secratary` is a prefix of `secratary-cloud`, so a grep does not catch
 it either. **When a host moves, grep every script for the old name and check what each one is for;
 "it still works" is exactly what reading the frozen box looks like.**
+
+---
+
+## 9. The divergence, measured exactly — 2026-10-13 14:08Z
+
+§0 said there is no one journal. Here are the numbers, counted by id across the two trees that matter
+most. **Every figure below is a file count or an id-set difference, not an estimate.**
+
+| | entry files | open pain | branch | head |
+|---|---:|---:|---|---|
+| **ZABZ-YOGA** (where this audit was written) | **3,663** | 373 | `main` | `c647e7cd` |
+| **secratary-cloud** (the authority) | **3,478** | **336** | **`hk/28-refresh-deployed-sources-20261013`** | `04661ae` |
+| `origin/diverged-ZABZ-TECH-20261013` | 3,792 | — | diverged | — |
+
+**Ids only in one tree:** ZABZ-YOGA **334**, the authority **149**.
+**Union: 3,812. Neither tree is a superset of the other.** So a merge is not a fast-forward in either
+direction, and "3,663 entries" and "3,478 entries" are both true and both incomplete.
+
+**Two facts fall out that are worth more than the counts:**
+
+1. **The always-on machine is on a feature branch.** `secratary-cloud`, which runs the schedules that
+   keep the estate alive, has its `harness-config` checked out at
+   `hk/28-refresh-deployed-sources-20261013` — not `main`. Anything a session has merged to `main`
+   since that branch was cut is **not on the authority**, which is the machine most likely to need it.
+2. **Open pain differs by 37** between the two trees (373 vs 336) while the entry counts differ by
+   185. The two numbers move independently, so neither can be used to predict the other: a tree can
+   gain entries and lose open pain, or the reverse. **Any claim of the form "there are N open pains"
+   must name the tree it was read from.**
+
+**What a union would take, and why it is its own job.** The union is finite and knowable: copy 149
+files one way and 334 the other, rebuild the index, then run `journal.py check`. The hazard is not the
+copy — it is that **121 base-id collisions already exist** between lineages, so bringing two trees
+together can make one id mean two entries in the same tree, and the repair (`repair-ids --apply`)
+renumbers ids that other entries cite by name. That is a migration with a verification plan, not a
+step in a session that is also doing something else. **It is the next session's first job, and
+`P3164` is the live proof that code in this repo can diverge the same way.**
