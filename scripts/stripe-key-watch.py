@@ -24,12 +24,6 @@ Nothing here is destructive and nothing here sends anything outbound.
 
 Usage:  python3 stripe-key-watch.py            # one pass
         python3 stripe-key-watch.py --status   # print the last run
-
-DEPLOYED AS: `~/bin/stripe-key-watch.py` on **secratary only** (it is the host
-holding the Stripe key backups it reads and the queue it writes to). This file is
-the source; that path is the deployment. It also calls `~/bin/owner-queue.py`,
-which is versioned beside this script as scripts/owner-queue.py and deployed to
-the same directory.
 """
 from __future__ import annotations
 
@@ -49,7 +43,7 @@ LOG = os.path.join(STATE_DIR, "stripe-watch.log")
 QUEUE = os.path.expanduser("~/bin/owner-queue.py")
 BASELINE_READER = "tmr_GavzfgCDIyZ9pN"   # the front-desk WisePOS E, the only reader on 2026-09-15
 OLD_KEY_FILES = [
-    "/home/zabz/personal-secretary-mvp/.env.bak-striperoll-20260915",   # ...ETe1 (secretary)
+    "/opt/company/.env.bak-striperoll-20260915",   # port-152: translated from the office path; ABSENT on the authority, so this key source reads as unreadable and is reported, not faked
 ]
 # The production backup lives on lpt-apps; read it over ssh so this script needs no copy of it.
 REMOTE_KEY_FILES = {

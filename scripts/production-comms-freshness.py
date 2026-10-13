@@ -25,18 +25,37 @@ EXIT    0 fresh · 1 stale (something is failing) · 2 could not measure (a refu
 SCHEDULED: */15 in crontab, because a check that is scheduled nowhere is decoration - the other
 half of this defect was that `comms-refresh.py --check` already exited non-zero on staleness and
 was in no crontab at all.
+
+PORTED TO THE CLOUD AUTHORITY, 2026-10-11 (workstream 135)
+----------------------------------------------------------
+The office copy named two literals. Both are now environment-overridable with the OFFICE value as
+the default, so the office behaviour of this file is unchanged:
+
+    SECRETARY_DB  "/home/zabz/personal-secretary-mvp/data/secretary.db"   -> FRESHNESS_SECRETARY_DB
+    ENV_FILE      "/home/zabz/personal-secretary-mvp/.env"                -> FRESHNESS_ENV_FILE
+    STATE         office path                                             -> FRESHNESS_STATE
+
+ON THE CLOUD BOX THE DB IS /root/authority.db AND THE READ STAYS READ-ONLY (`mode=ro`, uri=True).
+That is not a preference: /root/authority.db is the single live authority and a monitor must never
+be a second writer against it. The 1.8 MB `/opt/company/data/secretary.db` stub left by the cutover
+is NOT this file's business and must never be pointed at here — a monitor that measures a dead copy
+reports a confident wrong number, which is the worst outcome in this estate's history.
 """
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-SECRETARY_DB = "/home/zabz/personal-secretary-mvp/data/secretary.db"
-ENV_FILE = "/home/zabz/personal-secretary-mvp/.env"
-STATE = Path("/home/zabz/.lpt-recon/production-comms-freshness.json")
+SECRETARY_DB = os.environ.get(
+    "FRESHNESS_SECRETARY_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db")
+ENV_FILE = os.environ.get(
+    "FRESHNESS_ENV_FILE", "/home/zabz/personal-secretary-mvp/.env")
+STATE = Path(os.environ.get(
+    "FRESHNESS_STATE", "/home/zabz/.lpt-recon/production-comms-freshness.json"))
 THRESHOLD_HOURS = 2.0
 
 
@@ -71,9 +90,119 @@ def env_value(key: str) -> str:
     return ""
 
 
+
+# --- DEAD-FEED GUARD (item 402, 2026-10-05) ---------------------------------------------------
+# A feed whose table stops advancing is dead even while its sync cursor keeps moving. Every
+# comparison in this file used to be cursor-relative, so a stopped table read as fresh forever.
+# The guard below measures the TABLE, and only calls silence a fault when the shop was open.
+# weekday() -> 0=Mon .. 6=Sun. Local times are America/New_York; in October that is EDT = UTC-4,
+# so 12:00 local = 16:00 UTC and 17:30 local = 21:30 UTC. Revisit if the machine's zone changes.
+# America/New_York in October is EDT = UTC-4, so a local closing of 16:00 is 20:00 UTC - do not
+# "simplify" these numbers without converting first (my own first pass got this wrong).
+OPEN_HOURS_UTC = {6: (16.0, 20.0),       # Sunday    12:00-16:00 local = 16:00-20:00 UTC
+                  1: (14.5, 21.5),       # Tuesday   10:30-17:30 local = 14:30-21:30 UTC
+                  3: (14.5, 21.5)}       # Thursday  10:30-17:30 local = 14:30-21:30 UTC
+# The longest normal quiet stretch is the Sunday 16:00 -> Tuesday 10:30 closure = 10.5 open hours.
+FEED_MAX_SILENCE = {"dialpad_calls": 12.0, "dialpad_sms": 6.0}   # hours of OPEN time
+# A second, calendar-blind bound. Learned the hard way while writing this guard: the open-hours
+# bound alone is too generous during a quiet week - dialpad_call_full last advanced
+# 2026-10-01T20:18:15 (77.8 wall-clock hours, 3.2 days) yet only 5.2 of those were shop-open, so an
+# open-hours-only rule stays silent on a feed that is plainly dead. Either condition fires.
+# Derived from the shop's own longest closure rather than guessed: the longest stretch the shop is
+# shut is Sunday 16:00 -> Tuesday 10:30 = 42.5 wall-clock hours. One whole missed open day on top
+# of that is 42.5 + 24 = 66.5 for calls; SMS arrives more often, so it gets the closure plus a few
+# hours. First pass of this guard used a flat 96/48 and stayed silent on a feed already 77.8 hours
+# dead - the bound has to come from the business, not from a round number.
+FEED_MAX_WALL_SILENCE = {"dialpad_calls": 66.5, "dialpad_sms": 48.0}   # hours, any time at all
+
+# THE HARVEST HEARTBEAT (2026-10-05, correcting item 402's first pass).
+# Both feed tables are INSERT-only: the upsert on conflict updates `updated_at`
+# and deliberately leaves `fetched_at` alone, so a healthy pass that finds
+# nothing new advances NOTHING, and the newest row ages at exactly the rate a
+# dead job's would. The wall bound above (66.5h) is also exactly the shop's own
+# longest weekly closure - Thursday 21:30 UTC close -> Sunday 16:00 UTC open =
+# 66.5h - so a table-only rule fires on a working feed during any quiet
+# Thu->Sun stretch, which is what happened at 2026-10-05T02:15Z (newest call
+# 2026-10-01T20:18Z, a genuine 78h of no calls; the API then delivered four
+# calls at 02:08-02:12Z). The harvest writes a completion marker on every
+# finished pass; that marker is the honest "the feed is being read" signal and
+# the kernel already judges both feeds by it
+# (ceo-kernel/ck/sentinel.py check_comms_freshness). The table rules below stay
+# as the fallback when the marker is absent or stale.
+HARVEST_HEARTBEAT = {
+    "dialpad_calls": ".dialpad-harvest.last_run",
+    "dialpad_sms": ".dialpad-sms-harvest.last_run",
+}
+HARVEST_MAX_AGE_HOURS = 1.5   # calls run */30, texts :15,:45 -> 3 missed passes
+
+
+def _harvest_age_hours(sync_type: str) -> float | None:
+    """Age of the harvest's own completion marker, or None if unavailable."""
+    name = HARVEST_HEARTBEAT.get(sync_type)
+    if not name:
+        return None
+    try:
+        raw = (Path.home() / name).read_text().strip()
+    except OSError:
+        return None
+    dt = parse_ts(raw)
+    if dt is None:
+        return None
+    return round((now() - dt).total_seconds() / 3600, 2)
+
+
+def _open_hours_between(start, end) -> float:
+    """Hours of shop-open time inside [start, end], in UTC. Owner hours of 2026-10-05."""
+    if start is None or end is None or end <= start:
+        return 0.0
+    total = 0.0
+    day = start.replace(hour=0, minute=0, second=0, microsecond=0)
+    while day <= end:
+        span = OPEN_HOURS_UTC.get(day.weekday())
+        if span:
+            o = day + timedelta(hours=span[0])
+            c = day + timedelta(hours=span[1])
+            lo, hi = max(o, start), min(c, end)
+            if hi > lo:
+                total += (hi - lo).total_seconds() / 3600
+        day += timedelta(days=1)
+    return round(total, 2)
+
+
+def _dead_feed_problems(local_dt, sync_type: str,
+                        heartbeat_age_h: float | None = None) -> list:
+    """Fail when the table itself has not advanced - by open hours, or by plain wall clock."""
+    limit = FEED_MAX_SILENCE.get(sync_type)
+    wall_limit = FEED_MAX_WALL_SILENCE.get(sync_type, limit)
+    if limit is None:
+        return []
+    if local_dt is None:
+        return [f"{sync_type}: the local table has NO rows at all - cannot measure the feed"]
+    # A fresh harvest heartbeat proves the feed is being READ: the quiet table is
+    # a quiet shop, not a dead job. Absent/stale marker -> fall through to the
+    # table rules, which still catch a harvester that has actually stopped.
+    if heartbeat_age_h is not None and heartbeat_age_h <= HARVEST_MAX_AGE_HOURS:
+        return []
+    silent = (now() - local_dt).total_seconds() / 3600
+    open_silent = _open_hours_between(local_dt, now())
+    if open_silent > limit:
+        return [f"{sync_type}: DEAD FEED - the local table has not advanced in "
+                f"{round(silent, 2)}h wall clock, of which {open_silent}h was shop-open time "
+                f"(limit {limit}h open). The sync cursor moving is NOT evidence of health; the "
+                f"table is the evidence. newest={local_dt.isoformat()}"]
+    if wall_limit is not None and silent > wall_limit:
+        return [f"{sync_type}: DEAD FEED - the local table has produced nothing for "
+                f"{round(silent, 2)}h of wall-clock time (limit {wall_limit}h), of which only "
+                f"{open_silent}h was shop-open, so no open-hours rule can see it. The sync cursor "
+                f"moving is NOT evidence of health; the table is the evidence. "
+                f"newest={local_dt.isoformat()}"]
+    return []
+# --- end DEAD-FEED GUARD ----------------------------------------------------------------------
+
 def main() -> int:
     report: dict = {"checked_at": now().isoformat(timespec="seconds"),
-                    "threshold_hours": THRESHOLD_HOURS}
+                    "threshold_hours": THRESHOLD_HOURS, "db": SECRETARY_DB,
+                    "env_file": ENV_FILE}
     problems: list[str] = []
 
     # 1 + 2: the cursors and the local truth, from secretary.db (read-only)
@@ -117,12 +246,16 @@ def main() -> int:
     report["local_sms_due"] = local_sms_due
 
     for sync_type, local_dt in (("dialpad_calls", local_call_dt), ("dialpad_sms", local_sms_dt)):
+        hb_age = _harvest_age_hours(sync_type)
+        problems.extend(_dead_feed_problems(local_dt, sync_type, hb_age))
         raw = cursors.get(sync_type)
         dt = parse_ts(raw)
         age_h = round((now() - dt).total_seconds() / 3600, 2) if dt else None
         lag_h = (round((local_dt - dt).total_seconds() / 3600, 2)
                  if (dt and local_dt) else None)
-        report[sync_type] = {"cursor": raw, "cursor_age_hours": age_h, "behind_local_hours": lag_h}
+        report[sync_type] = {"cursor": raw, "cursor_age_hours": age_h,
+                             "behind_local_hours": lag_h,
+                             "harvest_heartbeat_age_hours": hb_age}
         if dt is None:
             problems.append(f"{sync_type}: no cursor row at all - the push has never run")
         elif lag_h is not None and lag_h > THRESHOLD_HOURS:
@@ -159,15 +292,20 @@ def main() -> int:
 
     report["problems"] = problems
     report["ok"] = not problems
-    STATE.parent.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
+    try:
+        STATE.parent.mkdir(parents=True, exist_ok=True)
+        STATE.write_text(json.dumps(report, indent=1, default=str), encoding="utf-8")
+    except OSError as exc:
+        print(f"WARN: could not write {STATE}: {exc}", file=sys.stderr)
 
     print(f"production comms freshness — {report['checked_at']}")
+    print(f"  db={SECRETARY_DB}")
     for k in ("dialpad_calls", "dialpad_sms"):
         if k in report:
             d = report[k]
             print(f"  {k:<14} cursor={d['cursor']} age={d['cursor_age_hours']}h "
-                  f"behind_local={d['behind_local_hours']}h")
+                  f"behind_local={d['behind_local_hours']}h "
+                  f"harvest_heartbeat_age={d.get('harvest_heartbeat_age_hours')}h")
     if "website" in report:
         w = report["website"]
         print(f"  website        rows={w['rows']} newest={w['newest']} age={w['newest_age_hours']}h")
