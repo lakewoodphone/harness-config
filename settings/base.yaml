@@ -79,10 +79,26 @@ agent-presets:
 # `streamIdleTimeoutMs` ships at 300000 (five minutes). In that outage a request
 # sat the full five minutes and then retried -- which is exactly what "nothing
 # would go when I type a question" felt like. 60 s bounds ONE dead attempt and
-# still clears DeepSeek's slowest observed first-token latency. `retryPolicy`
-# normal/2 keeps one transient-blip recovery without turning a dead provider
-# into a multi-minute stall. Both schemas were read out of the installed harness
-# (dsh-llm RetryPolicySchema, dsh-llm-deepseek adapter options) before writing.
+# still clears DeepSeek's slowest observed first-token latency. Both schemas were
+# read out of the installed harness (dsh-llm RetryPolicySchema, dsh-llm-deepseek
+# adapter options) before writing.
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Retry budget widened from normal/2 to normal/3 (2026-10-13), on measurement.
+#
+# MEASURED, this host, 21 days (477 session files scanned live): 22 TRANSPORT
+# failures ("DeepSeek Messages transport failed"); 21 of them recovered on the
+# FIRST retry and never produced a second event. ONE did not -- 2026-10-13 14:38,
+# the owner's phone session, retry 1 at 515 ms and retry 2 at 932 ms both failed
+# and the whole turn died. He saw "This turn failed"; his message was lost and had
+# to be re-sent. At normal/2 with initialDelayMs 500 the entire retry window is
+# ~1.5 s, so any blip longer than that costs a turn.
+#
+# The change: maxRetries 3, initialDelayMs 750, maxDelayMs 6000. Delays become
+# ~0.75 s, ~1.5 s, ~3.0 s -- a ~5.3 s coverage window, which clears the observed
+# failure with room, while a genuinely dead provider still fails fast (the earlier
+# 2026-09-14 outage is what the 2-retry choice was bounded against, and 5.3 s is
+# not a "multi-minute stall"). jitterRatio is unchanged.
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 # Per-request output bound (added 2026-10-02, housekeeping item 342).
@@ -125,11 +141,11 @@ llm-deepseek:
   maxTokens: 65536
   retryPolicy:
     mode: normal
-    maxRetries: 2
+    maxRetries: 3
     retryableCodes: [EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT, STREAM_CLOSED, MALFORMED_RESPONSE]
     backoff:
-      initialDelayMs: 500
-      maxDelayMs: 5000
+      initialDelayMs: 750
+      maxDelayMs: 6000
       jitterRatio: 0.1
 
 # ---------------------------------------------------------------------------
