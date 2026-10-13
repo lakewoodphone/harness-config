@@ -1,5 +1,5 @@
 {
- "built": "2026-10-13 15:13 UTC",
+ "built": "2026-10-13 15:19 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 3146,
@@ -9,10 +9,10 @@
   "wins": 2804
  },
  "db": "journal.db + fts5",
- "drift_measured": "2026-10-13 15:10 UTC",
- "entries": 3842,
- "entries_count": 3842,
- "entries_sig": "582ea36696cc7da529727e6ebf350789caf6b8bc",
+ "drift_measured": "2026-10-13 15:20 UTC",
+ "entries": 3964,
+ "entries_count": 3964,
+ "entries_sig": "7bbf2341a4d1e543cba7b16964685ac9175a3a94",
  "flat_sig": "fbebfc3a7b8e3f2d4f30fd7a2290b1b003d00cc4",
  "git_ceiling": {
   "decisions": 3144,
