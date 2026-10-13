@@ -42,6 +42,8 @@
 
       **2. Ask rarely, ask well, ask one at a time, and always recommend.** 4.2% of his messages were "one at a time" and 2.2% were "give me options with a recommendation". When something truly belongs to him, ask exactly one question, in plain language, with the options laid out and one of them marked as your recommendation. Never a menu of five. Never two questions at once. Never a wall of text before the question.
 
+      **NEVER DELIVER THAT QUESTION WITH THE `ask_user_question` TOOL — WRITE IT IN PLAIN CHAT TEXT.** It does not render on his iPhone and three separate sessions have now paid for it: 2026-09-18, *"Don't use the ask a question tool, you still haven't resolved and made it work on this phone, I can't read it normally — just ask the question plain text"*; 2026-09-23, *"I can't see the question when you use the answer a question tool on the phone"*; and 2026-10-13, *"using the ask a question tool on the iPhone doesn't work very well. I can't see like the question and the answer is properly."* He reads it as options with no question, or nothing usable at all, and the turn stalls on a question he cannot answer. **The standing format, on every machine: the question written out in plain prose, options as numbered lines, your recommendation marked on the one you recommend, and the question LAST — never a wall of text before it.** This applies whenever he may be on a phone, which is most nights. The widget may be fixed later; until a phone handset test proves it legible, plain text is the rule. Evidence: journal P326, P2189, L3641.
+
       **2b. He does not review documents — never end a turn by handing him one.** His words, 2026-09-11: *"i don't review things, if you have important questions for me, ask them clearly and explained and i'll answer one at a time, remember that."* A deliverable is for the record and for future sessions; it is **not** a request for him to read. So: never write "review this document and tell me", never ask him to confirm a table, never summarise a doc and stop. Convert every decision inside a document into **one plain-language question with explained consequences and options**, asked in the conversation. Write the document anyway — that is how the decision survives past this session — but the turn ends with a question, not a document. If there is nothing genuinely his, the turn ends with the work finished, not with a reading assignment.
 
       **2c. Never flag. Solve — or ask one question and move on.** His words, 2026-09-11: *"you don't just flag things for me randomly or tell me things, or stop working. You always work. And when something needs to be clarified by me to make a decision for you, you ask me that one question very clearly explained, get the answer and then you move on. Always finding solutions for things."* Three failure modes this kills, all of which I committed in the same session: (a) ending a turn with "two things I want you to know plainly" — a risk list is not a deliverable; (b) promoting my own engineering parameters into "owner decisions" and queuing them, when measurements already justify a default (he told me development decisions are mine — decide, record, move on); (c) treating a discovered problem as a finding to report rather than a thing to research, design and fix. **If a problem has a solution I can find, finding it IS the work.** The only legitimate reasons to stop are the four in rule 1, and only one of those is a question — and after the answer, work continues immediately.
@@ -551,12 +553,24 @@
 # RUNS ON THE AUTHORITY HOST, over SSH stdio -- deliberately, and this is the fix
 # for a live defect rather than a preference.
 #
+# MEASURED 2026-10-11, AND THE TARGET IS NO LONGER THE OFFICE BOX. The company moved
+# to `secratary-cloud` that day (Cloudflare CNAME `api.abletelsolutions.com` ->
+# tunnel 3e62916c, which is that box). This row still said `secretary-ts`, so every
+# DSH session on Windows ran the company bridge against the OFFICE box, which was by
+# then a SHADOW COPY of the company: same jobs, same Dialpad harvest, its own
+# database, and nothing public served from it. `ps_db_query` returned the office's
+# 135,455 SMS rows where the authority held 135,486. Read the wrong copy and believe
+# it is this estate's single worst recorded failure (PAIN P3), and this row was it.
+#
 # As a local command this server reads `ROOT/data/secretary.db`, i.e. whatever copy
 # sits beside the script. On a workstation that is a **replica**: 173 tables and up
 # to a day stale, against the authority's 203 tables and 2.4 GB. On 2026-09-11 the
 # phone path answered "13 ticks today, nothing logged between 08-21 and 09-10" from
 # that replica while the authority said 197 ticks and no gaps -- confidently wrong,
 # with a plausible explanation invented for the artefact (PAIN P22, LESSONS L51).
+# On the cloud box the same trap has a second edge: the repo-relative path there is a
+# 1.8 MB stale leftover, so `ps_mcp_server.py` now resolves `SECRETARY_DB`, then a
+# sqlite `DATABASE_URL`, then the local default -- see the comment in that file.
 #
 # Running it here means one copy, and the real one: same database as the kernel,
 # and the API tools (`ps_ceo_chat`, `ps_action`) hit the authority's own localhost
@@ -592,9 +606,9 @@
       - 'ServerAliveInterval=30'
       - '-o'
       - 'ServerAliveCountMax=3'
-      - 'secretary-ts'
-      - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
-      - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
+      - 'secratary-cloud'
+      - '/opt/company/.venv/bin/python'
+      - '/opt/company/scripts/ps_mcp_server.py'
     toolCallTimeoutMs: 120000
     failOnStartupError: false
 
@@ -613,9 +627,9 @@
   config:
     serverName: secretary
     transport: stdio
-    command: /home/zabz/personal-secretary-mvp/.venv/bin/python
+    command: /opt/company/.venv/bin/python
     args:
-      - /home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py
+      - /opt/company/scripts/ps_mcp_server.py
     toolCallTimeoutMs: 120000
     failOnStartupError: false
 
