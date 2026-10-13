@@ -2,9 +2,10 @@
 
 **Prepared:** 2026-10-13 · **Two independent measurements, deliberately kept separate:**
 
-- **A. What the sessions show** — 935 of the owner's 1,059 sessions (88.3%) classified by 17 mesh
-  children reading shard digests. Each child returned one record per session; the counts are folded
-  by `~/code/_evolve/aggregate_readers.py` from what the children published to
+- **A. What the sessions show** — **945 of the owner's 1,059 sessions (89.2%)** classified by 18 mesh
+  children reading shard digests. **All 18 shards landed; nothing missing, nothing suspiciously short.**
+  Each child returned one record per session; the counts are folded by
+  `~/code/_evolve/aggregate_readers.py` from what the children published to
   `secratary-cloud:/home/zabz/evolution-corpus/reports/`. Sources: `reader-aggregate.json`,
   `reader-findings.md`.
 - **B. What the record already knew** — 393 open journal `pain` entries, clustered into 21 by the
@@ -20,42 +21,43 @@ agent is failing at A's new one.**
 
 | domain | n | | intent | n | | outcome | n | | tone | n |
 |---|---:|---|---|---:|---|---|---:|---|---|---:|
-| **shop** | **207** | | **investigate** | **306** | | completed | 742 | | directing | 512 |
-| build | 162 | | **fix** | **215** | | partial | 158 | | calm | 256 |
-| harness | 118 | | build | 172 | | unknown | 28 | | **correcting** | **116** |
-| personal | 111 | | verify | 98 | | failed | 7 | | **frustrated** | **49** |
-| research | 103 | | document | 42 | | | | | approving | 2 |
+| **shop** | **208** | | **investigate** | **309** | | completed | 748 | | directing | 516 |
+| build | 162 | | **fix** | **218** | | partial | 162 | | calm | 258 |
+| harness | 122 | | build | 173 | | unknown | 28 | | **correcting** | **120** |
+| personal | 112 | | verify | 99 | | failed | 7 | | **frustrated** | **49** |
+| research | 103 | | document | 43 | | | | | approving | 2 |
 | company | 86 | | communicate | 31 | | | | | | |
-| infra | 80 | | decide | 17 | | | | | | |
-| comms 28 · finance 25 · meta 10 · other 5 | | | plan 13 · nudge 2 | | | | | | | |
+| infra | 81 | | decide | 18 | | | | | | |
+| comms 29 · finance 26 · meta 11 · other 5 | | | plan 13 · nudge 2 · other 17 | | | | | | | |
 
-**Reading.** Investigation and repair are **56% of his intent** (306 + 215) — building is 18%. That
+**Reading.** Investigation and repair are **56% of his intent** (309 + 218) — building is 18%. That
 confirms, harder than the Copilot audit did, that this is a comprehension-and-repair harness, not a
 code generator. Shop work is the single largest domain (22%) but the technical estate as a whole
-(build 162 + harness 118 + infra 80 = **360, 38.5%**) is larger than shop, and **his own life at 111
+(build 162 + harness 122 + infra 81 = **365, 38.6%**) is larger than shop, and **his own life at 112
 sessions (11.9%) is a bigger category than comms and finance combined**. 79% of sessions complete;
-**17.6% carry a correcting or frustrated tone.**
+**17.9% carry a correcting or frustrated tone.**
 
 **A correction to my own earlier read.** From the first 9 shards I reported `company` and `research`
 at the top and shop at 69. The shards are ordered by day and the fleet ran in waves, so the early
-sample was a partial, biased slice. With 17 of 18 in, `shop` is the largest domain. The child reports
-are the evidence; the aggregate is recomputed from all of them, not from my memory of the first wave.
+sample was a biased slice. With all 18 in, `shop` is the largest domain. The child reports are the
+evidence; the aggregate is recomputed from all of them, not from my memory of the first wave. The
+lesson is journal `L3773`.
 
 ---
 
 ## 2. The ranked friction — `wrong-data` is first, and the instruction surface does not mention it
 
-| # | friction | sessions | % of 935 |
+| # | friction | sessions | % of 945 |
 |---:|---|---:|---:|
-| 0 | *(none recorded)* | 419 | 44.8% |
-| **1** | **`wrong-data`** — acted on, or reported, something that was not true | **105** | **11.2%** |
-| **2** | **`tool-failure`** | **93** | **9.9%** |
-| **3** | **`repeated-work`** — redid something already done | **87** | **9.3%** |
-| 4 | `env-hostile` — broken path, failing shell, unreachable host | 67 | 7.2% |
-| 5 | **`false-completion`** — claimed done, was not | **48** | 5.1% |
+| 0 | *(none recorded)* | 424 | 44.9% |
+| **1** | **`wrong-data`** — acted on, or reported, something that was not true | **108** | **11.4%** |
+| **2** | **`tool-failure`** | **96** | **10.2%** |
+| **3** | **`repeated-work`** — redid something already done | **89** | **9.4%** |
+| 4 | `env-hostile` — broken path, failing shell, unreachable host | 68 | 7.2% |
+| 5 | **`false-completion`** — claimed done, was not | **49** | 5.2% |
 | 6 | `stopped-early` | 44 | 4.7% |
-| 7 | `slow` | 43 | 4.6% |
-| 8 | `ignored-instruction` | 40 | 4.3% |
+| 7 | `slow` | 44 | 4.7% |
+| 8 | `ignored-instruction` | 41 | 4.3% |
 | 9 | `context-loss` — forgot a decision, re-derived it | 32 | 3.4% |
 | 10 | `asked-unnecessarily` | 17 | 1.8% |
 | 11 | `asked-badly` | 14 | 1.5% |
