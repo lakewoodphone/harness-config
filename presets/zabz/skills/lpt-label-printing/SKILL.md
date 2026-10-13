@@ -51,13 +51,6 @@ status page going `READY → PRINTING → READY` — is not usable:**
 - The printer's only counter is **`Total Print Length(m)`** on `information.html` — an **integer
   metre** (`11` at the time of writing). A 33 mm label cannot move it, so it cannot prove one label
   either. `lpt-label find` therefore reports nothing about tape.
-- **BUT the tool's own device report can catch `PRINTING` — added 2026-10-12, measured.** The bullet
-  above is about the status *page* and its 60 s refresh; it is not about the identification each
-  `lpt-label` run performs. Printing the two Greenfeld labels back to back, **the second job's own
-  report read `state PRINTING`** four seconds after the first was sent — the state the device holds
-  while feeding. So a **long** job, or simply the **next** job's report, can observe it. Worth
-  knowing, and worth not over-reading: `PRINTING` means *feeding*, not that a label was cut and
-  delivered. **It is still not proof of tape** — that remains the roll or a person.
 
 So the honest report after sending a job is exactly this, and no more: **the printer was identified
 by model and serial, it was `READY` with the 29 mm roll loaded, and the transport accepted the job
@@ -100,6 +93,11 @@ The JSON keys the stdin path accepts: `title`, `heading`, `ticket`, `customer`, 
   she needs this info."* A label has to let someone find the job and know what to hand over and what
   to collect. That means **ticket number and a device/job identity** — a name, a phone and a price
   alone is unusable.
+- **Shop property gets no masthead and no customer identifiers.** Owner, 2026-10-12, on a note for a
+  phone the shop owns: *"don't include the phone number, this is shop property and just a note so the
+  next tech knows the parts of this phone."* So an internal parts note is `no_title: true` with the
+  facts only — e.g. `NEW TOP` / `MOTHERBOARD HAS A BAD FUSE`, 11 mm of tape. Customer identifiers
+  belong on a customer's own device, not on stock.
 - **A line starting with `!` is drawn as a HEADLINE** (bold, sized to the tape, never wrapped) — but
   **only by the newer renderer**. The copy deployed on `secratary` is the older one, where `!` prints
   literally and each line is sized on its own (so a short line blows up). Either use the §6 route, or
