@@ -730,6 +730,83 @@ def ensure_metrics_sampler(dry_run: bool) -> tuple[int, str]:
     return 1, "metrics sampler: PROBLEM -- " + " | ".join(tail[-3:] or ["no output"])
 
 
+def verify_loaded_surface(dry_run: bool) -> bool:
+    """Compare what this machine LOADS against what the repo says it should load.
+
+    WHY THIS IS PART OF SYNC (measured 2026-10-13). Every step above reports what it DID. None of
+    them reports what the machine now LOADS, and those are different questions: for two days every
+    corrected instruction was in git and absent from every machine that loads one, while `sync.py`
+    ran hourly and printed success -- because it had CORRECTLY refused the profile layer (the
+    committed generated rows were stale) and nothing checked the result.
+
+    `scripts/preset-drift.py` is that check. Running it here means the verification rides on the job
+    that already runs on every machine (`PersonalSecretary-HarnessSync`), so nobody has to remember
+    it -- which is the same reason this defect existed in the first place.
+
+    A DRIFT OR A MISSING FILE IS ALARMED to the journal, once per distinct drift, because a deploy
+    that silently did not land is exactly the failure that hid for two days. A repo that disagrees
+    with ITSELF is reported but not alarmed: that is a tidiness problem in the repository, not a
+    failure to deploy, and alarming on it would train the reader to ignore the alarm.
+    """
+    tool = REPO / "scripts" / "preset-drift.py"
+    if not tool.exists():
+        print(" verify: SKIPPED -- scripts/preset-drift.py is not in this checkout")
+        return False
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(tool), "--repo", str(REPO), "--dsh-home", str(DSH_HOME), "--quiet"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=180, cwd=str(REPO))
+    except Exception as exc:  # noqa: BLE001
+        print(f" verify: COULD NOT RUN ({exc}) -- the loaded surface is UNVERIFIED, not clean")
+        return False
+    lines = [l.rstrip() for l in (proc.stdout or "").splitlines() if l.strip()]
+    bad = [l for l in lines if l.startswith(("DRIFT", "MISSING"))]
+    summary = next((l for l in reversed(lines) if l.startswith("compared")), "")
+    divergent = [l for l in lines if "DIVERGENT" in l]
+
+    if proc.returncode == 0:
+        print(f" verify: loaded surface matches the repo ({summary})")
+        return True
+
+    if not bad:
+        # Exit 1 with no DRIFT/MISSING means the repo disagrees with itself only.
+        print(f" verify: loaded surface matches, but the repo disagrees with itself ({summary})")
+        for d in divergent:
+            print(" verify:   " + d.strip())
+        return True
+
+    for b in bad:
+        print(" verify: " + b.strip())
+    if dry_run:
+        print(f" verify: {len(bad)} difference(s) -- expected in a dry run, nothing was applied")
+        return False
+    detail = " | ".join(b.strip() for b in bad[:6])
+    told = _alarm_once(
+        "loaded-surface-drift:" + hashlib.sha256(detail.encode("utf-8")).hexdigest()[:16],
+        "sync ran but the loaded instruction surface does NOT match the repo on "
+        + socket.gethostname(),
+        "\n".join([
+            f"Filed by `scripts/sync.py` on {socket.gethostname()}.",
+            "",
+            "`sync.py` completed, and `scripts/preset-drift.py` then found that the presets or skills",
+            "this machine LOADS are not the ones in the repository. **A deploy that reports success",
+            "and did not land is the failure this check exists for** -- on 2026-10-13 it hid for two",
+            "days and every corrected instruction was absent from every machine.",
+            "",
+            "**Differences found:**",
+            *[f"  - {b.strip()}" for b in bad[:12]],
+            "",
+            f"**Summary line:** {summary or '(none)'}",
+            "",
+            "**Fix:** read the difference, decide which copy is right (the repo is not automatically",
+            "correct -- two scripts were recovered FROM the deployed side on 2026-10-13 because the",
+            "running copy was newer), then re-run `python3 scripts/sync.py`.",
+        ]))
+    print(f" verify: {told}")
+    return False
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -790,6 +867,13 @@ def main() -> int:
 
     sampler_status, sampler_msg = ensure_metrics_sampler(args.dry_run)
     print(" " + sampler_msg)
+
+    # LAST, AND IT ASKS A DIFFERENT QUESTION FROM EVERY STEP ABOVE. Those steps report what they
+    # DID; this reports what the machine now LOADS. The difference is the whole failure class this
+    # program spent a day on: on 2026-10-13 every corrected instruction was in git and absent from
+    # every machine that loads one, and `sync.py` reported success the whole time because it had
+    # correctly refused the profile layer and nothing checked the result.
+    verify_loaded_surface(args.dry_run)
 
     print()
     if args.dry_run:
