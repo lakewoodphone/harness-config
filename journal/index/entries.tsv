@@ -3369,3 +3369,6 @@ wins	W2760	2760		2026-10-13	SECRATARY-CLOUD	open	**W2760 · 2026-10-13 · 83,000
 wins	W2761	2761		2026-10-13	SECRATARY-CLOUD	open	**W2761 · 2026-10-13 · The three cluster rules worked: unexplained 580 -> 563, 17 transactions retired.**	entries/wins/W2761.md	1	28	55dea7368ebe44ce		
 wins	W2762	2762		2026-10-13	SECRATARY-CLOUD	open	**W2762 · 2026-10-13 · Learned rules had no clock: 55 rows sat unapplied, now applied and automated.**	entries/wins/W2762.md	1	48	d9d8ad3192a122da		
 wins	W2763	2763		2026-10-13	SECRATARY-CLOUD	open	**W2763 · 2026-10-13 · 93 phantom conflicts were holding back real rows: every rule claimed a category the other entity does not have.**	entries/wins/W2763.md	1	57	76e56298bf481039		
+wins	W2764	2764		2026-10-13	SECRATARY-CLOUD	open	**W2764 · 2026-10-13 · 35 purchase totals were lost to a regex anchored at column zero, found by reading the mail.**	entries/wins/W2764.md	1	47	a6e78bf20fa3a4fc		
+wins	W2765	2765		2026-10-13	SECRATARY-CLOUD	open	**W2765 · 2026-10-13 · The backfill recovered all 35 totals and the matcher claimed 35 more card charges.**	entries/wins/W2765.md	1	48	c4020c582abc0bc2		
+wins	W2766	2766		2026-10-13	SECRATARY-CLOUD	open	**W2766 · 2026-10-13 · Matched card charges 419 -> 459 today: the rank backfill re-armed the weak records.**	entries/wins/W2766.md	1	41	6df033e7f94ca3a7		
