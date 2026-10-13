@@ -67,27 +67,6 @@ store it anyway. The guard never guesses what a missing amount used to be.
 AGEING. `next` sorts by (blocks-others first, severity, age). An item that is blocking
 other work outranks a merely old one: keeping a decision queued while it stalls the
 company is the expensive failure, not the decision itself.
-
-DEPLOYED AS: `~/bin/owner-queue.py` on **secratary only** (the authoritative
-database is on that host). This file is the source; that path is the deployment.
-To update a host: copy this over `~/bin/owner-queue.py` and `chmod +x` it. Every
-other machine reads the queue through
-`ssh secratary-ts "python3 ~/bin/owner-queue.py next"` or the journal mirror at
-`journal/state/owner-questions.md`.
-
-`defer` exists because a row the owner has seen and put off to a day he named is
-still his but is not a missed deadline, and before 2026-09-22 the table had no
-field to say so -- three rows were reported as blocking "past 3d" while he had
-already answered each one with "tomorrow" / "after Yom Kippur". The kernel check
-that reads this table honours `deferred_until`; see ceo-kernel `ck/sentinel.py`
-`check_owner_queue`.
-
-  ~/bin/owner-queue.py defer 100 --until tomorrow --note "he said: tomorrow"
-  ~/bin/owner-queue.py defer 127 --until 2026-10-02 --note "after Yom Kippur"
-  ~/bin/owner-queue.py defer 78 --clear
-
-A deferral does NOT close a row: it stays pending, stays visible, and re-raises
-once the day passes.
 """
 from __future__ import annotations
 
@@ -98,10 +77,11 @@ import os
 import re
 import sqlite3
 import sys
+import time
 import textwrap
 
 DEFAULT_DB = os.environ.get(
-    "OWNER_QUEUE_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db"
+    "OWNER_QUEUE_DB", "/root/authority.db"
 )
 
 SCHEMA = """
@@ -194,7 +174,8 @@ def connect(path: str, readonly: bool = False) -> sqlite3.Connection:
         # database) is skipped: lint only reads.
         con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=180)
     else:
-        con = sqlite3.connect(path, timeout=180)
+        con = sqlite3.connect(path, timeout=int(
+            os.environ.get("OWNER_QUEUE_LOCK_TIMEOUT", "180")))
     con.row_factory = sqlite3.Row
     if not readonly:
         con.executescript(SCHEMA)
@@ -203,6 +184,30 @@ def connect(path: str, readonly: bool = False) -> sqlite3.Connection:
         if added:
             print(f"schema: added column(s) {', '.join(added)}", file=sys.stderr)
     return con
+
+
+def exec_locked(con, sql, params=()):
+    """Run ONE write and commit it, retrying while SQLite reports the database is locked.
+
+    The queue shares the 13GB live app database, so a write can lose a race with the API or
+    another shift. Measured 2026-09-28: an add sat blocked for 180s and then raised
+    'database is locked', dropping the row. A bounded retry turns a dropped row into a wait.
+    Tunable: OWNER_QUEUE_RETRIES (default 4), OWNER_QUEUE_RETRY_DELAY (default 10s); each
+    attempt still waits OWNER_QUEUE_LOCK_TIMEOUT (default 180s).
+    """
+    tries = int(os.environ.get("OWNER_QUEUE_RETRIES", "4"))
+    delay = float(os.environ.get("OWNER_QUEUE_RETRY_DELAY", "10"))
+    for attempt in range(1, tries + 1):
+        try:
+            cur = con.execute(sql, params)
+            con.commit()
+            return cur
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc).lower() or attempt == tries:
+                raise
+            print("owner-queue: database locked (attempt %d/%d); waiting %.0fs then retrying"
+                  % (attempt, tries, delay), file=sys.stderr)
+            time.sleep(delay)
 
 
 def fmt(row: sqlite3.Row) -> str:
@@ -493,7 +498,53 @@ def cmd_add(con, a) -> int:
         for h in blocking:
             print(f"  - {h['field']} offset {h['offset']} [{h['kind']}] {h['snippet']}")
 
-    cur = con.execute(
+    # ── Duplicate check (added 2026-09-29) ──────────────────────────────────
+    # Nothing here ever checked whether this question had already been asked and
+    # ANSWERED, or was already sitting in the queue. owner_decision_queue rows
+    # #182 and #183 are byte-identical and both pending because of exactly that.
+    # Refuse by default and name the existing row, so the caller can act on the
+    # answer instead of waiting for it a second time.
+    #   OWNER_QUEUE_ALLOW_DUPLICATE=1   deliberate re-add
+    if not (
+        getattr(a, "force", False)
+        or os.environ.get("OWNER_QUEUE_ALLOW_DUPLICATE") == "1"
+    ):
+        try:
+            sys.path.insert(0, "/home/zabz/personal-secretary-mvp")
+            from app.owner_question_dedupe import (
+                find_open_duplicate,
+                find_prior_answer,
+            )
+
+            _row = con.execute("PRAGMA database_list").fetchone()
+            _dbpath = _row[2] if _row else ""
+            _q = str(values.get("question") or "")
+            _hit = None
+            if _dbpath:
+                _hit = find_prior_answer(_dbpath, _q) or find_open_duplicate(_dbpath, _q)
+            if _hit:
+                print(
+                    "add: REFUSED - this already exists as #%s in %s (%s, "
+                    "similarity %.2f)."
+                    % (
+                        _hit.get("row_id"),
+                        _hit.get("source_table"),
+                        _hit.get("status") or _hit.get("answered_at") or "",
+                        float(_hit.get("similarity") or 0.0),
+                    )
+                )
+                print("  existing: %s" % str(_hit.get("question"))[:160])
+                if _hit.get("answer"):
+                    print("  answer  : %s" % str(_hit.get("answer"))[:240])
+                print(
+                    "  Nothing was written. Set OWNER_QUEUE_ALLOW_DUPLICATE=1 "
+                    "to add it anyway."
+                )
+                return 4
+        except Exception as _exc:  # never block a genuine add on this check
+            print("add: duplicate check skipped (%s)" % _exc, file=sys.stderr)
+
+    _insert = (
         """INSERT INTO owner_decision_queue
            (asked_at, question, context, options_json, recommendation, severity,
             blocks, source, age_days, status)
@@ -502,7 +553,20 @@ def cmd_add(con, a) -> int:
          values["recommendation"], values["severity"], values["blocks"],
          values["source"], values["age_days"]),
     )
-    con.commit()
+    _tries = int(os.environ.get("OWNER_QUEUE_RETRIES", "4"))
+    _delay = float(os.environ.get("OWNER_QUEUE_RETRY_DELAY", "10"))
+    cur = None
+    for _attempt in range(1, _tries + 1):
+        try:
+            cur = con.execute(*_insert)
+            con.commit()
+            break
+        except sqlite3.OperationalError as _exc:
+            if "locked" not in str(_exc).lower() or _attempt == _tries:
+                raise
+            print("owner-queue: database locked (attempt %d/%d); waiting %.0fs then retrying"
+                  % (_attempt, _tries, _delay), file=sys.stderr)
+            time.sleep(_delay)
     print(f"queued #{cur.lastrowid} [{values['severity']}] {values['question'][:70]}")
     print(f"  via {origin}; P265 guard: "
           + ("passed clean" if not blocking
@@ -612,6 +676,53 @@ def _parse_defer_target(text: str):
             dt = datetime.combine(dt.date(), time(23, 59))
         return dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
     raise ValueError(f"cannot read a date from {raw!r} (use YYYY-MM-DD, tomorrow, or +3d)")
+
+
+def cmd_amend(con, a) -> int:
+    """Refresh a PENDING row as the measurement moves.
+
+    WHY THIS EXISTS. The estate's own rule, written after a priority-1 item stopped being true within two
+    hours: "an item is a statement about the world at FILING time. When the measurement moves, the item
+    moves with it, or the next shift spends its opening minutes chasing a ghost." There was no way to obey
+    it: `add` refuses what looks like a duplicate, `resolve`/`answer`/`defer` all change the STATE, and
+    nothing could change the TEXT. Measured 2026-10-13: #228 (the funding question, the queue's genuine
+    head, deferral expired five days ago) carries a context dated 2026-10-01 with a hand-extracted figure,
+    while `scripts/finance/forward-view.py` now measures the same thing - 7.01 months of runway, a gap of
+    3,099.87/mo against 21,727.00 of personal capacity, capacity exhausted 2026-06 - and there was no way
+    to put the measured number on the row.
+
+    IT TOUCHES CONTEXT AND RECOMMENDATION ONLY. The QUESTION is never rewritten: that is what the owner
+    was asked, and changing it would make the queue's own history a lie. Only a PENDING row qualifies -
+    amending a resolved or dismissed question would rewrite what was answered. A --note is APPENDED with
+    the date, so a change is visible in the row rather than silent.
+    """
+    row = con.execute(
+        "SELECT id, status, context, recommendation FROM owner_decision_queue WHERE id=?", (a.id,)
+    ).fetchone()
+    # Close the read snapshot BEFORE writing: the SELECT leaves a deferred transaction open and the
+    # UPDATE would have to upgrade it, which SQLite refuses immediately if anything committed in
+    # between. Same reason and same fix as _close.
+    con.commit()
+    if not row:
+        print("no such queue row: %s" % a.id)
+        return 1
+    if row[1] != "pending":
+        print("row %s is %s, not pending -- amend only touches a question still waiting" % (a.id, row[1]))
+        return 1
+    if not (a.context or a.recommendation):
+        print("amend needs --context and/or --recommendation")
+        return 1
+    ctx = a.context if a.context else row[2]
+    rec = a.recommendation if a.recommendation else row[3]
+    if a.note:
+        ctx = "%s\n\nAMENDED %s: %s" % (ctx or "", now()[:10], a.note)
+    exec_locked(con,
+                "UPDATE owner_decision_queue SET context=?, recommendation=? WHERE id=?",
+                (ctx, rec, a.id))
+    print("#%s amended%s%s" % (a.id,
+                               " (context)" if a.context else "",
+                               " (recommendation)" if a.recommendation else ""))
+    return 0
 
 
 def cmd_defer(con, a) -> int:
@@ -788,11 +899,9 @@ def _close(con, a, status: str, text: str) -> int:
     if not row:
         print(f"no such queue row: {a.id}")
         return 1
-    con.execute(
-        "UPDATE owner_decision_queue SET status=?, resolved_at=?, resolution=? WHERE id=?",
-        (status, now(), text, a.id),
-    )
-    con.commit()
+    exec_locked(con,
+                "UPDATE owner_decision_queue SET status=?, resolved_at=?, resolution=? WHERE id=?",
+                (status, now(), text, a.id))
     print(f"#{a.id} -> {status}")
     return 0
 
@@ -806,8 +915,59 @@ def cmd_resolve(con, a) -> int:
     return _close(con, a, "resolved", a.how)
 
 
+def _journal_copy(row_id, question, answer) -> None:
+    """Append the owner's words to the journal so the answer survives the row.
+
+    MEASURED 2026-10-13: 14 of 67 answered rows had NO journal copy anywhere. This table is
+    mutable -- `amend` can overwrite `answer` -- and the journal is append-only, and nothing
+    connected them, so a decision he had given lived in one cell that a later edit could replace.
+    Backfill for the backlog: journal/tools/reconcile-owner-answers.py.
+
+    BEST EFFORT BY DESIGN: if the journal is unreachable the ANSWER IS STILL RECORDED and this
+    says so. His answer must never fail because a secondary copy failed.
+    """
+    import os
+    import re
+    import subprocess
+    # An explicit override first, so this is testable against a throwaway journal tree and so an
+    # operator can point it somewhere else without editing the tool.
+    j = os.environ.get("OWNER_QUEUE_JOURNAL") or None
+    if j and not os.path.exists(j):
+        print("  note: OWNER_QUEUE_JOURNAL names a path that does not exist; the answer is in the "
+              "queue row only")
+        return
+    if not j:
+        for cand in (os.path.expanduser("~/code/harness-config/journal/tools/journal.py"),
+                     "/root/code/harness-config/journal/tools/journal.py"):
+            if os.path.exists(cand):
+                j = cand
+                break
+    if not j:
+        print("  note: journal.py not found -- the answer is in the queue row only")
+        return
+    title = "Owner answer, queue row #%s: %s" % (
+        row_id, re.sub(r"\s+", " ", question or "")[:80])
+    body = ("Recorded by `owner-queue.py answer` on %s. The row is a mutable table; this entry is\n"
+            "the append-only copy. If the two ever disagree, the row was edited.\n\n"
+            "**Asked**: %s\n\n**His answer**: %s" % (now(), question or "(not recorded)", answer or ""))
+    try:
+        out = subprocess.run(
+            [sys.executable, j, "append", "decisions", "--title", title, "--body", body,
+             "--quiet", "--no-fetch", "--tags", "owner-answer",
+             "--refs", "owner_decision_queue#%s" % row_id],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    except Exception as exc:  # noqa: BLE001
+        print("  note: could not reach the journal (%s); the answer is in the queue row only" % exc)
+        return
+    if out.returncode == 0:
+        print("  journal: " + (out.stdout or "").strip()[:120])
+    else:
+        print("  note: journal append failed (%s); the answer is in the queue row only"
+              % (out.stderr or "").strip()[:120])
+
+
 def cmd_answer(con, a) -> int:
-    row = con.execute("SELECT 1 FROM owner_decision_queue WHERE id=?", (a.id,)).fetchone()
+    row = con.execute("SELECT question FROM owner_decision_queue WHERE id=?", (a.id,)).fetchone()
 
     # Close the read snapshot BEFORE writing. The SELECT above leaves a deferred
     # transaction open, so the UPDATE would have to upgrade a read transaction to a
@@ -826,6 +986,7 @@ def cmd_answer(con, a) -> int:
     )
     con.commit()
     print(f"#{a.id} -> answered")
+    _journal_copy(a.id, row[0], a.answer)
     return 0
 
 
@@ -875,6 +1036,15 @@ def main() -> int:
     p.add_argument("--answer", required=True)
 
     p = sub.add_parser(
+        "amend",
+        help="refresh a PENDING row's context/recommendation as the measurement moves; the "
+             "question itself is never touched")
+    p.add_argument("id", type=int)
+    p.add_argument("--context")
+    p.add_argument("--recommendation")
+    p.add_argument("--note", help="why it changed; appended to the context with today's date")
+
+    p = sub.add_parser(
         "defer",
         help="record that the owner has seen this and put it off; the row stays "
              "pending and stops counting as overdue until the day he named")
@@ -887,9 +1057,9 @@ def main() -> int:
     fn = {"add": cmd_add, "next": cmd_next, "list": cmd_list,
           "stats": cmd_stats, "lint": cmd_lint,
           "resolve": cmd_resolve, "answer": cmd_answer,
-          "defer": cmd_defer}[a.cmd]
+          "defer": cmd_defer, "amend": cmd_amend}[a.cmd]
     # lint on the live database must not need a write lock
-    con = connect(a.db, readonly=(a.cmd == "lint"))
+    con = connect(a.db, readonly=(a.cmd in ("lint", "list", "next", "stats")))
     return fn(con, a)
 
 
