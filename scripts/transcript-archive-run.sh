@@ -20,53 +20,38 @@
 set -uo pipefail
 
 ARCHIVE="${TRANSCRIPT_ARCHIVE_ROOT:-/home/zabz/lpt-transcripts}"
+SCRIPTS="${TRANSCRIPT_SCRIPTS:-/home/zabz/code/harness-config/scripts}"
+JOURNAL="${TRANSCRIPT_JOURNAL:-$HOME/code/harness-config/journal/tools/journal.py}"
 STATE_DIR="${TRANSCRIPT_STATE_DIR:-$HOME/.transcript-archive}"
 MAX_BYTES="${TRANSCRIPT_MAX_BYTES:-3000000000}"
 ROUNDS="${TRANSCRIPT_ROUNDS:-3}"
 MACHINES="${TRANSCRIPT_MACHINES:---all}"
 STAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
-# WHERE THE SCRIPTS ARE. This used to default to /home/zabz/code/harness-config/scripts, which is
-# right on the office box and WRONG on the authority, where the checkout is /root/code/harness-config.
-# A cron entry that inherits a wrong default fails with "no such file" and records rc=127 in the
-# ledger -- which nobody reads. Resolve it, and take the first that exists.
-if [ -n "${TRANSCRIPT_SCRIPTS:-}" ]; then
-  SCRIPTS="$TRANSCRIPT_SCRIPTS"
-else
-  SCRIPTS=""
-  for cand in "$HOME/code/harness-config/scripts" "$HOME/harness-config/scripts" \
-              "$(dirname "$(readlink -f "$0")")"; do
-    [ -f "$cand/transcript-archive-pull.py" ] && { SCRIPTS="$cand"; break; }
-  done
-fi
-JOURNAL="${TRANSCRIPT_JOURNAL:-$(dirname "${SCRIPTS:-/root/code/harness-config/scripts}")/journal/tools/journal.py}"
+mkdir -p "$STATE_DIR" "$ARCHIVE/logs" "$ARCHIVE/incoming"
+LOG="$ARCHIVE/logs/pull-$(date -u '+%Y%m%d').jsonl"
 
 # ── THE FREE-SPACE FLOOR ────────────────────────────────────────────────────────────────────────
 # WHY THIS EXISTS, MEASURED 2026-10-13. `transcript-archive-pull.py` stages every machine's tar in
-# SPOOL = <archive root>/incoming -- the SAME filesystem as the company database -- and this script
-# runs up to $ROUNDS rounds of up to $MAX_BYTES each, so one pass can write up to
-# $((MAX_BYTES * ROUNDS)) bytes with NO free-space check anywhere in either file.
+# SPOOL = <archive root>/incoming -- the SAME filesystem as the company database -- and this loop
+# runs up to $ROUNDS rounds of up to $MAX_BYTES each. Neither this file nor the pull checked free
+# space anywhere, so the script's OWN DEFAULTS (3,000,000,000 x 3) describe a pass that can stage
+# 9 GB, on the box that is the sole writer of the company database.
 #
-# The consequence was not theoretical. On 2026-10-13 the authority's disk swung from 92% / 6.1 GB
-# free (measured) to 98.7% / 0.0 GB free (`disk-guard` CRITICAL at 13:00:03Z) in the same hour, and
-# `prune-backups` logged `FLOOR BREACHED ... Pruned NOTHING; investigate what filled the disk.` A
-# 3 GB pass against 6 GB free is the whole explanation, and the box that fills is the sole writer of
-# the company database. Journal P3161.
+# The deployed wrapper bounds it at 500 MB per round, so a real pass is ~1.5 GB -- this guard is NOT
+# an explanation of any past reading and is not claimed to be one. It closes the hole that opens the
+# moment someone runs this script WITHOUT the wrapper, which is exactly what a new host or a
+# recovery session does. Journal P3163.
 #
-# The floor is the budget for THIS pass plus headroom for everything else that is running, and it is
-# re-checked before every round, because the first round's own tar is what consumes the space the
-# second would spend.
+# The floor is this pass's budget plus headroom for everything else running, and it is re-checked
+# before every round, because the previous round's own tar is what consumed the space.
 FREE_RESERVE_BYTES="${TRANSCRIPT_FREE_RESERVE_BYTES:-2000000000}"
 need_bytes=$((MAX_BYTES + FREE_RESERVE_BYTES))
 
 free_bytes() {
-  # POSIX `df -Pk` field 4 is "available", in 1K blocks. No --output (GNU-only), no parse of the
-  # human-readable column.
+  # POSIX `df -Pk` field 4 is "available", in 1K blocks. No --output (GNU-only), no human columns.
   df -Pk "$1" 2>/dev/null | awk 'NR==2 {print $4 * 1024}'
 }
-
-mkdir -p "$STATE_DIR" "$ARCHIVE/logs" "$ARCHIVE/incoming"
-LOG="$ARCHIVE/logs/pull-$(date -u '+%Y%m%d').jsonl"
 
 have_bytes="$(free_bytes "$ARCHIVE")"
 if [ -z "$have_bytes" ] || [ "$have_bytes" -lt "$need_bytes" ]; then
@@ -77,7 +62,7 @@ if [ -z "$have_bytes" ] || [ "$have_bytes" -lt "$need_bytes" ]; then
     printf '  needs     : %s bytes (max-bytes %s + reserve %s)\n' "$need_bytes" "$MAX_BYTES" "$FREE_RESERVE_BYTES"
     printf '  These tars stage inside the archive root, on the same filesystem as the company database.\n'
     printf '  Lower TRANSCRIPT_MAX_BYTES, free space, or raise the floor deliberately. Do not widen the\n'
-    printf '  budget to make this pass — that is how the disk filled on 2026-10-13.\n'
+    printf '  budget to make this pass go — the box that fills is the one holding the company database.\n'
   } | tee "$STATE_DIR/ALARM" >&2
   exit 3
 fi
@@ -110,7 +95,76 @@ while [ "$round" -lt "$ROUNDS" ]; do
   if ! printf '%s' "$pull_out" | grep -q '"truncated": *true'; then break; fi
   printf '%s round %d: more to pull (chunked), continuing\n' "$STAMP" "$round" >> "$ARCHIVE/logs/run.log"
 done
-printf '%s' "$pull_out" | grep -q '"ok": false' && pull_rc=3
+# WAS: printf '%s' "$pull_out" | grep -q '"ok": false' && pull_rc=3
+#
+# THAT LINE WAS THE DEFECT (measured 2026-10-12 on secratary-cloud). It greps the WHOLE pull JSON as
+# text, so it matched the PER-MACHINE `"ok": false` of any single machine -- and the pull reports
+# `"failed": [ ... ]` for every machine it cannot reach. One unreachable machine therefore made
+# pull_rc=3, which failed transcript-archive-pull.service AND wrote an ALARM reading "PULL FAILED --
+# machines could not be pulled, so nothing was archived this pass" on a pass that had just ingested
+# ok=1 from four other machines. The unit failed every hour and the alarm was false.
+#
+# THE DISTINCTION THE WHOLE ARCHIVE IS BUILT ON (AGENTS.md section 1): a machine whose data we cannot
+# get is a GAP; a machine we cannot REACH is SILENCE, and from here a powered-off laptop and a broken
+# pull look identical. This runner's own contract says exit 3 means "the pull failed", so:
+#   * a machine that has NEVER contacted this archive is SILENCE. The pull has never reached it, so
+#     nothing changed and nothing was lost; --check reports it and it must not fail the unit.
+#   * a machine that HAS contacted us before and is now unreachable is a mechanism fault -- exactly
+#     the 2026-10-10 stall this exit code exists to catch. That stays exit 3.
+# The manifest is read directly: it needs no network and no rescan of any machine.
+# Two counts, not one, because "there were no failures at all" and "the failures were all
+# machines we have never reached" are DIFFERENT states and only the first is success.
+#
+# WAS: a single `new_machines` count with `if new_machines > 0 ... else pull_rc=3`. Measured on
+# secratary-cloud 2026-10-13 (pass 13:23Z): that pair printed `failed: []`, ingested ok=1 from
+# all five machines, and then took the `else` branch -- so a PERFECT pass set pull_rc=3, failed
+# transcript-archive-pull.service every hour, and wrote an ALARM reading
+#   "TRANSCRIPT ARCHIVE PULL FAILED -- cannot reach , which this archive has pulled before"
+# with an EMPTY machine name (the .failed-machines file held one newline). The check itself said
+# gaps: [] and silent: []. A monitor that cries wolf on every healthy run is not a monitor: the
+# one pass that really is behind would arrive in a journal already full of this.
+counts=$(python3 - "$ARCHIVE/manifest.sqlite" "$pull_out" <<'PY'
+import json, sqlite3, sys
+db = sys.argv[1]
+try:
+    d = json.loads(sys.argv[2])
+    if not isinstance(d, dict) or "ok" not in d:
+        raise ValueError("not a pull report")
+except Exception:
+    # No parsable pull report: an empty failure list and a dead pull look identical here, so this
+    # must NOT read as success. Report one known failure so the caller fails the unit, exactly as
+    # an unreachable machine we have pulled before does.
+    print(0, 1)
+    sys.exit(0)
+failed = d.get("failed") or []
+try:                                     # the primary key IS the column, so a read-only URI needs
+    c = sqlite3.connect(db)              # no -wal/-shm access; the same DB --check reads.
+    seen = {r[0] for r in c.execute("SELECT DISTINCT machine FROM machine_contact")}
+    c.close()
+    judged = True
+except Exception:                        # cannot judge -> treat as joined, do NOT suppress the alarm
+    seen, judged = set(), False
+if not failed:
+    print(0, 0)                          # a clean pass: no silence, no mechanism fault
+elif not judged:
+    print(len(failed), len(failed))
+else:
+    new = sum(1 for m in failed if m not in seen)
+    print(new, len(failed) - new)        # <never contacted> <contacted before = mechanism fault>
+PY
+)
+new_machines="${counts%% *}"
+known_failures="${counts##* }"
+printf '%s' "$pull_out" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(", ".join(d.get("failed") or []))' \
+  > "$STATE_DIR/.failed-machines" 2>/dev/null || printf 'unknown' > "$STATE_DIR/.failed-machines"
+# A machine that HAS contacted this archive before and is now unreachable is the mechanism fault
+# exit 3 exists to catch. It is tested FIRST so a pass that fails on both kinds still fails loudly.
+if [ "${known_failures:-0}" -gt 0 ]; then
+  pull_rc=3
+elif [ "${new_machines:-0}" -gt 0 ]; then
+  printf 'transcript-archive-pass: %s machine(s) failed and have NEVER contacted this archive; that is SILENCE (a machine the pull has never reached), not a broken pull -- --check decides it from the manifest\n' "$new_machines" >&2
+  rm -f "$STATE_DIR/ALARM"
+fi
 
 # The check. This is the part that has to fail loudly -- journal H340 is why: a stale archive was
 # found by accident, which means nothing was watching.
@@ -147,8 +201,8 @@ fi
 # actually broke, for two days, while `~/.cron-status/runs.tsv` recorded rc=3 every hour and nobody
 # read it. Exit code alone is not a monitor (AGENTS.md §1 trap 2, in a different costume).
 if [ "$alarm_text" = "" ] && [ "$pull_rc" -ne 0 ]; then
-  alarm_text="$(printf '%s TRANSCRIPT ARCHIVE PULL FAILED — machines could not be pulled, so nothing was archived this pass\n%s\n' \
-    "$STAMP" "$(tail -c 2000 "$LOG")")"
+  alarm_text="$(printf '%s TRANSCRIPT ARCHIVE PULL FAILED — cannot reach %s, which this archive has pulled before, so it is now behind\n%s\n' \
+    "$STAMP" "$(cat "$STATE_DIR/.failed-machines" 2>/dev/null)" "$(tail -c 2000 "$LOG")")"
   alarm_title="The transcript archive pull is failing: nothing is being archived from any machine"
   alarm_exit=3
 fi

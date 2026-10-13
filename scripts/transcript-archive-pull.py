@@ -44,6 +44,11 @@ LOG_DIR = os.path.join(ARCHIVE_ROOT, "logs")
 
 # Client-side script locations, tried in order. harness-config is synced to every node.
 CLIENT_CANDIDATES = [
+    # THE AUTHORITY'S OWN PATH, and it is not `~/code/...`: this host is a root-owned server whose
+    # canonical checkout is /root/code/harness-config. Measured 2026-10-11: the local machine was
+    # reported as "no working (python, client) pair" because the candidate list only knew the
+    # laptop and office layouts.
+    "/root/code/harness-config/scripts/archive-transcripts.py",
     "~/code/harness-config/scripts/archive-transcripts.py",
     "~/harness-config/scripts/archive-transcripts.py",
     "C:/Users/ezabz/code/harness-config/scripts/archive-transcripts.py",
@@ -52,28 +57,28 @@ CLIENT_CANDIDATES = [
 ]
 
 # alias = the ssh alias ON THIS HOST. `local` means run the client here.
+# `push: True` marks a machine that SHIPS ITS OWN ARCHIVE rather than being pulled. Measured
+# 2026-10-11: a laptop that sleeps, roams networks and is sometimes shut cannot be a reliable pull
+# target, and its key was refused from the authority anyway - while the PUSH direction (the one the
+# estate already uses for DSH sessions) worked on its first run and shipped 5,357 files. Marking it
+# here means the pull stops reporting a failure it can never fix and says why instead. The pusher is
+# `scripts/archive-push-laptop.ps1` + the `PersonalSecretary-ArchivePush` task on that machine.
 MACHINES = {
     "secratary":       {"alias": "local",        "os": "linux"},
+    # WAS: {"alias": None, "os": "windows", "push": True}. The repo marked the laptop push-fed
+    # (commit aba858d, 2026-10-11) because the pull flapped on it, and that push half IS deployed on
+    # ZABZ-YOGA (`archive-push-laptop.ps1` present, task PersonalSecretary-ArchivePush LastTaskResult
+    # 0). But the PULL is the path that is verifiably working right now: the 03:23 pass on
+    # 2026-10-12 pulled files_new=5 from it and the archive holds its arrivals up to 03:40. Switching
+    # the pull OFF is not this workstream's to do, and doing it in the same change as an exit-code
+    # fix means nobody could tell which one moved the archive. So the pull stays an explicit target;
+    # if it genuinely becomes unreachable the patched runner reports it honestly instead of failing
+    # the unit. Revisit only with the push proven to deliver on its own.
     "zabz-yoga":       {"alias": "zabz-yoga-1",  "os": "windows"},
     "zabz-tech":       {"alias": "zabz-tech",    "os": "windows"},
     "zabz-tech-linux": {"alias": "linux-pc-ts",  "os": "linux"},
     "lakewooechsmini": {"alias": "mac-mini-ts",  "os": "mac"},
 }
-
-# The Alias is where the machine is FROM HERE, and "here" moved. `secratary` is `local` only on the
-# office box, because that box WAS the archive host; on the authority (which owns the archive from
-# 2026-10-11) it is a remote tailnet host. Measured 2026-10-11 on secratary-cloud: with the hardcoded
-# `local`, the first scheduled pass ran archive-transcripts.py against the CLOUD BOX and wrote a
-# contact row of `secratary, files_seen=0, newest_source_mtime=0.0`. That row is worse than a
-# failure: `--check` compares the newest source mtime against the newest archived mtime, so a source
-# mtime of ZERO is older than everything and the office box -- which is exactly the machine holding
-# the only copy of the raw archive -- would have shown as perfectly current forever. Each machine's
-# alias is therefore overridable per host, by name, with no change to the machine's identity in the
-# manifest (so every existing cursor still matches and nothing is re-sent).
-for _name, _cfg in MACHINES.items():
-    _env = "TRANSCRIPT_ALIAS_" + _name.upper().replace("-", "_")
-    if os.environ.get(_env):
-        _cfg["alias"] = os.environ[_env]
 DEFAULT_MAX_BYTES = 2_000_000_000
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
             "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=4"]
@@ -196,7 +201,10 @@ def probe_client_and_python(machine: str, cfg: dict, python_bin: str | None,
             rc, out, err = run(argv, timeout=300)
             summary = last_json(out)
             if summary and summary.get("ok"):
-                return (py, os.path.expanduser(cand) if alias == "local" else cand), ""
+                return py, os.path.expanduser(cand) if alias == "local" else cand
+            # KEEP the real reason. Measured 2026-10-12 on lakewooechsmini: this probe threw
+            # stderr away, so "Permission denied (publickey)" and a genuinely missing client
+            # file both printed one sentence and the reader was sent to the wrong machine.
             blob = (err or out or "").strip()
             last_error = blob.splitlines()[-1].strip() if blob else f"rc={rc}, no output"
     return None, last_error
@@ -206,20 +214,30 @@ def pull_one(machine: str, cfg: dict, *, max_bytes: int, dry_run: bool,
              python_bin: str | None, client_path: str | None, timeout: int) -> dict:
     started = time.time()
     alias = cfg["alias"]
+    if cfg.get("push"):
+        return {"machine": machine, "alias": None, "started_at": time.time(), "ok": True,
+                "skipped": "push",
+                "note": "this machine SHIPS its own archive (archive-push-laptop.ps1); the pull does "
+                        "not reach it by design. Nothing is wrong when this line appears."}
     is_local = alias == "local"
     result: dict = {"machine": machine, "alias": alias, "started_at": started}
 
-    probed, why = probe_client_and_python(machine, cfg, python_bin, client_path)
-    if not probed:
-        # SAY WHY, NOT WHAT IT LOOKS LIKE. This message used to read "no working (python,
-        # archive-transcripts.py) pair ... is harness-config synced there?" for every failure,
-        # including an ssh that could not resolve the hostname at all. Measured 2026-10-11 on
-        # secratary-cloud: every machine failed with that sentence, which sends the reader to the
-        # wrong machine and the wrong fix, while the actual line was
-        # `ssh: Could not resolve hostname secratary.tail93e6e6.ts.net`. A wrong diagnosis is worse
-        # than no diagnosis, so the transport's own last line is carried through.
-        result.update(ok=False, error="could not run the client on that machine — the probe's own "
-                                      "last output was: " + (why or "(no output)"))
+    probed = probe_client_and_python(machine, cfg, python_bin, client_path)
+    if not probed or not probed[0]:
+        # REPORT WHAT THE PROBE ACTUALLY SAW. The old text named only two causes, one of them
+        # ("the authority is not on the tailnet", owner question 445) is no longer true -
+        # measured 2026-10-12 every alias resolves from the authority. What a reader needs is
+        # the probe's own last error, because each one means a different thing:
+        #   "Permission denied (publickey)"  -> permissions on THAT machine, not the checkout
+        #   "No such file or directory"      -> stale/missing harness-config checkout there
+        #   "Could not resolve hostname"     -> a network path gap (silence, not a gap)
+        last_error = (probed[1] if probed else "") or "the probe produced no output"
+        result.update(ok=False, error="no working (python, archive-transcripts.py) pair on "
+                                      f"that machine. The probe's own last error was: "
+                                      f"{last_error!r}. Read that string rather than guessing: "
+                                      "a permission failure and a missing checkout are "
+                                      "different faults on different machines, and a host that "
+                                      "will not resolve is SILENCE, not a GAP.")
         return result
     py, client = probed
     result["client"] = client
