@@ -915,6 +915,7 @@ handoff	H3591	3591		2026-10-13 01:40 UTC	SECRATARY-CLOUD	open	## 2026-10-13 01:4
 handoff	H3590	3590		2026-10-13 01:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 01:42 UTC · SECRATARY-CLOUD · The owner-text channel has a flag source and no consumer	entries/handoff/H3590.md	1	57	bc59054b20d4686b		
 handoff	H3594	3594		2026-10-13 03:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 03:42 UTC · SECRATARY-CLOUD · The CFO is built, clocked and verified; one owner reply stands between it and done	entries/handoff/H3594.md	1	70	dfdede695101b74b		
 handoff	H3595	3595		2026-10-13 05:04 UTC	SECRATARY-CLOUD	open	## 2026-10-13 05:04 UTC · SECRATARY-CLOUD · Authoritative state at round 39: objective verified but for the owner's reply; disk is the live risk	entries/handoff/H3595.md	1	77	3b7de9e41e1592b0		
+handoff	H3596	3596		2026-10-13 05:46 UTC	SECRATARY-CLOUD	open	## 2026-10-13 05:46 UTC · SECRATARY-CLOUD · State at round 51: marketplace matching 419 -> 459, rules now on a clock, one owner reply outstanding	entries/handoff/H3596.md	1	72	9786d0b6546cd8ca		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2269,6 +2270,9 @@ lessons	L3656	3656		2026-10-13	SECRATARY-CLOUD	open	**L3656 · D2655's exclusion
 lessons	L3657	3657		2026-10-13	SECRATARY-CLOUD	open	**L3657 · Correction to H3595: there is no owner row #474**	entries/lessons/L3657.md	1	16	81139b872077ecd3		
 lessons	L3658	3658		2026-10-13	SECRATARY-CLOUD	open	**L3658 · Correcting P3007: the rule path works, the resolver works, and my harness was the bug**	entries/lessons/L3658.md	1	44	527158f3fa3bad41		
 lessons	L3659	3659		2026-10-13	SECRATARY-CLOUD	open	**L3659 · Clause 2 measured properly, and the join key I did not check made it look empty**	entries/lessons/L3659.md	1	42	c34eba46cc511d88		
+lessons	L3660	3660		2026-10-13	SECRATARY-CLOUD	open	**L3660 · Five wrong answers today, all from assuming a data shape: the cross-check caught them, not the query**	entries/lessons/L3660.md	1	48	edc767415bc9e874		
+lessons	L3661	3661		2026-10-13	SECRATARY-CLOUD	open	**L3661 · 109 marketplace orders are unlinked, and one column has three different reference formats**	entries/lessons/L3661.md	1	51	1c698137e6aebab8		
+lessons	L3662	3662		2026-10-13	SECRATARY-CLOUD	open	**L3662 · The remaining 24 ambiguous orders should stay ambiguous, and here is the measurement that says so**	entries/lessons/L3662.md	1	45	a7c175b202120457		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2693,6 +2697,7 @@ pain	P3004	3004		2026-10-13	SECRATARY-CLOUD	open	## P3004 — The LLC has a diss
 pain	P3005	3005		2026-10-13	SECRATARY-CLOUD	open	## P3005 — The owner's notification gate was silently swallowing deadlines and DOWN alerts	entries/pain/P3005.md	1	48	3fa35f5ebe6fff13	owner-notifications,deadlines,classifier,finance-adjacent,pain	
 pain	P3006	3006		2026-10-13	SECRATARY-CLOUD	open	## P3006 — The integrity check cannot run on the authority, and D2655 already decided what not to do about it	entries/pain/P3006.md	1	55	0fe626eaa4e85e9e		
 pain	P3007	3007		2026-10-13	SECRATARY-CLOUD	open	## P3007 — His answer cannot teach anything: the guess the question carries is not a category that exists	entries/pain/P3007.md	1	49	38b506badd9c5634		
+pain	P3008	3008		2026-10-13	SECRATARY-CLOUD	open	## P3008 — What fills the authority's disk: 760 MB of it is dead weight, and only 9.0 GB is free	entries/pain/P3008.md	1	37	6a90217308a7ed37		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3372,3 +3377,8 @@ wins	W2763	2763		2026-10-13	SECRATARY-CLOUD	open	**W2763 · 2026-10-13 · 93 pha
 wins	W2764	2764		2026-10-13	SECRATARY-CLOUD	open	**W2764 · 2026-10-13 · 35 purchase totals were lost to a regex anchored at column zero, found by reading the mail.**	entries/wins/W2764.md	1	47	a6e78bf20fa3a4fc		
 wins	W2765	2765		2026-10-13	SECRATARY-CLOUD	open	**W2765 · 2026-10-13 · The backfill recovered all 35 totals and the matcher claimed 35 more card charges.**	entries/wins/W2765.md	1	48	c4020c582abc0bc2		
 wins	W2766	2766		2026-10-13	SECRATARY-CLOUD	open	**W2766 · 2026-10-13 · Matched card charges 419 -> 459 today: the rank backfill re-armed the weak records.**	entries/wins/W2766.md	1	41	6df033e7f94ca3a7		
+wins	W2767	2767		2026-10-13	SECRATARY-CLOUD	open	**W2767 · 2026-10-13 · db-shape.py exists and catches the join that returned zero.**	entries/wins/W2767.md	1	28	68b13b35f39aab45		
+wins	W2768	2768		2026-10-13	SECRATARY-CLOUD	open	**W2768 · 2026-10-13 · Matched 459 -> 484: the matcher tied on evidence that named the order outright.**	entries/wins/W2768.md	1	45	0b975f48cb51b9b4		
+wins	W2769	2769		2026-10-13	SECRATARY-CLOUD	open	**W2769 · 2026-10-13 · Forward view re-verified: every headline figure reproduces, the owner loan moved by twenty dollars.**	entries/wins/W2769.md	1	37	c603f306f81f9077		
+wins	W2770	2770		2026-10-13	SECRATARY-CLOUD	open	**W2770 · 2026-10-13 · Clause 6 verified: a full Twilio walk adds zero, and the tool prints the ordering defect it fixed.**	entries/wins/W2770.md	1	43	21fafa75174a10d7		
+wins	W2771	2771		2026-10-13	SECRATARY-CLOUD	open	**W2771 · 2026-10-13 · The SMS gap check could only see one day back; it now walks the whole history daily.**	entries/wins/W2771.md	1	38	9ff3785e5a844c87		
