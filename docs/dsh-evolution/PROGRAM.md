@@ -109,3 +109,10 @@ free of 32 GB; it dispatches, it does not host the fleet.
 estate's own alarms (`N3`); the four memory fixes (`N6`); the owner-queue filing guard; the two
 deliberately-declined persona moves; and the capacity decision, which is row **#473** and is his.
 Nothing in this program's scope is blocked on information — only on work.
+* `2026-10-13 14:15Z` — **the instruction surface was two days stale on EVERY machine**, not just this
+  one. Root cause found: `sync.py` was refusing the profile layer *correctly* (the committed generated
+  preset rows embedded a pre-correction sha) and printing one line into a log nobody reads. Rows
+  regenerated; `sync.py`'s refusal now files a journal entry. Corrected and verified on all four
+  machines that load an estate preset. `W2794`-`W2797`.
+* `2026-10-13 14:26Z` — `08-changes-made.md` written: every change, how it was checked, and the two
+  false claims of my own kept in the record on purpose.
