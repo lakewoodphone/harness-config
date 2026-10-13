@@ -3355,3 +3355,4 @@ wins	W2753	2753		2026-10-13	SECRATARY-CLOUD	open	**W2753 · 2026-10-13 · The pa
 wins	W2754	2754		2026-10-13	SECRATARY-CLOUD	open	**W2754 · 2026-10-13 · PayPal purchases were permanently unaskable: the gate wanted a card number that does not exist.**	entries/wins/W2754.md	1	42	2c38e45aea31c150		
 wins	W2755	2755		2026-10-13	SECRATARY-CLOUD	open	**W2755 · 2026-10-13 · Five tools imported a module that was never copied to the authority.**	entries/wins/W2755.md	1	46	e5f92e1b7e0c3266		
 wins	W2756	2756		2026-10-13	SECRATARY-CLOUD	open	**W2756 · 2026-10-13 · Swept every silent fallback, and verified the one-at-a-time rule actually fires.**	entries/wins/W2756.md	1	39	aa20afb0f6b0fa1c		
+wins	W2757	2757		2026-10-13	SECRATARY-CLOUD	open	**W2757 · 2026-10-13 · Tier-collapse fixed: three tiers pointed at one literal, 88 times reported.**	entries/wins/W2757.md	1	47	4ba9a9c62b049543		
