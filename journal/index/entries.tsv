@@ -2234,6 +2234,7 @@ lessons	L3630	3630		2026-10-12	SECRATARY-CLOUD	open	**L3630 · the API slowness 
 lessons	L3631	3631		2026-10-12	SECRATARY-CLOUD	open	**L3631 · ssh multiplexing is live and 10x on the Linux node - and the ssh latency was pwsh.exe starting, not the network; ssh -O check is not a health check**	entries/lessons/L3631.md	1	43	0ad63ba840787082		
 lessons	L3632	3632		2026-10-12	SECRATARY-CLOUD	open	**L3632 · Windows ssh cannot multiplex (Win32-OpenSSH, open since 2016) - but an MSYS2 ssh is already on the machine; and the mesh has exactly one transport with the fallback built and unwired**	entries/lessons/L3632.md	1	74	927c1903783843f4		
 lessons	L3633	3633		2026-10-12	SECRATARY-CLOUD	open	**L3633 · On Windows ssh.exe never exits while its stdout is a PIPE, and never sends EOF on a redirected stdin**	entries/lessons/L3633.md	1	46	23ec529f9bffb195	ssh,windows,win32-openssh,subprocess,waze-cli	
+lessons	L3634	3634		2026-10-13	SECRATARY-CLOUD	open	**L3634 · A flag can be missing from the repo you grepped and present in the service that owns it**	entries/lessons/L3634.md	1	46	7e74de7184bbbd1b	grep,evidence,agents,waze	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
