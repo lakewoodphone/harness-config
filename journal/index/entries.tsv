@@ -2261,6 +2261,9 @@ lessons	L3649	3649		2026-10-13	SECRATARY-CLOUD	open	**L3649 · When two differen
 lessons	L3650	3650		2026-10-13	SECRATARY-CLOUD	open	**L3650 · Three marketplace suspicions, three clean measurements - and one decision I re-derived that was already documented**	entries/lessons/L3650.md	1	41	c752a9ff0b79fa1c		
 lessons	L3651	3651		2026-10-13	SECRATARY-CLOUD	open	**L3651 · Four dead ends on the ST-50 basis, and one false alarm that was right to check**	entries/lessons/L3651.md	1	47	cf15c94b6b16d68b		
 lessons	L3652	3652		2026-10-13	SECRATARY-CLOUD	open	**L3652 · 49 was 20: the count that became a claim, and the payment link that does not exist**	entries/lessons/L3652.md	1	47	1d35489b9e518c1c		
+lessons	L3653	3653		2026-10-13	SECRATARY-CLOUD	open	**L3653 · There is no back-link: 74 per cent of orders have no total, and name matching invents identities**	entries/lessons/L3653.md	1	42	3b3f825b6378404f		
+lessons	L3654	3654		2026-10-13	SECRATARY-CLOUD	open	**L3654 · I marked a queue row answered when the owner had not spoken**	entries/lessons/L3654.md	1	31	1578e9f04a28ce41		
+lessons	L3655	3655		2026-10-13	SECRATARY-CLOUD	open	**L3655 · No payment row is not missing money: this shop takes cash and cheques**	entries/lessons/L3655.md	1	50	69083e7b83b1e8ca		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3347,3 +3350,8 @@ wins	W2748	2748		2026-10-13	SECRATARY-CLOUD	open	**W2748 · 2026-10-13 · The ta
 wins	W2749	2749		2026-10-13	SECRATARY-CLOUD	open	**W2749 · 2026-10-13 · Cleared two engineering rows off the owner's queue, and one of them would have reverted a week of work.**	entries/wins/W2749.md	1	36	efd4556b2e1e060c	owner-queue,cleanup,google-voice,stale-branch,win	
 wins	W2750	2750		2026-10-13	SECRATARY-CLOUD	open	**W2750 · 2026-10-13 · Four owner rows now cleared, and the pattern in all four was the same.**	entries/wins/W2750.md	1	35	5ae142463f8b9678	owner-queue,cleanup,pattern,win	
 wins	W2751	2751		2026-10-13	SECRATARY-CLOUD	open	**W2751 · 2026-10-13 · Half the orders marked paid have no payment behind the flag: 3,921.63 across 49 orders.**	entries/wins/W2751.md	1	52	8f7774b5c171fcc9		
+wins	W2752	2752		2026-10-13	SECRATARY-CLOUD	open	**W2752 · 2026-10-13 · 28,142.70 of the shop's received money carries no work order, and the terminal flow is why.**	entries/wins/W2752.md	1	47	442865fc4447d81a		
+wins	W2753	2753		2026-10-13	SECRATARY-CLOUD	open	**W2753 · 2026-10-13 · The payment was not missing, it was unlinked: one link made, 267 proved impossible.**	entries/wins/W2753.md	1	46	fb5d24365b522fe7		
+wins	W2754	2754		2026-10-13	SECRATARY-CLOUD	open	**W2754 · 2026-10-13 · PayPal purchases were permanently unaskable: the gate wanted a card number that does not exist.**	entries/wins/W2754.md	1	42	2c38e45aea31c150		
+wins	W2755	2755		2026-10-13	SECRATARY-CLOUD	open	**W2755 · 2026-10-13 · Five tools imported a module that was never copied to the authority.**	entries/wins/W2755.md	1	46	e5f92e1b7e0c3266		
+wins	W2756	2756		2026-10-13	SECRATARY-CLOUD	open	**W2756 · 2026-10-13 · Swept every silent fallback, and verified the one-at-a-time rule actually fires.**	entries/wins/W2756.md	1	39	aa20afb0f6b0fa1c		
