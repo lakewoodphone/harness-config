@@ -92,6 +92,14 @@ const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8', '-o', 'Server
 const MAX_TRANSFER_BYTES = 512 * 1024 * 1024;
 
 const DEFAULT_NODES = {
+  // MEASURED 2026-10-13: this map held only `secratary -> secratary-ts`, the OFFICE box, and had
+  // no entry for the authority at all. The authority moved to `secratary-cloud` at
+  // 2026-10-11T05:43:36Z and the office box has been FROZEN since
+  // (settings/machines/host-posture.tsv), so a session read aimed at "secratary" was aimed at a
+  // stopped server — and the frozen box's own 528 sessions were what answered. The authority is
+  // listed FIRST and the historical names are kept, because the frozen box still holds sessions
+  // that were written to it before the cutover and those are real history.
+  'secratary-cloud': 'secratary-cloud',
   secratary: 'secratary-ts',
   'zabz-tech': 'zabz-tech-ts',
   'zabz-tech-linux': 'linux-pc-ts',
