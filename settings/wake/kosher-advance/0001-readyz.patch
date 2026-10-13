@@ -1,0 +1,37 @@
+--- a/server/app/routers/health.py
++++ b/server/app/routers/health.py
+@@ -193,6 +193,34 @@
+     return payload
+ 
+ 
++@router.get("/readyz")
++def readiness(
++    deps: AppDeps = Depends(get_app_deps),
++) -> dict[str, Any]:
++    """Unauthenticated readiness probe: process-up vs database-writable.
++
++    docs/IMPLEMENTATION_BACKLOG.md (the 2026-09-14 audit) recorded that there is
++    no readiness endpoint - `/health?deep=true` is auth-gated - so an orchestrator
++    cannot tell "process up" from "database writable". This closes that gap and
++    exposes no configuration, phone counts, listener state or secrets: only
++    whether the storage layer reports itself writable.
++    """
++    storage = deps.storage
++    try:
++        db = storage.health_check()
++    except Exception as exc:  # noqa: BLE001 - a readiness probe never raises
++        payload = {
++            "status": "error",
++            "db": {"writable": False, "error": type(exc).__name__},
++        }
++        raise HTTPException(status_code=503, detail=payload) from exc
++    writable = bool(db.get("writable"))
++    payload = {"status": "ok" if writable else "error", "db": db}
++    if not writable:
++        raise HTTPException(status_code=503, detail=payload)
++    return payload
++
++
+ @router.get("/health/db")
+ def health_db(
+     request: Request,

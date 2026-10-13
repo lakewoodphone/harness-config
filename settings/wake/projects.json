@@ -1,0 +1,204 @@
+{
+  "schema": "wake-projects/2",
+  "generated": "2026-10-13",
+  "brief": "W5-PROJECT-LOOP-AND-KOSHER-FILTER",
+  "provenance": {
+    "registry_was_absent": "VERIFIED 2026-10-13 on secratary-cloud: `ls -l /root/bin/sources/projects.json` => 'No such file or directory'. RE-MEASURED read-only 2026-10-13T01:24Z by this brief's verification pass on secratary-cloud: the orchestrator had restored a live registry in parallel at 01:17:13Z (`stat` => 38016 bytes; `sha256sum` => a3aacd371562384da744dfd5e07ebc61c32447fc0072920d7af83527d682435a; 10 project ids, `waste-system` enabled=false, no `definition_of_done`). So the file was absent when this was authored and is present now, authored by the orchestrator; this file is the superset to install (the same nine enabled ids, a checkable definition of done each, verified repo paths).",
+    "canonical_previous_copy": "scripts/deployed/bin/sources/projects.json in harness-config (last committed 2026-10-07, commit b75cda3b). This file is built from that copy; every project id, title, state_file, cooldown and cap is carried over verbatim, and repo paths were re-verified.",
+    "ledger_state": "VERIFIED 2026-10-13 on secratary-cloud: `python3 /root/bin/work.py list` => 'no items'. The ledger (0 items) is the reason a woken shift gets `nothing-todo`; the ledger seed in this directory is the fix.",
+    "path_warning": "The historical repo paths `/home/zabz/repos/<name>` do NOT exist on secratary-cloud (verified: `ls -d /home/zabz/repos` => No such file or directory) nor on zabz-tech-linux. The verified paths below are on the host named in `repo_verified_on`."
+  },
+  "caps": {
+    "global_max_flags_per_day": 500,
+    "global_max_usd_per_day": 70.0,
+    "owner_decision": "2026-09-20/2026-09-28: 'There's no reason to limit how much you could do per day... obviously we can't have overall more than $70 of spending... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' The binding guard is the store's own max_per_source_per_hour=3; the count is a runaway backstop and the spend ceiling is the limit.",
+    "per_project": "cooldown_seconds 21600 and max_flags_per_day 3 for every enabled project (carried from the 2026-09-28 measurement)."
+  },
+  "projects": [
+    {
+      "id": "kosher-ai-filter",
+      "title": "Kosher AI Filter (LP&T Filter AI - Android/iOS/Windows content filtering)",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\kosher-filter-ai",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\kosher-filter-ai", "verified": true, "head": "26da13f26a1ace2e9d569ba8737115b7f0240a41", "note": "newest of the three checkouts; items 598/660 integrated 2026-10-12"},
+        {"host": "mac-mini-ts (macOS)", "path": "/Users/lpt/work/kosher-filter-ai", "verified": true, "head": "3cc033007a4fde54ad1766cc1b6afa036fdd52b3", "note": "READ-ONLY per brief; Apple/Swift build host; python3 3.9.6 + fastapi 0.128.8 + pytest 8.4.2 present"},
+        {"host": "secratary-cloud (authority)", "path": "/home/zabz/repos/kosher-filter-ai", "verified": false}
+      ],
+      "repo_verified_on": "desktop-ts (ls of C:\\Users\\ezabz\\Code) and mac-mini-ts (ls -ld /Users/lpt/work/kosher-filter-ai), both 2026-10-13",
+      "case": "kosher-filter-ai",
+      "state_file": "/home/zabz/.wake-projects/kosher-ai-filter.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "integration_branch": "origin/main",
+      "definition_of_done": "A change in the repo proven by the repo's own check: `cd server && python3 -m pytest tests/<the new test> -q` prints a pass summary, and the before/after behaviour is quoted. Build-host lanes: dotnet -> zabz-tech-ts, gradlew/npm -> zabz-yoga-ts, swift/plutil -> mac-mini-ts.",
+      "notes": "LEADING PROJECT. Open roadmap (docs/cross-platform-filter-master.md section 7) has 24 unchecked Phase 1-5 boxes, all heavyweight iOS NetworkExtension / Windows kernel-driver work except the server-side gaps. Real server-side open defect from docs/IMPLEMENTATION_BACKLOG.md (2026-09-14 audit): 'No readiness endpoint (/health?deep=true is auth-gated; verified 401 live), so \"process up\" and \"database writable\" are indistinguishable to an orchestrator' - the first increment built for this brief. COULD NOT ASK: the on-device Kotlin Bloom loader (item 85) and the iOS NEFilter provider state were not built or tested here."
+    },
+    {
+      "id": "lpt-website",
+      "title": "LPT Website (Lakewood Phone & Tech customer site + staff platform)",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\phone-and-tech-full",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\phone-and-tech-full", "verified": true}
+      ],
+      "repo_verified_on": "desktop-ts (ls of C:\\Users\\ezabz\\Code), 2026-10-13",
+      "case": "phone-and-tech-full",
+      "state_file": "/home/zabz/.wake-projects/lpt-website.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "integration_branch": "origin/test",
+      "definition_of_done": "The repo is on the expected branch and fast-forwarded to origin/test, proven by `git rev-parse --abbrev-ref HEAD`, `git rev-parse HEAD` and `git status --porcelain` (empty, or every line explained). Deploy is TEST ONLY; never production, never a customer-visible change without an owner-queue row.",
+      "notes": "Owner-named. Never deploy to production; anything customer-visible goes to the owner queue. COULD NOT ASK: the checkout's commit-vs-origin/test distance was not measured in this brief.",
+      "dirty_ignore": ["reconciliation_plan.json"]
+    },
+    {
+      "id": "lpt-sync",
+      "title": "LPT sync chain: Dialpad -> LPT hub -> production database -> website",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\lpt-hub",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\lpt-hub", "verified": true}
+      ],
+      "repo_verified_on": "desktop-ts (ls of C:\\Users\\ezabz\\Code), 2026-10-13",
+      "case": "lpt-sync",
+      "state_file": "/home/zabz/.wake-projects/lpt-sync.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "integration_branch": "origin/main",
+      "definition_of_done": "Each leg's entrypoint is named as a real path in the repo and its dry-run (or a read-only status query) is quoted with exit code; the ledger attempt records the exact command and its output. No write to the production database without an owner-queue row.",
+      "notes": "Owner: 'the LPT syncing system between dialpad, LPT hub, the production database and more needs to be constantly worked on and actually synced'. Ledger-driven; no per-project state needed. COULD NOT ASK: the sync entrypoint command was not run in this brief."
+    },
+    {
+      "id": "prod-db-sync",
+      "title": "Production database: truth, syncing and freshness",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp", "verified": true},
+        {"host": "zabz-tech-linux", "path": "/home/zabz/personal-secretary-mvp", "verified": true},
+        {"host": "secratary-cloud (authority)", "path": "/home/zabz/personal-secretary-mvp", "verified": true}
+      ],
+      "repo_verified_on": "desktop-ts (ls), zabz-tech-linux (ls -d), secratary-cloud (ls -d), 2026-10-13",
+      "case": "prod-db-sync",
+      "state_file": "/home/zabz/.wake-projects/prod-db-sync.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "integration_branch": "origin/master",
+      "definition_of_done": "A read-only measurement of the authoritative DB (file size, WAL size, newest row timestamp) is quoted with the exact command and its output, and the freshness verdict is written to the ledger attempt. Never open the office box's DB for a write or a full scan (see 000-SYSTEMS-REGISTER.md trap 2).",
+      "notes": "The authoritative DB is a control plane; size/truth/freshness are all open. COULD NOT ASK: the current DB size and lag were not measured in this brief.",
+      "dirty_ignore": ["firmware/"]
+    },
+    {
+      "id": "housekeeping",
+      "title": "AI company housekeeping and evolution",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp", "verified": true},
+        {"host": "zabz-tech-linux", "path": "/home/zabz/personal-secretary-mvp", "verified": true},
+        {"host": "secratary-cloud (authority)", "path": "/home/zabz/personal-secretary-mvp", "verified": true}
+      ],
+      "repo_verified_on": "desktop-ts, zabz-tech-linux, secratary-cloud, 2026-10-13",
+      "case": "housekeeping",
+      "state_file": "/home/zabz/.wake-projects/housekeeping.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "integration_branch": "origin/master",
+      "definition_of_done": "A drift or failure report comparing two named surfaces (e.g. scripts/deployed/bin/sources/*.py vs the live /root/bin/sources/*.py) is produced by a command whose output is quoted; the same command re-run after a fix changes the verdict.",
+      "notes": "This is the project the wake/tuner/authority items belong to. The 2026-10-12 cutover left the wake loop unscheduled; the highest-value housekeeping item is proving the sources mirror and the ledger agree. COULD NOT ASK: the live scheduler state was not re-measured here (the orchestrator owns that resource).",
+      "dirty_ignore": ["*.bak-*", "*.ownergate-*", "*.contentionfix-*", "*.ingestfix-*", "*.tmpnew", "*.db-wal", "*.db-shm", "_pt_*", "_scratch_*", "backup-evidence-*", "firmware/"]
+    },
+    {
+      "id": "personality-system",
+      "title": "Personality test system",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\personality-system",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\personality-system", "verified": true}
+      ],
+      "repo_verified_on": "desktop-ts (ls of C:\\Users\\ezabz\\Code), 2026-10-13",
+      "case": "personality-system",
+      "state_file": "/home/zabz/.wake-projects/personality-system.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "definition_of_done": "The model id is resolved from the gateway catalog at runtime, proven by a test that fails on a hardcoded model id and passes on the resolved one; the test command and its summary line are quoted. Live at https://personality.abletelsolutions.com.",
+      "notes": "Owner: 'the personality test system that we were doing needs to be constantly worked on'. The live AI calls failed for over a week on a hardcoded model name (docs/dsh-at-scale/60-cost-audit.md); the standing item is runtime model resolution. COULD NOT ASK: which model id remains hardcoded today was not re-grepped in this brief."
+    },
+    {
+      "id": "rental-system",
+      "title": "Rental system",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\apps\\rentals",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\personal-secretary-mvp\\apps\\rentals", "verified": true},
+        {"host": "zabz-tech-linux", "path": "/home/zabz/personal-secretary-mvp/apps/rentals", "verified": true}
+      ],
+      "repo_verified_on": "desktop-ts and zabz-tech-linux, 2026-10-13",
+      "case": "rental-system",
+      "state_file": "/home/zabz/.wake-projects/rental-system.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "definition_of_done": "The rentals app's test suite is run and its pass/fail summary line is quoted with the command and exit code; any failure is either fixed and re-run green or filed as its own item with a proving command.",
+      "notes": "Lakewood Rentals marketplace app, live at https://rentals.lakewoodphoneandtech.com. COULD NOT ASK: the suite was not run in this brief."
+    },
+    {
+      "id": "chumash",
+      "title": "Bible codes / chumash timeline",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\chumash-timeline",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\chumash-timeline", "verified": true}
+      ],
+      "repo_verified_on": "desktop-ts (ls of C:\\Users\\ezabz\\Code), 2026-10-13",
+      "case": "chumash",
+      "state_file": "/home/zabz/.wake-projects/chumash.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "definition_of_done": "The repo's HEAD, remote and first unchecked roadmap item are recorded from `git rev-parse HEAD`, `git remote -v` and the quoted roadmap line, and at least one runnable entrypoint (test or build) is executed with its output quoted.",
+      "notes": "Owner: 'the Bible codes that we were writing, that whole project needs to be worked on'. The 2026-09-28 registry could not establish the repo; this brief does: C:\\Users\\ezabz\\Code\\chumash-timeline on desktop-ts. COULD NOT ASK: its build/test entrypoint was not executed here."
+    },
+    {
+      "id": "cfo",
+      "title": "CFO / QuickBooks: the books, the close, and the finance audits",
+      "enabled": true,
+      "disabled_reason": null,
+      "repo": "C:\\Users\\ezabz\\Code\\quickbooks-agent",
+      "repo_paths": [
+        {"host": "desktop-ts / zabz-tech (Windows)", "path": "C:\\Users\\ezabz\\Code\\quickbooks-agent", "verified": true}
+      ],
+      "repo_verified_on": "desktop-ts (ls of C:\\Users\\ezabz\\Code), 2026-10-13",
+      "case": "cfo",
+      "state_file": "/home/zabz/.wake-projects/cfo.json",
+      "cooldown_seconds": 21600,
+      "max_flags_per_day": 3,
+      "ledger_driven": true,
+      "integration_branch": "origin/main",
+      "definition_of_done": "The agent's entrypoint or test is run with --help/--dry-run first, its output quoted, and one concrete books task (read-only) is executed end to end with its output quoted. No write to the books without an owner-queue row.",
+      "notes": "Owner: 'let's say there's a CFO that has to be run'. COULD NOT ASK: the agent's current entrypoint and its last run were not established here."
+    }
+  ],
+  "disclaimed_projects": [
+    {
+      "id": "waste-system",
+      "enabled": false,
+      "reason": "DISCLAIMED by the owner 2026-09-25 (owner-queue #145: 'don't know what you are referring to'). It is deliberately NOT among the nine projects in this registry; it must not be seeded or woken. Recorded here only so no future registry re-adds it by accident. See the canonical 2026-10-07 projects.json for the full discovery history."
+    }
+  ]
+}

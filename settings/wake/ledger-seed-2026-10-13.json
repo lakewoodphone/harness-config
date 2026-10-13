@@ -1,0 +1,98 @@
+{
+  "seed_version": 1,
+  "generated": "2026-10-13",
+  "brief": "W5-PROJECT-LOOP-AND-KOSHER-FILTER",
+  "base_ref": "985f93786076eaa420b8a1033184ad294c4f14aa",
+  "purpose": "Every enabled project in settings/wake/projects.json gets at least one real, claimable ledger item, so a woken shift claims real work instead of getting `nothing-todo`. The authority's ledger was measured empty on 2026-10-13 (`python3 /root/bin/work.py list` => `no items`).",
+  "apply_with": "settings/wake/apply-ledger-seed.py --db <throwaway copy of work.db>   # dry-run by default; the orchestrator installs the seed into the live store it owns",
+  "item_schema": {
+    "project": "must be an id in settings/wake/projects.json",
+    "title": "one line",
+    "dod": "a command whose output proves it (the shift quotes the output)",
+    "why": "one line",
+    "priority": "1-9 (1 = production outage / customer-facing break only)",
+    "source": "provenance string"
+  },
+  "items": [
+    {
+      "project": "kosher-ai-filter",
+      "title": "Kosher server: add an unauthenticated /readyz that distinguishes process-up from DB-writable",
+      "dod": "Apply settings/wake/kosher-advance/0001-readyz.patch to a pristine kosher-filter-ai checkout at 26da13f2 (or Mac 3cc0330) and run `cd server && python3 -m pytest tests/test_health_readiness.py -q`: it must print a pass summary. Before the patch, `/readyz` is absent from app.routes; after, it returns 200 with the DB reachable and 503 when the DB write probe fails, while `/health?deep=true` stays auth-gated (401). Quote both the route diff and the pytest summary.",
+      "why": "docs/IMPLEMENTATION_BACKLOG.md (2026-09-14 audit) lists 'No readiness endpoint (/health?deep=true is auth-gated; verified 401 live), so \"process up\" and \"database writable\" are indistinguishable to an orchestrator'. The wake loop needs exactly that distinction.",
+      "priority": 4,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "kosher-ai-filter",
+      "title": "Kosher Android: give the shipped client a real broker default and a managed-provisioning path",
+      "dod": "In the android/ module, replace the emulator-only `ws://10.0.2.2:8443/ws/phone` default with a configurable production default and handle `PROFILE_PROVISIONING_COMPLETE` (declared today and never handled). Prove with the JVM test run (`./gradlew test` or the repo's documented command) quoted, plus `git grep -n '10.0.2.2' android` before and after.",
+      "why": "docs/IMPLEMENTATION_BACKLOG.md: 'A stock Android build cannot reach a real broker... PROFILE_PROVISIONING_COMPLETE is declared and never handled.'",
+      "priority": 4,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "lpt-website",
+      "title": "LPT website: fast-forward the checkout to origin/test and record the exact commit delta",
+      "dod": "On the build host run `git -C <phone-and-tech-full> fetch origin`, `git -C <phone-and-tech-full> rev-parse --abbrev-ref HEAD`, `git -C <phone-and-tech-full> rev-list --left-right --count HEAD...origin/test`, then `git merge --ff-only origin/test` if behind, and `git status --porcelain`. The ledger attempt must contain all four outputs verbatim. TEST ONLY; never deploy to production.",
+      "why": "The 2026-09-28 correction recorded this checkout 426 commits behind origin/test behind a stale index.lock; distance is unmeasured today.",
+      "priority": 5,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "lpt-sync",
+      "title": "LPT sync: name and run the entrypoint for each leg of the Dialpad -> lpt-hub -> prod -> website chain",
+      "dod": "In C:\\Users\\ezabz\\Code\\lpt-hub, locate the sync entrypoints (`git grep -n -i 'dialpad' -- '*.js' '*.ts' '*.py' '*.mjs'`), then run the safest read-only status command for each leg (e.g. `--help`, `--dry-run`, or a status subcommand) and quote every command with its exit code and first output lines. If a leg has no runnable entrypoint, that is the finding and it is filed as its own item.",
+      "why": "Owner: the Dialpad/LPT/prod/website chain 'needs to be constantly worked on and actually synced'; no shift has recorded the entrypoints.",
+      "priority": 5,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "prod-db-sync",
+      "title": "Production DB: measure size, WAL size and newest row timestamp read-only, and record the freshness verdict",
+      "dod": "On the authority run a read-only probe (e.g. `ls -l /root/authority.db*` plus `sqlite3 'file:/root/authority.db?mode=ro' \"SELECT max(created_at) FROM ...;\"` for one real table, or the repo's own freshness tool). Quote the command and output. Do NOT run dbstat, a full scan or a write anywhere.",
+      "why": "The authoritative DB is the company's single source of truth; size, truth and freshness are all open and the last size (12.37 GB) is old.",
+      "priority": 5,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "housekeeping",
+      "title": "Housekeeping: prove whether scripts/deployed/bin/sources matches the live /root/bin/sources",
+      "dod": "Run a hash comparison, e.g. `for f in ledger-keepalive.py project-keepalive.py roadmap-supply.py projects.json checkout-health.py; do sha256sum <repo>/scripts/deployed/bin/sources/$f /root/bin/sources/$f; done`, and quote every line. Any mismatch is either synced (with the mirror commit recorded) or filed as its own item with this command as the before-proof.",
+      "why": "The 2026-10-12 cutover left the wake loop unscheduled; a silent mirror/live divergence is exactly the class of failure that made projects stop advancing.",
+      "priority": 5,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "personality-system",
+      "title": "Personality test: make the AI model id resolve from the gateway catalog at runtime",
+      "dod": "Find the hardcoded model id (`grep -rn -E 'gpt-|claude-|deepseek-|model *= *\\\"' --include=*.py --include=*.ts --include=*.js`), replace it with a runtime catalog lookup, and prove with a test that fails on a hardcoded id and passes on the resolved one. Quote the grep before and the test summary after.",
+      "why": "docs/dsh-at-scale/60-cost-audit.md: live AI calls failed for over a week on a hardcoded model name; the standing rule is that a model resolves from the gateway catalog at runtime.",
+      "priority": 5,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "rental-system",
+      "title": "Rentals: run the app's test suite and record the pass/fail summary",
+      "dod": "In personal-secretary-mvp/apps/rentals (or the workspace root the app documents), run the documented test command (e.g. `python3 -m pytest apps/rentals -q` or `npm test`), and quote the command, exit code and the final summary line. A failure is either fixed green in the same shift or filed as its own item.",
+      "why": "The rentals marketplace is live at https://rentals.lakewoodphoneandtech.com and no shift has recorded a green/red baseline.",
+      "priority": 5,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "chumash",
+      "title": "Chumash: establish the repo's HEAD, remote and first unchecked roadmap item, then run its entrypoint",
+      "dod": "In C:\\Users\\ezabz\\Code\\chumash-timeline run `git rev-parse HEAD`, `git remote -v`, and print the first unchecked roadmap line; then run the repo's test/build/entrypoint command and quote its output and exit code. If no entrypoint exists, that absence is the finding.",
+      "why": "The 2026-09-28 registry could not locate this repo ('Repo not established'); this brief located it on desktop-ts, so the next step is to prove its state and get one runnable signal.",
+      "priority": 5,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    },
+    {
+      "project": "cfo",
+      "title": "CFO: run the quickbooks-agent entrypoint read-only and record one real books query",
+      "dod": "In C:\\Users\\ezabz\\Code\\quickbooks-agent run the agent's `--help` (or documented entrypoint), then execute one read-only books query (e.g. a report or a dry-run close step) and quote the command, exit code and output. No write to the books; a needed write becomes an owner-queue row.",
+      "why": "Owner: 'let's say there's a CFO that has to be run'; the agent's current entrypoint and last run are unrecorded.",
+      "priority": 5,
+      "source": "seed:W5-PROJECT-LOOP-AND-KOSHER-FILTER:2026-10-13"
+    }
+  ]
+}
