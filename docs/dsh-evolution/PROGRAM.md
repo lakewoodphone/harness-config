@@ -93,3 +93,19 @@ free of 32 GB; it dispatches, it does not host the fleet.
 
 * `2026-10-13 13:05Z` — recon done; program written; corpus extraction running on the authority
   (PID 943706, log `/home/zabz/evolution/extract.log`); four corpus-independent workstreams dispatched.
+* `2026-10-13 13:45Z` — corpus measured and finalised: 6,927 sessions, **1,059 (15.3%) the owner's**,
+  4,372 owner turns; artifacts on the authority. Four audits returned (instruction surface, memory,
+  systems, open-work triage). Three fixes applied and verified.
+* `2026-10-13 14:00Z` — **the census closed: 18 of 18 reading shards, 945 of 1,059 owner sessions
+  (89.2%)** classified, nothing missing. `00-SYNTHESIS`, `07-pain-register`, `07-target-system`
+  written. The persona went 28,697 → 25,531 bytes **with two new rules added**; `AGENTS.md` §6-7 added;
+  four skills extended. **Two false claims of my own found and retracted** (the archive) — the #1
+  ranked failure, committed by the session writing the rule against it. `L3774`.
+* `2026-10-13 13:55Z` — the archive free-space guard **deployed to the host that runs it and proven**
+  (exit 0, ingested, 465 MB peak, disk steady) — after discovering the deploy is manual and
+  `harness-config` and `/opt/company/archive/tools/` can drift with nothing to notice. `W2758`.
+
+**Open at the end of this program's first pass:** one journal lineage (`N2`); a transport for the
+estate's own alarms (`N3`); the four memory fixes (`N6`); the owner-queue filing guard; the two
+deliberately-declined persona moves; and the capacity decision, which is row **#473** and is his.
+Nothing in this program's scope is blocked on information — only on work.
