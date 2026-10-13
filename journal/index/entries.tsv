@@ -1079,6 +1079,7 @@ handoff	H3625	3625		2026-10-13 15:20 UTC	ZABZ-YOGA	open	## 2026-10-13 15:20 UTC 
 handoff	H3626	3626		2026-10-13 17:39 UTC	SECRATARY-CLOUD	open	## 2026-10-13 17:39 UTC · SECRATARY-CLOUD · Ullman Lenovo IdeaPad 3 (NM-D471) - case filed from nothing, board identified from the schematic, one price set; bench trace is the next physical act	entries/handoff/H3626.md	1	27	a8705e9951656138	lpt,ullman,handoff	
 handoff	H3627	3627		2026-10-13 18:20 UTC	SECRATARY-CLOUD	open	## 2026-10-13 18:20 UTC · SECRATARY-CLOUD · Ullman WO26101312747: two false photograph claims withdrawn, production note 4 added, the bench trace still not done	entries/handoff/H3627.md	1	40	b8671ee22ed5f8da		
 handoff	H3628	3628		2026-10-13 20:18 UTC	SECRATARY-CLOUD	open	## 2026-10-13 20:18 UTC · SECRATARY-CLOUD · Telnyx portal 2FA identified (SMS to a phone number on the account); account still unfunded	entries/handoff/H3628.md	1	43	775a6c4710198cfb	telnyx,waze,owner-blocked	
+handoff	H3629	3629		2026-10-13 22:03 UTC	SECRATARY-CLOUD	open	## 2026-10-13 22:03 UTC · SECRATARY-CLOUD · Charger sourcing answered and recorded: PhoneLCDParts supply, import rejected, resale price picked	entries/handoff/H3629.md	1	34	616fa5484bc64a36		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2621,6 +2622,7 @@ lessons	L3780	3780		2026-10-13	SECRATARY-CLOUD	open	**L3780 · The NM-D471 ITL6 
 lessons	L3781	3781		2026-10-13	SECRATARY-CLOUD	open	**L3781 · Verify a production claim with the reader, not with intent - attached as order evidence was never true**	entries/lessons/L3781.md	1	23	44c7c801996cc8a3		
 lessons	L3782	3782		2026-10-13	SECRATARY-CLOUD	open	**L3782 · A no-draw fault cannot be caused by the display - attribute a lid-related symptom to what carries power**	entries/lessons/L3782.md	1	16	740ae284e10e3ebc		
 lessons	L3783	3783		2026-10-13	SECRATARY-CLOUD	open	**L3783 · Telnyx portal: the 2FA code goes to a phone number, and Camoufox is what gets past Turnstile**	entries/lessons/L3783.md	1	58	7164d86d77e495f9	telnyx,waze,browser,2fa	
+lessons	L3784	3784		2026-10-13	SECRATARY-CLOUD	open	**L3784 · Shop-purchase questions: do not open with the comms archive or a repo-wide grep**	entries/lessons/L3784.md	1	24	f1516d904b4ba7da		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3604,6 +3606,7 @@ decisions	D3145	3145		2026-10-13	ZABZ-YOGA	open	**D3145 · 2026-10-13 · The sho
 decisions	D3146	3146		2026-10-13	ZABZ-YOGA	open	**D3146 · 2026-10-13 · The phone gate serves /apple-touch-icon.png and injects the link.**	entries/decisions/D3146.md	1	31	284f45aaa0953264	phone-gate,dsh,icons,harness-config	
 decisions	D3147	3147		2026-10-13	SECRATARY-CLOUD	open	**D3147 · 2026-10-13 · Ullman IdeaPad 3 (NM-D471): one price, not a menu - 150 all-in with the 50 already paid credited, data-only at 75 plus media if the board is dead.**	entries/decisions/D3147.md	1	18	c96ef119f10f746f	lpt,pricing,ullman	
 decisions	D3148	3148		2026-10-13	SECRATARY-CLOUD	open	**D3148 · 2026-10-13 · Owner answer, queue row #326: drebin's two repaired Canon items: is 75 the total or 75 each?.**	entries/decisions/D3148.md	1	11	d480b3121d31eb53	owner-answer	owner_decision_queue#326
+decisions	D3149	3149		2026-10-13	SECRATARY-CLOUD	open	**D3149 · 2026-10-13 · Battery chargers: PhoneLCDParts at 2.99 is the supply; resale at 10 (2026-10-13).**	entries/decisions/D3149.md	1	29	ecd5d1b9ab84f35a		
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
