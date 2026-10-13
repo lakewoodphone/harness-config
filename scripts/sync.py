@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import filecmp
+import hashlib
 import json
 import os
 import shutil
@@ -533,6 +534,54 @@ def check_generated_preset_rows() -> tuple[int, str]:
     return 1, detail
 
 
+def _alarm_once(sig: str, title: str, body: str) -> str:
+    """File ONE journal `pain` entry per distinct refusal, and say what happened.
+
+    WHY THIS EXISTS (measured 2026-10-13). `report_generated_step` refuses to publish the profile
+    layer when the committed generated preset rows are stale -- and it refused CORRECTLY, because
+    they embedded `yocheved`'s PRE-correction sha. It printed one line into this script's output.
+
+    The result: two days in which the corrected instructions were in git and absent from every
+    machine that loads them. `sync.py` is scheduled as `PersonalSecretary-HarnessSync`, so it ran
+    the whole time; the only thing that would have said "the deploy is blocked" was a line nothing
+    surfaces. **A guard that refuses correctly and reports into a log nobody reads is
+    indistinguishable from no guard at all** -- which is `AGENTS.md` §1's own finding about the
+    archive alarm, in the deploy path this time.
+
+    So a refusal now goes where work goes: the journal. Deduplicated by signature, so it files once
+    per distinct reason and not on every tick. Best effort by design -- **a sync must never fail
+    because a secondary report failed** -- and it always prints what it did, so a silent failure is
+    not introduced by the thing meant to end one.
+    """
+    stamp = DSH_HOME / ".sync-alarm"
+    try:
+        if stamp.read_text(encoding="utf-8").strip() == sig:
+            return "already filed (same reason as the last refusal)"
+    except OSError:
+        pass
+    journal = REPO / "journal" / "tools" / "journal.py"
+    if not journal.exists():
+        return "NOT FILED -- no journal/tools/journal.py in this checkout"
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(journal), "append", "pain", "--title", title,
+             "--body", body, "--quiet", "--no-fetch",
+             "--tags", "sync,deploy-guard,generated-rows"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120, cwd=str(REPO))
+    except Exception as exc:  # noqa: BLE001
+        return f"NOT FILED -- could not reach the journal ({exc}); the refusal is above only"
+    if proc.returncode != 0:
+        return ("NOT FILED -- journal append failed "
+                f"({(proc.stderr or proc.stdout or '').strip()[:120]}); the refusal is above only")
+    try:
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(sig, encoding="utf-8")
+    except OSError:
+        pass
+    return "filed to the journal so a session picks it up: " + (proc.stdout or "").strip()[:80]
+
+
 def report_generated_step(status: int, note: str) -> bool:
     """Print the generated-rows precondition's decision for the profile step.
 
@@ -549,9 +598,49 @@ def report_generated_step(status: int, note: str) -> bool:
         print(f" profiles: SKIPPED -- the committed generated preset rows are STALE: {note}")
         print(" profiles:           regenerate and commit them with "
               "`node scripts/make-preset-rows.mjs --install`; the live profile patch is left untouched")
+        sig = "generated-rows-stale:" + hashlib.sha256(note.encode("utf-8")).hexdigest()[:16]
+        told = _alarm_once(
+            sig,
+            "sync REFUSED to publish the profile layer: the committed generated preset rows are stale",
+            "\n".join([
+                "Filed by `scripts/sync.py` on " + socket.gethostname() + ".",
+                "",
+                "The profile step was SKIPPED, so the agent presets a session loads may NOT be the",
+                "ones in the repository. This is not a warning -- it is the deploy being blocked.",
+                "",
+                "**What the check said:** " + note,
+                "",
+                "**Fix:** `node scripts/make-preset-rows.mjs --install`, commit both regenerated",
+                "artefacts (`profiles/web/presets.generated.patch.yml` and the managed block in",
+                "`profiles/web/cordis.patch.yml`), then run `python3 scripts/sync.py` again.",
+                "",
+                "**Why this entry exists.** On 2026-10-13 this exact refusal held for two days while",
+                "every corrected instruction sat in git and was absent from every machine that loads",
+                "one. The guard was right; the refusal simply reached nobody. If you are reading this",
+                "because it fired again, the same thing is happening now.",
+                "",
+                "**Check what is actually loaded:** `python3 scripts/preset-drift.py`.",
+            ]))
+        print(f" profiles:           {told}")
         return False
     print(f" profiles: SKIPPED -- the generated-rows check did NOT run ({note}), so a generated "
           "artefact that cannot be verified was not published; every other step of this sync still applies")
+    told = _alarm_once(
+        "generated-rows-unchecked:" + hashlib.sha256(note.encode("utf-8")).hexdigest()[:16],
+        "sync could not verify the generated preset rows, so it published nothing for the profile step",
+        "\n".join([
+            "Filed by `scripts/sync.py` on " + socket.gethostname() + ".",
+            "",
+            "The generated-rows check itself did not run, so a generated artefact that cannot be",
+            "verified was NOT published. Every other step of the sync still applied.",
+            "",
+            "**What the check said:** " + note,
+            "",
+            "This is the `NODATA` state, not a pass: an empty result is a refusal. Fix the check",
+            "(usually a missing `node`, or `scripts/make-preset-rows.mjs` absent from the checkout)",
+            "and run sync again.",
+        ]))
+    print(f" profiles:           {told}")
     return False
 
 
