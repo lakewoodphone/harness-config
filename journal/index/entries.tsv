@@ -916,6 +916,7 @@ handoff	H3590	3590		2026-10-13 01:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 01:4
 handoff	H3594	3594		2026-10-13 03:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 03:42 UTC · SECRATARY-CLOUD · The CFO is built, clocked and verified; one owner reply stands between it and done	entries/handoff/H3594.md	1	70	dfdede695101b74b		
 handoff	H3595	3595		2026-10-13 05:04 UTC	SECRATARY-CLOUD	open	## 2026-10-13 05:04 UTC · SECRATARY-CLOUD · Authoritative state at round 39: objective verified but for the owner's reply; disk is the live risk	entries/handoff/H3595.md	1	77	3b7de9e41e1592b0		
 handoff	H3596	3596		2026-10-13 05:46 UTC	SECRATARY-CLOUD	open	## 2026-10-13 05:46 UTC · SECRATARY-CLOUD · State at round 51: marketplace matching 419 -> 459, rules now on a clock, one owner reply outstanding	entries/handoff/H3596.md	1	72	9786d0b6546cd8ca		
+handoff	H3597	3597		2026-10-13 06:17 UTC	SECRATARY-CLOUD	open	## 2026-10-13 06:17 UTC · SECRATARY-CLOUD · State at round 70: five clauses verified, clause 3 audited and scoped, clause 5 awaits his reply	entries/handoff/H3597.md	1	87	c66a05ef89b29157		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2281,6 +2282,13 @@ lessons	L3667	3667		2026-10-13	SECRATARY-CLOUD	open	**L3667 · Rank the reconcil
 lessons	L3668	3668		2026-10-13	SECRATARY-CLOUD	open	**L3668 · 196 rows are excluded from every balance flow as opposite-sign duplicates and it is undetermined whether they should be**	entries/lessons/L3668.md	1	50	9aeaac45eb20c9c4		
 lessons	L3669	3669		2026-10-13	SECRATARY-CLOUD	open	**L3669 · The 196 opposite-sign duplicates: 159 are correctly marked, 12 are demonstrably wrong**	entries/lessons/L3669.md	1	51	cbad61445155e0ac		
 lessons	L3670	3670		2026-10-13	SECRATARY-CLOUD	open	**L3670 · 66 active-with-a-mark rows are correctly excluded; 76 duplicate-status rows are wrongly counted, 13,403.30**	entries/lessons/L3670.md	1	47	dc794941c9c37407		
+lessons	L3671	3671		2026-10-13	SECRATARY-CLOUD	open	**L3671 · Set B tested on all 69: the status is right 7 times, wrong 3, and worth 3,215.59**	entries/lessons/L3671.md	1	49	98ffc3f4d92bed48		
+lessons	L3672	3672		2026-10-13	SECRATARY-CLOUD	open	**L3672 · Set B needs no fix: 73 are the counted half of correct pairs and the other 27 are refunds**	entries/lessons/L3672.md	1	42	f0588d45d60c6be8		
+lessons	L3673	3673		2026-10-13	SECRATARY-CLOUD	open	**L3673 · Correcting myself: the sign is not independent of the anchor - seven sign-flips, 7,043.43**	entries/lessons/L3673.md	1	47	4942887bd79eb271		
+lessons	L3674	3674		2026-10-13	SECRATARY-CLOUD	open	**L3674 · The first real sign-flip points at the statement readings: balances that oscillate and months with no payment**	entries/lessons/L3674.md	1	53	842249d2535b3a19		
+lessons	L3675	3675		2026-10-13	SECRATARY-CLOUD	open	**L3675 · My statement-reading hypothesis is disproven: five for five the anchors are exact, and the case is open**	entries/lessons/L3675.md	1	43	59c86578b5104441		
+lessons	L3676	3676		2026-10-13	SECRATARY-CLOUD	open	**L3676 · The window's payment is exactly the opening balance, and 93 per cent of the gap is one merchant charged twice**	entries/lessons/L3676.md	1	35	af9ac7165487713a		
+lessons	L3677	3677		2026-10-13	SECRATARY-CLOUD	open	**L3677 · Third disproof: the two 2,481.72 charges are real, and personal-paypal nets to zero**	entries/lessons/L3677.md	1	45	61e4a0274a6e6acf		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
