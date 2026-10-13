@@ -1100,8 +1100,12 @@ if ($after -and $after.enginePid) {
     $ssh = Join-Path $env:ProgramFiles 'OpenSSH\ssh.exe'
     if (Test-Path -LiteralPath $ssh) {
         $burl = 'http://localhost:3091'
-        $pb = & $ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 secratary-ts "curl -s -o /dev/null -w %{http_code} $burl/health" 2>&1
-        $verify.brokerProbe = [ordered]@{ ssh = $ssh; target = 'secratary-ts'; url = $burl; exit = $LASTEXITCODE; output = (($pb -join ' ').Trim()) }
+        # CHANGED 2026-10-13: the broker host here was `secratary-ts`, the FROZEN office box. The
+        # authority is `secratary-cloud`, where `mesh-broker` is deployed and measured answering on
+        # 127.0.0.1:3091 (docs/mesh/000-SYSTEMS-REGISTER.md §2.3, docs/mesh/154-MESH-BROKER-MOVE.md).
+        # A second broker still runs on the office box; that is the separate hazard in 154.
+        $pb = & $ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 secratary-cloud "curl -s -o /dev/null -w %{http_code} $burl/health" 2>&1
+        $verify.brokerProbe = [ordered]@{ ssh = $ssh; target = 'secratary-cloud'; url = $burl; exit = $LASTEXITCODE; output = (($pb -join ' ').Trim()) }
         if ($LASTEXITCODE -eq 0 -and ($pb -join '') -match '200') { Log "placement broker reachable: $burl/health -> 200" }
         else { Warn "the placement broker probe did not answer 200 (exit ${LASTEXITCODE}: $(($pb -join ' ').Trim().Substring(0, [Math]::Min(160, ($pb -join ' ').Trim().Length)))) -- the rows are in place, but a child would fall to a reported broker-unreachable failure" }
     } else { $verify.brokerProbe = 'skipped: no ssh.exe' }

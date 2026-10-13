@@ -52,9 +52,16 @@
 
 .PARAMETER BrokerUrl
   The live broker's base URL. Default: discovered - -BrokerUrl, then $env:MESH_BROKER_URL,
-  then http://127.0.0.1:3091, then an ssh tunnel to secratary-ts:127.0.0.1:3091. The tunnel is
-  needed because the deployed broker listens on loopback only (measured 2026-09-16T23:19Z:
-  secratary's 3091 is bound to 127.0.0.1 and the tailnet refused :3091).
+  then http://127.0.0.1:3091, then an ssh tunnel to secratary-cloud:127.0.0.1:3091. The tunnel is
+  needed because the deployed broker listens on loopback only (measured 2026-09-16T23:19Z on the
+  office box: its 3091 was bound to 127.0.0.1 and the tailnet refused :3091).
+  CHANGED 2026-10-13: this default was `secratary-ts`, the FROZEN office box. The authority is
+  `secratary-cloud`, its `mesh-broker` is deployed and measured answering on 127.0.0.1:3091 there,
+  and `settings/machines/host-posture.tsv` marks `secratary-cloud` writable while `secratary-ts` is
+  frozen (docs/mesh/000-SYSTEMS-REGISTER.md §2.3, docs/mesh/154-MESH-BROKER-MOVE.md). Same defect
+  class as items 18/27/30/42/44, and the same change the web profile's `brokerSsh` took in
+  docs/mesh/166. A second broker still runs on the office box; that is the separate hazard in
+  docs/mesh/154 and is NOT fixed by this default.
 
 .PARAMETER SkipHermetic
   Do not start the local broker+stub-gate mesh. Steps 2, 3b, 5b and 6 then SKIP.
@@ -78,7 +85,7 @@ param(
     [string[]]$Nodes = @('zabz-yoga-1', 'zabz-tech', 'secratary', 'zabz-tech-linux', 'LakewooechsMini'),
     [int]$TimeoutSec = 25,
     [string]$BrokerUrl = '',
-    [string]$SshBrokerHost = 'secratary-ts',
+    [string]$SshBrokerHost = 'secratary-cloud',
     [int]$BrokerPort = 3091,
     [switch]$SkipHermetic,
     [switch]$Strict,
@@ -153,6 +160,9 @@ $MESH_FLEET_DISK_FLOOR    = 20      # §2.2 frozen
 $NodeTable = @(
     [pscustomobject]@{ name = 'zabz-yoga-1';      fqdn = 'zabz-yoga-1.tail93e6e6.ts.net';     ssh = 'laptop-ts';    platform = 'windows'; location = 'home' }
     [pscustomobject]@{ name = 'zabz-tech';        fqdn = 'zabz-tech.tail93e6e6.ts.net';       ssh = 'desktop-ts';   platform = 'windows'; location = 'office' }
+    # `secratary` is the OFFICE box and `secratary-ts` is THAT MACHINE'S OWN ssh alias. This is a node
+    # identity row, NOT a broker/tunnel default: pointing a node NAMED `secratary` at `secratary-cloud`
+    # is the alias confusion AGENTS.md §5 exists to prevent (docs/mesh/167 §3). Left as-is deliberately.
     [pscustomobject]@{ name = 'secratary';        fqdn = 'secratary.tail93e6e6.ts.net';       ssh = 'secratary-ts'; platform = 'linux';   location = 'office' }
     [pscustomobject]@{ name = 'zabz-tech-linux'; fqdn = 'zabz-tech-linux.tail93e6e6.ts.net'; ssh = 'linux-pc-ts';  platform = 'linux';   location = 'office' }
     [pscustomobject]@{ name = 'LakewooechsMini'; fqdn = 'LakewooechsMini.tail93e6e6.ts.net'; ssh = 'mac-mini-ts';  platform = 'darwin';  location = 'office' }

@@ -965,6 +965,10 @@ function Get-DefaultNodes {
     return @(
         [pscustomobject]@{ node = 'zabz-yoga-1';     alias = 'laptop-ts';    kind = 'windows' },
         [pscustomobject]@{ node = 'zabz-tech';       alias = 'zabz-tech-ts'; kind = 'windows' },
+        # `secratary-ts` here is the OFFICE box's own ssh alias (node identity), NOT the broker/tunnel
+        # host default: pointing a node NAMED `secratary` at `secratary-cloud` is the alias confusion
+        # AGENTS.md §5 exists to prevent (docs/mesh/167 §3). Left as-is deliberately; the broker host
+        # default lives in scripts\mesh-e2e.ps1 (-SshBrokerHost) and mesh-restart-when-idle.ps1.
         [pscustomobject]@{ node = 'secratary';       alias = 'secratary-ts'; kind = 'posix'   },
         [pscustomobject]@{ node = 'zabz-tech-linux'; alias = 'linux-pc-ts';  kind = 'posix'   },
         [pscustomobject]@{ node = 'lakewooechsmini'; alias = 'mac-mini-ts';  kind = 'posix'   }

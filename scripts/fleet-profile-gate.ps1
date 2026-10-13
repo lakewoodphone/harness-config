@@ -45,6 +45,9 @@ $targets = @(
         Node    = 'node'
         Gate    = 'C:\Users\ezabz\code\harness-config\scripts\profile-gate.mjs'
     }
+    # `secratary-ts` is the OFFICE box's own ssh alias (node identity), NOT a broker/tunnel host
+    # default: pointing a node NAMED `secratary` at `secratary-cloud` is the alias confusion
+    # AGENTS.md §5 exists to prevent (docs/mesh/167 §3). Left as-is deliberately.
     [pscustomobject]@{
         Machine = 'secratary'; Kind = 'ssh'; Host = 'secratary-ts'
         Node    = 'node'
