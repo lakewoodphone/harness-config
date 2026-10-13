@@ -1035,6 +1035,7 @@ handoff	H3615	3615		2026-10-13 13:40 UTC	ZABZ-YOGA	open	## 2026-10-13 13:40 UTC 
 handoff	H3616	3616		2026-10-13 14:06 UTC	ZABZ-YOGA	open	## 2026-10-13 14:06 UTC · ZABZ-YOGA · Soylent: why it ran out, and the switch to a pareve replacement	entries/handoff/H3616.md	1	54	89cfb8e069d3d9f4	owner,personal,soylent,kashrut,supply-chain	
 handoff	H3617	3617		2026-10-13 14:50 UTC	ZABZ-YOGA	open	## 2026-10-13 14:50 UTC · ZABZ-YOGA · Soylent research closed: decision is the OWYN carton; doc on master; mirror divergence recorded	entries/handoff/H3617.md	1	40	824a4db3f1322475	owner,personal,soylent,owyn,kashrut,handoff	
 handoff	H3618	3618		2026-10-13 14:55 UTC	ZABZ-YOGA	open	## 2026-10-13 14:55 UTC · ZABZ-YOGA · The shop devices' shortcuts repointed at the cloud and given real icons	entries/handoff/H3618.md	1	91	0f6d2d2c82ce6180	mdm,lpt,phone-gate,icons,migration	
+handoff	H3619	3619		2026-10-13 14:58 UTC	ZABZ-YOGA	open	## 2026-10-13 14:58 UTC · ZABZ-YOGA · phone-gate-allow.txt: one contested address, and why I left it alone	entries/handoff/H3619.md	1	43	310f99513c2326d7	phone-gate,drift,contested,open	AGENTS.md#6.1,W2801
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
