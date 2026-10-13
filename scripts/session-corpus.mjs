@@ -142,8 +142,10 @@ function scanCorpus() {
       try {
         for (const f of readdirSync(dir, { withFileTypes: true })) {
           if (!f.isFile()) continue;
-          if (f.name === 'active' || f.name.endsWith('.lock')) { guarded = true; continue; }
-          const st = statSync(path.join(dir, f.name));
+          const fpath = path.join(dir, f.name);
+          if (f.name === 'active') { guarded = true; continue; }
+          if (f.name.endsWith('.lock')) { if (lockIsFresh(fpath)) guarded = true; continue; }
+          const st = statSync(fpath);
           bytes += st.size; files++;
           if (st.mtimeMs > newestMs) newestMs = st.mtimeMs;
         }
@@ -158,6 +160,31 @@ function scanCorpus() {
     }
   }
   return { sessions, unreadable, root, exists: true };
+}
+
+// A `.lock` is evidence that a session is IN USE only while it is RECENT.
+//
+// MEASURED 2026-10-13, and this is why the rule changed. Every session directory
+// on `zabz-tech-linux` carries a **0-byte `session.lock` dated 2026-09-16/17**,
+// sitting beside session data from the same day -- a month old, and left there by
+// whatever wrote it. The unconditional rule below (`endsWith('.lock')` => hold)
+// therefore reported "107 session(s) carry a lock/active marker and will never be
+// archived" and "selected 0 of 447", so the archive tier could NEVER run on that
+// machine, and would never have run again, however old the sessions became.
+//
+// The guard is not weakened: `active` is still an unconditional hold, and the
+// move-time re-check still refuses any session written since selection. All this
+// removes is the false hold on a lock nobody has touched in a day.
+const LOCK_FRESH_MS = 24 * 60 * 60 * 1000;
+
+function lockIsFresh(p) {
+  try {
+    return Date.now() - statSync(p).mtimeMs < LOCK_FRESH_MS;
+  } catch {
+    // An unreadable lock cannot vouch for a live session either way; treat it as
+    // stale so a corrupt marker cannot pin a session out of the tier for ever.
+    return false;
+  }
 }
 
 const BUCKETS = [
@@ -299,8 +326,10 @@ function cmdArchive(args) {
     try {
       for (const f of readdirSync(s.dir, { withFileTypes: true })) {
         if (!f.isFile()) continue;
-        if (f.name === 'active' || f.name.endsWith('.lock')) { guardedNow = true; continue; }
-        const st = statSync(path.join(s.dir, f.name));
+        const fpathNow = path.join(s.dir, f.name);
+        if (f.name === 'active') { guardedNow = true; continue; }
+        if (f.name.endsWith('.lock')) { if (lockIsFresh(fpathNow)) guardedNow = true; continue; }
+        const st = statSync(fpathNow);
         bytesNow += st.size; filesNow++;
         if (st.mtimeMs > newestNow) newestNow = st.mtimeMs;
       }
@@ -323,7 +352,18 @@ function cmdArchive(args) {
     // Verify the move, and undo it rather than lose a session.
     let ok = false, verifyReason = '';
     try {
-      const dstFiles = readdirSync(dest, { withFileTypes: true }).filter((f) => f.isFile());
+      const dstFiles = readdirSync(dest, { withFileTypes: true })
+        .filter((f) => f.isFile())
+        // THE SAME PREDICATE THE SOURCE SCAN USED. Markers travel with the
+        // directory -- a rename moves everything -- but they are not part of the
+        // counted payload. Counting them here while excluding them above is what
+        // made EVERY move fail verification and roll back, which is why this tool
+        // had never actually archived anything on a machine that has lock files.
+        // Measured 2026-10-13: 107/107 sessions on zabz-tech-linux and 107/107 on
+        // lakewooechsmini reported "file count 2 != 1; rolled back", and the live
+        // corpus never shrank by a single byte. The rollback was correct and kept
+        // every session safe; the comparison was what was wrong.
+        .filter((f) => f.name !== 'active' && !f.name.endsWith('.lock'));
       let dstBytes = 0;
       for (const f of dstFiles) dstBytes += statSync(path.join(dest, f.name)).size;
       if (dstFiles.length !== filesNow) verifyReason = `file count ${dstFiles.length} != ${filesNow}`;
