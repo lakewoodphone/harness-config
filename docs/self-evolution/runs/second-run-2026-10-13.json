@@ -1,0 +1,475 @@
+{
+ "capabilities": {
+  "docs_added": {
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T01:20:40 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": [
+     "docs/mesh/186-MESH-PARENT-CHILD-CHANNEL.md",
+     "docs/mesh/188-SYSTEM-AUDIT-AND-FIXES.md",
+     "docs/mesh/187-TRANSPORT-ROBUSTNESS-AND-FALLBACK.md",
+     "docs/mesh/189-GIT-AUDIT-EVERY-MACHINE.md",
+     "docs/mesh/185-SSH-CONNECTION-REUSE-AND-LAN-SPEED.md",
+     "docs/mesh/184-PROCUREMENT-COVERAGE-AMAZON-WALMART-AND-SPECIALISTS.md",
+     "docs/mesh/131-MIGRATION-BRIEF.md",
+     "docs/mesh/132-CRON-INVENTORY.md"
+    ]
+   },
+   "freshness": {
+    "age_seconds": null,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "git"
+   },
+   "method": "new paths matching the bucket over the window",
+   "name": "docs_added",
+   "reason": null,
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 120
+  },
+  "routes_added": {
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T01:20:40 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": []
+   },
+   "freshness": {
+    "age_seconds": null,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "git"
+   },
+   "method": "new paths matching the bucket over the window",
+   "name": "routes_added",
+   "reason": null,
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 0
+  },
+  "scripts_added": {
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T01:20:40 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": [
+     "scripts/find-anything/audit-2026-10-12/01-survey.sh",
+     "scripts/find-anything/audit-2026-10-12/02-tool-bodies.py",
+     "scripts/find-anything/audit-2026-10-12/03-modes.sh",
+     "scripts/find-anything/audit-2026-10-12/04-acceptance.sh",
+     "scripts/find-anything/audit-2026-10-12/05-journal-semantics.sh",
+     "scripts/find-anything/audit-2026-10-12/06-git-and-cron.sh",
+     "scripts/find-anything/audit-2026-10-12/07-zabztech-diagnose.ps1",
+     "scripts/find-anything/audit-2026-10-12/README.md"
+    ]
+   },
+   "freshness": {
+    "age_seconds": null,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "git"
+   },
+   "method": "new paths matching the bucket over the window",
+   "name": "scripts_added",
+   "reason": null,
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 29
+  },
+  "services_running": {
+   "command": "systemctl list-units --type=service --state=running --no-legend --no-pager",
+   "extra": {},
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "list-units --type=service --state=running",
+   "name": "services_running",
+   "reason": null,
+   "source": "systemd",
+   "status": "measured",
+   "unit": "count",
+   "value": 28
+  },
+  "skills_added": {
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T01:20:40 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": [
+     "presets/zabz/skills/estate-systems/SKILL.md",
+     "presets/zabz/skills/read-sessions/SKILL.md",
+     "docs/skill-wiring.md",
+     "presets/zabz/skills/fast-search/SKILL.md",
+     "presets/cordis-bg/skills/lpt-production-case-work/SKILL.md",
+     "presets/yocheved/skills/lpt-production-case-work/SKILL.md",
+     "presets/zabz/skills/lpt-production-case-work/SKILL.md"
+    ]
+   },
+   "freshness": {
+    "age_seconds": null,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "git"
+   },
+   "method": "new paths matching the bucket over the window",
+   "name": "skills_added",
+   "reason": null,
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 7
+  },
+  "sources_added": {
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T01:20:40 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": []
+   },
+   "freshness": {
+    "age_seconds": null,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "git"
+   },
+   "method": "new paths matching the bucket over the window",
+   "name": "sources_added",
+   "reason": null,
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 0
+  },
+  "sources_registered": {
+   "command": "ls /root/bin/sources/*.py",
+   "extra": {
+    "files": [
+     "_flag.py",
+     "cfo-backfill.py",
+     "checkout-health.py",
+     "comms-freshness.py",
+     "cron-failures.py",
+     "cron-targets.py",
+     "db-integrity.py",
+     "decision-answer-unconsumed.py",
+     "decision-queue-stale.py",
+     "disk-space.py",
+     "dormant-handoff.py",
+     "drift-check.py",
+     "hours-drift.py",
+     "journal-pain-supply.py",
+     "ledger-keepalive.py",
+     "owner-question-audit.py",
+     "pain-checks.py",
+     "plaid-freshness.py",
+     "project-keepalive.py",
+     "roadmap-supply.py",
+     "sentinel-supply.py",
+     "sms-app-gap.py",
+     "txt-lost-webhook.py",
+     "txt-stranded-inbound.py",
+     "wake-tuner.py"
+    ]
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "live source files on the authority",
+   "name": "sources_registered",
+   "reason": null,
+   "source": "/root/bin/sources",
+   "status": "measured",
+   "unit": "count",
+   "value": 25
+  },
+  "timers_registered": {
+   "command": "systemctl list-timers --no-legend --no-pager",
+   "extra": {},
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "list-timers",
+   "name": "timers_registered",
+   "reason": null,
+   "source": "systemd",
+   "status": "measured",
+   "unit": "count",
+   "value": 22
+  }
+ },
+ "commits": {
+  "commits_landed": {
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T01:20:40 --pretty=%H",
+   "extra": {
+    "distinct_files_touched": 384,
+    "head": "fdfe46433abb6890eee3db3b79fb7a25353857b5"
+   },
+   "freshness": {
+    "age_seconds": null,
+    "as_of": "2026-10-13T01:15:04Z",
+    "kind": "git"
+   },
+   "method": "git log --since over the window",
+   "name": "commits_landed",
+   "reason": null,
+   "source": "harness-config git history",
+   "status": "measured",
+   "unit": "count",
+   "value": 171
+  }
+ },
+ "diff_vs_previous": {
+  "changed": null,
+  "deltas": {},
+  "note": "no previous run: this is the baseline",
+  "previous_run": null
+ },
+ "generated_at": "2026-10-13T01:20:40Z",
+ "host": "secratary-cloud",
+ "journal": {
+  "by_kind": {
+   "command": "/usr/bin/python3 /root/code/harness-config/journal/tools/journal.py list --since 2026-10-06 --json",
+   "extra": {
+    "by_kind": {
+     "decisions": 6,
+     "handoff": 15,
+     "lessons": 23,
+     "pain": 6
+    }
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "entries[] grouped by .kind; the tool is the only door to the tree",
+   "name": "journal_entries_by_kind",
+   "reason": null,
+   "source": "journal.py list --since 2026-10-06 --json",
+   "status": "measured",
+   "unit": "count",
+   "value": 50
+  },
+  "open_pain": {
+   "command": "/usr/bin/python3 /root/code/harness-config/journal/tools/journal.py list --kind pain --status open --json",
+   "extra": {},
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "count of open pain entries in the index",
+   "name": "open_pain_count",
+   "reason": null,
+   "source": "journal.py list --kind pain --status open --json",
+   "status": "measured",
+   "unit": "count",
+   "value": 50
+  }
+ },
+ "ledger": {
+  "closed_with_proof": {
+   "command": "COUNT work_item WHERE state done AND EXISTS attempt.proof non-empty",
+   "extra": {
+    "by_state": {}
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "proof column=attempt.proof; proof lives on the attempt row",
+   "name": "ledger_closed_with_proof",
+   "reason": null,
+   "source": "read-only SQL on /root/work/work.db (work_item x attempt)",
+   "status": "measured",
+   "unit": "count",
+   "value": 0
+  },
+  "left_open": {
+   "command": "COUNT(*) WHERE state NOT IN done/cancelled/expired",
+   "extra": {
+    "by_state": {}
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "state column=state",
+   "name": "ledger_left_open",
+   "reason": null,
+   "source": "read-only SQL on /root/work/work.db table work_item",
+   "status": "measured",
+   "unit": "count",
+   "value": 0
+  }
+ },
+ "queue": {
+  "filed": {
+   "command": "COUNT(*) WHERE asked_at >= since",
+   "extra": {
+    "by_status": {
+     "answered": 37,
+     "dismissed": 59,
+     "pending": 157,
+     "resolved": 197
+    }
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "columns ['id', 'asked_at', 'question', 'context', 'options_json', 'recommendation', 'severity', 'blocks', 'source', 'age_days', 'status', 'answered_at', 'answer', 'resolved_at', 'resolution', 'deferred_until', 'deferred_at', 'defer_note']; rows=450",
+   "name": "queue_filed",
+   "reason": null,
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 167
+  },
+  "pending": {
+   "command": "COUNT(*) WHERE status IN pending/open/filed/new",
+   "extra": {
+    "by_status": {
+     "answered": 37,
+     "dismissed": 59,
+     "pending": 157,
+     "resolved": 197
+    }
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "the owner's live queue depth",
+   "name": "queue_pending",
+   "reason": null,
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 157
+  },
+  "resolved": {
+   "command": "COUNT(*) WHERE resolved_at >= since",
+   "extra": {},
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "columns ['id', 'asked_at', 'question', 'context', 'options_json', 'recommendation', 'severity', 'blocks', 'source', 'age_days', 'status', 'answered_at', 'answer', 'resolved_at', 'resolution', 'deferred_until', 'deferred_at', 'defer_note']; rows=450",
+   "name": "queue_resolved",
+   "reason": null,
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 38
+  }
+ },
+ "repo": {
+  "branch": "main",
+  "exists": true,
+  "head": "fdfe46433abb6890eee3db3b79fb7a25353857b5",
+  "path": "/root/code/harness-config"
+ },
+ "run_id": "run-20261013T012040Z",
+ "schema": "self-audit/1",
+ "sessions": {
+  "sessions_marker": {
+   "command": "ls -d ~/.dsh ~/.dsh-sessions; python3 scripts/dsh-sessions.py --help; ls ~/.sms-inbox/wake-instances; docker ps --format {{.Names}}",
+   "extra": {
+    "dsh_dir_entries": 17,
+    "wake_instances": 42
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "counts of session artifacts present",
+   "name": "sessions_agents_run",
+   "reason": null,
+   "source": "local dsh/session stores",
+   "status": "measured",
+   "unit": "count",
+   "value": 59
+  }
+ },
+ "spend": {
+  "spend": {
+   "command": "wake.py stats",
+   "extra": {
+    "probes": [
+     "read /root/.sms-inbox/wake-cost.jsonl",
+     "wake.py stats spend line"
+    ]
+   },
+   "freshness": {
+    "age_seconds": null,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "unreadable"
+   },
+   "method": "spend line of stats",
+   "name": "spend_measured",
+   "reason": "no wake-cost.jsonl: the store itself reports spend UNMEASURED, so the USD cap cannot fire",
+   "source": "/root/.sms-inbox/wake-cost.jsonl",
+   "status": "COULD NOT ASK",
+   "unit": "count",
+   "value": null
+  }
+ },
+ "wake": {
+  "releases": {
+   "command": "SELECT COUNT(*) FROM wake WHERE claimed_at >= since",
+   "extra": {
+    "by_status": {
+     "claimed": 6,
+     "done": 464,
+     "dropped": 16,
+     "failed": 241,
+     "new": 5
+    },
+    "timestamp_column": "claimed_at"
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "columns ['id', 'subject', 'kind', 'prompt', 'context', 'priority', 'created_at', 'state', 'claimed_by', 'claimed_at', 'finished_at', 'outcome', 'source', 'not_before', 'attempts', 'max_attempts', 'lease_until', 'cost_usd', 'unverified']; timestamp column=claimed_at",
+   "name": "wake_releases",
+   "reason": null,
+   "source": "read-only SQL on /root/.sms-inbox/inbox.db table wake",
+   "status": "measured",
+   "unit": "count",
+   "value": 134
+  },
+  "stats": {
+   "command": "/usr/bin/python3 /root/bin/wake.py stats",
+   "extra": {
+    "lines": [
+     "wake rows: new=5 claimed=6 done=460 failed=88 unverified=0 cancelled=0 expired=0",
+     "selftest rows: 157 (done 4, failed 153) - excluded from every count above and from the release path, never deleted [kind='selftest' 156, subject~'SMselftest-' 151]",
+     "released today: 6/500 [SESSIONS started, not work done - one row can be released many times]   failed today: 0   spend today: UNMEASURED/$25.00",
+     "caps in force: spend_unmeasured: the day's spend cannot be read (no wake-cost.jsonl), so the USD cap cannot fire; the release-count cap is still enforced"
+    ]
+   },
+   "freshness": {
+    "age_seconds": 0,
+    "as_of": "2026-10-13T01:20:40Z",
+    "kind": "live"
+   },
+   "method": "first lines of `wake.py stats`",
+   "name": "wake_stats",
+   "reason": null,
+   "source": "/root/bin/wake.py",
+   "status": "measured",
+   "unit": "count",
+   "value": 4
+  }
+ },
+ "window": {
+  "days": 7,
+  "since": "2026-10-06T01:20:40Z",
+  "until": "2026-10-13T01:20:40Z"
+ }
+}

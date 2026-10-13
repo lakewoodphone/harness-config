@@ -1,0 +1,34 @@
+SELF-AUDIT run-20261013T011609Z  host=secratary-cloud  window=2026-10-06..2026-10-13
+  repo=/root/code/harness-config head=fdfe46433abb
+  by_kind                            50  [live]  journal.py list --since 2026-10-06 --json
+  open_pain                          50  [live]  journal.py list --kind pain --status open --json
+  releases                          128  [live]  read-only SQL on /root/.sms-inbox/inbox.db table wak
+  stats                               4  [live]  /root/bin/wake.py
+  closed_with_proof                   0  [live]  read-only SQL on /root/work/work.db (work_item x att
+  left_open                           0  [live]  read-only SQL on /root/work/work.db table work_item
+  filed                             167  [live]  read-only SQL /root/authority.db owner_decision_queu
+  resolved                           38  [live]  read-only SQL /root/authority.db owner_decision_queu
+  pending                           157  [live]  read-only SQL /root/authority.db owner_decision_queu
+  sources_added                       0  [git]  git log --diff-filter=A (additions only)
+  scripts_added                      29  [git]  git log --diff-filter=A (additions only)
+  skills_added                        7  [git]  git log --diff-filter=A (additions only)
+  routes_added                        0  [git]  git log --diff-filter=A (additions only)
+  docs_added                        120  [git]  git log --diff-filter=A (additions only)
+  sources_registered                 25  [live]  /root/bin/sources
+  services_running                   28  [live]  systemd
+  timers_registered                  22  [live]  systemd
+  sessions_marker                    23  [live]  local dsh/session stores
+  spend                        COULD NOT ASK  reason=no wake-cost.jsonl: the store itself reports spend UNMEASURE
+  DIFF vs previous: baseline (no previous run)
+
+# The second run, immediately after, on the same host (dedup/diff evidence):
+# SELF-AUDIT run-20261013T011610Z  host=secratary-cloud  window=2026-10-06..2026-10-13
+#   DIFF vs run-20261013T011609Z: changed=False {}
+#
+# Source contract evidence (frozen stdout, run with WAKE_SOURCES_DIR=/root/bin/sources):
+#   $ SELF_AUDIT_OUT=/tmp/qdemo python3 weekly-evolution.py --dry-run
+#   quiet
+#   $ SELF_AUDIT_OUT=/tmp/sd1 python3 weekly-evolution.py --dry-run
+#   flagged self-audit:2026-W42
+#   $ SELF_AUDIT_OUT=/tmp/sd2 python3 weekly-evolution.py --dry-run
+#   flagged self-audit:2026-W42
