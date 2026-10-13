@@ -917,6 +917,7 @@ handoff	H3594	3594		2026-10-13 03:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 03:4
 handoff	H3595	3595		2026-10-13 05:04 UTC	SECRATARY-CLOUD	open	## 2026-10-13 05:04 UTC · SECRATARY-CLOUD · Authoritative state at round 39: objective verified but for the owner's reply; disk is the live risk	entries/handoff/H3595.md	1	77	3b7de9e41e1592b0		
 handoff	H3596	3596		2026-10-13 05:46 UTC	SECRATARY-CLOUD	open	## 2026-10-13 05:46 UTC · SECRATARY-CLOUD · State at round 51: marketplace matching 419 -> 459, rules now on a clock, one owner reply outstanding	entries/handoff/H3596.md	1	72	9786d0b6546cd8ca		
 handoff	H3597	3597		2026-10-13 06:17 UTC	SECRATARY-CLOUD	open	## 2026-10-13 06:17 UTC · SECRATARY-CLOUD · State at round 70: five clauses verified, clause 3 audited and scoped, clause 5 awaits his reply	entries/handoff/H3597.md	1	87	c66a05ef89b29157		
+handoff	H3598	3598		2026-10-13 06:42 UTC	SECRATARY-CLOUD	open	## 2026-10-13 06:42 UTC · SECRATARY-CLOUD · The session's findings are now ledger items 66-68; the cfo project had an empty queue	entries/handoff/H3598.md	1	36	08932a69703dc2bf		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2289,6 +2290,10 @@ lessons	L3674	3674		2026-10-13	SECRATARY-CLOUD	open	**L3674 · The first real si
 lessons	L3675	3675		2026-10-13	SECRATARY-CLOUD	open	**L3675 · My statement-reading hypothesis is disproven: five for five the anchors are exact, and the case is open**	entries/lessons/L3675.md	1	43	59c86578b5104441		
 lessons	L3676	3676		2026-10-13	SECRATARY-CLOUD	open	**L3676 · The window's payment is exactly the opening balance, and 93 per cent of the gap is one merchant charged twice**	entries/lessons/L3676.md	1	35	af9ac7165487713a		
 lessons	L3677	3677		2026-10-13	SECRATARY-CLOUD	open	**L3677 · Third disproof: the two 2,481.72 charges are real, and personal-paypal nets to zero**	entries/lessons/L3677.md	1	45	61e4a0274a6e6acf		
+lessons	L3678	3678		2026-10-13	SECRATARY-CLOUD	open	**L3678 · Clause 3 consolidated: audited, bounded by the statement PDFs, four explanations disproven**	entries/lessons/L3678.md	1	47	fd68101eadeda922		
+lessons	L3679	3679		2026-10-13	SECRATARY-CLOUD	open	**L3679 · The 95 unitemised purchases are Amazon's own layout change, not a parser bug: 98 per cent became 2 in 40**	entries/lessons/L3679.md	1	41	7685fabb950d7634		
+lessons	L3680	3680		2026-10-13	SECRATARY-CLOUD	open	**L3680 · The business/personal Amazon split exists in a column that means something else elsewhere**	entries/lessons/L3680.md	1	40	4c9d3fda4189c261		
+lessons	L3681	3681		2026-10-13	SECRATARY-CLOUD	open	**L3681 · The CFO's ears were not on a clock: registered an await so his reply is processed**	entries/lessons/L3681.md	1	47	d7bfa92a6d7abfbc		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3400,3 +3405,6 @@ wins	W2769	2769		2026-10-13	SECRATARY-CLOUD	open	**W2769 · 2026-10-13 · Forwar
 wins	W2770	2770		2026-10-13	SECRATARY-CLOUD	open	**W2770 · 2026-10-13 · Clause 6 verified: a full Twilio walk adds zero, and the tool prints the ordering defect it fixed.**	entries/wins/W2770.md	1	43	21fafa75174a10d7		
 wins	W2771	2771		2026-10-13	SECRATARY-CLOUD	open	**W2771 · 2026-10-13 · The SMS gap check could only see one day back; it now walks the whole history daily.**	entries/wins/W2771.md	1	38	9ff3785e5a844c87		
 wins	W2772	2772		2026-10-13	SECRATARY-CLOUD	open	**W2772 · 2026-10-13 · The one-at-a-time gate refused a third question in production and recorded it honestly.**	entries/wins/W2772.md	1	28	2ed2fc15f0ba9e13		
+wins	W2773	2773		2026-10-13	SECRATARY-CLOUD	open	**W2773 · 2026-10-13 · Two item stores: 55 of the 95 unitemised purchases are itemised one table away.**	entries/wins/W2773.md	1	46	725306baac18204a		
+wins	W2774	2774		2026-10-13	SECRATARY-CLOUD	open	**W2774 · 2026-10-13 · Merged the two item stores: 55 orders and 83 item rows, past a gate that reported success while adding nothing.**	entries/wins/W2774.md	1	36	22250842deb7b8c8		
+wins	W2775	2775		2026-10-13	SECRATARY-CLOUD	open	**W2775 · 2026-10-13 · Card 9650's Amazon spend is not business: 0 of 37 linked orders, answering a question parked on 2026-09-10.**	entries/wins/W2775.md	1	35	95138f4fdf61edfc		
