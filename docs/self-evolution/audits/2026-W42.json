@@ -1,0 +1,492 @@
+{
+ "baseline_measured": {
+  "capabilities.docs_added": {
+   "status": "measured",
+   "value": 0
+  },
+  "capabilities.routes_added": {
+   "status": "measured",
+   "value": 0
+  },
+  "capabilities.scripts_added": {
+   "status": "measured",
+   "value": 0
+  },
+  "capabilities.services_running": {
+   "status": "measured",
+   "value": 29
+  },
+  "capabilities.skills_added": {
+   "status": "measured",
+   "value": 0
+  },
+  "capabilities.sources_added": {
+   "status": "measured",
+   "value": 0
+  },
+  "capabilities.sources_registered": {
+   "status": "measured",
+   "value": 27
+  },
+  "capabilities.timers_registered": {
+   "status": "measured",
+   "value": 22
+  },
+  "commits.commits_landed": {
+   "status": "COULD NOT ASK",
+   "value": null
+  },
+  "journal.by_kind": {
+   "status": "COULD NOT ASK",
+   "value": null
+  },
+  "ledger.closed_with_proof": {
+   "status": "measured",
+   "value": 0
+  },
+  "ledger.left_open": {
+   "status": "measured",
+   "value": 10
+  },
+  "queue.filed": {
+   "status": "measured",
+   "value": 172
+  },
+  "queue.pending": {
+   "status": "measured",
+   "value": 152
+  },
+  "queue.resolved": {
+   "status": "measured",
+   "value": 48
+  },
+  "sessions.sessions_marker": {
+   "status": "measured",
+   "value": 76
+  },
+  "spend.spend": {
+   "status": "measured",
+   "value": 7
+  },
+  "wake.releases": {
+   "status": "measured",
+   "value": 136
+  },
+  "wake.stats": {
+   "status": "measured",
+   "value": 3
+  }
+ },
+ "broken_instruments": [
+  {
+   "cell": "commits.commits_landed",
+   "evidence_command": "git -C /root/bin/sources log --since=2026-10-06T01:37:07 --pretty=%H",
+   "kind": "could-not-ask",
+   "reason": "rc=128 fatal: not a git repository (or any of the parent directories): .git"
+  },
+  {
+   "cell": "journal.by_kind",
+   "evidence_command": "/root/bin/sources/journal/tools/journal.py",
+   "kind": "could-not-ask",
+   "reason": "no journal.py at that path"
+  },
+  {
+   "baseline_value": 0,
+   "cell": "capabilities.docs_added",
+   "evidence_command": "git -C /root/bin/sources log --since=2026-10-06T01:37:07 --diff-filter=A --name-only --pretty=format:",
+   "kind": "false-zero",
+   "reason": "reported 0 with status measured from a `git log` that exited 128 (not a git repository); the baseline's commits.commits_landed cell records the same failure"
+  },
+  {
+   "baseline_value": 0,
+   "cell": "capabilities.routes_added",
+   "evidence_command": "git -C /root/bin/sources log --since=2026-10-06T01:37:07 --diff-filter=A --name-only --pretty=format:",
+   "kind": "false-zero",
+   "reason": "reported 0 with status measured from a `git log` that exited 128 (not a git repository); the baseline's commits.commits_landed cell records the same failure"
+  },
+  {
+   "baseline_value": 0,
+   "cell": "capabilities.scripts_added",
+   "evidence_command": "git -C /root/bin/sources log --since=2026-10-06T01:37:07 --diff-filter=A --name-only --pretty=format:",
+   "kind": "false-zero",
+   "reason": "reported 0 with status measured from a `git log` that exited 128 (not a git repository); the baseline's commits.commits_landed cell records the same failure"
+  },
+  {
+   "baseline_value": 0,
+   "cell": "capabilities.skills_added",
+   "evidence_command": "git -C /root/bin/sources log --since=2026-10-06T01:37:07 --diff-filter=A --name-only --pretty=format:",
+   "kind": "false-zero",
+   "reason": "reported 0 with status measured from a `git log` that exited 128 (not a git repository); the baseline's commits.commits_landed cell records the same failure"
+  },
+  {
+   "baseline_value": 0,
+   "cell": "capabilities.sources_added",
+   "evidence_command": "git -C /root/bin/sources log --since=2026-10-06T01:37:07 --diff-filter=A --name-only --pretty=format:",
+   "kind": "false-zero",
+   "reason": "reported 0 with status measured from a `git log` that exited 128 (not a git repository); the baseline's commits.commits_landed cell records the same failure"
+  },
+  {
+   "cell": "journal.open_pain",
+   "evidence_command": "/root/bin/sources/journal/tools/journal.py",
+   "kind": "missing-cell",
+   "reason": "collect_journal() returned early when the journal tool was absent, so this cell was never emitted at all -- an absent cell reads as nothing to see"
+  }
+ ],
+ "estate_change": [
+  {
+   "baseline": 29,
+   "cell": "capabilities.services_running",
+   "corrected": 28,
+   "delta": -1
+  },
+  {
+   "baseline": 0,
+   "cell": "ledger.closed_with_proof",
+   "corrected": 1,
+   "delta": 1
+  },
+  {
+   "baseline": 10,
+   "cell": "ledger.left_open",
+   "corrected": 11,
+   "delta": 1
+  },
+  {
+   "baseline": 172,
+   "cell": "queue.filed",
+   "corrected": 173,
+   "delta": 1
+  },
+  {
+   "baseline": 152,
+   "cell": "queue.pending",
+   "corrected": 153,
+   "delta": 1
+  },
+  {
+   "baseline": 76,
+   "cell": "sessions.sessions_marker",
+   "corrected": 104,
+   "delta": 28
+  },
+  {
+   "baseline": 7,
+   "cell": "spend.spend",
+   "corrected": 13,
+   "delta": 6
+  },
+  {
+   "baseline": 136,
+   "cell": "wake.releases",
+   "corrected": 140,
+   "delta": 4
+  }
+ ],
+ "host": "secratary-cloud",
+ "instrument_repair": [
+  {
+   "baseline": 0,
+   "cell": "capabilities.docs_added",
+   "corrected": 121
+  },
+  {
+   "baseline": 0,
+   "cell": "capabilities.routes_added",
+   "corrected": 0
+  },
+  {
+   "baseline": 0,
+   "cell": "capabilities.scripts_added",
+   "corrected": 29
+  },
+  {
+   "baseline": 0,
+   "cell": "capabilities.skills_added",
+   "corrected": 7
+  },
+  {
+   "baseline": 0,
+   "cell": "capabilities.sources_added",
+   "corrected": 0
+  },
+  {
+   "baseline": "COULD NOT ASK",
+   "cell": "commits.commits_landed",
+   "corrected": 175
+  },
+  {
+   "baseline": "COULD NOT ASK",
+   "cell": "journal.by_kind",
+   "corrected": 50
+  }
+ ],
+ "measured": {
+  "capabilities.docs_added": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T02:00:06 --diff-filter=A --name-only --pretty=format:",
+   "freshness_kind": "git",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 121
+  },
+  "capabilities.routes_added": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T02:00:06 --diff-filter=A --name-only --pretty=format:",
+   "freshness_kind": "git",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 0
+  },
+  "capabilities.scripts_added": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T02:00:06 --diff-filter=A --name-only --pretty=format:",
+   "freshness_kind": "git",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 29
+  },
+  "capabilities.services_running": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "systemctl list-units --type=service --state=running --no-legend --no-pager",
+   "freshness_kind": "live",
+   "source": "systemd",
+   "status": "measured",
+   "unit": "count",
+   "value": 28
+  },
+  "capabilities.skills_added": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T02:00:06 --diff-filter=A --name-only --pretty=format:",
+   "freshness_kind": "git",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 7
+  },
+  "capabilities.sources_added": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T02:00:06 --diff-filter=A --name-only --pretty=format:",
+   "freshness_kind": "git",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 0
+  },
+  "capabilities.sources_registered": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "ls /root/bin/sources/*.py",
+   "freshness_kind": "live",
+   "source": "/root/bin/sources",
+   "status": "measured",
+   "unit": "count",
+   "value": 27
+  },
+  "capabilities.timers_registered": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "systemctl list-timers --no-legend --no-pager",
+   "freshness_kind": "live",
+   "source": "systemd",
+   "status": "measured",
+   "unit": "count",
+   "value": 22
+  },
+  "commits.commits_landed": {
+   "as_of": "2026-10-13T02:00:05Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-06T02:00:06 --pretty=%H",
+   "freshness_kind": "git",
+   "source": "harness-config git history",
+   "status": "measured",
+   "unit": "count",
+   "value": 175
+  },
+  "journal.by_kind": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "/usr/bin/python3 /root/code/harness-config/journal/tools/journal.py list --since 2026-10-06 --json",
+   "freshness_kind": "live",
+   "source": "journal.py list --since 2026-10-06 --json",
+   "status": "measured",
+   "unit": "count",
+   "value": 50
+  },
+  "journal.open_pain": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "/usr/bin/python3 /root/code/harness-config/journal/tools/journal.py list --kind pain --status open --json",
+   "freshness_kind": "live",
+   "source": "journal.py list --kind pain --status open --json",
+   "status": "measured",
+   "unit": "count",
+   "value": 50
+  },
+  "ledger.closed_with_proof": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "COUNT work_item WHERE state done AND EXISTS attempt.proof non-empty",
+   "freshness_kind": "live",
+   "source": "read-only SQL on /root/work/work.db (work_item x attempt)",
+   "status": "measured",
+   "unit": "count",
+   "value": 1
+  },
+  "ledger.left_open": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "COUNT(*) WHERE state NOT IN done/cancelled/expired",
+   "freshness_kind": "live",
+   "source": "read-only SQL on /root/work/work.db table work_item",
+   "status": "measured",
+   "unit": "count",
+   "value": 11
+  },
+  "queue.filed": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "COUNT(*) WHERE asked_at >= since",
+   "freshness_kind": "live",
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 173
+  },
+  "queue.pending": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "COUNT(*) WHERE status IN pending/open/filed/new",
+   "freshness_kind": "live",
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 153
+  },
+  "queue.resolved": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "COUNT(*) WHERE resolved_at >= since",
+   "freshness_kind": "live",
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 48
+  },
+  "sessions.sessions_marker": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "ls -d ~/.dsh ~/.dsh-sessions; python3 scripts/dsh-sessions.py --help; ls ~/.sms-inbox/wake-instances; docker ps --format {{.Names}}",
+   "freshness_kind": "live",
+   "source": "local dsh/session stores",
+   "status": "measured",
+   "unit": "count",
+   "value": 104
+  },
+  "spend.spend": {
+   "as_of": "2026-10-13T02:00:05Z",
+   "command": "wc -l /root/.sms-inbox/wake-cost.jsonl",
+   "freshness_kind": "file",
+   "source": "/root/.sms-inbox/wake-cost.jsonl",
+   "status": "measured",
+   "unit": "count",
+   "value": 13
+  },
+  "wake.releases": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "SELECT COUNT(*) FROM wake WHERE claimed_at >= since",
+   "freshness_kind": "live",
+   "source": "read-only SQL on /root/.sms-inbox/inbox.db table wake",
+   "status": "measured",
+   "unit": "count",
+   "value": 140
+  },
+  "wake.stats": {
+   "as_of": "2026-10-13T02:00:07Z",
+   "command": "/usr/bin/python3 /root/bin/wake.py stats",
+   "freshness_kind": "live",
+   "source": "/root/bin/wake.py",
+   "status": "measured",
+   "unit": "count",
+   "value": 3
+  }
+ },
+ "not_moving": [
+  {
+   "cell": "capabilities.sources_registered",
+   "value": 27
+  },
+  {
+   "cell": "capabilities.timers_registered",
+   "value": 22
+  },
+  {
+   "cell": "queue.resolved",
+   "value": 48
+  },
+  {
+   "cell": "wake.stats",
+   "value": 3
+  }
+ ],
+ "proof_commands": [
+  "python3 /root/bin/sources/weekly-evolution-audit.py --repo /root/bin/sources --out /tmp/self-audit-probe --quiet   # after fix: capabilities.* COULD NOT ASK",
+  "SELF_AUDIT_OUT=/tmp/self-audit-probe2 python3 /root/bin/sources/weekly-evolution.py --dry-run   # repo.path=/root/code/harness-config, commits measured 175, 0 broken",
+  "sha256sum /root/bin/sources/weekly-evolution-audit.py  # 290f96abc271109f515de2b358bca74aeb07b7231c065a2d12e2d93158db88c4",
+  "sha256sum /root/bin/sources/weekly-evolution.py  # 381e79e40d152a8c0b4b7d7518866602b6316e4179e97c53c36e69bd3cbdf97d"
+ ],
+ "records": {
+  "baseline": "run-20261013T013707Z",
+  "corrected": "run-20261013T020006Z"
+ },
+ "repo": {
+  "baseline": {
+   "branch": "",
+   "exists": true,
+   "head": "",
+   "path": "/root/bin/sources"
+  },
+  "corrected": {
+   "branch": "main",
+   "exists": true,
+   "head": "2f1510131bdcaec20be6c454637c7c2a8d7ab467",
+   "path": "/root/code/harness-config"
+  }
+ },
+ "schema": "self-audit/weekly/1",
+ "subject": "self-audit:2026-W42",
+ "weak_instruments": [
+  {
+   "cell": "wake.stats",
+   "defect": "unit says count but value = number of matching lines from `wake.py stats` (3). It counts lines, not rows and not work.",
+   "evidence": [
+    "wake rows: new=2 claimed=2 done=469 failed=89 unverified=0 cancelled=0 expired=0"
+   ]
+  },
+  {
+   "cell": "spend.spend",
+   "defect": "the metric is named spend_records and its value is the line count of wake-cost.jsonl, not USD. The $/day ceiling lives in the `wake.py stats` text, so this cell cannot test the ceiling.",
+   "evidence": "cost ledger rows"
+  },
+  {
+   "cell": "sessions.sessions_marker",
+   "defect": "named sessions_agents_run but value = len(~/.dsh) + recursive count of ~/.sms-inbox/wake-instances. It is a composite of directory entries and files, not sessions; it moved +28 in 47 minutes from new instance files alone.",
+   "evidence": {
+    "dsh_dir_entries": 17,
+    "wake_instances": 87
+   }
+  },
+  {
+   "cell": "journal.open_pain",
+   "defect": "not windowed. by_kind counts pain=2 inside the 7-day window while open_pain counts 50 open entries all-time; a reader can read one as the other.",
+   "evidence": {
+    "decisions": 4,
+    "handoff": 18,
+    "lessons": 25,
+    "pain": 2,
+    "wins": 1
+   }
+  },
+  {
+   "cell": "home-of-the-tool",
+   "defect": "the tool's declared path scripts/self-audit/weekly-evolution-audit.py did not exist in any repo, and docs/self-evolution/README.md (referenced by run-wake-sources.sh) did not exist. The only runnable copy was /root/bin/sources/weekly-evolution-audit.py.",
+   "evidence": "find / -path '*scripts/self-audit*' -> only self-audit.ps1 files"
+  }
+ ],
+ "window": {
+  "days": 7,
+  "since": "2026-10-06T01:37:07Z",
+  "until": "2026-10-13T01:37:07Z"
+ }
+}
