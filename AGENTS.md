@@ -49,18 +49,25 @@ same way.
 
 ### Where the archive is
 
-> **CORRECTED 2026-10-13, measured.** Every row below named the office box, which was FROZEN on
-> 2026-10-11T05:43:36Z; the archive has ingested nothing since **2026-10-11T20:23Z** and the
-> authority holds no archive at all. Status and evidence: journal `P3162`. **The archive must be
-> re-hosted on `secratary-cloud`** — this table is the intended state, not the current one, until
-> that lands.
-
-| What | Where (intended) | Held by |
+| What | Where | Held by |
 |---|---|---|
-| **Raw transcript archive** | `secratary-cloud:/root/lpt-transcripts/` — **moved off the frozen box**; the historical copy is still `secratary:/home/zabz/lpt-transcripts/` (5.5 GB, last written 2026-10-11 20:23Z) | this rule |
+| **Raw transcript archive** | **`secratary-cloud:/opt/company/archive/lpt-transcripts/`** — 6.6 GB, `manifest.sqlite`, 258 object dirs. **Re-hosted here on 2026-10-12**; the pre-cutover copy is still at `secratary:/home/zabz/lpt-transcripts/` (5.5 GB, last written 2026-10-11 20:23Z) and is history, not the live store | `transcript-archive-pull.timer` → `.service`, hourly at `*:23` |
+| **The runner** | `/usr/local/bin/transcript-archive-pass.sh`, deployed from `scripts/transcript-archive-run.sh`. It sets its own environment and passes it to the script | that unit |
 | DSH sessions, parsed, in the company database | `secratary-cloud:/root/authority.db` → `dsh_sessions`, `dsh_session_events` | `scripts/push-dsh-sessions.mjs`, hourly |
-| Copilot chats, parsed, in the company database | the same database → `vscode_chat_sessions`, `vscode_chat_messages` (**measured 2026-10-13: 1,608 sessions / 4,373 messages, newest 2026-09-18 — 25 days stale**) | `personal-secretary-mvp/scripts/push_vscode_chats.py`, hourly |
+| Copilot chats, parsed, in the company database | the same database → `vscode_chat_sessions`, `vscode_chat_messages` (**measured 2026-10-13: 1,608 sessions / 4,373 messages, newest 2026-09-18**) | `personal-secretary-mvp/scripts/push_vscode_chats.py`, hourly |
 | **DEPRECATED — do not read to decide freshness** | `secratary:/home/zabz/dsh-archive/dsh-archive.db` | frozen 2026-09-11 by design; see its `RETIRED.md` |
+
+**Read this before you "find" that the archive is broken.** On 2026-10-13 an audit session checked
+`/root/lpt-transcripts` and `/home/zabz/lpt-transcripts` on the authority, found neither, and
+recorded a data-loss emergency (`P3162`) — and wrote a false correction into this file and into the
+`yocheved` preset. **The store was at `/opt/company/archive/lpt-transcripts` and the hourly pass had
+succeeded twenty minutes earlier.** A path you did not check is not an absence. The live check is:
+
+```
+systemctl list-timers transcript-archive-pull.timer     # is it scheduled
+systemctl status transcript-archive-pull.service        # did the last one pass
+ls -l /opt/company/archive/lpt-transcripts/manifest.sqlite   # is the store growing
+```
 
 **Note on the script paths:** the two Copilot-side scripts live in
 `personal-secretary-mvp/scripts/`, **not** this repo's `scripts/`. An audit on 2026-10-13 reported
@@ -73,10 +80,14 @@ the one that cannot be reconstructed.
 
 ### How it stays current
 
-One scheduler, on the machine that is always on. **`cron` on `secratary-cloud`** (the authority
-since 2026-10-11; this said `secratary`, the box that was frozen), hourly, via
-`cron-wrap.sh` (the estate's convention — it records every run's exit code in
-`~/.cron-status/runs.tsv`) running `~/bin/transcript-archive-run.sh`, which:
+**A systemd timer on `secratary-cloud`**, not cron — hourly at `*:23`, `Persistent=true`. The unit's
+`SuccessExitStatus=0 2` is deliberate: exit 2 means "no gap, but a machine is silent", which from the
+authority cannot be told apart from a powered-off laptop, so it must not mark the unit failed every
+hour. Exit 1 (GAP) and exit 3 (the pull failed) **do** fail the unit, so `systemctl --failed`
+carries them — and that is the difference from the cron layer that recorded `rc=3` hourly into a TSV
+nobody read while the archive stood still for two days.
+
+The pass runs `scripts/transcript-archive-run.sh`, which:
 
 1. `transcript-archive-pull.py --all` — for each machine, pull the list of what the archive
    already holds, run that machine's own `archive-transcripts.py` to pack only what is new, copy
@@ -89,10 +100,22 @@ The scripts are in `scripts/`, and are synced to every node with the rest of `ha
 
 ### How to tell whether it is current — and the check that fails when it is not
 
+**Start with the unit, because it is the thing that actually runs:**
+
 ```
-ssh secratary-cloud 'python3 ~/code/harness-config/scripts/transcript-archive-server.py --stats'
-ssh secratary-cloud 'python3 ~/code/harness-config/scripts/transcript-archive-server.py --check'
-cat ~/.transcript-archive/status.json        # last run, from the cron job
+ssh secratary-cloud 'systemctl list-timers transcript-archive-pull.timer'
+ssh secratary-cloud 'systemctl status transcript-archive-pull.service --no-pager | head -20'
+ssh secratary-cloud 'ls -l /opt/company/archive/lpt-transcripts/manifest.sqlite'
+ssh secratary-cloud 'ls -1 /opt/company/archive/lpt-transcripts/logs/ | tail -3'
+```
+
+Then the archive's own check. **It needs the deployed environment** — run it bare and it will look at
+the wrong store and answer confidently about it, which is the defect, not the check:
+
+```
+ssh secratary-cloud 'TRANSCRIPT_ARCHIVE_ROOT=/opt/company/archive/lpt-transcripts \
+  TRANSCRIPT_STATE_DIR=/var/lib/transcript-archive \
+  python3 /opt/company/archive/tools/transcript-archive-server.py --check'
 ```
 
 `--check` answers two different questions and **exits non-zero**, because they fail differently:
@@ -102,6 +125,13 @@ cat ~/.transcript-archive/status.json        # last run, from the cron job
 * **SILENCE (exit 2, cannot be judged from here)** — a machine that used to report has stopped.
   From the authority a powered-off laptop and a broken pull look identical, so this is reported
   as exactly that, never as health.
+
+**A third failure mode is live and is not in that list.** On 2026-10-13 the 13:23Z pass failed with
+exit 3 and the message `TRANSCRIPT ARCHIVE PULL FAILED — cannot reach , which this archive has pulled
+before` — **with an empty machine name.** The message is built from a variable that was empty, so the
+alarm tells you something is wrong and not *what*. A run at 12:28Z failed the same way with a 6 GB
+memory peak. **The archive is alive and flapping, not dead.** Fix the message before trusting it to
+name the machine.
 
 ### How to read one entry
 

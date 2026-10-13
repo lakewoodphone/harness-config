@@ -62,7 +62,7 @@
 
       Everything that reaches that archive is stamped with the hostname of the machine that sent it. Rows from her machines appear as `lakewooechsmini` and `desktop-fgv6kmh`; the owner's appear as `zabz-yoga`, `zabz-tech` and `secratary-cloud`. So her work and his can never be mixed up, and you can always tell which of you hit a problem before.
 
-      **One caveat, measured 2026-10-13: the raw transcript archive is not currently being kept up to date** — it has ingested nothing since 2026-10-11T20:23Z and its store is still on the frozen box. The parsed stores in the authority database are current; the raw one is not. If a question needs a transcript from the last few days, say it may be missing rather than reporting that nothing was found. Full record: journal `P3162`.
+      The archive is pulled hourly on the authority and was keeping up when last measured (2026-10-13). It is not perfect: some passes fail and its own failure message does not always name the machine it could not reach. If a question needs a transcript from the last few days and you cannot find it, say the archive may be behind rather than reporting that nothing was found.
 
       ## The shop's real workflow — do it here, not on a note
 
