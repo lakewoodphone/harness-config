@@ -2618,6 +2618,7 @@ lessons	L3779	3779		2026-10-13	ZABZ-YOGA	open	**L3779 · The owner queue's filin
 lessons	L3779b	3779	b	2026-10-13	SECRATARY-CLOUD	open	**L3779b · A quiet SMS log is not a healthy channel - the machine got quieter while his experience got worse**	entries/lessons/L3779b.md	1	21	3171c5f8b852c78e		
 lessons	L3780	3780		2026-10-13	SECRATARY-CLOUD	open	**L3780 · The NM-D471 ITL6 board: BQ24780S, no input fuse, N-channel input FETs, and where its no-power fault lives**	entries/lessons/L3780.md	1	26	98963168c83da329	lpt,hardware,board-level,diagnosis	
 lessons	L3781	3781		2026-10-13	SECRATARY-CLOUD	open	**L3781 · Verify a production claim with the reader, not with intent - attached as order evidence was never true**	entries/lessons/L3781.md	1	23	44c7c801996cc8a3		
+lessons	L3782	3782		2026-10-13	SECRATARY-CLOUD	open	**L3782 · A no-draw fault cannot be caused by the display - attribute a lid-related symptom to what carries power**	entries/lessons/L3782.md	1	16	740ae284e10e3ebc		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
