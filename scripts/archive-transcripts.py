@@ -96,6 +96,10 @@ CREDENTIAL_RES = [
     ("jwt", re.compile(r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b")),
     ("bearer", re.compile(r"\bBearer\s+[A-Za-z0-9\-._~+/]{24,}={0,2}")),
     ("twilio_sid", re.compile(r"\bAC[0-9a-fA-F]{32}\b")),
+    # firecrawl keys are fc-<32 hex>. Added 2026-10-13 after a session printed a live one
+    # into its own transcript while reading it out of scripts/find-flip-deals.py; the list
+    # covered sk-/gh*/AIza/xox*/AC but not this shape, so it would have reached the corpus.
+    ("firecrawl_key", re.compile(r"\bfc-[A-Za-z0-9]{24,}\b")),
 ]
 CARD_SHAPE = re.compile(r"(?<!\d)(?:\d[ \-]?){12,18}\d(?!\d)")
 
