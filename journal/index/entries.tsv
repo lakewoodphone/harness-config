@@ -3154,6 +3154,8 @@ pain	P3166	3166		2026-10-13	ZABZ-YOGA	open	## P3166 — harness-config's GitHub 
 pain	P3166b	3166	b	2026-10-13	SECRATARY-CLOUD	open	## P3166b — secratary-cloud is at 92% disk above a 26 GB database that is the company's only books	entries/pain/P3166b.md	1	22	3d7f746d627477d6		
 pain	P3167	3167		2026-10-13	ZABZ-YOGA	open	## P3167 — The shop devices dialled a machine frozen two days earlier, and only the owner's eyes caught it	entries/pain/P3167.md	1	35	9ae80b7e57d455be	migration,mdm,monitoring,lpt	
 pain	P3167b	3167	b	2026-10-13	SECRATARY-CLOUD	open	## P3167b — a script this host RUNS does not match the captured reference	entries/pain/P3167b.md	1	6	4978555d1d3b7982	deployed-drift,scripts,drift	
+pain	P3168	3168		2026-10-13	SECRATARY-CLOUD	open	## P3168 — Estate monitor: disk_free_deficit_gb is critical (5.546 GiB) across 303 consecutive runs	entries/pain/P3168.md	1	23	130ec989dc7b57ce	estate-monitor,auto-filed,not-the-owners	metrics/disk_free_deficit_gb
+pain	P3169	3169		2026-10-13	SECRATARY-CLOUD	open	## P3169 — Estate monitor: swap_used_pct is critical (77.26 %) across 6 consecutive runs	entries/pain/P3169.md	1	23	c3cde4ec55515af9	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
