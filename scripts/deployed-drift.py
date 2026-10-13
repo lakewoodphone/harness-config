@@ -80,8 +80,35 @@ def sha_of(p: Path) -> str | None:
         return None
 
 
-def remote_inventory(host: str, ddir: str) -> dict[str, dict]:
-    """{basename: {sha, mtime}} for regular files in the deployed directory."""
+def remote_inventory(host: str, ddir: str, local: bool = False) -> dict[str, dict]:
+    """{basename: {sha, mtime}} for regular files in the deployed directory.
+
+    `local=True` reads the directory directly instead of over ssh. WHY IT EXISTS: this tool is meant
+    to run ON the host that holds the files -- that is what makes a scheduled check possible -- and on
+    the authority `ssh secratary-cloud` from `secratary-cloud` fails with `Permission denied
+    (publickey)`. Measured 2026-10-13: the scheduled wrapper reported "could not list ... (rc=255)"
+    and, because of a second bug (below), filed it as DRIFT.
+
+    THE SECOND BUG, and it is the one worth remembering: the failure path used
+    `raise SystemExit("message")`, which prints the message and exits **1** -- not the 2 the message
+    promised. Any caller gating on `rc == 1` therefore reads "could not do the job" as "there is
+    drift". A tool that says `exit 2, not a pass` and then exits 1 is lying in its own error message,
+    which is the failure class this whole program has been correcting. It now prints and calls
+    `sys.exit(2)` explicitly.
+    """
+    if local:
+        inv = {}
+        base = Path(ddir)
+        if not base.is_dir():
+            print(f"deployed-drift: {ddir} is not a directory on this host -- exit 2, not a pass.",
+                  file=sys.stderr)
+            sys.exit(2)
+        for f in sorted(base.iterdir()):
+            if not f.is_file():
+                continue
+            inv[f.name] = {"sha": sha_of(f) or "", "mtime": int(f.stat().st_mtime)}
+        return inv
+
     script = (
         f"for f in {ddir}/*; do "
         "[ -f \"$f\" ] || continue; "
@@ -93,8 +120,10 @@ def remote_inventory(host: str, ddir: str) -> dict[str, dict]:
                          capture_output=True, text=True, encoding="utf-8", errors="replace",
                          timeout=120)
     if out.returncode != 0:
-        raise SystemExit(f"deployed-drift: could not list {ddir} on {host} (rc={out.returncode}): "
-                         f"{(out.stderr or '')[:300]} -- exit 2, not a pass.")
+        print(f"deployed-drift: could not list {ddir} on {host} (rc={out.returncode}): "
+              f"{(out.stderr or '')[:300]}", file=sys.stderr)
+        print("deployed-drift: this is exit 2, not a pass.", file=sys.stderr)
+        sys.exit(2)
     inv = {}
     for line in (out.stdout or "").splitlines():
         parts = line.rstrip("\n").split("\t")
@@ -111,6 +140,8 @@ def main() -> int:
     ap.add_argument("--repo", default=None)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--local", action="store_true",
+                    help="read the deployed directory on THIS host instead of over ssh")
     ap.add_argument("--only-scripts", action="store_true",
                     help="only .py/.sh/.mjs/.mts basenames")
     a = ap.parse_args()
@@ -127,7 +158,7 @@ def main() -> int:
               "Exit 2, not a pass.", file=sys.stderr)
         return 2
 
-    inv = remote_inventory(a.host, a.deployed_dir)
+    inv = remote_inventory(a.host, a.deployed_dir, local=a.local)
     if not inv:
         print(f"deployed-drift: {a.deployed_dir} on {a.host} listed no regular files -- exit 2, "
               "not a pass.", file=sys.stderr)
