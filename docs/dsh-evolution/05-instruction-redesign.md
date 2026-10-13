@@ -226,16 +226,38 @@ two failures. Three more changes followed, all verified:
 | 11 | **Replaced the broken pointer to `secretary-replacement-audit/`** with `docs/dsh-evolution/` as the primary evidence base, and an explicit note that the predecessor set is reachable only from git history at `51e2d32d` | that path exists on **no trunk**, so every agent that followed the old pointer found nothing | the section now names both, and says absence is not evidence the work was never done |
 | 12 | **Deleted the duplicated "When you are unsure" paragraph** at the end of the prefix | it repeated the section above it verbatim | grep |
 
-**Measured result: the person prefix went from 28,697 bytes at `75ffbeef` to ~23,000.** The target
-remains ~22,000; the remaining gap is the outbound-hard-stop detail (§3), which was deliberately *not*
-cut — an outbound mistake is irreversible and has already happened twice on this estate, so a few
-hundred bytes of safety rule in the always-on prompt is the right trade.
+**Measured result, honestly stated: the persona prefix went from 28,697 bytes at `75ffbeef` to
+25,531.** That is a net saving of 3,166 bytes — and it is the net of **removing ~4,800 bytes of
+duplication and adding ~1,650 bytes of new rules** (the `wrong-data` section and "look before you
+redo"). The target was ~22,000 and **it was not reached**, because the two remaining moves were
+deliberately declined:
+
+- **the outbound-hard-stop detail (~1,500 B)** — an outbound mistake is irreversible, has already
+  happened twice on this estate, and the five hardenings are cheaper in the always-on prompt than the
+  consequence of an agent that did not read the doc;
+- **the fleet and systems list (~1,100 B)** — it is the block that told an agent the authority was the
+  frozen box. Replacing it with a pointer to `host-posture.tsv` is right in principle; keeping a short,
+  now-correct version of it is right in practice.
+
+**So the redesign's cost target is met to about two thirds, on purpose, and the two exceptions are
+named rather than quietly dropped.** A future session can take them if it measures the trade
+differently.
+
+**The nine missing rules are now written**, each into the surface that owns it — see `AGENTS.md` §6-7,
+`parallel-agent-orchestration`, `estate-systems` and `secretary-wake`. The commit is `a7977f20`.
 
 **A correction to this session's own earlier reporting, recorded because it matters:** the first
 aggregate covered 9 of 18 shards and reported `company` and `research` as the top domains with `shop`
 at 69. The shards are ordered by date and the fleet ran in waves, so that was a biased partial sample.
-With 17 of 18 in (935 sessions), **`shop` is the largest single domain at 207** and the ranking is as
-`07-pain-register.md` §1 shows. The lesson is in the journal; the corrected numbers are in §1 there.
+With all 18 in (945 sessions), **`shop` is the largest single domain at 208** and the ranking is as
+`07-pain-register.md` §1 shows. The lesson is journal `L3773`.
+
+**And a second one, worse.** This session then reported the transcript archive as **dead**, and after
+retracting that, reported it as **"alive but flapping"** — also wrong. The store is at
+`/opt/company/archive/lpt-transcripts` and was healthy throughout; the "flapping" evidence was a
+pre-fix log line from 13:23Z, already fixed at 13:40:15. **Both claims were `wrong-data` — the #1
+failure this document is about — committed by the session writing the rule against it.** The lesson
+is `L3774`; the rule it produced is in `AGENTS.md` §1 and in the persona's new section.
 
 ---
 
