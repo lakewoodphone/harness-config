@@ -1,0 +1,5 @@
+{
+  "preferred_aliases": ["secretary-auto", "secretary-fast", "secretary-smart"],
+  "configured_models": ["ornith-1.0-397b", "hardcoded-model-from-2025", "secretary-genius"],
+  "forbidden": ["secretary-genius"]
+}
