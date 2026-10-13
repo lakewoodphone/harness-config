@@ -35,15 +35,17 @@ lib/client.js                        lib/index.js
 injects, once:                       a valid Cordis host half that contributes
   <script id="dsh-attention-badge-     nothing, on purpose. No service, no command,
    loader"                             no host RPC — so there is no second data
-   src="https://secratary.tail93e6e6.ts.net/dsh-attention.js"
-   data-attention-json="https://secratary.tail93e6e6.ts.net"
+   src="https://secratary-cloud.tail93e6e6.ts.net/dsh-attention.js"
+   data-attention-json="https://secratary-cloud.tail93e6e6.ts.net https://secratary.tail93e6e6.ts.net"
    async>
 ```
 
-The badge then fetches `/dsh-attention.json` **from the authority it was loaded from**, not from the
+The badge then fetches `/dsh-attention.json` **from the authorities it declares**, not from the
 local engine. That is what `data-attention-json` is for: the plugin's page is
 `http://127.0.0.1:3099` while the data is on the authority, so a relative fetch would ask the local
-engine for a route it does not have.
+engine for a route it does not have. The attribute is a **list**, most trusted first; the badge asks
+them in order and keeps the freshest reading, so a source that answers but is frozen cannot shadow
+one that is live (see "How it fails" below).
 
 ## Why it does not bundle a copy of the badge
 
@@ -104,14 +106,17 @@ anything — do that first, because a broken bundle row is a boot failure.
 
 | What | Where | Default |
 |---|---|---|
-| the authority that serves the badge | `BADGE_AUTHORITY` in `lib/client.js` | `https://secratary.tail93e6e6.ts.net` |
+| the authorities that serve the badge | `BADGE_AUTHORITIES` in `lib/client.js` | `['https://secratary-cloud.tail93e6e6.ts.net', 'https://secratary.tail93e6e6.ts.net']` — authority first, the frozen office box only as a stand-in |
 | the badge source file | `assets/phone-badge.js` in this repo | — |
-| the findings route | `/dsh-attention.json` on the authority | — |
+| the findings route | `/dsh-attention.json` on each authority | — |
 
-**If the authority moves or is renamed**, `BADGE_AUTHORITY` is the one line to change, and then every
-machine must be reinstalled (or its page reloaded) — client bundles are served immutable, so a
-mounted machine caches its copy for a year. Until then it shows "findings unavailable", which is
-correct but silent: the reason only appears in the expanded card.
+**If the authority moves or is renamed**, `BADGE_AUTHORITIES` is the one line to change — add the new
+authority at the front and leave the old entry behind it for one deployment cycle — and then every
+machine must be reinstalled (or its page reloaded): client bundles are served immutable, so a mounted
+machine caches its copy for a year. **Since 2026-10-12 a wrong entry is no longer fatal**, which is the
+point of the list: a machine that has not been reloaded still asks the authority it knows *and* the one
+it was told about, takes the freshest reading, and names the host in the card. Before that, a stale
+entry meant a badge that showed a stopped clock indefinitely and said nothing about the move.
 
 ## How it fails
 
@@ -120,9 +125,10 @@ correct but silent: the reason only appears in the expanded card.
 | no route to the authority (tailnet down, host off) | a **dashed grey pill: `findings unavailable`** — from this plugin, not from the badge | the badge's own reporter is remote; this one is local, so the failure has a voice |
 | the authority's gate down | same | same |
 | the kernel stopped writing | a reading with `· stale <age>` and a `(stale)` card | a reading of unknown or old age must not look current |
+| **a source is up but FROZEN** (the 2026-10-12 case) | the reading from whichever source is freshest, and the card names that host | the authorities are a list and freshness wins, so a stopped source cannot shadow a live one; if the frozen one is all that answers, it is shown *and labelled stale* |
 | the kernel's file is malformed | `findings unavailable` with the reason the gate gave | a refusal, not a confident zero |
 | the plugin is not installed | nothing at all | absence of the badge is not absence of findings |
-| the plugin is installed but the page is not reloaded | nothing at all | a client bundle mounts at boot |
+| the plugin is installed but the page is not reloaded | the old bundle's behaviour, which since 2026-10-12 still works: the authorities are additive | a client bundle mounts at boot |
 
 ## Verifying it
 

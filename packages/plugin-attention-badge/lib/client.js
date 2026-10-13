@@ -14,10 +14,24 @@
  * WHAT IT DOES
  * It loads the badge that already exists, from the one host that already serves it:
  *
- *   https://secratary.tail93e6e6.ts.net/dsh-attention.js   (the same file the phone gets)
+ *   https://secratary-cloud.tail93e6e6.ts.net/dsh-attention.js   (the same file the phone gets)
  *
  * The badge then fetches its findings from the same origin, which is the authority's live reading
  * of the kernel's state file.
+ *
+ * ...AND WHY THAT IS A LIST OF HOSTS RATHER THAN ONE - added 2026-10-12, measured
+ * The company's authority was cut over from the office box `secratary` to the cloud box
+ * `secratary-cloud` at 2026-10-11T05:43Z, and the office box was left as a frozen rollback anchor.
+ * This constant kept naming the OFFICE box, so every desktop badge went on reading it: the pill said
+ * `6 needing attention · stale 6h ago` and the age grew forever, because the office sentinel had
+ * stopped. The reading was honest and useless - a stopped clock - while the live authority answered
+ * one hostname away that nothing asked. The owner's question was exactly right: "why does it say
+ * stale? why is everything stable?"
+ *
+ * So the authorities are a list, most trusted first. `phone-badge.js` asks them in order and keeps
+ * the FRESHEST readable reading, so a source that is reachable but frozen can never shadow a live
+ * one, and a stale reading is still shown - labelled, with the host and age the kernel stamped -
+ * when it is all there is. Nothing here decides which one answered; the card says so.
  *
  * ...AND WHY IT NO LONGER VANISHES SILENTLY WHEN THAT HOST IS UNREACHABLE
  * Measured 2026-09-14, by the owner: "I think I saw the badge earlier today but I don't see it
@@ -56,8 +70,26 @@ const FALLBACK_ID = 'dsh-attention-badge-offline';
 const FALLBACK_STYLE_ID = 'dsh-attention-badge-offline-style';
 const FALLBACK_VERSION = '1';
 
-const BADGE_AUTHORITY = 'https://secratary.tail93e6e6.ts.net';
+/**
+ * Where the badge may be loaded from and read, MOST TRUSTED FIRST.
+ *
+ * The first entry is the authority. The second is the office box, which is now a frozen rollback
+ * anchor: it is kept only so a machine can still say something true when the authority is
+ * unreachable, and because asking it costs one 2 KB request a minute. Because the badge takes the
+ * freshest reading, a frozen source cannot win while a live one answers - and if the frozen source
+ * IS all that answers, the card says `(stale)` and names it.
+ *
+ * Retire the second entry when the office box is decommissioned; until then it is a stand-in, not a
+ * second truth. A machine that has cached this bundle keeps it, so the list is the one thing here
+ * that must not drift from `assets/phone-badge.js`'s contract.
+ */
+const BADGE_AUTHORITIES = [
+  'https://secratary-cloud.tail93e6e6.ts.net',
+  'https://secratary.tail93e6e6.ts.net',
+];
+const BADGE_AUTHORITY = BADGE_AUTHORITIES[0];
 const BADGE_SRC = BADGE_AUTHORITY + '/dsh-attention.js';
+const BADGE_AUTHORITY_LIST = BADGE_AUTHORITIES.join(' or ');
 
 /** How long the real badge gets before this says something. A cold tailnet connect can take a second. */
 const MOUNT_GRACE_MS = 6000;
@@ -118,7 +150,7 @@ window.__ModuleLoader__.load({
       // Names the origin the badge must ask for its findings. It must be the authority: this page is
       // a local engine on loopback, which serves no `/dsh-attention.json`, so a relative fetch would
       // fail here while working perfectly on the phone - the asymmetry this package exists to remove.
-      script.setAttribute('data-attention-json', BADGE_AUTHORITY);
+      script.setAttribute('data-attention-json', BADGE_AUTHORITIES.join(' '));
       script.setAttribute('data-badge-source', 'plugin');
       script.onerror = () => {
         state.lastError = 'the badge script did not load from ' + BADGE_AUTHORITY;
@@ -183,7 +215,7 @@ window.__ModuleLoader__.load({
         + '<span class="count">findings unavailable</span>'
         + '</div>'
         + '<div class="why">'
-        + 'The attention badge could not be loaded from <b>' + escapeHtml(BADGE_AUTHORITY) + '</b>.'
+        + 'The attention badge could not be loaded from <b>' + escapeHtml(BADGE_AUTHORITY_LIST) + '</b>.'
         + ' The harness is otherwise unaffected. '
         + (state.lastError ? escapeHtml(state.lastError) + '. ' : '')
         + 'Retrying every ' + Math.round(RETRY_MS / 1000) + 's.'
@@ -271,6 +303,7 @@ window.__ModuleLoader__.load({
       hideFallback,
       injectBadge,
       authority: BADGE_AUTHORITY,
+      authorities: BADGE_AUTHORITIES,
       graceMs: MOUNT_GRACE_MS,
       retryMs: RETRY_MS,
     };
