@@ -211,6 +211,66 @@ def _archive_verdict() -> dict:
     return {"rc": proc.returncode, "payload": payload}
 
 
+def _wake_cli() -> Path:
+    return Path(os.environ.get("WAKE_PY") or (Path.home() / "bin" / "wake.py"))
+
+
+def _retire_stale_archive_flags(reason: str, dry_run: bool = False) -> list[str]:
+    """Retract THIS source's own outstanding archive flags once the archive is clean.
+
+    WHY. `wake.flag()` re-arms an existing subject after its cooldown -- it rewrites
+    `state='new'` and pushes `not_before` forward by `cooldown_seconds` purely on elapsed
+    time. A dated `dormant-archive:<YYYYMMDD>` row filed while the gap was real therefore
+    becomes claimable days later, after the gap has cleared, and is dispatched as a fresh
+    repair order describing state that no longer exists. Measured 2026-10-02: row #114
+    (`dormant-archive:20260929`, "390 min") was delivered three days after the condition
+    cleared, and the wake-cost digest shows this subject family burning 5-21 M tokens per
+    release (P52: an alarm that cries wolf gets ignored).
+
+    The queue cannot re-validate this -- only the source can read the checker. So when the
+    checker says the archive is current, the source retracts its own dated rows and leaves
+    today's alone. It writes nothing else, calls no other source, and can never raise: a
+    sensor must not be able to break its caller.
+    """
+    cli = _wake_cli()
+    if not cli.is_file():
+        print(f"retract: no wake cli at {cli}", file=sys.stderr)
+        return []
+    today = _flag.now_utc().strftime("%Y%m%d")
+    try:
+        listing = subprocess.run(
+            [sys.executable or "python3", str(cli), "list",
+             "--state", "new", "--limit", "1000", "--json"],
+            capture_output=True, text=True, timeout=120)
+        payload = json.loads((listing.stdout or "").strip().splitlines()[-1])
+    except Exception as exc:                                      # noqa: BLE001
+        print(f"retract: could not list wake rows: {exc}", file=sys.stderr)
+        return []
+    retired: list[str] = []
+    for row in payload.get("rows") or []:
+        subject = str(row.get("subject") or "")
+        if not subject.startswith("dormant-archive:"):
+            continue
+        if subject.split(":", 1)[1] == today:
+            continue                     # today's finding is current; the dispatcher owns it
+        rid = row.get("id")
+        if rid is None:
+            continue
+        if dry_run:
+            print(f"(dry-run) would retract #{rid} {subject}", file=sys.stderr)
+            retired.append(subject)
+            continue
+        try:
+            subprocess.run(
+                [sys.executable or "python3", str(cli), "finish", str(rid),
+                 "--outcome", reason],
+                capture_output=True, text=True, timeout=60)
+            retired.append(subject)
+        except Exception as exc:                                  # noqa: BLE001
+            print(f"retract: could not finish #{rid}: {exc}", file=sys.stderr)
+    return retired
+
+
 def collect(args) -> list[Finding]:
     findings: list[Finding] = []
     days = _num("DORMANT_HANDOFF_DAYS", 3.0)
@@ -302,6 +362,15 @@ def collect(args) -> list[Finding]:
             kind="repair",
             cooldown_seconds=cooldown,
         ))
+    else:
+        retired = _retire_stale_archive_flags(
+            "dormant-archive retracted by its own source: check-dsh-freshness.py "
+            "now reports the archive current, so the gap this dated row describes "
+            "has cleared and it must not be re-dispatched.",
+            dry_run=getattr(args, "dry_run", False),
+        )
+        if retired and not getattr(args, "dry_run", False):
+            print(f"retracted   : {', '.join(retired)}", file=sys.stderr)
 
     return findings
 

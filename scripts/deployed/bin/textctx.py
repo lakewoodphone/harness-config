@@ -1088,6 +1088,247 @@ def render(person: dict, *, budget: int = 1200) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# THE ASKS WE SENT, AND OUR OWN RECORDS ABOUT THEM.
+#
+# Added 2026-10-02 for workstream `ws-inbound`. The channel could not tell an
+# answer from new work because it never looked up the question it had put to him:
+# the askers keep the question, with the merchant, the amount and the card, in
+# `~/.cfo-asks/asks.db` (cfo-ask.py) and `~/.owner-ask/asks.db` (owner-ask.py), and
+# nothing in the responder ever read either file. Measured (10-AUDIT.md): the same
+# purchase was put to him twice in sixteen hours, and his answer to the second ask
+# was filed as a NEW work item.
+#
+# This is a READER - `_open_ro` makes that enforceable, not a promise - and every
+# reading carries its provenance: which file, and when it was read.
+# --------------------------------------------------------------------------- #
+CFO_ASK_DB_ENV = "CFO_ASK_DB"
+OWNER_ASK_DB_ENV = "OWNER_ASK_DB"
+LEDGER_ENV = "ACCOUNTING_DB"
+DEFAULT_LEDGER = "/home/zabz/accounting-data/live/accounting.db"
+
+# `CFO [ask-1790962130]: ...` is cfo-ask.py (its `reference` column) and
+# `[q1790960402] ...` is owner-ask.py. Both ids are timestamps, not row ids, so the
+# reference is the only safe key - which is why it is carried in the text at all.
+ASK_REF_RE = re.compile(r"(?:CFO\s*\[(ask-\d+)\]|\[(q\d+)\])")
+
+
+def ask_db_paths() -> dict:
+    """{'cfo': path, 'owner': path} - the live files unless the env overrides them."""
+    return {
+        "cfo": Path(os.environ.get(CFO_ASK_DB_ENV)
+                    or (Path.home() / ".cfo-asks" / "asks.db")),
+        "owner": Path(os.environ.get(OWNER_ASK_DB_ENV)
+                      or (Path.home() / ".owner-ask" / "asks.db")),
+    }
+
+
+def ask_reference(text: str) -> str | None:
+    """The ask reference carried in a body we sent, or None."""
+    m = ASK_REF_RE.search(text or "")
+    if not m:
+        return None
+    return m.group(1) or m.group(2)
+
+
+def ask_by_reference(reference: str, *, timeout: int = 15) -> dict | None:
+    """One ask, by its reference, from whichever asker sent it. Read-only.
+
+    Returns {} - never a guess - when the reference is unknown, and the caller can
+    tell "no such ask" from "the asker's store could not be read" by `provenance`.
+    """
+    ref = str(reference or "").strip()
+    if not ref:
+        return None
+    paths = ask_db_paths()
+    kind = "cfo" if ref.startswith("ask-") else "owner"
+    path = paths[kind]
+    prov = {"source": str(path), "as_of": now(), "reference": ref, "reader": "textctx.ask_by_reference"}
+    if not path.is_file():
+        return {"reference": ref, "kind": kind, "provenance": prov,
+                "error": "no such ask store: %s" % path}
+    conn = None
+    try:
+        conn = _open_ro(path, timeout=timeout)
+        if kind == "cfo":
+            row = _q(conn, "SELECT id, asked_at, entity_id, account_name, merchant, merchant_key, "
+                           "amount_cents, body, reference, sent, answered_at, answer "
+                           "FROM ask WHERE reference=? ORDER BY id DESC LIMIT 1", (ref,)).fetchone()
+        else:
+            row = _q(conn, "SELECT id, asked_at, source, source_id, subject, body, reference, "
+                           "sent, answered_at, answer FROM ask WHERE reference=? "
+                           "ORDER BY id DESC LIMIT 1", (ref,)).fetchone()
+    except Exception as exc:
+        return {"reference": ref, "kind": kind, "provenance": prov,
+                "error": "%s: %s" % (type(exc).__name__, exc)}
+    finally:
+        _close(conn)
+    if row is None:
+        return {"reference": ref, "kind": kind, "provenance": prov, "error": "no such ask"}
+    got = dict(row)
+    out = {"reference": ref, "kind": kind, "id": got.get("id"),
+           "asked_at": got.get("asked_at"), "body": got.get("body"),
+           "sent": got.get("sent"), "answered_at": got.get("answered_at"),
+           "answered": bool(got.get("answered_at")),
+           "provenance": prov}
+    if kind == "cfo":
+        out.update({"merchant": got.get("merchant"), "merchant_key": got.get("merchant_key"),
+                    "account_name": got.get("account_name"), "entity_id": got.get("entity_id"),
+                    "amount_cents": got.get("amount_cents")})
+    else:
+        src = str(got.get("source") or "")
+        sid = str(got.get("source_id") or "")
+        out.update({"merchant": sid[2:] if src == "purchase" and sid.startswith("m:") else None,
+                    "merchant_key": _merchant_key(sid[2:]) if src == "purchase" and sid.startswith("m:") else None,
+                    "source": src, "source_id": sid,
+                    "subject": got.get("subject")})
+    if out.get("amount_cents"):
+        out["amount"] = "%.2f" % (int(out["amount_cents"]) / 100.0)
+    return out
+
+
+def _merchant_key(name) -> str:
+    """cfo-ask.py:merchant_key - the one normalisation both sides must agree on."""
+    key = re.sub(r"[^a-z0-9 ]+", " ", str(name or "").lower())
+    key = re.sub(r"\s+", " ", key).strip()
+    return key[:48]
+
+
+def recent_asks(phone: str, *, store_path=None, limit: int = 8, hours: float = 48.0,
+                scan: int = 600, not_after: str | None = None,
+                timeout: int = 15) -> list[dict]:
+    """The most recent questions we put to this phone, newest first. Read-only.
+
+    ORDER: the outbound messages we sent (they are the record of what he was asked),
+    scanned newest-first; the first `limit` that carry a resolvable ask reference are
+    the candidates.
+
+    `not_after` is the time of HIS text, and it is the difference between a replay
+    that means something and one that does not: measured while building this, the
+    Data Reclos answer of 2026-10-02T17:45Z was matched against the DeepSeek ask sent
+    at 18:30Z - a question that did not exist yet when he wrote - and the alias row it
+    would have written keyed "$300 Data Recovery" onto the DeepSeek merchant. Only a
+    question sent at or before his text can be the one he is answering.
+
+    `hours` bounds the window backwards from `not_after`, because an unprompted text
+    is not the answer to a question put to him three days ago - the same bound (and
+    the same measurement) as `sms-responder.ANSWER_FALLBACK_MAX_AGE_HOURS`.
+    """
+    store = store_path or (textstore.DB_PATH if textstore is not None else None)
+    ref_time = parse_ts(not_after) if not_after else None
+    if ref_time is not None and ref_time.tzinfo is None:
+        ref_time = ref_time.replace(tzinfo=timezone.utc)
+    prov = {"source": str(store), "as_of": now(), "reader": "textctx.recent_asks",
+            "window_hours": hours, "not_after": not_after}
+    out: list[dict] = []
+    if not store or not Path(store).is_file():
+        return out
+    conn = None
+    try:
+        conn = _open_ro(store, timeout=timeout)
+        tail = norm(phone)
+        rows = _q(conn,
+                  "SELECT sid, body, date_sent FROM messages WHERE direction='outbound' "
+                  "AND (replace(replace(replace(to_number,'+',''),'-',''),' ','') LIKE ? "
+                  "  OR replace(replace(replace(from_number,'+',''),'-',''),' ','') LIKE ?) "
+                  "ORDER BY first_seen DESC LIMIT ?",
+                  ("%" + tail, "%" + tail, int(scan))).fetchall()
+    except Exception:
+        return out
+    finally:
+        _close(conn)
+    seen: set[str] = set()
+    for row in rows:
+        body = row["body"] or ""
+        ref = ask_reference(body)
+        if not ref:
+            continue
+        when = parse_ts(row["date_sent"])
+        if when is None:
+            continue
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if ref_time is not None:
+            if when > ref_time:
+                continue        # a question sent after he wrote cannot be its answer
+            age = (ref_time - when).total_seconds() / 3600.0
+        else:
+            age = (datetime.now(timezone.utc) - when).total_seconds() / 3600.0
+        if age > float(hours):
+            continue
+        if ref in seen:
+            continue
+        seen.add(ref)
+        got = ask_by_reference(ref, timeout=timeout)
+        if not got or got.get("error"):
+            got = {"reference": ref, "body": body, "kind": "unknown",
+                   "provenance": (got or {}).get("provenance", prov),
+                   "error": (got or {}).get("error", "unresolved")}
+        got["sid"] = row["sid"]
+        got["sent_at"] = row["date_sent"]
+        got["age_hours"] = round(age, 2)
+        got.setdefault("body", body)
+        got["provenance"] = {**(got.get("provenance") or {}), "message": prov}
+        out.append(got)
+        if len(out) >= int(limit):
+            break
+    return out
+
+
+def _within_hours(value, hours: float) -> bool:
+    when = parse_ts(value)
+    if when is None:
+        return False
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - when).total_seconds() / 3600.0 <= float(hours)
+
+
+def ledger_matches(text: str, *, limit: int = 3, days: int = 400, timeout: int = 15) -> list[dict]:
+    """Our own ledger's rows for the amounts named in a text. Read-only, always.
+
+    WHY FROM THE TEXT AND NOT FROM THE ASK: he asks about charges in his own words
+    ("which card was that? where was it spent?"), and the amount is the one handle
+    that appears in both his sentence and the ledger. Every row carries its account,
+    its date and its merchant, which is exactly the "which card" he kept asking for.
+    """
+    amounts = set()
+    for m in re.finditer(r"(?<![\d.])(\d{2,6})(?:\.(\d{2}))?(?![\d])", text or ""):
+        whole = int(m.group(1))
+        cents = whole * 100 + int(m.group(2) or 0)
+        if 100 <= cents <= 5_000_00:
+            amounts.add(cents)
+    if not amounts:
+        return []
+    path = Path(os.environ.get(LEDGER_ENV) or DEFAULT_LEDGER)
+    if not path.is_file():
+        return []
+    out: list[dict] = []
+    conn = None
+    try:
+        conn = _open_ro(path, timeout=timeout)
+        for cents in sorted(amounts, reverse=True):
+            rows = _q(conn,
+                      "SELECT transaction_date, normalized_merchant, amount_cents, account_name, "
+                      "account_id, description FROM transactions "
+                      "WHERE amount_cents=? ORDER BY transaction_date DESC LIMIT ?",
+                      (cents, int(limit))).fetchall()
+            for r in rows:
+                out.append({
+                    "date": r["transaction_date"], "merchant": r["normalized_merchant"],
+                    "amount_cents": int(r["amount_cents"]),
+                    "amount": "%.2f" % (int(r["amount_cents"]) / 100.0),
+                    "account_name": r["account_name"], "account_id": r["account_id"],
+                    "description": (r["description"] or "")[:80],
+                    "provenance": {"source": str(path), "as_of": now(),
+                                   "reader": "textctx.ledger_matches"}})
+    except Exception:
+        return out
+    finally:
+        _close(conn)
+    return out[:max(1, int(limit)) * 2]
+
+
+# --------------------------------------------------------------------------- #
 def _cli(argv) -> int:
     import argparse
     p = argparse.ArgumentParser(description=__doc__,

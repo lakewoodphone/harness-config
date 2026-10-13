@@ -1,0 +1,94 @@
+{
+  "_readme": [
+    "roadmap-supply.py's mapping table for lpt-website, authored 2026-10-13.",
+    "",
+    "WHY THIS FILE EXISTS. The owner asked for a website that is worked on DAILY and AUTONOMOUSLY,",
+    "and he was explicit about the failure mode he does not want: 'not just random one-off fixes, but",
+    "a general roadmap of where it's heading, a constant reanalysis and shifting its goals over'.",
+    "Before this file, the lpt-website ledger held exactly ONE open item (id 3, the checkout",
+    "fast-forward) and nothing read the website's roadmap at all - so the loop had no work supply and",
+    "a woken shift would have improvised. This is the deliberate bridge between the roadmap document",
+    "and the ledger, and it is the ONLY thing that decides what a website shift is handed.",
+    "",
+    "THE ROADMAP IS THE SPINE. Source doc: docs/website/ROADMAP.md. It holds THEMES (T1-T5), not a",
+    "backlog of tweaks, and the checkboxes below are slices of those themes. A shift may re-rank,",
+    "split, merge or retire anything in that file - that IS the constant reanalysis - but it must",
+    "record what moved and what evidence moved it, in the file's own change log. What a shift may NOT",
+    "do is work something the roadmap does not contain without adding it there first, with evidence.",
+    "",
+    "THE STANDING ITEM. The last row's checkbox is deliberately NEVER ticked: roadmap-supply files it",
+    "again as soon as the previous one is closed, which is what makes the walk happen every day",
+    "without a separate scheduler. Ticking it to make the queue look clean breaks the daily cadence.",
+    "",
+    "FIELDS. key = a lowercase prefix of the checkbox line in src (60 chars, whitespace collapsed),",
+    "generated from the document rather than typed. status: filed | blocked | not_filed. host = where",
+    "the proving command runs. dod = the exact evidence that counts as done; nothing is filed on this",
+    "file's authority alone - a shift that finds a box already true says so and closes it with that",
+    "evidence, and never invents work to keep the loop alive."
+  ],
+  "source_docs": [
+    "docs/website/ROADMAP.md"
+  ],
+  "items": [
+    {
+      "key": "the daily walk: walk the test site and the production site w",
+      "src": "docs/website/ROADMAP.md",
+      "title": "THE DAILY WALK: walk test and production with the estate's own walkers, look at the screenshots, and re-rank docs/website/ROADMAP.md against what they show",
+      "status": "filed",
+      "priority": 4,
+      "host": "zabz-tech-ts",
+      "why": "The owner's ask, 2026-10-13: 'once a day go through the website and find the top few optimizations, analyze them and document them, and then get to work on them.' The estate ALREADY has the walker - e2e/personas/ (4 viewports x 4 personas, journeys J0-J8, a Walk class that times and counts actions and shoots screenshots), which produced 248 findings (39 major) on 2026-09-25. What was missing is a cadence and something that turns its output into work. This item is the cadence.",
+      "dod": "DONE requires all four, quoted: (1) today's walkthrough run against the TEST site, with its own report path under e2e/personas/reports/ named in the handoff; (2) the screenshots committed under docs/website/walkthroughs/<YYYY-MM-DD>/, with the exact directory listed; (3) a NEW row appended to the change log table in docs/website/ROADMAP.md for today saying what moved and what evidence moved it - a row that only says 'no change' is a valid and honest answer, a MISSING row is not; (4) the top of the ranked queue either unchanged-with-reason or re-ranked-with-evidence. PRODUCTION IS READ-ONLY: public pages and read-only staff screens only. No mutation, no message, no payment, no customer contact, ever, from a walk. If the production walk cannot authenticate, say so and walk production's public pages only - do not skip production silently."
+    },
+    {
+      "key": "re-measure the counter at 414x896 and 390x844 with the estat",
+      "src": "docs/website/ROADMAP.md",
+      "title": "Re-measure the counter at 414x896 and 390x844 with the estate's own probe, and state the delta against 2026-10-07",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "why": "T1. The staff live in /work-orders on a phone. The estate has already measured this surface: an 11,245px document at 414px, and a counter with NO navigation at all (0 visible links outside the page, 2026-10-07). Whether those numbers still hold is unknown, and measure-counter.mjs already prints every number needed - this is a re-run and a comparison, not new tooling.",
+      "dod": "Run `node frontend/src/features/staff-intake/__probe__/measure-counter.mjs` with PROBE_URL pointed at the test deployment and PROBE_SHOTS at docs/website/walkthroughs/<date>/. DONE requires, quoted: (1) the probe's own printed numbers for pageHeightPx, firstScreen[], targetsUnder44, overflowsRight and hitTest at BOTH widths; (2) those numbers written into docs/website/ROADMAP.md under T1 beside a dated screenshot; (3) an explicit delta line against the 2026-10-07 run, naming each number that changed and each that did not. If the probe will not run, the DONE is a named blocker with the probe's own error text - not a summary."
+    },
+    {
+      "key": "reconcile the april audit's 66 findings against today's tree",
+      "src": "docs/website/ROADMAP.md",
+      "title": "Reconcile the 2026-04-20 audit's 66 findings against today's tree and report how many still exist",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "why": "T3/T4 and probably the cheapest large win available. docs/audits/ui-ux/IMPLEMENTATION_ROADMAP.md lists 66 findings in five themed phases, written 2026-04-20 and never reconciled since - five months of work has landed on top of it. Its own framing is the owner's own complaint: 'grouped by system/component affinity so that each phase produces a coherent PR rather than scattered drive-by fixes'. Nobody currently knows which of the 66 are already fixed.",
+      "dod": "DONE requires a table with ONE ROW PER FINDING out of the 66, each marked fixed / still present / cannot tell, each with the evidence that settles it (a file:line, a test name, or a screenshot path). The counts go into docs/website/ROADMAP.md under T3 with the date. 'Cannot tell' is an allowed and honest answer for a row; a row with no evidence is not. Do NOT fix anything in this item - its whole value is the count."
+    },
+    {
+      "key": "first customer-journey walk on a phone: public site -> servi",
+      "src": "docs/website/ROADMAP.md",
+      "title": "First customer-journey walk on a phone: public site -> service page -> drop-off -> the pay text -> the pay page",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "why": "T2, and the theme most likely to hold the biggest wins, with ZERO measurements yet. The pay-before-pickup rail now works end to end (notice -> branded pay page -> card, Zelle or phone -> released) but no one has ever walked it as a CUSTOMER, on a phone, from the public site. This is the journey the shop is actually paid through.",
+      "dod": "DONE requires, quoted: (1) screenshots at 390x844 for EVERY step from the public site to the pay page, committed under docs/website/walkthroughs/<date>/customer-journey/ and each named in the handoff; (2) the wall-clock time and the tap count for the journey recorded as numbers; (3) every point where the walker could not tell what to do next written down as a finding with its screenshot. Do NOT pay anything and do not create a real order to walk it - if a step needs a live order that does not exist on test, that gap is itself the finding."
+    },
+    {
+      "key": "first walk of the public site's service pages - t5 - every s",
+      "src": "docs/website/ROADMAP.md",
+      "title": "First walk of the public site's service pages: reachable, priced, and with a path to booking",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "why": "T5 and never measured. The shop pays for a website that should be bringing repairs in. Its service pages are the front door and nothing has ever walked them to ask whether each one is reachable, shows a price, and gives a way to book.",
+      "dod": "DONE requires one row per service page naming: reachable (yes/no with the HTTP status), price shown (yes/no), booking path (yes/no), each with a screenshot committed under docs/website/walkthroughs/<date>/service-pages/. The list of pages is to be derived from the site's own sitemap or nav, not from memory - say which, and how many pages it yielded. Pages that do not exist are a finding, not a gap in the list."
+    },
+    {
+      "key": "whatever the counter re-measurement exposes, as one coherent",
+      "src": "docs/website/ROADMAP.md",
+      "title": "Whatever the counter re-measurement exposes, as ONE coherent slice of T1",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "why": "T1 follow-through, and the item that keeps the loop from becoming the thing the owner objected to. This is deliberately not a specific fix: it is the obligation to turn the counter's measured numbers into a coherent slice of one theme rather than a single drive-by tweak.",
+      "dod": "DONE requires, quoted: (1) the measured numbers that justify the slice, named; (2) the class of problem the slice belongs to stated in one sentence, and why the chosen slice represents it rather than being one instance of it; (3) the change landed on TEST with before/after numbers from the SAME probe command; (4) the roadmap change log row. A slice that cannot state its class does not qualify - do the class instead."
+    }
+  ]
+}

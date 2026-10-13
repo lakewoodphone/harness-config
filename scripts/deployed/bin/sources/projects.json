@@ -5,7 +5,7 @@
     "enforcement": "The count and the ceiling both live in wake.py as DEFAULT_MAX_PER_DAY / DEFAULT_MAX_USD_PER_DAY and are read from there by every other file; nothing restates the number. The measured 0.068 USD/shift is from ~/.sms-inbox/wake-cost.jsonl.",
     "measured_from": "wake_budget.released for the current UTC day in the wake store (~/.sms-inbox/inbox.db) - the same counter wake.py's daily-cap guard uses.",
     "global_max_usd_per_day": 70.0,
-    "per_project_raised": "2026-09-28: per-project max_flags_per_day 3, cooldown 21600s. The binding guard is the store's max_per_source_per_hour=3; the daily backstop is 500 and the spend ceiling 70 USD/day."
+    "per_project_raised": "2026-09-30: per-project 12 flags/day with a 1800s cooldown (was 3/day and 21600s). The real limits are the store's max_per_source_per_hour, the 500/day backstop and the 70 USD/day ceiling."
   },
   "projects": [
     {
@@ -15,11 +15,40 @@
       "repo": "/home/zabz/repos/kosher-filter-ai",
       "case": "kosher-filter-ai",
       "state_file": "/home/zabz/.wake-projects/kosher-ai-filter.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
-      "notes": "REAL PATH, discovered 2026-09-20: /home/zabz/repos/kosher-filter-ai (git remote https://github.com/lakewoodphone/kosher-filter-ai.git, HEAD d225385 2026-09-06). Work-remaining evidence is the project's own checked-box roadmap in docs/cross-platform-filter-master.md, section 7 'Implementation Roadmap', whose first unchecked items are at lines 358-361: the Windows Phase 1 foundation. This is a development project with no production service on this host, so a shift is repo work proven by tests/builds.",
-      "integration_branch": "origin/main"
+      "cooldown_seconds": 600,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop. LOWERED to 600s on 2026-10-07, and the field is now actually read: ledger-keepalive.py used to file without passing it, so every project ran on wake.py's own 1800s default while this number sat unread. MEASURED reason for 600: 138 kosher releases over the previous two weeks produced 14.67 hours of productive shift time in total - under an hour a day - because a shift may not start until 1800s after the last one, which caps a project at about 12 useful releases/day however much work is queued (24 items are queued right now). 600s gives 3x the throughput and is still six times the ~2-minute cost of a dead release; the store's per-source hourly cap, the 500/day backstop and the 25.00 USD spend ceiling are unchanged and still bind first.",
+      "notes": "REAL PATH, discovered 2026-09-20: /home/zabz/repos/kosher-filter-ai (git remote https://github.com/lakewoodphone/kosher-filter-ai.git, HEAD d225385 2026-09-06). Work-remaining evidence is the project's own checked-box roadmap in docs/cross-platform-filter-master.md, section 7 'Implementation Roadmap', whose first unchecked items are at lines 358-361: the Windows Phase 1 foundation. This is a development project with no production service on this host, so a shift is repo work proven by tests/builds. BUILD HOSTS (measured 2026-10-07, ledger item 501): a shift must not close an item as 'blocked on a test host' before trying these. Proving runs that need no browser or device can be run on the AUTHORITY itself: the repo's server venv now exists at ~/repos/kosher-filter-ai/server/.venv (python 3.14.4, pytest 9.0.3, fastapi 0.134.0) and `cd ~/repos/kosher-filter-ai/server && .venv/bin/python -m pytest -q` is green-to-run there; the web service suite runs from web/server. The authority has NO java, NO dotnet, NO swift and NO node-run Android SDK, so anything proven by gradle or dotnet must be dispatched to a Windows host over the mesh: zabz-tech-ts is the .NET host (dotnet SDK 8.0.425, repo clone at C:\\Users\\ezabz\\code\\kosher-filter-ai, python C:\\Python313 with pytest 9.0.2) and zabz-yoga-ts is the Android/Swift host (JDK 21, Android SDK at C:\\Android, Swift 6.4, node 20) - but Yoga has only the .NET RUNTIME, no SDK, so `dotnet test` FAILS there (0x80008083). Put the builder in the item's proof: name the host and the command run there, and never claim a device, a kernel load, or a Mac-only Apple build that did not happen.",
+      "integration_branch": "origin/main",
+      "builder_hosts": {
+        "authority": {
+          "server": "cd ~/repos/kosher-filter-ai/server && .venv/bin/python -m pytest -q",
+          "web": "cd ~/repos/kosher-filter-ai/web/server && .venv/bin/python -m pytest -q",
+          "measured": "2026-10-07: server venv installed here; 17-test subset 17 passed in 5.47s | 2026-10-07: the web venv now exists here too (web/server/.venv, pytest 9.1.1) and its suite is 236 passed in 7.78s - before that, the authority had no `python` binary at all, so an item saying `python -m pytest` was unrunnable."
+        },
+        "zabz-tech-ts": {
+          "dotnet": "dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo",
+          "measured": "2026-10-07: dotnet SDK 8.0.425 present; Windows suite ran here as 149 passed / 9 skipped / 0 failed (item 494)"
+        },
+        "zabz-yoga-ts": {
+          "android": "cd android && ./gradlew :app:testDebugUnitTest  (needs local.properties with sdk.dir=C:\\Android)",
+          "swift": "iOS core Swift package builds here (Swift 6.4 on Windows); no NetworkExtension, no device",
+          "measured": "2026-10-07: JDK 21, C:\\Android, Swift 6.4 present; .NET SDK ABSENT so dotnet test cannot run here"
+        },
+        "mac-mini-ts": {
+          "what": "the ONLY host that can compile Apple-platform code at all",
+          "measured": "2026-10-07: macOS 26.5.2, Swift 6.3.3 arm64, git 2.50.1, 61 GB free",
+          "core_build": "cd ~/work/kosher-filter-ai/ios/FilterApp && swift build --target KosherFilterCore  -> 0 errors (measured on the 3cc0330 core after the duplicate FilterDecision and the Swift.stride fix)",
+          "cannot": "no Xcode and no XCTest (xcode-select -p = /Library/Developer/CommandLineTools, no XCTest.framework, no xctest binary), so `swift test` cannot run here; the UI targets do not compile without the Xcode SDK (View/LocalizedStringKey/Preview need macOS 10.15+)",
+          "access": "no github credential (git@github.com permission denied, HTTPS prompts) and no gh CLI - transfer the repo as a bundle from the authority: cd ~/repos/kosher-filter-ai && git bundle create /tmp/k.bundle --all && rsync -a /tmp/k.bundle mac-mini-ts:~/work/ ; then git clone k.bundle"
+        }
+      },
+      "dirty_ignore": [
+        "ios/FilterApp/.build/*",
+        "ios/FilterApp/.build/.lock",
+        ".build/.lock",
+        "windows/README.md.bak-*"
+      ]
     },
     {
       "id": "waste-system",
@@ -37,18 +66,19 @@
       "id": "lpt-website",
       "title": "LPT Website (Lakewood Phone & Tech customer site + staff platform)",
       "enabled": true,
-      "repo": "/home/zabz/repos/phone-and-tech-full",
+      "repo": "/root/repos/phone-and-tech-full",
       "case": "phone-and-tech-full",
       "state_file": "/home/zabz/.wake-projects/lpt-website.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop.",
       "notes": "REAL PATH: /home/zabz/repos/phone-and-tech-full (git remote https://github.com/lakewoodphone/phone-and-tech-full.git) - monorepo with frontend/ (React) and backend/ (Node+Prisma). This is the LPT website; owner-queue rows about the customer portal and the website redo point at it. CORRECTED 2026-09-28: this note used to record 'HEAD 057cea451 2026-08-24' as if that were current. It was not - the checkout had been sitting on an August commit, 426 commits behind origin/test, with a stale .git/index.lock dated 2026-09-16 silently blocking every git write. The lock was moved aside and the tree fast-forwarded; it is now a3111f29a (2026-09-28). Work-remaining evidence is the project state file /home/zabz/.wake-projects/lpt-website.json, which is the authority and is kept current by each shift. A shift may now deploy to the TEST environment ONLY (see that file's authority_changed_2026_09_28); it must never deploy to production, never contact a customer, and anything customer-visible goes to the owner queue. If the repo ever looks stale again, CHECK FOR A STALE LOCK FIRST.",
       "dirty_ignore": [
         "reconciliation_plan.json"
       ],
       "dirty_ignore_note": "DECLARED 2026-09-28 by checkout-health: reconciliation_plan.json is a GENERATED data snapshot, not a shift's work. Its own header names the tool (personal-secretary-mvp.open_work_order_reconciliation) and its generatedAt (2026-09-20T23:15:20); that tool's default --output is _scratch/open-work-order-reconciliation/plan-latest.json, and personal-secretary-mvp/docs/system-inventory/current-repos.json already records \" M reconciliation_plan.json\" as a known state of this checkout (the 2026-08-14 website audit lists it at the repo root as a duplicate to dedupe). It had been modified in place for 186 h when the source was built, which is what fired on the first live run -- flagging it would have claimed 'work that never landed' about a tool's output. checkout-health's per-project stderr line still prints it as dirty_ignore/declared, so the state is visible and never alarming. Remove this key if the file ever becomes hand-edited work.",
-      "integration_branch": "origin/test"
+      "integration_branch": "origin/test",
+      "repo_note": "MOVED 2026-10-13 from /home/zabz/repos/phone-and-tech-full, which does not exist on secratary-cloud - the cutover of 2026-10-11 left this registry pointing at a path that was never on this box, so roadmap-supply refused with cannot-read-the-project-repo and the website had no work supply. This is a shallow clone of the test branch, kept only so a source on the authority can READ the roadmap document; the working checkout for website shifts is still ZABZ-TECH."
     },
     {
       "id": "lpt-sync",
@@ -57,9 +87,9 @@
       "repo": "/home/zabz/repos/lpt-hub",
       "case": "lpt-sync",
       "state_file": "/home/zabz/.wake-projects/lpt-sync.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop.",
       "notes": "The owner names this repeatedly ('the LPT syncing system between dialpad, LPT hub, the production database and more needs to be constantly worked on and actually synced'). Ledger-driven: its items live in ~/bin/work.py under project 'lpt-sync'. No per-project state file - the ledger is the state.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
@@ -70,9 +100,13 @@
         "_scratch/receipt-heichal-2026-09-22.txt",
         "_scratch/receipt-heichal-full.html",
         "_scratch/receipt-heichal-full.txt",
-        "_scratch/stripe-webhook-diagnosis-2026-09-22.md"
+        "_scratch/stripe-webhook-diagnosis-2026-09-22.md",
+        "38",
+        "main-38",
+        "_scratch/brief-workorder-walk.md",
+        "_scratch/root-debris-20261006/"
       ],
-      "dirty_ignore_note": "DECLARED 2026-09-28 by checkout-health: these six _scratch/ files are a woken session's scratch OUTPUT, not source changes. Five are one-off customer receipt artefacts for Heichal Hatorah (email body, plain-text receipt, HTML receipt and 'full' variants) and one is a read-only 'Stripe -> production: why the shop's own system has no September payments' diagnosis report. All are dated 2026-09-22, all are unreferenced by any tracked file, and none belongs in git history: the receipts carry a customer's name and address and this repo is pushed to GitHub. They sat untracked for 6.1 days, which is what fired the dirty-old flag. Preserved verbatim (with sha256 and a stash patch) under /home/zabz/checkout-health-preserved/lpt-sync-work-20260928T193857Z/. Declared here so the sensor stops reading a scratch output as work that never landed. Remove an entry if one of these ever becomes hand-edited work that must be committed."
+      "dirty_ignore_note": "DECLARED 2026-09-28 by checkout-health: these six _scratch/ files are a woken session's scratch OUTPUT, not source changes. Five are one-off customer receipt artefacts for Heichal Hatorah (email body, plain-text receipt, HTML receipt and 'full' variants) and one is a read-only 'Stripe -> production: why the shop's own system has no September payments' diagnosis report. All are dated 2026-09-22, all are unreferenced by any tracked file, and none belongs in git history: the receipts carry a customer's name and address and this repo is pushed to GitHub. They sat untracked for 6.1 days, which is what fired the dirty-old flag. Preserved verbatim (with sha256 and a stash patch) under /home/zabz/checkout-health-preserved/lpt-sync-work-20260928T193857Z/. Declared here so the sensor stops reading a scratch output as work that never landed. Remove an entry if one of these ever becomes hand-edited work that must be committed. DECLARED 2026-10-05 by checkout-health: 38 and main-38 are not work and not a persons change. Both are 1-line byproducts of a mistyped shell command, captured by a stray redirect: 38 is 23 bytes, exactly the string '=== DIFFSTAT main- ===', and main-38 is 21 bytes, exactly '=== FF: main - ? ===' (verified by od -c; sha256 b118f7f8... and 7ec78332...). Nothing in the repo references them, no tracked file generates them, and rev-list checks they were meant to feed reported 0 behind / 0 ahead. They sat untracked for 3.0 days, which is what fired this dirty-old flag. Preserved verbatim under /home/zabz/checkout-health-preserved/lpt-sync-work-20261005T004505Z/. Declared here so a shell typo cannot alarm again. Remove an entry if one ever becomes hand-edited work that must be committed. DECLARED 2026-10-08 by checkout-health: the 2026-10-05 declaration for this path was INERT. Git reports the untracked PARENT DIRECTORY '_scratch/root-debris-20261006/', whose basename is 'root-debris-20261006', so the patterns '38' and 'main-38' - which match only a file's basename - never matched, and the identical debris re-fired dirty-old 3.0 days later. Added '_scratch/root-debris-20261006/' and also '_scratch/brief-workorder-walk.md' (a 5293-byte scratch working brief, mtime 2026-10-08 03:14, untracked, in the scratch area; sha256 3b1de2c12711a95620fe114bcaa007ef60135c23e9ed177c99998a1c543e0595). The two debris files are shell-output fragments: '38' is exactly '=== DIFFSTAT main- ===' and 'main-38' is exactly '=== FF: main - ? ==='. All preserved verbatim under /home/zabz/checkout-health-preserved/lpt-sync-work-20261008T043830Z/exhibits/. Remove an entry if one ever becomes hand-edited work that must be committed."
     },
     {
       "id": "cfo",
@@ -81,9 +115,9 @@
       "repo": "/home/zabz/repos/quickbooks-agent",
       "case": "cfo",
       "state_file": "/home/zabz/.wake-projects/cfo.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop.",
       "notes": "Owner: 'let's say there's a CFO that has to be run'. quickbooks-agent is the real repo (/home/zabz/repos/quickbooks-agent). Ledger-driven.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
@@ -96,9 +130,9 @@
       "repo": "/home/zabz/repos/personality-test",
       "case": "personality-system",
       "state_file": "/home/zabz/.wake-projects/personality-system.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop.",
       "notes": "REAL PATH, discovered 2026-09-28 by keepalive-personality-system: /home/zabz/repos/personality-test (cloned from https://github.com/lakewoodphone/personality-test.git, HEAD 43bcf286a0755c5e90bd1522686f656807ffd3b8; live https://personality.abletelsolutions.com -> personality-test:3000; owner working copy C:\\Users\\ezabz\\Code\\personality-system). Owner: 'the personality test system that we were doing needs to be constantly worked on'. The live AI calls in this system failed for over a week on a hardcoded model name (docs/dsh-at-scale/60-cost-audit.md and the models-resolve-at-runtime rule), so the standing item is that a model is resolved from the gateway catalog at runtime. Ledger-driven.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
@@ -110,9 +144,9 @@
       "repo": "/home/zabz/personal-secretary-mvp/apps/rentals",
       "case": "rental-system",
       "state_file": "/home/zabz/.wake-projects/rental-system.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop.",
       "notes": "Owner named it. CODEBASE FOUND 2026-09-28 by the first shift: /home/zabz/personal-secretary-mvp/apps/rentals - the Lakewood Rentals marketplace app (workspace personal-secretary-mvp, remote https://github.com/lakewoodphone/personal-secretary-mvp.git, HEAD 7d8dd160, last rentals commit 26a54597), live at https://rentals.lakewoodphoneandtech.com. Registered in the work ledger; ledger item 39 closed 2026-09-28.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
@@ -124,9 +158,9 @@
       "repo": "/home/zabz/repos/chumash-timeline",
       "case": "chumash",
       "state_file": "/home/zabz/.wake-projects/chumash.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop.",
       "notes": "Owner: 'the Bible codes that we were writing, that whole project needs to be worked on'. Repo not established (candidates exist on this machine); first shift finds it. Ledger-driven.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour."
@@ -138,17 +172,37 @@
       "repo": "/home/zabz/personal-secretary-mvp",
       "case": "prod-db-sync",
       "state_file": "/home/zabz/.wake-projects/prod-db-sync.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop.",
       "notes": "Owner: 'the production database and more needs to be constantly worked on and actually synced and set up'. The authoritative DB is 12.37 GB with a 128 MB WAL on a control plane - size, truth and freshness are all open. Ledger-driven.",
       "ledger_only": true,
       "ledger_only_note": "Set 2026-09-28: this project has no per-project state file yet, and it does not need one - the shift contract reads and writes the work ledger (~/bin/work.py). The state_file field above is a pointer for continuity only; the ledger is authoritative and a disagreement between them resolves in the ledger's favour.",
       "integration_branch": "origin/master",
       "dirty_ignore": [
-        "firmware/"
+        "*.bak-*",
+        "firmware/",
+        "data/browser/",
+        "*.db-wal",
+        "*.db-shm",
+        "a.txt",
+        "b.txt",
+        "*.bak[0-9]*",
+        "data/security_media/",
+        "docs/system-inventory/current-repos.json",
+        "docs/system-inventory/current-repos.md",
+        "definitely",
+        "no",
+        ".owner-alert-backup-*",
+        "docs/operations/analytics/tracking/",
+        "archive/",
+        "postgres:/",
+        "*.env.before-*",
+        "*.env.provisioned-*",
+        ".env.new",
+        "data/family_chat.db.before-merge-*"
       ],
-      "dirty_ignore_note": "DECLARED 2026-09-29 by checkout-health (prod-db-sync). firmware/ is a GENERATED PlatformIO build cache (firmware/vehicle-logger/.pio/{build,libdeps}, 26 MB, mtime 2026-09-18 19:20Z = 10.9 d), untracked, and it is the single path that fired dirty-old on this project. The SAME directory is already declared for the housekeeping project, which shares this exact repo path (both point at /home/zabz/personal-secretary-mvp) and reports quiet as a result; without this entry the identical generated path raised the same flag twice. VERIFIED: `git ls-files firmware/` is empty (0 tracked paths) and the tree contains no real source outside .pio, so this hides no work. The directory is preserved in stash@{0} (db6bef82, untracked parent carries 84 firmware/ entries) and in /home/zabz/checkout-health-preserved/prod-db-sync-work-20260929T173154Z/. REMOVE this entry if hand-written firmware source ever appears under firmware/."
+      "dirty_ignore_note": "DECLARED 2026-10-10 by checkout-health. `definitely/` and `no/` are PROBE DROPPINGS, not work: they hold nothing but SQLite sidecars from a writability probe run on 2026-09-14 against deliberately impossible paths (definitely/not/a/path/x.db, definitely/not/writable/x.db, no/such/dir/x.db; verified with find). They were the 607 h / 25.3 d 'oldest dirty' that raised the housekeeping dirty-old flag. They are untracked debris meant to stay uncommitted, never a shift's change. Declared rather than deleted: every file remains exactly on disk, and a copy is in /home/zabz/checkout-health-preserved/housekeeping-work-20261010T001705Z/untracked.tar.gz. Remove these two globs if either directory ever becomes hand-edited work that must be committed.\n\nDECLARED 2026-10-10 by checkout-health (session 20261010T031129Z). `docs/operations/analytics/tracking/` is GENERATED report output - the lpt-trend-<date>-<grain>.{json,md} files written by scripts/finance/lpt_analytics/tracking.py and `lpt-analytics.py --out` (default docs/operations/analytics); it was the 24.1 h 'oldest dirty' that raised the housekeeping dirty-old flag. `.owner-alert-backup-<ts>/` is a PRE-CHANGE BACKUP COPY of five app files taken 2026-10-09T04:09:19Z before the owner-alert channel edits - a safety copy, not a shift's change. Both stay on disk, uncommitted, and a copy is in /home/zabz/checkout-health-preserved/housekeeping-work-20261010T031129Z/untracked.tar.gz. Remove a glob if its directory ever becomes hand-edited work that must be committed. Added to BOTH projects because prod-db-sync points at the same checkout as housekeeping.\n\nDECLARED 2026-10-13 by checkout-health (housekeeping). `archive/` and `postgres:/` added here too because this project points at the SAME checkout as housekeeping (/home/zabz/personal-secretary-mvp), where `archive/` is 6.4 GB / 47,271 continually-written LPT transcript files and `postgres:/` is an unquoted-shell-expansion directory whose name is a Postgres URL. Generated data, not a shift's change; everything stays on disk. See housekeeping's dirty_ignore_note for the full measurement.\n\nDECLARED 2026-10-13 by checkout-health (prod-db-sync session). Added `*.env.before-*`, `*.env.provisioned-*`, `.env.new`, `data/family_chat.db.before-merge-*` - UNTRACKED pre-change SAFETY COPIES of .env and of the family-chat DB taken when a live config/DB edit was staged (mtimes 2026-10-09..2026-10-11, identical byte sizes to .env). They are not a shift's change and must never be committed (they carry live credentials and a DB image). Declared rather than deleted: every file stays exactly on disk. Added to both projects because prod-db-sync and housekeeping point at the SAME checkout. Remove a glob if any of these ever becomes hand-edited work that must be committed."
     },
     {
       "id": "housekeeping",
@@ -157,9 +211,12 @@
       "repo": "/home/zabz/personal-secretary-mvp",
       "case": "housekeeping",
       "state_file": "/home/zabz/.wake-projects/housekeeping.json",
-      "cooldown_seconds": 21600,
-      "max_flags_per_day": 3,
-      "budget_note": "RAISED 2026-09-28 on measurement. Was 1/day with a 12 h cooldown, which would take about 11 days to drain the slowest project's backlog. Owner: 'There's no reason to limit how much you could do per day' and 'finish projects really fast and move on'. The measured cost is 0.0361 USD per release (today: 0.469 USD for 13), so the 70 USD/day ceiling is about 1,940 releases of headroom. The BINDING guard is the store's own max_per_source_per_hour=3, which is why this is 3/day and not 20 - planning past it would only file flags the store refuses.",
+      "shift_packet": true,
+      "shift_packet_cutover": "2026-10-01T01:12:26Z",
+      "shift_packet_note": "CANARY 2026-10-01 (LEDGER #172, attempt 479): this project's wake prompt is the generated shift packet (~/bin/shift-packet.py) instead of the 19 KB standing contract. Set \"shift_packet\": false to go back with no code change; PROJECT_KEEPALIVE_SHIFT_PACKET=0 forces the legacy contract for every project. The packet never renders a prompt that is empty or lacks its END FROZEN PREFIX marker - on any failure project-keepalive.py falls back to the literal contract. shift_packet_cutover is the mtime of the file change that made the packet live (not a guessed time), to be passed to `shift-packet.py --shifts-median --cutover` once 10 shifts have run after it.",
+      "cooldown_seconds": 1800,
+      "max_flags_per_day": 36,
+      "budget_note": "RAISED 2026-10-07 to 36/day (was 12) by the dev seat. MEASURED REASON: at 12 wakes a day and a ~25 minute shift, a project gets under five hours of work a day, and kosher-ai-filter's own roadmap now holds 20 filed todo items against 47 unchecked boxes in its docs (18 of them mapped to runnable definitions of done) - a project that needs weeks of work would take months at 12/day. The limits that actually bound this are unchanged and still enforced by the store, not by this file: WAKE_MAX_PER_SOURCE_PER_HOUR (12/hour/worker), the 500/day release backstop, and the 25.00 USD/day spend ceiling against a measured 0.036-0.068 USD per release, so 36 releases is about 2.45 USD; if every one of the 9 enabled projects used its whole 36 the system ceiling (25.00 USD/day, written once in wake.py DEFAULT_MAX_USD_PER_DAY) still binds first at about 22 USD, so this file cannot raise the real ceiling. Owner's standing instruction behind the earlier raise still applies: 'There's no reason to limit how much you could do per day... The point of stopping you isn't to make you do less work is to make sure you're not doing stupid work or doing the same work over and over. Or wasting money.' Dedup by subject and the ledger's own title dedup are what stop repetition; the count is only a runaway backstop.",
       "notes": "Owner: 'a lot of times they're a unique standard housekeeping and evolution for the AI company to begin with'. This is the project the wake/tuner/authority items belong to.",
       "integration_branch": "origin/master",
       "dirty_ignore": [
@@ -173,9 +230,26 @@
         "_pt_*",
         "_scratch_*",
         "backup-evidence-*",
-        "firmware/"
+        "data/browser/",
+        "firmware/",
+        "a.txt",
+        "b.txt",
+        "*.bak[0-9]*",
+        "data/security_media/",
+        "docs/system-inventory/current-repos.json",
+        "docs/system-inventory/current-repos.md",
+        "definitely",
+        "no",
+        ".owner-alert-backup-*",
+        "docs/operations/analytics/tracking/",
+        "archive/",
+        "postgres:/",
+        "*.env.before-*",
+        "*.env.provisioned-*",
+        ".env.new",
+        "data/family_chat.db.before-merge-*"
       ],
-      "dirty_ignore_note": "DECLARED 2026-09-29 by checkout-health (housekeeping). These are untracked, tool-generated artefacts of a live checkout: ownergate/bak/contentionfix/ingestfix backups, scratch probe dirs (_pt_*), _scratch_* scripts, SQLite -wal/-shm sidecars, and backup-evidence-* dirs. VERIFIED: zero TRACKED paths match any pattern (the 128 paths removed from the dirty count are all untracked); the 87 tracked modifications and the remaining real untracked work stay counted. The oldest counted path had been tests/test_personal_ops.py.ownergate-20260928-161107 (an untracked backup, 115.7 d) which is what fired dirty-old. Remove a pattern if such a name ever becomes real work. ADDED 2026-09-29T134119Z: \"firmware/\" is the PlatformIO GENERATED package/build cache firmware/vehicle-logger/.pio (26 MB, mtime 2026-09-18 19:20Z; this 10.8 d path is what fired dirty-old on the 2026-09-29 re-measure). It is untracked and git collapses it to the single porcelain path \"firmware/\". The vehicle-logger firmware SOURCE is NOT present in this worktree (it is tracked on origin/co/merged and preserved in stash@{1}'s untracked parent), so this pattern hides no source today. REMOVE this pattern if real, hand-written firmware files ever appear untracked under firmware/ - the pattern only matches the whole-directory entry, so any tracked firmware file makes git list real untracked paths individually and they will count again."
+      "dirty_ignore_note": "DECLARED 2026-10-10 by checkout-health. `definitely/` and `no/` are PROBE DROPPINGS, not work: they hold nothing but SQLite sidecars from a writability probe run on 2026-09-14 against deliberately impossible paths (definitely/not/a/path/x.db, definitely/not/writable/x.db, no/such/dir/x.db; verified with find). They were the 607 h / 25.3 d 'oldest dirty' that raised the housekeeping dirty-old flag. They are untracked debris meant to stay uncommitted, never a shift's change. Declared rather than deleted: every file remains exactly on disk, and a copy is in /home/zabz/checkout-health-preserved/housekeeping-work-20261010T001705Z/untracked.tar.gz. Remove these two globs if either directory ever becomes hand-edited work that must be committed.\n\nDECLARED 2026-10-10 by checkout-health (session 20261010T031129Z). `docs/operations/analytics/tracking/` is GENERATED report output - the lpt-trend-<date>-<grain>.{json,md} files written by scripts/finance/lpt_analytics/tracking.py and `lpt-analytics.py --out` (default docs/operations/analytics); it was the 24.1 h 'oldest dirty' that raised the housekeeping dirty-old flag. `.owner-alert-backup-<ts>/` is a PRE-CHANGE BACKUP COPY of five app files taken 2026-10-09T04:09:19Z before the owner-alert channel edits - a safety copy, not a shift's change. Both stay on disk, uncommitted, and a copy is in /home/zabz/checkout-health-preserved/housekeeping-work-20261010T031129Z/untracked.tar.gz. Remove a glob if its directory ever becomes hand-edited work that must be committed. Added to BOTH projects because prod-db-sync points at the same checkout as housekeeping.\n\nDECLARED 2026-10-13 by checkout-health (housekeeping). `archive/` is a 6.4 GB / 47,271-file LPT transcript ingest tree (archive/lpt-transcripts/{incoming,objects,logs}, manifest.sqlite 51 MB) that this box writes CONTINUOUSLY - measured mtime within minutes of the run - so it is generated data, not a shift's change. `postgres:/` is not a directory anyone made on purpose: it is a Postgres URL that an unquoted shell expansion turned into a path, holding nothing but an empty directory whose NAME is the connection string (host/db, user and password; the same credential is already in .env, which is gitignored). Both are untracked debris meant to stay uncommitted. Declared rather than deleted: every file remains exactly on disk. The 6.4 GB archive is NOT copied into the preservation bundle (it alone exceeds the free disk); the byte-exact uncommitted WORK is preserved as the pushed branch preserve/uncommitted-20261013-unreviewed and in /home/zabz/checkout-health-preserved/housekeeping-work-20261013T014021Z/. Remove a glob if its path ever becomes hand-edited work that must be committed.\n\nDECLARED 2026-10-13 by checkout-health (prod-db-sync session). Added `*.env.before-*`, `*.env.provisioned-*`, `.env.new`, `data/family_chat.db.before-merge-*` - UNTRACKED pre-change SAFETY COPIES of .env and of the family-chat DB taken when a live config/DB edit was staged (mtimes 2026-10-09..2026-10-11, identical byte sizes to .env). They are not a shift's change and must never be committed (they carry live credentials and a DB image). Declared rather than deleted: every file stays exactly on disk. Added to both projects because prod-db-sync and housekeeping point at the SAME checkout. Remove a glob if any of these ever becomes hand-edited work that must be committed."
     }
   ]
 }

@@ -33,8 +33,33 @@ WHAT IT DOES
 
 It never sends anything. Read-only against Twilio.
 
+ONE CANONICAL TIMESTAMP, BECAUSE ONE COLUMN HOLDS TWO FORMATS
+------------------------------------------------------------
+`date_sent` carries at least two different formats in one column, because two
+writers fill it: Twilio's REST API returns RFC-2822 ("Wed, 30 Sep 2026 16:44:20
++0000"), and the app's sms_log -- mirrored in by mirror-owner-sms.py, which maps
+`created_at` onto `date_sent` -- holds ISO-8601 with microseconds
+("2026-09-28T22:43:10.210640+00:00"). Measured on the live store 2026-10-13:
+2189 RFC-2822 + 134 ISO-8601, 2323 rows.
+
+SQLite compares those strings byte by byte, so `ORDER BY date_sent` is not
+chronological in two independent ways: every row starting with an uppercase day
+name sorts after none of them but before... nothing -- it sorts ABOVE every row
+starting with a digit, and among the RFC rows the DAY OF MONTH is compared before
+the month, because the month is a NAME at a later offset. Measured: ORDER BY
+date_sent returns 2026-09-18 first and 'Wed, 30 Sep 2026' last, a "range" of 12
+days for a store that truly spans 405 days.
+
+`date_sent` is NEVER rewritten -- it is the provider's own testimony and the only
+place the original format survives. `date_sent_utc` is added beside it, and every
+ordering in this file uses it.
+
 USAGE
     python3 ~/bin/sms-inbox.py sync              # reconcile (default; safe to cron)
+    python3 ~/bin/sms-inbox.py sync --all        # FULL history, every page Twilio has
+    python3 ~/bin/sms-inbox.py normalise --apply # fill the canonical UTC timestamp
+    python3 ~/bin/sms-inbox.py thread            # the conversation, oldest first, true UTC
+    python3 ~/bin/sms-inbox.py thread --who 8455 # one correspondent
     python3 ~/bin/sms-inbox.py report            # who is waiting on a reply
     python3 ~/bin/sms-inbox.py threads           # one line per correspondent
     python3 ~/bin/sms-inbox.py show <phone|name> # the conversation
@@ -48,6 +73,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import re
@@ -58,6 +84,8 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import storelock
+
 HOME = Path.home()
 ENV_FILE = Path(os.environ.get("SMS_INBOX_ENV", HOME / "personal-secretary-mvp" / ".env"))
 APP_DB = Path(os.environ.get("SMS_INBOX_APP_DB",
@@ -66,6 +94,51 @@ APP_DB = Path(os.environ.get("SMS_INBOX_APP_DB",
 # inbox is a test that can lose a real text.
 STORE = Path(os.environ.get("SMS_INBOX_DB", HOME / ".sms-inbox" / "inbox.db"))
 AI_LINE_DEFAULT = "+17324447361"
+
+# Fixed-width, same offset, same shape, so a plain lexicographic ORDER BY on this
+# string IS chronological. Do not change the shape without re-running `normalise`.
+UTC_FORMAT = "%Y-%m-%dT%H:%M:%S+00:00"
+
+
+def _from_rfc(s: str):
+    from email.utils import parsedate_to_datetime
+    try:
+        return parsedate_to_datetime(s)
+    except Exception:
+        return None
+
+
+def _from_iso(s: str):
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def sent_utc(value) -> str | None:
+    """Normalise ANY timestamp this column actually holds to a sortable UTC string.
+
+    The formats present are enumerated from the data, not guessed: RFC-2822 (2189
+    rows) and ISO-8601 with or without fractional seconds and with `Z` or `+HH:MM`
+    (134 rows). Measured 2026-10-13: these two families cover 2323 of 2323 rows.
+
+    Returns None for a value that is absent or that nothing parses. None is a
+    REFUSAL, not a guess -- the caller must be able to see the row it could not
+    read rather than have it silently placed somewhere plausible.
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    d = _from_iso(s) if s[0].isdigit() else _from_rfc(s)
+    if d is None:
+        d = parse_dt(s)                      # the existing parser, as a fallback
+    if d is None:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return d.astimezone(timezone.utc).strftime(UTC_FORMAT)
 
 # Our own test traffic. It sits in the same tables as real correspondence, and
 # counting it as correspondence is how a freshness reading lies (audit B10). These
@@ -115,7 +188,8 @@ CREATE TABLE IF NOT EXISTS messages (
     from_number  TEXT NOT NULL,
     to_number    TEXT NOT NULL,
     body         TEXT NOT NULL DEFAULT '',
-    date_sent    TEXT,                       -- Twilio's date_sent, ISO-ish
+    date_sent    TEXT,                       -- AS RECEIVED; never rewritten
+    date_sent_utc TEXT,                      -- normalised UTC; the ONLY sort key
     status       TEXT,
     num_media    INTEGER DEFAULT 0,
     price        TEXT,
@@ -128,6 +202,7 @@ CREATE TABLE IF NOT EXISTS messages (
     reply_sid    TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_messages_date ON messages(date_sent);
+CREATE INDEX IF NOT EXISTS idx_messages_date_utc ON messages(date_sent_utc);
 CREATE INDEX IF NOT EXISTS idx_messages_from ON messages(from_number);
 CREATE INDEX IF NOT EXISTS idx_messages_state ON messages(state);
 
@@ -166,12 +241,84 @@ def env() -> dict:
     return out
 
 
-def connect() -> sqlite3.Connection:
+def one_line(text: str) -> str:
+    """Collapse a body to one line so a thread reads as a thread."""
+    return " ".join((text or "").split())
+
+
+def backfill_utc(conn: sqlite3.Connection, *, apply: bool,
+                 limit: int | None = None) -> dict:
+    """Fill date_sent_utc from date_sent. Idempotent; NEVER touches date_sent."""
+    rows = conn.execute(
+        "SELECT sid, date_sent, date_sent_utc FROM messages").fetchall()
+    stats = {"total": len(rows), "already": 0, "updating": 0, "unparseable": 0}
+    todo: list[tuple[str, str]] = []
+    bad: list[tuple[str, str]] = []
+    for r in rows:
+        want = sent_utc(r["date_sent"])
+        if want is None:
+            stats["unparseable"] += 1
+            bad.append((r["sid"], r["date_sent"]))
+            continue
+        if r["date_sent_utc"] == want:
+            stats["already"] += 1
+            continue
+        todo.append((want, r["sid"]))
+    stats["updating"] = len(todo)
+    if limit is not None:
+        stats["limited_to"] = limit
+        todo = todo[:limit]
+    wrote = 0
+    if apply and todo:
+        conn.executemany(
+            "UPDATE messages SET date_sent_utc=? WHERE sid=?", todo)
+        conn.commit()
+        wrote = len(todo)
+    return {"stats": stats, "unparseable_rows": bad, "wrote": wrote}
+
+
+def ensure_utc_column(conn: sqlite3.Connection, *, backfill: bool = True) -> None:
+    """Make date_sent_utc exist AND be filled, on any command.
+
+    Deliberately self-healing: a store built before this column existed is repaired
+    by the next ordinary run instead of by an operator remembering a migration, and
+    a store that is already correct writes nothing. A locked store must never make a
+    read command fail, so the fill is best-effort and silent about failure.
+
+    MUST be called BEFORE executescript(SCHEMA): the schema carries an index on
+    date_sent_utc, and SQLite cannot resolve that index against a pre-existing
+    `messages` table that does not have the column yet. On a brand-new store the
+    table does not exist at all, so there is nothing to alter and SCHEMA creates it
+    with the column already in place.
+    """
+    try:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+        if "messages" not in tables:
+            return
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(messages)")}
+        if "date_sent_utc" not in cols:
+            conn.execute("ALTER TABLE messages ADD COLUMN date_sent_utc TEXT")
+            conn.commit()
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_date_utc "
+                     "ON messages(date_sent_utc)")
+        conn.commit()
+        if not backfill:
+            return                 # so `normalise` without --apply is TRULY dry
+        res = backfill_utc(conn, apply=True)
+        if res["wrote"]:
+            print(f"  date_sent_utc: filled {res['wrote']} row(s)", file=sys.stderr)
+    except sqlite3.Error as exc:
+        print(f"  date_sent_utc: could not ensure ({exc})", file=sys.stderr)
+
+
+def connect(*, backfill: bool = True) -> sqlite3.Connection:
     STORE.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(STORE), timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=30000")
+    ensure_utc_column(conn, backfill=backfill)
     conn.executescript(SCHEMA)
     return conn
 
@@ -195,15 +342,32 @@ def norm(p: str) -> str:
     return d[-10:] if len(d) >= 10 else d
 
 
-def fetch_messages(cfg: dict, *, direction: str, pages: int) -> list[dict]:
+MAX_PAGES_RUNAWAY_GUARD = 200
+
+
+def fetch_messages(cfg: dict, *, direction: str, pages: int | None,
+                   max_pages: int = MAX_PAGES_RUNAWAY_GUARD) -> list[dict]:
+    """Pull one direction from Twilio.
+
+    `pages=None` walks EVERY page Twilio has, up to `max_pages` as a runaway guard.
+    That is what makes the store complete instead of a fixed slice: the cron ran
+    `sync --pages 3` against a PageSize of 200, a 600-message window, while Twilio
+    held 11,903 outbound messages for this line -- so 9,989 of them (measured
+    2026-10-13) had never been seen, and a fresh message could be pushed out of the
+    window and lost for ever.
+
+    PageSize is 1000, Twilio's own maximum, so a full walk of this line is 13
+    requests instead of 60. Every request keeps its own 60s socket timeout.
+    """
     sid = cfg["TWILIO_ACCOUNT_SID"]
     tok = cfg["TWILIO_AUTH_TOKEN"]
     line = cfg.get("TWILIO_PHONE_NUMBER") or AI_LINE_DEFAULT
     key = "To" if direction == "inbound" else "From"
     out: list[dict] = []
-    params = {key: line, "PageSize": 200}
+    params = {key: line, "PageSize": 1000}
     path = "Messages.json"
-    for _ in range(pages):
+    hard = max_pages if pages is None else min(pages, max_pages)
+    for _ in range(hard):
         data = twilio_get(sid, tok, path, **params)
         out.extend(data.get("messages", []))
         nxt = data.get("next_page_uri")
@@ -230,6 +394,7 @@ def app_sids() -> set[str]:
         return set()
 
 
+@storelock.locked_write
 def upsert(conn: sqlite3.Connection, msgs: list[dict], known: set[str]) -> int:
     added = 0
     for m in msgs:
@@ -237,18 +402,20 @@ def upsert(conn: sqlite3.Connection, msgs: list[dict], known: set[str]) -> int:
         if not sid:
             continue
         direction = _direction(m)
+        raw = str(m.get("date_sent") or m.get("date_created") or "")
         cur = conn.execute(
             """INSERT OR IGNORE INTO messages
-               (sid, direction, from_number, to_number, body, date_sent, status,
-                num_media, price, first_seen, app_has_it)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+               (sid, direction, from_number, to_number, body, date_sent,
+                date_sent_utc, status, num_media, price, first_seen, app_has_it)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 sid,
                 direction,
                 str(m.get("from") or ""),
                 str(m.get("to") or ""),
                 str(m.get("body") or ""),
-                str(m.get("date_sent") or m.get("date_created") or ""),
+                raw,
+                sent_utc(raw),
                 str(m.get("status") or ""),
                 int(m.get("num_media") or 0),
                 str(m.get("price") or ""),
@@ -257,9 +424,30 @@ def upsert(conn: sqlite3.Connection, msgs: list[dict], known: set[str]) -> int:
             ),
         )
         added += cur.rowcount
-        # Keep app_has_it honest as the app's own log catches up.
-        if sid in known:
-            conn.execute("UPDATE messages SET app_has_it=1 WHERE sid=?", (sid,))
+        # CONVERGE ON THE TRUTH for the fields the PROVIDER owns.
+        #
+        # This used to be INSERT OR IGNORE and nothing else, so an existing row
+        # froze at the status it carried the instant it was first seen: `queued`
+        # stayed `queued` for ever and became indistinguishable from never sent
+        # (that is the fault reconcile-sent-status.py exists to paper over, and it
+        # only chases queued/sending/accepted/undefined -- never a `failed`).
+        # The window is deliberately narrow: `date_sent`, `body`, `from_number`,
+        # `to_number`, `num_media` and `first_seen` are NEVER rewritten, because
+        # the raw timestamp is the only place the original format survives.
+        if cur.rowcount == 0:
+            conn.execute(
+                """UPDATE messages
+                      SET status = CASE WHEN ? <> '' THEN ? ELSE status END,
+                          price  = CASE WHEN ? <> '' THEN ? ELSE price  END,
+                          app_has_it = CASE WHEN ? = 1 THEN 1 ELSE app_has_it END
+                    WHERE sid = ?""",
+                (
+                    str(m.get("status") or ""), str(m.get("status") or ""),
+                    str(m.get("price") or ""), str(m.get("price") or ""),
+                    1 if sid in known else 0,
+                    sid,
+                ),
+            )
     conn.commit()
     return added
 
@@ -298,34 +486,77 @@ def cmd_sync(args) -> int:
     total_new = 0
     for direction in ("inbound", "outbound"):
         try:
-            msgs = fetch_messages(cfg, direction=direction, pages=args.pages)
+            msgs = fetch_messages(cfg, direction=direction,
+                                  pages=None if args.all else args.pages)
         except Exception as exc:
             print(f"  {direction}: Twilio read FAILED: {exc}")
             continue
+        have = {r[0] for r in conn.execute("SELECT sid FROM messages")}
+        # TWO DIFFERENT GAPS, AND THEY ARE NOT THE SAME THING.
+        #
+        # STORE GAP is the one that loses a text: Twilio holds a message the store
+        # does not. It can only see as far back as the pull actually reaches, which
+        # is exactly why `sync --all` is required for the number to mean anything
+        # (measured 2026-10-13: the `--pages 3` window reaches back about a day
+        # while Twilio held 9,989 outbound messages the store had never seen, back
+        # to 2025-09-08).
+        #
+        # APP GAP is what this loop used to print under the bare name `GAP`, and it
+        # means only that the APP's own sms_log does not hold the sid -- NOT that
+        # anything is missing from this store. Measured 2026-10-13: of the 406
+        # `GAP:` lines one run printed, 405 were already in the store. Reprinted
+        # every five minutes it buried the real gap under 207,025 false lines and
+        # made sync.log 24 MB, so it now speaks only when the exact set CHANGES.
+        store_gap = [m for m in msgs if str(m.get("sid") or "") not in have]
         added = upsert(conn, msgs, known)
         total_new += added
         print(f"  {direction}: {len(msgs)} from Twilio, {added} new")
-        for m in msgs:
-            sid = str(m.get("sid") or "")
-            if sid and sid not in known and _direction(m) == "inbound":
-                print(
-                    "    GAP: %s  %s -> %s  %r"
-                    % (
-                        m.get("date_sent") or m.get("date_created"),
-                        m.get("from"),
-                        m.get("to"),
-                        (m.get("body") or "")[:60],
-                    )
-                )
-    conn.execute(
-        "INSERT OR REPLACE INTO sync_state(key,value) VALUES('last_sync',?)", (now(),)
-    )
-    conn.commit()
+        if store_gap:
+            print(f"    STORE GAP: {len(store_gap)} of those are NOT in the store "
+                  f"- run `sync --all` to backfill")
+            for m in store_gap[:20]:
+                print("      %s  %s -> %s  %r"
+                      % (m.get("date_sent") or m.get("date_created"), m.get("from"),
+                         m.get("to"), (m.get("body") or "")[:60]))
+            if len(store_gap) > 20:
+                print(f"      ... and {len(store_gap) - 20} more")
+        app_gap = [m for m in msgs
+                   if str(m.get("sid") or "") and str(m.get("sid") or "") not in known
+                   and _direction(m) == "inbound"]
+        digest = hashlib.sha256(
+            "\n".join(sorted(str(m.get("sid")) for m in app_gap)).encode()
+        ).hexdigest()[:16]
+        seen_key = "gap_digest:" + direction
+        prior = conn.execute("SELECT value FROM sync_state WHERE key=?",
+                             (seen_key,)).fetchone()
+        if app_gap and (prior is None or prior["value"] != digest):
+            print(f"    APP GAP: {len(app_gap)} inbound text(s) the APP's own sms_log "
+                  f"never recorded (this store HAS them) - first sighting of this set")
+            for m in app_gap[:20]:
+                print("      %s  %s -> %s  %r"
+                      % (m.get("date_sent") or m.get("date_created"), m.get("from"),
+                         m.get("to"), (m.get("body") or "")[:60]))
+            if len(app_gap) > 20:
+                print(f"      ... and {len(app_gap) - 20} more")
+        conn.execute("INSERT OR REPLACE INTO sync_state(key,value) VALUES(?,?)",
+                     (seen_key, digest))
+    with storelock.store_lock(storelock.store_of(conn)):
+        conn.execute(
+            "INSERT OR REPLACE INTO sync_state(key,value) VALUES('last_sync',?)", (now(),)
+        )
+        conn.commit()
     stats = conn.execute(
         "SELECT direction, COUNT(*) n FROM messages GROUP BY direction"
     ).fetchall()
     print("  store now: " + ", ".join(f"{r['direction']}={r['n']}" for r in stats))
     print(f"  new this run: {total_new}")
+    span = conn.execute(
+        "SELECT min(date_sent_utc) lo, max(date_sent_utc) hi FROM messages").fetchone()
+    raw = conn.execute(
+        "SELECT min(date_sent) lo, max(date_sent) hi FROM messages").fetchone()
+    if span and span["lo"]:
+        print(f"  true range {span['lo']} .. {span['hi']}")
+        print(f"  (ORDER BY date_sent would claim {raw['lo']} .. {raw['hi']})")
     return 0
 
 
@@ -339,9 +570,10 @@ def unanswered(conn: sqlite3.Connection) -> list[sqlite3.Row]:
             SELECT 1 FROM messages o
             WHERE o.direction='outbound'
               AND o.to_number LIKE '%' || substr(m.from_number, -10) || '%'
-              AND o.date_sent > m.date_sent
+              AND COALESCE(o.date_sent_utc, o.date_sent)
+                  > COALESCE(m.date_sent_utc, m.date_sent)
           )
-        ORDER BY m.date_sent DESC
+        ORDER BY COALESCE(m.date_sent_utc, m.date_sent) DESC
         """
     ).fetchall()
 
@@ -437,7 +669,7 @@ def cmd_gaps(args) -> int:
     conn = connect()
     rows = conn.execute(
         """SELECT * FROM messages WHERE direction='inbound' AND app_has_it=0
-           ORDER BY date_sent DESC"""
+           ORDER BY COALESCE(date_sent_utc, date_sent) DESC"""
     ).fetchall()
     print(f"{len(rows)} inbound text(s) reached Twilio but never reached the app")
     for r in rows:
@@ -454,7 +686,7 @@ def cmd_threads(args) -> int:
                (SELECT COUNT(*) FROM messages o
                  WHERE o.direction='outbound'
                    AND substr(o.to_number,-10) = substr(i.from_number,-10)) AS outgoing,
-               MAX(i.date_sent) AS last_at
+               MAX(COALESCE(i.date_sent_utc, i.date_sent)) AS last_at
         FROM messages i
         WHERE i.direction='inbound'
         GROUP BY i.from_number
@@ -476,16 +708,105 @@ def cmd_show(args) -> int:
     rows = conn.execute(
         """SELECT * FROM messages
            WHERE from_number LIKE ? OR to_number LIKE ?
-           ORDER BY date_sent ASC""",
+           ORDER BY COALESCE(date_sent_utc, date_sent) ASC""",
         (f"%{q}%", f"%{q}%"),
     ).fetchall()
     print(f"{len(rows)} message(s) matching {args.query!r}")
     for r in rows:
         arrow = "->" if r["direction"] == "outbound" else "<-"
         print(
-            "%s %s %s\n    %s"
-            % (r["date_sent"], arrow, r["from_number"], (r["body"] or "")[:400])
+            "%s  %s %s\n    %s"
+            % (r["date_sent_utc"] or r["date_sent"], arrow, r["from_number"],
+               (r["body"] or "")[:400])
         )
+    return 0
+
+
+def cmd_thread(args) -> int:
+    """The conversation as it actually happened: oldest first, true UTC, both sides.
+
+    Sorted in PYTHON on a PARSED value rather than by SQL on the raw column, so the
+    reader is correct even against a store that has not been normalised yet. A
+    reader whose order depends on someone having remembered to run a migration is a
+    reader that lies quietly until they do.
+    """
+    conn = connect()
+    if args.who:
+        q = norm(args.who)
+        rows = conn.execute(
+            "SELECT * FROM messages WHERE from_number LIKE ? OR to_number LIKE ?",
+            (f"%{q}%", f"%{q}%")).fetchall()
+    else:
+        rows = conn.execute("SELECT * FROM messages").fetchall()
+
+    stamped, unparsed = [], []
+    for r in rows:
+        d = parse_dt(r["date_sent"])
+        if d is None:
+            unparsed.append(r)
+            continue
+        stamped.append((d.astimezone(timezone.utc), r))
+    stamped.sort(key=lambda p: p[0])
+    # Stable tie-break so two messages in the same second never swap between runs.
+    stamped.sort(key=lambda p: (p[0], p[1]["sid"]))
+
+    what = f"matching {args.who!r}" if args.who else "in the store"
+    print(f"{len(stamped)} message(s) {what}")
+    if stamped:
+        lo = stamped[0][0].strftime("%Y-%m-%dT%H:%M:%SZ")
+        hi = stamped[-1][0].strftime("%Y-%m-%dT%H:%M:%SZ")
+        print(f"true range {lo} .. {hi}")
+    if unparsed:
+        print(f"{len(unparsed)} row(s) had no parseable date_sent and are NOT in the "
+              f"order below - named, not hidden:")
+        for r in unparsed[:20]:
+            print(f"   {r['sid']}  {r['date_sent']!r}  {(r['body'] or '')[:40]!r}")
+
+    n = max(1, args.limit)
+    head = stamped[:n]
+    tail = stamped[-n:] if len(stamped) > n else []
+    for label, block in (("FIRST", head), ("LAST", tail)):
+        if not block:
+            continue
+        print(f"\n--- {label} {len(block)} of the real range ---")
+        for d, r in block:
+            arrow = "->" if r["direction"] == "outbound" else "<-"
+            peer = r["from_number"] if r["direction"] == "inbound" else r["to_number"]
+            print("%s  %s  %-15s [%s] %s"
+                  % (d.strftime("%Y-%m-%dT%H:%M:%SZ"), arrow, peer, r["state"],
+                     one_line(r["body"])[:args.width]))
+    return 0
+
+
+def cmd_normalise(args) -> int:
+    """Fill the canonical sortable timestamp. Safe to re-run; never touches date_sent.
+
+    Dry by default. Prints the rows it CANNOT parse instead of placing them
+    somewhere plausible, because an unparseable row silently ordered is a message
+    silently in the wrong place in a conversation.
+    """
+    conn = connect(backfill=False)
+    res = backfill_utc(conn, apply=args.apply, limit=args.limit)
+    s = res["stats"]
+    print(f"messages rows     : {s['total']}")
+    print(f"already canonical : {s['already']}")
+    print(f"to update         : {s['updating']}")
+    print(f"UNPARSEABLE       : {s['unparseable']}")
+    if res["unparseable_rows"]:
+        print("  no known format parses these; date_sent_utc stays NULL and they are")
+        print("  excluded from every ordered read rather than guessed into place:")
+        for sid, raw in res["unparseable_rows"][:50]:
+            print(f"     {sid}  {raw!r}")
+    print(f"wrote             : {res['wrote']}")
+    if not args.apply:
+        print("\n(dry run: nothing written. use --apply)")
+        return 0
+    span = conn.execute(
+        "SELECT min(date_sent_utc) lo, max(date_sent_utc) hi FROM messages").fetchone()
+    raw = conn.execute(
+        "SELECT min(date_sent) lo, max(date_sent) hi FROM messages").fetchone()
+    print(f"\ntrue range        : {span['lo']} .. {span['hi']}")
+    print(f"ORDER BY date_sent claims {raw['lo']} .. {raw['hi']}")
     return 0
 
 
@@ -507,6 +828,7 @@ def cmd_permissions(args) -> int:
     return 0
 
 
+@storelock.locked_store(STORE)
 def cmd_allow(args) -> int:
     conn = connect()
     conn.execute(
@@ -524,6 +846,7 @@ def cmd_allow(args) -> int:
     return 0
 
 
+@storelock.locked_store(STORE)
 def cmd_deny(args) -> int:
     conn = connect()
     conn.execute(
@@ -543,7 +866,19 @@ def main() -> int:
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd")
     s = sub.add_parser("sync"); s.add_argument("--pages", type=int, default=5)
+    s.add_argument("--all", action="store_true",
+                   help="walk EVERY page Twilio has, not just --pages (full history)")
     s.set_defaults(func=cmd_sync)
+    s = sub.add_parser("normalise")
+    s.add_argument("--apply", action="store_true")
+    s.add_argument("--limit", type=int, default=None)
+    s.set_defaults(func=cmd_normalise)
+    s = sub.add_parser("thread")
+    s.add_argument("--who", default=None,
+                   help="phone or name fragment; omit for every message in the store")
+    s.add_argument("--limit", type=int, default=20, help="how many of each end to show")
+    s.add_argument("--width", type=int, default=72)
+    s.set_defaults(func=cmd_thread)
     s = sub.add_parser("report"); s.add_argument("--limit", type=int, default=25)
     s.set_defaults(func=cmd_report)
     sub.add_parser("gaps").set_defaults(func=cmd_gaps)

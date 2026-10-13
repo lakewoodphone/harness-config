@@ -117,6 +117,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -338,6 +339,58 @@ def _store_view(conn, day: str) -> tuple[int, dict, dict]:
 # source that starts nothing.
 LEDGER = "python3 ~/bin/work.py"
 
+# The generated shift packet (LEDGER item 172, project housekeeping). One
+# rendered briefing read from three durable sources in a fixed order, whose
+# first FROZEN_BYTES bytes are byte-identical between shifts, instead of a
+# 19 KB contract re-derived (and re-sent) every shift. Measured cost of one
+# shift is 3-5M tokens, mostly cache-hit input; a byte-stable head is what
+# protects the cached prefix.
+SHIFT_PACKET = "python3 ~/bin/shift-packet.py"
+PACKET_MARKER = "END FROZEN PREFIX"
+
+
+def _packet_enabled(project: dict) -> bool:
+    """Whether THIS project's wake prompt is the generated shift packet.
+
+    Canary, not a switch flipped for the fleet: opt-in per project in
+    projects.json ("shift_packet": true), so a project whose prompt regresses
+    goes back to the standing contract by editing one key, with no code change.
+    PROJECT_KEEPALIVE_SHIFT_PACKET=0 forces the legacy contract for every
+    project; =1 forces the packet.
+    """
+    forced = str(os.environ.get("PROJECT_KEEPALIVE_SHIFT_PACKET") or "").strip().lower()
+    if forced in ("0", "false", "no"):
+        return False
+    if forced in ("1", "true", "yes"):
+        return True
+    return bool(project.get("shift_packet"))
+
+
+def packet_contract(project: dict) -> str | None:
+    """Render the shift packet, or None if it cannot be rendered.
+
+    None on ANY failure. A source that cannot render a prompt is a source that
+    starts nothing (measured 2026-09-28: a standing_contract() that raised
+    NameError started no shift at all), so the caller falls back to the legacy
+    contract rather than letting this raise into collect().
+    """
+    pid = str(project.get("id") or "")
+    if not pid:
+        return None
+    try:
+        proc = subprocess.run(
+            ["python3", str(Path.home() / "bin" / "shift-packet.py"),
+             "--project", pid, "--stdout"],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=60)
+    except Exception:
+        return None
+    text = proc.stdout or ""
+    # A truncated or wrong render must never become a shift's only briefing.
+    if proc.returncode != 0 or PACKET_MARKER not in text:
+        return None
+    return text
+
 
 # --------------------------------------------------------------------------- #
 # the standing worker contract
@@ -355,7 +408,17 @@ def standing_contract(project: dict, state: dict, items: list[str],
     Now the ledger (`~/bin/work.py`, WAL, on the authority) owns the backlog, the claim, the
     attempt with its proving command and result, and what is left. The state file is still
     mentioned for continuity, but it is no longer where work lives.
+
+    Since 2026-10-01 a project may instead be briefed by the generated shift packet
+    (`~/bin/shift-packet.py`, LEDGER #172): the same three sources in a fixed order with a
+    byte-stable head. That path is tried first for an opted-in project and falls back to the
+    literal below, unchanged, for every other project and on any render failure.
     """
+    if _packet_enabled(project):
+        packet = packet_contract(project)
+        if packet:
+            return packet
+
     pid = project["id"]
     title = str(project.get("title") or pid)
     where = str(project.get("repo") or project.get("case") or "UNKNOWN")
@@ -444,8 +507,18 @@ def standing_contract(project: dict, state: dict, items: list[str],
         f"    {LEDGER} add --project {pid} --title '<one line>' \\",
         "        --dod '<the command that will prove it>' --priority <1-9> \\",
         "        --why '<why it matters, one line>'",
-        "  `--priority 1` is a blocker, `5` is normal, `9` is nice-to-have. Do NOT file items",
-        "  to keep a loop alive; an item with no provable definition of done is not an item.",
+        "  PRIORITY DISCIPLINE, added 2026-10-09 because this rule was measurably inverted. In the",
+        "  last 14 days the ledger recorded 90 Windows attempts, 162 Integrate attempts, 3 Android",
+        "  (newest 2026-09-29) and ZERO iOS - because a shift files what it just discovered at",
+        "  priority 1, and a fixed backlog at 5-7 is therefore never reached. So:",
+        "    * `--priority 1` is reserved for a PRODUCTION OUTAGE or a CUSTOMER-FACING break. It is",
+        "      NOT for work you found while doing something else, however real that work is.",
+        "    * A discovery you make mid-shift is filed at `--priority 4` or lower unless it is one of",
+        "      those two things, and the reason goes in `--why`.",
+        "    * The phone platforms are the product: an Android or iOS item at priority 1 must not be",
+        "      preempted by routine Windows or integration work. Windows is a lane, not the product.",
+        "  `5` is normal, `9` is nice-to-have. Do NOT file items to keep a loop alive; an item with",
+        "  no provable definition of done is not an item.",
         "",
         "STEP 6 - THE LEGACY STATE FILE. You may bring it current (it is what a human reads",
         f"  first), but it is NOT where work is tracked:  {state_file}",
