@@ -52,6 +52,21 @@ EXIT
 USAGE
     preset-drift.py [--repo DIR] [--dsh-home DIR] [--json] [--quiet]
                     [--preset NAME] [--apply] [--skill-source NAME] [--backup-dir DIR]
+
+TWO CAVEATS, STATED BECAUSE A CHECKER THAT LIES IS WORSE THAN NO CHECKER
+  1. **This is a BYTE comparison, and line endings are bytes.** `sync.py` — the estate's real
+     deployer, which handles this deliberately (its `plan_presets` notes that live files under
+     `~/.dsh` are LF while a Windows working tree may not be) — normalises. This tool does not, so a
+     repository with a CRLF working tree and an LF install target can report DRIFT where `sync.py`
+     sees none. **If this reports drift and `sync.py --dry-run` says "up to date", believe `sync.py`
+     and fix this comparison.**
+  2. **`sync.py` is the deployer; this is the detector.** They answer different questions and are not
+     substitutes: `sync.py` applies the whole harness-config surface onto `~/.dsh` and *refuses* the
+     profile layer when the committed generated preset rows are stale; this reports, per file, whether
+     what a machine loads matches what the repo says. **Measured 2026-10-13: the two days of stale
+     instructions were caused by `sync.py` correctly refusing**, because `make-preset-rows.mjs
+     --check` reported DRIFT on the committed rows — so the detector saw the symptom and the estate's
+     own guard held the cause.
 """
 
 from __future__ import annotations
