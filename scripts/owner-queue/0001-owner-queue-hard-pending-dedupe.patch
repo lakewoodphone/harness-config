@@ -1,0 +1,40 @@
+--- a/root/bin/owner-queue.py
++++ b/root/bin/owner-queue.py
+@@ -498,6 +498,37 @@
+         for h in blocking:
+             print(f"  - {h['field']} offset {h['offset']} [{h['kind']}] {h['snippet']}")
+ 
++    # ── Hard pending dedupe (W6, 2026-10-12) ────────────────────────────────
++    # The fuzzy check below is delegated to app.owner_question_dedupe, is skipped
++    # entirely on any import exception, and only reached the authority on
++    # 2026-10-12 16:11Z -- after the wake-balance emitter had already filed six
++    # byte-identical pending rows (#334/#429/#433/#440/#442/#444) and after a
++    # one-night work-order sweep filed 90. A condition may hold at most ONE pending
++    # question, and that is cheap enough to prove here, locally, without a module
++    # that can fail to import:
++    #     select count(*) from owner_decision_queue
++    #      where status='pending' and normalized(question) = normalized(this one);
++    # Measured 2026-10-12 21:2xZ: the six wake-balance rows all normalise equal.
++    _norm = " ".join(str(values.get("question") or "").replace("\n", " ").replace("\r", " ").split()).lower()
++    if _norm and not (
++        getattr(a, "force", False)
++        or os.environ.get("OWNER_QUEUE_ALLOW_DUPLICATE") == "1"
++    ):
++        _dup = con.execute(
++            "SELECT id, question FROM owner_decision_queue "
++            "WHERE status='pending' AND replace(replace(lower(trim(question)),"
++            "char(10),' '),char(13),' ') = ? "
++            "ORDER BY asked_at LIMIT 1",
++            (_norm,),
++        ).fetchone()
++        if _dup:
++            print("add: REFUSED - this question is already PENDING as #%s." % _dup[0])
++            print("  existing: %s" % str(_dup[1])[:160])
++            print("  Nothing was written. One condition holds one pending row; if this "
++                  "is a recurrence, answer or resolve that row first. Set "
++                  "OWNER_QUEUE_ALLOW_DUPLICATE=1 to add it anyway.")
++            return 4
++
+     # ── Duplicate check (added 2026-09-29) ──────────────────────────────────
+     # Nothing here ever checked whether this question had already been asked and
+     # ANSWERED, or was already sitting in the queue. owner_decision_queue rows

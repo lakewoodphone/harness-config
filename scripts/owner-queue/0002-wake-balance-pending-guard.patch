@@ -1,0 +1,25 @@
+--- a/root/bin/wake-balance.py
++++ b/root/bin/wake-balance.py
+@@ -175,6 +175,22 @@
+            % (TOPUP_URL, bal, "off" if warn is None else "%.2f" % warn, floor, outcome))
+     if warned_recently(state, repeat_hours):
+         return "skipped: this %s state was already escalated inside %.0f h" % (state, repeat_hours)
++    # ── One condition, one pending row (W6, 2026-10-12) ─────────────────────
++    # The 12-hour marker above is only written when the add SUCCEEDS, so a refusal
++    # left it unmarked and the hourly cron re-attempted. The measured proof that the
++    # marker was not enough: six byte-identical pending rows #334/#429/#433/#440/
++    # #442/#444. Ask the queue, read-only, before calling it, and treat "already
++    # pending" as done -- then mark, so the guard does not re-attempt every hour.
++    try:
++        sys.path.insert(0, "/home/zabz/personal-secretary-mvp")
++        from app.owner_question_dedupe import find_open_duplicate  # noqa: PLC0415
++        _hit = find_open_duplicate("/root/authority.db", question)
++        if (_hit and str(_hit.get("status")) == "pending"
++                and float(_hit.get("similarity") or 0.0) >= 0.75):
++            mark_warned(state, bal)
++            return "already pending as #%s - not re-asked" % _hit.get("row_id")
++    except Exception as _exc:  # noqa: BLE001 -- a guard that cannot check must still guard
++        sys.stderr.write("wake-balance: pending-check skipped (%s)\n" % _exc)
+     context = ("Measured by ~/bin/wake-balance.py at %s: balance %.2f, ceiling/day %s, "
+                "warning %s, floor %.2f, state=%s. The pause file is %s. Nothing autonomous "
+                "runs while a pause stands: sources may still file work, but no session is "
