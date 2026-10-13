@@ -2268,6 +2268,7 @@ lessons	L3655	3655		2026-10-13	SECRATARY-CLOUD	open	**L3655 · No payment row is
 lessons	L3656	3656		2026-10-13	SECRATARY-CLOUD	open	**L3656 · D2655's exclusion does not work: zeroed FTS pages cannot be rebuilt, measured on a copy**	entries/lessons/L3656.md	1	49	4f385886defda8ca		
 lessons	L3657	3657		2026-10-13	SECRATARY-CLOUD	open	**L3657 · Correction to H3595: there is no owner row #474**	entries/lessons/L3657.md	1	16	81139b872077ecd3		
 lessons	L3658	3658		2026-10-13	SECRATARY-CLOUD	open	**L3658 · Correcting P3007: the rule path works, the resolver works, and my harness was the bug**	entries/lessons/L3658.md	1	44	527158f3fa3bad41		
+lessons	L3659	3659		2026-10-13	SECRATARY-CLOUD	open	**L3659 · Clause 2 measured properly, and the join key I did not check made it look empty**	entries/lessons/L3659.md	1	42	c34eba46cc511d88		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3364,3 +3365,7 @@ wins	W2756	2756		2026-10-13	SECRATARY-CLOUD	open	**W2756 · 2026-10-13 · Swept 
 wins	W2757	2757		2026-10-13	SECRATARY-CLOUD	open	**W2757 · 2026-10-13 · Tier-collapse fixed: three tiers pointed at one literal, 88 times reported.**	entries/wins/W2757.md	1	47	4ba9a9c62b049543		
 wins	W2758	2758		2026-10-13	SECRATARY-CLOUD	open	**W2758 · 2026-10-13 · One at a time was not holding: the CFO's question was ranked as machine noise.**	entries/wins/W2758.md	1	45	67305244cd72a0a6		
 wins	W2759	2759		2026-10-13	SECRATARY-CLOUD	open	**W2759 · 2026-10-13 · His reply would have been filed against the wrong merchant: the matcher never read the merchant.**	entries/wins/W2759.md	1	40	5f721699b01765d5		
+wins	W2760	2760		2026-10-13	SECRATARY-CLOUD	open	**W2760 · 2026-10-13 · 83,000 dollars of the CFO's own money movements were unclassifiable because they are not merchants.**	entries/wins/W2760.md	1	53	2f4afdbc13a28370		
+wins	W2761	2761		2026-10-13	SECRATARY-CLOUD	open	**W2761 · 2026-10-13 · The three cluster rules worked: unexplained 580 -> 563, 17 transactions retired.**	entries/wins/W2761.md	1	28	55dea7368ebe44ce		
+wins	W2762	2762		2026-10-13	SECRATARY-CLOUD	open	**W2762 · 2026-10-13 · Learned rules had no clock: 55 rows sat unapplied, now applied and automated.**	entries/wins/W2762.md	1	48	d9d8ad3192a122da		
+wins	W2763	2763		2026-10-13	SECRATARY-CLOUD	open	**W2763 · 2026-10-13 · 93 phantom conflicts were holding back real rows: every rule claimed a category the other entity does not have.**	entries/wins/W2763.md	1	57	76e56298bf481039		
