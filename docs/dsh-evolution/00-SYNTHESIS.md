@@ -49,20 +49,24 @@ sessions complete. 17.6% carry a correcting or frustrated tone.
 
 ## 3. What is broken, and it is three things more than anyone knew
 
-**a. The transcript archive is alive, and it flaps — and I first reported it as dead.** It was
-re-hosted on the authority on **2026-10-12** at `/opt/company/archive/lpt-transcripts` (6.6 GB,
+**a. The transcript archive is alive and current — and I wrongly reported it as dead, twice over.** It
+was re-hosted on the authority on **2026-10-12** at `/opt/company/archive/lpt-transcripts` (6.6 GB,
 `manifest.sqlite`, 258 object dirs), driven by the systemd timer `transcript-archive-pull.timer`
-hourly at `*:23`; the pass at **2026-10-13T13:39:56Z succeeded** and ingested from five machines. I
-checked two guessed paths, found neither, and told the owner it had been dead since the cutover —
-**one command, `systemctl list-timers`, would have answered it**, and I skipped it on a system I was
-about to declare broken. Corrected in `AGENTS.md`, in the `yocheved` preset, and in the journal
-(`P3162` retracted; `L3774` is the lesson: *absence at a guessed path is not absence*).
+hourly at `*:23`; its most recent passes exit 0 and ingest from all five machines. I had checked two
+guessed paths, found neither, and told the owner it had been dead since the cutover — **one command,
+`systemctl list-timers`, would have answered it**, and I skipped it on a system I was about to
+declare broken.
 
-**The real defect underneath is smaller and real:** the archive **fails intermittently and cannot say
-why**. The 13:23Z pass failed exit 3 with the message `TRANSCRIPT ARCHIVE PULL FAILED — cannot reach , which
-this archive has pulled before` — **with an empty machine name** — and the 12:28Z pass failed the same
-way at a **6 GB memory peak** on a 15 GB box. An alarm that cannot name what it could not reach is the
-*"silent failure has no transport"* class again, in a new costume.
+**Then I did it a second time.** I reported the archive as "alive but flapping", citing a 13:23Z pass
+that failed with an empty machine name. **That failure was real but it was already fixed** — commit
+`04661ae` ("stop failing the unit on a CLEAN pass") landed at 13:40:15, between the failing pass and
+the next one, and the current code cannot produce that message with an empty name. I had read a
+historical log line and treated it as the current state. Corrected in `AGENTS.md`, in the `yocheved`
+preset, and in the journal (`P3162` retracted; `L3774` is the lesson: *absence at a guessed path is
+not absence*, and its corollary — *a log line from before a fix describes the state before the fix*).
+
+**There is no known open defect in the archive.** What it cost: two false alarms to the owner and a
+retracted pain entry, which is precisely the *wrong-data* failure this document ranks first.
 
 **b. The authority is one hourly job from a full disk.** 6.1 GB free, an hourly archive temporary of
 ~6.27 GB, swap at 93.5%, 11 OOM kills in 24 h — and `estate-monitor` computes `CRITICAL crit=4` every

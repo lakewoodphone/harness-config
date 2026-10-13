@@ -248,3 +248,26 @@ outcome where it belongs (case file, journal), and finish. Do not raise flags.
   a guard working. Check which gate is in force and whether the volume is already far above the old normal.
 - **Do not trust a `0` from a store written by writers.** The ledger's `reap` printed `count: 0` all evening
   and had never freed anything; `pgrep -f` counted the probe that asked it. Plant the condition and watch.
+
+## The owner channel can be closed without saying so
+
+Pain `P2942`, measured 2026-10-13. **"Read the owner queue" is not "the owner will see it."** The
+queue holds ~162 rows and the wider message path has held 78 unanswered texts, with an approved
+delivery path that has gone missing before. So an agent can file a careful question, tick the box,
+and nothing reaches him — and because the filing *succeeds* at every step, nothing looks broken.
+
+Three consequences for this skill:
+
+- **A filed question is not an asked question.** If something is genuinely time-critical — a deadline,
+  a payment, an irreversible action — say so in the conversation where the work is happening, not only
+  in the queue. The queue is for when there is time; it is not a delivery guarantee.
+- **Check the path, not the row.** Before assuming he has seen something, look at whether the last
+  thing sent actually landed (`owner_message_queue` status, the outbound buffer, the responder's own
+  ledger). A row that is `pending` tells you the system accepted it, not that a human received it.
+- **Never widen the channel to make it work.** Raising a cap, unmuting a sender, or restarting a
+  delivery service is a change to a guard that may be the only thing standing between the owner and a
+  flood — read `autonomy-status` and say which gate is in force before touching it.
+
+And the generalisation this estate keeps re-learning: **every monitor here checks whether a thing
+*ran*, and almost none checks whether it *arrived or mattered*.** When you add a check, make it a check
+on the outcome, and make the failure state something a human would actually see.

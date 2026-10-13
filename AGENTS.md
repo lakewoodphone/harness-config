@@ -126,12 +126,15 @@ ssh secratary-cloud 'TRANSCRIPT_ARCHIVE_ROOT=/opt/company/archive/lpt-transcript
   From the authority a powered-off laptop and a broken pull look identical, so this is reported
   as exactly that, never as health.
 
-**A third failure mode is live and is not in that list.** On 2026-10-13 the 13:23Z pass failed with
-exit 3 and the message `TRANSCRIPT ARCHIVE PULL FAILED — cannot reach , which this archive has pulled
-before` — **with an empty machine name.** The message is built from a variable that was empty, so the
-alarm tells you something is wrong and not *what*. A run at 12:28Z failed the same way with a 6 GB
-memory peak. **The archive is alive and flapping, not dead.** Fix the message before trusting it to
-name the machine.
+**A third failure mode existed and is now fixed — do not re-derive it from old logs.** On 2026-10-13
+the 13:23Z pass failed with exit 3 and the message `TRANSCRIPT ARCHIVE PULL FAILED — cannot reach ,
+which this archive has pulled before`, **with an empty machine name** — the message read a state file
+that held only a newline. Commit `04661ae` ("stop failing the unit on a CLEAN pass"), landed at
+**13:40:15**, fixed it: a clean pass now sets exit 0, and `pull_rc=3` can only be reached when the
+failure list is non-empty or the pull report was unparsable (which writes `unknown` rather than
+nothing). **If you find that message in a journal from before 13:40 on 2026-10-13, it is history, not
+the current state — read the pass timestamp before quoting a log line as a live defect.** I did not,
+and told the owner the archive was "flapping" when it was not.
 
 ### How to read one entry
 
@@ -273,3 +276,60 @@ Exit contract, so a dispatcher can gate on it: **0** allow · **1** usage/enviro
 **The next cutover updates `host-posture.tsv` and nothing else.** If you ever find yourself
 writing a hostname into a script to decide whether it may be touched, you are rebuilding the
 defect this rule exists to prevent.
+
+---
+
+## 6. Three rules about the code itself, each paid for
+
+### 6.1 `origin` is a diverged two-URL remote — push your own commit, never by pulling
+
+Lessons `L1462`, `P3135`, and pain `P3164`. `harness-config`'s `origin` **fetches** from
+`secretary-ts:` (the frozen office box) and **pushes** to that and to GitHub. So the remote-tracking
+ref you consult is not the branch you are pushing to, and "every push half-fails" is the normal
+state, not an incident.
+
+**What to do:** commit on your branch, push your commit explicitly
+(`git push offsite HEAD:refs/heads/<your-branch>`), and **never** `git pull --rebase` to make a push
+fast-forward — that is how a session silently adopts a lineage it did not read. If a push to `main` is
+rejected, that is correct behaviour: publish a branch and let an integrator handle it. **Do not force.**
+
+**Measured 2026-10-13:** `main` existed on at least two lineages that were **not supersets of each
+other** — this checkout and the authority's were two commits apart on a file that runs hourly in
+production, and an edit made against the wrong one nearly reverted a live fix. **Before editing a
+script that runs somewhere, hash the file you are editing against the file on the host that runs it**
+(`md5sum` both, or `stat -c %s`). A mismatch means you are on the wrong lineage, and the host is
+right.
+
+### 6.2 Never print a credential value, and never mask by name-pattern
+
+Pains `P2938`, `P344`, `P13b`. A name-pattern mask (anything matching `key`, `token`, `secret`) has
+**already** leaked a live API key and a password-bearing DSN into the permanent transcript — because
+the secret was in a field whose name did not match the pattern. `P344` records a world-readable
+`.env.bak*` as the **fourth** instance of the same mistake.
+
+**What to do:** an **exact-key allow-list**, plus a **shape assertion** on the values that reach
+output — not a name pattern. Print variable *names* to prove presence, never values
+(`env | cut -d= -f1`, or the `env` route in the `transcript-archive` tools which does exactly this).
+When a secret is in a transcript, the fix is rotation, not redaction of the copy — a redacted
+transcript is still a transcript of a live credential.
+
+### 6.3 A rule in one surface is not a rule — check the surface the caller actually reads
+
+Lesson `L1490`. Every rule in this file is worth nothing to an agent that never opens this file, and
+this estate has repeatedly had the same rule in three places with three different ages: the persona,
+a skill, and this document. The measured shape of that defect is a **hostname or a path that is
+correct in one surface and wrong in another** — the frozen box named as the authority in the persona,
+the archive's own store path named wrongly in this file, `secratary` as a prefix of `secratary-cloud`
+defeating a grep.
+
+**What to do:** when you correct a fact, **find every surface that states it** (`grep` the repos for
+the old value, not just the file you were reading) and correct them together, or note in the commit
+which surfaces you left and why. When a rule matters, put it where the work happens — a skill that is
+loaded with the task beats a paragraph in a document nobody opened.
+
+## 7. The generator hazard — it lives in a comment and reaches nobody
+
+`presets/*/agent.cordis.yml` carries a warning about the preset-composition generator **only as YAML
+comments**, which are never injected into a session. If you are editing a composition, read the
+comments in the file you are editing *before* you change it, and move anything load-bearing out of a
+comment into `editing-cordis-compositions` — a rule that lives in a comment is a rule with no reader.
