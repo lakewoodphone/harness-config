@@ -506,3 +506,19 @@ L2184	lessons	L2344	id collided with different content; L2184 keeps L2184	2026-0
 H3061	handoff	H3379	id collided across machines with different content (journal P2811); the AUTHORITY side was renumbered to H3379 and the live file keeps H3061	2026-10-08	SECRATARY	8a9d34a8d810e43f	entries/handoff/H3379.md
 L3052	lessons	L3396	id collided across machines with different content (journal P2811); the AUTHORITY side was renumbered to L3396 and the live file keeps L3052	2026-10-08	SECRATARY	c3add72ef5807025	entries/lessons/L3396.md
 L3105	lessons	L3397	id collided across machines with different content (journal P2811); the AUTHORITY side was renumbered to L3397 and the live file keeps L3105	2026-10-08	SECRATARY	3cf758aa096c7660	entries/lessons/L3397.md
+D250	decisions	D249	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	0518897a56659901	archive/duplicates/decisions/D250.md
+H2777c	handoff	H2777	identity duplicate inside entries/	2026-10-13	SECRATARY	8f3f9749de5555a8	archive/duplicates/handoff/H2777c.md
+H2777bc	handoff	H2777b	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	ae8881f529b6031b	archive/duplicates/handoff/H2777bc.md
+H2781	handoff	H2780	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	4d18d2448583bd57	archive/duplicates/handoff/H2781.md
+H3080	handoff	H3079	identity duplicate inside entries/	2026-10-13	ZABZ-TECH	20682a9b1164731f	archive/duplicates/handoff/H3080.md
+H3395	handoff	H3394	identity duplicate inside entries/	2026-10-13	secratary	9a6fe0fc3fdf854a	archive/duplicates/handoff/H3395.md
+H3396	handoff	H3394	identity duplicate inside entries/	2026-10-13	secratary	1de6b834331330f4	archive/duplicates/handoff/H3396.md
+H458	handoff	H457	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	fa11a004ce945530	archive/duplicates/handoff/H458.md
+H514	handoff	H500	identity duplicate inside entries/	2026-10-13	ZABZ-TECH	52fd88d6bdcd7be8	archive/duplicates/handoff/H514.md
+L1894	lessons	L1892	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	7ff691bb6bfce133	archive/duplicates/lessons/L1894.md
+L1895	lessons	L1893	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	2c298459af227051	archive/duplicates/lessons/L1895.md
+L2600	lessons	L2599	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	6324e71eda8d0f67	archive/duplicates/lessons/L2600.md
+L2784c	lessons	L2784	identity duplicate inside entries/	2026-10-13	SECRATARY	64446e10dde168fc	archive/duplicates/lessons/L2784c.md
+L2784bc	lessons	L2784b	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	f0fe3e91217ce940	archive/duplicates/lessons/L2784bc.md
+L3615	lessons	L3614	identity duplicate inside entries/	2026-10-13	SECRATARY-CLOUD	6b535a2a770abd89	archive/duplicates/lessons/L3615.md
+P2561bc	pain	P2561b	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	1f807751f6a013ee	archive/duplicates/pain/P2561bc.md
