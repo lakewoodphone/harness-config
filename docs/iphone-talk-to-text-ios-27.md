@@ -58,8 +58,13 @@ so every voice keyboard must hop out to its own app and back. iOS 26.4 removed t
 (you swipe back by hand, every time) and iOS 26.5's toolbar covers all custom keyboards — reproducing in
 Google's and Grammarly's alike. Every vendor pays the same tax.
 
-One honest caveat: **no independent head-to-head accuracy test of these apps exists at all.** Every
-number in that market is a vendor's own.
+One honest caveat, **corrected 2026-10-13**: in September no independent comparison could be found. One now
+exists — **Wirecutter's "The Best Dictation Software"** (updated 2026-06-22; 50 hours, 19 tools, Apple's own
+dictation included) rates **Wispr Flow at 98 % accurate, Apple's dictation at 94 % on both iOS and macOS**,
+and calls **Willow the most accurate app tested** ("missed only four words"). Treat that number for Apple
+with suspicion: it does not reproduce the disappearing-words defect this owner actually suffers, so raw
+accuracy is not the axis his complaint lives on. The vendor benchmarks circulating in the same market
+(Willow 95 %, Wispr Flow 90 %, Apple 48 %) are marketing, not measurement.
 
 ## 5. What was set up on his phone (2026-09-30)
 
@@ -187,3 +192,63 @@ ManagedSettings entries.
 
 **Unconfirmed:** whether any Screen Time fix is scheduled for 27.2; per-feature region availability beyond
 the two Messages Communication Safety rows Apple publishes; whether Screen Distance changed at all.
+
+---
+
+## 9. SETTLED CONFIGURATION (2026-10-13) — re-verified, and one September claim corrected
+
+He confirmed on 2026-10-13, in his words: **"Apple dictation is just plain bad."** That closes the
+diagnosis — nothing is broken, the engine is the whole problem, and the fast mic fix is not needed.
+
+**What changed since September, verified against the vendor's own pages on 2026-10-13:**
+
+- **Superwhisper moved 2.24.1 → 2.25.2** (released 2026-10-09; 4.4 stars, 842 ratings, needs iOS 26.0+).
+  Four releases, no change to how it works.
+- **The best-quality *local* model is now free.** The vendor made all Whisper models free for everyone on
+  **2026-08-27**, including **Whisper Large v3 Turbo (1.6 GB)**. The free tier is *unlimited* dictation with
+  local Whisper, custom vocabulary, text replacements, two modes — and in the vendor's own words,
+  **"Nothing you dictate leaves your device."** Only the non-Whisper engines (Cohere Transcribe, Parakeet)
+  and the AI cleanup modes sit behind Pro. This is the fact that decides the configuration.
+- **The keyboard mechanics are unchanged and confirmed for iOS 27.0.1:** *Allow Full Access* is still
+  required, and the app still hops out to itself to grab the microphone because Apple forbids keyboard
+  extensions the mic — then **you swipe back yourself**. The vendor names Apple's own bug
+  (feedback FB22247647) and says it affects every third-party keyboard.
+- **Prices unchanged:** 8.49 a month, 84.99 a year (≈7.08 a month), 249.99 lifetime.
+- **No iOS 27 or 27.0.1 issue is named anywhere** in Superwhisper's docs or changelog — no known breakage
+  and no claimed fix. Its own docs never mention iOS 27 at all.
+
+**THE CONFIGURATION — one mode, one model, free:**
+
+1. Superwhisper → **Mode: Voice to Text (Transcription)**.
+2. **Model: Whisper Large v3 Turbo**, the local one. *This is the step that matters* — a cloud mode would
+   send his customers' names and serial numbers off the phone, and it is also the step that would silently
+   try to sell him Pro.
+3. Settings → General → Keyboard → Keyboards → **Superwhisper → Allow Full Access ON**.
+4. **Settings → Action Button → Shortcut → "Toggle Superwhisper Dictation"** — this is the everyday path:
+   hold, talk, release, then paste. Vendor docs do not state the clipboard behaviour; the vendor's own
+   social post tells users to "just select paste like you normally would", and every third-party guide
+   agrees. Treat clipboard-paste as expected but unproven by the vendor.
+
+**Cost of living with it:** one swipe back after starting, every time. That is Apple's restriction, not
+Superwhisper's, and every competitor pays it.
+
+**WHEN TO PAY, decided in advance so it does not become a question later:** only if the free local Whisper
+is not clean enough after real use. Then **84.99 a year**, and even then **pin the mode to a local Whisper
+model** so audio stays on the phone. Do not buy Pro for the cloud models — his own calls are already
+transcribed in the cloud by Dialpad, so cloud is not a new exposure, but there is nothing to gain that
+justifies moving customer speech off the device for free.
+
+**Backups, only if Superwhisper fails him:** **Spokenly** (free tier unlimited, offline Whisper and
+Parakeet, iOS keyboard, Pro 99.99 a year, Local+ 19 one-time — but 61 ratings and its own developer warns
+local models "can struggle on older devices" inside a keyboard). **Google AI Edge Eloquent** is free and
+on-device but its App Store description still says *"Keyboard coming soon"* — useless here until it ships.
+**Wispr Flow** (free tier only 1,000 words a week, cloud-only, 15 a month) and **Willow** (free unlimited
+but cloud) are both accurate and both wrong for a shop that says serial numbers out loud.
+
+**ESCALATION PATH, recorded as a decision rather than raised as a question:** if he will neither accept the
+swipe nor pay, the one channel where friction can be removed entirely is his own chat with me — a
+record-and-transcribe button in the phone GUI, using the company's existing Whisper transcription service
+(`personal-secretary-mvp/app/services/transcription.py`). It bypasses Apple's engine altogether with no
+keyboard switching. **Not built**, because it covers only that one channel and Superwhisper covers every
+app; build it only if Superwhisper is rejected.
+
