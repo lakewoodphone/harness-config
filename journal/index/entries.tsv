@@ -2246,6 +2246,7 @@ lessons	L3636	3636		2026-10-13	SECRATARY-CLOUD	open	**L3636 · Verify the fleet'
 lessons	L3637	3637		2026-10-13	SECRATARY-CLOUD	open	**L3637 · A missing module degrades silently to the most conservative verdict, which looks exactly like the system working**	entries/lessons/L3637.md	1	33	8a09dd67377ff904	fail-soft,observability,sms,lessons	
 lessons	L3638	3638		2026-10-13	SECRATARY-CLOUD	open	**L3638 · The owner's iPhone dictation cannot be fixed by an iOS update - the good engine is gated at 12 GB of RAM**	entries/lessons/L3638.md	1	36	91ae4a376938769b	owner-device,iphone,dictation,ios27	
 lessons	L3639	3639		2026-10-13	SECRATARY-CLOUD	open	**L3639 · A session that says it wrote to the journal is not evidence that it did - verify the entry exists**	entries/lessons/L3639.md	1	35	b15d51e1e9a3e18d	journal,continuity,provenance,dictation	
+lessons	L3640	3640		2026-10-13	SECRATARY-CLOUD	open	**L3640 · A repo that exists is not a feed that works: five finance pulls died on Windows paths inside a checked-out repo**	entries/lessons/L3640.md	1	57	cf95c170e474945a	finance,deployment,windows-paths,fail-soft,root-cause	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3038,6 +3039,7 @@ decisions	D3036	3036		2026-10-12	SECRATARY-CLOUD	open	**D3036 · 2026-10-12 · m
 decisions	D3037	3037		2026-10-12	secratary-cloud	open	**D3037 · 2026-10-12 · model_lane_health + agent_dead_weight: runtime gates written and tested (need company-api restart).**	entries/decisions/D3037.md	1	6	6a054372a1fc5936		
 decisions	D3038	3038		2026-10-12	SECRATARY-CLOUD	open	**D3038 · 2026-10-12 · model_lane_health catalogue read falls back to a fresh-process build_models_payload.**	entries/decisions/D3038.md	1	6	a9f1cd55787209fc	authority,model-lane,monitor	
 decisions	D3039	3039		2026-10-12	SECRATARY-CLOUD	open	**D3039 · 2026-10-12 · LPT NAVIGATION ships at 299 with the case as a 20 add-on; the 285 proposal is dead.**	entries/decisions/D3039.md	1	34	6f7d05b3ea274372	lpt-navigation,waze,pricing	
+decisions	D3040	3040		2026-10-13	SECRATARY-CLOUD	open	**D3040 · 2026-10-13 · The Amazon and eBay browser scrapers are replaced by the email path, on evidence, not preference.**	entries/decisions/D3040.md	1	28	bd299691036fe55d	finance,amazon,ebay,decision	
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
