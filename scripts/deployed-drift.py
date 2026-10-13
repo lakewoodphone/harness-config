@@ -32,6 +32,23 @@ EXIT
     0  every compared file matches
     1  at least one DRIFT (either direction)
     2  could not do the job (no repo, host unreachable, nothing compared) -- never a pass
+
+WHOSE CHECKOUT IS THE REFERENCE? THE TOOL CANNOT KNOW, AND THAT IS A REAL LIMIT.
+Measured 2026-10-13: this reported `phone-gate-allow.txt` as REPO-IS-AHEAD, repo 6,417 B vs deployed
+3,274 B. True -- **against the checkout on the machine that ran it.** The authority's OWN checkout
+held the same 9 addresses as its deployed copy (diff: empty, both 65 lines), and its copy had been
+written three minutes earlier by another session still committing to that repo. So the same command,
+run from a different machine, would have reported NO DRIFT AT ALL -- and acting on either answer
+blindly would have been wrong: one would have skipped a real difference, the other would have
+clobbered a running edit.
+
+So treat this as **"the repo I can see disagrees with the running copy"**, not as an authority on
+which side is right. `AGENTS.md` section 6.1 supplies the tiebreak and it is not this tool: **hash the
+file you are editing against the file on the host that runs it; a mismatch means you are on the wrong
+lineage, and the host is right.** When it fires:
+  1. check WHEN the deployed side was written (`stat`) -- seconds-old means somebody is on it;
+  2. check whether the host's own checkout agrees (`diff` against that, not against yours);
+  3. only then decide, because this program has recovered real work from the DEPLOYED side twice.
 """
 
 from __future__ import annotations
