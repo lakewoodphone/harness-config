@@ -2273,6 +2273,14 @@ lessons	L3659	3659		2026-10-13	SECRATARY-CLOUD	open	**L3659 · Clause 2 measured
 lessons	L3660	3660		2026-10-13	SECRATARY-CLOUD	open	**L3660 · Five wrong answers today, all from assuming a data shape: the cross-check caught them, not the query**	entries/lessons/L3660.md	1	48	edc767415bc9e874		
 lessons	L3661	3661		2026-10-13	SECRATARY-CLOUD	open	**L3661 · 109 marketplace orders are unlinked, and one column has three different reference formats**	entries/lessons/L3661.md	1	51	1c698137e6aebab8		
 lessons	L3662	3662		2026-10-13	SECRATARY-CLOUD	open	**L3662 · The remaining 24 ambiguous orders should stay ambiguous, and here is the measurement that says so**	entries/lessons/L3662.md	1	45	a7c175b202120457		
+lessons	L3663	3663		2026-10-13	SECRATARY-CLOUD	open	**L3663 · Clause 3's audit is clocked and thorough: 69 disagreements over only 119 anchored months**	entries/lessons/L3663.md	1	48	28ed329cc0bbd8dd		
+lessons	L3664	3664		2026-10-13	SECRATARY-CLOUD	open	**L3664 · Clause 3's recovery target: 45,740.87 of movement between two authoritative readings that the ledger cannot explain**	entries/lessons/L3664.md	1	47	3c6d03d4b3446649		
+lessons	L3665	3665		2026-10-13	SECRATARY-CLOUD	open	**L3665 · The recovery is 10 cases not 69: two-thirds of the 55,319 sits in the top ten**	entries/lessons/L3665.md	1	49	d22d3fc963d87548		
+lessons	L3666	3666		2026-10-13	SECRATARY-CLOUD	open	**L3666 · Nearly reported 25,037.65 of duplicates; the real figure is 891.39 and duplicates are ruled out**	entries/lessons/L3666.md	1	47	cbce4576797fce68		
+lessons	L3667	3667		2026-10-13	SECRATARY-CLOUD	open	**L3667 · Rank the reconciliation by evidence, not magnitude: eight sign-flips come first**	entries/lessons/L3667.md	1	46	11539ddbc4d19b8d		
+lessons	L3668	3668		2026-10-13	SECRATARY-CLOUD	open	**L3668 · 196 rows are excluded from every balance flow as opposite-sign duplicates and it is undetermined whether they should be**	entries/lessons/L3668.md	1	50	9aeaac45eb20c9c4		
+lessons	L3669	3669		2026-10-13	SECRATARY-CLOUD	open	**L3669 · The 196 opposite-sign duplicates: 159 are correctly marked, 12 are demonstrably wrong**	entries/lessons/L3669.md	1	51	cbad61445155e0ac		
+lessons	L3670	3670		2026-10-13	SECRATARY-CLOUD	open	**L3670 · 66 active-with-a-mark rows are correctly excluded; 76 duplicate-status rows are wrongly counted, 13,403.30**	entries/lessons/L3670.md	1	47	dc794941c9c37407		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2698,6 +2706,7 @@ pain	P3005	3005		2026-10-13	SECRATARY-CLOUD	open	## P3005 — The owner's notifi
 pain	P3006	3006		2026-10-13	SECRATARY-CLOUD	open	## P3006 — The integrity check cannot run on the authority, and D2655 already decided what not to do about it	entries/pain/P3006.md	1	55	0fe626eaa4e85e9e		
 pain	P3007	3007		2026-10-13	SECRATARY-CLOUD	open	## P3007 — His answer cannot teach anything: the guess the question carries is not a category that exists	entries/pain/P3007.md	1	49	38b506badd9c5634		
 pain	P3008	3008		2026-10-13	SECRATARY-CLOUD	open	## P3008 — What fills the authority's disk: 760 MB of it is dead weight, and only 9.0 GB is free	entries/pain/P3008.md	1	37	6a90217308a7ed37		
+pain	P3009	3009		2026-10-13	SECRATARY-CLOUD	open	## P3009 — The duplicate marker is not on this box: 2,099 marks with no reviewable rule behind them	entries/pain/P3009.md	1	45	fd012aa0cbf3b1ab		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3382,3 +3391,4 @@ wins	W2768	2768		2026-10-13	SECRATARY-CLOUD	open	**W2768 · 2026-10-13 · Matche
 wins	W2769	2769		2026-10-13	SECRATARY-CLOUD	open	**W2769 · 2026-10-13 · Forward view re-verified: every headline figure reproduces, the owner loan moved by twenty dollars.**	entries/wins/W2769.md	1	37	c603f306f81f9077		
 wins	W2770	2770		2026-10-13	SECRATARY-CLOUD	open	**W2770 · 2026-10-13 · Clause 6 verified: a full Twilio walk adds zero, and the tool prints the ordering defect it fixed.**	entries/wins/W2770.md	1	43	21fafa75174a10d7		
 wins	W2771	2771		2026-10-13	SECRATARY-CLOUD	open	**W2771 · 2026-10-13 · The SMS gap check could only see one day back; it now walks the whole history daily.**	entries/wins/W2771.md	1	38	9ff3785e5a844c87		
+wins	W2772	2772		2026-10-13	SECRATARY-CLOUD	open	**W2772 · 2026-10-13 · The one-at-a-time gate refused a third question in production and recorded it honestly.**	entries/wins/W2772.md	1	28	2ed2fc15f0ba9e13		
