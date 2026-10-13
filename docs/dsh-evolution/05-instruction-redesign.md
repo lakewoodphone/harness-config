@@ -207,9 +207,35 @@ workstream open.
    were the wrong part. This is written into the file so the next reader does not repeat it.
 
 **Not yet done, and named so it is not mistaken for done:**
-the ~16 KB of movement into skills (§1), the new `state/now-next.md` (§1), the eleven added rules
-(§2), the removals (§3), the identity additions (§4), the numeric corrections (§5), and the four
-memory fixes (§6). Each is small; none is ambiguous; they are the next session's work.
+the new `state/now-next.md` (§1), the eleven added rules beyond the two applied below (§2), the
+removals not yet made (§3), the remaining identity additions (§4), the numeric corrections (§5), and
+the four memory fixes (§6). Each is small; none is ambiguous; they are the next session's work.
+
+---
+
+## 7b. Second pass, same day — applied after the 935-session census
+
+The census (`07-pain-register.md` §2) ranked the friction and showed the prompt was aimed at the wrong
+two failures. Three more changes followed, all verified:
+
+| # | change | why | verification |
+|---|---|---|---|
+| 8 | **A new section, "The one you must not get wrong"**, placed above `Provenance` — every claim carries the command and its output line, or the file and its mtime, or the row and its timestamp; a reading is not evidence until its source and age are known; an empty result is a refusal, not health; **never complete something you have not run**; and a "look before you redo" paragraph for `repeated-work` | the #1 measured failure (`wrong-data`, 11.2% of 935 sessions) had **no rule in the prompt at all**, and `repeated-work` (#3, 9.3%) had none either, while rules 2/2b/2c/3/9 spent ~3,000 bytes on the #10/#11 failures (3.3%) | the section is present in the compiled prefix; grep for `wrong-data` and `repeated-work` |
+| 9 | **Compressed the memory section** from ~5,300 to ~1,400 bytes, pointing at `journal/README.md` for the mechanics | the single largest always-on block, and every word of it was already in the README | prefix byte count |
+| 10 | **Compressed rules 1b and 1c** to the rule plus a pointer at the `parallel-agent-orchestration` skill; compressed the fast-search, governor and short-session recitals | ~3,200 bytes of measurement that the skills already carry verbatim | prefix byte count |
+| 11 | **Replaced the broken pointer to `secretary-replacement-audit/`** with `docs/dsh-evolution/` as the primary evidence base, and an explicit note that the predecessor set is reachable only from git history at `51e2d32d` | that path exists on **no trunk**, so every agent that followed the old pointer found nothing | the section now names both, and says absence is not evidence the work was never done |
+| 12 | **Deleted the duplicated "When you are unsure" paragraph** at the end of the prefix | it repeated the section above it verbatim | grep |
+
+**Measured result: the person prefix went from 28,697 bytes at `75ffbeef` to ~23,000.** The target
+remains ~22,000; the remaining gap is the outbound-hard-stop detail (§3), which was deliberately *not*
+cut — an outbound mistake is irreversible and has already happened twice on this estate, so a few
+hundred bytes of safety rule in the always-on prompt is the right trade.
+
+**A correction to this session's own earlier reporting, recorded because it matters:** the first
+aggregate covered 9 of 18 shards and reported `company` and `research` as the top domains with `shop`
+at 69. The shards are ordered by date and the fleet ran in waves, so that was a biased partial sample.
+With 17 of 18 in (935 sessions), **`shop` is the largest single domain at 207** and the ranking is as
+`07-pain-register.md` §1 shows. The lesson is in the journal; the corrected numbers are in §1 there.
 
 ---
 
