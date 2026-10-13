@@ -212,7 +212,7 @@ python scripts/test_sync_alarm.py
 
 | item | why it matters | next action |
 |---|---|---|
-| **the authority's checkout is on a feature branch** (`hk/28-refresh-deployed-sources-20261013`) | its `scripts/` are an old lineage; the journal it carries is converged, the repository is not | converge onto `main` — the journal union made this a fast-forward question, not a merge |
+| **the authority's checkout is on a feature branch** (`hk/28-refresh-deployed-sources-20261013`) | its `scripts/` are an old lineage; the journal it carries is converged, the repository is not | **MEASURED, and this is a genuine merge, not a fast-forward:** `git rev-list --left-right --count main...zabz-yoga/main` = **104 / 117** — neither side is a superset. The authority now HAS this checkout's `main` (fetched into `refs/remotes/zabz-yoga/main`, working tree untouched, 21 dirty paths before and after). The merge itself needs conflicts read, and the authority's tree holds another session's live edits — see `H3622`. **Earlier revisions of this document called it "a fast-forward question, not a merge"; that was wrong**, inferred from the journal being converged rather than from the repositories |
 | **`deployed-drift.py` is not scheduled** | the script half can drift silently; `sync.py` now covers the *instruction* half only | a timer on the authority, or fold into an existing job |
 | **`phone-gate-allow.txt`, one address** | the running copy lacks the authority's own entry; a session is actively editing it | whoever owns that work decides; recorded as `H3619` |
 | **the desktop's engine version mismatch** | its sync reports "the RUNNING engine is 0.2.0-rc.2 but configuration names 0.1.5-rc.1" | re-pin or regenerate; found on the way |
