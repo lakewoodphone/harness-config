@@ -1076,6 +1076,7 @@ handoff	H3622	3622		2026-10-13 15:05 UTC	ZABZ-YOGA	open	## 2026-10-13 15:05 UTC 
 handoff	H3623	3623		2026-10-13 15:07 UTC	ZABZ-YOGA	open	## 2026-10-13 15:07 UTC · ZABZ-YOGA · The journal is consolidated but NOT self-maintaining: 3839 vs 3826, and why I was overclaiming	entries/handoff/H3623.md	1	33	5387b8d6030c650e	journal,divergence,overclaim,handoff	W2799,H3622
 handoff	H3624	3624		2026-10-13 15:12 UTC	ZABZ-YOGA	open	## 2026-10-13 15:12 UTC · ZABZ-YOGA · 122 journal ids mean TWO DIFFERENT ENTRIES -- and my union could not have caught it	entries/handoff/H3624.md	1	46	a6ef631cc62c39fb	journal,collision,overclaim,handoff	H3623,W2799
 handoff	H3625	3625		2026-10-13 15:20 UTC	ZABZ-YOGA	open	## 2026-10-13 15:20 UTC · ZABZ-YOGA · 122 cross-tree id collisions repaired; I blanked 122 files doing it and recovered them	entries/handoff/H3625.md	1	47	5cd10600e873a201	journal,collision,incident,recovery,handoff	H3624,H3623,P13
+handoff	H3626	3626		2026-10-13 17:39 UTC	SECRATARY-CLOUD	open	## 2026-10-13 17:39 UTC · SECRATARY-CLOUD · Ullman Lenovo IdeaPad 3 (NM-D471) - case filed from nothing, board identified from the schematic, one price set; bench trace is the next physical act	entries/handoff/H3626.md	1	27	a8705e9951656138	lpt,ullman,handoff	
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2614,6 +2615,7 @@ lessons	L3778	3778		2026-10-13	ZABZ-YOGA	open	**L3778 · A cutover leaves the co
 lessons	L3778b	3778	b	2026-10-13	SECRATARY-CLOUD	open	**L3778b · The stale-database failure recurred on the owner text line, live and unnoticed**	entries/lessons/L3778b.md	1	28	31fb0f1e100d72a1		
 lessons	L3779	3779		2026-10-13	ZABZ-YOGA	open	**L3779 · The owner queue's filing doctrine cannot be enforced by a regex; two designs measured 0/161 and 3/137**	entries/lessons/L3779.md	1	49	0438028e09cefdf5	owner-queue,negative-result,measurement,design	docs/dsh-evolution/07-pain-register.md,P2942
 lessons	L3779b	3779	b	2026-10-13	SECRATARY-CLOUD	open	**L3779b · A quiet SMS log is not a healthy channel - the machine got quieter while his experience got worse**	entries/lessons/L3779b.md	1	21	3171c5f8b852c78e		
+lessons	L3780	3780		2026-10-13	SECRATARY-CLOUD	open	**L3780 · The NM-D471 ITL6 board: BQ24780S, no input fuse, N-channel input FETs, and where its no-power fault lives**	entries/lessons/L3780.md	1	26	98963168c83da329	lpt,hardware,board-level,diagnosis	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3156,6 +3158,7 @@ pain	P3167	3167		2026-10-13	ZABZ-YOGA	open	## P3167 — The shop devices dialled
 pain	P3167b	3167	b	2026-10-13	SECRATARY-CLOUD	open	## P3167b — a script this host RUNS does not match the captured reference	entries/pain/P3167b.md	1	6	4978555d1d3b7982	deployed-drift,scripts,drift	
 pain	P3168	3168		2026-10-13	SECRATARY-CLOUD	open	## P3168 — Estate monitor: disk_free_deficit_gb is critical (5.546 GiB) across 303 consecutive runs	entries/pain/P3168.md	1	23	130ec989dc7b57ce	estate-monitor,auto-filed,not-the-owners	metrics/disk_free_deficit_gb
 pain	P3169	3169		2026-10-13	SECRATARY-CLOUD	open	## P3169 — Estate monitor: swap_used_pct is critical (77.26 %) across 6 consecutive runs	entries/pain/P3169.md	1	23	c3cde4ec55515af9	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
+pain	P3170	3170		2026-10-13	SECRATARY-CLOUD	open	## P3170 — A device can sit in the shop for a day with no production record, and nothing detects it	entries/pain/P3170.md	1	14	716e1a7c5e86b49b	lpt,intake,production,data-loss	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3589,6 +3592,8 @@ decisions	D3144	3144		2026-10-13	ZABZ-YOGA	open	**D3144 · 2026-10-13 · SUPERSE
 decisions	D3144b	3144	b	2026-10-13	SECRATARY-CLOUD	open	**D3144b · 2026-10-13 · The owner text line: ONE relay, and the router is the missing piece.**	entries/decisions/D3144b.md	1	39	5dba57e714f65467		
 decisions	D3145	3145		2026-10-13	ZABZ-YOGA	open	**D3145 · 2026-10-13 · The shop counter devices: managed web clips repointed at the authority and given an Icon payload.**	entries/decisions/D3145.md	1	45	fbe6b6f9d3cc548b	mdm,lpt,shop-devices,migration,icons	H-this-session
 decisions	D3146	3146		2026-10-13	ZABZ-YOGA	open	**D3146 · 2026-10-13 · The phone gate serves /apple-touch-icon.png and injects the link.**	entries/decisions/D3146.md	1	31	284f45aaa0953264	phone-gate,dsh,icons,harness-config	
+decisions	D3147	3147		2026-10-13	SECRATARY-CLOUD	open	**D3147 · 2026-10-13 · Ullman IdeaPad 3 (NM-D471): one price, not a menu - 150 all-in with the 50 already paid credited, data-only at 75 plus media if the board is dead.**	entries/decisions/D3147.md	1	18	c96ef119f10f746f	lpt,pricing,ullman	
+decisions	D3148	3148		2026-10-13	SECRATARY-CLOUD	open	**D3148 · 2026-10-13 · Owner answer, queue row #326: drebin's two repaired Canon items: is 75 the total or 75 each?.**	entries/decisions/D3148.md	1	11	d480b3121d31eb53	owner-answer	owner_decision_queue#326
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
