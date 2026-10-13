@@ -2257,6 +2257,8 @@ lessons	L3645	3645		2026-10-13	SECRATARY-CLOUD	open	**L3645 · I deployed a work
 lessons	L3646	3646		2026-10-13	SECRATARY-CLOUD	open	**L3646 · I diagnosed the reconciliation gap twice and was wrong twice; the third reading held**	entries/lessons/L3646.md	1	55	eb48b6342153f82c	finance,reconciliation,correction,hypothesis,lessons	
 lessons	L3647	3647		2026-10-13	SECRATARY-CLOUD	open	**L3647 · A duplicate rule needs a signal OUTSIDE the pair, and the order store is one**	entries/lessons/L3647.md	1	40	9ce14e5d22e080ab	finance,duplicates,evidence,lessons	
 lessons	L3648	3648		2026-10-13	SECRATARY-CLOUD	open	**L3648 · I installed a timer whose ExecStart pointed at a file I never installed**	entries/lessons/L3648.md	1	44	fce735cd7b0c9ad9	fleet,deployment,systemd,verification,lessons	
+lessons	L3649	3649		2026-10-13	SECRATARY-CLOUD	open	**L3649 · When two different subjects yield the SAME extracted number, the number is not from the subject**	entries/lessons/L3649.md	1	52	2cdcf8995457065d	marketplace,scraping,false-positive,lessons,abandoned	
+lessons	L3650	3650		2026-10-13	SECRATARY-CLOUD	open	**L3650 · Three marketplace suspicions, three clean measurements - and one decision I re-derived that was already documented**	entries/lessons/L3650.md	1	41	c752a9ff0b79fa1c		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -2675,6 +2677,7 @@ pain	P2998	2998		2026-10-13	SECRATARY-CLOUD	open	## P2998 — The owner text lin
 pain	P2999	2999		2026-10-13	SECRATARY-CLOUD	done	## P2999 — The owner's iPhone dictation has been broken for 13 days with nobody driving it to a close	entries/pain/P2999.md	1	33	57d225f4716ff985	owner-device,dictation,open-loop	
 pain	P3000	3000		2026-10-13	SECRATARY-CLOUD	open	## P3000 — The CFO program's second condition - reconciliation - was never measured at all	entries/pain/P3000.md	1	41	2b9579701439c833	cfo,reconciliation,measurement	
 pain	P3001	3001		2026-10-13	SECRATARY-CLOUD	open	## P3001 — Twenty-one account-months still do not reconcile, and they fall into two diagnosable classes	entries/pain/P3001.md	1	40	839b291321212578	finance,reconciliation,balance-snapshots	
+pain	P3002	3002		2026-10-13	SECRATARY-CLOUD	open	## P3002 — eBay sends ONE confirmation for several order numbers, and the store models one row per order	entries/pain/P3002.md	1	45	690dfa0e9771a53c		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3332,3 +3335,5 @@ wins	W2741	2741		2026-10-13	SECRATARY-CLOUD	open	**W2741 · 2026-10-13 · The ow
 wins	W2742	2742		2026-10-13	SECRATARY-CLOUD	open	**W2742 · 2026-10-13 · The owner's outflow figures were understated by 11,752.54, and I was part of the cause.**	entries/wins/W2742.md	1	48	a0304ffd628a48a9	finance,ledger,sign-convention,reporting-error,win	
 wins	W2743	2743		2026-10-13	SECRATARY-CLOUD	open	**W2743 · 2026-10-13 · The duplicate graph was wrong in BOTH directions, and the worse half was the hidden transactions.**	entries/wins/W2743.md	1	46	ab62114f1793de48	finance,ledger,duplicates,integrity,win	
 wins	W2744	2744		2026-10-13	SECRATARY-CLOUD	open	**W2744 · 2026-10-13 · The sign repair did not move a single reported number, and that was checked not assumed.**	entries/wins/W2744.md	1	33	f759499182089bc1	finance,forward-view,verification,win	
+wins	W2745	2745		2026-10-13	SECRATARY-CLOUD	open	**W2745 · 2026-10-13 · Reconciliation was solving half the problem it could see, because the fast path skipped the mail.**	entries/wins/W2745.md	1	32	c04e9594413b02cb	finance,reconciliation,measurement,win	
+wins	W2746	2746		2026-10-13	SECRATARY-CLOUD	open	**W2746 · 2026-10-13 · The orders with no total: 19 were already on the box, 125 are a source limit worth naming.**	entries/wins/W2746.md	1	36	2a71f15ff01924a8	finance,marketplace,recovery,win	
