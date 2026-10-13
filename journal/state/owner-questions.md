@@ -6,7 +6,7 @@ Updated: 2026-10-13
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 484 row(s) read, 160 pending, generated 2026-10-13 09:38 UTC on SECRATARY-CLOUD.
+Provenance: 486 row(s) read, 161 pending, generated 2026-10-13 10:38 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -160,6 +160,7 @@ Provenance: 484 row(s) read, 160 pending, generated 2026-10-13 09:38 UTC on SECR
 | 482 | 2026-10-13 | medium | You had a Chase card ending 9680 sending statements in mid-2025 (balances 2349.79, 2561.85, 8579.39, 5379.86 between June and October) and there is no account for it here. What was that card, and is it closed? | Tell me only whether a card ending 9680 was yours. If it was, it is a fifth Chase card whose 2025 spending is missing from the ledger and I will size the gap; if it was not, the statement reader is matching something it  |
 | 484 | 2026-10-13 | medium | Authorise reclaiming about 5 GiB of shift-created scratch on the authority host (/ is 89 percent full, 8.0 GiB free, 23.85 GiB DB) before it fills? | I recommend reclaiming only the dated, already-on-origin scratch (/root/git-rescue-20261012, /root/finance-fleet-20261013, /tmp/rr-fix, /root/.cache/puppeteer), which is reproducible or already pushed, and keeping the DB |
 | 485 | 2026-10-13 | medium | Promote PR #92 (the rentals schema-init fix) into origin/master of lakewoodphone/personal-secretary-mvp? It is OPEN, MERGEABLE and CLEAN and the merged tree is proven green, but no actor may write main, so origin/master stays broken at 97dc8fbf and the next rentals deploy cannot succeed. | I recommend promoting PR #92 now - it is a one-file fix, the merged tree passes the full rentals suite 14/14 on node 24, and nothing else in rentals is blocked. If you would rather not be the merge button, grant one desi |
+| 487 | 2026-10-13 | medium | May I stop and disable mesh-broker.service on the frozen office box secratary now that the authority secratary-cloud runs its own broker on :3091? | Yes - stop and disable the office one. The cloud broker is deployed and measured answering (healthz HTTP 200, started 2026-10-12T13:58:35Z), and two brokers for one mesh is a double-dispatch hazard (docs/mesh/154, option |
 | 262 | 2026-10-05 | low | ZABZ-TECH's RDP service is wedged and only a reboot will activate microphone passthrough (your Yoga mic appearing as a real recording device inside ZABZ-TECH). Reboot that machine, or stay on Chrome Remote Desktop and dictate on the Yoga side instead? | Dictate on the Yoga side first: it needs no reboot, and installing Handy with local Whisper and one toggle hotkey turns speech into text and pastes it, which is exactly what crosses Chrome Remote Desktop. Reach for the R |
 | 306 | 2026-10-07 | low | What was the 127.95 charge at US MOBILE on 20 Sep (card ending 3929) - no live charge in this ledger carries the merchant 'desc mobile'? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 | 329 | 2026-10-08 | low | Birnbaum's AirTags: waived for free as the call says, or billed 75? | Waive it: the shop's own words were that he could have it free, and billing a freebie after the fact costs more in trust than 75 is worth. |
@@ -171,4 +172,4 @@ Provenance: 484 row(s) read, 160 pending, generated 2026-10-13 09:38 UTC on SECR
 | 457 | 2026-10-13 | low | What was the 92.84 charge at lcd screen on 17 Sep (card ending 3929) - the closest answer we hold for 'Lcd Screen' is 'Electronics & Devices' but entity 'lpt' has no category named 'Electronics & Devices' and none of its categories means the same thing? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 | 460 | 2026-10-13 | low | The OpenAI spend feed cannot be read with the current key: it has no api.usage.read scope. Create an admin key so the CFO can track OpenAI spend, or drop that feed? | Option 1, and it is small: an admin key with api.usage.read is a read-only scope and the script already works end to end - it fetched PayPal's 759 records and Twilio's 38 usage lines on the same loader today. Option 2 is |
 
-Closed since the queue opened: 324. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 325. Answered questions move to `entries/decisions/` with the owner's own words.
