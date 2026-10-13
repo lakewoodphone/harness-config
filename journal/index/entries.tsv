@@ -2670,6 +2670,7 @@ pain	P2997	2997		2026-10-13	SECRATARY-CLOUD	open	## P2997 — The CFO asks the o
 pain	P2998	2998		2026-10-13	SECRATARY-CLOUD	open	## P2998 — The owner text line was dead because three modules were never ported at the cloud cutover	entries/pain/P2998.md	1	50	eadb9de130fe9116	sms,owner-channel,deployment,cutover,root-cause	
 pain	P2999	2999		2026-10-13	SECRATARY-CLOUD	done	## P2999 — The owner's iPhone dictation has been broken for 13 days with nobody driving it to a close	entries/pain/P2999.md	1	33	57d225f4716ff985	owner-device,dictation,open-loop	
 pain	P3000	3000		2026-10-13	SECRATARY-CLOUD	open	## P3000 — The CFO program's second condition - reconciliation - was never measured at all	entries/pain/P3000.md	1	41	2b9579701439c833	cfo,reconciliation,measurement	
+pain	P3001	3001		2026-10-13	SECRATARY-CLOUD	open	## P3001 — Twenty-one account-months still do not reconcile, and they fall into two diagnosable classes	entries/pain/P3001.md	1	40	839b291321212578	finance,reconciliation,balance-snapshots	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3324,3 +3325,4 @@ wins	W2738	2738		2026-10-13	SECRATARY-CLOUD	open	**W2738 · 2026-10-13 · The ow
 wins	W2739	2739		2026-10-13	SECRATARY-CLOUD	open	**W2739 · 2026-10-13 · One line unblocked 35 percent of the CFO backlog that could never have been reached.**	entries/wins/W2739.md	1	31	a9703958c726fb13	cfo,normalisation,root-cause,win	
 wins	W2740	2740		2026-10-13	SECRATARY-CLOUD	open	**W2740 · 2026-10-13 · Statement recovery is real but small, and the ledger is more complete than it looked.**	entries/wins/W2740.md	1	31	1934fc308cf8494d	finance,backfill,recovery,win	
 wins	W2741	2741		2026-10-13	SECRATARY-CLOUD	open	**W2741 · 2026-10-13 · The owner's answers can finally be recognised: the missing link was an empty question list.**	entries/wins/W2741.md	1	48	180d1a8222a19ef8	sms,owner-channel,root-cause,win	
+wins	W2742	2742		2026-10-13	SECRATARY-CLOUD	open	**W2742 · 2026-10-13 · The owner's outflow figures were understated by 11,752.54, and I was part of the cause.**	entries/wins/W2742.md	1	48	a0304ffd628a48a9	finance,ledger,sign-convention,reporting-error,win	
