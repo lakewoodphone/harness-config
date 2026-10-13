@@ -2311,6 +2311,7 @@ lessons	L3692	3692		2026-10-13	SECRATARY-CLOUD	open	**L3692 · The two open ques
 lessons	L3693	3693		2026-10-13	SECRATARY-CLOUD	open	**L3693 · PayPal IS in the matcher's scope (607 rows); and 130 of the 484 matches are to a feed, not a card**	entries/lessons/L3693.md	1	35	13da236479ea8a03		
 lessons	L3694	3694		2026-10-13	SECRATARY-CLOUD	open	**L3694 · D01-2770781-9853015 is an Amazon digital order, not a broken join**	entries/lessons/L3694.md	1	33	0c9702b339a274a7		
 lessons	L3695	3695		2026-10-13	SECRATARY-CLOUD	open	**L3695 · Clause 3's bound is confirmed by the tool itself: no in-ledger source reaches before 2026-07-01**	entries/lessons/L3695.md	1	39	98768382a8bfb6b0		
+lessons	L3696	3696		2026-10-13	SECRATARY-CLOUD	open	**L3696 · The full pass found 44 more purchases and exposed a parser gap: 80 unitemised, none backfillable**	entries/lessons/L3696.md	1	36	89f6f59932f0c4b1		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3440,3 +3441,5 @@ wins	W2784	2784		2026-10-13	SECRATARY-CLOUD	open	**W2784 · 2026-10-13 · Busine
 wins	W2785	2785		2026-10-13	SECRATARY-CLOUD	open	**W2785 · 2026-10-13 · Clause 1 is already durable: finance-freshness is a wake source that alarms on what FEEDS each source.**	entries/wins/W2785.md	1	40	7d548931c9aef8b6		
 wins	W2786	2786		2026-10-13	SECRATARY-CLOUD	open	**W2786 · 2026-10-13 · Clause 5's machinery is exercised both ways: one ask auto-resolved, 54 rules learned.**	entries/wins/W2786.md	1	42	6e1a7e4d1f6b5641		
 wins	W2787	2787		2026-10-13	SECRATARY-CLOUD	open	**W2787 · 2026-10-13 · Marketplace: the 90-day window needed a monthly full pass behind it, and now has one.**	entries/wins/W2787.md	1	27	1a00aa37abd02b3c		
+wins	W2788	2788		2026-10-13	SECRATARY-CLOUD	open	**W2788 · 2026-10-13 · The monthly full pass gained 30 matches on its first run: matched 484 -> 514.**	entries/wins/W2788.md	1	32	7efc180b4521f132		
+wins	W2789	2789		2026-10-13	SECRATARY-CLOUD	open	**W2789 · 2026-10-13 · Amazon item parser fixed: two missing layouts, 28 purchases recovered, items sum to the total to the cent.**	entries/wins/W2789.md	1	52	066d6b17400d6cdb		
