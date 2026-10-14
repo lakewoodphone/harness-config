@@ -282,26 +282,42 @@ rising, and today it changed in kind:
 | `completed` % | 17.6 | 24.0 | 27.1 | 29.6 | 33.8 | 25.3 | 27.3 | 32.3 | **36.3** |
 | evidence-backed (`[TASK-CLOSED-BY-SESSION]`) | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **24** |
 
-**A live loop change landed during this session, applied by another session, not by this program.**
-`/opt/company/app/autopilot.py` was modified at **2026-10-14T07:23:44Z** (md5 `30a4a185a8e2839509
-2032fc4d367f36`, 522,614 B; backup `autopilot.py.bak-item80-20261014T072225Z`), and the live file now
-carries `_WORK_MAX_STEPS = 20` (was 5) with a hard ceiling of 30 — which is edit **P1** of
-`55-company-design.md` — plus the evidence-based completion markers `[ARTEFACT:`, `[OUTBOUND:`,
-`[TASK-CLOSED-BY-SESSION:` and the comment "`[WORK_DONE]` is an intent to finish, never the verdict"
-— which is **P4**. `app/services/autonomy.py`, the gate build's target, is **untouched** (Jul 1).
+**A live change landed in the company today, and my first account of it was wrong in two ways.** The
+facts, each with its command:
 
-**Measured effect of that change, today, before vs after 07:23Z** (`work_sessions`):
+* `/opt/company/app/autopilot.py` was last modified **2026-10-14T07:23:44Z** (md5 `30a4a185a8e2839509
+  2032fc4d367f36`, 522,614 B; backup `autopilot.py.bak-item80-20261014T072225Z`, 520,915 B).
+* **What that edit actually was:** `diff` of the backup against the live file gives **69 changed lines,
+  none of them the budget and none of them the completion markers.** It is a *calendar-pinned
+  daily-reconciliation gate* (ledger items 80/173) whose own comment records its justification —
+  *"last run 20.87h old, ZERO ok rows for today — the old gate said SKIP; and 2026-10-12 got no run at
+  all"*. A real fix; a different one.
+* **P1 and P4 were already present before it:** the **pre-07:23 backup** contains
+  `2875: _WORK_MAX_STEPS = 20` and 5 occurrences of the evidence markers. They landed earlier today,
+  most plausibly as the "446-line uncommitted production fix" another session preserved at 01:58Z
+  (`H3648`). Their landing time is **not established**.
+* `app/services/autonomy.py` — the gate build's target — is **untouched** (Jul 1). **P6 is not live and
+  the safety hole is open.**
 
-| | sessions | completed | failed | completed % | STEP_BUDGET_EXHAUSTED | TOOL_LOOP_DEADLOCK | STALLED |
+**And the behavioural comparison I first published across 07:23 was invalid, because a Python edit does
+not take effect at the edit.** `systemctl show company-api -p ExecMainStartTimestamp` → **11:58:34Z**;
+`journalctl -u company-api` shows the boot at 01:14:09, a scheduled restart at **05:35:38** (counter 1),
+and the next start at 11:58:34. The process that ran from 05:35 to 11:55 **never loaded the 07:23 file**.
+So both halves of my table ran the same code and nothing in the difference is attributable to that edit.
+
+The time series survives; the cause does not:
+
+| window (2026-10-14) | sessions | completed | failed | completed % | STEP_BUDGET_EXHAUSTED | TOOL_LOOP_DEADLOCK | STALLED |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| before 07:23 | 65 | 25 | 34 | **38.5 %** | 32 | 13 | 6 |
-| after 07:23 | 26 | 8 | 14 | **30.8 %** | 5 | 7 | 10 |
+| 00:00–07:23 | 65 | 25 | 34 | 38.5 % | 32 (49 %) | 13 (20 %) | 6 (9 %) |
+| 07:23–11:50 | 26 | 8 | 14 | 30.8 % | 5 (19 %) | 7 (27 %) | 10 (38 %) |
 
-**The budget fix did not move the outcome; it moved the failure.** Budget exhaustion as a share fell
-from 49 % to 19 %, and stalling rose from 9 % to 38 % of sessions — the fix removed the wall in front
-of the next wall. At n=26 the completion difference is noise, and it is recorded as noise rather than
-as a regression. **The conclusion is that P3 (a stall changes strategy instead of ending the session)
-is now the dominant residual failure, and it is the one to build next.**
+At n=26 the completion difference is noise. The failure **mix** moved and the outcome did not, and
+**the cause is unknown**. The defensible conclusion is only that `STALLED_REPEATING_OUTPUT` is the
+largest residual failure class in the latest window, so **P3 is the right thing to build next** — with
+its share attributed to nothing. **The rule this bought: the boundary of a behavioural measurement is
+when the running process picked the code up, not when the file was written. Check
+`ExecMainStartTimestamp` before splitting a time series on an mtime.** (`L3803`.)
 
 **The finding that reframes the headline.** There are **two** always-alive systems on the authority, and
 round 2 audited only one of them:

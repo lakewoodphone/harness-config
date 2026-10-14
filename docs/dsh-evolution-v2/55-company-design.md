@@ -221,33 +221,72 @@ what generates a measurable share of the failure population.
 
 ## R1. Two of the ten changes are already live — applied by another session, not by this program
 
-Verified on `secratary-cloud`, read-only, 2026-10-14 ~12:15Z: `/opt/company/app/autopilot.py` was
+Verified on `secratary-cloud`, read-only, 2026-10-14 ~12:15Z. `/opt/company/app/autopilot.py` was last
 modified at **07:23:44Z** (md5 `30a4a185a8e28395092032fc4d367f36`, 522,614 B; backup
-`autopilot.py.bak-item80-20261014T072225Z`). The live file now carries:
+`autopilot.py.bak-item80-20261014T072225Z`, 520,915 B). The live file carries:
 
 * **P1, live**, in the exact shape asked for: `_WORK_MAX_STEPS = 20` (was 5), `_WORK_ABSOLUTE_MAX_STEPS = 30`, `_WORK_ABSOLUTE_MAX_TURNS = 60`.
 * **P4, live**: `[WORK_DONE]` is documented in the source as *"an intent to finish, never the verdict"*,
   with completion recorded through `[ARTEFACT:`, `[OUTBOUND:` and `[TASK-CLOSED-BY-SESSION:` markers.
 
+> **CORRECTION, made within the hour, because the first version of this section implied the 07:23 edit
+> introduced P1 and P4. It did not.** Diffing the 07:22:25Z backup against the live file shows **69
+> changed lines, none of them the budget and none of them the markers**: the 07:23 edit is a
+> *calendar-pinned daily-reconciliation gate* (ledger items 80/173) whose own comment records the
+> measurement that justified it — *"last run 20.87h old, ZERO ok rows for today — the old gate said
+> SKIP; and 2026-10-12 got no run at all (36h between run 294 at 10-11T14:45Z and run 295 at
+> 10-13T02:49Z)."* That is a real and separately-justified fix; it is simply a different one.
+>
+> **P1 and P4 were already in the file before that edit**: `grep -nE "_WORK_MAX_STEPS ="` on the
+> **pre-07:23 backup** returns `2875: _WORK_MAX_STEPS = 20`, and the same backup contains 5 occurrences
+> of the evidence markers. So P1/P4 landed earlier today, most plausibly as the "446-line uncommitted
+> production fix" that another session preserved at 01:58Z (`H3648`). **The honest statement is: P1 and
+> P4 are live, their landing time is not established, and no behavioural measurement in this document
+> is attributed to them.**
+
 `app/services/autonomy.py` — the gate build's target — is **untouched** (Jul 1 04:10), so **P6 is not
 live and the safety hole in D6 is open right now**: the dispatcher has 147 action names, the matrix 56,
 and an action with no row resolves to L4, *execute immediately, no human*.
 
-## R2. The budget fix moved the failure class and did not move the outcome — measured
+`app/services/autonomy.py` — the gate build's target — is **untouched** (Jul 1 04:10), so **P6 is not
+live and the safety hole in D6 is open right now**: the dispatcher has 147 action names, the matrix 56,
+and an action with no row resolves to L4, *execute immediately, no human*.
 
-`work_sessions` started 2026-10-14, split at 07:23:00:
+## R2. A failure-class shift happened today and this program CANNOT attribute it — the attribution it first published was wrong
 
-| window | sessions | completed | failed | completed % | STEP_BUDGET_EXHAUSTED | TOOL_LOOP_DEADLOCK | STALLED_REPEATING |
+**What I first published, and why it was wrong.** I split `work_sessions` at 07:23:00 — the mtime of
+`autopilot.py` — and reported that the budget fix had collapsed `STEP_BUDGET_EXHAUSTED` from 32 sessions
+to 5 while `STALLED_REPEATING_OUTPUT` rose from 9 % to 38 %, concluding that "the fix moved the failure".
+**Two independent errors, both fatal to that conclusion:**
+
+1. **A Python edit does not take effect at the edit.** The service that ran through 07:23 had started at
+   **05:35:38Z** (`systemctl show company-api -p ExecMainStartTimestamp` and `journalctl -u company-api`
+   show the boot at 01:14:09, a scheduled restart at 05:35:38 with `NRestarts` counter 1, and the
+   next start at **11:58:34Z**). So both halves of my table ran the *same* code, and nothing in the
+   difference is attributable to the 07:23 edit.
+2. **The 07:23 edit was not the budget change at all** (R1's correction): it is a calendar-pinned
+   reconciliation gate, 69 changed lines, and the pre-07:23 backup already had `_WORK_MAX_STEPS = 20`.
+
+**What survives is the time series, with no cause attached:**
+
+| window (2026-10-14) | sessions | completed | failed | completed % | STEP_BUDGET_EXHAUSTED | TOOL_LOOP_DEADLOCK | STALLED_REPEATING |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| before 07:23 | 65 | 25 | 34 | 38.5 % | 32 (49 %) | 13 (20 %) | 6 (9 %) |
-| after 07:23 | 26 | 8 | 14 | 30.8 % | 5 (19 %) | 7 (27 %) | 10 (38 %) |
+| 00:00–07:23 | 65 | 25 | 34 | 38.5 % | 32 (49 %) | 13 (20 %) | 6 (9 %) |
+| 07:23–11:50 | 26 | 8 | 14 | 30.8 % | 5 (19 %) | 7 (27 %) | 10 (38 %) |
 
-Budget exhaustion collapsed, exactly as intended. The completion share did not move, and at n=26 that
-difference is noise rather than a regression. **Stalling became the dominant residual failure at 38 %
-of sessions.** So the next change is **P3, not P2 and not P5.**
+The completion difference is inside noise at n=26. **The failure MIX moved and the outcome did not, but
+the cause is unknown** — it could be the tick's cadence, the mix of tasks the day brought, a
+longer-running effect of P1/P4, or nothing. **The only defensible reading is that
+`STALLED_REPEATING_OUTPUT` is the largest residual failure class in the most recent window, so P3 is the
+right thing to build next; the share is not attributed to any change.**
 
-Evidence-backed completions (`output_log LIKE '%TASK-CLOSED-BY-SESSION%'`) are **24 today and 0 on each
-of the preceding eight days** — a qualitative change did land even though the rate did not move.
+**The one genuine before/after in this document** is the completion *mechanism*, not the rate:
+`output_log LIKE '%TASK-CLOSED-BY-SESSION%'` matched **24 sessions today and 0 on each of the eight
+preceding days** (`SELECT date(started_at), COUNT(*) … GROUP BY 1`). A qualitative change did land today.
+
+**The lesson, which generalises well beyond this document:** *the boundary of a behavioural measurement
+is when the running process picked the code up, not when the file was written.* Check
+`ExecMainStartTimestamp` before you split a time series on an mtime. Recorded as `L3803`.
 
 ## R3. The framing correction: the company is not the only always-alive agent, and it is not the best one
 
@@ -273,8 +312,9 @@ one is the strongest evidence in this document**: the system records an honest p
 1. **P6 — the gate fails closed.** It is a live safety hole (`fire_agent`, `hire_department`,
    `delete_tool`, and the whole `shop_*` / `website_*` family can execute unattended), the build exists
    in `/root/work/evolve2-gate`, and `autonomy.py` has not moved since July, so the patch is clean.
-2. **P3 — a stall changes strategy.** Now the dominant residual failure at 38 %. Build on the **live**
-   `autopilot.py` (07:23 revision), never on a stale base.
+2. **P3 — a stall changes strategy.** Stalling is the largest single residual failure class in the most
+   recent measured window (38 %, cause not attributed — see R2). Build on the **live** `autopilot.py`
+   as it stands, never on a stale base, and re-check `ExecMainStartTimestamp` before claiming an effect.
 3. **Dead weight and the reporting defect.** Retire the genuinely dead (`fleet_location_poll`, dead
    since 2026-09-29); **repair** amazon/ebay (their `tsx` devDependency is simply not installed — this
    is not a dead subsystem, it is a missing `npm install`, and calling it dead would be wrong); fix
@@ -304,7 +344,7 @@ over at least 50 sessions — then the ledger discipline is not what is doing th
 |---|---|---|
 | work sessions `completed`, 7 days | 237 of 786 (**30.2 %**) | > 80 % |
 | evidence-backed completions per day | **24 today, 0 on the 8 preceding days** | all of them |
-| `STALLED_REPEATING_OUTPUT` share of sessions | **38 % after the budget fix** | < 5 % |
+| `STALLED_REPEATING_OUTPUT` share of sessions | 38 % in the 07:23–11:50 window (cause not attributed) | < 5 % |
 | actions resolving to L4 with no explicit row | ~91 | **0**, asserted by a test |
 | 7-day model spend | ~123 USD | down, at equal or better outcome |
 | cost per proven item | company ~0.53 USD, wake loop **0.0900 USD** | measured and published weekly |
