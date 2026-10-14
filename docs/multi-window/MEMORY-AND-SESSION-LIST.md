@@ -87,6 +87,12 @@ projection at 8 windows is 17 processes against 72.
 (`dsh-api-session-controller/lib/client.js:3058`). A distinct loopback **port** is a distinct
 origin, so each window keeps its own session slot *without* owning a browser.
 
+**The origin isolates the pointer, not the catalog — measured 2026-10-14.** A window that has no
+session yet also picks its blank session out of the *shared* session catalog, and upstream picked
+any blank row in the workspace, so two empty windows adopted one session and rendered it together
+(the owner's complaint of 2026-10-14). The blank is now owned per origin too; see
+`WINDOW-BLANK-ISOLATION.md` for the cause, the patch, and the two-window A/B that reproduces it.
+
 The engine binds `127.0.0.1:3099` only, so `127.0.0.2..` are unreachable, and the `/api`
 browser-trust fence **403s** `w1.localhost` while accepting **any** `127.0.0.1:<port>` (401 = fence
 passed, auth missing). A loopback port alias is therefore the only origin trick that needs no
