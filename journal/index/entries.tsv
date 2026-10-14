@@ -1099,6 +1099,7 @@ handoff	H3674	3674		2026-10-14 14:57 UTC	secratary-cloud	open	## 2026-10-14 14:5
 handoff	H3675	3675		2026-10-14 15:08 UTC	SECRATARY-CLOUD	open	## 2026-10-14 15:08 UTC · SECRATARY-CLOUD · Waze voice input round 2: one key explains both symptoms, and our own filter blocks the model	entries/handoff/H3675.md	1	66	84b7b8d61d3fa496		
 handoff	H3676	3676		2026-10-14 15:36 UTC	SECRATARY-CLOUD	open	## 2026-10-14 15:36 UTC · SECRATARY-CLOUD · Kamera research complete and pushed; the ABM 2.5 clause reaches the live Waze product	entries/handoff/H3676.md	1	74	dc1cbe85762ee3eb		
 handoff	H3779	3779		2026-10-14 15:45 UTC	SECRATARY-CLOUD	open	## 2026-10-14 15:45 UTC · SECRATARY-CLOUD · Mendelowitz iPhone walk-in: case file+sync record+SOP were stranded on a shift branch (moved to main), completion label printed, pickup text SENT (Dialpad 6459093200707584); two record defects of the same shape - a record describing a state that had stopped being true	entries/handoff/H3779.md	1	57	31ee66d4ead4eb44	lpt-hub,case-record,dialpad,label	lpt-hub
+handoff	H3780	3780		2026-10-14 16:37 UTC	SECRATARY-CLOUD	open	## 2026-10-14 16:37 UTC · SECRATARY-CLOUD · Waze voice input LIVE: dictation on all six units, Apple CDN open, phase-1 landmine removed	entries/handoff/H3780.md	1	50	2157dbe5ec441230		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2667,6 +2668,7 @@ lessons	L3825	3825		2026-10-14	SECRATARY-CLOUD	open	**L3825 · A device is a con
 lessons	L3826	3826		2026-10-14	SECRATARY-CLOUD	open	**L3826 · A case file and its credential companion can land on different branches; main then carries a record whose case file it does not have**	entries/lessons/L3826.md	1	58	47ccbdb7d64ee5a9	lpt-hub,case-record,git-divergence	lpt-hub
 lessons	L3827	3827		2026-10-14	SECRATARY-CLOUD	open	**L3827 · Apple device-management docs are client-rendered; read Apple's schema repo instead**	entries/lessons/L3827.md	1	22	fcce8cd681a12954		
 lessons	L3828	3828		2026-10-14	SECRATARY-CLOUD	open	**L3828 · CORRECTION to H3676 and P3206: the branch is research/kosher-camera**	entries/lessons/L3828.md	1	28	bc2d73bdfd6c0a61		
+lessons	L3936	3936		2026-10-14	SECRATARY-CLOUD	open	**L3936 · A fleet held a version by accident: a DNS refusal was doing the work of an update policy**	entries/lessons/L3936.md	1	33	1bb1db05a8317aa0		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
