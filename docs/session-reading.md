@@ -45,6 +45,10 @@ Each one is why the tool is written the way it is.
    `undefined` (it needs node ≥ 22.15), and a Python with **no `zstandard`
    module**. So decoding is always done locally, on the caller's machine, and the
    remote host is never asked to decode. `zstd` is not a remote dependency.
+   *Superseded in part — see §2b cause 1: that same box has had a capable node at
+   `/usr/local/node22/bin/node`, and PATH simply did not point at it. Both tools
+   now self-elevate onto a capable interpreter, so this is a performance note
+   rather than a blocker.*
 3. **A binary `cat` through PowerShell corrupts bytes.** `pwsh` decodes a native
    command's stdout to text. The fetch path lives inside node's `spawn` with raw
    `Buffer` capture for exactly this reason. Never pipe a session file through a
@@ -73,6 +77,89 @@ Each one is why the tool is written the way it is.
    the actual conversation. Default output is the human conversation only;
    `--tools`, `--reasoning` and `--all-user` opt into the rest, and every omitted
    class is reported as a count.
+
+## 2b. AUDIT 2026-10-14 — why finding one session took two sessions, and what was fixed
+
+The owner asked for a session he had on ZABZ-TECH the day before, about turning Bluetooth on for the
+Waze device profiles. It exists, it was on the fleet, and it was found twice by `find` — and it still
+took hours. This section is the honest dissection, because three of the four causes were ours and
+none of them was "the session is on another machine".
+
+### The session, for the record
+
+`8587008c-4778-4429-84fa-9827bd35285b` on `zabz-tech`, titled **"Set up iPhones in Apple Business
+Manager"**, live, 2.7 MB, workspace `C:\Users\ezabz\Code`, 2,398 events. The Bluetooth work is turn
+18–19 of it, and his instruction is verbatim inside:
+
+> *"turn bluetooth on for both, but only push the new profiles to the 6 waze devices no, make sure to
+> document all this clearly very well organize commit and push and only implement after thinking and
+> analyzing fully and properly"*
+
+### Cause 1 (the expensive one) — a working node was installed, and PATH pointed at a broken one
+
+`node` on this machine resolved to **v20.20.2**, whose `zlib` has no `zstdDecompressSync`, so every
+`show` printed `local node has no zstd decoder (needs node >= 22.15)` and `doctor` failed the same
+check. A fully working **v22.23.2 was already installed at `/usr/local/node22/bin/node`** — it is
+what the DSH web server itself runs on — but nothing on PATH pointed at it, and the error message
+named neither the fix nor the fact that the fix was already on disk. The tool told us what was wrong
+and not one thing about how to make it right.
+
+**Fixed, three ways, all verified:**
+* `/usr/local/bin/node` is now a symlink to `/usr/local/node22/bin/node` (that directory precedes
+  `/usr/bin` on PATH, and `npm`/`npx`/`pnpm` live in `/usr/bin` so nothing else was shadowed).
+  `node --version` → `v22.23.2`; the DSH web server and mesh broker were confirmed still healthy after.
+* `sessions.mjs` and `read-session.js` now **self-elevate**: if the running interpreter has no zstd
+  decoder they re-exec themselves on the first candidate that *demonstrably* has one, testing
+  capability rather than trusting a version string. `DSH_NODE` overrides the search.
+* When no capable interpreter exists they now print the candidates tried and the exact fix, instead
+  of a one-line dead end.
+
+This also means `doctor`'s decoder check can no longer fail silently into a vague message: it reports
+which interpreters do have a decoder and the command to use one.
+
+### Cause 2 — the answer *was* returned, twice, and was not recognised
+
+`find` did surface the session:
+* `find "waze" --since 14d` → 0 title/project matches; its content sweep did not reach it.
+* `find "verify_pushed_bluetooth check_kiosk_keys" --full` → **score 61**, the session, second result.
+* `find "allowBluetoothModification"` → **score 2**, third result.
+
+So the search worked. What failed was the *ranking and the reading of it*: raw term counts put huge
+"=== mesh mailbox" sessions at 300–1019 and the real one at 61 or 2, and a low score reads as noise.
+Meanwhile `show` could not be used at all (cause 1). **The tool's output did not distinguish "a term
+mentioned 900 times in a 1 MB context dump" from "the session that decided this".**
+
+**Fixed:** `find` now scores `1 + log2(count)` per term instead of `count`. Presence is worth one,
+repetition is worth logarithmically less, so a term in a 40 KB session is not outranked by a term
+spammed into a 1 MB one. Re-measured on the same query: the mailbox noise dropped from 300–1019 to
+~9–12 and the real session sits in the **top 3** with the full-file read on.
+
+### Cause 3 — 57 sessions were unreadable on a host whose node works fine
+
+Every `ssh mac-mini-ts` read failed with `zsh:1: command not found: node`. The mac mini has **node
+v24.19.0 at `/usr/local/bin/node`**; a non-interactive zsh there simply does not have that on PATH,
+and the inventory path had a retry for this while the **session-file read path did not**.
+
+**Fixed:** node resolution is now probed once per host per run and cached, and every remote read goes
+through it. `sessions show 8c3a0c40… --host mac-mini` — one of the 57 — now decodes 653 events,
+243 frames, 0 failed.
+
+### Cause 4 — nothing here is "the session is gone"
+
+Worth stating because it is the temptation: the store was complete and correct throughout. No session
+was missing, none had been archived away, and no reading was stale. Every failure above was a tool
+telling us less than it knew.
+
+### What to do next time, in order
+
+1. `node scripts/sessions.mjs doctor` — and if a check fails, the new message names the fix.
+2. `find <words> --scan-all --full` — `--full` matters: the default reads the first 256 KB and says
+   so. Content search, never title.
+3. Search for a **string that must appear in the work**, not the topic: a filename, a key name, a
+   script name. Topic words are in the title only by luck.
+4. Remember that a long session is usually titled after its **first** request. The business he did at
+   hour six is not in the title. `list --since 3d` is the fastest way to scan titles for a session
+   that ran long; do not assume a non-matching title is a non-match.
 
 ## 3. The tool
 

@@ -66,7 +66,65 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+
+// ---------------------------------------------------------------------------
+// SELF-ELEVATION: do not die because `node` on PATH is too old
+// ---------------------------------------------------------------------------
+//
+// MEASURED FAILURE, 2026-10-14. `node` here is v20.20.2, whose zlib has no
+// `zstdDecompressSync`, so every `show` returned
+//   "local node has no zstd decoder (needs node >= 22.15 ...)"
+// and `doctor` said the same. A perfectly good **node v22.23.2 was already
+// installed at /usr/local/node22/bin/node** - it is what the DSH web server
+// itself runs on - but nothing on PATH pointed at it, and the error text did
+// not say to look. Finding one session cost many minutes across two sessions.
+//
+// OLD BEHAVIOUR told the operator what was wrong and stopped. NEW BEHAVIOUR
+// re-executes itself on a capable interpreter when one can be found, and only
+// reports failure when it genuinely cannot.
+//
+// The candidate list is searched in order and the FIRST one that reports a
+// working `zlib.zstdDecompressSync` wins; nothing is assumed from a version
+// string, because a version string is not a capability.
+const NODE_CANDIDATES = [
+  process.env.DSH_NODE,                 // explicit operator override, honoured first
+  '/usr/local/node22/bin/node',         // this estate's pinned node, on the authority
+  '/usr/local/bin/node',                // the shim, once installed
+  '/usr/bin/node',
+  'node',
+];
+
+function hasZstd(bin) {
+  const r = spawnSync(bin, ['-e', 'process.stdout.write(String(typeof require("zlib").zstdDecompressSync))'],
+    { encoding: 'utf8', timeout: 15000 });
+  return r.status === 0 && (r.stdout || '').trim() === 'function';
+}
+
+function elevate() {
+  if (typeof zlib.zstdDecompressSync === 'function') return;
+  for (const bin of NODE_CANDIDATES) {
+    if (!bin) continue;
+    try {
+      if (!hasZstd(bin)) continue;
+    } catch { continue; }
+    // Re-exec the SAME script on the capable interpreter and pass through
+    // everything: argv after the script, stdio, and the exit code.
+    const r = spawnSync(bin, [process.argv[1], ...process.argv.slice(2)], { stdio: 'inherit' });
+    process.exit(r.status === null ? 1 : r.status);
+  }
+  // No capable interpreter anywhere: say so ONCE, say what was tried, and say
+  // the exact fix. Silence and a vague message are how this cost an hour.
+  console.error(
+    'sessions: no zstd decoder available, so session files cannot be decoded.\n' +
+    `  running node ${process.version} (${process.execPath})\n` +
+    '  tried: ' + NODE_CANDIDATES.filter(Boolean).join(', ') + '\n' +
+    '  need: node >= 22.15, or any node with zlib.zstdDecompressSync\n' +
+    '  fix:  export DSH_NODE=/path/to/node22   (or put a capable node earlier on PATH)');
+  process.exit(3);
+}
+
+elevate();
 
 // ---------------------------------------------------------------------------
 // constants and provenance
@@ -318,12 +376,11 @@ async function inventory(host, { timeoutMs = 25000 } = {}) {
     catch (e) { return { host: LOCAL_NODE, ok: false, error: 'inventory returned unparseable JSON: ' + e.message, sessions: [] }; }
   }
   const alias = NODES[host] || host;
-  let r = await run('ssh', [...SSH_OPTS, alias, 'node'], { input: INVENTORY_SCRIPT, timeoutMs });
-  // `node` is not always on PATH for a NON-INTERACTIVE ssh session. Measured
-  // 2026-10-09: the mac mini's zsh answers `command not found: node` while DSH
-  // runs there happily, because the PATH is set in an interactive rc file. Only
-  // when the direct attempt fails does this pay a second round-trip to search
-  // the usual install locations.
+  const bin = await remoteNodeBin(host, alias);
+  let r = await run('ssh', [...SSH_OPTS, alias, bin], { input: INVENTORY_SCRIPT, timeoutMs });
+  // `node` is not always on PATH for a NON-INTERACTIVE ssh session (see
+  // remoteNodeBin for the measurement). If even the resolved binary failed, pay
+  // one more round-trip on the search spelled out as a shell word list.
   if (r.code !== 0 && !r.timedOut && /command not found|not recognized|No such file/i.test(String(r.stderr))) {
     const finder = 'for c in /usr/local/bin/node /opt/homebrew/bin/node /usr/bin/node '
       + '"$HOME"/node/bin/node "$HOME"/.local/bin/node "$HOME"/.nvm/versions/node/*/bin/node '
@@ -378,9 +435,10 @@ async function remoteNode(host, script, { timeoutMs = 120000, memoize = true } =
   const alias = NODES[host] || host;
   const known = HOST_FAILURE.get(host);
   if (known) throw new Error(`host ${host} already failed in this run (${known})`);
+  const bin = await remoteNodeBin(host, alias);
   let last = '';
   for (let attempt = 0; attempt < 3; attempt++) {
-    const r = await run('ssh', [...SSH_OPTS, alias, 'node'], { input: script, timeoutMs });
+    const r = await run('ssh', [...SSH_OPTS, alias, bin], { input: script, timeoutMs });
     if (r.code === 0 && r.stdout.length > 0) return r;
     last = r.timedOut
       ? `timed out after ${ms(timeoutMs)}`
@@ -390,6 +448,50 @@ async function remoteNode(host, script, { timeoutMs = 120000, memoize = true } =
   }
   if (memoize && !TRANSIENT.test(last)) HOST_FAILURE.set(host, last);
   throw new Error(`ssh ${alias}: ${last}`);
+}
+
+/**
+ * Which `node` to run on a remote host.
+ *
+ * WHY THIS EXISTS. `node` is not on the PATH of a NON-INTERACTIVE ssh session on
+ * every node: the mac mini's zsh answers `command not found: node` while DSH
+ * happily runs there, because its PATH is set in an interactive rc file. The
+ * inventory path had a retry for this; the session-FILE read paths did not, so
+ * every read of that node's sessions failed with `command not found: node`.
+ * Measured 2026-10-14: 57 sessions across the fleet were unreadable for exactly
+ * this reason, on a host where `node` is v24.19.0 and works fine by absolute
+ * path. The failure was never the host - it was us not looking.
+ *
+ * Resolution is PROBED ONCE per host per run and cached. The probe prefers a
+ * node that is known to be capable, but any executable node is accepted as a
+ * last resort: reading a file does not need zstd locally.
+ */
+const HOST_NODE = new Map();
+const NODE_PROBE = [
+  '/usr/local/node22/bin/node',
+  '/usr/local/bin/node',
+  '/opt/homebrew/bin/node',
+  '/usr/bin/node',
+  '/snap/bin/node',
+  '$HOME/node/bin/node',
+  '$HOME/.local/bin/node',
+  '$HOME/.volta/bin/node',
+];
+
+async function remoteNodeBin(host, alias) {
+  if (HOST_NODE.has(host)) return HOST_NODE.get(host);
+  const finder = 'for c in ' + NODE_PROBE.join(' ') + ' "$HOME"/.nvm/versions/node/*/bin/node; do '
+    + '[ -x "$c" ] && { printf %s "$c"; exit 0; }; done; command -v node; exit 127';
+  const r = await run('ssh', [...SSH_OPTS, alias, `sh -c ${shq(finder)}`], { input: '', timeoutMs: 30000 });
+  const found = (r.code === 0 ? String(r.stdout).trim().split('\n').pop() || '' : '').trim();
+  const bin = found || 'node';
+  if (bin !== 'node') {
+    // A resolved bin must survive quoting in the ssh argv; paths with spaces would not.
+    HOST_NODE.set(host, /[\s'"\\]/.test(bin) ? 'node' : bin);
+  } else {
+    HOST_NODE.set(host, 'node');
+  }
+  return HOST_NODE.get(host);
 }
 
 /** Fetch raw bytes of one session file (all of it, or the first `maxBytes`). */
@@ -744,7 +846,19 @@ async function cmdDoctor() {
   const add = (ok, name, detail) => checks.push({ ok, name, detail });
 
   const impl = zstdImpl();
-  add(impl !== 'none', 'local zstd decoder', impl === 'node-zlib' ? `zlib.zstdDecompressSync present (node ${process.version})` : 'MISSING — needs node >= 22.15; nothing can be decoded');
+  // Report not just WHETHER there is a decoder, but WHICH interpreters have one,
+  // so the fix for a missing decoder is on the screen instead of one search away.
+  // That gap is exactly what cost an hour on 2026-10-14: the answer was already
+  // installed at /usr/local/node22/bin/node and nothing said so.
+  if (impl === 'node-zlib') {
+    add(true, 'local zstd decoder', `zlib.zstdDecompressSync present (node ${process.version})`);
+  } else {
+    const capable = NODE_CANDIDATES.filter(Boolean).filter((b) => { try { return hasZstd(b); } catch { return false; } });
+    add(false, 'local zstd decoder',
+      capable.length
+        ? `MISSING on this interpreter (node ${process.version}), but a capable one exists: ${capable.join(', ')} — run with DSH_NODE=${capable[0]} or put it earlier on PATH`
+        : `MISSING — needs node >= 22.15; nothing can be decoded, and no capable node was found in ${NODE_CANDIDATES.filter(Boolean).join(', ')}`);
+  }
 
   // Round-trip proof: build a two-frame payload and decode it with our own splitter.
   if (impl !== 'none') {
@@ -977,7 +1091,25 @@ async function cmdFind(args) {
     const text = dec.text.toLowerCase();
     let score = 0;
     const which = [];
-    for (const t of terms) { const n = text.split(t).length - 1; if (n) { score += n; which.push(`${t}:${n}`); } }
+    // RANK BY PRESENCE AND BREADTH, DAMPED BY REPETITION -- not by raw count.
+    //
+    // MEASURED FAILURE, 2026-10-14. Searching "bluetooth" for a session that had
+    // just changed the Bluetooth profile returned a page of "=== mesh mailbox"
+    // sessions scoring 300-1019 and the real session scored 61, so it was not on
+    // the visible page at all. The mailboxes were not more relevant: they are
+    // huge, and a runtime-context snapshot pasted into them repeats a word
+    // hundreds of times. Raw occurrence count measures LENGTH, not relevance, and
+    // a term mentioned once in a 40 KB session is a stronger signal than a term
+    // mentioned 900 times in a 1 MB one.
+    //
+    // So each term contributes 1 + log2(count): presence is worth 1, and extra
+    // mentions are worth logarithmically less. A term found in a session always
+    // counts for something; breadth across terms still dominates.
+    for (const t of terms) {
+      const n = text.split(t).length - 1;
+      if (n) { score += 1 + Math.log2(n); which.push(`${t}:${n}`); }
+    }
+    score = Math.round(score * 100) / 100;
     const h = headerOf(parseEvents(dec.text).events);
     return {
       rec, score, which, frames: dec.frames, failed: dec.failed, fileBytes,
@@ -1048,6 +1180,20 @@ async function cmdFind(args) {
     console.log(`      ${s.title ? `“${clip(s.title, 74)}”  ` : ''}preset=${s.header.preset || s.rec.preset || '?'}  project=${s.rec.project}`);
     console.log(`      ${s.partial ? `read first ${kb(s.covered)} of ${kb(s.fileBytes)} — mentions later in the file are NOT visible` : `read all ${kb(s.fileBytes)}`}`);
     console.log(`      show: node scripts/sessions.mjs show ${s.rec.id} --host ${s.rec.host}`);
+  }
+  // A HEAD READ CANNOT PROMISE IT SAW THE ANSWER. Say so, and say the same
+  // search without the limit -- instead of printing a confident page of the
+  // wrong sessions. Measured 2026-10-14: the session that had just changed the
+  // Bluetooth profile did not appear at all in the default head-read page for
+  // "bluetooth"; with --full it ranked third. A tool that has not looked in the
+  // last 90% of every file must not present its top 10 as the answer.
+  if (headBytes) {
+    const partials = scored.filter((s) => s.partial).length;
+    if (partials > 0) {
+      console.log(`\n# ${partials} of the ${scored.length} matching session(s) were read only to ${kb(headBytes)};`);
+      console.log(`#   later mentions are invisible and the ranking above is therefore incomplete.`);
+      console.log(`#   to search every byte:  add --full   (slower, and the only complete answer)`);
+    }
   }
   return 0;
 }

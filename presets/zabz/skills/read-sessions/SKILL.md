@@ -53,5 +53,26 @@ name or any ssh alias. `--all` searches the whole fleet.
   transcript: `created_at` there is ingest time, the table can time out, and its FTS
   rowids disagree with the base table in 23.5 % of rows.
 
+## Finding the session he means, when the topic is not in the title (2026-10-14)
+
+A session titled **"Set up iPhones in Apple Business Manager"** is the one that turned Bluetooth on
+for the Waze kiosks. Searching for the topic — `waze`, `bluetooth` — did not lead there, and that cost
+hours. The work was turn 18 of a 2,398-event, 2.7 MB session titled after its *first* request.
+
+* **Search for a string that must appear in the work, not the topic.** A filename, a profile key, a
+  script name. `find "verify_pushed_bluetooth check_kiosk_keys" --full` found it in one shot; the
+  topic word did not.
+* **`--full` is not optional when the answer matters.** The default reads the first 256 KB and says so
+  on every line. A long session's decision is usually past that.
+* **A long session is titled after its opening request.** When `find` gives nothing on the topic, run
+  `list --since 3d --sub` and read the *titles of long sessions* — a 2.7 MB session that does not
+  mention your topic in its title is the most likely suspect, not the least.
+* **Do not dismiss a low score as noise.** `find` ranks by term presence damped by repetition
+  (changed 2026-10-14, because raw counts let a 1 MB runtime-context dump outrank the real session
+  300-to-1). If a session is in the list at all, read its header and its `--user` turns before
+  deciding it is not the one.
+* **If `doctor` reports a missing decoder, the fix is printed with it.** The tools now self-elevate
+  onto any capable node they can find; if you see that message, set `DSH_NODE` to a node ≥ 22.15.
+
 Full detail, measurements and the predecessor tools' defects:
 `~/code/harness-config/docs/session-reading.md`.

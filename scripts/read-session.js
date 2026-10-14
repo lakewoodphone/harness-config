@@ -34,6 +34,44 @@ const SESSIONS = path.join(DSH_HOME, 'sessions');
 const PROJCACHE = path.join(DSH_HOME, 'storages', 'session_projcache', 'sessions');
 const ZSTD_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
 
+// ---------------------------------------------------------------------------
+// SELF-ELEVATION: do not die because `node` on PATH is too old.
+// Same defect as sessions.mjs; see the long note there. Measured 2026-10-14:
+// `node` resolved to v20 (whose zlib has no zstdDecompressSync) while a working
+// v22.23.2 sat at /usr/local/node22/bin/node. Capability is TESTED, never
+// inferred from a version string.
+// ---------------------------------------------------------------------------
+const NODE_CANDIDATES = [
+  process.env.DSH_NODE,
+  '/usr/local/node22/bin/node',
+  '/usr/local/bin/node',
+  '/usr/bin/node',
+  'node',
+];
+
+function _hasZstd(bin) {
+  try {
+    const r = require('child_process').spawnSync(bin,
+      ['-e', 'process.stdout.write(String(typeof require("zlib").zstdDecompressSync))'],
+      { encoding: 'utf8', timeout: 15000 });
+    return r.status === 0 && (r.stdout || '').trim() === 'function';
+  } catch { return false; }
+}
+
+if (typeof zlib.zstdDecompressSync !== 'function') {
+  const bin = NODE_CANDIDATES.filter(Boolean).find(_hasZstd);
+  if (bin) {
+    const r = require('child_process').spawnSync(bin, [process.argv[1], ...process.argv.slice(2)],
+      { stdio: 'inherit' });
+    process.exit(r.status === null ? 1 : r.status);
+  }
+  console.error('read-session: no zstd decoder available (need node >= 22.15).\n' +
+    `  running ${process.version} (${process.execPath})\n` +
+    '  tried: ' + NODE_CANDIDATES.filter(Boolean).join(', ') + '\n' +
+    '  fix:   export DSH_NODE=/path/to/node22');
+  process.exit(3);
+}
+
 /** Decode every appended zstd frame, not just the first. */
 function decodeAllFrames(file) {
   const buf = fs.readFileSync(file);
