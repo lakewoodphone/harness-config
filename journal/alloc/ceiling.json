@@ -3,7 +3,7 @@
  "bands_refs_read": 32,
  "ceiling": {
   "decisions": 3337,
-  "handoff": 3906,
+  "handoff": 3975,
   "lessons": 4127,
   "pain": 3864,
   "wins": 2941
@@ -18,10 +18,10 @@
  "claimed_gap_rows": [
   {
    "host": "SECRATARY-CLOUD",
-   "kind": "lessons",
-   "reserved_from": 4064,
-   "reserved_through": 4127,
-   "stamp": "2026-10-14 20:15 UTC"
+   "kind": "handoff",
+   "reserved_from": 3907,
+   "reserved_through": 3975,
+   "stamp": "2026-10-14 20:30 UTC"
   }
  ],
  "entries_high_water": {
@@ -33,13 +33,13 @@
  },
  "high_water": {
   "decisions": "D3337",
-  "handoff": "H3906",
+  "handoff": "H3975",
   "lessons": "L4127",
   "pain": "P3864",
   "wins": "W2941"
  },
  "host": "secratary-cloud",
- "live_peer_rows": 307,
+ "live_peer_rows": 308,
  "live_peer_unreachable": [
   "ZABZ-TECH-LINUX (rc=1)"
  ],
@@ -50,12 +50,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-14T20:15:08Z",
+ "refreshed_at": "2026-10-14T20:30:07Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 6.2,
- "sources_seen": 3605
+ "seconds": 4.9,
+ "sources_seen": 3607
 }
