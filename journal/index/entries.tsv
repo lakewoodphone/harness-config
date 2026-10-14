@@ -3210,6 +3210,7 @@ pain	P3185	3185		2026-10-14	SECRATARY-CLOUD	open	## P3185 — Estate monitor: ap
 pain	P3186	3186		2026-10-14	SECRATARY-CLOUD	open	## P3186 — Estate monitor: api_rss_gib is critical (7.996 GiB) across 3 consecutive runs	entries/pain/P3186.md	1	23	d872c5248ef7dc69	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
 pain	P3187	3187		2026-10-14	SECRATARY-CLOUD	open	## P3187 — A queued family relay loses its relay flag when replayed from the outbox	entries/pain/P3187.md	1	23	e950664213c8e1e6	family-chat,owner-text,outbox	D3152
 pain	P3188	3188		2026-10-14	SECRATARY-CLOUD	open	## P3188 — Estate monitor: api_rss_gib is critical (5.344 GiB) across 4 consecutive runs	entries/pain/P3188.md	1	23	da863db97191cfdc	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
+pain	P3189	3189		2026-10-14	SECRATARY-CLOUD	open	## P3189 — Estate monitor: disk_util_pct is critical (85.28 %) across 5 consecutive runs	entries/pain/P3189.md	1	23	b3847c38c13e85c2	estate-monitor,auto-filed,not-the-owners	metrics/disk_util_pct
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
