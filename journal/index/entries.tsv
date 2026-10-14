@@ -3192,6 +3192,7 @@ pain	P3177	3177		2026-10-14	SECRATARY-CLOUD	open	## P3177 — Estate monitor: sw
 pain	P3178	3178		2026-10-14	SECRATARY-CLOUD	open	## P3178 — P — What runs and what is in git are two artifacts, and the difference is silent	entries/pain/P3178.md	1	34	882fa3503ce59a47	deployment,drift,waze-mdm,dns	
 pain	P3179	3179		2026-10-14	SECRATARY-CLOUD	open	## P3179 — Estate monitor: api_rss_gib is critical (5.772 GiB) across 8 consecutive runs	entries/pain/P3179.md	1	23	f496efa92556afde	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
 pain	P3180	3180		2026-10-14	SECRATARY-CLOUD	open	## P3180 — Estate monitor: api_rss_gib is critical (5.895 GiB) across 5 consecutive runs	entries/pain/P3180.md	1	23	760b7b8f24202a72	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
+pain	P3181	3181		2026-10-14	SECRATARY-CLOUD	open	## P3181 — Estate monitor: api_rss_gib is critical (7.977 GiB) across 5 consecutive runs	entries/pain/P3181.md	1	23	b00fcc49d6e6b4e0	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
