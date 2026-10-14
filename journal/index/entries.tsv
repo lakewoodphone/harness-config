@@ -2639,6 +2639,8 @@ lessons	L3788	3788		2026-10-13	SECRATARY-CLOUD	open	**L3788 · L — A Telnyx eS
 lessons	L3789	3789		2026-10-14	SECRATARY-CLOUD	open	**L3789 · L — Deploy from the host, not from git; and a deployed file's own defaults can be dead code**	entries/lessons/L3789.md	1	37	7840e4ab8e1e010f	waze-mdm,dns,deployment,drift,telnyx	
 lessons	L3790	3790		2026-10-14	SECRATARY-CLOUD	open	**L3790 · L — iPhone 11 is LTE-only, and 'Using offline maps' is Waze's startup label, not our filter**	entries/lessons/L3790.md	1	39	329cae5730887475	waze,waze-mdm,offline-maps,dns	
 lessons	L3791	3791		2026-10-14	SECRATARY-CLOUD	open	**L3791 · L — A child's test total is a claim about its machine; ask for the delta against baseline**	entries/lessons/L3791.md	1	25	c9d75ad0094411cd	testing,mesh,reproducibility	
+lessons	L3792	3792		2026-10-14	secratary-cloud	open	**L3792 · A future-dated message silently kills a timestamp watermark**	entries/lessons/L3792.md	1	22	0f3cf791fb52353f	mail,gmail,watermark,silent-failure	
+lessons	L3793	3793		2026-10-14	secratary-cloud	open	**L3793 · Fleet reading a remote corpus: copy it once, do not loop ssh**	entries/lessons/L3793.md	1	22	f468948ca1162daa	mesh,fleet,ssh,orchestration	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3193,6 +3195,7 @@ pain	P3178	3178		2026-10-14	SECRATARY-CLOUD	open	## P3178 — P — What runs an
 pain	P3179	3179		2026-10-14	SECRATARY-CLOUD	open	## P3179 — Estate monitor: api_rss_gib is critical (5.772 GiB) across 8 consecutive runs	entries/pain/P3179.md	1	23	f496efa92556afde	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
 pain	P3180	3180		2026-10-14	SECRATARY-CLOUD	open	## P3180 — Estate monitor: api_rss_gib is critical (5.895 GiB) across 5 consecutive runs	entries/pain/P3180.md	1	23	760b7b8f24202a72	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
 pain	P3181	3181		2026-10-14	SECRATARY-CLOUD	open	## P3181 — Estate monitor: api_rss_gib is critical (7.977 GiB) across 5 consecutive runs	entries/pain/P3181.md	1	23	b00fcc49d6e6b4e0	estate-monitor,auto-filed,not-the-owners	metrics/api_rss_gib
+pain	P3182	3182		2026-10-14	secratary-cloud	open	## P3182 — Background-job cap (10) is the hard ceiling on fan-out width, and it is not memory	entries/pain/P3182.md	1	24	2fceb9b29530a8c0	fleet,orchestration,harness,limits	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3630,6 +3633,7 @@ decisions	D3147	3147		2026-10-13	SECRATARY-CLOUD	open	**D3147 · 2026-10-13 · U
 decisions	D3148	3148		2026-10-13	SECRATARY-CLOUD	open	**D3148 · 2026-10-13 · Owner answer, queue row #326: drebin's two repaired Canon items: is 75 the total or 75 each?.**	entries/decisions/D3148.md	1	11	d480b3121d31eb53	owner-answer	owner_decision_queue#326
 decisions	D3149	3149		2026-10-13	SECRATARY-CLOUD	open	**D3149 · 2026-10-13 · Battery chargers: PhoneLCDParts at 2.99 is the supply; resale at 10 (2026-10-13).**	entries/decisions/D3149.md	1	29	ecd5d1b9ab84f35a		
 decisions	D3150	3150		2026-10-14	SECRATARY-CLOUD	open	**D3150 · 2026-10-14 · Owner answer 2026-10-13: no quiet hours, night delivery is not a harm.**	entries/decisions/D3150.md	1	27	c0aff089865eb472		
+decisions	D3151	3151		2026-10-14	secratary-cloud	open	**D3151 · 2026-10-14 · Email archive: fill unified-search's registered mail:gmail gap, do not build a second index.**	entries/decisions/D3151.md	1	37	7b5356773be18cbe	mail,search,unified-search,architecture	
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
