@@ -2,36 +2,36 @@
  "adopted_rows": 0,
  "bands_refs_read": 32,
  "ceiling": {
-  "decisions": 3401,
-  "handoff": 4167,
-  "lessons": 4127,
-  "pain": 3928,
+  "decisions": 3465,
+  "handoff": 4231,
+  "lessons": 4191,
+  "pain": 3992,
   "wins": 2941
  },
  "ceiling_source": {
-  "decisions": "refs/heads/hk/182-wake-family-key",
-  "handoff": "refs/heads/hk/182-wake-family-key",
-  "lessons": "ZABZ-YOGA live working tree",
-  "pain": "refs/heads/hk/182-wake-family-key",
+  "decisions": "local bands.tsv",
+  "handoff": "ZABZ-YOGA live working tree",
+  "lessons": "local bands.tsv",
+  "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
  "claimed_gap_rows": [],
  "entries_high_water": {
-  "decisions": "D3339",
-  "handoff": "H4104",
-  "lessons": "L3943",
-  "pain": "P3866",
+  "decisions": "D3402",
+  "handoff": "H4169",
+  "lessons": "L4129",
+  "pain": "P3929",
   "wins": "W2878"
  },
  "high_water": {
-  "decisions": "D3401",
-  "handoff": "H4167",
-  "lessons": "L4127",
-  "pain": "P3928",
+  "decisions": "D3465",
+  "handoff": "H4231",
+  "lessons": "L4191",
+  "pain": "P3992",
   "wins": "W2941"
  },
  "host": "secratary-cloud",
- "live_peer_rows": 308,
+ "live_peer_rows": 317,
  "live_peer_unreachable": [
   "ZABZ-TECH-LINUX (rc=1)"
  ],
@@ -42,12 +42,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-14T23:00:09Z",
+ "refreshed_at": "2026-10-14T23:30:16Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 7.0,
- "sources_seen": 3620
+ "seconds": 11.9,
+ "sources_seen": 3633
 }
