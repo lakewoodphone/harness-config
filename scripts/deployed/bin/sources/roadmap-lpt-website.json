@@ -37,8 +37,8 @@
       "status": "filed",
       "priority": 4,
       "host": "zabz-tech-ts",
-      "why": "The owner's ask, 2026-10-13: 'once a day go through the website and find the top few optimizations, analyze them and document them, and then get to work on them.' The estate ALREADY has the walker - e2e/personas/ (4 viewports x 4 personas, journeys J0-J8, a Walk class that times and counts actions and shoots screenshots), which produced 248 findings (39 major) on 2026-09-25. What was missing is a cadence and something that turns its output into work. This item is the cadence.",
-      "dod": "DONE requires all four, quoted: (1) today's walkthrough run against the TEST site, with its own report path under e2e/personas/reports/ named in the handoff; (2) the screenshots committed under docs/website/walkthroughs/<YYYY-MM-DD>/, with the exact directory listed; (3) a NEW row appended to the change log table in docs/website/ROADMAP.md for today saying what moved and what evidence moved it - a row that only says 'no change' is a valid and honest answer, a MISSING row is not; (4) the top of the ranked queue either unchanged-with-reason or re-ranked-with-evidence. PRODUCTION IS READ-ONLY: public pages and read-only staff screens only. No mutation, no message, no payment, no customer contact, ever, from a walk. If the production walk cannot authenticate, say so and walk production's public pages only - do not skip production silently."
+      "why": "The owner's ask, 2026-10-13: 'once a day go through the website and find the top few optimizations, analyze them and document them, and then get to work on them.' The estate ALREADY has the walker - e2e/personas/ (4 viewports x 4 personas, journeys J0-J8, a Walk class that times and counts actions and shoots screenshots), which produced 248 findings (39 major) on 2026-09-25. What was missing is a cadence and something that turns its output into work. This item is the cadence. UPDATED 2026-10-13: the DoD above was written at 01:46 and the persona walk landed at 09:37, so it required only the deterministic floor - the item a shift is HANDED and the roadmap it is told to re-rank disagreed about what the work was. docs/website/ROADMAP.md names the persona walk as the fourth step of this same daily item, and the briefs are in git at e2e/personas/briefs/; the DoD now requires both halves.",
+      "dod": "DONE requires all five, quoted: (1) the DETERMINISTIC FLOOR run against the TEST site - `pnpm personas:walk && pnpm personas:walk:report` - with its report path under e2e/personas/reports/ named in the handoff; (2) the PERSONA WALK run as well, because it is the other half of the pair and the two instruments find different things: one subagent per brief in e2e/personas/briefs/, dispatched per e2e/personas/personas-walk.md, collected with `node e2e/personas/collect.mjs --strict`, with the findings and their screenshots under docs/website/walkthroughs/<YYYY-MM-DD>/personas/ named in the handoff - a run that does only (1) has run the floor and not the walk and does NOT satisfy this item, and a run that does only (2) has no deterministic floor to catch a regression; (3) the screenshots committed under docs/website/walkthroughs/<YYYY-MM-DD>/, with the exact directory listed; (4) a NEW row appended to the change log table in docs/website/ROADMAP.md for today saying what moved and what evidence moved it - a row that only says 'no change' is a valid and honest answer, a MISSING row is not; (5) the top of the ranked queue either unchanged-with-reason or re-ranked-with-evidence. PRODUCTION IS READ-ONLY: public pages and read-only staff screens only. No mutation, no message, no payment, no customer contact, ever, from a walk. If the production walk cannot authenticate, say so and walk production's public pages only - do not skip production silently."
     },
     {
       "key": "re-measure the counter at 414x896 and 390x844 with the estat",
@@ -89,6 +89,38 @@
       "host": "zabz-tech-ts",
       "why": "T1 follow-through, and the item that keeps the loop from becoming the thing the owner objected to. This is deliberately not a specific fix: it is the obligation to turn the counter's measured numbers into a coherent slice of one theme rather than a single drive-by tweak.",
       "dod": "DONE requires, quoted: (1) the measured numbers that justify the slice, named; (2) the class of problem the slice belongs to stated in one sentence, and why the chosen slice represents it rather than being one instance of it; (3) the change landed on TEST with before/after numbers from the SAME probe command; (4) the roadmap change log row. A slice that cannot state its class does not qualify - do the class instead."
+    },
+    {
+      "key": "owner-filed (p3) one public shell: every public page carries",
+      "src": "docs/website/ROADMAP.md",
+      "title": "One public shell: prove every one of the eleven public pages renders the shared nav and footer, and finish the before/after evidence",
+      "status": "filed",
+      "priority": 4,
+      "host": "zabz-tech-ts",
+      "why": "T5, and the box the owner himself filed (P3) on 2026-10-13: 'our website is not easy to use, and it is not great.' The fix LANDED - PublicSiteNav + PublicSiteFooter now exist and are rendered by the eleven public pages - but the box is still UNCHECKED because its own done-condition is not met: docs/website/walkthroughs/2026-10-13/owner-feedback/ holds before/after pairs for only TWO of the eleven pages (phone-repair, screen-repair), and the first pass got the count wrong (it said nine and missed /privacy and /terms). The estate already carries the mechanical contract for this in frontend/src/components/landing/__tests__/publicSiteShell.test.tsx, which asserts that all eleven pages render the shell, so this row is a run plus the missing evidence, not new tooling. Filed at 4 rather than the box's P3 so it sits with the other lpt-website rows (4-5) and does not preempt platform work.",
+      "dod": "DONE requires, quoted: (1) the shell contract run from the repo on the host: `cd frontend && pnpm exec vitest run src/components/landing/__tests__/publicSiteShell.test.tsx` and its vitest summary; the result line that counts as done is a summary reporting 13 passed (13) and 0 failed - 2 PublicSiteNav assertions plus 11 page assertions, one per name in that file's PUBLIC_PAGES. ANY failure names the page whose shell is wrong; that is the finding, not a reason to skip the page. (2) every one of those eleven pages shown rendering the shell at 390x844: AFTER screenshots committed under docs/website/walkthroughs/<YYYY-MM-DD>/public-shell/, with the exact directory named in the handoff, and the two pre-fix pairs already in docs/website/walkthroughs/2026-10-13/owner-feedback/ cited as the BEFORE for those two pages - do NOT manufacture a 'before' by reverting code. (3) the eleven-name list in that test compared against the site's own router (every public route reachable without auth in frontend/src/App.tsx), and any public route the list omits named as the finding - the first pass missed /privacy and /terms exactly this way. (4) the box in docs/website/ROADMAP.md ticked ONLY if (1) and (2) both pass, with a change-log row naming that evidence; if one page still fails, leave the box unticked and name that page. A run that reports the test file absent or the suite skipped is NOT done: that is a blocker with the error text quoted."
     }
-  ]
+  ],
+  "capability_matrix": {
+    "_readme": [
+      "WHAT EACH HOST CAN ACTUALLY PROVE, measured rather than assumed. Added 2026-10-14 by ledger",
+      "item 110: this file previously had NO matrix, so roadmap-supply.py's BAD-HOST gate was",
+      "vacuous (any host name passed) and a row whose dod named a host that cannot run it would have",
+      "been filed in silence. Only hosts this file actually dispatches to are listed; add an entry",
+      "the day a row names a new host, and correct an entry the day a measurement falsifies it.",
+      "Estate-wide host facts measured 2026-10-07 are recorded in roadmap-kosher-ai-filter.json and",
+      "are cited here, not re-derived."
+    ],
+    "zabz-tech-ts": {
+      "label": "zabz-tech-ts (the office desktop) - the dispatch host for every row in this file",
+      "proven_now": [
+        "pnpm + node + the Playwright persona walkers from the phone-and-tech-full repo root: docs/website/ROADMAP.md's daily-walk row (ledger item 111) runs `pnpm personas:walk && pnpm personas:walk:report` and `node e2e/personas/collect.mjs --strict` there",
+        "frontend/ is a pnpm workspace that runs vitest (`\"test\": \"vitest run\"` in frontend/package.json), which is how this file's public-shell row proves itself"
+      ],
+      "cannot": [
+        "ssh at all - every OpenSSH binary dies with 'failed to initialize w32posix wrapper' (journal item 458, measured 2026-10-07; recorded in roadmap-kosher-ai-filter.json), so a shift here cannot dispatch a build to another host",
+        "no Swift toolchain (roadmap-kosher-ai-filter.json, measured 2026-10-07): do not send an Apple build here"
+      ]
+    }
+  }
 }
