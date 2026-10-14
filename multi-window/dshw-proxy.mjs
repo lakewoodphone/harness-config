@@ -86,6 +86,42 @@ let authCookie = null // learned from any window's own request; used only by the
 
 const stats = { spliced: 0, served: 0, filled: 0, cold: 0, prewarm: 0, prewarmSkipped: 0, errors: 0 }
 
+/** What this process actually managed to bind. Reported by /__dshw/stats and used as the exit test. */
+const rangeState = { base, count, bound: 0, failed: 0, failedPorts: [] }
+
+/**
+ * A PORT THAT DID NOT BIND IS A FACT THE WHOLE ESTATE HAS TO BE ABLE TO READ, and a proxy that bound
+ * NOTHING must not stay alive holding the lock.
+ *
+ * MEASURED 2026-10-14 on ZABZ-TECH, and this is the whole of the owner's "dsh is unreachable".
+ * Windows had 3200..3223 reserved (that block sat inside the machine's dynamic port range), so every
+ * bind returned EACCES. `listenWithRetry` retried only EADDRINUSE, so each of 360 binds gave up at
+ * attempt 0 - and the process then sat there with ZERO ports bound, holding `dshw-proxy-3200.lock`,
+ * alive, answering nothing, while `ensure` started another and another: 11 attempts in seven minutes,
+ * every one refused. Nothing in the estate escalated it, because `Test-OriginsProxy` asks port 3200
+ * ...and on a range where nothing bound, that question is answered by whoever holds it next.
+ *
+ * So: a fully-dead range exits 2 (releasing the lock first, via process.on('exit')), which turns a
+ * zombie into a clean retry the supervisor can make; a partly-bound range stays up, because the slots
+ * that DID bind are real windows, and says so loudly in one line and in the stats.
+ */
+function onPortSettled(port, ok) {
+  if (ok) rangeState.bound++
+  else { rangeState.failed++; rangeState.failedPorts.push(port) }
+  if (rangeState.bound + rangeState.failed !== count) return
+  const last = base + count - 1
+  if (rangeState.bound === 0) {
+    log(`RANGE DEAD: bound 0 of ${count} ports on 127.0.0.1:${base}..${last} -> exiting 2, so the next attempt starts clean instead of taking a lock nothing is serving`)
+    process.exit(2)
+  }
+  if (rangeState.failed > 0) {
+    log(`RANGE INCOMPLETE: bound ${rangeState.bound} of ${count} on 127.0.0.1:${base}..${last}; refused: ${rangeState.failedPorts.join(',')} - windows whose slot port is refused CANNOT be opened`)
+  } else {
+    log(`RANGE COMPLETE: bound all ${count} ports on 127.0.0.1:${base}..${last} -> ${enginePort}`)
+  }
+}
+
+
 /**
  * WHICH WINDOWS ARE OPEN - and the proxy is the only thing that can tell.
  *
@@ -441,6 +477,11 @@ for (let i = 0; i < count; i++) {
     if (isStat) {
       sendJson(client, '200 OK', {
         ...stats,
+        // WHICH BASE THIS PROCESS IS ACTUALLY SERVING, and how much of the range it got. A reader that
+        // trusts a pid file or a bound port cannot tell a healthy proxy from one whose range never
+        // came up (`range.bound === 0`); this can, and `dshw` reports it.
+        base,
+        range: rangeState,
         cached: cache.text !== null,
         ageMs: cache.text ? Date.now() - cache.at : null,
         rows: cache.text ? (cache.text.match(/"sessionId":/g) ?? []).length : null,
@@ -559,14 +600,28 @@ for (let i = 0; i < count; i++) {
   // proxy dead and started a third. Retrying the bind for a few seconds removes the race entirely.
   const listenWithRetry = (attempt = 0) => {
     server.once('error', (e) => {
-      if (e.code === 'EADDRINUSE' && attempt < 20) {
+      // EACCES IS NOT THE SAME FAILURE AS EADDRINUSE, AND IT WAS THE ONE THAT WAS NOT RETRIED.
+      //
+      // "address already in use" is usually transient (a sibling releasing the same port), so it was
+      // always retried. "access denied" was treated as permanent and gave up at attempt 0 - but on
+      // Windows it is what a bind answers when the port is inside a reserved/excluded block, and
+      // those blocks come and go with the machines that create them (WinNAT, WSL, Hyper-V). Measured
+      // 2026-10-14 on ZABZ-TECH: 360 immediate EACCES failures on 3200..3223 in seven minutes, all of
+      // which would have been retried had EACCES been in this condition. The base is now outside the
+      // dynamic range so this should not recur; the point is that a refusal to bind must never be
+      // indistinguishable from a decision to stop listening.
+      if ((e.code === 'EADDRINUSE' || e.code === 'EACCES') && attempt < 20) {
         setTimeout(() => listenWithRetry(attempt + 1), 500)
         return
       }
       log(`port ${port}: LISTEN FAILED ${e.code} after ${attempt} retries`)
+      onPortSettled(port, false)
       process.exitCode = 2
     })
-    server.listen(port, '127.0.0.1', () => log(`listening 127.0.0.1:${port} -> ${enginePort}`))
+    server.listen(port, '127.0.0.1', () => {
+      log(`listening 127.0.0.1:${port} -> ${enginePort}`)
+      onPortSettled(port, true)
+    })
   }
   listenWithRetry()
 }

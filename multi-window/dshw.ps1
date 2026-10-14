@@ -237,6 +237,32 @@ function Get-Prop($obj, [string]$name) {
     return $null
 }
 
+# ── KEYS OF A HASHTABLE *OR* OF A ConvertFrom-Json OBJECT, WITHOUT TRIPPING STRICTMODE ──────────
+#
+# `@($emptyHashtable).Keys` does NOT answer "no keys". Under `Set-StrictMode -Version Latest`, which
+# this file sets, it THROWS:
+#     The property 'Keys' cannot be found on this object. Verify that the property exists.
+# Reproduced on ZABZ-TECH, pwsh 7.6.6, against the shipped PowerShell 5/7 semantics: member
+# enumeration needs an element to read the property FROM, and an empty collection has none.
+#
+# THAT SINGLE LINE BROKE THE WINDOW RECONCILE/RECOVERY PASS EVERY TIME THE PROCESS SCAN CAME BACK
+# EMPTY, and empty is its NORMAL state: with no window open, or on the interactive paths (`new`,
+# `open`, `restore`, `up`) where SkipProcessScan short-circuits Get-WindowOriginPorts to `@{}`.
+# Measured cost, all found on the record rather than by reasoning:
+#   * health.log carries "window reconcile/recovery FAILED: The property 'Keys' cannot be found"
+#     on 2026-10-11, 2026-10-13 and 2026-10-14 - three separate days, every five minutes each time.
+#   * the `DSH Engine Vitals (5m)` task therefore reported LastTaskResult 3.
+#   * `dshw up -WindowsMode restore` on 2026-10-14 opened the remembered windows (slots 1,2,6,7 on
+#     the new 19200 base, all four later confirmed live at the proxy) and then DIED at this line -
+#     so the pass that had just done the work could not record it.
+# A message with no line number, repeated for days, is what made this invisible; the catch that
+# reported it now writes the stack to health.log for exactly that reason.
+function Get-KeyList($obj) {
+    if ($null -eq $obj) { return @() }
+    if ($obj -is [System.Collections.IDictionary]) { return @($obj.Keys) }
+    return @($obj.PSObject.Properties.Name)
+}
+
 # ── node / dsh resolution ───────────────────────────────────────────────────
 function Resolve-NodeExe {
     $cmd = Get-Command node -ErrorAction SilentlyContinue
@@ -575,7 +601,7 @@ function Get-ForeignEngines {
     # is read from the process command line instead.
     $managed = @{}
     $st = Get-State
-    if ($st -and $st.slots) { foreach ($port in @($st.slots.Keys)) { $managed[[int]$port] = $true } }
+    if ($st -and $st.slots) { foreach ($port in (Get-KeyList $st.slots)) { $managed[[int]$port] = $true } }
     $out = @()
     foreach ($conn in Get-ListenTable) {
         $procId = [int]$conn.OwningProcess
@@ -1011,7 +1037,7 @@ try {
     }
 
     $results = @{}
-    foreach ($port in $readies.Keys) {
+    foreach ($port in (Get-KeyList $readies)) {
         $slot = $slots | Where-Object { "$($_.port)" -eq "$port" } | Select-Object -First 1
         $inv  = Get-ServerInvocation $slot
         $r = [pscustomobject]@{ pid = $null; url = $null; log = $inv.log; err = $inv.err
@@ -1542,7 +1568,7 @@ function Invoke-Up([switch]$WindowsOnly, [string]$WindowsMode = 'no') {
 function Invoke-Down {
     $state = Get-State
     $stopped = 0
-    foreach ($port in @($state.slots.Keys)) {
+    foreach ($port in (Get-KeyList $state.slots)) {
         $rec = $state.slots[$port]
         $alive = (Test-PortInUse ([int]$port)) -or ($rec.pid -and (Get-Process -Id $rec.pid -ErrorAction SilentlyContinue))
         if (-not $alive) { continue }
@@ -1788,7 +1814,7 @@ function Sync-WindowRegistry {
     # A census, so the closedBy vocabulary has a reader: how many closed rows are a decision, how many
     # are this launcher's own inference, and how many predate the field and cannot be attributed.
     $attrib = [pscustomobject]@{ prune = 0; decision = 0; unattributed = 0 }
-    foreach ($prop in @($map.Keys)) {
+    foreach ($prop in (Get-KeyList $map)) {
         $e = $map[$prop]
         if ((Get-Prop $e 'open') -ne $false) { continue }
         $by = [string](Get-Prop $e 'closedBy')
@@ -2203,7 +2229,7 @@ function Get-OriginLiveLegs {
 
     # B and C - the process scan. This is also what makes the answer independent of the proxy's
     # liveness: a window the proxy would have reported is still found here by its own origin port.
-    $scanPorts = @(@(Get-WindowOriginPorts).Keys | ForEach-Object { [int]$_ })
+    $scanPorts = @(Get-KeyList (Get-WindowOriginPorts) | ForEach-Object { [int]$_ })
     $union = @(@($proxyPorts) + @($scanPorts) | Sort-Object -Unique)
     $script:OpenOriginCache = @($union)
     $script:OriginLiveLegsCache = [pscustomobject]@{
@@ -3283,9 +3309,17 @@ function Invoke-Health {
             Write-Host ("windows: {0} recorded as open but gone; reopened {1}" -f $rec.missing, $rec.opened) -ForegroundColor Yellow
         }
     } catch {
+        # THE MESSAGE ALONE HAS ALREADY COST A DAY. Measured 2026-10-14: this catch reported
+        # "The property 'Keys' cannot be found on this object" every five minutes for hours (the
+        # DSH Engine Vitals task, LastTaskResult 3) and again on `up -WindowsMode restore`, with no
+        # line number anywhere - so the pass was known broken and unplaceable. The stack goes into
+        # health.log with the message, exactly as Ensure-OriginsProxy records its own error object.
         Write-Host ("windows: reconcile/recovery pass FAILED - " + $_.Exception.Message) -ForegroundColor Red
-        "[{0}] health: window reconcile/recovery FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message |
-            Add-Content -LiteralPath (Join-Path $StateDir 'health.log') -Encoding utf8
+        @(
+            ("[{0}] health: window reconcile/recovery FAILED: {1}" -f (Get-Date -Format o), $_.Exception.Message),
+            ("  at caller: {0}" -f $_.InvocationInfo.PositionMessage),
+            ("  stack    : {0}" -f $_.ScriptStackTrace)
+        ) | Add-Content -LiteralPath (Join-Path $StateDir 'health.log') -Encoding utf8
     }
     } catch {
         Write-Host ("health: FAILED - " + $_.Exception.Message) -ForegroundColor Red
@@ -3362,7 +3396,7 @@ function Invoke-TasksImport([string]$dir) {
         'DSH-Multi-Window-Launcher.xml' = 'DSH Multi-Window Launcher'
         'DSH-Window-Fleet-Watchdog.xml' = 'DSH Window Fleet Watchdog'
     }
-    foreach ($k in $names.Keys) {
+    foreach ($k in (Get-KeyList $names)) {
         $path = Join-Path $dir $k
         if (-not (Test-Path $path)) { Write-Host "  [skip] $k not found in $dir" -ForegroundColor Yellow; continue }
         $xml = [System.IO.File]::ReadAllText($path)
