@@ -1,0 +1,21 @@
+# card-funding-accounts.tsv — which deposit account each credit card's autopay actually draws from.
+#
+# WHY THIS FILE EXISTS
+# A card-due reminder that names only the due date is not actionable: the failure on
+# 2026-10-11 was not that a payment was due, it was that the payment was ARMED AGAINST AN
+# ACCOUNT HOLDING 72.47. The issuer's own "automatic payment is scheduled" email says only
+# "from your account" - it never names it. So the mapping has to be maintained here.
+#
+# HOW A ROW IS EARNED
+# Not by inference and never by guessing. A row goes in only when a bank-side debit and a
+# card-side credit for THE SAME AMOUNT, opposite signs, and the same originator id have been
+# matched. Both rows below were matched that way on 2026-10-14 against plaid_transactions.
+#
+# FORMAT  (pipe separated; # comments allowed; a label may contain spaces)
+#   card_last4 | accounting_account_id | human label | evidence
+#
+# A card with no row is REPORTED AS UNMAPPED, which is the honest answer. Do not fill the
+# gap with a plausible account - a wrong funding account is worse than no reminder.
+
+9650 | personal-checking | Chase checking ...9730 (the account named "CHASE COLLEGE") | 2026-10-14: bank debit +2380.06 on mask 9730 (2026-10-13, ORIG ID:4760039224) matches card credit -2380.06 on 9650 (2026-10-11, "AUTOMATIC PAYMENT - THANK")
+3929 | lpt-boa-checking | Business checking ...7930 | 2026-10-14: bank debit +1524.18 on mask 7930 (2026-10-08, CHASE CREDIT CRD CO ID:XXXXX39224) matches card credit -1524.18 on 3929 (2026-10-07, "AUTOMATIC PAYMENT - THANK")
