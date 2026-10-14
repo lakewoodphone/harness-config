@@ -8,6 +8,14 @@
   "pain": 3211,
   "wins": 2878
  },
+ "ceiling_refreshed_at": "2026-10-14T21:30:07Z",
+ "ceiling_source": {
+  "decisions": "refs/heads/hk/182-wake-family-key",
+  "handoff": "local bands.tsv",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "ZABZ-YOGA live working tree",
+  "wins": "ZABZ-YOGA live working tree"
+ },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-14 20:40 UTC",
  "entries": 4098,
@@ -16,7 +24,7 @@
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 3401,
-  "handoff": 4039,
+  "handoff": 4103,
   "lessons": 4127,
   "pain": 3864,
   "wins": 2941
