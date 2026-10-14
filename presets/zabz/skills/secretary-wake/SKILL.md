@@ -9,7 +9,10 @@ You have no continuous memory and no continuous existence. A DSH session starts 
 ends when it stops. **Everything between those moments was, until 2026-09-18, nothing.** The owner put
 it exactly: *"this may be the final piece in the puzzle to making you truly autonomous."*
 
-The secretary server (`secratary`) is now the half of you that never sleeps. It watches, it decides
+The secretary server is **`secratary-cloud`** — the authority. It is now the half of you that never sleeps.
+(Until the 2026-10-11 cutover this was the office box `secratary`; that box is now the FROZEN rollback
+anchor, its `cron` is masked on purpose, and its `wake-dispatch.log` stopped dead at 20:34 that day.
+Commands pointed at `secratary` or `secratary-ts` read a frozen system and answer confidently.) It watches, it decides
 small things itself, and — this is the new part — **it can raise a FLAG that revives a full DSH session
 on the always-on desktop with nobody at a keyboard.**
 
@@ -108,7 +111,7 @@ failure that happened on 2026-09-18 — the prompt now leads with it.)
 
 ```bash
 # from anywhere (the store and the dispatcher live on the authority, so it must run there)
-ssh secratary-ts "python3 ~/bin/wake.py flag \
+ssh secratary-cloud "python3 ~/bin/wake.py flag \
   --subject 'sms-webhook-lost:2026-09-18' \
   --prompt 'The app answered HTTP 500 to inbound texts today. Fix the write path against the DEPLOYED tree.' \
   --kind sms-loss --source webhook-monitor --priority high"
@@ -130,10 +133,10 @@ ssh secratary-ts "python3 ~/bin/wake.py flag \
 ## Seeing what is pending, and what happened
 
 ```bash
-ssh secratary-ts "python3 ~/bin/wake.py list --json"
-ssh secratary-ts "python3 ~/bin/wake.py stats --json"     # counts, today's releases, caps in force
-ssh secratary-ts "python3 ~/bin/wake.py awaits"           # who we are waiting on, and for what
-ssh secratary-ts "tail -20 ~/.sms-inbox/wake-dispatch.log"
+ssh secratary-cloud "python3 ~/bin/wake.py list --json"
+ssh secratary-cloud "python3 ~/bin/wake.py stats --json"     # counts, today's releases, caps in force
+ssh secratary-cloud "python3 ~/bin/wake.py awaits"           # who we are waiting on, and for what
+ssh secratary-cloud "tail -20 ~/.sms-inbox/wake-dispatch.log"
 ```
 
 The owner digest carries a **WAKE SYSTEM** section that reports liveness FIRST: dispatcher heartbeat
@@ -176,8 +179,8 @@ Three things you must know before you judge a project idle:
   definition of done, what was tried, the PROOF, and what was deliberately LEFT OVER.
 
 ```bash
-ssh secratary-ts "cat ~/.wake-projects/lpt-website.json"          # the project's real state
-ssh secratary-ts "grep -v 'daily cap reached' ~/.sms-inbox/wake-dispatch.log | tail -30"   # what ran
+ssh secratary-cloud "cat ~/.wake-projects/lpt-website.json"          # the project's real state
+ssh secratary-cloud "grep -v 'daily cap reached' ~/.sms-inbox/wake-dispatch.log | tail -30"   # what ran
 ```
 
 The standing failure of this loop is not waking up — it is **integration**. A shift ends with a pushed
