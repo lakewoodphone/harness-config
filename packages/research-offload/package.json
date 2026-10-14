@@ -1,0 +1,11 @@
+{
+  "name": "research-offload",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server that runs web search and research OFF a filtered machine and returns the answer. Mounted by presets/yocheved/ only.",
+  "type": "module",
+  "main": "server.mjs",
+  "bin": { "research-offload": "server.mjs" },
+  "engines": { "node": ">=18" },
+  "_dshNote": "This package deliberately declares NO dsh.bundle.patch, so harness-sync links it but does NOT name it in dsh.profile.bundles. Naming it would mount it as a patch layer and stop the engine booting (dsh-app-boot:852) -- that failure mode is why scripts/harness-sync.mjs has a declaresBundle guard. It is meant to be started as an MCP stdio child by the preset row, not mounted."
+}
