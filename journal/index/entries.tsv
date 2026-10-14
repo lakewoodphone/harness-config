@@ -1096,6 +1096,7 @@ handoff	H3671	3671		2026-10-14 14:35 UTC	secratary-cloud	open	## 2026-10-14 14:3
 handoff	H3672	3672		2026-10-14 14:40 UTC	secratary-cloud	open	## 2026-10-14 14:40 UTC · secratary-cloud · Waze kiosk: Wi-Fi and Bluetooth reachable, and the customer decides whether Wi-Fi is on	entries/handoff/H3672.md	1	73	bb3d03a22a2c0e48	waze-mdm,lpt,mdm,profiles,owner-decision	
 handoff	H3673	3673		2026-10-14 14:45 UTC	SECRATARY-CLOUD	open	## 2026-10-14 14:45 UTC · SECRATARY-CLOUD · Waze voice input: a June rollback nobody reversed, and the retest it asked for is now written down	entries/handoff/H3673.md	1	61	d3741643cc0e2220		
 handoff	H3674	3674		2026-10-14 14:57 UTC	secratary-cloud	open	## 2026-10-14 14:57 UTC · secratary-cloud · Waze kiosk Wi-Fi/Bluetooth on master; session-finding failure fixed and measured	entries/handoff/H3674.md	1	74	b23868d053ccb9cb	waze-mdm,sessions,tooling,audit,merge	
+handoff	H3675	3675		2026-10-14 15:08 UTC	SECRATARY-CLOUD	open	## 2026-10-14 15:08 UTC · SECRATARY-CLOUD · Waze voice input round 2: one key explains both symptoms, and our own filter blocks the model	entries/handoff/H3675.md	1	66	84b7b8d61d3fa496		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2659,6 +2660,8 @@ lessons	L3820	3820		2026-10-14	SECRATARY-CLOUD	open	**L3820 · A temporary postu
 lessons	L3821	3821		2026-10-14	SECRATARY-CLOUD	open	**L3821 · An MDM key absent from Apple's published schema is inert, and it manufactures a protection nobody has**	entries/lessons/L3821.md	1	40	200d52cd1934f296		
 lessons	L3822	3822		2026-10-14	SECRATARY-CLOUD	open	**L3822 · A repo that configures a live filter is not the filter that is running**	entries/lessons/L3822.md	1	29	cfa2513b065ed181		
 lessons	L3823	3823		2026-10-14	secratary-cloud	open	**L3823 · The capability was already installed; diagnose the environment, and make the tool grasp the fix**	entries/lessons/L3823.md	1	68	1c69a30f0fc7559f	sessions,tooling,environment,ranking	
+lessons	L3824	3824		2026-10-14	SECRATARY-CLOUD	open	**L3824 · A default-deny DNS filter breaks features by refusing their asset host, silently**	entries/lessons/L3824.md	1	41	27e0942b39db2d72		
+lessons	L3825	3825		2026-10-14	SECRATARY-CLOUD	open	**L3825 · A device is a control only when it differs in one variable**	entries/lessons/L3825.md	1	43	f384af7691cd83ce		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
