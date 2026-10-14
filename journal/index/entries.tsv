@@ -3220,6 +3220,8 @@ pain	P3195	3195		2026-10-14	SECRATARY-CLOUD	open	## P3195 — Estate monitor: pu
 pain	P3196	3196		2026-10-14	SECRATARY-CLOUD	open	## P3196 — Estate monitor: swap_used_pct is critical (84.33 %) across 3 consecutive runs	entries/pain/P3196.md	1	23	cf2445dfe055326d	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 pain	P3197	3197		2026-10-14	SECRATARY-CLOUD	open	## P3197 — Estate monitor: public_health_status is critical (1.0 ) across 3 consecutive runs	entries/pain/P3197.md	1	23	39bcd3904f7789a3	estate-monitor,auto-filed,not-the-owners	metrics/public_health_status
 pain	P3198	3198		2026-10-14	SECRATARY-CLOUD	open	## P3198 — a script this host RUNS does not match the captured reference	entries/pain/P3198.md	1	6	7e689a0d531a3318	deployed-drift,scripts,drift	
+pain	P3199	3199		2026-10-14	SECRATARY-CLOUD	open	## P3199 — Estate monitor: disk_used_pct is critical (92.47 %) across 3 consecutive runs	entries/pain/P3199.md	1	23	52e7a5a91df28a87	estate-monitor,auto-filed,not-the-owners	metrics/disk_used_pct
+pain	P3200	3200		2026-10-14	SECRATARY-CLOUD	open	## P3200 — Estate monitor: disk_free_deficit_gb is critical (4.828 GiB) across 3 consecutive runs	entries/pain/P3200.md	1	23	d1e24bdb1fcd0e5d	estate-monitor,auto-filed,not-the-owners	metrics/disk_free_deficit_gb
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
