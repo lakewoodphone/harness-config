@@ -22,6 +22,19 @@ project's standing worker contract. Nothing else. It is quiet for a disabled
 project, a project with no work remaining, a project inside its cooldown, or a
 project that has already spent its daily allowance.
 
+THE LEDGER IS CONSULTED BEFORE THE WAKE (LEDGER item 142, 2026-10-14). The state
+file alone used to decide this, so a project whose entire non-terminal WORK LEDGER
+backlog was blocked with a revisit time still in the future was indistinguishable
+from one with startable todo work -- yet `work.py claim-next` can only ever answer
+`nothing-todo` for it, because `_pick_next` selects `state='todo'` alone. Measured:
+11 consecutive chumash wakes over 23 hours re-derived one owner-only blocker for no
+change. Such a project is now suppressed with the blocked+revisit named, at priority
+4 waste, and the suppression RE-ARMS BY ITSELF: the moment a blocked item comes due
+or any todo item is filed, the project flags again. A project may opt out with
+`ignore_blocked_ledger: true` in the registry when its ledger is a known-INCOMPLETE
+account of its backlog (kosher-ai-filter, whose state file names untracked roadmap
+work). An unreadable ledger is never a suppression: it fails OPEN.
+
 SUBJECT  project:<id>:<YYYYMMDD>
     The subject IS the dedup key, so one project cannot produce two sessions in
     a day by accident, and tomorrow is a new key. When `max_flags_per_day` is
@@ -55,6 +68,9 @@ named by name:
     project-keepalive: waste-system     suppressed  cooldown 31200s remaining
     project-keepalive: other-thing      suppressed  disabled
     project-keepalive: paused-thing     suppressed  paused (the store's kill switch ... exists)
+    project-keepalive: chumash          suppressed  no shift-startable ledger work: 1 non-terminal
+                                                     item(s), all blocked with a revisit still in the
+                                                     future (next 2026-10-21T03:57:19Z, owner-queue #474)
     project-keepalive: done-thing       quiet       no work remaining
 
 stdout stays frozen to the two words `_flag.run` owns (`quiet` / `flagged
@@ -117,6 +133,7 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -285,6 +302,125 @@ def work_remaining(project: dict, state: dict) -> tuple[bool, list[str]]:
     raise Unreadable(
         f"project {project.get('id')!r}: state file says nothing about "
         f"work_remaining (needs a boolean, or a 'remaining' list)")
+
+
+# --------------------------------------------------------------------------- #
+# the work ledger: the authoritative backlog
+# --------------------------------------------------------------------------- #
+def ledger_path() -> Path:
+    """Where `work.py` keeps the ledger, resolved the way work.py itself does.
+
+    `work.py` defaults to `~/work/work.db` and honours `WORK_DB`. A source that
+    guessed a different path would read an empty ledger and call it proof.
+    """
+    raw = os.environ.get("WORK_DB")
+    return Path(raw).expanduser() if raw else (Path.home() / "work" / "work.db")
+
+
+# A state that means "this item is over". `dropped` is terminal even though it is
+# not `done`: a dropped item is not work waiting for a shift.
+_LEDGER_TERMINAL = ("done", "dropped")
+
+
+def _ledger_verdict(pid: str, now: datetime) -> tuple[str, str]:
+    """("startable"|"blocked-future"|"unknown", detail) from the WORK LEDGER.
+
+    THE DEFECT THIS ANSWERS (LEDGER item 142, measured 2026-10-14): `work_remaining()`
+    above reads ONLY the legacy state file, so a project whose entire non-terminal
+    ledger backlog is blocked with a revisit time still in the future is
+    indistinguishable from one with startable todo work. `_pick_next` in work.py
+    selects `state='todo'` alone (and `reap` is what frees an expired lease), so such
+    a project can only ever answer `nothing-todo`. Measured: 11 consecutive chumash
+    wakes against item 48 (2026-10-13T04:34Z..2026-10-14T03:43Z), each re-deriving the
+    same owner-only blocker at cooldown 1800s -- roughly one paid shift per half hour
+    for zero change, which is the "same work over and over. Or wasting money." the
+    owner named. chumash is not the only one: on the same measurement
+    personality-system (2 blocked/owner-461, todo=0) and rental-system (1
+    blocked/owner-485, todo=0) have the same shape.
+
+    "blocked-future" means the ledger PROVES there is nothing a woken shift could
+    start. "startable" means a todo item, a running item, or a blocked item that is
+    due (revisit_at NULL or already past -- exactly the set `work.py due` reports).
+    "unknown" means the ledger is unreadable or holds no non-terminal item for this
+    project at all; the caller then keeps the state file's verdict.
+
+    A SUPPRESSION SIGNAL FAILS OPEN. If the ledger cannot be read the answer is
+    "unknown", never "blocked-future", so a broken new signal can slow the fleet down
+    but can never silence a project. An unparseable revisit_at is read the same way:
+    a timestamp this code cannot understand is NOT evidence that the block is safely
+    in the future.
+    """
+    try:
+        conn = _flag.ro_connect(ledger_path())
+    except Unreadable as exc:
+        return "unknown", f"ledger unreadable: {exc}"
+    try:
+        if not _flag.table_exists(conn, "work_item"):
+            return "unknown", "ledger has no work_item table"
+        rows = conn.execute(
+            "SELECT state, revisit_at, owner_row FROM work_item "
+            "WHERE project=? AND state NOT IN (?,?)",
+            (pid, _LEDGER_TERMINAL[0], _LEDGER_TERMINAL[1])).fetchall()
+    except sqlite3.Error as exc:
+        return "unknown", f"cannot read the ledger: {exc}"
+    finally:
+        conn.close()
+
+    if not rows:
+        return "unknown", "the ledger holds no non-terminal item for this project"
+
+    for r in rows:
+        state = str(r["state"])
+        if state in ("todo", "running"):
+            return "startable", f"ledger has a {state} item"
+        if state != "blocked":
+            # An unrecognised non-terminal state is treated as startable: a
+            # suppression must never rest on a state this code does not know.
+            return "startable", f"ledger has a {state!r} item"
+
+    future = []
+    for r in rows:
+        when = _flag.parse_dt(r["revisit_at"])
+        if when is None or when <= now:
+            return "startable", (
+                f"ledger item(s) blocked and DUE (revisit {r['revisit_at']!r})")
+        future.append((when, r["revisit_at"], r["owner_row"]))
+
+    future.sort(key=lambda t: t[0])
+    owner_rows = sorted({int(r[2]) for r in future if r[2] is not None})
+    detail = (
+        f"{len(rows)} non-terminal item(s), all blocked with a revisit still in "
+        f"the future (next {future[0][1]}"
+        + (f", owner-queue #{','.join(str(o) for o in owner_rows)}" if owner_rows else "")
+        + ")")
+    return "blocked-future", detail
+
+
+def _ledger_suppression_enabled(project: dict) -> bool:
+    """Whether the ledger's verdict is allowed to SUPPRESS this project's flag.
+
+    Default yes. A project sets `ignore_blocked_ledger: true` when its ledger is a
+    known-INCOMPLETE account of its backlog -- when its state file names real work
+    that has no ledger item -- because then "the ledger has nothing startable" is not
+    proof that a shift has nothing to do. Measured 2026-10-14: kosher-ai-filter's
+    state file names an "Untracked non-blocked roadmap remainder" (Windows Desktop
+    Duplication + ONNX/WinML, cross-platform test matrix) and it is the owner's named
+    always-on project, so it is exempt; chumash, personality-system and rental-system
+    name only blocked ledger items and are not. The exemption is not a silence: the
+    flagged line still carries `[ledger: ...]`, so the waste stays measurable, and it
+    becomes unnecessary the moment a shift files that remainder as a ledger item.
+
+    PROJECT_KEEPALIVE_IGNORE_BLOCKED_LEDGER=1 forces the exemption for every project;
+    =0 forces suppression for every project. Rehearsal only, never in cron.
+    """
+    forced = str(os.environ.get("PROJECT_KEEPALIVE_IGNORE_BLOCKED_LEDGER")
+                 or "").strip().lower()
+    if forced in ("1", "true", "yes"):
+        return False
+    if forced in ("0", "false", "no"):
+        return True
+    return not bool(project.get("ignore_blocked_ledger"))
+
 
 
 # --------------------------------------------------------------------------- #
@@ -637,6 +773,7 @@ def collect(args) -> list[Finding]:
     budget = max(0, global_cap - released_today)
     findings: list[Finding] = []
     stayed: list[str] = []
+    ledger_unknown: list[str] = []
 
     paused_at = pause_file()
     if paused_at.exists():
@@ -664,6 +801,27 @@ def collect(args) -> list[Finding]:
             stayed.append(
                 f"{pid}  quiet       no work remaining (state file says the work is done)")
             continue
+
+        # THE LEDGER OUTRANKS THE STATE FILE. The standing contract tells every woken
+        # shift so in as many words ("if the two disagree, THE LEDGER IS RIGHT"), and
+        # this is that rule applied at the one place it was missing: the decision to
+        # wake at all. A project whose whole non-terminal backlog is blocked with a
+        # revisit time still in the future has nothing a shift can start, so the flag
+        # would buy an identical `nothing-todo` session (LEDGER item 142). The check
+        # sits BEFORE the cooldown deliberately: a cooldown countdown implies the wake
+        # is still coming, and this is the honest reason it is not.
+        verdict, detail = _ledger_verdict(pid, now)
+        if verdict == "blocked-future" and _ledger_suppression_enabled(project):
+            stayed.append(
+                f"{pid}  suppressed  no shift-startable ledger work: {detail}")
+            continue
+        if verdict == "blocked-future":
+            note = f"  [ledger: {detail}; exemption ignore_blocked_ledger]"
+        elif verdict == "unknown":
+            ledger_unknown.append(pid)
+            note = f"  [ledger: {detail}]"
+        else:
+            note = ""
 
         cooldown = int(project.get("cooldown_seconds", 43200))
         last = newest.get(pid)
@@ -707,7 +865,7 @@ def collect(args) -> list[Finding]:
             cooldown_seconds=cooldown,
         ))
         stayed.append(
-            f"{pid}  flagged     {subject}  ({len(items)} item(s) remaining)")
+            f"{pid}  flagged     {subject}  ({len(items)} item(s) remaining){note}")
         budget -= 1
 
     # One line per project, on stderr. A source that declines to file has to say
@@ -718,6 +876,9 @@ def collect(args) -> list[Finding]:
     print(f"{SOURCE}: {len(findings)} flag(s) to raise, {len(reasons)} suppression(s), "
           f"system-wide releases today {released_today}/{global_cap}",
           file=sys.stderr)
+    if ledger_unknown:
+        print(f"{SOURCE}: LEDGER NOT CONSULTED for {','.join(ledger_unknown)} "
+              f"(state-file verdict used; {ledger_path()})", file=sys.stderr)
     return findings
 
 
