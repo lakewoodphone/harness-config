@@ -1092,6 +1092,7 @@ handoff	H3637	3637		2026-10-14 00:24 UTC	SECRATARY-CLOUD	open	## 2026-10-14 00:2
 handoff	H3639	3639		2026-10-14 02:47 UTC	secratary-cloud	open	## 2026-10-14 02:47 UTC · secratary-cloud · Mail archive built: 5 mailboxes pulled into a searchable corpus, unified-search mail:gmail gap filled, 14-agent analysis delivered	entries/handoff/H3639.md	1	58	723c062d200fd6b5	mail,archive,search,unified-search,analysis,fleet	
 handoff	H3640	3640		2026-10-14 02:59 UTC	SECRATARY-CLOUD	open	## 2026-10-14 02:59 UTC · SECRATARY-CLOUD · DRN 2002 stays a Waze kiosk: the registry, not the profile list, settles ledger 130	entries/handoff/H3640.md	1	38	0d47ed2e32c78d75	mdm,lpt,drn2002,decision	H3635,H3638,D3145,130
 handoff	H3641	3641		2026-10-14 04:22 UTC	SECRATARY-CLOUD	open	## 2026-10-14 04:22 UTC · SECRATARY-CLOUD · Family chat: the owner's phone was removed by his own rate floor — fixed, roster restored	entries/handoff/H3641.md	1	58	c2359de0c34dbff6	family-chat,owner-text,incident	D3152,L3798,P3187
+handoff	H3671	3671		2026-10-14 14:35 UTC	secratary-cloud	open	## 2026-10-14 14:35 UTC · secratary-cloud · Waze kiosk Wi-Fi and Bluetooth controls unblocked and pushed to the six LPT units	entries/handoff/H3671.md	1	62	7d62eed3f826c821	waze-mdm,lpt,mdm,profiles	
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2649,6 +2650,7 @@ lessons	L3791	3791		2026-10-14	SECRATARY-CLOUD	open	**L3791 · L — A child's t
 lessons	L3792	3792		2026-10-14	secratary-cloud	open	**L3792 · A future-dated message silently kills a timestamp watermark**	entries/lessons/L3792.md	1	22	0f3cf791fb52353f	mail,gmail,watermark,silent-failure	
 lessons	L3793	3793		2026-10-14	secratary-cloud	open	**L3793 · Fleet reading a remote corpus: copy it once, do not loop ssh**	entries/lessons/L3793.md	1	22	f468948ca1162daa	mesh,fleet,ssh,orchestration	
 lessons	L3798	3798		2026-10-14	SECRATARY-CLOUD	open	**L3798 · Read terminal; a delay is not a death sentence; a wrong label becomes a wrong record**	entries/lessons/L3798.md	1	35	01d10e7c6aaf8805	family-chat,owner-text,classification,provenance	D3152,D3144b
+lessons	L3818	3818		2026-10-14	secratary-cloud	open	**L3818 · A restriction key needs a reachable control surface; 4 looked like Wi-Fi levers, 1 was real, 2 do not exist**	entries/lessons/L3818.md	1	75	2d748091fc3ad1a0	waze-mdm,mdm,profiles,apple,verification	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3222,6 +3224,7 @@ pain	P3197	3197		2026-10-14	SECRATARY-CLOUD	open	## P3197 — Estate monitor: pu
 pain	P3198	3198		2026-10-14	SECRATARY-CLOUD	open	## P3198 — a script this host RUNS does not match the captured reference	entries/pain/P3198.md	1	6	7e689a0d531a3318	deployed-drift,scripts,drift	
 pain	P3199	3199		2026-10-14	SECRATARY-CLOUD	open	## P3199 — Estate monitor: disk_used_pct is critical (92.47 %) across 3 consecutive runs	entries/pain/P3199.md	1	23	52e7a5a91df28a87	estate-monitor,auto-filed,not-the-owners	metrics/disk_used_pct
 pain	P3200	3200		2026-10-14	SECRATARY-CLOUD	open	## P3200 — Estate monitor: disk_free_deficit_gb is critical (4.828 GiB) across 3 consecutive runs	entries/pain/P3200.md	1	23	d1e24bdb1fcd0e5d	estate-monitor,auto-filed,not-the-owners	metrics/disk_free_deficit_gb
+pain	P3201	3201		2026-10-14	SECRATARY-CLOUD	open	## P3201 — Estate monitor: swap_used_pct is critical (69.55 %) across 12 consecutive runs	entries/pain/P3201.md	1	23	42fa42d5b43b0bf6	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3661,6 +3664,7 @@ decisions	D3149	3149		2026-10-13	SECRATARY-CLOUD	open	**D3149 · 2026-10-13 · B
 decisions	D3150	3150		2026-10-14	SECRATARY-CLOUD	open	**D3150 · 2026-10-14 · Owner answer 2026-10-13: no quiet hours, night delivery is not a harm.**	entries/decisions/D3150.md	1	27	c0aff089865eb472		
 decisions	D3151	3151		2026-10-14	secratary-cloud	open	**D3151 · 2026-10-14 · Email archive: fill unified-search's registered mail:gmail gap, do not build a second index.**	entries/decisions/D3151.md	1	37	7b5356773be18cbe	mail,search,unified-search,architecture	
 decisions	D3152	3152		2026-10-14	SECRATARY-CLOUD	open	**D3152 · 2026-10-14 · A family relay to the owner is not rate-floored.**	entries/decisions/D3152.md	1	32	86c74ab41d085745	family-chat,owner-text,owner-leg	D3144b,D2647
+decisions	D3154	3154		2026-10-14	secratary-cloud	open	**D3154 · 2026-10-14 · Waze kiosk: unblock the Wi-Fi/Bluetooth Settings panes, keep forceWiFiPowerOn true, six LPT units only.**	entries/decisions/D3154.md	1	49	6bbe61eb730eb6f7	waze-mdm,mdm,profiles,owner-decision	
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
