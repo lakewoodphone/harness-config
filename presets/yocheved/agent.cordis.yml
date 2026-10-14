@@ -116,10 +116,18 @@
 
       node $M hosts                                   # which machines answer, and which is which
       node $M run  desktop-ts "hostname"               # run a command on any of them
-      node $M file secratary-ts /home/zabz/x.txt       # read a file
-      node $M env  secratary-ts /home/zabz/personal-secretary-mvp/.env     # list variable NAMES
+      node $M file secratary-cloud /home/zabz/x.txt    # read a file
+      node $M env  secratary-cloud /home/zabz/personal-secretary-mvp/.env     # list variable NAMES
       node $M env  desktop-ts "C:/Users/ezabz/code/personal-secretary-mvp/.env" --key NAME   # one value
       ```
+
+      **The authority is `secratary-cloud`, NOT `secratary-ts`.** These two examples said
+      `secratary-ts` until 2026-10-13, which is the FROZEN office box -- it runs a complete shadow
+      copy of the company, so a stale name here does not fail, it answers confidently from a forked
+      database. That is the exact failure the 2026-10-11 cutover created (`docs/mesh/131-MIGRATION-BRIEF.md`).
+      The authority has **no `zabz` account** and its paths are NOT the office box's: the deployment
+      root there is `/opt/company`, and the live `lpt-hub` clone is `/home/zabz/phone/lpt-hub`
+      (measured 2026-10-13). Check a path with `node $M file` before you depend on it.
 
       Use this when the answer lives on another machine — what is configured on the server, what a service's settings are, whether something is installed. `env` lists variable *names* by default and prints a value only when you ask for one by name; a value is a secret and the tool says so before showing it.
 
@@ -489,5 +497,46 @@
       - 'secratary-cloud'
       - '/opt/company/.venv/bin/python'
       - '/opt/company/scripts/ps_mcp_server.py'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+
+# ── MCP: research that does not depend on her filtered network ───────────────────────────────────
+#
+# Added 2026-10-14, WINDOWS ONLY -- this is her laptop's whole reason for existing in this preset.
+#
+# THE PROBLEM IT SOLVES. Her laptop sits behind the Techloq filter. The harness's built-in web search
+# calls `api.deepseek.com`, which the filter blocks BY URL CATEGORY -- and the block is answered with
+# an HTML page carrying a SUCCESS status, so nothing looks broken. The agent sees HTTP 200, gets no
+# usable result, degrades into fetching one URL at a time, and eventually reports
+# `DeepSeek search request failed: TypeError: fetch failed`. Her search was handicapped, silently.
+#
+# There was already a half-fix, and it is instructive that it was not enough: `DEEPSEEK_SEARCH_BASE_URL`
+# (set in DESKTOP-FGV6KMH.launch.cmd) repoints the BUILT-IN search at the Cloudflare Worker. But the
+# 1-minute `DSH Engine Watchdog` starts the engine through `dshw.ps1`, which does not set it, so every
+# watchdog-started engine came up WITHOUT it and search was broken again -- silently. It is now also set
+# at MACHINE scope, which closes that hole.
+#
+# WHY A TOOL AND NOT JUST THE VARIABLE. An environment variable is invisible to the agent, one plumbing
+# mistake from being absent, and when absent NOTHING SAYS SO. A tool the agent can see, name, and be
+# told about is a different class of guarantee: `search`, `fetch_url` and -- importantly -- `status`,
+# which reports which backend is reachable right now, so a failure is VISIBLE instead of silent.
+#
+# WHERE THE WORK HAPPENS. `packages/research-offload/server.mjs` runs as a local child but does its
+# searching OFF this machine: primary is the same Cloudflare Worker (`ds.abletelsolutions.com`) that
+# makes the upstream call from Cloudflare's edge, where the filter has no visibility; fallback is the
+# company's own agent at `api.abletelsolutions.com/ceo/chat`. Both are plain HTTPS on a zone the filter
+# already allows, so neither is blocked. Every answer names the backend that produced it.
+#
+# `failOnStartupError: false` for the same reason as the row above: if the offload path is unavailable
+# her assistant must still work on everything local rather than refusing to mount.
+- id: mcp-research-offload
+  name: '@deepseek-ai/dsh-mcp-client'
+  disabled: !!js process.platform !== 'win32'
+  config:
+    serverName: research-offload
+    transport: stdio
+    command: node
+    args:
+      - 'C:\Users\cheve\code\harness-config\packages\research-offload\server.mjs'
     toolCallTimeoutMs: 120000
     failOnStartupError: false
