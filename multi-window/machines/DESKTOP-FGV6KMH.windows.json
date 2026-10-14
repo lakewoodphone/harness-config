@@ -76,5 +76,7 @@
   "_multiPorts": {
     "_comment": "Only read in mode 'multi'. Ports are assigned from basePort upward, in window order.",
     "basePort": 3081
-  }
+  },
+  "_dshInstall": "THE ENGINE PIN, AND WHY THIS KEY IS MANDATORY ON THIS MACHINE. Added 2026-10-14. This machine's dshw.ps1 (blob aa4adcc5, 101033 bytes; the master lineage does NOT carry the fleet's 209335-byte revision) has NO dot-dsh-engine candidate in Resolve-DshBin. Its candidates are, in order: the DSH_BIN env var, the dshBin config key, the DSH_INSTALL env var, this dshInstall key, then profiles/node_modules under dot-dsh. Its own error text says to set dshInstall here or DSH_INSTALL. So a pin placed at the engine directory with this key absent is installed and then IGNORED, and the symptom reads as 'the pin changed nothing'. The pinned engine (0.2.0-rc.2, 288 packages, installed 2026-10-14) sits ALONGSIDE the 0.1.5 tree, which is untouched, so rollback is: remove this key, rename the engine directory, re-run ensure. Set per docs/incidents/2026-10-08-zabz-tech-engine-line-mismatch/README.md, where an engine on the wrong side of the version line produced a boot crash loop and an EMPTY WORKSPACE PICKER.",
+  "dshInstall": "C:\\Users\\cheve\\.dsh\\engine"
 }
