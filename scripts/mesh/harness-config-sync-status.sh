@@ -30,7 +30,15 @@
 #   result=clean     converged=true   local HEAD == canonical remote HEAD
 #   result=attention converged=false  remote behind local (unpublished) or unreadable
 #
-# EXIT: 0 converged, 1 not converged / cannot verify, 2 cannot run.
+# EXIT: 0 converged, 3 not converged / cannot verify (CONDITION, not fault), 2 cannot run.
+#
+# CHANGED 2026-10-14 (cron repair for config-sync-status; journal L3620/L3777):
+#   * attention exited 1. 1 is ambiguous here; 3 is the reserved CONDITION_EXIT that
+#     sources/cron-failures.py reads as "a job WORKING and reporting an external condition"
+#     -- it ends a repair streak instead of extending it. The condition is still escalated:
+#     the kernel's check_config_sync treats result != "clean" as HIGH.
+#   * the DIVERGED message merged three different facts and called a workstream branch
+#     "local main". It now names the branch HEAD is really on and says which side moved.
 set -uo pipefail
 
 REPO="${HARNESS_REPO:-/root/code/harness-config}"
@@ -62,16 +70,17 @@ if [ -z "$LOCAL_FULL" ]; then
   exit 2
 fi
 LOCAL_SHORT="$(git -C "$REPO" rev-parse --short HEAD)"
+HEAD_BRANCH="$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
 REMOTE_URL="$(git -C "$REPO" remote get-url "$REMOTE" 2>/dev/null || true)"
 if [ -z "$REMOTE_URL" ]; then
-  write_status attention "remote '$REMOTE' is not configured in $REPO; cannot verify convergence (local HEAD $LOCAL_SHORT)" "$LOCAL_SHORT" false
-  exit 1
+  write_status attention "remote '$REMOTE' is not configured in $REPO; cannot verify convergence (HEAD is $HEAD_BRANCH $LOCAL_SHORT)" "$LOCAL_SHORT" false
+  exit 3
 fi
 
 REMOTE_FULL="$(timeout 30 git -C "$REPO" ls-remote "$REMOTE" "refs/heads/$BRANCH" 2>/dev/null | awk '{print $1}')"
 if [ -z "$REMOTE_FULL" ]; then
-  write_status attention "cannot verify: $REMOTE_URL does not answer refs/heads/$BRANCH (network or credential); local HEAD $LOCAL_SHORT is UNPUBLISHED" "$LOCAL_SHORT" false
-  exit 1
+  write_status attention "cannot verify: $REMOTE_URL does not answer refs/heads/$BRANCH (network or credential); HEAD ($HEAD_BRANCH $LOCAL_SHORT) is UNPUBLISHED" "$LOCAL_SHORT" false
+  exit 3
 fi
 
 if [ "$REMOTE_FULL" = "$LOCAL_FULL" ]; then
@@ -79,5 +88,19 @@ if [ "$REMOTE_FULL" = "$LOCAL_FULL" ]; then
   exit 0
 fi
 
-write_status attention "DIVERGED: local $BRANCH is $LOCAL_SHORT but $REMOTE_URL refs/heads/$BRANCH is ${REMOTE_FULL:0:7}; the canonical checkout is not published" "$LOCAL_SHORT" false
-exit 1
+# Three different facts were all reported as DIVERGED (journal L3620). Say which one it is,
+# and name the branch HEAD is really on: the shared checkout can be switched onto a workstream
+# branch mid-session (journal L3777), and the old wording called that branch "local main".
+if ! git -C "$REPO" cat-file -e "${REMOTE_FULL}^{commit}" 2>/dev/null; then
+  REL="unclassified: $REMOTE_URL refs/heads/$BRANCH is ${REMOTE_FULL:0:7}, which is not in the local object store (this check never fetches)"
+elif git -C "$REPO" merge-base --is-ancestor "$LOCAL_FULL" "$REMOTE_FULL" 2>/dev/null; then
+  REL="behind: $REMOTE_URL refs/heads/$BRANCH (${REMOTE_FULL:0:7}) is ahead of HEAD ($LOCAL_SHORT)"
+elif git -C "$REPO" merge-base --is-ancestor "$REMOTE_FULL" "$LOCAL_FULL" 2>/dev/null; then
+  REL="ahead: HEAD ($LOCAL_SHORT) is local work the remote does not have yet (normal between writes and pushes)"
+else
+  REL="diverged: HEAD ($LOCAL_SHORT) and $REMOTE_URL refs/heads/$BRANCH (${REMOTE_FULL:0:7}) have both moved"
+fi
+ON_BRANCH=""
+[ "$HEAD_BRANCH" = "$BRANCH" ] || ON_BRANCH="; the shared checkout is on '$HEAD_BRANCH', NOT on '$BRANCH' (journal L3777)"
+write_status attention "not converged: $REL$ON_BRANCH" "$LOCAL_SHORT" false
+exit 3
