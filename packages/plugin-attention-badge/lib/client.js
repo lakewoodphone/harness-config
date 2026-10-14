@@ -85,7 +85,9 @@ const FALLBACK_VERSION = '1';
  */
 const BADGE_AUTHORITIES = [
   'https://secratary-cloud.tail93e6e6.ts.net',
-  'https://secratary.tail93e6e6.ts.net',
+  // The frozen office box is deliberately NOT a fallback: frozen 2026-10-11 as the rollback anchor
+  // (settings/machines/host-posture.tsv), so dead by decision. MEASURED 2026-10-14 on DESKTOP-FGV6KMH:
+  // falling back to it threw ERR_NAME_NOT_RESOLVED on every page load, a permanent console error.
 ];
 const BADGE_AUTHORITY = BADGE_AUTHORITIES[0];
 const BADGE_SRC = BADGE_AUTHORITY + '/dsh-attention.js';
