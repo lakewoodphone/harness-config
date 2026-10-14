@@ -3246,6 +3246,8 @@ pain	P3203	3203		2026-10-14	SECRATARY-CLOUD	open	## P3203 — The Waze filter ha
 pain	P3204	3204		2026-10-14	SECRATARY-CLOUD	open	## P3204 — Estate monitor: swap_used_pct is critical (82.3 %) across 22 consecutive runs	entries/pain/P3204.md	1	23	a75a91b1df072415	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 pain	P3205	3205		2026-10-14	SECRATARY-CLOUD	open	## P3205 — A brief I write with a wrong unit multiplies through a whole research stream	entries/pain/P3205.md	1	29	b6e1d03aa758b346		
 pain	P3206	3206		2026-10-14	SECRATARY-CLOUD	open	## P3206 — lpt-hub's main checkout carries 1,381 uncommitted deletions that any git add -A would sweep	entries/pain/P3206.md	1	29	0e1aa94def81702e		
+pain	P3207	3207		2026-10-14	SECRATARY-CLOUD	open	## P3207 — Estate monitor: public_health_status is critical (1.0 ) across 7 consecutive runs	entries/pain/P3207.md	1	23	2528f410cc8ab508	estate-monitor,auto-filed,not-the-owners	metrics/public_health_status
+pain	P3208	3208		2026-10-14	SECRATARY-CLOUD	open	## P3208 — owner-queue.py answer hangs with zero output when the authority DB is write-locked	entries/pain/P3208.md	1	39	2c6e75ba402568b8		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3688,6 +3690,7 @@ decisions	D3152	3152		2026-10-14	SECRATARY-CLOUD	open	**D3152 · 2026-10-14 · A
 decisions	D3154	3154		2026-10-14	secratary-cloud	open	**D3154 · 2026-10-14 · Waze kiosk: unblock the Wi-Fi/Bluetooth Settings panes, keep forceWiFiPowerOn true, six LPT units only.**	entries/decisions/D3154.md	1	49	6bbe61eb730eb6f7	waze-mdm,mdm,profiles,owner-decision	
 decisions	D3155	3155		2026-10-14	SECRATARY-CLOUD	open	**D3155 · 2026-10-14 · Waze voice input: decide by a device test, never by opening guzzoni, and keep Shortcuts blocked pending the owner.**	entries/decisions/D3155.md	1	29	7b8becefc5f1e9ad		
 decisions	D3156	3156		2026-10-14	SECRATARY-CLOUD	open	**D3156 · 2026-10-14 · Kamera: device, casing, app shape, and cloud design decided; price deliberately NOT set.**	entries/decisions/D3156.md	1	44	31bd17e21e85a4be		
+decisions	D3210	3210		2026-10-14	SECRATARY-CLOUD	open	**D3210 · 2026-10-14 · Owner answer, queue row #510: keep selling, his devices, users not buyers.**	entries/decisions/D3210.md	1	47	29806afb7610507c		
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
