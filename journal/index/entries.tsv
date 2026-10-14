@@ -1097,6 +1097,7 @@ handoff	H3672	3672		2026-10-14 14:40 UTC	secratary-cloud	open	## 2026-10-14 14:4
 handoff	H3673	3673		2026-10-14 14:45 UTC	SECRATARY-CLOUD	open	## 2026-10-14 14:45 UTC · SECRATARY-CLOUD · Waze voice input: a June rollback nobody reversed, and the retest it asked for is now written down	entries/handoff/H3673.md	1	61	d3741643cc0e2220		
 handoff	H3674	3674		2026-10-14 14:57 UTC	secratary-cloud	open	## 2026-10-14 14:57 UTC · secratary-cloud · Waze kiosk Wi-Fi/Bluetooth on master; session-finding failure fixed and measured	entries/handoff/H3674.md	1	74	b23868d053ccb9cb	waze-mdm,sessions,tooling,audit,merge	
 handoff	H3675	3675		2026-10-14 15:08 UTC	SECRATARY-CLOUD	open	## 2026-10-14 15:08 UTC · SECRATARY-CLOUD · Waze voice input round 2: one key explains both symptoms, and our own filter blocks the model	entries/handoff/H3675.md	1	66	84b7b8d61d3fa496		
+handoff	H3676	3676		2026-10-14 15:36 UTC	SECRATARY-CLOUD	open	## 2026-10-14 15:36 UTC · SECRATARY-CLOUD · Kamera research complete and pushed; the ABM 2.5 clause reaches the live Waze product	entries/handoff/H3676.md	1	74	dc1cbe85762ee3eb		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2663,6 +2664,8 @@ lessons	L3823	3823		2026-10-14	secratary-cloud	open	**L3823 · The capability wa
 lessons	L3824	3824		2026-10-14	SECRATARY-CLOUD	open	**L3824 · A default-deny DNS filter breaks features by refusing their asset host, silently**	entries/lessons/L3824.md	1	41	27e0942b39db2d72		
 lessons	L3825	3825		2026-10-14	SECRATARY-CLOUD	open	**L3825 · A device is a control only when it differs in one variable**	entries/lessons/L3825.md	1	43	f384af7691cd83ce		
 lessons	L3826	3826		2026-10-14	SECRATARY-CLOUD	open	**L3826 · A case file and its credential companion can land on different branches; main then carries a record whose case file it does not have**	entries/lessons/L3826.md	1	58	47ccbdb7d64ee5a9	lpt-hub,case-record,git-divergence	lpt-hub
+lessons	L3827	3827		2026-10-14	SECRATARY-CLOUD	open	**L3827 · Apple device-management docs are client-rendered; read Apple's schema repo instead**	entries/lessons/L3827.md	1	22	fcce8cd681a12954		
+lessons	L3828	3828		2026-10-14	SECRATARY-CLOUD	open	**L3828 · CORRECTION to H3676 and P3206: the branch is research/kosher-camera**	entries/lessons/L3828.md	1	28	bc2d73bdfd6c0a61		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3240,6 +3243,8 @@ pain	P3201	3201		2026-10-14	SECRATARY-CLOUD	open	## P3201 — Estate monitor: sw
 pain	P3202	3202		2026-10-14	SECRATARY-CLOUD	open	## P3202 — Estate monitor: disk_util_pct is critical (81.71 %) across 5 consecutive runs	entries/pain/P3202.md	1	23	74b02a54781de4b9	estate-monitor,auto-filed,not-the-owners	metrics/disk_util_pct
 pain	P3203	3203		2026-10-14	SECRATARY-CLOUD	open	## P3203 — The Waze filter has two contradictory states — the repo's and the running one — and nothing compares them	entries/pain/P3203.md	1	27	68bb0f5f45c160e2		
 pain	P3204	3204		2026-10-14	SECRATARY-CLOUD	open	## P3204 — Estate monitor: swap_used_pct is critical (82.3 %) across 22 consecutive runs	entries/pain/P3204.md	1	23	a75a91b1df072415	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
+pain	P3205	3205		2026-10-14	SECRATARY-CLOUD	open	## P3205 — A brief I write with a wrong unit multiplies through a whole research stream	entries/pain/P3205.md	1	29	b6e1d03aa758b346		
+pain	P3206	3206		2026-10-14	SECRATARY-CLOUD	open	## P3206 — lpt-hub's main checkout carries 1,381 uncommitted deletions that any git add -A would sweep	entries/pain/P3206.md	1	29	0e1aa94def81702e		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -3681,6 +3686,7 @@ decisions	D3151	3151		2026-10-14	secratary-cloud	open	**D3151 · 2026-10-14 · E
 decisions	D3152	3152		2026-10-14	SECRATARY-CLOUD	open	**D3152 · 2026-10-14 · A family relay to the owner is not rate-floored.**	entries/decisions/D3152.md	1	32	86c74ab41d085745	family-chat,owner-text,owner-leg	D3144b,D2647
 decisions	D3154	3154		2026-10-14	secratary-cloud	open	**D3154 · 2026-10-14 · Waze kiosk: unblock the Wi-Fi/Bluetooth Settings panes, keep forceWiFiPowerOn true, six LPT units only.**	entries/decisions/D3154.md	1	49	6bbe61eb730eb6f7	waze-mdm,mdm,profiles,owner-decision	
 decisions	D3155	3155		2026-10-14	SECRATARY-CLOUD	open	**D3155 · 2026-10-14 · Waze voice input: decide by a device test, never by opening guzzoni, and keep Shortcuts blocked pending the owner.**	entries/decisions/D3155.md	1	29	7b8becefc5f1e9ad		
+decisions	D3156	3156		2026-10-14	SECRATARY-CLOUD	open	**D3156 · 2026-10-14 · Kamera: device, casing, app shape, and cloud design decided; price deliberately NOT set.**	entries/decisions/D3156.md	1	44	31bd17e21e85a4be		
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
