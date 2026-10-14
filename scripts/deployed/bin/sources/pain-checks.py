@@ -98,7 +98,7 @@ def _stale_finding(stale_h, never_ran: bool, at: str) -> Finding:
             "RAW instead of base64-encoded and cron-wrap refused it before writing a run record --\n"
             "so a whole class of defect-closing work was dead with no symptom.\n\n"
             "WHAT TO DO\n"
-            "  1. `grep -P '\\tpain-check\\t' ~/.cron-status/runs.tsv | tail -5` -- is there a row at\n"
+            "  1. `grep -a -P '\\tpain-check\\t' ~/.cron-status/runs.tsv | tail -5` -- is there a row at\n"
             "     all? No row means the job never ran: read the crontab line and re-wrap it with\n"
             "     `python3 ~/bin/wrap-crontab.py --install` (it verifies byte-exactly).\n"
             "  2. Otherwise read the last row's rc and stderr tail -- the suite itself is failing.\n"

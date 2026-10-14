@@ -177,7 +177,11 @@ def collect(args, crontab_text: str = "") -> list[Finding]:
     if not RUNS.is_file():
         raise Unreadable("no run record at %s -- nothing is writing cron outcomes" % RUNS)
     try:
-        text = RUNS.read_text(encoding="utf-8", errors="replace")
+        # An unclean shutdown can leave a short run of NUL bytes at the end of
+        # runs.tsv (measured 2026-10-14T01:14Z: a 87-byte zero run after the crash).
+        # They glue onto the NEXT row's timestamp field, so drop them before parsing;
+        # the run record itself must never be rewritten or rotated to hide them.
+        text = RUNS.read_text(encoding="utf-8", errors="replace").replace("\x00", "")
     except Exception as exc:  # noqa: BLE001
         raise Unreadable("could not read %s: %s" % (RUNS, exc))
 
@@ -302,7 +306,7 @@ def collect(args, crontab_text: str = "") -> list[Finding]:
                 "sms-inbox 3.7%% of 614, wake-fanout 0%% of 3064 -- so %d in a row is not a bad "
                 "minute, it is a job that does not work.\n\n"
                 "WHAT TO DO\n"
-                "  1. READ THE ERROR FIRST. `grep -P '\\t%s\\t' ~/.cron-status/runs.tsv | tail -5`\n"
+                "  1. READ THE ERROR FIRST. `grep -a -P '\\t%s\\t' ~/.cron-status/runs.tsv | tail -5`\n"
                 "     gives the last few stderr tails. If the error column is empty, the job exits\n"
                 "     non-zero on purpose (a check that reports a finding) -- then say so and stop.\n"
                 "  2. Run the job BY HAND with its own arguments (the wrapped payload is the exact\n"
