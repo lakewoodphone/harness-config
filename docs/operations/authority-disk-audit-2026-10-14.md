@@ -82,9 +82,12 @@ directory is 26 GB and the artefact is 99.95 % of it.
 - **It is consistent, not torn:** header arithmetic `4096 × 6,717,611 = 27,515,334,656` exactly, same as
   the live file. But its `change_counter=1` / `schema_version=1` against live `8481` / `11` shows page 1
   was written fresh — a rewritten logical snapshot.
-- **ITS OWN "DO NOT DELETE" MARKER IS WRONG.** The marker says it is the pre-remediation rollback point.
-  Its content is **post**-remediation: tasks 3132/27907/28550 read `done`, identical to live. **The real
-  revert source is `rows-before-remediation-….json` (32 KB), which is present and intact.**
+- **ITS OWN "DO NOT DELETE" MARKER'S CONTENT PREMISE IS FALSIFIED — which is NOT permission to delete it.**
+  The marker says it is the pre-change rollback point. **Verified independently by me:** the before-record
+  JSON (`taken_at 03:53:26Z`) has task 3132 = `in-progress` and 27907 = `in_progress`, while **both the
+  copy and the live database read `done`** — so the copy holds *after*-values on the two changed rows
+  sampled (2 of 31). The marker's separate removal condition is in **§6 item 5** and is **not met**. Read
+  that item before acting on this one.
 - **Nothing executable reads it.** The exact path + directory name were grepped across
   `/etc/systemd/system`, `/etc/cron.d`, `/etc/crontab`, `/root/bin`, `/opt/company` and `crontab -l`;
   the only hits are two *policy comments* forbidding removal without the owner. No cron, timer or script.
@@ -231,11 +234,44 @@ The robustness gaps that matter:
    that would take free space below a floor. Cheapest possible version of the rule I broke.
 
 **Owner decisions (money / irreversible / policy):**
-5. **Reclaim 25.63 GiB** by removing `/root/lpt-sweep-20261014/authority.db.pre-remediation-*`. The case
-   for it: no executable consumer (grepped); the marker's stated reason is **false** (it is post-
-   remediation); the true revert source is a 32 KB JSON that stays; and a **verified** offsite copy exists
-   from 05:49Z. Estimated result: **~70 % used**. This needs the owner because the file carries a
-   DO-NOT-DELETE marker.
+5. **DO NOT REMOVE `/root/lpt-sweep-20261014/authority.db.pre-remediation-*` YET — its own removal
+   condition is not met, and one half of that condition is the owner's.** *(This item originally read
+   "reclaim 25.63 GiB". That was wrong, and it was written from a subagent's summary instead of the
+   marker's text. The marker was then read verbatim and the correction is below.)*
+
+   The marker states the removal condition as **BOTH**:
+   1. **the owner has confirmed the 2026-10-14 remediation is correct in production**, AND
+   2. a fresh, verified backup exists on separate storage.
+
+   **Condition 2 is met** — `/var/lib/authority-backup/last-run`: `status=ok`,
+   `database_verified=ok`, `source_bytes=27623084032`,
+   `reader_sha256=bb2a6f66647b1c8dd57228357e3727c5dcb3499d35695d8b9a572f4b86d53355`,
+   `gz_bytes=7390573886`, `remote_last_modified=2026-10-14T05:46:57+00:00`.
+   **Condition 1 is NOT met and cannot be met by an agent** — it is a judgement about whether a
+   production data change was correct.
+
+   **What I verified independently** (not taken from a child's report): the BEFORE record
+   `rows-before-remediation-20261014T035326Z.json` (`taken_at 2026-10-14T03:53:26Z`) gives task 3132 =
+   `in-progress` and task 27907 = `in_progress`; **both the copy and the live database read `done` for
+   both**. So the copy holds **after**-values on the two changed rows sampled — the marker's "pre-change"
+   premise is falsified **on this sample**. But that is 2 of 31 rows, and it does *not* satisfy condition 1,
+   which is not a fact about the file's contents at all.
+
+   **The marker anticipates this exact moment**, so it is quoted here rather than paraphrased:
+   > *"So nothing prunes it and nothing protects it: an agent responding to a 90 percent disk finding can
+   > delete it by hand with no policy record and no prompt to stop it. **This marker is that missing
+   > record.**"* … *"**There is no disk emergency that justifies touching the rollback point.** If you are
+   > over the guard's 90 percent warn, **reclaim named scratch consumers first and record what you
+   > removed.**"*
+
+   To be precise about the state: we are at **84 %**, **not over the 90 % warn**. The marker's own
+   measurement was 77 % used at 07:58Z.
+
+   **Cheaper paths to the same space, in order of safety, none of which touch it:**
+   the redundant shallow clone `/root/work/lpt-hub` (1.60 GB, 5/5 refs also in the full clone);
+   `/root/accounting-data/live/accounting.db.bak-*` (19 files, 423 MB); `*.out`/`*.log` scratch
+   (~1 GB, no producer found); the 51 linked worktrees (13.1 GiB — per-worktree `git status` first, the
+   same unstaged edit sits in 8 of them); `/root/work` session scratch (~12 GiB).
 6. **Set a retention policy for the copy producers** — `~/.cfo/backups` (185 files, 1.3 GiB) has no
    pruner by its own admission; `checkout-health-preserved` (1.1 GiB, 33 dirs) and `/root/work` scratch
    (~12 GiB) grow per session. The producer exists; only the policy is missing.
