@@ -522,3 +522,8 @@ L2784c	lessons	L2784	identity duplicate inside entries/	2026-10-13	SECRATARY	644
 L2784bc	lessons	L2784b	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	f0fe3e91217ce940	archive/duplicates/lessons/L2784bc.md
 L3615	lessons	L3614	identity duplicate inside entries/	2026-10-13	SECRATARY-CLOUD	6b535a2a770abd89	archive/duplicates/lessons/L3615.md
 P2561bc	pain	P2561b	identity duplicate inside entries/	2026-10-13	ZABZ-YOGA	1f807751f6a013ee	archive/duplicates/pain/P2561bc.md
+L3776	lessons	L3794	cross-machine id collision: two machines allocated the same id; renamed on merge	2026-09-16
+L3777	lessons	L3795	cross-machine id collision: two machines allocated the same id; renamed on merge	2026-09-16
+L3778	lessons	L3796	cross-machine id collision: two machines allocated the same id; renamed on merge	2026-09-16
+L3779	lessons	L3797	cross-machine id collision: two machines allocated the same id; renamed on merge	2026-09-16
+P3166	pain	P3184	cross-machine id collision: two machines allocated the same id; renamed on merge	2026-09-16
