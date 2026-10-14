@@ -133,7 +133,14 @@ cdw.FUNDING_MAP = os.path.abspath(os.environ["CARD_DUE_FUNDING_MAP"])
 fmap = cdw.read_funding_map()
 check("funding map 9650", fmap.get("9650", {}).get("account_id"), "personal-checking")
 check("funding map 3929", fmap.get("3929", {}).get("account_id"), "lpt-boa-checking")
-check("funding map does not invent cards", len(fmap), 2)
+check("funding map 5578", fmap.get("5578", {}).get("account_id"), "lpt-boa-checking")
+check("funding map 7542", fmap.get("7542", {}).get("account_id"), "lpt-boa-checking")
+# Assert substance, not a row count: a count breaks every time a card is mapped, which
+# trains the reader to edit the number instead of reading the failure. The real invariant
+# is that a card with NO evidence is absent rather than defaulted to something plausible.
+check("funding map does not invent a card", "8512" in fmap, False)
+check("funding map only holds known cards",
+      sorted(fmap.keys()), ["3929", "5578", "7542", "9650"])
 # The label may contain spaces in both directions - the pipe format must survive them.
 check("funding map label keeps spaces",
       "CHASE COLLEGE" in fmap.get("9650", {}).get("label", ""), True)

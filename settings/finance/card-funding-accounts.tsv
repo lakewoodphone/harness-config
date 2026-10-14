@@ -9,7 +9,8 @@
 # HOW A ROW IS EARNED
 # Not by inference and never by guessing. A row goes in only when a bank-side debit and a
 # card-side credit for THE SAME AMOUNT, opposite signs, and the same originator id have been
-# matched. Both rows below were matched that way on 2026-10-14 against plaid_transactions.
+# matched. Every row below was matched that way against plaid_transactions on 2026-10-14.
+# All five carry the same originator: "CHASE CREDIT CRD DES:AUTOPAYBUS ... CO ID:XXXXX39224".
 #
 # FORMAT  (pipe separated; # comments allowed; a label may contain spaces)
 #   card_last4 | accounting_account_id | human label | evidence
@@ -17,5 +18,7 @@
 # A card with no row is REPORTED AS UNMAPPED, which is the honest answer. Do not fill the
 # gap with a plausible account - a wrong funding account is worse than no reminder.
 
-9650 | personal-checking | Chase checking ...9730 (the account named "CHASE COLLEGE") | 2026-10-14: bank debit +2380.06 on mask 9730 (2026-10-13, ORIG ID:4760039224) matches card credit -2380.06 on 9650 (2026-10-11, "AUTOMATIC PAYMENT - THANK")
-3929 | lpt-boa-checking | Business checking ...7930 | 2026-10-14: bank debit +1524.18 on mask 7930 (2026-10-08, CHASE CREDIT CRD CO ID:XXXXX39224) matches card credit -1524.18 on 3929 (2026-10-07, "AUTOMATIC PAYMENT - THANK")
+9650 | personal-checking | Chase checking ...9730 (the account named "CHASE COLLEGE") | debit +2380.06 on 9730 (2026-10-13, ORIG ID:4760039224) <-> credit -2380.06 on 9650 (2026-10-11)
+3929 | lpt-boa-checking | Business checking ...7930 | debit +1524.18 on 7930 (2026-10-08, CHASE CREDIT CRD CO ID:XXXXX39224) <-> credit -1524.18 on 3929 (2026-10-07)
+5578 | lpt-boa-checking | Business checking ...7930 | three independent matches: debits +363.83 (2026-09-21), +346.12 (2026-08-21), +3423.61 (2026-06-22) on 7930 <-> credits -363.83 (09-20), -346.12 (08-20), -3423.61 (06-19) on 5578
+7542 | lpt-boa-checking | Business checking ...7930 | two independent matches: debits +232.25 (2026-09-23), +6375.97 (2026-05-26) on 7930 <-> credits -232.25 (09-22), -6375.97 (05-22) on 7542
