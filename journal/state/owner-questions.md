@@ -6,7 +6,7 @@ Updated: 2026-10-14
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 501 row(s) read, 161 pending, generated 2026-10-14 08:53 UTC on SECRATARY-CLOUD.
+Provenance: 502 row(s) read, 162 pending, generated 2026-10-14 09:53 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -160,6 +160,7 @@ Provenance: 501 row(s) read, 161 pending, generated 2026-10-14 08:53 UTC on SECR
 | 499 | 2026-10-14 | medium | I hold NO filing record for NJ ST-50 sales tax, 2026-10-20 (in 6 day(s)). I cannot tell filed from unfiled from here, and the source that would settle it needs your login. | Go to a primary source before answering: the NJ Premier portal (needs the owner's login) or the filer's own confirmation mail. File from actual quarterly sales. Late: penalty + interest. |
 | 500 | 2026-10-14 | medium | The filter broker uses one shared credential that was readable on your desktop for a day, and rotating it needs about a minute of broker restart plus the new token re-issued on every device - do you authorize that rotation? | I recommend yes, in a quiet window: I would issue a new token, recreate only lpt_filter_ai_api, re-issue the ZABZ-TECH relay, and prove the old token now answers 0101. Leaving it live is the worse risk, and nothing is co |
 | 502 | 2026-10-14 | medium | A LIVE legacy GitHub token (GITHUB_PAT, scopes repo+workflow) was sitting in plaintext in four /opt/company .env backups - I redacted the copies, but the token itself is still valid. Revoke it? | Revoke it: the live .env has no GITHUB_PAT and uses COPILOT_GITHUB_TOKEN, so nothing on the authority reads it, and a 200-valid repo+workflow token in old backups is needless risk. |
+| 503 | 2026-10-14 | medium | origin/main for kosher-ai-filter still carries the code that passes the filter broker credential as a process argument - do I promote the branch fix/kaf152-relay-token-env (8dd9a1a) to main to land that fix? | I recommend yes, and I recommend promoting it ahead of the other 11 unpromoted commits: origin/main (bbe93a6) is a strict ancestor of 8dd9a1a, so the promotion is a plain fast-forward with zero conflicts, and the branch  |
 | 262 | 2026-10-05 | low | ZABZ-TECH's RDP service is wedged and only a reboot will activate microphone passthrough (your Yoga mic appearing as a real recording device inside ZABZ-TECH). Reboot that machine, or stay on Chrome Remote Desktop and dictate on the Yoga side instead? | Dictate on the Yoga side first: it needs no reboot, and installing Handy with local Whisper and one toggle hotkey turns speech into text and pastes it, which is exactly what crosses Chrome Remote Desktop. Reach for the R |
 | 306 | 2026-10-07 | low | What was the 127.95 charge at US MOBILE on 20 Sep (card ending 3929) - no live charge in this ledger carries the merchant 'desc mobile'? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 | 329 | 2026-10-08 | low | Birnbaum's AirTags: waived for free as the call says, or billed 75? | Waive it: the shop's own words were that he could have it free, and billing a freebie after the fact costs more in trust than 75 is worth. |
