@@ -1,0 +1,53 @@
+{
+ "adopted_rows": 0,
+ "bands_refs_read": 32,
+ "ceiling": {
+  "decisions": 3337,
+  "handoff": 3906,
+  "lessons": 4063,
+  "pain": 3864,
+  "wins": 2941
+ },
+ "ceiling_source": {
+  "decisions": "ZABZ-YOGA live working tree",
+  "handoff": "ZABZ-YOGA live working tree",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "ZABZ-TECH live working tree",
+  "wins": "ZABZ-YOGA live working tree"
+ },
+ "claimed_gap_rows": [],
+ "entries_high_water": {
+  "decisions": "D3215",
+  "handoff": "H3784",
+  "lessons": "L3943",
+  "pain": "P3211",
+  "wins": "W2878"
+ },
+ "high_water": {
+  "decisions": "D3337",
+  "handoff": "H3906",
+  "lessons": "L4063",
+  "pain": "P3864",
+  "wins": "W2941"
+ },
+ "host": "secratary-cloud",
+ "live_peer_rows": 300,
+ "live_peer_unreachable": [
+  "ZABZ-TECH-LINUX (rc=1)"
+ ],
+ "peers_failed": [],
+ "peers_fetched": [
+  "yoga",
+  "tech",
+  "journalpub",
+  "vault"
+ ],
+ "refreshed_at": "2026-10-14T19:59:21Z",
+ "remotes_absent": [
+  "cloud",
+  "offsite"
+ ],
+ "repo_root": "/root/code/harness-config",
+ "seconds": 6.0,
+ "sources_seen": 3555
+}
