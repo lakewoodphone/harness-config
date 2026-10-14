@@ -8,10 +8,10 @@
   "pain": 3211,
   "wins": 2878
  },
- "ceiling_refreshed_at": "2026-10-14T22:00:08Z",
+ "ceiling_refreshed_at": "2026-10-14T22:15:06Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/182-wake-family-key",
-  "handoff": "local bands.tsv",
+  "handoff": "refs/heads/hk/182-wake-family-key",
   "lessons": "ZABZ-YOGA live working tree",
   "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
