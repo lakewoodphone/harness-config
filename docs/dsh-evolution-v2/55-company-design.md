@@ -245,12 +245,23 @@ modified at **07:23:44Z** (md5 `30a4a185a8e28395092032fc4d367f36`, 522,614 B; ba
 > is attributed to them.**
 
 `app/services/autonomy.py` — the gate build's target — is **untouched** (Jul 1 04:10), so **P6 is not
-live and the safety hole in D6 is open right now**: the dispatcher has 147 action names, the matrix 56,
-and an action with no row resolves to L4, *execute immediately, no human*.
+live and the safety hole in D6 is open right now**. Measured independently this round, statically, by me
+(an `ast` parse of the live file; no app import, no database):
 
-`app/services/autonomy.py` — the gate build's target — is **untouched** (Jul 1 04:10), so **P6 is not
-live and the safety hole in D6 is open right now**: the dispatcher has 147 action names, the matrix 56,
-and an action with no row resolves to L4, *execute immediately, no human*.
+* `get_level()` resolves in three steps (`autonomy.py:360-377`): the **`autonomy_levels` table** first,
+  then `DEFAULT_MATRIX[action_name]["default"]`, then — *"Unknown actions default to L4 (autonomous) —
+  bias towards action"* — **L4**.
+* **`DEFAULT_MATRIX` is 56 rows and 37 of them are L4.** Distribution: L1 1, L3 18, L4 37. **Exactly one
+  action in the whole default matrix is L0/L1**, and it is `propose_human_job`.
+* The live **`autonomy_levels` table holds 74 rows**: L0 6, L1 4, L2 14, L3 17, **L4 33**
+  (`SELECT current_level, COUNT(*) FROM autonomy_levels GROUP BY 1`).
+* The dispatcher's action-name count — round 2 measured **147** — is **not re-measured here**: my first
+  census script found 0 matrix rows (the assignment is *annotated*, so an `ast.Assign` walk misses it) and
+  its fallback heuristic picked `main.py`'s 1,303 unrelated string literals. That count stays round 2's
+  and is marked as such rather than restated as mine.
+
+The gate's posture is autonomous **by construction**: a two-thirds-L4 default matrix, a third-L4 override
+table, and a fallthrough that grants L4 to anything nobody classified.
 
 ## R2. A failure-class shift happened today and this program CANNOT attribute it — the attribution it first published was wrong
 
