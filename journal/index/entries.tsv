@@ -1093,6 +1093,7 @@ handoff	H3639	3639		2026-10-14 02:47 UTC	secratary-cloud	open	## 2026-10-14 02:4
 handoff	H3640	3640		2026-10-14 02:59 UTC	SECRATARY-CLOUD	open	## 2026-10-14 02:59 UTC · SECRATARY-CLOUD · DRN 2002 stays a Waze kiosk: the registry, not the profile list, settles ledger 130	entries/handoff/H3640.md	1	38	0d47ed2e32c78d75	mdm,lpt,drn2002,decision	H3635,H3638,D3145,130
 handoff	H3641	3641		2026-10-14 04:22 UTC	SECRATARY-CLOUD	open	## 2026-10-14 04:22 UTC · SECRATARY-CLOUD · Family chat: the owner's phone was removed by his own rate floor — fixed, roster restored	entries/handoff/H3641.md	1	58	c2359de0c34dbff6	family-chat,owner-text,incident	D3152,L3798,P3187
 handoff	H3671	3671		2026-10-14 14:35 UTC	secratary-cloud	open	## 2026-10-14 14:35 UTC · secratary-cloud · Waze kiosk Wi-Fi and Bluetooth controls unblocked and pushed to the six LPT units	entries/handoff/H3671.md	1	62	7d62eed3f826c821	waze-mdm,lpt,mdm,profiles	
+handoff	H3672	3672		2026-10-14 14:40 UTC	secratary-cloud	open	## 2026-10-14 14:40 UTC · secratary-cloud · Waze kiosk: Wi-Fi and Bluetooth reachable, and the customer decides whether Wi-Fi is on	entries/handoff/H3672.md	1	73	bb3d03a22a2c0e48	waze-mdm,lpt,mdm,profiles,owner-decision	
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2651,6 +2652,7 @@ lessons	L3792	3792		2026-10-14	secratary-cloud	open	**L3792 · A future-dated me
 lessons	L3793	3793		2026-10-14	secratary-cloud	open	**L3793 · Fleet reading a remote corpus: copy it once, do not loop ssh**	entries/lessons/L3793.md	1	22	f468948ca1162daa	mesh,fleet,ssh,orchestration	
 lessons	L3798	3798		2026-10-14	SECRATARY-CLOUD	open	**L3798 · Read terminal; a delay is not a death sentence; a wrong label becomes a wrong record**	entries/lessons/L3798.md	1	35	01d10e7c6aaf8805	family-chat,owner-text,classification,provenance	D3152,D3144b
 lessons	L3818	3818		2026-10-14	secratary-cloud	open	**L3818 · A restriction key needs a reachable control surface; 4 looked like Wi-Fi levers, 1 was real, 2 do not exist**	entries/lessons/L3818.md	1	75	2d748091fc3ad1a0	waze-mdm,mdm,profiles,apple,verification	
+lessons	L3819	3819		2026-10-14	secratary-cloud	open	**L3819 · A shared default is a blast radius; and ask the owner in plain prose, not the question tool**	entries/lessons/L3819.md	1	50	17e6f8a870d1d3a3	mdm,profiles,scope,owner-comms	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
