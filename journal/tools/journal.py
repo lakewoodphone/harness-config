@@ -3263,7 +3263,7 @@ def claim_map():
 
 
 def allocation_ceiling(kind: str) -> int:
-    """One ceiling per kind: entries/ + index + every legacy source + every git ref.
+    """One ceiling per kind: entries/, index, legacy sources, git refs, claimed windows.
 
     Every allocator (`_next_free`, `append`, `migrate-v2`, `absorb_all`, `repair-ids`)
     uses this and never returns a number at or below it. It is deliberately the maximum
@@ -3271,8 +3271,17 @@ def allocation_ceiling(kind: str) -> int:
     a gap costs nothing, a reused number destroys the meaning of every citation to it.
     """
     local = max_number(kind)
-    remote = (read_stamp().get("git_ceiling") or {}).get(kind, 0)
-    return max(local, int(remote or 0))
+    stamp = read_stamp()
+    remote = (stamp.get("git_ceiling") or {}).get(kind, 0)
+    # AND EVERY HOST'S CLAIMED WINDOW. MEASURED 2026-10-14: with the refs reader fixed but this
+    # term absent, the WINDOW still began at `max_number + 1` -- inside another host's claim --
+    # so the overlap survived the fix. A window claimed by any host must count as reserved for
+    # every host, which means the next window starts ABOVE every host's `reserved_through`.
+    # Every term here is a MAXIMUM, so this can only RAISE a ceiling; a number already handed
+    # out is never revisited and no existing row is removed or narrowed.
+    best_any, _best_mine = reserved_through(kind)
+    cached = (stamp.get("ledger_ceiling") or {}).get(kind, 0)
+    return max(local, int(remote or 0), int(best_any or 0), int(cached or 0))
 
 
 def note_git_ceiling(table: dict) -> None:
@@ -3308,6 +3317,10 @@ def git_max(kind: str, fetch: bool = False):
                            errors="replace", timeout=25)
         except Exception:
             pass
+        # THE WRITER-PATH REFRESH for the ledger reader: the fetch above may have moved the very
+        # refs that carry another host's `bands.tsv`, so the memoised sweep is dropped.
+        _LEDGER_REF_CACHE["at"] = 0.0
+        _LEDGER_REF_CACHE["rows"] = None
     try:
         # EVERY git call that DECODES TEXT pins utf-8/replace. A git call left on the
         # locale codec (cp1252 on Windows) dies in its reader thread with
@@ -3482,14 +3495,116 @@ def ledger_exists() -> bool:
     if ledger_path().exists():
         return True
     if has_shared_ref():
-        rc, out = _git("show", "refs/remotes/origin/master:journal/%s/%s"
-                       % (ALLOC_DIRNAME, RESERVATION_FILE))
-        return rc == 0 and bool(out.strip())
+        # ANY host's published ledger, on ANY ref -- not `origin/master` alone.
+        return bool(ledger_ref_rows())
     return False
 
 
+# ---------------------------------------------------------------------------
+# EVERY HOST'S LEDGER, NOT JUST `origin/master`
+#
+# MEASURED 2026-10-14. `read_ledger_rows()` read the local file plus the single ref
+# `refs/remotes/origin/master` and nothing else, while `git_max()` had already been widened to
+# every ref under `refs/remotes/origin`. So a host could SEE the other host's ids and still not
+# see the other host's WINDOW. ZABZ-YOGA's bands held pain 3131..3194 and the authority's held
+# 3166..3229; neither could read the other's, so each picked the next window INSIDE it. The
+# overlap IS the collision set: every colliding pain id (P3180..P3188) lies inside 3166..3194,
+# 70 cross-host collisions at ~7 per hour.
+#
+# Bounded exactly like `git_max()`: a writer path must never hang on a hub with hundreds of
+# refs, so this is <=25 refs inside a 20 s wall clock, and every failure is swallowed.
+# ---------------------------------------------------------------------------
+LEDGER_REF_LIMIT = 25
+LEDGER_REF_TIMEOUT = 20
+LEDGER_REF_LIST_TIMEOUT = 8
+LEDGER_CACHE_SEC = 60.0
+_LEDGER_REF_CACHE = {"at": 0.0, "rows": None}
+
+
+def note_ledger_ceiling(rows: list) -> None:
+    """Record the highest window ANY host has claimed, in `index/stamp.json`.
+
+    The same shape and the same additive rule as `note_git_ceiling()`: raised, never lowered.
+    It is a READING taken on the writer path, so the number survives a process that cannot
+    afford another sweep -- it is never the only source of truth.
+    """
+    stamp = read_stamp()
+    if not stamp:
+        return
+    best = {}
+    for r in rows or []:
+        kind = r.get("kind")
+        if not kind:
+            continue
+        best[kind] = max(int(best.get(kind) or 0), int(r.get("reserved_through") or 0))
+    if not best:
+        return
+    merged = dict(stamp.get("ledger_ceiling") or {})
+    for kind, value in best.items():
+        merged[kind] = max(int(merged.get(kind) or 0), int(value or 0))
+    stamp["ledger_ceiling"] = merged
+    atomic_write(index_dir() / "stamp.json", json.dumps(stamp, indent=1, sort_keys=True) + "\n")
+
+
+def ledger_ref_rows(force: bool = False) -> list:
+    """`bands.tsv` from EVERY ref under `refs/remotes/origin`, as parsed rows.
+
+    ADDITIVE BY CONSTRUCTION: every row of every readable ref is returned and nothing is
+    dropped or narrowed, so a window claimed by ANY host counts as reserved for EVERY host and
+    the next window is chosen outside ALL of them. Newest refs first, because the freshest
+    `bands.tsv` is on the ref whose commit is newest and a 25-ref budget has to be spent on the
+    refs that actually moved.
+
+    MEMOISED for `LEDGER_CACHE_SEC`, because one `append` asks this question several times and
+    each ask used to be a git subprocess; `has_shared_ref()` is consulted once per sweep, not
+    once per ask. `git_max`'s fetch, `publish_reservation` and `clear_caches` drop the memo.
+    """
+    now = time.monotonic()
+    if not force and _LEDGER_REF_CACHE["rows"] is not None \
+            and (now - _LEDGER_REF_CACHE["at"]) < LEDGER_CACHE_SEC:
+        return _LEDGER_REF_CACHE["rows"]
+    rows = []
+    if has_shared_ref():
+        path = "journal/%s/%s" % (ALLOC_DIRNAME, RESERVATION_FILE)
+        repo = str(_git_repo())
+        deadline = time.monotonic() + LEDGER_REF_TIMEOUT
+        try:
+            out = subprocess.run(["git", "-C", repo, "for-each-ref",
+                                  "--sort=-committerdate", "--format=%(refname)",
+                                  "refs/remotes/origin"],
+                                 capture_output=True, text=True, encoding="utf-8",
+                                 errors="replace", timeout=LEDGER_REF_LIST_TIMEOUT)
+            refs = [r for r in (out.stdout or "").split() if r][:LEDGER_REF_LIMIT]
+        except Exception:
+            refs = []
+        for ref in refs:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                break
+            try:
+                blob = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, path)],
+                                      capture_output=True, text=True, encoding="utf-8",
+                                      errors="replace", timeout=left)
+            except Exception:
+                continue
+            if blob.returncode == 0 and (blob.stdout or "").strip():
+                rows.extend(_parse_ledger(blob.stdout))
+    _LEDGER_REF_CACHE["at"] = time.monotonic()
+    _LEDGER_REF_CACHE["rows"] = rows
+    try:
+        note_ledger_ceiling(rows)
+    except Exception:
+        pass
+    return rows
+
+
 def read_ledger_rows() -> list:
-    """Reservation rows, local file first and the shared ref as the union.
+    """Reservation rows: the local file first, then EVERY ref under `refs/remotes/origin`.
+
+    WIDENED 2026-10-14. "the shared ref" used to be `refs/remotes/origin/master` literally, so a
+    host whose coordination remote lands under `refs/remotes/origin/cloud/*` (ZABZ-YOGA) read a
+    union of exactly one and could never see the authority's `bands.tsv`. It is every ref now --
+    see `ledger_ref_rows` -- and nothing is dropped or narrowed, so the union is strictly larger.
 
     Reading BOTH matters: a machine that has just claimed but not yet fetched must not
     forget its own reservation, and a machine that has just fetched must not miss one it has
@@ -3500,11 +3615,9 @@ def read_ledger_rows() -> list:
     local = ledger_path()
     if local.exists():
         rows.extend(_parse_ledger(_rl(local)))
-    if has_shared_ref():
-        rc, out = _git("show", "refs/remotes/origin/master:journal/%s/%s"
-                       % (ALLOC_DIRNAME, RESERVATION_FILE))
-        if rc == 0 and out.strip():
-            rows.extend(_parse_ledger(out))
+    # ADDITIVE: the local rows above stay exactly as they are, and the remote half is now
+    # every ref under `refs/remotes/origin` instead of `refs/remotes/origin/master` alone.
+    rows.extend(ledger_ref_rows())
     return rows
 
 
@@ -3727,6 +3840,10 @@ def publish_reservation(attempts: int = 3):
             # that was never published.
             atomic_write(ledger_path(), _render_ledger(rows))
             _git("fetch", "--quiet", "--all")
+            # THE REFS JUST MOVED: our own push is in them. Drop the memo so the next choice of
+            # window reads the union again rather than a view up to 60 s old.
+            _LEDGER_REF_CACHE["at"] = 0.0
+            _LEDGER_REF_CACHE["rows"] = None
             return True, "published %s on attempt %d" % (commit[:8], attempt)
         detail = "push rejected on attempt %d; re-reading the ref and rebuilding" % attempt
     return False, detail
@@ -4403,6 +4520,9 @@ def _legacy_sig() -> str:
 
 def clear_caches() -> None:
     _CANDIDATE_CACHE.clear()
+    # A different `--root` means a different repository and a different set of refs.
+    _LEDGER_REF_CACHE["at"] = 0.0
+    _LEDGER_REF_CACHE["rows"] = None
 
 
 def _assign(candidates: list, base_claims: dict, existing_hashes=None) -> dict:

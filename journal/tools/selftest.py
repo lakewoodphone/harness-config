@@ -469,8 +469,14 @@ def test_cache_self_heal(j):
         check("stamp records a count", stamp1.get("entries_count"), 4)
         check("the cache is reported fresh", j.cache_fresh(), True)
         tsv = (tmp / "index" / "entries.tsv").read_text(encoding="utf-8")
-        check("entries.tsv keeps v1's exact 12 columns", tsv.split("\n")[0],
-              "kind\tid_full\tnum\tsuffix\tdate\thost\tstatus\theading\tfile\tline_start\tline_end\thash")
+        # The header gained `tags` and `refs`; the shape version at journal.py:128 is bumped
+        # whenever that happens so every host rebuilds once. This guard's purpose is that v1's
+        # columns are still present AND in order -- so it asserts them as a PREFIX. Additive
+        # columns pass; a reordering or a missing v1 column still fails. (It previously
+        # asserted the exact v1 header, which fails forever on a correct tree.)
+        _v1_cols = "kind\tid_full\tnum\tsuffix\tdate\thost\tstatus\theading\tfile\tline_start\tline_end\thash"
+        check("entries.tsv keeps v1's 12 columns, in order, as a prefix",
+              "\t".join(tsv.split("\n")[0].split("\t")[:12]), _v1_cols)
         check("entries.tsv says one line per entry", len(tsv.strip().split("\n")) - 1, 4)
         check("the file column points at the entry file",
               "\tentries/lessons/L1.md\t" in tsv, True)
