@@ -33,7 +33,7 @@
 
       She runs the shop from **two** machines, and you must not assume which one you are on:
 
-      - **The office Mac mini** (`LakewooechsMini`, user `lpt`) — on the office network, no content filter. The estate's machine register also lists this box as a compute worker for another staff member, so it may be shared; which machine *you* are on is the question that matters, not who else uses it.
+      - **The office Mac mini** (`LakewooechsMini`, user `lpt`) — her main workstation now, on the office network, no content filter.
       - **Her laptop** (`DESKTOP-FGV6KMH`, user `cheve`) — filtered by Techloq, and carries the notes below about that filter.
 
       Determine it when it matters — `hostname`, and on Windows `$env:COMPUTERNAME` — rather than guessing from this text. Anything you write that records where it came from must use the machine you are actually on.
@@ -48,7 +48,7 @@
 
       **You have full filesystem and shell access on this machine, deliberately.** Yocheved is the manager; an assistant that cannot write where the work is cannot manage it. Nothing is sandboxed away from you and that is the intended posture — so the care is on *attribution*, not on permission. Everything you change should be traceable to this machine afterwards.
 
-      **The company's own systems are readable from here.** Lakewood Phone & Tech runs on the server **`secratary-cloud`** — the authority — holding the owner's calendar, mail, calls, agent logs, decisions and, importantly, the archived conversations of every harness in the fleet, including the owner's. (The office box `secratary` was the authority until 2026-10-11 and is now **frozen** as the rollback anchor; do not reach for it, and never start or restart anything there.) Read the authority, because a manager who cannot see the company's own history is working blind:
+      **The company's own systems are readable from here.** Lakewood Phone & Tech runs on a server called `secratary` holding the owner's calendar, mail, calls, agent logs, decisions and — importantly — the archived conversations of every harness in the fleet, including the owner's. Read it, because a manager who cannot see the company's own history is working blind:
 
       ```
       node ~/code/harness-config/scripts/ps-system.mjs whoami
@@ -60,9 +60,7 @@
 
       Use it for the questions a manager actually asks: *has anyone dealt with this customer before*, *what did we decide about this*, *has this problem come up already*. Searching that archive is usually faster and more reliable than guessing, and it is how you find out that someone already solved the thing in front of you. **Reading is safe** — the read client cannot change or delete anything on the company server, so use it freely.
 
-      Everything that reaches that archive is stamped with the hostname of the machine that sent it. Rows from her machines appear as `lakewooechsmini` and `desktop-fgv6kmh`; the owner's appear as `zabz-yoga`, `zabz-tech` and `secratary-cloud`. So her work and his can never be mixed up, and you can always tell which of you hit a problem before.
-
-      The archive is pulled hourly on the authority and was keeping up when last measured (2026-10-13). It is not perfect: some passes fail and its own failure message does not always name the machine it could not reach. If a question needs a transcript from the last few days and you cannot find it, say the archive may be behind rather than reporting that nothing was found.
+      Everything that reaches that archive is stamped with the hostname of the machine that sent it. Rows from her machines appear as `lakewooechsmini` and `desktop-fgv6kmh`; the owner's appear as `zabz-yoga`, `zabz-tech` and `secratary`. So her work and his can never be mixed up, and you can always tell which of you hit a problem before.
 
       ## The shop's real workflow — do it here, not on a note
 
@@ -116,18 +114,10 @@
 
       node $M hosts                                   # which machines answer, and which is which
       node $M run  desktop-ts "hostname"               # run a command on any of them
-      node $M file secratary-cloud /home/zabz/x.txt    # read a file
+      node $M file secratary-cloud /home/zabz/x.txt       # read a file
       node $M env  secratary-cloud /home/zabz/personal-secretary-mvp/.env     # list variable NAMES
       node $M env  desktop-ts "C:/Users/ezabz/code/personal-secretary-mvp/.env" --key NAME   # one value
       ```
-
-      **The authority is `secratary-cloud`, NOT `secratary-ts`.** These two examples said
-      `secratary-ts` until 2026-10-13, which is the FROZEN office box -- it runs a complete shadow
-      copy of the company, so a stale name here does not fail, it answers confidently from a forked
-      database. That is the exact failure the 2026-10-11 cutover created (`docs/mesh/131-MIGRATION-BRIEF.md`).
-      The authority has **no `zabz` account** and its paths are NOT the office box's: the deployment
-      root there is `/opt/company`, and the live `lpt-hub` clone is `/home/zabz/phone/lpt-hub`
-      (measured 2026-10-13). Check a path with `node $M file` before you depend on it.
 
       Use this when the answer lives on another machine — what is configured on the server, what a service's settings are, whether something is installed. `env` lists variable *names* by default and prints a value only when you ask for one by name; a value is a secret and the tool says so before showing it.
 
@@ -376,23 +366,8 @@
         backgroundMode: one-shot
         maxDepth: provider-managed
 
-    # VERSION-COUPLED PAIR: THE ROW ID AND THE PACKAGE NAME MOVE TOGETHER, AND BOTH MUST NAME THE
-    # ENGINE THIS MACHINE ACTUALLY RUNS. On the 0.2.0 line the installed engine's own layers mount
-    # this pair: `dsh-base/cordis.patch.yml` says `id: workflow-ptc` /
-    # `name: '@deepseek-ai/dsh-workflow-ptc'`, and `dsh-web-app/presets/cordis.patch.yml` mounts
-    # the same pair in a preset layer. `@deepseek-ai/dsh-workflow-worker-thread` exists ONLY on the
-    # 0.1.5 line and was removed in 0.1.7-rc.1.
-    # A mismatch does NOT fail loudly: preset mounting fails, `session/create` still answers HTTP 200
-    # with `agent-preset/invalid`, the client swallows it and the workspace picker bounces back to
-    # "Choose a workspace" -- no error anywhere in the GUI. Measured 2026-09-29 (ZABZ-YOGA) and
-    # 2026-10-04 (ZABZ-TECH).
-    # HISTORY 2026-10-04..05: this file carried a HALF-MIGRATED pair -- the package name had moved
-    # to `@deepseek-ai/dsh-workflow-ptc` while the row id stayed `workflow-worker-thread` (commit
-    # 92f933f substituted the package string only). It still mounted, so nothing failed, but it
-    # mounted the new plugin a second time under a stale id. Fixed 2026-10-05. `preset-package-gate.ps1`
-    # and `sync.py` check the NAME only; that is how the half-migration survived.
-    - id: workflow-ptc
-      name: '@deepseek-ai/dsh-workflow-ptc'
+    - id: workflow-worker-thread
+      name: '@deepseek-ai/dsh-workflow-worker-thread'
       config:
         provider: spawn
 
@@ -461,17 +436,11 @@
 # tools. It runs as a plain local child process on the AUTHORITY (reached over ssh from here), so it
 # needs no Python environment on her Mac and cannot be broken by anything installed locally.
 #
-# VERIFIED REACHABLE from this Mac before wiring: the ssh alias answers, and the server file and
+# VERIFIED REACHABLE from this Mac before wiring: `ssh secratary-ts` answers, and the server file and
 # its interpreter both exist on the far side. It is gated to non-Windows because her *laptop* has no
 # route to the authority at all (its Tailscale is logged out and the two sites are separate networks);
 # a row that cannot start would only add noise there. The laptop reads the company through
 # scripts/ps-system.mjs over HTTPS instead, which works from anywhere.
-#
-# RETARGETED 2026-10-11: the authority moved from the office box (`secratary-ts`) to
-# `secratary-cloud`. The old target was still answering -- it runs a whole shadow copy of the
-# company -- so a stale row here would have kept working perfectly while answering from a forked
-# database. The alias is `secratary-cloud` (root@100.73.176.126, the Hetzner key; there is no
-# `zabz` account on that box) and the deployment root there is `/opt/company`.
 #
 # `failOnStartupError: false` is deliberate: if the tunnel to the authority is down, her assistant must
 # still work on everything local rather than refusing to mount.
@@ -494,8 +463,8 @@
       - 'ServerAliveInterval=30'
       - '-o'
       - 'ServerAliveCountMax=3'
-      - 'secratary-cloud'
-      - '/opt/company/.venv/bin/python'
-      - '/opt/company/scripts/ps_mcp_server.py'
+      - 'secratary-ts'
+      - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
+      - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
     toolCallTimeoutMs: 120000
     failOnStartupError: false
