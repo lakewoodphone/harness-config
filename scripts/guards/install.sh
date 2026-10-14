@@ -90,6 +90,16 @@ NOT APPLIED HERE, on purpose -- each is a per-host decision:
 
   API WATCHDOG  the unit's ExecStart must be ~/bin/api-watchdog.sh, and it judges with
     ~/bin/health-gate.sh (installed above).
+  DISK RECLAIM  disk-reclaim.py is installed but deliberately NOT scheduled.
+    Measured 2026-10-14: /var/log/disk-guard.log shows CRITICAL at 96-97% from
+    2026-10-13T20:15Z to 2026-10-14T00:45Z ("/ at 97.1% (0.0 GB free, 0 MB)")
+    and nothing acted, because nothing reclaims. disk-guard.py only WATCHES and
+    mesh-hygiene.sh --reclaim frees RAM, not disk. Run this by hand, dry-run
+    first, and only under pressure:
+      python3 ~/bin/disk-reclaim.py --dry-run
+      python3 ~/bin/disk-reclaim.py --apply --yes   # refuses unless / is >=90%
+    Wiring it to a timer is a per-host decision, so it is NOT applied here.
+
 NOTES
 
 echo
