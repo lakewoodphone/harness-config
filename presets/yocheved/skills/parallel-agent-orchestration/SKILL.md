@@ -125,10 +125,77 @@ Fleets break on these, not on the code:
 | Cannot verify (no dependency, no device, no network) | **"not verified"** is the correct answer; record it, never claim it |
 | Integration would break `main` | revert and re-queue with a smaller scope |
 
+## What each host can actually take — measured, 2026-09-15/16
+
+Fan the fleet **off** the machine the owner is sitting in front of when it is heavy. These are
+measurements, not rules of thumb; method and raw counters are in `_dsh-scale/`.
+
+| Host | What it is | Measured | Rule |
+|---|---|---|---|
+| `ZABZ-YOGA` | laptop, 22 logical cores, 31.61 GB physical | commit 20.6-22.9 GB with the fleet quiet and **28.7 GB at ten running turns**; pagefile 16 MB; hard page faults 145-2,400/s depending on load; ~892 MB private per window before the 2026-09-17 shared-profile change and 60-296 MB after it | **0.403 GB per running turn (measured 2026-09-17: 403 MiB, CI 270-533; the 0.81 figure was falsified twice and is retained here only as a warning)**, so roughly 111 turns before it pages (CI 93-136), and cores bind before memory does, and ~46 windows before windows bind. Keep fleets here small, or run them elsewhere |
+| `ZABZ-TECH` | office desktop, 32 cores, 63.6 GB physical | measured 2026-09-16: commit **44.5 GB**, 38.1 GB free, **19.1 GB headroom**, 28 page-ins/s, 518 processes, 50 node, 1 engine on :3099 | at the laptop's 0.403 GB per running turn (measured 2026-09-17: 403 MiB, CI 270-533; the 0.81 figure was falsified twice and is retained here only as a warning) this is ~23 turns of headroom — but it is **not yet fixed** (46 MCP server processes, 15 npx shims, no `NODE_COMPILE_CACHE`, no reaper, `maxParallelToolCalls` unset). Measure again after it is brought level |
+| `secratary-cloud` | **Linux authority** — company DB, API, mesh broker | — | prefer it for anything that must not depend on a laptop being awake. **`secratary` (the office box) is NOT the authority and must never be used** — since the 2026-10-11 cutover it is the FROZEN rollback anchor with `cron` masked on purpose, so it still *answers* and is a decade-stale reading waiting to happen. Aliases: `secratary-ts` is the office box; `secratary-cloud` is the authority. `settings/machines/host-posture.tsv` decides, not memory |
+
+Three measured facts that change how a fleet is briefed:
+
+- **A shell tool call costs ~700 ms** (trivial `pwsh`: start-up 78 %, the Job-owner runner 19 %,
+  everything else under 3 %) while `read` is **0.76 ms** and `stat` **0.11 ms**. No shipped tool
+  declares `isConcurrencySafe`, so parallel calls in one step run **in series** — N shell calls
+  cost N x ~700 ms. Put "use the file tools, batch shell work" in every worker's brief.
+- **Sessions and subagents are not processes.** A subagent runs in-process; the process cost is
+  per *tool call* (~160 MB in flight: a ~57 MB Job-owner runner plus the shell).
+- **On the laptop the binding resource is memory commit, not CPU** — measured at 36-39 GB against
+  31.6 GB physical with hard faults at 2,400/s while CPU sat near 65 %. A fleet can be "only"
+  65 % busy and still be paging.
+
+Records (in the repo, so they reach every machine): `docs/dsh-at-scale/PROGRAM.md` is the spine;
+`10-dsh-source-audit.md` (process model), `50-implementation.md` (what changed and what it bought),
+`80-windows-and-parity.md` (window budget; count browser memory by private bytes, never
+`WorkingSet`), `70-toolcall-latency.md` (per-call cost and why the persistent shell was refused),
+`60-cost-audit.md` (the money). `scripts/harness-verify.ps1` checks these invariants and exits
+non-zero when one is false.
+
 ## Off-limits
 
 Never let an agent push. Never let an agent touch `main`. Never merge a branch whose tests you have not
 run yourself. Never accept "it works" as a result — the result is the command's output line.
+
+## Three rules this skill was missing, each learned the hard way
+
+### Never `git add -A` in a working tree another session can reach
+
+Pain `P13`, lesson `L33`. Eight concurrent sessions each ran `git add -A` and committed **each other's**
+work: changes appeared in commits by people who never made them, and the audit trail of who did what
+stopped being true. **Stage explicit paths, always** — `git add -- path/a path/b`, never a wildcard, and
+never from a repository root when more than one session is live. This is not a style rule; it is the
+difference between a commit you can describe and one you cannot.
+
+### A `git worktree` is not a copy of your checkout
+
+Lesson `L217`. A worktree shares the object store and the working tree *of tracked files* — **untracked
+files stay behind**, and so do most of `/tmp`, the shell environment, and anything a process wrote outside
+the tree. So a worktree isolates *committed source*, and is the **wrong control** for anything
+environment-sensitive: a test reading an untracked fixture, a build writing beside the repo, a script
+resolving a path relative to its own checkout. If behaviour depends on the environment rather than the
+source, give that workstream its own clone or explicit paths — do not assume the worktree carried it.
+
+### Check where a child will LAND, not just what you asked it to do
+
+Pains `P3141` and `P3139`. Three of four children the broker placed landed on machines **without the
+repository**, so nothing that builds could be delegated — and the failure was invisible, because a child
+that cannot find the repo reports on the task it was given, in whatever tree it found, which may be a
+different tree on a different commit.
+
+Before delegating anything that edits code:
+
+1. **Know which node the work needs**, and whether that node has the checkout, the repo path and the
+   branch.
+2. **Put the expected revision IN THE BRIEF**, and have the child report the `git log -1` it actually read.
+   On this estate `harness-config` has had two `main` lineages at once that were **not supersets of each
+   other** — see `P3164`, where a fix was edited against a stale base and nearly reverted the version that
+   runs. A child that does not report its revision cannot be told apart from one that read the wrong tree.
+3. **Research delegates well; builds need the repo.** If the fleet is landing on machines without the
+   checkout, use it for reading and analysis and do the edits where the code is.
 
 Full rationale, the research this is based on, and the measured failure modes:
 `docs/parallel-agent-orchestration.md`.
