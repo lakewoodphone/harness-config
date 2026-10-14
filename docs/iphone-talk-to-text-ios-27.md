@@ -252,3 +252,76 @@ record-and-transcribe button in the phone GUI, using the company's existing Whis
 keyboard switching. **Not built**, because it covers only that one channel and Superwhisper covers every
 app; build it only if Superwhisper is rejected.
 
+
+---
+
+## 10. LATENCY — the model he was on could never be fast, and the "subscription" was almost certainly the free Pro trial (2026-10-13)
+
+He reported the missing half of the picture: *"Originally I tried the Cloud one until I ran out of the
+subscription and it was pretty good. And now I moved to the 1.6 gigabyte V3 Whisper model and it takes way
+too long... the Cloud model took about two or three seconds at most. This takes like 15 seconds."*
+
+### The cloud working "until the subscription ran out" was almost certainly the free Pro trial
+
+Superwhisper meters free Pro access as a **word allowance, not a clock**, and it **includes the cloud
+models**: macOS 2.18.2 (2026-08-26) — *"All local Whisper models are now free on macOS... Free Pro trial
+changed from 15 minutes to 3,000 words, and reset for existing users"*, and iOS 2.21.1 (2026-08-27) —
+*"Whisper Models are now free for everyone!"* Before that the trial was 15 minutes of Pro. **Cloud models
+are not in the free tier and never were** — they are Pro-only. So the good 2-3 second experience was a
+metered allowance being spent, and it was always going to end. (Whether he also held a paid subscription
+that lapsed: unconfirmed — he did not say.)
+
+### The 1.6 GB model is the worst free choice for speed on an 8 GB phone
+
+Two vendor-documented facts make the 15 seconds expected rather than a fault:
+
+1. **The vendor's own first cause of slow dictation is model LOAD time**, not inference:
+   *"Model choice and model load time usually matter most"*, and *"Local models need free memory... If your
+   machine still struggles, pick a smaller model such as Whisper Base, or switch that mode to a cloud
+   model."* A 1.6 GB model on an 8 GB phone is a model that gets evicted and re-loaded — which is exactly
+   a long wait after you stop talking. **iOS exposes no "voice model active duration" control** (that
+   setting is documented for desktop only), so this cannot be tuned around on the phone.
+2. **Whisper Large v3 Turbo is rated 8/10 for speed by its maker — the same as Whisper Small — at more
+   than three times the size.** Sizes and the vendor's own speed ratings, from
+   <https://superwhisper.com/docs/models/voice> (fetched 2026-10-13):
+
+   | Model (current name) | Old in-app name | Size | Vendor speed | Vendor accuracy |
+   |---|---|---|---|---|
+   | Whisper Tiny (English) | Fast | 75 MB | 10/10 | 1/10 |
+   | Whisper Base (English) | Nano | 150 MB | 9/10 | 3/10 |
+   | **Whisper Small (English)** | **Standard** | **500 MB** | **8/10** | **5/10** |
+   | Whisper Large v3 Turbo ← *what he is on* | Ultra V3 Turbo | 1.6 GB | 8/10 | 8/10 |
+   | Whisper Medium | — | 1.5 GB | 6/10 | 8/10 |
+   | Whisper Large v3 | Ultra | 3 GB | 5/10 | 10/10 |
+   | Parakeet / Cohere Transcribe | — | 476 MB / 1.3 GB | 10/10 / 9/10 | **Pro only** |
+
+   Also **free and worth doing in the same breath**: dictate in a **Voice to Text** mode — *"transcription
+   only, with no AI processing, so results arrive quickly"* — which removes a second model from the chain.
+
+### The honest limits of this advice
+
+**No iPhone latency measurement for any dictation model exists, from anyone** — the vendor's benchmark
+page is M4 Mac only and says so (*"a slower machine will be slower"*). So no number can be promised for any
+free configuration, and **no free local Whisper model on an 8 GB iPhone should be assumed to match cloud
+latency.** The genuinely fast engines (Parakeet 0.07 s, Cohere 0.45 s on M4) are **Pro-gated**, and BYOK is
+Pro-gated too — so the free tier cannot route around the problem by paying per use inside this app.
+
+### The decision, stated once so it is not re-derived
+
+1. **Free, one tap, do it first:** model → **Whisper Small (English)** (500 MB, old name *Standard*), in a
+   **Voice to Text** mode. Same vendor speed rating as what he is on, one third the size, nothing leaves
+   the phone, zero cost.
+2. **If that still feels slow, stop tuning and pay:** **84.99 USD per year** (or 8.49 monthly) and select
+   **S1-Voice**. The vendor claims *"most dictations under 30s appearing 0.32 seconds after you stop
+   talking"* — a claim, not a measurement — and his own memory of 2-3 seconds on the cloud is the only
+   real evidence available. **7.08 a month is the price of not fighting this**, and for comparison the same
+   84.99 buys roughly 315 hours of audio at OpenAI's 0.0045 per minute, so a subscription is cheaper than
+   pay-per-use at any real volume.
+3. **Do not** tell him a free local model will match the cloud. It will not, and he has now spent two
+   rounds on this.
+
+Comparisons that were considered and rejected: **Spokenly** (free on-device Parakeet plus bring-your-own-key
+at 0.0045/min — genuinely cheap and it does insert text anywhere, but its own developer warns *"local AI
+models can struggle on older devices, especially within iOS keyboard limitations"* and its App Store reviews
+report keyboard reliability problems; too much risk for a third round). **Google AI Edge Eloquent** is free
+and on-device but still says *"Keyboard coming soon"*.
