@@ -5,11 +5,19 @@
 measurement that ranks it; every row names the number that must move to close it.
 
 **Two corrections to the round-2 census that this register is built on, both measured this round:**
-`tool-failure` at 67.3 % is an **upper bound on a mislabelled corpus** — `failures.jsonl` marks 2,716
-rows `exit_nonzero` whose matched text reads *"exit code: 0"* and 2,282 `rate_limit` quoting a
-successfully fetched page; the honest count is `err:true` = 7,491 of 54,730 (`L3798`). And every
-rolling-window figure used below is taken from a **day-grouped** query, because
-`> datetime('now','-N days')` against a `T`-format column silently covers N+1 days (`L3801`).
+`tool-failure` at 67.3 % is **not an upper bound on anything** — it is **reader salience**, and the
+independent check that settles it is that **989 of 1,093 owner sessions (90.5 %) contain a tool failure
+at all**, so the class is near-universal and a per-session tag cannot rank it. Separately, the corpus's
+own taxonomy is inflated: `failures.jsonl` marks 2,716 rows `exit_nonzero` whose matched text reads
+*"exit code: 0"* and 2,282 `rate_limit` quoting a successfully fetched page; the honest count is
+`err:true` = 7,491 of 54,730 (`L3798`, corrected by `L3813`). And every rolling-window figure below is
+taken from a **day-grouped** query, because `> datetime('now','-N days')` against a `T`-format column
+silently covers N+1 days (`L3801`).
+
+**One scope error of my own, corrected:** I had written that `pwsh` is "40.9 % of all tool calls". That
+figure is the **owner-session subset** (70,256 of 171,963). **Corpus-wide it is 37.93 %** (167,113 of
+440,543). Both are true of their own scope and the sentence was wrong about which scope it described —
+the same class of error as counting `exit code: 0` as a failure.
 
 ---
 
