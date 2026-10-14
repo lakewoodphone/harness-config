@@ -1103,6 +1103,7 @@ handoff	H3780	3780		2026-10-14 16:37 UTC	SECRATARY-CLOUD	open	## 2026-10-14 16:3
 handoff	H3781	3781		2026-10-14 17:02 UTC	SECRATARY-CLOUD	open	## 2026-10-14 17:02 UTC · SECRATARY-CLOUD · Waze voice input: keep OS updates out at the PAC; NanoMDM cannot do modern iOS management	entries/handoff/H3781.md	1	56	03c261b5eaf5b39f		
 handoff	H3782	3782		2026-10-14 17:17 UTC	SECRATARY-CLOUD	open	## 2026-10-14 17:17 UTC · SECRATARY-CLOUD · Waze voice input: the solution set — path-split Apple's CDN, add declarative management, and the firm negative on automating the last tap	entries/handoff/H3782.md	1	54	879f5e9091240ead		
 handoff	H3783	3783		2026-10-14 17:24 UTC	secratary-cloud	open	## 2026-10-14 17:24 UTC · secratary-cloud · 2026-10-14 17:3xZ · secratary-cloud · The owner's "why do you keep texting me?" — real outage found, membrane built, alerting quietened	entries/handoff/H3783.md	1	70	5786ddc0c8fa0d02		
+handoff	H3784	3784		2026-10-14 19:28 UTC	secratary-cloud	open	## 2026-10-14 19:28 UTC · secratary-cloud · Yoga 9 14IMH9 storage: exactly ONE M.2 2242 slot; upgrade = replace, and the laptop is at 2 GB free right now	entries/handoff/H3784.md	1	33	3ca8e94a2f98cdce	yoga,hardware,storage,owner-question	
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -2677,6 +2678,7 @@ lessons	L3937	3937		2026-10-14	SECRATARY-CLOUD	open	**L3937 · Every key the loc
 lessons	L3938	3938		2026-10-14	SECRATARY-CLOUD	open	**L3938 · Allow the domain was the wrong question: one CDN carried both the asset we wanted and the update we did not**	entries/lessons/L3938.md	1	37	a20419894e2bc312		
 lessons	L3939	3939		2026-10-14	secratary-cloud	open	**L3939 · LESSON — `Restart=always` cannot restart a process that never exits; a wedged-but-alive service had no owner**	entries/lessons/L3939.md	1	34	37071a40e6f8b223		
 lessons	L3940	3940		2026-10-14	secratary-cloud	open	**L3940 · LESSON — `company-api`'s memory grows in ~1 GiB STEPS, not a slope; the top holder is mem0's Chroma HNSW index loaded lazily on first use**	entries/lessons/L3940.md	1	55	e46b221f82ade833		
+lessons	L3942	3942		2026-10-14	secratary-cloud	open	**L3942 · Enumerating a remote Windows C: with robocopy/Get-ChildItem is a 15-minute job that outlives the ssh session**	entries/lessons/L3942.md	1	10	af8f08d811cbef67	measurement,windows,ssh,cost	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3707,6 +3709,7 @@ decisions	D3210	3210		2026-10-14	SECRATARY-CLOUD	open	**D3210 · 2026-10-14 · O
 decisions	D3211	3211		2026-10-14	secratary-cloud	open	**D3211 · 2026-10-14 · DECISION — company-api's memory bound was below the app's own working set; the bound is now "kill, never throttle".**	entries/decisions/D3211.md	1	34	132bcbbeaaf8c142		
 decisions	D3212	3212		2026-10-14	secratary-cloud	open	**D3212 · 2026-10-14 · DECISION — an owner "COMPANY IS DOWN" text now requires 10 minutes of continuous non-answer, not 4.**	entries/decisions/D3212.md	1	26	8225224adda6820e		
 decisions	D3213	3213		2026-10-14	secratary-cloud	open	**D3213 · 2026-10-14 · DECISION — the four remaining alerting defects fixed, and the standby monitor repaired after 742 consecutive failures.**	entries/decisions/D3213.md	1	44	9f611a0aa549716b		
+decisions	D3214	3214		2026-10-14	SECRATARY-CLOUD	open	**D3214 · 2026-10-14 · Owner answer, queue row #228: The business is taking roughly 4,500 a month out of your personal accounts and y.**	entries/decisions/D3214.md	1	11	8cad3ce3ada981ca	owner-answer	owner_decision_queue#228
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
