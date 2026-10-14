@@ -36,7 +36,8 @@ grep -ril "<the thing>" ~/code/harness-config ~/code/personal-secretary-mvp 2>/d
 ls ~/bin /opt/company/deploy/hosting-migration/scripts 2>/dev/null
 ```
 Also look on the hosts, because much of this estate's machinery is deployed rather than committed:
-`lpt-survivor-01` holds the failover tooling, `secratary-cloud` and `secratary` hold the authority,
+`lpt-survivor-01` holds the failover tooling, **`secratary-cloud` holds the authority** (the office box
+`secratary` is the FROZEN rollback anchor — read `settings/machines/host-posture.tsv`, never touch it),
 `lpt-apps` is the vault and the Caddy front door.
 
 **3. Search the journal** — the estate's own memory, which records what was built and what it cost:
@@ -70,3 +71,22 @@ done
 
 Then, and only then: write down **why the existing thing could not be used**, in the same commit.
 That sentence is what lets the next session trust your work instead of re-doing the survey.
+
+## No heavy work on the authority
+
+Pains `P3136`, `P3140`, `P2947`. `secratary-cloud` is a 4-core, 15 GB box that is **the sole writer of the
+company database**, and it is nothing like the workstations:
+
+- measured peaks: `company-api` ~1.7-3.3 GB resident and 7.4 GB before an OOM kill; one
+  `transcript-archive-pull` pass at **7.4 GB RSS**; `swap_used_pct` at 95-99.6% and **11 OOM kills in
+  24 hours**, one of them an unclean reset;
+- `company-api` runs with **no `MemoryMax`**.
+
+So: do **not** run a build, a test suite, a model, a browser, or a corpus scan there. Run it on a
+workstation and copy the artefact. If something genuinely must run on the authority — a cron, a timer, a
+one-shot — give it a memory ceiling and an I/O class rather than leaving it unbounded, and check `free`
+and `df` **before** you start, not after it has been killed.
+
+**And check the disk first.** The authority is at 91-92% with single-digit GB free, above a 25.9 GB
+database growing ~2.3 MB/h, and the archive pull stages its tars on that same filesystem. A job that
+writes several GB there can fill the disk that holds the company database. `df -Pk /` is one command.

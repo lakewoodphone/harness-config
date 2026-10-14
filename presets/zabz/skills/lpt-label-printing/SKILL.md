@@ -37,7 +37,7 @@ echo '<json>' | ssh secratary-ts "lpt-label print -"
 | the roll | **DK-2210 endless, 29 mm.** It reports as `media  Not Empty 29mm`. There is a 62 mm roll for it too; the printer moves between rooms. |
 | how it prints | raw Brother raster over **TCP 9100**, sent from the authority |
 | source | `lpt-ops/bin/lpt-label`, `lpt-ops/lpt_ops/label_printer.py`, `lpt-ops/docs/label-printer.md` |
-| the laptop | **cannot print locally** — it has pillow but not `python-barcode`/`brother-ql`, and `render()` calls `_require()` even for a dry run |
+| the laptops | **Name the machine — they differ.** `ZABZ-TECH` (office desktop) *can* render locally: measured 2026-10-13, `pillow 11.3.0`, `brother_ql` and `python-barcode` all import, and it reaches the printer directly (`http://192.168.50.60/` answers `301`, TCP 9100 open). It still has **no `lpt-label` installed**, so the route below is unchanged — render and print on the anchor. The other laptop has pillow but not `python-barcode`/`brother-ql`, and `render()` calls `_require()` even for a dry run, so it cannot render at all. |
 
 ## 2. What you can honestly claim after a print
 

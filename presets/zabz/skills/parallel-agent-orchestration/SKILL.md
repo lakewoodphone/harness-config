@@ -160,5 +160,42 @@ non-zero when one is false.
 Never let an agent push. Never let an agent touch `main`. Never merge a branch whose tests you have not
 run yourself. Never accept "it works" as a result — the result is the command's output line.
 
+## Three rules this skill was missing, each learned the hard way
+
+### Never `git add -A` in a working tree another session can reach
+
+Pain `P13`, lesson `L33`. Eight concurrent sessions each ran `git add -A` and committed **each other's**
+work: changes appeared in commits by people who never made them, and the audit trail of who did what
+stopped being true. **Stage explicit paths, always** — `git add -- path/a path/b`, never a wildcard, and
+never from a repository root when more than one session is live. This is not a style rule; it is the
+difference between a commit you can describe and one you cannot.
+
+### A `git worktree` is not a copy of your checkout
+
+Lesson `L217`. A worktree shares the object store and the working tree *of tracked files* — **untracked
+files stay behind**, and so do most of `/tmp`, the shell environment, and anything a process wrote outside
+the tree. So a worktree isolates *committed source*, and is the **wrong control** for anything
+environment-sensitive: a test reading an untracked fixture, a build writing beside the repo, a script
+resolving a path relative to its own checkout. If behaviour depends on the environment rather than the
+source, give that workstream its own clone or explicit paths — do not assume the worktree carried it.
+
+### Check where a child will LAND, not just what you asked it to do
+
+Pains `P3141` and `P3139`. Three of four children the broker placed landed on machines **without the
+repository**, so nothing that builds could be delegated — and the failure was invisible, because a child
+that cannot find the repo reports on the task it was given, in whatever tree it found, which may be a
+different tree on a different commit.
+
+Before delegating anything that edits code:
+
+1. **Know which node the work needs**, and whether that node has the checkout, the repo path and the
+   branch.
+2. **Put the expected revision IN THE BRIEF**, and have the child report the `git log -1` it actually read.
+   On this estate `harness-config` has had two `main` lineages at once that were **not supersets of each
+   other** — see `P3164`, where a fix was edited against a stale base and nearly reverted the version that
+   runs. A child that does not report its revision cannot be told apart from one that read the wrong tree.
+3. **Research delegates well; builds need the repo.** If the fleet is landing on machines without the
+   checkout, use it for reading and analysis and do the edits where the code is.
+
 Full rationale, the research this is based on, and the measured failure modes:
 `docs/parallel-agent-orchestration.md`.
