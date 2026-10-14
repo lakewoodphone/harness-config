@@ -2662,6 +2662,7 @@ lessons	L3822	3822		2026-10-14	SECRATARY-CLOUD	open	**L3822 · A repo that confi
 lessons	L3823	3823		2026-10-14	secratary-cloud	open	**L3823 · The capability was already installed; diagnose the environment, and make the tool grasp the fix**	entries/lessons/L3823.md	1	68	1c69a30f0fc7559f	sessions,tooling,environment,ranking	
 lessons	L3824	3824		2026-10-14	SECRATARY-CLOUD	open	**L3824 · A default-deny DNS filter breaks features by refusing their asset host, silently**	entries/lessons/L3824.md	1	41	27e0942b39db2d72		
 lessons	L3825	3825		2026-10-14	SECRATARY-CLOUD	open	**L3825 · A device is a control only when it differs in one variable**	entries/lessons/L3825.md	1	43	f384af7691cd83ce		
+lessons	L3826	3826		2026-10-14	SECRATARY-CLOUD	open	**L3826 · A case file and its credential companion can land on different branches; main then carries a record whose case file it does not have**	entries/lessons/L3826.md	1	58	47ccbdb7d64ee5a9	lpt-hub,case-record,git-divergence	lpt-hub
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
