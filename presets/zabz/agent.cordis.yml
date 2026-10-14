@@ -434,7 +434,7 @@
       - 'ServerAliveInterval=30'
       - '-o'
       - 'ServerAliveCountMax=3'
-      - 'secretary-ts'
+      - 'secratary-cloud'
       - '/home/zabz/personal-secretary-mvp/.venv/bin/python'
       - '/home/zabz/personal-secretary-mvp/scripts/ps_mcp_server.py'
     toolCallTimeoutMs: 120000
