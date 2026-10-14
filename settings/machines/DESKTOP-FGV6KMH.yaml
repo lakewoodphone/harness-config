@@ -141,7 +141,7 @@ llm-pi-ai:
         - id: deepseek-v4-flash-vision-exp
           name: DeepSeek Flash Vision (images)
         - id: deepseek-flash
-          name: DeepSeek Flash (images)
+          name: DeepSeek V4.1 Flash
         - id: deepseek-v4-pro
           name: DeepSeek V4 Pro (text only)
     # FALLBACK, kept selectable: an independent provider, so if the Worker, Cloudflare or the zone
