@@ -2539,6 +2539,7 @@ lessons	L3773	3773		2026-10-13	ZABZ-YOGA	open	**L3773 · A sample read in waves 
 lessons	L3774	3774		2026-10-13	ZABZ-YOGA	open	**L3774 · I committed the #1 ranked failure while writing the audit that ranked it: absence at a guessed path is not absence**	entries/lessons/L3774.md	1	80	bb87dea68f2aba7d	wrong-data,provenance,self-correction,archive,instruction-surface	P3162,docs/dsh-evolution/05-instruction-redesign.md,docs/dsh-evolution/07-pain-register.md
 lessons	L3775	3775		2026-10-13	ZABZ-YOGA	open	**L3775 · Owner's kashrut rule for packaged drinks: OU-DE or pareve in, plain OU-D out**	entries/lessons/L3775.md	1	25	192efab483276858	kashrut,owner,ou,soylent	
 lessons	L3776	3776		2026-10-13	ZABZ-YOGA	open	**L3776 · A retailer price page is not a local-stock claim; a brand's OU symbol can differ by carton vs bottle**	entries/lessons/L3776.md	1	33	6f584f44843b47a6	kashrut,ou,retail,verification,owyn	
+lessons	L3815	3815		2026-10-14	ZABZ-YOGA	open	**L3815 · The OU product API silently ignores an unknown parameter and returns unfiltered rows**	entries/lessons/L3815.md	1	39	bc40af5e8f5561b4	kashrut,ou,api,verification,trap	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3480,6 +3481,7 @@ decisions	D3141	3141		2026-10-13	ZABZ-YOGA	open	**D3141 · 2026-10-13 · Owner a
 decisions	D3142	3142		2026-10-13	ZABZ-YOGA	open	**D3142 · 2026-10-13 · Owner answer, queue row #317: What is the Canon PowerShot (Gastfreund, 845-323-7414) in for? The sticky on it.**	entries/decisions/D3142.md	1	14	e713d76e26105488	owner-answer,reconciled	owner_decision_queue#317
 decisions	D3143	3143		2026-10-13	ZABZ-YOGA	open	**D3143 · 2026-10-13 · Replace Soylent Complete Meal with Kate Farms Nutrition Shake (pareve OU).**	entries/decisions/D3143.md	1	29	9985d9d31e070df3	owner,personal,soylent,kashrut	
 decisions	D3144	3144		2026-10-13	ZABZ-YOGA	open	**D3144 · 2026-10-13 · SUPERSEDE D3143: buy OWYN carton, not Kate Farms (4.25 not justified).**	entries/decisions/D3144.md	1	43	81470c9482aab665	owner,personal,soylent,owyn,kashrut,price	D3143
+decisions	D3153	3153		2026-10-14	ZABZ-YOGA	open	**D3153 · 2026-10-14 · Desk food replaces the shake as the office lunch plan.**	entries/decisions/D3153.md	1	44	396bacd4b7874905	owner,personal,desk-food,kashrut,owyn	D3144
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
