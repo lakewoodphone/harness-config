@@ -92,7 +92,7 @@ mid = cdw.compose("9650", INFO_9650, FUNDING, BAL_72, DUE, 2)
 check("band2 does not claim coverage", "That covers the minimum." in mid, False)
 check("band2 says minimum only", "covers the minimum but NOT the statement balance" in mid,
       True)
-check("band2 names the risk of a bounce", "bounce" in mid, True)
+check("band2 names the overdraw risk", ("overdraw" in mid) or ("returned" in mid), True)
 check("band2 names the source account", "...9730" in mid, True)
 check("band2 carries the balance", "72.47" in mid, True)
 

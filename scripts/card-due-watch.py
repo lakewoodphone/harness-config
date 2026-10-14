@@ -347,8 +347,8 @@ def compose(card: str, info: dict, funding: dict | None, bal: dict | None,
         lines.append(
             f"That covers the minimum but NOT the statement balance. If an autopay is "
             f"set to pay the statement or the interest-saving balance it will take more "
-            f"than this account holds and bounce - move money in, or lower the autopay, "
-            f"before {due.strftime('%m/%d')}."
+            f"than this account holds and will overdraw it or be returned - move money "
+            f"in, or lower the autopay, before {due.strftime('%m/%d')}."
         )
     else:
         lines.append(
