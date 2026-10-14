@@ -219,6 +219,15 @@ appears), remount read-only, then compare file count, byte total **and per-file 
 verified source. **A copy with no PASS lines is not a delivered copy** — and do not tell the owner a
 device is slow until `ps` and `fuser` say the device is idle.
 
+**Buying the media is part of this job too.** Before recommending, approving or ordering any purchase
+for a case, read `lpt-hub/docs/procurement/README.md`. The standing rule is that a purchase is judged
+on **the spec the work actually consumes** — for handoff media, **sustained write over ≥50 GB**, never
+a burst and never the read figure — and a vendor that does not publish that spec is **not a
+candidate**. The price includes the bench hours: the same work is 427 hours per 100 handoffs at
+10 MB/s against 12–17 hours at 253–370 MB/s. The failure this comes from is the shape to avoid
+everywhere: a 2026-04-23 directive chose the shop's handoff media on **price per unit** with no write
+requirement in it at all, and the drives it recommended measure **8.7–24.9 MB/s**.
+
 ## The customer's words are governed by a second document — read it before you draft any of them
 
 Everything above is about the record. The moment the case work reaches the customer as text or
