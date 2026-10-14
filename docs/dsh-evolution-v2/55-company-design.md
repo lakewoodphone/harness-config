@@ -149,6 +149,27 @@ cannot drift. **Unknown actions resolve to L1 (suggest), not L4.** Actions that 
 anything outbound, change staff, or touch production become L1/L0 explicitly. A test asserts
 `dispatcher_names ⊆ matrix_names` and fails the build when a new action arrives without a level.
 
+**Addendum, measured 2026-10-14 — the matrix is necessary and NOT sufficient: the gate is advisory on one
+of its two call paths.** The gate is called from exactly two places (`grep -rn "should_execute(" app/`):
+`agent_worker.py:2346`, inside `_check_autonomy`, consulted at `:2484` and `:4459` — **enforced**; and
+`chat_action_runtime.py:381`, where `decision = should_execute(...)` is stored in `_autonomy_action` —
+**a variable that appears in exactly two lines of that file, both assignments** — after which the code
+falls straight through to `_dispatch_action_inner`, and whose `except Exception` sets the verdict to
+`"execute"`. On that path the framework computes a level, records it, and dispatches regardless. **P6
+therefore has two parts: the matrix, and making the verdict reach a branch on every call path.** Shipping
+the matrix alone would leave the chat-action path executing `delete_tool` and `gmail_send` with no human
+while the audit trail showed a level had been considered.
+
+**A tested matrix already exists and is ready** (built 2026-10-14, branch `evolve3/gate`, commit
+`f8e2902b`): 150 rows, **31 actions moved to L0/L1** — `delete_tool` to L0, plus `hire_department`,
+`fire_agent`, `reactivate_agent`, `dialpad_send_sms`, `gmail_send`, `gv_send_sms`, `create_customer`,
+`create_work_order`, `contact_update`, `calendar_delete`, `run_command` — 102 left autonomous deliberately
+because the owner wants autonomy, 34 levels changed all downward, `git apply --check` exit 0 against the
+live files, and a regression test that **fails on the base (2 failed) and passes after**. **Still unfixed
+and reported by the build:** the chat-path verdict above; `_check_autonomy` returning `execute=True` on
+exception (`agent_worker.py:2348`); and `lifecycle_sweep.py:2245` still writing L4 overrides, inert only
+by the new clamp.
+
 ### P7 — Memory that is read
 Only write a memory a caller will read. Concretely: give the work loop a memory read at session start
 (relevant prior attempts and facts), make `memory_consolidation` import something that exists, delete
