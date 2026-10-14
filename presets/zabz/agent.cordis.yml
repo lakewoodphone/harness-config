@@ -588,7 +588,7 @@
 #
 # MEASURED 2026-10-11, AND THE TARGET IS NO LONGER THE OFFICE BOX. The company moved
 # to `secratary-cloud` that day (Cloudflare CNAME `api.abletelsolutions.com` ->
-# tunnel 3e62916c, which is that box). This row still said `secretary-ts`, so every
+# tunnel 3e62916c, which is that box). This row still said `secratary-cloud`, so every
 # DSH session on Windows ran the company bridge against the OFFICE box, which was by
 # then a SHADOW COPY of the company: same jobs, same Dialpad harvest, its own
 # database, and nothing public served from it. `ps_db_query` returned the office's
