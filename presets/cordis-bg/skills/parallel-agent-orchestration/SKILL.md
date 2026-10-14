@@ -115,6 +115,40 @@ Fleets break on these, not on the code:
 | **Test temp directories** | **`--basetemp=./_pt_<unique-per-agent>` is mandatory** — on these machines pytest's tmpdir cleanup fails and *truncates the result line*, so a colliding temp dir means you cannot tell whether it passed |
 | **Build artifacts and caches** | clean them at teardown; a forgotten worktree is a slow disk leak |
 
+### The host's disk is a fleet resource, and measure it FIRST (L3932)
+
+**Check free disk on every node before a fleet, and again after it.** A fleet's copies are
+measured in tens of GB, not MB: a `cp -a` of this estate's company repo is **23 GB** (its `.git`
+alone is 7.6 GB). Eight copy-making children in one day took the host to **97 % full with 4.9 GB
+free** — and the failure that produced was not a slow agent, it was a **wedged service**:
+
+    host 97 % full -> SQLite writes become waits -> `database is locked`
+      -> the service's runs exceed their 600 s ceiling -> threads are abandoned while still
+         holding the DB lock -> the loop wedges and stops ticking entirely
+
+Freeing that one tree took the host to 81 % and `/health` from **alternating 2.000 s timeouts to
+a flat 0.007 s**, with the loop advancing for the first time in 44 minutes. **Disk pressure looks
+exactly like a software defect and is diagnosed as one.**
+
+So, before the fleet:
+
+    df -h / /tmp                                  # on every node that will hold a copy
+    agent-fleet.sh status -r /path/to/repo        # disk per worktree, mid-run
+
+1. **Prefer `git worktree` to `cp -a`.** A worktree shares the object store; a copy duplicates
+   it. If a child needs to *read* code, it does not need a copy of the repo at all.
+2. **State a disk budget in every brief** — one copy of a large repo per child, and no child
+   running two.
+3. **Never `git format-patch --all --stdout` on a large repo**: `--all` walks the whole history,
+   and on this estate it wrote **4.78 GB** in one command — into `/tmp`, which is **tmpfs**, so
+   RAM-backed. A branch's change is a patch of its diff, not of its history.
+4. **Clean copies at teardown, and read the host's disk after the fleet**, not only the
+   worktrees' — the leak this rule exists for was on the host, where nobody was looking.
+5. **Reclaiming is not deleting.** Before removing a child's tree: confirm the artifacts exist
+   outside it (`diff -q`), confirm the original is intact, and capture anything that exists only
+   there — an unpushed branch, a report — as a small artefact. **Never remove a store you did
+   not create:** a 26 GB pre-remediation database backup on this estate is the owner's call.
+
 ## Failure handling
 
 | Failure | Response |
