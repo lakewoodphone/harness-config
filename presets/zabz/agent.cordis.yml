@@ -522,15 +522,6 @@
     # 92f933f substituted the package string only). It still mounted, so nothing failed, but it
     # mounted the new plugin a second time under a stale id. Fixed 2026-10-05. `preset-package-gate.ps1`
     # and `sync.py` check the NAME only; that is how the half-migration survived.
-
-    # EDITED BY HAND, DELIBERATELY, AND THIS FILE MUST NOT BE REGENERATED until
-    # `scripts/make_zabz_preset.py` is fixed. That generator rewrites this file wholesale from
-    # `presets/cordis-bg/agent.cordis.yml`, and cordis-bg does NOT contain this preset's owner
-    # rules 8 and 9, the outbound-communication hard-stops, or the "ask him before a counterparty"
-    # rule. Running it therefore DELETES them -- silently, from the agent's own persona. Measured
-    # 2026-09-28: regenerating removed 33 lines including those blocks, and the deletion was only
-    # caught because the diff was read before committing. `--check` reports DRIFT for this file
-    # and that is the correct, expected state until the generator is brought up to date.
     - id: workflow-ptc
       name: '@deepseek-ai/dsh-workflow-ptc'
       config:
@@ -578,6 +569,13 @@
 # Both rows register into THIS preset's layer of the host skill registry, so
 # they need no realm; the agent's merged catalog also carries whatever the
 # deployment registered globally (repository plugins).
+#
+# DO NOT RELY ON THIS ROW. Measured 2026-10-08: it registers nothing in this
+# deployment -- a probe skill placed only in the preset's skills/ was absent from
+# a fresh agent's catalog both with this expression and with a literal absolute
+# path, while the same file in $DSH_HOME/skills appeared within seconds. The real
+# install path is scripts/sync.py -> plan_skills(), which mirrors presets/*/skills
+# into $DSH_HOME/skills. Evidence and the check that proves it: docs/skill-wiring.md.
 - id: skill-filesystem
   name: '@deepseek-ai/dsh-skill-filesystem'
   config:

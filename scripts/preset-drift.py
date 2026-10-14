@@ -27,6 +27,24 @@ SURFACES COMPARED
     presets/<p>/agent.cordis.yml            -> $DSH_HOME/.agent-presets/<p>/agent.cordis.yml
     presets/<p>/preset.yml                  -> $DSH_HOME/.agent-presets/<p>/preset.yml
     presets/<p>/skills/<s>/SKILL.md         -> $DSH_HOME/skills/<s>/SKILL.md
+    profiles/<n>/cordis.patch.yml           -> $DSH_HOME/profiles/<n>/cordis.patch.yml
+
+THE PROFILE PATCH LAYER, ADDED 2026-10-14, AND THIS TOOL WAS BLIND TO IT BEFORE. On the 0.1.7 line
+local preset-directory discovery was REMOVED: `$DSH_HOME/.agent-presets/<p>/agent.cordis.yml` is not
+read at all, and the persona a session actually receives is the `preset-rows` managed block inside
+`$DSH_HOME/profiles/<n>/cordis.patch.yml`. So the first four rows above verified a surface nothing
+loads, while the surface that decides every session's instructions was compared by nobody.
+
+Measured on ZABZ-YOGA at 23:22Z on 2026-10-14, before this row existed:
+
+    $ python scripts/preset-drift.py --json | jq .compared,.drift     ->  15, []
+    $ verify: loaded surface matches the repo (compared 15 match=15 drift=0)
+    $ sha256 ~/.dsh/profiles/web/cordis.patch.yml  vs repo            ->  DIFFERENT
+
+The live layer was 21 hours stale: it carried the pre-compression persona and none of the four rules
+written that morning, and this tool reported a clean 15/15 while `sync.py` printed
+`profiles: SKIPPED ... the live profile patch is left untouched` on the line above. A detector that
+reports health for a surface nothing reads is the same failure it was written to find.
 
 **THE SKILL CATALOG IS ONE SHARED NAMESPACE.** Every preset carries its own copy of a skill, and
 `$DSH_HOME/skills/<s>/SKILL.md` holds exactly one of them -- measured 2026-10-13, the catalog's
@@ -127,6 +145,19 @@ def pairs(repo: Path, only: str | None) -> list[tuple[str, Path, Path]]:
             src = preset_dir / fn
             if src.is_file():
                 out.append((f"{name}/{fn}", src, HOME / ".agent-presets" / name / fn))
+
+    # The profile patch layer -- the surface a session actually loads on the 0.1.7 line.
+    # NOT filtered by --preset: profiles (`web`, `mesh`) are a different namespace from presets
+    # (`zabz`, `yocheved`, `cordis-bg`), so `--preset zabz` must not silently drop them.
+    # `presets.generated.patch.yml` is deliberately NOT compared: nothing passes `--patch`, so it is
+    # never installed under $DSH_HOME and comparing it would report MISSING on every machine.
+    for prof_dir in sorted((repo / "profiles").iterdir()):
+        if not prof_dir.is_dir():
+            continue
+        src = prof_dir / "cordis.patch.yml"
+        if src.is_file():
+            out.append((f"profiles/{prof_dir.name}/cordis.patch.yml", src,
+                        HOME / "profiles" / prof_dir.name / "cordis.patch.yml"))
     return out
 
 
