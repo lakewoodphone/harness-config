@@ -3263,7 +3263,7 @@ def claim_map():
 
 
 def allocation_ceiling(kind: str) -> int:
-    """One ceiling per kind: entries/, index, legacy sources, git refs, claimed windows.
+    """One ceiling per kind: entries/, index, legacy sources, git refs, other hosts' windows.
 
     Every allocator (`_next_free`, `append`, `migrate-v2`, `absorb_all`, `repair-ids`)
     uses this and never returns a number at or below it. It is deliberately the maximum
@@ -3273,15 +3273,17 @@ def allocation_ceiling(kind: str) -> int:
     local = max_number(kind)
     stamp = read_stamp()
     remote = (stamp.get("git_ceiling") or {}).get(kind, 0)
-    # AND EVERY HOST'S CLAIMED WINDOW. MEASURED 2026-10-14: with the refs reader fixed but this
-    # term absent, the WINDOW still began at `max_number + 1` -- inside another host's claim --
-    # so the overlap survived the fix. A window claimed by any host must count as reserved for
-    # every host, which means the next window starts ABOVE every host's `reserved_through`.
-    # Every term here is a MAXIMUM, so this can only RAISE a ceiling; a number already handed
-    # out is never revisited and no existing row is removed or narrowed.
-    best_any, _best_mine = reserved_through(kind)
+    # AND EVERY OTHER HOST'S CLAIMED WINDOW. MEASURED 2026-10-14: with the refs reader fixed
+    # but this term absent, the WINDOW still began at `max_number + 1` -- inside another host's
+    # claim -- so the overlap survived the fix. A window claimed by any host must count as
+    # reserved for every host, which means the next window starts ABOVE every host's
+    # `reserved_through`.
+    # THIS host's own rows are excluded on purpose: see `reserved_through_others`. Every term
+    # here is a MAXIMUM, so this can only RAISE a ceiling; nothing is removed or narrowed and
+    # no number already handed out is revisited.
+    other_claimed = reserved_through_others(kind)
     cached = (stamp.get("ledger_ceiling") or {}).get(kind, 0)
-    return max(local, int(remote or 0), int(best_any or 0), int(cached or 0))
+    return max(local, int(remote or 0), int(other_claimed or 0), int(cached or 0))
 
 
 def note_git_ceiling(table: dict) -> None:
@@ -3522,19 +3524,24 @@ _LEDGER_REF_CACHE = {"at": 0.0, "rows": None}
 
 
 def note_ledger_ceiling(rows: list) -> None:
-    """Record the highest window ANY host has claimed, in `index/stamp.json`.
+    """Record the highest window ANY OTHER host has claimed, in `index/stamp.json`.
 
     The same shape and the same additive rule as `note_git_ceiling()`: raised, never lowered.
     It is a READING taken on the writer path, so the number survives a process that cannot
     afford another sweep -- it is never the only source of truth.
+
+    THIS HOST'S OWN ROWS ARE SKIPPED, for the reason `reserved_through_others` records: a
+    ceiling that sits above this host's own window pushes the next number out of that window
+    on every call.
     """
     stamp = read_stamp()
     if not stamp:
         return
+    me = host_tag().upper()
     best = {}
     for r in rows or []:
         kind = r.get("kind")
-        if not kind:
+        if not kind or str(r.get("host", "")).upper() == me:
             continue
         best[kind] = max(int(best.get(kind) or 0), int(r.get("reserved_through") or 0))
     if not best:
@@ -3596,6 +3603,34 @@ def ledger_ref_rows(force: bool = False) -> list:
     except Exception:
         pass
     return rows
+
+
+def reserved_through_others(kind: str, host: str = "") -> int:
+    """The highest number reserved for `kind` by ANY OTHER host.
+
+    THE OWN WINDOW IS DELIBERATELY EXCLUDED, and that is load-bearing rather than a
+    nicety. A ceiling that includes this host's OWN `reserved_through` sits ABOVE the very
+    window this host is supposed to write in, so the next number leaves that window on every
+    call -- and two measured behaviours come straight back:
+
+    * `cmd_claim` asks `is_reserved(want)`; with `want` above its own window it answers NO, so
+      every `claim` run would reserve ANOTHER window. `cmd_claim`'s docstring records exactly
+      that regression ("a naive `claim` reserved a fresh window every time it was run ... whose
+      LOWER bound fell below its own next free number").
+    * a tree with a local ledger and no origin ref hits `ensure_reservation`'s fail-closed
+      branch and REFUSES an append it is entitled to make, instead of writing inside its own
+      window.
+
+    What a host must clear before writing is the OTHER hosts' claims. Its own window is where
+    it is allowed to write, and `reservation_base` -- which does use every host's window,
+    including its own -- is what keeps the NEXT window outside all of them.
+    """
+    me = (host or host_tag()).upper()
+    best = 0
+    for r in read_ledger_rows():
+        if r["kind"] == kind and str(r.get("host", "")).upper() != me:
+            best = max(best, r["reserved_through"])
+    return best
 
 
 def read_ledger_rows() -> list:
