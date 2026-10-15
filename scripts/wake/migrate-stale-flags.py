@@ -36,8 +36,8 @@ import sqlite3
 import sys
 from pathlib import Path
 
-DB = Path("/home/zabz/.sms-inbox/inbox.db")
-PK = "/home/zabz/bin/sources/project-keepalive.py"
+DB = Path("/root/.sms-inbox/inbox.db")
+PK = "/root/bin/sources/project-keepalive.py"
 
 
 def load_pk():
