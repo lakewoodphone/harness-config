@@ -43,12 +43,18 @@ from pathlib import Path
 
 # The markers that decide whether an instruction surface is the current one. Chosen because each
 # one is a RULE that exists only in the current generation, and the two OLD strings are rules the
-# current generation deliberately compressed away. A surface has to carry all three NEW and
+# current generation deliberately compressed away. A surface has to carry all of them NEW and
 # neither OLD; anything else is a partial delivery and is reported as one.
+#
+# ROUND 6 (2026-10-15) moved the second marker set: the round-5 `read the failure before` paragraph
+# was absorbed into the new rule 3, so it is no longer a marker of currency and asserting on it
+# would have reported a good surface as stale. The markers name the RULE, not the paragraph that
+# happens to carry it.
 NEW_MARKERS = (
     "When he corrects you",
     "measurement rule, extended",
-    "read the failure before",
+    "A non-zero exit is an open item",
+    "Know which shell you are on",
 )
 OLD_MARKERS = (
     "On any larger job",
@@ -65,8 +71,10 @@ BROKER_RE = re.compile(r"^(\s*brokerSsh:\s*(?:!!js\s*)?[\"']?[^\"'\n]*?)(secrata
 
 # The managed block markers. Everything BETWEEN them is generated from `presets/`; everything
 # OUTSIDE them is hand-maintained, and that is where a stale hostname survives a regeneration.
-BLOCK_START = "# >>> preset-rows"
-BLOCK_END = "# <<< preset-rows"
+# NOTE the shape: both markers begin with `<<<` (the BEGIN one reads
+# `<<< preset-rows: BEGIN managed block ...`). A first version looked for `>>> preset-rows` and so
+# never entered the block at all, which made every line look hand-maintained.
+BLOCK_RE = re.compile(r"preset-rows:\s*(BEGIN|END)")
 
 FROZEN_NAMES = ("secratary-ts",)
 
@@ -207,11 +215,9 @@ def main() -> int:
     head_hits: list[tuple[int, str]] = []
     broker_fixed = 0
     for i, ln in enumerate(lines):
-        if ln.strip().startswith(BLOCK_START):
-            in_block = True
-            continue
-        if ln.strip().startswith(BLOCK_END):
-            in_block = False
+        m = BLOCK_RE.search(ln)
+        if m:
+            in_block = m.group(1) == "BEGIN"
             continue
         if in_block or not any(n in ln for n in FROZEN_NAMES):
             continue
