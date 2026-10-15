@@ -22,7 +22,9 @@ what it now hands over.
 | 4 | **The authority can run the row generator at all** | `node scripts/make-preset-rows.mjs --check` on the authority | ran and reported real DRIFT; before, it threw `cannot resolve a usable "yaml" package` |
 | 5 | **A tool to do this again** | `python scripts/evolution/deliver-persona.py --repo <path>` | 6 steps, prints evidence, exit 0/1/3 |
 | 6 | **The round's documents are on the machine that runs the company** | `ls /root/code/harness-config/docs/dsh-evolution-v6/` | 6 files + `PROGRAM.md` |
-| 7 | **A company fix is DEPLOYED and verified — the first this round.** A retry now inherits an attempt that ended `paused` | `systemctl show company-api -p ExecMainStartTimestamp` | **00:25:19 UTC → 14:41:46 UTC**; `/health` `{"ok":true}`; the running interpreter reports `PRIOR_ATTEMPT_STATUSES = ('failed','expired','paused')`; `/opt/company` commit **`2dc5c89d4`** |
+| 7 | **TWO company fixes are DEPLOYED and verified, and the first is PROVEN by observed sessions.** (a) a retry now inherits an attempt that ended `paused`; (b) `left=` can no longer quote a stale `[OUT-OF-TURNS]` tick for a session that closed | `systemctl show company-api -p ExecMainStartTimestamp` | **(a) 00:25:19 → 14:41:46 UTC**, **(b) 14:52:41 → 14:53:59 UTC**; `/health` `{"ok":true}`; running interpreter reports `PRIOR_ATTEMPT_STATUSES = ('failed','expired','paused')`; `/opt/company` commit **`2dc5c89d4`** + the marker fix |
+| 7a | **the observed proof for (a)** | one row per session created after the deploy | **78869, 78870, 78871 — all `prev_status=paused`, all carried `attempt-context`, none said "no prior attempt"**; and over 2 h: `paused` predecessors 5 sessions / 5 carried context / 1 said no-prior (session **78861, 13:31:12, pre-deploy**), `failed` 3/3, no predecessor 6/6 (correct) |
+| 7b | **the observed proof for (b)** | the live module, called directly | `[COMPLETED: …]` and `[TASK-CLOSED-BY-SESSION: …]` now return their own marker; an empty marker still quotes the trace's (correct); regex alternatives **16 → 18** |
 
 **Journal entries written this round:** decisions `D3723` (delivered from the generator; the proof is
 the composed config), lessons `L4577` (the repair step that reported a false clean), `L4578` (see the
@@ -147,10 +149,13 @@ where it is the odd tree out are most likely the *unlanded residue* of that repa
    starting the merge yourself**; if they are absent, the child did not land and the job is still to do.
    It was dispatched before §2a was found, so **check its output against item 163** (see §2a) rather
    than trusting it: it may have taken yoga's body for the ids where ZABZ-TECH holds 163's renumbering.
-10. **One company change IS deployed** (§1 row 7). Its behavioural proof is still outstanding: no
-   session has been created since the 14:41:46Z restart, so "a retry inherits a paused attempt" rests
-   on the predicate count and a unit test, not on an observed session. **Read the next session that
-   retries a task whose predecessor ended `paused`** — that is a one-row query and it closes the claim.
+10. **The behavioural proof for the first company fix is CLOSED** — see §1 rows 7a and 7b. It was
+   outstanding when this file was first written and is now an observed row: three sessions created
+   after the deploy, all with a `paused` predecessor, all carrying the prior attempt, none saying
+   "no prior attempt". **What is still open on the company**: the post-deploy cost of counting
+   `paused` in the give-up ceiling (a task that legitimately pauses three times in 24 h will now be
+   refused — no measurement behind that yet), the `TOOL_LOOP_DEADLOCK` regression (38 → 55), and
+   `STEP_BUDGET_EXHAUSTED` at 322 in 7 days.
 
 
 ---
@@ -217,6 +222,14 @@ by running something rather than thinking harder.**
    new**, and the true corpus total is **1,008 + 26 = 1,034**, not 1,094. The child measured it, said
    so, and refused to inherit the arithmetic. That is the behaviour the briefs ask for and it is the
    second time this round a child refuted its own premise.
+
+8. **I called a deployed fix incomplete without opening the file.** `D3850` says the `_handoff_left`
+   precedence site "is needed" and (B) shipped without it. The pre-image backup taken at deploy time
+   already contains it (`grep -c "findall(terminal_marker"` → 1), so my deploy neither added it nor
+   needed to. **I wrote that from a child's prose paragraph after checking its numbers** — a claim I
+   did not earn, in the one round whose subject is exactly that. Corrected in `L4768`. The residual was
+   real but for a different reason, and measuring it properly is what found the two missing completion
+   markers and produced the second deploy (§1 row 7b).
 
 ---
 
