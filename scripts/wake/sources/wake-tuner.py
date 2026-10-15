@@ -394,6 +394,68 @@ def log_event_empty(event: dict, costs: dict[int, dict]) -> tuple[bool, str]:
                        f"(runner_code=124, {len(outcome)} char(s) of output) - not evidence "
                        "about the subject, so holding instead of raising")
 
+    # THE DISPATCHER'S OWN SELF-KILL IS ALSO NOT A VERDICT ABOUT THE SUBJECT.
+    # Measured 2026-09-28 (release #77, project:rental-system:20260928): the
+    # dispatcher's lease heartbeat failed three times on `database is locked`
+    # contention, so wake-dispatch.sh killed the session itself and recorded
+    # `exit=124 runner_code=?`. The RUNNER never returned a code, so the
+    # runner_code=124 exemption above cannot see it, and the release was charged
+    # as empty -- doubling the subject's cooldown for the dispatcher's fault.
+    # The session was alive at 211s when it was killed and the spend record was
+    # unmapped (AMBIGUOUS, 4 candidate sessions), which is a cost-mapping
+    # failure, not evidence about the subject. Same doctrine as rc=124 above:
+    # never charge the bound -- here the dispatcher's own lease -- to the subject.
+    # The outcome text is wake-dispatch.sh's own self-kill verdict.
+    # TWO RECORDED WORDINGS, ONE FAULT, AND THE CAUSE PHRASE IS NOT THE MARKER.
+    # The dispatcher's OUTCOME_REASON for a lost lease read "lease heartbeat lost
+    # three times" until 2026-09-30 and "lease not renewed: the store reports the
+    # row is no longer claimed by us" from then on (wake-dispatch.sh:923). Matching
+    # the CAUSE caught only the first: on 2026-10-09 the second passed through as
+    # empty and doubled `mesh-node-dispatch-restored:zabz-tech-linux`'s cooldown
+    # (release #722, exit=124 runner_code=?) for the dispatcher's own lease - the
+    # exact mistake this branch exists to prevent. Both wordings END with the
+    # dispatcher's own self-kill verdict, and that verdict is emitted ONLY on the
+    # LEASE_LOST path (wake-dispatch.sh:979-981), which also covers the hard-bound
+    # kill ("the session outlived the hard bound by 120s"). Match the verdict, not
+    # the cause: a cause is a wording that can change again.
+    if "session killed so it could not be double-run" in outcome.lower():
+        return False, ("COULD NOT ASK: the dispatcher lost its own lease on the row "
+                       f"and killed the session ({len(outcome)} char(s) of output) - "
+                       "not evidence about the subject, so holding instead of raising")
+
+    # THE DISPATCHER'S OWN SSH HOP IS ALSO NOT A VERDICT ABOUT THE SUBJECT.
+    # Measured 2026-09-30: releases #135/#139/#144 are recorded `failed` with
+    # outcome "ssh hop failed (rc=1) after Ns; desktop output: ...", the wake
+    # table has them state=failed, wake-dispatch.log records cost=none, and the
+    # mapped sessions burned 0 tokens -- the hop to the desktop never delivered
+    # the turn. #153/#154 are the same hop failure with tokens in the session,
+    # so the `tokens > 0` check above already rescues them; these three it did
+    # not, and the tuner was doubling their cooldowns for the dispatcher's
+    # transport. Same doctrine as rc=124 above: the hop is a fact about the
+    # dispatcher, never about the thing being measured.
+    if (outcome.lower().startswith("ssh hop failed")
+            and ("desktop output" in outcome.lower()
+                 or "out-file was recovered" in outcome.lower())):
+        return False, ("COULD NOT ASK: the dispatcher's ssh hop to the desktop failed "
+                       f"({outcome.split(';')[0]}) - not evidence about the subject, "
+                       "so holding instead of raising")
+
+    # THE DISPATCHER'S OWN CRASH IS NOT A VERDICT ABOUT THE SUBJECT EITHER.
+    # Measured 2026-10-13: releases #762/#763/#764 are recorded `failed` with
+    # outcome "dispatcher exited before the session outcome was recorded (rc=2);
+    # session killed" -- wake-dispatch.sh's OWN EXIT trap (wake-dispatch.sh:585)
+    # killed the in-flight session and closed the row when the dispatcher died.
+    # Those three were rescued only because the cost mapper happened to map their
+    # sessions (1.5M/5.1M/9.7M tokens); 9 of the 12 rows carrying this verdict
+    # (#172/173/174/184/185/187/188/190/357) have NO cost row, and on this path
+    # the exit=2 fallthrough below returns EMPTY on the store's own account of a
+    # dispatcher crash. Match the dispatcher's verdict, not the exit code.
+    if "dispatcher exited before the session outcome was recorded" in outcome.lower():
+        return False, ("COULD NOT ASK: the dispatcher exited before it recorded the "
+                       f"session's outcome (rc={exit_code}); the session was killed by "
+                       "the dispatcher - not evidence about the subject, so holding "
+                       "instead of raising")
+
     if exit_code != 0:
         return True, (f"exit={event.get('exit')} (runner_code="
                       f"{event.get('runner_code')}), outcome {len(outcome)} char(s)")
@@ -503,9 +565,28 @@ def judge(releases: list[dict], costs: dict[int, dict],
             continue
         spend = costs.get(int(row["id"])) or {}
         tokens = int(spend.get("total_tokens") or 0)
-        if tokens > 0:
+        # A FAILED RELEASE WHOSE SESSION THE DISPATCHER RECOVERED DID RUN, even
+        # when its cost row is unmapped (tokens=0). Gating this list on tokens>0
+        # therefore HID the fault for exactly the newest failures -- measured
+        # 2026-10-07: #657/#658/#669 are state=failed with outcome "ssh hop
+        # failed ... but the session out-file was recovered via scp", and all
+        # three were absent from the digest while their subjects were (rightly)
+        # shortened, not backed off. Trust the store own account that the
+        # session ran; print the count as unknown when it cannot be mapped.
+        outcome_text = (row.get("outcome") or "").lower()
+        # The dispatcher's OWN crash is a dispatcher fault too: its EXIT trap
+        # (wake-dispatch.sh:585) records "dispatcher exited before the session
+        # outcome was recorded" and writes NO `released ... exit=` line, so these
+        # rows never reach the log stream R1 reads -- this list is the only place
+        # they can be named. Measured 2026-10-14: 12 such rows in the store and
+        # only the 3 with a mapped cost row (#762/#763/#764) were named.
+        recovered = ("out-file was recovered" in outcome_text
+                     or "dispatcher exited before the session outcome was recorded"
+                     in outcome_text)
+        if tokens > 0 or recovered:
             faults.append({"release_id": row["id"], "subject": row.get("subject"),
-                           "state": row.get("state"), "tokens": tokens,
+                           "state": row.get("state"),
+                           "tokens": tokens if tokens > 0 else "unknown",
                            "session_id": spend.get("session_id")})
 
     return {
@@ -560,6 +641,48 @@ def changed_subjects(judgement: dict, previous: dict) -> list[dict]:
     return out
 
 
+def _merge_changes(carried: list, current: list) -> list:
+    """Every change that has not yet been reported, oldest first, ONE entry per subject.
+
+    A subject that moved twice before either movement was reported is reported once, with its
+    LATEST state - reporting the intermediate step would be noise, and reporting both would be the
+    same mistake this fix exists to end.
+    """
+    out: dict = {}
+    for change in list(carried) + list(current):
+        if isinstance(change, dict) and change.get("subject"):
+            out[change["subject"]] = change
+    return [out[k] for k in sorted(out)]
+
+
+def _changes_section(changes: list) -> str:
+    """The carried changes, rendered for the ONE daily digest instead of N separate sessions."""
+    if not changes:
+        return ""
+    lines = ["", "", "THRESHOLD CHANGES SINCE THE LAST DIGEST", "-" * 40,
+             f"{len(changes)} subject(s) moved. Each is applied through the state file; this is",
+             "the review, not the change:"]
+    for c in changes:
+        lines += [
+            "",
+            f"  {c['subject']}",
+            f"    rule ............... {c.get('rule')}",
+            f"    action ............. {c.get('from')} -> {c.get('to')}",
+            f"    proposed cooldown .. {c.get('proposed_cooldown_sec')}s",
+            f"    why ................ {c.get('reason')}",
+        ]
+    lines += [
+        "",
+        "FOR EACH: confirm it against `~/.sms-inbox/wake-cost.jsonl` and the `wake` table",
+        "(`sqlite3 -readonly ~/.sms-inbox/inbox.db \"select id,subject,state,claimed_at,",
+        "substr(outcome,1,80) from wake\"`). If a DISABLE is correct, say so in one line and",
+        "leave the record; if the emptiness was the DISPATCHER's fault rather than the subject's,",
+        "say that instead and do not mute the subject.",
+        "Do NOT edit wake.py / wake-dispatch.sh / run-wake-sources.sh / cron.",
+    ]
+    return "\n".join(lines)
+
+
 def digest_text(judgement: dict, changes: list[dict], caps: dict, gaps: list[str]) -> str:
     lines = [f"WAKE COST DIGEST — {judgement['day']} (UTC)",
              "=" * 58,
@@ -572,6 +695,24 @@ def digest_text(judgement: dict, changes: list[dict], caps: dict, gaps: list[str
                 else f"${judgement['cost_today']:.6f}")
              + f"  ({judgement['priced_today']} priced, "
                f"{judgement['unsourced_today']} unsourced)"]
+    # WHICH COST IS WHICH. Two numbers for one day existed on 2026-09-29 and nothing said
+    # which to believe: this digest read its own periodic snapshot (0.997373 over 37 priced
+    # releases) while the live sum over the per-release rows read 1.224594 over 41. The gap
+    # is staleness, not arithmetic - and two independent sums of one file is how they drifted
+    # apart, so the fix is to NAME THE AUTHORITY rather than add a third sum here.
+    lines.append("cost source ....... the wake-cost.py snapshot row for this day, AS OF when that"
+                 " row was last written - a periodic snapshot, not a live figure")
+    # NEVER HARD-CODE THE CEILING. It read "the 70 USD/day cap" while the CLI this very
+    # line tells the reader to trust returned max_usd_per_day=25.00, and wake-dispatch.sh
+    # reads that same field into MAX_USD_PER_DAY with no override -- so the digest named a
+    # ceiling 2.8x the one actually enforced. Read it from the same `stats --json` the line
+    # cites; _caps() carries it and its own docstring says "Never hard-coded here".
+    _usd_cap = caps.get("max_usd_per_day") if isinstance(caps, dict) else None
+    _cap_txt = f"${float(_usd_cap):.2f}" if isinstance(_usd_cap, (int, float)) else "the"
+    lines.append("AUTHORITATIVE ..... the live sum over the per-release rows is what "
+                 f"{_cap_txt}"
+                 " USD/day cap enforces: `python3 ~/bin/wake.py stats --json` ->"
+                 " spend_today_usd. Never quote either without naming which.")
     if gaps:
         lines.append("MISSING SIGNAL ...... " + "; ".join(gaps))
     if judgement.get("unreadable_log_lines"):
@@ -621,9 +762,12 @@ def digest_text(judgement: dict, changes: list[dict], caps: dict, gaps: list[str
     if dispatcher_faults:
         lines.append("")
         lines.append("DISPATCHER FAULT (not the subject's): these releases are recorded")
-        lines.append("`failed` by the dispatcher, yet their sessions really ran and burned")
-        lines.append("tokens -- the ssh hop lost the answer, so backing the subject off")
-        lines.append("would hide the fault instead of fixing it:")
+        lines.append("`failed`, and the store's own account says the session ran. Two")
+        lines.append("classes: the dispatcher's ssh hop lost the answer and the session")
+        lines.append("out-file was recovered, or the dispatcher's own EXIT trap killed the")
+        lines.append("session before recording the outcome (its own rc=2 verdict).")
+        lines.append("'unknown tok' means no cost row was mapped, NOT that nothing was")
+        lines.append("burned. Backing the subject off would hide the fault, not fix it:")
         for entry in dispatcher_faults:
             lines.append(f"  #{entry['release_id']} {str(entry['subject'])[:38]:<38} "
                          f"{entry['tokens']:>9} tok  state={entry['state']}")
@@ -654,6 +798,11 @@ def collect(args) -> list[Finding]:
     force = bool(getattr(args, "force", False))
     already = (previous or {}).get("digest_day")
     changes = changed_subjects(judgement, previous)
+    # EVERYTHING UNREPORTED, not just this run: see _merge_changes. The tuner runs every 15
+    # minutes and persist() absorbs each movement immediately, so a movement is visible to
+    # exactly one run - without this carry, anything moving after the day's digest would
+    # never be reported at all.
+    pending = _merge_changes((previous or {}).get("changes_unreported") or [], changes)
 
     if getattr(args, "print_digest", False) or force or already != judgement["day"]:
         text = digest_text(judgement, changes, caps, gaps)
@@ -662,7 +811,12 @@ def collect(args) -> list[Finding]:
         print(f"wake-tuner: digest for {judgement['day']} already emitted "
               f"(state {state_path()})", file=sys.stderr)
 
-    if not force and already == judgement["day"] and not changes:
+    if not force and already == judgement["day"]:
+        # ONE RELEASE PER DAY. This used to still emit one flag per changed subject, which
+        # is how one day cost 13 sessions. If the day's digest has gone out, this run emits
+        # nothing; whatever moved is carried in the state file and reported in tomorrow's
+        # digest. Nothing is lost, because the change itself is already applied through the
+        # state file - the flag is only the REVIEW.
         return []
 
     findings: list[Finding] = []
@@ -691,15 +845,16 @@ def collect(args) -> list[Finding]:
             "   a permanent mute, and say which and why.",
             "3. For every R1/R2 raise: check whether the emptiness is the SUBJECT's",
             "   fault or the DISPATCHER's (releases #8/#9/#10 on 2026-09-20 were",
-            "   rc=124 ssh timeouts with no session at all -- that is an ssh/desktop",
-            "   fault, not a bad subject, and backing the subject off would hide it).",
+            "   rc=124 ssh-hop timeouts WHOSE SESSIONS DID RUN and burned 5.9M-9.7M",
+            "   tokens -- an ssh/desktop fault, not a bad subject, so backing the",
+            "   subject off would hide the fault instead of fixing it).",
             "4. Report spend in ONE line and one change you made, with its proof.",
             "",
             "Do NOT edit `wake.py`, `wake-dispatch.sh`, `run-wake-sources.sh` or",
             "cron from that session. Do NOT contact the owner or any customer.",
             "Report at the end: what the record shows, what you changed, what is",
             "still unpriced.",
-        ]),
+        ]) + _changes_section(pending),
         context=(f"{SOURCE}: {judgement['releases_today']} release(s) today, "
                  f"{judgement['tokens_today']} token(s), "
                  f"cost={'unsourced' if judgement['cost_today'] == 'unsourced' else judgement['cost_today']}, "
@@ -710,36 +865,9 @@ def collect(args) -> list[Finding]:
         cooldown_seconds=_int("WAKE_TUNER_MAX_COOLDOWN_SEC", 604800),
     ))
 
-    for change in changes:
-        findings.append(Finding(
-            subject=f"wake-cost-tune:{change['subject']}",
-            prompt="\n".join([
-                f"The wake tuner changed the release threshold for **{change['subject']}**.",
-                "",
-                f"  rule ............... {change['rule']}",
-                f"  action ............. {change['from']} -> {change['to']}",
-                f"  proposed cooldown .. {change['proposed_cooldown_sec']}s",
-                f"  why ................ {change['reason']}",
-                "",
-                "The tuner writes no store state (sources may only write through the",
-                "frozen `flag` CLI). The change is recorded in",
-                f"{state_path()} and delivered as this finding's cooldown.",
-                "",
-                "WHAT TO DO",
-                "1. Confirm the change against `~/.sms-inbox/wake-cost.jsonl` and the",
-                "   `wake` table (`sqlite3 -readonly ~/.sms-inbox/inbox.db \"select",
-                "   id,subject,state,claimed_at,substr(outcome,1,80) from wake\"`).",
-                "2. If a DISABLE is correct, say so in one line and leave the record;",
-                "   if the emptiness was the dispatcher's fault, say that instead and",
-                "   do not mute the subject.",
-                "Do NOT edit wake.py / wake-dispatch.sh / run-wake-sources.sh / cron.",
-            ]),
-            context=(f"{SOURCE}: {change['subject']} {change['from']}->{change['to']} "
-                     f"by {change['rule']}: {change['reason']}"),
-            priority="low",
-            kind="repair",
-            cooldown_seconds=_int("WAKE_TUNER_MAX_COOLDOWN_SEC", 604800),
-        ))
+    # NO PER-SUBJECT FINDINGS. This loop used to emit one `wake-cost-tune:<subject>` flag per
+    # changed subject, and a flag is a whole headless session: 12 of them on 2026-09-29. The
+    # changes are carried into the single daily digest by _changes_section(pending) above.
     return findings
 
 
@@ -762,7 +890,8 @@ def _caps() -> dict:
         return {"readable": False, "why": f"{type(exc).__name__}: {exc}"}
 
 
-def persist(judgement: dict, changes: list[dict], dry_run: bool) -> Path | None:
+def persist(judgement: dict, changes: list[dict], dry_run: bool,
+            unreported: list | None = None) -> Path | None:
     """Remember the day and the last judgement, so a re-run changes nothing."""
     if dry_run:
         return None
@@ -777,6 +906,9 @@ def persist(judgement: dict, changes: list[dict], dry_run: bool) -> Path | None:
         "releases_total": judgement["releases_total"],
         "subjects": judgement["subjects"],
         "changes_this_run": changes,
+        # What the digest has NOT yet told anyone. Reported in the next digest rather than
+        # in a session of its own.
+        "changes_unreported": list(unreported or []),
         "history": (previous.get("history") or [])[-30:] + [{
             "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "day": judgement["day"],
@@ -844,8 +976,16 @@ def main(argv=None) -> int:
         events = read_dispatch_log()
         costs, _gaps = cost_index()
         judgement = judge(releases, costs, events)
-        changes = changed_subjects(judgement, read_json(state_path(), {}))
-        written = persist(judgement, changes, args.dry_run)
+        previous = read_json(state_path(), {})
+        changes = changed_subjects(judgement, previous)
+        # The same decision collect() makes, recomputed here because main() re-derives the
+        # judgement independently: if the digest went out this run, its carried set is spent;
+        # if it did not, everything unreported stays carried for tomorrow.
+        _pending = _merge_changes(previous.get("changes_unreported") or [], changes)
+        _emitted = (bool(getattr(args, "force", False))
+                    or previous.get("digest_day") != judgement["day"])
+        written = persist(judgement, changes, args.dry_run,
+                          unreported=[] if _emitted else _pending)
         if written:
             print(f"state: {written}", file=sys.stderr)
     except Unreadable as exc:
