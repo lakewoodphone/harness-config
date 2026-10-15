@@ -32,11 +32,38 @@ import sqlite3
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 INBOX = Path(os.environ.get("SMS_INBOX_DB") or (Path.home() / ".sms-inbox" / "inbox.db"))
 UNSETTLED = ("queued", "sending", "accepted", "undefined", "")
+
+
+def parse_dt(value):
+    """Parse one date_sent value, whichever of the two formats it is in.
+
+    The store's date_sent holds RFC-2822 from Twilio's API AND ISO-8601 from the app
+    sms_log that mirror-owner-sms.py copies in. Never compare that column as a string.
+    """
+    if not value:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if s[0].isdigit():
+        try:
+            d = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except ValueError:
+            d = None
+    else:
+        try:
+            from email.utils import parsedate_to_datetime
+            d = parsedate_to_datetime(s)
+        except Exception:
+            d = None
+    if d is None:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
 
 
 def load_env() -> dict:
@@ -70,13 +97,41 @@ def main() -> int:
 
     conn = sqlite3.connect(str(INBOX), timeout=20)
     conn.row_factory = sqlite3.Row
-    rows = conn.execute(
+    # THE TIME FILTER IS APPLIED IN PYTHON, ON A PARSED DATE.
+    #
+    # It used to be `date_sent > datetime('now', ?)` with '-48 hours' in SQL. That
+    # compares an RFC-2822 string ("Wed, 30 Sep 2026 16:44:20 +0000") against an ISO
+    # literal ("2026-10-11 01:40:51"), and SQLite compares bytes: 'W' (0x57) is
+    # greater than '2' (0x32), so EVERY RFC-2822 row passes however old it is.
+    # Measured on the live store 2026-10-13: the filter selected 1838 of 1914
+    # outbound rows - effectively everything - so `--hours` did not bound the work
+    # at all. It looked harmless only because ORDER BY rowid DESC LIMIT 25 happens to
+    # cap the result anyway; the promise in this file's own docstring was false.
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=a.hours)
+    floor = datetime.min.replace(tzinfo=timezone.utc)
+    candidates = conn.execute(
         "SELECT sid, date_sent, status, to_number, body FROM messages "
         "WHERE direction='outbound' AND (status IS NULL OR status IN (%s)) "
-        "AND date_sent > datetime('now', ?) ORDER BY rowid DESC LIMIT ?"
+        "ORDER BY rowid DESC LIMIT ?"
         % ",".join("?" * len(UNSETTLED)),
-        list(UNSETTLED) + ["-%d hours" % a.hours, a.limit]).fetchall()
+        list(UNSETTLED) + [max(a.limit, 200)]).fetchall()
+    rows = [r for r in candidates
+            if (parse_dt(r["date_sent"]) or floor) >= cutoff][:a.limit]
     print("unsettled outbound rows in the last %dh: %d" % (a.hours, len(rows)))
+
+    # AND SAY WHAT ALREADY WENT WRONG. This script only ever chased
+    # queued/sending/accepted/undefined/''. A row Twilio marked `failed` is outside
+    # that set and was never looked at again: measured 2026-10-13, 504 outbound rows
+    # in the store sat failed or undelivered, and across Twilio's whole history for
+    # this line 8,314 of 11,903 outbound sends failed - 7,813 of them in a four-day
+    # retry storm in May 2026 that nothing reported. Reporting is not fixing, but the
+    # silence is what let that run.
+    bad = conn.execute(
+        "SELECT COUNT(*) FROM messages WHERE direction='outbound' "
+        "AND status IN ('failed','undelivered')").fetchone()[0]
+    print("outbound rows marked failed/undelivered, all time (never reconciled "
+          "by this script): %d" % bad)
+
     if not rows:
         print("nothing to reconcile")
         conn.close()
