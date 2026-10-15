@@ -43,12 +43,18 @@ from pathlib import Path
 
 # The markers that decide whether an instruction surface is the current one. Chosen because each
 # one is a RULE that exists only in the current generation, and the two OLD strings are rules the
-# current generation deliberately compressed away. A surface has to carry all three NEW and
+# current generation deliberately compressed away. A surface has to carry all of them NEW and
 # neither OLD; anything else is a partial delivery and is reported as one.
+#
+# ROUND 6 (2026-10-15) moved the second marker set: the round-5 `read the failure before` paragraph
+# was absorbed into the new rule 3, so it is no longer a marker of currency and asserting on it
+# would have reported a good surface as stale. The markers name the RULE, not the paragraph that
+# happens to carry it.
 NEW_MARKERS = (
     "When he corrects you",
     "measurement rule, extended",
-    "read the failure before",
+    "A non-zero exit is an open item",
+    "Know which shell you are on",
 )
 OLD_MARKERS = (
     "On any larger job",
