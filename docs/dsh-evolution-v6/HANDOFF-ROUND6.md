@@ -103,6 +103,52 @@ where it is the odd tree out are most likely the *unlanded residue* of that repa
   session was about to redo it. **`git status` on the machine that owns the work is a cheaper first
   step than any analysis.**
 
+### 2b. THE CANDIDATE UNION EXISTS, AND IT HAS ONE REAL DEFECT — measured, after four false alarms of my own
+
+`R7-JOURNAL-MERGE` delivered a candidate at **`secratary-cloud:/root/work/r7/merged-journal`**:
+**4,887 files, 4,887 ids, `check` 0 errors, 0 malformed, 0 CRLF, 0 in-file id/name mismatches**, built
+from 17,387 files across the five trees. Report: `/root/work/r6/80-journal-merge.md` (697 lines).
+**Nothing was switched over.**
+
+**The acceptance test in this file's earlier §2 was wrong and the builder was right to refuse it.**
+"Residual collisions must be 0" is structurally impossible — an id holds one body, so the losers are
+renamed and the number of ids that *used to* carry more than one body does not change. The test that
+answers the real question compares BODIES: `scripts/evolution/r7-verify-body-loss.py`.
+
+**It took me four attempts to write that test, and every earlier version produced a false alarm** —
+which is the round's own subject, so it is recorded rather than smoothed:
+
+| version | what it compared | it reported | what was actually wrong |
+|---|---|---|---|
+| whole-file sha256 | file bytes | **403 lost / 377 invented** | the header line carries the id, so a renumber changes the bytes |
+| + strip header and metadata | body, file's own id normalised | 270 / 250 | entry bodies carry their id in the *heading* too |
+| + normalise every id token | body | 11 / 4 | the merge renames into `<ID>b.md`, so the stem is not the id; and renumbered entries cite *other* ids |
+| + collapse whitespace, live entries only | body | **7 / 0** | the last 7 are real, and they are in `archive/duplicates/` |
+
+**`0 invented` is the load-bearing number**: every body in the candidate has a source. No content was
+fabricated and none was deleted.
+
+**THE ONE REAL DEFECT.** Seven bodies that are LIVE in at least one source tree end up in the candidate
+under **`archive/duplicates/`** rather than renumbered to fresh live ids — so they would leave the live
+view (`list`, `search`, `status`) at switchover. Verified by direct comparison, not by inference:
+
+| id | live body in the source | what the candidate keeps LIVE under that id | where the source body went |
+|---|---|---|---|
+| `H2729` | `mac` — "Daily note from LakewooechsMini", 344 chars | yoga's "Queue walk: Golembick's recovery…", 7,087 chars | `archive/duplicates/handoff/H2729.md` — body identical to the source |
+| `L3767` | `cloud`+`yoga` — "A whole-file comparison and a change-comparison…", 168 chars | yoga's "A mis-pointed Core Data object-id allocator…", 2,653 chars | `archive/duplicates/lessons/L3767.md` — body identical to the source |
+
+Same pattern for `H2781`, `H458`, `H514`, `P2561bc`, `H3401`. **This is exactly what the builder
+warned about in its §4.2**: `dedupe`'s `archive/duplicates/<id>.md` write has no collision-avoidance
+loop, unlike `repair-ids`. Nothing is lost from the disk — but "the union keeps every body" and "the
+union keeps every body LIVE" are different sentences and only the first is true.
+
+**So round 7's remaining journal work is precise:** renumber those **7** entries to fresh live ids using
+`repair-ids` (or its equivalent), re-run `r7-verify-body-loss.py` until it reads **0 missing / 0
+invented with `archive/` excluded**, and only then plan the switchover. Also still to do, per the
+builder: five trees ship **four different `journal.py`** (yoga `47fbf32b`, cloud `f6a7a014`,
+tech=linux `87737e66`, mac `9b0e020b`), so pin one before any convergence; and `verify.py` cannot run
+from the candidate's directory (it derives the v1 parser from its own path).
+
 
 ---
 
