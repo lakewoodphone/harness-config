@@ -2,20 +2,56 @@
  "adopted_rows": 0,
  "bands_refs_read": 32,
  "ceiling": {
-  "decisions": 3465,
-  "handoff": 4231,
-  "lessons": 4191,
-  "pain": 3992,
-  "wins": 2941
+  "decisions": 3529,
+  "handoff": 4295,
+  "lessons": 4255,
+  "pain": 4056,
+  "wins": 3005
  },
  "ceiling_source": {
-  "decisions": "local bands.tsv",
+  "decisions": "ZABZ-YOGA live working tree",
   "handoff": "ZABZ-YOGA live working tree",
-  "lessons": "local bands.tsv",
+  "lessons": "ZABZ-YOGA live working tree",
   "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [],
+ "claimed_gap_rows": [
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "lessons",
+   "reserved_from": 4192,
+   "reserved_through": 4255,
+   "stamp": "2026-10-14 23:45 UTC"
+  },
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "wins",
+   "reserved_from": 2942,
+   "reserved_through": 3005,
+   "stamp": "2026-10-14 23:45 UTC"
+  },
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "handoff",
+   "reserved_from": 4232,
+   "reserved_through": 4295,
+   "stamp": "2026-10-14 23:45 UTC"
+  },
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "pain",
+   "reserved_from": 3993,
+   "reserved_through": 4056,
+   "stamp": "2026-10-14 23:45 UTC"
+  },
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "decisions",
+   "reserved_from": 3466,
+   "reserved_through": 3529,
+   "stamp": "2026-10-14 23:45 UTC"
+  }
+ ],
  "entries_high_water": {
   "decisions": "D3402",
   "handoff": "H4169",
@@ -24,14 +60,14 @@
   "wins": "W2878"
  },
  "high_water": {
-  "decisions": "D3465",
-  "handoff": "H4231",
-  "lessons": "L4191",
-  "pain": "P3992",
-  "wins": "W2941"
+  "decisions": "D3529",
+  "handoff": "H4295",
+  "lessons": "L4255",
+  "pain": "P4056",
+  "wins": "W3005"
  },
  "host": "secratary-cloud",
- "live_peer_rows": 317,
+ "live_peer_rows": 326,
  "live_peer_unreachable": [
   "ZABZ-TECH-LINUX (rc=1)"
  ],
@@ -42,12 +78,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-14T23:30:16Z",
+ "refreshed_at": "2026-10-14T23:45:07Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 11.9,
- "sources_seen": 3633
+ "seconds": 5.6,
+ "sources_seen": 3646
 }
