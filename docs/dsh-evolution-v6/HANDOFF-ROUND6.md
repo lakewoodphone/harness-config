@@ -130,10 +130,26 @@ trigger.** The informative half is the bottom — **a session that reaches for `
 `qb_*` completes 12–50% of the time.**
 
 **So the lever is the opposite of a guard: make those tools fail FAST and CLEARLY when they cannot
-succeed.** The absent-repo case was fixed exactly that way today (`_NON_FATAL_CB_FAILURE_PATTERNS`,
-commit `d43a75a37`), and the next candidates are `github_read_file` (12.5%), `qb_status` (35.3%) and
-`qb_snapshot` (31.2%) — one clear "this cannot succeed here" answer and no retry, instead of a session
-spending its whole step budget discovering it repeatedly.
+succeed.** The absent-repo case was fixed that way today (`_NON_FATAL_CB_FAILURE_PATTERNS`, commit
+`d43a75a37`), and **the same fix is now deployed for the two families it did not reach — commit
+`332f7615a`, restart 15:49:37Z:**
+
+* **`qb_status`, `qb_snapshot`, `qb_reconciliation`, `qb_query`, `qb_search`, `qb_accounts`,
+  `qb_vendors` had NO entry in `_NON_FATAL_CB_FAILURE_PATTERNS` at all** — every failure counted
+  toward the action's circuit breaker, so ten of them disabled the action and the session then
+  retried a disabled tool until its step budget was gone. They now carry the resolver's three
+  messages **plus the one they actually emit, `"QB agent not available"`**.
+* **`github_read_file` and `github_list_prs` had patterns only for a MISSING ARGUMENT, never for the
+  404 the tool returns.** Measured verbatim from a log: `GitHub read failed: 404 {"message": "Not
+  Found", "documentation_url": …}`. That string is now a pattern.
+
+**Deliberately narrow, and the controls prove it:** three probes assert that a rate limit, a 503 and a
+connection reset on the SAME tools stay **retryable**. A fast-fail rule that swallowed transient faults
+would be worse than the retry it replaces. All seven probes hold against the running interpreter.
+
+**The field effect is NOT yet measured** — the same discipline as the deadlock fix: the predicate is
+proven, the weekly count is not. Post-check against today's numbers: `github_read_file` 12.5%,
+`qb_status` 35.3%, `qb_snapshot` 31.2% completion, and 335 step-budget sessions in 7 days.
 
 ### The closing verification, taken fresh on all three machines after every subsequent change
 
