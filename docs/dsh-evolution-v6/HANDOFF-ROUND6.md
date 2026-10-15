@@ -82,6 +82,59 @@ say "the agent was silent" cannot measure the owner's worst day.**
 `laptop-ts` — against `AGENTS.md` §5's own requirement that every alias an agent might arrive as is a
 row.
 
+---
+
+## 12. THE STEP-BUDGET CLASS: MY PROPOSED FIX WAS REFUTED BY ITS OWN CONTROL
+
+`STEP_BUDGET_EXHAUSTED` is the company's largest failure class — **335 sessions in 7 days across 149
+distinct tasks**, more than the deadlock's 176. I diagnosed its *shape* and proposed a guard. **The
+control refutes the guard, and this section exists so nobody re-proposes it.**
+
+**What the failing sessions look like** (this part was right): two attempts of task 28733 are 1,979
+bytes, 11 lines, **30 model turns, 27/20 work steps, and TWO tool signatures** —
+`github_read_file` and `qb_status` — with a last checkpoint reading *"I'll take the mutating action
+now: write the fix decision record into the repo via GitHub"*. A code fix, and the session says it
+will write a record about the fix. Across the class: **286 of 335 (85%) have a trace under 3 KB,
+average 2,275 bytes.**
+
+**What I proposed:** after N steps, if the trace is under ~3 KB and fewer than ~3 distinct tools have
+run, close BLOCKED. **What the control says:**
+
+```
+status     sessions  avg_bytes  under_3kb  under_1.5kb
+failed          478     2095.0        85%          72%
+completed       288     2055.0        80%          64%
+paused           61     1348.0        91%          73%
+```
+
+**Completed and failed traces are the same size — 2,055 vs 2,095 bytes — and 231 of the 288
+completions are under 3 KB.** The guard would have closed **80% of the sessions that succeed.**
+Distinct-tool count does not separate them either: sampled completions and failures both show ≈2
+signatures. Recorded as `L5024` and `L5026`.
+
+**What DOES separate them is which tools ran** (827 sessions, overall completion 34.8%):
+
+| tool | completion | tool | completion |
+|---|---:|---|---:|
+| `update_task` (105) | 100% | `repo_search` | 47.6% |
+| `gmail_search` | 100% | `save_memory` | 43.8% |
+| `close_task` | 100% | `repo_read_file` | 40.4% |
+| `save_memory` (113) | 77.9% | `repo_list_dir` | 38.8% |
+| `list_tasks` | 70.4% | `qb_status` | 35.3% |
+| `create_task` | 67.2% | `qb_snapshot` | 31.2% |
+| `repo_map` | 50.0% | **`github_read_file`** | **12.5%** |
+
+**Read the top of that table with its confound: closing the task is often how a session RECORDS that
+it finished, so `update_task`/`close_task` at 100% is partly definitional and is NOT a safe guard
+trigger.** The informative half is the bottom — **a session that reaches for `repo_*`, `github_*` or
+`qb_*` completes 12–50% of the time.**
+
+**So the lever is the opposite of a guard: make those tools fail FAST and CLEARLY when they cannot
+succeed.** The absent-repo case was fixed exactly that way today (`_NON_FATAL_CB_FAILURE_PATTERNS`,
+commit `d43a75a37`), and the next candidates are `github_read_file` (12.5%), `qb_status` (35.3%) and
+`qb_snapshot` (31.2%) — one clear "this cannot succeed here" answer and no retry, instead of a session
+spending its whole step budget discovering it repeatedly.
+
 ### The closing verification, taken fresh on all three machines after every subsequent change
 
 Run 2026-10-15 ~15:4xZ, AFTER the sync.py exit-code fix and every other change of this round. This is
