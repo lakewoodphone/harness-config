@@ -25,14 +25,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REG = Path("/home/zabz/bin/sources/projects.json")
-STATE_DIR = "/home/zabz/.wake-projects"
+REG = Path("/root/bin/sources/projects.json")
+STATE_DIR = "/root/.wake-projects"
 
 # id -> (title, repo, state_file basename or None, note)
 NEW = {
     "lpt-sync": (
         "LPT sync chain: Dialpad -> LPT hub -> production database -> website",
-        "/home/zabz/repos/lpt-hub",
+        "/root/repos/lpt-hub",
         None,
         "The owner names this repeatedly ('the LPT syncing system between dialpad, LPT hub, the "
         "production database and more needs to be constantly worked on and actually synced'). "
@@ -41,14 +41,14 @@ NEW = {
     ),
     "cfo": (
         "CFO / QuickBooks: the books, the close, and the finance audits",
-        "/home/zabz/repos/quickbooks-agent",
+        "/root/repos/quickbooks-agent",
         None,
         "Owner: 'let's say there's a CFO that has to be run'. quickbooks-agent is the real repo "
-        "(/home/zabz/repos/quickbooks-agent). Ledger-driven.",
+        "(/root/repos/quickbooks-agent). Ledger-driven.",
     ),
     "personality-system": (
         "Personality test system",
-        "/home/zabz/repos",
+        "/root/repos",
         None,
         "Owner: 'the personality test system that we were doing needs to be constantly worked on'. "
         "The live AI calls in this system failed for over a week on a hardcoded model name "
@@ -57,7 +57,7 @@ NEW = {
     ),
     "rental-system": (
         "Rental system",
-        "/home/zabz/repos",
+        "/root/repos",
         None,
         "Owner named it. REPO NOT YET ESTABLISHED - the first shift's job is to find the real "
         "codebase and record its path in the ledger; if it cannot be found, file ONE owner-queue "
@@ -65,22 +65,22 @@ NEW = {
     ),
     "chumash": (
         "Bible codes / chumash timeline",
-        "/home/zabz/repos",
+        "/root/repos",
         None,
         "Owner: 'the Bible codes that we were writing, that whole project needs to be worked on'. "
         "Repo not established (candidates exist on this machine); first shift finds it. Ledger-driven.",
     ),
     "prod-db-sync": (
         "Production database: truth, syncing and freshness",
-        "/home/zabz/personal-secretary-mvp",
+        "/root/personal-secretary-mvp",
         None,
         "Owner: 'the production database and more needs to be constantly worked on and actually "
-        "synced and set up'. The authoritative DB is 12.37 GB with a 128 MB WAL on a control "
+        "synced and set up'. The authoritative DB is 25528229888 bytes (23.78 GiB, ls -lh 24G) with a 64 MiB WAL on a control "
         "plane - size, truth and freshness are all open. Ledger-driven.",
     ),
     "housekeeping": (
         "AI company housekeeping and evolution",
-        "/home/zabz/personal-secretary-mvp",
+        "/root/personal-secretary-mvp",
         STATE_DIR + "/housekeeping.json",
         "Owner: 'a lot of times they're a unique standard housekeeping and evolution for the AI "
         "company to begin with'. This is the project the wake/tuner/authority items belong to.",
@@ -155,7 +155,7 @@ def main() -> int:
     #
     # Without this the source refuses to file anything for them: measured 2026-09-28, the very
     # first dry run after registering all seven came back `SIGNAL UNREADABLE -- no state file at
-    # /home/zabz/.wake-projects/lpt-sync.json`. That refusal is CORRECT for a project that is
+    # /root/.wake-projects/lpt-sync.json`. That refusal is CORRECT for a project that is
     # meant to keep its own state, and it is the wrong answer for one whose state is the ledger:
     # it would leave six of the owner's nine projects permanently silent while looking properly
     # configured. So the seed file states exactly that, and nothing more.
