@@ -296,8 +296,23 @@ from a checkout.
    advice to all five `repo_*` hints, proven by printing what the running interpreter returns —
    *"… Optional: depth=N, pattern=*.py **If the repo has no checkout on THIS host, do not change the
    argument again — call github_\* tools, or bootstrap a clone with scripts/repo-bootstrap.sh \<alias\>**"*.
-   **Still not done, and smaller: `ps_circuit_breakers` itself**, the CEO's own way to read breaker
-   state, errors on call (`no such column: action_name`).
+
+   **AND `ps_circuit_breakers` IS FIXED (commit `51b00ddf6`).** It ran
+   `SELECT action_name, state, failure_count, last_failure, cooldown_until FROM
+   circuit_breaker_events` and **none of those five columns exists in any table**, so every call
+   returned `no such column: action_name`. The rewrite could not simply be corrected into the same
+   answer, because **the action-level breaker is not in the database at all** —
+   `app/chat_action_resilience.py:16` holds it in process memory (threshold 10, cooldown 120 s). So
+   the tool now reports the agent-level truth, says plainly what it cannot see, and names the query
+   that does answer the action-level question. Proven by calling the function in the interpreter the
+   server runs under (`/opt/company/.venv/bin/python3` — **not** `/usr/bin/python3`, which has no
+   `mcp` package and crashed my first proof attempt while the install had already landed cleanly).
+
+   **The fix surfaced a new finding worth a look: `circuit_breaker_state` has 0 rows**, while
+   `app/database.py:4860` contains an `INSERT INTO circuit_breaker_state (…)` and the newest
+   agent-level event is **2026-09-23**. A table with an INSERT in the code and nothing in it is the
+   same shape as the round-4 `run_consolidation` no-op. **Check where that INSERT's transaction goes;
+   it may never commit.**
 
 
 ---
