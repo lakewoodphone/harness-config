@@ -1,5 +1,19 @@
 # ROUND 6 HANDOFF — the delta, and the one thing to do next
 
+**HOW TO READ THIS FILE.** It was written across one long session and its sections are NOT in numeric
+order on disk. Read them in this order:
+
+1. **§1** what round 6 delivered, each with its command — then **§13**, the same thing audited item by
+   item against the objective, with fresh readings.
+2. **§1a** the census, and the correction that half its "owner" rows are agents. **§2, §2.0, §2a, §2b**
+   the journal fork: the one job that is genuinely unfinished, with the reservation proof.
+3. **§12** the largest failure class and the fix that was disproved — read it before proposing a guard.
+   **§11** three more things that look like work and are not.
+4. **§3** everything open, in the order I would do it. **§4** the traps. **§5** my own misses.
+   **§6/§7** the company and the newest sessions.
+
+**The three sections that exist to stop someone repeating work: §11, §12, and §2.0.**
+
 **Written 2026-10-15 15:0xZ on ZABZ-YOGA.** Read `docs/dsh-evolution-v4/HANDOFF-ROUND4.md` first — it is
 still the spine — then `HANDOFF-ROUND5.md`, then this. This file is only what round 6 changed and
 what it now hands over.
@@ -81,6 +95,31 @@ say "the agent was silent" cannot measure the owner's worst day.**
 `settings/machines/host-posture.tsv` **omits `zabz-yoga` and `yoga`** while listing `zabz-yoga-1` and
 `laptop-ts` — against `AGENTS.md` §5's own requirement that every alias an agent might arrive as is a
 row.
+
+---
+
+## 13. THE OBJECTIVE, AUDITED ITEM BY ITEM — fresh readings, 2026-10-15 ~15:5xZ
+
+Every row below is a command run in this session, not a restatement of an earlier one. Run it again
+before trusting any line of it.
+
+| # | objective item | the reading | verdict |
+|---|---|---|---|
+| **1** | a verified census of every DSH session (+ Copilot) with wants and pains | 1,149 rows in `owner-sessions.tsv`; **32 shard files** across four locations (R01–R19 in the corpus, R20–R22, R23–R25, plus another session's `R26-owner-verbatim-quotes-rpcid`); **0 never named**; merge proved with round 4's aggregator: `files=25 records=1224 unique=1164 dupes=60 parse_problems=0` | **COMPLETE** |
+| **2** | the instruction surface refreshed and PROVEN on all three machines | on **all three**: `make_zabz_preset.py --check` **exit 0**, `preset-drift` **17/17 · 15/15 · 14/14 drift=0**, and in `--dump-config` the four v6 markers each **=1** with `On any larger job` and `Never flag` both **=0** | **COMPLETE** |
+| **3** | every measured pain point fixed or filed | the 20-friction disposition table has **20 rows**; `P4185` `P4251` `P4253` `P4255` `P4313` `P4314` filed with mechanisms; `P3134` resolved as stale with the measurement | **COMPLETE** |
+| **4** | the company an order of magnitude more capable, measured against round 4 | **24 h 75/149 completed (50.3%)**; **7 d 288/828 (34.8%)** against the measured pre-deploy 7 d of **261/872 (29.9%)**; **8 commits deployed** this session, one of them a deliberate REVERT. Two field post-checks are still unmeasurable: 6 sessions since the deadlock fix (2 deadlocks, **0 via a disabled action**) and 0 since the fast-fail fix | **PARTIAL** — a real improvement, not an order of magnitude |
+| **5** | memory/journal honouring; a refreshed spec of what is needed and what is not | the union candidate holds **4,894 files and `check` 0 errors**; both live trees `check` **0 errors**; `90-what-is-needed-and-what-is-not.md` exists and is committed | **COMPLETE for the union and the spec; the switchover is NOT done** |
+| **6** | documents current, with a handoff a fresh session can act on | **12 files** in `docs/dsh-evolution-v6/`, committed into the AUTHORITY's checkout so every node can read them; this handoff has 13 sections including §11 (what not to re-open) and §12 (the refuted fix) | **COMPLETE** |
+
+**What is honestly NOT done, and is the whole of what remains:**
+1. **The journal switchover** (§2, §2.0, §2a, §2b). Everything needed is measured and the candidate is
+   verified; the act of making five trees into one writer and four consumers has not been taken.
+2. **Item 4's magnitude.** Five changes landed and one was reverted; the largest failure class has a
+   *disproved* fix, a measured discriminator and a deployed fast-fail change whose field effect needs
+   traffic before it can be called anything.
+3. **The two want clusters nothing has touched** — `C4` (deliver the buyable artefact, not research)
+   and `C13` (a payment path that does not die with the app session).
 
 ---
 
