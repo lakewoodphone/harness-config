@@ -297,7 +297,7 @@ Doors that can put text on his phone, with what mediates them:
 | `cfo-ask.py` | `/root/bin/cfo-ask.py:714` | `*/30` | via textsend, **6 texts, all stuck `queued`** |
 | `owner-ask.py` | `/root/bin/owner-ask.py:374` | **no cron line** | via textsend; **never seen by the relay** |
 | `card-due-watch.py` | `/root/bin/card-due-watch.py:363` | `0 13 * * *` | via textsend notify; **never seen** |
-| `owner_attention.py` | `/opt/company/scripts/owner_attention.py:517` | timer 14:10 | via app; **never seen as its own door** |
+| `owner_attention.py` | `/opt/company/scripts/owner_attention.py` | timer 14:10 | via app; **never seen as its own door** — but since 2026-10-15 it composes through the front desk's `relay.compose()` |
 | `family_chat` owner leg | `app/family_chat/twilio_client.py:618` | in-process | `owner_text.gate` only — **not the relay** (`verbatim_relay=True` skips even that) |
 | `company-heartbeat.sh` | `waze-mdm-01` + `lpt-apps-01`, line 358/382 | `*/2` | **raw `curl … api.twilio.com`** — no gate, no row anywhere, and those two hosts are `read-only` in `host-posture.tsv` |
 
@@ -376,6 +376,7 @@ Every change below is backed up under `/root/text-fix-20261015/backup/` and reve
 | 9 | `order_evidence.ORDER_SUBJECT_RE` accepts `Order <CODE> confirmed` (the Shopify-family subject), which neither `order\s*(is\s*)?(confirm|#)` nor `order confirmed` could match. | `/root/bin/order_evidence.py` | `Order W009615 confirmed` → True, `Order #828330 confirmed` → True, `Coffee with Dov` → False |
 | 10 | **The CFO's question is now filed with the relay**, so a reply can resolve against it. Until today the question lived only in `/root/.cfo-asks/asks.db` while the component that answers his reply looks the reference up in `owner_text_relay`'s own `ask` table — the two never met, and the responder logged it six times: `relay: ask ask-1792026036 -> missing` (that was the American Professional charge). `cfo-ask.py` now calls `relay.record_ask(ref, "cfo_ask", merchant, body, ttl_hours=72)` next to its own record, fail-soft. | `/root/bin/cfo-ask.py` | `record_ask` → `created=True, state=open`; the ref appears in `open_asks(within_hours=72)`; `answer_ask` closes it to `answered` and it leaves the open list. The test ref was removed by answering it; `open_asks` is back to what it was |
 | 11 | **The front desk now exists as a primitive, in the one file every door already passes through.** `owner_text_relay` gained `compose(item)` — an ITEM dict in, ONE message out, cut to the ceiling by construction at a sentence then a clause boundary, with the retired marker and the machine shapes (`items, `, `full: `, a filesystem path) refused after composing — plus `submit_item(door, subsystem, item, ref=…)`, which composes, gates, and files the ask in one call, returning the body so **the judged body and the posted body are the same object** (`L3790`). And `standing_rule_mutes()`: a durable class-mute read from `/root/.owner-text/standing-rules.json` on **every** submit, keyed on the class the producer names, allowing on any read failure. | `/root/bin/owner_text_relay.py` + `/root/bin/owner-text` (`item`, `compose`) | 20-assertion probe, **ALL PASS**, against an isolated store: `/root/text-fix-20261015/probe_frontdesk.py`. Every pre-existing verdict unchanged (SEND, DEDUPE, FLOOR, class SUPPRESS, over-ceiling recorded-not-refused); the retired digest class now returns `SUPPRESS/standing-rule` **at the relay**, for any door; `compose` refuses a count head, drops an unclosed parenthesis, and composes subject+action for the four real shapes he complained about. Live store untouched |
+| 12 | **The daily attention text is ONE item, and it goes out again.** The systemd drop-in from #1 is **removed** (`ExecStart` is `send` again), and the merge with the concurrent session's file is done rather than overwritten: their `_PERSONAL_MARK` / `PERSONAL_SMS_SLOTS` / `email_title` / `rank_items` are kept, and their reservation — the old 320-char digest carried four decisions and **zero** of his own mail — becomes a *selection*: `deserves_his_phone` lets `tier == "personal"` be the item, alongside `owner-queue` and `books`. The count head, the ranked list and `full: data/owner-attention/latest.txt` are gone. The composer is the front desk's, reached by path with a local fallback; a standing rule and a one-a-day cap gate it; and a queue item that contains no question gets a closing `Yes?`, because `textsend` opens an owner turn only on `[?？]` — the same defect as the CFO asks. | `/opt/company/scripts/owner_attention.py`, `/etc/systemd/system/lpt-owner-attention.service.d/10-no-text-20261015.conf` (**deleted**) | `send --dry-run` on the live queue → **231 chars, one item**, no count, no path, no marker: *"Apple's own Apple Business Manager Agreement forbids what we are already selling — Keep selling, but get the exposure measured by a lawyer before the camera product is built - and stop adding devices until that reading exists. Yes?"*. Six live items composed, 86–249 chars. `textsend._QUESTION_RE` on the body → opens a turn. `Deserves`-probe: a count head → `''`, a non-personal email → `''`, a personal email → its line. **The first real fire is 2026-10-16 14:13:52Z; nothing was sent by hand.** |
 
 **Test attribution — done by A/B, because claiming green is how this estate lies to itself.**
 
@@ -424,18 +425,10 @@ ones by the A/B above and the rest do not touch a file I edited.
 
 ## 3. What is NOT done — read this before trusting the channel
 
-1. **The doors are not wired to the front desk yet — the primitive exists and nothing calls it.**
-   `compose`/`submit_item`/`standing_rule_mutes` are live and probed, and `/root/bin/owner-text item`
-   makes them reachable from a shell line, but **no producer uses them**: the digest still builds its
-   own body (and is stopped by the systemd drop-in), `family_chat` still writes its own, and the two
-   read-only hosts still `curl` Twilio. Wiring the digest is the next step and it is a **merge**:
-   the concurrent session's `/opt/company/scripts/owner_attention.py` (32,213 B, `_PERSONAL_MARK`,
-   `PERSONAL_SMS_SLOTS`, `rank_items`, `email_title`) keeps the `'N items, M urgent` head, and its
-   own measurement is right — the old 320-char digest carried four decisions and **zero** email
-   lines, so a one-item composer must let his own mail be the item. Re-apply the one-item composer
-   **on top of** their constants, keep `email_title`/`rank_items` (both still used), and let
-   `deserves_his_phone` accept `tier == "personal"` alongside `owner-queue`/`books`. Then lift the
-   drop-in and prove the next fire.
+1. **The doors are not wired to the front desk yet — one of them now is.** `compose`/`submit_item`/
+   `standing_rule_mutes` are live and probed, `/root/bin/owner-text item` makes them reachable from a
+   shell line, and **the daily attention text now composes through `relay.compose()`** (see #12). Still
+   unmediated: `family_chat` writes its own, and the two read-only hosts still `curl` Twilio.
 2. **Nothing composes for him yet.** Every door still writes its own body. The 900 → 400 → 320
    triple-cut, and the "compose long then truncate" habit, are unchanged. The marker removal makes a
    half-message *quieter*; it does not stop one being half.
