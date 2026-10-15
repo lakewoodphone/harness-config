@@ -285,11 +285,19 @@ from a checkout.
    script: `scripts/evolution/r7-deadlock-nonfatal.py`.
    **WHAT IS NOT YET PROVEN, and must be read before this is called a win:** the *field* effect. The
    predicate is proven; a fall in `TOOL_LOOP_DEADLOCK` sessions is not, and cannot be until sessions
-   run against the new code. **Post-check, one query:**
-   `select count(*) from work_sessions where started_at >= '<the restart instant>' and output_log like '%TOOL_LOOP_DEADLOCK%';`
-   against the 176-in-7-days baseline. Also note the static `FIX:` line is still wrong for this class
-   (`_get_fix_hint` is keyed on the action name only) — the agent is now spared the retry, but it is
-   still told to change an argument that is not the problem. **That is the next, smaller piece.**
+   run against the new code. **Read the honest reading as of 2026-10-15T15:25Z: deadlock sessions
+   since the fix = 0, sessions of any kind since the fix = 0.** Zero of zero is "nothing has run",
+   not "the fix worked". **Post-check, one query, against the 176-in-7-days baseline:**
+   `select count(*) from work_sessions where started_at >= '2026-10-15T15:22:18Z' and output_log like '%TOOL_LOOP_DEADLOCK%';`
+   alongside `select count(*) from work_sessions where started_at >= '2026-10-15T15:22:18Z';`
+
+   **AND THE SECOND HALF IS DONE TOO (commit `f8873de29`, restart 15:24:45Z).** The agent is no longer
+   told to change an argument that cannot help: `_REPO_ABSENT_TAIL` now appends the permanent-condition
+   advice to all five `repo_*` hints, proven by printing what the running interpreter returns —
+   *"… Optional: depth=N, pattern=*.py **If the repo has no checkout on THIS host, do not change the
+   argument again — call github_\* tools, or bootstrap a clone with scripts/repo-bootstrap.sh \<alias\>**"*.
+   **Still not done, and smaller: `ps_circuit_breakers` itself**, the CEO's own way to read breaker
+   state, errors on call (`no such column: action_name`).
 
 
 ---
