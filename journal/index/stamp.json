@@ -1,24 +1,32 @@
 {
- "built": "2026-10-15 21:27 UTC",
+ "built": "2026-10-15 21:40 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 3786,
-  "handoff": 5256,
+  "handoff": 5320,
   "lessons": 5536,
   "pain": 4505,
   "wins": 3262
  },
+ "ceiling_refreshed_at": "2026-10-15T21:45:06Z",
+ "ceiling_source": {
+  "decisions": "ZABZ-YOGA live working tree",
+  "handoff": "local bands.tsv",
+  "lessons": "refs/heads/i348-closing-courtesy-20261015",
+  "pain": "refs/heads/i348-closing-courtesy-20261015",
+  "wins": "ZABZ-YOGA live working tree"
+ },
  "db": "journal.db + fts5",
- "drift_measured": "2026-10-15 21:27 UTC",
- "entries": 4161,
- "entries_count": 4161,
- "entries_sig": "1553307b8b95135f4847e8e639f70b67065aaaa7",
+ "drift_measured": "2026-10-15 21:40 UTC",
+ "entries": 4162,
+ "entries_count": 4162,
+ "entries_sig": "9ab729e7d3d73f288e3247edb40e0007de566619",
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 3913,
-  "handoff": 5319,
-  "lessons": 5535,
-  "pain": 4504,
+  "handoff": 5383,
+  "lessons": 5599,
+  "pain": 4568,
   "wins": 3325
  },
  "log_count": 9,
