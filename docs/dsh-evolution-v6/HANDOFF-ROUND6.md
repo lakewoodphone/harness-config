@@ -243,9 +243,36 @@ from a checkout.
    "no prior attempt". **And the give-up half of that same change was measured, found wrong, and
    REVERTED** (§1 row 7c): of 13 tasks that paused 3+ times in 30 days, **5 went on to complete**,
    against 9 of 482 for `failed`; task **28625** paused six consecutive times, failed once, then
-   completed, and the amended ceiling would have refused it at the third pause. **What is still open
-   on the company**: `TOOL_LOOP_DEADLOCK` (38 → 55 matched, 133 of 486 seven-day failures) and
-   `STEP_BUDGET_EXHAUSTED` at 322 in 7 days — both now have their command and neither has a fix.
+   completed, and the amended ceiling would have refused it at the third pause.
+
+10a. **`TOOL_LOOP_DEADLOCK` IS ROOT-CAUSED, measured 2026-10-15 — it is a repo that is not on the
+   machine, and the error message sends the agent the wrong way.** Of **176** sessions in 7 days
+   carrying the marker, **36** name an action that is `temporarily disabled` and **28** name
+   `file not found`. Read in full, session **78859** shows the mechanism: the agent calls
+   `repo_map`/`repo_read_file` with a `repo_path` that does not exist **on the authority**, the
+   action is circuit-broken after 10 consecutive failures, and the session then spends its entire
+   step budget re-announcing intent —
+
+   > Step 5: I'll stop probing repo_map entirely and take the mutating action… Step 12: I'll stop
+   > re-probing and take the mutating action now… **thirteen consecutive steps, none of them an
+   > action.**
+
+   **The instruction the agent is given is wrong for this case.** `chat_action_resilience.py:305`
+   tells it `FIX: Use repo_path alias (e.g. personal-secretary, phone-and-tech)`, and on the
+   authority an alias resolves through `resolve_managed_repo_path` (`chat_action_repos.py:92`) to
+   the blueprint's **canonical Windows path**, then to `~/repos/<repo>` — and neither exists. **The
+   real instruction is the resolver's own `hint`**, which the agent never sees: *use github_\* tools,
+   or bootstrap a clone with `scripts/repo-bootstrap.sh <repo>`*. So the estate tells the agent to
+   change the argument when the argument is not the problem, and the agent complies, forever.
+
+   **The bounded fix, for the next session:** when `resolve_managed_repo_path` returns
+   `exists=False`, that failure is TERMINAL FOR THE SESSION — no alias, no retry and no argument
+   change can make it succeed — so surface its `hint` on the FIRST failure, mark the action
+   non-retryable, and stop the identical-failure counter from spending three strikes on it. That
+   turns 36 seven-day failures into 36 sessions that get told what to do instead.
+   **Also worth fixing while there:** `ps_circuit_breakers`, the CEO's own way to see breaker state,
+   errors on call — `no such column: action_name`; the real schema is
+   `circuit_breaker_events(agent_id, event_type, reason, spend_at_event, created_at)`.
 
 
 ---
