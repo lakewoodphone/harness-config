@@ -35,19 +35,20 @@
  "live_peer_unreachable": [
   "ZABZ-TECH-LINUX (rc=1)"
  ],
- "peers_failed": [],
+ "peers_failed": [
+  "yoga"
+ ],
  "peers_fetched": [
-  "yoga",
   "tech",
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-15T02:15:06Z",
+ "refreshed_at": "2026-10-15T02:30:26Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 5.0,
+ "seconds": 24.3,
  "sources_seen": 3689
 }
