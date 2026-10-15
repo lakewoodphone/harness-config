@@ -1,0 +1,346 @@
+diff -ruN a/scripts/work.py b/scripts/work.py
+--- a/scripts/work.py	2026-10-15 09:01:57.317884094 +0000
++++ b/scripts/work.py	2026-10-15 09:01:57.320094417 +0000
+@@ -220,6 +220,27 @@
+ # open/in_progress/in-progress/blocked/pending/paused are live states and do NOT warn.
+ _TASK_TERMINAL = {"done", "completed", "closed", "cancelled", "canceled"}
+ 
++# A LEDGER item in one of these states can never release a block either. `dropped` is here
++# because an abandoned item will never act; `done` is the item-213 case.
++_LEDGER_TERMINAL = {"done", "dropped"}
++
++# A reference to a LEDGER item (a work_item in THIS store) inside blocked_on - but ONLY when
++# the free text declares it as the DEPENDENCY, never on a bare "item N". The shapes shifts
++# write are "blocked on item 60", "Prerequisite item 60 must land first", "must wait for
++# item 207", "gated by item 90".
++#
++# A BARE `item\s*(\d+)` IS A FALSE-POSITIVE MACHINE, and that was MEASURED on the live
++# ledger 2026-10-15 rather than imagined: item 20's blocker says "so item 20 DoD clause 2
++# cannot currently be re-proven" (a self-reference in prose), and item 120's says "no
++# per-phone broker credential (item 90: Token empty in every appsettings, must be issued
++# server-side ...)" (an explanatory parenthetical), while item 184's "revocation must wait
++# for item 207" is the one real dependency - and 207 is itself still blocked. Matching any
++# `item N` would flag 20 and 120 as stale and, through reap, re-queue work whose blocker is
++# untouched. So the lead-in phrase is required.
++_ITEM_DEP_RE = re.compile(
++    r"(?:blocked\s+on|blocked\s+by|gated\s+by|wait(?:ing)?\s+(?:on|for)|waits?\s+on|"
++    r"depends?\s+on|prerequisite|pending\s+on)\s*:?\s*(?:ledger\s+)?item\s*#?\s*(\d+)", re.I)
++
+ 
+ def now() -> str:
+     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+@@ -632,7 +653,18 @@
+ 
+ 
+ def cmd_reap(a) -> int:
+-    """Return expired leases to todo and record it. A dead worker must not strand work."""
++    """Return expired leases to todo, and release blocks whose dependency has landed.
++
++    Two different kinds of stranded work are recovered here, both under the one command a
++    shift already runs when it finds every item held:
++      * a `running` item whose worker died (an expired lease carries no one with it); and
++      * a `blocked` item whose ENTIRE declared dependency is a ledger item that is already
++        done (item 213 - item 41 sat blocked for 8 days behind item 60). The second is the
++        only thing in this tool that moves work OUT of `blocked` on evidence rather than on
++        a human reading `due`, and it is deliberately narrow: a block that names an
++        owner-queue row or a task is a block on a person or an external system and is left
++        alone (see _clearable_item_blocks).
++    """
+     c = connect(Path(a.db))
+     rows = c.execute("SELECT id,claimed_by,lease_until FROM work_item WHERE state='running'").fetchall()
+     reaped = []
+@@ -645,8 +677,20 @@
+                       (r["id"], "reaper", now(), now(),
+                        "lease expired (held by %s until %s); returned to todo" % (r["claimed_by"], r["lease_until"])))
+             reaped.append(r["id"])
++    requeued = []
++    for iid in _clearable_item_blocks(c):
++        bo = c.execute("SELECT blocked_on FROM work_item WHERE id=?", (iid,)).fetchone()["blocked_on"]
++        t = now()
++        c.execute("UPDATE work_item SET state='todo', blocked_on=NULL, revisit_at=NULL, "
++                  "claimed_by=NULL, lease_until=NULL, updated_at=? WHERE id=?", (t, iid))
++        c.execute("INSERT INTO attempt(item,worker,started_at,ended_at,did,state_after) "
++                  "VALUES(?,?,?,?,?,'todo')",
++                  (iid, "reaper", t, t,
++                   "declared dependency cleared: %s - released blocked -> todo" % bo))
++        requeued.append(iid)
+     c.commit()
+-    return out("reaped", items=reaped, count=len(reaped))
++    return out("reaped", items=reaped, count=len(reaped),
++               requeued=requeued, requeued_count=len(requeued))
+ 
+ 
+ def cmd_claim_next(a) -> int:
+@@ -839,22 +883,92 @@
+     return stale, len(rows), refs_checked, None
+ 
+ 
++def _stale_item_refs(db):
++    """List blocked items whose blocked_on declares a LEDGER-item dependency that is finished.
++
++    THE DEFECT THIS GUARDS (ledger item 213, measured 2026-10-14): item 41 was blocked on
++    item 60; item 60 completed 2026-10-14 and item 41 stayed `blocked` with a 2026-10-20
++    revisit while claim-next answered nothing-todo - the dialpad -> lpt-hub -> production
++    sync chain stalled for 8 days behind a blocker that had already landed.
++    _stale_oq_refs and _stale_task_refs cannot see it: a bare "item 54" is deliberately not
++    read as an owner-queue row, and it is not a "task N" either, so a dependency named as a
++    LEDGER item was re-evaluated by nothing.
++
++    Only a reference whose item EXISTS and is terminal (`done`/`dropped`) is reported. A
++    missing id is NOT evidence that a block is clear - free text names history and other
++    corpora - and (see _ITEM_DEP_RE) a bare prose "item N" is not a dependency at all.
++
++    Read-only against THIS ledger, so it cannot fail on an unreadable external store.
++    Returns (stale, blocked_count, refs_checked, error).
++    """
++    c = connect(Path(db))
++    rows = c.execute("SELECT id, project, blocked_on FROM work_item "
++                     "WHERE state='blocked' ORDER BY id").fetchall()
++    states = {r["id"]: r["state"] for r in c.execute("SELECT id, state FROM work_item")}
++    c.close()
++    stale, refs_checked = [], 0
++    for r in rows:
++        if not r["blocked_on"]:
++            continue
++        for tid in sorted({int(m) for m in _ITEM_DEP_RE.findall(r["blocked_on"])}):
++            refs_checked += 1
++            st = states.get(tid)
++            if st is None or st not in _LEDGER_TERMINAL:
++                continue
++            stale.append({"item": r["id"], "project": r["project"], "dep_item": tid,
++                          "dep_state": st, "blocked_on": r["blocked_on"]})
++    return stale, len(rows), refs_checked, None
++
++
++def _clearable_item_blocks(c):
++    """Blocked items whose ENTIRE declared dependency is a ledger item that is already done.
++
++    This is the RE-QUEUE half of item 213. A block whose dependency has landed is not a
++    block any more, and leaving it in `blocked` is how item 41 sat dormant for 8 days. An
++    item qualifies only when BOTH hold:
++      * blocked_on declares at least one ledger-item dependency (_ITEM_DEP_RE), and EVERY
++        ledger item it names exists and is terminal; and
++      * blocked_on names NO owner-queue row and NO engineering task at all - those are
++        blocks on a PERSON or an external system, and a shift may not clear those for him
++        by finishing an unrelated ledger item.
++
++    Returns the list of ids it moved (the caller commits and records the attempt rows).
++    """
++    rows = c.execute("SELECT id, blocked_on FROM work_item "
++                     "WHERE state='blocked' ORDER BY id").fetchall()
++    states = {r["id"]: r["state"] for r in c.execute("SELECT id, state FROM work_item")}
++    moved = []
++    for r in rows:
++        bo = r["blocked_on"] or ""
++        deps = {int(m) for m in _ITEM_DEP_RE.findall(bo)}
++        if not deps:
++            continue
++        if _OQ_REF_RE.search(bo) or _TASK_REF_RE.search(bo):
++            continue
++        if any(states.get(d) not in _LEDGER_TERMINAL for d in deps):
++            continue
++        moved.append(r["id"])
++    return moved
++
++
+ def _stale_ref_warning(db, owner_queue_db=None):
+     """The claim-next warning payload for stale refs, or (None, {}).
+ 
+-    Covers BOTH owner-queue rows (items 193/201) and engineering tasks (item 210): a
+-    block whose named task is already done is invisible and unreleasable too. Human
+-    output gets a one-line warning naming the stale item ids; `--json` output must stay
+-    EXACTLY ONE object, so there the same facts travel as object fields.
++    Covers owner-queue rows (items 193/201), engineering tasks (item 210) AND ledger items
++    (item 213): a block whose named ledger dependency is already done is invisible and
++    unreleasable too. Human output gets a one-line warning naming the stale item ids;
++    `--json` output must stay EXACTLY ONE object, so there the same facts travel as object
++    fields.
+     """
+     oq_stale, _nb1, _r1, oq_err = _stale_oq_refs(db, owner_queue_db)
+     tk_stale, _nb2, _r2, tk_err = _stale_task_refs(db, owner_queue_db)
+-    errs = [e for e in (oq_err, tk_err) if e]
++    it_stale, _nb3, _r3, it_err = _stale_item_refs(db)
++    errs = [e for e in (oq_err, tk_err, it_err) if e]
+     if errs:
+         return ("WARNING: stale-reference check could not read the secretary store "
+                 "(%s); blocked work may be hidden" % "; ".join(errs),
+                 {"stale_ref_check": "unreadable", "stale_ref_error": "; ".join(errs)})
+-    if not oq_stale and not tk_stale:
++    if not oq_stale and not tk_stale and not it_stale:
+         return None, {}
+     kw = {}
+     parts = []
+@@ -870,6 +984,12 @@
+                      % ",".join(str(i) for i in ids))
+         kw["stale_task_items"] = ids
+         kw["stale_task_refs"] = tk_stale
++    if it_stale:
++        ids = sorted({s["item"] for s in it_stale})
++        parts.append("blocked item(s) %s cite ledger items that are already done"
++                     % ",".join(str(i) for i in ids))
++        kw["stale_item_items"] = ids
++        kw["stale_item_refs"] = it_stale
+     msg = "WARNING: " + "; ".join(parts) + "; run `work.py lint-refs`"
+     kw["stale_ref_warning"] = msg
+     return msg, kw
+@@ -905,10 +1025,15 @@
+ 
+ 
+ def cmd_lint_refs(a) -> int:
+-    """Fail when a blocked item points at an owner-queue row or task that is finished.
++    """Fail when a blocked item points at an owner-queue row, a task or a ledger item that
++    is finished.
+ 
+     Exit 0 when every reference is live, 1 when at least one is not. A reference to an id
+-    that does not exist at all is stale too: nothing can ever release it.
++    that does not exist at all is stale too for owner-queue rows and tasks: nothing can ever
++    release those, and the store they live in is the authority on whether the id is real. A
++    ledger-item ref is the exception (item 213): only an EXISTING ledger item in a terminal
++    state is reported, because free text that says "item N" is often prose rather than a
++    dependency and a missing id there is not evidence the block is clear.
+     """
+     stale, nblocked, refs_checked, err = _stale_oq_refs(a.db, a.owner_queue_db)
+     if err is not None:
+@@ -918,9 +1043,12 @@
+     if terr is not None:
+         out("error:secretary-unreadable", db=resolve_oq_db(a.owner_queue_db), error=terr)
+         return 1
++    istale, _nbi, irefs, _ierr = _stale_item_refs(a.db)
+     if a.json:
+-        print(json.dumps({"stale": stale, "stale_tasks": tstale, "blocked_items": nblocked,
+-                          "refs_checked": refs_checked, "task_refs_checked": trefs},
++        print(json.dumps({"stale": stale, "stale_tasks": tstale, "stale_items": istale,
++                          "blocked_items": nblocked,
++                          "refs_checked": refs_checked, "task_refs_checked": trefs,
++                          "item_refs_checked": irefs},
+                          sort_keys=True))
+     else:
+         for s in stale:
+@@ -929,14 +1057,18 @@
+         for s in tstale:
+             print("STALE item %d (%s) -> task %s is %s"
+                   % (s["item"], s["project"], s["task_id"], s["task_status"]))
+-        if stale or tstale:
++        for s in istale:
++            print("STALE item %d (%s) -> ledger item %s is %s"
++                  % (s["item"], s["project"], s["dep_item"], s["dep_state"]))
++        if stale or tstale or istale:
+             print("lint-refs: %d stale reference(s) across %d blocked item(s); "
+-                  "%d owner-queue + %d task checked"
+-                  % (len(stale) + len(tstale), nblocked, refs_checked, trefs))
++                  "%d owner-queue + %d task + %d ledger item checked"
++                  % (len(stale) + len(tstale) + len(istale), nblocked, refs_checked, trefs,
++                     irefs))
+         else:
+             print("lint-refs: clean - %d reference(s) across %d blocked item(s) all live"
+                   % (refs_checked, nblocked))
+-    return 1 if (stale or tstale) else 0
++    return 1 if (stale or tstale or istale) else 0
+ 
+ 
+ def cmd_selftest(a) -> int:
+@@ -1419,6 +1551,94 @@
+         _g["DEFAULT_OQ_DB"], _g["_OQ_DB_EXTRA_CANDIDATES"], _cached = _saved
+         _g["_OQ_DB_RESOLVED"].clear()
+         _g["_OQ_DB_RESOLVED"].update(_cached)
++    # AND: a block whose declared dependency is a LEDGER ITEM that is already done must be
++    # surfaced by claim-next AND by lint-refs, and RE-QUEUED by reap (item 213). Item 41 sat
++    # blocked on item 60 for 8 days after item 60 landed, because _stale_oq_refs and
++    # _stale_task_refs deliberately do not read a bare "item N" and so nothing ever
++    # re-evaluated the block. TWO traps are guarded here as well: a bare PROSE "item N" is
++    # not a dependency and must not be flagged, and a block that ALSO names an owner-queue
++    # row is a block on a person - reap must never release it.
++    oqA = Path(tmp).with_name("oqA.db")
++    oc = sqlite3.connect(str(oqA))
++    oc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
++    oc.execute("INSERT INTO owner_decision_queue(id,status) VALUES(7,'pending')")
++    oc.commit()
++    oc.close()
++    dbA = Path(tmp).with_name("wA.db")
++    c = connect(dbA)
++    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('a','A',?,?)", (t, t))
++    c.execute("INSERT INTO work_item(id,project,title,dod,state,created_at,updated_at) "
++              "VALUES(600,'a','the landed dependency','cmd','done',?,?)", (t, t))
++    c.execute("INSERT INTO work_item(id,project,title,dod,state,blocked_on,revisit_at,"
++              "created_at,updated_at) VALUES(601,'a','the live dependency','cmd','blocked',"
++              "'the owner will decide','2999-01-01T00:00:00Z',?,?)", (t, t))
++    for iid, title, bo in (
++            (1, "dep-on-done", "Prerequisite item 600 must land first"),
++            (2, "dep-still-live", "gated by item 601"),
++            (3, "prose-not-dep", "so item 3 DoD clause 2 cannot currently be re-proven"),
++            (4, "dep-done-plus-owner", "blocked on item 600; owner-queue #7 pending"),
++            (5, "dep-missing", "blocked on item 999")):
++        c.execute("INSERT INTO work_item(id,project,title,dod,state,blocked_on,revisit_at,"
++                  "created_at,updated_at) VALUES(?,'a',?,'cmd','blocked',?,"
++                  "'2999-01-01T00:00:00Z',?,?)", (iid, title, bo, t, t))
++    c.commit()
++    c.close()
++    # lint-refs names the cleared-dependency block(s) and only those
++    lrA = argparse.Namespace(db=str(dbA), owner_queue_db=str(oqA), json=True)
++    buf = _io.StringIO()
++    with _ctx.redirect_stdout(buf):
++        rc = cmd_lint_refs(lrA)
++    obj = json.loads(buf.getvalue().strip())
++    assert rc == 1, "a done ledger dep must fail lint-refs: %r" % buf.getvalue()
++    assert sorted(s["item"] for s in obj["stale_items"]) == [1, 4], obj
++    assert sorted(s["dep_item"] for s in obj["stale_items"]) == [600, 600], obj
++    assert obj["stale"] == [], "no owner-queue ref here is stale: %r" % obj
++    # claim-next must SURFACE the same set itself, before its result word
++    cnA = argparse.Namespace(project="a", by="worker-lrA", lease=600, db=str(dbA),
++                             json=False, owner_queue_db=str(oqA))
++    buf = _io.StringIO()
++    with _ctx.redirect_stdout(buf):
++        rc = cmd_claim_next(cnA)
++    txt = buf.getvalue()
++    assert rc == 0 and "nothing-todo" in txt, txt
++    assert "blocked item(s) 1,4 cite ledger items that are already done" in txt, \
++        "claim-next must name the ledger-stale items: %r" % txt
++    assert txt.index("WARNING") < txt.index("nothing-todo"), txt
++    assert "prose-not-dep" not in txt, txt
++    cjA = argparse.Namespace(project="a", by="worker-lrA2", lease=600, db=str(dbA),
++                             json=True, owner_queue_db=str(oqA))
++    buf = _io.StringIO()
++    with _ctx.redirect_stdout(buf):
++        cmd_claim_next(cjA)
++    obj = json.loads(buf.getvalue().strip())
++    assert obj.get("ok") == "nothing-todo", obj
++    assert obj.get("stale_item_items") == [1, 4], obj
++    # REAP releases the block whose whole dependency is done, and ONLY that one
++    buf = _io.StringIO()
++    with _ctx.redirect_stdout(buf):
++        rc = cmd_reap(argparse.Namespace(db=str(dbA), json=True))
++    txt = buf.getvalue()
++    assert rc == 0 and "requeued" in txt, txt
++    assert json.loads(txt.split("reaped", 1)[1])["requeued"] == [1], txt
++    c = connect(dbA)
++    st = {r["id"]: r["state"] for r in c.execute("SELECT id, state FROM work_item")}
++    c.close()
++    assert st[1] == "todo", "a cleared block must be re-queued: %r" % st
++    assert st[4] == "blocked", "an owner block must NOT be released by reap: %r" % st
++    assert st[2] == "blocked" and st[3] == "blocked" and st[5] == "blocked", st
++    # and the re-queued item is now genuinely claimable - the chain moves again
++    buf = _io.StringIO()
++    with _ctx.redirect_stdout(buf):
++        cmd_claim_next(cjA)
++    obj = json.loads(buf.getvalue().strip())
++    assert obj.get("ok") == "claimed" and obj.get("id") == 1, obj
++    # lint-refs is clean once the released block is gone and the rest are live/prose/missing
++    lrA2 = argparse.Namespace(db=str(dbA), owner_queue_db=str(oqA), json=True)
++    buf = _io.StringIO()
++    with _ctx.redirect_stdout(buf):
++        rc = cmd_lint_refs(lrA2)
++    obj = json.loads(buf.getvalue().strip())
++    assert rc == 1 and sorted(s["item"] for s in obj["stale_items"]) == [4], obj
+     return out("selftest-ok", db=str(tmp), exclusive_claims=got)
+ 
+ 
+@@ -1594,7 +1814,8 @@
+ 
+     lr = sub.add_parser(
+         "lint-refs",
+-        help="fail if a blocked item references a non-pending owner-queue row")
++        help="fail if a blocked item references a non-pending owner-queue row, a finished "
++             "task or a done ledger item")
+     lr.add_argument("--owner-queue-db", default=None,
+                     help="owner-queue database (default: %s, or the live store when "
+                          "that one is empty)" % DEFAULT_OQ_DB)
