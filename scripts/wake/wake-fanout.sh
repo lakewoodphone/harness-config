@@ -62,6 +62,32 @@ done
 say() { printf '%s\n' "$*"; }
 note() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >>"$FANOUT_LOG" 2>/dev/null || true; }
 
+# --- RUNWAY-AWARE CADENCE (2026-10-14) ---------------------------------------
+# A balance-aware control that bounds dollars but not the RATE is half a control. The cap is
+# derived as balance / runway_days by wake-balance.py; at a 5.70 balance that is ~1.90/day, which
+# at the measured 0.0639 USD per release still buys ~29 releases - and 29 releases with three
+# dispatchers in flight is a different load, and a different burn, from one. This is the hook that
+# makes the surviving releases cost less per unit of wall-clock, and it is ALSO defence in depth:
+# it reads the same state file even when the cron wrapper (wake-budget-env.sh) is bypassed.
+# It only ever LOWERS the target. WAKE_BUDGET_THROTTLE=0 restores the unthrottled behaviour.
+BUDGET_FILE=${WAKE_BUDGET_FILE:-$HOME/.sms-inbox/wake-budget.json}
+BUDGET_TIER=${WAKE_BUDGET_TIER:-}
+if [ -z "$BUDGET_TIER" ] && [ -r "$BUDGET_FILE" ]; then
+  BUDGET_TIER=$(python3 -c 'import json,sys
+try:
+    print(json.load(open(sys.argv[1])).get("tier") or "")
+except Exception:
+    print("")' "$BUDGET_FILE" 2>/dev/null || true)
+fi
+if [ "${WAKE_BUDGET_THROTTLE:-1}" != 0 ] && [ -n "$BUDGET_TIER" ] && [ "$BUDGET_TIER" != "ok" ]; then
+  LOW_TARGET=${WAKE_BUDGET_LOW_TARGET:-1}
+  LOW_MAX=${WAKE_BUDGET_LOW_MAX:-2}
+  [ "$TARGET" -gt "$LOW_TARGET" ] && TARGET=$LOW_TARGET
+  [ "$MAX" -gt "$LOW_MAX" ] && MAX=$LOW_MAX
+  say "fanout: budget tier=$BUDGET_TIER - cadence throttled to target=$TARGET max=$MAX"
+  note "budget tier=$BUDGET_TIER: cadence throttled to target=$TARGET max=$MAX ($BUDGET_FILE)"
+fi
+
 # A LOCKED STORE IS NOT AN EMPTY STORE. Retry, and return -1 for "could not read" - never 0, because a
 # zero from an unreadable store is how a full queue looks idle.
 count_state() {
@@ -86,6 +112,45 @@ print(-1)
 PY
 }
 
+count_priority_new() {
+  # How many HIGH-priority rows are waiting to be released RIGHT NOW. Read through
+  # `wake list --state new --json`, and skip anything still inside its not_before cooldown so
+  # a gated row cannot inflate the target.
+  python3 - "$WAKE_CLI" <<'PY' 2>/dev/null || echo -1
+import datetime, json, subprocess, sys
+def now():
+    return datetime.datetime.now(datetime.timezone.utc)
+for _ in range(3):
+    try:
+        out = subprocess.run(["python3", sys.argv[1], "list", "--state", "new", "--json"],
+                             capture_output=True, text=True, timeout=90).stdout
+        d = json.loads(out or "[]")
+        rows = d if isinstance(d, list) else (d.get("rows") or d.get("items") or [])
+        n = 0
+        for r in rows:
+            if str(r.get("priority")) != "high":
+                continue
+            nb = r.get("not_before")
+            if nb:
+                try:
+                    t = datetime.datetime.fromisoformat(str(nb).replace("Z", "+00:00"))
+                    if t.tzinfo is None:
+                        t = t.replace(tzinfo=datetime.timezone.utc)
+                    if t > now():
+                        continue
+                except Exception:
+                    pass
+            n += 1
+        print(n)
+        raise SystemExit(0)
+    except SystemExit:
+        raise
+    except Exception:
+        pass
+print(-1)
+PY
+}
+
 # COUNT ONLY REAL DISPATCHERS. `pgrep -f "wake-dispatch.sh"` matches any command line CONTAINING that
 # string - including the ssh probe that asked the question, and including a fan-out whose own argument
 # list mentions it. Measured 2026-09-28: a dry run reported "processes 1" with no dispatcher running,
@@ -103,6 +168,39 @@ if [ -e "$PAUSE_FILE" ]; then
 fi
 mkdir -p "$INST_ROOT" 2>/dev/null || true
 
+# PUBLISH THE CEILINGS THIS LOOP IS ACTUALLY GATING ON. Measured 2026-10-13: the release cap
+# that really stopped the operation was 150/day, set as WAKE_MAX_PER_DAY on this one crontab
+# line, while `autonomy-status.sh` - run by a human in a shell that carries neither override -
+# printed "releases today : 150 of 500 backstop" with an empty caps-in-force line. The system
+# had refused every release for 3h44m and the status tool could not show it, so the owner's
+# "is it alive" question had no honest answer available. wake.py is still the ONLY source of
+# the numbers; this loop only RECORDS the reading, in the environment where the numbers are
+# true, so a reader outside cron can see it. Written here rather than in wake-dispatch.sh on
+# purpose: the dispatcher is the live release path and, when a cap is in force, it is exactly
+# the process that does not run - so a record written there is missing precisely when it is
+# needed. This runs every minute, including the ticks that start nothing.
+python3 - "$WAKE_CLI" "${WAKE_CAPS_FILE:-$HOME/.sms-inbox/wake-caps-effective.json}" <<'PY' 2>/dev/null || true
+import datetime, json, os, subprocess, sys
+try:
+    raw = subprocess.run(["python3", sys.argv[1], "stats", "--json"],
+                         capture_output=True, text=True, timeout=90).stdout
+    d = json.loads(raw or "{}")
+    caps = d.get("caps") or {}
+    json.dump({
+        "at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "written_by": "wake-fanout.sh",
+        "caps": caps,
+        "caps_in_force": d.get("caps_in_force") or [],
+        "released_today": d.get("released_today"),
+        "spend_today_usd": d.get("spend_today_usd"),
+        "env": {k: os.environ.get(k)
+                for k in ("WAKE_MAX_PER_DAY", "WAKE_MAX_USD_PER_DAY")},
+    }, open(sys.argv[2], "w"), sort_keys=True)
+    open(sys.argv[2], "a").write("\n")
+except Exception:
+    pass
+PY
+
 STORED=$(count_state claimed)
 PROCS=$(count_procs)
 QUEUED=$(count_state new)
@@ -110,6 +208,53 @@ if [ "$STORED" -lt 0 ] || [ "$QUEUED" -lt 0 ]; then
   say "fanout: the store could not be read (locked?) - starting nothing this tick"
   note "abort: store unreadable (claimed=$STORED new=$QUEUED procs=$PROCS)"
   exit 0
+fi
+
+# --- lpt-hub stale-rebase pre-flight (item 274; auto-heal item 288) -------------
+# The shared lpt-hub clone is what lpt-sync shifts read and commit to. When a shift
+# starts a rebase in it, hits a conflict and dies, .git/rebase-merge is left behind with
+# no live git process: the clone sits on a detached HEAD and EVERY in-clone truth reading
+# is bogus (item 209 measured a bogus C01=8/C06=2/C07=2) until a later shift happens to
+# notice. lpt-hub-rebase-guard.sh (item 242) detects that in one command and can clear it
+# with --fix, but item 274 wired only the READ-ONLY --check, so the pre-flight said
+# STALE_REBASE and left the clone broken for the next shift (5th occurrence 2026-10-01,
+# item 288). Ask at the gate, before any dispatcher is started, and CLEAR it: the guard's
+# --fix refuses a LIVE rebase and (without --force) a recent one, so this never aborts a
+# rebase out from under a running git, and no operator is needed. A disabled switch
+# (WAKE_REBASE_AUTOFIX=0) restores report-only. The heal is a repair, not a dispatcher
+# start, so it runs under --dry-run too. Quiet when the clone is clean, so a cron tick
+# with nothing wrong stays silent on stdout; the reading always lands in the fan-out log.
+REBASE_GUARD=${WAKE_REBASE_GUARD:-$HOME/bin/lpt-hub-rebase-guard.sh}
+REBASE_REPO=${WAKE_REBASE_REPO:-/home/zabz/repos/lpt-hub}
+REBASE_AUTOFIX=${WAKE_REBASE_AUTOFIX:-1}
+if [ -x "$REBASE_GUARD" ] && [ -e "$REBASE_REPO/.git" ]; then
+  RBOUT=$(timeout 30 "$REBASE_GUARD" --check "$REBASE_REPO" 2>&1 || true)
+  note "preflight rebase: ${RBOUT:-guard-failed}"
+  case "$RBOUT" in
+    STALE_REBASE*)
+      say "fanout: $RBOUT"
+      if [ "$REBASE_AUTOFIX" = 1 ]; then
+        RBHEAL=$(timeout 60 "$REBASE_GUARD" --fix "$REBASE_REPO" 2>&1 || true)
+        note "preflight rebase autofix: ${RBHEAL:-guard-failed}"
+        case "$RBHEAL" in
+          REBASE_ABORTED*)
+            RB2=$(timeout 30 "$REBASE_GUARD" --check "$REBASE_REPO" 2>&1 || true)
+            note "preflight rebase recheck: ${RB2:-guard-failed}"
+            say "fanout: $RBHEAL"
+            say "fanout: $RB2"
+            ;;
+          *)
+            say "fanout: rebase autofix refused/failed: ${RBHEAL:-guard-failed} (left for a human)"
+            ;;
+        esac
+      else
+        say "fanout: autofix disabled (WAKE_REBASE_AUTOFIX=0); clear it with $REBASE_GUARD --fix $REBASE_REPO"
+      fi
+      ;;
+    *)
+      [ "$DRY_RUN" = 1 ] && say "fanout: $RBOUT"
+      ;;
+  esac
 fi
 
 # DO NOT START A DISPATCHER WHEN NOTHING CAN BE CLAIMED. Measured 2026-09-30: the fan-out started a
@@ -135,6 +280,26 @@ fi
 
 IN_FLIGHT=$STORED
 [ "$PROCS" -gt "$IN_FLIGHT" ] && IN_FLIGHT=$PROCS
+
+# A WAITING HIGH-PRIORITY ROW OPENS EXTRA SLOTS, UP TO THE CEILING.
+#
+# Measured 2026-09-30, and it is the reason the owner's text sat unanswered for minutes: the
+# fan-out kept a FIXED number of shifts in flight (target 5) and started nothing more once it
+# was reached, whatever was waiting behind it. The claim query orders high before normal, but
+# that ordering can only choose among rows the gate actually lets through -- so a high-priority
+# row queued behind five project shifts, each of which may run for 36 minutes. High priority
+# has to mean something AT THE GATE, not only in the claim order.
+#
+# One extra slot per waiting high-priority row, never above the ceiling: the machine bound is
+# unchanged, and the owner's own text stops waiting behind housekeeping.
+HIGH_WAITING=$(count_priority_new)
+if [ "$HIGH_WAITING" -gt 0 ] && [ "$TARGET" -lt "$MAX" ]; then
+  NEW_TARGET=$((TARGET + HIGH_WAITING))
+  [ "$NEW_TARGET" -gt "$MAX" ] && NEW_TARGET=$MAX
+  say "fanout: $HIGH_WAITING high-priority row(s) waiting - target $TARGET -> $NEW_TARGET (ceiling $MAX)"
+  note "raise target: high_waiting=$HIGH_WAITING target=$TARGET -> $NEW_TARGET max=$MAX"
+  TARGET=$NEW_TARGET
+fi
 
 say "fanout: in flight $IN_FLIGHT (store $STORED, processes $PROCS), target $TARGET, ceiling $MAX, waiting $QUEUED"
 note "start in_flight=$IN_FLIGHT store=$STORED procs=$PROCS target=$TARGET max=$MAX waiting=$QUEUED"
