@@ -553,6 +553,76 @@ def _is_acknowledgement(text: str) -> bool:
     return all(w in _ACK_WORDS for w in tokens)
 
 
+# ── machine acknowledgements — the OUTBOUND side of the same question ─────────
+# `_is_acknowledgement` above judges what a CUSTOMER wrote. This judges what the
+# BUSINESS wrote, and it exists because one outbound message is not a reply.
+#
+# The shop's Dialpad SMS auto-responder answers every inbound text with the hours /
+# drop-off blurb. It is deliberate shop policy — owner ruling 2026-10-13, verbatim:
+# "it's dialpad auto reply and it's there on purpose" — so nothing here removes, gates
+# or alters it. What it must not be is an ANSWER. The question this engine answers is
+# "whose last word was theirs, and has a person replied", and a robot saying "we'll
+# text you back when we're in" is not a person replying. Counted as one, it
+# manufactures health: the thread looks handled to every instrument built on this
+# engine, and the customer's real question is dropped rather than queued.
+#
+# SHAPE, NOT A STRING, because the text moves whenever the hours or the drop-off
+# wording move. Measured 2026-10-15 in ~/.fsearch/comms.db: 4,105 rows match the shape
+# in SIX distinct texts between 2026-07-15 and 2026-10-14 — the hours went
+# Mon-Thu -> "Mon, Tue, & Thu" -> "Sun 12-4, Tue & Thu" -> "Sunday 12-4, and Tuesday
+# and Thursday"; the opening went "We're closed right now" -> "Our walk-in hours are";
+# and one variant carries an address line where another does not. So anchor on the one
+# part that has not moved in three months — the auto-responder's greeting — and
+# deliberately say nothing at all about the body.
+#
+# The other half of the defect is not the text: the auto-reply is sometimes
+# timestamped BEFORE the customer's message it answers ((848) 245-7112, 2026-10-14:
+# bot ts=1791996611.54, customer ts=1791996611.631), so no ordering rule can separate
+# them. Only the class can.
+_MACHINE_ACK_GREETING = re.compile(
+    r"^\s*thanks\s+for\s+texting\s+lakewood\s+phone\s*(?:&|and)\s*tech\b", re.I)
+
+# The auto-responder has never sent less than a paragraph: the shortest of the six
+# measured variants is 238 characters. A bare greeting is a PERSON (a human agent
+# could well open with "Thanks for texting Lakewood Phone & Tech." and then say
+# something), so length is part of the shape, not a nicety.
+_MACHINE_ACK_MIN_CHARS = 100
+
+
+def _is_machine_acknowledgement(text: str) -> bool:
+    """Is this OUTBOUND message the shop's SMS auto-responder talking?
+
+    True only for the auto-responder's greeting shape, and only when the message asks
+    nothing — any question mark disqualifies, for the same reason it does in
+    `_is_acknowledgement`: a message that asks is waiting on an answer.
+
+    Deliberately NOT matched, though they are also non-human outbound traffic:
+      * bare "Thanks" — 54 outbound rows, last 2026-09-23. A person writes that too.
+      * "Great news <name>! Your repair order #WO... " — a status notification, which
+        is substantive news a customer is owed, not an acknowledgement.
+      * "Hi, this is Moshe from Lakewood Phone & Tech. Sorry we missed your call!" —
+        a substantive missed-call text.
+    Guessing at those would swallow real replies to make a number look better, which
+    is the exact failure this class exists to repair.
+    """
+    t = " ".join(str(text or "").split())
+    if not t or "?" in t or len(t) < _MACHINE_ACK_MIN_CHARS:
+        return False
+    return bool(_MACHINE_ACK_GREETING.match(t))
+
+
+# A voicemail nobody could transcribe is the same case as a hangup call: there is no
+# question inside it, so it cannot be answered by reading it. MEASURED 2026-10-15:
+# (848) 287-4026 and (732) 415-5310 each sat in BOTH lists at once — the silent
+# voicemail in `waiting` and the same party's sibling hangup call in `missed_calls` —
+# so one silent customer was presented twice, and neither row was actionable.
+_BLANK_VOICEMAIL = re.compile(r"^\[voicemail,\s*no transcript\]", re.I)
+
+
+def _is_blank_voicemail(text: str) -> bool:
+    return bool(_BLANK_VOICEMAIL.match(" ".join(str(text or "").split())))
+
+
 # Carrier/CTIA opt-out keywords, plus the ways people actually say it.
 _OPTOUT_WORDS = {"stop", "stopall", "unsubscribe", "unsub", "cancel", "end", "quit",
                  "remove", "optout", "revoke", "delete"}
@@ -610,11 +680,20 @@ def _is_human_email(con: sqlite3.Connection, address: str) -> bool:
 
 
 def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
-    """Customers whose last word was theirs — nobody has answered them yet.
+    """Customers whose last word was theirs — no PERSON has answered them yet.
 
     The business question this answers is "who is waiting on us", and it is the one a
-    readable archive is actually for: the last message per party, inbound, with no
-    outbound after it.
+    readable archive is actually for: each party's last INBOUND message, with no
+    outbound after it — where "outbound" now means a person wrote it.
+
+    "NOBODY REPLIED" MEANS NO PERSON REPLIED. The shop's Dialpad SMS auto-responder
+    fires on every inbound text. It is deliberate shop policy (owner ruling
+    2026-10-13), but it is not an answer — and counting it as one is how a thread where
+    the bot talked over the customer's real question came to be reported as handled.
+    Outbound traffic is therefore split in two: `outbound` (a person wrote it, so it
+    closes the thread) and `machine` (the auto-responder, so it does not). See
+    `_is_machine_acknowledgement`; the bot's messages stay in the index and in every
+    thread, they simply do not count as a reply from a person.
 
     THREE SET-BASED SCANS, NOT THREE QUERIES PER PARTY. The first version asked the
     database a question per conversation (~4,000 parties x 3 queries) and did not
@@ -624,35 +703,74 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
     """
     con = _connect(db)
     try:
+        # The auto-responder is tested BEFORE the aggregate, because the `outbound`
+        # CTE is exactly what decides whether a person answered. It is a Python
+        # predicate called from SQL rather than a WHERE clause written inline: the
+        # shape lives in one place (`_is_machine_acknowledgement`) that a test can
+        # call directly, instead of a second, drifting copy of it inside a query.
+        con.create_function("is_machine_ack", 1,
+                            lambda t: 1 if _is_machine_acknowledgement(t) else 0)
         rows = con.execute(
             f"""
             WITH base AS (
-                SELECT kind, direction, ts, day, text, counterparty, address,
+                SELECT id, kind, direction, ts, day, text, counterparty, address,
                        {_PARTY_KEY} AS party_key
                 FROM comms
                 WHERE kind IN ('sms','message','call','voicemail','email')
                   AND ts IS NOT NULL
             ),
+            -- The CANDIDATE row is the newest INBOUND message, not the newest message.
+            -- MEASURED 2026-10-15, and this is the other half of the same defect: with
+            -- MAX(ts) over every row, a party whose newest message is the bot's reply
+            -- has NO row in that join at all, so the party is dropped before the
+            -- outbound comparison is ever reached. That is how (917) 848-2026 — "Hi
+            -- it's Mrs spritzer don't see my money in the box", 2026-10-07, answered
+            -- only by the auto-responder two seconds later — disappeared from every
+            -- list. The question is "has a person answered their last inbound", so the
+            -- last inbound is what gets measured, not the last row in the table.
             newest AS (
-                SELECT party_key, MAX(ts) AS mts FROM base GROUP BY party_key
+                SELECT party_key, MAX(ts) AS mts FROM base
+                WHERE direction = 'inbound' GROUP BY party_key
+            ),
+            -- Exactly one row per party even when several inbound messages share the
+            -- newest timestamp: the indexer backfills whole batches at a single ts
+            -- (measured in the 2026-07-19 and 2026-07-22 batches). Highest id = the
+            -- last one inserted, which is the best "newest" available on a tie.
+            last_in AS (
+                SELECT b.party_key, MAX(b.id) AS id
+                FROM base b
+                JOIN newest n ON n.party_key = b.party_key AND n.mts = b.ts
+                WHERE b.direction = 'inbound'
+                GROUP BY b.party_key
             ),
             outbound AS (
                 SELECT party_key, MAX(ts) AS ots FROM base
-                WHERE direction = 'outbound' GROUP BY party_key
+                WHERE direction = 'outbound' AND is_machine_ack(text) = 0
+                GROUP BY party_key
+            ),
+            machine AS (
+                SELECT party_key, MAX(ts) AS mts FROM base
+                WHERE direction = 'outbound' AND is_machine_ack(text) = 1
+                GROUP BY party_key
             )
             SELECT b.party_key, b.kind, b.direction, b.day, b.ts, b.text,
-                   b.counterparty, b.address
+                   b.counterparty, b.address, m.mts AS machine_ts
             FROM base b
-            JOIN newest n ON n.party_key = b.party_key AND n.mts = b.ts
+            JOIN last_in li ON li.id = b.id
             LEFT JOIN outbound o ON o.party_key = b.party_key
-            WHERE b.direction = 'inbound'
-              AND (o.ots IS NULL OR o.ots < b.ts)
+            LEFT JOIN machine m ON m.party_key = b.party_key
+            WHERE (o.ots IS NULL OR o.ots < b.ts)
             """).fetchall()
         cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)
                   ).strftime("%Y-%m-%d") if days else ""
         waiting, missed = [], []
         acknowledged: list = []
         opted_out: list = []
+        # Threads the auto-responder had been closing: once the bot stops counting as a
+        # reply, the customer's word is last. This is the number this fix moves, so it
+        # is counted and reported rather than left implicit — same rule as the other
+        # two classes, and for the same reason: a silent judgement is not a measurement.
+        reopened_by_machine_ack = 0
         for r in rows:
             if cutoff and (r["day"] or "") < cutoff:
                 continue
@@ -672,6 +790,12 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                 # the "they tried to reach us" list, not the "someone is waiting on an
                 # answer" one. Mixing the two is what makes such a list stop being read.
                 missed.append(entry)
+            elif r["kind"] == "voicemail" and _is_blank_voicemail(text):
+                # The same case one row over: a voicemail the transcriber could not
+                # read has nothing in it to answer, so it is "they tried to reach us",
+                # not "someone is waiting on an answer". One row per silent customer,
+                # in one bucket.
+                missed.append(entry)
             elif is_call:
                 # A call that was actually held is a conversation that happened. Even
                 # if the customer spoke last, they were answered -- in a phone business
@@ -690,6 +814,11 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                     acknowledged.append(entry)
                 else:
                     waiting.append(entry)
+                    if r["machine_ts"] is not None and r["machine_ts"] >= r["ts"]:
+                        # The auto-responder spoke at or after this customer message.
+                        # The old predicate required a strictly newer inbound than ANY
+                        # outbound, so this party could not appear on the list at all.
+                        reopened_by_machine_ack += 1
         waiting.sort(key=lambda x: x["since"] or "", reverse=True)
         missed.sort(key=lambda x: x["since"] or "", reverse=True)
         # Resolve identities only for the rows being returned, not for every party.
@@ -707,6 +836,10 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                 "total_missed_calls": len(missed),
                 "closed_by_acknowledgement": len(acknowledged),
                 "closed_by_optout": len(opted_out),
+                # Of the parties above, how many are here only because the shop's
+                # auto-responder stopped counting as a reply. 0 = the fix changed
+                # nothing in this window.
+                "reopened_by_machine_ack": reopened_by_machine_ack,
                 "waiting": waiting[:limit],
                 "missed_calls": missed[:limit],
                 "index_age_hours": None if age is None else round(age, 2),
@@ -1015,6 +1148,9 @@ def _render(res: dict) -> str:
             tail.append(f"{res['closed_by_acknowledgement']} acknowledged")
         if res.get("closed_by_optout"):
             tail.append(f"{res['closed_by_optout']} opted out")
+        if res.get("reopened_by_machine_ack"):
+            tail.append(f"{res['reopened_by_machine_ack']} reopened — the shop's "
+                        f"SMS auto-responder had been counting as a reply")
         lines.append(f"{res['total_waiting']} customer(s) waiting on an answer "
                      f"(their words, nobody replied, within {res['days']} days)"
                      + (f" — {', '.join(tail)} excluded" if tail else ""))
