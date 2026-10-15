@@ -50,6 +50,7 @@ DEFAULT_TIMEOUT = 240    # seconds, hard
 HTTP_TIMEOUT = 30
 
 TOOLS = ("web_search", "memory_search", "owner_state", "owner_profile", "contacts",
+         "ledger_query", "charge_lookup",
          "sms_thread", "comms", "app_db_query", "queue_lookup")
 
 SYSTEM = """You are Zabz, working a job for Eliyahu (Lakewood Phone & Tech). A text came
@@ -85,12 +86,83 @@ Rules:
     find it, return {"blocked": "..."} - that is a good outcome, not a failure.
   * The answer is a text message: one to three short sentences, plain English, no
     markdown, no greeting. Do NOT add a signature - that is handled elsewhere.
+  * AN ANSWER IS NOT A RECEIPT AND NOT A PROMISE. "Got it", "Noted", "Remembered" and
+    "Let me look into it" are not answers; Eliyahu has said so twice in his own words
+    and they are refused before they reach his phone. If the only thing you have is a
+    receipt or a promise, you have nothing: return {"blocked": "..."} instead.
   * Never commit Eliyahu to anything, never promise a time.
   * You are handling a PERSONAL message - family or a close friend - so be warm and
     human, not corporate.
   * If the job needs HIS money, his decision, or a commitment only he can make, return
     {"blocked": "needs the owner: <one line>"}.
 """
+
+
+# --------------------------------------------------------------------------- #
+# AN ANSWER IS NOT A RECEIPT AND NOT A PROMISE
+# --------------------------------------------------------------------------- #
+# WHY THIS IS HERE. This module composes the text that goes back to whoever asked, and it
+# used to hand whatever the model produced straight to the sender. Measured on the owner's
+# own thread, 2026-09-30 -> 2026-10-02: a job that answered with "Let me pull the current
+# state so I act on the latest info" was SENT, and he then had to text "Are you still
+# diagnosing?" three times. The work had run; the answer was the promise.
+#
+# The rule is not repeated here in this file's own words. It lives in ONE place -- the
+# outbound classification gate in `textsend.py`, which every sender passes through -- and
+# this module CONSULTS it, so the composer and the sender can never disagree about what a
+# non-answer is. The gate is loaded by path, reused from `sys.modules` when the process
+# already has one (that is the copy the responder actually sends with), and optional: a
+# tree without `textsend.py` degrades to the prompt's own instruction rather than crashing.
+#
+# IT APPLIES ONLY TO THE OWNER. A reply to a family member -- "Sure, I'll be there." -- is
+# a legitimate commitment and is not this rule's business; the owner's channel is, because
+# rule 2 of the workstream brief is his: the work runs and its RESULT goes out.
+_TEXTSEND = None
+NON_ANSWER_CODES = ("acknowledgement_only", "promise_only", "probe", "internal_instruction")
+
+
+def _textsend_module():
+    """The gate's own module, or None. Cached; never raises."""
+    global _TEXTSEND
+    if _TEXTSEND is None:
+        mod = sys.modules.get("textsend")
+        if mod is None:
+            try:
+                import importlib.util as _ilu
+                spec = _ilu.spec_from_file_location(
+                    "textsend", str(Path(__file__).resolve().parent / "textsend.py"))
+                mod = _ilu.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                sys.modules["textsend"] = mod
+            except Exception:
+                mod = False
+        _TEXTSEND = mod or False
+    return _TEXTSEND or None
+
+
+def non_answer_reason(answer: str, ctx: dict | None = None) -> str:
+    """Why this answer must not be sent, or '' when it is an answer.
+
+    Returns a plain sentence naming the reason, so the blocked row a day later says what
+    happened instead of "textwork returned nothing usable".
+    """
+    phone = str((ctx or {}).get("phone") or "")
+    text = str(answer or "").strip()
+    if not phone or not text:
+        return ""
+    ts = _textsend_module()
+    if ts is None:
+        return ""
+    try:
+        if not ts._is_owner(phone, ts._config(None))[0]:
+            return ""
+        verdict = ts.classify_owner_body(text)
+    except Exception:
+        return ""                      # a gate that cannot be consulted is not a veto
+    if verdict.get("refused") and not verdict.get("salvaged") \
+            and verdict.get("code") in NON_ANSWER_CODES:
+        return str(verdict.get("reason") or verdict.get("code"))
+    return ""
 
 
 @dataclass
@@ -297,6 +369,121 @@ def owner_queue_add(question: str, recommendation: str = "", options: str = "",
         return False, str(exc)
 
 
+def _ledger_db() -> Path:
+    """The accounting ledger: where charges, cards and now Amazon orders live."""
+    return Path(os.environ.get("CFO_ACCT_DB")
+                or (Path.home() / "accounting-data" / "live" / "accounting.db"))
+
+
+def tool_ledger_query(sql: str) -> tuple[bool, str]:
+    """SELECT-only against the accounting ledger.
+
+    `app_db_query` reads the secretary app DB, which has no `transactions` table --
+    measured 2026-10-02, that is why the owner's "what was this charge" text came
+    back as `app_db_query: FAILED` with no explanation. The money, the cards and the
+    Amazon orders are all in the ledger, so the loop needs a read path to it.
+    """
+    s = (sql or "").strip().rstrip(";")
+    if not SELECT_ONLY.match(s):
+        return False, "refused: only SELECT statements are allowed"
+    if FORBIDDEN_SQL.search(s):
+        return False, "refused: the statement contains a write keyword"
+    if ";" in s:
+        return False, "refused: one statement per call"
+    path = _ledger_db()
+    if not path.exists():
+        return False, "the accounting ledger is not present at %s" % path
+    try:
+        c = sqlite3.connect("file:%s?mode=ro" % path, uri=True, timeout=20)
+        c.row_factory = sqlite3.Row
+        rows = c.execute(s).fetchmany(200)
+        c.close()
+    except Exception as exc:
+        return False, "ledger query failed: %s: %s" % (type(exc).__name__, exc)
+    if not rows:
+        return True, "(0 rows)"
+    return True, json.dumps([dict(r) for r in rows])[:6000]
+
+
+def tool_charge_lookup(amount: str = "", merchant: str = "", date: str = "") -> tuple[bool, str]:
+    """Everything the ledger holds about one charge: card, statement line, order match.
+
+    This is the owner's own request, 2026-10-02: "give me the card number, or give me
+    what was bought. Maybe match it up against emails, if you can find anything."
+    Returns the raw material; composing the sentence is the caller's job.
+    """
+    out: dict = {}
+    try:
+        import sys as _sys
+        if str(Path.home() / "bin") not in _sys.path:
+            _sys.path.insert(0, str(Path.home() / "bin"))
+        import charge_msg  # the same composer the CFO asks use
+    except Exception as exc:
+        return False, "charge_msg unavailable: %s" % exc
+    try:
+        conn = charge_msg.connect(str(_ledger_db()))
+    except Exception as exc:
+        return False, "ledger unreadable: %s" % exc
+    try:
+        # `cents` exists on the merchant path too: exactness is computed for
+        # every row below. Measured 2026-10-02 - the merchant path raised
+        # UnboundLocalError, which would have been recorded as
+        # "charge_lookup: FAILED" and told nobody why. 0 means "no amount asked".
+        cents = 0
+        like = ("%%%s%%" % merchant.lower().strip()) if merchant.strip() else None
+        if like:
+            rows = conn.execute(
+                """SELECT id, transaction_date, amount_cents, account_id, account_name,
+                          normalized_merchant, raw_payload_json
+                     FROM transactions
+                    WHERE duplicate_of_transaction_id IS NULL
+                      AND normalized_merchant LIKE ?
+                    ORDER BY transaction_date DESC LIMIT 8""", (like,)).fetchall()
+        elif amount.strip():
+            cents = int(round(float(str(amount).replace(",", "").replace("$", "")) * 100))
+            # Rank exact first and be explicit when it is not exact: measured
+            # 2026-10-02, a search for 41.99 returned a 42.00 "US MOBILE" charge and
+            # labelled it with the 41.99 Amazon order's match, because the tolerance
+            # was 5 cents and the matcher only looked at amount and date.
+            rows = conn.execute(
+                """SELECT id, transaction_date, amount_cents, account_id, account_name,
+                          normalized_merchant, raw_payload_json
+                     FROM transactions
+                    WHERE duplicate_of_transaction_id IS NULL
+                      AND ABS(amount_cents - ?) < 5
+                    ORDER BY (ABS(amount_cents - ?) = 0) DESC,
+                             ABS(amount_cents - ?), transaction_date DESC
+                    LIMIT 8""", (cents, cents, cents)).fetchall()
+        else:
+            return False, "give me an amount or a merchant"
+        charges = []
+        for r in rows:
+            card = charge_msg.card_last4(r, conn)
+            off = abs((r["amount_cents"] or 0) - cents)
+            exact = (not cents) or off == 0
+            charges.append({
+                "match": "exact" if exact
+                         else "approximate (%s off)" % charge_msg.fmt_money(off),
+                "date": r["transaction_date"],
+                "amount": charge_msg.fmt_money(r["amount_cents"]),
+                "card_last4": card,
+                "merchant": r["normalized_merchant"],
+                "statement_line": charge_msg.bank_words(r),
+                "account_id": r["account_id"],
+                # An approximate amount must never borrow an exact order's match.
+                "order_match": ((charge_msg.order_match(
+                    conn, r["amount_cents"], r["transaction_date"] or "") or None)
+                    if exact else None),
+            })
+        out["charges"] = charges
+        if charges:
+            out["composed_body"] = charge_msg.compose(
+                conn, charges[0]["merchant"] or "")
+    finally:
+        conn.close()
+    return True, json.dumps(out, indent=1)[:6000]
+
+
 def _invoke(tool: str, args: dict) -> tuple[bool, str]:
     args = args or {}
     try:
@@ -318,6 +505,12 @@ def _invoke(tool: str, args: dict) -> tuple[bool, str]:
             return tool_queue_lookup()
         if tool == "app_db_query":
             return tool_app_db_query(str(args.get("sql") or ""))
+        if tool == "ledger_query":
+            return tool_ledger_query(str(args.get("sql") or ""))
+        if tool == "charge_lookup":
+            return tool_charge_lookup(str(args.get("amount") or ""),
+                                      str(args.get("merchant") or ""),
+                                      str(args.get("date") or ""))
     except Exception as exc:
         return False, f"tool {tool} raised: {exc}"
     return False, f"unknown tool {tool!r}; known: {', '.join(TOOLS)}"
@@ -413,6 +606,35 @@ def _tool_requests(objects: list) -> list:
 
 
 # --------------------------------------------------------------------------- #
+def _blocked_result(reason: str, claim: str, ctx: dict, *, steps: int = 0,
+                    tools_used=None, model=None, evidence: str = "") -> "WorkResult":
+    """A block that carries the question the owner has to answer.
+
+    Every blocked investigation produces this. Measured 2026-10-02: three owner texts
+    died at "the model returned no usable JSON" (a 502 from the gateway) and returned
+    `escalated=None`, so the responder filed a generic "I could not resolve it" row and
+    the question he had actually answered was lost. A block with no question in it is
+    indistinguishable from a bug.
+    """
+    phone = (ctx or {}).get("phone") or ""
+    name = (((ctx or {}).get("identity") or {}).get("name")) or phone or "someone"
+    return WorkResult(
+        False,
+        blocked=reason,
+        escalated={
+            "question": ("%s (%s) asked: %r. I could not resolve it: %s"
+                         % (name, phone or "?", str(claim or "")[:200], str(reason or "")[:220])),
+            "recommendation": "Tell me the answer and I will send it as a text.",
+            "options": ["Send it as I say", "Draft it for me", "Leave it unanswered"],
+        },
+        steps=steps,
+        tools_used=tools_used or [],
+        model=model,
+        evidence=evidence or "nothing was read",
+        elapsed_s=0.0,
+    )
+
+
 def do(claim: str, task: str, ctx: dict | None = None, *,
        deliverable: str = "a text back to them", timeout: int = DEFAULT_TIMEOUT,
        decider=None, llm=None) -> WorkResult:
@@ -438,12 +660,20 @@ def do(claim: str, task: str, ctx: dict | None = None, *,
                 spec.loader.exec_module(td)
                 d = td.Decider()
             except Exception as exc:
-                return WorkResult(False, blocked=f"no model: decider unavailable ({exc})",
-                                  evidence="textdecide could not be loaded")
+                # `step`, `tools_used` and `model` do not exist yet at this point: the loop
+                # has not started. Referencing them here raised NameError OUT OF `do()`
+                # (measured 2026-10-02, reading the code) -- so the one path that exists to
+                # report "the decider could not be loaded" crashed instead of reporting.
+                return _blocked_result(
+                    f"no model: decider unavailable ({exc})", claim, ctx or {},
+                    steps=0, tools_used=[], model=None,
+                    evidence="textdecide could not be loaded")
         model = d.resolve_model()
         if not model:
-            return WorkResult(False, blocked=f"no model: {d.last_error or 'catalog empty'}",
-                              evidence="gateway catalog unreachable; nothing was invented")
+            return _blocked_result(
+                f"no model: {d.last_error or 'catalog empty'}", claim, ctx or {},
+                steps=1, tools_used=tools_used, model=model,
+                evidence="gateway catalog unreachable; nothing was invented")
 
     notes: list[str] = []
     tools_used: list[str] = []
@@ -456,15 +686,21 @@ def do(claim: str, task: str, ctx: dict | None = None, *,
                               evidence=_evidence(tools_used, notes),
                               elapsed_s=time.monotonic() - started)
 
-        if call is not None:
-            raw = call(SYSTEM, conversation)
-        else:
-            try:
+        # Both branches catch. An injected `llm=` is how the failure paths are tested, and
+        # the failure that matters most (a gateway 502) arrives as an exception -- so a
+        # raise from a stub must land in the same place as a raise from the real decider,
+        # not propagate out of `do()`.
+        try:
+            if call is not None:
+                raw = call(SYSTEM, conversation)
+            else:
                 raw = d.call(SYSTEM, conversation, max_tokens=400,
                              timeout=max(20, min(90, int(timeout - (time.monotonic() - started)))))
-            except Exception as exc:
-                raw = None
-                notes.append(f"model call raised: {exc}")
+        except Exception as exc:
+            raw = None
+            notes.append(
+                ("an injected model raised: " if call is not None else "model call raised: ")
+                + str(exc))
         parsed_list = _decode_json(raw)
 
         # Any object in the reply that carries an answer or a block ends the job. A
@@ -481,17 +717,27 @@ def do(claim: str, task: str, ctx: dict | None = None, *,
                                  "Reply with ONE JSON object: {\"tools\": [...]}, "
                                  "{\"answer\": ...} or {\"blocked\": ...}.")
                 continue
-            return WorkResult(False, blocked=(
+            return _blocked_result(
                 "the model returned no usable JSON"
-                + (f" ({d.last_error})" if (call is None and d.last_error) else "")),
-                steps=step, tools_used=tools_used, model=model,
-                evidence=_evidence(tools_used, notes),
-                elapsed_s=time.monotonic() - started)
+                + (f" ({d.last_error})" if (call is None and d.last_error) else ""),
+                claim, ctx or {}, steps=step, tools_used=tools_used, model=model,
+                evidence=_evidence(tools_used, notes))
 
         if terminal is not None and terminal.get("answer"):
             answer = str(terminal["answer"]).strip()
             if len(answer) > 480:
                 answer = answer[:470].rsplit(" ", 1)[0] + "..."
+            # THE LAST THING BEFORE THIS BECOMES A TEXT. A receipt or a promise is not an
+            # answer, and sending one is what produced "Are you still diagnosing?" See
+            # `non_answer_reason`: the rule lives in `textsend.py`, not in a second copy
+            # here.
+            why_not = non_answer_reason(answer, ctx)
+            if why_not:
+                return _blocked_result(
+                    "the answer was not an answer: " + why_not, claim, ctx or {},
+                    steps=step, tools_used=tools_used, model=model,
+                    evidence=_evidence(tools_used, notes) + " | answer withheld: %s"
+                             % answer[:120])
             # The model's own account of what it read is a CLAIM. The tools it
             # actually called are the PROOF, and both belong in the record - a
             # result whose evidence cannot be traced was the exact failure the
@@ -529,42 +775,84 @@ def do(claim: str, task: str, ctx: dict | None = None, *,
 
         bundle = []
         for tool, targs in requests:
+            # ONE invocation per request. This block used to call `_invoke`, append the
+            # tool, call it AGAIN and append it again, and append the result bundle twice
+            # (measured 2026-10-02, reading the code): every tool ran twice, `tools_used`
+            # and `notes` counted double, and the model was handed the same result twice.
             ok, out = _invoke(tool, targs)
             tools_used.append(tool)
-            notes.append(f"{tool}: {'ok' if ok else 'FAILED'}")
+            # The error text, not just the verdict. Measured 2026-10-02: a job whose
+            # only problem was an HTTP 502 from the model gateway was recorded as
+            # "app_db_query: FAILED", which is undiagnosable a day later. First line
+            # only, truncated -- enough to tell a lock from a 502 from a bad query.
+            detail = " ".join(str(out or "").split())[:160] if not ok else ""
+            notes.append("%s: %s%s" % (tool, "ok" if ok else "FAILED",
+                                       (" -- " + detail) if detail else ""))
             bundle.append(f"--- result of {tool} ---\n{out[:3000]}\n--- end {tool} ---")
         conversation += ("\n\n" + "\n".join(bundle)
                          + "\nNow either call more tools, or give the answer, "
                            "or say blocked.")
 
-    return WorkResult(False, blocked=f"no answer after {MAX_STEPS} steps",
-                      steps=MAX_STEPS, tools_used=tools_used, model=model,
-                      evidence=_evidence(tools_used, notes),
-                      elapsed_s=time.monotonic() - started)
+    return _blocked_result(
+        f"no answer after {MAX_STEPS} steps", claim, ctx or {}, steps=MAX_STEPS,
+        tools_used=tools_used, model=model, evidence=_evidence(tools_used, notes))
 
 
 def _blocked(reason: str, tools_used, notes, steps, model, started, ctx, claim, task) -> WorkResult:
     """A block is a result. Decide whether it is a question for the owner or not."""
     escalated = None
-    if re.search(r"needs the owner|his (decision|money|call)|commit", reason, re.I):
-        phone = ctx.get("phone") or ""
-        name = ((ctx.get("identity") or {}).get("name")) or phone
-        escalated = {
-            "question": f"{name} ({phone}) texted: {claim[:160]!r}. {reason[:200]}",
-            "recommendation": "Tell me the answer and I will send it as a text.",
-            "options": ["Send it as I say", "Draft it for me", "Leave it unanswered"],
-        }
+    phone = ctx.get("phone") or ""
+    name = ((ctx.get("identity") or {}).get("name")) or phone
+    # ALWAYS, not only when the prose happens to contain a magic word. Measured
+    # 2026-10-02: a block caused by a model 502 matched nothing, so `escalated` was
+    # None, and the owner got "I could not resolve it" with no trace of the question
+    # he had actually answered. The structured question is what makes the blocked row
+    # readable and answerable a day later.
+    escalated = {
+        "question": f"{name} ({phone}) asked: {claim[:200]!r}. I could not resolve it: {reason[:220]}",
+        "recommendation": ("Tell me the answer and I will send it as a text."
+                           if not re.search(r"needs the owner|his (decision|money|call)|commit",
+                                            reason, re.I)
+                           else "This one is your call: tell me the answer and I will send it."),
+        "options": ["Send it as I say", "Draft it for me", "Leave it unanswered"],
+    }
     return WorkResult(False, blocked=reason, escalated=escalated, steps=steps,
                       tools_used=tools_used, model=model,
                       evidence=_evidence(tools_used, notes),
                       elapsed_s=time.monotonic() - started)
 
 
+def _dedupe_notes(notes) -> list:
+    """First occurrence in order, repeats folded into "(xN)"."""
+    seen: dict = {}
+    order: list = []
+    for n in notes or []:
+        text = str(n or "").strip()
+        if not text:
+            continue
+        if text in seen:
+            seen[text] += 1
+        else:
+            seen[text] = 1
+            order.append(text)
+    return [t if seen[t] == 1 else "%s (x%d)" % (t, seen[t]) for t in order]
+
+
 def _evidence(tools_used, notes) -> str:
+    """What was actually read, and if nothing was, WHY.
+
+    `"nothing was read"` is the honest answer when an investigation found nothing to
+    read. It is a lie of omission when the read never happened -- measured 2026-10-02, a
+    block whose only cause was an HTTP 502 from the gateway recorded those three words and
+    dropped the error, so the row could not be diagnosed a day later (L3234).
+    """
+    clean = _dedupe_notes(notes)
+    # Keep the TAIL: the most recent notes are the ones that explain how it ended.
+    shown = clean[-4:]
+    tail = f" ({'; '.join(shown)})" if shown else ""
     if not tools_used:
-        return "nothing was read"
-    return f"read via: {', '.join(tools_used)}" + (
-        f" ({'; '.join(notes[-4:])})" if notes else "")
+        return ("nothing was read; " + "; ".join(shown)) if shown else "nothing was read"
+    return f"read via: {', '.join(tools_used)}" + tail
 
 
 def _render_dossier(claim: str, task: str, ctx: dict, deliverable: str) -> str:

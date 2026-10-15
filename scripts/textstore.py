@@ -33,10 +33,22 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import storelock
+
 HOME = Path.home()
 DB_PATH = Path(os.environ.get("SMS_INBOX_DB") or (HOME / ".sms-inbox" / "inbox.db"))
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+
+# The attempt ledger and the breaker live in `owner_flood_guard.py`, the module that
+# reads and writes them, so their DDL is defined THERE and only there. This module still
+# owns the shape of the store, so the v3 migration asks that module for it -- and a
+# partially deployed tree (the guard not yet copied into ~/bin) skips the step rather
+# than failing the whole schema, which `ensure_schema` reports like any other step.
+try:  # pragma: no cover - a partial tree is the only way here fails
+    import owner_flood_guard as _flood
+except Exception:  # pragma: no cover
+    _flood = None
 
 # Additive only. Never DROP, never DELETE a row from this module: a state change is
 # an UPDATE, so the record of what happened survives.
@@ -78,6 +90,12 @@ MIGRATIONS = [
         """,
     ),
     ("v2_meta", "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);"),
+    # v3: the flood brake's two tables (send_attempt, flood_breaker). A callable step,
+    # because their one definition is in owner_flood_guard.py -- a second copy of that
+    # DDL here is precisely the kind of drift (two definitions of one thing) that let 911
+    # suppressed rows be written while the instrument reported OK.
+    ("v3_flood_brake", (lambda conn: _flood.ensure_schema(conn)) if _flood else
+     "SELECT 'owner_flood_guard.py absent - the flood brake tables are not created yet';"),
 ]
 
 # Columns a caller may set on a job. A whitelist, not a string-interpolated dict:
@@ -111,6 +129,7 @@ def connect(path=None) -> sqlite3.Connection:
     return conn
 
 
+@storelock.locked_write
 def ensure_schema(conn: sqlite3.Connection) -> dict:
     """Idempotently bring the store up to date. Safe to run concurrently.
 
@@ -121,7 +140,11 @@ def ensure_schema(conn: sqlite3.Connection) -> dict:
     for name, sql in MIGRATIONS:
         before = _table_names(conn)
         try:
-            conn.executescript(sql)
+            if callable(sql):
+                # A step whose DDL is owned by another module stays ONE definition.
+                sql(conn)
+            else:
+                conn.executescript(sql)
             conn.commit()
         except sqlite3.OperationalError as exc:
             # Two cron runs racing on CREATE TABLE IF NOT EXISTS is normal; anything
@@ -150,6 +173,7 @@ def _table_names(conn: sqlite3.Connection) -> set:
 # --------------------------------------------------------------------------- #
 # person
 # --------------------------------------------------------------------------- #
+@storelock.locked_write
 def upsert_person(conn, phone: str, name: str | None = None, relationship: str | None = None,
                   source: str | None = None, confidence: float | None = None) -> dict:
     """Remember who someone is, permanently.
@@ -191,6 +215,7 @@ def get_person(conn, phone: str) -> dict | None:
 # --------------------------------------------------------------------------- #
 # jobs - one row per promise
 # --------------------------------------------------------------------------- #
+@storelock.locked_write
 def open_job(conn, phone: str, inbound_sid: str | None, claim: str,
              task: str | None = None, due_at: str | None = None) -> int:
     ensure_schema(conn)
@@ -220,6 +245,7 @@ def job_get(conn, job_id: int):
     return conn.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
 
 
+@storelock.locked_write
 def job_set(conn, job_id: int, **fields) -> bool:
     """Update a job. Only whitelisted columns, only known states."""
     bad = set(fields) - set(JOB_FIELDS)
@@ -276,7 +302,7 @@ def doctor(conn) -> dict:
     ensure_schema(conn)
     out = {"schema_version": SCHEMA_VERSION, "tables": sorted(_table_names(conn)),
            "problems": [], "counts": {}, "notes": []}
-    for t in ("messages", "permissions", "jobs", "person"):
+    for t in ("messages", "permissions", "jobs", "person", "send_attempt", "flood_breaker"):
         try:
             out["counts"][t] = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
         except sqlite3.Error:
@@ -284,8 +310,8 @@ def doctor(conn) -> dict:
             # `messages` and `permissions` belong to the SENSOR, not to this module.
             # Their absence is a note about a fresh store, not a fault: reporting it
             # as a problem would make `doctor` red on a store that is simply new.
-            if t in ("messages", "permissions"):
-                out["notes"].append(f"{t} absent - the sensor has not created it yet")
+            if t in ("messages", "permissions", "send_attempt", "flood_breaker"):
+                out["notes"].append(f"{t} absent - created on first use")
 
     # A job pointing at a phone we have never corresponded with is a bug, not a
     # curiosity: it means a promise was filed against a typo'd number.
