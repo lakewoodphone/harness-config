@@ -56,8 +56,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-QUEUE = "/home/zabz/bin/owner-queue.py"
-SEND = "/home/zabz/bin/textsend.py"
+QUEUE = "/root/bin/owner-queue.py"
+SEND = "/root/bin/textsend.py"
 OWNER = os.environ.get("OWNER_PHONE_NUMBER", "+18483897895")
 
 # A question must carry at least one of these, or it is not a question.
@@ -73,7 +73,7 @@ def ledger_outcome(item: int) -> str:
     """What the ledger already records for this item - so `record` can prove it wrote nothing extra."""
     try:
         import sqlite3
-        c = sqlite3.connect("file:/home/zabz/work/work.db?mode=ro", uri=True, timeout=20)
+        c = sqlite3.connect("file:/root/work/work.db?mode=ro", uri=True, timeout=20)
         r = c.execute("select id, state, coalesce(done_at,'') from work_item where id=?", (item,)).fetchone()
         a = c.execute("select id, coalesce(state_after,''), coalesce(result,'') from attempt "
                       "where item=? order by id desc limit 1", (item,)).fetchone()
