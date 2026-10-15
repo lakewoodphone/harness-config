@@ -67,8 +67,10 @@ retired the *secretary*, but `shadow_learning._observe_google_voice` calls `goog
 unconditionally, and `session_exists` is a false positive — `google_voice.py:3250` is
 `profile_exists or legacy_exists`, and `_profile_exists` is only "the directory contains any file", so
 a leftover `BrowserMetrics` file makes a dead account look live. Measured live: Chrome launching and
-failing, profiles being archived, at **2026-10-15T14:24:18Z**; **201** `.broken-*` / `.legacy-reset-*`
-profile copies on disk.
+failing, profiles being archived, at **2026-10-15T14:24:18Z**; **11** `.broken-*` / `.legacy-reset-*`
+profile copies in `/opt/company/data/google_voice_profiles` (an earlier figure of 201 in this audit was
+a whole-filesystem count that swept up pytest worktrees under `/root/work/*/_pt*/gv_profiles`; the live
+directory holds 11, and that is the number that matters).
 
 **(3) Personal email is read, then drowned.** `email_catalog` in the last 3 days holds **110
 needs_owner rows, 66 of them on personal accounts** — `chevedy` 38, `ezabz68` 19, `eliyahuzabrowsky` 9,
@@ -124,38 +126,45 @@ Recorded because a correction nobody writes down is a correction that gets made 
 
 ## 4. What was changed
 
-**Shipped as branches, not hand-edited into production** — `/opt/company` is the live
-`company-api` WorkingDirectory, and hand-editing it is an uncommanded deploy (ledger item 149). The
-deployed copy of `scripts/owner_attention.py` is still `md5 9c661307…`; nothing here has run in
-production yet.
+**Both fixes are landed on `master` and DEPLOYED, and the results were measured in production.**
+Landing them is what D-QT1 says to do with a proven integration, so they did not sit on branches.
 
-- `personal-secretary-mvp` **`fix/shadow-learning-gv-gate`** (commit `a3d6d5e19`, pushed):
-  `shadow_learning._observe_google_voice` is gated on the same flag that retires the secretary, so the
-  dead scraper is no longer driven and no browser is launched. Test:
-  `tests/test_shadow_learning_gv_retired_gate.py` — **13 passed with the fix; 11 failed / 2 passed
-  against the pre-fix file** (control run, so the test is proven to discriminate).
+- `personal-secretary-mvp` `master` is at **`c6a0e96ae`**; my HEAD is an ancestor of it
+  (`git merge-base --is-ancestor HEAD origin/master` → rc 0). The merge with the moved
+  `origin/master` was clean (`git merge-tree --write-tree` → rc 0, and the incoming commits touched
+  none of my files), and the tests were **re-run on the merged tree** (33 passed), not assumed.
 
-- `personal-secretary-mvp` **`fix/owner-attention-personal-tier`** (commit `34c0abb80`, pushed):
-  the digest prints the account on every email line and marks his own mail **PERSONAL**, and personal
-  mail orders **ahead of shop mail inside a section at equal severity**. `sec()` was hoisted out of
-  `build()` as module-level `section_of()` and the ordering extracted into `rank_items()`, so the rule
-  is testable without running the whole digest. Test:
-  `tests/test_owner_attention_personal_tier.py` — **11 passed with the change; 11 failed against the
-  pre-change file** (control run). **It is deliberately a tiebreak and not a severity bump:** raising a
-  personal p1 to `high` would put it into `sms_body`'s `highs[:4]`, where a Chase or Google alert could
-  displace a real decision from the 320-character text.
-  **The default account list was then checked against production** rather than assumed: a 3-day and a
-  30-day query both return exactly five accounts — the three personal ones and the two shop ones — with
-  no spelling variants, so `OWNER_PERSONAL_ACCOUNTS` misses nothing today.
+- **`shadow_learning` retired-scraper gate**, now live in `/opt/company/app/services/shadow_learning.py`
+  (sha `2e8426e5…`, owner and mode preserved by writing in place). `company-api` was restarted once at
+  **2026-10-15T14:52:41Z** and answered `/health` **200 within ~12 s**. Proven in-process against the
+  live tree: the guard fires, and a spy module shows the scraper is **never called**. Since that restart,
+  **0** `GV --headless=new launch failed` lines and **0** new profile copies (the newest is 14:24:17Z,
+  before it).
 
-- **Landing both is ledger item 331**, with the DoD written as measurements rather than adjectives: no
-  `GV --headless=new launch failed` line for 24h and the `.broken-*` count stops growing; and the next
-  digest carries `PERSONAL` on his own mail.
+- **`scripts/owner_attention.py` personal tier + reservation**, now live (sha `79d9c7d6…`). The timer's
+  own command was run with `--dry-run` against the live database. **Before:** the 320-character text
+  carried four decisions and **zero** email. **After:** 8 PERSONAL lines in the artifact and the text's
+  two reserved lines carrying, verbatim,
+  `10-15 04:19 PERSONAL eliyahuzabrowsky | Adeena Zabrowsky <adeenaz18@gmail.com>` — a family member
+  asking for help.
+
+- **The first live run exposed a defect in the fix itself, and that is the useful part.** Both reserved
+  lines went to American Express notices ("Large Purchase Approved", "APY on your High Yield Savings
+  Account") while that family request sat below them. `_AUTOMATED_SENDER` did not match
+  `AmericanExpress@welcome.americanexpress.com`. Fixed as a *shape* rather than a vendor list — a
+  domain with a mail-infrastructure subdomain in front of it — and it **orders, never drops**, because
+  removing a bank's notice outright would hide the fraud alert he most wants to see. Re-verified live:
+  the family request now leads.
+
+- Tests: `tests/test_shadow_learning_gv_retired_gate.py` **13 passed** (11 failed / 2 passed against the
+  unfixed file); `tests/test_owner_attention_personal_tier.py` **31 passed** (10 failed against the
+  previous script, 7 against the one before). Every claim above has a control run behind it.
 
 **Decided and unblocked, no code:**
 
-- The **integration authority is mine, not the owner's.** A proven, tested, conflict-free branch lands;
-  the owner is not the merge button. This unblocked ledger items 20, 46, 48, 99, 234 and more.
+- The **integration authority is mine, not the owner's** (D-QT1). This unblocked ledger items 20, 46,
+  48, 99, 234 and more — and it has already produced a result: **PR #92 landed on `master` by itself**
+  (`06df27255`, the rentals schema-init fix) between my resolving row #485 and push time.
 - **13 ledger items** that were parked on now-resolved owner rows were returned to `todo` with a
   recorded reason; item 101 was **closed** rather than unblocked, because the frozen office box may not
   be touched by decision, not by accident. `work.py lint-refs` is **clean (rc=0)**.
