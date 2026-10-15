@@ -2,67 +2,31 @@
  "adopted_rows": 0,
  "bands_refs_read": 32,
  "ceiling": {
-  "decisions": 3529,
+  "decisions": 3593,
   "handoff": 4295,
-  "lessons": 4255,
+  "lessons": 4319,
   "pain": 4056,
   "wins": 3005
  },
  "ceiling_source": {
-  "decisions": "ZABZ-YOGA live working tree",
+  "decisions": "local bands.tsv",
   "handoff": "ZABZ-YOGA live working tree",
-  "lessons": "ZABZ-YOGA live working tree",
+  "lessons": "local bands.tsv",
   "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "lessons",
-   "reserved_from": 4192,
-   "reserved_through": 4255,
-   "stamp": "2026-10-14 23:45 UTC"
-  },
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "wins",
-   "reserved_from": 2942,
-   "reserved_through": 3005,
-   "stamp": "2026-10-14 23:45 UTC"
-  },
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "handoff",
-   "reserved_from": 4232,
-   "reserved_through": 4295,
-   "stamp": "2026-10-14 23:45 UTC"
-  },
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "pain",
-   "reserved_from": 3993,
-   "reserved_through": 4056,
-   "stamp": "2026-10-14 23:45 UTC"
-  },
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "decisions",
-   "reserved_from": 3466,
-   "reserved_through": 3529,
-   "stamp": "2026-10-14 23:45 UTC"
-  }
- ],
+ "claimed_gap_rows": [],
  "entries_high_water": {
-  "decisions": "D3402",
+  "decisions": "D3530",
   "handoff": "H4169",
-  "lessons": "L4129",
+  "lessons": "L4256",
   "pain": "P3929",
   "wins": "W2878"
  },
  "high_water": {
-  "decisions": "D3529",
+  "decisions": "D3593",
   "handoff": "H4295",
-  "lessons": "L4255",
+  "lessons": "L4319",
   "pain": "P4056",
   "wins": "W3005"
  },
@@ -78,12 +42,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-14T23:45:07Z",
+ "refreshed_at": "2026-10-15T00:00:08Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 5.6,
- "sources_seen": 3646
+ "seconds": 6.8,
+ "sources_seen": 3653
 }
