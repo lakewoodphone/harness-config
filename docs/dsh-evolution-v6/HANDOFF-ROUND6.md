@@ -31,6 +31,20 @@ what it now hands over.
 **Journal entries written this round:** decisions `D3723` (delivered from the generator; the proof is
 the composed config), lessons `L4577` (the repair step that reported a false clean), `L4578` (see the
 correction below), pain `P4185` (sync.py's exit code; the authority's missing yaml), win `W3070`.
+Since then: `L4579`, `L4768`, `L4832`, `L4834`, `L4836`, `P4251`, `W3134`, `W3135`, `W3136`, `W3137`.
+
+### 1a. THE CENSUS IS NOT YET A CENSUS — 130 owner sessions were read by nobody
+
+`owner-sessions.tsv` holds **1,149** owner sessions. The twenty-two shards name **1,034** distinct ids,
+of which ~1,019 are owner sessions. So **130 of the owner's own sessions are named in NO reader shard** —
+measured 2026-10-15. They are small (139 turns and 11.6 MB across all 130, about 1.07 turns each), which
+is very likely *why* they were dropped: the reader brief instructs an empty friction list for one-turn
+sessions, and a sample that filters on volume would drop exactly these. **But a one-turn session where
+he asked for something and got nothing is a `want`, and wants are the point of this census.** Per
+machine: `secratary` 44, `zabz-tech` 34, `zabz-yoga` 52. The id list is
+`/root/work/r6/90-unread-owner-sessions.txt`; `R8-UNREAD` was dispatched to read all 130 into `R23+`.
+**Item 1 of round 6's objective is therefore NOT complete until those shards land and the coverage
+arithmetic is stated.**
 
 ### The closing verification, taken fresh on all three machines after every subsequent change
 
