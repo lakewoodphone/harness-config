@@ -274,6 +274,20 @@ from a checkout.
    errors on call — `no such column: action_name`; the real schema is
    `circuit_breaker_events(agent_id, event_type, reason, spend_at_event, created_at)`.
 
+   **WHERE, EXACTLY — the predicates already receive everything they need, so this is small.**
+   `app/chat_action_repos.py:_repo_unavailable_detail(params, action)` **already returns the
+   resolver's `hint`** (the correct instruction). The damage is done by two predicates beside it in
+   `app/chat_action_resilience.py` that take the same `detail` and do not branch on it:
+
+   * `_should_retry_action_failure(action, detail)` (line ~278) — should return **False** when
+     `detail` is the repo-unavailable hint;
+   * `_should_record_circuit_breaker_failure(action, detail)` (line ~267) — likewise, because
+     counting a permanently-failing action toward its breaker guarantees the 10-strike disable;
+   * and `_get_fix_hint(action_name)` (line ~481) is keyed on the **action name only**, which is why
+     the agent is handed `FIX: Use repo_path alias …` — a remedy that cannot work here — **next to
+     the correct hint**. Suppress or override the static FIX for this class so the agent is not told
+     two contradictory things.
+
 
 ---
 
