@@ -18,6 +18,12 @@ WHAT IT DOES NOW, and why each rule exists:
   * AGREES WITH GIT ABOUT WHAT IS MERGED. The test is `git merge-base --is-ancestor <ref> <base>`,
     not a name comparison - the previous version excluded `origin/main` by name and then reported
     every other ref, which is how a symbolic ref got through.
+  * AND AGREES ABOUT CONTENT NO-OP MERGES (ledger item 322, measured 2026-10-01). Ancestry alone
+    called origin/integrate/main-27/28/29 unmerged even though `git merge-tree --write-tree
+    origin/main <branch>` returns origin/main's own tree exactly, so merging them changes nothing.
+    The hourly cron re-filed an unfinishable item for each; four shifts were spent on the same
+    already-landed change. A branch is now merged when it is an ancestor OR when a real three-way
+    merge of it into base leaves base's tree byte-identical. A conflicting merge is never a no-op.
   * AGE LIMIT (`--days`, default 21). Only a branch whose tip commit is recent is a branch a SHIFT
     pushed. Old work branches are not integration debt; they are archaeology, and they stay out of
     the backlog unless asked for with --days 0.
@@ -53,6 +59,69 @@ DEFAULT_DAYS = 21
 # `audit/`, `docs/`, `backup/` and `co/` refs - a backlog of 90+ items that would bury the real ones.
 DEFAULT_INCLUDE = r"^(origin/)?(agent|kf[0-9]*|integrate|rescue)/"
 
+# ATTEMPT BRANCHES ARE NOT INTEGRATION DEBT. Every integration item that needs a safety branch
+# pushes `integrate/<base>-<item>` or `...-<item>b` alongside the real `integrate/<base>`. Those are
+# snapshots of one attempt, not work waiting to land: measured 2026-10-01, `integrate/master-32-286`
+# (e7b4fe7c) is the superseded first attempt at the merge that landed as ba731dd6, yet the generator
+# kept filing it and two shifts (ledger items 296 and 298) re-adjudicated the same dead branch.
+# ATTEMPT BRANCHES ARE NOT INTEGRATION DEBT. Every integration item that needs a safety branch
+# pushes a snapshot of one attempt alongside the real integration branch. Those snapshots are not
+# work waiting to land: measured 2026-10-01, `integrate/master-32-286` (e7b4fe7c) is the superseded
+# first attempt at the merge that landed as ba731dd6, yet the generator kept filing it and two
+# shifts (ledger items 296 and 298) re-adjudicated the same dead branch.
+# Two attempt shapes are skipped:
+#   * integrate/<base>-<generation>-<item>  e.g. prod-db-sync integrate/master-32-286 (item 297)
+#   * integrate/<base>-<item>               e.g. kosher-ai-filter integrate/main-156 (item 299)
+# The single-number shape is skipped PER PROJECT. It is skipped only for the registered
+# non-generation bases below, and only for projects where that base was MEASURED attempt-only.
+# `master` is deliberately absent: prod-db-sync names its real integration branches
+# integrate/master-<gen> (30/31/32/33) and item 297's verification pins those as KEEP -
+# treating master-<n> as an attempt would hide the next generation. A bare integrate/<base> with
+# no trailing number stays real: ATTEMPT_REF matches origin/integrate/main-156 but not
+# origin/integrate/main.
+#
+# WHY PER PROJECT (measured 2026-10-01, ledger item 300): item 299 added `test` fleet-wide, but
+# lpt-website's integration branch IS origin/test and its origin/integrate/test-<n> refs are
+# REAL promotion branches (ledger items 266/270/271/272/275/276/277/279) - a fleet-wide `test`
+# silently skipped them and never filed them. A project whose real promotion branches use the
+# integrate/<base>-<item> shape MUST map that base away below.
+ATTEMPT_BASES = ("main", "test")  # fleet default for the single-number shape
+ATTEMPT_BASES_BY_PROJECT = {
+    "lpt-website": (),  # integrate/test-<n> are real promotion debt, not attempt snapshots
+    # WHY lpt-sync (measured 2026-10-01, ledger item 301): lpt-hub IS the lpt-sync repo, its
+    # integration branch is origin/main, and it names its real integration branches
+    # integrate/main-<item> (27..33, tips 2026-09-28..30). All seven are UNMERGED against
+    # origin/main (merge-base --is-ancestor rc=1) and their subjects are real ledger work
+    # (lpt-sync items 29/131/163/211/239). The fleet-default `main` skip added for kosher
+    # (item 299) hid all seven, exactly as it hid lpt-website integrate/test-<n> (item 300).
+    "lpt-sync": (),
+}
+TWO_NUMBER_ATTEMPT_REF = re.compile(r"^(?:origin/)?integrate/.+-\d+-\d+[a-z]?$")
+
+
+def attempt_ref_re(project):
+    """Compiled attempt-branch matcher for one project (None = the fleet default)."""
+    bases = ATTEMPT_BASES_BY_PROJECT.get(project, ATTEMPT_BASES)
+    parts = [TWO_NUMBER_ATTEMPT_REF.pattern]
+    if bases:
+        parts.append(r"^(?:origin/)?integrate/(?:%s)-\d+[a-z]?$"
+                     % "|".join(re.escape(b) for b in bases))
+    return re.compile("|".join(parts))
+
+
+def is_attempt_ref(project, ref):
+    """True when the live generator skips `ref` as a one-attempt snapshot for `project`."""
+    return bool(attempt_ref_re(project).match(ref))
+
+
+ATTEMPT_REF = attempt_ref_re(None)  # fleet-default matcher, kept for importing tooling
+
+# DELETIONS AN INTEGRATION MUST NOT UNDO. master-33 (commit 012f8a35, item 287) intentionally
+# untracked 17 credential files, so a correct integration shows 17 deletions against its parent and
+# the old "deletion diff is empty" clause could never be met again. The DoD now names these as the
+# only paths an integration may delete.
+CREDENTIAL_EXEMPT = ("*_token.json", "*tokens*.env", ".env.vogel", "*tunnel-token*.md")
+
 
 def git(repo: Path, *args, timeout=120):
     try:
@@ -80,9 +149,129 @@ def pick_base(repo: Path, row: dict) -> str:
     return "HEAD"
 
 
+def merge_tree_of(repo: Path, base: str, ref: str):
+    """The tree a clean merge of `ref` into `base` would produce, or None.
+
+    `git merge-tree --write-tree` (git >= 2.38) performs a real three-way merge without
+    touching the worktree, the index or any ref. It exits non-zero when the merge conflicts;
+    a conflicted merge is WORK, not a no-op, so that case returns None.
+    """
+    rc, out, _ = git(repo, "merge-tree", "--write-tree", base, ref, timeout=300)
+    if rc != 0 or not out:
+        return None
+    tree = out.splitlines()[0].strip()
+    return tree if re.fullmatch(r"[0-9a-fA-F]{40,64}", tree) else None
+
+
+# A MERGE THAT ONLY ADDS ABANDONED ARTIFACTS IS NOT INTEGRATION DEBT (measured 2026-10-08,
+# item 567). `rescue/` and `agent/` branches are safety snapshots of a working tree: they carry
+# *.bak-<tag>-<ts> copies, stray SQLite -shm/-wal files and firmware .pio gitlinks that must
+# NEVER be merged, alongside the real edit. When base already contains the real edit, the
+# three-way merge still differs from base by those artifacts, so the content no-op test above
+# says "unmerged" and the hourly cron re-files an item that can never be finished. Measured:
+# origin/rescue/secratary-worktree-20261007T160715Z (672877a8) was filed as items 562, 565 and
+# 567 in nine hours; all 15 of its substantive source/doc/test files are already byte-identical
+# to origin/master and every path left is an artifact.
+ARTIFACT_EXEMPT = re.compile(
+    r"(?:^|/)\.pio/|\.bak$|\.bak[-.]|\.db-(?:shm|wal)$|\.orig$|~$")
+
+
+def changes_are_only_artifacts(repo: Path, base: str, merged_tree: str) -> bool:
+    """True when base -> merged_tree touches nothing but abandoned artifacts.
+
+    A file whose MODE changed but whose blob is identical is not content either (measured: the
+    rescue branch carries one 0-line 100755 bit on scripts/dialpad-call-fresh.py). Conservative
+    by construction: any substantive path, or any unparseable diff record, returns False.
+    """
+    rc, out, _ = git(repo, "diff", "--raw", "-z", base + "^{tree}", merged_tree, timeout=120)
+    if rc != 0 or not out:
+        return False
+    toks = out.split("\0")
+    i = 0
+    changed = False
+    while i < len(toks):
+        rec = toks[i]
+        if not rec.startswith(":"):
+            i += 1
+            continue
+        parts = rec[1:].split()
+        path = toks[i + 1] if i + 1 < len(toks) else ""
+        i += 2
+        if len(parts) < 5 or not path:
+            return False
+        changed = True
+        if parts[2] == parts[3]:      # mode/type bit only, blob identical
+            continue
+        if ARTIFACT_EXEMPT.search(path):
+            continue
+        return False                  # real content -> genuine integration debt
+    return changed
+
+
+def mode_only_conflict_merge_tree(repo: Path, base: str, ref: str):
+    """The merge tree when a merge conflicts ONLY about a file mode.
+
+    `is_merged` treats a conflicting merge as real debt, and normally that is right. One
+    measured exception (2026-10-08, item 567): a rescue snapshot can carry the SAME blob as base
+    and disagree only about the executable bit. Git still reports that as an add/add conflict
+    (measured: scripts/dialpad-call-fresh.py, both stages c7d6a438, 100644 vs 100755), so the
+    no-op test returned None and the hourly cron re-filed an unfinishable item. Returns the tree
+    only when every conflicted path has one blob across all stages; a single content difference
+    returns None and the branch stays debt.
+    """
+    rc, out, _ = git(repo, "merge-tree", "--write-tree", base, ref, timeout=180)
+    lines = [l for l in (out or "").splitlines() if l.strip()]
+    if not lines:
+        return None
+    tree = lines[0].strip()
+    if not re.fullmatch(r"[0-9a-fA-F]{40,64}", tree):
+        return None
+    stages = {}
+    saw_stage = False
+    for line in lines[1:]:
+        m = re.match(r"^\d{6} ([0-9a-fA-F]{40,64}) \d+\t(.*)$", line)
+        if not m:
+            continue
+        saw_stage = True
+        stages.setdefault(m.group(2), set()).add(m.group(1))
+    if not saw_stage or not stages:
+        return None
+    if any(len(shas) > 1 for shas in stages.values()):
+        return None          # a real content conflict -> genuine integration debt
+    return tree
+
+
 def is_merged(repo: Path, ref: str, base: str) -> bool:
-    """The only honest test: is the branch's tip an ancestor of base?"""
-    return git(repo, "merge-base", "--is-ancestor", ref, base)[0] == 0
+    """True when `ref` has nothing left to integrate into `base`.
+
+    ANCESTRY IS NOT THE WHOLE TEST (measured 2026-10-01, ledger item 322). `merge-base
+    --is-ancestor` answers "is this exact commit in base's history", which is false whenever
+    the work landed by a different route (cherry-pick, rebase, a squash, or an equivalent
+    edit made elsewhere). Measured: origin/integrate/main-27/28/29 are NOT ancestors of
+    origin/main, yet `git merge-tree --write-tree origin/main <branch>` returns exactly
+    origin/main's own tree 694add9954 - merging any of them changes no content, so every
+    merge attempt must fail or be a no-op. The old ancestry-only test called them unmerged
+    and the hourly cron filed an unfinishable "Integrate ..." item for each: four shifts
+    (304, 307, 312, 319) were spent re-adjudicating one already-landed change, and items
+    320/321 were queued for the same defect.
+
+    So a branch counts as merged when its tip is an ancestor of base, OR when a real merge
+    of base and that branch produces base's tree unchanged. A merge that conflicts is never
+    a no-op, and neither is one whose result differs from base by a single byte.
+    """
+    if git(repo, "merge-base", "--is-ancestor", ref, base)[0] == 0:
+        return True
+    merged_tree = merge_tree_of(repo, base, ref)
+    if merged_tree is None:
+        # A conflict is normally real debt; a mode-only conflict on identical content is not.
+        merged_tree = mode_only_conflict_merge_tree(repo, base, ref)
+        if merged_tree is None:
+            return False
+    rc, base_tree, _ = git(repo, "rev-parse", base + "^{tree}")
+    if rc == 0 and merged_tree == (base_tree or "").strip():
+        return True
+    # ONLY ARTIFACTS LEFT: nothing a shift could integrate, so not integration debt.
+    return changes_are_only_artifacts(repo, base, merged_tree)
 
 
 def tip_age_days(repo: Path, ref: str) -> float:
@@ -138,7 +327,20 @@ def sync_clone(repo: Path) -> tuple:
     dirty = bool((out or "").strip())
     rc, counts, _ = git(repo, "rev-list", "--left-right", "--count", "HEAD...@{upstream}")
     if rc != 0 or not (counts or "").strip():
-        return ("no-upstream" if dirty is False else "dirty"), "no upstream tracking branch"
+        # NO UPSTREAM IS ITS OWN STATE, NOT A KIND OF DIRTY (ledger item 302, measured
+        # 2026-10-01). The fast-forward path below can never run without an upstream, so
+        # uncommitted files here cannot be overwritten by this function - yet the old `dirty`
+        # label made main() SKIP THE WHOLE PROJECT. Measured cost: lpt-hub shared clone sits
+        # mid-rebase about 11 of every 15 minutes (a scheduled rebase of integrate/main-32 onto
+        # origin/main; the reflog shows start/abort pairs every 15 minutes all day), and while it
+        # does, lpt-sync named no upstream, so its seven unmerged origin/integrate/main-27..33
+        # refs were never even looked at. A checkout that is mid-rebase or detached is owned by
+        # another process; the refs stay readable, so evaluate them read-only instead of
+        # reporting nothing. The real fast-forward case still refuses to run over local work.
+        if dirty:
+            return "no-upstream", ("no upstream tracking branch (HEAD detached or mid-rebase, "
+                                   "%d uncommitted/conflicted file(s))" % len((out or "").splitlines()))
+        return "no-upstream", "no upstream tracking branch"
     try:
         ahead, behind = (int(x) for x in counts.split()[:2])
     except Exception:
@@ -202,13 +404,16 @@ def main() -> int:
             # traceback into the report - the one output a human reads.
             report.append({"project": pid, "repo": real, "skipped": state, "why": detail,
                            "base": None, "recent_unmerged": 0, "older_unmerged": 0, "merged": 0,
-                           "filed": [], "older_sample": []})
+                           "merged_refs": [], "filed": [], "older_sample": []})
             print("%-18s SKIPPED (%s): %s" % (pid, state, detail), file=sys.stderr)
             continue
         git(repo, "fetch", "--quiet", "--prune", "origin", timeout=300)
         recent, old, merged = [], [], []
         inc = None if a.all_branches else re.compile(a.include)
-        for ref in candidate_refs(repo):
+        allrefs = candidate_refs(repo)
+        for ref in allrefs:
+            if is_attempt_ref(pid, ref):
+                continue
             if inc and not inc.search(ref):
                 continue
             if is_merged(repo, ref, base):
@@ -216,6 +421,55 @@ def main() -> int:
                 continue
             age = tip_age_days(repo, ref)
             (recent if (a.days == 0 or age <= a.days) else old).append((ref, round(age, 1)))
+        # ANCESTOR SUPERSESSION (ledger item 329, measured 2026-10-01). A ref that is an ancestor
+        # of another unmerged ref is carried along by merging the descendant, so it is NOT separate
+        # integration debt. Measured: origin/integrate/main-30, -31, -32, -33 and -37 are ALL
+        # ancestors of origin/integrate/main-38, yet the generator had already tracked items
+        # 323/324/325 for three of them and would file two more: five unfinishable items for the
+        # single owner-blocked act of advancing origin/main to main-38. Keep only the maximal refs.
+        # Two different ref names for the SAME commit are not treated as superseding each other.
+        revs = {}
+        for _r, _a in recent:
+            _rc, _out, _ = git(repo, "rev-parse", _r, timeout=30)
+            revs[_r] = (_out or "").strip()
+        superseded = set()
+        for _r in revs:
+            for _s in revs:
+                if _r == _s or revs[_r] == revs[_s]:
+                    continue
+                _rc, _, _ = git(repo, "merge-base", "--is-ancestor", _r, _s, timeout=60)
+                if _rc == 0:
+                    superseded.add(_r)
+                    break
+        # A PUSHED integrate/* BRANCH IS A CARRIER TOO (item 638, measured 2026-10-10). The
+        # attempt-ref filter above drops integrate/<base>-<item> from the candidate list, so a
+        # source branch merged only into such a pushed integration branch looked unmerged and
+        # the hourly cron re-filed it: origin/kf535/ios-fail-closed-config (542dd32) is an
+        # ancestor of pushed integrate/main-611 (6d71e3e) and integrate/main-632 (31778fe),
+        # the identical merge, yet it was filed five times (items 611/632/641/653/656) and each
+        # re-file cost a shift a full merge+test cycle for zero new content. Merging that pushed
+        # integration branch carries the source branch, so it is not separate integration debt.
+        # Carriers are consulted SEPARATELY from the pairwise test above so the deliberate
+        # attempt-ref skip is not widened: the candidate set is unchanged.
+        carriers = {}
+        for _c in allrefs:
+            if not _c.startswith("origin/integrate/"):
+                continue
+            _rc, _out, _ = git(repo, "rev-parse", _c, timeout=30)
+            if _rc == 0 and (_out or "").strip():
+                carriers[_c] = _out.strip()
+        for _r in revs:
+            if _r in superseded:
+                continue
+            for _s, _sv in carriers.items():
+                if revs[_r] == _sv:
+                    continue
+                _rc, _, _ = git(repo, "merge-base", "--is-ancestor", _r, _s, timeout=60)
+                if _rc == 0:
+                    superseded.add(_r)
+                    break
+        if superseded:
+            recent = [(r, a) for (r, a) in recent if r not in superseded]
         filed = []
         have = open_titles(pid)
         for ref, age in sorted(recent):
@@ -227,8 +481,10 @@ def main() -> int:
                 filed.append({"branch": ref, "age_days": age, "item": "already tracked"})
                 continue
             dod = ("%s contains %s and the project's own tests pass afterwards with their result "
-                   "lines quoted; `git diff --diff-filter=D --name-only %s HEAD` is empty" %
-                   (base, ref, base))
+                   "lines quoted; `git diff --diff-filter=D --name-only %s HEAD` is empty EXCEPT "
+                   "paths matching the intentional credential-removal patterns %s "
+                   "(master-33 commit 012f8a35, item 287)" %
+                   (base, ref, base, ", ".join(CREDENTIAL_EXEMPT)))
             why = ("a shift pushed this branch %s day(s) ago and nothing merges it; an unmerged "
                    "branch is work that will be redone by the next shift (measured: three lpt-website "
                    "shifts on one unmerged fix; agent/windows-broker-channel unmerged 2026-09-28)" % age)
@@ -249,7 +505,7 @@ def main() -> int:
                               "item": "FAILED: %s" % (out2 or "")[:80]})
         report.append({"project": pid, "repo": real, "base": base,
                        "recent_unmerged": len(recent), "older_unmerged": len(old),
-                       "merged": len(merged), "filed": filed,
+                       "merged": len(merged), "merged_refs": sorted(merged), "filed": filed,
                        "older_sample": [r for r, _ in old[:5]]})
 
     if a.json:
