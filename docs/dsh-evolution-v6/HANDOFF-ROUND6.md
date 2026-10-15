@@ -472,3 +472,54 @@ shards: `files=3 records=86 unique=86 dupes=0 parse_problems=0`.
 * **None of the 26 genuinely new sessions is severity 5**; the newer sessions are the owner re-issuing
   this command, hellos and stubs. **The mega-command is now five-for-five in one window.**
 
+---
+
+## 11. THREE THINGS THAT LOOK LIKE WORK AND ARE NOT — checked 2026-10-15, do not re-open them
+
+### 11.1 The mesh's "46% read-failure rate" is two documented decisions, not a defect
+
+The authority's broker reads 5 nodes: `zabz-tech`, `zabz-yoga-1` and `zabz-tech-linux` are `ok`;
+**`secratary` and `lakewooechsmini` are `unreachable` and account for ~210 of 239 read failures.**
+Both are *deliberate*:
+
+* `secratary` is `excluded: true` in the broker's own roster — the frozen rollback anchor. Owner
+  questions `#447`/`#487` about stopping its broker are **`dismissed`**, and `AGENTS.md` §5 forbids
+  touching that host's service state anyway. **It stays as it is.**
+* `lakewooechsmini` is refused `403` by `phone-gate`, and `scripts/phone-gate-allow.txt` says in
+  terms: *"DELIBERATELY NOT LISTED — DO NOT ADD IT BACK WITHOUT A REASON THAT IS WRITTEN DOWN
+  HERE … a listed device receives a 30-day cookie that is a shell on the owner's engine, on the
+  company's authoritative database and on his mail."* **Do not add it. Do not remove the roster row
+  either** — the Mac is a reachable ssh compute worker, so the row is not pure cost.
+
+**And `P3134`'s recorded cost is STALE** — it says every cold placement pays 4,000 ms for that node.
+Measured today: `secratary` **74 ms**, `lakewooechsmini` **66 ms**, `retried: false`. A fast 403, not
+a timeout. **`P3134` is resolved with that measurement.** The remaining real defect is smaller and is
+now filed as **`P4313`**: a 403 is published as `state: unreachable`, and *a refusal is not an
+unreachability* — the rule this whole round is built on, applied to the broker's own vocabulary.
+
+### 11.2 The owner queue is well-formed; leave it alone
+
+It went **127 pending → 24** during this session, drained by concurrent sessions. I read all 24, and
+the three I suspected of being engineering faults are **correctly his**:
+
+* `#496` (fix the alert script on two boxes) is in the queue **because `host-posture.tsv` marks both
+  hosts read-only and `guard-service-state.sh` refuses without the owner's confirmation.** That
+  refusal is the control which prevents the 2026-10-11 class of incident; asking is right.
+* `#516` (BitLocker key in `lpt-hub` history) needs a **force-push of rewritten history** — forbidden
+  without a per-action yes — and "is that drive retired" is his call.
+* `#270` (Stripe webhooks off) needs a **dashboard click behind his login**; the code repair beside it
+  is ours and the row already says so.
+
+**So do not "drain" the queue by resolving rows.** 22 of the 24 are his; the two that are ours each
+need a security decision or a force-push.
+
+### 11.3 The 25 want clusters are answered partly by rules, partly by nothing
+
+`20-owner-wants.md` lists **18 still open, 7 delivered**. Read it with this caveat: **its verdicts
+predate the v6 instruction surface**, so `C1` (finish the job), `C2` (prove it on the live thing),
+`C19` (facts right the first time) and `C5`/`C6`/`C9`/`C10` are now addressed *by a rule* — and **a
+rule is not a fix**, which is what `90-what-is-needed-and-what-is-not.md` says in its own opening
+paragraph. The clusters genuinely unaddressed by anything are **`C4`** (deliver the buyable artefact,
+not more research), **`C13`** (a payment path that does not die with the app session), **`C15`** (keep
+the laptop fast by offloading) and **`C16`** (a mesh that routes around a dead node).
+
