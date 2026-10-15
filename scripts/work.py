@@ -1498,6 +1498,53 @@ def cmd_selftest(a) -> int:
         cmd_due(argparse.Namespace(db=str(db5), json=False, at="1999-01-01T00:00:00Z"))
     assert "owner-queue #1" not in buf.getvalue(), \
         "an item whose revisit time has not arrived must not be reported due: %r" % buf.getvalue()
+    # Item 278: `--revisit` advertises a RELATIVE offset ("default +7d"), but stored
+    # VERBATIM ("+7d") it sorts below every ISO date under SQLite's string ordering, so the
+    # block read as due at EVERY --at date. It must be normalized to the absolute stamp it
+    # names - anchored on the row, not on the wall clock - and a row that already carries
+    # the offset (the live 80/165/184 shape) must read correctly too.
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_attempt(argparse.Namespace(state="blocked", blocked_on="owner-queue #1",
+                                       revisit="+7d", **base))
+    c = connect(db5)
+    rel = c.execute("SELECT revisit_at, updated_at FROM work_item WHERE id=1").fetchone()
+    c.close()
+    stored, anchor_at = rel["revisit_at"], rel["updated_at"]
+    assert stored and "T" in stored and not stored.startswith("+"), \
+        "a relative --revisit must be stored as its absolute stamp: %r" % stored
+    exp = (datetime.strptime(anchor_at, "%Y-%m-%dT%H:%M:%SZ")
+           + timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert stored == exp, "the offset must be anchored on the row: %r != %r" % (stored, exp)
+    before = (datetime.strptime(stored, "%Y-%m-%dT%H:%M:%SZ")
+              - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    after = (datetime.strptime(stored, "%Y-%m-%dT%H:%M:%SZ")
+             + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_due(argparse.Namespace(db=str(db5), json=False, at=before))
+    assert "owner-queue #1" not in buf.getvalue(), \
+        "a +7d block must not be due BEFORE its revisit: %r" % buf.getvalue()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_due(argparse.Namespace(db=str(db5), json=False, at=after))
+    assert "owner-queue #1" in buf.getvalue(), \
+        "a +7d block must be due AFTER its revisit: %r" % buf.getvalue()
+    c = connect(db5)
+    c.execute("UPDATE work_item SET revisit_at='+2d', updated_at='2026-01-01T00:00:00Z' "
+              "WHERE id=1")
+    c.commit()
+    c.close()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_due(argparse.Namespace(db=str(db5), json=False, at="2026-01-02T00:00:00Z"))
+    assert "owner-queue #1" not in buf.getvalue(), \
+        "a legacy '+2d' must not be due before its anchored revisit: %r" % buf.getvalue()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_due(argparse.Namespace(db=str(db5), json=False, at="2026-01-04T00:00:00Z"))
+    assert "owner-queue #1" in buf.getvalue(), \
+        "a legacy '+2d' must be due after its anchored revisit: %r" % buf.getvalue()
     # AND: a structured owner-queue ref can be attached to an item that ALREADY EXISTS
     # (item 369). Before this verb the only --owner-row was on `add`, so backfilling a
     # ref onto a live item meant hand-editing sqlite - the path that produced item 363's
