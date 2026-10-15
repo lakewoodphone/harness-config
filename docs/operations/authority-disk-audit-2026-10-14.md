@@ -1,5 +1,134 @@
 # Authority disk audit — 2026-10-14
 
+---
+
+## ADDENDUM 2026-10-15 ~00:15Z — BOTH SIDES TRACKED DOWN; **NO CHANGES MADE**
+
+The owner's instruction: *"i don't know what you are talking about, you are in charge not me but don't make any
+changes in any direction until you track down all the details and sessions for both sides fully."* This addendum
+records that work. **Nothing on the authority was created, deleted, moved or restarted for it.**
+
+### THE FACT THAT REFRAMES EVERYTHING: THE DISK WAS DOUBLED THAT MORNING
+
+`owner_decision_queue` row 484 (asked 2026-10-13 08:06, **resolved 2026-10-14T02:11:32Z**), verbatim:
+
+> **question:** "Authorise reclaiming about 5 GiB of shift-created scratch on the authority host (/ is 89 percent
+> full, 8.0 GiB free, 23.85 GiB DB) before it fills?"
+> **recommendation:** "I recommend **ADDING DISK** rather than reclaiming."
+> **resolution:** "MOOT — the premise was overtaken by events. Measured on the authority 2026-10-14T02:12Z:
+> … **dmesg from the 01:15Z boot records 'EXT4-fs (sda1): resizing filesystem from 19934715 to 39934459
+> blocks' — the filesystem was doubled from ~76 GB to ~152 GB.** … authority.db is 27,232,141,312 B and grows
+> **~1.75 GB/day**, so at 71 GiB free that is roughly **40 days of runway**, not 2. **No scratch needed to be
+> deleted.**"
+
+**So: at 02:12Z on 2026-10-14 the authority had ~71 GiB free and about forty days of runway, and the estate's
+own position was that nothing needed reclaiming. By 06:15Z roughly 39 GB of new material had appeared, and by
+23:00Z the same day the disk read 0 bytes free.** That is the answer to *"how could it have gone and filled up
+so fast"* — the doubling was consumed inside one day, by copies, not by growth.
+
+**This corrects my §6 item 12.** The systems register is **not stale** — its "75 GB" is correct and predates the
+01:15Z resize by one day. The live box is 152 GB because the owner doubled it. Withdraw that "correct the
+register" item; the register needed the resize recorded, not a correction.
+
+**Item 176's own accounting of the 39 GiB**, verbatim from its `why`: *"a 27.5 GB pre-remediation DB copy at
+04:06Z, a 4.18 GB declared-unusable partial at 03:22Z and a 7.75 GB git pack at 06:15Z."* Three artefacts, all
+created between 03:22Z and 06:15Z on 2026-10-14.
+
+### SIDE A — WHY THE 25.63 GiB COPY EXISTS
+
+A production data remediation — the **LPT stalled-approval sweep** — ran 03:35–03:53Z: a manager brief
+(`/root/lpt-sweep-20261014/COMMON.md`), **three mesh workers** (`sw1-rubin-sd`, `sw2-schuck`, `sw3-gdp`, each
+with a `REPORT.md`, all running on ZABZ-TECH), a 22-row before-snapshot
+(`rows-before-remediation-20261014T035326Z.json`, `taken_at 03:53:26Z`), and a committed change recorded in
+`remediation-run.log` (30 field-level updates across 12 tasks, 8 reminders, 1 `owner_message_queue` row, 1
+`owner_decision_queue` row).
+
+What it was correcting, in the brief's own words: `task_lifecycle_governor` emits `CUSTOMER STALL: #N`, and *"one
+step later a department agent turns that flag into an owner-approval task containing a drafted customer message —
+composed from the stall signal alone, **without opening the case file**."* The measured failure was LPT case
+#4485 (Felder, Seagate): the recovery had finished 2026-06-25 and the customer had collected the drive, but a
+stale twin task made it read as stalled, so the draft told the customer *"recovery on this drive has not
+progressed"* and offered to *"return the drive as-is"*. **This is the same defect class this session was asked
+to sweep**: a message generated from a signal instead of from the record.
+
+I read `sw1-rubin-sd/REPORT.md` in full: it is evidence-backed and correct — it found that *"127 days / 0%
+progress / interaction_count=0"* were the age of a stale **task row** (3132) and a never-updated CRM stub (473),
+while production held order 1618/WO2606040001 in `READY_FOR_PICKUP` since 2026-06-05 with three outbound "ready
+for pickup" messages. It marked the draft **not sendable** and set `REWRITE-TASK`.
+
+### SIDE B — WHY THE "DO NOT DELETE" MARKER EXISTS
+
+`work_item` **176**, project `prod-db-sync`, verbatim title: *"Authority disk consumer accounting: reclaim the
+4.18 GB self-declared-dead INCOMPLETE partial tarball, and **pin the 27.5 GB lpt-sweep pre-remediation revert
+source against deletion under disk pressure**"*. Its `why` already recorded that *"remediation-run.log records
+revert source rows-before-remediation-20261014T035326Z.json"*. Two attempts:
+
+- **attempt 341**, `wake-checkout-health`, 07:43:24Z → **returned to todo**. It refused because its contract says
+  *"never delete a lock file or a preserved copy — move files, never remove them"* and the target sat inside a
+  preservation directory. **A shift correctly declined a deletion its own contract forbade.**
+- **attempt 344**, `keepalive-prod-db-sync`, 07:56:22Z → **done**: deleted only the 4.18 GB partial (80% → 77%)
+  and installed the marker. Its own `left_over`: *"No automated retention/expiry enforces the pin — it is a marker
+  file, so non-backup-root copies remain outside F7 and rely on the next shift reading the marker."*
+
+The marker was authored by that shift as a **prudential pin against a future 90% disk deletion** — not by the
+owner. Its condition 1 (*"the owner has confirmed the 2026-10-14 remediation is correct in production"*) was
+written by an agent.
+
+**And the estate already built the general fix: `work_item` 181 "Protect non-backup-root rollback/revert sources
+from blind deletion" and 185 "Make the non-backup-root rollback rule discoverable", both `done`.** The
+ROLLBACK/PRESERVATION REGISTER in `prune-backups.sh` is that mechanism. **Do not build a parallel one.**
+
+### WHAT I VERIFIED MYSELF — the copy is NOT a rollback point
+
+Read-only, all three databases opened `mode=ro`. For **every one of the 22 rows the before-record covers**, I
+compared the copy against the before-values. **Every row the remediation actually changed shows the AFTER value
+in the copy:** tasks 3132, 3495, 27745, 27836, 27907, 28082, 28232, 28323, 28436, 28446, 28539; all eight
+reminders (618/620/621/623/624/628/629/630 → `superseded`); queue 2590 → `superseded`; decision 438 →
+`resolved`. Field-level: **60 fields moved to the after-value, 334 unchanged, 0 held the before-value.** The one
+row my script flagged as "BEFORE" (task 28550) **was never touched by the remediation** — it appears in the
+read-back but not in the applied list — so "matches before" is expected there and is a false positive of my own
+rule, not evidence.
+
+**Conclusion on the artefact: it contains no pre-change information, nothing executable reads it, and the
+recorded revert source (the JSON) plus a verified offsite copy from 05:49Z make it recoverable in both
+directions.**
+
+### AND YET: NO CHANGE, DELIBERATELY
+
+Three reasons, in order:
+
+1. **The owner's precondition is not met.** He said not to change anything "until you track down all the details
+   and sessions **for both sides fully**." **I could not identify the session or shift that actually took the
+   25.63 GiB copy.** The fleet-wide session search read **954 sessions** and the host-scoped search only the
+   **18 newest** on the authority; the producing session is not in either set. **That is a refusal, not a
+   negative** — the search is capped, so absence here proves nothing. I will not call the mandate complete and
+   act in the same breath.
+2. **There is no emergency.** `df` reads **84% / 17.9 GiB free**. The marker's own rule: *"There is no disk
+   emergency that justifies touching the rollback point… If you are over the guard's 90 percent warn, reclaim
+   named scratch consumers first."* **We are not over it.**
+3. **The irreversible act is not needed to relieve anything today**, and the real disease is upstream — agents
+   creating 25 GiB copies that nobody bounds — plus the broken alarm (§4), which is fixable without touching a
+   single byte of data.
+
+### WHAT I DO NOW RECOMMEND, IN ORDER
+
+1. **Bound the copy.** A whole-database `VACUUM INTO` of a 27+ GB store is 18% of the disk in one write. Cap it,
+   or require a `df` headroom check — this is the same one-line guard as §6 item 4, and it prevents the *third*
+   occurrence rather than the first.
+2. **Make the alarm work** (§6 items 1-3). One symlink is already done and verified.
+3. **Reclaim the named, verified scratch** (redundant shallow clone 1.6 GB; dead `.out`/`.log` ≈1 GB) — small,
+   reversible, needs nobody's permission but the owner's word per the standing no-deletion rule.
+4. **Then, and only if the disk crosses the 90% warn,** the 25.63 GiB copy is the cleanest reclaim available and
+   is now *proven* safe — recorded here so the next shift acts on the evidence rather than on the marker's
+   falsified premise.
+
+**One thing a future shift must not do: treat the marker as an owner's veto.** Its content claim is false (it is
+a post-remediation image, not the pre-change one) and its gate was written by an agent. Its *conservatism* was
+right; its *premise* is wrong. Correct the marker, do not delete the file on a whim.
+
+---
+
+
 **Commissioned by the owner, verbatim:** *"analyze and audit and research this disk issue because we
 literally have 150 gigabyte of space on the cloud server. How could it have gone and filled up so fast?
 Are we doing like backups to the server itself or something or too many backups? Didn't we set this up in
