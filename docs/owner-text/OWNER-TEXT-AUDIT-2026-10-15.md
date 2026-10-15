@@ -374,6 +374,7 @@ Every change below is backed up under `/root/text-fix-20261015/backup/` and reve
 | 7 | The three sentence-boundary tests now hold the **new** contract (ends at a sentence, appends nothing, **and the cut is still recorded in the log**) instead of asserting the retired marker. Rewritten deliberately, with the reason in the docstring, not weakened to pass. | `tests/test_sms_sentence_boundary_trim.py` | `6 passed` |
 | 8 | **Charge questions are now self-serve.** `merchant_resolve.resolve()` gained two rungs and one widened exemption: (a) `records:owner-text` — his answer given **in a text**, read from `sms_log` inbound (this is the rung the ask ledger never had); (b) `records:order-match` — the charge already linked to its order mail by `purchases.matched_transaction_id = transactions.external_transaction_id`, amount-checked; (c) `_finish` now lets `owner-text`, `order-match`, and an `alias` learned from the owner's own answer resolve **without** naming a category, exactly as `ask-answer` already did. Nothing invents a category: `category` stays `''` and `planned_rows` stays empty on all of them. | `/root/bin/merchant_resolve.py` | all nine live merchants resolve: visiontek systems **0.95 order-match**, sticky brand **0.92 owner-text**, newegg **0.97 alias**, the home depot **0.95 order-match**, american professional 0.97 alias. Categories verified empty with `planned_rows=0` |
 | 9 | `order_evidence.ORDER_SUBJECT_RE` accepts `Order <CODE> confirmed` (the Shopify-family subject), which neither `order\s*(is\s*)?(confirm|#)` nor `order confirmed` could match. | `/root/bin/order_evidence.py` | `Order W009615 confirmed` → True, `Order #828330 confirmed` → True, `Coffee with Dov` → False |
+| 10 | **The CFO's question is now filed with the relay**, so a reply can resolve against it. Until today the question lived only in `/root/.cfo-asks/asks.db` while the component that answers his reply looks the reference up in `owner_text_relay`'s own `ask` table — the two never met, and the responder logged it six times: `relay: ask ask-1792026036 -> missing` (that was the American Professional charge). `cfo-ask.py` now calls `relay.record_ask(ref, "cfo_ask", merchant, body, ttl_hours=72)` next to its own record, fail-soft. | `/root/bin/cfo-ask.py` | `record_ask` → `created=True, state=open`; the ref appears in `open_asks(within_hours=72)`; `answer_ask` closes it to `answered` and it leaves the open list. The test ref was removed by answering it; `open_asks` is back to what it was |
 
 **Test attribution — done by A/B, because claiming green is how this estate lies to itself.**
 
@@ -436,8 +437,11 @@ ones by the A/B above and the rest do not touch a file I edited.
    triple-cut, and the "compose long then truncate" habit, are unchanged. The marker removal makes a
    half-message *quieter*; it does not stop one being half.
 3. **Two inbound paths are still uncoordinated.** The app webhook replies inline; the cron responder
-   is a no-op. `textctx.recent_asks()` is missing, `relay: ask -> missing` ×6, and the three ask
-   stores still disagree. Nothing here resolves his reply to the question it answers.
+   is a no-op. `textctx.recent_asks()` is missing, and the three ask stores still disagree. **What
+   changed today:** the responder's `relay: ask -> missing` can no longer happen for a CFO question
+   (#10), so a reply to one now resolves against the relay — the first time the ask ledger and the
+   reply path have agreed about the same question. The other askers (`owner-ask.py`) still do not
+   file with the relay.
 4. **Identity is still one `LIKE 'owner%'` cell plus an unset `$OWNER_PHONE_NUMBER`,** and
    `+17325691594` is still `owner-google-voice` / `allow=never` against an exact `== "owner"` test.
 5. **Six doors are still outside the relay**, including two hosts with a raw `curl` that the posture
