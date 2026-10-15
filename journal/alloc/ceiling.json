@@ -12,25 +12,10 @@
   "decisions": "ZABZ-YOGA live working tree",
   "handoff": "ZABZ-YOGA live working tree",
   "lessons": "ZABZ-YOGA live working tree",
-  "pain": "local bands.tsv",
+  "pain": "refs/heads/i348-closing-courtesy-20261015",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "lessons",
-   "reserved_from": 5088,
-   "reserved_through": 5151,
-   "stamp": "2026-10-15 16:30 UTC"
-  },
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "handoff",
-   "reserved_from": 5128,
-   "reserved_through": 5191,
-   "stamp": "2026-10-15 16:30 UTC"
-  }
- ],
+ "claimed_gap_rows": [],
  "entries_high_water": {
   "decisions": "D3786",
   "handoff": "H5065",
@@ -57,12 +42,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-15T16:30:07Z",
+ "refreshed_at": "2026-10-15T16:45:06Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 5.6,
- "sources_seen": 3955
+ "seconds": 5.0,
+ "sources_seen": 3958
 }
