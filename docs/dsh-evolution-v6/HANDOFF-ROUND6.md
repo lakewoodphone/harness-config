@@ -34,18 +34,53 @@ the composed config), lessons `L4577` (the repair step that reported a false cle
 correction below), pain `P4185` (sync.py's exit code; the authority's missing yaml), win `W3070`.
 Since then: `L4579`, `L4768`, `L4832`, `L4834`, `L4836`, `P4251`, `W3134`, `W3135`, `W3136`, `W3137`.
 
-### 1a. THE CENSUS IS NOT YET A CENSUS — 130 owner sessions were read by nobody
+### 1a. THE CENSUS IS NOW COMPLETE — and the corpus's own "owner" set is 52% NOT the owner
 
-`owner-sessions.tsv` holds **1,149** owner sessions. The twenty-two shards name **1,034** distinct ids,
-of which ~1,019 are owner sessions. So **130 of the owner's own sessions are named in NO reader shard** —
-measured 2026-10-15. They are small (139 turns and 11.6 MB across all 130, about 1.07 turns each), which
-is very likely *why* they were dropped: the reader brief instructs an empty friction list for one-turn
-sessions, and a sample that filters on volume would drop exactly these. **But a one-turn session where
-he asked for something and got nothing is a `want`, and wants are the point of this census.** Per
-machine: `secratary` 44, `zabz-tech` 34, `zabz-yoga` 52. The id list is
-`/root/work/r6/90-unread-owner-sessions.txt`; `R8-UNREAD` was dispatched to read all 130 into `R23+`.
-**Item 1 of round 6's objective is therefore NOT complete until those shards land and the coverage
-arithmetic is stated.**
+**Read all 130, no sample.** `R8-UNREAD` delivered `readers/R23.md`, `R24.md`, `R25.md` (43 + 44 + 43
+records) and `91-unread-census.md`, sha-verified local and remote, **0 failed frames, 0 parse
+problems**. Coverage:
+
+```
+1,149  owner-sessions.tsv entries
+-1,019  named by R01-R22
+=  130  never named  ->  +130 read by R23-R25  ->  0 still never named
+```
+
+**Mergeability proved, not asserted**, with round 4's own aggregator over R01–R25:
+`files=25 records=1224 unique=1164 dupes=60 parse_problems=0` — and the 60 duplicates are the
+**pre-existing** R20–R22 overlap; the new shards add zero.
+
+**BUT THE HEADLINE OF THAT JOB IS A CORRECTION TO THE CORPUS ITSELF.** `delegationDepth > 0` in
+`owner-turns-final.jsonl` marks agent-spawned sessions, and across all 1,149 "owner" rows **600
+(52%) are subagents**. In the 130: 64 agent-spawned, 16 empty, and only **50** contain the owner's own
+words. **R01–R19 read 536 of those subagents as owner records.** So every friction count in rounds
+4, 5 and 6 — including the register that ranked the twenty pains and the rules I wrote from it —
+**partly measures agent conversations as if they were the owner's**. The counts are not worthless
+(the frictions still fired in sessions a human was driving), but the denominator is wrong and the
+"owner session" label is not safe to use without saying what was counted.
+
+**Two more corrections, both to documents I wrote:**
+* **My reason for the 130 being skipped was wrong.** I told the child they were dropped because a
+  sample filtering on volume would drop one-turn sessions, and that the reader brief has an
+  "empty friction list for one-turn sessions" instruction. `shards/MANIFEST.json` shows R01–R19 was a
+  **declared 1,008-session sample at 87.73% coverage**. There is no such brief instruction, and the
+  sample predates every reader. That is the third premise in this round a child refuted.
+* **`reader-census.py` is not in the authority's checkout** — that directory holds only
+  `deliver-persona.py`; the only copy on the box is `/tmp/reader-census.py`, while both the script and
+  `CENSUS-v4.md` cite a path that no longer exists.
+
+**AND A GAP IN THE INSTRUMENT, not just the data: the closed friction vocabulary has no id for "no
+reply at all."** Seven of the 130 hold a real owner ask with **zero assistant text row** —
+`2362fb7d`, `e66dd54a` (iPhone DSH dead on a trip), `ab7c83d1` (*"It destroyed today's workflow. I
+couldn't work in my office"*), `4a99bd5e` and three tick checks. `non-answer` requires an answer and
+`stopped-early` requires a report, so a session that produced **nothing** falls into an empty friction
+list and is structurally invisible to every census built on that vocabulary. **A taxonomy that cannot
+say "the agent was silent" cannot measure the owner's worst day.**
+
+**Also found, and it matters because this file decides machine posture:**
+`settings/machines/host-posture.tsv` **omits `zabz-yoga` and `yoga`** while listing `zabz-yoga-1` and
+`laptop-ts` — against `AGENTS.md` §5's own requirement that every alias an agent might arrive as is a
+row.
 
 ### The closing verification, taken fresh on all three machines after every subsequent change
 
