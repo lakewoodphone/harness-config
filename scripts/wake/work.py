@@ -46,6 +46,7 @@ USAGE
     work.py done ITEM --by WHO --proof "cmd" --result "..."
     work.py list [--project ID] [--state S] [--limit N] [--json]
     work.py show ITEM [--json]
+    work.py owner-row ITEM --owner-row N | --clear
     work.py history [--project ID] [--limit N]
     work.py reap [--json]
     work.py selftest
@@ -64,12 +65,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import socket
 import sqlite3
 import sys
 import time
 import traceback
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 SCHEMA = """
@@ -94,6 +96,7 @@ CREATE TABLE IF NOT EXISTS work_item (
     priority    INTEGER NOT NULL DEFAULT 5,
     owner_row   INTEGER,
     blocked_on  TEXT,
+    revisit_at  TEXT,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL,
     claimed_by  TEXT,
@@ -114,7 +117,8 @@ CREATE TABLE IF NOT EXISTS attempt (
     proof       TEXT,
     result      TEXT,
     left_over   TEXT,
-    state_after TEXT
+    state_after TEXT,
+    exit_code   INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_attempt_item ON attempt(item, id);
 
@@ -128,6 +132,114 @@ CREATE TABLE IF NOT EXISTS note (
 """
 
 DEFAULT_DB = Path(os.path.expanduser(os.environ.get("WORK_DB") or "~/work/work.db"))
+
+# The owner-queue database is a DIFFERENT store from this ledger (owner-queue.py's own
+# DEFAULT_DB). lint-refs reads it and never writes: it is the live production app DB.
+DEFAULT_OQ_DB = os.environ.get(
+    "OWNER_QUEUE_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db")
+
+# The owner-queue store is a DIFFERENT database from this ledger, and it has MOVED before.
+# On the cloud authority the ledger is /root/work/work.db and the live owner-queue/tasks
+# store is /root/authority.db, while DEFAULT_OQ_DB above still names the frozen office-box
+# path - which exists on that host as an EMPTY copy (owner_decision_queue: 0 rows,
+# tasks: 0 rows). MEASURED 2026-10-13 (item 43): `work.py lint-refs` with no flag read the
+# empty copy and reported two LIVE owner-queue rows (#461, #463) as "missing", so the guard
+# that exists to catch DEAD blocked-refs was instead telling the next shift to clear a live
+# owner row or file a duplicate. Through one hard-coded path, "store is empty" and "row is
+# gone" are indistinguishable, so the store is resolved by CONTENT: the first candidate that
+# actually CARRIES rows answers. An explicit --owner-queue-db / OWNER_QUEUE_DB is never
+# second-guessed.
+_OQ_DB_EXTRA_CANDIDATES = (
+    "/root/authority.db",
+    str(Path(DEFAULT_DB).resolve().parent.parent / "authority.db"),
+)
+
+_OQ_DB_RESOLVED = {}
+
+
+def _oq_db_rows(path):
+    """(readable, rows) for one candidate store: owner_decision_queue + tasks. Never raises.
+
+    An unopenable store, or one with neither table, is simply not usable - the difference
+    between "no store here" and a store that can actually answer a "missing row" verdict.
+    """
+    try:
+        con = sqlite3.connect("file:%s?mode=ro" % path, uri=True, timeout=15)
+        try:
+            rows = 0
+            for tbl in ("owner_decision_queue", "tasks"):
+                try:
+                    rows += con.execute("SELECT COUNT(*) FROM %s" % tbl).fetchone()[0]
+                except sqlite3.Error:
+                    pass
+            return True, rows
+        finally:
+            con.close()
+    except Exception:
+        return False, 0
+
+
+def resolve_oq_db(explicit=None):
+    """The owner-queue/tasks store to read: explicit wins, else the one that CARRIES rows.
+
+    Explicit paths (--owner-queue-db, OWNER_QUEUE_DB, fixtures) are honoured exactly. With
+    neither, the default path is tried first; when it is unreadable or holds ZERO rows it is
+    not trusted to answer "that row is missing", and the first candidate that holds rows is
+    used instead. If no candidate holds rows the default is returned, so the caller reports
+    the store it really read instead of inventing a STALE verdict.
+    """
+    if explicit:
+        return explicit
+    if None not in _OQ_DB_RESOLVED:
+        best = None
+        fallback = None
+        for cand in (DEFAULT_OQ_DB,) + _OQ_DB_EXTRA_CANDIDATES:
+            if fallback is None and Path(cand).exists():
+                fallback = cand
+            readable, rows = _oq_db_rows(cand)
+            if readable and rows > 0:
+                best = cand
+                break
+        _OQ_DB_RESOLVED[None] = best or fallback or DEFAULT_OQ_DB
+    return _OQ_DB_RESOLVED[None]
+
+# A reference to an owner-queue row inside the free-text blocked_on. It matches the shapes
+# shifts actually write - "owner-queue #206", "owner-queue row #214", "owner-queue row 209",
+# "owner_row 5" - and deliberately does NOT match a bare "item 54" or "task 27217": those are
+# ledger/engineering references, and reading them as owner-queue rows is the false positive
+# that would make this guard useless.
+_OQ_REF_RE = re.compile(
+    r"(?:owner[\s_-]*queue\s*(?:row\s*)?|owner[\s_-]*row\s*)#?\s*(\d+)", re.I)
+
+# A reference to an engineering TASK (the production store's `tasks` table) inside
+# blocked_on. It matches the shapes shifts write - "task 27217", "engineering task 27217",
+# "task #27233" - and deliberately does NOT match an owner-queue ref or a bare "item 54".
+_TASK_REF_RE = re.compile(r"(?:engineering\s+)?task\s*#?\s*(\d+)", re.I)
+
+# A task in one of these states can never release a block: it is finished or abandoned.
+# open/in_progress/in-progress/blocked/pending/paused are live states and do NOT warn.
+_TASK_TERMINAL = {"done", "completed", "closed", "cancelled", "canceled"}
+
+# A LEDGER item in one of these states can never release a block either. `dropped` is here
+# because an abandoned item will never act; `done` is the item-213 case.
+_LEDGER_TERMINAL = {"done", "dropped"}
+
+# A reference to a LEDGER item (a work_item in THIS store) inside blocked_on - but ONLY when
+# the free text declares it as the DEPENDENCY, never on a bare "item N". The shapes shifts
+# write are "blocked on item 60", "Prerequisite item 60 must land first", "must wait for
+# item 207", "gated by item 90".
+#
+# A BARE `item\s*(\d+)` IS A FALSE-POSITIVE MACHINE, and that was MEASURED on the live
+# ledger 2026-10-15 rather than imagined: item 20's blocker says "so item 20 DoD clause 2
+# cannot currently be re-proven" (a self-reference in prose), and item 120's says "no
+# per-phone broker credential (item 90: Token empty in every appsettings, must be issued
+# server-side ...)" (an explanatory parenthetical), while item 184's "revocation must wait
+# for item 207" is the one real dependency - and 207 is itself still blocked. Matching any
+# `item N` would flag 20 and 120 as stale and, through reap, re-queue work whose blocker is
+# untouched. So the lead-in phrase is required.
+_ITEM_DEP_RE = re.compile(
+    r"(?:blocked\s+on|blocked\s+by|gated\s+by|wait(?:ing)?\s+(?:on|for)|waits?\s+on|"
+    r"depends?\s+on|prerequisite|pending\s+on)\s*:?\s*(?:ledger\s+)?item\s*#?\s*(\d+)", re.I)
 
 
 def now() -> str:
@@ -159,7 +271,59 @@ def connect(db: Path) -> sqlite3.Connection:
     c.execute("PRAGMA busy_timeout=10000")
     c.execute("PRAGMA foreign_keys=ON")
     c.executescript(SCHEMA)
+    _migrate(c)
     return c
+
+
+def _migrate(c: sqlite3.Connection) -> None:
+    """Bring an EXISTING store up to the current schema.
+
+    SCHEMA only ever runs CREATE TABLE IF NOT EXISTS, so a column added to the literal
+    never reaches a store that already exists - which is exactly how `revisit_at` (item
+    145) would have been silently absent from the live ledger while claiming to be there.
+    ALTER here, then BACKFILL: a blocked row that was never given a revisit time is
+    OVERDUE for triage, not exempt, so it is stamped due now instead of left NULL where
+    nothing will ever look at it again.
+    """
+    cols = {r[1] for r in c.execute("PRAGMA table_info(work_item)")}
+    if "revisit_at" not in cols:
+        c.execute("ALTER TABLE work_item ADD COLUMN revisit_at TEXT")
+        c.execute("UPDATE work_item SET revisit_at=? "
+                  "WHERE state='blocked' AND revisit_at IS NULL", (now(),))
+        c.execute("UPDATE work_item SET blocked_on=? "
+                  "WHERE state='blocked' AND (blocked_on IS NULL OR blocked_on='')",
+                  ("untyped: block predates item 145 - name the person or external thing",))
+        c.commit()
+
+    # Item 263: the attempt table records the exit code its proof command RETURNED, so an
+    # outcome is stored at close time instead of being re-derived from free text later. An
+    # existing store gets the column by ALTER; attempt rows that predate this stay NULL and
+    # work-outcomes.py keeps deriving them, so nothing already written is rewritten.
+    acols = {r[1] for r in c.execute("PRAGMA table_info(attempt)")}
+    if "exit_code" not in acols:
+        c.execute("ALTER TABLE attempt ADD COLUMN exit_code INTEGER")
+        c.commit()
+
+
+def revisit_default() -> str:
+    """When a block must be looked at again if nobody has unblocked it by then."""
+    days = int(os.environ.get("WORK_REVISIT_DAYS", "7") or "7")
+    return (datetime.now(timezone.utc) + timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _blocked_due(c: sqlite3.Connection, at: str | None = None):
+    """Every blocked item whose revisit time has passed (or was never set).
+
+    A NULL revisit_at has no future time at which it becomes due, so it is treated as
+    due NOW: a block nobody is ever prompted to revisit is work disappearing quietly,
+    which is the failure mode item 145 exists to end.
+    """
+    at = at or now()
+    return c.execute(
+        "SELECT id, project, title, priority, blocked_on, revisit_at, updated_at "
+        "FROM work_item WHERE state='blocked' "
+        "AND (revisit_at IS NULL OR revisit_at <= ?) "
+        "ORDER BY (revisit_at IS NULL) DESC, priority ASC, revisit_at ASC", (at,)).fetchall()
 
 
 def out(word: str, **kw) -> int:
@@ -221,6 +385,21 @@ def cmd_project_list(a) -> int:
     return 0
 
 
+def _kwargs_from_json(a) -> None:
+    """Fill the add-arguments from a JSON file. --from-json is the quoting-safe path: `--dod` is a shell
+    command and shell quoting mangles it (measured twice, journal L3684)."""
+    path = getattr(a, "from_json", None)
+    if not path:
+        return
+    import json as _json
+    raw = sys.stdin.read() if path == "-" else open(path, encoding="utf-8").read()
+    data = _json.loads(raw)
+    for key in ("project", "title", "dod", "why", "priority", "owner_row", "source"):
+        attr = "owner_row" if key == "owner_row" else key
+        if getattr(a, attr, None) in (None, False) and key in data:
+            setattr(a, attr, data[key])
+
+
 def cmd_add(a) -> int:
     c = connect(Path(a.db))
     proj = c.execute("SELECT id FROM project WHERE id=?", (a.project,)).fetchone()
@@ -266,6 +445,29 @@ def _pick_next(c, project=None):
          "ORDER BY w.priority ASC, (SELECT MIN(created_at) FROM work_item x "
          "WHERE x.project=w.project AND x.state='todo') ASC, w.created_at ASC LIMIT 1")
     return c.execute(q, args).fetchone()
+
+
+def cmd_owner_row(a) -> int:
+    """Attach (or clear) an owner-queue row reference on an item that ALREADY EXISTS.
+
+    WHY (item 369): `--owner-row` lived only on `add`, so backfilling a structured
+    owner-queue ref onto a live item meant hand-editing the ledger with raw sqlite -
+    the same path that let item 363's ref end up prose-only and invisible to
+    _stale_oq_refs, and therefore to the claim-next nothing-todo warning. A ref set
+    here writes exactly the field lint-refs reads, so the guard sees it immediately.
+    """
+    c = connect(Path(a.db))
+    r = c.execute("SELECT id, project, owner_row FROM work_item WHERE id=?",
+                  (a.item,)).fetchone()
+    if not r:
+        c.close()
+        return out("error:no-such-item", id=a.item)
+    val = None if getattr(a, "clear", False) else a.owner_row
+    c.execute("UPDATE work_item SET owner_row=?, updated_at=? WHERE id=?",
+              (val, now(), a.item))
+    c.commit()
+    c.close()
+    return out("owner-row-set", item=a.item, owner_row=val, previous=r["owner_row"])
 
 
 def cmd_next(a) -> int:
@@ -318,31 +520,41 @@ def cmd_attempt(a) -> int:
     if a.proof and not a.result:
         return out("error:proof-without-result",
                    hint="a proving command with no quoted output is not evidence")
+    if a.state == "blocked" and not (a.blocked_on and a.blocked_on.strip()):
+        return out("error:blocked-without-blocker", id=a.item,
+                   hint="blocked MUST name the person or external thing that must act "
+                        "(--blocked-on); an untyped block is how work goes invisible")
     att = c.execute("SELECT id FROM attempt WHERE item=? AND worker=? AND ended_at IS NULL "
                     "ORDER BY id DESC LIMIT 1", (a.item, a.by)).fetchone()
     if att:
-        c.execute("UPDATE attempt SET ended_at=?, did=?, proof=?, result=?, left_over=?, state_after=? "
-                  "WHERE id=?",
-                  (t, a.did, a.proof, a.result, a.left, a.state, att["id"]))
+        c.execute("UPDATE attempt SET ended_at=?, did=?, proof=?, result=?, left_over=?, state_after=?, "
+                  "exit_code=? WHERE id=?",
+                  (t, a.did, a.proof, a.result, a.left, a.state,
+                   getattr(a, "exit_code", None), att["id"]))
         attempt_id = att["id"]
     else:
-        cur = c.execute("INSERT INTO attempt(item,worker,started_at,ended_at,did,proof,result,left_over,state_after) "
-                        "VALUES(?,?,?,?,?,?,?,?,?)",
-                        (a.item, a.by, t, t, a.did, a.proof, a.result, a.left, a.state))
+        cur = c.execute("INSERT INTO attempt(item,worker,started_at,ended_at,did,proof,result,left_over,"
+                        "state_after,exit_code) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                        (a.item, a.by, t, t, a.did, a.proof, a.result, a.left, a.state,
+                         getattr(a, "exit_code", None)))
         attempt_id = cur.lastrowid
     state = a.state
     blocked_on = a.blocked_on if state == "blocked" else None
+    revisit_at = ((getattr(a, "revisit", None) or revisit_default())
+                  if state == "blocked" else None)
     if state == "done" and not (a.proof and a.result):
         state = "todo"          # a claim of done without evidence is not a done
         note = "downgraded: no proof+result supplied"
     else:
         note = None
-    c.execute("UPDATE work_item SET state=?, blocked_on=?, claimed_by=CASE WHEN ?='running' THEN claimed_by ELSE NULL END, "
+    c.execute("UPDATE work_item SET state=?, blocked_on=?, revisit_at=?, "
+              "claimed_by=CASE WHEN ?='running' THEN claimed_by ELSE NULL END, "
               "lease_until=CASE WHEN ?='running' THEN lease_until ELSE NULL END, "
               "done_at=CASE WHEN ?='done' THEN ? ELSE done_at END, updated_at=? WHERE id=?",
-              (state, blocked_on, state, state, state, t, t, a.item))
+              (state, blocked_on, revisit_at, state, state, state, t, t, a.item))
     c.commit()
-    res = out("attempt-recorded", id=a.item, attempt=attempt_id, state=state)
+    res = out("attempt-recorded", id=a.item, attempt=attempt_id, state=state,
+              exit_code=getattr(a, "exit_code", None))
     if note:
         print("  note: %s" % note)
     return res
@@ -408,6 +620,8 @@ def cmd_show(a) -> int:
         print("  held by    %s until %s" % (r["claimed_by"], r["lease_until"]))
     if r["blocked_on"]:
         print("  blocked on %s" % r["blocked_on"])
+    if r["revisit_at"]:
+        print("  revisit at %s" % r["revisit_at"])
     if r["owner_row"]:
         print("  owner row  #%s" % r["owner_row"])
     for x in atts:
@@ -439,7 +653,18 @@ def cmd_history(a) -> int:
 
 
 def cmd_reap(a) -> int:
-    """Return expired leases to todo and record it. A dead worker must not strand work."""
+    """Return expired leases to todo, and release blocks whose dependency has landed.
+
+    Two different kinds of stranded work are recovered here, both under the one command a
+    shift already runs when it finds every item held:
+      * a `running` item whose worker died (an expired lease carries no one with it); and
+      * a `blocked` item whose ENTIRE declared dependency is a ledger item that is already
+        done (item 213 - item 41 sat blocked for 8 days behind item 60). The second is the
+        only thing in this tool that moves work OUT of `blocked` on evidence rather than on
+        a human reading `due`, and it is deliberately narrow: a block that names an
+        owner-queue row or a task is a block on a person or an external system and is left
+        alone (see _clearable_item_blocks).
+    """
     c = connect(Path(a.db))
     rows = c.execute("SELECT id,claimed_by,lease_until FROM work_item WHERE state='running'").fetchall()
     reaped = []
@@ -452,8 +677,20 @@ def cmd_reap(a) -> int:
                       (r["id"], "reaper", now(), now(),
                        "lease expired (held by %s until %s); returned to todo" % (r["claimed_by"], r["lease_until"])))
             reaped.append(r["id"])
+    requeued = []
+    for iid in _clearable_item_blocks(c):
+        bo = c.execute("SELECT blocked_on FROM work_item WHERE id=?", (iid,)).fetchone()["blocked_on"]
+        t = now()
+        c.execute("UPDATE work_item SET state='todo', blocked_on=NULL, revisit_at=NULL, "
+                  "claimed_by=NULL, lease_until=NULL, updated_at=? WHERE id=?", (t, iid))
+        c.execute("INSERT INTO attempt(item,worker,started_at,ended_at,did,state_after) "
+                  "VALUES(?,?,?,?,?,'todo')",
+                  (iid, "reaper", t, t,
+                   "declared dependency cleared: %s - released blocked -> todo" % bo))
+        requeued.append(iid)
     c.commit()
-    return out("reaped", items=reaped, count=len(reaped))
+    return out("reaped", items=reaped, count=len(reaped),
+               requeued=requeued, requeued_count=len(requeued))
 
 
 def cmd_claim_next(a) -> int:
@@ -472,6 +709,23 @@ def cmd_claim_next(a) -> int:
     c = connect(Path(a.db))
     r = _pick_next(c, a.project)
     if not r:
+        # A shift whose OWN handle still leases the only running item must be told
+        # `already-yours`, not `held-by-other`. `cmd_claim` already resolves the same-handle
+        # case; claim-next must too, or a woken shift is told to stop/reap while its lease is
+        # live and `reap` is a no-op. Measured 2026-09-28 (item 67): the personality-system
+        # shift nearly abandoned item 38 that way.
+        mine = c.execute(
+            "SELECT * FROM work_item w WHERE w.state='running' AND w.claimed_by=?"
+            + (" AND w.project=?" if a.project else "")
+            + " ORDER BY w.priority ASC, w.created_at ASC LIMIT 1",
+            ([a.by] + ([a.project] if a.project else []))).fetchone()
+        if mine is not None and not lease_expired(mine):
+            kw = {"id": mine["id"], "lease": mine["lease_until"],
+                  "project": a.project or "*"}
+            if a.json:
+                print(json.dumps(dict(kw, ok="already-yours"), sort_keys=True))
+                return 0
+            return out("already-yours", **kw)
         held = c.execute("SELECT COUNT(*) FROM work_item w WHERE w.state='running'"
                          + (" AND w.project=?" if a.project else ""),
                          ([a.project] if a.project else [])).fetchone()[0]
@@ -480,9 +734,22 @@ def cmd_claim_next(a) -> int:
                                          "hint": "every item for this project is leased; try `work.py reap`"}
         else:
             word, kw = "nothing-todo", {"project": a.project or "*"}
+        # Do not report nothing-todo (or held-by-other) while silently hiding live work.
+        # TWO guards, because a block can be stopped for two different reasons:
+        #   - its named owner-queue row or task is already finished (items 201/210), and
+        #   - it is simply PAST ITS REVISIT TIME (item 214) with nobody prompted to look.
+        # Both warnings must come BEFORE the result word, and `--json` must stay EXACTLY
+        # one object, so there the same facts travel as object fields.
+        warn, warn_kw = _stale_ref_warning(a.db, getattr(a, "owner_queue_db", None))
+        due_warn, due_kw = _due_blocked_warning(a.db)
+        warn_kw.update(due_kw)
         if a.json:
-            print(json.dumps(dict(kw, ok=word), sort_keys=True))
+            print(json.dumps(dict(kw, ok=word, **warn_kw), sort_keys=True))
             return 0
+        if warn:
+            print(warn)
+        if due_warn:
+            print(due_warn)
         return out(word, **kw)
     claim = argparse.Namespace(item=r["id"], by=a.by, lease=a.lease, db=a.db)
     # `--json` must emit EXACTLY ONE JSON object, so cmd_claim's one-line result word is
@@ -508,7 +775,300 @@ def cmd_claim_next(a) -> int:
         # this call by making the output unparseable while looking correct on screen.
         print(json.dumps(d, sort_keys=True))
         return 0
+    # cmd_claim's result word was captured so `--json` can emit exactly one object; on the
+    # human path it must be re-emitted. Measured 2026-09-28 on the authority: a successful
+    # `claim-next` without `--json` wrote 0 bytes to stdout, so a caller could not tell a
+    # claim from a no-op.
+    sys.stdout.write(_buf.getvalue())
     return rc
+
+
+def _stale_oq_refs(db, owner_queue_db=None):
+    """List blocked items whose owner-queue reference is no longer pending.
+
+    THE DEFECT THIS GUARDS (measured 2026-09-30, lpt-sync item 160): _pick_next()
+    selects state='todo' only, so once an item is blocked it is invisible to
+    claim-next; if the owner_decision_queue row it names is later resolved, the block
+    is stale - the item is neither claimable nor actually waiting on the owner, and
+    claim-next reports nothing-todo over live work. `lint-refs` exposes the check and
+    `claim-next` runs it on the nothing-todo path (item 201) so the silent recurrence
+    needs no human to remember the subcommand.
+
+    Returns (stale, blocked_count, refs_checked, error). `error` is a string when the
+    owner-queue store could not be read; stale is then empty and the caller must say so
+    rather than imply the ledger is clean.
+    """
+    c = connect(Path(db))
+    rows = c.execute("SELECT id, project, owner_row, blocked_on FROM work_item "
+                     "WHERE state='blocked' ORDER BY id").fetchall()
+    oq_path = resolve_oq_db(owner_queue_db)
+    try:
+        # mode=ro and no schema script: never write, never take a lock, and never even
+        # CREATE TABLE against the live production database.
+        oq = sqlite3.connect("file:%s?mode=ro" % oq_path, uri=True, timeout=15)
+        oq.row_factory = sqlite3.Row
+        status = {r["id"]: r["status"]
+                  for r in oq.execute("SELECT id, status FROM owner_decision_queue")}
+        oq.close()
+    except Exception as exc:
+        c.close()
+        return [], len(rows), 0, "%s: %s" % (type(exc).__name__, exc)
+
+    stale, refs_checked = [], 0
+    for r in rows:
+        refs = set()
+        if r["owner_row"] is not None:
+            refs.add(int(r["owner_row"]))
+        if r["blocked_on"]:
+            refs.update(int(m) for m in _OQ_REF_RE.findall(r["blocked_on"]))
+        for oid in sorted(refs):
+            refs_checked += 1
+            st = status.get(oid)
+            if st == "pending":
+                continue
+            stale.append({"item": r["id"], "project": r["project"], "owner_queue_id": oid,
+                          "owner_queue_status": st if st is not None else "missing",
+                          "blocked_on": r["blocked_on"]})
+    c.close()
+    return stale, len(rows), refs_checked, None
+
+
+def _stale_task_refs(db, secretary_db=None):
+    """List blocked items whose engineering-task reference is already terminal.
+
+    THE DEFECT THIS GUARDS (measured 2026-09-30, lpt-sync item 210): the item-193/201
+    guard covers owner-queue rows only. An item blocked on a TASK (task 27217 completed
+    16:58:01Z while item 86 sat blocked on it) is invisible to claim-next, and once that
+    task is done the item is neither claimable nor waiting on anyone - claim-next returns
+    a bare nothing-todo over live work while the C06 ERRORs it gated stay unfixed.
+
+    Read-only against the production store. A missing `tasks` table means "this store
+    carries no task refs", not an unreadable store, so the tool still runs against a
+    ledger-only fixture; any other read failure is reported to the caller.
+
+    Returns (stale, blocked_count, refs_checked, error).
+    """
+    c = connect(Path(db))
+    rows = c.execute("SELECT id, project, blocked_on FROM work_item "
+                     "WHERE state='blocked' ORDER BY id").fetchall()
+    path = resolve_oq_db(secretary_db)
+    try:
+        oq = sqlite3.connect("file:%s?mode=ro" % path, uri=True, timeout=15)
+        oq.row_factory = sqlite3.Row
+        status = {r["id"]: r["status"]
+                  for r in oq.execute("SELECT id, status FROM tasks")}
+        oq.close()
+    except sqlite3.OperationalError as exc:
+        c.close()
+        if "no such table" in str(exc).lower():
+            return [], len(rows), 0, None
+        return [], len(rows), 0, "%s: %s" % (type(exc).__name__, exc)
+    except Exception as exc:
+        c.close()
+        return [], len(rows), 0, "%s: %s" % (type(exc).__name__, exc)
+
+    stale, refs_checked = [], 0
+    for r in rows:
+        if not r["blocked_on"]:
+            continue
+        for tid in sorted({int(m) for m in _TASK_REF_RE.findall(r["blocked_on"])}):
+            refs_checked += 1
+            st = status.get(tid)
+            if st is not None and st.lower() not in _TASK_TERMINAL:
+                continue
+            stale.append({"item": r["id"], "project": r["project"], "task_id": tid,
+                          "task_status": st if st is not None else "missing",
+                          "blocked_on": r["blocked_on"]})
+    c.close()
+    return stale, len(rows), refs_checked, None
+
+
+def _stale_item_refs(db):
+    """List blocked items whose blocked_on declares a LEDGER-item dependency that is finished.
+
+    THE DEFECT THIS GUARDS (ledger item 213, measured 2026-10-14): item 41 was blocked on
+    item 60; item 60 completed 2026-10-14 and item 41 stayed `blocked` with a 2026-10-20
+    revisit while claim-next answered nothing-todo - the dialpad -> lpt-hub -> production
+    sync chain stalled for 8 days behind a blocker that had already landed.
+    _stale_oq_refs and _stale_task_refs cannot see it: a bare "item 54" is deliberately not
+    read as an owner-queue row, and it is not a "task N" either, so a dependency named as a
+    LEDGER item was re-evaluated by nothing.
+
+    Only a reference whose item EXISTS and is terminal (`done`/`dropped`) is reported. A
+    missing id is NOT evidence that a block is clear - free text names history and other
+    corpora - and (see _ITEM_DEP_RE) a bare prose "item N" is not a dependency at all.
+
+    Read-only against THIS ledger, so it cannot fail on an unreadable external store.
+    Returns (stale, blocked_count, refs_checked, error).
+    """
+    c = connect(Path(db))
+    rows = c.execute("SELECT id, project, blocked_on FROM work_item "
+                     "WHERE state='blocked' ORDER BY id").fetchall()
+    states = {r["id"]: r["state"] for r in c.execute("SELECT id, state FROM work_item")}
+    c.close()
+    stale, refs_checked = [], 0
+    for r in rows:
+        if not r["blocked_on"]:
+            continue
+        for tid in sorted({int(m) for m in _ITEM_DEP_RE.findall(r["blocked_on"])}):
+            refs_checked += 1
+            st = states.get(tid)
+            if st is None or st not in _LEDGER_TERMINAL:
+                continue
+            stale.append({"item": r["id"], "project": r["project"], "dep_item": tid,
+                          "dep_state": st, "blocked_on": r["blocked_on"]})
+    return stale, len(rows), refs_checked, None
+
+
+def _clearable_item_blocks(c):
+    """Blocked items whose ENTIRE declared dependency is a ledger item that is already done.
+
+    This is the RE-QUEUE half of item 213. A block whose dependency has landed is not a
+    block any more, and leaving it in `blocked` is how item 41 sat dormant for 8 days. An
+    item qualifies only when BOTH hold:
+      * blocked_on declares at least one ledger-item dependency (_ITEM_DEP_RE), and EVERY
+        ledger item it names exists and is terminal; and
+      * blocked_on names NO owner-queue row and NO engineering task at all - those are
+        blocks on a PERSON or an external system, and a shift may not clear those for him
+        by finishing an unrelated ledger item.
+
+    Returns the list of ids it moved (the caller commits and records the attempt rows).
+    """
+    rows = c.execute("SELECT id, blocked_on FROM work_item "
+                     "WHERE state='blocked' ORDER BY id").fetchall()
+    states = {r["id"]: r["state"] for r in c.execute("SELECT id, state FROM work_item")}
+    moved = []
+    for r in rows:
+        bo = r["blocked_on"] or ""
+        deps = {int(m) for m in _ITEM_DEP_RE.findall(bo)}
+        if not deps:
+            continue
+        if _OQ_REF_RE.search(bo) or _TASK_REF_RE.search(bo):
+            continue
+        if any(states.get(d) not in _LEDGER_TERMINAL for d in deps):
+            continue
+        moved.append(r["id"])
+    return moved
+
+
+def _stale_ref_warning(db, owner_queue_db=None):
+    """The claim-next warning payload for stale refs, or (None, {}).
+
+    Covers owner-queue rows (items 193/201), engineering tasks (item 210) AND ledger items
+    (item 213): a block whose named ledger dependency is already done is invisible and
+    unreleasable too. Human output gets a one-line warning naming the stale item ids;
+    `--json` output must stay EXACTLY ONE object, so there the same facts travel as object
+    fields.
+    """
+    oq_stale, _nb1, _r1, oq_err = _stale_oq_refs(db, owner_queue_db)
+    tk_stale, _nb2, _r2, tk_err = _stale_task_refs(db, owner_queue_db)
+    it_stale, _nb3, _r3, it_err = _stale_item_refs(db)
+    errs = [e for e in (oq_err, tk_err, it_err) if e]
+    if errs:
+        return ("WARNING: stale-reference check could not read the secretary store "
+                "(%s); blocked work may be hidden" % "; ".join(errs),
+                {"stale_ref_check": "unreadable", "stale_ref_error": "; ".join(errs)})
+    if not oq_stale and not tk_stale and not it_stale:
+        return None, {}
+    kw = {}
+    parts = []
+    if oq_stale:
+        ids = sorted({s["item"] for s in oq_stale})
+        parts.append("blocked item(s) %s cite owner-queue rows that are no longer pending"
+                     % ",".join(str(i) for i in ids))
+        kw["stale_ref_items"] = ids
+        kw["stale_refs"] = oq_stale
+    if tk_stale:
+        ids = sorted({s["item"] for s in tk_stale})
+        parts.append("blocked item(s) %s cite engineering tasks that are already done"
+                     % ",".join(str(i) for i in ids))
+        kw["stale_task_items"] = ids
+        kw["stale_task_refs"] = tk_stale
+    if it_stale:
+        ids = sorted({s["item"] for s in it_stale})
+        parts.append("blocked item(s) %s cite ledger items that are already done"
+                     % ",".join(str(i) for i in ids))
+        kw["stale_item_items"] = ids
+        kw["stale_item_refs"] = it_stale
+    msg = "WARNING: " + "; ".join(parts) + "; run `work.py lint-refs`"
+    kw["stale_ref_warning"] = msg
+    return msg, kw
+
+
+def _due_blocked_warning(db):
+    """The claim-next warning for blocked items past their revisit time, or (None, {}).
+
+    THE DEFECT THIS GUARDS (measured 2026-10-07, ledger item 214): `_pick_next` selects
+    state='todo' only, so a blocked item is invisible to claim-next; when its revisit time
+    passes, nothing and nobody is prompted to look at it, and claim-next reports a bare
+    nothing-todo over live work. The stale-ref guard (items 193/201/210) covers only the
+    blocks whose named owner-queue row or task is already finished - it cannot see the
+    blocks that are simply PAST DUE. The due set was visible only to a shift that
+    remembered to run `work.py due`; this makes the same fact part of the one call a
+    shift always makes first. Human output names the due item ids BEFORE the result word;
+    `--json` must stay EXACTLY ONE object, so the facts travel as object fields.
+
+    A NULL revisit_at is due NOW, exactly as `work.py due` reads it: a block nobody is
+    ever prompted to revisit is work disappearing quietly.
+
+    Returns (message, kw) or (None, {}).
+    """
+    c = connect(Path(db))
+    rows = _blocked_due(c)
+    c.close()
+    if not rows:
+        return None, {}
+    ids = [r["id"] for r in rows]
+    msg = ("WARNING: due blocked item(s) %s are past their revisit time; run `work.py due`"
+           % ",".join(str(i) for i in ids))
+    return msg, {"due_blocked_items": ids, "due_blocked": [dict(r) for r in rows]}
+
+
+def cmd_lint_refs(a) -> int:
+    """Fail when a blocked item points at an owner-queue row, a task or a ledger item that
+    is finished.
+
+    Exit 0 when every reference is live, 1 when at least one is not. A reference to an id
+    that does not exist at all is stale too for owner-queue rows and tasks: nothing can ever
+    release those, and the store they live in is the authority on whether the id is real. A
+    ledger-item ref is the exception (item 213): only an EXISTING ledger item in a terminal
+    state is reported, because free text that says "item N" is often prose rather than a
+    dependency and a missing id there is not evidence the block is clear.
+    """
+    stale, nblocked, refs_checked, err = _stale_oq_refs(a.db, a.owner_queue_db)
+    if err is not None:
+        out("error:owner-queue-unreadable", db=resolve_oq_db(a.owner_queue_db), error=err)
+        return 1
+    tstale, _nbt, trefs, terr = _stale_task_refs(a.db, a.owner_queue_db)
+    if terr is not None:
+        out("error:secretary-unreadable", db=resolve_oq_db(a.owner_queue_db), error=terr)
+        return 1
+    istale, _nbi, irefs, _ierr = _stale_item_refs(a.db)
+    if a.json:
+        print(json.dumps({"stale": stale, "stale_tasks": tstale, "stale_items": istale,
+                          "blocked_items": nblocked,
+                          "refs_checked": refs_checked, "task_refs_checked": trefs,
+                          "item_refs_checked": irefs},
+                         sort_keys=True))
+    else:
+        for s in stale:
+            print("STALE item %d (%s) -> owner-queue #%s is %s"
+                  % (s["item"], s["project"], s["owner_queue_id"], s["owner_queue_status"]))
+        for s in tstale:
+            print("STALE item %d (%s) -> task %s is %s"
+                  % (s["item"], s["project"], s["task_id"], s["task_status"]))
+        for s in istale:
+            print("STALE item %d (%s) -> ledger item %s is %s"
+                  % (s["item"], s["project"], s["dep_item"], s["dep_state"]))
+        if stale or tstale or istale:
+            print("lint-refs: %d stale reference(s) across %d blocked item(s); "
+                  "%d owner-queue + %d task + %d ledger item checked"
+                  % (len(stale) + len(tstale) + len(istale), nblocked, refs_checked, trefs,
+                     irefs))
+        else:
+            print("lint-refs: clean - %d reference(s) across %d blocked item(s) all live"
+                  % (refs_checked, nblocked))
+    return 1 if (stale or tstale or istale) else 0
 
 
 def cmd_selftest(a) -> int:
@@ -573,15 +1133,547 @@ def cmd_selftest(a) -> int:
     c.close()
     assert json.loads(buf.getvalue().strip()).get("ok") == "held-by-other", \
         "an exhausted project must report held-by-other, got %r" % buf.getvalue().strip()
+    # AND: the SAME handle that already holds the only running item is told it owns it, not
+    # held-by-other. This is item 67 (2026-09-28): claim-next selected only state='todo', so a
+    # shift whose own live lease covered the item was instructed to reap - and reap does
+    # nothing while the lease is live.
+    mine = argparse.Namespace(project="q", by="worker0", lease=600, db=str(db2), json=True)
+    mine.item = None
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(mine)
+    obj = json.loads(buf.getvalue().strip())
+    assert obj.get("ok") == "already-yours", \
+        "the same handle that holds the only running item must get already-yours, got %r" \
+        % buf.getvalue().strip()
+    c = connect(db2)
+    owner = c.execute("SELECT id FROM work_item WHERE project='q' AND claimed_by='worker0'").fetchone()
+    c.close()
+    assert obj.get("id") == owner["id"], \
+        "already-yours named item %r, but worker0 holds %r" % (obj.get("id"), owner["id"])
+    # AND: a non---json claim-next still prints its result word. The --json path buffers
+    # cmd_claim's output so it can emit exactly one object; on the human path that buffer
+    # must be flushed, or a successful claim is silent (measured 2026-09-28 on the authority:
+    # `claim-next` without --json wrote 0 bytes to stdout on success).
+    c = connect(db2)
+    c.execute("INSERT INTO work_item(project,title,dod,created_at,updated_at) "
+              "VALUES('q','d','cmd',?,?)", (t, t))
+    c.commit()
+    c.close()
+    plain = argparse.Namespace(project="q", by="worker4", lease=600, db=str(db2), json=False)
+    plain.item = None
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(plain)
+    txt = buf.getvalue().strip()
+    assert txt.startswith("claimed"), \
+        "non-json claim-next must print its result word, got %r" % txt
+
+
+    # AND: the owner-queue staleness guard (item 193). A blocked item is invisible to
+    # claim-next; if the owner-queue row it names is later resolved, nothing releases it
+    # and nothing reports it. cmd_lint_refs must exit non-zero and name every such item,
+    # must NOT read a bare ledger ref ("item 54") as an owner-queue row, and must exit 0
+    # once every referenced row is pending again.
+    oq_db = Path(tmp).with_name("oq.db")
+    oc = sqlite3.connect(str(oq_db))
+    oc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.executemany("INSERT INTO owner_decision_queue(id,status) VALUES(?,?)",
+                   [(5, "resolved"), (6, "answered"), (7, "pending")])
+    oc.commit()
+    oc.close()
+    db3 = Path(tmp).with_name("w3.db")
+    c = connect(db3)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('r','R',?,?)", (t, t))
+    for title, orow, bo, state in (
+            ("resolved-owner_row", 5, None, "blocked"),
+            ("answered-blocked_on", None, "waiting on owner-queue #6", "blocked"),
+            ("pending-is-clean", None, "waiting on owner-queue row 7", "blocked"),
+            ("ledger-ref-not-oq", None, "blocked on item 54", "blocked"),
+            ("missing-owner_row", 999, None, "blocked"),
+            ("todo-is-ignored", 5, None, "todo")):
+        c.execute("INSERT INTO work_item(project,title,dod,state,owner_row,blocked_on,"
+                  "created_at,updated_at) VALUES('r',?,'cmd',?,?,?,?,?)",
+                  (title, state, orow, bo, t, t))
+    c.commit()
+    c.close()
+    lr = argparse.Namespace(db=str(db3), owner_queue_db=str(oq_db), json=True)
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_lint_refs(lr)
+    obj = json.loads(buf.getvalue().strip())
+    stale = sorted(s["item"] for s in obj["stale"])
+    assert rc == 1, "lint-refs must exit 1 on a stale owner-queue ref"
+    assert stale == [1, 2, 5], "lint-refs stale set %r, expected [1,2,5]" % stale
+    assert "item 54" not in buf.getvalue(), \
+        "a bare ledger ref must not be read as an owner-queue row"
+    oc = sqlite3.connect(str(oq_db))
+    oc.execute("UPDATE owner_decision_queue SET status='pending'")
+    oc.execute("INSERT INTO owner_decision_queue(id,status) VALUES(999,'pending')")
+    oc.commit()
+    oc.close()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_lint_refs(lr)
+    assert rc == 0, \
+        "lint-refs must exit 0 when every ref is pending, got %r" % buf.getvalue().strip()
+    # AND: claim-next must SURFACE the stale set itself (item 201). Having lint-refs is
+    # not enough - the 2026-09-30 silent nothing-todo happened because a human had to
+    # remember to run it. A project whose only items are blocked leaves claim-next with
+    # nothing to claim: it must name the stale ids before reporting nothing-todo, and must
+    # stay silent (and keep --json to exactly one object) once every ref is pending again.
+    oc = sqlite3.connect(str(oq_db))
+    oc.execute("UPDATE owner_decision_queue SET status='pending'")
+    oc.execute("UPDATE owner_decision_queue SET status='resolved' WHERE id=6")
+    oc.commit()
+    oc.close()
+    db4 = Path(tmp).with_name("w4.db")
+    c = connect(db4)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('x','X',?,?)", (t, t))
+    c.execute("INSERT INTO work_item(project,title,dod,state,blocked_on,revisit_at,"
+              "created_at,updated_at) VALUES('x','hidden','cmd','blocked',"
+              "'waiting on owner-queue #6','2999-01-01T00:00:00Z',?,?)", (t, t))
+    c.commit()
+    c.close()
+    cn = argparse.Namespace(project="x", by="worker-cn", lease=600, db=str(db4),
+                            json=False, owner_queue_db=str(oq_db))
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_claim_next(cn)
+    txt = buf.getvalue()
+    assert rc == 0, "claim-next must still exit 0 on nothing-todo"
+    assert "nothing-todo" in txt, "claim-next lost its nothing-todo word: %r" % txt
+    assert "WARNING" in txt, "a resolved ref must warn from claim-next: %r" % txt
+    assert txt.index("WARNING") < txt.index("nothing-todo"), \
+        "the stale warning must precede the nothing-todo word: %r" % txt
+    assert "blocked item(s) 1" in txt, "the warning must name the stale item id: %r" % txt
+    cjson = argparse.Namespace(project="x", by="worker-cn2", lease=600, db=str(db4),
+                               json=True, owner_queue_db=str(oq_db))
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(cjson)
+    obj = json.loads(buf.getvalue().strip())
+    assert obj.get("ok") == "nothing-todo", obj
+    assert obj.get("stale_ref_items") == [1], obj
+    oc = sqlite3.connect(str(oq_db))
+    oc.execute("UPDATE owner_decision_queue SET status='pending'")
+    oc.commit()
+    oc.close()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(cn)
+    txt = buf.getvalue()
+    assert "WARNING" not in txt, "an all-pending ledger must not warn: %r" % txt
+    assert "nothing-todo" in txt, txt
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(cjson)
+    obj = json.loads(buf.getvalue().strip())
+    assert "stale_ref_items" not in obj, obj
+    # AND: an item blocked on an ENGINEERING TASK that is already done is stale too
+    # (item 210). The owner-queue guard above cannot see it: task 27217 completed
+    # 16:58:01Z while item 86 sat blocked on it and claim-next reported a bare
+    # nothing-todo. claim-next must name the task-stale item id and must NOT flag an
+    # item whose task is still open, nor read a bare "item 54" as a task.
+    tdb = Path(tmp).with_name("tasks.db")
+    tc = sqlite3.connect(str(tdb))
+    tc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    tc.execute("CREATE TABLE tasks (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    tc.executemany("INSERT INTO tasks(id,status) VALUES(?,?)",
+                   [(4242, "done"), (4243, "open")])
+    tc.commit()
+    tc.close()
+    db6 = Path(tmp).with_name("w6.db")
+    c = connect(db6)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('y','Y',?,?)", (t, t))
+    for title, bo in (("task-done-hidden", "gated by engineering task 4242"),
+                      ("task-open-clean", "gated by engineering task 4243"),
+                      ("ledger-ref-not-task", "blocked on item 54")):
+        c.execute("INSERT INTO work_item(project,title,dod,state,blocked_on,revisit_at,"
+                  "created_at,updated_at)"
+                  " VALUES('y',?,'cmd','blocked',?,'2999-01-01T00:00:00Z',?,?)", (title, bo, t, t))
+    c.commit()
+    c.close()
+    cn6 = argparse.Namespace(project="y", by="worker-t", lease=600, db=str(db6),
+                             json=False, owner_queue_db=str(tdb))
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_claim_next(cn6)
+    txt = buf.getvalue()
+    assert rc == 0, txt
+    assert "nothing-todo" in txt, txt
+    assert "WARNING" in txt, "a done task ref must warn from claim-next: %r" % txt
+    assert txt.index("WARNING") < txt.index("nothing-todo"), txt
+    assert "blocked item(s) 1" in txt, "must name the task-stale item id: %r" % txt
+    assert "blocked item(s) 1,2" not in txt and "blocked item(s) 1,2,3" not in txt, txt
+    cj6 = argparse.Namespace(project="y", by="worker-t2", lease=600, db=str(db6),
+                             json=True, owner_queue_db=str(tdb))
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(cj6)
+    obj = json.loads(buf.getvalue().strip())
+    assert obj.get("ok") == "nothing-todo", obj
+    assert obj.get("stale_task_items") == [1], obj
+    assert obj["stale_task_refs"][0]["task_id"] == 4242, obj
+    # a live (open) task and a bare ledger ref must not warn
+    c = connect(db6)
+    c.execute("UPDATE work_item SET blocked_on='gated by engineering task 4243' WHERE id=1")
+    c.commit()
+    c.close()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(cn6)
+    assert "WARNING" not in buf.getvalue(), buf.getvalue()
+    # lint-refs reports the task staleness on its own channel and fails
+    lr6 = argparse.Namespace(db=str(db6), owner_queue_db=str(tdb), json=True)
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_lint_refs(lr6)
+    obj = json.loads(buf.getvalue().strip())
+    assert rc == 0, "no stale task after the move, got %r" % buf.getvalue()
+    c = connect(db6)
+    c.execute("UPDATE work_item SET blocked_on='gated by engineering task 4242' WHERE id=1")
+    c.commit()
+    c.close()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_lint_refs(lr6)
+    obj = json.loads(buf.getvalue().strip())
+    assert rc == 1, "a done task ref must fail lint-refs: %r" % buf.getvalue()
+    assert [s["item"] for s in obj["stale_tasks"]] == [1], obj
+    # AND: item 145 - a block carries a TYPED blocker and a REVISIT time, and `due`
+    # prints the ones whose time has passed. Before this, `blocked` was terminal: 11 of
+    # 15 open items sat in it and nothing in the system ever moved one out, including
+    # four waiting on a merge role that was never scheduled.
+    db5 = Path(tmp).with_name("w5.db")
+    c = connect(db5)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('x','X',?,?)", (t, t))
+    c.execute("INSERT INTO work_item(id,project,title,dod,state,created_at,updated_at) "
+              "VALUES(1,'x','a block','cmd','todo',?,?)", (t, t))
+    c.commit()
+    c.close()
+    base = dict(item=1, by="w", did="d", proof="p", result="r", left="", db=str(db5))
+    # an untyped block is REFUSED and leaves the item untouched
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_attempt(argparse.Namespace(state="blocked", blocked_on=None, revisit=None, **base))
+    assert "error:blocked-without-blocker" in buf.getvalue(), buf.getvalue()
+    c = connect(db5)
+    assert c.execute("SELECT state FROM work_item WHERE id=1").fetchone()[0] == "todo", \
+        "an untyped block must not be written"
+    c.close()
+    # a typed block is stored with its revisit time, and the invariant holds
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_attempt(argparse.Namespace(state="blocked", blocked_on="owner-queue #1",
+                                       revisit="2000-01-01T00:00:00Z", **base))
+    c = connect(db5)
+    row = c.execute("SELECT blocked_on, revisit_at, state FROM work_item WHERE id=1").fetchone()
+    assert row["blocked_on"] == "owner-queue #1", tuple(row)
+    assert row["revisit_at"] == "2000-01-01T00:00:00Z", tuple(row)
+    assert c.execute("SELECT COUNT(*) FROM work_item WHERE state='blocked' "
+                     "AND (blocked_on IS NULL OR revisit_at IS NULL)").fetchone()[0] == 0
+    c.close()
+    # and the aging source PRINTS it
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_due(argparse.Namespace(db=str(db5), json=False, at=None))
+    txt = buf.getvalue()
+    assert "owner-queue #1" in txt, "due must print the overdue block: %r" % txt
+    assert "2000-01-01T00:00:00Z" in txt, "due must show the revisit time: %r" % txt
+    # a future revisit is NOT due
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_due(argparse.Namespace(db=str(db5), json=False, at="1999-01-01T00:00:00Z"))
+    assert "owner-queue #1" not in buf.getvalue(), \
+        "an item whose revisit time has not arrived must not be reported due: %r" % buf.getvalue()
+    # AND: a structured owner-queue ref can be attached to an item that ALREADY EXISTS
+    # (item 369). Before this verb the only --owner-row was on `add`, so backfilling a
+    # ref onto a live item meant hand-editing sqlite - the path that produced item 363's
+    # prose-only ref that _stale_oq_refs could not see. The verb must write owner_row,
+    # `show` must print "owner row  #N", and lint-refs must then treat the ref exactly
+    # like one filed at add time: clean while pending, STALE once it is resolved.
+    oq7 = Path(tmp).with_name("oq7.db")
+    oc = sqlite3.connect(str(oq7))
+    oc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.execute("INSERT INTO owner_decision_queue(id,status) VALUES(42,'pending')")
+    oc.commit()
+    oc.close()
+    db7 = Path(tmp).with_name("w7.db")
+    c = connect(db7)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('z','Z',?,?)", (t, t))
+    c.execute("INSERT INTO work_item(project,title,dod,state,blocked_on,created_at,updated_at) "
+              "VALUES('z','needs-a-ref','cmd','blocked','waiting on the owner',?,?)", (t, t))
+    c.commit()
+    c.close()
+    # the verb exists on the CLI surface, not just as a function
+    ns7 = build_parser().parse_args(["owner-row", "1", "--owner-row", "42"])
+    assert ns7.func is cmd_owner_row, "owner-row is not wired to cmd_owner_row: %r" % ns7.func
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_owner_row(argparse.Namespace(db=str(db7), item=1, owner_row=42, clear=False))
+    txt = buf.getvalue().strip()
+    assert rc == 0 and txt.startswith("owner-row-set "), "owner-row did not write: %r" % txt
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_show(argparse.Namespace(db=str(db7), item=1, json=False))
+    assert "owner row  #42" in buf.getvalue(), \
+        "show must print the attached owner-queue row: %r" % buf.getvalue()
+    lr7 = argparse.Namespace(db=str(db7), owner_queue_db=str(oq7), json=True)
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_lint_refs(lr7)
+    assert rc == 0, "a pending ref attached by the verb must be clean: %r" % buf.getvalue()
+    # flip the referenced row off pending: the guard must name item 1 STALE
+    oc = sqlite3.connect(str(oq7))
+    oc.execute("UPDATE owner_decision_queue SET status='resolved' WHERE id=42")
+    oc.commit()
+    oc.close()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_lint_refs(lr7)
+    obj = json.loads(buf.getvalue().strip())
+    assert rc == 1, "a resolved ref attached by the verb must fail lint-refs: %r" % buf.getvalue()
+    assert [s["item"] for s in obj["stale"]] == [1], obj
+    assert obj["stale"][0]["owner_queue_id"] == 42, obj
+    # and --clear removes it again, so a stale/unwanted ref is correctable without raw sqlite
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_owner_row(argparse.Namespace(db=str(db7), item=1, owner_row=None, clear=True))
+    assert rc == 0 and "owner-row-set" in buf.getvalue(), buf.getvalue()
+    c = connect(db7)
+    assert c.execute("SELECT owner_row FROM work_item WHERE id=1").fetchone()[0] is None, \
+        "clear must null owner_row"
+    c.close()
+    # AND: a block that is simply PAST ITS REVISIT TIME must be surfaced by claim-next too
+    # (item 214). The stale-ref guards above cover blocks whose named owner-queue row or
+    # task is finished; they cannot see the blocks that are merely overdue, and the due set
+    # was visible only to a shift that remembered to run `work.py due`. A shift that did
+    # not got a bare nothing-todo over live work. claim-next must name the due item ids
+    # BEFORE the result word, keep --json to exactly one object, and go quiet - no warning,
+    # no extra field - once no block is past its revisit time.
+    db8 = Path(tmp).with_name("w8.db")
+    c = connect(db8)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('d','D',?,?)", (t, t))
+    c.execute("INSERT INTO work_item(project,title,dod,state,blocked_on,revisit_at,"
+              "created_at,updated_at) VALUES('d','overdue','cmd','blocked',"
+              "'waiting on the owner','2000-01-01T00:00:00Z',?,?)", (t, t))
+    c.commit()
+    c.close()
+    due_cn = argparse.Namespace(project="d", by="worker-due", lease=600, db=str(db8),
+                                json=False, owner_queue_db=str(tdb))
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_claim_next(due_cn)
+    txt = buf.getvalue()
+    assert rc == 0, "claim-next must still exit 0 on nothing-todo: %r" % txt
+    assert "nothing-todo" in txt, txt
+    assert "past their revisit time" in txt, \
+        "an overdue block must warn from claim-next: %r" % txt
+    assert txt.index("WARNING") < txt.index("nothing-todo"), \
+        "the due warning must precede the nothing-todo word: %r" % txt
+    assert "due blocked item(s) 1" in txt, \
+        "the due warning must name the overdue item id: %r" % txt
+    due_cj = argparse.Namespace(project="d", by="worker-due2", lease=600, db=str(db8),
+                                json=True, owner_queue_db=str(tdb))
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(due_cj)
+    obj = json.loads(buf.getvalue().strip())
+    assert obj.get("ok") == "nothing-todo", obj
+    assert obj.get("due_blocked_items") == [1], obj
+    assert obj["due_blocked"][0]["revisit_at"] == "2000-01-01T00:00:00Z", obj
+    # a block whose revisit time has NOT arrived is not due: the same ledger goes quiet
+    c = connect(db8)
+    c.execute("UPDATE work_item SET revisit_at='2999-01-01T00:00:00Z' WHERE id=1")
+    c.commit()
+    c.close()
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(due_cn)
+    txt = buf.getvalue()
+    assert "WARNING" not in txt, "a block not yet due must not warn: %r" % txt
+    assert "nothing-todo" in txt, txt
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(due_cj)
+    obj = json.loads(buf.getvalue().strip())
+    assert "due_blocked_items" not in obj, obj
+    # AND: the owner-queue store is resolved by CONTENT, not by a hard-coded path (item
+    # 43, measured 2026-10-13 on the cloud authority). DEFAULT_OQ_DB still names the frozen
+    # office-box path, which exists there as an EMPTY copy; lint-refs read it and reported
+    # two LIVE owner-queue rows as missing. A store that is readable but holds zero rows
+    # must not be trusted to answer "that row is missing" while a live store that DOES hold
+    # rows is available.
+    empty_oq = Path(tmp).with_name("oq_empty.db")
+    oc = sqlite3.connect(str(empty_oq))
+    oc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.execute("CREATE TABLE tasks (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.commit()
+    oc.close()
+    live_oq = Path(tmp).with_name("oq_live.db")
+    oc = sqlite3.connect(str(live_oq))
+    oc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.execute("CREATE TABLE tasks (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.execute("INSERT INTO owner_decision_queue(id,status) VALUES(7,'pending')")
+    oc.commit()
+    oc.close()
+    db9 = Path(tmp).with_name("w9.db")
+    c = connect(db9)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('g','G',?,?)", (t, t))
+    c.execute("INSERT INTO work_item(project,title,dod,state,owner_row,created_at,updated_at)"
+              " VALUES('g','waiting-on-live-row','cmd','blocked',7,?,?)", (t, t))
+    c.commit()
+    c.close()
+    _g = globals()
+    _saved = (_g["DEFAULT_OQ_DB"], _g["_OQ_DB_EXTRA_CANDIDATES"], dict(_g["_OQ_DB_RESOLVED"]))
+    try:
+        _g["DEFAULT_OQ_DB"] = str(empty_oq)
+        _g["_OQ_DB_EXTRA_CANDIDATES"] = (str(live_oq),)
+        _g["_OQ_DB_RESOLVED"].clear()
+        lr9 = argparse.Namespace(db=str(db9), owner_queue_db=None, json=True)
+        buf = _io.StringIO()
+        with _ctx.redirect_stdout(buf):
+            rc = cmd_lint_refs(lr9)
+        obj = json.loads(buf.getvalue().strip())
+        assert rc == 0 and obj["stale"] == [], \
+            "an empty default store must not hide a LIVE row: %r" % buf.getvalue()
+        # with no live candidate left, the same empty store must still fail honestly
+        _g["_OQ_DB_EXTRA_CANDIDATES"] = ()
+        _g["_OQ_DB_RESOLVED"].clear()
+        buf = _io.StringIO()
+        with _ctx.redirect_stdout(buf):
+            rc = cmd_lint_refs(lr9)
+        obj = json.loads(buf.getvalue().strip())
+        assert rc == 1 and [s["item"] for s in obj["stale"]] == [1], \
+            "an empty store with no live candidate must still flag the ref: %r" % buf.getvalue()
+    finally:
+        _g["DEFAULT_OQ_DB"], _g["_OQ_DB_EXTRA_CANDIDATES"], _cached = _saved
+        _g["_OQ_DB_RESOLVED"].clear()
+        _g["_OQ_DB_RESOLVED"].update(_cached)
+    # AND: a block whose declared dependency is a LEDGER ITEM that is already done must be
+    # surfaced by claim-next AND by lint-refs, and RE-QUEUED by reap (item 213). Item 41 sat
+    # blocked on item 60 for 8 days after item 60 landed, because _stale_oq_refs and
+    # _stale_task_refs deliberately do not read a bare "item N" and so nothing ever
+    # re-evaluated the block. TWO traps are guarded here as well: a bare PROSE "item N" is
+    # not a dependency and must not be flagged, and a block that ALSO names an owner-queue
+    # row is a block on a person - reap must never release it.
+    oqA = Path(tmp).with_name("oqA.db")
+    oc = sqlite3.connect(str(oqA))
+    oc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.execute("INSERT INTO owner_decision_queue(id,status) VALUES(7,'pending')")
+    oc.commit()
+    oc.close()
+    dbA = Path(tmp).with_name("wA.db")
+    c = connect(dbA)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('a','A',?,?)", (t, t))
+    c.execute("INSERT INTO work_item(id,project,title,dod,state,created_at,updated_at) "
+              "VALUES(600,'a','the landed dependency','cmd','done',?,?)", (t, t))
+    c.execute("INSERT INTO work_item(id,project,title,dod,state,blocked_on,revisit_at,"
+              "created_at,updated_at) VALUES(601,'a','the live dependency','cmd','blocked',"
+              "'the owner will decide','2999-01-01T00:00:00Z',?,?)", (t, t))
+    for iid, title, bo in (
+            (1, "dep-on-done", "Prerequisite item 600 must land first"),
+            (2, "dep-still-live", "gated by item 601"),
+            (3, "prose-not-dep", "so item 3 DoD clause 2 cannot currently be re-proven"),
+            (4, "dep-done-plus-owner", "blocked on item 600; owner-queue #7 pending"),
+            (5, "dep-missing", "blocked on item 999")):
+        c.execute("INSERT INTO work_item(id,project,title,dod,state,blocked_on,revisit_at,"
+                  "created_at,updated_at) VALUES(?,'a',?,'cmd','blocked',?,"
+                  "'2999-01-01T00:00:00Z',?,?)", (iid, title, bo, t, t))
+    c.commit()
+    c.close()
+    # lint-refs names the cleared-dependency block(s) and only those
+    lrA = argparse.Namespace(db=str(dbA), owner_queue_db=str(oqA), json=True)
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_lint_refs(lrA)
+    obj = json.loads(buf.getvalue().strip())
+    assert rc == 1, "a done ledger dep must fail lint-refs: %r" % buf.getvalue()
+    assert sorted(s["item"] for s in obj["stale_items"]) == [1, 4], obj
+    assert sorted(s["dep_item"] for s in obj["stale_items"]) == [600, 600], obj
+    assert obj["stale"] == [], "no owner-queue ref here is stale: %r" % obj
+    # claim-next must SURFACE the same set itself, before its result word
+    cnA = argparse.Namespace(project="a", by="worker-lrA", lease=600, db=str(dbA),
+                             json=False, owner_queue_db=str(oqA))
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_claim_next(cnA)
+    txt = buf.getvalue()
+    assert rc == 0 and "nothing-todo" in txt, txt
+    assert "blocked item(s) 1,4 cite ledger items that are already done" in txt, \
+        "claim-next must name the ledger-stale items: %r" % txt
+    assert txt.index("WARNING") < txt.index("nothing-todo"), txt
+    assert "prose-not-dep" not in txt, txt
+    cjA = argparse.Namespace(project="a", by="worker-lrA2", lease=600, db=str(dbA),
+                             json=True, owner_queue_db=str(oqA))
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(cjA)
+    obj = json.loads(buf.getvalue().strip())
+    assert obj.get("ok") == "nothing-todo", obj
+    assert obj.get("stale_item_items") == [1, 4], obj
+    # REAP releases the block whose whole dependency is done, and ONLY that one
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_reap(argparse.Namespace(db=str(dbA), json=True))
+    txt = buf.getvalue()
+    assert rc == 0 and "requeued" in txt, txt
+    assert json.loads(txt.split("reaped", 1)[1])["requeued"] == [1], txt
+    c = connect(dbA)
+    st = {r["id"]: r["state"] for r in c.execute("SELECT id, state FROM work_item")}
+    c.close()
+    assert st[1] == "todo", "a cleared block must be re-queued: %r" % st
+    assert st[4] == "blocked", "an owner block must NOT be released by reap: %r" % st
+    assert st[2] == "blocked" and st[3] == "blocked" and st[5] == "blocked", st
+    # and the re-queued item is now genuinely claimable - the chain moves again
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        cmd_claim_next(cjA)
+    obj = json.loads(buf.getvalue().strip())
+    assert obj.get("ok") == "claimed" and obj.get("id") == 1, obj
+    # lint-refs is clean once the released block is gone and the rest are live/prose/missing
+    lrA2 = argparse.Namespace(db=str(dbA), owner_queue_db=str(oqA), json=True)
+    buf = _io.StringIO()
+    with _ctx.redirect_stdout(buf):
+        rc = cmd_lint_refs(lrA2)
+    obj = json.loads(buf.getvalue().strip())
+    assert rc == 1 and sorted(s["item"] for s in obj["stale_items"]) == [4], obj
     return out("selftest-ok", db=str(tmp), exclusive_claims=got)
 
 
 # ---------------------------------------------------------------- cli
 
+def cmd_due(a) -> int:
+    """THE AGING SOURCE: every blocked item whose revisit time has passed.
+
+    Nothing else in this tool ever moves an item OUT of `blocked`: before this, 11 of the
+    15 open items sat there and no command, shift or driver was ever prompted to look at
+    one again. A block with a named blocker and no revisit time is a decision nobody will
+    ever be asked to take, so this is the read that makes `blocked` a state with a
+    transition instead of a place work goes to die.
+    """
+    c = connect(Path(a.db))
+    rows = _blocked_due(c, getattr(a, "at", None))
+    if getattr(a, "json", False):
+        print(json.dumps([dict(r) for r in rows], indent=2))
+        return 0
+    if not rows:
+        print("due: no blocked item is past its revisit time")
+        return 0
+    print("%-5s %-20s %-21s %-3s %s" % ("ID", "PROJECT", "REVISIT-AT", "P", "BLOCKED ON / TITLE"))
+    for r in rows:
+        print("%-5d %-20s %-21s %-3d %s" % (
+            r["id"], r["project"], (r["revisit_at"] or "-never-set-"),
+            r["priority"], " ".join((r["blocked_on"] or "").split())[:70]))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="work.py", description=__doc__.split("\n")[1],
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--db", default=str(DEFAULT_DB))
+    _from_json_holder = None
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("init", help="create the store").set_defaults(func=cmd_init)
@@ -601,16 +1693,37 @@ def build_parser() -> argparse.ArgumentParser:
     pl.set_defaults(func=cmd_project_list)
 
     ad = sub.add_parser("add")
-    ad.add_argument("--project", required=True)
-    ad.add_argument("--title", required=True)
-    ad.add_argument("--dod", required=True)
+    # --from-json exists because of a MEASURED, REPEATED failure. `--dod` is a shell command with
+    # quotes inside it, and passing it through pwsh -> ssh -> base64 -> bash mangled it TWICE on
+    # 2026-10-13: item 65's dod arrived as chr(37)||chr(117)||... soup and item 71's did the same.
+    # A shift claiming such an item receives an unreadable bar, which is worse than no bar, because it
+    # looks like work. `owner-queue.py add --from-json` already solves this the same way and says so in
+    # its own help text: "text never passes a shell".  With --from-json, the three required fields come
+    # from the file and the flags may be omitted.
+    ad.add_argument("--project")
+    ad.add_argument("--title")
+    ad.add_argument("--dod")
     ad.add_argument("--why")
-    ad.add_argument("--priority", type=int, default=5)
+    ad.add_argument("--priority", type=int)
     ad.add_argument("--owner-row", type=int)
     ad.add_argument("--source")
+    ad.add_argument("--from-json", dest="from_json",
+                    help="read project/title/dod/why/priority/owner_row/source from this JSON file, "
+                         "or - for stdin. Text never passes a shell.")
     ad.add_argument("--allow-dupe", action="store_true",
                     help="file a second item with the same title even though one is already open")
     ad.set_defaults(func=cmd_add)
+
+    orow = sub.add_parser(
+        "owner-row",
+        help="attach or clear an owner-queue row ref on an item that already exists")
+    orow.add_argument("item", type=int)
+    _og = orow.add_mutually_exclusive_group(required=True)
+    _og.add_argument("--owner-row", type=int,
+                     help="the owner_decision_queue row id this item waits on")
+    _og.add_argument("--clear", action="store_true",
+                     help="remove the owner-queue reference")
+    orow.set_defaults(func=cmd_owner_row)
 
     nx = sub.add_parser("next")
     nx.add_argument("--project")
@@ -629,6 +1742,9 @@ def build_parser() -> argparse.ArgumentParser:
                     help="a STABLE handle the driver can reap if this session dies")
     cn.add_argument("--lease", type=int, default=3600)
     cn.add_argument("--json", action="store_true")
+    cn.add_argument("--owner-queue-db", default=None,
+                    help="owner-queue db probed for stale refs (default: %s, or the "
+                         "live store when that one is empty)" % DEFAULT_OQ_DB)
     cn.set_defaults(func=cmd_claim_next)
 
     fin = sub.add_parser("close", help="the end-of-shift write: what you did, the proof, what is left")
@@ -641,6 +1757,11 @@ def build_parser() -> argparse.ArgumentParser:
     fin.add_argument("--left", dest="left")
     fin.add_argument("--state", choices=["todo", "blocked", "done", "dropped"], default="todo")
     fin.add_argument("--blocked-on")
+    fin.add_argument("--revisit",
+                     help="when an unblocked block must be looked at again (default +7d)")
+    fin.add_argument("--exit-code", type=int, default=None,
+                     help="the exit code the proving command returned, stored on the "
+                          "attempt so the outcome is RECORDED, not derived from its text")
     fin.set_defaults(func=cmd_attempt)
 
     at = sub.add_parser("attempt")
@@ -652,6 +1773,10 @@ def build_parser() -> argparse.ArgumentParser:
     at.add_argument("--left")
     at.add_argument("--state", choices=["todo", "running", "blocked", "done", "dropped"], default="todo")
     at.add_argument("--blocked-on")
+    at.add_argument("--revisit",
+                    help="when an unblocked block must be looked at again (default +7d)")
+    at.add_argument("--exit-code", type=int, default=None,
+                    help="the exit code the proving command returned, stored on the attempt")
     at.set_defaults(func=cmd_attempt)
 
     dn = sub.add_parser("done")
@@ -661,6 +1786,8 @@ def build_parser() -> argparse.ArgumentParser:
     dn.add_argument("--proof")
     dn.add_argument("--result")
     dn.add_argument("--left")
+    dn.add_argument("--exit-code", type=int, default=None,
+                    help="the exit code the proving command returned, stored on the attempt")
     dn.set_defaults(func=cmd_done, blocked_on=None)
 
     ls = sub.add_parser("list")
@@ -684,11 +1811,30 @@ def build_parser() -> argparse.ArgumentParser:
     rp = sub.add_parser("reap")
     rp.add_argument("--json", action="store_true")
     rp.set_defaults(func=cmd_reap)
+
+    lr = sub.add_parser(
+        "lint-refs",
+        help="fail if a blocked item references a non-pending owner-queue row, a finished "
+             "task or a done ledger item")
+    lr.add_argument("--owner-queue-db", default=None,
+                    help="owner-queue database (default: %s, or the live store when "
+                         "that one is empty)" % DEFAULT_OQ_DB)
+    lr.add_argument("--json", action="store_true")
+    lr.set_defaults(func=cmd_lint_refs)
+
+    du = sub.add_parser(
+        "due",
+        help="the aging source: print every blocked item past its revisit time")
+    du.add_argument("--at", default=None, help="ISO time to age against (default: now)")
+    du.add_argument("--json", action="store_true")
+    du.set_defaults(func=cmd_due)
     return p
 
 
 def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
+    if getattr(args, "from_json", None) and getattr(args, "func", None) is cmd_add:
+        _kwargs_from_json(args)   # CALL_KWARGS_FROM_JSON
     try:
         return args.func(args)
     except Exception as exc:
