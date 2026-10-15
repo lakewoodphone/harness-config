@@ -142,12 +142,38 @@ warned about in its §4.2**: `dedupe`'s `archive/duplicates/<id>.md` write has n
 loop, unlike `repair-ids`. Nothing is lost from the disk — but "the union keeps every body" and "the
 union keeps every body LIVE" are different sentences and only the first is true.
 
-**So round 7's remaining journal work is precise:** renumber those **7** entries to fresh live ids using
-`repair-ids` (or its equivalent), re-run `r7-verify-body-loss.py` until it reads **0 missing / 0
-invented with `archive/` excluded**, and only then plan the switchover. Also still to do, per the
-builder: five trees ship **four different `journal.py`** (yoga `47fbf32b`, cloud `f6a7a014`,
-tech=linux `87737e66`, mac `9b0e020b`), so pin one before any convergence; and `verify.py` cannot run
-from the candidate's directory (it derives the v1 parser from its own path).
+**THE SEVEN ARE FIXED, AND THE UNION NOW PASSES ITS ACCEPTANCE TEST** (2026-10-15 ~15:1xZ):
+
+| the seven | restored as live | how it was done |
+|---|---|---|
+| `H2729`, `H3401`, `H2781`, `H458`, `H514` | **`H4933`–`H4937`** | `scripts/evolution/r7-restore-archived.py` |
+| `P2561bc` | **`P5139`** | same, plus the two entries whose bodies carry their own id had their metadata `sha=` refreshed |
+| `L3767` | **`L5066`** | same |
+
+```
+BODIES MISSING from merged : 0
+BODIES INVENTED in merged  : 0
+VERDICT: NO BODY LOST
+```
+**4,894 distinct source bodies = 4,894 merged files = 4,894 merged bodies**, `check` **0 errors** on
+4,894 entries, and the restore tool is **idempotent** — re-running it reports "already live, skipped"
+for all seven and writes nothing (file count before 4894, after 4894). Every source tree is untouched;
+**nothing has been switched over.**
+
+`r7-restore-archived.py` copies the archived body to a fresh live id rather than moving it, so the
+`archive/duplicates/` copies stay exactly where `dedupe` put them. Two things it had to learn the hard
+way and now does: it guards on **whether the body is already live** (not on whether the new id exists,
+which is no guard at all and would have created a second copy on every run), and an entry whose body
+carries its own id needs its `sha=` metadata refreshed or `check` turns the edit into an ERROR — the
+trap `journal.py`'s own comment at line 2697 already names.
+
+**So the journal's remaining work is the SWITCHOVER, and it is a decision, not a script:** pin ONE
+`journal.py` (the five trees ship **four different versions** — yoga `47fbf32b`, cloud `f6a7a014`,
+tech=linux `87737e66`, mac `9b0e020b`), decide where the single tree lives and who may write to it,
+retire the other four **without deleting them**, add the cross-tree rule to `check`, and re-run
+`r7-verify-body-loss.py` after the switch to prove the union survived it. `verify.py` cannot run from
+the candidate's own directory (it derives the v1 parser from its path); run it through a symlink or
+from a checkout.
 
 
 ---
