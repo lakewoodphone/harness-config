@@ -139,9 +139,19 @@ where it is the odd tree out are most likely the *unlanded residue* of that repa
    have not disproved that. New engines are correct. **Nothing should be restarted from inside a
    live session without the owner knowing**, and the authority's `dsh web` on `:3089` is the one that
    matters most.
-9. **`R6-COMPANY` and `R6-RECENT` were still running when this file was written.** Their artefacts
-   land in `secratary-cloud:/root/work/r6/` and `docs/dsh-evolution-v6/`. Read them before re-doing
-   either.
+9. **`R6-COMPANY` and `R6-RECENT` are DONE** (their artefacts are in `docs/dsh-evolution-v6/`, and
+   `40-company-baseline.md` is the one that carries the matched pre/post numbers). **`R7-JOURNAL-MERGE`
+   was still running at handover** — it is building the five-tree union as a *candidate* at
+   `/root/work/r7/merged-journal/`, with its report expected at `/root/work/r6/80-journal-merge.md`
+   and the merged manifest at `/root/work/r6/80-journal-manifest-merged.tsv`. **Read those before
+   starting the merge yourself**; if they are absent, the child did not land and the job is still to do.
+   It was dispatched before §2a was found, so **check its output against item 163** (see §2a) rather
+   than trusting it: it may have taken yoga's body for the ids where ZABZ-TECH holds 163's renumbering.
+10. **One company change IS deployed** (§1 row 7). Its behavioural proof is still outstanding: no
+   session has been created since the 14:41:46Z restart, so "a retry inherits a paused attempt" rests
+   on the predicate count and a unit test, not on an observed session. **Read the next session that
+   retries a task whose predecessor ended `paused`** — that is a one-row query and it closes the claim.
+
 
 ---
 
