@@ -377,6 +377,27 @@ Every change below is backed up under `/root/text-fix-20261015/backup/` and reve
 
 **Test attribution — done by A/B, because claiming green is how this estate lies to itself.**
 
+### !! TWO OF THESE WERE REVERTED UNDER ME, AND ONE WAS NOT !!
+
+Found at **15:2xZ**, while re-verifying: `/root/bin/cfo-ask.py`, `/root/bin/charge_msg.py` and
+`/root/bin/merchant_resolve.py` had been **restored to their pre-change originals** (mtimes back to
+`2026-10-14 03:11-03:13`, every one of my markers gone — `grep -c` returned 0 for all of them), while
+`/root/bin/order_evidence.py` (mtime `15:09:43`) and the `/opt/company` files survived. They were
+re-applied from the copies in this session's working tree at 15:2xZ and all four compile and carry
+their markers again.
+
+**No job admits to it.** Checked and cleared: root crontab (`lpt-deploy-drift` runs at minute 17),
+`cron-script-guard.py` (its log has **zero** `HEALED`/`ALERT` lines and names none of the files — and
+it only restores a script that is MISSING), the canonical `/opt/company/scripts/cfo/cfo-ask.py`
+(different hash from both my version and the reverted one), and journald 15:05-15:30. A 6-minute hash
+sampler was left running at `/root/text-fix-20261015/watch-hashes.sh` to catch a repeat.
+
+**What this means for every "verified" claim above about a `/root/bin` file.** The verification was
+real at the time (hash + behaviour, with the hash printed). **The persistence was not.** Treat items 5,
+6, 8 and 9 as "applied and verified at 15:0xZ, found reverted at 15:2xZ, re-applied" until the
+sampler has run clean for a day. This is `L4771` — a live artefact is not a branch — happening to the
+same session twice inside one hour.
+
 *Targeted subset* (8 owner-text/SMS test files, 132 tests), with and without the two app-file changes:
 
 | | failed | passed |
