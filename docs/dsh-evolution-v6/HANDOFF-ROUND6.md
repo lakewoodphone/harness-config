@@ -102,6 +102,40 @@ were genuinely one generation behind.
 
 ## 2. THE ONE THING TO DO NEXT, AND IT IS NOT AN ENGINEERING DETAIL
 
+### 2.0 THIS ROUND CREATED A DUPLICATE ID, ON PURPOSE-BLIND, AND THE MECHANISM NOW MAKES THEM GUARANTEED
+
+**Measured 2026-10-15 ~15:5xZ.** I filed a pain on the authority and a *different* pain on ZABZ-YOGA,
+and both got **`P4314`**:
+
+| tree | entry `P4314` |
+|---|---|
+| ZABZ-YOGA | *"The friction vocabulary has no id for 'the agent was silent'"* |
+| `secratary-cloud` | *"STEP_BUDGET_EXHAUSTED: the largest failure class is 30 turns and 2 tool calls producing a 2 KB trace"* |
+
+Then `journal.py next-id pain` on **each** tree:
+
+```
+ZABZ-YOGA        # pain: reserved through P4376 for ZABZ-YOGA
+SECRATARY-CLOUD  # pain: reserved through P4376 for SECRATARY-CLOUD
+```
+
+**Both trees hold the SAME reservation window for the same kind.** The allocator is correct within a
+tree and blind across them, so the claim mechanism does not PREVENT collisions between trees — it
+makes the next ~62 pain ids from each tree collide with the other by construction. The fork is not a
+static mess that round 6 measured once; **it generates new damage every session that appends on a
+non-authoritative tree**, and this round proved it by accident.
+
+**Consequences, in order:**
+1. **The union candidate from §2b is already STALE.** It was built from trees captured before this
+   round's appends; both trees have written since. Re-run the collection and the merge as step 1 of the
+   switchover, not as an afterthought.
+2. **`D`/`H`/`L`/`W` ids collide too** — the reservation is per kind, and `sort -n | tail -1` showed the
+   same ceiling on both sides. Do not assume this is a pain-only problem.
+3. **Do not "just append on the authority" as the fix.** That is half a switchover: the other four
+   trees keep minting from the same window until they are made consumers.
+
+### 2.1 THE HEADLINE, UNCHANGED
+
 **The journal has forked into five trees, and 363 entry ids carry DIFFERENT BODIES in different
 trees.** Measured 2026-10-15 by the R6-JOURNAL child, across yoga, the authority, ZABZ-TECH,
 `zabz-tech-linux` and the mac mini: union 4,513 ids, only 1,643 in all five, **436 confined to one
