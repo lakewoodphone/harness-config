@@ -2,13 +2,13 @@
 """A project with no repo and no items enters a deadlock. Break it by filing the discovery item.
 
 THE DEADLOCK, measured 2026-09-28 19:43Z. Four of the nine projects the owner named have ZERO ledger
-items: cfo, personality-system, rental-system, chumash. Three of them point at `/home/zabz/repos`,
+items: cfo, personality-system, rental-system, chumash. Three of them point at `/root/repos`,
 which is a directory of repos and not a repository, and their registry notes say so plainly:
 
     rental-system       "REPO NOT YET ESTABLISHED - the first shift's job is to find the real codebase
                          and record its path in the ledger"
     chumash             "Repo not established (candidates exist on this machine); first shift finds it"
-    personality-system  repo=/home/zabz/repos
+    personality-system  repo=/root/repos
 
 And the shift contract tells a woken session to `claim-next` FROM THE LEDGER. With no item to claim it
 gets `nothing-todo` and stops - so the discovery that would break the deadlock can never happen. The
@@ -36,9 +36,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REG = Path("/home/zabz/bin/sources/projects.json")
-WORK = "/home/zabz/bin/work.py"
-PLACEHOLDER_REPOS = {"/home/zabz/repos", "/home/zabz/repos/", "", "."}
+REG = Path("/root/bin/sources/projects.json")
+WORK = "/root/bin/work.py"
+PLACEHOLDER_REPOS = {"/root/repos", "/root/repos/", "", "."}
 
 
 def ledger_items(project: str) -> int:
@@ -77,7 +77,7 @@ def main() -> int:
             "2) REGISTER it: `python3 ~/bin/work.py project add --id %s --title '<title>' --repo "
             "<real-path>` - that writes the real path into the ledger's project row (the wake registry "
             "at ~/bin/sources/projects.json must ALSO be corrected to the real path, not "
-            "/home/zabz/repos, by editing its `repo` field). "
+            "/root/repos, by editing its `repo` field). "
             "3) IF IT TRULY CANNOT BE FOUND, do not guess and do not file invented work: add ONE row "
             "`python3 ~/bin/owner-queue.py add --question 'Where does the %s project live?' "
             "--recommendation '<your best candidate>' --options '<a>|<b>'` and say so. "
