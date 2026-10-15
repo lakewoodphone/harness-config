@@ -61,7 +61,7 @@ def body_sig(p: pathlib.Path, normalise_ids: bool = False) -> str:
         #   * a renumbered entry's text cites OTHER ids (a lesson heading names the handoff it
         #     corrects), so two copies of the same entry can differ by a citation the merge rewrote.
         # Asking only for the stem produced 11 phantom "missing" bodies and 4 phantom "invented" ones.
-        text = re.sub(r"\b[DHILPW][0-9]{1,6}[a-z]?\b", "<ID>", text)
+        text = re.sub(r"\b[DHILPW][0-9]{1,6}[a-z]{0,3}\b", "<ID>", text)
         text = re.sub(r"\b" + re.escape(p.stem) + r"\b", "<ID>", text)
         # COLLAPSE WHITESPACE. A renumbering passes the entry through the journal's own writer, which
         # RE-WRAPS the paragraph: the words and their order are identical and every line break moves.
@@ -161,5 +161,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
 
 
