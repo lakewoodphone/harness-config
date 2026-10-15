@@ -58,6 +58,32 @@ Round 7's first three actions, in order:
    so this cannot happen silently again. A check that reports 0 errors on a forked store is the same
    defect class as everything else in this round.
 
+### 2a. THE FORK ALREADY HAS A HALF-LANDED REPAIR — read this before any merge
+
+**Found last, and it changes the shape of the job.** `git status` on ZABZ-TECH shows **239 untracked
+entry files** under `journal/entries/` — `D3132.md`..`D3137.md`, `H3602.md`..`H3629.md`,
+`L3774.md`..`L3815.md`, `P3169.md`, `P3798.md`..`P3803.md` — sitting in exactly the id neighbourhoods
+where ZABZ-TECH holds a different body from yoga and the authority.
+
+They are the output of **item 163, a cross-machine duplicate-id repair performed on 2026-10-11** and
+recorded in `docs/mesh/163-journal-repair-crossmachine-ids.md` (20,820 B, untracked, on ZABZ-TECH)
+with its id mapping in `163-repair-manifest.json` (42,741 B) and its own verifier
+(`163-verify.py`). **It was never committed and never propagated**, so today it reads as a fork.
+
+So ZABZ-TECH is **not a stale copy — it holds a partially-landed repair**, and the 210 collisions
+where it is the odd tree out are most likely the *unlanded residue* of that repair. Consequences:
+
+* **Do not "correct" ZABZ-TECH toward yoga for those ids.** The safe resolution is the lossless one:
+  keep every distinct body in the union and let `journal.py dedupe` / `repair-ids` renumber the
+  losers, which reproduces 163's intent mechanically instead of re-deciding it by hand.
+* **The repair is a landable artefact, not a mess to clean.** Whatever the union concludes, 163's
+  own record and manifest must be read first, and the merged tree must be shown to have preserved
+  its renumbering — with a command, not a claim.
+* This is the fourth time this round that a document describing work already done sat unread while a
+  session was about to redo it. **`git status` on the machine that owns the work is a cheaper first
+  step than any analysis.**
+
+
 ---
 
 ## 3. WHAT IS OPEN, IN THE ORDER I WOULD DO IT
