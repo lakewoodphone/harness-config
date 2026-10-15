@@ -375,6 +375,7 @@ Every change below is backed up under `/root/text-fix-20261015/backup/` and reve
 | 8 | **Charge questions are now self-serve.** `merchant_resolve.resolve()` gained two rungs and one widened exemption: (a) `records:owner-text` — his answer given **in a text**, read from `sms_log` inbound (this is the rung the ask ledger never had); (b) `records:order-match` — the charge already linked to its order mail by `purchases.matched_transaction_id = transactions.external_transaction_id`, amount-checked; (c) `_finish` now lets `owner-text`, `order-match`, and an `alias` learned from the owner's own answer resolve **without** naming a category, exactly as `ask-answer` already did. Nothing invents a category: `category` stays `''` and `planned_rows` stays empty on all of them. | `/root/bin/merchant_resolve.py` | all nine live merchants resolve: visiontek systems **0.95 order-match**, sticky brand **0.92 owner-text**, newegg **0.97 alias**, the home depot **0.95 order-match**, american professional 0.97 alias. Categories verified empty with `planned_rows=0` |
 | 9 | `order_evidence.ORDER_SUBJECT_RE` accepts `Order <CODE> confirmed` (the Shopify-family subject), which neither `order\s*(is\s*)?(confirm|#)` nor `order confirmed` could match. | `/root/bin/order_evidence.py` | `Order W009615 confirmed` → True, `Order #828330 confirmed` → True, `Coffee with Dov` → False |
 | 10 | **The CFO's question is now filed with the relay**, so a reply can resolve against it. Until today the question lived only in `/root/.cfo-asks/asks.db` while the component that answers his reply looks the reference up in `owner_text_relay`'s own `ask` table — the two never met, and the responder logged it six times: `relay: ask ask-1792026036 -> missing` (that was the American Professional charge). `cfo-ask.py` now calls `relay.record_ask(ref, "cfo_ask", merchant, body, ttl_hours=72)` next to its own record, fail-soft. | `/root/bin/cfo-ask.py` | `record_ask` → `created=True, state=open`; the ref appears in `open_asks(within_hours=72)`; `answer_ask` closes it to `answered` and it leaves the open list. The test ref was removed by answering it; `open_asks` is back to what it was |
+| 11 | **The front desk now exists as a primitive, in the one file every door already passes through.** `owner_text_relay` gained `compose(item)` — an ITEM dict in, ONE message out, cut to the ceiling by construction at a sentence then a clause boundary, with the retired marker and the machine shapes (`items, `, `full: `, a filesystem path) refused after composing — plus `submit_item(door, subsystem, item, ref=…)`, which composes, gates, and files the ask in one call, returning the body so **the judged body and the posted body are the same object** (`L3790`). And `standing_rule_mutes()`: a durable class-mute read from `/root/.owner-text/standing-rules.json` on **every** submit, keyed on the class the producer names, allowing on any read failure. | `/root/bin/owner_text_relay.py` + `/root/bin/owner-text` (`item`, `compose`) | 20-assertion probe, **ALL PASS**, against an isolated store: `/root/text-fix-20261015/probe_frontdesk.py`. Every pre-existing verdict unchanged (SEND, DEDUPE, FLOOR, class SUPPRESS, over-ceiling recorded-not-refused); the retired digest class now returns `SUPPRESS/standing-rule` **at the relay**, for any door; `compose` refuses a count head, drops an unclosed parenthesis, and composes subject+action for the four real shapes he complained about. Live store untouched |
 
 **Test attribution — done by A/B, because claiming green is how this estate lies to itself.**
 
@@ -423,16 +424,18 @@ ones by the A/B above and the rest do not touch a file I edited.
 
 ## 3. What is NOT done — read this before trusting the channel
 
-1. **The one-item composer is not live.** A draft was written, deployed and *verified working*
-   (`send --dry-run` → `Apple's own Apple Business Manager Agreement forbids what we are already
-   selling — Keep selling, but get the exposure measured by a lawyer before the camera product is
-   built`, 173 chars, no counts, no file path, no marker) — and then **a concurrent session
-   overwrote it at 14:46:16Z** with its own version of the same file, which keeps the
-   `'N items, M urgent` head. That session's work is real and its file is preserved at
-   `/root/text-fix-20261015/owner_attention.CONCURRENT-SESSION-14-46.py`. **The two must be merged**
-   before the digest text is turned back on. Until then `build` is the safe ExecStart, and that is
-   the only reason this is not a regression: he gets no digest text at all, which is what he asked
-   for, and the artefact + queue still carry the content.
+1. **The doors are not wired to the front desk yet — the primitive exists and nothing calls it.**
+   `compose`/`submit_item`/`standing_rule_mutes` are live and probed, and `/root/bin/owner-text item`
+   makes them reachable from a shell line, but **no producer uses them**: the digest still builds its
+   own body (and is stopped by the systemd drop-in), `family_chat` still writes its own, and the two
+   read-only hosts still `curl` Twilio. Wiring the digest is the next step and it is a **merge**:
+   the concurrent session's `/opt/company/scripts/owner_attention.py` (32,213 B, `_PERSONAL_MARK`,
+   `PERSONAL_SMS_SLOTS`, `rank_items`, `email_title`) keeps the `'N items, M urgent` head, and its
+   own measurement is right — the old 320-char digest carried four decisions and **zero** email
+   lines, so a one-item composer must let his own mail be the item. Re-apply the one-item composer
+   **on top of** their constants, keep `email_title`/`rank_items` (both still used), and let
+   `deserves_his_phone` accept `tier == "personal"` alongside `owner-queue`/`books`. Then lift the
+   drop-in and prove the next fire.
 2. **Nothing composes for him yet.** Every door still writes its own body. The 900 → 400 → 320
    triple-cut, and the "compose long then truncate" habit, are unchanged. The marker removal makes a
    half-message *quieter*; it does not stop one being half.
