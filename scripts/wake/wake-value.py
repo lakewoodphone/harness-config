@@ -23,10 +23,19 @@ WAKE_DB = os.environ.get("WAKE_DB") or os.path.expanduser("~/.sms-inbox/inbox.db
 
 
 def ceiling():
+    """The USD daily ceiling in force - SINGLE-SOURCED.
+
+    This function held a SECOND copy of the ceiling resolution (`WAKE_MAX_USD_PER_DAY`, else
+    `wake.DEFAULT_MAX_USD_PER_DAY`) - one of the three places that all said 25.00 against a
+    5.70 balance. It now reads the one state file `wake_budget.py` writes, and falls back to the
+    absolute only when that file is absent, so this line can never disagree with the guard that
+    enforces it. (The `wake.py stats` path above it reads the store, which is exported the same
+    derived value by `wake-budget-env.sh`, so both halves of this tool now agree by construction.)
+    """
     try:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-        import wake
-        return float(os.environ.get("WAKE_MAX_USD_PER_DAY") or wake.DEFAULT_MAX_USD_PER_DAY)
+        import wake_budget
+        return wake_budget.read_cap(fallback=wake_budget.configured_max())
     except Exception:
         return None
 
@@ -74,7 +83,7 @@ def main():
     try:
         import json as _json
         import subprocess as _sp
-        wake_cli = os.environ.get("WAKE_CLI", "/home/zabz/bin/wake.py")
+        wake_cli = os.environ.get("WAKE_CLI", "/root/bin/wake.py")
         raw = _sp.run(["python3", wake_cli, "stats", "--json"], capture_output=True, text=True,
                       timeout=60).stdout
         d = _json.loads(raw)
