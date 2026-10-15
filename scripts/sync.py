@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import filecmp
+import hashlib
 import json
 import os
 import shutil
@@ -533,6 +534,54 @@ def check_generated_preset_rows() -> tuple[int, str]:
     return 1, detail
 
 
+def _alarm_once(sig: str, title: str, body: str) -> str:
+    """File ONE journal `pain` entry per distinct refusal, and say what happened.
+
+    WHY THIS EXISTS (measured 2026-10-13). `report_generated_step` refuses to publish the profile
+    layer when the committed generated preset rows are stale -- and it refused CORRECTLY, because
+    they embedded `yocheved`'s PRE-correction sha. It printed one line into this script's output.
+
+    The result: two days in which the corrected instructions were in git and absent from every
+    machine that loads them. `sync.py` is scheduled as `PersonalSecretary-HarnessSync`, so it ran
+    the whole time; the only thing that would have said "the deploy is blocked" was a line nothing
+    surfaces. **A guard that refuses correctly and reports into a log nobody reads is
+    indistinguishable from no guard at all** -- which is `AGENTS.md` §1's own finding about the
+    archive alarm, in the deploy path this time.
+
+    So a refusal now goes where work goes: the journal. Deduplicated by signature, so it files once
+    per distinct reason and not on every tick. Best effort by design -- **a sync must never fail
+    because a secondary report failed** -- and it always prints what it did, so a silent failure is
+    not introduced by the thing meant to end one.
+    """
+    stamp = DSH_HOME / ".sync-alarm"
+    try:
+        if stamp.read_text(encoding="utf-8").strip() == sig:
+            return "already filed (same reason as the last refusal)"
+    except OSError:
+        pass
+    journal = REPO / "journal" / "tools" / "journal.py"
+    if not journal.exists():
+        return "NOT FILED -- no journal/tools/journal.py in this checkout"
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(journal), "append", "pain", "--title", title,
+             "--body", body, "--quiet", "--no-fetch",
+             "--tags", "sync,deploy-guard,generated-rows"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120, cwd=str(REPO))
+    except Exception as exc:  # noqa: BLE001
+        return f"NOT FILED -- could not reach the journal ({exc}); the refusal is above only"
+    if proc.returncode != 0:
+        return ("NOT FILED -- journal append failed "
+                f"({(proc.stderr or proc.stdout or '').strip()[:120]}); the refusal is above only")
+    try:
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(sig, encoding="utf-8")
+    except OSError:
+        pass
+    return "filed to the journal so a session picks it up: " + (proc.stdout or "").strip()[:80]
+
+
 def report_generated_step(status: int, note: str) -> bool:
     """Print the generated-rows precondition's decision for the profile step.
 
@@ -549,9 +598,49 @@ def report_generated_step(status: int, note: str) -> bool:
         print(f" profiles: SKIPPED -- the committed generated preset rows are STALE: {note}")
         print(" profiles:           regenerate and commit them with "
               "`node scripts/make-preset-rows.mjs --install`; the live profile patch is left untouched")
+        sig = "generated-rows-stale:" + hashlib.sha256(note.encode("utf-8")).hexdigest()[:16]
+        told = _alarm_once(
+            sig,
+            "sync REFUSED to publish the profile layer: the committed generated preset rows are stale",
+            "\n".join([
+                "Filed by `scripts/sync.py` on " + socket.gethostname() + ".",
+                "",
+                "The profile step was SKIPPED, so the agent presets a session loads may NOT be the",
+                "ones in the repository. This is not a warning -- it is the deploy being blocked.",
+                "",
+                "**What the check said:** " + note,
+                "",
+                "**Fix:** `node scripts/make-preset-rows.mjs --install`, commit both regenerated",
+                "artefacts (`profiles/web/presets.generated.patch.yml` and the managed block in",
+                "`profiles/web/cordis.patch.yml`), then run `python3 scripts/sync.py` again.",
+                "",
+                "**Why this entry exists.** On 2026-10-13 this exact refusal held for two days while",
+                "every corrected instruction sat in git and was absent from every machine that loads",
+                "one. The guard was right; the refusal simply reached nobody. If you are reading this",
+                "because it fired again, the same thing is happening now.",
+                "",
+                "**Check what is actually loaded:** `python3 scripts/preset-drift.py`.",
+            ]))
+        print(f" profiles:           {told}")
         return False
     print(f" profiles: SKIPPED -- the generated-rows check did NOT run ({note}), so a generated "
           "artefact that cannot be verified was not published; every other step of this sync still applies")
+    told = _alarm_once(
+        "generated-rows-unchecked:" + hashlib.sha256(note.encode("utf-8")).hexdigest()[:16],
+        "sync could not verify the generated preset rows, so it published nothing for the profile step",
+        "\n".join([
+            "Filed by `scripts/sync.py` on " + socket.gethostname() + ".",
+            "",
+            "The generated-rows check itself did not run, so a generated artefact that cannot be",
+            "verified was NOT published. Every other step of the sync still applied.",
+            "",
+            "**What the check said:** " + note,
+            "",
+            "This is the `NODATA` state, not a pass: an empty result is a refusal. Fix the check",
+            "(usually a missing `node`, or `scripts/make-preset-rows.mjs` absent from the checkout)",
+            "and run sync again.",
+        ]))
+    print(f" profiles:           {told}")
     return False
 
 
@@ -641,6 +730,83 @@ def ensure_metrics_sampler(dry_run: bool) -> tuple[int, str]:
     return 1, "metrics sampler: PROBLEM -- " + " | ".join(tail[-3:] or ["no output"])
 
 
+def verify_loaded_surface(dry_run: bool) -> bool:
+    """Compare what this machine LOADS against what the repo says it should load.
+
+    WHY THIS IS PART OF SYNC (measured 2026-10-13). Every step above reports what it DID. None of
+    them reports what the machine now LOADS, and those are different questions: for two days every
+    corrected instruction was in git and absent from every machine that loads one, while `sync.py`
+    ran hourly and printed success -- because it had CORRECTLY refused the profile layer (the
+    committed generated rows were stale) and nothing checked the result.
+
+    `scripts/preset-drift.py` is that check. Running it here means the verification rides on the job
+    that already runs on every machine (`PersonalSecretary-HarnessSync`), so nobody has to remember
+    it -- which is the same reason this defect existed in the first place.
+
+    A DRIFT OR A MISSING FILE IS ALARMED to the journal, once per distinct drift, because a deploy
+    that silently did not land is exactly the failure that hid for two days. A repo that disagrees
+    with ITSELF is reported but not alarmed: that is a tidiness problem in the repository, not a
+    failure to deploy, and alarming on it would train the reader to ignore the alarm.
+    """
+    tool = REPO / "scripts" / "preset-drift.py"
+    if not tool.exists():
+        print(" verify: SKIPPED -- scripts/preset-drift.py is not in this checkout")
+        return False
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(tool), "--repo", str(REPO), "--dsh-home", str(DSH_HOME), "--quiet"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=180, cwd=str(REPO))
+    except Exception as exc:  # noqa: BLE001
+        print(f" verify: COULD NOT RUN ({exc}) -- the loaded surface is UNVERIFIED, not clean")
+        return False
+    lines = [l.rstrip() for l in (proc.stdout or "").splitlines() if l.strip()]
+    bad = [l for l in lines if l.startswith(("DRIFT", "MISSING"))]
+    summary = next((l for l in reversed(lines) if l.startswith("compared")), "")
+    divergent = [l for l in lines if "DIVERGENT" in l]
+
+    if proc.returncode == 0:
+        print(f" verify: loaded surface matches the repo ({summary})")
+        return True
+
+    if not bad:
+        # Exit 1 with no DRIFT/MISSING means the repo disagrees with itself only.
+        print(f" verify: loaded surface matches, but the repo disagrees with itself ({summary})")
+        for d in divergent:
+            print(" verify:   " + d.strip())
+        return True
+
+    for b in bad:
+        print(" verify: " + b.strip())
+    if dry_run:
+        print(f" verify: {len(bad)} difference(s) -- expected in a dry run, nothing was applied")
+        return False
+    detail = " | ".join(b.strip() for b in bad[:6])
+    told = _alarm_once(
+        "loaded-surface-drift:" + hashlib.sha256(detail.encode("utf-8")).hexdigest()[:16],
+        "sync ran but the loaded instruction surface does NOT match the repo on "
+        + socket.gethostname(),
+        "\n".join([
+            f"Filed by `scripts/sync.py` on {socket.gethostname()}.",
+            "",
+            "`sync.py` completed, and `scripts/preset-drift.py` then found that the presets or skills",
+            "this machine LOADS are not the ones in the repository. **A deploy that reports success",
+            "and did not land is the failure this check exists for** -- on 2026-10-13 it hid for two",
+            "days and every corrected instruction was absent from every machine.",
+            "",
+            "**Differences found:**",
+            *[f"  - {b.strip()}" for b in bad[:12]],
+            "",
+            f"**Summary line:** {summary or '(none)'}",
+            "",
+            "**Fix:** read the difference, decide which copy is right (the repo is not automatically",
+            "correct -- two scripts were recovered FROM the deployed side on 2026-10-13 because the",
+            "running copy was newer), then re-run `python3 scripts/sync.py`.",
+        ]))
+    print(f" verify: {told}")
+    return False
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -678,23 +844,46 @@ def main() -> int:
     # The two version-coupled steps are gated separately, each immediately before it runs, so a
     # missing name -- or a check that cannot run at all -- can only ever cost its own step, never
     # the sync. Same decision in --dry-run: the point is to report it, not to write it.
-    if report_step("presets", *check_version_coupled("presets", args.engine_root)):
+    # The exit code has to carry the SKIP, and until 2026-10-15 it did not -- pain P4185. This
+    # returned `max(plugin_status, sampler_status)` and nothing else, so a run that REFUSED the
+    # profile layer -- the exact refusal that left a stale persona on two machines for days while
+    # the 15-minute job reported `LastTaskResult=0` -- exited 0, and `autosync.ps1` recorded
+    # `result: clean` with the refusal buried in one field of the record. Round 5 named this defect;
+    # this is the fix.
+    #
+    # THE CODE IS 4 AND IT MEANS "NOT CONVERGED", not "broken". `autosync.ps1` maps it to
+    # `result: attention` with its own sentence, so a refusal is never reported as a crash -- two
+    # different facts must not collapse into one sentence. A genuine failure keeps its own code.
+    not_converged: list[str] = []
+
+    presets_status, presets_missing, presets_engine, presets_note = check_version_coupled(
+        "presets", args.engine_root)
+    if report_step("presets", presets_status, presets_missing, presets_engine, presets_note):
         for m in plan_presets(args.dry_run):
             print(" " + m)
         # The preset's own skill root is not enough (see plan_skills): mirror the estate's skills
         # into the user root, which is the one an agent provably reads.
         for m in plan_skills(args.dry_run):
             print(" " + m)
+    else:
+        not_converged.append("presets SKIPPED")
 
     # BOTH preconditions must pass for the profile step, and each reports its own answer:
     # the version check (can this engine mount these rows?) and the generator check (is the
     # committed generated copy still what the source would produce?). The second one is the
     # 2026-10-11 repair -- it is what would have caught the stale `brokerSsh` row before a
     # sync published it (docs/mesh/166-web-profile-office-references.md §3, §7).
-    if report_generated_step(*check_generated_preset_rows()):
-        if report_step("profiles", *check_version_coupled("profiles", args.engine_root)):
+    gen_status, gen_note = check_generated_preset_rows()
+    if report_generated_step(gen_status, gen_note):
+        prof_status, prof_missing, prof_engine, prof_note = check_version_coupled(
+            "profiles", args.engine_root)
+        if report_step("profiles", prof_status, prof_missing, prof_engine, prof_note):
             for m in plan_profile_patches(args.dry_run):
                 print(" " + m)
+        else:
+            not_converged.append("profiles SKIPPED")
+    else:
+        not_converged.append("profiles SKIPPED (generated rows)")
 
     plugin_status, plugin_msg = ensure_client_plugins(args.dry_run)
     print(" " + plugin_msg)
@@ -702,11 +891,23 @@ def main() -> int:
     sampler_status, sampler_msg = ensure_metrics_sampler(args.dry_run)
     print(" " + sampler_msg)
 
+    # LAST, AND IT ASKS A DIFFERENT QUESTION FROM EVERY STEP ABOVE. Those steps report what they
+    # DID; this reports what the machine now LOADS. The difference is the whole failure class this
+    # program spent a day on: on 2026-10-13 every corrected instruction was in git and absent from
+    # every machine that loads one, and `sync.py` reported success the whole time because it had
+    # correctly refused the profile layer and nothing checked the result.
+    verified = verify_loaded_surface(args.dry_run)
+    if not verified:
+        not_converged.append("the loaded surface does not match the repo")
+
     print()
     if args.dry_run:
         print("dry run: nothing was written")
     else:
         print("sync complete. Restart the DSH profile for a settings change to take effect.")
+    if not_converged:
+        print("NOT CONVERGED: " + "; ".join(not_converged))
+        return 4
     return max(plugin_status, sampler_status)
 
 
