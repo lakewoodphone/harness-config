@@ -380,6 +380,7 @@ Every change below is backed up under `/root/text-fix-20261015/backup/` and reve
 | 13 | **An asker's question now reaches the reply path — proved end to end.** `textctx.recent_asks(phone, hours=…)` already reads the relay's `open_asks`; the reason it returned nothing for the CFO was that the CFO never filed there (#10). With #10 in place the two halves meet. | `/root/bin/textctx.py` (unchanged — the missing half was the writer) | `/root/text-fix-20261015/prove_ask_resolution.py`: file an ask the way `cfo-ask.py` files one → `textctx.recent_asks("+18483897895")` **returns it** (`CFO [proof-20261015T1540]`) → `answer_ask` → `answered` → it is **gone from the open set**, so it cannot be asked twice. Cleaned up: every ref this session created is `answered`; the only open ask is `attempt-29`, which predates the session |
 | 14 | **The family-chat owner leg now goes through the front desk too.** `_guard_owner_leg` submits to the relay under `door="family_chat"` — the third door literal to exist, and the first added since. Two flags carry the design: `class_hint=REPLY_CLASS` for a **verbatim relay**, because a relative's own words must not consume his 20-minute budget (the 2026-10-14 incident this leg's own test file exists for: a relay to the owner consumed it and his phone missed the message 8 ms later), and `dedupe_disabled=True` for a relay only, because two relatives writing "Mazal tov!" are two events that read alike. A **machine** message on this leg keeps both rules. The leg also discharges the relay's caller obligation — `_relay_finish()` records sent/failed, so an attempt cannot sit `pending` and hold a later identical submission as `dup-inflight`. | `app/family_chat/twilio_client.py` | both flag combinations called → two `family_chat` attempt rows; an attempt id returned and closed **sent** (row 43 → `queued`, sid recorded) and **failed** (row 44 → `error` recorded). `company-api` restarted 15:41:07Z (guard ALLOW, recorded), `active`, `/health` ok. **734 family tests pass** |
 | 15 | **The test suite no longer writes to the live relay store.** Wiring the family leg made the suite submit to the production policy ledger: five real rows (attempts 45-49, bodies "Mommy: hello", "Mazel tov! Yosef dov and Nechama rochel had a boy!") landed at `2026-10-15T15:41:53Z`, all `pending`. A test run could therefore have held a genuine owner-bound message as `dup-inflight`. `tests/conftest.py` gained a session-scoped autouse fixture pointing `OWNER_TEXT_RELAY_DB` at a temp store — the same seam an operator uses, read at call time by `db_path()`. Also in this pass: two existing family-leg tests failed **because** of the new gate (they mocked only `owner_text.gate`), confirmed by A/B, and were fixed at the contract rather than the assertion — a `_relay_module()` seam (mirroring the gate's), a `_RelayStub`, and four new tests pinning a relay refusal as permanent, a relay floor as a delay, the reply-class exemption, and the outcome being recorded. | `tests/conftest.py`, `tests/test_family_chat_owner_leg.py`, `app/family_chat/twilio_client.py` | A/B: 2 failed with the change, **10 passed with it reverted** — so the failure was mine, not pre-existing. After the fix: **14 passed** (10 original + 4 new), and **734 passed** for the whole family suite with the live ledger **unchanged at 49 attempt rows**, before and after |
+| 16 | **Whole-suite regression check after every app-side change in this session, and the reply-path clause measured rather than asserted.** | — | **47 failed / 3690 passed** (4:28). Baseline before this session's later changes was **47 failed / 3686 passed** — the same failure set, **+4 passes**, which are this session's four new family-leg tests. **Nothing regressed.** The 47 are the pre-existing set (department_tools 11, shabbat, shalom_zmanim, tool_contracts, work_generation, config/communications contract, golden gateway), and the two SMS-adjacent ones were attributed by A/B earlier. Reply path: `textctx.recent_asks("+18483897895", hours=72)` → 8 candidates, `kind=relay` and `kind=cfo`, and the one open relay ask (`attempt-29`) **is visible to it** — so an inbound reply resolves against the relay's record |
 
 **Test attribution — done by A/B, because claiming green is how this estate lies to itself.**
 
@@ -435,12 +436,25 @@ ones by the A/B above and the rest do not touch a file I edited.
 2. **Nothing composes for him yet.** Every door still writes its own body. The 900 → 400 → 320
    triple-cut, and the "compose long then truncate" habit, are unchanged. The marker removal makes a
    half-message *quieter*; it does not stop one being half.
-3. **Two inbound paths are still uncoordinated.** The app webhook replies inline; the cron responder
-   is a no-op. `textctx.recent_asks()` is missing, and the three ask stores still disagree. **What
-   changed today:** the responder's `relay: ask -> missing` can no longer happen for a CFO question
-   (#10), so a reply to one now resolves against the relay — the first time the ask ledger and the
-   reply path have agreed about the same question. The other askers (`owner-ask.py`) still do not
-   file with the relay.
+3. **The ask stores are FRAGMENTED BY KIND, not disagreeing — corrected 2026-10-15 by
+   measurement.** I wrote earlier that "three stores still disagree". Measured, that is too strong
+   and the distinction matters:
+
+   | store | what it holds | rows |
+   |---|---|---|
+   | `/root/.owner-text/relay.db` `ask` | the app's approval ask, the digest's own ask, this session's probes | 5 (1 open) |
+   | `/root/.cfo-asks/asks.db` | the CFO's charge questions | 23 (6 open, 2 answered, 15 expired) |
+   | `/root/.owner-ask/asks.db` | **nothing — `owner-ask.py` has never run** | 0 |
+
+   No merchant has been delivered twice (`GROUP BY cluster_key HAVING COUNT(*)>1` over the delivered
+   CFO asks returns nothing), so nothing is asking twice across stores today. And the reply path
+   reads across the kinds in one list — measured: `textctx.recent_asks("+18483897895")` returns 8
+   candidates tagged `kind=relay` (`attempt-29`) and `kind=cfo` (`ask-1792029635`, …), and **every
+   open relay ask is visible to it**. The fragmentation is a tidy-up, not a functional gap.
+   **Residual, real, and small:** the digest's ask (`attempt-29`) carries the ref in the relay but
+   not in its body, so a reply to it resolves by content/inference rather than by reference. That is
+   the documented fallback and the ref is deliberately not printed into a human text; the CFO's asks
+   do carry `CFO [ask-…]`, so those resolve exactly.
 4. **Identity is still one `LIKE 'owner%'` cell plus an unset `$OWNER_PHONE_NUMBER`,** and
    `+17325691594` is still `owner-google-voice` / `allow=never` against an exact `== "owner"` test.
 5. **Six doors are still outside the relay**, including two hosts with a raw `curl` that the posture
