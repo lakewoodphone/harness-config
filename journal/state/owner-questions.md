@@ -6,7 +6,7 @@ Updated: 2026-10-15
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 526 row(s) read, 29 pending, generated 2026-10-15 17:53 UTC on SECRATARY-CLOUD.
+Provenance: 528 row(s) read, 31 pending, generated 2026-10-15 18:53 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -39,5 +39,7 @@ Provenance: 526 row(s) read, 29 pending, generated 2026-10-15 17:53 UTC on SECRA
 | 524 | 2026-10-15 | medium | Approve a short maintenance window to deploy the one-writer broker fix on lpt-apps-01, which restarts the live filter broker for about a minute. | I recommend deploying at the next quiet window: the change is code-complete, tested (23 tests) and merge-ready, and it removes the two-writer SQLite lock failure class. |
 | 525 | 2026-10-15 | medium | The only offsite copy of the Android release signing key - restic snapshot 274a0baa in the R2 store on lpt-apps-01 - is under a nightly restic forget with no tag filter, so it ages out of the 14-day / 8-week / 6-month retention instead of renewing. Which fix do you want on /root/lpt-apps-backup.sh? | I recommend adding --keep-tag kosher-signing-key to forget line 110: one word, it exempts the key snapshot from every prune, and it makes the copy already made valid indefinitely. Fallback: add the key directory to the n |
 | 526 | 2026-10-15 | medium | Item 32's definition of done is 'lptcase check exit 0'. The only structural class left is duplicate-phone, 22 groups - but that class groups case files by phone number ALONE, and the repo's own duplicate doctrine (tools/case-index/DOUBLES.md) says phone alone is deliberately NOT duplicate evidence: 'One customer really does have four separate repairs. Grouping by phone would call that a duplicate. | Report duplicate-phone non-structurally and let doubles.py own duplicate detection. doubles.py already carries its own exit code, 24 tests and known-closed-doubles.json, and it distinguishes a real same-job duplicate fro |
+| 528 | 2026-10-15 | medium | kosher-ai-filter item 319 clause 2: 79 of 152 remote branch tips still carry the broker token on argv (psi.ArgumentList.Add(token) / TOKEN = sys.argv[3]). Retire them, or leave them and let the new promotion guard be the control? | Leave them and rely on the guard. Item 369 now refuses any promotion that would carry the argv form back to main (tools/check-relay-token-not-argv.py + the relay-credential-guard CI job, branch guard/kaf369-relay-token-a |
+| 529 | 2026-10-15 | medium | +18482245096 (+18482245096) texted your AI line and I have not answered: 'LPT bench test - automated picture check.'. Should I answer them, and may I answer this person directly from now on? | Send the draft I prepared, if it reads right to you: Bench test received - photo came through clean. - Daniel |
 
 Closed since the queue opened: 497. Answered questions move to `entries/decisions/` with the owner's own words.

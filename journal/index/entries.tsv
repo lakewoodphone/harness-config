@@ -2719,6 +2719,7 @@ lessons	L5026	5026		2026-10-15	SECRATARY-CLOUD	open	**L5026 · REPAIR of L5025 o
 lessons	L5027	5027		2026-10-15	SECRATARY-CLOUD	open	**L5027 · Committed is not running: check ancestry before repeating 'fixed' (website_db ORDER_STATUSES)**	entries/lessons/L5027.md	1	42	0528a303bc27c264	shop,lpt,git,verification	H3341
 lessons	L5028	5028		2026-10-15	SECRATARY-CLOUD	open	**L5028 · A journal body with backticks written through a double-quoted shell string loses them silently - use --body-file**	entries/lessons/L5028.md	1	23	5221a21710070ffd	round6,journal,quoting	
 lessons	L5029	5029		2026-10-15	SECRATARY-CLOUD	open	**L5029 · Off vs restart decides the diagnosis: one question before any instrument**	entries/lessons/L5029.md	1	47	461b0ce08251e13e	shop,hardware-diagnostics,lpt	H3500
+lessons	L5152	5152		2026-10-15	SECRATARY-CLOUD	open	**L5152 · 'uncommitted work' in the live /opt/company checkout is 97% already on a remote ref -- measure blob membership before calling it unlanded**	entries/lessons/L5152.md	1	38	733cc88a67dfc3cb	checkout-health,git,live-checkout,opt-company,measurement	ledger:357,ledger:352,ledger:308
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
