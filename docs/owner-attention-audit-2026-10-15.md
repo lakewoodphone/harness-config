@@ -71,7 +71,10 @@ failing, profiles being archived, at **2026-10-15T14:24:18Z**; **201** `.broken-
 profile copies on disk.
 
 **(3) Personal email is read, then drowned.** `email_catalog` in the last 3 days holds **110
-needs_owner rows, 64 of them on personal accounts**; **130 personal p0/p1 rows** inside the digest's own
+needs_owner rows, 66 of them on personal accounts** — `chevedy` 38, `ezabz68` 19, `eliyahuzabrowsky` 9,
+against `lakewoodphoneandtech` 44 and `zabzgpt` 2 (re-measured 2026-10-15T~14:5xZ; the same query on the
+30-day window returns the same five accounts and no others, which is what the `OWNER_PERSONAL_ACCOUNTS`
+default is checked against); **130 personal p0/p1 rows** inside the digest's own
 400-row window. The digest does carry email — but it prints **no account column**, so he cannot tell a
 customer from his own bank, and the 320-character SMS carries only the top four `[high]` lines, which
 on 2026-10-15 were decisions and books and **zero email**.
@@ -141,6 +144,9 @@ production yet.
   pre-change file** (control run). **It is deliberately a tiebreak and not a severity bump:** raising a
   personal p1 to `high` would put it into `sms_body`'s `highs[:4]`, where a Chase or Google alert could
   displace a real decision from the 320-character text.
+  **The default account list was then checked against production** rather than assumed: a 3-day and a
+  30-day query both return exactly five accounts — the three personal ones and the two shop ones — with
+  no spelling variants, so `OWNER_PERSONAL_ACCOUNTS` misses nothing today.
 
 - **Landing both is ledger item 331**, with the DoD written as measurements rather than adjectives: no
   `GV --headless=new launch failed` line for 24h and the `.broken-*` count stops growing; and the next
