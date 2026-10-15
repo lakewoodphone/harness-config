@@ -22,10 +22,27 @@ what it now hands over.
 | 4 | **The authority can run the row generator at all** | `node scripts/make-preset-rows.mjs --check` on the authority | ran and reported real DRIFT; before, it threw `cannot resolve a usable "yaml" package` |
 | 5 | **A tool to do this again** | `python scripts/evolution/deliver-persona.py --repo <path>` | 6 steps, prints evidence, exit 0/1/3 |
 | 6 | **The round's documents are on the machine that runs the company** | `ls /root/code/harness-config/docs/dsh-evolution-v6/` | 6 files + `PROGRAM.md` |
+| 7 | **A company fix is DEPLOYED and verified — the first this round.** A retry now inherits an attempt that ended `paused` | `systemctl show company-api -p ExecMainStartTimestamp` | **00:25:19 UTC → 14:41:46 UTC**; `/health` `{"ok":true}`; the running interpreter reports `PRIOR_ATTEMPT_STATUSES = ('failed','expired','paused')`; `/opt/company` commit **`2dc5c89d4`** |
 
 **Journal entries written this round:** decisions `D3723` (delivered from the generator; the proof is
 the composed config), lessons `L4577` (the repair step that reported a false clean), `L4578` (see the
 correction below), pain `P4185` (sync.py's exit code; the authority's missing yaml), win `W3070`.
+
+### The closing verification, taken fresh on all three machines after every subsequent change
+
+Run 2026-10-15 ~15:4xZ, AFTER the sync.py exit-code fix and every other change of this round. This is
+the reading to trust over any earlier line in this file:
+
+| machine | `make_zabz_preset.py --check` | `make-preset-rows.mjs --check` | `preset-drift.py` | the four v6 markers in `--dump-config` | the two old markers |
+|---|---|---|---|---|---|
+| ZABZ-YOGA | exit 0 — "zabz: in sync with the generator" | exit 0 — managed block UP TO DATE | `compared 17 match=17 drift=0` | **1, 1, 1, 1** | **0, 0** |
+| ZABZ-TECH | exit 0 | exit 0 — UP TO DATE | `compared 15 match=15 drift=0` | **1, 1, 1, 1** | **0, 0** |
+| `secratary-cloud` | exit 0 | exit 0 — UP TO DATE | `compared 14 match=14 drift=0` (1 divergent-in-repo, a tidiness note, not a failure) | **1, 1, 1, 1** | **0, 0** |
+
+**So `L4578`'s worry is resolved in the other direction from how it was written**: the drift
+comparison is green on all three machines once the generated rows are correct, which is further
+evidence for the `L4579` correction. It was never red "by construction"; it was red because the rows
+were genuinely one generation behind.
 
 ---
 
