@@ -121,14 +121,30 @@ Recorded because a correction nobody writes down is a correction that gets made 
 
 ## 4. What was changed
 
-**Shipped as a branch, not hand-edited into production** — `/opt/company` is the live
-`company-api` WorkingDirectory, and hand-editing it is an uncommanded deploy (ledger item 149).
+**Shipped as branches, not hand-edited into production** — `/opt/company` is the live
+`company-api` WorkingDirectory, and hand-editing it is an uncommanded deploy (ledger item 149). The
+deployed copy of `scripts/owner_attention.py` is still `md5 9c661307…`; nothing here has run in
+production yet.
 
-- `personal-secretary-mvp` branch **`fix/shadow-learning-gv-gate`** (commit `a3d6d5e19`, pushed):
+- `personal-secretary-mvp` **`fix/shadow-learning-gv-gate`** (commit `a3d6d5e19`, pushed):
   `shadow_learning._observe_google_voice` is gated on the same flag that retires the secretary, so the
   dead scraper is no longer driven and no browser is launched. Test:
   `tests/test_shadow_learning_gv_retired_gate.py` — **13 passed with the fix; 11 failed / 2 passed
   against the pre-fix file** (control run, so the test is proven to discriminate).
+
+- `personal-secretary-mvp` **`fix/owner-attention-personal-tier`** (commit `34c0abb80`, pushed):
+  the digest prints the account on every email line and marks his own mail **PERSONAL**, and personal
+  mail orders **ahead of shop mail inside a section at equal severity**. `sec()` was hoisted out of
+  `build()` as module-level `section_of()` and the ordering extracted into `rank_items()`, so the rule
+  is testable without running the whole digest. Test:
+  `tests/test_owner_attention_personal_tier.py` — **11 passed with the change; 11 failed against the
+  pre-change file** (control run). **It is deliberately a tiebreak and not a severity bump:** raising a
+  personal p1 to `high` would put it into `sms_body`'s `highs[:4]`, where a Chase or Google alert could
+  displace a real decision from the 320-character text.
+
+- **Landing both is ledger item 331**, with the DoD written as measurements rather than adjectives: no
+  `GV --headless=new launch failed` line for 24h and the `.broken-*` count stops growing; and the next
+  digest carries `PERSONAL` on his own mail.
 
 **Decided and unblocked, no code:**
 
