@@ -10,7 +10,7 @@
  },
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "local bands.tsv",
+  "handoff": "refs/heads/hk/182-wake-family-key",
   "lessons": "refs/heads/hk/182-wake-family-key",
   "pain": "refs/heads/hk/182-wake-family-key",
   "wins": "ZABZ-YOGA live working tree"
@@ -42,12 +42,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-15T01:45:06Z",
+ "refreshed_at": "2026-10-15T02:00:08Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 4.6,
- "sources_seen": 3688
+ "seconds": 6.8,
+ "sources_seen": 3689
 }
