@@ -6,6 +6,28 @@
 
 ---
 
+> ## STATUS: DEFERRED — do not start this without the owner
+>
+> **Owner's instruction, 2026-10-15:** *"document as this needing to happen eventually and we'll get to it."*
+>
+> The work in §6 is **agreed and deliberately postponed**. It is a known open defect, not an
+> in-progress build. Nothing here has been implemented; §7 describes the state *after* the outage,
+> not after a fix.
+>
+> **When it is picked up:** the design constraints in §6 are the spec, and the one open question is
+> the money cap, for which the recommendation is already worked out — **USD 10 per day** for the
+> fallback tier, about 770 calls at the ~217k-token loop size, which covers an outage without letting
+> a runaway loop spend the owner's money. That number is his to confirm, not mine to assume.
+>
+> **Do not file this as a company task.** The company's task queue is executed by the autonomous
+> departments; filing it there would start the build without him. It is recorded here, in journal
+> decisions, and as the open pain **P4121**, deliberately.
+>
+> **The defect is still live:** as of this writing, if DeepSeek stops answering, every DSH session on
+> ZABZ-TECH, ZABZ-YOGA and SECRATARY stops with it.
+
+---
+
 ## 0. The finding in one paragraph
 
 On 2026-10-15 between **00:11Z and at least 02:48Z**, DeepSeek's inference API stopped answering and
