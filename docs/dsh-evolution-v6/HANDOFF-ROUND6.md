@@ -25,6 +25,7 @@ what it now hands over.
 | 7 | **TWO company fixes are DEPLOYED and verified, and the first is PROVEN by observed sessions.** (a) a retry now inherits an attempt that ended `paused`; (b) `left=` can no longer quote a stale `[OUT-OF-TURNS]` tick for a session that closed | `systemctl show company-api -p ExecMainStartTimestamp` | **(a) 00:25:19 → 14:41:46 UTC**, **(b) 14:52:41 → 14:53:59 UTC**; `/health` `{"ok":true}`; running interpreter reports `PRIOR_ATTEMPT_STATUSES = ('failed','expired','paused')`; `/opt/company` commit **`2dc5c89d4`** + the marker fix |
 | 7a | **the observed proof for (a)** | one row per session created after the deploy | **78869, 78870, 78871 — all `prev_status=paused`, all carried `attempt-context`, none said "no prior attempt"**; and over 2 h: `paused` predecessors 5 sessions / 5 carried context / 1 said no-prior (session **78861, 13:31:12, pre-deploy**), `failed` 3/3, no predecessor 6/6 (correct) |
 | 7b | **the observed proof for (b)** | the live module, called directly | `[COMPLETED: …]` and `[TASK-CLOSED-BY-SESSION: …]` now return their own marker; an empty marker still quotes the trace's (correct); regex alternatives **16 → 18** |
+| 7c | **REVERTED, with the measurement that refuted it:** `paused` is no longer a strike toward the give-up ceiling | `systemctl show company-api -p ExecMainStartTimestamp` and the running source | **14:53:59 → 15:13:48 UTC**; the running predicate is `status = 'failed'` only, occurrences of `status IN ('failed', 'paused')` in `database.py`: **0**; `/opt/company` commit **`ca9248eef`**. The retry-context half is KEPT and verified in the running interpreter: `PRIOR_ATTEMPT_STATUSES = ('failed', 'expired', 'paused')` |
 | 8 | **The whole live `app/` tree is now inside a commit.** 28 modified files of production code were in NO commit today — the round-4 disease, four days after round 4 cured its own instance | `git -C /opt/company status --porcelain -- app \| grep -c '^ M'` | **0**; commit **`2f478ba0c`** on the unchanged branch `keepalive/156-dialpad-status-landing`; committed blobs byte-identical to live for `autopilot.py`, `database.py`, `attempt_context.py`; 38 `.bak-*` files left untracked on purpose |
 
 **Journal entries written this round:** decisions `D3723` (delivered from the generator; the proof is
@@ -225,10 +226,12 @@ from a checkout.
 10. **The behavioural proof for the first company fix is CLOSED** — see §1 rows 7a and 7b. It was
    outstanding when this file was first written and is now an observed row: three sessions created
    after the deploy, all with a `paused` predecessor, all carrying the prior attempt, none saying
-   "no prior attempt". **What is still open on the company**: the post-deploy cost of counting
-   `paused` in the give-up ceiling (a task that legitimately pauses three times in 24 h will now be
-   refused — no measurement behind that yet), the `TOOL_LOOP_DEADLOCK` regression (38 → 55), and
-   `STEP_BUDGET_EXHAUSTED` at 322 in 7 days.
+   "no prior attempt". **And the give-up half of that same change was measured, found wrong, and
+   REVERTED** (§1 row 7c): of 13 tasks that paused 3+ times in 30 days, **5 went on to complete**,
+   against 9 of 482 for `failed`; task **28625** paused six consecutive times, failed once, then
+   completed, and the amended ceiling would have refused it at the third pause. **What is still open
+   on the company**: `TOOL_LOOP_DEADLOCK` (38 → 55 matched, 133 of 486 seven-day failures) and
+   `STEP_BUDGET_EXHAUSTED` at 322 in 7 days — both now have their command and neither has a fix.
 
 
 ---
