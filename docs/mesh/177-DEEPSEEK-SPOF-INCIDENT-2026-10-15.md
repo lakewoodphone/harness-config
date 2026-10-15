@@ -30,7 +30,7 @@
 
 ## 0. The finding in one paragraph
 
-On 2026-10-15 between **00:11Z and at least 02:48Z**, DeepSeek's inference API stopped answering and
+On 2026-10-15 between **00:11Z and 05:04Z — 4h52m**, DeepSeek's inference API stopped answering and
 every DSH session on every machine the owner uses stopped with it. The company survived — its gateway
 has had a real escalation chain since before today and it carried the load on Gemini — but **the
 harness did not fail over at all**: it retried the dead provider and gave up. The reason is one
@@ -42,8 +42,9 @@ and was never used. That is the single point of failure, and it is still there a
 
 ## 1. The event, from the provider's own record
 
-Source: `status.deepseek.com/incidents/7116348214287`, read 2026-10-15T02:54Z. Times are **UTC** (the
-owner's screenshot rendered them as 08:11 PM America/New_York — same incident, same instant).
+Source: `status.deepseek.com/incidents/7116348214287`, read twice — 2026-10-15T02:54Z (while open) and
+2026-10-15T14:10Z (after resolution). Times are **UTC**; the owner's screenshot rendered them as
+08:11 PM America/New_York — same incident, same instant.
 
 | time (UTC) | state |
 |---|---|
@@ -52,13 +53,21 @@ owner's screenshot rendered them as 08:11 PM America/New_York — same incident,
 | 01:06 | Identified — "The cause has been identified and a fix is being implemented." |
 | 01:08 | Identified |
 | ~02:48 | **Still "Identified · Full Outage", elapsed 2h37min** |
+| 04:49 | Monitoring — "fix implemented, results being monitored" |
+| **05:04** | **RESOLVED** — "The incident has been resolved and service has been restored." |
+
+**Total: 4 hours 52 minutes** (00:11Z → 05:04Z). The duration was still climbing when this document
+was first written — the 2h37min figure in §1 was correct at 02:54Z and understated the event by more
+than two hours. Read the final number as four fifty-two.
 
 Affected components: **DeepSeek V4 Pro API service** and **DeepSeek V4.1 Flash API service**.
 
-**The page is still open and the incident is not marked resolved.** At 02:41Z, however, a live
-inference call to `api.deepseek.com/chat/completions` returned **HTTP 200 in 2003 ms**. Both are true:
-the API is serving again while the provider has not yet closed the incident. Verify with a live
-inference call, not with the status page, and not with `/models` (see §8.1).
+**A 200 is not health, and neither is a status page.** Three readings taken during the incident, all
+true, none sufficient alone: at 02:41Z inference returned HTTP 200 in 2003 ms while the status page
+still read "Full Outage"; at 03:01Z it returned HTTP 200 in **25223 ms** with an empty body at 8 max
+tokens (real content only once the token budget was raised); and at 14:10Z it returned HTTP 200 in
+2379 ms with clean content. Verify with a live inference call that returns *usable content*, not with
+the status page, and not with `/models` (see §8.1).
 
 ---
 
@@ -262,7 +271,27 @@ which is exactly why it must be capped and must only fire on a hard failure.
 
 ---
 
-## 7. Current state, verified 2026-10-15 02:41–02:54Z
+## 7. Current state
+
+### 7.1 Recovered — verified 2026-10-15 14:10Z, five hours after the incident closed
+
+| check | reading | source |
+|---|---|---|
+| DeepSeek inference | **HTTP 200, 2379 ms, content `ok`, finish_reason `stop`** | live `POST /chat/completions` |
+| Anthropic `claude-haiku-5-5` | **HTTP 200, 1212 ms, content `ok`** | live `POST /v1/messages` |
+| Provider incident | **RESOLVED 05:04Z**, total 4h52min | status page, read 14:10Z |
+| `company-api.service` | **active**, uptime 13h44m, `NRestarts=0` | systemd on authority |
+| `cloudflared.service` / `mesh-broker.service` | **active** | systemd on authority |
+| Model failures since 12:00Z | **0** | `model_usage` |
+| Newest tick | 2026-10-15T13:43:23Z | `tick_telemetry` |
+| Authority disk | 71% used, 44.5 GB free | `df -Pk /` |
+
+**Verdict: fully recovered and stable.** Both model paths answer with real content in one to three
+seconds, the company is serving, ticks are running, there have been no model failures for hours, and
+the provider has closed its incident. DeepSeek is back to normal latency — 2379 ms against the
+25223 ms seen while it was degraded.
+
+### 7.2 During the incident — verified 2026-10-15 02:41–02:54Z
 
 | check | reading | source |
 |---|---|---|
@@ -282,8 +311,8 @@ which is exactly why it must be capped and must only fire on a hard failure.
 | Mesh `lakewooechsmini` | **unreachable** — Yisroel's Mac | same |
 | Broker read health | reads 473, **readFailures 219 (46.3%)** | same |
 
-**Verdict: everything is running.** Both model paths answer, the company is up and serving, all three
-live mesh nodes answer in under 200 ms. Two standing items are not new today: the frozen box and the
+**Reading at the time:** both model paths answered, the company was up and serving, and all three
+live mesh nodes answered in under 200 ms. Two standing items were not new that night: the frozen box and the
 Mac are unreachable, and those two are the whole explanation for the 46% broker read-failure rate —
 the broker keeps probing a box that is frozen by policy and a machine that is off.
 
