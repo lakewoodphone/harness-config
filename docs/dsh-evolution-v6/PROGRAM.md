@@ -122,3 +122,30 @@ Round 6 is done when **all** of the following are true, and not before:
    outcome, and at least one **deployed** change that moves a named row.
 7. `HANDOFF-ROUND6.md` exists and a fresh session could start from it alone.
 8. `journal.py check` is 0 errors.
+
+---
+
+## 7. ROUND 6 OUTCOMES — written 2026-10-15 15:2xZ, and this section SUPERSEDES §3's status column
+
+**Read this against the file and the surface, never against §3's table.** A stale status line in a plan
+document — round 4 §5 calling the instruction surface "not started" when it had been started and never
+reached him — cost round 5 its first ten minutes. This section exists so that mistake is not repeated in
+the other direction.
+
+| workstream | outcome | the command that proves it |
+|---|---|---|
+| **M6-A** instruction & identity surface v6 | **DONE.** Ten numbered, checkable rules on all three machines; the authority's `brokerSsh` no longer defaults to the frozen office box; the authority can run its row generator at all. | `dsh --profile web --dump-config` on each machine, four v6 markers present and two compressed-away markers absent — `CURRENT` on ZABZ-YOGA, ZABZ-TECH and `secratary-cloud` |
+| **M6-B** integration, record, handoff | **DONE.** `HANDOFF-ROUND6.md`, `90-what-is-needed-and-what-is-not.md`, journal `D3723 L4577 L4578 L4579 P4185 W3070 H4617`. | `journal.py check` → 0 errors |
+| **R6-WANTS** owner wants | **DONE.** 212 wants → 25 clusters + an honest 2-want tail, each cluster carrying a verdict and the command behind it. Refuted a premise in its own brief. | `20-owner-wants.md` sha256 `db3ebe7c9133662a…`, byte-identical local and remote |
+| **R6-FRICTION** evidence pack | **DONE.** 11 frictions (the brief said ten and listed eleven), 33 quotations verified by script, and the mechanism for the largest one found. | `30-friction-evidence.md` sha256 `2c3752d60ec25d4a…`; `30-proposed-rules.md` `8042659683d89523…` |
+| **R6-COMPANY** measurement | **DONE.** Matched 18 h pre/post: **38.5 % → 54.9 % completed**; cost per completed session **0.6253 → 0.4172 USD (−33 %)**. n=113 clears §8's 50-session threshold, so the abandon condition is decidable and the answer is: the convergence change moved the number. | `40-company-baseline.md` sha256 `aafabeb8f2a62fae…`; every table carries its SQL and its window |
+| **R6-JOURNAL** hygiene | **DONE, and it hit its own STOP condition deliberately.** 364 colliding ids measured; **it wrote nothing**, because converging five trees is a merge, not a sweep. Owner queue classified: 127 pending → **26 his / 101 ours**. | `50-journal-hygiene.md` sha256 `af84c85f82b471d9…` |
+| **R6-RECENT** newest sessions | **DONE, and the brief was wrong.** Only **26** sessions in the window were genuinely new, not 86 — round 4's extraction ran past its own stated cut. True corpus total **1,008 + 26 = 1,034**, not 1,094. | `readers/R20..R22` (86 records, 0 parse problems, mergeable — proved by running round 4's own `reader-census.py`) |
+| **C4** the company's architecture | **OPEN.** Two instrument defects have tested patches in flight; nothing was deployed in round 6. | `HANDOFF-ROUND6.md` §3 |
+
+**Against §6's eight conditions: 2, 6, 7 and 8 are met; 1 is met with one caveat (the composed config is
+verified on all three machines, but a RUNNING engine still holds the persona it booted with); 3 is
+unmet; 4 is met in the only honest sense — all twenty frictions are disposed of, fourteen by a rule and
+six by a filed reason; 5 is unmet by design** — the journal fork is round 7's first job, with the union
+plan measured and a non-destructive merge in flight.
+
