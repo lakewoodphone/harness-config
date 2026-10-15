@@ -26,6 +26,7 @@ what it now hands over.
 | 7a | **the observed proof for (a)** | one row per session created after the deploy | **78869, 78870, 78871 — all `prev_status=paused`, all carried `attempt-context`, none said "no prior attempt"**; and over 2 h: `paused` predecessors 5 sessions / 5 carried context / 1 said no-prior (session **78861, 13:31:12, pre-deploy**), `failed` 3/3, no predecessor 6/6 (correct) |
 | 7b | **the observed proof for (b)** | the live module, called directly | `[COMPLETED: …]` and `[TASK-CLOSED-BY-SESSION: …]` now return their own marker; an empty marker still quotes the trace's (correct); regex alternatives **16 → 18** |
 | 7c | **REVERTED, with the measurement that refuted it:** `paused` is no longer a strike toward the give-up ceiling | `systemctl show company-api -p ExecMainStartTimestamp` and the running source | **14:53:59 → 15:13:48 UTC**; the running predicate is `status = 'failed'` only, occurrences of `status IN ('failed', 'paused')` in `database.py`: **0**; `/opt/company` commit **`ca9248eef`**. The retry-context half is KEPT and verified in the running interpreter: `PRIOR_ATTEMPT_STATUSES = ('failed', 'expired', 'paused')` |
+| 7d | **A repo that is not present on this host is now non-fatal** — it is neither retried into `TOOL_LOOP_DEADLOCK` nor counted toward the action's circuit breaker | the running interpreter's own predicate, on the real messages | **15:13:48 → 15:22:18 UTC**; `/health` `{"ok":true}`; `_should_retry_action_failure("repo_map", …)` returns **False** for all three resolver messages and **True** for a `Connection reset` control; `/opt/company` commit **`d43a75a37`** |
 | 8 | **The whole live `app/` tree is now inside a commit.** 28 modified files of production code were in NO commit today — the round-4 disease, four days after round 4 cured its own instance | `git -C /opt/company status --porcelain -- app \| grep -c '^ M'` | **0**; commit **`2f478ba0c`** on the unchanged branch `keepalive/156-dialpad-status-landing`; committed blobs byte-identical to live for `autopilot.py`, `database.py`, `attempt_context.py`; 38 `.bak-*` files left untracked on purpose |
 
 **Journal entries written this round:** decisions `D3723` (delivered from the generator; the proof is
@@ -274,19 +275,21 @@ from a checkout.
    errors on call — `no such column: action_name`; the real schema is
    `circuit_breaker_events(agent_id, event_type, reason, spend_at_event, created_at)`.
 
-   **WHERE, EXACTLY — the predicates already receive everything they need, so this is small.**
-   `app/chat_action_repos.py:_repo_unavailable_detail(params, action)` **already returns the
-   resolver's `hint`** (the correct instruction). The damage is done by two predicates beside it in
-   `app/chat_action_resilience.py` that take the same `detail` and do not branch on it:
-
-   * `_should_retry_action_failure(action, detail)` (line ~278) — should return **False** when
-     `detail` is the repo-unavailable hint;
-   * `_should_record_circuit_breaker_failure(action, detail)` (line ~267) — likewise, because
-     counting a permanently-failing action toward its breaker guarantees the 10-strike disable;
-   * and `_get_fix_hint(action_name)` (line ~481) is keyed on the **action name only**, which is why
-     the agent is handed `FIX: Use repo_path alias …` — a remedy that cannot work here — **next to
-     the correct hint**. Suppress or override the static FIX for this class so the agent is not told
-     two contradictory things.
+   **FIXED 2026-10-15 15:22:18Z — commit `d43a75a37`, `/opt/company` HEAD.** It turned out to be a
+   DATA change rather than a logic change, because `_NON_FATAL_CB_FAILURE_PATTERNS` already drives
+   BOTH predicates: adding the three messages `resolve_managed_repo_path` actually emits to the five
+   `repo_*` pattern tuples is the whole fix. Proven against the running interpreter, not argued —
+   `_should_retry_action_failure("repo_map", …)` now returns **False** for *"Path does not exist on
+   this host: …"*, *"Repo 'x' has no local checkout on this host"* and *"Repo not available locally
+   for 'repo_map'"*, and still **True** for a `Connection reset by peer` control. `r7-nonfatal`
+   script: `scripts/evolution/r7-deadlock-nonfatal.py`.
+   **WHAT IS NOT YET PROVEN, and must be read before this is called a win:** the *field* effect. The
+   predicate is proven; a fall in `TOOL_LOOP_DEADLOCK` sessions is not, and cannot be until sessions
+   run against the new code. **Post-check, one query:**
+   `select count(*) from work_sessions where started_at >= '<the restart instant>' and output_log like '%TOOL_LOOP_DEADLOCK%';`
+   against the 176-in-7-days baseline. Also note the static `FIX:` line is still wrong for this class
+   (`_get_fix_hint` is keyed on the action name only) — the agent is now spared the retry, but it is
+   still told to change an argument that is not the problem. **That is the next, smaller piece.**
 
 
 ---
