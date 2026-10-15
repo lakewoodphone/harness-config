@@ -37,7 +37,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REG = Path("/home/zabz/bin/sources/projects.json")
+REG = Path("/root/bin/sources/projects.json")
 
 
 def main() -> int:
@@ -85,8 +85,8 @@ def main() -> int:
 
     # PROVE it: the source's own dry run must now plan more than one flag per project.
     import subprocess
-    r = subprocess.run([sys.executable, "/home/zabz/bin/sources/project-keepalive.py", "--dry-run"],
-                       cwd="/home/zabz/bin/sources", capture_output=True, text=True,
+    r = subprocess.run([sys.executable, "/root/bin/sources/project-keepalive.py", "--dry-run"],
+                       cwd="/root/bin/sources", capture_output=True, text=True,
                        encoding="utf-8", errors="replace", timeout=300)
     out = (r.stdout or "") + (r.stderr or "")
     for line in out.splitlines():
