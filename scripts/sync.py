@@ -844,23 +844,46 @@ def main() -> int:
     # The two version-coupled steps are gated separately, each immediately before it runs, so a
     # missing name -- or a check that cannot run at all -- can only ever cost its own step, never
     # the sync. Same decision in --dry-run: the point is to report it, not to write it.
-    if report_step("presets", *check_version_coupled("presets", args.engine_root)):
+    # The exit code has to carry the SKIP, and until 2026-10-15 it did not -- pain P4185. This
+    # returned `max(plugin_status, sampler_status)` and nothing else, so a run that REFUSED the
+    # profile layer -- the exact refusal that left a stale persona on two machines for days while
+    # the 15-minute job reported `LastTaskResult=0` -- exited 0, and `autosync.ps1` recorded
+    # `result: clean` with the refusal buried in one field of the record. Round 5 named this defect;
+    # this is the fix.
+    #
+    # THE CODE IS 4 AND IT MEANS "NOT CONVERGED", not "broken". `autosync.ps1` maps it to
+    # `result: attention` with its own sentence, so a refusal is never reported as a crash -- two
+    # different facts must not collapse into one sentence. A genuine failure keeps its own code.
+    not_converged: list[str] = []
+
+    presets_status, presets_missing, presets_engine, presets_note = check_version_coupled(
+        "presets", args.engine_root)
+    if report_step("presets", presets_status, presets_missing, presets_engine, presets_note):
         for m in plan_presets(args.dry_run):
             print(" " + m)
         # The preset's own skill root is not enough (see plan_skills): mirror the estate's skills
         # into the user root, which is the one an agent provably reads.
         for m in plan_skills(args.dry_run):
             print(" " + m)
+    else:
+        not_converged.append("presets SKIPPED")
 
     # BOTH preconditions must pass for the profile step, and each reports its own answer:
     # the version check (can this engine mount these rows?) and the generator check (is the
     # committed generated copy still what the source would produce?). The second one is the
     # 2026-10-11 repair -- it is what would have caught the stale `brokerSsh` row before a
     # sync published it (docs/mesh/166-web-profile-office-references.md §3, §7).
-    if report_generated_step(*check_generated_preset_rows()):
-        if report_step("profiles", *check_version_coupled("profiles", args.engine_root)):
+    gen_status, gen_note = check_generated_preset_rows()
+    if report_generated_step(gen_status, gen_note):
+        prof_status, prof_missing, prof_engine, prof_note = check_version_coupled(
+            "profiles", args.engine_root)
+        if report_step("profiles", prof_status, prof_missing, prof_engine, prof_note):
             for m in plan_profile_patches(args.dry_run):
                 print(" " + m)
+        else:
+            not_converged.append("profiles SKIPPED")
+    else:
+        not_converged.append("profiles SKIPPED (generated rows)")
 
     plugin_status, plugin_msg = ensure_client_plugins(args.dry_run)
     print(" " + plugin_msg)
@@ -873,13 +896,18 @@ def main() -> int:
     # program spent a day on: on 2026-10-13 every corrected instruction was in git and absent from
     # every machine that loads one, and `sync.py` reported success the whole time because it had
     # correctly refused the profile layer and nothing checked the result.
-    verify_loaded_surface(args.dry_run)
+    verified = verify_loaded_surface(args.dry_run)
+    if not verified:
+        not_converged.append("the loaded surface does not match the repo")
 
     print()
     if args.dry_run:
         print("dry run: nothing was written")
     else:
         print("sync complete. Restart the DSH profile for a settings change to take effect.")
+    if not_converged:
+        print("NOT CONVERGED: " + "; ".join(not_converged))
+        return 4
     return max(plugin_status, sampler_status)
 
 

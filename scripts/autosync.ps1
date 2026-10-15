@@ -518,7 +518,14 @@ try {
 
   $prevEap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
   $apply = (& $python (Join-Path $snapshot 'scripts\sync.py') 2>&1)
-  $applyOk = ($LASTEXITCODE -eq 0)
+  $applyCode = $LASTEXITCODE
+  $applyOk = ($applyCode -eq 0)
+  # Exit 4 is NOT a crash: sync.py returns it when a step was SKIPPED or when the loaded surface
+  # does not match the repo -- "not converged", which is a different fact from "sync.py failed".
+  # Added 2026-10-15 with the exit code itself (pain P4185); before it, a refused profile publish
+  # exited 0 and this job recorded `result: clean`, which is how a stale persona sat on two machines
+  # for days while LastTaskResult read 0.
+  $applyRefused = ($applyCode -eq 4)
   # A second, dry run from the same snapshot is the verification: 'WOULD' means it did not converge.
   #
   # -cmatch, NOT -match (fixed 2026-09-28). PowerShell's -match is case-INSENSITIVE, so this test also
@@ -530,13 +537,25 @@ try {
   # distinguishes the two cases deliberately: an upper-case WOULD CHANGE / WOULD UPDATE / WOULD CREATE
   # is a pending write; a lower-case "would run <installer>" is an installer it cannot evaluate.
   $verify = (& $python (Join-Path $snapshot 'scripts\sync.py') --dry-run 2>&1)
-  $verifyOk = ($LASTEXITCODE -eq 0) -and -not ($verify -cmatch 'WOULD')
+  $verifyCode = $LASTEXITCODE
+  $verifyOk = ($verifyCode -eq 0) -and -not ($verify -cmatch 'WOULD')
   $ErrorActionPreference = $prevEap
 
-  if (-not $applyOk) {
+  if (-not $applyOk -and -not $applyRefused) {
     Record ([ordered]@{
         result = 'attention'; detail = 'sync.py failed against the committed snapshot'
         repo = $gitDir; branch = $branch; output = ($apply | Select-Object -Last 6) -join ' | '
+      })
+    exit 1
+  }
+  if ($applyRefused) {
+    # Named on its own, so the record says what actually happened: a refusal is a decision sync.py
+    # made on purpose, not a crash, and it still leaves the machine NOT converged.
+    Record ([ordered]@{
+        result = 'attention'; detail = 'sync.py REFUSED a step - the machine is NOT converged'
+        repo = $gitDir; branch = $branch
+        notConverged = @($apply | Where-Object { $_ -match '^NOT CONVERGED' }) -join ' | '
+        output = ($apply | Select-Object -Last 8) -join ' | '
       })
     exit 1
   }
