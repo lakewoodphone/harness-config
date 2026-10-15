@@ -293,7 +293,44 @@ Sixteen length constants guard one channel; four of them act on the same body in
 the 320 ceiling is enforced by **no** judge: the relay records `too-long` rather than refusing
 (L3791's deliberate choice) while `textsend` posts up to `SOFT_LIMIT=930`.
 
-### F8 — Dead weight that makes the next audit lie
+### F8 — A send loop is running right now, and the relay is the only thing between it and his phone
+
+**Found while writing this document, not by looking for it.** The relay's own ledger —
+
+```
+SELECT attempt_id,at,door,subsystem,verdict,verdict_reason,status,substr(body,1,50)
+  FROM attempt WHERE at > '2026-10-15T14:15:00';
+```
+
+```
+30|14:45:18Z|app|sms_service.send_message|SEND  |ok          |pending|I still have your message and I'm routing it now.
+31|14:45:18Z|app|sms_service.send_message|SEND  |ok          |pending|The charge posted on the 14th.
+32|14:50:22Z|app|sms_service.send_message|DEDUPE|dup-inflight|pending|I still have your message and I'm routing it now.
+33|14:50:22Z|app|sms_service.send_message|DEDUPE|dup-inflight|pending|The charge posted on the 14th.
+34|14:53:17Z| … same pair …
+36|14:54:04Z| … same pair …
+```
+
+The same two bodies were first submitted at **2026-10-14T19:55:10Z** (attempts 9 and 10) and are
+**still being re-submitted every 2–5 minutes 20 hours later** (attempts 9→37; `verdicts_24h` shows
+SEND 9 / DEDUPE 20). Every attempt sits at `status='pending'`, because the door never calls
+`record_sent()`/`record_failed()`, so the relay's dup-inflight window can never close and it holds
+each repeat as `dup-inflight` forever.
+
+**Two conclusions, and both matter:**
+
+* **The relay is working.** 20 holds in 24 hours, and `sms_log` shows **zero** outbound rows to the
+  owner in that window. This is the policy component doing exactly what it was built to do.
+* **The loop underneath it is not.** Something re-processes one event and emits a receipt each time.
+  Producer candidates, both in `app/main.py`: line 3540
+  (`"Still escalating this to the owner now. If you can, text the exact blocker or location."`) and
+  the receipt described at line 3562; the second body has **no literal anywhere** in `app/`, `scripts/`
+  or `/root/bin` and is therefore probably model-generated. `textsend.py:1543-1544` already names this
+  class of message — *"a receipt: it buys him nothing"*. **I did not find the clock and I am not
+  guessing at it.** Until it is found, the relay is load-bearing for a defect nobody has diagnosed,
+  which is a fragile place for the only thing standing between a loop and his phone.
+
+### F9 — Dead weight that makes the next audit lie
 
 * `owner_text_decision`: **9,236 rows**, none read by any sender or responder. `too_long` 1,273,
   `awaiting_reply` 1,315, `gate_error` 2,780.
@@ -315,7 +352,7 @@ Every change below is backed up under `/root/text-fix-20261015/backup/` and reve
 | # | change | file | verified by |
 |---|---|---|---|
 | 1 | **The daily digest text is OFF.** `ExecStart` is now `build`, not `send`. The sweep still runs, still writes `latest.txt` and the timestamped artefact, still files its decisions into `owner_decision_queue`; it no longer texts a 237-char truncation of a 15,221-char report. | `/etc/systemd/system/lpt-owner-attention.service.d/10-no-text-20261015.conf` | `systemctl show … -p ExecStart`; ran the new `ExecStart` by hand → `rc=0`, `latest.txt` written 14:56:12Z, nothing sent |
-| 2 | A **standing-rules file** exists and is read on every send, so an instruction about this channel can take effect without a deploy. Classes: the new one-item class, and the retired digest body **closed with his quotes as the reason**. | `/root/.owner-text/standing-rules.json` | parsed as JSON; `standing_rule_blocks()` returns the reason for the closed class |
+| 2 | A **standing-rules file** was created so an instruction about this channel can take effect without a deploy: classes, the new one-item class allowed, and the retired digest body **closed with his quotes as the reason**. **CORRECTION, verified 15:04Z: the file is on disk but its READER is not live** — `standing_rule_blocks()` lived in the `owner_attention.py` revision a concurrent session overwrote (item 1 of §3). Nothing reads the file today. It is preserved as the intended mechanism, not as a working one. | `/root/.owner-text/standing-rules.json` | parsed as JSON; `standing_rule_blocks()` returns the reason for the closed class **when run against the overwritten draft**, and `AttributeError` against the live file |
 | 3 | **The truncation marker is retired.** `SMS_TRUNCATION_MARKER = ""` in the app and in the relay; `fit()` cuts at a sentence boundary, appends nothing, and records `original→posted` to `/root/.owner-text/fit.log`. | `app/sms_service.py:47`, `app/owner_text.py:1049`, `/root/bin/owner_text_relay.py:148`, `fit()` | `fit("…"*40, 320)` → 314 chars, no marker, `fit.log` line written; trim of the LONG sample now ends `"…I actually see it."` instead of `"…\n\n2."` |
 | 4 | A cut **no longer ends on a dangling list marker** (`"…see it.\n\n2."` → `"…see it."`). | `app/sms_service.py:_truncate_at_sentence` | the test file below, plus the direct render |
 | 5 | **The CEO/CFO question now ends in a question mark**, so the owner's one-at-a-time protection engages instead of every ask being exempt. | `/root/bin/charge_msg.py`, `/root/bin/cfo-ask.py` (bare fallback) | A/B on `textsend._QUESTION_RE`: OLD `opens a turn: False` → NEW `True` |
