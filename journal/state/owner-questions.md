@@ -6,7 +6,7 @@ Updated: 2026-10-15
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 513 row(s) read, 123 pending, generated 2026-10-15 08:38 UTC on SECRATARY-CLOUD.
+Provenance: 514 row(s) read, 124 pending, generated 2026-10-15 09:38 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -122,6 +122,7 @@ Provenance: 513 row(s) read, 123 pending, generated 2026-10-15 08:38 UTC on SECR
 | 508 | 2026-10-14 | medium | The prepaid AI balance is low. Top it up so the autonomous work does not stop? | Top up at https://platform.deepseek.com/top_up - the provider has NO auto-recharge to turn on (its own API FAQ documents PayPal, bank card, Alipay and WeChat Pay and nothing automatic), so this cannot be made to run itse |
 | 512 | 2026-10-14 | medium | Fisher SD card WO26101112743 (914-570-2075): how does this resume - do I put him on a call to read out the 23 recording names, or leave it parked until you say otherwise? | Option 1. It is one short call, it costs him nothing, and it settles ownership before anybody decides about money. If he recognises the names we have almost certainly got his card and can image it properly; if he does no |
 | 514 | 2026-10-14 | medium | The prepaid AI balance is low. Top it up so the autonomous work does not stop? | Top up at https://platform.deepseek.com/top_up - the provider has NO auto-recharge to turn on (its own API FAQ documents PayPal, bank card, Alipay and WeChat Pay and nothing automatic), so this cannot be made to run itse |
+| 515 | 2026-10-15 | medium | For the credits the resolver keeps refusing to book - a Zelle payment from Adeena (learned as Rent) and a "cash rebate statement fulfillment" plus an "adj redist purchase bal" (both learned as Fees & Adjustments) - is each one income, or a reversal of an earlier card spend that belongs back on that same category? | I recommend a Zelle credit from a named person be booked as income unless it matches a prior payment of ours, and that "cash rebate" and "adj redist purchase bal" be booked as reversals of the original spend in the same  |
 | 262 | 2026-10-05 | low | ZABZ-TECH's RDP service is wedged and only a reboot will activate microphone passthrough (your Yoga mic appearing as a real recording device inside ZABZ-TECH). Reboot that machine, or stay on Chrome Remote Desktop and dictate on the Yoga side instead? | Dictate on the Yoga side first: it needs no reboot, and installing Handy with local Whisper and one toggle hotkey turns speech into text and pastes it, which is exactly what crosses Chrome Remote Desktop. Reach for the R |
 | 306 | 2026-10-07 | low | What was the 127.95 charge at US MOBILE on 20 Sep (card ending 3929) - no live charge in this ledger carries the merchant 'desc mobile'? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 | 329 | 2026-10-08 | low | Birnbaum's AirTags: waived for free as the call says, or billed 75? | Waive it: the shop's own words were that he could have it free, and billing a freebie after the fact costs more in trust than 75 is worth. |
