@@ -1,26 +1,18 @@
 {
- "built": "2026-10-15 01:44 UTC",
+ "built": "2026-10-15 02:51 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 3658,
-  "handoff": 4488,
-  "lessons": 4448,
+  "handoff": 4553,
+  "lessons": 4512,
   "pain": 4057,
   "wins": 2878
  },
- "ceiling_refreshed_at": "2026-10-15T02:30:26Z",
- "ceiling_source": {
-  "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "refs/heads/hk/182-wake-family-key",
-  "lessons": "refs/heads/hk/182-wake-family-key",
-  "pain": "refs/heads/hk/182-wake-family-key",
-  "wins": "ZABZ-YOGA live working tree"
- },
  "db": "journal.db + fts5",
- "drift_measured": "2026-10-15 01:44 UTC",
- "entries": 4118,
- "entries_count": 4118,
- "entries_sig": "91130e177bf455f2a2b375a15451303de41a1197",
+ "drift_measured": "2026-10-15 02:51 UTC",
+ "entries": 4121,
+ "entries_count": 4121,
+ "entries_sig": "a0814d099455c891e516f178cbd2b299dc15a99e",
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 3721,
