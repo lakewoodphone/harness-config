@@ -221,18 +221,32 @@ NEW body → opens a turn: True
 
 | charge | evidence already held | when the text went |
 |---|---|---|
-| VisionTek 31.73 | `purchases` row 8281, `matched_transaction_id` = the **exact Plaid id of this charge**, created 2026-10-14T14:58:35 | 2026-10-15T02:00:35 |
+| VisionTek 31.73 | `purchases` row 8281 is linked to **this exact charge** — and the row was created 2026-10-14T14:58:35Z, eleven hours before the text | 2026-10-15T02:00:35 |
 | American Professional 36.14 | 6 memory rows from 2026-10-08, including "Do not flag as unknown vendor charge again" | 2026-10-15T01:00:36 |
 | Sticky Brand 60.23 | his own answer, `sms_log` 3546, 2026-10-07T13:08:03 | 2026-10-15T00:00:45 |
 | Pass 135.33 | statement line is self-describing (`PASSNY TOLLBYMAIL`); the ledger already holds 15 `nj e-zpass` rows | 2026-10-14T03:01:24 |
 | Pocono Whitewater 107.78 | our own Pocono Biking booking SMS (`sms_log` 1054-1058), same 1 Oct date | 2026-10-14T04:30:06 |
 
-`purchases` holds **2,401 charge↔order matches** and neither `charge_msg.py` nor `merchant_resolve.py`
-reads it. `merchant_resolve._from_answered_asks` (`merchant_resolve.py:327-350`) reads only the two
-asks databases — never `sms_log`, `owner_text_turn` or `memories`, which is where his answers of
-2026-10-07 and 2026-10-08 actually are. `order_evidence.ORDER_SUBJECT_RE` (`order_evidence.py:55-61`)
-has no arm for `Order W009615 confirmed`, only for `Order #<n>`, so the resolver's order rung returned
-`solved=False` on an order the box had already matched.
+**CORRECTION, and it is the interesting part.** First pass at this table said the VisionTek link
+was `purchases.matched_transaction_id` = "the exact Plaid id of this charge". That is only half
+right and the half that matters: `purchases.matched_transaction_id` does **not** join to
+`transactions.id`, which is a UUID. It joins to **`transactions.external_transaction_id`**.
+Measured: on the wrong key the join returns **0 rows** — a silent absence that would have looked
+like "we hold no order for this charge" and sent the text anyway; on the right key it returns
+**2,173** of the 2,401 `matched` rows. The VisionTek charge's ledger id is
+`4b550706-cd12-44d8-9742-758c1043a3f3` and its `external_transaction_id` is
+`Rzagj969nZILgjOoM8J8haNrQvJP89urAoEQAg`, which is what the purchases row holds.
+
+`purchases` holds **4,205 rows (2,401 matched) in `/root/authority.db`** and neither `charge_msg.py`
+nor `merchant_resolve.py` read it before 2026-10-15. Note also that the similarly-named
+`/root/personal-secretary-mvp/data/secretary.db` holds **0** `purchases` rows while being 1.8 MB and
+present — a mirror that answers "no match" as confidently as the authority.
+
+`merchant_resolve._from_answered_asks` (`merchant_resolve.py:327-350`) read only the two asks
+databases — never `sms_log`, `owner_text_turn` or `memories`, which is where his answers of
+2026-10-07 and 2026-10-08 actually are. And `order_evidence.ORDER_SUBJECT_RE`
+(`order_evidence.py:55-61`) had no arm for `Order W009615 confirmed` (only `Order #<n>`), so the
+resolver's order rung returned `solved=False` on an order the box had already matched.
 
 **And a refused question is re-composed at every tick.** `next_question()` deliberately treats a
 definite sender refusal as *non*-suppressing (item 104, 2026-10-14 — correct on its own terms: a
@@ -358,6 +372,8 @@ Every change below is backed up under `/root/text-fix-20261015/backup/` and reve
 | 5 | **The CEO/CFO question now ends in a question mark**, so the owner's one-at-a-time protection engages instead of every ask being exempt. | `/root/bin/charge_msg.py`, `/root/bin/cfo-ask.py` (bare fallback) | A/B on `textsend._QUESTION_RE`: OLD `opens a turn: False` → NEW `True` |
 | 6 | A **refused** question stops suppressing for `REFUSAL_SILENCE_HOURS` (6), so a busy channel no longer re-composes the same charge at every 30-minute tick (the 10-composition storm). | `/root/bin/cfo-ask.py:next_question()` | `cfo-ask.py` runs clean and reports `sent_today=3/3 asked_merchants=25` |
 | 7 | The three sentence-boundary tests now hold the **new** contract (ends at a sentence, appends nothing, **and the cut is still recorded in the log**) instead of asserting the retired marker. Rewritten deliberately, with the reason in the docstring, not weakened to pass. | `tests/test_sms_sentence_boundary_trim.py` | `6 passed` |
+| 8 | **Charge questions are now self-serve.** `merchant_resolve.resolve()` gained two rungs and one widened exemption: (a) `records:owner-text` — his answer given **in a text**, read from `sms_log` inbound (this is the rung the ask ledger never had); (b) `records:order-match` — the charge already linked to its order mail by `purchases.matched_transaction_id = transactions.external_transaction_id`, amount-checked; (c) `_finish` now lets `owner-text`, `order-match`, and an `alias` learned from the owner's own answer resolve **without** naming a category, exactly as `ask-answer` already did. Nothing invents a category: `category` stays `''` and `planned_rows` stays empty on all of them. | `/root/bin/merchant_resolve.py` | all nine live merchants resolve: visiontek systems **0.95 order-match**, sticky brand **0.92 owner-text**, newegg **0.97 alias**, the home depot **0.95 order-match**, american professional 0.97 alias. Categories verified empty with `planned_rows=0` |
+| 9 | `order_evidence.ORDER_SUBJECT_RE` accepts `Order <CODE> confirmed` (the Shopify-family subject), which neither `order\s*(is\s*)?(confirm|#)` nor `order confirmed` could match. | `/root/bin/order_evidence.py` | `Order W009615 confirmed` → True, `Order #828330 confirmed` → True, `Coffee with Dov` → False |
 
 **Test attribution — done by A/B, because claiming green is how this estate lies to itself.**
 
@@ -424,13 +440,15 @@ ones by the A/B above and the rest do not touch a file I edited.
    `card-due-watch.py`, `lpt-freshness-watchdog.py`. The heartbeat stays independent by design.
 4. One ask ledger. Wire `textctx.recent_asks()` to `relay.open_asks()`, call
    `relay.answer_ask()` from *both* inbound paths, and delete the other two stores' authority.
-5. Wire the self-serve ladder into `cfo-ask` before it composes: `purchases.matched_transaction_id`
-   → his own prior answers in `sms_log`/`memories` → the statement-line merchant family → order mail
-   with `ORDER_SUBJECT_RE` fixed → research at 0.85. And key suppression on the **charge**, not the
-   merchant (`asked_keys` is a set of `merchant_key` today, so one answered charge at a shop
-   suppresses every future charge there).
-6. Say why he is being asked: *"I checked your mail, our ledger and your earlier texts and could not
-   tell."* — one line, true, and it is the difference between an ask and an accusation.
+5. **~~Wire the self-serve ladder into `cfo-ask`~~ — DONE 2026-10-15, see #8 above.** What is still
+   open on this rung: `asked_keys` is keyed on the **merchant**, not the charge
+   (`cfo-ask.py:484`), so an answered charge at a shop suppresses every future charge there; and
+   `clarification` has a unique index on `reference` only (`cfo_clarify.py:186`), so N rows per
+   charge are legal. Key the suppression on `(account_id, amount, date)` or the transaction id.
+6. **Say why he is being asked.** The rungs now put the strongest evidence found into `evidence`,
+   which `cfo-ask` copies into the question ("what our records DO say about it"), but the body still
+   never says *which* rungs ran and came up empty. That sentence is the difference between an ask
+   and an accusation.
 
 ## 5. The collision, recorded so it is not re-derived
 
