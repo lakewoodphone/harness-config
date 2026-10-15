@@ -295,6 +295,25 @@ def _migrate(c: sqlite3.Connection) -> None:
                   ("untyped: block predates item 145 - name the person or external thing",))
         c.commit()
 
+    # Item 278: `--revisit` advertises a relative offset ("+7d") but older writes stored it
+    # VERBATIM, and the due read then compared that text to an ISO stamp - "+2d" sorts below
+    # every date, so the block was permanently past due. Rewrite each such row ONCE to the
+    # absolute stamp it always meant, anchored at its own last write. Idempotent: after this
+    # runs no blocked row matches the offset form, so an already-clean store is not touched.
+    try:
+        _rel = c.execute("SELECT id, revisit_at, updated_at, created_at FROM work_item "
+                         "WHERE state='blocked' AND revisit_at IS NOT NULL").fetchall()
+    except sqlite3.Error:
+        _rel = []
+    _fixed = 0
+    for _r in _rel:
+        _resolved = parse_revisit(_r["revisit_at"], _r["updated_at"] or _r["created_at"])
+        if _resolved != _r["revisit_at"]:
+            c.execute("UPDATE work_item SET revisit_at=? WHERE id=?", (_resolved, _r["id"]))
+            _fixed += 1
+    if _fixed:
+        c.commit()
+
     # Item 263: the attempt table records the exit code its proof command RETURNED, so an
     # outcome is stored at close time instead of being re-derived from free text later. An
     # existing store gets the column by ALTER; attempt rows that predate this stay NULL and
@@ -311,19 +330,107 @@ def revisit_default() -> str:
     return (datetime.now(timezone.utc) + timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+_REVISIT_OFFSET_RE = re.compile(r"^\s*([+-])?\s*(\d+)\s*([a-z]+)?\s*$", re.I)
+
+
+def _iso_dt(text):
+    """A timezone-aware UTC datetime for an ISO stamp, or None when it cannot be read."""
+    if not text:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(text).strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def parse_revisit(value, anchor=None):
+    """An ABSOLUTE UTC stamp for a revisit time, or None when there is nothing to read.
+
+    THE DEFECT THIS FIXES (item 278, measured 2026-10-15): `--revisit` advertises a
+    relative offset - its own help text says "default +7d" - but the value was stored
+    VERBATIM. `_blocked_due` then compared that text against an ISO stamp with SQLite's
+    string ordering, where '+' (0x2b) sorts below every digit: a stored "+2d"/"+4d"/"+5d"
+    is <= ANY date from 0..9, so a blocked item given a relative revisit was reported due
+    at EVERY --at date, forever. Three live rows (80/165/184) sat permanently past due and
+    pushed genuinely due items off the list.
+
+    An absolute stamp is returned UNCHANGED so nothing already correct is rewritten; only a
+    bare relative offset is anchored. The anchor is the row's own last write (see
+    _blocked_due and _migrate), so a legacy "+4d" means "four days after it was blocked",
+    not "four days after today" - the latter would silently move the revisit on every read.
+    A bare number with neither sign nor unit is not something we can anchor, so it is left
+    alone and the unreadable-time policy (due NOW, never hidden) takes over downstream.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    m = _REVISIT_OFFSET_RE.match(text)
+    if not m:
+        return text
+    sign, digits, unit = m.group(1), m.group(2), (m.group(3) or "").lower()
+    if sign is None and not unit:
+        return text
+    n = int(digits) * (-1 if sign == "-" else 1)
+    if unit.startswith("w"):
+        delta = timedelta(weeks=n)
+    elif unit.startswith("h"):
+        delta = timedelta(hours=n)
+    elif unit.startswith("m"):
+        delta = timedelta(minutes=n)
+    else:
+        delta = timedelta(days=n)
+    base = _iso_dt(anchor) or datetime.now(timezone.utc)
+    return (base + delta).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _blocked_due(c: sqlite3.Connection, at: str | None = None):
     """Every blocked item whose revisit time has passed (or was never set).
 
     A NULL revisit_at has no future time at which it becomes due, so it is treated as
     due NOW: a block nobody is ever prompted to revisit is work disappearing quietly,
     which is the failure mode item 145 exists to end.
+
+    Item 278: the comparison happens in PYTHON on the RESOLVED time, not as SQL text. A
+    stored relative offset ("+2d") sorted below every ISO date under SQLite's string
+    ordering, so a relative revisit was judged permanently past due; resolving here also
+    repairs a row written by an older work.py or by raw SQL, regardless of _migrate. The
+    revisit_at reported is the absolute time actually compared, with the original kept as
+    revisit_raw when they differ, so the decision surface shows what it decided on. An
+    unreadable or unset time is due NOW, never hidden: a block nobody can be prompted
+    about is work disappearing quietly.
     """
-    at = at or now()
-    return c.execute(
-        "SELECT id, project, title, priority, blocked_on, revisit_at, updated_at "
-        "FROM work_item WHERE state='blocked' "
-        "AND (revisit_at IS NULL OR revisit_at <= ?) "
-        "ORDER BY (revisit_at IS NULL) DESC, priority ASC, revisit_at ASC", (at,)).fetchall()
+    at_s = at or now()
+    at_dt = _iso_dt(at_s)
+    rows = c.execute(
+        "SELECT id, project, title, priority, blocked_on, revisit_at, updated_at, created_at "
+        "FROM work_item WHERE state='blocked'").fetchall()
+    due = []
+    for r in rows:
+        eff = parse_revisit(r["revisit_at"], r["updated_at"] or r["created_at"])
+        eff_dt = _iso_dt(eff)
+        if eff is None or eff_dt is None:
+            due.append((0, r["priority"], "", r, eff))
+            continue
+        if at_dt is not None:
+            if eff_dt > at_dt:
+                continue
+        elif eff > at_s:
+            continue
+        due.append((1, r["priority"], eff, r, eff))
+    due.sort(key=lambda x: (x[0], x[1], x[2]))
+    result = []
+    for _, _, _, r, eff in due:
+        row = dict(r)
+        if eff is not None and eff != row["revisit_at"]:
+            row["revisit_raw"] = row["revisit_at"]
+            row["revisit_at"] = eff
+        result.append(row)
+    return result
 
 
 def out(word: str, **kw) -> int:
@@ -540,7 +647,11 @@ def cmd_attempt(a) -> int:
         attempt_id = cur.lastrowid
     state = a.state
     blocked_on = a.blocked_on if state == "blocked" else None
-    revisit_at = ((getattr(a, "revisit", None) or revisit_default())
+    # Item 278: a relative offset ("+7d") is resolved to the absolute stamp it names
+    # BEFORE it reaches the column. Stored verbatim it sorted below every ISO date and the
+    # block was reported due at every --at date forever; an absolute stamp still passes
+    # through byte-for-byte, which the selftest asserts.
+    revisit_at = ((parse_revisit(getattr(a, "revisit", None)) or revisit_default())
                   if state == "blocked" else None)
     if state == "done" and not (a.proof and a.result):
         state = "todo"          # a claim of done without evidence is not a done
