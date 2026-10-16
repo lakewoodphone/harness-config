@@ -735,10 +735,22 @@ _BARE_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 _BARE_SHORT_CODE = re.compile(r"^\d{3,6}$")
 
 
+# The SHOP'S OWN test traffic. MEASURED 2026-10-16 (ledger item 372): the waiting list
+# still showed two 'LPT bench test - automated picture check.' rows (+18482245096,
+# +18483267693) and the owner's own 'Test sms' (+19086927704) as customers waiting.
+# These are the shop testing its own Dialpad line, not a person with a question, so they
+# get one named shape here instead of drifting back in. Anchored at both ends and matched
+# exactly, so a real customer who merely writes the word test is NOT swept up.
+_SHOP_SELF_TEST = re.compile(
+    r"^(?:lpt bench test\s*-\s*automated picture check\.?|test sms\.?)$", re.I)
+
+
 def contentless_kind(text: str) -> str | None:
     """Which contentless class this inbound message is, if any -- else None.
 
-    Four shapes, each one a message with no words and no question in it:
+    Five shapes, each one a message with no words to answer:
+      'shop_self_test'   the shop's own bench/owner test traffic, matched exactly
+                         ('LPT bench test - automated picture check.', 'Test sms').
       'one_time_code'    an unsolicited code-delivery notice: a 4-8 digit code plus
                          delivery boilerplate ("Your Apple Account Code is:"). A '?'
                          disqualifies it, so a customer ASKING about a code stays, and a
@@ -750,6 +762,8 @@ def contentless_kind(text: str) -> str | None:
     t = " ".join(str(text or "").split())
     if not t or "?" in t:
         return None
+    if _SHOP_SELF_TEST.match(t):
+        return "shop_self_test"
     if len(t) <= _OTP_MAX_CHARS and _OTP_CODE_RUN.search(t) and _OTP_NOTICE.search(t):
         return "one_time_code"
     if _BARE_EMAIL.match(t):
