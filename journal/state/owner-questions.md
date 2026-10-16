@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-10-15
+Updated: 2026-10-16
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 528 row(s) read, 31 pending, generated 2026-10-15 23:53 UTC on SECRATARY-CLOUD.
+Provenance: 530 row(s) read, 33 pending, generated 2026-10-16 00:53 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -41,5 +41,7 @@ Provenance: 528 row(s) read, 31 pending, generated 2026-10-15 23:53 UTC on SECRA
 | 526 | 2026-10-15 | medium | Item 32's definition of done is 'lptcase check exit 0'. The only structural class left is duplicate-phone, 22 groups - but that class groups case files by phone number ALONE, and the repo's own duplicate doctrine (tools/case-index/DOUBLES.md) says phone alone is deliberately NOT duplicate evidence: 'One customer really does have four separate repairs. Grouping by phone would call that a duplicate. | Report duplicate-phone non-structurally and let doubles.py own duplicate detection. doubles.py already carries its own exit code, 24 tests and known-closed-doubles.json, and it distinguishes a real same-job duplicate fro |
 | 528 | 2026-10-15 | medium | kosher-ai-filter item 319 clause 2: 79 of 152 remote branch tips still carry the broker token on argv (psi.ArgumentList.Add(token) / TOKEN = sys.argv[3]). Retire them, or leave them and let the new promotion guard be the control? | Leave them and rely on the guard. Item 369 now refuses any promotion that would carry the argv form back to main (tools/check-relay-token-not-argv.py + the relay-credential-guard CI job, branch guard/kaf369-relay-token-a |
 | 529 | 2026-10-15 | medium | +18482245096 (+18482245096) texted your AI line and I have not answered: 'LPT bench test - automated picture check.'. Should I answer them, and may I answer this person directly from now on? | Send the draft I prepared, if it reads right to you: Bench test received - photo came through clean. - Daniel |
+| 530 | 2026-10-16 | medium | The only path that can put anything on TEST or production - the self-hosted GitHub runner 'secratary-lpt' with the lpt-deploy label - has been OFFLINE since the last successful test deploy (run #91, 2026-10-15T15:14:39Z). Nothing merged to test can deploy or be verified until it is back. Who brings it back, and is it you or should a session be allowed to re-provision it on a machine you name? I re | Power the secratary-lpt runner host back on, or tell us which machine should host the lpt-deploy runner and we will re-provision it there - the branch for item 247 (PR #451) is merged-up and waiting on it. |
+| 531 | 2026-10-16 | medium | DST Holdings LLC sent $800 into the business BoA checking on 14 Aug 2026 with the Zelle note 'Tchiprout' - who are they, and what was the $800 for? | A customer paying for a repair or an order, booked as business revenue under Gross Receipts - Non-Card, because the money arrived by Zelle from a company into the business account and the note names something specific. I |
 
 Closed since the queue opened: 497. Answered questions move to `entries/decisions/` with the owner's own words.
