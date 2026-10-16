@@ -1,17 +1,25 @@
 # The house network — measured topology, what actually slows it, and how to measure it
 
 Updated: 2026-10-15 (ZABZ-YOGA, session 784c436d). Supersedes the 2026-10-15 morning draft: the
-router itself was read later the same morning, and it changed two of the conclusions.
+router itself was read later the same morning and changed two of the conclusions, and the owner
+corrected a third in person at the end of the day.
+
+**CORRECTION, 2026-10-15 evening, from the owner, verbatim: "You know the office is on [Fios] but
+the house is on [T-]mobile."** An earlier version of this document said a Fios service was installed
+at this address and was not feeding the router, and drew a "you are paying for fiber you are not
+using" conclusion from it. That is wrong. The Fios install (order `NJ12338123101`, 2026-09-14, about
+30 a month, ONT serial `ALCLECEF1FB204`) is at the **office**, 1001 W Kennedy Blvd — which is what the
+order's service address said all along, and H206 flagged the ambiguity at the time. **This house has
+one uplink: the T-Mobile cellular gateway.** The measured topology below is unaffected and was
+confirmed from the router itself; only the inference about the fiber was wrong.
 
 Owner's question, 2026-10-15: *"the Verizon router after the T-Mobile one causes problems and makes
 the Internet slow. Right now, the Internet slows. I want to know if it's related to that."*
 
-**Short answer: no — and the real causes are two things nobody had looked at.** The router stack adds
-about 1 ms and zero loss. What is actually slow is (1) the owner's phone talking to the router on the
-**2.4 GHz radio at 11–26 Mbps** while the same router offers 2268 Mbps on 6 GHz, and (2) the house
-running on a **T-Mobile cellular gateway while a Fios fiber service is installed at the address and
-billing 30 a month** — cellular's per-flow rate swings 44–122 Mbps minute to minute, which no router
-setting can fix.
+**Short answer: no.** The router stack adds about 1 ms and zero loss. What can actually be slow is
+(1) a client that has landed on the **2.4 GHz radio** — measured at 11–26 Mbps PHY against 2268 Mbps
+on 6 GHz from the same router at the same moment — and (2) the **cellular uplink's own per-flow rate,
+which swings 44–122 Mbps minute to minute** and which no router setting can fix.
 
 ---
 
@@ -39,10 +47,10 @@ hop 2 `192.168.12.1`, hop 3 `192.0.0.1`.
 Verizon is a second router behind it. `192.168.12.1` answering `<title>T-Mobile Gateway</title>` is the
 proof that address is not a Verizon box.
 
-**There is also a Fios ONT in this house that is not in the path.** Verizon Fios 300 Mbps, order
-`NJ12338123101`, installed 2026-09-14, 30 a month on auto-pay, ONT serial `ALCLECEF1FB204` — recorded
-in `personal-secretary-mvp/docs/network/verizon-fios-home-2026-09-14/`. The router it was installed
-with is the one above. Today its WAN is fed by the cellular gateway, not by the ONT.
+**This house's only uplink is the T-Mobile line.** There is no fiber here: the Verizon Fios install
+of 2026-09-14 is at the office, 1001 W Kennedy Blvd (see the correction at the top). The CHR30A and
+its ONT photographs belong to that install; the same model of router is doing duty at the house
+behind the cellular gateway. Do not reason about this house from the office's service record.
 
 ---
 
@@ -78,6 +86,21 @@ point, closer. Second choice is to stop the main SSID from offering 2.4 GHz at a
 `Verizon_ZYFY4N-IoT` (2.4 GHz, same key) for the legacy gear — but that can drop a phone that is
 genuinely out of 5 GHz range, so it is a change to make with the phone in hand.
 
+**Second reading, same day 2026-10-16 01:06 UTC (21:06 local) — both phones are on 5 GHz.** The same
+`getDeviceDetails` call now shows `iPhone` at 5 GHz, RSSI -52 dBm, SNR 40, max rate 1201 Mbps, and
+`62:3E:76:55:36:D6` at 5 GHz, 80 MHz, RSSI -67, SNR 25, max rate 2401.9 Mbps. So 2.4 GHz is not a
+fixed state, it is what those clients land on at some places and times and not others. **Treat a
+single `getDeviceDetails` reading as a moment, not a condition** — and note that `phyRate`,
+`currentRxModulationRate` and `currentTxModulationRate` fall to the 6 Mbps basic rate when a client is
+idle, so they are not the field to compare clients by. `maximumRxModulationRate` / `snr` / `rssi` are.
+
+**There is no iPod-style band picker on iOS.** Apple's own page (`support.apple.com/en-us/102285`)
+documents exactly one setting, *Wi-Fi 6E mode*, reached at Settings > Wi-Fi > (i) on the connected
+network, and it is an **off switch** for 6 GHz that appears only once the phone is already connected to
+a Wi-Fi 6E or 7 network. Nothing in iOS forces a device onto a band; the client and the AP's band
+steering decide. The only reliable client-side action is to forget the network and rejoin while
+standing next to the router.
+
 ### 2.2 The uplink is cellular, and its rate swings threefold
 
 24 rounds, 13 s apart, 2026-10-15 14:17:45–14:23:00 UTC, 20 MB each:
@@ -100,8 +123,9 @@ The gateway's own radio, read the same morning over its unauthenticated API: n41
 RSRP -89 dBm, RSRQ -10, RSSI -78, **SINR 28 dB**, registered, no roaming, up 4.5 days. A clean link.
 
 So a speed test samples a distribution that swings 3x and reports whatever second it landed in. This
-is T-Mobile Home Internet, the lowest-priority class on a shared tower. **Fiber at the same address
-removes this entirely.**
+is T-Mobile Home Internet, the lowest-priority class on a shared tower, and it is this house's only
+uplink — there is no fiber at this address to fall back to. A different uplink is the only thing that
+removes it.
 
 ### 2.3 What the second router costs — four defects, none of them today's slowdown
 
@@ -183,14 +207,13 @@ Re-runnable instruments: `harness-config/scripts/net/house-net-measure.ps1` (ful
 
 ## 5. Open actions, ranked by value per minute
 
-1. **Decide which uplink the house is on.** Fios 300 is installed and billing 30 a month; T-Mobile is
-   the live uplink and billing 85 a month. Putting the ONT back on the CHR30A's 10G WAN and taking the
-   T-Mobile out of the path fixes the swinging throughput, the missing IPv6 prefix, the 1436 MTU and
-   the double NAT in one move, and stops one of the two payments. One cable, owner's hands.
-2. **Get the phones off 2.4 GHz.** Confirm the phone's band in the Verizon Home app or via
-   `getDeviceDetails`, then either move it closer to the router, or turn the 2.4 GHz radio off for the
-   main SSID and leave `Verizon_ZYFY4N-IoT` for the 2.4-only gear. This is the fix for the owner's own
-   experience and it costs nothing.
+1. **There is nothing to unplug and nothing to cancel — the cellular line is this house's only
+   internet.** The fiber is the office's. Changing the uplink means buying a service at this address,
+   which is the owner's decision and not a defect to fix.
+2. **Get the phones off 2.4 GHz when they land there.** Confirm the band with `getDeviceDetails`,
+   then either move the phone closer to the router, or turn the 2.4 GHz radio off for the main SSID
+   and leave `Verizon_ZYFY4N-IoT` for the 2.4-only gear. This is the fix for the owner's own
+   experience and costs nothing.
 3. **Turn the T-Mobile gateway's Wi-Fi off** once the uplink question is settled — two APs on 5 GHz
    channel 157 in one house.
 4. **Set the CHR30A's WAN MTU to 1436** if the T-Mobile stays in the path. Latent defect, cheap fix,
