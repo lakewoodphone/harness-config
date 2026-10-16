@@ -35,10 +35,10 @@ MIN_FREE_MB="${JOURNAL_CONVERGE_MIN_FREE_MB:-2000}"
 
 mkdir -p "$WORK/trees" "$STATE" 2>/dev/null || exit 2
 say(){ echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG"; }
-write_status(){ # write_status <result> <detail> <added>
-  printf '{"at":"%s","result":"%s","detail":"%s","added":%s,"free_mb":%s}\n' \
+write_status(){ # write_status <result> <detail> <added> [fork]
+  printf '{"at":"%s","result":"%s","detail":"%s","added":%s,"fork_colliding":%s,"free_mb":%s}\n' \
     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$(printf '%s' "$2" | tr -d '"' | tr '\n' ' ')" "${3:--1}" \
-    "$(df -Pm / | awk 'NR==2{print $4}')" > "$STATUS"
+    "${4:--1}" "$(df -Pm / | awk 'NR==2{print $4}')" > "$STATUS"
 }
 
 # ── single flight ────────────────────────────────────────────────────────────────────────────────
@@ -103,12 +103,27 @@ if [ "$CRC" -ne 0 ]; then
   exit 1
 fi
 
+# ── THE FORK, MEASURED ON EVERY RUN ──────────────────────────────────────────────────────────────
+# This job already collects every tree, so the one instrument it was missing is the fork itself. It is
+# recorded rather than alarmed on: the count is EXPECTED to be non-zero (336 frozen on 2026-10-16, while
+# the machines collide with each other and the pull renumbers only what arrives). What matters is the
+# CHANGE, so the previous run's number is read first and the delta is logged beside it.
+PREV_FORK=$(sed -n 's/.*"fork_colliding":\(-\?[0-9]*\).*/\1/p' "$STATUS" 2>/dev/null | tail -1)
+FORK=$(python3 "$REPO/scripts/evolution/journal-union/fork-size.py" --trees "$WORK/trees" --json 2>/dev/null \
+        | sed -n 's/.*"colliding": *\([0-9]*\).*/\1/p' | tail -1)
+FORK=${FORK:--1}
+if [ "$PREV_FORK" != "" ] && [ "$FORK" -ge 0 ] 2>/dev/null; then
+  say "fork across the collected trees: ${FORK} colliding ids  (previous run: ${PREV_FORK})"
+else
+  say "fork across the collected trees: ${FORK} colliding ids  (no previous reading)"
+fi
+
 if [ "$ADDED" -eq 0 ]; then
   say "[clean] nothing to converge"
-  write_status clean "nothing to add" 0
+  write_status clean "nothing to add" 0 "$FORK"
 else
   say "[converged] added ${ADDED}; the canonical tree now holds every entry the sources have"
-  write_status converged "added $ADDED (entries $BEFORE -> $AFTER)" "$ADDED"
+  write_status converged "added $ADDED (entries $BEFORE -> $AFTER)" "$ADDED" "$FORK"
 fi
 exit 0
 
