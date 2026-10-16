@@ -6,7 +6,7 @@ Updated: 2026-10-16
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 535 row(s) read, 32 pending, generated 2026-10-16 07:38 UTC on SECRATARY-CLOUD.
+Provenance: 536 row(s) read, 33 pending, generated 2026-10-16 08:38 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -41,6 +41,7 @@ Provenance: 535 row(s) read, 32 pending, generated 2026-10-16 07:38 UTC on SECRA
 | 534 | 2026-10-16 | medium | The production audit reads 1019 findings: 960 have no fix the tool will print and the other 59 it caveats "only if that date is the truth" - do you still want to walk all 1019, or should I close the mechanical-work item and leave the walk to the weekly pass? | Close item 292 as "no mechanical work exists" and let the weekly pass carry the walk: the audit intentionally prints no repair for 960 findings, and I will not write 59 guessed completion dates into production on a heuri |
 | 535 | 2026-10-16 | medium | Two accounts dropped off the Chase feed in September and your books still treat both as active: the Self-Directed brokerage ending 4673 (last read 2026-09-07, balance 0) and the Chase card ending 8512 (last read 2026-09-25, 4.25 owed, 6834.75 available). Were they closed, or just unlinked from the feed? | Tell me which is true and I will do the rest. If the brokerage was emptied and closed, say so and I retire both; if the card is still in your wallet and still being used, say that instead and I re-link it, because a live |
 | 536 | 2026-10-16 | medium | I hold NO filing record for NJ ST-50 sales tax, 2026-10-20 (in 4 day(s)). I cannot tell filed from unfiled from here, and the source that would settle it needs your login. | Go to a primary source before answering: the NJ Premier portal (needs the owner's login) or the filer's own confirmation mail. File from actual quarterly sales. Late: penalty + interest. |
+| 537 | 2026-10-16 | medium | The iPhone 17 repair prices now quoteable on TEST are ANCHORED ESTIMATES copied from the iPhone 16 / 16 Pro rows, not a live supplier cost - do you want them confirmed against your actual iPhone 17 part cost before they reach production? | Confirm the three part costs with the supplier and edit the committed seed before promoting item 345; until then keep iPhone 17 quoting on TEST only, which is where it is now. |
 | 532 | 2026-10-16 | low | What was the 5,460.41 charge at Returned Payment on 10 Sep (card ending 9680) - these statement lines carry no merchant name at all (e.g. 'Returned Payment') and nothing we hold names the counterparty: who was paid and what the charge was for? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 
 Closed since the queue opened: 503. Answered questions move to `entries/decisions/` with the owner's own words.
