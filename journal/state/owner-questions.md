@@ -6,7 +6,7 @@ Updated: 2026-10-16
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 540 row(s) read, 35 pending, generated 2026-10-16 16:38 UTC on SECRATARY-CLOUD.
+Provenance: 542 row(s) read, 37 pending, generated 2026-10-16 17:38 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -44,6 +44,8 @@ Provenance: 540 row(s) read, 35 pending, generated 2026-10-16 16:38 UTC on SECRA
 | 539 | 2026-10-16 | medium | Yoga dictation is built and proven on the machine itself; the only part I cannot test is text crossing a live Chrome Remote Desktop session into ZABZ-TECH. Call it done on the local proof, or leave it open until your next CRD session? | I recommend calling it done, because dictation runs entirely on the Yoga and pastes into whatever window has focus, so the CRD leg changes where the text lands, not whether dictation works. If it ever fails it will be ob |
 | 540 | 2026-10-16 | medium | The customer on WO2601150002 (order total 140.00) has TWO real captured payments of 140.00 - a Stripe card capture on 2026-01-19 and a Zelle payment recorded 2026-01-21 - so the shop is holding 140.00 too much. Do you approve refunding one 140.00, and which one? | Refund the Stripe card charge ch_3Sr8adLnlgYj1gmT157Gmj22: it is provably captured (paid=true, captured=true, refunded=false, live mode) and reversible in one Stripe action, leaving the Zelle as the customer's payment. C |
 | 541 | 2026-10-16 | medium | An intake case now has no way to be cancelled or removed (no CANCELLED status, no delete mutation, and no control on any screen), so a customer who abandons the kiosk mid-flow leaves an untouchable row in the shop's queue forever. Add a terminal CANCELLED state, and what happens to the 50 diagnostic fee the kiosk already collected when a case is cancelled? | Option 1. A terminal CANCELLED status is the missing piece that every other question hangs off, and it is what makes an abandoned kiosk row closeable without destroying it. Keeping the fee is the posture the kiosk alread |
+| 542 | 2026-10-16 | medium | The Waze device now has two accessories to sell — a USB-A car charger and a magnetic air-vent mount. What do we charge for them at the counter? | 15.00 and 25.00. Going cheaper on the charger buys nothing worth having: an unbranded 4.50 unit would let you keep a 10.00 sticker and still earn 5.50, so the cheaper route trades away the only two things that protect th |
+| 543 | 2026-10-16 | medium | The box still contains no wall charger at all, so a customer cannot charge the phone at home on day one. Do we add one as a third accessory? | Add the Amazon Basics at 6.67 and sell it at 15.00. A 12 W USB-A wall block is the one accessory a customer will otherwise buy somewhere else on the way home, and selling it is worth more to us than the 6.67 it costs. Th |
 | 532 | 2026-10-16 | low | What was the 5,460.41 charge at Returned Payment on 10 Sep (card ending 9680) - these statement lines carry no merchant name at all (e.g. 'Returned Payment') and nothing we hold names the counterparty: who was paid and what the charge was for? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 
 Closed since the queue opened: 505. Answered questions move to `entries/decisions/` with the owner's own words.
