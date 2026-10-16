@@ -64,6 +64,21 @@ SOURCE = "roadmap-supply"
 KEY_CHARS = 60
 LIVE_STATES = ("todo", "running", "blocked")
 
+# A project whose checkout is DECLARED REMOTE-ONLY still has to be readable, or this sensor fails
+# every tick and the project starves. Measured 2026-10-16 (work ledger item 383): for
+# kosher-ai-filter the registry `repo` is /home/zabz/repos/kosher-filter-ai, which does not exist on
+# the authority, and creating a clone there is FORBIDDEN - checkout-health (ledger item 137) honours
+# the remote-only declaration only while that path is absent, so a clone would silently retire the
+# declaration and make the health check measure a stale copy instead of the real working tree.
+# The mapping file may therefore carry `source_git` {url, ref, ...}; the docs are then read with
+# `git show` out of a shallow bare cache under CACHE_DIR that checkout-health does not look at.
+# Raw https is NOT enough: this repo is private (unauthenticated api.github.com/repos/... -> 404),
+# so raw.githubusercontent.com answers 404; git's own transport carries the credentials that are
+# already configured for the declared checkout host (`credential.helper=store`). No token is read
+# or written here.
+CACHE_DIR = Path(os.environ.get("ROADMAP_SUPPLY_CACHE") or "/var/cache/roadmap-supply")
+GIT_TIMEOUT = int(os.environ.get("ROADMAP_SUPPLY_GIT_TIMEOUT") or "120")
+
 # A checkbox at the start of a line (optionally indented): "- [ ]", "* [ ]", "+ [ ]".
 BOX_RE = re.compile(r"^\s*[-*+]\s*\[( |x|X)\]\s*(.*)$")
 
@@ -127,16 +142,98 @@ def norm_key(text: str) -> str:
     return s[:KEY_CHARS].strip()
 
 
-def parse_boxes(path: Path) -> list[dict]:
-    """Every checkbox in one doc, with its 1-based line number, key and checked flag."""
+def parse_box_text(text: str) -> list[dict]:
+    """Every checkbox in one doc's TEXT, with its 1-based line number, key and checked flag."""
     out: list[dict] = []
-    for i, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+    for i, line in enumerate(text.splitlines(), 1):
         m = BOX_RE.match(line)
         if not m:
             continue
         out.append({"line": i, "checked": m.group(1).lower() == "x",
                     "text": m.group(2).strip(), "key": norm_key(m.group(2))})
     return out
+
+
+def parse_boxes(path: Path) -> list[dict]:
+    """Every checkbox in one LOCAL doc file (kept for callers that already hold a Path)."""
+    return parse_box_text(path.read_text(encoding="utf-8", errors="replace"))
+
+
+class LocalDocs:
+    """Source docs read straight off a checkout that exists on this host."""
+    kind = "local"
+
+    def __init__(self, root: Path):
+        self.root = root
+
+    def where(self, rel: str) -> str:
+        return str(self.root / rel)
+
+    def read(self, rel: str):
+        p = self.root / rel
+        if not p.exists():
+            return None
+        return p.read_text(encoding="utf-8", errors="replace")
+
+
+class GitDocs:
+    """Source docs read out of a shallow bare clone of a REMOTE checkout.
+
+    The cache is deliberately NOT the registry `repo` path: for a remote-only checkout that path
+    must stay absent or the declaration that keeps checkout-health honest expires. See CACHE_DIR.
+    """
+
+    kind = "git"
+
+    def __init__(self, url: str, ref: str, cache: Path):
+        self.url = url
+        self.ref = ref or "HEAD"
+        self.cache = cache
+        self.commit = None
+
+    def _run(self, argv: list, what: str) -> str:
+        p = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=GIT_TIMEOUT)
+        if p.returncode != 0:
+            raise RuntimeError("%s failed (rc=%d): %s"
+                               % (what, p.returncode,
+                                  " ".join(((p.stdout or "") + (p.stderr or "")).split())[:300]))
+        return p.stdout or ""
+
+    def prepare(self) -> None:
+        """Clone or refresh the cache, then pin the exact commit the docs are read from."""
+        if not self.cache.exists():
+            self.cache.parent.mkdir(parents=True, exist_ok=True)
+            self._run(["git", "clone", "--bare", "--depth", "1", "--no-tags", "-q",
+                       self.url, str(self.cache)], "clone")
+            rev = "HEAD"
+        else:
+            # An existing cache is REFRESHED, never trusted as-is: a sensor that reads last week's
+            # roadmap and calls it healthy is the silent wrong answer this whole file exists to end.
+            self._run(["git", "-C", str(self.cache), "fetch", "-q", "--depth", "1",
+                       "--no-tags", "origin", self.ref], "fetch")
+            rev = "FETCH_HEAD"
+        self.commit = self._run(["git", "-C", str(self.cache), "rev-parse", rev],
+                                "rev-parse %s" % rev).strip()
+
+    def where(self, rel: str) -> str:
+        return "%s@%s:%s" % (self.url, (self.commit or self.ref)[:12], rel)
+
+    def read(self, rel: str):
+        """The doc's text at the pinned commit, or None when that path is not in the tree."""
+        try:
+            return self._run(["git", "-C", str(self.cache), "show",
+                              "%s:%s" % (self.commit, rel)], "show %s" % rel)
+        except RuntimeError as exc:
+            # `git show` exits non-zero BOTH for "path not in tree" and for a real transport
+            # fault. Only the first is a missing doc; re-raise anything else so a broken cache is
+            # reported as a broken cache and not as a roadmap that lost a file.
+            msg = str(exc)
+            if "does not exist" in msg or "exists on disk, but not in" in msg \
+                    or "unknown revision" in msg or "invalid object name" in msg \
+                    or "Path '" in msg:
+                return None
+            raise
 
 
 def ledger_live(db: Path, project: str) -> dict:
@@ -182,6 +279,21 @@ def load_mapping(path: Path) -> dict:
     if not isinstance(d, dict) or not isinstance(d.get("items"), list):
         raise ValueError("mapping file has no items list: %s" % path)
     return d
+
+
+def with_pending(live: dict, titles) -> dict:
+    """The live view as it stands at the END of a run: rows this run files count as live.
+
+    Ledger items 447/475, measured 2026-10-16: `uncovered` used to be computed before the new[]
+    filing loop against a pre-run `live` snapshot, so a `filed` row whose ledger item this very
+    run was about to create still looked filed-but-not-live, and a false supply-renewal item was
+    filed in the same second as the real roadmap item. Counting pending titles as live makes
+    --dry-run agree with the real run. Pure function, so the selfcheck asserts it.
+    """
+    out = dict(live)
+    for t in titles:
+        out.setdefault(t, ("pending", "todo"))
+    return out
 
 
 def compute_uncovered(unchecked: list, by_key: dict, live: dict) -> list:
@@ -237,19 +349,37 @@ def run(args) -> int:
         print("warning: could not read %s (%s)" % (REGISTRY, exc), file=sys.stderr)
     proj = registry.get(args.project) or {}
     repo = Path(args.repo or proj.get("repo") or "")
-    if not repo or not repo.exists():
-        print("cannot read the project repo for %s: %r" % (args.project, str(repo)), file=sys.stderr)
-        return 1
+    docs = None
+    if repo and repo.exists():
+        docs = LocalDocs(repo)
+    else:
+        git_spec = proj.get("source_git") or mapping.get("source_git") or {}
+        if isinstance(git_spec, str):
+            git_spec = {"url": git_spec}
+        url = args.repo_url or git_spec.get("url")
+        if not url:
+            print("cannot read the project repo for %s: %r (no local checkout on this host and "
+                  "the mapping file names no source_git url)" % (args.project, str(repo)),
+                  file=sys.stderr)
+            return 1
+        docs = GitDocs(str(url), str(git_spec.get("ref") or "HEAD"),
+                       CACHE_DIR / ("%s.git" % args.project))
+        try:
+            docs.prepare()
+        except Exception as exc:
+            print("cannot read the project repo for %s: %r is absent on this host and the git "
+                  "fallback %s failed: %s" % (args.project, str(repo), url, exc), file=sys.stderr)
+            return 1
 
     # 1. document direction: unchecked boxes, checked boxes, and the mapping match.
     doc_keys: dict[str, set] = {}
     unchecked: list[dict] = []
     for rel in mapping.get("source_docs", []):
-        p = repo / rel
-        if not p.exists():
-            print("source doc missing: %s" % p, file=sys.stderr)
+        text = docs.read(rel)
+        if text is None:
+            print("source doc missing: %s" % docs.where(rel), file=sys.stderr)
             return 1
-        boxes = parse_boxes(p)
+        boxes = parse_box_text(text)
         doc_keys[rel] = {b["key"] for b in boxes}
         for b in boxes:
             if not b["checked"]:
@@ -277,7 +407,11 @@ def run(args) -> int:
     # A mapped box that is now CHECKED in the doc is done by the docs' own record; nothing to file.
     checked_keys = set()
     for rel in mapping.get("source_docs", []):
-        for b in parse_boxes(repo / rel):
+        text = docs.read(rel)
+        if text is None:
+            print("source doc missing: %s" % docs.where(rel), file=sys.stderr)
+            return 1
+        for b in parse_box_text(text):
             if b["checked"]:
                 checked_keys.add(b["key"])
     to_file = [i for i in to_file if norm_key(i["key"]) not in checked_keys]
@@ -310,7 +444,6 @@ def run(args) -> int:
     # dedup makes it appear once no matter how often this source runs. Item 421 (2026-10-16): the
     # boxes that count are computed by compute_uncovered below - a `not_filed` row that carries its
     # recorded reason is authored, not uncovered, so the renewal item can actually be satisfied.
-    uncovered = compute_uncovered(unchecked, by_key, live)
     authoring_title = "Roadmap supply: author the next batch of definitions of done for %s" % args.project
 
     filed: list[str] = []
@@ -320,6 +453,15 @@ def run(args) -> int:
             filed.append(it["title"])
         else:
             print("FAILED to file %r: %s" % (it["title"], note), file=sys.stderr)
+
+    # Items 447/475, measured 2026-10-16T09:07:02Z: compute `uncovered` AFTER this run files its own
+    # new[] rows, and count those rows as live. Before the fix `uncovered` was computed before the
+    # loop that files them, against a `live` snapshot read earlier still, so a `filed` row whose
+    # ledger item this very run was about to create looked filed-but-not-live. Measured: that run
+    # filed roadmap item 474 and the supply-renewal item 475 in the SAME SECOND, and every earlier
+    # cycle did the same (391, 422, 442, 451) - five shifts re-reading a mapping file that was
+    # already complete (the very next run reports uncovered=0).
+    uncovered = compute_uncovered(unchecked, by_key, with_pending(live, filed))
 
     authoring_open = authoring_title in live
     if uncovered and not authoring_open and not args.no_authoring_item:
@@ -355,10 +497,11 @@ def run(args) -> int:
 
     # The capability matrix is named in the summary line on purpose: the log is where a human
     # reads this source, and the matrix is what stops an author writing a dod no host can run.
-    print("%s: hosts=%s unchecked_boxes=%d mapped=%d new=%d filed_this_run=%d already=%d "
+    print("%s: docs=%s hosts=%s unchecked_boxes=%d mapped=%d new=%d filed_this_run=%d already=%d "
           "unmapped_boxes=%d stale_mapping_rows=%d uncovered=%d bad_hosts=%d authoring_item=%s "
           "ledger=%s%s"
           % (SOURCE,
+             docs.kind,
              ",".join(sorted(k for k in (mapping.get("capability_matrix") or {})
                              if not k.startswith("_"))),
              len(unchecked), len(matched), len(new), len(filed), len(already),
@@ -383,8 +526,10 @@ def run(args) -> int:
 def selfcheck() -> int:
     """Assertions over the pure logic. No store, no docs, no network."""
     fails = []
+    checks = [0]
 
     def eq(got, want, what):
+        checks[0] += 1
         if got != want:
             fails.append("%s: got %r want %r" % (what, got, want))
 
@@ -438,6 +583,15 @@ def selfcheck() -> int:
             fails.append("AUTHORING_DOD does not render %r" % must)
     if "{" in rendered or "}" in rendered:
         fails.append("AUTHORING_DOD leaves an unformatted placeholder")
+    # The remote-docs fallback (2026-10-16, ledger item 383) must join a repo-relative path onto
+    # the REMOTE and pin the commit it read, and the text parser must work without a Path - both
+    # asserted because the whole point of the fallback is a host that has no checkout to read.
+    gd = GitDocs("https://example.invalid/r.git", "HEAD", Path("/tmp/roadmap-supply-nope.git"))
+    gd.commit = "a" * 40
+    eq(gd.where("docs/x.md"), "https://example.invalid/r.git@" + "a" * 12 + ":docs/x.md",
+       "GitDocs.where names the remote, the pinned commit and the doc path")
+    eq([b["key"] for b in parse_box_text("- [ ] a box\n- [x] done box\ntext")],
+       ["a box", "done box"], "parse_box_text reads boxes out of text, not a path")
     # Item 421 (2026-10-16): a `not_filed` row that carries its recorded reason is AUTHORED, not
     # uncovered, so the renewal item can be satisfied instead of refiling itself forever. Only a
     # box with no row at all, a `filed` row whose item is not live, and an unexplained `not_filed`
@@ -457,11 +611,15 @@ def selfcheck() -> int:
     cu2 = compute_uncovered([mkbox(k) for k in "ac"], {"a": nf_why, "c": filed_live},
                             {"T-c": (1, "todo")})
     eq(cu2, [], "a project whose every gap is authored or live reports uncovered=0")
+    # Items 447/475 (2026-10-16): a `filed` row whose ledger item THIS RUN is about to create must
+    # not be counted uncovered. Measured: the 09:07:02Z run filed 474 then 475 in the same second.
+    eq(compute_uncovered([mkbox("z")], {"z": filed_gone}, with_pending({}, ["T-d"])), [],
+       "a filed row whose item this run files is NOT uncovered once its title counts as pending-live")
     if fails:
         for f in fails:
             print("FAIL %s" % f)
         return 1
-    print("roadmap-supply selfcheck: %d pure-logic assertions, 0 failed" % (8 + 10))
+    print("roadmap-supply selfcheck: %d eq checks + dod/audit assertions, 0 failed" % checks[0])
     return 0
 
 
@@ -523,6 +681,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--project", help="project id, e.g. kosher-ai-filter")
     ap.add_argument("--repo", help="override the project's repo path")
+    ap.add_argument("--repo-url", help="override the git remote the source docs are read from "
+                                       "when no local checkout exists (see mapping source_git)")
     ap.add_argument("--limit", type=int, default=3, help="new items to file per run (default 3)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-authoring-item", action="store_true",
