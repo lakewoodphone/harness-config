@@ -8,12 +8,12 @@
   "pain": 4569,
   "wins": 3262
  },
- "ceiling_refreshed_at": "2026-10-16T00:00:21Z",
+ "ceiling_refreshed_at": "2026-10-16T00:15:19Z",
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "refs/heads/i348-closing-courtesy-20261015",
-  "lessons": "local bands.tsv",
-  "pain": "local bands.tsv",
+  "handoff": "refs/heads/i359-contentless-waiting",
+  "lessons": "refs/heads/i359-contentless-waiting",
+  "pain": "refs/heads/i359-contentless-waiting",
   "wins": "ZABZ-YOGA live working tree"
  },
  "db": "journal.db + fts5",
