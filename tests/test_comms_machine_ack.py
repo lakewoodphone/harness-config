@@ -250,6 +250,59 @@ def test_a_closing_courtesy_is_counted_closed_not_waiting_and_not_machine_reopen
     assert res["total_waiting"] == 0
 
 
+# ── MEASURED contentless inbound (ledger item 359) ────────────────────────────
+# Verbatim out of ~/.fsearch/comms.db, 2026-10-16. The Apple notice and the two URLs and
+# the bare email were sitting in `waiting`; "8604" is the bare short code the item named.
+CONTENTLESS = [
+    ("one_time_code",
+     "Your Apple Account Code is: 681530. Don't share it with anyone."),
+    ("asset_url",
+     "https://content.dialpad.com/s/img/AQcHVfDSigpl3l_VwHTwHS8pZiQq6UfRn-amgavKmZ6"
+     "eDKY3m6GcU1ZsYR_0nyOtiZldINwUgC4mt8myQV9HyBTLHEpC7yDnD--C5JvoGdBWxK3auZrhC4XjO"
+     "sX-APKcoZh55QajSl8sgYgzomZyFvIloklc7WgOEuc=s0"),
+    ("bare_email", "lisralewitz@bmg.edu"),
+    ("bare_short_code", "8604"),
+]
+
+
+def test_measured_contentless_rows_are_classified():
+    for expected, text in CONTENTLESS:
+        got = cs.contentless_kind(text)
+        assert got == expected, f"{text[:40]!r} -> {got!r}, wanted {expected!r}"
+
+
+def test_a_real_request_is_never_contentless():
+    # The safe direction, pinned. Every one of these is a customer who IS waiting, and
+    # each was considered while measuring item 359 -- the first three were the ones a
+    # looser fragment rule would have swallowed.
+    for text in [
+        "For a new camera",                  # (972) 523-2905 - a live camera request
+        "And what's your hours",             # (848) 240-6100 - a real question
+        "908-692-7704",                      # a callback number is content
+        "7328646276",
+        "Did you get the code I sent?",      # asks, so it is not a notice
+        "What's the code for my voicemail?",
+        "Battery not charging",
+        "The code is not working",
+        "https://lakewoodphone.com/repair",  # a page, not an MMS payload
+        "Hi do u sell fig battery?",
+    ]:
+        assert cs.contentless_kind(text) is None, f"a request was swallowed: {text!r}"
+
+
+def test_a_contentless_row_is_counted_not_waiting():
+    db = _build()
+    for i, (_cls, text) in enumerate(CONTENTLESS):
+        num = f"1848666{i:04d}"
+        add(db, T + i, "inbound", text, address=num, who=num)
+    res, p = parties(db)
+    assert p == set(), res["waiting"]
+    assert res["closed_by_contentless"] == len(CONTENTLESS)
+    assert res["total_waiting"] == 0
+    assert res["contentless_by_class"].get("bare_short_code") == 1
+    assert res["contentless_by_class"].get("one_time_code") == 1
+
+
 def _main():
     tests = [(k, v) for k, v in sorted(globals().items())
              if k.startswith("test_") and callable(v)]

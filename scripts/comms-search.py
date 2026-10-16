@@ -692,6 +692,77 @@ def _is_optout(text: str) -> bool:
 
 
 
+# ── contentless inbound — a message with nothing in it to answer ──────────────
+# MEASURED 2026-10-16 (ledger item 359). After item 348 the waiting list still held
+# messages that are not requests at all, and each is a SHAPE rather than a string, so
+# each gets a predicate a test can call directly rather than a WHERE clause that drifts:
+#
+#   "Your Apple Account Code is: 681530. Don't share it with anyone."  (732) 655-2355
+#   https://content.dialpad.com/s/img/AQcHVfDSigpl3l_VwHTwHS8pZiQq6UfRn-...  x2  MMS payload
+#   "lisralewitz@bmg.edu"                                             (718) 501-7418
+#   "8604"                                                            (848) 245-3390
+#
+# WHY THIS IS THE SAFE DIRECTION, AND WHERE THE LINE IS. A message with no words in it
+# and no question mark cannot be answered by reading it, so it belongs in the same bucket
+# as a hangup call: "they tried to reach us", not "someone is waiting on an answer". But
+# the class is deliberately NARROW, because the opposite error -- dropping a customer who
+# IS waiting -- is the graver one. MEASURED AND REJECTED, same shift: "For a new camera"
+# (972) 523-2905 was filed in item 359 as a contentless fragment, and its own thread
+# falsifies that: 2026-10-12 "Also can you fix an iPhone 12 camera?", 2026-10-13 "The
+# iPhone 12 is a pro", then "For a new camera". That is a live request for a camera, not
+# a fragment. A rule that swallows a preposition-initial fragment was therefore written
+# and measured against the whole index: it also swallowed "And what's your hours"
+# ((848) 240-6100, a real question) and the callback numbers "908-692-7704" and
+# "7328646276". It is NOT deployed. A bare phone number is content; it is kept.
+#
+# Measured against all 2,104 inbound rows in the 12 days to 2026-10-16, the four shapes
+# below match 1 + 10 + 1 + 6 rows and swallow no question (item-359 proof).
+_OTP_NOTICE = re.compile(
+    r"(?:one[-\s]?time|otp|verification|security|login|authentication|access)"
+    r"\s*(?:pass)?code"
+    r"|(?:don'?t|do\s+not|never)\s+share\s+(?:it|this|the\s+code|this\s+code|that)"
+    r"|your\s+[\w&.\s-]{0,24}code\s+is", re.I)
+_OTP_CODE_RUN = re.compile(r"(?<!\d)\d{4,8}(?!\d)")
+# A code-delivery notice is short; a long message that merely mentions a code is not one.
+_OTP_MAX_CHARS = 200
+_URL_TOKEN = re.compile(r"^(?:https?://|www\.)\S+$", re.I)
+_ASSET_URL = re.compile(
+    r"/s/img/|content\.dialpad\.com"
+    r"|\.(?:jpe?g|png|gif|webp|heic|heif|bmp|tiff?)(?:\?|$)", re.I)
+_BARE_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
+# A bare 3-6 digit number and NOTHING else. The upper bound of 6 is what keeps a callback
+# number (7+ digits, or digits carrying separators) out of this class.
+_BARE_SHORT_CODE = re.compile(r"^\d{3,6}$")
+
+
+def contentless_kind(text: str) -> str | None:
+    """Which contentless class this inbound message is, if any -- else None.
+
+    Four shapes, each one a message with no words and no question in it:
+      'one_time_code'    an unsolicited code-delivery notice: a 4-8 digit code plus
+                         delivery boilerplate ("Your Apple Account Code is:"). A '?'
+                         disqualifies it, so a customer ASKING about a code stays, and a
+                         length cap keeps a long message that merely mentions a code out.
+      'asset_url'        nothing but image/asset URLs (the Dialpad MMS CDN payload).
+      'bare_email'       nothing but one email address.
+      'bare_short_code'  nothing but a 3-6 digit number.
+    """
+    t = " ".join(str(text or "").split())
+    if not t or "?" in t:
+        return None
+    if len(t) <= _OTP_MAX_CHARS and _OTP_CODE_RUN.search(t) and _OTP_NOTICE.search(t):
+        return "one_time_code"
+    if _BARE_EMAIL.match(t):
+        return "bare_email"
+    if _BARE_SHORT_CODE.match(t):
+        return "bare_short_code"
+    toks = t.split()
+    if (toks and all(_URL_TOKEN.match(x) for x in toks)
+            and all(_ASSET_URL.search(x) for x in toks)):
+        return "asset_url"
+    return None
+
+
 def _is_human_email(con: sqlite3.Connection, address: str) -> bool:
     """Is this an address a person would expect an answer at?
 
@@ -800,6 +871,7 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
         waiting, missed = [], []
         acknowledged: list = []
         opted_out: list = []
+        contentless: list = []
         # Threads the auto-responder had been closing: once the bot stops counting as a
         # reply, the customer's word is last. This is the number this fix moves, so it
         # is counted and reported rather than left implicit — same rule as the other
@@ -842,7 +914,13 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                 # customer mail, and it pushed every actual customer off the page.
                 continue
             else:
-                if _is_optout(text):
+                blank_kind = contentless_kind(text)
+                if blank_kind:
+                    # Nothing in it to answer -- same bucket as a hangup call. Counted
+                    # per class rather than silently dropped, so the number this moves
+                    # is visible in the result (item 359).
+                    contentless.append((blank_kind, entry))
+                elif _is_optout(text):
                     opted_out.append(entry)
                 elif _is_acknowledgement(text):
                     acknowledged.append(entry)
@@ -855,6 +933,9 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                         reopened_by_machine_ack += 1
         waiting.sort(key=lambda x: x["since"] or "", reverse=True)
         missed.sort(key=lambda x: x["since"] or "", reverse=True)
+        contentless_by_class: dict = {}
+        for _c, _e in contentless:
+            contentless_by_class[_c] = contentless_by_class.get(_c, 0) + 1
         # Resolve identities only for the rows being returned, not for every party.
         for w in (waiting[:max(limit, 1)] + missed[:max(limit, 1)]):
             w["person"] = None
@@ -870,6 +951,9 @@ def waiting(db: str, days: int = 7, limit: int = 25) -> dict:
                 "total_missed_calls": len(missed),
                 "closed_by_acknowledgement": len(acknowledged),
                 "closed_by_optout": len(opted_out),
+                # Of the parties above, how many are contentless rather than waiting.
+                "closed_by_contentless": len(contentless),
+                "contentless_by_class": contentless_by_class,
                 # Of the parties above, how many are here only because the shop's
                 # auto-responder stopped counting as a reply. 0 = the fix changed
                 # nothing in this window.
@@ -1182,6 +1266,9 @@ def _render(res: dict) -> str:
             tail.append(f"{res['closed_by_acknowledgement']} acknowledged")
         if res.get("closed_by_optout"):
             tail.append(f"{res['closed_by_optout']} opted out")
+        if res.get("closed_by_contentless"):
+            tail.append(f"{res['closed_by_contentless']} contentless "
+                        f"(a one-time code, a bare URL/email or a bare number)")
         if res.get("reopened_by_machine_ack"):
             tail.append(f"{res['reopened_by_machine_ack']} reopened — the shop's "
                         f"SMS auto-responder had been counting as a reply")
