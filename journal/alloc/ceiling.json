@@ -11,7 +11,7 @@
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
   "handoff": "refs/heads/i348-closing-courtesy-20261015",
-  "lessons": "local bands.tsv",
+  "lessons": "refs/heads/i348-closing-courtesy-20261015",
   "pain": "refs/heads/i348-closing-courtesy-20261015",
   "wins": "ZABZ-YOGA live working tree"
  },
@@ -31,23 +31,25 @@
   "wins": "W3325"
  },
  "host": "secratary-cloud",
- "live_peer_rows": 333,
+ "live_peer_rows": 200,
  "live_peer_unreachable": [
-  "ZABZ-TECH-LINUX (rc=1)"
+  "ZABZ-TECH (rc=255)",
+  "ZABZ-TECH-LINUX (rc=255)"
  ],
- "peers_failed": [],
+ "peers_failed": [
+  "tech"
+ ],
  "peers_fetched": [
   "yoga",
-  "tech",
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-15T23:30:08Z",
+ "refreshed_at": "2026-10-15T23:45:40Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 6.2,
- "sources_seen": 4222
+ "seconds": 39.3,
+ "sources_seen": 4090
 }

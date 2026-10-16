@@ -2734,6 +2734,8 @@ lessons	L5472	5472		2026-10-15	secratary-cloud	open	**L5472 · Never diagnose a 
 lessons	L5536	5536		2026-10-15	secratary-cloud	open	**L5536 · A compatibility screen can fit, light up and never bring touch up: match the part number off the machine's own label, dry-test before bonding, and read what the supplier's warranty actually returns**	entries/lessons/L5536.md	1	42	02cc08a18bbf1d10	lpt,hardware,surface,sourcing,warranty	L5472,L5344
 lessons	L5600	5600		2026-10-15	ZABZ-TECH	open	**L5600 · The old working USB kit never moved sshd off port 22 - the random port is why the rebuild kept failing**	entries/lessons/L5600.md	1	60	3b380e658f9a304d		P2851,H5448,C-oldkit
 lessons	L5664	5664		2026-10-15	ZABZ-TECH	open	**L5664 · The rebuild was justified by a prior-art search that asked the JOURNAL only - the working kit was in the repo all along**	entries/lessons/L5664.md	1	49	dbf29c3ddc5442c0		L5600,H5448,P2851
+lessons	L5728	5728		2026-10-15	secratary-cloud	open	**L5728 · ZABZ-TECH: the display blanks itself after 300s on AC; the real risk is 8 hard stops in 30 days**	entries/lessons/L5728.md	1	64	697a8dbe0a78a8c2	zabz-tech,display,power,hardware,mesh	
+lessons	L5729	5729		2026-10-15	secratary-cloud	open	**L5729 · Correction to L5728: the '22 minutes before he asked me' figure is unverified**	entries/lessons/L5729.md	1	12	2c7fe209ed993719		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3329,6 +3331,7 @@ pain	P4377	4377		2026-10-15	SECRATARY-CLOUD	open	## P4377 — The authority's lp
 pain	P4441	4441		2026-10-15	SECRATARY-CLOUD	open	## P4441 — Estate monitor: dstate_max_age_s is critical (593.0 s) across 5 consecutive runs	entries/pain/P4441.md	1	23	7eb6bb480dbbdf93	estate-monitor,auto-filed,not-the-owners	metrics/dstate_max_age_s
 pain	P4442	4442		2026-10-15	SECRATARY-CLOUD	open	## P4442 — Estate monitor: authority_wal_mb is critical (1053.48 MB) across 8 consecutive runs	entries/pain/P4442.md	1	23	4dbf88ee43599f84	estate-monitor,auto-filed,not-the-owners	metrics/authority_wal_mb
 pain	P4505	4505		2026-10-15	secratary-cloud	open	## P4505 — A 403 from web_fetch and a dead chromium hide real public pages: the authority cannot browse, and the text proxy is the only route	entries/pain/P4505.md	1	30	c38fec55aa173e57	tooling,browser,fetch,research	L5472
+pain	P4569	4569		2026-10-15	secratary-cloud	open	## P4569 — Journal autocommit is committing onto an unpushed session branch — main's tip is 2026-10-10	entries/pain/P4569.md	1	32	1f3304e1bc38a09c	journal,continuity,git,autocommit	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
