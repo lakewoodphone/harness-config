@@ -2,10 +2,10 @@
  "adopted_rows": 0,
  "bands_refs_read": 35,
  "ceiling": {
-  "decisions": 6080,
+  "decisions": 6144,
   "handoff": 6184,
-  "lessons": 6461,
-  "pain": 6410,
+  "lessons": 6589,
+  "pain": 6474,
   "wins": 6554
  },
  "ceiling_source": {
@@ -18,31 +18,38 @@
  "claimed_gap_rows": [
   {
    "host": "SECRATARY-CLOUD",
-   "kind": "wins",
-   "reserved_from": 6491,
-   "reserved_through": 6554,
-   "stamp": "2026-10-16 02:30 UTC"
+   "kind": "lessons",
+   "reserved_from": 6526,
+   "reserved_through": 6589,
+   "stamp": "2026-10-16 02:45 UTC"
+  },
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "pain",
+   "reserved_from": 6411,
+   "reserved_through": 6474,
+   "stamp": "2026-10-16 02:45 UTC"
   },
   {
    "host": "SECRATARY-CLOUD",
    "kind": "decisions",
-   "reserved_from": 6017,
-   "reserved_through": 6080,
-   "stamp": "2026-10-16 02:30 UTC"
+   "reserved_from": 6081,
+   "reserved_through": 6144,
+   "stamp": "2026-10-16 02:45 UTC"
   }
  ],
  "entries_high_water": {
-  "decisions": "D5953",
+  "decisions": "D6017",
   "handoff": "H6122",
-  "lessons": "L6402",
+  "lessons": "L6465",
   "pain": "P6347",
-  "wins": "W6429"
+  "wins": "W6491"
  },
  "high_water": {
-  "decisions": "D6080",
+  "decisions": "D6144",
   "handoff": "H6184",
-  "lessons": "L6461",
-  "pain": "P6410",
+  "lessons": "L6589",
+  "pain": "P6474",
   "wins": "W6554"
  },
  "host": "secratary-cloud",
@@ -57,12 +64,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-16T02:30:24Z",
+ "refreshed_at": "2026-10-16T02:45:25Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 22.4,
- "sources_seen": 4525
+ "seconds": 23.3,
+ "sources_seen": 4531
 }
