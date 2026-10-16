@@ -2742,6 +2742,7 @@ lessons	L5792	5792		2026-10-16	ZABZ-YOGA	open	**L5792 · CORRECTS L4704 and H474
 lessons	L5793	5793		2026-10-16	SECRATARY-CLOUD	open	**L5793 · Two instruments that lie quietly: an inner ssh on stdin, and a locale-collated sort**	entries/lessons/L5793.md	1	28	d2cfaf7a7cf321b0		
 lessons	L5920	5920		2026-10-16	secratary-cloud	open	**L5920 · os.replace(tmp,target) strips the execute bit - and existence is not executability**	entries/lessons/L5920.md	1	45	2c791f0c79f57b05	wake,file-mode,guard	
 lessons	L5921	5921		2026-10-16	secratary-cloud	open	**L5921 · Two honest numbers from two stores under one word: todo=17 vs 1 item(s) remaining**	entries/lessons/L5921.md	1	38	bf3ccefac470d86e	wake,measurement,state-file	
+lessons	L5984	5984		2026-10-16	SECRATARY-CLOUD	open	**L5984 · A check that cannot see the other tree will always answer 0 errors: measured 0 vs 524**	entries/lessons/L5984.md	1	51	7e97fe48953f7ddc		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -3796,6 +3797,7 @@ decisions	D3658	3658		2026-10-15	secratary-cloud	open	**D3658 · 2026-10-15 · T
 decisions	D3786	3786		2026-10-15	SECRATARY-CLOUD	open	**D3786 · 2026-10-15 · Owner answer, queue row #459: +18483897895 (+18483897895) texted your AI line and I have not answered: 'Yes, t.**	entries/decisions/D3786.md	1	11	f04b1ae83758ac13	owner-answer	owner_decision_queue#459
 decisions	D3914	3914		2026-10-16	SECRATARY-CLOUD	open	**D3914 · 2026-10-16 · Owner answer, queue row #510: Apple's own Apple Business Manager Agreement forbids what we are already selling.**	entries/decisions/D3914.md	1	13	2fa12dbcd081c9b3	owner-answer	owner_decision_queue#510
 decisions	D3915	3915		2026-10-16	SECRATARY-CLOUD	open	**D3915 · 2026-10-16 · The journal single writer is the authority canonical checkout; the fork is bigger than five trees.**	entries/decisions/D3915.md	1	53	e9b2e409b26fbcef		
+decisions	D4042	4042		2026-10-16	SECRATARY-CLOUD	open	**D4042 · 2026-10-16 · Owner re-priced Kosher Waze: the phone is 285 and the rugged case is a 20.00 optional add-on (2026-10-16) - staged on a branch, not deployed, secratary-lpt runner offline.**	entries/decisions/D4042.md	1	71	ed1fac7f6b8d9093	waze,pricing,lpt	
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
