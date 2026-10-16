@@ -8,7 +8,7 @@
   "pain": 6987,
   "wins": 6619
  },
- "ceiling_refreshed_at": "2026-10-16T15:15:45Z",
+ "ceiling_refreshed_at": "2026-10-16T15:30:42Z",
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
   "handoff": "ZABZ-YOGA live working tree",
@@ -25,7 +25,7 @@
  "git_ceiling": {
   "decisions": 6272,
   "handoff": 6760,
-  "lessons": 7229,
+  "lessons": 7293,
   "pain": 7114,
   "wins": 6746
  },
