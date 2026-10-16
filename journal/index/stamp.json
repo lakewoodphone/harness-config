@@ -8,6 +8,14 @@
   "pain": 6987,
   "wins": 6619
  },
+ "ceiling_refreshed_at": "2026-10-16T11:00:23Z",
+ "ceiling_source": {
+  "decisions": "ZABZ-YOGA live working tree",
+  "handoff": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
+  "wins": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical"
+ },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-16 10:50 UTC",
  "entries": 5185,
@@ -16,7 +24,7 @@
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 6208,
-  "handoff": 6568,
+  "handoff": 6632,
   "lessons": 7165,
   "pain": 7050,
   "wins": 6682
