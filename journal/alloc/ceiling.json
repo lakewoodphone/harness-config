@@ -3,8 +3,8 @@
  "bands_refs_read": 37,
  "ceiling": {
   "decisions": 6144,
-  "handoff": 6376,
-  "lessons": 6909,
+  "handoff": 6504,
+  "lessons": 7037,
   "pain": 6666,
   "wins": 6618
  },
@@ -19,29 +19,29 @@
   {
    "host": "SECRATARY-CLOUD",
    "kind": "lessons",
-   "reserved_from": 6846,
-   "reserved_through": 6909,
-   "stamp": "2026-10-16 03:45 UTC"
+   "reserved_from": 6974,
+   "reserved_through": 7037,
+   "stamp": "2026-10-16 04:00 UTC"
   },
   {
    "host": "SECRATARY-CLOUD",
-   "kind": "pain",
-   "reserved_from": 6603,
-   "reserved_through": 6666,
-   "stamp": "2026-10-16 03:45 UTC"
+   "kind": "handoff",
+   "reserved_from": 6441,
+   "reserved_through": 6504,
+   "stamp": "2026-10-16 04:00 UTC"
   }
  ],
  "entries_high_water": {
   "decisions": "D6081",
-  "handoff": "H6251",
-  "lessons": "L6723",
-  "pain": "P6539",
+  "handoff": "H6378",
+  "lessons": "L6910",
+  "pain": "P6603",
   "wins": "W6555"
  },
  "high_water": {
   "decisions": "D6144",
-  "handoff": "H6376",
-  "lessons": "L6909",
+  "handoff": "H6504",
+  "lessons": "L7037",
   "pain": "P6666",
   "wins": "W6618"
  },
@@ -57,12 +57,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-16T03:45:24Z",
+ "refreshed_at": "2026-10-16T04:00:22Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 22.4,
- "sources_seen": 5117
+ "seconds": 20.2,
+ "sources_seen": 5125
 }
