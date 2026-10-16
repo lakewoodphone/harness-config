@@ -194,7 +194,11 @@ def main() -> int:
     os.replace(str(tmp), str(p))
     print("\nAPPLIED")
     print("  backup :", backup)
-    print("  bytes  : %d -> %d" % (len(src), len(new)))
+    # CHARS and BYTES are not the same number in this file: it is full of em-dashes and box-drawing
+    # characters, so 254,892 characters land as 255,330 bytes. Reporting one under the other's name
+    # sent a session looking for a 438-byte edit that had not happened.
+    print("  size   : %d -> %d chars   (%d -> %d bytes)"
+          % (len(src), len(new), len(src.encode("utf-8")), len(new.encode("utf-8"))))
     return 0
 
 
