@@ -34,7 +34,13 @@ mkdir -p "$R8/trees" "$R8/logs"
 : > "$LOG"
 say(){ echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG"; }
 SSH="ssh -n -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=15"
-ORDER='["yoga", "cloud", "tech", "linux-r6capture", "mac", "item221", "mfx", "p1evidence", "hcd"]'
+# THE BASE DECIDES WHICH BODY KEEPS THE ORIGINAL ID in every collision. Round 6 based on `yoga`
+# (the widest coverage). For a tree that is going to LAND ON THE AUTHORITY that is backwards: it
+# would renumber the canonical checkout's own ids in ~500 collisions in order to preserve yoga's,
+# which is the opposite of "the authority is the source of truth". So the base is `cloud` -- the
+# canonical checkout -- and yoga is overlaid like every other source. Coverage no longer decides
+# anything: every source is in the union either way.
+ORDER='["cloud", "yoga", "tech", "linux-r6capture", "mac", "item221", "mfx", "p1evidence", "hcd"]'
 
 # The tools travel WITH this script, so the run depends on neither a scratch directory nor a
 # checkout another session may be mid-edit in. Run this file from the repo copy.
@@ -90,11 +96,13 @@ say "patch 30-merge.py for r8"
 # So: assert the input, assert the output, assert the patch actually landed.
 [ -s "$HERE/30-merge.py" ] || { say "ABORT: $HERE/30-merge.py is missing or empty"; exit 1; }
 sed -e 's|/root/work/r7|/root/work/r8|' \
+    -e 's|^BASE = "yoga"|BASE = "cloud"|' \
     -e "s|^ORDER = .*|ORDER = $ORDER|" \
     "$HERE/30-merge.py" > "$R8/30-merge.py"
 [ -s "$R8/30-merge.py" ] || { say "ABORT: the patched merge script is EMPTY -- refusing to continue"; exit 1; }
 grep -q 'item221' "$R8/30-merge.py" || { say "ABORT: ORDER was not patched -- refusing to continue"; exit 1; }
-grep -n -e '^R7 =' -e '^ORDER =' "$R8/30-merge.py" | tee -a "$LOG"
+grep -q '^BASE = "cloud"' "$R8/30-merge.py" || { say "ABORT: BASE was not patched to cloud -- refusing to continue"; exit 1; }
+grep -n -e '^R7 =' -e '^BASE =' -e '^ORDER =' "$R8/30-merge.py" | tee -a "$LOG"
 python3 "$R8/30-merge.py" 2>&1 | tee -a "$LOG"
 grep -q 'base files:' "$LOG" || { say "ABORT: the merge produced no summary -- it did not run"; exit 1; }
 
