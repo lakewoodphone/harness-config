@@ -8,7 +8,7 @@
   "pain": 6987,
   "wins": 6619
  },
- "ceiling_refreshed_at": "2026-10-16T14:30:20Z",
+ "ceiling_refreshed_at": "2026-10-16T14:45:50Z",
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
   "handoff": "ZABZ-YOGA live working tree",
@@ -17,7 +17,7 @@
   "wins": "ZABZ-YOGA live working tree"
  },
  "db": "journal.db + fts5",
- "drift_measured": "2026-10-16 10:50 UTC",
+ "drift_measured": "2026-10-16 14:57 UTC",
  "entries": 5185,
  "entries_count": 5185,
  "entries_sig": "777512469684281c4cf8fd00a0e04fb8503434d9",
