@@ -527,3 +527,24 @@ L3777	lessons	L3795	cross-machine id collision: two machines allocated the same 
 L3778	lessons	L3796	cross-machine id collision: two machines allocated the same id; renamed on merge	2026-09-16
 L3779	lessons	L3797	cross-machine id collision: two machines allocated the same id; renamed on merge	2026-09-16
 P3166	pain	P3184	cross-machine id collision: two machines allocated the same id; renamed on merge	2026-09-16
+H6110	handoff	H2780	identity duplicate inside entries/	2026-10-16	ZABZ-YOGA	4d18d2448583bd57	archive/duplicates/handoff/H6110.md
+H5967	handoff	H3379	identity duplicate inside entries/	2026-10-16	SECRATARY	8a9d34a8d810e43f	archive/duplicates/handoff/H5967.md
+H5977	handoff	H3393b	identity duplicate inside entries/	2026-10-16	ZABZ-YOGA	708535ce8dd6f34c	archive/duplicates/handoff/H5977.md
+H5978	handoff	H3394b	identity duplicate inside entries/	2026-10-16	ZABZ-YOGA	3d0b8ed1fb5cd135	archive/duplicates/handoff/H5978.md
+H6119	handoff	H457	identity duplicate inside entries/	2026-10-16	ZABZ-YOGA	fa11a004ce945530	archive/duplicates/handoff/H6119.md
+H6120	handoff	H500	identity duplicate inside entries/	2026-10-16	ZABZ-TECH	52fd88d6bdcd7be8	archive/duplicates/handoff/H6120.md
+H6109	handoff	H5958	identity duplicate inside entries/	2026-10-16	LAKEWOOECHSMINI	e6d7677985aa9031	archive/duplicates/handoff/H6109.md
+H6111	handoff	H5958	identity duplicate inside entries/	2026-10-16	LAKEWOOECHSMINI	561d48914e11b722	archive/duplicates/handoff/H6111.md
+H6112	handoff	H6096	identity duplicate inside entries/	2026-10-16	DESKTOP-FGV6KMH	04e170c8853fa4d9	archive/duplicates/handoff/H6112.md
+H6113	handoff	H6096	identity duplicate inside entries/	2026-10-16	DESKTOP-FGV6KMH	6bd3be11b64aabcc	archive/duplicates/handoff/H6113.md
+H6114	handoff	H6096	identity duplicate inside entries/	2026-10-16	DESKTOP-FGV6KMH	755bf06649b08d36	archive/duplicates/handoff/H6114.md
+H6115	handoff	H6096	identity duplicate inside entries/	2026-10-16	DESKTOP-FGV6KMH	27691faf6da5d6fd	archive/duplicates/handoff/H6115.md
+H6116	handoff	H6096	identity duplicate inside entries/	2026-10-16	DESKTOP-FGV6KMH	0a25bd4534bb176c	archive/duplicates/handoff/H6116.md
+H6117	handoff	H6096	identity duplicate inside entries/	2026-10-16	DESKTOP-FGV6KMH	12b2a3b74c40c566	archive/duplicates/handoff/H6117.md
+H6118	handoff	H6096	identity duplicate inside entries/	2026-10-16	DESKTOP-FGV6KMH	7d047a7a8bb2ae99	archive/duplicates/handoff/H6118.md
+L6116	lessons	L3396	identity duplicate inside entries/	2026-10-16	SECRATARY	00b2b16d6085a2d3	archive/duplicates/lessons/L6116.md
+L6120	lessons	L3397	identity duplicate inside entries/	2026-10-16	SECRATARY	3bbeee250af97851	archive/duplicates/lessons/L6120.md
+L6270	lessons	L3764	identity duplicate inside entries/	2026-10-16	ZABZ-YOGA	f11daa0edf152506	archive/duplicates/lessons/L6270.md
+L3776b	lessons	L3776	identity duplicate inside entries/	2026-10-16	SECRATARY-CLOUD	4b188e01df8cb635	archive/duplicates/lessons/L3776b.md
+L3777b	lessons	L3777	identity duplicate inside entries/	2026-10-16	SECRATARY-CLOUD	c5ede92cc22ed652	archive/duplicates/lessons/L3777b.md
+P6346	pain	P2561b	identity duplicate inside entries/	2026-10-16	ZABZ-YOGA	500803c404f6604f	archive/duplicates/pain/P6346.md
