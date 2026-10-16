@@ -99,6 +99,13 @@ API_UNIT = os.environ.get("COMPANY_API_UNIT", "company-api.service")
 BACKUP_DIR = os.environ.get("AUTHORITY_BACKUP_DIR", "/var/lib/authority-backup")
 OFFSITE_LAST_RUN = os.path.join(BACKUP_DIR, "last-run")
 OFFSITE_RUNNING = os.path.join(BACKUP_DIR, "running")
+# 2026-10-16: the SECOND leg. `authority-data-offsite.service` copies /opt/company/data (~4 GB) to
+# `authority/data/authority-data.tar.gz` daily and writes `data-last-run`. It refused to start at
+# 06:39:28Z on the 16th (exit 3, "only 1582332 KiB free under /var/tmp; refusing to start") and did
+# not run again for 14 h - and NO metric here moved, because every offsite metric below reads the
+# DATABASE leg's `last-run`. Measured the same minute: this box reported
+# `offsite_object_age_h=14.952 st=ok` while the data object in R2 was 38.16 h stale.
+OFFSITE_DATA_LAST_RUN = os.path.join(BACKUP_DIR, "data-last-run")
 DEADMAN_UNIT = "authority-deadman.service"
 DEADMAN_ENVF = "/root/.sms-inbox/deadman.env"
 
@@ -177,8 +184,8 @@ DEFAULTS = {
             "(office, 2026-09-30: / at 99 %, 7.6 GB free, SIGBUS) — and "
             "crit=6.0 uses for_runs=1 because below 4 GiB there is no time to "
             "wait for a second opinion. The 06:09:32Z reading would have been "
-            "crit=6.0 at 4.4 GB free.",
-        mode="log"),
+            "crit=6.0 at 4.4 GB free. RAISED TO ALERT 2026-10-15: on 2026-10-14 this box reached 0 bytes free three times (00:15Z, 14:45Z, 23:00Z) and this metric stayed mode=log, so no alarm reached a person. It is the right one to raise because it is NOT suppressed during a backup by design, and for_runs=1 is already set for it.",
+        mode="alert"),
     "disk_util_pct": dict(
         warn=85.0, crit=95.0, clear=0.85, max_age=900, for_runs=2, unit="%",
         why="Device busy % from the io_ticks delta — this is utilisation, not "
@@ -258,17 +265,49 @@ DEFAULTS = {
             "that promise true, and what the dead-man switch's own freshness "
             "verdict reads.",
         mode="log"),
+    # ---- the SECOND offsite leg: /opt/company/data (added 2026-10-16) -------
+    "offsite_data_lastrun_age_h": dict(
+        warn=26.0, crit=27.0, clear=0.85, max_age=1800, for_runs=1, unit="h",
+        why="The same question the three metrics above ask, asked of the OTHER "
+            "leg: /var/lib/authority-backup/data-last-run, written by "
+            "authority-data-offsite.sh. Its producer is daily at 06:30 UTC + up "
+            "to 10 min jitter and takes ~12 min, so a healthy age oscillates "
+            "over ~24.5 h and one missed cycle is 26 h. It had NO reader at all "
+            "before this metric: on 2026-10-16 the data object in R2 reached "
+            "38.16 h stale while every offsite metric here read `ok`, because "
+            "they all read the database leg's `last-run`.",
+        mode="log"),
+    "offsite_data_lastrun_not_ok": dict(
+        warn=1.0, crit=1.0, clear=1.0, max_age=3600, for_runs=1, unit="",
+        why="The DATA leg's own status field is anything other than `ok`. "
+            "warn == crit == 1, as for the database leg: this copy holds "
+            "family_chat.db, agent_identities.json and the Google credentials, "
+            "none of which can be regenerated.",
+        mode="log"),
 
     # ---- the application process ------------------------------------------
     "api_rss_gib": dict(
-        warn=5.0, crit=6.0, clear=0.85, max_age=900, for_runs=2, unit="GiB",
-        why="company-api's MemoryCurrent. Measured 4.22 GiB at 06:34Z, climbing "
-            "(3.10 GiB at 06:27Z), with MemoryPeak 6.67 GiB. The box has 7.7 GiB "
+        warn=9.0, crit=10.0, clear=0.85, max_age=900, for_runs=2, unit="GiB",
+        why="company-api's OWN process RSS (VmRSS, /proc/MainPID/status). This "
+            "USED to read the cgroup's MemoryCurrent, which adds RECLAIMABLE "
+            "PAGE CACHE: on 2026-10-14 05:30-05:34Z it read 6.31-7.85 GiB for a "
+            "process whose VmRSS was about 3 GiB, i.e. the alarm tracked cache "
+            "the kernel drops for free. The box has 7.7 GiB "
             "and MemoryMax is infinity, so at 6.0 GiB the kernel's global OOM "
             "killer is choosing a victim from the whole box — and on 2026-10-11 "
             "05:47:24Z it chose company-api. warn is 5.0 rather than a tick above "
             "the current value on purpose: a threshold that fires continuously is "
-            "the 37-texts failure mode the office file already records.",
+            "the 37-texts failure mode the office file already records. "
+            "RETHRESHOLDED 5.0/6.0 -> 9.0/10.0 on 2026-10-14 17:2xZ, because the "
+            "old pair repeated exactly that failure: over the 1,126 readings this "
+            "instrument took while MemoryMax was infinity, VmRSS was p50 6.49 GiB "
+            "and p90 8.86 GiB, so a crit at 6.0 GiB was below the app's MEDIAN and "
+            "was therefore always on. crit is now set AT MemoryMax (10 GiB, "
+            "company-api.service.d/30-memory.conf) so it means what it should mean: "
+            "'this service is at the ceiling and a kill is imminent'. warn is one "
+            "GiB below it. IF THE APP'S APPETITE IS EVER FIXED — its median is 6.5 "
+            "GiB for 618 routes and 203 tables, which is its own defect — bring "
+            "both numbers back down in the same commit.",
         mode="log"),
     "api_peak_gib": dict(
         warn=None, crit=None, clear=1.0, max_age=900, for_runs=1, unit="GiB",
@@ -442,12 +481,52 @@ def load_state():
 
 
 def save_json(path, obj):
+    """Write state. NEVER fatal.
+
+    Measured 2026-10-14: with the filesystem at 0 bytes free this raised
+    OSError(ENOSPC) and the whole run died -- AFTER the escalation block had run, so
+    the alarm was emitted and then the run crashed. A monitor's state write must never
+    be able to kill the monitor's own alarm.
+    """
     tmp = path + ".tmp"
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(tmp, "w") as f:
-        json.dump(obj, f, indent=1, sort_keys=False)
-        f.write("\n")
-    os.replace(tmp, path)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(tmp, "w") as f:
+            json.dump(obj, f, indent=1, sort_keys=False)
+            f.write("\n")
+        os.replace(tmp, path)
+    except OSError as exc:
+        try:
+            import subprocess as _sp
+            _sp.run(["logger", "-p", "daemon.err", "-t", "estate-monitor",
+                     "STATE WRITE FAILED (%s): %s" % (type(exc).__name__, exc)],
+                    timeout=10)
+        except Exception:
+            pass
+
+
+def proc_rss_gib(pid):
+    """The process's OWN resident set, VmRSS, not the cgroup total.
+
+    memory.current (systemd MemoryCurrent) counts anon + file pages for the
+    whole cgroup, including RECLAIMABLE PAGE CACHE. On 2026-10-14 it read
+    6.31-7.85 GiB while company-api VmRSS was about 3 GiB, so a threshold on
+    it fires on cache the kernel would drop for free. Ledger item 175.
+    """
+    try:
+        p = int(pid)
+    except (TypeError, ValueError):
+        return None, "MainPID=%r is not a pid" % (pid,)
+    if p <= 0:
+        return None, "MainPID=%d (unit not running)" % p
+    try:
+        with open("/proc/%d/status" % p, encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("VmRSS:"):
+                    return round(int(line.split()[1]) / 2 ** 20, 3), None
+    except OSError as e:
+        return None, "/proc/%d/status: %s" % (p, e.strerror or e)
+    return None, "no VmRSS line in /proc/%d/status" % p
 
 
 def systemd_show(unit, props):
@@ -599,9 +678,12 @@ def collectors(state, facts, errors):
     def offsite():
         running, rerr = kv_file(OFFSITE_RUNNING)
         lastrun, lerr = kv_file(OFFSITE_LAST_RUN)
+        datarun, derr = kv_file(OFFSITE_DATA_LAST_RUN)
         return {"running": running or None, "running_err": rerr if not running else None,
                 "last_run": lastrun or None,
-                "last_run_err": lerr if not lastrun else None}
+                "last_run_err": lerr if not lastrun else None,
+                "data_last_run": datarun or None,
+                "data_last_run_err": derr if not datarun else None}
 
     need("offsite", offsite)
 
@@ -832,6 +914,8 @@ def main():
         "offsite_object_age_h": VAULT_OFFSITE_JSON + " @ " + VAULT_HOST,
         "offsite_lastrun_age_h": OFFSITE_LAST_RUN,
         "offsite_lastrun_not_ok": OFFSITE_LAST_RUN,
+        "offsite_data_lastrun_age_h": OFFSITE_DATA_LAST_RUN,
+        "offsite_data_lastrun_not_ok": OFFSITE_DATA_LAST_RUN,
         "offsite_running_stale": OFFSITE_RUNNING,
         "api_rss_gib": f"systemctl show {API_UNIT}",
         "api_peak_gib": f"systemctl show {API_UNIT}",
@@ -1070,23 +1154,34 @@ def main():
     # --- the application process -------------------------------------------
     if "api" in c:
         a = c["api"]
-        src = f"systemctl show {API_UNIT}"
+        # PROVENANCE FIX 2026-10-14: this said `systemctl show company-api.service`,
+        # which yields the cgroup's MemoryCurrent (RSS **plus reclaimable page cache**).
+        # The VALUE emitted is the MainPID's VmRSS read from /proc — a different
+        # quantity, and on 2026-10-14T17:14:03Z they disagreed threefold
+        # (api_rss_gib=0.835 vs cgroup_current=2.848 GiB). A `src` that names the wrong
+        # meter is how a reader rebuilds the wrong series with full confidence; the
+        # estate has already paid for that failure class once (journal P3). The label
+        # now says what was actually read.
+        src = (f"VmRSS /proc/<MainPID>/status (MainPID from systemctl show {API_UNIT}); "
+               f"cgroup MemoryCurrent reported separately in the note")
         cur = a.get("MemoryCurrent")
         peak = a.get("MemoryPeak")
         try:
-            cur_gib = round(int(cur) / 2 ** 30, 3)
+            cgroup_gib = round(int(cur) / 2 ** 30, 3)
         except (TypeError, ValueError):
-            cur_gib = None
+            cgroup_gib = None
+        cur_gib, rss_err = proc_rss_gib(a.get("MainPID"))
         try:
             peak_gib = round(int(peak) / 2 ** 30, 3)
         except (TypeError, ValueError):
             peak_gib = None
         if cur_gib is None:
-            errors["api_rss_gib"] = f"MemoryCurrent={cur!r} not an integer"
+            errors["api_rss_gib"] = f"MainPID={a.get('MainPID')!r} VmRSS unreadable: {rss_err}"
         else:
             emit("api_rss_gib", cur_gib, "GiB", src,
                  f"ActiveState={a.get('ActiveState')} SubState={a.get('SubState')} "
                  f"MainPID={a.get('MainPID')} NRestarts={a.get('NRestarts')} "
+                 f"cgroup_current={cgroup_gib} GiB "
                  f"MemoryPeak={peak_gib} GiB MemoryMax={a.get('MemoryMax')} "
                  f"started {a.get('ExecMainStartTimestamp')}")
         if peak_gib is not None:
@@ -1166,6 +1261,30 @@ def main():
                  OFFSITE_LAST_RUN,
                  f"status={last.get('status')!r} "
                  f"(the copy that survives the machine)")
+
+        # The SECOND leg (/opt/company/data). Mirrors the block above exactly, on purpose: the
+        # defect being fixed is that this file asked its three offsite questions of one leg.
+        data = o.get("data_last_run")
+        if o.get("data_last_run_err"):
+            errors["offsite_data_lastrun_age_h"] = o["data_last_run_err"]
+            errors["offsite_data_lastrun_not_ok"] = o["data_last_run_err"]
+        else:
+            dfin = parse_iso_loose(data.get("finished_at"))
+            if dfin is None:
+                errors["offsite_data_lastrun_age_h"] = (
+                    f"no parseable finished_at in {OFFSITE_DATA_LAST_RUN}: "
+                    f"{data.get('finished_at')!r}")
+            else:
+                emit("offsite_data_lastrun_age_h",
+                     round((now - dfin).total_seconds() / 3600.0, 3), "h",
+                     OFFSITE_DATA_LAST_RUN,
+                     f"status={data.get('status')} entries={data.get('entries')} "
+                     f"archive_bytes={data.get('archive_bytes')}")
+            emit("offsite_data_lastrun_not_ok",
+                 0.0 if data.get("status") == "ok" else 1.0, "",
+                 OFFSITE_DATA_LAST_RUN,
+                 f"status={data.get('status')!r} "
+                 f"(the /opt/company/data copy: family_chat.db, agent_identities.json, dialpad)")
 
     # --- the vault: outside this box ---------------------------------------
     if "remote" in c:
@@ -1356,7 +1475,7 @@ def main():
                                     "file. NO outbound message of any kind; this "
                                     "monitor cannot text, email or call anyone.",
             "notify_min_interval_s": interval,
-            "conditions_allowed_to_escalate": ["public_health_status"],
+            "conditions_allowed_to_escalate": ["public_health_status", "disk_free_deficit_gb"],
         },
         "thresholds": {k: [v.get("warn"), v.get("crit"), v.get("unit", ""),
                            v.get("mode", "log"), v.get("max_age"),
