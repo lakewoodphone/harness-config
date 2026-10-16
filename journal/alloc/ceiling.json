@@ -2,31 +2,39 @@
  "adopted_rows": 0,
  "bands_refs_read": 34,
  "ceiling": {
-  "decisions": 3913,
-  "handoff": 5511,
-  "lessons": 5791,
+  "decisions": 3977,
+  "handoff": 5575,
+  "lessons": 5855,
   "pain": 4632,
   "wins": 3325
  },
  "ceiling_source": {
-  "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "refs/heads/i359-contentless-waiting",
-  "lessons": "refs/heads/i359-contentless-waiting",
-  "pain": "refs/heads/i359-contentless-waiting",
+  "decisions": "local bands.tsv",
+  "handoff": "ZABZ-YOGA live working tree",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [],
+ "claimed_gap_rows": [
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "handoff",
+   "reserved_from": 5512,
+   "reserved_through": 5575,
+   "stamp": "2026-10-16 01:15 UTC"
+  }
+ ],
  "entries_high_water": {
-  "decisions": "D3786",
+  "decisions": "D3915",
   "handoff": "H5448",
-  "lessons": "L5729",
+  "lessons": "L5793",
   "pain": "P4569",
   "wins": "W3262"
  },
  "high_water": {
-  "decisions": "D3913",
-  "handoff": "H5511",
-  "lessons": "L5791",
+  "decisions": "D3977",
+  "handoff": "H5575",
+  "lessons": "L5855",
   "pain": "P4632",
   "wins": "W3325"
  },
@@ -42,12 +50,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-16T01:00:23Z",
+ "refreshed_at": "2026-10-16T01:15:24Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 21.3,
- "sources_seen": 4227
+ "seconds": 22.7,
+ "sources_seen": 4229
 }
