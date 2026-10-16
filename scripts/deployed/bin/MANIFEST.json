@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "generated_utc": "2026-10-16T04:11:54Z",
+  "generated_utc": "2026-10-16T05:16:04Z",
   "authority": {
     "ssh_alias": "secratary-cloud",
     "address": "100.73.176.126",
@@ -597,7 +597,35 @@
       "in_flux_note": null,
       "sha256_at_second_read": "82b56944ad7d10e6efea04267bc8078cf3baadceb8a04172e8efdf8a0bd8fc02",
       "byte_identical_at_capture": true
+    },
+    {
+      "name": "cfo358-evidence-type-audit.py",
+      "deployed_path": "/home/zabz/bin/cfo358-evidence-type-audit.py",
+      "repo_path": "scripts/deployed/bin/cfo358-evidence-type-audit.py",
+      "deployed_bytes": 16379,
+      "deployed_sha256": "9a582c5e4d71496b5eb77b40145920cded0ac7c57c389801a4648715557169da",
+      "sha256_at_first_read": "9a582c5e4d71496b5eb77b40145920cded0ac7c57c389801a4648715557169da",
+      "size_at_first_read": 16379,
+      "fetched_utc": "2026-10-16T05:16:04Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "9a582c5e4d71496b5eb77b40145920cded0ac7c57c389801a4648715557169da",
+      "byte_identical_at_capture": true
+    },
+    {
+      "name": "cfo445-record-unresolved.py",
+      "deployed_path": "/home/zabz/bin/cfo445-record-unresolved.py",
+      "repo_path": "scripts/deployed/bin/cfo445-record-unresolved.py",
+      "deployed_bytes": 8999,
+      "deployed_sha256": "ed31b45d26a2036a23f414cb3a3e5f0e2bd0b24b9dc45cf0ceada8602a4ce425",
+      "sha256_at_first_read": "ed31b45d26a2036a23f414cb3a3e5f0e2bd0b24b9dc45cf0ceada8602a4ce425",
+      "size_at_first_read": 8999,
+      "fetched_utc": "2026-10-16T05:16:04Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "ed31b45d26a2036a23f414cb3a3e5f0e2bd0b24b9dc45cf0ceada8602a4ce425",
+      "byte_identical_at_capture": true
     }
   ],
-  "capture_note": "Re-captured 2026-10-16T04:11:54Z from secratary-cloud IN PLACE (the files are local to the authority), so the scp transport_note below does not apply. Every captured file was hashed twice 4 s apart and the two reads agreed (in_flux=false), so no half-edited state was frozen. plaid-item-check.py added 2026-10-16 (ledger item 393 integration): the DROPPED/REAUTH/PRESENT-NOT-REPORTING classifier item 393 built, landed in the mirror so the file that ran is the file in git."
+  "capture_note": "Re-captured 2026-10-16T05:16:04Z from secratary-cloud IN PLACE (the files are local to the authority). Every captured file was hashed twice 4 s apart and the two reads agreed (in_flux=false), so no half-edited state was frozen. cfo358-evidence-type-audit.py and cfo445-record-unresolved.py added 2026-10-16T05:16:04Z (ledger item 445): the audit tool was deployed on this authority but never captured, and the item-445 resolver is new; both are mirrored so the file that ran is the file in git. THIS RUN ADDED THOSE TWO ONLY - the older entries keep their original fetched_utc and their hashes were NOT re-measured here, so the drift test, not this note, is what says whether they still match."
 }
