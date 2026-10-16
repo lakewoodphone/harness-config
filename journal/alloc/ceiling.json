@@ -12,7 +12,7 @@
   "decisions": "ZABZ-YOGA live working tree",
   "handoff": "ZABZ-YOGA live working tree",
   "lessons": "ZABZ-YOGA live working tree",
-  "pain": "refs/heads/i359-contentless-waiting",
+  "pain": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
   "wins": "ZABZ-YOGA live working tree"
  },
  "claimed_gap_rows": [],
@@ -42,12 +42,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-16T09:30:24Z",
+ "refreshed_at": "2026-10-16T09:45:20Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 22.0,
+ "seconds": 18.1,
  "sources_seen": 5451
 }
