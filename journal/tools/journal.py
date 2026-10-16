@@ -2525,6 +2525,10 @@ def shard_unabsorbed_counts() -> dict:
 
 
 def cmd_check(args) -> int:
+    # `global` because the --cross-tree block below re-points JOURNAL at each other tree and
+    # restores it. Without this declaration Python treats JOURNAL as a LOCAL for the whole
+    # function, and the first read (the lock path) raises UnboundLocalError.
+    global JOURNAL
     quiet = bool(getattr(args, "quiet", False))
     max_warn = getattr(args, "max_warn", None) or 20
     lock = JOURNAL / LOCK_NAME
@@ -2563,6 +2567,60 @@ def cmd_check(args) -> int:
         elif len(group) > 1:
             warns.append("exact duplicate %s in %s (%dx, same content) — journal.py dedupe"
                          % (id_full, kind, len(group)))
+
+    # ── CROSS-TREE ───────────────────────────────────────────────────────────────────────────────
+    # The rule above is INTRA-tree, and that is the whole reason a forked journal looks healthy.
+    # Measured 2026-10-16: `check` reports 0 errors on every one of the estate's trees, because no
+    # tree can collide with itself -- while `D3034` means "the shop's money & customer tracking
+    # survives long-term" on ZABZ-YOGA and the authority, and "Weitman SD copy route" on ZABZ-TECH.
+    # A `resolve D3034` run on either side closes the WRONG decision and raises no error, and the
+    # 2026-10-15 census found 363 ids carrying two or three different bodies across five trees.
+    # A store that answers "0 errors" while forked is the defect this option exists for.
+    #
+    # It is OFF unless --cross-tree DIR is given: an offline machine must still be checkable, and a
+    # check that silently cannot see the other trees must say so rather than imply agreement.
+    xt = getattr(args, "cross_tree", None)
+    if xt:
+        base = Path(xt)
+        if not base.is_dir():
+            errors.append("--cross-tree %s is not a directory" % base)
+        else:
+            mine_ids: dict = {}
+            for e in entries:
+                mine_ids.setdefault((e["kind"], e["id_full"]), set()).add(e.get("hash") or "")
+            compared, unseen = 0, []
+            for t in sorted(x for x in base.iterdir() if x.is_dir()):
+                ent = t / "entries"
+                if not ent.is_dir():
+                    ent = t / "journal" / "entries"
+                if not ent.is_dir():
+                    unseen.append(t.name)
+                    continue
+                prev = JOURNAL
+                JOURNAL = ent.parent
+                _ENTRIES_CACHE.clear()
+                try:
+                    other, _xtp = load_entries()
+                finally:
+                    JOURNAL = prev
+                    _ENTRIES_CACHE.clear()
+                compared += 1
+                theirs: dict = {}
+                for e in other:
+                    theirs.setdefault((e["kind"], e["id_full"]), set()).add(e.get("hash") or "")
+                clashes = sorted(k for k, hs in theirs.items()
+                                 if mine_ids.get(k) and (hs - mine_ids[k]))
+                for kind, id_full in clashes:
+                    errors.append("cross-tree id %s in %s carries a different body in %s"
+                                  % (id_full, kind, t.name))
+                if clashes:
+                    infos.append("%s: %d id(s) differ from this tree" % (t.name, len(clashes)))
+            infos.append("--cross-tree: compared %d tree(s) under %s%s"
+                         % (compared, base,
+                            ("; NO ENTRIES FOUND in " + ", ".join(unseen)) if unseen else ""))
+            if compared == 0:
+                errors.append("--cross-tree %s held no readable journal tree: %s"
+                              % (base, ", ".join(unseen) or "nothing"))
     by_hash = {}
     for e in entries:
         by_hash.setdefault(e.get("hash"), []).append(e)
@@ -5358,6 +5416,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = add("check", "integrity; exit non-zero only on ERROR")
     s.add_argument("--fix", action="store_true", help="report what a repair would do")
+    s.add_argument("--cross-tree", dest="cross_tree", default=None, metavar="DIR",
+                   help="also compare against other journal trees: DIR holds one subdirectory per "
+                        "tree (each with entries/ or journal/entries). Without it, check can only "
+                        "test this tree against ITSELF, which is why a forked store reports 0 errors")
     s.add_argument("--max-warn", dest="max_warn", type=int, default=20)
     s.set_defaults(func=cmd_check)
 
