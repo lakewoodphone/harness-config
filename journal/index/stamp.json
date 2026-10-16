@@ -1,26 +1,18 @@
 {
- "built": "2026-10-16 05:12 UTC",
+ "built": "2026-10-16 06:12 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 6081,
   "handoff": 6442,
   "lessons": 7038,
-  "pain": 6731,
+  "pain": 6795,
   "wins": 6555
- },
- "ceiling_refreshed_at": "2026-10-16T05:45:20Z",
- "ceiling_source": {
-  "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "ZABZ-YOGA live working tree",
-  "lessons": "ZABZ-YOGA live working tree",
-  "pain": "refs/heads/i359-contentless-waiting",
-  "wins": "ZABZ-YOGA live working tree"
  },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-16 04:17 UTC",
- "entries": 5179,
- "entries_count": 5179,
- "entries_sig": "2df1d2a1e526de5aa5d53aa927b52c51945a6027",
+ "entries": 5180,
+ "entries_count": 5180,
+ "entries_sig": "93c253354a3601ab6c8b19cf95db35b4dec6d94f",
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 6208,
