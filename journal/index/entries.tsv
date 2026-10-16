@@ -3460,6 +3460,7 @@ lessons	L6466	6466		2026-10-16	SECRATARY-CLOUD	open	**L6466 · converge-pull wor
 lessons	L6590	6590		2026-10-16	SECRATARY-CLOUD	open	**L6590 · publication restored: the journal publishes again after 2.5 days, to a dedicated ref rather than by force**	entries/lessons/L6590.md	1	43	7248b66d770cf356		
 lessons	L6654	6654		2026-10-16	SECRATARY-CLOUD	open	**L6654 · A failing push can report rc=0: journal-commit exits 0 after a rejected push when nothing is staged, so the log is the evidence**	entries/lessons/L6654.md	1	39	d3356daa1fafdfe9		
 lessons	L6655	6655		2026-10-16	SECRATARY-CLOUD	open	**L6655 · The persona points agents at journal/README.md as the journal map - it is a byte-identical copy of the repo README (cmp -s)**	entries/lessons/L6655.md	1	47	cfed3682e405554d		
+lessons	L6656	6656		2026-10-16	SECRATARY-CLOUD	open	**L6656 · journal/README.md - the map the persona points at - was clobbered on 2026-09-17 by a copy of the repo README; restored from 8cbc69f8**	entries/lessons/L6656.md	1	58	29f46b18147dc7e4		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
