@@ -6,7 +6,7 @@ Updated: 2026-10-16
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 537 row(s) read, 33 pending, generated 2026-10-16 11:38 UTC on SECRATARY-CLOUD.
+Provenance: 538 row(s) read, 34 pending, generated 2026-10-16 12:38 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -42,6 +42,7 @@ Provenance: 537 row(s) read, 33 pending, generated 2026-10-16 11:38 UTC on SECRA
 | 536 | 2026-10-16 | medium | I hold NO filing record for NJ ST-50 sales tax, 2026-10-20 (in 4 day(s)). I cannot tell filed from unfiled from here, and the source that would settle it needs your login. | Go to a primary source before answering: the NJ Premier portal (needs the owner's login) or the filer's own confirmation mail. File from actual quarterly sales. Late: penalty + interest. |
 | 537 | 2026-10-16 | medium | The iPhone 17 repair prices now quoteable on TEST are ANCHORED ESTIMATES copied from the iPhone 16 / 16 Pro rows, not a live supplier cost - do you want them confirmed against your actual iPhone 17 part cost before they reach production? | Confirm the three part costs with the supplier and edit the committed seed before promoting item 345; until then keep iPhone 17 quoting on TEST only, which is where it is now. |
 | 538 | 2026-10-16 | medium | Retention for /root/.cfo/backups: it is already at 3.19 GB and grows about 0.6-0.9 GB/day, so it reaches the 4 GB bound your own guard declares in about a day. On 2026-10-07 you chose to keep EVERY local ledger copy (decision 304) on a projection of ~440 days of headroom; the measured write rate is now ~250-300 files/day, not ~13, so that projection no longer holds. Which do you want? | Option A. The 828 MiB of byte-identical files carry no information, so removing them cannot lose anything, and a 30-day daily horizon is generous for a ledger whose offsite copy is already verified and fresh. This also s |
+| 539 | 2026-10-16 | medium | Yoga dictation is built and proven on the machine itself; the only part I cannot test is text crossing a live Chrome Remote Desktop session into ZABZ-TECH. Call it done on the local proof, or leave it open until your next CRD session? | I recommend calling it done, because dictation runs entirely on the Yoga and pastes into whatever window has focus, so the CRD leg changes where the text lands, not whether dictation works. If it ever fails it will be ob |
 | 532 | 2026-10-16 | low | What was the 5,460.41 charge at Returned Payment on 10 Sep (card ending 9680) - these statement lines carry no merchant name at all (e.g. 'Returned Payment') and nothing we hold names the counterparty: who was paid and what the charge was for? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 
 Closed since the queue opened: 504. Answered questions move to `entries/decisions/` with the owner's own words.
