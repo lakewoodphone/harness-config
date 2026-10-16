@@ -15,15 +15,7 @@
   "pain": "refs/heads/i359-contentless-waiting",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "handoff",
-   "reserved_from": 6505,
-   "reserved_through": 6568,
-   "stamp": "2026-10-16 05:15 UTC"
-  }
- ],
+ "claimed_gap_rows": [],
  "entries_high_water": {
   "decisions": "D6081",
   "handoff": "H6442",
@@ -50,12 +42,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-16T05:15:24Z",
+ "refreshed_at": "2026-10-16T05:30:21Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 21.6,
- "sources_seen": 5438
+ "seconds": 19.3,
+ "sources_seen": 5443
 }
