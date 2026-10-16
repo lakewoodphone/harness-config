@@ -54,16 +54,48 @@ _LOCALAPPDATA = os.environ.get("LOCALAPPDATA")
 if _LOCALAPPDATA:
     # what serve-phone.ps1 used, kept so an engine started by the old path is still readable
     ENGINE_LOG_DIRS.append(Path(_LOCALAPPDATA) / "dsh-phone")
-MOBILE_CSS = Path(__file__).resolve().parent.parent / "assets" / "mobile.css"
+def resolve_asset(name: str) -> Path:
+    """The first existing `<dir>/assets/<name>`, searched where this gate is actually deployed.
+
+    WHY THIS IS SEARCHED RATHER THAN COMPUTED. `Path(__file__).parent.parent / "assets"` is only
+    correct when the gate sits inside a checkout (`<repo>/scripts/phone-gate.py`). Deployed as
+    `/usr/local/bin/phone-gate.py` — which is how every Linux node runs it — that expression
+    resolves to `/usr/local/assets/`, a directory the install step has to remember to create.
+
+    Measured on secratary-cloud 2026-10-12, the morning after the cutover to the cloud: the
+    directory did not exist there, `mobile_css_bytes()` found nothing, and the gate served the
+    phone layer as **0 bytes**. Every symptom the owner reported followed from that one absence —
+    no drawer, no 44px controls, no safe-area insets, "the interface is not optimized for the
+    iPhone". The engine was healthy and the CSS is 28 KB in the repo; nothing delivered it.
+
+    So: look beside the checkout first, then beside the deployed script, then under /usr/local.
+    Returns the first candidate that exists, and the primary candidate when none do (so the
+    caller's existing per-file OSError handling still reports the real path it wanted).
+    """
+    here = Path(__file__).resolve()
+    bases = [here.parent.parent, here.parent, Path("/usr/local"), Path("/usr/local/lib")]
+    candidates = [base / "assets" / name for base in bases]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
+MOBILE_CSS = resolve_asset("mobile.css")
 # The phone layer is these files concatenated, in this order: `mobile.css` is the base layer and
 # the others are scoped additions. One URL, one injected tag and one client-plugin link, so adding
 # a rule to the phone never means adding a delivery path (the composer's own fix and the question
 # card's live here — see the comments in each file for what they measured).
 LAYER_FILES = [
     MOBILE_CSS,
-    Path(__file__).resolve().parent.parent / "assets" / "question-card.css",
+    resolve_asset("question-card.css"),
 ]
-BADGE_JS = Path(__file__).resolve().parent.parent / "assets" / "phone-badge.js"
+BADGE_JS = resolve_asset("phone-badge.js")
+# The Home Screen icon. A hand-added web clip takes its icon from `apple-touch-icon` on the
+# served document, and this document had none — so iOS fell back to a screenshot of the page,
+# which is only as good as the moment it was added (docs/mesh/67 §5.1, §9.1: "the real fix is a
+# PNG upstream"). MDM-managed clips do NOT use this: they use the payload's `Icon` key.
+TOUCH_ICON = resolve_asset("apple-touch-icon.png")
 BADGE_STATE = Path(os.environ.get("CEO_KERNEL_STATE", str(Path.home() / "ceo-kernel-var"))) / "latest.json"
 COOKIE_PREFIX = b"dsh-auth-"
 BUF = 65536
@@ -608,6 +640,12 @@ def layer_report() -> str:
             rows.append(f"{path.name}={len(path.read_bytes())}B")
         except OSError:
             rows.append(f"{path.name}=missing")
+    # The icon is part of what this gate delivers, so a diagnostic that lists the layer must
+    # name it too — otherwise "the layer is complete" is said about a node whose icon 404s.
+    try:
+        rows.append(f"{TOUCH_ICON.name}={len(TOUCH_ICON.read_bytes())}B")
+    except OSError:
+        rows.append(f"{TOUCH_ICON.name}=missing")
     return " ".join(rows)
 
 
@@ -645,15 +683,65 @@ def mobile_stylesheet_response() -> bytes:
     )
 
 
+def touch_icon_bytes() -> bytes:
+    """The Home Screen icon, or b"" when it is unavailable or switched off.
+
+    WHY THE GATE SERVES AN IMAGE. A web clip the owner adds from Safari by hand takes its
+    icon from `apple-touch-icon` on the document; this one had none, so iOS used a screenshot
+    of whatever the page looked like the moment it was added. The layer is already rewritten
+    here, so the icon rides the same door and needs no client rebuild. Kill switch:
+    PHONE_TOUCH_ICON=0.
+    """
+    if os.environ.get("PHONE_TOUCH_ICON", "1") == "0":
+        return b""
+    try:
+        return TOUCH_ICON.read_bytes()
+    except OSError:
+        return b""
+
+
+def touch_icon_link() -> bytes:
+    """The `<link>` naming the icon, or b"" when there is no icon to name.
+
+    Named explicitly rather than left to iOS's default probe, so the path is a fact this
+    repo states rather than a convention iOS happens to follow.
+    """
+    if not touch_icon_bytes():
+        return b""
+    return b'<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">'
+
+
+def touch_icon_response() -> bytes:
+    """The icon as a PNG response, at `/apple-touch-icon.png` and its -precomposed alias.
+
+    `no-store`, for the same reason the stylesheet is: a stale copy of this file is the exact
+    defect being fixed, and it is 6 KB fetched once per page load. `-precomposed` is served
+    because older iOS probes that name first and a 404 there is a grey square on the Home
+    Screen — the same square, from a different cause.
+    """
+    body = touch_icon_bytes()
+    if not body:
+        return b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    return (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Type: image/png\r\n"
+        b"Cache-Control: no-store\r\n"
+        b"Content-Length: " + str(len(body)).encode() + b"\r\n"
+        b"Connection: close\r\n\r\n" + body
+    )
+
+
 def inject_mobile(document: bytes) -> bytes:
-    """Add the phone layer to a served document, once, before </head>."""
-    tag = mobile_style_tag()
-    if not tag or b'id="dsh-phone-mobile"' in document:
+    """Add the phone layer and the Home Screen icon to a served document, once, before </head>."""
+    tag = b"" if b'id="dsh-phone-mobile"' in document else mobile_style_tag()
+    icon = b"" if b"apple-touch-icon" in document.lower() else touch_icon_link()
+    add = tag + icon
+    if not add:
         return document
     at = document.lower().find(b"</head>")
     if at < 0:
         return document
-    return document[:at] + tag + document[at:]
+    return document[:at] + add + document[at:]
 
 
 # --------------------------------------------------------------------------
@@ -2273,6 +2361,18 @@ def handle(client: socket.socket, engine_port: int, engine_authority: str = "") 
              f"client={_log_text(device) if device else 'loopback'} peer={client_ip}{spoof} "
              f"cookie={has_cookie} token_offered={bool(offered)} token_live={bool(token)} "
              f"proto={request_line.split(' ')[-1]}")
+
+        # The Home Screen icon, for a clip added by hand from Safari. Answered here WITHOUT
+        # auth, like the stylesheet next to it: it is an image, it carries no data, and iOS
+        # requests it before any cookie exists. Both names are served because some iOS
+        # versions probe `-precomposed` first, and a 404 there is a grey square.
+        if method == "GET" and path in ("/apple-touch-icon.png",
+                                        "/apple-touch-icon-precomposed.png"):
+            body = touch_icon_response()
+            note(f"  -> home screen icon: {len(body)} bytes")
+            client.sendall(body)
+            client.close()
+            return
 
         # The phone layer as a standalone stylesheet, for the client plugin to link.
         # Answered here, deliberately WITHOUT auth: it is styling, it carries no data, and

@@ -32,8 +32,8 @@ ANY lock as a live git operation and skips -- correct for a committer, useless a
 a sensor. This source is the sensor, and the difference between it and those two
 is the liveness test below.
 
-THE THREE SIGNALS, AND THE THRESHOLD FOR EACH
----------------------------------------------
+THE FOUR SIGNALS, AND THE THRESHOLD FOR EACH
+--------------------------------------------
 A. STALE LOCK -- `.git/index.lock` exists AND no live git process owns it.
    Liveness is decided by scanning /proc, never by `pgrep -f`:
      * exact:  a process whose comm is `git`/`git-*` with the lock open
@@ -52,6 +52,14 @@ A. STALE LOCK -- `.git/index.lock` exists AND no live git process owns it.
    LOCK_GRACE_SEC=300: an index write is sub-second (measured `git fetch` 0.54 s
    and 0.95 s on these two repos), and 300 s is three orders of magnitude above
    it, so a lock still present after five minutes with no owner is debris.
+   A LINKED WORKTREE has its OWN index.lock at
+   <gitdir>/worktrees/<name>/index.lock, and every one of them is judged by the
+   same grace and the same /proc test, with the broad cwd test run against that
+   worktree's path. Measured 2026-09-28T22:05Z on secratary: a 0 B lock there
+   (mtime 18:22:03Z, age 3.7 h, no git process holding it) had stranded
+   /home/zabz/_verify_co_20260928 while the source read only <gitdir>/index.lock,
+   found nothing and printed lock=none -- a green reading on a tree that could
+   not be written. One worktree of the production checkout is enough.
 
 B. STALENESS -- `git fetch` (bounded), then the commit count between HEAD and
    the upstream (`@{u}`, else `origin/HEAD`, else `origin/<branch>`, else
@@ -76,6 +84,22 @@ C. DIRTY TOO LONG -- uncommitted work whose OLDEST modified file is older than
    meant to stay uncommitted can be declared rather than alarming daily.
    Measured 2026-09-28T17:14Z: lpt-website dirty=1 (reconciliation_plan.json,
    mtime 2026-09-20 23:15, 186 h old), kosher clean.
+
+D. STRANDED BRANCHES -- commits reachable from a LOCAL branch and from NO remote
+   ref (`git rev-list --branches --not --remotes`). Flag when the count is
+   non-zero: no threshold, because a single stranded commit is already work that
+   exists on one disk and nowhere else. This is NOT signal A, B or C. Signal B
+   measures only the CHECKED-OUT branch against its upstream, so committed work
+   on any OTHER local branch is invisible to it; signal C sees only the working
+   tree, never commits. MEASURED 2026-10-15 (ledger item 240): 41 commits across
+   23 local branches in /opt/company were reachable from NO remote ref while the
+   checked-out branch read ahead=0 and the project read suppressed/dirty-only, so
+   none of that committed work appeared in any reading this source printed. The
+   class regrew from 3 commits (2026-10-13) to 41 (2026-10-15), so it is watched,
+   never assumed absent. A branch is attributed by its TIP being one of the
+   stranded commits (exact: if a branch's tip is reachable from a remote ref then
+   every ancestor is too, so that branch has no stranded commit). Reported, never
+   repaired: pushing another session's branch is a person's decision.
 
 NOT a signal, deliberately: a checkout that is AHEAD of its upstream. A shift
 legitimately commits locally before it pushes, so "ahead" is normal for minutes
@@ -105,12 +129,37 @@ OUTPUT DISCIPLINE
         checkout-health: lpt-website       suppressed  dedup checkout-health:lpt-website:20260928 is already new
         checkout-health: waste-system      suppressed  disabled
         checkout-health: x                 unreadable  no directory at /home/zabz/repos/x
+        checkout-health: kosher-ai-filter  quiet       branch=... head=... behind=0 lock=none dirty=0 host=zabz-tech-ts ...
+        checkout-health: kosher-ai-filter  declared    remote measurement on zabz-tech-ts TIMED OUT after 25s -- lock/staleness/dirty NOT MEASURED
 
     A source that silently declines to file is indistinguishable from one that
     found nothing, so a project this source could not READ is named on stderr and
     makes the process exit 1 (run-wake-sources.sh logs it as FAILED rc=1 with the
     reason). Findings for the OTHER projects are still filed first: one
     unreadable project must not blind the rest.
+
+    `declared` is the fourth verdict and it is deliberately NOT an alarm. A
+    registry entry may carry `repo_host` (and optionally `repo_remote_path` and
+    `repo_declared_note`) to say that its WORKING checkout lives on another host.
+    Added 2026-10-14 (ledger item 137): the cutover of 2026-10-11 left five
+    registrations pointing at /home/zabz/repos, which is not on this box at all,
+    while their real checkouts are on zabz-tech-ts -- so the source printed
+    `unreadable` for five of the nine enabled projects every run. The declaration
+    only applies while the local path is genuinely ABSENT: if a checkout appears
+    there, that project is measured like any other, so the state cannot outlive
+    itself.
+
+    UPDATED 2026-10-14 (ledger item 146): a declared checkout is now MEASURED over
+    ssh on the named host -- ONE bounded ssh call per host, so one hung host costs
+    `CHECKOUT_HEALTH_REMOTE_TIMEOUT` seconds and never the run's 90 s budget. The
+    line then carries the same `branch= head= behind= lock= dirty=` readings as a
+    local project, plus ` host=<host>`, because a checkout this source can reach
+    but does not measure is a blind spot, not a signal. Five projects on one host
+    cost one call, not five. `declared` survives only as the FALLBACK for a run
+    where the measurement itself cannot be taken (host down, ssh refused, path
+    missing): the line still names the host and says in words that
+    lock/staleness/dirty were NOT measured, because an unreadable checkout is not
+    a healthy one -- a copy this source cannot read must never read as quiet.
 
 WHAT THE FLAG HANDS THE WORKER
     The evidence it measured (lock path, size, mtime, age, owner-or-none; branch,
@@ -124,10 +173,12 @@ WHAT THE FLAG HANDS THE WORKER
 
 RUN
     python3 sources/checkout-health.py [--dry-run]
+    python3 sources/checkout-health.py --selftest   # assert the lock detector
 
 ENVIRONMENT (all read at call time)
     CHECKOUT_HEALTH_REGISTRY        default <this dir>/projects.json
     CHECKOUT_HEALTH_FETCH_TIMEOUT   default 30   seconds, bounded on purpose
+    CHECKOUT_HEALTH_REMOTE_TIMEOUT  default 25   seconds, ONE bounded ssh call per host
     CHECKOUT_HEALTH_BEHIND_MIN      default 50   commits behind upstream
     CHECKOUT_HEALTH_DIRTY_HOURS     default 24   age of the oldest dirty file
     CHECKOUT_HEALTH_LOCK_GRACE_SEC  default 300  a lock younger than this is never stale
@@ -150,11 +201,14 @@ MUST NEVER
 """
 from __future__ import annotations
 
+import base64
 import fnmatch
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -168,6 +222,7 @@ SOURCE = "checkout-health"
 HERE = Path(__file__).resolve().parent
 
 DEFAULT_FETCH_TIMEOUT = 30
+DEFAULT_REMOTE_TIMEOUT = 25
 DEFAULT_BEHIND_MIN = 50
 DEFAULT_DIRTY_HOURS = 24.0
 DEFAULT_LOCK_GRACE_SEC = 300
@@ -192,6 +247,12 @@ _GIT_ENV = {
 # readable projects have been filed -- an unreadable signal is never healthy, and
 # one broken project must not blind the others.
 _UNREADABLE: list[str] = []
+
+# Set when a project DECLARES, in the registry, that its working checkout is not
+# on this host. Not a fault and not a flag: a state reported in this source's own
+# words, the way waste-system reports `suppressed disabled`. Counted in the
+# summary line so it can never be a silent skip.
+_DECLARED: list[str] = []
 
 
 # --------------------------------------------------------------------------- #
@@ -223,6 +284,13 @@ def preserve_dir() -> Path:
 
 def fetch_timeout() -> int:
     return max(1, _env_int("CHECKOUT_HEALTH_FETCH_TIMEOUT", DEFAULT_FETCH_TIMEOUT))
+
+
+def remote_timeout() -> int:
+    """Bounded on purpose: this is the ceiling for ONE ssh call covering every
+    declared project on one host, and it exists so a host that answers ssh but
+    then hangs cannot eat the 90 s run-wake-sources.sh gives this whole source."""
+    return max(1, _env_int("CHECKOUT_HEALTH_REMOTE_TIMEOUT", DEFAULT_REMOTE_TIMEOUT))
 
 
 def pause_file() -> Path:
@@ -278,6 +346,31 @@ def load_registry() -> list[dict]:
             raise Unreadable(
                 f"{path}: project {pid!r} has a bad dirty_ignore: {ignore!r}")
     return projects
+
+
+def remote_declaration(project: dict) -> str:
+    """The declared reason this project's checkout cannot be measured here, or "".
+
+    `repo_host` says the WORKING checkout lives on another mesh host. Five
+    registrations need it: the 2026-10-11 cutover to secratary-cloud left
+    kosher-ai-filter, lpt-sync, cfo, personality-system and chumash pointing at
+    /home/zabz/repos, a path that does not exist on this box, while their real
+    checkouts are on zabz-tech-ts (measured 2026-10-14). A declared project is
+    named on every run and is NEVER called quiet: what is absent is the
+    MEASUREMENT, and the line says so. It is never a flag, because a permanent
+    declaration would cost a release every day for a fact that does not change.
+    """
+    host = project.get("repo_host")
+    if not isinstance(host, str) or not host.strip():
+        return ""
+    there = project.get("repo_remote_path")
+    where = (f" at {there.strip()}"
+             if isinstance(there, str) and there.strip() else "")
+    note = project.get("repo_declared_note")
+    why = (f" ({note.strip()})"
+           if isinstance(note, str) and note.strip() else "")
+    return (f"checkout is on {host.strip()}{where}, not on this host -- "
+            f"lock/staleness/dirty NOT measured from the authority{why}")
 
 
 # --------------------------------------------------------------------------- #
@@ -395,6 +488,155 @@ def lock_owner(lock: Path, repo: Path,
 
 
 # --------------------------------------------------------------------------- #
+# the three signals, applied to whatever was measured -- locally or over ssh
+# --------------------------------------------------------------------------- #
+def _porcelain_path(line: str) -> str:
+    """The path a `git status --porcelain` v1 line names, read the one way this
+    source has always read it: columns XY, then a space, then the path; a rename
+    names the NEW path; a quoted path is unquoted. The leading status space on
+    " M path" must survive -- stripping the whole line shifts every path by one
+    character ("reconciliation_plan.json" became "econciliation_plan.json"),
+    measured on secratary 2026-09-28."""
+    path = line[3:].strip() if len(line) > 3 else line.strip()
+    if " -> " in path:
+        path = path.split(" -> ", 1)[1].strip()      # a rename: the new name
+    return path.strip('"')
+
+
+def _classify_dirty(report: dict, project: dict, opts: dict,
+                    raw: list[tuple[str, str, float | None]]) -> None:
+    """Signal C for a checkout whose changed paths and ages were obtained either
+    from the local disk or over ssh. `raw` is (status code, path, age_sec|None)."""
+    ignores = list(project.get("dirty_ignore") or []) + opts["ignores"]
+    changed: list[dict[str, Any]] = []
+    for code, path, age in raw:
+        ignored = any(fnmatch.fnmatch(path, pat)
+                      or fnmatch.fnmatch(Path(path).name, pat) for pat in ignores)
+        changed.append({"code": code, "path": path, "age_sec": age,
+                        "ignored": ignored})
+    counted = [c for c in changed if not c["ignored"]]
+    ages = [c["age_sec"] for c in counted if c["age_sec"] is not None]
+    oldest = max(ages) if ages else None
+    report["dirty"] = {
+        "total": len(changed),
+        "counted": len(counted),
+        "ignored": [c["path"] for c in changed if c["ignored"]],
+        "files": counted,
+        "oldest_age_sec": oldest,
+        "unstattable": [c["path"] for c in counted if c["age_sec"] is None],
+    }
+    if counted and oldest is not None and oldest > opts["dirty_hours"] * 3600:
+        report["reasons"].append("dirty-old")
+
+
+def _classify_staleness(report: dict, opts: dict) -> None:
+    """Signal B for a report whose `staleness` block has already been filled in.
+
+    Shared verbatim by the local and the remote path: a measurement is only worth
+    having if both ways of taking it are judged by the same rule."""
+    stale = report["staleness"]
+    upstream = stale["upstream"]
+    behind = stale["behind"]
+    ahead = stale["ahead"]
+    if stale["timed_out"]:
+        report["unmeasured"].append(
+            f"fetch TIMED OUT after {opts['fetch_timeout']}s -- staleness NOT MEASURED")
+    elif not stale["fetched"]:
+        report["unmeasured"].append(
+            f"fetch FAILED ({_oneline(stale['fetch_error'])}) -- "
+            f"staleness NOT MEASURED")
+    if upstream is None:
+        report["unmeasured"].append(
+            "no upstream resolvable (@{u}, origin/HEAD, "
+            f"origin/{stale['branch']}, origin/main, origin/test) -- staleness NOT MEASURED")
+    elif behind is None:
+        report["unmeasured"].append(
+            f"cannot count commits between HEAD and {upstream} -- "
+            f"staleness NOT MEASURED")
+    elif behind >= opts["behind_min"]:
+        if stale["upstream_fallback"] and ahead:
+            # The ref was GUESSED (origin/HEAD, origin/main, origin/test), not the
+            # branch's configured upstream and not its own origin ref. A branch
+            # AHEAD of that guess is being worked on, not stalled: report it as
+            # diverged and stay quiet instead of condemning it. Measured
+            # 2026-10-05 (ledger 459): the live personal-secretary-mvp worktree ran
+            # 73-78 commits ahead of origin/master and was flagged `behind` on
+            # every wake, and STEP 3 (git merge --ff-only origin/master) could
+            # never succeed on it.
+            stale["diverged"] = True
+            report["notes"].append(
+                f"diverged from the FALLBACK ref {upstream} "
+                f"(behind={behind}, ahead={ahead}) -- AHEAD of the fallback "
+                f"target, so it is being worked on, not stalled; NOT flagged")
+        elif stale["fetched"]:
+            report["reasons"].append("behind")
+        else:
+            # The count is against a remote-tracking ref that nothing refreshed,
+            # so it may under- or over-state the drift. Report it; never flag it:
+            # a flag may only claim a measurement that was actually taken.
+            report["notes"].append(
+                f"behind={behind} counted against a STALE local {upstream} ref "
+                f"(the fetch failed) -- reported, not flagged")
+
+
+def measure_stranded(repo: Path) -> dict[str, Any]:
+    """Signal D: commits reachable from a LOCAL branch and from NO remote ref.
+
+    Ledger item 240. `git rev-list --branches --not --remotes` is the whole
+    measurement; the branch names are attributed in the same pass and by an exact
+    rule: a branch has stranded commits iff its TIP is one of them (a tip that a
+    remote ref reaches implies every ancestor is reached too, so that branch has
+    none). Two git calls, no per-branch loop, because a checkout can hold
+    hundreds of local branches.
+
+    This never raises Unreadable: a checkout that cannot be measured for stranded
+    work returns measured=False and says why in a note. That is deliberate -- a
+    repository with no remote refs at all would otherwise report every commit as
+    stranded, and an unwatched project must not turn the whole run red.
+    """
+    remotes = run_git(repo, ["for-each-ref", "--format=%(refname)", "refs/remotes"])
+    if not remotes.ok:
+        return {"count": None, "branches": [], "measured": False,
+                "why": f"cannot list remote refs ({remotes.err or 'rc=%d' % remotes.rc})"}
+    if not remotes.out.strip():
+        return {"count": None, "branches": [], "measured": False,
+                "why": "no remote refs in this checkout"}
+    rev = run_git(repo, ["rev-list", "--branches", "--not", "--remotes"])
+    if not rev.ok:
+        return {"count": None, "branches": [], "measured": False,
+                "why": f"cannot list commits on no remote ref "
+                       f"({rev.err or 'rc=%d' % rev.rc})"}
+    stranded = {ln.strip() for ln in rev.out.splitlines() if ln.strip()}
+    branches: list[str] = []
+    if stranded:
+        tips = run_git(repo, ["for-each-ref",
+                              "--format=%(refname:short) %(objectname)", "refs/heads"])
+        if tips.ok:
+            for ln in tips.out.splitlines():
+                name, _, sha = ln.strip().partition(" ")
+                if sha.strip() in stranded:
+                    branches.append(name)
+    return {"count": len(stranded), "branches": sorted(branches), "measured": True,
+            "why": ""}
+
+
+def _classify_stranded(report: dict, opts: dict) -> None:
+    """Signal D for a report whose `stranded` block has already been filled in.
+
+    Shared verbatim by the local and the remote path, like the other three.
+    Distinct reason `stranded-branches`: committed work that no other reading of
+    this source can see, so it must be its own condition and not folded into
+    `behind` or `dirty-old`."""
+    st = report.get("stranded") or {}
+    if not st.get("measured"):
+        if st.get("why"):
+            report["notes"].append(f"stranded commits NOT measured: {st['why']}")
+        return
+    if st.get("count"):
+        report["reasons"].append("stranded-branches")
+
+
+# --------------------------------------------------------------------------- #
 # one project
 # --------------------------------------------------------------------------- #
 def check_project(project: dict, now: datetime, opts: dict) -> dict[str, Any]:
@@ -437,17 +679,33 @@ def check_project(project: dict, now: datetime, opts: dict) -> dict[str, Any]:
     }
 
     # --- A. the lock ------------------------------------------------------- #
-    lock = gitdir / "index.lock"
-    lock_info: dict[str, Any] = {"path": lock, "exists": lock.exists()}
-    if lock_info["exists"]:
+    def _read_lock(lock: Path, repo_for_owner: Path, label: str,
+                   strict: bool = False) -> dict[str, Any]:
+        """Classify one index.lock and append its reasons/notes to `report`.
+
+        Factored out of the main-checkout path so a LINKED WORKTREE's lock gets
+        exactly the same liveness test. The broad "cwd inside the repo" probe is
+        run against `repo_for_owner` (the worktree's own path for a worktree
+        lock), because a git process holding a worktree lock is working there.
+        """
+        info: dict[str, Any] = {"path": lock, "exists": lock.exists()}
+        if not info["exists"]:
+            info["state"] = "none"
+            return info
         procs, trustworthy = scan_processes()
         try:
             st = lock.stat()
         except OSError as exc:
-            raise Unreadable(f"project {pid!r}: cannot stat {lock}: {exc}") from exc
+            if strict:
+                raise Unreadable(
+                    f"project {pid!r}: cannot stat {lock}: {exc}") from exc
+            info["state"] = "unstattable"
+            report["notes"].append(
+                f"{label}lock {lock}: cannot stat it ({exc}) -- lock NOT judged")
+            return info
         age = (now - datetime.fromtimestamp(st.st_mtime, timezone.utc)).total_seconds()
-        owner = lock_owner(lock, repo, procs)
-        lock_info.update({
+        owner = lock_owner(lock, repo_for_owner, procs)
+        info.update({
             "age_sec": age,
             "size": st.st_size,
             "mtime": datetime.fromtimestamp(st.st_mtime, timezone.utc),
@@ -458,26 +716,61 @@ def check_project(project: dict, now: datetime, opts: dict) -> dict[str, Any]:
         grace = opts["lock_grace_sec"]
         young = -grace < age < grace           # a future mtime counts as young
         if owner:
-            lock_info["state"] = "held"
+            info["state"] = "held"
             report["notes"].append(
-                f"lock held by {owner} -- a live git operation, normal, not a fault")
+                f"{label}lock held by {owner} -- a live git operation, normal, not a fault")
         elif young:
-            lock_info["state"] = "young"
+            info["state"] = "young"
             report["notes"].append(
-                f"lock is {age:.0f}s old, inside the {grace}s grace, and no git "
+                f"{label}lock is {age:.0f}s old, inside the {grace}s grace, and no git "
                 f"process owns it -- not called stale yet")
         elif not trustworthy:
-            lock_info["state"] = "unverified"
+            info["state"] = "unverified"
             report["notes"].append(
-                f"lock is {age:.0f}s old and no git process owns it, but /proc could "
-                f"not be scanned -- liveness NOT verified")
+                f"{label}lock is {age:.0f}s old and no git process owns it, but /proc "
+                f"could not be scanned -- liveness NOT verified")
             report["reasons"].append("lock-stale-unverified")
         else:
-            lock_info["state"] = "stale"
+            info["state"] = "stale"
             report["reasons"].append("lock-stale")
-    else:
-        lock_info["state"] = "none"
-    report["lock"] = lock_info
+        return info
+
+    lock = gitdir / "index.lock"
+    report["lock"] = _read_lock(lock, repo, "", strict=True)
+
+    # A linked worktree keeps its own index and index.lock under
+    # <gitdir>/worktrees/<name>/index.lock. Those are the locks of the OTHER
+    # trees a shift may be working in; a stale one strands that worktree while
+    # <gitdir>/index.lock is perfectly absent. Judge each by the same rule.
+    report["worktree_locks"] = []
+    try:
+        wt_root = gitdir / "worktrees"
+        wt_dirs = (sorted(p for p in wt_root.glob("*") if p.is_dir())
+                   if wt_root.is_dir() else [])
+    except OSError as exc:
+        report["notes"].append(
+            f"cannot list worktrees under {gitdir}/worktrees: {exc}")
+        wt_dirs = []
+    for wt_gitdir in wt_dirs:
+        wt_lock = wt_gitdir / "index.lock"
+        if not wt_lock.is_file():
+            continue
+        wt_repo = repo
+        try:
+            raw_gitdir = (wt_gitdir / "gitdir").read_text(
+                encoding="utf-8", errors="replace").strip()
+            if raw_gitdir:
+                wt_repo = Path(raw_gitdir).parent
+        except OSError:
+            pass
+        info = _read_lock(wt_lock, wt_repo, f"worktree {wt_gitdir.name}: ")
+        info["worktree"] = str(wt_repo)
+        info["worktree_name"] = wt_gitdir.name
+        if info["state"] in ("stale", "unverified"):
+            report["notes"].append(
+                f"stale lock in WORKTREE {wt_repo} -- it strands that worktree, "
+                f"not the main checkout")
+        report["worktree_locks"].append(info)
 
     # --- B. fetch, then staleness ------------------------------------------ #
     fetch = run_git(repo, ["fetch", "--quiet", "origin"],
@@ -492,6 +785,7 @@ def check_project(project: dict, now: datetime, opts: dict) -> dict[str, Any]:
     head_date = run_git(repo, ["log", "-1", "--format=%cI"]).out
 
     upstream, upstream_how = resolve_upstream(repo, branch)
+    upstream_fallback = "fallback" in (upstream_how or "")
     behind: int | None = None
     ahead: int | None = None
     target_sha = ""
@@ -510,79 +804,41 @@ def check_project(project: dict, now: datetime, opts: dict) -> dict[str, Any]:
         "head_date": head_date,
         "upstream": upstream,
         "upstream_how": upstream_how,
+        "upstream_fallback": upstream_fallback,
         "target_sha": target_sha,
         "behind": behind,
         "ahead": ahead,
+        "diverged": False,
         "fetched": fetch.ok,
         "fetch_error": "" if fetch.ok else (fetch.err or f"rc={fetch.rc}"),
         "timed_out": fetch.timed_out,
     }
 
-    if fetch.timed_out:
-        report["unmeasured"].append(
-            f"fetch TIMED OUT after {opts['fetch_timeout']}s -- staleness NOT MEASURED")
-    elif not fetch.ok:
-        report["unmeasured"].append(
-            f"fetch FAILED ({_oneline(report['staleness']['fetch_error'])}) -- "
-            f"staleness NOT MEASURED")
-    if upstream is None:
-        report["unmeasured"].append(
-            "no upstream resolvable (@{u}, origin/HEAD, "
-            f"origin/{branch}, origin/main, origin/test) -- staleness NOT MEASURED")
-    elif behind is None:
-        report["unmeasured"].append(
-            f"cannot count commits between HEAD and {upstream} -- "
-            f"staleness NOT MEASURED")
-    elif behind >= opts["behind_min"]:
-        if fetch.ok:
-            report["reasons"].append("behind")
-        else:
-            # The count is against a remote-tracking ref that nothing refreshed,
-            # so it may under- or over-state the drift. Report it; never flag it:
-            # a flag may only claim a measurement that was actually taken.
-            report["notes"].append(
-                f"behind={behind} counted against a STALE local {upstream} ref "
-                f"(the fetch failed) -- reported, not flagged")
+    _classify_staleness(report, opts)
 
     # --- C. dirty, and for how long ---------------------------------------- #
-    status = run_git(repo, ["status", "--porcelain"])
+    status = run_git(repo, ["status", "--porcelain", "--", "."])
     if not status.ok:
         raise Unreadable(
             f"project {pid!r}: cannot read the working tree of {repo}: "
             f"{status.err or 'rc=%d' % status.rc}")
-    ignores = list(project.get("dirty_ignore") or []) + opts["ignores"]
-    changed: list[dict[str, Any]] = []
+    raw: list[tuple[str, str, float | None]] = []
     for line in status.out.splitlines():
         if not line.strip():
             continue
-        path = line[3:].strip() if len(line) > 3 else line.strip()
-        if " -> " in path:
-            path = path.split(" -> ", 1)[1].strip()      # a rename: the new name
-        path = path.strip('"')
+        path = _porcelain_path(line)
         full = repo / path
         try:
             age: float | None = (now - datetime.fromtimestamp(
                 full.stat().st_mtime, timezone.utc)).total_seconds()
         except OSError:
             age = None
-        ignored = any(fnmatch.fnmatch(path, pat)
-                      or fnmatch.fnmatch(Path(path).name, pat) for pat in ignores)
-        changed.append({"code": line[:2], "path": path, "age_sec": age,
-                        "ignored": ignored})
+        raw.append((line[:2], path, age))
+    _classify_dirty(report, project, opts, raw)
 
-    counted = [c for c in changed if not c["ignored"]]
-    ages = [c["age_sec"] for c in counted if c["age_sec"] is not None]
-    oldest = max(ages) if ages else None
-    report["dirty"] = {
-        "total": len(changed),
-        "counted": len(counted),
-        "ignored": [c["path"] for c in changed if c["ignored"]],
-        "files": counted,
-        "oldest_age_sec": oldest,
-        "unstattable": [c["path"] for c in counted if c["age_sec"] is None],
-    }
-    if counted and oldest is not None and oldest > opts["dirty_hours"] * 3600:
-        report["reasons"].append("dirty-old")
+    # --- D. committed work a remote ref cannot reach ----------------------- #
+    report["stranded"] = measure_stranded(repo)
+    _classify_stranded(report, opts)
 
     return report
 
@@ -597,7 +853,7 @@ def resolve_upstream(repo: Path, branch: str) -> tuple[str | None, str]:
     candidates: list[tuple[str, str]] = []
     symbol = run_git(repo, ["symbolic-ref", "-q", "--short", "refs/remotes/origin/HEAD"])
     if symbol.ok and symbol.out:
-        candidates.append((symbol.out, "origin/HEAD"))
+        candidates.append((symbol.out, "origin/HEAD (fallback)"))
     candidates.append((f"origin/{branch}", f"origin/{branch} (the branch name)"))
     candidates.append(("origin/main", "origin/main (fallback)"))
     candidates.append(("origin/test", "origin/test (fallback)"))
@@ -605,6 +861,613 @@ def resolve_upstream(repo: Path, branch: str) -> tuple[str | None, str]:
         if run_git(repo, ["rev-parse", "--verify", "--quiet", ref]).ok:
             return ref, how
     return None, "none"
+
+
+# --------------------------------------------------------------------------- #
+# a checkout that is not on this box: MEASURE it on the host that has it
+# --------------------------------------------------------------------------- #
+# Ledger item 146. Item 137 taught this source to DECLARE five registrations whose
+# working checkout is on zabz-tech-ts, because the 2026-10-11 cutover left them
+# pointing at /home/zabz/repos, a path that is not on the authority. A declaration
+# is honest but blind: a stale lock or 400 commits of drift on those checkouts
+# would still not be detected. The authority can reach the host over ssh
+# (measured), so the checkout is MEASURED there instead and the host is named in
+# the line. EVERY project on one host is measured in ONE ssh call, because five
+# calls would be five chances to hang: the call is bounded by
+# CHECKOUT_HEALTH_REMOTE_TIMEOUT and a host that hangs costs that ceiling once,
+# not once per project.
+#
+# The probe is a PowerShell script (the mesh hosts that own these checkouts are
+# Windows) sent as -EncodedCommand (base64 UTF-16LE), which sidesteps every layer
+# of shell quoting between here, ssh and cmd.exe. It only ever reads: `git fetch`
+# writes FETCH_HEAD and remote-tracking refs, exactly as the local path does, and
+# nothing else is added, committed, stashed, checked out, moved or deleted.
+REMOTE_PROBE_PS = r'''
+$ProgressPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'SilentlyContinue'
+$epoch = [datetime]'1970-01-01'
+$now = [int64](([DateTime]::UtcNow) - $epoch).TotalSeconds
+Write-Output "NOW|$now"
+$projects = @(
+@@PROJECTS@@
+)
+foreach ($p in $projects) {
+  $id = $p.id
+  $d = $p.path
+  Write-Output "PROJECT|$id"
+  if (-not (Test-Path -LiteralPath $d)) { Write-Output 'MISSING|'; continue }
+  $inside = (& git -C $d rev-parse --is-inside-work-tree 2>$null | Out-String).Trim()
+  if ($inside -ne 'true') { Write-Output ("NOTGIT|" + $inside); continue }
+  $gitdir = (& git -C $d rev-parse --absolute-git-dir 2>$null | Out-String).Trim()
+  Write-Output ("GITDIR|" + $gitdir)
+  $br = (& git -C $d rev-parse --abbrev-ref HEAD 2>$null | Out-String).Trim()
+  Write-Output ("BRANCH|" + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($br)))
+  Write-Output ("HEAD|" + (& git -C $d rev-parse --short HEAD 2>$null | Out-String).Trim())
+  Write-Output ("HEADDATE|" + (& git -C $d log -1 --format=%cI 2>$null | Out-String).Trim())
+  & git -C $d fetch --quiet origin 2>&1 | Out-Null
+  Write-Output ("FETCHRC|" + $LASTEXITCODE)
+  $u = (& git -C $d rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null | Out-String).Trim()
+  if ($u -eq '@{u}') { $u = '' }
+  $how = ''
+  if ($u) {
+    $how = 'configured upstream (@{u})'
+  } else {
+    $sym = (& git -C $d symbolic-ref -q --short refs/remotes/origin/HEAD 2>$null | Out-String).Trim()
+    if ($sym) { $u = $sym; $how = 'origin/HEAD (fallback)' }
+    elseif (& git -C $d rev-parse --verify --quiet "origin/$br" 2>$null) { $u = "origin/$br"; $how = "origin/$br (the branch name)" }
+    elseif (& git -C $d rev-parse --verify --quiet origin/main 2>$null) { $u = 'origin/main'; $how = 'origin/main (fallback)' }
+    elseif (& git -C $d rev-parse --verify --quiet origin/test 2>$null) { $u = 'origin/test'; $how = 'origin/test (fallback)' }
+  }
+  Write-Output ("UPSTREAM|" + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($u)))
+  Write-Output ("UPSTREAMHOW|" + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($how)))
+  if ($u) {
+    Write-Output ("BEHIND|" + (& git -C $d rev-list --count "HEAD..$u" 2>$null | Out-String).Trim())
+    Write-Output ("AHEAD|" + (& git -C $d rev-list --count "$u..HEAD" 2>$null | Out-String).Trim())
+    Write-Output ("TARGET|" + (& git -C $d rev-parse --short $u 2>$null | Out-String).Trim())
+  }
+  # Signal D: commits reachable from a local branch and from NO remote ref. Two
+  # git calls, and branch names attributed by tip membership so a checkout with
+  # hundreds of local branches stays cheap on the far side of one ssh call. An
+  # empty STRANDED means NOT MEASURED (no remote refs, or the git call failed) --
+  # never a silent zero.
+  $remrefs = @(& git -C $d for-each-ref --format='%(refname)' refs/remotes 2>$null)
+  $stal = @()
+  $sok = $false
+  if ($remrefs.Count -gt 0) {
+    $stal = @(& git -C $d rev-list --branches --not --remotes 2>$null)
+    if ($LASTEXITCODE -eq 0) { $sok = $true }
+    $stal = @($stal | Where-Object { $_ })
+  }
+  if (-not $sok) {
+    Write-Output 'STRANDED|'
+    Write-Output 'STRANDEDBR|'
+  } else {
+    Write-Output ("STRANDED|" + $stal.Count)
+    $sbr = @()
+    if ($stal.Count -gt 0) {
+      $set = @{}
+      foreach ($s in $stal) { $set[$s.Trim()] = $true }
+      foreach ($ln in @(& git -C $d for-each-ref --format='%(refname:short) %(objectname)' refs/heads 2>$null)) {
+        if (-not $ln) { continue }
+        $parts = $ln.Trim() -split '\s+', 2
+        if ($parts.Count -eq 2 -and $set.ContainsKey($parts[1])) { $sbr += $parts[0] }
+      }
+    }
+    Write-Output ("STRANDEDBR|" + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($sbr -join ','))))
+  }
+  $lock = Join-Path $gitdir 'index.lock'
+  if (Test-Path -LiteralPath $lock) {
+    $li = Get-Item -LiteralPath $lock
+    $lmt = [int64]($li.LastWriteTimeUtc - $epoch).TotalSeconds
+    Write-Output ("LOCK|1|" + $li.Length + "|" + $lmt)
+  } else {
+    Write-Output 'LOCK|0||'
+  }
+  foreach ($line in @(& git -C $d status --porcelain -- . 2>$null)) {
+    if (-not $line) { continue }
+    $b = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($line))
+    $path = $line.Substring(3).Trim()
+    if ($path.Contains(' -> ')) { $path = $path.Split(' -> ')[1].Trim() }
+    $path = $path.Trim('"')
+    $full = Join-Path $d $path
+    $mt = 0
+    if (Test-Path -LiteralPath $full) { $mt = [int64]((Get-Item -LiteralPath $full).LastWriteTimeUtc - $epoch).TotalSeconds }
+    Write-Output ("STATUS|$b|$mt")
+  }
+}
+'''
+
+
+def _ps_squote(value: str) -> str:
+    """A PowerShell single-quoted literal. Single-quoted strings take no
+    metacharacters at all except the quote itself, which is doubled."""
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+def remote_probe_script(projects: list[dict]) -> str:
+    entries = ",\n".join(
+        "  @{ id = %s; path = %s }" % (
+            _ps_squote(str(p["id"])),
+            _ps_squote(str(p.get("repo_remote_path") or "").strip()))
+        for p in projects)
+    return REMOTE_PROBE_PS.replace("@@PROJECTS@@", entries)
+
+
+def _b64_text(value: str) -> str:
+    return base64.b64encode(value.encode("utf-8")).decode("ascii")
+
+
+def _unb64(value: str) -> str:
+    try:
+        return base64.b64decode(value.encode("ascii")).decode("utf-8", "replace")
+    except Exception:                                   # noqa: BLE001
+        return ""
+
+
+def parse_remote_output(text: str) -> tuple[float | None, dict[str, dict]]:
+    """Split the probe's line protocol into (the host's own clock, {pid: fields}).
+
+    Ages are computed against the HOST's clock, not this box's, so a skewed clock
+    between the authority and the measured host cannot make a fresh file look old.
+    """
+    remote_now: float | None = None
+    raw: dict[str, dict] = {}
+    cur: str | None = None
+    for line in text.splitlines():
+        if "|" not in line:
+            continue
+        kind, _, rest = line.partition("|")
+        if kind == "NOW":
+            try:
+                remote_now = float(rest.strip())
+            except ValueError:
+                remote_now = None
+            continue
+        if kind == "PROJECT":
+            cur = rest.strip()
+            if cur:
+                raw[cur] = {"status": []}
+            continue
+        if cur is None or cur not in raw:
+            continue
+        entry = raw[cur]
+        if kind == "MISSING":
+            entry["missing"] = True
+        elif kind == "NOTGIT":
+            entry["notgit"] = rest.strip()
+        elif kind == "GITDIR":
+            entry["gitdir"] = rest.strip()
+        elif kind == "BRANCH":
+            entry["branch"] = _unb64(rest.strip())
+        elif kind == "HEAD":
+            entry["head"] = rest.strip()
+        elif kind == "HEADDATE":
+            entry["head_date"] = rest.strip()
+        elif kind == "FETCHRC":
+            entry["fetch_rc"] = rest.strip()
+        elif kind == "UPSTREAM":
+            entry["upstream"] = _unb64(rest.strip())
+        elif kind == "UPSTREAMHOW":
+            entry["upstream_how"] = _unb64(rest.strip())
+        elif kind == "BEHIND":
+            entry["behind"] = rest.strip()
+        elif kind == "AHEAD":
+            entry["ahead"] = rest.strip()
+        elif kind == "TARGET":
+            entry["target"] = rest.strip()
+        elif kind == "STRANDED":
+            entry["stranded"] = rest.strip()
+        elif kind == "STRANDEDBR":
+            entry["stranded_branches"] = _unb64(rest.strip())
+        elif kind == "LOCK":
+            entry["lock"] = rest.split("|")
+        elif kind == "STATUS":
+            blob, _, mtime = rest.partition("|")
+            entry["status"].append((_unb64(blob.strip()), mtime.strip()))
+    return remote_now, raw
+
+
+def build_remote_report(remote_now: float | None, entry: dict, project: dict,
+                        host: str, opts: dict) -> dict[str, Any]:
+    """Turn one project's probe fields into the same report shape check_project
+    returns, then judge all four signals with the SAME helpers, so a checkout
+    measured over ssh is held to exactly the standard of one measured locally."""
+    pid = str(project["id"])
+    if entry.get("missing"):
+        raise Unreadable(f"project {pid!r}: no directory at "
+                         f"{project.get('repo_remote_path')} on {host}")
+    if entry.get("notgit") is not None and not entry.get("gitdir"):
+        inside = entry.get("notgit") or "not a git working tree"
+        raise Unreadable(f"project {pid!r}: {inside} on {host}")
+
+    report: dict[str, Any] = {
+        "pid": pid,
+        "title": str(project.get("title") or pid),
+        "repo": str(project.get("repo_remote_path") or "").strip(),
+        "gitdir": entry.get("gitdir", ""),
+        "host": host,
+        "reasons": [],
+        "unmeasured": [],
+        "notes": [],
+        "worktree_locks": [],       # the probe does not enumerate linked worktrees
+    }
+
+    # --- A. the lock ------------------------------------------------------- #
+    lock_path = (f"{report['gitdir']}/index.lock" if report["gitdir"]
+                 else "index.lock")
+    lock: dict[str, Any] = {"path": lock_path, "exists": False, "state": "none"}
+    fields = entry.get("lock") or []
+    if fields and fields[0] == "1":
+        lock["exists"] = True
+        lock["size"] = int(fields[1]) if len(fields) > 1 and fields[1].isdigit() else None
+        mtime_epoch = int(fields[2]) if len(fields) > 2 and fields[2].isdigit() else 0
+        if remote_now is not None and mtime_epoch > 0:
+            age = remote_now - mtime_epoch
+            lock["age_sec"] = age
+            lock["mtime"] = datetime.fromtimestamp(mtime_epoch, timezone.utc)
+            grace = opts["lock_grace_sec"]
+            if -grace < age < grace:
+                lock["state"] = "young"
+                report["notes"].append(
+                    f"lock is {age:.0f}s old, inside the {grace}s grace, and is not "
+                    f"called stale yet")
+            else:
+                # There is no /proc on the far side of ssh to prove the lock has no
+                # owner, so this is the same `unverified` state the local path uses
+                # when it cannot scan /proc: loud, and never a claim it did not take.
+                lock["state"] = "unverified"
+                report["notes"].append(
+                    f"lock is {age:.0f}s old and could not be attributed to a live "
+                    f"git process: /proc is not readable over ssh on {host} -- "
+                    f"liveness NOT verified")
+                report["reasons"].append("lock-stale-unverified")
+        else:
+            lock["state"] = "unverified"
+            report["notes"].append(
+                f"lock exists on {host} but its age could not be read -- "
+                f"lock NOT judged")
+    report["lock"] = lock
+
+    # --- B. staleness ------------------------------------------------------ #
+    behind = int(entry["behind"]) if str(entry.get("behind", "")).isdigit() else None
+    ahead = int(entry["ahead"]) if str(entry.get("ahead", "")).isdigit() else None
+    upstream = entry.get("upstream") or None
+    how = entry.get("upstream_how") or ""
+    fetch_rc = str(entry.get("fetch_rc", "")).strip()
+    fetched = fetch_rc == "0"
+    report["staleness"] = {
+        "branch": entry.get("branch", ""),
+        "head_sha": entry.get("head", ""),
+        "head_date": entry.get("head_date", ""),
+        "upstream": upstream,
+        "upstream_how": how,
+        "upstream_fallback": "fallback" in how,
+        "target_sha": entry.get("target", ""),
+        "behind": behind,
+        "ahead": ahead,
+        "diverged": False,
+        "fetched": fetched,
+        "fetch_error": "" if fetched else (
+            f"rc={fetch_rc} on {host}" if fetch_rc
+            else f"no fetch result returned by {host}"),
+        "timed_out": False,
+    }
+    _classify_staleness(report, opts)
+
+    # --- C. dirty, and for how long ---------------------------------------- #
+    raw: list[tuple[str, str, float | None]] = []
+    for line, mtime in entry.get("status", []):
+        if not line.strip():
+            continue
+        age: float | None = None
+        if remote_now is not None and mtime.isdigit() and int(mtime) > 0:
+            age = remote_now - int(mtime)
+        raw.append((line[:2], _porcelain_path(line), age))
+    _classify_dirty(report, project, opts, raw)
+
+    # --- D. committed work a remote ref cannot reach ----------------------- #
+    stranded_raw = str(entry.get("stranded", "")).strip()
+    if not stranded_raw.isdigit():
+        report["stranded"] = {
+            "count": None, "branches": [], "measured": False,
+            "why": f"the probe on {host} returned no stranded count"}
+    else:
+        names = [n for n in (entry.get("stranded_branches") or "").split(",") if n]
+        report["stranded"] = {"count": int(stranded_raw), "branches": sorted(names),
+                              "measured": True, "why": ""}
+    _classify_stranded(report, opts)
+
+    return report
+
+
+def measure_remote_host(host: str, projects: list[dict],
+                        opts: dict) -> tuple[dict[str, dict], dict[str, str]]:
+    """Measure every declared project that lives on `host` in ONE ssh call.
+
+    Returns ({pid: report}, {pid: reason it could not be measured}). A failure is
+    never silent and never a flag: each affected project is named, with the host
+    and the reason, and falls back to the `declared` verdict.
+    """
+    timeout = int(opts.get("remote_timeout", DEFAULT_REMOTE_TIMEOUT))
+    script = remote_probe_script(projects)
+    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    cmd = [shutil.which("ssh") or "ssh", "-o", "BatchMode=yes",
+           "-o", f"ConnectTimeout={min(10, timeout)}",
+           "-o", "StrictHostKeyChecking=accept-new",
+           host, "powershell", "-NoProfile", "-EncodedCommand", encoded]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True,
+                              errors="replace", timeout=timeout)
+    except FileNotFoundError as exc:
+        return {}, {str(p["id"]): f"ssh is not available: {exc}" for p in projects}
+    except subprocess.TimeoutExpired:
+        why = (f"remote measurement on {host} TIMED OUT after {timeout}s -- "
+               f"lock/staleness/dirty NOT MEASURED")
+        return {}, {str(p["id"]): why for p in projects}
+    if proc.returncode != 0:
+        why = (f"remote measurement on {host} FAILED (ssh rc={proc.returncode}: "
+               f"{_oneline(proc.stderr, 300)}) -- lock/staleness/dirty NOT MEASURED")
+        return {}, {str(p["id"]): why for p in projects}
+
+    remote_now, parsed = parse_remote_output(
+        (proc.stdout or "").replace("\r\n", "\n"))
+    by_id = {str(p["id"]): p for p in projects}
+    reports: dict[str, dict] = {}
+    errors: dict[str, str] = {}
+    for pid, entry in parsed.items():
+        if pid not in by_id:
+            continue
+        try:
+            reports[pid] = build_remote_report(remote_now, entry, by_id[pid], host, opts)
+        except Unreadable as exc:
+            errors[pid] = (f"declared on {host} but the measurement of "
+                           f"{by_id[pid].get('repo_remote_path')} failed: {exc}")
+    for pid in by_id:
+        if pid not in reports and pid not in errors:
+            errors[pid] = (f"declared on {host} but {host} returned no measurement for "
+                           f"it -- lock/staleness/dirty NOT MEASURED")
+    return reports, errors
+
+
+# --------------------------------------------------------------------------- #
+# --selftest: the lock detector, exercised on throwaway repos
+# --------------------------------------------------------------------------- #
+def _selftest_git_env() -> dict:
+    """An isolated git environment: no user config, a fixed identity, no prompts.
+
+    The fixture commits, so it needs an author; and the host's global git config
+    must not be able to change what is measured.
+    """
+    return {**os.environ, **_GIT_ENV,
+            "GIT_AUTHOR_NAME": "checkout-health selftest",
+            "GIT_AUTHOR_EMAIL": "selftest@example.invalid",
+            "GIT_COMMITTER_NAME": "checkout-health selftest",
+            "GIT_COMMITTER_EMAIL": "selftest@example.invalid",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_SYSTEM": os.devnull}
+
+
+def _selftest_git(args: list[str], cwd: Path, env: dict) -> None:
+    """Run one fixture git command; a failure aborts the fixture loudly."""
+    proc = subprocess.run(["git", *args], cwd=str(cwd), env=env,
+                          capture_output=True, text=True, errors="replace")
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"selftest fixture: git {' '.join(args)} rc={proc.returncode}: "
+            f"{(proc.stderr or proc.stdout).strip()}")
+
+
+def _selftest_repo(root: Path, env: dict) -> Path:
+    """A throwaway clone with a local bare origin and one LINKED WORKTREE.
+
+    The origin is a local path so `fetch` and upstream resolution succeed with no
+    network, which is what makes the lock assertions reachable.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    origin = root / "origin.git"
+    _selftest_git(["init", "--bare", "-b", "main", str(origin)], root, env)
+    seed = root / "seed"
+    _selftest_git(["init", "-b", "main", str(seed)], root, env)
+    (seed / "README").write_text("checkout-health selftest seed\n", encoding="utf-8")
+    _selftest_git(["add", "README"], seed, env)
+    _selftest_git(["commit", "-m", "seed"], seed, env)
+    _selftest_git(["remote", "add", "origin", str(origin)], seed, env)
+    _selftest_git(["push", "-q", "-u", "origin", "main"], seed, env)
+    repo = root / "repo"
+    _selftest_git(["clone", "-q", str(origin), str(repo)], root, env)
+    # A linked worktree keeps its OWN index.lock at
+    # <gitdir>/worktrees/<name>/index.lock -- the branch item 34 added and the
+    # one this test exists to stop regressing.
+    _selftest_git(["worktree", "add", "-q", "-b", "wt-branch",
+                   str(root / "linked-wt")], repo, env)
+    return repo
+
+
+def _selftest_write_lock(path: Path, age_sec: float) -> None:
+    """Create a zero-byte index.lock whose mtime is `age_sec` in the past."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("", encoding="utf-8")
+    when = datetime.now(timezone.utc).timestamp() - age_sec
+    os.utime(path, (when, when))
+
+
+def selftest() -> int:
+    """Exercise the index.lock and stranded-branch detectors on throwaway repos.
+
+    The lock signal is load-bearing: a stale lock strands a checkout and makes
+    every git write in it fail, and the linked-worktree half was added for item 34
+    with no test behind it, so a refactor could delete it unnoticed. The
+    stranded-branch half was added for item 240 for the same reason: it is the only
+    reading that can see committed work on a branch that is not the checked-out
+    one. This builds real git repositories under a temp dir and asserts the states
+    the detectors claim. It reads no registry, touches no wake store and makes no
+    network call; any failed assertion is a nonzero exit.
+
+        python3 checkout-health.py --selftest
+    """
+    checks: list[tuple[bool, str]] = []
+
+    def expect(ok: object, label: str, detail: str = "") -> None:
+        passed = bool(ok)
+        checks.append((passed, label))
+        suffix = "" if passed else (f"  [got: {detail}]" if detail else "")
+        print(f"  [{'ok' if passed else 'FAIL'}] {label}{suffix}")
+
+    def measure(where: Path) -> dict | None:
+        try:
+            return check_project(
+                {"id": "selftest", "title": "selftest", "repo": str(where),
+                 "enabled": True, "dirty_ignore": []},
+                datetime.now(timezone.utc), opts)
+        except Exception as exc:                    # noqa: BLE001 - report, never crash
+            expect(False, "check_project completed", f"{type(exc).__name__}: {exc}")
+            return None
+
+    opts = {"fetch_timeout": 10, "behind_min": DEFAULT_BEHIND_MIN,
+            "dirty_hours": DEFAULT_DIRTY_HOURS, "lock_grace_sec": 120,
+            "cooldown": 0, "ignores": []}
+    env = _selftest_git_env()
+    root = Path(tempfile.mkdtemp(prefix="checkout-health-selftest-"))
+    print(f"checkout-health --selftest (fixture in {root})")
+    try:
+        repo = _selftest_repo(root, env)
+        gitdir = repo / ".git"
+        main_lock = gitdir / "index.lock"
+        wt_lock = gitdir / "worktrees" / "linked-wt" / "index.lock"
+
+        # 1. no lock -> state none, and never lock-stale.
+        rep = measure(repo)
+        if rep is not None:
+            expect(rep["lock"]["state"] == "none",
+                   "no lock -> state none", repr(rep["lock"]))
+            expect("lock-stale" not in rep["reasons"],
+                   "no lock -> no lock-stale reason", repr(rep["reasons"]))
+
+        # 2. a fresh lock is inside the grace -> young, never lock-stale.
+        _selftest_write_lock(main_lock, 5)
+        rep = measure(repo)
+        if rep is not None:
+            expect(rep["lock"].get("state") == "young",
+                   "fresh lock -> young", repr(rep["lock"]))
+            expect("lock-stale" not in rep["reasons"],
+                   "fresh lock -> no lock-stale reason", repr(rep["reasons"]))
+        main_lock.unlink(missing_ok=True)
+
+        # 3. an old lock with no owner -> lock-stale.
+        _selftest_write_lock(main_lock, 3600)
+        rep = measure(repo)
+        if rep is not None:
+            expect(rep["lock"].get("state") == "stale",
+                   "old unowned lock -> state stale", repr(rep["lock"]))
+            expect("lock-stale" in rep["reasons"],
+                   "old unowned lock -> lock-stale reason", repr(rep["reasons"]))
+        main_lock.unlink(missing_ok=True)
+
+        # 4. a stale lock in a LINKED WORKTREE is found and NAMED, while the
+        #    main checkout's own lock is still none.
+        _selftest_write_lock(wt_lock, 3600)
+        rep = measure(repo)
+        if rep is not None:
+            expect(rep["lock"].get("state") == "none",
+                   "worktree case -> main lock still none", repr(rep["lock"]))
+            entries = {e.get("worktree_name"): e
+                       for e in rep.get("worktree_locks", [])}
+            entry = entries.get("linked-wt")
+            expect(entry is not None and entry.get("state") == "stale",
+                   "stale linked-worktree lock -> state stale", repr(entries))
+            expect("lock-stale" in rep["reasons"],
+                   "stale linked-worktree lock -> lock-stale reason",
+                   repr(rep["reasons"]))
+            expect(any("linked-wt" in n and "WORKTREE" in n
+                       for n in rep.get("notes", [])),
+                   "stale linked-worktree lock names the worktree",
+                   repr(rep.get("notes")))
+        wt_lock.unlink(missing_ok=True)
+
+        # 5. STRANDED BRANCHES (ledger item 240). A local branch whose commit no
+        #    remote ref reaches is work on one disk only, and it is invisible to
+        #    both the behind/ahead count (checked-out branch alone) and the dirty
+        #    list (working tree alone). Plant one, observe the condition, delete
+        #    the planted branch, observe it CLEAR.
+        _selftest_git(["checkout", "-q", "-b", "stranded-probe"], repo, env)
+        (repo / "stranded-probe.txt").write_text("planted\n", encoding="utf-8")
+        _selftest_git(["add", "stranded-probe.txt"], repo, env)
+        _selftest_git(["commit", "-q", "-m", "planted stranded commit"], repo, env)
+        rep = measure(repo)
+        if rep is not None:
+            st = rep.get("stranded") or {}
+            expect(st.get("measured") is True,
+                   "stranded signal was measured", repr(st))
+            expect(st.get("count") == 1,
+                   "planted local-only commit -> stranded count 1", repr(st))
+            expect(st.get("branches") == ["stranded-probe"],
+                   "planted branch NAMED in stranded branches", repr(st))
+            expect("stranded-branches" in rep["reasons"],
+                   "planted local-only commit -> stranded-branches reason",
+                   repr(rep["reasons"]))
+        _selftest_git(["checkout", "-q", "main"], repo, env)
+        _selftest_git(["branch", "-q", "-D", "stranded-probe"], repo, env)
+        rep = measure(repo)
+        if rep is not None:
+            st = rep.get("stranded") or {}
+            expect(st.get("count") == 0,
+                   "planted branch deleted -> stranded count 0", repr(st))
+            expect("stranded-branches" not in rep["reasons"],
+                   "planted branch deleted -> condition CLEARED",
+                   repr(rep["reasons"]))
+
+        # 6. A live branch with NO upstream that is AHEAD of the FALLBACK ref is
+        #    diverged, not stalled. The clone's origin/HEAD is origin/main; the
+        #    seed advances main while `floating` advances its own work, so the
+        #    branch ends up both behind and ahead of the fallback target. Before
+        #    the fix the behind count alone (>= BEHIND_MIN) fired `behind` with
+        #    the ahead count ignored -- falsely condemning a branch a shift is
+        #    plainly working on (ledger 459: measured 73-78 commits ahead).
+        seed = root / "seed"
+        for i in range(opts["behind_min"] + 1):
+            (seed / ("main-%d.txt" % i)).write_text(str(i), encoding="utf-8")
+            _selftest_git(["add", "main-%d.txt" % i], seed, env)
+            _selftest_git(["commit", "-q", "-m", "main %d" % i], seed, env)
+        _selftest_git(["push", "-q", "origin", "main"], seed, env)
+        _selftest_git(["checkout", "-q", "-b", "floating"], repo, env)
+        for i in range(opts["behind_min"] + 1):
+            (repo / ("fl-%d.txt" % i)).write_text(str(i), encoding="utf-8")
+            _selftest_git(["add", "fl-%d.txt" % i], repo, env)
+            _selftest_git(["commit", "-q", "-m", "floating %d" % i], repo, env)
+        rep = measure(repo)
+        if rep is not None:
+            stale = rep["staleness"]
+            expect(stale["upstream_how"] == "origin/HEAD (fallback)",
+                   "no-upstream branch -> ref chosen by FALLBACK and named so",
+                   repr(stale["upstream_how"]))
+            expect(stale["ahead"] is not None
+                   and stale["ahead"] > opts["behind_min"],
+                   "fixture branch is AHEAD of the fallback ref",
+                   repr(stale["ahead"]))
+            expect(stale["behind"] is not None
+                   and stale["behind"] >= opts["behind_min"],
+                   "fixture branch is also >= BEHIND_MIN behind the fallback ref",
+                   repr(stale["behind"]))
+            expect("behind" not in rep["reasons"],
+                   "AHEAD of a FALLBACK ref -> NOT flagged behind",
+                   repr(rep["reasons"]))
+            expect(stale.get("diverged") is True,
+                   "AHEAD of a FALLBACK ref -> reported diverged",
+                   repr(stale.get("diverged")))
+    except Exception as exc:                        # noqa: BLE001 - report, never crash
+        expect(False, "selftest fixture built", f"{type(exc).__name__}: {exc}")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+    failed = [label for ok, label in checks if not ok]
+    if failed:
+        print(f"SELFTEST FAILED: {len(failed)}/{len(checks)} check(s) failed: "
+              f"{'; '.join(failed)}")
+        return 1
+    print(f"SELFTEST OK ({len(checks)} checks: main lock none/young/stale + "
+          f"linked-worktree stale + stranded-branch raise/clear + "
+          f"fallback-ref divergence)")
+    return 0
 
 
 # --------------------------------------------------------------------------- #
@@ -630,6 +1493,7 @@ def worker_prompt(project: dict, report: dict, now: datetime) -> str:
     dirty = report["dirty"]
     preserve = preserve_dir()
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
+    host = report.get("host")
 
     lines = [
         f"CHECKOUT HEALTH - `{pid}` (`{repo}`). You are a woken session with no",
@@ -640,6 +1504,16 @@ def worker_prompt(project: dict, report: dict, now: datetime) -> str:
         f"raised at {now.strftime('%Y-%m-%d %H:%M')}Z   reasons: "
         f"{', '.join(report['reasons'])}",
         "",
+    ]
+    if host:
+        lines += [
+            f"THIS CHECKOUT IS NOT ON THIS HOST. It was measured over ssh on `{host}`,",
+            f"at `{repo}`. The STEP-BY-STEP below is written for a checkout on the",
+            "authority: run the equivalent commands ON THAT HOST, against those paths,",
+            "and leave the authority's own tree alone.",
+            "",
+        ]
+    lines += [
         "WHAT WAS MEASURED",
         f"  repo         {repo}",
         f"  branch       {stale['branch']}",
@@ -654,6 +1528,17 @@ def worker_prompt(project: dict, report: dict, now: datetime) -> str:
         f"  fetch        {'ok' if stale['fetched'] else 'FAILED: ' + _oneline(stale['fetch_error'], 300)}",
     ]
 
+    stranded = report.get("stranded") or {}
+    if stranded.get("measured"):
+        lines.append(
+            f"  stranded     {stranded.get('count')} commit(s) reachable from a local "
+            f"branch and from NO remote ref"
+            + (f": {', '.join(stranded['branches'])}"
+               if stranded.get("branches") else ""))
+    else:
+        lines.append("  stranded     NOT MEASURED"
+                     + (f" ({stranded['why']})" if stranded.get("why") else ""))
+
     if lock["exists"]:
         when = lock.get("mtime")
         lines.append(
@@ -662,9 +1547,21 @@ def worker_prompt(project: dict, report: dict, now: datetime) -> str:
             f"age {_fmt_age(lock.get('age_sec'))}")
         lines.append(
             "               owner: " + (lock.get("owner") or
-                                      "NO live git process owns it (measured via /proc)"))
+                                      (f"NOT verified -- /proc on {host} is not readable "
+                                       f"over ssh" if host
+                                       else "NO live git process owns it (measured via /proc)")))
     else:
         lines.append(f"  lock         none at {lock['path']}")
+
+    for w in report.get("worktree_locks", []):
+        when = w.get("mtime")
+        lines.append(
+            f"  lock(wt)     {w['path']} EXISTS, {w.get('size', '?')} bytes, "
+            f"written {when.strftime('%Y-%m-%d %H:%M:%SZ') if when else '?'}, "
+            f"age {_fmt_age(w.get('age_sec'))}, worktree {w.get('worktree', '?')}")
+        lines.append(
+            "               owner: " + (w.get("owner") or
+                                      "NO live git process owns it (measured via /proc)"))
 
     if dirty["counted"]:
         lines.append(
@@ -701,6 +1598,10 @@ def worker_prompt(project: dict, report: dict, now: datetime) -> str:
         "    TS=$(date -u +%Y%m%dT%H%M%SZ)",
         f"    mkdir -p {preserve}",
         f"    mv {lock['path']} {preserve}/{pid}-index.lock.$TS",
+        *[f"    mv {w['path']} {preserve}/{pid}-wt-"
+          f"{w.get('worktree_name', 'wt')}-index.lock.$TS"
+          for w in report.get("worktree_locks", [])
+          if w.get("state") in ("stale", "young", "unverified")],
         f"  ({preserve} is under /home/zabz. /root is NOT writable as zabz, and",
         "   nothing may be deleted: a moved-aside lock is evidence, a deleted one is not.)",
         "",
@@ -758,6 +1659,18 @@ def worker_prompt(project: dict, report: dict, now: datetime) -> str:
             "  merge above. If the checkout is now current there is nothing to land.",
         ]
 
+    if "stranded-branches" in report["reasons"]:
+        lines += [
+            "",
+            "STRANDED COMMITS - this checkout holds commits that NO remote ref reaches.",
+            "  They exist on this disk and nowhere else, which is why they are their own",
+            "  condition: behind/ahead measure only the CHECKED-OUT branch, and the dirty",
+            "  list sees only the working tree, so neither can see them. For every branch",
+            "  named above, either push it (`git -C <repo> push origin <branch>`) or state",
+            "  in your close, with the reason, why it must not be pushed. Never delete or",
+            "  rewrite a stranded branch: a stranded commit that is deleted is gone.",
+        ]
+
     lines += [
         "",
         "PROHIBITIONS - these are absolute:",
@@ -792,6 +1705,7 @@ def collect(args) -> list[Finding]:
 
     opts = {
         "fetch_timeout": fetch_timeout(),
+        "remote_timeout": remote_timeout(),
         "behind_min": max(1, _env_int("CHECKOUT_HEALTH_BEHIND_MIN", DEFAULT_BEHIND_MIN)),
         "dirty_hours": max(0.0, _env_float("CHECKOUT_HEALTH_DIRTY_HOURS",
                                            DEFAULT_DIRTY_HOURS)),
@@ -830,6 +1744,37 @@ def collect(args) -> list[Finding]:
     findings: list[Finding] = []
     suppressed = 0
 
+    # A registry entry with `repo_host` whose local path is genuinely absent names
+    # a checkout the authority does not have on its own disk. Measure those over
+    # the mesh instead of only declaring them (ledger item 146): grouped per host,
+    # so five projects on one host cost ONE bounded ssh call, and a host that hangs
+    # costs the remote timeout once rather than once per project.
+    remote_reports: dict[str, dict] = {}
+    remote_errors: dict[str, str] = {}
+    hosts: dict[str, list[dict]] = {}
+    for project in projects:
+        if not project.get("enabled") or not remote_declaration(project):
+            continue
+        raw_repo = project.get("repo")
+        if not isinstance(raw_repo, str) or not raw_repo.strip():
+            continue
+        if Path(raw_repo.strip()).expanduser().is_dir():
+            continue                    # a local checkout exists: measured locally
+        host = str(project.get("repo_host") or "").strip()
+        if not host:
+            continue
+        pid = str(project["id"])
+        if not str(project.get("repo_remote_path") or "").strip():
+            remote_errors[pid] = (f"declared on {host} but the registry has no "
+                                  f"repo_remote_path to measure there")
+            continue
+        hosts.setdefault(host, []).append(project)
+    for host, group in hosts.items():
+        got, why = measure_remote_host(host, group, opts)
+        remote_reports.update(got)
+        for pid, reason in why.items():
+            remote_errors.setdefault(pid, reason)
+
     for project in projects:
         pid = str(project["id"])
 
@@ -845,32 +1790,66 @@ def collect(args) -> list[Finding]:
             _UNREADABLE.append(f"{pid}: {reason}")
             continue
 
-        try:
-            report = check_project(project, now, opts)
-        except Unreadable as exc:
-            lines.append(f"{pid}  unreadable  {exc}")
-            _UNREADABLE.append(f"{pid}: {exc}")
-            continue
+        # A registry entry may DECLARE that its working checkout is on another
+        # host. That is a declared state, not a fault: it is named on every run
+        # and is not counted as unreadable. The declaration is honoured only while
+        # the local path is genuinely absent, so a later local clone is measured
+        # like any other project instead of staying declared for ever.
+        decl = remote_declaration(project)
+        if decl and not Path(raw_repo.strip()).expanduser().is_dir():
+            report = remote_reports.get(pid)
+            if report is None:
+                # Not measurable from here: say so in words, naming the host and
+                # the reason. Never quiet, never a flag, and never a silent skip.
+                why = remote_errors.get(pid) or decl
+                lines.append(f"{pid}  declared    {why}")
+                _DECLARED.append(f"{pid}: {why}")
+                continue
+        else:
+            try:
+                report = check_project(project, now, opts)
+            except Unreadable as exc:
+                lines.append(f"{pid}  unreadable  {exc}")
+                _UNREADABLE.append(f"{pid}: {exc}")
+                continue
 
         stale = report["staleness"]
         lock = report["lock"]
         dirty = report["dirty"]
-        lock_state = "none" if not lock["exists"] else lock.get("state", "unknown")
-        if lock_state not in ("none", "held"):
-            lock_state = f"{lock_state} {_fmt_age(lock.get('age_sec'))}"
+        stranded = report.get("stranded") or {}
+        lock_bits: list[str] = []
+        if lock["exists"]:
+            main_state = lock.get("state", "unknown")
+            if main_state not in ("none", "held"):
+                main_state = f"{main_state} {_fmt_age(lock.get('age_sec'))}"
+            lock_bits.append(main_state)
+        for wt in report.get("worktree_locks", []):
+            wt_state = wt.get("state", "unknown")
+            if wt_state not in ("none", "held"):
+                wt_state = f"{wt_state} {_fmt_age(wt.get('age_sec'))}"
+            lock_bits.append(f"wt:{wt.get('worktree_name', '?')}:{wt_state}")
+        lock_state = ",".join(lock_bits) if lock_bits else "none"
         dirty_txt = f"dirty={dirty['counted']}"
         if dirty["ignored"]:
             # Declared-and-excluded is still REPORTED: a project that declared a
             # path away must not look identical to one with a clean tree.
             dirty_txt += f" (declared: {','.join(dirty['ignored'])})"
+        ref_txt = stale["upstream"] or "-"
+        if stale.get("upstream_how"):
+            ref_txt += " [%s]" % stale["upstream_how"]
         behind_txt = ("NOT MEASURED" if stale["behind"] is None
                       else f"{stale['behind']}" + ("" if stale["fetched"] else " (stale ref)"))
         measured = (
             f"branch={stale['branch']} head={stale['head_sha'] or '?'} "
             f"behind={behind_txt} "
             f"ahead={stale['ahead'] if stale['ahead'] is not None else '?'} "
-            f"lock={lock_state} {dirty_txt}"
+            f"ref={ref_txt} lock={lock_state} {dirty_txt}"
             + (f" oldest={_fmt_age(dirty['oldest_age_sec'])}" if dirty["counted"] else "")
+            + (f" stranded={stranded.get('count')}"
+               + (f"[{','.join(stranded.get('branches') or [])}]"
+                  if stranded.get("branches") else "")
+               if stranded.get("measured") else " stranded=NOT MEASURED")
+            + (f" host={report['host']}" if report.get("host") else "")
             + (f" unmeasured: {'; '.join(report['unmeasured'])}"
                if report["unmeasured"] else ""))
 
@@ -920,7 +1899,8 @@ def collect(args) -> list[Finding]:
     for line in lines:
         print(f"{SOURCE}: {line}", file=sys.stderr)
     print(f"{SOURCE}: {len(findings)} flag(s) to raise, {suppressed} suppression(s), "
-          f"{len(_UNREADABLE)} unreadable/unmeasured project(s), system-wide releases "
+          f"{len(_UNREADABLE)} unreadable/unmeasured project(s), "
+          f"{len(_DECLARED)} declared-not-measurable project(s), system-wide releases "
           f"today {released_today}/{global_cap}", file=sys.stderr)
     return findings
 
@@ -931,7 +1911,11 @@ def main() -> int:
     `_flag.run` files what was readable and returns 0, so unreadable projects are
     turned into exit 1 here, AFTER the readable ones have been filed. One missing
     directory must not blind the other project's checkout.
+
+    `--selftest` runs before anything else and never reaches the store.
     """
+    if "--selftest" in sys.argv[1:]:
+        return selftest()
     rc = _flag.run(SOURCE, collect)
     if _UNREADABLE:
         return 1

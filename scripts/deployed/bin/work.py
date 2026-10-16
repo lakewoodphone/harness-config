@@ -138,6 +138,71 @@ DEFAULT_DB = Path(os.path.expanduser(os.environ.get("WORK_DB") or "~/work/work.d
 DEFAULT_OQ_DB = os.environ.get(
     "OWNER_QUEUE_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db")
 
+# The owner-queue store is a DIFFERENT database from this ledger, and it has MOVED before.
+# On the cloud authority the ledger is /root/work/work.db and the live owner-queue/tasks
+# store is /root/authority.db, while DEFAULT_OQ_DB above still names the frozen office-box
+# path - which exists on that host as an EMPTY copy (owner_decision_queue: 0 rows,
+# tasks: 0 rows). MEASURED 2026-10-13 (item 43): `work.py lint-refs` with no flag read the
+# empty copy and reported two LIVE owner-queue rows (#461, #463) as "missing", so the guard
+# that exists to catch DEAD blocked-refs was instead telling the next shift to clear a live
+# owner row or file a duplicate. Through one hard-coded path, "store is empty" and "row is
+# gone" are indistinguishable, so the store is resolved by CONTENT: the first candidate that
+# actually CARRIES rows answers. An explicit --owner-queue-db / OWNER_QUEUE_DB is never
+# second-guessed.
+_OQ_DB_EXTRA_CANDIDATES = (
+    "/root/authority.db",
+    str(Path(DEFAULT_DB).resolve().parent.parent / "authority.db"),
+)
+
+_OQ_DB_RESOLVED = {}
+
+
+def _oq_db_rows(path):
+    """(readable, rows) for one candidate store: owner_decision_queue + tasks. Never raises.
+
+    An unopenable store, or one with neither table, is simply not usable - the difference
+    between "no store here" and a store that can actually answer a "missing row" verdict.
+    """
+    try:
+        con = sqlite3.connect("file:%s?mode=ro" % path, uri=True, timeout=15)
+        try:
+            rows = 0
+            for tbl in ("owner_decision_queue", "tasks"):
+                try:
+                    rows += con.execute("SELECT COUNT(*) FROM %s" % tbl).fetchone()[0]
+                except sqlite3.Error:
+                    pass
+            return True, rows
+        finally:
+            con.close()
+    except Exception:
+        return False, 0
+
+
+def resolve_oq_db(explicit=None):
+    """The owner-queue/tasks store to read: explicit wins, else the one that CARRIES rows.
+
+    Explicit paths (--owner-queue-db, OWNER_QUEUE_DB, fixtures) are honoured exactly. With
+    neither, the default path is tried first; when it is unreadable or holds ZERO rows it is
+    not trusted to answer "that row is missing", and the first candidate that holds rows is
+    used instead. If no candidate holds rows the default is returned, so the caller reports
+    the store it really read instead of inventing a STALE verdict.
+    """
+    if explicit:
+        return explicit
+    if None not in _OQ_DB_RESOLVED:
+        best = None
+        fallback = None
+        for cand in (DEFAULT_OQ_DB,) + _OQ_DB_EXTRA_CANDIDATES:
+            if fallback is None and Path(cand).exists():
+                fallback = cand
+            readable, rows = _oq_db_rows(cand)
+            if readable and rows > 0:
+                best = cand
+                break
+        _OQ_DB_RESOLVED[None] = best or fallback or DEFAULT_OQ_DB
+    return _OQ_DB_RESOLVED[None]
+
 # A reference to an owner-queue row inside the free-text blocked_on. It matches the shapes
 # shifts actually write - "owner-queue #206", "owner-queue row #214", "owner-queue row 209",
 # "owner_row 5" - and deliberately does NOT match a bare "item 54" or "task 27217": those are
@@ -677,7 +742,7 @@ def _stale_oq_refs(db, owner_queue_db=None):
     c = connect(Path(db))
     rows = c.execute("SELECT id, project, owner_row, blocked_on FROM work_item "
                      "WHERE state='blocked' ORDER BY id").fetchall()
-    oq_path = owner_queue_db or DEFAULT_OQ_DB
+    oq_path = resolve_oq_db(owner_queue_db)
     try:
         # mode=ro and no schema script: never write, never take a lock, and never even
         # CREATE TABLE against the live production database.
@@ -727,7 +792,7 @@ def _stale_task_refs(db, secretary_db=None):
     c = connect(Path(db))
     rows = c.execute("SELECT id, project, blocked_on FROM work_item "
                      "WHERE state='blocked' ORDER BY id").fetchall()
-    path = secretary_db or DEFAULT_OQ_DB
+    path = resolve_oq_db(secretary_db)
     try:
         oq = sqlite3.connect("file:%s?mode=ro" % path, uri=True, timeout=15)
         oq.row_factory = sqlite3.Row
@@ -832,12 +897,12 @@ def cmd_lint_refs(a) -> int:
     """
     stale, nblocked, refs_checked, err = _stale_oq_refs(a.db, a.owner_queue_db)
     if err is not None:
-        return out("error:owner-queue-unreadable", db=(a.owner_queue_db or DEFAULT_OQ_DB),
-                   error=err)
+        out("error:owner-queue-unreadable", db=resolve_oq_db(a.owner_queue_db), error=err)
+        return 1
     tstale, _nbt, trefs, terr = _stale_task_refs(a.db, a.owner_queue_db)
     if terr is not None:
-        return out("error:secretary-unreadable", db=(a.owner_queue_db or DEFAULT_OQ_DB),
-                   error=terr)
+        out("error:secretary-unreadable", db=resolve_oq_db(a.owner_queue_db), error=terr)
+        return 1
     if a.json:
         print(json.dumps({"stale": stale, "stale_tasks": tstale, "blocked_items": nblocked,
                           "refs_checked": refs_checked, "task_refs_checked": trefs},
@@ -1287,6 +1352,58 @@ def cmd_selftest(a) -> int:
         cmd_claim_next(due_cj)
     obj = json.loads(buf.getvalue().strip())
     assert "due_blocked_items" not in obj, obj
+    # AND: the owner-queue store is resolved by CONTENT, not by a hard-coded path (item
+    # 43, measured 2026-10-13 on the cloud authority). DEFAULT_OQ_DB still names the frozen
+    # office-box path, which exists there as an EMPTY copy; lint-refs read it and reported
+    # two LIVE owner-queue rows as missing. A store that is readable but holds zero rows
+    # must not be trusted to answer "that row is missing" while a live store that DOES hold
+    # rows is available.
+    empty_oq = Path(tmp).with_name("oq_empty.db")
+    oc = sqlite3.connect(str(empty_oq))
+    oc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.execute("CREATE TABLE tasks (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.commit()
+    oc.close()
+    live_oq = Path(tmp).with_name("oq_live.db")
+    oc = sqlite3.connect(str(live_oq))
+    oc.execute("CREATE TABLE owner_decision_queue (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.execute("CREATE TABLE tasks (id INTEGER PRIMARY KEY, status TEXT NOT NULL)")
+    oc.execute("INSERT INTO owner_decision_queue(id,status) VALUES(7,'pending')")
+    oc.commit()
+    oc.close()
+    db9 = Path(tmp).with_name("w9.db")
+    c = connect(db9)
+    c.execute("INSERT INTO project(id,title,created_at,updated_at) VALUES('g','G',?,?)", (t, t))
+    c.execute("INSERT INTO work_item(project,title,dod,state,owner_row,created_at,updated_at)"
+              " VALUES('g','waiting-on-live-row','cmd','blocked',7,?,?)", (t, t))
+    c.commit()
+    c.close()
+    _g = globals()
+    _saved = (_g["DEFAULT_OQ_DB"], _g["_OQ_DB_EXTRA_CANDIDATES"], dict(_g["_OQ_DB_RESOLVED"]))
+    try:
+        _g["DEFAULT_OQ_DB"] = str(empty_oq)
+        _g["_OQ_DB_EXTRA_CANDIDATES"] = (str(live_oq),)
+        _g["_OQ_DB_RESOLVED"].clear()
+        lr9 = argparse.Namespace(db=str(db9), owner_queue_db=None, json=True)
+        buf = _io.StringIO()
+        with _ctx.redirect_stdout(buf):
+            rc = cmd_lint_refs(lr9)
+        obj = json.loads(buf.getvalue().strip())
+        assert rc == 0 and obj["stale"] == [], \
+            "an empty default store must not hide a LIVE row: %r" % buf.getvalue()
+        # with no live candidate left, the same empty store must still fail honestly
+        _g["_OQ_DB_EXTRA_CANDIDATES"] = ()
+        _g["_OQ_DB_RESOLVED"].clear()
+        buf = _io.StringIO()
+        with _ctx.redirect_stdout(buf):
+            rc = cmd_lint_refs(lr9)
+        obj = json.loads(buf.getvalue().strip())
+        assert rc == 1 and [s["item"] for s in obj["stale"]] == [1], \
+            "an empty store with no live candidate must still flag the ref: %r" % buf.getvalue()
+    finally:
+        _g["DEFAULT_OQ_DB"], _g["_OQ_DB_EXTRA_CANDIDATES"], _cached = _saved
+        _g["_OQ_DB_RESOLVED"].clear()
+        _g["_OQ_DB_RESOLVED"].update(_cached)
     return out("selftest-ok", db=str(tmp), exclusive_claims=got)
 
 
@@ -1380,7 +1497,8 @@ def build_parser() -> argparse.ArgumentParser:
     cn.add_argument("--lease", type=int, default=3600)
     cn.add_argument("--json", action="store_true")
     cn.add_argument("--owner-queue-db", default=None,
-                    help="owner-queue db probed for stale refs (default %s)" % DEFAULT_OQ_DB)
+                    help="owner-queue db probed for stale refs (default: %s, or the "
+                         "live store when that one is empty)" % DEFAULT_OQ_DB)
     cn.set_defaults(func=cmd_claim_next)
 
     fin = sub.add_parser("close", help="the end-of-shift write: what you did, the proof, what is left")
@@ -1452,7 +1570,8 @@ def build_parser() -> argparse.ArgumentParser:
         "lint-refs",
         help="fail if a blocked item references a non-pending owner-queue row")
     lr.add_argument("--owner-queue-db", default=None,
-                    help="owner-queue database (default %s)" % DEFAULT_OQ_DB)
+                    help="owner-queue database (default: %s, or the live store when "
+                         "that one is empty)" % DEFAULT_OQ_DB)
     lr.add_argument("--json", action="store_true")
     lr.set_defaults(func=cmd_lint_refs)
 

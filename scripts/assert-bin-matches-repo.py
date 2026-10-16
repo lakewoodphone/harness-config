@@ -45,6 +45,15 @@ import subprocess
 import sys
 import tempfile
 
+# The DEFAULT is only a last resort. The authority MOVED on 2026-10-11 (the office box
+# `secratary` became the FROZEN rollback anchor and the authority is now secratary-cloud),
+# and the manifest this tool reads already carries the right alias in its own
+# `authority.ssh_alias` field. A hardcoded `secratary-lan` here made the guard die with
+# `Could not resolve hostname secratary-lan` - exit 2, "could not do its job" - so the ONE
+# check whose job is to catch "the file that runs is not the file in git" was dead.
+# MEASURED 2026-10-16T01:2xZ: `assert-bin-matches-repo.py` exited 2 with that message while
+# MANIFEST.json recorded "ssh_alias": "secratary-cloud". Resolved order is now:
+#   --authority  >  manifest authority.ssh_alias  >  $WSC_AUTHORITY  >  this default.
 SSH_ALIAS = "secratary-lan"
 SSH_TIMEOUT = 90
 END_MARKER = "__WSC_END__"
@@ -94,6 +103,26 @@ def load_manifest(path: str) -> list[dict]:
             if not entry.get(key):
                 die(f"manifest files[{i}] is missing '{key}'")
     return files
+
+
+def manifest_authority(path: str) -> str | None:
+    """The ssh alias the manifest itself records, or None.
+
+    Read-only and never fatal: a missing or odd `authority` block must not stop the
+    comparison, it only means the caller falls back to --authority / the default.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(doc, dict):
+        return None
+    authority = doc.get("authority")
+    if not isinstance(authority, dict):
+        return None
+    alias = authority.get("ssh_alias")
+    return alias if isinstance(alias, str) and alias.strip() else None
 
 
 def ssh_sha_map(paths: list[str]) -> dict[str, str]:
@@ -180,9 +209,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--only", action="append", default=[], metavar="PATH",
                     help="check only this file (repo-relative path, deployed path, "
                          "or basename); repeatable")
+    ap.add_argument("--authority", default=None, metavar="SSH_ALIAS",
+                    help="ssh alias of the authority (default: the alias recorded in "
+                         "the manifest's authority.ssh_alias)")
     args = ap.parse_args(argv)
 
     entries = load_manifest(args.manifest)
+
+    # Resolve the authority from the manifest that was just read, so the host this tool
+    # talks to and the host the manifest was captured from cannot drift apart.
+    global SSH_ALIAS
+    SSH_ALIAS = (
+        args.authority
+        or manifest_authority(args.manifest)
+        or os.environ.get("WSC_AUTHORITY")
+        or SSH_ALIAS
+    )
 
     if args.only:
         selected = [e for e in entries if matches_only(e, args.only)]
