@@ -549,3 +549,5 @@ L3776b	lessons	L3776	identity duplicate inside entries/	2026-10-16	SECRATARY-CLO
 L3777b	lessons	L3777	identity duplicate inside entries/	2026-10-16	SECRATARY-CLOUD	c5ede92cc22ed652	archive/duplicates/lessons/L3777b.md
 P6346	pain	P2561b	identity duplicate inside entries/	2026-10-16	ZABZ-YOGA	500803c404f6604f	archive/duplicates/pain/P6346.md
 L6271	lessons	L3764	identity duplicate inside entries/	2026-10-16	ZABZ-YOGA	d32d34f708abd2cd	archive/duplicates/lessons/L6271.md
+L221	lessons	L6111	same entry absorbed by identity, not by bytes	2026-10-16	ZABZ-YOGA	1a694a7bd7d4f113	log/lessons/2026-09.1.md:3066
+L221a	lessons	L6109	same entry absorbed by identity, not by bytes	2026-10-16	ZABZ-YOGA	30c568de9f3320da	log/lessons/2026-09.md:3066
