@@ -153,7 +153,24 @@ def main() -> int:
                 break
             raw = "".join(lines).encode("utf-8")
         (ent / kind).mkdir(parents=True, exist_ok=True)
-        (ent / kind / f"{target}.md").write_bytes(raw)
+        dst = ent / kind / f"{target}.md"
+        dst.write_bytes(raw)
+        if target != want:
+            # RENUMBERING INVALIDATES THE RECORDED sha=. The sha is computed over the heading AND the
+            # body, and the rewrite above changes both, so the entry lands with metadata that does not
+            # match and `check` reports:
+            #   ERROR entries/<kind>/<ID>.md: metadata sha=... does not match the body (...)
+            # Measured 2026-10-16 on the first arrival this happened to (L6657), which took the record
+            # to 1 error. Fixing it HERE keeps the job additive: the alternative, running
+            # `check --fix` in the job, is a second writer touching an entry the pull had just landed,
+            # and it would also mask the next bug of this class instead of failing.
+            e2 = jm.parse_entry(dst, kind)
+            if e2:
+                want_sha = jm.entry_hash(jm.effective_heading(e2), e2.get("body") or "")
+                text = dst.read_text(encoding="utf-8", errors="replace")
+                fresh = re.sub(r"(<!--\s*j2\s+[^>]*?)sha=\S+", r"\1sha=" + want_sha, text, count=1)
+                if fresh != text:
+                    dst.write_bytes(fresh.encode("utf-8"))
         written += 1
         if args.limit and written >= args.limit:
             break
