@@ -3453,6 +3453,7 @@ lessons	L6402	6402		2026-10-16	SECRATARY-CLOUD	open	**L6402 · the cross-tree ru
 lessons	L6462	6462		2026-10-16	secratary-cloud	open	**L6462 · A handover is done when the surface the READER sees carries it: queue #530 kept a stale question under a live recommendation**	entries/lessons/L6462.md	1	56	2202c596342fecf2	wake,handover,owner-queue,correction	
 lessons	L6463	6463		2026-10-16	SECRATARY-CLOUD	open	**L6463 · The fork is FROZEN: 336 colliding ids in two captures 35 min apart, +6 ids and +0 collisions - and the ledger reads a remote frozen since 2026-10-11**	entries/lessons/L6463.md	1	63	0bbbc0c45318b0c1		
 lessons	L6464	6464		2026-10-16	SECRATARY-CLOUD	open	**L6464 · The repair holds but is no longer a superset: 6 yoga entries absent 38 min after the landing - frozen collisions, growing divergence**	entries/lessons/L6464.md	1	47	cb025e2dd1a235dc		
+lessons	L6466	6466		2026-10-16	SECRATARY-CLOUD	open	**L6466 · converge-pull works and is additive: 6 entries in, superset again, and mtime lied about 150 files that git shows were untouched**	entries/lessons/L6466.md	1	51	1f60ff6a8103a5a9		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
