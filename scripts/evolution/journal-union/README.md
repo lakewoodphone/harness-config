@@ -30,8 +30,20 @@ prices that at a human per collision.
 | 3 | `30-merge.py` | the union. Base = `yoga`; every other tree is overlaid; a colliding body takes `<ID>b.md`. Nothing overwritten, nothing deleted. |
 | 4 | `50-preflight.py`, `40-clobber-proof.py`, `51-dedupe-sim.py` | prove the merge lost nothing and that the repairs will land as predicted, BEFORE anything writes |
 | 5 | `60-run.sh` | `check` → `dedupe` (dry, then `--apply`) → `repair-ids` (dry, then `--apply`) → `check` → `verify` |
+| 5a | `65-normalise-stems.py` | **NOT OPTIONAL.** `repair-ids` renumbers the surplus copy of an id but does not care what FILE NAME the survivor has, so when the earliest copy was a suffixed one, X's survivor is left in `<X>b.md` and `check` reports `id in the file name (<X>b) disagrees with the marker (X)`. Measured: **94** such files, `check` exiting 1 with 96 errors. This is a pure rename — 0 bytes changed — and it refuses if any id is still carried by two files. After it: 94 stem mismatches → 0, errors 96 → 2. |
 | 6 | `70-acceptance.py`, `71-noloss.py`, `r7-verify-body-loss.py` | the acceptance gate. `verify` is per-tree and blind across trees; these are the cross-tree version |
 | 7 | `r7-restore-archived.py` | **NOT OPTIONAL.** `dedupe` retires a colliding body to `archive/duplicates/`, so bodies that were LIVE in a source tree leave the live view. Seven did. This restores each under a fresh **live** id, by content, idempotently. |
+| 7a | `journal.py check --fix` | **NOT OPTIONAL** for the same seven. Two of them carry their own id in their BODY, and the restore rewrote that body, so the `sha=` metadata went stale — `metadata sha=… does not match the body (…)`. `check --fix` re-emits through the writer a normal write uses, recomputing sha, meta line and line endings together. The tool's own comment explains why a bare text replace is wrong: *"fixed the CRLF and left the sha stale, which turned one ERROR into another."* Do not write a second tool for this. |
+
+**Measured 2026-10-16** (`/root/work/r8/`, six sources: cloud, yoga, tech, mac, `wt-item221`, and
+`linux-r6capture` because `zabz-tech-linux` was offline):
+
+```
+source files 21,322   distinct source bodies 5,037
+merged files  5,037   distinct merged bodies 5,037
+BODIES MISSING from merged : 0        BODIES INVENTED in merged : 0
+journal.py check            : 0 error(s), exit 0
+```
 
 ## The two things that make the acceptance test honest
 
