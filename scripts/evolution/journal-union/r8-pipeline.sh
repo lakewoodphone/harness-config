@@ -129,9 +129,9 @@ say "entries FINAL: $(count)"
 # body that was LIVE in a source tree silently leaves the live view -- list/search/status stop
 # returning it -- while its bytes stay on disk. Round 6 found seven. This restores each under a
 # fresh LIVE id, guarding on whether the BODY is already live so a re-run writes nothing.
-say "restore archived-but-was-live (measure)"; python3 "$R8/r7-restore-archived.py" --root "$M" 2>&1 | tail -12 | tee -a "$LOG"
-say "restore --apply"; python3 "$R8/r7-restore-archived.py" --root "$M" --apply 2>&1 | tail -6 | tee -a "$LOG"
-say "restore --apply again (idempotence: must write 0)"; python3 "$R8/r7-restore-archived.py" --root "$M" --apply 2>&1 | tail -3 | tee -a "$LOG"
+say "restore archived-but-was-live (measure, BY CRITERION)"; python3 "$R8/r7-restore-archived.py" --root "$M" --from-sources "$R8/trees" 2>&1 | tail -12 | tee -a "$LOG"
+say "restore --apply"; python3 "$R8/r7-restore-archived.py" --root "$M" --from-sources "$R8/trees" --apply 2>&1 | tail -8 | tee -a "$LOG"
+say "restore --apply again (idempotence: must write 0)"; python3 "$R8/r7-restore-archived.py" --root "$M" --from-sources "$R8/trees" --apply 2>&1 | tail -3 | tee -a "$LOG"
 
 # 4b. THE SECOND HALF OF THE SAME TRAP, AND THE TOOL ALREADY OWNS IT. Restored entries that carry
 # their own id in their BODY have had that body rewritten, so the `sha=` metadata recorded at write
