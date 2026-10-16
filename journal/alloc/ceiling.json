@@ -1,56 +1,42 @@
 {
  "adopted_rows": 0,
- "bands_refs_read": 35,
+ "bands_refs_read": 37,
  "ceiling": {
   "decisions": 6144,
-  "handoff": 6184,
-  "lessons": 6589,
+  "handoff": 6248,
+  "lessons": 6653,
   "pain": 6474,
-  "wins": 6554
+  "wins": 6618
  },
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "ZABZ-YOGA live working tree",
-  "lessons": "ZABZ-YOGA live working tree",
+  "handoff": "refs/heads/i359-contentless-waiting",
+  "lessons": "refs/heads/i359-contentless-waiting",
   "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
  "claimed_gap_rows": [
   {
    "host": "SECRATARY-CLOUD",
-   "kind": "lessons",
-   "reserved_from": 6526,
-   "reserved_through": 6589,
-   "stamp": "2026-10-16 02:45 UTC"
-  },
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "pain",
-   "reserved_from": 6411,
-   "reserved_through": 6474,
-   "stamp": "2026-10-16 02:45 UTC"
-  },
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "decisions",
-   "reserved_from": 6081,
-   "reserved_through": 6144,
-   "stamp": "2026-10-16 02:45 UTC"
+   "kind": "wins",
+   "reserved_from": 6555,
+   "reserved_through": 6618,
+   "stamp": "2026-10-16 03:00 UTC"
   }
  ],
  "entries_high_water": {
-  "decisions": "D6017",
-  "handoff": "H6122",
-  "lessons": "L6465",
-  "pain": "P6347",
-  "wins": "W6491"
+  "decisions": "D6081",
+  "handoff": "H6185",
+  "lessons": "L6590",
+  "pain": "P6411",
+  "wins": "W6555"
  },
  "high_water": {
   "decisions": "D6144",
-  "handoff": "H6184",
-  "lessons": "L6589",
+  "handoff": "H6248",
+  "lessons": "L6653",
   "pain": "P6474",
-  "wins": "W6554"
+  "wins": "W6618"
  },
  "host": "secratary-cloud",
  "live_peer_rows": 333,
@@ -64,12 +50,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-16T02:45:25Z",
+ "refreshed_at": "2026-10-16T03:00:31Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 23.3,
- "sources_seen": 4531
+ "seconds": 27.6,
+ "sources_seen": 5102
 }
