@@ -6,7 +6,7 @@ Updated: 2026-10-16
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 534 row(s) read, 31 pending, generated 2026-10-16 05:38 UTC on SECRATARY-CLOUD.
+Provenance: 535 row(s) read, 32 pending, generated 2026-10-16 06:38 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -40,6 +40,7 @@ Provenance: 534 row(s) read, 31 pending, generated 2026-10-16 05:38 UTC on SECRA
 | 533 | 2026-10-16 | medium | Create a Cloudflare API token so the website can deploy again: open the Cloudflare dashboard, My Profile -> API Tokens -> Create Token -> Custom token, give it the single permission Account / Cloudflare Pages / Edit, and paste it as a new repository secret named CLOUDFLARE_API_TOKEN in the GitHub repo lakewoodphone/phone-and-tech-full (Settings -> Secrets and variables -> Actions -> New repository | Point me at it: tell me the host or file where the token that can create tokens lives, and I will mint the Pages-scoped one myself and finish the deploy. If it is only in the Cloudflare dashboard rather than stored anywh |
 | 534 | 2026-10-16 | medium | The production audit reads 1019 findings: 960 have no fix the tool will print and the other 59 it caveats "only if that date is the truth" - do you still want to walk all 1019, or should I close the mechanical-work item and leave the walk to the weekly pass? | Close item 292 as "no mechanical work exists" and let the weekly pass carry the walk: the audit intentionally prints no repair for 960 findings, and I will not write 59 guessed completion dates into production on a heuri |
 | 535 | 2026-10-16 | medium | Two accounts dropped off the Chase feed in September and your books still treat both as active: the Self-Directed brokerage ending 4673 (last read 2026-09-07, balance 0) and the Chase card ending 8512 (last read 2026-09-25, 4.25 owed, 6834.75 available). Were they closed, or just unlinked from the feed? | Tell me which is true and I will do the rest. If the brokerage was emptied and closed, say so and I retire both; if the card is still in your wallet and still being used, say that instead and I re-link it, because a live |
+| 536 | 2026-10-16 | medium | I hold NO filing record for NJ ST-50 sales tax, 2026-10-20 (in 4 day(s)). I cannot tell filed from unfiled from here, and the source that would settle it needs your login. | Go to a primary source before answering: the NJ Premier portal (needs the owner's login) or the filer's own confirmation mail. File from actual quarterly sales. Late: penalty + interest. |
 | 532 | 2026-10-16 | low | What was the 5,460.41 charge at Returned Payment on 10 Sep (card ending 9680) - these statement lines carry no merchant name at all (e.g. 'Returned Payment') and nothing we hold names the counterparty: who was paid and what the charge was for? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 
 Closed since the queue opened: 503. Answered questions move to `entries/decisions/` with the owner's own words.
