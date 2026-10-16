@@ -184,6 +184,44 @@ def load_mapping(path: Path) -> dict:
     return d
 
 
+def compute_uncovered(unchecked: list, by_key: dict, live: dict) -> list:
+    """Boxes that would go nowhere once the current queue drains.
+
+    Ledger item 421, measured 2026-10-16: this used to be "any checked-unchecked box whose
+    mapping row is not status=filed", which counted the project's 13 `not_filed` rows as
+    uncovered forever. Those rows are deliberate, recorded refusals - an iOS hardware gate, a
+    WHQL signature, the Q22 PIR deferral, a model spend - and each carries its reason in `why`,
+    which the authoring item's own definition of done permits. Counting them kept the renewal
+    item open forever, so every cycle refiled an authoring item whose dod was already satisfied
+    and spent a shift re-reading the same 13 rows. A gap is now only:
+
+      * a box with NO mapping row at all;
+      * a `filed` row whose title is not live in the ledger (the row claims an item that is not
+        there, so the box really would go nowhere); or
+      * a `not_filed` row with an EMPTY `why` (an unexplained refusal is not an authored row).
+
+    A `not_filed` row that carries its reason is authored work: it is not a box without a
+    definition of done, it is a box whose definition of done is "do not file this, and here is
+    why". Pure function, no store - so the selfcheck can assert it.
+    """
+    out = []
+    for b in unchecked:
+        it = by_key.get(b["key"])
+        if it is None:
+            out.append(b)
+            continue
+        status = it.get("status")
+        if status == "filed":
+            if it.get("title") not in live:
+                out.append(b)
+        elif status == "not_filed":
+            if not str(it.get("why") or "").strip():
+                out.append(b)
+        else:
+            out.append(b)
+    return out
+
+
 def run(args) -> int:
     mapping_path = HERE / ("roadmap-%s.json" % args.project)
     if not mapping_path.exists():
@@ -269,10 +307,10 @@ def run(args) -> int:
     # have no filed mapping, ONE item is kept open asking for the next batch of mappings, with a
     # definition of done that is mechanically checkable (the validator, the selfcheck, and a
     # counting run). It is filed with a stable subject-shaped title, so the ledger's own title
-    # dedup makes it appear once no matter how often this source runs.
-    uncovered = ([b for b in unchecked if b["key"] not in by_key]
-                 + [b for b in unchecked
-                    if b["key"] in by_key and by_key[b["key"]].get("status") != "filed"])
+    # dedup makes it appear once no matter how often this source runs. Item 421 (2026-10-16): the
+    # boxes that count are computed by compute_uncovered below - a `not_filed` row that carries its
+    # recorded reason is authored, not uncovered, so the renewal item can actually be satisfied.
+    uncovered = compute_uncovered(unchecked, by_key, live)
     authoring_title = "Roadmap supply: author the next batch of definitions of done for %s" % args.project
 
     filed: list[str] = []
@@ -400,6 +438,25 @@ def selfcheck() -> int:
             fails.append("AUTHORING_DOD does not render %r" % must)
     if "{" in rendered or "}" in rendered:
         fails.append("AUTHORING_DOD leaves an unformatted placeholder")
+    # Item 421 (2026-10-16): a `not_filed` row that carries its recorded reason is AUTHORED, not
+    # uncovered, so the renewal item can be satisfied instead of refiling itself forever. Only a
+    # box with no row at all, a `filed` row whose item is not live, and an unexplained `not_filed`
+    # row are gaps. Asserted rather than trusted, because a regression here silently resurrects a
+    # self-renewing item that spends a shift per cycle.
+    nf_why = {"key": "a", "status": "not_filed", "why": "needs the owner's spend decision"}
+    nf_bare = {"key": "b", "status": "not_filed", "why": "   "}
+    filed_live = {"key": "c", "status": "filed", "title": "T-c"}
+    filed_gone = {"key": "d", "status": "filed", "title": "T-d"}
+    mkbox = lambda k: {"key": k, "text": k, "line": 1, "checked": False}
+    cu = compute_uncovered([mkbox(k) for k in "abcde"],
+                           {i["key"]: i for i in (nf_why, nf_bare, filed_live, filed_gone)},
+                           {"T-c": (1, "todo")})
+    eq(sorted(b["key"] for b in cu), ["b", "d", "e"],
+       "uncovered = no row (e) + filed row whose item is not live (d) + not_filed with a blank "
+       "reason (b); a not_filed row WITH its reason (a) and a live filed row (c) are authored")
+    cu2 = compute_uncovered([mkbox(k) for k in "ac"], {"a": nf_why, "c": filed_live},
+                            {"T-c": (1, "todo")})
+    eq(cu2, [], "a project whose every gap is authored or live reports uncovered=0")
     if fails:
         for f in fails:
             print("FAIL %s" % f)
