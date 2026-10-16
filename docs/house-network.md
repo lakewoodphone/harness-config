@@ -148,8 +148,11 @@ removes it.
    anything wired to the other.
 4. **The T-Mobile gateway's own Wi-Fi is still on, on the Verizon's 5 GHz channel.** Scanned
    2026-10-15 14:11 UTC: `TMOBILE-32C0` at 94%, 802.11ax, **5 GHz channel 157** — the same channel the
-   CHR30A uses for 5 GHz. It had 4 connected stations on 2026-10-14. The advice to switch it off was
-   given on 2026-10-14 and has not been done.
+   CHR30A uses for 5 GHz. It had 4 connected stations on 2026-10-14. **But its own BSS Load said
+   `Channel Utilization 13` — 5%.** The channel is 95% idle, so this is theoretical contention, not a
+   measurable cost, and an earlier draft of this document overstated it. Turning those radios off is
+   still tidy and stops devices joining the weaker stack; it is not a speed fix, and it needs the
+   T-Mobile box's admin password, which is not in the estate record.
 
 ---
 
@@ -214,8 +217,9 @@ Re-runnable instruments: `harness-config/scripts/net/house-net-measure.ps1` (ful
    then either move the phone closer to the router, or turn the 2.4 GHz radio off for the main SSID
    and leave `Verizon_ZYFY4N-IoT` for the 2.4-only gear. This is the fix for the owner's own
    experience and costs nothing.
-3. **Turn the T-Mobile gateway's Wi-Fi off** once the uplink question is settled — two APs on 5 GHz
-   channel 157 in one house.
+3. **Optionally silence the T-Mobile gateway's Wi-Fi** — tidy, and stops devices landing on the
+   weaker stack, but measured at 5% channel utilisation it is not costing speed. Needs the T-Mobile
+   box's admin password.
 4. **Set the CHR30A's WAN MTU to 1436** if the T-Mobile stays in the path. Latent defect, cheap fix,
    not proven to matter.
 5. Do not chase the MTU, and do not blame the stack, for the phone's speed.
