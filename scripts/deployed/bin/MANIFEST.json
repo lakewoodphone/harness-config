@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "generated_utc": "2026-10-14T04:06:16Z",
+  "generated_utc": "2026-10-16T04:11:54Z",
   "authority": {
     "ssh_alias": "secratary-cloud",
     "address": "100.73.176.126",
@@ -148,6 +148,20 @@
       "in_flux": false,
       "in_flux_note": null,
       "sha256_at_second_read": "1e3def7a9a9372b78db6479a1829bb0ffc8619e7345366009efd99e453b46231",
+      "byte_identical_at_capture": true
+    },
+    {
+      "name": "plaid-item-check.py",
+      "deployed_path": "/home/zabz/bin/plaid-item-check.py",
+      "repo_path": "scripts/deployed/bin/plaid-item-check.py",
+      "deployed_bytes": 11087,
+      "deployed_sha256": "cabc6549936759b29629cc410e385b7e67d62d1f3a3c4bd560a5c1dade8d0fa1",
+      "sha256_at_first_read": "cabc6549936759b29629cc410e385b7e67d62d1f3a3c4bd560a5c1dade8d0fa1",
+      "size_at_first_read": 11087,
+      "fetched_utc": "2026-10-16T04:11:54Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "cabc6549936759b29629cc410e385b7e67d62d1f3a3c4bd560a5c1dade8d0fa1",
       "byte_identical_at_capture": true
     },
     {
@@ -585,5 +599,5 @@
       "byte_identical_at_capture": true
     }
   ],
-  "capture_note": "Re-captured 2026-10-13T03:18:42Z from secratary-cloud IN PLACE (the files are local to the authority), so the scp transport_note below does not apply. Every captured file was hashed twice 4 s apart and the two reads agreed (in_flux=false), so no half-edited state was frozen."
+  "capture_note": "Re-captured 2026-10-16T04:11:54Z from secratary-cloud IN PLACE (the files are local to the authority), so the scp transport_note below does not apply. Every captured file was hashed twice 4 s apart and the two reads agreed (in_flux=false), so no half-edited state was frozen. plaid-item-check.py added 2026-10-16 (ledger item 393 integration): the DROPPED/REAUTH/PRESENT-NOT-REPORTING classifier item 393 built, landed in the mirror so the file that ran is the file in git."
 }
