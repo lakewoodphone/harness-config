@@ -2,7 +2,7 @@
  "adopted_rows": 0,
  "bands_refs_read": 47,
  "ceiling": {
-  "decisions": 6848,
+  "decisions": 6912,
   "handoff": 7592,
   "lessons": 8317,
   "pain": 7818,
@@ -11,11 +11,19 @@
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
   "handoff": "ZABZ-YOGA live working tree",
-  "lessons": "refs/heads/hk/584-wake-lock-holders",
-  "pain": "refs/heads/hk/584-wake-lock-holders",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [],
+ "claimed_gap_rows": [
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "decisions",
+   "reserved_from": 6849,
+   "reserved_through": 6912,
+   "stamp": "2026-10-18 13:00 UTC"
+  }
+ ],
  "entries_high_water": {
   "decisions": "D6786",
   "handoff": "H7466",
@@ -24,7 +32,7 @@
   "wins": "W6875"
  },
  "high_water": {
-  "decisions": "D6848",
+  "decisions": "D6912",
   "handoff": "H7592",
   "lessons": "L8317",
   "pain": "P7818",
@@ -43,11 +51,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-18T12:45:21Z",
+ "refreshed_at": "2026-10-18T13:00:24Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 19.7,
+ "seconds": 22.4,
  "sources_seen": 7635
 }
