@@ -2887,3 +2887,49 @@ dispatcher deliberately rather than by accident.
 that is where the live files are. This session's other commits are in the Windows checkout. Two checkouts, two
 HEADs — the estate's documented divergence (`AGENTS.md` §6.1), not something this round created or fixed. The
 next integrator should merge `fix/reconcile-wake-repo` before editing these three files anywhere.
+
+---
+
+## 74. ROUND 79 — THE FIRST REAL LOCK CAPTURE, AND WHY IT MADE THE INSTRUMENT BETTER BY MAKING IT QUIETER
+
+The watcher from §71 caught its first live event within three minutes of installation:
+
+```
+2026-10-18T05:20:05+00:00 LOCKED database is locked | holders:
+  pid 504337 /usr/bin/python3 /root/bin/sms-responder.py run --send --limit 8 --max-sends 3
+  pid 504373 /usr/bin/python3 /home/zabz/bin/sms-inbox.py sync --pages 3
+  pid 504634 python3 /root/bin/wake.py stats --json
+  pid 504668 python3 /root/bin/wake.py heartbeat 1167 --by wake-dispatch@secratary-cloud
+```
+
+Four processes named, with command lines. **And not one of them is the culprit.**
+
+- `sms-responder.py` commits **per row** (`_record()` does `UPDATE` then `commit()`), so its write
+  transactions are short. Read, not assumed.
+- `sms-inbox.py` does `executemany` then `commit()` — batch, bounded.
+- `wake.py stats` is a pure read: `_ensure()` reads `PRAGMA table_info(wake)` and **early-returns** once the
+  columns exist, so it does not take the write lock. My hypothesis that every `wake.py` call writes was wrong,
+  and reading the function is what disproved it.
+
+So the capture named *who was around*, not *who was holding*. **The fault was the instrument's threshold:** it
+probes with a 300 ms busy timeout, which flags ordinary overlap between two writers, while the failures that
+kill shifts happen after **30 seconds**. A log full of ordinary contention would be read as noise, and the real
+event would be missed inside it — the same failure mode as a monitor whose output is byte-identical to health.
+
+### The refinement
+
+The watcher now records only a lock that survives `--streak` **consecutive** probes (3 × 3 s ≈ 9 s by default),
+and prints the streak so persistence is visible. Shorter overlaps are counted in the summary and written
+nowhere. Proven both ways:
+
+```
+planted 12 s lock -> LOCKED streak=3 database is locked | holders: pid 510885 python3 -c ...
+planted  1 s lock -> transient only: 1 of 4 probe(s) refused, but never 3 in a row - not recorded  (0 lines)
+```
+
+Backup `wake-lock-watch.py.bak-streak-20261018`, `py_compile` clean.
+
+**Item 584 stays OPEN, with its requirement sharpened:** not "one occurrence naming a holder" — that has
+happened — but **a `streak>=3` capture that coincides with a shift kill**. The first capture satisfied the
+letter of the DoD and would have satisfied nothing else, which is exactly why the DoD is being rewritten rather
+than ticked.
