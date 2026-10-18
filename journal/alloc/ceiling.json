@@ -11,7 +11,7 @@
  "ceiling_source": {
   "decisions": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
   "handoff": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
-  "lessons": "local bands.tsv",
+  "lessons": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
   "pain": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
   "wins": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical"
  },
@@ -42,12 +42,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-18T01:00:22Z",
+ "refreshed_at": "2026-10-18T01:15:23Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 20.7,
- "sources_seen": 5813
+ "seconds": 20.6,
+ "sources_seen": 5814
 }
