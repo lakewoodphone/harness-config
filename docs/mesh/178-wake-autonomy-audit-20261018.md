@@ -38,6 +38,26 @@ so they are not retried.
 | 19-21 | rounds 15-18: suggestions to rows that do not exist; two failed patches |
 | 22 | WHERE THIS STANDS — unverified list and the next three actions |
 | 23 | round 20: the third attempt that worked, and why the first two failed |
+| 24-43 | rounds 24-48: reminders, `work.py` `blocked_on`, disk picture, unpushed case work |
+| **44-52** | **rounds 49-57 — the second session: the 03:07 clock, `deploy.sh` divergence, `edit --blocked_on`, session-sweep's five defects, the conserve lane, the owner channel measured** |
+| 53-58 | rounds 58-63: the 41→65 correction, the write-back, the WRONG TWILIO ACCOUNT, retired_relabel |
+| 59-61 | rounds 64-66: `loop-stall` verified, the archive check reading a dead copy, the dormant-handoff remedy |
+| **62-62b** | **round 67: CAPABILITY TIERS built — and two false alarms of mine caught before they reached the record** |
+| 63-64a | rounds 68-69: **three shifts killed by a lock**, the exit-code contract, the holder named (commit per row) |
+| 65-66b | rounds 70-72: IDLE verified honest, owner row 554, the year-as-orphan, `attempt` changing state |
+| 67-68 | rounds 72-73: the pain closer (42→17) and the journal reader split; **my capability ladder killed two shifts** |
+| 69-70a | rounds 74-75: the readers fixed, `--since` means the closure; **the conserve lane was a latent total outage** |
+| 71-71b | rounds 76-77: the lock watcher, and a kill that named the wrong suspect |
+| 72, 75a | rounds 77-78: `heartbeat_lease` tested, the interrupt hypothesis — **later RETRACTED by §77** |
+| 73 | round 78: **the repo IS production** (the deploy hazard closed at both ends) |
+| 74 | round 79: the first real lock capture named four innocent processes |
+| 75-76 | rounds 80-81: item 561 in hand; the heartbeat exit status captured |
+| **77-78** | **rounds 82-83: the "unknown" kills were MY OWN in-place edits to a running script — frozen-and-replaced by atomic rename; the rule is now `AGENTS.md` §8** |
+| 79-84 | rounds 84-89: the filter on real data, leases advancing, **the sweep classifier proven on live data**, the brief's five items, **the reconciliation decaying in 30 minutes** |
+| 85 | round 90: **`quick_check` needs no snapshot — a free floor for the 99-hour authority integrity gap** |
+
+**Read next: §82** (the brief's five items with their evidence) and **`H7531`** (rounds 85-90). The one
+standing question for the owner is row 551, and §85 gives him a free half-answer that needs no decision.
 
 ## 1. THE ONE PATTERN
 Every serious defect found is the same shape, and it is the estate's oldest failure:
