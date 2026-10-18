@@ -1773,3 +1773,76 @@ unconfirmed". The count was right; the conclusion was too dark. **At least 23 of
 delivered**, and the record could not say so because nothing asked the second account. The honest sentence is
 "the record could not see the delivery", not "the delivery did not happen" — and the difference between those
 two sentences is the whole reason this document exists.
+
+---
+
+## 59. ROUND 64 — THE 04:07 CLOCK: `loop-stall` VERIFIED, AND THE ARCHIVE CHECK WAS READING A DEAD COPY
+
+The tick that §52 and §56 both waited on finally ran at **04:07:01Z**, and it settles two rows.
+
+### Verified by the clock
+
+```
+2026-10-18T04:07:01+00:00  loop-stall  RETIRED: no detector at /root/bin/kaf-loop-status.py
+                                       on this host (announced once; this source is silent until one exists)
+$ ls -l /root/.sms-inbox/.loop-stall-retired
+-rw-r--r-- 1 root root 0 Oct 18 04:07 /root/.sms-inbox/.loop-stall-retired
+```
+
+Announced once, marker written, and no `UNUSABLE` line this hour. Before this the source had printed
+`UNUSABLE rc=2` on **245 of 245** runs. The signal is not deleted — if a detector ever appears at that path
+the source runs it.
+
+`memory-pressure` also appears in the loop for the first time and behaves:
+
+```
+2026-10-18T04:07:01+00:00  memory-pressure  (memory-oom:20261018: suppressed:cooldown)
+```
+
+A dedupe against the row it filed at 03:53, which is exactly right. `session-sweep` is still
+`(daily cap reached: 3 filed 2026-10-18)`, so its new classifier has still not run — the cap resets at
+00:00 UTC and that is the next honest proof point, not a reason to raise the cap.
+
+### The tick also exposed a live defect, and it is the fifth of one class
+
+```
+dormant-handoff  archive-check UNUSABLE (Unreadable: freshness checker refused (its inputs could not be read):
+  {"ok": false, "refused": true,
+   "error": "could not read dsh_sessions: no such table: dsh_sessions"})
+```
+
+`check-dsh-freshness.py:68` defaulted `DSH_ARCHIVE_DB` to
+`/home/zabz/personal-secretary-mvp/data/secretary.db` — a **1.9 MB copy that does not contain
+`dsh_sessions`** — while the live table, 8,415 rows, sat in `/root/authority.db` on the same host. So the
+check that guards whether session archives still have a copy was refusing to answer, on every run, in a
+sub-line of a source whose main output was `quiet`.
+
+Fixed the same way `_flag.app_db` was: prefer `/root/authority.db` when it exists, keep the old path as the
+fallback, and let an explicit env var still win. Verified with no override at all — the checker now reports
+per-machine freshness (`desktop-fgv6kmh shipped 0.1 h ago`, `zabz-tech shipped 0.0 h ago`, and so on).
+
+This is the **fifth** wrong-store/path default in this class: `_flag.app_db`, `cron-targets`, dormant-handoff's
+repo path, `loop-stall`'s missing detector, and now the archive checker. Every one of them printed something
+that looked like a reading.
+
+### What the now-working checker says, recorded as a QUESTION and not a diagnosis
+
+```
+PROBLEM secratary-cloud cannot tell whether this host is shipping:
+        no shipper cursor at /root/.dsh/dsh-archive-state.json
+```
+
+Supporting measurements, taken once, not yet interpreted:
+
+```
+dsh_sessions by source_machine: zabz-tech 4927 | zabz-yoga 2092 | secratary 525 (frozen 10-11)
+                                | zabz-tech-linux 525 | lakewooechsmini 185 ... and NO secratary-cloud row
+/root/.dsh/sessions           : 6 trees, 226 MB, newest --home-zabz-phone-- (544 entries, 2026-10-18 00:08)
+```
+
+So the authority runs or holds DSH session data that appears in **no** `dsh_sessions` row under its own name,
+and has no shipper cursor. **That is not yet a finding of loss**, and AGENTS.md is explicit about the last
+agent who declared data loss from a path it had not followed down. The two candidates are (a) these are
+originals that nothing ships, or (b) they are a staging copy of sessions already archived under their real
+`source_machine`. Telling them apart is one round of work and it is the next one, because if it is (a) then a
+quarter of a gigabyte of reasoning exists in exactly one place.
