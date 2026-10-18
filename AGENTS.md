@@ -333,3 +333,43 @@ loaded with the task beats a paragraph in a document nobody opened.
 comments**, which are never injected into a session. If you are editing a composition, read the
 comments in the file you are editing *before* you change it, and move anything load-bearing out of a
 comment into `editing-cordis-compositions` — a rule that lives in a comment is a rule with no reader.
+
+---
+
+## 8. Never rewrite a RUNNING script in place — publish by atomic rename
+
+**Measured 2026-10-18 on the authority, and it cost three rounds.** `wake-dispatch.sh` was patched four
+times while dispatchers were executing it, each time by truncating and rewriting the same inode. Bash
+does not load a script into memory: it reads **incrementally by byte offset**, holding the file at fd 255.
+Truncating and rewriting moves every later line to a different offset, so a running instance executes
+whatever now sits at the offset it expects — a **mixture of old and new**, including states no single
+version can produce. The symptoms were three lease kills that printed impossible diagnostics
+(`reason=unknown`, `decision=unset`, `hbrc=unset` where `HB_RC` is assigned one line above the log),
+and three rounds of instrumentation chasing an artifact of the deployment.
+
+**The rule:**
+
+```bash
+cp -p  <path> <path>.new
+#   edit <path>.new, then:
+bash -n <path>.new && mv <path>.new <path>
+```
+
+`mv` gives the new file a **new inode**. Every running instance keeps the inode it opened and finishes on
+consistent code; every new instance reads the new one. Proven:
+
+```
+before: inode 2164595   pid 502935 -> path          pid 517765 -> path
+after : inode 2165354   pid 502935 -> path (deleted) pid 517765 -> path (deleted)
+```
+
+Both live instances still hold the unlinked old inode. That is the isolation, and it is visible in
+`/proc/<pid>/fd/255`.
+
+**Applies to** `wake-dispatch.sh`, `wake.py`, everything in `sources/`, and anything a cron, a timer or a
+shift may be part-way through. A patch tool that writes with `io.open(path, "w")` truncates in place, so
+the `mv` belongs to the caller — including when the "content did not change".
+
+**Why this is a rule and not a note:** the failures it produces look like defects in the code being
+deployed. They survive review, they survive `bash -n`, and they survive a passing selftest, because the
+code on disk IS correct — it is the running copy that is not.
