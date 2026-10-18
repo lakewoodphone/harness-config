@@ -2673,3 +2673,26 @@ high-priority release whose outcome reads `model lane: ...` and no `FAIL-LOUD`, 
 **The method lesson, again: ask the thing that decides.** Three rounds were spent on this id — a local catalog
 file, then a gateway HTTP catalog, then the provider's own — and only the third one is the list the decision is
 made against. One invocation of the resolver would have answered it at any point.
+
+### 70a. The diagnostic from §63 paid for itself, and proved the work is not finished
+
+Fifteen minutes after the lane fixes, `failed` moved 6 -> 7. The new kill is the same class as §63's three, and
+this time the message names the cause instead of `unknown`:
+
+```
+05:10:40Z WARN  heartbeat for wake #1170 renewed on attempt 2 after 1 transient failure(s): wake: database error: database is locked
+05:14:09Z ERROR lease for wake #1170 not renewed - killing the session to avoid a double release: wake: database error: database is locked
+```
+
+That is the `_LEASE_LAST_ERR` fallback added in §63 doing exactly what it was added for: the same event that
+said `unknown` at 04:17 now says `database is locked`.
+
+But it also shows the class is **not closed**. Item 565 fixed `reconcile-sent-status` (commit per row) and
+`wake.py` took `busy_timeout=30000` — verified on a live connection — and a writer can still hold the wake
+store longer than the lease margin. SQLite keeps no history of a lock holder, so the only remaining way to name
+it is to capture it **at the instant of failure**.
+
+Filed as **ledger item 584**: on `rc=2` with `database is locked`, record `fuser -v` (or `/proc/*/fd` plus
+cmdline) for `inbox.db` into the dispatch log next to the error, then produce one occurrence naming a real PID
+or 24 hours with none. **Not implemented this round** — it touches the lease path in the live dispatcher, and
+the last time this session edited that file without an end-to-end proof it cost two shifts (§68).
