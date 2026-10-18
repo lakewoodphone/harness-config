@@ -1503,6 +1503,7 @@ handoff	H7466	7466		2026-10-18 05:22 UTC	SECRATARY-CLOUD	open	## 2026-10-18 05:2
 handoff	H7593	7593		2026-10-18 13:27 UTC	secratary-cloud	open	## 2026-10-18 13:27 UTC · secratary-cloud · Service-state: restart company-api to load the 400 owner-text ceiling (item 340)	entries/handoff/H7593.md	1	12	3cfe169bae0ae6df	owner-text,item-340,service-state,company-api	340
 handoff	H7594	7594		2026-10-18 13:28 UTC	secratary-cloud	open	## 2026-10-18 13:28 UTC · secratary-cloud · Verified: company-api reloaded the 400 owner-text ceiling	entries/handoff/H7594.md	1	15	062e6a07c8b88037	owner-text,item-340,service-state,company-api	340
 handoff	H7657	7657		2026-10-18 14:14 UTC	secratary-cloud	open	## 2026-10-18 14:14 UTC · secratary-cloud · Household utilities: four unpaid landlord bills documented, 269.71 owed, ledger + registry + attention row	entries/handoff/H7657.md	1	51	19ca35b70282f042	household,utilities,landlord,finance	H3372,L3440
+handoff	H7721	7721		2026-10-18 14:29 UTC	secratary-cloud	open	## 2026-10-18 14:29 UTC · secratary-cloud · Utilities gap closed: the Oct 13 message was not a bill; 269.71 is the figure, complete through 2026-10-14	entries/handoff/H7721.md	1	25	69273033bb09d0a2	household,utilities,landlord	H7657,L8446
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -3567,6 +3568,7 @@ lessons	L8127	8127		2026-10-18	secratary-cloud	open	**L8127 · A CFO question to
 lessons	L8190	8190		2026-10-18	SECRATARY-CLOUD	open	**L8190 · A decision in a row context does not leave the pending set**	entries/lessons/L8190.md	1	6	c1a9fedf26980766		
 lessons	L8254	8254		2026-10-18	SECRATARY-CLOUD	open	**L8254 · One queue: decisions, questions and held alerts together**	entries/lessons/L8254.md	1	16	827da2b0e8ccd84b		
 lessons	L8255	8255		2026-10-18	SECRATARY-CLOUD	open	**L8255 · Correcting L8254: a pending question is not evidence the work is pending**	entries/lessons/L8255.md	1	10	afcd5ca437f31eed		L8254
+lessons	L8446	8446		2026-10-18	secratary-cloud	open	**L8446 · A bill that arrives as a family forward exists in no archive — archive the image, then register it**	entries/lessons/L8446.md	1	40	d07c35b8cee08131	household,evidence,provenance,finance	H7657,H3372,L3440
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
