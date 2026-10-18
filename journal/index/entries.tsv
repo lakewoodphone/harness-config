@@ -4296,6 +4296,7 @@ pain	P7435	7435		2026-10-18	secratary-cloud	open	## P7435 — approval-suspends 
 pain	P7436	7436		2026-10-18	SECRATARY-CLOUD	open	## P7436 — Estate monitor: swap_used_pct is critical (70.82 %) across 27 consecutive runs	entries/pain/P7436.md	1	23	a57d3cd293998425	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 pain	P7499	7499		2026-10-18	SECRATARY-CLOUD	open	## P7499 — Estate monitor: authority_wal_mb is critical (1807.72 MB) across 5 consecutive runs	entries/pain/P7499.md	1	23	c8e4ffc21625f64c	estate-monitor,auto-filed,not-the-owners	metrics/authority_wal_mb
 pain	P7563	7563		2026-10-18	SECRATARY-CLOUD	open	## P7563 — Estate monitor: swap_used_pct is critical (76.76 %) across 47 consecutive runs	entries/pain/P7563.md	1	23	b0895ae222f2996c	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
+pain	P7627	7627		2026-10-18	SECRATARY-CLOUD	open	## P7627 — Estate monitor: dstate_max_age_s is critical (600.0 s) across 5 consecutive runs	entries/pain/P7627.md	1	23	f3234321b247703e	estate-monitor,auto-filed,not-the-owners	metrics/dstate_max_age_s
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
