@@ -1093,17 +1093,75 @@ SESS_PID=$!
 # heartbeat forever. Belt: stop waiting 2 minutes past the outer bound.
 LOOP_DEADLINE=$(( $(date -u +%s) + TIMEOUT + 120 ))
 
+# ---------------------------------------------------------------------------
+# WAKE-STORE LOCK HOLDERS (ledger item 584).
+# A heartbeat refused with `database is locked` used to record only the error.
+# SQLite keeps no history of a lock holder, so the failure itself is the only
+# moment it can be named: scan /proc/*/fd (no lsof) for processes with the store
+# open and record each PID with its command line. The path follows the same
+# SMS_INBOX_DB override wake.py uses, so a test store is named correctly.
+# ---------------------------------------------------------------------------
+wake_store_path() {
+  printf '%s' "${SMS_INBOX_DB:-${WAKE_STORE:-$HOME/.sms-inbox/inbox.db}}"
+}
+
+wake_db_holders() {
+  "$PY" - "$(wake_store_path)" <<'PY' 2>/dev/null
+import os, sys
+target = os.path.realpath(sys.argv[1])
+me = os.getpid()
+out = []
+for d in os.listdir("/proc"):
+    if not d.isdigit() or int(d) == me:
+        continue
+    try:
+        for fd in os.listdir("/proc/%s/fd" % d):
+            try:
+                if os.path.realpath("/proc/%s/fd/%s" % (d, fd)) == target:
+                    try:
+                        cmd = open("/proc/%s/cmdline" % d, "rb").read()
+                        cmd = cmd.replace(b"\x00", b" ").decode("utf-8", "replace").strip()
+                    except OSError:
+                        cmd = "?"
+                    out.append("pid %s %s" % (d, cmd[:200]))
+                    break
+            except OSError:
+                pass
+    except OSError:
+        pass
+print(" ; ".join(out))
+PY
+}
+
 lease_probe() {
   # 0 = renewed. 1 = the store itself says we do NOT hold this row: a real loss, and
   # the only thing that may stop a session. 2 = transient (a lock, a timeout, a
   # traceback), which is never a reason to kill work.
   local out rc
   out=$("$PY" "$WAKE_CLI" heartbeat "$ID" --by "$CALLSIGN" --lease-seconds "$LEASE" 2>&1); rc=$?
-  [ "$rc" -eq 0 ] && return 0
+  if [ "$rc" -eq 0 ]; then
+    _LEASE_HOLDERS=""
+    _LEASE_LOCK_LOGGED_AT=0
+    return 0
+  fi
   case "$out" in
     *not-claimed*|*no-such-row*) return 1 ;;
   esac
   _LEASE_LAST_ERR="$(oneline "$out")"
+  _LEASE_HOLDERS=""
+  case "$out" in
+    *"database is locked"*)
+      # One line per minute per wake, not one per 5 s retry: a 30 s stall must
+      # leave a finding, not bury the log in six copies of it.
+      _LEASE_HOLDERS="$(wake_db_holders)"
+      local now
+      now=$(date -u +%s)
+      if [ $(( now - ${_LEASE_LOCK_LOGGED_AT:-0} )) -ge 60 ]; then
+        _LEASE_LOCK_LOGGED_AT=$now
+        log "WARN heartbeat for wake #$ID: database is locked; holders of $(wake_store_path): ${_LEASE_HOLDERS:-(none visible)}"
+      fi
+      ;;
+  esac
   return 2
 }
 
@@ -1197,7 +1255,7 @@ while kill -0 "$SESS_PID" 2>/dev/null; do
       # "wake: database error: database is locked" -- sat in _LEASE_LAST_ERR and was discarded.
       # A kill message that cannot say why is the same defect as a monitor that measures nothing.
       OUTCOME_REASON="lease not renewed: ${LEASE_LOSS_REASON:-${_LEASE_LAST_ERR:-unknown}}"
-      log "ERROR lease for wake #$ID not renewed - killing the session to avoid a double release: ${LEASE_LOSS_REASON:-${_LEASE_LAST_ERR:-unknown}} [hbrc=${HB_RC:-unset} decision=${LEASE_DECISION:-unset} rc=${LEASE_RC:-unset} attempt=${LEASE_ATTEMPT:-unset} err=${_LEASE_LAST_ERR:-none}]"
+      log "ERROR lease for wake #$ID not renewed - killing the session to avoid a double release: ${LEASE_LOSS_REASON:-${_LEASE_LAST_ERR:-unknown}} [hbrc=${HB_RC:-unset} decision=${LEASE_DECISION:-unset} rc=${LEASE_RC:-unset} attempt=${LEASE_ATTEMPT:-unset} err=${_LEASE_LAST_ERR:-none} holders=${_LEASE_HOLDERS:-none}]"
       kill "$SESS_PID" 2>/dev/null
       break
     fi
