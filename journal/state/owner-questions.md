@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-10-17
+Updated: 2026-10-18
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 543 row(s) read, 31 pending, generated 2026-10-17 23:38 UTC on SECRATARY-CLOUD.
+Provenance: 545 row(s) read, 33 pending, generated 2026-10-18 00:38 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -40,6 +40,8 @@ Provenance: 543 row(s) read, 31 pending, generated 2026-10-17 23:38 UTC on SECRA
 | 541 | 2026-10-16 | medium | An intake case now has no way to be cancelled or removed (no CANCELLED status, no delete mutation, and no control on any screen), so a customer who abandons the kiosk mid-flow leaves an untouchable row in the shop's queue forever. Add a terminal CANCELLED state, and what happens to the 50 diagnostic fee the kiosk already collected when a case is cancelled? | Option 1. A terminal CANCELLED status is the missing piece that every other question hangs off, and it is what makes an abandoned kiosk row closeable without destroying it. Keeping the fee is the posture the kiosk alread |
 | 542 | 2026-10-16 | medium | The Waze device now has two accessories to sell — a USB-A car charger and a magnetic air-vent mount. What do we charge for them at the counter? | 15.00 and 25.00. Going cheaper on the charger buys nothing worth having: an unbranded 4.50 unit would let you keep a 10.00 sticker and still earn 5.50, so the cheaper route trades away the only two things that protect th |
 | 543 | 2026-10-16 | medium | The box still contains no wall charger at all, so a customer cannot charge the phone at home on day one. Do we add one as a third accessory? | Add the Amazon Basics at 6.67 and sell it at 15.00. A 12 W USB-A wall block is the one accessory a customer will otherwise buy somewhere else on the way home, and selling it is worth more to us than the 6.67 it costs. Th |
+| 546 | 2026-10-18 | medium | WO2602180002 (Yaakov Openhiemer): the 40.00 check is a second payment on a 40.00 order - 80.00 was collected. Refund the 40.00, or apply it as credit? | Refund the 40.00: the 03/10 bank deposit and payment 860 are the same money; order 728 also took 40.00 cash against a 40.00 invoice, so 40.00 was over-collected. |
 | 532 | 2026-10-16 | low | What was the 5,460.41 charge at Returned Payment on 10 Sep (card ending 9680) - these statement lines carry no merchant name at all (e.g. 'Returned Payment') and nothing we hold names the counterparty: who was paid and what the charge was for? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
+| 545 | 2026-10-18 | low | What was the 328.38 charge at TEQUIPMENT on 28 Jul (card ending 9680) - the closest answer we hold for 'TEQUIPMENT' is '?' but it is not certain enough? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
 
 Closed since the queue opened: 512. Answered questions move to `entries/decisions/` with the owner's own words.
