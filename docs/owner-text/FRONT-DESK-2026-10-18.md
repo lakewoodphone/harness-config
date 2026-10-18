@@ -97,7 +97,7 @@ first real task, and it is why a body could be 377 chars on a door that never fi
 | `owner-ask.py` | yes | wire or retire; it has no cron line today |
 | `card-due-watch.py` | yes | this work |
 | `scripts/owner_attention.py` | yes (daily item) | already |
-| `app/family_chat` owner leg | yes — **two recipients, not a double send** (corrected below) | `attempt` 66/67, 68/69, 71/72 |
+| `app/family_chat` owner leg | **not a door of this channel — separate app, see §1c** | — |
 | `sms-responder.py` | yes via textsend | already |
 | `company-heartbeat.sh` (2 read-only hosts) | **stays outside, deliberately** | `P3176` |
 
@@ -146,6 +146,30 @@ So the channel he remembers was broken; the channel that exists today is quiet a
 in under a minute. What remains is structural: four scheduled reminders re-submit the same body on
 a tick (1,709 suppressed rows for 4 messages), and nothing counts that as a defect because a
 `DEDUPE`/`SUPPRESS` verdict looks like the gate working.
+
+### 1c. Family Chat is OUT OF SCOPE — corrected twice by the owner, 2026-10-18
+
+> *"The family chat system is not part of the regular rate limits and is a completely separate
+> thing."*
+>
+> *"The family chat has nothing to do with our relay system and owner texting and stuff like that.
+> It's a completely separate app that is unrelated to the regular rules."*
+
+**Nothing in this document governs Family Chat.** It is a separate app with its own store, its own
+sender, its own retry logic and its own delivery record. Earlier drafts of this document put it in
+the door table and gave the relay a channel exemption for it; both were the conflation he named, and
+both are removed — `owner_text_relay.py` now carries **no** knowledge of any application (no
+`SEPARATE_CHANNELS`, no `is_separate_channel`; `ceiling_for(to)` takes a recipient and nothing else).
+
+Two consequences worth writing down because they cost real harm:
+
+1. **`/root/.owner-text/relay.db` is not Family Chat's ledger and `authority.db sms_log` is not its
+   delivery record.** Family Chat records delivery in `/opt/company/data/family_chat.db`
+   `messages` (`twilio_sid`, `status`, `outbox_id`), and `hub.flush_outbox` marks a row `sent` only
+   after `send_and_record` returns (`hub.py:2213`). On 2026-10-18 I read the wrong store, concluded a
+   message had never been delivered, and sent it a second time to the owner's wife — pain `P7243`.
+2. **A defect in Family Chat is filed against Family Chat**, worked in its own app, and not folded
+   into an owner-text audit. Its gate/relay coupling, if it still has one, is its own work item.
 
 ## 2. The pre-ask ladder — "work very hard first"
 
@@ -247,34 +271,17 @@ Decisions:
 
 ## 5. The composer's voice
 
-**First, a rule from the owner that outranks the rest (2026-10-18):**
+**First, a scope correction from the owner that outranks the rest (2026-10-18):**
 
 > *"the family chat system is not part of the regular rate limits and is a completely separate
 > thing."*
 
-Family Chat is a chat between relatives. It is **not** the owner's attention channel and none of the
-rules in this section are about it. The 320-char ceiling, the 20-minute floor, the one-at-a-time
-turn and quiet hours are rules about how much of *his attention the company may spend*; a
-relative's message is not the company spending it. So, decided and now live in the relay:
-
-| rule | owner channel | family chat |
-|---|---|---|
-| length ceiling | 320 (his reading) | 1600 (transport only) |
-| rate floor (20 min) | applies | **does not apply**, in either direction |
-| one-at-a-time turn | applies | **does not apply** |
-| quiet hours | applies | **does not apply** |
-| dedupe | applies | a relay of a relative's words is exempt (`dedupe_disabled`), because two relatives writing "Mazal tov!" are two events |
-
-Watch: `owner_text_relay.ceiling_for(to, subsystem, door)` and the `separate` term in the FLOOR
-branch. Pinned by tests 7–9 of `mirror/test-relay-recipient.py`, including the one that matters:
-the *same* text from the `app` door is FLOOR-held while the family message is not.
-`/root/bin/owner_text_relay.py` `d4ffe3aad4d0`.
-
-The remaining half is app-side and is ledger 526: `_owner_leg()` calls `owner_text.gate` at
-`twilio_client.py:677` for **every** recipient, which is how `sms_log` 4280 came to say *"we texted
-**him** 9 minute(s) ago"* about a message to a family member. `OWNER_ALT_PHONE_NUMBERS` containing
-`+18482245096` is the symptom, not the disease; deleting that number fixes one person, and the
-channel rule fixes all of them.
+Family Chat is a **separate app** and none of the rules in this section are about it — not the
+320-char ceiling, not the 20-minute floor, not the one-at-a-time turn, not quiet hours. It has its
+own limits and its own bugs, worked in its own app. See §1c. The relay holds no knowledge of it:
+`ceiling_for(to)` decides by **recipient** (his 320 belongs to him; anyone else gets the transport
+limit), and there is no channel concept in the relay at all — pinned by tests 7–9 of
+`mirror/test-relay-recipient.py`, including `not hasattr(relay, "is_separate_channel")`.
 
 Rules the composer enforces mechanically on the owner channel, each traceable to a message he sent:
 
