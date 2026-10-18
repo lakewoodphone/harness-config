@@ -3223,3 +3223,30 @@ running normally now, which is the refund's proof arriving on its own.
 **The distinction worth keeping:** "no log output" is not "stalled" when the work happens on the far side of an
 ssh hop and the log is written at settle. A wedged dispatcher and a working one look identical from the log
 alone — the process tree is what tells them apart, and it takes one `ps --ppid`.
+
+---
+
+## 80. ROUND 85 — THE LEASE PATH RENEWS; THE CLEAN CODE OBSERVATION IS STILL OWED
+
+A 43-second check that settles part of the question without waiting for a new dispatcher.
+
+```
+05:33  claimed: 1167 lease_until 05:53:14   1170 lease_until 05:53:15
+05:36  claimed: 1167 lease_until 05:55:33   1170 lease_until 05:55:33
+```
+
+**Both leases advanced by ~2 minutes.** That is a successful `heartbeat` -> `renew`, on live instances, twice. So:
+
+- the lease **mechanism works** — renewals happen under real load, not just in `--selftest-lease`;
+- the failures in §63/§72/§76 were **events, not a broken path** — consistent with the interrupt-and-mixed-code reading,
+  and inconsistent with "heartbeats never renew";
+- and it is evidence that the rows which were refunded (§71a) are being held correctly by live workers.
+
+**What is still owed, and unchanged:** an observation of the lease path on a dispatcher **started after 05:32**. Both
+survivors (502935 at 05:19, 517765 at 05:25) predate the atomic re-publish and are running a byte-mixture by
+construction, so nothing they emit can be read as evidence about the code on disk. At 05:36 no new dispatcher had
+started and no release had run since 05:32.
+
+**The distinction this round adds:** "the lease path is broken" and "a lease event happened" are different claims, and
+only the second one was ever supported. Renewals advancing on two live rows is the cheapest possible test of the
+first, and it comes out negative — which is the outcome a session should want before it goes looking for a defect.
