@@ -88,8 +88,30 @@ import storelock
 
 HOME = Path.home()
 ENV_FILE = Path(os.environ.get("SMS_INBOX_ENV", HOME / "personal-secretary-mvp" / ".env"))
-APP_DB = Path(os.environ.get("SMS_INBOX_APP_DB",
-                            HOME / "personal-secretary-mvp" / "data" / "secretary.db"))
+def _app_db_path() -> Path:
+    """The app's live database.
+
+    The default used to be HOME/personal-secretary-mvp/data/secretary.db. On the
+    authority that path is a stale copy with ZERO sms_log rows while the live app
+    writes /root/authority.db (DATABASE_URL=sqlite:////root/authority.db). The
+    sync therefore reported "app sids known: 0" and left every inbound text
+    app_has_it=0 -- including texts the app had recorded. Measured 2026-10-18:
+    45 inbound rows (2026-10-11 23:05 .. 2026-10-16 15:35) were all present in
+    /root/authority.db sms_log and all labelled app_has_it=0.
+
+    Prefer the authority store; keep the env override first and the old path as
+    the fallback for a host that is not the authority.
+    """
+    override = os.environ.get("SMS_INBOX_APP_DB") or os.environ.get("OWNER_QUEUE_DB")
+    if override:
+        return Path(override)
+    authority = Path("/root/authority.db")
+    if authority.is_file():
+        return authority
+    return HOME / "personal-secretary-mvp" / "data" / "secretary.db"
+
+
+APP_DB = _app_db_path()
 # Overridable so tests never touch the live store. A test that writes the real
 # inbox is a test that can lose a real text.
 STORE = Path(os.environ.get("SMS_INBOX_DB", HOME / ".sms-inbox" / "inbox.db"))

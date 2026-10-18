@@ -40,8 +40,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 HOME = Path.home()
-APP_DB = Path(os.environ.get("SMS_MIRROR_APP_DB")
-              or (HOME / "personal-secretary-mvp" / "data" / "secretary.db"))
+def _app_db_path() -> Path:
+    """The app's live database.
+
+    Same stale-copy defect as sms-inbox.py: on the authority
+    HOME/personal-secretary-mvp/data/secretary.db holds ZERO sms_log rows while
+    the live app writes /root/authority.db. Measured 2026-10-18: this mirror
+    reported "inbound rows considered: 0" every run, while the live DB held 477
+    inbound rows (450 already in the inbox, 27 older than the 7-day window).
+    Prefer the authority store; keep the override first and the old path as the
+    fallback for a host that is not the authority.
+    """
+    override = (os.environ.get("SMS_MIRROR_APP_DB")
+                or os.environ.get("OWNER_QUEUE_DB")
+                or os.environ.get("SMS_INBOX_APP_DB"))
+    if override:
+        return Path(override)
+    authority = Path("/root/authority.db")
+    if authority.is_file():
+        return authority
+    return HOME / "personal-secretary-mvp" / "data" / "secretary.db"
+
+
+APP_DB = _app_db_path()
 INBOX_DB = Path(os.environ.get("SMS_INBOX_DB") or (HOME / ".sms-inbox" / "inbox.db"))
 
 # THE SCHEMA MAPPING, written out so it can be checked rather than trusted.
