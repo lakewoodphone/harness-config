@@ -8,7 +8,7 @@
   "pain": 7179,
   "wins": 6747
  },
- "ceiling_refreshed_at": "2026-10-18T01:15:23Z",
+ "ceiling_refreshed_at": "2026-10-18T01:30:24Z",
  "ceiling_source": {
   "decisions": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
   "handoff": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
