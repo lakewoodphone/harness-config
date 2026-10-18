@@ -2106,3 +2106,6 @@ acceptable to stop here rather than keep guessing.
 **A note on how this was found.** It surfaced only because I checked my own change against the failure count,
 and the failure count happened to move. Had I trusted `bash -n` and moved on, three shifts a day would keep
 dying with an explanation the system already had and was throwing away.
+
+**Correction (same round):** the lock-contention item filed above is **ledger item 565**, not 562 — 562 was
+already taken. A wrong id in a record is a wrong number, so it is corrected here rather than edited away.
