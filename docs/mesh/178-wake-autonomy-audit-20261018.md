@@ -3181,3 +3181,45 @@ should close it; if it dies first, the next session can close it on this evidenc
 **What remains is the recurrence, not the backlog:** item 586 records that the shipper must run *from the
 authority* or the same gap refills daily, and `AGENTS.md` §1's trap 2 names the reason — a client-side task on a
 frozen host is the only thing that was shipping.
+
+---
+
+## 79. ROUND 84 — THE FILTER MET REAL DATA, AND TWO LONG SESSIONS WERE NOT WEDGED
+
+Two verifications, both of things this session changed, both on production rather than on a planted case.
+
+### The streak filter discriminates on real contention
+
+```
+quiet: 15 probe(s), the write lock was free every time          x3
+transient only: 1 of 15 probe(s) refused, but never 3 in a row - not recorded
+```
+
+That middle line is a **real** lock, caught and deliberately not written: one probe out of fifteen was refused
+and it did not persist. Before §74 that would have appended a log line naming innocent holders; now it prints a
+summary sentence and leaves `wake-lock.log` untouched (still holding only the 05:20 capture from the old
+threshold). **The instrument now separates the two states it exists to separate, on live traffic, without being
+shown a planted case.**
+
+### Two 8- and 14-minute sessions were working, not stuck
+
+Both surviving dispatchers looked suspicious: no log output since they started, well past the 100-460 s runs
+seen earlier. They are fine, and the check is worth recording because "no output" reads like the estate's oldest
+failure:
+
+```
+502935  14:35  do_wait   child: timeout ... wake-run.ps1 ... -TimeoutSec 2100   heartbeat: sleep 60
+517765  08:34  do_wait   child: timeout ... wake-run.ps1 ... -TimeoutSec 2100   heartbeat: sleep 60
+claimed: 1167 and 1170, leases to 05:53
+```
+
+- Both have a **live runner child** (the ssh to ZABZ-TECH with `TimeoutSec 2100`), so the session is running.
+- Both have the heartbeat's `sleep 60`, so the lease loop is turning.
+- The long duration is the runner's 35-minute ceiling, not a hang.
+
+**And `1170` is one of the two** — the row refunded in §71a after a lock kill had left it at 2/2 and dead. It is
+running normally now, which is the refund's proof arriving on its own.
+
+**The distinction worth keeping:** "no log output" is not "stalled" when the work happens on the far side of an
+ssh hop and the log is written at settle. A wedged dispatcher and a working one look identical from the log
+alone — the process tree is what tells them apart, and it takes one `ps --ppid`.
