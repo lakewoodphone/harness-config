@@ -1463,3 +1463,179 @@ and the fix is a write-back from `messages` to `sms_log` keyed on `twilio_sid` �
 measurement. §50 broadcast 41 into this document and into H7337; the correct figure is 65, and the cause
 was not the one the number suggested. Print the raw value beside the predicate, and when two stores
 disagree about one row, ask which one the consumer actually reads.
+
+---
+
+## 54. ROUND 59 — P7307 CLOSED: THE WRITE-BACK EXISTS, IS SCHEDULED, AND SETTLED 52 ROWS
+
+§53 named the defect and deliberately did not fix it. This round fixes it, and the fix is a new script
+rather than a widening of anything.
+
+`/root/bin/sync-sent-status-to-app.py` carries a SETTLED status from the mirror (`inbox.db.messages`) into
+`sms_log`, keyed on `twilio_sid`, outbound only. It refuses to overwrite one settled status with a
+DIFFERENT settled status: two stores disagreeing is a conflict for a human, not a guess. Dry-run by
+default; `--apply` is the only write.
+
+**Proven on a throwaway pair of stores first** (`/root/test-sync-sent-status.py`, 7 rows covering every
+branch) — `RESULT: PASS 0 failure(s)`, and the second `--apply` wrote 0, so it is idempotent:
+
+```
+scanned=6  to_change=2  conflicts=1  already_same=1  no_mirror_row=1  mirror_not_terminal=1
+CONFLICT id=4 SM_D: sms_log=delivered mirror=failed (left alone)
+RESULT: wrote 2 status update(s); 1 conflict(s) left for a human
+```
+
+**Production, before and after, from the store itself:**
+
+```
+BEFORE: suppressed=2036 failed=1039 sent=303 delivered=290 queued=79  undelivered=15 pending=3
+AFTER : suppressed=2036 failed=1039 sent=303 delivered=342 queued=27  undelivered=15 pending=3
+RESULT: wrote 52 status update(s); 37 conflict(s) left for a human
+```
+
+The SID from §53 (`SM8dea23086e7e9f203aadb4134ecaf70c`) now reads `delivered` in `sms_log` where it read
+`queued`. Scheduled as `5,15,25,35,45,55 * * * *` through `cron-wrap.sh sync-sent-status` (crontab 243 ->
+244 lines, one matching line; backup at `/root/crontab.bak-sentsync-20261018`), i.e. five minutes after the
+reconciler so it always copies a fresh reading. Run once in cron's own environment: `rc=0`,
+`wrote 0 status update(s)`.
+
+**Two residuals, both measured, neither guessed:**
+
+1. **All 27 rows still `queued` have NO mirror row** — `select count(*) ... left join messages` -> `27|27`.
+   They can never be settled from the mirror; they need a direct Twilio status query against `sms_log`
+   itself. That is the next change, and it is a different one.
+2. **37 conflicts, every one `sms_log=failed` against `mirror=delivered`.** Left alone on purpose. The
+   pattern is uniform enough to be systematic rather than random, which suggests `sms_log.failed` is being
+   written by something other than Twilio's verdict — worth one round on its own before anything trusts
+   `failed` for a retry decision.
+
+**A note on the shape.** The reconciler was not broken and its window was never the problem (§53). The
+missing piece was one direction of a two-store hop, and nothing anywhere reported that the hop was one-way
+— each side looked healthy. That is the same class as the rest of this document, and the reason a status
+field is now checked by re-deriving it rather than by trusting the row.
+
+---
+
+## 55. ROUND 60 — THE API IS KILLED TEN TIMES A DAY AND NOTHING WATCHED MEMORY
+
+This started as "close item 317" and turned into the most consequential finding of the session.
+
+**Item 317 is done, with all four DoD clauses measured:** `grep -c _DB_LOCK_WAIT_S
+/opt/company/app/database.py` -> `3`; `curl /v1/models` -> `200`; `text-health.py` ->
+`RESULT: 15 check(s), 0 FAIL`; `journalctl -u company-api --since '-10 min' | grep -c '_db_lock
+contended'` -> `0`; and `database.py` mtime `2026-10-15T15:13:40` predates the running process, so the
+deployed code IS the fixed code. Attempt 1033. Item **26 unblocked** in the same breath, because the
+restart it depended on has happened.
+
+**The restart was not a shift's.** `journalctl` says `company-api.service: Scheduled restart job, restart
+counter is at 2` — systemd restarting a unit that had just died. What killed it:
+
+```
+Oct 18 03:30:56  company-api.service: The kernel OOM killer killed some processes in this unit.
+Oct 18 03:30:58  company-api.service: Failed with result 'oom-kill'.
+Memory cgroup out of memory: Killed process 219223 (python)
+  total-vm:22874432kB, anon-rss:12519032kB, UID:0
+```
+
+`anon-rss` 12,519,032 kB against `MemoryMax` 12,884,901,888 bytes. **Ten `oom-kill` results in 24 hours**,
+four of them inside two hours — 01:21:12, 01:42:51, 02:21:49, 03:30:58. This is not the box running out of
+memory; it is the API filling its own cgroup. At the time of measurement it sat at ~4.7 GB and was **flat
+over 80 seconds** (`03:50:39 4734685184` ... `03:51:59 4684701696`), so the growth is EPISODIC and follows
+work, and no linear leak rate is claimed — an earlier 52 MB/min figure was two points 60 s apart and is
+withdrawn before it reached a recommendation.
+
+Each kill drops every in-flight request, and abandoned threads keep their SQLite locks — this estate's
+documented `database is locked` mechanism. A share of the 114 failed wake rows is plausibly this, which
+cannot be measured from the store and is therefore stated as a suspicion, not a cause.
+
+**The gap this exposes: nothing in the estate watched memory.** Disk has had a source since two near-fills
+(`sources/disk-space.py`); memory had none, so ten restarts a day were invisible.
+
+### The new source, and the defect it nearly shipped with
+
+`sources/memory-pressure.py` flags on (a) any `oom-kill` for the unit in a 2 h window — day-bucketed
+subject `memory-oom:<day>`, priority **high**, because an OOM kill is an outage that has already happened;
+(b) `MemoryCurrent` at or above 80 % of `MemoryMax`; (c) swap at or above 90 %. Tested on all three
+contract cases:
+
+```
+real condition  -> flagged memory-oom:20261018          (row 1186, high, filed)
+healthy case    -> (dry-run: 0 finding(s)) quiet        (tiny window, thresholds at 99.9)
+bogus unit      -> memory-pressure: SIGNAL UNREADABLE -- unit no-such.service does not exist  rc=1
+```
+
+**The third case failed on its first run and that is the important line in this section.** `systemctl show
+no-such.service -p MemoryCurrent` exits **0** and prints an empty line, so the source reported `quiet` for a
+unit that does not exist — the exact defect §1 of this document is about, in a file written to catch it. The
+fix is `_flag.unit_exists()` plus a refusal when `MemoryCurrent` reads 0 for a running service. A written-up
+pattern does not protect you from writing the pattern; only the negative test does.
+
+Installed by adding `memory-pressure` to the source loop in `run-wake-sources.sh` (`bash -n` OK, one
+occurrence, backup `run-wake-sources.sh.bak-memsrc-20261018`), and the leak itself filed as **ledger item
+559** (housekeeping, priority 2) so a shift owns it rather than a log line owning it.
+
+### Also this round: the evolution pipeline records every measurement against proposal 0
+
+`app/evolution.py:1136` called `create_verification(proposal_id=0, ...)` — a **literal zero** — while
+`proposal_id` was in scope as the validated non-empty string used for the evolution log one line above. That
+is why all 25 rows in `evolution_verification` have `proposal_id = 0` and why a revert could not have worked
+no matter what code sat at `evolution_verifier.py:421`: **there was nothing to revert to.** Patched to
+`proposal_id=int(proposal_id)`, backup `/root/evolution.py.bak-proposalid-20261018`, `py_compile` OK.
+
+**Labelled honestly: this branch is dormant.** It only runs when `auto_applied` is true, which needs
+`CODE_EDIT_AUTO_APPLY=false -> true` at `/opt/company/.env:122`. The fix is correct and it cannot be proven
+by anything today. Revert is the next round, and auto-apply comes after a revert has been proven by a
+planted regression — in that order, because enabling self-editing ahead of rollback is how this estate would
+lose a working system to a confident one.
+
+---
+
+## 56. ROUND 61 — THE REVERT EXISTS AND IS PROVEN ON A PLANTED REGRESSION
+
+§51 recorded "revert does not exist" as TRUE and §55 fixed its prerequisite (the literal `proposal_id=0`).
+This round closes it.
+
+**Why it could not have worked before, stated precisely.** Three facts, each measured:
+1. `code_self_edit` has always snapshotted every file it applies and **returned `snapshot_id`**; 50 snapshots
+   sit in `/opt/company/data/code_snapshots` as `{id,label,created_at,files:{rel:{content,sha256}}}`.
+2. `evolution_verification` had **no column** able to name a snapshot, and `create_verification()` never
+   received one.
+3. The regression branch at `:421` therefore recorded `status='failed'` and returned.
+
+So the machinery to revert existed and had no target. That is why "add a revert" would have been the wrong
+first move in §51, and why `proposal_id` had to be fixed first.
+
+**What changed** (commit `30b3cb51e` in `/opt/company`): `evolution_verification.snapshot_id` (additive
+`ALTER`, idempotent); `create_verification(..., snapshot_id=None)` stores it; `app/evolution.py` passes
+`apply_result.get("snapshot_id")`; `_restore_snapshot()` restores every file in a snapshot; and
+`record_measurement()` now **restores first, then records** — `status='reverted'` with the file list, or
+`failed` with `REVERT FAILED: <why>` or `NO snapshot_id on this row, so nothing was restored`.
+
+**It refuses rather than restoring nothing.** A revert that silently does nothing would let a row read
+`reverted` over code that is still regressed, which is worse than no revert. `_restore_snapshot` raises on a
+missing snapshot, an empty file set, and any path that resolves outside the checkout.
+
+**Proven on a planted regression, in a throwaway checkout** (`scripts/wake/tests/test_evolution_revert.py`):
+
+```
+restore returned: ['app/thing.py']
+file now reads : "def f():\n    return 'GOOD'\n"        <- was REGRESSED
+PASS missing snapshot raises FileNotFoundError
+PASS traversal refused: snapshot evil: ../outside.py escapes the checkout
+PASS empty snapshot refused: code snapshot empty holds no files
+PASS no .revert.tmp debris left behind
+RESULT: PASS  0 failure(s)
+```
+
+**Labelled honestly, again: this branch is dormant.** It runs only when `auto_applied` is true, which needs
+`CODE_EDIT_AUTO_APPLY=true` at `/opt/company/.env:122`, and that is still `false`. What is proven is the
+restore function and its refusals under a planted regression; what is NOT proven is `record_measurement`
+completing a live revert, because forcing that in production would rewrite `app/` files from a snapshot as a
+test. The next round that turns auto-apply on must prove the full path with a deliberately regressive
+proposal on a branch, never on master.
+
+**A note on my own reporting.** The patch printed "20659 -> 22659 bytes"; the file was 21,997 bytes on disk.
+`len()` counted *characters* — the file is full of box-drawing glyphs at 3 bytes each. The patch was correct
+and the label was wrong, which is the same defect as a wrong number anywhere else, so it is recorded rather
+than quietly fixed. **03:57Z check: the 04:07 tick had not yet run, so the `loop-stall` retirement and the
+session-sweep classifier remain PENDING.**
