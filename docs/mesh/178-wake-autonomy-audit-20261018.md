@@ -2511,3 +2511,56 @@ exists to prevent, and it will do so for every closure the closer now makes dail
 `state/status.tsv` onto the frontmatter in the `show` and `list` read paths, so all three readers agree, and make
 the `list` footer say "N entries after filters" rather than implying the index is empty. It needs its own round
 with a throwaway journal to prove it, exactly as the write-back needed one.
+
+---
+
+## 68. ROUND 73 — MY OWN CAPABILITY LADDER KILLED TWO SHIFTS
+
+The failure count moved while this session was working: `failed 4` at 05:03, **`failed 6`** at 05:09. Both new
+failures were high-priority rows — precisely the class the ladder from §62 targets — and both died in **2
+seconds**:
+
+```
+05:08:05Z releasing wake #1186 (memory-oom:20261018) -> zabz-tech-ts
+05:08:07Z released 2026-10-18 wake #1123 failed exit=1 runner_code=3 dur=2s
+   outcome: ssh hop failed (rc=1) after 2s, ... output: === wake-run (W2) started ...
+     model lane: PINNED by the balance control -> deepseek/deepseek-v4-pro (WAKE_AGENT_MODEL)
+     model: FAIL-LOUD UNRESOLVED - refusing to boot on the profile composition default:
+            resolver could not validate 'deepseek/deepseek-v4-pro' against a live catalog
+```
+
+**This was my change.** The ladder resolved the id from the authority's catalog FILE
+(`~/.sms-inbox/model-catalog.json`, where `deepseek/deepseek-v4-pro` is listed); the runner validates against a
+**live** catalog and does not contain it. §62 proved the shell block produced the right argument — it did — and
+never proved the id was valid *where it would actually be used*.
+
+### Stopped, and the cost
+
+The pin is now inert: it requires `WAKE_CAPABILITY_LANE=1`, which nothing sets. Verified by running the shipped
+block with `PRIORITY=high` and the env unset: `LANE=[] LANE_ARG=[]`. `bash -n` clean, backup
+`wake-dispatch.sh.bak-ladderoff-20261018`. The ladder code, catalog resolution and `wake-lane.log` are kept so the
+next round can point it at the right catalog instead of rebuilding it.
+
+**Damage, repaired where possible:** `wake #1123` had reached **2 of 2 attempts** and would never retry — a row
+killed by my bug, not by its own work. Its attempt is refunded (`state=new, attempts=1/2`) with the reason
+written into `outcome` so the next reader sees why:
+
+> REFUNDED 2026-10-18 by wake-audit: failed exit=1 runner_code=3 in 2s because the capability lane pinned
+> deepseek/deepseek-v4-pro and the runner could not validate it. That was a dispatcher regression, not a fault
+> of this work ... The lane is now inert until WAKE_CAPABILITY_LANE=1.
+
+`wake #1186` still had an attempt in hand and will retry on its own.
+
+### The lesson, which is about my method and not about models
+
+§62 said, in the record, "PENDING, and a clock owns it: the first real high-priority release must show
+`reason=capability:high-priority` AND the shift must actually run under that model". **Then it shipped the change
+active by default anyway.** Labelling something "pending proof" is not a safety measure; the only safe form of an
+unproven lane is an inert one, enabled by whoever holds the proof.
+
+The counter that caught it was not a test — it was `failed` going 4 → 6 between two reads. Twelve minutes of
+monitoring the number that matters was worth more than the isolation test that said the block was correct.
+
+**The fix for next round is small and specific:** resolve the lane against the same catalog the runner reports
+(`catalog=https...` in the outcome above), prove it with ONE high-priority release whose outcome line reads
+`model lane: ...` and no `FAIL-LOUD`, and only then export `WAKE_CAPABILITY_LANE=1`.
