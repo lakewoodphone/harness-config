@@ -8,6 +8,14 @@
   "pain": 7819,
   "wins": 6875
  },
+ "ceiling_refreshed_at": "2026-10-18T14:30:26Z",
+ "ceiling_source": {
+  "decisions": "ZABZ-YOGA live working tree",
+  "handoff": "ZABZ-YOGA live working tree",
+  "lessons": "refs/heads/hk/584-wake-lock-holders",
+  "pain": "ZABZ-YOGA live working tree",
+  "wins": "ZABZ-YOGA live working tree"
+ },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-18 14:30 UTC",
  "entries": 5303,
@@ -15,9 +23,9 @@
  "entries_sig": "fb913a67dc1831b07e790d384401b3643a631905",
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
-  "decisions": 6976,
-  "handoff": 7720,
-  "lessons": 8445,
+  "decisions": 7040,
+  "handoff": 7784,
+  "lessons": 8509,
   "pain": 7882,
   "wins": 6938
  },
