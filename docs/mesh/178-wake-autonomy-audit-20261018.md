@@ -2361,3 +2361,22 @@ inbound  app_has_it=0    0
 With today's labelling it **cannot fire**: every inbound row is marked as held by the app, so the comparison is
 circular. That is a reading that cannot distinguish two states, and rebuilding it against real provider truth is
 its own piece of work rather than a patch at the end of a round.
+
+### 66a. A probe that counted itself
+
+`pgrep -fc "pain-check.py --close"` returned **3** twice while the work had actually finished, and returned **2**
+when nothing was running at all. `pgrep -f` matches its own command line and the shell that invoked it, so the
+number included the probe. The reliable reading is `ps -eo pid,etime,cmd | grep ... | grep -v grep`, which shows
+real PIDs and an elapsed time:
+
+```
+466903  00:29  /usr/bin/python3 /root/bin/pain-check.py --close --write-status
+466905  00:29  bash /home/zabz/bin/pain-checks/C1.sh
+```
+
+A relaunch also silently failed while an earlier `nohup ... &` inside the same ssh invocation was killed when the
+session closed; `nohup setsid ... < /dev/null &` followed by a **separate** call to verify is what works.
+
+This is the estate's oldest lesson in a new costume: *do not trust a `0` (or a `3`) from a counter that the
+probe can be part of.* The closer's real state at the end of this round: **running** (PID 466903, verified by
+`ps`), closure count still **UNVERIFIED**, and `--close` still **not in cron**.
