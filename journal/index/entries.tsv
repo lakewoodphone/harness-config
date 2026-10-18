@@ -3535,6 +3535,7 @@ lessons	L7679	7679		2026-10-18	SECRATARY-CLOUD	open	**L7679 · CORRECTION L7614:
 lessons	L7742	7742		2026-10-18	secratary-cloud	open	**L7742 · The PIN rotation exists, rotates every three days, is announced to nobody — and the weekly one was deleted in the September dead-generation purge**	entries/lessons/L7742.md	1	24	6b6fe3786738344a	ha,pin,access-control,rotation,lessons	
 lessons	L7934	7934		2026-10-18	SECRATARY-CLOUD	open	**L7934 · NJ ST-50 amounts live in njportal.com payment receipts, not treasury notices**	entries/lessons/L7934.md	1	6	fad363c45af93e61	tax,nj,gmail,st50,evidence	D5934
 lessons	L7935	7935		2026-10-18	SECRATARY-CLOUD	open	**L7935 · NJ ST-50: repair labour is taxable, basis is accrual, and the receipt tool says the opposite**	entries/lessons/L7935.md	1	22	4c162a855bff8423	tax,st50,nj,sales-tax,ledger	
+lessons	L8062	8062		2026-10-18	secratary-cloud	open	**L8062 · A question to one person must never leave from the family chat hub**	entries/lessons/L8062.md	1	79	f4dc2570d7096dd8	sms,family-chat,outbound,gate,incident	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
