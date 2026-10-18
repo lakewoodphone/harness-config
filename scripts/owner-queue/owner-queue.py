@@ -1641,6 +1641,28 @@ def _deadline_soon(text):
     return bool(RE_DEADLINE_SOON.search(t))
 
 
+#: A relative day word dates the item to the day it arrived. MEASURED 2026-10-18: the queue's second
+#: highest item was "Yocheved asks you to order four grocery items for dinner tonight" -- four days
+#: after that dinner. Asking him that is worse than not asking: it spends his attention and returns
+#: nothing. So a row that said "tonight"/"today"/"tomorrow" and is older than that day is marked
+#: POSSIBLY MOOT, demoted, and says so on its own card.
+RE_SAME_DAY = re.compile(
+    r"\b(tonight|today|this (?:evening|afternoon|morning)|tomorrow|by (?:tonight|today|tomorrow))\b",
+    re.I)
+
+
+def _moot(item):
+    """(is_moot, reason). A named day that has already passed, and the age that proves it."""
+    age = item.get("age_hours")
+    if not isinstance(age, (int, float)) or age < 30:
+        return False, ""
+    text = "%s %s" % (item.get("title") or "", item.get("_blob") or "")
+    m = RE_SAME_DAY.search(text)
+    if not m:
+        return False, ""
+    return True, "said \"%s\" %.0f hours ago" % (m.group(1).lower(), age)
+
+
 def _queue_score(item):
     """THE ordering function. Deterministic, and every term prints its own arithmetic.
 
@@ -1692,6 +1714,9 @@ def _queue_score(item):
     if learned:
         score = max(1, score - int(learned))
         why.append("learned=-%d" % int(learned))
+    if item.get("moot"):
+        score = max(1, score - 200)
+        why.append("moot=-200")
     return int(score), " ".join(why)
 
 
@@ -1763,12 +1788,15 @@ def _gather_queue(con, include_deferred=False):
             "ask": bool(meta.get("ask")),
             "deadline": bool(meta.get("deadline")) or soon,
             "deadline_soon": soon,
-            # The row's own words are the fallback: measured 2026-10-18, meta.money was NULL on
-            # every one of 42 pending rows, so this term had never fired once.
-            "money": meta.get("money") if meta.get("money") is not None else _money_in(blob),
+            # The amount is taken from the judge's one-liner or its own field -- NEVER from the
+            # body. Measured 2026-10-18: reading the whole context made a grocery order score
+            # money=+200 (the prices of the items in the mail) and put "order four items for
+            # dinner tonight" above a suspended phone line.
+            "money": meta.get("money") if meta.get("money") is not None else _money_in(r["question"]),
             "channel": r["channel"],
             "party": r["party"],
             "_sender": str(meta.get("sender") or ""),
+            "_blob": (r["question"] or "") + " " + (r["context"] or "")[:400],
             "deferred": deferred,
             "_unseen": not r["seen_at"],
             "at": at,
@@ -1831,6 +1859,8 @@ def _gather_queue(con, include_deferred=False):
 
     prof = _learning_profile(con)
     for it in items:
+        it.setdefault("_blob", str(it.get("title") or ""))
+        it["moot"], it["moot_why"] = _moot(it)
         it["learned"] = _learned_penalty(it, prof)
         it["score"], it["why"] = _queue_score(it)
     items.sort(key=lambda i: (-i["score"], i["surface"] != "queue", str(i["id"])))
@@ -1979,6 +2009,9 @@ def cmd_show(con, a) -> int:
         row = con.execute("SELECT * FROM owner_decision_queue WHERE id=?", (it["id"],)).fetchone()
         if row:
             print(fmt(row))
+            if it.get("moot"):
+                print("POSSIBLY MOOT — %s. Check the premise before you ask him."
+                      % it.get("moot_why"))
             print("SCORE %d   %s" % (it["score"], it["why"]))
             _mark_seen(con, "queue", it["id"])
             return 0
@@ -1994,6 +2027,8 @@ def cmd_show(con, a) -> int:
         print("  CHANNEL: %s" % it["channel"])
     if it["at"]:
         print("  WHEN: %s" % str(it["at"])[:16].replace("T", " "))
+    if it.get("moot"):
+        print("\n  POSSIBLY MOOT — %s." % it.get("moot_why"))
     print("\nSCORE %d   %s" % (it["score"], it["why"]))
     print("=" * 78)
     return 0

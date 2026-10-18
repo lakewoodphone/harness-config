@@ -148,8 +148,9 @@ score = tier                      critical 1000 · high 700 · medium 400 · low
       + 40  if it arrived in the last 24h
       + 80  if a person is asking him something
       + 60  if it names a deadline, +60 more if that deadline is inside a week
-      + min(200, money / 10)                   read from the row's own words, not from a column
+      + min(200, money / 10)                   read from the one-liner, not from the body
       - learned penalty                        what his own answers taught (see §6)
+      - 200 if the row named a day that has passed (POSSIBLY MOOT)
 ```
 
 Two things this got wrong first, both measured on the live 42-row queue before they were fixed:
@@ -195,12 +196,28 @@ row carries when it lands, and what `show`/`card` print:
 | **What he would do** | the judge's `action` |
 | **My recommendation** (decisions) | the judge's `recommendation` |
 | The full text | the message body, HTML stripped (email) or the cleaned transcript (Voice) |
-| **History with this sender** | closed queue items from the same domain or party, with his own past answer |
+| **History with this sender** | closed queue items from the same *identity*, with his own past answer |
 | Thread state | how many messages in the conversation, and which is newest |
-| Amount, deadline, tier | read from the words at rank time, so they cannot go stale |
+| Amount, deadline, tier | read from the one-liner at rank time, so they cannot go stale |
+| **POSSIBLY MOOT** | added when the row named a relative day that has passed |
 
 A decision without a recommendation is a **defect**, not a nicety: he asked to answer without going
 and looking anything up.
+
+Two of these were wrong on the first build and are worth not repeating:
+
+* **History matched on the mail domain**, so a card for his wife's grocery request listed four Telnyx
+  and Chase items as "history with this sender" — `gmail.com` is not an identity. For freemail
+  domains the **full address** is the identity; for a company the domain is. A false provenance claim
+  is worse than no history.
+* **The amount was read from the whole message**, so a grocery order scored `money=+200` off the
+  prices of the items in it and outranked a suspended phone line. Money comes from the judge's field
+  or its one-liner, **never from the body**.
+
+**POSSIBLY MOOT** exists because the queue's second-highest item was *"Yocheved asks you to order four
+grocery items for dinner tonight"*, four days after that dinner. Asking him is worse than not asking:
+it spends his attention and returns nothing. A row whose text says `tonight`/`today`/`tomorrow` and
+which is older than that day is flagged on its own card and demoted by 200.
 
 ## 8. The working set — what "let's knock out the queue" actually shows
 

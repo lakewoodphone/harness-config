@@ -145,7 +145,12 @@ TIER IS ABOUT CONSEQUENCE, NOT ABOUT WHO SENT IT. A link from his wife is low. A
 article is low. A newsletter he is subscribed to is drop. A bill that will suspend a service is
 critical. A notice that a password or 2FA changed is high. If the message is already a day or
 more old when it arrives in the batch, tier does not go up to compensate -- the queue scores age
-by itself."""
+by itself.
+
+THE RATE IS PART OF THE JUDGEMENT. He receives roughly 30 emails a day and wants to be told
+about a handful, not a digest of his own statements. A good day of mail produces about 3 or 4
+items. If you are keeping more than one message in eight, you are being generous with his
+attention, and he will stop opening the queue."""
 
 
 def _norm(s: str) -> str:
@@ -538,9 +543,31 @@ def _title(m: dict, v: dict) -> str:
     return t
 
 
-def _domain_of(sender: str) -> str:
-    m = re.search(r"@([A-Za-z0-9.\-]+)", sender or "")
-    return (m.group(1).lower() if m else "").rstrip(">")
+#: Mail domains that identify a PERSON's mailbox, not an organisation. Matching history on one of
+#: these joins every item from every Gmail user -- measured 2026-10-18: a card for Yocheved's grocery
+#: request listed four Telnyx and Chase items as "history with this sender". A false provenance claim
+#: is worse than no history, so for these the full address is the identity, never the domain.
+FREEMAIL_DOMAINS = frozenset({
+    "gmail.com", "googlemail.com", "yahoo.com", "outlook.com", "hotmail.com", "live.com",
+    "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "gmx.com", "msn.com",
+})
+
+
+def _sender_identity(sender: str) -> tuple[str, str]:
+    """(match_kind, value) for history: the full address for freemail, the domain otherwise."""
+    addr = ""
+    m = re.search(r"<([^>]+)>", sender or "")
+    if m:
+        addr = m.group(1).strip().lower()
+    else:
+        m2 = re.search(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+", sender or "")
+        addr = (m2.group(0).lower() if m2 else "")
+    dom = addr.split("@")[-1] if "@" in addr else ""
+    if dom in FREEMAIL_DOMAINS and addr:
+        return "address", addr
+    if dom:
+        return "domain", dom
+    return "", ""
 
 
 def _history_block(con, it: dict) -> str:
@@ -548,12 +575,23 @@ def _history_block(con, it: dict) -> str:
 
     The owner's requirement (2026-10-18): "all information about it must be gathered in case I want
     more info, so only put it in the queue after all info is gathered". A row that lands without the
-    last three things this sender wrote, or without how he answered the last one, makes him go and
+    last few things this sender wrote, or without how he answered the last one, makes him go and
     look -- which is the thing he asked to stop doing.
     """
-    dom = _domain_of(it.get("sender"))
+    kind, value = _sender_identity(it.get("sender") or "")
     party = (it.get("party") or "").strip()
-    if not dom and not party:
+    clauses, args = [], []
+    if kind == "address":
+        clauses.append("meta_json LIKE ?")
+        args.append("%%%s%%" % value)
+    elif kind == "domain":
+        clauses.append("meta_json LIKE ?")
+        args.append("%%@%s%%" % value)
+    # A party match only when the party is a real name, not a section label.
+    if party and len(party) >= 5 and party.lower() not in ("several", "unknown", "various"):
+        clauses.append("party LIKE ?")
+        args.append(party[:12] + "%")
+    if not clauses:
         return ""
     try:
         rows = con.execute(
@@ -561,10 +599,9 @@ def _history_block(con, it: dict) -> str:
             "       COALESCE(NULLIF(answer,''), NULLIF(resolution,''), '') how,"
             "       COALESCE(answered_at, resolved_at, asked_at) t"
             "  FROM owner_decision_queue"
-            " WHERE status IN ('answered','resolved','dismissed','dismissed_noise_v1','superseded')"
-            "   AND (meta_json LIKE ? OR party LIKE ?)"
-            " ORDER BY t DESC LIMIT 4",
-            ("%%%s%%" % dom if dom else "\x00", (party[:12] + "%") if party else "\x00")).fetchall()
+            " WHERE status IN ('answered','resolved','dismissed','dismissed_noise_v1')"
+            "   AND (" + " OR ".join(clauses) + ")"
+            " ORDER BY t DESC LIMIT 4", args).fetchall()
     except Exception:
         return ""
     if not rows:
@@ -574,7 +611,7 @@ def _history_block(con, it: dict) -> str:
         said = _norm(str(r["how"] or ""))[:100]
         out.append("  · #%s %s %s: %s%s" % (r["id"], str(r["t"])[:10], r["status"],
                                             str(r["q"] or "")[:80],
-                                            (" — answered: \"%s\"" % said) if said else ""))
+                                            (" — he said: \"%s\"" % said) if said else ""))
     return "\n".join(out)
 
 
@@ -623,9 +660,10 @@ def write_items(con, items: list[dict]) -> dict:
             if existing[1] == "pending":
                 con.execute(
                     "UPDATE owner_decision_queue SET question=?, context=?, severity=?,"
-                    " recommendation=?, evidence_at=?, meta_json=? WHERE dedupe_key=?",
-                    (question, context, it["tier"], it.get("recommendation") or "",
-                     it["received_at"], meta, key))
+                    " kind=?, recommendation=?, evidence_at=?, meta_json=? WHERE dedupe_key=?",
+                    (question, context, it["tier"],
+                     "decision" if it["verdict"] == "decision" else "attention",
+                     it.get("recommendation") or "", it["received_at"], meta, key))
                 stats["refreshed"] += 1
             else:
                 stats["left_closed"] += 1
