@@ -3312,3 +3312,33 @@ The fixes that held are the ones that shipped a *fact* — a command, a count, a
 (capability lane, watched); then item **586** (shipper from the authority, or the 93-session gap refills daily);
 then the post-05:32 lease observation, which is the only thing standing between "the message names its cause" and
 "the cause is understood".
+
+---
+
+## 83. ROUND 88 — A CLEAN DISPATCHER IS FINALLY RUNNING, AND THE 05:38 KILL IS NOT EVIDENCE AGAINST IT
+
+```
+05:38:04  pid 540346 starts            <- AFTER the 05:32 atomic re-publish, so it reads the clean file
+05:38:06  releasing wake #514 (pain-checks:fixed-open:10)
+05:38:06  ERROR lease for wake #1170 not renewed ... [hbrc=unset decision=unset rc=unset attempt=unset]
+```
+
+**Read those two 05:38:06 lines separately, because they come from different processes.** `#514` is the new,
+clean instance (540346). The `#1170` kill belongs to the **pre-re-publish** instance (517765, started 05:25:03),
+which had been running that row since 05:25:06 and is still reading a byte-mixture by construction.
+
+So the `hbrc=unset` line is **exactly what §77 predicts** for a mixed-code instance — a third confirmation of the
+diagnosis, not a failure of the fix. A future session must not read it as post-republish evidence; the timestamp
+alone does not separate them, the **pid** does.
+
+### What is now testable, and what is not
+
+- **Testable:** when #514 settles, its outcome is produced by clean code, and if it kills, the line will carry
+  `hbrc=<number>`. That is the observation this thread has needed since §76.
+- **Not testable from the log alone:** which instance wrote a given line. Any future comparison here must join
+  the line to a pid — the log records time and text, not the process, and this round is the proof that the
+  difference matters.
+
+**The general lesson, which cost four rounds:** a log with no process identity cannot distinguish two versions of
+the same script running at once. `flush`-time stamps are not enough; the pid or the file hash is. Every kill line
+in this dispatcher should arguably carry its own `$$` — it would have made §63 through §83 a single lookup.
