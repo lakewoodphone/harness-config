@@ -3289,3 +3289,26 @@ $ cat /root/.sms-inbox/session-sweep-state.json
 **No flag was filed, no cap was read, and the production state file still says `filed: 3`.** The objective's
 "session sweep quality" item moves from *proven in isolation* to **proven on live data**, and the last thing it
 owes — a real filing with a real reason at 00:00 UTC — is now a formality rather than a discovery.
+
+---
+
+## 82. ROUND 87 — THE BRIEF'S FIVE ITEMS, STATED ONCE WITH THEIR EVIDENCE
+
+Written because a reviewer should not have to reconstruct this from 80 sections.
+
+| the brief's item | state | where the evidence is |
+|---|---|---|
+| **deploy regression hazard** | **CLOSED, both ends** | §45 the guard that refuses a divergent install; §73 production pulled INTO the repo (`f6f5b0c7`), so the same dry run now says `identical, nothing to do`. A deploy is a no-op until the repo is deliberately changed. |
+| **the owner channel** | **CLOSED for the defects found** | §54 write-back (`sms_log` settled from the mirror); §58 the reconciler was asking the **wrong Twilio account** — 23 rows settled once both were asked; §57 the 37 "conflicts" named as the 2026-08-30 retirement relabel plus one wrong rule of mine. Open elsewhere and not a defect here: his digest is 258 chars/day and several reminders land on `dashboard`. |
+| **evolution revert** | **BUILT, PROVEN ON A PLANTED REGRESSION, DORMANT** | §56 `evolution_verification.snapshot_id`, `_restore_snapshot`, restore-then-record; proven REGRESSED -> GOOD plus four refusals. Cannot be live-proven while `CODE_EDIT_AUTO_APPLY=false`. |
+| **session sweep quality** | **PROVEN ON LIVE DATA** | §48 five classifier defects fixed with a 5/5 test; §81 run against production sessions with a throwaway state file — every reason now a judgeable sentence, and `1dde3adc` (the `"I'll f"` row) yields *"Not yet observed: the send itself"*. Only a real filing at the 00:00 UTC cap reset remains. |
+| **capability tiers** | **BUILT, INERT, ID VALIDATED** | §62 the ladder; §70 the id `deepseek-v4-pro` validated by the runner's own resolver — and the **conserve lane found to be a latent total outage** and disarmed. Enabling it is **ledger item 587**, with the monitor step, because §68 is the record of what an unwatched lane costs. |
+
+**The pattern across all five is the same and it is the document's §1:** every one had a mechanism that existed and
+was wired to nothing, or wired to the wrong store, or believed on the strength of a claim rather than a reading.
+The fixes that held are the ones that shipped a *fact* — a command, a count, an inode — instead of an opinion.
+
+**What a next session should do first, in order:** read `H7529` (rounds 82-84) and this section; then item **587**
+(capability lane, watched); then item **586** (shipper from the authority, or the 93-session gap refills daily);
+then the post-05:32 lease observation, which is the only thing standing between "the message names its cause" and
+"the cause is understood".
