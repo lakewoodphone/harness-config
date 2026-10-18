@@ -3250,3 +3250,42 @@ started and no release had run since 05:32.
 **The distinction this round adds:** "the lease path is broken" and "a lease event happened" are different claims, and
 only the second one was ever supported. Renewals advancing on two live rows is the cheapest possible test of the
 first, and it comes out negative — which is the outcome a session should want before it goes looking for a defect.
+
+---
+
+## 81. ROUND 86 — THE SWEEP CLASSIFIER IS VERIFIED ON LIVE DATA, TODAY, WITHOUT TOUCHING THE CAP
+
+§48 fixed five defects in `session-sweep.py`'s classifier and could not prove them in production: the source had
+filed 3 of its 3 daily flags and the cap check runs **before** the dry run, so `--dry-run` inherited the refusal.
+The honest options were "wait for 00:00 UTC" or "raise the cap to get a faster green", and both are wrong.
+
+There was a third: `state_file()` honours **`SESSION_SWEEP_STATE`**, so the classifier can be run against a
+throwaway state while the real one is untouched.
+
+```
+$ printf '{"date": "2026-10-18", "filed": 0}' > /tmp/sweep-test.json
+$ SESSION_SWEEP_STATE=/tmp/sweep-test.json python3 session-sweep.py --dry-run
+(dry-run) would flag session-sweep:2afa3983-... [commitment phrase: ...back to the launch document.
+          Tell me the answer to any of those and I will close it in the document and, where it
+          matters, on the sheet...] age=2.5h machine=zabz-yoga
+(dry-run) would flag session-sweep:6c9c1ce4-... [commitment phrase: ...Say the word if you'd rather
+          the sideways words were grey so MOST AWESOME punches harder; that's a two-minute change...] age=3.6h
+(dry-run) would flag session-sweep:1dde3adc-... [commitment phrase: ...**Not yet observed:** the send
+          itself. The gap floor blocks until about 15:59Z...] age=37.5h
+$ cat /root/.sms-inbox/session-sweep-state.json
+{"date": "2026-10-18", "filed": 3}          <- unchanged
+```
+
+**Three findings, and the third is the important one.**
+
+1. Every reason is now a **judgeable sentence** instead of a two-character fragment. That was defect 1 and 2 of
+   §48, verified on real sessions rather than on the test fixtures that proved the fix in isolation.
+2. The recall is real: three candidates at 2.5 h, 3.6 h and 37.5 h, each quoting the assistant's own words plus
+   the age and the machine, so a reader can decide without opening the session.
+3. **`1dde3adc` is the exact session that produced `commitment phrase: "I'll f"` in §48** — the row that started
+   this whole thread. It now yields *"**Not yet observed:** the send itself. The gap floor blocks until about
+   15:59Z"*, which is the actual unfinished thing and was always the right answer.
+
+**No flag was filed, no cap was read, and the production state file still says `filed: 3`.** The objective's
+"session sweep quality" item moves from *proven in isolation* to **proven on live data**, and the last thing it
+owes — a real filing with a real reason at 00:00 UTC — is now a formality rather than a discovery.
