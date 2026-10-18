@@ -1706,3 +1706,70 @@ that is worth knowing before anything builds a retry policy on the column.
 
 **Still open: 27 rows with no mirror row** (`no_mirror_row=360` overall, `27|27` of the queued ones). They need
 a direct Twilio status query against `sms_log`; the mirror cannot settle them and neither can a wider window.
+
+---
+
+## 58. ROUND 63 — THE RECONCILER WAS ASKING THE WRONG TWILIO ACCOUNT
+
+§54 and §57 left 27 rows unconfirmed because they have no row in the capture mirror. The mirror cannot
+settle them, so the only remaining source is the provider. This round asked it, and the answer was not what
+any of the counts implied.
+
+### Two accounts, and only one was ever asked
+
+`reconcile-sent-status.py` builds one URL from `TWILIO_ACCOUNT_SID`. Measured on one of the 27 sids:
+
+```
+MAIN   creds present: True   acct tail: 71b6   -> HTTP 404
+FAMILY creds present: True   acct tail: f292   -> HTTP 200  status=delivered from=+17328009174 to=+18482245096
+```
+
+The row was **delivered**, by the **family-chat account**, while every reconciler in the estate asked the
+main account and got "not this account's message". That is why the rows were unconfirmable, and it is not an
+age problem: their `created_at` range is `2026-10-14 .. 2026-10-18`, i.e. the last four days.
+
+### The result, from the store
+
+New `/root/bin/reconcile-sms-log.py` — asks each account in order, reports which answered, never filters on a
+date (age is the point; the existing reconciler's own comments record how a string date comparison once
+selected 1838 of 1914 rows), and skips any row without a real `SM...` sid.
+
+```
+unsettled outbound rows to ask Twilio about: 23
+  4240   SM1a9e36203e88b80625eb4f42fa9fe5d2 queued -> delivered (answered by family)
+  ...
+to_change=23  already_settled=0  unanswered=0
+sms_log outbound AFTER: suppressed=2036 failed=1039 delivered=366 sent=302 undelivered=15 queued=4 pending=3
+RESULT: wrote 23 status update(s); 0 unanswered
+```
+
+**22 of the 23 were messages the database insisted had not been delivered.** `queued 27 -> 4`,
+`delivered 343 -> 366`, and the sid from the two-account test (`...c76d`, row 4155) reads `delivered`.
+
+**The first `--apply` wrote nothing**: `sqlite3.OperationalError: database is locked`. The authority database
+is written continuously by company-api, and one lock lost the whole batch because the script committed once at
+the end. Fixed with `PRAGMA`-level patience expressed as code the reader can see: per-row commit and a
+retry-with-backoff (`_write_status`, 6 attempts), so a lock costs one row instead of the run. That is the same
+pressure the ten OOM kills a day produce (§55), arriving in a different costume.
+
+Scheduled `12,42 * * * *` via `cron-wrap.sh reconcile-sms-log` (crontab 244 -> 245, one match, backup
+`/root/crontab.bak-smsrecon-20261018`).
+
+### The four that remain, and why they are not a defect to fix here
+
+```
+id 1038, 1039, 1040, 1044   twilio_sid = ''   created_at 2026-09-29
+```
+
+They have **no sid at all**, so they never became a Twilio message and no API can have an opinion about them.
+Their `queued` status is wrong for a different reason than the other 23 — something failed between "record the
+intent" and "create the message" — and rewriting it from here would be inventing a verdict. Counted, explained,
+left for the sender to fix.
+
+### A correction to §50
+
+§50 reported `delivered 2, failed 5, queued 35` over seven days and I read that as "delivery is mostly
+unconfirmed". The count was right; the conclusion was too dark. **At least 23 of those queued rows were
+delivered**, and the record could not say so because nothing asked the second account. The honest sentence is
+"the record could not see the delivery", not "the delivery did not happen" — and the difference between those
+two sentences is the whole reason this document exists.
