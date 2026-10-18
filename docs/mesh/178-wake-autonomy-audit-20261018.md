@@ -2696,3 +2696,48 @@ Filed as **ledger item 584**: on `rc=2` with `database is locked`, record `fuser
 cmdline) for `inbox.db` into the dispatch log next to the error, then produce one occurrence naming a real PID
 or 24 hours with none. **Not implemented this round** — it touches the lease path in the live dispatcher, and
 the last time this session edited that file without an end-to-end proof it cost two shifts (§68).
+
+---
+
+## 71. ROUND 76 — A WATCHER THAT NAMES THE LOCK HOLDER, BUILT WITHOUT TOUCHING THE LEASE PATH
+
+Item 584 asked for the lock holder to be captured at the instant of failure. §70a deferred it because the
+obvious implementation edits `lease_probe` in the live dispatcher, and §68 is the record of what an unproven
+edit to that file costs.
+
+**So it was built as an additive watcher instead** — `/root/bin/wake-lock-watch.py`. It samples the lock a
+writer needs (`BEGIN IMMEDIATE` with a 300 ms busy timeout) for a bounded window; on failure it records the raw
+error plus **every PID with the database open** (scanned from `/proc/*/fd`, so no `lsof` dependency) and each
+holder's command line. Nothing in the dispatch path changed.
+
+### Proven on a planted lock, both paths
+
+```
+quiet path   (real store)   ->  quiet: 2 probe(s), the write lock was free every time
+planted lock (throwaway db) ->  LOCKED database is locked | holders: pid 499887 python3 -c
+                                import sqlite3,time ... c.execute("BEGIN IMMEDIATE"); time.sleep(9) ...
+```
+
+That is a real PID and its full command line, captured while it held the lock — exactly what SQLite cannot
+tell you after the fact. The first version listed **itself** as a holder (honest noise, useless signal); it now
+skips `os.getpid()`.
+
+### Installed and running
+
+`* * * * *` via `cron-wrap.sh wake-lock-watch`, 15 probes at 3 s (a 45-second window each minute), crontab
+245 -> 246 lines, payload decoded to verify:
+
+```
+/usr/bin/python3 /root/bin/wake-lock-watch.py --probes 15 --gap 3 >> /root/.sms-inbox/wake-lock-cron.log 2>&1
+```
+
+**Fired under cron at 05:17: `quiet: 15 probe(s), the write lock was free every time`, and no
+`wake-lock.log` was created** — which is the correct quiet behaviour, and also an honest "not yet".
+
+**Item 584 stays OPEN.** Its DoD is a *real* capture naming a real holder, or 24 hours with none; a mechanism
+that has only ever been shown a planted lock has been RUN, not TESTED by the world. The note on the item records
+the mechanism, the planted proof and that it is awaiting its first true occurrence.
+
+**The shape worth keeping:** when a change would touch a fragile live path and cannot be proven end to end, do
+not make it smaller — make it a *separate process* that observes. The estate already learned this once
+(`mirror-owner-sms` rather than editing the live responder). This is the same move applied to instrumentation.
