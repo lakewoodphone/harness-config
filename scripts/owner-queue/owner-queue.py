@@ -2665,6 +2665,42 @@ def _working_set(items, max_age_days=21, show_all=False):
     return visible, old, quiet, thin
 
 
+def _public(item):
+    """One item as the JSON surface emits it — the same words the card shows, nothing private.
+
+    MEASURED 2026-10-18, and it was live: `owner_attention.py send --dry-run` would have texted him
+    *"Obligation OVERDUE: Landlord utilities … - decide — Investigate it and bring me a
+    recommendation - decide: pay it or dispute it (Recommended) Yes?"* — because the delivery surface
+    read `question` and `recommendation` straight from the row, and the card's enrichment (§7.1) lived
+    only in the card. A second surface composing from raw columns is a second queue in disguise.
+    """
+    rec = item.get("_derived_recommendation") or item.get("recommendation") or ""
+    out = {
+        "id": item.get("id"),
+        "surface": item.get("surface"),
+        "kind": item.get("kind"),
+        "tier": item.get("tier"),
+        "title": item.get("title"),
+        "question": item.get("title"),
+        "kind_label": "decision" if item.get("kind") == "decision" else "news",
+        "recommendation": rec,
+        "why": item.get("why"),
+        "score": item.get("score"),
+        "age_hours": item.get("age_hours"),
+        "party": item.get("party"),
+        "channel": item.get("channel"),
+        "money": item.get("money"),
+        "deadline": bool(item.get("deadline")),
+        "at": item.get("at"),
+        "ready": bool(item.get("_ready", True)),
+        "missing": item.get("_missing") or "",
+        "moot": bool(item.get("moot")),
+        "facts": [{"label": l, "value": v} for l, v in (item.get("_facts") or [])],
+        "also": [str(x[0]) for x in (item.get("_also") or [])],
+    }
+    return out
+
+
 def cmd_queue(con, a) -> int:
     """The one ordered list. `--limit 1` is the thing to run when he says "next"."""
     items = _gather_queue(con, include_deferred=getattr(a, "all", False))
@@ -2684,7 +2720,8 @@ def cmd_queue(con, a) -> int:
     ops = _ops_alert_count(con)
 
     if getattr(a, "json", False):
-        print(json.dumps(items[: (a.limit or len(items))], indent=1, default=str))
+        print(json.dumps([_public(i) for i in items[: (a.limit or len(items))]],
+                         indent=1, default=str))
         return 0
 
     if not items:
