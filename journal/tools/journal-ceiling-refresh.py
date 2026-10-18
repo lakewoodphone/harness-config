@@ -34,8 +34,9 @@ USAGE
     python3 journal-ceiling-refresh.py --dry-run    # compute and report, publish nothing
     python3 journal-ceiling-refresh.py --no-fetch   # use refs as they stand (offline, tests)
 
-Exit codes: 0 refreshed · 1 a peer fetch failed but a ceiling was still published (degraded) ·
-2 could not publish.
+Exit codes: 0 refreshed · 3 a peer fetch failed but a ceiling was still published (a
+CONDITION, not a fault -- the repo's CONDITION_EXIT; an unreachable or sleeping peer must
+not red-streak this job) · 1 could not publish (a fault).
 """
 
 from __future__ import annotations
@@ -447,7 +448,7 @@ def main() -> int:
         if out.get("written"):
             print(f"  wrote {out['written']}")
 
-    return 1 if fetched_failed else 0
+    return 3 if fetched_failed else 0
 
 
 if __name__ == "__main__":
