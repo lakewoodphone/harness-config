@@ -3120,3 +3120,45 @@ three rounds because each fix looked like it worked — the *deployment* was the
 **Also worth naming:** my patch scripts write with `io.open(path, "w")`, which truncates in place. Every patch
 this session used that idiom. The fix is the caller's `mv`, and it is now the documented procedure rather than a
 habit.
+
+---
+
+## 78. ROUND 83 — THE FIX WAS DEMONSTRATED AND THEN PUT WHERE AGENTS READ IT
+
+§77 diagnosed the impossible diagnostics and stated the procedure. This round proved it and moved the rule out of
+this document, because a rule that lives only in an audit document is a rule with one reader.
+
+### Demonstrated, not asserted
+
+```
+before:  inode 2164595                               two live dispatchers, fd 255 -> the file
+re-publish:  cp -p wake-dispatch.sh wake-dispatch.sh.new
+             bash -n wake-dispatch.sh.new && mv wake-dispatch.sh.new wake-dispatch.sh
+after :  inode 2165354
+         pid 502935 -> /root/bin/wake-dispatch.sh (deleted)
+         pid 517765 -> /root/bin/wake-dispatch.sh (deleted)
+         bash wake-dispatch.sh --selftest-lease  ->  RESULT: 0 FAIL
+```
+
+Both running instances now hold the **unlinked old inode** and will finish on consistent code; every new
+instance reads the new file. The `(deleted)` marker in `/proc/<pid>/fd/255` is the isolation, visible from
+outside. A running dispatcher's fd 255 pointing at *the same inode the editor is rewriting* was the whole
+defect, and it took one `mv` to remove.
+
+### And the rule now lives where the work happens
+
+`AGENTS.md` gained **§8 — "Never rewrite a RUNNING script in place — publish by atomic rename"** (commit
+`583a690d`), carrying the measured incident, the exact command form, the inode evidence above, and the
+reason it is a rule rather than a note:
+
+> the failures it produces look like defects in the code being deployed. They survive review, they survive
+> `bash -n`, and they survive a passing selftest, because the code on disk IS correct — it is the running copy
+> that is not.
+
+`AGENTS.md` is injected into sessions working under `harness-config`, so this is the one surface that reaches
+an agent *before* it edits a live script. The audit document keeps the narrative; the repo keeps the rule.
+
+**What is still owed from this thread:** an observation of the lease path on an instance started *after* the
+clean re-publish. The two survivors (502935, 517765) are running mixed code by construction, so any further
+`unknown`/`unset` from them is history rather than signal — and that distinction has to be stated, because the
+next session will otherwise read their lines as fresh evidence.
