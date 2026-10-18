@@ -1935,9 +1935,19 @@ def _queue_score(item):
             why.append("soon=+60")
     money = item.get("money")
     if isinstance(money, (int, float)) and money > 0:
-        add = int(min(200, money / 10.0))
-        score += add
-        why.append("money=+%d" % add)
+        # A DIGEST IS NOT A BILL. MEASURED 2026-10-18: "5 notices: Amex snapshot 1,965.08 ... $53
+        # PayPal charge" scored money=+196 off the largest number in its own summary and sat above a
+        # person waiting for an answer. Nothing is owed on a digest; the amounts in it are the
+        # subject matter. So a folded row may carry at most a quarter of the money weight, which
+        # still lets "your card was charged 2,380" outrank a newsletter without letting a summary of
+        # five notices outrank a customer.
+        # A folded summary gets a QUARTER of the weight of a real amount (see the note above).
+        is_digest = bool(item.get("_digest"))
+        divisor = 40.0 if is_digest else 10.0
+        add = int(min(200, money / divisor))
+        if add:
+            score += add
+            why.append("money=+%d%s" % (add, " (digest, quarter weight)" if is_digest else ""))
     # What his own closes taught. SIGNED: a sender he keeps dismissing sinks, and a kind of item he
     # always acts on rises. Bounded so learning may reorder inside a band and can never invert one.
     learned = item.get("learned") or 0
@@ -1995,6 +2005,9 @@ def _gather_queue(con, include_deferred=False):
     for r in rows:
         meta = _parse_meta(r["meta_json"])
         at = r["evidence_at"] or r["asked_at"]
+        # A digest announces itself in its own title ("5 money notices (2026-10-15): ..."). Reading
+        # the shape means this works on every historic row without a schema change or a backfill.
+        is_digest = _digest_members(r["question"]) is not None
         deferred = False
         when = str(r["deferred_until"] or "")
         if when:
@@ -2040,6 +2053,7 @@ def _gather_queue(con, include_deferred=False):
             "_thread": str(meta.get("thread_id") or ""),
             "_subject": str(meta.get("subject") or ""),
             "_class": str(meta.get("class") or ""),
+            "_digest": is_digest,
             "_members": meta.get("members") or [],
         })
 
@@ -2271,11 +2285,15 @@ def _collapse_facts(items):
         for other in members[1:]:
             # Union the digest membership so narrowing still sees every member.
             if _digest_members(head.get("title")) and _digest_members(other.get("title")):
-                a = _digest_members(head["title"])[2]
-                b = _digest_members(other["title"])[2]
-                merged = a + [x for x in b if x not in a]
-                head["title"] = "%d notices: %s" % (len(merged), " · ".join(x[:48] for x in merged))
-                head["_digest_date"] = (_digest_members(head["title"]) or (0, "", []))[1]
+                a = _digest_members(head["title"])
+                b = _digest_members(other["title"])
+                merged = a[2] + [x for x in b[2] if x not in a[2]]
+                day = a[1] or b[1]
+                head["title"] = ("%d notices (%s): %s" % (len(merged), day,
+                                                          " · ".join(x[:48] for x in merged))
+                                 if day else "%d notices: %s" % (len(merged),
+                                                                 " · ".join(x[:48] for x in merged)))
+                head["_digest_date"] = day
             head.setdefault("_also", []).append((other["id"], other.get("title")))
             other["_absorbed_by"] = head["id"]
             drop.add(other["id"])
@@ -2327,9 +2345,11 @@ def _collapse_facts(items):
         if len(keep) == 1:
             i["title"] = keep[0]
         else:
-            i["title"] = "%d notices (%s): %s" % (
-                len(keep), day or (i.get("_digest_date") or ""),
-                " · ".join(k[:48] for k in keep))
+            day_text = day or (i.get("_digest_date") or "")
+            i["title"] = ("%d notices (%s): %s" % (len(keep), day_text,
+                                                   " · ".join(k[:48] for k in keep))
+                          if day_text else "%d notices: %s" % (len(keep),
+                                                               " · ".join(k[:48] for k in keep)))
         i["_narrowed"] = "was a %d-item digest" % count
         taken.append((i["id"], _fact_sig(i["title"])))
 
@@ -2980,7 +3000,48 @@ def cmd_health(con, a) -> int:
         rows_out.append(("mail judge", 0, None, 48.0, "NO TABLE"))
         failures += 1
 
-    # 4. what is pending, by kind and tier
+    # 4. COMPLETENESS, which freshness cannot answer. "18 rows arrived" is compatible with "62 items
+    # were never read"; each ingest now writes what it fetched and how many of those it accounted
+    # for, and the number that must be zero is unexplained mail. A reader that silently loses a
+    # folder looks exactly like a quiet week from every other line on this page.
+    try:
+        con.commit()
+        runs = {}
+        for r in con.execute(
+                "SELECT source, ran_at, fetched, queued, dropped, errors, note"
+                "  FROM owner_queue_ingest_run ORDER BY id DESC LIMIT 40").fetchall():
+            runs.setdefault(str(r["source"]), r)
+        for src, label in (("gv", "gv read everything"), ("mail", "mail read everything")):
+            run = runs.get(src)
+            if not run:
+                rows_out.append((label, 0, None, 48.0, "NO RUN YET"))
+                continue
+            fetched = int(run["fetched"] or 0)
+            queued = int(run["queued"] or 0)
+            dropped = int(run["dropped"] or 0)
+            # `fetched - dropped - queued` is the COLLAPSE count, not a loss: twelve texts in one
+            # family chat become one row on purpose. Calling it unexplained would make the health
+            # check cry wolf on every normal run, which is how a check stops being read. What is a
+            # failure is a source that stopped running, a run that reported errors, or arithmetic
+            # that comes out NEGATIVE -- that one is a bug, and it must not be silently clamped.
+            folded = fetched - dropped - queued
+            age = age_of(run["ran_at"])
+            state = "OK"
+            if folded < 0:
+                state = "ARITHMETIC %d" % folded
+                failures += 1
+            elif int(run["errors"] or 0):
+                state = "ERRORS %d" % int(run["errors"])
+                failures += 1
+            elif age is not None and age > 48:
+                state = "STALE"
+                failures += 1
+            rows_out.append((label, fetched, age, 48.0,
+                             state if state != "OK" else "OK (%d folded)" % max(0, folded)))
+    except Exception as exc:  # noqa: BLE001
+        rows_out.append(("run arithmetic", 0, None, 48.0, "NO TABLE"))
+
+    # 5. what is pending, by kind and tier
     pend = {}
     for r in con.execute(
             "SELECT kind, severity, COUNT(*) n FROM owner_decision_queue"

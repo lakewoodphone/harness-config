@@ -235,12 +235,15 @@ def classify(item: dict, *, sender_total: int = 0) -> dict:
                       "reason": "voicemail left for him"}
 
     if kind == "missed_call":
-        # A missed call with no name, no voicemail and no text is nothing to act on: a wrong
-        # number or a dialler, and it was filling the bottom of the queue. A NAMED caller who
-        # left nothing still matters, because he can ring them back.
+        # MEASURED 2026-10-18 over 7 days: 7 missed calls from numbers not in his contacts, all
+        # dropped. That is the right call for one of them and the wrong call for the seven: he runs a
+        # shop, every one of those could be a customer, and "nothing to act on" is my judgement, not
+        # his. They are not queued one by one -- they fold into ONE row a week that names the
+        # numbers, so he can see at a glance that seven strangers rang and ring back the ones he
+        # recognises. Nothing is dropped and nothing floods.
         if not _is_real_name(name):
-            return out | {"verdict": "DROP",
-                          "reason": "missed call from an unknown number, no voicemail"}
+            return out | {"verdict": "DIGEST", "tier": "low",
+                          "reason": "missed call from an unrecognised number"}
         return out | {"verdict": "ATTENTION", "tier": "medium",
                       "reason": "missed call from %s" % name}
 
@@ -258,6 +261,14 @@ def classify(item: dict, *, sender_total: int = 0) -> dict:
         return out | {"verdict": "DROP", "reason": "vendor robot message"}
     if any(b in low_name for b in BULK_SENDERS):
         return out | {"verdict": "DROP", "reason": "bulk sender: %s" % name}
+    # A community announcement is not marketing, and it must be checked BEFORE the bulk-sender rule
+    # below, which is what ate it. MEASURED 2026-10-18 over 7 days: "Igud Talmidei Fallsburg: Nichum
+    # Aveilim Hours" and a Baruch Dayan HaEmes levaya notice were dropped as `bulk sender in body`.
+    # Those are the notices a person actually acts on in this community -- and the rule that dropped
+    # them was written to stop retail marketing under a bare-number caller-ID.
+    if RE_SIMCHA.search(body) and not RE_ASK.search(body):
+        return out | {"verdict": "DIGEST",
+                      "reason": "simcha/levaya/community announcement (broadcast, folded)"}
     # A bulk sender whose caller-ID is a bare number names itself in the BODY prefix
     # ("Wellpoint: ...", "Pinstriped Suits: ..."). Measured: without this, insurance and
     # retail marketing reached the queue under a phone-number name.
@@ -449,9 +460,15 @@ def build_queue_items(items: list[dict]) -> tuple[list[dict], list[dict]]:
             # produced 15 near-identical family-chat rows across a 45-day window, which is the
             # same failure as not collapsing at all. The week key also means a dismissed relay
             # row stays dismissed, and next week's chat legitimately reappears.
-            if "group relay" in (v.get("reason") or ""):
-                week = it["when"].isocalendar()
-                digests[(it.get("phone") or it.get("name"), "%d-W%02d" % (week[0], week[1]))].append(rec)
+            week = it["when"].isocalendar()
+            weekkey = "%d-W%02d" % (week[0], week[1])
+            if "unrecognised number" in (v.get("reason") or ""):
+                # ONE row for every stranger who rang this week, not one row per stranger: seven
+                # separate rows is the flood the old DROP rule existed to prevent.
+                digests[("__unknown_calls__", weekkey)].append(rec)
+            elif "group relay" in (v.get("reason") or "") or "community announcement" in (
+                    v.get("reason") or ""):
+                digests[(it.get("phone") or it.get("name"), weekkey)].append(rec)
             else:
                 digests[(it.get("phone") or it.get("name"), it["day"])].append(rec)
             continue
@@ -489,9 +506,28 @@ def build_queue_items(items: list[dict]) -> tuple[list[dict], list[dict]]:
             if r["name"] and r["name"] not in speakers:
                 speakers.append(r["name"])
         asks = [r["body"] for r in group if r.get("ask") and r["body"]]
-        bodies = asks[:2] or [r["body"] for r in group if r["body"]][:2]
+        if who == "__unknown_calls__":
+            # Name the numbers. "5 missed calls" is a statistic; the numbers are the thing he can act
+            # on, and he is the only one who knows which of them he recognises.
+            nums = []
+            for r in group:
+                n = r.get("phone") or r.get("name")
+                if n and n not in nums:
+                    nums.append(n)
+            bodies = [_pretty_number(x) for x in nums[:10]]
+            name, phone = "unrecognised callers", ""
+            reason = "%d missed call(s) this week from numbers not in your contacts" % len(group)
+        else:
+            bodies = asks[:2] or [r["body"] for r in group if r["body"]][:2]
+            name = group[0]["name"] or group[0]["phone"]
+            phone = group[0]["phone"]
+            if "community announcement" in (group[0].get("reason") or ""):
+                reason = "%d community announcement(s) this week, folded into one" % len(group)
+            else:
+                span = ("this week" if "-W" in str(bucket) else "this day")
+                reason = "%d message%s %s, folded into one" % (
+                    len(group), "" if len(group) == 1 else "s", span)
         n = len(group)
-        span = ("this week" if "-W" in str(bucket) else "this day")
         kept.append({
             "account": group[0]["account"],
             "thread_id": group[0]["thread_id"],
@@ -501,12 +537,12 @@ def build_queue_items(items: list[dict]) -> tuple[list[dict], list[dict]]:
             "bucket": bucket,
             "iso": group[-1]["iso"],
             "type": "digest",
-            "name": group[0]["name"] or group[0]["phone"],
-            "phone": group[0]["phone"],
+            "name": name,
+            "phone": phone,
             "body": " | ".join(bodies),
             "gv_number": group[0].get("gv_number", ""),
             "verdict": "ATTENTION",
-            "reason": "%d message%s %s, folded into one" % (n, "" if n == 1 else "s", span),
+            "reason": reason,
             "tier": "medium" if any(r.get("ask") for r in group) else "low",
             "ask": any(r.get("ask") for r in group),
             "money": None,
@@ -580,6 +616,16 @@ def dedupe_key_for(it: dict) -> str:
     return "gv:%s:%s" % (it["type"], it.get("message_id") or it.get("thread_id") or it["iso"])
 
 
+def _pretty_number(raw: str) -> str:
+    """+12015667852 -> (201) 566-7852. A raw E.164 string is a number nobody can read off a card."""
+    d = re.sub(r"[^0-9]", "", str(raw or ""))
+    if len(d) == 11 and d.startswith("1"):
+        d = d[1:]
+    if len(d) == 10:
+        return "(%s) %s-%s" % (d[:3], d[3:6], d[6:])
+    return str(raw or "")
+
+
 def title_for(it: dict) -> str:
     who = it.get("name") or it.get("phone") or "unknown"
     if it["type"] == "voicemail":
@@ -592,6 +638,11 @@ def title_for(it: dict) -> str:
         n = it.get("_count") or 0
         speakers = it.get("_speakers") or []
         spoke = (" (%s)" % ", ".join(speakers[:4])) if len(speakers) > 1 else ""
+        if it.get("phone") == "" and str(it.get("name") or "").startswith("unrecognised"):
+            # "6 texts from unrecognised callers" would be a lie: these are CALLS, and the numbers
+            # are the whole point of the row.
+            return "%d missed call%s this week from numbers not in your contacts: %s" % (
+                n, "" if n == 1 else "s", (it.get("body") or "")[:120])
         head = "%d text%s from %s%s" % (n, "" if n == 1 else "s", who, spoke)
         return head + (": " + it["body"][:110] if it.get("body") else "")
     return "Text from %s: %s" % (who, it["body"][:150])
@@ -720,6 +771,24 @@ def main(argv=None) -> int:
     con.row_factory = sqlite3.Row
     added = ensure_columns(con)
     stats = write_items(con, queue_items)
+    # THE ARITHMETIC OF A COMPLETE READ, written down where health can check it. "18 rows arrived"
+    # says nothing about the 62 items the run never saw; `fetched = queued + dropped` does, and
+    # `unexplained` is the number that must always be zero.
+    try:
+        con.execute(
+            "CREATE TABLE IF NOT EXISTS owner_queue_ingest_run ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, ran_at TEXT NOT NULL,"
+            " days INTEGER, fetched INTEGER, queued INTEGER, dropped INTEGER,"
+            " new INTEGER, refreshed INTEGER, errors INTEGER, note TEXT)")
+        con.execute(
+            "INSERT INTO owner_queue_ingest_run (source, ran_at, days, fetched, queued, dropped,"
+            " new, refreshed, errors, note) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            ("gv", datetime.now(timezone.utc).isoformat(), a.days, len(items),
+             len(queue_items), len(dropped), stats["new"], stats["refreshed"], len(errors),
+             (errors[0][:200] if errors else "")))
+        con.commit()
+    except Exception as exc:  # noqa: BLE001
+        print("  (run arithmetic not recorded: %s: %s)" % (type(exc).__name__, exc))
     con.close()
     print("gv ingest: fetched=%d queued=%d dropped=%d new=%d refreshed=%d left_closed=%d"
           % (len(items), len(queue_items), len(dropped),

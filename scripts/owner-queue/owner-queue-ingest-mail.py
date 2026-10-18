@@ -78,6 +78,20 @@ BODY_CHARS = 1500
 # picked up next run; nothing is dropped for being over the cap.
 MAX_JUDGE_PER_RUN = 150
 
+#: WHICH MAIL THE JUDGE IS ALLOWED TO SEE.
+#:
+#: MEASURED 2026-10-18, and it was the largest blind spot in the queue: the query was
+#: `in:inbox newer_than:Nd`, and over one week that saw **223 messages while 385 sat outside the
+#: inbox** -- 99 on his personal account, 178 on the shop account. Gmail filters auto-archive
+#: receipts, invoices and notifications before he ever sees them, so a bill could live entirely in a
+#: label and the queue would never have judged it. He asked for "any email ... worthy of my attention
+#: or something I might want to know"; a folder boundary is not a judgement about relevance, and the
+#: queue's whole job is to make that judgement itself.
+#:
+#: Spam and trash stay out on purpose: nothing in his bin is news, and judging it spends real money
+#: per batch for mail he has already thrown away.
+MAIL_QUERY = "newer_than:%dd -in:spam -in:trash"
+
 
 # ── the rubric ───────────────────────────────────────────────────────────────────────────────────
 # Every line here exists because the corpus contains that exact shape of mail. The DROP list is the
@@ -273,7 +287,7 @@ def accounts_to_read(settings, requested: str) -> list[str]:
 
 
 def fetch(accounts, days: int, verbose: bool):
-    """Headers for every inbox message in the window. Bodies are read only for uncached messages."""
+    """Headers for every message in the window. Bodies are read only for uncached messages."""
     from app.services import gmail_service  # type: ignore
 
     settings = load_settings()
@@ -281,7 +295,7 @@ def fetch(accounts, days: int, verbose: bool):
     for account in accounts:
         try:
             msgs = gmail_service.search_messages(
-                settings, account=account, query="in:inbox newer_than:%dd" % days,
+                settings, account=account, query=MAIL_QUERY % days,
                 max_results=400)
         except Exception as exc:  # noqa: BLE001
             errors.append("%s search: %s: %s" % (account, type(exc).__name__, exc))
@@ -429,6 +443,52 @@ def reconcile(con, apply: bool) -> list[tuple[int, str]]:
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _learned_profile(con, min_n: int = 6) -> str:
+    """What his answers have taught about WHO and WHAT, not just about one item.
+
+    The few-shot examples below teach "this message was not worth it". This block teaches the shape:
+    eight notices from one kind of sender dismissed is a statement about that kind, and a judge told
+    it will stop re-litigating a taste it can see. Only cells with real evidence are printed, and the
+    count is printed with each, so the judge can weigh a 6-close claim differently from a 30-close one.
+    """
+    try:
+        con.commit()
+        rows = con.execute(
+            "SELECT LOWER(TRIM(COALESCE(sender_domain,''))) k,"
+            "  SUM(CASE WHEN action='answered' THEN 1 ELSE 0 END) a,"
+            "  SUM(CASE WHEN action='dismissed' THEN 1 ELSE 0 END) d"
+            " FROM owner_queue_feedback"
+            " WHERE at > datetime('now','-120 day') AND COALESCE(sender_domain,'') <> ''"
+            " GROUP BY k HAVING (a+d) >= ? ORDER BY (d*1.0)/(a+d) DESC LIMIT 8",
+            (min_n,)).fetchall()
+        cls = con.execute(
+            "SELECT LOWER(TRIM(COALESCE(cls,''))) k,"
+            "  SUM(CASE WHEN action='answered' THEN 1 ELSE 0 END) a,"
+            "  SUM(CASE WHEN action='dismissed' THEN 1 ELSE 0 END) d"
+            " FROM owner_queue_feedback"
+            " WHERE at > datetime('now','-120 day') AND COALESCE(cls,'') <> ''"
+            " GROUP BY k HAVING (a+d) >= ?", (min_n,)).fetchall()
+    except Exception:
+        return ""
+    lines = []
+    for r in rows:
+        n = int(r["a"]) + int(r["d"])
+        if int(r["d"]) >= n * 0.6:
+            lines.append("  · mail from %s: he dismissed %d of %d" % (r["k"], r["d"], n))
+        elif int(r["a"]) >= n * 0.75:
+            lines.append("  · mail from %s: he acted on %d of %d" % (r["k"], r["a"], n))
+    for r in cls:
+        n = int(r["a"]) + int(r["d"])
+        if int(r["d"]) >= n * 0.6:
+            lines.append("  · class '%s': he dismissed %d of %d" % (r["k"], r["d"], n))
+        elif int(r["a"]) >= n * 0.75:
+            lines.append("  · class '%s': he acted on %d of %d" % (r["k"], r["a"], n))
+    if not lines:
+        return ""
+    return ("WHAT HIS OWN ANSWERS HAVE TAUGHT ABOUT WHO AND WHAT. Evidence counts are shown; "
+            "judge this batch the same way:\n" + "\n".join(lines))
 
 
 def _learned_examples(con, limit: int = 12) -> str:
@@ -852,7 +912,10 @@ def main(argv=None) -> int:
     pending = pending[: a.max_judge]
 
     judged_n, models, judge_errors = 0, set(), []
-    learned = _learned_examples(con)
+    # Two learning blocks, and they teach different things: the examples teach "this message was not
+    # worth it", the profile teaches the shape across messages ("he has dismissed 8 of 10 from this
+    # sender"). A judge given only examples overfits to the last dozen items.
+    learned = "\n\n".join(x for x in (_learned_profile(con), _learned_examples(con)) if x)
     for i in range(0, len(pending), BATCH):
         batch = pending[i:i + BATCH]
         for m in batch:
@@ -867,7 +930,9 @@ def main(argv=None) -> int:
             judge_errors.append("%s: %s" % (type(exc).__name__, exc))
             break
         models.add(model)
-        now_iso = datetime.now(timezone.utc).isoformat()
+        # NOT `now_iso` -- that is the module-level function, and shadowing it here made the run
+        # arithmetic fail with "str object is not callable" on the first real run (2026-10-18).
+        judged_ts = datetime.now(timezone.utc).isoformat()
         for m, v in zip(batch, out):
             con.execute(
                 "INSERT OR REPLACE INTO owner_mail_verdict"
@@ -880,7 +945,7 @@ def main(argv=None) -> int:
                  int(v["ask"]), int(v["deadline"]), v["money"], v["party"], v["action"],
                  v.get("recommendation") or "",
                  1 if RE_RESOLVED.search(m.get("body") or "") else 0,
-                 model, now_iso))
+                 model, judged_ts))
             verdicts[(m["account"], m["message_id"])] = {
                 "verdict": v["verdict"], "tier": v["tier"], "class": v["class"],
                 "title": v["title"], "why": v["why"],
@@ -963,6 +1028,24 @@ def main(argv=None) -> int:
 
     stats = write_items(con, rows)
     closed = reconcile(con, apply=True)
+    # The arithmetic of a COMPLETE read, in one row health can check: every message fetched either
+    # got a verdict or is named as over the cap. A judge that silently stops seeing a folder looks
+    # identical to a quiet week from the outside, and this is the row that tells them apart.
+    try:
+        con.execute(
+            "CREATE TABLE IF NOT EXISTS owner_queue_ingest_run ("
+            " id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, ran_at TEXT NOT NULL,"
+            " days INTEGER, fetched INTEGER, queued INTEGER, dropped INTEGER,"
+            " new INTEGER, refreshed INTEGER, errors INTEGER, note TEXT)")
+        con.execute(
+            "INSERT INTO owner_queue_ingest_run (source, ran_at, days, fetched, queued, dropped,"
+            " new, refreshed, errors, note) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            ("mail", now_iso(), a.days, len(msgs), len(rows), tally.get("drop", 0),
+             stats["new"], stats["refreshed"], len(errors) + len(judge_errors),
+             ("over cap: %d" % over_cap) if over_cap else ""))
+        con.commit()
+    except Exception as exc:  # noqa: BLE001
+        print("  (run arithmetic not recorded: %s: %s)" % (type(exc).__name__, exc))
     print("mail ingest: read=%d judged=%d new=%d refreshed=%d left_closed=%d "
           "threads=%d dropped=%d closed_stale=%d"
           % (len(msgs), judged_n, stats["new"], stats["refreshed"],
