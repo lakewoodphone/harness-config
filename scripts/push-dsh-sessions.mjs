@@ -57,7 +57,17 @@ const ALL = has('--all');
 const VERBOSE = has('--verbose');
 
 const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
-const SESSIONS_ROOT = path.join(DSH_HOME, 'sessions');
+// BOTH STORES. `sessions` is the live one; `sessions-archive` is where finished sessions are moved
+// by scripts/session-corpus.mjs - same project-directory layout, one level deeper in time.
+// Measured 2026-10-18: the archive held **14,753 DSH session files** across six machines while
+// authority.db held **8,637 sessions**. The difference was not lost data - it was sessions the
+// shipper had never looked at, so no agent could search them. The owner asked for every session on
+// every machine; this is the line that stood in the way.
+const SESSIONS_ROOTS = [
+  path.join(DSH_HOME, 'sessions'),
+  path.join(DSH_HOME, 'sessions-archive'),
+].filter((p) => fs.existsSync(p));
+const SESSIONS_ROOT = SESSIONS_ROOTS[0] || path.join(DSH_HOME, 'sessions');
 const STATE_PATH = path.join(DSH_HOME, 'dsh-archive-state.json');
 const MACHINE = (process.env.DSH_ARCHIVE_MACHINE || os.hostname()).toLowerCase();
 const BATCH_SESSIONS = 100;
@@ -184,19 +194,26 @@ function readSession(file) {
 
 function discover() {
   const out = [];
-  if (!fs.existsSync(SESSIONS_ROOT)) return out;
-  for (const project of fs.readdirSync(SESSIONS_ROOT)) {
-    const projectDir = path.join(SESSIONS_ROOT, project);
-    if (!fs.statSync(projectDir).isDirectory()) continue;
-    for (const session of fs.readdirSync(projectDir)) {
-      const dir = path.join(projectDir, session);
-      if (!fs.statSync(dir).isDirectory()) continue;
-      // the newest generation wins; a session may have older generations beside it
-      const logs = fs.readdirSync(dir).filter((f) => /^session\.v\d+\.jsonl(\.zstd)?$/.test(f))
-        .sort((a, b) => Number(b.match(/v(\d+)/)[1]) - Number(a.match(/v(\d+)/)[1]));
-      if (!logs.length) continue;
-      const file = path.join(dir, logs[0]);
-      out.push({ project, session: session.replace(/^session-/, ''), file, mtime: fs.statSync(file).mtimeMs });
+  const seen = new Set();
+  for (const root of SESSIONS_ROOTS) {
+    for (const project of fs.readdirSync(root)) {
+      const projectDir = path.join(root, project);
+      if (!fs.statSync(projectDir).isDirectory()) continue;
+      for (const session of fs.readdirSync(projectDir)) {
+        const dir = path.join(projectDir, session);
+        if (!fs.statSync(dir).isDirectory()) continue;
+        // the newest generation wins; a session may have older generations beside it
+        const logs = fs.readdirSync(dir).filter((f) => /^session\.v\d+\.jsonl(\.zstd)?$/.test(f))
+          .sort((a, b) => Number(b.match(/v(\d+)/)[1]) - Number(a.match(/v(\d+)/)[1]));
+        if (!logs.length) continue;
+        const sid = session.replace(/^session-/, '');
+        // A session that is in both stores is read from the LIVE one: it is the complete copy, and
+        // the archived one may be a snapshot taken when it was moved.
+        if (seen.has(sid)) continue;
+        seen.add(sid);
+        const file = path.join(dir, logs[0]);
+        out.push({ project, session: sid, file, mtime: fs.statSync(file).mtimeMs });
+      }
     }
   }
   return out.sort((a, b) => a.mtime - b.mtime);
@@ -414,7 +431,7 @@ async function main() {
   const state = loadState();
   const found = discover();
   if (found.length === 0) {
-    console.log('no sessions found under ' + SESSIONS_ROOT);
+    console.log('no sessions found under ' + SESSIONS_ROOTS.join(' or '));
     // Still a run, still a contact: a machine whose harness has not written a session yet is alive too.
     if (!DRY) { await postHeartbeat(); console.log(`heartbeat  : recorded contact for ${MACHINE} (0 sessions, 0 rows)`); }
     return 0;
