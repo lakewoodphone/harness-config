@@ -1846,3 +1846,65 @@ agent who declared data loss from a path it had not followed down. The two candi
 originals that nothing ships, or (b) they are a staging copy of sessions already archived under their real
 `source_machine`. Telling them apart is one round of work and it is the next one, because if it is (a) then a
 quarter of a gigabyte of reasoning exists in exactly one place.
+
+---
+
+## 60. ROUND 65 — THE 226 MB IS SAFE; THE PROJECTION STOPPED AT THE CUTOVER
+
+§59 left this as an explicit question: 226 MB of session trees on the authority, no `secratary-cloud` row in
+`dsh_sessions`, and a checker complaining about a missing shipper cursor. It is answered, and the answer is
+**not loss**.
+
+### What is actually missing
+
+Whole-tree comparison, not sampling:
+
+```
+session dirs in /root/.dsh/sessions/--home-zabz-phone-- : 542
+archived ids in dsh_sessions                          : 8415
+MISSING from the archive                              : 93
+mtime of the 93: 10-11 x1 | 10-12 x42 | 10-13 x7 | 10-14 x13 | 10-15 x21 | 10-16 x7 | 10-18 x2
+```
+
+**All 93 are dated 2026-10-11 or later**, and `dsh_sessions` has no `secratary` row after
+`2026-10-11T03:32:42`. 10-11 is the cutover day. The older 449 sessions in that tree ARE archived, attributed
+to `secratary`.
+
+### Why, and the one check that decides whether it matters
+
+`push-dsh-sessions.mjs` is a **client-side scheduled task** that runs on the machine holding the sessions. The
+machine is `secratary` — the FROZEN rollback anchor, `cron` masked on purpose. So the pusher stopped at the
+cutover and nothing replaced it. That is precisely the trap AGENTS.md §1 records from 2026-10-09: *"Never let
+a client-side scheduled task be the only thing that ships"* — measured that time as a task reporting
+`LastTaskResult=0` every hour for 21 days while the archive stood still.
+
+But the **bytes** are a different path, and it is driven from the authority:
+
+```
+arrival where rel_path like '%home-zabz-phone%':  machine=secratary  count=632  max(received_at)=2026-10-18T01:23:01
+```
+
+All four sampled "missing" ids return `1` in `arrival`. So the raw archive holds every one of them, and what
+stopped is only the **parsed projection** — the searchable, trainable form. Nothing was lost; something became
+harder to read.
+
+### Why it is filed rather than run tonight
+
+The pusher supports exactly the override this needs — `DSH_HOME` and `DSH_ARCHIVE_MACHINE` — so it can be run
+*from* the authority against the staged copy and attribute the result to `secratary`. Dry run:
+
+```
+would ship: 618 session(s), 216738 new row(s), 912018 KB
+```
+
+That is a heavy write job against the live company database, at 04:15, on a 15 GB box whose API is OOM-killed
+ten times a day (§55). `estate-systems` says plainly not to run a corpus scan on the authority. So it is
+**ledger item 561** (housekeeping, priority 2) with a DoD that names the env, requires a memory ceiling, and
+requires `count(*) where source_machine='secratary'` to exceed 525 afterwards — and the DoD was corrected once
+already because the first version said `DSH_ARCHIVE_MODE` instead of `DSH_ARCHIVE_MACHINE`, which a shift would
+have followed literally and failed.
+
+**The shape worth remembering:** two paths for the same data, one driven from the authority (kept working
+through the freeze) and one from the frozen host (silently stopped). A checker on the authority reported the
+symptom as "cannot tell whether this host is shipping", which pointed at the destination instead of at the
+missing pusher.
