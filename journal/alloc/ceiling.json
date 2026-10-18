@@ -3,8 +3,8 @@
  "bands_refs_read": 45,
  "ceiling": {
   "decisions": 6720,
-  "handoff": 7272,
-  "lessons": 7997,
+  "handoff": 7336,
+  "lessons": 8061,
   "pain": 7306,
   "wins": 6810
  },
@@ -18,10 +18,17 @@
  "claimed_gap_rows": [
   {
    "host": "SECRATARY-CLOUD",
-   "kind": "decisions",
-   "reserved_from": 6657,
-   "reserved_through": 6720,
-   "stamp": "2026-10-18 03:00 UTC"
+   "kind": "lessons",
+   "reserved_from": 7998,
+   "reserved_through": 8061,
+   "stamp": "2026-10-18 03:15 UTC"
+  },
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "handoff",
+   "reserved_from": 7273,
+   "reserved_through": 7336,
+   "stamp": "2026-10-18 03:15 UTC"
   }
  ],
  "entries_high_water": {
@@ -33,8 +40,8 @@
  },
  "high_water": {
   "decisions": "D6720",
-  "handoff": "H7272",
-  "lessons": "L7997",
+  "handoff": "H7336",
+  "lessons": "L8061",
   "pain": "P7306",
   "wins": "W6810"
  },
@@ -43,20 +50,19 @@
  "live_peer_unreachable": [
   "ZABZ-TECH-LINUX (rc=255)"
  ],
- "peers_failed": [
-  "yoga"
- ],
+ "peers_failed": [],
  "peers_fetched": [
+  "yoga",
   "tech",
   "offsite",
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-18T03:00:40Z",
+ "refreshed_at": "2026-10-18T03:15:30Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 37.9,
- "sources_seen": 6872
+ "seconds": 27.9,
+ "sources_seen": 6874
 }
