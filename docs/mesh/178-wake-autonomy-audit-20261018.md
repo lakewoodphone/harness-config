@@ -2483,3 +2483,31 @@ work is half-visible — and a closer whose effect half the readers cannot see i
 **Also noted:** the authority's journal holds **5,282** entries while this session's checkout reports **4,384**.
 Two checkouts, two counts. That is the same split-store shape as everything else in this document and is not yet
 explained.
+
+### 67a. The disagreement, diagnosed — two status sources
+
+The "# 0 entries in index/entries.tsv" line is misleading but not the fault: it is the count **after** filtering.
+`list --kind pain --limit 2` prints `# 729 entries in index/entries.tsv` and `stats` agrees (`pain: 729`), so the
+index is readable and complete.
+
+The real fault is that the journal has **two status sources and the readers split between them**:
+
+| reader | where status comes from | result for P261 |
+|---|---|---|
+| `status` (the always-read page) | `state/status.tsv` (the append-only resolve log) | **sees the resolve** — OPEN PAIN 608 -> 573 |
+| `show <id>` | the entry file's own frontmatter | **`open`** |
+| `list --status done` | the entry file's own frontmatter | **no entries match**, though 40 done rows exist for today |
+
+`cmd_resolve` is documented as *"Record that an entry's status changed. Appends; never edits the entry file."*
+So the entry file is **correctly** left alone and the frontmatter **correctly** keeps saying `open` forever. The
+readers simply never overlay the resolve log.
+
+**Consequence, and why this is the worst possible place for it:** the journal's own README tells a session to
+read one entry with `show <id>`. A session that follows the instructions sees `open` on work that was closed on
+evidence twenty minutes earlier, and re-opens it. The memory system is generating the repeated-work failure it
+exists to prevent, and it will do so for every closure the closer now makes daily.
+
+**Fix direction (not attempted — the journal is the one system where a rushed edit costs the most):** overlay
+`state/status.tsv` onto the frontmatter in the `show` and `list` read paths, so all three readers agree, and make
+the `list` footer say "N entries after filters" rather than implying the index is empty. It needs its own round
+with a throwaway journal to prove it, exactly as the write-back needed one.
