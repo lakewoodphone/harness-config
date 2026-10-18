@@ -2741,3 +2741,33 @@ the mechanism, the planted proof and that it is awaiting its first true occurren
 **The shape worth keeping:** when a change would touch a fragile live path and cannot be proven end to end, do
 not make it smaller — make it a *separate process* that observes. The estate already learned this once
 (`mirror-owner-sms` rather than editing the live responder). This is the same move applied to instrumentation.
+
+### 71a. A lock kill was consuming the work's attempts, so infrastructure failures killed real work
+
+Checking what the day's lock kills had cost:
+
+```
+1123 | claimed | 2/2 | high    <- refunded earlier this session, now claimed and RUNNING
+1169 | failed  | 2/2 | normal  <- killed 04:19:40 by "lease not renewed ... database is locked"
+1170 | failed  | 2/2 | normal  <- killed 04:17:51 and again 05:14:09, same cause
+```
+
+`max_attempts` is the guard that stops a *work item* from being retried forever — but it counts every failure,
+including failures that are not the item's fault. So a lock that lasts past the lease margin converts an
+infrastructure problem into **permanently abandoned work**: `1169` and `1170` were both at 2 of 2 and neither
+would ever run again.
+
+**Both refunded to `attempts=0`, `state=new`**, with the reason written into `outcome` so the next reader sees
+why this was done and does not read it as leniency:
+
+> REFUNDED 2026-10-18 by wake-audit: killed by the wake-store write lock (lease not renewed -> database is
+> locked), not by its own work. Items 565/584 address the lock; this row deserves to run once it is quiet.
+> One-time repair: a THIRD lock failure should be diagnosed, not refunded again.
+
+The earlier refund of `1123` is the evidence that this works: it was 2/2 and dead, it is now `claimed` and
+running.
+
+**The general point, which is worth more than the two rows:** an attempts cap cannot distinguish "this work
+failed" from "the platform failed while this work ran". Any failure class that is not about the item — a lock, a
+transport hop, a model id that does not exist — should refund rather than consume, and the three repairs in this
+session (1123, 1169, 1170) were all that class. A future cap should count *the work's own* failures.
