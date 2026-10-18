@@ -148,7 +148,7 @@ MAX_CHARS = int(os.environ.get("OWNER_TEXT_RELAY_MAX_CHARS", "320"))
 
 #: The ceiling for a message to someone who is NOT the owner. The 320-char ceiling exists
 #: because of how HE reads a text (his own words: "way too much information at once"), not
-#: because of a transport limit -- so applying it to a family member or a vendor was a
+#: because of a transport limit -- so applying it to anyone who is not him was a
 #: category error that silently stranded a 377-char message he had asked us to send
 #: (attempts 74/75, 2026-10-18: `verdict=SEND`, `reason=too-long`, no sid, never delivered).
 #: Twilio's own limit is 1600; this is that limit, and `send_message` already truncates there.
@@ -180,8 +180,7 @@ def ceiling_for(to: str | None) -> int:
 
     The 320-char ceiling is about how the owner reads a text, so it belongs to him alone; any
     other recipient gets the transport limit. This is a rule about the RECIPIENT, and the relay
-    holds no opinion about which application a message came from -- Family Chat is a separate
-    app that does not belong in this component (owner, 2026-10-18).
+    holds no opinion about which application a message came from (owner, 2026-10-18).
 
     An empty `to` is treated as the owner, because every pre-existing caller omitted it and
     defaulted to him -- fail toward the tighter, already-documented rule rather than silently
@@ -962,7 +961,7 @@ def submit(door: str, subsystem: str, body: str, *, reason: str = "",
                 #
                 # 2026-10-18: the ceiling is now `ceiling_for(to)`. The 320-char rule is
                 # about HIS reading, so a third-party recipient gets Twilio's 1600. Before
-                # this, a 377-char message he asked us to send to a family member was
+                # this, a 377-char message he asked us to send to someone else was
                 # recorded SEND/too-long and then stranded by the owner gate for nine
                 # minutes of owner rate floor (attempts 74/75, sms_log 4280/4281).
                 verdict, reason_code = "SEND", "too-long"
