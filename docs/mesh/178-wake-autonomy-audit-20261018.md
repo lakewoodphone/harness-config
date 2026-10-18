@@ -1931,3 +1931,72 @@ with `DSH_HOME` + `DSH_ARCHIVE_MACHINE` under a memory ceiling — because the d
 with an instruction nobody has reviewed since it was written, at the moment it is most likely to be followed.
 The estate's pattern is usually "the monitor measures nothing"; this is the sibling — **the monitor measures
 correctly and prescribes harmfully**. Both are cured by reading the remedy as carefully as the reading.
+
+---
+
+## 62. ROUND 67 — CAPABILITY TIERS EXIST NOW; UNTIL TODAY PRIORITY WAS INVISIBLE TO THE MODEL
+
+The last named item in the brief that was still only half-done. §51 recorded "no capability tiers" as
+PARTLY TRUE, and round 54 fixed only the broken literal in the one lane that existed. This round adds the
+ladder.
+
+### What was true before
+
+`wake-dispatch.sh` read exactly one input to choose the seat model: the **balance tier**.
+
+```
+LANE=${WAKE_BUDGET_LANE:-}            # empty unless tier != ok
+LANE_ARG=" -Model \"$LANE\""          # carried to wake-run.ps1 -> WAKE_AGENT_MODEL -> resolver
+```
+
+So a customer-facing critical repair and a routine tidy-up were handed the same model, and `PRIORITY` — which
+the dispatcher has known all along (`:820`, `:835`) — was never consulted.
+
+### The ladder, and why it is shaped this way
+
+Measured distribution from the wake store: **4 high vs 25 normal** releases in a day (all-time 230 high, 916
+normal, 37 low). A release costs 0.05-0.07 USD, so upgrading four of them is cents against a 67.36 USD daily
+ceiling — while a failed high-priority row costs a whole shift and re-files. The balance lever still wins
+whenever the tier is not `ok`: money pressure outranks capability.
+
+**The id is resolved from the live catalog, never a literal.** Preference chain
+`deepseek/deepseek-v4-pro` -> `deepseek-v4-pro` -> `secretary-smart`, tested against
+`model-catalog.json`; if none is listed the lane stays EMPTY and the default seat is used. That is the
+standing rule (`journal.py show L1606`: every live AI call failed for a week behind a deterministic
+fallback), and this estate has already had a lane pin a model id that did not exist (§49).
+
+### Proven by running the shipped block, not by reading it
+
+Executed the exact lines in a subshell with each state:
+
+```
+PRIORITY=high    -> LANE=[deepseek/deepseek-v4-pro]  LANE_ARG=[ -Model "deepseek/deepseek-v4-pro"]
+PRIORITY=normal  -> LANE=[]                          LANE_ARG=[]
+tier=conserve + PRIORITY=high -> lane stays deepseek/deepseek-v4-flash, reason=balance
+```
+
+Catalog resolver, all three states: real catalog -> `deepseek/deepseek-v4-pro`; catalog without the strong ids
+-> `(none - no pin)`; unreadable catalog -> `(none - no pin)`. An absent catalog cannot make it guess.
+
+`wake-dispatch.sh` `bash -n` clean after the edit (70994 -> 72840 chars, backup
+`wake-dispatch.sh.bak-ladder-20261018`).
+
+**And the choice is now visible**, which it never was: the dispatcher appends to
+`~/.sms-inbox/wake-lane.log`
+
+```
+2026-10-18T04:17:44+00:00 wake #9999 priority=high lane=deepseek/deepseek-v4-pro reason=capability:high-priority
+2026-10-18T04:17:44+00:00 wake #9997 priority=high lane=deepseek/deepseek-v4-flash reason=balance
+```
+
+A lane that cannot be read from the store is a lane nobody can audit; "the cheap lane is used when balance is
+low" was unverifiable until this line existed.
+
+**PENDING, and a clock owns it:** the first real high-priority release must show
+`reason=capability:high-priority` in `wake-lane.log` AND the shift must actually run under that model (the
+resolver validates against the catalog and fails loud if it does not). Check with
+`tail -5 ~/.sms-inbox/wake-lane.log` and `wake.py list --state done` for a high row.
+
+**Not done, deliberately:** `deepseek-r1-0528` is a reasoning model in the same catalog and may be the better
+seat for diagnosis-heavy rows, but nothing here has measured its quality or cost per shift. Adding it on
+intuition would be the same mistake as picking a model by name.
