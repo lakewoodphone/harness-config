@@ -6,7 +6,7 @@ Updated: 2026-10-18
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 555 row(s) read, 5 pending, generated 2026-10-18 10:08 UTC on SECRATARY-CLOUD.
+Provenance: 556 row(s) read, 6 pending, generated 2026-10-18 11:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -15,5 +15,6 @@ Provenance: 555 row(s) read, 5 pending, generated 2026-10-18 10:08 UTC on SECRAT
 | 110 | 2026-09-18 | medium | The 2022 Elantra needs about $400 of work and setup right now: the IVT transmission fluid is overdue at 60,326 miles (Hyundai's severe-duty interval is 60,000), and the car has no health monitoring at all. Which do you want me to green-light? | A. The IVT is the single most expensive failure mode this car has (adjacent-year Elantras have failed in the 80k range at ~$4,800 out of pocket), it is past its severe-duty 60,000-mile interval, and there is no service h |
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
 | 299 | 2026-10-06 | medium | How long should we keep customer device photos, and who may see them after the repair is done? | 12 months from intake with open and disputed jobs exempt. It covers a warranty claim and a chargeback window, which is what the photos are actually for, and it stops the shop accumulating other people's device photograph |
+| 557 | 2026-10-18 | medium | Approve the public parent-notice and terms copy, and supply the shop address, phone and email the pages leave blank? | Approve the drafted copy as published, with only the contact details added; it carries no accuracy figure, keeps the deny-first promise, and marks the signature as outstanding. |
 
 Closed since the queue opened: 550. Answered questions move to `entries/decisions/` with the owner's own words.
