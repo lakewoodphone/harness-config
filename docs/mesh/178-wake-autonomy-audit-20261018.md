@@ -2000,3 +2000,18 @@ resolver validates against the catalog and fails loud if it does not). Check wit
 **Not done, deliberately:** `deepseek-r1-0528` is a reasoning model in the same catalog and may be the better
 seat for diagnosis-heavy rows, but nothing here has measured its quality or cost per shift. Adding it on
 intuition would be the same mistake as picking a model by name.
+
+### 62a. CORRECTION — the three lane-log lines above are MY VERIFICATION, not a live proof
+
+Appended at 04:21Z, before anyone could read §62 as a live verification. The three lines in
+`wake-lane.log` carry ids **9999, 9997 and 1** — all three are the standalone runs I made to prove the
+block, not releases. `wake #1` is the giveaway, since real ids are four digits and climbing.
+
+**The ladder has NOT yet been exercised by a real release.** At 04:20:59Z the one pending high-priority row
+(`wake #1177`, `odq-answer-open:69`) was still `new`, because the fan-out was already carrying other work.
+So §62's behaviour is proven **by running the shipped block in isolation**, and the live proof remains
+pending exactly as stated there — but with the additional warning that a log line is only evidence if you
+check the id against the store.
+
+This is the same trap as §50's wrong 41 and §57's "conflict": a reading that looks like confirmation and is
+actually the instrument's own footprint.
