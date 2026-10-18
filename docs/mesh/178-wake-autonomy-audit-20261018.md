@@ -2933,3 +2933,48 @@ Backup `wake-lock-watch.py.bak-streak-20261018`, `py_compile` clean.
 happened — but **a `streak>=3` capture that coincides with a shift kill**. The first capture satisfied the
 letter of the DoD and would have satisfied nothing else, which is exactly why the DoD is being rewritten rather
 than ticked.
+
+---
+
+## 75. ROUND 80 — THE BACKFILL WAS ALREADY IN HAND; THE RECURRENCE WAS NOT
+
+Three checks, and the first one earned its keep before any work was done.
+
+### 1. Item 561 is being worked, so it was not duplicated
+
+```
+item 561 | state=running | claimed_by=wake-dsh-archive:20261018 | since 04:45:58
+still missing: 93 -> 68 -> 51   (measured across this round)
+```
+
+A shift claimed the 93-session backfill 25 minutes before this round began and is closing the gap steadily. **The
+"before you build, prove it is not already there" step prevented re-running a dry-measured 216,738-row job on a
+box that OOM-kills its API ten times a day.** That is the whole reason the rule exists, and it cost one query.
+
+### 2. The self-audit is NOT an orphan — verified rather than assumed
+
+`weekly-evolution.py` looked unscheduled: zero crontab matches and absent from the `for s in ...` loop. But it is
+invoked **outside** the loop at `run-wake-sources.sh:206`, so it runs every 30 minutes with the sources. Its log
+holds exactly one line in five days —
+
+```
+2026-10-13T01:37:01  weekly-evolution  flagged self-audit:2026-W42
+```
+
+— which is correct for a week-bucketed subject: the source says nothing when the week's row is already filed.
+`grep -c weekly-evolution crontab` returning 0 was my error of scope, not a defect. **The "audits itself" half of
+the brief is wired.**
+
+### 3. The recurrence was not filed, and now is
+
+Item 561 clears the backlog **once**. The cause remains: `push-dsh-sessions.mjs` is a client-side task whose
+client is `secratary`, the frozen rollback anchor, so it stopped at the 2026-10-11 cutover while the bytes kept
+arriving through the authority's own pull. Without a shipper run **from the authority**, the same gap refills
+every day and the next session finds 93 more.
+
+Filed as **item 586** (housekeeping, p3) with the exact command
+(`DSH_HOME=/root/.dsh DSH_ARCHIVE_MACHINE=secratary`, cursor-based, **no `--all`**) and the warning that `--all`
+on a fresh cursor is the 216,738-row job again.
+
+**Nothing was changed this round.** Three verifications, one filing, and one duplicate avoided — which is the
+correct shape for a round that arrives while another shift is mid-work on the same file.
