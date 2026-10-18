@@ -1751,13 +1751,13 @@ def _gather_queue(con, include_deferred=False):
     # ── the queue itself: decisions and comms-derived attention ──────────────
     try:
         rows = con.execute(
-            "SELECT id, asked_at, question, context, severity, blocks, kind, channel, party,"
-            "       evidence_at, deferred_until, meta_json, status, seen_at"
+            "SELECT id, asked_at, question, context, recommendation, severity, blocks, kind,"
+            "       channel, party, evidence_at, deferred_until, meta_json, status, seen_at"
             "  FROM owner_decision_queue WHERE status='pending'").fetchall()
     except Exception:
         # Pre-migration database: the columns this reader wants are not there yet.
         rows = con.execute(
-            "SELECT id, asked_at, question, '' AS context, severity, blocks,"
+            "SELECT id, asked_at, question, '' AS context, NULL AS recommendation, severity, blocks,"
             "       'decision' AS kind, NULL AS channel, NULL AS party,"
             "       NULL AS evidence_at, deferred_until, NULL AS meta_json, status,"
             "       NULL AS seen_at"
@@ -1783,6 +1783,7 @@ def _gather_queue(con, include_deferred=False):
             "kind": (r["kind"] or "decision"),
             "tier": r["severity"] or "medium",
             "title": r["question"],
+            "recommendation": r["recommendation"] or "",
             "age_hours": _age_hours_from(at),
             "blocking": bool(r["blocks"]),
             "ask": bool(meta.get("ask")),

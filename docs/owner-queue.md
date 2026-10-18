@@ -236,6 +236,29 @@ queue. So:
 
 `pending → seen (seen_at) → answered | resolved | dismissed | deferred | superseded`
 
+### 9.1 The queue closes its own loops
+
+Measured 2026-10-18, and it was the worst remaining behaviour: Telnyx's "balance is −$0.01, services
+will be suspended" sat at `critical` and at the **top of the queue for two days after Telnyx wrote
+"account re-enabled after payment"**. Both facts were in the mailbox; nothing connected them, so the
+queue answered yesterday's question with total confidence. That is worse than a missing item.
+
+`reconcile()` in the mail ingest closes it, and the rule is deliberately narrow:
+
+* the resolution must come from the **same sender identity** (full address for freemail, domain for a
+  company) — never from a look-alike;
+* it must be **newer** than the row it closes;
+* the old row must actually **read like an alarm** (suspend, overdrawn, negative, failed, past due,
+  expiring, low balance, insufficient, quota, action required, payment due);
+* it only ever closes **`attention`**. A decision he has not answered stays his even if the situation
+  moved — the card says POSSIBLY MOOT instead, and he decides.
+* every close writes what closed it into `resolution`, e.g.
+  `auto-closed: portal@telnyx.com said "Telnyx account re-enabled after payment" (2026-10-13)`,
+  so the action is auditable and reversible.
+
+On the 14-day corpus it proposed **exactly one** close and made no false ones. `--explain` prints the
+proposals and writes nothing.
+
 * `dedupe_key` is **UNIQUE** (partial index where not null). Keyed on the message id for Voice, the
   thread for a person's email, the *fact* for a machine's email.
 * Re-running an ingest **refreshes** a pending row and **never resurrects** a dismissed or answered
@@ -319,23 +342,46 @@ timer runs it after every ingest, so a silent channel shows up in `systemctl --f
 
 Expected: ~80 GV forwards and ~200 messages a week across the five inboxes.
 
+### 12.1 The phone digest reads this queue
+
+`personal-secretary-mvp/scripts/owner_attention.py` (daily, `lpt-owner-attention.timer`) used to read
+`owner-queue.py list --json` — decisions only by design — so every text, call, voicemail and email item
+was invisible on the phone. It now reads `queue --json` (the one ordered working set) and maps both
+field shapes.
+
+Three things had to move with it, and each was found by running it rather than reading it:
+
+* **non-numeric ids.** The one queue also carries held app rows (`m2631`) and agent questions, so
+  `int(id)` raised and the whole digest died. The sort parses the id when it is numeric and uses 0
+  otherwise.
+* **the tail question.** The relay opens a reply turn only when the body ends in a question mark, so
+  every item got " Yes?" appended. That is right for a decision and nonsense for news — the first dry
+  run would have texted *"Chase: overdraft or declined transaction on account ...9730 Yes?"*. News now
+  gets **" Want details?"**, decision keeps " Yes?".
+* **`kind` never reached the composer**, so everything looked like a decision. It is passed through now.
+
+The patch is `scripts/owner-queue/patch-attention-digest.py` — literal replacements plus an asserted
+end state, safe to re-run. Verify with `python3 scripts/owner_attention.py send --dry-run` (it prints
+the exact body and sends nothing).
+
 ## 13. Known limits — stated, not hidden
 
-1. **A resolved premise still sits in the queue.** Telnyx "balance is -$0.01" stayed `critical` and at
-   the top for two days after the account was re-enabled, because the payment confirmation is a
-   different fact and nothing links them. `owner_premise_check` + `_premise_moved_rows` is the hook
-   for it; the mail ingest does not feed that check yet. **Next piece of work on this queue.**
-2. **Two rows for one ongoing problem** can still happen when a bank changes its wording ("overdrawn"
+1. **Two rows for one ongoing problem** can still happen when a bank changes its wording ("overdrawn"
    vs "overdraft or declined"), because the fact key strips amounts and dates but not vocabulary.
-3. **`scripts/owner_attention.py` still ranks independently for phone delivery**, reading
-   `owner-queue.py list --json`, which is deliberately decisions-only. Two rankings exist in the
-   estate. Unifying means pointing that script at `queue --json` and adapting its parser in the same
-   change — it expects `question`/`severity`/`blocks`, not `title`/`tier`.
+   §9.1 closes the row once a *resolution* arrives from the same sender, which is the case that
+   actually matters.
+3. **The daily phone digest now reads this queue** (§12.1). It is the same one ranking, but it still
+   composes its own one-line message and its own ordering ACROSS sources (obligations, waiting comms,
+   email, the queue), so it is a delivery surface with a second sort, not a second queue. If it is
+   ever made identical, it is by moving `pick_item`/`sms_body` behind this tool.
 4. **Name resolution** for bare numbers depends on the comms index (`people` / `person_alias`). A stale
    index shows a known caller as a number.
 5. **GV recall is capped by the mailbox window we ask for.** A forward older than that window is gone.
 6. **The judge is a model, so it is not deterministic.** The cache means a message is judged once;
    `--rejudge` is for when the rubric changes, and it will move verdicts around.
+7. **§9.1 only sees resolutions that ARRIVE as mail.** A premise that moved without a message (he paid
+   the bill himself, a case was settled on the phone) is still invisible to the queue; `POSSIBLY MOOT`
+   and `owner_premise_check` are the only cover.
 
 ## 14. Changelog
 
@@ -344,3 +390,5 @@ Expected: ~80 GV forwards and ~200 messages a week across the five inboxes.
   keys, routine-notice digests, `urgent_email` dedupe, ordering v2 (derived money and deadline,
   decision weight, band-safe anti-starvation), the working set, `card`, `health`, `learning`,
   `owner_queue_feedback`, the recommendations-in-decisions rule, and the dossier.
+* **2026-10-18 (last)** — the queue closes its own loops (§9.1): a later message from the same sender
+  that says the problem is fixed resolves the alarm it refers to, with the reason recorded.

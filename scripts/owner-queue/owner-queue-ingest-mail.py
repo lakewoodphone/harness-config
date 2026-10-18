@@ -226,6 +226,7 @@ CREATE TABLE IF NOT EXISTS owner_mail_verdict (
   party       TEXT NOT NULL DEFAULT '',
   action      TEXT NOT NULL DEFAULT '',
   recommendation TEXT NOT NULL DEFAULT '',
+  resolves    INTEGER NOT NULL DEFAULT 0,
   model       TEXT NOT NULL DEFAULT '',
   judged_at   TEXT NOT NULL,
   PRIMARY KEY (account, message_id)
@@ -242,6 +243,8 @@ def ensure_cache(con) -> None:
         con.execute("ALTER TABLE owner_mail_verdict ADD COLUMN class TEXT NOT NULL DEFAULT 'notice'")
     if "recommendation" not in have:
         con.execute("ALTER TABLE owner_mail_verdict ADD COLUMN recommendation TEXT NOT NULL DEFAULT ''")
+    if "resolves" not in have:
+        con.execute("ALTER TABLE owner_mail_verdict ADD COLUMN resolves INTEGER NOT NULL DEFAULT 0")
     con.commit()
 
 
@@ -358,6 +361,74 @@ def demote_machine_decisions(v: dict) -> dict:
         v["action"] = v.get("action") or "pay or let it ride"
         v["recommendation"] = ""
     return v
+
+
+# ── closing the loop: a sender that says "fixed" closes its own alarm ───────────────────────────
+# MEASURED 2026-10-18, and it was the queue's worst remaining behaviour: Telnyx's "balance is -$0.01,
+# services will be suspended" sat at CRITICAL and at the top of the queue for two days AFTER Telnyx
+# wrote "account re-enabled after payment". Both facts were in the mailbox; nothing connected them, so
+# the queue answered yesterday's question with total confidence. That is worse than a missing item.
+#
+# The rule is deliberately narrow: the resolution must come from the SAME sender identity, be NEWER
+# than the alarm, and the alarm row must actually read like an alarm. It only ever closes `attention`
+# -- a decision he has not answered stays his, even if the situation moved (the card flags it POSSIBLY
+# MOOT instead). Every close is recorded with what closed it, so this can be audited later.
+RE_RESOLVED = re.compile(
+    r"(re-?enabled|has been restored|(?:service|account|access|line)s? (?:has|have) been restored|"
+    r"payment (?:has been )?received|we(?:'ve| have) received your payment|thank you for your payment|"
+    r"successfully paid|has been resolved|is now resolved|no longer (?:suspended|overdrawn|past due|"
+    r"restricted|locked|negative)|backup (?:has been|was) deleted|auto-?recharged|"
+    r"recharged successfully|balance (?:is now|has been) (?:positive|restored)|"
+    r"order (?:has been )?delivered|confirmed (?:received|delivered))", re.I)
+RE_ALARM = re.compile(
+    r"(suspend|overdrawn|negative|declin|failed|past due|will be|expir|final notice|"
+    r"action required|used up|quota|is due|payment due|low balance|insufficient)", re.I)
+
+
+def reconcile(con, apply: bool) -> list[tuple[int, str]]:
+    """Close pending attention rows that a later message from the same sender says is over."""
+    try:
+        cands = con.execute(
+            "SELECT account, sender, subject, title, received_at FROM owner_mail_verdict"
+            " WHERE resolves=1 AND received_at > datetime('now','-14 day')"
+            " ORDER BY received_at DESC LIMIT 200").fetchall()
+    except Exception:
+        return []
+    closed: list[tuple[int, str]] = []
+    seen: set[int] = set()
+    for c in cands:
+        kind, value = _sender_identity(c["sender"])
+        if not value:
+            continue
+        like = ("%%%s%%" % value) if kind == "address" else ("%%@%s%%" % value)
+        try:
+            rows = con.execute(
+                "SELECT id, question, evidence_at FROM owner_decision_queue"
+                " WHERE status='pending' AND kind='attention'"
+                "   AND source LIKE 'mail-ingest:%'"
+                "   AND meta_json LIKE ? AND evidence_at < ?",
+                (like, c["received_at"])).fetchall()
+        except Exception:
+            continue
+        for r in rows:
+            if r["id"] in seen or not RE_ALARM.search(r["question"] or ""):
+                continue
+            seen.add(r["id"])
+            why = "auto-closed: %s said \"%s\" (%s)" % (
+                _norm(str(c["sender"]))[:40], _norm(str(c["title"] or c["subject"]))[:80],
+                str(c["received_at"])[:10])
+            closed.append((r["id"], why))
+            if apply:
+                con.execute(
+                    "UPDATE owner_decision_queue SET status='resolved', resolved_at=?,"
+                    " resolution=? WHERE id=?", (now_iso(), why, r["id"]))
+    if apply and closed:
+        con.commit()
+    return closed
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _learned_examples(con, limit: int = 12) -> str:
@@ -801,13 +872,15 @@ def main(argv=None) -> int:
             con.execute(
                 "INSERT OR REPLACE INTO owner_mail_verdict"
                 " (account, message_id, thread_id, sender, subject, received_at, verdict, tier,"
-                "  class, title, why, ask, deadline, money, party, action, recommendation, model,"
-                "  judged_at)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "  class, title, why, ask, deadline, money, party, action, recommendation,"
+                "  resolves, model, judged_at)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (m["account"], m["message_id"], m["thread_id"], m["sender"], m["subject"],
                  m["received_at"], v["verdict"], v["tier"], v["class"], v["title"], v["why"],
                  int(v["ask"]), int(v["deadline"]), v["money"], v["party"], v["action"],
-                 v.get("recommendation") or "", model, now_iso))
+                 v.get("recommendation") or "",
+                 1 if RE_RESOLVED.search(m.get("body") or "") else 0,
+                 model, now_iso))
             verdicts[(m["account"], m["message_id"])] = {
                 "verdict": v["verdict"], "tier": v["tier"], "class": v["class"],
                 "title": v["title"], "why": v["why"],
@@ -854,6 +927,7 @@ def main(argv=None) -> int:
     rows, folded = fold_routine_notices(rows)
 
     if a.explain:
+        closed = reconcile(con, apply=False)
         sel = rows
         if a.only_dropped:
             sel = [m for m in msgs
@@ -880,12 +954,21 @@ def main(argv=None) -> int:
         if judge_errors:
             print("\nJUDGE FAILED: %s" % "; ".join(judge_errors))
             return 4
+        if closed:
+            print("\nWOULD CLOSE %d stale row(s) — a later message from the same sender resolves them:"
+                  % len(closed))
+            for cid, why in closed[:20]:
+                print("  #%-5s %s" % (cid, why))
         return 0
 
     stats = write_items(con, rows)
+    closed = reconcile(con, apply=True)
     print("mail ingest: read=%d judged=%d new=%d refreshed=%d left_closed=%d "
-          "threads=%d dropped=%d" % (len(msgs), judged_n, stats["new"], stats["refreshed"],
-                                     stats["left_closed"], len(rows), tally.get("drop", 0)))
+          "threads=%d dropped=%d closed_stale=%d"
+          % (len(msgs), judged_n, stats["new"], stats["refreshed"],
+             stats["left_closed"], len(rows), tally.get("drop", 0), len(closed)))
+    for cid, why in closed[:20]:
+        print("  CLOSED #%-5s %s" % (cid, why))
     if models:
         print("  judged by: %s" % ", ".join(sorted(models)))
     if over_cap:
