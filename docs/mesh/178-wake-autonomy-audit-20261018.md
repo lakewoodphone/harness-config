@@ -2771,3 +2771,34 @@ running.
 failed" from "the platform failed while this work ran". Any failure class that is not about the item — a lock, a
 transport hop, a model id that does not exist — should refund rather than consume, and the three repairs in this
 session (1123, 1169, 1170) were all that class. A future cap should count *the work's own* failures.
+
+### 71b. A kill at 05:18 still said `unknown`, and it is not the store
+
+Twelve minutes after the lane fixes, `failed` moved 7 -> 9. The newest is `#1188` at 05:18:07:
+
+```
+05:15:36Z WARN  heartbeat for wake #1123 could not renew (attempt 1, rc=2): wake: database error: database is locked
+05:15:41Z WARN  heartbeat for wake #1123 renewed on attempt 2 after 1 transient failure(s)
+05:18:07Z ERROR lease for wake #1188 not renewed - killing the session to avoid a double release: unknown
+```
+
+**"unknown" again, and this time it is not the lock:** the watcher ran at 05:17 and reported
+`quiet: 15 probe(s), the write lock was free every time`, and no `wake-lock.log` exists.
+
+What is ruled out:
+
+- `WAKE_CLI=${WAKE_CLI:-$HOME/bin/wake.py}` -> under cron that is `/root/bin/wake.py`, and
+  `stat -c %i /root/bin/wake.py /home/zabz/bin/wake.py` returns **2162185 for both** — one inode, so the
+  patched `heartbeat` (which returns **1** for `not-claimed`) IS the copy being invoked.
+- So the probe did not report `not-claimed` (that would set
+  `LEASE_LOSS_REASON="the store reports the row is no longer claimed by us"`), and it did not report a
+  transient error either (that would set `_LEASE_LAST_ERR`). **Both were empty, which means the flow reached the
+  kill block without going through either `lost` branch of the `case "$decision"`.**
+
+The likely shape — **not yet proven** — is that the heartbeat loop exited some other way (its `LOOP_DEADLINE`,
+or the session's own timeout) and fell through with no reason set. That is a hole in the *reason plumbing*, not
+in the store: the third instance of "the failure happened and the explanation was not carried".
+
+**Not fixed this round.** It needs the exit paths of `heartbeat_lease` read line by line with the loop's
+deadline logic, and the last edit to that region (§68) cost two shifts. Recorded so the next session starts at
+the loop's exits rather than re-deriving that the store is innocent.
