@@ -1639,3 +1639,70 @@ proposal on a branch, never on master.
 and the label was wrong, which is the same defect as a wrong number anywhere else, so it is recorded rather
 than quietly fixed. **03:57Z check: the 04:07 tick had not yet run, so the `loop-stall` retirement and the
 session-sweep classifier remain PENDING.**
+
+---
+
+## 57. ROUND 62 — THE 37 "CONFLICTS" WERE ONE EXPLAINED CLASS AND ONE WRONG RULE
+
+§54 left 37 rows as "conflicts for a human" and 27 rows unconfirmed. This round resolves the first and
+names the cause of the rest.
+
+### The 37 were a 2026-08-30 relabel, not a disagreement
+
+Every one of them is `sms_log=failed` against `mirror=delivered`, and every one carries the same
+`error_message`:
+
+    S3b 2026-08-30: Twilio outbound retired (no from-number configured; owner SMS kill-switched;
+    LPT customer SMS = Dialpad only). Message never delivered; kept as audit record.
+
+56 rows carry that label. On 2026-08-30 Twilio outbound was retired and every outstanding message was
+relabelled `failed` with that note — while the mirror kept **Twilio's own verdict**, which for 37 of them is
+`delivered`. So the two stores disagree because one describes a *retirement* and the other a *delivery*.
+Neither is a bug, and the sentence "Message never delivered" is inaccurate for the 37 that were delivered
+before the retirement.
+
+That is not something a write-back should resolve by choosing a winner. It is a class with a written
+explanation, and a report that shows 37 unexplained conflicts on every run is precisely how an operator
+learns to ignore the report. So the script now **names** it: `retired_relabel`, counted and printed, never
+overwritten.
+
+### And one of the 37 was my rule being wrong, not the data
+
+After the class was named, exactly **one** row remained:
+
+    CONFLICT id=4139 SMe8a017b4306a52ce3c33b41b93908685: sms_log=sent mirror=delivered
+
+`sent -> delivered` is an **upgrade**, not a disagreement — Twilio's status flows
+`queued -> sent -> delivered|failed|undelivered`. My rule treated any two different terminal states as a
+conflict, which buried a real delivery behind a label that made it look unresolved. Corrected: that pair is a
+change, and it applied.
+
+### Measured, before and after, from the stores
+
+```
+dry run, before the two fixes: scanned=754 to_change=0  retired_relabel=36 conflicts=1 already_same=357
+after --apply               : scanned=754 to_change=1  retired_relabel=36 conflicts=0 already_same=357
+sms_log outbound BEFORE: suppressed=2036 failed=1039 delivered=342 sent=303 queued=27 undelivered=15
+sms_log outbound AFTER : suppressed=2036 failed=1039 delivered=343 sent=302 queued=27 undelivered=15
+RESULT: wrote 1 status update(s); 36 known-class row(s) named; 0 conflict(s) left for a human
+```
+
+Row 4139 reads `delivered` with `updated_at 2026-10-18T04:00:53`. The throwaway gate grew two cases (the
+S3b row must be *named*, the `sent -> delivered` row must be *changed*) and passes: `RESULT: PASS 0
+failure(s)` over 9 rows, second apply writes 0.
+
+### The 842-row failure class nobody had named
+
+While reading `failed` I found the dominant historical cause, which is not Twilio's verdict at all:
+
+    HTTPSConnectionPool(host='api.twilio.com', port=443): Max retries exceeded ... 841 rows
+    NameResolutionError: Failed to resolve 'api.twilio.com' ([Errno -3] Temporary failure in name resolution)
+
+842 rows, **newest 2026-10-06T13:58:40**, and `getent hosts api.twilio.com` resolves fine now. So the
+authority could not resolve Twilio for a window that ended twelve days ago, every send in that window was
+recorded `failed` by the *sender's* network stack rather than by Twilio, and nothing said so. Not live, and
+therefore not urgent — but it is the reason `failed` in this table cannot be read as "Twilio rejected it", and
+that is worth knowing before anything builds a retry policy on the column.
+
+**Still open: 27 rows with no mirror row** (`no_mirror_row=360` overall, `27|27` of the queued ones). They need
+a direct Twilio status query against `sms_log`; the mirror cannot settle them and neither can a wider window.

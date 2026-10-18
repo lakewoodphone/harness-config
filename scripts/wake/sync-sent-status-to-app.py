@@ -64,11 +64,23 @@ def main():
                                                   for r in before))
 
     rows = app.execute(
-        "SELECT id, twilio_sid, status FROM sms_log "
+        "SELECT id, twilio_sid, status, error_message FROM sms_log "
         "WHERE direction='outbound' AND twilio_sid IS NOT NULL AND twilio_sid<>'' "
         "LIMIT ?", (a.limit,)).fetchall()
 
-    changed, conflict, absent, same, notterm = [], [], 0, 0, 0
+    # A KNOWN historical class, named so it stops reading as an open question.
+    # MEASURED 2026-10-18: on 2026-08-30 Twilio outbound was retired and 56 rows were
+    # relabelled `failed` with the note "S3b 2026-08-30: ... Message never delivered; kept
+    # as audit record." The mirror still holds Twilio's own verdict for those sids, and for
+    # 37 of them that verdict is `delivered` -- so the two stores disagree because one of
+    # them is describing a retirement and the other a delivery.
+    #
+    # That is not a conflict to be resolved by guessing; it is a class with a written
+    # explanation, and a report that shows it every run as an unexplained conflict is how
+    # an operator learns to ignore the report. Counted, named, never overwritten.
+    RETIRED_PREFIX = "S3b 2026-08-30"
+
+    changed, conflict, retired, absent, same, notterm = [], [], [], 0, 0, 0
     for r in rows:
         m = mir.execute("SELECT status FROM messages WHERE sid=? LIMIT 1",
                         (r["twilio_sid"],)).fetchone()
@@ -84,13 +96,25 @@ def main():
             same += 1
             continue
         if have in TERMINAL and have != want:
-            conflict.append((r["id"], r["twilio_sid"], have, want))
+            # Twilio's status flows queued -> sent -> delivered|failed|undelivered, so
+            # `sent` becoming `delivered` is an UPGRADE, not two stores disagreeing.
+            # MEASURED 2026-10-18: treating it as a conflict hid a real delivery behind a
+            # label that made it look unresolved (row 4139).
+            if (have, want) == ("sent", "delivered"):
+                changed.append((r["id"], r["twilio_sid"], have, want))
+                continue
+            if (r["error_message"] or "").startswith(RETIRED_PREFIX):
+                retired.append((r["id"], r["twilio_sid"], have, want))
+            else:
+                conflict.append((r["id"], r["twilio_sid"], have, want))
             continue
         changed.append((r["id"], r["twilio_sid"], have or "(empty)", want))
 
-    print("scanned=%d  to_change=%d  conflicts=%d  already_same=%d  no_mirror_row=%d"
-          "  mirror_not_terminal=%d" % (len(rows), len(changed), len(conflict),
-                                        same, absent, notterm))
+    print("scanned=%d  to_change=%d  retired_relabel=%d  conflicts=%d  already_same=%d"
+          "  no_mirror_row=%d  mirror_not_terminal=%d"
+          % (len(rows), len(changed), len(retired), len(conflict), same, absent, notterm))
+    print("  retired_relabel = the 2026-08-30 Twilio-retirement relabel (%d of them; the mirror"
+          " keeps Twilio's own verdict, and both readings are recorded)" % len(retired))
     for i, sid, have, want in changed[:10]:
         print("  %-6d %-34s %s -> %s" % (i, sid, have, want))
     if len(changed) > 10:
@@ -113,8 +137,8 @@ def main():
         " ORDER BY c DESC").fetchall()
     print("sms_log outbound AFTER : " + ", ".join("%s=%d" % (r["status"] or "NULL", r["c"])
                                                   for r in after))
-    print("RESULT: wrote %d status update(s); %d conflict(s) left for a human"
-          % (len(changed), len(conflict)))
+    print("RESULT: wrote %d status update(s); %d known-class row(s) named (retired_relabel);"
+          " %d conflict(s) left for a human" % (len(changed), len(retired), len(conflict)))
     return 0
 
 
