@@ -8,13 +8,13 @@
   "pain": 7948,
   "wins": 6875
  },
- "ceiling_refreshed_at": "2026-10-18T16:30:35Z",
+ "ceiling_refreshed_at": "2026-10-18T16:45:11Z",
  "ceiling_source": {
-  "decisions": "refs/heads/hk/584-wake-lock-holders",
-  "handoff": "refs/heads/hk/584-wake-lock-holders",
-  "lessons": "refs/heads/hk/584-wake-lock-holders",
-  "pain": "refs/heads/hk/584-wake-lock-holders",
-  "wins": "refs/heads/hk/584-wake-lock-holders"
+  "decisions": "ZABZ-YOGA live working tree",
+  "handoff": "ZABZ-YOGA live working tree",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "ZABZ-YOGA live working tree",
+  "wins": "ZABZ-YOGA live working tree"
  },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-18 14:30 UTC",
@@ -24,8 +24,8 @@
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 7104,
-  "handoff": 8040,
-  "lessons": 8573,
+  "handoff": 8104,
+  "lessons": 8637,
   "pain": 8010,
   "wins": 7002
  },
