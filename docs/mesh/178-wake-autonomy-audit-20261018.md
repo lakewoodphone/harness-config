@@ -3342,3 +3342,44 @@ alone does not separate them, the **pid** does.
 **The general lesson, which cost four rounds:** a log with no process identity cannot distinguish two versions of
 the same script running at once. `flush`-time stamps are not enough; the pid or the file hash is. Every kill line
 in this dispatcher should arguably carry its own `$$` — it would have made §63 through §83 a single lookup.
+
+---
+
+## 84. ROUND 89 — THE RECONCILIATION HAD ALREADY DECAYED, AND IT WAS MY OWN EDITS
+
+§73 said "the repo now is production" and proved it with the deploy dry run. Thirty minutes later, checking
+rather than trusting:
+
+```
+DIVERGED  scripts/wake/dispatch.sh        b5f77b77     <- what I committed at 05:20
+          /root/bin/wake-dispatch.sh      b40c9d26     <- after §72, §76, §83
+MATCH     scripts/wake/wake.py            8b027117
+MATCH     scripts/wake/run-wake-sources.sh 45a475af
+```
+
+**A reconciliation is a claim about a moment, not a state.** Two files stayed matched because nothing touched
+them; the dispatcher drifted because I edited it four times *after* reconciling it. A `deploy.sh --apply` in that
+window would have reverted every lease diagnostic added since — and the guard in §45 would have reported nothing,
+because the repo copy would have looked like a legitimate newer source.
+
+Re-pulled and pushed: `MATCH now (b40c9d26)`, commit `82a0cb36`, `f6f5b0c7..82a0cb36` on
+`refs/heads/fix/reconcile-wake-repo`.
+
+### The standing requirement this creates
+
+**After any edit to a live file, re-run the equality check before claiming the repo is production.** It is two
+lines and it caught this in one round:
+
+```bash
+cd /root/code/harness-config/scripts/wake
+for p in "dispatch.sh /root/bin/wake-dispatch.sh" "wake.py /root/bin/wake.py" \
+         "run-wake-sources.sh /root/bin/run-wake-sources.sh"; do
+  set -- $p
+  [ "$(md5sum $1 | cut -c1-8)" = "$(md5sum $2 | cut -c1-8)" ] && echo "MATCH $1" || echo "DIVERGED $1"
+done
+```
+
+**Why this belongs next to `AGENTS.md` §8 and not merely in this document:** §8 stops a *running* instance from
+reading a mixture of two versions. This stops the *next deploy* from restoring an older one. They are the two
+halves of the same hazard — the file under a live reader, and the file under a future installer — and both are
+invisible from a passing test, because in both cases the code on disk is fine at the moment it is read.
