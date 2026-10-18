@@ -2015,3 +2015,33 @@ check the id against the store.
 
 This is the same trap as §50's wrong 41 and §57's "conflict": a reading that looks like confirmation and is
 actually the instrument's own footprint.
+
+### 62b. AND A SECOND CORRECTION — the "re-armed completed row" is the system working
+
+Chasing why `wake #1177` showed `state=new, attempts=0, created_at=02:37:05` while the dispatch log recorded
+it `done` at 02:34:41, I suspected duplicate work: a completed row revived and the same shift dispatched twice.
+Measured, and it is **not** a defect:
+
+```
+subject            = odq-answer-open:69        <- anchored on the OLDEST unanswered row's id, not a count
+dispatch log       = released 02:08:03, done 02:34:41 (dur 1597s)
+outcome            = "16 of the 22 are closed; 6 are left open"
+prompt at 02:37:05 = "6 row(s) in the owner decision queue carry a recorded answer and were never
+                      resolved for more than 6 hour(s) as of 2026-10-18T02:37:05Z"
+source cooldown    = ODQ_ANSWER_COOLDOWN_SEC=604800  (7 days)
+```
+
+The shift closed sixteen of twenty-two, **honestly recorded the six it left**, and the source re-filed because
+those six still carry unread answers — with a **freshly rendered prompt**, not a stale one. `wake.py:1103`
+revives a terminal row for the exact subject, and the anchor-row subject means "this instance, again", which
+is correct when the condition genuinely persists. The 7-day cooldown bounds it to one shift a week.
+
+**The one thing worth knowing** (not a defect, a bound): revival resets `attempts` to 0, so the 2-attempt cap
+is per revival rather than per condition. The only thing preventing an uncloseable condition from looping
+forever is the source's cooldown. Any source with a short cooldown and a persistent condition should be
+reading `defer_on_cooldown=False` — five sources already do (`cfo-backfill`, `comms-freshness` x2,
+`memory-pressure`).
+
+**Two false alarms in one round, both mine**, both caught by reading the artefact instead of the label: my own
+test ids read as a live proof (§62a), and correct revival read as duplicate work. The habit that caught them
+is the one this document keeps paying for — print the raw value, then check it against the store.
