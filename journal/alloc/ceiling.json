@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-18T07:30:22Z",
+ "refreshed_at": "2026-10-18T07:45:20Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 19.9,
+ "seconds": 18.4,
  "sources_seen": 7635
 }
