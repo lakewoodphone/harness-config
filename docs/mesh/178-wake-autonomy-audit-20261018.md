@@ -2978,3 +2978,32 @@ on a fresh cursor is the 216,738-row job again.
 
 **Nothing was changed this round.** Three verifications, one filing, and one duplicate avoided — which is the
 correct shape for a round that arrives while another shift is mid-work on the same file.
+
+### 75a. The diagnostic fired, and it says the function never decided
+
+`failed` moved 9 -> 10 at 05:24:45, and the kill line now carries the facts:
+
+```
+ERROR lease for wake #1169 not renewed - killing the session to avoid a double release:
+      unknown [decision=unset rc=unset attempt=unset err=none]
+```
+
+**All four unset.** Those globals are assigned in `heartbeat_lease`'s `lost` branch, immediately before its
+`return 1`. So the function returned **non-zero without taking the `lost` branch** — and since the only other
+return is `renew` (which returns 0), the function did not return through its own code at all.
+
+That rules out, with evidence rather than reading:
+
+- the store declining the heartbeat (`rc=1` -> `lost` -> reason set),
+- a transient error (`rc=2` -> `_LEASE_LAST_ERR` set),
+- any decision the state machine produced (it would be printed).
+
+**What is left is an interrupt:** `heartbeat_lease` sleeps inside its `*)` branch and between attempts, and a
+signal delivered while it sleeps makes `if ! heartbeat_lease` see a non-zero status with none of its own
+bookkeeping done. That is a *hypothesis*, not a finding — and it is now a cheap one to settle, because the next
+step is one line (`echo $?` plus the function's entry/exit into the log) rather than another round of reading.
+
+**This is what the last three rounds bought.** §63 made the message carry `_LEASE_LAST_ERR`; §72 made it carry
+the decision, rc and attempt. The first answered "a lock, not the store"; the second answered "not a decision at
+all". Each round of instrumentation halved the remaining space, and none of it would have been visible from the
+`unknown` that started it.
