@@ -83,16 +83,25 @@ The JSON keys the stdin path accepts: `title`, `heading`, `ticket`, `customer`, 
   barcodes on labels on 2026-10-09 — labels are read by eye. Leave `--barcode` empty.
 - **Positional `info` lines are IGNORED whenever `--ticket`, `--customer` or `--device` is present**
   — the work-order branch wins. You cannot mix the two forms.
-- **`--issue` is silently TRUNCATED at the font floor.** A line that is too long renders short with
-  no error and no warning. Keep each line to roughly 22 characters on the 29 mm roll and check the
-  dry-run PNG.
+- **A body line is NINETEEN characters wide on the 29 mm roll, not 22** (measured 2026-10-18,
+  ticket 12753: `FROM MICROSOFT ACCOUNT`, 21 characters, **word-wrapped** into a stray `ACCOUNT`
+  row). The renderer this skill's §6 route uses **word-wraps rather than truncating**, which is
+  quieter and worse: nothing errors, you just get an orphan line. Keep every line to **19
+  characters or fewer**, and look at the dry-run PNG before spending tape.
 - **`--issue` does reach the tape as several lines if you put a real newline (`\n`) in it.**
 - **`--no-title` omits the masthead**; an empty `--title` does NOT — it falls back to
   `LAKEWOOD PHONE & TECH`.
-- **What goes on a label.** The owner, verbatim: *"it's for my secretary to read the labels also so
-  she needs this info."* A label has to let someone find the job and know what to hand over and what
-  to collect. That means **ticket number and a device/job identity** — a name, a phone and a price
-  alone is unusable.
+- **What goes on a label — FOUR things, and the phone is one of them.** The owner, verbatim:
+  *"it's for my secretary to read the labels also so she needs this info."* A label has to let
+  someone find the job, **ring the customer**, and know what to hand over and what to collect. So
+  every customer label carries **(1) the ticket number, (2) the customer's name, (3) the customer's
+  PHONE NUMBER, (4) the device and the job.** A name and a price alone is unusable — and so is a
+  name with no number to call.
+- **Corrected 2026-10-18, twice, by the owner: *"you didn't include their phone number."*** Tickets
+  12753 (Semah, Dell P137G) went out with name and device but no number, and had to be reprinted.
+  There is no `--phone` flag, so put it as its own `--issue` line directly under the name
+  (`732-998-3106` is 12 characters and fits). The ONLY reason to omit it is the shop-property
+  exception below.
 - **Shop property gets no masthead and no customer identifiers.** Owner, 2026-10-12, on a note for a
   phone the shop owns: *"don't include the phone number, this is shop property and just a note so the
   next tech knows the parts of this phone."* So an internal parts note is `no_title: true` with the
