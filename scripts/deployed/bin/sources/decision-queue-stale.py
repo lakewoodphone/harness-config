@@ -3,8 +3,9 @@
 
 THE SIGNAL
 ----------
-`owner_decision_queue WHERE status='pending' AND asked_at < now - 7 days`
-in ~/personal-secretary-mvp/data/secretary.db.
+`owner_decision_queue WHERE status='pending' AND asked_at < now - 7 days
+ AND (deferred_until IS NULL OR deferred_until <= now)`
+in /root/authority.db (the live queue; `_flag.app_db()` prefers it).
 
 WHY THIS IS ABNORMAL, AND WHY THE THRESHOLD IS 7 DAYS
 -----------------------------------------------------
@@ -32,6 +33,16 @@ tell which:
   (c) it is genuinely his, in which case it is recorded and left alone.
 Only (a) and (b) are worth a session, and finding out which costs one session
 per row ONCE -- see SUBJECT below.
+
+A ROW THE OWNER DEFERRED IS NOT STALE
+-------------------------------------
+`deferred_until` is a date HE named. `owner-queue.py next` already hides such a
+row until that date; this source must use the same rule, or it re-raises a
+question he has already answered with "remind me later". Measured 2026-10-18:
+row #78 was deferred to 2026-10-30 and still appeared in a 7-day stale flag 12
+days early -- a nag, not an escalation. An EXPIRED deferral is not excluded: the
+row is his again from that instant, which is why #110 (deferred to 2026-10-09)
+correctly remains in the list.
 
 PRIORITY  normal. Nothing is on fire; something is stuck.
 
@@ -89,10 +100,13 @@ def collect(args) -> list[Finding]:
                 f"no owner_decision_queue table in {_flag.app_db()}")
         rows = conn.execute(
             "SELECT id, asked_at, severity, source, blocks, question,"
-            "       recommendation, context"
+            "       recommendation, context, deferred_until"
             "  FROM owner_decision_queue"
-            " WHERE status='pending' ORDER BY asked_at ASC LIMIT ?",
-            (LIST_MAX,)).fetchall()
+            " WHERE status='pending'"
+            "   AND (deferred_until IS NULL"
+            "        OR datetime(deferred_until) <= datetime(?))"
+            " ORDER BY asked_at ASC LIMIT ?",
+            (now.strftime("%Y-%m-%d %H:%M:%S"), LIST_MAX)).fetchall()
         pending_total = conn.execute(
             "SELECT COUNT(*) FROM owner_decision_queue WHERE status='pending'"
         ).fetchone()[0]
