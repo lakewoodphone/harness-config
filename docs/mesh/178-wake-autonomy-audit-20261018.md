@@ -2380,3 +2380,39 @@ session closed; `nohup setsid ... < /dev/null &` followed by a **separate** call
 This is the estate's oldest lesson in a new costume: *do not trust a `0` (or a `3`) from a counter that the
 probe can be part of.* The closer's real state at the end of this round: **running** (PID 466903, verified by
 `ps`), closure count still **UNVERIFIED**, and `--close` still **not in cron**.
+
+### 66b. `lint-refs` caught something bigger: the owner queue reclassifies itself
+
+Seconds after linking item 152 to **queue 554**, `lint-refs` reported it STALE:
+
+```
+STALE item 152 (kosher-ai-filter) -> owner-queue #554 is dismissed
+```
+
+Row 554 was filed at 04:28:38 and **dismissed at 04:55:44** — not by the owner, who was never asked — with:
+
+> NOT AN OWNER DECISION. Moved to the business queue as ledger item **581** with question, context, options
+> and recommendation preserved verbatim. The owner's 2026-10-...
+
+Four other rows are in the same state (319 -> 528, 333 -> 522, 362 -> 523, 424 -> 535, all `dismissed`), so this
+is a **standing triage mechanism**, not a one-off. It applies the owner's own delegation (*"this is your
+decision it doesn't need me think about it ... decide the best one and get it implemented"*, quoted in row 547's
+resolution) to questions that are really engineering.
+
+**Three consequences, and the third is the important one:**
+
+1. **"Filed" does not mean "asked", and now it also does not mean "waiting".** §  P2942 established that a filed
+   question may never reach him; this adds that it may also be *answered by the system on his behalf* and turned
+   into ledger work. Both are correct behaviours and both are invisible from the row count.
+2. The successor is real: **ledger item 581** exists, `housekeeping`, `todo`, priority 3, carrying my question
+   verbatim. The block on item 152 can still clear itself — by 581 being DONE, not by him replying.
+3. **The security exposure is mine to fix, not his to authorise.** That is what the delegation says, so this
+   round does not get to file it and walk away: the remaining work is a production broker recreate plus a
+   fleet-wide credential re-issue, which is a service-state change requiring
+   `settings/machines/host-posture.tsv` to permit the host and `guard-service-state.sh` to allow the operation.
+   **Not attempted at 05:03 with the round's remaining budget** — a credential re-issue across a fleet is
+   exactly the kind of action that must not be squeezed in at the end, and the next round starts with it.
+
+The general lesson: **an automated triage that reclassifies questions is a writer of `status`**, so a queue
+count is not a measure of what is waiting for a human. §   The same rule as everywhere else in this document,
+now applied to the queue itself.
