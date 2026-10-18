@@ -2189,3 +2189,79 @@ does.
 **The useful detail: `sms-inbox.py` already sets `busy_timeout=30000`.** So §63's 30-second patience is not a
 number I invented — it is the estate's own existing choice for the same store, which is the only reason to
 prefer it over guessing.
+
+---
+
+## 65. ROUND 70 — IDLE WAS HONEST, AN OWNER ROW WAS MISSING, AND A YEAR WAS AN ORPHAN
+
+### The IDLE line, verified rather than assumed
+
+With `in flight : 0` and five rows pending, the question was whether the machine had stalled. It had not, and it
+said so precisely:
+
+```
+IDLE  : healthy - 5 row(s) waiting, NONE claimable now; earliest 2026-10-18T04:37:12+00:00
+        (checkout-health:prod-db-sync:20261018)
+claim --json -> {"blocked_by": "night-quiet",
+                 "gated": {"not_before": 5, "night_quiet": 0, "source_hourly_cap": 0, "new_rows": 5 ...}}
+```
+
+`night_quiet: 0` matters: no row was actually gated by the night rule, so `blocked_by` was naming the first gate
+it checked rather than the reason. The real gate was `not_before` on each row. **And the prediction held to the
+second:** at 04:38:04-04:38:07 three releases started, 52 seconds after the named earliest time.
+
+```
+04:38:04Z releasing wake #1165 (checkout-health:prod-db-sync:20261018)
+04:38:05Z releasing wake #1168 (project:lpt-website:20261018)
+04:38:07Z releasing wake #1179 (project:cfo:20261018)
+04:42:42Z released wake #1165 done exit=0 runner_code=0 dur=277s
+          outcome: "## Checkout health - prod-db-sync **Result: the ..."
+```
+
+**`#1165` is the first release since `wake.py` and `wake-dispatch.sh` were edited in §62-§64, and it completed
+cleanly with a real answer.** That is the safety check on those edits: a release can still claim, heartbeat and
+settle. It is NOT a proof of the lock fix, because no lock episode occurred during it - there was nothing to
+survive.
+
+### A blocked item the owner could not see
+
+A fleet triage had reported four owner-blocked items with **no queue row**. Checked one by one rather than
+trusting the count: items 337 and 457 are the shop-reply lane, which row 527 already ruled "NOT AN OWNER
+DECISION"; item 373 is an engineering defect (a text producer bypassing the send seam) that should never have
+been blocked on him. **Item 152 is genuinely his and was invisible:**
+
+> Security: a live broker credential for user `zabz-desktop` sits in plaintext, and clearing it needs a
+> production broker container recreate plus a fleet-wide re-issue.
+
+Filed as **owner queue 554** (high) with one recommendation and three options, then linked so the block clears
+itself when he answers:
+
+```
+owner-row-set {"item": 152, "owner_row": 554, "previous": null}
+152|554|blocked
+```
+
+That is three of the four accounted for as mis-bucketed and one made visible — the difference between "17 items
+wait for him" and "17 items, some of which are our own filing error".
+
+### `lint-refs` was reporting a year as an unresolved reference
+
+```
+UNRESOLVED-REF item 522 (housekeeping, blocked) -> title/why names owner-queue #2026, which does NOT exist
+                                              in the queue; not a link - probably a year or a task id
+```
+
+The tool said "probably a year" and reported it anyway, every 15 minutes, forever. A finding that can never be
+acted on teaches the reader to ignore the log - the same lesson as the 245-of-245 `loop-stall UNUSABLE` lines
+retired in §59. The year band (1900-2100) is now excluded from the orphan path only; `_stale_oq_refs` needs a
+row to exist before it can be stale, so a year cannot reach it.
+
+```
+before:  lint-refs: 1 orphan prose reference(s) across 140 live item(s)
+after :  lint-refs: clean - 6 reference(s) across 37 blocked item(s) all live, 0 orphan prose ref(s)
+         across 140 live item(s)
+```
+
+**A note on a small self-inflicted error:** one command in this round piped a grep into `/dev/null` and exited
+1; the `[exit code: 1]` in the transcript is my malformed command, not a system failure, and is recorded so it
+is not mistaken for one later.
