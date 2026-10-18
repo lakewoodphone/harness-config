@@ -168,6 +168,19 @@ def _migrate_schema(con) -> list[str]:
         if name not in have:
             con.execute(f"ALTER TABLE owner_decision_queue ADD COLUMN {name} {decl}")
             added.append(name)
+    # WHAT HE SAID ABOUT EARLIER ITEMS IS THE TRAINING DATA FOR THE NEXT ONES.
+    # Owner's requirement, 2026-10-18: "the queue needs to learn over time what to put in it and
+    # what to prioritize based on my responses when we go through a session knocking it out."
+    # One row per answer / dismissal / snooze / skip, written by the same commands that close the
+    # item, so the record cannot drift from the queue it describes.
+    con.execute(
+        "CREATE TABLE IF NOT EXISTS owner_queue_feedback ("
+        " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        " item_id TEXT NOT NULL, action TEXT NOT NULL, answer TEXT,"
+        " kind TEXT, channel TEXT, party TEXT, cls TEXT, sender_domain TEXT,"
+        " tier_at TEXT, score_at INTEGER, at TEXT NOT NULL)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_oqf_at ON owner_queue_feedback(at DESC)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_oqf_dom ON owner_queue_feedback(sender_domain)")
     return added
 
 # ---------------------------------------------------------------------------
@@ -1037,6 +1050,7 @@ def cmd_defer(con, a) -> int:
     )
     con.commit()
     print(f"#{a.id} deferred until {target.isoformat()} (still pending, still his)")
+    _record_feedback(con, a.id, "deferred", a.note or target.isoformat())
     return 0
 
 
@@ -1365,6 +1379,7 @@ def _close(con, a, status: str, text: str) -> int:
                 "UPDATE owner_decision_queue SET status=?, resolved_at=?, resolution=? WHERE id=?",
                 (status, now(), text, a.id))
     print(f"#{a.id} -> {status}")
+    _record_feedback(con, a.id, "dismissed" if status == "dismissed" else "resolved", text)
     return 0
 
 
@@ -1448,6 +1463,7 @@ def cmd_answer(con, a) -> int:
     )
     con.commit()
     print(f"#{a.id} -> answered")
+    _record_feedback(con, a.id, "answered", a.answer)
     _journal_copy(a.id, row[0], a.answer)
     return 0
 
@@ -1488,6 +1504,90 @@ def _parse_meta(raw):
         return {}
 
 
+# ── learning from what he actually did ──────────────────────────────────────────────────────────
+# Owner's requirement, 2026-10-18: "the queue needs to learn over time what to put in it and what to
+# prioritize ... based on my responses to the queue when we go through a session knocking it out."
+# The mechanism is deliberately boring and auditable -- there is no model here and no stored score:
+#   1. every close writes one feedback row (action, his words, who it was from, what class)
+#   2. a sender he has dismissed >= 2 times and never answered is DEMOTED in the ranking, by an
+#      amount printed in the arithmetic, capped so it can never bury a critical item
+#   3. the mail judge is handed his last dozen answers/dismissals as examples, so tomorrow's
+#      judgement is his judgement rather than the rubric author's
+def _record_feedback(con, item_id, action, answer="") -> None:
+    """Write what he did with one item. Never raises: a recording failure must not block an answer."""
+    try:
+        row = con.execute(
+            "SELECT kind, channel, party, severity, meta_json FROM owner_decision_queue WHERE id=?",
+            (item_id,)).fetchone()
+        # Close the read snapshot BEFORE writing -- the same SQLITE_BUSY trap cmd_answer documents.
+        con.commit()
+        if not row:
+            return
+        meta = _parse_meta(row["meta_json"])
+        sender = str(meta.get("sender") or "")
+        dom = re.search(r"@([A-Za-z0-9.\-]+)", sender)
+        con.execute(
+            "INSERT INTO owner_queue_feedback"
+            " (item_id, action, answer, kind, channel, party, cls, sender_domain, tier_at,"
+            "  score_at, at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (str(item_id), action, (answer or "")[:600], row["kind"], row["channel"],
+             row["party"], str(meta.get("class") or ""),
+             (dom.group(1).lower().rstrip(">") if dom else ""), row["severity"], None, now()))
+        con.commit()
+    except Exception as exc:  # noqa: BLE001
+        print("  (feedback not recorded: %s: %s)" % (type(exc).__name__, exc))
+
+
+LEARN_WINDOW_DAYS = 120
+LEARN_MIN_DISMISSALS = 2
+LEARN_PER_DISMISSAL = 40
+LEARN_CAP = 120
+#: Parties that are not identities. MEASURED 2026-10-18 on the first learning test: three dismissed
+#: items made the profile say `DEMOTED party several -80` -- because every folded digest row carries
+#: party='several', so dismissing two digests would have demoted digests forever. A party that names
+#: no one cannot teach the queue anything.
+NON_PARTIES = frozenset({"", "several", "unknown", "n/a", "none", "-", "various"})
+
+
+def _learning_profile(con):
+    """Senders and parties his own answers have taught the queue to stop showing him."""
+    prof = {"domain": {}, "party": {}}
+    try:
+        rows = con.execute(
+            "SELECT sender_domain, party,"
+            "  SUM(CASE WHEN action='dismissed' THEN 1 ELSE 0 END) d,"
+            "  SUM(CASE WHEN action='answered'  THEN 1 ELSE 0 END) a"
+            " FROM owner_queue_feedback WHERE at > datetime('now', ?)"
+            " GROUP BY sender_domain, party", ("-%d day" % LEARN_WINDOW_DAYS,)).fetchall()
+    except Exception:
+        return prof
+    for r in rows:
+        d, a = int(r["d"] or 0), int(r["a"] or 0)
+        if d < LEARN_MIN_DISMISSALS or d <= a:
+            continue
+        pen = min(LEARN_CAP, LEARN_PER_DISMISSAL * (d - a))
+        dom = str(r["sender_domain"] or "").lower()
+        if dom:
+            prof["domain"][dom] = max(prof["domain"].get(dom, 0), pen)
+        p = str(r["party"] or "").strip().lower()
+        if p and p not in NON_PARTIES:
+            prof["party"][p] = max(prof["party"].get(p, 0), pen)
+    return prof
+
+
+def _learned_penalty(item, prof) -> int:
+    """The demotion this item has earned from his past answers, and nothing more."""
+    pen = 0
+    sender = str(item.get("_sender") or "")
+    dom = re.search(r"@([A-Za-z0-9.\-]+)", sender)
+    if dom:
+        pen = max(pen, prof["domain"].get(dom.group(1).lower().rstrip(">"), 0))
+    party = str(item.get("party") or "").strip().lower()
+    if party and party not in NON_PARTIES:
+        pen = max(pen, prof["party"].get(party, 0))
+    return pen
+
+
 def _age_hours_from(value):
     """Hours since `value`, or None. Never rounds before a comparison uses it."""
     if not value:
@@ -1502,11 +1602,55 @@ def _age_hours_from(value):
         return None
 
 
+# ── signals derived from the text, not from a column ────────────────────────────────────────────
+# MEASURED 2026-10-18: across all 42 pending rows, `meta.money` was set on ZERO of them -- so the
+# money term in the score had never once fired, and a returned payment of 2,380.06 ranked below a
+# ten-day-old voicemail about a laptop. The amount is in the words; read it there. Same reasoning as
+# "nothing reads a stored score": a signal written at insert time is only as good as the insert.
+RE_MONEY_TEXT = re.compile(r"(?:\$|USD\s*)\s?([0-9][0-9,]*(?:\.[0-9]{1,2})?)")
+RE_MONEY_BARE = re.compile(r"\b([0-9]{1,3}(?:,[0-9]{3})+\.[0-9]{2})\b")
+RE_DEADLINE_SOON = re.compile(
+    r"(?:\bdue\s+(?:in|by|on|now)\b|\bdue\s+(?!to\b)\w|\bexpires?\b|\bexpiring\b|"
+    r"\bexpiration\b|\bfinal notice\b|\blast (?:day|chance)\b|"
+    r"\bends?\s+(?:today|tonight|tomorrow|\w+day)\b|\boverdue\b|\bsuspended\b|"
+    r"\bdeadline\b|\bby\s+(?:today|tonight|tomorrow|end of (?:day|week)|\w+day|"
+    r"the \d{1,2}(?:st|nd|rd|th))\b|\bbefore\s+(?:today|tonight|tomorrow|\w+day|"
+    r"the \d{1,2}(?:st|nd|rd|th))\b)", re.I)
+RE_REL_DAYS = re.compile(r"\bin\s+([1-7])\s+days?\b", re.I)
+
+
+def _money_in(text):
+    """The largest amount stated in the item's own words, or None."""
+    best = None
+    for rx in (RE_MONEY_TEXT, RE_MONEY_BARE):
+        for m in rx.finditer(text or ""):
+            try:
+                v = float(m.group(1).replace(",", ""))
+            except ValueError:
+                continue
+            if best is None or v > best:
+                best = v
+    return best
+
+
+def _deadline_soon(text):
+    """A stated date or a stated urgency inside the next week."""
+    t = text or ""
+    if RE_REL_DAYS.search(t):
+        return True
+    return bool(RE_DEADLINE_SOON.search(t))
+
+
 def _queue_score(item):
     """THE ordering function. Deterministic, and every term prints its own arithmetic.
 
     Nothing here reads a stored score: a score written at insert time goes silently stale the moment
     the ingest stops running, and then the order is a claim about urgency that nothing re-measures.
+
+    The shape, decided 2026-10-18 after the first 42 rows were read one by one: tier sets the band,
+    and the modifiers decide the order INSIDE a band. Nothing may jump a band -- a critical money
+    notice must never sit below a month-old "any way I can get my phone today", which is what the old
+    caps allowed once the age term and a missing money term were combined.
     """
     tier = str(item.get("tier") or "medium").lower()
     score = TIER_WEIGHT.get(tier, 400)
@@ -1514,9 +1658,14 @@ def _queue_score(item):
     if item.get("blocking"):
         score += 200
         why.append("blocking=+200")
+    # A filed decision is a choice only he can make and it holds work still. An agent's approval
+    # request is not the same thing -- it already carries ask=+80 -- so the bonus is the queue's own.
+    if item.get("surface") == "queue" and item.get("kind") == "decision":
+        score += 100
+        why.append("decision=+100")
     age = item.get("age_hours")
     if isinstance(age, (int, float)) and age > 0:
-        add = int(min(200, age / 6.0))
+        add = int(min(150, age / 8.0))
         if add:
             score += add
             why.append("age=+%d" % add)
@@ -1529,12 +1678,45 @@ def _queue_score(item):
     if item.get("deadline"):
         score += 60
         why.append("deadline=+60")
+        if item.get("deadline_soon"):
+            score += 60
+            why.append("soon=+60")
     money = item.get("money")
     if isinstance(money, (int, float)) and money > 0:
-        add = int(min(150, money / 10.0))
+        add = int(min(200, money / 10.0))
         score += add
         why.append("money=+%d" % add)
+    # A sender he keeps dismissing sinks, by an amount that is printed. Capped, and never enough to
+    # pull a critical item below a medium one -- learning may reorder a band, never invert it.
+    learned = item.get("learned") or 0
+    if learned:
+        score = max(1, score - int(learned))
+        why.append("learned=-%d" % int(learned))
     return int(score), " ".join(why)
+
+
+def _subj_key(subject):
+    """A subject reduced to what makes two sentences the same sentence."""
+    s = re.sub(r"^(re|fwd|fw)\s*:\s*", "", str(subject or "").strip(), flags=re.I)
+    s = re.sub(r"[^a-z0-9]+", " ", s.lower()).strip()
+    return s[:60]
+
+
+def _quoted_subject_seen(body, judged):
+    """True when a held `X emailed about "S"` names a subject the mail judge already handled."""
+    m = re.search(r'emailed about\s+["“](.+?)["”]', str(body or ""), re.I)
+    if not m:
+        return False
+    k = _subj_key(m.group(1))
+    if not k:
+        return False
+    if k in judged:
+        return True
+    # The app truncates subjects, so a long prefix agreeing is the same subject.
+    for j in judged:
+        if len(k) >= 25 and (j.startswith(k[:40]) or k.startswith(j[:40])):
+            return True
+    return False
 
 
 def _gather_queue(con, include_deferred=False):
@@ -1544,15 +1726,16 @@ def _gather_queue(con, include_deferred=False):
     # ── the queue itself: decisions and comms-derived attention ──────────────
     try:
         rows = con.execute(
-            "SELECT id, asked_at, question, severity, blocks, kind, channel, party,"
+            "SELECT id, asked_at, question, context, severity, blocks, kind, channel, party,"
             "       evidence_at, deferred_until, meta_json, status, seen_at"
             "  FROM owner_decision_queue WHERE status='pending'").fetchall()
     except Exception:
         # Pre-migration database: the columns this reader wants are not there yet.
         rows = con.execute(
-            "SELECT id, asked_at, question, severity, blocks,"
+            "SELECT id, asked_at, question, '' AS context, severity, blocks,"
             "       'decision' AS kind, NULL AS channel, NULL AS party,"
-            "       NULL AS evidence_at, deferred_until, NULL AS meta_json, status"
+            "       NULL AS evidence_at, deferred_until, NULL AS meta_json, status,"
+            "       NULL AS seen_at"
             "  FROM owner_decision_queue WHERE status='pending'").fetchall()
     for r in rows:
         meta = _parse_meta(r["meta_json"])
@@ -1567,6 +1750,8 @@ def _gather_queue(con, include_deferred=False):
                 deferred = False
         if deferred and not include_deferred:
             continue
+        blob = "%s %s" % (r["question"] or "", r["context"] or "")
+        soon = _deadline_soon(blob)
         items.append({
             "surface": "queue",
             "id": r["id"],
@@ -1576,10 +1761,14 @@ def _gather_queue(con, include_deferred=False):
             "age_hours": _age_hours_from(at),
             "blocking": bool(r["blocks"]),
             "ask": bool(meta.get("ask")),
-            "deadline": bool(meta.get("deadline")),
-            "money": meta.get("money"),
+            "deadline": bool(meta.get("deadline")) or soon,
+            "deadline_soon": soon,
+            # The row's own words are the fallback: measured 2026-10-18, meta.money was NULL on
+            # every one of 42 pending rows, so this term had never fired once.
+            "money": meta.get("money") if meta.get("money") is not None else _money_in(blob),
             "channel": r["channel"],
             "party": r["party"],
+            "_sender": str(meta.get("sender") or ""),
             "deferred": deferred,
             "_unseen": not r["seen_at"],
             "at": at,
@@ -1601,6 +1790,21 @@ def _gather_queue(con, include_deferred=False):
         pass
 
     # ── held messages the app never delivered, minus my own ops alerts ───────
+    # DEDUPE, measured 2026-10-18: four held rows read `Chase emailed about "..."`, `Stripe emailed
+    # about "..."`, and so on. They are the app's NOTICE that an email arrived -- and the mail ingest
+    # now judges that email itself, so showing both is the same thing twice. A held row is dropped
+    # only when the judge has a verdict on the very subject it names; if the judge is dead there are
+    # no verdicts, the held row shows, and nothing goes missing silently.
+    judged_subjects = set()
+    try:
+        for (subj,) in con.execute(
+                "SELECT subject FROM owner_mail_verdict"
+                " WHERE received_at > datetime('now','-21 day') LIMIT 4000"):
+            k = _subj_key(subj)
+            if k:
+                judged_subjects.add(k)
+    except Exception:
+        judged_subjects = set()
     try:
         for r in con.execute(
                 "SELECT id, reason, urgency, body, COALESCE(last_seen_at, created_at) AS at"
@@ -1608,19 +1812,26 @@ def _gather_queue(con, include_deferred=False):
             reason = str(r["reason"] or "")
             if reason.startswith(_OWNER_QUEUE_OPS_REASONS) or reason in _OWNER_QUEUE_OPS_REASONS:
                 continue
+            if reason.startswith("urgent_email") and _quoted_subject_seen(
+                    str(r["body"] or ""), judged_subjects):
+                continue
             urg = str(r["urgency"] or "").lower()
+            blob = str(r["body"] or "") + " " + reason
             items.append({
                 "surface": "held", "id": "m%s" % r["id"], "kind": "attention",
                 "tier": {"critical": "critical", "urgent": "high", "high": "high"}.get(urg, "low"),
                 "title": r["body"] or reason,
                 "age_hours": _age_hours_from(r["at"]), "blocking": False,
-                "ask": False, "deadline": False, "money": None, "channel": "app",
-                "party": reason, "deferred": False, "at": r["at"],
+                "ask": False, "deadline": _deadline_soon(blob),
+                "deadline_soon": _deadline_soon(blob), "money": _money_in(blob),
+                "channel": "app", "party": reason, "deferred": False, "at": r["at"],
             })
     except Exception:
         pass
 
+    prof = _learning_profile(con)
     for it in items:
+        it["learned"] = _learned_penalty(it, prof)
         it["score"], it["why"] = _queue_score(it)
     items.sort(key=lambda i: (-i["score"], i["surface"] != "queue", str(i["id"])))
     return items
@@ -1651,28 +1862,56 @@ def _mark_seen(con, surface, item_id):
         pass
 
 
+#: How long attention stays in the working set on its own. Measured 2026-10-18: the first 7-day
+#: backfill produced 100 pending items, of which 37 were 3-7 days old and 16 were older. He knocks
+#: this queue out "once every other day or so" -- a 100-item list is not knockable, and a queue
+#: nobody finishes is the same as no queue. So the working set is: every decision (they block work),
+#: and the attention that is either still fresh, still being asked of him, still expensive, or
+#: serious. Everything else is COUNTED and named, never deleted, and `--all` shows it.
+WORKING_SET_ATTENTION_DAYS = 3.0
+WORKING_SET_MONEY = 100.0
+
+
+def _working_set(items, max_age_days=21, show_all=False):
+    """(visible, hidden_old, hidden_quiet). One rule, used by queue, card and knock alike."""
+    visible, old, quiet = [], 0, 0
+    for i in items:
+        age = i.get("age_hours") or 0
+        if i["kind"] == "decision":
+            visible.append(i)
+            continue
+        if max_age_days and not show_all and age > max_age_days * 24:
+            old += 1
+            continue
+        if show_all:
+            visible.append(i)
+            continue
+        keep = (age <= WORKING_SET_ATTENTION_DAYS * 24
+                or i.get("ask")
+                or str(i.get("tier") or "").lower() in ("critical", "high")
+                or (isinstance(i.get("money"), (int, float)) and i["money"] >= WORKING_SET_MONEY))
+        if keep:
+            visible.append(i)
+        else:
+            quiet += 1
+    return visible, old, quiet
+
+
 def cmd_queue(con, a) -> int:
     """The one ordered list. `--limit 1` is the thing to run when he says "next"."""
     items = _gather_queue(con, include_deferred=getattr(a, "all", False))
     if getattr(a, "kind", None):
         items = [i for i in items if i["kind"] == a.kind]
-    if getattr(a, "new_only", False):
-        items = [i for i in items if i["surface"] != "queue" or i.get("_unseen")]
 
     # AGE BOUND ON ATTENTION ONLY. An attention item is news, and news decays: a text from
     # three weeks ago is still true, but it is not what he should open the queue on. Decisions
     # are never aged out -- they keep blocking work until they are answered. Nothing is deleted
     # or closed by this: the hidden count is printed, and `--all` shows them.
     max_age = getattr(a, "max_age_days", 21)
-    hidden_old = 0
-    if max_age and not getattr(a, "all", False):
-        keep = []
-        for i in items:
-            if i["kind"] == "attention" and (i["age_hours"] or 0) > max_age * 24:
-                hidden_old += 1
-                continue
-            keep.append(i)
-        items = keep
+    items, hidden_old, hidden_quiet = _working_set(
+        items, max_age, show_all=getattr(a, "all", False))
+    if getattr(a, "new_only", False):
+        items = [i for i in items if i["surface"] != "queue" or i.get("_unseen")]
 
     ops = _ops_alert_count(con)
 
@@ -1685,6 +1924,8 @@ def cmd_queue(con, a) -> int:
         if hidden_old:
             print("  (%d attention item(s) older than %d days still pending; --all shows them)"
                   % (hidden_old, max_age))
+        if hidden_quiet:
+            print("  (%d quieter attention item(s) held back; --all shows them)" % hidden_quiet)
         if ops:
             print("  (%d ops alert(s) are mine to repair, not yours)" % ops)
         return 0
@@ -1716,6 +1957,10 @@ def cmd_queue(con, a) -> int:
     if hidden_old:
         print("\n%d attention item(s) older than %d days still pending (--all shows them)"
               % (hidden_old, max_age))
+    if hidden_quiet:
+        print("%d quieter attention item(s) held back — older than %g day(s), nobody waiting, "
+              "no money, not serious (--all shows them)"
+              % (hidden_quiet, WORKING_SET_ATTENTION_DAYS))
     if ops:
         print("%d ops alert(s) held back as mine, not yours (paused syncs, stale capture)" % ops)
     return 0
@@ -1754,6 +1999,46 @@ def cmd_show(con, a) -> int:
     return 0
 
 
+def cmd_card(con, a) -> int:
+    """The next ONE thing, ready to read to him. This is "let's go through the queue".
+
+    Why it exists as a command and not as advice in a document: the owner asked for exactly this
+    ("you just tell me things one at a time"), and a chat session that has to compose the walk from
+    `queue` + `show` + `answer` can get it wrong in ways nobody notices. One command, one item, the
+    arithmetic, the recommendation, and the verbs -- then the answer goes back through `answer` or
+    `resolve`, which already record a lifecycle.
+    """
+    items = _gather_queue(con, include_deferred=getattr(a, "all", False))
+    if getattr(a, "kind", None):
+        items = [i for i in items if i["kind"] == a.kind]
+    max_age = getattr(a, "max_age_days", 21)
+    items, hidden, hidden_quiet = _working_set(items, max_age, show_all=getattr(a, "all", False))
+    if not items:
+        print("QUEUE EMPTY — nothing is waiting on you.")
+        for n, what in ((hidden, "older than %d days" % max_age),
+                        (hidden_quiet, "quieter, older than %g day(s)" % WORKING_SET_ATTENTION_DAYS)):
+            if n:
+                print("  (%d attention item(s) %s still pending; --all shows them)" % (n, what))
+        return 0
+    item = items[0]
+    print("ITEM 1 of %d  ·  %d decision(s), %d attention in the queue"
+          % (len(items), sum(1 for i in items if i["kind"] == "decision"),
+             sum(1 for i in items if i["kind"] == "attention")))
+    print()
+    rc = cmd_show(con, argparse.Namespace(id=item["id"]))
+    if rc != 0:
+        return rc
+    if getattr(a, "peek", 0):
+        print()
+        print("NEXT UP (ids only):")
+        for i in items[1:1 + a.peek]:
+            print("  #%-6s %-9s %s" % (i["id"], i["kind"], str(i["title"]).split("\n")[0][:78]))
+    print()
+    print("ANSWER WITH: a <your answer>   |   d [why] to dismiss   |   s 3d to snooze   |   "
+          "n to skip   |   q to stop")
+    return 0
+
+
 def _knock_apply(con, item, line):
     """Apply one answer typed at the knock prompt. Returns 'next' | 'stop' | 'skip'."""
     line = (line or "").strip()
@@ -1786,6 +2071,8 @@ def _knock_apply(con, item, line):
         cmd_defer(con, argparse.Namespace(id=rid, until=rest, note="snoozed at the knock prompt"))
         return "next"
     if verb in ("n", "next", "skip"):
+        if item["surface"] == "queue":
+            _record_feedback(con, item["id"], "skipped", "")
         return "skip"
     # A bare sentence is treated as the answer: he should not have to learn a vocabulary.
     cmd_answer(con, argparse.Namespace(id=rid, answer=line))
@@ -1833,33 +2120,179 @@ def cmd_knock(con, a) -> int:
 
 
 VENV_PYTHON = "/root/personal-secretary-mvp/.venv/bin/python"
-GV_INGEST = "/root/bin/owner-queue-ingest-gv.py"
+INGESTS = {
+    "gv": ("/root/bin/owner-queue-ingest-gv.py", "Google Voice forwards in mail"),
+    "mail": ("/root/bin/owner-queue-ingest-mail.py", "ordinary email, judged"),
+}
 
 
 def cmd_ingest(con, a) -> int:
-    """Pull personal comms into the queue. Google Voice only -- Dialpad is explicitly excluded.
+    """Pull personal comms into the queue: Google Voice and personal email. Dialpad is explicitly
+    excluded by the owner's rule of 2026-10-18.
 
-    The mailbox read needs the app's venv, so it is a companion script; the queue table is the same
-    one this tool owns, so there is still exactly one queue.
+    The mailbox reads need the app's venv, so each channel is a companion script; the queue table is
+    the same one this tool owns, so there is still exactly one queue. `all` runs both and returns the
+    WORST exit code -- one broken channel must not be hidden by the other one succeeding.
     """
-    if a.source != "gv":
-        print("unknown ingest source: %s (only 'gv' exists)" % a.source)
-        return 1
     import subprocess
-    if not os.path.exists(GV_INGEST):
-        print("missing %s -- cannot read the mailbox without it" % GV_INGEST)
+    wanted = ["gv", "mail"] if a.source == "all" else [a.source]
+    worst = 0
+    for name in wanted:
+        path, label = INGESTS[name]
+        if not os.path.exists(path):
+            print("%s: missing %s -- cannot read the mailbox without it" % (name, path))
+            worst = max(worst, 3)
+            continue
+        cmd = [VENV_PYTHON, path, "--days", str(a.days), "--db", a.db]
+        if getattr(a, "explain", False):
+            cmd.append("--explain")
+        if getattr(a, "only_dropped", False):
+            cmd += ["--explain", "--only-dropped"]
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+        sys.stdout.write(r.stdout or "")
+        if r.returncode != 0:
+            sys.stderr.write(r.stderr or "")
+            print("%s ingest (%s) failed with exit %d" % (name, label, r.returncode))
+            worst = max(worst, r.returncode)
+    return worst
+
+
+def cmd_health(con, a) -> int:
+    """Is the queue still being FED? A queue that stopped filling and a queue with nothing to say
+    look identical from inside the table, so this reads each SOURCE and prints the arithmetic that
+    decided pass or fail. Exit 1 when any source is stale, so a timer can fail loudly."""
+    now_dt = dt.datetime.now(dt.timezone.utc)
+    rows_out, failures = [], 0
+
+    def age_of(value):
+        h = _age_hours_from(value)
+        return None if h is None else h
+
+    # 1. per channel: how old is the newest thing that arrived, and how fast did it arrive
+    for channel, label in (("sms", "Google Voice texts"), ("missed_call", "Voice missed calls"),
+                           ("voicemail", "Voice voicemails"), ("email", "email (judged)")):
+        r = con.execute(
+            "SELECT COUNT(*) n14, MAX(COALESCE(evidence_at, asked_at)) newest"
+            "  FROM owner_decision_queue"
+            " WHERE channel=? AND COALESCE(evidence_at, asked_at) > datetime('now','-14 day')",
+            (channel,)).fetchone()
+        n14, newest = int(r["n14"] or 0), r["newest"]
+        age = age_of(newest)
+        gap = (14 * 24.0 / n14) if n14 else None
+        limit = max(48.0, (6 * gap) if gap else 72.0)
+        state = "QUIET"
+        if age is not None:
+            state = "OK" if age <= limit else "STALE"
+        if n14 == 0:
+            state = "NO DATA"
+        if state == "STALE":
+            failures += 1
+        rows_out.append((label, n14, age, limit, state))
+
+    # 2. per ingest: did the writer run, and did it write
+    for src, label in (("gv-ingest:%", "gv ingest"), ("mail-ingest:%", "mail ingest")):
+        r = con.execute(
+            "SELECT COUNT(*) n7, MAX(asked_at) newest FROM owner_decision_queue"
+            " WHERE source LIKE ? AND asked_at > datetime('now','-7 day')", (src,)).fetchone()
+        age = age_of(r["newest"])
+        state = "OK" if (age is not None and age <= 48) else ("STALE" if age is not None else "NO DATA")
+        if state == "STALE":
+            failures += 1
+        rows_out.append((label + " wrote", int(r["n7"] or 0), age, 48.0, state))
+
+    # 3. the judge itself: a dead judge is a dead email channel
+    try:
+        r = con.execute("SELECT COUNT(*) n, MAX(judged_at) newest FROM owner_mail_verdict"
+                        " WHERE judged_at > datetime('now','-7 day')").fetchone()
+        age = age_of(r["newest"])
+        state = "OK" if (age is not None and age <= 48) else ("STALE" if age is not None else "NO DATA")
+        if state == "STALE":
+            failures += 1
+        rows_out.append(("mail judge", int(r["n"] or 0), age, 48.0, state))
+    except Exception as exc:  # noqa: BLE001
+        rows_out.append(("mail judge", 0, None, 48.0, "NO TABLE"))
+        failures += 1
+
+    # 4. what is pending, by kind and tier
+    pend = {}
+    for r in con.execute(
+            "SELECT kind, severity, COUNT(*) n FROM owner_decision_queue"
+            " WHERE status='pending' GROUP BY 1,2"):
+        pend[(r["kind"] or "decision", r["severity"] or "medium")] = int(r["n"])
+
+    if getattr(a, "json", False):
+        print(json.dumps({"sources": [
+            {"what": w, "n_14d": n, "age_hours": None if h is None else round(h, 1),
+             "limit_hours": lim, "state": s} for w, n, h, lim, s in rows_out],
+            "pending": {"%s/%s" % k: v for k, v in pend.items()},
+            "failures": failures}, indent=1))
+        return 1 if failures else 0
+
+    print("OWNER QUEUE HEALTH   %s UTC" % now_dt.strftime("%Y-%m-%d %H:%M"))
+    print("%-22s %6s %10s %9s  %s" % ("source", "rows", "age", "limit", "state"))
+    for what, n, h, lim, state in rows_out:
+        print("%-22s %6d %10s %8.0fh  %s"
+              % (what, n, ("%5.1fh" % h) if h is not None else "   n/a", lim, state))
+    print()
+    total = sum(pend.values())
+    print("pending: %d  (%s)" % (total, ", ".join(
+        "%s" % ("%s/%s %d" % (k[0], k[1], v)) for k, v in sorted(pend.items()))) or "0")
+    if failures:
+        print("\nFAILED: %d source(s) stale. A stale reader over a live channel is the defect this "
+              "queue exists to stop; run: owner-queue.py ingest all --days 2" % failures)
         return 1
-    cmd = [VENV_PYTHON, GV_INGEST, "--days", str(a.days), "--db", a.db]
-    if getattr(a, "explain", False):
-        cmd.append("--explain")
-    if getattr(a, "only_dropped", False):
-        cmd += ["--explain", "--only-dropped"]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
-    sys.stdout.write(r.stdout or "")
-    if r.returncode != 0:
-        sys.stderr.write(r.stderr or "")
-        print("ingest failed with exit %d" % r.returncode)
-        return r.returncode
+    print("\nAll sources fresh.")
+    return 0
+
+
+def cmd_learning(con, a) -> int:
+    """What his own answers have taught the queue. Evidence, not a claim."""
+    prof = _learning_profile(con)
+    try:
+        tally = {r["action"]: int(r["n"]) for r in con.execute(
+            "SELECT action, COUNT(*) n FROM owner_queue_feedback"
+            " WHERE at > datetime('now', ?) GROUP BY 1", ("-%d day" % LEARN_WINDOW_DAYS,))}
+    except Exception:
+        tally = {}
+    try:
+        recent = con.execute(
+            "SELECT item_id, action, substr(COALESCE(answer,''),1,70) said, party, at"
+            "  FROM owner_queue_feedback ORDER BY at DESC LIMIT 12").fetchall()
+    except Exception:
+        recent = []
+
+    if getattr(a, "json", False):
+        print(json.dumps({
+            "window_days": LEARN_WINDOW_DAYS,
+            "actions": tally,
+            "demoted_domains": prof["domain"],
+            "demoted_parties": prof["party"],
+            "recent": [dict(r) for r in recent]}, indent=1))
+        return 0
+
+    print("OWNER QUEUE LEARNING   window %d days   rule: >=%d dismissals and more dismissals than "
+          "answers => -%d each, capped -%d"
+          % (LEARN_WINDOW_DAYS, LEARN_MIN_DISMISSALS, LEARN_PER_DISMISSAL, LEARN_CAP))
+    print()
+    if not tally:
+        print("No feedback yet: nothing has been answered, dismissed or snoozed from the queue.")
+        print("The first knock-through session is what starts the learning.")
+        return 0
+    print("what he has done: " + ", ".join("%s %d" % (k, v) for k, v in sorted(tally.items())))
+    print()
+    nt = sum(len(v) for v in prof.values())
+    if not nt:
+        print("Nothing is demoted yet: no sender has been dismissed twice without an answer.")
+    for label, key in (("sender domain", "domain"), ("party", "party")):
+        for name, pen in sorted(prof[key].items(), key=lambda kv: -kv[1]):
+            print("  DEMOTED %-14s %-40s -%d" % (label, name[:40], pen))
+    print()
+    if recent:
+        print("the last things he said (this is the training data, verbatim):")
+        for r in recent:
+            print("  %s  %-9s #%-6s %-18s %s"
+                  % (str(r["at"])[:16].replace("T", " "), r["action"], r["item_id"],
+                     (r["party"] or "")[:18], r["said"] or ""))
     return 0
 
 
@@ -1963,31 +2396,51 @@ def main() -> int:
     p.add_argument("id", type=str)
 
     p = sub.add_parser(
+        "card",
+        help="the NEXT ONE thing, ready to read to him -- this is \"let's go through the queue\"")
+    p.add_argument("--kind", choices=["decision", "attention"])
+    p.add_argument("--all", action="store_true", help="include deferred rows")
+    p.add_argument("--peek", type=int, default=0, help="also list the next N ids")
+    p.add_argument("--max-age-days", type=int, default=21)
+
+    p = sub.add_parser(
         "knock",
         help="walk the queue ONE item at a time until it is empty or he stops")
     p.add_argument("--once", action="store_true", help="show the next item and stop")
-    p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--limit", type=int, default=25,
+                   help="stop after N items (default 25: a session, not a marathon; 0 = all)")
 
     p = sub.add_parser(
         "ingest",
-        help="pull personal comms into the queue. Google Voice only -- Dialpad is "
-             "explicitly excluded by the owner's rule of 2026-10-18")
-    p.add_argument("source", choices=["gv"])
+        help="pull personal comms into the queue. Google Voice and personal email; "
+             "Dialpad is explicitly excluded by the owner's rule of 2026-10-18")
+    p.add_argument("source", choices=["gv", "mail", "all"])
     p.add_argument("--days", type=int, default=2)
     p.add_argument("--explain", action="store_true", help="print every verdict, write nothing")
     p.add_argument("--only-dropped", action="store_true")
+
+    p = sub.add_parser(
+        "health",
+        help="is the queue still being FED? per-source freshness with the arithmetic; exit 1 if "
+             "a source has gone stale")
+    p.add_argument("--json", action="store_true")
+
+    p = sub.add_parser(
+        "learning",
+        help="what his own answers have taught the queue: actions, demoted senders, his words")
+    p.add_argument("--json", action="store_true")
 
     a = ap.parse_args()
     fn = {"add": cmd_add, "next": cmd_next, "list": cmd_list,
           "stats": cmd_stats, "lint": cmd_lint, "sweep": cmd_sweep,
           "resolve": cmd_resolve, "answer": cmd_answer,
           "defer": cmd_defer, "amend": cmd_amend, "brief": cmd_brief,
-          "queue": cmd_queue, "show": cmd_show, "knock": cmd_knock,
-          "ingest": cmd_ingest}[a.cmd]
-    # lint and sweep on the live database must not need a write lock. queue/show/knock DO
+          "queue": cmd_queue, "show": cmd_show, "card": cmd_card, "knock": cmd_knock,
+          "ingest": cmd_ingest, "health": cmd_health, "learning": cmd_learning}[a.cmd]
+    # lint and sweep on the live database must not need a write lock. queue/show/card/knock DO
     # write seen_at -- that is what makes "what is new since you last looked" answerable.
     con = connect(a.db, readonly=(a.cmd in ("lint", "list", "next", "stats",
-                                            "sweep", "brief")))
+                                            "sweep", "brief", "health", "learning")))
     return fn(con, a)
 
 

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the owner-queue ingest (Google Voice + judged email) and its health check every 20 minutes
+
+[Timer]
+OnBootSec=4min
+OnUnitActiveSec=20min
+AccuracySec=1min
+Persistent=true
+Unit=lpt-owner-queue.service
+
+[Install]
+WantedBy=timers.target

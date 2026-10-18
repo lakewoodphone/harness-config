@@ -1,0 +1,22 @@
+[Unit]
+Description=LPT owner queue: pull personal comms (Google Voice + judged email) into owner_decision_queue, then prove the queue is still being fed
+Documentation=file:///root/code/harness-config/docs/owner-queue.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/personal-secretary-mvp
+# The Gmail token path is RELATIVE (`data/gmail_tokens`), so WorkingDirectory is load-bearing.
+# Both ingest scripts also chdir to the app root themselves: belt and braces.
+ExecStart=/usr/bin/python3 /root/bin/owner-queue.py ingest all --days 3
+# The health check is the POINT OF THIS UNIT. A queue that stopped filling and a queue with
+# nothing to say look identical from inside the table, so every run ends by reading each source's
+# own freshness and failing the unit if one has gone quiet. `systemctl --failed` then carries it.
+ExecStartPost=/usr/bin/python3 /root/bin/owner-queue.py health
+Nice=10
+TimeoutStartSec=1800
+# Non-zero means one of: the mailbox could not be read, the judge was unavailable, a source has
+# gone stale. All three must FAIL the unit. A run that reads mail and finds only noise still exits
+# 0 -- that is a real answer, not a fault.

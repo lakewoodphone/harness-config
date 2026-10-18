@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""owner-queue-ingest-mail — put ordinary email that wants him into the owner queue.
+"""SUPERSEDED 2026-10-18 — DO NOT RUN. Use owner-queue-ingest-mail.py.
+
+owner-queue-ingest-mail — put ordinary email that wants him into the owner queue.
 
 THIS IS A BRIDGE, NOT A CLASSIFIER. `scripts/owner_attention.py::from_email_catalog` already does
 the judgement (newsletter hints, automated-sender regex, subject de-duplication, `classify_message`

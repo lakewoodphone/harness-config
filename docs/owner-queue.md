@@ -1,11 +1,13 @@
 # The owner queue
 
-**One table, one order, two kinds of thing.** Everything that needs Eliyahu — a decision only he can
-make, and anything from his personal texts, calls and voicemails that he would want to know about —
-lives in `owner_decision_queue` on the authority and comes out of one command in one order.
+**One table, one order, one dossier per item, and it learns from his answers.** Everything that
+needs Eliyahu — a decision only he can make, and anything from his personal texts, calls, voicemails
+or email that he would want to know about — lives in `owner_decision_queue` on the authority and
+comes out of one command in one order.
 
-Written 2026-10-18, after he corrected a session that had started building it on the shop's telephone
-line. Read the "His words" section before changing any rule here.
+Read §1 before changing any rule here. Written 2026-10-18, after he corrected a session that had
+started building it on the shop's telephone line; extended the same day with the two requirements
+that decided its shape: **it must learn** and **it must arrive fully briefed**.
 
 ---
 
@@ -18,19 +20,31 @@ line. Read the "His words" section before changing any rule here.
 > texted. They don't specifically need my decision, but I would want to know about and also stuff
 > and need my decision from."*
 
-And the correction, same day, which overrides every earlier assumption:
+The correction that overrides every earlier assumption:
 
 > *"dial pad calls sms and voicemail do not count. I only want personal ones ... Google voice numbers
 > and you do have access to my Google voice numbers because they get forwarded to my email ... The
 > dial pad is not relevant to my queue And you can access my goal of voice through my emails."*
 
+And the two that make it usable:
+
+> *"the queue needs to learn over time what to put in it and what to prioritize and so on based on my
+> responses to the queue when we go through a session knocking it out together"*
+
+> *"all information about it must be gathered in case I want more info, so only put it in the queue
+> after all info is gathered about it fully so I can just quickly knock out the queue with you once
+> every other day or so quickly together with you already having all the info I may need about each
+> thing"*
+
 ## 2. The channel law
 
 | Channel | In the queue? | How it is reached |
 |---|---|---|
-| **Google Voice** texts, missed calls, voicemails | **YES — this is the queue's personal channel** | Forwarded mail: `voice-noreply@google.com`, `txt.voice.google.com` |
-| Personal Gmail | Partly — the same forwards arrive as mail | `gmail_service.search_messages` |
-| **Dialpad** (shop line: calls, SMS, voicemail) | **NO. Never.** | — |
+| **Google Voice** texts, missed calls, voicemails | **YES — the personal channel** | Forwarded mail: `voice-noreply@google.com`, `txt.voice.google.com` |
+| **His own inboxes** | **YES — judged, one verdict per message** | `gmail_service` live; all authenticated accounts except `zabzgpt@` |
+| **Dialpad** (shop line: calls, SMS, voicemail) | **NO. Never.** Its voicemail-notification *email* is filtered by sender | — |
+| App alerts the app never delivered (`owner_message_queue`, status `held`) | Read as items, except ops alerts and duplicates of judged email | read-only merge in the reader |
+| Agent approval requests (`agent_questions`) | Read as decisions | read-only merge in the reader |
 | Ops alerts (paused sync, stale capture) | No — they are mine to repair | counted, never shown as an item |
 
 Google Voice accounts and where each forwards (from `app/services/gv_email_handler.py`
@@ -47,60 +61,79 @@ fault."* Nobody may "fix" those counters. Email forwarding is the live path and 
 ## 3. The pipeline
 
 ```
-Gmail (2 accounts, GV forwards)
-   │  gmail_service.search_messages + read_message          ← the only live reader
-   ▼
-gv_email_handler.parse_gv_email                            ← reused, never re-implemented
-   │  type ∈ {sms, missed_call, voicemail}
-   ▼
-classify()  →  DROP | DIGEST | ATTENTION | DECISION        ← the rules in §4
-   ▼
-collapse()  →  one row per thing, not per message          ← relays, repeats, same-day calls
-   ▼
-owner_decision_queue  (kind='attention' | 'decision')      ← THE one queue
-   ▼
-owner-queue.py queue / knock                               ← one order, one item at a time
+Google Voice forwards ─┐
+                       ├→ owner-queue-ingest-gv.py ── parse_gv_email → classify → collapse ─┐
+his inboxes ───────────┴→ owner-queue-ingest-mail.py ─ judge (model, rubric) → dedupe → digest ─┤
+                                                                                                ▼
+                                                              owner_decision_queue (ONE table)
+                                                                  kind = decision | attention
+                                                                                                │
+                     owner-queue.py queue / card / knock  ← one score, one arithmetic ──────────┤
+                     owner-queue.py answer|resolve|defer → owner_queue_feedback ── learning ────┘
 ```
 
-`owner-queue-ingest-gv.py` runs under the app venv because it imports the app's Gmail client and the
-app's GV parser. It **chdirs to the app root**: `gmail_service._tokens_dir` defaults to the *relative*
-path `data/gmail_tokens`, and a run from `/root` reports every account "not authenticated" while the
-tokens sit in the checkout — measured 2026-10-18, and it looks exactly like a credential outage.
+Both ingest scripts run under the app venv (`/root/personal-secretary-mvp/.venv/bin/python`) because
+they import the app's Gmail client, its GV parser and its model helper. They **chdir to the app
+root**: `gmail_service._tokens_dir` defaults to the *relative* path `data/gmail_tokens`, and a run
+from `/root` reports every account "not authenticated" while the tokens sit in the checkout —
+measured 2026-10-18, and it looks exactly like a credential outage.
 
-## 4. Triage rules, and what each one actually caught
+## 4. How a message becomes a queue item
 
-Corpus for tuning: **624 GV forwards over 45 days** (538 sms, 66 missed calls, 20 voicemails), and
-**166 over 14 days**. Every rule below exists because that text was in front of me, not because it
-seemed sensible.
+### 4.1 Google Voice — rules, not judgement
 
-**DROP — never shown.** A queue that shows these is the same as no queue. Counts are the measured
-`--explain` tally over the **14-day** window: 166 forwards read → **34 queued**, **73 dropped**,
-59 folded into digests.
+Corpus: **624 forwards over 45 days** (538 sms, 66 missed calls, 20 voicemails), 166 over 14 days.
+Every rule exists because that text was in front of me. 14-day window: 166 read → **34 queued**,
+**73 dropped**, 59 folded into digests.
 
-| Rule | Why | 14d |
+**DROP**: shortcode senders (17) · daily zmanim/candle-lighting (13) · missed calls with no name, no
+voicemail and no text (13) · empty or receipt-only (7) · bulk sender named in the body (6) · vendor
+robots (5) · one-time codes (3) · **our own alert texts** (2) · order & parcel lifecycle (2) ·
+carrier data notices, toll-free marketing, robocall voicemail, voicemail with no transcript.
+
+**DIGEST**: twelve or more messages from one sender in the window is a relay; they fold into **one row
+per sender per ISO week** carrying a count, the speakers and any actual question.
+
+**ATTENTION**: a person asking him something · a named missed call · any voicemail that survives the
+robocall test (callback + a real name ⇒ `critical`) · a personal message with a date or a sum.
+
+**DECISION**: only when the message asks him to choose, approve or commit.
+
+Two traps that cost real time and must not come back: `contact_name` vs `name` key mismatch (dropped
+every item as nameless), and `not name` dropping real people who are simply not in his address book.
+A 4-6 digit *name* is a shortcode; a bare *number* is a person.
+
+### 4.2 Email — a model judges, against a written rubric
+
+Measured 2026-10-18: **814 messages over 14 days across five accounts** (~58/day).
+`email_catalog` flags 347 of 812 `needs_owner=1` and a 25-row sample of those was UGG, Uber Cash, AAA
+and newsletters — **the flag is not the signal**. A regex cannot answer "would he want to know this",
+so the verdict is a model call per batch of 10, and **every verdict is stored with its reason**
+(`owner_mail_verdict`). Nothing is dropped without a recorded why.
+
+Three outcomes: `drop` · `attention` · `decision`. The rubric is in
+`scripts/owner-queue/owner-queue-ingest-mail.py::SYSTEM_PROMPT`; the parts that matter:
+
+* **Tier is about consequence, not about who sent it.** A link from his wife is `low`; a bill that
+  will suspend a service is `critical`.
+* **A machine never asks him to choose.** A bill that is due, a negative balance, a delivery that
+  needs rescheduling are `attention` with a deadline. Enforced deterministically afterwards
+  (`demote_machine_decisions`), because one model wobble on this puts a billing notice in front of
+  him as a question — measured twice on the first run.
+* **Every decision carries a recommendation**, because he knocks the queue out to *answer*, not to
+  research.
+
+Measured on the first 7-day backfill: **205 messages → 100 dropped, 35 rows** after collapse, dedupe
+and routine-notice digest.
+
+**Two deterministic guards sit behind the model, and both exist because it was wrong twice:**
+
+| Guard | What it prevents | Measured |
 |---|---|---|
-| shortcode senders (4-6 digit caller-ID) | bulk | **17** |
-| daily zmanim / candle-lighting alerts | scheduled, knowable from a calendar | **13** |
-| missed calls from a number with no name, no voicemail, no text | nothing to act on | **13** |
-| empty / receipt-only ("MMS Received", "Test sms") | no content | **7** |
-| bulk sender named in the body prefix (caller-ID is just a number) | marketing | **6** |
-| vendor robots ("we just emailed you an update that requires your response") | the email is the item, not the notice of it | **5** |
-| one-time codes / verification / "531021 is your GitHub code" | account security, not news | **3** |
-| **our own alert texts** ("Google Voice monitoring is blind", "Reminder: PAY ...") | a queue that shows him our alerts is a loop | **2** |
-| order & parcel lifecycle (shipped / tracking / proof of delivery) | he does not need to be told a parcel moved | **2** |
-| carrier data-usage notice · toll-free marketing · robocall voicemail · voicemail with no transcript · bulk sender by name | | **1 each** |
-
-**DIGEST — folded into one row.** A group relay is one thing happening, not 179 messages. Twelve or
-more messages from one sender in the window makes them a relay; their messages fold into **one row per
-sender per ISO week**, carrying a count, the speakers and any actual question. Simcha/levaya broadcast
-listings fold the same way unless they are addressed to him — the test is the ask, not the vocabulary.
-
-**ATTENTION — its own row.** A person asking him something; a named missed call; any voicemail that
-survives the robocall test (callback + a real name ⇒ `critical`); a personal message with a date or a
-sum of money in it.
-
-**DECISION — its own row, `kind='decision'`.** The message asks him to choose, approve or commit, and
-carries a question or a sum. This is the only path by which a text can become a decision.
+| **HTML → text before judging** | Gmail falls back to the raw part, so a Chase notice is 17 KB of `<head>` and scripts. Truncated to 1 500 chars the judge only ever saw the `<head>`: it said "amount unknown" while queueing the row | first run |
+| **Fact keys, not message keys** (`key_for`) | Telnyx sent "balance is -$0.01" on four consecutive days → four `critical` rows for one fact. A *person's* conversation keys on the thread; a *machine's* recurring notice keys on the fact (domain + subject with dates/amounts stripped) | 4 rows → 1 |
+| **Routine notices digest** (`fold_routine_notices`) | Five banks "informing" him on one day are one thing happening. `money`/`notice` at `medium`/`low` fold into one row per class per day; `critical`/`high` never fold | 5 rows → 1 |
+| **`urgent_email` dedupe** | The app writes a held row for every "X emailed about Y". The mail ingest now judges Y itself, so the held row is dropped when the judge holds a verdict on that subject — and if the judge is dead there are no verdicts, the held row shows, and nothing goes missing | 4 rows |
 
 ## 5. The one ordering
 
@@ -108,74 +141,153 @@ Every reader uses one function, `_queue_score`, and **every line prints its own 
 order is judgeable rather than asserted:
 
 ```
-score = tier                       critical 1000 · high 700 · medium 400 · low 150
+score = tier                      critical 1000 · high 700 · medium 400 · low 150
       + 200 if it blocks other work
-      + min(200, age_hours / 6)     anti-starvation: old things rise, capped
+      + 100 if it is a filed decision          (agent questions do not get this; they carry ask)
+      + min(150, age_hours / 8)                anti-starvation, capped so it cannot jump a band
       + 40  if it arrived in the last 24h
       + 80  if a person is asking him something
-      + 60  if it names a deadline
-      + min(150, money / 10)        judged: 2026-10-18
+      + 60  if it names a deadline, +60 more if that deadline is inside a week
+      + min(200, money / 10)                   read from the row's own words, not from a column
+      - learned penalty                        what his own answers taught (see §6)
 ```
 
-Example, from the live queue: `#595 Can I purchase a Kyocera today?` = `high=700 age=+23 asks=+80
-deadline=+60` → **863**.
+Two things this got wrong first, both measured on the live 42-row queue before they were fixed:
+
+* **`meta.money` was NULL on every single pending row**, so the money term had never fired once — a
+  returned payment of 2 380.06 ranked below a ten-day-old voicemail about a laptop. The amount is in
+  the words; `_money_in()` reads it there, which also fixes every historic row at once.
+* **`deadline` matched the word "today"**, so "any way I can get my phone today?" earned a deadline
+  bonus. A day is named; a deadline is stated — `due in`, `expires`, `overdue`, `suspended`,
+  `deadline`, `final notice`, `by <weekday>`, `in N days`.
 
 Nothing reads a stored score. A score written at insert time goes stale the moment the ingest stops,
 and then the order is a claim about urgency that nothing re-measures.
 
-**Age bound.** Attention older than 21 days is hidden by default (`--max-age-days`, `--all` shows it)
-and the hidden count is printed. News decays; a text from three weeks ago is still true but is not
-what he should open the queue on. **Decisions are never aged out** — they block work until answered.
-Nothing is deleted or closed by the bound.
+## 6. It learns — from his answers, not from a hint
 
-## 6. Lifecycle, and why a dismissal sticks
+Owner's requirement, 2026-10-18. The mechanism is boring and auditable; there is no model in the
+ranking and no stored score.
 
-`pending → seen (seen_at) → answered | resolved | dismissed | deferred`
+1. **Every close writes one feedback row** — `owner_queue_feedback(item_id, action, answer, kind,
+   channel, party, class, sender_domain, tier_at, at)`. Written by the same `answer` / `resolve` /
+   `defer` / `skip` commands that close the item, so the record cannot drift from the queue it
+   describes.
+2. **A sender he keeps dismissing sinks.** ≥ 2 dismissals and more dismissals than answers in 120 days
+   ⇒ **−40 per dismissal, capped at −120**, printed in the arithmetic as `learned=-80`. It may reorder
+   inside a band and can never pull a critical item below a medium one.
+3. **The mail judge is given his last dozen answers and dismissals as examples**, so tomorrow's
+   judgement is *his* judgement rather than the rubric author's. The block is labelled
+   `WHAT HE HAS ALREADY SAID` and lists the item, the sender and his own words.
 
-* `dedupe_key` is **UNIQUE**, keyed on the message id (not the thread — two texts in one thread are
-  two things said; keying on the thread made the second silently overwrite the first, measured as
-  4 refreshes on the first backfill).
-* Re-running the ingest **refreshes** a pending row and **never resurrects** a dismissed or answered
+To watch it learn: `owner-queue.py learning` prints the profile — which senders are demoted, by how
+much, and the evidence count behind each.
+
+## 7. Every item arrives briefed
+
+Owner's requirement: *"only put it in the queue after all info is gathered about it fully"*. What a
+row carries when it lands, and what `show`/`card` print:
+
+| Part | Where it comes from |
+|---|---|
+| The one-line title | the judge (email) or the parsed message (Voice) |
+| **Why it is in the queue** | the judge's reason, stored with the verdict |
+| **What he would do** | the judge's `action` |
+| **My recommendation** (decisions) | the judge's `recommendation` |
+| The full text | the message body, HTML stripped (email) or the cleaned transcript (Voice) |
+| **History with this sender** | closed queue items from the same domain or party, with his own past answer |
+| Thread state | how many messages in the conversation, and which is newest |
+| Amount, deadline, tier | read from the words at rank time, so they cannot go stale |
+
+A decision without a recommendation is a **defect**, not a nicety: he asked to answer without going
+and looking anything up.
+
+## 8. The working set — what "let's knock out the queue" actually shows
+
+Measured 2026-10-18: the first 7-day backfill produced **100 pending items**, 37 of them 3-7 days old
+and 16 older. A hundred-item list is not knockable, and a queue nobody finishes is the same as no
+queue. So:
+
+* **Decisions are always in the working set.** They block work until answered.
+* **Attention stays while it is still news, still someone waiting, still expensive, or serious** —
+  age ≤ 3 days, or `ask`, or `critical`/`high`, or money ≥ 100. Otherwise it is **counted and named**,
+  never deleted: *"32 quieter attention item(s) held back — older than 3 day(s), nobody waiting, no
+  money, not serious (--all shows them)"*.
+* The absolute bound is 21 days for attention. Decisions are never aged out.
+
+## 9. Lifecycle, and why a dismissal sticks
+
+`pending → seen (seen_at) → answered | resolved | dismissed | deferred | superseded`
+
+* `dedupe_key` is **UNIQUE** (partial index where not null). Keyed on the message id for Voice, the
+  thread for a person's email, the *fact* for a machine's email.
+* Re-running an ingest **refreshes** a pending row and **never resurrects** a dismissed or answered
   one (`left_closed` in the run report). That is the dismissal memory the app's own attention tables
   never had — they re-appended every fingerprint on every run.
 * `defer`/snooze keeps the row pending and stops it ranking until the day he named.
 
-## 7. Commands
+## 10. Commands
 
 ```bash
-# the queue — one order, both kinds
+# the queue — one order, both kinds, the working set
 python3 ~/bin/owner-queue.py queue --limit 20
-python3 ~/bin/owner-queue.py queue --kind attention --new-only
-python3 ~/bin/owner-queue.py show 591            # one item in full + the arithmetic; marks seen
+python3 ~/bin/owner-queue.py queue --all --limit 200      # everything, including held back
+python3 ~/bin/owner-queue.py queue --kind decision
+python3 ~/bin/owner-queue.py queue --json
 
-# "let's knock out the queue" — one at a time, until it is empty
-python3 ~/bin/owner-queue.py knock
+# "let's go through the queue" — the answer to that sentence
+python3 ~/bin/owner-queue.py card          # THE NEXT ONE, in full, with its dossier
+python3 ~/bin/owner-queue.py show 591      # a specific item in full (marks it seen)
+python3 ~/bin/owner-queue.py answer 591 --answer "yes, at list price"
+python3 ~/bin/owner-queue.py resolve 591 --dismissed "not mine"
+python3 ~/bin/owner-queue.py defer 591 --until 2026-10-25 --note "after the yom tov"
 
-# pull the personal channel (the timer also runs this every 20 min, --days 3)
-python3 ~/bin/owner-queue.py ingest gv --days 3
-python3 ~/bin/owner-queue.py ingest gv --days 14 --explain    # every verdict + per-rule tally, writes nothing
+# a terminal walk, one item at a time (interactive)
+python3 ~/bin/owner-queue.py knock --limit 25
 
-# decisions only — the raw table, and what the phone digest reads
-python3 ~/bin/owner-queue.py list
+# pull both channels, or one
+python3 ~/bin/owner-queue.py ingest all --days 3
+python3 ~/bin/owner-queue.py ingest mail --days 7 --explain
+python3 ~/bin/owner-queue.py ingest gv --days 3 --explain --only-dropped
+
+# is it being fed, and what has it learned
+python3 ~/bin/owner-queue.py health
+python3 ~/bin/owner-queue.py health --json
+python3 ~/bin/owner-queue.py learning
 ```
 
 `knock` verbs: `a <answer>`, `d [why]` dismiss, `s 3d` snooze, `n` skip, `q` quit — and **a bare
 sentence is taken as the answer**, because he should not have to learn a syntax to reply.
 
-## 8. Is it alive?
+## 11. The knock-through protocol (what a session does)
+
+He says *"let's knock out the queue"*. The correct behaviour, and it is not negotiable:
+
+1. `owner-queue.py card` — **one** item, in full, with its arithmetic. Never a list of everything.
+2. Read it to him the way a chief of staff would: what happened, who it is from, why it is here, and
+   for a decision **my recommendation in one line**. If he needs a number to decide, the number is in
+   the row; if it is not, gather it before asking.
+3. Wait. His answer is the next line. A bare sentence is the answer.
+4. Record it: `answer <id> --answer "<his words>"`, or `resolve <id> --dismissed "<why>"`, or
+   `defer`. **His words verbatim** — they are the training data (§6) and the journal copy.
+5. Then `card` again. Stop when he says stop, when the queue is empty, or after ~25 items.
+
+Never batch five questions into one message. Never ask him something the row already answers. Never
+end a session without recording what he said.
+
+## 12. Is it alive?
 
 Three readings, and each answers a different question:
 
 ```bash
-# 1. is the timer scheduled and did the last run succeed
-ssh secratary-cloud 'systemctl list-timers lpt-owner-queue-gv.timer --no-pager'
-ssh secratary-cloud 'systemctl status lpt-owner-queue-gv.service --no-pager | head -8'
+# 1. is the timer scheduled, and did the last run pass
+ssh secratary-cloud 'systemctl list-timers lpt-owner-queue.timer --no-pager'
+ssh secratary-cloud 'systemctl status lpt-owner-queue.service --no-pager | head -12'
 
-# 2. is the queue actually receiving (newest attention row, and how many)
-ssh secratary-cloud "sqlite3 /root/authority.db \
-  \"SELECT COUNT(*), MAX(created_at) FROM owner_decision_queue WHERE source LIKE 'gv-ingest:%'\""
+# 2. one command that reads every source's own freshness and fails if one went quiet
+ssh secratary-cloud 'python3 /root/bin/owner-queue.py health'
 
-# 3. is GV still forwarding at all — the source, not the reader
+# 3. is GV still forwarding at all — the SOURCE, not the reader
 ssh secratary-cloud 'cd /root/personal-secretary-mvp && ./.venv/bin/python -c "
 import sys; sys.path.insert(0,\".\")
 from app.services import gmail_service; from app.config import settings
@@ -183,37 +295,35 @@ print(len(gmail_service.search_messages(settings, account=\"eliyahuzabrowsky@gma
       query=\"from:txt.voice.google.com OR from:voice-noreply@google.com newer_than:7d\", max_results=500)))"'
 ```
 
-A queue that has stopped filling and a queue with nothing to say look identical from inside the
-table. Reading the *source* is what tells them apart. Expected: ~80 forwards per week on the main
-line.
+A queue that has stopped filling and a queue with nothing to say look identical from inside the table.
+`health` is what tells them apart: it compares each source's newest arrival against a limit derived
+from its own 14-day rate (`max(48h, 6 × average gap)`), and exits non-zero when one is stale. The
+timer runs it after every ingest, so a silent channel shows up in `systemctl --failed`.
 
-## 9. Known limits — stated, not hidden
+Expected: ~80 GV forwards and ~200 messages a week across the five inboxes.
 
-1. **Non-Voice email is not in this queue yet, and a bridge was tried and sealed.**
-   `/root/bin/owner-queue-ingest-mail.py.experimental` imports
-   `scripts/owner_attention.py::from_email_catalog` (the estate's existing email judgement — newsletter
-   hints, automated-sender regex, body-based `classify_message`, personal-vs-shop tiers) and would write
-   its output into the queue. **It is not wired, deliberately.** Measured 2026-10-18 over a 3-day window:
-   25 items, and they were mostly marketing — AAA, eBay, GoFundMe, US Mobile, Hostinger, Project Mesorah,
-   a review request — mixed with a handful that genuinely matter (a T-Mobile service restoration, a
-   US Mobile auto-renew, Noson Yanofsky writing personally, three admissions/registration deadlines). A
-   **Dialpad voicemail notification also leaked through**, which the owner's rule excludes; that is now
-   filtered, but the volume problem is not solved. Shipping those 25 rows would have buried the good
-   Voice items under marketing, which is worse than the gap.
-   **Also measured:** `email_catalog` holds 812 rows in 14 days of which 347 carry `needs_owner=1`, and a
-   25-row sample of those was UGG, Uber Cash, AAA and newsletters — **`needs_owner` is not the signal.**
-   To finish this: tighten the judgement (the digest needed 25 candidates; a queue needs ~3), keep the
-   Dialpad and Voice exclusions, then enable it as `ingest mail` on the same timer.
-2. **`scripts/owner_attention.py` still ranks independently for phone delivery**, reading
+## 13. Known limits — stated, not hidden
+
+1. **A resolved premise still sits in the queue.** Telnyx "balance is -$0.01" stayed `critical` and at
+   the top for two days after the account was re-enabled, because the payment confirmation is a
+   different fact and nothing links them. `owner_premise_check` + `_premise_moved_rows` is the hook
+   for it; the mail ingest does not feed that check yet. **Next piece of work on this queue.**
+2. **Two rows for one ongoing problem** can still happen when a bank changes its wording ("overdrawn"
+   vs "overdraft or declined"), because the fact key strips amounts and dates but not vocabulary.
+3. **`scripts/owner_attention.py` still ranks independently for phone delivery**, reading
    `owner-queue.py list --json`, which is deliberately decisions-only. Two rankings exist in the
-   estate: this one, and that one. If they are ever made one, it is by pointing that script at
-   `queue --json`, and its parser must be adapted in the same change.
-3. **Name resolution** for bare numbers depends on the comms index (`people` / `person_alias`). If the
-   index is stale, a known caller appears as a number.
-4. **GV recall is capped by the mailbox window we ask for.** A forward older than the mail retention
-   window is simply not there.
+   estate. Unifying means pointing that script at `queue --json` and adapting its parser in the same
+   change — it expects `question`/`severity`/`blocks`, not `title`/`tier`.
+4. **Name resolution** for bare numbers depends on the comms index (`people` / `person_alias`). A stale
+   index shows a known caller as a number.
+5. **GV recall is capped by the mailbox window we ask for.** A forward older than that window is gone.
+6. **The judge is a model, so it is not deterministic.** The cache means a message is judged once;
+   `--rejudge` is for when the rubric changes, and it will move verdicts around.
 
-## 10. Changelog
+## 14. Changelog
 
-* **2026-10-18** — built. Ingest, rules, ordering, `queue`/`show`/`knock`/`ingest`, the timer, this doc.
-  `owner-queue.py list` narrowed to decisions so the phone digest was not flooded by the new rows.
+* **2026-10-18** — built: GV ingest, rules, ordering, `queue`/`show`/`knock`/`ingest`, the timer.
+* **2026-10-18 (later)** — the email channel (judge + rubric + verdict cache), HTML stripping, fact
+  keys, routine-notice digests, `urgent_email` dedupe, ordering v2 (derived money and deadline,
+  decision weight, band-safe anti-starvation), the working set, `card`, `health`, `learning`,
+  `owner_queue_feedback`, the recommendations-in-decisions rule, and the dossier.

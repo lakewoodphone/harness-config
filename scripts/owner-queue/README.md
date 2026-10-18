@@ -5,9 +5,11 @@
 >
 > | file | what it is |
 > |---|---|
-> | `owner-queue.py` | the whole tool as deployed on the authority (`/root/bin/owner-queue.py`), including `queue`, `show`, `knock`, `ingest gv` |
+> | `owner-queue.py` | the whole tool as deployed on the authority (`/root/bin/owner-queue.py`): `queue`, `card`, `show`, `knock`, `ingest gv|mail|all`, `health`, `learning`, `answer`, `resolve`, `defer` |
 > | `owner-queue-ingest-gv.py` | the Google Voice → queue ingest (`/root/bin/owner-queue-ingest-gv.py`) |
-> | `lpt-owner-queue-gv.{service,timer}` | the 20-minute ingest timer (`/etc/systemd/system/`) |
+> | `owner-queue-ingest-mail.py` | **the email channel** (`/root/bin/owner-queue-ingest-mail.py`): reads every authenticated inbox, judges each message against a written rubric with a model resolved at runtime, stores every verdict and its reason in `owner_mail_verdict`, and writes only what survives |
+> | `owner-queue-ingest-mail.py.experimental` | **SUPERSEDED, do not run.** The first attempt, which reused `owner_attention.from_email_catalog` and produced 25 items over 3 days of mostly marketing. Kept only as history |
+> | `lpt-owner-queue.{service,timer}` | the 20-minute ingest of **both** channels plus the health check (`/etc/systemd/system/`). `lpt-owner-queue-gv.{service,timer}` is the retired GV-only pair |
 >
 > The rule set the tool implements is **`docs/owner-queue.md`** — read that before changing a rule.
 > The live authority copy is what runs; this is the reviewable source and the recovery copy.
