@@ -1421,3 +1421,45 @@ what it applies.
 widened from `--hours 48`; that value lives in a base64-encoded crontab line, so it is a careful edit
 rather than a sed. The evolution revert (`evolution_verifier.py:428`) is a real change to a service
 that has been dormant for 106 days and deserves its own round with a planted regression.
+
+---
+
+## 53. ROUND 58 — A CORRECTION TO §50, AND THE REAL CAUSE: THE RECONCILER WRITES THE MIRROR, NOT THE SOURCE
+
+**§50's number was wrong and this section replaces it.** §50 said 41 outbound rows were "permanently
+outside the reconciler's 48-hour window". Both halves were wrong, and the way they were wrong matters.
+
+**The count.** `created_at` in this table is ISO-8601 with a `T` and an offset
+(`2026-10-11T14:00:48.148242+00:00`), while `datetime('now')` renders `2026-10-18 03:43:00` with a space.
+`T` is ASCII 84 against space 32, so a string comparison silently mis-orders every row on the boundary
+date. Measured side by side:
+
+```
+created_at <  datetime('now','-48 hours')   -> 41   (WRONG -- string compare)
+julianday(created_at) < julianday('now','-48 hours') -> 65   (correct; oldest 2026-09-29T19:38:31)
+```
+
+**The mechanism.** Widening the window changed nothing, which falsified the window theory outright:
+`reconcile-sent-status.py --hours 720` (dry) -> `unsettled outbound rows in the last 720h: 2`, and both
+were synthetic test SIDs answering HTTP 404. The reason is line 38 and lines 113-114: the script opens
+`INBOX = ~/.sms-inbox/inbox.db` and reconciles **`messages`** — a mirror. The owner's texts live in
+**`/root/authority.db` -> `sms_log`**, which has no `messages` table at all. So delivery truth is written
+to one store and read from another, and nothing propagates back.
+
+Proven on one message, two truths:
+
+```
+sms_log   (what owner_attention and the ps_* tools read):  4276  queued   2026-10-17T14:22:32
+messages  (what the reconciler updates), same SID:          delivered
+of the 65 stale queued SIDs, 50 exist in the mirror -> 50 rows where the answer is already known
+and is being withheld from the store that asks the question.
+```
+
+**So §50's real finding stands and gets sharper:** the channel does not mis-deliver, it *under-reports*,
+and the fix is a write-back from `messages` to `sms_log` keyed on `twilio_sid` — not a wider window. The
+15 SIDs absent from the mirror are a second, separate question (they may predate the mirror).
+
+**The lesson, which is the estate's oldest:** a number produced by a string comparison is not a
+measurement. §50 broadcast 41 into this document and into H7337; the correct figure is 65, and the cause
+was not the one the number suggested. Print the raw value beside the predicate, and when two stores
+disagree about one row, ask which one the consumer actually reads.
