@@ -2265,3 +2265,99 @@ after :  lint-refs: clean - 6 reference(s) across 37 blocked item(s) all live, 0
 **A note on a small self-inflicted error:** one command in this round piped a grep into `/dev/null` and exited
 1; the `[exit code: 1]` in the transcript is my malformed command, not a system failure, and is recorded so it
 is not mistaken for one later.
+
+---
+
+## 66. ROUND 71 — EVIDENCE RECORDING WAS CHANGING THE WORLD IT DESCRIBED
+
+Started as "fix the muted pain closer" and turned into the sharpest trap of the session.
+
+### The trap, found by using the tool
+
+Recording a diagnostic lead on item 559:
+
+```
+$ work.py attempt 559 --by wake-audit-20261018 --did "..." --proof "..." --result "..."
+attempt-recorded {"attempt": 1053, ..., "id": 559, "state": "todo"}
+```
+
+Item 559 had been **blocked**. `attempt` shares `cmd_attempt` with `close`, and its `--state` defaulted to
+`todo`, so **writing a note about an item unblocked it**. Worse, one line below:
+
+```python
+blocked_on = a.blocked_on if state == "blocked" else None
+```
+
+the same call writes `blocked_on = NULL` over a recorded blocker — the exact hazard the code already guards for
+`--state blocked` ("an untyped block is how work goes invisible"), reached from the other side.
+
+Fixed: `attempt --state` now defaults to **None = record only, change nothing**; the item keeps its state, and a
+blocked item keeps its blocker. `close` keeps its `todo` default, because closing a shift must state an outcome.
+
+### And the test found a second defect neither of us had noticed
+
+With state and blocker preserved, the throwaway test printed:
+
+```
+before:  blocked  "MEASURED 2026-10-16: no human decider ex..."  revisit 2026-10-19T06:54:04Z
+after :  blocked  "MEASURED 2026-10-16: no human decider ex..."  revisit 2026-10-25T04:52:55Z
+```
+
+`revisit_at` was recomputed with `revisit_default()` (+7d) whenever the item was blocked and no `--revisit` was
+given — so **every diagnostic note pushed a blocked item a week further from being looked at again.** The block
+got quieter each time somebody examined it, which is the opposite of what a revisit date is for. Now an existing
+date is preserved and only an explicit `--revisit` replaces it.
+
+Retested on a fresh copy: `blocked | same blocker | revisit 2026-10-19T06:54:04Z — unchanged`. Backup
+`work.py.bak-attemptstate-20261018`, `py_compile` clean.
+
+**This is why the throwaway store exists.** Both defects are invisible on a successful-looking run: the first
+prints `attempt-recorded` with no warning, and the second only shows if you print the column before and after.
+
+### The owner channel: one item raised from the dead
+
+Of four owner-blocked items with no queue row, three were mis-bucketed (337/457 ruled "NOT AN OWNER DECISION" by
+row 527; 373 is an engineering defect). **Item 152 was real and invisible** — a live broker credential for
+`zabz-desktop` in plaintext whose fix needs a production broker recreate and a fleet-wide re-issue. Filed as
+**queue 554** (high) and linked: `152|554|blocked`.
+
+### `lint-refs` was reporting a year as an unresolved reference
+
+Item 522 names `#2026` in prose; the tool said "probably a year" and reported it every 15 minutes forever. The
+year band (1900-2100) is now excluded from the orphan path. `1 orphan -> clean — 0 orphan prose ref(s) across
+140 live item(s)`.
+
+### The muted pain closer: measured, and started
+
+```
+PAIN CHECK 2026-10-18T04:54:17Z
+  check files      : 21
+  findings         : FIXED 45 | LIVE 115 | UNKNOWN 22
+  open entries     : 612
+  FIXED but OPEN   : 42  <- close these with --close
+  LIVE and open    : 110
+  open, no check   : 438
+```
+
+`pain-check.py` HAS `--close`; the cron line runs only `--write-status`, so it measures and never acts — the
+closer was muted by one missing flag. `close()` is conservative and correct (only entries whose **own check**
+reports FIXED, evidence quoted into the resolution, warnings on failure).
+
+A manual `--close --write-status` run was launched. **At the time of writing it was still inside C1.sh** (the
+suite alone takes ~4m38s per file, and 21 files run). Its closure count is therefore **UNVERIFIED**, and
+`--close` is deliberately **NOT yet in cron**: a closer that has been run is not a closer that has been tested,
+and this document has already recorded what happens when that distinction is skipped.
+
+### One more silent monitor, recorded not fixed
+
+`sms-app-gap` reports `quiet` every tick. It asks `messages where direction='inbound' and app_has_it=0`, and the
+measured distribution is:
+
+```
+inbound  app_has_it=1  450          <- all of them
+inbound  app_has_it=0    0
+```
+
+With today's labelling it **cannot fire**: every inbound row is marked as held by the app, so the comparison is
+circular. That is a reading that cannot distinguish two states, and rebuilding it against real provider truth is
+its own piece of work rather than a patch at the end of a round.
