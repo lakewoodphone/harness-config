@@ -189,10 +189,21 @@ line.
 
 ## 9. Known limits — stated, not hidden
 
-1. **Non-Voice email is not in this queue yet.** The queue covers GV texts/calls/voicemails. Ordinary
-   Gmail reaches him through `scripts/owner_attention.py` (`from_email_catalog`, which already has
-   `personal_accounts()` / `is_bulk_sender()`). Folding that into the same table is the next step and
-   is *not* done.
+1. **Non-Voice email is not in this queue yet, and a bridge was tried and sealed.**
+   `/root/bin/owner-queue-ingest-mail.py.experimental` imports
+   `scripts/owner_attention.py::from_email_catalog` (the estate's existing email judgement — newsletter
+   hints, automated-sender regex, body-based `classify_message`, personal-vs-shop tiers) and would write
+   its output into the queue. **It is not wired, deliberately.** Measured 2026-10-18 over a 3-day window:
+   25 items, and they were mostly marketing — AAA, eBay, GoFundMe, US Mobile, Hostinger, Project Mesorah,
+   a review request — mixed with a handful that genuinely matter (a T-Mobile service restoration, a
+   US Mobile auto-renew, Noson Yanofsky writing personally, three admissions/registration deadlines). A
+   **Dialpad voicemail notification also leaked through**, which the owner's rule excludes; that is now
+   filtered, but the volume problem is not solved. Shipping those 25 rows would have buried the good
+   Voice items under marketing, which is worse than the gap.
+   **Also measured:** `email_catalog` holds 812 rows in 14 days of which 347 carry `needs_owner=1`, and a
+   25-row sample of those was UGG, Uber Cash, AAA and newsletters — **`needs_owner` is not the signal.**
+   To finish this: tighten the judgement (the digest needed 25 candidates; a queue needs ~3), keep the
+   Dialpad and Voice exclusions, then enable it as `ingest mail` on the same timer.
 2. **`scripts/owner_attention.py` still ranks independently for phone delivery**, reading
    `owner-queue.py list --json`, which is deliberately decisions-only. Two rankings exist in the
    estate: this one, and that one. If they are ever made one, it is by pointing that script at

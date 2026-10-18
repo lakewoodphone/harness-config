@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""owner-queue-ingest-mail — put ordinary email that wants him into the owner queue.
+
+THIS IS A BRIDGE, NOT A CLASSIFIER. `scripts/owner_attention.py::from_email_catalog` already does
+the judgement (newsletter hints, automated-sender regex, subject de-duplication, `classify_message`
+from `app.services.email_intake`, `_HARD_DEADLINE`, personal-vs-shop tiers, bulk ordering). Writing
+a second email classifier here would be the exact duplication this estate keeps paying for, so this
+imports that function and only does what is missing: a stable dedupe key and a row in the one queue.
+
+Measured 2026-10-18, and why the catalog's own flag is not used directly: `email_catalog` has 812
+rows in 14 days of which 347 carry `needs_owner=1` — and a 25-row sample of those was UGG, Uber
+Cash, AAA, newsletters and automated notices. `needs_owner` is not the signal; the triage in
+`from_email_catalog` is.
+
+Google Voice forwards are EXCLUDED here: they are the other ingest's business, and a text that
+appears twice in the queue is worse than a text that appears once.
+
+  owner-queue-ingest-mail.py --days 3            # write rows
+  owner-queue-ingest-mail.py --days 3 --explain  # print what would be written, write nothing
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sqlite3
+import sys
+from datetime import datetime, timezone
+
+APP_ROOT = os.environ.get("PS_APP_ROOT", "/root/personal-secretary-mvp")
+APP_SCRIPTS = os.path.join(APP_ROOT, "scripts")
+DEFAULT_DB = os.environ.get("OWNER_QUEUE_DB", "/root/authority.db")
+sys.path.insert(0, APP_ROOT)
+sys.path.insert(0, APP_SCRIPTS)
+# `gmail_service`/`email_intake` resolve relative token and data paths against the cwd.
+if os.path.isdir(APP_ROOT):
+    os.chdir(APP_ROOT)
+
+#: The Google Voice ingest owns these. Two ingests, one message, one row — never two.
+GV_SENDER = re.compile(r"(voice-noreply@google\.com|txt\.voice\.google\.com|voice\.google\.com)", re.I)
+#: The owner's rule of 2026-10-18 is that Dialpad is not in his queue. Its voicemail-notification
+#: email is Dialpad, and it reached this list on the first run.
+SHOP_LINE_SENDER = re.compile(r"(voicemail@dialpad\.com|dialpad\.com)", re.I)
+
+TIER_FROM_SEVERITY = {"critical": "critical", "high": "high", "medium": "medium", "low": "low"}
+
+
+def _key(account: str, title: str, ref: str) -> str:
+    raw = "%s|%s|%s" % (account or "", title or "", ref or "")
+    return "mail:%s" % hashlib.sha1(raw.encode("utf-8", "replace")).hexdigest()[:20]
+
+
+def collect(days: int, limit: int) -> tuple[list[dict], str]:
+    """Items from the existing triage, minus anything the Voice ingest owns."""
+    import owner_attention  # type: ignore  # from APP_SCRIPTS
+
+    raw = owner_attention.from_email_catalog(days=days, limit=limit)
+    kept, skipped = [], []
+    for it in raw:
+        if it.get("source") != "email":
+            # an error or info row from the catalog reader; surface it, do not queue it
+            skipped.append(it)
+            continue
+        title = str(it.get("title") or "")
+        if GV_SENDER.search(title):
+            skipped.append({"why": "voice-forward", "title": title})
+            continue
+        if SHOP_LINE_SENDER.search(title):
+            skipped.append({"why": "dialpad-shop-line", "title": title})
+            continue
+        kept.append(it)
+    return kept, json.dumps([s for s in skipped if s.get("why")])[:400]
+
+
+def write(con, items: list[dict]) -> dict:
+    stats = {"new": 0, "refreshed": 0, "left_closed": 0}
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for it in items:
+        title = re.sub(r"\s+", " ", str(it.get("title") or ""))[:400]
+        if not title:
+            continue
+        ref = str(it.get("ref") or "")
+        # `ref` is "acct/MM-DD HH:MM" -- not unique enough on its own, so the title is in the key.
+        key = _key(str(it.get("account") or ref.split("/")[0]), title, ref)
+        sev = TIER_FROM_SEVERITY.get(str(it.get("severity") or "medium"), "medium")
+        meta = json.dumps({"ask": False, "deadline": False, "money": None,
+                           "verdict": "ATTENTION", "source": "email_catalog",
+                           "bulk": bool(it.get("bulk")), "tier": it.get("tier"),
+                           "reason": "email that the existing triage judged wants him"})
+        row = con.execute("SELECT id, status FROM owner_decision_queue WHERE dedupe_key=?",
+                          (key,)).fetchone()
+        if row:
+            if row[1] == "pending":
+                con.execute("UPDATE owner_decision_queue SET question=?, context=?, severity=?,"
+                            " evidence_at=?, meta_json=? WHERE dedupe_key=?",
+                            (title, str(it.get("detail") or "")[:1500], sev,
+                             now_iso, meta, key))
+                stats["refreshed"] += 1
+            else:
+                stats["left_closed"] += 1
+            continue
+        con.execute(
+            "INSERT INTO owner_decision_queue"
+            " (asked_at, question, context, severity, source, status, kind, channel,"
+            "  party, evidence_at, evidence_ref, dedupe_key, meta_json)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (now_iso, title, str(it.get("detail") or "")[:1500], sev,
+             "mail-ingest", "pending", "attention", "email",
+             ref.split("/")[0] or "", now_iso, ref, key, meta))
+        stats["new"] += 1
+    con.commit()
+    return stats
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--days", type=int, default=3)
+    ap.add_argument("--limit", type=int, default=25)
+    ap.add_argument("--db", default=DEFAULT_DB)
+    ap.add_argument("--explain", action="store_true")
+    a = ap.parse_args(argv)
+
+    try:
+        items, _ = collect(a.days, a.limit)
+    except Exception as exc:  # noqa: BLE001
+        print("mail ingest FAILED: %s: %s" % (type(exc).__name__, exc))
+        return 1
+
+    if a.explain:
+        print("mail: %d item(s) judged worth him in %d day(s)" % (len(items), a.days))
+        for it in items:
+            print("  [%-6s] %-7s %s" % (it.get("severity"), "bulk" if it.get("bulk") else "",
+                                        re.sub(r"\s+", " ", str(it.get("title") or ""))[:110]))
+        return 0
+
+    con = sqlite3.connect(a.db, timeout=180)
+    con.row_factory = sqlite3.Row
+    stats = write(con, items)
+    con.close()
+    print("mail ingest: read=%d new=%d refreshed=%d left_closed=%d"
+          % (len(items), stats["new"], stats["refreshed"], stats["left_closed"]))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
