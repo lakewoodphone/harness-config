@@ -6,7 +6,7 @@ Updated: 2026-10-18
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 569 row(s) read, 16 pending, generated 2026-10-18 17:08 UTC on SECRATARY-CLOUD.
+Provenance: 571 row(s) read, 17 pending, generated 2026-10-18 18:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -16,6 +16,7 @@ Provenance: 569 row(s) read, 16 pending, generated 2026-10-18 17:08 UTC on SECRA
 | 644 | 2026-10-18 | high | Adeena asks you to move the home phone to a new SIM | Do it today: activate a spare SIM on the home line and text her the new number, since the old SIM is missing. |
 | 646 | 2026-10-18 | high | Data recovery shop asks you to confirm drive received so they can delete backup | Confirm receipt and ask them to hold the backup a bit longer until he verifies the files — deletion is irreversible |
 | 705 | 2026-10-18 | high | Supplier asks for return instructions on dead-touch Surface LCD (order 108746338) | Approve the return and send the RMA plus the 1950-specific panel revision today — customer machine is blocked. |
+| 710 | 2026-10-18 | high | Send this exact text to (732) 447-3805? | Send as written |
 | 78 | 2026-09-16 | medium | The port of the line for your mother, +1 732-363-1752, needs four fields from her US Mobile account: the account number, the transfer PIN, the account-holder name exactly as it appears on file, and the billing ZIP. Can you pull those, or should I get them myself? | Get the four values from her US Mobile account page or invoice and send them to me, and I will file the port. I will not write the PIN into any document. If it is easier, I can call her and get them directly. |
 | 110 | 2026-09-18 | medium | The 2022 Elantra needs about $400 of work and setup right now: the IVT transmission fluid is overdue at 60,326 miles (Hyundai's severe-duty interval is 60,000), and the car has no health monitoring at all. Which do you want me to green-light? | A. The IVT is the single most expensive failure mode this car has (adjacent-year Elantras have failed in the 80k range at ~$4,800 out of pocket), it is past its severe-duty 60,000-mile interval, and there is no service h |
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
@@ -27,4 +28,4 @@ Provenance: 569 row(s) read, 16 pending, generated 2026-10-18 17:08 UTC on SECRA
 | 694 | 2026-10-18 | medium | Tommaso Parisi asks if he can pitch your shop to his funding group | Say yes and ask what the funding terms and amounts look like before sharing any numbers — free exposure, no commitment yet |
 | 699 | 2026-10-18 | low | Can I have read-only access to Yisroel ' s Mac mini (lakewooechsmini)? One ssh key, and its files join the search index. | Add the key: it is one line in authorized_keys, the machine already runs DSH sessions for the company, and without it any document that exists only on that Mac is unanswerable by any search. |
 
-Closed since the queue opened: 553. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 554. Answered questions move to `entries/decisions/` with the owner's own words.

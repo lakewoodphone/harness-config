@@ -4311,6 +4311,7 @@ pain	P7819	7819		2026-10-18	SECRATARY-CLOUD	open	## P7819 — esearch did not an
 pain	P7883	7883		2026-10-18	SECRATARY-CLOUD	open	## P7883 — Estate monitor: tmp_used_pct is critical (77.93 %) across 19 consecutive runs	entries/pain/P7883.md	1	23	7d0f6bd3980d5d0f	estate-monitor,auto-filed,not-the-owners	metrics/tmp_used_pct
 pain	P7947	7947		2026-10-18	SECRATARY-CLOUD	open	## P7947 — Estate monitor: tmp_used_pct is critical (80.52 %) across 34 consecutive runs	entries/pain/P7947.md	1	23	644d7c3f7ac78ed5	estate-monitor,auto-filed,not-the-owners	metrics/tmp_used_pct
 pain	P7948	7948		2026-10-18	SECRATARY-CLOUD	open	## P7948 — esearch freshness: ZABZ-TECH has never pushed to the central index	entries/pain/P7948.md	1	6	563d8405451ed8e6		
+pain	P8011	8011		2026-10-18	SECRATARY-CLOUD	open	## P8011 — esearch freshness: ZABZ-TECH last pushed 95 min ago (expected every 60 min)	entries/pain/P8011.md	1	6	e9a1fea3fa8d3367		
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -4854,6 +4855,7 @@ decisions	D6914	6914		2026-10-18	secratary-cloud	open	**D6914 · 2026-10-18 · O
 decisions	D7041	7041		2026-10-18	SECRATARY-CLOUD	open	**D7041 · 2026-10-18 · Owner answer, queue row #631: Chase account ...9730 is overdrawn by $1,956.66.**	entries/decisions/D7041.md	1	11	e5cd1578d79ef160	owner-answer	owner_decision_queue#631
 decisions	D7042	7042		2026-10-18	SECRATARY-CLOUD	open	**D7042 · 2026-10-18 · Owner answer, queue row #645: Chase: overdraft or declined transaction on account ...9730.**	entries/decisions/D7042.md	1	11	5cde455e2435218c	owner-answer	owner_decision_queue#645
 decisions	D7043	7043		2026-10-18	SECRATARY-CLOUD	open	**D7043 · 2026-10-18 · VOID D7041 and D7042 — a test run wrote two fake owner answers into the journal.**	entries/decisions/D7043.md	1	22	ae729dcda23e2409	owner-queue,correction,test-hazard	
+decisions	D7105	7105		2026-10-18	SECRATARY-CLOUD	open	**D7105 · 2026-10-18 · Owner answer, queue row #709: The daughter's E4610 is on the bench and identified. Do we charge the 60 spoken.**	entries/decisions/D7105.md	1	11	842df75362174685	owner-answer	owner_decision_queue#709
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
