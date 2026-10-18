@@ -2416,3 +2416,70 @@ resolution) to questions that are really engineering.
 The general lesson: **an automated triage that reclassifies questions is a writer of `status`**, so a queue
 count is not a measure of what is waiting for a human. §   The same rule as everywhere else in this document,
 now applied to the queue itself.
+
+---
+
+## 67. ROUND 72 — THE CLOSER WORKS, AND THE JOURNAL'S OWN READERS DISAGREE ABOUT IT
+
+### The closer, run and measured
+
+`pain-check.py --close --write-status` ran to completion in ~6 minutes:
+
+```
+PAIN CHECK 2026-10-18T05:07:12Z
+  findings    : FIXED 45 | LIVE 115 | UNKNOWN 22
+  open entries: 588
+  FIXED but OPEN : 17   <- was 42 before this run
+  closed         : 15 ['P261', 'P264', 'P2819', 'P2823', 'P2833', 'P327', 'P338', 'P340',
+                       'P345', 'P347', 'P42', 'P48', 'P58', 'P76', 'P84']
+WARN: could not close P2561b: no entry P2561b
+WARN: could not close P45b: no entry P45b
+```
+
+The two warnings are real and correct: `P2561b` and `P45b` are check-file ids that name no journal entry, so the
+closer declined rather than inventing one. **42 -> 17, with 15 closed on evidence and 2 legitimately refused.**
+
+### The evidence is in the store, not in the claim
+
+`journal/state/status.tsv` holds **40 rows dated 2026-10-18**, each one quoting its own check and run time, e.g.:
+
+```
+pain  P261  done  2026-10-18  SECRATARY-CLOUD  Closed by pain-check: the entry's own check reports FIXED.
+      Reason: one author in the last 25 lpt-hub commits (worktrees=0) (check C4.sh, run 2026-10-18T05:07:13Z)...
+pain  P48   done  2026-10-18  SECRATARY-CLOUD  ... Reason: only 0 locked events in 7 days - refusals are not
+      happening (check C1.sh, run 2026-10-18T05:07:40Z)...
+```
+
+`journal.py status` agrees: **OPEN PAIN 608 -> 573**. And the closer is now **scheduled** — the cron payload was
+decoded, edited and re-encoded, verified by decoding it back:
+
+```
+/usr/bin/python3 /root/bin/pain-check.py --close --write-status >> /root/.pain-check/run.log 2>&1
+```
+
+Crontab 245 lines before and after; backup `/root/crontab.bak-painclose-20261018`.
+
+### But the journal's readers disagree, and that is a live defect
+
+The authority's index held **0 entries**, so it was rebuilt: `index: 5282 entries -> journal.db + fts5`. Then:
+
+```
+$ journal.py show P261        -> "### P261 · pain · 2026-09-17 · open"      <- WRONG, status.tsv says done
+$ journal.py list --kind pain --status done --since 2026-10-18
+   no entries match
+   # 0 entries in index/entries.tsv                                       <- while wc -l says 5283
+$ journal.py status           -> OPEN PAIN 573                            <- correct, sees the resolves
+```
+
+So after a real resolve: `status` counts it, `show` denies it, and `list` reports the index as empty while the
+file it names holds 5,283 lines. **`show` is the command the journal's own README tells a session to use to read
+one entry** — so a future session reading P261 would see `open` and re-open work that was closed on evidence.
+That is the repeated-work failure this estate pays for most often, produced by the memory system itself.
+
+**Recorded as an open defect, not fixed**: the readers resolve their index root differently and this round's
+budget went to proving the closer. It is the next round's first item, because until it is fixed the closer's
+work is half-visible — and a closer whose effect half the readers cannot see is a closer nobody can trust.
+
+**Also noted:** the authority's journal holds **5,282** entries while this session's checkout reports **4,384**.
+Two checkouts, two counts. That is the same split-store shape as everything else in this document and is not yet
+explained.
