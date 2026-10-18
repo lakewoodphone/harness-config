@@ -2802,3 +2802,48 @@ in the store: the third instance of "the failure happened and the explanation wa
 **Not fixed this round.** It needs the exit paths of `heartbeat_lease` read line by line with the loop's
 deadline logic, and the last edit to that region (§68) cost two shifts. Recorded so the next session starts at
 the loop's exits rather than re-deriving that the store is innocent.
+
+---
+
+## 72. ROUND 77 — THE "unknown" KILL DID NOT COME FROM WHERE THE CODE SAYS IT MUST HAVE
+
+§71b narrowed an unexplained kill to the heartbeat loop's exit paths. This round tested the function instead of
+reading it again, and the test **contradicted my hypothesis**.
+
+### The test
+
+Extracted the shipped `heartbeat_lease()` from the live dispatcher, stubbed only `lease_probe` (returns 1) and
+`lease_decision` (prints `lost`), and called it:
+
+```
+ret=1 decision=[lost] rc=[1] attempt=[1] reason=[the store reports the row is no longer claimed by us]
+```
+
+So the normal `lost` path **does** set `LEASE_LOSS_REASON`, and the globals do escape the function. A kill that
+prints `unknown` therefore **cannot** have come from that path — the hole is somewhere else, and my §71b guess
+(the `LOOP_DEADLINE` exit) is not yet supported by anything.
+
+### So the next occurrence will name its own path
+
+Rather than keep hypothesising about a 1,340-line script, three minimal edits make the kill self-explaining
+with **no control-flow change** (one assignment per branch, one longer message, two initialisers):
+
+```
+LEASE_DECISION="$decision"; LEASE_RC="$rc"; LEASE_ATTEMPT="$attempt"      # in the lost branch
+log "ERROR lease for wake #$ID not renewed ... [decision=${LEASE_DECISION:-unset} rc=${LEASE_RC:-unset}
+     attempt=${LEASE_ATTEMPT:-unset} err=${_LEASE_LAST_ERR:-none}]"
+```
+
+`bash -n` clean, backup `wake-dispatch.sh.bak-leasediag-20261018`. The next kill now reads one of:
+
+| message | meaning |
+|---|---|
+| `decision=unset ...` | **not** `heartbeat_lease` — a different call site prints this string |
+| `decision=lost rc=1 reason=...` | a normal "no longer ours" loss |
+| `decision=lost rc=2 reason=... margin` | the store could not be reached before the margin |
+| `decision=<anything else>` | the state machine produced a decision nobody has seen |
+
+**This is deliberately not a fix.** Three kills today had an explanation available and discarded; the pattern is
+not "the code is wrong" but "the evidence was not carried". Adding the evidence first, and reading the next
+occurrence, costs one kill instead of another round of guesses — and the last time this file was edited on a
+hypothesis rather than a measurement it cost two shifts (§68).
