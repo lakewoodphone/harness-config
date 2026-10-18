@@ -175,13 +175,41 @@ def is_owner_number(number: str) -> bool:
     return bool(want) and any(_last10(n) == want for n in OWNER_NUMBERS)
 
 
-def ceiling_for(to: str | None) -> int:
-    """The length ceiling that applies to THIS recipient.
+#: Channels that are NOT the owner's attention channel and must never be judged by its rules.
+#: The owner said it plainly on 2026-10-18: *"the family chat system is not part of the regular
+#: rate limits and is a completely separate thing."* Family Chat is a chat between relatives with
+#: its own traffic, its own volume and its own correctness. The owner's 20-minute floor, his
+#: one-at-a-time turn and his 320-char reading ceiling are rules about how much of HIS attention
+#: the company may spend, and a relative's message is not the company spending it.
+#:
+#: Measured before this was named: a message to a family member was held by the owner's floor for
+#: "we texted him 9 minute(s) ago" (sms_log 4280/4281) and three attempts were stranded
+#: (74/75/76). The earlier fix put a family member on the owner list, which is the same mistake
+#: from the other side -- it makes his traffic burn the owner's budget.
+SEPARATE_CHANNELS = ("family_chat",)
+
+
+def is_separate_channel(subsystem: str = "", door: str = "",
+                        class_hint: str | None = None) -> bool:
+    """True when this message belongs to a channel that is not the owner's attention channel."""
+    blob = f"{subsystem or ''} {door or ''} {class_hint or ''}".lower()
+    return any(name in blob for name in SEPARATE_CHANNELS)
+
+
+def ceiling_for(to: str | None, subsystem: str = "", door: str = "") -> int:
+    """The length ceiling that applies to THIS message.
+
+    Order matters, and it is the owner's correction of 2026-10-18:
+      1. A separate channel is never cut to the owner's reading ceiling, whoever it goes to.
+      2. The owner gets his own 320 ceiling.
+      3. Everyone else gets the transport limit.
 
     An empty `to` is treated as the owner, because every pre-existing caller omitted it and
     defaulted to him -- fail toward the tighter, already-documented rule rather than silently
     granting a third-party allowance to the one reader whose ceiling this is.
     """
+    if is_separate_channel(subsystem, door):
+        return THIRD_PARTY_MAX
     if not to or is_owner_number(to):
         return MAX_CHARS
     return THIRD_PARTY_MAX
@@ -871,12 +899,17 @@ def submit(door: str, subsystem: str, body: str, *, reason: str = "",
     door = "" if door is None else str(door)
     subsystem = "" if subsystem is None else str(subsystem)
     to = "" if to is None else str(to).strip()
-    ceiling = ceiling_for(to)
     urgency = (urgency or "normal").strip().lower() or "normal"
     if isinstance(class_hint, str):
         class_hint = class_hint.strip() or None
     elif class_hint is not None:
         class_hint = str(class_hint)
+
+    # Which rules apply at all is decided by CHANNEL first, then recipient. Family Chat is a
+    # separate system (owner, 2026-10-18) and none of the owner's attention rules -- ceiling,
+    # floor, one-at-a-time -- are about it.
+    separate = is_separate_channel(subsystem, door, class_hint)
+    ceiling = ceiling_for(to, subsystem, door)
 
     # The duplicate rules are skipped when the caller asks (dedupe_disabled) OR when
     # the subsystem is safety-critical (DEDUPE_EXEMPT_SUBSYSTEMS) -- the second so a
@@ -960,12 +993,13 @@ def submit(door: str, subsystem: str, body: str, *, reason: str = "",
                 # recorded SEND/too-long and then stranded by the owner gate for nine
                 # minutes of owner rate floor (attempts 74/75, sms_log 4280/4281).
                 verdict, reason_code = "SEND", "too-long"
-                detail_t = ("recorded: the body is %d chars, over the %d-char ceiling for "
-                            "this recipient (%s) -- SENT anyway, because refusing here "
+                detail_t = ("recorded: the body is %d chars, over the %d-char %s ceiling "
+                            "-- SENT anyway, because refusing here "
                             "would drop a message a door already committed to; that door "
                             "should have called fit() first (attempt {aid})"
                             % (len(body), ceiling,
-                               "owner" if ceiling == MAX_CHARS else "third party"))
+                               "transport" if separate or ceiling == THIRD_PARTY_MAX
+                               else "owner reading"))
 
             else:
                 dup_cut = _iso(now - timedelta(hours=dup_hours))
@@ -1040,7 +1074,13 @@ def submit(door: str, subsystem: str, body: str, *, reason: str = "",
                         ).fetchone()
                         # A reply is SOLICITED: he is in a conversation, so the floor --
                         # which is a rule about unsolicited traffic -- does not hold it.
-                        if (floor is not None and urgency not in URGENT_URGENCIES
+                        # A SEPARATE CHANNEL is not his attention being spent at all: a
+                        # relative's message must not wait on the company's last text to him
+                        # (owner, 2026-10-18: "the family chat system is not part of the
+                        # regular rate limits"). Before this, `floor` fired on the last OWNER
+                        # delivery for messages to anybody, which is how sms_log 4280 came to
+                        # say "we texted him 9 minutes ago" about a message to a family member.
+                        if (floor is not None and not separate and urgency not in URGENT_URGENCIES
                                 and class_hint != REPLY_CLASS):
                             when = _parse(floor["ts"]) or now
                             holds = [int(floor["attempt_id"])]

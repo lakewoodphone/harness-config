@@ -120,6 +120,48 @@ def main():
     ok("first is SEND", r6a["verdict"] == "SEND", r6a)
     ok("second is DEDUPE", r6b["verdict"] == "DEDUPE", r6b)
 
+    # ---- 7. FAMILY CHAT IS A SEPARATE SYSTEM (owner, 2026-10-18) -----------------------
+    # "the family chat system is not part of the regular rate limits and is a completely
+    # separate thing." So: family traffic is never cut to the owner's 320 reading ceiling,
+    # EVEN WHEN THE RECIPIENT IS THE OWNER, and is never held by the owner's floor.
+    print("7/9 family chat is a separate channel, even when the recipient is the owner")
+    ok("is_separate_channel(family_chat)", relay.is_separate_channel("family_chat.owner_leg",
+                                                                    "family_chat"))
+    ok("is_separate_channel(app) is False", not relay.is_separate_channel("sms_service.send_message", "app"))
+    ok("ceiling for family -> owner is the transport limit",
+       relay.ceiling_for(OWNER, "family_chat.owner_leg", "family_chat") == relay.THIRD_PARTY_MAX,
+       relay.ceiling_for(OWNER, "family_chat.owner_leg", "family_chat"))
+    ok("ceiling for app -> owner is still 320",
+       relay.ceiling_for(OWNER, "sms_service.send_message", "app") == relay.MAX_CHARS)
+
+    longs = LONG.ljust(600, " ")          # over the owner ceiling, under the transport limit
+    r7 = relay.submit("family_chat", "family_chat.owner_leg", longs, to=OWNER,
+                      dedupe_disabled=True, dedupe_extra="fam-long")
+    ok("a 600-char family message to the owner is SEND/ok, not too-long",
+       r7["verdict"] == "SEND" and r7["reason"] != "too-long", r7)
+
+    print("8/9 a delivery to the owner does not hold a family message (the floor)")
+    # Plant a fresh delivered attempt to the owner so the floor has something to fire on.
+    con3 = sqlite3.connect(db)
+    con3.execute("INSERT INTO attempt (at, door, subsystem, body, body_hash, verdict,"
+                 " verdict_reason, status, sid, sent_at, to_number) VALUES "
+                 "(?,?,?,?,?,?,?,?,?,?,?)",
+                 (relay._iso(relay._now()), "app", "app", "just texted him", "hfloor",
+                  "SEND", "ok", "sent", "SMFLOOR", relay._iso(relay._now()), OWNER))
+    con3.commit()
+    con3.close()
+    r8a = relay.submit("app", "sms_service.send_message", "an ordinary company text",
+                       to=OWNER, dedupe_extra="floor-app")
+    ok("the same text from the APP is FLOOR-held", r8a["verdict"] == "FLOOR", r8a)
+    r8b = relay.submit("family_chat", "family_chat.owner_leg", "a relative's message",
+                       to=OWNER, dedupe_disabled=True, dedupe_extra="floor-fam")
+    ok("the family message is NOT floor-held", r8b["verdict"] == "SEND", r8b)
+
+    print("9/9 the owner-facts are unchanged")
+    ok("a 377-char app body to the owner is still too-long",
+       relay.submit("app", "sms_service.send_message", LONG, to=OWNER,
+                    dedupe_extra="owner-still").get("reason") == "too-long")
+
     print()
     if FAILED:
         print(f"{PASSED} passed, {len(FAILED)} FAILED: {', '.join(FAILED)}")

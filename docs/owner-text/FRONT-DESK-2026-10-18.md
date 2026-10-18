@@ -238,15 +238,45 @@ Decisions:
    *"Got it"*.
 4. **Every ask carries a ref a human can say.** The composer prints a short ref for any ask that
    will need an answer, and `record_ask` refuses a ref that `textctx`'s extractor cannot parse.
-5. **Identity is a table, not a cell.** The owner is every number he has ever used — and, proven
-   today, `+18482245096` is a **family member**, so the identity list must be an allow-list that is
-   *verified*, not `OWNER_ALT_PHONE_NUMBERS` as it stands: that env var makes his dentist an
-   "owner" for the owner-text gate (`twilio_client.py:373-395`), which is how his messages came to
-   be held by the owner's rate floor.
+5. **Identity is a table, not a cell — and a separate channel is not an identity question at all.**
+   The owner is every number he has ever used, as a *verified* allow-list rather than
+   `OWNER_ALT_PHONE_NUMBERS` as it stands: that env var lists `+18482245096`, a **family member**,
+   making his texts count as the owner's (`twilio_client.py:373-395`). Correcting the number alone
+   would be fixing the symptom — the channel rule in §5 means family traffic is never judged by the
+   owner's limits in the first place, whoever is on the list.
 
 ## 5. The composer's voice
 
-Rules the composer enforces mechanically, each traceable to a message he sent:
+**First, a rule from the owner that outranks the rest (2026-10-18):**
+
+> *"the family chat system is not part of the regular rate limits and is a completely separate
+> thing."*
+
+Family Chat is a chat between relatives. It is **not** the owner's attention channel and none of the
+rules in this section are about it. The 320-char ceiling, the 20-minute floor, the one-at-a-time
+turn and quiet hours are rules about how much of *his attention the company may spend*; a
+relative's message is not the company spending it. So, decided and now live in the relay:
+
+| rule | owner channel | family chat |
+|---|---|---|
+| length ceiling | 320 (his reading) | 1600 (transport only) |
+| rate floor (20 min) | applies | **does not apply**, in either direction |
+| one-at-a-time turn | applies | **does not apply** |
+| quiet hours | applies | **does not apply** |
+| dedupe | applies | a relay of a relative's words is exempt (`dedupe_disabled`), because two relatives writing "Mazal tov!" are two events |
+
+Watch: `owner_text_relay.ceiling_for(to, subsystem, door)` and the `separate` term in the FLOOR
+branch. Pinned by tests 7–9 of `mirror/test-relay-recipient.py`, including the one that matters:
+the *same* text from the `app` door is FLOOR-held while the family message is not.
+`/root/bin/owner_text_relay.py` `d4ffe3aad4d0`.
+
+The remaining half is app-side and is ledger 526: `_owner_leg()` calls `owner_text.gate` at
+`twilio_client.py:677` for **every** recipient, which is how `sms_log` 4280 came to say *"we texted
+**him** 9 minute(s) ago"* about a message to a family member. `OWNER_ALT_PHONE_NUMBERS` containing
+`+18482245096` is the symptom, not the disease; deleting that number fixes one person, and the
+channel rule fixes all of them.
+
+Rules the composer enforces mechanically on the owner channel, each traceable to a message he sent:
 
 1. One item. A body containing a count head (`N items`, `N urgent`) or a newline-separated list of
    more than three lines is refused at compose time, not truncated.
