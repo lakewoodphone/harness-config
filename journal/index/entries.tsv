@@ -1507,6 +1507,7 @@ handoff	H7721	7721		2026-10-18 14:29 UTC	secratary-cloud	open	## 2026-10-18 14:2
 handoff	H7849	7849		2026-10-18 15:10 UTC	SECRATARY-CLOUD	open	## 2026-10-18 15:10 UTC · SECRATARY-CLOUD · Contact lenses: the Sept shipment WAS a lab error (owner-reported confirmation 2026-10-18); new lenses picked up today - verify eye field + prism line	entries/handoff/H7849.md	1	29	0b7d950b0d4343b0	personal,eye-care,owner-parked	H414,L1812
 handoff	H7913	7913		2026-10-18 15:23 UTC	SECRATARY-CLOUD	open	## 2026-10-18 15:23 UTC · SECRATARY-CLOUD · Contact lenses 2026-10-18: the 'replacement' RIGHT lens is lot 1WLF4-13 at -6.75 - the same wrong lens from September, not a correction	entries/handoff/H7913.md	1	30	697f7b7d9077a797	personal,eye-care,wrong-order	H414,H7849,L1812
 handoff	H7977	7977		2026-10-18 15:31 UTC	SECRATARY-CLOUD	open	## 2026-10-18 15:31 UTC · SECRATARY-CLOUD · Contact lenses 2026-10-18, both vials: the LEFT was remade (Oct 2029 build); the RIGHT is September's lens unchanged - the -6.75 is the current right Rx, not a mis-key	entries/handoff/H7977.md	1	50	ddb45a8d00148112	personal,eye-care,verified	H414,H7913,L1812
+handoff	H8681	8681		2026-10-18 22:06 UTC	SECRATARY-CLOUD	open	## 2026-10-18 22:06 UTC · SECRATARY-CLOUD · Home security system pulled up live: three defects confirmed, git five weeks behind the host	entries/handoff/H8681.md	1	26	4692bc404c038410		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -3572,6 +3573,7 @@ lessons	L8190	8190		2026-10-18	SECRATARY-CLOUD	open	**L8190 · A decision in a r
 lessons	L8254	8254		2026-10-18	SECRATARY-CLOUD	open	**L8254 · One queue: decisions, questions and held alerts together**	entries/lessons/L8254.md	1	16	827da2b0e8ccd84b		
 lessons	L8255	8255		2026-10-18	SECRATARY-CLOUD	open	**L8255 · Correcting L8254: a pending question is not evidence the work is pending**	entries/lessons/L8255.md	1	10	afcd5ca437f31eed		L8254
 lessons	L8446	8446		2026-10-18	secratary-cloud	open	**L8446 · A bill that arrives as a family forward exists in no archive — archive the image, then register it**	entries/lessons/L8446.md	1	40	d07c35b8cee08131	household,evidence,provenance,finance	H7657,H3372,L3440
+lessons	L8958	8958		2026-10-18	SECRATARY-CLOUD	open	**L8958 · L: /config on a Home Assistant host is a 21 GB tree; grep -r it and you wait**	entries/lessons/L8958.md	1	12	b46f58cbe7fe341b		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
