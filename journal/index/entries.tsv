@@ -3562,6 +3562,8 @@ lessons	L8062	8062		2026-10-18	secratary-cloud	open	**L8062 · A question to one
 lessons	L8126	8126		2026-10-18	secratary-cloud	open	**L8126 · Her number is not his: she is the emergency contact, and she was in the owner list**	entries/lessons/L8126.md	1	55	8399a12f934dd406	owner-identity,correction,sms,config	L8062
 lessons	L8127	8127		2026-10-18	secratary-cloud	open	**L8127 · A CFO question to her is approval-free by name, not because she was the owner**	entries/lessons/L8127.md	1	52	55d7d7752c593447	policy,approval,sms,cfo,owner-identity	L8126,L8062
 lessons	L8190	8190		2026-10-18	SECRATARY-CLOUD	open	**L8190 · A decision in a row context does not leave the pending set**	entries/lessons/L8190.md	1	6	c1a9fedf26980766		
+lessons	L8254	8254		2026-10-18	SECRATARY-CLOUD	open	**L8254 · One queue: decisions, questions and held alerts together**	entries/lessons/L8254.md	1	16	827da2b0e8ccd84b		
+lessons	L8255	8255		2026-10-18	SECRATARY-CLOUD	open	**L8255 · Correcting L8254: a pending question is not evidence the work is pending**	entries/lessons/L8255.md	1	10	afcd5ca437f31eed		L8254
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -4292,6 +4294,7 @@ pain	P7307	7307		2026-10-17	ZABZ-YOGA	open	## P7307 — Owner SMS delivery truth
 pain	P7371	7371		2026-10-18	SECRATARY-CLOUD	open	## P7371 — Estate monitor: swap_used_pct is critical (70.3 %) across 7 consecutive runs	entries/pain/P7371.md	1	23	0681f1fcd8e22418	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 pain	P7435	7435		2026-10-18	secratary-cloud	open	## P7435 — approval-suspends test fails against the gateway-fallback path, pre-existing	entries/pain/P7435.md	1	25	676122c2692fdb24	tests,agent-worker,approval	
 pain	P7436	7436		2026-10-18	SECRATARY-CLOUD	open	## P7436 — Estate monitor: swap_used_pct is critical (70.82 %) across 27 consecutive runs	entries/pain/P7436.md	1	23	a57d3cd293998425	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
+pain	P7499	7499		2026-10-18	SECRATARY-CLOUD	open	## P7499 — Estate monitor: authority_wal_mb is critical (1807.72 MB) across 5 consecutive runs	entries/pain/P7499.md	1	23	c8e4ffc21625f64c	estate-monitor,auto-filed,not-the-owners	metrics/authority_wal_mb
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
