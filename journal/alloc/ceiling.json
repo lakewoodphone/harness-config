@@ -31,25 +31,23 @@
   "wins": "W6746"
  },
  "host": "secratary-cloud",
- "live_peer_rows": 200,
+ "live_peer_rows": 333,
  "live_peer_unreachable": [
-  "ZABZ-TECH (rc=255)",
   "ZABZ-TECH-LINUX (rc=255)"
  ],
- "peers_failed": [
-  "tech"
- ],
+ "peers_failed": [],
  "peers_fetched": [
   "yoga",
+  "tech",
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-17T23:45:41Z",
+ "refreshed_at": "2026-10-18T00:00:20Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 39.4,
- "sources_seen": 5667
+ "seconds": 18.5,
+ "sources_seen": 5800
 }
