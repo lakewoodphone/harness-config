@@ -3383,3 +3383,39 @@ done
 reading a mixture of two versions. This stops the *next deploy* from restoring an older one. They are the two
 halves of the same hazard — the file under a live reader, and the file under a future installer — and both are
 invisible from a passing test, because in both cases the code on disk is fine at the moment it is read.
+
+---
+
+## 85. ROUND 90 — THERE IS A CHEAPER INTEGRITY ANSWER THAN THE 9 GB SNAPSHOT
+
+After a session that wrote directly to the wake store several times (three refunds, status updates), both stores were
+checked rather than assumed:
+
+```
+sqlite3 /root/.sms-inbox/inbox.db "PRAGMA quick_check;"   ->  ok
+sqlite3 /root/authority.db         "PRAGMA quick_check;"   ->  still running at 05:44 (26 GB, in place)
+```
+
+### The point that matters, and it is about the owner's open question
+
+The weekly check has not completed in **99+ hours** because it takes a **consistent snapshot** first, and a
+snapshot of a 26 GB database needs roughly **9 GB** the disk does not have. That is what owner row **551** is
+about — freeing 6 GB by deleting two directories.
+
+**`PRAGMA quick_check` needs no snapshot and no extra disk.** It walks the pages in place and reports `ok` or the
+first corruption. It is **not** a substitute for `integrity_check` — it skips some index-versus-table
+cross-checks — but it answers the question that has been unanswered for four days at a cost of minutes and zero
+bytes: *does this database open and are its pages sane?*
+
+**So there are now two answers to give the owner, not one:**
+
+1. **Short term, free:** run `quick_check` in place tonight. If it says `ok`, the authority is not silently
+   corrupt and the 99-hour gap becomes an *unverified-but-plausible* state rather than an unknown. This needs no
+   decision from him and no deletion.
+2. **Still worth his yes:** the 6 GB deletion, so the *thorough* check can take its snapshot. `quick_check` is a
+   floor, not a ceiling, and the estate should not let a cheaper test permanently replace the real one.
+
+**What is verified and what is not, stated plainly:** `inbox.db` is `ok`. The authority's `quick_check` was still
+running when this round's context ended — a 26 GB in-place scan takes minutes and competes with `company-api` for
+I/O, so it is being run in the background, and its result is **not claimed here**. The command to read it is one
+line, and the next session should run it before saying anything about the company database's integrity.
