@@ -3007,3 +3007,54 @@ step is one line (`echo $?` plus the function's entry/exit into the log) rather 
 the decision, rc and attempt. The first answered "a lock, not the store"; the second answered "not a decision at
 all". Each round of instrumentation halved the remaining space, and none of it would have been visible from the
 `unknown` that started it.
+
+---
+
+## 76. ROUND 81 — THE EXIT STATUS, WHICH IS THE ONLY NUMBER THAT CAN TELL AN INTERRUPT FROM A DECISION
+
+§75a established that `heartbeat_lease` reported failure **without returning through any of its own branches**.
+`if ! heartbeat_lease; then` throws away the one fact that distinguishes the remaining explanations: the actual
+status. A shell reports a signal-killed function as **128+N** — 143 SIGTERM, 130 SIGINT, 137 SIGKILL — and a
+function that returns normally reports its own small number.
+
+Captured it, keeping the condition identical:
+
+```bash
+heartbeat_lease; HB_RC=$?
+if [ "$HB_RC" -ne 0 ]; then
+```
+
+That is the same test as `if ! heartbeat_lease`, with the number kept, and it is safe here because this script
+sets `set -u` and `pipefail` but **not** `set -e` (checked, not assumed). The kill line gains `hbrc=`.
+
+### Two independent checks, both green
+
+```
+$ bash -c 'f(){ return 143; }; f; r=$?; if [ $r -ne 0 ]; then echo captured_rc=$r; fi'
+captured_rc=143
+
+$ bash /root/bin/wake-dispatch.sh --selftest-lease
+PASS  the store saying not-claimed loses the lease
+PASS  a locked store with margin left keeps trying
+PASS  a locked store exactly at the margin is lost
+PASS  a locked store past the margin is lost
+RESULT: 0 FAIL
+```
+
+The first proves the idiom carries a signal status; the second proves this round's edits (and §72's) did not
+disturb the lease state machine — the dispatcher ships its own selftest, which is a good deal better than my
+reading of it. `bash -n` clean, backup `wake-dispatch.sh.bak-hbrc-20261018`.
+
+**PENDING, and I will not call it verified:** no release has run since the edit (72 releases, 10 failed, none
+since 05:25), so the new call shape is unexercised in production. The next kill prints `hbrc=`, and that single
+number ends a thread that has cost four rounds:
+
+| `hbrc=` | verdict |
+|---|---|
+| `143` / `137` / `130` | the function was killed by a signal — the session's death took the heartbeat with it |
+| `1` with `decision=lost` | a normal loss, and the earlier `unset` was a red herring |
+| `unset` again | the kill block is reachable from somewhere this session has not found |
+
+**The pattern across §63, §72 and this round is worth stating plainly:** each fix added a *fact* rather than a
+theory, and each fact halved the remaining possibilities. Three rounds of that is cheaper than one round of
+guessing at a 1,400-line script — and the two shifts lost in §68 are what guessing costs.
