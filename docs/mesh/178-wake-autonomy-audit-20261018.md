@@ -1908,3 +1908,26 @@ have followed literally and failed.
 through the freeze) and one from the frozen host (silently stopped). A checker on the authority reported the
 symptom as "cannot tell whether this host is shipping", which pointed at the destination instead of at the
 missing pusher.
+
+## 61. ROUND 66 — A FIXED SENSOR IMMEDIATELY SHOWED A WRONG REMEDY
+
+The moment `check-dsh-freshness.py` could read its table (§59), `dormant-handoff` filed a real finding again —
+`dormant-archive:20261018`, *"secratary: local work has sat unshipped for 110 min - the shipper is not
+sending"*. Its own prompt then told the reader to fix it, and both instructions were wrong:
+
+1. **"The authoritative store is `secretary.db` via `POST /api/v1/owner/dsh-sessions/ingest`."** It is not.
+   The authoritative store is `/root/authority.db`, table `dsh_sessions` — a `secretary.db` copy is the exact
+   thing that made this source refuse for weeks.
+2. **"Fix the CAUSE"**, for a machine whose shipper is stopped **on purpose**. `secratary` is the frozen
+   rollback anchor; starting its cron is the incident AGENTS.md §5 records (5,129 rows written into the anchor
+   and a rollback point that is no longer clean).
+
+Patched to say what is actually true and what is actually allowed: read `settings/machines/host-posture.tsv`
+FIRST; for a frozen host the shipper is *supposed* to be stopped, its bytes still arrive because the authority
+pulls them, only the parsed projection stops, and that is filled from the authority as **ledger item 561**
+with `DSH_HOME` + `DSH_ARCHIVE_MACHINE` under a memory ceiling — because the dry run measured 216,738 rows.
+
+**Why this is its own section rather than a footnote.** A monitor that has been silent for weeks comes back
+with an instruction nobody has reviewed since it was written, at the moment it is most likely to be followed.
+The estate's pattern is usually "the monitor measures nothing"; this is the sibling — **the monitor measures
+correctly and prescribes harmfully**. Both are cured by reading the remedy as carefully as the reading.
