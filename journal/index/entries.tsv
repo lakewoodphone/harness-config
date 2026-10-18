@@ -3573,7 +3573,7 @@ pain	P6	6		-	-	done	## P6 — Held messages and unanswered questions rot silentl
 pain	P7	7		-	-	done	## P7 — Context poisoning	entries/pain/P7.md	1	16	b80fcef0da5526e4	legacy-import	
 pain	P8	8		-	-	done	## P8 — Harness configuration drifts between machines	entries/pain/P8.md	1	12	5e2b649c83fc2f15	legacy-import	
 pain	P9	9		-	-	open	## P9 — The CEO stops when it owns the decision	entries/pain/P9.md	1	11	4ca213bbe5f796d7	legacy-import	
-pain	P10	10		-	-	open	## P10 — ~~Repeated mount-validation spawns duplicate MCP servers~~ **RETRACTED 2026-09-11 — see the correction at the end of this entry. There is no duplication	entries/pain/P10.md	1	62	c82dc9cc8acc1d49	legacy-import	
+pain	P10	10		-	-	retracted	## P10 — ~~Repeated mount-validation spawns duplicate MCP servers~~ **RETRACTED 2026-09-11 — see the correction at the end of this entry. There is no duplication	entries/pain/P10.md	1	62	c82dc9cc8acc1d49	legacy-import	
 pain	P11	11		-	-	done	## P11 — The preset default is chosen at session start, so changes need a restart	entries/pain/P11.md	1	17	95bef3cb20d4ad11	legacy-import	
 pain	P12	12		-	-	open	## P12 — Freshness is asserted but not measured, so every reading says `age=?`	entries/pain/P12.md	1	23	51884bb32862cd30	legacy-import	
 pain	P13	13		-	-	open	## P13 — Concurrent sessions share one repo, and `git add -A` sweeps each other's work	entries/pain/P13.md	1	25	715609319966209b	legacy-import	
@@ -3603,7 +3603,7 @@ pain	P43b	43	b	-	-	done	## P43b — The phone path cannot say which device conne
 pain	P44	44		-	-	done	## P44 — The live checkout on the authority is diverged, so nothing can be deployed safely	entries/pain/P44.md	1	21	6a571931bfc76523	legacy-import	
 pain	P44b	44	b	-	-	open	## P44b — Two sessions can rewrite the same file inside the same minute, and neither can see the other	entries/pain/P44b.md	1	15	840c80af46fba534	legacy-import	
 pain	P45	45		-	-	open	## P45 — Every threshold in the kosher filter's visual path is a guess, because no labelled frames exist	entries/pain/P45.md	1	22	c7efc7ecb1b841ba	legacy-import	
-pain	P45b	45	b	-	-	open	## P45b — The harness ships a desktop layout and the phone gets it shrunk	entries/pain/P45b.md	1	18	2900082ed976ec34	legacy-import	
+pain	P45b	45	b	-	-	done	## P45b — The harness ships a desktop layout and the phone gets it shrunk	entries/pain/P45b.md	1	18	2900082ed976ec34	legacy-import	
 pain	P45c	45	c	-	-	open	## P45c — Every threshold in the kosher filter's visual path is a guess, because no labelled frames exist	entries/pain/P45c.md	1	22	68cd2e73c9e9c716	legacy-import	
 pain	P46	46		-	-	open	## P46 — The phone still has no default workspace, and the rail costs 14%	entries/pain/P46.md	1	15	30626c43bd360e91	legacy-import	
 pain	P46b	46	b	-	-	open	## P46b — (update, 2026-09-14)	entries/pain/P46b.md	1	9	d12516e50dd349f4	legacy-import	
@@ -3623,7 +3623,7 @@ pain	P54	54		-	-	done	## P54 — The first search index was 10.87 GB for 112 GB 
 pain	P55	55		-	-	superseded	## P55 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	entries/pain/P55.md	1	53	565067337a2b3cb7	legacy-import	
 pain	P92	92		-	legacy	superseded	## P55 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	entries/pain/P92.md	1	43	0f9749c1664d890a	legacy-import	
 pain	P57	57		2026-09-14	ZABZ-YOGA	open	## P57 — The journal still has two writers - the sharded log and the flat files a second session keeps appending to	entries/pain/P57.md	1	22	eca80cad5011cc47	legacy-import	
-pain	P58	58		2026-09-14	ZABZ-YOGA	done	## P58 — 56 of 57 pain entries carry no proof of being finished, so the open list cannot be trusted as a to-do	entries/pain/P58.md	1	20	f45a179c7c1579e3	legacy-import	
+pain	P58	58		2026-09-14	ZABZ-YOGA	open	## P58 — 56 of 57 pain entries carry no proof of being finished, so the open list cannot be trusted as a to-do	entries/pain/P58.md	1	20	f45a179c7c1579e3	legacy-import	
 pain	P59	59		2026-09-14	SECRATARY	open	## P59 — The phone's gate died once and nothing on the host says why	entries/pain/P59.md	1	36	b8a66b43cd180f7c	legacy-import	
 pain	P61	61		2026-09-14	imported	done	## P61 — The company has delivered nothing to the owner since 2026-07-19, and every sensor that would	entries/pain/P61.md	1	60	a11dab4dc6a91676	legacy-import	
 pain	P62	62		2026-09-14	imported	open	## P62 — Re-ingesting after a parser change can silently empty an index	entries/pain/P62.md	1	21	a042ab92f05e737e	legacy-import	
@@ -3891,7 +3891,7 @@ pain	P2553	2553		2026-09-27	ZABZ-YOGA	done	## P2553 — P2560-disk-100pct: secra
 pain	P2554	2554		2026-09-28	ZABZ-YOGA	done	## P2554 — The mesh subagent provider fails deterministically - fleets must run LOCAL and say so	entries/pain/P2554.md	1	36	fd546d7570513bba	mesh,subagent,fanout	
 pain	P2555	2555		2026-09-28	ZABZ-YOGA	open	## P2555 — The kosher-filter-ai product stopped moving on 2026-09-18 while finished work sat unmerged on branches	entries/pain/P2555.md	1	48	57cc03b956348772	kosher-filter-ai,integration,unmerged	
 pain	P2561	2561		2026-09-28	SECRATARY	open	## P2561 â€” Ranked 2026-09-28: unmergeable journal ids, tmpfs /tmp, silent job failure, an owner queue that is partly mine	entries/pain/P2561.md	1	44	0fd78c362f9cd198		
-pain	P2561b	2561	b	2026-09-28	ZABZ-YOGA	open	## P2561b - The journal's id bands are not exclusive, so two machines minted 37 ids that each mean two different entries	entries/pain/P2561b.md	1	59	180952569a0216a0		
+pain	P2561b	2561	b	2026-09-28	ZABZ-YOGA	done	## P2561b - The journal's id bands are not exclusive, so two machines minted 37 ids that each mean two different entries	entries/pain/P2561b.md	1	59	180952569a0216a0		
 pain	P2562	2562		2026-09-28	ZABZ-YOGA	open	## P2562 — Frontend package lint is unboundedly slow in a fresh worktree and stalls the agent running it (measured 40+ min, twice)	entries/pain/P2562.md	1	52	d77246732170e702	fleet,lint,worktrees,cost	
 pain	P2562b	2562	b	2026-09-28	SECRATARY	open	## P2562b — A misfiled wake row cannot be withdrawn without writing the store by hand	entries/pain/P2562b.md	1	19	376a24ea53d72fe1	wake-store,checkout-health	
 pain	P2563	2563		2026-09-28	ZABZ-YOGA	open	## P2563 — Every automated guard in kosher-filter-ai has been red on main for ten days, and nothing surfaced it	entries/pain/P2563.md	1	52	a3317a038548a76e	kosher-filter-ai,ci,guards,failure-invisibility	
@@ -3934,7 +3934,7 @@ pain	P2815	2815		2026-09-30	ZABZ-TECH	open	## P2815 — I printed a provider API
 pain	P2816	2816		2026-09-30	SECRATARY	open	## P2816 — The autonomous spend cap cannot fire, and the number it would fire at was raised today without a record	entries/pain/P2816.md	1	41	354082dfcfbb79f7		
 pain	P2817	2817		2026-09-30	SECRATARY	open	## P2817 — A real reminder held forever over one character, and a machine notice in his queue forty-three times	entries/pain/P2817.md	1	40	6e9ff825843c9185		
 pain	P2818	2818		2026-09-30	ZABZ-TECH	superseded	## P2818 — The mesh transport loses children: reports refused on host mismatch, exits 4294967295 with no message	entries/pain/P2818.md	1	57	c7a73610b34eb2d2		
-pain	P2819	2819		2026-09-30	ZABZ-TECH	done	## P2819 — The mesh transport silently loses children: empty host string, no final message, no cause	entries/pain/P2819.md	1	35	45008ab25b486e0d		L3184
+pain	P2819	2819		2026-09-30	ZABZ-TECH	open	## P2819 — The mesh transport silently loses children: empty host string, no final message, no cause	entries/pain/P2819.md	1	35	45008ab25b486e0d		L3184
 pain	P2820	2820		2026-09-30	SECRATARY	open	## P2820 — The company database has no off-machine copy: 216 GB of backups on the same 82%-full consumer SSD as the live 14 GB database	entries/pain/P2820.md	1	44	f208fc00b7471712		L3184
 pain	P2821	2821		2026-09-30	SECRATARY	open	## P2821 — secretary-backup runs 35-45 min every 6 hours at 94-98% iowait on 4 cores, during which the company API answers nothing; only backup that exists, and it is on the same disk as the database	entries/pain/P2821.md	1	56	27a5e67f37207249		P2820
 pain	P2822	2822		2026-09-30	ZABZ-TECH	open	## P2822 — Child-parent messaging is structurally impossible for a remote child; a provider flag would fake it and be worse	entries/pain/P2822.md	1	16	c59718664399eb16	mesh,messaging,subagent,blocked	L3188
@@ -4295,6 +4295,7 @@ pain	P7371	7371		2026-10-18	SECRATARY-CLOUD	open	## P7371 — Estate monitor: sw
 pain	P7435	7435		2026-10-18	secratary-cloud	open	## P7435 — approval-suspends test fails against the gateway-fallback path, pre-existing	entries/pain/P7435.md	1	25	676122c2692fdb24	tests,agent-worker,approval	
 pain	P7436	7436		2026-10-18	SECRATARY-CLOUD	open	## P7436 — Estate monitor: swap_used_pct is critical (70.82 %) across 27 consecutive runs	entries/pain/P7436.md	1	23	a57d3cd293998425	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 pain	P7499	7499		2026-10-18	SECRATARY-CLOUD	open	## P7499 — Estate monitor: authority_wal_mb is critical (1807.72 MB) across 5 consecutive runs	entries/pain/P7499.md	1	23	c8e4ffc21625f64c	estate-monitor,auto-filed,not-the-owners	metrics/authority_wal_mb
+pain	P7563	7563		2026-10-18	SECRATARY-CLOUD	open	## P7563 — Estate monitor: swap_used_pct is critical (76.76 %) across 47 consecutive runs	entries/pain/P7563.md	1	23	b0895ae222f2996c	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	

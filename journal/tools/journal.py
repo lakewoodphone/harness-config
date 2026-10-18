@@ -2009,6 +2009,8 @@ def cmd_show(args) -> int:
                                  % (want, len(extra), ", ".join(x["id_full"] for x in extra)))
                     for x in extra:
                         if x["id_full"] not in {o["id_full"] for o in out_entries}:
+                            x["status"] = effective_status(x["kind"], x["id_full"],
+                                                           x.get("status") or "", _ev)
                             out_entries.append(x)
                     continue
             out_entries.append(e)
@@ -2029,6 +2031,9 @@ def cmd_show(args) -> int:
             elif len(hits) > 1:
                 notes.append("%s matches %d entries: %s — showing all of them, not picking one"
                              % (want, len(hits), ", ".join(x["id_full"] for x in hits)))
+                for x in hits:
+                    x["status"] = effective_status(x["kind"], x["id_full"],
+                                                   x.get("status") or "", _ev)
                 out_entries.extend(hits)
                 continue
         if e is None:
@@ -4371,8 +4376,12 @@ def record_alias(alias_id: str, kind: str, canonical_id: str, reason: str,
 
 def cmd_resolve(args) -> int:
     """Record that an entry's status changed. Appends; never edits the entry file."""
-    want = args.id.strip().upper()
-    e = load_one(want) or load_one(want.upper())
+    want_raw = args.id.strip()
+    want = want_raw.upper()
+    # MEASURED 2026-10-18: suffix ids (P45b, P2561b) are case-sensitive on disk, but this
+    # command upper-cased the id before loading, so `resolve P45b` answered "no entry" and
+    # the pain-check close could not land for exactly those ids. Try the caller's case first.
+    e = load_one(want_raw) or load_one(want) or load_one(want.upper())
     if e is None:
         canonical = resolve_alias(want)
         if canonical:
