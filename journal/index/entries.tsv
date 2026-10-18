@@ -3557,6 +3557,8 @@ lessons	L7742	7742		2026-10-18	secratary-cloud	open	**L7742 · The PIN rotation 
 lessons	L7934	7934		2026-10-18	SECRATARY-CLOUD	open	**L7934 · NJ ST-50 amounts live in njportal.com payment receipts, not treasury notices**	entries/lessons/L7934.md	1	6	fad363c45af93e61	tax,nj,gmail,st50,evidence	D5934
 lessons	L7935	7935		2026-10-18	SECRATARY-CLOUD	open	**L7935 · NJ ST-50: repair labour is taxable, basis is accrual, and the receipt tool says the opposite**	entries/lessons/L7935.md	1	22	4c162a855bff8423	tax,st50,nj,sales-tax,ledger	
 lessons	L8062	8062		2026-10-18	secratary-cloud	open	**L8062 · A question to one person must never leave from the family chat hub**	entries/lessons/L8062.md	1	79	f4dc2570d7096dd8	sms,family-chat,outbound,gate,incident	
+lessons	L8126	8126		2026-10-18	secratary-cloud	open	**L8126 · Her number is not his: she is the emergency contact, and she was in the owner list**	entries/lessons/L8126.md	1	55	8399a12f934dd406	owner-identity,correction,sms,config	L8062
+lessons	L8127	8127		2026-10-18	secratary-cloud	open	**L8127 · A CFO question to her is approval-free by name, not because she was the owner**	entries/lessons/L8127.md	1	52	55d7d7752c593447	policy,approval,sms,cfo,owner-identity	L8126,L8062
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -5277,3 +5279,4 @@ wins	W6619	6619		2026-10-16	secratary-cloud	open	**W6619 · 2026-10-16 · The LP
 wins	W6683	6683		2026-10-16	ZABZ-YOGA	open	**W6683 · 2026-10-16 · Built the US-Mobile-line <-> Stripe mapping; corrected two of my own wrong answers (unit x qty, and a phone is not a join key).**	entries/wins/W6683.md	1	73	16441379f002d57e	stripe,line-map,built,money,wrong-data	L7166
 wins	W6747	6747		2026-10-18	secratary-cloud	open	**W6747 · 2026-10-18 · The Shabbat automation passes all 19 of its own checks from the authority for the first time since the cutover.**	entries/wins/W6747.md	1	14	76f77ef0b8fe6099	shabbat,verification,win	
 wins	W6811	6811		2026-10-18	ZABZ-YOGA	open	**W6811 · 2026-10-18 · The 226MB was never loss: the parsed projection stopped at the cutover, and the sensor that found it prescribed harm.**	entries/wins/W6811.md	1	6	a580e7a4b286850c	archive,wake,monitors	
+wins	W6875	6875		2026-10-18	secratary-cloud	open	**W6875 · 2026-10-18 · The Audible question now reaches her on the AI line, not the family hub.**	entries/wins/W6875.md	1	30	7991f866040b8c5f	sms,family-chat,outbound	L8062
