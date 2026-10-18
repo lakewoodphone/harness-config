@@ -6,7 +6,7 @@ Updated: 2026-10-18
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 556 row(s) read, 6 pending, generated 2026-10-18 11:08 UTC on SECRATARY-CLOUD.
+Provenance: 557 row(s) read, 7 pending, generated 2026-10-18 12:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -16,5 +16,6 @@ Provenance: 556 row(s) read, 6 pending, generated 2026-10-18 11:08 UTC on SECRAT
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
 | 299 | 2026-10-06 | medium | How long should we keep customer device photos, and who may see them after the repair is done? | 12 months from intake with open and disputed jobs exempt. It covers a warranty claim and a chargeback window, which is what the photos are actually for, and it stops the shop accumulating other people's device photograph |
 | 557 | 2026-10-18 | medium | Approve the public parent-notice and terms copy, and supply the shop address, phone and email the pages leave blank? | Approve the drafted copy as published, with only the contact details added; it carries no accuracy figure, keeps the deny-first promise, and marks the signature as outstanding. |
+| 558 | 2026-10-18 | medium | Publish these iPhone screen from-prices on the live site: iPhone 13 154.32, iPhone 13 Pro 173.12 (test catalogue part + labour, tax excluded)? | Publish them: they are the test catalogue's own two terms, shown as a from-price with the exact fitted price confirmed before work and tax excluded. The page already promises upfront pricing and shows none. |
 
 Closed since the queue opened: 550. Answered questions move to `entries/decisions/` with the owner's own words.
