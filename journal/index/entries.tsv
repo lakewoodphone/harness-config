@@ -1498,6 +1498,8 @@ handoff	H7274	7274		2026-10-18 03:16 UTC	ZABZ-YOGA	open	## 2026-10-18 03:16 UTC 
 handoff	H7337	7337		2026-10-18 03:39 UTC	ZABZ-YOGA	open	## 2026-10-18 03:39 UTC · ZABZ-YOGA · Wake rounds 49-57: five fixes proven by command, one pending clock, and the owner channel measured	entries/handoff/H7337.md	1	73	5160551105391dc9	wake,autonomy,owner-channel	
 handoff	H7338	7338		2026-10-18 03:57 UTC	ZABZ-YOGA	open	## 2026-10-18 03:57 UTC · ZABZ-YOGA · Wake rounds 59-61: revert proven on a planted regression, owner channel self-settling, company-api OOM 10x/day	entries/handoff/H7338.md	1	60	f85a2210b5e2a16e	wake,autonomy,owner-channel,evolution	
 handoff	H7401	7401		2026-10-18 04:09 UTC	ZABZ-YOGA	open	## 2026-10-18 04:09 UTC · ZABZ-YOGA · Wake rounds 62-64: delivery record was blind to a second Twilio account; archive check read a dead copy	entries/handoff/H7401.md	1	58	ea67b3c1f346d28c	wake,owner-channel,archive	
+handoff	H7465	7465		2026-10-18 05:21 UTC	SECRATARY-CLOUD	open	## 2026-10-18 05:21 UTC · SECRATARY-CLOUD · lpt audit weekly pass 20261018T052136Z: 1019 finding(s)	entries/handoff/H7465.md	1	12	3d12998932971d5a		
+handoff	H7466	7466		2026-10-18 05:22 UTC	SECRATARY-CLOUD	open	## 2026-10-18 05:22 UTC · SECRATARY-CLOUD · lpt audit weekly pass 20261018T052235Z: 1019 finding(s)	entries/handoff/H7466.md	1	12	147c1643f1dfd464		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -3559,6 +3561,7 @@ lessons	L7935	7935		2026-10-18	SECRATARY-CLOUD	open	**L7935 · NJ ST-50: repair 
 lessons	L8062	8062		2026-10-18	secratary-cloud	open	**L8062 · A question to one person must never leave from the family chat hub**	entries/lessons/L8062.md	1	79	f4dc2570d7096dd8	sms,family-chat,outbound,gate,incident	
 lessons	L8126	8126		2026-10-18	secratary-cloud	open	**L8126 · Her number is not his: she is the emergency contact, and she was in the owner list**	entries/lessons/L8126.md	1	55	8399a12f934dd406	owner-identity,correction,sms,config	L8062
 lessons	L8127	8127		2026-10-18	secratary-cloud	open	**L8127 · A CFO question to her is approval-free by name, not because she was the owner**	entries/lessons/L8127.md	1	52	55d7d7752c593447	policy,approval,sms,cfo,owner-identity	L8126,L8062
+lessons	L8190	8190		2026-10-18	SECRATARY-CLOUD	open	**L8190 · A decision in a row context does not leave the pending set**	entries/lessons/L8190.md	1	6	c1a9fedf26980766		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -4825,6 +4828,8 @@ decisions	D6593	6593		2026-10-17	ZABZ-YOGA	open	**D6593 · 2026-10-17 · Autonom
 decisions	D6657	6657		2026-10-17	ZABZ-YOGA	open	**D6657 · 2026-10-17 · The sign's layout is unfrozen: the 10-16 'keep the structure' brief is revoked, and the copy selection is open.**	entries/decisions/D6657.md	1	26	91f4337cc7d7c1f9	sign,waze,layout	H7209
 decisions	D6401	6401		2026-10-18	secratary-cloud	open	**D6401 · 2026-10-18 · Owner instruction: the room access codes rotate every two weeks; they have not been rotating, and they must now be changed and sent out.**	entries/decisions/D6401.md	1	14	b4d7da4a3f501f5d	shabbat,access-codes,owner-instruction	
 decisions	D6529	6529		2026-10-18	SECRATARY-CLOUD	open	**D6529 · 2026-10-18 · Owner answer, queue row #463: The leftover Audible membership you asked me to cancel on 11 October is still li.**	entries/decisions/D6529.md	1	11	051105659025dab2	owner-answer	owner_decision_queue#463
+decisions	D6785	6785		2026-10-18	SECRATARY-CLOUD	open	**D6785 · 2026-10-18 · Owner answer, queue row #492: NJ payroll returns have no filer since Gusto was cancelled on 8 October: NJ-927.**	entries/decisions/D6785.md	1	11	9cb85e26716032c9	owner-answer	owner_decision_queue#492
+decisions	D6786	6786		2026-10-18	SECRATARY-CLOUD	open	**D6786 · 2026-10-18 · Owner answer, queue row #516: The David Auman WD SN740 BitLocker recovery key is still in lpt-hub git history.**	entries/decisions/D6786.md	1	11	0078e016efdc9aa6	owner-answer	owner_decision_queue#516
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	
