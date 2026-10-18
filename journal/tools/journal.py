@@ -1840,10 +1840,14 @@ def _matches(e: dict, args, texts=None) -> bool:
     if st and (e.get("status") or "open") != st:
         return False
     since = getattr(args, "since", None)
-    if since and (e.get("date") or "")[:10] < since:
+    # MEASURED 2026-10-18: with a status filter, the date that matters is when the STATUS changed,
+    # not when the entry was written -- otherwise "--status done --since today" can never match a
+    # closure, because closed entries are older than their closure.
+    _date = (e.get("status_date") or e.get("date")) if st else e.get("date")
+    if since and (_date or "")[:10] < since:
         return False
     until = getattr(args, "until", None)
-    if until and ((e.get("date") or "9999")[:10] or "9999") > until:
+    if until and ((((_date or "9999")[:10]) or "9999") > until):
         return False
     tag = getattr(args, "tag", None)
     if tag:
@@ -1863,6 +1867,18 @@ def _matches(e: dict, args, texts=None) -> bool:
 
 def cmd_list(args) -> int:
     entries, source, _fresh = catalog()
+    # OVERLAY THE RESOLVE LOG (2026-10-18). Filtering and printing used the entry marker alone, so
+    # `--status done` matched nothing and every closed entry still read `open`. Narrow on purpose:
+    # `catalog()` keeps its raw view for the drift checks.
+    _ev = load_status_events()
+    for _e in entries:
+        _e["status"] = effective_status(_e["kind"], _e["id_full"],
+                                        _e.get("status") or "", _ev)
+        # The date the STATUS was set, when it came from the resolve log. `--since` needs it: the
+        # 15 entries closed today were all written weeks ago, so a creation-date filter excluded
+        # every one and the caller read "nothing was closed".
+        _row = _ev.get((_e["kind"], _e["id_full"]))
+        _e["status_date"] = _row[1] if _row else None
     texts = EntryTexts(entries, _fresh) if getattr(args, "tag", None) else None
     rows = [e for e in entries if _matches(e, args, texts)]
     if getattr(args, "sort", "newest") == "id":
@@ -1966,12 +1982,18 @@ def cmd_show(args) -> int:
     b.reserve(24)
     misses = []
     notes = []
+    # Same overlay as cmd_list: `show` printed the marker, so a resolved entry still read `open`.
+    _ev = load_status_events()
     for raw in ids:
         want = str(raw).strip()
         if not want:
             continue
         e = load_one(want) or load_one(want.upper())              # exact path: one open
         if e is not None:
+            e["status"] = effective_status(e["kind"], e["id_full"],
+                                           e.get("status") or "", _ev)
+            _row = _ev.get((e["kind"], e["id_full"]))
+            e["status_date"] = _row[1] if _row else None
             # A live entry is never shadowed by an alias or by a base-id expansion.
             amap = alias_map()
             a = amap.get(e["id_full"]) or amap.get(want.upper())
