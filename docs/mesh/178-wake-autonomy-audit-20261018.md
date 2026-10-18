@@ -2045,3 +2045,64 @@ reading `defer_on_cooldown=False` — five sources already do (`cfo-backfill`, `
 **Two false alarms in one round, both mine**, both caught by reading the artefact instead of the label: my own
 test ids read as a live proof (§62a), and correct revival read as duplicate work. The habit that caught them
 is the one this document keeps paying for — print the raw value, then check it against the store.
+
+---
+
+## 63. ROUND 68 — THREE SHIFTS WERE KILLED BY A LOCK, AND THE MESSAGE SAID "unknown"
+
+While checking whether my dispatcher edit had caused anything, the release count showed `failed 4` where it
+had been `1`. It was not my edit. It was worse, and it was live.
+
+### The incident, in the log's own words
+
+```
+04:17:51Z ERROR lease for wake #1170 not renewed - killing the session to avoid a double release: unknown
+04:19:40Z ERROR exited (rc=2) with wake #1169 still claimed - closing as failed
+04:21:21Z ERROR exited (rc=2) with wake #1123 still claimed - closing as failed
+```
+
+Three consecutive releases, two minutes apart, each killed after ~2 minutes of work. The warning lines that
+explain them were present at 01:50, 03:15 and 04:10 — and in all three earlier cases the second attempt
+recovered, which is why nobody had noticed:
+
+```
+WARN heartbeat for wake #1123 could not renew (attempt 1, rc=2):
+     wake: database error: database is locked; retrying while the lease has margin
+```
+
+So: a **transient `database is locked` on the wake store**, retried until the lease margin ran out, and then
+the dispatcher does the correct thing — kill the session rather than risk a double release.
+
+### Three defects made it far worse than a slow store should
+
+1. **A 5-second patience.** `wake.py:connect()` used Python's sqlite3 default busy timeout. A write transaction
+   held for six seconds was reported as a hard failure. Now `PRAGMA busy_timeout=30000`, verified on a live
+   connection: `busy_timeout= 30000`. Waiting costs seconds; killing a shift costs a shift.
+2. **The CLI broke its own exit contract.** `cmd_heartbeat` returned **2** for `no-such-row` and `not-claimed`,
+   while `wake-dispatch.sh:1091` states: *"1 = the store itself says we do NOT hold this row … 2 = transient"*.
+   The dispatcher only survived that by string-matching the JSON. Both now return **1**, proven:
+   `heartbeat 1177 --by probe-test` -> `REAL rc=1` with `{"error": "not-claimed", "state": "new"}`.
+3. **The kill message discarded the one line that explained it.** `_LEASE_LAST_ERR` held
+   `wake: database error: database is locked`; the log printed `${LEASE_LOSS_REASON:-unknown}`. A kill that
+   cannot say why is the sibling of a monitor that measures nothing. Both the log line and `OUTCOME_REASON`
+   now fall back to `_LEASE_LAST_ERR`.
+
+All three applied with backups (`wake.py.bak-lease-20261018`, `wake-dispatch.sh.bak-lease-20261018`),
+`py_compile` and `bash -n` clean.
+
+### What is NOT yet known, stated plainly
+
+**The holder of the long write transaction is unidentified.** The store is *already* WAL
+(`PRAGMA journal_mode` -> `wal`), so this is writer-writer contention, and at least eight scripts open that
+database (`mirror-owner-sms`, `owner_flood_guard`, `reconcile-sent-status`, `dead-project-flags`,
+`owner-text-asks-unrecorded`, `owner-text-ledger-delta`, plus the fan-out every minute and the dispatcher's own
+heartbeats). A manual write lock on the store right now takes **0.106 s**, so this is intermittent, not
+standing.
+
+Filed as **ledger item 562** with a DoD that requires naming the holder from a real measurement. The next
+occurrence will name it, because the kill message no longer says `unknown` — which is the only reason it is
+acceptable to stop here rather than keep guessing.
+
+**A note on how this was found.** It surfaced only because I checked my own change against the failure count,
+and the failure count happened to move. Had I trusted `bash -n` and moved on, three shifts a day would keep
+dying with an explanation the system already had and was throwing away.
