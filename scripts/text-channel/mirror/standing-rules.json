@@ -1,0 +1,29 @@
+{
+  "_readme": "Standing instructions about the OWNER TEXT CHANNEL. Read by scripts/owner_attention.py:standing_rule_blocks() on every send, so an instruction takes effect without a deploy. classes.<reason> = {\"allow\": false, \"why\": \"...\"} silences one class of owner-bound text. permissions.<name> = {\"approval_required\": false, ...} records that a class of message is ALREADY authorised and must not be brought back for a per-message yes. This file is NOT the same thing as owner_text_suppression in authority.db, which matches a substring of (reason + body) and held exactly one inert row on 2026-10-15 because the topic written from a complaint was a whole English sentence.",
+  "_written": "2026-10-18",
+  "classes": {
+    "owner_attention_item": {
+      "allow": true,
+      "why": "ONE item at a time, question or notification, no counts and no file path. The owners instruction of 2026-10-14T14:18:21Z (sms_log 4176): \"I already told you these random briefs seem pointless. I need one item at a time, either a question or notification, not some random text that says 36 items, 30 urgent\". Set \"allow\": false here to silence this class entirely without a code change."
+    },
+    "owner_attention_digest": {
+      "allow": false,
+      "why": "RETIRED 2026-10-15. The old pager digest body (count + 4 truncated fragments + \"full: data/owner-attention/latest.txt\"). It reached him 24h AFTER he banned it, at 2026-10-15T14:13:28Z, and he had named it a useless text twice. Nothing may emit it again."
+    }
+  },
+  "permissions": {
+    "cfo_to_owner_or_wife": {
+      "approval_required": false,
+      "actor": "cfo",
+      "recipients": ["owner", "wife"],
+      "why": "OWNER, 2026-10-18, verbatim: \"The cfo doesn't need my permission to send things like that to me or my wife.\" A routine finance or household question the CFO needs answered -- an unrecognised charge, a subscription nobody remembers, a membership with unused credits -- is ALREADY authorised to the owner and to his wife. Do not ask him whether it may be sent; do not bring the body back for a per-message yes. 'Things like that' means a question about the household's or the business's money that only they can answer.",
+      "does_not_cover": [
+        "anything that commits money, a price, a date or a legal posture -- those are his, per the outbound-comms hard stop",
+        "a message to anybody other than the owner or his wife",
+        "a message whose body he has not seen that was composed by a session that then changed the facts"
+      ],
+      "where_enforced": "owner_text_relay.ceiling_for + the SEPARATE_CHANNELS exemption (ceiling and rate floor) for family_chat, live since 2026-10-18 d4ffe3aad4d0; the approval half is enforced by the absence of an approval gate on this path -- see ledger 526/527",
+      "at": "2026-10-18T02:12:00Z"
+    }
+  }
+}
