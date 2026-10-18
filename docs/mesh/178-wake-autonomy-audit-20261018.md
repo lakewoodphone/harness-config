@@ -2564,3 +2564,51 @@ monitoring the number that matters was worth more than the isolation test that s
 **The fix for next round is small and specific:** resolve the lane against the same catalog the runner reports
 (`catalog=https...` in the outcome above), prove it with ONE high-priority release whose outcome line reads
 `model lane: ...` and no `FAIL-LOUD`, and only then export `WAKE_CAPABILITY_LANE=1`.
+
+---
+
+## 69. ROUND 74 — THE JOURNAL'S READERS NOW AGREE, AND `--since` MEANS THE CLOSURE DATE
+
+§67a diagnosed the split and stopped there because the journal is the one system where a rushed edit costs
+most. This round fixes it, proven on a throwaway copy first.
+
+### Two faults, not one
+
+**1. `show` and `list` never consulted the resolve log.** `cmd_resolve` appends to `state/status.tsv` and never
+edits the entry — deliberate and documented. `effective_status()` exists precisely to overlay it, and `status`
+calls it, but `cmd_show` printed `e["status"]` straight from the marker and `cmd_list` both **filtered** and
+printed on it.
+
+**2. `--since` compared the wrong date, and that one misled me.** Even with the overlay in place,
+`list --kind pain --status done` returned 141 entries while `--status done --since 2026-10-18` returned
+**nothing**, because `_matches` compares `e["date"]` — when the entry was **written**. A closure is always newer
+than the entry it closes, so "what did I close today" could not be expressed. **I spent two rounds reading that
+empty result as "the closes did not take effect" when they had** — a filter that answers a different question
+than it appears to is the same class as a monitor that measures the wrong thing.
+
+### The fix, and its proof
+
+- Both read paths overlay the resolve log. Deliberately narrow: `catalog()` keeps its raw view so the
+  integrity and drift checks still see the markers.
+- The overlay carries `status_date`, and when a status filter is in play `--since`/`--until` compare **that**.
+  Without a status filter nothing changes, so "entries created since X" behaves exactly as before.
+
+Proven on a `cp -a` copy of the journal first (`--root /tmp/jtest`), then on the live tree:
+
+```
+throwaway:  list --kind pain --status done --since 2026-10-18  ->  40 entries   (created 2026-09-25 .. 10-04)
+live:       show P261                                          ->  pain · 2026-09-17 · done
+live:       list --kind pain --status done --since 2026-10-18  ->  40 entries
+live:       journal.py check                                   ->  0 error(s)
+```
+
+**40 is not a coincidence: it is exactly the number of resolve rows in `state/status.tsv` dated 2026-10-18.**
+The list and the store now count the same thing.
+
+Committed `f6d9b4d2` in `/root/code/harness-config` and pushed explicitly to
+`refs/heads/fix/journal-status-readers` on origin (never to main, never forced).
+
+**Why this mattered more than its size:** the journal's README tells a session to read one entry with
+`show <id>`. Until this round, that command reported `open` on work closed on evidence minutes earlier — so the
+memory system would have regenerated the repeated-work failure it exists to prevent, once a day, for every
+closure the now-scheduled pain closer makes.
