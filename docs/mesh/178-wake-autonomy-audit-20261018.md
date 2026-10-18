@@ -2612,3 +2612,64 @@ Committed `f6d9b4d2` in `/root/code/harness-config` and pushed explicitly to
 `show <id>`. Until this round, that command reported `open` on work closed on evidence minutes earlier — so the
 memory system would have regenerated the repeated-work failure it exists to prevent, once a day, for every
 closure the now-scheduled pain closer makes.
+
+---
+
+## 70. ROUND 75 — THE CONSERVE LANE WAS A LATENT TOTAL OUTAGE, ARMED BY BALANCE PRESSURE
+
+§68 disabled the capability ladder because two shifts died on an id the runner rejected. This round found out
+which ids it accepts, by **asking the resolver itself** instead of reading any catalog file:
+
+```
+$env:WAKE_AGENT_MODEL="deepseek/deepseek-v4-pro"; & C:\Users\ezabz\bin\wake-model.ps1
+-> {"catalog":"https://api.deepseek.com/v1/models","catalog_ok":true,
+    "candidates":["deepseek/deepseek-v4-pro"],"dropped":["deepseek/deepseek-v4-pro"],"unvalidated":true}
+
+$env:WAKE_AGENT_MODEL="deepseek-v4-pro"; ...
+-> {"dropped":[],"unvalidated":false}          validated=True
+```
+
+The runner validates against **DeepSeek's own API catalog**, not the secretary gateway and not
+`~/.sms-inbox/model-catalog.json`. Measured verdicts:
+
+| candidate | verdict |
+|---|---|
+| `deepseek/deepseek-v4-pro` | dropped, unvalidated |
+| `deepseek/deepseek-v4-flash` | dropped, unvalidated |
+| `deepseek-chat` | dropped, unvalidated |
+| `deepseek-v4-pro` | **validated** (`dropped: []`) |
+| `deepseek-v4-flash` | dropped, unvalidated |
+
+### The finding that matters more than the ladder
+
+`wake_budget.lane_for("conserve")` returned **`deepseek/deepseek-v4-flash`** — wrong prefix *and* an id the
+provider catalog does not contain at all. Round 49 "fixed" that literal to a secretary-catalog id, and it was
+still invalid **where it is used**.
+
+So the conserve lever — which fires automatically when the prepaid balance drops — would have made **every
+shift fail in two seconds**, exactly as `#1123` and `#1186` did, at the moment the balance was already low and
+the system could least afford it. It has never worked; it has only never been pulled. That is a latent total
+outage armed by money pressure, and it was invisible because nothing ever exercised it.
+
+**Fixed to `None`** — do not pin — because no validated *cheap* id exists in this provider's catalog, and
+pinning an invalid id is strictly worse than using the default seat. The conserve behaviour is now honestly
+"no lane change" rather than a guaranteed failure, and the comment records the measurement and the reason.
+
+```
+$ import wake_budget; lane_for("conserve"), lane_for("ok")  ->  None, None
+```
+
+### The ladder
+
+`PREF` in the dispatcher is corrected to the one validated id: `PREF = ("deepseek-v4-pro",)`, `bash -n` clean,
+backups `wake_budget.py.bak-laneids-20261018` / `wake-dispatch.sh.bak-laneids-20261018`.
+
+**It stays inert** (`WAKE_CAPABILITY_LANE` unset). Validated-by-the-resolver is not validated-in-a-release, and
+§68 is the record of confusing those two. **And enabling it as it stands would silently do nothing**, because
+the resolution step still reads the gateway catalog file, which does not list the bare id — so the next
+session's one-line change is to set `LANE="deepseek-v4-pro"` directly inside the gated branch, prove it with one
+high-priority release whose outcome reads `model lane: ...` and no `FAIL-LOUD`, and only then export the flag.
+
+**The method lesson, again: ask the thing that decides.** Three rounds were spent on this id — a local catalog
+file, then a gateway HTTP catalog, then the provider's own — and only the third one is the list the decision is
+made against. One invocation of the resolver would have answered it at any point.
