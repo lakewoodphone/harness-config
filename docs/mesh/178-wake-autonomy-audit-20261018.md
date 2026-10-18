@@ -3162,3 +3162,22 @@ an agent *before* it edits a live script. The audit document keeps the narrative
 clean re-publish. The two survivors (502935, 517765) are running mixed code by construction, so any further
 `unknown`/`unset` from them is history rather than signal — and that distinction has to be stated, because the
 next session will otherwise read their lines as fresh evidence.
+
+### 78a. The 93-session backfill reached zero, measured
+
+While this round was working, the shift on item 561 finished the job:
+
+```
+ids still absent from dsh_sessions : 93 -> 37 -> 16 -> 0
+select count(*) from dsh_sessions where source_machine='secratary'  :  525 -> 618   (DoD asked for >525)
+newest secratary row            :  2026-10-18T05:31:18Z
+```
+
+Both clauses of the DoD are satisfied **by measurement, not by the shift's report**. Item 561 is still `running`
+under `wake-dsh-archive:20261018`'s lease, so it was **not** closed from here — closing a row another worker
+holds is the exact race §12 records (a settled row's verdict must not be overwritten). The shift that holds it
+should close it; if it dies first, the next session can close it on this evidence.
+
+**What remains is the recurrence, not the backlog:** item 586 records that the shipper must run *from the
+authority* or the same gap refills daily, and `AGENTS.md` §1's trap 2 names the reason — a client-side task on a
+frozen host is the only thing that was shipping.
