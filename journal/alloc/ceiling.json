@@ -1,9 +1,9 @@
 {
  "adopted_rows": 0,
- "bands_refs_read": 48,
+ "bands_refs_read": 49,
  "ceiling": {
-  "decisions": 6912,
-  "handoff": 7592,
+  "decisions": 6976,
+  "handoff": 7656,
   "lessons": 8317,
   "pain": 7818,
   "wins": 6938
@@ -17,15 +17,15 @@
  },
  "claimed_gap_rows": [],
  "entries_high_water": {
-  "decisions": "D6786",
-  "handoff": "H7466",
+  "decisions": "D6914",
+  "handoff": "H7594",
   "lessons": "L8255",
   "pain": "P7755",
   "wins": "W6875"
  },
  "high_water": {
-  "decisions": "D6912",
-  "handoff": "H7592",
+  "decisions": "D6976",
+  "handoff": "H7656",
   "lessons": "L8317",
   "pain": "P7818",
   "wins": "W6938"
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-18T13:15:22Z",
+ "refreshed_at": "2026-10-18T13:30:22Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 20.4,
- "sources_seen": 8005
+ "seconds": 20.8,
+ "sources_seen": 8378
 }
