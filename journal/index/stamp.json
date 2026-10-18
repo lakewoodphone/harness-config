@@ -1,26 +1,18 @@
 {
- "built": "2026-10-18 06:02 UTC",
+ "built": "2026-10-18 06:47 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 6786,
   "handoff": 7466,
   "lessons": 8255,
-  "pain": 7627,
+  "pain": 7691,
   "wins": 6875
- },
- "ceiling_refreshed_at": "2026-10-18T06:30:21Z",
- "ceiling_source": {
-  "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "ZABZ-YOGA live working tree",
-  "lessons": "refs/heads/shift-restart-contract-20261018",
-  "pain": "refs/heads/shift-restart-contract-20261018",
-  "wins": "ZABZ-YOGA live working tree"
  },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-18 05:59 UTC",
- "entries": 5293,
- "entries_count": 5293,
- "entries_sig": "a539676deadeef21f7123e385f4d6eaff9a1d207",
+ "entries": 5294,
+ "entries_count": 5294,
+ "entries_sig": "72a89139c48055554311027c263ffe27ec88d2dd",
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 6848,
