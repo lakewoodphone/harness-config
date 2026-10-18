@@ -3,7 +3,7 @@
  "bands_refs_read": 49,
  "ceiling": {
   "decisions": 7104,
-  "handoff": 7976,
+  "handoff": 8040,
   "lessons": 8573,
   "pain": 8010,
   "wins": 7002
@@ -12,28 +12,20 @@
   "decisions": "ZABZ-YOGA live working tree",
   "handoff": "ZABZ-YOGA live working tree",
   "lessons": "ZABZ-YOGA live working tree",
-  "pain": "refs/heads/hk/584-wake-lock-holders",
+  "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [
-  {
-   "host": "SECRATARY-CLOUD",
-   "kind": "lessons",
-   "reserved_from": 8510,
-   "reserved_through": 8573,
-   "stamp": "2026-10-18 15:30 UTC"
-  }
- ],
+ "claimed_gap_rows": [],
  "entries_high_water": {
   "decisions": "D7043",
-  "handoff": "H7913",
+  "handoff": "H7977",
   "lessons": "L8446",
-  "pain": "P7947",
+  "pain": "P7948",
   "wins": "W6875"
  },
  "high_water": {
   "decisions": "D7104",
-  "handoff": "H7976",
+  "handoff": "H8040",
   "lessons": "L8573",
   "pain": "P8010",
   "wins": "W7002"
@@ -41,7 +33,7 @@
  "host": "secratary-cloud",
  "live_peer_rows": 333,
  "live_peer_unreachable": [
-  "ZABZ-TECH-LINUX (rc=255)"
+  "ZABZ-TECH-LINUX (rc=1)"
  ],
  "peers_failed": [],
  "peers_fetched": [
@@ -51,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-18T15:30:26Z",
+ "refreshed_at": "2026-10-18T15:45:12Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 23.5,
- "sources_seen": 8419
+ "seconds": 9.3,
+ "sources_seen": 8426
 }
