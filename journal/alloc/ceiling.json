@@ -1,31 +1,31 @@
 {
  "adopted_rows": 0,
- "bands_refs_read": 39,
+ "bands_refs_read": 40,
  "ceiling": {
   "decisions": 6464,
-  "handoff": 7016,
+  "handoff": 7080,
   "lessons": 7741,
   "pain": 7242,
   "wins": 6810
  },
  "ceiling_source": {
   "decisions": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
-  "handoff": "local bands.tsv",
-  "lessons": "local bands.tsv",
+  "handoff": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
+  "lessons": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
   "pain": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
-  "wins": "local bands.tsv"
+  "wins": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical"
  },
  "claimed_gap_rows": [],
  "entries_high_water": {
   "decisions": "D6401",
-  "handoff": "H6953",
+  "handoff": "H7017",
   "lessons": "L7679",
   "pain": "P7179",
   "wins": "W6747"
  },
  "high_water": {
   "decisions": "D6464",
-  "handoff": "H7016",
+  "handoff": "H7080",
   "lessons": "L7741",
   "pain": "P7242",
   "wins": "W6810"
@@ -42,12 +42,12 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-18T00:30:24Z",
+ "refreshed_at": "2026-10-18T00:45:20Z",
  "remotes_absent": [
   "cloud",
   "offsite"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 19.9,
- "sources_seen": 5807
+ "seconds": 18.0,
+ "sources_seen": 6145
 }
