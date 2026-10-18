@@ -3058,3 +3058,65 @@ number ends a thread that has cost four rounds:
 **The pattern across §63, §72 and this round is worth stating plainly:** each fix added a *fact* rather than a
 theory, and each fact halved the remaining possibilities. Three rounds of that is cheaper than one round of
 guessing at a 1,400-line script — and the two shifts lost in §68 are what guessing costs.
+
+---
+
+## 77. ROUND 82 — THE "UNKNOWN" KILLS WERE MY OWN EDITS: I WAS REWRITING A RUNNING BASH SCRIPT IN PLACE
+
+The diagnostic from §76 fired at 05:26:46 and printed an **impossible** line:
+
+```
+ERROR lease for wake #1190 not renewed - killing the session to avoid a double release:
+      unknown [hbrc=unset decision=unset rc=unset attempt=unset err=none]
+```
+
+`hbrc=unset` cannot happen in the code I wrote: `HB_RC=$?` sits on the line immediately above the `if`, in the
+same block, with no subshell and no `unset` between. So the *code that ran* is not the code on disk.
+
+### The evidence
+
+```
+running:   502935  started 05:19:02   (10m before this)
+           517765  started 05:25:03   (51s BEFORE the patch)
+the patch: /root/bin/wake-dispatch.sh written 05:25:54, same inode 2164595
+```
+
+**I edited a shell script while dispatchers were executing it, by truncating and rewriting the same inode.**
+Bash does not read a script into memory: it reads it **incrementally by byte offset** as it executes. Truncating
+and rewriting the file moves every subsequent line to a different offset, so a running instance reads whatever
+now sits at the offset it expects — a **mixture of the old and new file**, and a mixture can contain states no
+version of the source can produce. `hbrc=unset` is one. `decision=unset` at 05:24 was another. The `unknown` at
+04:17 was a third.
+
+Every one of those kills happened within about a minute of an in-place edit to this file: §63 (04:17), §72
+(05:18-05:24), §76 (05:25). The three rounds of instrumentation were all chasing an artifact of the way the
+instrument was installed.
+
+### Retracting my own hypothesis, in public
+
+§75a said: *"What is left is an interrupt: heartbeat_lease sleeps … and a signal makes `if ! heartbeat_lease` see
+a non-zero status with none of its own bookkeeping done. That is a hypothesis."* **It is now retracted.** The
+observations it explained were produced by editing the file under a live reader, and no signal is required.
+A future session should re-observe on an instance started *after* a clean atomic deploy before concluding
+anything about the lease state machine.
+
+### What this changes about procedure — the durable part
+
+**Never rewrite a running script in place. Publish by atomic rename.**
+
+```
+cp  /root/bin/wake-dispatch.sh /root/bin/wake-dispatch.sh.new
+#   edit wake-dispatch.sh.new
+bash -n /root/bin/wake-dispatch.sh.new && mv /root/bin/wake-dispatch.sh.new /root/bin/wake-dispatch.sh
+```
+
+`mv` gives the new file a **new inode**; every running instance keeps the inode it opened and completes on
+consistent code, and every new instance picks up the new one. The same rule applies to `wake.py`, the sources,
+and anything else a cron or a shift may be mid-way through.
+
+**This is the session's most expensive class of error and the cheapest to prevent**, and it was invisible for
+three rounds because each fix looked like it worked — the *deployment* was the bug, not the fix.
+
+**Also worth naming:** my patch scripts write with `io.open(path, "w")`, which truncates in place. Every patch
+this session used that idiom. The fix is the caller's `mv`, and it is now the documented procedure rather than a
+habit.
