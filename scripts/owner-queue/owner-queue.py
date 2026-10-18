@@ -1405,7 +1405,7 @@ def cmd_resolve(con, a) -> int:
     return _close(con, a, "resolved", a.how)
 
 
-def _journal_copy(row_id, question, answer) -> None:
+def _journal_copy(row_id, question, answer, db_path="") -> None:
     """Append the owner's words to the journal so the answer survives the row.
 
     MEASURED 2026-10-13: 14 of 67 answered rows had NO journal copy anywhere. This table is
@@ -1415,10 +1415,22 @@ def _journal_copy(row_id, question, answer) -> None:
 
     BEST EFFORT BY DESIGN: if the journal is unreachable the ANSWER IS STILL RECORDED and this
     says so. His answer must never fail because a secondary copy failed.
+
+    BUT ONLY FOR THE AUTHORITY'S OWN QUEUE. MEASURED 2026-10-18, and it was my mistake: an audit
+    session ran `answer 631 --with 645` against a THROWAWAY COPY of the database at /tmp to prove the
+    --with mechanism, and this function wrote two journal decision entries (D7041, D7042) recording a
+    fake owner answer -- into the permanent append-only record, which by its own rule can only be
+    corrected, never deleted. A journal entry says "the owner decided this". It must only ever be
+    written by a close of the real queue. A test, a replay, a backfill against a copy: no.
     """
     import os
     import re
     import subprocess
+    real = os.path.realpath(db_path or DEFAULT_DB)
+    if os.path.basename(real) != "authority.db":
+        print("  (no journal copy: this is not the authority's queue — %s. A close against a copy "
+              "must never put words in the owner's mouth.)" % real)
+        return
     # An explicit override first, so this is testable against a throwaway journal tree and so an
     # operator can point it somewhere else without editing the tool.
     j = os.environ.get("OWNER_QUEUE_JOURNAL") or None
@@ -1477,7 +1489,7 @@ def cmd_answer(con, a) -> int:
     con.commit()
     print(f"#{a.id} -> answered")
     _record_feedback(con, a.id, "answered", a.answer)
-    _journal_copy(a.id, row[0], a.answer)
+    _journal_copy(a.id, row[0], a.answer, getattr(a, "db", "") or DEFAULT_DB)
     _close_with_siblings(con, a, "answered", a.answer)
     return 0
 
@@ -1510,7 +1522,7 @@ def _close_with_siblings(con, a, action: str, text: str) -> None:
                     ("answered" if action == "answered" else "resolved", now(), note, sid))
         print("  #%s -> also closed (%s)" % (sid, note))
         _record_feedback(con, sid, action, text)
-        _journal_copy(sid, r["question"], text)
+        _journal_copy(sid, r["question"], text, getattr(a, "db", "") or DEFAULT_DB)
 
 
 # ---------------------------------------------------------------------------

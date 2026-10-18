@@ -86,10 +86,22 @@ Corpus: **624 forwards over 45 days** (538 sms, 66 missed calls, 20 voicemails),
 Every rule exists because that text was in front of me. 14-day window: 166 read → **34 queued**,
 **73 dropped**, 59 folded into digests.
 
-**DROP**: shortcode senders (17) · daily zmanim/candle-lighting (13) · missed calls with no name, no
-voicemail and no text (13) · empty or receipt-only (7) · bulk sender named in the body (6) · vendor
-robots (5) · one-time codes (3) · **our own alert texts** (2) · order & parcel lifecycle (2) ·
+**DROP**: shortcode senders (17) · daily zmanim/candle-lighting (13) · empty or receipt-only (7) ·
+vendor robots (5) · one-time codes (3) · **our own alert texts** (2) · order & parcel lifecycle (2) ·
 carrier data notices, toll-free marketing, robocall voicemail, voicemail with no transcript.
+
+**Two rules were wrong, and were corrected 2026-10-18 after reading what they discarded:**
+
+* **A community announcement is not marketing.** *"Igud Talmidei Fallsburg: Nichum Aveilim Hours"*
+  and a *Baruch Dayan HaEmes* levaya notice were dropped as `bulk sender in body`, because the
+  community-announcement test ran *after* the bulk-sender test. Those are the notices a person acts
+  on in this community. The announcement check now runs first, and folds them into one row a week
+  per sender.
+* **An unknown missed call is not nothing.** Seven in seven days were dropped as "nothing to act
+  on" — a judgement that is mine, not his, and he runs a shop. They now fold into **ONE row a
+  week** that names every number: *"6 missed calls this week from numbers not in your contacts:
+  (201) 566-7852 | (310) 270-6991 | …"*. He rings back the ones he recognises. Nothing dropped,
+  nothing flooded.
 
 **DIGEST**: twelve or more messages from one sender in the window is a relay; they fold into **one row
 per sender per ISO week** carrying a count, the speakers and any actual question.
@@ -104,6 +116,15 @@ every item as nameless), and `not name` dropping real people who are simply not 
 A 4-6 digit *name* is a shortcode; a bare *number* is a person.
 
 ### 4.2 Email — a model judges, against a written rubric
+
+**Which mail it may see, and the correction that mattered most.** The query was
+`in:inbox newer_than:Nd`. Measured 2026-10-18 over one week: **223 messages in the inbox, 385
+outside it and never judged** — 99 on his personal account, 178 on the shop account. Gmail filters
+auto-archive receipts, invoices and notifications before he ever sees them, so a bill could live
+entirely in a label and the queue would never have read it. A folder boundary is not a judgement
+about relevance, and judging relevance is the queue's whole job. The window is now
+**`newer_than:Nd -in:spam -in:trash`**; on the first widened run a supplier's return-instructions
+request arrived that the queue had never seen. Spam and trash stay out on purpose.
 
 Measured 2026-10-18: **814 messages over 14 days across five accounts** (~58/day).
 `email_catalog` flags 347 of 812 `needs_owner=1` and a 25-row sample of those was UGG, Uber Cash, AAA
@@ -149,11 +170,12 @@ score = tier                      critical 1000 · high 700 · medium 400 · low
       + 80  if a person is asking him something
       + 60  if it names a deadline, +60 more if that deadline is inside a week
       + min(200, money / 10)                   read from the one-liner, not from the body
-      - learned penalty                        what his own answers taught (see §6)
+        (a DIGEST gets a quarter of that: a folded summary is not a bill)
+      ± learned adjustment                     signed, what his own answers taught (see §6)
       - 200 if the row named a day that has passed (POSSIBLY MOOT)
 ```
 
-Two things this got wrong first, both measured on the live 42-row queue before they were fixed:
+Three things this got wrong first, each measured on the live queue before it was fixed:
 
 * **`meta.money` was NULL on every single pending row**, so the money term had never fired once — a
   returned payment of 2 380.06 ranked below a ten-day-old voicemail about a laptop. The amount is in
@@ -161,28 +183,56 @@ Two things this got wrong first, both measured on the live 42-row queue before t
 * **`deadline` matched the word "today"**, so "any way I can get my phone today?" earned a deadline
   bonus. A day is named; a deadline is stated — `due in`, `expires`, `overdue`, `suspended`,
   `deadline`, `final notice`, `by <weekday>`, `in N days`.
+* **A digest was scoring as if it were a bill.** *"5 notices: Amex snapshot 1,965.08 · $53 PayPal
+  charge"* earned `money=+196` off the largest number in its own summary and outranked a person
+  waiting for an answer. Nothing is owed on a summary; the amounts in it are the subject matter. A
+  folded row now carries a quarter of the money weight and says `(digest, quarter weight)` in its own
+  arithmetic.
 
 Nothing reads a stored score. A score written at insert time goes stale the moment the ingest stops,
 and then the order is a claim about urgency that nothing re-measures.
 
-## 6. It learns — from his answers, not from a hint
+## 6. It learns — from his answers, and it says what it learned from
 
-Owner's requirement, 2026-10-18. The mechanism is boring and auditable; there is no model in the
-ranking and no stored score.
+Owner's requirement, 2026-10-18: *"the queue needs to learn over time what to put in it and what to
+prioritize ... based on my responses to the queue"*. Boring and auditable: no model in the ranking,
+no stored score, and **every adjustment prints its own evidence count**.
 
-1. **Every close writes one feedback row** — `owner_queue_feedback(item_id, action, answer, kind,
-   channel, party, class, sender_domain, tier_at, at)`. Written by the same `answer` / `resolve` /
-   `defer` / `skip` commands that close the item, so the record cannot drift from the queue it
-   describes.
-2. **A sender he keeps dismissing sinks.** ≥ 2 dismissals and more dismissals than answers in 120 days
-   ⇒ **−40 per dismissal, capped at −120**, printed in the arithmetic as `learned=-80`. It may reorder
-   inside a band and can never pull a critical item below a medium one.
-3. **The mail judge is given his last dozen answers and dismissals as examples**, so tomorrow's
-   judgement is *his* judgement rather than the rubric author's. The block is labelled
-   `WHAT HE HAS ALREADY SAID` and lists the item, the sender and his own words.
+1. **Every close writes one feedback row** — `answer` / `resolve` / `defer` / `skip` all write it, so
+   the record cannot drift from the queue it describes.
+2. **The profile is read along four dimensions**: `party` (who), `domain` (which company), `class`
+   (`notice`/`money`/`person`) and `channel` (`email`/`sms`). Each is a way of saying *"this kind of
+   thing"*, and his instruction had two halves — what to put in it, and what to prioritise.
+3. **It is SIGNED.** A kind he dismisses **sinks**; a kind he always acts on **rises**. A queue that
+   can only punish eventually shows him only the least offensive mail.
+4. **Per-dimension floors and caps** — the wider the bucket, the more evidence it needs and the less
+   it may move: a sender needs 3 closes and may move ±160/90; a class needs 8 and may move ±80/50; a
+   whole channel needs 10 and may move ±60/40. **Measured 2026-10-18** by running the profile over a
+   simulated session: four dismissed emails produced `channel email −96`, which would have demoted
+   every email for 120 days, including a suspended phone line. A broad bucket cannot carry a narrow
+   conclusion.
+5. **Only his verbs count.** `answered` 1.0 · `dismissed` 1.0 · `skipped` 0.5 · `deferred` 0.3.
+   `resolved` contributes **nothing**: of 559 closed rows on the record, **442 were `resolved`** and
+   the sample showed them closed by *me* under the standing autonomy rule and by the queue's own
+   loop-closing. Counting those as "he acted on it" would have taught the queue that everything it
+   auto-closes is something he loves.
+6. **Retired surfaces are excluded.** Of the 111 answered/dismissed rows, almost all are
+   `owner_message_queue #NNNN` — the app's held-alert table, which the mail judge has made redundant
+   (that is why the reader drops held rows the judge already judged). Teaching "email sinks" from a
+   dead surface would demote the live channel on false evidence. `learning` prints the split:
+   *"evidence: N from a channel that still writes; M from retired surfaces (excluded)"*.
+7. **The judge is told both shapes.** It gets his last dozen answers verbatim (`WHAT HE HAS ALREADY
+   SAID`) **and** the aggregate profile (`WHAT HIS OWN ANSWERS HAVE TAUGHT ABOUT WHO AND WHAT`), with
+   the evidence count beside each line. Examples alone make a judge overfit to the last twelve items.
 
-To watch it learn: `owner-queue.py learning` prints the profile — which senders are demoted, by how
-much, and the evidence count behind each.
+**The loop had never run at all.** Measured 2026-10-18: `owner_queue_feedback` held **2 rows**
+against **553 closed queue rows**, because `learning` opened the database **read-only** and the writer
+caught its own error and reported "0 learned" — which is indistinguishable from "there is nothing to
+learn from". `learning --backfill` now copies every close already on the record, idempotently, and
+recovers the channel and party from the `source` string, since the old writer stored neither.
+
+To watch it learn: `owner-queue.py learning` — what rises, what sinks, the count behind each, and how
+much of its evidence is still live. `learning --backfill` first, once.
 
 ## 7. Every item arrives briefed
 
@@ -194,9 +244,11 @@ row carries when it lands, and what `show`/`card` print:
 | The one-line title | the judge (email) or the parsed message (Voice) |
 | **Why it is in the queue** | the judge's reason, stored with the verdict |
 | **What he would do** | the judge's `action` |
-| **My recommendation** (decisions) | the judge's `recommendation` |
+| **My recommendation** (decisions) | the judge's `recommendation`, or one derived from the evidence row |
 | The full text | the message body, HTML stripped (email) or the cleaned transcript (Voice) |
+| **What the record behind this says** | joined live from `Evidence: <table> row <id>` — balance, due date, what has already been paid, where the figure came from |
 | **History with this sender** | closed queue items from the same *identity*, with his own past answer |
+| **Also in this item / probably the same matter** | rows folded in by proof, and rows to close in the same breath |
 | Thread state | how many messages in the conversation, and which is newest |
 | Amount, deadline, tier | read from the one-liner at rank time, so they cannot go stale |
 | **POSSIBLY MOOT** | added when the row named a relative day that has passed |
@@ -204,7 +256,33 @@ row carries when it lands, and what `show`/`card` print:
 A decision without a recommendation is a **defect**, not a nicety: he asked to answer without going
 and looking anything up.
 
-Two of these were wrong on the first build and are worth not repeating:
+### 7.1 The gate: an unbriefed question does not go on his desk
+
+**Measured 2026-10-18 on the row at the TOP of his queue** (#698, `critical`, a decision):
+
+| What the card said | What the database held |
+|---|---|
+| *"Obligation OVERDUE: Landlord utilities — unpaid household balance — decide: pay it or dispute it?"* | balance **269.71** (electric 214.18, gas 55.53) |
+| options: `1) Investigate it and bring me a recommendation 2) Leave it for now 3) Not actionable` | four bills, arriving 2026-09-22, 2026-10-06 and 2026-10-11, **none of them paid** |
+| my recommendation: *option 1*, i.e. the item asking itself to do its own work | the ledger path, and the screenshots the figure came from |
+
+The sweep filed a question it already had the answer to, and the card asked him to decide with less
+information than the table held. Three repairs, all at READ time so they fix every historic row:
+
+1. **Enrich.** A row whose context cites `Evidence: <table> row <id>` is joined to that row and the
+   fields that answer *how much, to whom, when, what happens if I do nothing* are printed on the
+   card. sha256 receipts are stripped; a path a person can open is kept.
+2. **Replace a template recommendation.** `Investigate it and bring me a recommendation` is not a
+   recommendation. When the evidence carries a balance and a due date, the recommendation writes
+   itself: *"Pay 269.71 — nothing has been paid against it, 26 days past due; the balance is already
+   established in the record."* The template options are replaced with it.
+3. **Gate.** A **queue-surface decision** with no recommendation, or with no amount/date/named party,
+   is **held out of the working set and counted** — *"5 decision(s) held back while I gather the
+   facts — you should not have to decide something I have not briefed"*. Never presented, never
+   deleted. Agent approval requests are exempt: they are the agent's to brief, and hiding a live
+   approval behind a rule this tool cannot satisfy would be worse than showing it thin.
+
+Three of these were wrong on the first build and are worth not repeating:
 
 * **History matched on the mail domain**, so a card for his wife's grocery request listed four Telnyx
   and Chase items as "history with this sender" — `gmail.com` is not an identity. For freemail
@@ -213,6 +291,11 @@ Two of these were wrong on the first build and are worth not repeating:
 * **The amount was read from the whole message**, so a grocery order scored `money=+200` off the
   prices of the items in it and outranked a suspended phone line. Money comes from the judge's field
   or its one-liner, **never from the body**.
+* **A person's text was filed as a formal decision.** `Text from Genack: Can I purchase a Kyocera
+  today?` arrived as `kind=decision` with no recommendation, and the gate then held it back for a
+  recommendation nobody could give. A message from a person is a message with a reply owed — it
+  already carries `ask=+80` — so a text-derived decision with no recommendation is **demoted to
+  attention at read time**, and says so.
 
 **POSSIBLY MOOT** exists because the queue's second-highest item was *"Yocheved asks you to order four
 grocery items for dinner tonight"*, four days after that dinner. Asking him is worse than not asking:
@@ -231,6 +314,44 @@ queue. So:
   never deleted: *"32 quieter attention item(s) held back — older than 3 day(s), nobody waiting, no
   money, not serious (--all shows them)"*.
 * The absolute bound is 21 days for attention. Decisions are never aged out.
+* **A decision that has not been briefed is held back too** (§7.1), and counted by name.
+
+## 8.1 One fact, one row — collapsed at READ time
+
+**Measured 2026-10-18 on the live 74-row queue**, and it is the defect he would feel first, because he
+knocks this out once every other day and cannot answer the same thing three times:
+
+| One fact | The rows it occupied |
+|---|---|
+| Techloq filter auto-renews 36.99 | #680 (its own row), #647 (inside a money digest), #688 (inside a notice digest) |
+| the LPT referral list | #687, #642, #643 |
+| NJ tax payment confirmation | #626, #675 — two digests carrying the same member |
+| the 300DDR recovered drive | #693 (the mail), #646 (the agent's question about it) |
+
+Never fixed by de-duplicating at INSERT time, for the same reason nothing reads a stored score: the
+digests are written per (class, day), the same message gets judged into two classes on one day, and a
+row written yesterday is still the same fact as today's. Collapsing at read time repairs every
+historic row at once and cannot go stale. Three rules, in order of how much they guess:
+
+* **A. Same message — proven.** Two rows carrying the same `(account, thread_id)` are the same
+  message. #643/#687 were one email judged twice into two classes (`person` and `notice`), so
+  `key_for` gave it a thread key *and* a fact key and both landed. The better-ranked row keeps it and
+  carries the other's words.
+* **B. A decision absorbs attention about the same matter** — either the same shop reference
+  (`300DDR`, `case 4485`) or the same party names plus two shared subject words. He does not need to
+  read the notice and then answer the question about the notice.
+* **C. A digest loses every member a real row already owns**, and a digest of one becomes that one. A
+  digest that keeps nothing disappears, because every member is present elsewhere.
+
+**Probable-but-unproven siblings are never merged.** A wrong merge hides an item, which is the one
+failure this queue cannot afford. They are *shown* on the card — `PROBABLY THE SAME MATTER — answering
+both in one go is: add --with 631` — and `answer`/`resolve` accept `--with` so one sentence closes the
+cluster, recording on each row that it was answered together.
+
+A first attempt at this was **wrong and was thrown away**: matching on `party` + `channel` made every
+pair of missed calls share the tokens `{call, missed}`, so *"Missed call from Parsons"* and *"Missed
+call from Mogo"* were proposed as one fact. A token that every row of a class carries identifies
+nothing; the entity tokens come from the party alone.
 
 ## 9. Lifecycle, and why a dismissal sticks
 
@@ -340,7 +461,24 @@ A queue that has stopped filling and a queue with nothing to say look identical 
 from its own 14-day rate (`max(48h, 6 × average gap)`), and exits non-zero when one is stale. The
 timer runs it after every ingest, so a silent channel shows up in `systemctl --failed`.
 
-Expected: ~80 GV forwards and ~200 messages a week across the five inboxes.
+### 12.0 Freshness is not completeness, and the difference is a whole mailbox
+
+Both ingests write their own arithmetic to **`owner_queue_ingest_run`** — `fetched`, `queued`,
+`dropped`, `new`, `refreshed`, `errors` — and `health` prints a row per source:
+
+```
+gv read everything         26       0.0h       48h  OK (10 folded)
+mail read everything      180       0.0h       48h  OK (22 folded)
+```
+
+`fetched − dropped − written` is the **fold** — twelve texts in one family chat becoming one row is
+the design, not a loss — and it is reported, never failed on. What fails the check is a run that
+reported errors, a run older than 48h, or arithmetic that comes out **negative**, which is a bug and
+must not be silently clamped. Without this line, "18 rows arrived" is compatible with "62 items were
+never read", which is exactly what the `in:inbox` window was doing (§4.2).
+
+Expected: ~80 GV forwards and ~350 messages a week across the four judged accounts (the widened
+window sees roughly twice what the inbox-only query did).
 
 ### 12.1 The phone digest reads this queue
 
@@ -368,8 +506,13 @@ the exact body and sends nothing).
 
 1. **Two rows for one ongoing problem** can still happen when a bank changes its wording ("overdrawn"
    vs "overdraft or declined"), because the fact key strips amounts and dates but not vocabulary.
-   §9.1 closes the row once a *resolution* arrives from the same sender, which is the case that
-   actually matters.
+   §8.1 collapses what it can prove, and *shows* what it can only suspect; §9.1 closes the row once a
+   *resolution* arrives from the same sender, which is the case that actually matters.
+2. **The learning has no live evidence yet.** `learning` says so in as many words: of 111 answered or
+   dismissed rows, **0 come from a channel that still writes this queue** — they are all
+   `owner_message_queue` held alerts from a surface the mail judge replaced. The mechanism is proven
+   (a simulated session moves a sender −96 and another +48, and a broad channel is correctly held
+   below its floor), but the first real teaching is the first knock-through after 2026-10-18.
 3. **The daily phone digest now reads this queue** (§12.1). It is the same one ranking, but it still
    composes its own one-line message and its own ordering ACROSS sources (obligations, waiting comms,
    email, the queue), so it is a delivery surface with a second sort, not a second queue. If it is
@@ -382,6 +525,11 @@ the exact body and sends nothing).
 7. **§9.1 only sees resolutions that ARRIVE as mail.** A premise that moved without a message (he paid
    the bill himself, a case was settled on the phone) is still invisible to the queue; `POSSIBLY MOOT`
    and `owner_premise_check` are the only cover.
+8. **The widened mail window costs more model calls** — roughly twice the messages, so roughly twice
+   the batches. The verdict cache means each message is paid for once, and the per-run cap
+   (`MAX_JUDGE_PER_RUN`) leaves the rest for the next run rather than dropping them.
+9. **A digest of one loses its count.** "1 notice (2026-10-14): X" becomes "X", which is correct but
+   loses the fact that three others were folded away beside it. The folded members are still on the row.
 
 ## 14. Changelog
 
@@ -392,3 +540,17 @@ the exact body and sends nothing).
   `owner_queue_feedback`, the recommendations-in-decisions rule, and the dossier.
 * **2026-10-18 (last)** — the queue closes its own loops (§9.1): a later message from the same sender
   that says the problem is fixed resolves the alarm it refers to, with the reason recorded.
+* **2026-10-18 (audit round, this version)** — five defects found by measuring the live queue, not by
+  reading the code:
+  * **§8.1 one fact one row** — collapse by message identity, decision absorbs notice, digest loses
+    what a real row owns, siblings shown and closed with `--with`.
+  * **§7.1 the dossier and the gate** — evidence rows joined live, template recommendations replaced,
+    unbriefed decisions held back and counted, person-texts demoted to attention.
+  * **§6 learning** — four dimensions, signed, per-dimension floors and caps, his verbs only, retired
+    surfaces excluded, `learning --backfill` (the loop had written 2 rows against 553 closes because
+    the connection was read-only).
+  * **§4.2 the whole mailbox** — `-in:spam -in:trash` instead of `in:inbox`; 385 messages a week were
+    invisible.
+  * **§4.1 two GV rules corrected** — community announcements are not marketing; unknown missed calls
+    fold into one weekly row instead of being dropped.
+  * **§5 digest money weight**, **§12.0 run arithmetic in `health`**.

@@ -16,12 +16,13 @@ rule. This skill is the procedure for *using* it.
 ssh secratary-cloud 'python3 /root/bin/owner-queue.py card'
 ```
 
-That prints **one** item: the why, what he would do, my recommendation, the full text, history with
-that sender, and the arithmetic behind its rank. Then:
+That prints **one** item: the why, what he would do, my recommendation, the full text, the record
+behind it, history with that sender, and the arithmetic behind its rank. Then:
 
 1. **Tell him that item, in plain chat text.** Two or three sentences: what happened, who from, why
-   it is in the queue. For a decision, end with **my recommendation in one line** — it is already in
-   the row under "MY RECOMMENDATION"; do not re-derive it, and do not invent one.
+   it is in the queue, and the number that matters (from the card, never from memory). For a decision,
+   end with **my recommendation in one line** — it is already in the row under "MY RECOMMENDATION";
+   do not re-derive it, and do not invent one.
 2. **Wait.** Never send two items in one message, never a list, never a table of items. If he asked
    for the queue and you answer with ten bullets, you have failed the instruction even though every
    bullet is correct.
@@ -32,7 +33,13 @@ that sender, and the arithmetic behind its rank. Then:
    ssh secratary-cloud 'python3 /root/bin/owner-queue.py defer 651 --until 2026-10-25 --note "after yom tov"'
    ```
    His words are the training data and the journal copy — never paraphrase them into the answer.
-4. Stop when he says stop, when `card` says the queue is empty, or after about 25 items.
+4. **If the card says PROBABLY THE SAME MATTER, close the cluster with one sentence** — his one answer
+   is the answer to both, and a second row asking the same thing tomorrow is the defect he feels:
+   ```bash
+   ssh secratary-cloud 'python3 /root/bin/owner-queue.py answer 631 --with 645 --answer "paid it"'
+   ```
+5. Stop when he says stop, when `card` says the queue is empty, or after about 25 items. **At the end,
+   run `learning` and tell him one line of what the session taught it** — that is the loop closing.
 
 ## Hard rules
 
@@ -40,9 +47,14 @@ that sender, and the arithmetic behind its rank. Then:
   day it named has passed; re-measure, then either close it yourself or say what happened.
 - **Never ask him something the row already answers.** The dossier is there so he does not have to
   work; if the number he needs is missing, gather it first and put it in the row.
-- **A decision without a recommendation is a defect.** File it with one (`add --recommendation`).
+- **A decision without a recommendation is a defect.** File it with one (`add --recommendation`). An
+  item that says "Investigate it and bring me a recommendation" is the defect wearing a suit: that is
+  the item asking itself to do its own work.
+- **A decision he has not been briefed on never reaches him.** If `queue` reports *"N decision(s) held
+  back while I gather the facts"*, that is the gate working — go and gather them, do not widen the gate.
 - **Anything you can do yourself does not belong in the queue.** Solve it; a row is an admission that
-  you could not.
+  you could not. An item that is news and needs no decision is welcome; an item that is a chore you
+  could have finished is not.
 - **Dialpad is never in this queue.** The personal channel is Google Voice, reached through its
   forwarding mail. His own inboxes are judged separately. If you are reading `dialpad_*` tables to
   answer a queue question, you are reading the wrong lineage — stop.
@@ -58,8 +70,16 @@ ssh secratary-cloud 'python3 /root/bin/owner-queue.py learning'           # what
 ```
 
 **A queue with nothing in it and a queue that stopped being fed look identical from inside the table.**
-`health` is the difference; it exits non-zero when a source has gone quiet, and the 20-minute timer
-(`lpt-owner-queue.timer`) runs it after every ingest.
+`health` is the difference. It reads two different things and both matter: **freshness** (each
+source's newest arrival against a limit derived from its own rate) and **completeness** (`* read
+everything` — fetched, folded, dropped, rows written, errors, from `owner_queue_ingest_run`). It exits
+non-zero on a stale source, a run that reported errors, arithmetic that comes out negative, or a run
+older than 48 hours. The 20-minute timer (`lpt-owner-queue.timer`) runs it after every ingest.
+
+`learning` prints what his closes taught: what **rises**, what **sinks**, the count behind each, and
+how much of its evidence comes from a channel that still writes. If it says *"0 close(s) from a
+channel that still writes"*, the learning is wired but has not been taught yet — say that plainly
+rather than claiming it learns.
 
 ## Filing something new
 
@@ -73,3 +93,11 @@ JSON
 
 `domain` defaults to `owner`; `customer`, `business` and `engineering` are refused on purpose —
 those belong in the ledger, not on his desk.
+
+**Before you file a decision, answer these three.** They are the gate, and filing past them only means
+the row is held back until someone notices:
+
+1. What is the amount, the date, or the named party? If the row cites an evidence table, write it as
+   `Evidence: <table> row <id>` in the context — the reader joins it and prints it on the card.
+2. What would *I* do, in one line? If the honest answer is "investigate it", the item is not ready.
+3. Is this a choice, or is it news? News is `kind=attention` and needs no recommendation.
