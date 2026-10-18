@@ -9,6 +9,13 @@
 #   deploy.sh --apply                 install (and pause the queue unless --no-pause)
 #
 # Optional, each one explicit:
+#   --replace-divergent    install even when the DESTINATION holds lines the source does
+#                          not have. Off by default and it should stay off: on 2026-10-18
+#                          the repo's copies were measured to be different lineages from
+#                          what runs (wake-dispatch.sh 579 lines vs 1351 live, 685
+#                          live-only), so a plain --apply is a regression, not an upgrade.
+#                          Reconcile the repo into the destination first; pass this only
+#                          after a human has read the diff.
 #   --migrate-wake-table   bring an existing, older `wake` table up to CONTRACT.md §3.
 #                          REQUIRED on a box where the v0 was installed by hand: the
 #                          contract's DDL is CREATE TABLE IF NOT EXISTS, so against an
@@ -40,6 +47,17 @@ DO_MIGRATE=0
 DO_RUNNER=0
 DO_PAUSE=1
 CHANGED=0
+# DIVERGENCE GUARD (2026-10-18). Measured on the authority: the files this
+# script installs are NOT older copies of what runs -- they are different
+# lineages. wake-dispatch.sh in the repo was 579 lines against 1351 live, with
+# 685 lines live that the repo has never contained; wake.py 1280 vs 2036 (707
+# live-only lines); run-wake-sources.sh 48 vs 249 (192 live-only). install_file
+# copied over the top of all three without a word, so one `--apply` would have
+# deleted the answer gate, the `unverified` state, and the whole sources loop.
+# A destination holding lines the source does not have is a REGRESSION, so it is
+# now refused unless --replace-divergent says a human has read the diff.
+REPLACE_DIVERGENT=0
+DIVERGED=0
 
 # --------------------------------------------------------------------------- #
 # 0. refuse to run if this file was transferred with Windows line endings.
@@ -64,6 +82,7 @@ while [ $# -gt 0 ]; do
     --migrate-wake-table)   DO_MIGRATE=1 ;;
     --with-desktop-runner)  DO_RUNNER=1 ;;
     --no-pause)             DO_PAUSE=0 ;;
+    --replace-divergent)    REPLACE_DIVERGENT=1 ;;
     --bin)                  BIN_DIR="$2"; shift ;;
     --state)                STATE_DIR="$2"; shift ;;
     --src)                  SRC_DIR="$2"; shift ;;
@@ -100,6 +119,20 @@ install_file() {  # install_file <src> <dst> <mode>
   if [ -f "$dst" ] && cmp -s "$src" "$dst"; then
     say "  ok       $dst (identical, nothing to do)"
     return 0
+  fi
+  # Refuse to delete a line the source does not carry. Counted, not guessed:
+  # grep -Fxv lists every destination line absent from the source.
+  if [ -f "$dst" ] && [ "$REPLACE_DIVERGENT" != "1" ]; then
+    local lost
+    lost="$(grep -Fxv -f "$src" "$dst" 2>/dev/null | wc -l | tr -d ' ')"
+    if [ "${lost:-0}" -gt 0 ]; then
+      say "  REFUSED  $dst holds $lost line(s) that $src does not have"
+      say "           src: $(wc -l < "$src" | tr -d ' ') lines, $(stat -c %s "$src") B   dst: $(wc -l < "$dst" | tr -d ' ') lines, $(stat -c %s "$dst") B"
+      say "           installing would REGRESS a live file. Reconcile the repo into the"
+      say "           destination first; pass --replace-divergent only after reading the diff."
+      DIVERGED=$((DIVERGED + 1))
+      return 1
+    fi
   fi
   if [ -f "$dst" ]; then
     local b; b="$(backup_of "$dst")"
@@ -396,13 +429,14 @@ say ""
 say "=============================================================================="
 case "$MODE" in
   check) say " RESULT: nothing was changed (--check)." ;;
-  dry)   say " RESULT: nothing was changed (--dry-run). $CHANGED item(s) would change on --apply." ;;
+  dry)   say " RESULT: nothing was changed (--dry-run). $CHANGED item(s) would change on --apply.$([ "$DIVERGED" -gt 0 ] && printf ' %s REFUSED as divergent.' "$DIVERGED")" ;;
   apply)
     if [ "$CHANGED" -eq 0 ]; then
       say " RESULT: APPLIED. Nothing needed changing -- this box already matches the source."
     else
       say " RESULT: APPLIED. $CHANGED change(s) made on $(hostname):"
     fi
+    [ "$DIVERGED" -gt 0 ] && say " REFUSED: $DIVERGED file(s) left ALONE because the destination holds lines the source lacks. Nothing was lost."
     ;;
 esac
 if [ "$MODE" = "apply" ]; then
