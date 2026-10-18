@@ -89,12 +89,26 @@ export CRON_TARGET_GUARD=/usr/local/bin/cron-target-guard.py
 for RSMAP in "$HOME/bin/sources"/roadmap-*.json; do
   [ -e "$RSMAP" ] || continue
   RSPROJ=$(basename "$RSMAP"); RSPROJ=${RSPROJ#roadmap-}; RSPROJ=${RSPROJ%.json}
-  out=$(timeout 180 /usr/bin/python3 "$HOME/bin/sources/roadmap-supply.py" --project "$RSPROJ" 2>&1)
+  # STDOUT AND STDERR ARE CAPTURED SEPARATELY, AND THAT IS THE FIX (ledger item 392,
+  # 2026-10-18). MEASURED: with `2>&1` in a command substitution, Python's stderr is
+  # unbuffered while its stdout is block-buffered when piped, so the FIRST captured line
+  # is a stderr note, not the stdout summary. roadmap-supply prints the summary
+  # ("roadmap-supply: docs=... unchecked_boxes=...") to stdout and every per-box note
+  # ("NOT-MAPPED ...", "STALE-MAPPING ...") to stderr. On a run with any unmapped box the
+  # log therefore showed only "  NOT-MAPPED ..." and never the summary -- so a bridge that
+  # was dead or reading a stale tree still looked like a routine NOT-MAPPED line. Capturing
+  # stderr to its own file keeps the summary in $out and still lets the FAILED branch quote
+  # the actual reason. Reproduced before the change: merged head -1 == "  NOT-MAPPED ...";
+  # separated stdout head -1 == "roadmap-supply: docs=git unchecked_boxes=40".
+  RSMAP_ERR=$(mktemp "${TMPDIR:-/tmp}/roadmap-supply.XXXXXX")
+  out=$(timeout 180 /usr/bin/python3 "$HOME/bin/sources/roadmap-supply.py" --project "$RSPROJ" 2>"$RSMAP_ERR")
   rc=$?
+  err=$(cat "$RSMAP_ERR" 2>/dev/null)
+  rm -f "$RSMAP_ERR"
   if [ $rc -ne 0 ]; then
-    echo "$STAMP  roadmap-supply  FAILED rc=$rc [$RSPROJ]: $(echo "$out" | head -2 | tr '\n' ' ')" >> "$LOG"
+    echo "$STAMP  roadmap-supply  FAILED rc=$rc [$RSPROJ]: $(printf '%s\n%s\n' "$err" "$out" | grep -v '^$' | head -2 | tr '\n' ' ')" >> "$LOG"
   elif [ "$out" != "quiet" ]; then
-    echo "$STAMP  roadmap-supply  [$RSPROJ] $(echo "$out" | head -1)" >> "$LOG"
+    echo "$STAMP  roadmap-supply  [$RSPROJ] $(printf '%s\n' "$out" | head -1)" >> "$LOG"
   fi
 done
 # THE LOOP'S OWN WATCHDOG (added 2026-10-07, ledger item 501). Everything above judges the
@@ -230,6 +244,24 @@ if [ "$int_rc" -ne 0 ]; then
   echo "$STAMP  work-integrator  FAILED rc=$int_rc: $(printf '%s' "$int_out" | tail -2 | tr '\n' ' ')" >>"$LOG"
 elif [ "$int_out" != "quiet" ]; then
   echo "$STAMP  work-integrator  $(printf '%s' "$int_out" | grep -Ei 'filed' | tail -1)" >>"$LOG"
+fi
+
+# PROGRESS DEADMAN — the one thing nothing watched (added 2026-10-18 after a 32-hour hole).
+# Measured from wake-dispatch.log: 13th 144 ok, 14th 146, 15th 139, 16th 139, **17th ZERO lines**,
+# 18th 124. The office desktop every release is dispatched to (`DESKTOP=${WAKE_DESKTOP:-zabz-tech-ts}`,
+# one host, no fallback) was asleep; for most of the hole the dispatcher was being refused rc=1 on the
+# SSH hop and on the 17th it wrote nothing at all. authority-deadman only proves the AUTHORITY is up
+# (it was), wake-tuner emits one cost digest a day, and wake-lock-watch watches the SQLite lock, which
+# was never held — so a production stop was recorded only as 133 rc=1 rows in a log nobody reads.
+# This source answers the question the owner actually asked ("is it building daily?") on a clock, and
+# it separates three states that must never be one: healthy / stalled / all-releases-failing, plus a
+# REFUSAL (exit 4) when the log is missing or holds no parsable release, which is NOT "quiet".
+prog_out=$(timeout 120 /usr/bin/python3 /root/bin/sources/wake-progress.py 2>&1)
+prog_rc=$?
+if [ "$prog_rc" -ne 0 ]; then
+  echo "$STAMP  wake-progress  FAILED rc=$prog_rc: $(printf '%s' "$prog_out" | tail -2 | tr '\n' ' ')" >>"$LOG"
+elif [ "$prog_out" != "quiet" ]; then
+  echo "$STAMP  wake-progress  $prog_out" >>"$LOG"
 fi
 
 # STALE-REFERENCE AND REVISIT REPORTING (added 2026-10-18) — two verbs that existed and were never
