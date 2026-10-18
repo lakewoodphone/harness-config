@@ -29,6 +29,7 @@ USAGE
                                       [--context ...] [--blocks ...] [--ages-days N]
   owner-queue.py add --from-json FILE|-   # SAFE PATH — see below
   owner-queue.py lint [--show-text]   # P265 detector over the whole queue
+  owner-queue.py sweep [--all] [--json]  # READ-ONLY: rows the domain guard would refuse
   owner-queue.py resolve ID --how "what I did / what he said"
   owner-queue.py resolve ID --dismissed "why it never needed him"
   owner-queue.py answer ID --answer "his words"
@@ -43,7 +44,9 @@ never puts the text through a shell: it reads one JSON object and binds every fi
     {"question": "...", "context": "...",
      "options": ["first", "second (Recommended)"],
      "recommendation": "...", "severity": "high",
-     "blocks": "...", "source": "...", "age_days": 3}
+     "blocks": "...", "source": "...", "age_days": 3,
+     "domain": "owner|customer|business|engineering",
+     "owner_worthy": false, "owner_reason": "required when owner_worthy is true"}
 
 `options` may be a JSON array (canonical) or the legacy pipe-separated string. A leading
 ``$`` and backslashes survive JSON and reach SQLite unchanged. Use `-` to read stdin. The
@@ -64,30 +67,39 @@ owner was asked to decide on. A single backslash in a Windows path (`C:\\Users\\
 literal `\\n` is a KNOWN false positive and is still refused — pass --allow-suspect-text to
 store it anyway. The guard never guesses what a missing amount used to be.
 
+THE DOMAIN GUARD (owner instruction, 2026-10-18, twice in one evening):
+  "Dial pad customer communications and questions don't belong in my owner queue.
+   They're in some sort of business queue that doesn't have to show up as desperately
+   needing my attention" / "dialpad texts don't go into owner queue, they aren't
+   pending owner attention".
+
+  The queue is for decisions only HE can make. Customer work and shop operations are
+  the LEDGER: `/root/work/work.db`, filed through `/root/bin/work.py add`. The guard
+  is two small, testable layers, deliberately not one large heuristic:
+
+    1. THE FILER SAYS WHAT IT IS. `--domain owner|customer|business|engineering`
+       (default `owner`, because this is the owner queue and the filer is asserting
+       that this row belongs to him). A non-owner domain is refused unless the
+       deliberate escape below is used.
+    2. A KEYWORD BACKSTOP for the obvious cases a forgetful filer will still try:
+       a work-order number (`WO26...`), the word customer, voicemail, a customer
+       "waiting", or a phone number. Soft markers are read only from the fields that
+       state the ASK (question/recommendation/options), so a context paragraph that
+       mentions a customer as background is not a refusal by itself. Strong markers
+       (`WO...`, voicemail, phone) are read from all fields.
+
+  A refusal names the rule and the alternative, and prints the exact `work.py add`
+  shape plus a project to use. The escape is deliberate and must carry a reason:
+
+      --owner-worthy --owner-reason "why only the owner can decide this"
+
+  `--owner-worthy` without a non-empty `--owner-reason` is refused. A genuine owner
+  question that merely mentions a customer is therefore still filable, but only by
+  someone who writes down why. Exit code 5 is a domain refusal; 2 is a usage error.
+
 AGEING. `next` sorts by (blocks-others first, severity, age). An item that is blocking
 other work outranks a merely old one: keeping a decision queued while it stalls the
 company is the expensive failure, not the decision itself.
-
-DEPLOYED AS: `~/bin/owner-queue.py` on **secratary only** (the authoritative
-database is on that host). This file is the source; that path is the deployment.
-To update a host: copy this over `~/bin/owner-queue.py` and `chmod +x` it. Every
-other machine reads the queue through
-`ssh secratary-ts "python3 ~/bin/owner-queue.py next"` or the journal mirror at
-`journal/state/owner-questions.md`.
-
-`defer` exists because a row the owner has seen and put off to a day he named is
-still his but is not a missed deadline, and before 2026-09-22 the table had no
-field to say so -- three rows were reported as blocking "past 3d" while he had
-already answered each one with "tomorrow" / "after Yom Kippur". The kernel check
-that reads this table honours `deferred_until`; see ceo-kernel `ck/sentinel.py`
-`check_owner_queue`.
-
-  ~/bin/owner-queue.py defer 100 --until tomorrow --note "he said: tomorrow"
-  ~/bin/owner-queue.py defer 127 --until 2026-10-02 --note "after Yom Kippur"
-  ~/bin/owner-queue.py defer 78 --clear
-
-A deferral does NOT close a row: it stays pending, stays visible, and re-raises
-once the day passes.
 """
 from __future__ import annotations
 
@@ -98,10 +110,11 @@ import os
 import re
 import sqlite3
 import sys
+import time
 import textwrap
 
 DEFAULT_DB = os.environ.get(
-    "OWNER_QUEUE_DB", "/home/zabz/personal-secretary-mvp/data/secretary.db"
+    "OWNER_QUEUE_DB", "/root/authority.db"
 )
 
 SCHEMA = """
@@ -174,7 +187,8 @@ P265_FIELDS = P265_BACKSLASH_FIELDS
 # JSON names accepted by --from-json and the column each one lands in.
 JSON_TEXT_KEYS = ("question", "context", "options", "recommendation",
                   "severity", "blocks", "source")
-JSON_KEYS = JSON_TEXT_KEYS + ("age_days",)
+JSON_KEYS = JSON_TEXT_KEYS + ("age_days", "domain", "owner_worthy",
+                              "owner_reason")
 
 # A caller that escapes an option string for a command line turns a real newline into
 # the two characters `\` `n`. That is the #38 false positive. Detected so the message
@@ -194,7 +208,8 @@ def connect(path: str, readonly: bool = False) -> sqlite3.Connection:
         # database) is skipped: lint only reads.
         con = sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=180)
     else:
-        con = sqlite3.connect(path, timeout=180)
+        con = sqlite3.connect(path, timeout=int(
+            os.environ.get("OWNER_QUEUE_LOCK_TIMEOUT", "180")))
     con.row_factory = sqlite3.Row
     if not readonly:
         con.executescript(SCHEMA)
@@ -203,6 +218,30 @@ def connect(path: str, readonly: bool = False) -> sqlite3.Connection:
         if added:
             print(f"schema: added column(s) {', '.join(added)}", file=sys.stderr)
     return con
+
+
+def exec_locked(con, sql, params=()):
+    """Run ONE write and commit it, retrying while SQLite reports the database is locked.
+
+    The queue shares the 13GB live app database, so a write can lose a race with the API or
+    another shift. Measured 2026-09-28: an add sat blocked for 180s and then raised
+    'database is locked', dropping the row. A bounded retry turns a dropped row into a wait.
+    Tunable: OWNER_QUEUE_RETRIES (default 4), OWNER_QUEUE_RETRY_DELAY (default 10s); each
+    attempt still waits OWNER_QUEUE_LOCK_TIMEOUT (default 180s).
+    """
+    tries = int(os.environ.get("OWNER_QUEUE_RETRIES", "4"))
+    delay = float(os.environ.get("OWNER_QUEUE_RETRY_DELAY", "10"))
+    for attempt in range(1, tries + 1):
+        try:
+            cur = con.execute(sql, params)
+            con.commit()
+            return cur
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc).lower() or attempt == tries:
+                raise
+            print("owner-queue: database locked (attempt %d/%d); waiting %.0fs then retrying"
+                  % (attempt, tries, delay), file=sys.stderr)
+            time.sleep(delay)
 
 
 def fmt(row: sqlite3.Row) -> str:
@@ -359,6 +398,159 @@ def print_guard_refusal(blocking: list[dict], plausible: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Domain guard (2026-10-18). See the module docstring for the owner's words and the
+# two layers. Everything here is data, so a test can state exactly what is refused.
+# ---------------------------------------------------------------------------
+DOMAINS = ("owner", "customer", "business", "engineering")
+FILABLE_DOMAINS = ("owner",)
+DOMAIN_EXIT = 5
+
+# The fields that state the ASK. "customer" in a context paragraph can be background
+# bookkeeping (measured: a tax row whose context named a customer Zelle payment), so
+# the soft markers are not read from context/source.
+DOMAIN_SOFT_FIELDS = ("question", "recommendation", "options_json")
+# A work order, voicemail or phone number is shop business wherever it appears.
+DOMAIN_STRONG_FIELDS = ("question", "context", "recommendation", "options_json",
+                        "source")
+
+# kind, compiled pattern, why it is a hit. Small on purpose: each entry is one of the
+# obvious cases the owner named, not an attempt to classify every sentence.
+DOMAIN_SOFT_RULES = (
+    ("customer", re.compile(r"\bcustomers?\b", re.I),
+     "a customer is named"),
+    # "waiting on your decision" is an owner row, not a customer one. Every other
+    # waiting is shop business until the filer says otherwise with the escape.
+    ("waiting", re.compile(
+        r"\bwaiting\b(?!\s+(?:on|for)\s+(?:you|your|the owner|owner)\b)", re.I),
+     "someone is waiting; that is usually a customer"),
+)
+DOMAIN_STRONG_RULES = (
+    ("work-order", re.compile(r"\bWO\d{2,}\b", re.I),
+     "a work-order number is shop business"),
+    ("voicemail", re.compile(r"\bvoicemails?\b", re.I),
+     "a voicemail is customer communication"),
+    # A phone number needs +, parentheses or separators. A bare ten-digit run is left
+    # alone because it is indistinguishable from a confirmation/reference number
+    # (measured: NJ tax confirmation FR1100883353 in a genuine owner row).
+    ("phone", re.compile(
+        r"(?:\+\d{10,15}\b|(?:\+?1[\s.-]?)?(?:\(\d{3}\)\s*|\d{3}[\s.-])"
+        r"\d{3}[\s.-]\d{4}\b)"),
+     "a phone number is customer communication"),
+)
+
+# Where the work should go instead. These are suggestions; the ledger's full project
+# list is `work.py project list`, and any registered project is acceptable.
+PROJECT_HINTS = (
+    ("cfo", re.compile(
+        r"\b(?:tax|payroll|quickbooks|ledger|invoice|refund|charge|bank|card|"
+        r"accounting|cfo)\b", re.I)),
+    ("lpt-website", re.compile(
+        r"\b(?:website|site|pricing|price|product|accessory|repair|inventory|stock)\b",
+        re.I)),
+    ("lpt-sync", re.compile(
+        r"\b(?:dialpad|work[- ]?order|WO\d{2,}|voicemail|customer|caller|phone|"
+        r"text|sms)\b", re.I)),
+)
+DEFAULT_LEDGER_PROJECT = "housekeeping"
+
+
+def domain_texts(values: dict):
+    """Yield (field, text) for every field the domain guard reads."""
+    seen = set()
+    for field in DOMAIN_SOFT_FIELDS + DOMAIN_STRONG_FIELDS:
+        if field in seen:
+            continue
+        seen.add(field)
+        text = values.get(field)
+        if text:
+            yield field, str(text)
+
+
+def domain_hits(values: dict) -> list[dict]:
+    """Every keyword-backstop hit in one candidate row, with field and offset.
+
+    Soft rules read only DOMAIN_SOFT_FIELDS; strong rules read all of
+    DOMAIN_STRONG_FIELDS. The same match is reported once even though a field can be
+    in both lists.
+    """
+    hits = []
+    seen = set()
+    for field in DOMAIN_SOFT_FIELDS:
+        text = values.get(field)
+        if not text:
+            continue
+        for kind, rx, why in DOMAIN_SOFT_RULES:
+            for m in rx.finditer(str(text)):
+                key = (field, kind, m.start(), m.group(0))
+                if key in seen:
+                    continue
+                seen.add(key)
+                hits.append({"field": field, "kind": kind, "offset": m.start(),
+                             "match": m.group(0), "why": why,
+                             "snippet": _snippet(str(text), m.start(), m.end())})
+    for field in DOMAIN_STRONG_FIELDS:
+        text = values.get(field)
+        if not text:
+            continue
+        for kind, rx, why in DOMAIN_STRONG_RULES:
+            for m in rx.finditer(str(text)):
+                key = (field, kind, m.start(), m.group(0))
+                if key in seen:
+                    continue
+                seen.add(key)
+                hits.append({"field": field, "kind": kind, "offset": m.start(),
+                             "match": m.group(0), "why": why,
+                             "snippet": _snippet(str(text), m.start(), m.end())})
+    hits.sort(key=lambda h: (h["field"], h["offset"], h["kind"]))
+    return hits
+
+
+def suggest_ledger_project(domain: str, values: dict, hits: list[dict]) -> str:
+    """A project to name in the refusal. Advice only, never part of the decision."""
+    if domain == "customer":
+        return "lpt-sync"
+    blob = " ".join(str(values.get(f) or "") for f in
+                    ("question", "recommendation", "options_json"))
+    for project, rx in PROJECT_HINTS:
+        if rx.search(blob):
+            return project
+    return DEFAULT_LEDGER_PROJECT
+
+
+def print_domain_refusal(domain: str, hits: list[dict], values: dict) -> None:
+    """Name the rule, the evidence, and the alternative. Never writes."""
+    project = suggest_ledger_project(domain, values, hits)
+    print("REFUSED — OWNER-QUEUE DOMAIN RULE: customer/business work belongs in the "
+          "ledger, not the owner's decision queue.")
+    print("  The queue is only for a decision only the owner can make. Dialpad "
+          "texts, customer questions,")
+    print("  work orders and shop operations are not pending owner attention.")
+    if domain not in FILABLE_DOMAINS:
+        print(f"  filed as: --domain {domain} (only {'/'.join(FILABLE_DOMAINS)} may "
+              f"be filed without the escape)")
+    for h in hits[:6]:
+        print(f"  keyword backstop: {h['field']} names {h['match']!r} — {h['why']}")
+        print(f"      {h['snippet']}")
+    if len(hits) > 6:
+        print(f"  ... and {len(hits) - 6} more keyword hit(s)")
+    print("  WHERE IT GOES INSTEAD — the ledger (`/root/work/work.db`):")
+    print(f"    python3 /root/bin/work.py add --project {project} \\")
+    print("      --title \"<the action, one line>\" \\")
+    print("      --dod \"<the command or observation that proves it done>\" \\")
+    print("      --why \"<why this matters>\" \\")
+    print("      --source \"owner-queue:domain-guard\"")
+    print("  Projects: cfo, housekeeping, lpt-sync, lpt-website, prod-db-sync, and "
+          "others.")
+    print("  Run `python3 /root/bin/work.py project list` for the live list.")
+    print("  If this genuinely needs the owner — a policy, money, legal or taste "
+          "decision that merely")
+    print("  MENTIONS a customer — re-run with the deliberate escape and write down "
+          "why:")
+    print("    --owner-worthy --owner-reason \"why only the owner can decide this\"")
+    print("  Nothing was written.")
+
+
+# ---------------------------------------------------------------------------
 # write path
 # ---------------------------------------------------------------------------
 
@@ -425,6 +617,44 @@ def load_add_json(source: str) -> dict:
     return obj
 
 
+
+#: Duplicate refusals are appended here, one JSON object per line, next to the queue
+#: database (override with OWNER_QUEUE_REFUSAL_LOG). A refusal is NOT a filing, and a
+#: caller that only reads the exit code would otherwise lose the question entirely:
+#: measured 2026-10-16, cfo-shift.py logged `owner question NOT filed (owner-queue
+#: rc=4)` for a question refused as a duplicate of an already-answered row and dropped
+#: it. The queue itself is still not written to on a refusal.
+def refusal_log_path(dbpath: str) -> str:
+    override = os.environ.get("OWNER_QUEUE_REFUSAL_LOG", "").strip()
+    if override:
+        return override
+    return "%s.refusals.jsonl" % (dbpath or "owner-queue")
+
+
+def record_refusal(dbpath: str, values: dict, hit: dict) -> str | None:
+    """Append one line naming this refusal and the row it collided with. Never raises."""
+    path = refusal_log_path(dbpath)
+    entry = {
+        "at": now(),
+        "event": "refused",
+        "reason": "duplicate",
+        "existing_row": hit.get("row_id"),
+        "existing_table": hit.get("source_table"),
+        "existing_status": hit.get("status") or hit.get("answered_at"),
+        "similarity": round(float(hit.get("similarity") or 0.0), 4),
+        "question": values.get("question"),
+        "severity": values.get("severity"),
+        "source": values.get("source"),
+    }
+    try:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        return path
+    except OSError as exc:
+        print("add: refusal NOT recorded (%s)" % exc, file=sys.stderr)
+        return None
+
+
 def cmd_add(con, a) -> int:
     source = getattr(a, "from_json", None)
     if source:
@@ -436,6 +666,9 @@ def cmd_add(con, a) -> int:
             ("--options", a.options), ("--recommendation", a.recommendation),
             ("--severity", a.severity), ("--blocks", a.blocks),
             ("--source", a.source), ("--age-days", a.age_days),
+            ("--domain", getattr(a, "domain", None)),
+            ("--owner-worthy", True if getattr(a, "owner_worthy", False) else None),
+            ("--owner-reason", getattr(a, "owner_reason", None)),
         ) if val is not None]
         if clash:
             print("add: --from-json carries the whole row, so it cannot be combined with "
@@ -454,6 +687,15 @@ def cmd_add(con, a) -> int:
         age_days = obj.get("age_days")
         if age_days is not None and not isinstance(age_days, int):
             print("add --from-json: 'age_days' must be an integer")
+            return 2
+        domain = obj.get("domain") or "owner"
+        owner_worthy = obj.get("owner_worthy", False)
+        owner_reason = obj.get("owner_reason")
+        if not isinstance(owner_worthy, bool):
+            print("add --from-json: 'owner_worthy' must be true or false")
+            return 2
+        if owner_reason is not None and not isinstance(owner_reason, str):
+            print("add --from-json: 'owner_reason' must be a string")
             return 2
         values = {
             "question": question,
@@ -480,7 +722,33 @@ def cmd_add(con, a) -> int:
             "source": a.source,
             "age_days": a.age_days,
         }
+        domain = getattr(a, "domain", None) or "owner"
+        owner_worthy = bool(getattr(a, "owner_worthy", False))
+        owner_reason = getattr(a, "owner_reason", None)
         origin = "flags"
+
+    # ── Domain guard (2026-10-18) ────────────────────────────────────────────
+    # The filer's explicit marker is layer 1; the keyword backstop is layer 2. A
+    # non-owner domain or any keyword hit refuses unless the deliberate escape is
+    # used, and the escape is useless without a written reason.
+    if domain not in DOMAINS:
+        print(f"add: --domain {domain!r} not one of {', '.join(DOMAINS)}")
+        return 2
+    if owner_reason and not owner_worthy:
+        print("add: --owner-reason only means something with --owner-worthy; "
+              "nothing was written.")
+        return 2
+    if owner_worthy and not (owner_reason or "").strip():
+        print("REFUSED — --owner-worthy requires a non-empty --owner-reason.")
+        print("  The escape is deliberate: write down why only the owner can decide "
+              "this. Nothing was written.")
+        return 2
+    _domain_hits = domain_hits(values)
+    if (domain not in FILABLE_DOMAINS or _domain_hits) and not owner_worthy:
+        print_domain_refusal(domain, _domain_hits, values)
+        return DOMAIN_EXIT
+    if owner_worthy:
+        print(f"owner-worthy escape: domain={domain}; reason: {owner_reason.strip()}")
 
     blocking, plausible = guard_text(values)
     if blocking and not getattr(a, "allow_suspect_text", False):
@@ -493,7 +761,60 @@ def cmd_add(con, a) -> int:
         for h in blocking:
             print(f"  - {h['field']} offset {h['offset']} [{h['kind']}] {h['snippet']}")
 
-    cur = con.execute(
+    # ── Duplicate check (added 2026-09-29) ──────────────────────────────────
+    # Nothing here ever checked whether this question had already been asked and
+    # ANSWERED, or was already sitting in the queue. owner_decision_queue rows
+    # #182 and #183 are byte-identical and both pending because of exactly that.
+    # Refuse by default and name the existing row, so the caller can act on the
+    # answer instead of waiting for it a second time.
+    #   OWNER_QUEUE_ALLOW_DUPLICATE=1   deliberate re-add
+    if not (
+        getattr(a, "force", False)
+        or os.environ.get("OWNER_QUEUE_ALLOW_DUPLICATE") == "1"
+    ):
+        try:
+            sys.path.insert(0, "/home/zabz/personal-secretary-mvp")
+            from app.owner_question_dedupe import (
+                find_open_duplicate,
+                find_prior_answer,
+            )
+
+            _row = con.execute("PRAGMA database_list").fetchone()
+            _dbpath = _row[2] if _row else ""
+            _q = str(values.get("question") or "")
+            _hit = None
+            if _dbpath:
+                _hit = find_prior_answer(_dbpath, _q) or find_open_duplicate(_dbpath, _q)
+            if _hit:
+                print(
+                    "add: REFUSED - this already exists as #%s in %s (%s, "
+                    "similarity %.2f)."
+                    % (
+                        _hit.get("row_id"),
+                        _hit.get("source_table"),
+                        _hit.get("status") or _hit.get("answered_at") or "",
+                        float(_hit.get("similarity") or 0.0),
+                    )
+                )
+                print("  existing: %s" % str(_hit.get("question"))[:160])
+                if _hit.get("answer"):
+                    print("  answer  : %s" % str(_hit.get("answer"))[:240])
+                print(
+                    "  Nothing was written. Set OWNER_QUEUE_ALLOW_DUPLICATE=1 "
+                    "to add it anyway."
+                )
+                _logged = record_refusal(_dbpath, values, _hit)
+                print(
+                    "owner-queue: REFUSED duplicate existing_row=#%s existing_table=%s "
+                    "reason=duplicate%s"
+                    % (_hit.get("row_id"), _hit.get("source_table"),
+                       (" recorded=%s" % _logged) if _logged else " recorded=NO")
+                )
+                return 4
+        except Exception as _exc:  # never block a genuine add on this check
+            print("add: duplicate check skipped (%s)" % _exc, file=sys.stderr)
+
+    _insert = (
         """INSERT INTO owner_decision_queue
            (asked_at, question, context, options_json, recommendation, severity,
             blocks, source, age_days, status)
@@ -502,7 +823,20 @@ def cmd_add(con, a) -> int:
          values["recommendation"], values["severity"], values["blocks"],
          values["source"], values["age_days"]),
     )
-    con.commit()
+    _tries = int(os.environ.get("OWNER_QUEUE_RETRIES", "4"))
+    _delay = float(os.environ.get("OWNER_QUEUE_RETRY_DELAY", "10"))
+    cur = None
+    for _attempt in range(1, _tries + 1):
+        try:
+            cur = con.execute(*_insert)
+            con.commit()
+            break
+        except sqlite3.OperationalError as _exc:
+            if "locked" not in str(_exc).lower() or _attempt == _tries:
+                raise
+            print("owner-queue: database locked (attempt %d/%d); waiting %.0fs then retrying"
+                  % (_attempt, _tries, _delay), file=sys.stderr)
+            time.sleep(_delay)
     print(f"queued #{cur.lastrowid} [{values['severity']}] {values['question'][:70]}")
     print(f"  via {origin}; P265 guard: "
           + ("passed clean" if not blocking
@@ -614,6 +948,53 @@ def _parse_defer_target(text: str):
     raise ValueError(f"cannot read a date from {raw!r} (use YYYY-MM-DD, tomorrow, or +3d)")
 
 
+def cmd_amend(con, a) -> int:
+    """Refresh a PENDING row as the measurement moves.
+
+    WHY THIS EXISTS. The estate's own rule, written after a priority-1 item stopped being true within two
+    hours: "an item is a statement about the world at FILING time. When the measurement moves, the item
+    moves with it, or the next shift spends its opening minutes chasing a ghost." There was no way to obey
+    it: `add` refuses what looks like a duplicate, `resolve`/`answer`/`defer` all change the STATE, and
+    nothing could change the TEXT. Measured 2026-10-13: #228 (the funding question, the queue's genuine
+    head, deferral expired five days ago) carries a context dated 2026-10-01 with a hand-extracted figure,
+    while `scripts/finance/forward-view.py` now measures the same thing - 7.01 months of runway, a gap of
+    3,099.87/mo against 21,727.00 of personal capacity, capacity exhausted 2026-06 - and there was no way
+    to put the measured number on the row.
+
+    IT TOUCHES CONTEXT AND RECOMMENDATION ONLY. The QUESTION is never rewritten: that is what the owner
+    was asked, and changing it would make the queue's own history a lie. Only a PENDING row qualifies -
+    amending a resolved or dismissed question would rewrite what was answered. A --note is APPENDED with
+    the date, so a change is visible in the row rather than silent.
+    """
+    row = con.execute(
+        "SELECT id, status, context, recommendation FROM owner_decision_queue WHERE id=?", (a.id,)
+    ).fetchone()
+    # Close the read snapshot BEFORE writing: the SELECT leaves a deferred transaction open and the
+    # UPDATE would have to upgrade it, which SQLite refuses immediately if anything committed in
+    # between. Same reason and same fix as _close.
+    con.commit()
+    if not row:
+        print("no such queue row: %s" % a.id)
+        return 1
+    if row[1] != "pending":
+        print("row %s is %s, not pending -- amend only touches a question still waiting" % (a.id, row[1]))
+        return 1
+    if not (a.context or a.recommendation):
+        print("amend needs --context and/or --recommendation")
+        return 1
+    ctx = a.context if a.context else row[2]
+    rec = a.recommendation if a.recommendation else row[3]
+    if a.note:
+        ctx = "%s\n\nAMENDED %s: %s" % (ctx or "", now()[:10], a.note)
+    exec_locked(con,
+                "UPDATE owner_decision_queue SET context=?, recommendation=? WHERE id=?",
+                (ctx, rec, a.id))
+    print("#%s amended%s%s" % (a.id,
+                               " (context)" if a.context else "",
+                               " (recommendation)" if a.recommendation else ""))
+    return 0
+
+
 def cmd_defer(con, a) -> int:
     """Record that the owner has seen this and put it off to a stated day."""
     row = con.execute(
@@ -651,6 +1032,59 @@ def cmd_defer(con, a) -> int:
     return 0
 
 
+def _premise_moved_rows(limit=5):
+    """Pending rows whose premise premise-check.py has recorded as MOVED.
+
+    Read from the recorded check table rather than by re-running probes, so `next` stays fast.
+    Returns [] on any failure: this is a warning, and a warning that can break the queue tool is
+    worse than no warning.
+    """
+    import sqlite3 as _sq
+    try:
+        con = _sq.connect("file:%s?mode=ro" % DEFAULT_DB, uri=True)
+        try:
+            rows = con.execute(
+                "SELECT c.row_id, c.detail FROM owner_premise_check c "
+                "JOIN owner_decision_queue q ON q.id = c.row_id "
+                "WHERE c.verdict='changed' AND q.status='pending' ORDER BY c.row_id LIMIT ?",
+                (limit,)).fetchall()
+        finally:
+            con.close()
+        return rows
+    except Exception:
+        return []
+
+
+def _premise_verdict(row_id):
+    """Ask premise-check.py whether this row's PREMISE has moved since it was filed.
+
+    WHY THIS IS HERE. `cmd_amend` above states the rule in its own docstring - "an item is a
+    statement about the world at FILING time. When the measurement moves, the item moves with it,
+    or the next shift spends its opening minutes chasing a ghost" - and nothing ever ran it.
+    Measured 2026-10-16: of 33 pending rows, one asked the owner to buy a machine he already
+    owned, two had already been resolved by reality, and one stated a day-count that had drifted
+    by three days. premise-check.py re-measures; this hook is where the answer reaches the person
+    about to read the row.
+
+    GUARDED ON PURPOSE. A missing or broken checker must never break the queue tool, and it must
+    never silently return "fresh". It returns None when it cannot tell, and the caller then says
+    nothing rather than saying something wrong.
+    """
+    import os as _os
+    import subprocess as _sp
+    tool = "/root/bin/premise-check.py"
+    if not _os.path.exists(tool):
+        return None
+    try:
+        r = _sp.run(["/usr/bin/python3", tool, "check", str(row_id)],
+                    capture_output=True, text=True, timeout=45)
+    except Exception:
+        return None
+    if r.returncode not in (0, 10):
+        return None
+    return r.stdout.strip()
+
+
 def cmd_next(con, a) -> int:
     rows = con.execute(
         "SELECT * FROM owner_decision_queue WHERE status='pending'"
@@ -683,6 +1117,27 @@ def cmd_next(con, a) -> int:
             print(f"  (all {len(rows)} pending row(s) are deferred; showing the "
                   f"earliest-deferred one)")
         return 0
+    _moved = _premise_moved_rows()
+    if _moved:
+        print("  %d pending row(s) have a premise that MOVED since filing "
+              "- the row is not wrong, it is OUT OF DATE:" % len(_moved))
+        for _id, _detail in _moved:
+            print("     #%-5s %s" % (_id, (_detail or "")[:112]))
+        print("     re-measure all of them: python3 /root/bin/premise-check.py sweep --apply")
+        print()
+    _pv = _premise_verdict(shown[0]["id"])
+    if _pv and "verdict=changed" in _pv:
+        print("  !! PREMISE MOVED since this row was filed - re-measured by premise-check.py:")
+        for _l in _pv.splitlines():
+            print("     " + _l)
+        print("     (the row's context now carries this measurement; read it before acting)")
+        print()
+    elif _pv and "verdict=fresh" in _pv:
+        _d = [l.strip() for l in _pv.splitlines() if l.strip().startswith("due ") or "newest" in l
+              or "confirmed" in l or "present" in l or "balance" in l]
+        if _d:
+            print("  premise re-measured: " + _d[0][:120])
+            print()
     print(fmt(shown[0]))
     n = len(live)
     if not live:
@@ -774,6 +1229,69 @@ def cmd_lint(con, a) -> int:
     return 1 if flagged else 0
 
 
+def cmd_sweep(con, a) -> int:
+    """READ-ONLY: every existing row the domain guard would now refuse.
+
+    The guard only stops new filings; the backlog it implies has to be visible. This
+    never moves, dismisses, amends or deletes a row. A row listed here is a judgement
+    call: file it in the ledger first, then resolve the queue row deliberately.
+    """
+    q = "SELECT * FROM owner_decision_queue"
+    if not a.all:
+        q += " WHERE status='pending'"
+    q += " ORDER BY id"
+    rows = con.execute(q).fetchall()
+    fields = set(DOMAIN_SOFT_FIELDS + DOMAIN_STRONG_FIELDS)
+    flagged = []
+    for row in rows:
+        values = {f: row[f] for f in fields}
+        hits = domain_hits(values)
+        if hits:
+            flagged.append((row, hits))
+
+    if getattr(a, "json", False):
+        print(json.dumps({
+            "scanned": len(rows),
+            "scope": "all" if a.all else "pending",
+            "would_refuse": len(flagged),
+            "rows": [{
+                "id": row["id"],
+                "status": row["status"],
+                "severity": row["severity"],
+                "question": row["question"],
+                "hits": [{"field": h["field"], "kind": h["kind"],
+                          "match": h["match"], "why": h["why"]} for h in hits],
+            } for row, hits in flagged],
+        }, indent=1, ensure_ascii=False))
+        return 1 if flagged else 0
+
+    scope = "all" if a.all else "pending"
+    print(f"OWNER-QUEUE DOMAIN SWEEP — {len(rows)} {scope} row(s) scanned, "
+          f"{len(flagged)} would be refused")
+    print("  rule: customer/business work belongs in the ledger (`/root/work/work.db`);")
+    print("        this queue is only for a decision only the owner can make.")
+    if not rows:
+        print("  (no rows in scope — this is a real zero, not a failed read)")
+    for row, hits in flagged:
+        print()
+        print(f"#{row['id']}  status={row['status']}  severity={row['severity']}  "
+              f"asked={str(row['asked_at'])[:10]}")
+        print(f"  {str(row['question'])[:150]}")
+        for h in hits[:4]:
+            print(f"  - {h['field']} names {h['match']!r}: {h['why']}")
+        if len(hits) > 4:
+            print(f"  - ... and {len(hits) - 4} more hit(s)")
+        print("  -> the ledger, unless a written --owner-worthy reason says otherwise")
+    if flagged:
+        print()
+        print("  READ-ONLY: nothing was moved, dismissed, amended or deleted.")
+        print("  To clear one deliberately: file the work in the ledger, then resolve "
+              "this row with")
+        print("  --how/--dismissed naming the ledger item. This sweep never does that "
+              "for you.")
+    return 1 if flagged else 0
+
+
 def _close(con, a, status: str, text: str) -> int:
     row = con.execute("SELECT id, status FROM owner_decision_queue WHERE id=?", (a.id,)).fetchone()
 
@@ -788,11 +1306,9 @@ def _close(con, a, status: str, text: str) -> int:
     if not row:
         print(f"no such queue row: {a.id}")
         return 1
-    con.execute(
-        "UPDATE owner_decision_queue SET status=?, resolved_at=?, resolution=? WHERE id=?",
-        (status, now(), text, a.id),
-    )
-    con.commit()
+    exec_locked(con,
+                "UPDATE owner_decision_queue SET status=?, resolved_at=?, resolution=? WHERE id=?",
+                (status, now(), text, a.id))
     print(f"#{a.id} -> {status}")
     return 0
 
@@ -806,8 +1322,59 @@ def cmd_resolve(con, a) -> int:
     return _close(con, a, "resolved", a.how)
 
 
+def _journal_copy(row_id, question, answer) -> None:
+    """Append the owner's words to the journal so the answer survives the row.
+
+    MEASURED 2026-10-13: 14 of 67 answered rows had NO journal copy anywhere. This table is
+    mutable -- `amend` can overwrite `answer` -- and the journal is append-only, and nothing
+    connected them, so a decision he had given lived in one cell that a later edit could replace.
+    Backfill for the backlog: journal/tools/reconcile-owner-answers.py.
+
+    BEST EFFORT BY DESIGN: if the journal is unreachable the ANSWER IS STILL RECORDED and this
+    says so. His answer must never fail because a secondary copy failed.
+    """
+    import os
+    import re
+    import subprocess
+    # An explicit override first, so this is testable against a throwaway journal tree and so an
+    # operator can point it somewhere else without editing the tool.
+    j = os.environ.get("OWNER_QUEUE_JOURNAL") or None
+    if j and not os.path.exists(j):
+        print("  note: OWNER_QUEUE_JOURNAL names a path that does not exist; the answer is in the "
+              "queue row only")
+        return
+    if not j:
+        for cand in (os.path.expanduser("~/code/harness-config/journal/tools/journal.py"),
+                     "/root/code/harness-config/journal/tools/journal.py"):
+            if os.path.exists(cand):
+                j = cand
+                break
+    if not j:
+        print("  note: journal.py not found -- the answer is in the queue row only")
+        return
+    title = "Owner answer, queue row #%s: %s" % (
+        row_id, re.sub(r"\s+", " ", question or "")[:80])
+    body = ("Recorded by `owner-queue.py answer` on %s. The row is a mutable table; this entry is\n"
+            "the append-only copy. If the two ever disagree, the row was edited.\n\n"
+            "**Asked**: %s\n\n**His answer**: %s" % (now(), question or "(not recorded)", answer or ""))
+    try:
+        out = subprocess.run(
+            [sys.executable, j, "append", "decisions", "--title", title, "--body", body,
+             "--quiet", "--no-fetch", "--tags", "owner-answer",
+             "--refs", "owner_decision_queue#%s" % row_id],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    except Exception as exc:  # noqa: BLE001
+        print("  note: could not reach the journal (%s); the answer is in the queue row only" % exc)
+        return
+    if out.returncode == 0:
+        print("  journal: " + (out.stdout or "").strip()[:120])
+    else:
+        print("  note: journal append failed (%s); the answer is in the queue row only"
+              % (out.stderr or "").strip()[:120])
+
+
 def cmd_answer(con, a) -> int:
-    row = con.execute("SELECT 1 FROM owner_decision_queue WHERE id=?", (a.id,)).fetchone()
+    row = con.execute("SELECT question FROM owner_decision_queue WHERE id=?", (a.id,)).fetchone()
 
     # Close the read snapshot BEFORE writing. The SELECT above leaves a deferred
     # transaction open, so the UPDATE would have to upgrade a read transaction to a
@@ -826,6 +1393,7 @@ def cmd_answer(con, a) -> int:
     )
     con.commit()
     print(f"#{a.id} -> answered")
+    _journal_copy(a.id, row[0], a.answer)
     return 0
 
 
@@ -850,6 +1418,14 @@ def main() -> int:
                         "severity/blocks/source/age_days; text never passes a shell")
     p.add_argument("--allow-suspect-text", action="store_true",
                    help="store text the P265 guard flagged (default: refuse)")
+    p.add_argument("--domain", choices=list(DOMAINS), default=None,
+                   help="what this row is (default: owner). customer/business/"
+                        "engineering are refused: they belong in the ledger")
+    p.add_argument("--owner-worthy", action="store_true",
+                   help="deliberate escape; requires --owner-reason")
+    p.add_argument("--owner-reason", metavar="WHY",
+                   help="why only the owner can decide this; required with "
+                        "--owner-worthy")
 
     p = sub.add_parser("next")
     p.add_argument("--peek", type=int, default=1)
@@ -865,6 +1441,13 @@ def main() -> int:
     p.add_argument("--show-text", action="store_true",
                    help="also print each flagged field as its exact stored string")
 
+    p = sub.add_parser("sweep",
+                       help="READ-ONLY: list existing rows the domain guard would "
+                            "refuse; never moves or deletes them")
+    p.add_argument("--all", action="store_true",
+                   help="include resolved/answered/dismissed rows (default: pending)")
+    p.add_argument("--json", action="store_true")
+
     p = sub.add_parser("resolve")
     p.add_argument("id", type=int)
     p.add_argument("--how")
@@ -873,6 +1456,15 @@ def main() -> int:
     p = sub.add_parser("answer")
     p.add_argument("id", type=int)
     p.add_argument("--answer", required=True)
+
+    p = sub.add_parser(
+        "amend",
+        help="refresh a PENDING row's context/recommendation as the measurement moves; the "
+             "question itself is never touched")
+    p.add_argument("id", type=int)
+    p.add_argument("--context")
+    p.add_argument("--recommendation")
+    p.add_argument("--note", help="why it changed; appended to the context with today's date")
 
     p = sub.add_parser(
         "defer",
@@ -885,11 +1477,12 @@ def main() -> int:
 
     a = ap.parse_args()
     fn = {"add": cmd_add, "next": cmd_next, "list": cmd_list,
-          "stats": cmd_stats, "lint": cmd_lint,
+          "stats": cmd_stats, "lint": cmd_lint, "sweep": cmd_sweep,
           "resolve": cmd_resolve, "answer": cmd_answer,
-          "defer": cmd_defer}[a.cmd]
-    # lint on the live database must not need a write lock
-    con = connect(a.db, readonly=(a.cmd == "lint"))
+          "defer": cmd_defer, "amend": cmd_amend}[a.cmd]
+    # lint and sweep on the live database must not need a write lock
+    con = connect(a.db, readonly=(a.cmd in ("lint", "list", "next", "stats",
+                                            "sweep")))
     return fn(con, a)
 
 
