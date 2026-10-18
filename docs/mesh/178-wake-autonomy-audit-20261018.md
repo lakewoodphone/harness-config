@@ -2109,3 +2109,60 @@ dying with an explanation the system already had and was throwing away.
 
 **Correction (same round):** the lock-contention item filed above is **ledger item 565**, not 562 — 562 was
 already taken. A wrong id in a record is a wrong number, so it is corrected here rather than edited away.
+
+---
+
+## 64. ROUND 69 — THE LOCK'S HOLDER, AND IT WAS A NETWORK CALL INSIDE A WRITE TRANSACTION
+
+§63 named the symptom (`database is locked` killing shifts) and refused to guess the holder. This round names
+it, proves the mechanism, and removes it.
+
+### The code, quoted
+
+`reconcile-sent-status.py` — running every 10 minutes against `~/.sms-inbox/inbox.db`, **the same store the
+dispatcher renews leases on**:
+
+```python
+for r in rows:                                  # up to 25 rows
+    urlopen(req, timeout=30)                    # an HTTP call to Twilio
+    if real != old and a.apply:
+        conn.execute("UPDATE messages SET status=? WHERE sid=?", (real, sid))   # implicit txn opens
+        changed += 1
+if a.apply:
+    conn.commit()                               # only here, after the whole loop
+```
+
+Python's `sqlite3` opens an implicit transaction on the first DML statement and does not end it until `commit`.
+So the store's **write lock is held for the rest of the loop** — across every remaining Twilio round-trip.
+
+### Proven, not asserted
+
+`/root/_prove_lock_mechanism.py` on a throwaway database: a child process updates then sleeps four seconds
+without touching the database, while a second connection tries `BEGIN IMMEDIATE` with a 500 ms busy timeout.
+
+```
+RESULT: BEGIN IMMEDIATE failed while the child slept: database is locked
+RESULT: after the child committed, BEGIN IMMEDIATE succeeds immediately  -> lock released
+CONFIRMED: uncommitted UPDATE holds the write lock across non-database work
+```
+
+That is the mechanism behind §63's three kills, demonstrated in isolation. With 25 rows and a 30-second HTTP
+timeout each, the window is tens of seconds — larger than the heartbeat margin that §63 showed being exhausted.
+
+### The fix and its bound
+
+`conn.commit()` now happens **per row**, immediately after the `UPDATE`. The write transaction spans one
+statement instead of twenty-five network calls. Applied to `/home/zabz/bin/reconcile-sent-status.py`, which is
+**the same inode** as `/root/bin/reconcile-sent-status.py` (`stat -c %i` -> `2079928` for both), so the cron path
+and the other tree cannot drift. `py_compile` clean, backup `reconcile-sent-status.py.bak-commit-20261018`, and a
+real run afterwards: `unsettled outbound rows in the last 48h: 0` / `nothing to reconcile`.
+
+### What is still unprovable, and why that is acceptable now
+
+**Whether that exact script was the holder at 04:17:51 cannot be established retroactively** — the kill message
+of the period said `unknown`, and SQLite keeps no history of who held a lock. What is established: it is *a*
+holder, on the same store, with a window far longer than the margin, on a ten-minute cycle that overlaps the
+kills. §63's fix means the *next* occurrence names its holder in the log instead of saying `unknown` — which is
+the difference between resolving this and guessing at it.
+
+**Ledger item 565 closed done** with the mechanism, the code change and the bound.
