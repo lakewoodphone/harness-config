@@ -78,6 +78,18 @@ Added 2026-10-12 (journal **H3571**). This section exists because the search sur
 register, and so the cloud cutover carried none of it: `ps_search` — the tool the `fast-search` skill
 tells every agent to use — answered `Tool search not found` on the authority for a full day.
 
+**Updated 2026-10-18 (journal H7594, D6913, program `unified-search/docs/ESTATE-SEARCH-PROGRAM.md`):
+the surface agents call is now `esearch`, and it answers over SESSIONS too.**
+
+| what | where / how |
+|---|---|
+| **the one surface** | `ps_search(q, what=…)` → `esearch`, `https://secratary-cloud:8444` (tailnet) or `127.0.0.1:3095` on the authority. `systemctl status esearch` |
+| **what it reads** | `authority.db` in place — `dsh_session_events_fts` (8,587 sessions / 2,640,513 events, 0.15 s to rank 6,831 matches), `memories_fts`, `vscode_chat_sessions_fts` — plus `/root/.usearch/usearch.db`: comms (180,930), journal, mail, and the documents/code each host pushes |
+| **`what` now means** | `sessions` · `data` (comms) · `journal` · `docs` · `files` · `code` · `memory` · `chats` · `all`. Measured 2026-10-18: sessions 234 ms, comms 620 ms, journal 27 ms |
+| **how hosts contribute** | each host's `sync.py --push https://…:8444/ingest` posts the adapter's own document stream; a failed push is spooled and retried, and `?heartbeat=1` records a host that ran and had nothing new |
+| **freshness** | `esearch-health.timer` every 15 min → `/usr/local/bin/esearch-health-check.sh`; `/health` fails when the estate index, the session ingest, disk, or a host's last push (1.5× its interval) is out of bounds. **Proven both ways 2026-10-18:** exit 1 with the service stopped, exit 0 after it restarted |
+| **`fa` is narrowed, not replaced** | `fa symbol` and `fa --fresh` remain the only correct answer for a definition you are about to edit; `fa` is also the fallback when esearch is unreachable, and the tool marks that answer `degraded:` |
+
 | what | where / how |
 |---|---|
 | **the surface agents call** | `ps_search(query, what, limit, fresh)`, or `ps_action("search", {…})`. `what` ∈ `code` `data` `journal` `files` `symbol` `auto`. Returns `ok`, `source`, `ms`, `stale`, `exit_code`, `searched`. **`searched:false` is a REFUSAL, not a negative.** |

@@ -5,6 +5,39 @@ description: Use BEFORE any file or content search, and whenever a search feels 
 
 # Searching this estate in milliseconds instead of minutes
 
+## FIRST: which surface answers which question (rewritten 2026-10-18)
+
+Two tools, different questions. Asking the wrong one is why a search "returns nothing" while the
+thing is plainly there.
+
+**`ps_search` / `ps_action("search")` is the primary surface.** Since 2026-10-18 it answers from
+`esearch`: one indexed service on the authority over **every DSH session on every machine**
+(`authority.db`, 8,587 sessions / 2.6M events), **customer comms** (texts, calls, voicemails),
+**mail**, the **journal**, **memories**, **VS Code chats**, and the central estate index of documents
+and code that each host pushes. Measured 2026-10-18: a session question answers in **234 ms**, comms
+in **620 ms**, journal in **27 ms**.
+
+| the question | call |
+|---|---|
+| "which session did we discuss X on" | `ps_search(q, what="sessions")` |
+| "what did this customer say" | `what="data"` — texts, calls, voicemails |
+| "what did we decide / learn about X" | `what="journal"` |
+| "the document named X" | `what="docs"` |
+| "the file named X" | `what="files"` — the filename index, ~40 ms |
+| "where is this defined" | `what="symbol"` — **ALWAYS live, never indexed** |
+| "search the code I can see from here" | `what="code"` |
+| not sure | `what="all"` (the default) |
+
+**`fa` is not replaced — it is narrowed.** `fa symbol` and `fa --fresh` remain the only correct
+answer for a definition you are about to edit: an index can be minutes behind, and an edit against a
+stale definition is the one failure a search tool must never cause. `fa` is also the fallback when
+the service is unreachable.
+
+**Read the label the answer carries.** An indexed answer says `live=false` and prints the age of each
+store that answered. If `esearch` could not be reached the tool falls back to `fa` and marks the
+answer `degraded:` — that is a different answer and must not be treated as the same one.
+`did_not_answer` names every corpus that refused: **a refusal is not a negative.**
+
 ## The one thing to know
 
 **A search that takes a minute is not slow software — it is a search pointed at four million files that
