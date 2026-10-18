@@ -1167,7 +1167,11 @@ while kill -0 "$SESS_PID" 2>/dev/null; do
   kill "$HB_SLEEP" 2>/dev/null
   wait "$HB_SLEEP" 2>/dev/null
   if kill -0 "$SESS_PID" 2>/dev/null; then
-    if ! heartbeat_lease; then
+    # Record the ACTUAL status, not just "non-zero": MEASURED 2026-10-18 the function failed without
+    # taking either of its own return paths, and only the number can tell an interrupt (128+N) from a
+    # decision. Same condition, same behaviour, one datum kept. No `set -e` in this script.
+    heartbeat_lease; HB_RC=$?
+    if [ "$HB_RC" -ne 0 ]; then
       # Two different things, and only one of them is a lost lease. Both stop the
       # session: a second dispatcher must never pick up a row this one is running.
       # Before 2026-09-30 this branch also fired on a six-second lock and said
@@ -1193,7 +1197,7 @@ while kill -0 "$SESS_PID" 2>/dev/null; do
       # "wake: database error: database is locked" -- sat in _LEASE_LAST_ERR and was discarded.
       # A kill message that cannot say why is the same defect as a monitor that measures nothing.
       OUTCOME_REASON="lease not renewed: ${LEASE_LOSS_REASON:-${_LEASE_LAST_ERR:-unknown}}"
-      log "ERROR lease for wake #$ID not renewed - killing the session to avoid a double release: ${LEASE_LOSS_REASON:-${_LEASE_LAST_ERR:-unknown}} [decision=${LEASE_DECISION:-unset} rc=${LEASE_RC:-unset} attempt=${LEASE_ATTEMPT:-unset} err=${_LEASE_LAST_ERR:-none}]"
+      log "ERROR lease for wake #$ID not renewed - killing the session to avoid a double release: ${LEASE_LOSS_REASON:-${_LEASE_LAST_ERR:-unknown}} [hbrc=${HB_RC:-unset} decision=${LEASE_DECISION:-unset} rc=${LEASE_RC:-unset} attempt=${LEASE_ATTEMPT:-unset} err=${_LEASE_LAST_ERR:-none}]"
       kill "$SESS_PID" 2>/dev/null
       break
     fi
