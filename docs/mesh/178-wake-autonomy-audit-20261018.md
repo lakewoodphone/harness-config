@@ -2847,3 +2847,43 @@ log "ERROR lease for wake #$ID not renewed ... [decision=${LEASE_DECISION:-unset
 not "the code is wrong" but "the evidence was not carried". Adding the evidence first, and reading the next
 occurrence, costs one kill instead of another round of guesses — and the last time this file was edited on a
 hypothesis rather than a measurement it cost two shifts (§68).
+
+---
+
+## 73. ROUND 78 — THE DEPLOY HAZARD IS CLOSED AT BOTH ENDS: THE REPO NOW IS PRODUCTION
+
+§4 named this "the single biggest hazard to every fix above": the repo copies were **different lineages**
+from what runs. §45 built the refuse guard, which stopped the damage; it never removed the cause, because
+§4's own prescription was *"pull production INTO the repo first, then add diff-and-refuse"* and only the
+second half was done.
+
+Measured today, the gap had widened:
+
+```
+dispatch.sh          repo  579 lines / 26254 B / 9e619d0c    live 1400 lines / 74101 B / b5f77b77
+wake.py              repo 1280 lines / 54119 B / 3cda25e6    live 2046 lines / 95848 B / 8b027117
+run-wake-sources.sh  repo 2979 B                             live 19228 B / 45a475af
+```
+
+All three live files were copied into `scripts/wake/` and committed (`f6f5b0c7`, pushed to
+`refs/heads/fix/reconcile-wake-repo`). **The proof is the same dry run that used to refuse:**
+
+```
+before:  REFUSED  /root/bin/wake.py holds 721 line(s) that .../wake/wake.py does not have
+         REFUSED  /root/bin/wake-dispatch.sh holds 710 line(s) that .../dispatch.sh does not have
+after :  ok       /root/bin/wake.py (identical, nothing to do)
+         ok       /root/bin/wake-dispatch.sh (identical, nothing to do)
+```
+
+**So the deploy hazard is now closed at both ends:** the guard refuses a divergent install, and there is no
+longer anything divergent to install. A `deploy.sh --apply` today is a no-op, which is what a deploy should
+be until someone deliberately changes the repo.
+
+**The direction of truth is now stated once and unambiguously: production is what runs.** Every future edit
+starts from these files, and a session that edits the repo copy and then deploys will be changing the live
+dispatcher deliberately rather than by accident.
+
+**One honest caveat:** this commit was made in the authority's checkout (`/root/code/harness-config`) because
+that is where the live files are. This session's other commits are in the Windows checkout. Two checkouts, two
+HEADs — the estate's documented divergence (`AGENTS.md` §6.1), not something this round created or fixed. The
+next integrator should merge `fix/reconcile-wake-repo` before editing these three files anywhere.
