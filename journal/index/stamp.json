@@ -8,13 +8,13 @@
   "pain": 7179,
   "wins": 6747
  },
- "ceiling_refreshed_at": "2026-10-18T01:30:24Z",
+ "ceiling_refreshed_at": "2026-10-18T01:45:25Z",
  "ceiling_source": {
-  "decisions": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
-  "handoff": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
-  "lessons": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
-  "pain": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical",
-  "wins": "refs/heads/shift/lpt-sync-472-shop-self-test-canonical"
+  "decisions": "ZABZ-YOGA live working tree",
+  "handoff": "ZABZ-YOGA live working tree",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "ZABZ-YOGA live working tree",
+  "wins": "ZABZ-YOGA live working tree"
  },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-18 00:12 UTC",
@@ -24,8 +24,8 @@
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 6464,
-  "handoff": 7080,
-  "lessons": 7805,
+  "handoff": 7144,
+  "lessons": 7869,
   "pain": 7242,
   "wins": 6810
  },
