@@ -257,7 +257,7 @@ def exec_locked(con, sql, params=()):
             time.sleep(delay)
 
 
-def fmt(row: sqlite3.Row) -> str:
+def fmt(row: sqlite3.Row, replace_options=None, replace_recommendation=None) -> str:
     out = []
     out.append("=" * 78)
     # An attention row is about something that HAPPENED; `asked_at` is only when the ingest
@@ -290,7 +290,16 @@ def fmt(row: sqlite3.Row) -> str:
             for line in textwrap.wrap(para, 74) or [""]:
                 out.append("    " + line)
     opts = row["options_json"]
-    if opts:
+    # MEASURED 2026-10-18 on the row he would have read first: the filed options were a template
+    # whose first choice was "Investigate it and bring me a recommendation" -- i.e. the item asking
+    # itself to do its own work -- and printing them under a better recommendation leaves the card
+    # contradicting itself. When the recommendation is replaced, the choices are replaced with it.
+    if replace_options:
+        out.append("")
+        out.append("  YOUR CHOICES")
+        for i, o in enumerate(replace_options, 1):
+            out.append(f"    {i}) {o}")
+    elif opts:
         items = parse_options(opts)
         if items:
             out.append("")
@@ -302,7 +311,10 @@ def fmt(row: sqlite3.Row) -> str:
             # show it rather than swallowing it the way the old reader did.
             out.append("")
             out.append("  OPTIONS (raw): " + str(opts))
-    if row["recommendation"]:
+    if replace_recommendation:
+        out.append("")
+        out.append("  MY RECOMMENDATION: " + replace_recommendation)
+    elif row["recommendation"]:
         out.append("")
         out.append("  MY RECOMMENDATION: " + row["recommendation"])
     if row["source"]:
@@ -1380,6 +1392,7 @@ def _close(con, a, status: str, text: str) -> int:
                 (status, now(), text, a.id))
     print(f"#{a.id} -> {status}")
     _record_feedback(con, a.id, "dismissed" if status == "dismissed" else "resolved", text)
+    _close_with_siblings(con, a, "dismissed" if status == "dismissed" else "resolved", text)
     return 0
 
 
@@ -1465,7 +1478,39 @@ def cmd_answer(con, a) -> int:
     print(f"#{a.id} -> answered")
     _record_feedback(con, a.id, "answered", a.answer)
     _journal_copy(a.id, row[0], a.answer)
+    _close_with_siblings(con, a, "answered", a.answer)
     return 0
+
+
+def _close_with_siblings(con, a, action: str, text: str) -> None:
+    """Close the rows he answered at the same time, by name, so nothing is left orphaned.
+
+    He knocks this queue out in one sitting: when two rows are the same matter and he answers it
+    once, the second row must not come back tomorrow asking the same thing. The close is recorded
+    on each row with the reason, so the learning sees two answered items and not one answered and
+    one abandoned -- an abandoned row is what a dismissal-penalty learns the wrong lesson from.
+    """
+    raw = getattr(a, "with_ids", None) or ""
+    ids = [x.strip().lstrip("#") for x in str(raw).replace(",", " ").split() if x.strip()]
+    for sid in ids:
+        if str(sid) == str(a.id):
+            continue
+        try:
+            r = con.execute("SELECT id, question, status FROM owner_decision_queue WHERE id=?",
+                            (sid,)).fetchone()
+        except Exception:
+            continue
+        con.commit()
+        if not r or str(r["status"]) != "pending":
+            print("  (with: #%s is not pending; left alone)" % sid)
+            continue
+        note = "answered together with #%s" % a.id
+        exec_locked(con,
+                    "UPDATE owner_decision_queue SET status=?, resolved_at=?, resolution=? WHERE id=?",
+                    ("answered" if action == "answered" else "resolved", now(), note, sid))
+        print("  #%s -> also closed (%s)" % (sid, note))
+        _record_feedback(con, sid, action, text)
+        _journal_copy(sid, r["question"], text)
 
 
 # ---------------------------------------------------------------------------
@@ -1539,53 +1584,238 @@ def _record_feedback(con, item_id, action, answer="") -> None:
 
 
 LEARN_WINDOW_DAYS = 120
-LEARN_MIN_DISMISSALS = 2
 LEARN_PER_DISMISSAL = 40
-LEARN_CAP = 120
+LEARN_CAP = 160
+#: Per dimension, how much it may move the ranking, and how much evidence it needs first.
+#:
+#: MEASURED 2026-10-18, by running the profile over a simulated session: four dismissed emails gave
+#: `channel email -96`, which would have demoted EVERY email for 120 days -- including the T-Mobile
+#: "your service is suspended" that sat at the top of the queue. A broad dimension cannot carry a
+#: narrow conclusion. So the wider the bucket, the more evidence it needs and the less it may move:
+#:
+#:   party / domain  a specific correspondent or company -- sharpest signal, biggest permitted move
+#:   class           "notice", "money", "person" -- needs 8 closes, may move half as far
+#:   channel         "email", "sms" -- needs 10 closes, may move least of all
+LEARN_DIM_RULES = {
+    "party":   {"min": 3,  "cap": 160, "elev": 90},
+    "domain":  {"min": 3,  "cap": 160, "elev": 90},
+    "class":   {"min": 8,  "cap": 80,  "elev": 50},
+    "channel": {"min": 10, "cap": 60, "elev": 40},
+}
 #: Parties that are not identities. MEASURED 2026-10-18 on the first learning test: three dismissed
 #: items made the profile say `DEMOTED party several -80` -- because every folded digest row carries
 #: party='several', so dismissing two digests would have demoted digests forever. A party that names
 #: no one cannot teach the queue anything.
 NON_PARTIES = frozenset({"", "several", "unknown", "n/a", "none", "-", "various"})
 
+#: The dimensions his answers are read along. Each is a way of saying "this KIND of thing".
+LEARN_DIMENSIONS = ("party", "domain", "class", "channel")
 
-def _learning_profile(con):
-    """Senders and parties his own answers have taught the queue to stop showing him."""
-    prof = {"domain": {}, "party": {}}
+#: He acts on a kind of item this often => it is underweighted, and moves up.
+LEARN_ANSWER_HIGH = 0.75
+#: He dismisses a kind of item this often => it is overweighted, and moves down.
+LEARN_DISMISS_HIGH = 0.60
+
+
+#: Channels that still write this queue. A close from any other surface cannot teach the CURRENT
+#: ranking: MEASURED 2026-10-18 -- of 111 answered/dismissed rows, the dismissals are almost all
+#: `owner_message_queue #NNNN`, the app's held-alert table, which the mail judge has since made
+#: redundant (that is exactly why the reader drops held rows the judge already judged). Teaching
+#: "email sinks" from those would demote the live email channel on the strength of a dead one.
+LIVE_CHANNELS = ("email", "sms", "call", "voicemail", "agent", "sweep")
+
+#: Source prefix -> channel. A mapping, not an inference: `gv-ingest:sms` IS the Google Voice text
+#: channel and nothing else. MEASURED 2026-10-18: across the 111 answered/dismissed rows on the
+#: record, `party`, `channel`, `cls` and `sender_domain` were EMPTY on every single one, because the
+#: old writer never stored them -- so a profile read from history could learn nothing at all. The
+#: source string survives on every row and says which channel it came from.
+_SOURCE_CHANNEL = (
+    ("gv-ingest:sms", "sms"), ("gv-ingest:missed_call", "call"),
+    ("gv-ingest:voicemail", "voicemail"), ("gv-ingest:digest", "sms"),
+    ("mail-ingest", "email"), ("attention-sweep", "sweep"),
+)
+
+#: The shapes a one-liner uses to name the person. Deliberately a short list of exact patterns; a
+#: fuzzy name extractor would invent a party and then learn from its own invention.
+_RE_PARTY = (
+    re.compile(r"^Text from ([^:]{2,40}):", re.I),
+    re.compile(r"^Missed call from ([^.:]{2,40})\.?$", re.I),
+    re.compile(r"^Voicemail from (\([0-9]{3}\) ?[0-9]{3})", re.I),
+    re.compile(r"(?:URGENT EMAIL\s+)?From:\s*(.{2,60}?)\s*<[^>]+>", re.I),
+    re.compile(r"^(.{2,40}?) (?:asks|sent|wrote|replied)\b", re.I),
+)
+
+
+def _dimensions_from_row(source, question):
+    """(channel, party) recovered from what an old row DOES record. Used only by the backfill."""
+    src = str(source or "")
+    chan = ""
+    for prefix, ch in _SOURCE_CHANNEL:
+        if src.startswith(prefix):
+            chan = ch
+            break
+    party = ""
+    for rx in _RE_PARTY:
+        m = rx.search(str(question or "").strip())
+        if m:
+            party = m.group(1).strip()
+            break
+    return chan, party
+
+
+def _feedback_from_history(con) -> int:
+    """Teach the profile from the 553 rows the queue has already closed. Idempotent.
+
+    MEASURED 2026-10-18: `owner_queue_feedback` held **2 rows** while `owner_decision_queue` held
+    **553 closed ones** -- 10 answered, 101 dismissed, 442 resolved. The learning loop he asked for
+    was wired to a table nobody had ever written to, so it had learned nothing from a year of his
+    decisions. The rows already contain his words (`answer`) and the reason (`resolution`); nothing
+    needs to be asked again. Each close is copied once, keyed on (item_id, action), so re-running
+    this cannot double-count and cannot undo a later real close.
+    """
+    try:
+        have = {(str(r[0]), str(r[1])) for r in con.execute(
+            "SELECT item_id, action FROM owner_queue_feedback")}
+    except Exception:
+        return 0
+    con.commit()
     try:
         rows = con.execute(
-            "SELECT sender_domain, party,"
-            "  SUM(CASE WHEN action='dismissed' THEN 1 ELSE 0 END) d,"
-            "  SUM(CASE WHEN action='answered'  THEN 1 ELSE 0 END) a"
-            " FROM owner_queue_feedback WHERE at > datetime('now', ?)"
-            " GROUP BY sender_domain, party", ("-%d day" % LEARN_WINDOW_DAYS,)).fetchall()
-    except Exception:
-        return prof
+            "SELECT id, status, kind, channel, party, severity, meta_json, source, question,"
+            "       COALESCE(NULLIF(answer,''), resolution, '') AS said"
+            "  FROM owner_decision_queue"
+            " WHERE status IN ('answered','resolved','dismissed','superseded')").fetchall()
+    except Exception as exc:  # noqa: BLE001
+        print("  (backfill could not read the closed rows: %s: %s)" % (type(exc).__name__, exc))
+        return 0
+    con.commit()
+    written = 0
+    failed = 0
     for r in rows:
-        d, a = int(r["d"] or 0), int(r["a"] or 0)
-        if d < LEARN_MIN_DISMISSALS or d <= a:
+        action = {"answered": "answered", "resolved": "resolved",
+                  "dismissed": "dismissed", "superseded": "superseded"}.get(r["status"], "resolved")
+        if (str(r["id"]), action) in have:
             continue
-        pen = min(LEARN_CAP, LEARN_PER_DISMISSAL * (d - a))
-        dom = str(r["sender_domain"] or "").lower()
-        if dom:
-            prof["domain"][dom] = max(prof["domain"].get(dom, 0), pen)
-        p = str(r["party"] or "").strip().lower()
-        if p and p not in NON_PARTIES:
-            prof["party"][p] = max(prof["party"].get(p, 0), pen)
+        meta = _parse_meta(r["meta_json"])
+        sender = str(meta.get("sender") or "")
+        dom = re.search(r"@([A-Za-z0-9.\-]+)", sender)
+        chan, party = r["channel"], r["party"]
+        if not chan or not party:
+            d_chan, d_party = _dimensions_from_row(r["source"], r["question"])
+            chan = chan or d_chan
+            party = party or d_party
+        try:
+            con.execute(
+                "INSERT INTO owner_queue_feedback"
+                " (item_id, action, answer, kind, channel, party, cls, sender_domain, tier_at,"
+                "  score_at, at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (str(r["id"]), action, str(r["said"] or "")[:600], r["kind"], chan,
+                 party, str(meta.get("class") or ""),
+                 (dom.group(1).lower().rstrip(">") if dom else ""), r["severity"], None,
+                 now()))
+            written += 1
+        except Exception:
+            failed += 1
+            continue
+    con.commit()
+    if failed:
+        print("  (%d close(s) could not be copied into the feedback table)" % failed)
+    return written
+
+
+def _learning_profile(con):
+    """What his own closes taught, per dimension, with the evidence behind each number.
+
+    Every entry is a *signed* adjustment: negative means he keeps dismissing this kind of thing,
+    positive means he almost always acts on it. Both are printed, because "what to put in it" and
+    "what to prioritize" were one sentence in his instruction and are one table here.
+
+    WHOSE SIGNAL THIS IS -- the trap that would have taught it backwards. MEASURED 2026-10-18 on the
+    559 closed rows: **442 are `resolved`**, and reading four of them showed they were closed by ME
+    under the standing autonomy rule ("DECIDED 2026-10-18 under the owner's standing autonomy rule"),
+    plus the queue closing its own loops ("auto-closed: portal@telnyx.com said account re-enabled").
+    Counting those as "he acted on it" would have taught the queue that everything it auto-closes is
+    something he loves. So only his four verbs count:
+        answered 1.0 · dismissed 1.0 · skipped 0.5 (he looked and moved on) · deferred 0.3 (later,
+        not never). `resolved` contributes nothing and is reported as excluded.
+
+    ONE QUERY PER DIMENSION, not one GROUP BY across all four: grouping by
+    (party, domain, class, channel) together makes every cell n=1, which crossed no floor and made
+    the whole profile print "nothing has crossed the sample floor" over 111 real signals.
+    """
+    prof = {k: {} for k in LEARN_DIMENSIONS}
+    expr = {
+        "party": "LOWER(TRIM(COALESCE(party,'')))",
+        "domain": "LOWER(TRIM(COALESCE(sender_domain,'')))",
+        "class": "LOWER(TRIM(COALESCE(cls,'')))",
+        "channel": "LOWER(TRIM(COALESCE(channel,'')))",
+    }
+    for dim in LEARN_DIMENSIONS:
+        try:
+            rows = con.execute(
+                "SELECT %s AS k,"
+                "  SUM(CASE WHEN action='answered' THEN 1.0 ELSE 0 END) a,"
+                "  SUM(CASE WHEN action='dismissed' THEN 1.0 ELSE 0 END) d,"
+                "  SUM(CASE WHEN action='skipped' THEN 1.0 ELSE 0 END) s,"
+                "  SUM(CASE WHEN action='deferred' THEN 1.0 ELSE 0 END) f"
+                " FROM owner_queue_feedback"
+                " WHERE at > datetime('now', ?) AND action IN"
+                "       ('answered','dismissed','skipped','deferred')"
+                "   AND LOWER(TRIM(COALESCE(channel,''))) IN (%s)"
+                " GROUP BY k" % (expr[dim], ",".join("'%s'" % c for c in LIVE_CHANNELS)),
+                ("-%d day" % LEARN_WINDOW_DAYS,)).fetchall()
+        except Exception:
+            continue
+        for r in rows:
+            k = str(r["k"] or "")
+            if not k or k in NON_PARTIES:
+                continue
+            acted = float(r["a"] or 0) + float(r["f"] or 0) * 0.3
+            avoided = float(r["d"] or 0) + float(r["s"] or 0) * 0.5
+            n = acted + avoided
+            rule = LEARN_DIM_RULES[dim]
+            if n < rule["min"]:
+                continue
+            act_rate = acted / n
+            adj, why = 0, ""
+            if act_rate <= (1.0 - LEARN_DISMISS_HIGH):
+                adj = -min(rule["cap"], int(round(avoided * LEARN_PER_DISMISSAL * 0.6)))
+                why = "he dismisses %.0f%% of these (%.1f of %.1f)" % (
+                    100 * (1 - act_rate), avoided, n)
+            elif act_rate >= LEARN_ANSWER_HIGH:
+                adj = min(rule["elev"], int(round(acted * 12)))
+                why = "he acts on %.0f%% of these (%.1f of %.1f)" % (100 * act_rate, acted, n)
+            elif abs(act_rate - 0.5) > 0.2:
+                # Between the two rules nothing is learned: the middle is where a queue should
+                # neither promote nor bury, and pretending otherwise is how a profile overfits.
+                continue
+            if adj:
+                prof[dim][k] = {"adj": adj, "n": int(n), "act": round(act_rate, 2), "why": why}
     return prof
 
 
 def _learned_penalty(item, prof) -> int:
-    """The demotion this item has earned from his past answers, and nothing more."""
-    pen = 0
+    """The signed adjustment his past closes have earned this item. Positive = show it sooner."""
+    total = 0
     sender = str(item.get("_sender") or "")
     dom = re.search(r"@([A-Za-z0-9.\-]+)", sender)
-    if dom:
-        pen = max(pen, prof["domain"].get(dom.group(1).lower().rstrip(">"), 0))
-    party = str(item.get("party") or "").strip().lower()
-    if party and party not in NON_PARTIES:
-        pen = max(pen, prof["party"].get(party, 0))
-    return pen
+    keys = {
+        "party": str(item.get("party") or "").strip().lower(),
+        "domain": (dom.group(1).lower().rstrip(">") if dom else ""),
+        "class": str(item.get("_class") or "").strip().lower(),
+        "channel": str(item.get("channel") or "").strip().lower(),
+    }
+    for dim, k in keys.items():
+        if not k or k in NON_PARTIES:
+            continue
+        cell = prof.get(dim, {}).get(k)
+        if cell:
+            # The largest single signal wins rather than the sum: four dimensions agreeing is
+            # evidence about the same item, not four independent facts, and summing them would let
+            # a dismissed sender from a dismissed class jump a whole band.
+            if abs(cell["adj"]) > abs(total):
+                total = cell["adj"]
+    return total
 
 
 def _age_hours_from(value):
@@ -1708,12 +1938,12 @@ def _queue_score(item):
         add = int(min(200, money / 10.0))
         score += add
         why.append("money=+%d" % add)
-    # A sender he keeps dismissing sinks, by an amount that is printed. Capped, and never enough to
-    # pull a critical item below a medium one -- learning may reorder a band, never invert it.
+    # What his own closes taught. SIGNED: a sender he keeps dismissing sinks, and a kind of item he
+    # always acts on rises. Bounded so learning may reorder inside a band and can never invert one.
     learned = item.get("learned") or 0
     if learned:
-        score = max(1, score - int(learned))
-        why.append("learned=-%d" % int(learned))
+        score = max(1, score + int(learned))
+        why.append("learned=%+d" % int(learned))
     if item.get("moot"):
         score = max(1, score - 200)
         why.append("moot=-200")
@@ -1801,6 +2031,16 @@ def _gather_queue(con, include_deferred=False):
             "deferred": deferred,
             "_unseen": not r["seen_at"],
             "at": at,
+            "_context": r["context"] or "",
+            # The message's own identity, so two rows derived from ONE email can be proven to be
+            # one thing rather than guessed at by similarity. MEASURED 2026-10-18: #643 and #687 are
+            # literally the same message (account lakewoodphoneandtech@gmail.com, thread
+            # 1a1402619af10782) judged twice into two classes -- it landed as two queue rows.
+            "_account": str(meta.get("account") or ""),
+            "_thread": str(meta.get("thread_id") or ""),
+            "_subject": str(meta.get("subject") or ""),
+            "_class": str(meta.get("class") or ""),
+            "_members": meta.get("members") or [],
         })
 
     # ── agent questions: pending only; owned and closed by the app ───────────
@@ -1863,8 +2103,238 @@ def _gather_queue(con, include_deferred=False):
         it.setdefault("_blob", str(it.get("title") or ""))
         it["moot"], it["moot_why"] = _moot(it)
         it["learned"] = _learned_penalty(it, prof)
+        it["_facts"], it["_ready"], it["_missing"] = _dossier(con, it)
         it["score"], it["why"] = _queue_score(it)
     items.sort(key=lambda i: (-i["score"], i["surface"] != "queue", str(i["id"])))
+    items = _collapse_facts(items)
+    return items
+
+
+# ---------------------------------------------------------------------------
+# ONE FACT, ONE ROW
+#
+# MEASURED 2026-10-18 on the live 74-row queue, and it is the defect he would feel first, because he
+# knocks this out "once every other day" and cannot answer the same thing three times:
+#
+#   Techloq filter auto-renews 36.99   appeared as  #680 (its own row), #647 (inside a money digest)
+#                                      and #688 (inside a notice digest) -- three rows, one fact.
+#   LPT referral list                  #687, #642, #643 -- three rows, one fact.
+#   NJ tax payment confirmation        #626, #675 -- two digests carrying the same member.
+#   300DDR recovered drive             #693 (the mail) and #646 (the agent's question about it).
+#
+# Never fixed by de-duplicating at INSERT time, for the same reason nothing reads a stored score: the
+# digests are written per (class, day), the same message is judged into two classes on one day, and a
+# row written yesterday is still the same fact as today's row. Collapsing at READ time repairs every
+# historic row at once and cannot go stale.
+#
+# Two rules, both narrow, both printed so the merge is judgeable:
+#   A. a DIGEST is not one fact, it is N facts in a coat. Split it on " · ", and drop any member that
+#      another row in this queue already owns -- or that an already-shown digest took. A digest that
+#      loses everything disappears (its members are all present elsewhere); one that keeps one member
+#      becomes that member, because a digest of one is not a digest.
+#   B. a DECISION absorbs ATTENTION about the same thing. He does not need to read the notice and
+#      then answer the question about the notice. The suppressed row's id is carried on the decision
+#      so the dossier still holds every word.
+# ---------------------------------------------------------------------------
+
+#: Words that carry no fact. Kept short on purpose: a stopword list that grows starts eating subjects.
+_STOP_FACT = frozenset("""
+a an the is are was were be been being am do does did has have had will would shall should can could
+may might must of in on at to for from by with about into over after before and or but not no nor
+this that these those it its your you our we my me his her their they them he she i as if than then
+there here what which who whom when where why how all any both each few more most other some such
+only own same so too very just also now new
+""".split())
+
+RE_DIGEST_HEAD = re.compile(
+    r"^\s*(\d+)\s+[A-Za-z ]*?notices?\s*(?:\(\s*(\d{4}-\d{2}-\d{2})\s*\))?\s*:\s*(.+)$", re.I)
+
+#: A matter reference: the shop's own case/work-order tags, a ticket number, a phone number, a long
+#: alphanumeric serial. These are what make two differently-worded rows the SAME thing (300DDR).
+RE_CASE_REF = re.compile(r"\b([0-9]{2,4}ddr)\b|\b(?:case|ticket|wo|work order|order)\s*#?\s*([0-9]{3,7})\b"
+                         r"|\b#([0-9]{3,7})\b", re.I)
+
+
+def _fact_sig(text):
+    """The significant words of a one-liner: what makes two sentences the same fact."""
+    s = re.sub(r"\$?\b\d[\d,\.]*\b", " ", str(text or "").lower())
+    s = re.sub(r"[^a-z]+", " ", s)
+    return frozenset(w for w in s.split() if len(w) >= 4 and w not in _STOP_FACT)
+
+
+def _same_fact(a, b, need=3, ratio=0.6):
+    """Two signatures naming the same fact. Deliberately conservative."""
+    if len(a) < need or len(b) < need:
+        return False
+    inter = len(a & b)
+    return inter >= need and (float(inter) / len(a | b)) >= ratio
+
+
+def _case_refs(text):
+    """The shop references in a one-liner, normalised: '300ddr', 'case:4485', 'ticket:12345'."""
+    refs = set()
+    for m in RE_CASE_REF.finditer(str(text or "")):
+        g = [x for x in m.groups() if x]
+        if not g:
+            continue
+        v = g[0].lower()
+        if v.endswith("ddr"):
+            refs.add(v)
+        else:
+            refs.add("ref:" + v.lstrip("0"))
+    return refs
+
+
+def _digest_members(title):
+    """(count, date, [member, ...]) if this row is a folded digest, else None."""
+    m = RE_DIGEST_HEAD.match(str(title or ""))
+    if not m:
+        return None
+    members = [x.strip() for x in re.split(r"\s+·\s+", m.group(3)) if x.strip()]
+    if not members:
+        return None
+    return int(m.group(1)), (m.group(2) or ""), members
+
+
+def _entity_tokens(item):
+    """The names on an item: who it is from, reduced the way a person would say it.
+
+    `Brian, 300DDR` and `Brian at 300DDR` are the same correspondent, and #693/#646 proved it --
+    the mail about a recovered drive and the agent's question about it were the same matter four
+    words apart. Matching on the signature alone could not see it; matching on the name can.
+
+    PARTY ONLY, never the channel. MEASURED 2026-10-18 while testing a wider version: including
+    `channel` made every pair of missed calls share the tokens {"call", "missed"}, so "Missed call
+    from Parsons" and "Missed call from Mogo" were proposed as one fact. A token that every row of a
+    class carries identifies nothing.
+    """
+    raw = str(item.get("party") or "")
+    return frozenset(t for t in re.findall(r"[a-z0-9]{4,}", raw.lower()) if t not in _STOP_FACT)
+
+
+def _siblings(item, items):
+    """Other rows that are probably the SAME MATTER, not proven to be.
+
+    Deliberately never merged: a wrong merge hides an item, which is the one failure this queue
+    cannot afford. Instead they are shown on the card and answered with one verb, so he closes the
+    cluster in one sentence and the record says so. Proven duplicates are handled above, by identity.
+    """
+    mine_e, mine_s = _entity_tokens(item), _fact_sig(item.get("title"))
+    out = []
+    for other in items:
+        if other["id"] == item["id"] or other["kind"] != item["kind"]:
+            continue
+        shared_e = mine_e & _entity_tokens(other)
+        shared_s = mine_s & _fact_sig(other.get("title"))
+        if shared_e and len(shared_s) >= 2:
+            out.append(other)
+        elif len(shared_s) >= 4 and _same_fact(mine_s, _fact_sig(other.get("title")), need=4,
+                                               ratio=0.55):
+            out.append(other)
+    return out
+
+
+def _collapse_facts(items):
+    """One fact, one row.
+
+    Three rules, in order of how much they have to guess, and the guessy one runs last:
+
+    A. **SAME MESSAGE** -- two rows carrying the same (account, thread_id) are the same message,
+       provably: nothing is inferred. #643 and #687 were one email, judged twice into two classes
+       (`person` and `notice`), so `key_for` gave it a thread key and a fact key and both landed.
+       Keep the better rank, carry the other's words on it, close it when the survivor closes.
+    B. **DECISION ABSORBS ATTENTION** about the same matter -- either the same shop reference
+       (`300DDR`, `case 4485`) or the same party entities plus two shared subject words. He does not
+       need to read the notice and then answer the question about the notice.
+    C. **A DIGEST LOSES ANY MEMBER ANOTHER ROW OWNS.** A digest is N facts in a coat: split it on
+       " · " and drop each member that a real row already holds, or that an earlier digest took. A
+       digest that keeps nothing disappears (every member is present elsewhere); one that keeps one
+       member becomes that member, because a digest of one is not a digest.
+    """
+    report = {"same_message": [], "absorbed": {}, "digests_narrowed": 0, "digests_gone": 0}
+
+    def _sortkey(it):
+        return (-it["score"], str(it["id"]))
+
+    # ── A. same message ────────────────────────────────────────────────────
+    groups = {}
+    for it in items:
+        acct, thr = it.get("_account") or "", it.get("_thread") or ""
+        if acct and thr:
+            groups.setdefault((acct, thr), []).append(it)
+    drop = set()
+    for (acct, thr), members in groups.items():
+        if len(members) < 2:
+            continue
+        members.sort(key=_sortkey)
+        head = members[0]
+        for other in members[1:]:
+            # Union the digest membership so narrowing still sees every member.
+            if _digest_members(head.get("title")) and _digest_members(other.get("title")):
+                a = _digest_members(head["title"])[2]
+                b = _digest_members(other["title"])[2]
+                merged = a + [x for x in b if x not in a]
+                head["title"] = "%d notices: %s" % (len(merged), " · ".join(x[:48] for x in merged))
+                head["_digest_date"] = (_digest_members(head["title"]) or (0, "", []))[1]
+            head.setdefault("_also", []).append((other["id"], other.get("title")))
+            other["_absorbed_by"] = head["id"]
+            drop.add(other["id"])
+            report["same_message"].append((other["id"], head["id"]))
+    items = [i for i in items if i["id"] not in drop]
+
+    # ── B. a decision absorbs the attention that is the same matter ────────
+    ents = {i["id"]: (_entity_tokens(i) | _case_refs(i.get("title") or "")) for i in items}
+    sigs = {i["id"]: _fact_sig(i.get("title")) for i in items}
+    decisions = [i for i in items if i["kind"] == "decision"]
+    for i in [x for x in items if x["kind"] == "attention"]:
+        for d in decisions:
+            if d is i or d["id"] in drop or i["id"] in drop:
+                continue
+            refs_hit = bool(ents[i["id"]] & ents[d["id"]] & _case_refs(
+                (i.get("title") or "") + " " + (d.get("title") or "")))
+            shared_ent = len(ents[i["id"]] & ents[d["id"]])
+            topic_hit = len(sigs[i["id"]] & sigs[d["id"]]) >= 2
+            if refs_hit or (shared_ent >= 2 and topic_hit):
+                d.setdefault("_also", []).append((i["id"], i.get("title")))
+                i["_absorbed_by"] = d["id"]
+                drop.add(i["id"])
+                report["absorbed"][i["id"]] = d["id"]
+                break
+    items = [i for i in items if i["id"] not in drop]
+
+    # ── C. digests lose what a real row already owns ───────────────────────
+    taken = [(i["id"], sigs.get(i["id"]) or _fact_sig(i.get("title")))
+             for i in items if not _digest_members(i.get("title"))]
+    for i in sorted([x for x in items if _digest_members(x.get("title"))], key=_sortkey):
+        d = _digest_members(i.get("title"))
+        count, day, members = d
+        keep, gone = [], []
+        for mem in members:
+            msig = _fact_sig(mem)
+            if any(msig and tsig and _same_fact(msig, tsig) for _id, tsig in taken if _id != i["id"]):
+                gone.append(mem)
+            else:
+                keep.append(mem)
+        if not gone:
+            taken.append((i["id"], _fact_sig(i.get("title"))))
+            continue
+        report["digests_narrowed"] += 1
+        i["_dropped_members"] = gone
+        if not keep:
+            i["_covered"] = gone
+            report["digests_gone"] += 1
+            continue
+        if len(keep) == 1:
+            i["title"] = keep[0]
+        else:
+            i["title"] = "%d notices (%s): %s" % (
+                len(keep), day or (i.get("_digest_date") or ""),
+                " · ".join(k[:48] for k in keep))
+        i["_narrowed"] = "was a %d-item digest" % count
+        taken.append((i["id"], _fact_sig(i["title"])))
+
+    items = [i for i in items if not i.get("_covered")]
+    _collapse_facts.last = report
     return items
 
 
@@ -1880,6 +2350,229 @@ def _ops_alert_count(con):
         return n
     except Exception:
         return 0
+
+
+# ---------------------------------------------------------------------------
+# THE DOSSIER — and the gate that keeps an unbriefed item off his desk
+#
+# His instruction, 2026-10-18, verbatim: *"all information about it must be gathered in case I want
+# more info, so only put it in the queue after all info is gathered about it fully so I can just
+# quickly knock out the queue with you ... with you already having all the info I may need about each
+# thing."*
+#
+# MEASURED that same day, on the row at the TOP of his queue (#698, critical, decision):
+#
+#   question   "Obligation OVERDUE: Landlord utilities - unpaid household balance - decide: pay it
+#               or dispute it?"
+#   context    "bill obligation due 2026-09-22, 26 day(s) past; recurrence=none. priority=1
+#               lead_days=30 status=active"
+#   options    three canned sentences, the first of which was my own recommendation
+#   the truth  obligation_registry row 11 held the balance (269.71; electric 214.18, gas 55.53),
+#              that four bills had arrived and NONE was paid, the ledger path, and the screenshots
+#              the figure came from -- and the card showed none of it.
+#
+# So the sweep filed a question it had the answer to, and the card asked him to decide with less
+# information than the database held. Two repairs, both here and both at READ time so they fix
+# every historic row at once:
+#   1. ENRICH: a row whose context cites `Evidence: <table> row <id>` is joined to that row, and the
+#      fields that actually answer "how much, to whom, when, what happens if I do nothing" are put on
+#      the card.
+#   2. GATE: a decision with no facts is not a decision, it is a chore. It is held out of the
+#      working set and COUNTED as "being prepared", never deleted, because presenting it would cost
+#      him the one thing the queue is for.
+# ---------------------------------------------------------------------------
+
+RE_EVIDENCE = re.compile(r"Evidence:\s*([A-Za-z][A-Za-z0-9_]{2,40})\s+row\s+([0-9]+)", re.I)
+
+#: Only these columns are read from an evidence row, and each is printed with a human label. An
+#: arbitrary column dump would put internal ids and log noise on his card.
+DOSSIER_COLS = (
+    ("note", "What the record says"),
+    ("balance", "Balance"),
+    ("amount", "Amount"),
+    ("due_date", "Due"),
+    ("recurrence", "Repeats"),
+    ("priority", "Priority"),
+    ("status", "Status"),
+    ("evidence_source", "Where the figure came from"),
+    ("subject_tags", "About"),
+)
+
+#: Short, concrete, checkable. A context that has none of these is a summary of a summary.
+RE_CONCRETE = re.compile(r"\$?\b\d[\d,\.]*\b|\b(?:19|20)\d{2}-\d{2}-\d{2}\b|\b(monday|tuesday|"
+                         r"wednesday|thursday|friday|saturday|sunday)\b", re.I)
+
+
+def _evidence_facts(con, context):
+    """The record behind a filed row: [(label, value)], or []. Never raises."""
+    m = RE_EVIDENCE.search(str(context or ""))
+    if not m:
+        return []
+    table, rid = m.group(1), m.group(2)
+    if not re.match(r"^[a-z][a-z0-9_]+$", table.lower()):
+        return []
+    try:
+        con.commit()
+        row = con.execute("SELECT * FROM %s WHERE id=?" % table.lower(), (rid,)).fetchone()
+    except Exception:
+        return []
+    if not row:
+        return []
+    keys = set(row.keys())
+    facts = []
+    for col, label in DOSSIER_COLS:
+        if col not in keys:
+            continue
+        val = row[col]
+        if val is None or str(val).strip() in ("", "None"):
+            continue
+        text = " ".join(str(val).split())
+        # A sha256 on the card is a receipt, not a fact he can use. The provenance that matters is
+        # the path a person can open. Strip by SHAPE, before truncating, or the second hash survives.
+        text = re.sub(r"\bsha256\s+[0-9a-fA-F]{16,}", " ", text)
+        text = re.sub(r"\b[0-9a-fA-F]{32,}\b", " ", text)
+        text = re.sub(r"\s*\(\s*[,;]?\s*[,;)\s]*", " (", text)
+        text = re.sub(r"\s{2,}", " ", text).strip(" ,;")
+        text = re.sub(r"\(\s*[,;]?\s*\)", "", text).strip()
+        if len(text) > 240:
+            text = text[:237].rstrip(" ,;") + "..."
+        if text.count("(") > text.count(")"):
+            text += ")"
+        facts.append((label, text))
+    return facts
+
+
+def _amount_from_facts(facts):
+    """The amount stated on an evidence row, or None.
+
+    Not `_money_in`: that looks for a currency marker because a bare number in prose is usually a
+    case id. On an evidence row the amount IS a number, and #698's row states its balance as
+    `Balance 269.71` inside the note with no dollar sign anywhere -- which is why the card said
+    nothing about money while the record held the figure twice.
+
+    A CENTS-PAIR IS REQUIRED when the number is not on a labelled column: `Due 2026-09-22` must never
+    be read as an amount of 2,026.
+    """
+    for label, val in facts:
+        if label in ("Balance", "Amount"):
+            m = re.search(r"([0-9][0-9,]*(?:\.[0-9]{1,2})?)", val)
+            if m:
+                try:
+                    return float(m.group(1).replace(",", ""))
+                except ValueError:
+                    pass
+    joined = " ".join(str(v) for _l, v in facts)
+    for m in re.finditer(
+            r"\b(?:balance|amount|total|owed|outstanding|paid)\b[^0-9$]{0,24}"
+            r"\$?([0-9][0-9,]*(?:\.[0-9]{2}))", joined, re.I):
+        try:
+            return float(m.group(1).replace(",", ""))
+        except ValueError:
+            continue
+    return None
+
+
+def _derived_recommendation(item, facts):
+    """A recommendation built from the evidence when the filed one was a template.
+
+    MEASURED 2026-10-18: the sweep filed `Investigate it and bring me a recommendation - decide: pay
+    it or dispute it (Recommended)` as both option 1 and the recommendation -- which recommends
+    investigating the thing it is asking about. When the evidence row carries a balance and a due
+    date, the honest recommendation writes itself and he can act on it in one word.
+    """
+    rec = str(item.get("recommendation") or "")
+    template = (not rec) or rec.lower().startswith("investigate it and bring me")
+    if not template:
+        return ""
+    joined = " | ".join("%s: %s" % (l, v) for l, v in facts)
+    if not joined:
+        return ""
+    money = _amount_from_facts(facts) or _money_in(joined)
+    note = dict(facts).get("What the record says", "")
+    unpaid = "nothing has been paid against it" if re.search(
+        r"none paid|unpaid|not paid", note, re.I) else ""
+    due = dict(facts).get("Due", "")
+    late = ""
+    if due:
+        age_days = _age_hours_from(due + "T00:00:00+00:00")
+        if age_days and age_days > 24:
+            late = "%d days past due" % int(age_days / 24)
+    bits = [b for b in (unpaid, late) if b]
+    tail = (" — " + ", ".join(bits)) if bits else ""
+    if money:
+        return "Pay %.2f%s; the balance is already established in the record" % (money, tail)
+    if bits:
+        return "Settle it — %s, and the record already holds the evidence" % ", ".join(bits)
+    return ""
+
+
+def _dossier(con, item):
+    """(facts, ready, missing). The gate: is this item briefed well enough to put in front of him?"""
+    facts = []
+    if item.get("surface") == "queue":
+        try:
+            con.commit()
+            row = con.execute("SELECT context FROM owner_decision_queue WHERE id=?",
+                              (item["id"],)).fetchone()
+            facts = _evidence_facts(con, row["context"] if row else "")
+        except Exception:
+            facts = []
+    item["_facts"] = facts
+    if facts:
+        item["_derived_recommendation"] = _derived_recommendation(item, facts)
+        # An established amount is money in the score, from the record rather than from the words.
+        m = _amount_from_facts(facts)
+        if isinstance(m, (int, float)) and not item.get("money"):
+            item["money"] = m
+
+    if item["kind"] != "decision":
+        return facts, True, ""
+    missing = []
+    blob = "%s %s" % (item.get("title") or "", item.get("_context") or "")
+    rec = item.get("_derived_recommendation") or item.get("recommendation") or ""
+    if not str(rec).strip():
+        missing.append("no recommendation")
+    elif re.match(r"^\s*investigate it and bring me a recommendation",
+                  str(rec), re.I) and not item.get("_derived_recommendation"):
+        missing.append("the recommendation just says 'investigate'")
+    if not RE_CONCRETE.search(blob) and not facts:
+        missing.append("no amount, date or named party")
+    if len(blob) < 80 and not facts:
+        missing.append("the dossier is one line")
+
+    # A PERSON'S MESSAGE IS NOT A FORMAL DECISION. MEASURED 2026-10-18: #595 was
+    # `Text from Genack: Can I purchase a Kyocera today?` filed as a decision with no recommendation,
+    # because the GV rules promote anything that asks. But a text from a person is a message with a
+    # reply owed -- it already carries ask=+80 -- and calling it a decision means holding it back
+    # until a recommendation is invented for it. Demoted at READ time, and said out loud.
+    if (missing == ["no recommendation"] and item.get("surface") == "queue"
+            and str(item.get("channel") or "") in ("sms", "call", "voicemail", "gv", "text")):
+        item["kind"] = "attention"
+        item["_demoted"] = "a message from a person, not a formal decision — a reply is what it wants"
+        return facts, True, ""
+    return facts, (not missing), "; ".join(missing)
+
+
+def _print_also(it, items):
+    """Say what else is this same matter, and how to close it in the same breath.
+
+    Two kinds, and they are different promises:
+      ALSO  -- rows folded into this one by proof (same message, or this decision absorbed that
+               notice). Their words are already in this card; closing this closes them.
+      SAME  -- rows that are probably the same matter. Not folded, because a wrong fold hides an
+               item. Offered as `--with` so one sentence closes both.
+    """
+    also = it.get("_also") or []
+    if also:
+        print("\nALSO IN THIS ITEM (closes with it):")
+        for sid, title in also[:6]:
+            print("   #%-5s %s" % (sid, " ".join(str(title or "").split())[:88]))
+    sibs = _siblings(it, items)
+    if sibs:
+        print("\nPROBABLY THE SAME MATTER — answering both in one go is: add `--with %s`"
+              % ",".join(str(s["id"]) for s in sibs[:5]))
+        for s in sibs[:5]:
+            print("   #%-5s %s" % (s["id"], " ".join(str(s["title"]).split())[:88]))
 
 
 def _mark_seen(con, surface, item_id):
@@ -1904,11 +2597,23 @@ WORKING_SET_MONEY = 100.0
 
 
 def _working_set(items, max_age_days=21, show_all=False):
-    """(visible, hidden_old, hidden_quiet). One rule, used by queue, card and knock alike."""
-    visible, old, quiet = [], 0, 0
+    """(visible, hidden_old, hidden_quiet, hidden_unprepared). One rule, used by queue, card, knock.
+
+    An ATTENTION item is held back when it has stopped being news. A DECISION is held back only when
+    it has not been briefed -- because sending him a question without its facts is the one thing his
+    instruction forbids ("only put it in the queue after all info is gathered about it fully"). A
+    decision is never aged out: it blocks work until it is answered.
+    """
+    visible, old, quiet, thin = [], 0, 0, []
     for i in items:
         age = i.get("age_hours") or 0
         if i["kind"] == "decision":
+            # An agent's approval request is the agent's to brief; holding it back here would hide a
+            # live approval behind a rule this tool cannot satisfy. It shows, and the card says the
+            # agent filed it without a recommendation.
+            if not i.get("_ready", True) and not show_all and i["surface"] == "queue":
+                thin.append(i)
+                continue
             visible.append(i)
             continue
         if max_age_days and not show_all and age > max_age_days * 24:
@@ -1925,7 +2630,7 @@ def _working_set(items, max_age_days=21, show_all=False):
             visible.append(i)
         else:
             quiet += 1
-    return visible, old, quiet
+    return visible, old, quiet, thin
 
 
 def cmd_queue(con, a) -> int:
@@ -1939,7 +2644,7 @@ def cmd_queue(con, a) -> int:
     # are never aged out -- they keep blocking work until they are answered. Nothing is deleted
     # or closed by this: the hidden count is printed, and `--all` shows them.
     max_age = getattr(a, "max_age_days", 21)
-    items, hidden_old, hidden_quiet = _working_set(
+    items, hidden_old, hidden_quiet, hidden_thin = _working_set(
         items, max_age, show_all=getattr(a, "all", False))
     if getattr(a, "new_only", False):
         items = [i for i in items if i["surface"] != "queue" or i.get("_unseen")]
@@ -1957,6 +2662,9 @@ def cmd_queue(con, a) -> int:
                   % (hidden_old, max_age))
         if hidden_quiet:
             print("  (%d quieter attention item(s) held back; --all shows them)" % hidden_quiet)
+        if hidden_thin:
+            print("  (%d decision(s) being briefed — I gather the facts before you see them)"
+                  % len(hidden_thin))
         if ops:
             print("  (%d ops alert(s) are mine to repair, not yours)" % ops)
         return 0
@@ -1992,6 +2700,9 @@ def cmd_queue(con, a) -> int:
         print("%d quieter attention item(s) held back — older than %g day(s), nobody waiting, "
               "no money, not serious (--all shows them)"
               % (hidden_quiet, WORKING_SET_ATTENTION_DAYS))
+    if hidden_thin:
+        print("%d decision(s) held back while I gather the facts — you should not have to decide "
+              "something I have not briefed (--all shows them)" % len(hidden_thin))
     if ops:
         print("%d ops alert(s) held back as mine, not yours (paused syncs, stale capture)" % ops)
     return 0
@@ -2009,11 +2720,26 @@ def cmd_show(con, a) -> int:
     if it["surface"] == "queue":
         row = con.execute("SELECT * FROM owner_decision_queue WHERE id=?", (it["id"],)).fetchone()
         if row:
-            print(fmt(row))
+            derived = it.get("_derived_recommendation") or ""
+            repl_opts = None
+            if derived:
+                repl_opts = [derived,
+                             "Leave it for now — I will handle it myself",
+                             "Not actionable — close it and stop raising it"]
+            print(fmt(row, replace_options=repl_opts,
+                      replace_recommendation=derived or None))
+            if it.get("_facts"):
+                print("\n  WHAT THE RECORD BEHIND THIS SAYS")
+                for label, val in it["_facts"]:
+                    for n, line in enumerate(textwrap.wrap(val, 66)):
+                        print("    %-26s %s" % (label if n == 0 else "", line))
+            if it.get("_missing"):
+                print("\n  NOT FULLY BRIEFED — %s." % it["_missing"])
             if it.get("moot"):
                 print("POSSIBLY MOOT — %s. Check the premise before you ask him."
                       % it.get("moot_why"))
             print("SCORE %d   %s" % (it["score"], it["why"]))
+            _print_also(it, items)
             _mark_seen(con, "queue", it["id"])
             return 0
     # surfaces this tool does not own: print what the reader assembled
@@ -2048,13 +2774,17 @@ def cmd_card(con, a) -> int:
     if getattr(a, "kind", None):
         items = [i for i in items if i["kind"] == a.kind]
     max_age = getattr(a, "max_age_days", 21)
-    items, hidden, hidden_quiet = _working_set(items, max_age, show_all=getattr(a, "all", False))
+    items, hidden, hidden_quiet, hidden_thin = _working_set(
+        items, max_age, show_all=getattr(a, "all", False))
     if not items:
         print("QUEUE EMPTY — nothing is waiting on you.")
         for n, what in ((hidden, "older than %d days" % max_age),
                         (hidden_quiet, "quieter, older than %g day(s)" % WORKING_SET_ATTENTION_DAYS)):
             if n:
                 print("  (%d attention item(s) %s still pending; --all shows them)" % (n, what))
+        if hidden_thin:
+            print("  (%d decision(s) being briefed — the facts are being gathered first)"
+                  % len(hidden_thin))
         return 0
     item = items[0]
     print("ITEM 1 of %d  ·  %d decision(s), %d attention in the queue"
@@ -2126,7 +2856,8 @@ def cmd_knock(con, a) -> int:
     budget = a.limit or 1000
     shown = 0
     while shown < budget:
-        items = [i for i in _gather_queue(con) if str(i["id"]) not in seen]
+        all_items = [i for i in _gather_queue(con) if str(i["id"]) not in seen]
+        items, _old, _quiet, _thin = _working_set(all_items, 21)
         if not items:
             print("\nQUEUE EMPTY for this walk." if shown == 0 else
                   "\nThat is the end of the queue.")
@@ -2283,6 +3014,10 @@ def cmd_health(con, a) -> int:
 
 def cmd_learning(con, a) -> int:
     """What his own answers have taught the queue. Evidence, not a claim."""
+    if getattr(a, "backfill", False) or getattr(a, "json", False):
+        n = _feedback_from_history(con)
+        if n:
+            print("learned from %d close(s) already on the record — no question asked twice" % n)
     prof = _learning_profile(con)
     try:
         tally = {r["action"]: int(r["n"]) for r in con.execute(
@@ -2301,27 +3036,59 @@ def cmd_learning(con, a) -> int:
         print(json.dumps({
             "window_days": LEARN_WINDOW_DAYS,
             "actions": tally,
-            "demoted_domains": prof["domain"],
-            "demoted_parties": prof["party"],
+            "adjustments": prof,
             "recent": [dict(r) for r in recent]}, indent=1))
         return 0
 
-    print("OWNER QUEUE LEARNING   window %d days   rule: >=%d dismissals and more dismissals than "
-          "answers => -%d each, capped -%d"
-          % (LEARN_WINDOW_DAYS, LEARN_MIN_DISMISSALS, LEARN_PER_DISMISSAL, LEARN_CAP))
+    print("OWNER QUEUE LEARNING   window %d days   sample floor: a sender %d closes, a channel %d"
+          % (LEARN_WINDOW_DAYS, LEARN_DIM_RULES["party"]["min"],
+             LEARN_DIM_RULES["channel"]["min"]))
+    print("  rule: he dismisses >=%d%% of a kind => it sinks; he acts on >=%d%% => it rises"
+          % (int(LEARN_DISMISS_HIGH * 100), int(LEARN_ANSWER_HIGH * 100)))
+    print("  capped at +%d / -%d for a sender, less for a channel — learning reorders inside a band "
+          "and never inverts one"
+          % (LEARN_DIM_RULES["party"]["elev"], LEARN_DIM_RULES["party"]["cap"]))
     print()
     if not tally:
-        print("No feedback yet: nothing has been answered, dismissed or snoozed from the queue.")
-        print("The first knock-through session is what starts the learning.")
+        print("No closes on the record yet: nothing has been answered, dismissed or snoozed.")
+        print("Run `learning --backfill` to learn from the closed rows already in the table.")
         return 0
     print("what he has done: " + ", ".join("%s %d" % (k, v) for k, v in sorted(tally.items())))
+    try:
+        con.commit()
+        live = con.execute(
+            "SELECT COUNT(*) FROM owner_queue_feedback WHERE action IN"
+            " ('answered','dismissed','skipped','deferred')"
+            " AND LOWER(TRIM(COALESCE(channel,''))) IN (%s)"
+            % ",".join("'%s'" % c for c in LIVE_CHANNELS)).fetchone()[0]
+        stale = con.execute(
+            "SELECT COUNT(*) FROM owner_queue_feedback WHERE action IN"
+            " ('answered','dismissed','skipped','deferred')").fetchone()[0] - live
+    except Exception:
+        live, stale = 0, 0
+    print("evidence: %d close(s) from a channel that still writes this queue; "
+          "%d from retired surfaces (excluded — they cannot teach the current ranking)"
+          % (live, stale))
     print()
-    nt = sum(len(v) for v in prof.values())
-    if not nt:
-        print("Nothing is demoted yet: no sender has been dismissed twice without an answer.")
-    for label, key in (("sender domain", "domain"), ("party", "party")):
-        for name, pen in sorted(prof[key].items(), key=lambda kv: -kv[1]):
-            print("  DEMOTED %-14s %-40s -%d" % (label, name[:40], pen))
+    total = 0
+    for dim in LEARN_DIMENSIONS:
+        cells = prof.get(dim) or {}
+        if not cells:
+            continue
+        print("%s" % dim.upper())
+        for name, cell in sorted(cells.items(), key=lambda kv: -abs(kv[1]["adj"])):
+            print("  %-6s %-34s n=%-3d acts %3.0f%%   %s"
+                  % ("RISES" if cell["adj"] > 0 else "SINKS", name[:34], cell["n"],
+                     cell["act"] * 100, cell["adj"]))
+            print("         %s" % cell["why"])
+            total += 1
+    if not total:
+        print("Nothing has crossed its sample floor yet (a sender needs %d closes, a whole channel "
+              "%d, all from a live channel)."
+              % (LEARN_DIM_RULES["party"]["min"], LEARN_DIM_RULES["channel"]["min"]))
+        print("That is not a fault: the queue writes full dimensions on every close from 2026-10-18, "
+              "so the")
+        print("next knock-through teaches it. `learning` after a session is the evidence.")
     print()
     if recent:
         print("the last things he said (this is the training data, verbatim):")
@@ -2392,10 +3159,15 @@ def main() -> int:
     p.add_argument("id", type=int)
     p.add_argument("--how")
     p.add_argument("--dismissed")
+    p.add_argument("--with", dest="with_ids",
+                   help="also close these ids (comma or space separated) -- rows that were the "
+                        "same matter, so one answer closes the cluster and none comes back")
 
     p = sub.add_parser("answer")
     p.add_argument("id", type=int)
     p.add_argument("--answer", required=True)
+    p.add_argument("--with", dest="with_ids",
+                   help="also close these ids (comma or space separated) with the same answer")
 
     p = sub.add_parser(
         "amend",
@@ -2463,8 +3235,11 @@ def main() -> int:
 
     p = sub.add_parser(
         "learning",
-        help="what his own answers have taught the queue: actions, demoted senders, his words")
+        help="what his own answers have taught the queue: actions, what rises, what sinks")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--backfill", action="store_true",
+                   help="copy every already-closed queue row into the feedback table first, so the "
+                        "profile learns from the 553 closes on the record instead of only new ones")
 
     a = ap.parse_args()
     fn = {"add": cmd_add, "next": cmd_next, "list": cmd_list,
@@ -2475,8 +3250,13 @@ def main() -> int:
           "ingest": cmd_ingest, "health": cmd_health, "learning": cmd_learning}[a.cmd]
     # lint and sweep on the live database must not need a write lock. queue/show/card/knock DO
     # write seen_at -- that is what makes "what is new since you last looked" answerable.
-    con = connect(a.db, readonly=(a.cmd in ("lint", "list", "next", "stats",
-                                            "sweep", "brief", "health", "learning")))
+    # `learning --backfill` WRITES the feedback table, so it must not open read-only: it did, and the
+    # guard in _feedback_from_history caught the write error and reported "0 learned" -- which looks
+    # exactly like "there is nothing to learn from". Measured 2026-10-18: 557 closable rows, 0 written.
+    readonly = a.cmd in ("lint", "list", "next", "stats", "sweep", "brief", "health")
+    if a.cmd == "learning" and not getattr(a, "backfill", False):
+        readonly = True
+    con = connect(a.db, readonly=readonly)
     return fn(con, a)
 
 
