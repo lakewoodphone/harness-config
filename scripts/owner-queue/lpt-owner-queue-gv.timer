@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the owner-queue Google Voice ingest every 20 minutes
+
+[Timer]
+OnBootSec=4min
+OnUnitActiveSec=20min
+AccuracySec=1min
+Persistent=true
+Unit=lpt-owner-queue-gv.service
+
+[Install]
+WantedBy=timers.target

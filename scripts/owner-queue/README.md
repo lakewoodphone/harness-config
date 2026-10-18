@@ -1,5 +1,24 @@
 # Owner-queue intake patches (W6) — deliverable, NOT installed
 
+> **2026-10-18 — read this first.** This directory now also holds the **full current source** of the
+> owner queue, not only patches:
+>
+> | file | what it is |
+> |---|---|
+> | `owner-queue.py` | the whole tool as deployed on the authority (`/root/bin/owner-queue.py`), including `queue`, `show`, `knock`, `ingest gv` |
+> | `owner-queue-ingest-gv.py` | the Google Voice → queue ingest (`/root/bin/owner-queue-ingest-gv.py`) |
+> | `lpt-owner-queue-gv.{service,timer}` | the 20-minute ingest timer (`/etc/systemd/system/`) |
+>
+> The rule set the tool implements is **`docs/owner-queue.md`** — read that before changing a rule.
+> The live authority copy is what runs; this is the reviewable source and the recovery copy.
+> **Deploy by atomic rename, never in place** (AGENTS.md §8):
+> `scp owner-queue.py secratary-cloud:/root/bin/owner-queue.py.new &&
+>  ssh secratary-cloud 'python3 -m py_compile /root/bin/owner-queue.py.new && mv /root/bin/owner-queue.py.new /root/bin/owner-queue.py'`
+>
+> Note on patch 0001 below: the live `owner-queue.py` already carries an equivalent duplicate-add guard
+> inside `cmd_add` ("Duplicate check (added 2026-09-29)", overridable with `OWNER_QUEUE_ALLOW_DUPLICATE=1`),
+> so the 2026-10-18 rebuild inherited that protection rather than losing it.
+
 Three patches against the authority `secratary-cloud`'s live files. They were
 produced against the exact bytes fetched read-only at 2026-10-12 21:1xZ and
 verified with `patch --dry-run` against a pristine copy of each target (both

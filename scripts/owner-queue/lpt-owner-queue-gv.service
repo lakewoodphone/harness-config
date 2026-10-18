@@ -1,0 +1,18 @@
+[Unit]
+Description=LPT owner queue: pull Google Voice forwards from mail into owner_decision_queue
+Documentation=file:///root/code/harness-config/docs/owner-queue.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/personal-secretary-mvp
+# The Gmail token path is RELATIVE (`data/gmail_tokens`), so WorkingDirectory is load-bearing.
+# The ingest script also chdirs to the app root itself, so this is belt and braces.
+ExecStart=/usr/bin/python3 /root/bin/owner-queue.py ingest gv --days 3
+Nice=10
+TimeoutStartSec=900
+# Exit 1 means the mailbox could not be read. That must FAIL the unit so `systemctl --failed`
+# shows it -- a queue that silently stops filling is the exact defect this replaces. The run
+# still exits 0 when it reads mail and everything is noise: that is a real answer.
