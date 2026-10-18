@@ -2166,3 +2166,26 @@ kills. §63's fix means the *next* occurrence names its holder in the log instea
 the difference between resolving this and guessing at it.
 
 **Ledger item 565 closed done** with the mechanism, the code change and the bound.
+
+### 64a. Did the class spread? Partly — and one detail validates the timeout choice
+
+Ten scripts in `/root/bin` and `/home/zabz/bin` contain both `urlopen`/`requests` and `.execute`, which is not
+the same as containing the defect: my own `reconcile-sms-log.py` is on that list and commits per row by design.
+Spot-checked the one on the shortest cycle, `sms-inbox.py` (every 5 minutes):
+
+```
+295  conn.executemany(...)
+297  conn.commit()            <- batch, then commit. No network in between.
+341  conn.execute("PRAGMA journal_mode=WAL")
+342  conn.execute("PRAGMA busy_timeout=30000")
+357  with urllib.request.urlopen(req, timeout=60)   <- fetch happens in its own function
+473  conn.commit()            <- writes a list already fetched; no HTTP inside the write loop
+```
+
+So it is safe by construction — **fetch, then write** — and it is the only one of the ten on a five-minute cycle.
+The dangerous shape is the interleaved one, which `reconcile-sent-status.py` had and no other checked script
+does.
+
+**The useful detail: `sms-inbox.py` already sets `busy_timeout=30000`.** So §63's 30-second patience is not a
+number I invented — it is the estate's own existing choice for the same store, which is the only reason to
+prefer it over guessing.
