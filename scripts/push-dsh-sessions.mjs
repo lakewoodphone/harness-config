@@ -59,10 +59,14 @@ const VERBOSE = has('--verbose');
 const DSH_HOME = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
 // BOTH STORES. `sessions` is the live one; `sessions-archive` is where finished sessions are moved
 // by scripts/session-corpus.mjs - same project-directory layout, one level deeper in time.
-// Measured 2026-10-18: the archive held **14,753 DSH session files** across six machines while
-// authority.db held **8,637 sessions**. The difference was not lost data - it was sessions the
-// shipper had never looked at, so no agent could search them. The owner asked for every session on
-// every machine; this is the line that stood in the way.
+//
+// The reason is a RACE, not a backlog. Measured 2026-10-18: the archive held 14,753 DSH session
+// FILES across six machines against 8,637 sessions in authority.db - and that comparison is
+// meaningless, because one counts files and the other counts sessions. Compared by ID, the archive
+// names **8,609 distinct session ids and only 14 are absent** from the table: the corpus was already
+// complete. What can still happen is a session archived BEFORE the shipper has read it, and then it
+// is in neither the live store nor the database. Reading both roots, live copy winning on a
+// duplicate id, closes that window.
 const SESSIONS_ROOTS = [
   path.join(DSH_HOME, 'sessions'),
   path.join(DSH_HOME, 'sessions-archive'),
