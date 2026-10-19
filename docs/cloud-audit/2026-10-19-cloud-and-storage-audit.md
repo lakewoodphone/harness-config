@@ -418,7 +418,11 @@ person needs.
 
 Both times the script restarted the writers and the live database was left exactly as it was:
 `32G`, `integrity_check ok` at `/health`, zero failed units. The cost of learning this was about nine
-minutes of company-API downtime and no change to any data.
+minutes of company-API downtime and no change to any data. One side effect was caught and cleared:
+`esearch-health.service` fired at 18:15:01 inside the first window, found the index it checks
+unreachable, and went red — re-run at 18:29:03 it answered `canary: 1 hit(s), 54 ms`, finished
+successfully, and `systemctl --failed` is back to **0**. A paused dependency makes a health check fail;
+that is the check working, and it is cleared with evidence rather than assumed.
 
 **What it proves:** on this box a four-minute rebuild cannot be made writer-free by stopping the
 obvious processes — something else writes (a cron line already running when cron was stopped, `atd`,
