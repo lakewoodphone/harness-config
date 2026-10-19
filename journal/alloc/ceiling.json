@@ -1,33 +1,33 @@
 {
  "adopted_rows": 0,
- "bands_refs_read": 48,
+ "bands_refs_read": 49,
  "ceiling": {
   "decisions": 7424,
-  "handoff": 8936,
-  "lessons": 9085,
-  "pain": 8202,
+  "handoff": 9000,
+  "lessons": 9149,
+  "pain": 8266,
   "wins": 7002
  },
  "ceiling_source": {
   "decisions": "refs/heads/hk/584-wake-lock-holders",
-  "handoff": "ZABZ-YOGA live working tree",
-  "lessons": "ZABZ-YOGA live working tree",
-  "pain": "ZABZ-YOGA live working tree",
+  "handoff": "refs/heads/hk/584-wake-lock-holders",
+  "lessons": "refs/heads/hk/584-wake-lock-holders",
+  "pain": "refs/heads/hk/584-wake-lock-holders",
   "wins": "ZABZ-YOGA live working tree"
  },
  "claimed_gap_rows": [],
  "entries_high_water": {
   "decisions": "D7364",
-  "handoff": "H8809",
-  "lessons": "L8958",
-  "pain": "P8139",
+  "handoff": "H8937",
+  "lessons": "L9086",
+  "pain": "P8203",
   "wins": "W6875"
  },
  "high_water": {
   "decisions": "D7424",
-  "handoff": "H8936",
-  "lessons": "L9085",
-  "pain": "P8202",
+  "handoff": "H9000",
+  "lessons": "L9149",
+  "pain": "P8266",
   "wins": "W7002"
  },
  "host": "secratary-cloud",
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-19T00:00:12Z",
+ "refreshed_at": "2026-10-19T00:15:12Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 9.9,
- "sources_seen": 8103
+ "seconds": 10.2,
+ "sources_seen": 8527
 }
