@@ -4,7 +4,7 @@
 e6370a56d63b30aa3ffae941adc8b916  textwork.py
 416411536f44bebb6254025ec5ea167d  sms-responder.py
 d649840966a329758c879dc6da288453  charge_msg.py
-8613badc820ad070c6f6ad372e842832  merchant_resolve.py
+a3555e0f523488b8a78b280a959d098d  merchant_resolve.py
 b25875b3c7404b9ae034d256cd548d4f  order_evidence.py
 641f09cce4df9d3ebfabd76c9b431009  owner-ask.py
 18f93068c04865e1e67e67bf9e9745a3  card-due-watch.py

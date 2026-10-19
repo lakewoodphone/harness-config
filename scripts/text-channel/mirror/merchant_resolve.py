@@ -1444,8 +1444,27 @@ def _finish(key, name, best, evidence, checked, ledger_rows, acct_db, *, solved:
     }
 
 
+_AMBIGUOUS_NAMES_WARNED: set = set()
+
+
 def category_id_for(name: str, entity_id: str = "", acct_db=None) -> str:
-    """The real `categories.id` for a category NAME, read-only. "" when unknown."""
+    """The real `categories.id` for a category NAME, read-only. "" when unknown.
+
+    THE NAME IS NOT UNIQUE (measured 2026-10-19). The table holds 137 rows and at least 28 names
+    appear more than once with different ids - "gas & fuel", "groceries", "insurance",
+    "office & shipping" twice each, "bank verification clearing" and "charity" three times. The
+    old lookup was `WHERE name = ? LIMIT 1` with no ORDER BY, so which twin a charge was filed
+    under was whatever the query returned: the same kind of charge could split across two ids
+    that read identically on screen, and a filed resolution would be invisible to a report that
+    grouped on the other one.
+
+    So the choice is explicit:
+      1. this entity's own id, when one is given and it exists;
+      2. otherwise the id the ledger has FILED THE MOST transactions under, so history stays in
+         one place;
+      3. tie-break on the smallest id, which is stable across runs and across SQLite versions.
+    An ambiguous name is printed once per process - visible, not silent.
+    """
     if not name:
         return ""
     p = Path(acct_db or ACCT_DB)
@@ -1459,8 +1478,21 @@ def category_id_for(name: str, entity_id: str = "", acct_db=None) -> str:
                               "LIMIT 1", (name, entity_id)).fetchone()
                 if r:
                     return str(r[0])
-            r = c.execute("SELECT id FROM categories WHERE name = ? LIMIT 1", (name,)).fetchone()
-            return str(r[0]) if r else ""
+            rows = c.execute(
+                "SELECT c.id AS id, "
+                "       (SELECT COUNT(*) FROM transaction_categories tc "
+                "         WHERE tc.category_id = c.id) AS used "
+                "  FROM categories c WHERE c.name = ? "
+                " ORDER BY used DESC, c.id ASC", (name,)).fetchall()
+            if not rows:
+                return ""
+            if len(rows) > 1 and name not in _AMBIGUOUS_NAMES_WARNED:
+                _AMBIGUOUS_NAMES_WARNED.add(name)
+                print("category %r has %d ids - filing under %s (used %d time(s)); the others "
+                      "are %s" % (name, len(rows), rows[0]["id"], rows[0]["used"],
+                                  ", ".join("%s/%d" % (r["id"][:8], r["used"])
+                                            for r in rows[1:4])))
+            return str(rows[0]["id"])
         finally:
             c.close()
     except Exception:
