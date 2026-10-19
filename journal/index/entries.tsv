@@ -1591,6 +1591,7 @@ handoff	H9385	9385		2026-10-19 15:40 UTC	SECRATARY-CLOUD	open	## 2026-10-19 15:4
 handoff	H9449	9449		2026-10-19 15:57 UTC	SECRATARY-CLOUD	open	## 2026-10-19 15:57 UTC · SECRATARY-CLOUD · Elantra LR tyre: confirmed a REAL leak (pump gauge 15 psi), ledger written, commit c829ec2b7	entries/handoff/H9449.md	1	10	3cd34e0461c13651	vehicle,elantra,tire	H9385
 handoff	H9577	9577		2026-10-19 17:30 UTC	SECRATARY-CLOUD	open	## 2026-10-19 17:30 UTC · SECRATARY-CLOUD · The production pager sent half a question; it now sends the whole question	entries/handoff/H9577.md	1	54	7ff0084cb7f98f18	owner-text,sms,pager	
 handoff	H9578	9578		2026-10-19 17:31 UTC	SECRATARY-CLOUD	open	## 2026-10-19 17:31 UTC · SECRATARY-CLOUD · Addendum to H9577: the pager fix is on branch owner-text/pager-one-question-20261019, based on the deployed commit	entries/handoff/H9578.md	1	19	a481124e55615ca4	owner-text,sms,pager	
+handoff	H10153	10153		2026-10-19 23:41 UTC	SECRATARY-CLOUD	open	## 2026-10-19 23:41 UTC · SECRATARY-CLOUD · Wedding doc §9 written from the live report: the fist was the depth brake	entries/handoff/H10153.md	1	10	24c88ac6638fc543	wedding,medical,docs	
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -3702,6 +3703,7 @@ lessons	L9278	9278		2026-10-19	SECRATARY-CLOUD	open	**L9278 · Read the motivati
 lessons	L9470	9470		2026-10-19	secratary-cloud	open	**L9470 · The two numbers he sees: AI line vs family hub, and how to prove which one is silent**	entries/lessons/L9470.md	1	46	e9e33fe55034eb7a	family_chat,owner_text,twilio,diagnosis	
 lessons	L9598	9598		2026-10-19	SECRATARY-CLOUD	open	**L9598 · Unpaid is not a fact until Stripe says so: our payment_transactions is written by a nightly job, not by the payment**	entries/lessons/L9598.md	1	19	017238ef48008c68	payments,stripe,lpt,verification	L3351
 lessons	L9599	9599		2026-10-19	SECRATARY-CLOUD	open	**L9599 · Correction to L9598: webhook_events is not a delivery log, it is the pay-before-pickup idempotency table**	entries/lessons/L9599.md	1	16	19cc62525461d236	payments,stripe,verification,correction	L9598,W2752b
+lessons	L10302	10302		2026-10-19	SECRATARY-CLOUD	open	**L10302 · Marriage file: where the wedding docs live and what is committed**	entries/lessons/L10302.md	1	12	0ddb290e5e2936be	wedding,docs,search	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
