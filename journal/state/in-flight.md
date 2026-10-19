@@ -286,3 +286,81 @@ H255→H349, L1537→L1664, L1538→L1665, D158→D190, P159→P197.)*
   `_scratch/merge-20260915/` holds both sides of every collision and must not be deleted until
   someone has confirmed nothing needs recovering from it.
 
+## 2026-10-19 01:05Z (ZABZ-YOGA) — THREE SESSIONS ARE WORKING THE OWNER QUEUE. THE SPLIT IS RECORDED HERE.
+
+The owner is running three concurrent queue sessions and told each to take a different section.
+Read this before touching an `owner_decision_queue` row; the rows below are claimed.
+
+| Session | Section | Rows |
+|---|---|---|
+| `d49559c6` (local, "Work through my queue one at a time") | money + household: rent/zelle/utilities ledger, bank overdrafts, returned payments, service bills | closed 698, 636, 645, 631, m2631; deferred 646/693/640, 644; then moved into the **Home Assistant / apartment-access cluster** 714–721, 711 |
+| `4d070efd` (local, "Start queue processing from middle") | account security + shop website: carrier 2FA/sign-ins, site copy, published prices, promo mail | closed 634/635/637, dismissed 628; reading 557, 558; next 656, 694 |
+| `76d2fc46` (this session) | **CUSTOMERS — everyone who called, texted or is waiting on an answer from the shop** | 606, 600, 590, 595, 592, 591, 608, 605, 614, 616, q12a8, q2ba8 |
+
+**Row ids are the claim.** There is no lease or claim column in `owner_decision_queue` — `card` just
+returns the top-ranked row, so two sessions both running `card` collide by construction. Coordination
+is this table. A fourth session: pick a section not listed above and add a row here in the same
+commit, before answering anything.
+
+**Measured facts behind the customer section (2026-10-19 01:15Z, read this session, so the next
+session does not re-run them):**
+
+* Five people asked the shop for help on the owner's Google Voice line between 7 and 14 October and
+  none became a job: `848-525-4002` (#606, computer won't turn on), `732-962-2080` (#600, Canon
+  camera), `848-986-3948` (#605, brother's laptop), `845-671-6665` (#595, wants to buy a Kyocera),
+  `201-566-7852` (#592, "get my phone today").
+* **None of those five numbers exists in production.** `customers.phone` normalised with
+  `right(regexp_replace(phone,'[^0-9]','','g'),10)` returned **0 customer rows and 0 orders** for
+  each, queried with `psql` against the DSN in `/root/personal-secretary-mvp/.env` on the authority.
+  The only number in that list that IS a customer is `848-389-7895` = "TEST Zabz ; Eliyahu
+  Zabrowsky" — which is why #590 (voicemail, no `Number:` field in its card) is probably the owner
+  himself, not a lead.
+* `732-962-2080` is a **repeat customer**: Canon camera, Dec 2025, paid and picked up
+  (`dialpad_call_full` 2025-12-03 / 2025-12-04), so "no production customer" does not mean "never
+  served".
+* The comms index holds **zero rows** matching `8485254002` (exact search, index age 0.46 h,
+  181,166 indexed) — the Google Voice lineage reaches the queue through Gmail
+  (`owner-queue-ingest-gv.py` → `gmail_service` + `parse_gv_email`), **not** through the comms
+  index, so a reply sent from the Voice app leaves no trace here. Never call that absence proof
+  that nobody replied.
+
+**Owner rule 2026-10-19, verbatim:** *"No, I dont respond to business questions on my personal
+line. If I see it right away, maybe I'll respond to Reach out to the business number, but I'm not
+responding later."* and, minutes later on a 14-day-old family ask: *"It's way later they don't need
+help anymore. And you didn't bring this up when they asked so. There's nothing to do right now."*
+Two standing consequences, both now implemented or in flight:
+1. A stranger's shop enquiry on his Google Voice line is **never his queue item** — it becomes a
+   task for the shop (subagent `subagent-107` is patching `owner-queue-ingest-gv.py`).
+2. **A stale ask is closed, never surfaced.** Measured cause of the 13-day lateness of rows
+   613/614/616/617: `owner_queue_ingest_run` has **zero `gv` runs before 2026-10-18** (earliest
+   15:13Z that day) — the ingest is one day old, every run reads a 3-day window, and the
+   2026-10-18T13:11Z backfill wrote 5-Oct messages as pending. Nothing could have reached him on
+   5 October. Unfixed: stale-on-arrival should be written closed, and a voicemail with no phone and
+   no name should be dropped at ingest (#590 was one, now dismissed).
+3. 31 rows closed by this session tonight (606/600/605/595/594/592, 613/614/616/617/591/608,
+   618/619/622/623/700/597/598/621/602/603/589/633/607/612/712/722/723/724, 590). The visible
+   working set went **69 → 39** (`owner-queue.py queue`, 01:02Z vs 01:32Z; the other two sessions
+   closed their own).
+
+## 2026-10-19 01:35Z — THE AUTHORITY IS AT 96% AND THAT OUTRANKS THE QUEUE. MEASURED.
+
+| what | number | how |
+|---|---|---|
+| root filesystem | **150 G total, 138 G used, 6.6 G free, 96%** | `df -h /` on secratary-cloud, 01:12Z |
+| the queue's own row #711, filed ~5.9 h earlier | 93% full, 10.7 G free | `owner-queue.py queue` title |
+| ⇒ consumed in ~6 h | **4.1 G** | the two lines above |
+| `/root/authority.db` | **31.2 GiB, and it is ALL live data** | `pragma page_size/page_count/freelist_count` = 4096 / 8,180,535 / 1,732 |
+| biggest table | `dsh_session_events` **2,692,243** rows | `select max(rowid)`; every other table is 3–4 orders smaller (dsh_sessions 8,690; activity_log 333,147) |
+| the same bytes already packed off-box | **51,669 objects, 256 shards**, manifest 56 MB, last pull 00:23–00:24Z today, `"nothing new to send"` | `/opt/company/archive/lpt-transcripts/{manifest.sqlite,objects,logs/pull-20261019.jsonl}` |
+| cold agent work dirs | ~**5 G** (`r4-preserve` 1.9G, `r4-loop` 1.3G, `r4-integration` 1.3G, `fd-*` 0.47G) — newest file **2026-10-16 08:42** | `find /root/work/*/ -printf` |
+| derived search index | `/root/.usearch/usearch.db` **10.1 G** | `find /root -size +2G` |
+
+**The trap that decides the plan:** deleting rows from SQLite **frees no disk** until a `VACUUM`, and
+a `VACUUM` needs ~31 G of free space, which is exactly what we do not have. So space must be freed
+elsewhere **first**, and only then can the database be compacted. `/opt` is not the culprit (chromadb
+2.2 G is its largest) and the archive's `incoming/` is 0.02 G.
+
+**Awaiting the owner's yes** (deletions are his call): (1) remove the Oct-16-cold work dirs (~5 G),
+(2) prune `dsh_session_events` older than 90 days and then `VACUUM` (file 31 G → ~11 G). Unattributed:
+the 4.1 G consumed in ~6 h has no identified writer yet; baseline taken at 01:12Z.
+
