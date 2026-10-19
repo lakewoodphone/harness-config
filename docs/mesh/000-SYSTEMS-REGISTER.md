@@ -19,7 +19,7 @@
 
 | machine | ssh | role | notes |
 |---|---|---|---|
-| **`secratary-cloud`** | `ssh -i ~/.ssh/id_ed25519_hetzner root@178.156.194.1` | **THE AUTHORITY (primary)** — company DB, API, dashboard, **and since 2026-10-12 the mesh placement broker** (`mesh-broker`, loopback `:3091`, enabled) | Hetzner CCX13, Ashburn VA, 2 vCPU, 7.7 GB, 75 GB NVMe (~1.1 GB/s). **ON the tailnet since before 21:35Z 2026-10-11**: `100.73.176.126`, `active; direct 178.156.194.1:41641`, seen in the office box's own `tailscale status`. A private API path exists and works - `tailscale serve --bg --https=8443 http://127.0.0.1:8002`, giving `https://secratary-cloud.tail93e6e6.ts.net:8443/health` -> 200 `ok=True db_ok=True`, and `scripts/mesh/route.sh` chooses it FIRST. **Any 'blocked on a Tailscale auth key' note is stale - no owner action is needed for this.**  |
+| **`secratary-cloud`** | `ssh -i ~/.ssh/id_ed25519_hetzner root@178.156.194.1` | **THE AUTHORITY (primary)** — company DB, API, dashboard, **and since 2026-10-12 the mesh placement broker** (`mesh-broker`, loopback `:3091`, enabled) | **Hetzner CCX33, Ashburn VA, 8 dedicated vCPU, 32 GB RAM, 240 GB NVMe → 225 GiB ext4** (rescaled from CCX13→CCX23→CCX33; measured 2026-10-19: 118 G used, 99 G free, 55%). **Disk, database, backup and retention facts live in `docs/mesh/000-DISK-AND-DATABASE.md` — that file is authoritative for them, not this row.** **ON the tailnet since before 21:35Z 2026-10-11**: `100.73.176.126`, `active; direct 178.156.194.1:41641`, seen in the office box's own `tailscale status`. A private API path exists and works - `tailscale serve --bg --https=8443 http://127.0.0.1:8002`, giving `https://secratary-cloud.tail93e6e6.ts.net:8443/health` -> 200 `ok=True db_ok=True`, and `scripts/mesh/route.sh` chooses it FIRST. **Any 'blocked on a Tailscale auth key' note is stale - no owner action is needed for this.**  |
 | **`secratary`** | `secratary-ts` | office box — was the authority until the cutover; becomes a compute worker and the **rollback anchor** | i5-4570 (2013), 4c/4t, 23 GB, 467 GB SATA+LUKS. **Unreliable: goes off, and its NIC CANNOT wake it** (`ethtool eno1` reports no `Wake-on:` line at all; `ethtool -s eno1 wol g` is a silent no-op). **Its `mesh-broker` is STILL ACTIVE/ENABLED** (measured 2026-10-12) — the last live dependency on a frozen box, pending owner question #447. |
 | **`zabz-tech`** | `desktop-ts` | the workhorse: agent compute, 32c, 52 GB free | also the fleet's landfall for mesh children |
 | **`zabz-yoga-1`** | `laptop-ts` (this laptop's tailnet name) | the owner's machine; a dispatcher and a worker | |
@@ -45,7 +45,7 @@
 ### 2.2 Backups — **ALREADY EXISTS. R2 and restic. NO STORAGE BOX IS NEEDED.**
 | what | where / how |
 |---|---|
-| **raw DB → R2** | `secratary-ts:~/bin/push-db-offsite.sh` → `authority/secretary.db.gz` in bucket `lakewood-rentals-media`, plus a `.sha256` sidecar. Creds `~/.lpt-r2.env` (mode 600, token scoped to ONE bucket). |
+| **raw DB → R2** | `secratary-ts:~/bin/push-db-offsite.sh` → `authority/secretary.db.gz` in bucket **`lpt-authority-backups`**, plus a `.sha256` sidecar. Creds `~/.lpt-r2.env` (mode 600, token scoped to ONE bucket, identical file on the authority and on `lpt-apps`). **NAME CORRECTED 2026-10-19:** this row and §3 both said `lakewood-rentals-media`, which is the *rental listings* bucket, not the backup one — measured by `list_objects_v2` against the live credentials (`R2_BUCKET=lpt-authority-backups`, 22 objects, 33.9 GB). |
 | **6-hourly snapshot tarball → restic → R2** | `secratary-ts:~/bin/company-offsite-push.sh` → streams to Box 2, written into **`psm-backups/company-offsite`** by `/root/company-offsite-backup.sh` on `lpt-apps`. |
 | **NEVER MERGE THE TWO RESTIC REPOS** | the nightly `lpt-apps` job runs `restic forget` with no tag filter and would evict the company's copy |
 | **freshness monitor** | `secratary-cloud:/usr/local/bin/authority-report-offsite-age.sh` (every 30 min, `authority-report-offsite-age.timer`) → HEADs the R2 object and writes `authority-push.json` to the vault, where the outside heartbeat alarms on the REAL object's age. **It reads ONE key, `authority/secretary.db.gz`** — see the next row. |
@@ -68,6 +68,7 @@
 | per-node surface | `GET /mesh/health` (unauthenticated, rich) and `POST /mesh/run` (HMAC) — `packages/plugin-mesh-http`. **Not every node serves `/mesh/health`**: a node behind `phone-gate.py` may answer `/mesh/capacity` only. `secratary-cloud` answers 200 but advertises `auth.secretConfigured:false` (`/etc/dsh-mesh.env` absent), so it cannot sign a v2 run. |
 | **parent ↔ child while a child works** | **Does not exist for a mesh child.** Measured 2026-10-12: `list_agents` → `(no subagents)` and `send_message` → `subagent "…" is unavailable` while the child was mid-turn. Parent → child is the dispatch; child → parent is the final report, plus the mailbox thread — and the thread directory is **not created for the child**, so it silently reports `0 message(s)` unless the child improvises it. |
 | **run a long child** | `run_in_background: true`. **`subagent` defaults to FOREGROUND and blocks the turn.** `subagent_fork` defaults to background. |
+| **the authority as a NODE (added 2026-10-19)** | roster row `secratary-cloud`, `maxChildren: 2`, `baseUrl: http://127.0.0.1:3086` (loopback on purpose — this node's gate does **not** allow its own tailnet address, so a tailnet read answers `403` while loopback answers 200). Executor `/usr/local/bin/dsh-mesh`, `DSH_HOME=/root/.dsh-worker`, runtime pinned at `/opt/dsh-mesh-runtime`, every turn inside `dsh-mesh.slice` (`MemoryMax=6G`). Proof: `dsh-mesh --profile headless …` → `MESH-HOST: secratary-cloud` exit 0; `POST /place` → position 0 `tier=fits`. **Never run `scripts/provision-mesh-node.sh` on this box**: it writes `Environment=DSH_HOME=$HOME/.dsh`, which collides with `phone-engine`'s home and is the exact state `docs/mesh/71` forbids. Full record: `docs/cloud-audit/2026-10-19-cloud-and-storage-audit.md` §3. |
 
 ### 2.4 The journal (continuity)
 `python ~/code/harness-config/journal/tools/journal.py status` — then `list --kind pain --status open`,
@@ -128,7 +129,7 @@ the surface agents call is now `esearch`, and it answers over SESSIONS too.**
 | the company API (public) | `https://api.abletelsolutions.com` |
 | the dashboard (public) | `https://ai.abletelsolutions.com` |
 | the phone-and-tech business API | `https://api.lakewoodphoneandtech.com` → **NOT the company API**; Caddy on `lpt-apps` → `lpt-backend:3001` |
-| the offsite backup | Cloudflare R2, bucket `lakewood-rentals-media` |
+| the offsite backup | Cloudflare R2, bucket **`lpt-authority-backups`** (measured 2026-10-19; see §2.2) |
 | code + the journal | the git repo `harness-config` (remote on the authority) |
 
 ---
