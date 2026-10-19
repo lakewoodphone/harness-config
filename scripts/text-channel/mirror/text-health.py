@@ -639,6 +639,40 @@ except Exception as exc:                                       # noqa: BLE001
     check("K1 a queue row marked 'sent' has a sms_log row behind it", False,
           "%s: %s" % (type(exc).__name__, exc))
 
+
+# ---------------------------------------------------------------------------------------
+# K2: the app's send choke point must still reach the relay.
+#
+# The three content guards - quiet hours, credential_request, internal_prose - live in
+# `owner_text_relay.submit()`. They apply to every app send only because
+# `sms_service.send_message` calls `submit(door="app", ...)`. Nothing declares that dependency and
+# nothing tested it: a refactor removing one call would strip all three guards from every app
+# message, and every individual guard test would still pass.
+#
+# A SOURCE-LEVEL CHECK ON PURPOSE. The alternative is sending a probe text, and on this channel
+# sending is the expensive thing. This reads the file for the call and the door name; behaviour is
+# covered by the relay's own checks and the replay.
+# ---------------------------------------------------------------------------------------
+try:
+    _svc = BIN.parent / "opt" / "company" / "app" / "sms_service.py"
+    _svc = Path(os.environ.get("SMS_SERVICE_PY", "/opt/company/app/sms_service.py"))
+    if not _svc.exists():
+        check("K2 the app send path still calls owner_text_relay.submit", True,
+              "NOT MEASURED: %s not present on this host" % _svc)
+    else:
+        _src = _svc.read_text(encoding="utf-8", errors="replace")
+        _calls = _src.count("owner_text_relay.submit(")
+        _door = 'door="app"' in _src
+        _loads = "owner_text_relay" in _src
+        check("K2 the app send path still calls owner_text_relay.submit",
+              bool(_calls) and _door,
+              "%s: %d submit() call(s), door=\"app\" present=%s, relay referenced=%s -- if this "
+              "fails, the quiet-hours, credential and internal-prose guards are NOT on app sends"
+              % (_svc.name, _calls, _door, _loads))
+except Exception as exc:                                       # noqa: BLE001
+    check("K2 the app send path still calls owner_text_relay.submit", False,
+          "%s: %s" % (type(exc).__name__, exc))
+
 print("TEXT-HEALTH %s" % datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 failed = 0
 for name, ok, evidence in results:
