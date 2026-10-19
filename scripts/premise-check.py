@@ -53,6 +53,11 @@ USAGE
     premise-check.py sweep --dry-run              # what is due, and what each would say
     premise-check.py sweep --apply                # re-measure, record, amend where changed
     premise-check.py gate 465                     # exit 0 if safe to present, 10 if it moved
+    premise-check.py replay --task 27745          # read-only: what the gate would do with a task
+
+A task row's own text is never evidence. It is a claim. The probes that matter read production
+(`work-order`), the comms index (`customer-contact`) or the mailbox index (`already-sent`), and
+they record the timestamp of that read in the same verdict.
 """
 from __future__ import annotations
 
@@ -69,6 +74,30 @@ from pathlib import Path
 DB = Path(os.environ.get("PREMISE_DB", "/root/authority.db"))
 QUEUE = "/root/bin/owner-queue.py"
 LEDGER = Path(os.environ.get("PREMISE_LEDGER", "/root/accounting-data/live/accounting.db"))
+
+#: The read-only production reader. `lpt ticket` is the shop's own tool and it already knows both
+#: stores, the phone normalisation and the label vocabulary. Re-implementing its SQL here would be a
+#: second reader of the same record, which is how two answers to one question start. It reads the DSN
+#: locally and never prints it.
+LPT = os.environ.get("PREMISE_LPT", "/root/code/lpt-ops/bin/lpt")
+LPT_PY = os.environ.get("PREMISE_LPT_PY", "/opt/company/.venv/bin/python")
+
+#: A work order in one of these states is finished work. A draft that says "stalled", "no contact",
+#: "0% progress" or asks to move it along is therefore not stale -- it is FALSE, and it must not
+#: reach the owner or the customer. The list is the shop's own status vocabulary; anything not here
+#: is treated as still in the shop.
+DONE_WO_STATUSES = frozenset({
+    "COMPLETED", "READY_FOR_PICKUP", "PICKED_UP", "PICKED UP", "DELIVERED", "CLOSED",
+    "CANCELLED", "CANCELED", "UNFIXABLE", "RETURNED", "REFUNDED",
+})
+
+#: `WO2606040001` and friends -- an exact record identifier, not a word that might mean something
+#: adjacent (see the note on the `auto` flag below). The phone pattern is deliberately phone-shaped
+#: so that ISO dates ("2026-10-07") can never be read as a number.
+RE_WO = re.compile(r"\b(WO\d{10})\b", re.I)
+RE_PHONE = re.compile(
+    r"(?:\+1\d{10}|(?:\+1[\s.-]?)?(?:\(\d{3}\)\s*|\d{3}[\s.-])\d{3}[\s.-]\d{4})\b")
+RE_CASE = re.compile(r"\bcase\s*#?\s*(\d{3,6})\b", re.I)
 
 #: Default staleness budget for a probe that does not declare its own. Deliberately the same
 #: ORDER OF MAGNITUDE as finance_source_registry's expected_max_age_days, but in hours,
@@ -385,6 +414,296 @@ def probe_repo_citation(row):
             DEFAULT_MAX_AGE_HOURS)
 
 
+def _read_task(task_id):
+    """Read one task row read-only. The task's own text is used only to LOCATE the record; the
+    evidence a verdict rests on is what production (or the comms index) says."""
+    con = sqlite3.connect("file:%s?mode=ro" % DB, uri=True, timeout=10)
+    con.execute("PRAGMA busy_timeout=10000")
+    con.row_factory = sqlite3.Row
+    try:
+        row = con.execute(
+            "SELECT id, title, description, status, created_at, updated_at, progress_pct"
+            " FROM tasks WHERE id=?", (task_id,)).fetchone()
+        return dict(row) if row else None
+    except sqlite3.Error:
+        return None
+    finally:
+        con.close()
+
+
+def _lpt_ticket(ref):
+    """Read one record from production through the shop's own reader. Never prints the DSN."""
+    if not (Path(LPT).exists() and Path(LPT_PY).exists()):
+        raise RuntimeError("lpt reader not found at %s" % LPT)
+    r = subprocess.run([LPT_PY, LPT, "ticket", str(ref), "--json"],
+                       capture_output=True, text=True, timeout=120)
+    if r.returncode != 0:
+        raise RuntimeError("lpt ticket rc=%d: %s"
+                           % (r.returncode, (r.stderr or r.stdout).strip()[:200]))
+    data = json.loads(r.stdout)
+    read_at = _now()
+    found = []
+    for name in ("operational", "app"):
+        s = (data.get("stores") or {}).get(name) or {}
+        if s.get("error"):
+            continue
+        case = (s.get("case") or {}).get("order") or {}
+        cands = s.get("candidates") or []
+        order = case.get("orderNumber") or (cands[0].get("orderNumber") if cands else None)
+        status = case.get("status") or (cands[0].get("status") if cands else None)
+        if not order:
+            continue
+        found.append({
+            "store": name, "order": order, "status": str(status or "UNKNOWN").upper(),
+            "completed": case.get("completedDate"), "updated": case.get("updatedAt"),
+            # A name lookup can legitimately match more than one order. Carry them all: picking
+            # the first would be choosing which customer's record answers the question.
+            "candidates": [[c.get("orderNumber"), str(c.get("status") or "UNKNOWN").upper()]
+                           for c in cands if c.get("orderNumber")],
+        })
+    if not found:
+        raise RuntimeError("no store returned an order for %s" % ref)
+    return {"ref": ref, "read_at": read_at, "stores": found}
+
+
+def _statuses(info):
+    """Every status the read returned, across every store and every matched order."""
+    out = set()
+    for s in info["stores"]:
+        if s.get("candidates"):
+            out.update(st for _, st in s["candidates"])
+        else:
+            out.add(s["status"])
+    return out
+
+
+def _stores_line(info):
+    return "; ".join(
+        "%s %s [%s] completed=%s updated=%s"
+        % (s["order"], s["status"], s["store"], s["completed"], s["updated"])
+        for s in info["stores"])
+
+
+def _customer_name(text):
+    """The customer name a task/row names, when there is one. Only used to LOCATE a record.
+
+    `Repair: Felder - Seagate ...` and `follow-up SMS to Felder — ...` both name a customer.
+    Production's reader does the spelling-tolerant lookup; this just hands it the word.
+    """
+    m = re.search(r"\bRepair\s*:\s*([A-Z][\w'.-]{1,30})", text)
+    if m:
+        return m.group(1)
+    m = re.search(r"\bto\s+([A-Z][\w'.-]{1,30})\b", text)
+    if m and m.group(1).lower() not in ("the", "a", "an", "owner", "customer"):
+        return m.group(1)
+    return None
+
+
+def probe_work_order(row):
+    """A row about a work order / case / customer: what does PRODUCTION say it is now?
+
+    THE DEFECT THIS EXISTS FOR. Measured 2026-10-19: owner-facing drafts said a case was
+    "127 days stalled, 0% progress, no customer contact" and "recovery has not progressed".
+    Both work orders were READY_FOR_PICKUP/COMPLETED in production, paid, and the customer had
+    already been texted. The drafts' facts came from a task row written weeks earlier and never
+    re-read. A task's text is a claim; this probe replaces it with a read of the record and the
+    timestamp of that read.
+
+    A `WO...` number is an exact identifier, so this probe may fire on it without a tag. A
+    `case #N` is resolved through the task row to a phone or WO only to locate the record.
+    """
+    text = _text(row)
+    # A RECORD IS LOCATED FROM THE ROW'S OWN WORDS, NEVER FROM THE EVIDENCE PASTED UNDER IT.
+    # Measured 2026-10-19: this probe read the phone in the footer of the mail that created the
+    # row - "(323) 230-0622" (a data-recovery vendor), "800-437-5556" (Plymouth Rock) - looked it
+    # up in production, failed, and held two live rows as "unknown". A toll-free number can never
+    # be a customer's device, and a switchboard in a signature block is not a case.
+    core = " ".join(str(row.get(k) or "") for k in
+                    ("question", "options_json", "recommendation", "blocks"))
+    explicit = "[probe:work-order]" in text.lower()
+    wo = RE_WO.search(text)
+    case = RE_CASE.search(text)
+    phone = RE_PHONE.search(core)
+    if phone is None and explicit:
+        phone = RE_PHONE.search(text)
+    if phone is not None and not explicit and re.match(
+            r"^\+?1?[\s.-]?\(?(800|833|844|855|866|877|888)\)?[\s.-]", phone.group(0)):
+        phone = None
+    customer_ctx = re.search(
+        r"\b(customer|repair|work order|pickup|stalled|device|recovery|laptop|phone)\b",
+        core, re.I)
+    if not wo and not explicit:
+        # A case id is resolved through the task row; a bare phone only when the row is about a
+        # customer's job. A phone in a personal row is not a work order and must not be read as one.
+        if not case and not (phone and customer_ctx):
+            return None
+    ref = wo.group(1) if wo else None
+    name = None
+    if ref is None and case:
+        task = _read_task(int(case.group(1)))
+        body = str((task or {}).get("description") or "")
+        m = RE_WO.search(body) or RE_PHONE.search(body)
+        if m:
+            ref = m.group(1) if m.re is RE_WO else m.group(0)
+        else:
+            name = _customer_name(str((task or {}).get("title") or "")) or \
+                _customer_name(text)
+    if ref is None and phone:
+        ref = phone.group(0)
+    if ref is None and name:
+        ref = name
+    if ref is None:
+        return ("unknown",
+                "row cites case #%s but the task yields no work order, phone or name to read"
+                % (case.group(1) if case else "?"), 1)
+    try:
+        info = _lpt_ticket(ref)
+    except Exception as exc:  # noqa: BLE001 - a failed read is never 'fresh'
+        return ("unknown", "production could not be read for %s: %s" % (ref, exc), 1)
+
+    statuses = _statuses(info)
+    # ALL DONE is the specific truth the four 2026-10 cases needed. Check it before "the stores
+    # disagree": READY_FOR_PICKUP in operational and COMPLETED in app are two finished spellings,
+    # not a contradiction, and calling that a disagreement would hide the useful sentence.
+    if statuses and statuses <= DONE_WO_STATUSES:
+        return ("changed",
+                "%s is FINISHED in production (%s) - the work is done, so a stalled/no-contact "
+                "premise is false (read %s)"
+                % (ref, ", ".join(sorted(statuses)), info["read_at"]), 24)
+    if len(statuses) > 1:
+        return ("changed",
+                "the read is AMBIGUOUS about %s (%s) - do not ask until that is resolved "
+                "(read %s)" % (ref, ", ".join(sorted(statuses)), info["read_at"]), 24)
+    status = statuses.pop()
+    return ("fresh",
+            "%s is %s in production; %s - still in the shop, the premise holds (read %s)"
+            % (ref, status, _stores_line(info), info["read_at"]), 6)
+
+
+def probe_already_sent(row):
+    """A row asking to approve an email about a cited order: is it already in the mailbox?
+
+    Global Direct Parts, measured 2026-10-19: approval was sought for a tracking email that had
+    already been sent 2026-09-14, and the dispute had closed in the owner's favour 2026-10-05.
+    The mailbox index holds the sent tracking request; this probe reads that index, not the task.
+    """
+    text = _text(row)
+    nums = re.findall(r"#\s*(\d{5,8})\b", text)
+    if not nums:
+        return None
+    if not re.search(r"\b(email|draft|send|sent|approval)\b", text, re.I):
+        return None
+    explicit = "[probe:already-sent]" in text.lower()
+    con = sqlite3.connect("file:%s?mode=ro" % DB, uri=True, timeout=10)
+    con.execute("PRAGMA busy_timeout=10000")
+    try:
+        for n in nums[:3]:
+            # SUBJECT ONLY, because the subject is what NAMES the record. Measured 2026-10-19:
+            # a snippet match called ticket #74115 "already sent" on the strength of a JotForm
+            # prefill link he had pasted to himself - no reply to that ticket has ever gone out.
+            # A reply that answers an order keeps the order in its subject ("Re: ... #74115").
+            rows = con.execute(
+                "SELECT datetime(internal_ts/1000,'unixepoch'), account, sender, subject"
+                " FROM email_catalog WHERE subject LIKE ?"
+                " ORDER BY internal_ts DESC LIMIT 20",
+                ("%" + n + "%",)).fetchall()
+            # OUR ADDRESS MUST BE THE SENDER, NOT THE ACCOUNT. Measured 2026-10-19: matching
+            # r[1] (account) too made every INBOUND message sitting in our own mailbox look like
+            # a sent reply. Three 300DDR rows (tickets 73459 / 73896 / 74115) were reported
+            # "already sent" when the only matching message was the vendor's own request - and
+            # 74115 had in fact never been answered at all. The index does hold real sent mail
+            # (4 messages to that vendor, identical to a live Gmail sent search), so the sender
+            # field is the one that can answer this.
+            mine = [r for r in rows
+                    if re.search(r"zabrowsky|lakewoodphoneandtech|info@lakewood",
+                                 r[2] or "", re.I)]
+            if mine:
+                when, account, sender, subject = mine[0]
+                return ("changed",
+                        "an email about order #%s is already in the mailbox index: %r from %s "
+                        "on %s (read %s) - approval for sending it is moot"
+                        % (n, subject, sender, when, _now()), 24)
+    except sqlite3.Error as exc:
+        return ("unknown", "email_catalog unreadable: %s" % exc, 1)
+    finally:
+        con.close()
+    # A NEGATIVE FROM A READ INDEX IS A MEASUREMENT. The index is the same one that answers
+    # "already sent" above, so when it holds no outbound message about the order the reply is
+    # still owed. Saying "unknown" here held every such row out of the working set for want of a
+    # check that had in fact just been performed.
+    return ("fresh",
+            "no outbound email about #%s in the mailbox index - nothing has been sent, so the "
+            "reply is still owed (read %s)" % (nums[0], _now()), 24)
+
+
+def probe_customer_contact(row):
+    """A row about texting/calling a customer: who spoke last, us or them?
+
+    SD-card, measured 2026-10-19: an "owner approval" SMS was drafted for a voicemail that had
+    already been answered twice the same day, with a price line that contradicted our own quotes.
+    The producer read the voicemail row, not the conversation. This probe reads the last message.
+    """
+    text = _text(row)
+    # SAME RULE AS THE WORK-ORDER PROBE: the number must come from the row's own words. A phone
+    # in the quoted mail underneath is the sender's switchboard ("call (323) 230-0622", "800-437-
+    # 5556"), not a customer; measured 2026-10-19 that turned two live rows into "unknown" and a
+    # supplier shipment into a claim about a stranger's conversation history. A toll-free number
+    # is never a customer's device.
+    core = " ".join(str(row.get(k) or "") for k in
+                    ("question", "options_json", "recommendation", "blocks"))
+    tagged = "[probe:customer-contact]" in text.lower()
+    m = RE_PHONE.search(core)
+    if m is None and tagged:
+        m = RE_PHONE.search(text)
+    if m is not None and not tagged and re.match(
+            r"^\+?1?[\s.-]?\(?(800|833|844|855|866|877|888)\)?[\s.-]", m.group(0)):
+        m = None
+    if not m:
+        return None
+    if not re.search(
+            r"\b(sms|text|contact|follow[- ]?up|voicemail|call|customer|repair|pickup?|stalled)\b",
+            core, re.I):
+        return None
+    # PERSONAL GOOGLE VOICE IS NOT DIALPAD. The queue's own rule (owner-queue-ingest-gv.py, 6):
+    # "dialpad calls sms and voicemail do not count. I only want personal ones" - GV is his
+    # personal line, Dialpad is the shop's business line. Measured 2026-10-19: five personal
+    # texts (Zellie x2, Genack x2, a pidyon-haben invitation) were kept out of the working set
+    # because this probe read dialpad_sms_cache, found nothing and answered "unknown"; two more
+    # were reported PREMISE MOVED against a stranger's business number that shares their digits.
+    # Who spoke last cannot be measured from the business index, so the honest answer is that
+    # this probe does not speak to this row - unprobed, never unknown.
+    if str(row.get("source") or "").startswith("gv-ingest"):
+        return None
+    explicit = "[probe:customer-contact]" in text.lower()
+    digits = re.sub(r"\D", "", m.group(0))[-10:]
+    con = sqlite3.connect("file:%s?mode=ro" % DB, uri=True, timeout=10)
+    con.execute("PRAGMA busy_timeout=10000")
+    try:
+        rows = con.execute(
+            "SELECT created_at, direction, body_text FROM dialpad_sms_cache"
+            " WHERE phone_normalized LIKE ? ORDER BY created_at DESC LIMIT 5",
+            ("%" + digits,)).fetchall()
+    except sqlite3.Error as exc:
+        return ("unknown", "dialpad_sms_cache unreadable: %s" % exc, 1)
+    finally:
+        con.close()
+    if not rows:
+        return ("unknown",
+                "no SMS to/from %s in the comms index - 'no customer contact' cannot be "
+                "confirmed, and an empty result is a refusal, not health%s"
+                % (digits, "" if explicit else "; tag [probe:customer-contact] to make that "
+                   "the row's own premise"), 1)
+    last_at, direction, body = rows[0]
+    if str(direction or "").lower() == "outbound":
+        return ("changed",
+                "the LAST message to %s is OURS: outbound %s %r - the customer is not waiting, "
+                "so a follow-up premise is false (read %s)"
+                % (digits, last_at, str(body or "")[:60], _now()), 6)
+    return ("fresh",
+            "the last message from %s is inbound %s - they are waiting, the premise holds "
+            "(read %s)" % (digits, last_at, _now()), 6)
+
+
 #: name -> (function, what it measures, may it fire automatically?)
 #
 #: THE `auto` FLAG IS THE MOST IMPORTANT DESIGN DECISION IN THIS FILE, and it was forced by two
@@ -400,7 +719,15 @@ def probe_repo_citation(row):
 #: `[probe:NAME]` explicitly, which is a declaration that this probe speaks to THIS row's premise.
 #: An untagged row is then honestly `unprobed` - "nobody has said how to re-measure this yet" -
 #: which is a number worth driving down by tagging, not by guessing.
+#:
+#: THE ONE EXCEPTION is an EXACT RECORD IDENTIFIER: `WO2606040001`, or `case #3132` together with a
+#: phone number. Those name one row in one system; they are not the word "balance" and cannot mean
+#: an adjacent thing. They still fire only when the shape is present, and a failed read is
+#: `unknown`, never `fresh`.
 PROBES = {
+    "work-order": (probe_work_order, "a cited work order / case / phone, read from production", True),
+    "customer-contact": (probe_customer_contact, "the last SMS to a cited phone, from comms", True),
+    "already-sent": (probe_already_sent, "an email about a cited order number already sent", True),
     "elapsed": (probe_elapsed, "a stated 'N days late/old/ago' against a due date", True),
     "deadline": (probe_deadline, "a stated due date", True),
     "provider": (probe_provider, "an AI provider being used or failing", False),
@@ -410,9 +737,11 @@ PROBES = {
     "repo-citation": (probe_repo_citation, "a git commit or repository path", False),
 }
 
-#: Order matters: the most specific shape wins. elapsed before deadline, because a row stating
-#: both is the #492 shape and the elapsed correction is the useful one.
-PROBE_ORDER = ("elapsed", "flag", "provider", "merchant", "balance", "repo-citation", "deadline")
+#: Order matters: the most specific shape wins. A work order is the strongest evidence there is,
+#: so it leads; customer contact beats a day-count, because who spoke last decides whether a
+#: follow-up is a follow-up at all.
+PROBE_ORDER = ("work-order", "customer-contact", "already-sent", "elapsed", "flag", "provider",
+               "merchant", "balance", "repo-citation", "deadline")
 
 
 def match_probes(row):
@@ -481,7 +810,12 @@ def amend_row(row_id, note):
 
 
 def cmd_sweep(args) -> int:
-    con = sqlite3.connect(DB)
+    # THE INGEST TIMER RUNS EVERY 20 MINUTES AND HOLDS THE WRITE LOCK WHILE IT JUDGES. Measured
+    # 2026-10-19: this crashed mid-sweep with "database is locked" after recording some rows,
+    # because the connection was opened with the default 5 s timeout. A sweep is idempotent, but a
+    # crash in the middle of one is still a crash.
+    con = sqlite3.connect(DB, timeout=30)
+    con.execute("PRAGMA busy_timeout=30000")
     ensure_schema(con)
     rows = pending_rows(con)
     due, done, changed = [], 0, 0
@@ -513,7 +847,8 @@ def cmd_sweep(args) -> int:
 
 
 def cmd_check(args) -> int:
-    con = sqlite3.connect(DB)
+    con = sqlite3.connect(DB, timeout=15)
+    con.execute("PRAGMA busy_timeout=15000")
     ensure_schema(con)
     rows = {r["id"]: r for r in pending_rows(con)}
     row = rows.get(args.id)
@@ -527,6 +862,11 @@ def cmd_check(args) -> int:
     verdict, detail, budget, probe = check_row(row)
     print("#%s  verdict=%s  probe=%s  (budget %sh)" % (args.id, verdict, probe, budget))
     print("   %s" % detail)
+    if getattr(args, "record", False):
+        # The producer calls this at filing time so the row carries a read, not a claim. The
+        # presentation gate then has something to hold the row TO; no record means held.
+        record(con, args.id, probe, verdict, detail, budget)
+        print("   recorded in owner_premise_check at %s" % _now())
     st = last_check(con, args.id)
     if st:
         age = hours_since(st[2])
@@ -534,6 +874,43 @@ def cmd_check(args) -> int:
               % (st[2], age if age is not None else -1, st[3]))
     con.close()
     return 10 if verdict == "changed" else 0
+
+
+def cmd_replay(args) -> int:
+    """Read-only replay of a TASK or queue row through the same gate. Writes nothing.
+
+    This is how a defect is proved after the fact: the four 2026-10-19 cases were task rows
+    (owner-approval artifacts), so `replay --task N` shows what the queue would now do with
+    that exact text, against the live record.
+    """
+    con = sqlite3.connect("file:%s?mode=ro" % DB, uri=True, timeout=15)
+    con.execute("PRAGMA busy_timeout=15000")
+    con.row_factory = sqlite3.Row
+    try:
+        if args.task:
+            r = con.execute("SELECT * FROM tasks WHERE id=?", (args.task,)).fetchone()
+            if r is None:
+                print("task %s: NOT FOUND" % args.task)
+                return 3
+            row = {"id": "task-%s" % args.task, "question": r["title"],
+                   "context": r["description"], "asked_at": r["created_at"],
+                   "status": r["status"]}
+            label = "task #%s" % args.task
+        else:
+            r = con.execute("SELECT * FROM owner_decision_queue WHERE id=?", (args.row,)).fetchone()
+            if r is None:
+                print("row %s: NOT FOUND" % args.row)
+                return 3
+            row = dict(r)
+            label = "queue row #%s" % args.row
+    finally:
+        con.close()
+    verdict, detail, budget, probe = check_row(row)
+    state = "HELD (would not be shown)" if verdict != "fresh" else "would be shown"
+    print("%s: verdict=%s probe=%s -> %s" % (label, verdict, probe, state))
+    print("   %s" % detail)
+    print("   row status now: %s" % (row.get("status") or "?"))
+    return 0 if verdict == "fresh" else 10
 
 
 def cmd_gate(args) -> int:
@@ -562,9 +939,16 @@ def main() -> int:
                    help="explicit no-op flag; dry run is already the default")
     p.set_defaults(fn=cmd_sweep)
 
-    p = sub.add_parser("check", help="verdict for one row, writing nothing")
+    p = sub.add_parser("check", help="verdict for one row, writing nothing unless --record")
     p.add_argument("id", type=int)
+    p.add_argument("--record", action="store_true",
+                   help="write the verdict to owner_premise_check (used by the producer at filing)")
     p.set_defaults(fn=cmd_check)
+
+    p = sub.add_parser("replay", help="read-only replay of a task or row through the gate")
+    p.add_argument("--task", type=int, help="a task id (owner-approval artifacts live here)")
+    p.add_argument("--row", type=int, help="an owner_decision_queue id")
+    p.set_defaults(fn=cmd_replay)
 
     p = sub.add_parser("gate", help="exit 0 = safe to present, 10 = premise moved")
     p.add_argument("id", type=int)
@@ -574,6 +958,8 @@ def main() -> int:
     p.set_defaults(fn=cmd_probes)
 
     args = ap.parse_args()
+    if args.cmd == "replay" and not (args.task or args.row):
+        ap.error("replay needs --task N or --row N")
     return args.fn(args)
 
 

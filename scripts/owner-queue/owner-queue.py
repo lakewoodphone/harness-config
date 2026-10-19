@@ -109,6 +109,7 @@ import json
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 import time
 import textwrap
@@ -783,6 +784,22 @@ def cmd_add(con, a) -> int:
     if owner_worthy:
         print(f"owner-worthy escape: domain={domain}; reason: {owner_reason.strip()}")
 
+    # ── NO MENUS (2026-10-19) ───────────────────────────────────────────────
+    # A numbered packet of separate items is N decisions wearing one question. Measured: the
+    # 4-item approval packet (SD-card SMS, Rubin SMS, Global Direct Parts email, Seedr) was
+    # re-surfaced as ONE numbered ask by tasks 28112, 28115 and 28218, so a single "1,3" answer
+    # could not be attributed to a record and the stale members rode in on the live one. Each item
+    # must be its own row with its own fresh premise read. An options list for ONE decision is not
+    # a menu, so this fires only when at least two distinct record subjects are present.
+    _menu = _menu_defect(values)
+    if _menu:
+        marks, subjects = _menu
+        print("REFUSED — this is a numbered packet of separate items, not one decision "
+              "(%d numbered entries, %d distinct record subject(s))." % (marks, subjects))
+        print("  Split it: one row per item, each with its own fresh premise read. Nothing was "
+              "written.")
+        return 5
+
     blocking, plausible = guard_text(values)
     if blocking and not getattr(a, "allow_suspect_text", False):
         print_guard_refusal(blocking, plausible)
@@ -874,6 +891,29 @@ def cmd_add(con, a) -> int:
     print(f"  via {origin}; P265 guard: "
           + ("passed clean" if not blocking
              else f"{len(blocking)} signal(s) allowed by flag"))
+
+    # ── CARRY A FRESH READ, NOT A CLAIM (2026-10-19) ────────────────────────
+    # The producer runs the premise check at FILING time and records it, so the row carries what
+    # production/the comms index says and the timestamp of that read. If the read fails, the row is
+    # still created but the presentation gate holds it: no record is better than a task's own text.
+    _pc = "/root/bin/premise-check.py"
+    if cur.lastrowid and os.path.exists(_pc):
+        try:
+            _r = subprocess.run(
+                [sys.executable, _pc, "check", str(cur.lastrowid), "--record"],
+                capture_output=True, text=True, timeout=150)
+            _out = [ln for ln in (_r.stdout or "").strip().splitlines() if ln.strip()]
+            if _out:
+                print("  premise: " + _out[0].strip())
+            if _r.returncode == 10:
+                print("  premise MOVED — created but HELD until the row is refreshed.")
+            elif _r.returncode not in (0, 10):
+                print("  premise check failed (%s) — the row will be HELD until one is recorded"
+                      % ((_r.stderr or "").strip()[:120] or "rc=%d" % _r.returncode),
+                      file=sys.stderr)
+        except Exception as _exc:  # a check that cannot run must never silently pass
+            print("  premise check skipped (%s) — the row will be HELD until one is recorded"
+                  % _exc, file=sys.stderr)
     return 0
 
 
@@ -1905,6 +1945,129 @@ def _moot(item):
     return True, "said \"%s\" %.0f hours ago" % (m.group(1).lower(), age)
 
 
+#: A row is about a RECORD when it names one: a work order, a case/task number, or an order number.
+#: A bare phone only counts when the row is about contacting that customer -- a phone number in a
+#: porting question is the SUBJECT, not a case to re-read, and holding that would be a false
+#: positive. Everything else (a policy question, a signature choice) has no record to read and is
+#: not subject to this gate.
+RE_PHONE = re.compile(
+    r"(?:\+1\d{10}|(?:\+1[\s.-]?)?(?:\(\d{3}\)\s*|\d{3}[\s.-])\d{3}[\s.-]\d{4})\b")
+RE_RECORD_NUMBER = re.compile(
+    r"\bWO\d{10}\b|\bcase\s*#?\s*\d{3,6}\b|\bwork\s+order\b|\b#\s*\d{5,8}\b", re.I)
+RE_CONTACT_CTX = re.compile(
+    r"\b(customer|client|sms|text|voicemail|follow[- ]?up|repair|pickup|approval|draft|"
+    r"stalled|work order)\b", re.I)
+
+
+def _record_shaped(text):
+    if RE_RECORD_NUMBER.search(text):
+        return True
+    return bool(RE_PHONE.search(text) and RE_CONTACT_CTX.search(text))
+
+
+def _premise_hold(con, item):
+    """(held, why). May this owner-facing row be shown?
+
+    THE DEFECT THIS CLOSES. Measured 2026-10-19 in one queue: five approval items, four of them
+    about work that was already done. Rubin's draft said "127 days stalled, 0% progress, no
+    customer contact" while WO2606040001 was COMPLETED and paid and the customer had texted twice;
+    Felder's said recovery "has not progressed" while its work order was READY_FOR_PICKUP with
+    19,122 files / 271 GB recovered. Both drafts had been composed from a task row's own text --
+    written weeks earlier, never re-read -- and the queue's only reaction to a moved premise was to
+    PRINT A WARNING and show the row anyway.
+
+    So a record-shaped row is shown only when `owner_premise_check` carries a FRESH verdict from a
+    probe that read the record. Missing, unprobed, changed, unknown, or older than its budget all
+    hold the row. This is a read, not a write: the row stays pending and `--all` still shows it with
+    the reason, so nothing is lost and nothing is smuggled past him.
+    """
+    if item.get("surface") != "queue":
+        return False, ""
+
+    # PERSONAL COMMS ARE NEWS, NOT A CLAIM ABOUT A BUSINESS RECORD. This gate exists to stop an
+    # approval item about work that has already moved (see the docstring above). A Google Voice
+    # text is a person saying something to him: there is no business record to re-read, and the
+    # queue's own rule is that Dialpad is never the lineage for these rows. Measured 2026-10-19:
+    # five personal texts - two from Zellie, two from Genack, a pidyon-haben invitation - were
+    # held out of the working set for want of a premise check that could never apply to them, so
+    # he never saw them. The ingest fold keeps such a row current: a later message from the same
+    # party updates the same row.
+    try:
+        src_row = con.execute(
+            "SELECT COALESCE(source,'') FROM owner_decision_queue WHERE id=?",
+            (item["id"],)).fetchone()
+    except sqlite3.Error:
+        src_row = None
+    if src_row and str(src_row[0]).startswith("gv-ingest"):
+        return False, ""
+
+    row = None
+    try:
+        row = con.execute(
+            "SELECT question, context, options_json, recommendation, blocks"
+            " FROM owner_decision_queue WHERE id=?", (item["id"],)).fetchone()
+    except sqlite3.Error:
+        row = None
+    text = " ".join(
+        str(x or "") for x in
+        (item.get("title"), item.get("_blob"),
+         tuple(row) if row is not None else ()))
+    if not _record_shaped(text):
+        return False, ""
+    try:
+        chk = con.execute(
+            "SELECT probe, checked_at, verdict, detail, expect_max_h"
+            " FROM owner_premise_check WHERE row_id=?", (item["id"],)).fetchone()
+    except sqlite3.Error as exc:
+        return True, "premise store unreadable (%s), so the record cannot be re-read" % exc
+    if chk is None:
+        return True, "no read of the record it is about - a task's text is a claim, not evidence"
+    probe, checked_at, verdict, detail, budget = chk
+    verdict = str(verdict or "")
+    if verdict != "fresh":
+        return True, "premise %s via %s: %s" % (verdict, probe, str(detail or "")[:160])
+    age = None
+    try:
+        when = dt.datetime.fromisoformat(str(checked_at).replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=dt.timezone.utc)
+        age = (dt.datetime.now(dt.timezone.utc) - when).total_seconds() / 3600.0
+    except (TypeError, ValueError):
+        age = None
+    if age is None:
+        return True, "the recorded read has no readable timestamp"
+    if age > float(budget or 6):
+        return True, ("the last read of the record is %.1fh old (budget %sh); re-read it"
+                      % (age, budget))
+    return False, ""
+
+
+#: A packet of separate items wearing one question. `1) ... 2) ... 3) ...` with more than one
+#: distinct customer/order subject is not a decision, it is N decisions, and the owner's answer
+#: "1,3" tells nobody which record each answer belongs to. Measured 2026-10-19: the 4-item
+#: owner-approval packet was re-surfaced as ONE numbered menu by three separate tasks.
+RE_MENU_ITEM = re.compile(r"(?:^|[\s;])(?:\(?\d{1,2}[.)])\s+\S", re.M)
+RE_MENU_PAREN = re.compile(r"\(\d{1,2}\)\s+\S")
+RE_MENU_PHRASE = re.compile(
+    r"reply with (?:the )?(?:numbers?|number)|numbered (?:ask|list|menu)|"
+    r"one numbered|approve (?:all|them) by number", re.I)
+
+
+def _menu_defect(values):
+    """(marks, subjects) when the row is a numbered packet of separate items, else None."""
+    text = "\n".join(str(values.get(k) or "") for k in
+                     ("question", "context", "options_json", "recommendation", "blocks"))
+    marks = len(RE_MENU_ITEM.findall(text)) + len(RE_MENU_PAREN.findall(text))
+    if marks < 2:
+        return None
+    subjects = {m.group(0).upper() for m in re.finditer(r"\bWO\d{10}\b", text)}
+    subjects |= {re.sub(r"\D", "", m.group(0))[-10:] for m in RE_PHONE.finditer(text)}
+    subjects |= {"#" + m.group(1) for m in re.finditer(r"#\s*(\d{5,8})\b", text)}
+    if len(subjects) >= 2 or (RE_MENU_PHRASE.search(text) and marks >= 2):
+        return marks, len(subjects)
+    return None
+
+
 def _queue_score(item):
     """THE ordering function. Deterministic, and every term prints its own arithmetic.
 
@@ -2130,6 +2293,7 @@ def _gather_queue(con, include_deferred=False):
         it["moot"], it["moot_why"] = _moot(it)
         it["learned"] = _learned_penalty(it, prof)
         it["_facts"], it["_ready"], it["_missing"] = _dossier(con, it)
+        it["_premise_held"], it["_premise_why"] = _premise_hold(con, it)
         it["score"], it["why"] = _queue_score(it)
     items.sort(key=lambda i: (-i["score"], i["surface"] != "queue", str(i["id"])))
     items = _collapse_facts(items)
@@ -2629,16 +2793,24 @@ WORKING_SET_MONEY = 100.0
 
 
 def _working_set(items, max_age_days=21, show_all=False):
-    """(visible, hidden_old, hidden_quiet, hidden_unprepared). One rule, used by queue, card, knock.
+    """(visible, hidden_old, hidden_quiet, hidden_unprepared, hidden_premise).
 
     An ATTENTION item is held back when it has stopped being news. A DECISION is held back only when
     it has not been briefed -- because sending him a question without its facts is the one thing his
     instruction forbids ("only put it in the queue after all info is gathered about it fully"). A
-    decision is never aged out: it blocks work until it is answered.
+    decision is never aged out: it blocks work until it is answered. And a row about a work order or
+    a customer is held when its premise could not be re-read from the record, because that is how
+    four approval items in one session asked him about work that was already finished.
     """
-    visible, old, quiet, thin = [], 0, 0, []
+    visible, old, quiet, thin, held = [], 0, 0, [], 0
     for i in items:
         age = i.get("age_hours") or 0
+        if i.get("_premise_held") and i["surface"] == "queue":
+            if show_all:
+                visible.append(i)
+            else:
+                held += 1
+            continue
         if i["kind"] == "decision":
             # An agent's approval request is the agent's to brief; holding it back here would hide a
             # live approval behind a rule this tool cannot satisfy. It shows, and the card says the
@@ -2662,7 +2834,7 @@ def _working_set(items, max_age_days=21, show_all=False):
             visible.append(i)
         else:
             quiet += 1
-    return visible, old, quiet, thin
+    return visible, old, quiet, thin, held
 
 
 def _public(item):
@@ -2695,6 +2867,8 @@ def _public(item):
         "ready": bool(item.get("_ready", True)),
         "missing": item.get("_missing") or "",
         "moot": bool(item.get("moot")),
+        "premise_held": bool(item.get("_premise_held")),
+        "premise_why": item.get("_premise_why") or "",
         "facts": [{"label": l, "value": v} for l, v in (item.get("_facts") or [])],
         "also": [str(x[0]) for x in (item.get("_also") or [])],
     }
@@ -2712,7 +2886,7 @@ def cmd_queue(con, a) -> int:
     # are never aged out -- they keep blocking work until they are answered. Nothing is deleted
     # or closed by this: the hidden count is printed, and `--all` shows them.
     max_age = getattr(a, "max_age_days", 21)
-    items, hidden_old, hidden_quiet, hidden_thin = _working_set(
+    items, hidden_old, hidden_quiet, hidden_thin, hidden_held = _working_set(
         items, max_age, show_all=getattr(a, "all", False))
     if getattr(a, "new_only", False):
         items = [i for i in items if i["surface"] != "queue" or i.get("_unseen")]
@@ -2734,6 +2908,9 @@ def cmd_queue(con, a) -> int:
         if hidden_thin:
             print("  (%d decision(s) being briefed — I gather the facts before you see them)"
                   % len(hidden_thin))
+        if hidden_held:
+            print("  (%d item(s) HELD — the record behind them could not be re-read, so they are "
+                  "not shown; --all shows why)" % hidden_held)
         if ops:
             print("  (%d ops alert(s) are mine to repair, not yours)" % ops)
         return 0
@@ -2756,10 +2933,13 @@ def cmd_queue(con, a) -> int:
         print()
     for i in items[:limit]:
         age = "" if i["age_hours"] is None else "%5.1fh" % i["age_hours"]
-        print("%-6s %-4s %-9s %-9s %s" % (
+        print("%-6s %-4s %-9s %-9s %s%s" % (
             ("#" + str(i["id"]))[:6], i["score"], i["kind"], age,
+            "HELD " if i.get("_premise_held") else "",
             " ".join(str(i["title"]).split())[:96]))
         print("       %s" % i["why"])
+        if i.get("_premise_held"):
+            print("       HELD: %s" % i.get("_premise_why"))
     if len(items) > limit:
         print("\n(+%d more; --limit N)" % (len(items) - limit))
     if hidden_old:
@@ -2772,6 +2952,10 @@ def cmd_queue(con, a) -> int:
     if hidden_thin:
         print("%d decision(s) held back while I gather the facts — you should not have to decide "
               "something I have not briefed (--all shows them)" % len(hidden_thin))
+    if hidden_held:
+        print("%d item(s) HELD — the work order / customer record behind them could not be "
+              "re-read, so a task's own text is all there is; --all shows why"
+              % hidden_held)
     if ops:
         print("%d ops alert(s) held back as mine, not yours (paused syncs, stale capture)" % ops)
     return 0
@@ -2843,7 +3027,7 @@ def cmd_card(con, a) -> int:
     if getattr(a, "kind", None):
         items = [i for i in items if i["kind"] == a.kind]
     max_age = getattr(a, "max_age_days", 21)
-    items, hidden, hidden_quiet, hidden_thin = _working_set(
+    items, hidden, hidden_quiet, hidden_thin, hidden_held = _working_set(
         items, max_age, show_all=getattr(a, "all", False))
     if not items:
         print("QUEUE EMPTY — nothing is waiting on you.")
@@ -2854,6 +3038,9 @@ def cmd_card(con, a) -> int:
         if hidden_thin:
             print("  (%d decision(s) being briefed — the facts are being gathered first)"
                   % len(hidden_thin))
+        if hidden_held:
+            print("  (%d item(s) HELD — the record behind them could not be re-read; --all shows "
+                  "why)" % hidden_held)
         return 0
     item = items[0]
     print("ITEM 1 of %d  ·  %d decision(s), %d attention in the queue"
@@ -2926,7 +3113,7 @@ def cmd_knock(con, a) -> int:
     shown = 0
     while shown < budget:
         all_items = [i for i in _gather_queue(con) if str(i["id"]) not in seen]
-        items, _old, _quiet, _thin = _working_set(all_items, 21)
+        items, _old, _quiet, _thin, _held = _working_set(all_items, 21)
         if not items:
             print("\nQUEUE EMPTY for this walk." if shown == 0 else
                   "\nThat is the end of the queue.")
@@ -3055,10 +3242,15 @@ def cmd_health(con, a) -> int:
     # folder looks exactly like a quiet week from every other line on this page.
     try:
         con.commit()
+        # The mail ingest records WHY it refused mail (not_owner / cold_solicitation). Older rows
+        # predate those columns, so read them only when the table has them; never fail health over it.
+        run_cols = {r[1] for r in con.execute("PRAGMA table_info(owner_queue_ingest_run)")}
+        breakdown = {"not_owner", "cold_solicitation"}.issubset(run_cols)
         runs = {}
         for r in con.execute(
-                "SELECT source, ran_at, fetched, queued, dropped, errors, note"
-                "  FROM owner_queue_ingest_run ORDER BY id DESC LIMIT 40").fetchall():
+                "SELECT source, ran_at, fetched, queued, dropped, errors, note%s"
+                "  FROM owner_queue_ingest_run ORDER BY id DESC LIMIT 40"
+                % (", not_owner, cold_solicitation" if breakdown else "")).fetchall():
             runs.setdefault(str(r["source"]), r)
         for src, label in (("gv", "gv read everything"), ("mail", "mail read everything")):
             run = runs.get(src)
@@ -3068,6 +3260,10 @@ def cmd_health(con, a) -> int:
             fetched = int(run["fetched"] or 0)
             queued = int(run["queued"] or 0)
             dropped = int(run["dropped"] or 0)
+            refused = ""
+            if breakdown and (int(run["not_owner"] or 0) or int(run["cold_solicitation"] or 0)):
+                refused = ", %d not-owner, %d cold" % (
+                    int(run["not_owner"] or 0), int(run["cold_solicitation"] or 0))
             # `fetched - dropped - queued` is the COLLAPSE count, not a loss: twelve texts in one
             # family chat become one row on purpose. Calling it unexplained would make the health
             # check cry wolf on every normal run, which is how a check stops being read. What is a
@@ -3086,7 +3282,8 @@ def cmd_health(con, a) -> int:
                 state = "STALE"
                 failures += 1
             rows_out.append((label, fetched, age, 48.0,
-                             state if state != "OK" else "OK (%d folded)" % max(0, folded)))
+                             state if state != "OK"
+                             else "OK (%d folded%s)" % (max(0, folded), refused)))
     except Exception as exc:  # noqa: BLE001
         rows_out.append(("run arithmetic", 0, None, 48.0, "NO TABLE"))
 
