@@ -8,10 +8,10 @@
   "pain": 9036,
   "wins": 6939
  },
- "ceiling_refreshed_at": "2026-10-19T16:15:10Z",
+ "ceiling_refreshed_at": "2026-10-19T16:30:08Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/641-wake-progress-cap",
-  "handoff": "refs/heads/hk/641-wake-progress-cap",
+  "handoff": "ZABZ-YOGA live working tree",
   "lessons": "ZABZ-YOGA live working tree",
   "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
