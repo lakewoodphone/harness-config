@@ -6,7 +6,7 @@ Updated: 2026-10-19
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 592 row(s) read, 28 pending, generated 2026-10-19 14:08 UTC on SECRATARY-CLOUD.
+Provenance: 592 row(s) read, 27 pending, generated 2026-10-19 15:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -21,7 +21,6 @@ Provenance: 592 row(s) read, 28 pending, generated 2026-10-19 14:08 UTC on SECRA
 | 721 | 2026-10-18 | high | May I delete the ten pre-deploy Home Assistant backups from February to May? It frees 7.61 GiB, which is the difference between one day of clip retention and fourteen. | Delete all ten. The October automatic backups already cover the current state, and the February and May ones describe a system four months and two major changes away from the one running tonight. |
 | 726 | 2026-10-19 | high | Supplier hasn't answered RMA request for dead-digitizer Surface panel (order 108746338) | Send the RMA number and return address now and say ship the replacement first — the customer's machine is down and the part is confirmed dead in UEFI. |
 | 808 | 2026-10-19 | high | The authority's 150 GB disk cannot fit the session-index conversion. Grow the volume by ~100 GB, or accept a ~45-minute outage to rebuild the database on another host and cut back? | Grow the volume. It is the only option with no outage, it makes the conversion safe instead of marginal, and it fixes the structural problem: 89% of a 31 GB database is one corpus sitting on a 150 GB disk. |
-| 812 | 2026-10-19 | high | The parent notice is live and unsigned, and the contact block you supplied is stranded on an unmerged branch. Put it up, or take the page down until you sign it? | Merge and deploy now. It publishes words you already wrote and supplied, closes the 312.4 gap on a page that is already public, and reduces three conflated actions to one owner action: the signature. Taking the page down |
 | 78 | 2026-09-16 | medium | The port of the line for your mother, +1 732-363-1752, needs four fields from her US Mobile account: the account number, the transfer PIN, the account-holder name exactly as it appears on file, and the billing ZIP. Can you pull those, or should I get them myself? | Get the four values from her US Mobile account page or invoice and send them to me, and I will file the port. I will not write the PIN into any document. If it is easier, I can call her and get them directly. |
 | 110 | 2026-09-18 | medium | The 2022 Elantra needs about $400 of work and setup right now: the IVT transmission fluid is overdue at 60,326 miles (Hyundai's severe-duty interval is 60,000), and the car has no health monitoring at all. Which do you want me to green-light? | A. The IVT is the single most expensive failure mode this car has (adjacent-year Elantras have failed in the 80k range at ~$4,800 out of pocket), it is past its severe-duty 60,000-mile interval, and there is no service h |
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
@@ -39,4 +38,4 @@ Provenance: 592 row(s) read, 28 pending, generated 2026-10-19 14:08 UTC on SECRA
 | 813 | 2026-10-19 | medium | May I move master to the prepared merge commit 901c26c8f so master contains the family-chat gate-hold branch? The branch fix is already on master as 8763ac6b1, and the prepared merge changes zero files. | Fast-forward master to 901c26c8f for item 663 (zero files changed), and archive the item 684 branch integrate/<redacted> rather than landing its 45 files of unreviewed parallel snapshot content; that closes both items wi |
 | 814 | 2026-10-19 | medium | The Phase-4 WFP callout driver cannot be built: neither zabz-tech-ts nor zabz-yoga-ts has the Windows Driver Kit or Windows SDK headers. May I provision a driver build lane, and where? | I recommend a GitHub Actions CI lane that installs the WDK via NuGet, leaving your machines untouched; the fallback is installing the WDK on zabz-tech-ts only. |
 
-Closed since the queue opened: 564. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 565. Answered questions move to `entries/decisions/` with the owner's own words.
