@@ -237,6 +237,39 @@ def _load_relay():
         return None
 
 
+
+#: The AI line's ledger. `textsend._record_send` writes the `messages` table here; the app writes
+#: `sms_log`. Both are durable and both are the owner's channel.
+MESSAGES_DB = os.environ.get("SMS_INBOX_DB", "/root/.sms-inbox/inbox.db")
+OWNER_LIKE = "%18483897895%"
+
+
+def _messages_rows(since):
+    """Delivered outbound owner texts from the AI line's ledger, shaped like the sms_log rows.
+
+    Returns [] on any failure: a census that cannot read one source must still report the other,
+    and must say which answered. Never raises.
+    """
+    try:
+        if not os.path.exists(MESSAGES_DB):
+            return []
+        conn = sqlite3.connect("file:%s?mode=ro" % MESSAGES_DB, uri=True)
+        try:
+            since_s = since.isoformat() if hasattr(since, "isoformat") else str(since)
+            got = conn.execute(
+                "select sid, coalesce(date_sent_utc, date_sent) as sentwhen, body, status "
+                "from messages where direction='outbound' and to_number like ? "
+                "and coalesce(status,'') in ('delivered','sent') "
+                "and coalesce(date_sent_utc, date_sent) >= ?",
+                (OWNER_LIKE, since_s)).fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        return []
+    return [{"id": None, "twilio_sid": r[0], "direction": "outbound", "status": r[3],
+             "agent_id": "ai-line", "created_at": r[1], "body": r[2]} for r in got]
+
+
 def conformance(rows, since):
     """{delivered, would_refuse, by_class, rate} over texts that reached him in the window."""
     relay = _load_relay()
@@ -251,6 +284,13 @@ def conformance(rows, since):
     by_class = {}
     examples = []
     seen_sids = set()
+    # BOTH LEDGERS, because the channel is two senders. `sms_log` holds what the app sent; the AI
+    # line (`textsend`) writes `messages` in ~/.sms-inbox and 887 owner texts exist only there,
+    # including 40 of the 42 CFO questions. Counting one store measured about a sixth of the
+    # channel and omitted the class he complains about most.
+    alt = _messages_rows(since)
+    if alt:
+        rows = list(rows) + alt
     for r in rows:
         if r.get("direction") != "outbound":
             continue
