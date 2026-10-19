@@ -53,6 +53,13 @@ behind it, history with that sender, and the arithmetic behind its rank. Then:
 
 ## Hard rules
 
+- **A child that executes a row closes it — in the same breath.** Measured 2026-10-19, and it is
+  why the owner was asked twice about one deletion: queue #721 (the ten pre-deploy Home Assistant
+  backups) was executed at 02:07:42Z by a mesh child, archived to R2 first, freed 7.23 GiB — and the
+  row stayed `pending` all evening, so the card asked him again at 21:40. **Work taken off a queue
+  row is not finished until the row is closed with the evidence** (`resolve ID --how "<what was
+  measured>"`). Before asking the owner anything, re-measure the thing: a row is a claim about the
+  state of the world on the day it was written, never a fact about tonight.
 - **A POSSIBLY MOOT line means check the premise before you speak.** The row itself is telling you the
   day it named has passed; re-measure, then either close it yourself or say what happened.
 - **Never ask him something the row already answers.** The dossier is there so he does not have to
