@@ -90,6 +90,69 @@ def dedupe_deliveries(rows: list[dict]) -> tuple[list[dict], int]:
     return list(seen.values()), folded
 
 
+
+#: The AI line's ledger. `textsend._record_send` writes it; the app writes `sms_log`. Both are the
+#: owner's channel and only one of them was being read.
+MESSAGES_DB = os.environ.get("SMS_INBOX_DB", "/root/.sms-inbox/inbox.db")
+
+
+def load_ai_line(path: Path | None = None) -> list[dict]:
+    """Delivered outbound owner texts from the AI line's ledger, shaped like sms_log rows.
+
+    The table mixes ISO stamps from the sender with RFC-2822 stamps from Twilio, so both are parsed
+    - a date comparison that silently becomes a string comparison is how a whole store gets dropped
+    without anything looking wrong. Returns [] on any failure and says so on stderr.
+    """
+    db = path or Path(MESSAGES_DB)
+    if not db.exists():
+        print("  (AI line ledger absent at %s - replay covers sms_log only)" % db, file=sys.stderr)
+        return []
+    import sqlite3
+    try:
+        conn = sqlite3.connect("file:%s?mode=ro" % db, uri=True)
+        try:
+            raw = conn.execute(
+                "select sid, direction, coalesce(from_number,''), coalesce(to_number,''), "
+                "       body, coalesce(date_sent_utc, date_sent) as sentwhen, status "
+                "from messages where direction='outbound' "
+                "  and coalesce(status,'') in ('delivered','sent')").fetchall()
+        finally:
+            conn.close()
+    except Exception as exc:                                   # noqa: BLE001
+        print("  (AI line ledger unreadable: %s - replay covers sms_log only)" % exc,
+              file=sys.stderr)
+        return []
+    out = []
+    for sid, direction, frm, to, body, when, status in raw:
+        iso = _to_iso(when)
+        if iso is None:
+            continue
+        out.append({"id": None, "twilio_sid": sid, "direction": direction,
+                    "from_number": frm, "to_number": to, "body": body,
+                    "status": status, "created_at": iso, "agent_id": "ai-line"})
+    return out
+
+
+def _to_iso(value) -> str | None:
+    """An ISO-8601 UTC stamp from either format this estate writes, or None."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(
+            timezone.utc).isoformat()
+    except ValueError:
+        pass
+    try:
+        from email.utils import parsedate_to_datetime
+        got = parsedate_to_datetime(text)
+        if got.tzinfo is None:
+            got = got.replace(tzinfo=timezone.utc)
+        return got.astimezone(timezone.utc).isoformat()
+    except Exception:                                          # noqa: BLE001
+        return None
+
+
 def load_rows(path: Path) -> list[dict]:
     rows = []
     with path.open(encoding="utf-8") as fh:
@@ -243,15 +306,10 @@ def guard_findings(base: Path, body: str) -> dict[str, str]:
                 if got:
                     out[label] = str(got)[:160]
 
-    if decide is not None:
-        fn = getattr(decide, "is_non_answer", None)
-        if callable(fn):
-            try:
-                hit, why = fn(body)
-            except Exception:                                  # noqa: BLE001
-                hit, why = False, ""
-            if hit:
-                out["nonanswer"] = str(why)[:160]
+    # `textdecide.is_non_answer` is DELIBERATELY NOT used here. It classifies HIS replies,
+    # not our outbound texts; running it over the outbound pile flagged 220 of 482 messages
+    # for "asking a question back and naming no category", which is what an assistant
+    # legitimately does. Its correct measurement is the inbound census below.
 
     # literals that are always wrong on his phone, independent of any guard module
     low = body.lower()
@@ -288,6 +346,8 @@ def would_cut(base: Path, body: str) -> str | None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--corpus", default="data/sms.jsonl")
+    ap.add_argument("--messages-db", default="",
+                    help="the AI line's ledger; empty means SMS_INBOX_DB then the default path")
     ap.add_argument("--base", default=".")
     ap.add_argument("--only", default="", help="comma-separated guard labels to restrict to")
     ap.add_argument("--json", default="")
@@ -305,6 +365,16 @@ def main(argv=None) -> int:
     base = Path(a.base)
 
     rows = load_rows(corpus)
+    # BOTH LEDGERS. sms_log holds what the app sent; the AI line holds what textsend sent, and 887
+    # owner texts exist only there - including 40 of the 42 CFO questions. Judging a guard on the
+    # smaller store is judging it on the part of the channel that was least in dispute.
+    ai = load_ai_line(Path(a.messages_db) if getattr(a, "messages_db", "") else None)
+    if ai:
+        have = {(r.get("twilio_sid") or "") for r in rows}
+        added = [r for r in ai if (r.get("twilio_sid") or "") not in have]
+        print("  AI line ledger: %d delivered owner texts, %d not already in the corpus"
+              % (len(ai), len(added)))
+        rows = list(rows) + added
     out, inn = build_channel(rows)
     out_raw = len(out)
     out, folded = dedupe_deliveries(out)
@@ -418,6 +488,8 @@ def main(argv=None) -> int:
             "total": total, "answered": answered, "guards": rows_json,
             "would_lose": loses,
             "suppressed": [{"at": r["created_at"], "answered": r["answered"],
+                            "responsive": bool(r.get("responsive")),
+                            "reply": (r.get("reply_body") or "")[:200],
                             "findings": r["findings"],
                             "body": (r.get("body") or "")[:400]} for r in suppressed_rows],
         }, indent=2), encoding="utf-8")
