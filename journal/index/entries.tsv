@@ -3578,6 +3578,7 @@ lessons	L8254	8254		2026-10-18	SECRATARY-CLOUD	open	**L8254 · One queue: decisi
 lessons	L8255	8255		2026-10-18	SECRATARY-CLOUD	open	**L8255 · Correcting L8254: a pending question is not evidence the work is pending**	entries/lessons/L8255.md	1	10	afcd5ca437f31eed		L8254
 lessons	L8446	8446		2026-10-18	secratary-cloud	open	**L8446 · A bill that arrives as a family forward exists in no archive — archive the image, then register it**	entries/lessons/L8446.md	1	40	d07c35b8cee08131	household,evidence,provenance,finance	H7657,H3372,L3440
 lessons	L8958	8958		2026-10-18	SECRATARY-CLOUD	open	**L8958 · L: /config on a Home Assistant host is a 21 GB tree; grep -r it and you wait**	entries/lessons/L8958.md	1	12	b46f58cbe7fe341b		
+lessons	L9086	9086		2026-10-19	secratary-cloud	open	**L9086 · HA watchdog SECURITY_ENTITIES_UNAVAILABLE was the 18 orphaned input_text helpers, and the alert now names them**	entries/lessons/L9086.md	1	89	d68c7828893273ad	ha,home-assistant,ha-watch,watchdog,security-entities,orphaned-helpers,false-positive,diagnostics	wake:1216,owner-queue:714,ledger:646
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
@@ -4320,6 +4321,7 @@ pain	P7948	7948		2026-10-18	SECRATARY-CLOUD	open	## P7948 — esearch freshness:
 pain	P8011	8011		2026-10-18	SECRATARY-CLOUD	open	## P8011 — esearch freshness: ZABZ-TECH last pushed 95 min ago (expected every 60 min)	entries/pain/P8011.md	1	6	e9a1fea3fa8d3367		
 pain	P8075	8075		2026-10-18	SECRATARY-CLOUD	open	## P8075 — esearch freshness: chat:vscode is 65 min old (limit 60 min)	entries/pain/P8075.md	1	6	14d2ee626167d32c		
 pain	P8139	8139		2026-10-18	SECRATARY-CLOUD	open	## P8139 — esearch freshness: ZABZ-TECH last pushed 95 min ago (expected every 60 min)	entries/pain/P8139.md	1	6	46be69580024e1d0		
+pain	P8203	8203		2026-10-19	SECRATARY-CLOUD	open	## P8203 — Estate monitor: disk_used_pct is critical (90.75 %) across 3 consecutive runs	entries/pain/P8203.md	1	23	5db6b3273f3a4a8a	estate-monitor,auto-filed,not-the-owners	metrics/disk_used_pct
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
