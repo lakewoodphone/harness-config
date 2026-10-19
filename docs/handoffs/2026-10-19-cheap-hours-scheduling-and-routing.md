@@ -29,6 +29,21 @@ without touching a line of code.
 
 ## 1. Why this is worth many hours — the measurement that started it
 
+> **CORRECTION, 2026-10-19T22:15Z, by the agent this handoff was given to — read this before §1's
+> numbers.** DeepSeek's peak window is **Mon–Fri 01:00–04:00 and 06:00–10:00 UTC** (35 of 168 hours,
+> 20.8 % of the week), off-peak being exactly half. The 00:30–16:30 window below is the *retired*
+> scheme. Measured against the real window: peak share of input is **27.7 %**, not 84 %; the week costs
+> **105.18** = **450.8/month**, not 650; and the scheduling prize is **97.7/month, 21.7 %**, not 310.
+> The bank's 636 is top-ups, not consumption — the account held an unconsumed 145.77 balance.
+>
+> **And the larger lever is not the clock at all.** DeepInfra Flex serves the same model generation at
+> **0.112 in / 0.336 out with no hour dependency**, which is below DeepSeek's own off-peak rate; routing
+> there is **41.4 %**, with nothing delayed. Fireworks Standard is 0.30/1.20 — exactly DeepSeek peak, so
+> it is worth no key at all. That reverses the round order in §6: routing pays first.
+>
+> Evidence, all dated: `personal-secretary-mvp/docs/cost/PRICES.md`, `prices.json`, and journal
+> `L10047`. Everything below is retained unedited as the record of the brief as it was given.
+
 From `docs/cloud-audit/2026-10-19-cloud-and-storage-audit.md` section 4, and the owner-queue row #830
 built from it (re-verify all of it in rounds 1–3; do not take it on trust, and do not quote it as
 yours until you have):

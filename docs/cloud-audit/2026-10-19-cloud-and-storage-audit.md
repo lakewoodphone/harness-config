@@ -307,6 +307,20 @@ the authority; the provider config and `mesh-run.mjs` had both already been reta
 
 ## 4. The largest line is not storage — and it has two prices, not one
 
+> **CORRECTION, 2026-10-19T22:15Z — the window in this section is wrong and every figure in it follows
+> the window.** DeepSeek's peak is **Mon–Fri 01:00–04:00 and 06:00–10:00 UTC**, not 00:30–16:30 UTC;
+> that is 35 of 168 hours (20.8 % of the week), and off-peak is exactly half the peak rate. The
+> "00:30–16:30" window is the *retired* scheme. Read from
+> <https://api-docs.deepseek.com/quick_start/pricing> at 21:38Z on this date. The journal had the
+> correct window since 2026-09-11 as lesson `L43` and this audit did not consult it.
+>
+> Consequently: the **84 %** peak share is really **27.7 %**; the week costs **105.18**, which is
+> **450.8 a month**, not 650; and the scheduling prize is **97.7 a month**, not 310. The bank's
+> 636 figure is **top-ups, not consumption** — the account held an unconsumed 145.77 balance at
+> 21:47Z. Full re-derivation, all four readings side by side, and the provider comparison:
+> `personal-secretary-mvp/docs/cost/PRICES.md`. Journal `L10047`. Everything below is retained
+> unedited as the record of how the error was made.
+
 `model_usage` says DeepSeek cost **$237.94 in the last 7 days** — about $1,030 a month if the week
 were typical. That number is computed by `app/pricing.py`, which prices `deepseek-v4-flash` at
 **(0.44, 1.32) $/M** — labelled in that same file as the *legacy V4-Flash peak* rate and explicitly
