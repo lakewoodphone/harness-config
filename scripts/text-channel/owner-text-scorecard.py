@@ -402,6 +402,64 @@ def file_flag(summary, days):
         return 2
 
 
+
+#: The census threshold. 10% of the texts that reach him being ones the guards would refuse is a
+#: regression, not noise; the first corrected reading was 11 of 77 (14%), and every one of those
+#: eleven was a real defect of the composer that produced it.
+CONFORMANCE_THRESHOLD = float(os.environ.get("OWNER_TEXT_CONFORMANCE_THRESHOLD", "0.10"))
+
+
+def file_conformance_flag(conf, days):
+    """File ONE wake when too many delivered texts are ones the guards would refuse.
+
+    Independent of the dead-text flag: that one watches whether his texts do any work, this one
+    watches whether the guards are holding. A guard regression moves this number and not that one.
+    """
+    if not conf or not conf.get("available"):
+        print("no conformance flag: %s" % (conf or {}).get("why", "not measured"))
+        return 0
+    delivered = int(conf.get("delivered") or 0)
+    refused = int(conf.get("would_refuse") or 0)
+    if delivered < 20:
+        print("no conformance flag: only %d delivered texts, too few to judge" % delivered)
+        return 0
+    rate = refused / delivered
+    if rate <= CONFORMANCE_THRESHOLD:
+        print("no conformance flag: %d of %d refused (%.1f%%) within threshold %.0f%%"
+              % (refused, delivered, 100 * rate, 100 * CONFORMANCE_THRESHOLD))
+        return 0
+    y, w, _ = _now().isocalendar()
+    subject = "owner-text:conformance:%04d-W%02d" % (y, w)
+    classes = ", ".join("%s=%d" % (k, v)
+                        for k, v in sorted((conf.get("by_class") or {}).items(),
+                                           key=lambda kv: -kv[1])) or "(none named)"
+    examples = "; ".join("%s :: %s" % (e.get("at", "")[:16], e.get("body", "")[:80])
+                         for e in (conf.get("examples") or [])[:3]) or "(none)"
+    prompt = (
+        "%d of the %d texts that reached him in the last %g days are ones the live guards would "
+        "refuse (%.1f%%, threshold %.0f%%). Classes: %s. Examples: %s\n\n"
+        "DO ONE BOUNDED THING. The gate already refuses these - which means the defect is in the "
+        "COMPOSER that writes them, and the repair belongs at the sender. Find the code that "
+        "emits this class, make it write ONE human sentence (no paths, no task ids, no "
+        "instruction verbs), and prove it by re-running `owner-text-scorecard.py` and reading the "
+        "conformance block.\n\n"
+        "Do NOT strengthen the guard to hide it: suppressing harder turns a bad message into no "
+        "message, and for a reminder class that deletes the reminder. %s were rewritten by the "
+        "gate in this window - those are delivered, not lost, and are not counted here."
+        % (refused, delivered, days, 100 * rate, 100 * CONFORMANCE_THRESHOLD, classes, examples,
+           conf.get("rewritten") or 0)
+    )
+    cmd = [sys.executable, WAKE, "flag", "--subject", subject, "--prompt", prompt,
+           "--kind", "owner-text", "--source", "owner-text-conformance", "--priority", "normal"]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        print("flag %s -> %s" % (subject, (out.stdout or out.stderr or "").strip()[:300]))
+        return 0
+    except Exception as exc:                                       # noqa: BLE001
+        print("conformance flag filing FAILED: %r" % (exc,), file=sys.stderr)
+        return 2
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="did the owner text deserve to exist?")
     ap.add_argument("--days", type=float, default=14.0)
@@ -453,7 +511,10 @@ def main(argv=None):
                       % (str(e.get("at"))[:16], e.get("classes"), e.get("body")))
 
     if args.flag:
-        return file_flag(summary, args.days)
+        # BOTH CONDITIONS, both filed, neither able to suppress the other.
+        rc1 = file_flag(summary, args.days)
+        rc2 = file_conformance_flag(result.get("conformance") or {}, args.days)
+        return rc1 or rc2
     return 0
 
 
