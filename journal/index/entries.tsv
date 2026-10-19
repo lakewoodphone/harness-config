@@ -4453,6 +4453,7 @@ pain	P8716	8716		2026-10-19	SECRATARY-CLOUD	open	## P8716 — Estate monitor: di
 pain	P8779	8779		2026-10-19	SECRATARY-CLOUD	open	## P8779 — a script this host RUNS does not match the captured reference	entries/pain/P8779.md	1	6	6edbb19be8518224	deployed-drift,scripts,drift	
 pain	P8843	8843		2026-10-19	SECRATARY-CLOUD	open	## P8843 — Estate monitor: tmp_used_pct is critical (84.52 %) across 3 consecutive runs	entries/pain/P8843.md	1	23	9dbfbbdaa7be72d1	estate-monitor,auto-filed,not-the-owners	metrics/tmp_used_pct
 pain	P8907	8907		2026-10-19	SECRATARY-CLOUD	open	## P8907 — Estate monitor: tmp_used_pct is critical (99.85 %) across 6 consecutive runs	entries/pain/P8907.md	1	23	88a822818d6d067c	estate-monitor,auto-filed,not-the-owners	metrics/tmp_used_pct
+pain	P8971	8971		2026-10-19	SECRATARY-CLOUD	open	## P8971 — a script this host RUNS does not match the captured reference	entries/pain/P8971.md	1	6	73384de7bfa63869	deployed-drift,scripts,drift	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
