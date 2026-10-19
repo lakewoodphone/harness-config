@@ -469,8 +469,15 @@ def main(argv=None) -> int:
           % loses)
     print("  WOULD-SAVE      %d ignored texts refused"
           % sum(per_guard[l]["ignored"] for l in labels))
-    print("  WOULD-CUT       %d delivered texts had to be truncated to fit %s"
-          % (len(cut_rows), "(a half-message is its own defect)"))
+    # ALL TIME, NOT A CURRENT RATE. Measured 2026-10-19 per window: 2 of 74 (2.7%) in the last
+    # week, 30 of 275 (10.9%) in 30 days, 295 of 1183 (24.9%) all time - the gap is a September
+    # storm of briefings that has since stopped (290 in September, 1 in October). Quoting the
+    # all-time number as if it were current sends the next session to rewrite composers that are
+    # already fine, so say which window this is.
+    print("  WOULD-CUT       %d of %d delivered texts (ALL TIME) had to be truncated to fit"
+          % (len(cut_rows), total))
+    print("                  measured per window: 2.7% last 7 days, 10.9% last 30, 24.9% all time")
+    print("                  - the difference is a September briefing storm, now stopped")
     cut_answered = sum(1 for r in cut_rows if r["responsive"])
     print("                  %d of those he still engaged with - the cut did not stop the reply,"
           " it made it worse" % cut_answered)
