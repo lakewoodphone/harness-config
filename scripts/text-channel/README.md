@@ -80,3 +80,13 @@ cd /root/personal-secretary-mvp
 ```
 
 The timer's next send is 2026-10-20 14:23 UTC; that is the first live test.
+
+The app-repo record is branch `owner-text/pager-one-question-20261019`
+(commit `c5d9ccb27`), based on `1e459e49b` — the commit whose 853-line
+`owner_attention.py` was actually running. The app repo's current branch
+(`hk/559-bound-repo-reads`) carries a newer, unreleased 1,137-line
+`owner_attention.py` from the config-env merge. The live file deliberately
+remains the deployed base plus this patch; the newer branch's composer is a
+different architecture and deploying it is a larger change than this one. The
+next deploy of the newer branch must carry the complete-question + item-key
+patch forward.
