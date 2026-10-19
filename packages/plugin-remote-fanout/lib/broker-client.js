@@ -160,7 +160,13 @@ export function createBrokerClient(config = {}) {
   const sshArgs = Array.isArray(config.sshArgs)
     ? config.sshArgs.map(String)
     : ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=8'];
-  const sshTarget = config.sshTarget ?? 'secratary-ts';
+  // RETARGETED 2026-10-19. This default read `secratary-ts`, the office box the 2026-10-11 cutover
+  // FROZE as the rollback anchor — and that box still runs its OWN mesh-broker with a different
+  // roster, so the stale default did not merely point at an inert host, it pointed at a second
+  // broker whose roster has no `secratary-cloud` row. `bin/mesh-run.mjs:61` and the provider row in
+  // `profiles/web/cordis.patch.yml` were both already `secratary-cloud`; this was the last of the
+  // three. See docs/mesh/159-MESH-POST-MIGRATION.md.
+  const sshTarget = config.sshTarget ?? 'secratary-cloud';
   const url = (config.url ?? 'http://localhost:3091').replace(/\/+$/, '');
   const timeoutMs = Number.isFinite(config.timeoutMs) && config.timeoutMs > 0 ? config.timeoutMs : 30_000;
   const logger = config.logger;

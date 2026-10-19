@@ -129,6 +129,34 @@ export const NODES = {
     cwd: '/home/zabz/code',
     verified: 'MEASURED 2026-10-08: `/home/zabz/dsh-engine` = dsh 0.1.5-rc.1, MISSING @deepseek-ai/dsh-agent-preset, -preset-registry and dsh-workflow-ptc; there is no `~/dsh-current` on this node. The 2026-09-17 note below still stands for the mechanism. HISTORIC: MEASURED 2026-09-17T14:34-14:40Z from a Windows dispatcher: `command -v dsh` -> /usr/local/bin/dsh; `command -v node` -> /usr/local/bin/node -> /home/zabz/.local/node/bin/node (v22.23.2); /etc/dsh-worker.env readable by the worker; /home/zabz/.local/node-v24.12.0-linux-x64/bin/node ABSENT (the old row, exit 127). A real v1 child turn through this row completed over ssh (`MESH-HOST: zabz-tech-linux`, exit 0) once the executor was used. The 2026-09-16 note "no Node runtime yet" is STALE.',
   },
+  // THE AUTHORITY AS A WORKER (2026-10-19). Hetzner CCX33: 4 physical cores x 2 SMT, 30.6 GiB,
+  // ~97 GiB free. It was excluded from the mesh on purpose while it was a 4-core/15 GB box that
+  // swapped at 95-99% and took 11 OOM kills in a day; at CCX33 it runs at ~13% CPU and 26.7 GiB
+  // free, and the thing that made it dangerous is now a cgroup rather than a hope.
+  // WHAT MAKES THIS ROW SAFE, and what to re-measure if it ever misbehaves:
+  //   * `command: 'dsh-mesh'` is NOT the provisioner's `/usr/local/bin/dsh`. It pins
+  //     DSH_HOME=/root/.dsh-worker and REFUSES any other value, because `phone-engine.service` owns
+  //     /root/.dsh (Environment=DSH_HOME=/root/.dsh, 487 sessions) and a second engine on one home
+  //     is the state docs/mesh/71 forbids. The provisioner must NOT be run on this box: it writes
+  //     `Environment=DSH_HOME=$HOME/.dsh` and would create exactly that collision.
+  //   * every turn executes inside `dsh-mesh.slice` (MemoryMax=6G, MemorySwapMax=1G, CPUQuota=400%),
+  //     so a runaway child is killed by the kernel inside its own cgroup and company-api's
+  //     MemoryMax is never the thing that has to save the database.
+  //   * the runtime is PINNED at /opt/dsh-mesh-runtime (dsh 0.2.0-rc.2, `npm ci --omit=dev` from
+  //     the authority's own package-lock.json) and is deliberately NOT /opt/dsh-phone, which is the
+  //     phone product's promotion target — booting the worker from it would let a phone promotion
+  //     silently change the worker.
+  'secratary-cloud': {
+    ssh: 'secratary-cloud',
+    hosts: ['secratary-cloud', 'secratary-cloud.tail93e6e6.ts.net'],
+    shell: 'posix',
+    command: 'dsh-mesh',
+    credentialEnvFiles: ['/etc/dsh-worker.env'],
+    driver: '/usr/local/bin/node',
+    bin: '/opt/dsh-mesh-runtime/node_modules/@deepseek-ai/dsh/lib/bin.js',
+    cwd: '/root',
+    verified: 'MEASURED 2026-10-19T17:37Z ON the authority: `dsh-mesh --profile headless "Run the command hostname, then reply with exactly one line: MESH-HOST: <the output>. Nothing else."` -> stdout exactly `MESH-HOST: secratary-cloud`, DSH_EXIT=0, executed in dsh-mesh.slice (systemctl show: MemoryMax=6442450944, CPUQuotaPerSecUSec=4s). The separate home was proven the same minute: /root/.dsh-worker/sessions gained 1 session while /root/.dsh/sessions stayed at 6. Broker roster row added and read back `state=ok` from GET /nodes?fresh=1 (2026-10-19T17:52Z). SET THIS FLAG BACK TO false if `command -v dsh-mesh` answers nothing, if /opt/dsh-mesh-runtime disappears, or if the bridge row starts answering `unreachable` — re-measure, do not re-argue.',
+  },
   secratary: {
     ssh: 'secratary-ts',
     hosts: ['secratary'],

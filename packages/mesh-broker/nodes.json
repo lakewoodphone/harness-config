@@ -11,6 +11,8 @@
       "fqdn": "zabz-tech.tail93e6e6.ts.net",
       "location": "office",
       "baseUrl": "https://zabz-tech.tail93e6e6.ts.net",
+      "maxChildren": 8,
+      "_maxChildren_why": "MEASURED 2026-10-12: this node's own `/mesh/health` publishes `concurrency.limit: 8` (its admission governor, bound by CPU), so the roster now carries the limit the node computes for itself instead of the fleet-wide default of 4. Before this, `DEFAULT_MAX_CHILDREN_PER_NODE = 4` (lib/config.js:40) applied to every row; `docs/mesh/183-MESH-CONCURRENCY-CEILING.md` measured that this single constant, not any hardware, was the fleet's binding ceiling (3 reachable nodes x 4 = 12). The node advertises 12 in `accepts.maxChildren` and the broker computes 18 core slots for it; 8 is deliberately the node's own governor value, which is the most conservative of the three and the one the DIRECT-PROBE path (`lib/failover-placement.js:71-77`) already honours. The reasoning that produced the old flat 4 is in lib/config.js:33-38 - it calibrated for the weakest machine in the roster and was then applied to the strongest, which the ranking prefers. Regression test: `docs/mesh/183` section 6, and `test/children-cap.test.mjs` for the cap semantics.",
       "dispatch": {
         "v1": true,
         "measuredAt": "2026-10-08",
@@ -23,6 +25,8 @@
       "fqdn": "zabz-yoga-1.tail93e6e6.ts.net",
       "location": "home",
       "baseUrl": "https://zabz-yoga-1.tail93e6e6.ts.net",
+      "maxChildren": 5,
+      "_maxChildren_why": "MEASURED 2026-10-12: this node's own `/mesh/health` publishes `concurrency.limit: 5`, computed from its own budget, and 5 is what the direct-probe path already enforces. This is the OWNER'S LAPTOP, so the value is deliberately the node's own governor rather than anything larger: its binding quantity is that a human is sitting at it, and no rack count removes that. Raising this one pushes his responsiveness, so it is the single row in this roster whose limit is a judgement about him and not about the machine.",
       "dispatch": {
         "v1": true,
         "measuredAt": "2026-10-09",
@@ -65,9 +69,20 @@
         "evidence": "MEASURED WORKING FOR v1 AGAIN, 2026-10-08 - the previous `false` was a DATED FAILURE (identity drift, repaired the same hour) kept only until the mesh's own probe re-measured it, and the probe has now done so. (1) THE PROBE'S RESTORE BRANCH TRIGGERED: ~/.mesh-probe/last.json at 2026-10-08T12:45:18Z reads lakewooechsmini `ok: true, exit: 0, ms: 2000`, with all four probed nodes ok=true, and ~/.mesh-probe/cron.log's matching run ends `ALERT lakewooechsmini works but is marked NOT dispatchable - capacity is being wasted` then `filed` (the stable subject mesh-node-dispatch-restored:lakewooechsmini). (2) RE-MEASURED INDEPENDENTLY BEFORE THE FLIP, from the authority at 12:56Z: `ssh mac-mini-ts /usr/local/bin/node /Users/lpt/.dsh-install/node_modules/@deepseek-ai/dsh/lib/bin.js --profile headless 'Reply with exactly MESH-PROBE-OK and nothing else.'` -> exit 0, stdout exactly `MESH-PROBE-OK`. (3) THE 2026-10-08 12:15Z FAILURE AND ITS REPAIR, kept as the dated record the move corrects: the Mac mini had renamed itself (Tailscale DNSName lakewood-phone--techs-mac-mini, OS hostname the macOS default `Mac`), so the roster fqdn failed to resolve (broker getaddrinfo ENOTFOUND, state=unreachable, 0 slots, readFailures climbing) and the dispatcher host allow-list ['LakewooechsMini'] no longer matched a child printing `Mac`, so every dispatch was rejected as a location disagreement and redone locally; repaired 12:31-12:33Z with `sudo scutil --set HostName LakewooechsMini` and `sudo /opt/homebrew/bin/tailscale set --hostname lakewooechsmini`, after which the gate answered HTTP 200 as lakewooechsmini, broker GET /nodes?fresh=1 read state=ok freeSlots=7, and a real dispatcher run returned childHosts ['LakewooechsMini'], disagreements [], exit 0 in 3587 ms. (4) THE FLAG TAKES EFFECT IN PLACEMENT: true makes this node a normal candidate, where false ranked it below every working node and placed it tier=transport blockedBy ['transport'] (76-broker.md item 15 and section 10.4). SET BACK TO false if the node renames itself again so lakewooechsmini.tail93e6e6.ts.net stops resolving or the dispatcher's host allow-list stops matching, or if `ssh mac-mini-ts <dsh invocation> --profile headless` stops returning a final message - re-measure with ~/bin/mesh-node-probe.sh, do not re-argue."
       },
       "note": "Yisroel's macOS mini (host name LakewooechsMini), 10 cores, 16 GB, 45.7 GiB free on /Users/lpt/code, gate answering 200, a headless agent turn in 2.9 s. Added 2026-09-18 after the exclusion that kept it out was falsified. NOT recorded here: `location`, because its physical position was never measured and lib/config.js maps an unrecognised value to null - a guessed location would silently mis-apply the preference bonus for any task that prefers home or office. Record it when someone measures it."
+    },
+    {
+      "node": "secratary-cloud",
+      "fqdn": "secratary-cloud.tail93e6e6.ts.net",
+      "location": null,
+      "baseUrl": "http://127.0.0.1:3086",
+      "maxChildren": 2,
+      "_maxChildren_why": "MEASURED 2026-10-19: this node's own /mesh/health publishes concurrency.limit=2 (\"binding\":\"cpu\"), computed from 4 physical cores x 0.75 / 1.68 per turn. The broker's own scoring gives the same node coreSlots=3 (lib/scoring.js:215-227) and memorySlots=24; 2 is the node's own governor value and therefore the most conservative of the three, per docs/mesh/183-MESH-CONCURRENCY-CEILING.md 7.1. The gate advertises accepts.maxChildren=12, which is computed from memory alone (phone-gate.py) and is NOT used here.",
+      "dispatch": {
+        "v1": true,
+        "measuredAt": "2026-10-19",
+        "evidence": "MEASURED 2026-10-19T17:37Z, run on the authority: `dsh-mesh --profile headless \"Run the command hostname, then reply with exactly one line: MESH-HOST: <the output>\"` -> `MESH-HOST: secratary-cloud`, exit 0, executed inside dsh-mesh.slice (MemoryMax=6G, CPUQuota=400%). The executor is /usr/local/bin/dsh-mesh, which pins DSH_HOME=/root/.dsh-worker (NOT /root/.dsh - that home belongs to phone-engine and a second engine on it is the state docs/mesh/71 forbids) and a pinned runtime at /opt/dsh-mesh-runtime (@deepseek-ai/dsh 0.2.0-rc.2, npm ci from the authority's own lockfile). Credential: /etc/dsh-worker.env, 0640 root:root. SET BACK TO false if dsh-mesh, /opt/dsh-mesh-runtime or that env file disappears - re-measure, do not re-argue."
+      },
+      "note": "Hetzner CCX33, Ashburn ASH1: 8 logical vCPU (4 physical x 2 SMT, EPYC-Milan), 30.6 GiB RAM, ~97 GiB free on /root/code. THE AUTHORITY - sole writer of /root/authority.db - which is why maxChildren is the node's own governor value and why every turn is caged in dsh-mesh.slice. Mesh work runs in DSH_HOME=/root/.dsh-worker, never /root/.dsh."
     }
-  ],
-  "_excluded_on_purpose": {
-    "secratary": "FROZEN 2026-10-11T05:43:36Z: the office box is the rollback anchor, read-only by decision, its writers stopped and disabled (docs/mesh/131-MIGRATION-BRIEF.md Rule 1, docs/mesh/142-ANCHOR-WRITE-NOTICE.md). Its v1 transport was NEVER MEASURED (dispatch.v1 = null above: no `headless` profile on that box) and it cannot dispatch while frozen, so `excluded: true` is a configuration fact rather than a network accident. THIS IS NOT THE DECISION: the designation is settings/machines/host-posture.tsv, read by packages/plugin-remote-fanout/lib/posture.js, and the dispatcher REFUSES a placement on a frozen host even when a roster names one. This entry only stops the broker from spending a lease on a node the dispatcher will refuse. Precedent for the reverse defect (an excluded node that was actually working - wasted capacity): journal W209, which emptied the previous entry in this object."
-  }
+  ]
 }
