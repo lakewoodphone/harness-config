@@ -101,6 +101,67 @@ looked.
 AI inference is **$700 (60 %)**. Communications are **$270 (23 %)**. If the question is "are we paying
 for storage we do not use", the honest answer is: we are paying **36 cents a month** for it.
 
+### 1.4 What the bank knows that no config file does
+
+Config scanning finds what is *wired*; the bank finds what is *paid for*. `accounting.db` holds every
+transaction, ingested from four feeds — `plaid-api`, `paypal-api`, a `Chase Credit Card CSV`, and
+per-vendor billing APIs (`openai-billing`, `twilio-billing`). Read over 120 days, it produced three
+findings that no amount of grepping would have.
+
+**A service paying real money with no traffic at all.**
+
+```
+deepinfra   10 charges   $305.00 over 120 days   last charge 2026-10-09
+            model_usage: 13,048 calls, LAST CALL 2026-10-05 — 14 days of silence
+fireworks    2 charges    $50.00                last call 2026-10-05
+```
+
+DeepInfra and Fireworks are ~$355 of confirmed spend in four months for providers the company stopped
+calling. They are the two strongest cancellation candidates in the estate and they were invisible to
+every config scan because the keys are still valid.
+
+**Cloudflare is not 36 cents — and the ledger cannot say what it is.** Charges to `Cloudflare Inc` come
+through PayPal in amounts of $5.00, $5.00 and $3.84 (a `$5.00/month` shape, which is Cloudflare's
+Workers Paid tier), and each is followed a day later by a PayPal **refund** of the same amount
+($5.14, $5.00, $5.00, $3.84). The measured R2 arithmetic in §1.2 stands — 24 billable GB-month at
+$0.015 — but the *account's* total is unreadable from both directions: the API token is DNS-scoped and
+403s on billing, and the ledger holds charges and refunds of identical amounts that cannot be netted
+without the invoices. **UNVERIFIED**, and the size of the uncertainty is a few dollars a month, not
+tens.
+
+**The ledger double-counts, and every spend figure drawn from it is an upper bound.** The same charge
+is ingested from more than one feed. Proven, not inferred — Anthropic, every charge, twice:
+
+```
+2026-07-19  40.07  plaid-api              E. ZABROWSKY          "Anthropic"
+2026-07-19  40.07  Chase Credit Card CSV  LPT Chase Card *7542  "ANTHROPIC ANTHROPIC.COM CA"
+2026-06-30  40.12  plaid-api              ...                   identical pair
+2026-06-29  40.00  plaid-api / CSV        ...                   identical pair
+```
+
+Six Anthropic dates, six pairs, identical amounts, two `source_system`s for one card. The same pattern
+appears for `telnyx` ($125 plaid + $125 paypal), `microsoft` ($14.92 + $14.92) and `dialer`-adjacent
+labels. **So: the vendor list in §1.2 is a union of feeds, and any monthly figure taken from it must be
+deduplicated by (date, amount) across feeds first.** That dedupe has not been done in this document
+except for DeepSeek, where it is the subject of the next paragraph — and the defect itself belongs to
+the CFO engine, not to this audit.
+
+**And DeepSeek is charged on two rails.** Under `hangzhou-deepseek-…` (paypal-api) there are **10
+debits and $636.00 in 31 days**; under `deepsee` / `deepseerwea` (plaid-api, Amex) there are **9 debits
+and $503.50 in the same window**, with the same amounts a day apart. Two readings, and the ledger
+cannot separate them:
+
+* **the card rail is the same top-ups seen twice** — the usual cross-feed duplicate, in which case
+  spend is the $636 that §4's token arithmetic independently reproduces to within 5 %; or
+* **two payment methods are both live** on the account, in which case the company is topping up the
+  same balance twice and roughly $500 a month is being prepaid and never spent.
+
+The evidence leans to the first — a PayPal-funded card purchase in this ledger carries the descriptor
+`PAYPAL DES:PURCHASE ID:<MERCHANT>` (12 such rows exist, for Cloudflare, Soylent and Digikey), and the
+DeepSeek card rows carry no such prefix — but "leans" is not "measured", and it is the owner's money.
+It is in the queue as its own question, with the one check that settles it: the payment methods listed
+on the DeepSeek account.
+
 ### 1.3 What is configured but dead — cancellation candidates
 
 Each of these has a credential in an env file and **no live call site**, measured by the fleet by
