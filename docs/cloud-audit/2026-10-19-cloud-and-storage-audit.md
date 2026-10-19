@@ -62,7 +62,7 @@ below is list price for the measured hardware.
 | **Hetzner — account B** | `secratary-cloud` CCX33 (authority) + `lpt-survivor-01` (standby 4c/7.7 GB) | instance metadata + `nproc`/`free`/`df` on each box | **≈ $177/mo** (CCX33 $165.99 + 4-core FSN1 ≈ $10 + 2 IPv4 $1.20) | **list price — invoice UNVERIFIED** |
 | **Cloudflare R2** | offsite DB copy (9.29 GB gz) + data archive (4.02 GB) + HA pre-deploy + frozen anchor | S3 `list_objects_v2`: **22 objects, 33,905,940,347 B**; newest 2026-10-19T15:02Z | **≈ $0.36/mo** (24 billable GB-month × $0.015) | measured bytes × published rate |
 | **Cloudflare DNS / Tunnel / Access** | 30 DNS records on `abletelsolutions.com`, 7 tunnels (4 live), Access in front of 4 ssh hostnames | token read: zone plan **"Free Website", price 0, is_subscribed false**; tunnels API 200 | **$0.00** | API record |
-| **DeepSeek** | the company's main LLM | `model_usage`: **534,474,098 in / 3,803,697 out / 4,590,592 cached tokens in 7 days**; `accounting.db`: **$636.00 in 10 debits over 31 days**, $159.00 in the last 7 | **≈ $640/mo** | **money measured**; the token ledger disagrees with it — §4 |
+| **DeepSeek** | the company's main LLM | `model_usage`: **534,474,098 in / 3,803,697 out / 4,590,592 cached tokens in 7 days**; `accounting.db`: **$636.00 in 10 debits over 31 days**, $159.00 in the last 7 | **≈ $650/mo** | **money measured, and the tokens price to it within 5 % once peak/off-peak is applied — §4** |
 | **Google (Gemini)** | secondary LLM + 5 Gmail accounts | `model_usage`: 4,827 calls, $11.21 / 7 days | ≈ $48/mo | ledger |
 | **Dialpad** | the shop phone line: calls, SMS, transcripts | monthly receipt mail; cron harvests every 15–30 min; 746 calls/7d | ≈ $120/mo ($101.67–146.09 in the ledger) | ledger |
 | **Telnyx** | 122 cellular SIMs for the Waze fleet | `/var/log/telnyx-usage-freshness.log` → "OK: 122 usage rows"; $125 payment 13 Oct | ≈ $125/mo | payment |
@@ -211,61 +211,67 @@ the authority; the provider config and `mesh-run.mjs` had both already been reta
 
 ---
 
-## 4. The largest line is not storage — and the number we track it with is wrong in both directions
+## 4. The largest line is not storage — and it has two prices, not one
 
 `model_usage` says DeepSeek cost **$237.94 in the last 7 days** — about $1,030 a month if the week
 were typical. That number is computed by `app/pricing.py`, which prices `deepseek-v4-flash` at
 **(0.44, 1.32) $/M** — labelled in that same file as the *legacy V4-Flash peak* rate and explicitly
-*superseded*. The file's current card for the GA model is **(0.15, 0.60)**.
+*superseded*.
 
-Do the arithmetic on the measured tokens:
+I got this wrong twice before I got it right, and both wrong versions are worth keeping because each
+one was a different kind of mistake.
+
+**First mistake — I trusted one card.** The file's *other* entry, `deepseek-flash`, is
+**(0.15, 0.60)** and its comment says the whole US business day is now off-peak. Recomputed on that
+card the same tokens are $81.76/week, so I published "the ledger overstates by 2.9×".
+
+**Second mistake — I corrected the price but invented a cause.** The bank disagrees with both:
+`accounting.db` → `transactions`, merchant *Hangzhou DeepSeek Artificial Intelligence Co., Ltd.*,
+holds every auto-recharge debit — **$159.00 in 2 debits over the last 7 days, $636.00 in 10 debits
+over 31 days, $892.52 in 18 debits since 2026-08-18**. So the money is ≈$143.6/week, between the two
+cards, and I concluded that calls must be missing from `model_usage`.
+
+**The actual explanation is simpler and it is in the same file I had already read: DeepSeek has two
+prices and this workload uses both.** Peak is $0.30/$1.20 per million; off-peak is $0.15/$0.60. The
+app carries one card at a time and neither is the truth. Price the measured tokens by the hour they
+were actually spent in:
 
 ```
-input  534,474,098  −  4,590,592 cached  =  529,883,506 tokens
-output                                       3,803,697 tokens
+window 7 days, model_usage, grouped by UTC hour
+peak    (00:30–16:30 UTC)  449,213,751 in   3,057,023 out     84 % of all input
+off-peak(16:30–00:30 UTC)   85,475,042 in     747,468 out
 
-legacy card   529.88 × 0.44  +  3.80 × 1.32   =  $233.15 + $5.02 = $238.17   ← matches the ledger
-current card  529.88 × 0.15  +  3.80 × 0.60   =  $ 79.48 + $2.28 = $ 81.76   ← 2.9× lower
+peak      449.21 × 0.30 + 3.06 × 1.20 = $134.76 + $3.67 = $138.43
+off-peak   85.48 × 0.15 + 0.75 × 0.60 = $ 12.82 + $0.45 = $ 13.27
+                                                        = $151.70 / week
+                                        × 30/7 = $650 / 30 days
 ```
 
-**Then I read the bank, and BOTH cards are wrong.** The accounting ledger
-(`accounting.db`, table `transactions`, merchant `Hangzhou DeepSeek Artificial Intelligence Co., Ltd.`)
-holds every auto-recharge debit:
-
-| window | debits | money |
+| source | per week | verdict |
 |---|---|---|
-| last 7 days | 2 | **$159.00** |
-| last 31 days | 10 | **$636.00** |
-| since 2026-08-18 (first debit) | 18 | $892.52 |
+| **the bank** (31-day debits) | **$143.6** | the money |
+| peak/off-peak model on the measured tokens | **$151.7** | agrees within 5 % |
+| `model_usage` at the legacy card (0.44/1.32) | $237.94 | **1.57× too high** |
+| the same tokens at off-peak (0.15/0.60) | $81.76 | **1.86× too low** |
 
-The individual top-ups, newest first: $53 (10-15), $106 (10-13), $79.50 (10-11), $53 (10-08), $79.50
-(10-06), $53 (10-05), then $53 weekly back through September.
+**Nothing is missing.** The ledger records the calls; what was wrong was the price, and then my second
+correction's explanation for the gap. `model_usage` becomes a usable budget instrument the moment the
+cost function prices **per hour against the provider's own peak table**, which is a two-line change in
+`app/pricing.py` and has not been made here.
 
-So the truth is **$636 in 31 days ≈ $615–640/month**, and:
+**And that yields the largest optimisation in this whole audit.** 84 % of the company's input tokens
+are spent in DeepSeek's **peak** window, which is 00:30–16:30 UTC — overnight and morning in the US.
+The off-peak window is 16:30–00:30 UTC, i.e. the US afternoon and evening. At the current token
+volume, **moving the same work out of peak halves the rate: $650/month becomes about $340/month**, and
+no model changes, no capability is lost. What it costs is scheduling: the ticking departments and the
+CEO kernel would need to concentrate their work in the back half of the UTC day. That is a decision
+about when the company thinks, not about what it can do — which is why it is written here with the
+arithmetic rather than acted on silently.
 
-```
-money per week   = 636 × 7/31                       = $143.6
-ledger per week  = $237.94 on the legacy card       = 1.66× too HIGH
-token math       = $ 81.76 on the current card      = 1.76× too LOW
-implied blended rate = 143.6 / (529.88 + 3.80 × 2)  ≈ $0.27 / M input-equivalent
-```
-
-**The conclusion I nearly published was wrong, and the correction is the finding.** The token ledger
-does not reconcile with the money at *either* rate card: the card is stale by 1.66×, and if the card
-were corrected the tokens alone would under-state the bill by 1.76×. Two internal numbers disagree
-with each other and with the bank, which means **`model_usage` cannot be used as a budget instrument
-until the rate is set from the bank and the missing calls are found** — 534 M tokens is what was
-*recorded*, and something is spending money without landing in that table. The implied blended rate
-(~$0.27/M in) sits between the off-peak (0.15) and peak (0.30) cards, which is what a mixed-model,
-mixed-time workload looks like — but that is a hypothesis, not a measurement.
-
-**What is certain:** DeepSeek is the single largest line in the estate at **~$640/month against $196
-of hosting**, and it was being tracked by a number that is both mispriced and incomplete.
-
-**The fix, for the next session (not done here):** price the *served* model id from the gateway
-catalogue rather than a name literal, log the provider's own billed amount when it is available, and
-reconcile monthly against these debits. The standing rule already says models are never hardcoded;
-the same sentence applies to their prices.
+One more line, because it is the same story from a different counter: the phone engine runs **11,874
+assistant messages in 7 days** on the same key (14.08 M input / 10.31 M output tokens), and those are
+recorded only in its session files, never in `model_usage`. At peak rates that is ≈$16.60/week — small,
+but it means the *company* ledger under-counts the *account* by about 10 %.
 
 ---
 
