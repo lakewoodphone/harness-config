@@ -24,6 +24,10 @@ cat > "$T/wake_open.py" <<'PY'
 import json
 print(json.dumps({"ok": True, "caps_in_force": []}))
 PY
+cat > "$T/wake_paused.py" <<'PY'
+import json
+print(json.dumps({"ok": True, "caps_in_force": ["paused: kill switch present"]}))
+PY
 cat > "$T/wake_broken.py" <<'PY'
 import sys
 sys.stderr.write("stub: wake store unreadable\n")
@@ -89,6 +93,16 @@ check "unreadable gate still files the stall" 1 "STALLED" "$rc" "$out"
 grep -q "could not be read" "$M.payload.json" 2>/dev/null \
   && { echo "PASS  payload says the gate state could not be read"; pass=$((pass + 1)); } \
   || { echo "FAIL  payload did not admit the unreadable gate"; fail=$((fail + 1)); }
+
+# 5. A PAUSE is a kill switch, not a budget ceiling: it must still reach the ledger, and the
+#    item must name the pause so nobody reads it as a host fault.
+M="$T/m5"; rm -f "$M"
+out=$(WAKE_DISPATCH_LOG="$T/ok.log" WAKE_CLI="$T/wake_paused.py" WORK_CLI="$T/work_stub.py" \
+      STUB_WORK_MARKER="$M" python3 "$SRC" 2>&1); rc=$?
+check "a paused fleet still files an item" 1 "STALLED" "$rc" "$out"
+grep -q "PAUSED" "$M.payload.json" 2>/dev/null \
+  && { echo "PASS  paused payload names the pause"; pass=$((pass + 1)); } \
+  || { echo "FAIL  paused payload did not name the pause"; fail=$((fail + 1)); }
 
 echo "----"
 echo "pass=$pass fail=$fail"

@@ -44,12 +44,14 @@ supposed to stop the fleet is not evidence that the fleet is broken, and an alar
 every evening for eight hours is not an alarm.
 
 So before filing, ask the RELEASE PATH itself (`wake.py stats --json`, the same `caps_in_force`
-list `wake-fanout.sh` and `wake-nextclaim.py` read) whether a whole-queue gate is in force. If one
-is, and the fleet has not even ATTEMPTED a release since its last success, the silence is the
-gate, not a fault: print `capped` and file nothing. If a release was attempted and failed after
-the last success, the gate does not explain that failure and the item is still filed. An
-unreadable gate never suppresses: the stall item still files, and its `why` says the gate state
-could not be read.
+list `wake-fanout.sh` and `wake-nextclaim.py` read) whether a whole-queue gate is in force. For
+the automatic budget ceilings (`daily_cap`, `cost_cap`), if the fleet has not even ATTEMPTED a
+release since its last success, the silence is the gate, not a fault: print `capped` and file
+nothing. `paused` is deliberately different: a kill switch may be a deliberate stop OR a pause
+someone forgot (the 2026-10-14 one-way door), so a paused fleet still files an item that NAMES
+the pause. If a release was attempted and failed after the last success, the gate does not
+explain that failure and the item is still filed. An unreadable gate never suppresses: the stall
+item still files, and its `why` says the gate state could not be read.
 
 THRESHOLDS (all env-overridable)
     WAKE_STALL_HOURS     6     no SUCCESSFUL release for this long = stalled
@@ -93,6 +95,10 @@ PROJECT = os.environ.get("WAKE_STALL_PROJECT") or "housekeeping"
 # `wake.py`'s release_block() refuses the whole queue on. source_cap / night_quiet are per-row
 # gates and do not stop the fleet, so they must not silence this alarm.
 BLOCKING = {"paused": "paused", "daily_cap": "daily-cap", "cost_cap": "cost-cap"}
+# Only the automatic budget ceilings explain a silence without anyone acting. `paused` is a
+# kill switch: it may be a deliberate stop, but it may also be a pause someone forgot (the
+# 2026-10-14 one-way door), so a paused fleet still files an item — one that NAMES the pause.
+AUTO_GATES = {"daily-cap", "cost-cap"}
 
 RELEASE = re.compile(r"^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)Z\s+released\s+.*?\bexit=(\d+)\b")
 
@@ -197,17 +203,23 @@ def main() -> int:
     if age_h > STALL_HOURS:
         gate, gate_detail = release_gate()
         last_attempt = rows[-1][0]
-        # A CAP IS NOT A STALL. A whole-queue gate explains the silence ONLY when the fleet has
-        # not even attempted a release since its last success; then there is no failure to
-        # diagnose, only a deliberate ceiling doing its job (measured 2026-10-18/19: the daily
-        # cap held from 16:05Z to 00:00Z and this source filed item 641 against it).
-        if gate and last_attempt <= last_ok:
+        # A CAP IS NOT A STALL. An automatic budget gate explains the silence ONLY when the
+        # fleet has not even attempted a release since its last success; then there is no
+        # failure to diagnose, only a deliberate ceiling doing its job (measured 2026-10-18/19:
+        # the daily cap held from 16:05Z to 00:00Z and this source filed item 641 against it).
+        # `paused` is deliberately NOT in AUTO_GATES: a stuck pause must still reach the ledger.
+        if gate in AUTO_GATES and last_attempt <= last_ok:
             print("wake-progress: capped - last success %sZ, %.1f h ago, but the release path is "
                   "refusing under %s (%s) and has attempted nothing since; this is the gate, not a "
                   "stall" % (last_ok.strftime("%Y-%m-%dT%H:%M"), age_h, gate, gate_detail))
             return 0
-        if gate:
-            cap_note = ("The release path does report whole-queue gate %s (%s), but a release was "
+        if gate == "paused" and last_attempt <= last_ok:
+            cap_note = ("The release path is PAUSED (%s) and has attempted nothing since the last "
+                        "success. A pause is a kill switch, not proof of a fault and not proof of "
+                        "health: confirm whether it should still be in force before resuming."
+                        % gate_detail)
+        elif gate:
+            cap_note = ("The release path reports whole-queue gate %s (%s), but a release was "
                         "attempted after the last success, so the gate does not explain the failure."
                         % (gate, gate_detail))
         elif gate_detail:
