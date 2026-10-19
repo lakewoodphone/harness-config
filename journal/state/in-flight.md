@@ -361,6 +361,35 @@ elsewhere **first**, and only then can the database be compacted. `/opt` is not 
 2.2 G is its largest) and the archive's `incoming/` is 0.02 G.
 
 **Awaiting the owner's yes** (deletions are his call): (1) remove the Oct-16-cold work dirs (~5 G),
-(2) prune `dsh_session_events` older than 90 days and then `VACUUM` (file 31 G → ~11 G). Unattributed:
-the 4.1 G consumed in ~6 h has no identified writer yet; baseline taken at 01:12Z.
+(2) prune `dsh_session_events` older than 90 days and then `VACUUM` (file 31 G → ~9 G, measured by
+`dbstat`: events 11.4 GiB + fts_content 11.3 GiB + fts_data 5.1 GiB = 89% of the file). Unattributed:
+the 4.1 G consumed in ~6 h has no identified writer yet; baseline taken at 01:12Z. The full brief for
+whoever executes it is committed on branch `ops/authority-disk-20261019` at
+`docs/incidents/2026-10-19-authority-disk-96pct.md` (commits `c230f192`, `1dea195c`).
+
+## 2026-10-19 02:05Z — I flooded the owner's queue with a 45-day backfill, and the lesson
+
+Subagent `subagent-107` (mesh, ran on ZABZ-TECH) implemented the lead rule correctly — 7 `tasks` rows
+(29302–29308, `dept_business_ops`) and zero lead rows in `owner_decision_queue`. But **my brief told it
+to prove itself with a real `--days 45` run, and that wrote 74 pending rows into the queue, every one
+with evidence between 170 h and 1,064 h old** — 44 days of Google Voice history presented as live
+items, hours after the owner said *"It's way later… there's nothing to do right now."* All 74 closed by
+hand (`asked_at > '2026-10-19T01:20'`), 0 remain. Task 29302 cancelled: that voicemail carried no
+caller number.
+
+**The rule, for every future ingest change: a backfill is verified with `--explain`, never with a real
+run over a window wider than the production window.** And `write_items` must never create a *pending*
+row from evidence older than 48 h — `subagent-118` is patching that in (stale-on-arrival → written
+`resolved` with the age in `resolution`), plus the second gap: `845-671-6665` ("Genack", *"Can I
+purchase a Kyocera today?"*) stays in the queue because Google Voice supplies a caller-ID name and the
+guard is `not _is_real_name(name)`; the fix is an `RE_PROSPECT` alternative so a *named* stranger
+asking to buy/repair/for hours is a lead too.
+
+**A correction to that brief, not yet delivered to it:** the acceptance test I gave it — *"0 pending
+rows anywhere with evidence older than 48 h"* — is wrong, because **48 pending rows legitimately carry
+old evidence** (money statements, sign-off decisions, Home Assistant questions: notices are not asks
+and may wait). The correct test is *no pending row **created after this patch** with evidence older
+than 48 h*: `select count(*) from owner_decision_queue where status='pending' and asked_at >
+datetime('now','-10 minutes') and evidence_at < datetime('now','-48 hours')`. It was told to stop
+rather than force the number, so no rows should be damaged — **check that when it reports.**
 

@@ -43,9 +43,21 @@ And the two that make it usable:
 | **Google Voice** texts, missed calls, voicemails | **YES — the personal channel** | Forwarded mail: `voice-noreply@google.com`, `txt.voice.google.com` |
 | **His own inboxes** | **YES — judged, one verdict per message** | `gmail_service` live; all authenticated accounts except `zabzgpt@` |
 | **Dialpad** (shop line: calls, SMS, voicemail) | **NO. Never.** Its voicemail-notification *email* is filtered by sender | — |
+| **His wife's mailbox** (`chevedy@gmail.com`) — mail addressed to her rather than to him | **NO** (owner, 2026-10-18: *"that was to my wife's email address, and that was to her, not to me"*) | `To:`/`Cc:` must carry one of his four addresses; her writing **to** him is still his |
+| **Cold solicitation** — funding pitches, sponsorships, agency/SEO/service outreach from a stranger | **NO** (owner, 2026-10-18, twice: *"i don't need you to bring monthly sponsorships to my attention at all"*, *"exactly the kind of email I never want to see"*) | dropped with the reason `cold solicitation (<category>)`, kept in the mail store |
 | App alerts the app never delivered (`owner_message_queue`, status `held`) | Read as items, except ops alerts and duplicates of judged email | read-only merge in the reader |
 | Agent approval requests (`agent_questions`) | Read as decisions | read-only merge in the reader |
 | Ops alerts (paused sync, stale capture) | No — they are mine to repair | counted, never shown as an item |
+
+Both NO rows are enforced in code, not by intention (2026-10-19, `owner-queue-ingest-mail.py`):
+the raw `To:`/`Cc:` are read **before** the verdict cache and the model, so a wrong cached verdict
+cannot survive; her-address-only mail is refused as `not_owner`, and cold solicitation is dropped as
+`cold solicitation (<category>)` while the message itself is kept. Measured on the authority's
+01:25:43Z run: fetched 178, queued 13, dropped 152 — of which **38 were not-the-owner** — 0 errors.
+The reasons are stored in `owner_queue_ingest_run` as a breakdown of `dropped`, so
+`fetched = dropped + queued + folded` still holds and the refusals are countable rather than
+invisible. Mail addressed to **both** him and her still qualifies as his, deliberately: erring toward
+showing him is the cheaper mistake of the two.
 
 Google Voice accounts and where each forwards (from `app/services/gv_email_handler.py`
 `GV_ACCOUNT_MAP`):
@@ -554,3 +566,38 @@ the exact body and sends nothing).
   * **§4.1 two GV rules corrected** — community announcements are not marketing; unknown missed calls
     fold into one weekly row instead of being dropped.
   * **§5 digest money weight**, **§12.0 run arithmetic in `health`**.
+* **2026-10-19 (the rows that were invisible)** — measured on the live queue: 79 pending, and
+  **eight of them reachable only with `--all`**, held by probes that had answered a neighbouring
+  question. Four fixes, all verified against the real rows before they shipped:
+  * **personal Google Voice is not Dialpad** — `customer-contact` read `dialpad_sms_cache` for
+    every row, so five personal texts (two from Zellie, two from Genack, a pidyon-haben
+    invitation) came back `unknown` and never reached him, and two more were called
+    `PREMISE MOVED` against a business number that happens to share digits. A `gv-ingest` row is
+    now declined by that probe, and `_premise_hold` no longer gates personal comms at all: a text
+    is news, not a claim about a business record.
+  * **"already sent" must mean *we* sent it** — the probe matched the *account* as well as the
+    sender, so any inbound vendor mail in our own mailbox counted as a reply. Three 300DDR rows
+    (tickets 73459 / 73896 / 74115) were held as "approval moot"; 74115 had never been answered.
+    It also matched on snippet, where a pasted JotForm prefill looked like a reply. Now: sender
+    only, subject only — and a clean read that finds no outbound answers **fresh**, because that
+    negative is the measurement.
+  * **a record is located from the row's own words** — `work-order` and `customer-contact` both
+    took a phone number out of the quoted mail underneath the row. `(323) 230-0622` and
+    `800-437-5556` are switchboards in a signature block; production was read for them, failed,
+    and held two live rows as `unknown`. The number now comes from question/options/recommendation,
+    and a toll-free number is never a customer's device.
+  * **`sweep` crashed under the 20-minute ingest lock** — the connection had the default 5 s
+    timeout. 30 s busy timeout; a sweep is idempotent, but a crash mid-sweep is still a crash.
+  Closed on the evidence, not on age: **#640** and **#693** (he had replied to both 300DDR tickets
+  himself; the vendor acknowledged and then said the backup was gone), **#682** (folded into #726 —
+  the same order 108746338), **#685** (already carried by the money digest #676). Briefed and
+  released: **#805/#806/#807**, the anti-reset trio, which the dossier gate was hiding for want of
+  a number — the recommendations now carry the 30-seat trial and ~$7/device/3yr from
+  `ANTI-RESET-ARCHITECTURE.md`.
+  Also migrated: **16 tasks assigned to `owner`** that had been sitting in `tasks` for up to 14
+  days were each checked against the queue row that had already answered them and closed with a
+  pointer — the queue is the one list, and a task table nobody reads is a second one. One live
+  item that existed nowhere was filed as **#822** (Moishe Bachrach: two emails asking for a call,
+  nothing out since 2025-09-15).
+  **The rule this audit adds:** a probe may only read (a) the record the row *names* and (b) the
+  row's own words. An evidence blob pasted under the row is the counterparty's text, not ours.
