@@ -16,10 +16,12 @@ file. Anything I could not read is labelled **UNVERIFIED** — a refusal is not 
 Cloudflare estate — 33.9 GB of offsite backups, one DNS zone, seven tunnels, Access — costs about
 **$0.36 a month**, because R2 gives 10 GB free and charges $0.015/GB after that. Hetzner is the
 **larger** half at roughly **$195 a month**, and **85 % of that is one machine** (`secratary-cloud`,
-CCX33, $165.99 list), which until today ran at 13 % CPU and 16 % of its RAM. The single biggest line
-in the estate is not storage at all: it is **DeepSeek**, at 534 million input tokens a week. And the
-largest **waste** found was not a subscription — it was a production box at **99 % disk** with 30 GB
-of build images nobody needed, and a database file that is **39.9 % empty pages**.
+CCX33, $165.99 list), which until today ran at 13 % CPU and 16 % of its RAM — so the money was never
+in the storage, it was in a machine that was mostly idle and is now the mesh's strongest always-on
+worker. The single biggest line in the estate is not storage either: it is **DeepSeek**, at
+**$636 in 31 days** of real debits (`accounting.db`), about **half of everything else combined**. And
+the largest **waste** found was not a subscription — it was a production box at **99 % disk** with
+30 GB of build images nobody needed, and a database file that is **39.9 % empty pages**.
 
 ---
 
@@ -60,7 +62,7 @@ below is list price for the measured hardware.
 | **Hetzner — account B** | `secratary-cloud` CCX33 (authority) + `lpt-survivor-01` (standby 4c/7.7 GB) | instance metadata + `nproc`/`free`/`df` on each box | **≈ $177/mo** (CCX33 $165.99 + 4-core FSN1 ≈ $10 + 2 IPv4 $1.20) | **list price — invoice UNVERIFIED** |
 | **Cloudflare R2** | offsite DB copy (9.29 GB gz) + data archive (4.02 GB) + HA pre-deploy + frozen anchor | S3 `list_objects_v2`: **22 objects, 33,905,940,347 B**; newest 2026-10-19T15:02Z | **≈ $0.36/mo** (24 billable GB-month × $0.015) | measured bytes × published rate |
 | **Cloudflare DNS / Tunnel / Access** | 30 DNS records on `abletelsolutions.com`, 7 tunnels (4 live), Access in front of 4 ssh hostnames | token read: zone plan **"Free Website", price 0, is_subscribed false**; tunnels API 200 | **$0.00** | API record |
-| **DeepSeek** | the company's main LLM | `model_usage`: **534,474,098 in / 3,803,697 out / 4,590,592 cached tokens in 7 days** | **≈ $82/week ≈ $355/mo** at the current `deepseek-flash` card; our ledger says **$237.94/week** | tokens measured; **rate is disputed — see §4** |
+| **DeepSeek** | the company's main LLM | `model_usage`: **534,474,098 in / 3,803,697 out / 4,590,592 cached tokens in 7 days**; `accounting.db`: **$636.00 in 10 debits over 31 days**, $159.00 in the last 7 | **≈ $640/mo** | **money measured**; the token ledger disagrees with it — §4 |
 | **Google (Gemini)** | secondary LLM + 5 Gmail accounts | `model_usage`: 4,827 calls, $11.21 / 7 days | ≈ $48/mo | ledger |
 | **Dialpad** | the shop phone line: calls, SMS, transcripts | monthly receipt mail; cron harvests every 15–30 min; 746 calls/7d | ≈ $120/mo ($101.67–146.09 in the ledger) | ledger |
 | **Telnyx** | 122 cellular SIMs for the Waze fleet | `/var/log/telnyx-usage-freshness.log` → "OK: 122 usage rows"; $125 payment 13 Oct | ≈ $125/mo | payment |
@@ -68,10 +70,10 @@ below is list price for the measured hardware.
 | **GitHub** | repos + CI | daily repo push; charges $3.74–19.07 | ≈ $10/mo | ledger |
 | **OpenAI** | fallback LLM | 229 calls / 7d | ≈ $10/mo | ledger |
 | **Stripe / Plaid / Langfuse** | payments / bank feeds / tracing | live call sites and cron; Stripe balance read | fees + unknown | — |
-| | | | **≈ $890/mo total** | |
+| | | | **≈ $1,175/mo total** | |
 
-**Read the shape of that table, not the total.** Storage and hosting are **$196 of $890 (22 %)**. AI
-inference is **$403 (45 %)**. Communications are **$270 (30 %)**. If the question is "are we paying
+**Read the shape of that table, not the total.** Storage and hosting are **$196 of $1,175 (17 %)**.
+AI inference is **$700 (60 %)**. Communications are **$270 (23 %)**. If the question is "are we paying
 for storage we do not use", the honest answer is: we are paying **36 cents a month** for it.
 
 ### 1.3 What is configured but dead — cancellation candidates
@@ -209,7 +211,7 @@ the authority; the provider config and `mesh-run.mjs` had both already been reta
 
 ---
 
-## 4. The largest line is not storage, and our own ledger overstates it
+## 4. The largest line is not storage — and the number we track it with is wrong in both directions
 
 `model_usage` says DeepSeek cost **$237.94 in the last 7 days** — about $1,030 a month if the week
 were typical. That number is computed by `app/pricing.py`, which prices `deepseek-v4-flash` at
@@ -226,15 +228,44 @@ legacy card   529.88 × 0.44  +  3.80 × 1.32   =  $233.15 + $5.02 = $238.17   �
 current card  529.88 × 0.15  +  3.80 × 0.60   =  $ 79.48 + $2.28 = $ 81.76   ← 2.9× lower
 ```
 
-So the true run rate is **≈ $355/month, not ≈ $1,030**, and the ledger overstates by ~2.9×. Two
-independent facts point the same way: the accounting ledger's actual top-ups were $53, $79.50 and
-$106 during the week — money that could not fund $238 of weekly usage — and the estate's own pricing
-comment records the cut. **This is a defect to fix, not a number to argue about:** the fix is to
-resolve the served model id from the gateway catalogue and price what actually served the request
-(the standing rule: models are never hardcoded, and neither are their prices).
+**Then I read the bank, and BOTH cards are wrong.** The accounting ledger
+(`accounting.db`, table `transactions`, merchant `Hangzhou DeepSeek Artificial Intelligence Co., Ltd.`)
+holds every auto-recharge debit:
 
-Even corrected, DeepSeek is the single largest line in the estate at ~$355/mo against $196 of
-hosting. That is the answer to "what are we paying for" — and nobody had measured it.
+| window | debits | money |
+|---|---|---|
+| last 7 days | 2 | **$159.00** |
+| last 31 days | 10 | **$636.00** |
+| since 2026-08-18 (first debit) | 18 | $892.52 |
+
+The individual top-ups, newest first: $53 (10-15), $106 (10-13), $79.50 (10-11), $53 (10-08), $79.50
+(10-06), $53 (10-05), then $53 weekly back through September.
+
+So the truth is **$636 in 31 days ≈ $615–640/month**, and:
+
+```
+money per week   = 636 × 7/31                       = $143.6
+ledger per week  = $237.94 on the legacy card       = 1.66× too HIGH
+token math       = $ 81.76 on the current card      = 1.76× too LOW
+implied blended rate = 143.6 / (529.88 + 3.80 × 2)  ≈ $0.27 / M input-equivalent
+```
+
+**The conclusion I nearly published was wrong, and the correction is the finding.** The token ledger
+does not reconcile with the money at *either* rate card: the card is stale by 1.66×, and if the card
+were corrected the tokens alone would under-state the bill by 1.76×. Two internal numbers disagree
+with each other and with the bank, which means **`model_usage` cannot be used as a budget instrument
+until the rate is set from the bank and the missing calls are found** — 534 M tokens is what was
+*recorded*, and something is spending money without landing in that table. The implied blended rate
+(~$0.27/M in) sits between the off-peak (0.15) and peak (0.30) cards, which is what a mixed-model,
+mixed-time workload looks like — but that is a hypothesis, not a measurement.
+
+**What is certain:** DeepSeek is the single largest line in the estate at **~$640/month against $196
+of hosting**, and it was being tracked by a number that is both mispriced and incomplete.
+
+**The fix, for the next session (not done here):** price the *served* model id from the gateway
+catalogue rather than a name literal, log the provider's own billed amount when it is available, and
+reconcile monthly against these debits. The standing rule already says models are never hardcoded;
+the same sentence applies to their prices.
 
 ---
 
