@@ -373,7 +373,7 @@ but it means the *company* ledger under-counts the *account* by about 10 %.
 
 | item | why not |
 |---|---|
-| **VACUUM the 12.66 GiB of free pages** | It returns ~12.7 GiB and leaves a 19.1 GiB file, but `VACUUM INTO` reads and writes ~20 GB and the final swap needs an exclusive lock with every writer stopped — including `phone-engine`, whose restart ends live phone sessions. It is 17:40 UTC, the shop is open. **Written up as a runbook in §6 instead.** |
+| **VACUUM the 13 GiB of free pages** | Measured now: the rebuild is **4 min 4 s** and the swap works, but a copy built outside the window is stale and would lose writes, so the rebuild must happen with the writers stopped — ≈5 min of company-API downtime. Script written, preflighted and proven: `/root/bin/compact-authority-db.sh`. **Window still needed**; §6.1. |
 | Reclaim 8.9 GB on `waze-mdm-01` | Posture is `read-only`: *"Waze MDM production. Not the company's box to reconfigure."* 6.26 GB of unused images + 3.6 GB of journal, exact commands in §6. |
 | Cancel Mosyle / Ably / DeepInfra / dead tunnels | His money, and each is one click in someone else's dashboard. Listed with evidence in §1.3. |
 | Read the second Hetzner invoice | No credential exists on any host (`ls /root/.hcloud*` → ENOENT on all four; the token the fleet tried answered **HTTP 401**). Needs one read-only token — the question in §7. |
@@ -383,25 +383,48 @@ but it means the *company* ledger under-counts the *account* by about 10 %.
 
 ## 6. The two runbooks this audit leaves behind
 
-### 6.1 Reclaiming the 12.66 GiB of free pages (needs a quiet window)
+### 6.1 Reclaiming the 13 GiB of free pages — script written and measured, window still needed
+
+The three things I got wrong in the first draft of this runbook, all found by running it:
+
+1. **`VACUUM INTO` is fast.** Measured 2026-10-19: **4 min 4 s** (17:55:44Z → 17:59:48Z, `ionice -c3`,
+32 GiB → **19 GiB**, `integrity_check ok`, `freelist 0`), while the API kept serving. The earlier
+estimate of "10–30 min" was wrong by 5×.
+2. **A pre-built copy cannot be swapped in later.** It is a snapshot of the moment it started: twelve
+minutes after that run the copy was **5,549 `dsh_session_events` and 9 `model_usage` rows behind**,
+and those rows exist nowhere else. The rebuild therefore has to happen *inside* the window, with the
+writers already stopped. I built the copy, verified it, and then deleted it rather than swap in
+something stale — that 4-minute run is the timing evidence, not a usable artefact.
+3. **`phone-engine` holds the database open with ZERO file descriptors.** It was named in the first
+   draft as the reason the window had to wait for the shop to close. Measured with
+   `ls -l /proc/<pid>/fd | grep -c authority.db`: `company-api` **34**, `esearch` **59**,
+   `phone-engine` **0**, dashboard **0**, gate **0**, broker **0**. Only three units hold it, one of
+   them the `lpt-owner-queue` oneshot when it happens to be mid-run. **The swap does not end a phone
+   call.**
+
+**And one hazard the first draft would have walked into:** `authority.db-wal` belongs to the *old*
+inode. Rename the database and leave the WAL, and the next process to open the new file finds a WAL
+belonging to a different database and tries to apply it — corruption of a file that passed
+`integrity_check` a second earlier. The `-wal` and `-shm` must move with the original, as one unit.
+
+The script is **`/root/bin/compact-authority-db.sh`** on the authority and it does all of that, with
+automatic rollback:
 
 ```bash
-# 0. a verified backup no older than 12h — today's ran 05:49Z: status=ok, remote verified
-cat /var/lib/authority-backup/last-run
-# 1. build the compacted copy WITHOUT blocking writers (WAL snapshot, ~13 min, needs 20 GB free)
-sqlite3 /root/authority.db "VACUUM INTO '/root/authority.db.vacuumed'"
-# 2. prove it before touching the original
-sqlite3 'file:/root/authority.db?mode=ro'   "pragma integrity_check; select count(*) from dsh_sessions;"
-sqlite3 'file:/root/authority.db.vacuumed?mode=ro' "pragma integrity_check; select count(*) from dsh_sessions;"
-# 3. stop every writer, swap, start — the only window, target under 60 s
-for u in company-api esearch phone-engine secretary-dashboard phone-gate phone-redirector; do systemctl stop $u; done
-mv /root/authority.db /root/authority.db.pre-vacuum-$(date -u +%Y%m%dT%H%M%SZ)
-mv /root/authority.db.vacuumed /root/authority.db && chown root:root /root/authority.db
-for u in company-api esearch phone-engine secretary-dashboard phone-gate phone-redirector; do systemctl start $u; done
-# 4. verify, then keep the old file for 24h before deleting it
-curl -s localhost:8002/health ; systemctl --failed
+bash /root/bin/compact-authority-db.sh --check     # preflight: backup age, holders, what the swap buys
+bash /root/bin/compact-authority-db.sh --apply     # stop -> rebuild -> verify -> swap -> start -> verify
 ```
-Do it after 21:00 UTC (shop closed) and never with the old file deleted in the same hour.
+
+Its measured preflight, 2026-10-19 18:1xZ: backup `status=ok` 12 h old (passes); `pages=8324244
+freelist=3309507` = **13 GiB of free pages**; holders `esearch.service`, `company-api.service`,
+`lpt-owner-queue.service`; expected downtime **≈ 5 minutes**, of which 4 is the rebuild.
+
+It refuses on: no backup evidence, a backup older than 24 h, any holder that is not a systemd service,
+a writer that did not release the file, a copy whose integrity fails, or a copy whose row counts differ
+while the writers are stopped. On a failed verification it puts the original back and says so. It
+never deletes the old database — removal after 24 h of clean running is a separate decision.
+
+**Run it in the window, not at 14:00:** the only cost is a five-minute gap in the company API.
 
 ### 6.2 The 8.9 GB on the Waze MDM box (owner's yes, posture read-only)
 
