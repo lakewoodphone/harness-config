@@ -407,8 +407,32 @@ inode. Rename the database and leave the WAL, and the next process to open the n
 belonging to a different database and tries to apply it — corruption of a file that passed
 `integrity_check` a second earlier. The `-wal` and `-shm` must move with the original, as one unit.
 
-The script is **`/root/bin/compact-authority-db.sh`** on the authority and it does all of that, with
-automatic rollback:
+**Two attempts were made on 2026-10-19. Both refused, correctly, and neither changed anything.** They
+are here because they are the measurement, and because the reason they failed is the thing the next
+person needs.
+
+| attempt | stopped | rebuild | what refused it |
+|---|---|---|---|
+| 1 — 18:08:41Z | `company-api`, `esearch` | 245 s → 19 G | `dsh_sessions` live **8926** vs copy **8925**. A timer fired mid-rebuild and wrote one row. |
+| 2 — 18:17:52Z | the two above **plus** `cron`, `lpt-owner-queue.timer`, `dsh-archive-local.timer`, `transcript-archive-pull.timer` | 244 s → 19 G | `model_usage` live **276902** vs copy **276897** — five telemetry rows landed during the four-minute rebuild with cron and every archive timer stopped. |
+
+Both times the script restarted the writers and the live database was left exactly as it was:
+`32G`, `integrity_check ok` at `/health`, zero failed units. The cost of learning this was about nine
+minutes of company-API downtime and no change to any data.
+
+**What it proves:** on this box a four-minute rebuild cannot be made writer-free by stopping the
+obvious processes — something else writes (a cron line already running when cron was stopped, `atd`,
+a shell someone left open). So the check now has two classes:
+
+* **business tables** (`dsh_sessions`, `tasks`, `conversations`, `memories`) must match **exactly** —
+  one missing row is a customer record or a task, and the swap refuses;
+* **telemetry tables** (`model_usage`, `dsh_session_events`) may be behind by **0–500 rows** — losing
+  five cost rows is not a reason to abort a window, losing a task is.
+
+**And the decision that follows:** do not attempt a third time during business hours. The two attempts
+spent the afternoon's worth of interruption without delivering, and the reclaim is an optimisation on a
+disk with 97 GiB free, not an emergency. Run `--apply` in the quiet window — after 21:00 UTC — when a
+stray writer is unlikely and a four-minute gap costs nobody anything.
 
 ```bash
 bash /root/bin/compact-authority-db.sh --check     # preflight: backup age, holders, what the swap buys
@@ -420,9 +444,10 @@ freelist=3309507` = **13 GiB of free pages**; holders `esearch.service`, `compan
 `lpt-owner-queue.service`; expected downtime **≈ 5 minutes**, of which 4 is the rebuild.
 
 It refuses on: no backup evidence, a backup older than 24 h, any holder that is not a systemd service,
-a writer that did not release the file, a copy whose integrity fails, or a copy whose row counts differ
-while the writers are stopped. On a failed verification it puts the original back and says so. It
-never deletes the old database — removal after 24 h of clean running is a separate decision.
+a writer that did not release the file, a copy whose integrity fails, a business table that differs at
+all, or a telemetry table more than 500 rows behind. On a failed verification it puts the original back
+and says so. It never deletes the old database — removal after 24 h of clean running is a separate
+decision.
 
 **Run it in the window, not at 14:00:** the only cost is a five-minute gap in the company API.
 
@@ -434,19 +459,17 @@ ssh hetzner 'docker image prune -a -f && journalctl --vacuum-size=500M'   # 6.26
 
 ---
 
-## 7. The one question
+## 7. What needs the owner — four questions, all filed
 
-**Which Hetzner account holds `secratary-cloud` and `lpt-survivor-01`?**
+Everything here is in `owner_decision_queue` on the authority, one question and one recommendation per
+row, so none of it depends on this document being read:
 
-The invoice I can read (`K0285620126`) covers two servers and $18.27/month. The other two machines are
-~$177/month — **90 % of the Hetzner bill** — and their invoices, snapshots, volumes, floating IPs and
-any backup add-on are invisible to me because no credential for that account exists on any host.
-
-**Recommendation:** in that account, create one **read-only** Cloud API token (project → Read) and
-drop it at `/root/.hcloud.env` on the authority as `HCLOUD_TOKEN=…`, mode 600. Then the next run
-reads the real invoice and every add-on, and I can tell you which of the two servers is worth its
-price. If you would rather not hand a machine a token, tell me the account's e-mail and I will read
-its invoices out of that mailbox the same way I read this one.
+| # | question | recommendation |
+|---|---|---|
+| **829** | Which Hetzner account bills `secratary-cloud` and `lpt-survivor-01`, and can I have a read-only token for it? The invoice I can read covers two servers and $18.27/month; the other two are ~$177/month — **90 % of the Hetzner bill** — and their invoices, snapshots, volumes and any backups add-on are invisible because no credential for that account exists on any host. | One read-only Cloud API token at `/root/.hcloud.env` on the authority, mode 600 — or tell me the account's e-mail and I read its invoices out of that mailbox. |
+| **830** | Move the company's agent work out of DeepSeek's peak-price window? 84 % of input tokens are bought at the peak rate; the same work off-peak costs half. | Shift the department ticks and the CEO kernel into 16:30–00:30 UTC: about $650 a month becomes about $340. |
+| **831** | Cancel DeepInfra and Fireworks — two AI providers still being charged with no calls since 5 October? ~$355 over four months, keys still valid. | Cancel both; a fallback can be re-minted in a minute. |
+| **832** | Is DeepSeek being paid twice — once by Amex card, once by PayPal? $636 under one label in 31 days and $503.50 under the other, same amounts a day apart. | Open the DeepSeek account's payment methods once. If two rails are live, remove one; if one, I mark the Amex rows as duplicates so monthly spend stops being overstated. |
 
 ---
 
