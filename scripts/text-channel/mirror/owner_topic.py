@@ -252,6 +252,83 @@ def normalise_topic(body: str | None = None, reason: str | None = None,
 
 
 # --------------------------------------------------------------------------- #
+# Still true? A reminder that names a deadline which has already passed
+# --------------------------------------------------------------------------- #
+# WHY. Measured in his thread 2026-10-19: "PayPal case PP-R-VHU-644541358: seller response
+# deadline is Oct 7, 2026" was DELIVERED on 2026-10-08 -- a day after the deadline it names.
+# A reminder fires because it is DUE, and nothing anywhere asked whether it is still TRUE.
+# Topic identity (§above) cannot catch this: the amount has not been said before, so it is
+# a first message about a fresh topic, and every body-shaped rule passes it.
+#
+# THE RULE IS DELIBERATELY NARROW. A date only counts when it follows a deadline word, so
+# "you paid 2026-10-05, the refund is due 2026-10-20" is judged on the 20th and the earlier
+# date is ignored. Only `reminder` and `alert` families are judged: a status line or a reply
+# may legitimately talk about the past, and silencing one of those would lose information he
+# is owed. Twelve hours of grace, because a reminder generated at 23:50 for "today" is not
+# stale at 00:10.
+_MONTH = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*"
+_DATE = (
+    r"(\d{4}-\d{2}-\d{2}"                      # 2026-10-07
+    r"|" + _MONTH + r"\.?\s+\d{1,2}(?:st|nd|rd|th)?,?\s+\d{4}"   # Oct 7, 2026
+    r"|\d{1,2}(?:st|nd|rd|th)?\s+" + _MONTH + r"\.?,?\s+\d{4}"   # 7 Oct 2026
+    r"|\d{1,2}/\d{1,2}/\d{2,4})"                                # 10/07/2026
+)
+# The real body that motivated this names its deadline "Oct 7, 2026" -- a month NAME. The
+# first version of this regex read only numeric dates and therefore allowed the very
+# message it was written for. Found by running it against the corpus body, not a fixture.
+_DEADLINE_RE = re.compile(
+    r"(?:due|deadline|due by|due on|payment is due|expires?|expiring|must be (?:filed|paid|sent|"
+    r"returned)|before)[^.\n]{0,50}?" + _DATE,
+    re.I)
+
+STALE_FAMILIES = ("reminder", "alert")
+
+
+def _parse_date(raw: str):
+    """A date from ISO or M/D/YYYY. None when it cannot be read with confidence."""
+    text = re.sub(r"(?<=\d)(st|nd|rd|th)\b", "", str(raw or "").strip())
+    text = text.replace(",", " ")
+    text = re.sub(r"\s+", " ", text)
+    try:
+        return datetime.fromisoformat(text[:10]).date()
+    except ValueError:
+        pass
+    for fmt in ("%b %d %Y", "%B %d %Y", "%d %b %Y", "%d %B %Y", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def stale_reference(body: str | None, *, subsystem: str | None = None,
+                    reason: str | None = None, now=None, grace_hours: float = 12.0) -> dict | None:
+    """None when the message may go, or a refusal dict when it names a deadline gone by."""
+    fam = family_of(reason, subsystem)
+    if fam not in STALE_FAMILIES:
+        return None
+    text = str(body or "")
+    m = _DEADLINE_RE.search(text)
+    if not m:
+        return None
+    when = _parse_date(m.group(1))
+    if when is None:
+        return None
+    moment = _now(now)
+    deadline_end = datetime.combine(when, datetime.max.time(), tzinfo=timezone.utc)
+    overdue_hours = (moment - deadline_end).total_seconds() / 3600.0
+    if overdue_hours <= grace_hours:
+        return None
+    return {
+        "code": "stale_reference",
+        "date": when.isoformat(),
+        "overdue_hours": round(overdue_hours, 1),
+        "detail": ("the deadline it names (%s) passed %.0f hour(s) ago - re-measure before "
+                   "reminding him; %r" % (when.isoformat(), overdue_hours, text[:70])),
+    }
+
+
+# --------------------------------------------------------------------------- #
 # The store
 # --------------------------------------------------------------------------- #
 SCHEMA = """

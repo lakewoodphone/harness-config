@@ -272,7 +272,11 @@ def file_flag(summary, days):
               % ("null" if rate is None else "%.2f" % rate, THRESHOLDS["dead_text_rate"]))
         return 0
     worst = summary["worst_families"][0] if summary["worst_families"] else None
-    subject = "owner-text:scorecard:%s" % _now().strftime("%Y-%m-%d")
+    # WEEKLY, not daily: the underlying rate moves over days, and a daily subject would
+    # file a fresh flag every morning while the condition is unchanged. One session per
+    # ISO week is enough to move one bounded thing, and the flag names which one.
+    _y, _w, _ = _now().isocalendar()
+    subject = "owner-text:scorecard:%04d-W%02d" % (_y, _w)
     prompt = (
         "The owner text channel's scorecard breached its threshold: %.0f%% of %d judged "
         "texts in the last %g days were ignored or complained about (threshold %.0f%%).\n\n"
