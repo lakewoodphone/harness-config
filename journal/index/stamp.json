@@ -8,7 +8,7 @@
   "pain": 9036,
   "wins": 6939
  },
- "ceiling_refreshed_at": "2026-10-19T16:30:08Z",
+ "ceiling_refreshed_at": "2026-10-19T16:45:13Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/641-wake-progress-cap",
   "handoff": "ZABZ-YOGA live working tree",
