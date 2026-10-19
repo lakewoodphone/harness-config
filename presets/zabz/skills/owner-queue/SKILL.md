@@ -26,6 +26,16 @@ behind it, history with that sender, and the arithmetic behind its rank. Then:
 2. **Wait.** Never send two items in one message, never a list, never a table of items. If he asked
    for the queue and you answer with ten bullets, you have failed the instruction even though every
    bullet is correct.
+2b. **The instant an item needs investigation, it leaves your hands — and the queue does not wait.**
+   His rule, 2026-10-19, after watching me go quiet twice in one evening to read commits and hunt for
+   a credential: *"if there is work to do to figure this out you pass it off to a subagent to do teh
+   heavy lifting and move on to the next thing with me in teh meantime, you keep forgettting."* So:
+   one `subagent` call (the MESH — never a local fork while the mesh is reachable), a full
+   self-contained brief, `run_in_background: true`, and the **very next command is
+   `owner-queue.py card`**. Say in one line what you handed off and that you are moving on; never
+   narrate the investigation in the conversation, and never leave him waiting while you look
+   something up. When the subagent reports, the finding goes onto the row as evidence — the decision
+   is still his.
 3. **Record his answer, verbatim**, then fetch the next one:
    ```bash
    ssh secratary-cloud 'python3 /root/bin/owner-queue.py answer 651 --answer "yes, order it"'
