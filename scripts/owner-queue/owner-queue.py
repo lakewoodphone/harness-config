@@ -3055,10 +3055,15 @@ def cmd_health(con, a) -> int:
     # folder looks exactly like a quiet week from every other line on this page.
     try:
         con.commit()
+        # The mail ingest records WHY it refused mail (not_owner / cold_solicitation). Older rows
+        # predate those columns, so read them only when the table has them; never fail health over it.
+        run_cols = {r[1] for r in con.execute("PRAGMA table_info(owner_queue_ingest_run)")}
+        breakdown = {"not_owner", "cold_solicitation"}.issubset(run_cols)
         runs = {}
         for r in con.execute(
-                "SELECT source, ran_at, fetched, queued, dropped, errors, note"
-                "  FROM owner_queue_ingest_run ORDER BY id DESC LIMIT 40").fetchall():
+                "SELECT source, ran_at, fetched, queued, dropped, errors, note%s"
+                "  FROM owner_queue_ingest_run ORDER BY id DESC LIMIT 40"
+                % (", not_owner, cold_solicitation" if breakdown else "")).fetchall():
             runs.setdefault(str(r["source"]), r)
         for src, label in (("gv", "gv read everything"), ("mail", "mail read everything")):
             run = runs.get(src)
@@ -3068,6 +3073,10 @@ def cmd_health(con, a) -> int:
             fetched = int(run["fetched"] or 0)
             queued = int(run["queued"] or 0)
             dropped = int(run["dropped"] or 0)
+            refused = ""
+            if breakdown and (int(run["not_owner"] or 0) or int(run["cold_solicitation"] or 0)):
+                refused = ", %d not-owner, %d cold" % (
+                    int(run["not_owner"] or 0), int(run["cold_solicitation"] or 0))
             # `fetched - dropped - queued` is the COLLAPSE count, not a loss: twelve texts in one
             # family chat become one row on purpose. Calling it unexplained would make the health
             # check cry wolf on every normal run, which is how a check stops being read. What is a
@@ -3086,7 +3095,8 @@ def cmd_health(con, a) -> int:
                 state = "STALE"
                 failures += 1
             rows_out.append((label, fetched, age, 48.0,
-                             state if state != "OK" else "OK (%d folded)" % max(0, folded)))
+                             state if state != "OK"
+                             else "OK (%d folded%s)" % (max(0, folded), refused)))
     except Exception as exc:  # noqa: BLE001
         rows_out.append(("run arithmetic", 0, None, 48.0, "NO TABLE"))
 

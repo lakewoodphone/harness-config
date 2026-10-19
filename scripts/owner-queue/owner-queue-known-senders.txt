@@ -1,0 +1,14 @@
+# ── KNOWN SENDERS — a real vendor or partner is not "cold" ──────────────────────────────────────
+# Read by owner-queue-ingest-mail.py (load_known_senders / _known_relationship). One Python regex
+# per line, matched against the whole From: value. Blank lines and lines starting with # are ignored.
+#
+# Use this ONLY for a sender whose first message could read like a pitch but who is not a stranger:
+# an existing supplier, a partner, a landlord, a bank, a regular customer. A real customer normally
+# needs no line -- the solicitation patterns do not match a repair request.
+#
+# Examples (uncomment and edit, do not copy these literally):
+#   mobilesentrix\.com
+#   @your-supplier\.com
+#
+# Row 694 (tommaso\.parisi@pathlogic\.info) is deliberately NOT here: it was the cold funding pitch
+# the owner named on 2026-10-19.

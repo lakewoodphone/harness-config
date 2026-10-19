@@ -41,7 +41,9 @@ And the two that make it usable:
 | Channel | In the queue? | How it is reached |
 |---|---|---|
 | **Google Voice** texts, missed calls, voicemails | **YES — the personal channel** | Forwarded mail: `voice-noreply@google.com`, `txt.voice.google.com` |
-| **His own inboxes** | **YES — judged, one verdict per message** | `gmail_service` live; all authenticated accounts except `zabzgpt@` |
+| **His own inboxes** | **YES — judged, one verdict per message, and only when one of HIS addresses is on the envelope (To/Cc)** | `gmail_service` live; the authenticated accounts minus `zabzgpt@`. His addresses are the four in `OWNER_ADDRESSES` in `owner-queue-ingest-mail.py`; his wife's is `HOUSEHOLD_ADDRESSES` |
+| **His wife's mail** | **NO — never his row.** Her address alone on `To:`/`Cc:`, with none of his, is hers; so is anything read out of her mailbox that is addressed to neither of them. *She* writing *to him* still qualifies | Same ingest, refused by `recipient_verdict()` and counted as `not_owner` in `owner_queue_ingest_run` |
+| **Cold solicitation** | **NO — never a row.** Funding/investment pitches, sponsorship or donation requests (especially recurring), agency/SEO/marketing/lead-generation, and cold supplier outreach asking for a meeting, commitment or money, when the sender has no prior relationship | Same ingest, refused by `solicitation_verdict()` and counted as `cold_solicitation`; the message stays in the mail store and in `owner_mail_verdict` with its reason |
 | **Dialpad** (shop line: calls, SMS, voicemail) | **NO. Never.** Its voicemail-notification *email* is filtered by sender | — |
 | App alerts the app never delivered (`owner_message_queue`, status `held`) | Read as items, except ops alerts and duplicates of judged email | read-only merge in the reader |
 | Agent approval requests (`agent_questions`) | Read as decisions | read-only merge in the reader |
@@ -126,11 +128,66 @@ about relevance, and judging relevance is the queue's whole job. The window is n
 **`newer_than:Nd -in:spam -in:trash`**; on the first widened run a supplier's return-instructions
 request arrived that the queue had never seen. Spam and trash stay out on purpose.
 
-Measured 2026-10-18: **814 messages over 14 days across five accounts** (~58/day).
+Measured 2026-10-18: **814 messages over 14 days across five authenticated accounts** (~58/day) —
+one of those is his wife's mailbox, read only so her mail can be refused by the envelope rule and
+counted rather than silently ignored.
 `email_catalog` flags 347 of 812 `needs_owner=1` and a 25-row sample of those was UGG, Uber Cash, AAA
 and newsletters — **the flag is not the signal**. A regex cannot answer "would he want to know this",
 so the verdict is a model call per batch of 10, and **every verdict is stored with its reason**
 (`owner_mail_verdict`). Nothing is dropped without a recorded why.
+
+**Whose mail it is — the envelope rule (2026-10-19).** The judge is never asked to work out whether
+mail is even addressed to him; `recipient_verdict()` decides that first, from the raw `To:`/`Cc:`
+headers, and prints the values it fired on. The address set is data in one place — `OWNER_ADDRESSES`
+= his four (`eliyahuzabrowsky@gmail.com`, `ezabz68@gmail.com`, `lakewoodphoneandtech@gmail.com`,
+`abletelsolutions@gmail.com`) and `HOUSEHOLD_ADDRESSES` = `chevedy@gmail.com` — overridable by
+`OWNER_QUEUE_OWNER_ADDRESSES` / `OWNER_QUEUE_HOUSEHOLD_ADDRESSES`, so adding an address needs no code
+change. The branches:
+
+| Envelope | Result |
+|---|---|
+| one of HIS addresses in To/Cc | his — judge it (this includes mail his wife sent him) |
+| HER address in To/Cc, his absent | hers — no row, counted `not_owner` |
+| neither, read from HER mailbox | hers — no row, counted `not_owner` |
+| neither, read from HIS mailbox | kept, flagged `UNLISTED` — a BCC or a role alias such as `info@` must not lose a customer |
+
+`Cc` is only on the header because `gmail_service.list_messages_page` now asks for it (one-line patch
+`scripts/owner-queue/0004-gmail-cc-metadata-header.patch`). Without that header the Cc half of the
+rule is silently blind; the ingest still has `To:`, but a message where he is only on `Cc` would look
+like hers. Keep the patch with the app snapshot.
+
+Measured 2026-10-19 against the messages behind the rows closed by hand: **8 refused** (648, 652,
+658, 659, 667, 677, 679, 713) and **10 household rows still qualifying** (643, 651, 657, 663, 668,
+687, 690, 691, 707, 702), 0 mismatches. Row 702 was listed with the wife-addressed nine, but its raw
+`To:` is *both* `eliyahuzabrowsky@gmail.com` and `chevedy@gmail.com`; by the owner's own rule ("if
+SHE is the sender and one of his addresses is the recipient, it IS his") it qualifies, and it is the
+tenth of the ten household rows. It was already `resolved`, and the ingest never resurrects a closed
+row. **The code that enforces this** is `recipient_verdict()` in
+`scripts/owner-queue/owner-queue-ingest-mail.py`; it runs before the verdict cache, before
+suppression and before the model, and writes its drop to `owner_mail_verdict` with
+`model='rule:not-the-owner'`.
+
+**Cold solicitation — never a row (2026-10-19).** The owner, twice that day: *"i don't need you to
+bring monthly sponsorships to my attention at all"* and, about a stranger offering to pitch the shop
+to his funding group, *"That is exactly the kind of email I never want to see or being brought to my
+attention."* Rows 694 (Tommaso Parisi) and 656 ($500/month kollel sponsorship) were filed and closed
+by hand. `solicitation_verdict()` matches four categories — `funding`, `sponsorship`, `agency`,
+`supplier` — and drops only when the sender has **no prior relationship in our records**: no
+`answered`/`resolved` email queue row from that address (or domain, for non-freemail), and no line in
+`owner-queue-known-senders.txt` (one sender regex per line, for a real vendor or partner). A previous
+*drop* is not a relationship. Transaction shapes (invoice, statement, payment due, tax form, legal
+notice, order/work order, refund) are excluded by pattern, so a bill that mentions "sponsor" in its
+footer is not swallowed. The reason stored in `owner_mail_verdict` is
+`cold solicitation (<category>)`, and the count is `cold_solicitation` in `owner_queue_ingest_run`;
+**the mail itself is untouched** — dropping from the queue is not deleting mail. A real customer, an
+existing vendor, a bill, a tax document or a legal notice is not cold and still reaches the judge.
+
+Both rules are measured in one proof: on the stored messages behind the cited rows, **before** the
+change 0 of 8 wife-addressed messages were refused and 0 of 2 solicitations were dropped (all 20
+went to the judge); **after**, 8 refused, 2 cold-solicitation drops, 10 household rows kept. The
+first live run after the swap read 110 messages over 2 days and refused **26 not-the-owner** (0 cold,
+because the two cited pitches are older than the window), judged 0 (cached), wrote 0 new rows and
+refreshed 5.
 
 Three outcomes: `drop` · `attention` · `decision`. The rubric is in
 `scripts/owner-queue/owner-queue-ingest-mail.py::SYSTEM_PROMPT`; the parts that matter:
@@ -147,10 +204,12 @@ Three outcomes: `drop` · `attention` · `decision`. The rubric is in
 Measured on the first 7-day backfill: **205 messages → 100 dropped, 35 rows** after collapse, dedupe
 and routine-notice digest.
 
-**Two deterministic guards sit behind the model, and both exist because it was wrong twice:**
+**Deterministic guards sit in front of the model, and each exists because the model was wrong:**
 
 | Guard | What it prevents | Measured |
 |---|---|---|
+| **Envelope rule** (`recipient_verdict`) | Mail addressed to his wife (or to neither of them, in her mailbox) becoming his row. Runs before the cache and the judge, so a wrong cached verdict cannot survive the next run | 8 refused, 10 household rows kept, 2026-10-19 |
+| **Cold solicitation** (`solicitation_verdict`) | Funding pitches, sponsorships, agency/SEO and cold supplier outreach from strangers. Runs before the judge; the reason and count are recorded, the mail is kept | rows 694, 656 refused, 2026-10-19 |
 | **HTML → text before judging** | Gmail falls back to the raw part, so a Chase notice is 17 KB of `<head>` and scripts. Truncated to 1 500 chars the judge only ever saw the `<head>`: it said "amount unknown" while queueing the row | first run |
 | **Fact keys, not message keys** (`key_for`) | Telnyx sent "balance is -$0.01" on four consecutive days → four `critical` rows for one fact. A *person's* conversation keys on the thread; a *machine's* recurring notice keys on the fact (domain + subject with dates/amounts stripped) | 4 rows → 1 |
 | **Routine notices digest** (`fold_routine_notices`) | Five banks "informing" him on one day are one thing happening. `money`/`notice` at `medium`/`low` fold into one row per class per day; `critical`/`high` never fold | 5 rows → 1 |

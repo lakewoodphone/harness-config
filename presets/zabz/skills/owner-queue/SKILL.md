@@ -58,6 +58,17 @@ behind it, history with that sender, and the arithmetic behind its rank. Then:
 - **Dialpad is never in this queue.** The personal channel is Google Voice, reached through its
   forwarding mail. His own inboxes are judged separately. If you are reading `dialpad_*` tables to
   answer a queue question, you are reading the wrong lineage — stop.
+- **Mail addressed to his wife is not his.** His addresses are the four in `OWNER_ADDRESSES`
+  (`eliyahuzabrowsky@`, `ezabz68@`, `lakewoodphoneandtech@`, `abletelsolutions@` gmail.com); hers is
+  `chevedy@gmail.com`. A row is his only when one of his addresses is on `To:`/`Cc:`; mail to her with
+  none of his is hers, and the ingest refuses it as `not_owner` in `owner_queue_ingest_run`. She
+  writing *to him* still qualifies. If you are about to file a mail item, check the recipient before
+  the body — the body will always look like it could be "about him".
+- **Cold solicitation is never filed.** Funding/investment pitches, sponsorship or donation requests
+  (especially monthly), agency/SEO/marketing/lead-generation, and cold supplier outreach asking for a
+  meeting, a commitment or money — from a sender with no prior relationship — are dropped by the
+  ingest as `cold solicitation` and the mail is kept. A real customer, an existing vendor or partner,
+  a bill, a tax document or a legal notice is not cold; file those normally.
 
 ## Reading state without the card
 
@@ -72,9 +83,13 @@ ssh secratary-cloud 'python3 /root/bin/owner-queue.py learning'           # what
 **A queue with nothing in it and a queue that stopped being fed look identical from inside the table.**
 `health` is the difference. It reads two different things and both matter: **freshness** (each
 source's newest arrival against a limit derived from its own rate) and **completeness** (`* read
-everything` — fetched, folded, dropped, rows written, errors, from `owner_queue_ingest_run`). It exits
-non-zero on a stale source, a run that reported errors, arithmetic that comes out negative, or a run
-older than 48 hours. The 20-minute timer (`lpt-owner-queue.timer`) runs it after every ingest.
+everything` — fetched, folded, dropped, rows written, errors, from `owner_queue_ingest_run`). The
+`dropped` number now carries its refusals as a breakdown: `not_owner` (mail addressed to his wife, or
+read from her mailbox and addressed to neither) and `cold_solicitation` (the pitch categories above).
+A run that refuses 26 messages is not silent; the counts and each message's reason are in the table.
+It exits non-zero on a stale source, a run that reported errors, arithmetic that comes out negative,
+or a run older than 48 hours. The 20-minute timer (`lpt-owner-queue.timer`) runs it after every
+ingest.
 
 `learning` prints what his closes taught: what **rises**, what **sinks**, the count behind each, and
 how much of its evidence comes from a channel that still writes. If it says *"0 close(s) from a
