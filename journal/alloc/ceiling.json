@@ -2,7 +2,7 @@
  "adopted_rows": 0,
  "bands_refs_read": 53,
  "ceiling": {
-  "decisions": 8000,
+  "decisions": 8064,
   "handoff": 9960,
   "lessons": 10045,
   "pain": 9354,
@@ -18,10 +18,10 @@
  "claimed_gap_rows": [
   {
    "host": "SECRATARY-CLOUD",
-   "kind": "handoff",
-   "reserved_from": 9897,
-   "reserved_through": 9960,
-   "stamp": "2026-10-19 21:15 UTC"
+   "kind": "decisions",
+   "reserved_from": 8001,
+   "reserved_through": 8064,
+   "stamp": "2026-10-19 21:30 UTC"
   }
  ],
  "entries_high_water": {
@@ -32,7 +32,7 @@
   "wins": "W6939"
  },
  "high_water": {
-  "decisions": "D8000",
+  "decisions": "D8064",
   "handoff": "H9960",
   "lessons": "L10045",
   "pain": "P9354",
@@ -51,11 +51,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-19T21:15:09Z",
+ "refreshed_at": "2026-10-19T21:30:09Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 8.3,
- "sources_seen": 10610
+ "seconds": 8.0,
+ "sources_seen": 10613
 }
