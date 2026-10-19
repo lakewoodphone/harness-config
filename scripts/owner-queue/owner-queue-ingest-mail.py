@@ -70,6 +70,72 @@ SHOP_LINE_SENDER = re.compile(r"(voicemail@dialpad\.com|@dialpad\.com)", re.I)
 # The agent/system mailbox is the company talking to itself, not mail addressed to him.
 DEFAULT_DENY_ACCOUNTS = ("zabzgpt@gmail.com",)
 
+# ── WHOSE MAIL IT IS: the address set, in one place ──────────────────────────────────────────────
+# The owner's rule, 2026-10-19, after nine rows addressed to his wife had to be closed by hand:
+# *"that was to my wife's email address, and that was to her, not to me ... not if you think it's
+# about me."* A mail row is HIS only when one of HIS addresses is on the envelope (To or Cc); mail
+# addressed to HER with none of his addresses is HERS. SHE writing to HIM still qualifies — she is
+# asking him something.
+#
+# This is DATA, not a comparison buried in the code: add an address here and every rule below
+# follows. Both lists are overridable (comma-separated) so a test or a new mailbox needs no edit.
+OWNER_ADDRESSES = tuple(a.strip().lower() for a in os.environ.get(
+    "OWNER_QUEUE_OWNER_ADDRESSES",
+    "eliyahuzabrowsky@gmail.com,ezabz68@gmail.com,"
+    "lakewoodphoneandtech@gmail.com,abletelsolutions@gmail.com").split(",") if a.strip())
+HOUSEHOLD_ADDRESSES = tuple(a.strip().lower() for a in os.environ.get(
+    "OWNER_QUEUE_HOUSEHOLD_ADDRESSES", "chevedy@gmail.com").split(",") if a.strip())
+
+# ── senders with a STANDING FACT: decided before the model is asked ──────────────
+# MEASURED 2026-10-18: one T-Mobile message was judged `attention/critical/money/$105` and became
+# queue row #636, "T-Mobile service suspended — $105 overdue" -- i.e. "pay $105". The owner's answer:
+# *"i told you a few times already i tried to cancel the service and it didn't work so i just
+# stopped paying, we dealt with this already."* A judge shown one message cannot know that, and no
+# rubric wording makes it reliable. So the standing fact lives in a data file beside its reason
+# (owner-queue-suppress.txt), and a match is decided BEFORE the message reaches the model.
+SUPPRESS_FILE = os.environ.get(
+    "OWNER_QUEUE_SUPPRESS",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "owner-queue-suppress.txt"))
+
+
+def load_suppress_rules(path: str = "") -> list:
+    """`sender ;; subject ;; class ;; why` rows. A malformed line is skipped, never guessed at."""
+    rules = []
+    try:
+        with open(path or SUPPRESS_FILE, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = [p.strip() for p in line.split(";;")]
+                if len(parts) != 4:
+                    continue
+                try:
+                    sender = re.compile(parts[0], re.I)
+                    subject = re.compile(parts[1], re.I) if parts[1] else None
+                except re.error:
+                    continue
+                rules.append((sender, subject, parts[2].lower() or "notice", parts[3]))
+    except OSError:
+        pass
+    return rules
+
+
+def suppress_verdict(m: dict, rules: list):
+    """The standing-fact verdict for a ruled-out sender, or None. Never money, never queued."""
+    sender, subject = m.get("sender") or "", m.get("subject") or ""
+    for sender_re, subject_re, cls, why in rules:
+        if sender_re.search(sender) and (subject_re is None or subject_re.search(subject)):
+            return {"verdict": "drop", "tier": "low", "class": cls,
+                    "title": _norm(subject or sender)[:140],
+                    "why": ("suppressed (%s): %s" % (cls, why))[:220],
+                    "ask": False, "deadline": False, "money": None,
+                    "party": _norm(sender)[:120], "action": "", "recommendation": "",
+                    "model": "rule:owner-queue-suppress",
+                    "thread_id": m.get("thread_id") or ""}
+    return None
+
+
 # Judge batch size. Ten keeps one bad verdict from poisoning a large batch and keeps every call well
 # inside the helper's 2048-token reply cap.
 BATCH = 10
@@ -109,6 +175,13 @@ Read each email and give ONE verdict:
   review requests, recruiting spam, duplicates of something already flagged, and anything
   automated where no human is waiting for anything.
 
+  COLD SOLICITATION from a stranger is always "drop": funding or investment pitches, sponsorship
+  or donation requests (especially monthly/recurring), agency/SEO/marketing/lead-generation
+  services, and a supplier with no prior relationship asking for a meeting, a commitment or money.
+  It is NOT cold solicitation when the sender is a real customer, an existing vendor or partner,
+  or the mail is a bill, a tax document or a legal notice. When in doubt between a customer and a
+  pitch, keep it.
+
 "attention" - he would want to KNOW but nothing is being asked of him: a real person writing to
   him; money charged, refunded, rejected, overdue or at risk; a bank or card notice; account
   security (password, 2FA, new key, login from a new place, account locked); a deadline,
@@ -127,6 +200,12 @@ Read each email and give ONE verdict:
 Judge the MESSAGE, not the sender's reputation: a marketing-looking company can send a failed
 payment notice, and a person can send a mass mailing. If the body is too thin to judge, then
 "attention" only if a person is plainly writing to him, otherwise "drop" with why="too thin".
+
+WHOSE MAIL IT IS: the payload carries "to" and "cc". If it is addressed to his wife and none of
+his addresses is on it, it is not his mail -- drop it with why="not his mail". If she is the
+sender and he is a recipient, it IS his. The ingest applies this as a rule before you are called;
+you see it only because the envelope was ambiguous, so do not invent a queue row for someone
+else's mail.
 
 Return ONLY a JSON array. One object per email, same order, "i" echoing the index given:
 {"i":0,"verdict":"drop|attention|decision","tier":"critical|high|medium|low",
@@ -169,6 +248,64 @@ attention, and he will stop opening the queue."""
 
 def _norm(s: str) -> str:
     return " ".join((s or "").split()).strip()
+
+
+# ── the envelope test ───────────────────────────────────────────────────────────────────────────
+_RE_ADDR = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+
+
+def addresses_in(*fields) -> set:
+    """Every email address in the given header values, lowercased. Raw header, not a guess."""
+    out = set()
+    for f in fields:
+        for a in _RE_ADDR.findall(f or ""):
+            out.add(a.strip().strip(".,;<>").lower())
+    return out
+
+
+def _rule_verdict(m: dict, tag: str, why: str) -> dict:
+    """A drop decided by a rule, shaped exactly like a model verdict so every later stage agrees."""
+    return {"verdict": "drop", "tier": "low", "class": "drop",
+            "title": _norm(m.get("subject") or m.get("sender"))[:140],
+            "why": why[:220], "ask": False, "deadline": False, "money": None,
+            "party": _norm(m.get("sender"))[:120], "action": "", "recommendation": "",
+            "model": "rule:%s" % tag, "thread_id": m.get("thread_id") or ""}
+
+
+def recipient_verdict(m: dict, trace: bool = False):
+    """None = this mail may be judged. A verdict = it is not his mail, and why.
+
+    THE BRANCHES, and the raw values each one fired on:
+      1. one of HIS addresses in To/Cc        -> his, judge it (his wife may be the sender)
+      2. HER address in To/Cc, his absent     -> hers, no row ("not-the-owner")
+      3. neither, and the account is HERS     -> hers, no row ("not-the-owner")
+      4. neither, and the account is his      -> kept, flagged UNLISTED (a BCC or a role alias such
+                                                 as info@ must not lose a customer)
+    """
+    to, cc = m.get("to") or "", m.get("cc") or ""
+    account = (m.get("account") or "").strip().lower()
+    rcpts = addresses_in(to, cc)
+    owner_hit = sorted(rcpts.intersection(OWNER_ADDRESSES))
+    household_hit = sorted(rcpts.intersection(HOUSEHOLD_ADDRESSES))
+    raw = ("To=%r Cc=%r account=%r owner_in_to_or_cc=%s household_in_to_or_cc=%s sender=%r"
+           % (to, cc, account, owner_hit or "-", household_hit or "-", m.get("sender") or ""))
+    if owner_hit:
+        if trace:
+            print("  envelope: HIS          %s" % raw)
+        return None
+    if household_hit:
+        print("  envelope: NOT-THE-OWNER  %s" % raw)
+        return _rule_verdict(m, "not-the-owner",
+                             "mail to %s with none of his addresses on it; not his row (%s)"
+                             % (", ".join(household_hit), raw))
+    if account in HOUSEHOLD_ADDRESSES:
+        print("  envelope: NOT-THE-OWNER  %s" % raw)
+        return _rule_verdict(m, "not-the-owner",
+                             "read from her mailbox and addressed to neither of them; not his row (%s)"
+                             % raw)
+    if trace:
+        print("  envelope: UNLISTED (kept) %s" % raw)
+    return None
 
 
 # ── HTML → text ────────────────────────────────────────────────────────────────────────────────
@@ -270,6 +407,51 @@ def cached(con, account: str, mid: str):
         (account, mid)).fetchone()
 
 
+def record_rule_verdict(con, m: dict, v: dict) -> None:
+    """Store a rule's drop in the same cache the model writes, so the next run agrees and the
+    reason is auditable. Overwrites an earlier model verdict for the same message (that is the
+    point: a rule outranks the judge)."""
+    con.execute(
+        "INSERT OR REPLACE INTO owner_mail_verdict"
+        " (account, message_id, thread_id, sender, subject, received_at, verdict, tier, class,"
+        "  title, why, ask, deadline, money, party, action, recommendation, resolves, model,"
+        "  judged_at)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)",
+        (m["account"], m["message_id"], m["thread_id"], m["sender"], m["subject"],
+         m["received_at"], v["verdict"], v["tier"], v["class"], v["title"], v["why"],
+         int(v["ask"]), int(v["deadline"]), v["money"], v["party"], v["action"],
+         v.get("recommendation") or "", v["model"], now_iso()))
+
+
+# ── the ingest run record: why messages were refused, not only how many ─────────────────────────
+RUN_SCHEMA = """
+CREATE TABLE IF NOT EXISTS owner_queue_ingest_run (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL,
+  ran_at TEXT NOT NULL,
+  days INTEGER,
+  fetched INTEGER,
+  queued INTEGER,
+  dropped INTEGER,
+  new INTEGER,
+  refreshed INTEGER,
+  errors INTEGER,
+  note TEXT,
+  not_owner INTEGER DEFAULT 0,
+  cold_solicitation INTEGER DEFAULT 0
+)
+"""
+
+
+def ensure_run_table(con) -> None:
+    con.execute(RUN_SCHEMA)
+    have = {r[1] for r in con.execute("PRAGMA table_info(owner_queue_ingest_run)")}
+    for col in ("not_owner", "cold_solicitation"):
+        if col not in have:
+            con.execute("ALTER TABLE owner_queue_ingest_run ADD COLUMN %s INTEGER DEFAULT 0" % col)
+    con.commit()
+
+
 # ── reading the mailbox ─────────────────────────────────────────────────────────────────────────
 def accounts_to_read(settings, requested: str) -> list[str]:
     from app.services import gmail_service  # type: ignore
@@ -311,6 +493,8 @@ def fetch(accounts, days: int, verbose: bool):
                 "message_id": str(m.get("id") or ""),
                 "thread_id": str(m.get("thread_id") or ""),
                 "sender": _norm(sender),
+                "to": str(m.get("to") or ""),
+                "cc": str(m.get("cc") or ""),
                 "subject": _norm(m.get("subject") or ""),
                 "snippet": _norm(m.get("snippet") or ""),
                 "received_at": _iso(m.get("internal_ts")),
@@ -534,6 +718,7 @@ def judge(batch: list[dict], settings, learned: str = "") -> tuple[list[dict], s
             "account": m["account"],
             "from": m["sender"],
             "to": m.get("to") or "",
+            "cc": m.get("cc") or "",
             "subject": m["subject"],
             "when": m["received_at"][:16],
             "body": m.get("body") or m.get("snippet") or "",
@@ -699,6 +884,126 @@ def _sender_identity(sender: str) -> tuple[str, str]:
     if dom:
         return "domain", dom
     return "", ""
+
+
+# ── COLD SOLICITATION: never an owner-queue row ──────────────────────────────────────────────────
+# Owner, 2026-10-19, twice: *"i don't need you to bring monthly sponsorships to my attention at
+# all"* and, about a stranger offering to pitch the shop to a funding group, *"That is exactly the
+# kind of email I never want to see or being brought to my attention."* Rows 694 (Tommaso Parisi,
+# funding pitch) and 656 ($500/month kollel sponsorship) were both filed and closed by hand.
+#
+# THE RULE: cold solicitation never produces a row. "Cold" means the sender has NO PRIOR
+# RELATIONSHIP in our records -- no answered/resolved queue row from them, and no line in
+# owner-queue-known-senders.txt (a real vendor or partner is not cold). A previous DROP is not a
+# relationship: a stranger's second pitch is still cold.
+#
+# Covers: funding/investment pitches, sponsorship or donation requests (especially recurring),
+# agency/SEO/marketing/lead-generation services, and cold supplier outreach asking for a meeting,
+# a commitment or money. Does NOT cover: a real customer, an existing vendor or partner, a bill, a
+# tax document, or a legal notice -- those exclusions are patterns too, so a bill that says
+# "invoice" is not swallowed by the word "sponsor" in its footer.
+#
+# This runs BEFORE the model, and its drop is final. On 2026-10-18 the judge called 694 a
+# "decision" because a judge shown one message cannot know the sender is a stranger.
+SOLICIT_CATEGORIES = (
+    ("funding", re.compile(
+        r"(investor|investors|funding round|raise (?:capital|funds)|venture capital|\bvc\b|"
+        r"private equity|pitch (?:your|the|our) business|put (?:the|your) business in front of|"
+        r"acquisition offer|buy your business|strategic investment)", re.I)),
+    ("sponsorship", re.compile(
+        r"(sponsor(?:ship|s|ed|ing)?|donation|donate|tzedaka|raffle|ad book|journal ad|"
+        r"corporate partnership)", re.I)),
+    ("agency", re.compile(
+        r"(\bseo\b|search engine optimization|digital marketing|marketing agency|lead generation|"
+        r"social media management|website (?:design|redesign)|google ads|adwords|\bppc\b|"
+        r"reputation management|growth strateg)", re.I)),
+    ("supplier", re.compile(
+        r"(partnership opportunity|strategic partnership|schedule a (?:quick )?(?:call|meeting)|"
+        r"book a (?:call|demo)|15[- ]minute (?:call|intro)|introductory call|"
+        r"become a (?:vendor|reseller|distributor)|wholesale (?:pricing|account)|new supplier|"
+        r"supply (?:you|your))", re.I)),
+)
+#: Transaction shapes that are NOT cold solicitation even when a pitch word appears.
+_NOT_SOLICIT = re.compile(
+    r"(\binvoice\b|\bstatement\b|payment (?:is )?due|past due|legal notice|attorney|court date|"
+    r"summons|subpoena|tax (?:return|form|document|filing)|\b1099\b|\bw-?2\b|order (?:#|number)|"
+    r"work order|repair (?:ticket|order)|warranty claim|refund (?:has been|is) (?:issued|processed))",
+    re.I)
+SOLICIT_KNOWN_FILE = os.environ.get(
+    "OWNER_QUEUE_KNOWN_SENDERS",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "owner-queue-known-senders.txt"))
+
+
+def load_known_senders(path: str = "") -> list:
+    """`<sender regex>` per line. A real vendor/partner whose first mail reads like a pitch."""
+    out = []
+    try:
+        with open(path or SOLICIT_KNOWN_FILE, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                try:
+                    out.append(re.compile(line, re.I))
+                except re.error:
+                    continue
+    except OSError:
+        pass
+    return out
+
+
+def _known_relationship(con, m: dict) -> str:
+    """Why this sender is not a stranger, or "" when they are. Evidence, not a vibe."""
+    sender = m.get("sender") or ""
+    if addresses_in(sender).intersection(OWNER_ADDRESSES):
+        return "sender is the owner"
+    if addresses_in(sender).intersection(HOUSEHOLD_ADDRESSES):
+        return "sender is household"
+    kind, value = _sender_identity(sender)
+    if value:
+        like = ("%%%s%%" % value) if kind == "address" else ("%%@%s%%" % value)
+        try:
+            r = con.execute(
+                "SELECT 1 FROM owner_decision_queue WHERE channel='email'"
+                "  AND status IN ('answered','resolved') AND meta_json LIKE ? LIMIT 1",
+                (like,)).fetchone()
+        except Exception:  # noqa: BLE001
+            r = None
+        if r:
+            return "a closed queue row from %s" % value
+    for rx in load_known_senders():
+        if rx.search(sender):
+            return "known sender file"
+    return ""
+
+
+def solicitation_verdict(con, m: dict, trace: bool = False):
+    """None = judge it. A verdict = cold solicitation, dropped before the model ever sees it."""
+    text = "\n".join(x for x in (m.get("subject") or "", m.get("body") or "",
+                                 m.get("snippet") or "") if x)
+    hit = None
+    for cat, rx in SOLICIT_CATEGORIES:
+        m1 = rx.search(text)
+        if m1:
+            hit = (cat, m1.group(0)[:60])
+            break
+    if not hit:
+        return None
+    rel = _known_relationship(con, m)
+    raw = ("sender=%r relationship=%r subject=%r match=%r"
+           % (m.get("sender") or "", rel or "NONE", m.get("subject") or "", hit[1]))
+    if rel:
+        if trace:
+            print("  solicitation: NOT COLD (%s) %s" % (rel, raw))
+        return None
+    if _NOT_SOLICIT.search(text):
+        if trace:
+            print("  solicitation: EXCLUDED transaction %s" % raw)
+        return None
+    print("  solicitation: COLD (%s) %s" % (hit[0], raw))
+    return _rule_verdict(m, "cold-solicitation",
+                         "cold solicitation (%s): %r from a sender with no prior relationship (%s)"
+                         % (hit[0], hit[1], raw))
 
 
 def _history_block(con, it: dict) -> str:
@@ -900,13 +1205,60 @@ def main(argv=None) -> int:
         return 1 if errors else 0
 
     # ── judge what is not cached ──
+    # Two rules run BEFORE the cache and BEFORE the model: whose mail it is, and cold solicitation.
+    # Both outrank the judge, both store their reason in the same verdict cache, and both are
+    # counted in the run record so a refusal is visible rather than silent.
+    rules = load_suppress_rules()
     pending, verdicts = [], {}
+    suppressed_n = not_owner_n = cold_n = 0
     for m in msgs:
+        rv = recipient_verdict(m, trace=a.verbose or a.explain)
+        if rv:
+            not_owner_n += 1
+            record_rule_verdict(con, m, rv)
+            verdicts[(m["account"], m["message_id"])] = rv
+            continue
+        sv = solicitation_verdict(con, m, trace=a.verbose or a.explain)
+        if sv:
+            cold_n += 1
+            record_rule_verdict(con, m, sv)
+            verdicts[(m["account"], m["message_id"])] = sv
+            continue
         row = None if a.rejudge else cached(con, m["account"], m["message_id"])
+        v = suppress_verdict(m, rules)
+        if v:
+            suppressed_n += 1
+            verdicts[(m["account"], m["message_id"])] = v
+            if row and row["verdict"] != "drop":
+                v["why"] = ("%s [was %s/%s %s%s]" % (
+                    v["why"][:150], row["verdict"], row["tier"], row["class"],
+                    "" if row["money"] is None else " $%.2f" % row["money"]))[:220]
+                con.execute(
+                    "UPDATE owner_mail_verdict SET verdict=?, tier=?, class=?, why=?, money=NULL,"
+                    " model=?, judged_at=? WHERE account=? AND message_id=?",
+                    (v["verdict"], v["tier"], v["class"], v["why"], v["model"], now_iso(),
+                     m["account"], m["message_id"]))
+            elif not row:
+                con.execute(
+                    "INSERT OR REPLACE INTO owner_mail_verdict"
+                    " (account, message_id, thread_id, sender, subject, received_at, verdict,"
+                    "  tier, class, title, why, ask, deadline, money, party, action,"
+                    "  recommendation, resolves, model, judged_at)"
+                    # 20 columns, 20 values. Measured 2026-10-19: this line carried a twelfth
+                    # placeholder in the head group, so a suppressed verdict died with
+                    # "21 values for 20 columns" and took the whole mail ingest - and with it the
+                    # queue's email channel - down until someone read the unit's journal.
+                    " VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,NULL,?,'','',0,?,?)",
+                    (m["account"], m["message_id"], m["thread_id"], m["sender"], m["subject"],
+                     m["received_at"], v["verdict"], v["tier"], v["class"], v["title"],
+                     v["why"], m["sender"], v["model"], now_iso()))
+            continue
         if row:
             verdicts[(m["account"], m["message_id"])] = dict(row)
             continue
         pending.append(m)
+    if suppressed_n or not_owner_n or cold_n:
+        con.commit()
     pending.sort(key=lambda m: m["received_at"], reverse=True)
     over_cap = max(0, len(pending) - a.max_judge)
     pending = pending[: a.max_judge]
@@ -924,8 +1276,22 @@ def main(argv=None) -> int:
             except Exception as exc:  # noqa: BLE001
                 m["body"] = m.get("snippet") or ""
                 errors.append("body %s: %s" % (m["message_id"], exc))
+        # Second pass, now that the body is in hand: a pitch whose subject/snippet looked ordinary
+        # is still cold solicitation. It is dropped before the model is asked, and counted.
+        judgeable = []
+        for m in batch:
+            sv = solicitation_verdict(con, m, trace=a.verbose or a.explain)
+            if sv:
+                cold_n += 1
+                record_rule_verdict(con, m, sv)
+                verdicts[(m["account"], m["message_id"])] = sv
+                continue
+            judgeable.append(m)
+        if not judgeable:
+            con.commit()
+            continue
         try:
-            out, model = judge(batch, settings, learned)
+            out, model = judge(judgeable, settings, learned)
         except Exception as exc:  # noqa: BLE001
             judge_errors.append("%s: %s" % (type(exc).__name__, exc))
             break
@@ -933,7 +1299,7 @@ def main(argv=None) -> int:
         # NOT `now_iso` -- that is the module-level function, and shadowing it here made the run
         # arithmetic fail with "str object is not callable" on the first real run (2026-10-18).
         judged_ts = datetime.now(timezone.utc).isoformat()
-        for m, v in zip(batch, out):
+        for m, v in zip(judgeable, out):
             con.execute(
                 "INSERT OR REPLACE INTO owner_mail_verdict"
                 " (account, message_id, thread_id, sender, subject, received_at, verdict, tier,"
@@ -1005,6 +1371,8 @@ def main(argv=None) -> int:
         print("      %d thread(s) after collapse (%d folded); %d routine notice(s) folded into "
               "%d digest row(s); %d newly judged this run"
               % (len(rows), collapsed, folded, sum(1 for r in rows if r.get("_members")), judged_n))
+        print("      refusals: %d not-the-owner, %d cold solicitation (each with its raw values "
+              "and reason in owner_mail_verdict)" % (not_owner_n, cold_n))
         if over_cap:
             print("      %d message(s) over the per-run judge cap, left for the next run" % over_cap)
         if models:
@@ -1031,27 +1399,35 @@ def main(argv=None) -> int:
     # The arithmetic of a COMPLETE read, in one row health can check: every message fetched either
     # got a verdict or is named as over the cap. A judge that silently stops seeing a folder looks
     # identical to a quiet week from the outside, and this is the row that tells them apart.
+    # `not_owner` and `cold_solicitation` are a BREAKDOWN of `dropped`, not a new bucket: a refusal
+    # is a drop, and fetched = dropped + queued + folded must still hold.
+    note_bits = []
+    if over_cap:
+        note_bits.append("over cap: %d" % over_cap)
+    note_bits.append("not-the-owner: %d" % not_owner_n)
+    note_bits.append("cold solicitation: %d" % cold_n)
     try:
-        con.execute(
-            "CREATE TABLE IF NOT EXISTS owner_queue_ingest_run ("
-            " id INTEGER PRIMARY KEY AUTOINCREMENT, source TEXT NOT NULL, ran_at TEXT NOT NULL,"
-            " days INTEGER, fetched INTEGER, queued INTEGER, dropped INTEGER,"
-            " new INTEGER, refreshed INTEGER, errors INTEGER, note TEXT)")
+        ensure_run_table(con)
         con.execute(
             "INSERT INTO owner_queue_ingest_run (source, ran_at, days, fetched, queued, dropped,"
-            " new, refreshed, errors, note) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            " new, refreshed, errors, note, not_owner, cold_solicitation)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
             ("mail", now_iso(), a.days, len(msgs), len(rows), tally.get("drop", 0),
              stats["new"], stats["refreshed"], len(errors) + len(judge_errors),
-             ("over cap: %d" % over_cap) if over_cap else ""))
+             "; ".join(note_bits), not_owner_n, cold_n))
         con.commit()
     except Exception as exc:  # noqa: BLE001
         print("  (run arithmetic not recorded: %s: %s)" % (type(exc).__name__, exc))
     print("mail ingest: read=%d judged=%d new=%d refreshed=%d left_closed=%d "
-          "threads=%d dropped=%d closed_stale=%d"
+          "threads=%d dropped=%d (not-the-owner=%d cold-solicitation=%d) closed_stale=%d"
           % (len(msgs), judged_n, stats["new"], stats["refreshed"],
-             stats["left_closed"], len(rows), tally.get("drop", 0), len(closed)))
+             stats["left_closed"], len(rows), tally.get("drop", 0), not_owner_n, cold_n,
+             len(closed)))
     for cid, why in closed[:20]:
         print("  CLOSED #%-5s %s" % (cid, why))
+    if not_owner_n or cold_n:
+        print("  refusals: %d not-the-owner, %d cold solicitation (no row written; mail kept)"
+              % (not_owner_n, cold_n))
     if models:
         print("  judged by: %s" % ", ".join(sorted(models)))
     if over_cap:
