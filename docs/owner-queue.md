@@ -365,6 +365,17 @@ pair of missed calls share the tokens `{call, missed}`, so *"Missed call from Pa
 call from Mogo"* were proposed as one fact. A token that every row of a class carries identifies
 nothing; the entity tokens come from the party alone.
 
+**But the party IS the thread — added 2026-10-19, on the owner's words *"You shouldn't have given me
+the info about the missed calls without the text."*** Two rows from the **same party inside 24 hours**
+are one matter whatever the channel: Genack sent two texts (`#817`, `#818`), a missed call (`#819`) and
+a voicemail (`#828`) inside three and a half hours, and the card showed him the voicemail and the
+missed call while the two rows carrying the actual request sat unseen — because a voicemail and a text
+from one person share no words. `_party_key()` normalises `Genack.` == `Genack` == `genack` and matches
+two numbers on their last ten digits; `SIBLING_PARTY_HOURS = 24.0`; `_hours_apart()` reads the event
+stamp. Still advisory — it proposes `--with`, never merges, so a wrong proposal cannot hide an item. The
+card also prints a **text** sibling whole rather than cutting its title at 88 characters, because the
+words are what he acts on.
+
 ## 9. Lifecycle, and why a dismissal sticks
 
 `pending → seen (seen_at) → answered | resolved | dismissed | deferred | superseded`
