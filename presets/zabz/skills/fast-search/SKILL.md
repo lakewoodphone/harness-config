@@ -1,6 +1,6 @@
 ---
 name: fast-search
-description: Use BEFORE any file or content search, and whenever a search feels slow. Covers finding a string, symbol, or file across this estate's ~4 million files without a multi-minute recursive walk — the `fa` command on Linux nodes and the `ps_action("search")` MCP tool from any agent on any OS. Triggers on "search for", "find the file", "where is X defined", "grep for", "glob for", a search that is taking more than a few seconds, a search that returned nothing useful after a long wait, or any question about why searches are slow. Read this instead of reaching for an unscoped recursive grep.
+description: "Use BEFORE any file or content search, and whenever a search feels slow. The surface is esearch - one indexed service on the authority over every session, email, text, call, document, journal entry and repo on every machine - reached from an agent as ps_action search with a what argument, or as fa on a Linux node for the modes where an index must never be trusted (symbols, --fresh). Triggers on 'search for', 'find the file', 'where is X defined', 'grep for', 'glob for', 'which session did we', a search that is taking more than a few seconds, a search that returned nothing useful after a long wait, or any question about why searches are slow. Read this instead of reaching for an unscoped recursive grep."
 ---
 
 # Searching this estate in milliseconds instead of minutes
@@ -35,6 +35,42 @@ silent (a `data` mode that was a stub, `symbols` that never matched, `ask`/`look
 wrong search, an age read off a file mtime, and a `--max-age` shorter than the refresh clock).
 All five are fixed and re-verified.
 
+## The surface: `esearch` — one index over every corpus
+
+**Answer questions from `esearch`, not from a filesystem walk.** It is one service on the authority
+(`esearch.service`, loopback `127.0.0.1:3095`, on the tailnet at `:8444`) that answers from two stores:
+`authority.db` (sessions, memories, VS Code chats — read in place) and the central estate index
+(`/root/.usearch/usearch.db`, fed by every host's push). Measured 2026-10-19, after the corpus was
+backfilled: **334,630 documents / 749,440 chunks**, and every one of the eight acceptance questions
+answered in **94–259 ms**.
+
+| `what=` | reaches |
+|---|---|
+| `sessions` | every DSH session event from every machine, including the phone (indexed in place in `authority.db`) |
+| `data` | customer texts, calls, voicemails, email |
+| `journal` | the agent journal — every entry |
+| `docs` | md, pdf, docx, xlsx, html — text extracted at index time |
+| `files` | filenames and paths |
+| `code` | source files |
+| `symbol` | a definition, **always live**, never from an index |
+| `all` | everything above, fused by reciprocal rank (the default) |
+
+**Two rules that make the answer honest.** Every response carries `stores` with an age per store and
+`did_not_answer` naming any corpus that refused — a refusal is never a negative, and an answer that
+cannot say how old it is is a claim. Say which one you got. And **anything you are about to EDIT must
+not come from an index**: use `fresh=True` or `what="symbol"`, or `fa symbol` on a Linux node.
+
+```bash
+# the same surface, without the MCP layer
+ssh secratary-cloud 'curl -s "http://127.0.0.1:3095/search?q=mesh+broker&scope=all&limit=5&json=1"'
+ssh secratary-cloud 'curl -s http://127.0.0.1:3095/health'     # per-source age, coverage floors, disk
+ssh secratary-cloud 'curl -s http://127.0.0.1:3095/stats'      # what each store holds, per corpus
+```
+
+If `/health` names a corpus below its floor (`journal holds 76 document(s), floor is 3000`), the index
+is fresh and almost empty — that is the failure this system has actually had, and no query can fix it:
+run `scripts/backfill.py` on the host that owns the corpus (runbook: `docs/OPERATIONS-ESEARCH.md` §3b).
+
 ## Use these, in this order
 
 **1. From any agent, on any OS — the MCP tool.** This is the cross-platform surface (Windows, Linux,
@@ -48,7 +84,8 @@ ps_action("search", {"what": "files",   "query": "database.py"})
 ps_action("search", {"what": "data",    "query": "battery"})   # customer texts/calls/email
 ```
 
-**2. On a Linux node — the `fa` command.** Same engine, same grammar, no MCP required:
+**2. On a Linux node — the `fa` command.** Narrower, node-local, and kept for one thing above all:
+the modes where an index must never be trusted.
 
 ```bash
 fa code   "_owner_sms_allowed"     # content, ripgrep, .gitignore-aware, derived dirs excluded
