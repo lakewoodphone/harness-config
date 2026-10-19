@@ -711,6 +711,44 @@ except Exception as exc:                                       # noqa: BLE001
     check("K3 the owner-text gate is not refusing because it is broken", False,
           "%s: %s" % (type(exc).__name__, exc))
 
+
+# ---------------------------------------------------------------------------------------
+# K4: a retry storm is an outage of one producer.
+#
+# Measured 2026-10-19: 1,273 `too_long` refusals, dominated by a few bodies retried hundreds of
+# times - one 321-character reminder 842 times, an 811-character one 291 times. Each refusal is a
+# sane decision about one message; 842 of them about the same message is a LOOP, and from outside the
+# table a loop and a policy look identical: refusals, each with a reason.
+#
+# So: no single body may be refused more than RETRY_STORM_LIMIT times inside the window.
+# ---------------------------------------------------------------------------------------
+try:
+    _q = ro(_resolve_app_db())
+    try:
+        _win = int(os.environ.get("RETRY_STORM_WINDOW_HOURS", "24") or 24)
+        _limit = int(os.environ.get("RETRY_STORM_LIMIT", "5") or 5)
+        _cut = (datetime.now(timezone.utc) - timedelta(hours=_win)).isoformat()
+        _rows = _q.execute(
+            "select substr(coalesce(body_head,''),1,40) h, count(*) n from owner_text_decision "
+            "where allowed=0 and created_at >= ? group by 1 having count(*) > ? "
+            "order by n desc limit 5", (_cut, _limit)).fetchall()
+        _worst = _q.execute(
+            "select substr(coalesce(body_head,''),1,40) h, count(*) n from owner_text_decision "
+            "where allowed=0 and created_at >= ? group by 1 order by n desc limit 1",
+            (_cut,)).fetchone()
+        check("K4 no producer is retrying one body into a refusal loop",
+              not _rows,
+              "%d body/bodies refused more than %d times in %d h%s"
+              % (len(_rows), _limit, _win,
+                 ("" if not _rows else ": " + "; ".join(
+                     "%.40s x%d" % (r[0], r[1]) for r in _rows))
+                 + (" | worst overall: %.40s x%d" % (_worst[0], _worst[1]) if _worst else "")))
+    finally:
+        _q.close()
+except Exception as exc:                                       # noqa: BLE001
+    check("K4 no producer is retrying one body into a refusal loop", False,
+          "%s: %s" % (type(exc).__name__, exc))
+
 print("TEXT-HEALTH %s" % datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 failed = 0
 for name, ok, evidence in results:
