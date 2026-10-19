@@ -1,0 +1,839 @@
+{
+ "actual": {
+  "commits": {
+   "autocommit": 560,
+   "autocommit_share": 0.799,
+   "other": 141,
+   "total": 701
+  },
+  "ledger": {
+   "closure_rate_of_true_total": 0.7368,
+   "done_with_proof": 476,
+   "dropped": 20,
+   "items_in_store": 646,
+   "note": "All 646 items were created in this window; the store's first done_at is 2026-10-13T01:59:30Z, 36 seconds before the baseline was measured.",
+   "reported_open": 170,
+   "true_open": 150
+  },
+  "sessions": {
+   "dsh_dir_entries": 20,
+   "reported": 5347,
+   "wake_instance_artifacts": 5327
+  },
+  "spend": {
+   "note": "Cost is a floor: 11 failed releases have no session mapping and no usage.",
+   "priced_releases": 399,
+   "rows": 410,
+   "unsourced_releases": 11,
+   "usd_priced_week": 29.0037
+  }
+ },
+ "baseline_measured": {
+  "capabilities.docs_added": {
+   "status": "measured",
+   "value": 121
+  },
+  "capabilities.routes_added": {
+   "status": "measured",
+   "value": 0
+  },
+  "capabilities.scripts_added": {
+   "status": "measured",
+   "value": 29
+  },
+  "capabilities.services_running": {
+   "status": "measured",
+   "value": 28
+  },
+  "capabilities.skills_added": {
+   "status": "measured",
+   "value": 7
+  },
+  "capabilities.sources_added": {
+   "status": "measured",
+   "value": 0
+  },
+  "capabilities.sources_registered": {
+   "status": "measured",
+   "value": 27
+  },
+  "capabilities.timers_registered": {
+   "status": "measured",
+   "value": 22
+  },
+  "commits.commits_landed": {
+   "status": "measured",
+   "value": 175
+  },
+  "journal.by_kind": {
+   "status": "measured",
+   "value": 50
+  },
+  "journal.open_pain": {
+   "status": "measured",
+   "value": 50
+  },
+  "ledger.closed_with_proof": {
+   "status": "measured",
+   "value": 1
+  },
+  "ledger.left_open": {
+   "status": "measured",
+   "value": 11
+  },
+  "queue.filed": {
+   "status": "measured",
+   "value": 173
+  },
+  "queue.pending": {
+   "status": "measured",
+   "value": 153
+  },
+  "queue.resolved": {
+   "status": "measured",
+   "value": 48
+  },
+  "sessions.sessions_marker": {
+   "status": "measured",
+   "value": 104
+  },
+  "spend.spend": {
+   "status": "measured",
+   "value": 13
+  },
+  "wake.releases": {
+   "status": "measured",
+   "value": 140
+  },
+  "wake.stats": {
+   "status": "measured",
+   "value": 3
+  }
+ },
+ "broken_instruments": [],
+ "estate_change": [
+  {
+   "baseline": 121,
+   "cell": "capabilities.docs_added",
+   "class": "real",
+   "delta": 23,
+   "note": "23 new paths under docs/; not a stock of all docs.",
+   "week": 144
+  },
+  {
+   "baseline": 29,
+   "cell": "capabilities.scripts_added",
+   "class": "real",
+   "delta": 47,
+   "note": "47 new paths under scripts/; this bucket INCLUDES the 23 sources_added below, so 47 + 23 is not 70.",
+   "week": 76
+  },
+  {
+   "baseline": 28,
+   "cell": "capabilities.services_running",
+   "class": "real",
+   "delta": 2,
+   "note": "live systemd count, +2.",
+   "week": 30
+  },
+  {
+   "baseline": 7,
+   "cell": "capabilities.skills_added",
+   "class": "flow",
+   "delta": -7,
+   "note": "0 new skill paths this week vs 7 last week: a stopped flow, not a loss of 7 skills.",
+   "week": 0
+  },
+  {
+   "baseline": 0,
+   "cell": "capabilities.sources_added",
+   "class": "real",
+   "delta": 23,
+   "note": "23 new /sources/*.py paths; subset of scripts_added.",
+   "week": 23
+  },
+  {
+   "baseline": 27,
+   "cell": "capabilities.sources_registered",
+   "class": "real",
+   "delta": 5,
+   "note": "live files in /root/bin/sources, +5.",
+   "week": 32
+  },
+  {
+   "baseline": 22,
+   "cell": "capabilities.timers_registered",
+   "class": "real",
+   "delta": 15,
+   "note": "live systemd timers, +15.",
+   "week": 37
+  },
+  {
+   "baseline": 175,
+   "cell": "commits.commits_landed",
+   "class": "mixed",
+   "delta": 526,
+   "note": "701 commits, but 560 are journal autocommits (79.9%); 141 other.",
+   "week": 701
+  },
+  {
+   "baseline": 1,
+   "cell": "ledger.closed_with_proof",
+   "class": "ledger-online",
+   "delta": 475,
+   "note": "476 done, all 476 with non-empty attempt.proof. The ledger is one week old: first done_at 2026-10-13T01:59:30Z.",
+   "week": 476
+  },
+  {
+   "baseline": 11,
+   "cell": "ledger.left_open",
+   "class": "artifact",
+   "delta": 159,
+   "note": "170 reported includes 20 dropped; true open 150. Delta is +139, not +159.",
+   "week": 170
+  },
+  {
+   "baseline": 173,
+   "cell": "queue.filed",
+   "class": "real",
+   "delta": 72,
+   "note": "245 asked in the window.",
+   "week": 245
+  },
+  {
+   "baseline": 153,
+   "cell": "queue.pending",
+   "class": "real",
+   "delta": -32,
+   "note": "121 pending, down 32: the only cell where backlog fell.",
+   "week": 121
+  },
+  {
+   "baseline": 48,
+   "cell": "queue.resolved",
+   "class": "real",
+   "delta": 250,
+   "note": "298 resolved in the window.",
+   "week": 298
+  },
+  {
+   "baseline": 104,
+   "cell": "sessions.sessions_marker",
+   "class": "artifact",
+   "delta": 5243,
+   "note": "5,347 = 20 ~/.dsh entries + 5,327 wake-instance artifacts; not sessions.",
+   "week": 5347
+  },
+  {
+   "baseline": 13,
+   "cell": "spend.spend",
+   "class": "artifact",
+   "delta": 397,
+   "note": "410 = release cost ROWS, not USD. Real priced spend $29.0037 plus 11 unsourced failed releases.",
+   "week": 410
+  },
+  {
+   "baseline": 140,
+   "cell": "wake.releases",
+   "class": "mixed",
+   "delta": 265,
+   "note": "405 release/claim events, not units of work; one wake row can be released many times.",
+   "week": 405
+  }
+ ],
+ "headline": {
+  "changed_cells": 16,
+  "could_not_ask_cells": 0,
+  "flat_cells": 4,
+  "measured_cells": 20,
+  "weak_instruments": 9
+ },
+ "host": "secratary-cloud",
+ "measured": {
+  "capabilities.docs_added": {
+   "age_seconds": null,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-12T00:07:28 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": [
+     "docs/household/README.md",
+     "docs/dsh-evolution-v6/readers/R26-owner-verbatim-quotes-rpcid.md",
+     "docs/dsh-evolution-v6/91-unread-census.md",
+     "docs/dsh-evolution-v6/readers/R23.md",
+     "docs/dsh-evolution-v6/readers/R24.md",
+     "docs/dsh-evolution-v6/readers/R25.md",
+     "docs/dsh-evolution-v6/90-what-is-needed-and-what-is-not.md",
+     "docs/dsh-evolution-v6/HANDOFF-ROUND6.md"
+    ]
+   },
+   "freshness_kind": "git",
+   "method": "new paths matching the bucket over the window",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 144
+  },
+  "capabilities.routes_added": {
+   "age_seconds": null,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-12T00:07:28 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": []
+   },
+   "freshness_kind": "git",
+   "method": "new paths matching the bucket over the window",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 0
+  },
+  "capabilities.scripts_added": {
+   "age_seconds": null,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-12T00:07:28 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": [
+     "scripts/wake/patch-restart-contract.py",
+     "scripts/test_owner_queue_domain_guard.py",
+     "scripts/deployed/bin/cfo358-evidence-type-audit.py",
+     "scripts/deployed/bin/cfo445-record-unresolved.py",
+     "scripts/deployed/bin/plaid-item-check.py",
+     "scripts/mesh/guard-service-state.sh",
+     "scripts/preset-drift.py",
+     "scripts/repair-phone-engine.sh"
+    ]
+   },
+   "freshness_kind": "git",
+   "method": "new paths matching the bucket over the window",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 76
+  },
+  "capabilities.services_running": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "systemctl list-units --type=service --state=running --no-legend --no-pager",
+   "freshness_kind": "live",
+   "method": "list-units --type=service --state=running",
+   "source": "systemd",
+   "status": "measured",
+   "unit": "count",
+   "value": 30
+  },
+  "capabilities.skills_added": {
+   "age_seconds": null,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-12T00:07:28 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": []
+   },
+   "freshness_kind": "git",
+   "method": "new paths matching the bucket over the window",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 0
+  },
+  "capabilities.sources_added": {
+   "age_seconds": null,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-12T00:07:28 --diff-filter=A --name-only --pretty=format:",
+   "extra": {
+    "sample": [
+     "scripts/deployed/bin/sources/_flag.py",
+     "scripts/deployed/bin/sources/cfo-backfill.py",
+     "scripts/deployed/bin/sources/comms-freshness.py",
+     "scripts/deployed/bin/sources/cron-failures.py",
+     "scripts/deployed/bin/sources/cron-targets.py",
+     "scripts/deployed/bin/sources/db-integrity.py",
+     "scripts/deployed/bin/sources/decision-answer-unconsumed.py",
+     "scripts/deployed/bin/sources/decision-queue-stale.py"
+    ]
+   },
+   "freshness_kind": "git",
+   "method": "new paths matching the bucket over the window",
+   "source": "git log --diff-filter=A (additions only)",
+   "status": "measured",
+   "unit": "count",
+   "value": 23
+  },
+  "capabilities.sources_registered": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "ls /root/bin/sources/*.py",
+   "extra": {
+    "files": [
+     "_flag.py",
+     "cfo-backfill.py",
+     "checkout-health.py",
+     "comms-freshness.py",
+     "cron-failures.py",
+     "cron-targets.py",
+     "db-integrity.py",
+     "decision-answer-unconsumed.py",
+     "decision-queue-stale.py",
+     "disk-space.py",
+     "dormant-handoff.py",
+     "drift-check.py",
+     "finance-freshness.py",
+     "finance-reconciliation.py",
+     "hours-drift.py",
+     "journal-pain-supply.py",
+     "ledger-keepalive.py",
+     "memory-pressure.py",
+     "owner-question-audit.py",
+     "pain-checks.py",
+     "plaid-freshness.py",
+     "project-keepalive.py",
+     "roadmap-supply.py",
+     "sentinel-supply.py",
+     "session-sweep.py",
+     "sms-app-gap.py",
+     "txt-lost-webhook.py",
+     "txt-stranded-inbound.py",
+     "wake-progress.py",
+     "wake-tuner.py",
+     "weekly-evolution-audit.py",
+     "weekly-evolution.py"
+    ]
+   },
+   "freshness_kind": "live",
+   "method": "live source files on the authority",
+   "source": "/root/bin/sources",
+   "status": "measured",
+   "unit": "count",
+   "value": 32
+  },
+  "capabilities.timers_registered": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "systemctl list-timers --no-legend --no-pager",
+   "freshness_kind": "live",
+   "method": "list-timers",
+   "source": "systemd",
+   "status": "measured",
+   "unit": "count",
+   "value": 37
+  },
+  "commits.commits_landed": {
+   "age_seconds": null,
+   "as_of": "2026-10-19T00:06:55Z",
+   "command": "git -C /root/code/harness-config log --since=2026-10-12T00:07:28 --pretty=%H",
+   "extra": {
+    "distinct_files_touched": 3068,
+    "head": "b95ae6013b13eba0e4c4244b53adde0e6b00268c"
+   },
+   "freshness_kind": "git",
+   "method": "git log --since over the window",
+   "source": "harness-config git history",
+   "status": "measured",
+   "unit": "count",
+   "value": 701
+  },
+  "journal.by_kind": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:28Z",
+   "command": "/usr/bin/python3 /root/code/harness-config/journal/tools/journal.py list --since 2026-10-12 --json",
+   "extra": {
+    "by_kind": {
+     "handoff": 28,
+     "lessons": 13,
+     "pain": 9
+    }
+   },
+   "freshness_kind": "live",
+   "method": "entries[] grouped by .kind; the tool is the only door to the tree",
+   "source": "journal.py list --since 2026-10-12 --json",
+   "status": "measured",
+   "unit": "count",
+   "value": 50
+  },
+  "journal.open_pain": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:28Z",
+   "command": "/usr/bin/python3 /root/code/harness-config/journal/tools/journal.py list --kind pain --status open --json",
+   "freshness_kind": "live",
+   "method": "count of open pain entries in the index",
+   "source": "journal.py list --kind pain --status open --json",
+   "status": "measured",
+   "unit": "count",
+   "value": 50
+  },
+  "ledger.closed_with_proof": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "COUNT work_item WHERE state done AND EXISTS attempt.proof non-empty",
+   "extra": {
+    "by_state": {
+     "blocked": 43,
+     "done": 476,
+     "dropped": 20,
+     "running": 3,
+     "todo": 104
+    }
+   },
+   "freshness_kind": "live",
+   "method": "proof column=attempt.proof; proof lives on the attempt row",
+   "source": "read-only SQL on /root/work/work.db (work_item x attempt)",
+   "status": "measured",
+   "unit": "count",
+   "value": 476
+  },
+  "ledger.left_open": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "COUNT(*) WHERE state NOT IN done/cancelled/expired",
+   "extra": {
+    "by_state": {
+     "blocked": 43,
+     "done": 476,
+     "dropped": 20,
+     "running": 3,
+     "todo": 104
+    }
+   },
+   "freshness_kind": "live",
+   "method": "state column=state",
+   "source": "read-only SQL on /root/work/work.db table work_item",
+   "status": "measured",
+   "unit": "count",
+   "value": 170
+  },
+  "queue.filed": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "COUNT(*) WHERE asked_at >= since",
+   "extra": {
+    "by_status": {
+     "answered": 18,
+     "dismissed": 102,
+     "pending": 121,
+     "resolved": 443,
+     "superseded": 6
+    }
+   },
+   "freshness_kind": "live",
+   "method": "columns ['id', 'asked_at', 'question', 'context', 'options_json', 'recommendation', 'severity', 'blocks', 'source', 'age_days', 'status', 'answered_at', 'answer', 'resolved_at', 'resolution', 'deferred_until', 'deferred_at', 'defer_note', 'kind', 'channel', 'party', 'evidence_at', 'evidence_ref', 'dedupe_key', 'meta_json', 'seen_at', 'last_score']; rows=690",
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 245
+  },
+  "queue.pending": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "COUNT(*) WHERE status IN pending/open/filed/new",
+   "extra": {
+    "by_status": {
+     "answered": 18,
+     "dismissed": 102,
+     "pending": 121,
+     "resolved": 443,
+     "superseded": 6
+    }
+   },
+   "freshness_kind": "live",
+   "method": "the owner's live queue depth",
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 121
+  },
+  "queue.resolved": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "COUNT(*) WHERE resolved_at >= since",
+   "freshness_kind": "live",
+   "method": "columns ['id', 'asked_at', 'question', 'context', 'options_json', 'recommendation', 'severity', 'blocks', 'source', 'age_days', 'status', 'answered_at', 'answer', 'resolved_at', 'resolution', 'deferred_until', 'deferred_at', 'defer_note', 'kind', 'channel', 'party', 'evidence_at', 'evidence_ref', 'dedupe_key', 'meta_json', 'seen_at', 'last_score']; rows=690",
+   "source": "read-only SQL /root/authority.db owner_decision_queue",
+   "status": "measured",
+   "unit": "count",
+   "value": 298
+  },
+  "sessions.sessions_marker": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:30Z",
+   "command": "ls -d ~/.dsh ~/.dsh-sessions; python3 scripts/dsh-sessions.py --help; ls ~/.sms-inbox/wake-instances; docker ps --format {{.Names}}",
+   "extra": {
+    "dsh_dir_entries": 20,
+    "wake_instances": 5327
+   },
+   "freshness_kind": "live",
+   "method": "counts of session artifacts present",
+   "source": "local dsh/session stores",
+   "status": "measured",
+   "unit": "count",
+   "value": 5347
+  },
+  "spend.spend": {
+   "age_seconds": null,
+   "as_of": "2026-10-19T00:00:41Z",
+   "command": "wc -l /root/.sms-inbox/wake-cost.jsonl",
+   "freshness_kind": "file",
+   "method": "cost ledger rows",
+   "source": "/root/.sms-inbox/wake-cost.jsonl",
+   "status": "measured",
+   "unit": "count",
+   "value": 410
+  },
+  "wake.releases": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:28Z",
+   "command": "SELECT COUNT(*) FROM wake WHERE claimed_at >= since",
+   "extra": {
+    "by_status": {
+     "cancelled": 82,
+     "claimed": 4,
+     "done": 829,
+     "dropped": 16,
+     "failed": 269,
+     "new": 17,
+     "unverified": 6
+    },
+    "timestamp_column": "claimed_at"
+   },
+   "freshness_kind": "live",
+   "method": "columns ['id', 'subject', 'kind', 'prompt', 'context', 'priority', 'created_at', 'state', 'claimed_by', 'claimed_at', 'finished_at', 'outcome', 'source', 'not_before', 'attempts', 'max_attempts', 'lease_until', 'cost_usd', 'unverified']; timestamp column=claimed_at",
+   "source": "read-only SQL on /root/.sms-inbox/inbox.db table wake",
+   "status": "measured",
+   "unit": "count",
+   "value": 405
+  },
+  "wake.stats": {
+   "age_seconds": 0,
+   "as_of": "2026-10-19T00:07:29Z",
+   "command": "/usr/bin/python3 /root/bin/wake.py stats",
+   "extra": {
+    "lines": [
+     "wake rows: new=17 claimed=4 done=825 failed=116 unverified=6 cancelled=82 expired=0",
+     "selftest rows: 157 (done 4, failed 153) - excluded from every count above and from the release path, never deleted [kind='selftest' 156, subject~'SMselftest-' 151]",
+     "released today: 6/150 [SESSIONS started, not work done - one row can be released many times]   failed today: 0   spend today: $0.0000/$61.50"
+    ]
+   },
+   "freshness_kind": "live",
+   "method": "first lines of `wake.py stats`",
+   "source": "/root/bin/wake.py",
+   "status": "measured",
+   "unit": "count",
+   "value": 3
+  }
+ },
+ "not_moving": [
+  {
+   "baseline": 0,
+   "cell": "capabilities.routes_added",
+   "class": "flat",
+   "delta": 0,
+   "note": "0 in both runs.",
+   "week": 0
+  },
+  {
+   "baseline": 50,
+   "cell": "journal.by_kind",
+   "class": "flat-total-moving-mix",
+   "delta": 0,
+   "note": "total 50 -> 50, but handoff 18->28, lessons 25->13, pain 2->9; decisions/wins vanish.",
+   "week": 50
+  },
+  {
+   "baseline": 50,
+   "cell": "journal.open_pain",
+   "class": "flat",
+   "delta": 0,
+   "note": "all-time open pain 50 -> 50; not windowed.",
+   "week": 50
+  },
+  {
+   "baseline": 3,
+   "cell": "wake.stats",
+   "class": "flat",
+   "delta": 0,
+   "note": "3 = number of lines from wake.py stats, not rows or work.",
+   "week": 3
+  }
+ ],
+ "proof_commands": [
+  "cd /root/code/harness-config && python3 scripts/self-audit/weekly-evolution-audit.py --repo /root/code/harness-config --out /root/.self-audit/W43-verify --window-days 7",
+  "cat /root/.self-audit/W43-verify/digest.txt",
+  "python3 -c \"import json;r=json.load(open('/root/.self-audit/runs/latest.json'));print(r['run_id'], r['diff_vs_previous'])\"",
+  "sqlite3 /root/work/work.db \"SELECT state, COUNT(*) FROM work_item GROUP BY state\"",
+  "python3 -c \"import json;rows=[json.loads(l) for l in open('/root/.sms-inbox/wake-cost.jsonl')];print(sum(float(r['cost_usd_or_unsourced']) for r in rows if r.get('type')=='release' and isinstance(r.get('cost_usd_or_unsourced'),(int,float))))\"",
+  "git -C /root/code/harness-config log --since=2026-10-12T00:07:28 --until=2026-10-19T00:07:28 --pretty=%s | grep -ci autocommit"
+ ],
+ "records": {
+  "baseline": "run-20261013T020006Z",
+  "filed": "run-20261019T000728Z",
+  "verification": "run-20261019T010055Z"
+ },
+ "repo": {
+  "branch": "hk/584-wake-lock-holders",
+  "exists": true,
+  "head": "b95ae6013b13eba0e4c4244b53adde0e6b00268c",
+  "path": "/root/code/harness-config"
+ },
+ "schema": "self-audit/weekly/1",
+ "subject": "self-audit:2026-W43",
+ "verification": {
+  "could_not_ask": [],
+  "note": "Measured 53 minutes after the filed record into an isolated out dir seeded with the baseline; the canonical /root/.self-audit/runs store was left intact.",
+  "run_id": "run-20261019T010055Z",
+  "values": {
+   "capabilities.docs_added": 144,
+   "capabilities.routes_added": 0,
+   "capabilities.scripts_added": 78,
+   "capabilities.services_running": 31,
+   "capabilities.skills_added": 0,
+   "capabilities.sources_added": 24,
+   "capabilities.sources_registered": 32,
+   "capabilities.timers_registered": 37,
+   "commits.commits_landed": 706,
+   "journal.by_kind": 50,
+   "journal.open_pain": 50,
+   "ledger.closed_with_proof": 486,
+   "ledger.left_open": 167,
+   "queue.filed": 248,
+   "queue.pending": 123,
+   "queue.resolved": 299,
+   "sessions.sessions_marker": 5460,
+   "spend.spend": 426,
+   "wake.releases": 418,
+   "wake.stats": 3
+  }
+ },
+ "weak_instruments": [
+  {
+   "cell": "sessions.sessions_marker",
+   "defect": "Named sessions_agents_run, but the value is len(~/.dsh) + a recursive count of ~/.sms-inbox/wake-instances, counting directories AND files. It is an artifact count, not sessions. Of this week's +5,243, at least 5,240 is new wake-instance churn.",
+   "evidence": {
+    "baseline_extra": {
+     "dsh_dir_entries": 17,
+     "wake_instances": 87
+    },
+    "now": {
+     "dsh_dir_entries": 20,
+     "wake_instance_dirs": 785,
+     "wake_instance_files": 4655,
+     "wake_instances": 5440
+    },
+    "week_extra": {
+     "dsh_dir_entries": 20,
+     "wake_instances": 5327
+    }
+   }
+  },
+  {
+   "cell": "spend.spend",
+   "defect": "Named spend, method 'cost ledger rows': the value is `wc -l /root/.sms-inbox/wake-cost.jsonl`. It counts release cost records, not USD, so it cannot test the $61.20/day cap. The same rows carry cost_usd_or_unsourced.",
+   "evidence": {
+    "priced_rows": 399,
+    "rows_at_0100": 425,
+    "rows_at_week_cutoff": 410,
+    "unsourced_reason": "11 failed releases have no session mapping and no usage; their cost is unknown, so $29.00 is a floor.",
+    "unsourced_rows": 11,
+    "usd_priced_at_0100": 30.0609,
+    "usd_priced_at_cutoff": 29.0037
+   }
+  },
+  {
+   "cell": "ledger.left_open",
+   "defect": "The SQL is COUNT(*) WHERE state NOT IN done/cancelled/expired, which includes state='dropped'. The 170 reported is 43 blocked + 3 running + 104 todo + 20 dropped; true open is 150, so the +159 delta is +139. The baseline had no dropped rows, so the baseline 11 was true.",
+   "evidence": {
+    "by_state": {
+     "blocked": 43,
+     "done": 476,
+     "dropped": 20,
+     "running": 3,
+     "todo": 104
+    },
+    "dropped": 20,
+    "reported": 170,
+    "true_open": 150
+   }
+  },
+  {
+   "cell": "wake.stats",
+   "defect": "Unit says count, but the value is the number of lines printed by `wake.py stats` (3). It counts lines, not rows, not work.",
+   "evidence": [
+    "wake rows: new=17 claimed=4 done=825 failed=116 unverified=6 cancelled=82 expired=0",
+    "selftest rows: 157 (done 4, failed 153) - excluded from every count above and from the release path, never deleted [kind='selftest' 156, subject~'SMselftest-' 151]",
+    "released today: 6/150 [SESSIONS started, not work done - one row can be released many times]   failed today: 0   spend today: $0.0000/$61.50"
+   ]
+  },
+  {
+   "cell": "wake.releases",
+   "defect": "Counts release/claim events (claimed_at >= since), not units of work; one wake row can be released many times. Its by_status is all-time and mixes selftests: failed=269 in the DB vs failed=116 in `wake.py stats`, because 153 selftest failures are excluded there.",
+   "evidence": {
+    "by_status": {
+     "cancelled": 82,
+     "claimed": 4,
+     "done": 829,
+     "dropped": 16,
+     "failed": 269,
+     "new": 17,
+     "unverified": 6
+    },
+    "releases": 405,
+    "wake_stats": [
+     "wake rows: new=17 claimed=4 done=825 failed=116 unverified=6 cancelled=82 expired=0",
+     "selftest rows: 157 (done 4, failed 153) - excluded from every count above and from the release path, never deleted [kind='selftest' 156, subject~'SMselftest-' 151]",
+     "released today: 6/150 [SESSIONS started, not work done - one row can be released many times]   failed today: 0   spend today: $0.0000/$61.50"
+    ]
+   }
+  },
+  {
+   "cell": "commits.commits_landed",
+   "defect": "Counts every commit, including the journal autocommit loop. At the week cutoff: 701 commits, 560 autocommit (79.9%), 141 other, 3,068 distinct paths touched. The number is real but it is mostly bookkeeping, not 526 units of engineering.",
+   "evidence": {
+    "autocommit": 560,
+    "distinct_files_touched": 3068,
+    "other": 141,
+    "total": 701
+   }
+  },
+  {
+   "cell": "capabilities.skills_added",
+   "defect": "A flow count of new paths whose name contains 'skill', not a stock. 0 this week vs 7 last week is a stopped flow, not a loss of 7 skills; the bucket can also match docs about skills.",
+   "evidence": {
+    "baseline": 7,
+    "week": 0
+   }
+  },
+  {
+   "cell": "journal.open_pain / journal.by_kind",
+   "defect": "open_pain is all-time and not windowed (50 in both runs); by_kind is windowed and its total is coincidentally 50 in both runs, while the mix moved: handoff 18->28, lessons 25->13, pain 2->9, and decisions/wins vanish. A reader of either single number sees 'no change'.",
+   "evidence": {
+    "baseline_by_kind": {
+     "decisions": 4,
+     "handoff": 18,
+     "lessons": 25,
+     "pain": 2,
+     "wins": 1
+    },
+    "open_pain": 50,
+    "week_by_kind": {
+     "handoff": 28,
+     "lessons": 13,
+     "pain": 9
+    }
+   }
+  },
+  {
+   "cell": "ledger.closed_with_proof",
+   "defect": "Sound as a stock (476 done, all 476 have non-empty attempt.proof) but misleading as a weekly flow: it is not windowed, and the ledger itself is one week old. Every done_at is in this window (first 2026-10-13T01:59:30Z), so +475 is the ledger coming into use, not a steady-state week's throughput.",
+   "evidence": {
+    "done": 476,
+    "done_at_max_at_0100": "2026-10-19T00:48:36Z",
+    "done_at_min": "2026-10-13T01:59:30Z",
+    "items_created_in_window": 646,
+    "with_non_empty_proof": 476
+   }
+  }
+ ],
+ "week": "2026-W43",
+ "window": {
+  "days": 7,
+  "since": "2026-10-12T00:07:28Z",
+  "until": "2026-10-19T00:07:28Z"
+ }
+}

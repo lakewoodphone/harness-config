@@ -42,3 +42,10 @@ false zeros. `weekly-evolution.py` now passes `--repo`
 - [`audits/2026-W42.md`](audits/2026-W42.md) — the baseline week. Its git axis was
   measured against the wrong path; the audit names the broken instruments and records
   the corrected measurement that becomes the baseline for every week after it.
+- [`audits/2026-W43.md`](audits/2026-W43.md) — the first week measured against the
+  corrected baseline. 20/20 cells measured, 0 `COULD NOT ASK`; the audit names nine
+  measured-but-wrong cells (wake-instance "sessions", row-count "spend",
+  dropped-as-open, autocommit-heavy commits, and the selftest mix in wake releases)
+  and reconstructs the honest week: 70 new files, 476 ledger closes in a ledger that
+  is one week old, 701 commits of which 560 are autocommits.
+
