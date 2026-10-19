@@ -35,7 +35,12 @@ CASES = [
      "\u23f0 Reminder: EXECUTE: Pay Yisroel Weinberg $597.29 net CASH settlement (owner decided "
      "after Sukkot). Record date+amount in lpt-hub/docs/operations/payroll/ and append to the "
      "wages table in Yisroel-Weinberg-Payroll-Log-2026.md.", "normal", None,
-     "SUPPRESS", "internal_prose"),
+         # A REMINDER IS RESCUED, NOT REFUSED (2026-10-19). This body carries a
+         # clock marker, so the relay rewrites it - dropping the payroll paths and
+         # the work-order ids - and SENDS the readable remainder. Refusing it
+         # deleted the Weinberg payment reminder, which this class must never do.
+         # The next case has NO marker, so it is a different body and is refused.
+         "SEND", None),
     ("private health note with a branch name",
      "Task #26089: 14-day miconazole course finished 2026-10-02. Ask owner ONCE in conversation: "
      "did the rash clear? Record result in docs/personal/health/groin-skin-condition.md section 9 "
@@ -102,3 +107,4 @@ print()
 print("stores used (throwaway): %s" % STORE_ROOT)
 print("RESULT:", "PASS" if not bad else "FAIL (%d)" % bad)
 raise SystemExit(0 if not bad else 1)
+
