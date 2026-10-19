@@ -3709,7 +3709,7 @@ pain	P11	11		-	-	done	## P11 — The preset default is chosen at session start, 
 pain	P12	12		-	-	open	## P12 — Freshness is asserted but not measured, so every reading says `age=?`	entries/pain/P12.md	1	23	51884bb32862cd30	legacy-import	
 pain	P13	13		-	-	open	## P13 — Concurrent sessions share one repo, and `git add -A` sweeps each other's work	entries/pain/P13.md	1	25	715609319966209b	legacy-import	
 pain	P13b	13	b	-	-	open	## P13b — I leaked a live API key into the session transcript	entries/pain/P13b.md	1	25	5642422287aa257e	legacy-import	
-pain	P14	14		-	-	done	## P14 — The real memory cost of a session is the shell, not the tools	entries/pain/P14.md	1	20	65244cfc5058421c	legacy-import	
+pain	P14	14		-	-	open	## P14 — The real memory cost of a session is the shell, not the tools	entries/pain/P14.md	1	20	65244cfc5058421c	legacy-import	
 pain	P14b	14	b	-	-	done	## P14b — Nothing watches the windows, so a dead engine is silent until the owner notices	entries/pain/P14b.md	1	21	848d0c4b47b4eed1	legacy-import	
 pain	P15	15		-	-	open	## P15 — Window layout is not remembered between launches	entries/pain/P15.md	1	19	4eea7d2bd83f3c11	legacy-import	
 pain	P15b	15	b	-	-	done	## P15b — A cron job that succeeded every day and persisted nothing anyone could read	entries/pain/P15b.md	1	29	30626478cfe600bf	legacy-import	
@@ -4450,6 +4450,7 @@ pain	P8523	8523		2026-10-19	SECRATARY-CLOUD	open	## P8523 — Estate monitor: di
 pain	P8651	8651		2026-10-19	SECRATARY-CLOUD	open	## P8651 — Estate monitor: disk_used_pct is critical (90.1 %) across 6 consecutive runs	entries/pain/P8651.md	1	23	c0747a54fba7fc10	estate-monitor,auto-filed,not-the-owners	metrics/disk_used_pct
 pain	P8715	8715		2026-10-19	SECRATARY-CLOUD	open	## P8715 — esearch freshness: disk free below 8 GB	entries/pain/P8715.md	1	6	ff89d02bedd6a43b		
 pain	P8716	8716		2026-10-19	SECRATARY-CLOUD	open	## P8716 — Estate monitor: disk_free_deficit_gb is critical (4.992 GiB) across 10 consecutive runs	entries/pain/P8716.md	1	23	54fb3a9fc0686b3a	estate-monitor,auto-filed,not-the-owners	metrics/disk_free_deficit_gb
+pain	P8779	8779		2026-10-19	SECRATARY-CLOUD	open	## P8779 — a script this host RUNS does not match the captured reference	entries/pain/P8779.md	1	6	6edbb19be8518224	deployed-drift,scripts,drift	
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
