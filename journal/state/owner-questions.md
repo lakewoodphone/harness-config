@@ -6,7 +6,7 @@ Updated: 2026-10-19
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 587 row(s) read, 23 pending, generated 2026-10-19 02:08 UTC on SECRATARY-CLOUD.
+Provenance: 588 row(s) read, 24 pending, generated 2026-10-19 03:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -20,6 +20,7 @@ Provenance: 587 row(s) read, 23 pending, generated 2026-10-19 02:08 UTC on SECRA
 | 720 | 2026-10-18 | high | Using the parent PIN switches house guest mode on, and nothing ever switches it off, which leaves the alarm disarmed indefinitely. How should guest mode end? | An automatic expiry, because the current behaviour means one parent visit disarms the shop until somebody notices, and nobody noticed for a day. |
 | 721 | 2026-10-18 | high | May I delete the ten pre-deploy Home Assistant backups from February to May? It frees 7.61 GiB, which is the difference between one day of clip retention and fourteen. | Delete all ten. The October automatic backups already cover the current state, and the February and May ones describe a system four months and two major changes away from the one running tonight. |
 | 726 | 2026-10-19 | high | Supplier hasn't answered RMA request for dead-digitizer Surface panel (order 108746338) | Send the RMA number and return address now and say ship the replacement first — the customer's machine is down and the part is confirmed dead in UEFI. |
+| 808 | 2026-10-19 | high | The authority's 150 GB disk cannot fit the session-index conversion. Grow the volume by ~100 GB, or accept a ~45-minute outage to rebuild the database on another host and cut back? | Grow the volume. It is the only option with no outage, it makes the conversion safe instead of marginal, and it fixes the structural problem: 89% of a 31 GB database is one corpus sitting on a 150 GB disk. |
 | 78 | 2026-09-16 | medium | The port of the line for your mother, +1 732-363-1752, needs four fields from her US Mobile account: the account number, the transfer PIN, the account-holder name exactly as it appears on file, and the billing ZIP. Can you pull those, or should I get them myself? | Get the four values from her US Mobile account page or invoice and send them to me, and I will file the port. I will not write the PIN into any document. If it is easier, I can call her and get them directly. |
 | 110 | 2026-09-18 | medium | The 2022 Elantra needs about $400 of work and setup right now: the IVT transmission fluid is overdue at 60,326 miles (Hyundai's severe-duty interval is 60,000), and the car has no health monitoring at all. Which do you want me to green-light? | A. The IVT is the single most expensive failure mode this car has (adjacent-year Elantras have failed in the 80k range at ~$4,800 out of pocket), it is past its severe-duty 60,000-mile interval, and there is no service h |
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
