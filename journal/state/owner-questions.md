@@ -1,12 +1,12 @@
 # OWNER QUESTIONS — open only
 
-Updated: 2026-10-18
+Updated: 2026-10-19
 
 **Generated** from `owner_decision_queue` on the authority by `tools/journal.py questions`.
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 450 row(s) read, 143 pending, generated 2026-10-18 18:51 UTC on ZABZ-TECH.
+Provenance: 451 row(s) read, 144 pending, generated 2026-10-19 19:01 UTC on ZABZ-TECH.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -144,6 +144,7 @@ Provenance: 450 row(s) read, 143 pending, generated 2026-10-18 18:51 UTC on ZABZ
 | 441 | 2026-10-10 | medium | origin/main for kosher-ai-filter is still frozen at 2d9585d while the integrate/main-611, -623, -626, -630, -631 and -632 merges sit unpromoted - do you want those promoted to main, and by whom? | I recommend promoting them: each is already merged, tree-checked and green on its own integrate/* branch, and every hour main stays frozen the integrator detector re-files the same branch as a fresh item, which costs a s |
 | 445 | 2026-10-11 | medium | Shande IRIS Easy Flip (WO26100812738, order 3017): do I text her the three recovered frames, or will you show her at the counter? | Text it now. One message settles which video the job is about and asks the only question that can still return the video, and it carries no price, no date and no promise. Parking it means the case sits with nothing movin |
 | 448 | 2026-10-12 | medium | Rahimi/Mizrachi OnePlus Nord N30 (cust 925, 347-454-0014): the screen we replaced twice is fine, but the battery connector has come loose twice since - and the second time we told her on tape it was our fault. The phone came back 2026-10-07 and the husband rang 2026-10-11; we promised a callback. What do we do for them? | Fix it free and do not refund yet: new battery, bonded to the frame this time, connector bracket checked before it closes. The screen is not the problem - the mounting is - and a cell is the cheapest part in this phone.  |
+| 452 | 2026-10-19 | medium | Which shop-owned phone may I seal and factory-reset for the five anti-reset tests, given a wrong Enhanced FRP account string can brick it? | Designate one spare Android 15+ handset with no customer data and leave it connected to zabz-yoga-ts; do not use a customer repair or the Pixel 2 reference. |
 | 259 | 2026-10-05 | low | Kosher Waze mid-period return: is the period base plan fee prorated by days, or charged in full? | Prorate by days. Charging a full month for four days of use is the complaint that costs the relationship, and the metered usage is billed either way. |
 | 262 | 2026-10-05 | low | ZABZ-TECH's RDP service is wedged and only a reboot will activate microphone passthrough (your Yoga mic appearing as a real recording device inside ZABZ-TECH). Reboot that machine, or stay on Chrome Remote Desktop and dictate on the Yoga side instead? | Dictate on the Yoga side first: it needs no reboot, and installing Handy with local Whisper and one toggle hotkey turns speech into text and pastes it, which is exactly what crosses Chrome Remote Desktop. Reach for the R |
 | 306 | 2026-10-07 | low | What was the 127.95 charge at US MOBILE on 20 Sep (card ending 3929) - no live charge in this ledger carries the merchant 'desc mobile'? | My best reading is shop supplies; if that is wrong, tell me what it was and I will file it for good. |
