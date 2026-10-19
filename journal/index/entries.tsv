@@ -4328,6 +4328,7 @@ pain	P8267	8267		2026-10-19	SECRATARY-CLOUD	open	## P8267 — esearch freshness:
 pain	P8331	8331		2026-10-19	SECRATARY-CLOUD	open	## P8331 — Estate monitor: swap_used_pct is critical (68.52 %) across 6 consecutive runs	entries/pain/P8331.md	1	23	d63067dcc5cc9bd3	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 pain	P8459	8459		2026-10-19	SECRATARY-CLOUD	open	## P8459 — Estate monitor: disk_free_deficit_gb is critical (6.031 GiB) across 41 consecutive runs	entries/pain/P8459.md	1	23	610cdd1c292a8135	estate-monitor,auto-filed,not-the-owners	metrics/disk_free_deficit_gb
 pain	P8460	8460		2026-10-19	SECRATARY-CLOUD	open	## P8460 — Estate monitor: psi_io_full_avg300 is critical (36.59 %) across 5 consecutive runs	entries/pain/P8460.md	1	23	29bd2ffc746f6c3e	estate-monitor,auto-filed,not-the-owners	metrics/psi_io_full_avg300
+pain	P8523	8523		2026-10-19	SECRATARY-CLOUD	open	## P8523 — Estate monitor: disk_used_pct is critical (85.93 %) across 54 consecutive runs	entries/pain/P8523.md	1	23	a6d694ea25f286c5	estate-monitor,auto-filed,not-the-owners	metrics/disk_used_pct
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
