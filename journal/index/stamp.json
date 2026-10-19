@@ -1,30 +1,22 @@
 {
- "built": "2026-10-19 14:55 UTC",
+ "built": "2026-10-19 15:22 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 7681,
   "handoff": 9195,
   "lessons": 9470,
-  "pain": 8971,
+  "pain": 9036,
   "wins": 6939
- },
- "ceiling_refreshed_at": "2026-10-19T15:00:19Z",
- "ceiling_source": {
-  "decisions": "refs/heads/hk/641-wake-progress-cap",
-  "handoff": "ZABZ-YOGA live working tree",
-  "lessons": "refs/heads/hk/641-wake-progress-cap",
-  "pain": "refs/heads/hk/641-wake-progress-cap",
-  "wins": "ZABZ-YOGA live working tree"
  },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-19 04:18 UTC",
- "entries": 5514,
- "entries_count": 5514,
- "entries_sig": "5d3f7b1dd09e45e9d69e7c874b2135bfc930e7dd",
+ "entries": 5516,
+ "entries_count": 5516,
+ "entries_sig": "4568400be9c6fdbf18cb262c601f6ba0fa254afb",
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 7744,
-  "handoff": 9320,
+  "handoff": 9384,
   "lessons": 9533,
   "pain": 9034,
   "wins": 7002
