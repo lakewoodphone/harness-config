@@ -1,11 +1,11 @@
 {
  "adopted_rows": 0,
- "bands_refs_read": 50,
+ "bands_refs_read": 51,
  "ceiling": {
   "decisions": 7680,
   "handoff": 9320,
   "lessons": 9469,
-  "pain": 8906,
+  "pain": 8970,
   "wins": 7002
  },
  "ceiling_source": {
@@ -20,14 +20,14 @@
   "decisions": "D7640",
   "handoff": "H9195",
   "lessons": "L9343",
-  "pain": "P8843",
+  "pain": "P8907",
   "wins": "W6939"
  },
  "high_water": {
   "decisions": "D7680",
   "handoff": "H9320",
   "lessons": "L9469",
-  "pain": "P8906",
+  "pain": "P8970",
   "wins": "W7002"
  },
  "host": "secratary-cloud",
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-19T10:45:09Z",
+ "refreshed_at": "2026-10-19T11:00:11Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 6.7,
- "sources_seen": 8999
+ "seconds": 10.2,
+ "sources_seen": 9445
 }
