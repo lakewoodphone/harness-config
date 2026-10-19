@@ -105,6 +105,8 @@ def _resolve_app_db() -> Path:
 
 
 APP_DB = _resolve_app_db()
+#: The owner's personal iPhone, the number every owner text is judged against.
+OWNER_NUMBER = os.environ.get("OWNER_PHONE_NUMBER", "+18483897895")
 
 results: list[tuple[str, bool, str]] = []
 
@@ -586,6 +588,55 @@ try:
               not recent_bad, detail)
 except Exception as exc:
     check("J1 every learned alias names a category the ledger can file", False,
+          "%s: %s" % (type(exc).__name__, exc))
+
+
+# ---------------------------------------------------------------------------------------
+# K1: "sent" in the queue must mean a text left.
+#
+# Measured 2026-10-19: 353 queue rows for one body in status `sent` with no sms_log row within
+# thirty minutes of any sampled claim. The live path was already fixed (those occurrences are now
+# `dismissed` with "machine-facing: a comms pipeline..."), so the backlog is historical - but
+# nothing was checking, and `sent` is precisely the field a reader trusts.
+#
+# Window-scoped like J1: the backlog is reported every run, and only a row claimed sent inside the
+# window fails the gate, because a gate that is red for last quarter's rows stops being a gate.
+# Match by TIME as well as by body: a template or a re-prefixed send must not hide a real send.
+# ---------------------------------------------------------------------------------------
+try:
+    _db = _resolve_app_db()
+    _q = ro(_db)
+    try:
+        _win = int(os.environ.get("QUEUE_SENT_WINDOW_DAYS", "7") or 7)
+        _cut = (datetime.now(timezone.utc) - timedelta(days=_win)).isoformat()
+        # ro() does not set a row_factory: name the columns rather than assuming a mapping.
+        _claimed = [{"id": r[0], "body": r[1], "sent_at": r[2]} for r in _q.execute(
+            "select id, body, sent_at from owner_message_queue "
+            "where status='sent' and sent_at is not null and sent_at >= ?", (_cut,))]
+        _backlog = _q.execute(
+            "select count(*) from owner_message_queue where status='sent' "
+            "and sent_at is not null and sent_at < ?", (_cut,)).fetchone()[0]
+        _missing = []
+        for _row in _claimed:
+            _hit = _q.execute(
+                "select 1 from sms_log where to_number=? "
+                "and (abs(julianday(created_at)-julianday(?)) < 0.02 "
+                "     or substr(coalesce(body,''),1,60)=substr(coalesce(?,''),1,60)) "
+                "limit 1",
+                (OWNER_NUMBER, _row["sent_at"], _row["body"] or "")).fetchone()
+            if not _hit:
+                _missing.append(_row["id"])
+        check("K1 a queue row marked 'sent' has a sms_log row behind it",
+              not _missing,
+              "%d row(s) claimed sent in the last %d days; %d of them have NO sms_log row within "
+              "~30 minutes, so 'sent' there means nothing we can show. %d older row(s) carry the "
+              "same claim and are reported, not failed: #%s"
+              % (len(_claimed), _win, len(_missing), _backlog,
+                 ",".join(str(i) for i in _missing[:8]) or "none"))
+    finally:
+        _q.close()
+except Exception as exc:                                       # noqa: BLE001
+    check("K1 a queue row marked 'sent' has a sms_log row behind it", False,
           "%s: %s" % (type(exc).__name__, exc))
 
 print("TEXT-HEALTH %s" % datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
