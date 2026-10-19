@@ -6,7 +6,7 @@ Updated: 2026-10-19
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 593 row(s) read, 27 pending, generated 2026-10-19 16:08 UTC on SECRATARY-CLOUD.
+Provenance: 594 row(s) read, 27 pending, generated 2026-10-19 17:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -38,4 +38,4 @@ Provenance: 593 row(s) read, 27 pending, generated 2026-10-19 16:08 UTC on SECRA
 | 814 | 2026-10-19 | medium | The Phase-4 WFP callout driver cannot be built: neither zabz-tech-ts nor zabz-yoga-ts has the Windows Driver Kit or Windows SDK headers. May I provision a driver build lane, and where? | I recommend a GitHub Actions CI lane that installs the WDK via NuGet, leaving your machines untouched; the fallback is installing the WDK on zabz-tech-ts only. |
 | 822 | 2026-10-19 | medium | Moishe Bachrach has asked twice for a two-minute phone call - 'Meeting' on 2026-10-05 and a blank message on 2026-10-09 - and nothing has gone out to him since 2025-09-15. Do you want to give him a call window? | Reply one line - 'Moishe, give me a call after 5:30 any weekday' - and keep device #36 and the Waze rename out of writing until you have spoken. |
 
-Closed since the queue opened: 566. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 567. Answered questions move to `entries/decisions/` with the owner's own words.
