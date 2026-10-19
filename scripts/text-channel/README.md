@@ -44,3 +44,49 @@ python3 ~/bin/text-health.py                 # must print "0 FAIL"
 python3 ~/bin/sms-responder.py run --dry-run # must print "0 to decide" and no traceback
 python3 ~/bin/textdecide.py --refresh-catalog # must print source=live, exit 0
 ```
+
+## 2026-10-19 — the production pager sends one complete question
+
+`owner_attention.py` is the daily pager, and on the production authority
+(`secratary-cloud`) the running copy is
+`/root/personal-secretary-mvp/scripts/owner_attention.py`. It is **not** in
+`/home/zabz/bin` and it is **not** the copy on `secratary`; a change made only
+there does not reach the phone.
+
+The scorecard's worst family was the old `10-13 02:24 UTC 36 items, 26 urgent`
+wall. That wall was retired on 2026-10-15, but the replacement still cut the one
+selected item at 79 characters. The 2026-10-19 14:12 text ended
+`the contact block you supplied is` — half a sentence, no question, no reply
+instruction. The next body would have ended `Grow the`.
+
+`compose_sms_body()` now returns `(body, rendered-key)`; `send()` records the
+rendered key (not the body), and `_compose_one()` sends the complete first
+question plus `Reply with your answer, or say 'your call'.` The 79-character
+preview remains the no-repeat key, so the existing `sent-items.json` still
+matches and the same item is not repeated.
+
+Before/after on the same three delivered family texts
+(`measure-production-pager.py`): 108 item-slots -> 3; 64 `urgent` labels -> 0;
+3/3 server paths -> 0/3; 0/3 reply instructions -> 3/3; 3 distinct items.
+The 2026-10-19 14:12 text: 79 chars, no question, cut mid-word -> 205 chars,
+complete question, instruction, no mid-word cut. The next live body is 224 chars.
+
+Verify (neither sends):
+
+```bash
+cd /root/personal-secretary-mvp
+.venv/bin/python3 /root/code/harness-config/scripts/text-channel/test-production-pager.py scripts/owner_attention.py
+.venv/bin/python3 /root/code/harness-config/scripts/text-channel/measure-production-pager.py
+```
+
+The timer's next send is 2026-10-20 14:23 UTC; that is the first live test.
+
+The app-repo record is branch `owner-text/pager-one-question-20261019`
+(commit `c5d9ccb27`), based on `1e459e49b` — the commit whose 853-line
+`owner_attention.py` was actually running. The app repo's current branch
+(`hk/559-bound-repo-reads`) carries a newer, unreleased 1,137-line
+`owner_attention.py` from the config-env merge. The live file deliberately
+remains the deployed base plus this patch; the newer branch's composer is a
+different architecture and deploying it is a larger change than this one. The
+next deploy of the newer branch must carry the complete-question + item-key
+patch forward.
