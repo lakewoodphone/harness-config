@@ -1511,6 +1511,7 @@ handoff	H8681	8681		2026-10-18 22:06 UTC	SECRATARY-CLOUD	open	## 2026-10-18 22:0
 handoff	H8682	8682		2026-10-18 22:14 UTC	SECRATARY-CLOUD	open	## 2026-10-18 22:14 UTC · SECRATARY-CLOUD · Security audit second pass: the front door is blind, and five fixes landed	entries/handoff/H8682.md	1	32	bdd9b000c87566f4		
 handoff	H8745	8745		2026-10-18 22:26 UTC	SECRATARY-CLOUD	open	## 2026-10-18 22:26 UTC · SECRATARY-CLOUD · Interim: alarm re-armed, watchdog live, six decisions queued, fleet auditing	entries/handoff/H8745.md	1	25	83c3aad596ea130e		
 handoff	H8809	8809		2026-10-18 22:35 UTC	SECRATARY-CLOUD	open	## 2026-10-18 22:35 UTC · SECRATARY-CLOUD · Security system: 12 fixes landed, 4 audits archived, 8 decisions queued, one restart pending	entries/handoff/H8809.md	1	34	ec99081c9f4606f2		
+handoff	H8937	8937		2026-10-19 00:05 UTC	SECRATARY-CLOUD	open	## 2026-10-19 00:05 UTC · SECRATARY-CLOUD · DOOR_STUCK_OPEN: the front-door contact is physically blind, not a software fault	entries/handoff/H8937.md	1	35	a3325f231a808387	ha,security,sensor,phoenix	H8809
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
