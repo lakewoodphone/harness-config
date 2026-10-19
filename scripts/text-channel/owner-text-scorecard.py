@@ -247,6 +247,7 @@ def conformance(rows, since):
     since_s = since.isoformat() if hasattr(since, "isoformat") else str(since)
     delivered = 0
     flagged = 0
+    rewrites = 0
     by_class = {}
     examples = []
     seen_sids = set()
@@ -267,13 +268,31 @@ def conformance(rows, since):
         seen_sids.add(key)
         delivered += 1
         body = r.get("body") or ""
+        # THROUGH THE GATE. `submit()` first offers a reminder-class body to `_rescue_reminder()`,
+        # which rewrites an instruction-shaped reminder into a sentence and sends the readable
+        # remainder. Asking the guards about the RAW body charges the channel for messages the
+        # gate would have rewritten and delivered - measured 2026-10-19: 9 of 34 reminder texts,
+        # every one of them a real reminder (Weinberg settlement, Fisher SD card, Weitman bench).
+        # The rescued text is what the guards actually see, so it is what this census must score.
+        rescued = body
+        rescue_note = ""
+        fn_rescue = getattr(relay, "_rescue_reminder", None)
+        if callable(fn_rescue):
+            try:
+                got_r = fn_rescue(body, OWNER, r.get("subsystem") or "cron")
+                if isinstance(got_r, tuple) and len(got_r) == 2:
+                    rescued, rescue_note = got_r[0], str(got_r[1] or "")
+            except Exception:
+                rescued, rescue_note = body, ""
+        if rescued != body:
+            rewrites += 1
         hits = []
         for name in _GUARD_FUNCS:
             fn = getattr(relay, name, None)
             if not callable(fn):
                 continue
             try:
-                got = fn(body)
+                got = fn(rescued)
             except Exception:
                 got = None
             if got:
@@ -286,7 +305,7 @@ def conformance(rows, since):
                 examples.append({"at": r.get("created_at"), "classes": hits,
                                  "body": " ".join(body.split())[:120]})
     return {"available": True, "delivered": delivered, "would_refuse": flagged,
-            "by_class": by_class, "examples": examples,
+            "rewritten": rewrites, "by_class": by_class, "examples": examples,
             "rate": (flagged / delivered) if delivered else None}
 
 def summarise(result):
@@ -421,9 +440,12 @@ def main(argv=None):
             print("    NOT MEASURED: %s" % conf.get("why"))
         else:
             rate = conf.get("rate")
-            print("    %d of %d delivered texts   (%s)"
+            print("    %d of %d delivered texts   (%s) refused by the guards"
                   % (conf.get("would_refuse", 0), conf.get("delivered", 0),
                      "%.1f%%" % (rate * 100) if rate is not None else "n/a"))
+            if conf.get("rewritten"):
+                print("    %d more were REMINDERS the gate rewrites and sends - not refused, "
+                      "not lost" % conf["rewritten"])
             for k, v in sorted((conf.get("by_class") or {}).items(), key=lambda kv: -kv[1]):
                 print("      %-20s %d" % (k, v))
             for e in (conf.get("examples") or [])[:3]:
