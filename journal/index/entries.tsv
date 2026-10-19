@@ -2818,6 +2818,7 @@ lessons	L3871	3871		2026-10-19	ZABZ-TECH	open	**L3871 · A colon-space in a skil
 lessons	L3872	3872		2026-10-19	ZABZ-TECH	open	**L3872 · A process started over ssh on Windows dies when the session closes - use Task Scheduler**	entries/lessons/L3872.md	1	32	d7e7aac90b27f398	windows,ssh,detach,backfill	
 lessons	L3873	3873		2026-10-19	ZABZ-TECH	open	**L3873 · Grading corrected: usage + kernel red flags + keypad; cosmetics never change the grade; my own probes were the 'red flags'**	entries/lessons/L3873.md	1	27	6c845cacfafd6d71	phone,grading,kernel,condition	H3663
 lessons	L3874	3874		2026-10-19	ZABZ-TECH	open	**L3874 · Reset wipes all software usage evidence; only battery, /persist calibration, IMEI and bootloader survive - usage band now says 'unknown since reset'**	entries/lessons/L3874.md	1	23	58f2fe639c8be97e	phone,grading,reset,usage	L3873
+lessons	L3875	3875		2026-10-19	ZABZ-TECH	open	**L3875 · rf-watch is unexercised: built, parser-tested, never run on a handset - don't quote it until it has**	entries/lessons/L3875.md	1	12	53c074d1dd147f34	phone,rf,verification	H3664
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
