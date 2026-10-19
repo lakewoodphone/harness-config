@@ -1350,7 +1350,11 @@ def resolved_enough(res: dict | None) -> bool:
     """
     if not res or not res.get("solved"):
         return False
-    if res.get("purchase") is False or res.get("provisional"):
+    # PROVISIONAL IS AMBIGUITY, AND IT IS THE ONLY THING THAT BLOCKS HERE. A definite
+    # reversal (purchase is False) is a complete answer - file it as Fees & Adjustments and do
+    # not ask; asking about a refund he already told us about is the complaint. `purchase`
+    # stays on the result so nobody describes a reversal as something bought.
+    if res.get("provisional"):
         return False
     conf = float(res.get("confidence") or 0)
     source = str(res.get("source") or "")

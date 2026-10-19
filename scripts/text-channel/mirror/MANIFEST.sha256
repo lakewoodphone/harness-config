@@ -4,7 +4,7 @@
 e6370a56d63b30aa3ffae941adc8b916  textwork.py
 416411536f44bebb6254025ec5ea167d  sms-responder.py
 d649840966a329758c879dc6da288453  charge_msg.py
-a3555e0f523488b8a78b280a959d098d  merchant_resolve.py
+4d6fba2fd85ebcabea86d18a5a882a49  merchant_resolve.py
 b25875b3c7404b9ae034d256cd548d4f  order_evidence.py
 641f09cce4df9d3ebfabd76c9b431009  owner-ask.py
 18f93068c04865e1e67e67bf9e9745a3  card-due-watch.py
@@ -18,4 +18,4 @@ f6430c9878ba28a7f662fee0c5ae95e1  ../.owner-text/standing-rules.json
 3f481811e9af38bf55264f7cdb9f077d  ask-person-test.py
 0d4cb40d11f0ccf1cf715615d44baef5  owner_topic.py
 17cebca75a32205455e328f60e0c3b45  owner_text_relay.py
-ae90b8a5f99f03aebe7651a35a1ed507  cfo-ask.py
+143d500a03eb2173a0ef815ba4efaac7  cfo-ask.py

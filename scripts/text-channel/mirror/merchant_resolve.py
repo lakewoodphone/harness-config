@@ -871,6 +871,14 @@ DESCRIPTOR_RULES: tuple[dict, ...] = (
     # as though something was bought.
     {"category": "Fees & Adjustments", "purchase": False, "tokens": (
         "refund", "adjustment", "adjust", "adj")},
+    # THE DESCRIPTOR NAMES THE KIND OF CHARGE, which is the only condition this rung may fire on.
+    # All three were unsolved against the 48-merchant tail measured 2026-10-19; every target name
+    # is verified present in the ledger. Tokens are chosen so they cannot appear inside an
+    # unrelated word (WITHDRAW, RVSD/CRDT, EBAY), never a brand guessed from context.
+    {"category": "Cash Withdrawals", "tokens": ("withdraw", "withdrawal", "withdrawl", "atm")},
+    {"category": "Fees & Adjustments", "purchase": False, "tokens": (
+        "crdt rvsd", "rvsd", "crdt", "reversal", "reversed", "chargeback")},
+    {"category": "Online Marketplace Purchases", "tokens": ("ebay", "etsy", "mercari")},
 )
 
 #: Per-token confidence, overriding CONF_DESCRIPTOR_MAX where the token itself claims less.
@@ -979,7 +987,11 @@ def _from_descriptor(merchant: str) -> tuple[dict | None, str]:
         "method": "descriptor",
         "descriptor_token": best["token"],
         "purchase": best["purchase"],
-        "provisional": bool(weak or not best["purchase"]),
+        # AMBIGUITY, not "not a purchase". A definite reversal ("crdt rvsd") is not
+        # uncertain - there is nothing to ask, and it should be filed. `purchase` carries
+        # the other fact separately, and `resolved_enough` still refuses a descriptor
+        # reading with purchase=False, so a reversal is never counted as a purchase.
+        "provisional": bool(weak),
         "alternatives": [{"category": m["category"], "token": m["token"],
                           "confidence": m["confidence"]}
                          for m in matches if m["category"] != best["category"]],
@@ -1418,6 +1430,9 @@ def _finish(key, name, best, evidence, checked, ledger_rows, acct_db, *, solved:
         is_solved = bool(solved and entity and category)
     return {
         "solved": is_solved,
+        # EXPOSED, because `resolved_enough` checks it. A flag the caller tests must be a
+        # flag the caller can see; it lived only on `best` and the check read None.
+        "provisional": bool((best or {}).get("provisional")),
         "entity": entity,
         "category": category,
         "category_id": cat_id,
