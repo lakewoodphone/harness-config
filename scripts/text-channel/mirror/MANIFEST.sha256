@@ -12,7 +12,7 @@ ed7ab4177632098873a3a37d81ff65f8  owner_flood_guard.py
 311e689feedfdebbda821631aca123dd  mirror-owner-sms.py
 2e2dfbba08a142e6e0387d3ab90dd27f  sms-inbox.py
 55343e30cb7f03f7fe4768fc613262ca  textstore.py
-292d3a1eeb1fb9d97f3dcec37b1b6bf6  text-health.py
+f402d17d4ad1ea010aa99dc8756737ad  text-health.py
 f6430c9878ba28a7f662fee0c5ae95e1  ../.owner-text/standing-rules.json
 805db64b00fa3e57c001794bd13706fe  ask-person.py
 3f481811e9af38bf55264f7cdb9f077d  ask-person-test.py

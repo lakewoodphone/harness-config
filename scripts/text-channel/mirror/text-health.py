@@ -673,6 +673,44 @@ except Exception as exc:                                       # noqa: BLE001
     check("K2 the app send path still calls owner_text_relay.submit", False,
           "%s: %s" % (type(exc).__name__, exc))
 
+
+# ---------------------------------------------------------------------------------------
+# K3: a gate_error is an outage, not a policy refusal.
+#
+# Measured 2026-10-19 from owner_text_decision: 2,780 rows with code `gate_error`, EVERY ONE in the
+# first five days of October, all saying the same thing - the owner-text ledger was unreadable
+# because of a getattr called with seven arguments. One internal bug made the gate raise on every
+# owner send for five days; the broad `except` refused rather than sending blind, which is right per
+# message and, in aggregate, is a channel outage. Nothing escalated.
+#
+# `ok` (3827) and the policy codes - awaiting_reply, too_long, rate_floor, similar_hold - are the
+# gate working. `gate_error` is the gate BROKEN. It gets its own invariant so the next occurrence is
+# a red check within a day rather than a number found five months later.
+# ---------------------------------------------------------------------------------------
+try:
+    _q = ro(_resolve_app_db())
+    try:
+        _win = int(os.environ.get("GATE_ERROR_WINDOW_DAYS", "1") or 1)
+        _cut = (datetime.now(timezone.utc) - timedelta(days=_win)).isoformat()
+        _recent = _q.execute(
+            "select count(*) from owner_text_decision "
+            "where code='gate_error' and created_at >= ?", (_cut,)).fetchone()[0]
+        _total = _q.execute(
+            "select count(*) from owner_text_decision where code='gate_error'").fetchone()[0]
+        _why = _q.execute(
+            "select why from owner_text_decision where code='gate_error' "
+            "order by created_at desc limit 1").fetchone()
+        check("K3 the owner-text gate is not refusing because it is broken",
+              _recent == 0,
+              "%d gate_error decision(s) in the last %d day(s); %d all-time. %s"
+              % (_recent, _win, _total,
+                 ("Most recent: %s" % str(_why[0])[:150]) if _why else "none on record"))
+    finally:
+        _q.close()
+except Exception as exc:                                       # noqa: BLE001
+    check("K3 the owner-text gate is not refusing because it is broken", False,
+          "%s: %s" % (type(exc).__name__, exc))
+
 print("TEXT-HEALTH %s" % datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 failed = 0
 for name, ok, evidence in results:
