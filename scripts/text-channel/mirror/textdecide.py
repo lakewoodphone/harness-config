@@ -1421,8 +1421,35 @@ def is_non_answer(body: str) -> tuple[bool, str]:
     if "?" in stripped and not _names_a_category(stripped):
         return True, ("his text asks us a question back (%r) and names no category - "
                       "that is not an answer to a purchase question" % stripped[:120])
+    # THE SIXTH FAMILY: he is telling us to check our own work. Measured 2026-10-19 against all 325
+    # of his inbound texts: six cleared texts are complaints, and a cleared complaint becomes the
+    # ANSWER recorded against an open ask. Strong on purpose - not overrideable by naming a category,
+    # because "I think you are wrong, verify this ... and it was gas" is still a refusal.
+    found_challenge = _CHALLENGE_RE.search(text)
+    if found_challenge:
+        return True, ("he said %r (he is telling us to check our own work) - that is not an answer "
+                      "to a purchase question" % found_challenge.group(0))
+
     return False, ""
 
+
+#: THE SIXTH FAMILY, added 2026-10-19 from a measurement rather than a hunch: six of his 246 CLEARED
+#: inbound texts are complaints about the channel, and a cleared complaint is recorded as the ANSWER
+#: to whatever ask was open. Each pattern is narrow against the text that produced it -
+#: `check that/whether` alone would catch ordinary sentences and a bare `digest` would catch any
+#: mention, so neither stands alone.
+_CHALLENGE_RE = re.compile(
+    r"\b(?:audit|analyse|analyze)\b[^.!?]{0,40}\b(?:sources?|records?|books?|systems?)\b"
+    r"|\baudit your\b"
+    r"|\bmake sure (?:you'?re|you are) not\b"
+    r"|\bnot (?:just )?making a (?:big )?mistake\b"
+    r"|\bverify (?:this|that|it)\b"
+    r"|\bi (?:find that )?doubt(?:ful)?\b|\bnever mind\b"
+    r"|\b(?:makes? no sense|nonsense)\b"
+    r"|\b(?:i think )?you(?:'?re| are) wrong\b|\bthat'?s wrong\b"
+    r"|\b(?:weird|mixed|muddled|confusing|unclear)\s+(?:mixed\s+)?(?:message|text|digest)\b"
+    r"|\bthat was a confus",
+    re.IGNORECASE)
 
 def attribute_reply(body: str, asks) -> dict:
     """Which ask is he replying to, and is that attribution strong enough to act on?
