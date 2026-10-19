@@ -33,7 +33,7 @@
       "max_flags_per_day": 3,
       "ledger_driven": true,
       "integration_branch": "origin/main",
-      "definition_of_done": "A change in the repo proven by the repo's own check: `cd server && python3 -m pytest tests/<the new test> -q` prints a pass summary, and the before/after behaviour is quoted. Build-host lanes: dotnet -> zabz-tech-ts, gradlew/npm -> zabz-yoga-ts, swift/plutil -> mac-mini-ts.",
+      "definition_of_done": "A change in the repo proven by the repo's own check: `cd server && python3 -m pytest tests/<the new test> -q` prints a pass summary, and the before/after behaviour is quoted. Build-host lanes: dotnet -> zabz-tech-ts, gradlew/npm -> zabz-yoga-ts, swift/plutil -> mac-mini-ts. The documentation structure is part of being proven by the repo's own check: `python scripts/check_docs_index.py` must exit 0 in the checkout the shift touched, and every document the shift changed must carry a bumped `updated:` field. A shift that leaves that check red is not done, whatever else it finished.",
       "notes": "LEADING PROJECT. Open roadmap (docs/cross-platform-filter-master.md section 7) has 24 unchecked Phase 1-5 boxes, all heavyweight iOS NetworkExtension / Windows kernel-driver work except the server-side gaps. Real server-side open defect from docs/IMPLEMENTATION_BACKLOG.md (2026-09-14 audit): 'No readiness endpoint (/health?deep=true is auth-gated; verified 401 live), so \"process up\" and \"database writable\" are indistinguishable to an orchestrator' - the first increment built for this brief. COULD NOT ASK: the on-device Kotlin Bloom loader (item 85) and the iOS NEFilter provider state were not built or tested here."
     },
     {
