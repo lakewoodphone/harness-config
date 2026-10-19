@@ -4323,6 +4323,7 @@ pain	P8075	8075		2026-10-18	SECRATARY-CLOUD	open	## P8075 — esearch freshness:
 pain	P8139	8139		2026-10-18	SECRATARY-CLOUD	open	## P8139 — esearch freshness: ZABZ-TECH last pushed 95 min ago (expected every 60 min)	entries/pain/P8139.md	1	6	46be69580024e1d0		
 pain	P8203	8203		2026-10-19	SECRATARY-CLOUD	open	## P8203 — Estate monitor: disk_used_pct is critical (90.75 %) across 3 consecutive runs	entries/pain/P8203.md	1	23	5db6b3273f3a4a8a	estate-monitor,auto-filed,not-the-owners	metrics/disk_used_pct
 pain	P8267	8267		2026-10-19	SECRATARY-CLOUD	open	## P8267 — esearch freshness: disk free below 8 GB	entries/pain/P8267.md	1	6	e2c5d72fceb97a1c		
+pain	P8331	8331		2026-10-19	SECRATARY-CLOUD	open	## P8331 — Estate monitor: swap_used_pct is critical (68.52 %) across 6 consecutive runs	entries/pain/P8331.md	1	23	d63067dcc5cc9bd3	estate-monitor,auto-filed,not-the-owners	metrics/swap_used_pct
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
