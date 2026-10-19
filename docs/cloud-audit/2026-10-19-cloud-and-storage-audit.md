@@ -54,6 +54,31 @@ service with instance ids **169556315** and **169027743**, in regions `us-east/a
 invoice does not reach a mailbox we can read. That half of the bill is **UNVERIFIED**; the figure
 below is list price for the measured hardware.
 
+**And they cannot be a late addition to that invoice — both boxes existed during the invoiced
+period.** Their own filesystems say so:
+
+```
+secratary-cloud  tune2fs -l /dev/sda1 -> Filesystem created: Wed Aug 26 08:58:00 2026
+lpt-survivor-01  tune2fs -l /dev/sda1 -> Filesystem created: Sun Aug 30 04:15:35 2026
+```
+
+The invoice covers **09/2026** and lists exactly two servers. Two machines built in August and
+running through September are not on it, so one of two things is true — and the invoice cannot tell
+them apart:
+
+1. **A second Hetzner account** bills them (same owner, different customer number, an email we do not
+   hold); or
+2. **They were transferred into account `K0285620126` after the period closed.** A Hetzner transfer is
+   supported, and a transferred server is billed by the receiving account only from the transfer date —
+   so September's charges would sit on the *old* account's invoice and the two boxes would first
+   appear here on the November invoice.
+
+**What settles it, in order of cost:** one read-only Cloud API token in the receiving account — it
+lists servers, snapshots, volumes, floating IPs and the 20 % backups add-on in one call; or the
+**November invoice**, whose period is 10/2026. If the two servers appear there it was a transfer; if
+they do not, there is a second account in someone else's name and the money is somewhere nobody has
+looked.
+
 ### 1.2 The whole estate, with what each line rests on
 
 | service | what it does for us | evidence read this session | cost | rests on |
@@ -157,6 +182,14 @@ been resized that afternoon.
 So: the machine is not short of CPU, RAM or disk. **Its binding constraint is SQLite write
 contention** — 64 lost locks today on a 31.76 GiB database with a 10 s busy timeout and a WAL sitting
 at its 64 MB limit. Everything I chose below follows from that, not from "it feels slow".
+
+**One latent fault closed while measuring it.** `/tmp` here is a **2 GiB tmpfs** — RAM-backed — and
+`app/database.py` sets `PRAGMA temp_store = FILE`, so a large `ORDER BY` spills into the exact memory
+the page cache wants and dies at 2 GiB having already consumed it. A drop-in
+(`company-api.service.d/50-sqlite-tmpdir.conf`) now sets `SQLITE_TMPDIR=/root/.sqlite-tmp`, on the
+same NVMe with 98 GiB free. It is installed **without restarting the API** — `systemctl show` confirms
+the value is in the unit's environment and it takes effect at the next start, so nothing was
+interrupted to apply it.
 
 ### 3.3 The authority is now a mesh worker — and how it is caged
 
