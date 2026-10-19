@@ -8,6 +8,14 @@
   "pain": 8523,
   "wins": 6875
  },
+ "ceiling_refreshed_at": "2026-10-19T02:00:23Z",
+ "ceiling_source": {
+  "decisions": "refs/heads/hk/641-wake-progress-cap",
+  "handoff": "ZABZ-YOGA live working tree",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "refs/heads/hk/641-wake-progress-cap",
+  "wins": "ZABZ-YOGA live working tree"
+ },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-19 01:37 UTC",
  "entries": 5357,
@@ -18,7 +26,7 @@
   "decisions": 7616,
   "handoff": 9128,
   "lessons": 9277,
-  "pain": 8522,
+  "pain": 8586,
   "wins": 7002
  },
  "log_count": 9,
