@@ -6,7 +6,7 @@ Updated: 2026-10-19
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 588 row(s) read, 24 pending, generated 2026-10-19 03:08 UTC on SECRATARY-CLOUD.
+Provenance: 589 row(s) read, 25 pending, generated 2026-10-19 04:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -34,5 +34,6 @@ Provenance: 588 row(s) read, 24 pending, generated 2026-10-19 03:08 UTC on SECRA
 | 805 | 2026-10-19 | medium | Anti-reset: buy Samsung Knox Guard seats (about five dollars per device for three years) so a factory reset is actually blocked on the Samsung phones we sell, or skip it and rely on making the reset pointless? | Buy it for Samsung handsets only. It is the only control that stops the wipe rather than punishing it. |
 | 806 | 2026-10-19 | medium | Anti-reset: whose Google account should be the anchor that can set up a sealed phone after a factory reset - the parent, the shop, or a shop Google Workspace account? | The parent account. The shop holds an account only for stock and loaners; one shop credential over many devices is a fleet-wide brick risk and blocks resale. |
 | 807 | 2026-10-19 | medium | Anti-reset: what is the release policy when a customer wants the filter removed - the price, the notice, and who approves it? | One page signed at the counter; two-person approval for any release; the tech who sealed the phone never releases it alone. You set the price and notice. |
+| 810 | 2026-10-19 | medium | Seven integrate/* branches for kosher-filter-ai are green PRs (620 is PR #40, checks pass, no deletions); should integrator shifts merge clean integrate/* PRs to main themselves, or will you keep merging them? | Let the integrator shift merge a clean integrate/* PR with gh pr merge --merge after the branch checks and no-deletion check pass; PRs #38 and #39 were merged that way and seven items wait on the same step. |
 
 Closed since the queue opened: 564. Answered questions move to `entries/decisions/` with the owner's own words.
