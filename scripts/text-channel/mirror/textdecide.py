@@ -1582,6 +1582,19 @@ def build_alias(body: str, ask: dict, *, sid: str = "",
            " ".join((body or "").split())[:400], key, vendor, category, cat_why))
     if named and named.lower() not in str(ask.get("merchant") or "").lower():
         evidence += " | he named it as %r" % named
+    # A CATEGORY THAT CANNOT BE FILED IS NOT A CATEGORY. "personal" and "unknown" are words he
+    # used, not rows in the ledger's categories table, so a row naming one of them resolves the
+    # charge as answered and files nothing - measured 2026-10-19, 5 of 11 learned aliases.
+    # The row is still worth writing: `evidence` keeps his exact words, and the resolver treats
+    # a row with no category as "known vendor, still a question", which is the truth.
+    # The deeper error: "personal" is which ENTITY the charge belongs to, not what kind of spend
+    # it was. The ledger already carries entity_id for that.
+    _UNFILABLE_CATEGORY_WORDS = {"personal", "business", "unknown", "shop supplies", ""}
+    if str(category or "").strip().lower() in _UNFILABLE_CATEGORY_WORDS:
+        evidence += (" | no ledger category written (his word %r is not a category the ledger "
+                     "holds; entity, not category)" % str(category or "")[:24])
+        category = ""
+        cat_why = "his words name an ENTITY, not a ledger category"
     return {"merchant_key": key, "entity": vendor, "category": category,
             "source": "owner-answer", "evidence": evidence[:1200],
             "learned_from": sid or str(ask.get("sid") or "")}

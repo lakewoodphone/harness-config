@@ -1,6 +1,6 @@
 189c3bdfaa45779b01eefedcbdc9f682  textsend.py
 5d8786fabc26255d6c544af9ea24e824  textctx.py
-3d9cdcfdf8f2bbf6d0ab18549097a831  textdecide.py
+58f690d16b592fc449798b7988293f8d  textdecide.py
 e6370a56d63b30aa3ffae941adc8b916  textwork.py
 416411536f44bebb6254025ec5ea167d  sms-responder.py
 d649840966a329758c879dc6da288453  charge_msg.py
@@ -12,7 +12,7 @@ ed7ab4177632098873a3a37d81ff65f8  owner_flood_guard.py
 311e689feedfdebbda821631aca123dd  mirror-owner-sms.py
 2e2dfbba08a142e6e0387d3ab90dd27f  sms-inbox.py
 55343e30cb7f03f7fe4768fc613262ca  textstore.py
-5750dfa4c066307646e86ab521b7a5dd  text-health.py
+3718bd6c650806d82825045ebb856f8b  text-health.py
 f6430c9878ba28a7f662fee0c5ae95e1  ../.owner-text/standing-rules.json
 805db64b00fa3e57c001794bd13706fe  ask-person.py
 3f481811e9af38bf55264f7cdb9f077d  ask-person-test.py

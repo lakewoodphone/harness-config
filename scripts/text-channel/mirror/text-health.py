@@ -512,6 +512,82 @@ except Exception as exc:
     check("I1 the brain can read the AI line's own OUTBOUND texts to the owner", False,
           "%s: %s" % (type(exc).__name__, exc))
 
+
+# ---------------------------------------------------------------------------------------
+# J1: the vocabulary the channel LEARNS must be a vocabulary the ledger can FILE.
+#
+# Measured 2026-10-19: 10 of 11 learned aliases were unfilable - "personal" and "unknown" are
+# not categories in the ledger, and a category that does not resolve to an id files nothing.
+# The charge stays uncategorised, the resolver still calls it answered, and the same question
+# comes back weeks later. That is the loop this invariant exists to break.
+#
+# An alias with NO category is not a failure: that is the documented `known_only` case - the
+# vendor is known, nobody has said what the charge was for, and the rung must report it as a
+# question rather than as a resolution.
+# ---------------------------------------------------------------------------------------
+try:
+    aliases_db = BIN / ".." / ".cfo-asks" / "aliases.db"
+    aliases_db = Path(os.path.expanduser(os.environ.get("CFO_ALIAS_DB", "~/.cfo-asks/aliases.db")))
+    acct_db = Path(os.environ.get("CFO_ACCOUNTING_DB", "/root/accounting-data/live/accounting.db"))
+    if not aliases_db.exists():
+        check("J1 every learned alias names a category the ledger can file", True,
+              "no alias store at %s yet - nothing has been learned" % aliases_db)
+    elif not acct_db.exists():
+        check("J1 every learned alias names a category the ledger can file", True,
+              "NOT MEASURED: accounting db absent at %s" % acct_db)
+    else:
+        _a = ro(acct_db)
+        try:
+            known = {(r[0] or "").lower() for r in _a.execute("select name from categories")}
+        finally:
+            _a.close()
+        _s = ro(aliases_db)
+        try:
+            # `ro()` does not set a row_factory, so a row is a TUPLE and `dict(r)` raises
+            # "dictionary update sequence element #0 has length 9". Name the columns here
+            # rather than assuming a mapping: a check that crashes reports the same FAIL as a
+            # check that found something, and the two must never look alike.
+            rows = [{"merchant_key": r[0], "category": r[1], "learned_at": r[2]}
+                    for r in _s.execute(
+                        "select merchant_key, category, learned_at from alias")]
+        finally:
+            _s.close()
+        bad = [r for r in rows
+               if str(r.get("category") or "").strip()
+               and str(r["category"]).strip().lower() not in known]
+        blank = [r for r in rows if not str(r.get("category") or "").strip()]
+        # A GATE THAT IS ALWAYS RED IS NOT A GATE. The backlog is reported in every run; only a
+        # REGRESSION - something learned inside the window that cannot be filed - fails it.
+        # Otherwise every later session learns to ignore a red instrument, which is how a real
+        # regression gets waved through a deploy.
+        _cut = datetime.now(timezone.utc) - timedelta(days=int(
+            os.environ.get("ALIAS_FILABLE_WINDOW_DAYS", "1") or 7))
+        recent_bad = []
+        for r in bad:
+            when = parse_when(r.get("learned_at"))
+            if when is None or when >= _cut:
+                recent_bad.append(r)
+        detail = ("%d learned alias(es); %d name a category the ledger does NOT hold and can "
+                  "never be filed; %d carry no category (the known-only case, correct); "
+                  "%d of the bad ones were learned in the last %s days"
+                  % (len(rows), len(bad), len(blank), len(recent_bad),
+                     os.environ.get("ALIAS_FILABLE_WINDOW_DAYS", "1")))
+        if bad:
+            detail += " :: historical backlog: " + "; ".join(
+                "%s -> %r (%s)" % (str(r["merchant_key"])[:28],
+                                   str(r["category"])[:16],
+                                   str(r.get("learned_at"))[:10])
+                for r in bad[:8])
+        if recent_bad:
+            detail += " :: REGRESSION (cannot be filed): " + "; ".join(
+                "%s -> %r" % (str(r["merchant_key"])[:28], str(r["category"])[:16])
+                for r in recent_bad[:6])
+        check("J1 a newly learned alias always names a category the ledger can file",
+              not recent_bad, detail)
+except Exception as exc:
+    check("J1 every learned alias names a category the ledger can file", False,
+          "%s: %s" % (type(exc).__name__, exc))
+
 print("TEXT-HEALTH %s" % datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 failed = 0
 for name, ok, evidence in results:
