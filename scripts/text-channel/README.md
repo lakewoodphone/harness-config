@@ -159,12 +159,17 @@ worst **live** family (including a live family with one text); if every dead
 text is historical it files nothing and prints the retired family, its age and
 its age-out date instead of waking another shift.
 
-Before/after on the same 14 days of `sms_log` (the preserved pre-change reader
-against the current one):
+Before/after on the same 14 days of `sms_log` (the scorecard as it was in
+`2dde8d07^` against the current one):
+
+```bash
+cd /root/code/harness-config
+python3 scripts/text-channel/measure-scorecard-liveness.py --before 2dde8d07^
+```
 
 ```
-BEFORE  worst named: '10 utc items urgent (3 dead of 3) -- no age, no liveness
-AFTER   worst LIVE family: asking something should found (1 dead of 1, newest 43.5h old)
+BEFORE  worst named: '10 utc items urgent (3 dead of 3, newest 4.5d old) -- no liveness
+AFTER   worst LIVE family: asking something should found (1 dead of 1, newest 43.6h old)
 AFTER   historical family: '10 utc items urgent (3 dead of 3, newest 4.5d old, drops below 2 rows 2026-10-27)
 COUNT   wake target is a retired family: 1 -> 0
 COUNT   live dead texts the old reader could not distinguish: 1
@@ -178,9 +183,10 @@ history, not a thing this shift can change.
 Verify (neither sends a text nor files a flag):
 
 ```bash
-cd /root/code/harness-config/scripts/text-channel
-python3 test-owner-text-scorecard.py          # 29 checks, RESULT: PASS
-python3 owner-text-scorecard.py --days 14     # worst LIVE family + HISTORICAL line
+cd /root/code/harness-config
+python3 scripts/text-channel/test-owner-text-scorecard.py          # 29 checks, RESULT: PASS
+python3 scripts/text-channel/owner-text-scorecard.py --days 14     # worst LIVE family + HISTORICAL line
+python3 scripts/text-channel/measure-scorecard-liveness.py --before 2dde8d07^
 ```
 
 `--flag` was deliberately not run while landing this: rule 6, no wake flag from
