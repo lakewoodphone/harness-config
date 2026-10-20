@@ -1019,7 +1019,11 @@ async function verbPromote(argv) {
   const previousPin = eff.pinned.pin;
   const newPin = {
     version,
-    installRoot: vendorPrefixPath(version),
+    // THE TREE THE MACHINE RUNS, not the staging prefix. `enginePath` below is derived from it, so this one
+    // field decides whether the pin describes reality. Measured 2026-10-19: this line still wrote
+    // `vendorPrefixPath(version)` after `promotionEffect` was re-pointed, so the pin kept naming the staging
+    // directory while `dshInstall` named the live root — the same seam, one layer down.
+    installRoot: eff.pin.installRootNew,
     enginePath: eff.enginePath,
     managed: true,
     pinnedAt: new Date().toISOString(),
@@ -1467,6 +1471,17 @@ async function verbSettingsEffective(argv) {
     const why = report?.reason
       ?? (r.stderr || r.stdout || '').trim().split('\n').filter(Boolean).slice(0, 3).join(' | ')
       ?? `exit ${r.status} with no output`;
+    // A MODULE THAT WROTE ITS OWN RECORD KEEPS IT. Measured 2026-10-19 on both workstations: the module wrote a
+    // `ran:false` artifact carrying its own reason, and `refuse()` below OVERWROTE that file with a stub whose
+    // `reason` was a truncated JSON preview. The gate then looked like it had produced nothing, and the actual
+    // diagnostic was destroyed by the reporter. Never overwrite a real reading with a complaint about it.
+    if (report) {
+      lines.push(`  the module ran and reported ran=false — ${why}`);
+      return {
+        ok: false, exitCode: 7, verb: 'settings-effective', version, ran: false, reason: why, path: out,
+        text: lines.join('\n'),
+      };
+    }
     return refuse(`the module produced no usable artifact (exit ${r.status}): ${why || '(no diagnostic at all)'}`, 7);
   }
 

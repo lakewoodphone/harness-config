@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "why": "Every hand patch the estate applies to an installed DSH engine tree, with the exact command that applies and checks it. Read by dsh-update/lib/patches.mjs. An install of a new engine version must end with every entry here reporting present (check exit 0), and with no unregistered .bak-harness-* pair left unexplained. See P3170 and dsh-update/DELIVERY.md.",
+  "patches": [
+    {
+      "id": "malformed-tool-input",
+      "kind": "script",
+      "covers": ["dsh-llm-deepseek/lib/index.js"],
+      "note": "One malformed tool call must not kill a whole turn. Found 2026-10-05; the patcher embeds the repair engine and refuses if the upstream anchor moved.",
+      "check": ["python", "scripts/patch-dsh-malformed-tool-input.py", "--check", "--root", "{runtime}"],
+      "apply": ["python", "scripts/patch-dsh-malformed-tool-input.py", "--root", "{runtime}"]
+    },
+    {
+      "id": "settlement-crash",
+      "kind": "script",
+      "covers": ["dsh-subagent/lib/index.js"],
+      "note": "A finished child agent must not die at settlement and lose its report. Found 2026-09-30.",
+      "check": ["python", "scripts/patch-dsh-settlement-crash.py", "--check", "--root", "{runtime}"],
+      "apply": ["python", "scripts/patch-dsh-settlement-crash.py", "--root", "{runtime}"]
+    },
+    {
+      "id": "currency-single-dollar-math",
+      "kind": "script",
+      "covers": ["dsh-web-frontend/dist/assets/vendor-"],
+      "note": "Currency must render as text, not LaTeX. Found 2026-09-25. Targets the hashed vendor bundle, so it is resolved by glob, never by filename.",
+      "check": ["python", "scripts/patch-dsh-web-currency-math.py", "--check", "--root", "{root}"],
+      "apply": ["python", "scripts/patch-dsh-web-currency-math.py", "--root", "{root}"]
+    },
+    {
+      "id": "window-blank-isolation",
+      "kind": "script",
+      "covers": ["dsh-client-ui-workspace/lib/client.js"],
+      "note": "A second window must not reuse a blank workspace. Exit 4 means absent, 5 unverifiable (refuses on an unknown upstream).",
+      "check": ["node", "multi-window/tools/patch-window-blank-isolation.mjs", "--check", "--engine", "{root}"],
+      "apply": ["node", "multi-window/tools/patch-window-blank-isolation.mjs", "--apply", "--engine", "{root}"]
+    },
+    {
+      "id": "session-persistence-v4-sibling",
+      "kind": "informational",
+      "covers": ["dsh-session-persistence-jsonl/lib/index.js"],
+      "note": "UNREGISTERED AS OF 2026-10-19. The live tree carries .bak-harness-* siblings for this file from 2026-10-05 02:36-03:44, which means somebody patched it by hand four times and wrote no patcher. Until a patcher exists, the install-time audit decides it mechanically: if the new tree's file equals the old PATCHED file, upstream adopted the change and nothing is lost; otherwise the install FAILS and names this file. What would close it: a scripted diff of the backup against the patched file, the hunk expressed as a patcher, and this entry promoted to kind=script."
+    },
+    {
+      "id": "primitives-state-dot",
+      "kind": "informational",
+      "covers": ["dsh-client-ui-primitives/lib/StateDot.module.css"],
+      "note": "UNREGISTERED AS OF 2026-10-19. One .bak-harness-20261005-003056 sibling exists for this file. Same disposition as the entry above: the install audit decides it by comparison, and the install fails rather than losing it silently."
+    }
+  ]
+}

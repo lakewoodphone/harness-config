@@ -103,8 +103,6 @@ llm-pi-ai:
       api: openai-completions
       baseURL: https://api.deepinfra.com/v1/openai
       models:
-        - id: deepseek-ai/DeepSeek-V4-Flash-0731
-          name: DeepSeek V4 Flash (0731, DeepInfra)
         - id: deepseek-ai/DeepSeek-V4.1-Flash
           name: DeepSeek V4.1 Flash (DeepInfra)
         - id: deepseek-ai/DeepSeek-V3.2

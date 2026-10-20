@@ -204,9 +204,36 @@ function main() {
   }
 
   // ── the loose files ───────────────────────────────────────────────────────────────────────────
+  //
+  // `settings.yaml` IS OPTIONAL ON 0.1.7+ (measured 2026-10-19, ZABZ-TECH). `@deepseek-ai/dsh-settings-file`
+  // is gone on that line and the settings document is the ACTIVE PROFILE'S `cordis.patch.yml` — the same
+  // finding FINDINGS.md records for 0.2.0-rc.2, where 108 keys reverted because nothing read this file.
+  // A machine migrated to that line legitimately has no settings.yaml, and treating its absence as a
+  // failed backup made this tool refuse a backup that was complete for every other store.
+  //
+  // The rule is not "ignore it": settings.yaml absent is acceptable ONLY when a profile patch exists to
+  // carry the settings, and the report says which patch is the store. Absent with no profile patch is
+  // still a problem, because then nothing in the backup holds the configuration at all.
+  const profilePatches = []
+  const profilesRoot = path.join(home, 'profiles')
+  if (fs.existsSync(profilesRoot)) {
+    for (const name of fs.readdirSync(profilesRoot)) {
+      const p = path.join(profilesRoot, name, 'cordis.patch.yml')
+      if (fs.existsSync(p)) profilePatches.push(path.join('profiles', name, 'cordis.patch.yml'))
+    }
+  }
   for (const f of FILES) {
     const src = path.join(home, f);
-    if (!fs.existsSync(src)) { report.problems.push(`${f}: absent in the source home`); continue; }
+    if (!fs.existsSync(src)) {
+      if (f === 'settings.yaml' && profilePatches.length) {
+        report.notes = report.notes || []
+        report.notes.push(`settings.yaml: absent by design on this line — the settings document is ${profilePatches.join(', ')} (backed up under profiles/, see the store rows above)`)
+        say(`  ${f.padEnd(16)} absent — settings live in ${profilePatches.length} profile patch(es); recorded as a note, not a failure`)
+        continue
+      }
+      report.problems.push(`${f}: absent in the source home`)
+      continue
+    }
     const dst = path.join(dest, f);
     fs.copyFileSync(src, dst);
     const ha = createHash('sha256').update(fs.readFileSync(src)).digest('hex');
