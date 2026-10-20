@@ -48,15 +48,25 @@ From `docs/cloud-audit/2026-10-19-cloud-and-storage-audit.md` section 4, and the
 built from it (re-verify all of it in rounds 1–3; do not take it on trust, and do not quote it as
 yours until you have):
 
-- DeepSeek prices by UTC hour. Peak (00:30–16:30 UTC) is 0.30 in / 1.20 out per million tokens;
-  off-peak (16:30–00:30 UTC) is 0.15 / 0.60. **Peak is exactly double.**
-- Over 7 measured days, **449.2 M of 534.5 M input tokens — 84 percent — were spent in the peak
-  window**, because the departments tick around the clock and nothing in the system knows or cares
-  what time it is.
-- Priced by the hour each token was actually spent in, that week cost **151.70, which is about 650 a
-  month**. The bank agrees: **636 in debits over 31 days, within 5 percent.**
-- The same tokens, moved into the cheap window, cost **about half — roughly 310 a month saved** with
-  no capability lost.
+**THE FOUR NUMBERS THIS SECTION ORIGINALLY GAVE WERE WRONG. They are replaced with measured values
+below (2026-10-20), and the originals are kept only in the correction block above.** Do not quote
+the retired figures: 00:30–16:30, 84 percent, 650 a month, 310 saved.
+
+- DeepSeek prices by UTC hour. In the peak window, 0.30 in / 1.20 out per million tokens; off-peak,
+  0.15 / 0.60. **Peak is exactly double.** The peak window is **Mon–Fri 01:00–04:00 and 06:00–10:00
+  UTC — 35 of 168 hours, 20.8 percent of the week.**
+- Over 7 measured days, the peak share of input tokens was **28.3 percent** (151.2 M of 533.5 M),
+  not 84 percent. Measured per day it moves between **27.2 and 49.1 percent with no change behind it**,
+  so a single day is not a measurement.
+- Priced by the hour each token was actually spent in, the week costs **462.54 a month**, not 650.
+- Moving deferrable work into the cheap window is worth **42.6 a month measured** (a 10.0 percent
+  reduction), not 310. A priority ladder that keeps more work live at peak saves less — 6.0 percent
+  at one measured setting — and that trade is the owner's to set, not the agent's.
+
+**And the clock was never the biggest lever.** Measured 2026-10-20: **95 percent of model spend flows
+through `app/assistant_chat.py::run_assistant_chat`**, carrying a 45,000-token prompt into
+background work (department steps at ~45k, the email classifier at ~29k) with a near-zero cache hit
+rate. That is worth several times what scheduling is worth. Read §1.1 before optimising the clock.
 
 That is the prize. It is not a trick and it is not a one-off: the company will keep spending this
 every month until scheduling knows what a cheap hour is.
@@ -268,3 +278,27 @@ The work is done when all of these are true and have been shown, not asserted:
 7. **One command** on a fresh machine reproduces the week's numbers.
 
 If any of those is not true, the work is not done — and saying so is a success, not a failure.
+
+
+---
+
+## 12. Addendum, 2026-10-20 12:15Z — read this before you start
+
+The session that received this brief ran 60 rounds and is postmortemed at
+`personal-secretary-mvp/docs/cost/POSTMORTEM-2026-10-20-cheap-hours.md`. **Read that document before
+this one's §6 round plan**, because three of its assumptions were measured and are wrong:
+
+1. **The money is not in the clock.** 95 percent of model spend goes through
+   `app/assistant_chat.py::run_assistant_chat`, which is the *owner-chat assistant function*, called
+   by the autopilot work queue, the email classifier and email follow-up extraction. Every department
+   work step pays a **45,000-token prompt** there. The scheduling prize is 42.6 a month; this one is
+   several times larger.
+2. **Instrument the callee, and prove it emits.** Three diagnostics attached to `agent_worker`
+   produced zero output, because `agent_worker` carries a minority of the calls. The single writer
+   `app/database.py::log_model_usage` sees every call and is the correct choke point for accounting
+   questions. **Run a positive control before reading any silence as a finding.**
+3. **A restart is a policy change.** The prior session restarted production five times inside the
+   01:00–04:00 window it was measuring and voided its own result. Freeze the window against code,
+   env and restarts — not only against the one knob you call "the setting".
+
+Definition of done from §11 stands unchanged. What changed is which lever you pull first.
