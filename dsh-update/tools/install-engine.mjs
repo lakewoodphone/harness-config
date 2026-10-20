@@ -124,8 +124,20 @@ async function main() {
 
   const from = path.resolve(String(flag('from') || vendorPrefixPath(version)))
   const live = liveInstallRoot()
-  const to = path.resolve(String(flag('to') || live.root || ''))
-  if (!to || to === '.') refuse(`no live install root: ${live.source}. Pass --to <root> or set $env:DSH_LIVE_INSTALL.`)
+  const explicitTo = flag('to')
+  // REFUSE TO GUESS THE TARGET. `path.resolve(String(flag('to') || live.root || ''))` silently resolved to the
+  // CURRENT DIRECTORY when no root could be found, and on 2026-10-20 that made this tool "swap" its own
+  // `dsh-update` directory for an engine tree on zabz-tech-linux (lib/ gone, promote failed, dir recovered by hand).
+  // A missing live root is a refusal, never a cwd.
+  if (!explicitTo && !live.present) {
+    refuse(`no live install root: ${live.source}. Refusing to guess a target — pass --to <root> or set $env:DSH_LIVE_INSTALL.`)
+  }
+  const to = path.resolve(String(explicitTo || live.root))
+  // AND THE TARGET MUST ALREADY BE AN ENGINE. If it is not, it is not the tree this machine runs.
+  const targetVersion = engineVersion(to)
+  if (!targetVersion) {
+    refuse(`${to} holds no engine (no ${ENGINE_REL}), so it is not a live install root. Refusing to replace a directory that is not an install.`)
+  }
 
   say(`install-engine ${version}   (host ${hostName()})`)
   say('')
@@ -139,7 +151,7 @@ async function main() {
   if (!fs.existsSync(candPkg)) refuse(`${from} holds no engine (no node_modules/@deepseek-ai/dsh/package.json). Run \`dsh-update fetch ${version}\` first.`)
   const candVersion = JSON.parse(fs.readFileSync(candPkg, 'utf8')).version
   if (candVersion !== version) refuse(`the candidate prefix reports ${candVersion}, not ${version}`)
-  const oldVersion = engineVersion(to)
+  const oldVersion = targetVersion
   if (oldVersion === version && !force) refuse(`the live root already reports ${version}. Nothing to do (--force reinstalls).`)
   say(`  PASS  candidate prefix holds dsh ${candVersion}`)
 

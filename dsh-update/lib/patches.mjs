@@ -45,12 +45,38 @@ function argvFor(entry, treeRoot, mode) {
   return [...entry[mode]].map((a) => a.split('{root}').join(treeRoot).split('{runtime}').join(runtime))
 }
 
+/**
+ * Which executable does this entry actually mean, on THIS platform?
+ *
+ * MEASURED 2026-10-20 on `zabz-tech-linux`: every patcher exited `-1` and the install refused, because the registry
+ * spells the interpreter `python` and that box has only `python3` — `spawnSync` returns status null on ENOENT, which
+ * surfaced as an opaque -1. The same spelling works on the Windows machines (where `python` exists) and is wrong on
+ * every Linux node. `node` is resolved to the interpreter running THIS process, so it is always the same Node that
+ * runs the pipeline, on any host.
+ */
+function resolveExe(name) {
+  if (name === 'node') return process.execPath
+  if (name === 'python' || name === 'python3') {
+    const candidates = process.platform === 'win32' ? ['python', 'python3'] : ['python3', 'python']
+    for (const c of candidates) {
+      const r = spawnSync(c, ['--version'], { encoding: 'utf8', timeout: 20000 })
+      if (r.status === 0) return c
+    }
+    return candidates[0]
+  }
+  return name
+}
+
 function runOne(entry, treeRoot, mode) {
   const argv = argvFor(entry, treeRoot, mode)
-  const exe = argv.shift()
+  const exe = resolveExe(argv.shift())
   const r = spawnSync(exe, argv, { cwd: REPO_ROOT, encoding: 'utf8', timeout: 180000 })
   const out = `${r.stdout || ''}${r.stderr || ''}`.trim()
-  return { id: entry.id, mode, exit: r.status === null ? -1 : r.status, out: out.split('\n').slice(-6).join('\n') }
+  // status is null when the process could not be spawned at all (ENOENT/EACCES). Say that, instead of "-1", which
+  // sent a reader looking for a patcher bug rather than a missing interpreter.
+  const code = r.status === null ? -1 : r.status
+  const why = r.status === null ? ` [spawn failed: ${exe}: ${r.error?.code ?? r.error?.message ?? 'unknown'}]` : ''
+  return { id: entry.id, mode, exit: code, out: `${out.split('\n').slice(-6).join('\n')}${why}`.trim() }
 }
 
 /** Does every registered patch report present in this tree? Read-only. */

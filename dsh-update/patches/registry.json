@@ -13,7 +13,7 @@
     {
             "id": "settlement-crash",
       "superseded": {
-        "fromVersion": "0.2.1",
+        "fromVersion": "0.2.1-rc.2",
         "evidence": "Measured 2026-10-20 on the 0.2.1 tree: the unguarded async settlement watcher this patch existed to catch is gone. dsh-subagent/lib/index.js now wraps EVERY lifecycle listener's returned promise in `Promise.resolve(returned).catch(...)` (line 171) and the settlement path is a defined `settle: ({stopReason, output})` handler (line 199) with `settlementSummary` / `createSettlementMessage` / `kind: \"subagent-settled\"`. lib/types/activation.js no longer contains an async IIFE at all, and the manager catches disposal promises at 1274/1306/1319/1363/1381. So on 0.2.1 this patch has nothing to add: its first target is already-hardened in our tree by an earlier partial apply, and its other two targets do not exist any more. On the 0.2.0 line it is still needed."
       },
       "kind": "script",
@@ -33,7 +33,7 @@
     {
             "id": "window-blank-isolation",
       "superseded": {
-        "fromVersion": "0.2.1",
+        "fromVersion": "0.2.1-rc.2",
         "evidence": "Measured 2026-10-20 in the installed 0.2.1 tree, dsh-client-ui-workspace/lib/client.js: the function this patch modified (`reuseOrCreateBlank`) no longer exists, and upstream now states and enforces the isolation it was written for — `sessionVisible()` contains `if (session.blank && session.id !== current) return false;` under the comment 'among blank sessions, only the current one is visible', and `pinCurrentBlank()` keeps the selected blank first without duplicating a slot. So a window no longer adopts another window's blank row. NOT PROVEN the way the patch was: this is a reading of the upstream code, not two windows opened side by side; the patch's own symptom was visual. On the 0.2.0 line the patcher still applies and is still needed."
       },
       "kind": "script",
