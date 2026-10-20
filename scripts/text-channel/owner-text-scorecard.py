@@ -85,6 +85,15 @@ THRESHOLDS = {
     "dead_text_rate": 0.5,
 }
 
+#: A family is LIVE when its newest text is inside this window. The reply window alone is too
+#: short to call a family retired: an 8h-old text may still be waiting on him, and a producer
+#: that fires once a day would flip between live and historical on every roll. 48h is the same
+#: bound the audit uses for "the store can still see the thread". A retired producer and a live
+#: one must not score the same (ledger item 733): the 36-item wall sent nothing after 10-15 but
+#: stayed "worst family" in every 14-day reading until 10-27, so the 2026-10-20 wake re-targeted
+#: a defect item 720 had already fixed.
+LIVE_FAMILY_H = 48.0
+
 
 def _now():
     return datetime.now(timezone.utc)
@@ -99,6 +108,17 @@ def _parse(value):
         return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
+
+
+def _fmt_age(hours):
+    """Human age, bounded: minutes under an hour, hours under two days, then days."""
+    if hours is None:
+        return "?"
+    if hours < 1.0:
+        return "%.0fm" % (hours * 60.0)
+    if hours < 48.0:
+        return "%.1fh" % hours
+    return "%.1fd" % (hours / 24.0)
 
 
 def ro(path):
@@ -207,7 +227,12 @@ def judge(rows, since, until, reply_window_h):
         })
 
     return {"judged": judged, "rows_seen": rows_seen, "distinct_sids": len(seen_sids),
-            "newest_inbound": newest_inbound.isoformat() if newest_inbound else None}
+            "newest_inbound": newest_inbound.isoformat() if newest_inbound else None,
+            # Ages are measured against the END OF THE WINDOW, not wall-clock now, so a
+            # fixture/test and a re-read of the same window print the same number.
+            "until": until.isoformat(),
+            "window_days": (until - since).total_seconds() / 86400.0,
+            "reply_window_h": reply_window_h}
 
 
 
@@ -348,7 +373,7 @@ def conformance(rows, since):
             "rewritten": rewrites, "by_class": by_class, "examples": examples,
             "rate": (flagged / delivered) if delivered else None}
 
-def summarise(result):
+def summarise(result, reply_window_h=None):
     judged = result["judged"]
     counts = {"ANSWERED": 0, "COMPLAINED": 0, "IGNORED": 0, "UNMEASURABLE": 0}
     by_family = {}
@@ -356,9 +381,12 @@ def summarise(result):
         counts[j["outcome"]] = counts.get(j["outcome"], 0) + 1
         fam = by_family.setdefault(j["family"], {"ANSWERED": 0, "COMPLAINED": 0,
                                                  "IGNORED": 0, "UNMEASURABLE": 0,
-                                                 "n": 0, "examples": []})
+                                                 "n": 0, "examples": [], "times": []})
         fam[j["outcome"]] = fam.get(j["outcome"], 0) + 1
         fam["n"] += 1
+        when = _parse(j.get("at"))
+        if when is not None:
+            fam["times"].append(when)
         if len(fam["examples"]) < 2 and j["outcome"] in ("IGNORED", "COMPLAINED"):
             fam["examples"].append(j["body"][:90])
 
@@ -366,14 +394,53 @@ def summarise(result):
     dead = counts["COMPLAINED"] + counts["IGNORED"]
     rate = (dead / measurable) if measurable else None
 
+    reference = _parse(result.get("until")) or _now()
+    window_days = float(result.get("window_days") or 14.0)
+    live_h = max(float(reply_window_h or result.get("reply_window_h")
+                       or DEFAULT_REPLY_WINDOW_H), LIVE_FAMILY_H)
+
+    def detail(name, fam):
+        """One family with the age that separates a retired producer from a live one.
+
+        `retires_below_two_at` is when the family stops qualifying for the worst-families
+        table (n >= 2): the SECOND-newest text plus the window. A single old text cannot
+        keep a family named, and a family whose newest text is inside LIVE_FAMILY_H is live.
+        """
+        times = sorted(t for t in fam["times"] if t is not None)
+        newest = times[-1] if times else None
+        age_h = ((reference - newest).total_seconds() / 3600.0) if newest else None
+        retires = (times[-2] + timedelta(days=window_days)) if len(times) >= 2 else None
+        return {"family": name, "n": fam["n"],
+                "dead": fam["COMPLAINED"] + fam["IGNORED"],
+                "examples": fam["examples"],
+                "newest": newest.isoformat() if newest else None,
+                "newest_age_h": round(age_h, 2) if age_h is not None else None,
+                "live": bool(age_h is not None and age_h <= live_h),
+                "retires_below_two_at": retires.isoformat() if retires else None}
+
+    details = {k: detail(k, v) for k, v in by_family.items()}
+
     worst = sorted(
-        ({"family": k, "n": v["n"], "dead": v["COMPLAINED"] + v["IGNORED"],
-          "examples": v["examples"]}
-         for k, v in by_family.items() if v["n"] >= 2),
+        (d for d in details.values() if d["n"] >= 2),
         key=lambda d: (-d["dead"], -d["n"]))[:8]
 
+    # The WAKE target must be a family that can still send. A family with one dead text is
+    # included here even though the report table needs >= 2: one fresh statement is exactly
+    # what a bounded shift can fix, and excluding it would keep pointing at a retired wall.
+    live_bad = sorted(
+        (d for d in details.values()
+         if d["dead"] > 0 and d["live"]),
+        key=lambda d: (-d["dead"], -d["n"], d["newest_age_h"] or 0.0))
+    worst_live = live_bad[0] if live_bad else None
+    historical = next((d for d in worst if not d["live"] and d["dead"] > 0), None)
+
     return {"counts": counts, "measurable": measurable, "dead_text_rate": rate,
-            "worst_families": worst, "families": len(by_family)}
+            "worst_families": worst, "families": len(by_family),
+            "worst_live_family": worst_live,
+            "historical_worst_family": historical,
+            "live_dead": sum(d["dead"] for d in live_bad),
+            "live_window_h": live_h,
+            "until": reference.isoformat()}
 
 
 def report(result, summary, days, window_h):
@@ -399,9 +466,32 @@ def report(result, summary, days, window_h):
     if not summary["worst_families"]:
         print("  none")
     for fam in summary["worst_families"]:
-        print("  %-42s %d dead of %d" % (fam["family"][:42], fam["dead"], fam["n"]))
+        state = "LIVE" if fam["live"] else "HISTORICAL"
+        line = "  %-38s %d dead of %d   newest %s old [%s]" % (
+            fam["family"][:38], fam["dead"], fam["n"],
+            _fmt_age(fam.get("newest_age_h")), state)
+        if not fam["live"] and fam.get("retires_below_two_at"):
+            line += " drops below 2 rows %s" % fam["retires_below_two_at"][:10]
+        print(line)
         for ex in fam["examples"][:1]:
             print("        e.g. %s" % ex)
+
+    live = summary.get("worst_live_family")
+    hist = summary.get("historical_worst_family")
+    print()
+    if live:
+        print("worst LIVE family      %s (%d dead of %d, newest %s old)"
+              % (live["family"][:38], live["dead"], live["n"],
+                 _fmt_age(live.get("newest_age_h"))))
+    else:
+        print("worst LIVE family      none - every dead text is historical (no dead family "
+              "sent inside %gh)" % summary.get("live_window_h", LIVE_FAMILY_H))
+    if hist and (not live or hist["family"] != live["family"]):
+        print("historical family      %s (%d dead of %d, newest %s old%s)"
+              % (hist["family"][:38], hist["dead"], hist["n"],
+                 _fmt_age(hist.get("newest_age_h")),
+                 (", drops below 2 rows %s" % hist["retires_below_two_at"][:10]
+                  if hist.get("retires_below_two_at") else "")))
 
 
 def file_flag(summary, days):
@@ -410,25 +500,55 @@ def file_flag(summary, days):
         print("no flag: dead-text rate %s within threshold %s"
               % ("null" if rate is None else "%.2f" % rate, THRESHOLDS["dead_text_rate"]))
         return 0
-    worst = summary["worst_families"][0] if summary["worst_families"] else None
+
+    live = summary.get("worst_live_family")
+    hist = summary.get("historical_worst_family")
+    if live is None:
+        # THE DEFECT THIS PREVENTS (ledger item 733): the 36-item wall was retired 10-15 but
+        # its three rows stayed in the 14-day window until 10-27, so every weekly run named an
+        # already-fixed producer and re-woke the same defect. A historical breach is a count
+        # that has not aged out, not a thing a shift can change. Say so; file nothing.
+        if hist:
+            print("no flag: dead-text rate %.1f%% is HISTORICAL - no dead family sent inside "
+                  "%gh. Worst retired family: %s (%d dead of %d, newest %s old, drops below "
+                  "2 rows %s)."
+                  % (100 * rate, summary.get("live_window_h", LIVE_FAMILY_H),
+                     hist["family"], hist["dead"], hist["n"],
+                     _fmt_age(hist.get("newest_age_h")),
+                     (hist.get("retires_below_two_at") or "?")[:10]))
+        else:
+            print("no flag: dead-text rate %.1f%% is HISTORICAL - no live family carries a "
+                  "dead text." % (100 * rate))
+        return 0
+
+    worst = live
     # WEEKLY, not daily: the underlying rate moves over days, and a daily subject would
     # file a fresh flag every morning while the condition is unchanged. One session per
     # ISO week is enough to move one bounded thing, and the flag names which one.
     _y, _w, _ = _now().isocalendar()
     subject = "owner-text:scorecard:%04d-W%02d" % (_y, _w)
+    note = ""
+    if hist and hist["family"] != worst["family"]:
+        note = ("The older family %s (%d dead of %d, newest %s old) is HISTORICAL%s; it is "
+                "not this shift's target.\n\n"
+                % (hist["family"], hist["dead"], hist["n"],
+                   _fmt_age(hist.get("newest_age_h")),
+                   (", drops below 2 rows %s" % hist["retires_below_two_at"][:10]
+                    if hist.get("retires_below_two_at") else "")))
     prompt = (
         "The owner text channel's scorecard breached its threshold: %.0f%% of %d judged "
         "texts in the last %g days were ignored or complained about (threshold %.0f%%).\n\n"
-        "Worst family: %s (%d dead of %d). Examples: %s\n\n"
+        "Worst LIVE family: %s (%d dead of %d, newest %s old). Examples: %s\n\n"
+        "%s"
         "DO ONE BOUNDED THING: find why that family's texts are not worth answering and "
         "land one change with a before/after count. Do not re-audit the whole channel; "
         "`owner-text-audit.py --days %d` and `owner-text-scorecard.py --days %d` are already "
         "the instruments. Record the change in the journal and in "
         "scripts/text-channel/README.md."
         % (100 * rate, summary["measurable"], days, 100 * THRESHOLDS["dead_text_rate"],
-           worst["family"] if worst else "(none)", worst["dead"] if worst else 0,
-           worst["n"] if worst else 0,
-           (worst["examples"][0] if worst and worst["examples"] else "(none)"),
+           worst["family"], worst["dead"], worst["n"],
+           _fmt_age(worst.get("newest_age_h")),
+           (worst["examples"][0] if worst["examples"] else "(none)"), note,
            int(days), int(days))
     )
     cmd = [sys.executable, WAKE, "flag", "--subject", subject, "--prompt", prompt,
@@ -522,7 +642,7 @@ def main(argv=None):
 
     result = judge(rows, since, until, args.reply_window)
     result["conformance"] = conformance(rows, since)
-    summary = summarise(result)
+    summary = summarise(result, args.reply_window)
 
     if args.json:
         print(json.dumps({"ok": True, "window": {"since": since.isoformat(),

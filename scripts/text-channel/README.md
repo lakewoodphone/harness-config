@@ -140,3 +140,50 @@ The app-repo record is branch `owner-text/pager-answerable-20261020`, based on
 before this change was `d5145cbdfb7aeec682784fa160171e72`; a byte copy is
 `scripts/owner_attention.py.bak-answerable-20261020T000537Z`. The next deploy of
 the newer `hk/559-bound-repo-reads` composer must carry BOTH patches forward.
+
+## 2026-10-20 — a retired family no longer wakes a shift
+
+The 2026-10-20 00:02 wake quoted `Worst family: '10 utc items urgent (3 dead of 3)`
+— the 36-item wall retired on 10-15 and already fixed by item 720 on 10-19. Its
+three delivered rows are 10-12/10-13/10-15; no text in that family has been sent
+since 10-15, but the 14-day window keeps it listed until 2026-10-27. So the
+scorecard kept naming a retired producer as the worst, and the weekly `--flag`
+would re-wake a defect that no longer exists. A retired family and a live one
+scored the same (ledger item 733).
+
+Change: `owner-text-scorecard.py` now records, per family, the newest delivered
+text's age and whether it is inside the live window (`max(reply window, 48h)`).
+The report prints `[LIVE]` or `[HISTORICAL]` on every worst family and, for a
+historical one, the date it drops below the 2-text table. `--flag` names the
+worst **live** family (including a live family with one text); if every dead
+text is historical it files nothing and prints the retired family, its age and
+its age-out date instead of waking another shift.
+
+Before/after on the same 14 days of `sms_log` (the preserved pre-change reader
+against the current one):
+
+```
+BEFORE  worst named: '10 utc items urgent (3 dead of 3) -- no age, no liveness
+AFTER   worst LIVE family: asking something should found (1 dead of 1, newest 43.5h old)
+AFTER   historical family: '10 utc items urgent (3 dead of 3, newest 4.5d old, drops below 2 rows 2026-10-27)
+COUNT   wake target is a retired family: 1 -> 0
+COUNT   live dead texts the old reader could not distinguish: 1
+```
+
+The live target is a different, current text (`I was asking you for something I
+should have found myself.`, 2026-10-18 01:46 EDT), not the retired wall. The
+three wall rows still count in the 53.1% dead-text rate until 2026-10-27; that is
+history, not a thing this shift can change.
+
+Verify (neither sends a text nor files a flag):
+
+```bash
+cd /root/code/harness-config/scripts/text-channel
+python3 test-owner-text-scorecard.py          # 29 checks, RESULT: PASS
+python3 owner-text-scorecard.py --days 14     # worst LIVE family + HISTORICAL line
+```
+
+`--flag` was deliberately not run while landing this: rule 6, no wake flag from
+inside a session. The next scheduled `run-wake-sources.sh` reads the new
+live-family selection through `/root/bin/sources/owner-text-scorecard.py` (a thin
+wrapper that imports this file).
