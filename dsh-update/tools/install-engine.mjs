@@ -234,7 +234,13 @@ async function main() {
       const unwaived = notOk.filter((id) => !waived.has(id))
       if (unwaived.length) refuse(`hand patches did not apply and were not waived: ${unwaived.join(', ')}. The live tree was not touched; the staged copy is at ${staged}.`)
       for (const id of notOk) {
-        say(`  WAIVED BY THE OPERATOR  ${id} — this install proceeds WITHOUT this hand patch, and the receipt records it.`)
+        // A WAIVED PATCH MAY BE PARTIALLY APPLIED, and saying "without this hand patch" is then a false claim.
+        // Measured 2026-10-20: settlement-crash patched dsh-agent-loop/lib/index.js, failed on its other two
+        // targets, exited 1 -- and the waiver reported the patch as absent while one third of it was live in the
+        // tree. The per-target output is now recorded and the sentence no longer promises a clean absence.
+        const rec = finalState.get(id)
+        const detail = String((rec && rec.out) || '').split('\n').filter((l) => /(already-patched|patched\(|FAIL|absent)/u.test(l)).slice(0, 4).join(' | ')
+        say(`  WAIVED BY THE OPERATOR  ${id} — the install proceeds; whether ANY part of it applied is in the patcher's own lines${detail ? `: ${detail}` : ''}. The receipt records this verbatim.`)
       }
     } else if (notOk.length) {
       refuse(`hand patches did not take on the staged tree: ${notOk.join(', ')}. Each failing patcher prints WHY (an upstream anchor moved, a file vanished); re-author it against this version, or name it explicitly with --allow-patch-failures <id,id> to install without it and record that decision. The live tree was not touched; the staged copy is left at ${staged} for inspection.`)
@@ -342,7 +348,7 @@ async function main() {
     previousTree: prev,
     engineBinSha256: sha256File(path.join(to, ENGINE_REL)),
     candidatePackageJsonSha256: sha256File(candPkg),
-    patches: patched.results.map((r) => ({ id: r.id, phase: r.phase, exit: r.exit })),
+    patches: patched.results.map((r) => ({ id: r.id, phase: r.phase, exit: r.exit, out: r.out })),
     patchWaivers: [...waived],
     patchAudit: auditRows,
     backupDir: backup.dir,
