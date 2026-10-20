@@ -31,7 +31,7 @@
   "wins": "W7130"
  },
  "host": "secratary-cloud",
- "live_peer_rows": 336,
+ "live_peer_rows": 337,
  "live_peer_unreachable": [
   "ZABZ-TECH-LINUX (rc=1)"
  ],
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-20T19:30:15Z",
+ "refreshed_at": "2026-10-20T19:45:12Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 13.8,
- "sources_seen": 11422
+ "seconds": 10.6,
+ "sources_seen": 11423
 }
