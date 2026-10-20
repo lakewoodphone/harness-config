@@ -227,3 +227,67 @@ The remaining 26 are other composers: the historical digest wall, the budget str
 library/offsite prose and the 3 NJ Premier credential asks. This change does not touch the
 guard and does not suppress anything.
 
+
+## 2026-10-20 — an apology is not a result: the promise-salvage stops sending the leftover
+
+The 02:08 wake named the LIVE family `asking something should found` (1 dead of 1). Its one
+text — `I was asking you for something I should have found myself.` — is not a producer of
+its own. It is the SALVAGE of a longer body sent at **2026-10-18 05:46Z**:
+
+```
+You're right - I was asking you for something I should have found myself. Let me actually dig.
+```
+
+`classify_owner_body()` dropped the promise sentence correctly. It then admitted the
+remaining apology as a RESULT (`reported_fact`: 58 chars, three words), because the floor
+that stops a refusal silencing a person is generous. Nothing in that sentence asks him
+anything, names a specific or reports an outcome, so there was nothing to answer — the
+scorecard records it IGNORED. The same defect delivered two more bodies on **2026-10-12**
+(13:39Z and 16:25Z), each its own four-word family, which is why the table names one and not
+three.
+
+Change in `mirror/textsend.py`:
+
+- `_SELF_ADMISSION_RE` names a sentence that only admits we asked for what we should have
+  found, or that he already told us (`I was asking`, `you told me`, `I should have found`,
+  `that's on me`, an apology) — anchored at the start, and only when the sentence has no
+  specific and asks nothing.
+- `_noise_sentence_code()` returns `NOISE_ACK` for it.
+- `_strip_noise_prefix()` now drops an un-prefixed noise sentence whole. Before, it only
+  re-checked after a strip changed the text; `I was asking you...` matched `NOISE_ACK` but
+  had no prefix to strip, so the loop kept it and `_classify_positive()` admitted it.
+
+Before/after on the same 14 days of `sms_log` (one body per provider sid, longest row):
+
+```
+self-admission texts the gate delivers      3      0
+substantive salvages still delivered        3      3
+bodies whose fate changed                   3
+COUNT   self-admission texts the gate would deliver: 3 -> 0
+COUNT   substantive salvages lost: 0
+COUNT   other bodies whose fate changed: 0
+```
+
+The three changed bodies are exactly the three self-admissions. The dress-purchase salvage,
+`You're right - the $58 ... closed`, an apology followed by a question, and every clean
+result are unchanged.
+
+Deployed with `mirror/deploy-owner-text.sh textsend.py` (live md5 `671717c8799e`, backup
+`/root/text-deploy-backup/20261020T021258Z/`). Verify (none sends):
+
+```bash
+cd /root/code/harness-config
+python3 scripts/text-channel/test-self-admission-salvage.py      # 19 checks, RESULT: PASS
+python3 scripts/text-channel/measure-self-admission-salvage.py --days 14 --before HEAD^
+python3 /root/bin/text-health.py                                  # 20 checks, 0 FAIL
+python3 /root/bin/sms-responder.py run --dry-run                  # 0 to decide
+```
+
+The catalogue was refreshed (`textdecide.py --refresh-catalog`) because `text-health` A3 was
+red on a stale cache (35 vs 33 ids, missing `deepseek-flash`); that is unrelated to this
+change and is now green. `verify-owner-text.sh` reports one pre-existing drift,
+`merchant_resolve.py` (live `95e4f91b`, mirror `4d6fba2f`, live mtime 01:07Z) — not touched
+here.
+
+The already-delivered 2026-10-18 row stays in the scorecard's 14-day count until
+**2026-11-01**; the producer that would send another is what changed.

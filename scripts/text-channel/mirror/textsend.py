@@ -1758,6 +1758,22 @@ _PROMISE_RE = re.compile(
     r"diagnosing\b|checking now\b|looking into|starting now\b|stand by\b|hang on\b|"
     r"one moment\b|give me (?:a|one) (?:minute|moment|sec))\b", re.I)
 
+#: AN ADMISSION IS NOT A RESULT. The gate drops the promise sentence and sends what is
+#: left; when what is left is an apology for having asked -- "I was asking you for
+#: something I should have found myself." -- the phone gets a receipt with no answer in
+#: it. Measured 2026-10-20: the scorecard's live family `asking something should found`
+#: is exactly the SALVAGE of "You're right - I was asking you ... Let me actually dig.",
+#: and the same defect delivered two more bodies on 2026-10-12. Anchored at the start
+#: (after `_strip_noise_prefix` removes "You're right") and only when the sentence carries
+#: no specific and asks nothing, so "You're right - the $58 charge is closed" still sends.
+_SELF_ADMISSION_RE = re.compile(
+    r"^\s*(?:i\s+was\s+(?:asking|wrong)\b|"
+    r"i\s+should(?:.ve| have)\s+(?:found|known|checked|looked|seen|caught|done|pulled|"
+    r"asked|verified|it)\b|"
+    r"you\s+(?:did\s+)?(?:told|tell)\s+me\b|"
+    r"(?:that.s|that is)\s+on\s+me\b|"
+    r"(?:i\s+)?apologi[sz]e\b)", re.I)
+
 #: Sentences that only repeat his own words back at him. Refused on their own, kept when
 #: they carry a fact (see `_has_substance`).
 _RESTATE_RE = re.compile(
@@ -1823,6 +1839,8 @@ def _noise_sentence_code(sentence, *, body_asks: bool = False) -> str:
         return NOISE_INTERNAL
     if _PROMISE_RE.match(t) and not _specifics(t):
         return NOISE_PROMISE
+    if _SELF_ADMISSION_RE.match(t) and not _specifics(t) and not _has_question(t):
+        return NOISE_ACK
     if _COURTESY_RE.match(t) and not _specifics(t) and not _has_question(t):
         return NOISE_ACK
     if _ACK_PREFIX_RE.match(t) and not _has_substance(t):
@@ -1847,6 +1865,13 @@ def _strip_noise_prefix(sentence, *, body_asks: bool = False) -> str:
         t = _RESTATE_RE.sub("", t).strip()
         t = re.sub(r"^[\s,;:.\-\u2013\u2014]+", "", t).strip()
         if t == before:
+            # Nothing strippable was left, so this sentence IS the receipt -- not a
+            # receipt wrapped around an answer. Drop it whole. Measured 2026-10-20:
+            # "I was asking you for something I should have found myself." matched
+            # NOISE_ACK but had no prefix to strip, so the old loop kept it and
+            # `_classify_positive` admitted it as a result; the phone got the apology.
+            if _noise_sentence_code(t, body_asks=body_asks):
+                return ""
             break
         if _noise_sentence_code(t, body_asks=body_asks):
             return ""

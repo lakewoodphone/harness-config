@@ -1,4 +1,4 @@
-189c3bdfaa45779b01eefedcbdc9f682  textsend.py
+671717c8799ec51c353b81826310ad29  textsend.py
 5d8786fabc26255d6c544af9ea24e824  textctx.py
 e42da51920c859deb84bd141b86379fc  textdecide.py
 e6370a56d63b30aa3ffae941adc8b916  textwork.py
@@ -17,5 +17,5 @@ f6430c9878ba28a7f662fee0c5ae95e1  ../.owner-text/standing-rules.json
 805db64b00fa3e57c001794bd13706fe  ask-person.py
 3f481811e9af38bf55264f7cdb9f077d  ask-person-test.py
 0d4cb40d11f0ccf1cf715615d44baef5  owner_topic.py
-9fdb8dc84d2afa965cac1188d7c59e62  owner_text_relay.py
+252f5ac0a18c9b3bdf31717e0fd356a1  owner_text_relay.py
 143d500a03eb2173a0ef815ba4efaac7  cfo-ask.py
