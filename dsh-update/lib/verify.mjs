@@ -1571,17 +1571,40 @@ function gateG8({ version, base, cand, snap, g }) {
 
 /* ------------------------------------------------------------------ --full web boot */
 
+/* Enumerate other `dsh web` processes, PORTABLY.
+ *
+ * This used to spawn Windows PowerShell unconditionally. Measured 2026-10-20 on `zabz-tech-linux`: the gate
+ * reported `could not enumerate node processes (exit null, ... WindowsPowerShell/v1.0/powershell.exe ENOENT)`
+ * and `--full` could therefore never run on any POSIX host — including the phone engine's box. `--full` is the
+ * only gate that proves a web profile actually boots, so a gate that cannot run off Windows is a gate that is
+ * missing exactly where nobody was looking.
+ *
+ * Windows keeps the CIM query (it is the only reliable way to read a full command line there); everywhere else
+ * asks `ps` for the argv of every process. A host with neither returns checked:false with the reason, which the
+ * caller reports — it is never treated as "no other processes".
+ */
 function otherDshWebProcesses() {
-  const ps = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
-  const r = spawnSync(ps, ['-NoProfile', '-NonInteractive', '-Command',
-    "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | ForEach-Object { $_.CommandLine } | Where-Object { $_ -match 'dsh' }"],
-  { encoding: 'utf8', timeout: 60000, windowsHide: true });
-  if (r.status !== 0 || typeof r.stdout !== 'string') {
-    return { checked: false, reason: `could not enumerate node processes (exit ${r.status}, ${String(r.error ?? r.stderr ?? '').slice(0, 200)})`, lines: [] };
+  const isDshWeb = (l) => /(?:^|[\s"'\\/])dsh(?:\.js)?["']?\s+web\b/.test(l) || /bin\.js"?\s+web\b/.test(l) || /--profile\s+web\b/.test(l);
+  let r;
+  let source;
+  if (process.platform === 'win32') {
+    const ps = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    source = ps;
+    r = spawnSync(ps, ['-NoProfile', '-NonInteractive', '-Command',
+      "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | ForEach-Object { $_.CommandLine } | Where-Object { $_ -match 'dsh' }"],
+    { encoding: 'utf8', timeout: 60000, windowsHide: true });
+  } else {
+    source = 'ps -eo args=';
+    r = spawnSync('ps', ['-eo', 'args='], { encoding: 'utf8', timeout: 60000 });
   }
-  const lines = r.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
-    .filter((l) => /(?:^|[\s"'\\/])dsh(?:\.js)?["']?\s+web\b/.test(l) || /bin\.js"?\s+web\b/.test(l) || /--profile\s+web\b/.test(l));
-  return { checked: true, lines };
+  if (r.status !== 0 || typeof r.stdout !== 'string') {
+    return {
+      checked: false, lines: [],
+      reason: `could not enumerate node processes via ${source} (exit ${r.status}, ${String(r.error ?? r.stderr ?? '').slice(0, 200)})`,
+    };
+  }
+  const lines = r.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).filter(isDshWeb);
+  return { checked: true, lines, source };
 }
 
 function portFree(port) {

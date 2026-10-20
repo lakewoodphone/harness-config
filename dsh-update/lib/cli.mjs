@@ -625,7 +625,14 @@ async function verbAnalyze(argv) {
   // reports BREAKS and there is no way to tell "the fix is incomplete" from "the fix is not applied".
   // Pointing `DSH_HOME` at a staged home that carries the MIGRATED copies separates those two, and
   // that staged run is what `preflight` must judge. Defaults to the live home when unset.
-  const consumedRun = runModuleCli('consumed.mjs', ['--root', REPO_ROOT, '--dsh-home', (process.env.DSH_HOME || PATHS.dshHome), '--out', consumedPath]);
+  // WHICH ROOT ARE WE AUDITING? `--root` was hardcoded to REPO_ROOT, which silently overrode the
+  // `DSH_CONFIG_ROOT` that `consumed.mjs` itself honours. Measured 2026-10-20 on `zabz-tech-linux`: that host's
+  // live web patch is 217 bytes and names NONE of `remote-fanout`, `tool-subagent-remote`, `spend-guard`, yet G2
+  // reported all three as patch targets that are not rows — because the scan was reading the REPOSITORY's patch,
+  // which this worker never deploys. A machine that legitimately does not track the repo was being judged against
+  // the repo's intent. Honouring the override lets a host be judged against its OWN config; unset, nothing changes.
+  const configRoot = process.env.DSH_CONFIG_ROOT ? path.resolve(process.env.DSH_CONFIG_ROOT) : REPO_ROOT;
+  const consumedRun = runModuleCli('consumed.mjs', ['--root', configRoot, '--dsh-home', (process.env.DSH_HOME || PATHS.dshHome), '--out', consumedPath]);
   if (!consumedRun.ok) {
     throw new CliError(
       `lib/consumed.mjs failed (exit ${consumedRun.exitCode}), so there is nothing to cross-reference.\n`
