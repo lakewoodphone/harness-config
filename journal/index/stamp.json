@@ -8,10 +8,10 @@
   "pain": 9355,
   "wins": 6939
  },
- "ceiling_refreshed_at": "2026-10-20T01:30:11Z",
+ "ceiling_refreshed_at": "2026-10-20T01:45:09Z",
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "local bands.tsv",
+  "handoff": "refs/heads/hk/641-wake-progress-cap",
   "lessons": "ZABZ-YOGA live working tree",
   "pain": "ZABZ-YOGA live working tree",
   "wins": "refs/heads/hk/641-wake-progress-cap"
