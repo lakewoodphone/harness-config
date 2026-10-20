@@ -31,7 +31,11 @@
       "apply": ["python", "scripts/patch-dsh-web-currency-math.py", "--root", "{root}"]
     },
     {
-      "id": "window-blank-isolation",
+            "id": "window-blank-isolation",
+      "superseded": {
+        "fromVersion": "0.2.1",
+        "evidence": "Measured 2026-10-20 in the installed 0.2.1 tree, dsh-client-ui-workspace/lib/client.js: the function this patch modified (`reuseOrCreateBlank`) no longer exists, and upstream now states and enforces the isolation it was written for — `sessionVisible()` contains `if (session.blank && session.id !== current) return false;` under the comment 'among blank sessions, only the current one is visible', and `pinCurrentBlank()` keeps the selected blank first without duplicating a slot. So a window no longer adopts another window's blank row. NOT PROVEN the way the patch was: this is a reading of the upstream code, not two windows opened side by side; the patch's own symptom was visual. On the 0.2.0 line the patcher still applies and is still needed."
+      },
       "kind": "script",
       "covers": ["dsh-client-ui-workspace/lib/client.js"],
       "note": "A second window must not reuse a blank workspace. Exit 4 means absent, 5 unverifiable (refuses on an unknown upstream).",
