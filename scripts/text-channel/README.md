@@ -194,3 +194,36 @@ python3 scripts/text-channel/measure-scorecard-liveness.py --before 2dde8d07^
 inside a session. The next scheduled `run-wake-sources.sh` reads the new
 live-family selection through `/root/bin/sources/owner-text-scorecard.py` (a thin
 wrapper that imports this file).
+
+## 2026-10-20 — a capture is confirmed in a sentence, not a token
+
+The conformance census still named 28 of 184 delivered texts (15.2%) that the live guards
+would refuse. Two of them were the personal-ops capture replies `Remembered.` (2026-10-16)
+and `Captured as a task.` (2026-10-18) — bare tokens the guard refuses as content-free
+acknowledgements. `app/main.py` sends that reply directly, so the relay never saw it.
+
+Change: `compose_capture_reply(kind, detail)` in the shared relay writes one sentence and
+keeps the captured fact when it is clean; a path or a credential ask falls back to the plain
+sentence. `app/services/personal_ops.py` calls it for both memory and task captures, and
+`_rescue_reminder` rewrites the two bare bodies already on the wire with the same words, so
+the phone and the census cannot disagree.
+
+Before/after (`owner-text-scorecard.py --days 14`):
+
+```
+BEFORE  28 of 184 (15.2%) refused; 6 rewritten; internal_prose 26, credential_request 3
+AFTER   26 of 184 (14.1%) refused; 8 rewritten; internal_prose 24, credential_request 3
+```
+
+Verify (none sends):
+
+```bash
+cd /root/code/harness-config/scripts/text-channel && python3 test-capture-composer.py
+cd /opt/company && .venv/bin/python -m pytest tests/test_capture_composer.py -q
+cd /root/code/harness-config/scripts/text-channel && python3 owner-text-scorecard.py --days 14 | grep -A6 CONFORMANCE
+```
+
+The remaining 26 are other composers: the historical digest wall, the budget string, the
+library/offsite prose and the 3 NJ Premier credential asks. This change does not touch the
+guard and does not suppress anything.
+

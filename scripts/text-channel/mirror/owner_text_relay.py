@@ -1442,6 +1442,47 @@ def compose_reminder_sentence(body) -> tuple[str, str]:
                                 "delivered as a dashboard pointer" % len(text))
 
 
+#: What a capture says to the owner. A bare "Remembered." is a log token, not a message:
+#: the live guard refuses it as a content-free acknowledgement, and it tells him nothing
+#: about what was kept. The sentence names the act; when the captured text is clean, it
+#: also carries the fact, so the reply is worth reading.
+_CAPTURE_FALLBACK = {
+    "memory": "I saved that to memory.",
+    "task": "I added that to your task list.",
+}
+_CAPTURE_DETAIL_MAX = 160
+
+
+def compose_capture_reply(kind, detail="") -> str:
+    """ONE human sentence confirming a capture; never a path, task id or bare ack.
+
+    `kind` is "memory" or "task". The detail is the owner's own captured text, kept only
+    when it survives the same two guards the wire applies: a path or an instruction to an
+    agent falls back to the plain sentence, and a credential ask falls back too. The
+    fallback is deliberately still a sentence -- the guard's objection is to the bare
+    token, and the owner still needs to know the capture landed.
+    """
+    base = _CAPTURE_FALLBACK.get(str(kind or "").strip().lower(), "I saved that.")
+    text = " ".join(str(detail or "").split()).strip()
+    if not text:
+        return base
+    cut = text[:_CAPTURE_DETAIL_MAX]
+    if len(text) > _CAPTURE_DETAIL_MAX and " " in cut:
+        cut = cut.rsplit(" ", 1)[0]
+    cut = cut.rstrip(" ,;:-\u2014")
+    if not cut:
+        return base
+    sentence = base[:-1] + ": " + cut
+    if sentence[-1] not in ".!?":
+        sentence += "."
+    try:
+        if _internal_hit(sentence) is None and credential_request(sentence) is None:
+            return sentence
+    except Exception:                                          # noqa: BLE001
+        return base
+    return base
+
+
 def _rescue_reminder(body, to, subsystem):
     """(body, note). Rewrite an instruction-shaped reminder into a sentence; never lose it."""
     text = "" if body is None else str(body)
@@ -1449,8 +1490,21 @@ def _rescue_reminder(body, to, subsystem):
         return body, None
     if subsystem in DEDUPE_EXEMPT_SUBSYSTEMS or not _owner_scope(to):
         return body, None
+    # A bare acknowledgement is not a message to a human. The capture composer at the
+    # sender now writes a sentence; a body already on the wire is rewritten here, so the
+    # phone and the conformance census score the same text. Only the two measured bare
+    # acks are rewritten: a generic "Got it." carries no fact to preserve, and inventing
+    # one would be worse than leaving it for the guard.
+    _ack_low = " ".join(text.split()).strip().lower().rstrip(".!")
+    if _ack_low in ("remembered", "captured as a task"):
+        _kind = "task" if _ack_low == "captured as a task" else "memory"
+        _composed = compose_capture_reply(_kind)
+        if _composed and _internal_hit(_composed) is None:
+            return _composed, ("rescue: bare acknowledgement rewritten as one human "
+                               "sentence (%d -> %d chars)" % (len(text), len(_composed)))
     if not _is_reminder_class(text):
         return body, None
+
     try:
         if _internal_hit(text) is None:
             return body, None
