@@ -309,7 +309,8 @@ Two readings combined to manufacture the duplicate:
 2. **`wake.py flag` revives a terminal subject.** The `owner-text:scorecard:2026-W43`
    subject was done at 02:14; the source re-filed it at 02:37 because the 30-minute
    cooldown had passed, and the dispatcher released it at 03:08. A weekly subject that
-   re-files after its own release is a session every ~30 minutes, not one a week.
+   re-files after its own release is a session roughly hourly (four releases between
+   00:00Z and 03:08Z), not one a week.
 
 Change in `owner-text-scorecard.py`:
 
