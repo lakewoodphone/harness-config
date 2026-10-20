@@ -43,7 +43,7 @@ import { spawnSync } from 'node:child_process'
 import { PATHS, REPO_ROOT, hostName, sha256File, windowsJsonPath, vendorPrefixPath } from '../lib/store.mjs'
 import { ENGINE_REL } from '../lib/versions.mjs'
 import { liveInstallRoot } from '../lib/live-root.mjs'
-import { applyAll, audit, checkAll } from '../lib/patches.mjs'
+import { applyAll, audit, checkAll, loadRegistry } from '../lib/patches.mjs'
 
 const ARGV = process.argv.slice(2)
 const flag = (name, fallback = null) => {
@@ -229,7 +229,31 @@ async function main() {
       if (r.phase === 'check-after') finalState.set(r.id, r)
       else if (r.phase === 'check-before' && r.exit === 0) finalState.set(r.id, r)
     }
-    const notOk = [...finalState.entries()].filter(([, r]) => r.exit !== 0).map(([id]) => id)
+    // AN ENTRY MAY BE SUPERSEDED BY UPSTREAM ON A NEWER LINE. `patches/registry.json` can carry
+    // `superseded: {fromVersion, evidence}`; on an engine at or above that version the entry's targets may
+    // legitimately no longer exist, and failing the install for it would force a waiver for a fact.
+    const registry = (() => { try { return loadRegistry() } catch { return { patches: [] } } })()
+    const cmp = (a, b) => {
+      const num = (s) => String(s).split('-')[0].split('.').map((n) => Number(n.replace(/\D/gu, '')) || 0)
+      const A = num(a); const B = num(b)
+      for (let i = 0; i < Math.max(A.length, B.length); i++) {
+        const d = (A[i] || 0) - (B[i] || 0)
+        if (d) return d
+      }
+      return String(a).includes('rc') && !String(b).includes('rc') ? -1 : 0
+    }
+    const supersededFor = (id) => {
+      const e = registry.patches.find((x) => x.id === id)
+      return e && e.superseded && cmp(candVersion, e.superseded.fromVersion) >= 0 ? e.superseded : null
+    }
+    const notOkAll = [...finalState.entries()].filter(([, r]) => r.exit !== 0).map(([id]) => id)
+    for (const id of notOkAll) {
+      const sup = supersededFor(id)
+      if (!sup) continue
+      say(`  SUPERSEDED BY UPSTREAM  ${id} — this patcher does not apply on ${candVersion} because ${sup.fromVersion}+ handles the same failure itself; recorded, not waived.`)
+      say(`        evidence: ${String(sup.evidence).slice(0, 240)}…`)
+    }
+    const notOk = notOkAll.filter((id) => !supersededFor(id))
     if (waived.size) {
       const unwaived = notOk.filter((id) => !waived.has(id))
       if (unwaived.length) refuse(`hand patches did not apply and were not waived: ${unwaived.join(', ')}. The live tree was not touched; the staged copy is at ${staged}.`)

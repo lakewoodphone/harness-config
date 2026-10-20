@@ -11,7 +11,11 @@
       "apply": ["python", "scripts/patch-dsh-malformed-tool-input.py", "--root", "{runtime}"]
     },
     {
-      "id": "settlement-crash",
+            "id": "settlement-crash",
+      "superseded": {
+        "fromVersion": "0.2.1",
+        "evidence": "Measured 2026-10-20 on the 0.2.1 tree: the unguarded async settlement watcher this patch existed to catch is gone. dsh-subagent/lib/index.js now wraps EVERY lifecycle listener's returned promise in `Promise.resolve(returned).catch(...)` (line 171) and the settlement path is a defined `settle: ({stopReason, output})` handler (line 199) with `settlementSummary` / `createSettlementMessage` / `kind: \"subagent-settled\"`. lib/types/activation.js no longer contains an async IIFE at all, and the manager catches disposal promises at 1274/1306/1319/1363/1381. So on 0.2.1 this patch has nothing to add: its first target is already-hardened in our tree by an earlier partial apply, and its other two targets do not exist any more. On the 0.2.0 line it is still needed."
+      },
       "kind": "script",
       "covers": ["dsh-subagent/lib/index.js"],
       "note": "A finished child agent must not die at settlement and lose its report. Found 2026-09-30.",
