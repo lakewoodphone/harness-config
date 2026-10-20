@@ -8,6 +8,14 @@
   "pain": 9739,
   "wins": 6939
  },
+ "ceiling_refreshed_at": "2026-10-20T18:15:14Z",
+ "ceiling_source": {
+  "decisions": "ZABZ-YOGA live working tree",
+  "handoff": "refs/heads/lpt/roadmap-supply-206-20261020",
+  "lessons": "refs/heads/lpt/roadmap-supply-206-20261020",
+  "pain": "refs/heads/lpt/roadmap-supply-206-20261020",
+  "wins": "ZABZ-YOGA live working tree"
+ },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-20 17:15 UTC",
  "entries": 5808,
@@ -18,7 +26,7 @@
   "decisions": 8896,
   "handoff": 11432,
   "lessons": 11325,
-  "pain": 9738,
+  "pain": 9802,
   "wins": 7130
  },
  "log_count": 9,
