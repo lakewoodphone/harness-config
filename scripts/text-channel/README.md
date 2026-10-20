@@ -367,3 +367,74 @@ One latent trap found while proving this, not changed here: the app's
 `company-api` until it restarts. It is not biting today (the process started 01:22Z
 and its last app-door owner send was 2026-10-19 18:24Z, so its cache was empty at
 deploy time), but the next textsend deploy has no such guarantee.
+
+## 2026-10-20 — a credential ask is a reminder, not a suppression
+
+The conformance census named 3 `credential_request` rows in the 14-day window: the
+2026-10-08 library ask ("Send me the barcode and password"), and the 2026-10-16/17 NJ
+Premier asks ("Give me the NJ Premier Business Services login"). Rule 1g refuses each
+body whole, which is right for the secret and wrong for the reminder: the NJ returns and
+the library count are real work, and a refusal deletes them. The pager made it worse —
+once the answerable rule landed, `_compose_one()` returned `""` for a credential item
+because it carries no question, so the pager skipped the reminder before the gate ever
+saw it.
+
+The repair is at the composer, not the guard:
+
+* `rewrite_credential_ask()` in `mirror/owner_text_relay.py` keeps the subject before the
+  ask, cuts the clause that asks for the secret, and closes with one question:
+  `... - can you restore the access I need today?`
+* `_rescue_reminder()` calls it for every owner-scoped body that `credential_request()`
+  names, so the shared sender writes the safe sentence whatever door produced the ask.
+* `owner_attention.py::_compose_one()` asks the relay for that sentence, so the pager
+  sends the reminder instead of dropping it. It imports nothing at module load; a relay
+  that is missing leaves the old statement rule in place.
+
+Before/after on the same 14 days of `sms_log` + `messages`:
+
+```
+BEFORE  26 of 186 (14.0%) refused; 8 rewritten; internal_prose 24, credential_request 3
+AFTER   23 of 186 (12.4%) refused; 11 rewritten; internal_prose 23, credential_request 0
+```
+
+The 3 changed rows are exactly the 3 credential asks. They are now scored through the
+same rewrite the live gate would apply, so they are delivered, not lost. The other 23 are
+untouched history (the retired digest wall, the 10-08 budget string, the one-off library
+/ offsite / Topgolf / Newegg prose, the family-chat forward, the 10-19 fragment); this
+change does not rewrite them and does not touch the guard.
+
+The composer test uses the three bodies as delivered:
+
+```
+cd /root/code/harness-config
+python3 scripts/text-channel/test-credential-ask-composer.py
+OK  2026-10-08 library     -> The collector's letter ... - can you restore the access I need today?
+OK  2026-10-16 NJ payroll  -> NJ payroll returns have no filer ... - can you restore the access I need today?
+OK  2026-10-17 NJ sales tax -> The NJ sales tax return for Q3 2026, form ST-50 - can you restore the access I need today?
+BEFORE  3/3 measured bodies refused by the guards; pager would skip or the gate refuse 3/3
+AFTER   0/3 refused; 3/3 delivered as one question, no credential, no path
+RESULT: PASS (151 checks)
+```
+
+Controls are unchanged: a broken login page (a status report), "Your password is on the
+desk." (a statement that provides a secret), "Can you reset the password?" (a task for
+us, not an ask) and a normal question are not rewritten.
+
+Verify (none sends):
+
+```bash
+cd /root/code/harness-config
+python3 scripts/text-channel/test-credential-ask-composer.py      # 151 checks, PASS
+python3 scripts/text-channel/owner-text-scorecard.py --days 14 | grep -A9 CONFORMANCE
+python3 /root/bin/text-health.py                                  # 20 checks, 0 FAIL
+python3 /root/bin/sms-responder.py run --dry-run --limit 5         # 0 to decide
+```
+
+Deployed relay md5 `3583c8aba509`; live pager md5
+`1e7cb47bd1aa2101abe3fca426f77f67`. Backups:
+`/root/text-deploy-backup/20261020T031709Z/owner_text_relay.py` and
+`/root/text-deploy-backup/20261020T031636Z/owner_attention.py`. The pager is the app-repo
+file at `/opt/company/scripts/owner_attention.py` (`/root/personal-secretary-mvp` is the
+same checkout); the working tree already carried the uncommitted one-question and
+answerable patches, so this change is recorded by hash and this section rather than as a
+clean app-repo commit.

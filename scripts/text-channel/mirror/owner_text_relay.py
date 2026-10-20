@@ -1483,6 +1483,74 @@ def compose_capture_reply(kind, detail="") -> str:
     return base
 
 
+# ---- the credential ask, rewritten at the sender ------------------------
+
+#: What we actually need from him when a text was about to ask for a secret.
+_CRED_ACCESS_QUESTION = "can you restore the access I need today?"
+
+
+def rewrite_credential_ask(body):
+    """One human sentence for an owner text that asks for a credential, or None.
+
+    THE GUARD IS NOT THE REPAIR. `credential_request` refuses the whole text, and for
+    a reminder that deletes the reminder. The three measured asks each carried the real
+    subject before the ask:
+
+      * 2026-10-08  "The collector's letter ... Send me the barcode and password ..."
+      * 2026-10-16  "NJ payroll returns have no filer since Gusto was cancelled ..."
+      * 2026-10-17  "The NJ sales tax return for Q3 2026, form ST-50 ..."
+
+    Keep the subject, cut the clause that asks for the secret, and close with the one
+    thing we need from him: access restored. The result names no credential, no path,
+    no task id and no agent instruction, and it ends in a question he can answer.
+    """
+    text = "" if body is None else str(body)
+    if not text.strip():
+        return None
+    noun = credential_request(text)
+    if not noun:
+        return None
+    kept = []
+    for sentence in _CRED_SENTENCE_RE.split(text):
+        sentence = sentence.strip()
+        if len(sentence) < 12:
+            continue
+        if re.match(r"(?i)^(?:yes|no|right|ok|okay|correct|sure|thanks)\b", sentence):
+            continue
+        if credential_request(sentence):
+            m = re.search(r"\b" + re.escape(noun) + r"\b", sentence, re.I)
+            if m is None:
+                continue
+            prefix = sentence[:m.start()]
+            verbs = list(_CRED_REQUEST_RE.finditer(prefix))
+            if verbs:
+                prefix = prefix[:verbs[-1].start()]
+            prefix = prefix.strip(" \t\r\n-\u2014:;,.!?")
+            if len(prefix) >= 12 and _internal_hit(prefix) is None:
+                kept.append(prefix)
+            continue
+        if _internal_hit(sentence) is None:
+            kept.append(sentence.rstrip(" .!?"))
+    subject = " ".join(kept).strip(" \t\r\n-\u2014:;,.")
+    if len(subject) > 180:
+        cut = subject[:180]
+        for sep in (". ", "; ", " \u2014 ", " - ", ", "):
+            at = cut.rfind(sep)
+            if at > 60:
+                subject = cut[:at].rstrip(" ,;:-\u2014")
+                break
+        else:
+            subject = cut.rsplit(" ", 1)[0].rstrip(" ,;:-\u2014")
+    if not subject or len(subject) < 12:
+        subject = "A filing is waiting on access I do not have"
+    out = subject + " - " + _CRED_ACCESS_QUESTION
+    if credential_request(out) or _internal_hit(out):
+        return None
+    if len(out) > MAX_CHARS:
+        out = out[:MAX_CHARS - 1].rsplit(" ", 1)[0].rstrip(" ,;:-\u2014") + "?"
+    return out
+
+
 def _rescue_reminder(body, to, subsystem):
     """(body, note). Rewrite an instruction-shaped reminder into a sentence; never lose it."""
     text = "" if body is None else str(body)
@@ -1490,6 +1558,16 @@ def _rescue_reminder(body, to, subsystem):
         return body, None
     if subsystem in DEDUPE_EXEMPT_SUBSYSTEMS or not _owner_scope(to):
         return body, None
+    # Rule 1g, THE COMPOSER SIDE. The guard would suppress this body whole and, for a
+    # reminder, delete the reminder. Keep the subject and write the one sentence we
+    # actually need: restore access. Measured on the 2026-10-08 library ask and the
+    # 2026-10-16/17 NJ Premier asks; none of them reached him as a question he could
+    # answer, and two were suppressed outright once rule 1g landed.
+    if credential_request(text):
+        _cred = rewrite_credential_ask(text)
+        if _cred:
+            return _cred, ("rescue: credential ask rewritten as one human sentence "
+                           "(%d -> %d chars)" % (len(text), len(_cred)))
     # A bare acknowledgement is not a message to a human. The capture composer at the
     # sender now writes a sentence; a body already on the wire is rewritten here, so the
     # phone and the conformance census score the same text. Only the two measured bare
