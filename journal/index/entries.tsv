@@ -2771,6 +2771,7 @@ lessons	L3881	3881		2026-10-20	ZABZ-TECH	open	**L3881 · The wake loop's roadmap
 lessons	L3884	3884		2026-10-20	ZABZ-TECH	open	**L3884 · Equal byte counts are not equal content, and --write output must be committed with the change that moved it**	entries/lessons/L3884.md	1	29	8630a1306bc382d1	kosher-filter-ai,ci,generated-docs	
 lessons	L3886	3886		2026-10-20	ZABZ-TECH	open	**L3886 · work.py add answered unknown-project for a project that exists, once, and the same call worked seconds later**	entries/lessons/L3886.md	1	43	ff83f541dc9db26a	ledger,work.py,authority	
 lessons	L3889	3889		2026-10-20	ZABZ-TECH	open	**L3889 · roadmap-supply dedupes inside one project, so a cross-project mapping row refiles real work**	entries/lessons/L3889.md	1	40	38114defea0ca5ac	roadmap,wake,ledger	
+lessons	L3890	3890		2026-10-20	ZABZ-TECH	open	**L3890 · journal.py append writes to a working tree, not to the record: 19 entries of one session existed nowhere else**	entries/lessons/L3890.md	1	45	9a5a1e8a30006d7d	journal,harness-config,publishing	
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	

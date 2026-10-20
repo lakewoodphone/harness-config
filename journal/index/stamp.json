@@ -4,15 +4,15 @@
  "ceiling": {
   "decisions": 3158,
   "handoff": 3702,
-  "lessons": 3889,
+  "lessons": 3890,
   "pain": 3813,
   "wins": 2815
  },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-20 17:39 UTC",
- "entries": 4125,
- "entries_count": 4125,
- "entries_sig": "b41c478f5cba89758cd8e5d115e4e02a2f92dbf3",
+ "entries": 4126,
+ "entries_count": 4126,
+ "entries_sig": "5fe9c63dfb5d57fbb5e99e0988ae973ec7f65895",
  "flat_sig": "cbbc87bf58490ef81aeadd091192dfec7057fb95",
  "git_ceiling": {
   "decisions": 3143,
