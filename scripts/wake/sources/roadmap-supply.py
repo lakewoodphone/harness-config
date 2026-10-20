@@ -397,6 +397,30 @@ def split_candidates(to_file: list, live: dict, done: dict) -> tuple:
     return new, already, done_not_landed
 
 
+def ledger_states_by_id(db, project: str) -> dict:
+    """ledger item id -> its state, for one project. One query; the ledger is the authority.
+
+    Added 2026-10-20 (ledger item 799). done_not_landed compares a mapping row's TITLE with the titles of
+    done ledger items, which cannot tell "this path is done" from "a differently-titled item covering the
+    same box is done". Measured: W-P3-01 is correctly open and names ledger 204 while ledger 412, a
+    different title for the same box, is done - so the title match reported a disagreement that is not
+    one. An item file names its own ledger id, so the comparison can be exact.
+    """
+    out: dict = {}
+    try:
+        import sqlite3
+        conn = sqlite3.connect("file:%s?mode=ro" % db, uri=True)
+        try:
+            for iid, state in conn.execute(
+                    "SELECT id, state FROM work_item WHERE project=?", (project,)):
+                out[int(iid)] = str(state)
+        finally:
+            conn.close()
+    except Exception:
+        return {}
+    return out
+
+
 def parse_item_front(text: str, rid: str) -> dict:
     """The four fields this source needs from a roadmap item file, and nothing else.
 
@@ -576,6 +600,29 @@ def run(args) -> int:
         to_file.append({**it, "src": box["src"], "line": box["line"]})
     text_keyed = len(mapping["items"]) - id_keyed
 
+    # 2026-10-20 (ledger 799): for an id-keyed row the honest comparison is the item's OWN ledger id, not
+    # a title. Reported, never acted on: the roadmap file is the owner of the state, and a disagreement
+    # means one of the two is stale, which is a human read.
+    id_ledger_disagree: list = []
+    if id_keyed:
+        states = ledger_states_by_id(WORK_DB, args.project)
+        for it in mapping["items"]:
+            rid = str(it.get("roadmap_id") or "").strip()
+            if not rid or rid not in id_state:
+                continue
+            row = id_state[rid]
+            lid = str(row.get("ledger") or "").strip()
+            if not lid.isdigit():
+                continue
+            lstate = states.get(int(lid))
+            if not lstate:
+                continue
+            st = str(row.get("state") or "").strip()
+            if (st == "done" and lstate != "done") \
+               or (st in ("open", "partial") and lstate == "done") \
+               or (st == "blocked" and lstate in ("todo", "running")):
+                id_ledger_disagree.append((rid, lid, st, lstate))
+
     # A mapped box that is now CHECKED in the doc is done by the docs' own record; nothing to file.
     checked_keys = set()
     for rel in mapping.get("source_docs", []):
@@ -599,6 +646,10 @@ def run(args) -> int:
         return 1
 
     new, already, done_not_landed = split_candidates(to_file, live, done)
+    # An id-keyed row is judged by its ledger id above, so the title comparison would double-report it
+    # and, worse, report a differently-titled item as this path's own history.
+    done_not_landed = [d for d in done_not_landed
+                       if not str(d.get("roadmap_id") or "").strip()]
 
     # 3. coverage gaps, both directions. Reported, never filed.
     all_doc_keys: set = set()
@@ -685,7 +736,8 @@ def run(args) -> int:
     # reads this source, and the matrix is what stops an author writing a dod no host can run.
     print("%s: docs=%s hosts=%s unchecked_boxes=%d mapped=%d new=%d filed_this_run=%d already=%d "
           "done_not_landed=%d unmapped_boxes=%d stale_mapping_rows=%d uncovered=%d bad_hosts=%d "
-          "id_keyed=%d text_keyed=%d item_state=%s authoring_item=%s ledger=%s%s"
+          "id_keyed=%d text_keyed=%d item_state=%s id_ledger_disagree=%d authoring_item=%s "
+          "ledger=%s%s"
           % (SOURCE,
              docs.kind,
              ",".join(sorted(k for k in (mapping.get("capability_matrix") or {})
@@ -694,11 +746,16 @@ def run(args) -> int:
              len(done_not_landed), len(unmapped), len(mapped_not_in_doc), len(uncovered),
              len(bad_hosts), id_keyed, text_keyed,
              ",".join("%s:%d" % (k, v) for k, v in sorted(id_counts.items()) if v) or "empty",
+             len(id_ledger_disagree),
              "open" if (authoring_open or (uncovered and not args.no_authoring_item)) else "not-needed",
              ",".join("%s:%d" % (k, counts[k]) for k in sorted(counts)) or "empty",
              " DRY-RUN" if args.dry_run else ""))
     for t in filed:
         print("  filed: %s" % t)
+    for rid, lid, st, lstate in id_ledger_disagree:
+        print("  ID-LEDGER-DISAGREE %s: roadmap item says %s, ledger item %s says %s (%s) - one of the two "
+              "is stale; neither is changed by this source"
+              % (rid, st, lid, lstate, "docs/roadmap/items/%s.md" % rid))
     for i in done_not_landed:
         print("  DONE-NOT-LANDED #%s %s (box %s:%s) - ledger item is done, the doc box is still "
               "unchecked; NOT refiled" % (done[i["title"]], i["title"], i.get("src"),
