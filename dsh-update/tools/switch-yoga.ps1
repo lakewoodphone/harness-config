@@ -79,6 +79,24 @@ Say ("  expression lines fixed: {0}" -f $fixed)
 # Measured 2026-10-19: the retired DeepInfra 0731 model lived in base.yaml + a machine overlay, and the ROWS are
 # what the engine actually reads on 0.1.7+; regenerating one without the other leaves the machine running a
 # document nobody verified.
+# 2c. OUR OWN ASSUMPTIONS ABOUT THE CANDIDATE. `config-assumptions.mjs` (L10238) fails on (A) a
+# `ctx.<svc>` our patch expressions reference that this version's rows do not inject, and (B) any
+# `{{token}}` our presets carry that this version does not register as a prompt variable. Both were
+# live outages on the owner's machines; both are invisible to patch-effect and to every gate.
+# Run against the CANDIDATE, before anything is installed, so a finding costs one restored config.
+Say 'STEP 2.5  our config assumptions against the candidate'
+$candPrefix = Join-Path $repo "dsh-update\vendor\prefix\$Version"
+& node dsh-update\tools\config-assumptions.mjs --engine $candPrefix --home $home_ 2>&1 | ForEach-Object { Say "  $_" }
+$assumeRc = $LASTEXITCODE
+Say ("  config-assumptions exit: {0}" -f $assumeRc)
+if ($assumeRc -ne 0) {
+    Say 'REFUSED - our config names something this version does not offer. Restoring the live patch and starting the OLD engine.'
+    Copy-Item "$live.bak-switch-$stamp" $live -Force
+    & pwsh -NoProfile -File multi-window\dshw.ps1 ensure -ConfigPath multi-window\windows.json 2>&1 | ForEach-Object { Say "  $_" }
+    Stop-Transcript | Out-Null
+    exit 5
+}
+
 Say '  regenerating the merged settings document and the rows it owns'
 $merged = Join-Path $env:TEMP 'settings-merged-switch.yaml'
 & node scripts\merge-settings.mjs settings\base.yaml settings\machines\ZABZ-YOGA.yaml $merged 2>&1 | ForEach-Object { Say "    $_" }
@@ -97,7 +115,10 @@ Say "STEP 3  install-engine $Version"
 $installRc = $LASTEXITCODE
 Say ("  install-engine exit: {0}" -f $installRc)
 if ($installRc -ne 0) {
-    Say 'INSTALL DID NOT COMPLETE — the previous tree is intact (see the output above). Starting the old engine back up.'
+    Say 'INSTALL DID NOT COMPLETE - the previous tree is intact (see the output above).'
+    Say '  restoring the live profile patch from its pre-switch copy: that copy was already rewritten for the new version, and the OLD engine cannot boot with it.'
+    Copy-Item "$live.bak-switch-$stamp" $live -Force
+    Say '  starting the old engine back up.'
     & pwsh -NoProfile -File multi-window\dshw.ps1 ensure -ConfigPath multi-window\windows.json 2>&1 | ForEach-Object { Say "  $_" }
     Stop-Transcript | Out-Null
     exit 4
