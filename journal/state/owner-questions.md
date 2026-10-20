@@ -6,7 +6,7 @@ Updated: 2026-10-20
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 610 row(s) read, 29 pending, generated 2026-10-20 01:08 UTC on SECRATARY-CLOUD.
+Provenance: 611 row(s) read, 30 pending, generated 2026-10-20 02:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -39,5 +39,6 @@ Provenance: 610 row(s) read, 29 pending, generated 2026-10-20 01:08 UTC on SECRA
 | 844 | 2026-10-19 | low | Screenshots and images on your Desktop and OneDrive are not searchable. 2,401 files never reach the index because it only takes text formats. Do you want them searchable? | No for now. Nothing in this rebuild was ever answered by a screenshot, OCR is a real build rather than a setting, and the corpus already holds 730,000 text documents. Revisit the first time a screenshot turns out to be t |
 | 845 | 2026-10-19 | low | ZABZ-TECH's own search index is 16.7 GB, and 101,044 of its 1,357,204 documents are worktree copies of two repositories, _fleet trees, _scratch trees and logs. May I prune those? | Yes, and in the same pass as the central prune. Nothing in that set is unique: worktree copies are duplicates of checkouts that remain on disk, and the rest is scratch and logs. A verified copy of the index is taken firs |
 | 853 | 2026-10-20 | low | Set up the numbered test-SIM drawer — kit, line, phone, expiry — so a lost SIM never needs a swap? | Yes. A numbered kit and one line per phone makes a lost SIM a fresh activation, never a swap. |
+| 854 | 2026-10-20 | low | A $25.00 charge on the business Chase card on 16 Jun says only 'API CREDIT' - was that an API/software credit purchase, or something else? | Software & Online Services - the descriptor and the business card fit an API credit top-up. |
 
 Closed since the queue opened: 581. Answered questions move to `entries/decisions/` with the owner's own words.
