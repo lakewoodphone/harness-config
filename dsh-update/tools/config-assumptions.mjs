@@ -128,6 +128,11 @@ for (const f of files) {
   let currentRow = null
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    // A COMMENT IS NOT A CONFIG VALUE. Measured 2026-10-20 on ZABZ-TECH: three preset files carried the
+    // 0.2.1 explanation of this exact failure in a `#` comment, and the checker reported those comments as
+    // live `{{cwd}}` tokens. A gate that fails on documentation is a gate somebody turns off, so full-line
+    // comments are skipped -- a token inside a value on a real row is still a finding.
+    if (/^\s*#/u.test(line)) continue
     const trimmed = line.trim()
     if (trimmed.startsWith('#')) continue
     const idm = /(?:^|[\s{,])id:\s*['"]?([A-Za-z0-9_.:-]+)['"]?/u.exec(line)
