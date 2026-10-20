@@ -4688,6 +4688,7 @@ pain	P9291	9291		2026-10-19	SECRATARY-CLOUD	open	## P9291 — esearch freshness:
 pain	P9355	9355		2026-10-20	SECRATARY-CLOUD	open	## P9355 — a script this host RUNS does not match the captured reference	entries/pain/P9355.md	1	6	1b8ca65fa29d407f	deployed-drift,scripts,drift	
 pain	P9419	9419		2026-10-20	SECRATARY-CLOUD	open	## P9419 — esearch freshness: ok=false with no problems listed	entries/pain/P9419.md	1	6	e78c725a581839b1		
 pain	P9483	9483		2026-10-20	SECRATARY-CLOUD	open	## P9483 — estate search index integrity: ok=false with no problems listed	entries/pain/P9483.md	1	8	d1fc07aad2e19770		
+pain	P9547	9547		2026-10-20	SECRATARY-CLOUD	open	## P9547 — Estate monitor: tmp_used_pct is critical (92.31 %) across 5 consecutive runs	entries/pain/P9547.md	1	23	a5091c76773ea2c2	estate-monitor,auto-filed,not-the-owners	metrics/tmp_used_pct
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
