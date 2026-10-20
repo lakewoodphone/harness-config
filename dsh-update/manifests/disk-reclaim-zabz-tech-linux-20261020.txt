@@ -1,0 +1,38 @@
+disk reclaim on zabz-tech-linux at 2026-10-20T02:55:34Z
+mode: --execute | customer-data cutoff: 2026-09-20T02:55:34Z (files newer than this are NOT deleted)
+
+/dev/nvme0n1p2   490048472 455857264   9224604      99% /
+
+path | kind | files | bytes | newest file | verdict
+-----|------|-------|-------|-------------|--------
+/home/zabz/shlesinger-recovery-2026-08-13 | customer | 374 | 145402608539 | 2026-08-14 /home/zabz/shlesinger-recovery-2026-08-13/carved/jpg_000040.jpg | OK (>30d)
+/home/zabz/laptop-backups/qin-f21-recovery | customer | 414 | 58192117589 | 2026-06-16 /home/zabz/laptop-backups/qin-f21-recovery/mtk-dump/userdata.img | OK (>30d)
+/home/zabz/sd-diagnostics | customer | 98 | 28545200933 | 2026-08-05 /home/zabz/sd-diagnostics/card1-16gb.log | OK (>30d)
+/home/zabz/mtkclient/stock | public | 205 | 14178077390 | 2025-07-02 /home/zabz/mtkclient/stock/M5 Stock ROM-SP_FLASH.rar | OK (public/regenerable)
+/home/zabz/tiq-firmware | public | 22 | 3625317089 | 2026-07-07 /home/zabz/tiq-firmware/vmlinux | OK (public/regenerable)
+/home/zabz/.cache | public | 152800 | 3351894696 | 2026-10-19 /home/zabz/.cache/node/corepack/v1/pnpm/12.14.0/pnpm-native | OK (public/regenerable)
+
+top-level entries of each candidate (for the record):
+  /home/zabz/shlesinger-recovery-2026-08-13: carved ddrescue-run.log dd-to-usb.log usb_image.img usb_image.log usb_image.log.bak 
+  /home/zabz/laptop-backups/qin-f21-recovery: adb-pull mtk-dump 
+  /home/zabz/sd-diagnostics: card1-16gb.img card1-16gb.log card1-16gb.log.bak card1-photorec card1-photos foremost-mov foremost-out full-carve 
+  /home/zabz/mtkclient/stock: firmware firmware2 m5-20250429.rar M5 Stock ROM-SP_FLASH.rar 
+  /home/zabz/tiq-firmware: apdb boot-debug.img boot.img dtbo.img lk.img logo.bin md1img.img MT6761_Android_scatter.txt 
+  /home/zabz/.cache: checkpoint-nodejs clang dconf event-sound-cache.tdb.5f671e975bde473696cac53f7245a799.x86_64-pc-linux-gnu evolution fontconfig gdown gnome-desktop-thumbnailer 
+
+DELETING 6 target(s) with rm -rf --one-file-system on the exact paths:
+  rm -rf --one-file-system /home/zabz/shlesinger-recovery-2026-08-13
+    -> removed
+  rm -rf --one-file-system /home/zabz/laptop-backups/qin-f21-recovery
+    -> removed
+  rm -rf --one-file-system /home/zabz/sd-diagnostics
+    -> STILL PRESENT
+  rm -rf --one-file-system /home/zabz/mtkclient/stock
+    -> removed
+  rm -rf --one-file-system /home/zabz/tiq-firmware
+    -> removed
+  rm -rf --one-file-system /home/zabz/.cache
+    -> removed
+
+after:
+/dev/nvme0n1p2   490048472 236194836 228887032      51% /

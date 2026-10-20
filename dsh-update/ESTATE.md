@@ -45,8 +45,13 @@ grep -c 'dsh-agent-presets\|dsh-workflow-worker-thread' ~/.dsh/profiles/*/cordis
 
 ## Readiness of the two hosts that are not done (measured 2026-10-20)
 
-**zabz-tech-linux** — node v22.23.2, npm 10.9.8, credentials present, 11 GB RAM (3 free + 7 cache). Two things
-must be fixed BEFORE any update there:
+**zabz-tech-linux** — node v22.23.2, npm 10.9.8, credentials present, 11 GB RAM. **Disk reclaimed 2026-10-20:
+99 % -> 45 % (259 GB free)** under the owner's 30-day retention rule, with a committed manifest. Tooling installed
+(`install-engine`, `live-root`, `link-anchors`, `patches/registry.json`, ported `bootstrap-pin`), pin bootstrapped
+from the running 0.1.5-rc.1, candidate **fetched and verified** (85.5 s), baseline snapshotted (241 packages, 152
+rows). Its live home has **no `.agent-presets` at all**, so `stage-home` refuses by design (no presets -> no rows);
+preflight therefore judges the candidate against the live config, which is correct for a worker that mounts only the
+shipped roster. Two things were fixed before this could run:
 
 - **disk is at 99 % — 9.2 GB free on `/`**, and the composition is not junk. Measured 2026-10-20:
   `/home/zabz` is 347 GB of it —
