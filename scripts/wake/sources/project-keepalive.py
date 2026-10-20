@@ -613,6 +613,10 @@ def standing_contract(project: dict, state: dict, items: list[str],
     where = str(project.get("repo") or project.get("case") or "UNKNOWN")
     state_file = str(state_path(project))
     notes = str(project.get("notes") or "").strip()
+    # 2026-10-20: the registry gained a per-project definition_of_done and NOTHING READ IT -
+    # the decoration case this estate keeps finding. It is rendered here, above the generic
+    # repository text, so the authored per-project contract wins where they differ.
+    dod = str(project.get("definition_of_done") or "").strip()
 
     return "\n".join(filter(None, [
         f"PROJECT SHIFT - {title} (`{pid}`). You are a woken session with no history of"
@@ -721,6 +725,9 @@ def standing_contract(project: dict, state: dict, items: list[str],
         "  `--state blocked --blocked-on '<who or what>'` when only a person or an external",
         "  thing can unblock it - and then TAKE ANOTHER ITEM IN THIS SAME SHIFT.",
         "  A close with no --proof and --result is RECORDED AS NOT DONE, on purpose.",
+        (f"  THIS PROJECT'S DEFINITION OF DONE, from the project registry (projects.json) - it is"
+         f" authoritative over the generic repository text immediately below this block:{chr(10)}"
+         f"    {dod}") if dod else "",
         "  A REPOSITORY THAT CHECKS ITSELF MUST PASS ITS OWN CHECK. If the repo you",
         "  changed has a structure check, run it and quote its result in --result - a red",
         "  check is not a finished item, whatever else you fixed. kosher-filter-ai has one:",
