@@ -30,10 +30,13 @@ from one with startable todo work -- yet `work.py claim-next` can only ever answ
 11 consecutive chumash wakes over 23 hours re-derived one owner-only blocker for no
 change. Such a project is now suppressed with the blocked+revisit named, at priority
 4 waste, and the suppression RE-ARMS BY ITSELF: the moment a blocked item comes due
-or any todo item is filed, the project flags again. A project may opt out with
-`ignore_blocked_ledger: true` in the registry when its ledger is a known-INCOMPLETE
-account of its backlog (kosher-ai-filter, whose state file names untracked roadmap
-work). An unreadable ledger is never a suppression: it fails OPEN.
+or any todo item is filed, the project flags again. There is NO registry opt-out
+since 2026-10-20 (LEDGER item 820): kosher-ai-filter held `ignore_blocked_ledger:
+true` because its state file named untracked roadmap work, that work was filed as
+ledger items 194-201, and the stale exemption then let the blob file a paid shift
+against nine blocked ledger rows. Work missing from the ledger is fixed by filing it
+there, not by waking a shift that can only answer `nothing-todo`. An unreadable
+ledger is never a suppression: it fails OPEN.
 
 THE FINISHED PROJECT IS SILENCED BY THE LEDGER, NOT BY A STALE STATE FILE (LEDGER
 item 354, 2026-10-15). A project whose ledger holds rows and ALL of them terminal
@@ -364,8 +367,9 @@ def _ledger_verdict(pid: str, now: datetime) -> tuple[str, str]:
     every 1800s cooldown for zero work. "finished" is suppressed exactly like
     "blocked-future" -- the ledger proves no woken shift could start anything -- while
     "unknown" is kept for the no-rows case so an empty-but-readable ledger can never
-    silence a new project. A project whose ledger is a known-INCOMPLETE account of its
-    backlog opts out with `ignore_blocked_ledger: true`, same as blocked-future.
+    silence a new project. There is no registry opt-out since LEDGER item 820
+    (2026-10-20): a ledger known to be incomplete is fixed by FILING the missing work,
+    not by waking a shift that can only answer `nothing-todo`.
 
     A SUPPRESSION SIGNAL FAILS OPEN. If the ledger cannot be read the answer is
     "unknown", never "blocked-future", so a broken new signal can slow the fleet down
@@ -429,32 +433,6 @@ def _ledger_verdict(pid: str, now: datetime) -> tuple[str, str]:
         + (f", owner-queue #{','.join(str(o) for o in owner_rows)}" if owner_rows else "")
         + ")")
     return "blocked-future", detail
-
-
-def _ledger_suppression_enabled(project: dict) -> bool:
-    """Whether the ledger's verdict is allowed to SUPPRESS this project's flag.
-
-    Default yes. A project sets `ignore_blocked_ledger: true` when its ledger is a
-    known-INCOMPLETE account of its backlog -- when its state file names real work
-    that has no ledger item -- because then "the ledger has nothing startable" is not
-    proof that a shift has nothing to do. Measured 2026-10-14: kosher-ai-filter's
-    state file names an "Untracked non-blocked roadmap remainder" (Windows Desktop
-    Duplication + ONNX/WinML, cross-platform test matrix) and it is the owner's named
-    always-on project, so it is exempt; chumash, personality-system and rental-system
-    name only blocked ledger items and are not. The exemption is not a silence: the
-    flagged line still carries `[ledger: ...]`, so the waste stays measurable, and it
-    becomes unnecessary the moment a shift files that remainder as a ledger item.
-
-    PROJECT_KEEPALIVE_IGNORE_BLOCKED_LEDGER=1 forces the exemption for every project;
-    =0 forces suppression for every project. Rehearsal only, never in cron.
-    """
-    forced = str(os.environ.get("PROJECT_KEEPALIVE_IGNORE_BLOCKED_LEDGER")
-                 or "").strip().lower()
-    if forced in ("1", "true", "yes"):
-        return False
-    if forced in ("0", "false", "no"):
-        return True
-    return not bool(project.get("ignore_blocked_ledger"))
 
 
 
@@ -918,23 +896,31 @@ def collect(args) -> list[Finding]:
         # sits BEFORE the cooldown deliberately: a cooldown countdown implies the wake
         # is still coming, and this is the honest reason it is not.
         verdict, detail = _ledger_verdict(pid, now)
+        # LEDGER ITEM 820, measured 2026-10-20T19:00Z: kosher-ai-filter carried
+        # `ignore_blocked_ledger` because its state file named untracked roadmap work.
+        # That work was filed as ledger items 194-201 and the docs section was
+        # archived, but the key stayed -- and the stale blob then filed a paid shift
+        # against nine blocked ledger rows. The exemption is no longer honoured; say so
+        # rather than silently ignoring a field an operator may still be maintaining.
+        if project.get("ignore_blocked_ledger"):
+            print(f"{SOURCE}: {pid} WARNING registry ignore_blocked_ledger is no longer "
+                  f"honoured (ledger item 820); the ledger verdict decides",
+                  file=sys.stderr)
         # "finished" is suppressed for the same reason as "blocked-future": the ledger
         # proves no woken shift could start anything, so the flag would buy an
         # identical `nothing-todo` session. LEDGER item 354 measured that case live:
         # chumash held 0 non-terminal items (6 done) on 2026-10-15 and was re-filed
         # every 1800s cooldown, and rental-system was still being flagged on
         # 2026-10-15T16:54Z with "(0 item(s) remaining)" against 9 done ledger rows.
-        if verdict == "finished" and _ledger_suppression_enabled(project):
+        if verdict == "finished":
             stayed.append(
                 f"{pid}  quiet       ledger is finished: {detail}")
             continue
-        if verdict == "blocked-future" and _ledger_suppression_enabled(project):
+        if verdict == "blocked-future":
             stayed.append(
                 f"{pid}  suppressed  no shift-startable ledger work: {detail}")
             continue
-        if verdict in ("finished", "blocked-future"):
-            note = f"  [ledger: {detail}; exemption ignore_blocked_ledger]"
-        elif verdict == "unknown":
+        if verdict == "unknown":
             ledger_unknown.append(pid)
             note = f"  [ledger: {detail}]"
         else:
