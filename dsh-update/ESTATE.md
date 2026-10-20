@@ -43,6 +43,20 @@ pgrep -af 'dsh.*bin.js'
 grep -c 'dsh-agent-presets\|dsh-workflow-worker-thread' ~/.dsh/profiles/*/cordis.patch.yml ~/.dsh/.agent-presets/*/agent.cordis.yml
 ```
 
+## Readiness of the two hosts that are not done (measured 2026-10-20)
+
+**zabz-tech-linux** — node v22.23.2, npm 10.9.8, credentials present, 11 GB RAM (3 free + 7 cache). Two things
+must be fixed BEFORE any update there:
+- **disk is at 99 % — 9.2 GB free on `/`.** A fetch (453 MB) plus a staged copy (~500 MB) plus a verified backup
+  (~0.5-1 GB) fits, but this estate has broken itself twice by writing into a nearly-full disk (P3929, P8396), so
+  free space first or point the backup elsewhere.
+- **its harness-config checkout is at `985f9378` and does NOT contain `dsh-update/tools/install-engine.mjs`.** Its
+  tools predate tonight's work, so step zero is bringing that checkout up to the branch that has them.
+`vendor/prefix` is empty (nothing ever fetched) and there is no pin, so the pipeline has never run on it.
+
+**lakewooechsmini** — nothing measured. `publickey` denied from two hosts under two users while Tailscale reports it
+active. Someone with that mac's key has to run the four commands above.
+
 ## The rule this page exists to enforce
 
 The estate is not "the machines I happened to touch". It is: ZABZ-TECH, ZABZ-YOGA, secratary-cloud's phone engine,
