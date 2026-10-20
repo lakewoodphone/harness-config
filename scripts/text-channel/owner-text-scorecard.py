@@ -662,7 +662,7 @@ def main(argv=None):
                   % (conf.get("would_refuse", 0), conf.get("delivered", 0),
                      "%.1f%%" % (rate * 100) if rate is not None else "n/a"))
             if conf.get("rewritten"):
-                print("    %d more were REMINDERS the gate rewrites and sends - not refused, "
+                print("    %d more were REWRITTEN by the gate and sent - not refused, "
                       "not lost" % conf["rewritten"])
             for k, v in sorted((conf.get("by_class") or {}).items(), key=lambda kv: -kv[1]):
                 print("      %-20s %d" % (k, v))
