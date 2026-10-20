@@ -1,23 +1,23 @@
 {
- "built": "2026-10-20 21:43 UTC",
+ "built": "2026-10-20 21:48 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 8833,
   "handoff": 11625,
-  "lessons": 11391,
+  "lessons": 11455,
   "pain": 9739,
   "wins": 6939
  },
  "db": "journal.db + fts5",
- "drift_measured": "2026-10-20 21:43 UTC",
- "entries": 5814,
- "entries_count": 5814,
- "entries_sig": "8149da6bd1e2385e6a674368b819facc0164df0a",
+ "drift_measured": "2026-10-20 21:48 UTC",
+ "entries": 5816,
+ "entries_count": 5816,
+ "entries_sig": "00f741d4faff6545ccec58b09fd6295da931f48c",
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 8896,
-  "handoff": 11624,
-  "lessons": 11389,
+  "handoff": 11688,
+  "lessons": 11453,
   "pain": 9802,
   "wins": 7130
  },
