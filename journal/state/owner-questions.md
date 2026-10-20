@@ -6,11 +6,12 @@ Updated: 2026-10-20
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 622 row(s) read, 39 pending, generated 2026-10-20 14:08 UTC on SECRATARY-CLOUD.
+Provenance: 623 row(s) read, 40 pending, generated 2026-10-20 15:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
 | 861 | 2026-10-20 | critical | GitHub Actions will not start a single job for phone-and-tech-full: every job annotation reads 'The job was not started because recent account payments have failed or your spending limit needs to be increased'. Nothing can merge until it is paid, so the nightly website loop will open pull requests it cannot land. | Settle the GitHub Actions payment or raise the spending limit today. It is the only thing between eight finished branches and test, and the only thing that will let the night loop land anything tomorrow. |
+| 878 | 2026-10-20 | critical | Restart the production backend (lpt-backend on lpt-apps) to clear the counter outage? A few seconds of downtime, no deploy, no code change. | Restart now, and add the migration. The counter is the shop's main screen and it is broken during the day; a few seconds of downtime is cheaper than an hour of it, and the migration stops the drift reappearing on every f |
 | 511 | 2026-10-14 | high | The camera product's entire difference from what already exists is that it uploads the customer's photos to a cloud store we control - and every seller in this market advertises the ABSENCE of connectivity as the kosher feature (one of them calls local-only storage "actually a feature for many users"). Before we spend anything on it: is a camera that uploads to the cloud acceptable, or should it b | Ask one rav you trust before I spend a dollar on this - one conversation, and it decides whether the product has a differentiator at all. If the answer is no cloud, the honest alternative is a device that still beats wha |
 | 644 | 2026-10-18 | high | Adeena asks you to move the home phone to a new SIM | Do it today: activate a spare SIM on the home line and text her the new number, since the old SIM is missing. |
 | 646 | 2026-10-18 | high | Data recovery shop asks you to confirm drive received so they can delete backup | Confirm receipt and ask them to hold the backup a bit longer until he verifies the files — deletion is irreversible |

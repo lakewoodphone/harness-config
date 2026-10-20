@@ -1717,6 +1717,8 @@ handoff	H10731	10731		2026-10-20 03:44 UTC	ZABZ-YOGA	open	## 2026-10-20 03:44 UT
 handoff	H10732	10732		2026-10-20 03:53 UTC	ZABZ-YOGA	open	## 2026-10-20 03:53 UTC · ZABZ-YOGA · kosher-filter-ai round 41: eight routes, and an assertion that would have passed without checking anything	entries/handoff/H10732.md	1	17	4345e5b4f099f2ff	kosher-filter-ai,discipline,tests	
 handoff	H10733	10733		2026-10-20 03:53 UTC	ZABZ-YOGA	open	## 2026-10-20 03:53 UTC · ZABZ-YOGA · LPT website: full audit, roadmap rebuilt as a gated spine, 10 verified branches, and the delivery pipeline found dead for billing	entries/handoff/H10733.md	1	77	639240b74e81335f	lpt-website,roadmap,audit,ci-billing	
 handoff	H10793	10793		2026-10-20 04:03 UTC	ZABZ-YOGA	open	## 2026-10-20 04:03 UTC · ZABZ-YOGA · Postmortem of the cheap-hours session: one live change, one proven prediction, a void money window, and a 45k blind spot	entries/handoff/H10793.md	1	70	72325541c735ce61		
+handoff	H11241	11241		2026-10-20 15:07 UTC	secratary-cloud	open	## 2026-10-20 15:07 UTC · secratary-cloud · Closed 147 stale pickups; the 50-day rule was skipping the orders it was built for	entries/handoff/H11241.md	1	63	b457cafc330f4ead		
+handoff	H11242	11242		2026-10-20 15:09 UTC	secratary-cloud	open	## 2026-10-20 15:09 UTC · secratary-cloud · Addendum to H11241: three status corrections, and the next case is a double capture	entries/handoff/H11242.md	1	33	2d2519efec17b190		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -3918,6 +3920,7 @@ lessons	L10494	10494		2026-10-20	SECRATARY-CLOUD	open	**L10494 · reminders.sche
 lessons	L10624	10624		2026-10-20	ZABZ-YOGA	open	**L10624 · Phone engine 0.2.1: two clean rollbacks; the tree swap and the credential format were solved, and the last blocker is a missing webStartup provider in a home whose pnpm tree is still pinned at 0.2.0**	entries/lessons/L10624.md	1	43	fb35bf39167cb695	dsh-update,phone,incident	
 lessons	L10625	10625		2026-10-20	ZABZ-YOGA	open	**L10625 · An instrument that has never emitted a line is not evidence of absence - run a positive control first**	entries/lessons/L10625.md	1	16	6ee328dc17f721f0		
 lessons	L10626	10626		2026-10-20	ZABZ-YOGA	open	**L10626 · A restart is a policy change - do not deploy code inside a window you are measuring**	entries/lessons/L10626.md	1	18	2fdaac47ed7d2030		
+lessons	L11134	11134		2026-10-20	secratary-cloud	open	**L11134 · Our own bookkeeping reset the 50-day pickup clock and hid 147 stale orders**	entries/lessons/L11134.md	1	40	53d859d78b4614c7		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
