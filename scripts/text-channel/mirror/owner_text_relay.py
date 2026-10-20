@@ -1435,7 +1435,7 @@ def compose_reminder_sentence(body) -> tuple[str, str]:
     sentence = _reminder_sentence("; ".join(kept))
     if len(sentence) > _RESCUE_MAX:
         sentence = _reminder_sentence(sentence[:_RESCUE_MAX].rsplit(" ", 1)[0])
-    if sentence and len(sentence) >= 20 and _internal_hit(sentence) is None:
+    if sentence and _internal_hit(sentence) is None:
         return sentence, ("composer: reminder written as one human sentence (%d -> %d chars)"
                           % (len(text), len(sentence)))
     return _REMINDER_FALLBACK, ("composer: nothing readable survived (%d chars); "
