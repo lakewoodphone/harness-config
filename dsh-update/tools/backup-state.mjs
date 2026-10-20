@@ -132,11 +132,25 @@ function main() {
   fs.mkdirSync(dest, { recursive: true });
 
   // ── the stores ────────────────────────────────────────────────────────────────────────────────
+  //
+  // AN ABSENT STORE IS NOT AUTOMATICALLY A FAILED BACKUP — but it is never silent either. Measured 2026-10-20 on
+  // `zabz-tech-linux`: the host has NO `.agent-presets` at all (it mounts only the shipped roster), so the tool
+  // refused a backup that was complete for every store the machine actually has, and install-engine therefore
+  // could not proceed on a machine that was ready. The distinction the report must keep: absent-and-the-home-is-
+  // real (a note, with the reason) versus absent-while-other-stores-are-also-missing (a problem, because then the
+  // `--home` is probably wrong). The note names what was not copies, so nothing reads as a clean empty success.
+  const homeLooksReal = fs.existsSync(path.join(home, 'profiles')) || fs.existsSync(path.join(home, 'sessions'));
   for (const store of STORES) {
     const src = path.join(home, store);
     if (!fs.existsSync(src)) {
-      report.problems.push(`${store}: absent in the source home — nothing to back up`);
-      say(`  ${store.padEnd(16)} ABSENT in the source home (recorded, not skipped silently)`);
+      if (homeLooksReal) {
+        report.notes = report.notes || [];
+        report.notes.push(`${store}: absent in the source home — this machine does not have one (its config home has profiles/sessions, so the home itself is real). Nothing was copied for it.`);
+        say(`  ${store.padEnd(16)} ABSENT — this machine has none; recorded as a note, not a failure`);
+      } else {
+        report.problems.push(`${store}: absent in the source home AND the home has neither profiles/ nor sessions/ — the --home looks wrong`);
+        say(`  ${store.padEnd(16)} ABSENT and the home does not look like a DSH home (recorded as a problem)`);
+      }
       continue;
     }
     const dst = path.join(dest, store);
