@@ -31,24 +31,24 @@
   ],
   "items": [
     {
-      "key": "partner can read the staff work-order queue - role boundary",
+      "key": "busy counter (p1) the screen tells me the pickup shelf is em",
       "src": "docs/website/ROADMAP.md",
-      "title": "PARTNER CAN READ THE STAFF WORK-ORDER QUEUE - /work-orders has no role guard, so any authenticated role passes",
+      "title": "The counter's Out for pickup tile counts the open queue, so it reads 0 while 25 items wait on the pickup shelf",
       "status": "filed",
       "priority": 4,
       "host": "zabz-tech-ts",
-      "why": "T4/T2, and the roadmap's own re-rank of 2026-10-14 puts this first: an unauthorised role reading a customer's name and full phone number out-ranks a navigation shell. This box is ALREADY carried by a LIVE ledger item, #169, filed 2026-10-14 by the shift that landed the fix - so this row deliberately reuses item #169's title VERBATIM. roadmap-supply.py dedups by exact title against the ledger's live states, so the verbatim title is what makes the supply count this box as live instead of filing a SECOND copy of the same work. Do not 'tidy' the title, and do not demote the row to not_filed: a not_filed row leaves the box counted as `uncovered`, which would refile the authoring item on every run - the loop this source exists to prevent. The CODE fix has landed in the checkout (commit 926fde6; frontend/src/App.tsx now wraps `<CounterPage />` in `<ProtectedRoute roles={['ADMIN', 'MANAGER']}>`, the same list its sibling routes use), so what remains is the box's own before/after on TEST, which is item #169's work and not a new item.",
-      "dod": "DONE requires BOTH, quoted: (1) the source contract, run from `frontend/` on the host - `cd frontend && pnpm exec vitest run src/routes/__tests__/workOrdersRoleGuard.test.ts` - and the result line that counts as done is a vitest summary reporting 2 passed (2) and 0 failed (already recorded 2/2 green in the docs/website/ROADMAP.md change-log row for 2026-10-14); ANY failure names the guard that is wrong and is the finding, not a reason to skip. (2) the box's own DONE WHEN: a PARTNER session against the TEST deployment is refused on `/work-orders` the way `/work-orders/new`, `/customers`, `/charge`, `/payments`, `/settings` and `/more` already refuse it - quote BOTH responses: BEFORE, HTTP 200, no redirect, no denial, rendering work-order cards carrying customer name and phone number (e.g. `Greenwald +18482017577`); AFTER, the same 'Access Denied - Required roles: ADMIN, MANAGER' its siblings give. The change-log row for 2026-10-14 records that (2) needs the guard on TEST, so the box stays UNTICKED until (2) is quoted; tick it in docs/website/ROADMAP.md only then, with a change-log row naming this evidence. A run that reports only (1) has proved the source and not the boundary."
+      "why": "T1 and a P1 the 2026-10-13 persona walk REPRODUCED mechanically: the label promises the opposite of the number, so the counter tells the staff the pickup shelf is empty while 25 items are READY_FOR_PICKUP. The estate already owns the probe (e2e/personas/verify-pickup-contradiction.mjs), so this is a fix plus a re-run, not new tooling. Filed at 4, not 1: it is a measured P1 in the roadmap's ranked queue but nothing is on fire in production today.",
+      "dod": "DONE requires, quoted: (1) the existing contradiction probe run from the repo root on the host against TEST - `node e2e/personas/verify-pickup-contradiction.mjs` - and the result line that counts as done is the default `/work-orders` 'Out for pickup' number EQUAL to the number `/work-orders?status=READY_FOR_PICKUP` reports for the same store (BEFORE: 0 vs 25), with 'Nothing waiting to be collected' gone while any item is READY_FOR_PICKUP. (2) the BEFORE, quoted verbatim from the roadmap box: default `/work-orders` prints 'Out for pickup 0' and 'Nothing waiting to be collected'; `/work-orders?status=READY_FOR_PICKUP` prints 'Out for pickup 25' and fills the panel with 5. (3) a change-log row appended to docs/website/ROADMAP.md naming both numbers, and the box at :165 ticked ONLY then. The parameter that works is READY_FOR_PICKUP, not OUT_FOR_PICKUP - a run using OUT_FOR_PICKUP has measured nothing."
     },
     {
-      "key": "production's faq contradicts its own diagnostic fee - visito",
+      "key": "owner (p1) the order says the job costs nothing, and tells m",
       "src": "docs/website/ROADMAP.md",
-      "title": "PRODUCTION'S FAQ CONTRADICTS ITS OWN DIAGNOSTIC FEE - /faq says the diagnostic is free while the same page charges $50",
+      "title": "A work order with no price prints 0.00 USD for both What it costs and Owes instead of saying no price is set",
       "status": "filed",
       "priority": 4,
       "host": "zabz-tech-ts",
-      "why": "T5/T2, and a LIVE PRODUCTION page contradicting itself about money - the roadmap's re-rank of 2026-10-14 puts it level with the role-boundary box above. The measurement stands as recorded by the persona walk (visitor-002, e2e/personas/walk-artifacts/2026-10-14/visitor.json, with the hero screenshot 30-prod-home-mobile.png) and is NOT re-derived here. The corrected copy ALREADY EXISTS in the repo at scripts/seed-all-faqs.ts:147 ('Our diagnostic fee is $50 per item. It is non-refundable, and it is credited toward the repair ...') and is already live on TEST, so this is not a code gap - it is a PRODUCTION SHIP, and a shift may deploy to TEST only and must NEVER deploy to production. Filed rather than not_filed on purpose: a not_filed row leaves the box counted as `uncovered` by roadmap-supply.py, which would refile the authoring item forever. Filed at 4, like the rest of this file's rows, so it does not preempt platform work.",
-      "dod": "DONE requires, quoted: (1) the two wordings side by side - PRODUCTION's `/faq` answer to the diagnostic question, and the repo's own corrected answer, whose location is proved by `grep -n 'credited toward the repair' scripts/seed-all-faqs.ts` -> line 147, 'Our diagnostic fee is $50 per item. It is non-refundable, and it is credited toward the repair - if you approve the work, the $50 comes off your final bill.' The result line that counts as done is production's FAQ answering the diagnostic question with that same $50 non-refundable wording instead of 'completely free ... Many shops charge diagnostic fees. We don't.' (2) PRODUCTION walked READ-ONLY, public pages only, with the estate's own command - `E2E_BASE_URL=https://lakewoodphoneandtech.com npx playwright test --config=e2e/personas/personas.config.ts visitor.spec.ts --no-deps` - result line 12 passed (12); `--no-deps` is load-bearing, because without it the persona-auth project logs a staff persona in, and NO staff login may ever run against production. The box in docs/website/ROADMAP.md is ticked ONLY when production quotes the $50 wording, with a change-log row naming both quotes. UNTIL THEN this item is BLOCKED on the production ship, which is not a shift's authority: put it on the owner queue ONCE, leave the box unticked, and move on - do not improvise a production deploy, and do not manufacture agreement by editing TEST."
+      "why": "T1 and a money defect the 2026-10-13 persona walk REPRODUCED on a real order (15ABR8): the panel tells the owner the job costs nothing and that nothing is owed. The probe exists (e2e/personas/semantics-probe.mjs) and reads the panel's own data-testids, so this is a fix plus a re-run, not new tooling. Filed at 4: real, but not a production outage.",
+      "dod": "DONE requires, quoted: (1) the semantics probe run from the repo root on the host against TEST - `node e2e/personas/semantics-probe.mjs` - and the result line that counts as done is the 15ABR8 money panel reporting NO `0.00 USD` beside an unset price: 'What it costs' and 'Owes (the order's own figure)' either both read the same non-zero figure from the same field, or both read blank or 'No price set'. Specifically `data-testid=\"staff-order-money-owed\"` must not print `0.00 USD` when the order has no price. (2) the BEFORE, quoted: both `data-testid=\"staff-order-money-owed\"` and `staff-order-money-paid` read `0.00 USD` with nothing on the screen saying the price is unset (docs/website/walkthroughs/2026-10-13/personas/, semantics-probe.mjs). (3) a change-log row appended to docs/website/ROADMAP.md naming both readings, and the box at :166 ticked ONLY then. A run that only changes the copy without re-reading those testids has not proved the panel."
     },
     {
       "key": "the daily walk: walk the test site and the production site w",
@@ -119,6 +119,136 @@
       "host": "zabz-tech-ts",
       "why": "T5, and the box the owner himself filed (P3) on 2026-10-13: 'our website is not easy to use, and it is not great.' The fix LANDED - PublicSiteNav + PublicSiteFooter now exist and are rendered by the eleven public pages - but the box is still UNCHECKED because its own done-condition is not met: docs/website/walkthroughs/2026-10-13/owner-feedback/ holds before/after pairs for only TWO of the eleven pages (phone-repair, screen-repair), and the first pass got the count wrong (it said nine and missed /privacy and /terms). The estate already carries the mechanical contract for this in frontend/src/components/landing/__tests__/publicSiteShell.test.tsx, which asserts that all eleven pages render the shell, so this row is a run plus the missing evidence, not new tooling. Filed at 4 rather than the box's P3 so it sits with the other lpt-website rows (4-5) and does not preempt platform work.",
       "dod": "DONE requires, quoted: (1) the shell contract run from the repo on the host: `cd frontend && pnpm exec vitest run src/components/landing/__tests__/publicSiteShell.test.tsx` and its vitest summary; the result line that counts as done is a summary reporting 13 passed (13) and 0 failed - 2 PublicSiteNav assertions plus 11 page assertions, one per name in that file's PUBLIC_PAGES. ANY failure names the page whose shell is wrong; that is the finding, not a reason to skip the page. (2) every one of those eleven pages shown rendering the shell at 390x844: AFTER screenshots committed under docs/website/walkthroughs/<YYYY-MM-DD>/public-shell/, with the exact directory named in the handoff, and the two pre-fix pairs already in docs/website/walkthroughs/2026-10-13/owner-feedback/ cited as the BEFORE for those two pages - do NOT manufacture a 'before' by reverting code. (3) the eleven-name list in that test compared against the site's own router (every public route reachable without auth in frontend/src/App.tsx), and any public route the list omits named as the finding - the first pass missed /privacy and /terms exactly this way. (4) the box in docs/website/ROADMAP.md ticked ONLY if (1) and (2) both pass, with a change-log row naming that evidence; if one page still fails, leave the box unticked and name that page. A run that reports the test file absent or the suite skipped is NOT done: that is a blocker with the error text quoted."
+    },
+    {
+      "key": "owner-filed (p3) a filter must mean what its label says, and",
+      "src": "docs/website/ROADMAP.md",
+      "title": "A filter must mean what its label says: settle the four capped staff lists and the unproven receipt.list, or fix them",
+      "status": "filed",
+      "priority": 4,
+      "host": "zabz-tech-ts",
+      "why": "T3 and the owner's own P3 words of 2026-10-14, quoted in the box at docs/website/ROADMAP.md:160. The box is the CLASS and stays unticked on purpose: the instance (the counter's `All statuses` control and the search box that inherited its scope) is FIXED and proven, and the 2026-10-14 second session landed and re-proved four control lies. What is left is named IN the box and is exactly two pieces; the third, (a), is already measured and is NOT re-done here - `node e2e/personas/verify-search-reaches-finished-jobs.mjs` on the DEPLOYED TEST build reports 'PASS: search reached a finished job under `All` (2 row(s)) and did not under `Open` (0).' **THE REACH HALF (b): four lists cap how far any filter or SEARCH can reach, so the same lie reappears in a different shape whenever a match sits past the cap** - PaymentsDashboard.tsx:29 `limit: 20` / :30 `offset: 0` with NO disclosure anywhere in the file, RepairIntakeCasesPage.tsx:25 `limit: 50` with none, StaffIssuesPage.tsx:132 `limit: 100, offset: 0`, TransactionHistoryTab.tsx:259 `limit: 100` / :260 `offset: 0` disclosed only at :1209 as a total. **THE UNPROVEN CONTROL (c): `receipt.list` (ReceiptsTab.tsx:422) is neither honest nor a proven lie** - the handler throws before any query is built (`backend/src/trpc/routers/receipt.router.ts:41`), so no `where` exists to read and no `prisma.receipt.*` list call exists in `backend/src/services/receipt.service.ts`. Authored rather than `not_filed` because these are real, runnable remainders: a `not_filed` row would leave the box counted as `uncovered` and refile the authoring item on every run, the loop this source exists to prevent. Filed at 4, like the rest of this file's rows, so it does not preempt platform work.",
+      "dod": "DONE requires, quoted: (1) a row in docs/website/audits/2026-10-14-all-filters-sweep.md for EACH of the four capped lists and for `receipt.list`, each carrying the `file:line` that sets the cap (or the throw) and the request that path produces, read from the CODE PATH and never from a label - the five sites are re-read at the branch head with `git grep -n -E 'take:|limit:|offset:' -- frontend/src/features/payments/components/PaymentsDashboard.tsx frontend/src/features/repair-intake/pages/RepairIntakeCasesPage.tsx frontend/src/features/admin/pages/StaffIssuesPage.tsx frontend/src/components/payments/TransactionHistoryTab.tsx frontend/src/components/payments/ReceiptsTab.tsx`, and the BEFORE it must print is `29: limit: 20` / `30: offset: 0` in PaymentsDashboard.tsx with no disclosure in the file; `25: limit: 50` in RepairIntakeCasesPage.tsx with none; `132: { status: statusFilter, limit: 100, offset: 0 }` in StaffIssuesPage.tsx; `259: limit: 100` / `260: offset: 0` in TransactionHistoryTab.tsx with its disclosure at `1209: Showing {transactions.length} of {transactionsQuery.data.pagination.total} transactions`; and NO `take`/`limit` in ReceiptsTab.tsx because the handler throws before any query is built. (2) the reach probe run from the repo root on the host against TEST - `node e2e/personas/verify-list-reach.mjs` - printing one line per list of the form `<list> rendered=<n> server_total=<T> disclosure=<text|NONE>`; the result line that counts as done is EVERY line reading either a NON-EMPTY disclosure or `rendered == server_total`: any line reading `disclosure=NONE` with `rendered < server_total` is the finding and FAILS the run. The probe is to be WRITTEN as part of this item - it does not exist yet, and a run reporting it absent is a blocker with the node error text quoted, not a pass. (3) `receipt.list` either PROVEN (a `where` or service method quoted from the code path, with the commit that introduces it) or REMOVED, with the commit named - a sweep row that still says 'unproven' does NOT satisfy it. (4) the box at docs/website/ROADMAP.md:160 ticked ONLY when all four lists and `receipt.list` are settled that way, with a change-log row appended to that file naming the evidence. A run that only quotes the labels, or that fixes one list and calls the rest 'similar', has proved nothing about the class this box exists to close."
+    },
+    {
+      "key": "(p1) nothing warns when production falls behind test - t6 -",
+      "src": "docs/website/ROADMAP.md",
+      "title": "Nothing warns when production falls behind test, so verified work stays invisible to customers",
+      "status": "filed",
+      "priority": 3,
+      "host": "zabz-tech-ts",
+      "dod": "A read-only check reports main behind test by commit count AND by age, runs on a schedule, and files exactly one owner-readable line naming the drift and the one command that closes it. Proven by planting a drift and watching it report, and proven quiet on a day when main is level with test.",
+      "why": "T6, and the highest-consequence item in this file. MEASURED 2026-10-19: origin/main was 511a7ff5b from 2026-10-16 16:08 while origin/test was 8d71192eb - 74 commits and three days of verified work, including the screen-price table, the public computer finder, the 44px chip fix and the kiosk reload fix. The customer-visible cost was measured on the same page in the same minute: test/screen-repair returns [\"$154\",\"$173\"] with a 'Screen Repair Prices' table, production /screen-repair returns [] with 0 tables, and /find-a-computer answers the 404 page on production. MERGE HYGIENE rule 2 already forbids accumulation; nothing measured it, so it did not hold. Fixed once by hand on 2026-10-19 (PR #485 -> 6920991e4); this item is the guard that stops it recurring."
+    },
+    {
+      "key": "(p1) the faq's answers are not in the document - t5 - measur",
+      "src": "docs/website/ROADMAP.md",
+      "title": "The homepage FAQ's 7,935 answer characters are absent from the DOM, so nothing can find or index them",
+      "status": "filed",
+      "priority": 4,
+      "host": "zabz-tech-ts",
+      "dod": "Every answer's text is present in the DOM at load, each question carries a real id anchor, the rows are grouped with a table of contents, a filter input narrows them, and every aria-controls resolves. Proven by a load-time DOM read reporting answer characters > 0, a deep link landing on its own question, and a crawler-style fetch showing the answer text in the HTML.",
+      "why": "T5. MEASURED 2026-10-19 on production: 27 collapsed rows holding 991 question characters and 7,935 answer characters that exist nowhere in the DOM while collapsed - 0 readable, 0 search inputs, 0 anchors; 27 of 27 aria-controls name elements that do not exist. The section is 2,977 px collapsed (41.7% of the homepage; 43% at 393px) and 7,300 px if opened, so answering one question costs up to 27 clicks and Ctrl+F and crawlers see questions only."
+    },
+    {
+      "key": "(p1) sitemap.xml advertises three urls while twelve public p",
+      "src": "docs/website/ROADMAP.md",
+      "title": "sitemap.xml lists 3 URLs while 12 public pages exist, and unknown paths answer HTTP 200",
+      "status": "filed",
+      "priority": 4,
+      "host": "zabz-tech-ts",
+      "dod": "The sitemap is generated from the route table rather than typed, lists every public route with its canonical host, and an unknown path answers a real 404 status while still rendering the not-found page. Proven by fetching the sitemap and counting entries against the router's public list, and by curl -o /dev/null -s -w '%{http_code}' on an unknown path returning 404.",
+      "why": "T5. MEASURED 2026-10-19: the sitemap lists only /, /privacy and /terms and robots.txt points at it, so the nine public service pages plus /contact, /kosher-flip-phones and /kosher-waze have no discovery path for a search engine. Separately GET /definitely-not-a-route-xyz returns HTTP 200 with a 404 page rendered inside it (a soft 404), which spends crawl budget and tells a crawler every URL is real."
+    },
+    {
+      "key": "(p2) /kosher-waze is orphaned and holds the site's only real",
+      "src": "docs/website/ROADMAP.md",
+      "title": "/kosher-waze is linked from nowhere and holds the site's only real price list",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "dod": "The page has a real entry point from the homepage and from the footer's Services list, the entry point says what the product is rather than repeating the route name, and a check asserts the link exists so a future shell change cannot orphan it again.",
+      "why": "T5. MEASURED 2026-10-19: /kosher-waze renders 3,588 characters and carries the only actual prices anywhere on the public site (299 for the device, 9 a month for data), and it is linked from nothing - not the homepage, not the footer, not the service pages. Reachable only by typing the URL, so the shop's most differentiated product is invisible to a browsing customer."
+    },
+    {
+      "key": "(p2) nothing checks that a section carries the content it na",
+      "src": "docs/website/ROADMAP.md",
+      "title": "Nothing checks that a section carries the content it names, so a heading with nothing under it passes every walk",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "dod": "The deterministic floor carries a check that, for each section on each public page, compares the section's child/character/text-node counts against a declared minimum or a named list, fails on a heading-with-nothing-under-it, and was proven by reverting the homepage section to its empty form and watching the check go red, then green after.",
+      "why": "T4. MEASURED 2026-10-19: the homepage 'What We Work On' section rendered a heading, a subtitle and nothing else - 365 characters of HTML, 3 elements, 0 links, 0 images - on production AND test, and had done so since at least 3de71d18d (2026-10-08). The daily walk, persona walk, semantics probe and shared-shell contract all passed throughout, because every one asserts rendering, navigation or clipping and none asserts that a named section has the content its name promises. A section can be present, styled, correctly placed and empty. Fixed by hand in PR #492; this item is the class check."
+    },
+    {
+      "key": "(p2) the shop's hours disagree across four surfaces, and one",
+      "src": "docs/website/ROADMAP.md",
+      "title": "The shop's hours disagree across four surfaces, and the footer says 'any time' while Saturday is closed",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "dod": "One shared hours component renders on the homepage, the footer, /contact and the FAQ; every surface derives its text from the generated schedule rather than a sentence typed per surface; the Saturday-closed and Friday-cutoff facts appear wherever a customer could act on them; and a contract test fails if any of the four surfaces types its own hours sentence. Proven by the four rendered surfaces agreeing line for line and by a drift test.",
+      "why": "T5. MEASURED 2026-10-19: the footer says 'Drop off any time, every day except Shabbos'; /contact states Saturday Closed as a 7-row <dl>; the FAQ says 'Sundays through Friday at any time' plus 'Fridays until 1.5 hours before sunset'; and the homepage and footer show only the walk-in rows and never mention Saturday or the Friday cutoff. A customer reading the footer can drive to a closed shop. The /contact table is the most complete surface and is the one to converge on."
+    },
+    {
+      "key": "(p1) the whole app ships as one bundle: no lazy route, a 3.6",
+      "src": "docs/website/ROADMAP.md",
+      "title": "The whole app ships as one bundle: no lazy route, a 3.66 MB entry chunk",
+      "status": "filed",
+      "priority": 4,
+      "host": "zabz-tech-ts",
+      "dod": "Every route below the public landing set loads behind React.lazy with a real fallback, the vendor split is explicit in the Vite config, and the change is proven by measuring the entry chunk and a cold first-load transfer for / at 393x852 BEFORE and AFTER, both numbers in the roadmap file.",
+      "why": "FOUNDATION. MEASURED 2026-10-19: 109 route declarations and ZERO React.lazy, zero route-level dynamic import; only two production dynamic imports exist in 2,296 .ts/.tsx files, both components. No manualChunks, no rollupOptions, no size threshold in any of the 11 Vite configs. The repo's own 2026-10-08 comment records a 3.66 MB entry chunk and lpt-deploy-status.py --live reads today's entry asset at 3.85 MB. A customer on a weak phone downloads the staff counter and the pricing hub before the homepage renders."
+    },
+    {
+      "key": "(p2) nothing times out, so a hung request never settles and",
+      "src": "docs/website/ROADMAP.md",
+      "title": "Nothing times out, so a hung request never settles and the retry policy never engages",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "dod": "The tRPC link carries an AbortSignal timeout chosen from a measurement of the slowest healthy call; a timed-out request produces a VISIBLE error state rather than a spinner or an empty list; and the `as any` at lib/trpc.ts:55 is removed with tsc --noEmit green. Proven by a forced-slow request showing the error state.",
+      "why": "FOUNDATION. MEASURED 2026-10-19: no per-request timeout on any tRPC link. AbortSignal.timeout appears in exactly three places and none is the client link (hooks/useConnectionMonitor.ts:262, features/communications/hooks/useConnectionHealth.ts:86, features/communications/utils/CircuitBreaker.ts:35). The retry policy is good and single-sourced, which is the point: a request that never settles never reaches it. Same file: lib/trpc.ts:55 casts the whole client `as any`, erasing types at every call site."
+    },
+    {
+      "key": "(p2) three different answers for \"the primary colour\", and t",
+      "src": "docs/website/ROADMAP.md",
+      "title": "Three different answers for the primary colour, and two design-system files that are never loaded",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "dod": "One file is the single source of colour, type, spacing and radius; design-tokens.css and components.css are deleted or genuinely imported; docs/design-system.md states the values the site actually ships, checked against the compiled CSS; and a check fails when a new raw hex or arbitrary size is added under components/landing or pages. Proven by the check failing on a planted value and the doc matching built output.",
+      "why": "FOUNDATION. MEASURED 2026-10-19: 80 colour tokens in index.css @theme, while design-tokens.css and components.css are imported by nothing; both tailwind.config.js are inert under Tailwind v4; docs/design-system.md documents blue #2563eb while the site ships navy #0F293F. var(--fs-*) used ONCE across 2,173 files, --space-* 5 times, --radius-* 5 times, against 680 arbitrary Tailwind values and 318 raw hex colours in 86 files. dark: appears 7,410 times across 332 files and is entirely inert - the variant keys off a class nothing sets."
+    },
+    {
+      "key": "(p1) on a laptop the first thing to click is below the fold,",
+      "src": "docs/website/ROADMAP.md",
+      "title": "On a laptop the first thing to click is below the fold, and the hours are seven screens down",
+      "status": "filed",
+      "priority": 4,
+      "host": "zabz-tech-ts",
+      "dod": "The deployed homepage measured at 1280x720 and 393x852 reports: a primary CTA reachable without scrolling at both, the hours reachable inside the first three viewports or linked from the header, and a hero subhead under 25 words with the fee sentence kept but moved beside the CTA. Proven by before/after geometry taken from the deployed page, not jsdom.",
+      "why": "T5. MEASURED 2026-10-19 on the production homepage at 1280x720: the first in-body CTA sits at y=913, below a 720px viewport, so the only actionable thing without scrolling is the sticky header. Hours are at y=5,156 - 7.16 viewports down - beneath a FAQ that is 2,977px collapsed (41.7% of the page; 7,300px if opened). The hero subhead is 285 characters / 47 words, 36 of them about the diagnostic fee."
+    },
+    {
+      "key": "(p2) 18 of 59 tap targets on the phone homepage are under 44",
+      "src": "docs/website/ROADMAP.md",
+      "title": "18 of 59 tap targets on the phone homepage are under 44 px, and one label is clipped",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "dod": "The same probe at 393x852 and 320x568 reports ZERO targets under 44x44 on /, /screen-repair and /contact, the header label is not clipped at any width, and the 200% zoom proxy keeps the CTA reachable. Proven by the probe's numbers on the deployed page with the before/after pair recorded in the roadmap.",
+      "why": "T5. MEASURED 2026-10-19 at 393x852 on the production homepage: 18 of 59 targets under 44px and every footer link 17px tall; /screen-repair 15 and /contact 18. The header's 'Staff Sign In' is clipped to 'Staff'. At a 200% zoom proxy (640x360) the header CTA is clipped at the right edge (660 > 640) with no way to scroll to it. No horizontal overflow and no text under 12px - this is a thumb-reach problem, not a layout collapse."
+    },
+    {
+      "key": "(p1) the global search reads only the newest n matches and t",
+      "src": "docs/website/ROADMAP.md",
+      "title": "The global search reads only the newest N matches then slices them, so a real work order cannot be found",
+      "status": "filed",
+      "priority": 3,
+      "host": "zabz-tech-ts",
+      "dod": "A query for an old-but-exact work order returns it (ranking over the full match set, not a recency window); a query with eight or more customer matches still returns matching work orders (separate budgets, not one sliced array); the advertised total never exceeds what any page can reach; an error renders an error rather than an empty result; orderNumber is not printed. Proven by four queries against the deployed test host with outputs recorded, plus a forced-error showing the error state.",
+      "why": "LOGIC, and the owner reported the class himself twice. The 2026-10-14 fix corrected the SCOPE (All statuses now means all seven); this is a different live defect. MEASURED 2026-10-19 in backend/src/trpc/routers/search.ts: :146 `const take = size + offset` with :186 orderBy createdAt desc, so only the N NEWEST matching work orders are read from the database; :257-263 ranks that already-truncated set and then slices. The header asks size 8 (searchBarModel.ts:25), so a matching but older work order is never read at all. :217-255 merges customers and orders into ONE array then slices to 8, so eight customer matches return ZERO work orders. :268 computes total from untruncated counts, so the UI prints 'View all N results' for rows no page can reach (/search caps at 25). Also: searchBarModel.ts:119-126 parses 'Work Order #'+orderNumber while docs/decisions/work-order-order-number-internal-only.md:41 says it must never be displayed; and three of four search surfaces fake an answer on failure (GlobalSearch gates on hasResults so an error renders nothing and its 'No results found' is unreachable dead code; UnifiedSearch prints 'No results found' on failure; MobileSearch renders blank)."
     }
   ],
   "capability_matrix": {
@@ -142,5 +272,11 @@
         "no Swift toolchain (roadmap-kosher-ai-filter.json, measured 2026-10-07): do not send an Apple build here"
       ]
     }
-  }
+  },
+  "_retired_rows": [
+    "RETIRED 2026-10-15 by ledger item 186: the row keyed \"production's faq contradicts its own diagnostic fee - visito\".",
+    "Its checkbox no longer exists in docs/website/ROADMAP.md (grep -n -i 'diagnostic|faq' finds only the 2026-10-13 change-log row, never a box): the question moved into the 2026-10-13 walkthrough queue (docs/website/walkthroughs/2026-10-13/personas/optimistic-queue.md:19) and ROADMAP.md retired it. A row whose key resolves to no checkbox is STALE-MAPPING on every run and proves the row wrong, so it was removed rather than left to cry wolf.",
+    "The concern is NOT dropped: the corrected copy is in the repo (scripts/seed-all-faqs.ts:147) and live on TEST, and the remaining action - a PRODUCTION ship, which no shift may perform - is already filed as owner_decision_queue row 307 (pending, 'Approve the exact customer-facing wording for the fifty-dollar per-item non-refundable diagnostic fee before it goes live').",
+    "RETIRED 2026-10-20 by ledger item 206: the row keyed \"partner (p2) a denied route is a dead end: the access denied\". The box at docs/website/ROADMAP.md:218 is now checked: - [x] PARTNER (P2) ... (ticked 2026-10-18 by ledger 247 after the deterministic floor proved the dead end gone). Its original fix was ledger 169 (PR 437, test 5ca5bd320, deploy bundle /assets/index-DdrFETPY.js). The row was removed so roadmap-supply no longer carries a checked box as filed work; no concern is dropped."
+  ]
 }
