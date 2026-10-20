@@ -32,17 +32,23 @@ behaviour in `project-keepalive.py` alone.
 ## 2. What was imported
 
 Commit **`fb4ecd04`** copies the live working tree in: **25 files added, 11 updated, 36 changed, no logic edited**.
-The after picture is **`37 identical of 37`**. Every imported `.py` was compiled and every imported `.json` parsed
-(33 `.py`, 3 `.json`) before the commit.
+The after picture at 16:07Z was **`37 identical of 37`**. Every imported `.py` was compiled and every imported
+`.json` parsed (33 `.py`, 3 `.json`) before the commit.
+
+**`projects.json` is live state, not a constant.** Four minutes after the import, at 16:10:17Z, a running shift added
+a `definition_of_done` field to the `kosher-ai-filter` row (67,089 → 67,931 B). The check then printed
+`DIFFERS projects.json`, `36 identical of 37`. That refresh is in the commit that carries this page; the
+repository is current again at handoff — but expect `DIFFERS` on `projects.json` alone again: read the diff, it is
+registry state, not code drift.
 
 Deliberately **not** imported:
 
 - **310 `.bak-*` files under `/root/bin`** (68 of them inside `sources/`). They are the de-facto backup, not sources.
 - **Two `tmp*.new` temporaries** in `sources/`, with the same byte counts as `pain-checks.py` and `cron-failures.py`.
 
-`/root/bin` is itself a git repository, but its `.gitignore` tracks only `sources/*.py` and `sources/*.md`. The three
-JSON files (`projects.json` and the two roadmap files) are ignored there — this repository is their only version
-control.
+`/root/bin` is itself a git repository, but inside `sources/` its `.gitignore` allows only `sources/*.py` and
+`sources/*.md`. The three JSON files (`projects.json` and the two roadmap files) are ignored there — this repository
+is their only version control.
 
 ## 3. The rule, stated plainly
 
@@ -63,9 +69,11 @@ Run from the repository root. One line:
 $m=ssh secratary-cloud 'cd /root/bin/sources && sha256sum *.py *.json README.md';$h=@{};$m|%{if($_ -match '^([0-9a-f]{64})\s+(.+)$'){$h[$Matches[2]]=$Matches[1]}};$n=0;$h.Keys|sort|%{$p="scripts/wake/sources/$_";if((Test-Path $p) -and ((Get-FileHash $p).Hash.ToLower() -eq $h[$_])){"identical  $_";$n++}else{"DIFFERS    $_"}};"$n identical of $($h.Count)"
 ```
 
-It prints one line per live file, `identical` or `DIFFERS`, and ends `N identical of M`. **The expected answer after
-this import is `37 identical of 37`.** Any `DIFFERS` line is either an un-imported live edit (copy it in) or a
-repository-only change waiting to be deployed (do not copy it in without deciding that first).
+It prints one line per live file, `identical` or `DIFFERS`, and ends `N identical of M`. At the time of writing
+(16:12Z) the answer is **`37 identical of 37`**. A `DIFFERS` on **`projects.json` alone** is the live registry being
+edited (see §2): read the diff, and copy it in if the change is wanted. A `DIFFERS` on any **`.py`** is the code drift
+this page exists to catch — either an un-imported live edit or a repository-only change waiting to be deployed. Do
+not copy either direction without deciding which it is.
 
 ## 5. Two gaps this import did not close
 
@@ -88,5 +96,5 @@ repository-only change waiting to be deployed (do not copy it in without decidin
 Nothing here was executed: no source was run, no cron job was triggered, and no service on `secratary-cloud` was
 restarted or changed. The classification is by live mtime versus the last repository commit touching each file
 (every repository commit predates the live file), plus a review of the removed lines in each diff — not a semantic
-line-by-line audit of 10,000 inserted lines. The 33 `.py` files are the measured set; `run-wake-sources.sh` and
+line-by-line audit of the 10,452 inserted lines. The 33 `.py` files are the measured set; `run-wake-sources.sh` and
 anything else outside `sources/` remain unmeasured beyond the one comparison noted in §5.
