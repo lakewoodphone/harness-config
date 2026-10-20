@@ -1140,9 +1140,18 @@ function gateG2({ version, tree, targets, patchSource, treeNote, g }) {
     return;
   }
   if (targetIds.length === 0) {
+    // A PROFILE WITH NO PATCH ENTRIES CANNOT LOSE A PATCH. Measured 2026-10-20 on `zabz-tech-linux`, whose whole
+    // patch layer is the stock header plus `[]`: G2 reported "with nothing to check this gate cannot pass", which
+    // makes that host permanently unpromotable for a reason that is not a defect. The property this gate asserts
+    // ("every target of ours is a row") holds vacuously when there are no targets, so it passes and SAYS SO —
+    // it never reads as a verified attribution. A missing or unreadable consumed source still fails: that is the
+    // case where we genuinely do not know what our patch intends.
+    const haveSource = Boolean(patchSource);
     g('G2', {
-      ran: true, ok: false, exitCode: null, durationMs: tree.durationMs, evidence,
-      detail: `no patch row targets for the ${COMPOSED_PROFILE} profile were available (${patchSource ?? 'no source'}${offProfile.length ? `; ${offProfile.length} target(s) exist for other profiles` : ''}); with nothing to check this gate cannot pass`,
+      ran: true, ok: haveSource, exitCode: null, durationMs: tree.durationMs, evidence,
+      detail: haveSource
+        ? `no patch row targets for the ${COMPOSED_PROFILE} profile (${patchSource}${offProfile.length ? `; ${offProfile.length} target(s) are for other profiles` : ''}) — the layer is empty, so every target it could own is trivially a row; NOTHING was attributed here`
+        : 'no patch row targets were available AND no consumed source could be read, so nothing about our layers can be established',
     });
     return;
   }
