@@ -38,7 +38,21 @@ const has = (n) => ARGV.includes(`--${n}`)
 
 // The prompt variables 0.2.1 registers, measured from its own failure message on 2026-10-19. Anything else a
 // config names is either a variable this line does not have, or a token that will fail a turn.
-const REGISTERED_PROMPT_VARS_0_2_1 = new Set(['provider', 'model'])
+// THE SET IS AN ASSUMPTION OF ITS OWN, so it is keyed by the version it was MEASURED on and the tool
+// refuses to judge a version it has no row for. The first version of this file carried one set for every
+// engine, which is the same class of mistake it exists to catch: "provider, model" was read off a 0.2.1
+// failure message and would have been applied to 0.3 silently. `MEASURED` says how each row was obtained;
+// update it only from a real reading (the engine's own `unknown prompt variable ... registered variables:`
+// error names the set, which is how 0.2.1 was measured).
+const PROMPT_VARS_BY_VERSION = new Map([
+  ['0.2.0-rc.2', new Set(['provider', 'model'])],
+  ['0.2.1-rc.2', new Set(['provider', 'model'])],
+])
+const promptVarSetFor = (v) => {
+  if (PROMPT_VARS_BY_VERSION.has(v)) return PROMPT_VARS_BY_VERSION.get(v)
+  const series = [...PROMPT_VARS_BY_VERSION.keys()].find((k) => v.startsWith(k.split('-')[0] + '.'))
+  return series ? PROMPT_VARS_BY_VERSION.get(series) : null
+}
 
 const engineRoot = String(flag('engine') || path.join(os.homedir(), '.dsh', 'engine'))
 const home = String(flag('home') || process.env.DSH_HOME || path.join(os.homedir(), '.dsh'))
@@ -50,6 +64,12 @@ const version = (() => {
   const r = spawnSync(process.execPath, [bin, '--version'], { encoding: 'utf8', timeout: 120000 })
   return `${r.stdout || ''}`.trim().split('\n').pop() || 'unknown'
 })()
+
+const PROMPT_VARS = promptVarSetFor(version)
+if (!PROMPT_VARS) {
+  console.error(`config-assumptions: no MEASURED prompt-variable set for engine ${version}. Applying another version's set would be the same class of assumption this tool exists to catch. Measure it -- one turn that names an unknown variable prints "registered variables: ..." -- and add a row to PROMPT_VARS_BY_VERSION.`)
+  process.exit(3)
+}
 
 // ── the candidate's own default tree: every row, its package and its inject list ──────────────────────
 const dump = spawnSync(process.execPath, [bin, '--profile', 'web', '--dump-default-config'], {
@@ -133,10 +153,10 @@ for (const f of files) {
     for (const m of line.matchAll(/\{\{\s*([A-Za-z_][\w.-]*)\s*\}\}/gu)) {
       stats.promptTokens += 1
       const tok = m[1]
-      if (!REGISTERED_PROMPT_VARS_0_2_1.has(tok)) {
+      if (!PROMPT_VARS.has(tok)) {
         findings.push({
           kind: 'prompt-var', file: f, line: i + 1, row: currentRow, ref: `{{${tok}}}`,
-          why: `${version} registers only ${[...REGISTERED_PROMPT_VARS_0_2_1].join(', ')} as prompt variables; a turn that assembles this section fails with "unknown prompt variable"`,
+          why: `${version} registers only ${[...PROMPT_VARS].join(', ')} as prompt variables; a turn that assembles this section fails with "unknown prompt variable"`,
           injects: null,
         })
       }

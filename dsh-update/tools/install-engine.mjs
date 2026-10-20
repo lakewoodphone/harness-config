@@ -198,6 +198,28 @@ async function main() {
   say(`  PASS  preflight ${version} = ${pf.result}${pf.result === 'GO' ? '' : ' (G8 door accepted)'} at ${pf.at}`)
   say(`  PASS  verify.json bound to contract ${contractSha.slice(0, 16)}…`)
 
+  // 2b -- OUR CONFIG'S ASSUMPTIONS ABOUT THIS CANDIDATE (L10238; the 2026-10-20 ZABZ-YOGA outage)
+  //
+  // Every other precondition here is about the CANDIDATE. This one is about US: does the config this machine
+  // will boot with name a service an upstream row no longer injects, or a prompt token this version does not
+  // register? Both classes had already taken a machine down before this line existed (`ctx.webRuntime` and
+  // `{{cwd}}`), the checker for them was written on 2026-10-19, and on ZABZ-YOGA the switch installed first and
+  // consulted it never -- the install succeeded and every turn after it died. This is the one code path every
+  // update route passes through, so the check lives here as well as in the switch, and it refuses BEFORE the
+  // staged copy is made: a wrong assumption must cost a config edit, not a swapped tree.
+  const caTool = path.join(PATHS.root, 'tools', 'config-assumptions.mjs')
+  if (!fs.existsSync(caTool)) refuse(`config-assumptions.mjs is missing at ${caTool}. It is the check L10238 exists for; refusing to install without it.`)
+  const ca = spawnSync(process.execPath, [caTool, '--engine', from, '--home', PATHS.dshHome, '--json'], { encoding: 'utf8', timeout: 300000 })
+  let caReport = null
+  try { caReport = JSON.parse(`${ca.stdout || ''}`.trim()) } catch { caReport = null }
+  if (!caReport) refuse(`config-assumptions produced no JSON (exit ${ca.status}): ${`${ca.stderr || ''}`.trim().split('\n').slice(-2).join(' | ') || '(no diagnostic)'}`)
+  const caFindings = Array.isArray(caReport.findings) ? caReport.findings : []
+  if (caFindings.length) {
+    for (const f of caFindings.slice(0, 6)) say(`  FAIL  ${String(f.file).split(/[\\/]/u).pop()}:${f.line}  row "${f.row}"  ${f.ref}`)
+    refuse(`${caFindings.length} config assumption(s) that ${version} does not offer. NOTHING WAS WRITTEN. Fix the config (and the generator that produced it), then re-run -- this is exactly the class that took ZABZ-TECH and ZABZ-YOGA down: L10238.`)
+  }
+  say(`  PASS  our config assumptions (${caReport.stats?.files ?? '?'} file(s), ${caReport.stats?.promptTokens ?? '?'} prompt token(s), ${caReport.stats?.ctxRefs ?? '?'} ctx ref(s)) against ${caReport.version}`)
+
   if (dryRun) {
     say('')
     say('  DRY RUN — every precondition passed and NOTHING was written. The steps that would run:')

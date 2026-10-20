@@ -1651,6 +1651,49 @@ async function verbPreflight(argv) {
           ? `verdict BREAKS — the engine does not honour settings this deployment sets (${Object.entries(se.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'}). Read the artifact before promoting: this is a silent behaviour change, not a crash.`
           : `verdict ${se.verdict} — every settings key this deployment sets is present in the engine's own report with our value (${Object.entries(se.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'})`)));
 
+  // ── guard: OUR CONFIG'S ASSUMPTIONS ABOUT THIS CANDIDATE ────────────────────────────────────
+  //
+  // WHY THIS IS BLOCKING AND WHY IT IS HERE. Two live outages came from our config restating an upstream
+  // surface: `ctx.webRuntime` (0.2.1 injects `webStartup`) and `{{cwd}}` (0.2.1 registers only provider and
+  // model). Both were invisible to every other guard in this command -- analyze and patch-effect compare our
+  // config's VALUES, and neither evaluates a `!!js` expression or a prompt token against the candidate.
+  // `tools/config-assumptions.mjs` was written for exactly this class on 2026-10-19 (L10238) and, measured
+  // 2026-10-20 on ZABZ-YOGA, it was still not reachable from any verb: the switch installed, the engine came
+  // up, and every turn died on `unknown prompt variable "{{cwd}}"`. A detector no verb can reach is a
+  // document. This guard is the reach.
+  //
+  // IT BLOCKS ONLY WHEN IT RAN AND FOUND SOMETHING. A candidate that is not fetched, or a tool that cannot
+  // start, is reported as a GAP and does not block -- the same rule settings-effective follows. A guard that
+  // never reached a verdict must not make this command unpassable.
+  const caTool = path.join(PATHS.root, 'tools', 'config-assumptions.mjs');
+  const caEngine = vendorPrefixPath(version);
+  const caFetched = fileInfo(path.join(caEngine, ENGINE_REL)).exists;
+  if (!caFetched) {
+    add('our config assumptions (prompt tokens, ctx injections)', false, false,
+      `did not run -- no candidate engine under ${safeRelPath(caEngine)}. Reported as a GAP, not a pass.`);
+  } else if (!fileInfo(caTool).exists) {
+    add('our config assumptions (prompt tokens, ctx injections)', false, false,
+      `did not run -- ${safeRelPath(caTool)} is missing. Reported as a GAP, not a pass.`);
+  } else {
+    const r = spawnSync(process.execPath, [caTool, '--engine', caEngine, '--home', PATHS.dshHome, '--json'], {
+      encoding: 'utf8', timeout: 300000,
+    });
+    let rep = null;
+    try { rep = JSON.parse(`${r.stdout || ''}`.trim()); } catch { rep = null; }
+    if (!rep) {
+      add('our config assumptions (prompt tokens, ctx injections)', false, false,
+        `did not run -- config-assumptions produced no JSON (exit ${r.status}): ${`${r.stderr || ''}`.trim().split('\n').slice(-2).join(' | ') || '(no diagnostic)'}`);
+    } else {
+      const findings = Array.isArray(rep.findings) ? rep.findings : [];
+      const stats = rep.stats || {};
+      const ok = findings.length === 0;
+      add('our config assumptions (prompt tokens, ctx injections)', ok, true, ok
+        ? `${stats.files ?? '?'} file(s), ${stats.promptTokens ?? '?'} prompt token(s), ${stats.ctxRefs ?? '?'} ctx reference(s) -- every one is something ${rep.version} actually offers`
+        : `${findings.length} assumption(s) this version does not offer: ${findings.slice(0, 4).map((f) => `${String(f.file).split(/[\\/]/u).pop()}:${f.line} ${f.ref}`).join(', ')}${findings.length > 4 ? ` (+${findings.length - 4} more)` : ''}. Each one fails a turn or a plugin activation AFTER the install -- fix the config, then re-run.`);
+      if (!ok) for (const f of findings.slice(0, 6)) lines.push(`        ${String(f.file).split(/[\\/]/u).pop()}:${f.line}  row "${f.row}"  ${f.ref} -- ${f.why}`);
+    }
+  }
+
   // ── guard: every artifact stamped with the config home it judged, and that home is THIS one ────
   //
   // Blocking, and deliberately checked here rather than left to promote. `preflight` is the verb whose
