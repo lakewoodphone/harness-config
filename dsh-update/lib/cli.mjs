@@ -29,6 +29,9 @@ import {
 // The single reading of verify.json shared by `preflight` and `promote`. See the module header: the two
 // verbs once carried private readings that disagreed, and it deadlocked every session-format candidate.
 import { DECISION_GATES, verifyPromotable } from './promote-reading.mjs';
+// The LIVE install root: one resolution shared by promote, plan, rollback and the switch. The staging prefix is
+// where a candidate is fetched to; it is never where a machine runs from.
+import { liveInstallRoot } from './live-root.mjs';
 // Every verdict this pipeline writes must name the config home it judged. See the module header: on
 // 2026-09-28 a test fixture's staged home overwrote the authoritative artifacts and every later reading
 // described a config that does not exist on this machine.
@@ -800,7 +803,16 @@ function promotionEffect(version) {
   const cfg = readConfigForPlan();
   const pinned = pinnedState();
   if (!pinned.present) throw new CliError('state/pin.json does not exist, so promote has nothing to succeed. Run `snapshot` first.', { exitCode: 2 });
-  const newRoot = vendorPrefixPath(version);
+  // WHERE THE ENGINE ACTUALLY LIVES, not where the candidate was staged. This line said `vendorPrefixPath(version)`
+  // and that is a *second* copy of the same decision, independent of lib/live-root.mjs — so a `promote` wrote a pin
+  // naming the staging directory while `dshInstall` named the live root (measured on ZABZ-TECH, and again on
+  // zabz-tech-linux 2026-10-20 where it put the staging path into both the pin and windows.json). The staging
+  // prefix is where `fetch` puts a candidate; it is never where a machine runs from.
+  const live = liveInstallRoot();
+  if (!live.present) {
+    throw new CliError(`no live install root (${live.source}). promote names the tree the machine RUNS; the staging prefix is not it. Install an engine at <home>/.dsh/engine, set $env:DSH_LIVE_INSTALL, or run \`install-engine --to <root>\`.`, { exitCode: 2 });
+  }
+  const newRoot = live.root;
   const newEngine = path.join(newRoot, ENGINE_REL);
   const state = candidateState(version);
   return {
