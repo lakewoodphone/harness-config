@@ -663,7 +663,7 @@ def main() -> int:
         "- id: persona\n"
         "  name: '@deepseek-ai/dsh-persona'\n"
         "  config:\n"
-        "    suffix: Your working directory is {{cwd}}.\n"
+        "    suffix: Run `pwd` in your shell for the working directory; never assume a path.\n"
         "    prefix: |-\n"
         f"{indented}\n\n"
     )
