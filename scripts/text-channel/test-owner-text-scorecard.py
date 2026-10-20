@@ -193,6 +193,57 @@ def main() -> int:
           OLD_FAMILY in written and retire in written, written)
 
     print()
+    print("gate-refused family: a producer the live gate already stops is not LIVE")
+    GATED = "I was asking you for something I should have found myself."
+    GATED_FAMILY = sc.family_of(GATED)
+
+    def refuse_everything(body):
+        return {"refused": True, "code": "acknowledgement_only", "send_body": None}
+
+    in3 = row("IN3", "ok", NOW - timedelta(hours=1), direction="inbound", status="received")
+    result3 = sc.judge([row("G1", GATED, NOW - timedelta(hours=45)), in3],
+                       NOW - timedelta(days=DAYS), NOW, REPLY_H)
+    summary3 = sc.summarise(result3, REPLY_H, gate=refuse_everything)
+    check("a gate-refused family is not named LIVE", summary3["worst_live_family"] is None,
+          repr(summary3["worst_live_family"]))
+    eq("it is recorded as the gated family",
+       summary3["gated_worst_family"]["family"], GATED_FAMILY)
+    eq("no live dead texts", summary3["live_dead"], 0)
+    text3 = capture_report(result3, summary3)
+    check("report says the live gate refuses it", "refused by the live gate" in text3, text3)
+    check("report still says there is no LIVE family", "worst LIVE family      none" in text3)
+
+    fake3 = FakeRun()
+    sc.subprocess.run = fake3
+    try:
+        out3 = io.StringIO()
+        with contextlib.redirect_stdout(out3):
+            rc3 = sc.file_flag(summary3, DAYS)
+    finally:
+        sc.subprocess.run = original
+    written3 = out3.getvalue()
+    eq("--flag returns 0", rc3, 0)
+    eq("NO wake flag filed for a gate-refused family", len(fake3.calls), 0)
+    check("the refusal names the gated family", GATED_FAMILY in written3, written3)
+
+    print()
+    print("the gate must actually gate: an allowed body is still a LIVE target")
+    summary4 = sc.summarise(result3, REPLY_H,
+                            gate=lambda body: {"refused": False, "code": "question_asked"})
+    check("an allowed body is not marked gated", summary4["gated_worst_family"] is None,
+          repr(summary4["gated_worst_family"]))
+    check("an allowed dead family stays LIVE", summary4["worst_live_family"] is not None,
+          repr(summary4["worst_live_family"]))
+
+    print()
+    print("an unreadable gate must not demote anything (fail open, not silent)")
+    summary5 = sc.summarise(result3, REPLY_H, gate=lambda body: None)
+    check("no verdict means no demotion", summary5["gated_worst_family"] is None,
+          repr(summary5["gated_worst_family"]))
+    check("the dead family is still LIVE without a gate verdict",
+          summary5["worst_live_family"] is not None, repr(summary5["worst_live_family"]))
+
+    print()
     if FAILED:
         print("RESULT: FAIL (%d passed, %d failed)" % (PASSED, len(FAILED)))
         for name in FAILED:

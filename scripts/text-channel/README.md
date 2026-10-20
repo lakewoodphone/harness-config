@@ -291,3 +291,78 @@ here.
 
 The already-delivered 2026-10-18 row stays in the scorecard's 14-day count until
 **2026-11-01**; the producer that would send another is what changed.
+
+## 2026-10-20 — a family the live gate already refuses is not a wake target
+
+The 03:08 wake named `asking something should found` (1 dead of 1, newest 45.5h old)
+again, one hour after item 750 had fixed its producer. The text itself is settled:
+`classify_owner_body` now returns `acknowledgement_only` / `refused: True` for
+`I was asking you for something I should have found myself.` and
+`restatement_only` / `refused: True` for the longer promise it was salvaged from.
+Nothing was left to repair, yet the same weekly subject kept producing sessions.
+
+Two readings combined to manufacture the duplicate:
+
+1. **Liveness was age only.** `summarise()` called a family LIVE whenever its newest
+   text was inside `LIVE_FAMILY_H` (48h), even when every body in it was one the live
+   gate refuses. The one self-admission row stays inside 48h until 2026-10-20 ~05:00.
+2. **`wake.py flag` revives a terminal subject.** The `owner-text:scorecard:2026-W43`
+   subject was done at 02:14; the source re-filed it at 02:37 because the 30-minute
+   cooldown had passed, and the dispatcher released it at 03:08. A weekly subject that
+   re-files after its own release is a session every ~30 minutes, not one a week.
+
+Change in `owner-text-scorecard.py`:
+
+- `summarise()` now takes the live `textsend.classify_owner_body` (or an injected
+  callable; `gate=None` means the live tree, an unreadable gate means no demotion) and
+  records one more bit per family: **GATED** = every body in the family is refused by
+  the gate AND the newest is past the reply window. A GATED family is not LIVE. The
+  reply-window condition keeps a text he may still answer in play.
+- The report prints `[GATED]` in the family table and, when no LIVE family remains,
+  `worst LIVE family      none - the dead family '...' is refused by the live gate: no
+  text in it can be delivered`.
+- `file_flag()` files nothing for a GATED family and prints why. It does not touch the
+  historical branch (item 733) or the conformance flag.
+
+Before/after on the same 14 days of `sms_log` (the scorecard at `HEAD` against this
+one, same data, same reply window):
+
+```bash
+cd /root/code/harness-config
+git show HEAD:scripts/text-channel/owner-text-scorecard.py > /tmp/score-before.py
+python3 /tmp/score-before.py --days 14 | grep 'worst LIVE'
+python3 scripts/text-channel/owner-text-scorecard.py --days 14 | grep 'worst LIVE'
+```
+
+```
+BEFORE worst LIVE family : asking something should found (1 dead of 1, newest 45.48h)
+AFTER  worst LIVE family : none
+AFTER  gated family      : asking something should found (1 dead of 1, newest 45.48h)
+COUNT  live wake targets whose every body the live gate refuses: 1 -> 0
+```
+
+`file_flag()` on the AFTER summary returns 0 with `no subprocess was called` (the
+source's `wake.py flag` is never reached). The 53.1% dead-text rate is unchanged: the
+three wall rows and the self-admission row are already delivered, and the 2026-10-18
+row stays in the count until 2026-11-01. This change stops the re-wake; it cannot
+un-send a text.
+
+Verify (none sends, none files a flag):
+
+```bash
+cd /root/code/harness-config
+python3 scripts/text-channel/test-owner-text-scorecard.py     # 41 checks, RESULT: PASS
+python3 scripts/text-channel/owner-text-scorecard.py --days 14 # worst LIVE family: none (GATED)
+```
+
+The gate is still the gate: a family whose bodies the gate allows stays LIVE, and an
+unreadable gate demotes nothing (`test-owner-text-scorecard.py` covers both). A
+producer that *bypasses* the gate is a conformance defect, not a dead-text one; the
+conformance census still names it and still files its own flag.
+
+One latent trap found while proving this, not changed here: the app's
+`app/services/owner_text_classification.py` caches the `textsend` module on first use
+(`_module`), so a deploy of `/root/bin/textsend.py` is NOT live in a running
+`company-api` until it restarts. It is not biting today (the process started 01:22Z
+and its last app-door owner send was 2026-10-19 18:24Z, so its cache was empty at
+deploy time), but the next textsend deploy has no such guarantee.

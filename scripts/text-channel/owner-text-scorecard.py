@@ -262,6 +262,23 @@ def _load_relay():
         return None
 
 
+def _live_gate():
+    """`textsend.classify_owner_body` from the live tree, or None.
+
+    The scorecard asks the SAME function both send paths ask, so "the gate refuses this
+    body" means the body cannot be delivered through either door. A gate that cannot be
+    loaded disables the reading rather than guessing; this never raises.
+    """
+    try:
+        if RELAY_DIR not in sys.path:
+            sys.path.insert(0, RELAY_DIR)
+        import textsend  # noqa: WPS433 - deliberate late import from a sibling dir
+        fn = getattr(textsend, "classify_owner_body", None)
+        return fn if callable(fn) else None
+    except Exception:
+        return None
+
+
 
 #: The AI line's ledger. `textsend._record_send` writes the `messages` table here; the app writes
 #: `sms_log`. Both are durable and both are the owner's channel.
@@ -373,7 +390,7 @@ def conformance(rows, since):
             "rewritten": rewrites, "by_class": by_class, "examples": examples,
             "rate": (flagged / delivered) if delivered else None}
 
-def summarise(result, reply_window_h=None):
+def summarise(result, reply_window_h=None, gate=None):
     judged = result["judged"]
     counts = {"ANSWERED": 0, "COMPLAINED": 0, "IGNORED": 0, "UNMEASURABLE": 0}
     by_family = {}
@@ -381,12 +398,14 @@ def summarise(result, reply_window_h=None):
         counts[j["outcome"]] = counts.get(j["outcome"], 0) + 1
         fam = by_family.setdefault(j["family"], {"ANSWERED": 0, "COMPLAINED": 0,
                                                  "IGNORED": 0, "UNMEASURABLE": 0,
-                                                 "n": 0, "examples": [], "times": []})
+                                                 "n": 0, "examples": [], "times": [],
+                                                 "bodies": []})
         fam[j["outcome"]] = fam.get(j["outcome"], 0) + 1
         fam["n"] += 1
         when = _parse(j.get("at"))
         if when is not None:
             fam["times"].append(when)
+        fam["bodies"].append(j["body"])
         if len(fam["examples"]) < 2 and j["outcome"] in ("IGNORED", "COMPLAINED"):
             fam["examples"].append(j["body"][:90])
 
@@ -396,8 +415,10 @@ def summarise(result, reply_window_h=None):
 
     reference = _parse(result.get("until")) or _now()
     window_days = float(result.get("window_days") or 14.0)
-    live_h = max(float(reply_window_h or result.get("reply_window_h")
-                       or DEFAULT_REPLY_WINDOW_H), LIVE_FAMILY_H)
+    reply_h = float(reply_window_h or result.get("reply_window_h")
+                    or DEFAULT_REPLY_WINDOW_H)
+    live_h = max(reply_h, LIVE_FAMILY_H)
+    gate_fn = gate if gate is not None else _live_gate()
 
     def detail(name, fam):
         """One family with the age that separates a retired producer from a live one.
@@ -405,17 +426,34 @@ def summarise(result, reply_window_h=None):
         `retires_below_two_at` is when the family stops qualifying for the worst-families
         table (n >= 2): the SECOND-newest text plus the window. A single old text cannot
         keep a family named, and a family whose newest text is inside LIVE_FAMILY_H is live.
+
+        GATED: every body in the family is refused by the live gate, and the newest is past
+        the reply window. No composer using that gate can deliver a text in this family, so
+        re-waking it cannot change anything. A family still inside the reply window stays
+        live: he may yet answer a text that has already reached him (ledger item 750's
+        self-admission family was still named LIVE 45h after its producer was fixed).
         """
         times = sorted(t for t in fam["times"] if t is not None)
         newest = times[-1] if times else None
         age_h = ((reference - newest).total_seconds() / 3600.0) if newest else None
         retires = (times[-2] + timedelta(days=window_days)) if len(times) >= 2 else None
+        gated = False
+        if gate_fn is not None and fam["bodies"] and age_h is not None and age_h > reply_h:
+            verdicts = []
+            for body in fam["bodies"]:
+                try:
+                    verdict = gate_fn(body)
+                except Exception:                                  # noqa: BLE001
+                    verdict = None
+                verdicts.append(bool(verdict and verdict.get("refused")))
+            gated = bool(verdicts) and all(verdicts)
         return {"family": name, "n": fam["n"],
                 "dead": fam["COMPLAINED"] + fam["IGNORED"],
                 "examples": fam["examples"],
                 "newest": newest.isoformat() if newest else None,
                 "newest_age_h": round(age_h, 2) if age_h is not None else None,
-                "live": bool(age_h is not None and age_h <= live_h),
+                "gated": gated,
+                "live": bool(age_h is not None and age_h <= live_h and not gated),
                 "retires_below_two_at": retires.isoformat() if retires else None}
 
     details = {k: detail(k, v) for k, v in by_family.items()}
@@ -432,13 +470,20 @@ def summarise(result, reply_window_h=None):
          if d["dead"] > 0 and d["live"]),
         key=lambda d: (-d["dead"], -d["n"], d["newest_age_h"] or 0.0))
     worst_live = live_bad[0] if live_bad else None
+    gated_bad = sorted(
+        (d for d in details.values()
+         if d["dead"] > 0 and d["gated"]),
+        key=lambda d: (-d["dead"], -d["n"], d["newest_age_h"] or 0.0))
+    gated_worst = gated_bad[0] if gated_bad else None
     historical = next((d for d in worst if not d["live"] and d["dead"] > 0), None)
 
     return {"counts": counts, "measurable": measurable, "dead_text_rate": rate,
             "worst_families": worst, "families": len(by_family),
             "worst_live_family": worst_live,
+            "gated_worst_family": gated_worst,
             "historical_worst_family": historical,
             "live_dead": sum(d["dead"] for d in live_bad),
+            "gated_dead": sum(d["dead"] for d in gated_bad),
             "live_window_h": live_h,
             "until": reference.isoformat()}
 
@@ -466,7 +511,8 @@ def report(result, summary, days, window_h):
     if not summary["worst_families"]:
         print("  none")
     for fam in summary["worst_families"]:
-        state = "LIVE" if fam["live"] else "HISTORICAL"
+        state = ("GATED" if fam.get("gated")
+                 else ("LIVE" if fam["live"] else "HISTORICAL"))
         line = "  %-38s %d dead of %d   newest %s old [%s]" % (
             fam["family"][:38], fam["dead"], fam["n"],
             _fmt_age(fam.get("newest_age_h")), state)
@@ -477,12 +523,18 @@ def report(result, summary, days, window_h):
             print("        e.g. %s" % ex)
 
     live = summary.get("worst_live_family")
+    gated = summary.get("gated_worst_family")
     hist = summary.get("historical_worst_family")
     print()
     if live:
         print("worst LIVE family      %s (%d dead of %d, newest %s old)"
               % (live["family"][:38], live["dead"], live["n"],
                  _fmt_age(live.get("newest_age_h"))))
+    elif gated:
+        print("worst LIVE family      none - the dead family '%s' (%d dead of %d, newest "
+              "%s old) is refused by the live gate: no text in it can be delivered"
+              % (gated["family"][:38], gated["dead"], gated["n"],
+                 _fmt_age(gated.get("newest_age_h"))))
     else:
         print("worst LIVE family      none - every dead text is historical (no dead family "
               "sent inside %gh)" % summary.get("live_window_h", LIVE_FAMILY_H))
@@ -508,6 +560,26 @@ def file_flag(summary, days):
         # its three rows stayed in the 14-day window until 10-27, so every weekly run named an
         # already-fixed producer and re-woke the same defect. A historical breach is a count
         # that has not aged out, not a thing a shift can change. Say so; file nothing.
+        #
+        # AND (item 750, measured 2026-10-20): a family inside 48h is not automatically live.
+        # The self-admission family's only text was still 45h old an hour after its producer
+        # was fixed, and this branch re-filed the SAME weekly subject -- a fresh session every
+        # ~30 minutes. If every body in the family is refused by the live gate, no text in it
+        # can reach him through either door; naming it is what manufactured the duplicate.
+        gated = summary.get("gated_worst_family")
+        if gated:
+            print("no flag: dead-text rate %.1f%% - the dead family '%s' (%d dead of %d, "
+                  "newest %s old) is refused by the live gate, so no text in it can be "
+                  "delivered and a shift cannot change it."
+                  % (100 * rate, gated["family"], gated["dead"], gated["n"],
+                     _fmt_age(gated.get("newest_age_h"))))
+            if hist:
+                print("no flag: worst HISTORICAL family: %s (%d dead of %d, newest %s old, "
+                      "drops below 2 rows %s)."
+                      % (hist["family"], hist["dead"], hist["n"],
+                         _fmt_age(hist.get("newest_age_h")),
+                         (hist.get("retires_below_two_at") or "?")[:10]))
+            return 0
         if hist:
             print("no flag: dead-text rate %.1f%% is HISTORICAL - no dead family sent inside "
                   "%gh. Worst retired family: %s (%d dead of %d, newest %s old, drops below "
