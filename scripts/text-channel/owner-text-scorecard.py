@@ -62,6 +62,11 @@ RELAY_DB = os.environ.get("OWNER_TEXT_RELAY_DB", "/root/.owner-text/relay.db")
 OWNER = os.environ.get("OWNER_PHONE_NUMBER", "+18483897895")
 WAKE = os.environ.get("OWNER_TEXT_WAKE", "/root/bin/wake.py")
 
+#: The subject carries the ISO week, so one release per week is the cadence. Without an
+#: explicit cooldown wake.py falls back to WAKE_COOLDOWN_SEC (1800s) and re-files the same
+#: weekly subject every 30 minutes (ledger item 755). 7 days = one ISO week.
+WEEKLY_COOLDOWN_SEC = 7 * 24 * 3600
+
 #: How long he has to respond before a text counts as ignored. Six hours: his median answer
 #: latency is 152.8 min (owner-text-audit, 30 days), so 6h is ~2.4x the median and anything
 #: past it was not waiting on him -- it was finished with.
@@ -624,7 +629,8 @@ def file_flag(summary, days):
            int(days), int(days))
     )
     cmd = [sys.executable, WAKE, "flag", "--subject", subject, "--prompt", prompt,
-           "--kind", "owner-text", "--source", "owner-text-scorecard", "--priority", "normal"]
+           "--kind", "owner-text", "--source", "owner-text-scorecard", "--priority", "normal",
+           "--cooldown-seconds", str(WEEKLY_COOLDOWN_SEC)]
     try:
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         print("flag %s -> %s" % (subject, (out.stdout or out.stderr or "").strip()[:300]))
@@ -682,7 +688,8 @@ def file_conformance_flag(conf, days):
            conf.get("rewritten") or 0)
     )
     cmd = [sys.executable, WAKE, "flag", "--subject", subject, "--prompt", prompt,
-           "--kind", "owner-text", "--source", "owner-text-conformance", "--priority", "normal"]
+           "--kind", "owner-text", "--source", "owner-text-conformance", "--priority", "normal",
+           "--cooldown-seconds", str(WEEKLY_COOLDOWN_SEC)]
     try:
         out = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         print("flag %s -> %s" % (subject, (out.stdout or out.stderr or "").strip()[:300]))
