@@ -1720,6 +1720,7 @@ handoff	H10793	10793		2026-10-20 04:03 UTC	ZABZ-YOGA	open	## 2026-10-20 04:03 UT
 handoff	H11241	11241		2026-10-20 15:07 UTC	secratary-cloud	open	## 2026-10-20 15:07 UTC · secratary-cloud · Closed 147 stale pickups; the 50-day rule was skipping the orders it was built for	entries/handoff/H11241.md	1	63	b457cafc330f4ead		
 handoff	H11242	11242		2026-10-20 15:09 UTC	secratary-cloud	open	## 2026-10-20 15:09 UTC · secratary-cloud · Addendum to H11241: three status corrections, and the next case is a double capture	entries/handoff/H11242.md	1	33	2d2519efec17b190		
 handoff	H11305	11305		2026-10-20 15:17 UTC	secratary-cloud	open	## 2026-10-20 15:17 UTC · secratary-cloud · WO2601150002: card real, Zelle disproved against his statements, order closed	entries/handoff/H11305.md	1	39	9f8c64ec15e3ae4c		
+handoff	H11369	11369		2026-10-20 17:15 UTC	SECRATARY-CLOUD	open	## 2026-10-20 17:15 UTC · SECRATARY-CLOUD · 2026-10-20 17:15 UTC - secratary-cloud - Pollok ThinkPad USB-C port intake filed (WO26102012759): quoted 100, nothing paid, two money questions open, customer waiting on a reply	entries/handoff/H11369.md	1	53	85fac0e9acb145f6		
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -3923,6 +3924,8 @@ lessons	L10625	10625		2026-10-20	ZABZ-YOGA	open	**L10625 · An instrument that h
 lessons	L10626	10626		2026-10-20	ZABZ-YOGA	open	**L10626 · A restart is a policy change - do not deploy code inside a window you are measuring**	entries/lessons/L10626.md	1	18	2fdaac47ed7d2030		
 lessons	L11134	11134		2026-10-20	secratary-cloud	open	**L11134 · Our own bookkeeping reset the 50-day pickup clock and hid 147 stale orders**	entries/lessons/L11134.md	1	40	53d859d78b4614c7		
 lessons	L11198	11198		2026-10-20	secratary-cloud	open	**L11198 · A payment row is a claim, not money: the Zelle that never arrived, and where his bank statements live**	entries/lessons/L11198.md	1	48	f033ae5152609816		
+lessons	L11262	11262		2026-10-20	SECRATARY-CLOUD	open	**L11262 · On the authority, lpt reads need the app venv interpreter - and the missing psycopg2 silently degraded lpt-write's last guard**	entries/lessons/L11262.md	1	14	cbdb331053a2fcd3		
+lessons	L11263	11263		2026-10-20	SECRATARY-CLOUD	open	**L11263 · The comms index lags the production table by minutes - read the live table before telling the owner a customer is not waiting**	entries/lessons/L11263.md	1	14	561f5341a750845d		
 pain	P1	1		-	-	open	## P1 — The owner's attention is spent on questions that are not his	entries/pain/P1.md	1	19	a333378103d58100	legacy-import	
 pain	P2	2		-	-	done	## P2 — Nothing watches outcomes, so failures are silent	entries/pain/P2.md	1	22	3e835e3af40ad351	legacy-import	
 pain	P3	3		-	-	open	## P3 — Reading the wrong data and believing it	entries/pain/P3.md	1	17	fab2dc6c56d0a427	legacy-import	
