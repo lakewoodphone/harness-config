@@ -8,7 +8,7 @@
   "pain": 9355,
   "wins": 6939
  },
- "ceiling_refreshed_at": "2026-10-20T02:45:11Z",
+ "ceiling_refreshed_at": "2026-10-20T03:00:14Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/641-wake-progress-cap",
   "handoff": "refs/heads/hk/641-wake-progress-cap",
