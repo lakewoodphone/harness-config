@@ -6,7 +6,7 @@ Updated: 2026-10-20
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 618 row(s) read, 37 pending, generated 2026-10-20 06:08 UTC on SECRATARY-CLOUD.
+Provenance: 619 row(s) read, 38 pending, generated 2026-10-20 07:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -42,6 +42,7 @@ Provenance: 618 row(s) read, 37 pending, generated 2026-10-20 06:08 UTC on SECRA
 | 862 | 2026-10-20 | medium | May a shift use one sacrificial Android 15+ handset for the five anti-reset device tests, and which handset? | Use a shop-owned, already-unsellable Android 15+ handset and connect it with USB debugging to zabz-yoga-ts; do not risk a customer device. |
 | 863 | 2026-10-20 | medium | On Fridays, does the shop take walk-in customers until about 1.5 hours before sunset, or is Friday drop-off only all day? The website has been saying the first and the shop's own schedule in the code says the second, and the hours are now rendered everywhere from that schedule. | Confirm the real Friday rule and I will set it in the schedule; I would guess walk-ins until 1.5 hours before sunset, because a kosher shop closing early for Shabbos is the normal pattern and someone wrote that sentence  |
 | 865 | 2026-10-20 | medium | May I fast-forward origin/master to the tested lpt-sync 659 reconciliation fix (3 files, 12 tests pass), or will you merge it? | I recommend I run: git push origin integrate/lpt-sync-659-20261020:master. It is a fast-forward, the 12 reconciliation tests pass, and production already runs this exact code; without it any deploy reset restores the fal |
+| 868 | 2026-10-20 | medium | May integrator shifts fast-forward origin/master to a tested clean integration branch for personal-secretary-mvp, starting with pt708 6c6693eb8 (which also lands item 710), or will you merge them yourself? | I recommend letting the shift run: git push origin 6c6693eb8:master. It contains current master and the fix branch, deletes no files, focused tests pass, and the full suite adds no failure. Without it these tested branch |
 | 844 | 2026-10-19 | low | Screenshots and images on your Desktop and OneDrive are not searchable. 2,401 files never reach the index because it only takes text formats. Do you want them searchable? | No for now. Nothing in this rebuild was ever answered by a screenshot, OCR is a real build rather than a setting, and the corpus already holds 730,000 text documents. Revisit the first time a screenshot turns out to be t |
 | 845 | 2026-10-19 | low | ZABZ-TECH's own search index is 16.7 GB, and 101,044 of its 1,357,204 documents are worktree copies of two repositories, _fleet trees, _scratch trees and logs. May I prune those? | Yes, and in the same pass as the central prune. Nothing in that set is unique: worktree copies are duplicates of checkouts that remain on disk, and the rest is scratch and logs. A verified copy of the index is taken firs |
 | 853 | 2026-10-20 | low | Set up the numbered test-SIM drawer — kit, line, phone, expiry — so a lost SIM never needs a swap? | Yes. A numbered kit and one line per phone makes a lost SIM a fresh activation, never a swap. |
