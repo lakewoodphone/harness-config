@@ -5,54 +5,145 @@
     {
       "id": "malformed-tool-input",
       "kind": "script",
-      "covers": ["dsh-llm-deepseek/lib/index.js"],
+      "covers": [
+        "dsh-llm-deepseek/lib/index.js"
+      ],
       "note": "One malformed tool call must not kill a whole turn. Found 2026-10-05; the patcher embeds the repair engine and refuses if the upstream anchor moved.",
-      "check": ["python", "scripts/patch-dsh-malformed-tool-input.py", "--check", "--root", "{runtime}"],
-      "apply": ["python", "scripts/patch-dsh-malformed-tool-input.py", "--root", "{runtime}"]
+      "check": [
+        "python",
+        "scripts/patch-dsh-malformed-tool-input.py",
+        "--check",
+        "--root",
+        "{runtime}"
+      ],
+      "apply": [
+        "python",
+        "scripts/patch-dsh-malformed-tool-input.py",
+        "--root",
+        "{runtime}"
+      ]
     },
     {
-            "id": "settlement-crash",
+      "id": "settlement-crash",
       "superseded": {
         "fromVersion": "0.2.1-rc.2",
         "evidence": "Measured 2026-10-20 on the 0.2.1 tree: the unguarded async settlement watcher this patch existed to catch is gone. dsh-subagent/lib/index.js now wraps EVERY lifecycle listener's returned promise in `Promise.resolve(returned).catch(...)` (line 171) and the settlement path is a defined `settle: ({stopReason, output})` handler (line 199) with `settlementSummary` / `createSettlementMessage` / `kind: \"subagent-settled\"`. lib/types/activation.js no longer contains an async IIFE at all, and the manager catches disposal promises at 1274/1306/1319/1363/1381. So on 0.2.1 this patch has nothing to add: its first target is already-hardened in our tree by an earlier partial apply, and its other two targets do not exist any more. On the 0.2.0 line it is still needed."
       },
       "kind": "script",
-      "covers": ["dsh-subagent/lib/index.js"],
+      "covers": [
+        "dsh-subagent/lib/index.js"
+      ],
       "note": "A finished child agent must not die at settlement and lose its report. Found 2026-09-30.",
-      "check": ["python", "scripts/patch-dsh-settlement-crash.py", "--check", "--root", "{runtime}"],
-      "apply": ["python", "scripts/patch-dsh-settlement-crash.py", "--root", "{runtime}"]
+      "check": [
+        "python",
+        "scripts/patch-dsh-settlement-crash.py",
+        "--check",
+        "--root",
+        "{runtime}"
+      ],
+      "apply": [
+        "python",
+        "scripts/patch-dsh-settlement-crash.py",
+        "--root",
+        "{runtime}"
+      ]
     },
     {
       "id": "currency-single-dollar-math",
       "kind": "script",
-      "covers": ["dsh-web-frontend/dist/assets/vendor-"],
+      "covers": [
+        "dsh-web-frontend/dist/assets/vendor-"
+      ],
       "note": "Currency must render as text, not LaTeX. Found 2026-09-25. Targets the hashed vendor bundle, so it is resolved by glob, never by filename.",
-      "check": ["python", "scripts/patch-dsh-web-currency-math.py", "--check", "--root", "{root}"],
-      "apply": ["python", "scripts/patch-dsh-web-currency-math.py", "--root", "{root}"]
+      "check": [
+        "python",
+        "scripts/patch-dsh-web-currency-math.py",
+        "--check",
+        "--root",
+        "{root}"
+      ],
+      "apply": [
+        "python",
+        "scripts/patch-dsh-web-currency-math.py",
+        "--root",
+        "{root}"
+      ]
     },
     {
-            "id": "window-blank-isolation",
+      "id": "window-blank-isolation",
       "superseded": {
         "fromVersion": "0.2.1-rc.2",
         "evidence": "Measured 2026-10-20 in the installed 0.2.1 tree, dsh-client-ui-workspace/lib/client.js: the function this patch modified (`reuseOrCreateBlank`) no longer exists, and upstream now states and enforces the isolation it was written for — `sessionVisible()` contains `if (session.blank && session.id !== current) return false;` under the comment 'among blank sessions, only the current one is visible', and `pinCurrentBlank()` keeps the selected blank first without duplicating a slot. So a window no longer adopts another window's blank row. NOT PROVEN the way the patch was: this is a reading of the upstream code, not two windows opened side by side; the patch's own symptom was visual. On the 0.2.0 line the patcher still applies and is still needed."
       },
       "kind": "script",
-      "covers": ["dsh-client-ui-workspace/lib/client.js"],
+      "covers": [
+        "dsh-client-ui-workspace/lib/client.js"
+      ],
       "note": "A second window must not reuse a blank workspace. Exit 4 means absent, 5 unverifiable (refuses on an unknown upstream).",
-      "check": ["node", "multi-window/tools/patch-window-blank-isolation.mjs", "--check", "--engine", "{root}"],
-      "apply": ["node", "multi-window/tools/patch-window-blank-isolation.mjs", "--apply", "--engine", "{root}"]
+      "check": [
+        "node",
+        "multi-window/tools/patch-window-blank-isolation.mjs",
+        "--check",
+        "--engine",
+        "{root}"
+      ],
+      "apply": [
+        "node",
+        "multi-window/tools/patch-window-blank-isolation.mjs",
+        "--apply",
+        "--engine",
+        "{root}"
+      ]
     },
     {
       "id": "session-persistence-v4-sibling",
-      "kind": "informational",
-      "covers": ["dsh-session-persistence-jsonl/lib/index.js"],
-      "note": "UNREGISTERED AS OF 2026-10-19. The live tree carries .bak-harness-* siblings for this file from 2026-10-05 02:36-03:44, which means somebody patched it by hand four times and wrote no patcher. Until a patcher exists, the install-time audit decides it mechanically: if the new tree's file equals the old PATCHED file, upstream adopted the change and nothing is lost; otherwise the install FAILS and names this file. What would close it: a scripted diff of the backup against the patched file, the hunk expressed as a patcher, and this entry promoted to kind=script."
+      "kind": "script",
+      "covers": [
+        "dsh-session-persistence-jsonl/lib/index.js"
+      ],
+      "note": "CLOSED 2026-10-20 -- promoted from informational to a real patcher. The live tree carried four .bak-harness-* siblings from 2026-10-05, i.e. somebody patched this file by hand four times and wrote no patcher; on 0.2.1-rc.2 the line was back to an unconditional structuredClone (measured 2026-10-20, line 188), so the improvement had been lost. The patcher refuses if the anchor moves.",
+      "check": [
+        "python",
+        "scripts/patch-dsh-jsonl-frozen-clone.py",
+        "--check",
+        "--root",
+        "{root}"
+      ],
+      "apply": [
+        "python",
+        "scripts/patch-dsh-jsonl-frozen-clone.py",
+        "--root",
+        "{root}"
+      ]
+    },
+    {
+      "id": "web-spinner-containment",
+      "kind": "script",
+      "covers": [
+        "dsh-web-frontend/dist/assets/index-"
+      ],
+      "note": "An idle window must not keep repainting through its spinner. The app bundle's ._spinner* keyframes animate forever; `contain: layout paint` on those elements keeps the dirty layer local. Was a hand edit on 0.2.0 (index-BPHePDI_.css, .bak-harness-20261005-003402) and was being lost on every install because the bundle name carries a per-release hash; on 0.2.1-rc.2 it is index-BxpfOGf3.css and the same five spinner classes are still uncontained (measured 2026-10-20). The patcher finds the bundle by glob and reads the class names out of it, so a release rename is not a failure.",
+      "check": [
+        "python",
+        "scripts/patch-dsh-web-spinner-containment.py",
+        "--check",
+        "--root",
+        "{root}"
+      ],
+      "apply": [
+        "python",
+        "scripts/patch-dsh-web-spinner-containment.py",
+        "--root",
+        "{root}"
+      ]
     },
     {
       "id": "primitives-state-dot",
       "kind": "informational",
-      "covers": ["dsh-client-ui-primitives/lib/StateDot.module.css"],
-      "note": "UNREGISTERED AS OF 2026-10-19. One .bak-harness-20261005-003056 sibling exists for this file. Same disposition as the entry above: the install audit decides it by comparison, and the install fails rather than losing it silently."
+      "covers": [
+        "dsh-client-ui-primitives/lib/StateDot.module.css"
+      ],
+      "note": "UNREGISTERED AS OF 2026-10-19. One .bak-harness-20261005-003056 sibling exists for this file. Same disposition as the entry above: the install audit decides it by comparison, and the install fails rather than losing it silently. Measured 2026-10-20: the file does NOT exist in 0.2.1-rc.2 at all (renamed or removed upstream), so there is nothing to carry forward; the entry stays informational and its `covers` line is what explains the .bak sibling in the install-time audit. Measured 2026-10-20: the file does NOT exist in 0.2.1-rc.2 at all (renamed or removed upstream), so there is nothing to carry forward; the entry stays informational and its `covers` line is what explains the .bak sibling in the install-time audit."
     }
   ]
 }

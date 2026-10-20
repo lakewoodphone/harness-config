@@ -139,7 +139,10 @@ export function audit(oldRoot, newRoot, registry = loadRegistry()) {
     if (seen.has(rel.toLowerCase())) continue
     seen.add(rel.toLowerCase())
     const newFile = path.join(newRoot, rel)
-    const coveredBy = [...covered].find((g) => rel.toLowerCase().includes(g))
+    // `covers` is written with '/' and path.relative() returns '\\' on Windows: normalise before
+    // the substring test, or every registered patch reads as unregistered on a Windows host.
+    const relNorm = rel.split(path.sep).join('/').toLowerCase()
+    const coveredBy = [...covered].find((g) => relNorm.includes(g))
     let verdict = 'NEEDS-PATCH'
     if (coveredBy) verdict = 'registered'
     else if (fs.existsSync(newFile) && fs.existsSync(live) &&
