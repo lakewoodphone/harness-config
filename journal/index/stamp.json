@@ -1,26 +1,18 @@
 {
- "built": "2026-10-20 22:43 UTC",
+ "built": "2026-10-20 23:38 UTC",
  "cache_version": 2,
  "ceiling": {
   "decisions": 8833,
   "handoff": 11754,
-  "lessons": 11583,
+  "lessons": 11646,
   "pain": 9739,
   "wins": 6939
  },
- "ceiling_refreshed_at": "2026-10-20T23:15:07Z",
- "ceiling_source": {
-  "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "refs/heads/lpt/roadmap-supply-821-20261020",
-  "lessons": "refs/heads/lpt/roadmap-supply-821-20261020",
-  "pain": "ZABZ-YOGA live working tree",
-  "wins": "ZABZ-YOGA live working tree"
- },
  "db": "journal.db + fts5",
  "drift_measured": "2026-10-20 22:43 UTC",
- "entries": 5822,
- "entries_count": 5822,
- "entries_sig": "aca5d7884e3a8942a7c759f0964534ca73f4aa60",
+ "entries": 5823,
+ "entries_count": 5823,
+ "entries_sig": "5c945acbd3c44b58b07b72371c8ff690b1a80f12",
  "flat_sig": "e81ba98d8eab33e618b5b74ba904a907236443a9",
  "git_ceiling": {
   "decisions": 8896,
