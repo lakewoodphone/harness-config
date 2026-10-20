@@ -154,10 +154,11 @@ scored the same (ledger item 733).
 Change: `owner-text-scorecard.py` now records, per family, the newest delivered
 text's age and whether it is inside the live window (`max(reply window, 48h)`).
 The report prints `[LIVE]` or `[HISTORICAL]` on every worst family and, for a
-historical one, the date it drops below the 2-text table. `--flag` names the
-worst **live** family (including a live family with one text); if every dead
-text is historical it files nothing and prints the retired family, its age and
-its age-out date instead of waking another shift.
+historical one, the date it drops below the 2-text table. The dead-text `--flag`
+branch names the worst **live** family (including a live family with one text);
+if every dead text is historical it files no dead-text flag and prints the
+retired family, its age and its age-out date instead of waking another shift.
+(The conformance flag is a separate condition and still fires on its own rate.)
 
 Before/after on the same 14 days of `sms_log` (the scorecard as it was in
 `2dde8d07^` against the current one):
