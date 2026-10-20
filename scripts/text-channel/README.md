@@ -436,5 +436,5 @@ Deployed relay md5 `3583c8aba509`; live pager md5
 `/root/text-deploy-backup/20261020T031636Z/owner_attention.py`. The pager is the app-repo
 file at `/opt/company/scripts/owner_attention.py` (`/root/personal-secretary-mvp` is the
 same checkout); the working tree already carried the uncommitted one-question and
-answerable patches, so this change is recorded by hash and this section rather than as a
-clean app-repo commit.
+answerable patches, so this change is recorded by hash, this section, and the exact diff at
+`scripts/text-channel/patches/owner_attention-credential-ask-20261020.patch`.
