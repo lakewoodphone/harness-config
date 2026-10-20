@@ -3,19 +3,27 @@
  "bands_refs_read": 55,
  "ceiling": {
   "decisions": 8896,
-  "handoff": 11432,
+  "handoff": 11496,
   "lessons": 11325,
   "pain": 9802,
   "wins": 7130
  },
  "ceiling_source": {
   "decisions": "ZABZ-YOGA live working tree",
-  "handoff": "refs/heads/lpt/roadmap-supply-206-20261020",
-  "lessons": "refs/heads/lpt/roadmap-supply-206-20261020",
-  "pain": "refs/heads/lpt/roadmap-supply-206-20261020",
+  "handoff": "ZABZ-YOGA live working tree",
+  "lessons": "ZABZ-YOGA live working tree",
+  "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [],
+ "claimed_gap_rows": [
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "handoff",
+   "reserved_from": 11433,
+   "reserved_through": 11496,
+   "stamp": "2026-10-20 18:30 UTC"
+  }
+ ],
  "entries_high_water": {
   "decisions": "D8833",
   "handoff": "H11369",
@@ -25,7 +33,7 @@
  },
  "high_water": {
   "decisions": "D8896",
-  "handoff": "H11432",
+  "handoff": "H11496",
   "lessons": "L11325",
   "pain": "P9802",
   "wins": "W7130"
@@ -43,11 +51,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-20T18:15:14Z",
+ "refreshed_at": "2026-10-20T18:30:14Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 12.5,
+ "seconds": 12.0,
  "sources_seen": 11420
 }
