@@ -185,6 +185,7 @@ __all__ = [
     "status", "doctor", "available",
     "normalise", "body_hash", "policy", "policy_sources", "db_path", "fit",
     "quiet_hours_now", "credential_request", "internal_prose",
+    "compose_reminder_sentence",
     "GUARD_ENV", "CREDENTIAL_CODE", "CREDENTIAL_RULE_TEXT", "INBOUND_VERDICT",
     "QUIET_START_DEFAULT", "QUIET_END_DEFAULT", "QUIET_AWAKE_DEFAULT",
 ]
@@ -1313,6 +1314,134 @@ def _is_reminder_class(body: str) -> bool:
     return any(op in low for op in _REMINDER_OPENERS)
 
 
+# ---- THE REMINDER COMPOSER: one human sentence, never a work order -------------
+#
+# Measured 2026-10-10: the owner received
+#   "⏰ Reminder: VS Code session: present ONE numbered owner-approval ask — (1) #27836 ..."
+# It is a reminder, so it must not be dropped (a suppressed reminder is a deleted
+# reminder), but its body is an instruction to an agent wearing a clock emoji.  The
+# sender had no composer: it prefixed "⏰ Reminder: " to whatever the model wrote and
+# handed it to the gate, which refused it.  This is the missing composer.  It keeps the
+# reminder's substance, writes ONE sentence a person can read, and removes exactly the
+# three things the guard is right to refuse: paths, task ids and agent imperatives.
+#
+# It is shared on purpose: the app's sender calls it before the body exists, and
+# `_rescue_reminder` calls it for a reminder already on the wire.  One composer, so the
+# sentence the owner receives and the sentence the census scores cannot disagree.
+_REMINDER_PREFIX_RE = re.compile(
+    r"^\s*(?:[\u23f0\U0001f6a8\u26a0\ufe0f]+\s*)?(?:reminder|alert)\s*[:\-\u2014]\s*",
+    re.IGNORECASE)
+_REMINDER_TASK_ID_RE = re.compile(
+    r"(?:#\s*\d{3,}|\b(?:task|item|row|issue|ledger|ticket|wo)\s*#?\s*\d{3,}\b)",
+    re.IGNORECASE)
+_REMINDER_PATH_RE = re.compile(
+    r"(?<![\w@])~?/?(?:docs|data|lpt-hub|opt|srv|root|home|var|tmp|etc)/[\w./-]+"
+    r"|\b[\w-]+(?:/[\w.-]+)*\.(?:md|py|json|sql|db|log|tsv|csv|ya?ml|sh|txt)\b",
+    re.IGNORECASE)
+#: A sentence that is meta-instruction or channel bookkeeping, not the reminder itself.
+_REMINDER_META_RE = re.compile(
+    r"(?:owner answers numbered lists|present\s+(?:ONE|one)\s+numbered|"
+    r"re-?surface\s+as|surface\s+in\s+(?:the\s+)?next\s+vs\s*code\s+session|"
+    r"ask\s+in\s+(?:the\s+)?next\s+vs\s*code\s+session|"
+    r"logged\s+for\s+(?:the\s+)?next|sms\s+rate\s*limit|rate\s*limit\s+hit|"
+    r"do\s+not\s+text\s+owner|next\s+vs\s*code\s+session)",
+    re.IGNORECASE)
+#: A clause that tells an agent what to do, not a fact for the reader.
+_REMINDER_IMPERATIVE_RE = re.compile(
+    r"\b(?:present|record|append|surface|re-?surface|execute|re-?run)\b[^.;\n]{0,90}",
+    re.IGNORECASE)
+_REMINDER_LIST_RE = re.compile(r"(?:^|\s)\((\d{1,2})\)\s+")
+_REMINDER_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_REMINDER_COUNT_WORDS = {1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five",
+                         6: "Six", 7: "Seven", 8: "Eight", 9: "Nine", 10: "Ten"}
+_REMINDER_FALLBACK = "A reminder is due; the details are on your dashboard."
+
+
+def _reminder_clean(text: str) -> str:
+    """Strip the three refused shapes from one clause and close its punctuation."""
+    t = " ".join(str(text or "").split())
+    t = _REMINDER_TASK_ID_RE.sub("", t)
+    t = _REMINDER_PATH_RE.sub("", t)
+    t = re.sub(r"\(\s*\)|\[\s*\]", "", t)
+    t = re.sub(r"\s+([,.;:])", r"\1", t)
+    t = t.strip(" \t,;:-\u2014")
+    return t
+
+
+def _reminder_sentence(text: str) -> str:
+    """Collapse a finished body into ONE sentence, or "" when nothing readable remains."""
+    t = _reminder_clean(text)
+    if not t:
+        return ""
+    t = re.sub(r"\.{2,}", ".", t)
+    t = t[0].upper() + t[1:]
+    if t[-1] not in ".!?":
+        t += "."
+    return t
+
+
+def compose_reminder_sentence(body) -> tuple[str, str]:
+    """(sentence, note). ONE human sentence for a reminder; never a path, id or imperative.
+
+    The list form is kept because it is what the owner was being asked to answer: four
+    numbered approval items become "Four things need your approval: ..., ..., and ...".
+    Everything else keeps its first substantive sentence.  If nothing readable survives,
+    the reminder is still delivered as a sentence pointing at the dashboard -- the
+    reminder is not lost, and no machine text reaches the phone.
+    """
+    text = "" if body is None else str(body)
+    if not text.strip():
+        return "", "composer: empty reminder"
+    work = _REMINDER_PREFIX_RE.sub("", text)
+    # Numbered packets: the lead is an instruction, the items are the substance.
+    matches = list(_REMINDER_LIST_RE.finditer(work))
+    if len(matches) >= 2:
+        items = []
+        for idx, match in enumerate(matches):
+            end = matches[idx + 1].start() if idx + 1 < len(matches) else len(work)
+            item = work[match.end():end]
+            # A trailing meta sentence belongs to the message, not to item N.
+            item = _REMINDER_SENTENCE_SPLIT_RE.split(item)[0]
+            item = _reminder_clean(item)
+            if item and not _REMINDER_META_RE.search(item):
+                items.append(item)
+        if len(items) >= 2:
+            noun = "approval" if re.search(r"approv", text, re.I) else "attention"
+            n = len(items)
+            lead = "%s thing%s need%s your %s" % (
+                _REMINDER_COUNT_WORDS.get(n, str(n)), "" if n == 1 else "s",
+                "s" if n == 1 else "", noun)
+            kept = []
+            for item in items:
+                candidate = ", ".join(kept + [item])
+                if len(lead) + len(candidate) + 8 <= _RESCUE_MAX:
+                    kept.append(item)
+            if len(kept) >= 2:
+                joined = ", ".join(kept[:-1]) + " and " + kept[-1]
+                sentence = _reminder_sentence("%s: %s" % (lead, joined))
+                if sentence and _internal_hit(sentence) is None:
+                    return sentence, ("composer: %d-item reminder written as one sentence "
+                                      "(%d -> %d chars)" % (n, len(text), len(sentence)))
+    # No usable list: drop meta/imperative sentences, keep the first substantive one.
+    kept = []
+    for part in _REMINDER_SENTENCE_SPLIT_RE.split(" ".join(work.split())):
+        part = part.strip()
+        if not part or _REMINDER_META_RE.search(part):
+            continue
+        part = _REMINDER_IMPERATIVE_RE.sub("", part)
+        part = _reminder_clean(part)
+        if part and not _REMINDER_META_RE.search(part):
+            kept.append(part)
+    sentence = _reminder_sentence("; ".join(kept))
+    if len(sentence) > _RESCUE_MAX:
+        sentence = _reminder_sentence(sentence[:_RESCUE_MAX].rsplit(" ", 1)[0])
+    if sentence and len(sentence) >= 20 and _internal_hit(sentence) is None:
+        return sentence, ("composer: reminder written as one human sentence (%d -> %d chars)"
+                          % (len(text), len(sentence)))
+    return _REMINDER_FALLBACK, ("composer: nothing readable survived (%d chars); "
+                                "delivered as a dashboard pointer" % len(text))
+
+
 def _rescue_reminder(body, to, subsystem):
     """(body, note). Rewrite an instruction-shaped reminder into a sentence; never lose it."""
     text = "" if body is None else str(body)
@@ -1342,16 +1471,30 @@ def _rescue_reminder(body, to, subsystem):
     human = " ".join(kept).strip()
     if human and human[-1] not in ".!?":
         human += "."
-    if not human or len(human) < 20:
-        return body, "rescue: nothing readable remained; left for the guard to refuse"
+    human_ok = bool(human and len(human) >= 20)
+    if human_ok:
+        try:
+            human_ok = _internal_hit(human) is None
+        except Exception:                                      # noqa: BLE001
+            human_ok = True
+    if human_ok:
+        return human, "rescue: reminder rewritten for a human (%d -> %d chars)" % (
+            len(text), len(human))
+    # The old sentence-by-sentence rescue could not repair a one-sentence reminder whose
+    # lead was an agent instruction (the measured VS Code packet). Ask the composer that
+    # writes reminders at the sender; it keeps the substance and writes one sentence.
     try:
-        if _internal_hit(human) is not None:
-            return body, ("rescue: rewritten body still reads as internal prose (%r); "
-                          "left for the guard" % _internal_hit(human)[1][:60])
+        composed, note = compose_reminder_sentence(text)
+        if composed and len(composed) >= 20 and _internal_hit(composed) is None:
+            return composed, note or ("rescue: reminder rewritten for a human (%d -> %d chars)"
+                                      % (len(text), len(composed)))
     except Exception:                                          # noqa: BLE001
         pass
-    return human, "rescue: reminder rewritten for a human (%d -> %d chars)" % (
-        len(text), len(human))
+    if not human or len(human) < 20:
+        return body, "rescue: nothing readable remained; left for the guard to refuse"
+    return body, ("rescue: rewritten body still reads as internal prose (%r); "
+                  "left for the guard" % (_internal_hit(human)[1][:60]
+                                          if _internal_hit(human) else "guard error"))
 
 def _body_guard(body, to, subsystem):
     """(hit, notes): the first of rules 1g/1h that refuses this body, or None.
