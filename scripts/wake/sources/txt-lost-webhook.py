@@ -45,7 +45,7 @@ MUST NEVER
 RUN
     python3 sources/txt-lost-webhook.py [--dry-run]
     LOST_TXT_HOURS=24        how far back to look (default 24)
-    SECRETARY_API_UNIT       the systemd unit (default secretary-api)
+    SECRETARY_API_UNIT       the systemd unit (default: auto-detected)
     LOST_TXT_SCAN_LIMIT=4000 how many inbound rows to scan for the cross-check
 """
 from __future__ import annotations
@@ -219,6 +219,10 @@ def _finding(unit, day, stamps, mine) -> Finding:
                  f"{len(mine)} matching text(s)"),
         priority="high",
         kind="bug",
+        # item 252 (same defect item 232 fixed for cfo-backfill): this subject is
+        # day-bucketed, so the store's cooldown can only ever DEFER today's row into
+        # tomorrow, where its prompt reads a day old. Never defer it.
+        defer_on_cooldown=False,
         cooldown_seconds=int(os.environ.get("LOST_TXT_COOLDOWN_SEC") or 86400),
     )
 

@@ -131,8 +131,15 @@ def main() -> int:
         if a.dry_run:
             filed.append("%s -> %s (%d todo)" % (pid, subject, len(todos)))
             continue
+        # THE PER-PROJECT COOLDOWN IS IN projects.json AND USED TO BE IGNORED. Measured
+        # 2026-10-07: the registry named 1800 s per project while this call passed no
+        # --cooldown-seconds, so `wake.py` fell back to its own WAKE_COOLDOWN_SEC default and the
+        # per-project field was decorative - a registry field nothing reads is how two numbers
+        # come to disagree. Passed here; the store default still applies when a project names none.
         cmd = ["python3", WAKE_CLI, "flag", "--subject", subject, "--prompt", prompt,
                "--context", context, "--kind", "project", "--source", SOURCE, "--priority", "normal"]
+        if row.get("cooldown_seconds"):
+            cmd += ["--cooldown-seconds", str(int(row["cooldown_seconds"]))]
         try:
             p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                                errors="replace", timeout=120)

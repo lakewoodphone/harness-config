@@ -182,6 +182,10 @@ def _finding(day, hours, rows, total, allows, now) -> Finding:
         context=f"{SOURCE}: {total} inbound text(s) undecided for >{hours:g}h",
         priority="high",
         kind="bug",
+        # item 252 (same defect item 232 fixed for cfo-backfill): this subject is
+        # day-bucketed, so the store's cooldown can only ever DEFER today's row into
+        # tomorrow, where its prompt reads a day old. Never defer it.
+        defer_on_cooldown=False,
         cooldown_seconds=int(os.environ.get("STRANDED_COOLDOWN_SEC") or 86400),
     )
 

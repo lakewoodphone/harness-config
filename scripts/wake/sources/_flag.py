@@ -40,7 +40,7 @@ ENVIRONMENT
     SMS_INBOX_DB       the text store                (default ~/.sms-inbox/inbox.db)
     SMS_INBOX_APP_DB   the app's database            (default the mvp path)
     OWNER_QUEUE_DB     overrides SMS_INBOX_APP_DB for the queue sources
-    SECRETARY_API_UNIT systemd unit for the app      (default secretary-api)
+    SECRETARY_API_UNIT systemd unit for the app      (default: auto-detected)
 
 Every threshold in every source is env-overridable too, with the measured
 default documented in that source's header.
@@ -81,14 +81,57 @@ def inbox_db() -> Path:
 
 
 def app_db() -> Path:
-    """The app database, honouring the name owner-queue.py already uses."""
-    return Path(os.environ.get("OWNER_QUEUE_DB")
-                or os.environ.get("SMS_INBOX_APP_DB")
-                or (HOME / "personal-secretary-mvp" / "data" / "secretary.db"))
+    """The app database, honouring the name owner-queue.py already uses.
+
+    CORRECTED 2026-10-18 — the same defect as `app_unit()` below, with the same reasoning and the
+    same blast radius. The default was `HOME / "personal-secretary-mvp" / "data" / "secretary.db"`,
+    and cron runs the sources as root with HOME=/root, so it resolved to
+    `/root/personal-secretary-mvp/data/secretary.db`: a STALE COPY that really exists and holds
+    ZERO `owner_decision_queue` rows, while the live queue is `/root/authority.db` (545 rows,
+    measured). `decision-queue-stale.py` and `decision-answer-unconsumed.py` — the only two
+    sources whose whole job is to escalate an aging owner row — were therefore blind for their
+    entire life, and a blind detector prints exactly what a satisfied one prints: `quiet`.
+    Measured cost of that silence: 33 pending rows, oldest 31 days, and 41 answered-but-never-
+    consumed rows that nothing surfaced.
+
+    The authority is the one place the queue is authoritative (AGENTS.md 5), so it is preferred;
+    the env override still wins, and the old path remains as the fallback for a host that is not
+    the authority.
+    """
+    override = os.environ.get("OWNER_QUEUE_DB") or os.environ.get("SMS_INBOX_APP_DB")
+    if override:
+        return Path(override)
+    authority = Path("/root/authority.db")
+    if authority.exists():
+        return authority
+    return HOME / "personal-secretary-mvp" / "data" / "secretary.db"
+
+
+APP_UNIT_CANDIDATES = ("secretary-api", "company-api")
 
 
 def app_unit() -> str:
-    return os.environ.get("SECRETARY_API_UNIT") or "secretary-api"
+    """The systemd unit that actually runs the app ON THIS HOST.
+
+    CORRECTED 2026-10-15 (ledger item 253). The default used to be the literal
+    string "secretary-api", which is the unit on the frozen office box. The
+    authority runs `company-api`, so on the only box that matters every tick
+    raised Unreadable("systemd unit secretary-api is not loaded") -- exit 1,
+    SIGNAL UNREADABLE, forever -- and txt-lost-webhook's 5xx-lost-text detector
+    was blind. Measured: `systemctl show -p LoadState --value secretary-api`
+    -> not-found, `... company-api` -> loaded.
+
+    The env override still wins. Otherwise the first candidate systemd actually
+    has loaded is used, so the source is correct on either box rather than only
+    on the one whose unit name was hard-coded.
+    """
+    override = os.environ.get("SECRETARY_API_UNIT")
+    if override:
+        return override
+    for unit in APP_UNIT_CANDIDATES:
+        if unit_exists(unit):
+            return unit
+    return APP_UNIT_CANDIDATES[0]
 
 
 def now_utc() -> datetime:
@@ -177,6 +220,20 @@ _JOURNAL_UNREADABLE = ("No journal files", "Permission denied", "Access denied",
                        "Failed to open", "Cannot open", "Not permitted")
 
 
+# journalctl's own status banners: it talking ABOUT the query, not log records.
+# Measured 2026-10-15 on the authority (ledger item 257): a --grep with no match
+# exits 1 and prints exactly `-- No entries --` on STDOUT with empty stderr; the
+# same shape is used for `-- Reboot --` and `-- Journal begins at ... --`.
+# A real `short-iso` record always starts with a timestamp (measured: 5000 of
+# 5000 lines in a 5000-line read carried one), so a line that BEGINS with `-- `
+# and ENDS with ` --` is never a record -- a log message that happened to read
+# like that would still be prefixed by its timestamp.
+def _is_journal_status(line: str) -> bool:
+    """Whether this line is journalctl's own banner rather than a log record."""
+    stripped = line.strip()
+    return stripped.startswith("-- ") and stripped.endswith(" --")
+
+
 def journal_grep(unit: str, since: datetime, pattern: str,
                  timeout: int = 60) -> list[str]:
     """Lines from the unit's journal matching `pattern`, newest last.
@@ -187,6 +244,14 @@ def journal_grep(unit: str, since: datetime, pattern: str,
 
     An empty list is the healthy answer, and journalctl signals it with rc=1 --
     so rc=1 is NOT an error here. Only a genuine read failure raises.
+
+    CORRECTED 2026-10-15 (ledger item 257). A no-match query is NOT empty stdout:
+    journalctl writes its own banner. Measured on the authority,
+    `journalctl -u company-api --grep zzz-definitely-no-such-pattern` -> rc=1,
+    stdout exactly `-- No entries --` (17 bytes), stderr empty. The old return
+    filtered on `line.strip()` alone, so that banner came back as a match and a
+    healthy quiet read was `['-- No entries --']` -- truthy -- while this
+    docstring promised `[]`. Journalctl status banners are now dropped.
     """
     if not unit_exists(unit):
         raise Unreadable(f"systemd unit {unit} is not loaded (LoadState=not-found)")
@@ -205,7 +270,8 @@ def journal_grep(unit: str, since: datetime, pattern: str,
             if marker in blob:
                 raise Unreadable(
                     f"journalctl could not read {unit}'s journal: {marker}")
-    return [line for line in proc.stdout.splitlines() if line.strip()]
+    return [line for line in proc.stdout.splitlines()
+            if line.strip() and not _is_journal_status(line)]
 
 
 _JOURNAL_STAMP = re.compile(
@@ -237,6 +303,13 @@ class Finding:
     kind: str = "task"
     context: str = ""
     cooldown_seconds: int | None = None
+    # item 232: set False for a DAY-BUCKETED source (<source>:<UTC day>). Such a
+    # source gets exactly one row per day from the subject key alone, so the
+    # store's cooldown deferral buys no dedup and costs a day of staleness: the
+    # delivered prompt's own "measured at ... (X h ago)" line is 24 h old.
+    # False makes the store refresh, not defer, a live unclaimed row, and refuse
+    # to re-arm a terminal one. Default True: every other source is unchanged.
+    defer_on_cooldown: bool = True
 
 
 def flag(finding: Finding, source: str, dry_run: bool = False) -> str:
@@ -263,6 +336,8 @@ def flag(finding: Finding, source: str, dry_run: bool = False) -> str:
            "--json"]
     if finding.cooldown_seconds is not None:
         cmd += ["--cooldown-seconds", str(int(finding.cooldown_seconds))]
+    if not finding.defer_on_cooldown:
+        cmd += ["--no-defer"]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     except Exception as exc:                                   # noqa: BLE001
@@ -288,72 +363,6 @@ def flag(finding: Finding, source: str, dry_run: bool = False) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# the saturation guard
-# --------------------------------------------------------------------------- #
-#: How loaded the control plane may get before a source REFUSES to add work.
-#: Load average per core over 1 minute. MEASURED 2026-09-28: the authority is a
-#: 4-core box whose ordinary load is about 1x (load ~4); the incident this guards
-#: against was 4x (load ~16), and at that point the ssh hop timed out and the
-#: whole wake/dispatch system died silently with it. At 2x the ceiling is 8.0:
-#: high enough that ordinary work is never suppressed, low enough that the next
-#: 4x overload is refused instead of amplified. Tune with
-#: WAKE_SATURATION_LOAD_PER_CORE.
-SATURATION_LOAD_PER_CORE = 2.0
-
-
-def saturation_factor() -> float:
-    try:
-        return float(os.environ.get("WAKE_SATURATION_LOAD_PER_CORE",
-                                    SATURATION_LOAD_PER_CORE))
-    except (TypeError, ValueError):
-        return SATURATION_LOAD_PER_CORE
-
-
-def cores_available() -> int:
-    """Cores this process may actually run on (cgroup-aware where possible)."""
-    try:
-        return len(os.sched_getaffinity(0))
-    except (AttributeError, OSError):
-        return os.cpu_count() or 1
-
-
-def load_one() -> float | None:
-    """The 1-minute load average, or None when it cannot be read at all."""
-    try:
-        return float(os.getloadavg()[0])
-    except (AttributeError, OSError):
-        pass
-    try:
-        return float(Path("/proc/loadavg").read_text(encoding="utf-8").split()[0])
-    except Exception:                                          # noqa: BLE001
-        return None
-
-
-def saturation_reason(load1: float | None = None, cores: int | None = None,
-                      factor: float | None = None) -> str | None:
-    """Why the control plane is too saturated to add work, or None if it is not.
-
-    Deliberately pure: pass the numbers and it answers without touching the
-    machine, which is what makes the threshold testable instead of a belief.
-    An unreadable load is NEVER treated as saturated -- a source that cannot
-    measure must not silently stop the whole system.
-    """
-    if load1 is None:
-        load1 = load_one()
-    if cores is None:
-        cores = cores_available()
-    if factor is None:
-        factor = saturation_factor()
-    if load1 is None or not cores or cores <= 0:
-        return None
-    ceiling = cores * factor
-    if load1 > ceiling:
-        return "saturated load %.2f > %.2f (%d cores x %s)" % (load1, ceiling,
-                                                               cores, factor)
-    return None
-
-
-# --------------------------------------------------------------------------- #
 # the runner every source uses
 # --------------------------------------------------------------------------- #
 def run(source: str, collect) -> int:
@@ -376,21 +385,6 @@ def run(source: str, collect) -> int:
     except Exception as exc:                                   # noqa: BLE001
         print(f"{source}: unexpected {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
-
-    reason = saturation_reason()
-    if reason:
-        # REFUSE, DO NOT AMPLIFY. Adding another session to a saturated control
-        # plane is what made the ssh hop time out on 2026-09-28 and took the whole
-        # wake/dispatch system down with it. The findings are not dropped on the
-        # floor: the reason is on stderr, and stdout still carries the store's word
-        # so a caller cannot mistake this for a source that found nothing.
-        for finding in findings:
-            print(f"({finding.subject}: suppressed {reason})", file=sys.stderr)
-        print(f"{source}: {reason} -- refusing to add work; "
-              f"{len(findings)} finding(s) held back until the control plane "
-              f"recovers", file=sys.stderr)
-        print("quiet")
-        return 0
 
     landed = 0
     for finding in findings:

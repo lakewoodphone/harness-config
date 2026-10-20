@@ -22,6 +22,29 @@ project's standing worker contract. Nothing else. It is quiet for a disabled
 project, a project with no work remaining, a project inside its cooldown, or a
 project that has already spent its daily allowance.
 
+THE LEDGER IS CONSULTED BEFORE THE WAKE (LEDGER item 142, 2026-10-14). The state
+file alone used to decide this, so a project whose entire non-terminal WORK LEDGER
+backlog was blocked with a revisit time still in the future was indistinguishable
+from one with startable todo work -- yet `work.py claim-next` can only ever answer
+`nothing-todo` for it, because `_pick_next` selects `state='todo'` alone. Measured:
+11 consecutive chumash wakes over 23 hours re-derived one owner-only blocker for no
+change. Such a project is now suppressed with the blocked+revisit named, at priority
+4 waste, and the suppression RE-ARMS BY ITSELF: the moment a blocked item comes due
+or any todo item is filed, the project flags again. A project may opt out with
+`ignore_blocked_ledger: true` in the registry when its ledger is a known-INCOMPLETE
+account of its backlog (kosher-ai-filter, whose state file names untracked roadmap
+work). An unreadable ledger is never a suppression: it fails OPEN.
+
+THE FINISHED PROJECT IS SILENCED BY THE LEDGER, NOT BY A STALE STATE FILE (LEDGER
+item 354, 2026-10-15). A project whose ledger holds rows and ALL of them terminal
+(done/dropped) is FINISHED. That case used to be reported "unknown" -- the same answer
+as an unreadable ledger -- so the caller failed open to the project's own state file,
+and a stale `work_remaining: true` there re-filed a paid shift every cooldown for zero
+work (chumash, measured after its 6th item closed; rental-system was live-flagged for
+it at 2026-10-15T16:54Z). `_ledger_verdict` now answers "finished" there, distinct
+from "unknown", which is reserved for a project with NO ledger row at all so a
+brand-new project is never silenced.
+
 SUBJECT  project:<id>:<YYYYMMDD>
     The subject IS the dedup key, so one project cannot produce two sessions in
     a day by accident, and tomorrow is a new key. When `max_flags_per_day` is
@@ -55,6 +78,9 @@ named by name:
     project-keepalive: waste-system     suppressed  cooldown 31200s remaining
     project-keepalive: other-thing      suppressed  disabled
     project-keepalive: paused-thing     suppressed  paused (the store's kill switch ... exists)
+    project-keepalive: chumash          suppressed  no shift-startable ledger work: 1 non-terminal
+                                                     item(s), all blocked with a revisit still in the
+                                                     future (next 2026-10-21T03:57:19Z, owner-queue #474)
     project-keepalive: done-thing       quiet       no work remaining
 
 stdout stays frozen to the two words `_flag.run` owns (`quiet` / `flagged
@@ -117,6 +143,8 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -287,6 +315,150 @@ def work_remaining(project: dict, state: dict) -> tuple[bool, list[str]]:
 
 
 # --------------------------------------------------------------------------- #
+# the work ledger: the authoritative backlog
+# --------------------------------------------------------------------------- #
+def ledger_path() -> Path:
+    """Where `work.py` keeps the ledger, resolved the way work.py itself does.
+
+    `work.py` defaults to `~/work/work.db` and honours `WORK_DB`. A source that
+    guessed a different path would read an empty ledger and call it proof.
+    """
+    raw = os.environ.get("WORK_DB")
+    return Path(raw).expanduser() if raw else (Path.home() / "work" / "work.db")
+
+
+# A state that means "this item is over". `dropped` is terminal even though it is
+# not `done`: a dropped item is not work waiting for a shift.
+_LEDGER_TERMINAL = ("done", "dropped")
+
+
+def _ledger_verdict(pid: str, now: datetime) -> tuple[str, str]:
+    """("startable"|"blocked-future"|"unknown", detail) from the WORK LEDGER.
+
+    THE DEFECT THIS ANSWERS (LEDGER item 142, measured 2026-10-14): `work_remaining()`
+    above reads ONLY the legacy state file, so a project whose entire non-terminal
+    ledger backlog is blocked with a revisit time still in the future is
+    indistinguishable from one with startable todo work. `_pick_next` in work.py
+    selects `state='todo'` alone (and `reap` is what frees an expired lease), so such
+    a project can only ever answer `nothing-todo`. Measured: 11 consecutive chumash
+    wakes against item 48 (2026-10-13T04:34Z..2026-10-14T03:43Z), each re-deriving the
+    same owner-only blocker at cooldown 1800s -- roughly one paid shift per half hour
+    for zero change, which is the "same work over and over. Or wasting money." the
+    owner named. chumash is not the only one: on the same measurement
+    personality-system (2 blocked/owner-461, todo=0) and rental-system (1
+    blocked/owner-485, todo=0) have the same shape.
+
+    "blocked-future" means the ledger PROVES there is nothing a woken shift could
+    start. "startable" means a todo item, a running item, or a blocked item that is
+    due (revisit_at NULL or already past -- exactly the set `work.py due` reports).
+    "unknown" means the ledger is unreadable or holds NO work_item row for this
+    project at all -- a brand-new project, whose state file is the only account of
+    its backlog; the caller then keeps the state file's verdict.
+
+    "finished" (LEDGER item 354, measured 2026-10-15) means the ledger HAS rows for
+    this project and every one of them is terminal (done/dropped). That is the most
+    complete state a project can reach, NOT an unreadable one, and conflating the two
+    is what let a finished project fail open to a stale state file: chumash held 0
+    todo/0 running/0 blocked and 6 done on 2026-10-15 while its authority state file
+    was frozen at work_remaining=true, so project-keepalive re-filed a paid shift
+    every 1800s cooldown for zero work. "finished" is suppressed exactly like
+    "blocked-future" -- the ledger proves no woken shift could start anything -- while
+    "unknown" is kept for the no-rows case so an empty-but-readable ledger can never
+    silence a new project. A project whose ledger is a known-INCOMPLETE account of its
+    backlog opts out with `ignore_blocked_ledger: true`, same as blocked-future.
+
+    A SUPPRESSION SIGNAL FAILS OPEN. If the ledger cannot be read the answer is
+    "unknown", never "blocked-future", so a broken new signal can slow the fleet down
+    but can never silence a project. An unparseable revisit_at is read the same way:
+    a timestamp this code cannot understand is NOT evidence that the block is safely
+    in the future.
+    """
+    try:
+        conn = _flag.ro_connect(ledger_path())
+    except Unreadable as exc:
+        return "unknown", f"ledger unreadable: {exc}"
+    try:
+        if not _flag.table_exists(conn, "work_item"):
+            return "unknown", "ledger has no work_item table"
+        rows = conn.execute(
+            "SELECT state, revisit_at, owner_row FROM work_item "
+            "WHERE project=? AND state NOT IN (?,?)",
+            (pid, _LEDGER_TERMINAL[0], _LEDGER_TERMINAL[1])).fetchall()
+        # Count the project's rows IN TOTAL so "every row is terminal" (finished) can
+        # be told apart from "there is no row at all" (unknown). A COUNT that fails
+        # raises and is reported as unknown, never as either verdict.
+        total = None
+        if not rows:
+            total = int(conn.execute(
+                "SELECT COUNT(*) FROM work_item WHERE project=?",
+                (pid,)).fetchone()[0])
+    except sqlite3.Error as exc:
+        return "unknown", f"cannot read the ledger: {exc}"
+    finally:
+        conn.close()
+
+    if not rows:
+        if total:
+            return "finished", (
+                f"the ledger holds {total} item(s) for this project and every one "
+                f"is terminal (done/dropped)")
+        return "unknown", "the ledger holds no work_item row for this project at all"
+
+    for r in rows:
+        state = str(r["state"])
+        if state in ("todo", "running"):
+            return "startable", f"ledger has a {state} item"
+        if state != "blocked":
+            # An unrecognised non-terminal state is treated as startable: a
+            # suppression must never rest on a state this code does not know.
+            return "startable", f"ledger has a {state!r} item"
+
+    future = []
+    for r in rows:
+        when = _flag.parse_dt(r["revisit_at"])
+        if when is None or when <= now:
+            return "startable", (
+                f"ledger item(s) blocked and DUE (revisit {r['revisit_at']!r})")
+        future.append((when, r["revisit_at"], r["owner_row"]))
+
+    future.sort(key=lambda t: t[0])
+    owner_rows = sorted({int(r[2]) for r in future if r[2] is not None})
+    detail = (
+        f"{len(rows)} non-terminal item(s), all blocked with a revisit still in "
+        f"the future (next {future[0][1]}"
+        + (f", owner-queue #{','.join(str(o) for o in owner_rows)}" if owner_rows else "")
+        + ")")
+    return "blocked-future", detail
+
+
+def _ledger_suppression_enabled(project: dict) -> bool:
+    """Whether the ledger's verdict is allowed to SUPPRESS this project's flag.
+
+    Default yes. A project sets `ignore_blocked_ledger: true` when its ledger is a
+    known-INCOMPLETE account of its backlog -- when its state file names real work
+    that has no ledger item -- because then "the ledger has nothing startable" is not
+    proof that a shift has nothing to do. Measured 2026-10-14: kosher-ai-filter's
+    state file names an "Untracked non-blocked roadmap remainder" (Windows Desktop
+    Duplication + ONNX/WinML, cross-platform test matrix) and it is the owner's named
+    always-on project, so it is exempt; chumash, personality-system and rental-system
+    name only blocked ledger items and are not. The exemption is not a silence: the
+    flagged line still carries `[ledger: ...]`, so the waste stays measurable, and it
+    becomes unnecessary the moment a shift files that remainder as a ledger item.
+
+    PROJECT_KEEPALIVE_IGNORE_BLOCKED_LEDGER=1 forces the exemption for every project;
+    =0 forces suppression for every project. Rehearsal only, never in cron.
+    """
+    forced = str(os.environ.get("PROJECT_KEEPALIVE_IGNORE_BLOCKED_LEDGER")
+                 or "").strip().lower()
+    if forced in ("1", "true", "yes"):
+        return False
+    if forced in ("0", "false", "no"):
+        return True
+    return not bool(project.get("ignore_blocked_ledger"))
+
+
+
+# --------------------------------------------------------------------------- #
 # reading the wake store, read-only, always
 # --------------------------------------------------------------------------- #
 def _store_view(conn, day: str) -> tuple[int, dict, dict]:
@@ -338,6 +510,76 @@ def _store_view(conn, day: str) -> tuple[int, dict, dict]:
 # source that starts nothing.
 LEDGER = "python3 ~/bin/work.py"
 
+# THE CLAIM OPTIONS LIVE IN ONE PLACE, BECAUSE THEY HAD ALREADY DRIFTED APART.
+# MEASURED 2026-10-16 on wake #1118's prompt: the frozen contract (wake-dispatch.sh rule 6)
+# told the shift that `--owner-queue-db /root/authority.db` was REQUIRED - "the built-in
+# default points at a stale copy of the company database and will mis-report what is
+# blocked" - and then STEP 1 below handed it the literal claim command WITHOUT that flag.
+# The rules and the command contradicted each other in the same document, so a shift that
+# believed rule 6 could not follow STEP 1 and vice versa.
+#
+# The flag is genuinely defensive rather than currently load-bearing, and both facts matter:
+# work.py's default is /home/zabz/personal-secretary-mvp/data/secretary.db, a stale copy that
+# really exists on the authority and holds ZERO rows (owner_decision_queue 0, tasks 0).
+# work.py resolves the store by CONTENT - first candidate that carries rows wins - and
+# MEASURED 2026-10-16 `resolve_oq_db(None)` returns /root/authority.db (530 + 28,799 rows).
+# So today the flag changes nothing, and the day a row lands in the stale copy the default
+# would silently start answering from it. Passing it explicitly is cheap and removes both
+# the drift and the day it bites, so it is part of the one claim command.
+CLAIM_OPTS = "--lease 5400 --owner-queue-db /root/authority.db"
+
+# The generated shift packet (LEDGER item 172, project housekeeping). One
+# rendered briefing read from three durable sources in a fixed order, whose
+# first FROZEN_BYTES bytes are byte-identical between shifts, instead of a
+# 19 KB contract re-derived (and re-sent) every shift. Measured cost of one
+# shift is 3-5M tokens, mostly cache-hit input; a byte-stable head is what
+# protects the cached prefix.
+SHIFT_PACKET = "python3 ~/bin/shift-packet.py"
+PACKET_MARKER = "END FROZEN PREFIX"
+
+
+def _packet_enabled(project: dict) -> bool:
+    """Whether THIS project's wake prompt is the generated shift packet.
+
+    Canary, not a switch flipped for the fleet: opt-in per project in
+    projects.json ("shift_packet": true), so a project whose prompt regresses
+    goes back to the standing contract by editing one key, with no code change.
+    PROJECT_KEEPALIVE_SHIFT_PACKET=0 forces the legacy contract for every
+    project; =1 forces the packet.
+    """
+    forced = str(os.environ.get("PROJECT_KEEPALIVE_SHIFT_PACKET") or "").strip().lower()
+    if forced in ("0", "false", "no"):
+        return False
+    if forced in ("1", "true", "yes"):
+        return True
+    return bool(project.get("shift_packet"))
+
+
+def packet_contract(project: dict) -> str | None:
+    """Render the shift packet, or None if it cannot be rendered.
+
+    None on ANY failure. A source that cannot render a prompt is a source that
+    starts nothing (measured 2026-09-28: a standing_contract() that raised
+    NameError started no shift at all), so the caller falls back to the legacy
+    contract rather than letting this raise into collect().
+    """
+    pid = str(project.get("id") or "")
+    if not pid:
+        return None
+    try:
+        proc = subprocess.run(
+            ["python3", str(Path.home() / "bin" / "shift-packet.py"),
+             "--project", pid, "--stdout"],
+            capture_output=True, text=True, encoding="utf-8",
+            errors="replace", timeout=60)
+    except Exception:
+        return None
+    text = proc.stdout or ""
+    # A truncated or wrong render must never become a shift's only briefing.
+    if proc.returncode != 0 or PACKET_MARKER not in text:
+        return None
+    return text
+
 
 # --------------------------------------------------------------------------- #
 # the standing worker contract
@@ -355,7 +597,17 @@ def standing_contract(project: dict, state: dict, items: list[str],
     Now the ledger (`~/bin/work.py`, WAL, on the authority) owns the backlog, the claim, the
     attempt with its proving command and result, and what is left. The state file is still
     mentioned for continuity, but it is no longer where work lives.
+
+    Since 2026-10-01 a project may instead be briefed by the generated shift packet
+    (`~/bin/shift-packet.py`, LEDGER #172): the same three sources in a fixed order with a
+    byte-stable head. That path is tried first for an opted-in project and falls back to the
+    literal below, unchanged, for every other project and on any render failure.
     """
+    if _packet_enabled(project):
+        packet = packet_contract(project)
+        if packet:
+            return packet
+
     pid = project["id"]
     title = str(project.get("title") or pid)
     where = str(project.get("repo") or project.get("case") or "UNKNOWN")
@@ -375,13 +627,13 @@ def standing_contract(project: dict, state: dict, items: list[str],
         ("  notes: " + notes) if notes else "",
         "",
         "STEP 1 - FIND OUT IF YOU ARE EVEN NEEDED.",
-        f"  Run:  {LEDGER} claim-next --project {pid} --by keepalive-{pid} --lease 5400",
+        f"  Run:  {LEDGER} claim-next --project {pid} --by keepalive-{pid} {CLAIM_OPTS}",
         "",
         "  * `claimed {{...}}` -> YOU OWN THAT ITEM NOW. Do it. (The item id, its title and",
         "    its definition of done are in the JSON on that line; `--json` is implied.)",
         "  * `already-yours` -> a previous shift died mid-item. Do it, then close it.",
         "  * `held-by-other` -> another shift is on it. Take the next one with",
-        f"    `{LEDGER} claim-next --project {pid} --by keepalive-{pid} --lease 5400` again,",
+        f"    `{LEDGER} claim-next --project {pid} --by keepalive-{pid} {CLAIM_OPTS}` again,",
         "    and if every item is held, run `work.py reap` once and retry.",
         "  * `nothing-todo` -> THE PROJECT IS FINISHED OR EXHAUSTED. Do not invent work.",
         "    Record why nothing is left and stop.",
@@ -418,7 +670,44 @@ def standing_contract(project: dict, state: dict, items: list[str],
         "      an item left `running` is not - it looks like work in progress that is not happening.",
         "  A killed session that leaves a correct half-finished record has done its job. One that",
         "  leaves nothing has cost money and taught nobody anything.",
-        "",        "STEP 4 - WRITE BACK BEFORE YOU FINISH. THIS IS THE STEP THAT MAKES THE SYSTEM WORK;",
+        "",        "STEP 3c - A RESTART IS ALLOWED, UNDER THIS CONTRACT, AND ONLY UNDER IT. (RESTART-CONTRACT-V1)",
+        "  A headless shift MAY restart a service when ALL FIVE of these hold:",
+        "    (1) the ledger item NAMES THE HOST it will touch;",
+        "    (2) the ledger item NAMES THE SERVICE (a systemd unit or a container);",
+        "    (3) the ledger item NAMES THE WINDOW - an explicit time or an explicit",
+        "        condition, e.g. 'the 02:00-04:00Z window' or 'after the merge is",
+        "        proven and before the next business-hours traffic';",
+        "    (4) the host's posture in",
+        "        ~/code/harness-config/settings/machines/host-posture.tsv is WRITABLE; and",
+        "    (5) the restart is RECORDED on this item's attempt trail before you finish.",
+        "  If the item is missing the host, the service or the window, STOP. Do not",
+        "  guess, do not borrow a window from another item, and do not restart: record",
+        "  the gap with `work.py attempt` and take the next item.",
+        "  THE GATE IS THE SCRIPT, NOT YOUR MEMORY. Ask it and obey its exit code:",
+        "    bash ~/code/harness-config/scripts/mesh/guard-service-state.sh --host <host> --op restart",
+        "      0  writable, ALLOW      -> proceed",
+        "      2  frozen, REFUSED      -> STOP. Never touch the host.",
+        "      3  read-only, REFUSED   -> STOP. `--owner-confirmed` is the OWNER'S yes;",
+        "                                 a shift has no owner and never passes that flag.",
+        "      4  host not designated   -> STOP. An unrecognised host is not permission.",
+        "  Do NOT re-implement the posture table or its frozen/read-only/writable logic;",
+        "  the script is the single gate, and an allow from anywhere else is not an allow.",
+        "  THEN do the restart and record it, in this order:",
+        "    systemctl restart <unit>        # or the container's own restart command",
+        "    python3 ~/bin/work.py attempt <item-id> --by restart-<project> \\",
+        "      --did 'RESTARTED <unit> on <host> at <UTC>; window: <the item window>; why: <why>' \\",
+        "      --proof 'bash ~/code/harness-config/scripts/mesh/guard-service-state.sh --host <host> --op restart && systemctl restart <unit>; echo rc=$?' \\",
+        "      --result '<the guard ALLOW line>; rc=0; <systemctl is-active <unit>>' \\",
+        "      --state running --exit-code <the restart command's exit status>",
+        "  Use a DISTINCT --by handle (restart-<project>), NEVER the claim handle: a later",
+        "  `close` updates the open attempt of the SAME worker, so a restart recorded under",
+        "  the shift's own handle would be overwritten by the close.",
+        "  The attempt IS the record: what, where, when, why and the exit status. A restart",
+        "  with no attempt line did not happen as far as the ledger is concerned.",
+        "  YOU MAY NOT restart anything the item did not name, anything on a frozen or",
+        "  read-only host, anything outside the named window, or any unit you started",
+        "  yourself. This contract grants RESTART only - not stop, disable, mask or enable.",
+        "STEP 4 - WRITE BACK BEFORE YOU FINISH. THIS IS THE STEP THAT MAKES THE SYSTEM WORK;",
         "  a shift that does the work and does not write it down has cost money and taught",
         "  the next shift nothing. One call, always, including when you failed:",
         "",
@@ -432,6 +721,15 @@ def standing_contract(project: dict, state: dict, items: list[str],
         "  `--state blocked --blocked-on '<who or what>'` when only a person or an external",
         "  thing can unblock it - and then TAKE ANOTHER ITEM IN THIS SAME SHIFT.",
         "  A close with no --proof and --result is RECORDED AS NOT DONE, on purpose.",
+        "  A REPOSITORY THAT CHECKS ITSELF MUST PASS ITS OWN CHECK. If the repo you",
+        "  changed has a structure check, run it and quote its result in --result - a red",
+        "  check is not a finished item, whatever else you fixed. kosher-filter-ai has one:",
+        "    cd <the checkout you touched> && python scripts/check_docs_index.py",
+        "  It exits 0, or prints every documentation problem it found, and it fails when a",
+        "  document you changed carries a stale `updated:` date - so bump the date in every",
+        "  document you touched. Where the repository virtualenv is present the stronger",
+        "  form is `python scripts/docs_check.py` (every check, one exit code); quote",
+        "  whichever you actually ran. If the repo has no such check, say so in --left.",
         "",        "",
         "  TOLD, NOT ANNOUNCED. When the item is done or declined, say so HERE - the ledger is",
         "  where a finished job is recorded. Do not text him that it finished; he called that",
@@ -444,8 +742,18 @@ def standing_contract(project: dict, state: dict, items: list[str],
         f"    {LEDGER} add --project {pid} --title '<one line>' \\",
         "        --dod '<the command that will prove it>' --priority <1-9> \\",
         "        --why '<why it matters, one line>'",
-        "  `--priority 1` is a blocker, `5` is normal, `9` is nice-to-have. Do NOT file items",
-        "  to keep a loop alive; an item with no provable definition of done is not an item.",
+        "  PRIORITY DISCIPLINE, added 2026-10-09 because this rule was measurably inverted. In the",
+        "  last 14 days the ledger recorded 90 Windows attempts, 162 Integrate attempts, 3 Android",
+        "  (newest 2026-09-29) and ZERO iOS - because a shift files what it just discovered at",
+        "  priority 1, and a fixed backlog at 5-7 is therefore never reached. So:",
+        "    * `--priority 1` is reserved for a PRODUCTION OUTAGE or a CUSTOMER-FACING break. It is",
+        "      NOT for work you found while doing something else, however real that work is.",
+        "    * A discovery you make mid-shift is filed at `--priority 4` or lower unless it is one of",
+        "      those two things, and the reason goes in `--why`.",
+        "    * The phone platforms are the product: an Android or iOS item at priority 1 must not be",
+        "      preempted by routine Windows or integration work. Windows is a lane, not the product.",
+        "  `5` is normal, `9` is nice-to-have. Do NOT file items to keep a loop alive; an item with",
+        "  no provable definition of done is not an item.",
         "",
         "STEP 6 - THE LEGACY STATE FILE. You may bring it current (it is what a human reads",
         f"  first), but it is NOT where work is tracked:  {state_file}",
@@ -509,7 +817,8 @@ def standing_contract(project: dict, state: dict, items: list[str],
         "  * Do NOT contact the owner or any customer: no email, no SMS, no call. The owner",
         "    queue is the only channel to him, and a shift never sends anything outbound.",        "  * Do NOT raise a wake flag. The dispatcher sets WAKE_SESSION=1 and the store",
         "    refuses; raising one would start a session that starts a session.",
-        "  * Do NOT touch cron, and do not restart production services.",
+        "  * Do NOT touch cron. A production restart is allowed ONLY under STEP 3c,",
+        "    through guard-service-state.sh, recorded with work.py attempt - never otherwise.",
         "  * Do NOT commit to main, never force-push, never `git reset --hard`, never",
         "    `rm -rf`. Work on a branch and leave it pushed for the integrator.",
         "  * Do NOT mark done what you did not do, and do not report a number you did not",
@@ -564,6 +873,7 @@ def collect(args) -> list[Finding]:
     budget = max(0, global_cap - released_today)
     findings: list[Finding] = []
     stayed: list[str] = []
+    ledger_unknown: list[str] = []
 
     paused_at = pause_file()
     if paused_at.exists():
@@ -591,6 +901,37 @@ def collect(args) -> list[Finding]:
             stayed.append(
                 f"{pid}  quiet       no work remaining (state file says the work is done)")
             continue
+
+        # THE LEDGER OUTRANKS THE STATE FILE. The standing contract tells every woken
+        # shift so in as many words ("if the two disagree, THE LEDGER IS RIGHT"), and
+        # this is that rule applied at the one place it was missing: the decision to
+        # wake at all. A project whose whole non-terminal backlog is blocked with a
+        # revisit time still in the future has nothing a shift can start, so the flag
+        # would buy an identical `nothing-todo` session (LEDGER item 142). The check
+        # sits BEFORE the cooldown deliberately: a cooldown countdown implies the wake
+        # is still coming, and this is the honest reason it is not.
+        verdict, detail = _ledger_verdict(pid, now)
+        # "finished" is suppressed for the same reason as "blocked-future": the ledger
+        # proves no woken shift could start anything, so the flag would buy an
+        # identical `nothing-todo` session. LEDGER item 354 measured that case live:
+        # chumash held 0 non-terminal items (6 done) on 2026-10-15 and was re-filed
+        # every 1800s cooldown, and rental-system was still being flagged on
+        # 2026-10-15T16:54Z with "(0 item(s) remaining)" against 9 done ledger rows.
+        if verdict == "finished" and _ledger_suppression_enabled(project):
+            stayed.append(
+                f"{pid}  quiet       ledger is finished: {detail}")
+            continue
+        if verdict == "blocked-future" and _ledger_suppression_enabled(project):
+            stayed.append(
+                f"{pid}  suppressed  no shift-startable ledger work: {detail}")
+            continue
+        if verdict in ("finished", "blocked-future"):
+            note = f"  [ledger: {detail}; exemption ignore_blocked_ledger]"
+        elif verdict == "unknown":
+            ledger_unknown.append(pid)
+            note = f"  [ledger: {detail}]"
+        else:
+            note = ""
 
         cooldown = int(project.get("cooldown_seconds", 43200))
         last = newest.get(pid)
@@ -634,7 +975,7 @@ def collect(args) -> list[Finding]:
             cooldown_seconds=cooldown,
         ))
         stayed.append(
-            f"{pid}  flagged     {subject}  ({len(items)} item(s) remaining)")
+            f"{pid}  flagged     {subject}  ({len(items)} item(s) remaining){note}")
         budget -= 1
 
     # One line per project, on stderr. A source that declines to file has to say
@@ -645,6 +986,9 @@ def collect(args) -> list[Finding]:
     print(f"{SOURCE}: {len(findings)} flag(s) to raise, {len(reasons)} suppression(s), "
           f"system-wide releases today {released_today}/{global_cap}",
           file=sys.stderr)
+    if ledger_unknown:
+        print(f"{SOURCE}: LEDGER NOT CONSULTED for {','.join(ledger_unknown)} "
+              f"(state-file verdict used; {ledger_path()})", file=sys.stderr)
     return findings
 
 

@@ -1,0 +1,575 @@
+{
+  "_readme": [
+    "roadmap-supply.py's mapping table for kosher-ai-filter (work ledger #501, filed 2026-10-07).",
+    "WHY THIS FILE EXISTS. The project's own backlog (docs/IMPLEMENTATION_BACKLOG.md and",
+    "docs/cross-platform-filter-master.md section 7) is the only record of what is left to build, and",
+    "until now NOTHING turned it into ledger items. The generators only refiled `Integrate <branch>`",
+    "titles, so the loop oscillated between two states: 0 todo items (project-keepalive stays quiet,",
+    "measured 2026-10-07) or a duplicate refile (item 500, which had to be kept blocked as a dedupe",
+    "guard). This file is the deliberate bridge: one row per unchecked roadmap box, each with a",
+    "definition of done that a shift can actually run, so 'file no work' is never the answer while the",
+    "docs show unchecked boxes.",
+    "",
+    "FIELDS. key = a lowercase prefix of the checkbox line in src (checked at 60 chars, whitespace",
+    "collapsed), so a doc edit that only adds evidence after the em dash does not break the match.",
+    "status: filed (file it as a todo item) | blocked (file it blocked on owner_row) | not_filed (do",
+    "NOT file; reasons list why). host = where the proving command runs - authority (secratary, which",
+    "has a server venv at ~/repos/kosher-filter-ai/server/.venv since 2026-10-07), or zabz-yoga-ts.",
+    "dod = the exact commands and the result lines that count as done. Nothing here is filed on the",
+    "authority of this file alone: a shift that finds the box already true must say so and close it",
+    "with that evidence, and a shift that finds the box needs hardware must leave it unfiled and say",
+    "so. Never invent work to keep a loop alive."
+  ],
+  "source_docs": [
+    "docs/IMPLEMENTATION_BACKLOG.md",
+    "docs/cross-platform-filter-master.md"
+  ],
+  "source_git": {
+    "url": "https://github.com/lakewoodphone/kosher-filter-ai.git",
+    "ref": "HEAD",
+    "note": [
+      "ADDED 2026-10-16 (work ledger item 383). The registry `repo` for this project is",
+      "/home/zabz/repos/kosher-filter-ai, which does NOT exist on secratary-cloud: the checkout was",
+      "declared remote-only on zabz-tech-ts by checkout-health (ledger item 137), and that declaration",
+      "is honoured only while the local path is absent - so DO NOT satisfy this sensor by cloning",
+      "there, because that expires the declaration and makes the health check measure a stale tree.",
+      "Until 2026-10-16 this sensor exited 1 on every tick (cannot read the project repo), so this",
+      "file's 47-row roadmap never reached the ledger. This url is the same remote the declared",
+      "checkout tracks, and the docs are read from it with `git show` out of a shallow bare cache",
+      "under /var/cache/roadmap-supply - NOT raw.githubusercontent.com, which answers 404 because the",
+      "repo is private; git's own transport carries the credentials already configured on this host."
+    ]
+  },
+  "items": [
+    {
+      "key": "w-back-058 password reset (single-use, expiring) - a parent ",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Web: password reset for the parent site (single-use, expiring) - today a parent who forgets the password has no web recovery path",
+      "status": "filed",
+      "priority": 5,
+      "host": "authority",
+      "why": "W-BACK-058, unchecked. The site has own-sign-in (W-BACK-051 done) but no recovery path; the doc names it as the gap a real parent hits. Server-side render + Python suite means it is provable on the authority with no browser.",
+      "dod": "Implement a single-use, expiring reset token on the site (web/server): request endpoint, token TTL, one-time consumption, and a new-password page. DONE requires, quoted: (1) `cd web/server && .venv/bin/python -m pytest -q` -> all pass, with at least 6 new tests asserting: a token works once and is refused the second time; an expired token is refused; an unknown/forged token is refused without revealing whether the email exists; a successful reset rotates the password and invalidates existing sessions; the token is not stored in plaintext (hash a sha256 of it and compare); a missing/invalid CSRF token is refused. (2) the same suite green at the new commit, quoted with the pass count. (3) `git diff --stat origin/main` naming every changed path. If the suite's file set already covers any assert, say which test file covers it instead of adding a duplicate."
+    },
+    {
+      "key": "watchdog service - second service for mutual monitoring",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 4: watchdog service for mutual monitoring (second service parks the first if it dies; each parks the other)",
+      "status": "filed",
+      "priority": 4,
+      "host": "zabz-tech-ts",
+      "why": "Roadmap Phase 4 box, unchecked. Pure code + unit tests on zabz-tech-ts, which is the .NET host (SDK 8.0.425 measured 2026-10-07; zabz-yoga-ts has only the runtime and `dotnet test` fails there with 0x80008083); no kernel driver, no signing, no live service install needed for the logic. TamperMonitor (item 366) already restarts the service from inside; this is the mutual pair the roadmap asks for.",
+      "dod": "Add a watchdog service (windows/FilterService + a service host) that monitors KosherFilterService and restarts it when it stops, plus a contract for the pair. DONE requires, quoted: (1) on zabz-tech-ts, in a worktree at the tested branch (its clone is C:\\Users\\ezabz\\code\\kosher-filter-ai; the checked-out branch there may be stale, so use a worktree at the branch under test): `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo` -> `Passed! - Failed: 0, Passed: N`, with N at least 8 higher than the branch's pre-change count and 0 failed; the new tests must cover: a stopped peer is restarted, a restart loop is bounded (no infinite restart of a service that dies immediately), a deleted service is reported critical and not retried, the watchdog itself failing to start does not take the filter down, and the pair does not restart each other in a loop when both are healthy. (2) `git diff --stat origin/main` listing the changed paths. (3) `git push` of the branch, with the branch name in the report. Nothing may be installed on a live machine to close this item."
+    },
+    {
+      "key": "**The shipped Android broker default and managed-provisioning callback are correct — RESOLVED",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Android: a stock build cannot reach a real broker (emulator alias 10.0.2.2 ships in strings.xml, token ships empty, PROFILE_PROVISIONING_COMPLETE declared and never handled)",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-yoga-ts",
+      "why": "Unchecked defect from the audit's own list, and it is the one that makes a shipped APK unusable: the broker URL is an emulator alias and the provisioning completion broadcast has no receiver. Fixable and provable with JVM unit tests (gradle) without a device. || REPAIRED 2026-10-16 by ledger item 391: key repointed to the current box text. The box is now CHECKED (RESOLVED 2026-10-13), so this row is an inert record of the resolved mapping and files nothing.",
+      "dod": "Make the broker endpoint and phone token come from provisioning (intent extra / managed config / a persisted provisioning record) with the emulator alias only as a development default, and handle PROFILE_PROVISIONING_COMPLETE. DONE requires, quoted, run on zabz-yoga-ts in the repo's android directory: (1) `./gradlew :app:testDebugUnitTest` -> `BUILD SUCCESSFUL`, with at least 5 new JVM tests: a provisioning payload sets broker host/port/token and the client uses them; an unprovisioned build still compiles and uses the documented dev default; a malformed or empty provisioning payload is refused rather than written; the provisioning completion action updates state exactly once (no double-apply); the persisted record survives a process restart read. (2) the test XML or gradle summary line quoted with its counts. (3) `git diff --stat origin/main`. (4) `git push` of the branch and the branch name in the report."
+    },
+    {
+      "key": "no readiness endpoint (/health?deep=true is auth-gated; veri",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Server: a readiness endpoint an orchestrator can read unauthenticated-safe (`/health?deep=true` is auth-gated, so 'process up' and 'database writable' are indistinguishable)",
+      "status": "filed",
+      "priority": 5,
+      "host": "authority",
+      "why": "Unchecked defect from the audit list. Deployment and monitoring both depend on it, and it is provable end-to-end with TestClient on the authority. Must not leak internals to an unauthenticated caller.",
+      "dod": "Add a readiness endpoint (e.g. GET /readyz) that reports process liveness and database writability, without exposing configuration, paths or credentials, and without requiring the admin scope. DONE requires, quoted: (1) `cd server && .venv/bin/python -m pytest -q` -> all pass, with at least 6 new tests: ready with a writable database; NOT ready (non-200) with the database unwritable; NOT ready when a required dependency is down; the response body carries no path, secret, version or exception text; the endpoint needs no auth and touches no admin route; a slow dependency is bounded by a timeout rather than hanging. (2) quoted result lines for both the new tests and the full suite. (3) `git diff --stat origin/main`. If /health already answers this for an unauthenticated caller, prove that with a curl/TestClient call and close the box with that evidence instead of adding a second endpoint - say which you did."
+    },
+    {
+      "key": "w-back-057 end-to-end web test (playwright, stages 2→7 + one",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Web: end-to-end test of the onboarding stages with one fail-closed assertion (no automated test covers the web surfaces today)",
+      "status": "filed",
+      "priority": 6,
+      "host": "authority",
+      "why": "W-BACK-057, unchecked. The web service is server-rendered (D38-06), so the whole stage walk is exercisable over HTTP on the authority and a browser is not required; the point of the box is that no test covers the surfaces, and that is fixable with the existing test client plus a live server subprocess.",
+      "dod": "Add one end-to-end test that walks the onboarding stages over HTTP against a really-running site process (not only TestClient), covering the reachable stages, plus at least one fail-closed assertion: with the broker unreachable the flow reports unavailable and never grants access. DONE requires, quoted: (1) the command that starts the site and runs the test, and the test's own output line with counts. (2) `cd web/server && .venv/bin/python -m pytest -q` green at the new commit. (3) explicitly state which stages were covered and which were NOT reachable without a broker, so the coverage claim matches what ran. (4) `git diff --stat origin/main`."
+    },
+    {
+      "key": "w-back-059 email verification + configure the one existing e",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Web: email verification, configuring the one existing email path (app/partner.py:631) instead of adding a second one",
+      "status": "filed",
+      "priority": 6,
+      "host": "authority",
+      "why": "W-BACK-059, unchecked. Directly adjacent to the reset item and uses the email path that already exists. Provable server-side with the mail transport stubbed; sending a real email is out of scope and must not be attempted.",
+      "dod": "Implement email verification for the site account using the existing email path (do not add a parallel sender), with a single-use expiring verification token. DONE requires, quoted: (1) `cd web/server && .venv/bin/python -m pytest -q` -> all pass with at least 6 new tests: an unverified account is limited in the documented way and a verified one is not; a valid token verifies once and is refused the second time; an expired or forged token is refused; the mail path is the existing one (assert the call reaches it, with the transport stubbed - no real send in a test); a failed send does not mark the address verified. (2) the full-suite line. (3) `git diff --stat origin/main`. Nothing outbound may be sent to any real address while proving this."
+    },
+    {
+      "key": "boot-start wfp callout driver - kernel-level fail-closed",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 4: boot-start WFP callout driver for kernel-level fail-closed (buildable + unit-testable; real load is a hardware/lab job and must be reported as not done)",
+      "status": "filed",
+      "priority": 7,
+      "host": "zabz-yoga-ts",
+      "why": "Roadmap Phase 4 box. A full driver load needs a test-signed kernel and a throwaway machine, so the honest scope is: the driver builds, its decision logic is unit-tested, and the load is explicitly reported as unproven. That is still the roadmap's next Windows hardening step and it is startable today.",
+      "dod": "Add the callout driver project (WFP callout at the layers the design names) so that it BUILD and its policy logic is TESTED, and nothing is claimed about a live load. DONE requires, quoted: (1) the exact build command and its success line (e.g. `msbuild`/`dotnet build` of the driver project) on zabz-yoga-ts. (2) the unit-test command and result for the callout's decision logic (permit/block verdicts, fail-closed on a missing rule set, bounded work per packet) with counts and 0 failures. (3) an explicit, quoted statement of what was NOT verified: 'not loaded on a test machine; no signed driver; no live traffic measured'. Closing this item with any claim of a live kernel load is forbidden - if a shift actually loads it on a throwaway host, that must be a separate item with the host named. (4) `git diff --stat origin/main` and the pushed branch name."
+    },
+    {
+      "key": "billing secrets are mismatched: lpt_billing_stripe_webhook_s",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Billing: LPT_BILLING_STRIPE_WEBHOOK_SECRET empty while the Stripe key is live-mode, so the webhook 503s - prove the current state and either fix or record the exact blocking input",
+      "status": "filed",
+      "priority": 6,
+      "host": "authority",
+      "why": "Unchecked defect from the audit list. The fix needs one secret that only the owner/deploy can supply, but the MEASUREMENT does not: today's state can be read from the install, and the code path can be tested with a stub signature so the failure mode is characterised rather than assumed.",
+      "dod": "Measure the live state before changing anything. DONE requires, quoted: (1) the command and output showing whether the webhook secret is set in the deployment environment and whether the Stripe key is live-mode, with the source of each reading (which env file / which host) - never print the values of either key. (2) `cd server && .venv/bin/python -m pytest -q` green with the webhook signature tests included, plus a test proving an unsigned request is refused with 401 and a correctly signed one is accepted with the secret present (stub the signature with the test's own secret - do not touch Stripe). (3) either the one-line fix (point the webhook path at the configured secret name) or, if the secret genuinely must be supplied from outside the repo, a ledger item left blocked naming EXACTLY which value is missing and who holds it - an owner row only if that is genuinely the owner's to give. (4) `git diff --stat origin/main`."
+    },
+    {
+      "key": "**Screenshot accountability is dead, not partial — WIRED 2026-09-28 (rechecked 2026-10-10).**",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Android: screenshot accountability is dead - ScreenshotService.startWithConsent has zero callers and createScreenCaptureIntent() appears nowhere",
+      "status": "filed",
+      "priority": 6,
+      "host": "zabz-yoga-ts",
+      "why": "Unchecked defect from the audit list: 1,836 lines with no entry point, and the 414 green JVM tests never noticed. Wiring it (or deleting it) is provable with JVM tests; the audit is the evidence that nothing calls it today. || REPAIRED 2026-10-16 by ledger item 391: key repointed to the current box text. The box is now CHECKED (WIRED 2026-09-28, rechecked 2026-10-10), so this row is an inert record and files nothing.",
+      "dod": "Decide with evidence, then prove the decision: either wire the capture path behind the consent gate with a reachable entry point, or record why it must not be wired and remove the dead surface. DONE requires, quoted: (1) on zabz-yoga-ts: `./gradlew :app:testDebugUnitTest` -> `BUILD SUCCESSFUL`, plus at least 5 JVM tests for whichever decision was taken: consent is required before a capture starts; the entry point is reachable from a documented caller (name it, with the file:line that references it); a denied consent never captures; the service stops cleanly on revoke; the store/UI shows the state instead of hiding an empty card. (2) the gradle result line with counts. (3) `git diff --stat origin/main` and the pushed branch name. (4) DO NOT claim an on-device capture was performed unless one really was on a named device."
+    },
+    {
+      "key": "pir server setup alongside broker",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Infrastructure: PIR server alongside the broker (BLOCKED on the recorded Q22 deferral - do not build infra while that decision stands)",
+      "status": "not_filed",
+      "priority": 7,
+      "host": "authority",
+      "why": "Q22 chose '(b) Defer the PIR server - ship a plain on-device Bloom blocklist first', and the doc says explicitly: do not stand up PIR infra without an owner decision reversing Q22. iOS's NEURLFilterManager cannot be configured without a PIR server (measured in docs/IOS_STATE_AND_UNBLOCK_2026-09-28.md section 2), so this is a real decision that is genuinely the owner's - it is already on the queue.",
+      "owner_row": 14,
+      "dod": "NOT FILEABLE while Q22 stands. If the owner reverses Q22 the item becomes: stand up the PIR server alongside the broker, with a health probe and a client contract, proved by a request/response against a locally run instance. Until then the only honest action is to leave this box unchecked and report the deferral."
+    },
+    {
+      "key": "modesty model training budget go-ahead (~$850-1,600) + data ",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "A-BACK-014: train and integrate the modesty model (EfficientNet-Lite0 INT8) - needs a labelling workflow and a training budget",
+      "status": "not_filed",
+      "priority": 7,
+      "host": "zabz-yoga-ts",
+      "why": "The box names a spend of about 850 to 1,600 dollars plus a data-labelling workflow. Money and data are the owner's, and a shift that starts it without that decision is spending his money on a hunch. The INTEGRATION half (a model-provisioning seam that accepts a real model) may be writable, but the training half is not this loop's to start.",
+      "dod": "NOT FILEABLE as training. If the owner approves the spend, the item is: produce and integrate the model, proved by a labelled holdout with precision/recall figures and an on-device latency measurement. Do not file it on the assumption of approval."
+    },
+    {
+      "key": "whql signing process",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 4: WHQL signing process (needs an EV certificate, a portal account and money - an owner and vendor process, not a build step)",
+      "status": "not_filed",
+      "priority": 7,
+      "host": "n/a",
+      "why": "Signing needs a purchased EV certificate and a Microsoft hardware-portal account; both are the owner's money and identity. A shift cannot start it and must not pretend to.",
+      "dod": "NOT FILEABLE. Only after the certificate exists can the work be filed, and then it is: submit the package, quote the submission id and its verdict."
+    },
+    {
+      "key": "desktop duplication api - frame capture loop, dirty rect tra",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 3: Desktop Duplication API frame-capture loop with dirty-rect tracking - capture needs a real desktop session, so the buildable half is the seam plus its tests",
+      "status": "filed",
+      "priority": 8,
+      "host": "zabz-yoga-ts",
+      "why": "The capture itself needs a live interactive desktop session, but the design (frame source, dirty-rect tracking, back-pressure, fail-closed when capture is unavailable) is pure logic behind an injected frame source, which is exactly how the tamper monitor was made testable. Filed with the on-desktop measurement explicitly out of scope.",
+      "dod": "Implement the frame-capture seam, the dirty-rect tracking, bounded queue/back-pressure and the fail-closed path, behind an injectable frame source; the real Desktop Duplication call may be present but must be untested-by-unit-test and reported as such. DONE requires, quoted: (1) `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo` -> `Passed! - Failed: 0, Passed: N`, with at least 6 new tests: a synthetic frame sequence produces the expected dirty rects; an unchanged frame is skipped; a queue that would exceed its bound drops in the documented direction (name which) rather than growing without limit; capture unavailable -> fail-closed per the design, not a silent pass; stop() is idempotent; a torn/short frame is rejected without throwing. (2) `git diff --stat origin/main` and the pushed branch name. (3) an explicit line naming what was NOT measured (no live desktop capture)."
+    },
+    {
+      "key": "overlay / block page ui",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 4: overlay / block page UI (pure UI work, no hardware needed; the deny-first design says the hide is what the user sees)",
+      "status": "filed",
+      "priority": 7,
+      "host": "zabz-yoga-ts",
+      "why": "Roadmap Phase 4 box with no hardware dependency: a WPF/WinForms overlay window with its own state machine. Provable by unit tests over the view-model plus a screenshot of the rendered window if a headless render is possible; do not claim a GPU-rendered overlay on the owner's live desktop.",
+      "dod": "Implement the block/overlay window and its view model. DONE requires, quoted: (1) a build command and its success line on zabz-yoga-ts. (2) unit tests (count and 0 failures) covering: shown for a denied verdict; not shown for an allowed one; the block reason is rendered from the decision, not hardcoded; the window is dismissed once and does not re-show on the same verdict; a missing reason renders a safe default rather than an exception. (3) `git diff --stat origin/main` and the pushed branch name. (4) state plainly whether the window was rendered on a real desktop or only unit-tested."
+    },
+    {
+      "key": "Performance benchmarking (landed as `windows/FilterService.Tests/PipelineBenchTests.cs` plus the measured table in `docs/benchmarks/pipeline-benchmark.md`, ledger item 199: `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo --filter FullyQualifiedName~Bench` exits 0 on ZABZ-TECH and prints a p50/p95 table for the capture, diff and classify stages at 1280x720 - measured 2026-10-14: capture p50 0.0252 ms (loop CPU per forwarded frame, excludes the blocking DXGI acquire), diff p50 6.8132 ms (dHash + SSIM + cache, ~147 frames/s of headroom), classify p50 2.0870 ms. The classify row names the CPU execution provider over the mean-luminance stub, because no DirectML execution provider is registered and no ONNX weights ship; no GPU run, live-desktop latency or real-model time is claimed)",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Phase 5: performance benchmarking harness (make the numbers runnable and recorded; the device-side gates stay unproven)",
+      "status": "filed",
+      "priority": 8,
+      "host": "authority",
+      "why": "Phase 5 box. The design doc already lists the gates; what is missing is an instrument that runs them and writes a result. Server-side and Windows-side numbers can be produced on real hosts; ANE/thermal iOS gates cannot be, and must be listed as unmeasured. || REPAIRED 2026-10-16 by ledger item 391: key repointed to the current box text. The box is now CHECKED (landed as ledger item 199), so this row is an inert record and files nothing.",
+      "dod": "Add a benchmark harness that measures what can be measured on a real host and records the result. DONE requires, quoted: (1) the exact command, and its output with real numbers for at least: broker decision latency (p50/p95), server DoH classification latency (p50/p95), and the blocklist export (Bloom) size and build time. (2) the harness writes a machine-readable result file and the file's path is quoted. (3) each number carries the host it was measured on. (4) an explicit list of the gates NOT measured (iOS ANE latency, memory footprint in the extension sandbox, thermal, perceived page-load delta) with the reason. (5) `git diff --stat origin/main`. Numbers must be measured, never estimated - a harness that reports a made-up baseline is worse than none."
+    },
+    {
+      "key": "Deployment documentation (landed as docs/deployment.md + the committed checker scripts/check_deployment_docs.py, ledger item 201: 12 fenced deployment blocks for the broker, the customer site, the Windows client, phone provisioning, the local stack and rollback; every block carries a deploy-doc: annotation naming the repo artifacts it drives, and the checker verifies every relative path, every make target and every docker/docker compose service or container name against the repo, rejecting any token the repo cannot answer for unless the block declares it in \u001bxternal= - it exits 0 on the page (12 blocks, 22 compose names, 60 make targets, 2 endpoint URLs recorded as non-repo) and --selftest proves it exits 1 on a missing artifact, a missing repo path, a missing make target, an undeclared off-repo service and a stale declaration. Endpoint health and on-device/iOS installs are explicitly not claimed: no live host, Windows client or phone was contacted)",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Docs: make the broker README's claims self-checking (probe the live system in a script the doc names, so drift is caught by a command and not by a reader)",
+      "status": "filed",
+      "priority": 9,
+      "host": "authority",
+      "why": "Phase 5 box plus the audit's own 'docs drift' defect. Cheap, real, and it is the documentation the next deploy will follow, so a wrong line costs a future outage (the same README once told an operator a path that would have destroyed the live database). STALE-ROW CORRECTION 2026-10-07: this row originally read as 'the broker README still calls the broker unreachable and the monitor RED since inception'. Measured this session, that was FALSE by the time the audit was written - the README carries a 'corrected 2026-09-14' section that names both false claims and quotes the probes, and the Android package name was corrected on 2026-09-15 (commit 978843f). The row is re-pointed at the live item #554, which asserts the claims with a script, because a documentation claim has no way to notice it has become false. || REPAIRED 2026-10-16 by ledger item 391: key repointed to the current box text. The box is now CHECKED (landed as ledger item 201), so this row is an inert record and files nothing.",
+      "dod": "Bring the deployment docs level with what is actually deployed, verified by reading the live system rather than by rewriting prose. DONE requires, quoted: (1) for each claim corrected, the measurement that proves it (e.g. the live health endpoint's status, the container/host's actual paths, the monitor's real current state) with the command and its output. (2) `git diff --stat origin/main` naming each doc changed. (3) a grep proving the specific false lines no longer exist (e.g. the 'not deployed anywhere reachable' and 'RED since inception' strings), quoted. (4) no new claim may be added without the measurement that supports it.",
+      "hint": "ledger item #554; the historical correction note in deploy/broker/README.md must NOT be edited - it is the record of a past error. The live ledger item for this row is named in the authoring run's own stdout and in the journal handoff for 2026-10-07; the id is deliberately NOT in the title, because the title is the dedup key and embedding an id in it files the row again (measured twice: #555, #556)."
+    },
+    {
+      "key": "Cross-platform testing matrix (landed as `docs/testing-matrix.md` + the committed checker `scripts/check_testing_matrix.py`, ledger item 198: 6 suites each with its exact host, workdir and command, and the checker verifies every row's targets exist and every `dotnet test` target is a real test project - it exits 0 on the matrix and exits 1 naming the historical `dotnet test windows/DnsRelayService` defect. Re-running every suite on its own host to fill the 'Last measured' column is still open for 5 of the 6 rows)",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Phase 5: cross-platform testing matrix - fill the Last-measured column by re-running each suite on its own host",
+      "status": "filed",
+      "priority": 8,
+      "host": "zabz-yoga-ts",
+      "why": "Phase 5 box. A matrix that only exists in prose is unverifiable; the runnable version is a script that runs what each host can run (server suite, Android JVM suite, .NET suite, iOS core suite where a toolchain exists) and prints a table with the host named per row. iOS extension/device rows stay UNMEASURED. || REPAIRED 2026-10-16 by ledger item 391: key repointed to the current box text. The box is still UNCHECKED and says what is left: re-running every suite on its own host to fill the matrix Last-measured column, open for 5 of the 6 rows.",
+      "dod": "DONE requires, quoted: (1) the REMAINING work named by box 584 - re-running every suite in `docs/testing-matrix.md` on its own host to fill the `Last measured` column for the 5 of the 6 rows still blank (the runner `scripts/check_testing_matrix.py` already landed as ledger item 198 and is NOT to be re-proved). For each of those rows quote the host, the exact command the matrix names, and its result line - e.g. on zabz-yoga-ts `cd android && ./gradlew :app:testDebugUnitTest --console=plain` -> `BUILD SUCCESSFUL`, or on the authority `cd server && .venv/bin/python -m pytest -q` -> the pytest summary line. (2) any row that no host in the mapping's capability_matrix can run is marked UNMEASURED with the reason, and is NEVER rendered as a pass. (3) `docs/testing-matrix.md` updated so every filled cell names the host and the date. (4) `git diff --stat origin/main` and the pushed branch name."
+    },
+    {
+      "key": "w-back-052 onboarding stages as pages with resumable, server",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Web: finish the onboarding stage pages (stage 4 level choice is the blocker - the rules endpoints are admin-scoped today and it must clamp to the hard floor)",
+      "status": "filed",
+      "priority": 5,
+      "host": "authority",
+      "why": "W-BACK-052, unchecked, and the box names exactly what is missing: stage 4 needs a NEW owner-scoped route because the rules endpoints are admin-scoped, and it must clamp to the hard floor. Stages 2, 3, 5 and 6 already exist per the box, so this is a bounded piece of server-side work provable with the project's own suites. The parent-facing phone-claim step is dropped, not deferred - do not build it.",
+      "dod": "Add the owner-scoped level-choice route the stage needs, clamped to the hard floor, and wire stage 4 into the onboarding pages. DONE requires, quoted: (1) `cd server && .venv/bin/python -m pytest -q` green with tests proving: an owner-scoped caller can set the level; an admin-only caller cannot use the new owner route; a level BELOW the hard floor is refused (quote the floor value and the refusal); the request cannot set a level above the highest offered; the page renders the level step with server-derived state and is resumable (a second GET after a partial save shows the saved stage); an unauthenticated GET is refused or redirected. (2) `cd web/server && .venv/bin/python -m pytest -q` green at the same commit - quote its line, or say the page is covered by the server suite only. (3) `git diff --stat origin/main`. (4) name the stages verified reachable and the ones still not reachable without a broker."
+    },
+    {
+      "key": "w-back-055 public content + compliance pages, gated by the e",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Web: public content and compliance pages, gated by the existing public-claims test (no marketing claim may ship unsupported)",
+      "status": "filed",
+      "priority": 6,
+      "host": "authority",
+      "why": "W-BACK-055, unchecked. The gate already exists - the box says so - which makes this a content-safety item as much as a page item: the compliance pages are where an unsupported claim would legally hurt. Server-side rendered, so it is provable on the authority.",
+      "dod": "Add the public content and compliance pages (privacy, terms, what the filter does and does not do) and keep them inside the existing public-claims gate. DONE requires, quoted: (1) the suite that owns the gate - name which you ran - green with tests proving: every public page renders for an unauthenticated visitor; each factual claim on those pages is present in the claims allowlist the existing test enforces; a deliberately unsupported claim makes that test FAIL (quote the failing run, then the green run after removing it); no page exposes an admin or owner-only surface. (2) the full-suite result line. (3) `git diff --stat origin/main`. (4) DO NOT invent a legal position: if a page needs wording only the owner can approve (a warranty, a refund posture, a data-retention promise), leave a clearly marked placeholder and file the one question to the owner queue instead of writing the commitment yourself."
+    },
+    {
+      "key": "no seeded super-admin. on a fresh database the only runtime ",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Server: no seeded super-admin - a fresh database can only be entered with the shared secret as an HTTP Basic password or a manual row insert",
+      "status": "filed",
+      "priority": 6,
+      "host": "authority",
+      "why": "Unchecked defect from the audit list. It blocks every fresh deployment and every recovery, and it is provable with the server suite. It must not create a default password (that is a security regression), so the item is about a documented, safe bootstrap - an operator command or a first-run flow - not a hardcoded account.",
+      "dod": "Provide a documented, safe bootstrap for the first operator on an empty database. DONE requires, quoted: (1) the exact command an operator runs (a CLI or script in the repo) and its output on a FRESH database, with the resulting operator row shown by a query. (2) `cd server && .venv/bin/python -m pytest -q` green, with tests proving: the bootstrap works once and refuses the second time (no second super-admin appears); it refuses to run when an operator already exists; a weak or blank password is refused; the created row's secret is stored hashed, not plaintext (assert the stored value is not the input); no default credential is shipped anywhere in the tree (quote the grep that proves it is absent). (3) `git diff --stat origin/main`. (4) if the bootstrap needs a value only the owner holds, stop and file the owner row naming exactly which value - do not invent one."
+    },
+    {
+      "key": "mitm trust unverified. policyapplier.kt:906-909 logs that in",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Android: MITM trust is unverified - installCaCert installs a CA that Android 7+ apps need not trust, and the only validation script skips itself when not Device Owner",
+      "status": "filed",
+      "priority": 6,
+      "host": "zabz-yoga-ts",
+      "why": "Unchecked defect from the audit list. The user-visible consequence is a filter that appears to work while TLS interception silently does not, which is the exact shape of failure this product cannot have. The testability limit is real: the certificate-trust decision needs a device, but the decision logic and the skip-when-not-owner hole can be covered by JVM tests, and the item must say plainly which half stays unproven.",
+      "dod": "Make the CA-trust gap honest and bounded: the app must know, and say, whether apps will trust the installed CA, and the validation path must not silently skip itself. DONE requires, quoted, run on zabz-yoga-ts: (1) `./gradlew :app:testDebugUnitTest` -> `BUILD SUCCESSFUL`, with at least 6 new JVM tests: the trust state is reported (user-CA vs system-CA vs unknown) and surfaced rather than assumed; a device that cannot have a system CA is reported as such instead of treated as trusted; the validation routine runs (or reports why it cannot) when the app is NOT Device Owner, instead of skipping silently; an install that fails is reported as a failure, not swallowed; a re-install replaces the previous certificate rather than stacking; the reported state is stable across a reload. (2) the gradle result line with counts. (3) `git diff --stat origin/main` and the pushed branch name. (4) an explicit line naming what remains unverified without a real device."
+    },
+    {
+      "key": "fail-closed layer 1 - wfp session block-all at install time",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 2: fail-closed Layer 1 - WFP session block-all at install time (the filter must block first, then open, never the reverse)",
+      "status": "filed",
+      "priority": 5,
+      "host": "zabz-tech-ts",
+      "why": "Roadmap Phase 2 box, and the fail-closed property is the product's stated core promise (Q11). The install-time ordering is pure logic behind the existing WFP layer and is unit-testable on the .NET host; whether the real WFP session behaves that way on a live machine must be reported as unmeasured unless it really was measured.",
+      "dod": "Implement the install-time block-all session so that at no point is traffic permitted-and-unfiltered. DONE requires, quoted, on zabz-tech-ts in a worktree at the tested branch: (1) `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo` -> `Passed! - Failed: 0, Passed: N`, with at least 7 new tests: block-all is installed BEFORE any allow rule; a failure while installing the permissive rules leaves the block-all in place (fail-closed - quote what the code does on that error path); a failure during block-all install itself is reported and does not leave the machine with neither policy; the session is persistent per the design; rules are applied idempotently (installing twice is not two sessions); a rollback removes the block-all only after the replacement policy is confirmed installed; the ordering is asserted on the recorded call sequence, not inferred from the end state. (2) the diffstat against origin/main and the pushed branch name. (3) an explicit statement of what was NOT verified on a live machine."
+    },
+    {
+      "key": "shouldfailclosed configuration",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: shouldFailClosed configuration (with the measured reason the iOS URL filter cannot be configured without a PIR server)",
+      "status": "filed",
+      "priority": 6,
+      "host": "mac-mini-ts",
+      "why": "Roadmap Phase 4 box. The measurement that matters already exists in docs/IOS_STATE_AND_UNBLOCK_2026-09-28.md section 2: NEURLFilterManager has no prefilter-only configuration, so the fail-closed knob cannot be used as written without a PIR server - a finding the client's configuration must reflect rather than assume away. The iOS core package compiles and its tests run on the Windows Swift toolchain (measured 2026-10-05), so the configuration model is provable at core level even though no device is. HOST CONSTRAINT (measured 2026-10-07): same as the cascade item - mac-mini-ts compiles the core (0 errors) but cannot run XCTest, and Yoga cannot build the package at all. Prove the configuration logic by compiling it and by the JSON/behaviour review, quote the compile, and leave the test-count leg as a named gap rather than inventing one. HOST CORRECTED 2026-10-07 by --audit-dods: this row named zabz-yoga-ts, whose Windows Swift 6.4 cannot build the iOS package at all (SwiftShims / Invalid manifest). The only host that compiles Apple code is mac-mini-ts (swift build --target KosherFilterCore -> 0 errors), and it cannot run XCTest, so the dod's test-count leg must be recorded as NOT RUN there.",
+      "dod": "Make the fail-closed behaviour explicit and configurable in the iOS core, with the PIR dependency recorded as a precondition rather than hidden. DONE requires, quoted: (1) the core suite's own Swift command (name it) green on a host with a Swift toolchain, with at least 5 new tests: the default configuration is fail-closed; a configuration that would enable the URL filter WITHOUT a PIR server is REFUSED with the reason naming the PIR dependency; the fail-closed state is reported by the client rather than inferred; a configuration change is validated at load and a bad one does not silently disable filtering; the decision path returns the documented verdict (name it) when no filtering decision could be made. (2) `swift build --target KosherFilterCore` on mac-mini-ts and its result, with the test-count leg explicitly recorded as NOT RUN if Xcode is absent. (3) `git diff --stat origin/main` and the pushed branch name. (4) explicitly: no iOS device or simulator was involved - say so if that is true, and do not claim an extension ran."
+    },
+    {
+      "key": "i-back-033: port android cascadeorchestrator fast path to sw",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "iOS: port the Android CascadeOrchestrator fast path to Swift (SSIM skip, dHash cache, tier and battery gating) - the repo's own report calls it the highest value-per-hour item",
+      "status": "filed",
+      "priority": 5,
+      "host": "mac-mini-ts",
+      "why": "I-BACK-033, unchecked, and docs/IOS_STATE_AND_UNBLOCK_2026-09-28.md section 1 records it as the item with NOTHING blocked: every input is injectable, so it is testable today with no Mac and no device. The correctness reference is the Android implementation, which is the product's working client. HOST CONSTRAINT (measured 2026-10-07, see capability_matrix): proof of a TEST COUNT is not possible on any host today - mac-mini-ts has no XCTest (CLT does not ship it; reinstalling CLT changed nothing) and Yoga's Windows Swift cannot build this package (SwiftShims). What IS provable on mac-mini-ts is that the code compiles. An attempt must therefore quote `swift build --target KosherFilterCore` -> 0 errors there, and must leave the test-count leg as a named gap unless it first gets Xcode onto the Mac. Do NOT mark this item done on a test count nobody ran. HOST CORRECTED 2026-10-07 by --audit-dods: this row named zabz-yoga-ts, whose Windows Swift 6.4 cannot build the iOS package at all (SwiftShims / Invalid manifest). The only host that compiles Apple code is mac-mini-ts (swift build --target KosherFilterCore -> 0 errors), and it cannot run XCTest, so the dod's test-count leg must be recorded as NOT RUN there.",
+      "dod": "Port the fast path (SSIM skip, dHash cache, SAFE/BLOCK/WARN/ESCALATE/SKIP verdicts, tier and battery gating) to the iOS core, with the Android implementation as the correctness reference. DONE requires, quoted: (1) `swift build --target KosherFilterCore` on mac-mini-ts (measured 0 errors) plus, ONLY if XCTest is available, the test command and its counts; otherwise say plainly that the tests were not run and why - at least 12 tests: an unchanged frame yields SKIP with a measured or bounded cost (do not assert zero cost without measuring); a dHash distance inside the documented 0-5 range is treated as unchanged and outside it is not; every verdict case is reachable, including ESCALATE on classifier unavailability; battery/thermal gating downgrades the tier in the documented direction; the cache evicts under a bounded size rather than growing without limit; the same inputs give the same verdict twice (determinism). (2) a line-by-line statement of where the Swift port matches the Kotlin original and where it deliberately differs, quoting the Kotlin file:line you compared against. (3) `git diff --stat origin/main` and the pushed branch name. (4) if any part could not be ported without a device (ANE latency, thermal readings), name it as unmeasured."
+    },
+    {
+      "key": "i-back-034: url layer: on-device bloom blocklist (not pir ye",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "iOS: fix the on-device Bloom payload format so Apple's prefilter would actually match (the served bytes use BLAKE2b; Apple requires FNV-1a + MurmurHash3x86_32 with double hashing)",
+      "status": "filed",
+      "priority": 5,
+      "host": "mac-mini-ts",
+      "why": "I-BACK-034, and the paying half is already on the record: docs/IOS_STATE_AND_UNBLOCK_2026-09-28.md section 2 measures that server/app/bloom_filter.py builds its filter with blake2b(member+seed) and a 0x4F6F5D3F stride, while NEURLFilterPrefilter requires FNV-1a and MurmurHash3 (32-bit) with double hashing, i.e. hashes[i] = (h1(x) + i*h2(x)) mod bitCount. The failure is SILENT: a prefilter built with the wrong hash loads, answers, and never matches a blocked URL. PrefilterHash.swift already implements Apple's format, so this item is the parity proof and the client-side wiring, not a rewrite.",
+      "dod": "Prove the two formats are separated correctly and that the client decodes the one it can use. DONE requires, quoted: (1) a test that builds the SAME member set with the server's function and with PrefilterHash and shows the bitmaps DIFFER, with both digests printed - the point is that a silent mismatch cannot pass. (2) a test proving PrefilterHash follows Apple's documented rule for a known vector: h1/h2 32-bit, index = (h1 + i*h2) mod bitCount for every i, and a Punycoded member. (3) the client path that consumes the served payload is exercised against a fixture built in Apple's format and reports a match for a blocked host and no match for a clean one. (4) `swift build --target KosherFilterCore` on mac-mini-ts with 0 errors - and if XCTest is available, the test command with its counts; otherwise record the test run as NOT RUN and say why. (5) `git diff --stat origin/main` and the pushed branch name. If the server endpoint is changed, the same change must be reflected in the server suite (authority: cd server && .venv/bin/python -m pytest -q tests/test_bloom_filter.py tests/test_client_profiles_router.py -q) with its line quoted."
+    },
+    {
+      "key": "i-back-035: mdm profiles + supervised enrollment (appshield/",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "iOS: make the MDM configuration profiles valid (three of five carry keys Apple does not define, and an unknown key is silently ignored)",
+      "status": "filed",
+      "priority": 5,
+      "host": "mac-mini-ts",
+      "why": "I-BACK-035, and the audit already has the exact defects: allowPasscodeControl (Apple's key is allowPasscodeModification), allowDNSModification (no such restriction), familyControlsEnabled (not a payload key at all - Family Controls is an app API), com.instagram.ios in an app-policy example (the real bundle id is com.burbn.instagram), and PluginOrganization (Apple's key is Organization). A configuration profile SILENTLY IGNORES an unknown key, so each of these is a security control that does nothing while appearing installed. Validation is a documentation-and-text exercise plus a plist parse, so it needs no device.",
+      "dod": "Correct every key against Apple's published payload documentation and prove the files are well-formed. DONE requires, quoted: (1) `plutil -lint` (or `plutil -p`) over every .mobileconfig in ios/mdm/ with the exit code for each, plus a parse of every payload's PayloadType/PayloadKeys quoted. (2) a grep-style table showing each previously-wrong key is gone and the corrected name is present, with the Apple key name it was checked against. (3) a written statement of what remains UNVERIFIED without a device (that the profile installs, that the restriction binds, that it is non-removable) - do not claim any of those. (4) `git diff --stat origin/main` and the pushed branch name. Inspect the golden evidence in docs/IOS_STATE_AND_UNBLOCK_2026-09-28.md section 3 before re-deriving it - it lists the wrong keys by file:line."
+    },
+    {
+      "key": "mdm restriction hardening",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: MDM restriction hardening beyond the profiles - the keys that stop a user removing or weakening the filter",
+      "status": "filed",
+      "priority": 7,
+      "host": "mac-mini-ts",
+      "why": "Roadmap Phase 4 box. It is the Phase 4 hardening pass over the same profile set the item above repairs: the allow* restriction keys that matter for this product (profile removal, DNS changes, VPN configuration, app removal) checked one by one against Apple's documentation, with the false ones removed and the missing ones added. Pure text and plist work, no device.",
+      "dod": "Harden the profile set against the filter's own threat model (a user trying to disable filtering). DONE requires, quoted: (1) a table of every restriction key considered, its Apple payload, whether it exists, and what it prevents - with the ones that do NOT exist listed explicitly as removed. (2) `plutil -lint` clean over every profile, with the command and exit codes. (3) at least one test or assertion that a key not in Apple's documented set cannot re-enter the shipped profiles (a small script that fails on an unknown key is enough - name it). (4) an explicit list of what needs a supervised device to prove. (5) `git diff --stat origin/main` and the pushed branch name. Do NOT claim non-removability without a device."
+    },
+    {
+      "key": "w-back-053 account surfaces for the 34 existing /owner/* rou",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Web: account surfaces for the existing /owner/* routes (the site renders onboarding but not the parent's own account)",
+      "status": "filed",
+      "priority": 6,
+      "host": "authority",
+      "why": "W-BACK-053, unchecked. The server routes already exist (the box says 34 of them) and the site already holds a broker session server-side, so this is a rendering and wiring job provable with the site's pytest suite. It is the surface a paying parent actually uses after onboarding, and its absence is a hole in 'fully wired'.",
+      "dod": "Render the account surfaces for the /owner/* routes the site can reach, under the existing session. DONE requires, quoted: (1) `cd web/server && .venv/bin/python -m pytest -q` green with tests proving: an authenticated parent sees their account page with real values from the broker (asserted against a stubbed broker response, and against an unavailable broker showing the documented error rather than an empty page); an unauthenticated request is redirected/refused; a route the site deliberately does not expose returns 404 rather than leaking; the page never echoes the broker cookie into the response body. (2) a list of which of the 34 routes are now surfaced and which are deliberately not, with the reason. (3) `git diff --stat origin/main`. (4) if any route needs a scope the site session does not hold, name it and stop that part - do not widen a scope to make a page work."
+    },
+    {
+      "key": "w-back-054 shop-side intake page (stages 0-1), replacing the",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Web: shop-side intake page (stages 0-1), replacing the runbook-only path",
+      "status": "filed",
+      "priority": 6,
+      "host": "authority",
+      "why": "W-BACK-054, unchecked. Today the shop's own intake exists only as a runbook a human follows; the box is to make it a page. Server-rendered, so the site suite proves it, and it is the mirror of the cutover in W-BACK-052 (the parent-facing phone-claim step was dropped precisely because the bench is where possession is proven).",
+      "dod": "Build the staff-side intake page for stages 0-1 and prove it. DONE requires, quoted: (1) `cd web/server && .venv/bin/python -m pytest -q` green with tests proving: the intake page requires a staff/owner session and refuses an unauthenticated visitor; completing stage 0-1 creates or advances exactly one record and a repeat submit does not duplicate it (idempotence asserted, not assumed); a required field missing is refused with the field named; the response contains no customer secret and no broker cookie. (2) the page was RUN, not only tested: start the site and quote the HTTP status and the relevant fragment for a real request. (3) which record it writes and where (name the table or endpoint). (4) `git diff --stat origin/main`. (5) anything the page needs that only the shop's live data can supply must be named, not faked."
+    },
+    {
+      "key": "docs drift: deploy/broker/readme.md still says the broker is",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "Docs: the broker README and the Android README contradict the deployed system (two false 'not deployed' claims, a wrong package name, a wrong provisioning command)",
+      "status": "filed",
+      "priority": 8,
+      "host": "authority",
+      "why": "The audit's own 'docs drift' row, unchecked, and cheaper than it looks: every claim is checkable from the authority. A deploy document that says the broker is unreachable is how an operator takes a wrong action - and this repository's README once carried a data path that would have destroyed the live database if followed.",
+      "dod": "Bring the two READMEs level with the running system, each correction carrying its measurement. DONE requires, quoted: (1) for every claim changed, the command that proves the new text (for the broker: its live /health status and the deployed paths; for Android: the real package name read from the source and the correct `dpm set-device-owner` string taken from the code or Google's documentation). (2) `grep` output proving the false strings are gone ('not deployed anywhere reachable', 'RED since inception', the wrong package name). (3) `git diff --stat origin/main`. (4) no new claim without the measurement beside it. Do not touch deploy/broker/README.md's operational steps beyond the false statements - this is a truth-correction item, not a rewrite."
+    },
+    {
+      "key": "browser extension - url inspection, content scripts, native",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 2: browser extension - URL inspection and content scripts on top of the existing native-messaging host",
+      "status": "filed",
+      "priority": 6,
+      "host": "zabz-tech-ts",
+      "why": "Roadmap Phase 2 box, and its foundations are done and measured: windows/extension already runs 16/16 npm tests, the native-messaging host is items 364/368 (done at 16/16), and GPO forcelist distribution is item 365. So the remaining work is the inspection logic itself, testable in the extension's own node suite - with the honest limit that a real browser run needs a desktop session.",
+      "dod": "Implement the URL-inspection and content-script path over the existing host. DONE requires, quoted, on zabz-tech-ts: (1) `npm test` in windows/extension -> tests/pass/fail counts with 0 failures, at least 8 new tests covering: an allowed URL produces no block; a denied URL produces the documented verdict; an unknown/unavailable host fails closed per the design (name the direction); the message framing is the host's (a malformed/oversized frame is refused, not truncated silently); the script does not run on a page it cannot classify. (2) `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo` still green if the host changed - quote the line. (3) `git diff --stat origin/main` and the pushed branch name. (4) state plainly whether the extension was loaded into a real browser or only unit-tested."
+    },
+    {
+      "key": "ml pipeline - ssim diff, dhash cache, gantman (onnx), nudene",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 3: the ML pipeline (SSIM diff, dHash cache, GantMan and NudeNet ONNX) behind an injectable frame source",
+      "status": "filed",
+      "priority": 6,
+      "host": "zabz-tech-ts",
+      "why": "Roadmap Phase 3 box, and the same design already exists and is tested on Android (CascadeOrchestrator + dHash cache + tiering) - so the port is a known shape, not research. The classifier boundary must be injectable so the pipeline is provable without a GPU; the same seam pattern as the tamper monitor (item 366) and the watchdog (item 525).",
+      "dod": "Implement the pipeline with the classifier and frame source injected. DONE requires, quoted: (1) `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo` -> Passed! with 0 failed, and at least 8 new tests: an unchanged frame is skipped and the skip is recorded; a changed frame is classified; the dHash cache returns a hit inside the documented distance and a miss outside it; a classifier that is unavailable produces the fail-closed verdict (name it) rather than an allow; the cache is bounded and evicts (assert the bound); the same frame twice gives the same verdict (determinism). (2) the ONNX model files are named with their byte sizes and where they come from - and if a model is NOT present, the test above must prove the fail-closed path, with the model absence stated. (3) `git diff --stat origin/main` and the pushed branch name. (4) an explicit line naming what needs a GPU or a live screen and was therefore NOT measured."
+    },
+    {
+      "key": "Flagged frame upload to broker for server-side review (transport landed as `HttpFrameUploader` + bounded, loss-counting `FrameUploadQueue`, ledger item 197; only flagged frames are sent, a 4xx is refused without retry, and an unreachable broker or 5xx RETAINS the frame for retry instead of dropping it. Uploading a real frame from a live capture session is still open, as is the broker-side review endpoint)",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Flagged-frame upload to the broker for server-side review - the live-capture upload and the broker-side review endpoint",
+      "status": "filed",
+      "priority": 7,
+      "host": "authority",
+      "why": "Roadmap Phase 3 box. The server half is the testable half and it is where the privacy risk lives: a flagged frame is the most sensitive object this product will ever move. Provable with the server suite plus a client-side signing/retry path; the capture side belongs to the frame-capture items. || REPAIRED 2026-10-16 by ledger item 391: key repointed to the current box text (the box grew the HttpFrameUploader/FrameUploadQueue evidence). REMAINING per the box: uploading a real frame from a live capture session, and the broker-side review endpoint.",
+      "dod": "DONE requires, quoted, for the REMAINING work only (the box records that the transport landed as ledger item 197 - HttpFrameUploader plus a bounded, loss-counting FrameUploadQueue - and item 197 must NOT be re-proved): (1) the client half, on zabz-yoga-ts or zabz-tech-ts - a real frame from a live capture session reaches HttpFrameUploader, and the retry rule is asserted: a 4xx is refused without retry, and an unreachable broker or a 5xx RETAINS the frame instead of dropping it. Quote the command and its result line. DO NOT upload a real frame anywhere; use fixtures. (2) the broker half, on the authority - `cd server && .venv/bin/python -m pytest -q` green with a test showing an authenticated phone can upload a flagged frame and a reviewer can read it back, and the stored record names its retention/deletion path (if nothing deletes it, say so plainly as a gap). (3) `git diff --stat origin/main` and the pushed branch name."
+    },
+    {
+      "key": "Bypass attempt testing (landed as `windows/FilterService.Tests/BypassAttemptTests.cs`, ledger item 200: 9 tests naming the five bypass attempts - fresh install, service stop, uninstall, proxy swap, DNS-over-HTTPS - each asserting the fail-closed outcome against the real decision code (`WfpFailClosedArming`, `TamperMonitor`, `DnsInterceptionRuntime`, `WfpRuleBuilder`) with only the OS seams faked, so no elevation, no BFE, no WinDivert load and no diverted DNS are involved. Fresh install arms the condition-less persistent block-all before any permit exists; a service stop leaves it armed and the tamper monitor puts the service back; a forced `sc delete` is recorded and does not disarm, while the sanctioned uninstall removes exactly the recomputable keys; a substituted broker fails the SOCKS handshake and takes the service down instead of passing traffic unfiltered, and a hostname broker is refused because resolving it would use the filtered path; every default browser is blocked from every default DoH endpoint at 443 with no allow. Measured 2026-10-14 on ZABZ-TECH: `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo --filter FullyQualifiedName~Bypass` -> `Passed! 0 failed, 9 passed`)",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Phase 5: bypass-attempt testing - turn the documented bypass matrix into a suite that runs per platform",
+      "status": "filed",
+      "priority": 7,
+      "host": "zabz-yoga-ts",
+      "why": "Roadmap Phase 5 box and a product-integrity requirement: a filter that can be bypassed by a child in five minutes is not a filter. The Android client already carries antievasion classes with JVM tests, so the runnable half is real; the rest needs a rooted/real device and must be marked UNMEASURED rather than skipped silently. || REPAIRED 2026-10-16 by ledger item 391: key repointed to the current box text. The box is now CHECKED (landed as ledger item 200), so this row is an inert record and files nothing.",
+      "dod": "Build the bypass matrix as a runnable suite with per-attempt verdicts. DONE requires, quoted: (1) on zabz-yoga-ts: `cd android && ./gradlew :app:testDebugUnitTest --console=plain` -> BUILD SUCCESSFUL (local.properties with sdk.dir=C:\\Android is required and must not be committed), with at least 8 new JVM tests over the antievasion policy: disabling the VPN is detected and re-asserted or reported; clearing app data/uninstall attempt is reported critical; a second user/profile is refused or reported; safe-mode detection reports; the accessibility service being disabled is detected; a proxy change is detected; each test names the attempt it models. (2) a table: attempt -> detected? (yes/no/UNMEASURED) -> where. Attempts needing a rooted device or a real child must be listed UNMEASURED with the reason, never as a pass. (3) `git diff --stat origin/main` and the pushed branch name."
+    },
+    {
+      "key": "WinML integration — GPU-accelerated inference via DirectML (backend selection, the DirectML-availability measurement and the proven CPU fallback landed as `InferenceBackendSelector`/`HostInferenceProbe`/`WinMlInferenceSession`, ledger item 196; on ZABZ-TECH DirectML.dll is present in System32 but no execution provider is registered because the service references no ONNX runtime, so the CPU provider is selected and no GPU inference is claimed. The real DirectML execution provider still needs Microsoft.ML.OnnxRuntime.DirectML)",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "Windows Phase 3: register the real DirectML execution provider for WinML (GPU half UNMEASURED without hardware)",
+      "status": "filed",
+      "priority": 8,
+      "host": "zabz-tech-ts",
+      "why": "Roadmap Phase 3 box. The honest scope: the WinML adapter and its selection logic can be written and unit-tested against a fake session; actual GPU inference needs a machine with a usable GPU and a real model, and must be reported as unmeasured. Folding it into the pipeline item would hide that limit, so it is its own row. || REPAIRED 2026-10-16 by ledger item 391: the key was truncated at the pre-evidence text; box 551 has since grown the DirectML-availability measurement, so the key is repointed to the current box text and resolves again. REMAINING work per the box: registering the real DirectML execution provider (Microsoft.ML.OnnxRuntime.DirectML) - the CPU fallback already landed as ledger item 196.",
+      "dod": "DONE requires, quoted, run on zabz-tech-ts in the repo root: (1) `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo` -> `Passed!` with 0 failed, carrying tests for the REMAINING half only (the box records that the CPU fallback already landed as ledger item 196 through InferenceBackendSelector/HostInferenceProbe/WinMlInferenceSession, and that half must NOT be re-proved): the session registers Microsoft.ML.OnnxRuntime.DirectML - a package/reference the service does not carry today, which is exactly why no execution provider is registered - and selects the DirectML EP when it is available; an unavailable DirectML device is reported as unavailable rather than silently using the CPU; the adapter reports which device/EP it selected; the CPU fallback still passes when no DirectML EP is present. (2) an explicit line naming whether GPU inference was measured on real hardware, with the device - if it was not, the line must read exactly `GPU inference was NOT measured on real hardware`. (3) `git diff --stat origin/main` and the pushed branch name."
+    },
+    {
+      "key": "a-back-014: modesty model (005: 12-label, efficientnet-lite0",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "A-BACK-014: train and integrate the modesty model (needs a labelling workflow and a spend that is the owner's)",
+      "status": "not_filed",
+      "priority": 7,
+      "host": "n/a",
+      "why": "The box names about 850-1,600 dollars of pipeline plus a data-labelling workflow, and Q21 makes modesty filtering the product's moat - so this is the single largest spend decision in the project and it is the owner's by the standing rule (money). A shift cannot start it and must not spend on it. Open owner row 255/256/257/258 are about the Waze device, not this; there is no row for this spend and one is not being filed silently here because it would be a message - it belongs in the one-question format when the owner is being asked about the product's next money step.",
+      "dod": "NOT FILEABLE as training. If the owner approves the spend, the item is: produce the labelled holdout, train the model, and prove it with precision/recall figures on that holdout plus an on-device latency measurement - and the integration half (a provisioning seam that accepts any model file) is already a separate, startable item."
+    },
+    {
+      "key": "i-back-030: spike-test #1 - nepackettunnelprovider tls termi",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "iOS: NEPacketTunnelProvider TLS-termination spike on a real iPhone with an MDM-installed CA (hardware + already measured as blocked)",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "The audit already did the analysis: every line of this is writable today, but the VALIDATED part needs a real supervised iPhone - does Safari accept our CA, does pinning break target sites, does always-on survive without a toggle - and the enrolment route needs Configurator 2 on a Mac plus a paid organisation Apple Developer account. No host in this fleet has Xcode or a device, so filing it as work would create an item nothing can close.",
+      "dod": "NOT FILEABLE until there is a supervised device and an Apple developer account. Then: the tunnel target, NEPacketTunnelNetworkSettings, the bypass list and the com.apple.security.root CA payload, proved by a named site loading through the tunnel with the CA trusted and a control site pinning correctly."
+    },
+    {
+      "key": "i-back-031: core ml classifier in the <=50mb extension sandb",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "iOS: Core ML classifier inside the extension sandbox (needs a converted model and an ANE measurement)",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "Two preconditions, both absent: no .mlmodel/.mlpackage exists anywhere under ios/ (the audit says so), and the sandbox/gate numbers (p50/p95 ANE latency, the 50 MB resident footprint) can only be measured on a device - a simulator has no ANE. Converting Android's models to Core ML is laptop work but the worthwhile half is the device gate, which no available host can produce.",
+      "dod": "NOT FILEABLE as a whole. Startable half, if wanted as its own row: convert one existing Android model to Core ML and prove byte-level input/output parity against the Python reference on the Mac - with the ANE and footprint legs explicitly UNMEASURED."
+    },
+    {
+      "key": "i-back-032: narrow+selective tunnel: nednsproxyprovider dns-",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "iOS: narrow+selective tunnel - NEDNSProxyProvider DNS-door first, full NEPacketTunnelProvider only for the ambiguous slice",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "I-BACK-032, unchecked. HARDWARE REQUIREMENT, not a deferral: the deliverable is the runtime choice between two NetworkExtension providers (NEDNSProxyProvider and NEPacketTunnelProvider); neither can be instantiated nor its interception observed on any host the matrix carries. no host in the capability matrix can run it - mac-mini-ts compiles Apple code but has no XCTest and no attached iPhone (measured 2026-10-07), and Yoga's Windows Swift cannot build the iOS package at all (SwiftShims). Needs a real device on the bench plus an owner decision about provisioning, so it is left unfiled with that reason recorded rather than filed as a to-do a shift could falsely close.",
+      "dod": "NOT RUNNABLE on any host in the capability matrix today. The command that would count as done once a real iPhone and its provisioning exist: `xcodebuild test -scheme KosherFilter -destination 'platform=iOS,name=<attached device>' -> all pass`, with at least 4 tests asserting a DNS-only flow takes the proxy path, an ambiguous flow takes the full tunnel, an empty/nil signal fails closed to the full tunnel, and no flow is carried by both. Until then the only runnable command is `swift build --target KosherFilterCore` on mac-mini-ts -> 0 errors, which proves the decision function compiles and proves nothing about interception."
+    },
+    {
+      "key": "i-back-036: speed acceptance gates (ane latency <10-20ms, me",
+      "src": "docs/IMPLEMENTATION_BACKLOG.md",
+      "title": "iOS: speed acceptance gates (ANE latency <10-20ms, memory <=50MB, thermal, dHash hit-rate, perceived page-load delta)",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "I-BACK-036, unchecked. HARDWARE REQUIREMENT, not a deferral: every gate is a measurement on the target iPhone with its Neural Engine (ANE latency, peak RSS, thermal state, the 150ms time-to-blur deadline). No host in the matrix has an Apple device attached and mac-mini-ts has no XCTest, so the numbers cannot be produced. The runnable half - a recorded benchmarking harness - is already filed as ledger item #528, so filing this again would be a duplicate.",
+      "dod": "NOT RUNNABLE today. The command that would count as done once a device exists: the repo's benchmark harness on the attached iPhone -> a recorded table of ANE latency, peak RSS, thermal state and time-to-blur per gate, each compared against the documented threshold with pass/fail. Until then the honest result line is UNMEASURED; the harness half is item #528 and must not be double-filed."
+    },
+    {
+      "key": "nednsproxyprovider implementation - dns interception to brok",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: NEDNSProxyProvider implementation - DNS interception to the broker",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "Roadmap Phase iOS box, unchecked. HARDWARE REQUIREMENT, not a deferral: a NEDNSProxyProvider is an app-extension class whose DNS interception exists only inside a running provider on a device; no host in the capability matrix can run it - mac-mini-ts compiles Apple code but has no XCTest and no attached iPhone (measured 2026-10-07), and Yoga's Windows Swift cannot build the iOS package at all (SwiftShims). Same tunnel decision as I-BACK-032 above, seen from the master roadmap side.",
+      "dod": "NOT RUNNABLE today. Would be proven by `xcodebuild test -scheme KosherFilter -destination 'platform=iOS,name=<attached device>' -> all pass` with the provider active, plus an on-device log showing a DNS query answered through the broker and no leak with the provider stopped (fail-closed). No host in the capability matrix can run it; recorded unfiled with the hardware reason."
+    },
+    {
+      "key": "nefilterdataprovider - doh ip blocking, per-flow filtering",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: NEFilterDataProvider - DoH IP blocking, per-flow filtering",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "Roadmap Phase iOS box, unchecked. HARDWARE REQUIREMENT, not a deferral: NEFilterDataProvider only runs inside a Network Extension on a device, and per-flow DoH blocking is a runtime property of live flows, not of source text. no host in the capability matrix can run it - mac-mini-ts compiles Apple code but has no XCTest and no attached iPhone (measured 2026-10-07), and Yoga's Windows Swift cannot build the iOS package at all (SwiftShims). A compile proves the file parses and nothing about filtering.",
+      "dod": "NOT RUNNABLE today. Would be proven on a device by `xcodebuild test -scheme KosherFilter -destination 'platform=iOS,name=<attached device>' -> all pass` with a filtered-flow fixture, plus an on-device capture showing a DoH flow to a blocked IP is dropped and a clean flow is not. Recorded unfiled with the hardware reason; must not be claimed from a compile."
+    },
+    {
+      "key": "neurlfiltermanager - bloom filter + pir server integration",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: NEURLFilterManager - Bloom filter + PIR server integration",
+      "status": "filed",
+      "priority": 5,
+      "host": "mac-mini-ts",
+      "why": "Roadmap Phase iOS box, unchecked, and the provable half is real: the client's Bloom decode/match rule is pure logic that belongs in KosherFilterCore - the same class of work already filed as I-BACK-034 - and the server side of the payload is provable on the authority. HOST CONSTRAINT (measured 2026-10-07, see capability_matrix): mac-mini-ts compiles Apple code but has NO XCTest, so the test-count leg must be recorded as NOT RUN unless Xcode is installed first. Do NOT mark this item done on a test count nobody ran.",
+      "dod": "Implement the NEURLFilterManager side that consumes the broker's Bloom payload and answers match/no-match for a host, with the served format and the client's hashing kept separate exactly as I-BACK-034 requires. DONE requires, quoted: (1) `swift build --target KosherFilterCore` on mac-mini-ts -> 0 errors; and ONLY if XCTest is available on the host, the test command with its counts, otherwise a plain statement that the tests were NOT RUN and why. Tests to write when XCTest exists (at least 5): an Apple-format payload matches a blocked host; a clean host does not match; a server-format (BLAKE2b) payload does not match by accident; an empty/short payload fails closed; the same host answers the same twice. (2) the server half on the authority: `cd server && .venv/bin/python -m pytest -q tests/test_bloom_filter.py` -> all pass, line quoted. (3) `git diff --stat origin/main` and the pushed branch name. Real-device prefilter behaviour is NOT claimed."
+    },
+    {
+      "key": "mdm configuration profile - supervised mode enrollment",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: MDM configuration profile - supervised mode enrollment",
+      "status": "filed",
+      "priority": 5,
+      "host": "mac-mini-ts",
+      "why": "Roadmap Phase iOS box, unchecked. Provable without a device and without an Apple-only runtime: an MDM profile is a plist/text artefact, so its validity is checked by parsing it - the same class as the filed I-BACK-035 and the Phase 4 'MDM restriction hardening' row. This is the enrollment half (supervised-mode keys and the enrollment payload), not the restriction hardening.",
+      "dod": "Author/correct the supervised-mode enrollment profile(s) in ios/mdm/ and prove they are well-formed and key-correct. DONE requires, quoted: (1) `plutil -lint` over every .mobileconfig in ios/mdm/ with the exit code for each; (2) a table of every PayloadType and every PayloadKey used, each checked against Apple's published payload documentation, with any key that does not exist listed explicitly as removed; (3) a written statement of what only a supervised device can prove (that the profile installs, that supervision binds, that the filter cannot be removed) - none of which may be claimed; (4) `git diff --stat origin/main` and the pushed branch name. Use the golden evidence in docs/IOS_STATE_AND_UNBLOCK_2026-09-28.md section 3 rather than re-deriving the wrong-key list."
+    },
+    {
+      "key": "core ml sandbox testing - can models run inside nefilterdata",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: Core ML sandbox testing - can models run inside NEFilterDataProvider?",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "Roadmap Phase iOS box, unchecked, and it is literally a question about the extension sandbox: whether a Core ML model can load and run inside NEFilterDataProvider's memory ceiling. HARDWARE REQUIREMENT, not a deferral: the answer exists only on a real device under Xcode, and Apple's sandbox limit is not simulable. no host in the capability matrix can run it - mac-mini-ts compiles Apple code but has no XCTest and no attached iPhone (measured 2026-10-07), and Yoga's Windows Swift cannot build the iOS package at all (SwiftShims). Same class as I-BACK-031, already explicitly not_filed.",
+      "dod": "NOT RUNNABLE today. Would be proven by an Xcode-run instrumented build on an attached iPhone -> a logged measurement of the extension's resident memory with a model loaded inside NEFilterDataProvider and a pass/fail against Apple's extension limit, plus the model-load success/failure. No matrix host can produce that number; recorded unfiled with the hardware reason."
+    },
+    {
+      "key": "on-device image classification within network extension",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: on-device image classification within the Network Extension",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "Roadmap Phase iOS box, unchecked. HARDWARE REQUIREMENT, not a deferral: on-device inference inside a Network Extension is a device-only runtime property (extension memory ceiling, ANE access, thermal behaviour), and it depends on the answer to the Core ML sandbox question above. no host in the capability matrix can run it - mac-mini-ts compiles Apple code but has no XCTest and no attached iPhone (measured 2026-10-07), and Yoga's Windows Swift cannot build the iOS package at all (SwiftShims). ",
+      "dod": "NOT RUNNABLE today. Would be proven on an attached iPhone by an Xcode-run build -> the classifier returns a verdict for a fixture image inside the extension and the memory/thermal numbers are logged, compared against the documented gates. Recorded unfiled with the hardware reason; must not be claimed from a compile."
+    },
+    {
+      "key": "non-removable profile testing",
+      "src": "docs/cross-platform-filter-master.md",
+      "title": "iOS: non-removable profile testing",
+      "status": "not_filed",
+      "priority": 6,
+      "host": "n/a",
+      "why": "Roadmap Phase iOS box, unchecked. HARDWARE REQUIREMENT, not a deferral: in the strictest sense 'non-removable' is only testable by attempting to remove the profile on a SUPERVISED enrolled device - the test IS the removal attempt. no host in the capability matrix can run it - mac-mini-ts compiles Apple code but has no XCTest and no attached iPhone (measured 2026-10-07), and Yoga's Windows Swift cannot build the iOS package at all (SwiftShims). A compile or a plist lint proves nothing about removability.",
+      "dod": "NOT RUNNABLE today. Would be proven on a supervised enrolled iPhone -> a scripted attempt to remove the profile and to delete the VPN/DNS configuration, logged as refused, with the device still filtering afterwards. Recorded unfiled with the hardware reason; do NOT claim non-removability without a device."
+    }
+  ],
+  "capability_matrix": {
+    "_readme": [
+      "WHAT EACH HOST CAN ACTUALLY PROVE, measured rather than assumed. Read this before writing",
+      "or trusting a definition of done: every entry below cost a shift or a session to learn, and",
+      "an item whose proving command runs on no host is how a queue of 47 unchecked boxes can sit",
+      "for days while every shift honestly reports that it could not run anything.",
+      "Measured 2026-10-07 unless a date is given. Update an entry the day a measurement falsifies it."
+    ],
+    "authority": {
+      "proven_now": [
+        "server pytest: cd ~/repos/kosher-filter-ai/server && .venv/bin/python -m pytest -q  -> measured 1477 passed, 19 skipped in 11m29s (2026-10-07)",
+        "web/server pytest",
+        "ledger + wake + journal CLIs; psql/sqlite reads; rsync/bundle creation for other hosts"
+      ],
+      "cannot": [
+        "no java, no dotnet, no swift, no Android SDK, no node run for Android",
+        "the repo checkout sits on branch merge-422-promote-20261005, NOT main - use a worktree at origin/main for anything provable"
+      ],
+      "label": "authority (secratary)"
+    },
+    "zabz-tech-ts": {
+      "proven_now": [
+        "dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo -> measured Passed 149 / Skipped 9 / 0 failed (2026-10-02, item 494) and Passed 109 / Skipped 7 / 116 in the watchdog item (2026-10-07)",
+        "npm test in windows/extension -> 16/16 (2026-10-07)",
+        "pwsh 7.6.6 for the guard suite: pwsh -NoProfile -File windows/tools/Test-DnsCutoverGuard.ps1"
+      ],
+      "cannot": [
+        "ssh at all: every OpenSSH binary dies with 'failed to initialize w32posix wrapper' (journal item 458), so a shift here CANNOT dispatch a build to another host",
+        "no Swift toolchain",
+        "its repo clone is stale (ef81186, 2026-10-02) - use a worktree at the branch under test"
+      ],
+      "note": "this is where a shift is dispatched by default (wake-dispatch.sh NODE_KIND defaults to desktop), which is why every item whose proof needs another host has to be reachable from here",
+      "label": "zabz-tech-ts (desktop)"
+    },
+    "zabz-yoga-ts": {
+      "proven_now": [
+        "Android JVM suite: cd android && ./gradlew :app:testDebugUnitTest --console=plain -> measured BUILD SUCCESSFUL in 6m14s, 29 actionable tasks executed (2026-10-07), but ONLY after local.properties exists with sdk.dir=C:\\Android (the file is gitignored and absent from a fresh worktree; write it, do not commit it)",
+        "conda: JDK 21, Android SDK at C:\\Android, node 20, git",
+        "dotnet SDK 8.0.425 installed to the user profile 2026-10-07 (dotnet-install.ps1, no elevation)"
+      ],
+      "cannot": [
+        "Swift: the Windows Swift 6.4 toolchain is installed but cannot build this package - `swift test` in ios/FilterApp fails with 'could not build C module SwiftShims' and 'Invalid manifest'. Do not send an iOS item here."
+      ],
+      "label": "zabz-yoga-ts (laptop)"
+    },
+    "mac-mini-ts": {
+      "proven_now": [
+        "swift build --target KosherFilterCore in ios/FilterApp -> measured 0 errors (2026-10-07). The ONLY host that compiles Apple-platform code at all.",
+        "the build needs a bundle transfer: no github credential (git@github.com Permission denied, HTTPS prompts) and no gh CLI"
+      ],
+      "cannot": [
+        "swift test: 'no such module XCTest'. Command Line Tools 26.6 do NOT ship XCTest, and reinstalling them changed nothing (measured 2026-10-07) - Xcode is required, and Xcode is not installed. swift-testing is not available either ('no such module Testing').",
+        "the UI targets do not compile without the Xcode SDK: 'View'/'LocalizedStringKey'/Preview need macOS 10.15+, which Package.swift does not declare"
+      ],
+      "note": "so an iOS item must be written as compile-only here, and must NOT promise a test count. The core's 86-test suite has never been re-run by this seat; the only record of it is commit f8627bb (2026-10-05) and whatever host produced it is unrecorded.",
+      "label": "mac-mini-ts (Mac)"
+    }
+  }
+}

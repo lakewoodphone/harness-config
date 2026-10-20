@@ -206,6 +206,10 @@ def _stale_finding(day, path, checked, age_min, report, problems, now) -> Findin
                 f"{checked.isoformat(timespec='seconds')}",
         priority="high",
         kind="bug",
+        # item 252 (same defect item 232 fixed for cfo-backfill): this subject is
+        # day-bucketed, so the store's cooldown can only ever DEFER today's row into
+        # tomorrow, where its prompt reads a day old. Never defer it.
+        defer_on_cooldown=False,
         cooldown_seconds=int(os.environ.get("COMMS_FRESHNESS_COOLDOWN_SEC") or 86400),
     )
 
@@ -251,6 +255,10 @@ def _dead_finding(day, path, checked, age_min, report, now) -> Finding:
                 f"{checked.isoformat(timespec='seconds')})",
         priority="high",
         kind="bug",
+        # item 252 (same defect item 232 fixed for cfo-backfill): this subject is
+        # day-bucketed, so the store's cooldown can only ever DEFER today's row into
+        # tomorrow, where its prompt reads a day old. Never defer it.
+        defer_on_cooldown=False,
         cooldown_seconds=int(os.environ.get("COMMS_FRESHNESS_COOLDOWN_SEC") or 86400),
     )
 
