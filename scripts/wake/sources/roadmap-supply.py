@@ -397,6 +397,67 @@ def split_candidates(to_file: list, live: dict, done: dict) -> tuple:
     return new, already, done_not_landed
 
 
+def parse_item_front(text: str, rid: str) -> dict:
+    """The four fields this source needs from a roadmap item file, and nothing else.
+
+    Added 2026-10-20 (ledger 795). The item file is the owner of a path's state; the mapping row is
+    only the ledger's filing record. Reading the whole file here would make the source depend on prose.
+    """
+    parts = text.split("---", 2)
+    front = parts[1] if len(parts) > 2 else ""
+    out = {"id": rid}
+    for line in front.splitlines():
+        if ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        k = k.strip()
+        if k in ("state", "dod", "ledger", "title", "blocked-on"):
+            out[k] = v.strip()
+    return out
+
+
+def check_ids(mapping: dict, docs) -> int:
+    """Every mapping row's roadmap_id must resolve to an item file that declares that id.
+
+    Added 2026-10-20 (ledger 795). Until now a mapping row identified its path only by the TEXT of a
+    checkbox, so a reworded box orphaned the row in silence - measured 2026-10-20: 6 of 47 rows were
+    already orphaned that way. A stable id cannot be reworded, but an id nothing verifies is a second
+    spelling rather than an identifier, so this is the half that makes it real.
+    """
+    wanted: dict[str, list] = {}
+    for it in mapping.get("items", []):
+        rid = str(it.get("roadmap_id") or "").strip()
+        if rid:
+            wanted.setdefault(rid, []).append(it.get("key"))
+    total = len(mapping.get("items", []))
+    if not wanted:
+        print("check-ids: no row carries a roadmap_id - the mapping has not been migrated", file=sys.stderr)
+        return 1
+    missing, mismatched = [], []
+    for rid in sorted(wanted):
+        rel = "docs/roadmap/items/%s.md" % rid
+        text = docs.read(rel)
+        if text is None:
+            missing.append((rid, rel))
+            continue
+        parts = text.split("---", 2)
+        front = parts[1] if len(parts) > 2 else ""
+        if not re.search(r"^id:\s*%s\s*$" % re.escape(rid), front, re.MULTILINE):
+            mismatched.append((rid, rel))
+    id_rows = sum(len(v) for v in wanted.values())
+    print("check-ids: %d row(s) carry a roadmap_id over %d distinct id(s); %d row(s) of %d still keyed on "
+          "checkbox text alone" % (id_rows, len(wanted), total - id_rows, total))
+    for rid, rel in missing:
+        print("  MISSING   %-12s %s" % (rid, rel))
+    for rid, rel in mismatched:
+        print("  MISMATCH  %-12s %s does not declare this id" % (rid, rel))
+    if missing or mismatched:
+        print("check-ids: FAILED - %d missing, %d mismatched" % (len(missing), len(mismatched)))
+        return 1
+    print("check-ids: OK - every roadmap_id resolves to an item file that declares it")
+    return 0
+
+
 def run(args) -> int:
     mapping_path = HERE / ("roadmap-%s.json" % args.project)
     if not mapping_path.exists():
@@ -434,6 +495,9 @@ def run(args) -> int:
                   "fallback %s failed: %s" % (args.project, str(repo), url, exc), file=sys.stderr)
             return 1
 
+    if getattr(args, "check_ids", False):
+        return check_ids(mapping, docs)
+
     # 1. document direction: unchecked boxes, checked boxes, and the mapping match.
     doc_keys: dict[str, set] = {}
     unchecked: list[dict] = []
@@ -456,16 +520,61 @@ def run(args) -> int:
             return 1
         by_key[k] = it
 
+    # 2026-10-20 (ledger 795): a row that carries a roadmap_id is decided by the ITEM FILE's state,
+    # not by whether its checkbox is still unchecked. That removes the two blind spots measured on
+    # 2026-10-20: a reworded box orphaned its mapping row (6 rows), and a finished path whose box was
+    # never ticked looked open for ever (12 rows). A row with no id keeps the old checkbox path, so a
+    # project whose roadmap has not been migrated behaves exactly as it did before.
+    doc_key_set: set = set()
+    for keys in doc_keys.values():
+        doc_key_set |= keys
+    id_state: dict[str, dict] = {}
+    id_counts = {"done": 0, "blocked": 0, "dropped": 0, "open": 0, "partial": 0, "unknown": 0}
     matched: set[str] = set()
     to_file: list[dict] = []
+    id_keyed = 0
+    for it in mapping["items"]:
+        rid = str(it.get("roadmap_id") or "").strip()
+        if not rid:
+            continue
+        id_keyed += 1
+        if rid not in id_state:
+            item_text = docs.read("docs/roadmap/items/%s.md" % rid)
+            if item_text is None:
+                print("roadmap item missing for %s: docs/roadmap/items/%s.md" % (rid, rid),
+                      file=sys.stderr)
+                return 1
+            id_state[rid] = parse_item_front(item_text, rid)
+        row = id_state[rid]
+        state = str(row.get("state") or "").strip()
+        id_counts[state if state in id_counts else "unknown"] += 1
+        # `matched` stays what it always was - unchecked boxes this source matched - because
+        # compute_uncovered() subtracts it from the unchecked set. Counting every id-keyed row here
+        # made mapped=41 against 26 unchecked boxes and manufactured uncovered=10, which would have
+        # filed a spurious authoring item on the next real run (measured 2026-10-20, dry-run).
+        if it.get("status") != "filed":
+            continue
+        # done, blocked and dropped are paths the roadmap has already decided; nothing to file.
+        if state in ("done", "blocked", "dropped"):
+            continue
+        # open or partial: a candidate. The mapping row's title stays the ledger key, because that is
+        # what existing items were filed under and dedup is by exact title; the item file supplies the
+        # definition of done, which is the thing that is actually proven.
+        to_file.append({**it,
+                        "dod": str(row.get("dod") or it.get("dod") or ""),
+                        "src": "docs/roadmap/items/%s.md" % rid,
+                        "line": 0})
+
+    # Rows with no roadmap_id: the checkbox path, unchanged.
     for box in unchecked:
         it = by_key.get(box["key"])
-        if it is None:
+        if it is None or str(it.get("roadmap_id") or "").strip():
             continue
         matched.add(box["key"])
         if it.get("status") != "filed":
             continue
         to_file.append({**it, "src": box["src"], "line": box["line"]})
+    text_keyed = len(mapping["items"]) - id_keyed
 
     # A mapped box that is now CHECKED in the doc is done by the docs' own record; nothing to file.
     checked_keys = set()
@@ -496,7 +605,12 @@ def run(args) -> int:
     for keys in doc_keys.values():
         all_doc_keys |= keys
     unmapped = [b for b in unchecked if b["key"] not in by_key]
-    mapped_not_in_doc = [i for i in mapping["items"] if norm_key(i["key"]) not in all_doc_keys]
+    # 2026-10-20 (ledger 795): a stale checkbox is only a defect for a row that still NEEDS the
+    # checkbox to be found. An id-keyed row resolves from its item file whatever the box now says,
+    # so counting it here would keep reporting the six orphaned-by-rewording rows for ever.
+    mapped_not_in_doc = [i for i in mapping["items"]
+                         if norm_key(i["key"]) not in all_doc_keys
+                         and not str(i.get("roadmap_id") or "").strip()]
 
     # 3b. THE SUPPLY MUST RENEW ITSELF. A mapping file is authored by hand, so a project whose
     # roadmap outruns its mappings starves exactly the way this source was written to prevent -
@@ -525,7 +639,14 @@ def run(args) -> int:
     # filed roadmap item 474 and the supply-renewal item 475 in the SAME SECOND, and every earlier
     # cycle did the same (391, 422, 442, 451) - five shifts re-reading a mapping file that was
     # already complete (the very next run reports uncovered=0).
-    uncovered = compute_uncovered(unchecked, by_key, with_pending(live, filed),
+    # 2026-10-20 (ledger 795): coverage is a question about BOXES, and an id-keyed row is no
+    # longer resolved by one. Its path exists as an item file whatever the box says, so passing
+    # those boxes in computed uncovered=10 the moment the switch landed - ten filed rows whose
+    # ledger item is neither live nor done, which the old code masked by marking every one of them
+    # pending. They are not uncovered; they are the seven rows that lost their ledger link to a
+    # reworded title plus the dropped ones, and their item files already say done or blocked.
+    text_only = [b for b in unchecked if not str((by_key.get(b["key"]) or {}).get("roadmap_id") or "").strip()]
+    uncovered = compute_uncovered(text_only, by_key, with_pending(live, filed),
                                   settled=[i["title"] for i in done_not_landed])
 
     authoring_open = authoring_title in live
@@ -564,14 +685,15 @@ def run(args) -> int:
     # reads this source, and the matrix is what stops an author writing a dod no host can run.
     print("%s: docs=%s hosts=%s unchecked_boxes=%d mapped=%d new=%d filed_this_run=%d already=%d "
           "done_not_landed=%d unmapped_boxes=%d stale_mapping_rows=%d uncovered=%d bad_hosts=%d "
-          "authoring_item=%s ledger=%s%s"
+          "id_keyed=%d text_keyed=%d item_state=%s authoring_item=%s ledger=%s%s"
           % (SOURCE,
              docs.kind,
              ",".join(sorted(k for k in (mapping.get("capability_matrix") or {})
                              if not k.startswith("_"))),
              len(unchecked), len(matched), len(new), len(filed), len(already),
              len(done_not_landed), len(unmapped), len(mapped_not_in_doc), len(uncovered),
-             len(bad_hosts),
+             len(bad_hosts), id_keyed, text_keyed,
+             ",".join("%s:%d" % (k, v) for k, v in sorted(id_counts.items()) if v) or "empty",
              "open" if (authoring_open or (uncovered and not args.no_authoring_item)) else "not-needed",
              ",".join("%s:%d" % (k, counts[k]) for k in sorted(counts)) or "empty",
              " DRY-RUN" if args.dry_run else ""))
@@ -786,6 +908,8 @@ def main() -> int:
                     help="priority of the supply-renewal item (default 4)")
     ap.add_argument("--selfcheck", action="store_true")
     ap.add_argument("--check-projects", action="store_true")
+    ap.add_argument("--check-ids", action="store_true",
+                    help="check that every roadmap_id resolves to a roadmap item file")
     ap.add_argument("--audit-dods", action="store_true",
                     help="check every filed row's proving command against the host it names")
     args = ap.parse_args()

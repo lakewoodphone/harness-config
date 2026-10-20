@@ -18,10 +18,10 @@
     "dod = the exact commands and the result lines that count as done. Nothing here is filed on the",
     "authority of this file alone: a shift that finds the box already true must say so and close it",
     "with that evidence, and a shift that finds the box needs hardware must leave it unfiled and say",
-    "so. Never invent work to keep a loop alive."
+    "so. Never invent work to keep a loop alive.",
+    "REMOVED 2026-10-20 (ledger 795): docs/IMPLEMENTATION_BACKLOG.md is status: superseded since D-20261019-02, and a source that keeps reading a retired document manufactures the done_not_landed class by itself - most of the 12 rows reported on 2026-10-20 were its boxes. Every row now resolves through a roadmap_id, so the document is no longer needed to find work."
   ],
   "source_docs": [
-    "docs/IMPLEMENTATION_BACKLOG.md",
     "docs/cross-platform-filter-master.md"
   ],
   "source_git": {
@@ -43,6 +43,7 @@
   "items": [
     {
       "key": "w-back-058 password reset (single-use, expiring) - a parent ",
+      "roadmap_id": "S-P0-01",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Web: password reset for the parent site (single-use, expiring) - today a parent who forgets the password has no web recovery path",
       "status": "filed",
@@ -53,6 +54,7 @@
     },
     {
       "key": "watchdog service - second service for mutual monitoring",
+      "roadmap_id": "W-P4-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 4: watchdog service for mutual monitoring (second service parks the first if it dies; each parks the other)",
       "status": "filed",
@@ -63,6 +65,7 @@
     },
     {
       "key": "**The shipped Android broker default and managed-provisioning callback are correct — RESOLVED",
+      "roadmap_id": "A-P0-01",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Android: a stock build cannot reach a real broker (emulator alias 10.0.2.2 ships in strings.xml, token ships empty, PROFILE_PROVISIONING_COMPLETE declared and never handled)",
       "status": "filed",
@@ -73,6 +76,7 @@
     },
     {
       "key": "no readiness endpoint (/health?deep=true is auth-gated; veri",
+      "roadmap_id": "S-P0-02",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Server: a readiness endpoint an orchestrator can read unauthenticated-safe (`/health?deep=true` is auth-gated, so 'process up' and 'database writable' are indistinguishable)",
       "status": "filed",
@@ -83,6 +87,7 @@
     },
     {
       "key": "w-back-057 end-to-end web test (playwright, stages 2→7 + one",
+      "roadmap_id": "S-P0-03",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Web: end-to-end test of the onboarding stages with one fail-closed assertion (no automated test covers the web surfaces today)",
       "status": "filed",
@@ -93,6 +98,7 @@
     },
     {
       "key": "w-back-059 email verification + configure the one existing e",
+      "roadmap_id": "S-P0-04",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Web: email verification, configuring the one existing email path (app/partner.py:631) instead of adding a second one",
       "status": "filed",
@@ -103,6 +109,7 @@
     },
     {
       "key": "boot-start wfp callout driver - kernel-level fail-closed",
+      "roadmap_id": "W-P4-02",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 4: boot-start WFP callout driver for kernel-level fail-closed (buildable + unit-testable; real load is a hardware/lab job and must be reported as not done)",
       "status": "filed",
@@ -113,6 +120,7 @@
     },
     {
       "key": "billing secrets are mismatched: lpt_billing_stripe_webhook_s",
+      "roadmap_id": "S-P0-05",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Billing: LPT_BILLING_STRIPE_WEBHOOK_SECRET empty while the Stripe key is live-mode, so the webhook 503s - prove the current state and either fix or record the exact blocking input",
       "status": "filed",
@@ -123,6 +131,7 @@
     },
     {
       "key": "**Screenshot accountability is dead, not partial — WIRED 2026-09-28 (rechecked 2026-10-10).**",
+      "roadmap_id": "A-P0-02",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Android: screenshot accountability is dead - ScreenshotService.startWithConsent has zero callers and createScreenCaptureIntent() appears nowhere",
       "status": "filed",
@@ -133,6 +142,7 @@
     },
     {
       "key": "pir server setup alongside broker",
+      "roadmap_id": "S-P1-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Infrastructure: PIR server alongside the broker (BLOCKED on the recorded Q22 deferral - do not build infra while that decision stands)",
       "status": "not_filed",
@@ -144,6 +154,7 @@
     },
     {
       "key": "modesty model training budget go-ahead (~$850-1,600) + data ",
+      "roadmap_id": "A-P0-03",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "A-BACK-014: train and integrate the modesty model (EfficientNet-Lite0 INT8) - needs a labelling workflow and a training budget",
       "status": "not_filed",
@@ -154,6 +165,7 @@
     },
     {
       "key": "whql signing process",
+      "roadmap_id": "W-P4-03",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 4: WHQL signing process (needs an EV certificate, a portal account and money - an owner and vendor process, not a build step)",
       "status": "not_filed",
@@ -164,6 +176,7 @@
     },
     {
       "key": "desktop duplication api - frame capture loop, dirty rect tra",
+      "roadmap_id": "W-P3-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 3: Desktop Duplication API frame-capture loop with dirty-rect tracking - capture needs a real desktop session, so the buildable half is the seam plus its tests",
       "status": "filed",
@@ -174,6 +187,7 @@
     },
     {
       "key": "overlay / block page ui",
+      "roadmap_id": "W-P4-04",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 4: overlay / block page UI (pure UI work, no hardware needed; the deny-first design says the hide is what the user sees)",
       "status": "filed",
@@ -184,6 +198,7 @@
     },
     {
       "key": "Performance benchmarking (landed as `windows/FilterService.Tests/PipelineBenchTests.cs` plus the measured table in `docs/benchmarks/pipeline-benchmark.md`, ledger item 199: `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo --filter FullyQualifiedName~Bench` exits 0 on ZABZ-TECH and prints a p50/p95 table for the capture, diff and classify stages at 1280x720 - measured 2026-10-14: capture p50 0.0252 ms (loop CPU per forwarded frame, excludes the blocking DXGI acquire), diff p50 6.8132 ms (dHash + SSIM + cache, ~147 frames/s of headroom), classify p50 2.0870 ms. The classify row names the CPU execution provider over the mean-luminance stub, because no DirectML execution provider is registered and no ONNX weights ship; no GPU run, live-desktop latency or real-model time is claimed)",
+      "roadmap_id": "W-P5-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Phase 5: performance benchmarking harness (make the numbers runnable and recorded; the device-side gates stay unproven)",
       "status": "filed",
@@ -194,6 +209,7 @@
     },
     {
       "key": "Deployment documentation (landed as docs/deployment.md + the committed checker scripts/check_deployment_docs.py, ledger item 201: 12 fenced deployment blocks for the broker, the customer site, the Windows client, phone provisioning, the local stack and rollback; every block carries a deploy-doc: annotation naming the repo artifacts it drives, and the checker verifies every relative path, every make target and every docker/docker compose service or container name against the repo, rejecting any token the repo cannot answer for unless the block declares it in \u001bxternal= - it exits 0 on the page (12 blocks, 22 compose names, 60 make targets, 2 endpoint URLs recorded as non-repo) and --selftest proves it exits 1 on a missing artifact, a missing repo path, a missing make target, an undeclared off-repo service and a stale declaration. Endpoint health and on-device/iOS installs are explicitly not claimed: no live host, Windows client or phone was contacted)",
+      "roadmap_id": "X-P0-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Docs: make the broker README's claims self-checking (probe the live system in a script the doc names, so drift is caught by a command and not by a reader)",
       "status": "filed",
@@ -205,6 +221,7 @@
     },
     {
       "key": "Cross-platform testing matrix (landed as `docs/testing-matrix.md` + the committed checker `scripts/check_testing_matrix.py`, ledger item 198: 6 suites each with its exact host, workdir and command, and the checker verifies every row's targets exist and every `dotnet test` target is a real test project - it exits 0 on the matrix and exits 1 naming the historical `dotnet test windows/DnsRelayService` defect. Re-running every suite on its own host to fill the 'Last measured' column is still open for 5 of the 6 rows)",
+      "roadmap_id": "X-P5-02",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Phase 5: cross-platform testing matrix - fill the Last-measured column by re-running each suite on its own host",
       "status": "filed",
@@ -215,6 +232,7 @@
     },
     {
       "key": "w-back-052 onboarding stages as pages with resumable, server",
+      "roadmap_id": "S-P0-06",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Web: finish the onboarding stage pages (stage 4 level choice is the blocker - the rules endpoints are admin-scoped today and it must clamp to the hard floor)",
       "status": "filed",
@@ -225,6 +243,7 @@
     },
     {
       "key": "w-back-055 public content + compliance pages, gated by the e",
+      "roadmap_id": "S-P0-07",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Web: public content and compliance pages, gated by the existing public-claims test (no marketing claim may ship unsupported)",
       "status": "filed",
@@ -235,6 +254,7 @@
     },
     {
       "key": "no seeded super-admin. on a fresh database the only runtime ",
+      "roadmap_id": "S-P0-08",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Server: no seeded super-admin - a fresh database can only be entered with the shared secret as an HTTP Basic password or a manual row insert",
       "status": "filed",
@@ -245,6 +265,7 @@
     },
     {
       "key": "mitm trust unverified. policyapplier.kt:906-909 logs that in",
+      "roadmap_id": "A-P0-04",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Android: MITM trust is unverified - installCaCert installs a CA that Android 7+ apps need not trust, and the only validation script skips itself when not Device Owner",
       "status": "filed",
@@ -255,6 +276,7 @@
     },
     {
       "key": "fail-closed layer 1 - wfp session block-all at install time",
+      "roadmap_id": "W-P2-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 2: fail-closed Layer 1 - WFP session block-all at install time (the filter must block first, then open, never the reverse)",
       "status": "filed",
@@ -265,6 +287,7 @@
     },
     {
       "key": "shouldfailclosed configuration",
+      "roadmap_id": "I-P4-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: shouldFailClosed configuration (with the measured reason the iOS URL filter cannot be configured without a PIR server)",
       "status": "filed",
@@ -275,6 +298,7 @@
     },
     {
       "key": "i-back-033: port android cascadeorchestrator fast path to sw",
+      "roadmap_id": "I-P0-01",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "iOS: port the Android CascadeOrchestrator fast path to Swift (SSIM skip, dHash cache, tier and battery gating) - the repo's own report calls it the highest value-per-hour item",
       "status": "filed",
@@ -285,6 +309,7 @@
     },
     {
       "key": "i-back-034: url layer: on-device bloom blocklist (not pir ye",
+      "roadmap_id": "I-P0-02",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "iOS: fix the on-device Bloom payload format so Apple's prefilter would actually match (the served bytes use BLAKE2b; Apple requires FNV-1a + MurmurHash3x86_32 with double hashing)",
       "status": "filed",
@@ -295,6 +320,7 @@
     },
     {
       "key": "i-back-035: mdm profiles + supervised enrollment (appshield/",
+      "roadmap_id": "I-P0-03",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "iOS: make the MDM configuration profiles valid (three of five carry keys Apple does not define, and an unknown key is silently ignored)",
       "status": "filed",
@@ -305,6 +331,7 @@
     },
     {
       "key": "mdm restriction hardening",
+      "roadmap_id": "I-P4-02",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: MDM restriction hardening beyond the profiles - the keys that stop a user removing or weakening the filter",
       "status": "filed",
@@ -315,6 +342,7 @@
     },
     {
       "key": "w-back-053 account surfaces for the 34 existing /owner/* rou",
+      "roadmap_id": "S-P0-09",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Web: account surfaces for the existing /owner/* routes (the site renders onboarding but not the parent's own account)",
       "status": "filed",
@@ -325,6 +353,7 @@
     },
     {
       "key": "w-back-054 shop-side intake page (stages 0-1), replacing the",
+      "roadmap_id": "S-P0-10",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Web: shop-side intake page (stages 0-1), replacing the runbook-only path",
       "status": "filed",
@@ -335,6 +364,7 @@
     },
     {
       "key": "docs drift: deploy/broker/readme.md still says the broker is",
+      "roadmap_id": "X-P0-01",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "Docs: the broker README and the Android README contradict the deployed system (two false 'not deployed' claims, a wrong package name, a wrong provisioning command)",
       "status": "filed",
@@ -345,6 +375,7 @@
     },
     {
       "key": "browser extension - url inspection, content scripts, native",
+      "roadmap_id": "W-P2-02",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 2: browser extension - URL inspection and content scripts on top of the existing native-messaging host",
       "status": "filed",
@@ -355,6 +386,7 @@
     },
     {
       "key": "ml pipeline - ssim diff, dhash cache, gantman (onnx), nudene",
+      "roadmap_id": "W-P3-02",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 3: the ML pipeline (SSIM diff, dHash cache, GantMan and NudeNet ONNX) behind an injectable frame source",
       "status": "filed",
@@ -365,6 +397,7 @@
     },
     {
       "key": "Flagged frame upload to broker for server-side review (transport landed as `HttpFrameUploader` + bounded, loss-counting `FrameUploadQueue`, ledger item 197; only flagged frames are sent, a 4xx is refused without retry, and an unreachable broker or 5xx RETAINS the frame for retry instead of dropping it. Uploading a real frame from a live capture session is still open, as is the broker-side review endpoint)",
+      "roadmap_id": "W-P3-03",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Flagged-frame upload to the broker for server-side review - the live-capture upload and the broker-side review endpoint",
       "status": "filed",
@@ -375,6 +408,7 @@
     },
     {
       "key": "Bypass attempt testing (landed as `windows/FilterService.Tests/BypassAttemptTests.cs`, ledger item 200: 9 tests naming the five bypass attempts - fresh install, service stop, uninstall, proxy swap, DNS-over-HTTPS - each asserting the fail-closed outcome against the real decision code (`WfpFailClosedArming`, `TamperMonitor`, `DnsInterceptionRuntime`, `WfpRuleBuilder`) with only the OS seams faked, so no elevation, no BFE, no WinDivert load and no diverted DNS are involved. Fresh install arms the condition-less persistent block-all before any permit exists; a service stop leaves it armed and the tamper monitor puts the service back; a forced `sc delete` is recorded and does not disarm, while the sanctioned uninstall removes exactly the recomputable keys; a substituted broker fails the SOCKS handshake and takes the service down instead of passing traffic unfiltered, and a hostname broker is refused because resolving it would use the filtered path; every default browser is blocked from every default DoH endpoint at 443 with no allow. Measured 2026-10-14 on ZABZ-TECH: `dotnet test windows/FilterService.Tests/KosherFilterService.Tests.csproj --nologo --filter FullyQualifiedName~Bypass` -> `Passed! 0 failed, 9 passed`)",
+      "roadmap_id": "W-P5-02",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Phase 5: bypass-attempt testing - turn the documented bypass matrix into a suite that runs per platform",
       "status": "filed",
@@ -385,6 +419,7 @@
     },
     {
       "key": "WinML integration — GPU-accelerated inference via DirectML (backend selection, the DirectML-availability measurement and the proven CPU fallback landed as `InferenceBackendSelector`/`HostInferenceProbe`/`WinMlInferenceSession`, ledger item 196; on ZABZ-TECH DirectML.dll is present in System32 but no execution provider is registered because the service references no ONNX runtime, so the CPU provider is selected and no GPU inference is claimed. The real DirectML execution provider still needs Microsoft.ML.OnnxRuntime.DirectML)",
+      "roadmap_id": "W-P3-04",
       "src": "docs/cross-platform-filter-master.md",
       "title": "Windows Phase 3: register the real DirectML execution provider for WinML (GPU half UNMEASURED without hardware)",
       "status": "filed",
@@ -395,6 +430,7 @@
     },
     {
       "key": "a-back-014: modesty model (005: 12-label, efficientnet-lite0",
+      "roadmap_id": "A-P0-03",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "A-BACK-014: train and integrate the modesty model (needs a labelling workflow and a spend that is the owner's)",
       "status": "not_filed",
@@ -405,6 +441,7 @@
     },
     {
       "key": "i-back-030: spike-test #1 - nepackettunnelprovider tls termi",
+      "roadmap_id": "I-P0-04",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "iOS: NEPacketTunnelProvider TLS-termination spike on a real iPhone with an MDM-installed CA (hardware + already measured as blocked)",
       "status": "not_filed",
@@ -415,6 +452,7 @@
     },
     {
       "key": "i-back-031: core ml classifier in the <=50mb extension sandb",
+      "roadmap_id": "I-P0-05",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "iOS: Core ML classifier inside the extension sandbox (needs a converted model and an ANE measurement)",
       "status": "not_filed",
@@ -425,6 +463,7 @@
     },
     {
       "key": "i-back-032: narrow+selective tunnel: nednsproxyprovider dns-",
+      "roadmap_id": "I-P0-06",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "iOS: narrow+selective tunnel - NEDNSProxyProvider DNS-door first, full NEPacketTunnelProvider only for the ambiguous slice",
       "status": "not_filed",
@@ -435,6 +474,7 @@
     },
     {
       "key": "i-back-036: speed acceptance gates (ane latency <10-20ms, me",
+      "roadmap_id": "I-P0-07",
       "src": "docs/IMPLEMENTATION_BACKLOG.md",
       "title": "iOS: speed acceptance gates (ANE latency <10-20ms, memory <=50MB, thermal, dHash hit-rate, perceived page-load delta)",
       "status": "not_filed",
@@ -445,6 +485,7 @@
     },
     {
       "key": "nednsproxyprovider implementation - dns interception to brok",
+      "roadmap_id": "I-P2-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: NEDNSProxyProvider implementation - DNS interception to the broker",
       "status": "not_filed",
@@ -455,6 +496,7 @@
     },
     {
       "key": "nefilterdataprovider - doh ip blocking, per-flow filtering",
+      "roadmap_id": "I-P2-02",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: NEFilterDataProvider - DoH IP blocking, per-flow filtering",
       "status": "not_filed",
@@ -465,6 +507,7 @@
     },
     {
       "key": "neurlfiltermanager - bloom filter + pir server integration",
+      "roadmap_id": "I-P2-03",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: NEURLFilterManager - Bloom filter + PIR server integration",
       "status": "filed",
@@ -475,6 +518,7 @@
     },
     {
       "key": "mdm configuration profile - supervised mode enrollment",
+      "roadmap_id": "I-P2-04",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: MDM configuration profile - supervised mode enrollment",
       "status": "filed",
@@ -485,6 +529,7 @@
     },
     {
       "key": "core ml sandbox testing - can models run inside nefilterdata",
+      "roadmap_id": "I-P3-01",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: Core ML sandbox testing - can models run inside NEFilterDataProvider?",
       "status": "not_filed",
@@ -495,6 +540,7 @@
     },
     {
       "key": "on-device image classification within network extension",
+      "roadmap_id": "I-P3-02",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: on-device image classification within the Network Extension",
       "status": "not_filed",
@@ -505,6 +551,7 @@
     },
     {
       "key": "non-removable profile testing",
+      "roadmap_id": "I-P4-03",
       "src": "docs/cross-platform-filter-master.md",
       "title": "iOS: non-removable profile testing",
       "status": "not_filed",
