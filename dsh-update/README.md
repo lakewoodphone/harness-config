@@ -15,6 +15,12 @@ file describes the verbs; the runbook describes the operation, its preconditions
 
 ## Run it
 
+> **Before any switch:** read `docs/KNOWN-BREAKAGE-CLASSES.md` and search the journal for the words of
+> every class that version touches. The plan you were handed describes the next action; the classes
+> describe the last ten outages, and only one of those two is findable by the failure's words.
+> The design and its open items: `docs/UPDATE-SYSTEM.md`. The account of the 2026-10-20 window:
+> `docs/POSTMORTEM-2026-10-20-ZABZ-YOGA.md`.
+
 `bin/dsh-update.ps1` is the only entry point. **No verb means `status`.**
 
 ```

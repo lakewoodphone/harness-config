@@ -29,6 +29,9 @@ import {
 // The single reading of verify.json shared by `preflight` and `promote`. See the module header: the two
 // verbs once carried private readings that disagreed, and it deadlocked every session-format candidate.
 import { DECISION_GATES, verifyPromotable } from './promote-reading.mjs';
+// The LIVE install root: one resolution shared by promote, plan, rollback and the switch. The staging prefix is
+// where a candidate is fetched to; it is never where a machine runs from.
+import { liveInstallRoot } from './live-root.mjs';
 // Every verdict this pipeline writes must name the config home it judged. See the module header: on
 // 2026-09-28 a test fixture's staged home overwrote the authoritative artifacts and every later reading
 // described a config that does not exist on this machine.
@@ -625,7 +628,14 @@ async function verbAnalyze(argv) {
   // reports BREAKS and there is no way to tell "the fix is incomplete" from "the fix is not applied".
   // Pointing `DSH_HOME` at a staged home that carries the MIGRATED copies separates those two, and
   // that staged run is what `preflight` must judge. Defaults to the live home when unset.
-  const consumedRun = runModuleCli('consumed.mjs', ['--root', REPO_ROOT, '--dsh-home', (process.env.DSH_HOME || PATHS.dshHome), '--out', consumedPath]);
+  // WHICH ROOT ARE WE AUDITING? `--root` was hardcoded to REPO_ROOT, which silently overrode the
+  // `DSH_CONFIG_ROOT` that `consumed.mjs` itself honours. Measured 2026-10-20 on `zabz-tech-linux`: that host's
+  // live web patch is 217 bytes and names NONE of `remote-fanout`, `tool-subagent-remote`, `spend-guard`, yet G2
+  // reported all three as patch targets that are not rows — because the scan was reading the REPOSITORY's patch,
+  // which this worker never deploys. A machine that legitimately does not track the repo was being judged against
+  // the repo's intent. Honouring the override lets a host be judged against its OWN config; unset, nothing changes.
+  const configRoot = process.env.DSH_CONFIG_ROOT ? path.resolve(process.env.DSH_CONFIG_ROOT) : REPO_ROOT;
+  const consumedRun = runModuleCli('consumed.mjs', ['--root', configRoot, '--dsh-home', (process.env.DSH_HOME || PATHS.dshHome), '--out', consumedPath]);
   if (!consumedRun.ok) {
     throw new CliError(
       `lib/consumed.mjs failed (exit ${consumedRun.exitCode}), so there is nothing to cross-reference.\n`
@@ -793,7 +803,16 @@ function promotionEffect(version) {
   const cfg = readConfigForPlan();
   const pinned = pinnedState();
   if (!pinned.present) throw new CliError('state/pin.json does not exist, so promote has nothing to succeed. Run `snapshot` first.', { exitCode: 2 });
-  const newRoot = vendorPrefixPath(version);
+  // WHERE THE ENGINE ACTUALLY LIVES, not where the candidate was staged. This line said `vendorPrefixPath(version)`
+  // and that is a *second* copy of the same decision, independent of lib/live-root.mjs — so a `promote` wrote a pin
+  // naming the staging directory while `dshInstall` named the live root (measured on ZABZ-TECH, and again on
+  // zabz-tech-linux 2026-10-20 where it put the staging path into both the pin and windows.json). The staging
+  // prefix is where `fetch` puts a candidate; it is never where a machine runs from.
+  const live = liveInstallRoot();
+  if (!live.present) {
+    throw new CliError(`no live install root (${live.source}). promote names the tree the machine RUNS; the staging prefix is not it. Install an engine at <home>/.dsh/engine, set $env:DSH_LIVE_INSTALL, or run \`install-engine --to <root>\`.`, { exitCode: 2 });
+  }
+  const newRoot = live.root;
   const newEngine = path.join(newRoot, ENGINE_REL);
   const state = candidateState(version);
   return {
@@ -1019,7 +1038,11 @@ async function verbPromote(argv) {
   const previousPin = eff.pinned.pin;
   const newPin = {
     version,
-    installRoot: vendorPrefixPath(version),
+    // THE TREE THE MACHINE RUNS, not the staging prefix. `enginePath` below is derived from it, so this one
+    // field decides whether the pin describes reality. Measured 2026-10-19: this line still wrote
+    // `vendorPrefixPath(version)` after `promotionEffect` was re-pointed, so the pin kept naming the staging
+    // directory while `dshInstall` named the live root — the same seam, one layer down.
+    installRoot: eff.pin.installRootNew,
     enginePath: eff.enginePath,
     managed: true,
     pinnedAt: new Date().toISOString(),
@@ -1467,6 +1490,17 @@ async function verbSettingsEffective(argv) {
     const why = report?.reason
       ?? (r.stderr || r.stdout || '').trim().split('\n').filter(Boolean).slice(0, 3).join(' | ')
       ?? `exit ${r.status} with no output`;
+    // A MODULE THAT WROTE ITS OWN RECORD KEEPS IT. Measured 2026-10-19 on both workstations: the module wrote a
+    // `ran:false` artifact carrying its own reason, and `refuse()` below OVERWROTE that file with a stub whose
+    // `reason` was a truncated JSON preview. The gate then looked like it had produced nothing, and the actual
+    // diagnostic was destroyed by the reporter. Never overwrite a real reading with a complaint about it.
+    if (report) {
+      lines.push(`  the module ran and reported ran=false — ${why}`);
+      return {
+        ok: false, exitCode: 7, verb: 'settings-effective', version, ran: false, reason: why, path: out,
+        text: lines.join('\n'),
+      };
+    }
     return refuse(`the module produced no usable artifact (exit ${r.status}): ${why || '(no diagnostic at all)'}`, 7);
   }
 
@@ -1616,6 +1650,49 @@ async function verbPreflight(argv) {
         : (se.verdict === 'BREAKS'
           ? `verdict BREAKS — the engine does not honour settings this deployment sets (${Object.entries(se.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'}). Read the artifact before promoting: this is a silent behaviour change, not a crash.`
           : `verdict ${se.verdict} — every settings key this deployment sets is present in the engine's own report with our value (${Object.entries(se.counts || {}).map(([k, v]) => `${k}=${v}`).join(' ') || 'no counts'})`)));
+
+  // ── guard: OUR CONFIG'S ASSUMPTIONS ABOUT THIS CANDIDATE ────────────────────────────────────
+  //
+  // WHY THIS IS BLOCKING AND WHY IT IS HERE. Two live outages came from our config restating an upstream
+  // surface: `ctx.webRuntime` (0.2.1 injects `webStartup`) and `{{cwd}}` (0.2.1 registers only provider and
+  // model). Both were invisible to every other guard in this command -- analyze and patch-effect compare our
+  // config's VALUES, and neither evaluates a `!!js` expression or a prompt token against the candidate.
+  // `tools/config-assumptions.mjs` was written for exactly this class on 2026-10-19 (L10238) and, measured
+  // 2026-10-20 on ZABZ-YOGA, it was still not reachable from any verb: the switch installed, the engine came
+  // up, and every turn died on `unknown prompt variable "{{cwd}}"`. A detector no verb can reach is a
+  // document. This guard is the reach.
+  //
+  // IT BLOCKS ONLY WHEN IT RAN AND FOUND SOMETHING. A candidate that is not fetched, or a tool that cannot
+  // start, is reported as a GAP and does not block -- the same rule settings-effective follows. A guard that
+  // never reached a verdict must not make this command unpassable.
+  const caTool = path.join(PATHS.root, 'tools', 'config-assumptions.mjs');
+  const caEngine = vendorPrefixPath(version);
+  const caFetched = fileInfo(path.join(caEngine, ENGINE_REL)).exists;
+  if (!caFetched) {
+    add('our config assumptions (prompt tokens, ctx injections)', false, false,
+      `did not run -- no candidate engine under ${safeRelPath(caEngine)}. Reported as a GAP, not a pass.`);
+  } else if (!fileInfo(caTool).exists) {
+    add('our config assumptions (prompt tokens, ctx injections)', false, false,
+      `did not run -- ${safeRelPath(caTool)} is missing. Reported as a GAP, not a pass.`);
+  } else {
+    const r = spawnSync(process.execPath, [caTool, '--engine', caEngine, '--home', PATHS.dshHome, '--json'], {
+      encoding: 'utf8', timeout: 300000,
+    });
+    let rep = null;
+    try { rep = JSON.parse(`${r.stdout || ''}`.trim()); } catch { rep = null; }
+    if (!rep) {
+      add('our config assumptions (prompt tokens, ctx injections)', false, false,
+        `did not run -- config-assumptions produced no JSON (exit ${r.status}): ${`${r.stderr || ''}`.trim().split('\n').slice(-2).join(' | ') || '(no diagnostic)'}`);
+    } else {
+      const findings = Array.isArray(rep.findings) ? rep.findings : [];
+      const stats = rep.stats || {};
+      const ok = findings.length === 0;
+      add('our config assumptions (prompt tokens, ctx injections)', ok, true, ok
+        ? `${stats.files ?? '?'} file(s), ${stats.promptTokens ?? '?'} prompt token(s), ${stats.ctxRefs ?? '?'} ctx reference(s) -- every one is something ${rep.version} actually offers`
+        : `${findings.length} assumption(s) this version does not offer: ${findings.slice(0, 4).map((f) => `${String(f.file).split(/[\\/]/u).pop()}:${f.line} ${f.ref}`).join(', ')}${findings.length > 4 ? ` (+${findings.length - 4} more)` : ''}. Each one fails a turn or a plugin activation AFTER the install -- fix the config, then re-run.`);
+      if (!ok) for (const f of findings.slice(0, 6)) lines.push(`        ${String(f.file).split(/[\\/]/u).pop()}:${f.line}  row "${f.row}"  ${f.ref} -- ${f.why}`);
+    }
+  }
 
   // ── guard: every artifact stamped with the config home it judged, and that home is THIS one ────
   //
