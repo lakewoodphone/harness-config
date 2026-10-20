@@ -1,53 +1,55 @@
 {
  "adopted_rows": 0,
- "bands_refs_read": 57,
+ "bands_refs_read": 56,
  "ceiling": {
   "decisions": 8896,
-  "handoff": 11752,
-  "lessons": 11581,
+  "handoff": 11816,
+  "lessons": 11645,
   "pain": 9802,
   "wins": 7130
  },
  "ceiling_source": {
-  "decisions": "ZABZ-YOGA live working tree",
+  "decisions": "refs/heads/lpt/roadmap-supply-821-20261020",
   "handoff": "refs/heads/lpt/roadmap-supply-821-20261020",
   "lessons": "refs/heads/lpt/roadmap-supply-821-20261020",
-  "pain": "ZABZ-YOGA live working tree",
-  "wins": "ZABZ-YOGA live working tree"
+  "pain": "refs/heads/lpt/roadmap-supply-821-20261020",
+  "wins": "refs/heads/lpt/roadmap-supply-821-20261020"
  },
  "claimed_gap_rows": [],
  "entries_high_water": {
   "decisions": "D8833",
-  "handoff": "H11689",
-  "lessons": "L11518",
+  "handoff": "H11754",
+  "lessons": "L11583",
   "pain": "P9739",
   "wins": "W6939"
  },
  "high_water": {
   "decisions": "D8896",
-  "handoff": "H11752",
-  "lessons": "L11581",
+  "handoff": "H11816",
+  "lessons": "L11645",
   "pain": "P9802",
   "wins": "W7130"
  },
  "host": "secratary-cloud",
- "live_peer_rows": 337,
+ "live_peer_rows": 137,
  "live_peer_unreachable": [
+  "ZABZ-YOGA (rc=255)",
   "ZABZ-TECH-LINUX (rc=1)"
  ],
- "peers_failed": [],
+ "peers_failed": [
+  "yoga"
+ ],
  "peers_fetched": [
-  "yoga",
   "tech",
   "offsite",
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-20T22:30:07Z",
+ "refreshed_at": "2026-10-20T22:46:13Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 5.5,
- "sources_seen": 12529
+ "seconds": 72.3,
+ "sources_seen": 11785
 }
