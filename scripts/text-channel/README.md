@@ -90,3 +90,53 @@ remains the deployed base plus this patch; the newer branch's composer is a
 different architecture and deploying it is a larger change than this one. The
 next deploy of the newer branch must carry the complete-question + item-key
 patch forward.
+
+## 2026-10-20 — the pager now sends only what he can answer
+
+The 2026-10-19 fix made the one selected item **complete**. It did not make it
+**answerable**. `pick_one_item()` chose by rank alone, and `_compose_one()`
+appended `Reply with your answer, or say 'your call'.` to whatever it found —
+including a statement. On the live digest
+(`/root/personal-secretary-mvp/data/owner-attention/latest.txt`, 34 items, saved
+for the measurement at `/tmp/digest-20261020.txt`):
+
+- **25 of 34 items** composed to a body with NO `?` and WITH the reply
+  instruction, e.g. `OVERDUE 2026-08-15 — Elantra — New York toll bill
+  collection (bill)` and `Supplier hasn't answered RMA request for
+  dead-digitizer Surface panel (order 108746338)`.
+- One pass over that digest would therefore text him **34 times, 25 of them
+  statements he cannot answer**. Those are the same dead-text class as the
+  retired 36-item wall: the wall asked nothing, and a statement asks nothing.
+
+The scorecard's 3-of-3 family (`10-13 02:24 UTC 36 items, 26 urgent`) is the
+historical wall, and those rows stay in the 14-day window until 2026-10-27; no
+change can make an already-sent text answered. This change is about the texts the
+pager would send next.
+
+Change: `_compose_one()` returns `""` when the extracted text has no `?`;
+`pick_one_item()` skips an item that composes empty and takes the next answerable
+one, or nothing. Notices remain in the digest file; the phone carries only what
+he can answer. The first live body after the change is
+`Should the company's agent work move out of DeepSeek's peak-price window?`
+(117 chars, question + instruction).
+
+Before/after (`measure-pager-answerability.py`, same saved 34-item digest):
+
+```
+bodies_without_question 25  skipped  0   COLD-START TEXTS 34  statements 25
+bodies_without_question  0  skipped 25   COLD-START TEXTS  9  statements  0
+```
+
+Verify (neither sends):
+
+```bash
+cd /root/personal-secretary-mvp
+.venv/bin/python3 /root/code/harness-config/scripts/text-channel/test-production-pager.py scripts/owner_attention.py
+.venv/bin/python3 /root/code/harness-config/scripts/text-channel/measure-pager-answerability.py
+```
+
+The app-repo record is branch `owner-text/pager-answerable-20261020`, based on
+`owner-text/pager-one-question-20261019` (`c5d9ccb27`). The live file's md5
+before this change was `d5145cbdfb7aeec682784fa160171e72`; a byte copy is
+`scripts/owner_attention.py.bak-answerable-20261020T000537Z`. The next deploy of
+the newer `hk/559-bound-repo-reads` composer must carry BOTH patches forward.

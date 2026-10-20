@@ -78,11 +78,24 @@ def main() -> int:
         assert m.item_fingerprint(body) not in saved, saved
     print("PASS send() records the item key, not the body (fake sender; no SMS)")
 
-    # A pathological 1000-character item must still stay a bounded text.
-    long_body = m._compose_one("  1. [high] " + ("word " * 200))
+    # THE ANSWERABILITY GATE (2026-10-20). A statement is not a pager item: the
+    # owner cannot answer "OVERDUE ... (bill)", and the scorecard counts such a
+    # text IGNORED. _compose_one() must return "" and pick_one_item() must skip
+    # to the next item that asks something.
+    statement = "  1. [high] OVERDUE 2026-08-15 - Elantra - New York toll bill collection (bill)"
+    assert m._compose_one(statement) == "", m._compose_one(statement)
+    question = "  2. [high] May I pay the Elantra toll bill now?"
+    body_q, picked_q = m.compose_sms_body("\n".join([statement, question]), {})
+    assert picked_q == m._render_item(question), (picked_q, m._render_item(question))
+    assert "?" in body_q and "Reply with your answer" in body_q, body_q
+    assert m.pick_one_item([statement], {}) is None
+    print("PASS answerability gate: a statement is skipped, the next question is sent")
+
+    # A pathological long item that DOES ask stays a bounded text.
+    long_body = m._compose_one("  1. [high] " + ("word " * 20) + "Pay it now? " + ("tail " * 200))
     assert len(long_body) <= m.OWNER_SMS_MAX, len(long_body)
-    assert "Reply with your answer" in long_body
-    print(f"PASS long item bounded: {len(long_body)} chars")
+    assert "?" in long_body and "Reply with your answer" in long_body
+    print(f"PASS long question bounded: {len(long_body)} chars")
 
     print("RESULT: PASS")
     return 0
