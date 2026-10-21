@@ -13,7 +13,7 @@
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
   "lessons": "refs/heads/hk/528-dedupe-before-ceiling",
   "pain": "refs/heads/hk/528-dedupe-before-ceiling",
-  "wins": "ZABZ-TECH live working tree"
+  "wins": "ZABZ-YOGA live working tree"
  },
  "claimed_gap_rows": [],
  "entries_high_water": {
@@ -31,25 +31,23 @@
   "wins": "W7194"
  },
  "host": "secratary-cloud",
- "live_peer_rows": 200,
+ "live_peer_rows": 400,
  "live_peer_unreachable": [
-  "ZABZ-YOGA (rc=255)",
   "ZABZ-TECH-LINUX (rc=1)"
  ],
- "peers_failed": [
-  "yoga"
- ],
+ "peers_failed": [],
  "peers_fetched": [
+  "yoga",
   "tech",
   "offsite",
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-21T18:15:27Z",
+ "refreshed_at": "2026-10-21T18:30:08Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 25.5,
- "sources_seen": 14945
+ "seconds": 6.6,
+ "sources_seen": 15145
 }
