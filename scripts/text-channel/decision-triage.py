@@ -255,6 +255,7 @@ _VOCAB = (
     (r"\b(ask|tell|let|remind|confirm with|check with) him\b", r"\1 you"),
     (r"\bfor him\b", "for you"),
     (r"\bhis (card|phone|account|number)\b", r"your \1"),
+    (r"\b(is|was) his\b", r"\1 yours"),
 )
 
 #: A body that still carries a path, a command or a hostname is an engineering note.
@@ -285,7 +286,14 @@ def _tidy_body(body: str) -> str:
     # A body cut at the ceiling keeps its question mark: a truncation must never turn a
     # question into a statement, which is exactly what happened to #890 before this line.
     if len(out) > CEILING:
-        head = out[: CEILING - 2].rsplit(" ", 1)[0].rstrip(",;:—-")
+        cut = CEILING - 2
+        # NEVER CUT INSIDE A NUMBER (#837: the cut landed in "72,050" and the comma strip
+        # produced "holds 72" -- a false quantity that reads as complete).
+        while cut > 0 and out[cut - 1].isdigit() and out[cut:cut + 1] == ",":
+            cut -= 1
+        while cut > 0 and out[cut - 1].isdigit():
+            cut -= 1
+        head = out[:cut].rsplit(" ", 1)[0].rstrip(",;:—-")
         head = re.sub(r"\b(\w+)\s+\1\b", r"\1", head, flags=re.I)
         asks = "?" in out
         out = head + ("?" if asks else "…")
@@ -440,9 +448,21 @@ def compose(row: dict) -> str:
             if len(cand) <= room:
                 context = cand
                 break
-            head = cand.split(",")[0]
+            # NOT A COMMA INSIDE A NUMBER (#837: split "72,050" at its thousands separator).
+            head = re.split(r"(?<!\d),(?!\d)", cand)[0]
             if len(head) <= min(room, 90):
                 context = head
+            elif room >= 40:
+                # Something beats nothing when the ask needs a referent: with no context the
+                # body was "May I delete them?" -- "them" pointing at nothing.
+                cut = room
+                while cut > 0 and cand[cut - 1].isdigit() and cand[cut:cut + 1] == ",":
+                    cut -= 1
+                while cut > 0 and cand[cut - 1].isdigit():
+                    cut -= 1
+                context = cand[:cut].rsplit(" ", 1)[0].rstrip(",;:—-")
+                if context.count("(") > context.count(")"):
+                    context = context[:context.rfind("(")].rstrip(",;:—- ")
             break
         body_q = ("%s. %s" % (context, ask_sentence)) if context else ask_sentence
         if len(body_q) <= CEILING:
@@ -467,10 +487,13 @@ def compose(row: dict) -> str:
                     # opening; if there is none short enough, drop the opening entirely and
                     # put the alternative as a plain question.
                     clauses = [c.strip() for c in opening.split(",") if c.strip()]
+                    # THE PREFIX, NOT THE LAST CLAUSE THAT FITS (#868: the old loop replaced
+                    # the opening with a later clause, so the body began mid-thought).
                     short_open = ""
                     for c in clauses:
-                        if len(c) <= brevity:
-                            short_open = c
+                        cand = (short_open + ", " + c) if short_open else c
+                        if len(cand) <= brevity:
+                            short_open = cand
                         else:
                             break
                     if not short_open:
