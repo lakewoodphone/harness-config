@@ -75,7 +75,14 @@ MIN_GAP_MINUTES = int(os.environ.get("DECISION_DELIVER_MIN_GAP_MINUTES", "60"))
 
 #: The sending window, in UTC. His local hours are 12:00-17:00 and 19:00-23:00
 #: (OWNER-PROTOCOL 2026-09-30); the estate runs UTC with him at UTC-4.
-HOURS_UTC = tuple(range(16, 21)) + tuple(range(23, 24)) + tuple(range(0, 4))
+#: The sending window, in UTC. ALIGNED TO THE RELAY'S ENFORCED QUIET HOURS, not to my own
+#: reading of the protocol. Measured 2026-10-21 03:00Z: the deliverer tried #900 because
+#: hour 3 UTC was in its window, and the relay refused it -- "23:00 Tue in
+#: America/New_York is inside quiet hours 23:00-07:30; he is asleep". Two gates disagreeing
+#: means a wasted tick and a refusal recorded against a body that was fine. The relay is
+#: the gate that actually sends, so its hours win: allowed = 07:30-23:00 ET = 11:30-03:00
+#: UTC, and hour 3 is therefore dropped here.
+HOURS_UTC = tuple(range(16, 21)) + (23, 0, 1, 2)
 
 #: The ladder stops: ask twice, then close as unanswered. Never escalate.
 MAX_ASKS = 2
