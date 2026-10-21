@@ -64,6 +64,13 @@ behind it, history with that sender, and the arithmetic behind its rank. Then:
   (`resolve --dismissed`), or he tells you to leave it, which is `defer`, recorded with **his** words
   so it returns as his and not as yours. Never carry an unanswered item out of a session silently:
   either it is closed on the record or the last line says it is still open.
+- **A place-bound item is never raised where he is not.** His words, 2026-10-21: *"you have to
+  remind me when i'm by my office, at night i'm home."* He works the shop 12:30–17:00 local and is
+  home in the evening. An item whose action is physical — look at a door sensor, bring a device in,
+  check a drawer, sign for a parcel — is parked to the window when he is standing where the thing
+  is, and the deferral note names the place and the window. The CLI's `defer` takes a date only, so
+  a timed deferral is written into `deferred_until` directly, in UTC: shop 12:30 local is 16:30Z.
+  Asking a man about his office door at nine at night is a question he cannot answer.
 - **A child that executes a row closes it — in the same breath.** Measured 2026-10-19, and it is
   why the owner was asked twice about one deletion: queue #721 (the ten pre-deploy Home Assistant
   backups) was executed at 02:07:42Z by a mesh child, archived to R2 first, freed 7.23 GiB — and the
