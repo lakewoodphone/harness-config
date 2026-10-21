@@ -106,6 +106,26 @@ RE_SIMCHA = re.compile(
     r"chasuna|chasune|bris\b|bar\s*mitzva|bar\s*mitzvah|pidyon\s+haben|petirah|nifter|"
     r"levaya|nichum\s*aveilim|shiva\s+schedule|baruch\s*dayan)\b", re.I)
 
+# OWNER, 2026-10-21, verbatim: "that channel is a large channel for for everyone from my college
+# and I don't need to know most stuff that happened there." Simcha broadcasts from a college-wide
+# community channel are noise to him; a levaya / aveilim notice from the same sender is KEPT,
+# because the 2026-10-18 note below records that those are the ones a person here acts on.
+SUPPRESSED_SIMCHA_SENDERS = ("+13217755221",)
+RE_AVEILIM = re.compile(
+    r"\b(levaya|nichum\s*aveilim|shiva\s+schedule|baruch\s*dayan|petirah|nifter|aveilim)\b", re.I)
+
+
+def _community_noise(item: dict, body: str) -> bool:
+    """True when this broadcast comes from a sender the owner asked to stop hearing from,
+    and it is not a levaya/aveilim notice."""
+    digits = re.sub(r"\D", "", str(item.get("phone") or ""))
+    if not digits:
+        return False
+    wanted = {re.sub(r"\D", "", s)[-10:] for s in SUPPRESSED_SIMCHA_SENDERS}
+    if digits[-10:] not in wanted:
+        return False
+    return not RE_AVEILIM.search(body)
+
 NO_BODY = frozenset({"", "mms received", "test sms", "tdpt", "mms", "sms received"})
 RE_SHORTCODE = re.compile(r"^\d{4,6}$")
 RE_DATA_USAGE = re.compile(r"current\s+period\s+is\s+[\d.]+\s+megabytes", re.I)
@@ -267,6 +287,9 @@ def classify(item: dict, *, sender_total: int = 0) -> dict:
     # Those are the notices a person actually acts on in this community -- and the rule that dropped
     # them was written to stop retail marketing under a bare-number caller-ID.
     if RE_SIMCHA.search(body) and not RE_ASK.search(body):
+        if _community_noise(item, body):
+            return out | {"verdict": "DROP",
+                          "reason": "college-community broadcast, owner asked for none (2026-10-21)"}
         return out | {"verdict": "DIGEST",
                       "reason": "simcha/levaya/community announcement (broadcast, folded)"}
     # A bulk sender whose caller-ID is a bare number names itself in the BODY prefix
@@ -290,6 +313,9 @@ def classify(item: dict, *, sender_total: int = 0) -> dict:
                       "ask": bool(RE_ASK.search(body)),
                       "reason": "group relay (%d messages in the window)" % sender_total}
     if RE_SIMCHA.search(body) and not RE_ASK.search(body):
+        if _community_noise(item, body):
+            return out | {"verdict": "DROP",
+                          "reason": "college-community broadcast, owner asked for none (2026-10-21)"}
         return out | {"verdict": "DIGEST", "reason": "simcha/levaya listing (broadcast, folded)"}
 
     money = _money_value(body)
