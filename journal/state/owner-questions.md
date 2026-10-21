@@ -6,7 +6,7 @@ Updated: 2026-10-21
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 647 row(s) read, 16 pending, generated 2026-10-21 22:23 UTC on SECRATARY-CLOUD.
+Provenance: 648 row(s) read, 17 pending, generated 2026-10-21 23:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -26,5 +26,6 @@ Provenance: 647 row(s) read, 16 pending, generated 2026-10-21 22:23 UTC on SECRA
 | 906 | 2026-10-21 | medium | Should agent-initiated texts on the shop line stay live with no per-message approval, or be drafts you approve? | I recommend draft-only: agents prepare the text and you send or approve it, matching your no-automatic-texts rule. |
 | 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
 | 924 | 2026-10-21 | medium | Run one small card payment on a shop counter device so I can prove the new web filter does not break Stripe? | Run it on the counter iPad (DRN 2003) - it applied the profile most recently (2026-10-20T16:24Z), so it is the device that still has to prove a Stripe charge goes through with the filter on. Any small real sale is enough |
+| 925 | 2026-10-21 | low | The outside-door stuck-open alert is live and both cause branches are proven. May I send one test push to your phones (iPhone 15 and Zabz Waze) to confirm the phone leg actually arrives? | Yes - one test push now closes the only unproven leg; otherwise the automation stays proved in HA and sends only real alerts. |
 
 Closed since the queue opened: 631. Answered questions move to `entries/decisions/` with the owner's own words.
