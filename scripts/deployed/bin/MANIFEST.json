@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "generated_utc": "2026-10-16T05:16:04Z",
+  "generated_utc": "2026-10-21T00:12:43Z",
   "authority": {
     "ssh_alias": "secratary-cloud",
     "address": "100.73.176.126",
@@ -625,7 +625,49 @@
       "in_flux_note": null,
       "sha256_at_second_read": "ed31b45d26a2036a23f414cb3a3e5f0e2bd0b24b9dc45cf0ceada8602a4ce425",
       "byte_identical_at_capture": true
+    },
+    {
+      "name": "cfo-shift-cron.sh",
+      "deployed_path": "/home/zabz/bin/cfo-shift-cron.sh",
+      "repo_path": "scripts/deployed/bin/cfo-shift-cron.sh",
+      "deployed_bytes": 7396,
+      "deployed_sha256": "52e8718a8a79b6e553bd11a8424e549c244bb48f8970e56920f2b3a4659bd044",
+      "sha256_at_first_read": "52e8718a8a79b6e553bd11a8424e549c244bb48f8970e56920f2b3a4659bd044",
+      "size_at_first_read": 7396,
+      "fetched_utc": "2026-10-21T00:12:43Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "52e8718a8a79b6e553bd11a8424e549c244bb48f8970e56920f2b3a4659bd044",
+      "byte_identical_at_capture": true
+    },
+    {
+      "name": "owner-channel-outcome-cron.sh",
+      "deployed_path": "/home/zabz/bin/owner-channel-outcome-cron.sh",
+      "repo_path": "scripts/deployed/bin/owner-channel-outcome-cron.sh",
+      "deployed_bytes": 3842,
+      "deployed_sha256": "3a82ae0d99da0b7b85be2213f003211bc10db53669101cfa8c9367d4f50c8e34",
+      "sha256_at_first_read": "3a82ae0d99da0b7b85be2213f003211bc10db53669101cfa8c9367d4f50c8e34",
+      "size_at_first_read": 3842,
+      "fetched_utc": "2026-10-21T00:12:43Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "3a82ae0d99da0b7b85be2213f003211bc10db53669101cfa8c9367d4f50c8e34",
+      "byte_identical_at_capture": true
+    },
+    {
+      "name": "owner-channel-outcome-monitor.py",
+      "deployed_path": "/home/zabz/bin/owner-channel-outcome-monitor.py",
+      "repo_path": "scripts/deployed/bin/owner-channel-outcome-monitor.py",
+      "deployed_bytes": 17110,
+      "deployed_sha256": "5639dc397b9f594e1c0c6c50381def0acb549e54ffd9c982a1c20a24a47d9ee6",
+      "sha256_at_first_read": "5639dc397b9f594e1c0c6c50381def0acb549e54ffd9c982a1c20a24a47d9ee6",
+      "size_at_first_read": 17110,
+      "fetched_utc": "2026-10-21T00:12:43Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "5639dc397b9f594e1c0c6c50381def0acb549e54ffd9c982a1c20a24a47d9ee6",
+      "byte_identical_at_capture": true
     }
   ],
-  "capture_note": "Re-captured 2026-10-16T05:16:04Z from secratary-cloud IN PLACE (the files are local to the authority). Every captured file was hashed twice 4 s apart and the two reads agreed (in_flux=false), so no half-edited state was frozen. cfo358-evidence-type-audit.py and cfo445-record-unresolved.py added 2026-10-16T05:16:04Z (ledger item 445): the audit tool was deployed on this authority but never captured, and the item-445 resolver is new; both are mirrored so the file that ran is the file in git. THIS RUN ADDED THOSE TWO ONLY - the older entries keep their original fetched_utc and their hashes were NOT re-measured here, so the drift test, not this note, is what says whether they still match."
+  "capture_note": "Re-captured 2026-10-16T05:16:04Z from secratary-cloud IN PLACE (the files are local to the authority). Every captured file was hashed twice 4 s apart and the two reads agreed (in_flux=false), so no half-edited state was frozen. cfo358-evidence-type-audit.py and cfo445-record-unresolved.py added 2026-10-16T05:16:04Z (ledger item 445): the audit tool was deployed on this authority but never captured, and the item-445 resolver is new; both are mirrored so the file that ran is the file in git. THIS RUN ADDED THOSE TWO ONLY - the older entries keep their original fetched_utc and their hashes were NOT re-measured here, so the drift test, not this note, is what says whether they still match.\n\nRE-CAPTURED 2026-10-21T00:12:43Z from secratary-cloud IN PLACE, for wake cron-targets:ec9d901a98. Added cfo-shift-cron.sh, owner-channel-outcome-cron.sh and owner-channel-outcome-monitor.py: the two cron wrappers named by the undecodable crontab lines existed only in /root/bin and in no git object, and the monitor is the wrapper's dependency. Each live file was hashed three times over 4 s with identical results (the monitor's 00:09:13Z edit is the version captured), and the repo copy was hashed against the live file after cp -p: all three MATCH. THIS RUN ADDED THOSE THREE ONLY - the older entries keep their original fetched_utc and their hashes were NOT re-measured here, so the drift test, not this note, is what says whether they still match."
 }
