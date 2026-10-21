@@ -6,7 +6,7 @@ Updated: 2026-10-21
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 640 row(s) read, 22 pending, generated 2026-10-21 10:08 UTC on SECRATARY-CLOUD.
+Provenance: 642 row(s) read, 23 pending, generated 2026-10-21 11:08 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -18,6 +18,7 @@ Provenance: 640 row(s) read, 22 pending, generated 2026-10-21 10:08 UTC on SECRA
 | 850 | 2026-10-20 | high | Rotate the live SerpAPI key? It was printed into a session transcript tonight and must be treated as exposed. | Rotate BOTH keys in their dashboards. Then tell me and I will swap them into /opt/company/.env and the DSH credential stores, reload the API, and verify with a live call each (a search for SerpAPI is optional if we keep  |
 | 890 | 2026-10-20 | high | Approve the DNS-filter change that restores location on the fleet's iOS 26 phones — the two-name allowlist fix now, and the chain-following fix after it passes the canary? | Do the two-minute A/B first: DRN 26 (iPhone 17e, iOS 26.5.1, DNS->Cloudflare) vs DRN 1007 (same model and OS, DNS->our filter), Waze outdoors on both. If 26 locates and 1007 does not, approve allowing cl2.apple.com, cl3. |
 | 912 | 2026-10-21 | high | LPT sign-in is built and proven end to end, but production is dark on an empty SSO secret. Do you want it deployed once LPT issues a site-specific secret, and may the two containers be restarted in a named window? | I recommend asking LPT for a site-specific SSO secret (do not reuse the shared one), then setting both secrets and restarting lpt_filter_ai_api and lpt_filter_site in one named window, because the code is already proven  |
+| 914 | 2026-10-21 | high | Switch production from the shared ws_auth_mode=global proxy credential to per-phone credentials, which needs a per-phone token for every active phone and an API restart? | Yes, as a staged migration: ship the already-present client support, mint a per-phone token for each active phone, then flip LPT_WS_AUTH_MODE=per_phone and restart lpt_filter_ai_api in a named maintenance window. |
 | 110 | 2026-09-18 | medium | The 2022 Elantra needs about $400 of work and setup right now: the IVT transmission fluid is overdue, plus the Bluelink/OBD odometer setup is half done. | A. The IVT is the single most expensive failure mode this car has (adjacent-year Elantras have failed in the 80k range at ~$4,800 out of pocket), it is past its severe-duty 60,000-mile interval, and there is no service h |
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
 | 299 | 2026-10-06 | medium | How long should we keep customer device photos, and who may see them after the repair is done? | 12 months from intake with open and disputed jobs exempt. It covers a warranty claim and a chargeback window, which is what the photos are actually for, and it stops the shop accumulating other people's device photograph |
@@ -33,4 +34,4 @@ Provenance: 640 row(s) read, 22 pending, generated 2026-10-21 10:08 UTC on SECRA
 | 909 | 2026-10-21 | medium | Gusto told you on 9/30 it would file your Q3 payroll returns, then you canceled on 10/8. Did Gusto file the Q3 941, or should I treat it as unfiled? | Check Gusto Tax documents for a Q3 2026 941 first. If none is there, the return is fully prepared in docs/finance/FORM-941-Q3-2026-PACK.md and is due 11/02; the balance is likely 0.00 because the deposits were already ma |
 | 911 | 2026-10-21 | medium | May I switch on AI review and screenshot accountability, and which AI account should pay for it? | Run the review on a local Ollama model on lpt-apps-01 first: no per-frame vendor bill and no child screenshot leaves the building, then move to a hosted model once volume is measured. |
 
-Closed since the queue opened: 618. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 619. Answered questions move to `entries/decisions/` with the owner's own words.
