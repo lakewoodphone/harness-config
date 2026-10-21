@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "generated_utc": "2026-10-21T02:13:11Z",
+  "generated_utc": "2026-10-21T21:13:13Z",
   "authority": {
     "ssh_alias": "secratary-cloud",
     "address": "100.73.176.126",
@@ -694,6 +694,20 @@
       "in_flux": false,
       "in_flux_note": null,
       "sha256_at_second_read": "10afe0bc51a9c7a31fd02e9e1fe0f8a853b8a92cbd0c582e2b61da28def85c4a",
+      "byte_identical_at_capture": true
+    },
+    {
+      "name": "lpt-credential-watch.sh",
+      "deployed_path": "/root/bin/lpt-credential-watch.sh",
+      "repo_path": "scripts/deployed/bin/lpt-credential-watch.sh",
+      "deployed_bytes": 1849,
+      "deployed_sha256": "4a3e2adcc9d0b730562b969aa50f9a55644f9f4f49adec886a3b25b8fd0790bd",
+      "sha256_at_first_read": "4a3e2adcc9d0b730562b969aa50f9a55644f9f4f49adec886a3b25b8fd0790bd",
+      "size_at_first_read": 1849,
+      "fetched_utc": "2026-10-21T21:13:13Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "4a3e2adcc9d0b730562b969aa50f9a55644f9f4f49adec886a3b25b8fd0790bd",
       "byte_identical_at_capture": true
     }
   ],
