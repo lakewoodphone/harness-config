@@ -28,6 +28,7 @@
  */
 
 import { normalizeNodeFacts, resolveNodeInvocation as defaultResolveNodeInvocation } from './nodes.js';
+import { THREAD_DUMP_BEGIN, THREAD_DUMP_END } from './mailbox.js';
 
 /**
  * The word that ends option parsing, emitted TWICE between the flags and the task.
@@ -98,6 +99,14 @@ export function markers(nonce = '') {
     begin: `FANOUT_BEGIN${tail}`,
     end: `FANOUT_END${tail}`,
     exit: `FANOUT_EXIT${tail}=`,
+    // WHETHER THE CHILD HAD SOMEWHERE TO WRITE, SAID ON THE FRAME ITSELF.
+    // The thread directory is created on the child's node before the child runs, and
+    // the attempt is announced in-band, so "the mailbox was never there" is a fact
+    // carried by the same stdout as the placement proof — visible even when the child
+    // then dies and produces no answer. Measured 2026-10-12: without this line the
+    // parent's only evidence was `0 message(s)`, which is what a working-but-silent
+    // child also produces.
+    mailbox: `FANOUT_MAILBOX${tail}:`,
   };
 }
 
@@ -173,7 +182,15 @@ export function invocationFor(spec = {}, { resolveNodeInvocation } = {}) {
       driver: facts.driver,
       bin: facts.bin,
       credentialEnvFiles: [],
-      credentialSource: 'the interpreter inherits its credential from the dispatching process environment',
+      // CORRECTED 2026-10-21. The old sentence here named ONE mechanism — inheritance
+      // from the dispatching process environment — and stated it as the fact. That is
+      // how six mesh children died at startup with `MISSING_CREDENTIAL` while every
+      // operator read the report and believed a credential had been supplied: the
+      // dispatching engine holds no key, because the managed store is never
+      // materialized into its environment. The truth is that this form passes NO
+      // credential file at all and the child resolves its own, so say that, and say
+      // both of the ways it can happen.
+      credentialSource: 'the interpreter form passes no credential file; the child resolves its own — its DSH credential store when its headless profile mounts one (profiles/headless/cordis.patch.yml in this repo), otherwise its own environment',
     }
     : undefined;
 }
@@ -300,7 +317,7 @@ function requiredInvocation(spec) {
  *                          transport fault). The framed stdout contract is
  *                          byte-identical when it is not supplied.
  */
-export function buildPwshScript({ invocation, profile, task, dshHome, cwd, nonce = '', progressFile, ...rest }) {
+export function buildPwshScript({ invocation, profile, task, dshHome, cwd, nonce = '', progressFile, mailboxDir, ...rest }) {
   const m = markers(nonce);
   const resolved = requiredInvocation({ invocation, ...rest });
   const profileWord = profile ?? 'headless';
@@ -329,8 +346,25 @@ export function buildPwshScript({ invocation, profile, task, dshHome, cwd, nonce
   lines.push(
     `[Console]::Out.WriteLine(${psQuote(m.host)} + $env:COMPUTERNAME)`,
     `[Console]::Out.WriteLine(${psQuote(m.cwd)} + (Get-Location).Path)`,
-    `[Console]::Out.WriteLine(${psQuote(m.begin)})`,
   );
+  // ── THE THREAD DIRECTORY IS CREATED AT DISPATCH, ON THE CHILD'S OWN NODE ────
+  // Measured 2026-10-12 on ZABZ-TECH: the directory the mailbox header advertised did
+  // not exist when the child started. Nothing in the plugin created it — `mkdirSync`
+  // appeared only in `appendMessage` and `mergeThread`, both on the WRITE side — so a
+  // child that did not create it itself left no thread at all, and the parent's
+  // `0 message(s)` was the honest count of a channel that had never been opened.
+  // The child is told where to write; this is what makes that true before it starts.
+  if (mailboxDir) {
+    lines.push(
+      `try {`,
+      `  New-Item -ItemType Directory -Force -Path ${psQuote(mailboxDir)} -ErrorAction Stop | Out-Null`,
+      `  [Console]::Out.WriteLine(${psQuote(`${m.mailbox}READY `)} + ${psQuote(mailboxDir)})`,
+      `} catch {`,
+      `  [Console]::Out.WriteLine(${psQuote(`${m.mailbox}FAILED `)} + ${psQuote(mailboxDir)} + ' — ' + $_.Exception.Message)`,
+      `}`,
+    );
+  }
+  lines.push(`[Console]::Out.WriteLine(${psQuote(m.begin)})`);
   if (progressFile) {
     // stdout is tee'd to the log and still flows to the frame; stderr is
     // appended to the log. (PowerShell has no portable stderr tee that keeps
@@ -385,7 +419,7 @@ export function buildPwshScript({ invocation, profile, task, dshHome, cwd, nonce
  * either stream crossing into the other. The framed stdout is BYTE-IDENTICAL
  * when `progressFile` is omitted.
  */
-export function buildPosixScript({ invocation, profile, task, dshHome, cwd, nonce = '', progressFile, ...spec }) {
+export function buildPosixScript({ invocation, profile, task, dshHome, cwd, nonce = '', progressFile, mailboxDir, ...spec }) {
   const m = markers(nonce);
   const resolved = requiredInvocation({ invocation, ...spec });
   const profileWord = profile ?? 'headless';
@@ -433,8 +467,21 @@ export function buildPosixScript({ invocation, profile, task, dshHome, cwd, nonc
     'fanout_host=$(hostname)',
     `printf '%s\\n' "${m.host}$fanout_host"`,
     `printf '%s\\n' "${m.cwd}$(pwd)"`,
-    `printf '%s\\n' "${m.begin}"`,
   );
+  // The POSIX twin of the directory creation above — same reason, same in-band
+  // announcement. `mkdir -p` is idempotent, so a second dispatch on the same thread
+  // does not disturb what the first child left there.
+  if (mailboxDir) {
+    lines.push(
+      `fanout_mailbox_dir=${shQuote(mailboxDir)}`,
+      `if mkdir -p "$fanout_mailbox_dir" 2>/dev/null; then`,
+      `  printf '%s\\n' ${shQuote(`${m.mailbox}READY `)}"$fanout_mailbox_dir"`,
+      `else`,
+      `  printf '%s\\n' ${shQuote(`${m.mailbox}FAILED `)}"$fanout_mailbox_dir"`,
+      `fi`,
+    );
+  }
+  lines.push(`printf '%s\\n' "${m.begin}"`);
   if (progressFile) {
     // PROBE, THEN TEE. The start line doubles as the writability probe: if the
     // log cannot be written, the run continues unteed rather than failing.
@@ -478,26 +525,59 @@ export function parseFanout(stdout, nonce = '') {
   let host;
   let cwd;
   let exitCode;
+  let mailboxReady;
+  let mailboxDir;
+  let mailboxNote;
   let beginAt = -1;
   let endAt = -1;
+  let threadAt = -1;
+  let threadEndAt = -1;
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i].trim();
     if (line.startsWith(m.host)) host = line.slice(m.host.length).trim();
     else if (line.startsWith(m.cwd)) cwd = line.slice(m.cwd.length).trim();
-    else if (line === m.begin) beginAt = i;
+    else if (line.startsWith(m.mailbox)) {
+      // `FANOUT_MAILBOX_<nonce>:READY <dir>` — the child's node confirming, before
+      // the child ran, that the thread directory exists. Its absence is itself the
+      // fact: a run that never printed this line had nowhere to write.
+      const rest = line.slice(m.mailbox.length).trim();
+      mailboxReady = rest.startsWith('READY');
+      mailboxDir = rest.replace(/^(READY|FAILED)\s*/, '').trim() || undefined;
+      if (!mailboxReady) mailboxNote = rest;
+    } else if (line === m.begin) beginAt = i;
     else if (line === m.end && beginAt >= 0) endAt = i;
     else if (line.startsWith(m.exit)) {
       const parsed = Number.parseInt(line.slice(m.exit.length).trim(), 10);
       if (Number.isFinite(parsed)) exitCode = parsed;
     }
+    // The thread dump is collected by index, not by content, so a child that printed
+    // the words `FANOUT_THREAD_BEGIN` inside its own answer cannot be mistaken for a dump.
+    //
+    // THE PROVIDER NO LONGER ASKS FOR AN IN-BAND DUMP, AND THAT IS DELIBERATE. Writing the
+    // thread into the child's own stdout means writing, on the child's ssh session, AFTER a
+    // native agent process has run — and that session was measured on 2026-10-12 failing to
+    // close: the frame and the whole dump arrived, the closing `FANOUT_EXIT` line never did,
+    // `markerSettled` stayed false, and the parent waited out its full timeout for a child
+    // that had already finished. Twice, on ZABZ-YOGA-1, in runs that also had concurrent
+    // ssh sessions. The parser is left able to read a dump here so that a frame carrying one
+    // is understood rather than mangled, but nothing generates one.
+    if (line === THREAD_DUMP_BEGIN && threadAt < 0) threadAt = i;
+    else if (line === THREAD_DUMP_END && threadAt >= 0 && i > threadAt) threadEndAt = i;
   }
   const framed = beginAt >= 0 && endAt > beginAt;
+  const threadDump = threadAt >= 0
+    ? lines.slice(threadAt, threadEndAt >= 0 ? threadEndAt + 1 : lines.length).join('\n')
+    : undefined;
   return {
     host,
     cwd,
     exitCode,
     framed,
     answer: framed ? lines.slice(beginAt + 1, endAt).join('\n').trim() : '',
+    ...(mailboxReady === undefined ? {} : { mailboxReady }),
+    ...(mailboxDir === undefined ? {} : { mailboxDir }),
+    ...(mailboxNote === undefined ? {} : { mailboxNote }),
+    ...(threadDump === undefined ? {} : { threadDump }),
   };
 }
 

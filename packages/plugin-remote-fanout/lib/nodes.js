@@ -83,7 +83,19 @@ export const NODES = {
     // 0.2.0-rc.2. The lesson is dshw.ps1's own: a path a stray `npx` can rewrite is not a pin.
     bin: 'C:/Users/ezabz/.dsh/engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
     cwd: 'C:/Users/ezabz',
-    verified: 'RE-MEASURED 2026-10-08: node v24.19.0, dsh 0.2.0-rc.2 from the frozen pin `~/.dsh/engine`, and a live child turn through this row (`--profile headless "Reply with exactly: TECH_OK"`) answered exactly TECH_OK, exit 0. The npx cache on this node is STILL 0.1.5-rc.1 -- do not point this row back at it. Historic note (2026-09-17): node v24.19.0, dsh 0.1.5-rc.1, a child turn completed over ssh. Windows has no `dsh` executor on PATH, so this node uses the INTERPRETER form and the credential comes from the engine\'s own environment (`env` is measured: the parent engine is already running with its key).',
+    // `!self-store` — CORRECTED 2026-10-21, and it was the wrong sentence until today.
+    // This row used to fall through to "the interpreter inherits its credential from the
+    // dispatching process environment", which was true only while the parent engine was
+    // launched with DEEPSEEK_API_KEY exported. It is not: the key lives in the managed
+    // store and `dsh-base` never materializes that store into the environment. Measured
+    // 2026-10-21 on this node — `--profile headless "Reply with exactly MESH-PROBE-OK"`
+    // exited 1 `MISSING_CREDENTIAL ... route "deepseek-official"` with no key in the
+    // dispatching environment at all. The node's own store is now mounted in its
+    // headless profile (profiles/headless/cordis.patch.yml, this repo), so the child
+    // resolves its OWN `~/.dsh/.credentials.yaml`; measured after that change -> exit 0,
+    // MESH-PROBE-OK. The parent's environment is no longer part of this path.
+    credentialEnvFiles: ['!self-store'],
+    verified: 'RE-MEASURED 2026-10-08: node v24.19.0, dsh 0.2.0-rc.2 from the frozen pin `~/.dsh/engine`, and a live child turn through this row (`--profile headless "Reply with exactly: TECH_OK"`) answered exactly TECH_OK, exit 0. The npx cache on this node is STILL 0.1.5-rc.1 -- do not point this row back at it. Historic note (2026-09-17): node v24.19.0, dsh 0.1.5-rc.1, a child turn completed over ssh. Windows has no `dsh` executor on PATH, so this node uses the INTERPRETER form. THE CREDENTIAL STORY IS CORRECTED 2026-10-21 and the old sentence here ("the parent engine is already running with its key") was the defect that broke every mesh child on this node: no key has been in the dispatching environment since the store became the only source. See `credentialEnvFiles` above and profiles/headless/cordis.patch.yml.',
   },
   // Keyed on the Tailscale DNS label: the capacity contract's invariant is
   // `node === fqdn.split(".")[0]`, so this label is what a broker answer names.
@@ -97,7 +109,11 @@ export const NODES = {
     // problem -- the row would be correct by luck and the luck is revocable by any `npx`.
     bin: 'C:/Users/ezabz/.dsh/engine/node_modules/@deepseek-ai/dsh/lib/bin.js',
     cwd: 'C:/Users/ezabz',
-    verified: 'RE-MEASURED 2026-10-08: dsh 0.2.0-rc.2 from the frozen pin `~/.dsh/engine`, which is also the engine this host runs and which composes the web profile cleanly (`--profile web --dump-config` exit 0, 133,893 B, empty stderr). HISTORIC: MEASURED 2026-09-17: node v24.12.0, dsh 0.1.5-rc.1. INTERPRETER form (no `dsh` executor on PATH). ACCEPTED v1 ssh work after its module links were recreated INSIDE an ssh session (413 links, 22 s): `ssh <laptop> dsh --profile headless "Reply with exactly: LAPTOP OK"` -> LAPTOP OK, exit 0, 10.3 s. Before that relink it refused every reparse point as UNTRUSTED (70-remote-fanout-proof.md §4.4)',
+    // Same correction as the `zabz-tech` row above, same measurement, same day. This is
+    // the node the six mesh children were actually placed on when they all died at
+    // startup on 2026-10-21; the child's own report named this node and `exit = 1`.
+    credentialEnvFiles: ['!self-store'],
+    verified: 'RE-MEASURED 2026-10-08: dsh 0.2.0-rc.2 from the frozen pin `~/.dsh/engine`, which is also the engine this host runs and which composes the web profile cleanly (`--profile web --dump-config` exit 0, 133,893 B, empty stderr). HISTORIC: MEASURED 2026-09-17: node v24.12.0, dsh 0.1.5-rc.1. INTERPRETER form (no `dsh` executor on PATH). ACCEPTED v1 ssh work after its module links were recreated INSIDE an ssh session (413 links, 22 s): `ssh <laptop> dsh --profile headless "Reply with exactly: LAPTOP OK"` -> LAPTOP OK, exit 0, 10.3 s. Before that relink it refused every reparse point as UNTRUSTED (70-remote-fanout-proof.md §4.4). RE-MEASURED 2026-10-21 after the credential repair: a real `subagent` child was placed here by the broker (tier fits, score 3, lease mvi6ayul) and returned MESH-HOST: zabz-yoga, exit 0 in 20 s.',
   },
   // THE EXECUTOR FORM, AND THE MEASUREMENT THAT PUT IT HERE. Read `§4` of
   // docs/mesh/102-linux-dispatch.md before changing this row.
