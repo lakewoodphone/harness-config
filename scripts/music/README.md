@@ -146,12 +146,13 @@ credential; `auth.py` is the recovery path instead.
    first archive containing `music/` is the 06:37 UTC run on 2026-10-21; before that date the ledger
    had no off-machine copy at all. Verify with
    `grep "present: music" /var/log/authority-data-offsite.log`.
-2. **No adaptation yet.** Verdicts accumulate in `listens` but nothing turns them into weights. That
-   step needs a week of data before it can be written honestly.
+2. **Adaptation exists but is data-starved.** `learn.py` writes weights nightly; with one closed
+   listen the only weight so far is a single -0.70 for one artist, so the builder's choices are
+   unchanged. It needs a week of listening before anything in it counts as evidence.
 3. **The familiar half undershoots on a thin ledger.** With 7 familiar artists and a 6-deep-cuts
    cap, day one produced 38 familiar + 12 extra adjacent. It grows to 50 as the ledger fills.
-4. **The step-out bucket is homogeneous** — all Tyler Childers on day one, because seed order is fixed.
-   Rotate the seeds.
+4. **The step-out bucket started homogeneous** — all Tyler Childers on the first build. Seed order now
+   rotates daily; the fix is in, the evidence is tomorrow's list.
 5. **Carry-over is not implemented in v2.** v1 held unreached tracks over; the current builder
    assembles a fresh 100 each time. The spec is compatible with carrying over; the code is not there yet.
 6. **Tempo cannot be measured.** Skip-driven learning is the substitute until a BPM source is added.
