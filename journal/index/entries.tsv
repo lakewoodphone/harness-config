@@ -1729,6 +1729,7 @@ handoff	H11753	11753		2026-10-20 22:40 UTC	SECRATARY-CLOUD	open	## 2026-10-20 22
 handoff	H11754	11754		2026-10-20 22:43 UTC	SECRATARY-CLOUD	open	## 2026-10-20 22:43 UTC · SECRATARY-CLOUD · Jiu-jitsu: one page, one chapter per session, fight at the end of it	entries/handoff/H11754.md	1	19	ec2fb0696d6f25c5	jiujitsu,personal,tracking	
 handoff	H11817	11817		2026-10-20 23:44 UTC	SECRATARY-CLOUD	open	## 2026-10-20 23:44 UTC · SECRATARY-CLOUD · ZABZ-YOGA is on 0.2.1-rc.2 and serving 200; the window took three fixes that already existed elsewhere in the estate	entries/handoff/H11817.md	1	26	19b30487fbf65fc9	dsh-update,yoga	
 handoff	H11818	11818		2026-10-20 23:56 UTC	SECRATARY-CLOUD	open	## 2026-10-20 23:56 UTC · SECRATARY-CLOUD · The yoga window is documented, gated and committed on both workstations; the assumption check is now unskippable	entries/handoff/H11818.md	1	18	ef43204a6e3439ae	dsh-update,yoga	
+handoff	H12265	12265		2026-10-21 03:11 UTC	secratary-cloud	open	## 2026-10-21 03:11 UTC · secratary-cloud · Music curator live: spec, scripts in repo, cron, and the offsite gap	entries/handoff/H12265.md	1	41	4518359d25cc3e33		D9153,D9217
 lessons	L1	1		-	-	retracted	**L1 · No claim without provenance. No trend without freshness**	entries/lessons/L1.md	1	9	235a8e5a9717b921	legacy-import	
 lessons	L2	2		-	-	open	**L2 · Reading the wrong thing confidently is worse than reading nothing**	entries/lessons/L2.md	1	6	bc5ceb76f28aec87	legacy-import	
 lessons	L3	3		-	-	open	**L3 · Verify by doing, not by configuring**	entries/lessons/L3.md	1	8	704b5a31f9362c6a	legacy-import	
@@ -4726,6 +4727,7 @@ pain	P9547	9547		2026-10-20	SECRATARY-CLOUD	open	## P9547 — Estate monitor: tm
 pain	P9611	9611		2026-10-20	SECRATARY-CLOUD	open	## P9611 — Estate monitor: tmp_used_pct is critical (77.58 %) across 34 consecutive runs	entries/pain/P9611.md	1	23	a4f25da327a81078	estate-monitor,auto-filed,not-the-owners	metrics/tmp_used_pct
 pain	P9739	9739		2026-10-20	SECRATARY-CLOUD	open	## P9739 — Estate monitor: tmp_used_pct is critical (82.26 %) across 3 consecutive runs	entries/pain/P9739.md	1	23	2c3b652a42758298	estate-monitor,auto-filed,not-the-owners	metrics/tmp_used_pct
 pain	P9803	9803		2026-10-21	SECRATARY-CLOUD	open	## P9803 — a script this host RUNS does not match the captured reference	entries/pain/P9803.md	1	6	8a5afe2c74bd592e	deployed-drift,scripts,drift	
+pain	P9867	9867		2026-10-21	SECRATARY-CLOUD	open	## P9867 — Estate monitor: oom_kills_24h is critical (3.0 ) across 15 consecutive runs	entries/pain/P9867.md	1	23	a72d4f10c15a2369	estate-monitor,auto-filed,not-the-owners	metrics/oom_kills_24h
 decisions	D1	1		2026-09-11	-	open	**D1 · 2026-09-11 · The CEO replaces the console, and owns the systems.**	entries/decisions/D1.md	1	8	50c2d0f8c14fd46f	legacy-import	
 decisions	D2	2		2026-09-11	-	open	**D2 · 2026-09-11 · The secretary's orchestrator is the Chief of Staff.**	entries/decisions/D2.md	1	7	7c00ffab8dbeeff5	legacy-import	
 decisions	D3	3		2026-09-11	-	open	**D3 · 2026-09-11 · Visibility before capability.**	entries/decisions/D3.md	1	7	40acc837d9101270	legacy-import	
@@ -5381,6 +5383,8 @@ decisions	D8961	8961		2026-10-21	SECRATARY-CLOUD	open	**D8961 · 2026-10-21 · O
 decisions	D9089	9089		2026-10-21	SECRATARY-CLOUD	open	**D9089 · 2026-10-21 · Owner answer, queue row #899: Turn on the decision channel? It is built, paced and tested, and it is waiting o.**	entries/decisions/D9089.md	1	11	c8c8bcd9336d1d4f	owner-answer	owner_decision_queue#899
 decisions	D9153	9153		2026-10-21	secratary-cloud	open	**D9153 · 2026-10-21 · Spotify daily playlist: rolling queue, private tile, ledger + poller live.**	entries/decisions/D9153.md	1	36	2a2aad727725c93e		L11710,L11903
 decisions	D9217	9217		2026-10-21	secratary-cloud	open	**D9217 · 2026-10-21 · Music curator v1 live: sampler, builder, cron - adaptation not yet built.**	entries/decisions/D9217.md	1	24	3e4e8039d94f7379		D9153
+decisions	D9281	9281		2026-10-21	SECRATARY-CLOUD	open	**D9281 · 2026-10-21 · Owner answer, queue row #807: Anti-reset: what is the release policy when a customer wants the filter removed.**	entries/decisions/D9281.md	1	11	a5d7ff6a05b96c8e	owner-answer	owner_decision_queue#807
+decisions	D9282	9282		2026-10-21	SECRATARY-CLOUD	open	**D9282 · 2026-10-21 · Owner answer, queue row #805: Anti-reset: buy Samsung Knox Guard seats (about five dollars per device for thre.**	entries/decisions/D9282.md	1	11	ad88b2d099e33d6e	owner-answer	owner_decision_queue#805
 wins	W1	1		2026-09-11	-	open	**W1 · 2026-09-11 · Provenance layer prevents a repeated false report.**	entries/wins/W1.md	1	10	e8bd0c1df531621b	legacy-import	
 wins	W2	2		2026-09-11	-	open	**W2 · 2026-09-11 · The sentinel found things manual analysis missed.**	entries/wins/W2.md	1	8	8391a3e610746331	legacy-import	
 wins	W3	3		2026-09-11	-	open	**W3 · 2026-09-11 · The sentinel detects the historical failure retrospectively.**	entries/wins/W3.md	1	9	e197c3a2a5bee72e	legacy-import	

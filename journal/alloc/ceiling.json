@@ -3,8 +3,8 @@
  "bands_refs_read": 57,
  "ceiling": {
   "decisions": 9280,
-  "handoff": 12200,
-  "lessons": 12093,
+  "handoff": 12264,
+  "lessons": 12157,
   "pain": 9866,
   "wins": 7130
  },
@@ -15,18 +15,26 @@
   "pain": "ZABZ-YOGA live working tree",
   "wins": "ZABZ-YOGA live working tree"
  },
- "claimed_gap_rows": [],
+ "claimed_gap_rows": [
+  {
+   "host": "SECRATARY-CLOUD",
+   "kind": "handoff",
+   "reserved_from": 12201,
+   "reserved_through": 12264,
+   "stamp": "2026-10-21 03:00 UTC"
+  }
+ ],
  "entries_high_water": {
   "decisions": "D9217",
   "handoff": "H11818",
-  "lessons": "L12030",
+  "lessons": "L12094",
   "pain": "P9803",
   "wins": "W6939"
  },
  "high_water": {
   "decisions": "D9280",
-  "handoff": "H12200",
-  "lessons": "L12093",
+  "handoff": "H12264",
+  "lessons": "L12157",
   "pain": "P9866",
   "wins": "W7130"
  },
@@ -43,11 +51,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-21T02:45:11Z",
+ "refreshed_at": "2026-10-21T03:00:12Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 9.9,
- "sources_seen": 12596
+ "seconds": 10.4,
+ "sources_seen": 12599
 }
