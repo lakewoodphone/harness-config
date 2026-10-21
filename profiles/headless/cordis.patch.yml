@@ -1,0 +1,221 @@
+# The `headless` profile patch — the one-shot worker's toolbelt.
+#
+# ITEM 154. Before this patch the row list was EMPTY (`[]`), so a headless child —
+# the exact shape the mesh spawns with `dsh --profile headless "<task>"` — booted
+# with the dsh-base toolbelt and NOTHING from the MCP plane. Measured 2026-10-01 on
+# ZABZ-TECH with `dsh --profile headless "list every tool you have"`: `web_search`
+# and `web_fetch` were present (they come from dsh-base's own `tool-web` row), and
+# not one `ps_*` tool was. So the fleet could not scrape, could not drive a
+# logged-in browser, and could not query the company database.
+#
+# This patch mounts the MCP families that earn their place:
+#   * mcp-secretary / mcp-secretary-linux  the company bridge — the `ps_*` tools.
+#     Two rows, two platforms, one serverName; the gates are exclusive so exactly
+#     one is ever active. Copied from the CEO preset, which runs the WIN32 row over
+#     SSH to the authority so the server reads the real database, never a replica.
+#   * mcp-firecrawl / mcp-jina             the scrape + search path.
+#   * mcp-playwright                       a real headless browser (logged-in pages).
+#
+# It deliberately does NOT mount `mcp-context7` or `mcp-fetch`: those two rows were
+# removed from the CEO preset the same day (5 and 1 uses across 1,611 sessions for
+# ~2,196 tokens on every request). One fewer family to keep alive here, too.
+#
+# `failOnStartupError: false` on every row, as in the preset: one dead server can
+# never stop a child from booting and answering.
+#
+# The configs are kept byte-identical to the surviving rows in
+# `.agent-presets/zabz/agent.cordis.yml` so the two profiles cannot drift.
+
+- insert:
+    - id: mcp-secretary
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        serverName: secretary
+        transport: stdio
+        # GIT'S MSYS ssh, NOT the bare `ssh` and NOT Windows OpenSSH.
+        #
+        # ITEM 154, measured 2026-10-01 on ZABZ-TECH. The row's transport is stdio:
+        # the MCP client keeps stdin OPEN as a pipe and writes `initialize` into it.
+        # Windows OpenSSH's ssh.exe (`C:/Program Files/OpenSSH/ssh.exe`, which is
+        # what a bare `ssh` resolves to here) never delivers that session: spawned
+        # from Node with a piped stdin it produced ZERO bytes of stdout and the
+        # client's `initialize` died with `MCP error -32001: Request timed out`
+        # (timeout 60000). The identical argv with stdin on /dev/null prints the
+        # remote command's output and then never closes the channel — the same
+        # lingering-channel defect ~/bin/sshrun.py exists to work around — so this
+        # is a property of native Windows OpenSSH, not of the host or the key.
+        # Git's MSYS ssh.exe does the piped-stdin session correctly: the same
+        # spawn returned the server's `initialize` result in 778 ms.
+        command: 'C:/Program Files/Git/usr/bin/ssh.exe'
+        args:
+          - '-T'
+          - '-o'
+          - 'BatchMode=yes'
+          - '-o'
+          - 'LogLevel=ERROR'
+          - '-o'
+          - 'ConnectTimeout=10'
+          - '-o'
+          - 'ServerAliveInterval=30'
+          - '-o'
+          - 'ServerAliveCountMax=3'
+          - 'secratary-cloud'
+          - '/opt/company/.venv/bin/python'
+          - '/opt/company/scripts/ps_mcp_server.py'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+
+    # RETARGETED 2026-10-11T22:45Z. The win32 row above was retargeted to the
+    # authority the day of the cutover; THIS row was not, and its gate is wrong.
+    # `process.platform !== 'linux'` asks "am I Linux", not "am I the authority".
+    # `/home/zabz/personal-secretary-mvp/...` is the OFFICE box's path, and the
+    # office box IS Linux -- so a headless child run there (the profile every mesh
+    # subagent runs) mounted the company bridge against the FROZEN box's own
+    # 23.7 GB store. On the authority the same path does not exist, so the row was
+    # also silently dead there (`failOnStartupError: false`): headless children on
+    # the cloud got no `ps_*` tools at all. Authority paths close both ends.
+    # Kept byte-identical to `.agent-presets/zabz/agent.cordis.yml` mcp-secretary-linux.
+    - id: mcp-secretary-linux
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'linux'
+      config:
+        serverName: secretary
+        transport: stdio
+        command: /opt/company/.venv/bin/python
+        args:
+          - /opt/company/scripts/ps_mcp_server.py
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+
+    - id: mcp-firecrawl
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        serverName: firecrawl
+        transport: stdio
+        command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+        args:
+          - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+          - firecrawl
+        cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+        toolCallTimeoutMs: 180000
+        failOnStartupError: false
+
+    - id: mcp-jina
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        serverName: jina
+        transport: stdio
+        command: 'C:\Users\ezabz\code\personal-secretary-mvp\.venv\Scripts\python.exe'
+        args:
+          - 'C:\Users\ezabz\code\personal-secretary-mvp\scripts\vscode-update\mcp_launcher.py'
+          - jina
+        cwd: 'C:\Users\ezabz\code\personal-secretary-mvp'
+        toolCallTimeoutMs: 120000
+        failOnStartupError: false
+
+    - id: mcp-playwright
+      name: '@deepseek-ai/dsh-mcp-client'
+      disabled: !!js process.platform !== 'win32'
+      config:
+        serverName: playwright
+        transport: stdio
+        command: 'C:\\Program Files\\nodejs\\node.exe'
+        args:
+          - 'C:\\Users\\ezabz\\.dsh\\tools\\mcp\\node_modules\\@playwright\\mcp\\cli.js'
+          - '--headless'
+          - '--no-sandbox'
+          - '--output-dir'
+          - 'C:\\Users\\ezabz\\code\\personal-secretary-mvp\\data\\browser\\mcp-output'
+        cwd: 'C:\\Users\\ezabz\\code\\personal-secretary-mvp'
+        toolCallTimeoutMs: 180000
+        failOnStartupError: false
+- id: permission
+  name: "@deepseek-ai/dsh-permission-presets"
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+    defaultPreset: danger-full-access
+# THE CREDENTIAL SERVICE, TURNED BACK ON — 2026-10-21.
+#
+# `@deepseek-ai/dsh-headless` disables three rows by design, and its own comment
+# states the contract: "One-shot jobs use launch-time credentials instead of the
+# interactive store." `credentials`, `authorization` and `deepseek-account` all
+# arrive here `disabled: true`. That contract suits a machine that exports its key.
+# It is fatal for THIS estate, which keeps the only DeepSeek key in the managed
+# store `$DSH_HOME/.credentials.yaml` and never materializes it into the
+# environment — dsh-base says exactly that at its own credentials row.
+#
+# MEASURED 2026-10-21 on ZABZ-TECH, which holds the key in that store and whose web
+# profile works:
+#   node <engine>/@deepseek-ai/dsh/lib/bin.js --profile headless "Reply with exactly MESH-PROBE-OK"
+#   -> exit 1, dsh: MISSING_CREDENTIAL: llm-deepseek: no API key for provider route "deepseek-official"
+# and `--profile headless --dump-config` prints, under the
+# "patched by @deepseek-ai/dsh-headless" marker, `- id: credentials` / `disabled: true`.
+# The WEB profile's dump has the same row with no disable — which is the whole
+# reason the interactive agent works and every mesh child died at startup.
+#
+# WHY THIS, RATHER THAN EXPORTING DEEPSEEK_API_KEY TO EACH NODE. The roster's
+# Windows rows use the INTERPRETER form and relied on "the parent engine is already
+# running with its key" (lib/nodes.js). The parent no longer has one: the store is
+# the single source of truth, and a key in a process environment would be a second
+# source that must be rotated in two places — and it would put a live secret on an
+# ssh command line (journal P13b). Re-enabling the service means a child resolves
+# the SAME document the web Models page writes, so rotating the key reaches every
+# node with no code change and no environment change.
+#
+# `authorization` and `deepseek-account` stay disabled: they are the interactive
+# account/Models surfaces, not a credential source, and a one-shot needs neither.
+# Only `credentials` is re-enabled, because only it was missing.
+- id: credentials
+  name: '@deepseek-ai/dsh-credentials-local'
+  disabled: false
+
+- id: llm-deepseek
+  name: "@deepseek-ai/dsh-llm-deepseek-api-key"
+  config:
+    maxTokens: 65536
+    streamIdleTimeoutMs: 60000
+    retryPolicy:
+      mode: normal
+      maxRetries: 2
+      retryableCodes:
+        - EMPTY_RESPONSE
+        - RATE_LIMIT
+        - SERVER
+        - TIMEOUT
+        - TRANSPORT
+        - STREAM_CLOSED
+        - MALFORMED_RESPONSE
+      backoff:
+        initialDelayMs: 500
+        maxDelayMs: 5000
+        jitterRatio: 0.1
+- id: llm-pi-ai
+  name: "@deepseek-ai/dsh-llm-pi-ai"
+  config:
+    providers:
+      deepinfra:
+        apiKeyEnv: DEEPINFRA_API_KEY
+        api: openai-completions
+        baseURL: https://api.deepinfra.com/v1/openai
+        models:
+          - id: deepseek-ai/DeepSeek-V4-Flash-0731
+            name: DeepSeek V4 Flash (0731)
+          - id: deepseek-ai/DeepSeek-V4.1-Flash
+            name: DeepSeek V4.1 Flash
+- id: agent-loop
+  name: "@deepseek-ai/dsh-agent-loop"
+  config:
+    agents: []
+    maxParallelToolCalls: 20
