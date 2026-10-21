@@ -6,7 +6,7 @@ Updated: 2026-10-21
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 646 row(s) read, 16 pending, generated 2026-10-21 21:23 UTC on SECRATARY-CLOUD.
+Provenance: 647 row(s) read, 16 pending, generated 2026-10-21 22:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -15,7 +15,6 @@ Provenance: 646 row(s) read, 16 pending, generated 2026-10-21 21:23 UTC on SECRA
 | 646 | 2026-10-18 | high | Data recovery shop asks you to confirm drive received so they can delete backup | Confirm receipt and ask them to hold the backup a bit longer until he verifies the files — deletion is irreversible |
 | 850 | 2026-10-20 | high | Rotate the live SerpAPI key? It was printed into a session transcript tonight and must be treated as exposed. | Rotate BOTH keys in their dashboards. Then tell me and I will swap them into /opt/company/.env and the DSH credential stores, reload the API, and verify with a live call each (a search for SerpAPI is optional if we keep  |
 | 890 | 2026-10-20 | high | Approve the DNS-filter change that restores location on the fleet's iOS 26 phones — the two-name allowlist fix now, and the chain-following fix after it passes the canary? | Do the two-minute A/B first: DRN 26 (iPhone 17e, iOS 26.5.1, DNS->Cloudflare) vs DRN 1007 (same model and OS, DNS->our filter), Waze outdoors on both. If 26 locates and 1007 does not, approve allowing cl2.apple.com, cl3. |
-| 922 | 2026-10-21 | high | The control-room interior door has stood open since you badged in at 9:43 this morning, and the shop is empty now. Can you close it? | Close the interior door and check the magnet gap while you are there. Nothing in the software needs changing: the reed, the maglock and the watchdog all behaved correctly. |
 | 110 | 2026-09-18 | medium | The 2022 Elantra needs about $400 of work and setup right now: the IVT transmission fluid is overdue, plus the Bluelink/OBD odometer setup is half done. | A. The IVT is the single most expensive failure mode this car has (adjacent-year Elantras have failed in the 80k range at ~$4,800 out of pocket), it is past its severe-duty 60,000-mile interval, and there is no service h |
 | 169 | 2026-09-25 | medium | The Fall 2026 Felician balance is 5,758 after aid. Who owns paying it. | Owner pays, system holds it. A payment from here would be family money going out, and the portal is not reachable. On request the balance gets verified without sending anything. |
 | 299 | 2026-10-06 | medium | How long should we keep customer device photos, and who may see them after the repair is done? | 12 months from intake with open and disputed jobs exempt. It covers a warranty claim and a chargeback window, which is what the photos are actually for, and it stops the shop accumulating other people's device photograph |
@@ -26,5 +25,6 @@ Provenance: 646 row(s) read, 16 pending, generated 2026-10-21 21:23 UTC on SECRA
 | 883 | 2026-10-20 | medium | The leaked GitHub token is still live and is still the only credential that can read lakewoodphone/lpt-hub. Only your account can issue a replacement or revoke it. Do you want to issue a fine-grained token for lpt-hub so I can swap it in and kill the old one? | Yes. Issue it for lakewoodphone/lpt-hub with Contents read/write and Metadata read; I will install it, verify the repo, restart company-api in a window, then revoke the old token. I have already removed the old token fro |
 | 906 | 2026-10-21 | medium | Should agent-initiated texts on the shop line stay live with no per-message approval, or be drafts you approve? | I recommend draft-only: agents prepare the text and you send or approve it, matching your no-automatic-texts rule. |
 | 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
+| 924 | 2026-10-21 | medium | Run one small card payment on a shop counter device so I can prove the new web filter does not break Stripe? | Run it on the counter iPad (DRN 2003) - it applied the profile most recently (2026-10-20T16:24Z), so it is the device that still has to prove a Stripe charge goes through with the filter on. Any small real sale is enough |
 
-Closed since the queue opened: 630. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 631. Answered questions move to `entries/decisions/` with the owner's own words.

@@ -1,14 +1,14 @@
 {
- "built": "2026-10-21 20:19 UTC",
+ "built": "2026-10-21 22:26 UTC",
  "cache_version": 2,
  "ceiling": {
-  "decisions": 9601,
+  "decisions": 9665,
   "handoff": 12521,
   "lessons": 12670,
   "pain": 10059,
   "wins": 7134
  },
- "ceiling_refreshed_at": "2026-10-21T22:00:09Z",
+ "ceiling_refreshed_at": "2026-10-21T22:15:14Z",
  "ceiling_source": {
   "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
   "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
@@ -19,9 +19,9 @@
  "db": "journal.db + fts5",
  "db_error": null,
  "drift_measured": "2026-10-21 15:52 UTC",
- "entries": 6080,
- "entries_count": 6080,
- "entries_sig": "a260340d86ed9bc52a33172120dd8c383d34114d",
+ "entries": 6081,
+ "entries_count": 6081,
+ "entries_sig": "0d80e7da27600ca31d39a76facd3fdacbeeb4d29",
  "fetch_rc": 128,
  "fetched_at": 1792611809.1131167,
  "flat_sig": "aa5d5d902a3166dffbcc8803845af4dbd130e22c",
@@ -43,8 +43,8 @@
  "log_sig": "34168cb27c3349bbdfc5a93d3f631aaf4a780a71",
  "parse_problems": 0,
  "remote_ids": {
-  "refs_sig": "fdf88ab87d830ee13e7defdd5a229a64ac18f7e1",
-  "scanned_at": "2026-10-21 19:43 UTC",
+  "refs_sig": "128384e3d7aa52a04dfe43179d1f1cccb96012f8",
+  "scanned_at": "2026-10-21 22:26 UTC",
   "tops": {
    "decisions": 3995,
    "handoff": 3778,
