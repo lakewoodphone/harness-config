@@ -280,6 +280,22 @@ def _tidy_body(body: str) -> str:
     # A trailing conditional that only restates the question reads as an afterthought:
     # "#886 ... Want me to confirm it was you; no action if so?" -- the "if so" has no
     # referent once the ask is a question. Drop the tail, keep the ask.
+    # A CLAUSE THAT ENDS "is still the only." IS A CUT, and removing just the last word leaves
+    # the article behind -- which is what my first attempt did, turning #883 into "... is still
+    # live and is still the Do you want to issue ...". Remove the whole incomplete TAIL.
+    out = re.sub(r"\s+(?:and|but|,)?\s*(?:is|are|was|were|has|have|had)\s+(?:still\s+)?"
+                 r"(?:the|a|an)\s+(?:only|same|last|first)\s*[.]", ".", out, flags=re.I)
+    # TWO OR MORE ACTIONS JOINED INTO ONE ASK IS NOT ANSWERABLE (#686 "note Nov 1 billing;
+    # check usage or cancel?", #672 "open statement, check notice, schedule payment?"). He must
+    # pick one, and the body gives no way to say "all". Collapse to a single yes/no, which the
+    # recommendation already justifies. Deliberately narrow: only the `want me to` form, only
+    # when a comma or semicolon separates the actions.
+    # THE SEPARATOR MUST NOT BE A COMMA INSIDE A NUMBER. First attempt matched the comma in
+    # "$1,000" and destroyed a perfectly good body ("confirm the $1,000 transfer was intended?"
+    # became "want me to handle it?"). Same trap as the 72,050 cut, and the same fix.
+    out = re.sub(
+        r"\b([Ww])ant me to [^?.]*?(?:(?<!\d)[,;](?!\d))[^?.]*\?",
+        lambda m: ("W" if m.group(1) == "W" else "w") + "ant me to handle it?", out)
     out = re.sub(r"[;,]\s*(no action|nothing) (needed|required)?\s*(if so|otherwise)?\s*\?\s*$",
                  "?", out, flags=re.I)
     # A CLOSING PARENTHESIS THAT NEVER OPENS IS A CUT. Measured 2026-10-21 on #810:
