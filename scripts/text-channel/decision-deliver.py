@@ -47,7 +47,7 @@ import os
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HOME = Path.home()
@@ -188,10 +188,17 @@ def _pick(rows: list[dict], state: sqlite3.Connection) -> tuple[dict | None, str
 
 
 def _sent_today(state: sqlite3.Connection) -> int:
-    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    """How many he has had in the last 24 HOURS, not in the last UTC calendar day.
+
+    Measured 2026-10-21: his sending window runs 16:00-03:00 UTC, which SPANS two UTC days. A
+    calendar-day counter therefore resets at midnight in the middle of his evening: 16:00-23:00
+    could spend the six, 00:00 would reset the counter, and 00:00-03:00 could spend three more.
+    Nine texts in one evening against his own "6 a day". A rolling 24-hour count is the only
+    reading of "a day" that matches the window it is pacing.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     return int(state.execute(
-        "SELECT COUNT(*) FROM send WHERE verdict='SENT' AND substr(at,1,10)=?",
-        (day,)).fetchone()[0])
+        "SELECT COUNT(*) FROM send WHERE verdict='SENT' AND at >= ?", (cutoff,)).fetchone()[0])
 
 
 def _minutes_since_last(state: sqlite3.Connection) -> float | None:
