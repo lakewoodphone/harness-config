@@ -1002,6 +1002,72 @@ def _learned_adjustment(row: dict, adjustments: dict) -> tuple[int, list[str]]:
     return total, why
 
 
+def mark_party_bundles(rows: list[dict]) -> int:
+    """One conversation is ONE question, however many texts it contains.
+
+    Measured 2026-10-21: Alon sent two texts twenty minutes apart -- "Do you have us mobile sim
+    cards" and "Can I get 6 of them? Do you need to activate them?" -- and both became separate
+    sendable rows. He would have been asked twice about the same conversation, which is the spam
+    his own instruction names, in a smaller package than the six-Yocheved case.
+
+    The carrier is the NEWEST row in the group (it has the most context); the others are marked
+    DUPLICATE pointing at it, and the carrier's body says how many messages it stands for. Rows
+    from different parties are never merged, and a group of one is left alone.
+    """
+    import collections
+    groups = collections.defaultdict(list)
+    for r in rows:
+        if r.get("disposition") != "SEND_NOW":
+            continue
+        # THE ROW DICT HAS NO `party` FIELD -- measured 2026-10-21, and the bundling silently did
+        # nothing because of it. The sender is in the question text: "Text from Alon: ..." or
+        # "Alon: ...". Derive it, and refuse to group anything that looks like us.
+        party = str(r.get("party") or "").strip()
+        if not party:
+            m = re.match(r"^\s*(?:\d+\s+)?(?:text|texts|missed call|missed calls|voicemail)"
+                         r" from ([^:]{2,30}):", str(r.get("question") or ""), re.I)
+            if not m:
+                m = re.match(r"^\s*([A-Z][\w' -]{1,28}):\s", str(r.get("question") or ""))
+            party = m.group(1).strip() if m else ""
+        if not party or party.lower() in ("zabz", "owner", "unknown"):
+            continue
+        groups[party].append(r)
+    merged = 0
+    for party, group in groups.items():
+        if len(group) < 2:
+            continue
+        group.sort(key=lambda r: str(r.get("asked_at") or ""), reverse=True)
+        carrier, rest = group[0], group[1:]
+        # KEEP HIS ACTUAL WORDS, NOT A SUMMARY OF THEM. The first version read "Alon sent 2
+        # messages about the same thing. Want me to read them and reply?" -- true, and useless:
+        # he cannot answer a question about a message he cannot see. The carrier keeps the
+        # newest text verbatim (it is the evidence) and says there is one more.
+        said = str(carrier.get("question") or "")
+        m_said = re.match(r"^\s*(?:\d+\s+)?(?:text|texts|missed call|missed calls|voicemail)"
+                          r" from [^:]{2,30}:\s*(.+)$", said, re.I | re.S)
+        if not m_said:
+            m_said = re.match(r"^\s*[A-Z][\w' -]{1,28}:\s*(.+)$", said, re.S)
+        body_text = " ".join((m_said.group(1) if m_said else said).split()).rstrip(". ")
+        extra = "" if len(group) < 2 else " (and %d earlier message%s)" % (
+            len(group) - 1, "" if len(group) == 2 else "s")
+        ask_b = " Want me to reply?"
+        room_b = CEILING - len(party) - len(extra) - len(ask_b) - 4
+        if len(body_text) > room_b:
+            body_text = body_text[:room_b].rsplit(" ", 1)[0].rstrip(",;:—-")
+        carrier["body"] = "%s: %s%s.%s" % (party, body_text, extra, ask_b)
+        # `why` is a STRING here, not a list -- wrapping it with list() spelled it out one
+        # character at a time in the JSON, which is how a one-line change becomes a field of 90.
+        _w = str(carrier.get("why") or "").strip()
+        carrier["why"] = (_w + "; " if _w else "") + (
+            "carries %d messages from %s as one question" % (len(group), party))
+        for r in rest:
+            r.update(disposition="DUPLICATE",
+                     why="same conversation as #%s -- %s sent %d messages and they are one "
+                         "question, not %d" % (carrier["id"], party, len(group), len(group)))
+            merged += 1
+    return merged
+
+
 def rank(rows: list[dict]) -> list[dict]:
     """Order by what deserves his attention, not by when it was filed.
 
@@ -1234,6 +1300,7 @@ def main(argv: list[str] | None = None) -> int:
     mark_duplicates(results)
     # Then the ones that carry no shared identifier but ask the same thing.
     mark_similar_duplicates(results)
+    mark_party_bundles(results)
     # A duplicate is not sendable: asking twice about one order is the defect the queue
     # exists to prevent. It keeps its disposition so the report can show why it is held.
     for r in results:
