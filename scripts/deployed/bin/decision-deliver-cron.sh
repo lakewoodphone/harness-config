@@ -4,8 +4,8 @@
 # THE PACING IS THE POINT. He asked for "a question one at a time" and "don't overdo it or
 # spam me" (2026-09-22). A queue of 97 answered all at once is the same failure as a queue
 # of 97 answered never: it spends his attention and teaches him to ignore the channel. So
-# this runs often and sends almost never -- the deliverer itself enforces max 2/day, a
-# 30-minute gap and his waking hours, and this wrapper adds the one thing the deliverer
+# this runs often and sends almost never -- the deliverer itself enforces max 6/day, a
+# 60-minute gap and his waking hours (owner raised it from 2 on 2026-10-21), and this wrapper adds the one thing the deliverer
 # cannot know: whether the owner has approved the queue's content.
 #
 # THE APPROVAL SENTINEL
@@ -17,6 +17,12 @@
 # removing it stops every send without a deploy.
 
 set -uo pipefail
+
+# THE OWNER SET THIS, 2026-10-21 01:53Z: "it doesnt have to be limited at two a day.
+# Probably the limit should be 6 a day." It lives here rather than in the crontab line
+# because cron-wrap reads its payload from $2 and an env assignment there is not base64 --
+# measured 2026-10-21, cron-wrap refused the line outright and nothing ran.
+export DECISION_DELIVER_MAX_PER_DAY="${DECISION_DELIVER_MAX_PER_DAY:-6}"
 
 BIN="/root/bin"
 STATE_DIR="/root/.decision-deliver"

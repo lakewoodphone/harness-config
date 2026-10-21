@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "generated_utc": "2026-10-21T00:55:54Z",
+  "generated_utc": "2026-10-21T02:13:11Z",
   "authority": {
     "ssh_alias": "secratary-cloud",
     "address": "100.73.176.126",
@@ -672,14 +672,14 @@
       "name": "decision-deliver-cron.sh",
       "deployed_path": "/root/bin/decision-deliver-cron.sh",
       "repo_path": "scripts/deployed/bin/decision-deliver-cron.sh",
-      "deployed_bytes": 2317,
-      "deployed_sha256": "7b1519ef3976b6dc73e5a30c651044e7a3a68b2255f53a6df0403f11b9a4ef9d",
-      "sha256_at_first_read": "7b1519ef3976b6dc73e5a30c651044e7a3a68b2255f53a6df0403f11b9a4ef9d",
-      "size_at_first_read": 2317,
-      "fetched_utc": "2026-10-21T00:55:54Z",
+      "deployed_bytes": 2769,
+      "deployed_sha256": "8b0520705d89f510250fdc9f514666d1995b2f508ae8168f21ae85f7bd9bcfd1",
+      "sha256_at_first_read": "8b0520705d89f510250fdc9f514666d1995b2f508ae8168f21ae85f7bd9bcfd1",
+      "size_at_first_read": 2769,
+      "fetched_utc": "2026-10-21T02:13:11Z",
       "in_flux": false,
       "in_flux_note": null,
-      "sha256_at_second_read": "7b1519ef3976b6dc73e5a30c651044e7a3a68b2255f53a6df0403f11b9a4ef9d",
+      "sha256_at_second_read": "8b0520705d89f510250fdc9f514666d1995b2f508ae8168f21ae85f7bd9bcfd1",
       "byte_identical_at_capture": true
     },
     {
