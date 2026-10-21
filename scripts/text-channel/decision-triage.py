@@ -764,6 +764,39 @@ def classify(row: dict) -> dict:
                        "action whose moment has passed" % fresh)
         return out
 
+    # 3b. A DEVELOPMENT DECISION IS MINE, NOT HIS.
+    # Measured 2026-10-21: 6 of 40 SEND_NOW rows asked him to authorise engineering work --
+    # "May I take one 60-second Home Assistant restart", "May I prune ZABZ-TECH's 16.7 GB
+    # search index", "Archive the branch or curate those files?", "Build meaning-based search?".
+    # His standing instruction and this session's own rules both say the opposite: decide the
+    # development questions -- architecture, tooling, naming, layout, libraries -- and bring him
+    # only money, customers, legal posture, anything irreversible, or real taste.
+    #
+    # Asking him "may I restart a service" spends the scarcest thing in this business on a
+    # decision he delegated. It is the "asked badly" failure, and it is also why a 6-a-day
+    # channel could never drain a queue fed 8 a day.
+    _ENG = re.compile(
+        r"\b(may i|may a shift|shall i|should we)\b[^?]*\b(restart|rebuild|reindex|prune|"
+        r"delete|archive|merge|fast-?forward|branch|commit|deploy|build|install|reinstall|"
+        r"provision|migrate|refactor|rename|upgrade|configure)\b|"
+        r"\b(archive|delete|prune|remove) (the|those|this)\b[^?]*\b(branch|index|documents?|"
+        r"files?|rows?|cache)\b", re.I)
+    _HIS = re.compile(
+        r"\b(customer|ticket|work order|invoice|payment|tax|payroll|refund|charge|price|"
+        r"quote|family|wife|mother|hechsher|supplier|contract|legal|insurance|"
+        # A CREDENTIAL ONLY HE CAN MAKE IS HIS. Measured 2026-10-21: "#894 Google revoked the
+        # Gemini key ... can you make a new one" matched the engineering pattern ("make a new
+        # one") and was classified as mine -- but creating that key needs HIS Google account.
+        # The test is not whether the work is technical; it is whether I can do it at all.
+        r"key|keys|token|credential|credentials|account|accounts|login|password|"
+        r"console|sign in|log in)\b", re.I)
+    if _ENG.search(q) and not _HIS.search(q):
+        out.update(disposition="ENGINEERING",
+                   why="a development decision -- architecture, tooling, branch or index "
+                       "housekeeping -- which his standing instruction and this session's rules "
+                       "assign to me, not to him; I decide it and record it")
+        return out
+
     # 4b. A ROW THAT SAYS THERE IS NOTHING TO DO IS INFORMATION.
     # Measured 2026-10-21 on #680: its context reads "What he would do: no action", and the
     # composer dutifully built the ask "Want me to no action?" from it. When the row itself
