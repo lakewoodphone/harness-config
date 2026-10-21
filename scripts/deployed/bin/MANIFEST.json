@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "generated_utc": "2026-10-21T00:12:43Z",
+  "generated_utc": "2026-10-21T00:55:54Z",
   "authority": {
     "ssh_alias": "secratary-cloud",
     "address": "100.73.176.126",
@@ -666,6 +666,34 @@
       "in_flux": false,
       "in_flux_note": null,
       "sha256_at_second_read": "5639dc397b9f594e1c0c6c50381def0acb549e54ffd9c982a1c20a24a47d9ee6",
+      "byte_identical_at_capture": true
+    },
+    {
+      "name": "decision-deliver-cron.sh",
+      "deployed_path": "/root/bin/decision-deliver-cron.sh",
+      "repo_path": "scripts/deployed/bin/decision-deliver-cron.sh",
+      "deployed_bytes": 2317,
+      "deployed_sha256": "7b1519ef3976b6dc73e5a30c651044e7a3a68b2255f53a6df0403f11b9a4ef9d",
+      "sha256_at_first_read": "7b1519ef3976b6dc73e5a30c651044e7a3a68b2255f53a6df0403f11b9a4ef9d",
+      "size_at_first_read": 2317,
+      "fetched_utc": "2026-10-21T00:55:54Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "7b1519ef3976b6dc73e5a30c651044e7a3a68b2255f53a6df0403f11b9a4ef9d",
+      "byte_identical_at_capture": true
+    },
+    {
+      "name": "decision-deliver.py",
+      "deployed_path": "/root/bin/decision-deliver.py",
+      "repo_path": "scripts/deployed/bin/decision-deliver.py",
+      "deployed_bytes": 11689,
+      "deployed_sha256": "10afe0bc51a9c7a31fd02e9e1fe0f8a853b8a92cbd0c582e2b61da28def85c4a",
+      "sha256_at_first_read": "10afe0bc51a9c7a31fd02e9e1fe0f8a853b8a92cbd0c582e2b61da28def85c4a",
+      "size_at_first_read": 11689,
+      "fetched_utc": "2026-10-21T00:55:54Z",
+      "in_flux": false,
+      "in_flux_note": null,
+      "sha256_at_second_read": "10afe0bc51a9c7a31fd02e9e1fe0f8a853b8a92cbd0c582e2b61da28def85c4a",
       "byte_identical_at_capture": true
     }
   ],
