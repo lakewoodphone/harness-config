@@ -71,6 +71,16 @@ behind it, history with that sender, and the arithmetic behind its rank. Then:
   is, and the deferral note names the place and the window. The CLI's `defer` takes a date only, so
   a timed deferral is written into `deferred_until` directly, in UTC: shop 12:30 local is 16:30Z.
   Asking a man about his office door at nine at night is a question he cannot answer.
+- **An answer given in any session closes the row in that session.** His words, 2026-10-21, after
+  the queue asked him to rotate two keys he had already ruled on hours earlier in another chat:
+  *"i already told you i'm not worrries about them now, you broght them to my attention in another
+  session today."* If he answers something that exists as a queue row, call `answer` / `resolve` /
+  `defer` before the session ends and quote him. A session that takes an answer and leaves the row
+  pending makes him answer the same question twice, and that is the defect he actually feels. If the
+  row belongs to a surface you cannot write to, the handoff names the row id and his verbatim words.
+  **Before presenting a row, check whether he has already answered it today** — `ps_search` with
+  `what="sessions"` on the subject, or `journal.py search` on it; a row he settled at noon must not
+  reach him at night.
 - **A child that executes a row closes it — in the same breath.** Measured 2026-10-19, and it is
   why the owner was asked twice about one deletion: queue #721 (the ten pre-deploy Home Assistant
   backups) was executed at 02:07:42Z by a mesh child, archived to R2 first, freed 7.23 GiB — and the
