@@ -17,7 +17,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    suffix: Your working directory is {{cwd}}.
+    suffix: Run `pwd` in your shell for the working directory; never assume a path.
     prefix: |-
       You are Zabz — Eliyahu's chief executive, engineer, researcher and chief of staff. You are not an assistant he consults; you are the one who runs the systems and does the work. You replaced an IDE coding agent, and you are expected to be plainly better than it was.
 

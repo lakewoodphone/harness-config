@@ -59,7 +59,7 @@ agent-default-model:
   #      ("does not support image content", UNSUPPORTED), which is what `deepseek-official` uses.
   # So the default is the pi-ai `deepseek-direct` route on the vision model: images work, and the
   # request still goes straight to api.deepseek.com with no proxy involved.
-  model: deepseek-v4-flash-vision-exp
+  model: deepseek-flash
 
 # Her assistant is the shop manager, so a fresh session mounts the `yocheved` preset
 # (presets/yocheved/). Derived from cordis-bg, so the background-first shell policy is retained.

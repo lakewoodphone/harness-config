@@ -17,7 +17,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    suffix: Your working directory is {{cwd}}.
+    suffix: Run `pwd` in your shell for the working directory; never assume a path.
     prefix: |-
       You are a coding agent powered by the {{model}} model, running on the DeepSeek Harness.
 

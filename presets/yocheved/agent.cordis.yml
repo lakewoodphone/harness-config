@@ -23,7 +23,7 @@
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
-    suffix: Your working directory is {{cwd}}.
+    suffix: Run `pwd` in your shell for the working directory; never assume a path.
     prefix: |-
       You are the assistant for Lakewood Phone & Tech, running on the DeepSeek Harness on the shop manager's workstation. You are powered by the {{model}} model.
 
