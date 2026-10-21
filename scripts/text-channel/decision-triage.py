@@ -54,6 +54,7 @@ import json
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -621,11 +622,128 @@ def classify(row: dict) -> dict:
     return out
 
 
+#: Mirrors `owner-queue.py:_SOURCE_CHANNEL`, because the learning profile's `channel` keys
+#: are built from these values. A second, different mapping would silently match nothing.
+_SOURCE_CHANNEL = (
+    ("gv-ingest:sms", "sms"), ("gv-ingest:missed_call", "call"),
+    ("gv-ingest:voicemail", "voicemail"), ("gv-ingest:digest", "sms"),
+    ("mail-ingest", "email"), ("attention-sweep", "sweep"),
+)
+
+#: Mirrors `owner-queue.py:_RE_PARTY` -- the same short list of exact shapes that name a
+#: person. A fuzzy extractor would invent a party and then learn from its own invention.
+_RE_PARTY = (
+    re.compile(r"^Text from ([^:]{2,40}):", re.I),
+    re.compile(r"^Missed call from ([^.:]{2,40})\.?$", re.I),
+    re.compile(r"^Voicemail from (\([0-9]{3}\) ?[0-9]{3})", re.I),
+    re.compile(r"(?:URGENT EMAIL\s+)?From:\s*(.{2,60}?)\s*<[^>]+>", re.I),
+    re.compile(r"^(.{2,40}?) (?:asks|sent|wrote|replied)\b", re.I),
+)
+
+
+def _learning_scores() -> dict:
+    """His own history, as adjustments. Read once per run, fail soft.
+
+    `owner-queue.py learning` computes, from 802 closes, what he acts on and what he
+    dismisses -- by party, sender domain, class and channel -- and caps each so it "reorders
+    inside a band and never inverts one". Until now the triage ignored it entirely: the queue
+    learned, wrote the learning to a table, and then ranked by severity alone. Measured on
+    2026-10-21, the untapped profile says:
+      * voicemail rows:    he dismisses 88% of 11  (-60)
+      * sms rows:          he dismisses 96% of 54  (-60)
+      * class "deadline":  he dismisses 75% of 8   (-80)
+      * "us mobile" / "chase": he acts on 100%     (+48 / +36)
+
+    A failure to read the profile must not stop the queue: an empty dict means "rank as
+    before", and says so on stderr rather than looking like a profile with no opinion.
+    """
+    try:
+        out = subprocess.run(
+            [sys.executable, str(BIN / "owner-queue.py"), "learning", "--json"],
+            capture_output=True, text=True, timeout=120)
+        if out.returncode != 0 or not out.stdout.strip():
+            sys.stderr.write("learning profile unavailable (rc=%s); ranking on severity only\n"
+                             % out.returncode)
+            return {}
+        blob = out.stdout[out.stdout.find("{"):]
+        return json.loads(blob).get("adjustments") or {}
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        sys.stderr.write("learning profile unreadable (%s); ranking on severity only\n" % exc)
+        return {}
+
+
+def _learned_adjustment(row: dict, adjustments: dict) -> tuple[int, list[str]]:
+    """The sum of what his history says about a row, and which signals fired.
+
+    The channel and party are derived EXACTLY as `owner-queue.py:_dimensions_from_row` derives
+    them, because the profile's keys were built from those values. Inventing a second mapping
+    here would produce keys that never match and a profile that looks empty -- which reads as
+    "he has no preferences" rather than "we asked the wrong question".
+    """
+    source = str(row.get("source") or "")
+    question = str(row.get("question") or "")
+    channel = ""
+    for prefix, chan in _SOURCE_CHANNEL:
+        if source.startswith(prefix):
+            channel = chan
+            break
+    party = ""
+    for rx in _RE_PARTY:
+        m = rx.search(question.strip())
+        if m:
+            party = m.group(1).strip()
+            break
+
+    total, why = 0, []
+    for kind, key in (("party", party.lower()), ("channel", channel.lower())):
+        if not key:
+            continue
+        hit = (adjustments.get(kind) or {}).get(key)
+        if hit:
+            total += int(hit.get("adj") or 0)
+            why.append("%s=%s(%+d)" % (kind, key, int(hit.get("adj") or 0)))
+    # The party may be a mail sender name; the profile also keeps a sender-domain map.
+    for rx in _RE_PARTY:
+        m = rx.search(question.strip())
+        if m and "<" in question[m.start():m.end() + 60]:
+            break
+    m = re.search(r"<([^>]+@[^>]+)>", question)
+    if m:
+        domain = m.group(1).split("@")[-1].strip().lower()
+        hit = (adjustments.get("domain") or {}).get(domain)
+        if hit:
+            total += int(hit.get("adj") or 0)
+            why.append("domain=%s(%+d)" % (domain, int(hit.get("adj") or 0)))
+
+    # RESPECT THE PROFILE'S OWN CAP. It states "capped at +90 / -160 for a sender, less for a
+    # channel", and summing party + channel + domain can exceed that (measured: Alon rows hit
+    # -180 before this line). A score outside the stated range would invert a band, which the
+    # profile promises it never does -- so the cap is applied here rather than trusted to the
+    # individual terms.
+    if total > 90:
+        total = 90
+    elif total < -160:
+        total = -160
+    return total, why
+
+
 def rank(rows: list[dict]) -> list[dict]:
-    """Order by what deserves his attention, not by when it was filed."""
+    """Order by what deserves his attention, not by when it was filed.
+
+    SEVERITY STILL GOVERNS. The profile is explicitly built to reorder INSIDE a band and
+    never invert one ("capped at +90 / -160 for a sender ... learning reorders inside a band
+    and never inverts one") -- so severity is the first key and the learned adjustment only
+    separates rows that would otherwise tie, which is exactly the promise the profile makes.
+    """
+    adjustments = _learning_scores()
     sev = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+    for r in rows:
+        adj, why = _learned_adjustment(r, adjustments)
+        r["learned_adj"] = adj
+        r["learned_why"] = "; ".join(why)
     return sorted(rows, key=lambda r: (
         sev.get(str(r.get("severity")), 2),
+        -(r.get("learned_adj") or 0),   # he acts on it -> earlier; he dismisses it -> later
         0 if r.get("money") else 1,
         r.get("age_days") or 0,
         r.get("id") or 0,
@@ -731,9 +849,10 @@ def main(argv: list[str] | None = None) -> int:
         shown += 1
         if shown > args.limit:
             break
-        print("#%-4s %-9s %-6s %5.1fd %s" % (
+        print("#%-4s %-9s %-6s %5.1fd %-5s %s" % (
             r["id"], r["disposition"], r.get("severity"), r["age_days"] or 0,
-            (r.get("body") or r.get("question"))[:96]))
+            ("%+d" % r["learned_adj"]) if r.get("learned_adj") else "",
+            (r.get("body") or r.get("question"))[:88]))
     print("\n(%d sendable/composable of %d pending)" % (shown, len(rows)))
     return 0
 
