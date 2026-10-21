@@ -105,10 +105,13 @@ THE ONE CEILING LIVES HERE (2026-10-14, int-c)
   relay had no length policy and the app's own fitter fits to the TRANSPORT
   budget (1600/800), not to the owner's one-text ceiling.  So:
     * `MAX_CHARS` (default 400, the app's `OWNER_TEXT_MAX_CHARS` one-text
-      policy) is the single ceiling, and `submit()` returns `TOO_LONG` for any
-      body over it -- after the kill switch and BEFORE the duplicate rules, so a
-      text that will never be sent does not burn a dedupe slot.  The attempt row
-      is written like every other verdict.
+      policy) is the single ceiling.  An over-length body is RECORDED and SENT
+      (`reason="too-long"`), never dropped here: a door that already committed to
+      the message must not lose it, and every door enforces the ceiling by fitting.
+      The duplicate pair runs BEFORE this branch (2026-10-21, item 528) -- a body
+      we are willing to SEND must be deduped, or one over-length message submitted
+      three times is transmitted three times.  The attempt row is written like
+      every other verdict.
     * `fit(body, limit=None)` is exported so a door can COMPLY instead of being
       refused: it cuts on a sentence, then a clause, then a word boundary (never
       mid-word when such a boundary exists in the window), appends the existing
@@ -2175,10 +2178,6 @@ def submit(door: str, subsystem: str, body: str, *, reason: str = "",
                             "and a queue would hand him the whole night's traffic at once "
                             "(attempt {aid})" % quiet_hit["why"])
 
-            # Rule 2b, the ceiling.  Evaluated AFTER the kill switch and BEFORE the
-            # duplicate rules: a text that will never be sent must not burn a dedupe
-            # slot.  A door that fits first (relay.fit) can never hit this; a refusal
-            # here is the honest record of a caller that skipped the fit.
             # Rule 1d, the TOPIC LEDGER (added 2026-10-19). Placed after the standing-rule
             # mutes and before the ceiling/duplicate rules because it is a fact about the
             # conversation, not about this body: "we already told him about this payment".
@@ -2197,37 +2196,6 @@ def submit(door: str, subsystem: str, body: str, *, reason: str = "",
             elif (sv := _stale_verdict(body, subsystem, reason, now)) is not None:
                 verdict, reason_code = "SUPPRESS", str(sv["code"])
                 detail_t = "SUPPRESS: %s (attempt {aid})" % (sv["detail"],)
-
-            elif len(body) > ceiling:
-                # OVER THE CEILING IS RECORDED, NOT REFUSED -- deliberately.
-                #
-                # Why it does not block (manager, 2026-10-14). `TOO_LONG` was written to
-                # refuse, on the theory that a door which fits its own body can never
-                # reach it. Measured the same evening: it CAN, and it did.
-                # `textsend.send()` posts its transport-fitted body (up to SOFT_LIMIT
-                # 930) while `_relay_gate` handed the relay the RAW body, so every owner
-                # text between 321 and 930 chars would have been refused -- a message a
-                # door had already committed to, silently dropped. That is the exact
-                # failure this relay was built to remove, so the ceiling may not be a
-                # tripwire that only a perfect fleet can satisfy.
-                #
-                # So: measure it, record it, make it visible (`status()` counts
-                # `too-long`), and let each DOOR enforce it by fitting. The app door
-                # calls `fit()` before it submits; `textsend` reports the bytes it will
-                # actually post. Nothing is lost and nothing is hidden.
-                #
-                # 2026-10-18: the ceiling is now `ceiling_for(to)`. The owner's rule is
-                # about HIS reading, so a third-party recipient gets Twilio's 1600. Before
-                # this, a 377-char message he asked us to send to someone else was
-                # recorded SEND/too-long and then stranded by the owner gate for nine
-                # minutes of owner rate floor (attempts 74/75, sms_log 4280/4281).
-                verdict, reason_code = "SEND", "too-long"
-                detail_t = ("recorded: the body is %d chars, over the %d-char ceiling for "
-                            "%s -- SENT anyway, because refusing here "
-                            "would drop a message a door already committed to; that door "
-                            "should have called fit() first (attempt {aid})"
-                            % (len(body), ceiling,
-                               "the owner" if ceiling == MAX_CHARS else "another recipient"))
 
             else:
                 dup_cut = _iso(now - timedelta(hours=dup_hours))
@@ -2272,7 +2240,32 @@ def submit(door: str, subsystem: str, body: str, *, reason: str = "",
                                         % (_ago((now - when).total_seconds()),
                                            int(first["attempt_id"])))
                             held_by_dedupe = True
-                if not held_by_dedupe:
+                if held_by_dedupe:
+                    pass
+                elif len(body) > ceiling:
+                    # RULE 2b, THE CEILING -- AFTER the duplicate pair (item 528).
+                    #
+                    # OVER THE CEILING IS RECORDED, NOT REFUSED -- deliberately.
+                    # A door that already committed to a message must not have it
+                    # dropped here, so the ceiling is measured and the send proceeds;
+                    # each door enforces the ceiling by fitting (`textsend` posts up
+                    # to SOFT_LIMIT 930, the app door calls fit() before submitting).
+                    #
+                    # What CHANGED (2026-10-21, housekeeping 528): this branch used to
+                    # run BEFORE the duplicate pair, so every over-length submission
+                    # was a fresh SEND and three identical submissions 90 s apart were
+                    # three transmissions. Attempts 74/75/76 are one 377-char message
+                    # recorded and sent three times for exactly that reason. A body we
+                    # are willing to SEND is a body the dedupe must see, so the pair
+                    # now runs first: one transmission, later copies DEDUPE/dup-sent.
+                    verdict, reason_code = "SEND", "too-long"
+                    detail_t = ("recorded: the body is %d chars, over the %d-char ceiling for "
+                                "%s -- SENT anyway, because refusing here "
+                                "would drop a message a door already committed to; that door "
+                                "should have called fit() first (attempt {aid})"
+                                % (len(body), ceiling,
+                                   "the owner" if ceiling == MAX_CHARS else "another recipient"))
+                else:
                     # Only attempts the relay CLEARED to send can be retries; a
                     # row held by another rule was never transmitted.
                     prev = c.execute(
