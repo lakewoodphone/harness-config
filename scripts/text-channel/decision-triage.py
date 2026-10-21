@@ -106,10 +106,17 @@ SYSTEM_PATTERNS = (
 SYSTEM_QUESTION_ONLY: tuple[tuple[str, str], ...] = ()
 
 #: Noise: rows that are not questions at all.
+#:
+#: The acknowledgement pattern allows ONE TO THREE tokens, not one. Measured 2026-10-21: the
+#: single-token version caught "Thanks" and "thank you" and missed "Yes thanks" and "Ok
+#: thanks!", which are the same non-decision in two words -- and "Yes thanks" then survived
+#: into the shortlist as a question for the owner.
 NOISE_PATTERNS = (
-    (r"^(text|sms|whatsapp) from [^:]+:\s*(thanks?|thank you|ok(ay)?|yes|no|k|ty|lol|"
-     r"👍|🙏|sure|great|hi|hello|good morning)\.?$", "an acknowledgement, not a decision"),
-    (r"^\s*(thanks?|thank you|ok(ay)?|got it)\s*[.!]*\s*$", "an acknowledgement"),
+    (r"^(text|sms|whatsapp) from [^:]+:\s*((ok(ay)?|yes|no|k|ty|thanks?|thank you|sure|"
+     r"great|hi|hello|good morning|got it|lol|👍|🙏)[\s,.!]*){1,3}$",
+     "an acknowledgement, not a decision"),
+    (r"^\s*((ok(ay)?|sure|got it|thanks?|thank you|yes|no|k|ty|great|perfect|"
+     r"noted|understood)[\s,.!]*){1,3}$", "an acknowledgement"),
     (r"^(FYI|Heads up)\b", "a notice, not a question"),
 )
 
@@ -607,6 +614,19 @@ def classify(row: dict) -> dict:
     ok, reasons = _gate(body)
     money = bool(MONEY.search(text))
     asks = bool(ASKS_HIM.search(body))
+
+    # AN EMPTY ASK IS NOT A DECISION. "Want me to skim?" has one answer and produces no
+    # decision -- it asks him to authorise READING, which is our work, and it is the shape
+    # every digest bundle lands in. Measured 2026-10-21: 7 of 63 sendable rows had it (six
+    # notice bundles plus "want me to skim terms?"). Those rows are INFORMATION: they belong
+    # in his record and in `owner-queue.py brief`, not in a text, because his own instruction
+    # is one question at a time and a bundle is not a question.
+    if asks and _EMPTY_ASK.search(body):
+        out.update(disposition="INFORM",
+                   why="the only ask is permission to read it ('%s'), which is work we should "
+                       "do, not a decision for him; held as information" % body[-40:].strip())
+        return out
+
     out.update(body=body, chars=len(body), gate_ok=ok, gate_reasons=reasons,
                money=money, asks=asks)
     if ok and asks:
@@ -750,7 +770,144 @@ def rank(rows: list[dict]) -> list[dict]:
     ))
 
 
-#: A stable identifier a row is ABOUT -- an order number, a work order, a long reference.
+#: Words that carry no subject. Kept short on purpose: a stopword list that grows becomes a
+#: policy nobody can audit.
+_STOP = frozenset("""a an the and or but if then than that this these those of in on at to for
+from by with without about into over under is are was were be been being do does did not no
+nor so as it its his her their our your my me we you they them he she who whom which what
+when where why how can could should would will shall may might must have has had one two
+another same more most less least new old now today tomorrow yesterday still just also only
+any all each every some such own other""".split())
+
+#: Dismissive asks that read like a question and settle nothing. "Want me to skim?" has one
+#: answer and produces no decision -- it asks him to authorise READING, which is our work.
+#:
+#: NARROWED 2026-10-21 after over-matching. The first broad version swallowed two real
+#: questions: "#690 Yocheved asks if the Violife smoked provolone hechsher is OK" (composed as
+#: "Want me to check the hechsher?") and "#666 Google Cloud: mark AI agent OAuth clients as
+#: agentic by Nov 11". "Want me to CHECK X" is a genuine decision when X is a fact to establish;
+#: "want me to SKIM this" is not, because there is nothing to decide. So the read-verbs count
+#: as empty only when their object is a document we were sent.
+_EMPTY_ASK = re.compile(
+    r"\bwant me to skim\b|"
+    r"\bwant me to (look (at|through)|have a look)\b|"
+    r"\bwant me to (review|read|check|go through)\s+(the\s+)?"
+    r"(terms|notice|notices|email|emails|document|documents|statement|statements|policy|"
+    r"policies|contract|letter|report)\b", re.I)
+
+
+#: Words that begin sentences and are therefore capitalised without being a name.
+_NOT_A_NAME = frozenset("""the a an this that these those it he she they we you i there here
+what when where why how who which if so and or but for from with without his her their our your
+my one two three four five six seven eight nine ten new old now still just also only any all
+every some such own other another same more most less least no not do does did can could
+should would will shall may might must have has had be been being is are was were""".split())
+
+
+def _subject_tokens(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]{4,}", str(text or "").lower()) if w not in _STOP}
+
+
+def _entities(text: str) -> set[str]:
+    """Capitalised words that name something, including at the start of a sentence.
+
+    Corrected 2026-10-21: the first version excluded sentence-initial capitals to avoid
+    ordinary words, and that made the function return NOTHING for "#889 Techloq called about
+    your cancellation request" -- the one row whose name was the whole point. A short list of
+    sentence starters is subtracted instead, so a name is never invisible just because it
+    begins the sentence.
+    """
+    out = set()
+    for m in re.finditer(r"\b([A-Z][A-Za-z]{2,})\b", str(text or "")):
+        word = m.group(1)
+        if word.lower() in _NOT_A_NAME:
+            continue
+        out.add(word.lower())
+    return out
+
+
+#: A digest bundle: "N notices (date): item · item", "3 notice notices (...)",
+#: "2 money notices (...)". Multi-subject by construction.
+_BUNDLE = re.compile(r"^\s*\d+\s+(?:[a-z]+\s+){0,2}notices?\s*\(", re.I)
+
+#: A distinctive identity inside a question: a phone number or a long reference. Two rows that
+#: each carry one of these and carry DIFFERENT ones are about different things, however alike
+#: their prose. Measured 2026-10-21: "1 missed call this week from numbers not in your
+#: contacts: (732) 806-1206" and the same sentence with "(845) 580-4553" share 100% of their
+#: words and are two different callers.
+_IDENTITY_TOKEN = re.compile(r"\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}|\b[A-Z]{2,}\d{6,}\b")
+
+#: A small set of nouns that, together with a shared name, make two rows one matter. Kept
+#: explicit rather than inferred: "Techloq" + "cancellation" is conclusive; "Adeena" +
+#: "charge" vs "Adeena" + "SIM" is two questions about one person.
+_TOPIC = frozenset("""cancellation cancel cancelled refund payment paid invoice bill billing
+charge charged subscription renew renewal cancel line sim port transfer quote repair device
+screen order return shipping pickup closed open contract""".split())
+
+
+def _same_matter(a: dict, b: dict) -> tuple[bool, str]:
+    """Are two rows one question? Returns (is_same, why).
+
+    Measured 2026-10-21 on the pair the first version missed:
+      #889 "Techloq called about your cancellation request and got no answer"
+      #895 "Techloq wants a call to process cancellation; you asked to stop billing ..."
+    Word overlap between them is 17% -- they share almost no vocabulary -- yet they are the
+    same cancellation, filed 3.5 hours apart. Jaccard similarity is the wrong measure for
+    prose: the identity is a shared NAME plus a shared TOPIC, not the sentence they appear in.
+    """
+    ea, eb = _entities(a.get("question")), _entities(b.get("question"))
+    shared_names = ea & eb
+    ta, tb = _subject_tokens(a.get("question")), _subject_tokens(b.get("question"))
+    shared_topics = (ta & tb) & _TOPIC
+    # A DIGEST BUNDLE IS MULTI-SUBJECT BY DEFINITION, so it can never be "the same question"
+    # as anything. Measured 2026-10-21: without this, the Techloq cancellation question was
+    # marked a duplicate of "2 notices (2026-10-19): Techloq acknowledged your Windows Fi..."
+    # -- a bundle that merely mentions the vendor -- and the money bundles chained into each
+    # other (#626 -> #672 -> #675). Excluding bundles leaves the one real merge (#889/#895).
+    for row in (a, b):
+        if _BUNDLE.search(str(row.get("question") or "")):
+            return False, ""
+    # DIFFERENT IDENTITIES MEAN DIFFERENT MATTERS. Two missed-call notices that differ only in
+    # the caller's number are two callers, not one question.
+    ids_a = set(_IDENTITY_TOKEN.findall(str(a.get("question") or "")))
+    ids_b = set(_IDENTITY_TOKEN.findall(str(b.get("question") or "")))
+    if ids_a and ids_b and not (ids_a & ids_b):
+        return False, ""
+    if shared_names and shared_topics and len(ta & tb) >= 2:
+        return True, "same name %s + topic %s + %d shared words" % (
+            ",".join(sorted(shared_names)), ",".join(sorted(shared_topics)), len(ta & tb))
+    if len(ta & tb) >= 4:
+        union = len(ta | tb) or 1
+        overlap = len(ta & tb) / float(union)
+        if overlap >= 0.45:
+            return True, "%.0f%% of subject words shared (%s)" % (
+                overlap * 100, ",".join(sorted(ta & tb)[:5]))
+    return False, ""
+
+
+def mark_similar_duplicates(rows: list[dict]) -> int:
+    """Mark a row that asks the same thing as another, when neither carries a shared id.
+
+    The older row wins -- it is the one whose premise the later one usually confirms.
+    """
+    live = [r for r in rows if not r.get("duplicate_of")
+            and r.get("disposition") not in ("NOISE", "JUDGE_GAP")]
+    live.sort(key=lambda r: (r.get("age_days") or 0) * -1)   # oldest first
+    marked = 0
+    for i, a in enumerate(live):
+        for b in live[i + 1:]:
+            same, why = _same_matter(a, b)
+            if same:
+                b["duplicate_of"] = a["id"]
+                b["disposition"] = "DUPLICATE"
+                b["why"] = "%s; asks the same thing as #%s (%s)" % (
+                    b.get("why") or "", a["id"], why)
+                marked += 1
+                break
+    return marked
+
+
+
 #: Two rows about one order are one question, however differently they are worded. Measured
 #: 2026-10-21: #705 and #726 both concern Surface panel order 108746338 and survived the
 #: word-key dedupe because they share almost no words.
@@ -820,6 +977,8 @@ def main(argv: list[str] | None = None) -> int:
 
     results = [classify(r) for r in rows]
     mark_duplicates(results)
+    # Then the ones that carry no shared identifier but ask the same thing.
+    mark_similar_duplicates(results)
     # A duplicate is not sendable: asking twice about one order is the defect the queue
     # exists to prevent. It keeps its disposition so the report can show why it is held.
     for r in results:
