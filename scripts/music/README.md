@@ -25,8 +25,8 @@ frozen rollback anchor and is not involved in any of this.
 The repo copy of these three scripts is the source of truth. Deploy with:
 
 ```bash
-scp scripts/music/{poll,sampler,build_v2}.py secratary-cloud:/opt/company/music/
-ssh secratary-cloud 'chmod 700 /opt/company/music/*.py'
+scp scripts/music/{poll,sampler,learn,build_v2,auth}.py scripts/music/snapshot.sh secratary-cloud:/opt/company/music/
+ssh secratary-cloud 'chmod 700 /opt/company/music/*.py /opt/company/music/*.sh'
 ```
 
 ## The spec — everything here came from him

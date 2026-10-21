@@ -781,6 +781,43 @@ def _walk(root: Path):
             yield p, st
 
 
+def _sig_rows(root: Path):
+    """(relpath, size, mtime_ns) for every file under root, SCANDIR order made deterministic.
+
+    MEASURED 2026-10-21 (ZABZ-YOGA, 4,772 entries): the old form -- `os.walk` then `Path.stat()`
+    per file -- cost **407-459 ms**, and `tree_signature()` runs on EVERY read, so it was over
+    half of `status`'s wall clock. `DirEntry.stat()` is answered from the directory scan itself
+    (no second path resolution), which is **15.4 ms, 30x faster, for a BIT-IDENTICAL digest**
+    -- verified by comparing `entries_sig` hexdigest before and after: `74ef7c6f...`.
+
+    The ORDER is what makes that safe, so it is not left to the filesystem: rows are sorted by
+    their exact relative-path string, the same ordering `_walk` produced.
+    """
+    if not root.exists():
+        return []
+    rows = []
+
+    def scan(dirpath: str) -> None:
+        try:
+            with os.scandir(dirpath) as it:
+                kids = list(it)
+        except OSError:
+            return
+        for de in kids:
+            try:
+                if de.is_dir(follow_symlinks=False):
+                    scan(de.path)
+                elif de.is_file(follow_symlinks=False):
+                    st = de.stat()
+                    rows.append((_rel_of(Path(de.path)), st.st_size, st.st_mtime_ns))
+            except OSError:
+                continue
+
+    scan(str(root))
+    rows.sort(key=lambda r: r[0])
+    return rows
+
+
 def tree_signature() -> dict:
     """sha1 over sorted (relpath, size, mtime_ns) of every real file, plus counts.
 
@@ -791,16 +828,16 @@ def tree_signature() -> dict:
     log signature moves with it.
     """
     entries_h = hashlib.sha1()
-    n_entries = 0
-    for p, st in _walk(entries_dir()):
-        entries_h.update(("%s\t%d\t%d\n" % (_rel_of(p), st.st_size, st.st_mtime_ns)).encode("utf-8"))
-        n_entries += 1
+    rows = _sig_rows(entries_dir())
+    for rel, size, mt in rows:
+        entries_h.update(("%s\t%d\t%d\n" % (rel, size, mt)).encode("utf-8"))
+    n_entries = len(rows)
     log_h = hashlib.sha1()
     n_log = 0
-    for p, st in _walk(log_dir()):
-        if p.suffix != ".md":
+    for rel, size, mt in _sig_rows(log_dir()):
+        if not rel.endswith(".md"):
             continue
-        log_h.update(("%s\t%d\t%d\n" % (_rel_of(p), st.st_size, st.st_mtime_ns)).encode("utf-8"))
+        log_h.update(("%s\t%d\t%d\n" % (rel, size, mt)).encode("utf-8"))
         n_log += 1
     flat_h = hashlib.sha1()
     for name, _kind in FLAT_FILES:
@@ -1048,15 +1085,16 @@ def _maybe_refresh_questions(path: Path, max_age_minutes: float = 60.0) -> float
     # is already printed on the page, so nothing is hidden by waiting.
     if not _lock_free_now():
         return age_min
+    # REFRESH IT IN A DETACHED CHILD, NEVER INLINE (2026-10-21). This used `subprocess.run(...,
+    # timeout=45)`, and `questions` shells out to `ssh secratary-cloud` (ConnectTimeout 8, then
+    # the frozen box) and then takes the GLOBAL WRITE LOCK to write the mirror. So a `status` on
+    # a machine that cannot reach the authority blocked for up to 45 s -- on the always-read
+    # command -- and a host with a stale mirror paid it on every single call. `costs` reaches the
+    # same path, because it invokes `status` internally. The page already prints the mirror's age;
+    # a mirror one generation old is a reading, a page that hangs is a failure.
     try:
-        env = dict(os.environ)
-        env["JOURNAL_LOCK_WAIT"] = "15"  # never hold a reader here for 110 s
-        subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()), "questions"],
-            capture_output=True,
-            timeout=45,
-            env=env,
-        )
+        if _take_marker(".questions-inflight", ttl=300.0):
+            _spawn(["questions"])
     except Exception:  # noqa: BLE001 - a stale mirror is not a reason to fail the page
         pass
     try:
@@ -1247,7 +1285,25 @@ def _write_db(entries: list, aliases: list, refs: list) -> str:
             con.commit()
         finally:
             con.close()
-        os.replace(str(tmp), str(path))
+        # THIS WAS THE ONLY REPLACE IN THE FILE WITH NO RETRY (2026-10-21), AND IT TARGETS THE
+        # FILE MOST LIKELY TO BE OPEN. `atomic_write` retries five times because Windows refuses
+        # to replace a file another handle holds; MEASURED on ZABZ-YOGA (Python 3.10.11): replacing
+        # `journal.db` while a second connection holds it -- even an idle `mode=ro` one that has
+        # run no query -- fails `PermissionError [WinError 5]`. `from_index_db()` holds exactly
+        # such a handle, so one reader's millisecond query could fail a 27 MB rebuild. Same
+        # backoff as `atomic_write`; a failure that survives it is reported to the caller, which
+        # now marks the cache stale instead of claiming it fresh.
+        _last: OSError | None = None
+        for _attempt in range(5):
+            try:
+                os.replace(str(tmp), str(path))
+                _last = None
+                break
+            except OSError as exc:
+                _last = exc
+                time.sleep(0.02 * (2 ** _attempt))
+        if _last is not None:
+            raise _last
     except Exception as exc:
         try:
             if tmp.exists():
@@ -1365,7 +1421,11 @@ def append_index_entry(entry_file: Path, kind: str) -> bool:
         stamp = read_stamp()
         stamp.update(sig)
         stamp["built"] = now_utc()
-        stamp["entries"] = int(stamp.get("entries") or 0) + 1
+        # A READING FROM THE TREE, NOT AN INCREMENT (2026-10-21). `+1` lost an increment when two
+        # appends interleaved, and `_rebuild_cache_body` writes `len(entries)` into the same
+        # field -- so it alternated between a parse count and a counter while `status`, the
+        # append's own success line and `doctor` all print it as a fact.
+        stamp["entries"] = int(sig.get("entries_count") or 0)
         stamp["entries_count"] = sig.get("entries_count")
         ceiling = dict(stamp.get("ceiling") or {})
         ceiling[kind] = max(int(ceiling.get(kind) or 0), int(parsed.get("num") or 0))
@@ -1377,22 +1437,49 @@ def append_index_entry(entry_file: Path, kind: str) -> bool:
     return True
 
 
+_LOCK_DEPTH = 0
+
+
 def rebuild_cache(compute_drift: bool = False) -> dict:
+    """Rebuild the index. TAKES THE JOURNAL LOCK when the caller is not already inside it.
+
+    WHY THE LOCK MATTERS HERE (2026-10-21): this function rewrites `entries.tsv` and replaces
+    `journal.db` wholesale, while `append_index_entry` writes one row of the same two files under
+    the lock. With no lock on this side, a full rebuild could replace both files with a set parsed
+    BEFORE a concurrent append committed its row -- the row and its TSV line then land in an
+    unlinked inode, the append returns True, and the stamp it writes proves the tree fresh, so
+    nothing ever revisits it. The row stays invisible to `list`, `status` and `search` while
+    `show` still finds the file. One writer per store was the rule; this makes it true.
+
+    A deferral is safe: nothing is lost, the index is simply one generation behind, `cache_fresh()`
+    reports it, and the next read repairs it.
+    """
+    if _LOCK_DEPTH == 0:
+        with write_section("rebuild", wait=LOCK_WAIT_SHORT_SEC) as locked:
+            if not locked:
+                note("journal: the index was NOT rebuilt — another session holds the journal "
+                     "lock. Answers continue from the existing index and the next read "
+                     "rebuilds. Nothing was lost.")
+                return read_stamp()
+            return _rebuild_cache_body(compute_drift)
+    return _rebuild_cache_body(compute_drift)
+
+
+def _rebuild_cache_body(compute_drift: bool = False) -> dict:
+    # THE SIGNATURE IS TAKEN BEFORE THE ENTRY READ, NOT MERELY BEFORE THE WRITES (2026-10-21).
+    # First attempt at this put it after `load_entries()` and before the derived writes, which
+    # left the read-to-signature gap open: a writer landing an entry in THAT window was in the
+    # signature and absent from the index, so `cache_fresh()` compared equal and reported a
+    # cache that was missing the newest entry. Taken first, the read happens after the
+    # signature, so the index describes a SUPERSET of what was recorded and any difference marks
+    # the cache stale. Same single walk, zero added cost, fail-closed in every interleaving.
+    stamp = tree_signature()
     entries, problems = load_entries()
     events = load_status_events()
     aliases = load_aliases()
     refs = _collect_refs(entries)
     idir = index_dir()
     idir.mkdir(parents=True, exist_ok=True)
-    # THE SIGNATURE IS TAKEN BEFORE THE DERIVED WRITES, ON PURPOSE (2026-10-21).
-    # It used to be taken AFTER `entries.tsv` and `journal.db` were written, which made the
-    # cache lie under concurrency: a writer landing an entry inside that window put its FILE in
-    # the tree but not in the index, and the stamp then recorded the signature of a tree the
-    # index did not describe -- so `cache_fresh()` answered True with the newest entry missing.
-    # Taken first, any change during the rebuild makes the recorded signature differ from the
-    # tree at read time, and the cache is correctly reported stale instead. Fail-closed, and it
-    # costs one signature either way.
-    stamp = tree_signature()
     atomic_write(idir / "entries.tsv", "\n".join(_entries_tsv_rows(entries, events)) + "\n")
     if not (idir / "aliases.tsv").exists():
         atomic_write(idir / "aliases.tsv", ALIAS_HEADER + "\n")
@@ -1417,6 +1504,7 @@ def rebuild_cache(compute_drift: bool = False) -> dict:
         "cache_version": CACHE_VERSION,
         "entries": len(entries),
         "db": db_note,
+        "db_error": (str(db_note) if str(db_note).startswith("journal.db not written") else None),
         "parse_problems": len(problems),
         "ceiling": ceiling,
         # `next-id` and `append --fetch` raise this from git; reads never run a subprocess,
@@ -1480,11 +1568,36 @@ def cache_fresh() -> bool:
         # Written by a tool that did not carry the tags/refs columns. Rebuild rather than read a
         # cache whose shape is older than the reader.
         return False
+    if stamp.get("db_error"):
+        # THE LAST REBUILD'S DATABASE DID NOT ADVANCE (2026-10-21). entries.tsv was written and
+        # the 27 MB database was not, so `search` and the db read tier are a generation behind.
+        # A cache that says "fresh" while half of it is missing is the failure this field exists
+        # to stop; rebuild on the next read instead.
+        return False
     sig = tree_signature()
     for key in ("entries_sig", "entries_count", "log_sig", "log_count", "flat_sig"):
         if stamp.get(key) != sig.get(key):
             return False
     if not (index_dir() / "entries.tsv").exists():
+        return False
+    # AND THE INDEX MUST AGREE WITH THE TREE ON HOW MANY ENTRIES IT HOLDS. The signature alone
+    # cannot see a file created inside `tree_signature()`'s own non-atomic walk; one COUNT on
+    # 4,771 rows is sub-millisecond next to 7,615 stats, and it is the check that makes the
+    # invariant true rather than merely likely. A database that cannot be read is not evidence
+    # of freshness, so it falls through to "rebuild".
+    try:
+        import sqlite3
+        db = index_dir() / "journal.db"
+        if db.exists():
+            con = sqlite3.connect("file:%s?mode=ro" % str(db).replace("\\", "/"), uri=True,
+                                  timeout=1.0)
+            try:
+                n = con.execute("select count(*) from entries").fetchone()[0]
+            finally:
+                con.close()
+            if int(n) != int(sig.get("entries_count") or -1):
+                return False
+    except Exception:
         return False
     return True
 
@@ -1501,17 +1614,15 @@ def ensure_cache(compute_drift: bool = False) -> bool:
     if fresh and (not compute_drift or stamp.get("unabsorbed_total") is not None):
         return True
     lock = JOURNAL / LOCK_NAME
-    if lock.exists() and not _lock_is_mine(lock):
-        # WAIT A MOMENT BEFORE GIVING UP (P1, 2026-10-21). The write lock's critical section is
-        # now a file write -- milliseconds -- so "the lock file exists" is almost never "a
-        # writer will be busy for a while". Giving up on sight meant every read taken while any
-        # append was in flight fell through to `load_entries()`, and that fallback is what every
-        # session was actually stuck on: 4,764 files, 15.4 s of a quiet machine, and 774 s
-        # measured for one `status` while six appends were grepping. Three seconds of patience
-        # converts almost every one of those into a cache hit.
-        deadline = time.monotonic() + READ_LOCK_POLL_SEC
-        while time.monotonic() < deadline and lock.exists() and not _lock_is_mine(lock):
-            time.sleep(0.05)
+    # NO POLL. A READ MUST NOT QUEUE BEHIND A WRITER (2026-10-21).
+    # This briefly waited up to 3 s for the lock file to disappear, on Windows that wait was
+    # usually pointless: `_lock_is_mine()` reads the file through a SECOND handle, and a holder
+    # reading its own byte-range-locked file gets PermissionError, so the "it is mine" branch
+    # could not fire and every read taken during a write paid the full 3 s. Worse, the poll's
+    # exit condition is the instant a writer RELEASES, which lines every waiting reader up to
+    # start a rebuild into the next writer's critical section. The caller now falls through to
+    # the database tier immediately, says which session holds the lock, and stays honest about
+    # being one generation behind instead of blocking.
     if lock.exists() and not _lock_is_mine(lock):
         held = _rl(lock).strip().replace("\n", " / ")[:120]
         note("journal: cache is stale and locked by %s — answering from the index, not from "
@@ -3002,6 +3113,32 @@ def cmd_check(args) -> int:
         else:
             infos.append("--fix: nothing mechanically fixable (dedupe/repair-ids are separate "
                          "commands and never run implicitly)")
+    # THE SAFETY NET THE INCREMENTAL PATH CLAIMS TO HAVE (2026-10-21). The docstring of
+    # `append_index_entry` said "check verifies the db against entries/ independently", and
+    # `check` never read the database at all -- which is exactly why an index one row behind
+    # could persist unremarked while every surface said "0 error(s)". It is true now: the index
+    # is derived, so it is compared, by id, against the record it is derived from.
+    try:
+        import sqlite3
+        _db = index_dir() / "journal.db"
+        if _db.exists():
+            _con = sqlite3.connect("file:%s?mode=ro" % str(_db).replace("\\", "/"), uri=True,
+                                   timeout=2.0)
+            try:
+                _db_ids = {r[0] for r in _con.execute("select id_full from entries")}
+            finally:
+                _con.close()
+            _file_ids = {e["id_full"] for e in entries}
+            if _db_ids != _file_ids:
+                _missing = sorted(_file_ids - _db_ids)[:5]
+                _extra = sorted(_db_ids - _file_ids)[:5]
+                errors.append(
+                    "index/journal.db does not match entries/: %d id(s) in the record are not "
+                    "indexed (%s), %d indexed id(s) have no file (%s) — run `journal.py index "
+                    "--force`" % (len(_file_ids - _db_ids), ", ".join(_missing) or "-",
+                                   len(_db_ids - _file_ids), ", ".join(_extra) or "-"))
+    except Exception as exc:  # noqa: BLE001 - a check must report, never crash
+        warns.append("index/journal.db could not be compared to entries/ (%s)" % exc)
     rc = 1 if errors else 0
     if getattr(args, "json", False):
         print(json.dumps({"root": str(JOURNAL), "source": source, "cache_fresh": fresh,
@@ -3456,10 +3593,14 @@ def write_section(command: str, wait: float = LOCK_WAIT_SHORT_SEC):
     therefore re-running the command cannot mint a second id.
     """
     acquired, token = acquire_lock(command, wait=wait)
+    global _LOCK_DEPTH
+    if acquired:
+        _LOCK_DEPTH += 1
     try:
         yield acquired
     finally:
         if acquired:
+            _LOCK_DEPTH -= 1
             release_lock(token)
 
 
@@ -3634,6 +3775,63 @@ FETCH_MARKER = "state/.fetch-inflight"
 READ_LOCK_POLL_SEC = 3.0
 
 
+def _take_marker(name: str, ttl: float) -> bool:
+    """Take a single-flight marker ATOMICALLY. False means somebody else holds it.
+
+    `marker.exists()` followed by `write_text()` is a check-then-act: N sessions that interleave
+    in that gap all conclude they own it and all spawn the child. On a 4.85 GB fetch that is the
+    exact load this round removed. O_EXCL makes the kernel decide, and a stale marker (a child
+    that died) is aged out rather than wedging every future caller.
+    """
+    path = JOURNAL / "state" / name
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        try:
+            os.write(fd, ("%d %s\n" % (os.getpid(), now_utc())).encode("utf-8"))
+        finally:
+            os.close(fd)
+        return True
+    except FileExistsError:
+        try:
+            if (time.time() - path.stat().st_mtime) > ttl:
+                path.unlink()
+                return _take_marker(name, ttl)
+        except OSError:
+            pass
+        return False
+    except OSError:
+        return False
+
+
+def _spawn(job_args) -> bool:
+    """Run this tool as a detached child. Returns True when it was started."""
+    kw = {}
+    if os.name == "nt":
+        kw["creationflags"] = 0x00000008 | 0x00000200   # DETACHED_PROCESS | NEW_PROCESS_GROUP
+    else:
+        kw["start_new_session"] = True
+    try:
+        subprocess.Popen([sys.executable, str(Path(__file__).resolve())] + list(job_args),
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
+        return True
+    except Exception:
+        return False
+
+
+def _spawn_claim(kind: str) -> bool:
+    """Publish a window this machine has just reserved, in a detached child.
+
+    The append itself must never move a shared branch: `publish_reservation` records the measured
+    disaster of doing that inline (an append reverted origin/master by 1249 paths). A detached
+    `claim` is the same containment the ceiling refresh uses -- the write does not depend on it,
+    and if it fails the operator still gets the refusal, every time, with the command to run.
+    """
+    if not _take_marker(".claim-inflight", ttl=300.0):
+        return False
+    return _spawn(["claim", kind])
+
+
 def _stamp_patch(**fields) -> None:
     """Merge hint fields into index/stamp.json. A writer never fails because a hint did."""
     try:
@@ -3689,18 +3887,45 @@ def _run_bounded(argv, timeout: float):
 
 
 def remote_refs():
-    """(fingerprint, refs): every remote-tracking ref, bounded, with one cheap signature.
+    """(fingerprint, refs): every remote-tracking ref, bounded, COORDINATION REFS FIRST.
 
-    The signature makes the expensive half memoisable: if no ref moved, the last scan is
-    still the whole answer, and a writer pays 0.13 s instead of a scan.
+    THE BUDGET USED TO BE SPENT ALPHABETICALLY (2026-10-21). This clone holds 105 refs under
+    `refs/remotes/origin`; the first 25 were all `origin/agent/*` and `origin/chore/*`, while
+    `origin/main` was index 81 and `origin/master` index 82 -- outside the scan. Measured
+    consequence: 25 refs gave a lessons maximum of **3815** while `origin/main` held **3897** and
+    the working tree **3901**. Every remote-only id above 3815 was invisible, so a checkout whose
+    own tree lagged could mint a number another machine had already used, with no concurrency
+    involved at all. The refs that actually carry ids now go first and the rest fill the budget.
+
+    The signature keeps the expensive half memoisable: if no ref moved, the last scan is the
+    whole answer and a writer pays one `for-each-ref` (0.13 s).
     """
     rc, out = _git("for-each-ref", "--format=%(refname) %(objectname)", "refs/remotes/origin")
     if rc != 0:
         return "", []
     rows = [ln for ln in (out or "").splitlines() if ln.strip()]
     sig = hashlib.sha1("\n".join(rows).encode("utf-8", "replace")).hexdigest()
-    refs = [ln.split(" ", 1)[0] for ln in rows][:REMOTE_SCAN_MAX_REFS]
-    return sig, refs
+    names = [ln.split(" ", 1)[0] for ln in rows]
+    upstream = _my_upstream()
+
+    def priority(ref):
+        if ref in ("refs/remotes/origin/master", "refs/remotes/origin/main",
+                   "refs/remotes/origin/HEAD"):
+            return 0                      # the branches every host publishes to
+        if upstream and ref.endswith("/" + upstream):
+            return 1                      # this checkout's own upstream
+        if "/cloud/" in ref:
+            return 2                      # the authority's branches, newest windows
+        return 3
+
+    names.sort(key=lambda r: (priority(r), r))
+    return sig, names[:REMOTE_SCAN_MAX_REFS]
+
+
+def _my_upstream() -> str:
+    """`origin/main` for this checkout's branch, or "" when it has no upstream."""
+    rc, out = _git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+    return out.strip() if rc == 0 else ""
 
 
 def remote_kind_top(kind: str, refs) -> int:
@@ -4343,7 +4568,13 @@ def publish_reservation(attempts: int = 3):
                        "collide with")
     detail = "no attempt was made"
     for attempt in range(1, max(1, attempts) + 1):
-        if _git("fetch", "--quiet", "--all")[0] != 0:
+        # FETCH THE REF WE PUBLISH ON, NOT `--all` (2026-10-21). `--all` on this repo is 105
+        # refs / 4.85 GB and does not finish inside the 45 s subprocess cap, so this guard
+        # refused every publish with "could not fetch origin" and the reservation ledger could
+        # never be brought up to date by the one command whose job that is. The single ref that
+        # is actually read below took 2.8 s, exit 0, when measured.
+        if _run_bounded(["git", "-C", str(JOURNAL.parent), "fetch", "--quiet", "--no-tags",
+                         "origin", "+refs/heads/master:refs/remotes/origin/master"], 45.0)[0] != 0:
             return False, ("could not fetch origin on attempt %d: refusing to build a publish "
                            "on a ref I cannot confirm is current" % attempt)
         rc, tip = _git("rev-parse", "--verify", "refs/remotes/origin/master")
@@ -4672,9 +4903,20 @@ def ensure_reservation(kind: str, want_number: int, fetch: bool = True):
     letter = KINDS[kind]["letter"]
     row = reserve_locally(kind, cover=want_number)
     first = row["reserved_through"] - RESERVATION_WINDOW + 1
-    return True, first, ("reserved %s%d..%s%d LOCALLY and NOT published; run "
-                         "`journal.py publish` before another machine can see it"
-                         % (letter, first, letter, row["reserved_through"]))
+    # DO NOT AUTHORISE AN UNPUBLISHED WINDOW (2026-10-21). This returned True here, and that
+    # single line was the load-bearing cross-host collision: two hosts whose own windows were
+    # spent both reserved blind, both returned `global_top + 1`, and both wrote the SAME id --
+    # exit 0, one success line, no warning (the warning's predicate matched a string that
+    # nothing produced). The reservation is still taken locally, because `publish_reservation`
+    # shifts a colliding window upwards and that is the mechanism that resolves the race; what
+    # must not happen is MINTING before it is published. Nothing has been written at this point,
+    # so refusing is free and re-running after the publish is safe.
+    return False, first, (
+        "this id is above everything this machine can see, and it has just reserved %s%d..%s%d "
+        "LOCALLY -- no other machine can see that window yet, so writing now is exactly how two "
+        "hosts mint the same number. Nothing was written. The window has been taken: run "
+        "`journal.py publish` (or `journal.py claim %s`) and re-run this append."
+        % (letter, first, letter, row["reserved_through"], kind))
 
 
 def _covered_ranges(kind: str) -> str:
@@ -4855,6 +5097,19 @@ def cmd_append(args) -> int:
     # A read of "is there any remote-tracking ref at all": 0.138 s of git subprocess, and it
     # cannot change while this append runs, so it is measured here rather than in the lock.
     shared_ref = has_shared_ref()
+    # RE-READ THE OTHER HOSTS' LEDGERS BEFORE THE MINT, OUTSIDE THE LOCK (2026-10-21).
+    # `ledger_ref_rows()` memoises for 60 s. The first ask above (inside `allocation_ceiling`)
+    # populates that memo; the mint's own authority check (`is_reserved`) then reuses it -- so a
+    # window another host published in the last minute could be invisible at the exact moment
+    # the id is chosen. Before the memo, every ask was a fresh `cat-file`, so the mint's read was
+    # current; memoising made the mint trust a stale reading. One forced sweep here (25 objects,
+    # one process, ~0.4 s, outside the lock) restores the old guarantee without lengthening the
+    # critical section.
+    if shared_ref:
+        try:
+            ledger_ref_rows(force=True)
+        except Exception:
+            pass
     with write_section("append") as locked:
         if not locked:
             # A DEFERRAL, out loud. Nothing was written, so re-running is safe and cannot
@@ -4878,6 +5133,11 @@ def cmd_append(args) -> int:
                  "is not reserved is a number another machine may be about to use: the four "
                  "collisions of 2026-09-16/17 were all minted exactly this way. Nothing was written. "
                  "Reconnect to origin and run `journal.py claim %s`." % kind)
+            # The window has just been reserved locally by `ensure_reservation`; publish it in a
+            # detached child so the NEXT append can use it without a human remembering to.
+            if "LOCALLY" in reserve_detail and _spawn_claim(kind):
+                note("journal: publishing the window just reserved (`journal.py claim %s`) in "
+                     "the background — re-run this append in a few seconds." % kind)
             return 4
         n = max(cand, want_number)
         want, path, heading = "", None, ""
@@ -4922,14 +5182,32 @@ def cmd_append(args) -> int:
             record_alias(bumped_from, kind, want, "id collision avoided on append")
     # ---- end critical section: the id exists on disk and is this host's --------------
 
-    if reserve_detail.startswith("granted") or "window now through" in reserve_detail:
+    # SAY IT OUT LOUD WHEN THE RESERVATION IS LOCAL-ONLY. This branch used to test for
+    # `startswith("granted")` or "window now through", and NOTHING in this file produces either
+    # string -- the reserve path returns "reserved L66..L129 LOCALLY and NOT published; ...", so
+    # the test could never fire and an append that quietly took a window no other machine can
+    # see printed one success line and exited 0. That silence is half of a cross-host overlap;
+    # the overlap itself is a separate decision (see P-queue), but it must not be invisible.
+    if "LOCALLY and NOT published" in reserve_detail:
+        note("journal: WARNING — this id is inside a window reserved on THIS MACHINE ONLY "
+             "(%s). No other host can see it yet, so a machine that reserves at the same moment "
+             "could pick the same numbers. Run `journal.py publish` (or `claim`) to publish it."
+             % reserve_detail)
+    elif reserve_detail.startswith("granted") or "window now through" in reserve_detail:
         note("journal: reserved a new id window for %s -- %s" % (host_tag(), reserve_detail))
     # Derived data. The entry file is already written, so a concurrent rebuild in another
     # session sees the same tree; the cache is a convenience the readers self-heal from.
     # ONE ROW, NOT A REBUILD (P1, 2026-10-21): see append_index_entry. The rebuild remains the
     # fallback for every case the incremental path cannot prove safe.
     if not append_index_entry(path, kind):
-        stamp_now = _rebuild_cache_after_write()
+        # DO NOT REBUILD HERE (2026-10-21). The incremental path returns False when it could not
+        # take the lock inside its budget, and the old fallback answered "I could not take the
+        # lock" by doing the UNLOCKED full rebuild that the lock exists to prevent (see
+        # rebuild_cache). Deferring leaves the index one row behind; `cache_fresh()` reports it
+        # and the next reader repairs it. The entry itself is already on disk.
+        note("journal: the entry IS written (%s); the index update was deferred — another "
+             "session held the journal lock. The next read rebuilds the index." % _rel_of(path))
+        stamp_now = read_stamp()
     else:
         stamp_now = read_stamp()
     if getattr(args, "json", False):
@@ -6057,9 +6335,18 @@ def main(argv=None) -> int:
         acquired, token = acquire_lock(cmd)
         if not acquired:
             return 3
+        # TELL `rebuild_cache` THIS PROCESS ALREADY HOLDS THE LOCK (2026-10-21). Without this a
+        # blanket-locked command that rebuilds the index (`migrate-v2`, `dedupe`, `repair-ids`,
+        # `index --force`) asked for the same lock a second time through a second descriptor,
+        # was refused, and quietly skipped the rebuild -- which is how `migrate-v2 --apply` left
+        # a fixture tree with no `index/stamp.json` at all. The depth counter is the one source of
+        # "already inside the critical section"; every taker must maintain it.
+        global _LOCK_DEPTH
+        _LOCK_DEPTH += 1
         try:
             return args.func(args)
         finally:
+            _LOCK_DEPTH -= 1
             release_lock(token)
     return args.func(args)
 
