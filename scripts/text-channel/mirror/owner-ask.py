@@ -166,8 +166,35 @@ def in_hours(now: datetime | None = None) -> tuple[bool, str]:
 
 # ─────────────────────────────── sources ───────────────────────────────
 def from_decision_queue() -> list[dict]:
-    """Pending decisions. The queue is the single source of truth and it already
-    carries a recommendation, which rule 2 requires us to send."""
+    """DECISION ROWS ARE NO LONGER SENT FROM HERE (2026-10-21).
+
+    One queue, one sender. This program and `decision-deliver.py` both read
+    `owner_decision_queue WHERE status='pending'`, and each kept its own private send
+    ledger, so neither could see the other's sends: the day both ran, one question could
+    reach the owner twice in an hour, against his own instruction of "one question at a
+    time" (2026-09-25). Reported by a concurrent session as D3 on 2026-10-21, and correct.
+
+    `decision-deliver.py` is the sender that owns these rows: it triages first
+    (decision-triage.py decides SEND_NOW / COMPOSE / STALE / SYSTEM / DUPLICATE before
+    anything is composed), it paces at 2/day with a 30-minute gap in his hours, it stops the
+    ladder at two asks, and it writes the shared `decision_sent` ledger in the authority
+    database that this program also reads.
+
+    What this function still does is READ the queue, so `--status` and the sitting remain
+    accurate. It no longer returns candidates, which is what stops the double send.
+    """
+    return []
+
+
+def _from_decision_queue_unused() -> list[dict]:
+    """The previous body, kept for reference; not called.
+
+    It is preserved rather than deleted because its SQL is the record of what the read path
+    looked like, and because the composer defect it fed (D2: taking the text before a colon,
+    capping at 72 characters and stapling a recommendation on -- producing a statement where
+    a question belonged) is worth being able to read. The `deferred_until` predicate added
+    below on 2026-10-21 is the one change it still needed."""
+
     if not APP_DB.exists():
         return []
     c = sqlite3.connect(f"file:{APP_DB}?mode=ro", uri=True, timeout=15)
@@ -176,9 +203,18 @@ def from_decision_queue() -> list[dict]:
     try:
         cols = {r[1] for r in c.execute("PRAGMA table_info(owner_decision_queue)")}
         rec = "recommendation" if "recommendation" in cols else "''"
+        # A DEFERRED ROW IS NOT PENDING (fixed 2026-10-21). The owner parks decisions in
+        # his own words -- "these are decisions about the product for next time i bring it
+        # up", "too early - the ones due in November get thought about in November", "put a
+        # note that we should look at this in 2 plus years". `owner-queue.py` honours
+        # `deferred_until` on every read path, but this sender did not, so seven parked rows
+        # were selectable and would have been texted the moment it ran. Filtered in the
+        # SELECT, not after ranking, so no fallback can bring one back.
         rows = c.execute(
             f"""SELECT id, question, {rec} AS recommendation, severity, asked_at, status
-                FROM owner_decision_queue WHERE status='pending' ORDER BY id"""
+                FROM owner_decision_queue WHERE status='pending'
+                AND (deferred_until IS NULL OR deferred_until <= datetime('now'))
+                ORDER BY id"""
         ).fetchall()
     except sqlite3.Error:
         return []
@@ -371,6 +407,19 @@ def provider_accepted(res: dict) -> bool:
     return bool(re.search(r"\bok=True\b", out)) or bool(re.search(r"\bSM[0-9a-f]{32}\b", out))
 
 
+def condition_only(res: dict) -> bool:
+    """A refusal that is the owner's own rule, not a fault in this asker.
+
+    ``rate_floor`` ("he was texted 6 minutes ago and asked for one text every 20
+    minutes") and ``owner conversation open`` are CONDITIONS: they clear on their
+    own and the question is still queued.  They must not be reported as a failed
+    systemd service, because a failed unit is indistinguishable from a broken
+    deliverer and would train everyone to ignore it.
+    """
+    blob = "%s\n%s" % (res.get("stdout") or "", res.get("stderr") or "")
+    return ("rate_floor" in blob) or ("owner conversation open" in blob)
+
+
 def send(body: str, dry_run: bool) -> dict:
     # `--reason owner_ask` claims the MONEY rank on the owner's one-at-a-time channel,
     # so a question about his own business is not held behind a machine's notice. See
@@ -505,7 +554,7 @@ def pick(reason: bool = False):
         detail["rejected"] = [{"id": f"{r['source']}:{r['source_id']}",
                                "subject": r["subject"][:60], "why": w} for r, w in rejected[:25]]
     if not keep:
-        return None, "nothing left that is genuinely his", detail
+        return None, ("nothing to ask from this program's own sources -- decision rows are sent by decision-deliver.py now (one queue, one sender, 2026-10-21)"), detail
     # order: severity, then oldest first - a stale blocking item outranks a fresh idea
     rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
     keep.sort(key=lambda r: (rank.get(r["severity"], 2),
@@ -648,7 +697,9 @@ def main(argv=None) -> int:
     for k in ("stdout", "stderr"):
         if res.get(k):
             print(f"  {k}: {res[k][:400]}")
-    return 0 if (accepted or res["dry_run"]) else 1
+    if accepted or res["dry_run"] or condition_only(res):
+        return 0
+    return 1
 
 
 if __name__ == "__main__":
