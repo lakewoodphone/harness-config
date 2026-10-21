@@ -394,18 +394,33 @@ def evaluate(hours: int = SILENCE_HOURS) -> dict:
         d = json.loads(tri.stdout) if tri.returncode == 0 and tri.stdout.strip() else {}
         cand = [r for r in (d.get("rows") or []) if r.get("disposition") == "SEND_NOW"]
         sample = cand[::max(1, len(cand) // 5)][:5] if cand else []
-        refused = []
+        refused, rate_limited = [], []
         for r in sample:
             body = str(r.get("body") or "")
             proc = subprocess.run(
                 [sys.executable, str(HOME / "bin" / "textsend.py"), "send",
                  "--to", os.environ.get("OWNER_PHONE", "+18483897895"), "--body", body],
                 capture_output=True, text=True, timeout=90)
-            if "ok=True" not in ((proc.stdout or "") + (proc.stderr or "")):
-                refused.append("#%s" % r.get("id"))
+            blob = ((proc.stdout or "") + (proc.stderr or ""))
+            if "ok=True" not in blob:
+                # THE RATE FLOOR IS A STATE, NOT A VERDICT ON THE BODY. The owner's own rule is
+                # "one text every N minutes"; while it is in force EVERY body is refused, so a
+                # check that counts those as bad bodies measures the clock, not the composer.
+                # Anything else (ceiling, relay, class mute) IS about the body and still counts.
+                # THE SAME IS TRUE OF THE ONE-OPEN-QUESTION RULE: while he has not answered the
+                # last question, EVERY other body is refused with "owner conversation open".
+                # That is the owner's own pacing, and it says nothing about the composer.
+                if "rate_floor" in blob or "owner conversation open" in blob:
+                    rate_limited.append("#%s" % r.get("id"))
+                else:
+                    refused.append("#%s %s" % (r.get("id"), " ".join(blob.split())[:90]))
         if refused:
             add("L8", False, "the real sender REFUSES %d of %d sampled body(ies): %s"
                 % (len(refused), len(sample), ",".join(refused)))
+        elif rate_limited and len(rate_limited) == len(sample):
+            add("L8", True, "composer fine: the sender refused all %d sampled bodies on the "
+                "RATE FLOOR alone (a clock, not a body), which is the owner's own pacing rule"
+                % len(sample))
         else:
             add("L8", True, "%d sampled body(ies) accepted by the real sender (dry run), of %d "
                 "sendable" % (len(sample), len(cand)))

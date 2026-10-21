@@ -451,6 +451,32 @@ def compose(row: dict) -> str:
             return body_t
 
 
+    # A CUSTOMER'S OWN WORDS, WITH THE PLUMBING REMOVED. A forwarded message reads
+    # "Text from Alon: Can I get 6 of them? Do you need to activate them?" -- "Text from" is
+    # our label for it, not part of anything a person wrote. Keep the customer's words exactly
+    # (they are the evidence) and add the ask the system owes him.
+    m_from = re.match(r"^\s*Text from ([^:]{2,30}):\s*(.+)$", question, re.I | re.S)
+    if m_from:
+        who = m_from.group(1).strip()
+        said = " ".join(m_from.group(2).split()).rstrip(". ")
+        ask_f = "Want me to reply?"
+        room_f = CEILING - len(ask_f) - len(who) - 4
+        if len(said) > room_f:
+            said = said[:room_f].rsplit(" ", 1)[0].rstrip(",;:—-")
+        # A sentence that OPENS with a question word is a question even without a "?":
+        # "Do you have us mobile sim cards" got a full stop and read as a statement.
+        asks_q = re.match(r"(?i)^(do|does|did|can|could|is|are|was|were|will|would|"
+                          r"shall|should|have|has|how|what|when|where|why|who|which)\b",
+                          said) is not None
+        if said.endswith("?"):
+            body_f = "%s: %s %s" % (who, said, ask_f)
+        elif asks_q:
+            body_f = "%s: %s? %s" % (who, said, ask_f)
+        else:
+            body_f = "%s: %s. %s" % (who, said, ask_f)
+        if len(body_f) <= CEILING:
+            return _tidy_body(body_f)
+
     # The fact, with the deadline made arithmetic-free.
     lead = question.rstrip(". ")
     if days is not None and days <= 21:
@@ -656,12 +682,26 @@ def classify(row: dict) -> dict:
     # They are not deleted: they stay visible in the queue, and the path that DOES act on an
     # inbound message is the sms-desk wake, which reads the customer thread, builds the card
     # and drafts the reply (proven on wakes 1337 and 1339). That is where a reply belongs.
+    # ...UNLESS THE MESSAGE IS A CUSTOMER ENQUIRY. Measured 2026-10-21: two of the eleven
+    # echoes were Alon asking "Do you have us mobile sim cards" and "Can I get 6 of them? Do
+    # you need to activate them?" -- a sale on the shop's own personal line. Relaying it back
+    # is noise; IGNORING it is lost revenue. So a message with commercial intent (a question
+    # mark, or the words a customer uses when they want to buy or book) is NOT an echo: it is
+    # a genuine decision for him, and it is the only one of the eleven that was.
+    _COMMERCIAL = re.compile(
+        r"\?|\b(sim|price|cost|how much|buy|order|purchase|repair|fix|screen|battery|"
+        r"fixable|available|in stock|appointment|come in|drop off|quote|charge|pay)\b", re.I)
     if (str(row.get("source") or "").startswith("gv-ingest:")
             and re.match(r"^\s*(Text|Missed call|Voicemail) from\b", q, re.I)):
-        out.update(disposition="ECHO",
-                   why="his own inbound message echoed back to him: he already has it on his "
-                       "phone, and a reply is the sms-desk wake's job, not a text to himself")
-        return out
+        if _COMMERCIAL.search(q):
+            out.update(disposition="SEND_NOW", why="")
+            # fall through to normal composition: this is a customer enquiry, not an echo
+        else:
+            out.update(disposition="ECHO",
+                       why="his own inbound message echoed back to him: he already has it on "
+                           "his phone, and a reply is the sms-desk wake's job, not a text to "
+                           "himself")
+            return out
 
     # 1b. an LLM gap wearing a decision's clothes
     # The mail judge falls back to `verdict: attention` when it returns no verdict for a
