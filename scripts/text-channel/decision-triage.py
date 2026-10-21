@@ -792,6 +792,27 @@ def classify(row: dict) -> dict:
                        "action whose moment has passed" % fresh)
         return out
 
+    # 3a. "WANT ME TO NOTE IT?" IS NOT A DECISION -- IT IS THE WORK.
+    # Measured 2026-10-21: six of the 25 sendable rows were about one person, Yocheved, and three
+    # of those asked him to authorise a passive act: "Want me to note the device details for
+    # Fisher?", "Want me to note the store?", "Want me to open the link?". None of them has a
+    # downside, none is irreversible, none costs money, and a yes is the only sensible answer --
+    # which means the question spends his attention to obtain consent nobody needed. His own
+    # instruction was "only text me for truly important things and don't overdo it or spam me".
+    # The system records the note and he hears about it in the digest.
+    # THE PASSIVE INTENT IS IN THE ROW'S ACTION FIELD, NOT ITS HEADLINE: #663's question says
+    # nothing about noting; its todo field reads "note the device details for Fisher". Testing
+    # the headline found nothing and the rule looked like it never fired.
+    _PASSIVE = re.compile(
+        r"^\s*(note|save|record|remember|log|file away|add to the (list|notes?))\b", re.I)
+    _todo_now = _ctx_field(str(row.get("context") or ""), "What he would do")
+    if _PASSIVE.search(_todo_now):
+        out.update(disposition="SYSTEM",
+                   why="a passive record-keeping act with no downside and no cost -- the system "
+                       "notes it and he sees it in the digest; asking would spend his attention "
+                       "to obtain consent nobody needed")
+        return out
+
     # 3b. A DEVELOPMENT DECISION IS MINE, NOT HIS.
     # Measured 2026-10-21: 6 of 40 SEND_NOW rows asked him to authorise engineering work --
     # "May I take one 60-second Home Assistant restart", "May I prune ZABZ-TECH's 16.7 GB
