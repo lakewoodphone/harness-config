@@ -255,7 +255,10 @@ _VOCAB = (
     (r"\b(ask|tell|let|remind|confirm with|check with) him\b", r"\1 you"),
     (r"\bfor him\b", "for you"),
     (r"\bhis (card|phone|account|number)\b", r"your \1"),
-    (r"\b(is|was) his\b", r"\1 yours"),
+    # "his own" takes the possessive, not the pronoun. Measured 2026-10-21: the rule below
+    # turned "confirm it was his own login" into "confirm it was YOURS OWN login".
+    (r"\bhis own\b", "your own"),
+    (r"\b(is|was) his\b(?! own)", r"\1 yours"),
 )
 
 #: A body that still carries a path, a command or a hostname is an engineering note.
@@ -279,6 +282,28 @@ def _tidy_body(body: str) -> str:
     # referent once the ask is a question. Drop the tail, keep the ask.
     out = re.sub(r"[;,]\s*(no action|nothing) (needed|required)?\s*(if so|otherwise)?\s*\?\s*$",
                  "?", out, flags=re.I)
+    # A CLOSING PARENTHESIS THAT NEVER OPENS IS A CUT. Measured 2026-10-21 on #810:
+    # "Seven integrate/* branches ... are green PRs (620 is PR #40, checks pass, or will you
+    # keep merging them?" -- the opening "(" swallowed the ask. Drop an unterminated
+    # parenthetical and keep the sentence that follows it.
+    # REPLACE THE BRACKET, DO NOT DELETE THE TEXT AFTER IT. The first version removed
+    # everything from the unclosed "(" to the end and took the ASK with it: #810 became
+    # "Seven integrate/* branches ... are green PRs" -- a statement. Substituting ", " for the
+    # opening bracket keeps every word and makes the sentence legal.
+    while out.count("(") > out.count(")"):
+        out = out.replace("(", ", ", 1)
+    out = re.sub(r",\s*[,.]", ",", out)          # ",." and ",," artefacts from that swap
+    out = re.sub(r"\s+([,.?!])", r"\1", out)
+    out = re.sub(r",\s*\?", "?", out)
+    # A SENTENCE ENDING ON A CONJUNCTION IS A CUT (#801: "... is already on master as
+    # 34ee869d8, but. Archive the branch, or curate those files onto?").
+    out = re.sub(r"[,]?\s+\b(but|and|or|so|because|which|that|with|onto|into)\s*[.]\s+",
+                 ". ", out, flags=re.I)
+    # THE OWNER IS "YOU", EVEN WHEN THE ROW DESCRIBES HIS ACTION IN THE THIRD PERSON
+    # (#704: "Want me to confirm HE linked it, else unlink the skill?").
+    out = re.sub(r"\b(confirm|check|verify|see|know|tell) he\b", r"\1 you", out, flags=re.I)
+    out = re.sub(r"\bif he (linked|connected|approved|sent|paid|called|replied|signed|"
+                 r"authori[sz]ed)\b", r"if you \1", out, flags=re.I)
     out = re.sub(r"\b(\w+)\s+\1\b", r"\1", out, flags=re.I)
     # A question mark followed by the sentence-splitting artefact ("land?.") reads as a typo.
     out = out.replace("?.", "?").replace(".?", "?").replace("..", ".")
