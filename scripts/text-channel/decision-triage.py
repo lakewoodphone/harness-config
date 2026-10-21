@@ -293,9 +293,16 @@ def _tidy_body(body: str) -> str:
     # THE SEPARATOR MUST NOT BE A COMMA INSIDE A NUMBER. First attempt matched the comma in
     # "$1,000" and destroyed a perfectly good body ("confirm the $1,000 transfer was intended?"
     # became "want me to handle it?"). Same trap as the 72,050 cut, and the same fix.
-    out = re.sub(
-        r"\b([Ww])ant me to [^?.]*?(?:(?<!\d)[,;](?!\d))[^?.]*\?",
-        lambda m: ("W" if m.group(1) == "W" else "w") + "ant me to handle it?", out)
+    # KEEP THE FIRST ACTION, DO NOT COLLAPSE TO A PLACEHOLDER. The first version turned
+    # "#686 ... Want me to note Nov 1 billing; check usage or cancel?" into "Want me to handle
+    # it?" -- which names no action at all and is the emptiest question the channel can ask.
+    # Taking the first action keeps the substance and is still answerable in one line.
+    def _first_action(m):
+        first = re.split(r"(?<!\d)[,;](?!\d)", m.group(0)[len("want me to "):].rstrip("?"))
+        head = (first[0] or "").strip().rstrip(",;:")
+        cap = "W" if m.group(0)[0] == "W" else "w"
+        return "%sant me to %s?" % (cap, head) if head else "%sant me to handle it?" % cap
+    out = re.sub(r"\b[Ww]ant me to [^?.]*?(?:(?<!\d)[,;](?!\d))[^?.]*\?", _first_action, out)
     out = re.sub(r"[;,]\s*(no action|nothing) (needed|required)?\s*(if so|otherwise)?\s*\?\s*$",
                  "?", out, flags=re.I)
     # A CLOSING PARENTHESIS THAT NEVER OPENS IS A CUT. Measured 2026-10-21 on #810:
@@ -320,6 +327,12 @@ def _tidy_body(body: str) -> str:
     out = re.sub(r"\b(confirm|check|verify|see|know|tell) he\b", r"\1 you", out, flags=re.I)
     out = re.sub(r"\bif he (linked|connected|approved|sent|paid|called|replied|signed|"
                  r"authori[sz]ed)\b", r"if you \1", out, flags=re.I)
+    # A VERB THAT NEEDS A DETERMINER. Measured 2026-10-21: "Want me to open statement?",
+    # "Want me to open link?", "Want me to check credits and Oct 12 API charges?" -- the action
+    # came from a field that had no article, and a message to him should read like English.
+    out = re.sub(r"\b(want me to (?:open|review|check|note|save|forward|read|file|book|"
+                 r"confirm|cancel|pay|send)\s+)(statement|link|notice|notices|list|file|email|"
+                 r"emails|invoice|report|policy|contract|order)\b", r"\1the \2", out, flags=re.I)
     out = re.sub(r"\b(\w+)\s+\1\b", r"\1", out, flags=re.I)
     # A question mark followed by the sentence-splitting artefact ("land?.") reads as a typo.
     out = out.replace("?.", "?").replace(".?", "?").replace("..", ".")
