@@ -313,14 +313,36 @@ def main():
     played_ids = set(plays.keys())
     familiar_lower = {a.lower() for a in familiar_artists}
 
+    # weights written by learn.py - absent on day one, which is a valid state, not an error
+    w = {}
+    for k, v, why in c.execute("SELECT key, value, why FROM weights WHERE key LIKE 'artist:%'").fetchall():
+        try:
+            n = sum(json.loads(why).values())
+        except Exception:
+            n = 0
+        w[k.split(":", 1)[1]] = (v, n)
+
+    def blocked(artist):
+        """Applied ONLY to artists he does not already play. His answer to exclusions was
+        'don't ditch anybody', so a familiar artist is never dropped on the strength of two skips."""
+        s = w.get((artist or "").lower())
+        return bool(s and s[1] >= 2 and s[0] <= -0.4)
+
     def usable(cand):
-        return (cand["artist"].lower() not in familiar_lower) and cand.get("rank", 0) < 700000
+        return (cand["artist"].lower() not in familiar_lower
+                and cand.get("rank", 0) < 700000
+                and not blocked(cand["artist"]))
+
+    # rotate seed order daily so one artist cannot own an entire bucket
+    day = datetime.datetime.now(datetime.UTC).timetuple().tm_yday
+    step_seeds = STEP_SEEDS[day % len(STEP_SEEDS):] + STEP_SEEDS[:day % len(STEP_SEEDS)]
+    wild_seeds = WILD_SEEDS[day % len(WILD_SEEDS):] + WILD_SEEDS[:day % len(WILD_SEEDS)]
 
     adj_pool = build_pool([a for a in [r[0] for r in c.execute(
         "SELECT artist FROM plays GROUP BY artist ORDER BY COUNT(*) DESC LIMIT 12").fetchall()]],
         "adjacent", per_seed=4, per_nb=4)
-    step_pool = build_pool(STEP_SEEDS, "step", per_seed=8, per_nb=0)
-    wild_pool = build_pool(WILD_SEEDS, "wild", per_seed=6, per_nb=0)
+    step_pool = build_pool(step_seeds, "step", per_seed=8, per_nb=0)
+    wild_pool = build_pool(wild_seeds, "wild", per_seed=6, per_nb=0)
     jew_pool = build_pool([r[0] for r in c.execute("SELECT artist FROM lane_artists").fetchall()],
                           "jewish", per_seed=4, per_nb=4)
     print("POOLS raw adj/step/wild/jewish:", len(adj_pool), len(step_pool), len(wild_pool), len(jew_pool))

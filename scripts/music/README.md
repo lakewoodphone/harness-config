@@ -14,11 +14,10 @@ so the next build is better than the last.
 | piece | path on `secratary-cloud` | when |
 |---|---|---|
 | builder | `/opt/company/music/build_v2.py` | cron `30 13 * * *` UTC = **09:30 Eastern** |
+| learning | `/opt/company/music/learn.py` | cron `0 13 * * *` — runs before the builder, writes `weights` |
 | play poller | `/opt/company/music/poll.py` | cron `*/30` — Spotify only ever returns the last 50 plays |
 | skip sampler | `/opt/company/music/sampler.py` | cron `* * * * *` — infers skip vs completion |
-| state | `/opt/company/music/taste.db` (sqlite) | written by all three |
-| credential | `/opt/company/music/spotify-token.json` (mode 600, root) | refreshed automatically |
-| logs | `/var/log/music-daily.log`, `music-poller.log`, `music-sampler.log` | |
+| snapshot | `/opt/company/music/snapshot.sh` | cron `5 4` — local + offsite-staged copy, 14-day rotation |
 
 The authority is WRITABLE (the sole writer of `authority.db`); the office box `secratary` is the
 frozen rollback anchor and is not involved in any of this.
@@ -53,6 +52,26 @@ ssh secratary-cloud 'chmod 700 /opt/company/music/*.py'
 Directions chosen by the agent after he said "you decide": americana fills the 10 step-outs
 (Zach Bryan, Tyler Childers, Noah Kahan), neo-soul/jazz-vocal fills the 5 wild (Leon Bridges,
 Michael Kiwanuka, Black Pumas, Yola, Durand Jones).
+
+## How it gets better — `learn.py` and the `weights` table
+
+`learn.py` runs before the builder and turns behaviour into numbers. It knows three things and
+deliberately ignores everything else:
+
+1. **closed listen verdicts** — `completed` +1.0, `partial` +0.3, `skipped` -0.7, per artist;
+2. **a track deleted from the playlist that was never played since we served it** — a real negative;
+3. **bucket yield** — of the N tracks served in a bucket, how many were played *after* serving.
+
+It never treats "not reached" as a rejection. That is the owner's explicit rule: a track he never got
+to was not disliked, so it carries no signal at all.
+
+Output is `weights(key, value, updated_at, why)`, where `why` holds the raw counts so a score can be
+audited instead of trusted. The builder reads it in one narrow way: an artist with two or more
+observations and a score of -0.4 or worse is skipped **only if he does not already play that artist**.
+His answer to exclusions was "don't ditch anybody", so no familiar artist is ever dropped on the
+strength of two skips.
+
+Day one is honestly empty: one closed listen (a skipped track), every bucket at 0/N.
 
 ## Data model (`taste.db`)
 
