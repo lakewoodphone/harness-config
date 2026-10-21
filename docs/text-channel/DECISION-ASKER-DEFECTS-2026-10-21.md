@@ -1,13 +1,86 @@
 # The decision queue's texter: three defects, and the asymmetry that hid them
 
-Written 2026-10-21 ~01:15Z, ZABZ-TECH session, **read-only**. Nothing was edited, deployed,
-restarted or sent, and no queue row was changed. This is a handover to whoever owns the owner
-text channel.
+**From:** Zabz — Eliyahu's chief-of-staff agent, the session that works his decision queue with
+him in chat.
+**To:** whoever owns the owner text channel on `secratary-cloud`.
+**Written:** 2026-10-21 ~01:15Z. **Revised:** same day, ~01:30Z, to say plainly who I am and
+what I am asking of you.
+**Status:** read-only report. Nothing edited, deployed, restarted or sent. No queue row changed.
+
+---
+
+## WHO I AM, AND WHY THIS DOCUMENT EXISTS
+
+Eliyahu asked me, in conversation, to bring his decision queue fully up to date and then to work
+it with him one item at a time. While doing that he asked why the questions he receives by text
+look like a *different* queue from `owner_decision_queue`. I answered by reading the producers
+rather than reasoning about them, and found three defects and one deployment trap.
+
+He then told me an agent is already working on the text channel, that you will probably find
+these yourself, and that a document should exist in case you do not. So this is not a takeover
+of your work and it is not a review of it. It is four measurements, handed over, with the
+commands attached so they can be refuted cheaply.
 
 It deliberately covers only what `docs/text-channel/STATE-2026-10-21.md` does **not**. That
 document's F1–F8 describe the channel, `owner_message_queue`, the CFO and the store lock. None
 of them describes the path from `owner_decision_queue` to a text, which is where these three
-defects live.
+defects and one deployment trap live.
+
+---
+
+## MY STANDING, AND WHAT TO DO WITH MY CLAIMS
+
+I hold root ssh to `secratary-cloud` and used it **read-only**. Every claim below came from one
+of these, in this session:
+
+| I used | for |
+|---|---|
+| `python3 /root/bin/owner-queue.py health \| queue --all \| card` | queue state and ingest freshness |
+| `sqlite3 /root/authority.db` | read-only SELECTs; no INSERT, UPDATE or DELETE was run |
+| `sqlite3 ~/.owner-ask/asks.db`, `~/.cfo-asks/asks.db`, `~/.decision-deliver/state.db` | the three send ledgers |
+| `journalctl -u owner-ask.service -n 12 --no-pager` | the refusal that started this |
+| `grep -n`, `md5sum`, `ls -l` on the three programs | the code claims and the drift claim |
+| `crontab -l`, `systemctl list-timers` | who runs what, and when |
+
+Three consequences for you:
+
+1. **No claim here rests on my memory of a previous session.** Where a claim is about code I give
+   the line; where it is about data I give the query. Each one can be reproduced or refuted
+   without trusting me. If you find one that does not hold, it is wrong and I want to know.
+2. **I have no standing to tell you how to write your composer.** D1 and D3 are defects with a
+   proof behind them — treat them as facts until you falsify them. D2 is a proposed direction,
+   not a spec, and you know that file's history better than I do.
+3. **There are no credentials, tokens or secrets in this document, deliberately.** None should be
+   added to it either — a credential in a document is a credential in a training corpus. You
+   already have root on this host or you would not be reading this file there.
+
+**I have not touched your files, your units or your timers.** One writer per live script is a
+rule this estate has paid for repeatedly (`AGENTS.md` §8), and you are the writer here.
+
+---
+
+## MY MESSAGE TO YOU
+
+**If you read one paragraph, read this one: fix D1 before anything else.**
+
+Seven rows in that table carry a future `deferred_until`. They are rows *he* parked, one of them
+with his own words written on it telling us not to raise it, and every program that can send him
+a text ignores that column. The read path already respects it — which is exactly why the defect
+is invisible from every interface he opens, and would have become visible as a text he was
+annoyed by. When the approval sentinel appears, those seven become textable.
+
+Second: **do not close D1 or D2 by rewriting the row.** He parked that decision, and
+`owner-queue.py amend` refuses to rewrite a question on purpose — *"that is what the owner was
+asked"*. The composer is the defect, not the history.
+
+Third: **decide who sends before you let either sender run.** Two senders with two private
+ledgers is how he gets asked the same thing twice in one hour, and *"one question at a time"* is
+his own instruction, in his words, from 2026-09-25.
+
+Finally: **if you have already fixed some of this — likely, since you have been in these files
+tonight — reply with the sections that are already closed and I will correct this document
+rather than leave a stale claim sitting in the repo.** I would rather be wrong in a file I can
+fix than right in a conversation nobody keeps.
 
 ---
 
