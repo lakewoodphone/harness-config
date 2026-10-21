@@ -53,6 +53,17 @@ behind it, history with that sender, and the arithmetic behind its rank. Then:
 
 ## Hard rules
 
+- **An item is open until he acknowledges it, and an acknowledgement is the only thing that closes
+  it.** His words, 2026-10-21, after I presented the Manela voicemail and then let it drop when he
+  moved to another subject: *"i had to look back to see the manela, you shouldve told me about it
+  again to make sure i read it, you have to have some sort of acknowledgement to close it out."* So:
+  an item you have presented and he has not answered **reappears at the top of your next message, in
+  one line, before anything new.** His silence is not a decision; his moving to a different subject is
+  not a dismissal; his answering a *different* question in your message is not an answer to this one.
+  There are exactly three ways an item leaves your hands — he answers (`answer`), he dismisses
+  (`resolve --dismissed`), or he tells you to leave it, which is `defer`, recorded with **his** words
+  so it returns as his and not as yours. Never carry an unanswered item out of a session silently:
+  either it is closed on the record or the last line says it is still open.
 - **A child that executes a row closes it — in the same breath.** Measured 2026-10-19, and it is
   why the owner was asked twice about one deletion: queue #721 (the ten pre-deploy Home Assistant
   backups) was executed at 02:07:42Z by a mesh child, archived to R2 first, freed 7.23 GiB — and the
