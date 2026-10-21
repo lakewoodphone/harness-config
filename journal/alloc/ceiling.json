@@ -4,7 +4,7 @@
  "ceiling": {
   "decisions": 9536,
   "handoff": 12456,
-  "lessons": 12349,
+  "lessons": 12413,
   "pain": 9930,
   "wins": 7194
  },
@@ -19,14 +19,14 @@
  "entries_high_water": {
   "decisions": "D9474",
   "handoff": "H12393",
-  "lessons": "L12288",
+  "lessons": "L12350",
   "pain": "P9867",
   "wins": "W7134"
  },
  "high_water": {
   "decisions": "D9536",
   "handoff": "H12456",
-  "lessons": "L12349",
+  "lessons": "L12413",
   "pain": "P9930",
   "wins": "W7194"
  },
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-21T05:00:11Z",
+ "refreshed_at": "2026-10-21T05:15:10Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 9.9,
- "sources_seen": 14217
+ "seconds": 7.8,
+ "sources_seen": 14222
 }
