@@ -158,6 +158,9 @@ def _cfo_state() -> dict:
         # answer.  Measured 2026-10-21: 56 rows in this store were composed and
         # never sent (parked drafts, older bodies); counting them made L5 read
         # "189 h unanswered" when the owner had been asked nothing at all.
+        auto_resolved = conn.execute(
+            "SELECT count(*) FROM ask WHERE answered_at IS NULL AND coalesce(sent,0)=0"
+        ).fetchone()[0]
         oldest_open = conn.execute(
             "SELECT asked_at FROM ask WHERE sent=1 AND answered_at IS NULL "
             "ORDER BY asked_at ASC LIMIT 1"
@@ -169,6 +172,7 @@ def _cfo_state() -> dict:
             "unanswered": unanswered,
             "stale_unanswered": stale,
             "sent_today": today,
+            "auto_resolved": int(auto_resolved or 0),
             "oldest_open_at": oldest_open[0] if oldest_open else None,
             "oldest_open_age_h": _age_hours(oldest_open[0]) if oldest_open else None,
         }
@@ -235,12 +239,18 @@ def _delivery_wired() -> dict:
     # Scheduled? A crontab line OR a systemd unit both count; absence from both is the
     # failure. We look at the running host's crontab and unit list, read-only.
     import subprocess
+    # CHECK THE PROGRAM THAT ACTUALLY SENDS. Corrected 2026-10-21: the first version looked for
+    # "owner-ask", which by then was only the transaction generator -- so L7 reported
+    # "deliverer scheduled (systemd)" while `decision-deliver` (the program that sends decision
+    # rows) was in neither place. A check that watches a program which no longer sends is worse
+    # than no check: it reports green about the wrong thing.
+    SENDER = os.environ.get("DECISION_SENDER_NAME", "decision-deliver")
     scheduled = False
     where = []
     try:
         cron = subprocess.run(["crontab", "-l"], capture_output=True, text=True,
                               timeout=5).stdout
-        if "owner-ask" in cron:
+        if SENDER in cron:
             scheduled = True
             where.append("crontab")
     except (OSError, subprocess.SubprocessError):
@@ -249,7 +259,7 @@ def _delivery_wired() -> dict:
         units = subprocess.run(["systemctl", "list-units", "--all", "--no-legend",
                                 "--no-pager"], capture_output=True, text=True,
                                timeout=5).stdout
-        if "owner-ask" in units:
+        if SENDER in units:
             scheduled = True
             where.append("systemd")
     except (OSError, subprocess.SubprocessError):
@@ -353,9 +363,10 @@ def evaluate(hours: int = SILENCE_HOURS) -> dict:
                    cfo["unanswered"], cfo["stale_unanswered"] + cfo["unanswered"]))
         else:
             add("L5", True,
-                "CFO: %d sent today, %d unanswered, oldest open %.0f h; newest ask %.1f h ago"
+                "CFO: %d sent today, %d TEXTED ask(s) unanswered (oldest open %.0f h), %d "
+                "auto-resolved from our own records and never texted; newest ask %.1f h ago"
                 % (cfo["sent_today"], cfo["unanswered"], open_age or 0,
-                   cfo["last_age_h"] or 0))
+                   cfo.get("auto_resolved") or 0, cfo["last_age_h"] or 0))
 
     # ---- L6 THE ENGINE ---------------------------------------------------------
     shift = _shift_freshness()
