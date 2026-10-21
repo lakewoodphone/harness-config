@@ -1322,7 +1322,13 @@ def cmd_resolve(con, a) -> int:
     return _close(con, a, "resolved", a.how)
 
 
-def _journal_copy(row_id, question, answer) -> None:
+#: Seconds between the `claim` and the retried append. MEASURED 2026-10-21: after `journal.py
+#: claim decisions` printed "already reserved ... nothing to publish", the very next append
+#: minted D9473 and D9474.
+JOURNAL_CLAIM_PAUSE = 2.5
+
+
+def _journal_copy(row_id, question, answer) -> str:
     """Append the owner's words to the journal so the answer survives the row.
 
     MEASURED 2026-10-13: 14 of 67 answered rows had NO journal copy anywhere. This table is
@@ -1332,17 +1338,22 @@ def _journal_copy(row_id, question, answer) -> None:
 
     BEST EFFORT BY DESIGN: if the journal is unreachable the ANSWER IS STILL RECORDED and this
     says so. His answer must never fail because a secondary copy failed.
+
+    RETURNS "" WHEN THE ENTRY LANDED, AND A REASON WHEN IT DID NOT (2026-10-21). It used to print
+    a note and return None for every outcome, so `cmd_answer` reported the row answered with exit
+    0 while his words existed nowhere but a mutable table cell. MEASURED that night: queue #901
+    lost D9345 and #904 lost D9473 exactly that way. A non-empty return is a FAILURE; the caller
+    must make it visible, never swallow it.
     """
     import os
     import re
     import subprocess
+    import time
     # An explicit override first, so this is testable against a throwaway journal tree and so an
     # operator can point it somewhere else without editing the tool.
     j = os.environ.get("OWNER_QUEUE_JOURNAL") or None
     if j and not os.path.exists(j):
-        print("  note: OWNER_QUEUE_JOURNAL names a path that does not exist; the answer is in the "
-              "queue row only")
-        return
+        return "OWNER_QUEUE_JOURNAL names a path that does not exist (%s)" % j
     if not j:
         for cand in (os.path.expanduser("~/code/harness-config/journal/tools/journal.py"),
                      "/root/code/harness-config/journal/tools/journal.py"):
@@ -1350,27 +1361,83 @@ def _journal_copy(row_id, question, answer) -> None:
                 j = cand
                 break
     if not j:
-        print("  note: journal.py not found -- the answer is in the queue row only")
-        return
+        return "journal.py not found (looked in ~/code/harness-config and /root/code/harness-config)"
     title = "Owner answer, queue row #%s: %s" % (
         row_id, re.sub(r"\s+", " ", question or "")[:80])
     body = ("Recorded by `owner-queue.py answer` on %s. The row is a mutable table; this entry is\n"
             "the append-only copy. If the two ever disagree, the row was edited.\n\n"
             "**Asked**: %s\n\n**His answer**: %s" % (now(), question or "(not recorded)", answer or ""))
+    cmd = [sys.executable, j, "append", "decisions", "--title", title, "--body", body,
+           "--quiet", "--no-fetch", "--tags", "owner-answer",
+           "--refs", "owner_decision_queue#%s" % row_id]
+
+    def _run(argv):
+        return subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=120)
+
     try:
-        out = subprocess.run(
-            [sys.executable, j, "append", "decisions", "--title", title, "--body", body,
-             "--quiet", "--no-fetch", "--tags", "owner-answer",
-             "--refs", "owner_decision_queue#%s" % row_id],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+        out = _run(cmd)
     except Exception as exc:  # noqa: BLE001
-        print("  note: could not reach the journal (%s); the answer is in the queue row only" % exc)
-        return
+        return "could not reach the journal (%s)" % exc
+    # THE COLLISION IS TRANSIENT AND THE TOOL SAYS SO. MEASURED 2026-10-21: #901 refused D9345 and
+    # #904 refused D9473, each with exit 4 and "REFUSING to write ... LOCALLY"; the window had just
+    # been reserved locally, one `claim` published it, and the very next append minted. The old
+    # code printed that refusal as a note and returned 0, so his words were never written and
+    # nothing said so. One claim, one short pause, one retry.
+    blob = (out.stderr or "") + (out.stdout or "")
+    if out.returncode != 0 and "REFUSING to write" in blob and "LOCALLY" in blob:
+        try:
+            cl = _run([sys.executable, j, "claim", "decisions"])
+            claim = "claim rc=%d %s" % (
+                cl.returncode, (cl.stdout or cl.stderr or "").strip()[:160])
+        except Exception as exc:  # noqa: BLE001
+            claim = "claim could not run (%s)" % exc
+        reason = next((l for l in blob.splitlines() if "REFUSING to write" in l), "")
+        print("  journal: id collision (%s); %s; retrying once in %.1fs"
+              % (" ".join((reason or blob).split())[:140], claim, JOURNAL_CLAIM_PAUSE))
+        time.sleep(JOURNAL_CLAIM_PAUSE)
+        try:
+            out = _run(cmd)
+        except Exception as exc:  # noqa: BLE001
+            return "journal refused the id, then %s, then the retry could not run (%s)" % (
+                claim, exc)
+        if out.returncode != 0:
+            return "journal refused the id twice; %s; retry said: %s" % (
+                claim, (out.stderr or out.stdout or "").strip()[:220])
+        print("  journal: claimed the window and landed it on the retry -- "
+              + (out.stdout or "").strip()[:100])
+        return ""
     if out.returncode == 0:
         print("  journal: " + (out.stdout or "").strip()[:120])
-    else:
-        print("  note: journal append failed (%s); the answer is in the queue row only"
-              % (out.stderr or "").strip()[:120])
+        return ""
+    return "journal append failed: " + (out.stderr or out.stdout or "").strip()[:200]
+
+
+def _journal_failure_on_row(con, row_id, why) -> str:
+    """Write a dropped journal copy ON THE ROW, so the row itself records what happened.
+
+    The journal is the durable record; when the mirror fails, the row is the only place his words
+    still exist and the only place a later session looks. A terminal note scrolls away, so a dated
+    line naming the failure and the repair is appended to `context` -- the row's own audit field,
+    rendered whenever the row is read and preserved by `amend`. An ANSWERED row is not what `show`
+    renders, so this is the durable half of the alarm; the loud half is the exit code and the
+    stderr line `cmd_answer` prints. Never raises: the answer is already recorded and must not be
+    lost to a reporting failure.
+    """
+    line = ("JOURNAL COPY FAILED %s: the durable copy of this answer was NOT written (%s). "
+            "His words survive in this row only -- re-append them with `journal.py append "
+            "decisions`, or run journal/tools/reconcile-owner-answers.py."
+            % (now(), " ".join(str(why).split())[:600]))
+    try:
+        con.commit()
+        exec_locked(con,
+                    "UPDATE owner_decision_queue SET context = COALESCE(context, '') || ? "
+                    "WHERE id = ?", ("\n\n" + line, row_id))
+        con.commit()
+    except Exception as exc:  # noqa: BLE001
+        print("  (could not write the failure onto row #%s either: %s)" % (row_id, exc),
+              file=sys.stderr)
+    return line
 
 
 def cmd_answer(con, a) -> int:
@@ -1393,7 +1460,15 @@ def cmd_answer(con, a) -> int:
     )
     con.commit()
     print(f"#{a.id} -> answered")
-    _journal_copy(a.id, row[0], a.answer)
+    why = _journal_copy(a.id, row[0], a.answer)
+    if why:
+        # DO NOT REPORT SUCCESS (2026-10-21): the row is answered, the durable copy is not.
+        line = _journal_failure_on_row(con, a.id, why)
+        sys.stdout.flush()   # keep the failure AFTER "#N -> answered" in a piped log
+        print("  " + line, file=sys.stderr)
+        print("  the answer IS recorded on the row -- do NOT re-run `answer`; repair the journal "
+              "copy instead", file=sys.stderr)
+        return 3
     return 0
 
 
