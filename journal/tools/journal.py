@@ -1258,6 +1258,120 @@ def _write_db(entries: list, aliases: list, refs: list) -> str:
     return "journal.db + fts5" if fts5 else "journal.db (no fts5)"
 
 
+def append_index_entry(entry_file: Path, kind: str) -> bool:
+    """Add ONE new entry to the index instead of rebuilding it. False means "rebuild instead".
+
+    WHY THIS EXISTS (P1, 2026-10-21). Every append called `rebuild_cache()`, which parsed all
+    4,753 entry files (7.0 s), rewrote `index/entries.tsv` (13 MB) and rewrote
+    `index/journal.db` (27 MB) -- to add one row. Worse, `journal.db` is TRACKED IN GIT: an
+    append therefore staged a new ~33.7 MB blob, and the repository's history measured
+    3,085 such blobs / 15.2 GB, with the ten largest objects in the whole repo all being
+    `journal/index/journal.db`. That is why `git fetch` cannot finish on this repo and why every
+    id-ceiling read that depended on a fetch had been stale for weeks.
+
+    The index is derived data. Adding one row to it is one INSERT and one line of TSV.
+
+    IT IS ONLY SAFE WHEN THE INDEX WAS COMPLETE FOR THE TREE THE WRITE LANDED IN, so every
+    condition is checked and any doubt falls back to the full rebuild:
+      * the database and the TSV exist and carry this tool's cache version;
+      * the TSV starts with the header this version writes;
+      * the id is not already in the database.
+    A wrong incremental write cannot silently pass: `cache_fresh()` compares the entry COUNT
+    and a fingerprint of the tree, so a missed row shows up as a stale cache and the next read
+    rebuilds. `check` verifies the db against `entries/` independently.
+    """
+    idir = index_dir()
+    db = idir / "journal.db"
+    tsv = idir / "entries.tsv"
+    if not (db.exists() and tsv.exists()):
+        return False
+    stamp = read_stamp()
+    if not stamp or stamp.get("cache_version") != CACHE_VERSION:
+        return False
+    head = ""
+    try:
+        with tsv.open("r", encoding="utf-8", errors="replace") as fh:
+            head = fh.readline().rstrip("\r\n")
+    except OSError:
+        return False
+    if head != INDEX_HEADER:
+        return False
+    try:
+        parsed = parse_entry(entry_file, kind)
+    except Exception:
+        return False
+    events = load_status_events()
+
+    # The critical section is one INSERT and one line append: milliseconds, and it keeps two
+    # concurrent appends from interleaving a half line into the TSV.
+    with write_section("append-index", wait=5.0) as locked:
+        if not locked:
+            return False
+        try:
+            con = sqlite3.connect(str(db), timeout=10.0)
+        except Exception:
+            return False
+        try:
+            if con.execute("select 1 from entries where id_full=?",
+                           (parsed["id_full"],)).fetchone():
+                return False                      # already indexed; let the rebuild decide
+            con.execute(
+                "INSERT INTO entries VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (parsed["kind"], parsed["id_full"], parsed.get("num") or 0,
+                 parsed.get("suffix") or "", parsed.get("date") or "", parsed.get("host") or "",
+                 parsed.get("status") or "", parsed["heading"], parsed["file"],
+                 parsed["line_start"], parsed["line_end"], parsed["hash"],
+                 ",".join(parsed.get("tags") or []), ",".join(parsed.get("refs") or [])))
+            try:
+                con.execute("INSERT INTO fts VALUES (?,?,?,?)",
+                            (parsed["id_full"], parsed["kind"], parsed["heading"],
+                             parsed["body"]))
+            except Exception:
+                # No FTS5 in this database: the search path falls back on its own, and the
+                # rebuild is what creates the table. Not a reason to fail the append.
+                pass
+            known = {r[0] for r in con.execute("select id_full from entries")}
+            for row in _collect_refs([parsed]):
+                con.execute("INSERT INTO refs VALUES (?,?,?,?)",
+                            (row["src_kind"], row["src_id"], row["ref"],
+                             1 if row["ref"] in known else 0))
+            con.execute("INSERT OR REPLACE INTO meta VALUES ('built', ?)", (now_utc(),))
+            con.commit()
+        except Exception:
+            try:
+                con.rollback()
+            except Exception:
+                pass
+            return False
+        finally:
+            con.close()
+        try:
+            line = _entries_tsv_rows([parsed], events)[-1]
+            with tsv.open("a", encoding="utf-8", newline="\n") as fh:
+                fh.write(line + "\n")
+        except OSError:
+            return False
+
+    # The stamp is what tells a reader the index is fresh for this tree. Recomputing the tree
+    # fingerprint (7,615 stats, 1.4 s) is the price of that honesty, and it is still 6x cheaper
+    # than re-parsing the entries.
+    try:
+        sig = tree_signature()
+        stamp = read_stamp()
+        stamp.update(sig)
+        stamp["built"] = now_utc()
+        stamp["entries"] = int(stamp.get("entries") or 0) + 1
+        stamp["entries_count"] = sig.get("entries_count")
+        ceiling = dict(stamp.get("ceiling") or {})
+        ceiling[kind] = max(int(ceiling.get(kind) or 0), int(parsed.get("num") or 0))
+        stamp["ceiling"] = ceiling
+        atomic_write(idir / "stamp.json",
+                     json.dumps(stamp, indent=1, sort_keys=True) + "\n")
+    except Exception:
+        return False
+    return True
+
+
 def rebuild_cache(compute_drift: bool = False) -> dict:
     entries, problems = load_entries()
     events = load_status_events()
@@ -1272,6 +1386,18 @@ def rebuild_cache(compute_drift: bool = False) -> dict:
     stamp = tree_signature()
     ceiling = {kind: max_number(kind) for kind in KINDS}
     prev = read_stamp()
+    # CARRY FORWARD EVERY KEY THIS FUNCTION DOES NOT OWN (P1, 2026-10-21). It used to carry only
+    # the keys it happened to know about, so any hint another part of the tool had recorded was
+    # silently DELETED by the very next write. Two consequences, both measured tonight:
+    #   * `remote_ids` -- the memo that makes the id ceiling one `for-each-ref` (0.13 s) instead
+    #     of a 25-ref scan -- vanished on every rebuild, so every append rescanned;
+    #   * `ledger_ceiling` -- the highest window ANY OTHER host has claimed, which
+    #     `allocation_ceiling` reads as a term -- vanished too, so a rebuild quietly removed the
+    #     other hosts' claims from the id ceiling. That one is a collision risk, not a slowdown.
+    # A field a rebuild erases is not a memo, it is a race. `setdefault` keeps every key the
+    # fresh signature above already owns and carries the rest forward untouched.
+    for _k, _v in prev.items():
+        stamp.setdefault(_k, _v)
     git_ceiling = prev.get("git_ceiling") or {}
     stamp.update({
         "built": now_utc(),
@@ -1363,8 +1489,20 @@ def ensure_cache(compute_drift: bool = False) -> bool:
         return True
     lock = JOURNAL / LOCK_NAME
     if lock.exists() and not _lock_is_mine(lock):
+        # WAIT A MOMENT BEFORE GIVING UP (P1, 2026-10-21). The write lock's critical section is
+        # now a file write -- milliseconds -- so "the lock file exists" is almost never "a
+        # writer will be busy for a while". Giving up on sight meant every read taken while any
+        # append was in flight fell through to `load_entries()`, and that fallback is what every
+        # session was actually stuck on: 4,764 files, 15.4 s of a quiet machine, and 774 s
+        # measured for one `status` while six appends were grepping. Three seconds of patience
+        # converts almost every one of those into a cache hit.
+        deadline = time.monotonic() + READ_LOCK_POLL_SEC
+        while time.monotonic() < deadline and lock.exists() and not _lock_is_mine(lock):
+            time.sleep(0.05)
+    if lock.exists() and not _lock_is_mine(lock):
         held = _rl(lock).strip().replace("\n", " / ")[:120]
-        note("journal: cache is stale and locked by %s — answering from entries/" % (held or "another session"))
+        note("journal: cache is stale and locked by %s — answering from the index, not from "
+             "entries/" % (held or "another session"))
         return False
     try:
         # always measure the drift on a rebuild: `status` reports it from the stamp, and a
@@ -1389,6 +1527,50 @@ def _lock_is_mine(lock: Path) -> bool:
 # Reading entries
 # ---------------------------------------------------------------------------
 
+def from_index_db():
+    """(entries, "index/journal.db") from the SQLite cache, or ([], "").
+
+    WHY THIS IS A TIER AND NOT A FILE WALK. MEASURED 2026-10-21: whenever the write lock was
+    held, `catalog()` fell through to `load_entries()` -- 4,764 markdown files. Idle that is
+    15.4 s; with six appends grepping the repo it measured 774 s for ONE `status`, which is the
+    "all the agents are frozen" report. The database holds the same catalog in a single query
+    (4,764 rows, tens of milliseconds), it is written by the same `rebuild_cache()` pass as
+    `entries.tsv`, and it is the source the search path already trusts. It is answered with
+    `fresh=False` and a CACHE-stale line, because the caller must know it is a snapshot: a
+    fresh writer's newest entry is not in it.
+    """
+    db = index_dir() / "journal.db"
+    if not db.exists():
+        return [], ""
+    rows = []
+    try:
+        import sqlite3
+        con = sqlite3.connect("file:%s?mode=ro" % str(db).replace("\\", "/"), uri=True,
+                              timeout=2.0)
+        try:
+            rows = con.execute(
+                "select kind, id_full, num, suffix, date, host, status, heading, file, "
+                "line_start, line_end, hash, tags, refs from entries").fetchall()
+        finally:
+            con.close()
+    except Exception:
+        return [], ""
+    out = []
+    for r in rows:
+        try:
+            out.append(Entry(kind=r[0], id_full=r[1], num=int(r[2] or 0), suffix=r[3] or "",
+                             date=r[4] or "", host=r[5] or "", status=r[6] or "",
+                             heading=r[7] or "", body="",
+                             tags=[t for t in (r[12] or "").split(",") if t],
+                             refs=[t for t in (r[13] or "").split(",") if t],
+                             alias_of="", sha="", file=r[8] or "",
+                             line_start=int(r[9] or 1), line_end=int(r[10] or 1),
+                             hash=r[11] or "", problems=[], meta={}))
+        except Exception:
+            continue
+    return out, ("index/journal.db" if out else "")
+
+
 def catalog():
     """The entry list used by every read command. Never needs a subprocess."""
     fresh = ensure_cache()
@@ -1398,8 +1580,11 @@ def catalog():
         entries = _from_tsv(tsv) if tsv.exists() else []
     source = "index/entries.tsv"
     if not entries:
-        entries, _problems = load_entries()
+        # THE CHEAP TIER BEFORE THE FILE WALK: the database, not 4,764 files (P1, 2026-10-21).
+        entries, source = from_index_db()
+    if not entries:
         source = "entries/"
+        entries, _problems = load_entries()
     return entries, source, fresh
 
 
@@ -3360,6 +3545,226 @@ def ceiling_table() -> dict:
     return {kind: max_number(kind) for kind in KINDS}
 
 
+# ---------------------------------------------------------------------------
+# P1, 2026-10-21 — THE WRITE PATH NO LONGER GREPS THE REPO OR FETCHES UNBOUNDED.
+#
+# Every session on every machine was freezing on a journal write. Measured on ZABZ-YOGA, one
+# machine, the tree they all share:
+#
+#   grep over the working tree .................. 332.6 s  (its 60 s cap killed it: 60 s wasted)
+#   grep over HEAD .............................. 60 s     (killed; nothing returned)
+#   grep over ONE remote ref .................... 15.1 s   (155 such refs exist; 25 were read)
+#   25 refs, one grep each ...................... 377 s
+#   git fetch --all ............................. > 25 s cap, and the cap killed `git.exe` ONLY:
+#                                                 the `ssh` and `git index-pack` beneath it kept
+#                                                 running, so every timed-out append handed a
+#                                                 live fetch to the next one (7 `git.exe` and
+#                                                 128 packfiles were standing on the box)
+#
+#   => roughly NINE MINUTES inside one append before it wrote a word, x six concurrent
+#      sessions. The appends did not fail; they starved, and every reader that fell back to
+#      `entries/` while they held the lock paid 774 s for the privilege.
+#
+# The ids were never in the file CONTENTS. An entry's id is its FILENAME
+# (`entries/lessons/L1776.md`) -- which is what `max_number()` already relies on locally. A
+# tree listing answers the same question as a content grep:
+#
+#   git ls-tree -r --name-only <ref> -- journal/entries/<kind> ... 0.20 s per ref
+#   25 refs .................................................... 4.74 s   (75x cheaper)
+#
+# and that is memoised on a fingerprint of every ref, so a write that moved no ref costs one
+# `for-each-ref` (0.13 s) and no scan at all.
+# ---------------------------------------------------------------------------
+REMOTE_SCAN_MAX_REFS = 25
+FETCH_MIN_INTERVAL_SEC = 120.0
+FETCH_TIMEOUT_SEC = 12.0
+FETCH_MARKER = "state/.fetch-inflight"
+READ_LOCK_POLL_SEC = 3.0
+
+
+def _stamp_patch(**fields) -> None:
+    """Merge hint fields into index/stamp.json. A writer never fails because a hint did."""
+    try:
+        stamp = read_stamp()
+        if not stamp:
+            return
+        stamp.update(fields)
+        atomic_write(index_dir() / "stamp.json",
+                     json.dumps(stamp, indent=1, sort_keys=True) + "\n")
+    except Exception:
+        pass
+
+
+def _kill_tree(proc) -> None:
+    """Kill a subprocess AND every process it spawned.
+
+    MEASURED 2026-10-21: `subprocess.run(..., timeout=25)` around `git fetch --all` killed
+    `git.exe` and left the `ssh` and `git index-pack` it had started running. Each timed-out
+    append therefore produced a live fetch for the next one to collide with. git is a process
+    TREE; killing the tree is the only thing that stops it.
+    """
+    if proc.poll() is not None:
+        return
+    try:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                           capture_output=True, timeout=20)
+        else:
+            import signal
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except Exception:
+        pass
+    try:
+        proc.wait(timeout=5)
+    except Exception:
+        pass
+
+
+def _run_bounded(argv, timeout: float):
+    """Run argv, killing the whole tree on timeout. Returns (rc, stdout); 124 means timed out."""
+    kw = {} if os.name == "nt" else {"start_new_session": True}
+    try:
+        proc = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                text=True, encoding="utf-8", errors="replace", **kw)
+    except Exception:
+        return 127, ""
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+        return proc.returncode, out or ""
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)
+        return 124, ""
+
+
+def remote_refs():
+    """(fingerprint, refs): every remote-tracking ref, bounded, with one cheap signature.
+
+    The signature makes the expensive half memoisable: if no ref moved, the last scan is
+    still the whole answer, and a writer pays 0.13 s instead of a scan.
+    """
+    rc, out = _git("for-each-ref", "--format=%(refname) %(objectname)", "refs/remotes/origin")
+    if rc != 0:
+        return "", []
+    rows = [ln for ln in (out or "").splitlines() if ln.strip()]
+    sig = hashlib.sha1("\n".join(rows).encode("utf-8", "replace")).hexdigest()
+    refs = [ln.split(" ", 1)[0] for ln in rows][:REMOTE_SCAN_MAX_REFS]
+    return sig, refs
+
+
+def remote_kind_top(kind: str, refs) -> int:
+    """Highest id of `kind` in those refs, read from ENTRY FILENAMES -- never file contents."""
+    letter = KINDS[kind]["letter"]
+    best = 0
+    for ref in refs:
+        rc, out = _git("ls-tree", "-r", "--name-only", ref, "--", "journal/entries/%s" % kind)
+        if rc != 0:
+            continue
+        for ln in (out or "").splitlines():
+            base = ln.rsplit("/", 1)[-1]
+            if not base.startswith(letter) or not base.endswith(".md"):
+                continue
+            stem = base[1:-3]
+            if stem.isdigit() and int(stem) > best:
+                best = int(stem)
+    return best
+
+
+def spawn_ceiling_refresh(repo) -> bool:
+    """Start ONE detached `refresh` and return immediately -- a fetch NEVER blocks a write.
+
+    MEASURED 2026-10-21: this repo is 4.85 GB across 128 packfiles, and `git fetch --all` did
+    not complete inside 25 s (the old inline cap) or inside 12 s (the first version of this
+    fix), so every append paid a timeout, killed a `git.exe`, left `ssh`/`index-pack` running,
+    and STILL had a stale ceiling (`stamp.json:fetch_rc=124`). A write must not wait for the
+    network at all. The refresh is therefore a detached child: the append is answered from what
+    is already recorded, and the refs it needs are ready for the next write.
+
+    Single-flight and rate-limited by the same marker and `fetched_at` the inline version used,
+    so a burst of appends still produces one fetch.
+    """
+    stamp = read_stamp()
+    last = float(stamp.get("fetched_at") or 0)
+    if last and (time.time() - last) < FETCH_MIN_INTERVAL_SEC:
+        return False
+    marker = JOURNAL / FETCH_MARKER
+    try:
+        if marker.exists() and (time.time() - marker.stat().st_mtime) < 900:
+            return False                      # another session's refresh is already running
+    except OSError:
+        pass
+    try:
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("%d %s\n" % (os.getpid(), now_utc()), encoding="utf-8")
+        kw = {}
+        if os.name == "nt":
+            kw["creationflags"] = 0x00000008 | 0x00000200   # DETACHED_PROCESS | NEW_PROCESS_GROUP
+        else:
+            kw["start_new_session"] = True
+        subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "refresh",
+                          "--delay", "20"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kw)
+        return True
+    except Exception:
+        try:
+            marker.unlink()
+        except OSError:
+            pass
+        return False
+
+
+def cmd_refresh(args) -> int:
+    """Fetch the coordination refs and re-record the ceiling. THE slow path, on purpose.
+
+    Nobody waits on this: `spawn_ceiling_refresh()` launches it detached from the writer path,
+    and an operator can run it by hand when a ceiling has to be current *now*. It is allowed a
+    long wall clock precisely because it is not inside a write.
+    """
+    repo = str(JOURNAL.parent)
+    tmo = float(getattr(args, "timeout", 300.0) or 300.0)
+    delay = max(0.0, float(getattr(args, "delay", 0.0) or 0.0))
+    if delay:
+        # Settle first. A write that spawns a refresh does not want the fetch competing with
+        # its own index rebuild for the same disk -- measured 2026-10-21: the spawn made a
+        # 15 s append take 30 s, which is the cost this delay removes.
+        time.sleep(min(delay, 120.0))
+    # FETCH THE COORDINATION REFS, NOT `--all`. MEASURED 2026-10-21 on this repo: `git fetch
+    # --all` (155 refs, 4.85 GB, 128 packfiles) did not finish in 25 s OR in 300 s, so it never
+    # once refreshed anything and every append paid for it; the SINGLE ref that carries the
+    # publish target and `alloc/bands.tsv` came back in **2.8 s, exit 0**. The ceiling only
+    # needs the monotonically recorded maximum from the other refs (stamp.json:git_ceiling),
+    # and the safety that matters -- another host's claimed window -- lives on master.
+    refs_to_fetch = ["+refs/heads/master:refs/remotes/origin/master"]
+    if getattr(args, "all", False):
+        argv_fetch = ["git", "-C", repo, "fetch", "--quiet", "--no-tags", "--all"]
+    else:
+        argv_fetch = ["git", "-C", repo, "fetch", "--quiet", "--no-tags", "origin"] + refs_to_fetch
+    rc, _ = _run_bounded(argv_fetch, tmo)
+    _stamp_patch(fetched_at=time.time(), fetch_rc=rc)
+    _LEDGER_REF_CACHE["at"] = 0.0
+    _LEDGER_REF_CACHE["rows"] = None
+    sig, refs = remote_refs()
+    tops = {}
+    for kind in KINDS:
+        tops[kind] = remote_kind_top(kind, refs)
+        if tops[kind]:
+            note_git_ceiling({kind: tops[kind]})
+    if sig:
+        _stamp_patch(remote_ids={"refs_sig": sig, "tops": tops, "scanned_at": now_utc()})
+    try:
+        (JOURNAL / FETCH_MARKER).unlink()
+    except OSError:
+        pass
+    note("journal: refs refreshed (git rc=%d in <=%.0fs) — ceiling now %s"
+         % (rc, tmo, " ".join("%s:%d" % (k, v) for k, v in sorted(tops.items())) or "unchanged"))
+    if rc != 0:
+        # A FAILED FETCH IS NOT A FAILED WRITE, but it is not silence either: the ceiling is
+        # unchanged and every append keeps using what is recorded. Exit 0 so a scheduled run
+        # does not alarm; the rc is in the stamp and on this line.
+        note("journal: the fetch did NOT complete — the recorded ceiling stands, nothing was "
+             "lowered. Check the remote before trusting a cross-machine id.")
+    return 0
+
+
 def git_max(kind: str, fetch: bool = False):
     """Highest number visible in any local or remote git ref. Subprocess by design.
 
@@ -3371,16 +3776,12 @@ def git_max(kind: str, fetch: bool = False):
     nums = []
     rev = "no-git"
     if fetch:
-        try:
-            subprocess.run(["git", "-C", str(repo), "fetch", "--quiet", "--all"],
-                           capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", timeout=25)
-        except Exception:
-            pass
-        # THE WRITER-PATH REFRESH for the ledger reader: the fetch above may have moved the very
-        # refs that carry another host's `bands.tsv`, so the memoised sweep is dropped.
-        _LEDGER_REF_CACHE["at"] = 0.0
-        _LEDGER_REF_CACHE["rows"] = None
+        # A write NEVER waits for the network (P1, 2026-10-21). This used to run a fetch inline
+        # -- `git fetch --all` against a 4.85 GB repo, which never completed inside its cap, so
+        # each append paid a timeout, orphaned an `ssh`/`index-pack`, and still used a stale
+        # ceiling. Now the fetch is a detached child and this call only STARTS it; the number
+        # below is answered from what has already been recorded.
+        spawn_ceiling_refresh(repo)
     try:
         # EVERY git call that DECODES TEXT pins utf-8/replace. A git call left on the
         # locale codec (cp1252 on Windows) dies in its reader thread with
@@ -3394,51 +3795,35 @@ def git_max(kind: str, fetch: bool = False):
         rev = rc.stdout.strip() or "no-git"
     except Exception:
         pass
-    pattern = "^## %s[0-9]+ |^\\*\\*%s[0-9]+ |^<!-- e:%s\\|%s[0-9]+" % (letter, letter, kind, letter)
-    try:
-        out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern],
-                             capture_output=True, text=True, encoding="utf-8",
-                             errors="replace", timeout=60)
-        for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
-            nums.append(int(m.group(1)))
-    except Exception:
-        pass
-    try:
-        out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern, "HEAD"],
-                             capture_output=True, text=True, encoding="utf-8",
-                             errors="replace", timeout=60)
-        for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
-            nums.append(int(m.group(1)))
-    except Exception:
-        pass
-    # AND EVERY REMOTE-TRACKING REF, because the fetch above is otherwise never read.
+    # ---- THE CEILING, FROM FILENAMES (see the P1 block comment above) --------------------
+    # An entry's id IS its filename, so one tree listing per ref answers what a whole-tree
+    # content grep was asked -- 0.20 s instead of 15.1 s per ref. The result is memoised on a
+    # fingerprint of every remote ref, so a write that moved no ref pays one `for-each-ref`
+    # (0.13 s) and no scan at all.
     #
-    # MEASURED 2026-09-15, ZABZ-TECH: fourteen ids meant two different entries -- D185, D186,
-    # H322-H328, L1637-L1639, W149, W150 -- and the checkout could not fast-forward because every one
-    # of them was an untracked local file that origin/master also had with different content. The
-    # mechanism is here: `git grep <pattern>` with NO ref greps the WORKING TREE, the second call greps
-    # HEAD, and neither can see a number that exists only on origin. So `cmd_append`'s
-    # `git_max(kind, fetch=True)` fetched, then ignored what it had fetched, and two machines that had
-    # both just fetched still both chose the same next number.
-    #
-    # This is the fix for the cause. The earlier remedy was manual (the "renumbered H234 -> H328"
-    # commentary in the record) and it cost a session every time it happened.
-    #
-    # Bounded on purpose: a writer path must not hang on a hub with hundreds of refs.
-    try:
-        refs = subprocess.run(["git", "-C", str(repo), "for-each-ref", "--format=%(refname)",
-                               "refs/remotes/origin"],
-                              capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=20)
-        remote_refs = [r for r in (refs.stdout or "").split() if r][:25]
-        for ref in remote_refs:
-            out = subprocess.run(["git", "-C", str(repo), "grep", "-h", "-E", pattern, ref],
-                                 capture_output=True, text=True, encoding="utf-8",
-                                 errors="replace", timeout=60)
-            for m in re.finditer(letter + r"(\d+)", out.stdout or ""):
-                nums.append(int(m.group(1)))
-    except Exception:
-        pass
+    # THE REASON THE REFS ARE READ AT ALL (kept from the measurement of 2026-09-15): grep with
+    # no ref answers the WORKING TREE and grep HEAD answers this checkout, so neither can see a
+    # number that exists only on origin -- and two machines that had both just fetched still
+    # chose the same next number (14 ids meant two different entries: D185, D186, H322-H328,
+    # L1637-L1639, W149, W150). The remote half is not optional; only the way it is READ was.
+    stamp = read_stamp()
+    memo = stamp.get("remote_ids") or {}
+    sig, refs = remote_refs()
+    tops = dict(memo.get("tops") or {})
+    recorded = int((stamp.get("git_ceiling") or {}).get(kind) or 0)
+    if sig and memo.get("refs_sig") == sig and kind in tops:
+        nums.append(int(tops.get(kind) or 0))          # no ref moved since the last scan
+    elif refs:
+        mined = remote_kind_top(kind, refs)
+        tops[kind] = max(int(tops.get(kind) or 0), mined)
+        _stamp_patch(remote_ids={"refs_sig": sig, "tops": tops, "scanned_at": now_utc()})
+        if mined:
+            nums.append(mined)
+    # NEVER BELOW WHAT WAS ALREADY RECORDED. A ceiling is raised, never lowered, so a
+    # force-pushed, pruned or unreadable ref cannot walk the next window back into a number
+    # another machine has already handed out.
+    if recorded:
+        nums.append(recorded)
     if nums:
         # WIRE THE CEILING TO THE MEASUREMENT. This call is the reason the field exists and it
         # was missing: `note_git_ceiling()` was defined and called from nowhere, so
@@ -3642,24 +4027,61 @@ def ledger_ref_rows(force: bool = False) -> list:
             refs = [r for r in (out.stdout or "").split() if r][:LEDGER_REF_LIMIT]
         except Exception:
             refs = []
-        for ref in refs:
-            left = deadline - time.monotonic()
-            if left <= 0:
-                break
+        # ONE `cat-file --batch` FOR ALL OF THEM. MEASURED 2026-10-21: 25 separate
+        # `git show <ref>:journal/alloc/bands.tsv` calls cost 6.49 s on this repo, and that is
+        # paid on EVERY append -- `allocation_ceiling` and `next_writable` both ask, and each
+        # append is a fresh process so the memo starts cold. The same 25 objects come back from
+        # ONE process; the request/response format is `<oid> <type> <size>\n<bytes>\n` per object
+        # and `<input> missing\n` for a ref that has no ledger.
+        wanted = ["%s:%s" % (ref, path) for ref in refs]
+        if wanted:
+            budget = max(1.0, deadline - time.monotonic())
             try:
-                blob = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, path)],
-                                      capture_output=True, text=True, encoding="utf-8",
-                                      errors="replace", timeout=left)
+                batch = subprocess.run(["git", "-C", repo, "cat-file", "--batch"],
+                                       input=("\n".join(wanted) + "\n").encode("utf-8"),
+                                       capture_output=True, timeout=budget)
+                if batch.returncode == 0:
+                    rows.extend(_parse_catfile_batch(batch.stdout or b""))
             except Exception:
-                continue
-            if blob.returncode == 0 and (blob.stdout or "").strip():
-                rows.extend(_parse_ledger(blob.stdout))
+                pass
     _LEDGER_REF_CACHE["at"] = time.monotonic()
     _LEDGER_REF_CACHE["rows"] = rows
     try:
         note_ledger_ceiling(rows)
     except Exception:
         pass
+    return rows
+
+
+def _parse_catfile_batch(data: bytes) -> list:
+    """Ledger rows from one `git cat-file --batch` response.
+
+    BYTES, NOT TEXT, on purpose: the header carries the blob's size in BYTES, so parsing the
+    stream as decoded text would mis-count any non-ASCII byte and start reading a header from
+    the middle of a blob. bands.tsv is ASCII today; a parser that is only correct while that
+    stays true is exactly the kind of latent breakage this file has paid for before.
+    """
+    rows = []
+    pos = 0
+    n = len(data)
+    while pos < n:
+        nl = data.find(b"\n", pos)
+        if nl < 0:
+            break
+        head = data[pos:nl].decode("utf-8", "replace")
+        pos = nl + 1
+        if head.endswith(" missing") or head.endswith(" ambiguous") or not head.strip():
+            continue
+        parts = head.split(" ")
+        if len(parts) < 3:
+            continue
+        try:
+            size = int(parts[2])
+        except ValueError:
+            continue
+        blob = data[pos:pos + size]
+        pos = min(n, pos + size + 1)          # each object is followed by exactly one \n
+        rows.extend(_parse_ledger(blob.decode("utf-8", "replace")))
     return rows
 
 
@@ -4452,7 +4874,12 @@ def cmd_append(args) -> int:
         note("journal: reserved a new id window for %s -- %s" % (host_tag(), reserve_detail))
     # Derived data. The entry file is already written, so a concurrent rebuild in another
     # session sees the same tree; the cache is a convenience the readers self-heal from.
-    stamp_now = _rebuild_cache_after_write()
+    # ONE ROW, NOT A REBUILD (P1, 2026-10-21): see append_index_entry. The rebuild remains the
+    # fallback for every case the incremental path cannot prove safe.
+    if not append_index_entry(path, kind):
+        stamp_now = _rebuild_cache_after_write()
+    else:
+        stamp_now = read_stamp()
     if getattr(args, "json", False):
         print(json.dumps({"id": want, "file": _rel_of(path), "kind": kind,
                           "heading": entry["heading"], "bumped_from": bumped_from,
@@ -5484,6 +5911,16 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--force", action="store_true")
     s.add_argument("--stats", action="store_true")
     s.set_defaults(func=cmd_index)
+
+    s = add("refresh", "fetch the coordination refs and re-record the id ceiling (never on a write path)")
+    s.add_argument("--timeout", type=float, default=300.0,
+                   help="how long the fetch may run; nobody is waiting on it")
+    s.add_argument("--all", action="store_true",
+                   help="fetch every ref, not just the coordination ref (slow: minutes on a big repo)")
+    s.add_argument("--delay", type=float, default=0.0,
+                   help="wait this many seconds first (a writer spawns this so it does not "
+                        "compete with the write that spawned it)")
+    s.set_defaults(func=cmd_refresh)
 
     s = add("next-id", "the next free number for a kind (entries/ + index + every git ref)")
     s.add_argument("kind")
