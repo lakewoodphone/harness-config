@@ -197,6 +197,25 @@ Email, SMS, calls, to anyone. Show the exact body first. A task-level directive 
 back — `SENT` describes what we did, not who received it. Full procedure:
 `docs/outbound-comms-hard-stop.md`.
 
+### 4a. CUSTOMER TEXT MESSAGES ARE NEVER AUTOMATIC — his words, 2026-10-21
+
+> "the shop Doesn't automatically send text messages to customers. They always have to be approved
+> directly and clearly by a human."
+
+This is a standing fact about the business, not a preference. The shop's own workflow notices — order
+ready, balance due, pay-before-pickup, collection reminders, declined repair — **do not go out because
+a status changed**. A human reads the message and approves that message, every time. So:
+
+* A webhook, a status transition, a scheduled job or an "automation" must **never** be the thing that
+  puts a text in front of a customer. It may draft one; it may queue it for a human; it may not send.
+* Anything that already behaves otherwise is a defect to be found and stopped, not a feature to be
+  preserved because it is convenient.
+* This does **not** relax rule 4 for anything else: approvals are still per message, in the current
+  conversation, body shown first.
+* The owner's own decision-question texts (`decision-deliver`, to him) are not customer messages, and
+  the approval sentinel for those is his own, given 2026-10-21 at six a day.
+
+
 ## 5. Before you change ANY machine's service state, find out what that machine is FOR.
 
 **The rule:**
