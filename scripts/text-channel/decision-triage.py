@@ -237,8 +237,24 @@ _VOCAB = (
     (r"\bdebug\b", "investigate"),
     (r"\btraceback\b", "error detail"),
     (r"\bmint\b", "create"),
+    # Plain words for a man who runs a phone shop. Measured 2026-10-21 on "#846 Three of the
+    # twelve benchmark questions cannot be answered by ranking at all. Build semantic search?" --
+    # every noun in that sentence is internal vocabulary.
+    (r"\bsemantic search\b", "meaning-based search"),
+    (r"\bbenchmark questions?\b", "test questions"),
+    (r"\bby ranking\b", "by the current search"),
+    (r"\branking\b", "search"),
+    (r"\bembeddings?\b", "search index"),
     (r"\bthe canary\b", "the trial"),
     (r"\ballowlist\b", "approved list"),
+    # The message is TO him, so it is addressed to "you". Measured 2026-10-21: "#886 New OpenAI
+    # sign-in ... Want me to confirm it was HIM" -- speaking about the owner in the third person
+    # to the owner. Only the phrasings that can only mean him are converted; a bare "him" could
+    # be a customer or a supplier and is left alone.
+    (r"\b(it|that) was him\b", r"\1 was you"),
+    (r"\b(ask|tell|let|remind|confirm with|check with) him\b", r"\1 you"),
+    (r"\bfor him\b", "for you"),
+    (r"\bhis (card|phone|account|number)\b", r"your \1"),
 )
 
 #: A body that still carries a path, a command or a hostname is an engineering note.
@@ -257,6 +273,11 @@ def _tidy_body(body: str) -> str:
     # change" -- measured on #890, where "DNS-filter change" became "location filtering
     # change" after "the"). Collapse it, and collapse any doubled word, because a body that
     # reads as a typo is the kind of message the owner learns to skim.
+    # A trailing conditional that only restates the question reads as an afterthought:
+    # "#886 ... Want me to confirm it was you; no action if so?" -- the "if so" has no
+    # referent once the ask is a question. Drop the tail, keep the ask.
+    out = re.sub(r"[;,]\s*(no action|nothing) (needed|required)?\s*(if so|otherwise)?\s*\?\s*$",
+                 "?", out, flags=re.I)
     out = re.sub(r"\b(\w+)\s+\1\b", r"\1", out, flags=re.I)
     # A question mark followed by the sentence-splitting artefact ("land?.") reads as a typo.
     out = out.replace("?.", "?").replace(".?", "?").replace("..", ".")
@@ -547,6 +568,18 @@ def classify(row: dict) -> dict:
         if re.search(pat, q.strip(), re.I):
             out.update(disposition="NOISE", why=why)
             return out
+
+    # 1a. A CONTROL ROW IS NOT A QUESTION TO TEXT.
+    # `decision-channel-approval` asks whether to turn the channel on; texting it would mean
+    # the channel sends a question about itself, and if the answer were no it would have spoken
+    # when told not to. It is answered in the queue or by any text he already sends, and
+    # `decision-approval-watch.py` acts on the answer. So it is visible in `owner-queue.py
+    # brief`/`next` and it is never a delivery candidate.
+    if str(row.get("source") or "").startswith("decision-channel-approval"):
+        out.update(disposition="CONTROL",
+                   why="a control row about the channel itself: visible in the queue, never "
+                       "texted, acted on by decision-approval-watch.py when he answers")
+        return out
 
     # 1b. an LLM gap wearing a decision's clothes
     # The mail judge falls back to `verdict: attention` when it returns no verdict for a

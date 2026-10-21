@@ -37,6 +37,7 @@ import argparse
 import json
 import os
 import sqlite3
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -380,6 +381,36 @@ def evaluate(hours: int = SILENCE_HOURS) -> dict:
     else:
         add("L6", True,
             "CFO shift engine last ran %.1f h ago" % (shift["last_shift_age_h"] or 0))
+
+    # ---- L8 SENDABILITY: would the REAL sender accept the bodies we composed? -----------
+    # A body can pass the composer's own checks and still be refused at the send site, by the
+    # relay, the ceiling or the flood brake -- and that refusal would only be discovered one
+    # message at a time, in production, after he was already owed a question. So a sample is
+    # put through `textsend.py` WITHOUT --send: every gate runs, the provider call does not.
+    # Measured 2026-10-21 with this check: 55 of 55 composed bodies accepted, 0 refused.
+    try:
+        tri = subprocess.run([sys.executable, str(HOME / "bin" / "decision-triage.py"), "--json"],
+                             capture_output=True, text=True, timeout=120)
+        d = json.loads(tri.stdout) if tri.returncode == 0 and tri.stdout.strip() else {}
+        cand = [r for r in (d.get("rows") or []) if r.get("disposition") == "SEND_NOW"]
+        sample = cand[::max(1, len(cand) // 5)][:5] if cand else []
+        refused = []
+        for r in sample:
+            body = str(r.get("body") or "")
+            proc = subprocess.run(
+                [sys.executable, str(HOME / "bin" / "textsend.py"), "send",
+                 "--to", os.environ.get("OWNER_PHONE", "+18483897895"), "--body", body],
+                capture_output=True, text=True, timeout=90)
+            if "ok=True" not in ((proc.stdout or "") + (proc.stderr or "")):
+                refused.append("#%s" % r.get("id"))
+        if refused:
+            add("L8", False, "the real sender REFUSES %d of %d sampled body(ies): %s"
+                % (len(refused), len(sample), ",".join(refused)))
+        else:
+            add("L8", True, "%d sampled body(ies) accepted by the real sender (dry run), of %d "
+                "sendable" % (len(sample), len(cand)))
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        add("L8", False, "could not exercise the sender: %s" % exc)
 
     # ---- L7 DELIVERER: a producer with no deliverer is silent by construction ------
     wire = _delivery_wired()
