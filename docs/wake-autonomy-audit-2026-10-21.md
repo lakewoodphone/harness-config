@@ -312,3 +312,21 @@ hours old, 7 inside the grace window)`, **exit 0**, selfcheck 23/23. The first a
 helper on the `def` line and broke the module (NameError, caught by the next run, not by the compile
 check) — restored from the tagged backup and re-inserted above the definition; that is why every edit
 here publishes by atomic rename with a `.bak-<tag>-<stamp>` beside it.
+
+**Round 7 — the ledger and the roadmap disagree in a way nothing measured.** `lpt-reconcile` reported
+D1/D2/D3 and (after round 2) D4. It could not see the other direction: **41 of 94 live lpt-website
+ledger rows are named by no current v3 box**. The v2→v3 rewrite renamed boxes, the mapping is
+regenerated FROM the document, so the new text matches and the old ledger titles are orphans — still
+claimable, so a shift can spend a night on work the document no longer holds. `#1058` ("Reconcile the
+fifteen v2 ledger items that no v3 box owns") has been sitting `todo` for days beside them.
+
+Added **D5** to `lpt-reconcile` — report-only, because matching an old title to its v3 successor needs
+the diff in front of you and closing the wrong one loses work that was asked for. Live at 23:06Z:
+
+```
+D1 open-but-landed 0 | D1b landed-but-host-claim 1 (#901 needs the host measured)
+D2 box-ticked-ledger-open 0 | D5 live-row-with-no-box 41 | D4 done-but-not-landed 14
+```
+
+That is the honest shape of the lpt-website loop tonight: the machinery is right, and there is a
+backlog of ledger hygiene that only a shift with the document open can clear.
