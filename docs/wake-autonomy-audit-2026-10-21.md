@@ -330,3 +330,35 @@ D2 box-ticked-ledger-open 0 | D5 live-row-with-no-box 41 | D4 done-but-not-lande
 
 That is the honest shape of the lpt-website loop tonight: the machinery is right, and there is a
 backlog of ledger hygiene that only a shift with the document open can clear.
+
+**Round 8 — his payment fix landed, and the proof is in the served bundle.** PR #596 merged as
+`b52fcd423` at 23:12Z after the full 14-check run (0 failures). Test deploy run #176 shipped it:
+`deployed test b52fcd423ae2 (/assets/index-BsIhP2a2.js) MATCH`. Measured on the deployed host, not in
+the repo — the entry bundle's own chunk list was walked and the new settle screen was found where it
+must be:
+
+```
+SETTLE SCREEN FOUND in CreateWorkOrderPage-Dlly9bvu.js   ("Loading the payment options…")
+money surface    in StaffNewOrderMoney-tE33ir6K.js
+```
+
+Two refusals on the way, both worth recording because they cost a round each:
+- `PUT /pulls/N/merge` answered **405 "3 of 3 required status checks are expected"** twice while all
+  three required contexts read `success`. Branch protection is `strict: true`, and GitHub words a
+  *behind-the-base* refusal with the same sentence it uses for a missing check. `scripts/lpt/land-pr.py`
+  now does update → wait for the three named contexts → merge, and prints `behind=` beside `required=`
+  so the next reader can tell which one refused.
+- The same script, asked to promote `test` → `main`, tried to *push* `refs/heads/test` (GH006, refused
+  by protection). A promotion's head IS the protected branch; the push step is now skipped for it.
+
+**Round 9 — the promotion is blocked by a red shard, and that is now a filed item, not a silence.**
+PR #594 (`test` → `main`, 29 checks) has **Test Frontend (Shard 1/4) = failure** on head `2b71f827c`
+(run 39694895145). The annotation carries only `Process completed with exit code 1` and
+`No files were found with the provided path: ci-artifacts/test/` — the failing test is not named
+anywhere a reader can see, so it has to be read out of the job log. Filed as **ledger #1094, p1**, with
+that measurement as its why and a DoD that requires the test to be named from the log rather than
+guessed.
+
+Consequence, stated plainly: until that shard is green, **production does not carry** D23 (no public
+prices — the site still prints figures on seven routes), the lead form (G1-1), or the payment-on-create
+fix. All three are live on test and waiting on the same one thing.
