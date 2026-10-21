@@ -9,10 +9,10 @@
   "wins": 7194
  },
  "ceiling_source": {
-  "decisions": "refs/heads/lpt/roadmap-supply-821-20261020",
-  "handoff": "refs/heads/lpt/roadmap-supply-821-20261020",
-  "lessons": "refs/heads/lpt/roadmap-supply-821-20261020",
-  "pain": "refs/heads/lpt/roadmap-supply-821-20261020",
+  "decisions": "refs/heads/hk/528-dedupe-before-ceiling",
+  "handoff": "refs/heads/hk/528-dedupe-before-ceiling",
+  "lessons": "refs/heads/hk/528-dedupe-before-ceiling",
+  "pain": "refs/heads/hk/528-dedupe-before-ceiling",
   "wins": "ZABZ-YOGA live working tree"
  },
  "claimed_gap_rows": [],
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-21T09:30:08Z",
+ "refreshed_at": "2026-10-21T09:45:07Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 5.9,
+ "seconds": 6.6,
  "sources_seen": 14224
 }
