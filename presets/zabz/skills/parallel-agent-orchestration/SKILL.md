@@ -158,6 +158,33 @@ So, before the fleet:
 | Touched a forbidden file | revert that branch |
 | Cannot verify (no dependency, no device, no network) | **"not verified"** is the correct answer; record it, never claim it |
 | Integration would break `main` | revert and re-queue with a smaller scope |
+| `list_agents` answers `(no subagents)` while your fleet is running | **not a negative — see below** |
+
+### `list_agents` does not list remote children, so its silence proves nothing
+
+Measured 2026-10-21. A session launched six `subagent` calls (the mesh backend — its children
+come back named `remote-<uuid>`), then called `list_agents` to see how they were doing and got
+`(no subagents)`. It concluded "all six died at startup", re-ran all six as **`subagent_local`
+children**, and burned a second full fleet on work that was already in flight. Two of the six had
+genuinely died; the other four were running.
+
+`list_agents` answers *which continuable background subagents exist*. A remote one-shot is not
+continuable, so it is not in that list **whether it is running, finished, or dead**. The tool is
+not wrong; the inference is. Before you declare a fleet dead:
+
+1. **The start result is the evidence.** `started subagent remote-<uuid>` means the child was
+   dispatched. A failure arrives later as its own notification that quotes the child's stderr.
+2. **Count the notifications, not the silence.** If N children were dispatched and you have seen
+   M failure notices, the honest sentence is "M of N failed, N−M unaccounted for" — never "all
+   failed".
+3. **Re-running locally to "be safe" is the expensive option**, because the survivor and the
+   duplicate both write to the same output files and the same repos. Wait for the notification,
+   or read the mesh run log on the node, before duplicating a thread.
+4. **When a child does fail, read its own diagnostic before re-briefing anything.** On 2026-10-21
+   the real cause — `MISSING_CREDENTIAL`, because the `headless` profile disables the credential
+   service by design (journal D9345 / L12226) — was fixable in one line, and was fixed in
+   minutes once one failing child's stderr was read, after the session had already re-run the
+   whole fleet locally.
 
 ## What each host can actually take — measured, 2026-09-15/16
 
