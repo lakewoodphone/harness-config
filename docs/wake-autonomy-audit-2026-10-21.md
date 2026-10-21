@@ -296,3 +296,19 @@ Both measured and fixed on branch `lpt/owner-pay-on-create-20261021` (PR #596):
   `/work-orders?order=<id>` arriving by client-side navigation left the queue on screen and the id
   was read by nobody. That is the bounce, exactly as described. The page now re-reads it, seeded with
   the id it already handled so closing a job does not reopen it.
+
+**Round 6 — a non-zero exit that fired every half hour, closed properly.** `roadmap-supply --project
+kosher-ai-filter` exited **1 on every tick** (21:07, 21:37, 22:37, 22:44Z) with `LEDGER-UNMAPPED`:
+live ledger rows named by no roadmap item and not in the dated coverage snapshot. Two were closed
+with dated `ledger_title_rules`; **seven new ones appeared inside the same half hour** because a shift
+was filing the follow-ups it discovered while working that programme (#1077-#1080 in one tick). A check
+whose failure list is refilled faster than it can be registered is not detecting a gap — it is
+detecting that work is happening, and it teaches everyone to ignore a non-zero exit.
+
+The fix keeps the finding and drops the churn: `ledger_live_rows()` now carries `created_at`, and a row
+younger than **24 h** is reported as `LEDGER-UNMAPPED-NEW` and does **not** fail the run, while a row
+still outside the register a day later still exits 1. Re-measured: `7 outside the register (0 over 24
+hours old, 7 inside the grace window)`, **exit 0**, selfcheck 23/23. The first attempt inserted the
+helper on the `def` line and broke the module (NameError, caught by the next run, not by the compile
+check) — restored from the tagged backup and re-inserted above the definition; that is why every edit
+here publishes by atomic rename with a `.bak-<tag>-<stamp>` beside it.
