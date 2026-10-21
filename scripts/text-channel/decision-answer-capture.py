@@ -143,6 +143,65 @@ def collect() -> list[dict]:
     return out
 
 
+
+
+#: An answer that names an action which has not happened is an INSTRUCTION, not just an
+#: answer. Measured 2026-10-21 on the first live reply: "Make sure all the information is fully
+#: documented and ready for me to file and you'll walk me through it" was recorded as an answer
+#: and the request inside it went nowhere -- it became a ledger item only because a session
+#: happened to be watching. Lesson L11967.
+_INSTRUCTION = re.compile(
+    r"\b(make sure|ensure|document|write (it|this|that) up|put together|prepare|"
+    r"send me|email me|text me|call (them|him|her|and)|book (it|the|a)|order (it|the|a)|"
+    r"fix (it|this|that)|check (it|the|whether|if)|find out|look into|walk me through|"
+    r"file (it|the)|fill (it|out|in))\b", re.I)
+
+#: Answers that are a decision, not a task, even when they contain an action word:
+#: "no, leave it" and "don't call them" are instructions NOT to act.
+_NOT_A_TASK = re.compile(
+    r"^\s*(no|nope|don'?t|do not|leave it|skip|not now|no thanks|later)\b", re.I)
+
+
+def _file_work_for_answer(row_id: int, answer: str, question: str) -> int | None:
+    """Turn an answer that asks for something into a ledger item, once.
+
+    Idempotent through the item's own `source` field, so a re-run of this tool cannot file the
+    same instruction twice.
+    """
+    if not answer or not _INSTRUCTION.search(answer) or _NOT_A_TASK.search(answer):
+        return None
+    source = "owner-answer:%d" % row_id
+    ws = HOME / "bin" / "work.py"
+    if not ws.exists():
+        return None
+    # Already filed for this answer? Then this is a re-run, not a new instruction.
+    try:
+        chk = subprocess.run([sys.executable, str(ws), "show", source],
+                             capture_output=True, text=True, timeout=60)
+        if chk.returncode == 0 and source in (chk.stdout or ""):
+            return None
+    except (OSError, subprocess.SubprocessError):
+        pass
+    project = "cfo" if re.search(r"tax|payroll|invoice|payment|file|fil(e|ing)|927|941",
+                                 question, re.I) else "housekeeping"
+    title = "Do what his answer asked: %s" % " ".join(answer.split())[:110]
+    why = ("He answered decision row #%d with: %r. That is an instruction, and an answer that "
+           "asks for work must become work or the channel teaches him that answering produces "
+           "nothing (lesson L11967). Question asked: %s"
+           % (row_id, answer[:200], " ".join(question.split())[:200]))
+    dod = ("The thing his answer names is done and the evidence is on this item. If it cannot be "
+           "done, say what blocks it and what he would have to decide.")
+    try:
+        out = subprocess.run([sys.executable, str(ws), "add", "--project", project,
+                              "--priority", "2", "--source", source,
+                              "--title", title, "--why", why, "--dod", dod],
+                             capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = re.search(r'"id":\s*(\d+)', out.stdout or "")
+    return int(m.group(1)) if m else None
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--apply", action="store_true")
@@ -174,6 +233,9 @@ def main(argv: list[str] | None = None) -> int:
                 (a["at"], a["text"], p["row_id"]))
             if cur.rowcount:
                 written += 1
+                item = _file_work_for_answer(p["row_id"], a["text"], p["question"])
+                if item:
+                    print("  filed work item %s from his answer to #%s" % (item, p["row_id"]))
         rw.commit()
     finally:
         rw.close()
