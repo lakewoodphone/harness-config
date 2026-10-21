@@ -190,10 +190,18 @@ try:
           "GET /v1/models -> %d ids" % len(live))
     check("A2 the route aliases exist", bool(aliases), "aliases=%s" % aliases)
     cached = json.loads((SMS / "model-catalog.json").read_text())["ids"]
+    # A CACHE IS LARGER THAN THE CATALOGUE WHEN THE CATALOGUE SHRANK, and on 2026-10-21
+    # that was the whole of A3's red: the gateway excluded Google (33 -> 26 ids) while
+    # textdecide's cache still held the seven Google ids from before the change.  The old
+    # evidence printed only `missing_from_cache=[]`, which is true and reads like a
+    # contradiction.  Name both directions; the check still fails on either, because a
+    # stale extra can be selected and a missing live id cannot be.
+    missing = sorted(set(live) - set(cached))
+    stale = sorted(set(cached) - set(live))
     check("A3 the responder cache matches the live catalogue",
-          set(cached) == set(live),
-          "cache=%d live=%d missing_from_cache=%s"
-          % (len(cached), len(live), sorted(set(live) - set(cached))[:6]))
+          not missing and not stale,
+          "cache=%d live=%d missing_from_cache=%s stale_in_cache=%s"
+          % (len(cached), len(live), missing[:6], stale[:6]))
 except Exception as exc:
     check("A1 the gateway catalogue is reachable", False, "%s: %s" % (type(exc).__name__, exc))
 
