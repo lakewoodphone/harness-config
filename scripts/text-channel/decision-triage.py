@@ -629,6 +629,24 @@ def classify(row: dict) -> dict:
                        "texted, acted on by decision-approval-watch.py when he answers")
         return out
 
+    # 1a2. AN ECHO OF HIS OWN PHONE IS NOT A DECISION.
+    # Measured 2026-10-21: 12 pending rows read "Text from Alon: Can I get 6 of them?",
+    # "Text from Zellie: Wanna go to Florida tommorow", "Text from Matatov: Foo." and
+    # "1 missed call(s) this week from numbers not in your contacts". Those are messages HE
+    # RECEIVED, on the phone in his hand. Texting them back to him adds nothing and is the
+    # purest form of the noise this queue exists to remove -- he already has them, and he can
+    # answer them where they arrived.
+    #
+    # They are not deleted: they stay visible in the queue, and the path that DOES act on an
+    # inbound message is the sms-desk wake, which reads the customer thread, builds the card
+    # and drafts the reply (proven on wakes 1337 and 1339). That is where a reply belongs.
+    if (str(row.get("source") or "").startswith("gv-ingest:")
+            and re.match(r"^\s*(Text|Missed call|Voicemail) from\b", q, re.I)):
+        out.update(disposition="ECHO",
+                   why="his own inbound message echoed back to him: he already has it on his "
+                       "phone, and a reply is the sms-desk wake's job, not a text to himself")
+        return out
+
     # 1b. an LLM gap wearing a decision's clothes
     # The mail judge falls back to `verdict: attention` when it returns no verdict for a
     # message, so a model hiccup becomes owner work. Measured 2026-10-21: 3 pending rows were
@@ -688,6 +706,17 @@ def classify(row: dict) -> dict:
         out.update(disposition="STALE",
                    why="%.0f days since the premise was last measured, and it asks for an "
                        "action whose moment has passed" % fresh)
+        return out
+
+    # 4b. A ROW THAT SAYS THERE IS NOTHING TO DO IS INFORMATION.
+    # Measured 2026-10-21 on #680: its context reads "What he would do: no action", and the
+    # composer dutifully built the ask "Want me to no action?" from it. When the row itself
+    # states no action, the honest disposition is information -- there is no question to put.
+    _todo = _ctx_field(str(row.get("context") or ""), "What he would do")
+    if re.match(r"^\s*(no action|none|nothing|n/?a)\b", _todo, re.I):
+        out.update(disposition="INFORM",
+                   why="the row's own action line says there is nothing to do ('%s'), so there "
+                       "is no question to ask -- it is information" % _todo[:40])
         return out
 
     # 5. compose and judge
