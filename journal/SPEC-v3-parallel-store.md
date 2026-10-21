@@ -152,3 +152,54 @@ rare.
    keys; a rebuild must carry forward every field it does not own.
 5. **Every claim about speed carries a number and how it was read.** The numbers above are
    `Stopwatch` around the real command, or `cProfile` of it, on this tree.
+**Ten-round completion pass, 2026-10-21 03:00-03:50 UTC.** Started as the P1 freeze, ended as a cross-lineage reconciliation of the journal tool across three machines. Everything below was measured this session; the commands are in the commits.
+
+## The thing I did not expect: three different journal.py versions
+
+Blob hashes from one object store, so the divergence is measurable rather than anecdotal:
+
+| host | HEAD | branch | journal.py | entries | index db | .git |
+|---|---|---|---|---|---|---|
+| ZABZ-YOGA (fixed) | 26378a961 | cloud-audit/20261019 | 6,129 lines, blob 857282fd → +hardening | 4,777 | untracked | 4,854 MB |
+| ZABZ-TECH | d8cb1db5 | fleet/search-api-20261019 | 5,250 lines, blob f95a2316 | 4,188 | **tracked** | 1,665 MB |
+| secratary-cloud (authority) | f8ca092a | lpt/roadmap-supply-821-20261020 | 5,457 lines, blob 699db475 | 5,845 | **tracked** | 1,010 MB |
+
+`git cat-file -e` confirmed all three blobs exist in the same store, so this is one lineage at three points, not three unrelated files. Diffing them found **the authority had a fix my branch never received**: the 2026-10-18 rule that `--since` with a status filter must compare against when the STATUS changed. Without it `--status done --since today` could never match a closure, because closed entries are always older than their closure. Ported centrally into `catalog()` rather than into two commands, because this lineage has three read tiers and they disagreed about status: `entries.tsv` is written with `effective_status()` applied, while `journal.db` and the parsed files carried the raw marker.
+
+**The record itself is fragmented**: the authority holds 1,185 entry ids this laptop does not, and the laptop holds 112 the authority does not. A host only has the entries it has fetched or committed. That is the strongest argument for stage B/C in the section above: the record is replicated as commits on diverging branches, so "the journal" is six partial views.
+
+## Concurrency: what two independent audits found, and what was fixed
+
+Both audits pinned to a blob and both found the same load-bearing defect.
+
+* **`git_max` spent its ref budget alphabetically.** 105 refs; `origin/main` was index 81 and `origin/master` 82, both outside the 25-ref scan. Measured: the scan returned a lessons maximum of **3815** while `origin/main` held **3897**. Every remote-only id above 3815 was invisible — one machine could mint an already-used number with no concurrency at all. `remote_refs()` now ranks master/main/HEAD first, then this checkout's upstream, then the authority's. Re-measured: **3815 → 3897**, exactly `origin/main`.
+* **An unpublished window authorised a mint.** `ensure_reservation` returned True after reserving locally, so two hosts with spent windows both minted `global_top + 1` and both wrote the same id — exit 0, one success line, with the warning firing on a string nothing produced. It now refuses (nothing written, re-run safe) and spawns a detached `claim` so the next append succeeds. The window is still reserved, because `publish_reservation` shifts a colliding window upwards — that is the designed resolution, and it only works if nothing mints before publishing.
+* **`publish_reservation` fetched `--all`**, which never completes on this repo, so the one command that publishes the ledger always refused. It now fetches the single ref it reads: **2.8 s, exit 0**.
+* **`_write_db`'s replace had no retry**, and it targets the file most likely to be open. Measured on this host: replacing `journal.db` while a second connection holds it — even an idle `mode=ro` one — fails `WinError 5`. `from_index_db` holds exactly such a handle. It retries now, and a failure marks `db_error` so `cache_fresh()` reports stale instead of fresh-with-half-an-index.
+* **`rebuild_cache` took no lock** while `append_index_entry` held one, so a rebuild could replace both files with a set parsed before a concurrent append committed its row — the row landing in an unlinked inode while the append returned True. It takes the lock now unless this process already holds it; the depth counter is maintained by both takers, including `main()`'s blanket lock. Missing that second taker made `migrate-v2` silently skip its rebuild, and `selftest` caught it in one run.
+* **The signature fix was one line short.** First attempt put `tree_signature()` after `load_entries()` and before the writes — leaving the multi-second parse window open. It is taken first now, so the read sees a superset of what was recorded and any difference marks the cache stale.
+* **The mint trusted a 60 s-memoised ledger read.** My memoisation regressed the old guarantee that the mint's authority read was current. Forced re-read before the lock.
+* **`check` never read the database**, while `append_index_entry`'s docstring claimed it verified db against entries. It does now, as an ERROR.
+* Read path: no more lock polling (on Windows the "it is mine" branch could not fire, so every read during a write paid 3 s), and `_maybe_refresh_questions` no longer runs a 45 s network child inline on the always-read page.
+* `stamp["entries"]` is a reading from the tree, not an increment that lost counts. Single-flight markers are `O_EXCL`.
+
+## Read path: the last 410 ms
+
+`tree_signature()` — a sha1 over 4,772 files — cost **407-459 ms and ran on every read**. Rewritten over `os.scandir`/`DirEntry` it produces a **bit-identical digest** (`74ef7c6f5c8a0ba2061c6a57c50c3739fd052356`, verified equal against the stamp) in **51 ms**.
+
+Measured after (this laptop, contended): `kinds` 0.42 s, `status` 0.46 s, `newest` 0.46 s, `list` 0.43 s, `search` 0.74 s, `show` 0.34 s. The floor is now the interpreter and argparse build (~0.25 s), not the data.
+
+## Deployed
+
+* **ZABZ-TECH**: file deployed (`fee433d50be7`, hash match), `status` 0.25 s, selftest **239/240**. The one failure, `entries.tsv keeps v1's exact 12 columns`, is **pre-existing**: that host's own backup of journal.py already writes `hash/tags/refs` while its own selftest asserts exactly 12. Not caused by this deploy.
+* **secratary-cloud (authority)**: deployed with a rollback copy (`2888e866` old vs `fee433d5` new), `status` **0.17 s on 5,845 entries**, selftest **240/240**, a real read returned its newest handoff, `estate-alerts-to-journal.service` last result `success`. Not re-triggered after the deploy because it writes entries.
+* **zabz-tech-linux, lakewooechsmini**: unreachable from here (LAN timeout; permission denied). Not deployed, not verified.
+* **secratary** (frozen rollback anchor): untouched, read-only posture respected.
+
+## Still open, in order
+
+1. **The record is fragmented** (authority 5,845 / tech 4,188 / yoga 4,777). Code cannot fix that; it needs one authoritative record with replicas (stage B/C).
+2. **`search` never issues an FTS `MATCH`**: it loads all 12.46 MB of bodies (84 ms) and substring-scans 155,607 lines, so a miss costs more than a hit (519 ms vs 437 ms). `SELECT id_full FROM fts WHERE fts MATCH ?` measures **1.2 ms**. Specified, not implemented — the Python loop must stay as the filter because `unicode61` tokenisation would silently drop substring and `--regex` matching.
+3. **`check` is 8.9-10.5 s**, of which 8.2 s is the honest file parse; ~3.4 s is avoidable (3 redundant legacy parses, a `max_number` call that only feeds an INFO line, and two unnecessary deepcopies).
+4. **History rewrite (stage D)** remains the owner's call: 15.2 GB of `journal/index` blobs in a 4.85 GB repo.
+
