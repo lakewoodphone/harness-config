@@ -1,6 +1,6 @@
 {
  "adopted_rows": 0,
- "bands_refs_read": 60,
+ "bands_refs_read": 59,
  "ceiling": {
   "decisions": 9728,
   "handoff": 12584,
@@ -43,11 +43,11 @@
   "journalpub",
   "vault"
  ],
- "refreshed_at": "2026-10-21T22:30:12Z",
+ "refreshed_at": "2026-10-21T22:45:15Z",
  "remotes_absent": [
   "cloud"
  ],
  "repo_root": "/root/code/harness-config",
- "seconds": 10.5,
- "sources_seen": 16005
+ "seconds": 12.7,
+ "sources_seen": 15153
 }
