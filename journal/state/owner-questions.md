@@ -6,7 +6,7 @@ Updated: 2026-10-21
 That table is the single source of truth for what is waiting on the owner; this is a mirror,
 so a session with no route to the authority still reads the truth instead of re-asking.
 Do not add a question here: add it there.
-Provenance: 646 row(s) read, 17 pending, generated 2026-10-21 20:14 UTC on SECRATARY-CLOUD.
+Provenance: 646 row(s) read, 16 pending, generated 2026-10-21 21:23 UTC on SECRATARY-CLOUD.
 
 | # | Asked | Sev | Question | My recommendation |
 |---|---|---|---|---|
@@ -24,8 +24,7 @@ Provenance: 646 row(s) read, 17 pending, generated 2026-10-21 20:14 UTC on SECRA
 | 806 | 2026-10-19 | medium | Anti-reset: whose Google account should be the anchor that can set up a sealed phone after a factory reset - the parent, the shop, or a shop Google Workspace account? | The parent's own Google account, never the shop's. Keep 1 shop Workspace account for stock and loaner devices only: one shop credential over customer handsets is a fleet-wide brick risk and blocks resale. |
 | 862 | 2026-10-20 | medium | May a shift use one sacrificial Android 15+ handset for the five anti-reset device tests, and which handset? | Use a shop-owned, already-unsellable Android 15+ handset and connect it with USB debugging to zabz-yoga-ts; do not risk a customer device. |
 | 883 | 2026-10-20 | medium | The leaked GitHub token is still live and is still the only credential that can read lakewoodphone/lpt-hub. Only your account can issue a replacement or revoke it. Do you want to issue a fine-grained token for lpt-hub so I can swap it in and kill the old one? | Yes. Issue it for lakewoodphone/lpt-hub with Contents read/write and Metadata read; I will install it, verify the repo, restart company-api in a window, then revoke the old token. I have already removed the old token fro |
-| 887 | 2026-10-20 | medium | Were reader rows 3401, 3403, 3404 and 3405 from 2026-10-18 ad-hoc counter sales, or do they belong to work orders I should link? (staff notes: filter removal, LG Exalt charging port, data transfer, phone plus filter and apps) | Treat them as ad-hoc counter sales: no matching work order exists, and the money already agrees with Stripe; no further action unless you recognize one. |
 | 906 | 2026-10-21 | medium | Should agent-initiated texts on the shop line stay live with no per-message approval, or be drafts you approve? | I recommend draft-only: agents prepare the text and you send or approve it, matching your no-automatic-texts rule. |
 | 916 | 2026-10-21 | medium | For the first-subscription proof, may I run one Stripe test-mode checkout if you give me a test-mode secret key and a recurring test price id? | I recommend a restricted test-mode key and a small recurring test price: card 4242 in test mode creates no live charge, and the webhook then proves external_customer_id and external_subscription_id are written. |
 
-Closed since the queue opened: 629. Answered questions move to `entries/decisions/` with the owner's own words.
+Closed since the queue opened: 630. Answered questions move to `entries/decisions/` with the owner's own words.
