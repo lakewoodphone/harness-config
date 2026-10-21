@@ -52,6 +52,54 @@ import traceback
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
+# NO CONSOLE WINDOWS ON WINDOWS. One place, because a call site added later
+# must not be able to reintroduce this.
+#
+# MEASURED 2026-10-21 on ZABZ-YOGA, from the owner's own screen: a console
+# window titled `C:\Program Files\Git\cmd\git.exe` flashed about three times a
+# second for two minutes, twice in two evenings. Cause: `spawn_ceiling_refresh`
+# starts the `refresh` child with DETACHED_PROCESS, so that child has NO console;
+# every `subprocess.run(["git", ...])` inside it then allocates a NEW console,
+# and on Windows a new console IS a visible window. `refresh` walks the tree and
+# runs git once per entry, so one append during ordinary work produced 157 git
+# launches in 120 seconds — 157 windows. Named only because 4688 process-creation
+# auditing had been switched on that evening: creator pid 25468, command line
+# `journal.py refresh --delay 20`, parent python.exe.
+#
+# The flags below apply to every child process this tool creates, in both the
+# foreground and the detached child (which re-imports this module and therefore
+# gets the same shim). `run()` calls `Popen()` internally, so the two wrappers
+# stack; the OR is idempotent and `setdefault` keeps one STARTUPINFO.
+# ---------------------------------------------------------------------------
+
+if os.name == "nt":  # pragma: no cover - platform specific
+    _CREATE_NO_WINDOW = 0x08000000
+    _hidden_startupinfo = subprocess.STARTUPINFO()
+    _hidden_startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+    def _no_window(kwargs):
+        kwargs["creationflags"] = int(kwargs.get("creationflags") or 0) | _CREATE_NO_WINDOW
+        kwargs.setdefault("startupinfo", _hidden_startupinfo)
+        return kwargs
+
+    _subprocess_run = subprocess.run
+    _subprocess_popen = subprocess.Popen
+    _subprocess_call = subprocess.call
+
+    def _run_hidden(*args, **kwargs):
+        return _subprocess_run(*args, **_no_window(kwargs))
+
+    def _popen_hidden(*args, **kwargs):
+        return _subprocess_popen(*args, **_no_window(kwargs))
+
+    def _call_hidden(*args, **kwargs):
+        return _subprocess_call(*args, **_no_window(kwargs))
+
+    subprocess.run = _run_hidden
+    subprocess.Popen = _popen_hidden
+    subprocess.call = _call_hidden
+
+# ---------------------------------------------------------------------------
 # Shape of the journal. One place, so the format cannot drift again.
 # ---------------------------------------------------------------------------
 
